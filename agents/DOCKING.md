@@ -58,7 +58,25 @@ every area below is on the model. Closing panels is unchanged (their ✕).
   4. inside the main region the page's own rules (the slice inspector moves below the canvas under 1280px, the script
      outline above the text under 900px);
   5. Ask never shrinks by itself (the person sized it).
-- **Phones (< 768px)**: no dividers, no fold buttons; the sidebar is the burger drawer, the dock and Ask cover the page
+- **Maximize, never fold the main** (owner 2026-10-06): the MAIN region never folds. Instead any dock panel (Flow,
+  Problems, History, Info, the admin's list detail) and the chapter editor's slice inspector can be MAXIMIZED for a
+  moment: a round button in its header (Feather `maximize-2` "Maximize" / while maximized `minimize-2` "Restore", de
+  "Maximieren" / "Wiederherstellen", `title` + "(Ctrl + Space)"; the dock's sits in `DockFold` between the fold button
+  and ✕ – the fold button hides while maximized; the inspector's right of its tabs). Maximized, it fills everything
+  between the sidebar (folded to its rail, `foldWhen`, not remembered) and Ask (unchanged). The main area and the other
+  regions are only HIDDEN (`visibility`, the grid stays as it was – the maximized region spans the content's and the
+  dock's columns above the hidden one): nothing unmounts, widths, folds, scroll positions, selection and unsaved edits
+  stay. Back: the button, Esc (not while a dialog / popover / menu / open combobox shows, nor in a text field – that
+  Escape is theirs; a maximized Info / list detail restores on Esc instead of closing), Ctrl+Space, or a click in a
+  Flow (a box, a dead place) or on a Problems row: restore AND navigate the main there. Ctrl+Space: maximizes the
+  region that has focus (`data-sc-maximize`), from anywhere else the open dock panel (not from Ask); focus moves to the
+  maximized region's button and comes back on a keyboard restore; nothing in the apps uses Ctrl+Space (IME composition
+  is left alone). One maximized region at a time (`shellDock.maximized`: `'dock'` or a main region's id); another panel
+  taking the dock keeps the maximize (the dock is what's maximized); closing the panel, leaving the slice (inspector)
+  or the page ends it. Not remembered across page loads. Shared: `shellDock.maximize/restore`, `MaximizeButton`,
+  AppShell (`max-dock` / `max-main`); a main region (the inspector) hides the rest of its page itself
+  (`.columns.inspector-max`; the editor's file bar stays). Phones: no button (the dock covers the page anyway).
+- **Phones (< 768px)**: no dividers, no fold buttons, no maximize; the sidebar is the burger drawer, the dock and Ask cover the page
   (closed by ×).
 - **Modal drawers stay modal**: `Sheet side="right"` (pickers, the admin's history / problems / asset / new batch) is a
   choice or a side task, not a docked panel – its edge is the same `Divider` (inside the drawer), its width remembered
@@ -84,7 +102,7 @@ every area below is on the model. Closing panels is unchanged (their ✕).
 | Left sidebar + rail | `shared/ui/src/app-shell.svelte` (creator, admin) | shell left | `dockRegion`: Divider, 12rem (admin 14rem) … ⅓ window; folds (FoldButton, drag < 60 %, Ctrl+\\); `foldWhen` + dock & Ask | `sc-sidebar-width/-folded:<app>` |
 | Chapter tree | in the sidebar (`usePageNav({ sidebar })`) | = sidebar | = sidebar | = sidebar |
 | Script outline | `script/script-editor.svelte` + `script-outline.svelte` | page left | `dockRegion` + Divider + Rail ("Outline"), 16rem … ½ page; above the text < 900px | `sc-script-outline-width/-folded` |
-| Slice inspector | `chapter/chapter-editor.svelte` (`.inspector-region`) | page right | `panelWidth` + Divider, 22rem … ½ the editor's area; below the canvas < 1280px | `sc-panel-width:slice-inspector` |
+| Slice inspector | `chapter/chapter-editor.svelte` (`.inspector-region`) | page right | `panelWidth` + Divider, 22rem … ½ the editor's area; below the canvas < 1280px; maximizes | `sc-panel-width:slice-inspector` |
 | Problems / History / Flow (chapter) | `chapter-editor.svelte` → `useDock` | shell dock | `panelWidth(… { foldable })` 16rem / Flow 28rem; DockFold + rail | `:chapter`, `:flow` |
 | Problems / History / dock (meta pages, season Flow) | `page/meta-page.svelte` → `useDock` | shell dock | 24rem / 28rem; DockFold + rail | `:meta`, `:flow` |
 | Flow (toon page) | `[toonId]/+page.svelte` → `useDock` | shell dock | 28rem; DockFold + rail | `:flow` |
@@ -99,7 +117,8 @@ the fixed Info panel (`--info-panel-top/-width`, its 1100px page margin), `--ask
 (+ `--split-view-top/-bottom`), the script outline's own fold state / separator / px sizes, the Sheet's own drag edge
 markup, Divider's `fixed` mode.
 
-Checks: `npm run check:creator-dock` (58: dock at 1280 / 1600 / 1920 + Ask, sidebar fold, dock rail by button / Enter /
+Checks: `npm run check:creator-dock` (maximize: Flow + inspector by button / Esc / Ctrl+Space, the main's unsaved edit,
+scroll and widths survive, a Flow box restores + navigates, another panel stays maximized, closing ends it; dock at 1280 / 1600 / 1920 + Ask, sidebar fold, dock rail by button / Enter /
 drag, outline fold + drag, inspector region, Ask, phone) and `npm run check:tools-dock` (36: admin list detail in the
 dock at 1280 / 1600 / 1920 + Ask, Info takes turns, rail, drag, Escape, catalog form, phone; embassy AppShell + Ask,
 Ask's Divider, phone). `DOCK_SHOTS=<dir>` (+ `DOCK_PREFIX`) for screenshots.

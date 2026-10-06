@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import type { VariantMedia } from '@scutoons/media';
 	import { Icon, Tabs } from '@scutoons/ui';
@@ -50,7 +51,8 @@
 		onadditem,
 		oncreatebox,
 		onremove,
-		eventMark
+		eventMark,
+		after
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
@@ -81,6 +83,8 @@
 		onremove: () => void;
 		/** the reachability mark of a slice event (never true, endless loop – @scutoons/content reach.ts) */
 		eventMark?: (index: number) => ReachMark;
+		/** right of the tabs: the region's own buttons (the chapter editor's maximize) */
+		after?: Snippet;
 	} = $props();
 
 	const dialogs = $derived<any[]>(slice?.dialog ?? []);
@@ -97,6 +101,7 @@
 	<!-- one icon each (owner 2026-10-03), the same as the canvas tools; background + map are one "Slice" tab -->
 	<Tabs
 		variant="grid"
+		{after}
 		label={m['creator.slice_tab']()}
 		value={view.inspectorTab}
 		onchange={(id) => view.setTab(id as InspectorTab)}

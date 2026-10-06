@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon, DockFold } from '@scutoons/ui';
+	import { CloseIcon, DockFold, shellDock } from '@scutoons/ui';
 	import { toonFlow, type DeadPlace, type FlowNode } from '@scutoons/content';
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
@@ -37,7 +37,9 @@
 	// svelte-ignore state_referenced_locally
 	const pictures = new FlowPictures(toon);
 	const link = (n: FlowNode) => n.kind === 'chapter' || n.kind === 'place' || (n.kind === 'exit' && !!n.target && ['chapter', 'season', 'toon'].includes(n.target.type));
+	/** a box opens its page – a maximized Flow steps back (owner 2026-10-06) */
 	function open(n: FlowNode) {
+		shellDock.restore();
 		if (n.kind === 'chapter' || n.kind === 'place') return goto(`/${toon}/chapter/${n.chapter}?flow=1`);
 		const t = n.target;
 		if (!t) return;
@@ -45,13 +47,13 @@
 		if (t.type === 'season') return goto(`/${toon}/season/${t.value}?flow=1`);
 		if (t.type === 'toon') return goto(`/${t.value}?flow=1`);
 	}
-	const openDead = (at: DeadPlace) => goto(`/${toon}/chapter/${at.chapter}?flow=1`);
+	const openDead = (at: DeadPlace) => (shellDock.restore(), goto(`/${toon}/chapter/${at.chapter}?flow=1`));
 </script>
 
 <section class="flow" data-testid="toon-flow" data-level={season !== undefined ? 'season' : 'toon'}>
 	<header>
 		<h2>{m['creator.flow']()}</h2>
-		<DockFold label={m['creator.fold_panel']()} />
+		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
 		<button class="ghost" onclick={onclose} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
 	</header>
 	<div class="canvas">

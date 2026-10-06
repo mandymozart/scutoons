@@ -3,6 +3,7 @@
 	import Icon from './icon.svelte';
 	import CloseButton from './close-button.svelte';
 	import DockFold from './dock-fold.svelte';
+	import { shellDock } from './dock.svelte.ts';
 
 	/**
 	 * The one place for a page's help (owner 2026-09-30): explanations, conventions, glossaries and the style guide live
@@ -19,6 +20,8 @@
 		hrefLabel = 'Full style guide',
 		id,
 		foldLabel,
+		maximizeLabel,
+		restoreLabel,
 		onclose,
 		children
 	}: {
@@ -30,12 +33,16 @@
 		id?: string;
 		/** the dock's fold button */
 		foldLabel?: string;
+		/** the dock's maximize button (maximized / restore) */
+		maximizeLabel?: string;
+		restoreLabel?: string;
 		onclose?: () => void;
 		children: Snippet;
 	} = $props();
 
 	function onkeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && onclose) {
+		// maximized: Escape restores first (AppShell)
+		if (event.key === 'Escape' && onclose && !shellDock.maximized) {
 			event.stopPropagation();
 			onclose();
 		}
@@ -46,7 +53,7 @@
 <aside class="sc-info-panel" {id} aria-label={title} {onkeydown} data-testid="info-panel">
 	<header>
 		<h2><Icon name="info" /> {title}</h2>
-		<DockFold label={foldLabel} />
+		<DockFold label={foldLabel} {maximizeLabel} {restoreLabel} />
 		{#if onclose}
 			<CloseButton class="close" label={closeLabel} onclick={onclose} />
 		{/if}

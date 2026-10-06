@@ -3,7 +3,7 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, CloseIcon, confirmDialog, Divider, Icon, panelWidth, useDock } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { dockWidth, flowWidth, usePageNav } from '$lib/nav.svelte.ts';
@@ -73,6 +73,17 @@
 	let columnsEl = $state<HTMLElement>();
 	const inspectorSize = panelWidth('sc-panel-width:slice-inspector', 22, () => columnsEl?.getBoundingClientRect().right ?? window.innerWidth);
 	inspectorSize.room = () => (columnsEl?.clientWidth ?? window.innerWidth) / 2;
+	// maximized (owner 2026-10-06, agents/DOCKING.md "Maximize"): the inspector fills the editor's columns and the shell
+	// gives the content the dock's room too; the canvas is only hidden (its edits, scroll and size stay)
+	const INSPECTOR = 'slice-inspector';
+	const inspectorMax = $derived(shellDock.maximized === INSPECTOR);
+	$effect(() => () => {
+		if (shellDock.maximized === INSPECTOR) shellDock.restore();
+	});
+	// leaving the slice (the chapter's meta, a group) leaves no inspector to fill the page
+	$effect(() => {
+		if (inspectorMax && view.section !== 'slice') shellDock.restore();
+	});
 
 	// ── Documents ───────────────────────────────────────────────────────────────────────────────────────
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
@@ -749,7 +760,7 @@
 			</div>
 		{/if}
 
-		<div class="columns" class:has-inspector={view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
+		<div class="columns" class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
 			<!-- Main -->
 			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
 				{#if view.section === 'meta'}
@@ -825,7 +836,7 @@
 			<!-- Inspector -->
 			{#if view.section === 'slice' && activeDoc && activeSlice}
 				<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} controls="slice-inspector" class="inspector-resize" />
-				<aside class="inspector-region" id="slice-inspector" aria-label={m['creator.inspector']()} data-testid="inspector-region">
+				<aside class="inspector-region" id="slice-inspector" aria-label={m['creator.inspector']()} data-testid="inspector-region" data-sc-maximize={INSPECTOR}>
 				<SliceInspector
 					{view}
 					doc={activeDoc}
@@ -850,7 +861,11 @@
 					oncreatebox={createBoxForEvent}
 					onremove={removeSelected}
 					eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}
-				/>
+				>
+					{#snippet after()}
+						<MaximizeButton target={INSPECTOR} controls="slice-inspector" label={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} testid="inspector-maximize" />
+					{/snippet}
+				</SliceInspector>
 				</aside>
 			{/if}
 		</div>
@@ -971,6 +986,20 @@
 		.columns :global(.inspector-resize) {
 			display: none;
 		}
+	}
+	/* the inspector maximized: it covers the columns (beside or below the canvas), the canvas stays laid out, hidden */
+	.columns.inspector-max .main {
+		grid-area: 1 / 1;
+		visibility: hidden;
+	}
+	.columns.inspector-max .inspector-region {
+		grid-area: 1 / 1 / -1 / -1;
+		z-index: 16;
+		border: 0;
+		background: var(--paper);
+	}
+	.columns.inspector-max :global(.inspector-resize) {
+		display: none;
 	}
 	.main {
 		overflow: auto;

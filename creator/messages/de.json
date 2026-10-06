@@ -947,6 +947,8 @@
 		"unfold_sidebar": "Seitenleiste zeigen",
 		"fold_panel": "Panel einklappen",
 		"unfold_panel": "Panel zeigen",
+		"maximize_panel": "Maximieren",
+		"restore_panel": "Wiederherstellen",
 		"related_items": "Verwandte Gegenstände",
 		"related_items_hint_season": "Gegenstände zur Staffel, in dieser Reihenfolge – die Toon-Seite zeigt sie (physische Produkte mit Kauf-Link). Für alle Sprachen gleich.",
 		"related_items_hint_chapter": "Gegenstände zum Kapitel, in dieser Reihenfolge. Für alle Sprachen gleich; der Reader zeigt sie noch nicht.",

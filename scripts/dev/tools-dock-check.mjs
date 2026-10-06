@@ -3,7 +3,7 @@
 // nothing is saved. Admin at 1280 / 1600 / 1920: a code list's detail (SplitView) opens in the AppShell's right dock, the
 // list ends where it starts; with Ask open the dock is left of Ask and the sidebar folds to its rail; the Info panel
 // takes the dock (the detail closes, its URL parameter goes) and gives it back; the dock folds to a rail with the
-// detail's title, a click unfolds it; Escape closes the detail; the catalog's entry form docks the same way; on a phone
+// detail's title, a click unfolds it; it maximizes (button; Escape restores first); Escape closes the detail; the catalog's entry form docks the same way; on a phone
 // the detail covers the page. Embassy: AppShell with Ask as the outermost region – the page ends where Ask starts, Ask's
 // Divider drags it wider; on a phone Ask covers the page.
 //   node scripts/dev/tools-dock-check.mjs        (admin :11000, embassy :13000, API :9000 – `npm run dev -w admin` /
@@ -157,6 +157,22 @@ try {
 	const w1 = (await layout()).dock.w;
 	check(w1 > w0 + 100 && Number(await js(`localStorage.getItem('sc-panel-width:detail')`)) === w1, `admin: the detail drags wider (${w0} → ${w1} px, remembered)`);
 	await js(`document.querySelector('.sc-shell-dock-resize').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
+	// maximize (owner 2026-10-06): the detail fills from the sidebar's rail to the edge, the list only hidden; Escape in
+	// the maximized detail restores first (it doesn't close it)
+	const scrollY0 = await js(`window.scrollY`);
+	const m0 = await layout();
+	await js(`${q('dock-maximize')}.click(), true`);
+	await sleep(400);
+	g = await layout();
+	const mx = await js(`(() => { const b = ${q('dock-maximize')}; return { max: !!document.querySelector('.sc-app-shell.max-dock'), hidden: getComputedStyle(document.querySelector('.sc-shell-content')).visibility, icon: b.querySelector('svg').dataset.icon, title: b.title }; })()`);
+	check(mx.max && mx.hidden === 'hidden' && g.folded && g.dock.r >= 1600 - 2 && g.dock.l <= 64 && mx.icon === 'minimize-2' && /^Restore|^Wiederherstellen/.test(mx.title), `admin: the detail maximizes (${g.dock.l}–${g.dock.r} px, "${mx.title}"), the list hidden`, JSON.stringify({ g, mx }));
+	await shot('admin-1600-codes-max');
+	await js(`${q('dock-maximize')}.focus(), true`);
+	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	await sleep(400);
+	g = await layout();
+	check(!(await js(`!!document.querySelector('.sc-app-shell.max-dock')`)) && g.detail && g.dock.w === m0.dock.w && g.sidebar?.w === m0.sidebar?.w && (await js(`window.scrollY`)) === scrollY0, 'admin: Escape restores the maximized detail (still open, same widths and scroll)', JSON.stringify({ m0, g }));
 	// Escape closes it
 	await js(`document.querySelector('[data-testid="split-detail"] button').focus(), true`);
 	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });

@@ -312,7 +312,7 @@
 	{/snippet}
 </ActionBar>
 
-<SplitView open={shown !== 'none'} {title} closeLabel={m['common.close']()} foldLabel={m['shell.fold_panel']()} onclose={close}>
+<SplitView open={shown !== 'none'} {title} closeLabel={m['common.close']()} foldLabel={m['shell.fold_panel']()} maximizeLabel={m['shell.maximize_panel']()} restoreLabel={m['shell.restore_panel']()} onclose={close}>
 	{#snippet list()}
 		{#if !entries}
 			<Skeleton variant="table" columns={4} label={m['shell.loading']()} />

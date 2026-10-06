@@ -176,11 +176,15 @@
 	}
 
 	/* grid: equal tabs in one frame, the open one inverted */
-	[data-variant='grid'] > .row,
-	[data-variant='grid'] .list {
-		display: block;
+	/* `after` (e.g. the slice inspector's maximize button) sits right of the frame, never below it */
+	[data-variant='grid'] > .row {
+		flex-wrap: nowrap;
+		align-items: start;
+		gap: var(--space-05);
 	}
 	[data-variant='grid'] .list {
+		flex: 1 1 auto;
+		min-width: 0;
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(var(--tabs-min, 9rem), 1fr));
 		gap: 0;

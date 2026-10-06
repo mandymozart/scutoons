@@ -9,6 +9,6 @@ import { CREATOR_URL } from '$lib/config.ts';
 export function infoBar() {
 	return {
 		infoHref: `${CREATOR_URL}/guide`,
-		infoLabels: { toggle: m['shell.info'](), close: m['shell.info_close'](), guide: m['shell.info_guide'](), fold: m['shell.fold_panel']() }
+		infoLabels: { toggle: m['shell.info'](), close: m['shell.info_close'](), guide: m['shell.info_guide'](), fold: m['shell.fold_panel'](), maximize: m['shell.maximize_panel'](), restore: m['shell.restore_panel']() }
 	};
 }

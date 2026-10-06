@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon, DockFold, Segmented } from '@scutoons/ui';
+	import { CloseIcon, DockFold, Segmented, shellDock } from '@scutoons/ui';
 	import { chapterFlow, groupFlow, sliceFlow, type ChapterReach, type CharacterRegistry, type FlowNode, type ToonFacts } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
@@ -87,6 +87,11 @@
 	$effect(() => {
 		pictures.registry = registry;
 	});
+	/** a box opens what it stands for in the main area – a maximized Flow steps back so it shows (owner 2026-10-06) */
+	function open(n: FlowNode) {
+		shellDock.restore();
+		onopen(n);
+	}
 	/** the box of what's open: the group on the chapter level, the head of the group / slice level */
 	const isCurrent = (n: FlowNode) =>
 		level === 'chapter' ? n.kind === 'group' && n.group === current : level === 'group' ? n.kind === 'group' && n.group === current && !n.stub : n.kind === 'slice';
@@ -95,7 +100,7 @@
 <section class="flow" data-testid="flow-panel" data-level={level}>
 	<header>
 		<h2>{m['creator.flow']()}</h2>
-		<DockFold label={m['creator.fold_panel']()} />
+		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
 		<button class="ghost" onclick={onclose} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
 	</header>
 	{#if levels.length > 1}
@@ -111,7 +116,7 @@
 				<p class="hint">{m['creator.loading']()}</p>
 			{:then mod}
 				{#key `${level}:${current}:${slice}`}
-					<mod.default {flow} {ctx} current={isCurrent} {pictures} {onopen} />
+					<mod.default {flow} {ctx} current={isCurrent} {pictures} onopen={open} />
 				{/key}
 			{:catch error}
 				<p class="hint error">{String(error?.message ?? error)}</p>

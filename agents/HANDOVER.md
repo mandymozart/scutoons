@@ -55,7 +55,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - ONE layout model for every area (agents/DOCKING.md, approved 2026-10-06): regions tile (sidebar | page | right dock |
   Ask – AppShell in creator, admin, embassy), one `Divider` for every drag edge (up to half the window), one fold to a
   `Rail` (sidebar: chevrons at its top right / drag / Ctrl+\; script outline: rail "Outline"; right dock: the panel's
-  `DockFold`, rail with its icon + title, not remembered); sizes remembered per panel kind. The script is read-only
+  `DockFold`, rail with its icon + title, not remembered); sizes remembered per panel kind. The main never folds: dock
+  panels and the slice inspector MAXIMIZE instead (button / Ctrl+Space / Esc; the rest only hidden – DOCKING.md). The script is read-only
   until "Edit script" is confirmed.
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
 - Page panels (Problems, History, Flow, Info, the admin's list detail) take turns in the shell's right dock (`useDock`),

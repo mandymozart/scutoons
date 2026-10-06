@@ -85,7 +85,7 @@
 <div class="history" data-testid="history-panel">
 	<header>
 		<h2>{m['creator.history']()} · {fileLabel(doc.entity)}</h2>
-		<DockFold label={m['creator.fold_panel']()} />
+		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
 		{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}

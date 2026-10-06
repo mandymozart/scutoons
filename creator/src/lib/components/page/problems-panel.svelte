@@ -3,7 +3,7 @@
 	// jumps to its place; "Looks fine" accepts a warning (it moves behind "accepted"), "Ask" hands it to the Ask panel.
 	// An acceptance is an edit of the document the warning is about (`accepted_warnings` in that locale's file,
 	// @scutoons/content accepted.ts): the page turns unsaved, Save keeps it, undo takes it back.
-	import { CloseButton, DockFold, Icon } from '@scutoons/ui';
+	import { CloseButton, DockFold, Icon, shellDock } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
 	import { askAbout } from '$lib/ask.svelte.ts';
 	import type { Problem } from '@scutoons/content';
@@ -72,7 +72,7 @@
 <div class="problems" data-testid="problems-panel">
 	<header>
 		<h2>{m['creator.problems']()}</h2>
-		<DockFold label={m['creator.fold_panel']()} />
+		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
 		{#if onclose}<CloseButton label={m['creator.close']()} onclick={onclose} />{/if}
 	</header>
 	<p class="summary">
@@ -87,7 +87,7 @@
 			{@const place = placeOf(p)}
 			{@const done = isAccepted(p)}
 			<li class="level-{p.level}" class:is-accepted={done}>
-				<button type="button" class="goto" onclick={() => ongoto?.(p)} title={m['creator.problems_goto']()}>
+				<button type="button" class="goto" onclick={() => (shellDock.restore(), ongoto?.(p))} title={m['creator.problems_goto']()}>
 					<span class="where">{place}</span>
 					<span class="msg">{messageOf(p)}</span>
 				</button>

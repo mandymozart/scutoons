@@ -42,6 +42,7 @@ export { default as Divider } from './divider.svelte';
 export { default as FoldButton } from './fold-button.svelte';
 export { default as Rail } from './rail.svelte';
 export { default as DockFold } from './dock-fold.svelte';
-export { shellDock, useDock, type DockPanel } from './dock.svelte.ts';
+export { default as MaximizeButton } from './maximize-button.svelte';
+export { shellDock, useDock, type DockPanel, type MaximizeTarget } from './dock.svelte.ts';
 export { default as DialogHost } from './dialog-host.svelte';
 export { confirmDialog, askDialog } from './dialogs.svelte.ts';

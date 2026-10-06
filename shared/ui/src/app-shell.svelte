@@ -37,6 +37,11 @@
 	 * only when the content would get less than half of that. It folds to a rail (owner 2026-10-06: the panel's
 	 * `DockFold` button or dragging it narrow; the rail shows the panel's icon and title, a click unfolds it). Below
 	 * 768px it covers the page.
+	 * Maximize (owner 2026-10-06, `shellDock.maximized`, agents/DOCKING.md "Maximize"): the docked panel (`'dock'`) or a
+	 * region of the main area (its id, e.g. the slice inspector – the page hides the rest of its main area) fills
+	 * everything between the sidebar (folded to its rail) and Ask. The other regions are only hidden (`visibility`, laid out
+	 * as before – nothing unmounts: their widths, folds, scroll positions and unsaved edits stay). The panel's
+	 * `MaximizeButton`, Ctrl + Space (the focused region's, else the open dock's) and Esc restore. Not on phones.
 	 * `ask`: the app-wide Ask panel (@scutoons/ask) – the outermost region on the right; it sizes itself.
 	 */
 	let {
@@ -106,6 +111,8 @@
 
 	let topHeight = $state(0);
 	const dock = $derived(shellDock.current);
+	/** the maximized region (the dock only while it shows a panel, unfolded) */
+	const maximized = $derived(shellDock.maximized === 'dock' ? (dock && !dock.size.folded ? 'dock' : null) : shellDock.maximized);
 
 	// ---------- the sidebar: resizable, folds to a rail (dock-region.svelte.ts) ----------
 	let sidebarEl = $state<HTMLElement>();
@@ -126,7 +133,7 @@
 		max: () => window.innerWidth / 3,
 		// who gives way first (agents/DOCKING.md "Running out of room"): a dock and Ask both open fold the sidebar (a
 		// dock folded to its rail needs no room)
-		foldWhen: () => foldWhen || (!!ask && !!dock && !dock.size.folded)
+		foldWhen: () => foldWhen || (!!ask && !!dock && !dock.size.folded) || !!maximized
 	});
 	const folded = $derived(region.folded);
 
@@ -155,6 +162,73 @@
 		const fit = () => region.fit();
 		window.addEventListener('resize', fit);
 		return () => window.removeEventListener('resize', fit);
+	});
+
+	// ---------- maximize: Esc and Ctrl + Space (agents/DOCKING.md "Maximize") ----------
+	/** a dialog, popover, menu or an expanded combobox is open: its Escape is its own */
+	const OVERLAYS = 'dialog[open], [aria-modal="true"], [role="menu"], [role="combobox"][aria-expanded="true"], [aria-haspopup]:not([aria-haspopup="false"])[aria-expanded="true"]';
+	const overlayOpen = () => {
+		let found: NodeListOf<HTMLElement>;
+		try {
+			found = document.querySelectorAll<HTMLElement>(`${OVERLAYS}, :popover-open`);
+		} catch {
+			found = document.querySelectorAll<HTMLElement>(OVERLAYS);
+		}
+		// only what shows (the command palette's combobox waits in its closed dialog)
+		return [...found].some((el) => (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null));
+	};
+	const editable = (el: Element | null) => !!el?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+	/** focus before a keyboard maximize: it comes back on a keyboard restore (the hidden region can't keep it) */
+	let focusBefore: HTMLElement | null = null;
+	function restoreByKey() {
+		shellDock.restore();
+		const el = focusBefore;
+		focusBefore = null;
+		if (el?.isConnected) requestAnimationFrame(() => el.focus({ preventScroll: true }));
+	}
+	$effect(() => {
+		if (!shellDock.maximized) focusBefore = null;
+	});
+	$effect(() => {
+		/** before anything handles the key (an overlay closing on Escape would be gone in the bubble phase) */
+		let blocked = false;
+		const capture = (e: KeyboardEvent) => {
+			blocked = e.key === 'Escape' && overlayOpen();
+		};
+		const key = (e: KeyboardEvent) => {
+			if (e.defaultPrevented || e.isComposing || window.innerWidth < 768) return;
+			if (e.key === 'Escape') {
+				// a dialog's, a popover's, a field's Escape is its own
+				if (!shellDock.maximized || blocked || editable(document.activeElement)) return;
+				e.preventDefault();
+				restoreByKey();
+			} else if (e.code === 'Space' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+				if (shellDock.maximized) {
+					e.preventDefault();
+					restoreByKey();
+					return;
+				}
+				if (overlayOpen()) return;
+				const active = document.activeElement;
+				if (active?.closest('.sc-shell-ask')) return;
+				// the focused region; from anywhere else the open dock panel
+				const target = active?.closest('[data-sc-maximize]')?.getAttribute('data-sc-maximize') || (dock && !dock.size.folded ? 'dock' : null);
+				if (!target) return;
+				e.preventDefault();
+				shellDock.maximize(target);
+				// focus outside the maximized region would be hidden: it goes to the region's button
+				const region = document.querySelector(`[data-sc-maximize="${CSS.escape(target)}"]`);
+				focusBefore = active instanceof HTMLElement && active !== document.body ? active : null;
+				if (region && !region.contains(active)) requestAnimationFrame(() => region.querySelector<HTMLElement>('.sc-maximize-button')?.focus());
+				else focusBefore = null;
+			}
+		};
+		window.addEventListener('keydown', capture, true);
+		window.addEventListener('keydown', key);
+		return () => {
+			window.removeEventListener('keydown', capture, true);
+			window.removeEventListener('keydown', key);
+		};
 	});
 
 	// ---------- the right dock + Ask ----------
@@ -197,6 +271,9 @@
 	class:collapsible
 	class:folded={folded && !!foldKey}
 	class:dock-folded={dockFolded}
+	class:max-dock={maximized === 'dock'}
+	class:max-main={!!maximized && maximized !== 'dock'}
+	style:--sc-shell-content-col={sidebar ? 2 : 1}
 	style:--sc-shell-top="{topHeight}px"
 	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
 	style:--sc-shell-dock-width={dockCss}
@@ -236,7 +313,7 @@
 		{/if}
 		<div class="sc-shell-content">{@render children()}</div>
 		{#if dock}
-			<aside class="sc-shell-dock" id="sc-shell-dock" aria-label={dockFolded ? dock.title : dockLabel} data-testid="shell-dock">
+			<aside class="sc-shell-dock" id="sc-shell-dock" aria-label={dockFolded ? dock.title : dockLabel} data-testid="shell-dock" data-sc-maximize="dock">
 				{#if dockFolded}
 					<Rail side="right" label={dock.title} icon={dock.icon} unfoldLabel={dockUnfoldLabel} controls="sc-shell-dock" onunfold={() => dock.size.fold(false)} testid="dock-rail" />
 				{:else}
@@ -362,6 +439,37 @@
 
 	.sc-shell-scrim {
 		display: none;
+	}
+
+	/* maximize (from 768px): the maximized region spans the content's and the dock's columns, above the hidden one –
+	   the grid itself stays as it was, so nothing hidden changes its size (scroll positions, a canvas, an edit stay) */
+	@media (min-width: 768px) {
+		.max-dock .sc-shell-frame > *,
+		.max-main.has-dock .sc-shell-frame > * {
+			grid-row: 1;
+		}
+		/* the hidden region keeps its column */
+		.max-dock .sc-shell-content {
+			grid-column: var(--sc-shell-content-col) / span 1;
+			visibility: hidden;
+		}
+		.max-main.has-dock .sc-shell-dock {
+			grid-column: calc(var(--sc-shell-content-col) + 1) / span 1;
+			visibility: hidden;
+		}
+		.max-dock .sc-shell-dock,
+		.max-main.has-dock .sc-shell-content {
+			grid-column: var(--sc-shell-content-col) / span 2;
+			z-index: 16;
+			background: var(--paper);
+		}
+		.max-dock .sc-shell-dock {
+			border-left: 0;
+		}
+		.max-dock :global(.sc-shell-dock-resize),
+		.max-main :global(.sc-shell-dock-resize) {
+			display: none;
+		}
 	}
 	@media (max-width: 767px) {
 		.sc-shell-frame {

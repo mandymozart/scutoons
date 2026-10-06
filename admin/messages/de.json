@@ -13,6 +13,8 @@
 		"unfold_sidebar": "Seitenleiste zeigen",
 		"fold_panel": "Panel einklappen",
 		"unfold_panel": "Panel zeigen",
+		"maximize_panel": "Maximieren",
+		"restore_panel": "Wiederherstellen",
 		"resize_panel": "Panel breiter / schmaler",
 		"dock_label": "Detailpanel",
 		"search": "Suchen oder springen …",

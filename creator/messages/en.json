@@ -947,6 +947,8 @@
 		"unfold_sidebar": "Show the sidebar",
 		"fold_panel": "Fold the panel",
 		"unfold_panel": "Show the panel",
+		"maximize_panel": "Maximize",
+		"restore_panel": "Restore",
 		"related_items": "Related items",
 		"related_items_hint_season": "Items that go with the season, in this order – the toon page shows them (physical products with a link to buy). The same in every language.",
 		"related_items_hint_chapter": "Items that go with the chapter, in this order. The same in every language; the reader does not show them yet.",

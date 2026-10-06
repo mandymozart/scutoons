@@ -19,8 +19,36 @@ export interface DockPanel {
 	close: () => void;
 }
 
+/** what fills the shell while maximized: the right dock, or a region of the main area by its id (the slice inspector) */
+export type MaximizeTarget = 'dock' | (string & {});
+
 class ShellDock {
 	#current = $state.raw<{ owner: object; panel: DockPanel } | null>(null);
+	#maximized = $state<MaximizeTarget | null>(null);
+
+	/**
+	 * The maximized region (owner 2026-10-06, agents/DOCKING.md "Maximize"): `'dock'` – the docked panel fills everything
+	 * between the sidebar's rail and Ask; another id – that region of the main area does (the page hides the rest of its
+	 * main area). The other regions are only hidden (their widths, folds, scroll positions and edits stay). One at a
+	 * time; not remembered.
+	 */
+	get maximized(): MaximizeTarget | null {
+		return this.#maximized;
+	}
+
+	/** maximizes `target` (null: restores); the dock opens unfolded for it */
+	maximize(target: MaximizeTarget | null) {
+		if (target === 'dock') {
+			if (!this.#current) return;
+			this.#current.panel.size.fold(false);
+		}
+		this.#maximized = target;
+	}
+
+	/** back to the normal layout (the button, Esc, Ctrl + Space, a click in the Flow that navigates the main area) */
+	restore() {
+		this.#maximized = null;
+	}
 
 	/** the docked panel (null = the dock is closed) */
 	get current(): DockPanel | null {
@@ -31,9 +59,13 @@ class ShellDock {
 	set(owner: object, panel: DockPanel | null) {
 		const shown = this.#current;
 		if (!panel) {
-			if (shown?.owner === owner) this.#current = null;
+			if (shown?.owner === owner) {
+				this.#current = null;
+				if (this.#maximized === 'dock') this.#maximized = null;
+			}
 			return;
 		}
+		// another panel taking the dock while it is maximized stays maximized (owner 2026-10-06: the dock is what fills)
 		if (shown && shown.owner !== owner) shown.panel.close();
 		// a panel (re)opens unfolded; the same one updating (its snippet, its title) keeps its fold
 		if (!shown || shown.owner !== owner || shown.panel.title !== panel.title) panel.size.fold(false);

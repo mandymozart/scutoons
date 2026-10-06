@@ -3,7 +3,7 @@
 	import CloseButton from './close-button.svelte';
 	import DockFold from './dock-fold.svelte';
 	import { panelWidth } from './panel-width.svelte.ts';
-	import { useDock } from './dock.svelte.ts';
+	import { shellDock, useDock } from './dock.svelte.ts';
 
 	/**
 	 * List + detail for fast triage (admin catalog, codes): the list is the page, the detail opens in the AppShell's
@@ -18,6 +18,8 @@
 		onclose,
 		closeLabel = 'Close',
 		foldLabel,
+		maximizeLabel,
+		restoreLabel,
 		list,
 		detail,
 		actions
@@ -28,6 +30,9 @@
 		closeLabel?: string;
 		/** the dock's fold button */
 		foldLabel?: string;
+		/** the dock's maximize button (maximized / restore) */
+		maximizeLabel?: string;
+		restoreLabel?: string;
 		list: Snippet;
 		detail: Snippet;
 		/** extra header actions of the detail (e.g. "Open page") */
@@ -38,7 +43,8 @@
 	useDock(() => (open ? { panel: pane, size, title: title ?? '', icon: 'sidebar', close: () => onclose() } : null));
 
 	function keydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && open) {
+		// maximized: Escape restores first (AppShell)
+		if (event.key === 'Escape' && open && !shellDock.maximized) {
 			event.stopPropagation();
 			onclose();
 		}
@@ -54,7 +60,7 @@
 			{#if title}<h2 {title}>{title}</h2>{/if}
 			<div class="actions">
 				{#if actions}{@render actions()}{/if}
-				<DockFold label={foldLabel} />
+				<DockFold label={foldLabel} {maximizeLabel} {restoreLabel} />
 				<CloseButton label={closeLabel} onclick={onclose} />
 			</div>
 		</header>

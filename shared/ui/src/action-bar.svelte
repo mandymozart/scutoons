@@ -51,7 +51,7 @@
 		/** link to the full style guide at the end of the panel */
 		infoHref?: string;
 		/** translated labels: `toggle` (default "Info"), `close`, `guide` (the link text), `fold` (the dock's fold button) */
-		infoLabels?: { toggle?: string; close?: string; guide?: string; fold?: string };
+		infoLabels?: { toggle?: string; close?: string; guide?: string; fold?: string; maximize?: string; restore?: string };
 		/** localStorage key of the remembered open state */
 		infoKey?: string;
 	} = $props();
@@ -153,6 +153,8 @@
 		title={infoTitle}
 		closeLabel={infoLabels.close}
 		foldLabel={infoLabels.fold}
+		maximizeLabel={infoLabels.maximize}
+		restoreLabel={infoLabels.restore}
 		href={infoHref}
 		hrefLabel={infoLabels.guide}
 		onclose={() => setInfo(false)}
