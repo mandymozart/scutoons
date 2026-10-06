@@ -539,6 +539,9 @@ export interface AgentUsageRow {
 	output_tokens: number;
 	cache_read_tokens: number;
 	cache_write_tokens: number;
+	/** web search requests (billed per search; already in cost_usd) */
+	web_searches: number;
+	/** the whole cost: tokens + web searches */
 	cost_usd: number;
 }
 

@@ -129,6 +129,7 @@
 		"ai_hint": "What the Ask agents cost (Anthropic API, USD): this month per app and person, per day in the period.",
 		"ai_month": "This month",
 		"ai_calls": "{count} calls",
+		"ai_searches": "{count} web searches",
 		"ai_chart": "AI cost per day (USD)",
 		"ai_people": "Per person, this month",
 		"ai_person": "Person",
