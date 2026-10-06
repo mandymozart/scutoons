@@ -15,7 +15,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | What | Where | Edited in |
 |---|---|---|
 | toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
-| language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) | DB entity `toon:<toon>` (the same entry) | creator (toon settings, "Same in every language") |
+| language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) + the toon's title / description / release / status per language (locale maps, agents/NEUTRAL.md step 4) | DB entity `toon:<toon>` (the same entry); legacy `toon-settings:<toon>:<l>` | creator (toon settings) |
 | toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>` (language-neutral, texts as locale maps); legacy `season:<toon>:<n>:<l>` | creator (season page) |
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>` (language-neutral); legacy `chapter:<toon>:<n>:<l>` | creator |
@@ -146,6 +146,12 @@ registry name, owner 2026-10-01) and its entry has the duo `avatar.webp`. Seed (
 `yellowmouse/{de,en}/toon.json` new, from the owner's store versions), local store (new published versions; backups
 `server/db/local.sqlite.bak-2026-10-01-landing`, `…-top-toy`), seed SQL: 6 toon-settings statements (2 changed, 4 new),
 `toon:toptoy` and `characters` (also in `characters-seed.mysql.sql`); unchanged statements keep their timestamps.
+
+**Since 2026-10-06 (agents/NEUTRAL.md step 4) the per-language part is in the entry too**: `title`, `description`,
+`release` as locale maps and `languageStatus` (the status per language; the entry's `status` stays the whole toon's);
+`toon-settings:<toon>:<l>` is legacy – the library reads it only while the entry has no `title` map, the creator edits
+the entry only (one document), `/library/toons?locale=` leaves out a toon closed in that language. The paragraph below is
+the 2026-10-01 state.
 
 **Language-neutral toon settings in the toon entry (2026-10-01, owner):** "fields with no text are edited and stored per
 language, which is pointless". Every toon setting that is not text lives once in the index entry `toon:<toon>`

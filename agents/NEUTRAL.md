@@ -80,7 +80,7 @@ translation by design).
    page, chapter editor, validation, history). ~~2B~~ done 2026-10-06 (see Phase 2B below: season editor, cover editor,
    status per language, new chapter / season / language flows, MCP tools, make-sandbox, test fixtures, dev checks).
 3. Linked groups (`groups/chains`) merged in; its fields live in the neutral document.
-4. Toon settings into the toon entry.
+4. ~~Toon settings into the toon entry~~ done 2026-10-06 (see "Step 4 – toon settings" below).
 5. Creator messages refactor (owner 2026-10-06): `creator/messages/{de,en}.json` + hints/tooltips in the code still
    name JSON files that no longer exist since the content lives in the database – say what it is today (the document,
    published / draft), shorter and consistent wording, drop unused keys.
@@ -300,8 +300,92 @@ toptoy new season + chapter + `es`, the viewer reading sandbox chapter 1 in de a
 
 ### Left (later steps)
 
-- Toon settings into the toon entry (step 4) – then `SharedField`, `setShared` / `overrides` and DocNotices' "create
-  <locale>" can go (the script keeps `setLocal` / `createLocale`).
+- ~~Toon settings into the toon entry (step 4)~~ – done; `SharedField`, `setShared` / `overrides`, DocNotices' "create
+  <locale>" are gone (the script keeps `setLocal` / `createLocale`).
 - Creator message wording (step 5): e.g. "Create season 1 … as drafts in every language", `locale_files_created`.
 - After production's conversion: remove the legacy per-locale path (library fallback, per-locale schemas, MCP's
   `legacy` read, `seedLegacy`).
+
+## Step 4 "Toon settings" – done (2026-10-06, branch `chapter-neutral`)
+
+`toon-settings:<toon>:<l>` (title, description, release, status, `id`, deprecated `cover` / `download`) folds into the
+toon entry `toon:<toon>` as locale maps. After this the only per-locale kind left is `script` (+ the legacy read-only
+`locations` / `routes`).
+
+- **Model** (`ToonIndex`, `TOON_TEXT_FIELDS`): `title`, `description`, `release` (`LocaleText`) and **`languageStatus`**
+  (`Record<locale, Status>`). Decision: a new field name, because the entry's own `status` already is the whole toon's
+  visibility (admin catalog / list) – a language's page needs both (entry public AND its language status public, as
+  before with the settings' `status`). `hasToonTexts(entry)` = the entry has a `title` map ("converted"). `i18n.<l>.name`
+  stays as it is (the lists' name, the admin's) – it duplicates `title` (same values everywhere today); folding them is
+  an open owner question. Schemas regenerated (`toon-index`); `ToonSettings` / `entities.toonSettings` are `@deprecated`,
+  the key stays valid (legacy).
+- **Resolution** (`resolveToon` TS = `NeutralDoc::toon` PHP, `resolveNeutral(kind 'toon')`, golden fixtures
+  `toon.json` / `toon-partial.json`): the served locale by the `title` like a season; the answer is exactly the old
+  per-language document: `id`, `title`, `language`, `release` / `description` when the entry has them, `status` = the
+  language's `languageStatus` (missing → the source's → …; none at all → no status = published).
+- **Library** (`FORMAT` 6): `toonSettings()` reads the entry's maps when `hasToonTexts`, else the per-locale documents
+  (asked → source → languages) – production works before its conversion. `visibleToon` gates on the served language's
+  status (404) and sets the fallback flag; `entry` in the answers drops `TOON_TEXT_FIELDS` too (unchanged shape).
+  **`/library/toons?locale=`** (new, the viewer passes its locale): a toon whose page is closed in that language is left
+  out (same gate as the toon page; announced toons stay "soon"); without a locale the list is as before. Decision: needed
+  so a translation that is still a draft doesn't put a dead link on that language's landing page (before, the list
+  ignored the language). `legacyOnly()` also strips the entry's texts; `legacyOnly(false)` strips only those (the toon
+  settings compared on their own); `legacy:` / `legacy-toon:` in the cache key.
+- **Conversion** (`neutralizeToon`, `planToonConversion`; `npm run dev:neutralize`, the Convert page lists "Toon entry"):
+  the published entry + the published settings → a new published entry version; when the entry or a language has a
+  newer draft, the newest entry + the newest settings → a draft after it. Nothing when the entry already has texts, has no
+  version (an entry is never created – its status would open the toon) or there are no settings. Leftovers: `language`
+  dropped; `id` reported when it differs from the entry's; a neutral setting the entry has → dropped (`invisible`: the
+  reader always took the entry's), one it lacks → moved into the entry; `cover` (the reader's deprecated fallback) /
+  unknown fields dropped (visible), `download` dropped (`invisible`); `accepted_warnings` united. `NeutralDifference.
+  invisible` (new) keeps such lines out of the creator's notice / Convert page; the script prints them.
+- **Validation**: `validateNeutral('index', …)` = `checkToonIndex` + the texts resolved for the source (empty title /
+  description, no release: warnings) + the locale maps' shape (release a date, `languageStatus` a status per language)
+  + per-language completeness (missing / same as the source).
+- **Creator**: the toon settings page edits ONE document, the entry (`toonIndexDoc(toon, languages)` → `texts`):
+  title / description / release via `LocaleText` (the header's text language), the status per language like the
+  chapter's (source / one / all; a language without its own status shows the source's, muted), the neutral settings with
+  `PropField` / media slots. An entry without texts is converted in memory from the newest per-language settings on load
+  (`ContentDoc.loadToonSettings`, the "converted" notice; `unconverted` now compares the base with the base it was
+  converted on – the entry has one); saving the page stores it. The toon page's own entry doc (languages) has no texts →
+  never converts as a side effect; its Convert bar also shows while toon settings exist and the entry has no texts. No
+  "create <l> from <source>" any more, no toon settings created with a new season / chapter, the cover editor reads the
+  toon title from the entry. Removed: `SharedField`, `setShared` / `overrides` / `resetOverride`, DocNotices'
+  create-locale bars, MetaPage `translationsOptional`, `newToon` / `toonName` (defaults), 7 unused messages.
+- **New toon**: the admin's "create toon" stores the entry with `title` = the name in de + en and `languageStatus` draft
+  (no per-language document; CatalogTest).
+- **MCP**: `toon:<toon>` validated with `validateNeutral('index')`; `save_draft` refuses a `toon-settings` key ("save
+  toon:<toon>"); `read_entity` marks them legacy / read only; `list_toons` shows `title` + `languageStatus`; guidance and
+  the Ask prompt say the toon settings are locale maps in the entry. **Sandbox**: `make-sandbox` writes the texts /
+  release / status per language into the sandbox entry, no `toon.json`, and deletes earlier runs' per-locale toon
+  settings (3 removed on the dev DB). Server test fixtures: none hold toon settings (LibraryTest's `seedToon()` now puts
+  them in the entry; `seedLegacy()` keeps per-language ones for the fallback tests).
+
+### Dev DB 2026-10-06 (after step 4)
+
+Converted: catpope (#380 published from toon#1 de#21 en#36, #381 draft from toon#167 – the owner's unpublished entry
+draft with `announce` + another tile stays a draft), toptoy (#382 / #383), yellowmouse (#387 / #388, through the Convert
+page in the browser), sandbox (generated, #384). No differences reported (ids equal, no leftovers in any settings).
+`npm run dev:neutralize` now: every toon "has its texts already", nothing to store.
+
+**`content:neutral-check`**: 86 answers (catpope's 60 chapter / season / bundle / cast answers + the toon settings:
+every bundle per locale for catpope / toptoy / yellowmouse, published + draft, and the toons list without and with each
+locale) – the toon settings answers are all identical (entry texts vs per-language settings); the only differences are
+the 7 known catpope ones of phases 1–2 (chapter 1 en text-box styling, season `credits`, draft chapter 2 en). Nothing to
+fix.
+
+### Checks 2026-10-06 (after step 4)
+
+`npm run check` (exit 0, incl. `check:tools-css`, svelte-check, workspace tests), `check:creator-cast` (19),
+`check:creator-chapter` (59), `check:creator-script` (28), `check:creator-cover` (36; the toon titles per language now
+from the entry), `check:mcp` (36: + the entry, the refused key, a bad `languageStatus`), PHPUnit (269 tests), phpstan
+clean, `content:neutral-check` (above), `content:check` (only the pre-existing scene-14 #127 / #128 / #201 misfits).
+Browser (screenshots `4-*`): toon settings page (de / en side by side, status per language, en set to draft + saved),
+yellowmouse converted in memory (notice) and through the Convert page, the viewer landing in de (Katzenpapst listed) and
+en (not listed while its en status was draft – a published test version, removed again; catpope's #380 published again),
+the toon page in de / en (titles from the entry).
+
+Notes: `check:creator-cover`'s reader step (only when the viewer runs) fails – pre-existing: the sandbox is a draft toon
+and the check's browser has no draft-preview session, so `/de/sandbox` is 404; with the viewer down the step is skipped
+(as in 2B). Open: fold `i18n.<l>.name` into `title`? Remove the legacy toon-settings path (library fallback,
+`ToonSettings` schema, MCP's legacy read, the Convert page's toon step) once production is converted.
