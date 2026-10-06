@@ -143,7 +143,7 @@ try {
 	const settingsKey = await call(client, 'save_draft', { key: `toon-settings:${TOON}:de`, base: null, content: { id: TOON } });
 	check(settingsKey.error && /toon:/.test(settingsKey.raw), 'save_draft refuses the old per-language toon settings key', settingsKey.raw.slice(0, 200));
 	const entryCheck = await call(client, 'validate', { key: `toon:${TOON}`, ops: [{ op: 'set', path: ['languageStatus', 'en'], value: 'later' }] });
-	check(entryCheck.json?.problems?.some((p) => p.level === 'error' && p.locale === 'en' && p.path.includes('languageStatus')), 'validate: the toon entry's status per language (validateNeutral)', entryCheck.raw.slice(0, 300));
+	check(entryCheck.json?.problems?.some((p) => p.level === 'error' && p.locale === 'en' && p.path.includes('languageStatus')), "validate: the toon entry's status per language (validateNeutral)", entryCheck.raw.slice(0, 300));
 
 	// the scene's group script (the newest version may have none yet)
 	const start = Array.isArray(original.content.events) ? [] : [{ op: 'set', path: ['events'], value: [] }];
