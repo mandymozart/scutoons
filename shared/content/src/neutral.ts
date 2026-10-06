@@ -20,7 +20,8 @@ import type { Status } from './enums.ts';
 import { toonLanguages } from './languages.ts';
 import type {
 	VNAddChoiceEvent,
-	VNCondition,
+	VNAskTextEvent,
+	VNEventCondition,
 	VNDivertEvent,
 	VNEventTrigger,
 	VNHideMessageEvent,
@@ -56,6 +57,18 @@ export interface VNAddChoiceEventDoc {
 	params: Omit<VNAddChoiceEvent['params'], 'label'> & { label: LocaleText };
 }
 
+export interface VNAskTextEventDoc {
+	type: 'askText';
+	params: Omit<VNAskTextEvent['params'], 'text' | 'placeholder' | 'default'> & { text: LocaleText; placeholder?: LocaleText; default?: LocaleText };
+}
+
+/** the texts (locale maps) of an event's params, by event type */
+export const EVENT_TEXT_FIELDS: Readonly<Record<string, readonly string[]>> = {
+	showMessage: ['text'],
+	addChoice: ['label'],
+	askText: ['text', 'placeholder', 'default']
+};
+
 /** `VNEvent` with its texts as locale maps (the same members as `VNEvent`) */
 export type VNEventDoc = (
 	| VNShowMessageEventDoc
@@ -69,8 +82,10 @@ export type VNEventDoc = (
 	| VNLabelEvent
 	| VNDivertEvent
 	| VNSetVariableEvent
+	| VNAskTextEventDoc
 ) & {
-	if?: VNCondition;
+	id?: string;
+	if?: VNEventCondition;
 };
 
 export type VNSliceEventDoc = VNEventDoc & { trigger: VNEventTrigger };
@@ -166,8 +181,7 @@ function addLocales(value: unknown, out: string[]) {
 
 function eventLocales(event: unknown, out: string[]) {
 	if (!isObject(event) || !isObject(event.params)) return;
-	if (event.type === 'showMessage') addLocales(event.params.text, out);
-	else if (event.type === 'addChoice') addLocales(event.params.label, out);
+	for (const field of EVENT_TEXT_FIELDS[String(event.type)] ?? []) addLocales(event.params[field], out);
 }
 
 function groupLocales(group: unknown, out: string[]) {
@@ -209,10 +223,10 @@ function textField(target: Record<string, unknown>, key: string, chain: readonly
 
 function resolveEvent(event: unknown, chain: readonly string[]): unknown {
 	if (!isObject(event) || !isObject(event.params)) return event;
-	const field = event.type === 'showMessage' ? 'text' : event.type === 'addChoice' ? 'label' : null;
-	if (field === null || !Object.hasOwn(event.params, field)) return event;
+	const fields = (EVENT_TEXT_FIELDS[String(event.type)] ?? []).filter((f) => Object.hasOwn(event.params as object, f));
+	if (!fields.length) return event;
 	const params = { ...event.params };
-	textField(params, field, chain);
+	for (const field of fields) textField(params, field, chain);
 	return { ...event, params };
 }
 

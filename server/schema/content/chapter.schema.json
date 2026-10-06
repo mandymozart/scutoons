@@ -832,9 +832,9 @@
 					},
 					"description": "events: run on tap (no trigger – the tap is the trigger)"
 				},
-				"once": {
-					"type": "boolean",
-					"description": "events: only the first tap per page view runs them (default true, like a click trigger's `once`)"
+				"repeat": {
+					"$ref": "#/definitions/Repeat",
+					"description": "events: how often a tap runs them (recurrence.ts, like a slice trigger's `repeat`); none = every tap"
 				},
 				"respawn": {
 					"$ref": "#/definitions/SliceItemRespawn",
@@ -861,8 +861,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -904,8 +908,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -923,8 +931,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -964,8 +976,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -995,8 +1011,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1026,8 +1046,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1045,8 +1069,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1065,8 +1093,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1096,8 +1128,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1124,8 +1160,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1152,8 +1192,12 @@
 				{
 					"type": "object",
 					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1190,8 +1234,79 @@
 						"params",
 						"type"
 					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "askText"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"text": {
+									"type": "string",
+									"description": "the question"
+								},
+								"character": {
+									"type": "string",
+									"description": "who asks (none = narration)"
+								},
+								"persona": {
+									"type": "string"
+								},
+								"variable": {
+									"type": "string",
+									"description": "`toon` scope: the story variable the answer goes to"
+								},
+								"placeholder": {
+									"type": "string",
+									"description": "a hint in the empty input line"
+								},
+								"maxLength": {
+									"type": "number",
+									"description": "at most this many characters (default 24, at most 200)"
+								},
+								"default": {
+									"type": "string",
+									"description": "what Skip (or an empty answer) stores; none = nothing is stored"
+								},
+								"scope": {
+									"$ref": "#/definitions/AskTextScope",
+									"description": "default `toon`"
+								}
+							},
+							"required": [
+								"text"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
 				}
 			]
+		},
+		"VNEventCondition": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/VNCondition"
+				},
+				{
+					"$ref": "#/definitions/VNExprCondition"
+				}
+			],
+			"description": "an event's `if`: the simple test (the creator's default) or an expression"
 		},
 		"VNCondition": {
 			"type": "object",
@@ -1227,6 +1342,18 @@
 				"unset"
 			],
 			"description": "\"Only if\" on any event (owner 2026-10-03): the event runs only when the reader's variable passes the test, else it is skipped. Numbers compare as numbers; `set` / `unset` ask whether the variable has a value at all."
+		},
+		"VNExprCondition": {
+			"type": "object",
+			"properties": {
+				"expr": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"expr"
+			],
+			"description": "\"Only if\" as an expression (agents/EXPRESSIONS.md §3, the advanced form): ink's logic on the expression engine and the reader's resolver – `count(\"s1c2-e4k2j9x1\") < 3 and not has(\"cucumber\")`. A syntax error can't be saved."
 		},
 		"VNAction": {
 			"anyOf": [
@@ -1460,24 +1587,39 @@
 				"wobble"
 			]
 		},
-		"SliceItemRespawn": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/RespawnInterval"
-				},
-				{
-					"type": "string",
-					"const": "never"
-				}
-			],
-			"description": "A placement's choice: `never` = once even if the item could reappear; none = the item's default"
+		"AskTextScope": {
+			"type": "string",
+			"enum": [
+				"toon",
+				"reader"
+			]
 		},
-		"RespawnInterval": {
-			"anyOf": [
-				{
-					"type": "string",
-					"const": "visit"
+		"Repeat": {
+			"type": "object",
+			"properties": {
+				"mode": {
+					"$ref": "#/definitions/RepeatMode"
 				},
+				"every": {
+					"$ref": "#/definitions/TimedInterval",
+					"description": "`interval` only: the period"
+				}
+			},
+			"required": [
+				"mode"
+			]
+		},
+		"RepeatMode": {
+			"type": "string",
+			"enum": [
+				"every",
+				"view",
+				"once",
+				"interval"
+			]
+		},
+		"TimedInterval": {
+			"anyOf": [
 				{
 					"type": "object",
 					"properties": {
@@ -1512,7 +1654,31 @@
 					]
 				}
 			],
-			"description": "Every visit of the page (a reload counts), or every n minutes / hours / days."
+			"description": "A timed interval: every n minutes / hours / days (n a whole number ≥ 1, at most a year)."
+		},
+		"SliceItemRespawn": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/RecurrenceInterval"
+				},
+				{
+					"type": "string",
+					"const": "never"
+				}
+			],
+			"description": "A placement's choice: `never` = once even if the item could reappear; none = the item's default"
+		},
+		"RecurrenceInterval": {
+			"anyOf": [
+				{
+					"type": "string",
+					"const": "visit"
+				},
+				{
+					"$ref": "#/definitions/TimedInterval"
+				}
+			],
+			"description": "Every page view (`visit`: a new page or a reload starts a new one), or every n minutes / hours / days."
 		},
 		"VNSliceEvent": {
 			"anyOf": [
@@ -1522,8 +1688,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1569,8 +1739,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1592,8 +1766,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1637,8 +1815,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1672,8 +1854,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1707,8 +1893,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1730,8 +1920,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1754,8 +1948,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1789,8 +1987,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1821,8 +2023,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1853,8 +2059,12 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
 						"if": {
-							"$ref": "#/definitions/VNCondition",
+							"$ref": "#/definitions/VNEventCondition",
 							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
@@ -1892,6 +2102,70 @@
 						"trigger",
 						"type"
 					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "askText"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"text": {
+									"type": "string",
+									"description": "the question"
+								},
+								"character": {
+									"type": "string",
+									"description": "who asks (none = narration)"
+								},
+								"persona": {
+									"type": "string"
+								},
+								"variable": {
+									"type": "string",
+									"description": "`toon` scope: the story variable the answer goes to"
+								},
+								"placeholder": {
+									"type": "string",
+									"description": "a hint in the empty input line"
+								},
+								"maxLength": {
+									"type": "number",
+									"description": "at most this many characters (default 24, at most 200)"
+								},
+								"default": {
+									"type": "string",
+									"description": "what Skip (or an empty answer) stores; none = nothing is stored"
+								},
+								"scope": {
+									"$ref": "#/definitions/AskTextScope",
+									"description": "default `toon`"
+								}
+							},
+							"required": [
+								"text"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
 				}
 			]
 		},
@@ -1901,8 +2175,9 @@
 				"type": {
 					"$ref": "#/definitions/Trigger"
 				},
-				"once": {
-					"type": "boolean"
+				"repeat": {
+					"$ref": "#/definitions/Repeat",
+					"description": "how often the trigger runs its events (recurrence.ts): none = every time; once per page view, once for good (the save game), once per n minutes / hours / days. Events with the same trigger run as one."
 				},
 				"rect": {
 					"type": "object",

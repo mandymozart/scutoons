@@ -160,4 +160,50 @@ final class EntityStoreTest extends TestCase
         );
     }
 
+    /**
+     * 2026-10-06-repeat: `once` (triggers, placed items) → `repeat` (false → every time, written out); a VN trigger /
+     * tap-event item without once (it meant true) gets once per page view; audio sample triggers, texts and other
+     * objects stay as they are; a second run changes nothing
+     */
+    public function testTheRepeatMigration(): void
+    {
+        $slice = '{"image":"a.webp","audio":{"audio":{"samples":[{"id":"bell","trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":2,"width":3,"height":4}},"volume":1,"repeat":2}]}},'
+            . '"events":['
+            . '{"type":"showMessage","params":{"text":{"de":"Ein \\"trigger\\":{ und {once} – \\"once\\":true bleibt"},"wait":true},"trigger":{"type":"click","rect":{"x":1,"y":2,"width":3,"height":4}}},'
+            . '{"type":"showChoices","trigger":{"type":"intersect"}},'
+            . '{"trigger":{"once":false,"type":"hover"},"type":"hideMessage"},'
+            . '{"type":"showTextBox","params":{"dialog":"b1"},"trigger":{"type":"intersect","once":true}},'
+            . '{"type":"showTextBox","params":{"dialog":"b2"},"trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":1,"width":1,"height":1}}},'
+            . '{"type":"showTextBox","params":{"dialog":"b3"},"trigger":{"type":"click","repeat":{"mode":"once"}}}'
+            . '],"items":['
+            . '{"id":"coin-1","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"showMessage","params":{"text":{"de":"{a|b}"}}}]},'
+            . '{"id":"coin-2","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"hideMessage"}],"once":false},'
+            . '{"id":"coin-3","item":"coin","action":"events","once":true,"events":[]},'
+            . '{"id":"coin-4","item":"coin","action":"pickup","rect":{"x":1,"y":1,"width":5}}'
+            . ']}';
+        $json = '{"groups":[{"label":"g","renderer":{"type":"vertical"},"slices":[' . $slice . '],"events":[{"type":"showMessage","params":{"text":{"de":"x"}}}]}]}';
+        $view = '"repeat":{"mode":"view"}';
+        $expected = '{"groups":[{"label":"g","renderer":{"type":"vertical"},"slices":[{"image":"a.webp","audio":{"audio":{"samples":[{"id":"bell","trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":2,"width":3,"height":4}},"volume":1,"repeat":2}]}},'
+            . '"events":['
+            . '{"type":"showMessage","params":{"text":{"de":"Ein \\"trigger\\":{ und {once} – \\"once\\":true bleibt"},"wait":true},"trigger":{"type":"click","rect":{"x":1,"y":2,"width":3,"height":4},' . $view . '}},'
+            . '{"type":"showChoices","trigger":{"type":"intersect",' . $view . '}},'
+            . '{"trigger":{"repeat":{"mode":"every"},"type":"hover"},"type":"hideMessage"},'
+            . '{"type":"showTextBox","params":{"dialog":"b1"},"trigger":{"type":"intersect",' . $view . '}},'
+            . '{"type":"showTextBox","params":{"dialog":"b2"},"trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":1,"width":1,"height":1},' . $view . '}},'
+            . '{"type":"showTextBox","params":{"dialog":"b3"},"trigger":{"type":"click","repeat":{"mode":"once"}}}'
+            . '],"items":['
+            . '{"id":"coin-1","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"showMessage","params":{"text":{"de":"{a|b}"}}}],' . $view . '},'
+            . '{"id":"coin-2","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"hideMessage"}],"repeat":{"mode":"every"}},'
+            . '{"id":"coin-3","item":"coin","action":"events",' . $view . ',"events":[]},'
+            . '{"id":"coin-4","item":"coin","action":"pickup","rect":{"x":1,"y":1,"width":5}}'
+            . ']}],"events":[{"type":"showMessage","params":{"text":{"de":"x"}}}]}]}';
+        self::assertNotNull(json_decode($json), 'the input is JSON');
+        self::assertNotNull(json_decode($expected), 'the expectation is JSON');
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('chapter:smoke:1', 'chapter', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-repeat.mysql.sql');
+        self::assertSame($expected, $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-repeat.mysql.sql'); // idempotent
+        self::assertSame($expected, $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+    }
 }

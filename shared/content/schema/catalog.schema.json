@@ -470,26 +470,34 @@
 			"type": "object",
 			"properties": {
 				"default": {
-					"$ref": "#/definitions/RespawnInterval"
+					"$ref": "#/definitions/RecurrenceInterval"
 				},
 				"min": {
-					"$ref": "#/definitions/RespawnInterval"
+					"$ref": "#/definitions/RecurrenceInterval"
 				},
 				"max": {
-					"$ref": "#/definitions/RespawnInterval"
+					"$ref": "#/definitions/RecurrenceInterval"
 				}
 			},
 			"required": [
 				"default"
 			],
-			"description": "An item's respawn rule (`ItemDef.respawn`; none / null = it never reappears, a one-time find). `min` / `max` = the shortest / longest interval a placement may choose (default: only `default`'s own length … any longer one)."
+			"description": "An item's respawn rule (`ItemDef.respawn`; none / null = it never reappears, a one-time find). `min` / `max` = the shortest / longest interval a placement may choose (default: only `default`'s own length … any longer one). The intervals and their periods are the shared recurrence model (recurrence.ts)."
 		},
-		"RespawnInterval": {
+		"RecurrenceInterval": {
 			"anyOf": [
 				{
 					"type": "string",
 					"const": "visit"
 				},
+				{
+					"$ref": "#/definitions/TimedInterval"
+				}
+			],
+			"description": "Every page view (`visit`: a new page or a reload starts a new one), or every n minutes / hours / days."
+		},
+		"TimedInterval": {
+			"anyOf": [
 				{
 					"type": "object",
 					"properties": {
@@ -524,7 +532,7 @@
 					]
 				}
 			],
-			"description": "Every visit of the page (a reload counts), or every n minutes / hours / days."
+			"description": "A timed interval: every n minutes / hours / days (n a whole number ≥ 1, at most a year)."
 		},
 		"StatEffect": {
 			"type": "object",

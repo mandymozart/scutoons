@@ -37,9 +37,9 @@ const chapterDoc = (over: Partial<ChapterDoc> = {}): ChapterDoc =>
 				renderer: { type: 'vertical' },
 				slices: [{ image: 'a.webp', width: 390, height: 625, dialog: [{ id: 'd1', rect, text: { de: 'Hallo', en: 'Hello' } }] }],
 				events: [
-					{ type: 'showMessage', params: { text: { de: 'Na, du?', en: 'Well?' } } },
-					{ type: 'addChoice', params: { label: { de: 'Klar', en: 'Yes' } } },
-					{ type: 'showChoices' }
+					{ id: 'e1', type: 'showMessage', params: { text: { de: 'Na, du?', en: 'Well?' } } },
+					{ id: 'e2', type: 'addChoice', params: { label: { de: 'Klar', en: 'Yes' } } },
+					{ id: 'e3', type: 'showChoices' }
 				]
 			}
 		],
@@ -102,7 +102,7 @@ test('validateNeutral: shapes of the locale maps, a source without text, season 
 });
 
 test('validateNeutral: a scene (group)', () => {
-	const scene = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [], events: [{ type: 'showMessage', params: { text: { de: 'Hi' } } }] } as unknown as GroupDoc;
+	const scene = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [], events: [{ id: 'e1', type: 'showMessage', params: { text: { de: 'Hi' } } }] } as unknown as GroupDoc;
 	assert.deepEqual(lines(validateNeutral('group', scene, L, { file: 'scene:x:1:scene-1' })), ['warning en events.0.params.text']);
 });
 

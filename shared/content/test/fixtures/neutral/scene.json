@@ -1,5 +1,5 @@
 {
-	"description": "a scene with texts in de only (en → served de, fallback) and its VN script",
+	"description": "a scene with texts in de only (en → served de, fallback) and its VN script; an askText (question, placeholder, default per language) and a slice event with its repeat rule",
 	"kind": "scene",
 	"languages": {
 		"source": "de",
@@ -30,6 +30,21 @@
 							"de": "BUMM"
 						}
 					}
+				],
+				"events": [
+					{
+						"id": "e-tap1",
+						"type": "showTextBox",
+						"params": {
+							"dialog": "o1"
+						},
+						"trigger": {
+							"type": "click",
+							"repeat": {
+								"mode": "once"
+							}
+						}
+					}
 				]
 			}
 		],
@@ -50,6 +65,23 @@
 				"type": "showTextBox",
 				"params": {
 					"dialog": "o1"
+				}
+			},
+			{
+				"type": "askText",
+				"id": "e-ask1",
+				"params": {
+					"text": {
+						"de": "Wie heißt du?"
+					},
+					"placeholder": {
+						"de": "Name"
+					},
+					"default": {
+						"de": "Mia"
+					},
+					"maxLength": 24,
+					"scope": "reader"
 				}
 			}
 		]
@@ -80,6 +112,21 @@
 									},
 									"text": "BUMM"
 								}
+							],
+							"events": [
+								{
+									"id": "e-tap1",
+									"type": "showTextBox",
+									"params": {
+										"dialog": "o1"
+									},
+									"trigger": {
+										"type": "click",
+										"repeat": {
+											"mode": "once"
+										}
+									}
+								}
 							]
 						}
 					],
@@ -98,6 +145,17 @@
 							"type": "showTextBox",
 							"params": {
 								"dialog": "o1"
+							}
+						},
+						{
+							"type": "askText",
+							"id": "e-ask1",
+							"params": {
+								"text": "Wie heißt du?",
+								"placeholder": "Name",
+								"default": "Mia",
+								"maxLength": 24,
+								"scope": "reader"
 							}
 						}
 					]
@@ -129,6 +187,21 @@
 									},
 									"text": "BUMM"
 								}
+							],
+							"events": [
+								{
+									"id": "e-tap1",
+									"type": "showTextBox",
+									"params": {
+										"dialog": "o1"
+									},
+									"trigger": {
+										"type": "click",
+										"repeat": {
+											"mode": "once"
+										}
+									}
+								}
 							]
 						}
 					],
@@ -147,6 +220,17 @@
 							"type": "showTextBox",
 							"params": {
 								"dialog": "o1"
+							}
+						},
+						{
+							"type": "askText",
+							"id": "e-ask1",
+							"params": {
+								"text": "Wie heißt du?",
+								"placeholder": "Name",
+								"default": "Mia",
+								"maxLength": 24,
+								"scope": "reader"
 							}
 						}
 					]

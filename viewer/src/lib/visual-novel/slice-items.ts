@@ -1,4 +1,4 @@
-import { effectiveRespawn, respawnPeriod, type RespawnInterval, type Slice, type SliceItem, type VNEvent } from '@scutoons/content';
+import { effectiveRespawn, periodOf, type RecurrenceInterval, type Slice, type SliceItem, type VNEvent } from '@scutoons/content';
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
@@ -33,7 +33,7 @@ export function visitId(): string {
 }
 
 /** the interval this placement reappears with (null = once), from the catalog's rule and the placement's choice */
-export function placementRespawn(item: SliceItem): RespawnInterval | null {
+export function placementRespawn(item: SliceItem): RecurrenceInterval | null {
 	const rule = getCurrentInventory()?.item(item.item)?.respawn;
 	return effectiveRespawn(item.respawn, rule);
 }
@@ -46,14 +46,14 @@ export function isTaken(slice: Pick<Slice, 'image'>, item: SliceItem, game: Game
 	const interval = placementRespawn(item);
 	const stored = game?.getVariable(pickedKey(slice, item));
 	if (interval === null) return !!stored;
-	const period = respawnPeriod(interval, Date.now(), visitId());
+	const period = periodOf(interval, Date.now(), visitId());
 	if (interval === 'visit') return takenThisVisit.has(`${period}:${slice.image}#${item.id}`);
 	return stored === period;
 }
 
-function remember(slice: Pick<Slice, 'image'>, item: SliceItem, interval: RespawnInterval | null, game: GameContext) {
+function remember(slice: Pick<Slice, 'image'>, item: SliceItem, interval: RecurrenceInterval | null, game: GameContext) {
 	if (interval === null) return game.setVariable(pickedKey(slice, item), 1);
-	const period = respawnPeriod(interval, Date.now(), visitId());
+	const period = periodOf(interval, Date.now(), visitId());
 	if (interval === 'visit') takenThisVisit.add(`${period}:${slice.image}#${item.id}`);
 	else game.setVariable(pickedKey(slice, item), period);
 }
@@ -71,7 +71,7 @@ export interface PickupResult {
 export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceItem, game: GameContext): Promise<PickupResult> {
 	const interval = placementRespawn(item);
 	const place = `${slice.image}#${item.id}`;
-	const key = interval === null ? place : `${place}@${respawnPeriod(interval, Date.now(), visitId())}`;
+	const key = interval === null ? place : `${place}@${periodOf(interval, Date.now(), visitId())}`;
 	if (isTaken(slice, item, game) || pending.has(key)) return { ok: false };
 	pending.add(key);
 	try {

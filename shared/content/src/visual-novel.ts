@@ -1,5 +1,6 @@
 import type { JumpToTarget } from './content.ts';
 import type { TextBoxEffect, Trigger, TriggerMode } from './enums.ts';
+import type { Repeat } from './recurrence.ts';
 
 /**
  * One mood of a character in its three views (framings). "View" is the term in the UI (never "variant", which would be
@@ -135,6 +136,17 @@ export interface VNCondition {
 	value?: string | number;
 }
 
+/**
+ * "Only if" as an expression (agents/EXPRESSIONS.md §3, the advanced form): ink's logic on the expression engine and the
+ * reader's resolver – `count("s1c2-e4k2j9x1") < 3 and not has("cucumber")`. A syntax error can't be saved.
+ */
+export interface VNExprCondition {
+	expr: string;
+}
+
+/** an event's `if`: the simple test (the creator's default) or an expression */
+export type VNEventCondition = VNCondition | VNExprCondition;
+
 /** a named point in a group's script – a divert (event, choice action, slice trigger) continues here */
 export interface VNLabelEvent {
 	type: 'label';
@@ -226,6 +238,39 @@ export interface VNShowTextBoxEvent {
 	params: ShowTextBoxParams;
 }
 
+/**
+ * A question with one input line in the message box (agents/EXPRESSIONS.md §6): the reader types a short plain text
+ * (trimmed, never markup), the page doesn't scroll until it is answered (Enter / ✓; Skip → `default`). `scope`:
+ * `toon` (default) = a story variable of this toon (`variable`); `reader` = the reader's name everywhere on SCUTOONS
+ * (`reader.name`: guests on the device, members on the account).
+ */
+export interface VNAskTextEvent {
+	type: 'askText';
+	params: {
+		/** the question */
+		text: string;
+		/** who asks (none = narration) */
+		character?: string;
+		persona?: string;
+		/** `toon` scope: the story variable the answer goes to */
+		variable?: string;
+		/** a hint in the empty input line */
+		placeholder?: string;
+		/** at most this many characters (default 24, at most 200) */
+		maxLength?: number;
+		/** what Skip (or an empty answer) stores; none = nothing is stored */
+		default?: string;
+		/** default `toon` */
+		scope?: AskTextScope;
+	};
+}
+
+export const ASK_TEXT_SCOPES = ['toon', 'reader'] as const;
+export type AskTextScope = (typeof ASK_TEXT_SCOPES)[number];
+/** an answer's default / largest length */
+export const ASK_TEXT_MAX_LENGTH = 24;
+export const ASK_TEXT_LIMIT = 200;
+
 export interface VNJumpToEvent {
 	type: 'jumpTo';
 	params: {
@@ -246,15 +291,25 @@ export type VNEvent = (
 	| VNLabelEvent
 	| VNDivertEvent
 	| VNSetVariableEvent
+	| VNAskTextEvent
 ) & {
+	/**
+	 * hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's
+	 * save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)
+	 */
+	id?: string;
 	/** "Only if": the event runs only when this holds (skipped otherwise) */
-	if?: VNCondition;
+	if?: VNEventCondition;
 };
 	
 // enhanced types for slice triggered
 export interface VNEventTrigger {
 	type: Trigger;
-	once?: boolean;
+	/**
+	 * how often the trigger runs its events (recurrence.ts): none = every time; once per page view, once for good (the
+	 * save game), once per n minutes / hours / days. Events with the same trigger run as one.
+	 */
+	repeat?: Repeat;
 	rect?: {
 		x: number;
 		y: number;

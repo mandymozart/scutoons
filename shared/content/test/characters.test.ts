@@ -353,8 +353,8 @@ test('legacy ids and the new ref form', async () => {
 		renderer: { type: 'vertical' },
 		slices: [],
 		events: [
-			{ type: 'joinScene', params: { characters: [{ name: 'plf', position: { variant: 'portrait' } }] } },
-			{ type: 'joinScene', params: { characters: [{ character: 'catpope', persona: 'human', variant: 'portrait' }] } }
+			{ id: 'e1', type: 'joinScene', params: { characters: [{ name: 'plf', position: { variant: 'portrait' } }] } },
+			{ id: 'e2', type: 'joinScene', params: { characters: [{ character: 'catpope', persona: 'human', variant: 'portrait' }] } }
 		]
 	};
 	const problems = validateFile('group', group, 'en', { file: 'g.json', cast: { catpope: ['regular', 'human'] }, expressions: expressionIndex(registry), moods: ['neutral'] });

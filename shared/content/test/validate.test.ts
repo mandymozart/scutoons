@@ -326,3 +326,35 @@ test('audio quality levels: variants on music tracks and samples (96k / 128k / 3
 	assert.deepEqual(audioProblems({ ultra: 'x.mp3' }), ['error audio.music.tracks.0.variants.ultra', 'error audio.sampleLibrary.0.variants.ultra']);
 	assert.deepEqual(audioProblems({ low: 'x.png' }), ['warning audio.music.tracks.0.variants.low', 'warning audio.sampleLibrary.0.variants.low']);
 });
+
+test('step 3 (EXPRESSIONS.md §5–6): repeat rules, event ids, askText, conditions as expressions', () => {
+	const at = (data: object) =>
+		validateFile('group', data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}${p.code ? ` ${p.code}` : ''}`);
+	const slice = (events: object[], items: object[] = []) => ({ image: 'a.webp', width: 390, height: 625, events, items });
+	const group = (slices: object[], events: object[] = []) => ({ label: 's', renderer: { type: 'vertical' }, slices, events });
+	const msg = (extra: object = {}) => ({ type: 'showMessage', params: { text: 'Hi' }, ...extra });
+	// the old boolean once is gone (migration 2026-10-06-repeat)
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click', once: true } })])])), ['error slices.0.events.0.trigger.once']);
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click', repeat: { mode: 'view' } } })])])), []);
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click', repeat: { mode: 'interval' } } })])])), ['error slices.0.events.0.trigger.repeat']);
+	// once for good / every n … need the id (the save game remembers the event by it)
+	assert.deepEqual(at(group([slice([msg({ trigger: { type: 'click', repeat: { mode: 'once' } } })])])), ['error slices.0.events.0.trigger.repeat', 'warning ']);
+	assert.deepEqual(at(group([slice([msg({ trigger: { type: 'click' } })])])), ['warning '], 'no id yet: one warning for the document');
+	// placed items: repeat instead of once
+	const item = (extra: object) => ({ id: 'coin-1', item: 'coin', rect: { x: 1, y: 1, width: 5 }, action: 'events', events: [msg({ id: 'e9' })], ...extra });
+	assert.deepEqual(at(group([slice([], [item({ once: true })])])), ['error slices.0.items.0.once']);
+	assert.deepEqual(at(group([slice([], [item({ repeat: { mode: 'once' } })])])), []);
+	assert.deepEqual(at(group([slice([], [item({ action: 'pickup', repeat: { mode: 'once' } })])])), ['info slices.0.items.0.repeat']);
+	// ids are unique in the document
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click' } })])], [msg({ id: 'e1' })])), ['error slices.0.events.0.id']);
+	// askText: the toon scope needs a variable; the reader scope is the reader's name
+	const ask = (params: object) => group([], [{ id: 'a1', type: 'askText', params: { text: 'Wie heißt du?', ...params } }]);
+	assert.deepEqual(at(ask({ variable: 'hero_name', maxLength: 12, placeholder: 'Name', default: 'Mia' })), []);
+	assert.deepEqual(at(ask({})), ['error events.0.params.variable']);
+	assert.deepEqual(at(ask({ scope: 'reader' })), []);
+	assert.deepEqual(at(ask({ scope: 'world', variable: 'x', maxLength: 500 })), ['error events.0.params.scope', 'error events.0.params.maxLength']);
+	// conditions: the simple test or an expression (syntax errors are errors, unknown names warnings)
+	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'count("e1") < 3 and not has("cucumber")' } })])), []);
+	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'coins > (' } })])), ['error events.0.if.expr expr:expected-value']);
+	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'map.totl > 1' } })])), ['warning events.0.if.expr expr:unknown-name']);
+});

@@ -50,7 +50,7 @@ export interface NeutralizeResult<T> {
 	base: string;
 }
 
-type Ctx = 'chapter' | 'season' | 'group' | 'slice' | 'dialog' | 'event' | 'item' | 'sequence' | 'params-showMessage' | 'params-addChoice' | 'toon' | 'toon-entry';
+type Ctx = 'chapter' | 'season' | 'group' | 'slice' | 'dialog' | 'event' | 'item' | 'sequence' | 'params-showMessage' | 'params-addChoice' | 'params-askText' | 'toon' | 'toon-entry';
 
 const TEXT: Partial<Record<Ctx, readonly string[]>> = {
 	chapter: ['title', 'description', 'release'],
@@ -61,7 +61,8 @@ const TEXT: Partial<Record<Ctx, readonly string[]>> = {
 	dialog: ['text'],
 	sequence: ['status'],
 	'params-showMessage': ['text'],
-	'params-addChoice': ['label']
+	'params-addChoice': ['label'],
+	'params-askText': ['text', 'placeholder', 'default']
 };
 const DROP: Partial<Record<Ctx, readonly string[]>> = { chapter: ['language', 'status'], season: ['language'], toon: ['language'] };
 const CHILD: Partial<Record<Ctx, Record<string, Ctx>>> = {
@@ -80,7 +81,7 @@ const clone = <T>(value: T): T => (value === undefined ? value : (JSON.parse(JSO
 
 function childCtx(ctx: Ctx, node: Obj, key: string): Ctx | null {
 	if (ctx === 'event' && key === 'params') {
-		return node.type === 'showMessage' ? 'params-showMessage' : node.type === 'addChoice' ? 'params-addChoice' : null;
+		return node.type === 'showMessage' ? 'params-showMessage' : node.type === 'addChoice' ? 'params-addChoice' : node.type === 'askText' ? 'params-askText' : null;
 	}
 	return CHILD[ctx]?.[key] ?? null;
 }
@@ -102,8 +103,11 @@ function collectTexts(node: unknown, ctx: Ctx | null, path: string, out: [string
 	}
 }
 
-/** What a text leaf is (for messages): the chapter / season `title` …, a text box's `text`, a VN message `text`, a choice `label` */
-export type TextLeafKind = 'title' | 'description' | 'release' | 'status' | 'dialog' | 'message' | 'choice';
+/**
+ * What a text leaf is (for messages): the chapter / season `title` …, a text box's `text`, a VN message `text` (also an
+ * askText question), a choice `label`, an askText's placeholder / default answer (`hint`, plain text)
+ */
+export type TextLeafKind = 'title' | 'description' | 'release' | 'status' | 'dialog' | 'message' | 'choice' | 'hint';
 
 /**
  * Every locale-map leaf of a neutral document (texts, `release`, season `sequence[].status`), by the same rules as the
@@ -123,8 +127,10 @@ export function forEachText(kind: NeutralKind | 'toon', doc: unknown, fn: (path:
 				const leaf: TextLeafKind =
 					ctx === 'dialog'
 						? 'dialog'
-						: ctx === 'params-showMessage'
+						: ctx === 'params-showMessage' || (ctx === 'params-askText' && key === 'text')
 							? 'message'
+							: ctx === 'params-askText'
+								? 'hint'
 							: ctx === 'params-addChoice'
 								? 'choice'
 								: key === 'languageStatus'

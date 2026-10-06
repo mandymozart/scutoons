@@ -5,6 +5,7 @@ export * from './audio.ts';
 export * from './visual-novel.ts';
 export * from './vn-script.ts';
 export * from './items.ts';
+export * from './recurrence.ts';
 export * from './respawn.ts';
 export * from './albums.ts';
 export * from './membership.ts';

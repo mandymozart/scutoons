@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { RESPAWN_UNITS, intervalMinutes, isRespawnInterval, intervalParts, placementRespawnProblem, respawnRange, type Path, type RespawnInterval, type RespawnUnit } from '@scutoons/content';
+	import { RECURRENCE_UNITS, intervalMinutes, isRecurrenceInterval, intervalParts, placementRespawnProblem, respawnRange, type Path, type RecurrenceInterval, type RecurrenceUnit } from '@scutoons/content';
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 	import { intervalLabel } from '$lib/editor/respawn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -47,32 +47,32 @@
 	let picking = $state(false);
 
 	// ── respawn: the item's rule (catalog, admin → Catalog) and this placement's override within its range ──
-	const UNIT_MINUTES: Record<RespawnUnit, number> = { minutes: 1, hours: 60, days: 1440 };
+	const UNIT_MINUTES: Record<RecurrenceUnit, number> = { minutes: 1, hours: 60, days: 1440 };
 	/** the item's rule: undefined = catalog not loaded, null = the item never reappears */
 	const rule = $derived(def ? (def.respawn ?? null) : undefined);
 	const range = $derived(rule ? respawnRange(rule) : null);
 	/** the units a placement can use within the range (n ≥ 1 whole) */
 	const units = $derived(
-		range ? RESPAWN_UNITS.filter((u) => Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u]) * UNIT_MINUTES[u] <= range.max) : []
+		range ? RECURRENCE_UNITS.filter((u) => Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u]) * UNIT_MINUTES[u] <= range.max) : []
 	);
-	const choice = $derived<RespawnInterval | 'never' | undefined>(placed?.respawn);
+	const choice = $derived<RecurrenceInterval | 'never' | undefined>(placed?.respawn);
 	const choiceKind = $derived(
-		choice === undefined ? 'default' : choice === 'never' || choice === 'visit' ? choice : isRespawnInterval(choice) ? intervalParts(choice).unit : 'invalid'
+		choice === undefined ? 'default' : choice === 'never' || choice === 'visit' ? choice : isRecurrenceInterval(choice) ? intervalParts(choice).unit : 'invalid'
 	);
 	const problem = $derived(rule === undefined ? null : placementRespawnProblem(choice, rule));
-	const bounds = (u: RespawnUnit) => ({
+	const bounds = (u: RecurrenceUnit) => ({
 		min: range ? Math.max(1, Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u])) : 1,
 		max: range ? Math.floor(range.max / UNIT_MINUTES[u]) : 1
 	});
 	function setRespawnKind(kind: string) {
-		let next: RespawnInterval | 'never' | undefined;
+		let next: RecurrenceInterval | 'never' | undefined;
 		if (kind === 'never' || kind === 'visit') next = kind;
-		else if ((RESPAWN_UNITS as readonly string[]).includes(kind)) {
-			const u = kind as RespawnUnit;
+		else if ((RECURRENCE_UNITS as readonly string[]).includes(kind)) {
+			const u = kind as RecurrenceUnit;
 			// the item's default in this unit when it fits, else the shortest the range allows
 			const d = rule ? (intervalMinutes(rule.default) ?? 0) : 0;
 			const n = Math.min(bounds(u).max, Math.max(bounds(u).min, Math.round(d / UNIT_MINUTES[u])));
-			next = { [u]: n } as RespawnInterval;
+			next = { [u]: n } as RecurrenceInterval;
 		}
 		doc.set(p('respawn'), next);
 	}

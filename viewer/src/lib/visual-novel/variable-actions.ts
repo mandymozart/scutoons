@@ -1,6 +1,6 @@
 import type { GameContext } from '$lib/contexts/game.svelte';
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
-import { actionsOf, type VNAction, type VNVariableSetter, type VNVariableAdder, type VNJumpTo, type RespawnInterval } from '@scutoons/content';
+import { actionsOf, type VNAction, type VNVariableSetter, type VNVariableAdder, type VNJumpTo, type RecurrenceInterval } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 type VariableAction = VNVariableSetter | VNVariableAdder | VNJumpTo;
@@ -26,7 +26,7 @@ export function grantStoryItem(
 	variable: string,
 	qty: number,
 	place?: string,
-	options?: { quietWhenNone?: boolean; respawn?: { respawn: RespawnInterval; visit?: string } }
+	options?: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } }
 ): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
 	const inventory = getCurrentInventory();
 	if (!inventory?.item(variable) || qty <= 0) return null;

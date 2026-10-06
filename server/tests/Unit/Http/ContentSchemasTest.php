@@ -116,6 +116,23 @@ final class ContentSchemasTest extends TestCase
         self::assertSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => '{a + 1}']]]]]));
     }
 
+    /** step 3: an event's `if` as an expression and an askText question – a syntax error blocks, a doubt doesn't */
+    public function testExpressionConditionsAndAskText(): void
+    {
+        $schemas = $this->get(ContentSchemas::class);
+        $check = fn(mixed $content) => $schemas->problemsOf(EntityKey::parse('scene:catpope:1:kiosk'), json_decode((string) json_encode($content)));
+        $scene = fn(string $condition, string $question) => ['events' => [
+            ['id' => 'e1', 'type' => 'showMessage', 'if' => ['expr' => $condition], 'params' => ['text' => ['de' => 'Hallo']]],
+            ['id' => 'e2', 'type' => 'askText', 'params' => ['text' => ['de' => $question], 'scope' => 'reader']],
+        ]];
+        self::assertSame([], $check($scene('count("e1") < 3 and not has("cucumber")', 'Wie heißt du, {reader.name}?')));
+        self::assertSame([], $check($scene('coinz > 2', 'Name?')), 'an unknown name is a doubt (a warning in the creator)');
+        self::assertSame([
+            '/events/0/if/expr: expected a value – at 10 (expr:expected-value)',
+            '/events/1/params/text/de: missing `}` – at 5–11 (expr:missing-close)',
+        ], $check($scene('coins > (', 'Und {reader')));
+    }
+
     public function testABrokenExpressionRefusesTheSave(): void
     {
         $user = $this->user('creator@example.com');

@@ -5,6 +5,7 @@ import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
 import type { SliceItemRespawn } from './respawn.ts';
+import type { Repeat } from './recurrence.ts';
 import type { CoverLettering } from './cover.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 import type { SensitiveFlag } from './sensitive.ts';
@@ -327,8 +328,8 @@ export interface SliceItem {
 	qty?: number;
 	/** events: run on tap (no trigger – the tap is the trigger) */
 	events?: VNEvent[];
-	/** events: only the first tap per page view runs them (default true, like a click trigger's `once`) */
-	once?: boolean;
+	/** events: how often a tap runs them (recurrence.ts, like a slice trigger's `repeat`); none = every tap */
+	repeat?: Repeat;
 	/**
 	 * pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without
 	 * one never reappears); `never` = once here even if the item could reappear; an interval = an override within the

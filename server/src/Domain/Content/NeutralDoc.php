@@ -22,6 +22,13 @@ use stdClass;
  */
 final class NeutralDoc
 {
+    /** the texts (locale maps) of an event's params, by event type (@scutoons/content neutral.ts EVENT_TEXT_FIELDS) */
+    private const EVENT_TEXT_FIELDS = [
+        'showMessage' => ['text'],
+        'addChoice' => ['label'],
+        'askText' => ['text', 'placeholder', 'default'],
+    ];
+
     /** Whether a locale map's value is a text: not blank (JS `trim()`), a list when one line isn't blank */
     public static function isText(mixed $value): bool
     {
@@ -200,15 +207,11 @@ final class NeutralDoc
         if (!is_array($events)) return $events;
         return array_map(function (mixed $event) use ($chain) {
             if (!$event instanceof stdClass || !($event->params ?? null) instanceof stdClass) return $event;
-            $field = match ($event->type ?? null) {
-                'showMessage' => 'text',
-                'addChoice' => 'label',
-                default => null,
-            };
-            if ($field === null || !property_exists($event->params, $field)) return $event;
+            $fields = array_values(array_filter(self::EVENT_TEXT_FIELDS[$event->type ?? ''] ?? [], fn (string $f) => property_exists($event->params, $f)));
+            if (!$fields) return $event;
             $copy = clone $event;
             $copy->params = clone $event->params;
-            self::textField($copy->params, $field, $chain);
+            foreach ($fields as $field) self::textField($copy->params, $field, $chain);
             return $copy;
         }, $events);
     }
@@ -232,8 +235,7 @@ final class NeutralDoc
     private static function eventLocales(mixed $event, array &$out): void
     {
         if (!$event instanceof stdClass || !($event->params ?? null) instanceof stdClass) return;
-        if (($event->type ?? null) === 'showMessage') self::addLocales($event->params->text ?? null, $out);
-        elseif (($event->type ?? null) === 'addChoice') self::addLocales($event->params->label ?? null, $out);
+        foreach (self::EVENT_TEXT_FIELDS[$event->type ?? ''] ?? [] as $field) self::addLocales($event->params->{$field} ?? null, $out);
     }
 
     /** @param list<string> $out */

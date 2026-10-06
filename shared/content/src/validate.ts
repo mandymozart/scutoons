@@ -32,10 +32,12 @@ import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
 import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
+import { repeatOf, repeatProblem } from './recurrence.ts';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, ASK_TEXT_SCOPES } from './visual-novel.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
 import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
 import { forEachText, type TextLeafKind } from './neutralize.ts';
-import { analyseText } from './expr/analyse.ts';
+import { analyseExpression, analyseText } from './expr/analyse.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -55,7 +57,20 @@ export const LENGTH_WARNING_RATIO = 1.3;
 
 const values = (e: object) => Object.values(e) as string[];
 const DIALOG_VARIANTS = ['bubble', 'caption', 'narration'];
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable'];
+/** an event id: what the creator assigns (`e` + random letters / digits) or any plain key */
+const EVENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** the old boolean `once` (a trigger's, a placed item's): moved to `repeat` by the migration 2026-10-06-repeat */
+const ONCE_GONE = 'once is replaced by repeat ({ mode: "view" } = once per page view) – stored documents: run the migration 2026-10-06-repeat';
+/** a rule the reader decides from its save game (by the event's id) */
+const needsIds = (rule: unknown) => {
+	const mode = repeatOf(rule).mode;
+	return mode === 'once' || mode === 'interval';
+};
+const repeatWords = (rule: unknown) => {
+	const r = repeatOf(rule);
+	return r.mode === 'once' ? 'once for good' : r.mode === 'interval' ? `every ${JSON.stringify(r.every)}` : r.mode;
+};
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable', 'askText'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -189,7 +204,15 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 		c.error([...path, 'action'], `action must be one of ${SLICE_ITEM_ACTIONS.join(', ')}`);
 	}
 	if (it.qty !== undefined && (!Number.isInteger(it.qty) || it.qty < 1)) c.error([...path, 'qty'], 'qty must be a whole number ≥ 1');
-	if (it.once !== undefined && typeof it.once !== 'boolean') c.error([...path, 'once'], 'once must be true/false');
+	if (it.once !== undefined) c.error([...path, 'once'], ONCE_GONE);
+	if (it.repeat !== undefined) {
+		const problem = repeatProblem(it.repeat);
+		if (problem) c.error([...path, 'repeat'], problem);
+		else if (it.action !== 'events') c.info([...path, 'repeat'], 'repeat only matters for tap events (a pickup reappears by its respawn)');
+		else if (needsIds(it.repeat) && Array.isArray(it.events) && it.events.some((e: any) => !isStr(e?.id) || !e.id)) {
+			c.error([...path, 'repeat'], `"${repeatWords(it.repeat)}" needs the events' ids (the reader's save game remembers them) – the creator assigns them`);
+		}
+	}
 	if (it.respawn !== undefined) {
 		const rule = ctx.itemRespawn && isStr(it.item) ? (ctx.itemRespawn[it.item] ?? null) : undefined;
 		const problem = placementRespawnProblem(it.respawn, rule);
@@ -203,13 +226,19 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	if (it.action === 'events' && !(Array.isArray(it.events) && it.events.length)) c.warn([...path, 'events'], 'the tap runs events, but there are none');
 }
 
-function checkTrigger(c: Collector, trigger: any, path: Path, sample: boolean) {
+function checkTrigger(c: Collector, trigger: any, path: Path, sample: boolean, hasId = true) {
 	if (!isObj(trigger)) {
 		if (!sample) c.error(path, 'trigger is missing');
 		return;
 	}
 	if (!values(Trigger).includes(trigger.type)) c.error([...path, 'type'], `trigger.type must be one of ${values(Trigger).join(', ')}`);
 	if (trigger.mode !== undefined && !values(TriggerMode).includes(trigger.mode)) c.error([...path, 'mode'], 'trigger.mode must be mono or poly');
+	if (trigger.once !== undefined) c.error([...path, 'once'], ONCE_GONE);
+	if (trigger.repeat !== undefined) {
+		const problem = repeatProblem(trigger.repeat);
+		if (problem) c.error([...path, 'repeat'], problem);
+		else if (needsIds(trigger.repeat) && !sample && !hasId) c.error([...path, 'repeat'], `"${repeatWords(trigger.repeat)}" needs the event's id (the reader's save game remembers it) – the creator assigns it`);
+	}
 	if ((trigger.type === Trigger.CLICK || trigger.type === Trigger.HOVER) && sample) {
 		checkRect(c, trigger.rect, [...path, 'rect'], true);
 	} else if (trigger.rect !== undefined) {
@@ -228,8 +257,18 @@ function checkTarget(c: Collector, target: any, path: Path) {
 	}
 }
 
-/** "Only if" on an event: { variable, op, value? } */
-function checkCondition(c: Collector, cond: any, path: Path) {
+/** "Only if" on an event: { variable, op, value? }, or an expression { expr } (EXPRESSIONS.md §3: syntax errors are errors) */
+function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContext) {
+	if (isObj(cond) && cond.expr !== undefined) {
+		if (!isStr(cond.expr) || !cond.expr.trim()) return c.error([...path, 'expr'], 'the condition needs an expression');
+		for (const key of Object.keys(cond)) if (key !== 'expr') c.error([...path, key], 'an expression condition has only expr');
+		const knownNames = ctx.facts ? [...ctx.facts.variables] : undefined;
+		for (const p of analyseExpression(cond.expr, { knownNames }).errors) {
+			const level: Level = EXPR_DOUBTS.has(p.code) ? 'warning' : p.severity;
+			c.add(level, [...path, 'expr'], `the condition: ${p.message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''}`, `expr:${p.code}`);
+		}
+		return;
+	}
 	if (!isObj(cond) || !isStr(cond.variable) || !cond.variable) return c.error([...path, 'variable'], 'the condition needs a variable');
 	if (!CONDITION_OPS.includes(cond.op)) return c.error([...path, 'op'], `the condition's op must be one of ${CONDITION_OPS.join(' ')}`);
 	if (cond.op !== 'set' && cond.op !== 'unset' && (cond.value === undefined || cond.value === '')) c.error([...path, 'value'], 'the condition needs a value to compare with');
@@ -345,6 +384,20 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 					}
 				});
 			break;
+		case 'askText':
+			if (!isObj(p) || !isStr(p.text)) c.error([...pp, 'text'], 'askText needs params.text (the question)');
+			if (isObj(p)) {
+				if (p.character) checkCharacterRef(c, { name: p.character, persona: p.persona }, pp, ctx, 'character');
+				if (p.scope !== undefined && !(ASK_TEXT_SCOPES as readonly string[]).includes(p.scope)) c.error([...pp, 'scope'], `scope must be ${ASK_TEXT_SCOPES.join(' or ')}`);
+				if (p.scope !== 'reader') {
+					if (!isStr(p.variable) || !p.variable) c.error([...pp, 'variable'], 'askText needs the variable the answer goes to');
+					else if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(p.variable)) c.error([...pp, 'variable'], 'a variable name is letters, digits and _ (not starting with a digit)');
+				} else if (p.variable !== undefined) c.info([...pp, 'variable'], "the answer is the reader's name (reader.name) – the variable is not used");
+				if (p.maxLength !== undefined && (!Number.isInteger(p.maxLength) || p.maxLength < 1 || p.maxLength > ASK_TEXT_LIMIT)) c.error([...pp, 'maxLength'], `maxLength is a whole number 1 … ${ASK_TEXT_LIMIT}`);
+				for (const key of ['placeholder', 'default'] as const) if (p[key] !== undefined && !isStr(p[key])) c.error([...pp, key], `${key} must be a text`);
+				if (isStr(p.default) && p.default.trim().length > (p.maxLength ?? ASK_TEXT_MAX_LENGTH)) c.warn([...pp, 'default'], 'the default answer is longer than maxLength');
+			}
+			break;
 		case 'showTextBox':
 			// any text box (e.g. an onomatopoeia) this event reveals (owner 2026-10-03)
 			if (!isObj(p) || !isStr(p.dialog) || !p.dialog) c.error([...pp, 'dialog'], 'showTextBox needs params.dialog (the id of the text box it reveals)');
@@ -358,8 +411,9 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			}
 			break;
 	}
-	if (e.if !== undefined) checkCondition(c, e.if, [...path, 'if']);
-	if (sliceEvent) checkTrigger(c, e.trigger, [...path, 'trigger'], false);
+	if (e.id !== undefined && (!isStr(e.id) || !EVENT_ID.test(e.id))) c.error([...path, 'id'], 'an event id is letters, digits, - and _ (the creator assigns it)');
+	if (e.if !== undefined) checkCondition(c, e.if, [...path, 'if'], ctx);
+	if (sliceEvent) checkTrigger(c, e.trigger, [...path, 'trigger'], false, isStr(e.id) && !!e.id);
 }
 
 /**
@@ -651,6 +705,39 @@ function getIf(groups: any[], path: (string | number)[]): any {
 }
 
 /**
+ * Event ids (agents/EXPRESSIONS.md §5): hidden, stable, unique in the chapter and its scenes – the reader's save game
+ * remembers an event by it (repeat, `resolved(id)` / `count(id)`). The creator assigns them (on load and with every
+ * edit: an event without one gets one, the document is then unsaved); a document stored without them (production
+ * before the step-3 creator) gets one warning until it is saved in the creator. `own(gi)`: the group is this document's
+ * own (a chapter's scenes report their missing ids themselves).
+ */
+function checkEventIds(c: Collector, groups: any[], base: (gi: number) => Path, own: (gi: number) => boolean = () => true) {
+	const seen = new Map<string, string>();
+	let missing = 0;
+	const visit = (list: unknown, at: Path, gi: number, where: string) =>
+		(Array.isArray(list) ? list : []).forEach((e: any, i: number) => {
+			if (!isObj(e)) return;
+			if (!isStr(e.id) || !e.id) {
+				if (own(gi)) missing++;
+				return;
+			}
+			if (seen.has(e.id)) c.error([...at, i, 'id'], `event id "${e.id}" is used twice in this chapter (also ${seen.get(e.id)})`);
+			else seen.set(e.id, where);
+		});
+	groups.forEach((g, gi) => {
+		if (!isObj(g)) return;
+		const gp = base(gi);
+		visit(g.events, [...gp, 'events'], gi, `group ${gi + 1}`);
+		(Array.isArray(g.slices) ? g.slices : []).forEach((s: any, si: number) => {
+			if (!isObj(s)) return;
+			visit(s.events, [...gp, 'slices', si, 'events'], gi, `group ${gi + 1}, slice ${si + 1}`);
+			(Array.isArray(s.items) ? s.items : []).forEach((it: any, ii: number) => isObj(it) && visit(it.events, [...gp, 'slices', si, 'items', ii, 'events'], gi, `group ${gi + 1}, slice ${si + 1}, item ${ii + 1}`));
+		});
+	});
+	if (missing) c.warn([], `${missing} event${missing === 1 ? ' has' : 's have'} no id yet (the reader's save game needs them) – open it in the creator and save: it assigns them`);
+}
+
+/**
  * Text box ids are unique within the chapter, its scenes included (owner 2026-10-06): linked groups share one page, and an
  * showTextBox event reveals a box by its id. The creator assigns fresh ids; this is the safety net.
  */
@@ -719,6 +806,7 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		checkChains(c, resolved);
 		checkReach(c, resolved, ctx.facts);
 		checkDialogIds(c, resolved);
+		checkEventIds(c, resolved, (gi) => ['groups', gi], (gi) => !(isObj(ch.groups[gi]) && ch.groups[gi].ref));
 	}
 }
 
@@ -985,7 +1073,10 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 		return c.problems;
 	}
 	if (kind === 'chapter') checkChapter(c, data, locale, ctx);
-	else if (kind === 'group') checkGroup(c, data, [], ctx);
+	else if (kind === 'group') {
+		checkGroup(c, data, [], ctx);
+		checkEventIds(c, [data], () => []);
+	}
 	else if (kind === 'season') checkSeason(c, data, locale, ctx);
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
@@ -1027,7 +1118,7 @@ function checkTextExpressions(c: Collector, path: Path, text: string, what: stri
 	}
 }
 
-const LEAF_WORD: Record<TextLeafKind, string> = { title: 'title', description: 'description', release: 'release', status: 'status', dialog: 'text', message: 'text', choice: 'label' };
+const LEAF_WORD: Record<TextLeafKind, string> = { title: 'title', description: 'description', release: 'release', status: 'status', dialog: 'text', message: 'text', choice: 'label', hint: 'hint' };
 
 /**
  * The toon entry's own problems (the language-neutral settings) + its texts resolved for the source: an empty title or

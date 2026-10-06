@@ -8,7 +8,8 @@ use stdClass;
 /**
  * Expressions in the texts of a language-neutral chapter / scene document (agents/EXPRESSIONS.md §4, step 2): every text
  * box line (`slices[].dialog[].text`), VN message (`showMessage` `params.text`) and choice label (`addChoice`
- * `params.label`) per language, in the group's script, the slices' events and the placed items' events. Only what
+ * `params.label`), askText question (`params.text`) per language and an event condition's expression (`if.expr`), in the
+ * group's script, the slices' events and the placed items' events. Only what
  * can't work blocks a save: syntax errors and the old clock form `{x:clock}` (no alias – migration 2026-10-06-clock-syntax).
  * What the analyser can only doubt (unknown names / functions, arguments) the creator shows as warnings
  * (@scutoons/content validate.ts `checkTextExpressions`, the same codes).
@@ -57,9 +58,12 @@ final class TextCheck
     private function events(mixed $events, string $path): void
     {
         foreach (is_array($events) ? $events : [] as $e => $event) {
-            if (!$event instanceof stdClass || !($event->params ?? null) instanceof stdClass) continue;
+            if (!$event instanceof stdClass) continue;
+            // an `if` as an expression (the advanced form): a syntax error can't be stored
+            if (($event->if ?? null) instanceof stdClass && is_string($event->if->expr ?? null)) $this->expression($event->if->expr, "$path/$e/if/expr");
+            if (!($event->params ?? null) instanceof stdClass) continue;
             $field = match ($event->type ?? null) {
-                'showMessage' => 'text',
+                'showMessage', 'askText' => 'text',
                 'addChoice' => 'label',
                 default => null,
             };
@@ -76,6 +80,15 @@ final class TextCheck
             $this->text($value, $path);
         }
     }
+    /** an event condition's expression (`if: { expr }`): its blocking problems */
+    private function expression(string $source, string $path): void
+    {
+        foreach (Analyser::analyseExpression($source)['errors'] as $p) {
+            if ($p['severity'] !== 'error' || in_array($p['code'], self::DOUBTS, true)) continue;
+            $this->out[] = "$path: {$p['message']} – at " . ($p['start'] + 1) . ($p['end'] > $p['start'] + 1 ? '–' . $p['end'] : '') . " (expr:{$p['code']})";
+        }
+    }
+
     private function text(mixed $text, string $path): void
     {
         if (is_array($text)) {

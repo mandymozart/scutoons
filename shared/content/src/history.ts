@@ -1,8 +1,9 @@
 // The reader's history (agents/EXPRESSIONS.md §5, DATA.md "Game state"): ONE store in the toon's game state
 // (`scutoons_game_<toon>.history`, synced for members with the variables and the progress) for every "how often / when
-// last" a reader has met something. Step 2: text visits (ink sequences / cycles / once-only lists – `{a|b|c}`); step 3
-// adds events (`resolved(id)` / `count(id)`, repeat modes) and placed items (respawn) under their own key kinds, with the
-// same entry shape. A missing `history` (states from before) is an empty one.
+// last" a reader has met something: text visits (ink sequences / cycles / once-only lists – `{a|b|c}`, step 2) and events
+// (`event:<id>` – slice triggers and placed items' tap events: their repeat rules, `resolved(id)` / `count(id)`; step 3),
+// one entry shape. Placed items' pickups stay in the game variables (`picked:…`, the server's grant is their authority).
+// A missing `history` (states from before) is an empty one.
 
 /** what the reader met: how many times, first and last time (ms since 1970) */
 export interface HistoryEntry {
@@ -11,7 +12,7 @@ export interface HistoryEntry {
 	last: number;
 }
 
-/** key → entry; keys are `<kind>:<identity>` – `text:` (a list in a text), later `event:` / `item:` */
+/** key → entry; keys are `<kind>:<identity>` – `text:` (a list in a text), `event:` (an event by its id) */
 export type ReaderHistory = Record<string, HistoryEntry>;
 
 /** the most entries kept: beyond it the longest-unseen go (~90 bytes each: a game state stays far below the server's 256 KB) */
@@ -24,6 +25,15 @@ export const HISTORY_LIMIT = 1000;
  */
 export function textHistoryKey(doc: string, text: string, list: number): string {
 	return `text:${doc}/${text}#${list}`;
+}
+
+/**
+ * The key of an event (agents/EXPRESSIONS.md §5): its hidden stable id (`VNEvent.id`, unique in the chapter – the
+ * creator's ids carry no chapter, so one toon's history holds them side by side). A slice trigger's or a placed item's
+ * tap counts once per run (repeat rules: recurrence.ts `isDue`); `resolved(id)` / `count(id)` read it.
+ */
+export function eventHistoryKey(id: string): string {
+	return `event:${id}`;
 }
 
 /** a stored history as it can be used: entries with a count, anything else dropped */
