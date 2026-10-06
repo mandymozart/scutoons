@@ -73,9 +73,9 @@ translation by design).
 
 ## Work order (branch `chapter-neutral`, never `main`)
 
-1. Foundation: types, keys, schemas, resolve (TS + PHP), neutralize (TS), library read path + legacy fallback, server
-   validation/schemas/AssetUsages/Reviews/ContentFiles/sandbox/fixtures, conversion script + equivalence check on the
-   2026-10-05 content snapshot.
+1. ~~Foundation~~ done 2026-10-06 (see Phase 1 below): types, keys, schemas, resolve (TS + PHP), neutralize (TS),
+   library read path + legacy fallback, server validation/schemas/AssetUsages/Reviews/ContentFiles, conversion script +
+   equivalence check on the dev DB (sandbox / fixtures stay per locale until phase 2).
 2. Creator: chapter editor (inline groups + scenes), season editor, cover editor, visibility, new chapter / season /
    language, Convert page, MCP tools.
 3. Linked groups (`groups/chains`) merged in; its fields live in the neutral document.
@@ -84,3 +84,95 @@ translation by design).
    name JSON files that no longer exist since the content lives in the database – say what it is today (the document,
    published / draft), shorter and consistent wording, drop unused keys.
 6. Full checks, browser tests creator + viewer.
+
+## Phase 1 "Foundation" – done (2026-10-06, branch `chapter-neutral`)
+
+- **Types / schemas** (`@scutoons/content` `neutral.ts`): `ChapterDoc`, `GroupDoc` (inline group and scene), `SliceDoc`,
+  `DialogDoc` (`text: DialogText` = `Record<locale, string | string[]>`), `VNEventDoc` (showMessage `text`, addChoice
+  `label` as `LocaleText`), `SeasonDoc` (`sequence[].status: LocaleStatus`). Schemas `chapter-doc`, `group-doc`,
+  `season-doc`; the server's save guard and `content:check` use them for a key without locale
+  (`ContentSchemas::NEUTRAL_BY_KIND`), the old schemas for per-locale keys. Served types unchanged. Also typed:
+  showMessage `params.mood`, the legacy `Group.interaction`.
+- **Keys**: chapter / scene / season accept the neutral key and the legacy per-locale key (PHP `EntityKey::parse`,
+  `NEUTRAL_DOC_KINDS`, `isNeutral()` / `isNeutralDoc()`; TS `NEUTRAL_DOC_KINDS`, `isNeutralKey`, `isNeutralDocKey`).
+  `entityKeyFor` is unchanged: every caller (creator doc / labels / nav, MCP) still reads and writes per-locale keys.
+  A four-part `scene:<toon>:<n>:<x>` is a neutral scene named `x` (the legacy form has five parts).
+- **Resolve** (TS `resolveNeutral` / `servedLocale` / `resolveText`, PHP `NeutralDoc`): the same rules, golden fixtures
+  `shared/content/test/fixtures/neutral/*.json` read by `neutral.test.ts` and `NeutralDocTest`.
+- **Neutralize** (TS `neutralizeChapter` / `neutralizeGroup` / `neutralizeSeason` / `neutralizeDocs`), report kinds:
+  `differs` (a neutral field differs; the source wins), `structure` (an array's length or a VN event's type differs:
+  that locale's texts below are not taken), `text-lost` (those texts), `text-missing` (blank / missing in a locale: it
+  shows the source's), `source-missing`.
+- **Library**: `Context::pick` prefers the neutral document, else the per-locale ones (unchanged); scenes likewise, so a
+  neutral chapter with a per-locale scene and the reverse both work; toon bundle, season overview, summaries, chapter
+  gates, `cast?chapter=` read neutral seasons / chapters. `FORMAT` 5. `Library::legacyOnly()` = the answers without
+  neutral documents (another cache key).
+- **Server odds and ends**: reviews need no change (a neutral key belongs to its toon; the mails list "chapter 2"),
+  AssetUsages indexes a neutral key once, AssetLayout reads neutral seasons, interchange layout
+  `<toon>/_/chapter<N>.json`, `<toon>/_/chapter<N>/<scene>.json`, `<toon>/_/season<N>.json`. EntityStore unchanged.
+- **Conversion (local)**: `npm run dev:neutralize [-- --apply]`, check: `npm run dev:db -- console content:neutral-check`.
+
+### Decisions (made overnight, owner to confirm)
+
+1. **Blank = missing.** A text that is empty or whitespace (JS `trim()`; the server matches it) falls back like a missing
+   one (source, then the toon's other languages, then any) – like the cover lettering's `custom` texts. So untranslated
+   en text boxes stored as `""` now show the German text instead of an empty box (chapter 2, below).
+2. **Served locale** of a neutral chapter / season = the asked locale when its `title` has a text there, else source →
+   toon languages → the document's first locale (the legacy path 404s when the only document is in a locale the toon
+   doesn't list; the neutral path serves it). A scene has a locale when any of its texts has it; a scene without any text
+   serves every locale (no fallback flag).
+3. **Chapter `status`** in the chapter answer = the season's status in the *served* locale (what the creator mirrored);
+   left out when no season lists the chapter; never part of the answer's fallback flag.
+4. **Season `sequence[].status`** missing in a locale → the source's (like a text); none at all → no status (= published
+   for the gates, as before).
+5. **`accepted_warnings`**: the union of every locale's list (keys are hashes of per-locale values; the creator phase
+   re-evaluates them on the neutral document).
+6. **Drafts**: the conversion stores a published neutral version from the published per-locale versions and, when a
+   locale has a newer draft (or the entity was never published), a draft neutral version from the newest ones after it.
+7. **Sandbox generator, server test fixtures, MCP tools stay per locale** for now (they exercise the legacy path; the
+   creator still edits per-locale documents) – switched together with the creator (phase 2).
+8. Numbers: a stored `1.0` comes back as `1` from the conversion (JSON.stringify) – the same value for every reader.
+
+## Conversion 2026-10-06 (dev DB)
+
+Dev DB `scutoons` (production dump reloaded by the coordinator on 2026-10-06, 192 entity versions). Per-locale documents
+exist for catpope only (toptoy and yellowmouse have none): 6 chapters (0–5), 6 scenes of chapter 2 (scene-7 never
+published), season 1, each de + en. `npm run dev:neutralize -- --apply` stored 17 new versions (ids 193–209: 13
+published + 4 drafts for entities whose newest per-locale versions are drafts – chapter 2, scenes 14, 17, 18 – and
+scene-7 as a draft only); a second run stores nothing. 524 reported differences (source de wins):
+
+| Entity | Report |
+|---|---|
+| chapter 1 | **70 text boxes styled differently in en**: the en boxes carry `mask: true` + `maskShape` + `pad` (the deprecated cover for lettering baked into old art) and a tuned `size` 4.04–4.15 instead of 4; 11 boxes `variant` bubble (en) vs caption (de), 5 `frame`, 2 `uppercase`; de sets `align` / `valign` / `font` explicitly where en uses the defaults |
+| chapter 2 (published + draft) | 9 en text boxes are `""` (group "scene-17-24": narration and captions untranslated, one de placeholder `dfsfsdf…`) → en shows the German text |
+| scene-14 (published) | 2 en VN messages are `""` (the cucumber hint) → German; `events.0.params.wait: true` only in de (kept) |
+| scenes 14–18 | `interaction: "visual-novel"` only in en → dropped (nothing reads it) |
+| season 1 | deprecated `credits.music` / `credits.sound`: de "Nova Lux", en "Nova Ludwig" → "Nova Lux" (the viewer never rendered season credits) |
+
+**For the owner (source-wins is implemented):** the chapter 1 en text-box styling. The art is shared (no per-locale
+`image` anywhere) and text-free since 2026-10-03, so the en masks look obsolete – but the en `size` / `variant` tuning
+changes how chapter 1 looks in English. And the 9 + 2 untranslated en texts in chapter 2 now show German. No per-locale
+slice images, no per-locale covers, no structural mismatches (every array lined up by index).
+
+**Equivalence check** (`content:neutral-check`: de / en / fr × toon bundle, season 1, chapters 0–5, + cast per chapter,
+published and draft mode = 60 answers): 53 identical (served locale, fallback flag, missing references, 403/404
+refusals, bodies); 7 differ, every difference explained by the report: published + draft chapter 1 en (the text-box
+styling: 493 leaf differences in size / mask / maskShape / pad / align / valign / font / variant / frame / uppercase),
+published + draft toon bundle en and season 1 en (season `credits`), draft chapter 2 en (3 × `interaction`, 9 blank
+texts → German). Nothing to fix.
+
+Pre-existing (not from the conversion): the published scene-14 versions (de #127, en #128 – and so the neutral #201)
+don't fit the group schema (an `addChoice` jumpTo `value` is a number; an `end` event type); the newer drafts are fine.
+`content:check` reports it.
+
+### Open for the creator phase
+
+- After a conversion the creator still edits the per-locale documents while the reader and the creator's draft preview
+  show the neutral ones: per-locale edits are shadowed. Production must not be converted before phase 2 ships.
+- Creator: one `ContentDoc` per neutral entity, the Convert page (dry run per toon = the `neutralizeDocs` report, then
+  save + publish), new chapter / season / language, validation of neutral documents (`validateFile` /
+  `validateLocales` work on per-locale documents today: resolve per locale + check, plus per-locale completeness).
+- MCP tools (`tools/mcp/src/server.ts`) read / write per-locale keys (`entityKeyFor`): switch with the creator.
+- Sandbox generator (`make-sandbox.ts`) and `server/tests/fixtures/content` → neutral documents.
+- Once production is converted: remove the legacy per-locale path (library fallback, per-locale schemas of these kinds,
+  the write path) – a CUTOVER follow-up.

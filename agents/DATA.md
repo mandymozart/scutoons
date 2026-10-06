@@ -17,9 +17,9 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
 | language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) | DB entity `toon:<toon>` (the same entry) | creator (toon settings, "Same in every language") |
 | toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
-| season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>:<l>` | creator (season page) |
-| chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>:<l>` | creator |
-| VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
+| season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>` (language-neutral, texts as locale maps); legacy `season:<toon>:<n>:<l>` | creator (season page) |
+| chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>` (language-neutral); legacy `chapter:<toon>:<n>:<l>` | creator |
+| VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>` (language-neutral); legacy `scene:<toon>:<chapter>:<name>:<l>` | creator |
 | the world map (places, routes, layers; names `{ de, en }`; unlock points) | DB `map` (platform-wide, language-neutral; agents/MAP.md §8) | creator (Universe → Map; a slice's "unlocks place" in the chapter editor) |
 | old per-toon map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` – read-only since `map`, removed from the seed after one release | – |
 | cast per season | DB `cast:<toon>` | creator (cast page) |
@@ -49,7 +49,8 @@ every read is "one entity (+ its children) of one toon in one locale"; compositi
 
 ```
 toon:<toon>                              index entry            toon-settings:<toon>:<l>      settings
-season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>
+season:<toon>:<n>                        chapter:<toon>:<n>      scene:<toon>:<chapter>:<name>   (language-neutral)
+season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>  (legacy per locale)
 locations:<toon>:<l>   routes:<toon>:<l>  cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
 characters   moods   asset-requests   people   roles   events   map    (platform-wide)
 ```
@@ -61,6 +62,16 @@ columns for filtering (NULL = platform-wide / language-neutral). A chapter group
 format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:scene-14` (`sceneEntityOfRef`,
 `EntityKey::sceneOf`). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
 endpoint and the season overview pass it through; the `/cast` answer always has the toon's star in every season.
+
+**Language-neutral chapters, scenes, seasons (2026-10-06, agents/NEUTRAL.md):** one document per entity, stored under
+the entity itself (`chapter:catpope:2`, `EntityKey::NEUTRAL_DOC_KINDS` / `NEUTRAL_DOC_KINDS`, `isNeutralDocKey`;
+`locale` column NULL). Structure once; every text leaf is a locale map – chapter `title` / `description` / `release`,
+text box `text` (`{ de: string | string[] }`), VN `showMessage.params.text` / `addChoice.params.label`, season `title` /
+`description` / `release` / `sequence[].status`. No `language`, no chapter `status`. Types `ChapterDoc` / `GroupDoc` /
+`SeasonDoc` (`neutral.ts`), schemas `chapter-doc` / `group-doc` / `season-doc` (the save guard picks them for a key
+without locale, `ContentSchemas::NEUTRAL_BY_KIND`). The per-locale keys stay valid (legacy) until production is
+converted; the library prefers a neutral document and falls back to them per entity (§3). The interchange layout puts
+neutral documents in `<toon>/_/chapter<N>.json`, `<toon>/_/chapter<N>/<scene>.json`, `<toon>/_/season<N>.json`.
 
 **Season downloads and supporters (2026-09-30, owner):** the music album belongs to its season: `Season.download
 { music?, complete? }` (was `Toon.download`, removed from the type/schema; a leftover `download` in toon settings is only
@@ -213,6 +224,14 @@ locales differ; not a boolean = error). Readers with "Hide sensitive content" on
 (credits, referenced people, roles) · `/library/characters` (whole registry, avatar bodies) · `/library/map?locale=&toon=`
 (the world map, agents/MAP.md) · `/api/events/`.
 - Locale `?locale=`, per-document fallback to the source language (`Content-Language`, `X-Content-Fallback`).
+- Chapters, scenes, seasons (2026-10-06): a language-neutral document wins (`Context::pick` → `NeutralDoc::resolve`, the
+  same rules as `resolveNeutral` in `@scutoons/content`, golden fixtures `shared/content/test/fixtures/neutral/`); the
+  answer keeps the per-locale shape (`language` = served locale, a chapter's `status` = its season status in that
+  locale). Served locale: the asked one when the document has it (chapter / season: a `title` in it; scene: any text;
+  no text at all = every locale), else the source, else the toon's other languages; a text missing or blank in it falls
+  back the same way. Without a neutral document the per-locale ones are read as before. Mixed works both ways (neutral
+  chapter + per-locale scene and back). `Library::FORMAT` 5. `content:neutral-check` compares every answer with the
+  legacy one (`Library::legacyOnly()`).
 - Visibility on the server (the viewer's rules): `403 coming_soon { chapter }`, `403 not_public`, draft toon `404`;
   `CONTENT_SHOW_DRAFTS=1` locally. `?draft=1` (role creator) = newest versions, no gates, `private, no-store`.
 - `Cache-Control: public, max-age=60` + `ETag`/304; server cache (APCu, else `storage/cache/library/`) keyed by the
@@ -227,7 +246,8 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
   the schemas are generated from the TS types – `npm run schema -w @scutoons/content` writes shared/content/schema/ and
   the server's copy server/schema/content/, `npm run check` fails when either is stale) → `422 invalid_content
   { problems: ["/0/city: …"] }`. Extra fields are allowed; `locations` / `routes` (old map) are not checked.
-  `php bin/console content:check [--db] [--kind]` checks what is stored (newest + published per key). Restore and
+  `php bin/console content:check [--db] [--kind]` checks what is stored (newest + published per key; neutral
+  chapters / scenes / seasons against their neutral schemas). Restore and
   the seed import are not guarded. The first run fixed stale types (narration `showMessage` without `character`,
   `RefLink { src }`, optional audio trigger `rect`/`gate`/`exclusive`, `keyvisual` as a plain path).
 
@@ -239,6 +259,9 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
 - `php server/bin/console import-content <dir> [--toon=] [--only=<kinds>] [--update] [--sql]` – idempotent; `--sql`
   prints guarded INSERTs into `entity_versions` (dev-only `sandbox` left out).
 - `export-content <dir> [--toon] [--draft]` writes the store back into the layout (backup, diff).
+- `npm run dev:neutralize [-- --apply] [--toon x] [--json file]` (local dev only): per-locale chapters / scenes /
+  seasons → neutral documents with `neutralizeDocs` (report of what the source locale overrode); new versions only,
+  idempotent. Production converts from the creator's Convert page (NEUTRAL.md, phase 2).
 - The sandbox toon (dev only): `make-sandbox.ts` reads characters + moods from the local DB, writes `logs/dev/sandbox`
   and imports it (`npm run dev:db sandbox`).
 

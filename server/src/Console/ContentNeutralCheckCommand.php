@@ -43,15 +43,16 @@ final class ContentNeutralCheckCommand extends Command
         $limit = max(1, (int) $input->getOption('limit'));
         $legacy = $this->library->legacyOnly();
         $rows = $this->db->all("SELECT DISTINCT entity_key FROM entity_versions WHERE kind IN ('toon', 'chapter', 'season') ORDER BY entity_key");
+        /** @var array<string, array{neutral: bool, numbers: array<string, array<int, true>>, locales: array<string, true>}> $toons */
         $toons = [];
         foreach ($rows as $row) {
             $key = (string) $row['entity_key'];
             if (!EntityKey::isValid($key)) continue;
             $ref = EntityKey::parse($key);
             if ($ref->toon === null || (is_string($only) && $ref->toon !== $only)) continue;
-            $toons[$ref->toon] ??= ['neutral' => false, 'chapter' => [], 'season' => [], 'locales' => []];
+            $toons[$ref->toon] ??= ['neutral' => false, 'numbers' => ['chapter' => [], 'season' => []], 'locales' => []];
             if ($ref->kind === 'toon') continue;
-            $toons[$ref->toon][$ref->kind][(int) $ref->number] = true;
+            $toons[$ref->toon]['numbers'][$ref->kind][(int) $ref->number] = true;
             if ($ref->isNeutralDoc()) $toons[$ref->toon]['neutral'] = true;
             if ($ref->locale !== null) $toons[$ref->toon]['locales'][$ref->locale] = true;
         }
@@ -61,12 +62,12 @@ final class ContentNeutralCheckCommand extends Command
                 $output->writeln("$toon: no neutral documents – skipped");
                 continue;
             }
-            $locales = array_keys($info['locales']);
+            $locales = array_map('strval', array_keys($info['locales']));
             sort($locales);
             $locales[] = self::FOREIGN_LOCALE;
-            $chapters = array_keys($info['chapter']);
+            $chapters = array_keys($info['numbers']['chapter']);
             sort($chapters);
-            $seasons = array_keys($info['season']);
+            $seasons = array_keys($info['numbers']['season']);
             sort($seasons);
             foreach ([false, true] as $draft) {
                 $mode = $draft ? 'draft' : 'published';
