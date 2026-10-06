@@ -496,6 +496,20 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       season level too). The creator title is what gives way (owner: "the creator title can go"). _(with M.6 – E.2)_
 - [ ] M.15 **Investigate: some slices look poor even at 2x and high quality** – where is it lost: the upload /
       resize pipeline, compression settings, which size variant the reader serves, or CSS scaling.
+      **Findings 2026-10-07** (the dev DB = the production seed, its asset registry, the code):
+      1. **The files aren't there (the main loss).** No slice has a 3x file; catpope ch1 (95 slices) has no 2x either
+         (only ch2's scenes 14 / 17 / 18 have 2x). The registry has one 390 px "original" per ch1 slice (s1c1-slice-1:
+         9.5 KB) – nothing larger exists anywhere. The reader falls back down (pickQualityVariant): "High" on a 3x phone
+         gets the 390 px file, upscaled 3×. **Fix = content:** re-export from the masters at 1170 px (3x) and drop them
+         on "Import slices" (it makes 1x / 2x / 3x from a 3x file, replacing the slice's image, texts stay).
+      2. **The level ignores the screen.** low / medium / high = 1x / 2x / 3x by bandwidth only; a 2x laptop showing
+         the 500 px reading column needs ~1000 px – the 2x file (780 px) is upscaled 1.28× even on "Medium". Proposal:
+         Automatic picks at least the screen's density (devicePixelRatio × the column's width) when the bandwidth allows.
+      3. **The encoder.** The browser's WebP (canvas.toBlob, quality 0.88, media-upload.ts) always subsamples colour
+         4:2:0 – crisp coloured line art (red / cyan on black) smears a little. Proposal: quality 0.92, or the server
+         encodes with libwebp `-sharp_yuv` (the asset jobs) – compare on one slice first.
+      4. CSS: `.slice img { width: 100% }` in a ≤ 500 px column – no extra scaling beyond 1. / 2.
+      **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
 ## Done
 
 - [x] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
