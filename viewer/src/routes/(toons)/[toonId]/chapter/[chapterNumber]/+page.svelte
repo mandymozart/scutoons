@@ -12,7 +12,7 @@
 	import type { PageProps } from './$types.js';
 	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
-	import { tick } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
@@ -63,10 +63,18 @@
 	const pageVn = $derived(!!chain?.groups.some((linked) => hasVisualNovel(linked.group)));
 
 	// `?label=` of a group further down a chain: the chain from its top, scrolled to that group (instant) – on arrival
-	// only (not on "Nochmal", not on back / forward: the browser restores the place). Kept aligned while the page above
-	// settles (a strip measures its sideways travel after it mounted, images load) until the reader scrolls themselves.
+	// only (not on "Nochmal", not on back / forward: the browser restores the place). On a full page load too: the page
+	// may not be there yet when the navigation ends (the membership check, the chain's groups mount) – it waits for the
+	// group's first slice (up to WAIT_MS). Kept aligned while the page above settles (a strip measures its sideways
+	// travel after it mounted, images load) until the reader scrolls themselves.
 	const SETTLE_MS = 2000;
+	const WAIT_MS = 10000;
+	/** stops the current arrival (a new navigation, the page closing, the reader's own scrolling) */
+	let arrival: (() => void) | null = null;
+	onDestroy(() => arrival?.());
 	afterNavigate(async ({ type, from, to }) => {
+		arrival?.();
+		arrival = null;
 		if (type === 'popstate') return;
 		// a jump (a script, a choice, an end) to the very page the reader is on: it starts again, like "Nochmal"
 		if (type === 'goto' && from?.url.href === to?.url.href) replays++;
@@ -74,27 +82,49 @@
 		if (!c || c.at === c.start) return;
 		const offset = c.groups[c.at - c.start].offset;
 		await tick();
-		const view = document.querySelector('.chapter-view');
+		arrival = arriveAt(offset);
+	});
+	function arriveAt(offset: number): () => void {
+		const target = () => document.querySelector(`.chapter-view [data-slice-index="${offset}"]`);
 		const align = () => {
-			const el = view?.querySelector(`[data-slice-index="${offset}"]`);
+			const el = target();
 			if (!el) return;
 			// a strip's slice sits in its pinned track: its section's top is the group's top
 			const top = (el.closest('.strip') ?? el).getBoundingClientRect().top;
 			if (Math.abs(top) >= 1) window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });
 		};
-		align();
-		if (!view || typeof ResizeObserver === 'undefined') return;
-		const observer = new ResizeObserver(align);
-		observer.observe(view);
+		let observer: ResizeObserver | null = null;
+		let frame = 0;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let done = false;
 		const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
 		const stop = () => {
-			observer.disconnect();
+			done = true;
+			cancelAnimationFrame(frame);
+			observer?.disconnect();
 			clearTimeout(timer);
 			for (const name of events) window.removeEventListener(name, stop, true);
 		};
-		const timer = setTimeout(stop, SETTLE_MS);
 		for (const name of events) window.addEventListener(name, stop, { capture: true, passive: true });
-	});
+		const settle = () => {
+			align();
+			const view = document.querySelector('.chapter-view');
+			if (view && typeof ResizeObserver !== 'undefined') {
+				observer = new ResizeObserver(align);
+				observer.observe(view);
+			}
+			timer = setTimeout(stop, SETTLE_MS);
+		};
+		const until = Date.now() + WAIT_MS;
+		const wait = () => {
+			if (done) return;
+			if (target()) return settle();
+			if (Date.now() > until) return stop();
+			frame = requestAnimationFrame(wait);
+		};
+		wait();
+		return stop;
+	}
 
 	// reading progress for the toon page's start button: how far into the chapter (all its groups' slices), finished at
 	// the last slice of its last group (agents/DESIGN.md "Start button")

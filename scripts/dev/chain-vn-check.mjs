@@ -219,6 +219,9 @@ try {
 	await send('Page.navigate', { url: `${VIEWER}/sandbox/chapter/8?label=vn-chain-b` });
 	s = await until(`(() => { const s = ${STATE}; return s.text === 'B-trigger' || s.text === 'B1' ? s : null; })()`, 15000);
 	check(s, `deep link to B: B's story starts (${s?.text})`, JSON.stringify(await state()));
+	// a FULL page load scrolls to B too (the page may mount after the navigation ended: it waits for B's first slice)
+	const atB = await until(`(() => { const el = document.querySelector('.chapter-view [data-slice-index="2"]'); if (!el) return null; const top = Math.round(el.getBoundingClientRect().top); return Math.abs(top) <= 1 && scrollY > 0 ? { top, y: Math.round(scrollY) } : null; })()`, 5000);
+	check(atB, `deep link (full load): B's first slice at the top (${JSON.stringify(atB)})`);
 	const sawA = await js(`[...document.querySelectorAll('.vn-message .text')].some((t) => /^A[12]$/.test(t.innerText.trim()))`);
 	check(!sawA, 'script A (above) does not run');
 	check((await state()).box, "A's text box is shown as plain content");
