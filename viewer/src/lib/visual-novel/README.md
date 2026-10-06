@@ -24,7 +24,9 @@ code. It gets `navigate` passed in, so the logic stays out of the views.
 - `if { variable, op, value }` on any event – the event is skipped when the test fails (`testCondition`).
 - `setVariable { variable, value, op: set | add }`.
 - `jumpTo` – navigation only: another group / chapter; `target.anyOf` = a random group label, never the current one.
-- Text: `{variable}`, `{variable:clock}` (minutes since midnight → 5:30).
+- Text (messages, choice labels, text boxes): ink's inline syntax – `{coins}`, `{coins == 1: coin|coins}`, `{a|b|c}`,
+  `{clock(t)}` (minutes since midnight → 5:30), reader state `{map.total}` … (agents/EXPRESSIONS.md; the resolver:
+  `lib/expressions/`).
 
-Pure helpers: `@scutoons/content` `vn-script.ts`. Utilities here: `jump-to.ts` (`buildJumpToUrl`), `utils.ts`
-(`interpolateVariables`), `variable-actions.ts` (`executeVariableAction`, `runChoiceActions`).
+Pure helpers: `@scutoons/content` `vn-script.ts`. Utilities here: `jump-to.ts` (`buildJumpToUrl`),
+`variable-actions.ts` (`executeVariableAction`, `runChoiceActions`).

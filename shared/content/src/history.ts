@@ -14,8 +14,8 @@ export interface HistoryEntry {
 /** key → entry; keys are `<kind>:<identity>` – `text:` (a list in a text), later `event:` / `item:` */
 export type ReaderHistory = Record<string, HistoryEntry>;
 
-/** the most entries kept: beyond it the longest-unseen go (a game state stays far below the server's size limit) */
-export const HISTORY_LIMIT = 2000;
+/** the most entries kept: beyond it the longest-unseen go (~90 bytes each: a game state stays far below the server's 256 KB) */
+export const HISTORY_LIMIT = 1000;
 
 /**
  * The key of one list (`{a|b|c}`, its `index` in the text) of one text: `doc` = the document (`chapter:<toon>:<n>`, a

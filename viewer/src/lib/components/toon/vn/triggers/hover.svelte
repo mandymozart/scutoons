@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import type { VNSliceEvent, VNEvent } from '@scutoons/content';
 	import { EventProcessor } from '$lib/visual-novel/event-processor.ts';
+	import { shortHash } from '$lib/expressions/resolver.svelte.ts';
 	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { getGameContext } from '$lib/contexts/game.svelte';
@@ -40,7 +41,7 @@
 		if (!triggerElement?.parentElement) return;
 		if (!isWithinRect(e, triggerElement.parentElement)) return;
 
-		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group);
+		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group, `on/${shortHash(JSON.stringify(events[0].trigger))}`);
 		running = true;
 		// marked before the run (it can wait for the reader a long time)
 		if (once) triggered = true;

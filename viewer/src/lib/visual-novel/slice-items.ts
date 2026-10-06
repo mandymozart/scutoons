@@ -96,5 +96,5 @@ export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceIt
 
 /** Runs a placement's tap events; resolves to a URL when one of them jumps. */
 export function runSliceItemEvents(item: SliceItem, game: GameContext, vn: VisualNovelContext, group?: GroupScript): Promise<string | null> {
-	return new EventProcessor((item.events ?? []) as VNEvent[], game, vn, group).run();
+	return new EventProcessor((item.events ?? []) as VNEvent[], game, vn, group, `item/${item.id}`).run();
 }

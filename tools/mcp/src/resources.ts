@@ -165,7 +165,7 @@ export const RULES: RuleResource[] = [
 				'actions first, then a `jumpTo` (navigates) or a `divert { to }` (continues the waiting script).',
 				'',
 				'### Helpers (shared/content/src/vn-script.ts)',
-				...['function testCondition', 'function scriptLabels', 'function pickJumpLabel', 'function formatClock', 'function interpolateText']
+				...['function testCondition', 'function scriptLabels', 'function pickJumpLabel', 'function formatClock']
 					.map((d) => `- \`${d.replace('function ', '')}\`: ${docComment('shared/content/src/vn-script.ts', d).replace(/\n/g, ' ')}`),
 				'',
 				'### Types (shared/content/src/visual-novel.ts)',

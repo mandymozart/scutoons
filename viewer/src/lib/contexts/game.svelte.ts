@@ -1,5 +1,5 @@
-import type { Checkpoint } from '@scutoons/content';
-import { advanceCheckpoint, chapterCheckpointUri } from '@scutoons/content';
+import type { Checkpoint, ReaderHistory } from '@scutoons/content';
+import { advanceCheckpoint, chapterCheckpointUri, historyCount, normalizeHistory, recordHistory } from '@scutoons/content';
 import { setContext, getContext, onDestroy } from 'svelte';
 import { fetchProgress, putProgress } from '$lib/api.ts';
 import { getCurrentSession } from './session.svelte.ts';
@@ -12,6 +12,8 @@ interface GameState {
 	toonId: string;
 	variables: Record<string, string | number>;
 	progress: Checkpoint[];
+	/** what the reader met and how often (text visits; events + items in step 3) – @scutoons/content history.ts; older states: none = empty */
+	history: ReaderHistory;
 	created_at: string;
 	updated_at: string;
 }
@@ -27,6 +29,7 @@ export function createGameContext(toonId: string) {
 		toonId,
 		variables: {},
 		progress: [],
+		history: {},
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString()
 	});
@@ -41,6 +44,7 @@ export function createGameContext(toonId: string) {
 			const parsed = JSON.parse(saved);
 			state.variables = parsed.variables || {};
 			state.progress = Array.isArray(parsed.progress) ? parsed.progress : [];
+			state.history = normalizeHistory(parsed.history);
 			state.created_at = parsed.created_at || state.created_at;
 			state.updated_at = parsed.updated_at || state.updated_at;
 		} catch (error) {
@@ -80,6 +84,7 @@ export function createGameContext(toonId: string) {
 	function applyRemote(remoteState: any, remoteTime: number) {
 		state.variables = remoteState.variables || {};
 		state.progress = Array.isArray(remoteState.progress) ? remoteState.progress : [];
+		state.history = normalizeHistory(remoteState.history);
 		state.created_at = remoteState.created_at || state.created_at;
 		state.updated_at = new Date(remoteTime).toISOString();
 		localStorage.setItem(storageKey, JSON.stringify(state));
@@ -104,7 +109,7 @@ export function createGameContext(toonId: string) {
 			const remote = await fetchProgress(toonId).catch(() => null);
 			const remoteState = remote?.state;
 			const remoteTime = toMillis(remote?.updated_at ?? remoteState?.updated_at);
-			const localHasData = Object.keys(state.variables).length > 0 || state.progress.length > 0;
+			const localHasData = Object.keys(state.variables).length > 0 || state.progress.length > 0 || Object.keys(state.history).length > 0;
 			// a device that never saved anything always takes the account state
 			const localTime = localHasData ? toMillis(state.updated_at) : 0;
 
@@ -185,11 +190,23 @@ export function createGameContext(toonId: string) {
 		saveState();
 	}
 
+	/** how many times the reader met `key` (the history, @scutoons/content history.ts) */
+	function visits(key: string): number {
+		return historyCount(state.history, key);
+	}
+
+	/** one more time for `key` (stored + synced like the variables) */
+	function recordVisit(key: string): void {
+		recordHistory(state.history, key, Date.now());
+		saveState();
+	}
+
 	function clear() {
 		if (typeof localStorage === 'undefined') return;
 		localStorage.removeItem(storageKey);
 		state.variables = {};
 		state.progress = [];
+		state.history = {};
 	}
 
 	loadState();
@@ -213,6 +230,8 @@ export function createGameContext(toonId: string) {
 		addCheckpoint,
 		completeCheckpoint,
 		readChapter,
+		visits,
+		recordVisit,
 		clear,
 		sync,
 		destroy

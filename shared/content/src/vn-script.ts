@@ -58,18 +58,8 @@ export function pickJumpLabel(anyOf: readonly string[] | null | undefined, curre
 	return from[Math.min(from.length - 1, Math.floor(random() * from.length))];
 }
 
-/** minutes since midnight as a clock: 330 → "5:30", 1445 → "0:05" */
+/** minutes since midnight as a clock: 330 → "5:30", 1445 → "0:05" (texts: `{clock(t)}`, the expression registry) */
 export function formatClock(minutes: number): string {
 	const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
 	return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
-}
-
-/** `{variable}` → its value, `{variable:clock}` → minutes as a clock; unknown variables stay as written */
-export function interpolateText(text: string, get: (variable: string) => Value): string {
-	return String(text ?? '').replace(/{(\w+)(?::(clock))?}/g, (match, name: string, format?: string) => {
-		const value = get(name);
-		if (value === undefined || value === null) return match;
-		if (format === 'clock' && Number.isFinite(Number(value))) return formatClock(Number(value));
-		return String(value);
-	});
 }

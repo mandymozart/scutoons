@@ -15,6 +15,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { audioPlayer } from '$lib/actions/audio/index.ts';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
+	import { getReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 	import Samples from './audio/samples.svelte';
 	import Triggers from './vn/triggers.svelte';
 
@@ -85,6 +86,8 @@
 	const EAGER_SLICES = 2;
 	// chapter files are loaded per locale, so the UI locale is the language of the text
 	const lang = getLocale();
+	// `{…}` in the text boxes, answered for this reader (agents/EXPRESSIONS.md); visits counted once per page view
+	const expressions = getReaderExpressions()?.textBoxes;
 
 	// placed items (Slice.items): icons from the item catalog; a tap does what the creator chose (lib/visual-novel/slice-items.ts)
 	const game = getGameContext();
@@ -161,6 +164,7 @@
 	onitemtap={onItemTap}
 	{dialogHidden}
 	{dialogPlay}
+	{expressions}
 	{blurred}
 	{@attach fromAction(sliceAudio, () => ({
 		events: audioEvents,

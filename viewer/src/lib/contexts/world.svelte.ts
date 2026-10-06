@@ -157,8 +157,10 @@ export function createWorldContext(session: SessionContext | null) {
 	// ── slice unlocks: the reading tracker reports every slice passed; the map's places (loaded when the browser is idle,
 	// `toon/map/map.svelte`) say which slice unlocks which place. Slices seen before they arrived wait here (this visit). ──
 
-	type UnlockRules = readonly Pick<MapPlace, 'id' | 'hidden' | 'unlock'>[];
+	type UnlockRules = readonly (Pick<MapPlace, 'id' | 'hidden' | 'unlock'> & { name?: string })[];
 	let rules: UnlockRules | null = null;
+	/** the world's places with their names (the reader's language) once the map data is there – texts read `map.total` / `map.here` */
+	let places = $state<readonly { id: string; name?: string }[] | null>(null);
 	const waiting: { toon: string; chapter: number; image: string }[] = [];
 
 	/** A slice of a toon's chapter was seen: unlock the places it unlocks; returns the ids that were new */
@@ -171,10 +173,11 @@ export function createWorldContext(session: SessionContext | null) {
 		return unlock(placesForSlice(rules, toon, chapter, image));
 	}
 
-	/** The world's places (with their `unlock`), set once the map data is loaded */
-	function setUnlockRules(places: UnlockRules) {
-		rules = places;
-		const ids = waiting.splice(0).flatMap((s) => placesForSlice(places, s.toon, s.chapter, s.image));
+	/** The world's places (with their `unlock` and name), set once the map data is loaded */
+	function setUnlockRules(loaded: UnlockRules) {
+		rules = loaded;
+		places = loaded.map((p) => ({ id: p.id, name: typeof p.name === 'string' ? p.name : undefined }));
+		const ids = waiting.splice(0).flatMap((s) => placesForSlice(loaded, s.toon, s.chapter, s.image));
 		if (ids.length) unlock(ids);
 	}
 
@@ -183,6 +186,10 @@ export function createWorldContext(session: SessionContext | null) {
 	return {
 		get map() {
 			return state.map;
+		},
+		/** the world's places (id + name) once the map data is loaded, else null */
+		get places() {
+			return places;
 		},
 		/** a place unlocked and not seen on the opened map yet (the toggle's badge) */
 		get hasNew() {

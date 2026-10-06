@@ -21,7 +21,9 @@ export class EventProcessor {
 		private events: VNEvent[] | undefined,
 		private game: GameContext,
 		private vn: VisualNovelContext,
-		private group?: GroupScript
+		private group?: GroupScript,
+		/** where the events are (a slice trigger, a placed item): their texts' identity for visits (runner `origin`) */
+		private origin = 'events'
 	) {}
 
 	async run(): Promise<string | null> {
@@ -58,7 +60,8 @@ export class EventProcessor {
 				game: this.game,
 				navigate: (to) => (url = to),
 				currentLabel: () => label,
-				scope: this.group?.scope ?? ''
+				scope: this.group?.scope ?? '',
+				origin: divert ? 'script' : this.origin
 			});
 			if (result === 'done') this.vn.endOfEvents();
 		} finally {

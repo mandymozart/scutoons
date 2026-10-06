@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TextBoxEffect, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
-	import type { DialogPlay } from '../types.ts';
+	import { TextBoxEffect, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
+	import type { DialogPlay, TextExpressions } from '../types.ts';
 	import { wobblyPath } from './wobbly.ts';
 	import EffectNone from '../effects/effect-none.svelte';
 	import EffectShiver from '../effects/effect-shiver.svelte';
@@ -10,9 +10,10 @@
 
 	/**
 	 * One text box. `play` = a showTextBox event is revealing it right now (`params.dialog`): the box appears with the
-	 * event's effect / delay / duration and stays.
+	 * event's effect / delay / duration and stays. `expressions`: its `{…}` are evaluated for the reader (live: a value
+	 * that changes re-renders the text) in the text's language `lang`; none = the text as written.
 	 */
-	let { dialog, play }: { dialog: Dialog; play?: DialogPlay | null } = $props();
+	let { dialog, play, expressions, lang }: { dialog: Dialog; play?: DialogPlay | null; expressions?: TextExpressions; lang?: string } = $props();
 
 	const EFFECTS = {
 		[TextBoxEffect.NONE]: EffectNone,
@@ -39,7 +40,22 @@
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
 	const align = $derived(dialog.align ?? (boxed ? 'left' : 'center'));
 	const valign = $derived(dialog.valign ?? 'middle');
-	const lines = $derived(Array.isArray(dialog.text) ? dialog.text : [dialog.text]);
+	const written = $derived(Array.isArray(dialog.text) ? dialog.text : [dialog.text]);
+	/** a line's identity for the reader's visits (sequences, cycles, once-only) */
+	const textId = (index: number) => `${dialog.id ?? ''}/${index}`;
+	const evaluated = $derived(
+		written.map((line, index) => {
+			const resolver = expressions?.resolver(textId(index), lang);
+			return resolver ? evaluateText(line, resolver) : { text: String(line ?? ''), visited: [] as number[] };
+		})
+	);
+	const lines = $derived(evaluated.map((line) => line.text));
+	// the lists a line showed: the app counts the visit (once per page view)
+	$effect(() => {
+		evaluated.forEach((line, index) => {
+			if (line.visited.length) expressions?.shown?.(textId(index), line.visited);
+		});
+	});
 	const hasHeight = $derived(dialog.rect.height !== undefined);
 	const maskColor = $derived(dialog.mask === true ? '#ffffff' : dialog.mask || null);
 

@@ -1,8 +1,8 @@
-import { labelIndex, testCondition, type VNEvent } from '@scutoons/content';
+import { evaluateText, labelIndex, testCondition, type VNEvent } from '@scutoons/content';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { buildJumpToUrl } from './jump-to.ts';
-import { interpolateVariables } from './utils.ts';
+import { getCurrentReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 import { executeVariableAction } from './variable-actions.ts';
 
 /**
@@ -23,6 +23,11 @@ export interface RunnerDeps {
 	currentLabel?: () => string | null;
 	/** the group of the page whose script / slice events run (its text boxes, linked groups share a page) */
 	scope?: string;
+	/**
+	 * where the events come from, for their texts' identity (visits of `{a|b|c}`): `script` = the group's script (default),
+	 * else e.g. a slice trigger / a placed item – a message is `<scope>/<origin>/<event index>`
+	 */
+	origin?: string;
 }
 
 export type RunResult = 'done' | 'navigated' | 'cancelled';
@@ -35,6 +40,13 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 	const cancelled = () => deps.cancelled?.() ?? false;
 	const label = () => deps.currentLabel?.() ?? null;
 	const get = (name: string) => game.getVariable(name);
+	// messages and choice labels: `{…}` answered for the reader (agents/EXPRESSIONS.md) – each showing counts a visit;
+	// without the toon's expressions (a lone preview) only the story variables
+	const expressions = getCurrentReaderExpressions();
+	const show = (source: string, at: number): string =>
+		expressions
+			? expressions.evaluate(source, `${deps.scope ?? ''}/${deps.origin ?? 'script'}/${at}`)
+			: evaluateText(source, { name: (path) => (path.length === 1 ? get(path[0]) : undefined) }).text;
 	let i = Math.max(0, start);
 	let jumpsWithoutWait = 0;
 	/** choices this run added that no showChoices has shown yet (dropped when the run ends) */
@@ -85,7 +97,7 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 							break;
 						}
 					}
-					vn.showMessage(speaker, interpolateVariables(text, game), wait);
+					vn.showMessage(speaker, show(text, i - 1), wait);
 					if (wait) {
 						jumpsWithoutWait = 0;
 						await new Promise<void>((resolve) => vn.setWaitResolver(resolve));
@@ -98,7 +110,7 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 					break;
 
 				case 'addChoice':
-					vn.addChoice({ label: interpolateVariables(event.params.label, game), onSelect: event.params.onSelect, from: label() });
+					vn.addChoice({ label: show(event.params.label, i - 1), onSelect: event.params.onSelect, from: label() });
 					unshown++;
 					break;
 
