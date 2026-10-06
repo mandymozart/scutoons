@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
+	import ListField from '$lib/components/fields/list-field.svelte';
 
 	/**
 	 * A field of a language-neutral document (chapter, scene, season – the same in every language). Empty input removes
-	 * the key, so the renderer default applies (shown as placeholder).
+	 * the key, so the renderer default applies (shown as placeholder). `list`: names (authors), one input per entry.
 	 */
 	let {
 		doc,
@@ -17,20 +18,22 @@
 		min,
 		max,
 		hint = '',
-		required = false
+		required = false,
+		testid = ''
 	}: {
 		doc: ContentDoc;
 		path: Path;
 		label: string;
-		type?: 'text' | 'number' | 'select' | 'bool' | 'color' | 'date';
+		type?: 'text' | 'number' | 'select' | 'bool' | 'color' | 'date' | 'list';
 		options?: (string | number | { value: string | number | boolean; label: string })[];
 		placeholder?: string;
 		step?: number;
 		min?: number;
 		max?: number;
 		hint?: string;
-		/** required keys are never removed (empty number → 0, empty text → '') */
+		/** required keys are never removed (empty number → 0, empty text → '', empty list → []) */
 		required?: boolean;
+		testid?: string;
 	} = $props();
 
 	const value = $derived(doc.get(doc.primary, path));
@@ -63,9 +66,11 @@
 	}
 </script>
 
-<div class="field">
+<div class="field" data-testid={testid || undefined}>
 	<label for={id}>{label}</label>
-	{#if type === 'bool'}
+	{#if type === 'list'}
+		<ListField {value} onchange={(list) => write(list.length || required ? list : undefined)} testid={testid ? `${testid}-list` : id} />
+	{:else if type === 'bool'}
 		<select {id} value={value === undefined ? '' : String(value)} onchange={(e) => onInput(e.currentTarget.value)}>
 			{#if !required}<option value="">{placeholder || 'default'}</option>{/if}
 			<option value="true">true</option>

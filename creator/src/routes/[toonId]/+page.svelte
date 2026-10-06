@@ -9,7 +9,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { newChapterDoc, newSeasonDoc, newToon, sequenceStatus } from '$lib/editor/defaults.ts';
 	import { contentIndex } from '$lib/api.ts';
-	import { sceneDoc, toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
+	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { chapterSyncChanges, syncChapter } from '$lib/editor/visibility.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, previewText, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
@@ -149,51 +149,28 @@
 		setLanguages(edited.source, edited.languages.filter((l) => l !== locale));
 	}
 
-	// ── Missing locale files → "create from the source" (the editor's createLocale) ─────────────────────
-	// (per-language documents only – the toon settings; a chapter / scene / season has every language, its texts are
-	// simply missing until translated)
-	const fileDocs = $derived([toonFile, season, ...Object.values(chapters)].filter((d): d is ContentDoc => !!d && !d.loading && !d.neutral));
+	// ── A new language: chapters, scenes and seasons are language-neutral (agents/NEUTRAL.md) – their texts in it are
+	// simply missing (warnings) until translated. Only the per-language toon settings get a document per language
+	// ("create from the source", until they move into the toon entry). ─────────────────────────────────────────────
 	const missing = $derived.by(() => {
 		const current = langs;
-		if (!current) return [];
+		const settings = toonFile;
+		if (!current || !settings || settings.loading || settings.data[settings.primary] == null) return [];
 		// saved languages only, and not one that is being removed
-		return current.languages
-			.filter((l) => l !== current.source && (!edited || edited.languages.includes(l)))
-			.map((locale) => ({ locale, docs: fileDocs.filter((d) => d.data[d.primary] != null && d.data[locale] == null) }))
-			.filter((entry) => entry.docs.length > 0);
+		return current.languages.filter((l) => l !== current.source && (!edited || edited.languages.includes(l)) && settings.data[l] == null);
 	});
 
-	/** a copy of the source file for `locale` (files with a `language` field get the new one) */
-	const localized = (locale: string) => (file: any) =>
-		file && typeof file === 'object' && 'language' in file ? { ...file, language: locale } : file;
-
-	async function createLocaleFiles(locale: string) {
+	async function createLocaleFile(locale: string) {
 		const current = langs;
-		if (!current) return;
+		const settings = toonFile;
+		if (!current || !settings) return;
 		busy = true;
 		error = null;
 		message = null;
 		try {
-			// the chapters' scene files (groups[].ref.src) too, so the chapter editor opens complete
-			const scenes = new Set<string>();
-			for (const doc of Object.values(chapters)) {
-				for (const group of doc.data[doc.primary]?.groups ?? []) if (group?.ref?.src) scenes.add(group.ref.src);
-			}
-			const sceneDocs = await Promise.all(
-				[...scenes].map(async (src) => {
-					const doc = sceneDoc(toonId, src, current);
-					await doc.load();
-					return doc;
-				})
-			);
-			let count = 0;
-			for (const doc of [...fileDocs, ...sceneDocs]) {
-				if (doc.neutral || doc.data[doc.primary] == null || doc.data[locale] != null) continue;
-				doc.createLocale(locale, localized(locale));
-				await doc.save(`create ${locale} from ${current.source}`);
-				count++;
-			}
-			message = m['creator.locale_files_created']({ count, locale, source: current.source });
+			settings.createLocale(locale, (file) => (file && typeof file === 'object' && 'language' in file ? { ...file, language: locale } : file));
+			await settings.save(`create ${locale} from ${current.source}`);
+			message = m['creator.locale_files_created']({ count: 1, locale, source: current.source });
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -399,11 +376,11 @@
 						</div>
 					</div>
 					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()}</p>{/if}
-					{#each missing as { locale, docs } (locale)}
+					{#each missing as locale (locale)}
 						<p class="missing-bar" data-testid="missing-{locale}">
-							{m['creator.missing_locale_files']({ locale, count: docs.length })}
-							<span class="hint">{fileLabels(docs.map((d) => d.entity))}</span>
-							<button class="secondary" disabled={busy} onclick={() => createLocaleFiles(locale)} data-testid="create-locale-{locale}">
+							{m['creator.missing_locale_files']({ locale, count: 1 })}
+							<span class="hint">{fileLabel(entities.toonSettings(toonId))}</span>
+							<button class="secondary" disabled={busy} onclick={() => createLocaleFile(locale)} data-testid="create-locale-{locale}">
 								{m['creator.create_locale']({ locale, source: langs?.source ?? '' })}
 							</button>
 						</p>

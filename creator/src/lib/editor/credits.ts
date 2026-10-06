@@ -36,7 +36,7 @@ export const rolesOf = (doc: ContentDoc) => fileOf<RoleVocabulary>(doc);
 
 /** Edits the neutral file of a doc (one undo step; same `key` within ~1 s = one step). */
 export function edit<T>(doc: ContentDoc, change: (file: T) => void, key?: string) {
-	doc.structural((file) => change(file as T), key);
+	doc.edit((file) => change(file as T), key);
 }
 
 export function newSection(kind: CreditSectionKind, credits: ToonCredits, languages: string[]): CreditSection {

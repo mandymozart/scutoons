@@ -10,37 +10,36 @@ import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 
 export const STATUSES = Object.values(Status) as Status[];
 
-/** the season's sequence (the neutral document's, or a per-locale document's in `locale`) */
-function sequenceOf(season: ContentDoc | null | undefined, locale: string): SequenceItem[] {
-	const sequence = season?.data?.[season.neutral ? season.primary : locale]?.sequence;
+/** the (language-neutral) season's sequence */
+function sequenceOf(season: ContentDoc | null | undefined): SequenceItem[] {
+	const sequence = season?.data?.[season.primary]?.sequence;
 	return Array.isArray(sequence) ? sequence : [];
 }
 
-/** Index of chapter `number` in the season sequence (of `locale` for a per-locale season), -1 when missing (or no season file). */
-export function sequenceIndex(season: ContentDoc | null | undefined, locale: string, number: number): number {
-	return sequenceOf(season, locale).findIndex((i) => i?.type === 'chapter' && Number(i.number) === Number(number));
+/** Index of chapter `number` in the season sequence, -1 when missing (or no season document). */
+export function sequenceIndex(season: ContentDoc | null | undefined, number: number): number {
+	return sequenceOf(season).findIndex((i) => i?.type === 'chapter' && Number(i.number) === Number(number));
 }
 
 /**
  * Season status of chapter `number` in `locale`: the status, null = the season has no entry for it,
- * undefined = no season document (in this locale) – nothing to compare with.
+ * undefined = no season document – nothing to compare with. A locale without its own status shows the source's (like
+ * the reader); an older plain string counts for every locale.
  */
 export function seasonStatusOf(season: ContentDoc | null | undefined, locale: string, number: number): Status | null | undefined {
-	if (!season || season.loading || season.data?.[season.neutral ? season.primary : locale] == null) return undefined;
-	const index = sequenceIndex(season, locale, number);
+	if (!season || season.loading || season.data?.[season.primary] == null) return undefined;
+	const index = sequenceIndex(season, number);
 	if (index < 0) return null;
-	const status = sequenceOf(season, locale)[index].status as unknown;
-	if (!season.neutral) return status as Status;
-	// a locale without its own status shows the source's (like the reader)
+	const status = sequenceOf(season)[index].status as unknown;
+	if (typeof status === 'string') return status as Status;
 	return (resolveText<Status>(status, [locale, season.textSource, ...season.textLanguages]) ?? null) as Status | null;
 }
 
-/** Sets the season status of chapter `number` in one locale (the one status control of the creator). */
+/** Sets the season status of chapter `number` in one locale (the one status control of the creator: the chapter's meta panel). */
 export function setSeasonStatus(season: ContentDoc, locale: string, number: number, status: Status) {
-	const index = sequenceIndex(season, locale, number);
+	const index = sequenceIndex(season, number);
 	if (index < 0) return;
-	if (season.neutral) season.setText(['sequence', index, 'status'], locale, status, `status:${locale}:${number}`);
-	else season.setLocal(locale, ['sequence', index, 'status'], status, `status:${locale}:${number}`);
+	season.setText(['sequence', index, 'status'], locale, status, `status:${locale}:${number}`);
 }
 
 /** The changes `syncChapter` would make: fields a language-neutral chapter no longer has ([] = nothing to do). */

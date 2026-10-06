@@ -146,7 +146,7 @@
 		if (!entryDoc?.present.length || !toonFilter) return;
 		const c = view.toWorld({ x: view.width / 2, y: view.height / 2 });
 		const zoom = Math.round(view.zoom * 100) / 100;
-		entryDoc.structural((entry) => {
+		entryDoc.edit((entry) => {
 			entry.map = { center: { x: Math.round(c.x), y: Math.round(c.y) }, ...(zoom !== 1 ? { zoom } : {}) };
 		});
 		if (!touchedEntries.includes(toonFilter)) touchedEntries = [...touchedEntries, toonFilter];

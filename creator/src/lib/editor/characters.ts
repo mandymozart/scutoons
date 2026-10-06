@@ -64,7 +64,7 @@ export const ensureRequests = (doc: ContentDoc) => ensure(doc, emptyAssetRequest
 
 /** Edits the neutral file of a doc (one undo step; same `key` within ~1 s = one step). */
 export function edit<T>(doc: ContentDoc, change: (file: T) => void, key?: string) {
-	doc.structural((file) => change(file as T), key);
+	doc.edit((file) => change(file as T), key);
 }
 
 /** Edits one character of the registry by id. */

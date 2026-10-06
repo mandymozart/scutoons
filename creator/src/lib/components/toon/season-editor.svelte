@@ -11,7 +11,7 @@
 	import { seasonChapterNumbers, syncChapters } from '$lib/editor/visibility.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
-	import SharedField from '$lib/components/fields/shared-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 	import { MediaSlot, MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 	import SupportersField from '$lib/components/fields/supporters-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
@@ -21,11 +21,11 @@
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/**
-	 * Season meta (the entity season:<toon>:<N>), cleaned up like the chapter page (owner 2026-10-03): title and
-	 * description (per language), release + authors, the media as slots (cover →
-	 * the cover editor, the trailer with its quality levels, the poster), related items, supporters. Everything but title
-	 * and description is the same in every language (one language-neutral document, agents/NEUTRAL.md – title,
-	 * description and release are per language, in the header's text language).
+	 * Season meta (the entity season:<toon>:<N>, ONE language-neutral document – agents/NEUTRAL.md), cleaned up like the
+	 * chapter page (owner 2026-10-03): title, description and release per language (LocaleText, the header's text
+	 * language), everything else once – authors, the media as slots (cover → the cover editor, the trailer with its
+	 * quality levels, the poster), related items, supporters. A chapter's status per language is edited in its meta
+	 * panel (chapter editor); the sidebar shows it.
 	 * The season's number is its identity (the URL, the entity key) – not a field. The chapters and their visibility are in
 	 * the sidebar only (owner 2026-10-03: no second list on the page).
 	 */
@@ -117,7 +117,7 @@
 			<LocaleText doc={season} path={['description']} label="description" rows={6} />
 			<div class="sc-fields" data-cols="2" data-align="start">
 				<LocaleText doc={season} path={['release']} label="release" type="date" />
-				<SharedField doc={season} path={['authors']} label="authors" kind="list" splittable={false} testid="season-authors" />
+				<PropField doc={season} path={['authors']} label="authors" type="list" required testid="season-authors" />
 			</div>
 		</section>
 

@@ -5,11 +5,11 @@
 	import type { Supporter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import SharedField from '$lib/components/fields/shared-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 	import { MediaSlot } from '@scutoons/media';
 
 	/**
-	 * The season's supporters (`supporters: [{ name, logo?, url? }]`, in order), the same in every language: the reader
+	 * The season's supporters (`supporters: [{ name, logo?, url? }]`, in order), once in the language-neutral season (agents/NEUTRAL.md): the reader
 	 * shows them as "Supported by" logos at the end of the credits fine print (agents/DESIGN.md "Credits colophon").
 	 */
 	let { doc, toon, place = '' }: { doc: ContentDoc; toon: string; /** where logo uploads go (catpope/s1/supporters/) */ place?: string } = $props();
@@ -37,8 +37,8 @@
 				<!-- the logo as a slot (the preview is the button), name and link are never translated -->
 				<MediaSlot {toon} {place} label="logo" value={supporter.logo} onchange={(v) => change((l) => { if (v) l[i].logo = v; else delete l[i].logo; })} testid="supporter-{i}-logo" />
 				<div class="texts">
-					<SharedField {doc} path={['supporters', i, 'name']} label="name" required splittable={false} testid="supporter-{i}-name" />
-					<SharedField {doc} path={['supporters', i, 'url']} label="url" placeholder="https://…" splittable={false} testid="supporter-{i}-url" />
+					<PropField {doc} path={['supporters', i, 'name']} label="name" required testid="supporter-{i}-name" />
+					<PropField {doc} path={['supporters', i, 'url']} label="url" placeholder="https://…" testid="supporter-{i}-url" />
 				</div>
 			</div>
 			<div class="actions">

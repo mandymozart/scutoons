@@ -8,8 +8,9 @@
 // (production before its conversion) is loaded from its per-locale documents and converted in memory (`neutralizeDocs`,
 // `converted` = the report): saving stores the neutral document; the per-locale keys are never written again.
 //
-// Other localized entities (toon settings, script) keep one document per locale: `structural` changes every locale,
-// `setShared` a shared field in every locale that has not overridden it, `setLocal` one locale.
+// Other localized entities (toon settings, script) keep one document per locale: `setShared` a shared field in every
+// locale that has not overridden it, `setLocal` one locale, `createLocale` a missing locale from the source. Language-
+// neutral entities (cast, credits, the map …) are one document under locale `_`, edited with `edit` / `set`.
 // The locales and the source ("primary") come from the toon (`ToonIndex.languages` / `.sourceLanguage`, loaded with
 // `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
@@ -481,12 +482,6 @@ export class ContentDoc {
 
 	resetOverride(locale: string, path: Path) {
 		this.setLocal(locale, path, getAt(this.data[this.primary], path));
-	}
-
-	/** A structural change applied to every locale (insert/remove/reorder slices, dialogs, events …). */
-	structural(change: (file: any, locale: string) => void, key?: string) {
-		this.checkpoint(key);
-		for (const l of this.present) change(this.data[l], l);
 	}
 
 	/** Copies the source locale's document to a locale that has none. */

@@ -9,12 +9,15 @@
 	import { MediaSlot } from '@scutoons/media';
 	import { fileLabel } from '$lib/labels.ts';
 	import { entities } from '@scutoons/content';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/**
 	 * Chapter meta (one language-neutral document): title / description / release per language (the header's text
 	 * language), the rest once.
-	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, per locale; this is the only place
-	 * where it is changed (lists show it read-only). `featuring`: the chapter's featuring field (chapter editor).
+	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, a locale map per sequence entry
+	 * (agents/NEUTRAL.md); this is the only place where it is changed (lists show it read-only as badges), in the
+	 * header's text language like the texts (source by default, all side by side, or one language; a language without
+	 * its own status shows the source's, like the reader). `featuring`: the chapter's featuring field (chapter editor).
 	 */
 	let {
 		doc,
@@ -27,7 +30,7 @@
 	const ch = $derived(doc.get(doc.primary, []));
 	/** the chapter's folder by the content rules – uploads from its fields land there (catpope/s1/c2/) */
 	const place = $derived(`${doc.toon}/s${Number(season?.get(season.primary, ['number'])) || 1}/c${number}/`);
-	const statusLocales = $derived(season && !season.loading ? season.textLanguages : []);
+	const statusLocales = $derived(season && !season.loading ? textLanguage.visible(season.textLanguages, season.textSource) : []);
 	const syncChanges = $derived(chapterSyncChanges(doc));
 	const stringKeyvisual = $derived(typeof ch?.keyvisual === 'string');
 
