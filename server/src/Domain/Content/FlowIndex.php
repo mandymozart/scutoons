@@ -13,13 +13,16 @@ use Scutoons\Infrastructure\Database\Database;
  * events, choices that jump, a group's authored end (in group scripts, slice triggers, placed items' taps) – plus every
  * toon's seasons and its dead things (the same rules as @scutoons/content `deadThings`: variables set but never read,
  * read but never set (reads: simple tests, `if.expr` conditions and texts' `{…}` through the expression analyser), script points and group labels nothing jumps to –
- * from this toon or another one: a chapter target with `toon`). The browser draws it without loading every toon.
+ * from this toon or another one: a chapter target with `toon`). Story variables are ONE save game for every toon (owner
+ * 2026-10-06, DATA.md "The save game"): set in toptoy and read in catpope = used – `variables` lists every name with the
+ * toons that set / read it, and the dead things judge variables across all toons. The browser draws it without loading
+ * every toon.
  * Cached under the version ids it was built from (content-addressed like the library: nothing to invalidate).
  */
 final class FlowIndex
 {
     private const CACHE_TTL = 3600;
-    private const VERSION = 'v3';
+    private const VERSION = 'v4';
     private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
@@ -148,12 +151,30 @@ final class FlowIndex
             if (!is_string($into) || $into === $edge['source']['toon']) continue;
             foreach ([...(isset($target['label']) ? [$target['label']] : []), ...($target['anyOf'] ?? [])] as $l) $incoming[$into][$l] = true;
         }
+        // first every toon's facts and reads, then the dead things over ALL toons' variables (one save game)
+        $scans = [];
+        /** @var array<string, array{set: array<string, true>, read: array<string, true>}> $variables */
+        $variables = [];
         foreach ($toons as $toon => $entry) {
             $byNumber = $chapters[$toon] ?? [];
             ksort($byNumber);
             $facts = $this->facts((string) $toon, [...($toonDocs[$toon] ?? []), ...($map !== null ? [$map] : [])]);
             $facts['labels'] += $incoming[$toon] ?? [];
-            $dead[$toon] = $this->dead($byNumber, $facts);
+            $scan = $this->scan($byNumber, $facts);
+            $scans[$toon] = $scan;
+            foreach (array_keys($facts['variables']) as $name) $variables[(string) $name]['set'][(string) $toon] = true;
+            foreach (array_keys($scan['sets']) as $name) $variables[(string) $name]['set'][(string) $toon] = true;
+            foreach (array_keys($scan['reads']) as $name) $variables[(string) $name]['read'][(string) $toon] = true;
+        }
+        foreach ($scans as $toon => $scan) $dead[$toon] = $this->dead($scan, $variables);
+        ksort($variables, SORT_STRING);
+        $variableList = [];
+        foreach ($variables as $name => $v) {
+            $set = array_map('strval', array_keys($v['set'] ?? []));
+            $read = array_map('strval', array_keys($v['read'] ?? []));
+            sort($set);
+            sort($read);
+            $variableList[(string) $name] = ['set' => $set, 'read' => $read];
         }
         $list = [];
         foreach ($toons as $entry) {
@@ -162,7 +183,7 @@ final class FlowIndex
             foreach ($entry['seasons'] as $n => $items) $seasons[] = ['number' => $n, 'chapters' => $items];
             $list[] = ['id' => $entry['id'], 'title' => $entry['title'], 'status' => $entry['status'], 'seasons' => $seasons];
         }
-        return ['status' => 'success', 'toons' => $list, 'edges' => $edges, 'dead' => $dead];
+        return ['status' => 'success', 'toons' => $list, 'edges' => $edges, 'dead' => $dead, 'variables' => (object) $variableList];
     }
 
     /**
@@ -268,12 +289,36 @@ final class FlowIndex
     }
 
     /**
-     * The toon's dead things (@scutoons/content `deadThings`, the same rules)
+     * The toon's dead things (@scutoons/content `deadThings`, the same rules) from its scan, variables judged across
+     * every toon: set here and read in no toon = unread; read here and set in no toon = unset
+     * @param array{sets: array<string, list<array<string, mixed>>>, reads: array<string, list<array<string, mixed>>>, points: list<array<string, mixed>>, labels: list<array<string, mixed>>} $scan
+     * @param array<string, array{set?: array<string, true>, read?: array<string, true>}> $variables
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function dead(array $scan, array $variables): array
+    {
+        $list = function (array $map, callable $keep): array {
+            $out = [];
+            foreach ($map as $name => $at) if ($keep((string) $name)) $out[] = ['name' => (string) $name, 'at' => $at];
+            usort($out, fn($a, $b) => strcmp($a['name'], $b['name']));
+            return $out;
+        };
+        return [
+            'unread' => $list($scan['sets'], fn(string $n) => empty($variables[$n]['read'])),
+            'unset' => $list($scan['reads'], fn(string $n) => empty($variables[$n]['set'])),
+            'points' => $scan['points'],
+            'labels' => $scan['labels'],
+        ];
+    }
+
+    /**
+     * One toon's chapters walked once: where variables are set / read, script points nothing diverts to, group labels
+     * nothing refers to (`$facts['labels']`)
      * @param array<int, list<mixed>> $chapters
      * @param array{variables: array<string, true>, labels: array<string, true>} $facts
-     * @return array<string, list<array{name: string, at: list<array<string, mixed>>}>>
+     * @return array{sets: array<string, list<array<string, mixed>>>, reads: array<string, list<array<string, mixed>>>, points: list<array<string, mixed>>, labels: list<array<string, mixed>>}
      */
-    private function dead(array $chapters, array $facts): array
+    private function scan(array $chapters, array $facts): array
     {
         $sets = [];
         $reads = [];
@@ -326,18 +371,7 @@ final class FlowIndex
                 }
             }
         }
-        $list = function (array $map, callable $keep): array {
-            $out = [];
-            foreach ($map as $name => $at) if ($keep((string) $name)) $out[] = ['name' => (string) $name, 'at' => $at];
-            usort($out, fn($a, $b) => strcmp($a['name'], $b['name']));
-            return $out;
-        };
-        return [
-            'unread' => $list($sets, fn(string $n) => !isset($reads[$n])),
-            'unset' => $list($reads, fn(string $n) => !isset($sets[$n]) && !isset($facts['variables'][$n])),
-            'points' => $points,
-            'labels' => $labels,
-        ];
+        return ['sets' => $sets, 'reads' => $reads, 'points' => $points, 'labels' => $labels];
     }
 
     /**

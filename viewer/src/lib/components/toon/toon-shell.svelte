@@ -22,9 +22,10 @@
 	import { pageView } from '$lib/visual-novel/page-view.ts';
 
 	/**
-	 * One toon's reader shell (its game state, VN, audio, reader expressions, sequence navigation, map, inventory) – the
-	 * toon layout mounts it once per toon (`{#key params.toonId}`): a jump into another toon (`JumpToTarget.toon`) gets
-	 * that toon's own game state and story variables instead of the one it came from (variables are per toon).
+	 * One toon's reader shell (its VN, audio, sequence, characters, reader expressions, map, inventory) – the toon layout
+	 * mounts it once per toon (`{#key params.toonId}`): a jump into another toon (`JumpToTarget.toon`) gets that toon's
+	 * sequence, cast and audio instead of the one it came from. The save game is ONE for every toon (owner 2026-10-06,
+	 * contexts/world.svelte.ts): `setGameContext` is only this toon's view on it – the story variables travel along.
 	 */
 	let { children, data, params }: { children: Snippet; data: { sequence?: LoadedSequenceItem[]; characters?: Character[] }; params: { toonId: string } } = $props();
 	// mounted once per toon (the layout's {#key}): the toon's initial values are the right ones

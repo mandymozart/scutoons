@@ -3,8 +3,8 @@ import { intoOtherToon, pickJumpLabel, type JumpToTarget } from '@scutoons/conte
 /**
  * The URL of a jump. `anyOf` (CUTOVER 10.27, the chapter 2 stroll): a random one of these group labels, never
  * `currentLabel` (the group the reader is on). A chapter target with `toon` (owner 2026-10-06, "at label") leads into
- * that toon's chapter (+ `?label=`) – the other toon's page loads its own game state, so its story variables apply
- * there (variables are per toon); `currentLabel` doesn't count there.
+ * that toon's chapter (+ `?label=`) – the story variables travel along (one save game for every toon, DATA.md "The save
+ * game"); `currentLabel` doesn't count there.
  */
 export function buildJumpToUrl(target: JumpToTarget, toonId: string, currentLabel: string | null = null): string | null {
 	let url: string;

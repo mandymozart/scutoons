@@ -2,8 +2,8 @@
 // The stroll (owner 2026-10-03, CUTOVER 10.27: random `anyOf` jumps between groups) played in headless Chrome (phone
 // size, its own profile) on the local dev stack as the local test user. The chapter 2 stroll it was written for is gone
 // from the content (production is the only source since CUTOVER 10.30), so the run brings its own: a stroll is saved as
-// a DRAFT of sandbox chapter 9, read with the draft preview, and afterwards the draft rows and the test user's sandbox
-// progress are put back as they were (the dev DB is as before).
+// a DRAFT of sandbox chapter 9, read with the draft preview, and afterwards the draft rows and the test user's save
+// game are put back as they were (the dev DB is as before).
 //   - the stroll: five stroll groups; each one's last slice starts its "stroll-end" (a slice event diverting into the
 //     group's script) → "Es ist H:MM Uhr." ({clock(time)}) + "Spaziergang beenden" / "Weiter spazieren"; "Weiter" adds
 //     15 minutes and jumps to a random OTHER stroll group (`anyOf`, never the one the reader is on); at 7:00 the stroll
@@ -104,7 +104,7 @@ async function api(method, path, body) {
 const sql = (query) => execFileSync('docker', ['exec', '-i', CONTAINER, 'sh', '-c', `mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -r ${DB}`], { input: query }).toString().trim();
 const quote = (s) => (s === null ? 'NULL' : `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`);
 const userId = sql(`SELECT id FROM users WHERE email = ${quote(email)}`);
-const progressBefore = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
+const progressBefore = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
 const before = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 const created = [];
 async function restore() {
@@ -118,10 +118,10 @@ async function restore() {
 	}
 	if (progressBefore) {
 		const tab = progressBefore.indexOf('\t');
-		sql(`UPDATE progress SET state = ${quote(progressBefore.slice(tab + 1))}, updated_at = ${Number(progressBefore.slice(0, tab))} WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
-	} else sql(`DELETE FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
-	const now = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
-	console.log(`${now === progressBefore ? 'ok  ' : 'FAIL'} restored the test user's sandbox progress`);
+		sql(`UPDATE progress SET state = ${quote(progressBefore.slice(tab + 1))}, updated_at = ${Number(progressBefore.slice(0, tab))} WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	} else sql(`DELETE FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	const now = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	console.log(`${now === progressBefore ? 'ok  ' : 'FAIL'} restored the test user's save game (progress row scutoons)`);
 	if (now !== progressBefore) process.exitCode = 1;
 }
 const saved = await api('PUT', `/entities/${KEY}`, { content: doc(before.content), base: before.version.id, message: 'stroll-check (removed again)' });
@@ -206,6 +206,8 @@ try {
 	await until('document.readyState === "complete"');
 	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)})`);
 	await js(`localStorage.setItem('scutoons.draft-preview', '1')`);
+	// a fresh reader: no save game yet (one for every toon – other toons' variables would be there too; put back afterwards)
+	sql(`DELETE FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
 
 	await home();
 	// the first stroll group's own story: slice 1 diverts to "record-player" and parks the intro until it is answered

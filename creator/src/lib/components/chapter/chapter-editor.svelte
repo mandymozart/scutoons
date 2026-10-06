@@ -219,7 +219,7 @@
 		// condition is judged and every labelled group counts as reachable
 		// + the labels other toons jump to (the server's flow index)
 		Promise.all([loadToonDocs(toon, new Set(sliceDocs.map((d) => d.entity))), loadIncoming(toon)])
-			.then(([docs, incoming]) => (toonDocsFacts = toonFacts(docs, { toon, incoming: incoming.labels })))
+			.then(([docs, incoming]) => (toonDocsFacts = toonFacts(docs, { toon, incoming: incoming.labels, elsewhere: incoming.elsewhere })))
 			.catch(() => (toonDocsFacts = null));
 	});
 
@@ -230,9 +230,9 @@
 		const rest = toonDocsFacts;
 		if (!rest) return undefined;
 		const live = toonFacts([...sliceDocs.map((d) => $state.snapshot(d.data[d.primary])), $state.snapshot(worldMap.data?.[worldMap.primary])], { toon });
-		return { variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]) };
+		return { variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]), ...(rest.reads ? { reads: rest.reads } : {}) };
 	});
-	// the expression fields: the toon's story variables (the builder offers them, unknown names warn)
+	// the expression fields: the story variables of every toon (one save game – the builder offers them, unknown names warn)
 	$effect(() => exprContext.setVariables(facts?.variables));
 	$effect(() => () => exprContext.setVariables(null));
 	/** the chapter's reachability for the labels in the tree / slice list / event lists – debounced while editing */

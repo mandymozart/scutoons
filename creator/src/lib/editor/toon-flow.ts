@@ -69,7 +69,7 @@ export async function loadToonFlow(toon: string, locale: string): Promise<ToonFl
 	const places: FlowPlace[] = (Array.isArray(map?.locations) ? map.locations : [])
 		.filter((l: any) => l?.chapter?.toon === toon && Number.isFinite(Number(l.chapter.number)))
 		.map((l: any) => ({ id: String(l.id), name: pickText(l.name, locale) || String(l.id), chapter: Number(l.chapter.number), ...(l.hidden ? { hidden: true } : {}) }));
-	const facts = toonFacts([...byEntity.values(), ...(map ? [map] : [])], { toon, incoming: incoming.labels });
+	const facts = toonFacts([...byEntity.values(), ...(map ? [map] : [])], { toon, incoming: incoming.labels, elsewhere: incoming.elsewhere });
 	const input: ToonFlowInput = { toon, chapters, seasons, facts, places, incoming: incoming.chapters, text: (v) => pickText(v, locale) };
 	return { input, dead: deadThings(chapters, facts) };
 }

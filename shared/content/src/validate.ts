@@ -11,7 +11,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { linksToNext, scriptJumps } from './chains.ts';
-import { chapterReach, type ToonFacts } from './reach.ts';
+import { askVariable, chapterReach, similarVariable, type ToonFacts } from './reach.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import {
 	DEFAULT_SLICE,
@@ -747,8 +747,36 @@ function checkReach(c: Collector, groups: any[], facts: ToonFacts | undefined) {
 		if (r.groups[gi] === 'unreachable') return;
 		list.forEach((reach, i) => reach === 'unreachable' && c.warn(['groups', gi, 'events', i], 'unreachable: no run of the script gets here (an unconditional divert or jumpTo before it, and nothing leads here)'));
 	});
-	for (const p of r.neverTrue) c.warn(p, `never true: "${String(getIf(groups, p)?.variable ?? '')}" is set nowhere in this toon, so this test always fails`);
+	for (const p of r.neverTrue) c.warn(p, `never true: "${String(getIf(groups, p)?.variable ?? '')}" is set nowhere (in no toon), so this test always fails`);
 	for (const p of r.loops) c.warn(p, 'endless loop: from here the script only goes round (no end, no jump)');
+}
+
+/**
+ * Story variables are ONE save game for every toon (owner 2026-10-06): a name that looks like another known one
+ * (`visits_harbor` / `visits_harbour`, reach.ts `similarVariable`) is probably a slip that makes a second variable – a
+ * warning at the first place this chapter sets or tests it. Known = what any toon sets or reads (the facts) and this
+ * chapter's own names.
+ */
+function checkVariableNames(c: Collector, groups: any[], facts: ToonFacts) {
+	const first = new Map<string, Path>();
+	const walk = (v: unknown, path: Path) => {
+		if (!v || typeof v !== 'object') return;
+		if (Array.isArray(v)) return v.forEach((x, i) => walk(x, [...path, i]));
+		const o = v as Record<string, any>;
+		const at = (name: unknown, p: Path) => typeof name === 'string' && name && !first.has(name) && first.set(name, p);
+		if (o.type === 'setVariable') at(o.params?.variable, [...path, 'params', 'variable']);
+		at(askVariable(o), [...path, 'params', 'variable']);
+		if (isObj(o.set)) at(o.set.variable, [...path, 'set', 'variable']);
+		if (isObj(o.add)) at(o.add.variable, [...path, 'add', 'variable']);
+		if (isObj(o.if)) at(o.if.variable, [...path, 'if', 'variable']);
+		for (const key in o) walk(o[key], [...path, key]);
+	};
+	groups.forEach((g, gi) => walk(g, ['groups', gi]));
+	const known = new Set([...facts.variables, ...(facts.reads ?? []), ...first.keys()]);
+	for (const [name, path] of first) {
+		const like = similarVariable(name, known);
+		if (like) c.warn(path, `story variable "${name}" looks like "${like}" – the same one? (story variables are shared by every toon; a slip makes a second variable)`);
+	}
 }
 
 /** the `if` at a reach path (groups.g.….if) */
@@ -859,6 +887,7 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		const resolved = ch.groups.map((g: any) => (isObj(g) && g.ref ? (ctx.resolveGroup?.(g) ?? g) : g));
 		checkChains(c, resolved);
 		checkReach(c, resolved, ctx.facts);
+		if (ctx.facts) checkVariableNames(c, resolved, ctx.facts);
 		checkDialogIds(c, resolved);
 		checkEventIds(c, resolved, (gi) => ['groups', gi], (gi) => !(isObj(ch.groups[gi]) && ch.groups[gi].ref));
 	}

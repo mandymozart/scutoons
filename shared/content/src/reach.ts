@@ -7,14 +7,24 @@ import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
 import { Trigger } from './enums.ts';
 import { repeatOf, type Repeat } from './recurrence.ts';
 import { actionsOf } from './vn-script.ts';
+import { editDistance } from './expr/analyse.ts';
 
 export type Reach = 'reachable' | 'conditional' | 'unreachable';
 type Path = (string | number)[];
 
-/** what the whole toon tells about a chapter (`toonFacts` over every document of the toon the caller has) */
+/**
+ * what the whole toon tells about a chapter (`toonFacts` over every document of the toon the caller has) – and, since
+ * story variables are ONE save game for every toon (owner 2026-10-06, DATA.md "The save game"), what the OTHER toons do
+ * with variables (`elsewhere`, from the server's flow index)
+ */
 export interface ToonFacts {
-	/** variables something sets (setVariable, a choice's set / add, a picked-up item's id, an askText's answer) */
+	/**
+	 * variables something sets (setVariable, a choice's set / add, a picked-up item's id, an askText's answer) – in this
+	 * toon or in any other (a variable set in toptoy is the one catpope reads)
+	 */
 	variables: ReadonlySet<string>;
+	/** variables OTHER toons read (a test, an expression, a text's `{…}`): set here, read there = used */
+	reads?: ReadonlySet<string>;
 	/** group labels a jump target, an end, a random list or a map place refers to (entry points `?label=`) */
 	labels: ReadonlySet<string>;
 }
@@ -28,15 +38,17 @@ export interface ToonFactsOptions {
 	toon?: string;
 	/** labels of this toon that OTHER toons' jumps lead to (`incomingJumps` over the server's flow index) */
 	incoming?: Iterable<string>;
+	/** story variables other toons set / read (`variablesElsewhere` over the server's flow index) */
+	elsewhere?: { sets?: Iterable<string>; reads?: Iterable<string> };
 }
 
 /**
  * The facts of a toon from its documents (chapters, scenes, the map …; any JSON): walked iteratively, every object once
  * – a jump target is any `{ type, value, toon?, label?, anyOf? }`; one into another toon (`toon`) refers to that toon's
- * labels, not to these. `incoming`: labels other toons jump to (entry points too).
+ * labels, not to these. `incoming`: labels other toons jump to (entry points too); `elsewhere`: other toons' variables.
  */
 export function toonFacts(docs: Iterable<unknown>, options: ToonFactsOptions = {}): ToonFacts {
-	const variables = new Set<string>();
+	const variables = new Set<string>(options.elsewhere?.sets ?? []);
 	const labels = new Set<string>(options.incoming ?? []);
 	const stack: unknown[] = [...docs];
 	const seen = new Set<object>();
@@ -60,7 +72,33 @@ export function toonFacts(docs: Iterable<unknown>, options: ToonFactsOptions = {
 		}
 		for (const key in o) stack.push(o[key]);
 	}
-	return { variables, labels };
+	return { variables, labels, ...(options.elsewhere?.reads ? { reads: new Set(options.elsewhere.reads) } : {}) };
+}
+
+/**
+ * Another story variable whose name looks like `name` (a typo? `visits_harbor` / `visits_harbour` – story variables are
+ * shared by every toon, so a slip makes a second one): at most 1 edit for names of 5–7 letters, 2 from 8 on (none under
+ * 5). Names that differ only in digits (`step1` / `step2`) are meant to differ; names that differ only in case count (a
+ * likely slip). Internal `picked:` keys are never judged.
+ */
+export function similarVariable(name: string, known: Iterable<string>): string | undefined {
+	if (name.startsWith('picked:')) return undefined;
+	const limit = name.length >= 8 ? 2 : name.length >= 5 ? 1 : 0;
+	if (!limit) return undefined;
+	const digits = (s: string) => s.replace(/[0-9]+/g, '#');
+	let best: string | undefined;
+	let bestD = Infinity;
+	for (const other of known) {
+		if (other === name || other.startsWith('picked:') || Math.abs(other.length - name.length) > limit) continue;
+		if (digits(other) === digits(name) && other.toLowerCase() !== name.toLowerCase()) continue;
+		const d = editDistance(name.toLowerCase(), other.toLowerCase());
+		const score = d === 0 ? 0.5 : d; // only the case differs
+		if (score <= limit && score < bestD) {
+			best = other;
+			bestD = score;
+		}
+	}
+	return best;
 }
 
 /** the story variable an askText event sets (scope toon – the default; scope reader sets `reader.name`, no variable) */
@@ -90,7 +128,7 @@ export function triggerKey(trigger: unknown): string {
 export const runRepeat = (holder: unknown): Repeat => repeatOf((holder as { repeat?: unknown } | null | undefined)?.repeat);
 
 /**
- * A condition that can never be true: its variable is set nowhere in the toon (so it is always unset) and the test
+ * A condition that can never be true: its variable is set nowhere – in no toon (so it is always unset) – and the test
  * needs a value. Internal variables (`picked:` keys of placed items) are never judged.
  */
 export function neverTrue(condition: unknown, facts: ToonFacts | undefined): boolean {

@@ -1,12 +1,12 @@
 // Expressions in the reader (agents/EXPRESSIONS.md §7 step 2): the viewer's resolver for texts – text boxes (through
 // @scutoons/reader's `expressions` prop), VN messages and choice labels (runner.ts). The names come from reader.ts over
-// the contexts; the visits of sequences / cycles / once-only lists are the reader's history in the toon's game state
-// (`scutoons_game_<toon>.history`, @scutoons/content history.ts – synced for members like the variables).
+// the contexts; the visits of sequences / cycles / once-only lists are the reader's history in the one save game
+// (`scutoons_game_scutoons.history`, @scutoons/content history.ts – synced for members like the variables).
 //
 // Visits: a text box counts once per PAGE VIEW (the URL's path + its `?label=`; a reload is a new one) however often it
 // re-renders – it shows the count from before this page view all the while. A VN message / choice label counts each time
 // the script shows it (a script that comes back to a message within one page goes on in the list, as in ink).
-// Seed (shuffles, random()): the reader's start in this toon (the game state's created_at) + the text's identity.
+// Seed (shuffles, random()): the reader's start (the save game's created_at) + the text's identity.
 import { getContext, setContext, untrack } from 'svelte';
 import { page } from '$app/state';
 import { evaluateText, textHistoryKey, type ExprResolver, type ExprValue } from '@scutoons/content';

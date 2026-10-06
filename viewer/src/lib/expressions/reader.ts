@@ -16,7 +16,7 @@ export interface ReaderEntry {
 /** what the resolver reads – getters, each optional (a missing source = no value) */
 export interface ReaderSources {
 	toon: string;
-	/** a story variable (the toon's game state) */
+	/** a story variable (the reader's one save game – shared by every toon) */
 	variable?(name: string): string | number | undefined;
 	signedIn?(): boolean;
 	/** has the reader access as a member (an account or a device code granting the catalog) */
@@ -24,7 +24,7 @@ export interface ReaderSources {
 	/** when the account was created (ISO / SQL date-time); none for guests */
 	accountCreated?(): string | null | undefined;
 	language?(): string;
-	/** when the reader first read this toon (the game state's created_at) */
+	/** when the reader started SCUTOONS (the save game's created_at) */
 	startedAt?(): string | undefined;
 	checkpoints?(): readonly Checkpoint[];
 	/** the toon's readable chapters, in reading order */

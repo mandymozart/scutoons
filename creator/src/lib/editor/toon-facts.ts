@@ -2,7 +2,7 @@
 // jumps to, which variables something sets – read from every chapter / scene of the toon (newest versions, language-
 // neutral documents) once per editor. The open chapter's own documents are passed live by the editor (they change).
 import { api, contentIndex, getDraft } from '$lib/api.ts';
-import { incomingJumps, type FlowIndex } from '@scutoons/content';
+import { incomingJumps, variablesElsewhere, type FlowIndex } from '@scutoons/content';
 
 /** the kinds whose documents can jump somewhere or set variables */
 const KINDS = new Set(['chapter', 'scene', 'map']);
@@ -21,13 +21,16 @@ export async function loadToonDocs(toon: string, skip: ReadonlySet<string> = new
 }
 
 /**
- * What other toons' jumps lead into `toon` (chapters + labels, owner 2026-10-06 "at label") – from the server's flow index
- * (`GET /api/creator/flow-index`, cached there). Nothing when it doesn't load (a label then may look unreached).
+ * What the other toons tell about `toon` – from the server's flow index (`GET /api/creator/flow-index`, cached there):
+ * their jumps into it (chapters + labels, owner 2026-10-06 "at label") and the story variables they set / read (one save
+ * game for every toon: `toonFacts(…, { elsewhere })`). Nothing when it doesn't load (a label may then look unreached, a
+ * variable set only in another toon unknown).
  */
-export async function loadIncoming(toon: string): Promise<{ chapters: number[]; labels: string[] }> {
+export async function loadIncoming(toon: string): Promise<{ chapters: number[]; labels: string[]; elsewhere: { sets: string[]; reads: string[] } }> {
 	try {
-		return incomingJumps(await api.get<FlowIndex>('/creator/flow-index'), toon);
+		const index = await api.get<FlowIndex>('/creator/flow-index');
+		return { ...incomingJumps(index, toon), elsewhere: variablesElsewhere(index, toon) };
 	} catch {
-		return { chapters: [], labels: [] };
+		return { chapters: [], labels: [], elsewhere: { sets: [], reads: [] } };
 	}
 }

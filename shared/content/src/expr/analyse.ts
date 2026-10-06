@@ -80,6 +80,7 @@ export function exprMessage(p: Pick<ExprProblem, 'code' | 'args' | 'suggestion'>
 }
 
 /** the edit distance of two words (Levenshtein) */
+export const editDistance = (a: string, b: string): number => distance(a, b);
 const distance = (a: string, b: string): number => {
 	let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
 	for (let i = 1; i <= a.length; i++) {

@@ -1,63 +1,105 @@
-// The reader's world state (agents/MAP.md §2.4): the map discoveries of the whole universe – unlocked places, revealed
-// routes, where each toon's hero is – in ONE game state under the reserved id `scutoons` (owner 2026-10-01: "if a reader
-// gets to some point in one story it unlocks an amazing potential for storytelling"). Guests: localStorage
-// `scutoons_game_scutoons`; members: `/api/progress/scutoons/` too. Unlike the per-toon game state (last write wins) the
-// map merges as sets (`mergeMapState`): a discovery made on another device, or as a guest before signing in, is never
-// lost. The server merges the same way on every PUT, so a stale write still adds its discoveries.
+// The reader's ONE save game (owner 2026-10-06: "Variables are per save game … make them across all toons"; DATA.md
+// "The save game", @scutoons/content save-game.ts): story variables, the history, every toon's reading progress and the
+// map's discoveries (agents/MAP.md §2.4) in one state under the reserved id `scutoons`. Guests: localStorage
+// `scutoons_game_scutoons`; members: `/api/progress/scutoons/` too. Two states MERGE (`mergeSaveGame`, the server does
+// the same on every PUT): map, checkpoints and history are never lost, variables are the newer write's.
+// The old per-toon game states (`scutoons_game_<toon>`, before 2026-10-06) are taken in once on load and removed
+// (`absorbToonStates`: a clash → the newest state's value) – the guests' side of the migration 2026-10-06-global-save-game
+// (no SQL reaches a browser; nothing an author did is involved, so no creator feedback – HANDOVER's exception).
+// Per toon is only the view on it (contexts/game.svelte.ts: the toon of the page, its checkpoints).
 //
-// Who writes: today the reading – a seen slice (`sliceSeen`: the places whose `unlock.slice` is that slice's image) and
-// the chapter progress (`unlocksFromProgress`, for places whose chapter has no slices yet); the story events
-// (unlockLocation, revealRoute, travel, setPosition – MAP.md §3) call the same operations in M3.
+// Map writers: the reading – a seen slice (`sliceSeen`) and the chapter progress (`unlocksFromProgress`); the story
+// events (unlockLocation, revealRoute, travel, setPosition – MAP.md §3) call the same operations in M3.
 import { getContext, setContext } from 'svelte';
 import {
+	SAVE_GAME_KEY,
+	SAVE_GAME_PREFIX,
 	WORLD_STATE_ID,
-	emptyMapState,
+	absorbToonStates,
+	advanceCheckpoint,
+	chapterCheckpointUri,
+	emptySaveGame,
+	historyCount,
+	mergeSaveGame,
+	normalizeSaveGame,
+	recordHistory,
+	type OldToonState,
+	type SaveGame,
 	markPlacesSeen,
-	mergeMapState,
 	placesForSlice,
-	normalizeMapState,
 	revealRoute,
 	setPosition,
 	unlockPlace,
 	type MapPlace,
-	type MapPosition,
-	type MapState
+	type MapPosition
 } from '@scutoons/content';
 import { fetchProgress, putProgress } from '$lib/api.ts';
 import type { SessionContext } from './session.svelte.ts';
 
 const KEY = Symbol('world');
-const STORAGE_KEY = `scutoons_game_${WORLD_STATE_ID}`;
 const SYNC_DEBOUNCE_MS = 2000;
-
-interface WorldState {
-	map: MapState;
-	created_at: string;
-	updated_at: string;
-}
 
 export type WorldContext = ReturnType<typeof createWorldContext>;
 
 export function createWorldContext(session: SessionContext | null) {
 	const now = () => new Date().toISOString();
-	const state = $state<WorldState>({ map: emptyMapState(), created_at: now(), updated_at: now() });
+	const state = $state<SaveGame>(emptySaveGame());
+
+	function replace(next: SaveGame) {
+		state.variables = next.variables;
+		state.progress = next.progress;
+		state.history = next.history;
+		state.map = next.map;
+		state.created_at = next.created_at;
+		state.updated_at = next.updated_at;
+	}
 
 	function load() {
+		if (typeof localStorage === 'undefined') return;
 		try {
-			const saved = typeof localStorage === 'undefined' ? null : localStorage.getItem(STORAGE_KEY);
-			if (!saved) return;
-			const parsed = JSON.parse(saved);
-			state.map = normalizeMapState(parsed?.map);
-			state.created_at = parsed?.created_at || state.created_at;
-			state.updated_at = parsed?.updated_at || state.updated_at;
+			const saved = localStorage.getItem(SAVE_GAME_KEY);
+			if (saved) replace(normalizeSaveGame(JSON.parse(saved)));
 		} catch {
 			/* a broken entry starts empty */
+		}
+		absorbOldStates();
+	}
+
+	/** the old per-toon game states of this device, taken in once and removed (see the file comment) */
+	function absorbOldStates() {
+		const olds: (OldToonState & { key: string })[] = [];
+		try {
+			for (let i = 0; i < localStorage.length; i++) {
+				const key = localStorage.key(i);
+				if (!key || !key.startsWith(SAVE_GAME_PREFIX) || key === SAVE_GAME_KEY) continue;
+				let parsed: unknown = null;
+				try {
+					parsed = JSON.parse(localStorage.getItem(key) ?? 'null');
+				} catch {
+					/* broken: dropped with the key */
+				}
+				olds.push({ key, toon: key.slice(SAVE_GAME_PREFIX.length), state: parsed });
+			}
+		} catch {
+			return;
+		}
+		if (!olds.length) return;
+		const { save: merged, clashes } = absorbToonStates($state.snapshot(state) as SaveGame, olds);
+		replace(merged);
+		if (clashes.length) console.info(`Save game: took in ${olds.length} old toon states – the newest one's value of ${clashes.join(', ')}`);
+		save();
+		for (const o of olds) {
+			try {
+				localStorage.removeItem(o.key);
+			} catch {
+				/* stays – taken in again next time (the same values) */
+			}
 		}
 	}
 
 	function store() {
 		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify($state.snapshot(state)));
+			localStorage.setItem(SAVE_GAME_KEY, JSON.stringify($state.snapshot(state)));
 		} catch {
 			/* storage full / blocked: the state lives for this visit */
 		}
@@ -82,39 +124,47 @@ export function createWorldContext(session: SessionContext | null) {
 		pushTimer = setTimeout(push, SYNC_DEBOUNCE_MS);
 	}
 
-	/** the server's answer (merged there) merged into ours: nothing either side discovered is lost */
-	function adopt(remote: any) {
-		const merged = mergeMapState(state.map, normalizeMapState(remote?.map));
-		if (JSON.stringify(merged) === JSON.stringify($state.snapshot(state.map))) return false;
-		state.map = merged;
-		store();
-		return true;
+	/** a device that never saved anything: the account's state is taken as it is */
+	const empty = (s: SaveGame) =>
+		!Object.keys(s.variables).length && !s.progress.length && !Object.keys(s.history).length && !Object.keys(s.map.places).length && !Object.keys(s.map.routes).length;
+
+	/**
+	 * The server's state (`remoteTime` ms) and ours as one: the newer one's variables, everything else merged. Returns
+	 * whether ours knew something the server's didn't (then it is pushed).
+	 */
+	function adopt(remote: unknown, remoteTime: number): boolean {
+		const local = $state.snapshot(state) as SaveGame;
+		if (!remote || typeof remote !== 'object') return !empty(local);
+		const localTime = empty(local) ? 0 : millis(local.updated_at);
+		const remoteState = { ...(remote as object), updated_at: new Date(remoteTime).toISOString() };
+		const merged = localTime > remoteTime ? mergeSaveGame(local, remoteState) : mergeSaveGame(remoteState, local);
+		if (JSON.stringify(merged) !== JSON.stringify(local)) {
+			replace(merged);
+			store();
+		}
+		return JSON.stringify(normalizeSaveGame(remoteState)) !== JSON.stringify(merged);
 	}
 
 	async function push() {
 		if (!loggedIn()) return;
 		try {
 			const result = await putProgress(WORLD_STATE_ID, $state.snapshot(state), millis(state.updated_at));
-			if (result?.state) adopt(result.state);
+			if (result?.state) adopt(result.state, millis(result.updated_at));
 		} catch (error) {
-			console.warn('World state sync (push) failed:', error);
+			console.warn('Save game sync (push) failed:', error);
 		}
 	}
 
-	/** Once per login: the account's state and this device's (a guest's discoveries too) become one, then pushed */
+	/** Once per login: the account's save game and this device's (a guest's too) become one, then pushed if needed */
 	async function sync() {
 		if (synced || !loggedIn()) return;
 		synced = true;
 		try {
 			const remote = await fetchProgress(WORLD_STATE_ID).catch(() => null);
-			const before = JSON.stringify($state.snapshot(state.map));
-			adopt(remote?.state);
-			const remoteMap = JSON.stringify(normalizeMapState(remote?.state?.map));
-			// push when this device knew something the account didn't
-			if (JSON.stringify(mergeMapState(normalizeMapState(remote?.state?.map), JSON.parse(before))) !== remoteMap) await push();
+			if (adopt(remote?.state, millis(remote?.updated_at ?? remote?.state?.updated_at))) await push();
 		} catch (error) {
 			synced = false;
-			console.warn('World state sync failed:', error);
+			console.warn('Save game sync failed:', error);
 		}
 	}
 
@@ -126,7 +176,68 @@ export function createWorldContext(session: SessionContext | null) {
 			} else sync();
 		}) ?? (() => {});
 
-	// ── operations (set operations: repeating one changes nothing) ─────────────────────────────────────────
+	// ── story variables, history, reading progress (every toon) ───────────────────────────────────────────────
+
+	function getVariable(key: string): string | number | undefined {
+		return state.variables[key];
+	}
+
+	function setVariable(key: string, value: string | number): void {
+		state.variables[key] = value;
+		save();
+	}
+
+	function addVariable(key: string, amount: number): void {
+		const current = state.variables[key];
+		// a number written as text ("330", set from a choice or a setVariable) counts as that number
+		const currentNum = typeof current === 'number' ? current : Number.isFinite(Number(current)) && current !== '' ? Number(current) : 0;
+		state.variables[key] = currentNum + amount;
+		save();
+	}
+
+	/** how many times the reader met `key` (the history, @scutoons/content history.ts) */
+	function visits(key: string): number {
+		return historyCount(state.history, key);
+	}
+
+	/** one more time for `key` (stored + synced) */
+	function recordVisit(key: string): void {
+		recordHistory(state.history, key, Date.now());
+		save();
+	}
+
+	function hasCheckpoint(uri: string) {
+		return state.progress.some((p) => p.uri === uri);
+	}
+
+	function addCheckpoint(uri: string) {
+		state.progress.push({ uri, isComplete: false, created_at: now(), updated_at: now() });
+		save();
+	}
+
+	function completeCheckpoint(uri: string) {
+		const checkpoint = state.progress.find((p) => p.uri === uri);
+		if (!checkpoint) return;
+		checkpoint.isComplete = true;
+		checkpoint.updated_at = now();
+		save();
+	}
+
+	/**
+	 * Reading progress of a toon's chapter (the toon page's start button, agents/DESIGN.md "Start button"): `position` =
+	 * how far (0..1); `fresh` = the first call of this visit.
+	 */
+	function readChapter(toon: string, chapter: number, position: number, fresh: boolean) {
+		const uri = chapterCheckpointUri(toon, chapter);
+		const index = state.progress.findIndex((p) => p.uri === uri);
+		const next = advanceCheckpoint(index >= 0 ? $state.snapshot(state.progress[index]) : undefined, uri, position, fresh, now());
+		if (!next) return;
+		if (index >= 0) state.progress[index] = next;
+		else state.progress.push(next);
+		save();
+	}
+
+	// ── map operations (set operations: repeating one changes nothing) ─────────────────────────────────────────
 
 	/** Unlocks places; returns the ids that were new */
 	function unlock(ids: Iterable<string>): string[] {
@@ -184,9 +295,23 @@ export function createWorldContext(session: SessionContext | null) {
 	load();
 
 	return {
+		/** the whole save game (reactive) */
+		get state() {
+			return state;
+		},
 		get map() {
 			return state.map;
 		},
+		getVariable,
+		setVariable,
+		addVariable,
+		visits,
+		recordVisit,
+		hasCheckpoint,
+		addCheckpoint,
+		completeCheckpoint,
+		readChapter,
+		save,
 		/** the world's places (id + name) once the map data is loaded, else null */
 		get places() {
 			return places;

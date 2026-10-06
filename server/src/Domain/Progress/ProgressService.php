@@ -10,16 +10,20 @@ use Scutoons\Infrastructure\Database\Database;
 use stdClass;
 
 /**
- * The viewer game state per toon (last write wins): the client sends `updated_at` (ms since 1970) with the state; the
- * stored record is replaced unless it is newer. The answer always carries the record that won, so a client whose
- * write lost (status "stale") can adopt it. The world state `scutoons` (agents/MAP.md §2.4) is merged instead: its `map`
- * unions the discoveries of both writes (status "stale" still tells the client its write was older), the other fields
- * are the newer write's.
+ * The reader's save game (DATA.md "The save game", owner 2026-10-06): ONE state per member under the reserved id
+ * `scutoons` – story variables of every toon, the history, every toon's checkpoints (`<toon>/chapter/<n>`) and the map.
+ * Two writes MERGE (`mergeSaveGame`, the same as @scutoons/content save-game.ts): the map as sets, checkpoints by uri
+ * (the later `updated_at`), history entries per key (larger count, first first, last last); variables and every other
+ * field are the newer write's (status "stale" tells the client its write was older; the answer is the merged state).
+ *
+ * Other ids (`/api/progress/<toon>/`) are the per-toon game states from before 2026-10-06 – kept for older viewer builds
+ * (last write wins as before: the client sends `updated_at` ms, the stored record is replaced unless it is newer); the
+ * migration 2026-10-06-global-save-game merged them into the save game; the new viewer no longer reads or writes them.
  */
 final class ProgressService
 {
     public const TOON_PATTERN = '[A-Za-z0-9_-]{1,64}';
-    /** The world-wide game state (agents/MAP.md §2.4: map unlocks count across every toon); no toon may have this id */
+    /** The save game's id (agents/MAP.md §2.4, DATA.md "The save game"); no toon may have this id */
     public const WORLD = 'scutoons';
 
     public function __construct(
@@ -54,11 +58,11 @@ final class ProgressService
         $result = $this->db->transaction(function () use ($userId, $toonId, $json, $updatedAt, $state) {
             $current = $this->db->one('SELECT state, updated_at FROM progress WHERE user_id = ? AND toon_id = ? FOR UPDATE', [$userId, $toonId]);
             if ($toonId === self::WORLD && $current) {
-                // the world state: the map's discoveries merge as sets (agents/MAP.md §2.4) – a write from a device that
-                // missed another device's unlocks never loses them; everything else: the newer write wins
+                // the save game: discoveries, checkpoints and the history merge – a write from a device that missed
+                // another device's never loses them; variables and everything else: the newer write wins
                 $stale = (int) $current['updated_at'] > $updatedAt;
                 $stored = json_decode((string) $current['state']);
-                $merged = self::mergeWorldState($stale ? $stored : $state, $stale ? $state : $stored);
+                $merged = self::mergeSaveGame($stale ? $stored : $state, $stale ? $state : $stored);
                 $mergedJson = (string) json_encode($merged, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 $time = max((int) $current['updated_at'], $updatedAt);
                 $this->db->run('UPDATE progress SET state = ?, updated_at = ? WHERE user_id = ? AND toon_id = ?', [$mergedJson, $time, $userId, $toonId]);
@@ -78,15 +82,86 @@ final class ProgressService
     }
 
     /**
-     * The world state (`scutoons`): `$newer` wins for every field except `map`, whose places / routes / positions merge
-     * (mergeMapState). A state that is no object counts as empty.
+     * The save game (`scutoons`): `$newer` wins for every field except `map` (mergeMapState), `progress` (checkpoints by
+     * uri: the later `updated_at`, finished once = finished) and `history` (per key: the larger `n`, the smaller `first`,
+     * the larger `last`; at most HISTORY_LIMIT, the longest-unseen go). A state that is no object counts as empty.
      */
-    public static function mergeWorldState(mixed $newer, mixed $older): stdClass
+    public static function mergeSaveGame(mixed $newer, mixed $older): stdClass
     {
         $out = $newer instanceof stdClass ? clone $newer : ($older instanceof stdClass ? clone $older : new stdClass());
-        $mapA = $newer instanceof stdClass ? ($newer->map ?? null) : null;
-        $mapB = $older instanceof stdClass ? ($older->map ?? null) : null;
+        $field = fn(mixed $state, string $key): mixed => $state instanceof stdClass ? ($state->{$key} ?? null) : null;
+        if ($newer instanceof stdClass && $older instanceof stdClass && !property_exists($newer, 'variables') && property_exists($older, 'variables')) {
+            $out->variables = $older->variables;
+        }
+        $mapA = $field($newer, 'map');
+        $mapB = $field($older, 'map');
         if ($mapA !== null || $mapB !== null) $out->map = self::mergeMapState($mapA, $mapB);
+        $progressA = $field($newer, 'progress');
+        $progressB = $field($older, 'progress');
+        if ($progressA !== null || $progressB !== null) $out->progress = self::mergeCheckpoints($progressB, $progressA);
+        $historyA = $field($newer, 'history');
+        $historyB = $field($older, 'history');
+        if ($historyA !== null || $historyB !== null) $out->history = self::mergeHistory($historyA, $historyB);
+        if (is_string($field($older, 'created_at')) && is_string($field($newer, 'created_at'))
+            && (strtotime((string) $older->created_at) ?: PHP_INT_MAX) < (strtotime((string) $newer->created_at) ?: PHP_INT_MAX)) {
+            $out->created_at = $older->created_at;
+        }
+        return $out;
+    }
+
+    /** the most history entries kept (@scutoons/content history.ts HISTORY_LIMIT) */
+    public const HISTORY_LIMIT = 1000;
+
+    /**
+     * Checkpoints of both (lists of { uri, isComplete, position?, created_at, updated_at }) by uri: the later
+     * `updated_at` (a tie: the finished one); finished in either = finished.
+     * @return list<stdClass>
+     */
+    public static function mergeCheckpoints(mixed $a, mixed $b): array
+    {
+        $out = [];
+        foreach ([...(is_array($a) ? $a : []), ...(is_array($b) ? $b : [])] as $c) {
+            if (!$c instanceof stdClass || !is_string($c->uri ?? null)) continue;
+            $have = $out[$c->uri] ?? null;
+            if ($have === null) {
+                $out[$c->uri] = $c;
+                continue;
+            }
+            $d = (strtotime((string) ($c->updated_at ?? '')) ?: 0) - (strtotime((string) ($have->updated_at ?? '')) ?: 0);
+            $pick = clone ($d > 0 || ($d === 0 && !empty($c->isComplete)) ? $c : $have);
+            $pick->isComplete = !empty($have->isComplete) || !empty($c->isComplete);
+            $out[$c->uri] = $pick;
+        }
+        return array_values($out);
+    }
+
+    /** History entries ({ n, first, last }) of both per key */
+    public static function mergeHistory(mixed $a, mixed $b): stdClass
+    {
+        $part = fn(mixed $h): array => $h instanceof stdClass ? array_filter(get_object_vars($h), fn($e) => $e instanceof stdClass && is_numeric($e->n ?? null)) : [];
+        [$x, $y] = [$part($a), $part($b)];
+        $merged = [];
+        foreach (array_unique([...array_keys($x), ...array_keys($y)]) as $key) {
+            $p = $x[$key] ?? null;
+            $q = $y[$key] ?? null;
+            $only = $p === null ? $q : ($q === null ? $p : null);
+            if ($only instanceof stdClass) {
+                $merged[$key] = clone $only;
+                continue;
+            }
+            if ($p === null || $q === null) continue;
+            $e = new stdClass();
+            $e->n = max($p->n, $q->n);
+            $e->first = min($p->first ?? $p->last ?? 0, $q->first ?? $q->last ?? 0);
+            $e->last = max($p->last ?? 0, $q->last ?? 0);
+            $merged[$key] = $e;
+        }
+        if (count($merged) > self::HISTORY_LIMIT) {
+            uasort($merged, fn($e, $f) => ($e->last ?? 0) <=> ($f->last ?? 0));
+            $merged = array_slice($merged, count($merged) - self::HISTORY_LIMIT, null, true);
+        }
+        $out = new stdClass();
+        foreach ($merged as $key => $e) $out->{(string) $key} = $e;
         return $out;
     }
 

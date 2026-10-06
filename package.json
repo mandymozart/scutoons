@@ -30,6 +30,7 @@
 		"check:chain-vn": "node scripts/dev/chain-vn-check.mjs",
 		"check:expr": "node scripts/dev/expr-check.mjs",
 		"check:events": "node scripts/dev/events-check.mjs",
+		"check:save-game": "node scripts/dev/save-game-check.mjs",
 		"check:creator-reach": "node scripts/dev/creator-reach-check.mjs",
 		"check:creator-expr": "node scripts/dev/creator-expr-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",

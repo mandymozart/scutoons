@@ -886,8 +886,24 @@ export interface FlowIndexToon {
 export interface FlowIndex {
 	toons: FlowIndexToon[];
 	edges: FlowIndexEdge[];
-	/** per toon: its dead things (the same rules as `deadThings`) */
+	/** per toon: its dead things (the same rules as `deadThings`, variables judged across every toon) */
 	dead?: Record<string, DeadThings>;
+	/** every story variable of SCUTOONS: the toons that set it, the toons that read it (one save game for all toons) */
+	variables?: Record<string, { set: string[]; read: string[] }>;
+}
+
+/**
+ * What the OTHER toons do with story variables (from the server's flow index): the names they set and the names they
+ * read – `toonFacts(…, { elsewhere })` (dead things, never-true tests and unknown names judged across all toons).
+ */
+export function variablesElsewhere(index: Pick<FlowIndex, 'variables'> | null | undefined, toon: string): { sets: string[]; reads: string[] } {
+	const sets: string[] = [];
+	const reads: string[] = [];
+	for (const [name, v] of Object.entries(index?.variables ?? {})) {
+		if ((v?.set ?? []).some((t) => t !== toon)) sets.push(name);
+		if ((v?.read ?? []).some((t) => t !== toon)) reads.push(name);
+	}
+	return { sets: sets.sort(), reads: reads.sort() };
 }
 
 /** one box per toon (its seasons), the jumps between toons (merged, counted) and to products / XR */
@@ -970,11 +986,11 @@ export interface DeadItem {
 }
 export interface DeadThings {
 	/**
-	 * variables something sets (setVariable, a choice's set / add, an askText's answer) that nothing reads: a simple test,
-	 * an expression condition (`if.expr`) or a text's `{…}` (the expression analyser's names of one part)
+	 * variables something sets (setVariable, a choice's set / add, an askText's answer) that nothing reads – in no toon:
+	 * a simple test, an expression condition (`if.expr`) or a text's `{…}` (the expression analyser's names of one part)
 	 */
 	unread: DeadItem[];
-	/** variables tested or shown that nothing in the toon sets (their tests are never true) */
+	/** variables tested or shown that nothing sets – in no toon (their tests are never true) */
 	unset: DeadItem[];
 	/** named points of a group's script nothing diverts to */
 	points: DeadItem[];
@@ -987,8 +1003,8 @@ const storyNames = (names: string[][]): string[] => names.filter((n) => n.length
 
 /**
  * The toon's dead things over its chapters (groups with each scene in place of its ref). `facts` = the toon's
- * (`toonFacts` over every document + the map): variables set elsewhere (item pickups, other documents) and labels
- * something refers to; without them no label is judged.
+ * (`toonFacts` over every document + the map, `elsewhere` = the other toons'): variables set / read elsewhere (item
+ * pickups, other documents, other toons) and labels something refers to; without them no label is judged.
  */
 export function deadThings(chapters: readonly { number: number; groups: readonly any[] }[], facts?: ToonFacts): DeadThings {
 	const sets = new Map<string, DeadPlace[]>();
@@ -1043,7 +1059,7 @@ export function deadThings(chapters: readonly { number: number; groups: readonly
 	const setAnywhere = (name: string) => sets.has(name) || !!facts?.variables.has(name);
 	const sorted = (list: DeadItem[]) => list.sort((a, b) => a.name.localeCompare(b.name));
 	return {
-		unread: sorted([...sets].filter(([name]) => !reads.has(name)).map(([name, at]) => ({ name, at }))),
+		unread: sorted([...sets].filter(([name]) => !reads.has(name) && !facts?.reads?.has(name)).map(([name, at]) => ({ name, at }))),
 		unset: sorted([...reads].filter(([name]) => !setAnywhere(name)).map(([name, at]) => ({ name, at }))),
 		points,
 		labels

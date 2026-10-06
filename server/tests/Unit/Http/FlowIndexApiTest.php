@@ -141,4 +141,24 @@ final class FlowIndexApiTest extends TestCase
         // toptoy's `hyper` / `middle` are reached from catpope; `lost` from nowhere
         self::assertSame(['lost'], array_column($index['dead']['toptoy']['labels'], 'name'));
     }
+
+    /** one save game (owner 2026-10-06): set in toptoy + read in catpope = used; `variables` lists the toons per name */
+    public function testVariablesAcrossToons(): void
+    {
+        $set = fn(string $v) => ['type' => 'setVariable', 'params' => ['variable' => $v, 'value' => 1, 'op' => 'add']];
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'a', 'slices' => [[]], 'events' => [$set('mama_tips'), $set('lonely')]]]]);
+        $this->store('chapter:catpope:2', ['number' => 2, 'groups' => [['label' => 'b', 'slices' => [[]], 'events' => [
+            $set('mama_tips'),
+            ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Mama!']], 'if' => ['variable' => 'mama_tips', 'op' => '>=', 'value' => 2]],
+            ['type' => 'showMessage', 'params' => ['text' => ['de' => '{rocket} {nowhere}']]],
+        ]]]]);
+        $this->store('chapter:yellowmouse:1', ['number' => 1, 'groups' => [['label' => 'c', 'slices' => [[]], 'events' => [$set('rocket')]]]]);
+        $index = (array) json_decode((string) $this->request('/api/creator/flow-index', $this->token('creator'))->getBody(), true);
+        self::assertSame(['set' => ['catpope', 'toptoy'], 'read' => ['catpope']], $index['variables']['mama_tips']);
+        self::assertSame(['set' => ['yellowmouse'], 'read' => ['catpope']], $index['variables']['rocket']);
+        self::assertSame(['set' => [], 'read' => ['catpope']], $index['variables']['nowhere']);
+        self::assertSame(['lonely'], array_column($index['dead']['toptoy']['unread'], 'name'), 'mama_tips is read in catpope');
+        self::assertSame([], array_column($index['dead']['yellowmouse']['unread'], 'name'), 'rocket is read in catpope');
+        self::assertSame(['nowhere'], array_column($index['dead']['catpope']['unset'], 'name'), 'rocket is set in yellowmouse');
+    }
 }

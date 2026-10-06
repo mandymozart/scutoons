@@ -241,8 +241,9 @@ export interface VNShowTextBoxEvent {
 /**
  * A question with one input line in the message box (agents/EXPRESSIONS.md §6): the reader types a short plain text
  * (trimmed, never markup), the page doesn't scroll until it is answered (Enter / ✓; Skip → `default`). `scope`:
- * `toon` (default) = a story variable of this toon (`variable`); `reader` = the reader's name everywhere on SCUTOONS
- * (`reader.name`: guests on the device, members on the account).
+ * `toon` (default) = a story variable (`variable` – since 2026-10-06 the same in every toon: one save game, so the name
+ * `toon` only means "the story's" – kept, no migration); `reader` = the reader's name (`reader.name`: the account's
+ * `display_name` for members, the device for guests; changeable on the account page – not part of the save game).
  */
 export interface VNAskTextEvent {
 	type: 'askText';

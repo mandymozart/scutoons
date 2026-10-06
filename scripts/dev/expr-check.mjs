@@ -2,7 +2,7 @@
 // Expressions in the reader (agents/EXPRESSIONS.md §7 step 2), played in headless Chrome (phone size, its own profile) on
 // the local dev stack as the local test user: a test group with a VN script and a text box using ink's inline syntax is
 // saved as a DRAFT of sandbox chapter 9, read with the draft preview over several reloads, and afterwards the draft rows
-// are removed and the test user's sandbox progress row is put back as it was (the dev DB is as before).
+// are removed and the test user's save game (progress row scutoons) is put back as it was (the dev DB is as before).
 //   - VN messages: `{coins}`, `{coins == 1: coin|coins}`, `{clock(t)}`, a sequence `{Hello.|You again?|Go away!}`
 //   - a text box: `{map.total - map.unlocked}`, the same sequence, `{clock(t)}` (live: t is set by the script after the
 //     box is drawn), a choice label `{coins + 1}`
@@ -63,7 +63,7 @@ async function api(method, path, body) {
 const sql = (query) => execFileSync('docker', ['exec', '-i', CONTAINER, 'sh', '-c', `mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -r ${DB}`], { input: query }).toString().trim();
 const quote = (s) => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 const userId = sql(`SELECT id FROM users WHERE email = ${quote(email)}`);
-const progressBefore = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
+const progressBefore = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
 
 const before = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 const created = [];
@@ -76,13 +76,13 @@ async function restore() {
 		if (!same) process.exitCode = 1;
 		created.length = 0;
 	}
-	// the test user's sandbox progress (the synced game state with the visits) as it was
+	// the test user's save game (synced, with the visits) as it was
 	if (progressBefore) {
 		const tab = progressBefore.indexOf('\t');
-		sql(`UPDATE progress SET state = ${quote(progressBefore.slice(tab + 1))}, updated_at = ${Number(progressBefore.slice(0, tab))} WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
-	} else sql(`DELETE FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
-	const now = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'sandbox'`);
-	console.log(`${now === progressBefore ? 'ok  ' : 'FAIL'} restored the test user's sandbox progress`);
+		sql(`UPDATE progress SET state = ${quote(progressBefore.slice(tab + 1))}, updated_at = ${Number(progressBefore.slice(0, tab))} WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	} else sql(`DELETE FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	const now = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	console.log(`${now === progressBefore ? 'ok  ' : 'FAIL'} restored the test user's save game (progress row scutoons)`);
 	if (now !== progressBefore) process.exitCode = 1;
 }
 const saved = await api('PUT', `/entities/${KEY}`, { content: doc(before.content), base: before.version.id, message: 'expr-check (removed again)' });
@@ -138,7 +138,7 @@ const STATE = `(() => ({
 	text: document.querySelector('.vn-message.visible .text')?.innerText.trim() ?? null,
 	choices: [...document.querySelectorAll('.vn-choice')].map((b) => b.innerText.trim()),
 	box: [...document.querySelectorAll('.slice .dialog .line')].map((l) => l.innerText.trim()),
-	history: Object.keys(JSON.parse(localStorage.getItem('scutoons_game_sandbox') ?? '{}').history ?? {})
+	history: Object.keys(JSON.parse(localStorage.getItem('scutoons_game_scutoons') ?? '{}').history ?? {})
 }))()`;
 const state = () => js(STATE);
 const waitText = (re, ms = 10000) => until(`(() => { const s = ${STATE}; return ${re}.test(s.text ?? '') ? s : null; })()`, ms);
@@ -153,8 +153,8 @@ try {
 	await until('document.readyState === "complete"');
 	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)})`);
 	await js(`localStorage.setItem('scutoons.draft-preview', '1')`);
-	// a fresh reader for this toon (the account's sandbox state would come down with the sync): no history yet
-	await api('PUT', '/progress/sandbox/', { state: { toonId: 'sandbox', variables: {}, progress: [], created_at: new Date().toISOString() }, updated_at: Date.now() }).catch(() => null);
+	// a fresh reader: no save game yet (one for every toon – put back afterwards)
+	sql(`DELETE FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
 
 	for (let visit = 0; visit < GREETINGS.length; visit++) {
 		await send('Page.navigate', { url: `${VIEWER}/sandbox/chapter/9` });
@@ -186,7 +186,7 @@ try {
 		await sleep(300);
 	}
 	const s = await state();
-	check(s.history.some((k) => k.startsWith('text:sandbox/9/box/expr-box/1#')) && s.history.some((k) => k.startsWith('text:sandbox/9/vn/expr-a/script/3#')), 'the visits are in the game state (scutoons_game_sandbox.history)', JSON.stringify(s.history));
+	check(s.history.some((k) => k.startsWith('text:sandbox/9/box/expr-box/1#')) && s.history.some((k) => k.startsWith('text:sandbox/9/vn/expr-a/script/3#')), 'the visits are in the save game (scutoons_game_scutoons.history)', JSON.stringify(s.history));
 	check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | '));
 } catch (error) {
 	check(false, 'the run', String(error?.stack ?? error));
