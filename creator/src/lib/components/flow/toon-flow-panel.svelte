@@ -37,7 +37,7 @@
 		if (n.kind === 'chapter' || n.kind === 'place') return goto(`/${toon}/chapter/${n.chapter}?flow=1`);
 		const t = n.target;
 		if (!t) return;
-		if (t.type === 'chapter') return goto(`/${toon}/chapter/${t.value}?flow=1`);
+		if (t.type === 'chapter') return goto(`/${t.toon || toon}/chapter/${t.value}?flow=1`);
 		if (t.type === 'season') return goto(`/${toon}/season/${t.value}?flow=1`);
 		if (t.type === 'toon') return goto(`/${t.value}?flow=1`);
 	}

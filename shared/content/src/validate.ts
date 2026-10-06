@@ -120,6 +120,23 @@ export interface ValidateContext {
 	 * condition is judged (reach.ts)
 	 */
 	facts?: ToonFacts;
+	/** jump targets: what the caller knows about the places a jump can lead to – none: not checked (`checkTargetPlace`) */
+	targets?: JumpTargets;
+}
+
+/**
+ * The places jumps can lead to, as far as the caller knows them (the creator: the toons, this toon's chapters and the
+ * chapters it loaded for the target editor). `undefined` from a function = not known (no check).
+ */
+export interface JumpTargets {
+	/** the toon of the document being checked (a chapter target without `toon` leads here) */
+	toon: string;
+	/** every toon id */
+	toons?: readonly string[];
+	/** a toon's chapter numbers */
+	chapters?: (toon: string) => readonly number[] | undefined;
+	/** a chapter's group labels (its scenes' included) */
+	labels?: (toon: string, chapter: number) => readonly string[] | undefined;
 }
 
 class Collector {
@@ -249,7 +266,7 @@ function checkTrigger(c: Collector, trigger: any, path: Path, sample: boolean, h
 	}
 }
 
-function checkTarget(c: Collector, target: any, path: Path) {
+function checkTarget(c: Collector, target: any, path: Path, ctx: ValidateContext) {
 	if (!isObj(target)) return c.error(path, 'target is missing');
 	if (!values(JumpToTargetType).includes(target.type)) c.error([...path, 'type'], `target.type must be one of ${values(JumpToTargetType).join(', ')}`);
 	if (target.value === undefined || target.value === '') c.error([...path, 'value'], 'target.value is missing');
@@ -258,6 +275,41 @@ function checkTarget(c: Collector, target: any, path: Path) {
 			c.error([...path, 'anyOf'], 'anyOf must be a list of group labels (one of them is picked at random)');
 		}
 	}
+	if (target.toon !== undefined) {
+		if (target.type !== 'chapter') c.error([...path, 'toon'], 'toon belongs to a chapter target (a chapter of another toon) – a toon page is type "toon"');
+		else if (!isStr(target.toon) || !target.toon) c.error([...path, 'toon'], 'toon must be a toon id (absent = this toon)');
+	}
+	checkTargetPlace(c, target, path, ctx.targets);
+}
+
+/**
+ * Does the place a jump leads to exist – where the caller can tell (`ctx.targets`): the toon, its chapter, the chapter's
+ * group labels. All warnings (content of other documents may still come); another toon's labels the caller couldn't load
+ * (no access, not loaded) warn that they can't be checked.
+ */
+function checkTargetPlace(c: Collector, target: Record<string, any>, path: Path, known: JumpTargets | undefined) {
+	if (!known) return;
+	const toons = known.toons;
+	if (target.type === 'toon' && isStr(target.value) && toons && !toons.includes(target.value)) {
+		return c.warn([...path, 'value'], `there is no toon "${target.value}"`);
+	}
+	if (target.type !== 'chapter' || target.value === undefined || target.value === '') return;
+	const other = isStr(target.toon) && target.toon && target.toon !== known.toon;
+	const toon: string = other ? target.toon : known.toon;
+	if (other && toons && !toons.includes(toon)) return c.warn([...path, 'toon'], `there is no toon "${toon}"`);
+	const number = Number(target.value);
+	const chapters = known.chapters?.(toon);
+	const where = other ? `${toon} chapter ${target.value}` : `chapter ${target.value}`;
+	if (chapters && !chapters.includes(number)) return c.warn([...path, 'value'], `${other ? `${toon} has` : 'the toon has'} no chapter ${target.value}`);
+	const wanted: string[] = [...(isStr(target.label) && target.label ? [target.label] : []), ...(Array.isArray(target.anyOf) ? target.anyOf.filter((l: unknown) => isStr(l) && l) : [])];
+	if (!wanted.length) return;
+	const labels = known.labels?.(toon, number);
+	if (!labels) {
+		if (other) c.warn([...path, isStr(target.label) && target.label ? 'label' : 'anyOf'], `can't check ${where}: its groups aren't loaded (no access to ${toon}?) – make sure ${wanted.map((l) => `"${l}"`).join(', ')} exist there`);
+		return;
+	}
+	const field = isStr(target.label) && target.label ? 'label' : 'anyOf';
+	for (const l of wanted) if (!labels.includes(l)) c.warn([...path, field], `${where} has no group labelled "${l}"`);
 }
 
 /** "Only if" on an event: { variable, op, value? }, or an expression { expr } (EXPRESSIONS.md §3: syntax errors are errors) */
@@ -277,13 +329,13 @@ function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContex
 }
 
 /** a choice's action(s): set / add / jumpTo / divert, one or a list */
-function checkActions(c: Collector, onSelect: any, path: Path) {
+function checkActions(c: Collector, onSelect: any, path: Path, ctx: ValidateContext) {
 	if (onSelect === undefined) return;
 	const list = Array.isArray(onSelect) ? onSelect : [onSelect];
 	list.forEach((a: any, i: number) => {
 		const ap = Array.isArray(onSelect) ? [...path, i] : path;
 		if (!isObj(a)) return c.error(ap, 'an action must be an object');
-		if (isObj(a.jumpTo)) checkTarget(c, a.jumpTo.target, [...ap, 'jumpTo', 'target']);
+		if (isObj(a.jumpTo)) checkTarget(c, a.jumpTo.target, [...ap, 'jumpTo', 'target'], ctx);
 		else if (isObj(a.divert)) {
 			if (!isStr(a.divert.to) || !a.divert.to) c.error([...ap, 'divert', 'to'], 'divert needs the name of a point in the script');
 		} else if (isObj(a.set)) {
@@ -350,7 +402,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			break;
 		case 'addChoice':
 			if (!isObj(p) || !isStr(p.label)) c.error([...pp, 'label'], 'addChoice needs params.label');
-			if (isObj(p)) checkActions(c, p.onSelect, [...pp, 'onSelect']);
+			if (isObj(p)) checkActions(c, p.onSelect, [...pp, 'onSelect'], ctx);
 			break;
 		case 'label':
 			if (!isObj(p) || !isStr(p.name) || !p.name) c.error([...pp, 'name'], 'a point needs a name');
@@ -369,7 +421,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			break;
 		case 'jumpTo':
 			if (!isObj(p)) c.error(pp, 'jumpTo needs params.target');
-			else checkTarget(c, p.target, [...pp, 'target']);
+			else checkTarget(c, p.target, [...pp, 'target'], ctx);
 			break;
 		case 'joinScene':
 		case 'leaveScene':
@@ -651,15 +703,15 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	}
 	checkScriptPoints(c, g, path);
 	checkVnFlow(c, g, path);
-	checkGroupLinks(c, g, path);
+	checkGroupLinks(c, g, path, ctx);
 }
 
 /** Linked groups (chains.ts): `continues` a boolean, `end` { target, auto? } – ignored on a group that continues */
-function checkGroupLinks(c: Collector, g: any, path: Path) {
+function checkGroupLinks(c: Collector, g: any, path: Path, ctx: ValidateContext) {
 	if (g.continues !== undefined && typeof g.continues !== 'boolean') c.error([...path, 'continues'], 'continues must be true or false');
 	if (g.end === undefined) return;
 	if (!isObj(g.end)) return c.error([...path, 'end'], 'end must be an object { target, auto? }');
-	checkTarget(c, g.end.target, [...path, 'end', 'target']);
+	checkTarget(c, g.end.target, [...path, 'end', 'target'], ctx);
 	if (g.end.auto !== undefined && typeof g.end.auto !== 'boolean') c.error([...path, 'end', 'auto'], 'end.auto must be true or false');
 	if (g.continues === true) c.warn([...path, 'end'], "end is ignored: the group continues into the next group (only a chain's last group has an end)");
 }

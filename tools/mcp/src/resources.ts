@@ -164,8 +164,13 @@ export const RULES: RuleResource[] = [
 				'Choice actions (`addChoice.params.onSelect`: one action or a list, run in order): setVariable / variable',
 				'actions first, then a `jumpTo` (navigates) or a `divert { to }` (continues the waiting script).',
 				'',
+				'Jump targets (`JumpToTarget`, shared/content/src/content.ts): `{ type: chapter | season | toon | product | xr,',
+				'value, toon?, label?, anyOf? }`. `type: "chapter"` + `toon` = a chapter of ANOTHER toon, landing at its group',
+				'`label` (or a random one of `anyOf`); without `toon` = this toon. `type: "toon"` = the toon page. Variables are',
+				'per toon: after a jump into another toon its story variables apply. `list_chapters` of that toon gives its labels.',
+				'',
 				'### Helpers (shared/content/src/vn-script.ts)',
-				...['function testCondition', 'function scriptLabels', 'function pickJumpLabel', 'function formatClock']
+				...['function testCondition', 'function scriptLabels', 'function targetToon', 'function pickJumpLabel', 'function formatClock']
 					.map((d) => `- \`${d.replace('function ', '')}\`: ${docComment('shared/content/src/vn-script.ts', d).replace(/\n/g, ' ')}`),
 				'',
 				'### Types (shared/content/src/visual-novel.ts)',

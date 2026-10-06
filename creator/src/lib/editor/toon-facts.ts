@@ -1,7 +1,8 @@
 // The toon-wide facts for the reachability check (owner 2026-10-06, @scutoons/content reach.ts): which labels something
 // jumps to, which variables something sets – read from every chapter / scene of the toon (newest versions, language-
 // neutral documents) once per editor. The open chapter's own documents are passed live by the editor (they change).
-import { contentIndex, getDraft } from '$lib/api.ts';
+import { api, contentIndex, getDraft } from '$lib/api.ts';
+import { incomingJumps, type FlowIndex } from '@scutoons/content';
 
 /** the kinds whose documents can jump somewhere or set variables */
 const KINDS = new Set(['chapter', 'scene', 'map']);
@@ -17,4 +18,16 @@ export async function loadToonDocs(toon: string, skip: ReadonlySet<string> = new
 	// the neutral document; a not yet converted one: its language files (the same jumps and variables)
 	const keys = index.filter((e) => !skip.has(base(e)) && (!e.locale || !neutral.has(base(e)))).map((e) => e.key);
 	return Promise.all(keys.map((key) => getDraft(key).then((r) => r.content)));
+}
+
+/**
+ * What other toons' jumps lead into `toon` (chapters + labels, owner 2026-10-06 "at label") – from the server's flow index
+ * (`GET /api/creator/flow-index`, cached there). Nothing when it doesn't load (a label then may look unreached).
+ */
+export async function loadIncoming(toon: string): Promise<{ chapters: number[]; labels: string[] }> {
+	try {
+		return incomingJumps(await api.get<FlowIndex>('/creator/flow-index'), toon);
+	} catch {
+		return { chapters: [], labels: [] };
+	}
 }

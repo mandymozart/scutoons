@@ -1446,6 +1446,10 @@
 				"value": {
 					"type": "string"
 				},
+				"toon": {
+					"type": "string",
+					"description": "`type: 'chapter'` only: the chapter (and `label` / `anyOf`) of ANOTHER toon (owner 2026-10-06, \"at label\"); absent = this toon. `type: 'toon'` stays the toon's page. Variables are per toon – a jump into another toon reads and writes that toon's story variables (`targetToon`, DATA.md \"Linked groups\")."
+				},
 				"label": {
 					"type": "string"
 				},

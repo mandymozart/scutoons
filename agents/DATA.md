@@ -438,6 +438,26 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   that continues = warning (ignored); a chain that isn't the chapter's start without a label on its first group =
   warning (unreachable); `end.target` is checked like a jumpTo target. The chapter check reads ref groups' scenes through
   `ValidateContext.resolveGroup` (the creator passes its loaded scenes).
+- **Jumps into another toon at a label** (owner 2026-10-06, "at label"): `JumpToTarget = { type, value, toon?, label?,
+  anyOf? }` – `type: 'chapter'` + `toon` = a chapter of ANOTHER toon (`value` = its number, `label` / `anyOf` = its
+  groups); no `toon` = this toon; `type: 'toon'` stays the toon's page. Only optional field added – no migration (dev DB
+  = production dump: no stored target had a `toon`; the 5 `type: 'toon'` targets of the mama story became chapter
+  jumps as new drafts, EXAMPLES.md). Helpers `targetToon` / `intoOtherToon` (vn-script.ts).
+  - Viewer: `buildJumpToUrl` → `/<toon>/chapter/<n>?label=…`; `anyOf` ignores the current group there. **Variables are
+    per toon** (the game state is the toon's): after the jump the other toon's story variables apply – a toon can't read
+    or set another toon's; reader state (`reader.*`, inventory …) is SCUTOONS-wide as before.
+  - Reach / flow: a target into another toon is no entry point of the toon it is in (`toonFacts(docs, { toon })`); a
+    label another toon jumps to IS one of the target toon (`incomingJumps` over the server's flow index →
+    `toonFacts(…, { incoming })`, `ToonFlowInput.incoming` = chapters other toons jump into, entries like a visible map
+    place). Chapter / toon level: an exit `x:chapter:<toon>/<n>`; SCUTOONS level: a toon → toon edge.
+    `FlowIndex.php` keeps `toon` on edges and counts incoming labels in the dead things (the same rules; PHPUnit
+    `FlowIndexApiTest::testJumpsIntoAnotherToonsLabel`, TS `toon-jumps.test.ts`).
+  - Validation: `toon` only on chapter targets (error); `ValidateContext.targets` (`JumpTargets`: toons, a toon's
+    chapters, a chapter's labels – the creator's `JumpPlaces`, loaded on demand) → warnings for an unknown toon, a
+    missing chapter, a missing label, and another toon's labels the creator couldn't load ("can't check …").
+  - Creator: the target editor (`event-target.svelte`) – type; for a chapter "In toon" (this toon / the others), the
+    chapter as a select of that toon's chapters, the group (and the random list) from THAT chapter's groups (a ref group's
+    label from its scene) – another chapter's / toon's documents load on demand (`editor/jump-places.svelte.ts`).
 
 ## Language-independent media (2026-10-01, owner rule – PLAN.md RULES)
 

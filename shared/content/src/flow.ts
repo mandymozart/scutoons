@@ -9,8 +9,9 @@
 //   - season / toon (`toonFlow`): one box per chapter (status, reach in the toon, dead groups), the season order, jumps
 //     and ends between chapters (the toon adds map places and the other seasons); `toonReach` = what the season order or
 //     any jump in the toon reaches;
-//   - SCUTOONS (`universeFlow`): one box per toon, the jumps between toons and to products / XR (from the server's
-//     flow index);
+//   - SCUTOONS (`universeFlow`): one box per toon, the jumps between toons (to a toon's page or a chapter + label of
+//     another toon – `target.toon`) and to products / XR (from the server's flow index; `incomingJumps` = what other
+//     toons jump into one toon: entries of its reach);
 //   - dead things (`deadThings`): variables set but never read, read but never set, points and labels nothing jumps to.
 // Statuses come from `chapterReach` (reach.ts) – the single source of truth, so the graph agrees with the chips. Pure: no
 // layout, no texts of the UI.
@@ -19,7 +20,7 @@ import type { JumpToTarget } from './content.ts';
 import { analyseExpression, analyseText } from './expr/analyse.ts';
 import { askVariable, chapterReach, isConditional, runRepeat, triggerKey, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
 import type { RepeatMode } from './recurrence.ts';
-import { actionsOf } from './vn-script.ts';
+import { actionsOf, intoOtherToon } from './vn-script.ts';
 
 /** a node's state: the reach of its item, or a condition that can never be true / a loop with no way out at it */
 export type FlowStatus = Reach | 'never' | 'loop';
@@ -165,6 +166,8 @@ export interface ChapterFlow {
 export interface FlowOptions {
 	/** the chapter's number: a jump to this chapter leads to its groups instead of an exit */
 	chapter?: number;
+	/** the chapter's toon: a chapter target naming another toon (`target.toon`) is an exit; none = any toon-named one is */
+	toon?: string;
 	/** the toon's facts (`toonFacts`), passed to `chapterReach` */
 	facts?: ToonFacts;
 	/** the reach the caller computed already (same groups and facts) – else computed here */
@@ -296,7 +299,7 @@ class Builder {
 	/** where a jump leads: groups of this chapter, else an exit node */
 	targets(t: any): { id: string; random: boolean }[] {
 		if (!t || typeof t !== 'object' || typeof t.type !== 'string') return [];
-		const here = t.type === 'chapter' && this.options.chapter !== undefined && Number(t.value) === this.options.chapter;
+		const here = t.type === 'chapter' && !intoOtherToon(t, this.options.toon) && this.options.chapter !== undefined && Number(t.value) === this.options.chapter;
 		const anyOf: string[] = Array.isArray(t.anyOf) ? t.anyOf.filter((l: unknown) => typeof l === 'string' && l) : [];
 		if (here) {
 			const labels = anyOf.length ? anyOf : typeof t.label === 'string' && t.label ? [t.label] : [];
@@ -309,9 +312,11 @@ class Builder {
 			});
 		}
 		const target: JumpToTarget = { type: t.type, value: String(t.value ?? '') };
+		const other = intoOtherToon(t, this.options.toon);
+		if (other) target.toon = t.toon;
 		if (typeof t.label === 'string' && t.label) target.label = t.label;
 		if (anyOf.length) target.anyOf = anyOf;
-		const id = `x:${t.type}:${target.value}:${target.label ?? ''}:${anyOf.join('|')}`;
+		const id = `x:${t.type}:${other ? `${t.toon}/` : ''}${target.value}:${target.label ?? ''}:${anyOf.join('|')}`;
 		return [{ id: this.add({ id, kind: 'exit', status: 'unreachable', target }), random: false }];
 	}
 	jumpEdges(from: string, t: unknown, extra: Partial<FlowEdge>) {
@@ -673,6 +678,8 @@ export interface ToonFlowInput {
 	/** the toon's facts (`toonFacts` over its documents + the map) */
 	facts?: ToonFacts;
 	places?: readonly FlowPlace[];
+	/** chapters of this toon other toons jump into (`incomingJumps` over the server's flow index): entries like a map place */
+	incoming?: readonly number[];
 	/** a text (a choice's label) as shown */
 	text?: (value: unknown) => string;
 }
@@ -724,7 +731,7 @@ export interface ToonChapterReach {
 export function toonReach(input: ToonFlowInput): Map<number, ToonChapterReach> {
 	const out = new Map<number, ToonChapterReach>();
 	for (const c of input.chapters) {
-		const flow = chapterFlow(c.groups, { chapter: c.number, facts: input.facts, text: input.text });
+		const flow = chapterFlow(c.groups, { chapter: c.number, toon: input.toon, facts: input.facts, text: input.text });
 		out.set(c.number, { reach: 'unreachable', dead: flow.reach.groups.filter((r) => r === 'unreachable').length, flow, exits: chapterExits(flow) });
 	}
 	const nextOf = new Map<number, number>();
@@ -738,7 +745,7 @@ export function toonReach(input: ToonFlowInput): Map<number, ToonChapterReach> {
 		if (x.next) return nextOf.has(number) ? [nextOf.get(number)!] : [];
 		const t = x.target;
 		if (!t) return [];
-		if (t.type === 'chapter') return [Number(t.value)];
+		if (t.type === 'chapter') return intoOtherToon(t, input.toon) ? [] : [Number(t.value)];
 		if (t.type === 'season') return [seasonStart(Number(t.value))].filter((n): n is number => n !== undefined);
 		if (t.type === 'toon' && t.value === input.toon) return starts;
 		return [];
@@ -746,6 +753,7 @@ export function toonReach(input: ToonFlowInput): Map<number, ToonChapterReach> {
 	const entries = new Set<number>(starts);
 	for (const c of input.chapters) if (c.status === 'published') entries.add(c.number);
 	for (const p of input.places ?? []) if (!p.hidden) entries.add(p.chapter);
+	for (const n of input.incoming ?? []) entries.add(n);
 	const walk = (withConditions: boolean): Set<number> => {
 		const reached = new Set<number>();
 		const queue = [...entries].filter((n) => out.has(n));
@@ -812,8 +820,10 @@ export function toonFlow(input: ToonFlowInput, options: { season?: number; reach
 		edges.push(e);
 	};
 	const exitNode = (t: JumpToTarget): string => {
-		const id = `x:${t.type}:${t.value}`;
-		return add({ id, kind: 'exit', status: 'unreachable', target: { type: t.type, value: String(t.value) }, ...(t.type === 'chapter' && seasonOf.has(Number(t.value)) ? { season: seasonOf.get(Number(t.value)) } : {}) });
+		const other = intoOtherToon(t, input.toon);
+		const id = `x:${t.type}:${other ? `${t.toon}/` : ''}${t.value}`;
+		const target: JumpToTarget = { type: t.type, value: String(t.value), ...(other ? { toon: t.toon } : {}) };
+		return add({ id, kind: 'exit', status: 'unreachable', target, ...(t.type === 'chapter' && !other && seasonOf.has(Number(t.value)) ? { season: seasonOf.get(Number(t.value)) } : {}) });
 	};
 	for (const c of ordered) {
 		if (!shown(c.number)) continue;
@@ -832,7 +842,7 @@ export function toonFlow(input: ToonFlowInput, options: { season?: number; reach
 			const t = x.target!;
 			const label = x.label ?? t.label ?? (t.anyOf?.length ? t.anyOf.join(' / ') : undefined);
 			let to: string;
-			if (t.type === 'chapter' && reach.has(Number(t.value))) to = shown(Number(t.value)) ? `c${Number(t.value)}` : exitNode(t);
+			if (t.type === 'chapter' && !intoOtherToon(t, input.toon) && reach.has(Number(t.value))) to = shown(Number(t.value)) ? `c${Number(t.value)}` : exitNode(t);
 			else if (t.type === 'season' && options.season === undefined) {
 				const start = input.seasons.find((s) => s.number === Number(t.value))?.chapters[0];
 				to = start !== undefined && shown(start) ? `c${start}` : exitNode(t);
@@ -905,9 +915,12 @@ export function universeFlow(index: FlowIndex, options: { text?: (value: unknown
 		if (!byId.has(from)) continue;
 		const t = e.target;
 		let to: string;
-		if (t.type === 'toon') {
-			if (t.value === e.source.toon) continue;
-			to = byId.has(`t:${t.value}`) ? `t:${t.value}` : add({ id: `x:toon:${t.value}`, kind: 'exit', status: 'reachable', target: { type: 'toon', value: String(t.value) } as JumpToTarget });
+		// a toon's page, or a chapter (+ label) of another toon
+		const into = t.type === 'toon' ? String(t.value) : intoOtherToon(t, e.source.toon) ? String(t.toon) : null;
+		const label = e.label;
+		if (into !== null) {
+			if (into === e.source.toon) continue;
+			to = byId.has(`t:${into}`) ? `t:${into}` : add({ id: `x:toon:${into}`, kind: 'exit', status: 'reachable', target: { type: 'toon', value: into } as JumpToTarget });
 		} else if (t.type === 'product' || t.type === 'xr') {
 			to = add({ id: `x:${t.type}:${t.value}`, kind: 'exit', status: 'reachable', target: { type: t.type, value: String(t.value) } });
 		} else continue; // chapter / season: inside the toon
@@ -916,14 +929,31 @@ export function universeFlow(index: FlowIndex, options: { text?: (value: unknown
 		const had = merged.get(key);
 		if (had) {
 			had.count = (had.count ?? 1) + 1;
-			if (e.label && !(had.label ?? '').split(' · ').includes(e.label)) had.label = had.label ? `${had.label} · ${e.label}` : e.label;
+			if (label && !(had.label ?? '').split(' · ').includes(label)) had.label = had.label ? `${had.label} · ${label}` : label;
 			continue;
 		}
-		const edge: FlowEdge = { id: `${from}>${to}#${edges.length}`, from, to, kind, status: 'reachable', ...(e.label ? { label: e.label } : {}), count: 1 };
+		const edge: FlowEdge = { id: `${from}>${to}#${edges.length}`, from, to, kind, status: 'reachable', ...(label ? { label } : {}), count: 1 };
 		merged.set(key, edge);
 		edges.push(edge);
 	}
 	return { nodes, edges };
+}
+
+/**
+ * What other toons' jumps lead into `toon` (from the server's flow index): its chapters (entries of `toonReach`) and the
+ * labels they name (entry points of `toonFacts` / `chapterReach`). A label in another toon counts as reached from there.
+ */
+export function incomingJumps(index: Pick<FlowIndex, 'edges'> | null | undefined, toon: string): { chapters: number[]; labels: string[] } {
+	const chapters = new Set<number>();
+	const labels = new Set<string>();
+	for (const e of index?.edges ?? []) {
+		const t = e.target;
+		if (e.source.toon === toon || t?.type !== 'chapter' || t.toon !== toon) continue;
+		if (Number.isFinite(Number(t.value))) chapters.add(Number(t.value));
+		if (t.label) labels.add(t.label);
+		for (const l of t.anyOf ?? []) if (l) labels.add(l);
+	}
+	return { chapters: [...chapters].sort((a, b) => a - b), labels: [...labels].sort() };
 }
 
 // ── Dead things ─────────────────────────────────────────────────────────────────────────────────────────────────

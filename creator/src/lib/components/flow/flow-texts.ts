@@ -31,7 +31,9 @@ export function targetText(t: JumpToTarget | undefined, season?: number): string
 	const value = t.value;
 	const head =
 		t.type === 'chapter'
-			? season !== undefined
+			? t.toon
+				? m['creator.flow_chapter_of_toon']({ toon: t.toon, value })
+				: season !== undefined
 				? m['creator.flow_chapter_in_season']({ number: value, season })
 				: m['creator.flow_chapter']({ value })
 			: t.type === 'season'

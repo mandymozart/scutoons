@@ -12,13 +12,14 @@ use Scutoons\Infrastructure\Database\Database;
  * newest version of every chapter / scene / season / toon document, scanned once for the ways out of a chapter – jumpTo
  * events, choices that jump, a group's authored end (in group scripts, slice triggers, placed items' taps) – plus every
  * toon's seasons and its dead things (the same rules as @scutoons/content `deadThings`: variables set but never read,
- * read but never set (reads: simple tests, `if.expr` conditions and texts' `{…}` through the expression analyser), script points and group labels nothing jumps to). The browser draws it without loading every toon.
+ * read but never set (reads: simple tests, `if.expr` conditions and texts' `{…}` through the expression analyser), script points and group labels nothing jumps to –
+ * from this toon or another one: a chapter target with `toon`). The browser draws it without loading every toon.
  * Cached under the version ids it was built from (content-addressed like the library: nothing to invalidate).
  */
 final class FlowIndex
 {
     private const CACHE_TTL = 3600;
-    private const VERSION = 'v2';
+    private const VERSION = 'v3';
     private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
@@ -138,7 +139,21 @@ final class FlowIndex
                     }
                 }
             }
-            $dead[$toon] = $this->dead($byNumber, $this->facts([...($toonDocs[$toon] ?? []), ...($map !== null ? [$map] : [])]));
+        }
+        // dead things: a label another toon jumps to (a chapter target with `toon`) is reached from there
+        $incoming = [];
+        foreach ($edges as $edge) {
+            $target = $edge['target'];
+            $into = $target['toon'] ?? null;
+            if (!is_string($into) || $into === $edge['source']['toon']) continue;
+            foreach ([...(isset($target['label']) ? [$target['label']] : []), ...($target['anyOf'] ?? [])] as $l) $incoming[$into][$l] = true;
+        }
+        foreach ($toons as $toon => $entry) {
+            $byNumber = $chapters[$toon] ?? [];
+            ksort($byNumber);
+            $facts = $this->facts((string) $toon, [...($toonDocs[$toon] ?? []), ...($map !== null ? [$map] : [])]);
+            $facts['labels'] += $incoming[$toon] ?? [];
+            $dead[$toon] = $this->dead($byNumber, $facts);
         }
         $list = [];
         foreach ($toons as $entry) {
@@ -190,13 +205,17 @@ final class FlowIndex
         return $out;
     }
 
-    /** @return array<string, mixed>|null a jump target { type, value, label?, anyOf? } when it is one */
+    /**
+     * a jump target { type, value, toon?, label?, anyOf? } when it is one (`toon`: a chapter of another toon)
+     * @return array<string, mixed>|null
+     */
     private static function target(mixed $t): ?array
     {
         if (!is_array($t) || !in_array($t['type'] ?? null, self::TARGET_TYPES, true)) return null;
         $value = $t['value'] ?? null;
         if (!is_scalar($value) || (string) $value === '') return null;
         $out = ['type' => $t['type'], 'value' => (string) $value];
+        if ($t['type'] === 'chapter' && is_string($t['toon'] ?? null) && $t['toon'] !== '') $out['toon'] = $t['toon'];
         if (is_string($t['label'] ?? null) && $t['label'] !== '') $out['label'] = $t['label'];
         if (is_array($t['anyOf'] ?? null)) {
             $anyOf = array_values(array_filter($t['anyOf'], fn($l) => is_string($l) && $l !== ''));
@@ -217,10 +236,11 @@ final class FlowIndex
 
     /**
      * What the toon's documents tell (@scutoons/content `toonFacts`): variables something sets, labels something jumps to
+     * (a target into another toon – `toon` – refers to that toon's labels)
      * @param list<array<mixed>> $docs
      * @return array{variables: array<string, true>, labels: array<string, true>}
      */
-    private function facts(array $docs): array
+    private function facts(string $toon, array $docs): array
     {
         $variables = [];
         $labels = [];
@@ -236,7 +256,8 @@ final class FlowIndex
                     if (is_array($v[$op] ?? null) && is_string($v[$op]['variable'] ?? null)) $variables[$v[$op]['variable']] = true;
                 }
                 if (($v['action'] ?? null) === 'pickup' && is_string($v['item'] ?? null)) $variables[$v['item']] = true;
-                if (is_string($v['type'] ?? null) && array_key_exists('value', $v)) {
+                $other = is_string($v['toon'] ?? null) && $v['toon'] !== '' && $v['toon'] !== $toon;
+                if (is_string($v['type'] ?? null) && array_key_exists('value', $v) && !$other) {
                     if (is_string($v['label'] ?? null) && $v['label'] !== '') $labels[$v['label']] = true;
                     foreach (is_array($v['anyOf'] ?? null) ? $v['anyOf'] : [] as $l) if (is_string($l) && $l !== '') $labels[$l] = true;
                 }

@@ -97,6 +97,12 @@ export interface Dialog {
 export interface JumpToTarget {
 	type: JumpToTargetType;
 	value: string;
+	/**
+	 * `type: 'chapter'` only: the chapter (and `label` / `anyOf`) of ANOTHER toon (owner 2026-10-06, "at label");
+	 * absent = this toon. `type: 'toon'` stays the toon's page. Variables are per toon – a jump into another toon reads
+	 * and writes that toon's story variables (`targetToon`, DATA.md "Linked groups").
+	 */
+	toon?: string;
 	label?: string;
 	/**
 	 * a random group of this chapter instead of `label` (owner 2026-10-03, the chapter 2 stroll): one of these labels, never

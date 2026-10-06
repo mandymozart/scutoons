@@ -63,6 +63,21 @@ export function scriptLabels(events: readonly unknown[] | null | undefined): str
 	return (events ?? []).flatMap((e: any) => (e?.type === 'label' && typeof e.params?.name === 'string' && e.params.name ? [e.params.name] : []));
 }
 
+/**
+ * The toon a jump target leads into: a chapter target's `toon` (another toon's chapter + label), else `here` (the toon
+ * the jump is in). A `type: 'toon'` target is that toon's page – its `value`.
+ */
+export function targetToon(target: { type?: unknown; value?: unknown; toon?: unknown } | null | undefined, here: string): string {
+	if (target?.type === 'chapter' && typeof target.toon === 'string' && target.toon) return target.toon;
+	if (target?.type === 'toon' && typeof target.value === 'string' && target.value) return target.value;
+	return here;
+}
+
+/** a chapter target into another toon than `here` (an unknown `here`: any chapter target that names a toon) */
+export function intoOtherToon(target: { type?: unknown; toon?: unknown } | null | undefined, here?: string | null): boolean {
+	return target?.type === 'chapter' && typeof target.toon === 'string' && !!target.toon && target.toon !== here;
+}
+
 /** a random group label from `anyOf`, never `current` (unless it is the only one); null when the list is empty */
 export function pickJumpLabel(anyOf: readonly string[] | null | undefined, current: string | null | undefined, random: () => number = Math.random): string | null {
 	const all = (anyOf ?? []).filter((l) => typeof l === 'string' && l);

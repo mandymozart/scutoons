@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { isPrologue, Renderer, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
+	import { intoOtherToon, isPrologue, Renderer, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
 	import { SLICE_PLAYER_EVENT, SLICE_SKIP_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
@@ -138,7 +138,7 @@
 
 	// ── what the bar offers ──────────────────────────────────────────────────────────────────────────────────────────
 	/** an authored end to a chapter (`jump`) is named like the next chapter */
-	const jumpChapter = $derived(step.kind === 'jump' && step.target.type === 'chapter' && /^\d+$/.test(String(step.target.value)) ? Number(step.target.value) : null);
+	const jumpChapter = $derived(step.kind === 'jump' && step.target.type === 'chapter' && !intoOtherToon(step.target, toonId) && /^\d+$/.test(String(step.target.value)) ? Number(step.target.value) : null);
 	const targetChapter = $derived('chapter' in step ? step.chapter : jumpChapter);
 	const target = $derived(targetChapter !== null ? sequence.find((item) => item.number === targetChapter) : undefined);
 	const chapterHref = (n: number) => localizeHref(`/${toonId}/chapter/${n}`);

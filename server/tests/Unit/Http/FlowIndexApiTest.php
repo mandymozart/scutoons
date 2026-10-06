@@ -102,4 +102,43 @@ final class FlowIndexApiTest extends TestCase
         $again = (array) json_decode((string) $this->request('/api/creator/flow-index', $token)->getBody(), true);
         self::assertCount(4, $again['edges']);
     }
+
+    /**
+     * A chapter target with `toon` (owner 2026-10-06, "at label"): a chapter + label of another toon. The edge keeps the
+     * toon; the label is an entry point of THAT toon (not a dead label there), and no entry of the toon it leaves from.
+     */
+    public function testJumpsIntoAnotherToonsLabel(): void
+    {
+        $into = fn(string $toon, string $chapter, string $label) => ['type' => 'chapter', 'value' => $chapter, 'toon' => $toon, 'label' => $label];
+        // catpope: `middle` follows a linked group – only toptoy's jump names a label "middle" (toptoy's, not this one)
+        $this->store('chapter:catpope:3', ['number' => 3, 'groups' => [
+            ['label' => 'forest', 'continues' => true, 'slices' => [[]], 'events' => [
+                ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Hyper City'], 'onSelect' => ['jumpTo' => ['target' => $into('toptoy', '1', 'hyper')]]]],
+                ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Mitte'], 'onSelect' => ['jumpTo' => ['target' => $into('toptoy', '1', 'middle')]]]],
+                ['type' => 'showChoices'],
+            ]],
+            ['label' => 'middle', 'slices' => [[]]],
+            ['label' => 'biker', 'slices' => [[]]],
+        ]]);
+        // toptoy: `hyper` and `middle` follow linked groups – reached from catpope only; `lost` from nowhere
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [
+            ['label' => 'city', 'continues' => true, 'slices' => [[]]],
+            ['label' => 'hyper', 'continues' => true, 'slices' => [[]]],
+            ['label' => 'middle', 'continues' => true, 'slices' => [[]]],
+            ['label' => 'lost', 'slices' => [[]], 'end' => ['target' => $into('catpope', '3', 'biker')]],
+        ]]);
+        $response = $this->request('/api/creator/flow-index', $this->token('creator'));
+        self::assertSame(200, $response->getStatusCode());
+        $index = (array) json_decode((string) $response->getBody(), true);
+        $targets = array_map(fn(array $e) => $e['source']['toon'] . ' → ' . json_encode($e['target']), $index['edges']);
+        self::assertSame([
+            'catpope → {"type":"chapter","value":"1","toon":"toptoy","label":"hyper"}',
+            'catpope → {"type":"chapter","value":"1","toon":"toptoy","label":"middle"}',
+            'toptoy → {"type":"chapter","value":"3","toon":"catpope","label":"biker"}',
+        ], $targets);
+        // catpope's `middle` is dead (the jump names toptoy's); `biker` follows the follow-up bar anyway
+        self::assertSame(['middle'], array_column($index['dead']['catpope']['labels'], 'name'));
+        // toptoy's `hyper` / `middle` are reached from catpope; `lost` from nowhere
+        self::assertSame(['lost'], array_column($index['dead']['toptoy']['labels'], 'name'));
+    }
 }

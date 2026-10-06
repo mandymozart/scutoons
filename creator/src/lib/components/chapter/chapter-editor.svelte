@@ -34,7 +34,8 @@
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
 	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
-	import { loadToonDocs } from '$lib/editor/toon-facts.ts';
+	import { loadIncoming, loadToonDocs } from '$lib/editor/toon-facts.ts';
+	import { JumpPlaces, setJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
@@ -216,8 +217,9 @@
 		refreshImages();
 		// the rest of the toon (reachability: labels something jumps to, variables something sets) – without it no
 		// condition is judged and every labelled group counts as reachable
-		loadToonDocs(toon, new Set(sliceDocs.map((d) => d.entity)))
-			.then((docs) => (toonDocsFacts = toonFacts(docs)))
+		// + the labels other toons jump to (the server's flow index)
+		Promise.all([loadToonDocs(toon, new Set(sliceDocs.map((d) => d.entity))), loadIncoming(toon)])
+			.then(([docs, incoming]) => (toonDocsFacts = toonFacts(docs, { toon, incoming: incoming.labels })))
 			.catch(() => (toonDocsFacts = null));
 	});
 
@@ -227,7 +229,7 @@
 	const facts = $derived.by<ToonFacts | undefined>(() => {
 		const rest = toonDocsFacts;
 		if (!rest) return undefined;
-		const live = toonFacts([...sliceDocs.map((d) => $state.snapshot(d.data[d.primary])), $state.snapshot(worldMap.data?.[worldMap.primary])]);
+		const live = toonFacts([...sliceDocs.map((d) => $state.snapshot(d.data[d.primary])), $state.snapshot(worldMap.data?.[worldMap.primary])], { toon });
 		return { variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]) };
 	});
 	// the expression fields: the toon's story variables (the builder offers them, unknown names warn)
@@ -432,6 +434,8 @@
 				resolveGroup: (g: any) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g),
 				// reachability: what the rest of the toon jumps to / sets
 				facts,
+				// jump targets: the toon / chapter / label they name exist (as far as loaded)
+				targets: jumpPlaces.targets(),
 				// placed items (and related items) are checked against the catalog once it is loaded
 				items: catalogItems,
 				itemRespawn
@@ -522,6 +526,18 @@
 	// ── Editing actions (lib/editor/slice-edit.ts) ────────────────────────────────────────────────────────────
 	/** the chapter's group labels: a jump's group and the random list (CUTOVER 10.27) */
 	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
+	// the places jumps lead to (the target editor's toon → chapter → label; validation checks targets against them)
+	// svelte-ignore state_referenced_locally
+	const jumpPlaces = setJumpPlaces(new JumpPlaces(toon, chapterNumber, () => sceneGroups().map((g) => g?.label).filter((l): l is string => typeof l === 'string' && !!l)));
+	$effect(() => {
+		jumpPlaces.toons = toonInfos.length ? toonInfos.map((t) => ({ id: t.id, name: t.name })) : null;
+	});
+	// load what the chapter's targets name (other chapters' / toons' labels) – once per target, debounced while editing
+	$effect(() => {
+		const docs = sliceDocs.map((d) => $state.snapshot(d.data[d.primary]));
+		const timer = setTimeout(() => jumpPlaces.prefetch(docs), 500);
+		return () => clearTimeout(timer);
+	});
 	/** every text box id of the chapter and its scenes: a new box gets a fresh one (owner 2026-10-06: unique in the chapter) */
 	const chapterDialogIds = () =>
 		new Set<string>(sceneGroups().flatMap((g: any) => (g?.slices ?? []).flatMap((s: any) => (s?.dialog ?? []).map((d: any) => d?.id).filter((id: unknown) => typeof id === 'string'))));

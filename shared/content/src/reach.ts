@@ -19,13 +19,25 @@ export interface ToonFacts {
 	labels: ReadonlySet<string>;
 }
 
+/** what `toonFacts` needs besides the documents */
+export interface ToonFactsOptions {
+	/**
+	 * the toon the documents belong to: a chapter target naming another toon (`target.toon`) is no entry here. None: every
+	 * target that names a toon counts as another toon's
+	 */
+	toon?: string;
+	/** labels of this toon that OTHER toons' jumps lead to (`incomingJumps` over the server's flow index) */
+	incoming?: Iterable<string>;
+}
+
 /**
  * The facts of a toon from its documents (chapters, scenes, the map …; any JSON): walked iteratively, every object once
- * – a jump target is any `{ type, value, label?, anyOf? }`.
+ * – a jump target is any `{ type, value, toon?, label?, anyOf? }`; one into another toon (`toon`) refers to that toon's
+ * labels, not to these. `incoming`: labels other toons jump to (entry points too).
  */
-export function toonFacts(docs: Iterable<unknown>): ToonFacts {
+export function toonFacts(docs: Iterable<unknown>, options: ToonFactsOptions = {}): ToonFacts {
 	const variables = new Set<string>();
-	const labels = new Set<string>();
+	const labels = new Set<string>(options.incoming ?? []);
 	const stack: unknown[] = [...docs];
 	const seen = new Set<object>();
 	while (stack.length) {
@@ -42,7 +54,7 @@ export function toonFacts(docs: Iterable<unknown>): ToonFacts {
 		if (typeof o.set?.variable === 'string') variables.add(o.set.variable);
 		if (typeof o.add?.variable === 'string') variables.add(o.add.variable);
 		if (o.action === 'pickup' && typeof o.item === 'string') variables.add(o.item);
-		if (typeof o.type === 'string' && 'value' in o) {
+		if (typeof o.type === 'string' && 'value' in o && !(typeof o.toon === 'string' && o.toon && o.toon !== options.toon)) {
 			if (typeof o.label === 'string' && o.label) labels.add(o.label);
 			if (Array.isArray(o.anyOf)) for (const l of o.anyOf) if (typeof l === 'string' && l) labels.add(l);
 		}

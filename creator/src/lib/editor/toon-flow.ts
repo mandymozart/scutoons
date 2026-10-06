@@ -3,6 +3,7 @@
 // converted entity: one of its language files – the same jumps and variables) and shaped for @scutoons/content
 // `toonFlow` / `deadThings`.
 import { contentIndex, getDraft } from '$lib/api.ts';
+import { loadIncoming } from '$lib/editor/toon-facts.ts';
 import { deadThings, toonFacts, type DeadThings, type FlowChapter, type FlowPlace, type FlowSeason, type ToonFlowInput } from '@scutoons/content';
 
 const KINDS = new Set(['chapter', 'scene', 'season', 'toon']);
@@ -32,9 +33,11 @@ export async function loadToonFlow(toon: string, locale: string): Promise<ToonFl
 		if (e.locale && neutral.has(entity)) continue;
 		if (!chosen.has(entity)) chosen.set(entity, e.key);
 	}
-	const [docs, map] = await Promise.all([
+	const [docs, map, incoming] = await Promise.all([
 		Promise.all([...chosen].map(([entity, key]) => getDraft(key).then((r) => [entity, r.content] as const))),
-		getDraft('map').then((r) => r.content as any).catch(() => null)
+		getDraft('map').then((r) => r.content as any).catch(() => null),
+		// what other toons jump into (their chapters + labels are entries here)
+		loadIncoming(toon)
 	]);
 	const byEntity = new Map<string, any>(docs);
 	const entry = byEntity.get(`toon:${toon}`);
@@ -66,7 +69,7 @@ export async function loadToonFlow(toon: string, locale: string): Promise<ToonFl
 	const places: FlowPlace[] = (Array.isArray(map?.locations) ? map.locations : [])
 		.filter((l: any) => l?.chapter?.toon === toon && Number.isFinite(Number(l.chapter.number)))
 		.map((l: any) => ({ id: String(l.id), name: pickText(l.name, locale) || String(l.id), chapter: Number(l.chapter.number), ...(l.hidden ? { hidden: true } : {}) }));
-	const facts = toonFacts([...byEntity.values(), ...(map ? [map] : [])]);
-	const input: ToonFlowInput = { toon, chapters, seasons, facts, places, text: (v) => pickText(v, locale) };
+	const facts = toonFacts([...byEntity.values(), ...(map ? [map] : [])], { toon, incoming: incoming.labels });
+	const input: ToonFlowInput = { toon, chapters, seasons, facts, places, incoming: incoming.chapters, text: (v) => pickText(v, locale) };
 	return { input, dead: deadThings(chapters, facts) };
 }
