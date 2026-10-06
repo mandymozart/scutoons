@@ -37,6 +37,7 @@
 	// top / bottom edge = new slices before / after it (between two slices, before the first, after the last)
 	let fileOver = $state<{ index: number; zone: 'before' | 'on' | 'after' } | null>(null);
 	let importer = $state<SliceImport>();
+	let emptyOver = $state(false);
 	const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
 	function fileZone(e: DragEvent): 'before' | 'on' | 'after' {
 		const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -171,7 +172,30 @@
 	{/each}
 </ol>
 {#if !slices.length}
-	<button type="button" class="secondary" onclick={() => add(-1)}><Icon name="plus" /> {m['creator.add_slice']()}</button>
+	<!-- an empty group: a dashed slot – add one slice, or drop images from the computer (new slices, in name order) -->
+	<div
+		class="empty"
+		class:file-on={emptyOver}
+		role="region"
+		aria-label={m['creator.slices_drop_empty']()}
+		ondragover={(e) => {
+			if (!hasFiles(e)) return;
+			e.preventDefault();
+			emptyOver = true;
+			if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+		}}
+		ondragleave={() => (emptyOver = false)}
+		ondrop={(e) => {
+			e.preventDefault();
+			emptyOver = false;
+			const files = [...(e.dataTransfer?.files ?? [])];
+			if (files.length) importer?.insert(0, files);
+		}}
+		data-testid="slice-drop-empty"
+	>
+		<button type="button" class="secondary" onclick={() => add(-1)}><Icon name="plus" /> {m['creator.add_slice']()}</button>
+		<span class="sc-caption">{m['creator.slices_drop_empty']()}</span>
+	</div>
 {/if}
 <SliceImport bind:this={importer} {doc} {groupPath} {chapterNumber} {selected} {onselect} />
 
@@ -215,9 +239,18 @@
 	}
 	/* image files from the computer: the middle of a slice framed in cyan (replace its image); an edge shows the drop
 	   line above (li.over / .file-before) or below (li.over.below / .file-after) – new slices there */
-	li.file-on {
+	li.file-on,
+	.empty.file-on {
 		outline: var(--border-width-focus) solid var(--cyan);
 		outline-offset: calc(-1 * var(--border-width-focus));
+	}
+	.empty {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--space-05);
+		padding: var(--space-1);
+		border: var(--border-width-hairline) dashed var(--ink);
 	}
 	li.moving {
 		opacity: 0.5;

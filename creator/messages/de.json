@@ -126,6 +126,7 @@
 		"import_slices_end": "ans Ende",
 		"import_slices_twice": "Slice {number} ist zweimal gewählt – wähle für eins ein anderes Ziel.",
 		"import_slices_start": "Importieren · {replace} ersetzen, {add} neu",
+		"slices_drop_empty": "oder Bilder hierher ziehen",
 		"add_group": "Gruppe hinzufügen",
 		"add_text_box": "Text hinzufügen",
 		"tool_text": "Text – auf dem Slice ziehen, um einen zu zeichnen",

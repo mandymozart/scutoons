@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { CloseIcon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -137,7 +137,7 @@
 		</div>
 	{/each}
 	<div class="tree-add">
-		<button class="secondary" title={m['creator.add_group']()} onclick={addGroup}><span class="one-line">{m['creator.add_group']()}</span></button>
+		<button class="secondary" title={m['creator.add_group']()} onclick={addGroup}><Icon name="plus" /> <span class="one-line">{m['creator.add_group']()}</span></button>
 	</div>
 </div>
 

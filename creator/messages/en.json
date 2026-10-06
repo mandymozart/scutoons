@@ -126,6 +126,7 @@
 		"import_slices_end": "at the end",
 		"import_slices_twice": "Slice {number} is chosen twice – pick another target for one of them.",
 		"import_slices_start": "Import · {replace} replace, {add} new",
+		"slices_drop_empty": "or drop images here",
 		"add_group": "Add group",
 		"add_text_box": "Add text",
 		"tool_text": "Text – drag on the slice to draw one",
