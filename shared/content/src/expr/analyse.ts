@@ -35,6 +35,9 @@ export interface AnalyseOptions {
 	/** the story variables there are, as written in this toon (`coins`, `global.coins`, `toptoy.coins` – variables.ts):
 	 *  an unknown one becomes a warning with a suggestion */
 	knownNames?: readonly string[];
+	/** the item catalog's ids: `inventory.<item>` (how many the reader has) is checked against them – an unknown one warns
+	 *  with a suggestion; none = any `inventory.<x>` is taken as an item (agents/BACKLOG.md 10.38) */
+	knownItems?: readonly string[];
 }
 
 const MESSAGES: Record<string, string> = {
@@ -57,6 +60,7 @@ const MESSAGES: Record<string, string> = {
 	'text-too-long': 'text too long for `{…}` (more than {0} characters)',
 	'unknown-name': 'unknown name `{0}`',
 	'unknown-variable': 'unknown variable `{0}`',
+	'unknown-item': '`{0}` is not in the item catalog',
 	'unknown-function': 'unknown function `{0}`',
 	'function-needs-call': '`{0}` is a function – write `{0}(…)`',
 	'not-a-function': '`{0}` isn’t a function – write `{0}` without `(…)`',
@@ -118,6 +122,7 @@ class Analyser {
 	fns: Map<string, ExprFunction>;
 	spaces: Map<string, ExprNamespace>;
 	known: Set<string> | null;
+	items: Set<string> | null;
 
 	constructor(
 		opts: AnalyseOptions,
@@ -127,6 +132,7 @@ class Analyser {
 		this.fns = new Map(registry.functions.map((f) => [f.name, f]));
 		this.spaces = new Map(registry.namespaces.map((ns) => [ns.name, ns]));
 		this.known = opts.knownNames ? new Set(opts.knownNames) : null;
+		this.items = opts.knownItems ? new Set(opts.knownItems) : null;
 	}
 
 	add(p: ExprProblem) {
@@ -177,7 +183,12 @@ class Analyser {
 		} else {
 			const { ns, m } = this.member(full);
 			if (m?.kind === 'function') return this.problem('function-needs-call', e, [full]);
-			if (!m) return this.problem('unknown-name', e, [full], didYouMean(full, ns ? ns.members.filter((x) => x.kind === 'value').map((x) => `${ns.name}.${x.name}`) : this.paths('value')));
+			// `inventory.<item>`: how many of a catalog item the reader has (an item is never a story variable – BACKLOG 10.38)
+			if (!m && ns?.name === 'inventory' && e.path.length === 2) {
+				const item = e.path[1];
+				const like = this.items && !this.items.has(item) ? didYouMean(item, this.items) : undefined;
+				if (this.items && !this.items.has(item)) this.problem('unknown-item', e, [full], like && `inventory.${like}`, 'warning');
+			} else if (!m) return this.problem('unknown-name', e, [full], didYouMean(full, ns ? ns.members.filter((x) => x.kind === 'value').map((x) => `${ns.name}.${x.name}`) : this.paths('value')));
 		}
 		if (!this.names.has(full)) this.names.set(full, e.path);
 	}

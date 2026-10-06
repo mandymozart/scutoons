@@ -124,7 +124,8 @@ export function sampleResolver(id: SampleReaderId, language: string, now: Date =
 	};
 	return {
 		// a story variable as written (`coins`, `global.coins`, `toptoy.coins`) or a namespace member
-		name: (path) => (isStoryPath(path) ? f.variable : names[path[0]]?.[path[1]]),
+		// (`inventory.<item>` = the fixture's count, like `inventory.count("<item>")`)
+		name: (path) => (isStoryPath(path) ? f.variable : (names[path[0]]?.[path[1]] ?? (path[0] === 'inventory' && path.length === 2 ? f.count : undefined))),
 		call: (name, args) => (Object.hasOwn(calls, name) ? calls[name](args) : undefined),
 		visit: () => f.visits,
 		seed: id,

@@ -70,9 +70,11 @@ export function keyName(key: string): string {
 	return key.slice(key.indexOf('/') + 1);
 }
 
-/** whether a written name is valid where an author types one (setVariable, conditions, choices, askText) */
+/** whether a written name is valid where an author types one (setVariable, conditions, choices, askText) – never a
+ *  namespace as its domain: `inventory.cucumber` is the reader's item, not "toon inventory's" variable (BACKLOG 10.38) */
 export function isWrittenVariable(written: string): boolean {
-	return WRITTEN_VARIABLE.test(written);
+	const m = WRITTEN_VARIABLE.exec(written);
+	return !!m && !(m[1] && NAMESPACES.has(m[1]));
 }
 
 const NAMESPACES = new Set(EXPR_NAMESPACES.map((ns) => ns.name));

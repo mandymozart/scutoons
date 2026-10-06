@@ -400,6 +400,24 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       unchanged any more – fix it in the creator (the Problems panel names the place). Known from the dump: only the old
       `scene:catpope:2:scene-14` versions (its `scene-20` jump – the 10.35 decision).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
+- [ ] 10.38 **Items are not variables** (owner 2026-10-06: "it is just a naming conflict"; "with script we can not
+      create items"): an item exists only in the catalog (admin) and lives in the reader's inventory (global, per
+      account); a story variable is the script's own number / text (`x` = this toon's, `global.x`, `<toon>.x` –
+      variables.ts). Today they mix: `set` / `add` of a variable named like a catalog item also grants the item (the VN
+      item bridge, `grantStoryItem` in viewer variable-actions.ts; a slice pickup grants and then `add`s the variable),
+      so `catpope/cucumber` is a story count that drifts from the real inventory (eating, crafting). Steps:
+  1. Read: `inventory.<item>` = how many the reader has (shorthand for `inventory.count("<item>")`; registry, the
+     analyser, viewer expressions/reader.ts, the creator's sample readers). The expression namespaces and `global`
+     can't be written as a variable's domain (`inventory.x = 1` is refused, not "toon inventory's x").
+  2. Warn: a story variable named like a catalog item (validate.ts `checkVariableNames` with `ctx.items`) – "an item:
+     Give item / inventory.<item>".
+  3. Give: VN event `giveItem` { item (catalog picker), qty } – the grant rules stay (grantable story, max, once per
+     place); types, validate, schema, flow / reach facts (+ FlowIndex.php), the runner, the creator form.
+  4. Take: VN event `takeItem` { item, qty } – needs a server endpoint (`InventoryService::remove` is internal today:
+     craft / use only) and rules (story only, once per place, too few pieces → ?). **Owner decision before building.**
+  5. Data: analyse every `setVariable` / choice `set|add` on an item name in `entity_versions` / `content_versions`
+     → a SQL migration to `giveItem` (the 2026-10-06-show-text-box pattern), then drop the bridge's side effect; a
+     slice pickup only grants (no variable any more).
 - [ ] B.1 Ch1 audio samples are at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never
       fire _(from MEMORY.md "Known bugs spotted", 2026-09-30 – not re-checked since)_.
 - [ ] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30 – not re-checked)_.

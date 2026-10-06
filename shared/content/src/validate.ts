@@ -15,7 +15,7 @@ import { askVariable, chapterReach, factKey, factNames, similarVariable, type To
 import { isWrittenVariable } from './variables.ts';
 
 /** a variable's spelling (variables.ts) */
-const VARIABLE_FORM = 'a variable is a name of letters, digits and _ (not starting with a digit) – this toon\'s; global.name for every toon, <toon>.name for another toon\'s';
+const VARIABLE_FORM = 'a variable is a name of letters, digits and _ (not starting with a digit) – this toon\'s; global.name for every toon, <toon>.name for another toon\'s (never reader. / inventory. / … – that is what the reader has, not a variable)';
 import { stuckMessage, stuckPoints } from './stuck.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import {
@@ -42,7 +42,7 @@ import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, ASK_TEXT_SCOPES } from './visual-n
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
 import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
 import { forEachText, type TextLeafKind } from './neutralize.ts';
-import { analyseExpression, analyseText } from './expr/analyse.ts';
+import { analyseExpression, analyseText, type AnalyseOptions } from './expr/analyse.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -324,7 +324,7 @@ function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContex
 		if (!isStr(cond.expr) || !cond.expr.trim()) return c.error([...path, 'expr'], 'the condition needs an expression');
 		for (const key of Object.keys(cond)) if (key !== 'expr') c.error([...path, key], 'an expression condition has only expr');
 		const knownNames = ctx.facts ? factNames(ctx.facts) : undefined;
-		for (const p of analyseExpression(cond.expr, { knownNames }).errors) {
+		for (const p of analyseExpression(cond.expr, { knownNames, knownItems: ctx.items }).errors) {
 			c.add(exprLevel(p), [...path, 'expr'], `the condition: ${p.message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''}`, `expr:${p.code}`, exprAt(p));
 		}
 		return;
@@ -1213,9 +1213,9 @@ const exprAt = (p: { start: number; end: number; args?: string[]; suggestion?: s
 	...(p.suggestion ? { suggestion: p.suggestion } : {})
 });
 
-function checkTextExpressions(c: Collector, path: Path, text: string, what: string, knownNames?: readonly string[], line?: number) {
+function checkTextExpressions(c: Collector, path: Path, text: string, what: string, known: Pick<AnalyseOptions, 'knownNames' | 'knownItems'>, line?: number) {
 	if (!/[{}\\]/.test(text)) return;
-	for (const p of analyseText(text, { knownNames }).errors) {
+	for (const p of analyseText(text, known).errors) {
 		const level = exprLevel(p);
 		const message =
 			p.code === 'old-clock-syntax'
@@ -1274,7 +1274,8 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 	const neutralKind: NeutralKind | 'toon' = kind === 'group' ? 'scene' : kind === 'index' ? 'toon' : (kind as NeutralKind);
 	const perLocale: Collector[] = [];
 	// the toon's story variables (what something sets – the creator loads the toon's documents): an unknown one in a text warns
-	const knownNames = ctx.facts ? factNames(ctx.facts) : undefined;
+	// … and the catalog's items (`inventory.<item>`)
+	const known = { knownNames: ctx.facts ? factNames(ctx.facts) : undefined, knownItems: ctx.items };
 	forEachText(neutralKind, data, (path, value, leaf) => {
 		const word = LEAF_WORD[leaf];
 		if (!isObj(value)) {
@@ -1293,7 +1294,7 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 			} else if (leaf === 'dialog' || leaf === 'message' || leaf === 'choice') {
 				// expressions in the text (each line of a text box on its own)
 				const lines = Array.isArray(v) ? v : [v];
-				lines.forEach((line, i) => checkTextExpressions(l, path, line, `the ${locale} ${word}${Array.isArray(v) ? ` (line ${i + 1})` : ''}`, knownNames, Array.isArray(v) ? i : undefined));
+				lines.forEach((line, i) => checkTextExpressions(l, path, line, `the ${locale} ${word}${Array.isArray(v) ? ` (line ${i + 1})` : ''}`, known, Array.isArray(v) ? i : undefined));
 			}
 		}
 		if (leaf === 'release' || leaf === 'status') return;

@@ -71,7 +71,7 @@ compiles whole stories; we evaluate single texts).
 | `<toon>.` | another toon's story variables, read and write: `toptoy.coins` (a toon id of a–z, 0–9, `_`) |
 | `reader.` | `name` (askText, platform scope), `signedIn`, `member`, `memberDays`, `since`, `gifts`, `language`, `daysSinceStart` |
 | `read.` | `chapter(n)`, `chapters`, `finished`, `position(n)` |
-| `inventory.` | `has(id)`, `count(id)`, `items`, `edition(id)` |
+| `inventory.` | `<item>` = how many the reader has (`inventory.cucumber`, checked against the catalog – BACKLOG 10.38), `has(id)`, `count(id)`, `items`, `edition(id)`; an item is never a story variable, and no namespace is a variable's domain (`inventory.x` can't be set) |
 | `avatar.` | `character`, `look`, `wears(id)`, `unlocked` |
 | `stats.` / `effects.` | `stats.testo`, `stats.appetite`, `effects.active(id)`, `effects.count` |
 | `map.` | `unlocked`, `seen`, `total`, `place(id)`, `here` |

@@ -146,6 +146,8 @@ export function readerName(s: ReaderSources, path: readonly string[]): ExprValue
 			return isoDate(now);
 	}
 	if (ns === 'stats') return s.stat?.(name);
+	// `inventory.<item>`: how many of a catalog item the reader has (BACKLOG 10.38; `inventory.items` above wins)
+	if (ns === 'inventory') return count(s, name);
 	return undefined;
 }
 
