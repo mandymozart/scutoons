@@ -380,8 +380,47 @@ export function neutralizeToon(entry: ToonIndex, docs: Record<string, ToonSettin
 			report.push({ kind: 'differs', path: key, values: { [base]: value }, missing: [TOON_ENTRY], ...(key === 'download' ? { invisible: true } : {}) });
 		}
 	}
+	// the old name (`i18n.<l>.name`) folded into `title` (decision 4: one name)
+	const folded = foldToonName(out as unknown as ToonIndex);
+	report.push(...folded.report);
 	// the toon's texts in the toon's language order (the merger kept the source first)
-	return { doc: out as unknown as ToonIndex, report, locales: [base, ...others.map(([l]) => l)], base };
+	return { doc: folded.doc, report, locales: [base, ...others.map(([l]) => l)], base };
+}
+
+/** Whether a toon entry still stores the deprecated `i18n` (the old per-language name; decision 4: the name is `title`) */
+export function hasLegacyToonName(entry: unknown): boolean {
+	return isObject(entry) && Object.hasOwn(entry, 'i18n');
+}
+
+/**
+ * The deprecated `i18n.<l>.name` folded into the entry's `title` (owner decision 4, 2026-10-06: one name): a language
+ * without a title (missing / blank) gets its `i18n` name; where both differ the title wins (reported: `differs` at
+ * `i18n.<l>.name`, `entry` = the old name, `<l>` = the title kept). `i18n` is dropped (an old `description` in it no
+ * reader showed: reported `invisible`). An entry without `i18n` comes back unchanged (a copy), report empty.
+ */
+export function foldToonName(entry: ToonIndex): { doc: ToonIndex; report: NeutralDifference[] } {
+	const out = clone(entry) as unknown as Obj;
+	const report: NeutralDifference[] = [];
+	if (!Object.hasOwn(out, 'i18n')) return { doc: out as unknown as ToonIndex, report };
+	const i18n = isObject(out.i18n) ? out.i18n : {};
+	delete out.i18n;
+	const title: Obj = isObject(out.title) ? { ...out.title } : {};
+	let changed = false;
+	for (const [locale, value] of Object.entries(i18n)) {
+		if (!isObject(value)) continue;
+		const name = value.name;
+		if (isLocaleValue(name)) {
+			if (!isLocaleValue(title[locale])) {
+				title[locale] = name;
+				changed = true;
+			} else if (title[locale] !== name) {
+				report.push({ kind: 'differs', path: `i18n.${locale}.name`, values: { [TOON_ENTRY]: name, [locale]: title[locale] } });
+			}
+		}
+		if (isLocaleValue(value.description)) report.push({ kind: 'differs', path: `i18n.${locale}.description`, values: { [TOON_ENTRY]: value.description }, invisible: true });
+	}
+	if (changed || isObject(out.title)) out.title = title;
+	return { doc: out as unknown as ToonIndex, report };
 }
 
 export interface ToonConversionInput {
@@ -404,6 +443,8 @@ export interface ToonConversionStep {
 	report: NeutralDifference[];
 	/** the converted versions, e.g. `toon#1 de#21 en#36` (the version message) */
 	versions: string;
+	/** only the old name (`i18n`) folded into `title` – the entry had its texts already (`planToonNameFold`) */
+	nameOnly?: true;
 }
 
 /**
@@ -411,11 +452,14 @@ export interface ToonConversionStep {
  * published entry + the published settings → a new published entry version; when the entry or a language has a newer
  * draft (or nothing was published) the newest entry + the newest settings → a draft after it. Nothing when the entry
  * already has texts (`hasToonTexts` – converted, or edited since), has no version (an entry is never created here: its
- * status would make the toon public), or there are no toon settings.
+ * status would make the toon public), or there are no toon settings. The old name `i18n.<l>.name` goes into `title`
+ * (`foldToonName`, decision 4); an entry with texts that still stores `i18n` gets only that (`planToonNameFold`).
  */
 export function planToonConversion(input: ToonConversionInput): ToonConversionStep[] {
 	const newestEntry = input.entryNewest ?? input.entryPublished;
-	if (!newestEntry || hasToonTexts(newestEntry.content) || !Object.keys(input.newest).length) return [];
+	if (!newestEntry) return [];
+	if (hasToonTexts(newestEntry.content)) return planToonNameFold(input.entryPublished, newestEntry);
+	if (!Object.keys(input.newest).length) return [];
 	const steps: ToonConversionStep[] = [];
 	const step = (status: 'published' | 'draft', entry: LocaleVersion, settings: Record<string, LocaleVersion>) => {
 		const versions = ordered(settings, input.languages);
@@ -426,6 +470,24 @@ export function planToonConversion(input: ToonConversionInput): ToonConversionSt
 	if (publishedStep) step('published', input.entryPublished!, input.published);
 	const newer = newestEntry.id !== input.entryPublished?.id || Object.entries(input.newest).some(([l, v]) => v.id !== input.published[l]?.id);
 	if (!publishedStep || newer) step('draft', newestEntry, input.newest);
+	return steps;
+}
+
+/**
+ * An entry that has its texts but still stores the deprecated `i18n` (converted before decision 4): the name folded
+ * into `title` (`foldToonName`) – a published version after the published entry when that one has `i18n`, a draft after
+ * the newest when it is newer and has `i18n`. Nothing once no version stores `i18n` (idempotent).
+ */
+function planToonNameFold(published: LocaleVersion | undefined, newest: LocaleVersion): ToonConversionStep[] {
+	const steps: ToonConversionStep[] = [];
+	const step = (status: 'published' | 'draft', entry: LocaleVersion) => {
+		const { doc, report } = foldToonName(entry.content as ToonIndex);
+		steps.push({ status, doc, report, versions: `toon#${entry.id}`, nameOnly: true });
+	};
+	// a published version without texts is never folded here (its name alone would open the toon's pages – no settings)
+	const publishedStep = !!published && hasToonTexts(published.content) && hasLegacyToonName(published.content);
+	if (publishedStep) step('published', published!);
+	if (newest.id !== published?.id && hasLegacyToonName(newest.content)) step('draft', newest);
 	return steps;
 }
 

@@ -112,7 +112,6 @@ test('validateNeutral: the toon entry (index) – texts, release and status per 
 		uri: 't',
 		status: 'published',
 		avatar: 'a.webp',
-		i18n: {},
 		authors: ['A'],
 		title: { de: 'Katzenpapst', en: 'Cat Pope' },
 		description: { de: 'Geschichten' },
@@ -122,7 +121,15 @@ test('validateNeutral: the toon entry (index) – texts, release and status per 
 	assert.deepEqual(lines(validateNeutral('index', entry, L, { file: 'toon:t' })), ['warning en description', 'error en release', 'error en languageStatus']);
 	const { release: _r, description: _d, ...bare } = { ...entry, languageStatus: { de: 'draft' } };
 	assert.deepEqual(lines(validateNeutral('index', bare, L, { file: 'toon:t' })), ['warning - description', 'warning - release']);
-	assert.deepEqual(lines(validateNeutral('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {} }, L, { file: 'toon:t' })), [], 'not converted yet: the toon settings hold the texts');
+	assert.deepEqual(lines(validateNeutral('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp' }, L, { file: 'toon:t' })), [], 'not converted yet: the toon settings hold the texts');
+	// the old name (decision 4: the name is `title`): a warning – with texts "drop it", without "Convert folds it"
+	const old = { de: { name: 'Katzenpapst' } };
+	const withOld = validateNeutral('index', { ...entry, release: { de: '2025-10-04', en: '2025-12-01' }, languageStatus: { de: 'draft' }, i18n: old }, L, { file: 'toon:t' });
+	assert.deepEqual(lines(withOld).filter((l) => l.includes('i18n')), ['warning - i18n']);
+	assert.match(withOld.find((p) => p.path[0] === 'i18n')!.message, /drop it, the name is "title"/);
+	const unconverted = validateNeutral('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: old }, L, { file: 'toon:t' });
+	assert.deepEqual(lines(unconverted), ['warning - i18n']);
+	assert.match(unconverted[0].message, /Convert/);
 	assert.deepEqual(lines(validateNeutral('index', { id: 't', title: 'T' }, L, { file: 'toon:t' })), ['error - title']);
 });
 

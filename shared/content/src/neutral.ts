@@ -17,6 +17,7 @@ import type { AcceptedWarnings } from './accepted.ts';
 import type { SensitiveFlag } from './sensitive.ts';
 import type { LocaleText } from './credits.ts';
 import type { Status } from './enums.ts';
+import { toonLanguages } from './languages.ts';
 import type {
 	VNAddChoiceEvent,
 	VNCondition,
@@ -312,6 +313,21 @@ export function resolveToon(entry: ToonIndex, locale: string, languages: Neutral
 	if (status !== undefined && status !== null) out.status = status;
 	if (Object.hasOwn(doc, 'description')) out.description = resolveText(doc.description, chain) ?? '';
 	return out as unknown as ToonSettings;
+}
+
+/**
+ * The toon's name in a locale (owner decision 4: the name is the entry's `title`): `title` resolved locale → source →
+ * the toon's other languages → any; an older entry without one: its deprecated `i18n.<l>.name` the same way; else the
+ * id. Every list / menu / nav reads the name through this.
+ */
+export function toonName(entry: Partial<Pick<ToonIndex, 'id' | 'title' | 'i18n' | 'sourceLanguage' | 'languages'>> | null | undefined, locale: string): string {
+	if (!entry) return '';
+	const chain = localeChain(locale, toonLanguages(entry));
+	const title = resolveText<unknown>(entry.title, chain);
+	if (typeof title === 'string' && title.trim() !== '') return title;
+	const names = Object.fromEntries(Object.entries(entry.i18n ?? {}).map(([l, v]) => [l, isObject(v) ? v.name : undefined]));
+	const legacy = resolveText<unknown>(names, chain);
+	return typeof legacy === 'string' && legacy.trim() !== '' ? legacy : (entry.id ?? '');
 }
 
 /**

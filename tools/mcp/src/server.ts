@@ -22,6 +22,7 @@ import {
 	sceneEntityOfRef,
 	scriptLabels,
 	toonLanguages,
+	toonName,
 	validateCast,
 	validateFile,
 	validateLocales,
@@ -259,7 +260,8 @@ export function createScutoonsServer(config: Config): McpServer {
 				const index = await data<Json>(t.key);
 				out.push({
 					id: t.toon,
-					names: Object.fromEntries(Object.entries(index?.i18n ?? {}).map(([l, v]: [string, any]) => [l, v?.name])),
+					// the name = the entry's `title` per language (resolved; older entries: the old i18n names)
+					names: Object.fromEntries(toonLanguages(index).languages.map((l) => [l, toonName(index, l)])),
 					languages: index?.languages,
 					sourceLanguage: index?.sourceLanguage,
 					status: index?.status,

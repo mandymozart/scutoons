@@ -594,7 +594,8 @@ export function neutralSettings(report: SandboxReport) {
 
 /**
  * The sandbox's toon index entry (`toon:sandbox`, language-neutral): status draft = hidden from readers; the toon
- * settings in it – title / description / release / status per language (agents/NEUTRAL.md step 4), the rest once
+ * settings in it – title (the toon's one name) / description / release / status per language (agents/NEUTRAL.md
+ * step 4, decision 4), the rest once
  */
 export function sandboxIndex(report: SandboxReport) {
 	const { map, ...settings } = neutralSettings(report);
@@ -605,11 +606,6 @@ export function sandboxIndex(report: SandboxReport) {
 		avatar: `${CATPOPE}avatar.webp`,
 		sourceLanguage: 'de',
 		languages: ['de', 'en', 'ko'],
-		i18n: {
-			de: { name: 'Sandkasten', description: 'Testfeld: alle Figuren, Personas, Looks und Stimmungen (nur Entwicklung und Creator)' },
-			en: { name: 'Sandbox', description: 'Test bed: every character, persona, look and mood (development and creator only)' },
-			ko: { name: '샌드박스', description: '테스트용: 모든 캐릭터, 페르소나, 룩, 기분 (개발 환경과 크리에이터 전용)' }
-		},
 		title: perLocale((l) => META[l].toon),
 		description: perLocale((l) => META[l].description),
 		release: perLocale(() => RELEASE),

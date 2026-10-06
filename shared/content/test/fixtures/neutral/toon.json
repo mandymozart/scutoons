@@ -12,7 +12,6 @@
 		"avatar": "avatar.webp",
 		"sourceLanguage": "de",
 		"languages": ["de", "en", "ko"],
-		"i18n": { "de": { "name": "Katzenpapst" }, "en": { "name": "Cat Pope" } },
 		"title": { "de": "Katzenpapst", "en": "Cat Pope", "ko": " " },
 		"description": { "de": "Geschichten", "en": "" },
 		"release": { "de": "2025-10-04", "en": "2025-12-01" },

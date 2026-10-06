@@ -6,7 +6,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset, toonImage } from '$lib/utils/cdn.ts';
 	import { shopUrl } from '$lib/config.ts';
-	import type { ToonIndex } from '@scutoons/content';
+	import { toonName, type ToonIndex } from '@scutoons/content';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { onClickOutside } from 'runed';
@@ -165,7 +165,7 @@
 							<span class="nav-btn soon" data-control-exempt="toon avatar row" aria-disabled="true" data-testid="menu-toon-soon" data-toon={toon.id}>
 								<img src={toonImage(toon)} alt="" />
 								<span class="name">
-									{toon.i18n[getLocale()]?.name ?? toon.id}
+									{toonName(toon, getLocale())}
 									<span class="soon-label">{m['home.soon']()}</span>
 								</span>
 							</span>
@@ -173,7 +173,7 @@
 							<a class="nav-btn" data-control-exempt="toon avatar row" href={localizeHref('/' + toon.id)} onclick={closeMenu} data-toon={toon.id}>
 								<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
 								<span class="name">
-									{toon.i18n[getLocale()]?.name ?? toon.id}
+									{toonName(toon, getLocale())}
 								</span>
 							</a>
 						{/if}

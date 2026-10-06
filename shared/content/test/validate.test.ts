@@ -111,13 +111,13 @@ test('season.download.image: an image path on the CDN (decorative, beside the mu
 
 test('toon entry: announce (boolean) and the landing tile { image, color? }', () => {
 	const entry = (extra: object) => ({
-		id: 't', uri: 't', status: 'draft', avatar: 'avatar.webp', i18n: {}, authors: ['A'], chapters: 0, thumbnail: 'images/t.webp',
+		id: 't', uri: 't', status: 'draft', avatar: 'avatar.webp', authors: ['A'], chapters: 0, thumbnail: 'images/t.webp',
 		map: { center: { x: 0, y: 0 }, zoom: 1.5 },
 		...extra
 	});
 	const tileProblems = (extra: object) => problems('index', entry(extra)).filter((p) => /announce|tile/.test(p));
 	assert.deepEqual(problems('index', entry({})), []);
-	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {} }), [], 'every neutral setting is optional');
+	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp' }), [], 'every neutral setting is optional');
 	assert.deepEqual(tileProblems({ announce: true, tile: { image: '../characters/y/y_helmet_portrait-neutral.webp' } }), []);
 	assert.deepEqual(tileProblems({ announce: false, tile: { image: 'images/tile.webp', color: '#ff0' } }), []);
 	assert.deepEqual(tileProblems({ tile: { image: 'images/tile.webp', color: 'darkgreen' } }), []);
@@ -161,7 +161,7 @@ test('cover (season; owner 2026-10-02: not the toon): square / portrait images +
 	assert.deepEqual(entry({ lettering: true }), ['warning cover.lettering'], 'lettering without an image');
 	assert.deepEqual(entry('images/c.webp'), ['error cover']);
 	// a cover left in the toon entry is a warning: it belongs to the season, the toon is shown with its avatar
-	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover: { square: 'images/c.webp' } }), ['warning cover']);
+	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', cover: { square: 'images/c.webp' } }), ['warning cover']);
 	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: false } })), []);
 	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: 1 } })), ['error cover.lettering']);
 });

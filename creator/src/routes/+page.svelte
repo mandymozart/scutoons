@@ -5,7 +5,7 @@
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { library } from '$lib/api.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import { toonLanguages, type ToonIndex } from '@scutoons/content';
+	import { toonName, type ToonIndex } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -24,7 +24,7 @@
 		}
 	});
 
-	const name = (toon: ToonIndex) => toon.i18n?.[getLocale()]?.name ?? toon.i18n?.[toonLanguages(toon).source]?.name ?? toon.id;
+	const name = (toon: ToonIndex) => toonName(toon, getLocale());
 </script>
 
 <div class="creator-page">

@@ -1,5 +1,6 @@
 // Toon languages: the source language and the translations are set per toon (ToonIndex.sourceLanguage / .languages),
-// not per chapter and not globally. Older index entries without the fields default to their i18n keys / `de`.
+// not per chapter and not globally. Older index entries without the fields default to their `title` keys (then the old
+// `i18n` keys) / `de`.
 import type { ToonIndex } from './content.ts';
 import { Language } from './enums.ts';
 
@@ -22,11 +23,14 @@ export const isLanguage = (value: unknown): value is Language => typeof value ==
 
 /**
  * Source + languages of a toon index entry. Missing or invalid fields fall back to the first available locale
- * (`languages`, then the `i18n` keys) and finally `de`, so entries written before the fields existed keep working.
+ * (`languages`, then the `title` keys, then the old `i18n` keys) and finally `de`, so entries written before the fields
+ * existed keep working.
  */
 export function toonLanguages(entry?: Partial<ToonIndex> | null): ToonLanguages {
+	const keys = (value: unknown) => (value !== null && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).filter(isLanguage) : []);
 	const listed = (Array.isArray(entry?.languages) ? entry.languages : []).filter(isLanguage);
-	const available = listed.length ? listed : Object.keys(entry?.i18n ?? {}).filter(isLanguage);
+	const titled = listed.length ? listed : keys(entry?.title);
+	const available = titled.length ? titled : keys(entry?.i18n);
 	const source = isLanguage(entry?.sourceLanguage) ? entry.sourceLanguage : (available[0] ?? DEFAULT_SOURCE_LANGUAGE);
 	const languages = [source, ...available.filter((l) => l !== source)];
 	return { source, languages: [...new Set(languages)] };

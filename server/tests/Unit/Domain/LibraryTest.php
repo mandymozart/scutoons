@@ -54,6 +54,8 @@ final class LibraryTest extends TestCase
     /** seedToon()'s toon entry: the toon's settings as locale maps (agents/NEUTRAL.md step 4) + more fields for one test */
     private const ENTRY = ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']];
     private const ENTRY_TEXTS = ['title' => ['de' => 'T de', 'en' => 'T en'], 'languageStatus' => ['de' => 'published', 'en' => 'published']];
+    /** the name in an answered entry: `title` per language + the legacy `i18n` computed from it (decision 4) */
+    private const ENTRY_NAME = ['title' => ['de' => 'T de', 'en' => 'T en'], 'i18n' => ['de' => ['name' => 'T de'], 'en' => ['name' => 'T en']]];
 
     /**
      * A toon `t` (source de, languages de + en): season 1 = ch. 1 published, 2 draft, 3 coming-soon; ch. 1 has a scene.
@@ -284,7 +286,7 @@ final class LibraryTest extends TestCase
             self::assertSame(5, $data['toon']['chapters']);
             self::assertSame('th.webp', $data['toon']['thumbnail']);
             self::assertSame(['image' => 'tile.webp', 'color' => '#0066cc'], $data['toon']['tile']);
-            self::assertSame(['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']], $data['entry'], 'entry without the settings');
+            self::assertSame(self::ENTRY + self::ENTRY_NAME, $data['entry'], 'entry without the settings, with the name');
         }
     }
 
@@ -301,13 +303,42 @@ final class LibraryTest extends TestCase
         $data = self::decode($en->body);
         self::assertSame(['id' => 't', 'title' => 'T en', 'language' => 'en', 'release' => '2025-12-01', 'status' => 'published', 'description' => 'Geschichten', 'authors' => ['A']],
             $data['toon'], 'the per-language settings from the entry (a blank text → the source\'s) + the neutral settings');
-        self::assertSame(self::ENTRY, $data['entry'], 'the entry without its texts and neutral settings');
+        self::assertSame(self::ENTRY + self::ENTRY_NAME, $data['entry'], 'the entry without its texts and neutral settings, with the name');
         self::assertSame(['en', true], [$en->locale, $en->fallback], 'chapter 3 has no en title');
         $ko = $this->library()->toon('t', 'ko', false);
         self::assertSame(['de', 'T de', 'de'], [$ko->locale, self::decode($ko->body)['toon']['title'], self::decode($ko->body)['toon']['language']]);
         self::assertTrue($ko->fallback);
         $legacy = self::decode($this->library()->legacyOnly()->toon('t', 'en', false)->body);
         self::assertSame('T legacy', $legacy['toon']['title'], 'legacy answers read the per-language documents');
+    }
+
+    /**
+     * The toon's one name (owner decision 4, 2026-10-06): the entry's `title`. The answered entries carry it per language
+     * (resolved: a language without one has the source's) + the legacy `i18n.<l>.name` computed from it for older viewer
+     * builds; an entry without texts (production before its conversion) keeps its stored `i18n`
+     */
+    public function testTheToonNameIsTheTitle(): void
+    {
+        $this->seedToon(['title' => ['de' => 'Katzenpapst', 'en' => ' '], 'i18n' => ['de' => ['name' => 'Stale', 'description' => '']]]);
+        $name = ['title' => ['de' => 'Katzenpapst', 'en' => 'Katzenpapst'], 'i18n' => ['de' => ['name' => 'Katzenpapst'], 'en' => ['name' => 'Katzenpapst']]];
+        $list = self::decode($this->library()->toons(false, 'en')->body);
+        self::assertSame($name, ['title' => $list[0]['title'], 'i18n' => $list[0]['i18n']], 'the list: the title per language, a blank one → the source one; i18n computed (a stored one ignored)');
+        $bundle = self::decode($this->library()->toon('t', 'en', false)->body);
+        self::assertSame($name, ['title' => $bundle['entry']['title'], 'i18n' => $bundle['entry']['i18n']], 'the entry in the toon bundle likewise');
+        self::assertSame('Katzenpapst', $bundle['toon']['title']);
+        // legacy answers (content:neutral-check) see the entry as before the conversion: the name as i18n – the same answer
+        $legacy = self::decode($this->library()->legacyOnly(false)->toons(true)->body)[0];
+        self::assertSame($name, ['title' => $legacy['title'], 'i18n' => $legacy['i18n']]);
+        // an entry without texts: its stored i18n names (also the title in the answer)
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'i18n' => ['de' => ['name' => 'Alt', 'description' => 'x'], 'en' => ['name' => 'Old']]]);
+        foreach (['de', 'en'] as $l) $this->doc('t', $l, 'toon.json', ['id' => 't', 'title' => "T $l", 'status' => 'published']);
+        $list = self::decode($this->library()->toons(false)->body);
+        self::assertSame(['de' => 'Alt', 'en' => 'Old'], $list[0]['title']);
+        self::assertSame(['de' => ['name' => 'Alt', 'description' => 'x'], 'en' => ['name' => 'Old']], $list[0]['i18n'], 'stored, untouched');
+        // no `languages`: the title's keys are the languages (then the old i18n keys)
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'title' => ['en' => 'Cat Pope', 'de' => 'Katzenpapst']]);
+        $en = $this->library()->toon('t', null, false);
+        self::assertSame(['en', 'Cat Pope'], [$en->locale, self::decode($en->body)['toon']['title']], 'the source is the first title key');
     }
 
     /** A language's status closes the toon page in that language (404) and leaves the toon out of that language's list */

@@ -233,7 +233,7 @@ final class CatalogTest extends TestCase
         $entry = $this->get(EntityStore::class)->latest('toon:newtoon');
         self::assertSame(['draft', (string) $user['id']], [$entry['status'] ?? null, $entry['author'] ?? null]);
         $created = json_decode((string) ($entry['json'] ?? ''), true);
-        self::assertSame(['de' => ['name' => 'New Toon', 'description' => ''], 'en' => ['name' => 'New Toon', 'description' => '']], $created['i18n']);
+        self::assertArrayNotHasKey('i18n', $created, 'the name is the title (decision 4)');
         self::assertSame([['de' => 'New Toon', 'en' => 'New Toon'], ['de' => 'draft', 'en' => 'draft']], [$created['title'], $created['languageStatus']],
             'the toon settings per language in the entry (agents/NEUTRAL.md step 4)');
         $library = $this->get(Library::class);

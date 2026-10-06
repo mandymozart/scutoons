@@ -49,7 +49,7 @@ final class Library
      */
     public const TOON_TEXT_FIELDS = ['title', 'description', 'release', 'languageStatus'];
     /** Bump when the shape of an answer changes: old cache entries are never read again */
-    private const FORMAT = 6;
+    private const FORMAT = 7;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */
@@ -91,7 +91,8 @@ final class Library
      * GET /library/toons → ToonIndex[]: published entries + announced ones (`announce: true` in the index entry, marked
      * `announced: true` – their pages stay 404, so no season or chapter of them is exposed); drafts too with
      * CONTENT_SHOW_DRAFTS; all in draft mode. The dev-only toons (sandbox) are never listed publicly. Every entry carries
-     * its landing `tile` when there is one; the other language-neutral settings (map …) are left out of the list.
+     * its landing `tile` when there is one and its name (`title` per language, the legacy `i18n` – `indexEntry`); the other
+     * language-neutral settings (map …) are left out of the list.
      * Entries stored before the neutral settings moved to the index read `announce` / `tile` from the toon settings.
      * With a locale (the reader's language) a toon whose page is closed in that language (its language status, the same
      * gate as the toon page) is left out; announced toons stay.
@@ -164,8 +165,49 @@ final class Library
         $entry = $snapshot->doc($key);
         if (!$this->legacyToonTexts || !$entry instanceof stdClass) return $entry;
         $entry = clone $entry;
+        // before the conversion the entry held the name as `i18n.<l>.name` (decision 4 folded it into `title`)
+        if (self::hasToonTexts($entry)) {
+            $names = self::names($entry);
+            if ($names !== []) $entry->i18n = self::legacyNames($names);
+        }
         foreach (self::TOON_TEXT_FIELDS as $field) unset($entry->$field);
         return $entry;
+    }
+
+    /**
+     * The toon's name per language (owner decision 4, 2026-10-06: the entry's `title` is the one name), for each of the
+     * toon's languages, resolved like every text (the language → source → the toon's languages → any); an older entry
+     * without texts: its `i18n.<l>.name` as stored. Blank names are left out.
+     * @return array<string, string>
+     */
+    private static function names(stdClass $entry): array
+    {
+        $names = [];
+        if (self::hasToonTexts($entry)) {
+            [$source, $languages] = self::languages($entry, []);
+            foreach ($languages as $l) {
+                $name = NeutralDoc::text($entry->title, NeutralDoc::chain($l, $source, $languages));
+                if (is_string($name) && trim($name) !== '') $names[$l] = $name;
+            }
+            return $names;
+        }
+        foreach ((array) ($entry->i18n ?? []) as $l => $value) {
+            $name = $value instanceof stdClass ? ($value->name ?? null) : null;
+            if (is_string($name) && trim($name) !== '') $names[(string) $l] = $name;
+        }
+        return $names;
+    }
+
+    /**
+     * LEGACY (drop once no viewer build older than 2026-10-06 runs): the old `i18n: { <l>: { name } }` older viewer builds
+     * read the toon's name from – computed from the names (`title`)
+     * @param array<string, string> $names
+     */
+    private static function legacyNames(array $names): stdClass
+    {
+        $i18n = new stdClass();
+        foreach ($names as $l => $name) $i18n->$l = (object) ['name' => $name];
+        return $i18n;
     }
 
     /** Whether a toon entry holds the toon's texts (a `title` locale map) - @scutoons/content hasToonTexts */
@@ -196,11 +238,22 @@ final class Library
         return null;
     }
 
-    /** The index entry without the toon settings it stores (neutral + per-language: the shape of `ToonIndex` in the answers) */
+    /**
+     * The index entry without the toon settings it stores (neutral + per-language: the shape of `ToonIndex` in the
+     * answers) – plus the toon's name: `title` = the name in each of the toon's languages (resolved, `names()`; the lists /
+     * menu read it) and, for older viewer builds, the legacy `i18n.<l>.name` computed from it (an entry without texts
+     * keeps its stored `i18n`)
+     */
     private static function indexEntry(stdClass $entry): stdClass
     {
+        $names = self::names($entry);
+        $converted = self::hasToonTexts($entry);
         $entry = clone $entry;
         foreach ([...self::TOON_NEUTRAL_FIELDS, ...self::TOON_TEXT_FIELDS] as $field) unset($entry->$field);
+        if ($names !== []) {
+            $entry->title = (object) $names;
+            if ($converted) $entry->i18n = self::legacyNames($names);
+        }
         return $entry;
     }
 
@@ -593,7 +646,8 @@ final class Library
     }
 
     /**
-     * toonLanguages() of @scutoons/content: `languages` → `i18n` keys → the locales the store has; source first
+     * toonLanguages() of @scutoons/content: `languages` → `title` keys → the old `i18n` keys → the locales the store has;
+     * source first
      * @param list<string> $stored
      * @return array{0: string, 1: list<string>}
      */
@@ -602,6 +656,7 @@ final class Library
         $valid = fn(mixed $l) => is_string($l) && preg_match(self::LOCALE_PATTERN, $l) === 1;
         $entry ??= new stdClass();
         $listed = array_values(array_filter(is_array($entry->languages ?? null) ? $entry->languages : [], $valid));
+        if ($listed === [] && ($entry->title ?? null) instanceof stdClass) $listed = array_values(array_filter(array_keys((array) $entry->title), $valid));
         if ($listed === []) $listed = array_values(array_filter(array_keys((array) ($entry->i18n ?? [])), $valid));
         if ($listed === []) {
             sort($stored);

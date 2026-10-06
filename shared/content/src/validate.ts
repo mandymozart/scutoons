@@ -851,6 +851,14 @@ function checkToonIndex(c: Collector, t: any) {
 	if (t.chapters !== undefined && !Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
 	if (t.thumbnail !== undefined) checkImagePath(c, t.thumbnail, ['thumbnail']);
 	if (t.cover !== undefined) c.warn(['cover'], COVER_BELONGS_TO_SEASON);
+	// the old per-language name (owner decision 4, 2026-10-06: the name is `title`)
+	if (t.i18n !== undefined)
+		c.warn(
+			['i18n'],
+			hasToonTexts(t)
+				? 'i18n is the old per-language name – drop it, the name is "title" (a text per language)'
+				: 'i18n is the old per-language name – converting the toon (Convert) puts it into "title" (a text per language)'
+		);
 	if (t.map !== undefined) {
 		// the toon's start view on the world map (agents/MAP.md §2.2); the world's size and layers live in the entity `map`
 		if (!isObj(t.map)) c.error(['map'], 'map must be the start view { center?: { x, y }, zoom? }');

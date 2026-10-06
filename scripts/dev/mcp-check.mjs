@@ -88,6 +88,8 @@ try {
 
 	const toons = await call(client, 'list_toons');
 	check(!toons.error && toons.json?.some((t) => t.id === TOON), 'list_toons has catpope', toons.raw.slice(0, 200));
+	const listedToon = toons.json?.find((t) => t.id === TOON);
+	check(!!listedToon?.names?.de && listedToon.names.de === listedToon.title?.de, "list_toons: the names are the entry's title (decision 4: one name)", JSON.stringify(listedToon ?? null).slice(0, 300));
 
 	const chapters = await call(client, 'list_chapters', { toon: TOON, chapter: 2 });
 	const groups = chapters.json?.chapters?.[0]?.groups ?? [];
@@ -144,6 +146,9 @@ try {
 	check(settingsKey.error && /toon:/.test(settingsKey.raw), 'save_draft refuses the old per-language toon settings key', settingsKey.raw.slice(0, 200));
 	const entryCheck = await call(client, 'validate', { key: `toon:${TOON}`, ops: [{ op: 'set', path: ['languageStatus', 'en'], value: 'later' }] });
 	check(entryCheck.json?.problems?.some((p) => p.level === 'error' && p.locale === 'en' && p.path.includes('languageStatus')), "validate: the toon entry's status per language (validateNeutral)", entryCheck.raw.slice(0, 300));
+	check(!('i18n' in (toonEntry.json?.content ?? {})), 'the toon entry stores no i18n (the name is title)', toonEntry.raw.slice(0, 200));
+	const oldName = await call(client, 'validate', { key: `toon:${TOON}`, ops: [{ op: 'set', path: ['i18n'], value: { de: { name: 'Alt' } } }] });
+	check(oldName.json?.problems?.some((p) => p.level === 'warning' && p.path[0] === 'i18n' && /title/.test(p.message)), 'validate: an i18n in the toon entry is a warning (drop it, the name is title)', oldName.raw.slice(0, 300));
 
 	// the scene's group script (the newest version may have none yet)
 	const start = Array.isArray(original.content.events) ? [] : [{ op: 'set', path: ['events'], value: [] }];

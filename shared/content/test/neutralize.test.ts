@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+	foldToonName,
 	hasToonTexts,
 	neutralizeChapter,
 	neutralizeGroup,
@@ -14,6 +15,8 @@ import {
 	resolveGroup,
 	resolveSeason,
 	resolveToon,
+	toonLanguages,
+	toonName,
 	visibleDifferences,
 	type Chapter,
 	type Group,
@@ -153,7 +156,7 @@ test('season: status per locale, neutral cover, per-locale cover difference repo
 // ── Toon settings → the toon entry (agents/NEUTRAL.md step 4) ──────────────────────────────────────────────────────
 
 const entry = (over: object = {}): ToonIndex =>
-	({ id: 't', uri: 't', status: 'published', sourceLanguage: 'de', languages: ['de', 'en'], i18n: {}, avatar: 'a.webp', authors: ['A'], ...over }) as ToonIndex;
+	({ id: 't', uri: 't', status: 'published', sourceLanguage: 'de', languages: ['de', 'en'], i18n: { de: { name: 'Katzenpapst', description: '' }, en: { name: 'Cat Pope' } }, avatar: 'a.webp', authors: ['A'], ...over }) as ToonIndex;
 const settings = (l: string, over: object = {}): ToonSettings =>
 	({ id: 't', title: l === 'de' ? 'Katzenpapst' : 'Cat Pope', language: l, release: l === 'de' ? '2025-10-04' : '2025-12-01', status: 'published', description: `d ${l}`, ...over }) as ToonSettings;
 
@@ -164,6 +167,7 @@ test('toon: the settings become the entry\'s locale maps, resolving gives each l
 	assert.deepEqual(doc.release, { de: '2025-10-04', en: '2025-12-01' });
 	assert.deepEqual(doc.languageStatus, { de: 'published', en: 'draft' });
 	assert.equal('language' in doc, false);
+	assert.equal('i18n' in doc, false, 'the old name is folded into title (decision 4)');
 	assert.equal(doc.status, 'published', "the whole toon's status is the entry's own");
 	assert.deepEqual(doc.authors, ['A']);
 	assert.equal(hasToonTexts(doc), true);
@@ -189,6 +193,52 @@ test('toon: leftovers – neutral ones the entry has are dropped (invisible), ot
 	assert.equal('cover' in doc, false);
 	assert.deepEqual(doc.accepted_warnings, ['map#2', 'title#1']);
 	assert.deepEqual(visibleDifferences(report).map((r) => r.path), ['id', 'thumbnail', 'cover', 'id', 'cover'], "not authors (the entry's), not download (ignored)");
+});
+
+test('toon: the old name i18n.<l>.name – fills a language without a settings title, else reported (the title wins); i18n dropped', () => {
+	const { doc, report } = neutralizeToon(
+		entry({ i18n: { de: { name: 'Katzenpapst (alt)', description: 'old' }, en: { name: 'Cat Pope' }, ko: { name: '고양이' } } }),
+		{ de: settings('de'), en: settings('en', { title: ' ' }) },
+		'de'
+	);
+	assert.deepEqual(doc.title, { de: 'Katzenpapst', en: 'Cat Pope', ko: '고양이' });
+	assert.equal('i18n' in doc, false);
+	const names = report.filter((r) => r.path.startsWith('i18n.'));
+	assert.deepEqual(names.map((r) => [r.path, r.values, r.invisible ?? false]), [
+		['i18n.de.name', { entry: 'Katzenpapst (alt)', de: 'Katzenpapst' }, false],
+		['i18n.de.description', { entry: 'old' }, true]
+	]);
+	assert.deepEqual(foldToonName(entry({ i18n: undefined })).report, []);
+	const plain = { ...entry() } as Partial<ToonIndex>;
+	delete plain.i18n;
+	assert.deepEqual(foldToonName(plain as ToonIndex).doc, plain, 'no i18n: unchanged');
+});
+
+test('toonName: the title (locale → source → any), older entries their i18n name, else the id; the languages from title keys', () => {
+	assert.equal(toonName({ id: 't', title: { de: 'Katzenpapst', en: 'Cat Pope' }, sourceLanguage: 'de' }, 'en'), 'Cat Pope');
+	assert.equal(toonName({ id: 't', title: { de: 'Katzenpapst', en: ' ' }, sourceLanguage: 'de' }, 'en'), 'Katzenpapst');
+	assert.equal(toonName({ id: 't', title: { en: 'Cat Pope' }, sourceLanguage: 'de' }, 'fr'), 'Cat Pope');
+	assert.equal(toonName({ id: 't', title: { de: 'Katzenpapst' }, i18n: { en: { name: 'Old' } } }, 'en'), 'Katzenpapst', 'title wins');
+	assert.equal(toonName({ id: 't', i18n: { de: { name: 'Katzenpapst' }, en: { name: 'Cat Pope' } } }, 'en'), 'Cat Pope');
+	assert.equal(toonName({ id: 't' }, 'de'), 't');
+	assert.equal(toonName(null, 'de'), '');
+	assert.deepEqual(toonLanguages({ title: { en: 'Cat Pope', de: 'Katzenpapst' } }), { source: 'en', languages: ['en', 'de'] });
+	assert.deepEqual(toonLanguages({ i18n: { de: {}, en: {} } }), { source: 'de', languages: ['de', 'en'] });
+});
+
+test('toon: an entry with texts that still stores i18n – only the name is folded (published + newer draft); idempotent', () => {
+	const v = (id: number, content: unknown) => ({ id, content });
+	const converted = entry({ title: { de: 'Katzenpapst' }, languageStatus: { de: 'published' } });
+	const input = { source: 'de', languages: ['de', 'en'], entryPublished: v(1, converted), entryNewest: v(2, { ...converted, announce: true }), published: {}, newest: {} };
+	const steps = planToonConversion(input);
+	assert.deepEqual(steps.map((s) => [s.status, s.versions, s.nameOnly]), [['published', 'toon#1', true], ['draft', 'toon#2', true]]);
+	assert.deepEqual(steps[0].doc.title, { de: 'Katzenpapst', en: 'Cat Pope' });
+	assert.equal('i18n' in steps[1].doc, false);
+	assert.equal(steps[1].doc.announce, true);
+	assert.deepEqual(planToonConversion({ ...input, entryPublished: v(3, steps[0].doc), entryNewest: v(4, steps[1].doc) }), [], 'folded: nothing');
+	assert.deepEqual(planToonConversion({ ...input, entryNewest: v(1, converted) }).map((s) => s.status), ['published']);
+	const unconverted = entry();
+	assert.deepEqual(planToonConversion({ ...input, entryPublished: v(1, unconverted), entryNewest: v(1, unconverted) }), [], 'no texts and no settings: never folded (the name alone would open the pages)');
 });
 
 test('toon: the plan – published entry + settings, a draft after it; nothing once the entry has texts or without an entry', () => {

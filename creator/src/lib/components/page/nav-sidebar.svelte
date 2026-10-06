@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { ToonAvatar } from '@scutoons/ui';
-	import { entities, parseEntityKey, toonLanguages, type ToonIndex } from '@scutoons/content';
+	import { entities, parseEntityKey, toonName, type ToonIndex } from '@scutoons/content';
 	import { contentIndex } from '$lib/api.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -31,7 +31,7 @@
 			});
 	});
 
-	const name = (t: ToonIndex) => t.i18n?.[getLocale()]?.name ?? t.i18n?.[toonLanguages(t).source]?.name ?? t.id;
+	const name = (t: ToonIndex) => toonName(t, getLocale());
 	const path = $derived(page.url.pathname);
 	const current = (href: string) => (path === href ? 'page' : undefined);
 	/** the items are the children of the page shown (not its siblings): Alt+ArrowDown may open them */

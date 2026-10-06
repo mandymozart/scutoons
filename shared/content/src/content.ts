@@ -699,8 +699,9 @@ export interface ToonIndex extends ToonNeutralSettings, AcceptedWarnings {
 	/** the whole toon's visibility (the admin catalog / creator); each language has its own on top (`languageStatus`) */
 	status: Status;
 	/**
-	 * The toon's title per language (the reader's `Toon.title`; agents/NEUTRAL.md step 4). With it the entry holds the
-	 * toon's settings in every language – the per-language `toon-settings:<toon>:<l>` documents are legacy then.
+	 * The toon's title per language – THE toon's name (the reader's `Toon.title`, the lists' / menu's / creator's name;
+	 * read it with `toonName(entry, locale)`; agents/NEUTRAL.md step 4 + decision 4). With it the entry holds the toon's
+	 * settings in every language – the per-language `toon-settings:<toon>:<l>` documents are legacy then.
 	 */
 	title?: LocaleText;
 	/** the toon's description per language (`Toon.description`) */
@@ -713,10 +714,15 @@ export interface ToonIndex extends ToonNeutralSettings, AcceptedWarnings {
 	 */
 	languageStatus?: Record<string, Status>;
 	avatar: string;
-	i18n: Record<string, Record<string, string>>;
-	/** The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `i18n` key, else `de`. */
+	/**
+	 * @deprecated the old per-language name (`i18n.<l>.name`) – the name is `title` now (owner decision 4, 2026-10-06);
+	 * never stored any more, only read from older entries (`toonName`). The library still answers it, computed from
+	 * `title`, for older viewer builds (legacy, drop later).
+	 */
+	i18n?: Record<string, Record<string, string>>;
+	/** The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `title` key, else `de`. */
 	sourceLanguage?: Language;
-	/** Every language of the toon, the source first. Default: the `i18n` keys (source first). */
+	/** Every language of the toon, the source first. Default: the `title` keys, else the old `i18n` keys (source first). */
 	languages?: Language[];
 	/**
 	 * Library answer only (`/library/toons`): the toon is not published but announced (`announce`) – list it as "soon",

@@ -132,7 +132,7 @@
 		const entry = index.data[NEUTRAL_LOCALE];
 		if (entry == null) {
 			// no index entry anywhere yet: start one (saved as the first version of `toon:<toon>`)
-			index.create(() => withToonLanguages({ id: toonId, uri: toonId, status: Status.DRAFT, i18n: {} }, source, languages));
+			index.create(() => withToonLanguages({ id: toonId, uri: toonId, status: Status.DRAFT }, source, languages));
 			return;
 		}
 		const next = withToonLanguages(entry, source, languages);

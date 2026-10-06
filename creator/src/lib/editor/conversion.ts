@@ -5,7 +5,8 @@
 // already have a neutral document are left alone (idempotent; the creator may have edited it since). The per-locale
 // documents are never changed (rollback = delete the neutral entity).
 // Step 4: the per-language toon settings (`toon-settings:<toon>:<l>`) are folded into the toon entry `toon:<toon>`
-// (`planToonConversion`) – new entry versions after the newest one; listed while the entry has no texts.
+// (`planToonConversion`) – new entry versions after the newest one; listed while the entry has no texts, or still stores
+// the old name `i18n` (folded into `title`, decision 4).
 import { contentIndex, getVersion, publishVersion, putDraft } from '$lib/api.ts';
 import {
 	entities,
@@ -37,7 +38,8 @@ async function planToonEntry(toon: string, index: { key: string; latest: number;
 	const entity = entities.toon(toon);
 	const entryRow = index.find((row) => row.key === entity);
 	const settings = index.filter((row) => parseEntityKey(row.key)?.kind === 'toon-settings' && parseEntityKey(row.key)?.toon === toon);
-	if (!entryRow || !settings.length) return null;
+	// no entry: nothing to fold into (without toon settings the plan only folds the old name `i18n` of an entry with texts)
+	if (!entryRow) return null;
 	const load = async (key: string, id: number): Promise<LocaleVersion> => ({ id, content: (await getVersion(key, id)).content });
 	const entryNewest = await load(entity, entryRow.latest);
 	const entryPublished = entryRow.published === null ? undefined : entryRow.published === entryRow.latest ? entryNewest : await load(entity, entryRow.published);
@@ -117,7 +119,9 @@ export async function convertToon(plan: readonly EntityConversion[], progress?: 
 			if (step.unchanged) continue;
 			const message =
 				entry.kind === 'toon'
-					? `toon settings folded into the entry (${step.status}) from ${step.versions}`
+					? 'nameOnly' in step && step.nameOnly
+						? `the old name (i18n) folded into the title (${step.status}) from ${step.versions}`
+						: `toon settings folded into the entry (${step.status}) from ${step.versions}`
 					: `neutral conversion (${step.status}) from the ${entry.locales.join(', ')} documents`;
 			const saved = await putDraft(entry.entity, step.doc, base, message);
 			base = saved.version.id;

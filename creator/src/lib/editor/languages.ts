@@ -15,7 +15,7 @@ export async function loadToonEntry(toon: string): Promise<ToonIndex | null> {
 	return null;
 }
 
-/** Source + languages of a toon (newest draft of its index entry; defaults for older entries: i18n keys / `de`). */
+/** Source + languages of a toon (newest draft of its index entry; defaults for older entries: `title` keys, the old `i18n` keys / `de`). */
 export async function loadToonLanguages(toon: string): Promise<ToonLanguages> {
 	return toonLanguages(await loadToonEntry(toon));
 }

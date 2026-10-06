@@ -7,6 +7,7 @@
 		localized,
 		pickVariant,
 		Status,
+		toonName,
 		toonTileColor,
 		variantPrice,
 		type ToonIndex
@@ -33,7 +34,7 @@
 		...data.toons.filter((t: ToonIndex) => t.status === Status.PUBLISHED && !t.announced),
 		...data.toons.filter((t: ToonIndex) => t.announced)
 	]);
-	const name = (toon: ToonIndex) => toon.i18n[locale]?.name ?? toon.i18n[toon.sourceLanguage ?? 'de']?.name ?? toon.id;
+	const name = (toon: ToonIndex) => toonName(toon, locale);
 	const color = (toon: ToonIndex) => toonTileColor(data.registry, toon.id, toon.tile) ?? 'var(--ink)';
 
 	// "Läden vor Ort" under an edition that a listed store carries (agents/EMBASSY.md "Stores"); loaded after the page

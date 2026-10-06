@@ -3,7 +3,8 @@
 // season stored per locale (`chapter:<toon>:<n>:<l>` …) → one neutral document (`chapter:<toon>:<n>` …) with
 // @scutoons/content `neutralize*` – the same function the creator's Convert page uses for production. The per-language
 // toon settings (`toon-settings:<toon>:<l>`) are folded into the toon entry `toon:<toon>` (step 4, `planToonConversion`):
-// a new entry version with their texts / release / status as locale maps.
+// a new entry version with their texts / release / status as locale maps; the old name `i18n.<l>.name` goes into
+// `title` (decision 4: one name) – also for entries that have their texts already but still store `i18n`.
 //
 //   npm run dev:neutralize                     dry run: the report per entity (what the source locale overrides)
 //   npm run dev:neutralize -- --apply          … and store the neutral documents as NEW entity versions
@@ -125,8 +126,10 @@ for (const [entity, e] of [...entities].sort(([a], [b]) => a.localeCompare(b, 'e
 	}
 }
 
-// the toon settings → the toon entry (step 4)
-for (const [toon, e] of [...settingRows].sort(([a], [b]) => a.localeCompare(b))) {
+// the toon settings → the toon entry (step 4); the old name into the title (decision 4)
+const toonIds = [...new Set([...settingRows.keys(), ...entryRows.keys()])].filter((t) => !onlyToon || t === onlyToon).sort();
+for (const toon of toonIds) {
+	const e = settingRows.get(toon) ?? { published: {}, newest: {} };
 	const entity = `toon:${toon}`;
 	const { source, languages } = toonLanguages(toonEntries.get(toon));
 	const entry = entryRows.get(toon);
@@ -140,7 +143,7 @@ for (const [toon, e] of [...settingRows].sort(([a], [b]) => a.localeCompare(b)))
 	});
 	if (!steps.length) {
 		unchanged++;
-		console.log(`${entity}  ${entry ? 'has its texts already' : 'no toon entry – nothing to fold the settings into'}`);
+		console.log(`${entity}  ${!entry ? 'no toon entry – nothing to fold the settings into' : settingRows.has(toon) ? 'has its texts (and no i18n) already' : 'nothing to fold (no toon settings, no i18n with texts)'}`);
 		continue;
 	}
 	for (const step of steps) {
@@ -150,7 +153,9 @@ for (const [toon, e] of [...settingRows].sort(([a], [b]) => a.localeCompare(b)))
 			const values = Object.entries(r.values).map(([l, v]) => `${l}=${short(v)}`).join('  ');
 			console.log(`    ${r.kind.padEnd(14)} ${r.path || '(document)'}  ${values}${r.missing ? `  (missing in ${r.missing.join(', ')})` : ''}${r.invisible ? '  (no reader saw it)' : ''}`);
 		}
-		const message = `toon settings folded into the entry (${step.status}) from ${step.versions}`;
+		const message = step.nameOnly
+			? `the old name (i18n) folded into the title (${step.status}) from ${step.versions}`
+			: `toon settings folded into the entry (${step.status}) from ${step.versions}`;
 		inserts.push([`INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, 'toon', ?, NULL, ?, NULL, UTC_TIMESTAMP(), 'draft', ?)`,
 			[entity, toon, JSON.stringify(step.doc), message]]);
 		if (step.status === 'published') {

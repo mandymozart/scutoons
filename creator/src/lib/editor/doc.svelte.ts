@@ -23,6 +23,8 @@ import {
 	entityKeyFor,
 	getAt,
 	hasToonTexts,
+	hasLegacyToonName,
+	foldToonName,
 	isLocaleValue,
 	neutralizeDocs,
 	neutralizeToon,
@@ -285,6 +287,9 @@ export class ContentDoc {
 			}
 			if (legacy) data[this.primary] = legacy.doc;
 		}
+		// an entry with texts that still stores the old name (`i18n`, decision 4): folded into `title` in memory – the next
+		// save stores it without (the Convert page / dev:neutralize store it on their own)
+		if (this.kind === 'index' && hasToonTexts(data[this.primary]) && hasLegacyToonName(data[this.primary])) data[this.primary] = foldToonName(data[this.primary]).doc;
 		this.adopt(data, base, published, source);
 		// a conversion is not stored yet: unsaved until the next save stores the neutral document
 		if (legacy) this.saved[this.primary] = '';

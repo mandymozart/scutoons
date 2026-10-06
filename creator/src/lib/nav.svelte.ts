@@ -1,5 +1,5 @@
 import { getContext, setContext, type Snippet } from 'svelte';
-import { toonLanguages, type ToonIndex } from '@scutoons/content';
+import { toonName as entryName, type ToonIndex } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
 /**
@@ -36,7 +36,7 @@ export class CreatorNav {
 	/** A toon's display name in the UI locale (else its source language); the id only while the list is loading. */
 	toonName(id: string): string {
 		const t = this.toons.find((x) => x.id === id || x.uri === id);
-		return (t && (t.i18n?.[getLocale()]?.name || t.i18n?.[toonLanguages(t).source]?.name)) || id;
+		return (t && entryName(t, getLocale())) || id;
 	}
 	/** where "up" goes: the crumb before the last one */
 	readonly parent = $derived(this.crumbs.length > 1 ? this.crumbs[this.crumbs.length - 2] : null);
