@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon } from '@scutoons/ui';
+	import { CloseIcon, DockFold } from '@scutoons/ui';
 	import { toonFlow, type DeadPlace, type FlowNode } from '@scutoons/content';
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
@@ -15,7 +15,7 @@
 	 * toons / products; the toon level adds the map places. Dead things below the graph. A box opens its chapter (with its
 	 * Flow), an exit its season / toon. Read-only; the graph is loaded only when it opens. The page docks it on the right
 	 * like the chapter's Flow panel (the season: MetaPage's dock, the toon page: a snippet) – in the shell's right dock
-	 * (usePageDock), left of the Ask panel, pushing the page, dragging wider.
+	 * (useDock), left of the Ask panel, pushing the page, dragging wider.
 	 */
 	let { toon, season, onclose }: { toon: string; season?: number; onclose: () => void } = $props();
 
@@ -51,6 +51,7 @@
 <section class="flow" data-testid="toon-flow" data-level={season !== undefined ? 'season' : 'toon'}>
 	<header>
 		<h2>{m['creator.flow']()}</h2>
+		<DockFold label={m['creator.fold_panel']()} />
 		<button class="ghost" onclick={onclose} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
 	</header>
 	<div class="canvas">

@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The "Ask" panel (CUTOVER 10.28 step 2): a chat with an agent that has the signed-in person's rights in this app
-	// (the Ask service, tools/mcp: content tools in the creator, the partner network in the embassy, …). Docked on the
-	// right like the editor's side panels (drags wider up to half the window; the page makes room), full screen on
+	// (the Ask service, tools/mcp: content tools in the creator, the partner network in the embassy, …). The outermost
+	// region of the app's AppShell (`ask`, agents/DOCKING.md: drags wider up to half the window; the page makes room), full screen on
 	// phones. The agent's answer streams in; each tool call is a step, a step can link to its page (`hrefOf`) and an
 	// app can render a step's result (`result`, e.g. the embassy's mail draft). Chats are saved by the Ask service in
 	// the API (`/api/agent-chats`, per app; owner 2026-10-04: "I need to see what I did before if something stops or
@@ -49,18 +49,6 @@
 	} = $props();
 
 	const size = panelWidth('sc-panel-width:ask', 24);
-
-	// the page makes room for the panel (owner 2026-10-04: "the chat pushes the page"): from 768px the app's frame
-	// ends at the panel's edge (`html.sc-ask-open`, `--ask-width`), so the page stays usable next to the chat
-	$effect(() => {
-		const root = document.documentElement;
-		root.classList.add('sc-ask-open');
-		root.style.setProperty('--ask-width', size.css);
-		return () => {
-			root.classList.remove('sc-ask-open');
-			root.style.removeProperty('--ask-width');
-		};
-	});
 
 	// one panel per app, the app never changes
 	// svelte-ignore state_referenced_locally
@@ -222,10 +210,8 @@
 	}
 </script>
 
-<!-- the app's outermost region on the right: fixed, the app's frame ends at it (agents/DOCKING.md) -->
-<div class="ask-edge" style:--sc-divider-top="var(--ask-top, var(--top, 0rem))" style:--sc-divider-bottom="var(--action-bar-height, 0rem)">
-	<Divider {size} edge="left" at={size.css} label={labels.resize} controls="sc-ask-panel" fixed />
-</div>
+<!-- the app's outermost region on the right (the AppShell's `ask`, agents/DOCKING.md): the page makes room for it -->
+<Divider {size} edge="left" at={size.css} label={labels.resize} controls="sc-ask-panel" class="ask-resize" />
 <aside class="ask" id="sc-ask-panel" style:--panel-width={size.css} aria-label={labels.title} data-testid="ask-panel">
 	<header>
 		<h2>{labels.title}</h2>
@@ -301,23 +287,15 @@
 </aside>
 
 <style>
-	/* the app sets where the panel starts and ends: `--ask-top` (below its header; the creator's `--top`) and
-	   `--action-bar-height` (an action bar at the bottom) */
+	/* placed by the app's AppShell (its `ask` region: from the top bar down to the ActionBar; full screen on phones) */
 	.ask {
-		position: fixed;
-		top: var(--ask-top, var(--top, 0rem));
-		right: 0;
-		bottom: var(--action-bar-height, 0rem);
 		width: var(--panel-width);
-		z-index: 30;
+		height: 100%;
 		display: flex;
 		flex-direction: column;
 		box-sizing: border-box;
 		background: var(--paper);
 		border-left: var(--border-width-regular) solid var(--ink);
-	}
-	.ask-edge {
-		display: contents;
 	}
 	header {
 		display: flex;
@@ -466,23 +444,10 @@
 		overflow-y: auto;
 		box-sizing: border-box;
 	}
-	@media (min-width: 768px) {
-		:global(html.sc-ask-open) {
-			/* the page's own right-docked panels (Problems, History, help) sit left of the chat */
-			--ask-inset: var(--ask-width);
-		}
-		/* the shell (@scutoons/ui AppShell) ends at the panel; an app without it does the same with `--ask-inset` */
-		:global(html.sc-ask-open .sc-shell-frame) {
-			margin-right: var(--ask-width);
-		}
-	}
 	@media (max-width: 767px) {
 		.ask {
-			left: 0;
 			width: auto;
 			border-left: 0;
-			/* full screen: above an app's bottom navigation */
-			z-index: 40;
 		}
 	}
 </style>

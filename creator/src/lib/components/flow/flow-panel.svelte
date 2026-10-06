@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon, Segmented } from '@scutoons/ui';
+	import { CloseIcon, DockFold, Segmented } from '@scutoons/ui';
 	import { chapterFlow, groupFlow, sliceFlow, type ChapterReach, type CharacterRegistry, type FlowNode, type ToonFacts } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
@@ -95,6 +95,7 @@
 <section class="flow" data-testid="flow-panel" data-level={level}>
 	<header>
 		<h2>{m['creator.flow']()}</h2>
+		<DockFold label={m['creator.fold_panel']()} />
 		<button class="ghost" onclick={onclose} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
 	</header>
 	{#if levels.length > 1}

@@ -6,8 +6,8 @@
 	 * border at rest, a 3px ink line on hover / focus; hidden below 768px (regions become drawers / sheets there).
 	 *
 	 * Placed in its region's positioned container: `edge="right"` for a region docked on the left (`at` = the region's
-	 * width from the container's left), `edge="left"` for one on the right (`at` from the container's right). `fixed`:
-	 * relative to the viewport between `--sc-divider-top` and `--sc-divider-bottom` (a fixed panel such as Ask).
+	 * width from the container's left), `edge="left"` for one on the right (`at` from the container's right). Every
+	 * region is a tile of its container (AppShell, a page's own split) – nothing is fixed to the viewport.
 	 */
 	interface Size {
 		readonly width: number | null;
@@ -21,7 +21,6 @@
 		at,
 		label,
 		controls,
-		fixed = false,
 		class: className = ''
 	}: {
 		size: Size;
@@ -31,7 +30,6 @@
 		label: string;
 		/** id of the region it resizes */
 		controls?: string;
-		fixed?: boolean;
 		class?: string;
 	} = $props();
 </script>
@@ -40,7 +38,6 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 <div
 	class="sc-divider edge-{edge} {className}"
-	class:fixed
 	role="separator"
 	aria-orientation="vertical"
 	aria-label={label}
@@ -69,12 +66,6 @@
 	}
 	.edge-left {
 		right: calc(var(--sc-divider-at) - 0.375rem);
-	}
-	.fixed {
-		position: fixed;
-		z-index: 31;
-		top: var(--sc-divider-top, 0rem);
-		bottom: var(--sc-divider-bottom, 0rem);
 	}
 	.sc-divider:hover,
 	.sc-divider:focus-visible {

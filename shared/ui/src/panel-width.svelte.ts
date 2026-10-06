@@ -1,36 +1,50 @@
-import { resizable } from './resizable.svelte.ts';
+import { dockRegion } from './dock-region.svelte.ts';
 
 /**
- * A right side panel's width that its left edge drags (owner 2026-10-03: "version history should also be draggable,
- * same as the right side selectors"): from its normal width up to half the window, arrow keys on the edge,
- * double-click resets; remembered per key. The page sets `--panel-width` from `css`; the edge is a `Divider`
- * (agents/DOCKING.md) – the creator's page panels hand it to the AppShell's right dock. `rightEdge`: where the panel ends
- * (default the window's right edge; an inspector column passes its container's). The drag itself: @scutoons/ui
- * `resizable` (COMPONENTS.md step 13).
+ * A right region's width that its left edge (a `Divider`, agents/DOCKING.md) drags (owner 2026-10-03: "version history
+ * should also be draggable, same as the right side selectors"): from its normal width up to half the window (or what
+ * the place it is docked in leaves it: `room`), arrow keys on the edge, Home / double-click resets; remembered per key.
+ * `foldable`: a panel of the AppShell's right dock – it folds to a rail (`folded`, `fold`; dragging it narrow too; owner
+ * 2026-10-06), not remembered: a panel opens unfolded. `rightEdge`: where the region ends (default the window's right
+ * edge; the slice inspector passes its container's). Built on `dockRegion` (dock-region.svelte.ts).
  */
-export function panelWidth(storageKey: string, normalRem = 24, rightEdge: () => number = () => window.innerWidth) {
+export function panelWidth(storageKey: string, normalRem = 24, rightEdge: () => number = () => window.innerWidth, options: { foldable?: boolean } = {}) {
 	const normal = () => normalRem * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
 	/** px the place it is docked in leaves it (the AppShell's dock: the content keeps its minimum) */
 	let room: (() => number) | null = null;
-	const size = resizable({ storageKey, edge: 'left', anchor: rightEdge, min: normal, max: () => Math.min(window.innerWidth / 2, room?.() ?? Infinity) });
-	size.restore();
+	const region = dockRegion({
+		key: () => storageKey,
+		foldable: () => !!options.foldable,
+		side: 'right',
+		anchor: rightEdge,
+		normal,
+		max: () => Math.min(window.innerWidth / 2, room?.() ?? Infinity)
+	});
+	region.restore();
 	return {
 		/** px set by dragging / keys; null = the normal width */
 		get width() {
-			return size.width;
+			return region.width;
 		},
 		/** the CSS length of the normal width (the dock never squeezes it below this) */
 		normal: `min(${normalRem}rem, 92vw)`,
 		/** the CSS length for `--panel-width` */
 		get css() {
-			return size.width !== null ? `${size.width}px` : `min(${normalRem}rem, 92vw)`;
+			return region.width !== null ? `${region.width}px` : `min(${normalRem}rem, 92vw)`;
 		},
 		set room(fn: (() => number) | null) {
 			room = fn;
 		},
-		start: size.start,
-		key: size.key,
-		reset: size.reset
+		get folded() {
+			return region.folded;
+		},
+		get foldable() {
+			return region.foldable;
+		},
+		fold: region.fold,
+		start: region.start,
+		key: region.key,
+		reset: region.reset
 	};
 }
 export type PanelWidth = ReturnType<typeof panelWidth>;

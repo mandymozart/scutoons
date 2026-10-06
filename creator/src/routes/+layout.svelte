@@ -226,8 +226,8 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<!-- the page's open panel (Problems, History, Flow): docked right, left of Ask (agents/DOCKING.md) -->
-{#snippet pageDock()}{@render nav.dock?.panel()}{/snippet}
+<!-- Ask: the outermost region of the shell (agents/DOCKING.md); the page's panels dock left of it (useDock) -->
+{#snippet askRegion()}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (ask.open = false)} />{/snippet}
 
 <div class="creator sc-tool">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
@@ -242,12 +242,11 @@
 			railLabel={nav.crumbs.slice(-2).map((c) => c.label).join(' · ')}
 			foldLabel={m['creator.fold_sidebar']()}
 			unfoldLabel={m['creator.unfold_sidebar']()}
-			foldWhen={ask.open && !!nav.dock}
 			minContent={24}
-			dock={nav.dock ? pageDock : undefined}
-			dockSize={nav.dock?.size}
+			ask={ask.open ? askRegion : undefined}
 			dockLabel={m['creator.dock_label']()}
 			dockResizeLabel={m['creator.resize_panel']()}
+			dockUnfoldLabel={m['creator.unfold_panel']()}
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible
@@ -319,7 +318,6 @@
 			placeholder={m['palette.placeholder']()}
 			hint={m['palette.keys']()}
 		/>
-		{#if ask.open}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (ask.open = false)} />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 </div>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { untrack, type Snippet } from 'svelte';
-	import { ActionBar, panelWidth } from '@scutoons/ui';
+	import { ActionBar, useDock } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -16,7 +16,7 @@
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
 	import { fileLabel } from '$lib/labels.ts';
-	import { flowWidth, usePageDock } from '$lib/nav.svelte.ts';
+	import { dockWidth, flowWidth } from '$lib/nav.svelte.ts';
 
 	/**
 	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
@@ -68,7 +68,7 @@
 		dockOpen?: boolean;
 	} = $props();
 
-	const panelSize = panelWidth('sc-panel-width:meta');
+	const panelSize = dockWidth('meta', 24);
 	const dockSize = flowWidth();
 
 	const main = $derived(docs[0]);
@@ -90,7 +90,9 @@
 		if (dockOpen) untrack(() => (panel = null));
 	});
 	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds
-	usePageDock(() => (shown ? { panel: sidePanel, size } : null));
+	const dockTitle = $derived(shown === 'dock' ? m['creator.flow']() : shown === 'history' ? m['creator.history']() : m['creator.problems']());
+	const dockIcon = $derived(shown === 'dock' ? 'git-merge' : shown === 'history' ? 'clock' : 'alert-triangle');
+	useDock(() => (shown ? { panel: sidePanel, size, title: dockTitle, icon: dockIcon, close: () => ((panel = null), (dockOpen = false)) } : null));
 	function togglePanel(next: 'problems' | 'history') {
 		dockOpen = false;
 		panel = panel === next ? null : next;
@@ -183,7 +185,7 @@
 </div>
 
 
-<!-- the open page panel, shown in the shell's right dock (usePageDock) -->
+<!-- the open page panel, shown in the shell's right dock (useDock) -->
 {#snippet sidePanel()}
 	<div class="side-panel" class:is-dock={shown === 'dock'}>
 		{#if shown === 'dock'}

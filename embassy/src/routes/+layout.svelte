@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
+		AppShell,
 		CommandPalette,
 		Icon,
 		PaletteTrigger,
@@ -144,30 +145,44 @@
 	<title>{m['shell.title']()}</title>
 </svelte:head>
 
+<!-- Ask (@scutoons/ask): the outermost region of the shell -->
+{#snippet askRegion()}
+	<AskPanel app="embassy" url={ASK_URL} chats={agentChats} context={askContext} appLanguage={getLocale()} labels={askLabels} extra={() => ({ ref: askPage.ref })} onstep={(step) => void (step.changed && changed.count++)} onclose={() => (ask.open = false)}>
+		{#snippet result(step)}
+			{#if isDraft(step)}<MailDraft draft={step.data} />{/if}
+		{/snippet}
+	</AskPanel>
+{/snippet}
+
 <div class="embassy sc-tool">
 	<AuthGate {session} app="embassy" appName="Embassy" locale={getLocale()} readerHref={VIEWER_URL}>
-		<header class="topbar">
-			<a class="brand" href="/">
-				<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
-				<span>{m['shell.embassy']()}</span>
-			</a>
-			<nav class="nav" aria-label={m['shell.navigation']()}>
-				{#each nav as item (item.href)}
-					<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-						<span class="icon"><Icon name={item.icon} /></span><span>{item.label}</span>
+		<!-- the tools' frame (@scutoons/ui AppShell, agents/DOCKING.md): top bar, the page, Ask as the outermost region -->
+		<AppShell ask={ask.open ? askRegion : undefined}>
+			{#snippet topbar()}
+				<header class="topbar">
+					<a class="brand" href="/">
+						<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
+						<span>{m['shell.embassy']()}</span>
 					</a>
-				{/each}
-			</nav>
-			<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
-			<button type="button" class="sc-round" class:is-active={ask.open} title={m['ask.open']()} aria-label={m['ask.open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
-		</header>
-		<main>
-			{#if pace.loaded && pace.available && !pace.value}
-				<Onboarding />
-			{:else}
-				{@render children()}
-			{/if}
-		</main>
+					<nav class="nav" aria-label={m['shell.navigation']()}>
+						{#each nav as item (item.href)}
+							<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+								<span class="icon"><Icon name={item.icon} /></span><span>{item.label}</span>
+							</a>
+						{/each}
+					</nav>
+					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
+					<button type="button" class="sc-round" class:is-active={ask.open} title={m['ask.open']()} aria-label={m['ask.open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
+				</header>
+			{/snippet}
+			<main>
+				{#if pace.loaded && pace.available && !pace.value}
+					<Onboarding />
+				{:else}
+					{@render children()}
+				{/if}
+			</main>
+		</AppShell>
 		<CommandPalette
 			bind:open={paletteOpen}
 			commands={paletteCommands}
@@ -176,13 +191,6 @@
 			placeholder={m['palette.placeholder']()}
 			hint={m['palette.keys']()}
 		/>
-		{#if ask.open}
-			<AskPanel app="embassy" url={ASK_URL} chats={agentChats} context={askContext} appLanguage={getLocale()} labels={askLabels} extra={() => ({ ref: askPage.ref })} onstep={(step) => void (step.changed && changed.count++)} onclose={() => (ask.open = false)}>
-				{#snippet result(step)}
-					{#if isDraft(step)}<MailDraft draft={step.data} />{/if}
-				{/snippet}
-			</AskPanel>
-		{/if}
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
 </div>
@@ -197,9 +205,6 @@
 		min-height: 100dvh;
 	}
 	.topbar {
-		position: sticky;
-		top: 0;
-		z-index: 10;
 		display: flex;
 		align-items: center;
 		gap: var(--space-1);
@@ -254,18 +259,6 @@
 		padding: var(--space-15) var(--space-15) var(--space-3);
 		box-sizing: border-box;
 	}
-	/* the Ask panel docks right below the top bar; the page makes room and stays centred in what is left */
-	.embassy {
-		--ask-top: var(--topbar-height);
-	}
-	@media (min-width: 768px) {
-		:global(html.sc-ask-open) main {
-			--ask-side: max(0rem, (100% - var(--ask-width) - 64rem) / 2);
-			margin-left: var(--ask-side);
-			margin-right: calc(var(--ask-width) + var(--ask-side));
-		}
-	}
-
 	@media (max-width: 767px) {
 		.nav {
 			position: fixed;

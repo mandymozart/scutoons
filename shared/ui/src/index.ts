@@ -39,5 +39,9 @@ export { resizable, type Resizable, type ResizableOptions } from './resizable.sv
 export { panelWidth, type PanelWidth } from './panel-width.svelte.ts';
 export { dockRegion, type DockRegion, type DockRegionOptions } from './dock-region.svelte.ts';
 export { default as Divider } from './divider.svelte';
+export { default as FoldButton } from './fold-button.svelte';
+export { default as Rail } from './rail.svelte';
+export { default as DockFold } from './dock-fold.svelte';
+export { shellDock, useDock, type DockPanel } from './dock.svelte.ts';
 export { default as DialogHost } from './dialog-host.svelte';
 export { confirmDialog, askDialog } from './dialogs.svelte.ts';

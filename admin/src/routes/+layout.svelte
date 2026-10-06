@@ -137,6 +137,15 @@
 	<title>{current ? `${current.title()} · ` : ''}{m['shell.title']()}</title>
 </svelte:head>
 
+<!-- Ask: the outermost region of the shell (agents/DOCKING.md); a list's detail docks left of it (SplitView) -->
+{#snippet askRegion()}
+	<AskPanel app="admin" url={ASK_URL} chats={agentChats} context={current?.title() ?? m['shell.admin']()} appLanguage={getLocale()} labels={askLabels} onclose={() => (ask.open = false)}>
+		{#snippet result(step)}
+			{#if isChangesCard(step.data)}<ChangesCard card={step.data} />{/if}
+		{/snippet}
+	</AskPanel>
+{/snippet}
+
 <div class="admin sc-tool">
 	<AuthGate {session} app="admin" appName="Admin" locale={getLocale()} readerHref={VIEWER_URL}>
 		<AppShell
@@ -153,6 +162,10 @@
 			sidebarOpen={menuOpen}
 			onclose={() => (menuOpen = false)}
 			closeLabel={m['shell.close_menu']()}
+			ask={ask.open ? askRegion : undefined}
+			dockLabel={m['shell.dock_label']()}
+			dockResizeLabel={m['shell.resize_panel']()}
+			dockUnfoldLabel={m['shell.unfold_panel']()}
 		>
 			{#snippet topbar()}
 				<header class="topbar">
@@ -196,13 +209,6 @@
 				{@render children()}
 			</main>
 		</AppShell>
-		{#if ask.open}
-			<AskPanel app="admin" url={ASK_URL} chats={agentChats} context={current?.title() ?? m['shell.admin']()} appLanguage={getLocale()} labels={askLabels} onclose={() => (ask.open = false)}>
-				{#snippet result(step)}
-					{#if isChangesCard(step.data)}<ChangesCard card={step.data} />{/if}
-				{/snippet}
-			</AskPanel>
-		{/if}
 		<CommandPalette
 			bind:open={paletteOpen}
 			{commands}
@@ -222,8 +228,6 @@
 	   No px font sizes and no root override. */
 	.admin {
 		--topbar-height: var(--tool-bar-height);
-		/* the Ask panel docks below the top bar */
-		--ask-top: var(--topbar-height);
 		--action-bar-height: var(--topbar-height);
 		--split-view-top: calc(var(--topbar-height) + var(--space-1));
 		--split-view-bottom: calc(var(--action-bar-height) + var(--space-1));

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
-	import { confirmDialog } from '@scutoons/ui';
+	import { confirmDialog, DockFold } from '@scutoons/ui';
 	import { CloseIcon } from '@scutoons/ui';
 	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -85,6 +85,7 @@
 <div class="history" data-testid="history-panel">
 	<header>
 		<h2>{m['creator.history']()} · {fileLabel(doc.entity)}</h2>
+		<DockFold label={m['creator.fold_panel']()} />
 		{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}

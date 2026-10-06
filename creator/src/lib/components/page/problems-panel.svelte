@@ -3,7 +3,7 @@
 	// jumps to its place; "Looks fine" accepts a warning (it moves behind "accepted"), "Ask" hands it to the Ask panel.
 	// An acceptance is an edit of the document the warning is about (`accepted_warnings` in that locale's file,
 	// @scutoons/content accepted.ts): the page turns unsaved, Save keeps it, undo takes it back.
-	import { CloseButton, Icon } from '@scutoons/ui';
+	import { CloseButton, DockFold, Icon } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
 	import { askAbout } from '$lib/ask.svelte.ts';
 	import type { Problem } from '@scutoons/content';
@@ -72,6 +72,7 @@
 <div class="problems" data-testid="problems-panel">
 	<header>
 		<h2>{m['creator.problems']()}</h2>
+		<DockFold label={m['creator.fold_panel']()} />
 		{#if onclose}<CloseButton label={m['creator.close']()} onclick={onclose} />{/if}
 	</header>
 	<p class="summary">

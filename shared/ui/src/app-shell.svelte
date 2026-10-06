@@ -1,20 +1,22 @@
 <script lang="ts">
 	import { dockRegion } from './dock-region.svelte.ts';
+	import { shellDock } from './dock.svelte.ts';
 	import Divider from './divider.svelte';
+	import FoldButton from './fold-button.svelte';
+	import Rail from './rail.svelte';
 	import { untrack, type Snippet } from 'svelte';
-	import Icon from './icon.svelte';
 
 	/**
-	 * Page frame of the tools (admin, creator): top bar + optional sidebar (left) + content + optional dock (right),
-	 * above the fixed bottom `ActionBar` (PLATFORM.md "Bottom action bar"). From 768px the regions tile and never
-	 * overlap (agents/DOCKING.md); their borders always reach the ActionBar (or the viewport bottom without one), at any
-	 * scroll position and content length:
+	 * Page frame of the tools (admin, creator, embassy): top bar + optional sidebar (left) + content + the right dock +
+	 * Ask (outermost right), above the fixed bottom `ActionBar` (PLATFORM.md "Bottom action bar"). From 768px the regions
+	 * tile and never overlap (agents/DOCKING.md); their borders always reach the ActionBar (or the viewport bottom without
+	 * one), at any scroll position and content length:
 	 *
-	 * - `mode="page"` (default): the document scrolls. The top bar is sticky; sidebar and dock are sticky and exactly
+	 * - `mode="page"` (default): the document scrolls. The top bar is sticky; sidebar, dock and Ask are sticky and exactly
 	 *   as tall as the space between the top bar and the ActionBar, and scroll on their own when taller. A short page
 	 *   does not scroll at all.
-	 * - `mode="fill"`: the shell is exactly the viewport minus the ActionBar and the document never scrolls; sidebar,
-	 *   content and dock scroll on their own (editors).
+	 * - `mode="fill"`: the shell is exactly the viewport minus the ActionBar and the document never scrolls; every region
+	 *   scrolls on its own (editors).
 	 *
 	 * The shell reserves the ActionBar's height itself (`--action-bar-height`, inherited from the app; default 3.25rem)
 	 * instead of the `body` padding the ActionBar adds, so the page never scrolls by a wrong amount (rem-based padding
@@ -24,31 +26,23 @@
 	 * `resizeKey`: from 768px on, the sidebar's right edge (a `Divider`) drags it wider (owner 2026-10-02: creator) –
 	 * from its normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per
 	 * key in localStorage (`sc-sidebar-width:<key>`).
-	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a 2.5rem rail –
-	 * the fold button (Feather chevrons-left) at its top right, dragging the edge narrower than the normal width, or
-	 * Ctrl + \; the rail shows chevrons-right and `railLabel` (the current place) written vertically. Remembered per key
-	 * (`sc-sidebar-folded:<key>`). It folds by itself (not remembered) while `foldWhen` holds (who gives way first:
+	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a 2.5rem `Rail` –
+	 * the `FoldButton` (chevrons-left) at its top right, dragging the edge narrower than the normal width, or Ctrl + \;
+	 * the rail shows `railLabel` (the current place) written vertically. Remembered per key (`sc-sidebar-folded:<key>`).
+	 * It folds by itself (not remembered) while an unfolded dock AND Ask are open, or while `foldWhen` holds (who gives way first:
 	 * agents/DOCKING.md "Running out of room").
-	 * `dock` (+ `dockSize`, a `panelWidth`): a page's panel docked on the right (the creator's Problems / History / Flow)
-	 * – a column of the frame, so the content makes room; its left edge is a `Divider`; dragged wider, it stops where the
-	 * content would get narrower than `minContent` (default 20rem) next to the sidebar; below its normal width only when
-	 * the content would get less than half of that. Below 768px it covers the page.
+	 * The right dock: the ONE page panel opened with `useDock` (dock.svelte.ts – Problems / History / Flow, Info, a list's
+	 * detail) – a column of the frame, so the content makes room; its left edge is a `Divider`; dragged wider, it stops
+	 * where the content would get narrower than `minContent` (default 20rem) next to the sidebar; below its normal width
+	 * only when the content would get less than half of that. It folds to a rail (owner 2026-10-06: the panel's
+	 * `DockFold` button or dragging it narrow; the rail shows the panel's icon and title, a click unfolds it). Below
+	 * 768px it covers the page.
+	 * `ask`: the app-wide Ask panel (@scutoons/ask) – the outermost region on the right; it sizes itself.
 	 */
-	interface DockSize {
-		readonly css: string;
-		/** CSS length: the normal width – the dock never gives way below it */
-		readonly normal?: string;
-		/** set by the shell: px a drag may widen it to (the content keeps `minContent`) */
-		room?: (() => number) | null;
-		readonly width: number | null;
-		start(event: PointerEvent): void;
-		key(event: KeyboardEvent): void;
-		reset(): void;
-	}
 	let {
 		topbar,
 		sidebar,
-		dock,
+		ask,
 		children,
 		mode = 'page',
 		sidebarWidth = 'var(--tool-sidebar-width)',
@@ -67,15 +61,15 @@
 		unfoldLabel = 'Show the sidebar',
 		foldWhen = false,
 		minContent,
-		dockSize,
 		dockLabel,
 		dockResizeLabel = 'Resize panel',
+		dockUnfoldLabel = 'Show the panel',
 		class: className = ''
 	}: {
 		topbar?: Snippet;
 		sidebar?: Snippet;
-		/** the page's panel docked on the right */
-		dock?: Snippet;
+		/** the Ask panel (outermost right) while it is open */
+		ask?: Snippet;
 		children: Snippet;
 		mode?: 'page' | 'fill';
 		/** CSS length; may use `var(…)` so an app can change it per breakpoint */
@@ -97,20 +91,21 @@
 		railLabel?: string;
 		foldLabel?: string;
 		unfoldLabel?: string;
-		/** fold to the rail while true (the page needs the room, e.g. two panels docked on the right); not remembered –
-		 * unfolding by hand wins until it turns false again */
+		/** fold to the rail while true (the page needs the room); not remembered – unfolding by hand wins until it turns
+		 * false again. A dock and Ask open together always fold it. */
 		foldWhen?: boolean;
 		/** rem: the content's minimum width – a dock dragged wider stops there */
 		minContent?: number;
-		/** the dock's width (`panelWidth`: its `css` length, the drag / keys / reset of its edge) */
-		dockSize?: DockSize;
 		/** accessible name of the dock */
 		dockLabel?: string;
 		dockResizeLabel?: string;
+		/** the dock's rail button */
+		dockUnfoldLabel?: string;
 		class?: string;
 	} = $props();
 
 	let topHeight = $state(0);
+	const dock = $derived(shellDock.current);
 
 	// ---------- the sidebar: resizable, folds to a rail (dock-region.svelte.ts) ----------
 	let sidebarEl = $state<HTMLElement>();
@@ -129,7 +124,9 @@
 		anchor: () => sidebarEl?.getBoundingClientRect().left ?? 0,
 		normal: measureBase,
 		max: () => window.innerWidth / 3,
-		foldWhen: () => foldWhen
+		// who gives way first (agents/DOCKING.md "Running out of room"): a dock and Ask both open fold the sidebar (a
+		// dock folded to its rail needs no room)
+		foldWhen: () => foldWhen || (!!ask && !!dock && !dock.size.folded)
 	});
 	const folded = $derived(region.folded);
 
@@ -160,36 +157,53 @@
 		return () => window.removeEventListener('resize', fit);
 	});
 
+	// ---------- the right dock + Ask ----------
 	let frameEl = $state<HTMLElement>();
+	/** px: Ask's width (it sizes itself) */
+	let askWidth = $state(0);
 	// a drag stops where the content would get narrower than its minimum (the CSS below keeps it so on a smaller window)
 	$effect(() => {
-		const size = dockSize;
+		const size = dock?.size;
 		if (!size || !frameEl) return;
 		const frame = frameEl;
-		size.room = () => frame.clientWidth - (minContent ?? 20) * (parseFloat(getComputedStyle(frame).fontSize) || 16) - (sidebarEl?.offsetWidth ?? 0);
+		size.room = () =>
+			frame.clientWidth - (minContent ?? 20) * (parseFloat(getComputedStyle(frame).fontSize) || 16) - (sidebarEl?.offsetWidth ?? 0) - (ask ? askWidth : 0);
 		return () => (size.room = null);
 	});
+	const dockFolded = $derived(!!dock?.size.folded);
 	/** the dock gives way (agents/DOCKING.md "Running out of room"): dragged wider than leaves the content its minimum
 	 * (next to the sidebar) it stops there; its normal width stays unless even that leaves the content less than half its
 	 * minimum */
 	const dockCss = $derived.by(() => {
-		if (!dockSize) return '0rem';
+		if (!dock) return '0rem';
+		if (dockFolded) return 'var(--sc-shell-rail-width)';
 		const min = minContent ?? 20;
-		const room = (keep: number) => `calc(100% - ${keep}rem - ${sidebar ? 'var(--sc-shell-sidebar-width)' : '0rem'})`;
-		return `min(${dockSize.css}, max(${room(min)}, min(${dockSize.normal ?? '0rem'}, ${room(min / 2)})))`;
+		const room = (keep: number) => `calc(100% - ${keep}rem - ${sidebar ? 'var(--sc-shell-sidebar-width)' : '0rem'} - var(--sc-shell-ask-width))`;
+		return `min(${dock.size.css}, max(${room(min)}, min(${dock.size.normal}, ${room(min / 2)})))`;
 	});
+	/** the frame's columns: sidebar | content | dock | Ask */
+	const columns = $derived(
+		[sidebar && 'var(--sc-shell-sidebar-width)', 'minmax(0, 1fr)', dock && 'var(--sc-shell-dock-width)', ask && 'auto'].filter(Boolean).join(' ')
+	);
+	/** phones: the sidebar is a drawer (collapsible), the dock and Ask cover the page */
+	const phoneColumns = $derived([sidebar && !collapsible && 'var(--sc-shell-sidebar-width)', 'minmax(0, 1fr)'].filter(Boolean).join(' '));
 </script>
 
 <div
 	class="sc-app-shell {mode} {className}"
 	class:has-sidebar={!!sidebar}
 	class:has-dock={!!dock}
+	class:has-ask={!!ask}
 	class:collapsible
-	style:--sc-shell-top="{topHeight}px"
 	class:folded={folded && !!foldKey}
+	class:dock-folded={dockFolded}
+	style:--sc-shell-top="{topHeight}px"
 	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
 	style:--sc-shell-dock-width={dockCss}
-	style:--sc-shell-dock-own={dockSize?.css}
+	style:--sc-shell-dock-own={dock?.size.css}
+	style:--sc-shell-ask-width="{ask ? askWidth : 0}px"
+	style:--sc-shell-columns={columns}
+	style:--sc-shell-columns-phone={phoneColumns}
 >
 	{#if topbar}
 		<div class="sc-shell-top" bind:offsetHeight={topHeight}>{@render topbar()}</div>
@@ -205,14 +219,10 @@
 				aria-label={sidebarLabel}
 			>
 				{#if foldKey && folded}
-					<!-- the rail: unfold + where the user is -->
-					<div class="sc-shell-rail">
-						<button type="button" class="sc-shell-fold sc-round" onclick={() => region.fold(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)"><Icon name="chevrons-right" /></button>
-						{#if railLabel}<span class="sc-shell-rail-label">{railLabel}</span>{/if}
-					</div>
+					<Rail side="left" label={railLabel} {unfoldLabel} title="{unfoldLabel} (Ctrl + \)" controls={sidebarId} onunfold={() => region.fold(false)} testid="shell-rail" />
 				{:else}
 					{#if foldKey}
-						<button type="button" class="sc-shell-fold sc-shell-fold-in sc-round" onclick={() => region.fold(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)"><Icon name="chevrons-left" /></button>
+						<FoldButton side="left" label={foldLabel} title="{foldLabel} (Ctrl + \)" controls={sidebarId} onclick={() => region.fold(true)} class="sc-shell-fold" />
 					{/if}
 					{@render sidebar()}
 				{/if}
@@ -226,10 +236,17 @@
 		{/if}
 		<div class="sc-shell-content">{@render children()}</div>
 		{#if dock}
-			<aside class="sc-shell-dock" id="sc-shell-dock" aria-label={dockLabel} data-testid="shell-dock">{@render dock()}</aside>
-			{#if dockSize}
-				<Divider size={dockSize} edge="left" at="var(--sc-shell-dock-width)" label={dockResizeLabel} controls="sc-shell-dock" />
-			{/if}
+			<aside class="sc-shell-dock" id="sc-shell-dock" aria-label={dockFolded ? dock.title : dockLabel} data-testid="shell-dock">
+				{#if dockFolded}
+					<Rail side="right" label={dock.title} icon={dock.icon} unfoldLabel={dockUnfoldLabel} controls="sc-shell-dock" onunfold={() => dock.size.fold(false)} testid="dock-rail" />
+				{:else}
+					{@render dock.panel()}
+				{/if}
+			</aside>
+			<Divider size={dock.size} edge="left" at="calc(var(--sc-shell-dock-width) + var(--sc-shell-ask-width))" label={dockResizeLabel} controls="sc-shell-dock" class="sc-shell-dock-resize" />
+		{/if}
+		{#if ask}
+			<div class="sc-shell-ask" bind:offsetWidth={askWidth}>{@render ask()}</div>
 		{/if}
 	</div>
 </div>
@@ -243,6 +260,7 @@
 	.sc-app-shell {
 		--sc-shell-bottom: 0px;
 		--sc-shell-height: calc(100dvh - var(--sc-shell-top) - var(--sc-shell-bottom));
+		--sc-shell-rail-width: 2.5rem;
 		display: flex;
 		flex-direction: column;
 		box-sizing: border-box;
@@ -263,23 +281,15 @@
 		position: relative;
 		flex: 1 0 auto;
 		display: grid;
-		grid-template-columns: minmax(0, 1fr);
+		grid-template-columns: var(--sc-shell-columns);
 		min-height: 0;
-	}
-	.has-sidebar .sc-shell-frame {
-		grid-template-columns: var(--sc-shell-sidebar-width) minmax(0, 1fr);
-	}
-	.has-dock .sc-shell-frame {
-		grid-template-columns: minmax(0, 1fr) var(--sc-shell-dock-width);
-	}
-	.has-sidebar.has-dock .sc-shell-frame {
-		grid-template-columns: var(--sc-shell-sidebar-width) minmax(0, 1fr) var(--sc-shell-dock-width);
 	}
 	.sc-shell-content {
 		min-width: 0;
 	}
 	.sc-shell-sidebar,
-	.sc-shell-dock {
+	.sc-shell-dock,
+	.sc-shell-ask {
 		position: sticky;
 		top: var(--sc-shell-top);
 		align-self: start;
@@ -303,6 +313,10 @@
 		flex: 1 1 auto;
 		min-height: 0;
 	}
+	/* Ask: the panel sizes itself (its own Divider on its left edge) */
+	.sc-shell-ask {
+		overflow: visible;
+	}
 
 	/* fill: exactly the viewport minus the ActionBar; every column scrolls on its own */
 	.sc-app-shell.fill {
@@ -318,44 +332,31 @@
 		grid-template-rows: minmax(0, 1fr);
 	}
 	.fill .sc-shell-sidebar,
-	.fill .sc-shell-dock {
+	.fill .sc-shell-dock,
+	.fill .sc-shell-ask {
 		position: static;
 		align-self: stretch;
 		height: auto;
 		min-height: 0;
+	}
+	/* Ask's divider is placed in its region */
+	.fill .sc-shell-ask {
+		position: relative;
+		top: 0;
 	}
 	.fill .sc-shell-content {
 		min-height: 0;
 		overflow: auto;
 	}
 
-	/* the folded sidebar: a rail (foldable) */
-	.sc-app-shell {
-		--sc-shell-rail-width: 2.5rem;
-	}
-	.sc-shell-rail {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.75rem;
-		padding-top: 1rem;
-		height: 100%;
-	}
-	.sc-shell-rail-label {
-		writing-mode: vertical-rl;
-		transform: rotate(180deg);
-		color: var(--muted);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-height: calc(100% - 4rem);
-	}
-	/* its own row, 1rem from the top, at the right (owner 2026-10-03: like the script outline's fold button) */
-	.sc-shell-fold-in {
+	/* the sidebar's fold button: its own row, 1rem from the top, at the right (owner 2026-10-03: like the script
+	   outline's fold button) */
+	.sc-shell-sidebar > :global(.sc-shell-fold) {
 		display: flex;
 		margin: 1rem 0.5rem 0 auto;
 	}
-	.folded .sc-shell-sidebar {
+	.folded .sc-shell-sidebar,
+	.dock-folded .sc-shell-dock {
 		overflow: hidden;
 	}
 
@@ -363,17 +364,10 @@
 		display: none;
 	}
 	@media (max-width: 767px) {
-		.collapsible.has-sidebar .sc-shell-frame {
-			grid-template-columns: minmax(0, 1fr);
+		.sc-shell-frame {
+			grid-template-columns: var(--sc-shell-columns-phone);
 		}
-		/* phones: the dock covers the page (closed by its own button) */
-		.has-dock .sc-shell-frame,
-		.has-sidebar.has-dock .sc-shell-frame {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		.collapsible.has-sidebar.has-dock .sc-shell-frame {
-			grid-template-columns: minmax(0, 1fr);
-		}
+		/* phones: the dock and Ask cover the page (closed by their own buttons) */
 		.sc-shell-dock,
 		.fill .sc-shell-dock {
 			position: fixed;
@@ -386,8 +380,17 @@
 			/* `start` would shrink a fixed box with both insets to its content */
 			align-self: stretch;
 		}
-		.sc-shell-fold {
-			display: none;
+		/* full screen: above an app's bottom navigation */
+		.sc-shell-ask,
+		.fill .sc-shell-ask {
+			position: fixed;
+			z-index: 40;
+			top: var(--sc-shell-top);
+			left: 0;
+			right: 0;
+			bottom: var(--sc-shell-bottom);
+			height: auto;
+			align-self: stretch;
 		}
 		.collapsible .sc-shell-sidebar {
 			position: fixed;

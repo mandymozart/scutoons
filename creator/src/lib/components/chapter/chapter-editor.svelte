@@ -3,10 +3,10 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, CloseIcon, confirmDialog, Divider, Icon, panelWidth } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, confirmDialog, Divider, Icon, panelWidth, useDock } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { flowWidth, usePageDock, usePageNav } from '$lib/nav.svelte.ts';
+	import { dockWidth, flowWidth, usePageNav } from '$lib/nav.svelte.ts';
 	import { fileLabel, sceneLabel } from '$lib/labels.ts';
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
@@ -65,7 +65,7 @@
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
 
-	const panelSize = panelWidth('sc-panel-width:chapter', 16); // normal = --tool-panel-width
+	const panelSize = dockWidth('chapter', 16); // normal = --tool-panel-width
 	// the Flow panel's graph needs more room from the start (owner 2026-10-06: drags wider up to half the window too)
 	const flowSize = flowWidth();
 	// the slice inspector drags wider too (owner 2026-10-03): from its normal 22rem up to half the window
@@ -284,7 +284,8 @@
 	// `?flow=1` (from the season's / toon's Flow): the chapter opens with its Flow panel
 	let panel = $state<'problems' | 'history' | 'flow' | null>(page.url.searchParams.get('flow') === '1' ? 'flow' : null);
 	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds
-	usePageDock(() => (panel ? { panel: sidePanel, size: panel === 'flow' ? flowSize : panelSize } : null));
+	const PANELS = { problems: { icon: 'alert-triangle', title: () => m['creator.problems']() }, history: { icon: 'clock', title: () => m['creator.history']() }, flow: { icon: 'git-merge', title: () => m['creator.flow']() } };
+	useDock(() => (panel ? { panel: sidePanel, size: panel === 'flow' ? flowSize : panelSize, title: PANELS[panel].title(), icon: PANELS[panel].icon, close: () => (panel = null) } : null));
 	function togglePanel(next: 'problems' | 'history' | 'flow') {
 		panel = panel === next ? null : next;
 	}
@@ -854,7 +855,7 @@
 </div>
 
 
-<!-- the open page panel, shown in the shell's right dock (usePageDock) -->
+<!-- the open page panel, shown in the shell's right dock (useDock) -->
 {#snippet sidePanel()}
 	<div class="side-panel" class:is-flow={panel === 'flow'}>
 		{#if panel === 'problems'}

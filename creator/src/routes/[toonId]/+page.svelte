@@ -2,7 +2,7 @@
 	import { confirmPublish } from '$lib/editor/doc-session.svelte.ts';
 	import { confirmSubmit, publishLabel, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, ToonAvatar, useDock } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -18,7 +18,7 @@
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import FileStatus from '$lib/components/status/file-status.svelte';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
-	import { flowWidth, getCreatorNav, usePageDock, usePageNav } from '$lib/nav.svelte.ts';
+	import { flowWidth, getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
@@ -28,7 +28,7 @@
 	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
 	// docked on the right like the chapter's Flow: the page makes room for it (left of Ask, drags wider)
 	const flowSize = flowWidth();
-	usePageDock(() => (flowOpen ? { panel: flowDock, size: flowSize } : null));
+	useDock(() => (flowOpen ? { panel: flowDock, size: flowSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (flowOpen = false) } : null));
 	usePageNav({ actions: flowToggle });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
@@ -433,7 +433,7 @@
 		{/snippet}
 	</ActionBar>
 </div>
-<!-- the toon's Flow in the shell's right dock (usePageDock) -->
+<!-- the toon's Flow in the shell's right dock (useDock) -->
 {#snippet flowDock()}
 	<div class="flow-dock" data-testid="flow-dock">
 		{#key toonId}

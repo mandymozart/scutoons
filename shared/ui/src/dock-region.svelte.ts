@@ -2,11 +2,12 @@ import { resizable } from './resizable.svelte.ts';
 
 /**
  * One docked region's size (agents/DOCKING.md): its width (dragged on its `Divider`, arrow keys, Home / double-click =
- * the normal width, remembered per key) and – for a foldable region on the left (the sidebar; the script outline next)
- * – its fold to a rail: dragging narrower than 60 % of the normal width snaps it to the rail, dragging out of the rail
- * opens it again (one direction per drag – owner 2026-10-03: folding and unfolding in the same drag glitched).
- * `foldWhen`: the page needs the room (a right dock + Ask open, the content would be too narrow) – folded for now,
- * not remembered; unfolding by hand wins until it turns false again.
+ * the normal width, remembered per key) and – for a foldable region – its fold to a rail (`Rail`): dragging narrower
+ * than 60 % of the normal width snaps it to the rail, dragging out of the rail opens it again (one direction per drag –
+ * owner 2026-10-03: folding and unfolding in the same drag glitched). Left regions (the sidebar, the script outline)
+ * remember the fold (`foldKey`); the right dock folds for now (`foldable`, owner 2026-10-06) – it opens unfolded.
+ * `foldWhen`: the page needs the room (a right dock + Ask open) – folded for now, not remembered; unfolding by hand wins
+ * until it turns false again.
  *
  *   const region = dockRegion({ key: () => 'sc-sidebar-width:creator', foldKey: () => 'sc-sidebar-folded:creator',
  *     side: 'left', anchor: () => el.getBoundingClientRect().left, normal: () => el.offsetWidth, max: () => innerWidth / 3 });
@@ -15,8 +16,10 @@ import { resizable } from './resizable.svelte.ts';
 export interface DockRegionOptions {
 	/** localStorage key of the width ('' = not remembered) */
 	key: () => string;
-	/** localStorage key of the folded state ('' = the region doesn't fold) */
+	/** localStorage key of the folded state: the region folds and remembers it */
 	foldKey?: () => string;
+	/** the region folds without remembering it (default: it folds when it has a `foldKey`) */
+	foldable?: () => boolean;
 	/** where the region is docked: its divider is on the other side (left region → right edge) */
 	side: 'left' | 'right';
 	/** px: the region's fixed side (a left region's left start, a right region's right end) */
@@ -30,25 +33,28 @@ export interface DockRegionOptions {
 
 export function dockRegion(options: DockRegionOptions) {
 	const foldKey = () => options.foldKey?.() ?? '';
-	/** folded by the person (remembered) */
+	const canFold = () => (options.foldable ? options.foldable() : !!foldKey());
+	/** folded by the person (remembered with a `foldKey`) */
 	let foldedByUser = $state(false);
 	/** unfolded by hand while `foldWhen` holds */
 	let unfoldedByHand = $state(false);
 	const pressed = () => !!options.foldWhen?.();
-	const folded = $derived(!!foldKey() && (foldedByUser || (pressed() && !unfoldedByHand)));
-	$effect(() => {
-		if (!pressed()) unfoldedByHand = false;
-	});
+	const folded = $derived(canFold() && (foldedByUser || (pressed() && !unfoldedByHand)));
+	if (options.foldWhen)
+		$effect(() => {
+			if (!pressed()) unfoldedByHand = false;
+		});
 
 	function setFolded(value: boolean) {
-		const k = foldKey();
-		if (!k) return;
+		if (!canFold()) return;
 		if (pressed()) {
 			// folded for the page's sake: unfolding is a choice for now, not a remembered setting
 			unfoldedByHand = !value;
 			if (!foldedByUser) return;
 		}
 		foldedByUser = value;
+		const k = foldKey();
+		if (!k) return;
 		try {
 			if (value) localStorage.setItem(k, '1');
 			else localStorage.removeItem(k);
@@ -66,7 +72,7 @@ export function dockRegion(options: DockRegionOptions) {
 		min: options.normal,
 		max: options.max,
 		filter: (x) => {
-			if (!foldKey()) return;
+			if (!canFold()) return;
 			if (startedFolded) {
 				if (folded && x < threshold()) return 'skip'; // still the rail
 				if (folded) setFolded(false);
@@ -91,7 +97,11 @@ export function dockRegion(options: DockRegionOptions) {
 		get folded() {
 			return folded;
 		},
-		/** fold / unfold (the fold buttons, Ctrl + \) */
+		/** the region can fold to a rail */
+		get foldable() {
+			return canFold();
+		},
+		/** fold / unfold (the fold buttons, the rail, Ctrl + \) */
 		fold(value: boolean) {
 			setFolded(value);
 		},
