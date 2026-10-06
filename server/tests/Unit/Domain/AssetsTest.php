@@ -400,6 +400,19 @@ final class AssetsTest extends TestCase
         self::assertSame('catpope/videos/x.720p.mp4', AssetJobs::outputPath('catpope/videos/x', '720p', 'mp4'));
     }
 
+    /** A language-neutral chapter / season (agents/NEUTRAL.md): its media once, under the entity itself */
+    public function testNeutralDocumentsInTheIndexAndLayout(): void
+    {
+        $this->entity('chapter:catpope:2', ['title' => ['de' => 'Zwei', 'en' => 'Two'], 'number' => 2, 'groups' => [['slices' => [['image' => 'images/webtoon/s1c2/s1c2-slice-1.webp',
+            'dialog' => [['text' => ['de' => 'images/not-a-path.webp is text', 'en' => 'x']]]]]]]]);
+        $this->entity('season:catpope:3', ['title' => ['de' => 'S3'], 'sequence' => [['type' => 'chapter', 'number' => 2, 'status' => ['de' => 'published']]]]);
+        $usages = $this->get(AssetUsages::class);
+        $usages->reindexEntity('chapter:catpope:2');
+        $rows = array_map(fn($u) => [$u['path'], $u['ref'], $u['field'], $u['state']], $this->get(AssetRegistry::class)->usagesOf(['catpope/images/webtoon/s1c2/s1c2-slice-1.webp']));
+        self::assertSame([['catpope/images/webtoon/s1c2/s1c2-slice-1.webp', 'chapter:catpope:2', '/groups/0/slices/0/image', 'published']], $rows);
+        self::assertSame(['catpope' => [2 => 3]], $this->get(AssetLayout::class)->chapterSeasons(), 'a neutral season places its chapters');
+    }
+
     public function testLayoutPlan(): void
     {
         $layout = $this->get(AssetLayout::class);
