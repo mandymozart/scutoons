@@ -26,13 +26,10 @@ compiles whole stories; we evaluate single texts).
 - Our extras are ink-style (external) functions: `clock(t)`, `upper(s)`, `lower(s)`, `has("cucumber")`,
   `count_of("cucumber")`, `read_chapter(2)`, `resolved(id)`, `count(id)`, `min`, `max`, `round`, `floor`,
   `random(a, b)` (stable per reader + text). Reader state as names (§2): `map.total`, `reader.name`, `var.coins`.
-- **Own functions (owner: "my own pipes are definable?" – yes):** (1) built-ins live in ONE registry in
-  `@scutoons/content` (name, params, result type, docs) – the builder, validation, analyser and the PHP check read it;
-  adding one = a few lines. (2) Authors define functions in the creator, ink-style (`=== function name(x) ===`):
-  `mama_hint(visits) = {visits < 3: Keep looking|You're close!}` – per toon (a language-neutral toon document, texts per
-  language) and SCUTOONS-wide; pure, may call other functions but never itself (directly or indirectly – checked on save
-  in the creator and on the server), bounded call depth; listed in the builder; the analyser expands them for "variables
-  read" (dead-variable checks stay right).
+- **Functions are defined in code only (owner 2026-10-06):** ONE registry in `@scutoons/content` (name, params, result
+  type, a short description de/en, an example) – the builder OFFERS them as a list to pick from (e.g. `clock`), and
+  validation, the analyser and the PHP check read the same registry. Adding one = a few lines there. No author-defined
+  functions.
 - Safety: no generic property access (names resolved by a SCUTOONS resolver against fixed namespaces), only registered
   functions, limits (500 chars, depth 32, 64 nodes), runtime errors never break the reader, never eval.
 - **Old syntax discarded** (owner): `{x:clock}` → a migration rewrites stored texts to `{clock(x)}`; no alias.
@@ -100,7 +97,7 @@ the account, synced, changeable on the account page).
 
 ## 7. Order
 
-1. Language core (ink inline syntax: parser, evaluator, analyser, function registry, own functions) + tests; PHP validator port + shared fixtures.
+1. Language core (ink inline syntax: parser, evaluator, analyser, function registry) + tests; PHP validator port + shared fixtures.
 2. Reader integration (namespaces resolver, text boxes / messages / choices / conditions), migration of the old syntax.
 3. Event ids + repeat modes + save game; `askText`.
 4. Creator: chips, builder, wavy underline, insert-variable list, sample readers; validation in the Problems panel.
