@@ -6,6 +6,7 @@ namespace Scutoons\Tests\Http;
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\Auth\Sessions;
 use Scutoons\Domain\Content\ContentSchemas;
+use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
@@ -69,6 +70,29 @@ final class ContentSchemasTest extends TestCase
         self::assertSame([], $this->problems('scene', $group));
         self::assertNotSame([], $this->problems('scene', ['events' => [['type' => 'showMessage', 'params' => ['wait' => true]]]]), 'text is required');
         self::assertSame([], $this->problems('locations', ['anything' => 1]), 'the old map is not checked');
+    }
+
+    /** chapter:<toon>:<n> (no locale, agents/NEUTRAL.md) is checked against chapter-doc, chapter:<toon>:<n>:<l> against chapter */
+    public function testNeutralDocumentsByKey(): void
+    {
+        $schemas = $this->get(ContentSchemas::class);
+        $check = fn(string $key, mixed $content) => $schemas->problemsOf(EntityKey::parse($key), json_decode((string) json_encode($content)));
+        $neutral = ['title' => ['de' => 'Eins', 'en' => 'One'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''],
+            'thumbnail' => '', 'groups' => [['slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1, 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => ['de' => ['a', 'b'], 'en' => 'ab']]]]],
+                'events' => [['type' => 'addChoice', 'params' => ['label' => ['de' => 'Ja']]]]]]];
+        self::assertSame([], $check('chapter:catpope:1', $neutral));
+        self::assertNotSame([], $check('chapter:catpope:1:de', $neutral), 'per locale: texts are strings');
+        $perLocale = ['language' => 'de', 'title' => 'Eins'] + $neutral;
+        self::assertNotSame([], $check('chapter:catpope:1', ['title' => 'Eins'] + $neutral), 'neutral: a title is a locale map');
+        self::assertNotSame([], $check('chapter:catpope:1', $perLocale));
+        self::assertSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => 'Na?'], 'mood' => 'sad']]]]));
+        self::assertNotSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => 'Na?']]]]));
+        self::assertSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => ['de' => 'published', 'en' => 'coming-soon']]]]));
+        self::assertNotSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => 'published']]]));
+        foreach (ContentSchemas::NEUTRAL_BY_KIND as $kind => $name) {
+            self::assertContains($kind, EntityKey::NEUTRAL_DOC_KINDS);
+            self::assertFileExists(self::root() . "/schema/content/$name.schema.json");
+        }
     }
 
     public function testNewToonSettingsWithoutAcceptedWarnings(): void
