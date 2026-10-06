@@ -146,4 +146,18 @@ final class EntityStoreTest extends TestCase
         self::assertStringContainsString('kein showOnomatopeia hier', (string) $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
     }
 
+    /** 2026-10-06-clock-syntax: `{name:clock}` → `{clock(name)}` in every stored version; other braces untouched */
+    public function testTheClockSyntaxMigration(): void
+    {
+        $json = '{"groups":[{"events":[{"type":"showMessage","params":{"text":{"de":"Es ist {time:clock} Uhr, {who}.","en":"{_t2:clock}{x:clock2} {a b:clock} {time: clock}"}}}]}]}';
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('chapter:smoke:1', 'chapter', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-clock-syntax.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-clock-syntax.mysql.sql'); // idempotent
+        self::assertSame(
+            '{"groups":[{"events":[{"type":"showMessage","params":{"text":{"de":"Es ist {clock(time)} Uhr, {who}.","en":"{clock(_t2)}{x:clock2} {a b:clock} {time: clock}"}}}]}]}',
+            $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'")
+        );
+    }
+
 }
