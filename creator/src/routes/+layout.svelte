@@ -273,6 +273,7 @@
 					{#if textLanguages.languages.length > 1}
 						<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
 					{/if}
+					{#if nav.actions}{@render nav.actions()}{/if}
 					<button type="button" class="sc-round" class:is-active={ask.open} title={m['creator.ask_open']()} aria-label={m['creator.ask_open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>

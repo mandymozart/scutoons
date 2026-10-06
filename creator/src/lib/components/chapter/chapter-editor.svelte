@@ -2,7 +2,7 @@
 	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, confirmDialog, Icon, panelWidth } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -33,7 +33,7 @@
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
-	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, type ChapterReach, type Problem, type ToonFacts } from '@scutoons/content';
+	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
 	import { loadToonDocs } from '$lib/editor/toon-facts.ts';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
@@ -57,6 +57,7 @@
 	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import FlowPanel from '$lib/components/flow/flow-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
@@ -64,6 +65,8 @@
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
 
 	const panelSize = panelWidth('sc-panel-width:chapter', 16); // normal = --tool-panel-width
+	// the Flow panel's graph needs more room from the start (owner 2026-10-06: drags wider up to half the window too)
+	const flowSize = panelWidth('sc-panel-width:flow', 28);
 	// the slice inspector drags wider too (owner 2026-10-03): from its normal 22rem up to half the window
 	let columnsEl = $state<HTMLElement>();
 	const inspectorSize = panelWidth('sc-panel-width:slice-inspector', 22, () => columnsEl?.getBoundingClientRect().right ?? window.innerWidth);
@@ -228,10 +231,15 @@
 	});
 	/** the chapter's reachability for the labels in the tree / slice list / event lists – debounced while editing */
 	let reach = $state<ChapterReach | null>(null);
+	/** the groups `reach` was computed from (the Flow panel draws exactly what the chips say) */
+	let reachGroups = $state.raw<any[] | null>(null);
 	$effect(() => {
 		const snapshot = $state.snapshot(sceneGroups());
 		const f = facts;
-		const timer = setTimeout(() => (reach = chapterReach(snapshot, f)), 250);
+		const timer = setTimeout(() => {
+			reach = chapterReach(snapshot, f);
+			reachGroups = snapshot;
+		}, 250);
 		return () => clearTimeout(timer);
 	});
 	/** chapter path (groups.g.…) → its mark */
@@ -267,13 +275,13 @@
 		void view.gridSize;
 		view.savePrefs();
 	});
-	let panel = $state<'problems' | 'history' | null>(null);
+	let panel = $state<'problems' | 'history' | 'flow' | null>(null);
 	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
 	$effect(() => {
 		pagePanel.open = panel !== null;
 		return () => (pagePanel.open = false);
 	});
-	function togglePanel(next: 'problems' | 'history') {
+	function togglePanel(next: 'problems' | 'history' | 'flow') {
 		panel = panel === next ? null : next;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
@@ -340,6 +348,7 @@
 	}
 	usePageNav({
 		sidebar: tree,
+		actions: flowToggle,
 		fill: true,
 		extra: () => {
 			if (view.section !== 'group' && view.section !== 'slice') return [];
@@ -469,6 +478,27 @@
 		}
 	}
 
+	// ── Flow panel (owner 2026-10-06, read-only): a box opens its place in the editor – navigation only ──────────
+	/** a group's name in the graph (the tree's) and a text in the header's language (a choice's label) */
+	const flowName = (g: any, i: number) => groupName(groups[i] ?? g, i);
+	const flowText = (v: unknown): string => {
+		if (typeof v === 'string') return v;
+		if (!v || typeof v !== 'object') return '';
+		const map = v as Record<string, unknown>;
+		const pick = [displayLocale, languages.source, ...Object.keys(map)].map((l) => map[l]).find((t) => typeof t === 'string' && t.trim());
+		return typeof pick === 'string' ? pick : '';
+	};
+	async function openFlowNode(node: FlowNode) {
+		if (!node.path) return;
+		gotoProblem({ level: 'info', file: chapter.entity, locale: null, path: node.path, message: '' });
+		// a script's event: scroll its row into view (the group's VN list)
+		const [, , list, index] = node.path;
+		if (list === 'events' && typeof index === 'number') {
+			await tick();
+			document.querySelector(`[data-testid="vn-events"] [data-testid="event-${index}"]`)?.scrollIntoView({ block: 'center' });
+		}
+	}
+
 	// ── Editing actions (lib/editor/slice-edit.ts) ────────────────────────────────────────────────────────────
 	/** the chapter's group labels: a jump's group and the random list (CUTOVER 10.27) */
 	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
@@ -591,11 +621,16 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+<!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06) -->
+{#snippet flowToggle()}
+	<button type="button" class="sc-round" aria-pressed={panel === 'flow'} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{/snippet}
+
 {#snippet tree()}
 	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} {markAt} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
 {/snippet}
 
-<div class="editor" class:with-panel={panel !== null} style:--panel-width={panelSize.css}>
+<div class="editor" class:with-panel={panel !== null} style:--panel-width={panel === 'flow' ? flowSize.css : panelSize.css}>
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
 	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
@@ -776,14 +811,26 @@
 	{/if}
 
 	{#if panel}
+			{@const size = panel === 'flow' ? flowSize : panelSize}
 			<!-- a focusable separator is a widget (WAI-ARIA window splitter): drag the panel wider (owner 2026-10-03) -->
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
-		<aside class="side-panel">
+			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={size.start} onkeydown={size.key} ondblclick={size.reset}></div>
+		<aside class="side-panel" class:is-flow={panel === 'flow'}>
 			{#if panel === 'problems'}
 				<ProblemsPanel {problems} docs={allDocs} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && activeDoc}
 				<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
+			{:else if panel === 'flow'}
+				<FlowPanel
+					groups={reachGroups}
+					{reach}
+					chapter={chapterNumber}
+					current={view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1}
+					name={flowName}
+					text={flowText}
+					onopen={openFlowNode}
+					onclose={() => (panel = null)}
+				/>
 			{/if}
 		</aside>
 	{/if}
@@ -922,6 +969,11 @@
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		z-index: 20;
 		box-sizing: border-box;
+	}
+	/* the Flow panel: its graph fills the panel's height (it pans / zooms itself) */
+	.side-panel.is-flow {
+		overflow: hidden;
+		padding-bottom: var(--space-1);
 	}
 	.pad {
 		padding: var(--space-1);

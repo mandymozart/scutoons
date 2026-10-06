@@ -23,6 +23,8 @@ export class CreatorNav {
 	extra = $state<Crumb[]>([]);
 	/** the page's own sidebar (children of the current level); null = the layout's default for the route */
 	sidebar = $state<Snippet | null>(null);
+	/** the page's own round buttons in the top bar, left of the Ask button (the chapter editor: Flow) */
+	actions = $state<Snippet | null>(null);
 	/** editors that scroll their own columns (AppShell mode "fill") */
 	fill = $state(false);
 	/** which page registered `extra` / `sidebar` / `fill` (a page leaving must not clear the next page's entries) */
@@ -56,16 +58,18 @@ export function getCreatorNav(): CreatorNav {
  * Registers a page's part of the navigation while the page is mounted (call during component init).
  * `extra` is a function so the crumbs follow the page's state.
  */
-export function usePageNav(options: { sidebar?: Snippet; extra?: () => Crumb[]; fill?: boolean }) {
+export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; extra?: () => Crumb[]; fill?: boolean }) {
 	const nav = getCreatorNav();
 	const owner = ++nextOwner;
 	$effect(() => {
 		nav.owner = owner;
 		nav.sidebar = options.sidebar ?? null;
+		nav.actions = options.actions ?? null;
 		nav.fill = !!options.fill;
 		return () => {
 			if (nav.owner !== owner) return;
 			nav.sidebar = null;
+			nav.actions = null;
 			nav.fill = false;
 			nav.extra = [];
 		};

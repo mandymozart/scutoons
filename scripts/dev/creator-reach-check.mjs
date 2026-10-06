@@ -6,6 +6,7 @@
 //   - group A's script always jumps and continues into group B (no label): the reminder + "Give it a label"; B is
 //     labelled "unreachable" in the tree; A's event after the jump is "unreachable"; a test of a variable set nowhere
 //     in the toon is "never true"; a divert loop with no way out is "endless loop" – each also a Problems warning
+//   - the Flow panel (read-only graph) shows the same statuses, the jump's edge, and a box opens its group
 //
 //   node scripts/dev/creator-reach-check.mjs        (creator :10000, API :9000, MariaDB container)
 //   REACH_SHOT=<file.png>: a screenshot of the group section
@@ -130,6 +131,17 @@ try {
 	await js(`${q('group-2')}.click(), true`);
 	const loop = await until(`(() => { const c = [...document.querySelectorAll('[data-testid="event-2"] .sc-chip')].map((x) => x.innerText.trim()); return c.length ? c : null; })()`, 8000);
 	check(loop?.some((x) => /endless loop|endlosschleife/i.test(x)), 'group C: the divert back with no way out is "endless loop"', JSON.stringify(loop));
+	// the Flow panel (owner 2026-10-06, read-only): the same statuses as the chips; a box opens its group
+	await js(`${q('flow-toggle')}.click(), true`);
+	const flow = await until(`(() => { const c = (id) => document.querySelector('[data-testid="flow-node-' + id + '"]')?.className ?? ''; return c('g0') && c('g2e2') ? { a: c('g0'), b: c('g1'), c: c('g2'), jump: c('g0e1'), loop: c('g2e2') } : null; })()`, 20000);
+	check(/is-reachable/.test(flow?.a) && /is-unreachable/.test(flow?.b) && /is-reachable/.test(flow?.c) && /is-reachable/.test(flow?.jump), 'Flow panel: A and C reachable, group 2 unreachable (like the tree)', JSON.stringify(flow));
+	check(/is-loop/.test(flow?.loop), 'Flow panel: the divert back in C is an endless loop', JSON.stringify(flow));
+	const edge = await js(`[...document.querySelectorAll('.svelte-flow__edge')].some((e) => e.getAttribute('data-id')?.startsWith('g0e1>g2'))`);
+	check(edge, 'Flow panel: the jump leads to group C');
+	await js(`${q('group-0')}.click(), true`);
+	await sleep(500);
+	await js(`document.querySelector('[data-testid="flow-node-g2"]').click(), true`);
+	check(await until(`location.search.includes('group=reach-c') || null`, 5000), 'Flow panel: a box opens its group in the editor');
 	check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | '));
 } catch (error) {
 	check(false, 'the run', String(error?.stack ?? error));
