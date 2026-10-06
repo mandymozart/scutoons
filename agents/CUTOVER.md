@@ -838,6 +838,21 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   3. **Owner decision**: the published `scene:catpope:2:scene-14` (201, + de 127 / en 128) still has an event of the
      unknown type `end` (`{"type":"end","params":{"jumpTo":…scene-20}}` – the reader skips it, `content:check` reports
      it). Publishing the scene's newest version (no `end`) or deleting the event clears it; which one is yours.
+- [ ] 10.36 **One save game across all toons** (owner 2026-10-06, branch `chapter-neutral`, DATA.md "The save game"):
+      story variables, the history and every toon's checkpoints move from the per-toon game states (`progress` rows
+      `toon_id = <toon>`) into the member's save game (`toon_id = 'scutoons'`, which holds the map). The new viewer reads
+      and writes only `/api/progress/scutoons/` (PUT merges: map / checkpoints / history as sets, variables the newer
+      write's); old per-toon calls keep working for older viewer builds (their rows are not read by the new viewer).
+      Guests: the viewer takes the old `scutoons_game_<toon>` keys in once (same clash rule) and removes them.
+      **O – production steps (with the deploy of viewer + API):**
+  1. phpMyAdmin → d0487143 → SQL, check first (both SELECTs are in the migration's header): the members with per-toon
+     states (`SELECT user_id, COUNT(*) … WHERE toon_id <> 'scutoons' GROUP BY user_id`) and the **clashes** – a variable
+     with different values in two toons, listed oldest → newest; the NEWEST toon's value wins.
+  2. Run `server/migrations/mysql/2026-10-06-global-save-game.mysql.sql` (idempotent: a second run changes nothing; the
+     per-toon rows stay as they were – rollback = the old viewer). Afterwards the header's last SELECT answers 0.
+  3. Deploy viewer + API together right after (an old viewer keeps writing per-toon rows the new one doesn't read; a
+     member who reads in between with an old build: their per-toon progress after the migration isn't merged – run the
+     migration again after the deploy, it folds them in by the same rule).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

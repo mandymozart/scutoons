@@ -16,9 +16,10 @@ All five steps of §7 are done – what is left is polish only:
   – step 5.
 - **Production**: the migrations `2026-10-06-clock-syntax`, `2026-10-06-repeat`, `2026-10-06-display-name` (CUTOVER
   10.33 / 10.34, HANDOVER "Open owner decisions").
-- **Left (polish)**: a chip shows its code, not a summary (the summary is its tooltip); stories can't read another
-  toon's variables (per toon by design – a jump into another toon gets that toon's, DATA.md "Jumps into another toon at
-  a label").
+- **Left (polish)**: a chip shows its code, not a summary (the summary is its tooltip).
+- **One save game** (owner 2026-10-06, DATA.md "The save game"): story variables are SCUTOONS-wide – set in one toon,
+  read in another; the builder offers every toon's names, unknown names / "never true" / dead things judge all toons, a
+  look-alike name warns (`similarVariable`).
 - Checks: `check:expr` (reader), `check:events` (repeat modes, askText, the account name), `check:creator-expr`
   (the field + builder), `check:creator-reach` (reach chips, Flow levels).
 
@@ -64,7 +65,7 @@ compiles whole stories; we evaluate single texts).
 
 | Namespace | Names |
 |---|---|
-| (bare) | the toon's story variables, ink-style bare names: `coins` (VN `setVariable` / choice set+add) |
+| (bare) | the story variables – one save game for every toon (a name is the same variable in every toon), ink-style bare names: `coins` (VN `setVariable` / choice set+add) |
 | `reader.` | `name` (askText, platform scope), `signedIn`, `member`, `memberDays`, `since`, `gifts`, `language`, `daysSinceStart` |
 | `read.` | `chapter(n)`, `chapters`, `finished`, `position(n)` |
 | `inventory.` | `has(id)`, `count(id)`, `items`, `edition(id)` |
@@ -116,8 +117,10 @@ uses one "Repeats" field component for both.
 
 A question (per language, optionally spoken by a character), one input line (placeholder, max length e.g. 24, optional
 default when skipped), stores into a variable; scroll frozen until answered. Plain text, trimmed, never markup; shown only
-to that reader. Scope: `this toon` (a story variable) or `SCUTOONS` (= `reader.name`, guests on the device, members on
-the account, synced, changeable on the account page).
+to that reader. Scope: a story variable (stored `toon`, the default – since the one save game the same in every toon, so
+"toon" only means "the story's"; the creator says "a story variable (the same in every toon)") or the reader's name
+(`reader`: `reader.name`, the account's field – guests on the device, members on the account, changeable on the account
+page; not part of the save game). The scope stays meaningful: a variable vs. the account's name.
 
 ## 7. Order
 

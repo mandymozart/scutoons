@@ -22,7 +22,7 @@ after the rollback (the 2026-10-06 run's 666 / 667 are deleted). New keys the st
 (seasons / chapters of toptoy and yellowmouse, catpope chapter drafts) disappear with their only versions; existing keys
 fall back to their previous newest version.
 
-Saved versions (ids 540–553 + 561–564 + 605 + 631–633, all `draft`; the chapters were saved again after the stage rework): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
+Saved versions (ids 540–553 + 561–564 + 605 + 631–633 + 678–681, all `draft`; the chapters were saved again after the stage rework): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
 appended), `season:toptoy:1` + `chapter:toptoy:1`, `season:yellowmouse:1` + `chapter:yellowmouse:1` (new),
 `cast:catpope` / `cast:toptoy` / `cast:yellowmouse` (cast additions so every character may be on stage there).
 
@@ -64,8 +64,8 @@ Pope's entrance, Top Toy's "Hey, DU! Ja, du am Handy", Mama at the reunion. Mood
 Deliberate warnings (validation, the creator's chips, the Flow panel): `mama-attic` unreachable; `rocket_ready` never
 true. The circle loop is NOT an "endless loop" warning – it has a way out (a choice), which is the point.
 
-Limits found (today's model): variables are per toon (toptoy's `visits_hypercity` is not catpope's – after a jump into
-another toon that toon's variables apply; catpope's `tips` don't travel to the reunion via Yellow Mouse); no catpope
+Limits found (the model of the time): variables were per toon (fixed 2026-10-06: one save game – below, "One tip count
+across toons"); no catpope
 season 2 exists, so no season jump; the viewer has no `/season/<n>` route either. (Fixed 2026-10-06: a jump into
 another toon used to land on that toon's page only – now `JumpToTarget.toon` lands at a chapter + label there, below.)
 
@@ -100,6 +100,19 @@ Read in the viewer (phone, draft preview): screenshots `mama-*.png` in the sessi
 draft preview loaded the PUBLISHED cast (new characters of a draft cast had no name / image) – fixed in
 `viewer/src/lib/api.ts` (`fetchCharacters` through the preview); a text box revealed with effect `pulse` logs
 `Cannot read properties of null (reading 'onComplete')` (shared/reader dialog.svelte → effect-pulse.svelte) – fixed by the other lane in 30caaed0.
+
+### One tip count across toons (2026-10-06, versions 678–681, same message)
+
+Story variables are one save game for every toon now (DATA.md "The save game"), so the tips count across toons on
+purpose: `tips` became **`mama_tips`** (catpope 2: Bill the Frog's hat, the Pope's crown; catpope 3: the tiger's road –
+at most 3 in catpope), **Top Toy** (`mama-hypercity`) and **Yellow Mouse** (`mama-boss`) give one each (once: `tip_hypercity`,
+`tip_boss`), and "Zu Mama!" at the crossroads needs **4** – tips from two toons. The kitten says "Drei Tipps aus dem
+Katzenreich …" at 3 (`if: { expr: 'mama_tips == 3' }`), Top Toy counts ("Tipp Nummer {mama_tips}"), Mama names them at
+the reunion (`if: { expr: 'tip_hypercity or tip_boss' }`). Versions: `chapter:catpope:2` 678 (was 605), `chapter:catpope:3`
+679 (631), `chapter:toptoy:1` 680 (632), `chapter:yellowmouse:1` 681 (633). The flow index: `mama_tips` set in catpope /
+toptoy / yellowmouse, read in catpope / toptoy – no dead variable; TS and PHP dead things agree. Played by
+`npm run check:save-game` (toptoy counts catpope's 3 on to 4, catpope then offers "Zu Mama!"). The rollback above
+removes them too.
 
 ## Horizontal strips in catpope chapter 2 (owner 2026-10-06, for testing the scrolling)
 

@@ -209,21 +209,36 @@ rules as the editor's parser (which knows only the German terms; the English scr
   (published versions 482/483, backup `server/db/local.sqlite.bak-2026-10-01-script`). Other toons have none (the page
   starts empty).
 
-**Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
-in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API). The game
-state (`scutoons_game_<toon>`, viewer `contexts/game.svelte.ts`) is `{ toonId, variables, progress, history, created_at,
-updated_at }`, last write wins as a whole: `variables` = the story variables, `progress` = the checkpoints, `history` =
+**The save game** (owner 2026-10-06: "Variables are per save game … make them across all toons"): ONE state per reader
+for every toon, under the reserved id `scutoons` – guests localStorage `scutoons_game_scutoons`, members the relational
+`progress` table row `toon_id = 'scutoons'` via `/api/progress/scutoons/` (`@scutoons/content` save-game.ts, viewer
+`contexts/world.svelte.ts`; `contexts/game.svelte.ts` is only a toon page's view on it):
+`{ variables, progress, history, map, created_at, updated_at }`. Story variables are global – a variable set in toptoy
+is the one catpope reads (the mama story's `mama_tips`, EXAMPLES.md); reading progress stays keyed by toon inside it
+(checkpoint uris `<toon>/chapter/<n>`). Two states MERGE (`mergeSaveGame` in TS, `ProgressService::mergeSaveGame` on
+every PUT): the map as sets, checkpoints by uri (the later `updated_at`; finished once = finished), history entries per
+key (larger count, first first, last last; ≤ 1000, the longest-unseen go), `variables` the NEWER write's as a whole,
+`created_at` the earliest – a write can't remove a checkpoint or a history entry (dev checks restore the row through
+the database: `scripts/dev/save-game-row.mjs`). Before 2026-10-06 the game state was per toon (`scutoons_game_<toon>`,
+`/api/progress/<toon>/` – still answered for older viewer builds, last write wins, not read by the new viewer): the
+migration `2026-10-06-global-save-game` merged members' per-toon states into the save game (CUTOVER 10.36; a clash –
+the same variable in two toons – takes the newest state's value; the per-toon rows stay), guests' keys are taken in
+once on load by the viewer with the same rule and removed (`absorbToonStates` – no SQL reaches a browser and no author
+is involved, so no creator feedback: the HANDOVER rule's exception). Creator / flow: variable names are global – the
+flow index lists every name with the toons that set / read it (`variables`), `variablesElsewhere` feeds
+`toonFacts(…, { elsewhere })`: dead things (set here + read in another toon = used), "never true", the builder's names
+and unknown-name warnings judge all toons (TS `deadThings` and `FlowIndex.php` agree on the dev DB); a name that looks
+like another (`visits_harbor` / `visits_harbour`, `similarVariable`) warns.
+The fields: `variables` = the story variables, `progress` = the checkpoints, `history` =
 the reader's history (EXPRESSIONS.md §5, `@scutoons/content` history.ts: `key → { n, first, last }` (count, ms), keys
 `text:<toon>/<chapter>/<box/<id>/<line> | vn/<group>/<origin>/<event>>#<list>` – visits of `{a|b|c}` lists;
 `event:<event id>` – runs of slice triggers' and placed items' tap events (step 3: their repeat rules – recurrence.ts
 `isDue` –, `resolved(id)` / `count(id)`; group-script events are not recorded); at most 1000 entries, the
 longest-unseen go; missing in older states = empty);
-`created_at` = when the reader started the toon (`reader.daysSinceStart`, the seed of shuffles / `random()`). The
-reader's **name** (askText scope "reader", `{reader.name}`) is not toon state: members `users.display_name` (≤ 32,
+`created_at` = when the reader started SCUTOONS (`reader.daysSinceStart`, the seed of shuffles / `random()`). The
+reader's **name** (askText scope "reader", `{reader.name}`) is not in the save game: members `users.display_name` (≤ 32,
 plain, `PUT /me/ { display_name }`, migration 2026-10-06-display-name), guests localStorage `scutoons_reader_name`. The map's
-discoveries are one **world** state for every toon under the reserved id `scutoons` (`/api/progress/scutoons/`, localStorage
-`scutoons_game_scutoons`): its `map` (places, routes, positions) merges as sets on the server and in the viewer
-(`mergeMapState`), the rest is last-write-wins (agents/MAP.md §2.4, §8.2).
+discoveries are the save game's `map` (places, routes, positions – `mergeMapState`, agents/MAP.md §2.4, §8.2).
 
 **The world map (2026-10-01, branch `map`, agents/MAP.md §8):** entity `map` (`WorldMap`: width, height, layers, places
 with `{ de, en }` names, toons, `hidden` + `unlock { toon, chapter, at, slice, scene }`, card `chapter`, image; routes with
@@ -414,7 +429,7 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   | a jump into the page the reader is on (same chain) | the page starts again (like "Nochmal"): another group of the chain = another arrival (`{#key}` on chain start + arrival group), the very same URL = a replay. |
   | "↺ Nochmal" / leaving the page | a fresh page: every script of the chain again, the stage and revealed boxes cleared (`vn.claimPage`); leaving cancels the line and every script. |
   | the VN box / characters overlay | one per page (vn-page.svelte), shared by all groups of the chain. |
-  | game variables, reading progress | unchanged (variables are toon-wide; progress counts slices across the chain). |
+  | game variables, reading progress | unchanged (variables are SCUTOONS-wide – the one save game; progress counts slices across the chain). |
   | the chapter's last group | can't continue (error; the creator doesn't offer it). |
 
 - **Reachability** (owner 2026-10-06, `@scutoons/content` reach.ts `chapterReach`): a graph over the chapter – groups,
@@ -443,9 +458,9 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   groups); no `toon` = this toon; `type: 'toon'` stays the toon's page. Only optional field added – no migration (dev DB
   = production dump: no stored target had a `toon`; the 5 `type: 'toon'` targets of the mama story became chapter
   jumps as new drafts, EXAMPLES.md). Helpers `targetToon` / `intoOtherToon` (vn-script.ts).
-  - Viewer: `buildJumpToUrl` → `/<toon>/chapter/<n>?label=…`; `anyOf` ignores the current group there. **Variables are
-    per toon** (the game state is the toon's): after the jump the other toon's story variables apply – a toon can't read
-    or set another toon's; reader state (`reader.*`, inventory …) is SCUTOONS-wide as before.
+  - Viewer: `buildJumpToUrl` → `/<toon>/chapter/<n>?label=…`; `anyOf` ignores the current group there. The story
+    variables travel along (one save game for every toon since 2026-10-06, "The save game" above); each toon keeps its
+    own reader shell (toon-shell.svelte: VN, audio, sequence, cast).
   - Reach / flow: a target into another toon is no entry point of the toon it is in (`toonFacts(docs, { toon })`); a
     label another toon jumps to IS one of the target toon (`incomingJumps` over the server's flow index →
     `toonFacts(…, { incoming })`, `ToonFlowInput.incoming` = chapters other toons jump into, entries like a visible map
