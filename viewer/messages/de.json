@@ -36,6 +36,8 @@
 	},
 	"account": {
 		"my_account": "Mein Konto",
+		"back": "Zurück",
+		"back_to": "Zurück zu {name}",
 		"membership": "Vollmitgliedschaft",
 		"promo": "Promo",
 		"event": "Veranstaltung",

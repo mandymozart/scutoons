@@ -17,7 +17,10 @@
 	import ReaderNameSetting from '$lib/components/account/reader-name-setting.svelte';
 	import MyClaims from '$lib/components/account/my-claims.svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
+	import { locales } from '$lib/paraglide/runtime.js';
+	import { Icon } from '@scutoons/ui';
+	import { toonName, type ToonIndex } from '@scutoons/content';
 
 	const membershipCtx = getMembershipContext();
 	const session = getSessionContext();
@@ -33,7 +36,26 @@
 		return value && value.startsWith('/') && !value.startsWith('//') && !value.includes('\\') ? value : null;
 	});
 
-	const itemCount = $derived(inventory.entries.reduce((sum, e) => sum + e.qty, 0));
+	// back to where the reader came from (owner 2026-10-06: from a chapter, the menu's account link left no way back
+	// to it – the logo goes to the landing page, the menu to the toon's start). Browser history restores the page and
+	// its scroll position; only for a page of this app, not on a direct visit or reload (then the logo / menu remain)
+	let cameFrom = $state<URL | null>(null);
+	afterNavigate(({ from }) => {
+		if (from?.url && !/\/account(\/|$)/.test(from.url.pathname)) cameFrom = from.url;
+	});
+	const backToon = $derived.by(() => {
+		if (!cameFrom) return null;
+		const parts = cameFrom.pathname.split('/').filter(Boolean);
+		const id = (locales as readonly string[]).includes(parts[0]) ? parts[1] : parts[0];
+		return (page.data.toons as ToonIndex[] | undefined)?.find((t) => t.id === id) ?? null;
+	});
+	function goBack(event: MouseEvent) {
+		if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+		event.preventDefault();
+		history.back();
+	}
+
+	const itemCount =$derived(inventory.entries.reduce((sum, e) => sum + e.qty, 0));
 
 	const typeLabel = (type: string) => (m as any)[`account.${type}`]?.() ?? type;
 	/** access only through the promo code the account was created with (not owned) */
@@ -82,6 +104,12 @@
 </script>
 
 <div class="view view-account">
+	{#if cameFrom}
+		<a class="back" href={cameFrom.pathname + cameFrom.search} onclick={goBack} data-testid="account-back">
+			<Icon name="chevron-left" size="1rem" />
+			{backToon ? m['account.back_to']({ name: toonName(backToon, getLocale()) }) : m['account.back']()}
+		</a>
+	{/if}
 	<header class="account-header">
 		<h1><img src={accountIcon} alt="Account" /> {m['account.my_account']()}</h1>
 	</header>
@@ -255,6 +283,22 @@
 	.view.view-account {
 		max-width: 600px;
 		margin: 5rem auto;
+	}
+	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		height: var(--control-height);
+		margin: 0 1rem;
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.back:hover {
+		text-decoration: underline;
+	}
+	.back:focus-visible {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: 2px;
 	}
 	header {
 		padding: 0 1rem;

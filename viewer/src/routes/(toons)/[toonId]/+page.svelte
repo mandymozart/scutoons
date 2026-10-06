@@ -178,6 +178,10 @@
 		margin-bottom: 2rem;
 		padding: 0 2rem;
 	}
+	/* the chapter list on the same edges as the description above it (phone / tablet; desktop: the grid's padding) */
+	.list-column {
+		padding: 0 2rem;
+	}
 	.sr-only {
 		position: absolute;
 		width: 1px;
@@ -214,6 +218,7 @@
 	}
 	@media (max-width: 768px) {
 		.chapters-header,
+		.list-column,
 		.season-download {
 			padding-left: 1rem;
 			padding-right: 1rem;
@@ -321,6 +326,7 @@
 		}
 		.list-column {
 			grid-column: 1 / span 6;
+			padding: 0;
 		}
 		.list-heading {
 			font-size: 1.3333rem;
