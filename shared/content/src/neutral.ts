@@ -268,7 +268,7 @@ export function resolveSeason(doc: SeasonDoc, locale: string, languages: Neutral
 			if (!isObject(item) || !Object.hasOwn(item, 'status')) return item;
 			const copy: Record<string, unknown> = { ...item };
 			const status = resolveText(item.status, chain);
-			if (status === undefined) delete copy.status;
+			if (status === undefined || status === null) delete copy.status;
 			else copy.status = status;
 			return copy;
 		});

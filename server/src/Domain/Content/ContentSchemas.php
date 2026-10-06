@@ -38,6 +38,13 @@ final class ContentSchemas
         'map' => 'map',
     ];
 
+    /** the language-neutral documents of these kinds (a key without locale, agents/NEUTRAL.md) → schema file */
+    public const NEUTRAL_BY_KIND = [
+        'chapter' => 'chapter-doc',
+        'scene' => 'group-doc',
+        'season' => 'season-doc',
+    ];
+
     private ?Validator $validator = null;
 
     public function __construct(private readonly Settings $settings)
@@ -48,9 +55,10 @@ final class ContentSchemas
      * Problems of $content (decoded with stdClass objects) as a document of $kind; [] = valid or not checked
      * @return list<string>
      */
-    public function problems(string $kind, mixed $content, int $limit = 20): array
+    public function problems(string $kind, mixed $content, int $limit = 20, bool $neutral = false): array
     {
-        $name = self::BY_KIND[$kind] ?? null; // EntityKey only parses known kinds; a stray older kind isn't checked
+        // EntityKey only parses known kinds; a stray older kind isn't checked
+        $name = $neutral && isset(self::NEUTRAL_BY_KIND[$kind]) ? self::NEUTRAL_BY_KIND[$kind] : (self::BY_KIND[$kind] ?? null);
         if ($name === null) return [];
         $result = $this->validator($limit)->validate($content, "https://scutoons.com/schema/$name.schema.json");
         $error = $result->error();
@@ -62,10 +70,20 @@ final class ContentSchemas
         return array_slice($problems, 0, $limit);
     }
 
+    /**
+     * Problems of a stored document by its key: a neutral chapter / scene / season against its neutral schema, a
+     * per-locale one (legacy) against the old
+     * @return list<string>
+     */
+    public function problemsOf(EntityKey $key, mixed $content, int $limit = 20): array
+    {
+        return $this->problems($key->kind, $content, $limit, $key->isNeutralDoc());
+    }
+
     /** Throws 422 invalid_content { problems } when $content doesn't fit its kind */
     public function guard(EntityKey $key, mixed $content): void
     {
-        $problems = $this->problems($key->kind, $content);
+        $problems = $this->problemsOf($key, $content);
         if ($problems) {
             throw new ApiError(422, 'invalid_content', "The $key->kind document doesn't fit its type: " . $problems[0]
                 . (count($problems) > 1 ? ' (+' . (count($problems) - 1) . ' more)' : ''), ['problems' => $problems]);

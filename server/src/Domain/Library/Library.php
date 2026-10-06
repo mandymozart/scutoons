@@ -42,17 +42,31 @@ final class Library
      */
     public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'];
     /** Bump when the shape of an answer changes: old cache entries are never read again */
-    private const FORMAT = 4;
+    private const FORMAT = 5;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */
     private const LEGACY_CHARACTER_IDS = ['plf' => 'catpope', 'cat' => 'catpope', 'mountain-tiger' => 'catpope'];
+
+    /** answers from the legacy per-locale chapters / scenes / seasons only (Snapshot::withoutNeutralDocs) */
+    private bool $legacyOnly = false;
 
     public function __construct(
         private readonly Database $db,
         private readonly Cache $cache,
         private readonly Settings $settings,
     ) {
+    }
+
+    /**
+     * This library ignoring every language-neutral chapter / scene / season document – the answers as before the
+     * conversion (agents/NEUTRAL.md; content:neutral-check compares both)
+     */
+    public function legacyOnly(): self
+    {
+        $library = clone $this;
+        $library->legacyOnly = true;
+        return $library;
     }
 
     public function showDrafts(): bool
@@ -178,7 +192,10 @@ final class Library
         }, $ctx);
     }
 
-    /** GET /library/toons/{toon}/chapters/{n}?locale= → Chapter with every `ref` group replaced by its scene file */
+    /**
+     * GET /library/toons/{toon}/chapters/{n}?locale= → Chapter with every `ref` group replaced by its scene; a
+     * language-neutral chapter / scene resolved for the locale (NeutralDoc), else the per-locale documents
+     */
     public function chapter(string $toon, int $number, ?string $locale, bool $draft): Answer
     {
         $ctx = $this->context($toon, $draft);
@@ -199,8 +216,16 @@ final class Library
             $ctx->fallback = false; // the answer's fallback flag = the chapter + its scenes
             $picked = $ctx->pick("chapter:$ctx->toon:$number", $locale)
                 ?? throw new ApiError(404, 'not_found', "Chapter $number of $ctx->toon not found.");
-            [$served, $chapter] = $picked;
+            [$served, $chapter, $neutral] = $picked;
             if (!$chapter instanceof stdClass) throw new ApiError(404, 'not_found', "Chapter $number of $ctx->toon not found.");
+            if ($neutral) {
+                // the deprecated mirror older viewer builds read: the season's status in the served locale (the creator
+                // wrote it into each per-locale document); not part of the answer's fallback flag
+                $fallback = $ctx->fallback;
+                $status = $this->chapterStatus($ctx, $number, $served);
+                $ctx->fallback = $fallback;
+                if ($status !== null) $chapter->status = $status;
+            }
             return [$this->withScenes($ctx, $chapter, $served), $served];
         }, $ctx);
     }
@@ -487,6 +512,7 @@ final class Library
         if (!preg_match(EntityKey::TOON_PATTERN, $toon)) throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
         if ($toon === self::PLATFORM) throw new ApiError(404, 'not_found', "Unknown toon $toon.");
         $snapshot = Snapshot::toon($this->db, $toon, $draft);
+        if ($this->legacyOnly) $snapshot = $snapshot->withoutNeutralDocs();
         $entry = $snapshot->doc("toon:$toon");
         $entry = $entry instanceof stdClass ? $entry : null;
         $stored = [];

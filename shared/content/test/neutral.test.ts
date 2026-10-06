@@ -37,6 +37,7 @@ test('texts: served locale → source → other languages → any; blank is miss
 	assert.deepEqual(resolveText({ en: ['', 'x'] }, chain), ['', 'x']);
 	assert.equal(resolveText({ de: 'a', en: [''] }, chain), 'a', 'a list of blank lines is missing');
 	assert.equal(resolveText('legacy', chain), 'legacy');
+	assert.equal(resolveText({ de: 'a', en: '  ﻿' }, chain), 'a', 'blank like JS trim() (the server matches it)');
 	assert.deepEqual(neutralLocales('chapter', { title: { de: 'x', en: '', ko: 'y' } }), ['de', 'ko']);
 	assert.deepEqual(servedLocale('season', { title: { en: 'x' } }, 'de', { source: 'de' }), { locale: 'en', fallback: true });
 });

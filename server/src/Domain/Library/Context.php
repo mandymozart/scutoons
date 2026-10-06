@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Library;
 
+use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\NeutralDoc;
 use stdClass;
 
 /**
@@ -33,14 +35,22 @@ final class Context
     /**
      * A localized entity (`chapter:<toon>:2`) in the asked locale, else the source language, else any other language
      * of the toon. Records a fallback when the served locale differs from the asked one.
-     * @return array{0: string, 1: mixed}|null [served locale, document]
+     * Chapters, scenes, seasons: their language-neutral document when there is one (resolved for the locale, NeutralDoc;
+     * a chapter without its season status – Library::chapter adds it), else the legacy per-locale documents.
+     * @return array{0: string, 1: mixed, 2: bool}|null [served locale, document, whether it is a neutral document]
      */
     public function pick(string $entity, string $locale): ?array
     {
+        $kind = explode(':', $entity, 2)[0];
+        if (in_array($kind, EntityKey::NEUTRAL_DOC_KINDS, true) && $this->snapshot->has($entity)) {
+            [$served, $fallback, $doc] = NeutralDoc::resolve($kind, $this->snapshot->doc($entity), $locale, $this->source, $this->languages);
+            if ($fallback) $this->fallback = true;
+            return [$served, $doc, true];
+        }
         foreach (array_values(array_unique([$locale, $this->source, ...$this->languages])) as $candidate) {
             if (!$this->snapshot->has("$entity:$candidate")) continue;
             if ($candidate !== $locale) $this->fallback = true;
-            return [$candidate, $this->snapshot->doc("$entity:$candidate")];
+            return [$candidate, $this->snapshot->doc("$entity:$candidate"), false];
         }
         return null;
     }

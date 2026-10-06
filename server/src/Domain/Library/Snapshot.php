@@ -88,6 +88,16 @@ final class Snapshot
         return $ids;
     }
 
+    /**
+     * The same snapshot without the language-neutral chapter / scene / season documents (only their legacy per-locale
+     * ones): the legacy answers, for the conversion's equivalence check (content:neutral-check). Another fingerprint.
+     */
+    public function withoutNeutralDocs(): self
+    {
+        $ids = array_filter($this->ids, fn(int $id, string $key) => !(EntityKey::isValid($key) && EntityKey::parse($key)->isNeutralDoc()), ARRAY_FILTER_USE_BOTH);
+        return new self($this->db, $ids, $this->draft, $this->first);
+    }
+
     public function has(string $key): bool
     {
         return isset($this->ids[$key]);

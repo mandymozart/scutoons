@@ -10,7 +10,10 @@ use Scutoons\Domain\ApiError;
  *
  *   toon:<toon>                          the toon's index entry (list entry, status, languages, names)
  *   toon-settings:<toon>:<l>             the toon's per-language settings (title, description, release, status); the language-neutral ones (map, tile, cover …) are in toon:<toon>
- *   season:<toon>:<n>:<l>                chapter:<toon>:<n>:<l>        scene:<toon>:<chapter>:<name>:<l>
+ *   season:<toon>:<n>                    chapter:<toon>:<n>            scene:<toon>:<chapter>:<name>
+ *                                        one language-neutral document each, texts as locale maps (NeutralDoc, agents/NEUTRAL.md)
+ *   season:<toon>:<n>:<l>  chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>
+ *                                        the legacy per-locale documents: read while the entity has no neutral document
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
  *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
@@ -48,6 +51,11 @@ final class EntityKey
      * names them (agents/DATA.md "Script").
      */
     public const CREATOR_ONLY_KINDS = ['script'];
+    /**
+     * Localized kinds stored as one language-neutral document under the entity itself (no locale segment, agents/NEUTRAL.md,
+     * NeutralDoc); their per-locale keys are the legacy form, still accepted until production is converted
+     */
+    public const NEUTRAL_DOC_KINDS = ['chapter', 'scene', 'season'];
     public const TOON_PATTERN = '#^[a-z0-9_-]{1,64}$#';
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';
     public const SCENE_PATTERN = '#^[a-z0-9_-]{1,64}$#';
@@ -74,7 +82,8 @@ final class EntityKey
         if ($shape === null) throw $invalid;
         [$hasToon, $hasNumber, $hasScene, $localized] = $shape;
         $expected = (int) $hasToon + (int) $hasNumber + (int) $hasScene + (int) $localized;
-        if (count($parts) !== $expected) throw $invalid;
+        if ($localized && count($parts) === $expected - 1 && in_array($kind, self::NEUTRAL_DOC_KINDS, true)) $localized = false; // the neutral document
+        elseif (count($parts) !== $expected) throw $invalid;
         $toon = $hasToon ? array_shift($parts) : null;
         $number = $hasNumber ? array_shift($parts) : null;
         $scene = $hasScene ? array_shift($parts) : null;
@@ -100,6 +109,18 @@ final class EntityKey
     {
         return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->scene, $this->locale],
             fn($p) => $p !== null));
+    }
+
+    /** A language-neutral document: a kind without locales, or the neutral document of a chapter / scene / season */
+    public function isNeutral(): bool
+    {
+        return $this->locale === null;
+    }
+
+    /** The neutral document of a chapter / scene / season (not a legacy per-locale one) */
+    public function isNeutralDoc(): bool
+    {
+        return $this->locale === null && in_array($this->kind, self::NEUTRAL_DOC_KINDS, true);
     }
 
     /** The same entity in another locale (localized kinds) */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Console;
 
 use Scutoons\Domain\Content\ContentSchemas;
+use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Infrastructure\Database\Database;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -44,7 +45,10 @@ final class ContentCheckCommand extends Command
             $k = (string) $row['kind'];
             $perKind[$k] ??= ['checked' => 0, 'bad' => 0, 'unchecked' => !(ContentSchemas::BY_KIND[$k] ?? null)];
             $perKind[$k]['checked']++;
-            $problems = $this->schemas->problems($k, json_decode((string) $row['json'], false), $limit);
+            $content = json_decode((string) $row['json'], false);
+            $problems = EntityKey::isValid($row['entity_key']) // neutral chapters / scenes / seasons against their neutral schema
+                ? $this->schemas->problemsOf(EntityKey::parse($row['entity_key']), $content, $limit)
+                : $this->schemas->problems($k, $content, $limit);
             if (!$problems) continue;
             $bad++;
             $perKind[$k]['bad']++;
