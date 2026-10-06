@@ -51,6 +51,11 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
 - With the owner, not alone: 10.17 atomic deploys (only testable by deploying), 10.23 asset jobs through the API,
   10.2 / 10.4 asset layer, 10.7 / 10.9 cleanups, 10.8 the release.
 - 10.1 ("fix the beta's issues on `platform`") – `platform` is abandoned, everything is on `main`: close it?
+- `check:testo` (scripts/check-testo.mjs) fails from its first step: its guest half picks up the testo in the sandbox, but
+  since 10.30 (the production seed) the sandbox toon is creators-only – a guest gets "Not found". Not from tonight's
+  work (the member path works: the testo lands in the inventory, checked 2026-10-07). Make the sandbox public in dev,
+  run the guest half on a published toon, or drop it?
+- `tokens-switch-knob` deleted (2026-10-07): main already had the same tokens-check fix; the branch's commit was d9f838f8.
 
 ## Open
 
