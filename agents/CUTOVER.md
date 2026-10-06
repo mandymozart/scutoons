@@ -826,8 +826,8 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      warns ("N events have no id yet") and the reader keeps such events' "once per page view" in memory.
 - [ ] 10.35 **Jump targets: string values + jumps into another toon at a label** (owner 2026-10-06, branch
       `chapter-neutral`, DATA.md "Jumps into another toon at a label"): `JumpToTarget.toon` is a new optional field (no
-      migration; old code ignores it and lands at the target toon's chapter of the same number in ITS toon – deploy viewer
-      + creator + API together). `content:check` found the old chapter 2 stroll's targets with a NUMBER value (`"value":2`
+      migration; old code ignores it – such a jump would land in the CURRENT toon's chapter of that number – so deploy
+      viewer + creator + API together before saving such jumps). `content:check` found the old chapter 2 stroll's targets with a NUMBER value (`"value":2`
       – the type says string): 11 versions, all `scene:catpope:2:scene-14` (+ de / en), 3 targets each.
       **O – production steps:**
   1. phpMyAdmin → d0487143 → SQL, check first:
