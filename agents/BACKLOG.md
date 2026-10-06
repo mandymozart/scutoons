@@ -153,10 +153,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] 10.17 Deploys are not atomic: FTP replaces files one by one, so for a few seconds the API runs half old / half new
       code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
       (rename / symlink), or a maintenance flag during the upload.
-- [ ] 10.19 _(priority last – owner 2026-10-06)_ Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
-      seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
-      only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
-      _(locally largely `npm run dev:db` since 10.30: migrate + prod seed incl. the asset tables; no content seed any more)_
 - [ ] 10.21 Asset picker rework (owner 2026-10-03: "we do have to fix the ui of the picker and its relation to the page
       where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
       opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
@@ -466,6 +462,11 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **O – production:** run `2026-10-07-give-item.mysql.sql` in phpMyAdmin **together with** the viewer + creator
       + API deploy (an old viewer doesn't know `give` – a choice would give nothing; the new one doesn't grant on
       `add`). Check first: the header's SELECT; afterwards it answers nothing.
+- [ ] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30)_.
+      _(2026-10-07, re-checked: still in the PUBLISHED versions of scene:catpope:2:scene-14 (neutral 201, de 127, en 128)
+      and older drafts – stored with spaces (`"type": "end"`, an end with a jump to scene-20), so a first search for the
+      compact form missed it; content:check and the new `setup` command report them. The same case as 10.37's known one
+      – decided with 10.35 (the scene-20 jump).)_
 - [ ] M.2 **Reader: the page jumps when animations fire** – e.g. when a showTextBox effect fires, the page jumps oddly.
       _(2026-10-07, not reproduced: the effects are transforms inside the absolutely placed box (no layout change);
       scrolling catpope ch2 at 390 px recorded no layout shift and no scroll jump; a slice's showTextBox click
@@ -514,6 +515,14 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
 ## Done
 
+- [x] 10.19 _(priority last – owner 2026-10-06)_ Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
+      seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
+      only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
+      _(locally largely `npm run dev:db` since 10.30: migrate + prod seed incl. the asset tables; no content seed any more)_
+      _(done 2026-10-07: `php bin/console setup` (locally `npm run dev:db -- console setup`) – schema (pending
+      migrations), content (stored versions + catalog), assets (registry), content:check, settings (CDN_URL, MAIL_FROM,
+      LOG_PATH writable); report only, `--apply` runs migrate / assets:scan, `--apply --seed` also db:prod-seed.
+      On the dev DB: everything ok but the check – the old scene-14 versions (B.2 / 10.37).)_
 - [x] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
       500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
       messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
@@ -545,8 +554,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [x] B.3 Ch3–5 `keyvisual` is a string, the type expects `{image, video?}` (ch2 fixed 2026-09-30) _(MEMORY.md – not
       re-checked)_.
       _(closed 2026-10-07: every chapter's keyvisual is an object; chapters 3–5 have none)_
-- [x] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30 – not re-checked)_.
-      _(closed 2026-10-07: no current version has a `{"type":"end"}` event)_
 - [x] B.1 Ch1 audio samples are at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never
       fire _(from MEMORY.md "Known bugs spotted", 2026-09-30 – not re-checked since)_.
       _(closed 2026-10-07: the data has `slice.audio.audio.samples` (catpope ch1 slices 6, 46, 64, 91) – the path the reader reads)_
