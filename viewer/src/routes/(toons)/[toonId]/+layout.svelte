@@ -15,7 +15,10 @@
 	import { createReaderExpressions, lazyWorldPlaces, setReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
-	import type { LoadedSequenceItem } from '@scutoons/content';
+	import { eventHistoryKey, type LoadedSequenceItem } from '@scutoons/content';
+	import { afterNavigate } from '$app/navigation';
+	import { readerName } from '$lib/reader-name.svelte.ts';
+	import { pageView } from '$lib/visual-novel/page-view.ts';
 
 	let { children, data, params } = $props();
 	let sequence = data.sequence || [];
@@ -49,7 +52,9 @@
 				stat: (id) => inventory?.stats.find((s) => s.id === id)?.level,
 				effects: () => (inventory?.effects ?? []).map((e) => e.kind),
 				map: () => world?.map,
-				places: () => world?.places ?? lazyWorldPlaces(getLocale())
+				places: () => world?.places ?? lazyWorldPlaces(getLocale()),
+				name: () => readerName.value,
+				eventCount: (id) => game.visits(eventHistoryKey(id))
 			},
 			game,
 			() => getLocale()
@@ -57,6 +62,8 @@
 	);
 
 	vn.setCharacters(data.characters || []);
+	// every navigation counts as a page view (events "once per page view", items "every visit") – also coming back
+	afterNavigate(() => void pageView());
 
 	onDestroy(async () => {
 		await audio.unload();

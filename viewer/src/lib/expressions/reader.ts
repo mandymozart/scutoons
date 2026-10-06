@@ -44,6 +44,10 @@ export interface ReaderSources {
 	/** the world map's places (with their names in the reader's language) once loaded */
 	places?(): readonly { id: string; name?: string }[] | null | undefined;
 	now?(): Date;
+	/** the reader's name (askText scope "reader"); none = undefined */
+	name?(): string | undefined;
+	/** how often the event with this id ran (the history's `event:<id>`) */
+	eventCount?(id: string): number;
 }
 
 const DAY = 86_400_000;
@@ -85,7 +89,9 @@ export function readerName(s: ReaderSources, path: readonly string[]): ExprValue
 	const [ns, name] = path;
 	const now = s.now?.() ?? new Date();
 	switch (`${ns}.${name}`) {
-		// reader.name = askText (step 3) – none yet
+		// what an askText with scope "reader" asked (reader-name.svelte.ts: the account's, a guest's on the device)
+		case 'reader.name':
+			return s.name?.() || undefined;
 		case 'reader.signedIn':
 			return !!s.signedIn?.();
 		case 'reader.member':
@@ -167,7 +173,11 @@ export function readerCall(s: ReaderSources, name: string, args: readonly ExprVa
 			return typeof a === 'string' && (s.effects?.() ?? []).includes(a);
 		case 'map.place':
 			return typeof a === 'string' && !!s.map?.()?.places?.[a];
+		// an event by its id (the reader's history `event:<id>`: slice triggers, placed items' taps – EXPRESSIONS.md §5)
+		case 'resolved':
+			return typeof a === 'string' && (s.eventCount?.(a) ?? 0) > 0;
+		case 'count':
+			return typeof a === 'string' ? (s.eventCount?.(a) ?? 0) : undefined;
 	}
-	// resolved(event) / count(event): the events' history comes with step 3
 	return undefined;
 }

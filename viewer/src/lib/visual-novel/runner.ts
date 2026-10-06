@@ -1,4 +1,5 @@
-import { evaluateText, labelIndex, testCondition, type VNEvent } from '@scutoons/content';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, evaluateText, labelIndex, testCondition, type ExprResolver, type VNEvent } from '@scutoons/content';
+import { cleanText, READER_NAME_MAX, readerKnown, readerName } from '$lib/reader-name.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { buildJumpToUrl } from './jump-to.ts';
@@ -9,8 +10,9 @@ import { executeVariableAction } from './variable-actions.ts';
  * The one VN script runner (CUTOVER 10.27, owner 2026-10-03: "two runners" were a half-finished move – logic stays out of
  * the views again): the group's script (`interactions/visual-novel.svelte`) and slice / placed-item triggers
  * (`event-processor.ts`) both run events here. Story flow: `label` = a named point, `divert` (event or a picked choice)
- * continues there – no page change; `jumpTo` is navigation only (`navigate`, then the run ends); `if` skips an event;
- * `setVariable` writes a variable. A run that keeps diverting without waiting for the reader stops (a loop guard).
+ * continues there – no page change; `jumpTo` is navigation only (`navigate`, then the run ends); `if` skips an event
+ * (the simple test, or an expression answered for the reader); `setVariable` writes a variable; `askText` waits for a
+ * typed answer (a story variable, or the reader's name). A run that keeps diverting without waiting for the reader stops (a loop guard).
  */
 export interface RunnerDeps {
 	vn: VisualNovelContext;
@@ -47,6 +49,8 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 		expressions
 			? expressions.evaluate(source, `${label() ?? deps.scope ?? ''}/${deps.origin ?? 'script'}/${at}`)
 			: evaluateText(source, { name: (path) => (path.length === 1 ? get(path[0]) : undefined) }).text;
+	// "Only if" as an expression: the reader's names and functions (without the toon's expressions: the story variables)
+	const conditions: ExprResolver | undefined = expressions ? { name: expressions.name, call: expressions.call } : undefined;
 	let i = Math.max(0, start);
 	let jumpsWithoutWait = 0;
 	/** choices this run added that no showChoices has shown yet (dropped when the run ends) */
@@ -64,12 +68,14 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 		return true;
 	};
 
+	// who reads is known before the first text / condition (a member's name and access load with the session)
+	await readerKnown();
 	try {
 		while (i < events.length) {
 			if (cancelled()) return 'cancelled';
 			const event = events[i];
 			i++;
-			if (!event || !testCondition(event.if, get)) continue;
+			if (!event || !testCondition(event.if, get, conditions)) continue;
 
 			switch (event.type) {
 				case 'label':
@@ -102,6 +108,25 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 						jumpsWithoutWait = 0;
 						await new Promise<void>((resolve) => vn.setWaitResolver(resolve));
 					}
+					break;
+				}
+
+				case 'askText': {
+					// the question in the box with one input line; the page waits for Enter / ✓ / Skip (EXPRESSIONS.md §6)
+					const { text, character, persona, placeholder, maxLength, default: fallback, scope = 'toon', variable } = event.params;
+					const speaker = character ? (vn.findInScene(character, persona) ?? null) : null;
+					if (character && !speaker) console.error(`Character "${character}" is not in the scene. Add them with joinScene first.`);
+					vn.showMessage(speaker, show(text, i - 1), false);
+					jumpsWithoutWait = 0;
+					const limit = Math.min(scope === 'reader' ? READER_NAME_MAX : ASK_TEXT_LIMIT, Math.max(1, Math.floor(Number(maxLength) || ASK_TEXT_MAX_LENGTH)));
+					const typed = await vn.ask({ placeholder: placeholder ?? '', maxLength: limit, fallback: cleanText(fallback ?? '', limit) });
+					if (cancelled()) return 'cancelled';
+					// plain text, trimmed (never markup: shown as text); empty or skipped → the default, none → nothing stored
+					const value = cleanText(typed ?? '', limit) || cleanText(fallback ?? '', limit);
+					vn.hideMessage();
+					if (!value) break;
+					if (scope === 'reader') await readerName.set(value).catch((e) => console.warn('VN: the reader name was not stored', e));
+					else if (variable) game.setVariable(variable, value);
 					break;
 				}
 

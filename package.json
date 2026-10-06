@@ -29,6 +29,7 @@
 		"check:stroll": "node scripts/dev/stroll-check.mjs",
 		"check:chain-vn": "node scripts/dev/chain-vn-check.mjs",
 		"check:expr": "node scripts/dev/expr-check.mjs",
+		"check:events": "node scripts/dev/events-check.mjs",
 		"check:creator-reach": "node scripts/dev/creator-reach-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",
 		"check:creator-cover": "node --experimental-transform-types --no-warnings scripts/dev/creator-cover-check.mjs",

@@ -108,9 +108,9 @@ export function createQrApi(api: ApiClient) {
 		fetchMe: () => api.get<Me>('/me/'),
 
 		/**
-		 * Account settings: `PUT /me/ { marketing_opt_in?, hide_sensitive?, media_quality? }` → the updated user and avatar
+		 * Account settings: `PUT /me/ { marketing_opt_in?, hide_sensitive?, media_quality?, display_name? }` → the updated user and avatar
 		 */
-		updateMe: (patch: { marketing_opt_in?: boolean; hide_sensitive?: boolean; media_quality?: User['media_quality'] }) =>
+		updateMe: (patch: { marketing_opt_in?: boolean; hide_sensitive?: boolean; media_quality?: User['media_quality']; display_name?: string | null }) =>
 			api.put<{ status: string; user: User; avatar?: Avatar }>('/me/', patch),
 
 		fetchCatalog: () => api.get<Catalog>('/items/', { auth: false }),

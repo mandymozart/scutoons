@@ -22,6 +22,18 @@ export type VNActiveTextBox = ActiveTextBox & { scope: string };
 /** A choice on the box, with the label of the script that added it (a random jump never picks that group) */
 export type VNPageChoice = VNChoice & { from?: string | null };
 
+/**
+ * An askText's input line in the box (agents/EXPRESSIONS.md §6): the page waits until it is answered. `answer(null)` =
+ * skipped (the runner stores the default).
+ */
+export interface VNQuestion {
+	placeholder: string;
+	maxLength: number;
+	/** what Skip stores (shown on the button's title) */
+	fallback: string;
+	resolve: (answer: string | null) => void;
+}
+
 /** text boxes are kept per group of the page: `scope` + the box id */
 const boxKey = (scope: string, id: string) => `${scope}|${id}`;
 
@@ -60,6 +72,7 @@ export function createVisualNovelContext() {
 		wait: false
 	});
 	let choicesVisible = $state(false);
+	let question = $state<VNQuestion | null>(null);
 	/** the dialogue box's height (px): the characters stand on its top edge */
 	let boxHeight = $state(0);
 	/** scene key → when it last spoke (a counter), for the stage order: the speaker, then by recency (vn/characters) */
@@ -241,6 +254,20 @@ export function createVisualNovelContext() {
 	function endOfEvents(): void {
 		if (acknowledged && !choicesVisible) messageVisible = false;
 		eventsDone = true;
+	}
+
+	/** an askText waits for the reader's answer (null = skipped) */
+	function ask(q: Omit<VNQuestion, 'resolve'>): Promise<string | null> {
+		question?.resolve(null);
+		return new Promise((resolve) => {
+			question = { ...q, resolve };
+		});
+	}
+
+	function answer(value: string | null): void {
+		const q = question;
+		question = null;
+		q?.resolve(value);
 	}
 
 	function addChoice(choice: VNPageChoice): void {
@@ -446,6 +473,7 @@ export function createVisualNovelContext() {
 		waitResolver = null;
 		suspended = null;
 		pendingChoices.length = 0;
+		answer(null);
 		messageVisible = false;
 		message.character = null;
 		message.text = '';
@@ -473,6 +501,7 @@ export function createVisualNovelContext() {
 				messageVisible,
 				message,
 				choicesVisible,
+				question,
 				activeTextBoxes,
 				boxHeight,
 				lastSpoke,
@@ -482,9 +511,10 @@ export function createVisualNovelContext() {
 				runs,
 				/**
 				 * The story waits (owner 2026-10-03 / 2026-10-06): a message waiting for its click, a choice open, a script of
-				 * the page running or in line, a slice trigger running – the page doesn't scroll until all of it is through.
+				 * the page running or in line, a slice trigger running, a question (askText) – the page doesn't scroll until all of
+				 * it is through.
 				 */
-				frozen: choicesVisible || (messageVisible && message.wait) || pendingChoices.length > 0 || pageBusy > 0 || runs > 0
+				frozen: question !== null || choicesVisible || (messageVisible && message.wait) || pendingChoices.length > 0 || pageBusy > 0 || runs > 0
 			};
 		},
 		setCharacters,
@@ -503,6 +533,8 @@ export function createVisualNovelContext() {
 		beginEvents,
 		endOfEvents,
 		addChoice,
+		ask,
+		answer,
 		dropUnshownChoices,
 		showChoices,
 		hideChoices,

@@ -12,7 +12,7 @@ use Scutoons\Http\Middleware\JsonBody;
 
 /**
  *   GET /api/me/   { user, access, memberships, inventory, avatar }
- *   PUT /api/me/   { marketing_opt_in?, hide_sensitive?, media_quality? } → { status, user, avatar }
+ *   PUT /api/me/   { marketing_opt_in?, hide_sensitive?, media_quality?, display_name? } → { status, user, avatar }
  */
 final class MeController
 {

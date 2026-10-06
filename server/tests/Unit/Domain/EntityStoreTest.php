@@ -201,9 +201,10 @@ final class EntityStoreTest extends TestCase
         self::assertNotNull(json_decode($expected), 'the expectation is JSON');
         $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('chapter:smoke:1', 'chapter', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
         $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $stored = fn(): mixed => $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'");
         $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-repeat.mysql.sql');
-        self::assertSame($expected, $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+        $first = $stored();
         $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-repeat.mysql.sql'); // idempotent
-        self::assertSame($expected, $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+        self::assertSame([$expected, $expected], [$first, $stored()]);
     }
 }

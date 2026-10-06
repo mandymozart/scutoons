@@ -4,6 +4,7 @@ import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { EventProcessor, type GroupScript } from './event-processor.ts';
 import { grantStoryItem } from './variable-actions.ts';
+import { pageView } from './page-view.ts';
 
 /**
  * Taps on items placed on a slice (`Slice.items`, agents/ITEMS.md "Placed items"). What a tap does is the creator's
@@ -16,7 +17,9 @@ import { grantStoryItem } from './variable-actions.ts';
  *   Respawning: the grant sends the interval (+ the visit id); the server checks it against the item's range and adds
  *   the period (its time bucket / the visit) to the ref, so it grants once per period. Here the period (the same
  *   bucket from the reader's clock, or the visit) is remembered – in memory for a visit, in the game state otherwise.
- * - `events`: the placement's VN events, run like a click trigger's (`EventProcessor`), once per page view by default.
+ *   The intervals and periods are the shared recurrence model (@scutoons/content recurrence.ts – the events' too).
+ * - `events`: the placement's VN events, run like a click trigger's (`EventProcessor`); how often: the placement's
+ *   `repeat` (repeat.ts – every tap by default).
  */
 
 /** the game variable that remembers a taken placement */
@@ -24,13 +27,8 @@ export function pickedKey(slice: Pick<Slice, 'image'>, item: Pick<SliceItem, 'id
 	return `picked:${slice.image}#${item.id}`;
 }
 
-/** A visit = one stay on a page (path): a new path or a reload starts a new one. */
-let visit = { path: '', id: '' };
-export function visitId(): string {
-	const path = typeof location === 'undefined' ? '' : location.pathname;
-	if (visit.path !== path || !visit.id) visit = { path, id: Math.random().toString(36).slice(2, 10) };
-	return visit.id;
-}
+/** A visit = the page view (page-view.ts: path + `?label=`; a reload starts a new one) – the same as the events' */
+const visitId = () => pageView().id;
 
 /** the interval this placement reappears with (null = once), from the catalog's rule and the placement's choice */
 export function placementRespawn(item: SliceItem): RecurrenceInterval | null {

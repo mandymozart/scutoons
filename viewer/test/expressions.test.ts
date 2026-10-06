@@ -32,17 +32,19 @@ const sources: ReaderSources = {
 	effects: () => ['dizzy'],
 	map: () => ({ places: { harbour: { unlocked: 1, seen: 2 }, forest: { unlocked: 3 } }, routes: {}, positions: { catpope: { location: 'harbour', at: 1 } } }),
 	places: () => [{ id: 'harbour', name: 'Hafen' }, { id: 'forest', name: 'Wald' }, { id: 'airport', name: 'Flughafen' }],
-	now: () => now
+	now: () => now,
+	name: () => 'Mia',
+	eventCount: (id) => ({ 'e-door': 2 })[id as 'e-door'] ?? 0
 };
 const resolver: ExprResolver = { name: (p) => readerName(sources, p), call: (n, a) => readerCall(sources, n, a), language: 'de' };
 const say = (text: string) => evaluateText(text, resolver).text;
 
-test('every value of the registry namespaces has an answer (reader.name: askText, step 3)', () => {
+test('every value of the registry namespaces has an answer', () => {
 	for (const ns of EXPR_NAMESPACES)
-		for (const m of ns.members)
-			if (m.kind === 'value' && `${ns.name}.${m.name}` !== 'reader.name')
-				assert.notEqual(readerName(sources, [ns.name, m.name]), undefined, `${ns.name}.${m.name}`);
-	assert.equal(readerName(sources, ['reader', 'name']), undefined);
+		for (const m of ns.members) if (m.kind === 'value') assert.notEqual(readerName(sources, [ns.name, m.name]), undefined, `${ns.name}.${m.name}`);
+	// reader.name: none until an askText (scope reader) asked
+	assert.equal(readerName({ ...sources, name: () => undefined }, ['reader', 'name']), undefined);
+	assert.equal(readerName({ ...sources, name: () => '' }, ['reader', 'name']), undefined);
 });
 
 test('names and state functions', () => {
@@ -55,7 +57,10 @@ test('names and state functions', () => {
 	assert.equal(say('{avatar.character}/{avatar.look} {avatar.wears("camera")} {avatar.unlocked}'), 'catpope/swim true 2');
 	assert.equal(say('{stats.testo} {stats.appetite} {effects.count} {effects.active("dizzy")} {map.place("forest")} {map.place("airport")}'), '62 40 1 true true false');
 	assert.equal(say('{now.hour} {now.weekday} {now.night} {now.date}'), '23 2 true 2026-10-06');
-	assert.equal(readerCall(sources, 'resolved', ['x']), undefined, 'events: step 3');
+	// events by id (the history's event:<id>, step 3); the reader's name (askText)
+	assert.equal(say('{resolved("e-door")} {count("e-door")} {resolved("e-none")} {count("e-none")}'), 'true 2 false 0');
+	assert.equal(say('Hallo, {reader.name}!'), 'Hallo, Mia!');
+	assert.equal(readerCall({ toon: 'x' }, 'count', ['e-door']), 0, 'no history yet: 0');
 });
 
 test('a guest: no account values, nothing exposed', () => {

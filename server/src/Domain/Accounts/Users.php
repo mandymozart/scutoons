@@ -99,6 +99,29 @@ final class Users
         return is_string($value) && in_array($value, self::MEDIA_QUALITIES, true) ? $value : self::MEDIA_QUALITY_DEFAULT;
     }
 
+    /** the reader's name (askText scope "reader", `{reader.name}`): at most this many characters */
+    public const DISPLAY_NAME_MAX = 32;
+
+    /**
+     * A reader's name as it is stored: plain text – control characters and line breaks become spaces, runs of white
+     * space one, trimmed; "" / null = none (null). False when it isn't a text or is longer than DISPLAY_NAME_MAX.
+     */
+    public static function displayName(mixed $value): string|null|false
+    {
+        if ($value === null) return null;
+        if (!is_string($value) || !mb_check_encoding($value, 'UTF-8')) return false;
+        $name = trim((string) preg_replace('/[\p{C}\s]+/u', ' ', $value));
+        if ($name === '') return null;
+        return mb_strlen($name) > self::DISPLAY_NAME_MAX ? false : $name;
+    }
+
+    /** Sets (or clears: null) the reader's name. Returns whether it changed. */
+    public function setDisplayName(string $userId, ?string $name): bool
+    {
+        return $this->db->run('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ? AND NOT (display_name <=> ?)',
+            [$name, $this->clock->utc(), $userId, $name])->rowCount() > 0;
+    }
+
     /** A boolean from a JSON body (true, 1, "1", "true", "on", "yes"); anything else = false */
     public static function flag(mixed $value): bool
     {
@@ -128,6 +151,7 @@ final class Users
             'marketing_opt_in' => (bool) (int) ($row['marketing_opt_in'] ?? 0),
             'hide_sensitive' => self::hidesSensitive($row),
             'media_quality' => self::mediaQuality($row),
+            'display_name' => is_string($row['display_name'] ?? null) && $row['display_name'] !== '' ? $row['display_name'] : null,
         ];
     }
 

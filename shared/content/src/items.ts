@@ -249,6 +249,8 @@ export interface User {
 	hide_sensitive?: boolean;
 	/** "Media quality" (`auto` by default; `PUT /me/ { media_quality }`) – media-quality.ts */
 	media_quality?: 'auto' | 'low' | 'medium' | 'high';
+	/** the reader's name (askText scope "reader", `{reader.name}`; `PUT /me/ { display_name }`, at most 32 characters) – null = none */
+	display_name?: string | null;
 }
 
 /** `/me/ access`: permissions granted by the account's owned, non-expired codes (server permissions map) */

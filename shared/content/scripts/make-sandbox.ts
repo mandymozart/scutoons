@@ -185,11 +185,11 @@ const say = (who: { character: string; persona: string } | null, text: Text): Dr
 });
 const jump = (target: { type: 'chapter' | 'toon'; value: string; label?: string }): Draft => ({ type: 'jumpTo', params: { target, wait: true } });
 /**
- * A cucumber to collect: a click on it (once) offers it – message + "Collect" (`add cucumber 1`, which also puts the
+ * A cucumber to collect: a click on it (once per page view) offers it – message + "Collect" (`add cucumber 1`, which also puts the
  * item into the inventory, with its "+1" notice) / "Leave it". Slice events, all with the same trigger.
  */
 const cucumberOffer = (rect: { x: number; y: number; width: number; height: number }, item: 'cucumber' | 'testo' = 'cucumber'): Draft[] => {
-	const trigger = { type: 'click', rect, once: true };
+	const trigger = { type: 'click', rect, repeat: { mode: 'view' } };
 	return [
 		{ type: 'showMessage', params: { text: LINES[item] }, trigger },
 		{ type: 'addChoice', params: { label: LINES.collect, onSelect: { add: { variable: item, value: 1 } } }, trigger },
@@ -535,10 +535,13 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 				report.testos.push(`chapter ${number} · ${label}: slice ${n}`);
 			}
 			const events = [...(cucumber ? cucumberOffer(cucumber) : []), ...(testo ? cucumberOffer(testo, 'testo') : [])];
-			slices.push({ image: slicePath(n), width: 390, height: 625, ...(events.length ? { events } : {}) });
+			// every event has its hidden id (EXPRESSIONS.md §5: the reader's save game), unique in the chapter
+			const withIds = events.map((e, k) => ({ id: `sb${number}-${label}-s${n}-${k + 1}`, ...e }));
+			slices.push({ image: slicePath(n), width: 390, height: 625, ...(withIds.length ? { events: withIds } : {}) });
 		}
 		// one language-neutral scene (scene:sandbox:<n>:<label>): the texts are locale maps, de + en (ko not translated)
-		files[`_/chapter${number}/${label}.json`] = { label, renderer: { type: 'vertical' }, slices, events };
+		const script = events.map((e, k) => ({ id: `sb${number}-${label}-${k + 1}`, ...e }));
+		files[`_/chapter${number}/${label}.json`] = { label, renderer: { type: 'vertical' }, slices, events: script };
 		report.groups++;
 	}
 

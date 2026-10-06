@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import type { VNSliceEvent, VNEvent } from '@scutoons/content';
+	import { repeatOf, type VNSliceEvent, type VNEvent } from '@scutoons/content';
+	import { idsOf, isRunDue, recordRun, type RunMemory } from '$lib/visual-novel/repeat.ts';
 	import { EventProcessor } from '$lib/visual-novel/event-processor.ts';
 	import { shortHash } from '$lib/expressions/resolver.svelte.ts';
 	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
@@ -22,17 +23,21 @@
 	 * stroll end's choices were added four times while the last slice scrolled in and out) */
 	let running = false;
 
-	const once = $derived(events[0].trigger?.once ?? true);
+	// how often (agents/EXPRESSIONS.md §5): the trigger's repeat rule over the reader's history (visual-novel/repeat.ts)
+	const rule = $derived(events[0].trigger?.repeat);
+	const ids = $derived(idsOf(events));
+	const memory: RunMemory = { ran: false };
 	const rect = $derived(events[0].trigger?.rect);
 
 	async function executeEvent() {
-		if (once && triggered) return;
+		if (!isRunDue(rule, ids, game, memory)) return;
 		if (running) return;
 
-		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group, `on/${shortHash(JSON.stringify(events[0].trigger))}`);
+		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group, `on/${ids[0] ?? shortHash(JSON.stringify(events[0].trigger))}`);
 		running = true;
 		// marked before the run (it can wait for the reader a long time)
-		if (once) triggered = true;
+		recordRun(ids, game, memory);
+		triggered = repeatOf(rule).mode !== 'every';
 		const result = await processor.run().finally(() => (running = false));
 
 		if (result) {

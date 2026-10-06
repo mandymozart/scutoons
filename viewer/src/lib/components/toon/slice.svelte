@@ -8,6 +8,7 @@
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { isTaken, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
+	import { idsOf, isRunDue, recordRun, type RunMemory } from '$lib/visual-novel/repeat.ts';
 	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
@@ -107,8 +108,8 @@
 		void taken;
 		return item.action === 'pickup' ? isTaken(slice, item, game) : false;
 	};
-	/** placements whose events already ran on this page view (`once`, default true) */
-	const ran = new Set<string>();
+	/** how often a placement's tap events run: its `repeat` over the reader's history (visual-novel/repeat.ts) */
+	const tapMemory = new Map<string, RunMemory>();
 	async function onItemTap(item: SliceItem) {
 		if (!game) return;
 		if (item.action === 'pickup') {
@@ -117,9 +118,11 @@
 			// tell the reader why it stayed (or that it was theirs already); a tap while one is pending says nothing
 			if (!result.ok && result.error) getCurrentInventory()?.refused(item.item, result.error);
 		} else if (item.action === 'events' && vn) {
-			const once = item.once ?? true;
-			if (once && ran.has(item.id)) return;
-			if (once) ran.add(item.id);
+			const ids = idsOf(item.events);
+			const memory = tapMemory.get(item.id) ?? { ran: false };
+			tapMemory.set(item.id, memory);
+			if (!isRunDue(item.repeat, ids, game, memory)) return;
+			recordRun(ids, game, memory);
 			const destination = await runSliceItemEvents(item, game, vn, group);
 			if (destination) goto(destination);
 		}
