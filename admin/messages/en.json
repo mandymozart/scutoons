@@ -55,6 +55,8 @@
 		"settings_hint": "Scan and lookup limits",
 		"emails": "Emails",
 		"emails_hint": "Sent mails, templates, recipients",
+		"server_errors": "Server errors",
+		"server_errors_hint": "The API's and the QR app's error log",
 		"homepage": "Homepage",
 		"homepage_hint": "Editions on the homepage",
 		"assets": "Assets",
@@ -985,5 +987,28 @@
 		"asset_missing": "Choose the new file first.",
 		"changed_since": "Changed since the agent read it – ask again.",
 		"empty": "(empty)"
+	},
+	"server_errors": {
+		"title": "Server errors",
+		"count": "{count} entries",
+		"source": "Log",
+		"source_api": "API",
+		"source_qr": "QR app",
+		"day": "Day",
+		"all_days": "All days",
+		"search": "Search",
+		"none": "No entries.",
+		"no_log": "There is no log yet – nothing has been logged.",
+		"truncated": "The log has {size}; only its last 512 KB are read.",
+		"col_when": "When",
+		"col_level": "Level",
+		"col_message": "Message",
+		"level_fatal": "Fatal",
+		"level_error": "Error",
+		"level_warning": "Warning",
+		"level_notice": "Notice",
+		"reload": "Reload",
+		"detail": "Details",
+		"help": "The newest entries of the PHP error logs – the API's and the QR app's – newest first, with the lines that follow an entry (a stack trace) under \"Details\". Messages only: e-mail addresses, tokens and passwords are masked, the server's folder is cut from file paths. Only the last 512 KB of a log are read."
 	}
 }

@@ -9,8 +9,8 @@ Options -Indexes
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Private: code, templates, cache, tests, local files
-    RewriteRule ^(src|templates|cache|tests)(/|$) - [R=404,L]
+    # Private: code, templates, cache, tests, logs, local files
+    RewriteRule ^(src|templates|cache|tests|logs)(/|$) - [R=404,L]
     RewriteRule ^(config(\.local)?\.php|config\.local\.php\.example|composer\.json|README\.md|CHANGELOG\.md)$ - [R=404,L]
     RewriteRule (^|/)\. - [R=404,L]
 

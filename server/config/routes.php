@@ -30,6 +30,7 @@ use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
+use Scutoons\Http\Controllers\Admin\ServerLogController;
 use Scutoons\Http\Controllers\Admin\SystemController;
 use Scutoons\Http\Controllers\Admin\UsersController;
 use Scutoons\Http\Controllers\Admin\VersionsController;
@@ -246,6 +247,8 @@ return static function (App $app): void {
         $admin->delete("/catalog/$kind/$entry", [CatalogAdminController::class, 'delete']);
         $admin->get('/keys', [SystemController::class, 'keys']);
         $admin->get('/versions', VersionsController::class);
+        // the newest entries of the API's / the qr app's PHP error log (BACKLOG 10.11)
+        $admin->get('/server-errors', [ServerLogController::class, 'list']);
         $admin->get('/settings', [SettingsController::class, 'get']);
         $admin->put('/settings', [SettingsController::class, 'put']);
         // the email module (Domain\Mail): templates + previews, the sent-mail log, the admin notification recipients

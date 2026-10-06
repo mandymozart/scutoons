@@ -2,3 +2,4 @@
 /config.local.php
 cache/
 public/version.json
+logs/

@@ -137,9 +137,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move – unblocked once 10.3 is live): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions
       `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
       workflow). The main user stays, used only by hand.
-- [ ] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
-      500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
-      messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
 - [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
       **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
       image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
@@ -512,6 +509,15 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
 ## Done
 
+- [x] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
+      500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
+      messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
+      _(done 2026-10-07: GET /api/admin/server-errors (ServerLog: the last 512 KB, entries with their stack trace,
+      newest first, masked: e-mail addresses, tokens / keys / hashes, passwords, header values; the server's folder cut
+      from paths; PHPUnit ServerLogTest) + admin → System → "Server errors" (API / QR app, day, search, Reload; help).
+      The qr app writes its own qr/logs/error.log now (qr/public/index.php; logs/ is 404 in qr/.htaccess); the API reads
+      it via QR_LOG_PATH = ../qr/logs/error.log. **O – after the API + qr deploy:** open the page, check "QR app" finds
+      the log (api/ and qr/ are siblings on all-inkl – else set QR_LOG_PATH in the API's .env).)_
 - [x] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
       too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
       default rendition's size or label the total.

@@ -184,4 +184,7 @@ return [
     // ── Logs ───────────────────────────────────────────────────────────────────────────────────────────
     // Error log (logs/ is never served); empty = the host's log
     'LOG_PATH' => 'logs/error.log',
+    // the qr app's error log, read by the admin's "Server errors" page (qr/public/index.php writes it; api/ and qr/ are
+    // siblings in production as in the repo); empty = not shown
+    'QR_LOG_PATH' => '../qr/logs/error.log',
 ];

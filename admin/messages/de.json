@@ -55,6 +55,8 @@
 		"settings_hint": "Scan- und Abfrage-Limits",
 		"emails": "E-Mails",
 		"emails_hint": "Versandte Mails, Vorlagen, Empfänger",
+		"server_errors": "Serverfehler",
+		"server_errors_hint": "Das Fehlerprotokoll der API und der QR-App",
 		"homepage": "Startseite",
 		"homepage_hint": "Editionen auf der Startseite",
 		"assets": "Assets",
@@ -985,5 +987,28 @@
 		"asset_missing": "Erst die neue Datei wählen.",
 		"changed_since": "Seit dem Lesen geändert – frag noch einmal.",
 		"empty": "(leer)"
+	},
+	"server_errors": {
+		"title": "Serverfehler",
+		"count": "{count} Einträge",
+		"source": "Protokoll",
+		"source_api": "API",
+		"source_qr": "QR-App",
+		"day": "Tag",
+		"all_days": "Alle Tage",
+		"search": "Suchen",
+		"none": "Keine Einträge.",
+		"no_log": "Es gibt noch kein Protokoll – es wurde nichts protokolliert.",
+		"truncated": "Das Protokoll hat {size}; nur die letzten 512 KB werden gelesen.",
+		"col_when": "Wann",
+		"col_level": "Stufe",
+		"col_message": "Meldung",
+		"level_fatal": "Fatal",
+		"level_error": "Fehler",
+		"level_warning": "Warnung",
+		"level_notice": "Hinweis",
+		"reload": "Neu laden",
+		"detail": "Details",
+		"help": "Die neuesten Einträge der PHP-Fehlerprotokolle – der API und der QR-App –, die neuesten zuerst; die Zeilen danach (ein Stacktrace) unter „Details“. Nur Meldungen: E-Mail-Adressen, Tokens und Passwörter sind verdeckt, der Ordner des Servers ist aus den Pfaden gekürzt. Gelesen werden nur die letzten 512 KB eines Protokolls."
 	}
 }

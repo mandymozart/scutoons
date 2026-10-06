@@ -17,7 +17,8 @@
 		| 'emails'
 		| 'assets'
 		| 'claims'
-		| 'claim';
+		| 'claim'
+		| 'server-errors';
 </script>
 
 <script lang="ts">
@@ -36,7 +37,9 @@
 {/snippet}
 
 <div data-testid="page-help-{page}">
-	{#if page === 'dashboard'}
+	{#if page === 'server-errors'}
+		<p>{m['server_errors.help']()}</p>
+	{:else if page === 'dashboard'}
 		<p>{m['nav.dashboard_hint']()}</p>
 		<h3>{m['help.terms_title']()}</h3>
 		<ul>

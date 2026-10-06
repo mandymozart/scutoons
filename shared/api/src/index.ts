@@ -46,6 +46,8 @@ export {
 	type AdminContentEntity,
 	type AdminContentIndex,
 	type AdminEmailLogRow,
+	type AdminServerError,
+	type AdminServerErrors,
 	type AdminEmailPreview,
 	type AdminEmailRecipients,
 	type AdminEmailTemplate,

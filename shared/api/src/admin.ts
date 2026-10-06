@@ -448,6 +448,29 @@ export interface AdminEmailPreview {
 	html: string;
 }
 
+/** One entry of a PHP error log (`GET /admin/server-errors`, BACKLOG 10.11) – messages only, masked */
+export interface AdminServerError {
+	/** local time of the server, `YYYY-MM-DDTHH:MM:SS` (null: a line without PHP's date) */
+	at: string | null;
+	day: string | null;
+	level: 'fatal' | 'error' | 'warning' | 'notice';
+	message: string;
+	/** the lines after it (a stack trace), '' when none */
+	detail: string;
+}
+export interface AdminServerErrors {
+	status: string;
+	source: 'api' | 'qr';
+	sources: { id: 'api' | 'qr'; configured: boolean }[];
+	exists: boolean;
+	/** the log file's size in bytes; only its last 512 KB are read (`truncated`) */
+	size: number;
+	truncated: boolean;
+	/** the days with entries, newest first */
+	days: string[];
+	entries: AdminServerError[];
+}
+
 /** One row of the sent-mail log (table `mail_log`), `GET /admin/emails/log` */
 export interface AdminEmailLogRow {
 	id: number;
@@ -692,6 +715,9 @@ export function createAdminApi(api: ApiClient) {
 		/** the sent-mail log: filters template, status (sent|failed), recipient, from, to; q = part of the address */
 		listEmails: (params: ListParams = {}) => api.get<ListResult<AdminEmailLogRow>>(`/admin/emails/log${toQuery(params)}`),
 		emailRecipients: () => api.get<AdminEmailRecipients>('/admin/emails/recipients'),
+		/** the newest entries of the API's / the qr app's error log, newest first (filters: day, q) */
+		serverErrors: (params: { source?: 'api' | 'qr'; day?: string; q?: string; limit?: number } = {}) =>
+			api.get<AdminServerErrors>(`/admin/server-errors${toQuery(params)}`),
 		/** the new list, or null = back to the default (MAIL_ADMIN_TO) */
 		saveEmailRecipients: (items: string[] | null) => api.put<AdminEmailRecipients>('/admin/emails/recipients', { items }),
 

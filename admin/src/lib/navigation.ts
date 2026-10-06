@@ -71,7 +71,8 @@ export const navigation: NavGroup[] = [
 		title: () => m['nav.group_system'](),
 		items: [
 			{ id: 'settings', title: () => m['nav.settings'](), description: () => m['nav.settings_hint'](), href: '/settings', icon: 'settings', keywords: 'rate limit scans lookups event wifi config' },
-			{ id: 'emails', title: () => m['nav.emails'](), description: () => m['nav.emails_hint'](), href: '/emails', icon: 'mail', keywords: 'mail email log sent failed templates preview recipients smtp login code' }
+			{ id: 'emails', title: () => m['nav.emails'](), description: () => m['nav.emails_hint'](), href: '/emails', icon: 'mail', keywords: 'mail email log sent failed templates preview recipients smtp login code' },
+			{ id: 'server-errors', title: () => m['nav.server_errors'](), description: () => m['nav.server_errors_hint'](), href: '/server-errors', icon: 'alert-triangle', keywords: 'errors log php fatal warning exception 500 crash qr api serverfehler protokoll' }
 		]
 	}
 ];
