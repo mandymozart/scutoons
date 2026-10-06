@@ -66,13 +66,21 @@ class ReaderNameState {
 
 export const readerName = new ReaderNameState();
 
+/** the one wait while the session check runs: everyone waiting resumes in the order they started waiting */
+let known: Promise<void> | null = null;
+
 /**
  * Resolves once it is known who reads (the session check of a signed-in browser is done – at most `ms`): a script's
  * texts and conditions read `reader.name`, `reader.member` … from the start (else a member's name, still loading, would
- * be asked for again).
+ * be asked for again). One shared promise: waiters resume first come, first served – a group's script that started
+ * before a slice trigger shows its message before the trigger parks it (vn `interrupt`).
  */
-export async function readerKnown(ms = 3000): Promise<void> {
-	const end = Date.now() + ms;
-	while (getCurrentSession()?.pending && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+export function readerKnown(ms = 3000): Promise<void> {
+	if (!getCurrentSession()?.pending) return known ?? Promise.resolve();
+	known ??= (async () => {
+		const end = Date.now() + ms;
+		while (getCurrentSession()?.pending && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+	})().finally(() => (known = null));
+	return known;
 }
 

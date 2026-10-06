@@ -2,6 +2,7 @@ import { labelIndex, type VNEvent } from '@scutoons/content';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { runScript } from './runner.ts';
+import { readerKnown } from '$lib/reader-name.svelte.ts';
 
 /** the group a slice belongs to (toon/group.svelte's context, visual-novel/group-scope.ts) */
 export interface GroupScript {
@@ -51,6 +52,9 @@ export class EventProcessor {
 		// questions never merge (owner 2026-10-03: "Take it" showed next to the stroll end's choices)
 		while (this.vn.state.choicesVisible || this.vn.state.pendingChoices.length) await new Promise((r) => setTimeout(r, 100));
 		let url: string | null = null;
+		// who reads is known first (runner.ts waits for it too): a group script that started earlier and waits for the
+		// session shows its message before this run parks it – else its message would come up under the trigger's
+		await readerKnown();
 		// park the group's waiting message, bring it back when done (a click fires every event of the trigger one after
 		// another, so the check runs after the click's task)
 		this.vn.interrupt();
