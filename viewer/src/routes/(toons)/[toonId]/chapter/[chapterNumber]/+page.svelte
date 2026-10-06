@@ -19,12 +19,20 @@
 	import { trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
 	import { showDrafts } from '$lib/draft-preview.svelte.ts';
+	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte.ts';
 
 	let { data }: PageProps = $props();
 	// the next-bar's music link: the season's album (related items; older seasons: download.music)
 	const inventory = getInventoryContext();
 	
 	const currentLabel = $derived(page.url.searchParams.get('label') || null);
+
+	// where the page is: a jump into a group of this chapter that isn't there stays (no dead end – jump-to.ts)
+	const vn = getVisualNovelContext();
+	$effect(() => {
+		const chapter = data.chapter;
+		vn?.setPlace(chapter ? { toon: page.params.toonId ?? '', chapter: chapter.number, labels: chapter.groups.flatMap((g) => (g.label ? [g.label] : [])) } : null);
+	});
 	
 	let group = $derived(
 		!data.chapter

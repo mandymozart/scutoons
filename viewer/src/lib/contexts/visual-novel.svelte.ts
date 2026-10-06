@@ -4,6 +4,9 @@ import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, legacyTransition, normalizeScene
 import type { ShowTextBoxParams } from '@scutoons/content';
 import type { TriggerMode } from '@scutoons/content';
 import type { ActiveTextBox } from '@scutoons/reader';
+import type { JumpToTarget } from '@scutoons/content';
+import { createBox, createBoxData, type BoxQuestion } from '$lib/visual-novel/box-state.ts';
+import { jumpProblem as jumpProblemAt, type JumpPlace } from '$lib/visual-novel/jump-to.ts';
 
 const VN_KEY = Symbol('visual-novel');
 
@@ -26,13 +29,7 @@ export type VNPageChoice = VNChoice & { from?: string | null };
  * An askText's input line in the box (agents/EXPRESSIONS.md §6): the page waits until it is answered. `answer(null)` =
  * skipped (the runner stores the default).
  */
-export interface VNQuestion {
-	placeholder: string;
-	maxLength: number;
-	/** what Skip stores (shown on the button's title) */
-	fallback: string;
-	resolve: (answer: string | null) => void;
-}
+export type VNQuestion = BoxQuestion;
 
 /** text boxes are kept per group of the page: `scope` + the box id */
 const boxKey = (scope: string, id: string) => `${scope}|${id}`;
@@ -44,7 +41,6 @@ let _currentContext: VisualNovelContext | undefined;
 export function createVisualNovelContext() {
 	const characters = $state(new Map<string, Character>());
 	const sceneCharacters = $state<SceneCharacter[]>([]);
-	const pendingChoices = $state<VNPageChoice[]>([]);
 	const isProcessingEvents = $state(false);
 	const activeTextBoxes = $state<VNActiveTextBox[]>([]);
 	const textBoxQueue = $state<VNActiveTextBox[]>([]);
@@ -56,44 +52,32 @@ export function createVisualNovelContext() {
 	const dialogRefs = $state<Record<string, true>>({});
 	const revealedDialogs = $state<Record<string, true>>({});
 	/**
-	 * The reader page (owner 2026-10-06, toon/interactions/vn-page.svelte): its scripts running or waiting in line
-	 * (`pageBusy`), all it must run done (`pageDone`), slice-trigger runs going on (`runs`). `page` = the page that owns
-	 * the context now (a page going away clears only its own state).
+	 * The box's waiting state (owner 2026-10-06: no dead ends – lib/visual-novel/box-state.ts, pure and tested in node):
+	 * the message and its click, choices, an askText question, slice-trigger runs taking turns, the page's scripts. Its
+	 * reactive part lives here (`$state`), the logic there.
 	 */
-	let pageBusy = $state(0);
-	let pageDone = $state(true);
-	let runs = $state(0);
+	const boxData = $state(createBoxData<SceneCharacter, VNPageChoice>());
+	const box = createBox(boxData, { textBoxWaiting: () => activeTextBoxes.some((o) => o.wait) || textBoxQueue.some((o) => o.wait) });
+	/** the page that owns the context now (a page going away clears only its own state) */
 	let page = 0;
-
-	let messageVisible = $state(false);
-	const message = $state<Message>({
-		character: null,
-		text: '',
-		wait: false
-	});
-	let choicesVisible = $state(false);
-	let question = $state<VNQuestion | null>(null);
+	/** where the page is (its toon, chapter, group labels): a jump into a group that isn't there stays (jump-to.ts) */
+	let place: JumpPlace | null = null;
 	/** the dialogue box's height (px): the characters stand on its top edge */
 	let boxHeight = $state(0);
 	/** scene key → when it last spoke (a counter), for the stage order: the speaker, then by recency (vn/characters) */
 	const lastSpoke = $state<Record<string, number>>({});
 	let spokeCounter = 0;
-	let waitResolver: (() => void) | null = null;
-	/** the reader has clicked the visible message away (its wait is answered) – a following `jumpTo` (wait) jumps at once */
-	let acknowledged = false;
-	/** the group's waiting message while a slice trigger (e.g. a cucumber offer) uses the box, see `interrupt` */
-	let suspended: { character: SceneCharacter | null; text: string; wait: boolean; resolver: () => void; acknowledged: boolean } | null = null;
-	let textBoxResolver: (() => void) | null = null;
-	let navigationTriggered = $state(false);
-	/** the group's script ran to its end without navigating (the follow-up bar waits for it, agents/DESIGN.md) */
-	let eventsDone = $state(false);
+	/**
+	 * whoever waits for the waiting text boxes to finish (a page script and a slice-trigger run may both wait: each one is
+	 * kept – one would otherwise write over the other's and hang, owner 2026-10-06: no dead ends)
+	 */
+	const textBoxResolvers: (() => void)[] = [];
 	/**
 	 * The page's group script and its label (CUTOVER 10.27): a slice event of type divert runs the script from a named
 	 * point; a random jump never picks the group the reader is on. A choice's divert waits here for the script.
 	 */
 	let script: VNEvent[] = [];
 	let scriptLabel: string | null = null;
-	let pendingDivert: string | null = null;
 
 	function setCharacters(data: Character[]) {
 		characters.clear();
@@ -205,143 +189,25 @@ export function createVisualNovelContext() {
 	}
 
 	function showMessage(charRef: SceneCharacter | null, text: string, wait: boolean): void {
-		message.character = charRef;
 		if (charRef) lastSpoke[sceneKey(charRef)] = ++spokeCounter;
-		message.text = text;
-		message.wait = wait;
-		messageVisible = true;
-		acknowledged = false;
-	}
-
-	function hideMessage(): void {
-		messageVisible = false;
-	}
-
-	function setWaitResolver(resolver: () => void): void {
-		waitResolver = resolver;
-	}
-
-	function continueFromWait(): void {
-		if (waitResolver) {
-			// the click answers this message: no "…" any more, and nothing else waits for the same click
-			message.wait = false;
-			acknowledged = true;
-			const resolve = waitResolver;
-			waitResolver = null;
-			resolve();
-		}
-	}
-
-	/**
-	 * `jumpTo` with `wait`: jump once the reader is done with the dialogue box. One click per message – when the reader
-	 * already clicked the last message away (or no message is shown), it resolves at once; a message shown without `wait`
-	 * gets the "…" and one click.
-	 */
-	function waitForContinue(): Promise<void> {
-		if (acknowledged || !messageVisible || choicesVisible) return Promise.resolve();
-		message.wait = true;
-		return new Promise<void>((resolve) => {
-			waitResolver = resolve;
-		});
-	}
-
-	/** A group's script starts (again): not done. */
-	function beginEvents(): void {
-		eventsDone = false;
-	}
-
-	/** The group's events are done: a message the reader already clicked away closes (the last click advances too). */
-	function endOfEvents(): void {
-		if (acknowledged && !choicesVisible) messageVisible = false;
-		eventsDone = true;
-	}
-
-	/** an askText waits for the reader's answer (null = skipped) */
-	function ask(q: Omit<VNQuestion, 'resolve'>): Promise<string | null> {
-		question?.resolve(null);
-		return new Promise((resolve) => {
-			question = { ...q, resolve };
-		});
-	}
-
-	function answer(value: string | null): void {
-		const q = question;
-		question = null;
-		q?.resolve(value);
-	}
-
-	function addChoice(choice: VNPageChoice): void {
-		pendingChoices.push(choice);
-	}
-
-	/** choices a script added but never showed (its run ended): gone, so they can't join a later question (CUTOVER 10.27) */
-	function dropUnshownChoices(count: number): void {
-		if (choicesVisible || count <= 0) return;
-		pendingChoices.splice(Math.max(0, pendingChoices.length - count), count);
-	}
-
-	function showChoices(): void {
-		choicesVisible = true;
-	}
-
-	function hideChoices(): void {
-		choicesVisible = false;
-	}
-
-	function clearChoices(): void {
-		pendingChoices.length = 0;
-		hideChoices();
-		hideMessage();
-		resumeIfIdle();
-	}
-
-	/**
-	 * A slice trigger fires while the group's script waits for a click on its message: park that message (text + its
-	 * wait) so the trigger's message / choices can use the box, `resumeIfIdle` brings it back afterwards.
-	 */
-	function interrupt(): void {
-		if (suspended || !waitResolver || !messageVisible) return;
-		suspended = { character: message.character, text: message.text, wait: message.wait, resolver: waitResolver, acknowledged };
-		waitResolver = null;
-	}
-
-	/** Brings the parked message back once the trigger is done (no choices open, nothing waiting). */
-	function resumeIfIdle(): void {
-		if (!suspended || choicesVisible || pendingChoices.length || waitResolver) return;
-		message.character = suspended.character;
-		message.text = suspended.text;
-		message.wait = suspended.wait;
-		messageVisible = true;
-		waitResolver = suspended.resolver;
-		acknowledged = suspended.acknowledged;
-		suspended = null;
+		box.showMessage(charRef, text, wait);
 	}
 
 	function setScript(events: VNEvent[] | undefined, label: string | null): void {
 		script = events ?? [];
 		scriptLabel = label;
 	}
-	function setPendingDivert(to: string | null): void {
-		pendingDivert = to;
-	}
-	/** the divert a picked choice asked for (once) */
-	function takePendingDivert(): string | null {
-		const to = pendingDivert;
-		pendingDivert = null;
-		return to;
-	}
-
 	function setNavigationTriggered(): void {
-		navigationTriggered = true;
+		box.setNavigationTriggered();
 	}
 
-	/** Choices navigate themselves (vn/choices.svelte → executeVariableAction); kept for the event processor. */
-	function getPendingJumpTo(): string | null {
-		return null;
+	/** where the page is – set by the chapter page (its toon, chapter number, group labels) */
+	function setPlace(next: JumpPlace | null): void {
+		place = next;
 	}
-
-	function isNavigationTriggered(): boolean {
-		return navigationTriggered;
+	/** why a jump can't go where it says (a group label missing in this chapter) – null: it can (jump-to.ts) */
+	function jumpProblem(target: JumpToTarget): string | null {
+		return jumpProblemAt(target, place);
 	}
 
 
@@ -412,20 +278,12 @@ export function createVisualNovelContext() {
 	/** the page's script line changed (stale pages are ignored) */
 	function pageState(token: number, state: { busy: number; done: boolean }): void {
 		if (token !== page) return;
-		pageBusy = state.busy;
-		pageDone = state.done;
+		box.pageState(state);
 	}
 	/** the page went away: the scene is cleared – unless another page took the context meanwhile */
 	function releasePage(token: number): void {
 		if (token !== page) return;
 		clear();
-	}
-	/** a slice trigger / placed item run starts / ends (the page stays frozen while one runs) */
-	function beginRun(): void {
-		runs++;
-	}
-	function endRun(): void {
-		runs = Math.max(0, runs - 1);
 	}
 
 	function handleTextBoxComplete(id: string): void {
@@ -446,15 +304,16 @@ export function createVisualNovelContext() {
 			const hasWaitingItems = activeTextBoxes.some((o) => o.wait) || 
 				textBoxQueue.some((o) => o.wait);
 			
-			if (!hasWaitingItems && textBoxResolver) {
-				textBoxResolver();
-				textBoxResolver = null;
+			if (!hasWaitingItems && textBoxResolvers.length) {
+				for (const resolve of textBoxResolvers.splice(0)) resolve();
 			}
 		}
 	}
 
 	function setTextBoxResolver(resolver: () => void): void {
-		textBoxResolver = resolver;
+		// nothing waits any more (the box completed before the resolver came): go on at once
+		if (!activeTextBoxes.some((o) => o.wait) && !textBoxQueue.some((o) => o.wait)) return resolver();
+		textBoxResolvers.push(resolver);
 	}
 
 	function continueFromTextBox(): void {
@@ -469,26 +328,13 @@ export function createVisualNovelContext() {
 	function clear(): void {
 		sceneCharacters.length = 0;
 		for (const key of Object.keys(lastSpoke)) delete lastSpoke[key];
-		acknowledged = false;
-		waitResolver = null;
-		suspended = null;
-		pendingChoices.length = 0;
-		answer(null);
-		messageVisible = false;
-		message.character = null;
-		message.text = '';
-		message.wait = false;
-		choicesVisible = false;
 		activeTextBoxes.length = 0;
 		textBoxQueue.length = 0;
+		// a script waiting for a text box goes on (its page is gone – it is cancelled there)
+		for (const resolve of textBoxResolvers.splice(0)) resolve();
 		for (const key of Object.keys(dialogRefs)) delete dialogRefs[key];
 		for (const key of Object.keys(revealedDialogs)) delete revealedDialogs[key];
-		navigationTriggered = false;
-		eventsDone = false;
-		pendingDivert = null;
-		pageBusy = 0;
-		pageDone = true;
-		runs = 0;
+		box.reset();
 	}
 
 	return {
@@ -496,25 +342,27 @@ export function createVisualNovelContext() {
 			return {
 				characters,
 				sceneCharacters,
-				pendingChoices,
+				pendingChoices: boxData.pendingChoices,
 				isProcessingEvents,
-				messageVisible,
-				message,
-				choicesVisible,
-				question,
+				messageVisible: boxData.messageVisible,
+				message: boxData.message,
+				choicesVisible: boxData.choicesVisible,
+				question: boxData.question,
 				activeTextBoxes,
 				boxHeight,
 				lastSpoke,
-				eventsDone,
-				pageBusy,
-				pageDone,
-				runs,
+				eventsDone: boxData.eventsDone,
+				pageBusy: boxData.pageBusy,
+				pageDone: boxData.pageDone,
+				runs: boxData.runs,
 				/**
-				 * The story waits (owner 2026-10-03 / 2026-10-06): a message waiting for its click, a choice open, a script of
-				 * the page running or in line, a slice trigger running, a question (askText) – the page doesn't scroll until all of
-				 * it is through.
+				 * The story waits (owner 2026-10-03 / 2026-10-06): something to answer (a message's click, choices, a question,
+				 * a text box's tap) or a script / slice trigger of the page in progress – the page doesn't scroll until all of
+				 * it is through (box-state.ts: in a settled state there is always something to answer then).
 				 */
-				frozen: question !== null || choicesVisible || (messageVisible && message.wait) || pendingChoices.length > 0 || pageBusy > 0 || runs > 0
+				frozen: box.frozen(),
+				/** something on screen moves the story on (box-state.ts) */
+				answerable: box.answerable()
 			};
 		},
 		setCharacters,
@@ -526,23 +374,32 @@ export function createVisualNovelContext() {
 		joinScene,
 		leaveScene,
 		showMessage,
-		hideMessage,
-		setWaitResolver,
-		continueFromWait,
-		waitForContinue,
-		beginEvents,
-		endOfEvents,
-		addChoice,
-		ask,
-		answer,
-		dropUnshownChoices,
-		showChoices,
-		hideChoices,
-		clearChoices,
-		interrupt,
-		resumeIfIdle,
+		hideMessage: box.hideMessage,
+		waitForClick: box.waitForClick,
+		continueFromWait: box.continueFromWait,
+		waitForContinue: box.waitForContinue,
+		beginEvents: box.beginEvents,
+		endOfEvents: box.endOfEvents,
+		addChoice: (choice: VNPageChoice) => box.addChoice(choice),
+		ask: box.ask,
+		answer: box.answer,
+		dropUnshownChoices: box.dropUnshownChoices,
+		showChoices: box.showChoices,
+		whenChoicesClosed: box.whenChoicesClosed,
+		hideChoices: box.hideChoices,
+		clearChoices: box.clearChoices,
+		acquireRun: box.acquireRun,
+		holds: box.holds,
+		whenNoRun: box.whenNoRun,
+		runHolds: box.runHolds,
+		interrupt: box.interrupt,
+		endRun: box.endRun,
+		/** the box changed (the page's script queue wakes up) */
+		subscribe: box.subscribe,
+		idle: box.idle,
 		setNavigationTriggered,
-		getPendingJumpTo,
+		setPlace,
+		jumpProblem,
 		setScript,
 		get script() {
 			return script;
@@ -550,9 +407,9 @@ export function createVisualNovelContext() {
 		get scriptLabel() {
 			return scriptLabel;
 		},
-		setPendingDivert,
-		takePendingDivert,
-		isNavigationTriggered,
+		setPendingDivert: box.setPendingDivert,
+		takePendingDivert: box.takePendingDivert,
+		isNavigationTriggered: box.isNavigationTriggered,
 		showTextBox,
 		registerDialogRefs,
 		dialogHidden,
@@ -562,8 +419,6 @@ export function createVisualNovelContext() {
 		claimPage,
 		pageState,
 		releasePage,
-		beginRun,
-		endRun,
 		clear
 	};
 }

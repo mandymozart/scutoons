@@ -16,7 +16,12 @@ export interface ScriptQueueOptions {
 	idle: () => boolean;
 	/** something changed (busy / done) – the page mirrors it into its reactive state */
 	onChange?: (state: { busy: number; done: boolean; running: string | null }) => void;
-	/** how often a waiting start looks at `idle` again (ms) */
+	/**
+	 * the box tells about every change (box-state.ts `subscribe`): a waiting start looks at `idle` again then – the line
+	 * moves on the moment the reader answered (no polling). Without it (tests, a lone preview): `poll`
+	 */
+	subscribe?: (fn: () => void) => () => void;
+	/** how often a waiting start looks at `idle` again without `subscribe` (ms) */
 	poll?: number;
 	/** the timer (tests pass their own) */
 	setTimer?: (fn: () => void, ms: number) => unknown;
@@ -51,6 +56,7 @@ export function createScriptQueue(options: ScriptQueueOptions): ScriptQueue {
 	const started: string[] = [];
 	let running: string | null = null;
 	let timer: unknown = null;
+	let unsubscribe: (() => void) | null = null;
 	let cancelled = false;
 
 	const busy = () => waiting.length + (running ? 1 : 0);
@@ -60,8 +66,15 @@ export function createScriptQueue(options: ScriptQueueOptions): ScriptQueue {
 	function pump() {
 		if (cancelled || running || !waiting.length) return;
 		if (!options.idle()) {
-			// the reader is awaited (a trigger's message, a choice): look again shortly
-			if (timer === null)
+			// the reader is awaited (a trigger's message, a choice): look again when the box changes
+			if (options.subscribe) {
+				unsubscribe ??= options.subscribe(() => {
+					if (!options.idle()) return;
+					unsubscribe?.();
+					unsubscribe = null;
+					pump();
+				});
+			} else if (timer === null)
 				timer = setTimer(() => {
 					timer = null;
 					pump();
@@ -110,6 +123,8 @@ export function createScriptQueue(options: ScriptQueueOptions): ScriptQueue {
 			running = null;
 			if (timer !== null) clearTimer(timer);
 			timer = null;
+			unsubscribe?.();
+			unsubscribe = null;
 			changed();
 		},
 		get busy() {

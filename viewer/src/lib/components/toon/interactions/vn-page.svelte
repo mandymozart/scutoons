@@ -34,7 +34,8 @@
 	const token = vn.claimPage();
 	// the next script starts when nothing waits for the reader (a trigger's message, an open choice)
 	const queue = createScriptQueue({
-		idle: () => !vn.state.choicesVisible && !vn.state.pendingChoices.length && !(vn.state.messageVisible && vn.state.message.wait) && !vn.state.runs,
+		idle: () => vn.idle(),
+		subscribe: (fn) => vn.subscribe(fn),
 		onChange: (state) => vn.pageState(token, state)
 	});
 	setContext(KEY, queue);

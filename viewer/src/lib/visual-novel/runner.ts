@@ -1,18 +1,16 @@
-import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, evaluateText, labelIndex, testCondition, type ExprResolver, type VNEvent } from '@scutoons/content';
+import type { ExprResolver, JumpToTarget, VNEvent } from '@scutoons/content';
 import { cleanText, READER_NAME_MAX, readerKnown, readerName } from '$lib/reader-name.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
-import { buildJumpToUrl } from './jump-to.ts';
 import { getCurrentReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 import { executeVariableAction } from './variable-actions.ts';
+import { runEvents, type RunnerEnv, type RunResult } from './script-runner.ts';
 
 /**
- * The one VN script runner (CUTOVER 10.27, owner 2026-10-03: "two runners" were a half-finished move – logic stays out of
- * the views again): the group's script (`interactions/visual-novel.svelte`) and slice / placed-item triggers
- * (`event-processor.ts`) both run events here. Story flow: `label` = a named point, `divert` (event or a picked choice)
- * continues there – no page change; `jumpTo` is navigation only (`navigate`, then the run ends); `if` skips an event
- * (the simple test, or an expression answered for the reader); `setVariable` writes a variable; `askText` waits for a
- * typed answer (a story variable, or the reader's name). A run that keeps diverting without waiting for the reader stops (a loop guard).
+ * The one VN script runner (CUTOVER 10.27, owner 2026-10-03: logic stays out of the views): the group's script
+ * (`interactions/visual-novel.svelte`) and slice / placed-item triggers (`event-processor.ts`) both run events here. The
+ * logic is `script-runner.ts` (pure, tested in node with the box of box-state.ts); this file wires it to the viewer –
+ * the reader's session and name, the expression resolver, item grants, the page's jump places.
  */
 export interface RunnerDeps {
 	vn: VisualNovelContext;
@@ -30,172 +28,33 @@ export interface RunnerDeps {
 	 * else e.g. a slice trigger / a placed item – a message is `<group label>/<origin>/<event index>`
 	 */
 	origin?: string;
+	/** a page script: it pauses while a slice-trigger run holds the box */
+	yieldToRuns?: boolean;
 }
 
-export type RunResult = 'done' | 'navigated' | 'cancelled';
+export type { RunResult };
 
-/** diverts in a row without anything that waits for the reader before the run is stopped as a loop */
-const LOOP_LIMIT = 200;
-
-export async function runScript(events: readonly VNEvent[], start: number, deps: RunnerDeps): Promise<RunResult> {
-	const { vn, game } = deps;
-	const cancelled = () => deps.cancelled?.() ?? false;
-	const label = () => deps.currentLabel?.() ?? null;
-	const get = (name: string) => game.getVariable(name);
+/** the viewer's reader around a run (the session, the name, `{…}` and expression conditions, item grants) */
+export function readerEnv(game: GameContext): RunnerEnv {
 	// messages and choice labels: `{…}` answered for the reader (agents/EXPRESSIONS.md) – each showing counts a visit;
 	// without the toon's expressions (a lone preview) only the story variables
 	const expressions = getCurrentReaderExpressions();
-	const show = (source: string, at: number): string =>
-		expressions
-			? expressions.evaluate(source, `${label() ?? deps.scope ?? ''}/${deps.origin ?? 'script'}/${at}`)
-			: evaluateText(source, { name: (path) => (path.length === 1 ? get(path[0]) : undefined) }).text;
-	// "Only if" as an expression: the reader's names and functions (without the toon's expressions: the story variables)
 	const conditions: ExprResolver | undefined = expressions ? { name: expressions.name, call: expressions.call } : undefined;
-	let i = Math.max(0, start);
-	let jumpsWithoutWait = 0;
-	/** choices this run added that no showChoices has shown yet (dropped when the run ends) */
-	let unshown = 0;
-
-	/** continue at a named point (false: there is none – the run goes on after the divert) */
-	const divertTo = (to: string): boolean => {
-		const at = labelIndex(events, to);
-		if (at < 0) {
-			console.warn(`VN: no point "${to}" in this script`);
-			return false;
-		}
-		if (++jumpsWithoutWait > LOOP_LIMIT) throw new Error(`VN: diverts loop (last: "${to}")`);
-		i = at;
-		return true;
+	return {
+		readerKnown: () => readerKnown(),
+		setReaderName: (name) => readerName.set(name),
+		readerNameMax: READER_NAME_MAX,
+		...(expressions ? { evaluate: (source: string, at: string) => expressions.evaluate(source, at) } : {}),
+		...(conditions ? { conditions } : {}),
+		setVariable: (action) => void executeVariableAction(action as never, game),
+		cleanText
 	};
+}
 
-	// who reads is known before the first text / condition (a member's name and access load with the session)
-	await readerKnown();
-	try {
-		while (i < events.length) {
-			if (cancelled()) return 'cancelled';
-			const event = events[i];
-			i++;
-			if (!event || !testCondition(event.if, get, conditions)) continue;
-
-			switch (event.type) {
-				case 'label':
-					break;
-
-				case 'divert':
-					divertTo(event.params?.to);
-					break;
-
-				case 'setVariable': {
-					const { variable, value, op } = event.params;
-					if (op === 'add') executeVariableAction({ add: { variable, value: Number(value) || 0 } }, game);
-					// a number stays a number (the clock adds to it); text stays text
-					else executeVariableAction({ set: { variable, value: (typeof value === 'number' ? value : String(value)) as string } }, game);
-					break;
-				}
-
-				case 'showMessage': {
-					const { text, character, persona, wait = false } = event.params;
-					let speaker = null;
-					if (character) {
-						speaker = vn.findInScene(character, persona) ?? null;
-						if (!speaker) {
-							console.error(`Character "${character}" is not in the scene. Add them with joinScene first.`);
-							break;
-						}
-					}
-					vn.showMessage(speaker, show(text, i - 1), wait);
-					if (wait) {
-						jumpsWithoutWait = 0;
-						await new Promise<void>((resolve) => vn.setWaitResolver(resolve));
-					}
-					break;
-				}
-
-				case 'askText': {
-					// the question in the box with one input line; the page waits for Enter / ✓ / Skip (EXPRESSIONS.md §6)
-					const { text, character, persona, placeholder, maxLength, default: fallback, scope = 'toon', variable } = event.params;
-					const speaker = character ? (vn.findInScene(character, persona) ?? null) : null;
-					if (character && !speaker) console.error(`Character "${character}" is not in the scene. Add them with joinScene first.`);
-					vn.showMessage(speaker, show(text, i - 1), false);
-					jumpsWithoutWait = 0;
-					const limit = Math.min(scope === 'reader' ? READER_NAME_MAX : ASK_TEXT_LIMIT, Math.max(1, Math.floor(Number(maxLength) || ASK_TEXT_MAX_LENGTH)));
-					const typed = await vn.ask({ placeholder: placeholder ?? '', maxLength: limit, fallback: cleanText(fallback ?? '', limit) });
-					if (cancelled()) return 'cancelled';
-					// plain text, trimmed (never markup: shown as text); empty or skipped → the default, none → nothing stored
-					const value = cleanText(typed ?? '', limit) || cleanText(fallback ?? '', limit);
-					vn.hideMessage();
-					if (!value) break;
-					if (scope === 'reader') await readerName.set(value).catch((e) => console.warn('VN: the reader name was not stored', e));
-					else if (variable) game.setVariable(variable, value);
-					break;
-				}
-
-				case 'hideMessage':
-					vn.hideMessage();
-					break;
-
-				case 'addChoice':
-					vn.addChoice({ label: show(event.params.label, i - 1), onSelect: event.params.onSelect, from: label() });
-					unshown++;
-					break;
-
-				case 'showChoices': {
-					unshown = 0;
-					vn.showChoices();
-					jumpsWithoutWait = 0;
-					await new Promise<void>((resolve) => {
-						const check = () => (vn.state.pendingChoices.length === 0 ? resolve() : setTimeout(check, 50));
-						check();
-					});
-					if (vn.isNavigationTriggered()) return 'navigated';
-					const to = vn.takePendingDivert();
-					if (to) divertTo(to);
-					break;
-				}
-
-				case 'joinScene':
-					// refs are normalized by the context (new and old form, old ids, view default avatar)
-					vn.joinScene(event.params.characters);
-					break;
-
-				case 'leaveScene':
-					vn.leaveScene(event.params.characters);
-					break;
-
-				case 'showTextBox': {
-					const { wait = false } = event.params;
-					if (!vn.showTextBox(event.params, deps.scope ?? '')) break;
-					if (wait) {
-						jumpsWithoutWait = 0;
-						await new Promise<void>((resolve) => vn.setTextBoxResolver(resolve));
-					}
-					break;
-				}
-
-				case 'jumpTo': {
-					const { target, wait = false } = event.params;
-					const url = buildJumpToUrl(target, game.state.toonId, label());
-					if (!url) {
-						console.warn('Invalid jumpTo target', target);
-						break;
-					}
-					// one click per message: the click on the last message is the one that jumps (no extra click)
-					if (wait) await vn.waitForContinue();
-					if (cancelled()) return 'cancelled';
-					deps.navigate(url);
-					return 'navigated';
-				}
-
-				default:
-					console.warn(`Unknown event type: ${(event as { type?: string }).type}`);
-			}
-		}
-	} catch (error) {
-		console.error(error);
-	}
-	if (unshown) {
-		console.warn(`VN: ${unshown} choice(s) added but never shown – add a showChoices`);
-		vn.dropUnshownChoices(unshown);
-	}
-	return cancelled() ? 'cancelled' : 'done';
+export function runScript(events: readonly VNEvent[], start: number, deps: RunnerDeps): Promise<RunResult> {
+	return runEvents(events, start, {
+		...deps,
+		env: readerEnv(deps.game),
+		jumpProblem: (target: JumpToTarget) => deps.vn.jumpProblem(target)
+	});
 }

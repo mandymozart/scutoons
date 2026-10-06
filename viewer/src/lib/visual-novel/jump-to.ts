@@ -35,3 +35,28 @@ export function buildJumpToUrl(target: JumpToTarget, toonId: string, currentLabe
 	
 	return url;
 }
+
+/** where a page is (the chapter page tells the VN context): a jump within this chapter can be checked against it */
+export interface JumpPlace {
+	toon: string;
+	chapter: number;
+	/** the chapter's group labels (its scenes' included) */
+	labels: readonly string[];
+}
+
+/**
+ * Why a jump can't go where it says – a group label (or every `anyOf` label) that isn't in THIS chapter – or null: it
+ * can, or it leads somewhere this page can't judge (another chapter or toon: validation refuses those when they are
+ * missing, the page there shows the chapter from its start). The runner then stays (owner 2026-10-06: no dead ends –
+ * the follow-up bar comes instead of a page that isn't there).
+ */
+export function jumpProblem(target: JumpToTarget | null | undefined, place: JumpPlace | null | undefined): string | null {
+	if (!target || !place || target.type !== 'chapter') return null;
+	if (intoOtherToon(target, place.toon) || Number(target.value) !== place.chapter) return null;
+	if (target.anyOf?.length) {
+		const there = target.anyOf.filter((l) => place.labels.includes(l));
+		return there.length ? null : `none of the groups ${target.anyOf.map((l) => `"${l}"`).join(', ')} is in this chapter`;
+	}
+	if (target.label && !place.labels.includes(target.label)) return `no group "${target.label}" in this chapter`;
+	return null;
+}

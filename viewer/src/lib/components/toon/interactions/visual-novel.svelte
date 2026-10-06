@@ -72,7 +72,9 @@
 			navigate: (url) => goto(url),
 			cancelled: () => cancelled,
 			currentLabel: () => group.label ?? null,
-			scope
+			scope,
+			// a slice trigger's run holding the box pauses the script before its next event (box-state.ts)
+			yieldToRuns: true
 		}).then((result) => {
 			if (result === 'done' && !cancelled) vn.endOfEvents();
 			return result;

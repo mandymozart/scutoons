@@ -101,3 +101,25 @@ test('cancel (the page went away / "Nochmal"): nothing starts any more, the stat
 	assert.deepEqual(log, ['start a', 'end a']);
 	assert.equal(states.at(-1)?.busy, 0);
 });
+
+test('with subscribe (the box tells about changes): a waiting start goes the moment the reader answered – no timer', async () => {
+	const log: string[] = [];
+	let idle = false;
+	const listeners = new Set<() => void>();
+	const changed = () => listeners.forEach((fn) => fn());
+	const t = timers();
+	const q = createScriptQueue({ idle: () => idle, subscribe: (fn) => (listeners.add(fn), () => listeners.delete(fn)), ...t });
+	const a = script(log, 'a');
+	q.register('a', true);
+	q.request('a', a.run);
+	assert.deepEqual(log, [], 'the reader is awaited');
+	t.tick();
+	assert.deepEqual(log, [], 'no timer involved');
+	idle = true;
+	changed();
+	assert.deepEqual(log, ['start a']);
+	assert.equal(listeners.size, 0, 'it stopped listening');
+	a.finish();
+	await flush();
+	assert.equal(q.done, true);
+});
