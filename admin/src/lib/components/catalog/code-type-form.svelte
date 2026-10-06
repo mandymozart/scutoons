@@ -27,8 +27,6 @@
 	<legend>{m['catalog.grants']()}</legend>
 	{#each permissions as p (p.id)}
 		<CheckField label="{p.id} – {p.data}" checked={grants.includes(p.id)} onchange={(on) => grant(p.id, on)} />
-	{:else}
-		<p class="muted">{m['catalog.no_permissions']()}</p>
 	{/each}
 	{#each grants.filter((g) => !permissions.some((p) => p.id === g)) as unknown (unknown)}
 		<CheckField label="{unknown} (?)" checked onchange={(on) => grant(unknown, on)} />

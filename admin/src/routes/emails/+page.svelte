@@ -114,7 +114,6 @@
 		sort={query.sort}
 		sortHref={(sort) => href({ sort })}
 		{loading}
-		emptyLabel={m['emails.empty']()}
 		labels={tableLabels()}
 	>
 		{#snippet cell(e, column)}

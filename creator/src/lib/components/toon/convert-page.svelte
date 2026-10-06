@@ -68,7 +68,7 @@
 		{#if plan === null}
 			<p>{m['creator.convert_loading']()}</p>
 		{:else if !plan.length}
-			<p data-testid="convert-none">{m['creator.convert_none']()}</p>
+			<p class="sc-empty" data-testid="convert-none">{m['creator.convert_none']()}</p>
 		{:else}
 			<ul class="entities" data-testid="convert-list">
 				{#each plan as entry (entry.entity)}

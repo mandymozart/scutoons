@@ -69,8 +69,6 @@
 				<ReorderButtons index={i} count={list.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><CloseIcon /></button>
 			</li>
-		{:else}
-			<li class="hint">{m['creator.related_items_empty']()}</li>
 		{/each}
 	</ul>
 	<!-- the item selector as a drawer like the asset manager / character selector (owner 2026-10-03) -->

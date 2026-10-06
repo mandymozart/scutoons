@@ -17,7 +17,6 @@
 	const labels: AskLabels = {
 		title: m['creator.ask'](),
 		history: m['creator.ask_history'](),
-		historyEmpty: m['creator.ask_history_empty'](),
 		historyUnavailable: m['creator.ask_history_unavailable'](),
 		newChat: m['creator.ask_new'](),
 		close: m['creator.close'](),

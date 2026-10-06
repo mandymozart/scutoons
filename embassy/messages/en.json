@@ -210,7 +210,6 @@
 	"palette": {
 		"search": "Search or jump to …",
 		"label": "Command palette",
-		"empty": "Nothing matches.",
 		"keys": "↑↓ move · Enter open · Esc close · Ctrl K or / anywhere",
 		"go_to": "Go to",
 		"actions": "Actions",
@@ -242,7 +241,6 @@
 		"unavailable": "The agent is not available right now.",
 		"signed_out": "Your session ended – sign in again.",
 		"history": "Earlier chats",
-		"history_empty": "No chats yet.",
 		"history_unavailable": "The chat history is not available yet.",
 		"resize": "Drag to resize",
 		"draft": "Draft #{id}"

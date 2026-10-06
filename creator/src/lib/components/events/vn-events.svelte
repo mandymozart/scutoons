@@ -260,8 +260,6 @@
 					<EventShowTextBox {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
-				{:else}
-					<p class="hint">{m['creator.event_no_params']()}</p>
 				{/if}
 
 				<EventCondition {doc} path={p} {event} index={i} />

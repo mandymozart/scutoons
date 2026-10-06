@@ -73,6 +73,7 @@
 <div class="people" data-testid="people-panel">
 	<div class="list">
 		<input type="search" placeholder={m['creator.credits_search_people']()} bind:value={query} data-testid="people-search" />
+		{#if shown.length}
 		<ul>
 			{#each shown as p (p.id)}
 				<li>
@@ -81,10 +82,9 @@
 						<span class="hint">{usage.get(p.id) ?? 0}×</span>
 					</button>
 				</li>
-			{:else}
-				<li class="hint">{m['creator.credits_no_people']()}</li>
 			{/each}
 		</ul>
+		{/if}
 		<form
 			class="new"
 			onsubmit={(e) => {

@@ -228,8 +228,6 @@
 							{/if}
 						</span>
 					</li>
-				{:else}
-					<li class="hint">{m['creator.cast_empty']()}</li>
 				{/each}
 			</ol>
 			<div class="add">

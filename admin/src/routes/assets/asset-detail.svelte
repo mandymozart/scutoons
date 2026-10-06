@@ -184,7 +184,7 @@
 					<Badge tone={v.status === 'current' ? 'published' : 'draft'}>{v.status}</Badge>
 					{minute(v.created_at)} · {v.storage}{v.note ? ` · ${v.note}` : ''}{v.archive_path ? ` · ${m['assets.archived_as']()} ${v.archive_path}` : ''}
 				</p>
-				<DataTable columns={fileColumns} rows={v.renditions} rowKey={(r) => String(r.id)} labels={tableLabels()} emptyLabel="—">
+				<DataTable columns={fileColumns} rows={v.renditions} rowKey={(r) => String(r.id)} labels={tableLabels()}>
 					{#snippet cell(r, column)}
 						{#if column.id === 'label'}{r.label}{#if r.quality} <Badge tone="info">{r.quality}</Badge>{/if}
 						{:else if column.id === 'path'}<a href={url(r.path)} target="_blank" rel="noreferrer">{r.path}</a>
@@ -197,7 +197,7 @@
 		{/each}
 
 		<Section title={m['assets.usages_title']({ count: detail.usages.length })}>
-			<DataTable columns={usageColumns} rows={detail.usages} rowKey={(u) => `${u.ref}|${u.field}|${u.state}`} labels={tableLabels()} emptyLabel={m['assets.no_usages']()}>
+			<DataTable columns={usageColumns} rows={detail.usages} rowKey={(u) => `${u.ref}|${u.field}|${u.state}`} labels={tableLabels()}>
 				{#snippet cell(u, column)}
 					{#if column.id === 'ref'}{#if editHref(u)}<a href={editHref(u)} target="_blank" rel="noreferrer">{u.ref}</a>{:else}{u.ref}{/if}
 					{:else if column.id === 'field'}<code title={u.raw}>{u.field}</code> <span class="sc-caption">{u.path.split('/').pop()}</span>

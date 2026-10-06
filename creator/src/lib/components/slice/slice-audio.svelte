@@ -149,10 +149,9 @@
 </script>
 
 <section class="slice-audio" data-testid="slice-audio">
+	<!-- no chapter music tracks: no mixer (and no empty-state text – the tracks are added under Audio in the chapter tree) -->
+	{#if musicTracks.length}
 	<h4>{m['creator.music']()}</h4>
-	{#if !musicTracks.length}
-		<p class="hint">{m['creator.music_no_tracks']()}</p>
-	{/if}
 	<!-- a mixer (owner 2026-10-04): one strip per chapter track. A track the slice doesn't set holds the level of an earlier
 	     slice (shown faint, "from …"); moving its fader sets it here, × hands it back to the earlier level. -->
 	<div class="mixer" data-testid="slice-mixer">
@@ -172,6 +171,7 @@
 			</div>
 		{/each}
 	</div>
+	{/if}
 
 	<h4>{m['creator.samples']()}</h4>
 	{#if misplaced.length}

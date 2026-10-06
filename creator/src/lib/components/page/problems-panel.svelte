@@ -77,9 +77,6 @@
 		<label><input type="checkbox" bind:checked={showAccepted} disabled={!counts.accepted} /> {m['creator.problems_accepted']({ count: counts.accepted })}</label>
 		<label><input type="checkbox" bind:checked={showInfo} disabled={!counts.info} /> {m['creator.problems_notes']({ count: counts.info })}</label>
 	</div>
-	{#if !visible.length}
-		<p class="hint">{m['creator.no_problems']()}</p>
-	{/if}
 	<ul>
 		{#each visible as p, i (i)}
 			{@const place = placeOf(p)}

@@ -96,8 +96,6 @@
 							</button>
 						{/each}
 					</div>
-				{:else}
-					<p class="hint">{m['creator.credits_no_roles']()}</p>
 				{/each}
 			</div>
 			<button type="button" class="secondary mini" onclick={startCreate} data-testid="{testid}-new"><Icon name="plus" /> {m['creator.credits_new_custom_role']()}</button>

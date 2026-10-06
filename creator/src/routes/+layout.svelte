@@ -306,7 +306,6 @@
 			commands={paletteCommands}
 			label={m['palette.label']()}
 			placeholder={m['palette.placeholder']()}
-			emptyLabel={m['palette.empty']()}
 			hint={m['palette.keys']()}
 		/>
 		{#if ask.open}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (ask.open = false)} />{/if}

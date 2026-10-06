@@ -529,8 +529,6 @@
 									{/each}
 								</tbody>
 							</table>
-						{:else}
-							<p class="hint">{m['creator.map_no_problems']()}</p>
 						{/if}
 					</section>
 				{/if}

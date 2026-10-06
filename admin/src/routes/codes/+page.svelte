@@ -215,7 +215,6 @@
 				rowClass={(row) => (row.revoked_at ? 'revoked' : '')}
 				onrowclick={(row) => nav({ open: row.code, page: query.page > 1 ? query.page : null })}
 				{loading}
-				emptyLabel={m['codes.empty']()}
 				labels={tableLabels()}
 			>
 				{#snippet cell(row, column)}

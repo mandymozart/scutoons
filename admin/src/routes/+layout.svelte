@@ -115,7 +115,6 @@
 	const askLabels: AskLabels = {
 		title: m['ask.title'](),
 		history: m['ask.history'](),
-		historyEmpty: m['ask.history_empty'](),
 		historyUnavailable: m['ask.history_unavailable'](),
 		newChat: m['ask.new'](),
 		close: m['ask.close'](),
@@ -210,7 +209,6 @@
 			dynamic={dynamicCommands}
 			label={m['palette.label']()}
 			placeholder={m['palette.placeholder']()}
-			emptyLabel={m['palette.empty']()}
 			hint={m['palette.keys']()}
 		/>
 	</AuthGate>

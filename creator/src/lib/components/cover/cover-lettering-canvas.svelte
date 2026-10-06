@@ -162,7 +162,7 @@
 			</div>
 		</div>
 	{:else}
-		<p class="hint empty">{m['creator.cover_no_art']()}</p>
+		<p class="sc-empty">{m['creator.cover_no_art']()}</p>
 	{/if}
 </div>
 
@@ -249,10 +249,5 @@
 	}
 	.hint {
 		margin: 0;
-	}
-	.empty {
-		border: var(--border-width-regular) dashed var(--border-muted);
-		padding: var(--space-3) var(--space-1);
-		text-align: center;
 	}
 </style>

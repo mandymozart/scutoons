@@ -321,7 +321,7 @@
 
 		{#if !script}
 			<section class="missing" data-testid="script-missing">
-				<p>{m['creator.script_missing_locale']({ locale, source: doc.primary })}</p>
+				<p class="sc-empty">{m['creator.script_missing_locale']({ locale, source: doc.primary })}</p>
 				<p class="buttons">
 					<button type="button" onclick={() => startLocale(false)} data-testid="script-start-empty">{m['creator.script_start_empty']()}</button>
 					{#if doc.data[doc.primary]?.text}
@@ -485,8 +485,11 @@
 		resize: none;
 	}
 	.missing {
-		border: 2px dashed var(--ink);
-		padding: 1rem;
+		display: grid;
+		gap: var(--space-1);
+	}
+	.missing p {
+		margin: 0;
 	}
 	.buttons {
 		display: flex;

@@ -69,8 +69,6 @@
 						<span class="name">{itemName(item, item.id)}</span>
 						<span class="hint">{taken ? m['creator.items_taken']() : item.category}</span>
 					</button>
-				{:else}
-					<p class="hint">{m['creator.items_none']()}</p>
 				{/each}
 			</div>
 		{/if}

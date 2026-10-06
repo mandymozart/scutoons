@@ -213,7 +213,7 @@
 		</section>
 	</article>
 {:else}
-	<p class="hint pad">{m['creator.characters_pick']()}</p>
+	<p class="sc-empty pad">{m['creator.characters_pick']()}</p>
 {/if}
 
 <style>

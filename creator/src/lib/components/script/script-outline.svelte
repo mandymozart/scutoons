@@ -41,9 +41,7 @@
 			<span>{m['creator.script_outline']()}</span>
 			<button type="button" class="fold sc-round" onclick={() => onfold(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold"><Icon name="chevrons-left" /></button>
 		</h2>
-		{#if !outline.length}
-			<p class="hint">{m['creator.script_outline_empty']()}</p>
-		{:else}
+		{#if outline.length}
 			<ol bind:this={list} class="outline-list">
 				{#each outline as item (item.line)}
 					<li class={item.kind}>

@@ -115,9 +115,7 @@
 	<Skeleton lines={6} label={m['shell.loading']()} />
 {:else}
 	<Section title={m['homepage.section_featured']()} hint={m['homepage.section_featured_hint']({ max })}>
-		{#if draft.length === 0}
-			<p class="muted">{m['homepage.empty']()}</p>
-		{:else}
+		{#if draft.length}
 			<ol class="featured" data-testid="featured-list">
 				{#each draft as item, i (`${item.product}/${item.variant ?? ''}/${i}`)}
 					{@const product = productOf(item.product)}

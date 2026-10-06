@@ -110,6 +110,7 @@
 	/>
 
 	{#if view.inspectorTab === 'text'}
+		{#if dialogs.length}
 		<ul class="boxes">
 			{#each dialogs as d, di (di)}
 				<li>
@@ -119,6 +120,7 @@
 				</li>
 			{/each}
 		</ul>
+		{/if}
 		<button class="secondary" class:active={view.pickingPreset} aria-expanded={view.pickingPreset} onclick={() => (view.pickingPreset = !view.pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
 		{#if view.pickingPreset}
 			<TextPresetPicker
@@ -133,6 +135,7 @@
 			<DialogInspector {doc} path={[...slicePath, 'dialog', selection.index]} {onremove} />
 		{/if}
 	{:else if view.inspectorTab === 'items'}
+		{#if items.length}
 		<ul class="boxes">
 			{#each items as it, ii (ii)}
 				<li>
@@ -140,10 +143,9 @@
 						<span>{itemName(itemCatalog.catalog?.items.find((x) => x.id === it?.item), it?.item ?? '?')}</span> <span class="hint">{it?.action === 'pickup' ? m['creator.slice_item_action_pickup']() : it?.action === 'events' ? m['creator.slice_item_action_events']() : ''}</span>
 					</button>
 				</li>
-			{:else}
-				<li class="hint">{m['creator.slice_items_empty']()}</li>
 			{/each}
 		</ul>
+		{/if}
 		<button type="button" class="secondary" onclick={() => view.pickItem()} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
 		<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => onadditem(item.id)} />
 		{#if selection?.kind === 'item' && items[selection.index]}

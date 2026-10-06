@@ -40,7 +40,7 @@
 	{#if season.loading}
 		<p>{m['creator.loading']()}</p>
 	{:else if season.present.length === 0}
-		<p class="warn">{m['creator.cover_no_season']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
+		<p class="sc-empty">{m['creator.cover_no_season']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
 		<section class="block" data-testid="cover-page">
 			<CoverEditor doc={season} {toon} languages={season.textLanguages} source={season.textSource} {texts} place="{toon}/s{number}/" />
@@ -54,8 +54,5 @@
 		flex-direction: column;
 		gap: var(--space-1);
 		margin-bottom: var(--space-3);
-	}
-	.warn {
-		color: var(--warn);
 	}
 </style>

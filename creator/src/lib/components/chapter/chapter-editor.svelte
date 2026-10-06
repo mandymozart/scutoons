@@ -751,8 +751,7 @@
 						{#if activeGroup?.events}
 							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} markOf={(i) => markAt('groups', view.groupIndex, 'events', i)} />
 						{:else}
-							<p class="hint">{m['creator.vn_no_script']()}
-								<button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ {m['creator.vn_script_add']()}</button></p>
+							<p><button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ {m['creator.vn_script_add']()}</button></p>
 						{/if}
 					{:else if activeDoc?.error}
 						<p class="error">{activeDoc.error}</p>
@@ -776,7 +775,7 @@
 						/>
 					</div>
 				{:else}
-					<p class="hint">{m['creator.select_slice']()}</p>
+					<p class="sc-empty pad">{m['creator.select_slice']()}</p>
 				{/if}
 			</main>
 

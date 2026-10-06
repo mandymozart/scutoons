@@ -211,7 +211,7 @@
 			{#if !list}
 				<Skeleton variant="table" columns={4} label={m['shell.loading']()} />
 			{:else if !list.items.length}
-				<p>{m['assets.empty']()}</p>
+				<p class="sc-empty">{m['assets.empty']()}</p>
 			{:else}
 				<ul class="grid" aria-busy={loading} data-testid="assets-grid">
 					{#each list.items as a (a.id)}
@@ -235,7 +235,7 @@
 			{#if !missing}
 				<Skeleton variant="table" columns={2} label={m['shell.loading']()} />
 			{:else}
-				<DataTable columns={missingColumns} rows={missing} rowKey={(r) => r.path} emptyLabel={m['assets.missing_none']()} labels={tableLabels()}>
+				<DataTable columns={missingColumns} rows={missing} rowKey={(r) => r.path} labels={tableLabels()}>
 					{#snippet cell(r, column)}
 						{#if column.id === 'path'}<code>{r.path}</code>
 						{:else}
@@ -251,7 +251,7 @@
 				<Skeleton variant="table" columns={4} label={m['shell.loading']()} />
 			{:else}
 				{#if unusedTotals && unusedTotals.files}<p data-testid="assets-unused-totals">{m['assets.unused_totals']({ assets: number(unusedTotals.assets), files: number(unusedTotals.files), size: bytes(unusedTotals.bytes) })}</p>{/if}
-				<DataTable columns={unusedColumns} rows={unused} rowKey={(r) => r.id} selectable bind:selected emptyLabel={m['assets.unused_none']()} labels={tableLabels()}>
+				<DataTable columns={unusedColumns} rows={unused} rowKey={(r) => r.id} selectable bind:selected labels={tableLabels()}>
 					{#snippet bulk()}
 						<Button size="sm" disabled={busy === 'cleanup'} onclick={cleanup} data-testid="assets-cleanup">{busy === 'cleanup' ? '…' : m['assets.cleanup_delete']({ files: number(chosenFiles), size: bytes(chosenBytes) })}</Button>
 					{/snippet}

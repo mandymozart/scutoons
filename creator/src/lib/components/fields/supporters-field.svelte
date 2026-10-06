@@ -46,8 +46,6 @@
 				<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()}><CloseIcon /></button>
 			</div>
 		</li>
-	{:else}
-		<li class="hint">{m['creator.supporters_empty']()}</li>
 	{/each}
 </ol>
 <button type="button" class="secondary" onclick={add} data-testid="supporter-add">{m['creator.supporter_add']()}</button>
@@ -90,9 +88,6 @@
 	}
 	.actions button {
 		padding: 0 0.4em;
-	}
-	.hint {
-		color: var(--muted);
 	}
 	button.secondary {
 		align-self: flex-start;

@@ -244,8 +244,6 @@
 					</li>
 				{/each}
 			</ul>
-		{:else}
-			<p class="muted">{m['claims.no_files']()}</p>
 		{/if}
 	</Section>
 
@@ -320,8 +318,8 @@
 		<OwnershipHistory items={detail.history} />
 	</Section>
 
-	<Section title={m['claims.section_other']()}>
-		{#if detail.other_claims.length}
+	{#if detail.other_claims.length}
+		<Section title={m['claims.section_other']()}>
 			<ul class="others">
 				{#each detail.other_claims as other (other.id)}
 					<li>
@@ -332,10 +330,8 @@
 					</li>
 				{/each}
 			</ul>
-		{:else}
-			<p class="muted">{m['claims.no_other']()}</p>
-		{/if}
-	</Section>
+		</Section>
+	{/if}
 
 	<Sheet bind:open={confirmOpen} title={confirming === 'transfer' ? m['claims.confirm_transfer_title']() : m['claims.confirm_reject_title']()} closeLabel={m['common.close']()}>
 		{#if confirming === 'transfer'}

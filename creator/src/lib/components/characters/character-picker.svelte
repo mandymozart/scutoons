@@ -126,8 +126,6 @@
 						{/if}
 					</button>
 				</li>
-			{:else}
-				<li class="hint">{m['creator.characters_none_found']()}</li>
 			{/each}
 		</ul>
 	</div>
@@ -162,9 +160,6 @@
 	li.active {
 		background: var(--ink);
 		color: var(--paper);
-	}
-	li.hint {
-		padding: 0.3rem 0.5rem;
 	}
 	.option {
 		all: unset;

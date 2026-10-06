@@ -131,7 +131,6 @@
 		sort={query.sort}
 		sortHref={(sort) => href({ sort })}
 		{loading}
-		emptyLabel={m['events.empty']()}
 		labels={tableLabels()}
 	>
 		{#snippet cell(e, column)}

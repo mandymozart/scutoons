@@ -339,8 +339,6 @@
 										<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
 										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
 									</li>
-								{:else}
-									<li class="hint">{m['creator.no_target_languages']()}</li>
 								{/each}
 							</ul>
 							{#if addable.length}

@@ -178,9 +178,7 @@
 	<p class="error-box" role="alert">{error}</p>
 {:else if !loaded}
 	<Skeleton lines={6} label={m['shell.loading']()} />
-{:else if draft.length === 0}
-	<p class="muted">{m['calendar.empty']()}</p>
-{:else}
+{:else if draft.length}
 	{#if upcoming.length}
 		<Section title={m['calendar.upcoming']()}>{@render rows(upcoming)}</Section>
 	{/if}

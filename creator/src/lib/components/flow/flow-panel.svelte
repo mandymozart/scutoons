@@ -43,9 +43,7 @@
 	<div class="canvas">
 		{#if !groups || !reach}
 			<p class="hint">{m['creator.loading']()}</p>
-		{:else if !groups.length}
-			<p class="hint">{m['creator.flow_empty']()}</p>
-		{:else}
+		{:else if groups.length}
 			{#await graph}
 				<p class="hint">{m['creator.loading']()}</p>
 			{:then mod}
