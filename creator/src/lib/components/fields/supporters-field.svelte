@@ -17,7 +17,7 @@
 	const list = $derived<Supporter[]>(Array.isArray(doc.get(doc.primary, ['supporters'])) ? doc.get(doc.primary, ['supporters']) : []);
 
 	function change(fn: (list: Supporter[]) => void) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			if (!Array.isArray(file.supporters)) file.supporters = [];
 			fn(file.supporters);
 		}, 'supporters');

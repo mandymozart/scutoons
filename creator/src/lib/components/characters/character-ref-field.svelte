@@ -79,7 +79,7 @@
 	});
 
 	function pick(p: PickedCharacter) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			let target = getAt(file, path);
 			if (!target) return;
 			// the current form: { character, persona, look?, mood?, variant? } (old `name` / `position` go)

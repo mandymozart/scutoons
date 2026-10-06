@@ -1,4 +1,4 @@
-import type { Dialog } from '@scutoons/content';
+import { resolveText, type Dialog } from '@scutoons/content';
 
 /**
  * The text presets (owner 2026-10-03): a text on a slice is one thing, its look one of these. "+ Add text" offers them
@@ -70,7 +70,8 @@ export function matchTextPreset(dialog: Record<string, unknown> | null | undefin
  */
 export function legacyPreset(dialog: Record<string, any>): TextPreset {
 	const id = (presetId: TextPresetId) => TEXT_PRESETS.find((p) => p.id === presetId)!;
-	const first = String(Array.isArray(dialog.text) ? dialog.text[0] : (dialog.text ?? '')).trim();
+	const text = resolveText<unknown>(dialog.text, []);
+	const first = String(Array.isArray(text) ? text[0] : (text ?? '')).trim();
 	if (/^\d+\s+(INT|EXT|INT\.\/EXT)\b|^\d+\s+[A-ZÄÖÜ]{4,}/.test(first) && first === first.toUpperCase()) return id('scene');
 	const variant = dialog.variant ?? 'bubble';
 	if (variant === 'bubble' || dialog.frame === false) return id('story');

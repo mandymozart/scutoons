@@ -39,7 +39,7 @@
 	const nameOf = (item: ItemDef | undefined, id: string) => (item ? (item.name[locale] ?? item.name.en ?? item.name.de ?? id) : id);
 
 	function set(next: string[]) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			if (next.length) file.related_items = [...next];
 			else delete file.related_items;
 		}, 'related_items');

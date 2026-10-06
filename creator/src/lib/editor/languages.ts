@@ -1,7 +1,7 @@
 // The toon's languages (source + translations) are set per toon, in its index entry (`ToonIndex.sourceLanguage` /
 // `.languages`), the entity `toon:<toon>` (draft/publish like every other entity). Every editor takes its locales and
 // its source from here.
-import { entities, NEUTRAL_LOCALE, sceneEntityOfRef, toonLanguages, type ToonIndex, type ToonLanguages } from '@scutoons/content';
+import { entities, NEUTRAL_DOC_KINDS, NEUTRAL_LOCALE, parseEntityKey, sceneEntityOfRef, toonLanguages, type ToonIndex, type ToonLanguages } from '@scutoons/content';
 import { ApiError, getDraft } from '$lib/api.ts';
 import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 
@@ -25,8 +25,14 @@ export function toonIndexDoc(toon: string): ContentDoc {
 	return new ContentDoc(entities.toon(toon), [NEUTRAL_LOCALE], NEUTRAL_LOCALE);
 }
 
-/** A localized entity of the toon (`entities.chapter(toon, 1)` …) in all its languages, the source first. */
+/**
+ * A localized entity of the toon in all its languages, the source first: a chapter / scene / season is ONE
+ * language-neutral document with its texts per language (agents/NEUTRAL.md – converted from its per-locale documents
+ * on load while it has none); toon settings and the script are one document per language.
+ */
 export function toonDoc(entity: string, languages: ToonLanguages): ContentDoc {
+	const kind = parseEntityKey(entity)?.kind;
+	if (kind && NEUTRAL_DOC_KINDS.includes(kind)) return new ContentDoc(entity, [NEUTRAL_LOCALE], NEUTRAL_LOCALE, { source: languages.source, languages: languages.languages });
 	return new ContentDoc(entity, languages.languages, languages.source);
 }
 

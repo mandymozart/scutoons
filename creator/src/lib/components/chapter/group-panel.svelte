@@ -36,8 +36,8 @@
 	const params = $derived(group?.renderer?.params ?? {});
 	const p = (...keys: (string | number)[]) => [...groupPath, ...keys];
 
-	const addEnd = () => doc.setShared(p('end'), { target: { type: 'chapter', value: String(chapterNumber + 1) } });
-	const removeEnd = () => doc.setShared(p('end'), undefined);
+	const addEnd = () => doc.set(p('end'), { target: { type: 'chapter', value: String(chapterNumber + 1) } });
+	const removeEnd = () => doc.set(p('end'), undefined);
 </script>
 
 <section class="group-panel" data-testid="group-panel">

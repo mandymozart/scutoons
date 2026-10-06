@@ -1,13 +1,36 @@
 // One entity of a toon (agents/DATA.md: `chapter:catpope:1`, `scene:catpope:2:scene-14`, `season:catpope:1`,
 // `toon-settings:catpope`, `characters` …), edited in all locales at once. Localized entities are stored per locale
 // (`<entity>:<locale>`); language-neutral ones under the entity itself (locale `_` in the editor).
-// Same structure as the documents the reader loads: text stays inline per locale; geometry and other shared fields are
-// edited once and written to every locale that has not overridden them (see `setShared`).
+//
+// Chapters, scenes and seasons are ONE language-neutral document each (agents/NEUTRAL.md): structure once, every text a
+// locale map `{ de: …, en: … }` (`texts` = the toon's languages). `edit` / `set` change the document, `text` / `setText`
+// one language of a text leaf (the creator header's text language). An entity without a neutral document yet
+// (production before its conversion) is loaded from its per-locale documents and converted in memory (`neutralizeDocs`,
+// `converted` = the report): saving stores the neutral document; the per-locale keys are never written again.
+//
+// Other localized entities (toon settings, script) keep one document per locale: `structural` changes every locale,
+// `setShared` a shared field in every locale that has not overridden it, `setLocal` one locale.
 // The locales and the source ("primary") come from the toon (`ToonIndex.languages` / `.sourceLanguage`, loaded with
 // `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
 import { getDraft, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
-import { clone, deepEqual, entityKeyFor, getAt, parseEntityKey, setAt, type Path, unifyAudio, unifyGeometry } from '@scutoons/content';
+import {
+	clone,
+	deepEqual,
+	entityKeyFor,
+	getAt,
+	isLocaleValue,
+	neutralizeDocs,
+	parseEntityKey,
+	resolveGroup,
+	resolveSlice,
+	setAt,
+	type Group,
+	type NeutralDifference,
+	type NeutralKind,
+	type Path,
+	type Slice
+} from '@scutoons/content';
 import { repairBooleans } from '$lib/editor/repair-booleans.ts';
 
 export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script';
@@ -40,6 +63,20 @@ export class SaveConflict extends Error {
 		this.locale = locale;
 		this.latest = latest;
 	}
+}
+
+/** The text languages of a language-neutral chapter / scene / season document (its locale maps), source first */
+export interface DocTexts {
+	source: string;
+	languages: readonly string[];
+}
+
+/** A neutral document converted in memory from the per-locale ones (saving stores it) */
+export interface DocConversion {
+	/** what the source locale overrode (@scutoons/content neutralize.ts) */
+	report: NeutralDifference[];
+	/** the languages it was made of (source first) */
+	locales: string[];
 }
 
 /** The editor kind of an entity (which validation and panels apply) */
@@ -105,10 +142,8 @@ export class ContentDoc {
 	error = $state<string | null>(null);
 	/** set when a local autosave newer than the loaded state exists */
 	recoverable = $state<AutosaveEntry | null>(null);
-	/** text boxes / placed items whose geometry differed between languages and was set to the source's on load */
-	geometryUnified = $state(0);
-	/** chapter / slice audio blocks that differed in another locale and now follow the source (unifyAudio) */
-	audioUnified = $state(0);
+	/** set when the neutral document was converted from the per-locale ones on load (not stored yet) */
+	converted = $state<DocConversion | null>(null);
 	lastSavedAt = $state<number | null>(null);
 
 	private undoStack = $state<string[]>([]);
@@ -118,13 +153,38 @@ export class ContentDoc {
 	/** time of the newest undo step (pages editing several docs undo the most recently edited one) */
 	lastEditAt = $state(0);
 
-	/** `locales`: the toon's languages (`['_']` for language-neutral entities); `primary`: its source language. */
-	constructor(entity: string, locales: readonly string[], primary: string) {
+	/** a language-neutral chapter / scene / season: the languages of its texts (locale maps); null for other documents */
+	readonly texts: DocTexts | null;
+
+	/**
+	 * `locales`: the toon's languages (`['_']` for language-neutral entities); `primary`: its source language;
+	 * `texts`: a neutral chapter / scene / season's text languages (languages.ts `toonDoc`).
+	 */
+	constructor(entity: string, locales: readonly string[], primary: string, texts: DocTexts | null = null) {
 		this.entity = entity;
 		this.toon = parseEntityKey(entity)?.toon ?? '';
 		this.kind = kindOfEntity(entity);
 		this.locales = [primary, ...locales.filter((l) => l !== primary)];
 		this.primary = primary;
+		this.texts = texts ? { source: texts.source, languages: [texts.source, ...texts.languages.filter((l) => l !== texts.source)] } : null;
+	}
+
+	/** converted from the per-locale documents on load and not stored yet (only a save of this document stores it) */
+	get unconverted(): boolean {
+		return !!this.converted && this.base[this.primary] == null;
+	}
+
+	/** a language-neutral document with locale-map texts (chapter, scene, season) */
+	get neutral(): boolean {
+		return this.texts !== null;
+	}
+	/** the languages of the texts: a neutral document's (the toon's), else the per-locale documents there are */
+	get textLanguages(): string[] {
+		return this.texts ? [...this.texts.languages] : this.present;
+	}
+	/** the source language of the texts */
+	get textSource(): string {
+		return this.texts?.source ?? this.primary;
 	}
 
 	/** The stored key of one locale (`chapter:catpope:1:de`; language-neutral entities: the entity) */
@@ -164,6 +224,7 @@ export class ContentDoc {
 	async load() {
 		this.loading = true;
 		this.error = null;
+		let legacy = null as { doc: unknown; conversion: DocConversion } | null;
 		const data: Record<string, any> = {};
 		const base: Record<string, number | null> = {};
 		const published: Record<string, number | null> = {};
@@ -182,6 +243,16 @@ export class ContentDoc {
 					} catch (e) {
 						if (!(e instanceof ApiError) || e.status !== 404) throw e;
 					}
+					// no neutral document yet: the per-locale ones, converted in memory
+					legacy = this.texts ? await this.loadLegacy() : null;
+					if (legacy) {
+						data[locale] = legacy.doc;
+						base[locale] = null;
+						published[locale] = null;
+						this.changedAt[locale] = null;
+						source[locale] = 'new';
+						return;
+					}
 					data[locale] = null;
 					base[locale] = null;
 					published[locale] = null;
@@ -194,12 +265,35 @@ export class ContentDoc {
 			return;
 		}
 		this.adopt(data, base, published, source);
-		// geometry is the same in every language: a locale that differs follows the source (saved with the next save)
-		this.geometryUnified = this.kind === 'chapter' || this.kind === 'group' ? unifyGeometry(this.kind, this.data, this.primary) : 0;
-		// so is audio (music, sample library, slice volumes and samples)
-		this.audioUnified = this.kind === 'chapter' || this.kind === 'group' ? unifyAudio(this.kind, this.data, this.primary) : 0;
+		// a conversion is not stored yet: unsaved until the next save stores the neutral document
+		if (legacy) this.saved[this.primary] = '';
+		this.converted = legacy?.conversion ?? null;
 		this.checkAutosave();
 		this.loading = false;
+	}
+
+	/**
+	 * The newest per-locale documents of a neutral entity (`chapter:catpope:2:de` …) as one neutral document
+	 * (@scutoons/content neutralizeDocs); null when there are none
+	 */
+	private async loadLegacy(): Promise<{ doc: unknown; conversion: DocConversion } | null> {
+		const texts = this.texts!;
+		const found: [string, unknown][] = [];
+		await Promise.all(
+			texts.languages.map(async (locale) => {
+				try {
+					const wrapped = await getDraft(`${this.entity}:${locale}`);
+					found.push([locale, wrapped.content]);
+				} catch (e) {
+					if (!(e instanceof ApiError) || e.status !== 404) throw e;
+				}
+			})
+		);
+		if (!found.length) return null;
+		found.sort((a, b) => texts.languages.indexOf(a[0]) - texts.languages.indexOf(b[0]));
+		const kind = parseEntityKey(this.entity)!.kind as NeutralKind;
+		const result = neutralizeDocs(kind, Object.fromEntries(found.map(([l, doc]) => [l, doc])), texts.source);
+		return { doc: result.doc, conversion: { report: result.report, locales: found.map(([l]) => l) } };
 	}
 
 	/** Starts a new entity (e.g. a new chapter) in every locale. */
@@ -284,6 +378,78 @@ export class ContentDoc {
 
 	get(locale: string, path: Path) {
 		return getAt(this.data[locale], path);
+	}
+
+	/** An edit of the (neutral) document: one undo step (calls with the same `key` within ~1s merge). */
+	edit(change: (file: any) => void, key?: string) {
+		const file = this.data[this.primary];
+		if (!file) return;
+		this.checkpoint(key);
+		change(file);
+	}
+
+	/** Sets a field of the (neutral) document; `undefined` removes it. */
+	set(path: Path, value: any, key?: string) {
+		const file = this.data[this.primary];
+		if (!file) return;
+		this.checkpoint(key ?? path.join('.'));
+		if (value !== undefined) {
+			setAt(file, path, clone(value));
+			return;
+		}
+		const parent = getAt(file, path.slice(0, -1));
+		if (parent && typeof parent === 'object') delete parent[path[path.length - 1]];
+	}
+
+	/**
+	 * One language of a text leaf: a neutral document's locale map at `path` (an older plain value counts as the
+	 * source's); a per-locale document's value in that locale.
+	 */
+	text(path: Path, locale: string): any {
+		if (!this.texts) return this.get(locale, path);
+		const value = this.get(this.primary, path);
+		if (value !== null && typeof value === 'object' && !Array.isArray(value)) return value[locale];
+		return locale === this.texts.source ? value : undefined;
+	}
+
+	/** A group (chapter group or scene) of a neutral document as the reader gets it in `locale` (texts resolved; previews) */
+	resolvedGroup(path: Path, locale: string): Group | undefined {
+		const group = this.get(this.primary, path);
+		if (!group || !this.texts) return group;
+		return resolveGroup(group, locale, this.texts);
+	}
+
+	/** A slice of a neutral document as the reader gets it in `locale` (texts resolved; the canvas) */
+	resolvedSlice(path: Path, locale: string): Slice | undefined {
+		const slice = this.get(this.primary, path);
+		if (!slice || !this.texts) return slice;
+		return resolveSlice(slice, locale, this.texts);
+	}
+
+	/** whether a text leaf has a text in a locale (blank = none, like the reader) */
+	hasText(path: Path, locale: string): boolean {
+		return isLocaleValue(this.text(path, locale));
+	}
+
+	/**
+	 * Writes one language of a text leaf: a neutral document's locale map (a blank text leaves that language out – it
+	 * falls back like a missing one); a per-locale document's value in that locale.
+	 */
+	setText(path: Path, locale: string, value: string | string[], key?: string) {
+		if (!this.texts) return this.setLocal(locale, path, value, key);
+		const file = this.data[this.primary];
+		if (!file) return;
+		this.checkpoint(key ?? `text:${locale}:${path.join('.')}`);
+		const current = getAt(file, path);
+		const map: Record<string, unknown> =
+			current !== null && typeof current === 'object' && !Array.isArray(current)
+				? current
+				: current === undefined || current === null || current === ''
+					? {}
+					: { [this.texts.source]: current };
+		if (isLocaleValue(value) || (typeof value === 'string' && value !== '')) map[locale] = clone(value);
+		else delete map[locale];
+		setAt(file, path, map);
 	}
 
 	/**

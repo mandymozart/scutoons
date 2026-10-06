@@ -8,6 +8,7 @@
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { FORM_TYPES, castOptions, conditionWords, summary, template, triggerWord } from '$lib/editor/vn-forms.ts';
+	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import EventMessage from '$lib/components/events/event-message.svelte';
 	import EventChoice from '$lib/components/events/event-choice.svelte';
@@ -58,6 +59,8 @@
 	} = $props();
 
 	const events = $derived<any[]>(doc.get(doc.primary, eventsPath) ?? []);
+	/** the summaries' language: the header's text language, else the source */
+	const chain = $derived([listLanguage(doc.textLanguages, doc.textSource), doc.textSource]);
 	/** the points a divert can go to: the group's script (a slice event diverts into it) or this script */
 	const pointNames = $derived(groupPoints ?? scriptLabels(events));
 	const charOptions = $derived(characters.map((c) => ({ value: c.name, label: c.label ? `${c.name} (${c.label})` : c.name })));
@@ -68,7 +71,7 @@
 		const event = newEvent(type);
 		// a new slice event covers the whole slice (when scrolled into view); an area is drawn with the ⚡ tool or switched on below
 		if (sliceEvents) event.trigger = { type: Trigger.INTERSECT };
-		doc.structural((file) => {
+		doc.edit((file) => {
 			let list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) {
 				const parent = getAt(file, eventsPath.slice(0, -1));
@@ -108,7 +111,7 @@
 	}
 
 	function remove(index: number) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, eventsPath);
 			if (Array.isArray(list)) list.splice(index, 1);
 		});
@@ -116,7 +119,7 @@
 
 	async function changeType(index: number, type: string) {
 		if (!(await confirmDialog({ title: m['creator.change_type_title'](), message: m['creator.change_type_confirm']({ index: index + 1, type }), confirmLabel: m['creator.change_type_label']() }))) return;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) return;
 			const next = newEvent(type);
@@ -149,7 +152,7 @@
 		const moving = dragging;
 		if (!moving?.length) return;
 		let map = new Map<number, number>();
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) return;
 			const result = moveMany(list, moving, target);
@@ -224,7 +227,7 @@
 					{#each people(event) as who, wi (wi)}
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
-					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event)}</span>
+					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain)}</span>
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
 				<span class="tools">

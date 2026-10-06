@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { VariantMedia } from '@scutoons/media';
 	import { Icon, Tabs } from '@scutoons/ui';
-	import { scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
+	import { previewText, scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -110,7 +110,7 @@
 			{#each dialogs as d, di (di)}
 				<li>
 					<button class="ghost" class:active={selection?.kind === 'dialog' && selection.index === di} onclick={() => view.select({ kind: 'dialog', index: di })} data-testid="dialog-{di}">
-						<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{presetLabel(d)}</span> {String(Array.isArray(d.text) ? d.text[0] : d.text).slice(0, 40)}
+						<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{presetLabel(d)}</span> {previewText(d.text, [locale, doc.textSource]).slice(0, 40)}
 					</button>
 				</li>
 			{/each}
@@ -149,7 +149,7 @@
 				path={[...slicePath, 'items', selection.index]}
 				{characters}
 				{choices}
-				dialogs={boxChoices([slice])}
+				dialogs={boxChoices([slice], [locale, doc.textSource])}
 				oncreatebox={(i) => selection && oncreatebox(i, ['items', selection.index, 'events'])}
 				{onremove}
 			/>
@@ -182,7 +182,7 @@
 			{groupLabels}
 			{characters}
 			{choices}
-			dialogs={boxChoices([slice])}
+			dialogs={boxChoices([slice], [locale, doc.textSource])}
 			oncreatebox={(i) => oncreatebox(i)}
 			selected={selection?.kind === 'event' ? selection.index : -1}
 			onselect={(i) => (view.selection = { kind: 'event', index: i })}

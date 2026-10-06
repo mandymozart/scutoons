@@ -1,7 +1,7 @@
 // The chapter editor's slice edits (COMPONENTS.md step 12): add a text (with a preset's look), a box for an
-// onomatopoeia event, a placed item, a ⚡ event, a sample area, remove the selection. Each one edits every language
-// (`structural`) and answers what to select next.
-import { deleteAt, getAt, Trigger, TriggerMode, type Path } from '@scutoons/content';
+// onomatopoeia event, a placed item, a ⚡ event, a sample area, remove the selection. Each one is one edit of the
+// language-neutral document (texts start empty or in the source language) and answers what to select next.
+import { deleteAt, getAt, previewText, Trigger, TriggerMode, type Path } from '@scutoons/content';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import type { CanvasSelection } from '$lib/components/slice/slice-canvas.svelte';
 import { newDialog, nextDialogId } from '$lib/editor/defaults.ts';
@@ -28,7 +28,7 @@ function nextId(t: SliceTarget) {
 export function addDialog(t: SliceTarget, rect?: { x: number; y: number; width: number; height?: number }, preset: TextPreset = presetOf('speech')): CanvasSelection {
 	const id = nextId(t);
 	const index = (t.slice?.dialog ?? []).length;
-	t.doc.structural((file) => {
+	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		if (!slice) return;
 		slice.dialog ??= [];
@@ -42,18 +42,18 @@ export function addDialog(t: SliceTarget, rect?: { x: number; y: number; width: 
 /**
  * "Create a text box for this" (onomatopoeia event `index` of the slice's events, or of `eventsPath` = a placed item's
  * tap events, relative to the slice): a bare lettering box in the middle of the slice (white letters, ink outline,
- * uppercase, "BAM" to overwrite per language), revealed by the event.
+ * uppercase, "BAM" in the source language – the other languages show it until they get their own), revealed by the event.
  */
 export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Path = ['events']): CanvasSelection {
 	const id = nextId(t);
 	const boxIndex = (t.slice?.dialog ?? []).length;
-	t.doc.structural((file) => {
+	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		const event = slice ? getAt(slice, eventsPath)?.[index] : undefined;
 		if (!slice || event?.type !== 'showOnomatopeia') return;
 		slice.dialog ??= [];
 		const ono = presetOf('onomatopoeia');
-		const dialog = { ...newDialog(id, { ...ono.rect }), text: 'BAM' };
+		const dialog = { ...newDialog(id, { ...ono.rect }), text: { [t.doc.textSource]: 'BAM' } };
 		applyTextPreset(dialog as unknown as Record<string, unknown>, ono);
 		slice.dialog.push(dialog);
 		(event.params ??= {}).dialog = id;
@@ -68,7 +68,7 @@ export function addSliceItem(t: SliceTarget, itemId: string, spot: { x: number; 
 	const taken = new Set(items.map((it) => it?.id));
 	let n = 1;
 	while (taken.has(`${itemId}-${n}`)) n++;
-	t.doc.structural((file) => {
+	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		if (!slice) return;
 		slice.items ??= [];
@@ -84,11 +84,11 @@ export function addSliceItem(t: SliceTarget, itemId: string, spot: { x: number; 
 export function addSliceEvent(t: SliceTarget, rect: { x: number; y: number; width: number; height: number }): CanvasSelection {
 	const area = rect.width > 0 && rect.height > 0;
 	const index = t.slice?.events?.length ?? 0;
-	t.doc.structural((file) => {
+	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		if (!slice) return;
 		slice.events ??= [];
-		slice.events.push({ type: 'showMessage', params: { text: '', wait: true }, trigger: area ? { type: Trigger.CLICK, rect: { ...rect } } : { type: Trigger.INTERSECT } });
+		slice.events.push({ type: 'showMessage', params: { text: {}, wait: true }, trigger: area ? { type: Trigger.CLICK, rect: { ...rect } } : { type: Trigger.INTERSECT } });
 	});
 	return { kind: 'event', index };
 }
@@ -96,7 +96,7 @@ export function addSliceEvent(t: SliceTarget, rect: { x: number; y: number; widt
 /** a click sample on a drawn area (the chapter's first library sample); null without a sample library */
 export function addSampleArea(t: SliceTarget, rect: { x: number; y: number; width: number; height: number }, library: { id: string }[]): CanvasSelection | null {
 	if (!library.length) return null;
-	t.doc.structural((file) => {
+	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		if (!slice) return;
 		slice.audio ??= {};
@@ -118,7 +118,7 @@ export function removeSelected(t: SliceTarget, selection: CanvasSelection) {
 				: kind === 'sample'
 					? [...t.slicePath, 'audio', 'audio', 'samples']
 					: [...t.slicePath, 'events'];
-	t.doc.structural((file) => {
+	t.doc.edit((file) => {
 		const list = getAt(file, listPath);
 		if (!Array.isArray(list)) return;
 		list.splice(index, 1);
@@ -126,10 +126,10 @@ export function removeSelected(t: SliceTarget, selection: CanvasSelection) {
 	});
 }
 
-/** text boxes as choices for an onomatopoeia event (`params.dialog`): id + the start of the source text */
-export const boxChoices = (slices: any[] | undefined) =>
+/** text boxes as choices for an onomatopoeia event (`params.dialog`): id + the start of the text (`chain`: the languages to try) */
+export const boxChoices = (slices: any[] | undefined, chain: readonly string[] = []) =>
 	(slices ?? []).flatMap((sl: any) =>
 		(sl?.dialog ?? [])
 			.filter((d: any) => typeof d?.id === 'string' && d.id)
-			.map((d: any) => ({ id: d.id as string, label: `${d.id} · ${String(Array.isArray(d.text) ? d.text[0] : (d.text ?? '')).slice(0, 24)}` }))
+			.map((d: any) => ({ id: d.id as string, label: `${d.id} · ${previewText(d.text, chain).slice(0, 24)}` }))
 	);

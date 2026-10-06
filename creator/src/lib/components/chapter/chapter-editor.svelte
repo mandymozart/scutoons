@@ -33,7 +33,7 @@
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
-	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import { validateFile, validateNeutral, type Problem } from '@scutoons/content';
 	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
@@ -136,7 +136,7 @@
 		const library: any[] = chapterData?.audio?.sampleLibrary ?? [];
 		const known = library.find((s) => s?.path === path || (media.variants && Object.values(s?.variants ?? {}).includes(path)));
 		if (known?.id) {
-			chapter.structural((file) => {
+			chapter.edit((file) => {
 				const entry = (file.audio?.sampleLibrary ?? []).find((s: any) => s?.id === known.id);
 				if (!entry) return;
 				entry.path = path;
@@ -148,7 +148,7 @@
 		const base = (path.split('/').pop() ?? path).replace(/(\.\d+)?\.[a-z0-9]+$/i, '').replace(/^s\d+c\d+-/i, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'sample';
 		let id = base;
 		for (let n = 2; library.some((s) => s?.id === id); n++) id = `${base}_${n}`;
-		chapter.structural((file) => {
+		chapter.edit((file) => {
 			file.audio ??= {};
 			file.audio.sampleLibrary ??= [];
 			if (!file.audio.sampleLibrary.some((s: any) => s?.id === id)) file.audio.sampleLibrary.push(media.variants ? { id, path, variants: media.variants } : { id, path });
@@ -186,11 +186,11 @@
 	const sliceDocs = $derived<ContentDoc[]>([chapter, ...Object.values(refs)]);
 	/** texts that still have the old look (a mask over baked text, chapter 1) */
 	const legacyTexts = $derived(sliceDocs.reduce((n, d) => n + (d.loading ? 0 : legacyTextCount(d.data[d.primary])), 0));
-	/** one step (owner 2026-10-03): every masked text → its preset, in every language; save / publish as usual */
+	/** one step (owner 2026-10-03): every masked text → its preset; save / publish as usual */
 	function convertLegacyTexts() {
 		for (const d of sliceDocs) {
 			const plan = legacyPlan($state.snapshot(d.data[d.primary]));
-			if (plan.length) d.structural((file) => applyLegacyPlan(file, plan), 'convert-presets');
+			if (plan.length) d.edit((file) => applyLegacyPlan(file, plan), 'convert-presets');
 		}
 	}
 	const anySaving = $derived(allDocs.some((d) => d.saving));
@@ -211,7 +211,7 @@
 	});
 
 	function refreshImages() {
-		knownImages(toon, chapter.locales, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
+		knownImages(toon, chapter.textLanguages, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
 	}
 
 	// ── Selection / view state: one object (lib/editor/chapter-state.svelte.ts) – the tree, the canvas, the inspector
@@ -248,29 +248,12 @@
 		docs: () => allDocs,
 		beforeSave: () => {
 			// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
-			syncChapter(chapter, season, chapterNumber);
+			syncChapter(chapter);
 			// a cast saved from here keeps the toon's star in every season
 			if (castTouched || cast.dirty) castWithStar(cast, registry, toon, [SEASON]);
 		},
 		afterSave: () => refreshImages(),
 		errorCount: () => errorCount
-	});
-	// geometry is the same in every language: tell once when loading made a language follow the source (saved with the next save)
-	const unifiedGeometry = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.geometryUnified), 0));
-	const unifiedAudio = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.audioUnified), 0));
-	let unifiedAudioShown = 0;
-	let unifiedShown = 0;
-	$effect(() => {
-		const notes: string[] = [];
-		if (unifiedGeometry > unifiedShown) {
-			notes.push(m['creator.geometry_unified']({ n: unifiedGeometry }));
-			unifiedShown = unifiedGeometry;
-		}
-		if (unifiedAudio > unifiedAudioShown) {
-			notes.push(m['creator.audio_unified']({ n: unifiedAudio }));
-			unifiedAudioShown = unifiedAudio;
-		}
-		if (notes.length) session.notice = notes.join(' ');
 	});
 
 	const currentGroup = $derived(groups[view.groupIndex]);
@@ -383,31 +366,32 @@
 		const names = characters.map((c) => c.name);
 		const expressions = registryOf(registry) ? expressionIndex(registryOf(registry)) : undefined;
 		const moodIds = moodsOf(moods).moods.map((x) => x.id);
+		const catalogItems = itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined;
+		const itemRespawn = itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined;
 		for (const doc of allDocs) {
 			if (doc.loading) continue;
-			for (const l of doc.locales) {
-				if (doc.source[l] === 'missing' && doc.data[l] == null) {
-					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.entity, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
-					continue;
-				}
-				out.push(
-					...validateFile(doc.kind, doc.data[l], l, {
-						file: doc.entity,
-						audio: chapterData?.audio,
-						characters: !hasCast && names.length ? names : undefined,
-						cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
-						expressions,
-						moods: moodIds,
-						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined,
-						// linked groups: a ref group's `continues` lives in its scene (this locale's, else the source's)
-						resolveGroup: (g: any) => (g?.ref?.src ? (refs[g.ref.src]?.data?.[l] ?? refs[g.ref.src]?.data?.[refs[g.ref.src].primary]) : g),
-						// placed items (and related items) are checked against the catalog once it is loaded
-						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined,
-						itemRespawn: itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined
-					})
-				);
+			const data = doc.data[doc.primary];
+			const ctx = {
+				file: doc.entity,
+				audio: chapterData?.audio,
+				characters: !hasCast && names.length ? names : undefined,
+				cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
+				expressions,
+				moods: moodIds,
+				// the chapter's visibility: its entry in the season (null = none)
+				seasonStatus: doc === chapter ? seasonStatusOf(season, languages.source, chapterNumber) : undefined,
+				// linked groups: a ref group's `continues` lives in its scene
+				resolveGroup: (g: any) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g),
+				// placed items (and related items) are checked against the catalog once it is loaded
+				items: catalogItems,
+				itemRespawn
+			};
+			if (data == null) {
+				if (doc.source[doc.primary] === 'missing') out.push({ level: 'error', file: doc.entity, locale: null, path: [], message: m['creator.missing']() });
+				continue;
 			}
-			out.push(...validateLocales(doc.kind, doc.entity, doc.data, doc.primary));
+			// chapter, scenes, season: one language-neutral document, checked once + its texts per language
+			out.push(...(doc.texts ? validateNeutral(doc.kind, data, doc.texts, ctx) : validateFile(doc.kind, data, doc.primary, ctx)));
 		}
 		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: entities.cast(toon) }));
 		// suggestions from the VN usage (info): who the scenes use but the featuring / the season cast lacks
@@ -459,7 +443,7 @@
 		const t = sliceTarget();
 		if (!t) return;
 		view.select(edits.addDialog(t, rect, preset));
-		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${t.doc.primary}"]`)?.focus());
+		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('[data-testid="dialog-inspector"] textarea')?.focus());
 	}
 	function createBoxForEvent(index: number, eventsPath?: Path) {
 		const t = sliceTarget();
@@ -494,7 +478,7 @@
 	 * The chapter in the live reader with its draft preview on (`?preview=draft`, viewer lib/draft-preview.svelte.ts):
 	 * the saved drafts, at the open group. The locale prefix picks the text language; the reader has de and en only.
 	 */
-	const readerLocales = $derived(chapter.locales.filter((l) => l === 'de' || l === 'en'));
+	const readerLocales = $derived(chapter.textLanguages.filter((l) => l === 'de' || l === 'en'));
 	const previewHref = (locale: string) =>
 		`${VIEWER_URL}/${locale}/${toon}/chapter/${chapterNumber}?preview=draft${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
 	/** unsaved changes would be missing in the reader: save the draft first (with the note dialog), then open it */
@@ -621,8 +605,6 @@
 			{session}
 			docs={allDocs}
 			dirty={anyDirty && !chapter.saving}
-			dirtyDetail={activeDoc?.dirty && view.section === 'slice' ? activeDoc.dirtyLocales.join(', ') : undefined}
-			createLocale={(doc, locale) => doc.createLocale(locale, (f) => (f && doc.kind === 'chapter' ? { ...f, language: locale } : f))}
 		/>
 		{#if castNotice}
 			<div class="sc-bar is-note" data-testid="cast-notice">
@@ -669,10 +651,10 @@
 						{/if}
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices)} {groupLabels} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} />
 						{:else}
 							<p class="hint">No VN script in this group.
-								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
+								<button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
 						{/if}
 					{:else if activeDoc?.error}
 						<p class="error">{activeDoc.error}</p>

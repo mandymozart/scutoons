@@ -12,6 +12,7 @@ import {
 	lookLabel,
 	lookPortraitMoods,
 	moodLabel,
+	previewText,
 	resolveCharacterId,
 	scriptLabels,
 	sortedMoods,
@@ -35,9 +36,10 @@ export const VIEW_SLOTS = [
 export function template(type: string, ctx: { firstCharacter?: string; events: any[]; pointNames: string[] }): any {
 	switch (type) {
 		case 'showMessage':
-			return { type, params: { text: '', wait: true } };
+			// texts per language (a language-neutral chapter / scene), filled in the form
+			return { type, params: { text: {}, wait: true } };
 		case 'addChoice':
-			return { type, params: { label: '' } };
+			return { type, params: { label: {} } };
 		case 'jumpTo':
 			return { type, params: { target: { type: 'chapter', value: '1' } } };
 		case 'showOnomatopeia':
@@ -89,17 +91,17 @@ export function jumpWords(t: any): string {
 	return `${t.type ?? ''} ${t.value ?? ''}${t.label ? ` · ${t.label}` : ''}`;
 }
 
-/** the line's words: what the event does, from the source language */
-export function summary(event: any): string {
+/** the line's words: what the event does, in the first language of `chain` that has the text (else any) */
+export function summary(event: any, chain: readonly string[] = []): string {
 	const p = event?.params ?? {};
 	const cut = (s: unknown, n = 48) => {
-		const t = String(Array.isArray(s) ? s[0] : (s ?? '')).replace(/\s+/g, ' ').trim();
+		const t = previewText(s, chain).replace(/\s+/g, ' ').trim();
 		return t.length > n ? `${t.slice(0, n)}…` : t;
 	};
 	switch (event?.type) {
 		case 'showMessage':
 			// the speaker is the small avatar in front of the line; the words in quotes
-			return p.text ? `“${cut(p.text)}”` : '';
+			return cut(p.text) ? `“${cut(p.text)}”` : '';
 		case 'addChoice': {
 			const acts = actionsOf(p.onSelect).map((a: any) =>
 				a.set ? `${a.set.variable} = ${a.set.value}` : a.add ? `${a.add.variable} + ${a.add.value}` : a.divert ? `↪ ${a.divert.to}` : a.jumpTo ? `→ ${jumpWords(a.jumpTo.target)}` : ''

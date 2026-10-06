@@ -6,6 +6,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel } from '$lib/labels.ts';
+	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 
 	/** Version history of one entity per locale: restore an old version as the new draft, publish / unpublish. */
@@ -54,20 +55,23 @@
 	const reviewed = $derived(reviews.needsReview(doc.toon));
 	const inReview = $derived(new Set([...(reviews.overview?.to_review ?? []), ...(reviews.overview?.mine ?? [])].filter((r) => r.state === 'pending').map((r) => r.version)));
 
+	/** a language-neutral document's version holds every language (chapters, scenes, seasons: the toon's) */
+	const lang = (locale: string) => (locale === NEUTRAL_LOCALE ? (doc.texts?.languages.join(', ') ?? '–') : locale);
+
 	async function restore(locale: string, v: ContentVersion) {
 		// one question: unsaved changes in that language are lost, and the version becomes a new draft
-		const message = `${doc.dirtyLocales.includes(locale) ? `${m['creator.leave_confirm']()} ` : ''}${m['creator.restore_confirm_when']({ when: when(v.created_at), locale })}`;
+		const message = `${doc.dirtyLocales.includes(locale) ? `${m['creator.leave_confirm']()} ` : ''}${m['creator.restore_confirm_when']({ when: when(v.created_at), locale: lang(locale) })}`;
 		if (!(await confirmDialog({ title: m['creator.restore_title'](), message, confirmLabel: m['creator.restore']() }))) return;
 		act(() => restoreVersion(doc.key(locale), v.id));
 	}
 
 	async function publish(locale: string, v: ContentVersion) {
-		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} (${when(v.created_at)})`, locales: locale }), confirmLabel: m['creator.publish']() }))) return;
+		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} (${when(v.created_at)})`, locales: lang(locale) }), confirmLabel: m['creator.publish']() }))) return;
 		act(() => publishVersion(doc.key(locale), v.id));
 	}
 
 	async function unpublish(locale: string) {
-		if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: fileLabel(doc.entity), locale }), confirmLabel: m['creator.unpublish_label']() }))) return;
+		if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: fileLabel(doc.entity), locale: lang(locale) }), confirmLabel: m['creator.unpublish_label']() }))) return;
 		act(() => unpublishEntity(doc.key(locale)));
 	}
 
@@ -85,7 +89,7 @@
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}
 	{#each doc.locales as l (l)}
-		<h3>{l}</h3>
+		{#if l !== NEUTRAL_LOCALE}<h3>{l}</h3>{/if}
 		{#if !versions[l]?.length}
 			<p class="hint">{doc.source[l] === 'store' ? '…' : m['creator.static_file']()}</p>
 		{:else}

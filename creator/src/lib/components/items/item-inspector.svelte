@@ -74,12 +74,12 @@
 			const n = Math.min(bounds(u).max, Math.max(bounds(u).min, Math.round(d / UNIT_MINUTES[u])));
 			next = { [u]: n } as RespawnInterval;
 		}
-		doc.setShared(p('respawn'), next);
+		doc.set(p('respawn'), next);
 	}
 	function setRespawnCount(raw: string) {
 		if (choiceKind === 'default' || choiceKind === 'never' || choiceKind === 'visit' || choiceKind === 'invalid') return;
 		const n = Math.floor(Number(raw));
-		if (n >= 1) doc.setShared(p('respawn'), { [choiceKind]: n });
+		if (n >= 1) doc.set(p('respawn'), { [choiceKind]: n });
 	}
 </script>
 
@@ -95,7 +95,7 @@
 			<code>{placed.item}</code>
 			<button type="button" class="secondary" onclick={() => (picking = true)} data-testid="item-change">{m['creator.slice_item_change']()}</button>
 		</div>
-		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.setShared(p('item'), item.id)} />
+		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.set(p('item'), item.id)} />
 
 		<div class="sc-fields" data-cols="2" data-density="panel">
 			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />

@@ -54,7 +54,7 @@
 	}
 
 	function setVolume(id: string, volume: number | undefined) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
 			if (volume === undefined) {
@@ -78,7 +78,7 @@
 	function addSample(type: Trigger) {
 		// the new one's index before the push (read after it, the derived list already has it: one past – the old bug)
 		const index = samples.length;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
 			s.audio ??= {};
@@ -96,7 +96,7 @@
 	function setSound(index: number, media: VariantMedia) {
 		if (!media.src) return;
 		const id = librarySample(media);
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const sample = getAt(file, [...samplesPath, index]);
 			if (sample) sample.id = id;
 		});
@@ -116,7 +116,7 @@
 	const triggerWord = (sample: any) => `${TRIGGER_WORDS[sample?.trigger?.type] ?? sample?.trigger?.type ?? ''}${sample?.trigger?.rect ? ' · area' : ''}`;
 
 	function removeSample(index: number) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, samplesPath);
 			if (!Array.isArray(list)) return;
 			list.splice(index, 1);
@@ -127,7 +127,7 @@
 	}
 
 	function setTriggerType(index: number, type: string) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const trigger = getAt(file, [...samplesPath, index, 'trigger']);
 			if (!trigger) return;
 			trigger.type = type;
@@ -138,7 +138,7 @@
 
 	/** Known bug in older configs: samples at audio.samples are never played (reader reads audio.audio.samples). */
 	function moveMisplaced() {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!Array.isArray(s?.audio?.samples)) return;
 			s.audio.audio ??= {};

@@ -1,5 +1,5 @@
 // Defaults for new content, following the existing catpope configs and agents/DESIGN.md (SCUTOONS style).
-import type { Chapter, Dialog, Group, Season, Slice, ToonIndex, ToonSettings } from '@scutoons/content';
+import type { Chapter, ChapterDoc, Dialog, DialogDoc, Group, Season, SeasonDoc, SequenceItemDoc, Slice, ToonIndex, ToonSettings } from '@scutoons/content';
 import { DEFAULT_SLICE, Renderer, Status } from '@scutoons/content';
 
 /** The standard slice (PLAN.md rule, owner 2026-09-30): 390 × 625 px, delivered at 1x as WebP; other heights are fine. */
@@ -41,6 +41,22 @@ export function newChapter(number: number, locale: string, author = 'Mandy Mozar
 	};
 }
 
+/** A new language-neutral chapter (agents/NEUTRAL.md): its title per language, the same release in every language */
+export function newChapterDoc(number: number, languages: readonly string[], author = 'Mandy Mozart', season = 1): ChapterDoc {
+	const { title, release, description, language: _language, status: _status, ...rest } = newChapter(number, languages[0] ?? 'en', author, season);
+	return {
+		...rest,
+		title: Object.fromEntries(languages.map((l) => [l, chapterTitle(number, l)])),
+		description: {},
+		release: Object.fromEntries(languages.map((l) => [l, release])),
+		groups: rest.groups as ChapterDoc['groups']
+	};
+}
+
+/** A season entry's status in every language (a new chapter starts as a draft everywhere) */
+export const sequenceStatus = (languages: readonly string[], status: Status = Status.DRAFT): SequenceItemDoc['status'] =>
+	Object.fromEntries(languages.map((l) => [l, status]));
+
 /** The toon's name in a locale from its index entry (i18n name / title), else the id. */
 export function toonName(entry: ToonIndex | null | undefined, locale: string, fallback: string) {
 	const i18n = entry?.i18n ?? {};
@@ -67,6 +83,18 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 		description: '',
 		// the season's folder (agents/ASSETS.md "Folder convention"): <toon>/s<season>/
 		cover: { square: `s${number}/s${number}-cover-square.webp`, portrait: `s${number}/s${number}-cover-portrait.webp` },
+		sequence: []
+	};
+}
+
+/** A new language-neutral season (empty sequence): its title per language */
+export function newSeasonDoc(languages: readonly string[], authors: string[] = [], number = 1): SeasonDoc {
+	const { title, release, description, language: _language, sequence: _sequence, ...rest } = newSeason(languages[0] ?? 'en', authors, number);
+	return {
+		...rest,
+		title: Object.fromEntries(languages.map((l) => [l, (SEASON_TITLES[l] ?? SEASON_TITLES.en)(number)])),
+		description: {},
+		release: Object.fromEntries(languages.map((l) => [l, release ?? isoDate()])),
 		sequence: []
 	};
 }
@@ -103,9 +131,9 @@ export function newSlice(chapter: number, index: number, season = 1): Slice {
 	return { image: sliceImagePath(chapter, index, season), width: DEFAULT_SLICE.width, height: DEFAULT_SLICE.height };
 }
 
-/** A new text box: a caption by default (owner 2026-10-03) */
-export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['variant'] = 'caption'): Dialog {
-	return { id, rect, text: '', variant, size: 4 };
+/** A new text box: a caption by default (owner 2026-10-03); its text per language starts empty */
+export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['variant'] = 'caption'): DialogDoc {
+	return { id, rect, text: {}, variant, size: 4 };
 }
 
 /** A free dialog id `s1c2-<slice>-<n>` (slice number is 1-based, like chapter 1) */

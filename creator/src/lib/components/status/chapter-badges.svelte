@@ -22,12 +22,14 @@
 	}
 
 	const issues = $derived.by<Issue[]>(() => {
-		const all = season.locales;
+		const all = season.textLanguages;
 		const out: Issue[] = [];
 		const add = (word: string, tone: Tone, locale: string) => {
+			// a language-neutral document's state concerns every language
+			const locales = locale === doc?.primary && doc?.neutral ? all : [locale];
 			const found = out.find((i) => i.word === word && i.tone === tone);
-			if (found) found.locales.push(locale);
-			else out.push({ word, tone, locales: [locale] });
+			if (found) found.locales.push(...locales);
+			else out.push({ word, tone, locales: [...locales] });
 		};
 		for (const l of all) {
 			const status = seasonStatusOf(season, l, number);
@@ -45,7 +47,7 @@
 		return out;
 	});
 	/** the languages only when the issue doesn't concern all of them */
-	const which = (issue: Issue) => (season.locales.length > 1 && issue.locales.length < season.locales.length ? ` · ${issue.locales.join(', ')}` : '');
+	const which = (issue: Issue) => (season.textLanguages.length > 1 && issue.locales.length < season.textLanguages.length ? ` · ${issue.locales.join(', ')}` : '');
 </script>
 
 {#if issues.length}

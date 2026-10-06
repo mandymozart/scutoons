@@ -31,7 +31,7 @@
 
 	/** an onomatopoeia's preset (effect + timing); the text and mode / wait stay */
 	function setPreset(preset: OnoPreset) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const e = getAt(file, path);
 			if (!e) return;
 			e.params ??= {};

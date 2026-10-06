@@ -20,7 +20,7 @@
 	const RATIOS: Record<Screen, number> = { phone: 390 / 844, desktop: 16 / 9 };
 	let screen = $state<Screen>('phone');
 
-	const slices = $derived<SliceModel[]>(doc.get(locale, [...groupPath, 'slices']) ?? []);
+	const slices = $derived<SliceModel[]>(doc.resolvedGroup(groupPath, locale)?.slices ?? []);
 	const src = (image: string) => replacedImages.src(asset(`${doc.toon}/${image}`), `${doc.toon}/${image}`);
 	const ratio = (slice: SliceModel) => `${slice.width > 0 ? slice.width : DEFAULT_SLICE.width} / ${slice.height > 0 ? slice.height : DEFAULT_SLICE.height}`;
 </script>

@@ -9,7 +9,7 @@
 	let { doc, path, event, index }: { doc: ContentDoc; path: Path; event: any; index: number } = $props();
 
 	function setCondition(on: boolean) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const e = getAt(file, path);
 			if (!e) return;
 			if (on) e.if = { variable: '', op: '==', value: '' };

@@ -57,7 +57,7 @@
 		const moving = dragging;
 		if (!moving?.length) return;
 		let map = new Map<number, number>();
-		chapter.structural((file) => {
+		chapter.edit((file) => {
 			if (!Array.isArray(file.groups)) return;
 			const result = moveMany(file.groups, moving, target);
 			map = result.map;
@@ -70,14 +70,14 @@
 	async function removeGroup(index: number) {
 		const g = groups[index];
 		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `group ${g?.label ?? g?.ref?.src ?? index + 1}` })))) return;
-		chapter.structural((file) => file.groups.splice(index, 1));
+		chapter.edit((file) => file.groups.splice(index, 1));
 		view.groupIndex = Math.max(0, index - 1);
 		view.section = 'meta';
 	}
 	/** one "Add group" (owner 2026-10-03: "Add separate scene" was a storage detail); new groups live in the chapter */
 	function addGroup() {
 		const label = `scene-${groups.length + 1}`;
-		chapter.structural((file) => file.groups.push(newGroup(label)));
+		chapter.edit((file) => file.groups.push(newGroup(label)));
 		view.selectGroup(groups.length - 1);
 	}
 </script>

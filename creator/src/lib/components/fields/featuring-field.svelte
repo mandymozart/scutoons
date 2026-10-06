@@ -48,7 +48,7 @@
 	};
 
 	function set(list: string[]) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			if (list.length) file.featuring = [...list];
 			else delete file.featuring;
 		}, 'featuring');

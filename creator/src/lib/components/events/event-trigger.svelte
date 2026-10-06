@@ -13,7 +13,7 @@
 
 	/** whole slice = no `trigger.rect`; off = a centred area to drag on the slice */
 	function setWholeSlice(whole: boolean) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const trigger = getAt(file, [...path, 'trigger']);
 			if (!trigger) return;
 			if (whole) delete trigger.rect;

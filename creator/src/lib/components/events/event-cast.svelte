@@ -36,7 +36,7 @@
 	/** a new row, empty, its picker focused (owner 2026-10-03: the button "did not work" – it copied the first character) */
 	async function addCharacter() {
 		let row = 0;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const params = getAt(file, [...path, 'params']);
 			if (!params) return;
 			params.characters ??= [];
@@ -46,7 +46,7 @@
 		await tick();
 		document.querySelectorAll<HTMLElement>(`[data-testid="event-${index}"] [data-testid="character-ref-open"]`)[row]?.focus();
 	}
-	const removeCharacter = (ci: number) => doc.structural((file) => getAt(file, [...path, 'params', 'characters'])?.splice(ci, 1));
+	const removeCharacter = (ci: number) => doc.edit((file) => getAt(file, [...path, 'params', 'characters'])?.splice(ci, 1));
 </script>
 
 {#each rows as row, ci (ci)}

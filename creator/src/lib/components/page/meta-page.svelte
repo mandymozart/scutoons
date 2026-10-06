@@ -8,7 +8,7 @@
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
-	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { pagePanel } from '$lib/ask.svelte.ts';
 	import { isAccepted } from '$lib/editor/accepted.ts';
@@ -93,6 +93,11 @@
 		}
 		for (const doc of docs) {
 			if (doc.loading) continue;
+			// a language-neutral season: once + its texts per language (agents/NEUTRAL.md)
+			if (doc.texts) {
+				out.push(...validateNeutral(doc.kind, doc.data[doc.primary], doc.texts, { file: doc.entity }));
+				continue;
+			}
 			for (const l of doc.locales) {
 				if (doc.data[l] == null) {
 					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.entity, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });

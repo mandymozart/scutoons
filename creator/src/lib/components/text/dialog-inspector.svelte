@@ -27,7 +27,7 @@
 
 	/** a preset's look, in every locale (words, id, position and size stay; owner 2026-10-03) */
 	function setPreset(next: TextPreset) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const d = getAt(file, path);
 			if (d) applyTextPreset(d, next);
 		}, `${path.join('.')}.preset`);

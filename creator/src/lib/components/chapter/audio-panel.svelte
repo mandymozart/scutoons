@@ -19,7 +19,7 @@
 	/** a track's / sample's files: `path` = the default (128k), `variants` = one per level (96k / 128k / 320k) */
 	const mediaOf = (entry: any): VariantMedia => ({ src: entry?.path || undefined, variants: entry?.variants });
 	function setMedia(path: (string | number)[], media: VariantMedia) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const entry = getAt(file, path);
 			if (!entry) return;
 			entry.path = media.src ?? '';
@@ -49,7 +49,7 @@
 	}
 
 	function addTo(list: 'tracks' | 'sampleLibrary') {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			file.audio ??= {};
 			if (list === 'tracks') {
 				file.audio.music ??= { transitionDuration: 3000, tracks: [] };
@@ -66,7 +66,7 @@
 		const path = list === 'tracks' ? ['audio', 'music', 'tracks'] : ['audio', 'sampleLibrary'];
 		const item = getAt(doc.data[doc.primary], [...path, index]);
 		if (!(await confirmRemove(m['creator.remove_confirm']({ what: item?.id ?? '' })))) return;
-		doc.structural((file) => getAt(file, path)?.splice(index, 1));
+		doc.edit((file) => getAt(file, path)?.splice(index, 1));
 	}
 </script>
 

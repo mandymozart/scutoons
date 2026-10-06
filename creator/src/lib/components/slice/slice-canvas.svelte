@@ -48,7 +48,8 @@
 		oncreate?: (tool: Tool, rect: Required<Rect>) => void;
 	} = $props();
 
-	const slice = $derived(doc.get(locale, slicePath) ?? doc.get(doc.primary, slicePath));
+	/** the slice as the reader shows it in `locale` (texts resolved – the editing below writes the document itself) */
+	const slice = $derived<any>(doc.resolvedSlice(slicePath, locale));
 	const image = $derived(slice?.image ? replacedImages.src(asset(`${doc.toon}/${slice.image}`), `${doc.toon}/${slice.image}`) : '');
 	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
 	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);

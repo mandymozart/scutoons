@@ -18,7 +18,10 @@ import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
  */
 export async function confirmPublish(files: ContentDoc[], errorCount = 0): Promise<boolean> {
 	if (errorCount && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: errorCount }), confirmLabel: m['creator.publish']() }))) return false;
-	const locales = [...new Set(files.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].filter((l) => l !== NEUTRAL_LOCALE).join(', ');
+	// a language-neutral chapter / scene / season publishes every language of its texts at once
+	const locales = [...new Set(files.flatMap((d) => (d.texts ? (d.dirty || d.unpublished.length ? d.texts.languages : []) : [...d.dirtyLocales, ...d.unpublished])))]
+		.filter((l) => l !== NEUTRAL_LOCALE)
+		.join(', ');
 	const file = fileLabels(files.map((d) => d.entity));
 	return confirmDialog({
 		title: m['creator.publish_title'](),

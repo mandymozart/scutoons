@@ -67,7 +67,7 @@
 		const moving = dragging;
 		if (!moving?.length) return;
 		let map = new Map<number, number>();
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, [...groupPath, 'slices']);
 			if (!Array.isArray(list)) return;
 			const result = moveMany(list, moving, target);
@@ -81,7 +81,7 @@
 
 	function add(after: number) {
 		const at = after + 1;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const path = [...groupPath, 'slices'];
 			let list = getAt(file, path);
 			if (!Array.isArray(list)) {
@@ -104,7 +104,7 @@
 	async function remove(index: number) {
 		const s = slices[index];
 		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `slice ${index + 1} (${s?.image ?? ''})` })))) return;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, [...groupPath, 'slices']);
 			if (Array.isArray(list)) list.splice(index, 1);
 		});

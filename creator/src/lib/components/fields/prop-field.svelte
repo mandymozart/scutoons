@@ -1,11 +1,10 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
-	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * A shared field (written to every locale that doesn't override it). Empty input removes the key, so the
-	 * renderer default applies (shown as placeholder). Per-locale overrides are listed and can be reset.
+	 * A field of a language-neutral document (chapter, scene, season – the same in every language). Empty input removes
+	 * the key, so the renderer default applies (shown as placeholder).
 	 */
 	let {
 		doc,
@@ -18,8 +17,7 @@
 		min,
 		max,
 		hint = '',
-		required = false,
-		editLocale = null
+		required = false
 	}: {
 		doc: ContentDoc;
 		path: Path;
@@ -33,19 +31,14 @@
 		hint?: string;
 		/** required keys are never removed (empty number → 0, empty text → '') */
 		required?: boolean;
-		/** set = edit only this locale (explicit override); null = shared */
-		editLocale?: string | null;
 	} = $props();
 
-	const readLocale = $derived(editLocale ?? doc.primary);
-	const value = $derived(doc.get(readLocale, path));
-	const overrides = $derived(editLocale ? [] : doc.overrides(path));
+	const value = $derived(doc.get(doc.primary, path));
 	const opts = $derived(options.map((o) => (typeof o === 'object' ? o : { value: o, label: String(o) })));
 	const id = $derived(`f-${path.join('-')}`);
 
 	function write(next: unknown) {
-		if (editLocale) doc.setLocal(editLocale, path, next);
-		else doc.setShared(path, next);
+		doc.set(path, next);
 	}
 
 	function onInput(raw: string) {
@@ -70,7 +63,7 @@
 	}
 </script>
 
-<div class="field" class:has-override={overrides.length > 0}>
+<div class="field">
 	<label for={id}>{label}</label>
 	{#if type === 'bool'}
 		<select {id} value={value === undefined ? '' : String(value)} onchange={(e) => onInput(e.currentTarget.value)}>
@@ -104,12 +97,6 @@
 		/>
 	{/if}
 	{#if hint}<span class="hint">{hint}</span>{/if}
-	{#each overrides as l}
-		<span class="override">
-			{l}: <span>{display(doc.get(l, path)) || '–'}</span> ({m['creator.override']()})
-			<button type="button" class="ghost" onclick={() => doc.resetOverride(l, path)}>{m['creator.use_shared']()}</button>
-		</span>
-	{/each}
 </div>
 
 <style>
@@ -133,13 +120,5 @@
 	}
 	.color input[type='color'] {
 		flex: none;
-	}
-	/* a per-locale override: ink text, a cyan rule (the "live" difference), no tinted fill */
-	.override {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		color: var(--ink);
-		border-left: 0.5em solid var(--cyan);
-		padding: var(--space-025) var(--space-05);
 	}
 </style>

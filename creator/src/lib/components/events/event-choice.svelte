@@ -22,7 +22,7 @@
 	}: { doc: ContentDoc; path: Path; event: any; index: number; pointNames: string[]; groupLabels: string[] } = $props();
 
 	function editActions(change: (list: any[]) => void) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const params = getAt(file, [...path, 'params']);
 			if (!params) return;
 			const list = actionsOf(params.onSelect).map((a: any) => clone(a));

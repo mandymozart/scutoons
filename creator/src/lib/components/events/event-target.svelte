@@ -11,7 +11,7 @@
 	let { doc, path, target, groupLabels }: { doc: ContentDoc; path: Path; target: any; groupLabels: string[] } = $props();
 
 	function toggleAnyOf(labelName: string, on: boolean) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const t = getAt(file, path);
 			if (!t) return;
 			const list: string[] = Array.isArray(t.anyOf) ? t.anyOf.filter((l: string) => l !== labelName) : [];
