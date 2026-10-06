@@ -1,6 +1,7 @@
 // The chapter's story flow (owner 2026-10-06, the creator's Flow panel).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { assertLinear } from './linear.ts';
 import { chapterFlow, chapterReach, conditionText, toonFacts, type ChapterFlow } from '../src/index.ts';
 
 const g = (o: object = {}) => ({ slices: [{}, {}], ...o });
@@ -13,6 +14,7 @@ test('conditionText: one line per test', () => {
 	assert.equal(conditionText({ variable: 'coins', op: '>=', value: 3 }), 'coins >= 3');
 	assert.equal(conditionText({ variable: 'met', op: 'set' }), 'met set');
 	assert.equal(conditionText(null), '');
+	assert.equal(conditionText({ expr: ' coins >= 3 && met ' }), 'coins >= 3 && met');
 });
 
 test('chapterFlow: reading order – linked groups, the follow-up bar, an authored end, the next chapter', () => {
@@ -98,8 +100,7 @@ test('chapterFlow: slice triggers and item taps – a lone divert enters the scr
 	assert.deepEqual(out(f, 'g0s0t1e0'), ['random:g1', 'random:x:chapter:2:zz']);
 	assert.deepEqual(node(f, 'g0s0t1e0')?.path, ['groups', 0, 'slices', 0, 'items', 0, 'events', 0]);
 	// a cyclic big chapter stays fast
-	const big = Array.from({ length: 300 }, (_, i) => g({ label: `g${i}`, continues: i < 299, events: [{ type: 'label', params: { name: 'l' } }, { type: 'divert', params: { to: 'l' }, if: { variable: 'v', op: 'set' } }, jump('2', `g${(i + 7) % 300}`)] }));
-	const t = Date.now();
-	assert.equal(chapterFlow(big, { chapter: 2 }).nodes.filter((n) => n.kind === 'group').length, 300);
-	assert.ok(Date.now() - t < 2000);
+	const big = (n: number) => Array.from({ length: n }, (_, i) => g({ label: `g${i}`, continues: i < n - 1, events: [{ type: 'label', params: { name: 'l' } }, { type: 'divert', params: { to: 'l' }, if: { variable: 'v', op: 'set' } }, jump('2', `g${(i + 7) % n}`)] }));
+	assert.equal(chapterFlow(big(300), { chapter: 2 }).nodes.filter((n) => n.kind === 'group').length, 300);
+	assertLinear((n) => chapterFlow(big(n), { chapter: 2 }), 400);
 });

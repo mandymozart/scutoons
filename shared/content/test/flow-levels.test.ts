@@ -2,7 +2,7 @@
 // SCUTOONS, dead things.   node --experimental-transform-types --no-warnings --test test/flow-levels.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterExits, chapterFlow, deadThings, groupFlow, sliceFlow, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
+import { chapterExits, chapterFlow, chapterReach, deadThings, groupFlow, sliceFlow, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
 
 const msg = (text: string, character?: string) => ({ type: 'showMessage', params: { text, ...(character ? { character } : {}) } });
 const join = (character: string, persona?: string) => ({ type: 'joinScene', params: { characters: [{ character, ...(persona ? { persona } : {}), variant: 'avatar' }] } });
@@ -221,4 +221,58 @@ test('deadThings: variables set but never read, read but never set, points and l
 	// follow-up bar, `used` a jump
 	assert.deepEqual(dead.labels.map((x) => x.name), ['middle', 'attic']);
 	assert.deepEqual(deadThings(chapters).labels, [], 'without the facts no label is judged');
+});
+
+test('step 3: expression conditions, askText, repeat rules (once for good), the dead things read expressions', () => {
+	const ask = (variable: string | undefined, scope?: string) => ({ type: 'askText', params: { text: 'What’s your name?', ...(variable ? { variable } : {}), ...(scope ? { scope } : {}) } });
+	const groups = [
+		{
+			label: 'a',
+			slices: [
+				{
+					events: [
+						{ ...msg('first time'), id: 'e1', trigger: { type: 'click', repeat: { mode: 'once' } } },
+						{ ...jump('3'), id: 'e2', trigger: { type: 'click', repeat: { mode: 'once' } } },
+						// no repeat and `every` are one rule – one run
+						{ ...jump('4'), id: 'e3', trigger: { type: 'hover' } },
+						{ ...msg('again'), id: 'e4', trigger: { type: 'hover', repeat: { mode: 'every' } } }
+					],
+					items: [{ item: 'key', repeat: { mode: 'once' }, events: [jump('5')] }]
+				}
+			],
+			events: [
+				ask('hero'),
+				ask(undefined, 'reader'),
+				{ ...jump('2'), if: { expr: 'coins >= 3 && met' } },
+				{ ...msg('{hero}, hi {reader.name}'), if: { expr: '  ' } },
+				msg('{gold > 2: rich|poor}')
+			]
+		}
+	];
+	// (1) an expression is a condition (dashed, its text on the edge), a blank one isn't; never "never true"
+	const facts = toonFacts([groups]);
+	assert.ok(facts.variables.has('hero'), 'askText (toon scope) sets its variable');
+	assert.ok(!facts.variables.has('reader.name'));
+	const reach = chapterReach(groups, facts);
+	assert.deepEqual(reach.neverTrue, []);
+	const f = chapterFlow(groups, { chapter: 2, facts, reach });
+	assert.ok(f.edges.some((e) => e.from === 'g0e2' && e.condition === 'coins >= 3 && met'), JSON.stringify(out(f, 'g0e2')));
+	assert.ok(f.edges.some((e) => e.from === 'g0e2' && e.branch === 'else'), 'a conditional jump goes on when its test fails');
+	// (5) (6) once for good: marked on the trigger / item tap; no repeat = every = one run
+	const triggers = f.nodes.filter((n) => n.kind === 'trigger');
+	assert.deepEqual(triggers.map((n) => [n.trigger, n.repeat ?? 'every']), [['click', 'once'], ['hover', 'every'], ['item', 'once']]);
+	assert.deepEqual(reach.once, [['groups', 0, 'slices', 0, 'events', 0], ['groups', 0, 'slices', 0, 'items', 0, 'events', 0]]);
+	const hover = groupFlow(groups, 0, { chapter: 2, facts, reach }).nodes.find((n) => n.kind === 'trigger' && n.trigger === 'hover')!;
+	assert.equal(hover.path?.join('.'), 'groups.0.slices.0.events.2');
+	// (4) askText: a step of its own on the group level – the question and where the answer goes
+	const g = groupFlow(groups, 0, { chapter: 2, facts, reach });
+	assert.deepEqual([node(g, 'g0e0')?.kind, node(g, 'g0e0')?.event, node(g, 'g0e0')?.asks, node(g, 'g0e0')?.first], ['step', 'askText', 'hero', 'What’s your name?']);
+	assert.equal(node(g, 'g0e1')?.asks, 'reader.name');
+	assert.equal(node(g, 'g0e1')?.condition, undefined);
+	// a blank expression is no condition: the message joins the run after the jump
+	assert.equal(node(g, 'g0e3')?.kind, 'run');
+	// (3) dead things: expression conditions and texts' {…} read (names of one part), askText sets
+	const dead = deadThings([{ number: 2, groups }], facts);
+	assert.deepEqual(dead.unread, [], JSON.stringify(dead.unread));
+	assert.deepEqual(dead.unset.map((d) => d.name), ['coins', 'gold', 'met']);
 });

@@ -52,6 +52,10 @@ final class FlowIndexApiTest extends TestCase
                 'events' => [
                     ['type' => 'setVariable', 'params' => ['variable' => 'searching', 'value' => 'yes']],
                     ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Zum {visits}. Mal']], 'if' => ['variable' => 'rocket', 'op' => 'set']],
+                    // step 3: askText sets its variable (scope toon; scope reader: the reader's name), `if.expr` and `{…}` read
+                    ['type' => 'askText', 'params' => ['text' => ['de' => 'Wie heißt du?'], 'variable' => 'hero']],
+                    ['type' => 'askText', 'params' => ['text' => ['de' => 'Und du?'], 'variable' => 'ignored', 'scope' => 'reader']],
+                    ['type' => 'showMessage', 'params' => ['text' => ['de' => '{gold > 2: reich|arm}, {reader.name}']], 'if' => ['expr' => 'coins >= 3 && hero != ""']],
                     ['type' => 'label', 'params' => ['name' => 'lonely']],
                     ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Zu Top Toy'], 'onSelect' => [['add' => ['variable' => 'visits', 'value' => 1]], ['jumpTo' => ['target' => $jump('toon', 'toptoy')]]]]],
                     ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Wald'], 'onSelect' => ['jumpTo' => ['target' => $jump('chapter', '3', 'forest')]]]],
@@ -87,7 +91,7 @@ final class FlowIndexApiTest extends TestCase
         ], $edges);
         $dead = $index['dead']['catpope'];
         self::assertSame(['searching'], array_column($dead['unread'], 'name'));
-        self::assertSame(['rocket'], array_column($dead['unset'], 'name'));
+        self::assertSame(['coins', 'gold', 'rocket'], array_column($dead['unset'], 'name'));
         self::assertSame([['name' => 'lonely', 'at' => [['chapter' => 2, 'group' => 0, 'label' => 'start']]]], $dead['points']);
         // `middle` follows a linked group and nothing jumps there; `scene-9` gets the follow-up bar
         self::assertSame(['middle'], array_column($dead['labels'], 'name'));

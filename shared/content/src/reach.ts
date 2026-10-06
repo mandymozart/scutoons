@@ -5,6 +5,7 @@
 // out are found on the way. The validator warns, the creator labels the items ("unreachable" chips).
 import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
 import { Trigger } from './enums.ts';
+import { repeatOf, type Repeat } from './recurrence.ts';
 import { actionsOf } from './vn-script.ts';
 
 export type Reach = 'reachable' | 'conditional' | 'unreachable';
@@ -12,7 +13,7 @@ type Path = (string | number)[];
 
 /** what the whole toon tells about a chapter (`toonFacts` over every document of the toon the caller has) */
 export interface ToonFacts {
-	/** variables something sets (setVariable, a choice's set / add, a picked-up item's id) */
+	/** variables something sets (setVariable, a choice's set / add, a picked-up item's id, an askText's answer) */
 	variables: ReadonlySet<string>;
 	/** group labels a jump target, an end, a random list or a map place refers to (entry points `?label=`) */
 	labels: ReadonlySet<string>;
@@ -37,6 +38,7 @@ export function toonFacts(docs: Iterable<unknown>): ToonFacts {
 		}
 		const o = v as Record<string, any>;
 		if (o.type === 'setVariable' && typeof o.params?.variable === 'string') variables.add(o.params.variable);
+		if (askVariable(o)) variables.add(askVariable(o)!);
 		if (typeof o.set?.variable === 'string') variables.add(o.set.variable);
 		if (typeof o.add?.variable === 'string') variables.add(o.add.variable);
 		if (o.action === 'pickup' && typeof o.item === 'string') variables.add(o.item);
@@ -48,6 +50,32 @@ export function toonFacts(docs: Iterable<unknown>): ToonFacts {
 	}
 	return { variables, labels };
 }
+
+/** the story variable an askText event sets (scope toon – the default; scope reader sets `reader.name`, no variable) */
+export function askVariable(e: unknown): string | null {
+	const o = e as { type?: unknown; params?: { variable?: unknown; scope?: unknown } } | null | undefined;
+	if (o?.type !== 'askText' || o.params?.scope === 'reader') return null;
+	return typeof o.params?.variable === 'string' && o.params.variable ? o.params.variable : null;
+}
+
+/** an event that runs only if its test holds: a simple test (`{ variable, op, value }`) or an expression (`{ expr }`) */
+export function isConditional(e: unknown): boolean {
+	const c = (e as { if?: { variable?: unknown; expr?: unknown } } | null | undefined)?.if;
+	return (typeof c?.variable === 'string' && !!c.variable) || (typeof c?.expr === 'string' && !!c.expr.trim());
+}
+
+/**
+ * The key of a slice trigger: events with the same trigger run as one (one run per click / hover / scroll). The repeat
+ * rule is part of it in its meaning (`repeatOf`: none = every time), not in its spelling.
+ */
+export function triggerKey(trigger: unknown): string {
+	if (!trigger || typeof trigger !== 'object') return '';
+	const { repeat, ...rest } = trigger as Record<string, unknown>;
+	return `${JSON.stringify(rest)}|${JSON.stringify(repeatOf(repeat))}`;
+}
+
+/** how often a slice event's run / an item's taps run (`trigger.repeat`, `item.repeat`) */
+export const runRepeat = (holder: unknown): Repeat => repeatOf((holder as { repeat?: unknown } | null | undefined)?.repeat);
 
 /**
  * A condition that can never be true: its variable is set nowhere in the toon (so it is always unset) and the test
@@ -82,6 +110,11 @@ export interface ChapterReach {
 	neverTrue: Path[];
 	/** diverts / questions caught in a loop with no way out (no end, no jump) */
 	loops: Path[];
+	/**
+	 * slice trigger runs and item taps that run once for good (`repeat.mode` once – the save game checks them off): the
+	 * path of the run's first event (…slices.s.events.j, …slices.s.items.x.events.0)
+	 */
+	once: Path[];
 }
 
 interface Edge {
@@ -91,7 +124,7 @@ interface Edge {
 	script: boolean;
 }
 
-const conditional = (e: any) => !!e?.if?.variable;
+const conditional = isConditional;
 
 /**
  * The chapter's reachability. `groups` = the chapter's groups with each scene in place of its ref. `facts` = the toon's
@@ -118,6 +151,7 @@ export function chapterReach(groups: readonly any[], facts?: ToonFacts): Chapter
 	};
 	const edge = (from: number, to: number, cond = false, script = false) => out[from].push({ to, cond, script });
 	const never: Path[] = [];
+	const once: Path[] = [];
 	const entries: number[] = [];
 
 	/**
@@ -225,13 +259,14 @@ export function chapterReach(groups: readonly any[], facts?: ToonFacts): Chapter
 			const runs = new Map<string, { events: any[]; idx: number[] }>();
 			(Array.isArray(s?.events) ? s.events : []).forEach((e: any, j: number) => {
 				if (!e?.trigger) return;
-				const key = JSON.stringify(e.trigger);
+				const key = triggerKey(e.trigger);
 				if (!runs.has(key)) runs.set(key, { events: [], idx: [] });
 				runs.get(key)!.events.push(e);
 				runs.get(key)!.idx.push(j);
 			});
 			const gates: number[] = [];
 			for (const run of runs.values()) {
+				if (runRepeat(run.events[0]?.trigger).mode === 'once') once.push([...base, 'slices', k, 'events', run.idx[0]]);
 				const scroll = run.events[0]?.trigger?.type === Trigger.INTERSECT;
 				const single = run.events.length === 1 && run.events[0]?.type === 'divert' && !conditional(run.events[0]);
 				const at = single ? events.findIndex((e) => e?.type === 'label' && e.params?.name === run.events[0].params?.to) : -1;
@@ -250,6 +285,7 @@ export function chapterReach(groups: readonly any[], facts?: ToonFacts): Chapter
 			}
 			(Array.isArray(s?.items) ? s.items : []).forEach((item: any, x: number) => {
 				if (!Array.isArray(item?.events) || !item.events.length) return;
+				if (runRepeat(item).mode === 'once') once.push([...base, 'slices', k, 'items', x, 'events', 0]);
 				const end = node();
 				exit[end] = true;
 				script(item.events, sNodes[k], end, [...base, 'slices', k, 'items', x, 'events']);
@@ -326,6 +362,7 @@ export function chapterReach(groups: readonly any[], facts?: ToonFacts): Chapter
 		slices: sliceNodes.map((nodes) => nodes.map(reach)),
 		events: eventNodes.map((nodes) => nodes.map(reach)),
 		neverTrue: never.map((p) => [...p]),
-		loops
+		loops,
+		once
 	};
 }

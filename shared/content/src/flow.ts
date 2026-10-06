@@ -16,7 +16,9 @@
 // layout, no texts of the UI.
 import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
 import type { JumpToTarget } from './content.ts';
-import { chapterReach, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
+import { analyseExpression, analyseText } from './expr/analyse.ts';
+import { askVariable, chapterReach, isConditional, runRepeat, triggerKey, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
+import type { RepeatMode } from './recurrence.ts';
 import { actionsOf } from './vn-script.ts';
 
 /** a node's state: the reach of its item, or a condition that can never be true / a loop with no way out at it */
@@ -68,6 +70,8 @@ export interface FlowNode {
 	script?: boolean;
 	/** trigger: `intersect` / `click` / `hover` / `item` */
 	trigger?: string;
+	/** trigger: how often it runs when not every time (`once` = once for good: at most once per reader) */
+	repeat?: Exclude<RepeatMode, 'every'>;
 	/** trigger / slice: the slice index */
 	slice?: number;
 	/** jump / exit: where to */
@@ -93,6 +97,8 @@ export interface FlowNode {
 	/** step: its event type and the test it runs under */
 	event?: string;
 	condition?: string;
+	/** step (askText): where the answer goes – the story variable, or `reader.name` */
+	asks?: string;
 	/** chapter: its number; chapter / exit: the season it belongs to */
 	chapter?: number;
 	season?: number;
@@ -169,9 +175,10 @@ export interface FlowOptions {
 	text?: (value: unknown) => string;
 }
 
-/** a condition as one line: "coins >= 3", "met set", "name == Ana" */
+/** a condition as one line: "coins >= 3", "met set", "name == Ana"; an expression as written ("coins >= 3 && met") */
 export function conditionText(c: unknown): string {
-	const x = c as { variable?: unknown; op?: unknown; value?: unknown } | null | undefined;
+	const x = c as { variable?: unknown; op?: unknown; value?: unknown; expr?: unknown } | null | undefined;
+	if (x && typeof x.expr === 'string') return x.expr.trim();
 	if (!x || typeof x.variable !== 'string' || !x.variable) return '';
 	if (x.op === 'set' || x.op === 'unset') return `${x.variable} ${x.op}`;
 	return `${x.variable} ${typeof x.op === 'string' ? x.op : '=='} ${x.value ?? ''}`.trim();
@@ -183,9 +190,11 @@ const firstText = (v: unknown): string => {
 	return '';
 };
 
-const conditional = (e: any) => typeof e?.if?.variable === 'string' && !!e.if.variable;
+const conditional = isConditional;
 const RANK: Record<FlowStatus, number> = { reachable: 3, conditional: 2, loop: 1, never: 1, unreachable: 0 };
 const KEY_EVENTS = new Set(['label', 'addChoice', 'showChoices', 'divert', 'jumpTo']);
+/** the story variable an askText's answer goes to, or the reader's name */
+const asksInto = (e: any): string => askVariable(e) ?? (e?.params?.scope === 'reader' ? 'reader.name' : '');
 /** a character ref as one key: `boy`, `catpope·cat` */
 const who = (c: any): string => {
 	const id = String(c?.character ?? c?.name ?? '');
@@ -203,6 +212,7 @@ interface ScriptWalk {
 }
 interface TriggerRun {
 	trigger: string;
+	repeat: RepeatMode;
 	events: any[];
 	idx: number[];
 	base: Path;
@@ -213,14 +223,14 @@ function runsOf(slice: any, gi: number, k: number): TriggerRun[] {
 	const runs = new Map<string, TriggerRun>();
 	(Array.isArray(slice?.events) ? slice.events : []).forEach((e: any, j: number) => {
 		if (!e?.trigger) return;
-		const key = JSON.stringify(e.trigger);
-		if (!runs.has(key)) runs.set(key, { trigger: String(e.trigger.type ?? ''), events: [], idx: [], base: ['groups', gi, 'slices', k, 'events'] });
+		const key = triggerKey(e.trigger);
+		if (!runs.has(key)) runs.set(key, { trigger: String(e.trigger.type ?? ''), repeat: runRepeat(e.trigger).mode, events: [], idx: [], base: ['groups', gi, 'slices', k, 'events'] });
 		runs.get(key)!.events.push(e);
 		runs.get(key)!.idx.push(j);
 	});
 	(Array.isArray(slice?.items) ? slice.items : []).forEach((item: any, x: number) => {
 		if (!Array.isArray(item?.events) || !item.events.length) return;
-		runs.set(`item${x}`, { trigger: 'item', events: item.events, idx: item.events.map((_: unknown, j: number) => j), base: ['groups', gi, 'slices', k, 'items', x, 'events'] });
+		runs.set(`item${x}`, { trigger: 'item', repeat: runRepeat(item).mode, events: item.events, idx: item.events.map((_: unknown, j: number) => j), base: ['groups', gi, 'slices', k, 'items', x, 'events'] });
 	});
 	return [...runs.values()];
 }
@@ -407,14 +417,14 @@ class Builder {
 				}
 			}
 			if (!detail) return;
-			// a plain event (message, join / leave, variable, text box …)
-			if (conditional(e)) {
+			// a plain event (message, join / leave, variable, text box …); a question with an input line is a step of its own
+			if (conditional(e) || type === 'askText') {
 				run = null;
-				const condition = conditionText(e.if);
-				const at = this.add({ id: id(j), kind: 'step', status: status(j), group: gi, path: path(j), events: [j, j], event: String(type ?? ''), condition });
+				const condition = conditional(e) ? conditionText(e.if) : '';
+				const at = this.add({ id: id(j), kind: 'step', status: status(j), group: gi, path: path(j), events: [j, j], event: String(type ?? ''), ...(condition ? { condition } : {}) });
 				this.summarize(this.byId.get(at)!, e);
 				// in line (the test only skips this one event – the flow goes on either way): the edge into it carries the test
-				enter(at, { condition, ...(dead ? { never: true } : {}) });
+				enter(at, condition ? { condition, ...(dead ? { never: true } : {}) } : {});
 				pending = [{ from: at, kind: 'then' }];
 				return;
 			}
@@ -461,6 +471,14 @@ class Builder {
 			case 'showTextBox':
 				push('boxes', String(e.params?.dialog ?? ''));
 				break;
+			case 'askText': {
+				const t = this.text(e.params?.text);
+				if (t && n.first === undefined) n.first = t;
+				const into = asksInto(e);
+				if (into) n.asks = into;
+				if (e.params?.character) push('speakers', who(e.params));
+				break;
+			}
 		}
 	}
 
@@ -495,7 +513,7 @@ class Builder {
 				const branches = run.events.some((e) => e?.type === 'divert' || e?.type === 'jumpTo' || e?.type === 'showChoices');
 				if (!branches && !o.detail) continue;
 				const id = `g${gi}s${k}t${n++}`;
-				this.add({ id, kind: 'trigger', status: sliceStatus, group: gi, path: [...run.base, run.idx[0]], slice: k, trigger: run.trigger });
+				this.add({ id, kind: 'trigger', status: sliceStatus, group: gi, path: [...run.base, run.idx[0]], slice: k, trigger: run.trigger, ...(run.repeat !== 'every' ? { repeat: run.repeat } : {}) });
 				this.edge(o.from(k), id, 'trigger');
 				// a lone divert goes into the group's script at its point
 				const lone = run.events.length === 1 && run.events[0]?.type === 'divert' ? run.events[0] : null;
@@ -921,7 +939,10 @@ export interface DeadItem {
 	at: DeadPlace[];
 }
 export interface DeadThings {
-	/** variables something sets that nothing tests or shows (`{name}` in a text) */
+	/**
+	 * variables something sets (setVariable, a choice's set / add, an askText's answer) that nothing reads: a simple test,
+	 * an expression condition (`if.expr`) or a text's `{…}` (the expression analyser's names of one part)
+	 */
 	unread: DeadItem[];
 	/** variables tested or shown that nothing in the toon sets (their tests are never true) */
 	unset: DeadItem[];
@@ -931,8 +952,8 @@ export interface DeadThings {
 	labels: DeadItem[];
 }
 
-/** `{name}` / `{name:clock}` in a text (today's interpolation; the expression language will read more) */
-const TEXT_VARIABLE = /\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*clock\s*)?\}/g;
+/** the story variables an expression / a text's `{…}` reads: names of one part (`coins`; `reader.name` is no variable) */
+const storyNames = (names: string[][]): string[] => names.filter((n) => n.length === 1).map((n) => n[0]);
 
 /**
  * The toon's dead things over its chapters (groups with each scene in place of its ref). `facts` = the toon's
@@ -960,7 +981,7 @@ export function deadThings(chapters: readonly { number: number; groups: readonly
 			while (stack.length) {
 				const v = stack.pop();
 				if (!v || typeof v !== 'object') {
-					if (typeof v === 'string') for (const m of v.matchAll(TEXT_VARIABLE)) note(reads, m[1], at);
+					if (typeof v === 'string' && v.includes('{')) for (const name of storyNames(analyseText(v).reads.names)) note(reads, name, at);
 					continue;
 				}
 				if (Array.isArray(v)) {
@@ -969,9 +990,12 @@ export function deadThings(chapters: readonly { number: number; groups: readonly
 				}
 				const o = v as Record<string, any>;
 				if (o.type === 'setVariable' && typeof o.params?.variable === 'string') note(sets, o.params.variable, at);
+				const asked = askVariable(o);
+				if (asked) note(sets, asked, at);
 				if (typeof o.set?.variable === 'string') note(sets, o.set.variable, at);
 				if (typeof o.add?.variable === 'string') note(sets, o.add.variable, at);
 				if (typeof o.if?.variable === 'string') note(reads, o.if.variable, at);
+				if (typeof o.if?.expr === 'string') for (const name of storyNames(analyseExpression(o.if.expr).reads.names)) note(reads, name, at);
 				if (o.type === 'label' && typeof o.params?.name === 'string' && o.params.name) named.push(o.params.name);
 				if (o.type === 'divert' && typeof o.params?.to === 'string') diverted.add(o.params.to);
 				if (typeof o.divert?.to === 'string') diverted.add(o.divert.to);

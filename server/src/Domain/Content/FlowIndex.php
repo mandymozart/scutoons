@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Content;
 
+use Scutoons\Domain\Content\Expr\Analyser;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Database\Database;
 
@@ -11,16 +12,15 @@ use Scutoons\Infrastructure\Database\Database;
  * newest version of every chapter / scene / season / toon document, scanned once for the ways out of a chapter – jumpTo
  * events, choices that jump, a group's authored end (in group scripts, slice triggers, placed items' taps) – plus every
  * toon's seasons and its dead things (the same rules as @scutoons/content `deadThings`: variables set but never read,
- * read but never set, script points and group labels nothing jumps to). The browser draws it without loading every toon.
+ * read but never set (reads: simple tests, `if.expr` conditions and texts' `{…}` through the expression analyser), script points and group labels nothing jumps to). The browser draws it without loading every toon.
  * Cached under the version ids it was built from (content-addressed like the library: nothing to invalidate).
  */
 final class FlowIndex
 {
     private const CACHE_TTL = 3600;
-    private const VERSION = 'v1';
+    private const VERSION = 'v2';
     private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
-    private const TEXT_VARIABLE = '/\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*clock\s*)?\}/';
 
     public function __construct(private readonly Database $db, private readonly Cache $cache)
     {
@@ -231,6 +231,7 @@ final class FlowIndex
             if (!array_is_list($v)) {
                 $params = is_array($v['params'] ?? null) ? $v['params'] : [];
                 if (($v['type'] ?? null) === 'setVariable' && is_string($params['variable'] ?? null)) $variables[$params['variable']] = true;
+                if (($asked = self::askVariable($v)) !== null) $variables[$asked] = true;
                 foreach (['set', 'add'] as $op) {
                     if (is_array($v[$op] ?? null) && is_string($v[$op]['variable'] ?? null)) $variables[$v[$op]['variable']] = true;
                 }
@@ -273,7 +274,7 @@ final class FlowIndex
                 while ($stack !== []) {
                     $v = array_pop($stack);
                     if (is_string($v)) {
-                        if (preg_match_all(self::TEXT_VARIABLE, $v, $m)) foreach ($m[1] as $name) $note($reads, $name, $at);
+                        if (str_contains($v, '{')) foreach (self::storyNames(Analyser::analyseText($v)['reads']['names']) as $name) $note($reads, $name, $at);
                         continue;
                     }
                     if (!is_array($v)) continue;
@@ -281,10 +282,14 @@ final class FlowIndex
                         $params = is_array($v['params'] ?? null) ? $v['params'] : [];
                         $type = $v['type'] ?? null;
                         if ($type === 'setVariable' && is_string($params['variable'] ?? null)) $note($sets, $params['variable'], $at);
+                        if (($asked = self::askVariable($v)) !== null) $note($sets, $asked, $at);
                         foreach (['set', 'add'] as $op) {
                             if (is_array($v[$op] ?? null) && is_string($v[$op]['variable'] ?? null)) $note($sets, $v[$op]['variable'], $at);
                         }
                         if (is_array($v['if'] ?? null) && is_string($v['if']['variable'] ?? null)) $note($reads, $v['if']['variable'], $at);
+                        if (is_array($v['if'] ?? null) && is_string($v['if']['expr'] ?? null)) {
+                            foreach (self::storyNames(Analyser::analyseExpression($v['if']['expr'])['reads']['names']) as $name) $note($reads, $name, $at);
+                        }
                         if ($type === 'label' && is_string($params['name'] ?? null) && $params['name'] !== '') $named[] = $params['name'];
                         if ($type === 'divert' && is_string($params['to'] ?? null)) $diverted[$params['to']] = true;
                         if (is_array($v['divert'] ?? null) && is_string($v['divert']['to'] ?? null)) $diverted[$v['divert']['to']] = true;
@@ -312,6 +317,31 @@ final class FlowIndex
             'points' => $points,
             'labels' => $labels,
         ];
+    }
+
+    /**
+     * the story variable an askText event sets (@scutoons/content `askVariable`: scope toon – the default; scope reader
+     * sets the reader's name, no variable)
+     * @param array<mixed> $event
+     */
+    private static function askVariable(array $event): ?string
+    {
+        if (($event['type'] ?? null) !== 'askText') return null;
+        $params = is_array($event['params'] ?? null) ? $event['params'] : [];
+        if (($params['scope'] ?? null) === 'reader') return null;
+        return is_string($params['variable'] ?? null) && $params['variable'] !== '' ? $params['variable'] : null;
+    }
+
+    /**
+     * the story variables among the names an expression / a text reads: names of one part (`reader.name` is none)
+     * @param list<list<string>> $names
+     * @return list<string>
+     */
+    private static function storyNames(array $names): array
+    {
+        $out = [];
+        foreach ($names as $path) if (count($path) === 1) $out[] = $path[0];
+        return $out;
     }
 
     /** @param array<mixed> $group a valid authored end (`groupEnd` in chains.ts) */

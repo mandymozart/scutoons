@@ -1,6 +1,7 @@
 // Linked groups ("chains", owner 2026-10-06; agents/DATA.md "Linked groups").   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { assertLinear } from './linear.ts';
 import { chainOf, chainsOf, chainSlices, groupEnd, hasVisualNovel, linksToNext, nextStep, chapterReach, neverTrue, scriptJumps, toonFacts, validateFile } from '../src/index.ts';
 
 const slices = (n: number) => Array.from({ length: n }, () => ({ image: 'images/p.webp', width: 390, height: 625 }));
@@ -119,12 +120,18 @@ test('chapterReach: never-true conditions cut their branch; endless loops; big c
 		}
 	]);
 	assert.deepEqual(menu.loops, []);
-	// 3000 events diverting around in a cycle, 200 groups: linear, no recursion
-	const big = Array.from({ length: 3000 }, (_, i) => (i % 3 === 0 ? { type: 'label', params: { name: `l${i}` } } : i % 3 === 1 ? { type: 'divert', params: { to: `l${(i + 2) % 3000}` }, if: { variable: 'v', op: 'set' } } : msg));
-	const t = Date.now();
-	const many = chapterReach(Array.from({ length: 200 }, (_, i) => ({ label: `g${i}`, continues: i < 199, slices: [{}, {}], events: big })));
-	assert.equal(many.groups.length, 200);
-	assert.ok(Date.now() - t < 3000, `took ${Date.now() - t} ms`);
+	// an expression condition (step 3) is a condition too – never judged "never true"; askText (toon scope) sets its variable
+	const expr = chapterReach([{ slices: [{}], events: [{ type: 'divert', params: { to: 'p' }, if: { expr: 'coins > 2' } }, jump, { type: 'label', params: { name: 'p' } }, msg] }], facts);
+	assert.deepEqual(expr.events[0], ['reachable', 'conditional', 'conditional', 'conditional']);
+	assert.deepEqual(expr.neverTrue, []);
+	assert.ok(toonFacts([{ events: [{ type: 'askText', params: { text: 'Name?', variable: 'hero' } }, { type: 'askText', params: { text: 'Name?', variable: 'x', scope: 'reader' } }] }]).variables.has('hero'));
+	assert.ok(!toonFacts([{ events: [{ type: 'askText', params: { text: 'Name?', variable: 'x', scope: 'reader' } }] }]).variables.has('x'));
+	// events diverting around in a cycle, many groups: linear, no recursion – twice the groups take about twice the time
+	// (the growth is asserted, not a wall-clock limit: the machine may be busy)
+	const big = Array.from({ length: 600 }, (_, i) => (i % 3 === 0 ? { type: 'label', params: { name: `l${i}` } } : i % 3 === 1 ? { type: 'divert', params: { to: `l${(i + 2) % 600}` }, if: { variable: 'v', op: 'set' } } : msg));
+	const chapter = (n: number) => Array.from({ length: n }, (_, i) => ({ label: `g${i}`, continues: i < n - 1, slices: [{}, {}], events: big }));
+	assert.equal(chapterReach(chapter(200)).groups.length, 200);
+	assertLinear((n) => chapterReach(chapter(n)), 100);
 });
 
 test('chainSlices: page slice indices run on across the chain', () => {
