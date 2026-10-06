@@ -121,8 +121,19 @@ export interface VNDivert {
 	};
 }
 
+/** give the reader a catalog item (BACKLOG 10.38: an item is never a story variable) – the inventory's rules apply:
+ *  the item must be grantable from the story, its max count, once per place (a replay grants nothing) */
+export interface VNGiveItem {
+	give: {
+		/** a catalog item id (picked from the catalog – a script can't make items) */
+		item: string;
+		/** how many, 1 … 10 (default 1) */
+		qty?: number;
+	};
+}
+
 /** what a choice does when picked – one action or several in order (e.g. add 15 minutes, then jump) */
-export type VNAction = VNVariableSetter | VNVariableAdder | VNJumpTo | VNDivert;
+export type VNAction = VNVariableSetter | VNVariableAdder | VNGiveItem | VNJumpTo | VNDivert;
 
 /**
  * "Only if" on any event (owner 2026-10-03): the event runs only when the reader's variable passes the test, else it is
@@ -163,6 +174,12 @@ export interface VNDivertEvent {
 export interface VNSetVariableEvent {
 	type: 'setVariable';
 	params: { variable: string; value: string | number; op?: 'set' | 'add' };
+}
+
+/** give the reader a catalog item (VNGiveItem's rules) – the script's way; a choice has the action `give` */
+export interface VNGiveItemEvent {
+	type: 'giveItem';
+	params: VNGiveItem['give'];
 }
 
 export interface VNShowMessageEvent {
@@ -275,6 +292,8 @@ export type AskTextScope = (typeof ASK_TEXT_SCOPES)[number];
 /** an answer's default / largest length */
 export const ASK_TEXT_MAX_LENGTH = 24;
 export const ASK_TEXT_LIMIT = 200;
+/** the most pieces one `giveItem` / `give` hands out (the inventory grants one piece per call – BACKLOG 10.38) */
+export const GIVE_ITEM_MAX = 10;
 
 export interface VNJumpToEvent {
 	type: 'jumpTo';
@@ -296,6 +315,7 @@ export type VNEvent = (
 	| VNLabelEvent
 	| VNDivertEvent
 	| VNSetVariableEvent
+	| VNGiveItemEvent
 	| VNAskTextEvent
 ) & {
 	/**

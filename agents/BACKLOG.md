@@ -9,9 +9,10 @@ an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Priorities (owner 2026-10-06 evening: "prioritise now and then set a plan to work through it alone through the night")
 
-**Night run 2026-10-06 → 07 (agent alone, in this order).** Rules: commit on `main` in small steps, **never push**
-(a push deploys), nothing on production, the dev DB is not reset / reseeded / migrated (migrations are tested in
-PHPUnit's `scutoons_test`), `npm run check` + the step's browser checks before each commit; a step that needs an owner
+**Night run 2026-10-06 → 07 (agent alone, in this order).** Rules: commit / merge on `main` in small steps, **never
+push** (a push deploys – owner: "just merge to main, but do not push to production"), nothing on production; the dev DB
+is free to change (owner: "you can do anything to the dev database" – its content, the sandbox's and catpope's stories,
+is the test case for migrations); `npm run check` + the step's browser checks before each commit; a step that needs an owner
 decision stops there – the question goes into "Morning: for the owner" and the next step starts.
 
 1. **10.38 Items are not variables** – step 2 (warn), step 3 (`giveItem`), step 5 (analysis + migration + drop the

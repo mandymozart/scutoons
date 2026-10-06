@@ -12,7 +12,7 @@ import {
 import { getAt, type Path } from './paths.ts';
 import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
-import { isWrittenVariable } from './variables.ts';
+import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 
 /** a variable's spelling (variables.ts) */
 const VARIABLE_FORM = 'a variable is a name of letters, digits and _ (not starting with a digit) – this toon\'s; global.name for every toon, <toon>.name for another toon\'s (never reader. / inventory. / … – that is what the reader has, not a variable)';
@@ -38,7 +38,7 @@ import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
 import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
 import { repeatOf, repeatProblem } from './recurrence.ts';
-import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, ASK_TEXT_SCOPES } from './visual-novel.ts';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, ASK_TEXT_SCOPES, GIVE_ITEM_MAX } from './visual-novel.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
 import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
 import { forEachText, type TextLeafKind } from './neutralize.ts';
@@ -78,7 +78,7 @@ const repeatWords = (rule: unknown) => {
 	const r = repeatOf(rule);
 	return r.mode === 'once' ? 'once for good' : r.mode === 'interval' ? `every ${JSON.stringify(r.every)}` : r.mode;
 };
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable', 'askText'];
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'askText'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -318,6 +318,26 @@ function checkTargetPlace(c: Collector, target: Record<string, any>, path: Path,
 	for (const l of wanted) if (!labels.includes(l)) c.error([...path, field], `${where} has no group labelled "${l}"`);
 }
 
+/** what a script gives (`giveItem` / a choice's `give`): a catalog item, 1 … GIVE_ITEM_MAX pieces (BACKLOG 10.38) */
+function checkGive(c: Collector, p: any, path: Path, ctx: ValidateContext, what: string) {
+	if (!isObj(p) || !isStr(p.item) || !p.item) return c.error([...path, 'item'], `${what} needs an item from the catalog`);
+	if (ctx.items && !ctx.items.includes(p.item)) c.warn([...path, 'item'], `"${p.item}" is not in the item catalog`);
+	if (p.qty !== undefined && (!Number.isInteger(p.qty) || p.qty < 1 || p.qty > GIVE_ITEM_MAX)) c.error([...path, 'qty'], `qty is a whole number 1 … ${GIVE_ITEM_MAX}`);
+}
+
+/** a story variable named like a catalog item (BACKLOG 10.38): an item is never a variable – `write`: set / add / an
+ *  answer, else a condition that reads it */
+function checkItemNamed(c: Collector, name: unknown, path: Path, ctx: ValidateContext, write: boolean) {
+	const plain = isStr(name) ? WRITTEN_VARIABLE.exec(name)?.[2] : undefined;
+	if (!plain || !ctx.items?.includes(plain)) return;
+	c.warn(
+		path,
+		write
+			? `"${name}" is a catalog item, not a story variable – give it with giveItem (a choice: give); this only counts in the story`
+			: `"${name}" is a catalog item, not a story variable – what the reader has is inventory.${plain}`
+	);
+}
+
 /** "Only if" on an event: { variable, op, value? }, or an expression { expr } (EXPRESSIONS.md §3: syntax errors are errors) */
 function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContext) {
 	if (isObj(cond) && cond.expr !== undefined) {
@@ -331,6 +351,7 @@ function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContex
 	}
 	if (!isObj(cond) || !isStr(cond.variable) || !cond.variable) return c.error([...path, 'variable'], 'the condition needs a variable');
 	if (!isWrittenVariable(cond.variable) && !cond.variable.startsWith('picked:')) c.warn([...path, 'variable'], VARIABLE_FORM);
+	else checkItemNamed(c, cond.variable, [...path, 'variable'], ctx, false);
 	if (!CONDITION_OPS.includes(cond.op)) return c.error([...path, 'op'], `the condition's op must be one of ${CONDITION_OPS.join(' ')}`);
 	if (cond.op !== 'set' && cond.op !== 'unset' && (cond.value === undefined || cond.value === '')) c.error([...path, 'value'], 'the condition needs a value to compare with');
 }
@@ -348,11 +369,14 @@ function checkActions(c: Collector, onSelect: any, path: Path, ctx: ValidateCont
 		} else if (isObj(a.set)) {
 			if (!isStr(a.set.variable) || !a.set.variable) c.error([...ap, 'set', 'variable'], 'set needs a variable');
 			else if (!isWrittenVariable(a.set.variable)) c.warn([...ap, 'set', 'variable'], VARIABLE_FORM);
+			else checkItemNamed(c, a.set.variable, [...ap, 'set', 'variable'], ctx, true);
 		} else if (isObj(a.add)) {
 			if (!isStr(a.add.variable) || !a.add.variable) c.error([...ap, 'add', 'variable'], 'add needs a variable');
 			else if (!isWrittenVariable(a.add.variable)) c.warn([...ap, 'add', 'variable'], VARIABLE_FORM);
+			else checkItemNamed(c, a.add.variable, [...ap, 'add', 'variable'], ctx, true);
 			if (!isNum(a.add.value)) c.error([...ap, 'add', 'value'], 'add needs a number');
-		} else c.error(ap, 'an action is set, add, jumpTo or divert');
+		} else if (isObj(a.give)) checkGive(c, a.give, [...ap, 'give'], ctx, 'give');
+		else c.error(ap, 'an action is set, add, give, jumpTo or divert');
 	});
 }
 
@@ -424,10 +448,14 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			if (!isObj(p) || !isStr(p.variable) || !p.variable) c.error([...pp, 'variable'], 'setVariable needs a variable');
 			else {
 				if (!isWrittenVariable(p.variable)) c.warn([...pp, 'variable'], VARIABLE_FORM);
+				else checkItemNamed(c, p.variable, [...pp, 'variable'], ctx, true);
 				if (p.op !== undefined && p.op !== 'set' && p.op !== 'add') c.error([...pp, 'op'], 'op is set or add');
 				if (p.op === 'add' && !isNum(p.value)) c.error([...pp, 'value'], 'add needs a number');
 				if (p.op !== 'add' && (p.value === undefined || p.value === '')) c.error([...pp, 'value'], 'setVariable needs a value');
 			}
+			break;
+		case 'giveItem':
+			checkGive(c, p, pp, ctx, 'giveItem');
 			break;
 		case 'jumpTo':
 			if (!isObj(p)) c.error(pp, 'jumpTo needs params.target');
@@ -456,6 +484,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.scope !== 'reader') {
 					if (!isStr(p.variable) || !p.variable) c.error([...pp, 'variable'], 'askText needs the variable the answer goes to');
 					else if (!isWrittenVariable(p.variable)) c.error([...pp, 'variable'], VARIABLE_FORM);
+					else checkItemNamed(c, p.variable, [...pp, 'variable'], ctx, true);
 				} else if (p.variable !== undefined) c.info([...pp, 'variable'], "the answer is the reader's name (reader.name) – the variable is not used");
 				if (p.maxLength !== undefined && (!Number.isInteger(p.maxLength) || p.maxLength < 1 || p.maxLength > ASK_TEXT_LIMIT)) c.error([...pp, 'maxLength'], `maxLength is a whole number 1 … ${ASK_TEXT_LIMIT}`);
 				for (const key of ['placeholder', 'answer', 'default'] as const) if (p[key] !== undefined && !isStr(p[key])) c.error([...pp, key], `${key} must be a text`);

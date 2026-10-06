@@ -19,6 +19,7 @@
 	import EventCast from '$lib/components/events/event-cast.svelte';
 	import EventCondition from '$lib/components/events/event-condition.svelte';
 	import EventTrigger from '$lib/components/events/event-trigger.svelte';
+	import GiveItemField from '$lib/components/fields/give-item-field.svelte';
 	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	/**
@@ -268,6 +269,8 @@
 					<EventChoice {doc} path={p} {event} index={i} {pointNames} {groupLabels} />
 				{:else if event.type === 'jumpTo' || event.type === 'label' || event.type === 'divert' || event.type === 'setVariable'}
 					<EventFlow {doc} path={p} {event} {pointNames} {groupLabels} />
+				{:else if event.type === 'giveItem'}
+					<div class="sc-fields" data-cols="2" data-density="panel"><GiveItemField {doc} path={[...p, 'params']} testid="event-{i}-give" /></div>
 				{:else if event.type === 'showTextBox'}
 					<EventShowTextBox {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}

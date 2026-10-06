@@ -1081,6 +1081,43 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "giveItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string",
+									"description": "a catalog item id (picked from the catalog – a script can't make items)"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								}
+							},
+							"required": [
+								"item"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
 							"const": "askText"
 						},
 						"params": {
@@ -1201,6 +1238,9 @@
 					"$ref": "#/definitions/VNVariableAdder"
 				},
 				{
+					"$ref": "#/definitions/VNGiveItem"
+				},
+				{
 					"$ref": "#/definitions/VNJumpTo"
 				},
 				{
@@ -1254,6 +1294,31 @@
 			"required": [
 				"add"
 			]
+		},
+		"VNGiveItem": {
+			"type": "object",
+			"properties": {
+				"give": {
+					"type": "object",
+					"properties": {
+						"item": {
+							"type": "string",
+							"description": "a catalog item id (picked from the catalog – a script can't make items)"
+						},
+						"qty": {
+							"type": "number",
+							"description": "how many, 1 … 10 (default 1)"
+						}
+					},
+					"required": [
+						"item"
+					]
+				}
+			},
+			"required": [
+				"give"
+			],
+			"description": "give the reader a catalog item (BACKLOG 10.38: an item is never a story variable) – the inventory's rules apply: the item must be grantable from the story, its max count, once per place (a replay grants nothing)"
 		},
 		"VNJumpTo": {
 			"type": "object",
@@ -1935,6 +2000,47 @@
 							"required": [
 								"variable",
 								"value"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "giveItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string",
+									"description": "a catalog item id (picked from the catalog – a script can't make items)"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								}
+							},
+							"required": [
+								"item"
 							]
 						}
 					},

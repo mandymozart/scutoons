@@ -260,6 +260,11 @@ final class Analyser
                 $this->problem('function-needs-call', $e, [$full]);
                 return;
             }
+            // `inventory.<item>`: how many of a catalog item the reader has (BACKLOG 10.38; the creator checks the catalog)
+            if ($m === null && $ns === 'inventory' && count($path) === 2) {
+                if (!array_key_exists($full, $this->names)) $this->names[$full] = $path;
+                return;
+            }
             if ($m === null) {
                 $this->problem('unknown-name', $e, [$full], self::didYouMean($full, $ns !== null ? $this->membersOf($ns, 'value') : $this->paths('value')));
                 return;

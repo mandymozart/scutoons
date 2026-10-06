@@ -3,7 +3,7 @@ import { cleanText, READER_NAME_MAX, readerKnown, readerName } from '$lib/reader
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { getCurrentReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
-import { executeVariableAction } from './variable-actions.ts';
+import { executeVariableAction, giveStoryItem } from './variable-actions.ts';
 import { runEvents, type RunnerEnv, type RunResult } from './script-runner.ts';
 
 /**
@@ -47,6 +47,7 @@ export function readerEnv(game: GameContext): RunnerEnv {
 		...(expressions ? { evaluate: (source: string, at: string) => expressions.evaluate(source, at) } : {}),
 		...(conditions ? { conditions } : {}),
 		setVariable: (action) => void executeVariableAction(action as never, game),
+		giveItem: (item, qty) => void giveStoryItem(item, qty),
 		cleanText
 	};
 }

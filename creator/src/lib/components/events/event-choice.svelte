@@ -6,11 +6,12 @@
 	import { ACTION_KINDS, actionKind, actionPath, newAction } from '$lib/editor/vn-forms.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import VariableField from '$lib/components/fields/variable-field.svelte';
+	import GiveItemField from '$lib/components/fields/give-item-field.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
 	import EventTarget from '$lib/components/events/event-target.svelte';
 
 	/**
-	 * addChoice: the label and what the choice does, in order (CUTOVER 10.27) – set / add a variable, jump to a group,
+	 * addChoice: the label and what the choice does, in order (CUTOVER 10.27) – set / add a variable, give an item, jump to a group,
 	 * continue at a point. One action is stored as an object, more as a list.
 	 */
 	let {
@@ -50,6 +51,8 @@
 				{:else if action?.add}
 					<VariableField {doc} path={[...ap, 'add', 'variable']} />
 					<PropField {doc} path={[...ap, 'add', 'value']} label={m['creator.field_value']()} type="number" step={1} required />
+				{:else if action?.give}
+					<GiveItemField {doc} path={[...ap, 'give']} testid="choice-{index}-give-{ai}" />
 				{:else if action?.jumpTo}
 					<EventTarget {doc} path={[...ap, 'jumpTo', 'target']} target={action.jumpTo.target} {groupLabels} />
 				{:else if action?.divert}

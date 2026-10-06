@@ -3,7 +3,7 @@
 //   node --experimental-transform-types --no-warnings --test test/inventory-names.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyseExpression, analyseText, isStoryPath, isWrittenVariable } from '../src/index.ts';
+import { analyseExpression, analyseText, isStoryPath, isWrittenVariable, validateFile } from '../src/index.ts';
 
 const codes = (r: { errors: { code: string; suggestion?: string }[] }) => r.errors.map((e) => `${e.code}${e.suggestion ? `→${e.suggestion}` : ''}`);
 
@@ -30,4 +30,37 @@ test('a namespace is never a variable domain: inventory.x / reader.x can not be 
 	assert.equal(isWrittenVariable('toptoy.cucumber'), true);
 	assert.equal(isWrittenVariable('inventory.cucumber'), false);
 	assert.equal(isWrittenVariable('reader.name'), false);
+});
+
+const chapter = (events: object[]) => ({ number: 1, groups: [{ label: 'a', slices: [{ image: 'x.webp' }], events }] });
+const check = (events: object[], items?: string[]) =>
+	validateFile('chapter', chapter(events), 'de', { file: 'c', ...(items ? { items } : {}) } as never).filter((p) => /item|give|qty/.test(p.message));
+
+test('giveItem / a choice\'s give: a catalog item, 1 … 10 pieces', () => {
+	const items = ['cucumber'];
+	assert.deepEqual(check([{ type: 'giveItem', params: { item: 'cucumber', qty: 2 } }], items), []);
+	assert.match(check([{ type: 'giveItem', params: { item: '' } }], items)[0].message, /giveItem needs an item/);
+	assert.match(check([{ type: 'giveItem', params: { item: 'cucumbr' } }], items)[0].message, /not in the item catalog/);
+	assert.match(check([{ type: 'giveItem', params: { item: 'cucumber', qty: 11 } }], items)[0].message, /qty is a whole number 1 … 10/);
+	const choice = (onSelect: object) => ({ type: 'addChoice', params: { label: { de: 'Nimm' }, onSelect } });
+	assert.deepEqual(check([choice({ give: { item: 'cucumber' } })], items), []);
+	assert.equal(check([choice({ give: { item: 'cucumber' } })], items).length, 0);
+	assert.ok(!validateFile('chapter', chapter([choice({ give: { item: 'cucumber' } })]), 'de', { file: 'c', items } as never).some((p) => p.message.includes('an action is')));
+});
+
+test('a story variable named like a catalog item warns (write: giveItem; read: inventory.<item>)', () => {
+	const items = ['cucumber'];
+	const set = check([{ type: 'setVariable', params: { variable: 'cucumber', value: 1, op: 'add' } }], items);
+	assert.equal(set.length, 1);
+	assert.equal(set[0].level, 'warning');
+	assert.match(set[0].message, /catalog item, not a story variable – give it with giveItem/);
+	const add = check([{ type: 'addChoice', params: { label: { de: 'x' }, onSelect: { add: { variable: 'global.cucumber', value: 1 } } } }], items);
+	assert.match(add[0].message, /"global.cucumber" is a catalog item/);
+	const read = check([{ type: 'showMessage', params: { text: { de: 'x' } }, if: { variable: 'cucumber', op: '>', value: 0 } }], items);
+	assert.match(read[0].message, /what the reader has is inventory.cucumber/);
+	assert.deepEqual(check([{ type: 'setVariable', params: { variable: 'cucumber', value: 1 } }]), [], 'without the catalog nothing is judged');
+	// in an expression: a bare item name is a story variable – the suggestion is inventory.<item>
+	const e = analyseExpression('cucumber > 0', { knownItems: items }).errors[0];
+	assert.equal(e.code, 'item-as-variable');
+	assert.equal(e.suggestion, 'inventory.cucumber');
 });

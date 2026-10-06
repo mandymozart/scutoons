@@ -1,4 +1,4 @@
-import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, evaluateText, isStoryPath, labelIndex, testCondition, type ExprResolver, type ExprValue, type JumpToTarget, type VNEvent } from '@scutoons/content';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, GIVE_ITEM_MAX, evaluateText, isStoryPath, labelIndex, testCondition, type ExprResolver, type ExprValue, type JumpToTarget, type VNEvent } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 /**
@@ -57,6 +57,8 @@ export interface RunnerEnv {
 	conditions?: ExprResolver;
 	/** a choice's / a setVariable's actions (variables, item grants) */
 	setVariable(action: { set: { variable: string; value: string | number } } | { add: { variable: string; value: number } }): void;
+	/** give the reader a catalog item (`giveItem` – BACKLOG 10.38; the inventory's rules apply) */
+	giveItem?(item: string, qty: number): void;
 	/** plain text, trimmed, cut (askText answers) */
 	cleanText(text: string, limit: number): string;
 }
@@ -134,6 +136,12 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 					if (op === 'add') env.setVariable({ add: { variable, value: Number(value) || 0 } });
 					// a number stays a number (the clock adds to it); text stays text
 					else env.setVariable({ set: { variable, value: typeof value === 'number' ? value : String(value) } });
+					break;
+				}
+
+				case 'giveItem': {
+					const { item, qty } = event.params ?? {};
+					if (typeof item === 'string' && item) env.giveItem?.(item, Math.min(GIVE_ITEM_MAX, Math.max(1, Math.floor(Number(qty) || 1))));
 					break;
 				}
 

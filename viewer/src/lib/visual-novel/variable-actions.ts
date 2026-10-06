@@ -1,9 +1,9 @@
 import type { GameContext } from '$lib/contexts/game.svelte';
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
-import { actionsOf, type VNAction, type VNVariableSetter, type VNVariableAdder, type VNJumpTo, type RecurrenceInterval } from '@scutoons/content';
+import { actionsOf, GIVE_ITEM_MAX, type VNAction, type VNVariableSetter, type VNVariableAdder, type VNGiveItem, type VNJumpTo, type RecurrenceInterval } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
-type VariableAction = VNVariableSetter | VNVariableAdder | VNJumpTo;
+type VariableAction = VNVariableSetter | VNVariableAdder | VNGiveItem | VNJumpTo;
 
 /**
  * The grant's `ref` = the place of the find (page without locale prefix + `?label=`): the server grants a ref once per
@@ -35,6 +35,17 @@ export function grantStoryItem(
 	return inventory.grant(item, 'story', qty, storyRef(item, place), options);
 }
 
+/**
+ * Give the reader a catalog item (`giveItem` / a choice's `give` – BACKLOG 10.38: an item is never a story variable):
+ * source "story", once per place (the ref), the catalog's rules (grantable, max). null = no such item.
+ */
+export function giveStoryItem(item: string, qty = 1, place?: string): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
+	const inventory = getCurrentInventory();
+	const n = Math.min(GIVE_ITEM_MAX, Math.max(1, Math.floor(Number(qty) || 1)));
+	if (!inventory?.item(item)) return null;
+	return inventory.grant(item, 'story', n, storyRef(item, place));
+}
+
 export function executeVariableAction(
 	action: VariableAction,
 	gameContext: GameContext,
@@ -57,6 +68,9 @@ export function executeVariableAction(
 		gameContext.addVariable(action.add.variable, action.add.value);
 		console.log(`Add ${action.add.variable} += ${action.add.value}`);
 		grantStoryItem(action.add.variable, action.add.value);
+		return null;
+	} else if ('give' in action) {
+		giveStoryItem(action.give.item, action.give.qty);
 		return null;
 	} else if ('jumpTo' in action) {
 		const problem = check?.(action.jumpTo.target);

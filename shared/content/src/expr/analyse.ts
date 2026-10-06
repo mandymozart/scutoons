@@ -61,6 +61,7 @@ const MESSAGES: Record<string, string> = {
 	'unknown-name': 'unknown name `{0}`',
 	'unknown-variable': 'unknown variable `{0}`',
 	'unknown-item': '`{0}` is not in the item catalog',
+	'item-as-variable': '`{0}` is a catalog item, not a story variable (this only counts in the story)',
 	'unknown-function': 'unknown function `{0}`',
 	'function-needs-call': '`{0}` is a function – write `{0}(…)`',
 	'not-a-function': '`{0}` isn’t a function – write `{0}` without `(…)`',
@@ -176,7 +177,9 @@ class Analyser {
 			const ns = this.spaces.get(full);
 			if (ns) return this.problem('namespace-needs-member', e, [full, `${full}.${ns.members[0]?.name ?? 'name'}`]);
 			if (this.fns.has(full)) return this.problem('function-needs-call', e, [full]);
-			if (this.known && !this.known.has(full)) this.problem('unknown-variable', e, [full], didYouMean(full, this.known), 'warning');
+			// a bare item name is this toon's story variable, not the inventory (BACKLOG 10.38)
+			if (this.items?.has(full)) this.problem('item-as-variable', e, [full], `inventory.${full}`, 'warning');
+			else if (this.known && !this.known.has(full)) this.problem('unknown-variable', e, [full], didYouMean(full, this.known), 'warning');
 		} else if (e.path.length === 2 && !this.spaces.has(e.path[0])) {
 			// a story variable with a domain (variables.ts): `global.coins`, `toptoy.coins`
 			if (this.known && !this.known.has(full)) this.problem('unknown-variable', e, [full], didYouMean(full, this.known), 'warning');
