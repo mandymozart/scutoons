@@ -35,12 +35,11 @@
 				<input id="sc-dialog-input" type="text" bind:value={text} placeholder={request.input.placeholder} autofocus />
 			{/if}
 			<div class="buttons">
-				<button type="button" class="ghost" onclick={() => dialogState.close(request?.input ? null : false)}>{request.cancelLabel ?? cancelLabel}</button>
-				{#if request.input?.skipLabel}
-					<button type="button" class="secondary" onclick={() => dialogState.close('')}>{request.input.skipLabel}</button>
-				{/if}
+				<button type="button" class="ghost cancel" onclick={() => dialogState.close(request?.input ? null : false)}>{request.cancelLabel ?? cancelLabel}</button>
+				<!-- one primary action, last (owner 2026-10-06): with a skip label it says "save without note" while the field
+				     is empty and "save" once something is typed – submitting empty is the skip -->
 				<!-- svelte-ignore a11y_autofocus -->
-				<button type="submit" class="primary" autofocus={!request.input}>{request.confirmLabel}</button>
+				<button type="submit" class="primary" autofocus={!request.input}>{request.input?.skipLabel && !text.trim() ? request.input.skipLabel : request.confirmLabel}</button>
 			</div>
 		</form>
 	{/if}
@@ -85,5 +84,9 @@
 		flex-wrap: wrap;
 		justify-content: flex-end;
 		gap: 0.5rem;
+	}
+	/* cancel on the left, the primary action on the right (owner 2026-10-06) */
+	.cancel {
+		margin-right: auto;
 	}
 </style>

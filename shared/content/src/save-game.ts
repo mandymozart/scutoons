@@ -125,16 +125,19 @@ export interface OldToonState {
 
 /**
  * The old per-toon game states taken into the save game (a guest's localStorage – no SQL reaches it; members: the
- * migration `2026-10-06-global-save-game`, the same rule): variables of the same name in two toons → the NEWEST state's
+ * migration `2026-10-06-global-save-game`, the same rule): a toon's variables keep their domain – `x` of catpope's
+ * state becomes `catpope/x` (variables.ts), so two toons never clash; a key the save game already holds → the NEWEST
  * value wins (the save game itself counts as one of the states, by its `updated_at`); history and checkpoints merge
- * (mergeSaveGame); `created_at` the earliest. Returns the merged save game and the names that clashed.
+ * (mergeSaveGame); `created_at` the earliest. Returns the merged save game and the keys that clashed.
  */
 export function absorbToonStates(save: SaveGame, olds: readonly OldToonState[]): { save: SaveGame; clashes: string[] } {
 	const rows = [
 		{ updated: time(save.updated_at), variables: save.variables },
 		...olds.map((o) => {
 			const s = isObject(o.state) ? o.state : {};
-			return { updated: time(typeof s.updated_at === 'string' ? s.updated_at : undefined), variables: normalizeVariables(s.variables) };
+			// an old toon state's variables were that toon's: they keep their domain (`<toon>/x` – variables.ts)
+			const own = Object.fromEntries(Object.entries(normalizeVariables(s.variables)).map(([k, v]) => [`${o.toon}/${k}`, v]));
+			return { updated: time(typeof s.updated_at === 'string' ? s.updated_at : undefined), variables: own };
 		})
 	].sort((a, b) => a.updated - b.updated);
 	const variables: Record<string, SaveGameValue> = {};

@@ -288,6 +288,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   History and Info; every page hands its panel to the shell with `useDock` – agents/DOCKING.md; it folds to a rail like
   every dock panel). Svelte Flow + dagre are loaded only when it
   opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates (read-only otherwise).
+  The panel is edge to edge (owner 2026-10-06): its header is the Ask panel's (one control row, title, round close
+  button, the divider across), the canvas has no frame of its own; the toon's dead-things line sits under a divider.
   - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
     group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the
     minimap shows the rest). Edges follow dagre's route and their labels sit where dagre made room for them (a label is a
@@ -350,7 +352,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
   Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
   Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the
-  swiper settings only for a horizontal group that isn't full width. No "Interaction" field (`Group.interaction` is gone
+  swiper settings only for a horizontal group that isn't full width. Preset (owner 2026-10-06): switching a group to
+  horizontal turns Continuous on (not on the chapter's last group, not when continues / an end is already set); full
+  width stays off – on demand. No "Interaction" field (`Group.interaction` is gone
   from the model; old stored values are ignored). The **strip preview** of a full-width group below it: the mouse wheel
   down moves the strip sideways while the pointer is over it (like the reader's page scroll); at either end the page
   scrolls on; a horizontal wheel / trackpad scrolls natively.

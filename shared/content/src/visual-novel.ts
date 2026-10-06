@@ -240,7 +240,8 @@ export interface VNShowTextBoxEvent {
 
 /**
  * A question with one input line in the message box (agents/EXPRESSIONS.md §6): the reader types a short plain text
- * (trimmed, never markup), the page doesn't scroll until it is answered (Enter / ✓; Skip → `default`). `scope`:
+ * (trimmed, never markup), the page doesn't scroll until it is answered (Enter / ✓, or the answer button: `answer`
+ * is its text, `default` what it stores – owner 2026-10-06). `scope`:
  * `toon` (default) = a story variable (`variable` – since 2026-10-06 the same in every toon: one save game, so the name
  * `toon` only means "the story's" – kept, no migration); `reader` = the reader's name (`reader.name`: the account's
  * `display_name` for members, the device for guests; changeable on the account page – not part of the save game).
@@ -259,7 +260,10 @@ export interface VNAskTextEvent {
 		placeholder?: string;
 		/** at most this many characters (default 24, at most 200) */
 		maxLength?: number;
-		/** what Skip (or an empty answer) stores; none = nothing is stored */
+		/** a ready answer as a button under the input line: its text (none = no button) */
+		answer?: string;
+		/** what the answer button (or an empty answer) stores; none = nothing is stored – the variable stays unset, so a
+		 *  later condition can tell it apart */
 		default?: string;
 		/** default `toon` */
 		scope?: AskTextScope;

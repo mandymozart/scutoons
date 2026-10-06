@@ -62,7 +62,7 @@ const TEXT: Partial<Record<Ctx, readonly string[]>> = {
 	sequence: ['status'],
 	'params-showMessage': ['text'],
 	'params-addChoice': ['label'],
-	'params-askText': ['text', 'placeholder', 'default']
+	'params-askText': ['text', 'placeholder', 'answer', 'default']
 };
 const DROP: Partial<Record<Ctx, readonly string[]>> = { chapter: ['language', 'status'], season: ['language'], toon: ['language'] };
 const CHILD: Partial<Record<Ctx, Record<string, Ctx>>> = {

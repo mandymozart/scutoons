@@ -213,19 +213,25 @@ rules as the editor's parser (which knows only the German terms; the English scr
 for every toon, under the reserved id `scutoons` – guests localStorage `scutoons_game_scutoons`, members the relational
 `progress` table row `toon_id = 'scutoons'` via `/api/progress/scutoons/` (`@scutoons/content` save-game.ts, viewer
 `contexts/world.svelte.ts`; `contexts/game.svelte.ts` is only a toon page's view on it):
-`{ variables, progress, history, map, created_at, updated_at }`. Story variables are global – a variable set in toptoy
-is the one catpope reads (the mama story's `mama_tips`, EXAMPLES.md); reading progress stays keyed by toon inside it
+`{ variables, progress, history, map, created_at, updated_at }`. **Variable domains** (owner 2026-10-06, "it is still
+good to have basic variables with a domain"; `@scutoons/content` variables.ts, PHP `Variables`): a name as written is
+relative to the toon the content is in – `coins` = this toon's (stored `<toon>/coins`), `global.coins` = every toon's
+(stored `coins`), `toptoy.coins` = toptoy's, read AND written from anywhere (stored `toptoy/coins`); so simple names
+(`completedQuest`) never clash between toons. Which domain a story uses is the storyteller's choice (the mama story's
+`mama_tips`, EXAMPLES.md, is `global.mama_tips` or `toptoy.mama_tips`). The creator's variable field picks the domain
+(this toon / global / another toon) and offers the names that domain has (a typeahead; a new name makes it); a plain
+name that is a catalog item id still grants the item, whatever its domain. Reading progress stays keyed by toon inside it
 (checkpoint uris `<toon>/chapter/<n>`). Two states MERGE (`mergeSaveGame` in TS, `ProgressService::mergeSaveGame` on
 every PUT): the map as sets, checkpoints by uri (the later `updated_at`; finished once = finished), history entries per
 key (larger count, first first, last last; ≤ 1000, the longest-unseen go), `variables` the NEWER write's as a whole,
 `created_at` the earliest – a write can't remove a checkpoint or a history entry (dev checks restore the row through
 the database: `scripts/dev/save-game-row.mjs`). Before 2026-10-06 the game state was per toon (`scutoons_game_<toon>`,
 `/api/progress/<toon>/` – still answered for older viewer builds, last write wins, not read by the new viewer): the
-migration `2026-10-06-global-save-game` merged members' per-toon states into the save game (CUTOVER 10.36; a clash –
-the same variable in two toons – takes the newest state's value; the per-toon rows stay), guests' keys are taken in
+migration `2026-10-06-global-save-game` merges members' per-toon states into the save game (CUTOVER 10.36; each toon's
+variables keep their domain – `x` of catpope's state becomes `catpope/x`; the per-toon rows stay), guests' keys are taken in
 once on load by the viewer with the same rule and removed (`absorbToonStates` – no SQL reaches a browser and no author
-is involved, so no creator feedback: the HANDOVER rule's exception). Creator / flow: variable names are global – the
-flow index lists every name with the toons that set / read it (`variables`), `variablesElsewhere` feeds
+is involved, so no creator feedback: the HANDOVER rule's exception). Creator / flow: variables are compared by storage
+key – the flow index lists every key with the toons that set / read it (`variables`), `variablesElsewhere` feeds
 `toonFacts(…, { elsewhere })`: dead things (set here + read in another toon = used), "never true", the builder's names
 and unknown-name warnings judge all toons (TS `deadThings` and `FlowIndex.php` agree on the dev DB); a name that looks
 like another (`visits_harbor` / `visits_harbour`, `similarVariable`) warns.

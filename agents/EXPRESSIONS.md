@@ -57,7 +57,8 @@ compiles whole stories; we evaluate single texts).
   rewrites `{name:clock}` → `{clock(name)}` in `entity_versions` / `content_versions` (MariaDB `REGEXP_REPLACE`,
   idempotent, SELECT first). Dev DB check 2026-10-06: 0 occurrences – it's for production's newer test content. Rule
   (owner): data changes = DB migrations, never code that converts old data on load.
-- Story variables are bare names as in ink (`{coins}` keeps working); reader state is namespaced (`map.total`, …).
+- Story variables are bare names as in ink (`{coins}` keeps working – this toon's), `global.coins` / `toptoy.coins` for
+  the other domains; reader state is namespaced (`map.total`, …).
 - Missing value: readers never see raw code – empty; the creator warns.
 - Difference to real ink: a text using our names / functions doesn't run in inkle's Inky – the syntax rules are ink's.
 
@@ -65,7 +66,9 @@ compiles whole stories; we evaluate single texts).
 
 | Namespace | Names |
 |---|---|
-| (bare) | the story variables – one save game for every toon (a name is the same variable in every toon), ink-style bare names: `coins` (VN `setVariable` / choice set+add) |
+| (bare) | this toon's story variables, ink-style bare names: `coins` (VN `setVariable` / choice set+add) – one save game, names with a domain (DATA.md "The save game") |
+| `global.` | the story variables of every toon: `global.coins` |
+| `<toon>.` | another toon's story variables, read and write: `toptoy.coins` (a toon id of a–z, 0–9, `_`) |
 | `reader.` | `name` (askText, platform scope), `signedIn`, `member`, `memberDays`, `since`, `gifts`, `language`, `daysSinceStart` |
 | `read.` | `chapter(n)`, `chapters`, `finished`, `position(n)` |
 | `inventory.` | `has(id)`, `count(id)`, `items`, `edition(id)` |
@@ -116,7 +119,7 @@ uses one "Repeats" field component for both.
 ## 6. `askText` – a text input in the VN
 
 A question (per language, optionally spoken by a character), one input line (placeholder, max length e.g. 24, optional
-default when skipped), stores into a variable; scroll frozen until answered. Plain text, trimmed, never markup; shown only
+default = a ready answer shown as a button), stores into a variable; scroll frozen until answered. Plain text, trimmed, never markup; shown only
 to that reader. Scope: a story variable (stored `toon`, the default – since the one save game the same in every toon, so
 "toon" only means "the story's"; the creator says "a story variable (the same in every toon)") or the reader's name
 (`reader`: `reader.name`, the account's field – guests on the device, members on the account, changeable on the account
@@ -241,7 +244,7 @@ page; not part of the save game). The scope stays meaningful: a variable vs. the
 - **askText** (§6) – `VNAskTextEvent { text, character?, persona?, variable?, placeholder?, maxLength? (24, ≤ 200),
   default?, scope?: toon | reader }`; texts per language (neutral `EVENT_TEXT_FIELDS` – TS + PHP NeutralDoc, golden
   fixture); the question goes through the expression engine, placeholder / default are plain. The message box shows
-  one input line + a round ✓ (Enter) + Skip (→ default); the page doesn't scroll meanwhile (`vn.state.question` in
+  one input line + a round ✓ (Enter) + the default as an answer button with its own text (owner 2026-10-06: no "Skip" link; no default = no button, an empty ✓ goes on, nothing stored); the page doesn't scroll meanwhile (`vn.state.question` in
   `frozen`). Answers: control characters → spaces, trimmed, cut; toon scope → the story variable, reader scope → the
   reader's name (≤ 32): members `users.display_name` (`PUT /me/ { display_name }`, migration
   2026-10-06-display-name, PHPUnit `DisplayNameTest`), guests localStorage `scutoons_reader_name`; the account page has

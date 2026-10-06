@@ -3,6 +3,7 @@
 // with visited sets (iterative, O(nodes + edges), never runs a script, cycles are harmless). Every item is reachable,
 // reachable only through a condition, or unreachable; conditions that can never be true and divert loops with no way
 // out are found on the way. The validator warns, the creator labels the items ("unreachable" chips).
+import { variableKey, writtenVariable } from './variables.ts';
 import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
 import { Trigger } from './enums.ts';
 import { repeatOf, type Repeat } from './recurrence.ts';
@@ -19,12 +20,14 @@ type Path = (string | number)[];
  * with variables (`elsewhere`, from the server's flow index)
  */
 export interface ToonFacts {
+	/** the toon the facts are about: names as written there resolve to storage keys (variables.ts); none: keys = names */
+	toon?: string;
 	/**
 	 * variables something sets (setVariable, a choice's set / add, a picked-up item's id, an askText's answer) – in this
-	 * toon or in any other (a variable set in toptoy is the one catpope reads)
+	 * toon or in any other (`global.x` set in toptoy is the one catpope reads) – as storage keys (`catpope/x`, `x`)
 	 */
 	variables: ReadonlySet<string>;
-	/** variables OTHER toons read (a test, an expression, a text's `{…}`): set here, read there = used */
+	/** variables OTHER toons read (a test, an expression, a text's `{…}`), as storage keys: set here, read there = used */
 	reads?: ReadonlySet<string>;
 	/** group labels a jump target, an end, a random list or a map place refers to (entry points `?label=`) */
 	labels: ReadonlySet<string>;
@@ -50,6 +53,7 @@ export interface ToonFactsOptions {
  */
 export function toonFacts(docs: Iterable<unknown>, options: ToonFactsOptions = {}): ToonFacts {
 	const variables = new Set<string>(options.elsewhere?.sets ?? []);
+	const add = (written: string) => variables.add(options.toon ? variableKey(written, options.toon) : written);
 	const labels = new Set<string>(options.incoming ?? []);
 	const stack: unknown[] = [...docs];
 	const seen = new Set<object>();
@@ -62,18 +66,28 @@ export function toonFacts(docs: Iterable<unknown>, options: ToonFactsOptions = {
 			continue;
 		}
 		const o = v as Record<string, any>;
-		if (o.type === 'setVariable' && typeof o.params?.variable === 'string') variables.add(o.params.variable);
-		if (askVariable(o)) variables.add(askVariable(o)!);
-		if (typeof o.set?.variable === 'string') variables.add(o.set.variable);
-		if (typeof o.add?.variable === 'string') variables.add(o.add.variable);
-		if (o.action === 'pickup' && typeof o.item === 'string') variables.add(o.item);
+		if (o.type === 'setVariable' && typeof o.params?.variable === 'string') add(o.params.variable);
+		if (askVariable(o)) add(askVariable(o)!);
+		if (typeof o.set?.variable === 'string') add(o.set.variable);
+		if (typeof o.add?.variable === 'string') add(o.add.variable);
+		if (o.action === 'pickup' && typeof o.item === 'string') add(o.item);
 		if (typeof o.type === 'string' && 'value' in o && !(typeof o.toon === 'string' && o.toon && o.toon !== options.toon)) {
 			if (typeof o.label === 'string' && o.label) labels.add(o.label);
 			if (Array.isArray(o.anyOf)) for (const l of o.anyOf) if (typeof l === 'string' && l) labels.add(l);
 		}
 		for (const key in o) stack.push(o[key]);
 	}
-	return { variables, labels, ...(options.elsewhere?.reads ? { reads: new Set(options.elsewhere.reads) } : {}) };
+	return { ...(options.toon ? { toon: options.toon } : {}), variables, labels, ...(options.elsewhere?.reads ? { reads: new Set(options.elsewhere.reads) } : {}) };
+}
+
+/** the storage key of a name as written in the facts' toon (no toon: the name) */
+export function factKey(facts: Pick<ToonFacts, 'toon'> | null | undefined, written: string): string {
+	return facts?.toon ? variableKey(written, facts.toon) : written;
+}
+
+/** the variables of the facts as written in their toon (`x`, `global.x`, `toptoy.x`) – the expression analyser's known names */
+export function factNames(facts: Pick<ToonFacts, 'toon' | 'variables'>, keys: Iterable<string> = facts.variables): string[] {
+	return [...keys].map((k) => (facts.toon ? writtenVariable(k, facts.toon) : k));
 }
 
 /**
@@ -135,7 +149,7 @@ export const runRepeat = (holder: unknown): Repeat => repeatOf((holder as { repe
 export function neverTrue(condition: unknown, facts: ToonFacts | undefined): boolean {
 	const c = condition as { variable?: unknown; op?: unknown; value?: unknown } | null | undefined;
 	if (!facts || !c || typeof c.variable !== 'string' || !c.variable || c.variable.startsWith('picked:')) return false;
-	if (facts.variables.has(c.variable)) return false;
+	if (facts.variables.has(factKey(facts, c.variable))) return false;
 	switch (c.op) {
 		case 'set':
 		case '<':

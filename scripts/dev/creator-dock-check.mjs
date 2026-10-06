@@ -147,7 +147,7 @@ try {
 	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: '\\', code: 'Backslash', modifiers: 2, windowsVirtualKeyCode: 220 });
 	await sleep(300);
 	let g = await layout();
-	check(g.folded && g.rail && g.sidebar.w <= 2.5 * 24, 'Ctrl+\\ folds the sidebar to its rail', JSON.stringify(g));
+	check(g.folded && g.rail && g.sidebar.w <= (await js(`(() => { const p = document.createElement('div'); p.style.width = 'var(--sc-shell-rail-width)'; (document.querySelector('.sc-app-shell') ?? document.body).append(p); const w = Math.round(p.getBoundingClientRect().width); p.remove(); return w; })()`)) + 2, 'Ctrl+\\ folds the sidebar to its rail', JSON.stringify(g));
 	await shot('1600-toon-sidebar-folded');
 	await js(`document.querySelector('[data-testid="shell-rail"] button').click(), true`);
 	await sleep(300);
@@ -201,7 +201,8 @@ try {
 	await size(1600);
 	check(await go('/catpope/chapter/1?flow=1', `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node')`), '1600: chapter Flow for the rail');
 	await sleep(500);
-	const railPx = await js(`Math.round(2.5 * parseFloat(getComputedStyle(document.documentElement).fontSize))`);
+	// a rail is as wide as its round unfold button + 0.5rem either side (--sc-shell-rail-width, owner 2026-10-06)
+	const railPx = await js(`(() => { const p = document.createElement('div'); p.style.width = 'var(--sc-shell-rail-width)'; (document.querySelector('.sc-app-shell') ?? document.body).append(p); const w = Math.round(p.getBoundingClientRect().width); p.remove(); return w; })()`);
 	const enter = async () => {
 		await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
 		await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });

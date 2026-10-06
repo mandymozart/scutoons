@@ -9,7 +9,7 @@
  *   - a message waiting for its click → its continue overlay (a parked message shows no overlay: its click belongs to
  *     the script, which gets it back when the trigger run ends – `endRun`, also after an error)
  *   - choices → shown only when there is at least one (`showChoices` with none: the script goes on – no freeze)
- *   - a question → its input line, ✓ and Skip (Skip always: the default or nothing)
+ *   - a question → its input line, ✓ and the answer button (only with an answer text; it stores the default or nothing)
  *   - a text box with `wait` → the tap layer (and its effect ends by itself)
  * Slice-trigger runs take the box in turn (`acquireRun`, first come first served, and only while no question / choices
  * are open): two runs never park the same message or write one resolver over another. While a run holds the box the
@@ -29,8 +29,8 @@ export interface BoxMessage<C> {
 export interface BoxQuestion {
 	placeholder: string;
 	maxLength: number;
-	/** what Skip stores (shown on the button's title) */
-	fallback: string;
+	/** the answer button's text ('' = no button) */
+	answer: string;
 	resolve: (answer: string | null) => void;
 }
 

@@ -164,7 +164,7 @@ async function click(selector) {
 /** Save draft; the in-page note dialog that follows (askDialog) is skipped */
 async function saveDraft() {
 	await click('[data-testid="save-draft"]');
-	if (await waitFor(`document.querySelector('dialog.sc-dialog[open] button.secondary') ? true : null`, 3000)) await click('dialog.sc-dialog[open] button.secondary');
+	if (await waitFor(`document.querySelector('dialog.sc-dialog[open] button.primary') ? true : null`, 3000)) await click('dialog.sc-dialog[open] button.primary');
 }
 async function clickAt(x, y, clickCount = 1) { await mouse('mousePressed', x, y, { clickCount }); await mouse('mouseReleased', x, y, { clickCount }); }
 async function drag(from, to, steps = 8) {

@@ -1276,9 +1276,13 @@
 									"type": "number",
 									"description": "at most this many characters (default 24, at most 200)"
 								},
+								"answer": {
+									"type": "string",
+									"description": "a ready answer as a button under the input line: its text (none = no button)"
+								},
 								"default": {
 									"type": "string",
-									"description": "what Skip (or an empty answer) stores; none = nothing is stored"
+									"description": "what the answer button (or an empty answer) stores; none = nothing is stored – the variable stays unset, so a later condition can tell it apart"
 								},
 								"scope": {
 									"$ref": "#/definitions/AskTextScope",
@@ -1448,7 +1452,7 @@
 				},
 				"toon": {
 					"type": "string",
-					"description": "`type: 'chapter'` only: the chapter (and `label` / `anyOf`) of ANOTHER toon (owner 2026-10-06, \"at label\"); absent = this toon. `type: 'toon'` stays the toon's page. Variables are per toon – a jump into another toon reads and writes that toon's story variables (`targetToon`, DATA.md \"Linked groups\")."
+					"description": "`type: 'chapter'` only: the chapter (and `label` / `anyOf`) of ANOTHER toon (owner 2026-10-06, \"at label\"); absent = this toon. `type: 'toon'` stays the toon's page. Variables travel along (one save game); their names have a domain (variables.ts: `x` is the toon's own, `global.x` every toon's, `toptoy.x` toptoy's)."
 				},
 				"label": {
 					"type": "string"
@@ -2151,9 +2155,13 @@
 									"type": "number",
 									"description": "at most this many characters (default 24, at most 200)"
 								},
+								"answer": {
+									"type": "string",
+									"description": "a ready answer as a button under the input line: its text (none = no button)"
+								},
 								"default": {
 									"type": "string",
-									"description": "what Skip (or an empty answer) stores; none = nothing is stored"
+									"description": "what the answer button (or an empty answer) stores; none = nothing is stored – the variable stays unset, so a later condition can tell it apart"
 								},
 								"scope": {
 									"$ref": "#/definitions/AskTextScope",

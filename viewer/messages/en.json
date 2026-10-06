@@ -127,8 +127,7 @@
 		"sensitive_hidden_hint": "In your account: “Hide sensitive content”",
 		"scroll_paused": "Scrolling paused – answer the message first",
 		"ask_label": "Your answer",
-		"ask_ok": "OK",
-		"ask_skip": "Skip"
+		"ask_ok": "OK"
 	},
 	"player": {
 		"sound_on": "Sound on",

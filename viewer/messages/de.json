@@ -127,8 +127,7 @@
 		"sensitive_hidden_hint": "In deinem Konto: „Sensible Inhalte ausblenden“",
 		"scroll_paused": "Scrollen pausiert – erst die Nachricht beantworten",
 		"ask_label": "Deine Antwort",
-		"ask_ok": "OK",
-		"ask_skip": "Überspringen"
+		"ask_ok": "OK"
 	},
 	"player": {
 		"sound_on": "Ton an",

@@ -843,11 +843,13 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       `toon_id = <toon>`) into the member's save game (`toon_id = 'scutoons'`, which holds the map). The new viewer reads
       and writes only `/api/progress/scutoons/` (PUT merges: map / checkpoints / history as sets, variables the newer
       write's); old per-toon calls keep working for older viewer builds (their rows are not read by the new viewer).
-      Guests: the viewer takes the old `scutoons_game_<toon>` keys in once (same clash rule) and removes them.
+      Guests: the viewer takes the old `scutoons_game_<toon>` keys in once (same rule) and removes them.
+      Variables have a domain (owner 2026-10-06, `@scutoons/content` variables.ts): a toon's old variables keep it –
+      `x` of catpope's state becomes `catpope/x` (written `x` in catpope, `catpope.x` elsewhere); `global.x` is shared.
       **O – production steps (with the deploy of viewer + API):**
-  1. phpMyAdmin → d0487143 → SQL, check first (both SELECTs are in the migration's header): the members with per-toon
-     states (`SELECT user_id, COUNT(*) … WHERE toon_id <> 'scutoons' GROUP BY user_id`) and the **clashes** – a variable
-     with different values in two toons, listed oldest → newest; the NEWEST toon's value wins.
+  1. phpMyAdmin → d0487143 → SQL, check first (the SELECT is in the migration's header): the members with per-toon
+     states (`SELECT user_id, COUNT(*) … WHERE toon_id <> 'scutoons' GROUP BY user_id`) – each toon's variables go in
+     as `<toon>/x`, so there are no clashes between toons.
   2. Run `server/migrations/mysql/2026-10-06-global-save-game.mysql.sql` (idempotent: a second run changes nothing; the
      per-toon rows stay as they were – rollback = the old viewer). Afterwards the header's last SELECT answers 0.
   3. Deploy viewer + API together right after (an old viewer keeps writing per-toon rows the new one doesn't read; a

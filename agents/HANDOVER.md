@@ -54,11 +54,12 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Spacing on a 1rem line: sidebars, outline, fold button all start at 1rem; dividers run edge to edge.
 - ONE layout model for every area (agents/DOCKING.md, approved 2026-10-06): regions tile (sidebar | page | right dock |
   Ask – AppShell in creator, admin, embassy), one `Divider` for every drag edge (up to half the window), one fold to a
-  `Rail` (sidebar: chevrons at its top right / drag / Ctrl+\; script outline: rail "Outline"; right dock: the panel's
+  `Rail` as wide as its round button + 0.5rem either side (sidebar: chevrons at its top right / drag / Ctrl+\; script outline: rail "Outline"; right dock: the panel's
   `DockFold`, rail with its icon + title, not remembered); sizes remembered per panel kind. The main never folds: dock
   panels and the slice inspector MAXIMIZE instead (button / Ctrl+Space / Esc; the rest only hidden – DOCKING.md). The script is read-only
   until "Edit script" is confirmed.
-- Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
+- Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()` – the primary action last, one
+  primary only: the save-draft note's button says "Save without note" while empty, "Save" once typed (owner 2026-10-06).
 - Page panels (Problems, History, Flow, Info, the admin's list detail) take turns in the shell's right dock (`useDock`),
   left of Ask; with an unfolded dock and Ask open the sidebar folds to its rail (never without Ask). Pickers stay modal
   drawers (`Sheet`). Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
@@ -83,9 +84,10 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   strings, 11 versions of scene-14 in the dump). Decide: the published scene-14 still has an unknown `end` event
   (content:check reports it) – publish the scene's newest version or delete the event.
 - Production: run `2026-10-06-global-save-game.mysql.sql` with the deploy of viewer + API (CUTOVER 10.36 – the SELECTs
-  first: members with per-toon states, and the variable clashes – the newest toon's value wins). One save game for
-  every toon (DATA.md "The save game"); guests' old keys are taken in by the viewer on load (the stored-format rule's
-  exception: no SQL reaches a browser, no author involved).
+  first: members with per-toon states; each toon's variables go in as `<toon>/x` – no clashes). One save game for
+  every toon, variables with a domain: `x` this toon's, `global.x`, `<toon>.x` (DATA.md "The save game"); guests' old
+  keys are taken in by the viewer on load (the stored-format rule's exception: no SQL reaches a browser, no author
+  involved).
 - Onions: no onion item in the catalog yet (needed before it can respawn). The onion camera (branch `items/onion-camera`,
   6 commits, checkout `C:\Development\scutoons-onion-camera`) waits until **February 2027** (owner 2026-10-05: no priority
   before); it predates the catalog in the database – its items.json changes go through the admin catalog then.

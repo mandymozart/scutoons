@@ -147,23 +147,26 @@ final class FlowIndexApiTest extends TestCase
         self::assertSame(['lost'], array_column($index['dead']['toptoy']['labels'], 'name'));
     }
 
-    /** one save game (owner 2026-10-06): set in toptoy + read in catpope = used; `variables` lists the toons per name */
+    /**
+     * one save game, names with a domain (owner 2026-10-06, Variables): global.mama_tips set in toptoy + read in catpope =
+     * used; toptoy's `rocket` read from catpope as `yellowmouse.rocket`; `variables` lists the toons per storage key
+     */
     public function testVariablesAcrossToons(): void
     {
         $set = fn(string $v) => ['type' => 'setVariable', 'params' => ['variable' => $v, 'value' => 1, 'op' => 'add']];
-        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'a', 'slices' => [[]], 'events' => [$set('mama_tips'), $set('lonely')]]]]);
+        $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'a', 'slices' => [[]], 'events' => [$set('global.mama_tips'), $set('lonely')]]]]);
         $this->store('chapter:catpope:2', ['number' => 2, 'thumbnail' => 's1/c2/thumb.jpg', 'groups' => [['label' => 'b', 'slices' => [[]], 'events' => [
-            $set('mama_tips'),
-            ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Mama!']], 'if' => ['variable' => 'mama_tips', 'op' => '>=', 'value' => 2]],
-            ['type' => 'showMessage', 'params' => ['text' => ['de' => '{rocket} {nowhere}']]],
+            $set('global.mama_tips'),
+            ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Mama!']], 'if' => ['variable' => 'global.mama_tips', 'op' => '>=', 'value' => 2]],
+            ['type' => 'showMessage', 'params' => ['text' => ['de' => '{yellowmouse.rocket} {nowhere} {lonely}']]],
         ]]]]);
         $this->store('chapter:yellowmouse:1', ['number' => 1, 'groups' => [['label' => 'c', 'slices' => [[]], 'events' => [$set('rocket')]]]]);
         $index = (array) json_decode((string) $this->request('/api/creator/flow-index', $this->token('creator'))->getBody(), true);
         self::assertSame(['set' => ['catpope', 'toptoy'], 'read' => ['catpope']], $index['variables']['mama_tips']);
-        self::assertSame(['set' => ['yellowmouse'], 'read' => ['catpope']], $index['variables']['rocket']);
-        self::assertSame(['set' => [], 'read' => ['catpope']], $index['variables']['nowhere']);
-        self::assertSame(['lonely'], array_column($index['dead']['toptoy']['unread'], 'name'), 'mama_tips is read in catpope');
+        self::assertSame(['set' => ['yellowmouse'], 'read' => ['catpope']], $index['variables']['yellowmouse/rocket']);
+        self::assertSame(['set' => [], 'read' => ['catpope']], $index['variables']['catpope/nowhere']);
+        self::assertSame(['lonely'], array_column($index['dead']['toptoy']['unread'], 'name'), "mama_tips is read in catpope; catpope's lonely is another variable");
         self::assertSame([], array_column($index['dead']['yellowmouse']['unread'], 'name'), 'rocket is read in catpope');
-        self::assertSame(['nowhere'], array_column($index['dead']['catpope']['unset'], 'name'), 'rocket is set in yellowmouse');
+        self::assertSame(['lonely', 'nowhere'], array_column($index['dead']['catpope']['unset'], 'name'), 'rocket is set in yellowmouse');
     }
 }

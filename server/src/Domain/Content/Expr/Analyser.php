@@ -249,6 +249,11 @@ final class Analyser
             if ($this->known !== null && !isset($this->known[$full])) {
                 $this->problem('unknown-variable', $e, [$full], self::didYouMean($full, array_map('strval', array_keys($this->known))), 'warning');
             }
+        } elseif (count($path) === 2 && !isset($this->spaces[$path[0]])) {
+            // a story variable with a domain (@scutoons/content variables.ts): `global.coins`, `toptoy.coins`
+            if ($this->known !== null && !isset($this->known[$full])) {
+                $this->problem('unknown-variable', $e, [$full], self::didYouMean($full, array_map('strval', array_keys($this->known))), 'warning');
+            }
         } else {
             [$ns, $m] = $this->member($full);
             if ($m !== null && $m['kind'] === 'function') {

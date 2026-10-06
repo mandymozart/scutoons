@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon, DockFold, shellDock } from '@scutoons/ui';
+	import { CloseButton, DockFold, shellDock } from '@scutoons/ui';
 	import { toonFlow, type DeadPlace, type FlowNode } from '@scutoons/content';
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
@@ -54,7 +54,7 @@
 	<header>
 		<h2>{m['creator.flow']()}</h2>
 		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-		<button class="ghost" onclick={onclose} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
+		<CloseButton label={m['creator.close']()} onclick={onclose} />
 	</header>
 	<div class="canvas">
 		{#if error}
@@ -79,19 +79,22 @@
 		height: 100%;
 		min-height: 0;
 	}
+	/* the Ask panel's header (owner 2026-10-06): one control row, the title fills, edge to edge */
 	header {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		gap: var(--space-05);
+		padding: var(--space-05) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	h2 {
-		margin: var(--space-025) 0;
+		margin: 0;
+		flex: 1;
 	}
 	.hint {
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
-		margin: var(--space-05) 0;
+		margin: var(--space-05) var(--space-1);
 	}
 	.error {
 		color: var(--error);
@@ -99,8 +102,6 @@
 	.canvas {
 		flex: 1;
 		min-height: 0;
-		margin-top: var(--space-05);
 		position: relative;
-		border: var(--border-width-regular) solid var(--ink);
 	}
 </style>

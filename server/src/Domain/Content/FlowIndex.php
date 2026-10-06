@@ -14,8 +14,9 @@ use Scutoons\Infrastructure\Database\Database;
  * toon's seasons and its dead things (the same rules as @scutoons/content `deadThings`: variables set but never read,
  * read but never set (reads: simple tests, `if.expr` conditions and texts' `{…}` through the expression analyser), script points and group labels nothing jumps to –
  * from this toon or another one: a chapter target with `toon`). Story variables are ONE save game for every toon (owner
- * 2026-10-06, DATA.md "The save game"): set in toptoy and read in catpope = used – `variables` lists every name with the
- * toons that set / read it, and the dead things judge variables across all toons. The browser draws it without loading
+ * 2026-10-06, DATA.md "The save game"); names have a domain (`Variables`: `x` = this toon's, `global.x`, `toptoy.x`) –
+ * `variables` lists every storage key with the toons that set / read it, and the dead things judge variables across all
+ * toons by key (shown as written in the toon). The browser draws it without loading
  * every toon. The Flow's pictures (owner 2026-10-06): each toon's `avatar` and per chapter its thumbnail and the low
  * variant of each labelled group's first slice (`chapters`, the same as @scutoons/content `chapterPictures`).
  * Cached under the version ids it was built from (content-addressed like the library: nothing to invalidate).
@@ -163,13 +164,13 @@ final class FlowIndex
             ksort($byNumber);
             $facts = $this->facts((string) $toon, [...($toonDocs[$toon] ?? []), ...($map !== null ? [$map] : [])]);
             $facts['labels'] += $incoming[$toon] ?? [];
-            $scan = $this->scan($byNumber, $facts);
+            $scan = $this->scan((string) $toon, $byNumber, $facts);
             $scans[$toon] = $scan;
             foreach (array_keys($facts['variables']) as $name) $variables[(string) $name]['set'][(string) $toon] = true;
             foreach (array_keys($scan['sets']) as $name) $variables[(string) $name]['set'][(string) $toon] = true;
             foreach (array_keys($scan['reads']) as $name) $variables[(string) $name]['read'][(string) $toon] = true;
         }
-        foreach ($scans as $toon => $scan) $dead[$toon] = $this->dead($scan, $variables);
+        foreach ($scans as $toon => $scan) $dead[$toon] = $this->dead((string) $toon, $scan, $variables);
         ksort($variables, SORT_STRING);
         $variableList = [];
         foreach ($variables as $name => $v) {
@@ -272,17 +273,20 @@ final class FlowIndex
         $variables = [];
         $labels = [];
         $stack = $docs;
+        $add = function (string $written) use (&$variables, $toon): void {
+            $variables[Variables::key($written, $toon)] = true;
+        };
         while ($stack !== []) {
             $v = array_pop($stack);
             if (!is_array($v)) continue;
             if (!array_is_list($v)) {
                 $params = is_array($v['params'] ?? null) ? $v['params'] : [];
-                if (($v['type'] ?? null) === 'setVariable' && is_string($params['variable'] ?? null)) $variables[$params['variable']] = true;
-                if (($asked = self::askVariable($v)) !== null) $variables[$asked] = true;
+                if (($v['type'] ?? null) === 'setVariable' && is_string($params['variable'] ?? null)) $add($params['variable']);
+                if (($asked = self::askVariable($v)) !== null) $add($asked);
                 foreach (['set', 'add'] as $op) {
-                    if (is_array($v[$op] ?? null) && is_string($v[$op]['variable'] ?? null)) $variables[$v[$op]['variable']] = true;
+                    if (is_array($v[$op] ?? null) && is_string($v[$op]['variable'] ?? null)) $add($v[$op]['variable']);
                 }
-                if (($v['action'] ?? null) === 'pickup' && is_string($v['item'] ?? null)) $variables[$v['item']] = true;
+                if (($v['action'] ?? null) === 'pickup' && is_string($v['item'] ?? null)) $add($v['item']);
                 $other = is_string($v['toon'] ?? null) && $v['toon'] !== '' && $v['toon'] !== $toon;
                 if (is_string($v['type'] ?? null) && array_key_exists('value', $v) && !$other) {
                     if (is_string($v['label'] ?? null) && $v['label'] !== '') $labels[$v['label']] = true;
@@ -301,11 +305,11 @@ final class FlowIndex
      * @param array<string, array{set?: array<string, true>, read?: array<string, true>}> $variables
      * @return array<string, list<array<string, mixed>>>
      */
-    private function dead(array $scan, array $variables): array
+    private function dead(string $toon, array $scan, array $variables): array
     {
-        $list = function (array $map, callable $keep): array {
+        $list = function (array $map, callable $keep) use ($toon): array {
             $out = [];
-            foreach ($map as $name => $at) if ($keep((string) $name)) $out[] = ['name' => (string) $name, 'at' => $at];
+            foreach ($map as $key => $at) if ($keep((string) $key)) $out[] = ['name' => Variables::written((string) $key, $toon), 'at' => $at];
             usort($out, fn($a, $b) => strcmp($a['name'], $b['name']));
             return $out;
         };
@@ -324,16 +328,18 @@ final class FlowIndex
      * @param array{variables: array<string, true>, labels: array<string, true>} $facts
      * @return array{sets: array<string, list<array<string, mixed>>>, reads: array<string, list<array<string, mixed>>>, points: list<array<string, mixed>>, labels: list<array<string, mixed>>}
      */
-    private function scan(array $chapters, array $facts): array
+    private function scan(string $toon, array $chapters, array $facts): array
     {
         $sets = [];
         $reads = [];
         $points = [];
         $labels = [];
-        $note = function (array &$map, string $name, array $at): void {
+        // keyed by storage keys (Variables): `x` here and `catpope.x` elsewhere are one variable
+        $note = function (array &$map, string $name, array $at) use ($toon): void {
             if ($name === '' || str_starts_with($name, 'picked:')) return;
-            foreach ($map[$name] ?? [] as $p) if ($p['chapter'] === $at['chapter'] && $p['group'] === $at['group']) return;
-            $map[$name][] = $at;
+            $key = Variables::key($name, $toon);
+            foreach ($map[$key] ?? [] as $p) if ($p['chapter'] === $at['chapter'] && $p['group'] === $at['group']) return;
+            $map[$key][] = $at;
         };
         foreach ($chapters as $number => $groups) {
             foreach ($groups as $gi => $group) {
@@ -394,14 +400,15 @@ final class FlowIndex
     }
 
     /**
-     * the story variables among the names an expression / a text reads: names of one part (`reader.name` is none)
+     * the story variables among the names an expression / a text reads, as written: `coins`, `global.coins`,
+     * `toptoy.coins` (`reader.name` is none – Variables::isStoryPath)
      * @param list<list<string>> $names
      * @return list<string>
      */
     private static function storyNames(array $names): array
     {
         $out = [];
-        foreach ($names as $path) if (count($path) === 1) $out[] = $path[0];
+        foreach ($names as $path) if (Variables::isStoryPath($path)) $out[] = implode('.', $path);
         return $out;
     }
 

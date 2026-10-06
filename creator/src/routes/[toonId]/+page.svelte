@@ -447,12 +447,12 @@
 {/snippet}
 
 <style>
-	/* the docked Flow fills the dock (it pans / zooms itself) */
+	/* the docked Flow fills the dock edge to edge (it pans / zooms itself): its header is the Ask panel's, the canvas has no
+	   frame (owner 2026-10-06) */
 	.flow-dock {
 		display: flex;
 		flex-direction: column;
 		box-sizing: border-box;
-		padding: var(--space-1);
 		overflow: hidden;
 	}
 	.toon-title {

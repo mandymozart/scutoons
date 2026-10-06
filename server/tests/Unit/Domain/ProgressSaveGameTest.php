@@ -104,8 +104,9 @@ final class ProgressSaveGameTest extends TestCase
     }
 
     /**
-     * 2026-10-06-global-save-game: each member's per-toon states merged into the save game – a clash (the same name in
-     * two toons) → the newest state's value; checkpoints of every toon; the map stays; a second run changes nothing;
+     * 2026-10-06-global-save-game: each member's per-toon states merged into the save game – a toon's variables keep
+     * their domain (`tips` of catpope → `catpope/tips`, @scutoons/content variables.ts: no clashes between toons);
+     * checkpoints of every toon; the map stays; a second run changes nothing;
      * the per-toon rows stay; members without per-toon states are not touched
      */
     public function testTheGlobalSaveGameMigration(): void
@@ -126,15 +127,6 @@ final class ProgressSaveGameTest extends TestCase
         $this->row($c, 'scutoons', ['map' => ['places' => (object) []]], 50);
         $before = $this->db->value("SELECT state FROM progress WHERE user_id = ? AND toon_id = 'scutoons'", [$c]);
 
-        // the header's clash SELECT names a's tips (catpope=2, toptoy=5, yellowmouse=7) and nothing else
-        $sql = (string) file_get_contents(self::root() . '/migrations/mysql/2026-10-06-global-save-game.mysql.sql');
-        self::assertSame(1, preg_match('/^--   (SELECT p\.user_id.*?HAVING[^\n]*)/ms', $sql, $m));
-        $clashSql = (string) preg_replace('/\n--\s+/', "\n", (string) ($m[1] ?? ''));
-        $clashes = $this->db->all(rtrim($clashSql, ";\n "));
-        self::assertCount(1, $clashes);
-        self::assertSame([$a, 'tips'], [$clashes[0]['user_id'], $clashes[0]['name']]);
-        self::assertSame('toptoy=5, catpope=2, yellowmouse=7', $clashes[0]['values']);
-
         $runner = new MigrationRunner($this->db, self::root() . '/migrations');
         $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-global-save-game.mysql.sql');
         $first = $this->db->all("SELECT user_id, state, updated_at FROM progress WHERE toon_id = 'scutoons' ORDER BY user_id");
@@ -143,7 +135,7 @@ final class ProgressSaveGameTest extends TestCase
 
         $s = $this->stored($a);
         ksort($s['variables']);
-        self::assertSame(['tips' => 7, 'visits_harbour' => 3, 'visits_hypercity' => 1], $s['variables'], 'the newest state (yellowmouse) wins tips');
+        self::assertSame(['catpope/tips' => 2, 'catpope/visits_harbour' => 3, 'toptoy/tips' => 5, 'toptoy/visits_hypercity' => 1, 'yellowmouse/tips' => 7], $s['variables'], 'each toon keeps its own tips');
         self::assertEqualsCanonicalizing(['catpope/chapter/2', 'toptoy/chapter/1'], array_column($s['progress'], 'uri'));
         self::assertEqualsCanonicalizing(['event:c', 'event:y'], array_keys($s['history']));
         self::assertSame(['harbour'], array_keys($s['map']['places']), 'the map stays');
@@ -152,13 +144,13 @@ final class ProgressSaveGameTest extends TestCase
         self::assertSame(4, (int) $this->db->value('SELECT COUNT(*) FROM progress WHERE user_id = ?', [$a]), 'the per-toon rows stay');
 
         $s = $this->stored($b);
-        self::assertSame(['k' => 'v'], $s['variables']);
+        self::assertSame(['catpope/k' => 'v'], $s['variables']);
         self::assertSame(['catpope/chapter/1'], array_column($s['progress'], 'uri'));
         self::assertSame($before, $this->db->value("SELECT state FROM progress WHERE user_id = ? AND toon_id = 'scutoons'", [$c]), 'no per-toon states: untouched');
 
         // the new viewer writes a newer save game; running the migration again keeps its values
-        $this->get(ProgressService::class)->put($a, 'scutoons', self::obj(['variables' => ['tips' => 9]] + $this->stored($a)), 9000);
+        $this->get(ProgressService::class)->put($a, 'scutoons', self::obj(['variables' => ['catpope/tips' => 9]] + $this->stored($a)), 9000);
         $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-global-save-game.mysql.sql');
-        self::assertSame(9, $this->stored($a)['variables']['tips']);
+        self::assertSame(9, $this->stored($a)['variables']['catpope/tips']);
     }
 }

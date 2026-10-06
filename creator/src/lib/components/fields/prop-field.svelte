@@ -21,7 +21,8 @@
 		hint = '',
 		title,
 		required = false,
-		testid = ''
+		testid = '',
+		onchange
 	}: {
 		doc: ContentDoc;
 		path: Path;
@@ -38,6 +39,8 @@
 		/** required keys are never removed (empty number → 0, empty text → '', empty list → []) */
 		required?: boolean;
 		testid?: string;
+		/** called after the field wrote its value (a preset that follows a choice) */
+		onchange?: (next: unknown) => void;
 	} = $props();
 
 	const value = $derived(doc.get(doc.primary, path));
@@ -46,6 +49,7 @@
 
 	function write(next: unknown) {
 		doc.set(path, next);
+		onchange?.(next);
 	}
 
 	function onInput(raw: string) {

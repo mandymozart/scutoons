@@ -5,6 +5,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ACTION_KINDS, actionKind, actionPath, newAction } from '$lib/editor/vn-forms.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import VariableField from '$lib/components/fields/variable-field.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
 	import EventTarget from '$lib/components/events/event-target.svelte';
 
@@ -44,10 +45,10 @@
 			</select>
 			<div class="sc-fields action-fields" data-cols="3" data-density="dense" data-align="end">
 				{#if action?.set}
-					<PropField {doc} path={[...ap, 'set', 'variable']} label={m['creator.field_variable']()} required />
+					<VariableField {doc} path={[...ap, 'set', 'variable']} />
 					<PropField {doc} path={[...ap, 'set', 'value']} label={m['creator.field_value']()} required />
 				{:else if action?.add}
-					<PropField {doc} path={[...ap, 'add', 'variable']} label={m['creator.field_variable']()} required />
+					<VariableField {doc} path={[...ap, 'add', 'variable']} />
 					<PropField {doc} path={[...ap, 'add', 'value']} label={m['creator.field_value']()} type="number" step={1} required />
 				{:else if action?.jumpTo}
 					<EventTarget {doc} path={[...ap, 'jumpTo', 'target']} target={action.jumpTo.target} {groupLabels} />

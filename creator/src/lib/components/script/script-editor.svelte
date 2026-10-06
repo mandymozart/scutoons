@@ -66,7 +66,7 @@
 	});
 	outlineRegion.restore();
 	const outlineFolded = $derived(outlineRegion.folded);
-	const outlineCss = $derived(outlineFolded ? '2.5rem' : outlineRegion.width !== null ? `${outlineRegion.width}px` : '16rem');
+	const outlineCss = $derived(outlineFolded ? 'calc(var(--control-height) + 1rem + var(--border-width-regular))' : outlineRegion.width !== null ? `${outlineRegion.width}px` : '16rem');
 	let textHeight = $state<number | null>(null);
 	let outlineHeight = $state<number | null>(null);
 	// folding changes where the list starts: fit the heights again

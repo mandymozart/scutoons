@@ -259,11 +259,12 @@
 		padding: var(--space-1) var(--space-1) var(--space-3);
 	}
 	/* the page's dock (the season's Flow): its content fills the panel's height */
+	/* the dock (the Flow) fills the panel edge to edge (owner 2026-10-06) */
 	.side-panel.is-dock {
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		padding-bottom: var(--space-1);
+		padding: 0;
 	}
 	.pad {
 		padding: 1rem;

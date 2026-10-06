@@ -1,4 +1,4 @@
-import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, evaluateText, labelIndex, testCondition, type ExprResolver, type ExprValue, type JumpToTarget, type VNEvent } from '@scutoons/content';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, evaluateText, isStoryPath, labelIndex, testCondition, type ExprResolver, type ExprValue, type JumpToTarget, type VNEvent } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 /**
@@ -23,7 +23,7 @@ export interface RunnerVn {
 	hideMessage(): void;
 	waitForClick(): Promise<void>;
 	waitForContinue(): Promise<void>;
-	ask(q: { placeholder: string; maxLength: number; fallback: string }): Promise<string | null>;
+	ask(q: { placeholder: string; maxLength: number; answer: string }): Promise<string | null>;
 	addChoice(choice: { label: string; onSelect: any; from?: string | null }): void;
 	showChoices(): boolean;
 	whenChoicesClosed(): Promise<void>;
@@ -94,7 +94,7 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 	const show = (source: string, at: number): string =>
 		env.evaluate
 			? env.evaluate(source, `${label() ?? deps.scope ?? ''}/${deps.origin ?? 'script'}/${at}`)
-			: evaluateText(source, { name: (path) => (path.length === 1 ? (get(path[0]) as ExprValue) : undefined) }).text;
+			: evaluateText(source, { name: (path) => (isStoryPath(path) ? (get(path.join('.')) as ExprValue) : undefined) }).text;
 	let i = Math.max(0, start);
 	let jumpsWithoutWait = 0;
 	/** choices this run added that no showChoices has shown yet (dropped when the run ends) */
@@ -156,16 +156,16 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 				}
 
 				case 'askText': {
-					// the question in the box with one input line; the page waits for Enter / ✓ / Skip (EXPRESSIONS.md §6)
-					const { text, character, persona, placeholder, maxLength, default: fallback, scope = 'toon', variable } = event.params;
+					// the question in the box with one input line; the page waits for Enter / ✓ / the answer button (EXPRESSIONS.md §6)
+					const { text, character, persona, placeholder, maxLength, answer, default: fallback, scope = 'toon', variable } = event.params;
 					const speaker = character ? (vn.findInScene(character, persona) ?? null) : null;
 					if (character && !speaker) console.error(`Character "${character}" is not in the scene. Add them with joinScene first.`);
 					vn.showMessage(speaker, show(text, i - 1), false);
 					jumpsWithoutWait = 0;
 					const limit = Math.min(scope === 'reader' ? env.readerNameMax : ASK_TEXT_LIMIT, Math.max(1, Math.floor(Number(maxLength) || ASK_TEXT_MAX_LENGTH)));
-					const typed = await vn.ask({ placeholder: placeholder ?? '', maxLength: limit, fallback: env.cleanText(fallback ?? '', limit) });
+					const typed = await vn.ask({ placeholder: placeholder ?? '', maxLength: limit, answer: (answer ?? '').trim() });
 					if (cancelled()) return 'cancelled';
-					// plain text, trimmed (never markup: shown as text); empty or skipped → the default, none → nothing stored
+					// plain text, trimmed (never markup: shown as text); empty or the answer button → the default, none → nothing stored
 					const value = env.cleanText(typed ?? '', limit) || env.cleanText(fallback ?? '', limit);
 					// the question's text goes – unless a slice-trigger run took the box meanwhile (its message is shown)
 					if (!deps.yieldToRuns || !vn.runHolds()) vn.hideMessage();

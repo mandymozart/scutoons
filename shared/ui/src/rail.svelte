@@ -2,7 +2,7 @@
 	import Icon from './icon.svelte';
 
 	/**
-	 * A folded region (agents/DOCKING.md): a 2.5rem strip with the unfold button (chevrons pointing into the page) at the
+	 * A folded region (agents/DOCKING.md): a strip as wide as its round unfold button + 0.5rem either side, with the button (chevrons pointing into the page) at the
 	 * top, then the region's icon and its label written vertically (the sidebar: where the user is; the script outline:
 	 * "Outline"; the right dock: the open panel). A click anywhere on the strip unfolds it; the button is the keyboard's
 	 * way in. Dragging out of the rail (its Divider) opens it too.
