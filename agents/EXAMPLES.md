@@ -14,7 +14,11 @@ SELECT id, entity_key, status, message FROM entity_versions WHERE id > 539 AND m
 DELETE FROM entity_versions WHERE id > 539 AND message = 'example: mama story';
 ```
 
-The `message` filter keeps anything else saved after id 539 (the owner's own edits). New keys the story created
+The `message` filter keeps anything else saved after id 539 (the owner's own edits). Note: `npm run check:mcp` saves on
+`scene:catpope:2:scene-14` and restores with `restore_version` – a NEW draft (`mcp-check restore`) that copies the newest
+one (the mama story's strip draft 562); delete a run's `mcp-check (agent)` / `mcp-check restore` rows after id 562 too
+(`… WHERE entity_key = 'scene:catpope:2:scene-14' AND id > 562 AND message LIKE 'mcp-check%'`), else the strip stays
+after the rollback (the 2026-10-06 run's 666 / 667 are deleted). New keys the story created
 (seasons / chapters of toptoy and yellowmouse, catpope chapter drafts) disappear with their only versions; existing keys
 fall back to their previous newest version.
 
