@@ -75,6 +75,8 @@ export function createVisualNovelContext() {
 	let question = $state<VNQuestion | null>(null);
 	/** the dialogue box's height (px): the characters stand on its top edge */
 	let boxHeight = $state(0);
+	/** the box's lift above the viewport bottom in px (1rem; more above the draft-preview label) – 0 = not measured */
+	let boxBottom = $state(0);
 	/** scene key → when it last spoke (a counter), for the stage order: the speaker, then by recency (vn/characters) */
 	const lastSpoke = $state<Record<string, number>>({});
 	let spokeCounter = 0;
@@ -504,6 +506,7 @@ export function createVisualNovelContext() {
 				question,
 				activeTextBoxes,
 				boxHeight,
+				boxBottom,
 				lastSpoke,
 				eventsDone,
 				pageBusy,
@@ -521,6 +524,9 @@ export function createVisualNovelContext() {
 		getCharacter,
 		setBoxHeight: (h: number) => {
 			boxHeight = h;
+		},
+		setBoxBottom: (px: number) => {
+			boxBottom = px;
 		},
 		findInScene,
 		joinScene,

@@ -10,6 +10,21 @@
 	// the characters stand on the box's top edge (vn/characters.svelte)
 	let height = $state(0);
 	$effect(() => vn.setBoxHeight(height));
+	// … and the box's own lift above the viewport bottom (1rem, more above the draft-preview label: --vn-inset-bottom)
+	let box = $state<HTMLElement | null>(null);
+	$effect(() => {
+		if (!box) return;
+		const el = box;
+		const measure = () => vn.setBoxBottom(parseFloat(getComputedStyle(el).bottom) || 0);
+		measure();
+		const observer = new MutationObserver(measure);
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+		window.addEventListener('resize', measure);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('resize', measure);
+		};
+	});
 
 	// the page doesn't scroll while the story waits: interactions/vn-page.svelte (the whole page's scripts and triggers)
 
@@ -35,7 +50,7 @@
 	}
 </script>
 
-<div class="vn-message" class:visible bind:offsetHeight={height}>
+<div class="vn-message" class:visible bind:offsetHeight={height} bind:this={box}>
 	{#if vn.state.message.wait && !vn.state.choicesVisible}
 		<button class="continue-overlay" onclick={handleClick} aria-label="Continue">
 			<span class="sr-only">Continue</span>
@@ -77,7 +92,7 @@
 <style>
 	.vn-message {
 		position: fixed;
-		bottom: 1rem;
+		bottom: calc(1rem + var(--vn-inset-bottom, 0rem));
 		left: 1rem;
 		right: 1rem;
 		min-height: 10rem;
@@ -85,7 +100,7 @@
 		color: black;
 		padding: 1rem;
 		border: 2px solid black;
-		transform: translateY(14rem);
+		transform: translateY(calc(14rem + var(--vn-inset-bottom, 0rem)));
 		pointer-events: none;
 		transition: transform 0.1s ease;
 		z-index: 100;

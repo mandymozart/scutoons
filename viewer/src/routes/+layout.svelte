@@ -21,6 +21,10 @@
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	let toons = $derived(data.toons);
+	// the draft-preview label bottom left: the VN box keeps clear of it (--vn-inset-bottom below)
+	$effect(() => {
+		document.documentElement.classList.toggle('draft-preview-on', draftPreview.on);
+	});
 	const session = setSessionContext();
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
@@ -99,6 +103,11 @@
 </div>
 
 <style>
+	/* the VN box (message, question, choices) stays above the draft-preview label: its bottom edge + 0.5rem
+	   (vn/message.svelte reads --vn-inset-bottom) */
+	:global(html.draft-preview-on) {
+		--vn-inset-bottom: calc(var(--control-height) + 1rem + env(safe-area-inset-bottom, 0rem));
+	}
 	/* a small label bottom left: clear of the fixed header buttons, below the menus that slide in (owner 2026-10-03:
 	   the bar at the top looked broken on mobile) */
 	.draft-preview {
