@@ -10,6 +10,7 @@ import { loadCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
 import { pickText } from '$lib/editor/toon-flow.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime.js';
+import { contextKey } from '$lib/utils/shared.ts';
 
 /** a resolved picture: its URL ('' = none) and its name (the image's `title`) */
 export interface Picture {
@@ -92,6 +93,6 @@ export class FlowPictures {
 	}
 }
 
-const KEY = Symbol('flow-pictures');
+const KEY = contextKey('flow-pictures');
 export const setFlowPictures = (pictures: FlowPictures | undefined) => setContext(KEY, pictures);
 export const getFlowPictures = () => getContext<FlowPictures | undefined>(KEY);

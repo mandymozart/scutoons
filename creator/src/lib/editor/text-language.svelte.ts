@@ -5,6 +5,7 @@
 // pages without a toon. When the shown language is not the field's source, the field is in translate mode: the source
 // text as a muted line under it, read-only, with "Copy original". (Owner 2026-10-06: no "all languages side by side"
 // and no "each field in its source" mode any more – an old stored "all" / "source" reads as the source.)
+import { shared } from '$lib/utils/shared.ts';
 
 const KEY = 'scutoons_creator_text_language';
 /** the platform's source language: the default on pages without a toon (characters, moods, roles, map names) */
@@ -59,7 +60,7 @@ class TextLanguage {
 	}
 }
 
-export const textLanguage = new TextLanguage();
+export const textLanguage = shared('text-language', () => new TextLanguage());
 
 /** The language a list shows titles in: the chosen one (when the toon has it), else the source. */
 export function listLanguage(languages: readonly string[], source: string): string {

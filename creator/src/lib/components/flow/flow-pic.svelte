@@ -1,9 +1,10 @@
 <script lang="ts" module>
 	import { getContext, setContext } from 'svelte';
+	import { contextKey } from '$lib/utils/shared.ts';
 
 	/** the graph's lazy loading: one IntersectionObserver on the canvas – a picture loads when its box comes near the view */
 	export type Watch = (el: Element, near: () => void) => () => void;
-	const KEY = Symbol('flow-lazy');
+	const KEY = contextKey('flow-lazy');
 	export function lazyPictures(root: () => Element | null): Watch {
 		let observer: IntersectionObserver | null = null;
 		const waiting = new Map<Element, () => void>();

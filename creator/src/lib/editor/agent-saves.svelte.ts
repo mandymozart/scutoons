@@ -1,6 +1,7 @@
 // The Ask panel's saves, for the open editors (owner 2026-10-04: a draft the agent saved conflicted with the next save in
 // the editor): the panel reports every document the agent saved (`report`), the page's DocSession reloads that file
 // when it has no unsaved changes, or shows the conflict bar right away (Reload / Overwrite) when it has.
+import { shared } from '$lib/utils/shared.ts';
 
 export interface AgentSave {
 	/** stored key, e.g. `chapter:catpope:1:en` */
@@ -19,4 +20,4 @@ class AgentSaves {
 	}
 }
 
-export const agentSaves = new AgentSaves();
+export const agentSaves = shared('agent-saves', () => new AgentSaves());

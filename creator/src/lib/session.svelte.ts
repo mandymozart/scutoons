@@ -2,8 +2,9 @@ import { getContext, setContext } from 'svelte';
 import { createAuthSession, type AuthSession } from '@scutoons/auth';
 import { authApi } from '$lib/api.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
+import { contextKey } from '$lib/utils/shared.ts';
 
-const SESSION_KEY = Symbol('creator-session');
+const SESSION_KEY = contextKey('creator-session');
 
 export type CreatorSession = AuthSession;
 

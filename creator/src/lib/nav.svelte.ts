@@ -2,6 +2,7 @@ import { getContext, setContext, type Snippet } from 'svelte';
 import { panelWidth } from '@scutoons/ui';
 import { toonName as entryName, type ToonIndex } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
+import { contextKey } from '$lib/utils/shared.ts';
 
 /**
  * Creator navigation (agents/DESIGN.md "Creator navigation"): ONE top bar with the breadcrumb of the full path
@@ -45,7 +46,7 @@ export class CreatorNav {
 	readonly parent = $derived(this.crumbs.length > 1 ? this.crumbs[this.crumbs.length - 2] : null);
 }
 
-const KEY = Symbol('creator-nav');
+const KEY = contextKey('creator-nav');
 
 export function setCreatorNav() {
 	return setContext(KEY, new CreatorNav());

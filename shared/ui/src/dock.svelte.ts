@@ -41,7 +41,10 @@ class ShellDock {
 	}
 }
 
-export const shellDock = new ShellDock();
+// once per page even when the dev server serves this module twice (stale `?t=` timestamps after branch switches): the
+// shell would show one registry while the pages dock into the other (creator utils/shared.ts)
+const SHELL_DOCK = Symbol.for('scutoons:shell-dock');
+export const shellDock: ShellDock = ((globalThis as unknown as Record<symbol, ShellDock | undefined>)[SHELL_DOCK] ??= new ShellDock());
 
 /**
  * Docks the component's open panel on the right while it is mounted (call during component init): `current()` says

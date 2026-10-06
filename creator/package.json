@@ -10,7 +10,7 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "node scripts/paraglide.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/canvas-geometry.test.ts test/chat-markdown.test.ts test/repair-booleans.test.ts test/event-ids.test.ts test/expr-edit.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/canvas-geometry.test.ts test/chat-markdown.test.ts test/repair-booleans.test.ts test/event-ids.test.ts test/expr-edit.test.ts test/shared.test.ts"
 	},
 	"dependencies": {
 		"@dagrejs/dagre": "^3.1.1",

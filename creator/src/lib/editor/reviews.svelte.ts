@@ -9,6 +9,7 @@ import { contentApi } from '$lib/api.ts';
 import { fileLabels } from '$lib/labels.ts';
 import { m } from '$lib/paraglide/messages.js';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+import { shared } from '$lib/utils/shared.ts';
 
 class Reviews {
 	overview = $state<ReviewOverview | null>(null);
@@ -28,7 +29,7 @@ class Reviews {
 }
 
 /** The signed-in account's review state (loaded by the layout once the creator is known) */
-export const reviews = new Reviews();
+export const reviews = shared('reviews', () => new Reviews());
 
 /** "Publish" or "Submit for review" – the label of the page's publish button */
 export const publishLabel = (toon: string | null | undefined) => (reviews.needsReview(toon) ? m['creator.submit_review']() : m['creator.publish']());

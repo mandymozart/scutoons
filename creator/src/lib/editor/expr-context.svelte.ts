@@ -3,6 +3,7 @@
 // the previews use (builder + slice canvas: one choice), and a jump request from the Problems panel (an `expr:*`
 // problem: the field at that place focuses and selects the problem's range).
 import type { SampleReaderId } from '$lib/editor/sample-readers.ts';
+import { shared } from '$lib/utils/shared.ts';
 
 /** a field's place: the document (entity), the text's path and its language (null = not per language) */
 export const fieldKey = (file: string, path: readonly (string | number)[], locale: string | null) => `${file}|${path.join('.')}|${locale ?? ''}`;
@@ -29,4 +30,4 @@ class ExprContext {
 	}
 }
 
-export const exprContext = new ExprContext();
+export const exprContext = shared('expr-context', () => new ExprContext());

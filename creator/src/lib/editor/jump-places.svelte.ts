@@ -5,8 +5,9 @@
 import { getContext, setContext } from 'svelte';
 import { contentIndex, getDraft } from '$lib/api.ts';
 import { sceneEntityOfRef, type JumpTargets } from '@scutoons/content';
+import { contextKey } from '$lib/utils/shared.ts';
 
-const KEY = Symbol('jump-places');
+const KEY = contextKey('jump-places');
 
 /** a chapter's groups as the reader sees them: a ref group's label lives in its scene document */
 async function chapterLabels(toon: string, number: number, keys: { chapter: string | null }): Promise<string[]> {
