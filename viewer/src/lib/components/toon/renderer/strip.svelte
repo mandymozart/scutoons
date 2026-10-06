@@ -13,8 +13,10 @@
 	 * hint, no gesture of its own – then reading goes on downwards; scrolling up runs it backwards. A strip narrower than
 	 * the screen is shown whole, centred, and not pinned. On a desktop (fine pointer) the strip can go full screen: ← →
 	 * (frame by frame), the wheel and the round arrows move it there, Esc goes back to the same place on the page.
+	 * It finds its offset from its own place on the page, so it works anywhere in a chain of linked groups too.
+	 * `sliceOffset`: the page index of the first slice (linked groups share one page).
 	 */
-	let { group }: { group: Group } = $props();
+	let { group, sliceOffset = 0 }: { group: Group; sliceOffset?: number } = $props();
 
 	let section = $state<HTMLElement>();
 	let pin = $state<HTMLElement>();
@@ -134,7 +136,7 @@
 		<div class="track" bind:this={track} style:transform="translate3d({-offset}px, 0, 0)">
 			{#each frames as frame, index}
 				<div class="frame" style:aspect-ratio="{frame.width} / {frame.height}">
-					<Slice slice={frame.slice} sliceIndex={index} allSlices={group.slices ?? []} />
+					<Slice slice={frame.slice} sliceIndex={index} pageIndex={sliceOffset + index} allSlices={group.slices ?? []} />
 				</div>
 			{/each}
 		</div>

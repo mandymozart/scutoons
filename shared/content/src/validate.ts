@@ -10,6 +10,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
+import { hasVisualNovel, linksToNext } from './chains.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import { DEFAULT_SLICE, DIALOG_SHAPES, DIALOG_TAILS, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { checkWorldMap } from './map.ts';
@@ -72,6 +73,11 @@ export interface ValidateContext {
 	items?: string[];
 	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
 	itemRespawn?: Record<string, ItemRespawn | null>;
+	/**
+	 * chapter files: a `ref` group → its scene (the creator's loaded scene document), so the chapter's linked groups
+	 * (chains.ts) are checked with the scenes' `continues`; none / null = the ref group as it is
+	 */
+	resolveGroup?: (group: any) => any;
 }
 
 class Collector {
@@ -564,6 +570,31 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	}
 	checkScriptPoints(c, g, path);
 	checkVnFlow(c, g, path);
+	checkGroupLinks(c, g, path);
+}
+
+/** Linked groups (chains.ts): `continues` a boolean, `end` { target, auto? } – ignored on a group that continues */
+function checkGroupLinks(c: Collector, g: any, path: Path) {
+	if (g.continues !== undefined && typeof g.continues !== 'boolean') c.error([...path, 'continues'], 'continues must be true or false');
+	if (g.end === undefined) return;
+	if (!isObj(g.end)) return c.error([...path, 'end'], 'end must be an object { target, auto? }');
+	checkTarget(c, g.end.target, [...path, 'end', 'target']);
+	if (g.end.auto !== undefined && typeof g.end.auto !== 'boolean') c.error([...path, 'end', 'auto'], 'end.auto must be true or false');
+	if (g.continues === true) c.warn([...path, 'end'], "end is ignored: the group continues into the next group (only a chain's last group has an end)");
+}
+
+/**
+ * The chapter's chains (chains.ts): the last group can't continue, a VN group (script or slice events) only ends a chain,
+ * a chain that isn't the chapter's start needs a label on its first group (else nothing reaches it). `groups` = the
+ * chapter's groups with each scene in place of its ref (where known).
+ */
+function checkChains(c: Collector, groups: any[]) {
+	groups.forEach((g, i) => {
+		if (!isObj(g) || g.continues !== true) return;
+		if (i === groups.length - 1) c.error(['groups', i, 'continues'], "the chapter's last group can't continue (nothing follows it on the page)");
+		else if (hasVisualNovel(g)) c.error(['groups', i, 'continues'], 'a group with a VN script or slice events can only be the last group of linked groups – remove continues');
+		if (i > 0 && !g.label && !linksToNext(groups, i - 1)) c.warn(['groups', i, 'label'], 'linked groups start here without a label – nothing can reach them');
+	});
 }
 
 function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContext) {
@@ -611,7 +642,10 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		(ch.audio?.sampleLibrary ?? []).forEach((t: any, i: number) => checkAudioVariants(c, t, ['audio', 'sampleLibrary', i]));
 	}
 	if (!Array.isArray(ch.groups) || !ch.groups.length) c.error(['groups'], 'chapter needs at least one group');
-	else ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
+	else {
+		ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
+		checkChains(c, ch.groups.map((g: any) => (isObj(g) && g.ref ? (ctx.resolveGroup?.(g) ?? g) : g)));
+	}
 }
 
 function checkStringList(c: Collector, value: unknown, path: Path, required = false) {

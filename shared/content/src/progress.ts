@@ -1,4 +1,5 @@
-import type { Checkpoint } from './content.ts';
+import type { Checkpoint, JumpToTarget } from './content.ts';
+import { chainOf, groupEnd, type ChainGroupLike } from './chains.ts';
 import { Status } from './enums.ts';
 import { isItemPublic } from './template.ts';
 
@@ -118,8 +119,10 @@ function time(value: unknown): number {
 }
 
 /**
- * What follows the end of the shown group (agents/DESIGN.md "Follow-up bar"):
- * - `group`       more groups follow in this chapter → the next one (`?label=`)
+ * What follows the end of the shown group's chain (agents/DESIGN.md "Follow-up bar"; a chain = linked groups on one page,
+ * chains.ts):
+ * - `jump`        the chain's last group has an authored end (`Group.end`): its target; `auto` = go there at once
+ * - `group`       more groups follow in this chapter → the one after the chain (`?label=`)
  * - `chapter`     the chapter's end, the next chapter is readable (published; drafts in dev) and the reader may read it
  *                 (a preview chapter, or a member)
  * - `members`     the next chapter is readable but needs a membership the reader lacks
@@ -128,6 +131,7 @@ function time(value: unknown): number {
  * - `season-end`  nothing follows in the season
  */
 export type NextStep =
+	| { kind: 'jump'; target: JumpToTarget; auto: boolean }
 	| { kind: 'group'; label: string }
 	| { kind: 'chapter'; chapter: number }
 	| { kind: 'members'; chapter: number }
@@ -135,9 +139,9 @@ export type NextStep =
 	| { kind: 'season-end' };
 
 export interface NextStepInput {
-	/** the chapter's groups in order (a group is addressed by its `label`) */
-	groups: { label?: string | null }[];
-	/** index of the shown group */
+	/** the chapter's groups in order (a group is addressed by its `label`; `continues` links, `end` = an authored end) */
+	groups: ({ label?: string | null; end?: unknown } & ChainGroupLike)[];
+	/** index of the shown group (any group of its chain) */
 	group: number;
 	/** the shown chapter's number */
 	chapter: number;
@@ -153,8 +157,12 @@ export interface NextStepInput {
 }
 
 export function nextStep({ groups, group, chapter, sequence, includeDrafts = false, member }: NextStepInput): NextStep {
+	// the shown group's chain ends somewhere: what follows is decided after its last group
+	const { end } = chainOf(groups, group);
+	const authored = groupEnd(groups[end]);
+	if (authored) return { kind: 'jump', target: authored.target, auto: !!authored.auto };
 	// a following group without a label can't be addressed (the chapter page shows `?label=` or the first group)
-	const following = groups[group + 1];
+	const following = groups[end + 1];
 	if (following?.label) return { kind: 'group', label: following.label };
 	const at = sequence.findIndex((item) => Number(item.number) === chapter);
 	const next = at >= 0 ? sequence[at + 1] : sequence.find((item) => Number(item.number) > chapter);

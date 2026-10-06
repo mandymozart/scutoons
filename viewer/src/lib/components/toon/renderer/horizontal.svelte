@@ -9,7 +9,8 @@
 	import 'swiper/css/navigation';
 	import swipeIcon from '$lib/icons/horizontal-swipe-gesture.svg';
 
-	let { group }: { group: Group } = $props();
+	/** sliceOffset: the page index of the first slice (linked groups share one page) */
+	let { group, sliceOffset = 0 }: { group: Group; sliceOffset?: number } = $props();
 	let swiperContainer: HTMLElement;
 	let swiperInstance: Swiper | null = null;
 	let showNavigationHint = $state(false);
@@ -159,7 +160,7 @@
 	<div class="swiper-wrapper">
 		{#each group.slices as slice, index}
 			<div class="swiper-slide">
-				<Slice {slice} sliceIndex={index} allSlices={group.slices} />
+				<Slice {slice} sliceIndex={index} pageIndex={sliceOffset + index} allSlices={group.slices} />
 			</div>
 		{/each}
 	</div>

@@ -2,7 +2,7 @@
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import NextBar from '$lib/components/chapter/next-bar.svelte';
 	import ChapterTeaser from '$lib/components/chapter/chapter-teaser.svelte';
-	import { nextStep, seasonMusic } from '@scutoons/content';
+	import { chainOf, chainSlices, nextStep, seasonMusic } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
@@ -10,6 +10,8 @@
 	import { audio } from '$lib/actions/audio/index.ts';
 	import type { PageProps } from './$types.js';
 	import { page } from '$app/state';
+	import { afterNavigate } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
@@ -31,6 +33,56 @@
 			: data.chapter.groups[0]
 	);
 
+	// linked groups (owner 2026-10-06, @scutoons/content chains.ts): the shown group's whole chain is one page, its slices
+	// numbered on across it; the follow-up bar comes after its last group
+	const chain = $derived.by(() => {
+		const groups = data.chapter?.groups ?? [];
+		const at = group ? groups.indexOf(group) : -1;
+		if (at < 0) return null;
+		const { start, end } = chainOf(groups, at);
+		const { offsets, count } = chainSlices(groups, { start, end });
+		return {
+			start,
+			end,
+			at,
+			count,
+			groups: groups.slice(start, end + 1).map((g, i) => ({ group: g, offset: offsets[i], index: start + i }))
+		};
+	});
+	const lastGroup = $derived(chain ? chain.groups[chain.groups.length - 1].group : undefined);
+
+	// `?label=` of a group further down a chain: the chain from its top, scrolled to that group (instant) – on arrival
+	// only (not on "Nochmal", not on back / forward: the browser restores the place). Kept aligned while the page above
+	// settles (a strip measures its sideways travel after it mounted, images load) until the reader scrolls themselves.
+	const SETTLE_MS = 2000;
+	afterNavigate(async ({ type }) => {
+		if (type === 'popstate') return;
+		const c = chain;
+		if (!c || c.at === c.start) return;
+		const offset = c.groups[c.at - c.start].offset;
+		await tick();
+		const view = document.querySelector('.chapter-view');
+		const align = () => {
+			const el = view?.querySelector(`[data-slice-index="${offset}"]`);
+			if (!el) return;
+			// a strip's slice sits in its pinned track: its section's top is the group's top
+			const top = (el.closest('.strip') ?? el).getBoundingClientRect().top;
+			if (Math.abs(top) >= 1) window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });
+		};
+		align();
+		if (!view || typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver(align);
+		observer.observe(view);
+		const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+		const stop = () => {
+			observer.disconnect();
+			clearTimeout(timer);
+			for (const name of events) window.removeEventListener(name, stop, true);
+		};
+		const timer = setTimeout(stop, SETTLE_MS);
+		for (const name of events) window.addEventListener(name, stop, { capture: true, passive: true });
+	});
+
 	// reading progress for the toon page's start button: how far into the chapter (all its groups' slices), finished at
 	// the last slice of its last group (agents/DESIGN.md "Start button")
 	const game = getGameContext();
@@ -38,16 +90,16 @@
 	let visiting = 0;
 	const spot = $derived.by((): ReadingSpot | null => {
 		const chapter = data.chapter;
-		if (!chapter || !group) return null;
-		const at = chapter.groups.indexOf(group);
+		const c = chain;
+		if (!chapter || !c) return null;
 		const count = (g: (typeof chapter.groups)[number]) => g.slices?.length ?? 0;
 		const number = chapter.number;
-		const shown = group;
+		// the page = the chain: its slices count from the chain's first group, its end is the chapter's end with the last group
 		return {
-			offset: chapter.groups.slice(0, at).reduce((sum, g) => sum + count(g), 0),
-			count: count(group),
+			offset: chapter.groups.slice(0, c.start).reduce((sum, g) => sum + count(g), 0),
+			count: c.count,
 			total: chapter.groups.reduce((sum, g) => sum + count(g), 0),
-			last: at === chapter.groups.length - 1,
+			last: c.end === chapter.groups.length - 1,
 			onRead: (position) => {
 				const fresh = visiting !== number;
 				visiting = number;
@@ -55,7 +107,9 @@
 			},
 			// a passed slice unlocks the map places whose unlock is that slice (agents/MAP.md §8.5, universe-wide)
 			onSlice: (index) => {
-				const image = shown.slices?.[index]?.image;
+				// the page index → its group's slice
+				const owner = c.groups.findLast((g) => g.offset <= index && index < g.offset + count(g.group));
+				const image = owner?.group.slices?.[index - owner.offset]?.image;
 				if (image && world) world.sliceSeen(page.params.toonId ?? '', number, image);
 			}
 		};
@@ -81,7 +135,8 @@
 			member: membership.isValid
 		});
 	});
-	// "Nochmal": the group from its start (a VN group runs its script again)
+	// "Nochmal": the group (linked groups: from the first one, the page's top) from its start (a VN group runs its script
+	// again)
 	let replays = $state(0);
 	function replay() {
 		window.scrollTo({ top: 0 });
@@ -121,14 +176,19 @@
 {:else}
 <MembershipBlocker isPreview={data.chapter.isPreview}>
 	<div class="chapter-view" use:audio={data.chapter.audio} {@attach trackReading(spot)}>
-		<!-- a new group (label) or another chapter starts the group from scratch (a VN group runs its events on mount) -->
-		{#key `${data.chapter.number}:${currentLabel}:${replays}`}
-			{#if group}
-				<Group {group} />
+		<!-- another chain (linked groups: a label inside the same chain keeps the page) or another chapter starts the page
+		     from scratch (a VN group runs its events on mount) -->
+		{#key `${data.chapter.number}:${chain?.start ?? currentLabel}:${replays}`}
+			{#if chain && lastGroup}
+				{#each chain.groups as linked (linked.index)}
+					<!-- a VN group can only end a chain: further down it starts when its first slice is seen -->
+					<Group group={linked.group} sliceOffset={linked.offset} deferScript={linked.index !== chain.start} />
+				{/each}
 				{#if step}
 					<NextBar
 						{step}
-						{group}
+						group={lastGroup}
+						count={chain.count}
 						toonId={page.params.toonId ?? ''}
 						chapter={data.chapter.number}
 						season={data.season?.number ?? 1}
