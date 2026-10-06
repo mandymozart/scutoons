@@ -838,7 +838,7 @@
 		"ask_history": "Earlier chats",
 		"ask_history_empty": "No chats yet.",
 		"ask_history_unavailable": "The chat history is not available yet.",
-		"converted_notice": "{files}: still stored per language, merged here – saving stores them that way.",
+		"converted_notice": "{files}: still stored per language, merged here – saving stores them as one document.",
 		"converted_differences": "{count} differences readers will see",
 		"converted_no_differences": "Nothing changes for readers.",
 		"convert": "Convert",

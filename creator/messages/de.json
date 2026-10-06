@@ -838,7 +838,7 @@
 		"ask_history": "Frühere Chats",
 		"ask_history_empty": "Noch keine Chats.",
 		"ask_history_unavailable": "Der Chat-Verlauf ist noch nicht verfügbar.",
-		"converted_notice": "{files}: noch pro Sprache gespeichert, hier zusammengeführt – Speichern speichert sie so.",
+		"converted_notice": "{files}: noch pro Sprache gespeichert, hier zusammengeführt – Speichern legt sie als ein Dokument ab.",
 		"converted_differences": "{count} Unterschiede, die Leser:innen sehen",
 		"converted_no_differences": "Für Leser:innen ändert sich nichts.",
 		"convert": "Umwandeln",
