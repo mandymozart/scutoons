@@ -18,7 +18,7 @@ The `message` filter keeps anything else saved after id 539 (the owner's own edi
 (seasons / chapters of toptoy and yellowmouse, catpope chapter drafts) disappear with their only versions; existing keys
 fall back to their previous newest version.
 
-Saved versions (ids 540–553 + 561–564 + 605, all `draft`; the chapters were saved again after the stage rework): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
+Saved versions (ids 540–553 + 561–564 + 605 + 631–633, all `draft`; the chapters were saved again after the stage rework): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
 appended), `season:toptoy:1` + `chapter:toptoy:1`, `season:yellowmouse:1` + `chapter:yellowmouse:1` (new),
 `cast:catpope` / `cast:toptoy` / `cast:yellowmouse` (cast additions so every character may be on stage there).
 
@@ -53,16 +53,26 @@ Pope's entrance, Top Toy's "Hey, DU! Ja, du am Handy", Mama at the reunion. Mood
 | catpope 2 | `mama-attic` | **deliberately unreachable** (after an authored end, nothing jumps to its label) | – |
 | catpope 2 | `mama-reunion` | Mama (Cat Pope · Human): "There you are!"; text box "MAMA!!!"; "even if you ran {circles} laps" (`circles >= 3`), the cucumber (`found_cucumber`); purr | **end** → chapter 0 (the prologue "Roar Little Kitty") |
 | catpope 3 | `mama-forest` (continues) | after the owner's group `chapter-3`: mountain tiger (`visits_forest`), tip `tip_road` | chain on |
-| catpope 3 | `mama-biker` | the biker (helmet): a question | jumps: toon `toptoy`, toon `yellowmouse`, ch 2 `mama-crossroads`, ch 1 (start) |
-| toptoy 1 | `mama-hypercity` | Top Toy (`visits_hypercity` – toptoy's own variable) | jumps: toon `yellowmouse`, toon `catpope` |
-| yellowmouse 1 | `mama-boss` | Yellow Mouse (helmet): "she lives behind the cathedral" | **end** → toon `catpope` |
+| catpope 3 | `mama-biker` | the biker (helmet): a question | jumps: toptoy ch 1 `mama-hypercity`, yellowmouse ch 1 `mama-boss`, ch 2 `mama-crossroads`, ch 1 (start) |
+| toptoy 1 | `mama-hypercity` | Top Toy (`visits_hypercity` – toptoy's own variable) | jumps: yellowmouse ch 1 `mama-boss`, catpope ch 2 `mama-pope` ("Heim zum Katzenpapst") |
+| yellowmouse 1 | `mama-boss` | Yellow Mouse (helmet): "she lives behind the cathedral" | **end** → catpope ch 2 `mama-reunion` |
 
 Deliberate warnings (validation, the creator's chips, the Flow panel): `mama-attic` unreachable; `rocket_ready` never
 true. The circle loop is NOT an "endless loop" warning – it has a way out (a choice), which is the point.
 
-Limits found (today's model): a jump to another toon lands on that toon's page (`/toptoy`) – a label / chapter of
-another toon can't be targeted; variables are per toon (toptoy's `visits_hypercity` is not catpope's); no catpope
-season 2 exists, so no season jump; the viewer has no `/season/<n>` route either.
+Limits found (today's model): variables are per toon (toptoy's `visits_hypercity` is not catpope's – after a jump into
+another toon that toon's variables apply; catpope's `tips` don't travel to the reunion via Yellow Mouse); no catpope
+season 2 exists, so no season jump; the viewer has no `/season/<n>` route either. (Fixed 2026-10-06: a jump into
+another toon used to land on that toon's page only – now `JumpToTarget.toon` lands at a chapter + label there, below.)
+
+### Jumps into the other toons at a label (2026-10-06, versions 631–633, same message)
+
+The five `type: 'toon'` targets became chapter jumps with `toon` (DATA.md "Jumps into another toon at a label"):
+`chapter:catpope:3` (631) – the biker's choices → toptoy 1 `mama-hypercity` / yellowmouse 1 `mama-boss`;
+`chapter:toptoy:1` (632) – Top Toy's choices → yellowmouse 1 `mama-boss` / catpope 2 `mama-pope`;
+`chapter:yellowmouse:1` (633) – Yellow Mouse's end → catpope 2 `mama-reunion`. Versions before: 550 / 551 / 552. The
+flow index lists the five ways with their `toon`; TS `deadThings` and the PHP flow index agree on the dev DB for every
+toon. The rollback above removes them too.
 
 ### Step 3 in the story (2026-10-06, version 605 of `chapter:catpope:2`, same message)
 
