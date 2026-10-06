@@ -155,9 +155,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
       only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
       _(locally largely `npm run dev:db` since 10.30: migrate + prod seed incl. the asset tables; no content seed any more)_
-- [ ] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
-      too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
-      default rendition's size or label the total.
 - [ ] 10.21 Asset picker rework (owner 2026-10-03: "we do have to fix the ui of the picker and its relation to the page
       where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
       opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
@@ -467,9 +464,12 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **O – production:** run `2026-10-07-give-item.mysql.sql` in phpMyAdmin **together with** the viewer + creator
       + API deploy (an old viewer doesn't know `give` – a choice would give nothing; the new one doesn't grant on
       `add`). Check first: the header's SELECT; afterwards it answers nothing.
-- [ ] M.1 **Reader: the intersect area shows** – the orange dashed outline where a sticker overlaps a speech bubble must
-      not appear in the reader (owner 2026-10-06 "minor bugs" list).
 - [ ] M.2 **Reader: the page jumps when animations fire** – e.g. when a showTextBox effect fires, the page jumps oddly.
+      _(2026-10-07, not reproduced: the effects are transforms inside the absolutely placed box (no layout change);
+      scrolling catpope ch2 at 390 px recorded no layout shift and no scroll jump; a slice's showTextBox click
+      trigger only plays inside its group's run. **Owner: where exactly (chapter / slice / phone or desktop)?**
+      Candidates once it is seen: the box's text fitting (dialog.svelte measures and resizes), the wait overlay
+      (an inset-0 button over the VN area), the pulse's scale(1.2) at a slice edge.)_
 - [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
       anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
       portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
@@ -485,14 +485,9 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       other), so it's never clear how the edit view relates to the Flow's level. Idea: the left menu and the main
       panel are linked and ARE the hierarchy; Ask and Flow only take their context from it and otherwise stay
       independent – entry points, not a second navigation. _(with M.14 – E.3)_
-- [ ] M.7 **Reader: "Coming soon" on the chapter key visual** needs a nicer style.
-- [ ] M.8 **Reader: horizontal scroll keeps native left / right** – down → right and up → left already; left / right
-      input (trackpad swipe, horizontal wheel, arrow keys) must keep working on top.
 - [ ] M.9 **Creator: strip preview for vertical groups** – the same strip preview horizontal groups have. _(after M.4)_
 - [ ] M.10 **Explore: the viewer as a dock panel** (like Flow and Ask) – up to date with every saved draft; selecting
       an element in the other views jumps the viewer there. Exploration first, not a fix. _(after M.6)_
-- [ ] M.11 **Creator: "Import slices"** needs the padding of "Add group".
-- [ ] M.12 **Creator: lighter dividers between a group's slices** – a lighter grey; the selected slice stands out more.
 - [ ] M.13 **Creator: the published / unpublished status bar takes room** (e.g. from the slice editor). _(with M.5 –
       E.1)_
 - [ ] M.14 **Header + breadcrumbs take too much room** (the creator title next to the SCUTOONS logo, plus the crumbs).
@@ -501,16 +496,35 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       season level too). The creator title is what gives way (owner: "the creator title can go"). _(with M.6 – E.2)_
 - [ ] M.15 **Investigate: some slices look poor even at 2x and high quality** – where is it lost: the upload /
       resize pipeline, compression settings, which size variant the reader serves, or CSS scaling.
-- [ ] M.16 **Creator: the "Add video" picker starts empty** – like the default empty slice; today its placeholder is
-      landscape (suggests videos are landscape).
-- [ ] B.1 Ch1 audio samples are at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never
-      fire _(from MEMORY.md "Known bugs spotted", 2026-09-30 – not re-checked since)_.
-- [ ] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30 – not re-checked)_.
-- [ ] B.3 Ch3–5 `keyvisual` is a string, the type expects `{image, video?}` (ch2 fixed 2026-09-30) _(MEMORY.md – not
-      re-checked)_.
-
 ## Done
 
+- [x] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
+      too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
+      default rendition's size or label the total.
+      _(done 2026-10-07 (c6c4a939): the selected card's picture box inverts; sizes = the asset's own file, "(all N files …)" for the total)_
+- [x] M.8 **Reader: horizontal scroll keeps native left / right** – down → right and up → left already; left / right
+      input (trackpad swipe, horizontal wheel, arrow keys) must keep working on top.
+      _(done 2026-10-07 (750332ec): sideways wheel / swipe / Shift + wheel scroll the page the same distance; ← / → step frames while pinned)_
+- [x] M.16 **Creator: the "Add video" picker starts empty** – like the default empty slice; today its placeholder is
+      landscape (suggests videos are landscape).
+      _(done 2026-10-07 (3fb7a5f0): an empty image / video slot is the default slice, 390 × 625)_
+- [x] M.12 **Creator: lighter dividers between a group's slices** – a lighter grey; the selected slice stands out more.
+      _(done 2026-10-07 (b3c4051c): --border-muted)_
+- [x] M.11 **Creator: "Import slices"** needs the padding of "Add group".
+      _(done 2026-10-07 (b3c4051c))_
+- [x] M.7 **Reader: "Coming soon" on the chapter key visual** needs a nicer style.
+      _(done 2026-10-07 (3fb7a5f0): a tilted comic stamp in the lettering font, ink block – on the gate and over the teaser)_
+- [x] M.1 **Reader: the intersect area shows** – the orange dashed outline where a sticker overlaps a speech bubble must
+      not appear in the reader (owner 2026-10-06 "minor bugs" list).
+      _(done 2026-10-07 (3fb7a5f0): the intersect area is invisible – click / hover / audio areas keep their look (a tap hint?) – owner: hide those too?)_
+- [x] B.3 Ch3–5 `keyvisual` is a string, the type expects `{image, video?}` (ch2 fixed 2026-09-30) _(MEMORY.md – not
+      re-checked)_.
+      _(closed 2026-10-07: every chapter's keyvisual is an object; chapters 3–5 have none)_
+- [x] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30 – not re-checked)_.
+      _(closed 2026-10-07: no current version has a `{"type":"end"}` event)_
+- [x] B.1 Ch1 audio samples are at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never
+      fire _(from MEMORY.md "Known bugs spotted", 2026-09-30 – not re-checked since)_.
+      _(closed 2026-10-07: the data has `slice.audio.audio.samples` (catpope ch1 slices 6, 46, 64, 91) – the path the reader reads)_
 - [x] 10.18 Batches + code generation on real data (owner 2026-10-03): admin → Batches (and the generate side) still
       read the static lists (editions / items / batch manifests from files); populate them from the database (catalog,
       editions, codes) instead.
