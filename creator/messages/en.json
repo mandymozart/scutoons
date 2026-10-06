@@ -612,6 +612,7 @@
 		"help_transitions_title": "Transitions and A-pose",
 		"entity_chapter": "Chapter {number}",
 		"entity_scene": "Scene {label}",
+		"entity_group": "Chapter {number} · group \"{label}\"",
 		"version_draft": "Draft v{version}",
 		"version_published": "Published v{version}",
 		"up": "Up",

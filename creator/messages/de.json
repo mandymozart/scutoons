@@ -612,6 +612,7 @@
 		"help_transitions_title": "Übergänge und A-Pose",
 		"entity_chapter": "Kapitel {number}",
 		"entity_scene": "Szene {label}",
+		"entity_group": "Kapitel {number} · Gruppe „{label}“",
 		"version_draft": "Entwurf v{version}",
 		"version_published": "Veröffentlicht v{version}",
 		"up": "Hoch",

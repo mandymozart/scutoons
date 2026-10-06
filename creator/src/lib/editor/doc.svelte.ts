@@ -8,6 +8,7 @@
 import { ApiError } from '$lib/api.ts';
 import { getDraft, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
 import { clone, deepEqual, entityKeyFor, getAt, parseEntityKey, setAt, type Path, unifyAudio, unifyGeometry } from '@scutoons/content';
+import { repairBooleans } from '$lib/editor/repair-booleans.ts';
 
 export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script';
 export type DocSource = 'store' | 'new' | 'missing';
@@ -20,6 +21,15 @@ export interface AutosaveEntry {
 	at: number;
 	data: Record<string, any>;
 	base: Record<string, number | null>;
+}
+
+/** a refused save of one locale (e.g. 422 invalid_content): the message names the locale's problem */
+export class SaveError extends Error {
+	locale: string;
+	constructor(locale: string, cause: unknown) {
+		super(cause instanceof Error ? cause.message : String(cause), { cause });
+		this.locale = locale;
+	}
 }
 
 export class SaveConflict extends Error {
@@ -221,6 +231,8 @@ export class ContentDoc {
 		const saved: Record<string, string> = {};
 		for (const l of this.locales) saved[l] = data[l] === null || data[l] === undefined ? '' : JSON.stringify(data[l]);
 		this.saved = saved;
+		// old "true" / "false" strings of bool fields → booleans (repair-booleans.ts); the repaired locales are unsaved
+		for (const l of this.locales) repairBooleans(this.data[l]);
 		this.undoStack = [];
 		this.redoStack = [];
 		this.lastKey = null;
@@ -340,7 +352,7 @@ export class ContentDoc {
 					done.push(l);
 				} catch (e) {
 					if (e instanceof ApiError && e.status === 409) throw new SaveConflict(l, e.body?.latest ?? null);
-					throw e;
+					throw new SaveError(l, e);
 				}
 			}
 			this.lastSavedAt = Date.now();

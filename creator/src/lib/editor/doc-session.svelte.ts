@@ -7,8 +7,8 @@ import { untrack } from 'svelte';
 import { askDialog, confirmDialog } from '@scutoons/ui';
 import { NEUTRAL_LOCALE } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
-import { fileLabel, fileLabels } from '$lib/labels.ts';
-import { SaveConflict, type ContentDoc } from '$lib/editor/doc.svelte.ts';
+import { docLabel, fileLabels } from '$lib/labels.ts';
+import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { confirmSubmit, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
 
@@ -91,7 +91,7 @@ export class DocSession {
 				if (!this.docs.includes(doc) && !this.savedCompanions.includes(doc)) this.savedCompanions.push(doc);
 			} catch (e) {
 				if (e instanceof SaveConflict) this.conflict = { doc, error: e };
-				else this.notice = `${fileLabel(doc.entity)}: ${e instanceof Error ? e.message : String(e)}`;
+				else this.notice = `${docLabel(doc)}${e instanceof SaveError ? ` (${e.locale})` : ''}: ${e instanceof Error ? e.message : String(e)}`;
 				return false;
 			}
 		}
