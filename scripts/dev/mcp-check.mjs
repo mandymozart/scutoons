@@ -137,6 +137,14 @@ try {
 	const perLocale = await call(client, 'save_draft', { key: `${SCENE}:de`, base: original.id, ops: [{ op: 'set', path: ['label'], value: 'x' }] });
 	check(perLocale.error && /language-neutral/.test(perLocale.raw), 'save_draft refuses a per-locale scene key (one neutral document)', perLocale.raw.slice(0, 200));
 
+	// the toon settings: the toon entry (agents/NEUTRAL.md step 4) – texts per language, the old per-language key refused
+	const toonEntry = await call(client, 'read_entity', { key: `toon:${TOON}` });
+	check(!toonEntry.error && typeof toonEntry.json?.content?.title === 'object', 'read_entity: the toon entry holds the toon settings (title per language)', toonEntry.raw.slice(0, 200));
+	const settingsKey = await call(client, 'save_draft', { key: `toon-settings:${TOON}:de`, base: null, content: { id: TOON } });
+	check(settingsKey.error && /toon:/.test(settingsKey.raw), 'save_draft refuses the old per-language toon settings key', settingsKey.raw.slice(0, 200));
+	const entryCheck = await call(client, 'validate', { key: `toon:${TOON}`, ops: [{ op: 'set', path: ['languageStatus', 'en'], value: 'later' }] });
+	check(entryCheck.json?.problems?.some((p) => p.level === 'error' && p.locale === 'en' && p.path.includes('languageStatus')), 'validate: the toon entry's status per language (validateNeutral)', entryCheck.raw.slice(0, 300));
+
 	// the scene's group script (the newest version may have none yet)
 	const start = Array.isArray(original.content.events) ? [] : [{ op: 'set', path: ['events'], value: [] }];
 	const end = events.length;

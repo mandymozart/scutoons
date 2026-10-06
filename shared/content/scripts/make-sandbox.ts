@@ -12,8 +12,9 @@
 //                sandbox's index entry + sandbox/…; the script owns it and rewrites it completely)
 //   --no-import  only write the files. By default the script then imports them into the local content store (published):
 //                php server/bin/console import-content logs/dev/sandbox --toon=sandbox --update
-//                Chapters, scenes and the season are language-neutral documents (`_/chapter<N>.json`, agents/NEUTRAL.md);
-//                per-locale ones of earlier runs are removed from the database first.
+//                Chapters, scenes and the season are language-neutral documents (`_/chapter<N>.json`, agents/NEUTRAL.md),
+//                the toon settings are the index entry's (texts per language, step 4); per-locale chapters / scenes /
+//                seasons / toon settings of earlier runs are removed from the database first.
 // The sandbox is dev / creator only: production never has it (Library::DEV_ONLY_TOONS).
 // Re-run after adding characters, personas, looks, moods or transitions. See agents/MEMORY.md "Sandbox", agents/DATA.md.
 import { spawnSync } from 'node:child_process';
@@ -55,6 +56,14 @@ type Text = Record<Locale, string>;
 const PARTIAL = 'ko' as const;
 type Partial = { title: string; description: string };
 const RELEASE = '2026-09-30';
+/** The sandbox's texts per language (toon, season 1); ko is the partial language */
+const META = {
+	de: { toon: 'Sandkasten', season: 'Katzenpapsts Spaziergang', description: 'Testfeld: alle Figuren, Personas, Looks und Stimmungen als Visual Novel. Nur in der Entwicklung und im Creator sichtbar (Entwurf).' },
+	en: { toon: 'Sandbox', season: "Cat Pope's walk", description: 'Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).' },
+	[PARTIAL]: { toon: '샌드박스', season: '고양이 교황의 산책', description: '테스트용: 모든 캐릭터, 페르소나, 룩, 기분을 비주얼 노벨로. 개발 환경과 크리에이터에서만 보입니다(초안).' }
+};
+const ALL_LOCALES = [...LOCALES, PARTIAL] as const;
+const perLocale = <T>(fn: (l: (typeof ALL_LOCALES)[number]) => T) => Object.fromEntries(ALL_LOCALES.map((l) => [l, fn(l)]));
 /** preferred encounter order (owner); characters not listed follow in registry order, then the host's own personas */
 const ORDER = ['yellowmouse', 'toptoy', 'boy', 'crows'];
 /** the view = the side (DESIGN.md → "VN layout"): Cat Pope stands on the left (avatar view), the others on the right */
@@ -548,13 +557,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		report.chapters++;
 	}
 
-	const meta = {
-		de: { toon: 'Sandkasten', season: 'Katzenpapsts Spaziergang', description: 'Testfeld: alle Figuren, Personas, Looks und Stimmungen als Visual Novel. Nur in der Entwicklung und im Creator sichtbar (Entwurf).' },
-		en: { toon: 'Sandbox', season: "Cat Pope's walk", description: 'Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).' },
-		[PARTIAL]: { toon: '샌드박스', season: '고양이 교황의 산책', description: '테스트용: 모든 캐릭터, 페르소나, 룩, 기분을 비주얼 노벨로. 개발 환경과 크리에이터에서만 보입니다(초안).' }
-	};
-	const all = [...LOCALES, PARTIAL] as const;
-	const perLocale = <T>(fn: (l: (typeof all)[number]) => T) => Object.fromEntries(all.map((l) => [l, fn(l)]));
+	const meta = META;
 	// the season: one language-neutral document (season:sandbox:1) with its cover (owner 2026-10-02: covers are per season)
 	files['_/season1.json'] = {
 		title: perLocale((l) => meta[l].season),
@@ -564,16 +567,8 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		cover: { square: `${CATPOPE}s1/s1-cover-square.webp` },
 		sequence
 	};
-	for (const l of all) {
-		// the language-neutral settings (authors, chapters, thumbnail, map) live in the toons.json entry (`neutralSettings`)
-		files[`${l}/toon.json`] = {
-			id: SANDBOX_TOON,
-			title: meta[l].toon,
-			language: l,
-			release: RELEASE,
-			status: 'draft',
-			description: meta[l].description
-		};
+	for (const l of ALL_LOCALES) {
+		// the toon settings (texts per language + the language-neutral ones) live in the toons.json entry (`sandboxIndex`)
 		files[`${l}/locations.json`] = [];
 		files[`${l}/routes.json`] = [];
 	}
@@ -597,7 +592,10 @@ export function neutralSettings(report: SandboxReport) {
 
 // ── CLI ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** The sandbox's toon index entry (`toon:sandbox`, language-neutral): status draft = hidden from readers */
+/**
+ * The sandbox's toon index entry (`toon:sandbox`, language-neutral): status draft = hidden from readers; the toon
+ * settings in it – title / description / release / status per language (agents/NEUTRAL.md step 4), the rest once
+ */
 export function sandboxIndex(report: SandboxReport) {
 	const { map, ...settings } = neutralSettings(report);
 	return {
@@ -612,6 +610,10 @@ export function sandboxIndex(report: SandboxReport) {
 			en: { name: 'Sandbox', description: 'Test bed: every character, persona, look and mood (development and creator only)' },
 			ko: { name: '샌드박스', description: '테스트용: 모든 캐릭터, 페르소나, 룩, 기분 (개발 환경과 크리에이터 전용)' }
 		},
+		title: perLocale((l) => META[l].toon),
+		description: perLocale((l) => META[l].description),
+		release: perLocale(() => RELEASE),
+		languageStatus: perLocale(() => 'draft'),
 		...settings,
 		map: { center: map.center }
 	};
@@ -657,17 +659,17 @@ async function main() {
 		console.log(`next: npm run dev:db -- console ${importArgs.slice(1).join(' ')}`);
 		return;
 	}
-	// the per-locale chapters / scenes / season of runs before the language-neutral documents (agents/NEUTRAL.md phase
-	// 2B): the sandbox is generated, nothing of it is edited by hand per locale – they go, so no stale per-locale
-	// version sits behind the neutral ones (the Convert page, content:neutral-check, the history)
+	// the per-locale chapters / scenes / season / toon settings of runs before the language-neutral documents
+	// (agents/NEUTRAL.md phase 2B, step 4): the sandbox is generated, nothing of it is edited by hand per locale – they
+	// go, so no stale per-locale version sits behind the neutral ones (the Convert page, content:neutral-check, the history)
 	const [, dropped] = localSql(
 		[
-			"DELETE FROM asset_usages WHERE source = 'content' AND ref IN (SELECT entity_key FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'scene', 'season'))",
-			"DELETE FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'scene', 'season')"
+			"DELETE FROM asset_usages WHERE source = 'content' AND ref IN (SELECT entity_key FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'scene', 'season', 'toon-settings'))",
+			"DELETE FROM entity_versions WHERE toon = :toon AND locale IS NOT NULL AND kind IN ('chapter', 'scene', 'season', 'toon-settings')"
 		],
 		{ toon: SANDBOX_TOON }
 	);
-	if (dropped) console.log(`removed ${dropped} per-locale chapter / scene / season versions of earlier sandbox runs`);
+	if (dropped) console.log(`removed ${dropped} per-locale chapter / scene / season / toon settings versions of earlier sandbox runs`);
 	// into the content store through the import (the interchange format → entity keys), like every other content
 	const result = spawnSync(process.env.PHP_BINARY || 'php', [...phpMysqlArgs(), ...importArgs], { cwd: pathJoin(root, 'server'), env: { ...process.env, ...phpDbEnv() }, encoding: 'utf8' });
 	process.stdout.write((result.stdout || '').split('\n').slice(-3).join('\n') + '\n');

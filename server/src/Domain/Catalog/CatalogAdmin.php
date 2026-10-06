@@ -246,7 +246,8 @@ final class CatalogAdmin
 
     /**
      * A new toon gets its content index entry (draft) unless the creator has one already – the creator lists the
-     * toons from those entries and fills in the rest (per-language settings, seasons …)
+     * toons from those entries and fills in the rest (seasons, chapters …). The entry holds the toon's settings per
+     * language (agents/NEUTRAL.md step 4): the name as the title, every language a draft; no per-language documents.
      */
     private function ensureToonContent(string $id, mixed $toon, ?string $userId): void
     {
@@ -256,6 +257,7 @@ final class CatalogAdmin
         $entry = [
             'id' => $id, 'uri' => $id, 'status' => 'draft', 'avatar' => 'avatar.webp', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'],
             'i18n' => ['de' => ['name' => $name, 'description' => ''], 'en' => ['name' => $name, 'description' => '']],
+            'title' => ['de' => $name, 'en' => $name], 'languageStatus' => ['de' => 'draft', 'en' => 'draft'],
             'authors' => [], 'chapters' => 0,
         ];
         $this->entities->insert(EntityKey::parse($key), $this->entities->encode(json_decode((string) json_encode($entry))), $userId, 'draft', 'toon created in the admin');

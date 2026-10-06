@@ -78,9 +78,11 @@ for (const key of KEYS) {
 }
 const KEY = KEYS[0];
 const titles = {};
+// the toon's title per language: the toon entry's (agents/NEUTRAL.md step 4)
+const toonEntry = await api('GET', `/entities/toon:${TOON}?draft=1`);
 for (const l of LOCALES) {
 	titles[l] = {
-		toon: (await api('GET', `/entities/toon-settings:${TOON}:${l}`)).title,
+		toon: resolveText(toonEntry.title, [l, SOURCE, ...LOCALES]) ?? '',
 		season: resolveText(baseline[KEY].title, [l, SOURCE, ...LOCALES]) ?? ''
 	};
 }

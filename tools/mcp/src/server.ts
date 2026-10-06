@@ -13,6 +13,7 @@ import {
 	entityOf,
 	expressionIndex,
 	getAt,
+	hasToonTexts,
 	isLocalizedEntity,
 	isNeutralDocKey,
 	NEUTRAL_DOC_KINDS,
@@ -20,6 +21,7 @@ import {
 	resolveText,
 	sceneEntityOfRef,
 	scriptLabels,
+	toonLanguages,
 	validateCast,
 	validateFile,
 	validateLocales,
@@ -29,6 +31,7 @@ import {
 	type Path,
 	type Problem,
 	type ToonCast,
+	type ToonIndex,
 	type WorldMap
 } from '@scutoons/content';
 import type { Config } from './config.ts';
@@ -148,7 +151,7 @@ export function createScutoonsServer(config: Config): McpServer {
 
 	/**
 	 * The stored keys of an entity or key: one key; a chapter / scene / season entity = its one language-neutral
-	 * document; every locale of another localized entity (toon settings, script)
+	 * document; every locale of another localized entity (the script; the legacy per-language toon settings)
 	 */
 	async function keysOf(keyOrEntity: string, locale?: string): Promise<{ entity: string; keys: string[]; primary: string | null }> {
 		const ref = parseEntityKey(keyOrEntity);
@@ -196,6 +199,11 @@ export function createScutoonsServer(config: Config): McpServer {
 			return { problems: validateCast(doc, { registry, languages: index.languages, file }), validated: true };
 		}
 		const kind = ({ chapter: 'chapter', scene: 'group', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', map: 'map' } as Record<string, string>)[ref.kind];
+		// the toon entry: its language-neutral settings + its texts per language (agents/NEUTRAL.md step 4)
+		if (kind === 'index') {
+			const { source, languages } = toonLanguages(doc as ToonIndex);
+			return { problems: validateNeutral('index', doc, { source, languages }, { file }), validated: true };
+		}
 		if (!kind) return { problems: [], validated: false };
 		const ctx: Parameters<typeof validateFile>[3] = { file };
 		if (kind === 'chapter' || kind === 'group') {
@@ -255,6 +263,8 @@ export function createScutoonsServer(config: Config): McpServer {
 					languages: index?.languages,
 					sourceLanguage: index?.sourceLanguage,
 					status: index?.status,
+					// the toon settings per language (read_entity toon:<toon> for all of them)
+					...(hasToonTexts(index) ? { title: index?.title, languageStatus: index?.languageStatus } : { settings: 'per language (toon-settings, legacy – not converted yet)' }),
 					documents: all.entities.filter((e) => e.toon === t.toon).length
 				});
 			}
@@ -329,12 +339,12 @@ export function createScutoonsServer(config: Config): McpServer {
 		'read_entity',
 		{
 			description:
-				'Reads a stored document by entity key (scutoons://rules/entity-keys). A chapter / scene / season (`chapter:catpope:2`) is ONE language-neutral document: structure once, every text a locale map { "de": …, "en": … }. Other localized entities (toon settings, script) without locale return every language, a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content; `lines` [from, to] (1-based) only those lines of a text (e.g. the screenplay: path ["text"], line numbers from search_content).',
+				'Reads a stored document by entity key (scutoons://rules/entity-keys). A chapter / scene / season (`chapter:catpope:2`) is ONE language-neutral document: structure once, every text a locale map { "de": …, "en": … }; so is the toon entry `toon:catpope` with the toon\'s settings (title / description / release / languageStatus per language). The script without locale returns every language, a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content; `lines` [from, to] (1-based) only those lines of a text (e.g. the screenplay: path ["text"], line numbers from search_content).',
 			inputSchema: z.object({
 				key: z.string().describe('entity (`scene:catpope:2:scene-14`, `script:catpope`) or stored key (`script:catpope:de`)'),
 				source: z.enum(['draft', 'published']).optional().describe('default draft'),
 				version: z.number().int().optional().describe('one stored version by id (overrides source; needs a full key)'),
-				locale: z.string().optional().describe('toon settings / script: one language, or "all" (default); not for chapters / scenes / seasons'),
+				locale: z.string().optional().describe('the script: one language, or "all" (default); not for language-neutral documents'),
 				path: pathSchema.optional(),
 				lines: z.tuple([z.number().int().min(1), z.number().int().min(1)]).optional().describe('[from, to] lines of a text value')
 			}),
@@ -356,6 +366,11 @@ export function createScutoonsServer(config: Config): McpServer {
 				}
 				if (isNeutralKind(parseEntityKey(k)?.kind) && !isNeutralDocKey(k)) {
 					out.push({ key: k, legacy: 'stored per language, not converted yet – read only; save_draft writes the language-neutral entity', version: versionMeta(w), content: path ? getAt(w.content, path) : w.content });
+					continue;
+				}
+				if (parseEntityKey(k)?.kind === 'toon-settings') {
+					const toonKey = `toon:${parseEntityKey(k)!.toon}`;
+					out.push({ key: k, legacy: `the old per-language toon settings – read only; the toon entry ${toonKey} holds them (title / description / release / languageStatus per language) – save that`, version: versionMeta(w), content: path ? getAt(w.content, path) : w.content });
 					continue;
 				}
 				let value = path ? getAt(w.content, path) : w.content;
@@ -556,17 +571,17 @@ export function createScutoonsServer(config: Config): McpServer {
 		'validate',
 		{
 			description:
-				'Runs the creator\'s checks (shared/content validate.ts: structure, VN events, script points, flow, media) on a document. Without `content` / `ops` the stored draft is checked. A chapter / scene / season (one language-neutral document) is checked once plus the texts of every language (missing or too long translations carry their locale); toon settings / script without locale check every language and compare them.',
+				'Runs the creator\'s checks (shared/content validate.ts: structure, VN events, script points, flow, media) on a document. Without `content` / `ops` the stored draft is checked. A chapter / scene / season / the toon entry (one language-neutral document) is checked once plus the texts of every language (missing or too long translations carry their locale); the script without locale checks every language and compares them.',
 			inputSchema: z.object({
 				key: z.string(),
-				content: z.unknown().optional().describe('check this content instead of the stored draft (one document: a chapter / scene / season entity or a full key)'),
+				content: z.unknown().optional().describe('check this content instead of the stored draft (one document: a language-neutral entity or a full key)'),
 				ops: z.array(opSchema).optional().describe('check the stored draft with these changes applied (one document)')
 			}),
 			annotations: read
 		},
 		guard(async ({ key, content: given, ops }) => {
 			const { entity, keys, primary } = await keysOf(key);
-			if ((given !== undefined || ops) && keys.length !== 1) return fail('content / ops need one document (a full key with locale for toon settings / script)');
+			if ((given !== undefined || ops) && keys.length !== 1) return fail('content / ops need one document (a full key with locale for the script)');
 			const docs: Record<string, Json> = {};
 			const problems: Problem[] = [];
 			let validated = true;
@@ -592,9 +607,9 @@ export function createScutoonsServer(config: Config): McpServer {
 		'save_draft',
 		{
 			description:
-				'Saves a NEW draft version of one stored key (append-only: nothing is overwritten, every older version stays restorable; readers keep seeing the published version). Give `ops` (changes applied to the version `base`) or the full `content`. `base` = the version id you read (read_entity) – a newer save in between → 409 conflict. A chapter / scene / season is saved as its one language-neutral document (`chapter:catpope:2`; a text is { "de": …, "en": … } – set one language at e.g. ["events", 3, "params", "text", "en"]). The creator\'s checks run first: errors refuse the save (unless allow_errors), warnings are returned.',
+				'Saves a NEW draft version of one stored key (append-only: nothing is overwritten, every older version stays restorable; readers keep seeing the published version). Give `ops` (changes applied to the version `base`) or the full `content`. `base` = the version id you read (read_entity) – a newer save in between → 409 conflict. A chapter / scene / season is saved as its one language-neutral document (`chapter:catpope:2`; a text is { "de": …, "en": … } – set one language at e.g. ["events", 3, "params", "text", "en"]); the toon settings are the toon entry `toon:catpope` (["title", "en"], ["languageStatus", "en"] …). The creator\'s checks run first: errors refuse the save (unless allow_errors), warnings are returned.',
 			inputSchema: z.object({
-				key: z.string().describe('stored key: chapter / scene / season without locale (`chapter:catpope:2`); toon settings / script with it (`script:catpope:de`)'),
+				key: z.string().describe('stored key: chapter / scene / season / toon entry without locale (`chapter:catpope:2`, `toon:catpope`); the script with it (`script:catpope:de`)'),
 				base: z.number().int().nullable().describe('the version id the change starts from (null = nothing stored yet)'),
 				ops: z.array(opSchema).optional(),
 				content: z.unknown().optional().describe('the whole document (instead of ops)'),
@@ -608,6 +623,8 @@ export function createScutoonsServer(config: Config): McpServer {
 			if (!ref) return fail(`"${key}" is no entity key`);
 			if (isNeutralKind(ref.kind) && ref.locale)
 				return fail(`chapters, scenes and seasons are one language-neutral document – save ${entityOf(key)} (texts are locale maps { "de": …, "en": … }; scutoons://rules/workflow)`);
+			if (ref.kind === 'toon-settings')
+				return fail(`the toon settings live in the toon entry – save toon:${ref.toon} (title / description / release / languageStatus are locale maps { "de": …, "en": … }; scutoons://rules/workflow)`);
 			if (!isNeutralKind(ref.kind) && isLocalizedEntity(key) && !ref.locale) return fail(`${key} is stored per language – save one locale (${key}:<locale>)`);
 			if ((given === undefined) === !ops) return fail('give either ops or content');
 			let doc = given;

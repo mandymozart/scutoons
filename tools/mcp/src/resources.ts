@@ -121,8 +121,10 @@ export const RULES: RuleResource[] = [
 				'  shows the source text to readers (and is a warning).',
 				'- A translation: set only that language, e.g. `set` at ["groups", 2, "slices", 4, "dialog", 0, "text", "en"].',
 				'- A blank text counts as missing. Never add a per-language copy of structure.',
-				'The toon settings (`toon-settings:<toon>:<locale>`) and the screenplay (`script:<toon>:<locale>`) are still',
-				'stored per language: save each locale on its own key.',
+				'The toon settings are the toon entry `toon:<toon>` (one document): `title`, `description`, `release` and',
+				'`languageStatus` (the visibility per language) are locale maps there, the rest (authors, tile, map …) exists',
+				'once. The old `toon-settings:<toon>:<locale>` documents are read only (legacy).',
+				'Only the screenplay (`script:<toon>:<locale>`) is stored per language: save each locale on its own key.',
 				'',
 				'Rules: scutoons://rules/entity-keys, scutoons://rules/vn-events, scutoons://rules/flow,',
 				'scutoons://rules/text-presets, scutoons://rules/slices.'
