@@ -9,7 +9,7 @@ an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Night run result (2026-10-07 morning) – read this first
 
-18 commits on `main`, **not pushed** (`git log origin/main..main`). `npm run check` green, PHPUnit 295 / 295; the
+The night's commits are on `main`, **not pushed** (`git log origin/main..main`). `npm run check` green, PHPUnit 295 / 295; the
 browser checks run for each step (creator-dock 82, creator-chapter 60, creator-reach 21, events 32, chain-vn 24).
 
 **Done:** 10.38 items are not variables (steps 1–3 + 5: `inventory.<item>`, the warnings, `giveItem` / a choice's `give`,
