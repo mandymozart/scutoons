@@ -594,6 +594,28 @@ overrides per language – a chapter, group, season or the toon settings is one 
 (agents/NEUTRAL.md). Real files stay files: images, audio, video on the CDN. A bool select reads "ja / nein" with the
 default in brackets ("(nein)"); a select's default likewise ("(Links)").
 
+### Empty states (owner rule 2026-10-06) – creator, admin, embassy; the reader in spirit
+
+> "No-content warnings should be reviewed app-wide and standardized, also a rule when to bring them. Unless really
+> necessary it makes no sense to waste space."
+
+- **An empty list shows nothing** – its add button (or add select, search field, filter) is enough. No "No items yet.",
+  "Nobody found.", "No problems." (the counts already say 0), no "Nothing matches." under a search.
+- **An empty-state text only when ALL hold:** (1) the page / main area would otherwise be completely blank with nothing
+  to act on, (2) the reason isn't obvious, (3) it says what to do (or what happens next).
+- **Never** in tabs, inspectors, side panels, pickers / dropdowns, or lists that have an add button. A heading whose
+  section is empty and read-only goes with it (hide the section, not explain it).
+- **Never framed** (no dashed box, no warning colour): one muted line in the flow – `<p class="sc-empty">` (tools.css,
+  the one shared style); buttons that act on it follow below. `DataTable` and the command palette have no empty text.
+- Kept (2026-10-06 sweep): creator – "Select a slice on the left." (chapter main area), "Pick a character on the left, or
+  create a new one." (characters main area), the script's "No {locale} script yet …" (+ its start buttons), the cover's
+  "No square image yet – choose it under Art." and "This season doesn't exist yet – create it on the toon page", the
+  convert page's "nothing to convert", the Ask panel's intro (its only content, says what to ask); admin – the asset
+  library's "No assets – run Rescan …", the Ask intro.
+- The reader is another audience: there a text is justified more often (an empty inventory, "No places discovered
+  yet – keep reading …", "No shop carries … yet" + buy online, nothing to wear for a slot) – the same test, read with a
+  reader in mind; the reader keeps its own look (no tools.css).
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.

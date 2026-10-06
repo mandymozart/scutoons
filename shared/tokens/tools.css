@@ -306,6 +306,13 @@
 	line-height: var(--type-caption-line);
 	color: var(--text-muted);
 }
+/* an empty state (DESIGN.md "Empty states", owner 2026-10-06): a muted line in the flow – never framed, no fill, no
+   icon. Only where the rule allows one at all (a page / main area that would be blank, a reason that isn't obvious,
+   a text that says what to do); an empty list with an add button shows nothing */
+.sc-empty {
+	margin: 0;
+	color: var(--text-muted);
+}
 /* status chip / tag / count: FILLED (tokens.css --badge-*), caption regular uppercase. Default neutral;
    .is-published (.is-live), .is-draft, .is-soon (.is-off), .is-error, .is-warning, .is-info; neutral = black */
 .sc-chip {

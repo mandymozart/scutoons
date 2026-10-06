@@ -54,6 +54,10 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
   one slot with resolution chips (default 720p → 480p → 1080p).
 - Show design drafts (on the real page, mobile + desktop) before building bigger UI.
+- Empty states (owner 2026-10-06): an empty list shows nothing – its add button is enough. A text only when ALL hold:
+  the page / main area would otherwise be completely blank with nothing to act on, the reason isn't obvious, and it says
+  what to do. Never in tabs, inspectors, side panels or lists with an add button; never framed – one muted line in the
+  flow (`.sc-empty`, tools.css). DESIGN.md "Empty states".
 
 ## Open owner decisions / loose ends
 - Production: run `2026-10-06-show-text-box.mysql.sql` with the deploy of `showTextBox` (CUTOVER 10.32 – the SELECT
