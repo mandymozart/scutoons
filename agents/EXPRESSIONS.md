@@ -3,24 +3,34 @@
 Owner decisions of 2026-10-06 (session with the coordinator). Research: scratchpad `expression-research.md` (summary
 below). Branch `chapter-neutral`.
 
-## 1. The language – our own, small (research result)
+## 1. The language – ink's inline syntax, our small engine (owner: "use inkle, to keep at least some standard")
 
-No library fits: safe engines with good errors are 6–25× too big (CEL), the right-looking ones have sandbox-escape
-CVEs (expr-eval, angular-expressions) or are unmaintained (Jexl, last release 2020), template engines compile to JS
-(Nunjucks, Handlebars, filtrex, SugarCube – break "never eval"), i18n formats (ICU, MF2, Fluent) have no logic. So: a
-Pratt parser + evaluator + static analyser in `@scutoons/content` (~450 lines, ~3 KB gz in the reader), syntax after
-Jexl / Angular, plural via the browser's `Intl.PluralRules`.
+Research (no library fits: CEL too big, expr-eval / angular-expressions with sandbox CVEs, Jexl unmaintained, template
+engines compile to JS, ICU / MF2 / Fluent have no logic) → our own parser + evaluator + static analyser in
+`@scutoons/content` (~3 KB gz in the reader). The SYNTAX is ink's inline syntax (inkle, "Writing with ink": variable
+printing, conditional text, sequences / cycles / shuffles / once-only, logic) – not ink's runtime/compiler (too big, ink
+compiles whole stories; we evaluate single texts).
 
-- In a text: `{expr | pipe(args) | …}`. Operators `+ - * / %`, `== != < <= > >=`, `and or not` (+ `&& || !`), `??`,
-  `cond ? a : b`; strings `"…"` / `'…'` with backslash escapes; numbers; `true false null`. A pipe binds loosest.
-- No generic property access: `map.total` is a NAME looked up by a SCUTOONS resolver against fixed namespaces; no `[]`,
-  only registered functions; limits 500 chars, depth 32, 64 nodes; runtime errors never break the reader.
-- Pipes: `clock`, `number`, `round`, `plural(=0: "…", one: "…", other: "# …")` (`#` = the number; per the text's
-  language), `ordinal(...)`, `select(a: "…", b: "…", other: "…")`, `default("…")`, `upper`, `lower`, `capitalize`, `pad(n)`.
-- Functions: `min`, `max`, `round`, `floor`, `random(a, b)` (stable per reader + text: the same reader always gets the
-  same result), plus the namespace functions below.
-- **Old syntax discarded** (owner): `{x:clock}` is gone – a migration rewrites stored texts to `{x | clock}`; no alias.
-- Missing value: readers never see raw code – an empty text or the `default(...)`; the creator warns.
+| ink | meaning |
+|---|---|
+| `{x}` | print a value |
+| `{cond: a\|b}` | conditional text (else part optional) |
+| `{a\|b\|c}` | sequence: the next one per visit, then stays on the last |
+| `{&a\|b}` | cycle |
+| `{~a\|b}` | shuffle (stable within a page view) |
+| `{!a\|b}` | once-only: each once, then nothing |
+| `and or not && \|\| ! == != < <= > >= + - * / % mod` | logic + arithmetic as in ink; strings `"…"` |
+
+- Visit counts of sequences / cycles / once-only live in the reader's save game (the shared recurrence model, §5).
+- Plurals the ink way: `{coins == 1: coin|coins}` – every language writes its own.
+- Our extras are ink-style (external) functions: `clock(t)`, `upper(s)`, `lower(s)`, `has("cucumber")`,
+  `count_of("cucumber")`, `read_chapter(2)`, `resolved(id)`, `count(id)`, `min`, `max`, `round`, `floor`,
+  `random(a, b)` (stable per reader + text). Reader state as names (§2): `map.total`, `reader.name`, `var.coins`.
+- Safety: no generic property access (names resolved by a SCUTOONS resolver against fixed namespaces), only registered
+  functions, limits (500 chars, depth 32, 64 nodes), runtime errors never break the reader, never eval.
+- **Old syntax discarded** (owner): `{x:clock}` → a migration rewrites stored texts to `{clock(x)}`; no alias.
+- Missing value: readers never see raw code – empty; the creator warns.
+- Difference to real ink: a text using our names / functions doesn't run in inkle's Inky – the syntax rules are ink's.
 
 ## 2. What a text can read (namespaces)
 
@@ -53,8 +63,8 @@ mode on the same engine).
   on `}` the expression becomes a semi-locked CHIP in the field. Click a chip = the builder; double-click / long-press =
   edit in place as plain text (back to a chip on leave); Backspace next to a chip removes it whole. Invalid → red wavy
   underline + tooltip with the problem and position ("`map.totl` – unknown, did you mean `map.total`?").
-- Builder: pick a value (story variables, reader state, functions) → comparison / arithmetic → then / else texts (in the
-  header's language) → pipes → live preview with sample readers ("new guest", "halfway", "everything collected").
+- Builder (writes ink syntax): pick a value (story variables, reader state, functions) → comparison / arithmetic →
+  then / else texts (in the header's language), or a sequence / cycle / shuffle / once-only list → functions → live preview with sample readers ("new guest", "halfway", "everything collected").
 - Stored as plain text with `{…}` – the chip is only the creator's display.
 
 ## 5. Events: repeat modes + the save game
