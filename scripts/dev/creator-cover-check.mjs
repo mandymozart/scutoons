@@ -325,7 +325,8 @@ try {
 		check(liveAll.every((x) => x.published?.id === x.version.id), 'Publish: the season document is published');
 		await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
 		for (const l of LOCALES.filter((x) => x === 'de' || x === 'en')) {
-			await send('Page.navigate', { url: `${VIEWER}/${l}/${TOON}` });
+			// the sandbox is a draft toon: the reader shows it with a creator's draft preview (lib/draft-preview.svelte.ts)
+			await send('Page.navigate', { url: `${VIEWER}/${l}/${TOON}?preview=draft` });
 			const shown = await until(`document.querySelectorAll('.toon-header [data-testid="cover-lettering"] .line').length === 3`, 20000);
 			await sleep(500);
 			const lines = shown ? await stageLines(`document.querySelector('.toon-header [data-testid="cover-art"]')`) : [];
