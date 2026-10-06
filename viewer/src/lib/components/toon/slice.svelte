@@ -17,8 +17,22 @@
 	import Samples from './audio/samples.svelte';
 	import Triggers from './vn/triggers.svelte';
 
-	let { slice, sliceIndex = 0, allSlices = [] }: { slice: SliceModel; sliceIndex?: number; allSlices?: SliceModel[] } =
-		$props();
+	let {
+		slice,
+		sliceIndex = 0,
+		pageIndex,
+		allSlices = []
+	}: {
+		slice: SliceModel;
+		/** the slice's index in its group (`allSlices`): the music state, eager loading */
+		sliceIndex?: number;
+		/**
+		 * its index on the page (`data-slice-index`: reading progress, the follow-up bar, a player's skip): linked groups
+		 * share one page and number their slices on across it; default = `sliceIndex`
+		 */
+		pageIndex?: number;
+		allSlices?: SliceModel[];
+	} = $props();
 
 	const toonId = $derived(page.params.toonId);
 	// a sensitive slice while the reader hides sensitive content (members: their account setting, on by default; guests and
@@ -129,7 +143,7 @@
 
 <Slice
 	{slice}
-	data-slice-index={sliceIndex}
+	data-slice-index={pageIndex ?? sliceIndex}
 	src={imageUrl}
 	videoSrc={videoUrl}
 	eager={sliceIndex < EAGER_SLICES}
