@@ -212,10 +212,11 @@
 		display: flex;
 		flex-direction: column;
 	}
+	/* light dividers between a group's slices: the selected (inverted) one stands out (owner 2026-10-06, BACKLOG M.12) */
 	li {
 		display: flex;
 		align-items: stretch;
-		border-bottom: var(--border-width-hairline) solid var(--ink);
+		border-bottom: var(--border-width-hairline) solid var(--border-muted);
 	}
 	/* selected = inverted (DESIGN.md "Brutalist tools") */
 	li.selected {

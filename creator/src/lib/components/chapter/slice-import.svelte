@@ -355,11 +355,22 @@
 </Sheet>
 
 <style>
+	/* the same inset and button as the tree's "Add group" (owner 2026-10-06, BACKLOG M.11) */
 	.slice-import {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
-		margin-top: 0.5rem;
+		gap: var(--space-05);
+		padding: var(--space-1);
+	}
+	/* one line in the narrow sidebar, the full text in the tooltip */
+	.slice-import > button {
+		display: block;
+		min-width: 0;
+		padding-inline: var(--space-05);
+		text-align: left;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.rows {
 		list-style: none;
