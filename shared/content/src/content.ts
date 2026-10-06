@@ -410,8 +410,6 @@ export interface Group extends AcceptedWarnings {
 	slices?: Slice[];
 	events?: VNEvent[];
 	ref?: RefLink;
-	/** @deprecated legacy leftover (`webtoon`) in some older groups; nothing reads it */
-	interaction?: string;
 	/**
 	 * Linked groups (owner 2026-10-06): this group flows straight into the next group on the same page, no follow-up bar
 	 * between. A chain = consecutive groups where every one but the last continues (`chainOf` in chains.ts). Any group may
