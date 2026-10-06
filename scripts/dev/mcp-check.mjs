@@ -2,8 +2,9 @@
 // Check of the SCUTOONS MCP server (tools/mcp, CUTOVER 10.28): starts it over stdio like Claude Code does, against the
 // LOCAL dev stack (API :9000) as the local test user (`npm run dev:test-user`, or SCUTOONS_TOKEN), and drives the
 // tools: rules resources → list_toons → upload_asset (a 1×1 PNG into the sandbox toon, 409 the second time, deleted
-// again with the admin API) → list_chapters → read_entity → validate (a broken divert is an error) →
-// save_draft (refused with errors; saved with a new script point; 409 on an outdated base) → list_versions →
+// again with the admin API) → list_chapters → read_entity (a scene = its one language-neutral document, agents/NEUTRAL.md)
+// → validate (a broken divert is an error) → save_draft (a per-locale scene key is refused; refused with errors; saved
+// with a new script point; 409 on an outdated base) → list_versions →
 // restore_version (the original content is back as a new draft). Publish is off (no tool); with SCUTOONS_MCP_PUBLISH=1
 // the tool exists and refuses a call without confirm: true. Never runs against anything but localhost; whatever it
 // changed is restored, also on failure.
@@ -32,7 +33,8 @@ if (!TOKEN) {
 }
 const TOON = 'catpope';
 const SCENE = `scene:${TOON}:2:scene-14`;
-const KEY = `${SCENE}:de`;
+/** the scene's one language-neutral document (agents/NEUTRAL.md) */
+const KEY = SCENE;
 const POINT = 'mcp-check';
 
 const results = [];
@@ -90,7 +92,8 @@ try {
 	const chapters = await call(client, 'list_chapters', { toon: TOON, chapter: 2 });
 	const groups = chapters.json?.chapters?.[0]?.groups ?? [];
 	check(groups.some((g) => g.scene === SCENE), 'list_chapters: chapter 2 references scene-14', chapters.raw.slice(0, 300));
-	check(groups.some((g) => g.label === 'scene-20'), 'list_chapters: group labels (scene-20)');
+	check(groups.some((g) => !g.scene && typeof g.label === 'string' && g.label), 'list_chapters: inline groups with their labels', JSON.stringify(groups).slice(0, 300));
+	check(chapters.json?.chapters?.[0]?.key === `chapter:${TOON}:2` && typeof chapters.json?.chapters?.[0]?.title === 'string', 'list_chapters: the language-neutral chapter, its title in the source language', chapters.raw.slice(0, 300));
 
 	// finding things: the document list, a full-text search in the screenplay (source language), a part of a long text
 	const listed = await call(client, 'list_entities', { toon: TOON });
@@ -126,22 +129,27 @@ try {
 	}
 	rmSync(dir, { recursive: true, force: true });
 
-	const both = await call(client, 'read_entity', { key: SCENE });
-	check(Array.isArray(both.json) && both.json.length >= 2, 'read_entity without locale: every language', both.raw.slice(0, 200));
 	const read = await call(client, 'read_entity', { key: KEY });
-	check(!read.error && read.json?.version?.id > 0, 'read_entity: draft with version id', read.raw.slice(0, 200));
+	check(!read.error && !Array.isArray(read.json) && read.json?.key === KEY && read.json?.version?.id > 0, 'read_entity: the scene is one language-neutral document (draft, version id)', read.raw.slice(0, 200));
 	original = { id: read.json.version.id, content: read.json.content };
 	const events = original.content.events ?? [];
 	check(!events.some((e) => e?.params?.name === POINT), `no "${POINT}" point yet (an earlier run was restored)`);
+	const perLocale = await call(client, 'save_draft', { key: `${SCENE}:de`, base: original.id, ops: [{ op: 'set', path: ['label'], value: 'x' }] });
+	check(perLocale.error && /language-neutral/.test(perLocale.raw), 'save_draft refuses a per-locale scene key (one neutral document)', perLocale.raw.slice(0, 200));
 
+	// the scene's group script (the newest version may have none yet)
+	const start = Array.isArray(original.content.events) ? [] : [{ op: 'set', path: ['events'], value: [] }];
 	const end = events.length;
-	const broken = [{ op: 'insert', path: ['events', end], value: { type: 'divert', params: { to: 'nowhere-mcp' } } }];
+	const broken = [...start, { op: 'insert', path: ['events', end], value: { type: 'divert', params: { to: 'nowhere-mcp' } } }];
 	const v = await call(client, 'validate', { key: KEY, ops: broken });
 	check(v.json?.errors > 0 && v.raw.includes('nowhere-mcp'), 'validate: a divert to a missing point is an error', v.raw.slice(0, 300));
+	const untranslated = await call(client, 'validate', { key: KEY, ops: [...start, { op: 'insert', path: ['events', '-'], value: { type: 'showMessage', params: { text: { de: 'Nur auf Deutsch – mcp-check' } } } }] });
+	check(untranslated.json?.problems?.some((p) => p.level === 'warning' && p.locale === 'en' && p.path.includes('text')), 'validate: a text without its en translation is a warning for en (validateNeutral)', untranslated.raw.slice(0, 300));
 	const refused = await call(client, 'save_draft', { key: KEY, base: original.id, ops: broken });
 	check(refused.error && refused.json?.saved === false, 'save_draft refuses errors', refused.raw.slice(0, 200));
 
 	const ops = [
+		...start,
 		{ op: 'insert', path: ['events', '-'], value: { type: 'divert', params: { to: POINT }, if: { variable: 'mcp-check', op: '==', value: 1 } } },
 		{ op: 'insert', path: ['events', '-'], value: { type: 'label', params: { name: POINT } } }
 	];
@@ -179,7 +187,7 @@ try {
 	check(tools.includes('publish_entity'), 'SCUTOONS_MCP_PUBLISH=1: publish_entity is there');
 	let refusedPublish = false;
 	try {
-		const r = await publisher.callTool({ name: 'publish_entity', arguments: { key: `${SCENE.replace('scene-14', 'mcp-check-none')}:de`, confirm: false } });
+		const r = await publisher.callTool({ name: 'publish_entity', arguments: { key: SCENE.replace('scene-14', 'mcp-check-none'), confirm: false } });
 		refusedPublish = !!r.isError;
 	} catch {
 		refusedPublish = true;
