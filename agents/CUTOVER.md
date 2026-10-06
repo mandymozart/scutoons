@@ -853,6 +853,12 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   3. Deploy viewer + API together right after (an old viewer keeps writing per-toon rows the new one doesn't read; a
      member who reads in between with an old build: their per-toon progress after the migration isn't merged – run the
      migration again after the deploy, it folds them in by the same rule).
+- [ ] 10.37 **No dead ends: the save guard** (owner 2026-10-06, EXPRESSIONS.md "Dead-end safety"): no data change, no
+      migration. With the API deploy, `PUT /api/entities` refuses (422) chapters / scenes that can get a reader stuck – a
+      question whose choices can all be hidden, a divert / jump into nothing (`FlowCheck`); `content:check` reports the
+      same. **O:** after the deploy run `php bin/console content:check` on production: a document it lists can't be saved
+      unchanged any more – fix it in the creator (the Problems panel names the place). Known from the dump: only the old
+      `scene:catpope:2:scene-14` versions (its `scene-20` jump – the 10.35 decision).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

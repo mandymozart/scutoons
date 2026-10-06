@@ -315,3 +315,46 @@ Creator: editing expressions (owner's design, §4). DESIGN.md "Expressions in te
   `map.total`, Backspace / arrows, double-click edit, click → builder parsed back, the canvas' sample reader, Problems
   panel jumps (text box + condition), Enter in a condition, save 422 with a syntax error (the field stays) and 200 with a
   warning. `EXPR_SHOTS=<dir>` → screenshots `builder-*.png`.
+
+## Dead-end safety (owner 2026-10-06, branch chapter-neutral)
+
+Owner: "Events queue takeovers have to be safe for accidental dead ends" – and (correction) "no time-based patches: avoid
+such cases in logic and validation". So: no timeouts, no "continue" escape button; stuck states are impossible by the
+runtime's logic, and what an author can still build wrong is refused on save.
+
+- **One state machine** – viewer `visual-novel/box-state.ts` (pure; the VN context passes its `$state` object, the node
+  tests a plain one – the same code): the message and its click, choices, an askText question, slice-trigger runs, the
+  page's scripts. Every waiting state has an exit on screen (`answerable`): a waiting message → its continue overlay; choices
+  → shown only when there is one (`showChoices` with every choice hidden by its condition asks nothing – the script goes
+  on); a question → its input, ✓ and Skip (always); a text box with `wait` → its tap layer (its effect ends by itself too).
+  `frozen` = something answerable, or a script / run in progress – in a settled state the second implies the first.
+- **Takeovers** – slice-trigger / placed-item runs take the box ONE AT A TIME (`acquireRun`, first come first served,
+  never while a question / choices are open); a run parks the script's waiting message (shown without the "…") and ALWAYS
+  gives it back when it ends (`endRun` in `finally` – done, navigated, failed); a question answered mid-run doesn't bring
+  it back early. While a run holds the box the page's script pauses before its next event (`yieldToRuns`, re-checked
+  synchronously – a run may take the box between a wake-up and the step). Text-box waits keep every waiter (a script's
+  and a run's). The page's script line (`script-queue.ts`) wakes on the box's changes (`subscribe`), no polling.
+- **Jumps** – a jump (event or choice) to a group label that isn't in THIS chapter stays (`jump-to.ts` `jumpProblem`, the
+  chapter page tells the context its labels): the script goes on, the page ends with the follow-up bar. Other chapters /
+  toons can't be judged on the page – validation refuses them (below); a missing `?label=` shows the chapter's start.
+- **Runner** – `visual-novel/script-runner.ts` (pure core: `runEvents`, `runTrigger`; `runner.ts` / `event-processor.ts`
+  wire it to the session, the reader's name, expressions, item grants).
+- **Validation (blocks saving)** – @scutoons/content `stuck.ts` + validate.ts, the server's `FlowCheck` (PUT
+  /api/entities → 422 "can get the reader stuck"; `content:check` reports the same): a question whose choices can ALL be
+  hidden (every addChoice before its showChoices has an `if` – give one no condition), a divert to a missing point, a jump
+  (jumpTo, a choice's jump, a group's end) to a missing chapter / group label / toon – this toon's and other toons' where
+  known (the creator: what it loaded; another toon it couldn't load stays a "can't check" warning; the server checks the
+  database). The creator shows them in the Problems panel and as a "may get stuck" chip (error colour), the Flow graph's
+  question box too (status `stuck`). Nothing else can wait forever: a missing speaker is skipped, a text box that isn't
+  on the page completes after its time, the session check is bounded, a script loop without a reader wait is stopped.
+  Analysis 2026-10-06 (dev DB = production dump + the examples): no stored version has a question whose choices can all be
+  hidden; only the old chapter 2 stroll's `scene-14` versions (10–201, published 127 / 128 / 201) jump to `scene-20`, a
+  label chapter 2 no longer has – the newest draft doesn't (the owner's pending scene-14 decision, CUTOVER 10.35).
+- **Tests** – viewer `test/vn-safety.test.ts`: the rules one by one + a property test over random scripts, slice triggers
+  and readers (1500 seeds per run; 20 000 checked once): whenever everything has settled, frozen ⇒ something answerable,
+  and every reader gets through. It found three real dead ends on the way (fixed): a run's question answered mid-run
+  brought the parked message back early (the run's next message took its click); two waiters on text boxes (the second
+  overwrote the first); a script stepping into the box between a run's wake-up and its taking the box.
+  `npm run check:vn-safety` (headless): the broken drafts refused (422) and flagged (validation errors, the Flow mark);
+  on a draft stored past the guard: all choices hidden, a missing jump, a throwing trigger, a long text-box wait – never
+  stuck, the follow-up bar comes. PHPUnit `FlowCheckTest`, TS `stuck.test.ts`.
