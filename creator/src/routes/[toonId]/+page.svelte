@@ -30,7 +30,7 @@
 	const ALL_LANGUAGES = Object.values(Language) as Language[];
 	const languageLabel = (l: string) => `${l} · ${LANGUAGE_NAMES[l] ?? l}`;
 
-	/** the toon's index entry (`<toon>/_/index.json`): source language + languages */
+	/** the toon's index entry (`toon:<toon>`): source language + languages */
 	let index = $state<ContentDoc | null>(null);
 	/** the languages the files below were loaded with (= the saved index entry) */
 	let langs = $state<ToonLanguages | null>(null);
@@ -64,7 +64,7 @@
 	const sequence = $derived<SequenceItem[]>(season?.data?.[season.primary]?.sequence ?? []);
 	// a season converted in memory (agents/NEUTRAL.md) is not saved from here: the Convert page / its editor stores it
 	const pageDocs = $derived([index, season].filter((d): d is ContentDoc => !!d && !d.unconverted));
-	/** no season1.json in any language (store or static): the page offers "Create season 1" */
+	/** no season 1 yet: the page offers "Create season 1" */
 	const seasonMissing = $derived(!!season && !season.loading && !season.error && season.present.length === 0);
 	/** chapter numbers in the season of any language */
 	const seasonNumbers = $derived(
@@ -131,7 +131,7 @@
 		if (!index) return;
 		const entry = index.data[NEUTRAL_LOCALE];
 		if (entry == null) {
-			// no index entry anywhere yet: start one (saved as the first version of <toon>/_/index.json)
+			// no index entry anywhere yet: start one (saved as the first version of `toon:<toon>`)
 			index.create(() => withToonLanguages({ id: toonId, uri: toonId, status: Status.DRAFT, i18n: {} }, source, languages));
 			return;
 		}

@@ -576,11 +576,11 @@
 				{/each}
 			</span>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
-			<input class="message in-start" type="text" placeholder={m['creator.note_optional']()} aria-label={m['creator.note_optional']()} bind:value={session.message} />
+			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet end()}
 			{@render sliceNav('end')}
-			<input class="message in-end" type="text" placeholder={m['creator.note_optional']()} aria-label={m['creator.note_optional']()} bind:value={session.message} />
+			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>

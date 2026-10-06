@@ -50,7 +50,7 @@
 	<PropField
 		{doc}
 		path={[...path, 'params', 'dialog']}
-		label={m['creator.ono_text_box']()}
+		label={m['creator.text_box']()}
 		type="select"
 		options={[...dialogs.map((d) => ({ value: d.id, label: d.label })), ...(box && !dialogs.some((d) => d.id === box) ? [{ value: box, label: `${box} (?)` }] : [])]}
 		placeholder={m['creator.ono_choose_box']()}

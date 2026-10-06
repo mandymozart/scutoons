@@ -65,9 +65,9 @@
 		write(raw);
 	}
 
-	/** a yes / no value in words; the bool select's empty option names the default (placeholder "true" / "false") */
+	/** yes / no in words; a select's empty option shows the default in brackets ("(no)" for a bool placeholder "true" / "false") */
 	const yesNo = (v: string) => (v === 'true' ? m['creator.yes']() : v === 'false' ? m['creator.no']() : v);
-	const defaultOption = $derived(placeholder ? (type === 'bool' ? m['creator.field_default']({ value: yesNo(placeholder) }) : placeholder) : m['creator.field_default_plain']());
+	const defaultOption = $derived(!placeholder ? m['creator.field_default_plain']() : type === 'bool' ? `(${yesNo(placeholder)})` : type === 'select' && placeholder !== '–' ? `(${placeholder})` : placeholder);
 
 	function display(v: unknown) {
 		return v === undefined || v === null ? '' : String(v);

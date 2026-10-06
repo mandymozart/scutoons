@@ -42,7 +42,7 @@
 {#if dialog}
 	<div class="inspector" data-testid="dialog-inspector">
 		<div class="row head">
-			<h3>{m['creator.text_boxes']()} · {dialog.id ?? '–'}</h3>
+			<h3>{m['creator.text_box']()} · {dialog.id ?? '–'}</h3>
 			{#if onremove}<button class="secondary" onclick={onremove}>{m['creator.remove']()}</button>{/if}
 		</div>
 
@@ -71,7 +71,7 @@
 
 		<div class="sc-fields" data-cols="2" data-density="panel">
 			<PropField {doc} path={p('id')} label={m['creator.field_id']()} placeholder="s1c2-3-1" />
-			<PropField {doc} path={p('size')} label={m['creator.text_size']()} type="number" placeholder="4" />
+			<PropField {doc} path={p('size')} label={m['creator.text_size']()} title={m['creator.text_size_hint']()} type="number" placeholder="4" />
 			<PropField {doc} path={p('align')} label={m['creator.text_align']()} type="select" options={ALIGNS.map((a) => ({ value: a, label: alignLabel(a) }))} placeholder={alignLabel(boxed ? 'left' : 'center')} />
 			<PropField {doc} path={p('valign')} label={m['creator.text_valign']()} type="select" options={VALIGNS.map((v) => ({ value: v, label: valignLabel(v) }))} placeholder={valignLabel('middle')} />
 			<PropField {doc} path={p('font')} label={m['creator.text_font']()} type="select" options={['lettering', 'mono']} placeholder={boxed ? 'mono' : 'lettering'} />
