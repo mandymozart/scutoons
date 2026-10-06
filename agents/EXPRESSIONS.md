@@ -111,7 +111,7 @@ the account, synced, changeable on the account page).
 
 ## Step 1 – done (2026-10-06, branch chapter-neutral)
 
-`shared/content/src/expr/` (not yet exported from the package index – the coordinator wires `export * from
+`shared/content/src/expr/` (exported from @scutoons/content: `export * from
 './expr/index.ts'`), PHP port `server/src/Domain/Content/Expr/`, golden fixtures `shared/content/test/fixtures/expr/`.
 
 - **Parse** – `parseText(text)` → `{ nodes, problems, constructs, lists }`; `parseExpression(src)` → `{ expr, problems }`.
@@ -143,3 +143,40 @@ the account, synced, changeable on the account page).
   `RANDOM/MIN/MAX/FLOOR…`; no ink lists (`? has hasnt ^`), `++`/`--`, diverts, read counts, multi-line blocks,
   interpolation inside string literals; missing names are empty + a warning (ink: compile error); `and`/`or`
   short-circuit; shuffles / `random()` are fixed per seed; `clock()` keeps today's `5:30` form (formatClock).
+
+## Step 2 – done (2026-10-06, branch chapter-neutral)
+
+- **Resolver** (viewer `lib/expressions/`): `reader.ts` = pure answers over getters (`readerName(sources, path)`,
+  `readerCall(sources, name, args)`; tests `viewer/test/expressions.test.ts`), `resolver.svelte.ts` = the wiring
+  (`createReaderExpressions` in the toon layout, context + `getCurrentReaderExpressions()` for the VN runner). Every
+  registry namespace: bare names = the toon's story variables; `reader.*` (signedIn, member = device code or account
+  access, memberDays / since from the account's created_at – guests 0 / none, gifts = inventory entries from gifts,
+  language, daysSinceStart from the game state's created_at; `reader.name` = none until askText); `read.*` + `read_chapter`
+  (complete checkpoints; `position(n)` = 0..1 of the current read-through; `finished` = every readable chapter except the
+  prologue); `inventory.*` / `has` / `count_of` (entries; `edition` = the entry's edition number); `avatar.*` (the shown
+  body, worn items, unlocked characters); `stats.<id>` (decayed levels), `effects.*`; `map.*` (unlocked / seen counted
+  over the world map's places, `total` = its places, `here` = the hero position's place name – the toon's map data, else
+  the whole world map loaded lazily); `now.*` (local time; night = 22–6). `resolved()` / `count()` = none until step 3.
+  Never email, codes, account / entry ids. Reactive: getters read the contexts' state, text boxes re-render.
+- **History** (one store for step 3 too): the game state's `history` (`@scutoons/content` history.ts, DATA.md "Reading
+  progress"): `key → { n, first, last }`; text keys `text:<toon>/<chapter>/box/<box id>/<line>#<list>` and
+  `text:<toon>/<chapter>/vn/<group label>/<script|on/<trigger hash>|item/<id>>/<event index>#<list>`. A text box counts
+  once per page view (path + `?label=`; it shows the count from before the view while it re-renders), a VN message /
+  choice label once per showing. Seed = the game state's created_at + the text identity. Synced for members with the
+  state (last write wins); ≤ 1000 entries.
+- **Rendering**: VN messages + choice labels through `evaluateText` (runner.ts; without the toon's expressions only story
+  variables); text boxes in `@scutoons/reader` (`expressions` prop on Slice / Dialogs / Dialog: `resolver(text, lang)` +
+  `shown(text, visited)`; the creator's previews pass none → texts as written, step 4 adds sample readers). `number()`
+  etc. use the text's language. `interpolateText` and `{x:clock}` are gone (`formatClock` stays).
+- **Validation**: `validateNeutral` analyses every text box line, VN message and choice label per language
+  (`Problem.code = expr:<code>`): syntax errors = errors, unknown names / functions / arguments = warnings (story
+  variables from `ctx.facts` when the creator has the toon's documents), `{x:clock}` = an error naming `{clock(x)}` and the
+  migration. Server: `Expr\TextCheck` in `ContentSchemas::problemsOf` / `guard` – a neutral chapter / scene save with a
+  syntax error or `{x:clock}` → 422 `invalid_content` ("… has a text that can't be shown: <pointer>: <message> – at
+  <from>–<to> (expr:<code>)"); doubts don't block.
+- **Migration** `server/migrations/mysql/2026-10-06-clock-syntax.mysql.sql` (CUTOVER 10.33): dev DB = production dump
+  had 0 `{x:clock}` (449 versions); REGEXP_REPLACE escaping checked on 10.11.14 (default + the API's strict sql_mode),
+  PHPUnit `testTheClockSyntaxMigration`.
+- **Check**: `npm run check:expr` (headless Chrome, sandbox chapter 9 draft: messages, choice label, live text box,
+  a sequence over four reloads, the history; draft rows + the test user's sandbox progress put back).
+- Not yet: event conditions as expressions (`if` – step 3 with the event modes).

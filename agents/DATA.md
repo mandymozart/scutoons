@@ -210,7 +210,13 @@ rules as the editor's parser (which knows only the German terms; the English scr
   starts empty).
 
 **Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
-in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API). The map's
+in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API). The game
+state (`scutoons_game_<toon>`, viewer `contexts/game.svelte.ts`) is `{ toonId, variables, progress, history, created_at,
+updated_at }`, last write wins as a whole: `variables` = the story variables, `progress` = the checkpoints, `history` =
+the reader's history (EXPRESSIONS.md §5, `@scutoons/content` history.ts: `key → { n, first, last }` (count, ms), keys
+`text:<toon>/<chapter>/<box/<id>/<line> | vn/<group>/<origin>/<event>>#<list>` – visits of `{a|b|c}` lists; `event:` /
+`item:` keys come with step 3; at most 1000 entries, the longest-unseen go; missing in older states = empty);
+`created_at` = when the reader started the toon (`reader.daysSinceStart`, the seed of shuffles / `random()`). The map's
 discoveries are one **world** state for every toon under the reserved id `scutoons` (`/api/progress/scutoons/`, localStorage
 `scutoons_game_scutoons`): its `map` (places, routes, positions) merges as sets on the server and in the viewer
 (`mergeMapState`), the rest is last-write-wins (agents/MAP.md §2.4, §8.2).

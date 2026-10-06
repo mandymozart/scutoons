@@ -800,6 +800,16 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   1. phpMyAdmin → d0487143 → SQL, check first: `SELECT COUNT(*) FROM entity_versions WHERE json LIKE '%"showOnomatopeia"%';`
   2. Deploy (API + viewer + creator), then right away run `server/migrations/mysql/2026-10-06-show-text-box.mysql.sql`
      (idempotent; entity_versions + content_versions); the SELECT of step 1 answers 0 afterwards.
+- [ ] 10.33 **Expressions in texts + the clock syntax** (owner 2026-10-06, branch `chapter-neutral`, EXPRESSIONS.md step 2):
+      texts use ink's inline syntax; the old `{name:clock}` is gone (no alias) – it is `{clock(name)}` now, validation
+      calls the old form an error and the API refuses to save it (422). Dev DB (= the production dump) checked 2026-10-06:
+      0 occurrences in entity_versions / content_versions; the migration is for production's newer test content.
+      **O – production steps, together with the deploy of step 2:**
+  1. phpMyAdmin → d0487143 → SQL, check first:
+     `SELECT COUNT(*) FROM entity_versions WHERE json REGEXP '\\{[A-Za-z_][A-Za-z0-9_]*:clock\\}';` (and the same on
+     `content_versions`).
+  2. Deploy (API + viewer + creator), then run `server/migrations/mysql/2026-10-06-clock-syntax.mysql.sql` (idempotent,
+     `REGEXP_REPLACE` → `{clock(name)}`; tested on MariaDB 10.11.14); the SELECTs of step 1 answer 0 afterwards.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

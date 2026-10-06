@@ -68,6 +68,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 ## Open owner decisions / loose ends
 - Production: run `2026-10-06-show-text-box.mysql.sql` with the deploy of `showTextBox` (CUTOVER 10.32 – the SELECT
   first; old code can't read the new event type, new code not the old one).
+- Production: run `2026-10-06-clock-syntax.mysql.sql` with the deploy of expressions step 2 (CUTOVER 10.33 – the SELECT
+  first; `{x:clock}` → `{clock(x)}`, 0 rows in the dump).
 - Onions: no onion item in the catalog yet (needed before it can respawn). The onion camera (branch `items/onion-camera`,
   6 commits, checkout `C:\Development\scutoons-onion-camera`) waits until **February 2027** (owner 2026-10-05: no priority
   before); it predates the catalog in the database – its items.json changes go through the admin catalog then.
