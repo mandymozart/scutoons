@@ -3,6 +3,9 @@
 	import { clickOutside } from './click-outside.ts';
 	import InfoPanel from './info-panel.svelte';
 	import Icon from './icon.svelte';
+	import { panelWidth } from './panel-width.svelte.ts';
+	import { shellDock, useDock } from './dock.svelte.ts';
+	import { untrack } from 'svelte';
 
 	/**
 	 * Fixed bottom action bar (PLATFORM.md "Admin UI patterns" → "Bottom action bar", owner rule for admin + creator):
@@ -13,8 +16,10 @@
 	 * of the bar's height, so nothing hides behind it (place the component anywhere in the page markup).
 	 *
 	 * `info`: the page's help. The bar then shows an "ⓘ Info" toggle (left-most, also on narrow screens) that opens an
-	 * `InfoPanel` with this snippet (+ `infoHref`, a link to the full guide). Closed by default; open/closed is
-	 * remembered in localStorage (`infoKey`), so it stays open across pages until the user closes it.
+	 * `InfoPanel` with this snippet (+ `infoHref`, a link to the full guide) in the AppShell's right dock (`useDock`,
+	 * agents/DOCKING.md – it takes turns with the page's own panels; one remembered width `sc-panel-width:info`).
+	 * Closed by default; open/closed is remembered in localStorage (`infoKey`), so it stays open across pages until the
+	 * user closes it (or a page panel takes the dock).
 	 */
 	let {
 		start,
@@ -45,8 +50,8 @@
 		infoTitle?: string;
 		/** link to the full style guide at the end of the panel */
 		infoHref?: string;
-		/** translated labels: `toggle` (default "Info"), `close`, `guide` (the link text) */
-		infoLabels?: { toggle?: string; close?: string; guide?: string };
+		/** translated labels: `toggle` (default "Info"), `close`, `guide` (the link text), `fold` (the dock's fold button) */
+		infoLabels?: { toggle?: string; close?: string; guide?: string; fold?: string };
 		/** localStorage key of the remembered open state */
 		infoKey?: string;
 	} = $props();
@@ -72,11 +77,16 @@
 	$effect(() => {
 		if (!info) return;
 		try {
-			infoOpen = localStorage.getItem(infoKey) === '1';
+			// a panel the page opened itself (a deep link: `?flow=1`) keeps the dock
+			infoOpen = localStorage.getItem(infoKey) === '1' && !untrack(() => shellDock.current);
 		} catch {
 			/* private mode etc. */
 		}
 	});
+
+	// docked in the shell's right dock while open; a page panel taking the dock closes it for now (still remembered)
+	const infoSize = panelWidth('sc-panel-width:info', 16, undefined, { foldable: true });
+	useDock(() => (info && infoOpen ? { panel: infoPanel, size: infoSize, title: infoTitle, icon: 'info', close: () => (infoOpen = false) } : null));
 
 	function setInfo(open: boolean) {
 		infoOpen = open;
@@ -137,18 +147,19 @@
 	{/if}
 </div>
 
-{#if info && infoOpen}
+{#snippet infoPanel()}
 	<InfoPanel
 		id="{uid}-info"
 		title={infoTitle}
 		closeLabel={infoLabels.close}
+		foldLabel={infoLabels.fold}
 		href={infoHref}
 		hrefLabel={infoLabels.guide}
 		onclose={() => setInfo(false)}
 	>
-		{@render info()}
+		{#if info}{@render info()}{/if}
 	</InfoPanel>
-{/if}
+{/snippet}
 
 <style>
 	/* the page gets the bottom padding wherever the bar is placed in the markup */

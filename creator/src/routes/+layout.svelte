@@ -333,10 +333,8 @@
 		--warn: var(--state-warning);
 		/* every creator page: the bottom ActionBar mirrors the top bar (AppShell reserves this much) */
 		--action-bar-height: var(--tool-bar-height);
-		/* the one top bar: side panels and the Info panel start below it */
+		/* the one top bar */
 		--top: var(--tool-bar-height);
-		--info-panel-top: var(--tool-bar-height);
-		--info-panel-width: var(--tool-panel-width);
 		min-height: 100dvh;
 	}
 

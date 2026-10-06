@@ -232,7 +232,6 @@
 		--split-view-top: calc(var(--topbar-height) + var(--space-1));
 		--split-view-bottom: calc(var(--action-bar-height) + var(--space-1));
 		--admin-sidebar-width: 14rem;
-		--info-panel-width: var(--tool-panel-width);
 		min-height: 100dvh;
 	}
 	.topbar {

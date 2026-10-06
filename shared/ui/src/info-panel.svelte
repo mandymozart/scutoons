@@ -2,14 +2,15 @@
 	import type { Snippet } from 'svelte';
 	import Icon from './icon.svelte';
 	import CloseButton from './close-button.svelte';
+	import DockFold from './dock-fold.svelte';
 
 	/**
 	 * The one place for a page's help (owner 2026-09-30): explanations, conventions, glossaries and the style guide live
-	 * here instead of long hint texts above the fields. A non-modal panel on the right, from the top bar
-	 * (`--info-panel-top`, else the AppShell's measured top bar, else 0) down to the ActionBar (`--action-bar-height`);
-	 * from 1100px on the page content makes room for it, narrower it lies above the content. Usually opened by the
-	 * ActionBar's "ⓘ Info" toggle (`ActionBar` `info` snippet), which also remembers the open state.
-	 * `href` + `hrefLabel`: a link to the full guide at the end of the panel. Escape inside the panel closes it.
+	 * here instead of long hint texts above the fields. A page panel of the AppShell's right dock (agents/DOCKING.md):
+	 * it takes turns with the page's own panels (Problems / History / Flow, a list's detail), drags wider and folds to a
+	 * rail like them. Usually opened by the ActionBar's "ⓘ Info" toggle (`ActionBar` `info` snippet), which docks it and
+	 * remembers the open state. `href` + `hrefLabel`: a link to the full guide at the end of the panel. Escape inside the
+	 * panel closes it.
 	 */
 	let {
 		title = 'Info',
@@ -17,6 +18,7 @@
 		href,
 		hrefLabel = 'Full style guide',
 		id,
+		foldLabel,
 		onclose,
 		children
 	}: {
@@ -26,6 +28,8 @@
 		href?: string;
 		hrefLabel?: string;
 		id?: string;
+		/** the dock's fold button */
+		foldLabel?: string;
 		onclose?: () => void;
 		children: Snippet;
 	} = $props();
@@ -42,6 +46,7 @@
 <aside class="sc-info-panel" {id} aria-label={title} {onkeydown} data-testid="info-panel">
 	<header>
 		<h2><Icon name="info" /> {title}</h2>
+		<DockFold label={foldLabel} />
 		{#if onclose}
 			<CloseButton class="close" label={closeLabel} onclick={onclose} />
 		{/if}
@@ -55,26 +60,15 @@
 </aside>
 
 <style>
-	/* wide screens: the page makes room for the panel instead of hiding under it */
-	@media (min-width: 1100px) {
-		:global(body:has(.sc-info-panel) .sc-shell-content) {
-			margin-right: var(--info-panel-width, 24rem);
-		}
-	}
+	/* fills the dock (AppShell) and scrolls its body */
 	.sc-info-panel {
-		position: fixed;
-		z-index: 35;
-		top: var(--info-panel-top, var(--sc-shell-top, 0px));
-		/* left of a shell-level panel docked on the right (the creator's Ask panel sets --ask-inset) */
-		right: var(--ask-inset, 0rem);
-		bottom: var(--action-bar-height, 3.25rem);
 		display: flex;
 		flex-direction: column;
 		box-sizing: border-box;
-		width: min(var(--info-panel-width, 24rem), 100vw);
+		min-height: 0;
+		height: 100%;
 		background: var(--paper);
 		color: var(--ink);
-		border-left: var(--border-width-regular) solid var(--ink);
 		font-family: var(--font-mono);
 		font-size: var(--type-body-size);
 		line-height: var(--type-body-line);
@@ -89,6 +83,7 @@
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	h2 {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		gap: var(--space-05);
@@ -99,9 +94,9 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
-	/* the close cross (CloseButton): right, level with the title */
+	/* the close cross (CloseButton): right, level with the title (after the fold button) */
 	header :global(.close) {
-		margin: 0 0 0 auto;
+		margin: 0;
 	}
 	.body {
 		flex: 1;
