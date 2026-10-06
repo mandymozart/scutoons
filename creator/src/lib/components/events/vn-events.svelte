@@ -237,7 +237,7 @@
 
 			{#if isOpen(i)}
 				<label class="type-field">
-					<span class="sc-label">type</span>
+					<span class="sc-label">{m['creator.field_type']()}</span>
 					<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
 						{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
 						{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
@@ -256,7 +256,7 @@
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
 				{:else}
-					<p class="hint">No parameters.</p>
+					<p class="hint">{m['creator.event_no_params']()}</p>
 				{/if}
 
 				<EventCondition {doc} path={p} {event} index={i} />

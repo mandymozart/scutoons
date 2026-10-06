@@ -98,10 +98,10 @@
 		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.set(p('item'), item.id)} />
 
 		<div class="sc-fields" data-cols="2" data-density="panel">
-			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />
-			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required />
-			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required />
-			<PropField {doc} path={p('rotation')} label="rotation °" type="number" step={1} placeholder="0" />
+			<PropField {doc} path={p('rect', 'x')} label="X %" type="number" required />
+			<PropField {doc} path={p('rect', 'y')} label="Y %" type="number" required />
+			<PropField {doc} path={p('rect', 'width')} label={m['creator.field_width']()} type="number" required />
+			<PropField {doc} path={p('rotation')} label={m['creator.field_rotation']()} type="number" step={1} placeholder="0" />
 		</div>
 
 		<PropField

@@ -83,7 +83,7 @@
 	<div class="role-picker" data-testid={testid}>
 		<div class="row">
 			<input bind:this={input} type="search" placeholder={m['creator.credits_search_roles']()} bind:value={query} {onkeydown} data-testid="{testid}-input" />
-			<button type="button" class="ghost" onclick={() => (open = false)} aria-label="Close"><CloseIcon /></button>
+			<button type="button" class="ghost" onclick={() => (open = false)} aria-label={m['creator.close']()}><CloseIcon /></button>
 		</div>
 		{#if !creating}
 			<div class="list">

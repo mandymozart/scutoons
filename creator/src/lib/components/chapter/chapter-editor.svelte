@@ -572,15 +572,15 @@
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each readerLocales as l}
-					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title="In the reader, {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
+					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
-			<input class="message in-start" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={session.message} />
+			<input class="message in-start" type="text" placeholder={m['creator.note_optional']()} aria-label={m['creator.note_optional']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet end()}
 			{@render sliceNav('end')}
-			<input class="message in-end" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={session.message} />
+			<input class="message in-end" type="text" placeholder={m['creator.note_optional']()} aria-label={m['creator.note_optional']()} bind:value={session.message} />
 			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
@@ -610,7 +610,7 @@
 			<div class="sc-bar is-note" data-testid="cast-notice">
 				{castNotice}
 				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
-				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><CloseIcon /></button>
+				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
 			</div>
 		{/if}
 
@@ -649,12 +649,12 @@
 						{#if activeGroup?.renderer?.type === Renderer.HORIZONTAL && activeGroup.renderer.params?.fullWidth}
 							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} onopen={(i) => view.selectSlice(i)} />
 						{/if}
-						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
+						<h3 class="sub">{m['creator.vn']()}</h3>
 						{#if activeGroup?.events}
 							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} />
 						{:else}
-							<p class="hint">No VN script in this group.
-								<button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
+							<p class="hint">{m['creator.vn_no_script']()}
+								<button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ {m['creator.vn_script_add']()}</button></p>
 						{/if}
 					{:else if activeDoc?.error}
 						<p class="error">{activeDoc.error}</p>

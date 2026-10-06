@@ -27,6 +27,12 @@
 	} = $props();
 
 	const box = $derived(event.params?.dialog);
+	const effectOptions = () => [
+		{ value: OnomatopoeiaEffect.NONE, label: m['creator.ono_effect_none']() },
+		{ value: OnomatopoeiaEffect.SHIVER, label: m['creator.ono_preset_shiver']() },
+		{ value: OnomatopoeiaEffect.PULSE, label: m['creator.ono_preset_pulse']() },
+		{ value: OnomatopoeiaEffect.WOBBLE, label: m['creator.ono_preset_wobble']() }
+	];
 	const ono = $derived(matchOnoPreset(event.params));
 
 	/** an onomatopoeia's preset (effect + timing); the text and mode / wait stay */
@@ -65,11 +71,11 @@
 	<summary>{m['creator.advanced']()}</summary>
 	{#if box}<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>{/if}
 	<div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
-		<PropField {doc} path={[...path, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
-		<PropField {doc} path={[...path, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
-		<PropField {doc} path={[...path, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
-		<PropField {doc} path={[...path, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="poly" />
-		<PropField {doc} path={[...path, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
+		<PropField {doc} path={[...path, 'params', 'effect']} label={m['creator.ono_effect']()} type="select" options={effectOptions()} placeholder={m['creator.ono_effect_none']()} />
+		<PropField {doc} path={[...path, 'params', 'duration']} label={m['creator.field_duration']()} type="number" step={100} placeholder="2000" />
+		<PropField {doc} path={[...path, 'params', 'delay']} label={m['creator.field_delay']()} type="number" step={100} placeholder="0" />
+		<PropField {doc} path={[...path, 'params', 'mode']} label={m['creator.field_mode']()} type="select" options={Object.values(TriggerMode)} placeholder="poly" />
+		<PropField {doc} path={[...path, 'params', 'wait']} label={m['creator.vn_wait']()} type="bool" placeholder="false" />
 		<PropField
 			{doc}
 			path={[...path, 'params', 'stay']}

@@ -48,8 +48,8 @@
 		<p class="hint">{m['creator.chapter_number_hint']({ path: `/${doc.toon}/chapter/${number}` })}</p>
 	</header>
 
-	<LocaleText {doc} path={['title']} label="title" multiline={false} />
-	<LocaleText {doc} path={['description']} label="description" rows={3} />
+	<LocaleText {doc} path={['title']} label={m['creator.field_title']()} multiline={false} />
+	<LocaleText {doc} path={['description']} label={m['creator.field_description']()} rows={3} />
 
 	<div class="status" data-testid="chapter-status">
 		<span class="sc-label">{m['creator.status']()}</span>
@@ -75,7 +75,7 @@
 			</div>
 			{#if syncChanges.length}
 				<p class="hint" data-testid="status-sync">
-					{m['creator.status_sync']()} <span>({syncChanges.join(' · ')})</span>
+					{m['creator.status_sync']()}
 					<button type="button" class="ghost" onclick={() => syncChapter(doc)}>{m['creator.status_sync_now']()}</button>
 				</p>
 			{/if}
@@ -83,22 +83,22 @@
 	</div>
 
 	<div class="sc-fields" data-cols="2">
-		<LocaleText {doc} path={['release']} label="release" type="date" />
-		<PropField {doc} path={['author']} label="author" required />
+		<LocaleText {doc} path={['release']} label={m['creator.field_release']()} type="date" />
+		<PropField {doc} path={['author']} label={m['creator.field_author']()} required />
 	</div>
 
 	<!-- the images as slots: the preview is the button, no path fields (owner 2026-10-03) -->
 	{#if stringKeyvisual}
 		<p class="warn">
-			keyvisual is a string – the type expects <code>{'{ image, video? }'}</code>.
-			<button type="button" class="secondary" onclick={convertKeyvisual}>Convert</button>
+			{m['creator.field_keyvisual_legacy']()}
+			<button type="button" class="secondary" onclick={convertKeyvisual}>{m['creator.convert']()}</button>
 		</p>
 	{/if}
 	<div class="media">
-		<MediaSlot toon={doc.toon} {place} label="thumbnail" value={ch?.thumbnail} onchange={(v) => doc.set(['thumbnail'], v)} testid="slot-thumbnail" />
+		<MediaSlot toon={doc.toon} {place} label={m['creator.field_thumbnail']()} value={ch?.thumbnail} onchange={(v) => doc.set(['thumbnail'], v)} testid="slot-thumbnail" />
 		{#if !stringKeyvisual}
-			<MediaSlot toon={doc.toon} {place} label="keyvisual" value={ch?.keyvisual?.image} onchange={(v) => doc.set(['keyvisual', 'image'], v)} testid="slot-keyvisual" />
-			<MediaSlot toon={doc.toon} {place} kind="video" label="keyvisual video" value={ch?.keyvisual?.video} onchange={(v) => doc.set(['keyvisual', 'video'], v)} testid="slot-keyvisual-video" />
+			<MediaSlot toon={doc.toon} {place} label={m['creator.field_keyvisual']()} value={ch?.keyvisual?.image} onchange={(v) => doc.set(['keyvisual', 'image'], v)} testid="slot-keyvisual" />
+			<MediaSlot toon={doc.toon} {place} kind="video" label={m['creator.field_keyvisual_video']()} value={ch?.keyvisual?.video} onchange={(v) => doc.set(['keyvisual', 'video'], v)} testid="slot-keyvisual-video" />
 		{/if}
 	</div>
 

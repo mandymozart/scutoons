@@ -50,7 +50,7 @@
 						<td>{usage.get(role.id) ?? 0}</td>
 						<td>
 							{#if !(usage.get(role.id) ?? 0) && scope === 'custom'}
-								<button type="button" class="ghost" onclick={() => edit<ToonCredits>(credits, (f) => f.roles!.splice(i, 1))}>{m['creator.credits_remove']()}</button>
+								<button type="button" class="ghost" onclick={() => edit<ToonCredits>(credits, (f) => f.roles!.splice(i, 1))}>{m['creator.remove']()}</button>
 							{/if}
 						</td>
 					</tr>

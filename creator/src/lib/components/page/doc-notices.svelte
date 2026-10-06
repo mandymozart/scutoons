@@ -3,14 +3,14 @@
 	import { CloseIcon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
-	import { visibleDifferences } from '@scutoons/content';
+	import { NEUTRAL_LOCALE, visibleDifferences } from '@scutoons/content';
 	import { differenceLine } from '$lib/editor/conversion.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { DocSession } from '$lib/editor/doc-session.svelte.ts';
 
 	/**
 	 * The bars under an editor page's file status (COMPONENTS.md step 11; meta pages and the chapter editor had copies):
-	 * unsaved changes, an autosave to recover, a document converted from its per-language documents on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded), a
+	 * unsaved changes, an autosave to recover, a document converted from its per-language versions on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded), a
 	 * save conflict, the last notice.
 	 */
 	let {
@@ -34,6 +34,8 @@
 	/** documents converted in memory that are not stored yet – one bar for all of them */
 	const conversions = $derived(docs.filter((d) => d.unconverted));
 	const differences = $derived(conversions.flatMap((d) => visibleDifferences(d.converted!.report).map((r) => ({ file: fileLabel(d.entity), line: differenceLine(r) }))));
+	/** "Chapter 2", "Script (en)": a language only for a document stored per language (not the neutral `_`) */
+	const conflictLabel = (locale: string | undefined, entity: string) => (locale && locale !== NEUTRAL_LOCALE ? `${fileLabel(entity)} (${locale})` : fileLabel(entity));
 </script>
 
 {#if dirty}<div class="sc-bar is-dirty">{m['creator.unsaved']()}{#if dirtyDetail} · {dirtyDetail}{/if}</div>{/if}
@@ -62,12 +64,12 @@
 {/if}
 {#if session.conflict}
 	<div class="sc-bar is-error">
-		{m['creator.conflict']({ locale: session.conflict.error.locale, file: fileLabel(session.conflict.doc.entity) })}
+		{m['creator.conflict']({ file: conflictLabel(session.conflict.error.locale, session.conflict.doc.entity) })}
 		<button class="secondary" onclick={() => session.resolveConflict('reload')}>{m['creator.reload']()}</button>
 		<button class="secondary" onclick={() => session.resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 	</div>
 {/if}
-{#if session.notice}<div class="sc-bar is-note">{session.notice} <button class="ghost" onclick={() => (session.notice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><CloseIcon /></button></div>{/if}
+{#if session.notice}<div class="sc-bar is-note">{session.notice} <button class="ghost" onclick={() => (session.notice = null)} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button></div>{/if}
 {@render extra?.()}
 
 <style>

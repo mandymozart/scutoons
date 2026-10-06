@@ -85,7 +85,7 @@
 <div class="history" data-testid="history-panel">
 	<header>
 		<h2>{m['creator.history']()} · {fileLabel(doc.entity)}</h2>
-		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><CloseIcon /></button>{/if}
+		{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}
 	{#each doc.locales as l (l)}
@@ -104,7 +104,7 @@
 						<span class="acts">
 							{#if v.status === 'published'}
 								<span>{m['creator.state_published']()}</span>
-								{#if !reviewed}<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>unpublish</button>{/if}
+								{#if !reviewed}<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>{m['creator.unpublish_label']()}</button>{/if}
 							{:else if !reviewed}
 								<button class="ghost" disabled={busy} onclick={() => publish(l, v)}>{m['creator.publish']()}</button>
 							{/if}

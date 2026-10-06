@@ -158,9 +158,9 @@
 				<span class="info">
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
-						{#if count(slice, 'dialog')}<span title="texts">T{count(slice, 'dialog')}</span>{/if}
-						{#if slice?.audio}<span title="audio"><Icon name="music" label="audio" /></span>{/if}
-						{#if count(slice, 'events')}<span title="events"><Icon name="zap" label="events" />{count(slice, 'events')}</span>{/if}
+						{#if count(slice, 'dialog')}<span title={m['creator.text_boxes']()}>T{count(slice, 'dialog')}</span>{/if}
+						{#if slice?.audio}<span title={m['creator.audio']()}><Icon name="music" label={m['creator.audio']()} /></span>{/if}
+						{#if count(slice, 'events')}<span title={m['creator.events']()}><Icon name="zap" label={m['creator.events']()} />{count(slice, 'events')}</span>{/if}
 					</span>
 				</span>
 			</button>

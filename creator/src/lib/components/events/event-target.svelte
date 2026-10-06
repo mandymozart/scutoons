@@ -22,10 +22,10 @@
 	}
 </script>
 
-<PropField {doc} path={[...path, 'type']} label="target type" type="select" options={Object.values(JumpToTargetType)} required />
-<PropField {doc} path={[...path, 'value']} label="value (chapter no.)" required />
+<PropField {doc} path={[...path, 'type']} label={m['creator.target_type']()} type="select" options={Object.values(JumpToTargetType).map((t) => ({ value: t, label: m[`creator.target_${t}`]() }))} required />
+<PropField {doc} path={[...path, 'value']} label={m['creator.target_value']()} required />
 {#if !target?.anyOf?.length}
-	<PropField {doc} path={[...path, 'label']} label="label (group)" type={groupLabels.length ? 'select' : 'text'} options={groupLabels} placeholder={m['creator.vn_group_first']()} />
+	<PropField {doc} path={[...path, 'label']} label={m['creator.target_group']()} type={groupLabels.length ? 'select' : 'text'} options={groupLabels} placeholder={m['creator.vn_group_first']()} />
 {/if}
 {#if groupLabels.length}
 	<fieldset class="any-of">

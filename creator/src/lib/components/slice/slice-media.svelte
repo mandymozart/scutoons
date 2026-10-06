@@ -231,14 +231,14 @@
 	{#if video}
 		<div class="flags">
 			<label title={m['creator.video_player_hint']()}
-				><input type="checkbox" checked={video.player === true} onchange={(e) => setPlayer(e.currentTarget.checked)} data-testid="video-player" /> player</label
+				><input type="checkbox" checked={video.player === true} onchange={(e) => setPlayer(e.currentTarget.checked)} data-testid="video-player" /> {m['creator.video_flag_player']()}</label
 			>
 			{#if video.player !== true}
-				<label><input type="checkbox" checked={video.loop !== false} onchange={(e) => setFlag('loop', e.currentTarget.checked)} /> loop</label>
-				<label><input type="checkbox" checked={video.autoplay !== false} onchange={(e) => setFlag('autoplay', e.currentTarget.checked)} /> autoplay</label>
+				<label><input type="checkbox" checked={video.loop !== false} onchange={(e) => setFlag('loop', e.currentTarget.checked)} /> {m['creator.field_loop']()}</label>
+				<label><input type="checkbox" checked={video.autoplay !== false} onchange={(e) => setFlag('autoplay', e.currentTarget.checked)} /> {m['creator.video_flag_autoplay']()}</label>
 			{/if}
 			<label title={m['creator.video_controls_hint']()}
-				><input type="checkbox" checked={showsControls} onchange={(e) => setControls(e.currentTarget.checked)} data-testid="video-controls" /> controls</label
+				><input type="checkbox" checked={showsControls} onchange={(e) => setControls(e.currentTarget.checked)} data-testid="video-controls" /> {m['creator.video_flag_controls']()}</label
 			>
 		</div>
 

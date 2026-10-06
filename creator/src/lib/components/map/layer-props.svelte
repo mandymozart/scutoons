@@ -36,13 +36,13 @@
 {#if layer.image}<img class="layer-preview" src={asset(layer.image)} alt="" />{/if}
 <span class="lbl">{m['creator.map_layer_zoom']()}</span>
 <div class="row">
-	<input type="number" step="0.25" min="0" value={layer.minZoom ?? ''} aria-label="minZoom" onchange={(e) => edit((l) => { const v = numberOrUnset(e.currentTarget.value); if (v === undefined) delete l.minZoom; else l.minZoom = v; })} />
-	<input type="number" step="0.25" min="0" value={layer.maxZoom ?? ''} aria-label="maxZoom" onchange={(e) => edit((l) => { const v = numberOrUnset(e.currentTarget.value); if (v === undefined) delete l.maxZoom; else l.maxZoom = v; })} />
+	<input type="number" step="0.25" min="0" value={layer.minZoom ?? ''} aria-label={m['creator.map_min_zoom']()} onchange={(e) => edit((l) => { const v = numberOrUnset(e.currentTarget.value); if (v === undefined) delete l.minZoom; else l.minZoom = v; })} />
+	<input type="number" step="0.25" min="0" value={layer.maxZoom ?? ''} aria-label={m['creator.map_max_zoom']()} onchange={(e) => edit((l) => { const v = numberOrUnset(e.currentTarget.value); if (v === undefined) delete l.maxZoom; else l.maxZoom = v; })} />
 </div>
 <span class="lbl">{m['creator.map_world_size']()}</span>
 <div class="row">
-	<input type="number" min="1" value={map.width} aria-label="width" onchange={(e) => editMap(doc, (w) => (w.width = Math.max(1, Math.round(Number(e.currentTarget.value)))))} />
-	<input type="number" min="1" value={map.height} aria-label="height" onchange={(e) => editMap(doc, (w) => (w.height = Math.max(1, Math.round(Number(e.currentTarget.value)))))} />
+	<input type="number" min="1" value={map.width} aria-label={m['creator.map_width']()} onchange={(e) => editMap(doc, (w) => (w.width = Math.max(1, Math.round(Number(e.currentTarget.value)))))} />
+	<input type="number" min="1" value={map.height} aria-label={m['creator.map_height']()} onchange={(e) => editMap(doc, (w) => (w.height = Math.max(1, Math.round(Number(e.currentTarget.value)))))} />
 </div>
 <button type="button" class="danger" onclick={remove}>{m['creator.map_delete_layer']()}</button>
 

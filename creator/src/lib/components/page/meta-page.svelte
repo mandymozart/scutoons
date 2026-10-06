@@ -141,7 +141,7 @@
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
-			<input class="message" type="text" placeholder="note (optional)" bind:value={session.message} />
+			<input class="message" type="text" placeholder={m['creator.note_optional']()} aria-label={m['creator.note_optional']()} bind:value={session.message} />
 			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>

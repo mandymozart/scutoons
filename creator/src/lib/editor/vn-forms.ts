@@ -26,10 +26,10 @@ import type { CharacterChoices } from '$lib/components/characters/character-ref-
 export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showOnomatopeia', 'joinScene', 'leaveScene', 'label', 'divert', 'setVariable'];
 
 /** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
-export const VIEW_SLOTS = [
-	{ value: 'avatar', label: 'Avatar (links)' },
-	{ value: 'portrait', label: 'Portrait (rechts)' },
-	{ value: 'full', label: 'Full (Mitte)' }
+export const viewSlots = () => [
+	{ value: 'avatar', label: m['creator.view_slot_avatar']() },
+	{ value: 'portrait', label: m['creator.view_slot_portrait']() },
+	{ value: 'full', label: m['creator.view_slot_full']() }
 ];
 
 /** a new event of a type: the fields its form starts with */
@@ -74,8 +74,9 @@ export const newAction = (kind: string, pointNames: string[]): any =>
 export const actionPath = (event: any, eventPath: Path, ai: number): Path => [...eventPath, 'params', 'onSelect', ...(Array.isArray(event?.params?.onSelect) ? [ai] : [])];
 
 // ── "Only if" ──
-export const OP_WORDS: Record<string, string> = { '==': '=', '!=': '≠', '<': '<', '<=': '≤', '>': '>', '>=': '≥', set: 'is set', unset: 'is not set' };
-export const conditionWords = (c: any) => (c?.variable ? `${c.variable} ${OP_WORDS[c.op] ?? c.op}${c.op === 'set' || c.op === 'unset' ? '' : ` ${c.value ?? ''}`}` : '');
+const OP_SIGNS: Record<string, string> = { '==': '=', '!=': '≠', '<': '<', '<=': '≤', '>': '>', '>=': '≥' };
+export const opWord = (op: string) => (op === 'set' ? m['creator.vn_op_set']() : op === 'unset' ? m['creator.vn_op_unset']() : (OP_SIGNS[op] ?? op));
+export const conditionWords = (c: any) => (c?.variable ? `${c.variable} ${opWord(c.op)}${c.op === 'set' || c.op === 'unset' ? '' : ` ${c.value ?? ''}`}` : '');
 
 /** the trigger in words (owner 2026-10-03) */
 export const triggerOptions = () => [

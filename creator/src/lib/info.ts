@@ -8,6 +8,6 @@ import { m } from '$lib/paraglide/messages.js';
 export function infoBar() {
 	return {
 		infoHref: '/guide',
-		infoLabels: { toggle: m['creator.info'](), close: m['creator.info_close'](), guide: m['creator.info_guide']() }
+		infoLabels: { toggle: m['creator.info'](), close: m['creator.close'](), guide: m['creator.info_guide']() }
 	};
 }

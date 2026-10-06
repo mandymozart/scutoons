@@ -20,7 +20,7 @@
 		historyEmpty: m['creator.ask_history_empty'](),
 		historyUnavailable: m['creator.ask_history_unavailable'](),
 		newChat: m['creator.ask_new'](),
-		close: m['creator.ask_close'](),
+		close: m['creator.close'](),
 		empty: m['creator.ask_empty'](),
 		you: m['creator.ask_you'](),
 		agent: m['creator.ask_agent'](),

@@ -100,7 +100,7 @@
 			{ id: 'text', icon: 'type', label: m['creator.text_boxes'](), count: dialogs.length, testid: 'tab-text' },
 			{ id: 'items', icon: 'box', label: m['creator.slice_items'](), count: items.length, testid: 'tab-items' },
 			{ id: 'audio', icon: 'music', label: m['creator.audio'](), testid: 'tab-audio' },
-			{ id: 'events', icon: 'zap', label: 'Events', count: slice?.events?.length ?? 0, testid: 'tab-events' },
+			{ id: 'events', icon: 'zap', label: m['creator.events'](), count: slice?.events?.length ?? 0, testid: 'tab-events' },
 			{ id: 'slice', icon: 'image', label: m['creator.slice_tab'](), testid: 'tab-background' }
 		]}
 	/>

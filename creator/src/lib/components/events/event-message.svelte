@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import type { CastOptions } from '$lib/editor/vn-forms.ts';
@@ -18,11 +19,11 @@
 
 <div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
 	{#if choices}
-		<CharacterRefField {doc} path={[...path, 'params']} kind="speaker" label="character" {choices} placeholder="narrator" />
+		<CharacterRefField {doc} path={[...path, 'params']} kind="speaker" label={m['creator.characters_character']()} {choices} placeholder={m['creator.vn_narrator']()} />
 	{:else}
-		<PropField {doc} path={[...path, 'params', 'character']} label="character" type="select" options={charOptions} placeholder="narrator" />
+		<PropField {doc} path={[...path, 'params', 'character']} label={m['creator.characters_character']()} type="select" options={charOptions} placeholder={m['creator.vn_narrator']()} />
 	{/if}
-	<PropField {doc} path={[...path, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-	<PropField {doc} path={[...path, 'params', 'mood']} label="mood" type="select" options={cast.moodOptions(null)} placeholder="–" />
+	<PropField {doc} path={[...path, 'params', 'wait']} label={m['creator.vn_wait']()} type="bool" placeholder="false" />
+	<PropField {doc} path={[...path, 'params', 'mood']} label={m['creator.characters_mood']()} type="select" options={cast.moodOptions(null)} placeholder="–" />
 </div>
 <LocaleText {doc} path={[...path, 'params', 'text']} rows={2} />

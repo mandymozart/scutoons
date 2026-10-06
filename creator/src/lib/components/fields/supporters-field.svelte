@@ -35,10 +35,10 @@
 		<li class="supporter" data-testid="supporter-{i}">
 			<div class="fields">
 				<!-- the logo as a slot (the preview is the button), name and link are never translated -->
-				<MediaSlot {toon} {place} label="logo" value={supporter.logo} onchange={(v) => change((l) => { if (v) l[i].logo = v; else delete l[i].logo; })} testid="supporter-{i}-logo" />
+				<MediaSlot {toon} {place} label={m['creator.field_logo']()} value={supporter.logo} onchange={(v) => change((l) => { if (v) l[i].logo = v; else delete l[i].logo; })} testid="supporter-{i}-logo" />
 				<div class="texts">
-					<PropField {doc} path={['supporters', i, 'name']} label="name" required testid="supporter-{i}-name" />
-					<PropField {doc} path={['supporters', i, 'url']} label="url" placeholder="https://…" testid="supporter-{i}-url" />
+					<PropField {doc} path={['supporters', i, 'name']} label={m['creator.field_name']()} required testid="supporter-{i}-name" />
+					<PropField {doc} path={['supporters', i, 'url']} label={m['creator.field_link']()} placeholder="https://…" testid="supporter-{i}-url" />
 				</div>
 			</div>
 			<div class="actions">

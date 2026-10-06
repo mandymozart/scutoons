@@ -73,13 +73,13 @@
 <section class="audio-panel" data-testid="audio-panel">
 	<h2>{m['creator.audio']()}</h2>
 
-	<h3>Music</h3>
+	<h3>{m['creator.music']()}</h3>
 	<div class="sc-fields" data-cols="2">
-		<PropField {doc} path={['audio', 'music', 'transitionDuration']} label="transitionDuration (ms)" type="number" step={100} placeholder="3000" />
-		<PropField {doc} path={['audio', 'music', 'defaultTrack']} label="defaultTrack" type="select" options={tracks.map((t) => t.id)} placeholder="none" />
+		<PropField {doc} path={['audio', 'music', 'transitionDuration']} label={m['creator.music_crossfade']()} type="number" step={100} placeholder="3000" />
+		<PropField {doc} path={['audio', 'music', 'defaultTrack']} label={m['creator.music_default_track']()} type="select" options={tracks.map((t) => t.id)} placeholder={m['creator.field_none']()} />
 	</div>
 	<table>
-		<thead><tr><th>id</th><th>path</th><th></th></tr></thead>
+		<thead><tr><th>{m['creator.field_id']()}</th><th>{m['creator.audio_file']()}</th><th></th></tr></thead>
 		<tbody>
 			{#each tracks as track, i (i)}
 				<tr>
@@ -93,11 +93,11 @@
 			{/each}
 		</tbody>
 	</table>
-	<button type="button" class="secondary" onclick={() => addTo('tracks')}>+ track</button>
+	<button type="button" class="secondary" onclick={() => addTo('tracks')}>+ {m['creator.music_add_track']()}</button>
 
-	<h3>Sample library</h3>
+	<h3>{m['creator.sample_library']()}</h3>
 	<table>
-		<thead><tr><th>id</th><th>path</th><th></th></tr></thead>
+		<thead><tr><th>{m['creator.field_id']()}</th><th>{m['creator.audio_file']()}</th><th></th></tr></thead>
 		<tbody>
 			{#each samples as sample, i (i)}
 				<tr>
@@ -111,7 +111,7 @@
 			{/each}
 		</tbody>
 	</table>
-	<button type="button" class="secondary" onclick={() => addTo('sampleLibrary')}>+ sample</button>
+	<button type="button" class="secondary" onclick={() => addTo('sampleLibrary')}>+ {m['creator.sample_add']()}</button>
 </section>
 
 <style>

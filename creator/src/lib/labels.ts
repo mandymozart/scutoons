@@ -14,7 +14,7 @@ export function fileLabel(key: string): string {
 		season: (number) => m['creator.season']({ number }),
 		scene: (label) => m['creator.entity_scene']({ label }),
 		toon: m['creator.edit_toon'](),
-		entry: m['creator.toon_entry'](),
+		entry: m['creator.edit_toon'](),
 		characters: m['creator.characters'](),
 		moods: m['creator.characters_moods'](),
 		requests: m['creator.characters_wanted'](),

@@ -2,6 +2,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import ListField from '$lib/components/fields/list-field.svelte';
+	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * A field of a language-neutral document (chapter, scene, season – the same in every language). Empty input removes
@@ -18,6 +19,7 @@
 		min,
 		max,
 		hint = '',
+		title,
 		required = false,
 		testid = ''
 	}: {
@@ -31,6 +33,8 @@
 		min?: number;
 		max?: number;
 		hint?: string;
+		/** the label's tooltip (technical detail, if useful) */
+		title?: string;
 		/** required keys are never removed (empty number → 0, empty text → '', empty list → []) */
 		required?: boolean;
 		testid?: string;
@@ -61,24 +65,28 @@
 		write(raw);
 	}
 
+	/** a yes / no value in words; the bool select's empty option names the default (placeholder "true" / "false") */
+	const yesNo = (v: string) => (v === 'true' ? m['creator.yes']() : v === 'false' ? m['creator.no']() : v);
+	const defaultOption = $derived(placeholder ? (type === 'bool' ? m['creator.field_default']({ value: yesNo(placeholder) }) : placeholder) : m['creator.field_default_plain']());
+
 	function display(v: unknown) {
 		return v === undefined || v === null ? '' : String(v);
 	}
 </script>
 
 <div class="field" data-testid={testid || undefined}>
-	<label for={id}>{label}</label>
+	<label for={id} {title}>{label}</label>
 	{#if type === 'list'}
 		<ListField {value} onchange={(list) => write(list.length || required ? list : undefined)} testid={testid ? `${testid}-list` : id} />
 	{:else if type === 'bool'}
 		<select {id} value={value === undefined ? '' : String(value)} onchange={(e) => onInput(e.currentTarget.value)}>
-			{#if !required}<option value="">{placeholder || 'default'}</option>{/if}
-			<option value="true">true</option>
-			<option value="false">false</option>
+			{#if !required}<option value="">{defaultOption}</option>{/if}
+			<option value="true">{m['creator.yes']()}</option>
+			<option value="false">{m['creator.no']()}</option>
 		</select>
 	{:else if type === 'select'}
 		<select {id} value={display(value)} onchange={(e) => onInput(e.currentTarget.value)}>
-			{#if !required}<option value="">{placeholder || 'default'}</option>{/if}
+			{#if !required}<option value="">{defaultOption}</option>{/if}
 			{#each opts as o}<option value={String(o.value)}>{o.label}</option>{/each}
 			{#if value !== undefined && !opts.some((o) => String(o.value) === String(value))}
 				<option value={display(value)}>{display(value)} (?)</option>

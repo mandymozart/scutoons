@@ -19,7 +19,7 @@
 		</select>
 	</span>
 	<Segmented
-		label="tool"
+		label={m['creator.tool']()}
 		value={view.tool}
 		onchange={(t: Tool) => view.setTool(t)}
 		options={[

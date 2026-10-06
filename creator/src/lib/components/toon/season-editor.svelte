@@ -113,11 +113,11 @@
 	{:else}
 		<section class="block" data-testid="season-meta">
 			<h2>{m['creator.meta']()}</h2>
-			<LocaleText doc={season} path={['title']} label="title" multiline={false} />
-			<LocaleText doc={season} path={['description']} label="description" rows={6} />
+			<LocaleText doc={season} path={['title']} label={m['creator.field_title']()} multiline={false} />
+			<LocaleText doc={season} path={['description']} label={m['creator.field_description']()} rows={6} />
 			<div class="sc-fields" data-cols="2" data-align="start">
-				<LocaleText doc={season} path={['release']} label="release" type="date" />
-				<PropField doc={season} path={['authors']} label="authors" type="list" required testid="season-authors" />
+				<LocaleText doc={season} path={['release']} label={m['creator.field_release']()} type="date" />
+				<PropField doc={season} path={['authors']} label={m['creator.field_authors']()} type="list" required testid="season-authors" />
 			</div>
 		</section>
 

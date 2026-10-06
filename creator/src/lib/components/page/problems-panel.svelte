@@ -68,7 +68,7 @@
 <div class="problems" data-testid="problems-panel">
 	<header>
 		<h2>{m['creator.problems']()}</h2>
-		{#if onclose}<CloseButton label={m['creator.info_close']()} onclick={onclose} />{/if}
+		{#if onclose}<CloseButton label={m['creator.close']()} onclick={onclose} />{/if}
 	</header>
 	<p class="summary">
 		<span class:bad={counts.error > 0}>{m['creator.problems_errors']({ count: counts.error })}</span> · {m['creator.problems_warnings']({ count: counts.warning })}

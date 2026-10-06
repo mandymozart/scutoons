@@ -4,7 +4,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { VIEW_SLOTS, type CastOptions } from '$lib/editor/vn-forms.ts';
+	import { viewSlots, type CastOptions } from '$lib/editor/vn-forms.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import CharacterRefField, { type CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
@@ -53,21 +53,21 @@
 	{@const looks = cast.looksOf(row)}
 	<div class="sc-fields cast-row" data-density="dense" data-align="end">
 		{#if choices}
-			<CharacterRefField {doc} path={[...path, 'params', 'characters', ci]} label="character" {choices} />
+			<CharacterRefField {doc} path={[...path, 'params', 'characters', ci]} label={m['creator.characters_character']()} {choices} />
 		{:else}
-			<PropField {doc} path={[...path, 'params', 'characters', ci, 'name']} label="character" type="select" options={charOptions} required />
+			<PropField {doc} path={[...path, 'params', 'characters', ci, 'name']} label={m['creator.characters_character']()} type="select" options={charOptions} required />
 		{/if}
 		{#if joining}
-			<PropField {doc} path={[...path, 'params', 'characters', ci, row?.position && !row?.variant ? 'position' : 'variant', ...(row?.position && !row?.variant ? ['variant'] : [])]} label="Slot / Ansicht" type="select" options={VIEW_SLOTS} placeholder="Avatar (links)" />
-			<PropField {doc} path={[...path, 'params', 'characters', ci, 'mood']} label="mood" type="select" options={cast.moodOptions(row)} placeholder="neutral" />
+			<PropField {doc} path={[...path, 'params', 'characters', ci, row?.position && !row?.variant ? 'position' : 'variant', ...(row?.position && !row?.variant ? ['variant'] : [])]} label={m['creator.cast_slot']()} type="select" options={viewSlots()} placeholder={m['creator.view_slot_avatar']()} />
+			<PropField {doc} path={[...path, 'params', 'characters', ci, 'mood']} label={m['creator.characters_mood']()} type="select" options={cast.moodOptions(row)} placeholder="neutral" />
 			{#if looks.length > 1 || row?.look}
-				<PropField {doc} path={[...path, 'params', 'characters', ci, 'look']} label="look" type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (default)` : 'default'} />
+				<PropField {doc} path={[...path, 'params', 'characters', ci, 'look']} label={m['creator.characters_look']()} type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (${m['creator.characters_default']()})` : m['creator.characters_default']()} />
 			{/if}
 		{/if}
 		<button type="button" class="ghost" onclick={() => removeCharacter(ci)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 	</div>
 {/each}
-<button type="button" class="secondary" onclick={addCharacter}>+ character</button>
+<button type="button" class="secondary" onclick={addCharacter}>+ {m['creator.cast_add_character']()}</button>
 
 <style>
 	/* character, slot, mood, remove (tools.css .sc-fields; only the columns are this row's own) */

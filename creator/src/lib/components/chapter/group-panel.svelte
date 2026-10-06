@@ -42,12 +42,12 @@
 
 <section class="group-panel" data-testid="group-panel">
 	<!-- the label is the name; the scene's storage key is an internal ID (owner 2026-10-03) -->
-	<h3>Group {group?.label ?? ''}</h3>
+	<h3>{m['creator.group_named']({ label: group?.label ?? '' })}</h3>
 	<div class="sc-fields" data-cols="3" data-density="panel">
-		<PropField {doc} path={p('label')} label="label (?label=, jumpTo)" />
-		<PropField {doc} path={p('renderer', 'type')} label="renderer" type="select" options={Object.values(Renderer)} required />
+		<PropField {doc} path={p('label')} label={m['creator.group_name']()} title={m['creator.group_name_hint']()} />
+		<PropField {doc} path={p('renderer', 'type')} label={m['creator.group_layout']()} type="select" options={[{ value: Renderer.VERTICAL, label: m['creator.layout_vertical']() }, { value: Renderer.HORIZONTAL, label: m['creator.layout_horizontal']() }]} required />
 		{#if group?.interaction !== undefined}
-			<PropField {doc} path={p('interaction')} label="interaction (untyped, kept)" />
+			<PropField {doc} path={p('interaction')} label={m['creator.group_interaction']()} />
 		{/if}
 		{#if !last || group?.continues !== undefined}
 			<PropField {doc} path={p('continues')} label={m['creator.group_continues']()} type="bool" placeholder="false" hint={m['creator.group_continues_hint']()} />
@@ -78,15 +78,15 @@
 	</div>
 	{#if !params.fullWidth}
 	<details open={Object.keys(params).length > 0}>
-		<summary>renderer params (swiper)</summary>
+		<summary>{m['creator.swiper']()}</summary>
 		<div class="sc-fields" data-cols="4" data-density="panel">
-			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'enabled')} label="autoPlay" type="bool" placeholder="off" />
-			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'delay')} label="autoPlay delay ms" type="number" step={100} placeholder="3000" />
-			<PropField {doc} path={p('renderer', 'params', 'loop')} label="loop" type="bool" placeholder="false" />
-			<PropField {doc} path={p('renderer', 'params', 'flip')} label="flip" type="bool" placeholder="false" />
-			<PropField {doc} path={p('renderer', 'params', 'cube')} label="cube" type="bool" placeholder="false" />
-			<PropField {doc} path={p('renderer', 'params', 'keyboard')} label="keyboard" type="bool" placeholder="false" />
-			<PropField {doc} path={p('renderer', 'params', 'freeMode')} label="freeMode" type="bool" placeholder="false" />
+			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'enabled')} label={m['creator.swiper_autoplay']()} type="bool" placeholder="false" />
+			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'delay')} label={m['creator.swiper_delay']()} type="number" step={100} placeholder="3000" />
+			<PropField {doc} path={p('renderer', 'params', 'loop')} label={m['creator.swiper_loop']()} type="bool" placeholder="false" />
+			<PropField {doc} path={p('renderer', 'params', 'flip')} label={m['creator.swiper_flip']()} type="bool" placeholder="false" />
+			<PropField {doc} path={p('renderer', 'params', 'cube')} label={m['creator.swiper_cube']()} type="bool" placeholder="false" />
+			<PropField {doc} path={p('renderer', 'params', 'keyboard')} label={m['creator.swiper_keyboard']()} type="bool" placeholder="false" />
+			<PropField {doc} path={p('renderer', 'params', 'freeMode')} label={m['creator.swiper_free']()} type="bool" placeholder="false" />
 		</div>
 	</details>
 	{/if}

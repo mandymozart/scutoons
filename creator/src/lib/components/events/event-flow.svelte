@@ -21,15 +21,15 @@
 <div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
 	{#if event.type === 'jumpTo'}
 		<EventTarget {doc} path={[...path, 'params', 'target']} target={event.params?.target} {groupLabels} />
-		<PropField {doc} path={[...path, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
+		<PropField {doc} path={[...path, 'params', 'wait']} label={m['creator.vn_wait']()} type="bool" placeholder="false" />
 	{:else if event.type === 'label'}
 		<PropField {doc} path={[...path, 'params', 'name']} label={m['creator.vn_point_name']()} required />
 	{:else if event.type === 'divert'}
 		<PropField {doc} path={[...path, 'params', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
 	{:else if event.type === 'setVariable'}
-		<PropField {doc} path={[...path, 'params', 'variable']} label="variable" required />
-		<PropField {doc} path={[...path, 'params', 'op']} label="op" type="select" options={[{ value: 'add', label: 'add (+)' }]} placeholder="set (=)" />
-		<PropField {doc} path={[...path, 'params', 'value']} label="value" type={event.params?.op === 'add' ? 'number' : 'text'} required />
+		<PropField {doc} path={[...path, 'params', 'variable']} label={m['creator.field_variable']()} required />
+		<PropField {doc} path={[...path, 'params', 'op']} label={m['creator.vn_action']()} type="select" options={[{ value: 'add', label: m['creator.vn_action_add']() }]} placeholder={m['creator.vn_action_set']()} />
+		<PropField {doc} path={[...path, 'params', 'value']} label={m['creator.field_value']()} type={event.params?.op === 'add' ? 'number' : 'text'} required />
 	{/if}
 </div>
 {#if event.type === 'label'}

@@ -16,7 +16,7 @@
 	let {
 		doc,
 		path,
-		label = 'text',
+		label = m['creator.field_text'](),
 		rows = 3,
 		multiline = true,
 		type = 'text'
@@ -72,10 +72,10 @@
 					{#if locale === source}<span class="sc-chip">{m['creator.source']()}</span>{/if}
 					{#if s.missing}<span class="sc-chip is-error">{m['creator.missing']()}</span>{/if}
 					{#if s.long}<span class="sc-chip is-warning">{Math.round(s.ratio * 100)}%</span>{/if}
-					{#if Array.isArray(value)}<button type="button" class="ghost mini" title="paragraphs (string[]) – click for one string" onclick={() => toggleArray(locale)}>[ ]</button>{/if}
+					{#if Array.isArray(value)}<button type="button" class="ghost mini" title={m['creator.text_paragraphs_hint']()} onclick={() => toggleArray(locale)}>[ ]</button>{/if}
 				</span>
 				{#if type === 'date'}
-					<input type="date" value={display(value)} oninput={(e) => update(locale, e.currentTarget.value)} data-testid="{label}-{locale}" />
+					<input type="date" value={display(value)} oninput={(e) => update(locale, e.currentTarget.value)} data-testid="{path.join('-')}-{locale}" />
 				{:else if multiline}
 					<textarea
 						{rows}
