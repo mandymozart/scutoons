@@ -108,3 +108,38 @@ the account, synced, changeable on the account page).
 4. Creator: chips, builder, wavy underline, insert-variable list, sample readers; validation in the Problems panel.
 5. The example story (a little one searching for their mama – everyone: "I'm not your mama, you have to go on", tips
    where next, remembers visits) + the flow graph on every level (slice → SCUTOONS), using all of the above.
+
+## Step 1 – done (2026-10-06, branch chapter-neutral)
+
+`shared/content/src/expr/` (not yet exported from the package index – the coordinator wires `export * from
+'./expr/index.ts'`), PHP port `server/src/Domain/Content/Expr/`, golden fixtures `shared/content/test/fixtures/expr/`.
+
+- **Parse** – `parseText(text)` → `{ nodes, problems, constructs, lists }`; `parseExpression(src)` → `{ expr, problems }`.
+  Nodes `text | print | cond | list(kind, index, items) | bad`, expressions `num | str | bool | name(path) | call(name,
+  args) | unary | binary`; every node has `start`/`end` (UTF-16 offsets, end exclusive). Ink's InnerLogic order: list
+  mark `& ~ ! $` (also `~!` shuffle once, `~$` shuffle stopping) → list; expression + `:` → conditional; ≥ 2 `|` elements
+  → sequence; else one expression → print. Ink's operator table (`&& || and or` 1 – one level, left to right;
+  comparisons 2; `+` 4; `-` 5; `*` 6; `/` 7; `% mod` 8; prefix `- ! not`). Escapes: `\` keeps the next character.
+- **Evaluate** – `evaluateText(text, resolver)` → `{ text, problems, visited }`, `evaluateExpression(src, resolver)` →
+  `{ value, problems }`. Resolver: `name(path)`, `call(name, args)` (state functions + `ns.fn(…)`), `visit(listIndex)` →
+  shows before this one, `seed`, `language`. The reader adds one visit to each `visited` list. Never throws: a construct
+  that fails renders nothing + a problem (`missing-value` warning, `division-by-zero`, `not-a-number`, `compare-text`,
+  `bad-arguments`). Missing values: print empty, false, equal only to missing, arithmetic stays missing. Ink output
+  whitespace clean-up when the text has a construct. A text without `{ } \` comes back untouched.
+- **Analyse** – `analyseText(text, { registry?, knownNames? })` / `analyseExpression` → `{ errors: [{ code, severity,
+  start, end, args, suggestion?, message }], reads: { names, functions: [{ name, literalArgs }], sequences }, constructs }`;
+  `exprMessage(problem)` (English; translate by `code` + `args`), `didYouMean`. Warnings: `unknown-variable` (with
+  knownNames), `stray-close`, `old-clock-syntax` (`{x:clock}` parses as ink conditional – no alias), `or-in-list`
+  (`{a || b}` is a list in ink), `not-in-list` (`{!x}` is once-only in ink).
+- **Registry** (`registry.ts`, one file) – `EXPR_FUNCTIONS` (name, params + types, variadic, result, state, de/en, example),
+  `EXPR_IMPLS` (pure ones), `EXPR_NAMESPACES` (§2 members, value / function, types, de/en). PHP `Registry` = same names
+  and types, held equal through `fixtures/expr/registry.json`.
+- **Limits** – 500 chars / depth 32 / 64 nodes per expression; per text 50 constructs, nesting 32, 10 000 chars when it
+  has `{`, 100 problems; strings cut at 2 000. Hostile inputs (100 000 braces, quotes, parens …) finish in milliseconds.
+- **Size** – reader part (evaluateText + evaluateExpression, rolldown minify + gzip -9): ~4.4 KB gz; everything incl.
+  analyser + registry texts ~8.7 KB gz (creator only).
+- **Differences to ink** (deliberate): `/` divides exactly (`7 / 2` = 3.5; ink: integer division – use `floor()`);
+  a `|` / `}` in plain text is literal (ink: error; `}` warns); lowercase registry functions instead of ink's
+  `RANDOM/MIN/MAX/FLOOR…`; no ink lists (`? has hasnt ^`), `++`/`--`, diverts, read counts, multi-line blocks,
+  interpolation inside string literals; missing names are empty + a warning (ink: compile error); `and`/`or`
+  short-circuit; shuffles / `random()` are fixed per seed; `clock()` keeps today's `5:30` form (formatClock).
