@@ -3,6 +3,25 @@
 Owner decisions of 2026-10-06 (session with the coordinator). Research: scratchpad `expression-research.md` (summary
 below). Branch `chapter-neutral`.
 
+## State (2026-10-06)
+
+All five steps of §7 are done – what is left is polish only:
+- **Done**: the language (ink inline syntax: parser, evaluator, analyser, one function registry; PHP validator port with
+  shared golden fixtures – step 1); the reader (every namespace of §2, text boxes / VN messages / choice labels /
+  conditions, the clock-syntax migration – step 2); event ids, repeat modes on one recurrence model with the items,
+  the save game's history, `askText`, expression conditions (step 3); the creator's expression field (chips, builder,
+  wavy underlines, sample readers, the Problems panel – step 4); the example story (the mama story, agents/EXAMPLES.md)
+  and the flow graph on every level (slice → group → chapter → season / toon → SCUTOONS, `@scutoons/content` flow.ts –
+  it reads "once for good" events (✓), askText answers as set variables and `if.expr` conditions; reach.ts the same)
+  – step 5.
+- **Production**: the migrations `2026-10-06-clock-syntax`, `2026-10-06-repeat`, `2026-10-06-display-name` (CUTOVER
+  10.33 / 10.34, HANDOVER "Open owner decisions").
+- **Left (polish)**: a chip shows its code, not a summary (the summary is its tooltip); stories can't read another
+  toon's variables (per toon by design – a jump into another toon gets that toon's, DATA.md "Jumps into another toon at
+  a label").
+- Checks: `check:expr` (reader), `check:events` (repeat modes, askText, the account name), `check:creator-expr`
+  (the field + builder), `check:creator-reach` (reach chips, Flow levels).
+
 ## 1. The language – ink's inline syntax, our small engine (owner: "use inkle, to keep at least some standard")
 
 Research (no library fits: CEL too big, expr-eval / angular-expressions with sandbox CVEs, Jexl unmaintained, template
@@ -43,7 +62,7 @@ compiles whole stories; we evaluate single texts).
 
 ## 2. What a text can read (namespaces)
 
-| Namespace | Names (proposal) |
+| Namespace | Names |
 |---|---|
 | (bare) | the toon's story variables, ink-style bare names: `coins` (VN `setVariable` / choice set+add) |
 | `reader.` | `name` (askText, platform scope), `signedIn`, `member`, `memberDays`, `since`, `gifts`, `language`, `daysSinceStart` |
@@ -156,7 +175,8 @@ the account, synced, changeable on the account page).
   prologue); `inventory.*` / `has` / `count_of` (entries; `edition` = the entry's edition number); `avatar.*` (the shown
   body, worn items, unlocked characters); `stats.<id>` (decayed levels), `effects.*`; `map.*` (unlocked / seen counted
   over the world map's places, `total` = its places, `here` = the hero position's place name – the toon's map data, else
-  the whole world map loaded lazily); `now.*` (local time; night = 22–6). `resolved()` / `count()` = none until step 3.
+  the whole world map loaded lazily); `now.*` (local time; night = 22–6). `resolved()` / `count()` answer from the save
+  game's history (step 3).
   Never email, codes, account / entry ids. Reactive: getters read the contexts' state, text boxes re-render.
 - **History** (one store for step 3 too): the game state's `history` (`@scutoons/content` history.ts, DATA.md "Reading
   progress"): `key → { n, first, last }`; text keys `text:<toon>/<chapter>/box/<box id>/<line>#<list>` and
@@ -179,7 +199,7 @@ the account, synced, changeable on the account page).
   PHPUnit `testTheClockSyntaxMigration`.
 - **Check**: `npm run check:expr` (headless Chrome, sandbox chapter 9 draft: messages, choice label, live text box,
   a sequence over four reloads, the history; draft rows + the test user's sandbox progress put back).
-- Not yet: event conditions as expressions (`if` – step 3 with the event modes).
+- Event conditions as expressions (`if.expr`): step 3.
 
 ## Step 3 – done (2026-10-06, branch chapter-neutral)
 
@@ -235,8 +255,10 @@ the account, synced, changeable on the account page).
   10 min / every time over three page views with the page's clock 61 min ahead, item taps, a pickup's respawn and the
   server's refusal in its real period, askText both scopes + Skip, an expression condition, the account field, a
   guest's name; draft, progress, name, inventory and grant refs put back). Screenshots `step3-*`.
-- **For the flow graph / reachability (LANE A's flow.ts / reach.ts, not changed here)**: see the coordinator's notes –
-  "once for good" events run at most once; askText (scope toon) sets its variable; `if.expr` conditions.
+- **Flow graph / reachability** (`@scutoons/content` reach.ts / flow.ts, tests `flow-levels.test.ts` "step 3"): "once
+  for good" runs are marked (✓, `ChapterReach.once`, the flow's `repeat`); an askText (scope toon) sets its variable
+  (`askVariable` – facts, dead things, the flow's "asks"); `if.expr` conditions count as conditional branches and their
+  names as reads (dead things, also in the PHP flow index).
 
 ## Step 4 – done (2026-10-06, branch chapter-neutral)
 
