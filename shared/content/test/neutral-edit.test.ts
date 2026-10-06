@@ -185,3 +185,26 @@ test('resolveSlice / previewText: the creator canvas and list lines', () => {
 	assert.equal(previewText('plain'), 'plain');
 	assert.equal(previewText({ en: '' }), '');
 });
+
+test('validateNeutral: expressions in texts (EXPRESSIONS.md §4) – syntax errors, doubts as warnings, the old clock form', () => {
+	const doc = chapterDoc();
+	const group = doc.groups[0] as GroupDoc;
+	(group.slices![0].dialog![0] as any).text = { de: ['Noch {map.total - map.unlocked} Orte', '{map.totl}'], en: ['{coins == 1: coin|coins}', 'ok'] };
+	(group.events![0] as any).params.text = { de: 'Es ist {time:clock} Uhr', en: 'It is {clock(time)}' };
+	(group.events![1] as any).params.label = { de: 'Ja {coins', en: 'Yes {coinz}' };
+	const facts = { variables: new Set(['coins', 'time']), labels: new Set<string>() };
+	const problems = validateNeutral('chapter', doc, L, { file: 'chapter:x:1', seasonStatus: 'published', facts }).filter((p) => p.code?.startsWith('expr:'));
+	assert.deepEqual(
+		problems.map((p) => `${p.level} ${p.locale} ${p.path.join('.')} ${p.code}`),
+		[
+			'warning de groups.0.slices.0.dialog.0.text expr:unknown-name',
+			'error de groups.0.events.0.params.text expr:old-clock-syntax',
+			'error de groups.0.events.1.params.label expr:missing-close',
+			'warning en groups.0.events.1.params.label expr:unknown-variable'
+		]
+	);
+	assert.equal(problems[0].message, 'the de text (line 2): unknown name `map.totl` – did you mean `map.total`? – at 2–9 `map.totl`');
+	assert.match(problems[1].message, /old clock form – write `\{clock\(time\)\}` \(stored texts: run the migration 2026-10-06-clock-syntax\) – at 8–19/);
+	// without the toon's facts no variable is unknown
+	assert.ok(!validateNeutral('chapter', doc, L, { file: 'c', seasonStatus: 'published' }).some((p) => p.code === 'expr:unknown-variable'));
+});

@@ -35,6 +35,7 @@ import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
 import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
 import { forEachText, type TextLeafKind } from './neutralize.ts';
+import { analyseText } from './expr/analyse.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -46,6 +47,8 @@ export interface Problem {
 	locale: string | null;
 	path: Path;
 	message: string;
+	/** a stable code for problems that have one (`expr:<code>` – expressions in texts; the creator translates by it) */
+	code?: string;
 }
 
 export const LENGTH_WARNING_RATIO = 1.3;
@@ -107,8 +110,8 @@ class Collector {
 		private file: string,
 		private locale: string | null
 	) {}
-	add(level: Level, path: Path, message: string) {
-		this.problems.push({ level, file: this.file, locale: this.locale, path, message });
+	add(level: Level, path: Path, message: string, code?: string) {
+		this.problems.push({ level, file: this.file, locale: this.locale, path, message, ...(code ? { code } : {}) });
 	}
 	error(path: Path, message: string) {
 		this.add('error', path, message);
@@ -1004,6 +1007,26 @@ export function forEachSlice(kind: string, data: any, fn: (slice: any, path: Pat
 	for (const [g, gp] of groups) (g?.slices ?? []).forEach((s: any, i: number) => fn(s, [...gp, 'slices', i]));
 }
 
+/**
+ * Problems of a text's `{…}` (agents/EXPRESSIONS.md §4, ink's inline syntax): syntax errors are errors (the reader would
+ * show nothing there), what the analyser can only doubt – unknown names / functions, wrong arguments – warnings; the old
+ * clock form `{x:clock}` is an error (no alias: the migration 2026-10-06-clock-syntax rewrites stored texts).
+ */
+const EXPR_DOUBTS = new Set(['unknown-name', 'unknown-variable', 'unknown-function', 'function-needs-call', 'not-a-function', 'namespace-needs-member', 'argument-count', 'argument-type']);
+
+function checkTextExpressions(c: Collector, path: Path, text: string, what: string, knownNames?: readonly string[]) {
+	if (!/[{}\\]/.test(text)) return;
+	for (const p of analyseText(text, { knownNames }).errors) {
+		const level: Level = p.code === 'old-clock-syntax' ? 'error' : EXPR_DOUBTS.has(p.code) ? 'warning' : p.severity;
+		const message =
+			p.code === 'old-clock-syntax'
+				? `\`{${p.args?.[0]}:clock}\` is the old clock form – write \`{clock(${p.args?.[0]})}\` (stored texts: run the migration 2026-10-06-clock-syntax)`
+				: p.message;
+		const snippet = text.slice(p.start, Math.min(p.end, p.start + 40)) || text.slice(Math.max(0, p.start - 10), p.start + 10);
+		c.add(level, path, `${what}: ${message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''} \`${snippet}\``, `expr:${p.code}`);
+	}
+}
+
 const LEAF_WORD: Record<TextLeafKind, string> = { title: 'title', description: 'description', release: 'release', status: 'status', dialog: 'text', message: 'text', choice: 'label' };
 
 /**
@@ -1051,6 +1074,8 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 	const at = (locale: string) => new Collector(file, locale);
 	const neutralKind: NeutralKind | 'toon' = kind === 'group' ? 'scene' : kind === 'index' ? 'toon' : (kind as NeutralKind);
 	const perLocale: Collector[] = [];
+	// the toon's story variables (what something sets – the creator loads the toon's documents): an unknown one in a text warns
+	const knownNames = ctx.facts ? [...ctx.facts.variables] : undefined;
 	forEachText(neutralKind, data, (path, value, leaf) => {
 		const word = LEAF_WORD[leaf];
 		if (!isObj(value)) {
@@ -1066,6 +1091,10 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 				if (!values(Status).includes(v as string)) l.error(path, `status must be published, draft or coming-soon (${locale})`);
 			} else if (!(isStr(v) || (leaf === 'dialog' && Array.isArray(v) && v.every(isStr)))) {
 				l.error(path, `the ${locale} ${word} must be ${leaf === 'dialog' ? 'a string or string[]' : 'a string'}`);
+			} else if (leaf === 'dialog' || leaf === 'message' || leaf === 'choice') {
+				// expressions in the text (each line of a text box on its own)
+				const lines = Array.isArray(v) ? v : [v];
+				lines.forEach((line, i) => checkTextExpressions(l, path, line, `the ${locale} ${word}${Array.isArray(v) ? ` (line ${i + 1})` : ''}`, knownNames));
 			}
 		}
 		if (leaf === 'release' || leaf === 'status') return;
