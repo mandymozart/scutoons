@@ -83,6 +83,10 @@
 				},
 				"freeMode": {
 					"type": "boolean"
+				},
+				"fullWidth": {
+					"type": "boolean",
+					"description": "Full width (owner 2026-10-06): instead of the swiper, the group leaves the reading column and becomes a strip of its slices side by side, each at the screen's full height. Scrolling down pins the strip and moves it sideways (1:1, no snapping), then reading goes on downwards; on a desktop the strip can go full screen (← →). The swiper params above don't apply to it."
 				}
 			}
 		},

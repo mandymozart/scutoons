@@ -3,6 +3,7 @@
 	import { Renderer } from '@scutoons/content';
 	import VisualNovel from './interactions/visual-novel.svelte';
 	import Horizontal from './renderer/horizontal.svelte';
+	import Strip from './renderer/strip.svelte';
 	import Vertical from './renderer/vertical.svelte';
 
 	let { group }: { group: Group } = $props();
@@ -16,6 +17,9 @@
 
 {#if group.renderer?.type === Renderer.VERTICAL}
 	<Vertical {group} />
+{:else if group.renderer?.type === Renderer.HORIZONTAL && group.renderer.params?.fullWidth}
+	<!-- full width (owner 2026-10-06): a screen-high strip, moved sideways by the page scroll -->
+	<Strip {group} />
 {:else if group.renderer?.type === Renderer.HORIZONTAL}
 	<Horizontal {group} />
 {:else}

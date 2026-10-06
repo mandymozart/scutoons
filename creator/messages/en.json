@@ -613,6 +613,8 @@
 		"entity_chapter": "Chapter {number}",
 		"entity_scene": "Scene {label}",
 		"entity_group": "Chapter {number} · group \"{label}\"",
+		"group_full_width": "full width (strip)",
+		"group_full_width_hint": "Side by side at the screen's full height across the whole width; scrolling down moves it sideways (1:1). The swiper settings don't apply.",
 		"version_draft": "Draft v{version}",
 		"version_published": "Published v{version}",
 		"up": "Up",

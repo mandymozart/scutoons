@@ -107,6 +107,10 @@
 		"empty": "Bee Wax, no pig in the pope (sic)!"
 	},
 	"chapter": {
+		"strip_fullscreen": "Full screen",
+		"strip_fullscreen_exit": "Leave full screen",
+		"strip_prev": "Previous frame",
+		"strip_next": "Next frame",
 		"not_public": "This chapter is not published yet.",
 		"coming_soon": "Coming soon",
 		"release": "Release: {date}",

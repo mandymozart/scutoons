@@ -3,6 +3,7 @@
 	import type { Path } from '@scutoons/content';
 	import { Renderer } from '@scutoons/content';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import { m } from '$lib/paraglide/messages.js';
 
 	/** Group settings: label, renderer type + params. For ref groups the doc is the referenced scene. */
 	let { doc, groupPath, refSrc = null, toon = '' }: { doc: ContentDoc; groupPath: Path; refSrc?: string | null; toon?: string } = $props();
@@ -22,8 +23,13 @@
 			<PropField {doc} path={p('interaction')} label="interaction (untyped, kept)" />
 		{/if}
 	</div>
-	<!-- the swiper's settings only for a horizontal group (owner 2026-10-03) -->
+	<!-- the swiper's settings only for a horizontal group (owner 2026-10-03); full width (owner 2026-10-06) replaces the
+	     swiper with the screen-high strip, so its settings are hidden then -->
 	{#if group?.renderer?.type === Renderer.HORIZONTAL}
+	<div class="sc-fields" data-cols="3" data-density="panel">
+		<PropField {doc} path={p('renderer', 'params', 'fullWidth')} label={m['creator.group_full_width']()} type="bool" placeholder="false" hint={m['creator.group_full_width_hint']()} />
+	</div>
+	{#if !params.fullWidth}
 	<details open={Object.keys(params).length > 0}>
 		<summary>renderer params (swiper)</summary>
 		<div class="sc-fields" data-cols="4" data-density="panel">
@@ -36,6 +42,7 @@
 			<PropField {doc} path={p('renderer', 'params', 'freeMode')} label="freeMode" type="bool" placeholder="false" />
 		</div>
 	</details>
+	{/if}
 	{/if}
 </section>
 

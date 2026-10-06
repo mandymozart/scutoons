@@ -107,6 +107,10 @@
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"
 	},
 	"chapter": {
+		"strip_fullscreen": "Vollbild",
+		"strip_fullscreen_exit": "Vollbild verlassen",
+		"strip_prev": "Vorheriges Bild",
+		"strip_next": "Nächstes Bild",
 		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht.",
 		"coming_soon": "Demnächst",
 		"release": "Erscheint am {date}",

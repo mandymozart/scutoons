@@ -613,6 +613,8 @@
 		"entity_chapter": "Kapitel {number}",
 		"entity_scene": "Szene {label}",
 		"entity_group": "Kapitel {number} · Gruppe „{label}“",
+		"group_full_width": "volle Breite (Streifen)",
+		"group_full_width_hint": "Nebeneinander in voller Bildschirmhöhe über die ganze Breite; nach unten scrollen bewegt ihn seitwärts (1:1). Die Swiper-Einstellungen gelten dann nicht.",
 		"version_draft": "Entwurf v{version}",
 		"version_published": "Veröffentlicht v{version}",
 		"up": "Hoch",
