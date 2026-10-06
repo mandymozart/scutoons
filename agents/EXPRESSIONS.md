@@ -32,7 +32,8 @@ compiles whole stories; we evaluate single texts).
   functions.
 - Safety: no generic property access (names resolved by a SCUTOONS resolver against fixed namespaces), only registered
   functions, limits (500 chars, depth 32, 64 nodes), runtime errors never break the reader, never eval.
-- **Old syntax discarded** (owner): `{x:clock}` → a migration rewrites stored texts to `{clock(x)}`; no alias.
+- **Old syntax discarded** (owner): `{x:clock}` is not supported – no alias, no migration (VN events aren't used in
+  production for real yet); old texts are flagged as invalid in the creator.
 - Missing value: readers never see raw code – empty; the creator warns.
 - Difference to real ink: a text using our names / functions doesn't run in inkle's Inky – the syntax rules are ink's.
 
@@ -98,7 +99,7 @@ the account, synced, changeable on the account page).
 ## 7. Order
 
 1. Language core (ink inline syntax: parser, evaluator, analyser, function registry) + tests; PHP validator port + shared fixtures.
-2. Reader integration (namespaces resolver, text boxes / messages / choices / conditions), migration of the old syntax.
+2. Reader integration (namespaces resolver, text boxes / messages / choices / conditions).
 3. Event ids + repeat modes + save game; `askText`.
 4. Creator: chips, builder, wavy underline, insert-variable list, sample readers; validation in the Problems panel.
 5. The example story (a little one searching for their mama – everyone: "I'm not your mama, you have to go on", tips
