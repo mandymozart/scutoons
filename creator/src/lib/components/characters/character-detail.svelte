@@ -22,6 +22,7 @@
 	import { addLook, addPersona, characterLanguages, edit, editCharacter, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
 	import { aposeLooksOf, applyApose, closeRequests } from '$lib/editor/character-form.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import CharacterIdentity from '$lib/components/characters/character-identity.svelte';
 	import CharacterImport from '$lib/components/characters/character-import.svelte';
 	import CharacterPersonaFields from '$lib/components/characters/character-persona.svelte';
@@ -135,7 +136,7 @@
 			<div>
 				<span class="type">{m['creator.characters_character']()}</span>
 				<h2 data-testid="character-title">{characterName(character, source)}</h2>
-				<span class="hint">id <code>{character.id}</code> · {m['creator.characters_languages']({ languages: languages.join(', '), source })}</span>
+				<span class="hint">id <code>{character.id}</code> · {m['creator.characters_languages']()} {#each languages as l, i (l)}{i ? ', ' : ''}{l}{#if l === source}<SourceMark />{/if}{/each}</span>
 			</div>
 			<button type="button" class="ghost danger" onclick={remove} data-testid="remove-character">{m['creator.characters_remove']()}</button>
 		</header>
@@ -212,7 +213,7 @@
 		</section>
 	</article>
 {:else}
-	<p class="hint pad">{m['creator.characters_pick']()}</p>
+	<p class="sc-empty pad">{m['creator.characters_pick']()}</p>
 {/if}
 
 <style>

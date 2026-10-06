@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
+	import ListField from '$lib/components/fields/list-field.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * A shared field (written to every locale that doesn't override it). Empty input removes the key, so the
-	 * renderer default applies (shown as placeholder). Per-locale overrides are listed and can be reset.
+	 * A field of a language-neutral document (chapter, scene, season – the same in every language). Empty input removes
+	 * the key, so the renderer default applies (shown as placeholder). `list`: names (authors), one input per entry.
 	 */
 	let {
 		doc,
@@ -18,34 +19,33 @@
 		min,
 		max,
 		hint = '',
+		title,
 		required = false,
-		editLocale = null
+		testid = ''
 	}: {
 		doc: ContentDoc;
 		path: Path;
 		label: string;
-		type?: 'text' | 'number' | 'select' | 'bool' | 'color' | 'date';
+		type?: 'text' | 'number' | 'select' | 'bool' | 'color' | 'date' | 'list';
 		options?: (string | number | { value: string | number | boolean; label: string })[];
 		placeholder?: string;
 		step?: number;
 		min?: number;
 		max?: number;
 		hint?: string;
-		/** required keys are never removed (empty number → 0, empty text → '') */
+		/** the field's tooltip (label and control): an explanation or technical detail, if useful */
+		title?: string;
+		/** required keys are never removed (empty number → 0, empty text → '', empty list → []) */
 		required?: boolean;
-		/** set = edit only this locale (explicit override); null = shared */
-		editLocale?: string | null;
+		testid?: string;
 	} = $props();
 
-	const readLocale = $derived(editLocale ?? doc.primary);
-	const value = $derived(doc.get(readLocale, path));
-	const overrides = $derived(editLocale ? [] : doc.overrides(path));
+	const value = $derived(doc.get(doc.primary, path));
 	const opts = $derived(options.map((o) => (typeof o === 'object' ? o : { value: o, label: String(o) })));
 	const id = $derived(`f-${path.join('-')}`);
 
 	function write(next: unknown) {
-		if (editLocale) doc.setLocal(editLocale, path, next);
-		else doc.setShared(path, next);
+		doc.set(path, next);
 	}
 
 	function onInput(raw: string) {
@@ -65,22 +65,28 @@
 		write(raw);
 	}
 
+	/** yes / no in words; a select's empty option shows the default in brackets ("(no)" for a bool placeholder "true" / "false") */
+	const yesNo = (v: string) => (v === 'true' ? m['creator.yes']() : v === 'false' ? m['creator.no']() : v);
+	const defaultOption = $derived(!placeholder ? m['creator.field_default_plain']() : type === 'bool' ? `(${yesNo(placeholder)})` : type === 'select' && placeholder !== '–' ? `(${placeholder})` : placeholder);
+
 	function display(v: unknown) {
 		return v === undefined || v === null ? '' : String(v);
 	}
 </script>
 
-<div class="field" class:has-override={overrides.length > 0}>
+<div class="field" {title} data-testid={testid || undefined}>
 	<label for={id}>{label}</label>
-	{#if type === 'bool'}
+	{#if type === 'list'}
+		<ListField {value} onchange={(list) => write(list.length || required ? list : undefined)} testid={testid ? `${testid}-list` : id} />
+	{:else if type === 'bool'}
 		<select {id} value={value === undefined ? '' : String(value)} onchange={(e) => onInput(e.currentTarget.value)}>
-			{#if !required}<option value="">{placeholder || 'default'}</option>{/if}
-			<option value="true">true</option>
-			<option value="false">false</option>
+			{#if !required}<option value="">{defaultOption}</option>{/if}
+			<option value="true">{m['creator.yes']()}</option>
+			<option value="false">{m['creator.no']()}</option>
 		</select>
 	{:else if type === 'select'}
 		<select {id} value={display(value)} onchange={(e) => onInput(e.currentTarget.value)}>
-			{#if !required}<option value="">{placeholder || 'default'}</option>{/if}
+			{#if !required}<option value="">{defaultOption}</option>{/if}
 			{#each opts as o}<option value={String(o.value)}>{o.label}</option>{/each}
 			{#if value !== undefined && !opts.some((o) => String(o.value) === String(value))}
 				<option value={display(value)}>{display(value)} (?)</option>
@@ -104,12 +110,6 @@
 		/>
 	{/if}
 	{#if hint}<span class="hint">{hint}</span>{/if}
-	{#each overrides as l}
-		<span class="override">
-			{l}: <span>{display(doc.get(l, path)) || '–'}</span> ({m['creator.override']()})
-			<button type="button" class="ghost" onclick={() => doc.resetOverride(l, path)}>{m['creator.use_shared']()}</button>
-		</span>
-	{/each}
 </div>
 
 <style>
@@ -133,13 +133,5 @@
 	}
 	.color input[type='color'] {
 		flex: none;
-	}
-	/* a per-locale override: ink text, a cyan rule (the "live" difference), no tinted fill */
-	.override {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		color: var(--ink);
-		border-left: 0.5em solid var(--cyan);
-		padding: var(--space-025) var(--space-05);
 	}
 </style>

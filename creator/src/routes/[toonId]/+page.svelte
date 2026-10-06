@@ -3,25 +3,33 @@
 	import { confirmSubmit, publishLabel, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
 	import { ActionBar, CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { newChapter, newSeason, newToon } from '$lib/editor/defaults.ts';
+	import { newChapterDoc, newSeasonDoc, sequenceStatus } from '$lib/editor/defaults.ts';
 	import { contentIndex } from '$lib/api.ts';
-	import { sceneDoc, toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
+	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { chapterSyncChanges, syncChapter } from '$lib/editor/visibility.ts';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
+	import { entities, hasToonTexts, Language, NEUTRAL_LOCALE, parseEntityKey, previewText, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import FileStatus from '$lib/components/status/file-status.svelte';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
-	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
+	import FlowDock, { flowWidth } from '$lib/components/flow/flow-dock.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
+	// the toon's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it
+	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
+	// docked on the right like the chapter's Flow: the page makes room for it (left of Ask, drags wider)
+	const flowSize = flowWidth();
+	usePageNav({ actions: flowToggle });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
 
@@ -30,11 +38,12 @@
 	const ALL_LANGUAGES = Object.values(Language) as Language[];
 	const languageLabel = (l: string) => `${l} · ${LANGUAGE_NAMES[l] ?? l}`;
 
-	/** the toon's index entry (`<toon>/_/index.json`): source language + languages */
+	/** the toon's index entry (`toon:<toon>`): source language + languages */
 	let index = $state<ContentDoc | null>(null);
 	/** the languages the files below were loaded with (= the saved index entry) */
 	let langs = $state<ToonLanguages | null>(null);
-	let toonFile = $state<ContentDoc | null>(null);
+	/** the toon still has per-language toon settings (`toon-settings:<toon>:<l>`, legacy – agents/NEUTRAL.md step 4) */
+	let toonSettingsStored = $state(false);
 	let season = $state<ContentDoc | null>(null);
 	let chapters = $state<Record<number, ContentDoc>>({});
 	/** chapter numbers that have a file in the content store (any locale), in the season or not */
@@ -56,11 +65,14 @@
 	const avatarSrc = $derived(asset(`${toonId}/${index?.data?.[NEUTRAL_LOCALE]?.avatar || 'avatar.webp'}`));
 
 	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
-	const titleLocale = $derived(season ? listLanguage(season.locales, season.primary) : '');
+	const titleLocale = $derived(season ? listLanguage(season.textLanguages, season.textSource) : '');
+	/** a title in the list's language (else the source's, else any) */
+	const titleOf = (doc: ContentDoc | null | undefined) => (doc ? previewText(doc.get(doc.primary, ['title']), [titleLocale, doc.textSource]) : '');
 
 	const sequence = $derived<SequenceItem[]>(season?.data?.[season.primary]?.sequence ?? []);
-	const pageDocs = $derived([index, season, toonFile].filter((d): d is ContentDoc => !!d));
-	/** no season1.json in any language (store or static): the page offers "Create season 1" */
+	// a season converted in memory (agents/NEUTRAL.md) is not saved from here: the Convert page / its editor stores it
+	const pageDocs = $derived([index, season].filter((d): d is ContentDoc => !!d && !d.unconverted));
+	/** no season 1 yet: the page offers "Create season 1" */
 	const seasonMissing = $derived(!!season && !season.loading && !season.error && season.present.length === 0);
 	/** chapter numbers in the season of any language */
 	const seasonNumbers = $derived(
@@ -68,13 +80,19 @@
 	);
 	/** chapters with a file in the store but in no season sequence ("Add to season") */
 	const orphans = $derived(storedChapters.filter((n) => !seasonNumbers.includes(n)).sort((a, b) => a - b));
-	/** chapter files whose (deprecated) status must follow the season on save, for older readers */
+	/** chapter documents with fields a language-neutral chapter no longer stores (status mirror, published flag): saved without them */
 	const followers = $derived<ContentDoc[]>(
 		season && !season.loading
-			? sequence
-					.filter((item) => chapters[item.number] && !chapters[item.number].loading && chapterSyncChanges(chapters[item.number], season, item.number).length)
-					.map((item) => chapters[item.number])
+			? sequence.filter((item) => chapters[item.number] && !chapters[item.number].loading && chapterSyncChanges(chapters[item.number]).length).map((item) => chapters[item.number])
 			: []
+	);
+	/**
+	 * documents still stored per language (converted in memory on load) or toon settings not in the toon entry yet: the
+	 * Convert page converts the toon
+	 */
+	const unconverted = $derived(
+		[season, ...Object.values(chapters)].some((d) => !!d?.unconverted) ||
+			(toonSettingsStored && !!index && !index.loading && index.data[NEUTRAL_LOCALE] != null && !hasToonTexts(index.data[NEUTRAL_LOCALE]))
 	);
 	const anyDirty = $derived(pageDocs.some((d) => d.dirty) || followers.length > 0);
 
@@ -85,18 +103,18 @@
 		await loadFiles(toonLanguages(doc.data[NEUTRAL_LOCALE]));
 	}
 
-	/** (Re)loads toon.json, the season and its chapters in the toon's languages. */
+	/** (Re)loads the season and its chapters in the toon's languages. */
 	async function loadFiles(languages: ToonLanguages) {
 		langs = languages;
-		const nextToon = toonDoc(entities.toonSettings(toonId), languages);
 		const nextSeason = toonDoc(entities.season(toonId, 1), languages);
-		await Promise.all([nextToon.load(), nextSeason.load()]);
-		toonFile = nextToon;
+		await nextSeason.load();
 		season = nextSeason;
 		// chapters of the season (every language) + chapter files in the store that no season lists
 		let stored: number[] = [];
 		try {
-			stored = [...new Set((await contentIndex(toonId)).entities.map((e) => parseEntityKey(e.key)).filter((r) => r?.kind === 'chapter').map((r) => r!.number!))];
+			const refs = (await contentIndex(toonId)).entities.map((e) => parseEntityKey(e.key));
+			stored = [...new Set(refs.filter((r) => r?.kind === 'chapter').map((r) => r!.number!))];
+			toonSettingsStored = refs.some((r) => r?.kind === 'toon-settings' && r.toon === toonId);
 		} catch {
 			/* index unavailable: the season's chapters only */
 		}
@@ -121,8 +139,8 @@
 		if (!index) return;
 		const entry = index.data[NEUTRAL_LOCALE];
 		if (entry == null) {
-			// no index entry anywhere yet: start one (saved as the first version of <toon>/_/index.json)
-			index.create(() => withToonLanguages({ id: toonId, uri: toonId, status: Status.DRAFT, i18n: {} }, source, languages));
+			// no index entry anywhere yet: start one (saved as the first version of `toon:<toon>`)
+			index.create(() => withToonLanguages({ id: toonId, uri: toonId, status: Status.DRAFT }, source, languages));
 			return;
 		}
 		const next = withToonLanguages(entry, source, languages);
@@ -146,55 +164,8 @@
 		setLanguages(edited.source, edited.languages.filter((l) => l !== locale));
 	}
 
-	// ── Missing locale files → "create from the source" (the editor's createLocale) ─────────────────────
-	const fileDocs = $derived([toonFile, season, ...Object.values(chapters)].filter((d): d is ContentDoc => !!d && !d.loading));
-	const missing = $derived.by(() => {
-		const current = langs;
-		if (!current) return [];
-		// saved languages only, and not one that is being removed
-		return current.languages
-			.filter((l) => l !== current.source && (!edited || edited.languages.includes(l)))
-			.map((locale) => ({ locale, docs: fileDocs.filter((d) => d.data[d.primary] != null && d.data[locale] == null) }))
-			.filter((entry) => entry.docs.length > 0);
-	});
-
-	/** a copy of the source file for `locale` (files with a `language` field get the new one) */
-	const localized = (locale: string) => (file: any) =>
-		file && typeof file === 'object' && 'language' in file ? { ...file, language: locale } : file;
-
-	async function createLocaleFiles(locale: string) {
-		const current = langs;
-		if (!current) return;
-		busy = true;
-		error = null;
-		message = null;
-		try {
-			// the chapters' scene files (groups[].ref.src) too, so the chapter editor opens complete
-			const scenes = new Set<string>();
-			for (const doc of Object.values(chapters)) {
-				for (const group of doc.data[doc.primary]?.groups ?? []) if (group?.ref?.src) scenes.add(group.ref.src);
-			}
-			const sceneDocs = await Promise.all(
-				[...scenes].map(async (src) => {
-					const doc = sceneDoc(toonId, src, current);
-					await doc.load();
-					return doc;
-				})
-			);
-			let count = 0;
-			for (const doc of [...fileDocs, ...sceneDocs]) {
-				if (doc.data[doc.primary] == null || doc.data[locale] != null) continue;
-				doc.createLocale(locale, localized(locale));
-				await doc.save(`create ${locale} from ${current.source}`);
-				count++;
-			}
-			message = m['creator.locale_files_created']({ count, locale, source: current.source });
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-		} finally {
-			busy = false;
-		}
-	}
+	// A new language: chapters, scenes, seasons and the toon entry are language-neutral (agents/NEUTRAL.md) – their
+	// texts in it are simply missing (warnings) until translated; nothing is created per language.
 
 	// ── Chapters ───────────────────────────────────────────────────────────────────────────────────────
 	/** authors of the toon's chapter files (for new season / toon files) */
@@ -204,33 +175,31 @@
 	}
 
 	/**
-	 * Starts season1.json (and toon.json when it is missing) in every language of the toon, as unsaved docs. A chapter
-	 * must always belong to a season: chapter files already in the store (e.g. created before the season) go into the
-	 * new sequence as draft entries. Returns the numbers it added, or null when the files aren't loaded.
+	 * Starts season 1 (one language-neutral document) as an unsaved doc. A chapter must always belong to a season: chapter
+	 * files already in the store (e.g. created before the season) go into the new sequence as draft entries. Returns the
+	 * numbers it added, or null when the season isn't loaded.
 	 */
 	function startSeason(): number[] | null {
-		if (!season || !toonFile || !langs) return null;
-		const entry = index?.data?.[NEUTRAL_LOCALE] ?? null;
+		if (!season || !langs) return null;
 		const authors = chapterAuthors();
 		const adopted = [...orphans];
-		const draft = (number: number): SequenceItem => ({ type: 'chapter', number, status: Status.DRAFT });
-		season.create((locale) => ({ ...newSeason(locale, authors), sequence: adopted.map(draft) }));
-		if (toonFile.present.length === 0) toonFile.create((locale) => newToon(toonId, locale, entry));
+		const draft = (number: number) => ({ type: 'chapter' as const, number, status: sequenceStatus(langs!.languages) });
+		season.create(() => ({ ...newSeasonDoc(langs!.languages, authors), sequence: adopted.map(draft) }));
 		return adopted;
 	}
 
-	/** "Create season 1": the season (+ toon.json if missing) saved as drafts, existing chapter files adopted */
+	/** "Create season 1": the season saved as a draft, existing chapter files adopted */
 	async function createSeason() {
 		message = null;
 		error = null;
 		const adopted = startSeason();
-		if (!adopted || !season || !toonFile) {
+		if (!adopted || !season) {
 			error = m['creator.not_loaded']();
 			return;
 		}
 		busy = true;
 		try {
-			const files = [season, toonFile].filter((d) => d.dirty);
+			const files = [season].filter((d) => d.dirty);
 			for (const doc of files) await doc.save(`create ${doc.entity}`);
 			message = [
 				m['creator.season_created']({ files: fileLabels(files.map((d) => d.entity)) }),
@@ -243,11 +212,11 @@
 		}
 	}
 
-	/** A new chapter, always inside the season: chapter file + season entry (+ a new season / toon.json) in one save. */
+	/** A new chapter, always inside the season: chapter file + season entry (+ a new season) in one save. */
 	async function createChapter() {
 		message = null;
 		error = null;
-		if (!season || !toonFile || !langs) {
+		if (!season || !langs) {
 			error = m['creator.not_loaded']();
 			return;
 		}
@@ -264,14 +233,13 @@
 		busy = true;
 		try {
 			const chapter = toonDoc(entities.chapter(toonId, number), langs);
-			chapter.create((locale) => newChapter(number, locale, author));
-			season.structural((file) => {
+			chapter.create(() => newChapterDoc(number, langs!.languages, author));
+			season.edit((file) => {
 				file.sequence ??= [];
-				file.sequence.push({ type: 'chapter', number, status: Status.DRAFT });
+				file.sequence.push({ type: 'chapter', number, status: sequenceStatus(langs!.languages) });
 			});
 			await chapter.save(`new chapter ${number}`);
 			await season.save(`add chapter ${number}`);
-			if (toonFile.dirty) await toonFile.save(`create ${toonFile.entity}`);
 			message = m['creator.new_chapter_created']({ number });
 			await goto(`/${toonId}/chapter/${number}`);
 		} catch (e) {
@@ -281,13 +249,13 @@
 		}
 	}
 
-	/** Mirrors the season status into the chapter files and saves them as drafts; returns the changed chapter docs. */
+	/** Drops what a language-neutral chapter no longer stores and saves those chapters as drafts; returns them. */
 	async function saveFollowers(): Promise<ContentDoc[]> {
 		const changed: ContentDoc[] = [];
 		for (const item of sequence) {
 			const doc = chapters[item.number];
 			if (!doc || doc.loading || !season) continue;
-			if (syncChapter(doc, season, item.number) && doc.dirty) {
+			if (syncChapter(doc) && doc.dirty) {
 				await doc.save('status from the season');
 				changed.push(doc);
 			}
@@ -295,7 +263,7 @@
 		return changed;
 	}
 
-	// ── Save / publish: the toon's index entry (languages), the season, toon.json ───────────────────────
+	// ── Save / publish: the toon's index entry (languages), the season ──────────────────────────────────
 	async function saveAll(): Promise<boolean> {
 		busy = true;
 		error = null;
@@ -350,7 +318,7 @@
 	}
 </script>
 
-<div class="creator-page">
+<div class="creator-page" class:with-flow={flowOpen} style:--panel-width={flowSize.css}>
 	<main class="browser">
 		<section>
 			<h1 class="toon-title">
@@ -364,7 +332,7 @@
 					</div>
 					<div class="language-grid">
 						<label class="field">
-							<span>{m['creator.source_language']()}</span>
+							<span>{m['creator.source_language']()}<SourceMark /></span>
 							<select value={edited.source} onchange={(e) => setSource(e.currentTarget.value as Language)} data-testid="source-language">
 								{#each ALL_LANGUAGES as l}<option value={l}>{languageLabel(l)}</option>{/each}
 							</select>
@@ -375,11 +343,9 @@
 								{#each targets as l (l)}
 									<li class="sc-chip-control" data-testid="language-{l}">
 										{languageLabel(l)}
-										<button class="ghost" title={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}>★</button>
+										<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
 										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
 									</li>
-								{:else}
-									<li class="hint">{m['creator.no_target_languages']()}</li>
 								{/each}
 							</ul>
 							{#if addable.length}
@@ -394,16 +360,11 @@
 						</div>
 					</div>
 					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()}</p>{/if}
-					{#each missing as { locale, docs } (locale)}
-						<p class="missing-bar" data-testid="missing-{locale}">
-							{m['creator.missing_locale_files']({ locale, count: docs.length })}
-							<span class="hint">{fileLabels(docs.map((d) => d.entity))}</span>
-							<button class="secondary" disabled={busy} onclick={() => createLocaleFiles(locale)} data-testid="create-locale-{locale}">
-								{m['creator.create_locale']({ locale, source: langs?.source ?? '' })}
-							</button>
-						</p>
-					{/each}
 				</section>
+			{/if}
+			{#if unconverted}
+				<!-- only while something is still stored per language (agents/NEUTRAL.md): the owner's Convert page -->
+				<p class="sc-bar is-note" data-testid="convert-bar">{m['creator.convert_bar']()} <a href="/{toonId}/convert" data-testid="open-convert">{m['creator.convert_open']()}</a></p>
 			{/if}
 			{#if !season || season.loading}
 				<p>{m['creator.loading']()}</p>
@@ -421,9 +382,9 @@
 						<h2 class="season-title">
 							<a
 								href="/{toonId}/season/1"
-								title="{m['creator.open_season_editor']({ season: m['creator.season']({ number: 1 }) })}{season.locales.length > 1 ? `\n${otherTexts(season.locales, titleLocale, (l) => season?.data[l]?.title)}` : ''}"
+								title="{m['creator.open_season_editor']({ season: m['creator.season']({ number: 1 }) })}{season.textLanguages.length > 1 ? `\n${otherTexts(season.textLanguages, titleLocale, (l) => season?.text(['title'], l))}` : ''}"
 								data-testid="season-title"
-								>{m['creator.season']({ number: 1 })}: {season.data[titleLocale]?.title || season.data[season.primary]?.title}</a
+								>{m['creator.season']({ number: 1 })}: {titleOf(season)}</a
 							>
 						</h2>
 					</div>
@@ -434,16 +395,16 @@
 				<ol class="chapter-list" data-testid="chapter-list">
 					{#each sequence as item (item.number)}
 						{@const doc = chapters[item.number]}
-						{@const own = doc?.data?.[titleLocale]?.title}
+						{@const own = doc?.hasText(['title'], titleLocale) ? doc.text(['title'], titleLocale) : ''}
 						<li class="chapter-row" data-testid="chapter-row-{item.number}">
 							<span class="num" title={m['creator.chapter_number_hint']({ path: `/${toonId}/chapter/${item.number}` })}>#{item.number}</span>
 							<a
 								class="row-link"
 								class:fallback={!own}
 								href="/{toonId}/chapter/{item.number}"
-								title="{m['creator.open_chapter_n']({ number: item.number })}{season.locales.length > 1 ? `\n${otherTexts(season.locales, titleLocale, (l) => doc?.data?.[l]?.title)}` : ''}"
+								title="{m['creator.open_chapter_n']({ number: item.number })}{season.textLanguages.length > 1 ? `\n${otherTexts(season.textLanguages, titleLocale, (l) => doc?.text(['title'], l))}` : ''}"
 								data-testid="open-chapter-{item.number}"
-								>{own || doc?.data?.[season.primary]?.title || fileLabel(entities.chapter(toonId, item.number))}</a
+								>{own || titleOf(doc) || fileLabel(entities.chapter(toonId, item.number))}</a
 							>
 							<ChapterBadges {season} number={item.number} {doc} />
 						</li>
@@ -457,7 +418,7 @@
 			{#if error}<p class="error">{error}</p>{/if}
 		</section>
 	</main>
-	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season, toon.json) -->
+	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
 			{#if anyDirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}
@@ -472,8 +433,25 @@
 		{/snippet}
 	</ActionBar>
 </div>
+{#if flowOpen}
+	<FlowDock size={flowSize}>
+		{#key toonId}
+			<ToonFlowPanel toon={toonId} onclose={() => (flowOpen = false)} />
+		{/key}
+	</FlowDock>
+{/if}
+
+{#snippet flowToggle()}
+	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_toon_open']()} aria-label={m['creator.flow_toon_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{/snippet}
 
 <style>
+	/* the page makes room for the docked Flow instead of hiding under it; phones: it covers the page */
+	@media (min-width: 768px) {
+		.creator-page.with-flow {
+			margin-right: var(--panel-width);
+		}
+	}
 	.toon-title {
 		font-size: var(--type-title-size);
 		line-height: var(--type-title-line);
@@ -597,13 +575,5 @@
 		color: var(--ink);
 		border-left: 2px solid var(--primary-cyan);
 		padding-left: 0.5rem;
-	}
-	.missing-bar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
-		border: 2px dashed var(--ink);
 	}
 </style>

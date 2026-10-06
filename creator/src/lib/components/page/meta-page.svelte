@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { ActionBar, panelWidth } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
@@ -8,7 +8,7 @@
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
-	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { pagePanel } from '$lib/ask.svelte.ts';
 	import { isAccepted } from '$lib/editor/accepted.ts';
@@ -17,6 +17,7 @@
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
 	import { fileLabel } from '$lib/labels.ts';
+	import { flowWidth } from '$lib/components/flow/flow-dock.svelte';
 
 	/**
 	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
@@ -36,9 +37,10 @@
 		fill = false,
 		actions,
 		help,
-		translationsOptional = false,
 		children,
-		status
+		status,
+		dock,
+		dockOpen = $bindable(false)
 	}: {
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
@@ -56,14 +58,19 @@
 		actions?: Snippet;
 		/** the page's help in the ActionBar's Info panel */
 		help: HelpPage;
-		/** a missing translation is no problem (the script: the page offers to start one itself) – no "create" bars */
-		translationsOptional?: boolean;
 		children: Snippet;
 		/** right end of the file status line (e.g. the script's line / column) – no row of its own */
 		status?: Snippet;
+		/**
+		 * a page panel of the page's own, docked where Problems / History are (the season's Flow): shown while `dockOpen`;
+		 * it and Problems / History take turns – the page makes room for whichever is open
+		 */
+		dock?: Snippet;
+		dockOpen?: boolean;
 	} = $props();
 
 	const panelSize = panelWidth('sc-panel-width:meta');
+	const dockSize = flowWidth();
 
 	const main = $derived(docs[0]);
 	/** undo/redo act on the most recently edited doc */
@@ -76,12 +83,20 @@
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
 	let panel = $state<'problems' | 'history' | null>(null);
+	/** what is docked on the right: Problems / History, or the page's own dock */
+	const shown = $derived(dockOpen && dock ? 'dock' : panel);
+	const size = $derived(shown === 'dock' ? dockSize : panelSize);
+	// the page's dock opens: Problems / History close
+	$effect(() => {
+		if (dockOpen) untrack(() => (panel = null));
+	});
 	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
 	$effect(() => {
-		pagePanel.open = panel !== null;
+		pagePanel.open = shown !== null;
 		return () => (pagePanel.open = false);
 	});
 	function togglePanel(next: 'problems' | 'history') {
+		dockOpen = false;
 		panel = panel === next ? null : next;
 	}
 	const problems = $derived.by<Problem[]>(() => {
@@ -93,6 +108,11 @@
 		}
 		for (const doc of docs) {
 			if (doc.loading) continue;
+			// a language-neutral season: once + its texts per language (agents/NEUTRAL.md)
+			if (doc.texts) {
+				out.push(...validateNeutral(doc.kind, doc.data[doc.primary], doc.texts, { file: doc.entity }));
+				continue;
+			}
 			for (const l of doc.locales) {
 				if (doc.data[l] == null) {
 					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.entity, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
@@ -125,7 +145,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="meta-page" class:with-panel={panel !== null} class:wide class:fill style:--panel-width={panelSize.css}>
+<div class="meta-page" class:with-panel={shown !== null} class:wide class:fill style:--panel-width={size.css}>
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
@@ -139,7 +159,7 @@
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
-			<input class="message" type="text" placeholder="note (optional)" bind:value={session.message} />
+			<input class="message" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
@@ -158,18 +178,20 @@
 			{#if status}<span class="status-end">{@render status()}</span>{/if}
 		</div>
 		{/if}
-		<DocNotices {session} {docs} dirty={anyDirty} {translationsOptional} />
+		<DocNotices {session} {docs} dirty={anyDirty} />
 		<main class="content">
 			{@render children()}
 		</main>
 	{/if}
 
-	{#if panel}
+	{#if shown}
 			<!-- a focusable separator is a widget (WAI-ARIA window splitter): drag the panel wider (owner 2026-10-03) -->
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
-		<aside class="side-panel">
-			{#if panel === 'problems'}
+			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={size.start} onkeydown={size.key} ondblclick={size.reset}></div>
+		<aside class="side-panel" class:is-dock={shown === 'dock'}>
+			{#if shown === 'dock'}
+				{@render dock?.()}
+			{:else if panel === 'problems'}
 				<ProblemsPanel {problems} {docs} home={main?.entity} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && historyDoc}
 				{#if docs.length > 1}
@@ -249,6 +271,11 @@
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		z-index: 20;
 		box-sizing: border-box;
+	}
+	/* the page's dock (the season's Flow): its content fills the panel's height */
+	.side-panel.is-dock {
+		overflow: hidden;
+		padding-bottom: var(--space-1);
 	}
 	.pad {
 		padding: 1rem;

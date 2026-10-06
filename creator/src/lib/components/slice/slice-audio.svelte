@@ -7,6 +7,7 @@
 	import { getAt, deleteAt, type Path } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import { triggerOptions } from '$lib/editor/vn-forms.ts';
 
 	/**
 	 * Per-slice audio: music volumes (per chapter track) and samples with triggers (rects drawn on the canvas). A sample is
@@ -54,7 +55,7 @@
 	}
 
 	function setVolume(id: string, volume: number | undefined) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
 			if (volume === undefined) {
@@ -78,7 +79,7 @@
 	function addSample(type: Trigger) {
 		// the new one's index before the push (read after it, the derived list already has it: one past – the old bug)
 		const index = samples.length;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
 			s.audio ??= {};
@@ -96,7 +97,7 @@
 	function setSound(index: number, media: VariantMedia) {
 		if (!media.src) return;
 		const id = librarySample(media);
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const sample = getAt(file, [...samplesPath, index]);
 			if (sample) sample.id = id;
 		});
@@ -112,11 +113,10 @@
 		open = isOpen(i) ? open.filter((x) => x !== i) : [...open, i];
 		onselectsample?.(i);
 	}
-	const TRIGGER_WORDS: Record<string, string> = { intersect: 'on scroll', click: 'on click', hover: 'on hover' };
-	const triggerWord = (sample: any) => `${TRIGGER_WORDS[sample?.trigger?.type] ?? sample?.trigger?.type ?? ''}${sample?.trigger?.rect ? ' · area' : ''}`;
+	const triggerWord = (sample: any) => `${triggerOptions().find((o) => o.value === sample?.trigger?.type)?.label ?? sample?.trigger?.type ?? ''}${sample?.trigger?.rect ? ` · ${m['creator.area']()}` : ''}`;
 
 	function removeSample(index: number) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, samplesPath);
 			if (!Array.isArray(list)) return;
 			list.splice(index, 1);
@@ -127,7 +127,7 @@
 	}
 
 	function setTriggerType(index: number, type: string) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const trigger = getAt(file, [...samplesPath, index, 'trigger']);
 			if (!trigger) return;
 			trigger.type = type;
@@ -138,7 +138,7 @@
 
 	/** Known bug in older configs: samples at audio.samples are never played (reader reads audio.audio.samples). */
 	function moveMisplaced() {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!Array.isArray(s?.audio?.samples)) return;
 			s.audio.audio ??= {};
@@ -149,10 +149,9 @@
 </script>
 
 <section class="slice-audio" data-testid="slice-audio">
-	<h4>Music</h4>
-	{#if !musicTracks.length}
-		<p class="hint">The chapter has no music tracks (Audio in the tree).</p>
-	{/if}
+	<!-- no chapter music tracks: no mixer (and no empty-state text – the tracks are added under Audio in the chapter tree) -->
+	{#if musicTracks.length}
+	<h4>{m['creator.music']()}</h4>
 	<!-- a mixer (owner 2026-10-04): one strip per chapter track. A track the slice doesn't set holds the level of an earlier
 	     slice (shown faint, "from …"); moving its fader sets it here, × hands it back to the earlier level. -->
 	<div class="mixer" data-testid="slice-mixer">
@@ -162,22 +161,23 @@
 			{@const level = v ?? held?.volume ?? 0}
 			<div class="strip" class:held={v === undefined} data-testid="mixer-{track.id}">
 				<span class="val">{Math.round(level * 100)}</span>
-				<input class="fader" type="range" min="0" max="1" step="0.05" value={level} aria-label="{track.id} volume" oninput={(e) => setVolume(track.id, Number(e.currentTarget.value))} />
+				<input class="fader" type="range" min="0" max="1" step="0.05" value={level} aria-label={m['creator.music_volume']({ track: track.id })} oninput={(e) => setVolume(track.id, Number(e.currentTarget.value))} />
 				<span class="name" title={track.id}>{track.id}</span>
 				{#if v === undefined}
-					<span class="from" title={held ? `holds ${Math.round(held.volume * 100)} from ${held.label}` : 'silent – no earlier slice sets it'}>{held ? held.label : 'silent'}</span>
+					<span class="from" title={held ? m['creator.music_holds']({ level: Math.round(held.volume * 100), from: held.label }) : m['creator.music_silent_hint']()}>{held ? held.label : m['creator.music_silent']()}</span>
 				{:else}
-					<button type="button" class="sc-round" aria-label="{track.id}: hold the earlier level" title="Hold the earlier level ({held ? `${Math.round(held.volume * 100)}, ${held.label}` : 'silent'})" onclick={() => setVolume(track.id, undefined)}><CloseIcon /></button>
+					<button type="button" class="sc-round" aria-label={`${track.id}: ${m['creator.music_hold']({ level: held ? `${Math.round(held.volume * 100)}, ${held.label}` : m['creator.music_silent']() })}`} title={m['creator.music_hold']({ level: held ? `${Math.round(held.volume * 100)}, ${held.label}` : m['creator.music_silent']() })} onclick={() => setVolume(track.id, undefined)}><CloseIcon /></button>
 				{/if}
 			</div>
 		{/each}
 	</div>
+	{/if}
 
-	<h4>Samples</h4>
+	<h4>{m['creator.samples']()}</h4>
 	{#if misplaced.length}
 		<p class="warn">
-			{misplaced.length} sample(s) at <code>audio.samples</code> never play (the reader reads <code>audio.audio.samples</code>).
-			<button type="button" class="secondary" onclick={moveMisplaced}>Move them</button>
+			{m['creator.samples_misplaced']({ count: misplaced.length })}
+			<button type="button" class="secondary" onclick={moveMisplaced}>{m['creator.samples_misplaced_move']()}</button>
 		</p>
 	{/if}
 	{#each samples as sample, i (i)}
@@ -196,33 +196,33 @@
 				</span>
 			</header>
 			{#if isOpen(i)}
-				<MediaVariantsSlot {toon} kind="audio" label="sound" value={{ src: file, variants: entryOf(sample?.id)?.variants }} {place} clearable={false} onchange={(media) => setSound(i, media)} testid="sample-sound-{i}" />
+				<MediaVariantsSlot {toon} kind="audio" label={m['creator.sample_sound']()} value={{ src: file, variants: entryOf(sample?.id)?.variants }} {place} clearable={false} onchange={(media) => setSound(i, media)} testid="sample-sound-{i}" />
 				{#if sample?.id && !file}
-					<p class="warn">"{sample.id}" is not in the chapter's sample library – pick its file.</p>
+					<p class="warn">{m['creator.sample_not_in_library']({ id: sample.id })}</p>
 				{/if}
 				<div class="sc-fields" data-cols="2" data-density="dense">
-					<PropField {doc} path={[...samplesPath, i, 'volume']} label="volume" type="number" step={0.05} min={0} max={1} placeholder="1" />
-					<PropField {doc} path={[...samplesPath, i, 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
+					<PropField {doc} path={[...samplesPath, i, 'volume']} label={m['creator.field_volume']()} type="number" step={0.05} min={0} max={1} placeholder="1" />
+					<PropField {doc} path={[...samplesPath, i, 'delay']} label={m['creator.field_delay']()} type="number" step={100} placeholder="0" />
 					<div class="field">
-						<label for="tt-{i}">trigger</label>
+						<label for="tt-{i}">{m['creator.trigger']()}</label>
 						<select id="tt-{i}" value={sample.trigger?.type ?? ''} onchange={(e) => setTriggerType(i, e.currentTarget.value)}>
-							{#each Object.values(Trigger) as t}<option value={t}>{t}</option>{/each}
+							{#each triggerOptions() as t}<option value={t.value}>{t.label}</option>{/each}
 						</select>
 					</div>
-					<PropField {doc} path={[...samplesPath, i, 'trigger', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="mono" />
-					<PropField {doc} path={[...samplesPath, i, 'loop']} label="loop" type="bool" placeholder="false" />
-					<PropField {doc} path={[...samplesPath, i, 'trigger', 'exclusive']} label="exclusive" type="bool" placeholder="false" />
-					<PropField {doc} path={[...samplesPath, i, 'trigger', 'gate']} label="gate" type="bool" placeholder="false" />
+					<PropField {doc} path={[...samplesPath, i, 'trigger', 'mode']} label={m['creator.field_mode']()} type="select" options={Object.values(TriggerMode)} placeholder="mono" />
+					<PropField {doc} path={[...samplesPath, i, 'loop']} label={m['creator.field_loop']()} type="bool" placeholder="false" />
+					<PropField {doc} path={[...samplesPath, i, 'trigger', 'exclusive']} label={m['creator.sample_exclusive']()} type="bool" placeholder="false" />
+					<PropField {doc} path={[...samplesPath, i, 'trigger', 'gate']} label={m['creator.sample_gate']()} type="bool" placeholder="false" />
 				</div>
 				{#if sample.trigger?.rect}
-					<p class="hint">Area: {sample.trigger.rect.x}/{sample.trigger.rect.y} {sample.trigger.rect.width}×{sample.trigger.rect.height}%</p>
+					<p class="hint">{m['creator.sample_area']({ rect: `${sample.trigger.rect.x}/${sample.trigger.rect.y} ${sample.trigger.rect.width}×${sample.trigger.rect.height}%` })}</p>
 				{/if}
 			{/if}
 		</article>
 	{/each}
 	<div class="row">
-		<button type="button" class="secondary" onclick={() => addSample(Trigger.INTERSECT)}>+ on scroll</button>
-		<button type="button" class="secondary" onclick={() => addSample(Trigger.CLICK)}>+ on click (area)</button>
+		<button type="button" class="secondary" onclick={() => addSample(Trigger.INTERSECT)}>+ {m['creator.sample_add_scroll']()}</button>
+		<button type="button" class="secondary" onclick={() => addSample(Trigger.CLICK)}>+ {m['creator.sample_add_click']()}</button>
 	</div>
 </section>
 

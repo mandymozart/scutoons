@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon } from '@scutoons/ui';
-	import { lookLabel, lookPortraitMoods, setLookImage, type AssetRequests, type CharacterFileSlot, type CharacterPersona, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
+	import { setLookImage, type AssetRequests, type CharacterFileSlot, type CharacterPersona, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { addAssetRequest, edit, editPersona, ensureMoods } from '$lib/editor/characters.ts';
 	import { cleanText, closeRequests } from '$lib/editor/character-form.ts';
@@ -102,9 +102,6 @@
 		<label class="check"><input type="radio" name="default-look-{id}-{persona.id}" checked={!!look.default} onchange={setDefault} /> {m['creator.characters_default_look']()}</label>
 		{#if lookIds.length > 1}<button type="button" class="ghost" onclick={remove}><CloseIcon /> {m['creator.characters_remove_look']()}</button>{/if}
 	</div>
-	{#if !lookPortraitMoods(look).length}
-		<p class="empty-note" data-testid="look-empty">{m['creator.characters_look_empty_note']({ look: lookLabel(persona, lookId, source) })}</p>
-	{/if}
 	{#key `${persona.id}/${lookId}`}
 		<ExpressionGrid {character} persona={persona.id} {look} {moods} {requests} locale={source} onset={setImage} onrequest={request} onaddmood={addMood} {bust} />
 	{/key}
@@ -127,11 +124,5 @@
 		align-items: center;
 		gap: 0.3rem;
 		font-weight: 400;
-	}
-	.empty-note {
-		margin: 0;
-		padding: 0.3rem 0.5rem;
-		border: 1px dashed var(--error);
-		color: var(--error);
 	}
 </style>

@@ -34,8 +34,8 @@
 	import Icon from './icon.svelte';
 
 	/**
-	 * Data table (admin UI pattern): sortable headers, bulk select + actions, keyboard-reachable rows, loading/empty
-	 * states. Server-side lists: pass `sort` (`field` | `-field`) and `sortHref(field)` so the headers are links that
+	 * Data table (admin UI pattern): sortable headers, bulk select + actions, keyboard-reachable rows, a loading
+	 * state (no rows = an empty body, no text). Server-side lists: pass `sort` (`field` | `-field`) and `sortHref(field)` so the headers are links that
 	 * change the URL (the app's `load` refetches) – or `onsort` for client-side sorting. Pair it with `Pager`.
 	 */
 	let {
@@ -54,8 +54,6 @@
 		activeKey = null,
 		rowClass,
 		loading = false,
-		empty,
-		emptyLabel = 'Nothing found.',
 		caption,
 		labels = {
 			selectAll: 'Select all rows',
@@ -90,8 +88,6 @@
 		activeKey?: string | null;
 		rowClass?: (row: T) => string;
 		loading?: boolean;
-		empty?: Snippet;
-		emptyLabel?: string;
 		caption?: string;
 		labels?: DataTableLabels;
 	} = $props();
@@ -217,14 +213,6 @@
 							</td>
 						{/each}
 					</tr>
-				{:else}
-					{#if !loading}
-						<tr class="empty">
-							<td colspan={columns.length + (selectable ? 1 : 0)}>
-								{#if empty}{@render empty()}{:else}{emptyLabel}{/if}
-							</td>
-						</tr>
-					{/if}
 				{/each}
 			</tbody>
 		</table>
@@ -322,10 +310,6 @@
 	tr:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: calc(-1 * var(--border-width-focus));
-	}
-	tr.empty td {
-		padding: var(--space-15) var(--space-075);
-		color: var(--text-muted);
 	}
 	.bulk {
 		display: flex;

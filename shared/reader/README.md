@@ -1,7 +1,7 @@
 # @scutoons/reader
 
 The reader's rendering, shared by the viewer (reading) and the creator (WYSIWYG canvas, draft preview) so a slice
-looks the same in both: the slice image with its live text boxes, and the onomatopoeia layer of the visual novel.
+looks the same in both: the slice image with its live text boxes, the text boxes a `showTextBox` event reveals with an effect (`src/effects`).
 Also the pure slice actions (audio events, VN triggers) with their app wiring injected.
 
 Rules (agents/PLATFORM.md dogmas): no app state, no routing, no paraglide. Components take props and callbacks; the
@@ -16,12 +16,12 @@ helpers) and `svelte` only.
 | `SliceVideo` | the video of a slice: muted, inline, looping by default (`slice.video.loop`), plays while ≥ 25 % in view and pauses outside (`autoplay`, default true); `prefers-reduced-motion: reduce` = the poster `<img>` only. Props: `src`, `poster`, `width`, `height`, `alt`, `loop`, `autoplay`, `eager` (`preload="auto"`, else `none`). |
 | `Dialogs` | text-box layer (`position:absolute; inset:0`) for `slice.dialog`. Props: `dialogs`, `lang`. Must sit inside an element with `container-type: inline-size` and the class `slice` (the auto-fit pass observes `.slice`). |
 | `Dialog` | one text box (variants bubble / caption / narration / sfx, auto-fit down to 80 %). |
-| `Onomatopoeia` | one onomatopoeia (variants default / outline / bubble / thorns, effects none / shiver / pulse / wobble). Prop `onomatopoeia: ActiveOnomatopoeia`; calls `onomatopoeia.onComplete` after delay + duration. |
+| `Dialog` `play` | a text box being revealed by a `showTextBox` event (`DialogPlay`: effect none / shiver / pulse / wobble, delay, duration – `src/effects`). The VN player tracks the playing ones as `ActiveTextBox`. |
 | `sliceAudio` | action: music volumes while the slice is in view + its sample trigger. Config `{ events, index, slices, player }`, `player: SliceAudioPlayer \| null` = `{ triggerSample, getTrackIds, updateMusicVolumes }` from the app's audio engine. |
 | `sliceEvents` | action: slice-triggered VN events (click / hover / intersect, optional rect, `once`). Config `{ events, run(event) → url?, onNavigate? }`; the VN logic stays in the app (`run`). Not used by the viewer today (its VN triggers are components). |
 | `getMusicStateForSlice(index, slices, trackIds)` | last known volume per track, searched backwards from a slice. |
 | `isWithinRect(event, element, rect?)` | pointer inside a % rect of an element. |
-| types | `ActiveOnomatopoeia`, `PercentRect`, `SliceAudioConfig`, `SliceAudioPlayer`, `SliceEventsConfig` |
+| types | `ActiveTextBox`, `PercentRect`, `SliceAudioConfig`, `SliceAudioPlayer`, `SliceEventsConfig` |
 
 ## Example
 

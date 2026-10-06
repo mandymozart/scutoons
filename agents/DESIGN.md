@@ -267,12 +267,100 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   No help sentences. The size line is short: "390 × 693" (frame), "Bildschirm · 1,89:1" (full viewport), else the image
   size as before. Sizes in `em` of the creator's fixed 13 px base (its root `rem` is the reader's fluid one). "Original"
   with a poster whose ratio differs from the video's (> 2 %) shows a warning (the slice would shift while loading).
-- **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group.
+- **Linked groups** (owner 2026-10-06, DATA.md "Linked groups"): groups with `continues` share one chapter page – a
+  chain read top to bottom (vertical → strip → strip → vertical reads smoothly: each strip pins, moves sideways,
+  releases). One URL: `?label=` of a group inside a chain renders the whole chain and jumps (instant) to that group,
+  kept aligned while the page above settles. One `{#key}` per chain; the follow-up bar only after its last group, "↺
+  Nochmal" from the chain's top. Creator: "Durchgehend" / "Continuous" (not on the chapter's last group), "Ende"
+  (set / removed with a button: the jumpTo target fields + "sofort") on a group that doesn't continue; a Feather link
+  mark in the chapter tree on a group that continues. VN in any group of a chain (DATA.md "Linked groups", the case
+  table): one box per page, scripts one after another; while the story waits the page doesn't scroll and a Feather
+  `pause` mark sits directly below the logo (an indicator, no button, white ground, `title` = why). `?label=` into a
+  chain: the groups above count as read. Creator: a jumping group that continues into an unlabelled one gets a note
+  above its script with "Label vergeben"; unreachable groups / slices / events and never-true tests carry a warning
+  chip ("unerreichbar", "nie wahr", "Endlosschleife").
+- **Flow panel** (owner 2026-10-06; `components/flow/`, @scutoons/content flow.ts): a read-only, zoomable graph of the
+  story flow ("Ablauf" / "Flow") on every level, one look (boxes, edges, buttons, minimap). Opened by a round Feather
+  `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`; its `title` says what it
+  shows and how to use it – no intro line in the panel); docked on the right like Problems / History on EVERY level
+  (left of Ask, the page makes room – `margin-right: var(--panel-width)` from 768px, never an overlay; drags wider up to
+  half the window, one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns
+  with Problems / History, the toon page uses `flow/flow-dock.svelte`). Svelte Flow + dagre are loaded only when it
+  opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates (read-only otherwise).
+  - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
+    group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the
+    minimap shows the rest). Edges follow dagre's route and their labels sit where dagre made room for them (a label is a
+    node in dagre's layout), so the labels of edges leaving one box never overlap (`flow-edge.svelte`).
+  - **Pictures** (owner 2026-10-06): every box shows small images – the graph model names them as data (`FlowNode.image`
+    / `badge` / `faces`, flow.ts), the creator resolves them (`flow/flow-pictures.svelte.ts`): a group – its first slice
+    (left, the low variant) and a face stack of the characters acting in its script (joins + speakers + askText, in
+    order of appearance, persona / look / mood as named; 3 + "+n"); a chapter – its thumbnail; a toon – its avatar
+    (round); a slice – its image on top; a run / step – the speaker's face, a question – who asks it; an item tap – the
+    catalog item; a jump / exit – where it lands (the label's group's first slice, else the chapter's thumbnail; another
+    toon's avatar as a small badge). Faces = the registry's avatar view (`characterImage`, the reader's rule). Other
+    chapters / toons come from the flow index (each toon's `avatar`, per chapter `thumbnail` + label → first slice –
+    `chapterPictures`, TS and PHP agree). Icons (Feather, in the title): `message-square` messages, `git-branch` a
+    question, `corner-down-right` a jump, `help-circle` askText, `type` a text box, `check` once for good, `repeat` again
+    (per page view / period, an endless loop), `log-in` an entry point (a group something outside jumps to); a group's
+    layout at the title's end (`align-justify` vertical, `columns` horizontal, `film` full-width strip). Rules: only small
+    files; loaded lazily (one IntersectionObserver on the canvas, a box within one canvas size of the view); every box
+    kind has a fixed rem size with its picture place (`boxSize`), so the layout never moves while pictures load; no
+    picture / not found / broken = the dashed empty slot; an image's `title` is its name; zoomed out below 0.6 faces hide
+    and pictures fade (their places stay). No toggle.
+  - Expressions step 3: an `if: { expr }` is a condition like a simple test (dashed, its text on the edge – the
+    expression as written; never judged "never true"); `askText` is a step of its own on the group / slice level
+    ("fragt → name / reader.name" + the question) and sets its variable (scope toon) for reach and dead things; a
+    trigger / item tap that runs once for good shows "✓ einmal für immer" (tooltip: at most once per reader), once per
+    page view its words; triggers group by their meaning (no `repeat` = every time).
+  - **Chapter** (chapter editor, nothing selected): `chapterFlow` over the editor's own `chapterReach` (so it says what the
+    chips say). Boxes: group (2px ink; slices · Script · unreachable slices), script points (hairline: point, question,
+    divert, jump), slice triggers / item taps that branch, exits (pill: another chapter / season / toon, the next chapter).
+    Only through a condition = dashed; unreachable / never true / endless loop = the warning colour + its chip; the group
+    open in the editor = inverted. Edges: linked (thick), follow-up bar, end, choices (their text), conditions ("wenn …"),
+    else. A box opens its group / slice / event.
+  - **Group** (a group selected) – `groupFlow`: every script event; plain ones (messages, joins / leaves, variables, text
+    boxes) collapsed into runs between the key points ("„first message“ · 3 Nachr. (who) · kommt: … · setzt …"); a plain
+    event under a test is a dashed step in line, the test on the edge into it; every slice trigger / item tap with its own
+    events; the groups the reader comes from and goes on to as dashed hairline stubs.
+  - **Slice** (a slice selected) – `sliceFlow`: the slice, its triggers and item taps with every event, the points of the
+    group's script they divert into (stubs), the script events that reveal its text boxes ("zeigt").
+  - The level follows the editor's selection (decision: no separate picker); a small segmented "Kapitel · Gruppe · Slice"
+    above the graph goes back up (only the levels the selection allows; a new selection follows again).
+  - **Season** (season page) / **toon** (toon page) – `toonFlow` over `toonReach`: one box per chapter ("Kapitel 2 ·
+    Ärger", status · groups · unreachable groups; unreachable in the toon = warning chip). Toon reach: entries are each
+    season's first chapter, the published chapters (readable from the overview) and chapters a visible map place opens;
+    from a reached chapter its follow-up bar leads to the next chapter of the season (only when the chapter can get
+    there – a chapter that always jumps away breaks the order), its jumps / ends to chapters / seasons / the toon page.
+    Edges: the season order (thick), jumps / ends between chapters (parallel ways merged, their choice texts), exits
+    (other seasons on the season level, other toons, products, XR). The toon adds the map places ("Karte: …", one box per
+    chapter, dashed when they are all hidden = unlocked by reading). A chapter box opens the chapter with its Flow.
+  - **SCUTOONS** (Universum → "Ablauf", `/flow`, next to the world map) – `universeFlow` over the server's flow index
+    (`GET /api/creator/flow-index`, so the browser doesn't load every toon): one box per toon (status · seasons ·
+    chapters), the jumps between toons (merged, counted, their texts), products / XR as exits. A toon box opens the
+    toon page with its Flow (the seasons and chapters).
+  - **Dead things** (season / toon / SCUTOONS, `deadThings`; the server's index uses the same rules – TS and PHP agree on
+    the dev DB): one muted line under the graph in words, only the parts there are – "Ungenutzt: 1 Variable · 1 nie
+    gesetzt · 9 Labels" / "Unused: 1 variable · 1 never set · 9 labels" (set never read · read never set · points nothing
+    diverts to · labels nothing jumps to) – opening into the lists, each with where it is (a link to its chapter).
+    Nothing dead: nothing shown. Sets = setVariable, a choice's set / add, an askText's variable; reads = simple tests,
+    `if.expr` and every text's `{…}` through the expression analyser (names of one part – `reader.name` is no story
+    variable). A group label counts as used when something jumps there or the follow-up bar leads there (the group before
+    doesn't continue and has no end).
+- **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
+  Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
+  Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the
+  swiper settings only for a horizontal group that isn't full width. No "Interaction" field (`Group.interaction` is gone
+  from the model; old stored values are ignored). The **strip preview** of a full-width group below it: the mouse wheel
+  down moves the strip sideways while the pointer is over it (like the reader's page scroll); at either end the page
+  scrolls on; a horizontal wheel / trackpad scrolls natively.
+- **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group
+  (of linked groups: after the last one).
   - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
     track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);
-    a VN group additionally needs its script run to the end without a jump (`vn.state.eventsDone`, set by `endOfEvents`)
-    and nothing waiting (no message waiting for its click, no choice open). A script that ends with `jumpTo` navigates
-    itself, the bar never shows there.
+    a page with VN additionally needs every script it must run finished – of linked groups all from the shown group on
+    – none in line and nothing waiting (no message waiting for its click, no choice open, no trigger running;
+    `vn.state.pageDone` and not `frozen`, owner 2026-10-06). A script that ends with `jumpTo` navigates itself, the bar
+    never shows there.
   - **Look:** fixed at the bottom of the viewport, full width, `paper`, a 2px `ink` top rule, IBM Plex Mono, square,
     content max(500px, 30rem) centred; z 110 (above the VN box's 100 – it only shows once the scene finished – under the
     toggles and overlays ≥ 1000); a spacer keeps the last slice clear of it. An optional one-line text, then the
@@ -281,6 +369,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     never skipped –, `isItemPublic` for drafts in dev, the membership context):
     | case | text | primary | secondary | countdown |
     |---|---|---|---|---|
+    | the group has an authored end (`Group.end`, 2026-10-06) | – | "Weiter →", to a chapter like the next-chapter case ("Kapitel 2: Ärger →"); with `auto` no bar: it goes there at once | "↺ Nochmal" | yes |
     | more groups follow | – | "Weiter →" (`?label=` of the next group) | "↺ Nochmal" | yes |
     | the next chapter readable (preview or member) | – | "Kapitel 2: Ärger →" (`chapterName` + title); from the prologue "S1 K1 lesen →" | "↺ Nochmal" | yes |
     | the next chapter members-only, not signed in | "Kapitel 1 ist für Mitglieder: melde dich an oder löse deinen Code ein." | "Anmelden →" (`/account?return=<chapter>`, back there after the login) | "Code einlösen" (the QR camera = the claim flow) | no |
@@ -295,8 +384,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     Abbrechen" in caption type, then it navigates. Stops (the button stays): "Abbrechen", the end scrolled out of view, a
     click anywhere outside the bar (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
     camera or a claim sheet. A hidden tab pauses it (the time away doesn't count). Reduced motion: no countdown.
-  - Strings: paraglide `next_bar.*`. **Later idea (not built):** a per-group override `group.next` (e.g. a different
-    target or no bar after a cliffhanger) – only when the owner needs it (keep the configuration small).
+  - Strings: paraglide `next_bar.*`. The per-group override is `Group.end` (built 2026-10-06, table above).
 - **Credits colophon** (`@scutoons/reader` `CreditsColophon`, owner 2026-09-30, typography after the back of the vinyl
   cover; content = `credits:<toon>` as it is): `0.8125rem` (≈ 11.4 px on a phone), line-height 1.5, centred, max
   36em; section headings in capitals, bold, letter-spacing 0.08em, inside a 2px `ink` framed bar (square); names as
@@ -336,7 +424,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   - No mood text anywhere (the art shows the mood).
   - One click per message, the last one included: the click on the last message also jumps (`jumpTo` with `wait`), and
     a group's box closes after its last message is clicked away.
-- **Onomatopoeia** — a text box on the slice that a `showOnomatopeia` event reveals with an effect (`shiver`, `pulse`,
+- **Onomatopoeia** — a text box on the slice that a `showTextBox` event reveals with an effect (`shiver`, `pulse`,
   `wobble`, none); see Part 2 "Onomatopoeia = a text box". (The old full-screen onomatopoeia with its own text, size and
   variants `default` / `outline` / `thorns` / `bubble` was removed on 2026-10-03 – never used in content.)
 
@@ -390,8 +478,8 @@ images and only the words change.
 - The bubble **shape** belongs to the art (exported from Figma `art` frame). The viewer renders only the words.
 - Geometry in **% of the slice box** (same convention as triggers/samples) → resolution-independent.
 - **Geometry is the same in every language** (owner 2026-10-03): position, size, rotation and scale of text boxes and
-  placed items; only the text is per language. The creator has no per-language geometry; on load it makes a language
-  that differs follow the source (`unifyGeometry`, a notice, saved with the next save). Chapter 1 en had 5 wider boxes.
+  placed items; only the text is per language. Since 2026-10-06 a chapter is one language-neutral document
+  (agents/NEUTRAL.md): geometry exists once, only the texts are locale maps (`unifyGeometry` is gone).
 - Font size in **% of slice width** rendered as `cqw` (`.slice { container-type: inline-size }`) → lettering scales
   exactly like the art at any column width (≤ 500px).
 - It is comic lettering, not UI chrome: the UI tokens above do not apply, except `ink`/`paper` as default colors.
@@ -450,7 +538,7 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 
 ### Onomatopoeia = a text box (owner 2026-10-03, option B; legacy removed the same day)
 
-A `showOnomatopeia` event reveals a text box: `params` = `{ dialog, effect?, duration?, delay?, mode?, wait? }`,
+A `showTextBox` event reveals a text box: `params` = `{ dialog, effect?, duration?, delay?, mode?, wait? }`,
 `dialog` (required – an event without it is a validation error and shows nothing) = the id of a text box on its slice
 (slice events) or on one of the group's slices (a group script). The box is hidden until the event fires, then appears
 with the event's `effect` / `delay` / `duration` (`@scutoons/reader` `src/effects`, filling the box) and **stays**;
@@ -458,8 +546,19 @@ with the event's `effect` / `delay` / `duration` (`@scutoons/reader` `src/effect
 time. The box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing.
 `stay` (default true): after its effect the box stays, or – `false`, "the box disappears again" – is hidden again after
 `delay` + `duration`. A placed item's tap events may reveal boxes on its slice too (hidden in advance like the others).
-Creator: the event's "Text box" select (the slice's / group's boxes) or "Create a text box for this" (a lettering box,
-white, ink outline, uppercase, "BAM"); the canvas marks a revealed box "hidden until ⚡ n" / "script n".
+Creator: the event's "Text box" field is one select "choose or create new" (owner 2026-10-06): the slice's boxes (a
+group script: the group's slices' boxes, "Slice n · …") labelled by the start of their text in the header's text language
+(never the id; the same text twice gets "(2)"), last "+ New text box" (slice and placed-item events) – a lettering box
+in the middle of the slice (the onomatopoeia preset: white, ink outline, uppercase; text "Text" in the source language),
+revealed by the event, selected on the canvas with its text field focused. The event line names its box by the same
+label. The canvas marks a revealed box "hidden until ⚡ n" / "script n".
+
+Naming (owner 2026-10-06): the event is `showTextBox` (was the misspelt `showOnomatopeia`, no alias; stored versions
+rewritten by migration `2026-10-06-show-text-box`), its params `ShowTextBoxParams`, its effect `TextBoxEffect`; in the
+viewer `showTextBox`, `activeTextBoxes`, `ActiveTextBox` (@scutoons/reader), `text-box-wait`; in the creator
+`event-show-text-box`, the reveal presets (`REVEAL_PRESETS`, messages `creator.reveal_*`). "Onomatopoeia" remains only
+for the look – the text preset `onomatopoeia` (lettering, outline) and the style guide; there is no slice-level
+onomatopoeia field (the old one was dropped 2026-10-03).
 
 - Overflow guard: if translated text exceeds the box, shrink font down to 80% via a `fit` pass
   (ResizeObserver), then allow overflow; the exporter report lists boxes where `en` is > 130% of `de` length.
@@ -520,24 +619,89 @@ Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route cru
 crumbs + `sidebar` + `fill` registered by a page with `usePageNav`), root layout = `AppShell` with the top bar and
 sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every ActionBar.
 
+### Creator wording (owner 2026-10-06)
+
+Short, plain, no marketing, no exclamation marks; de and en say the same. Messages: `creator/messages/{de,en}.json`
+(paraglide, keys `creator.*`); no user-facing text hard-coded in `creator/src` (field labels included – a label is a
+word, never a data path; technical detail at most in the label's `title`). One term per concept:
+
+| de | en | means |
+|---|---|---|
+| Toon | toon | a series; its settings page = **Toon-Einstellungen / toon settings** (the toon entry: languages, texts per language, tile, map) |
+| Staffel | season | |
+| Kapitel | chapter | |
+| Gruppe | group | a part of a chapter (its slices, layout, VN script); one stored on its own is still a group in the UI ("Gruppe scene-14") |
+| Szene | scene | only the screenplay's scene (script, map unlock) |
+| der Slice | slice | |
+| Textbox | text box | the inspector tab says "Textboxen / Text boxes" (owner 2026-10-06; the count a small trailing number) |
+| Vorlage | preset | a text box's preset (Erzählung, Rede …) – never "Look" (that is a character's) |
+| Gegenstand | item | catalog items, also "Verwandte Gegenstände" |
+| Event | event | slice and VN events; **VN-Skript / VN script** = a group's events |
+| Drehbuch | script | the screenplay page |
+| Figur, Besetzung, Stimmung | character, cast, mood | |
+| Entwurf / Entwurf speichern | draft / save draft | |
+| veröffentlichen / zurückziehen | publish / unpublish | status words: veröffentlicht, Entwurf, demnächst / published, draft, coming soon |
+| Version | version | (never "Fassung") |
+| Sprache, Quellsprache, Übersetzung, pro Sprache | language, source language, translation, per language | "Für alle Sprachen gleich" / "The same in every language" |
+| der Reader / Leser:innen | the reader / readers | the app vs the people |
+| Gewünschte Bilder | wanted images | |
+
+Never in the UI: file names or paths of documents (`chapter2.json`, `<toon>/<l>/…`), "store", "per-locale document",
+overrides per language – a chapter, group, season or the toon settings is one thing with its texts per language
+(agents/NEUTRAL.md). Real files stay files: images, audio, video on the CDN. A bool select reads "ja / nein" with the
+default in brackets ("(nein)"); a select's default likewise ("(Links)").
+
+### Empty states (owner rule 2026-10-06) – creator, admin, embassy; the reader in spirit
+
+> "No-content warnings should be reviewed app-wide and standardized, also a rule when to bring them. Unless really
+> necessary it makes no sense to waste space."
+
+- **An empty list shows nothing** – its add button (or add select, search field, filter) is enough. No "No items yet.",
+  "Nobody found.", "No problems." (the counts already say 0), no "Nothing matches." under a search.
+- **An empty-state text only when ALL hold:** (1) the page / main area would otherwise be completely blank with nothing
+  to act on, (2) the reason isn't obvious, (3) it says what to do (or what happens next).
+- **Never** in tabs, inspectors, side panels, pickers / dropdowns, or lists that have an add button. A heading whose
+  section is empty and read-only goes with it (hide the section, not explain it).
+- **Never framed** (no dashed box, no warning colour): one muted line in the flow – `<p class="sc-empty">` (tools.css,
+  the one shared style); buttons that act on it follow below. `DataTable` and the command palette have no empty text.
+- Kept (2026-10-06 sweep): creator – "Select a slice on the left." (chapter main area), "Pick a character on the left, or
+  create a new one." (characters main area), the script's "No {locale} script yet …" (+ its start buttons), the cover's
+  "No square image yet – choose it under Art." and "This season doesn't exist yet – create it on the toon page", the
+  convert page's "nothing to convert", the Ask panel's intro (its only content, says what to ask); admin – the asset
+  library's "No assets – run Rescan …", the Ask intro.
+- The reader is another audience: there a text is justified more often (an empty inventory, "No places discovered
+  yet – keep reading …", "No shop carries … yet" + buy online, nothing to wear for a slot) – the same test, read with a
+  reader in mind; the reader keeps its own look (no tools.css).
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
+- **One language at a time** (owner 2026-10-06: no "all side by side", no "each field in its source" mode any more):
+  every translatable field shows exactly the chosen language; the default is the source language – the toon's, or the
+  platform's `de` on pages without a toon (characters, moods, roles, map names).
 - **The switch** sits in the top bar, left of the search: a compact frame like the compact palette trigger – Feather
-  `globe` + the current choice ("ALL", "DE", "KO"; inverted while a language is chosen), a native select invisibly over
-  it (its own list: "All" + the toon's languages, the source marked "· source"). Tooltip / accessible name: "i18n:
-  Content language of the translatable fields … – not the interface language". The UI language stays in the Ctrl K
-  palette (with sign out). Offered: a toon page → the toon's languages (source first); the universe pages → every
-  language of every toon; hidden with one language. Remembered per browser (`localStorage`
-  `scutoons_creator_text_language`, try/catch), default **All** = every language side by side (as before); a language
-  the current toon doesn't have shows All.
-- **One language chosen:** every translatable field shows only that language (one column). Not the source → **translate
-  mode**: under the field one muted caption line "Original (DE): <source text>" + a small text link "Copy original"
-  (writes the source into the field; on touch the link gets the 44 px target on its own line).
-- Where: `LocaleText` (per-locale files: titles, descriptions, text boxes, VN messages / choices / onomatopoeia) and
+  `globe` + the current code ("DE", "KO") + the source mark (★, below) when it is the source; inverted while a
+  translation is shown. A native select invisibly over it (its own list: the toon's languages, the source marked "★" –
+  a native option holds only text). Tooltip / accessible name: "i18n: Content language of the translatable fields … –
+  not the interface language". The UI language stays in the Ctrl K palette (with sign out). Offered: a toon page → the
+  toon's languages (source first); the universe pages → every language of every toon (`de` first); hidden with one
+  language. Remembered per browser (`localStorage` `scutoons_creator_text_language` = a language code, try/catch;
+  nothing stored = the source; an old stored "all" / "source" reads as the source); a language the current toon
+  doesn't have shows the source.
+- **The source mark** (owner 2026-10-06): the Feather `star` (the toon page's "make source" star) right after the
+  language code it marks – `source-mark.svelte`, 0.9em, `title` "Quellsprache / Source language" – everywhere the
+  source language is marked: the switch, field labels (LocaleText, LocaleMapField), status per language, the
+  translate hint, cover previews and own-text fields, chapter badges, the character's language list; "★" where only
+  text fits (native options, the publish dialog's language list). Never "· source" / "(source)" words.
+- **A translation shown → translate mode**: under the field one muted caption line "DE ★: <source text>" + a small
+  text link "Copy original" (writes the source into the field; on touch the link gets the 44 px target on its own line).
+- Where: `LocaleText` (the texts of a chapter, group, season or the toon settings: titles, descriptions, text boxes, VN messages / choices) and
   `LocaleMapField` (`{ <locale>: text }` values: characters, moods, cast roles, credits, map names) – the two shared
   field components (`creator/src/lib/editor/text-language.svelte.ts` + `components/text-original.svelte`). The chapter
-  canvas shows the chosen language, the script page opens / switches to it, the cover preview shows only it.
+  canvas, strip preview and inspector show the chosen language (a problem in another language switches the header to
+  it), the script page opens / switches to it, the cover editor (canvas, own text, "as readers see it") shows only it.
+  Per-language status (chapter meta panel, toon settings): the chosen language's only. Tooltips may still list the
+  other languages' texts (`otherTexts`).
 - **Chapter lists** (toon page, season editor + its sidebar; owner 2026-10-02 "no spreadsheet vibe", "only show badges
   when something is up"): a plain list, no header row – number (muted), the title in the chosen language (else the
   source; a missing translation shows the source's title muted), the whole row a link; the other languages' titles in
@@ -545,7 +709,38 @@ Translators switch back and forth to copy, adapt and review originals, and there
   visibility draft / coming soon (season sequence), "Not published" (info), "not saved" (warning), "Missing" (error),
   "· ko" when only some languages are concerned. Everything published: nothing.
 - **Header on phones** (< 480 px): only the current crumb (truncated), the i18n control and the search icon.
-- Language-neutral fields (`SharedField`: numbers, dates, paths with per-language overrides) don't follow the switch.
+- Language-neutral fields (`PropField`, media slots: the same in every language) don't follow the switch.
+
+### Expressions in text fields (owner 2026-10-06, agents/EXPRESSIONS.md step 4)
+
+One field for every text that can hold `{…}` (`fields/expr-text.svelte` via `LocaleText expressions`): text box text,
+VN message, choice label, askText question, and the "Only if" expression (expression mode: the whole value is code).
+askText's placeholder / default stay plain fields (the reader shows them as written). The stored value stays plain text.
+- **Chips**: a top-level `{…}` (closed) is drawn as a chip – the code on the cyan tint with a thin cyan ring, rounded.
+  Click = the builder; double-click / long-press = edit in place (plain until the caret leaves it, Escape, blur or its
+  `}`); Backspace / Delete next to it removes it whole; ←/→ step over it; a selection grows to whole chips; copy /
+  paste is plain text. The chip's tooltip (`title`) says what it does ("if coins >= 3: rich | else: poor – click:
+  builder · double-click: edit").
+- **Problems**: a wavy underline – `--state-error` for errors (syntax: saving is refused), `--state-warning` for doubts
+  (unknown names / functions / arguments; saving works) – on the whole chip, or on the exact range outside chips / while
+  editing in place; the tooltip = the problem in the creator's language with its place and the suggestion ("unknown
+  name `map.totl` – did you mean `map.total`? – at 2–9"). They settle 300 ms after typing. The browser's spell check is
+  off while a text has chips. The Problems panel words them the same way; a row selects the range in its field.
+- **Builder** (in-page popover at the caret / chip, `fields/expr-builder.svelte`): What = Value · If … else · Per visit
+  · Code (a Segmented, the long words as titles); the value is one search over the toon's story variables, the reader
+  state (grouped by namespace, with descriptions) and the functions (description + example; a function picked after a
+  value wraps it: `clock(time)`); then an operator with a second value, the then / else texts (the field's language) or
+  the list's items; a live preview "Preview as" new guest / halfway / everything collected, and the code (muted, mono).
+  Escape closes, Enter applies. A chip the builder can't show (shuffle once, nested constructs) opens as Code.
+- **Opening it** – no extra button (less UI): typing `{` shows a small "Enter = builder" at the caret (Enter opens it
+  there, typing on writes the code); Ctrl+Enter opens it anywhere in a field (on the chip next to the caret, else a new
+  one); in a condition plain Enter.
+- **Canvas**: a slice whose text boxes hold `{…}` gets one small select in the canvas toolbar – as written / new guest
+  (default) / halfway / everything collected (the same choice as the builder's preview).
+- **Technique** (robust + accessible over pretty): a real `<textarea>` with transparent text (caret, selection, IME,
+  undo, paste, labels, screen readers stay native) over a mirror that draws the text with chips and underlines, plus a
+  transparent hit layer on top for the chips' / ranges' clicks and tooltips. So a chip shows its code (the same glyphs),
+  not a summary – the summary is its tooltip. The field's own edits go through `insertText` (Ctrl+Z works).
 
 ### Creator: script page (owner 2026-10-01)
 
@@ -555,8 +750,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
   = row n, horizontal scroll instead of wrapping), spellcheck off, as wide as the content column, `tab-size: 4`. Tab
   inserts 4 spaces (the format counts spaces), Shift+Tab removes up to 4 leading spaces, **Esc then Tab** leaves the
   text (keyboard users); edits go through the browser's own command so Ctrl+Z inside the text works.
-- **Language switch** above the text: one button per toon language, the source marked "· Quelle"/"· source", "•" when
-  unsaved. A missing translation shows "Start empty" / "Copy the de script" (no "create locale" bars: the page's
+- **Language**: the top bar's i18n switch (the only language switch; one script at a time, `?lang=` opens one). A missing translation shows "Start empty" / "Copy the de script" (no "create locale" bars: the page's
   MetaPage has `translationsOptional`). A toon without a script opens with an empty, clean (not dirty) source text.
 - **Title page**: a collapsed block with the 6 meta fields (per language, text).
 - **Bottom bar**: the normal MetaPage ActionBar (Save draft, Publish, History with restore, undo/redo, problems, note).
@@ -576,8 +770,8 @@ Translators switch back and forth to copy, adapt and review originals, and there
 "Creator / <toon> / Season n / Cover", Ctrl K "Season n · Cover"; the season editor's "Cover" section shows a thumbnail,
 the state ("Lettering: Off / Default / Own layout"); the cover preview is the link into the editor (see "Creator: season
 page"). The toon settings have no cover.
-- **Toolbar:** "Lettering" segmented Off · Default · Own layout; "Preview language" one segment per toon language (follows
-  the top bar's i18n choice when it is a language). The hint line under it says what the mode does.
+- **Toolbar:** "Lettering" segmented Off · Default · Own layout (the preview language is the top bar's i18n choice – no
+  own switch). The hint line under it says what the mode does.
 - **Canvas** (left, the art as big as the screen height allows, ≤ 36rem): the reader's own `CoverArt` with editing boxes on
   top in the same geometry (dashed white / ink frame; selected = cyan frame, the live-selection colour). Drag a box to
   move it (snaps to the vertical centre ±1.5 %, a cyan guide; Alt = free); the selected box has three handles: side =
@@ -586,12 +780,13 @@ page"). The toon settings have no cover.
   an own layout (the default's lines copied first). Undo / redo / autosave / Save draft / Publish = the MetaPage bar.
 - **Inspector** (right): first the **Art (text-free)** slot – `cover.square` as a media slot (`media-slot.svelte`: the
   preview is the button that opens the asset picker, uploads go to `<toon>/s<n>/`, the path only as the tooltip, × clears),
-  once for every language, written to every locale's season document like the lettering; then (lettering on) the "Lines" list (source label + the text in the preview language, the selected row inverted),
+  once for every language, stored once in the language-neutral season document like the lettering; then (lettering on) the "Lines" list (source label + the text in the preview language, the selected row inverted),
   "Add line" (an own text at 60 %), then the selected line: Text (Toon title / Season title / Own text; own text = one
-  field per language, following the i18n switch), "In quotes", X / Y / Size / Width / Angle / Skew (number fields, two per
+  field, in the i18n switch's language), "In quotes", X / Y / Size / Width / Angle / Skew (number fields, two per
   row), Align (Feather align-left / center / right, segmented), Fill / Outline (palette selects with a swatch), up / down /
   Remove.
-- **As readers see it:** every toon language side by side (14rem each) – the check for long translations.
+- **As readers see it:** the chosen text language only (owner 2026-10-06; 14rem) – switch the header's language to check
+  long translations one by one.
 - Square only (the reader shows no portrait cover). Tools rules: regular weight, rem sizes, `--control-height` controls,
   Feather icons, tooltips via `title`; the lettering itself is comic lettering (cqw, exempt).
 - Check: `npm run check:creator-cover` (SCUTOONS_API / SCUTOONS_CREATOR / SCUTOONS_VIEWER / SCUTOONS_CDN for other ports;
@@ -683,8 +878,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   No `surface-*` greys and no tinted fills for structure or state: a state is the frame's colour + a thick left rule
   (0.5rem / 0.5em) in `state-error` / `state-warning` / cyan, the text stays ink. Unsaved = an inverted bar.
 - Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks).
-- Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection, per-locale overrides'
-  rule. Never for the current nav entry or a selected row.
+- Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection. Never for the current nav entry or a selected row.
 - **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **white text where it reaches
   4.5:1, else ink**; caption size, regular weight (status words in uppercase with `--tracking-label`; ids / codes keep
   their case). The colours (the owner's refined palette) live in one place, `shared/tokens/tokens.css`

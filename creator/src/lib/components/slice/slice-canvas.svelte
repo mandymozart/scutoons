@@ -17,6 +17,9 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
+	import { sampleResolver } from '$lib/editor/sample-readers.ts';
+	import type { TextExpressions } from '@scutoons/reader';
 	import { deltas, dialogScale, gridSteps, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
@@ -48,7 +51,14 @@
 		oncreate?: (tool: Tool, rect: Required<Rect>) => void;
 	} = $props();
 
-	const slice = $derived(doc.get(locale, slicePath) ?? doc.get(doc.primary, slicePath));
+	/** the slice as the reader shows it in `locale` (texts resolved – the editing below writes the document itself) */
+	const slice = $derived<any>(doc.resolvedSlice(slicePath, locale));
+	/** text boxes with `{…}` as the toolbar's sample reader sees them (agents/EXPRESSIONS.md step 4), or as written */
+	const expressions = $derived.by<TextExpressions | undefined>(() => {
+		const sample = exprContext.sample;
+		if (sample === 'written') return undefined;
+		return { resolver: (_text, lang) => sampleResolver(sample, lang ?? locale) };
+	});
 	const image = $derived(slice?.image ? replacedImages.src(asset(`${doc.toon}/${slice.image}`), `${doc.toon}/${slice.image}`) : '');
 	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
 	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);
@@ -64,16 +74,16 @@
 		rotation: number;
 		/** text boxes' uniform scale */
 		scale: number;
-		/** a text box an onomatopoeia event reveals: which one ("⚡ 2" on the slice, "script 3" in the group's script) */
+		/** a text box a showTextBox event reveals: which one ("⚡ 2" on the slice, "script 3" in the group's script) */
 		revealedBy?: string;
 	}
 
-	/** text box id → the onomatopoeia event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
+	/** text box id → the showTextBox event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
 	const revealers = $derived.by(() => {
 		const out = new Map<string, string>();
 		const add = (events: any, label: (i: number) => string) =>
 			(Array.isArray(events) ? events : []).forEach((e: any, i: number) => {
-				const ref = e?.type === 'showOnomatopeia' ? e?.params?.dialog : undefined;
+				const ref = e?.type === 'showTextBox' ? e?.params?.dialog : undefined;
 				if (typeof ref === 'string' && ref && !out.has(ref)) out.set(ref, label(i));
 			});
 		add(slice?.events, (i) => `⚡ ${i + 1}`);
@@ -427,7 +437,7 @@
 			<p class="image-error">Image not found: {slice?.image}</p>
 		{/if}
 		<SliceItems items={slice?.items} resolve={resolveItem} />
-		<Dialogs dialogs={slice?.dialog} lang={locale} />
+		<Dialogs dialogs={slice?.dialog} lang={locale} {expressions} />
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
@@ -464,7 +474,7 @@
 				>
 					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
-						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.ono_hidden_until']({ event: item.revealedBy })}</span>
+						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.reveal_hidden_until']({ event: item.revealedBy })}</span>
 					{/if}
 					{#if selected}
 						{#each handlesOf(item) as h}
@@ -599,7 +609,7 @@
 		pointer-events: none;
 		opacity: 0;
 	}
-	/* a text box an onomatopoeia event reveals: always marked, under the box */
+	/* a text box a showTextBox event reveals: always marked, under the box */
 	.tag.hidden-until {
 		bottom: auto;
 		top: 100%;

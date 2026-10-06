@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import type { Path } from '@scutoons/content';
+	import { linksToNext, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { ChapterView } from '$lib/editor/chapter-state.svelte.ts';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 	import { newGroup } from '$lib/editor/defaults.ts';
 	import SliceList from '$lib/components/chapter/slice-list.svelte';
+	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	/**
 	 * The chapter's children in the sidebar (COMPONENTS.md step 12): meta, audio, groups → the open group's slices
@@ -23,6 +24,7 @@
 		activeDoc,
 		groupPath,
 		chapterNumber,
+		markAt = () => null,
 		resolveGroup = (g) => g
 	}: {
 		view: ChapterView;
@@ -33,11 +35,15 @@
 		activeDoc: ContentDoc | null;
 		groupPath: Path;
 		chapterNumber: number;
+		/** the reachability mark at a chapter path (groups.g, groups.g.slices.s – @scutoons/content reach.ts) */
+		markAt?: (...path: (string | number)[]) => ReachMark;
 		/** a group as stored: a `ref` group's separate scene document (undefined while it loads), else the group itself */
 		resolveGroup?: (g: any) => any;
 	} = $props();
 	/** slices · VN of a group – a `ref` group's from its scene document (owner 2026-10-06: the count was missing there) */
 	const groupHint = (g: any) => (g ? `${g.slices?.length ?? 0}${g.events ? ' · VN' : ''}` : '');
+	/** linked groups (owner 2026-10-06): which groups flow into the next one on the reader's page (scenes resolved) */
+	const resolved = $derived(groups.map((g) => resolveGroup(g)));
 
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
@@ -55,7 +61,7 @@
 		const moving = dragging;
 		if (!moving?.length) return;
 		let map = new Map<number, number>();
-		chapter.structural((file) => {
+		chapter.edit((file) => {
 			if (!Array.isArray(file.groups)) return;
 			const result = moveMany(file.groups, moving, target);
 			map = result.map;
@@ -68,14 +74,14 @@
 	async function removeGroup(index: number) {
 		const g = groups[index];
 		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `group ${g?.label ?? g?.ref?.src ?? index + 1}` })))) return;
-		chapter.structural((file) => file.groups.splice(index, 1));
+		chapter.edit((file) => file.groups.splice(index, 1));
 		view.groupIndex = Math.max(0, index - 1);
 		view.section = 'meta';
 	}
 	/** one "Add group" (owner 2026-10-03: "Add separate scene" was a storage detail); new groups live in the chapter */
 	function addGroup() {
 		const label = `scene-${groups.length + 1}`;
-		chapter.structural((file) => file.groups.push(newGroup(label)));
+		chapter.edit((file) => file.groups.push(newGroup(label)));
 		view.selectGroup(groups.length - 1);
 	}
 </script>
@@ -123,8 +129,14 @@
 					data-nav-child={view.section === 'meta' || view.section === 'audio' ? '' : undefined}
 					data-testid="group-{gi}"
 				>
-					{groupName(g, gi)}
-					<span class="hint">{groupHint(resolveGroup(g))}</span>
+					<span class="name">{groupName(g, gi)}</span>
+					<ReachChip mark={markAt('groups', gi)} />
+					<span class="hint">
+						{#if linksToNext(resolved, gi)}
+							<span class="link" title={m['creator.group_linked']()} data-testid="group-linked-{gi}"><Icon name="link" size="0.875rem" label={m['creator.group_linked']()} /></span>
+						{/if}
+						{groupHint(resolved[gi])}
+					</span>
 				</button>
 				<span class="tools">
 					<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
@@ -133,7 +145,7 @@
 			{#if open}
 				{#if activeDoc && !activeDoc.loading}
 					<div class="slices" data-child-slices={view.section === 'group' ? '' : undefined}>
-						<SliceList doc={activeDoc} {groupPath} {chapterNumber} selected={view.section === 'slice' ? view.sliceIndex : -1} onselect={(i) => view.selectSlice(i)} />
+						<SliceList doc={activeDoc} {groupPath} {chapterNumber} markOf={(si) => markAt('groups', gi, 'slices', si)} selected={view.section === 'slice' ? view.sliceIndex : -1} onselect={(i) => view.selectSlice(i)} />
 					</div>
 				{:else}
 					<p class="hint pad">{m['creator.loading']()}</p>
@@ -178,6 +190,19 @@
 	}
 	.node .hint {
 		color: inherit;
+	}
+	.node .name {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		text-align: left;
+	}
+	/* the link mark of a group that continues into the next one */
+	.node .hint .link {
+		display: inline-flex;
+		vertical-align: -0.125rem;
+		margin-right: 0.25rem;
 	}
 	.group-row .tools {
 		display: none;

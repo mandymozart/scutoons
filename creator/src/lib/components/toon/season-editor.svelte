@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { coverLetteringOn, coverLines, entities, type Cover, type SeasonTrailer } from '@scutoons/content';
+	import { coverLetteringOn, coverLines, entities, previewText, type Cover, type SeasonTrailer } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
 	import { Icon } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -12,7 +12,6 @@
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
 	import PropField from '$lib/components/fields/prop-field.svelte';
-	import SharedField from '$lib/components/fields/shared-field.svelte';
 	import { MediaSlot, MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 	import SupportersField from '$lib/components/fields/supporters-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
@@ -20,12 +19,15 @@
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { page } from '$app/state';
+	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
 
 	/**
-	 * Season meta (the entity season:<toon>:<N>), cleaned up like the chapter page (owner 2026-10-03): title and
-	 * description (per language), release + authors, the media as slots (cover →
-	 * the cover editor, the trailer with its quality levels, the poster), related items, supporters. Everything but title
-	 * and description is the same in every language (written to every locale document; said once, in the hint).
+	 * Season meta (the entity season:<toon>:<N>, ONE language-neutral document – agents/NEUTRAL.md), cleaned up like the
+	 * chapter page (owner 2026-10-03): title, description and release per language (LocaleText, the header's text
+	 * language), everything else once – authors, the media as slots (cover → the cover editor, the trailer with its
+	 * quality levels, the poster), related items, supporters. A chapter's status per language is edited in its meta
+	 * panel (chapter editor); the sidebar shows it.
 	 * The season's number is its identity (the URL, the entity key) – not a field. The chapters and their visibility are in
 	 * the sidebar only (owner 2026-10-03: no second list on the page).
 	 */
@@ -43,10 +45,9 @@
 	// svelte-ignore state_referenced_locally
 	const place = `${toon}/s${number}/`;
 	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
-	const titleLocale = $derived(listLanguage(season.locales, season.primary));
-	/** documents whose `language` field is not their own language (a copy-paste slip): one warning, one fix */
-	const wrongLanguage = $derived(season.present.filter((l) => season.get(l, ['language']) !== l));
-	const chapterTitle = (n: number) => chapters[n]?.data?.[titleLocale]?.title || chapters[n]?.data?.[chapters[n].primary]?.title || fileLabel(entities.chapter(toon, n));
+	const titleLocale = $derived(listLanguage(season.textLanguages, season.textSource));
+	const chapterTitle = (n: number) =>
+		previewText(chapters[n]?.get(chapters[n].primary, ['title']), [titleLocale, season.textSource]) || fileLabel(entities.chapter(toon, n));
 
 	onMount(async () => {
 		await season.load();
@@ -66,7 +67,7 @@
 	 * (agents/ASSETS.md); without a loop and a poster the whole trailer goes (the hero then shows the cover).
 	 */
 	function writeTrailer(change: Partial<SeasonTrailer>, key: string) {
-		season.structural((file) => {
+		season.edit((file) => {
 			const next: Record<string, unknown> = { ...(file.trailer ?? {}), ...change };
 			for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
 			if (!next.loop && !next.poster) delete file.trailer;
@@ -83,9 +84,15 @@
 	}
 
 	// the season's children in the sidebar: its chapters with their status per language
-	usePageNav({ sidebar: chapterNav });
+	usePageNav({ sidebar: chapterNav, actions: flowToggle });
+	// the season's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it
+	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
 	const nav = getCreatorNav();
 </script>
+
+{#snippet flowToggle()}
+	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_season_open']()} aria-label={m['creator.flow_season_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{/snippet}
 
 {#snippet chapterNav()}
 	<p class="nav-head">{m['creator.chapters']()}</p>
@@ -106,27 +113,21 @@
 	help="season"
 	title={m['creator.season']({ number })}
 	docs={[season]}
-	companions={() => Object.values(chapters)}
-	beforeSave={() => syncChapters(chapters, season)}
+	companions={() => Object.values(chapters).filter((d) => !d.unconverted)}
+	beforeSave={() => syncChapters(chapters)}
+	bind:dockOpen={flowOpen}
 >
 	{#if season.present.length === 0}
 		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
 		<section class="block" data-testid="season-meta">
 			<h2>{m['creator.meta']()}</h2>
-			<LocaleText doc={season} path={['title']} label="title" multiline={false} />
-			<LocaleText doc={season} path={['description']} label="description" rows={6} />
-			{#if wrongLanguage.length}
-				<p class="warn" data-testid="season-language">
-					{m['creator.season_language_mismatch']({ locales: wrongLanguage.join(', ') })}
-					<button type="button" class="ghost" onclick={() => wrongLanguage.forEach((l) => season.setLocal(l, ['language'], l))}>{m['creator.season_language_fix']()}</button>
-				</p>
-			{/if}
+			<LocaleText doc={season} path={['title']} label={m['creator.field_title']()} multiline={false} />
+			<LocaleText doc={season} path={['description']} label={m['creator.field_description']()} rows={6} />
 			<div class="sc-fields" data-cols="2" data-align="start">
-				<PropField doc={season} path={['release']} label="release" type="date" />
-				<SharedField doc={season} path={['authors']} label="authors" kind="list" splittable={false} testid="season-authors" />
+				<LocaleText doc={season} path={['release']} label={m['creator.field_release']()} type="date" />
+				<PropField doc={season} path={['authors']} label={m['creator.field_authors']()} type="list" required testid="season-authors" />
 			</div>
-			{#if season.present.length > 1}<p class="hint">{m['creator.season_neutral_hint']()}</p>{/if}
 		</section>
 
 		<!-- media as slots (owner 2026-10-03, like the chapter page): the preview is the button, paths only as tooltips -->
@@ -145,7 +146,7 @@
 						data-testid="season-cover-editor"
 					>
 						{#if cover?.square}
-							<CoverArt src={asset(`${toon}/${cover.square}`)} lettering={cover.lettering} title={nav.toonName(toon)} subtitle={String(season.get(season.primary, ['title']) ?? '')} lang={season.primary} />
+							<CoverArt src={asset(`${toon}/${cover.square}`)} lettering={cover.lettering} title={nav.toonName(toon)} subtitle={previewText(season.get(season.primary, ['title']), [season.textSource])} lang={season.textSource} />
 						{:else}
 							<Icon name="plus" />
 						{/if}
@@ -186,6 +187,9 @@
 			<SupportersField doc={season} {toon} place="{place}supporters/" />
 		</section>
 	{/if}
+	{#snippet dock()}
+		<ToonFlowPanel {toon} season={number} onclose={() => (flowOpen = false)} />
+	{/snippet}
 </MetaPage>
 
 <style>
@@ -210,10 +214,6 @@
 		.sc-fields[data-cols] {
 			grid-template-columns: minmax(0, 1fr);
 		}
-	}
-	.warn {
-		margin: 0;
-		color: var(--warn);
 	}
 	.media {
 		display: flex;

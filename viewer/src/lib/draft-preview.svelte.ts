@@ -4,7 +4,8 @@ import { isItemListed, isItemPublic, Status } from '@scutoons/content';
  * Draft preview (owner 2026-10-03: "a flag for authorized creators to view chapters that are also in draft or coming
  * soon mode for debugging"). A per-device switch on the account page, offered to the role creator only. While it is on,
  * the library is read with `?draft=1` (the API checks the role: newest versions, no status gates) and the reader's own
- * gates let draft and coming-soon chapters (and draft toons) through. A banner says so on every page.
+ * gates let draft and coming-soon chapters (and draft toons) through. A small eye mark (top right, root layout) says so
+ * on every page – the switch itself is only on the account page.
  * In a dev build drafts are readable anyway (as before); coming-soon chapters still need the preview.
  * The creator's chapter editor links here with `?preview=draft` (owner 2026-10-04: no own preview in the creator): the
  * flag switches the preview on before the first load; the root layout takes it out of the address.

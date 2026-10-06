@@ -1,0 +1,561 @@
+{
+	"description": "conditional",
+	"resolver": {
+		"names": {
+			"coins": 3,
+			"one": 1,
+			"zero": 0,
+			"time": 330,
+			"name": "Pope",
+			"empty": "",
+			"yes": true,
+			"no": false,
+			"half": 2.5,
+			"five": "5",
+			"map.total": 12,
+			"map.unlocked": 10,
+			"map.here": "lake",
+			"reader.name": "mia",
+			"reader.signedIn": true,
+			"reader.language": "en",
+			"now.hour": 21,
+			"stats.testo": 7
+		},
+		"calls": {
+			"has(\"cucumber\")": true,
+			"has(\"onion\")": false,
+			"count_of(\"coin\")": 4,
+			"read_chapter(2)": true,
+			"read_chapter(3)": false,
+			"inventory.has(\"cucumber\")": true,
+			"inventory.count(\"coin\")": 4,
+			"resolved(\"ev-lake\")": true,
+			"count(\"ev-lake\")": 2,
+			"read.chapter(1)": true
+		},
+		"visits": {},
+		"seed": "reader-1:text-9",
+		"language": "en"
+	},
+	"knownNames": [
+		"coins",
+		"one",
+		"zero",
+		"time",
+		"name",
+		"empty",
+		"yes",
+		"no",
+		"half",
+		"five",
+		"missing"
+	],
+	"cases": [
+		{
+			"text": "{yes: Yes|No}",
+			"ast": "(if yes [\" Yes\"] [\"No\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "Yes",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{no: Yes|No}",
+			"ast": "(if no [\" Yes\"] [\"No\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "No",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins == 1: coin|coins}",
+			"ast": "(if (== coins 1) [\" coin\"] [\"coins\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "coins",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{one == 1: coin|coins}",
+			"ast": "(if (== one 1) [\" coin\"] [\"coins\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"one"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "coin",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "You have {coins} {coins == 1: coin|coins}.",
+			"ast": "\"You have \" (print coins) \" \" (if (== coins 1) [\" coin\"] [\"coins\"]) \".\"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "You have 3 coins.",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins > 2: rich}",
+			"ast": "(if (> coins 2) [\" rich\"] nil)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "rich",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins > 5: rich}",
+			"ast": "(if (> coins 5) [\" rich\"] nil)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{map.unlocked + 2 == map.total: Two more to go|Long way from home}",
+			"ast": "(if (== (+ map.unlocked 2) map.total) [\" Two more to go\"] [\"Long way from home\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"map",
+						"unlocked"
+					],
+					[
+						"map",
+						"total"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "Two more to go",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{missing: set|unset}",
+			"ast": "(if missing [\" set\"] [\"unset\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "unset",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{not missing: unset}",
+			"ast": "(if (! missing) [\" unset\"] nil)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "unset",
+			"runtime": [
+				"missing-value@5"
+			],
+			"visited": []
+		},
+		{
+			"text": "{zero: a|b}",
+			"ast": "(if zero [\" a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"zero"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{empty: a|b}",
+			"ast": "(if empty [\" a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"empty"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{name: a|b}",
+			"ast": "(if name [\" a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"name"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "a",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes:|empty then}",
+			"ast": "(if yes [] [\"empty then\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{no:then|}",
+			"ast": "(if no [\"then\"] [])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{has(\"cucumber\"): You smell of cucumber.}",
+			"ast": "(if (call has \"cucumber\") [\" You smell of cucumber.\"] nil)",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "has",
+						"literalArgs": [
+							"cucumber"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "You smell of cucumber.",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{has(\"onion\"): onion|no onion}",
+			"ast": "(if (call has \"onion\") [\" onion\"] [\"no onion\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "has",
+						"literalArgs": [
+							"onion"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "no onion",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{read_chapter(2) and not read_chapter(3): Remember the lake?|Welcome back.}",
+			"ast": "(if (&& (call read_chapter 2) (! (call read_chapter 3))) [\" Remember the lake?\"] [\"Welcome back.\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "read_chapter",
+						"literalArgs": [
+							2
+						]
+					},
+					{
+						"name": "read_chapter",
+						"literalArgs": [
+							3
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "Remember the lake?",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: a {coins} b|c}",
+			"ast": "(if yes [\" a \" (print coins) \" b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					],
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "a 3 b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: {no: x|y}|z}",
+			"ast": "(if yes [\" \" (if no [\" x\"] [\"y\"])] [\"z\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					],
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "y",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: a|b|c}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "conditional-too-many",
+					"severity": "error",
+					"start": 9,
+					"end": 10,
+					"message": "conditional text has one `|` at most: `{condition: then|else}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{time:clock}",
+			"ast": "(if time [\"clock\"] nil)",
+			"errors": [
+				{
+					"code": "old-clock-syntax",
+					"severity": "warning",
+					"start": 0,
+					"end": 12,
+					"message": "`{time:clock}` is the old form – write `{clock(time)}`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"time"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "clock",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins >= 3 && map.here == \"lake\": here}",
+			"ast": "(if (&& (>= coins 3) (== map.here \"lake\")) [\" here\"] nil)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					],
+					[
+						"map",
+						"here"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "here",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{http://example.com}",
+			"ast": "(if http [\"//example.com\"] nil)",
+			"errors": [
+				{
+					"code": "unknown-variable",
+					"severity": "warning",
+					"start": 1,
+					"end": 5,
+					"message": "unknown variable `http`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"http"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{coins:   spaced   |  else }",
+			"ast": "(if coins [\"   spaced   \"] [\"  else \"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "spaced",
+			"runtime": [],
+			"visited": []
+		}
+	]
+}

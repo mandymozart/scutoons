@@ -19,7 +19,7 @@
 	]);
 </script>
 
-<DataTable {columns} rows={items} rowKey={(t) => String(t.id)} emptyLabel={m['claims.history_empty']()} labels={tableLabels()}>
+<DataTable {columns} rows={items} rowKey={(t) => String(t.id)} labels={tableLabels()}>
 	{#snippet cell(t, column)}
 		{#if column.id === 'created_at'}{minute(t.created_at)}
 		{:else if column.id === 'kind'}<Badge tone="neutral">{transferKindLabel(t.kind)}</Badge>

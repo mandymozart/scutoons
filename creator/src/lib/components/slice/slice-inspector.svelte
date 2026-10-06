@@ -1,7 +1,8 @@
 <script lang="ts">
+	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import type { VariantMedia } from '@scutoons/media';
 	import { Icon, Tabs } from '@scutoons/ui';
-	import { scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
+	import { previewText, scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -48,7 +49,8 @@
 		onaddtext,
 		onadditem,
 		oncreatebox,
-		onremove
+		onremove,
+		eventMark
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
@@ -74,9 +76,11 @@
 		onmaptouch: () => void;
 		onaddtext: (preset: TextPreset) => void;
 		onadditem: (itemId: string) => void;
-		/** "Create a text box for this": an onomatopoeia event's box (`eventsPath` relative to the slice) */
+		/** "+ New text box": a showTextBox event's box (`eventsPath` relative to the slice) */
 		oncreatebox: (index: number, eventsPath?: Path) => void;
 		onremove: () => void;
+		/** the reachability mark of a slice event (never true, endless loop – @scutoons/content reach.ts) */
+		eventMark?: (index: number) => ReachMark;
 	} = $props();
 
 	const dialogs = $derived<any[]>(slice?.dialog ?? []);
@@ -100,21 +104,23 @@
 			{ id: 'text', icon: 'type', label: m['creator.text_boxes'](), count: dialogs.length, testid: 'tab-text' },
 			{ id: 'items', icon: 'box', label: m['creator.slice_items'](), count: items.length, testid: 'tab-items' },
 			{ id: 'audio', icon: 'music', label: m['creator.audio'](), testid: 'tab-audio' },
-			{ id: 'events', icon: 'zap', label: 'Events', count: slice?.events?.length ?? 0, testid: 'tab-events' },
+			{ id: 'events', icon: 'zap', label: m['creator.events'](), count: slice?.events?.length ?? 0, testid: 'tab-events' },
 			{ id: 'slice', icon: 'image', label: m['creator.slice_tab'](), testid: 'tab-background' }
 		]}
 	/>
 
 	{#if view.inspectorTab === 'text'}
+		{#if dialogs.length}
 		<ul class="boxes">
 			{#each dialogs as d, di (di)}
 				<li>
 					<button class="ghost" class:active={selection?.kind === 'dialog' && selection.index === di} onclick={() => view.select({ kind: 'dialog', index: di })} data-testid="dialog-{di}">
-						<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{presetLabel(d)}</span> {String(Array.isArray(d.text) ? d.text[0] : d.text).slice(0, 40)}
+						<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{presetLabel(d)}</span> {previewText(d.text, [locale, doc.textSource]).slice(0, 40)}
 					</button>
 				</li>
 			{/each}
 		</ul>
+		{/if}
 		<button class="secondary" class:active={view.pickingPreset} aria-expanded={view.pickingPreset} onclick={() => (view.pickingPreset = !view.pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
 		{#if view.pickingPreset}
 			<TextPresetPicker
@@ -129,6 +135,7 @@
 			<DialogInspector {doc} path={[...slicePath, 'dialog', selection.index]} {onremove} />
 		{/if}
 	{:else if view.inspectorTab === 'items'}
+		{#if items.length}
 		<ul class="boxes">
 			{#each items as it, ii (ii)}
 				<li>
@@ -136,10 +143,9 @@
 						<span>{itemName(itemCatalog.catalog?.items.find((x) => x.id === it?.item), it?.item ?? '?')}</span> <span class="hint">{it?.action === 'pickup' ? m['creator.slice_item_action_pickup']() : it?.action === 'events' ? m['creator.slice_item_action_events']() : ''}</span>
 					</button>
 				</li>
-			{:else}
-				<li class="hint">{m['creator.slice_items_empty']()}</li>
 			{/each}
 		</ul>
+		{/if}
 		<button type="button" class="secondary" onclick={() => view.pickItem()} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
 		<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => onadditem(item.id)} />
 		{#if selection?.kind === 'item' && items[selection.index]}
@@ -149,7 +155,7 @@
 				path={[...slicePath, 'items', selection.index]}
 				{characters}
 				{choices}
-				dialogs={boxChoices([slice])}
+				dialogs={boxChoices([slice], [locale, doc.textSource])}
 				oncreatebox={(i) => selection && oncreatebox(i, ['items', selection.index, 'events'])}
 				{onremove}
 			/>
@@ -182,8 +188,9 @@
 			{groupLabels}
 			{characters}
 			{choices}
-			dialogs={boxChoices([slice])}
+			dialogs={boxChoices([slice], [locale, doc.textSource])}
 			oncreatebox={(i) => oncreatebox(i)}
+			markOf={eventMark}
 			selected={selection?.kind === 'event' ? selection.index : -1}
 			onselect={(i) => (view.selection = { kind: 'event', index: i })}
 		/>

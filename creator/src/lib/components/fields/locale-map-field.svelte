@@ -3,10 +3,12 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import TextOriginal from '$lib/components/fields/text-original.svelte';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
-	 * A `{ <locale>: text }` value (role label, song title, bio …): one input per toon language, missing ones flagged –
-	 * or only the creator's chosen text language, a translation with the source as a muted line under it (text-language.svelte.ts).
+	 * A `{ <locale>: text }` value (role label, song title, bio …) in ONE language: the creator's chosen text language
+	 * (text-language.svelte.ts; default the source, marked with the star), a missing text flagged, a translation with
+	 * the source as a muted line under it.
 	 */
 	let {
 		value,
@@ -41,12 +43,12 @@
 	}
 </script>
 
-<fieldset class="locale-map" class:single={shown.length === 1} data-testid={testid}>
+<fieldset class="locale-map" data-testid={testid}>
 	<legend>{label}</legend>
 	{#each shown as l (l)}
 		{@const missing = !value?.[l]?.trim() && (required || anyText)}
 		<label class:missing>
-			<span class="lang">{l}{#if missing}<span class="pill">{m['creator.missing']()}</span>{/if}</span>
+			<span class="lang">{l}{#if l === sourceLanguage}<SourceMark />{/if}{#if missing}<span class="pill">{m['creator.missing']()}</span>{/if}</span>
 			{#if multiline}
 				<textarea rows="3" value={value?.[l] ?? ''} oninput={(e) => set(l, e.currentTarget.value)}></textarea>
 			{:else}
@@ -65,13 +67,9 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+		grid-template-columns: minmax(0, 1fr);
 		gap: 0.25rem 0.5rem;
 		min-width: 0;
-	}
-	/* one language (or translate mode: the original above the field) = one column */
-	.locale-map.single {
-		grid-template-columns: minmax(0, 1fr);
 	}
 	legend {
 		font-size: var(--type-caption-size);

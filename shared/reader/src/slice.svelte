@@ -4,7 +4,7 @@
 	import { DEFAULT_SLICE, type Slice, type SliceItem } from '@scutoons/content';
 	import Dialogs from './dialog/dialogs.svelte';
 	import SliceItems, { type ResolveSliceItem } from './items/slice-items.svelte';
-	import type { DialogPlay } from './types.ts';
+	import type { DialogPlay, TextExpressions } from './types.ts';
 	import type { Dialog as DialogModel } from '@scutoons/content';
 	import SliceVideo from './slice-video.svelte';
 	import type { PlayerLabels } from './player-overlay.svelte';
@@ -40,6 +40,7 @@
 		onitemtap,
 		dialogHidden,
 		dialogPlay,
+		expressions,
 		blurred = false,
 		before,
 		children,
@@ -70,10 +71,12 @@
 		itemHidden?: (item: SliceItem) => boolean;
 		/** a tap on a placed item whose `action` isn't `none` */
 		onitemtap?: (item: SliceItem, index: number) => void;
-		/** a text box an onomatopoeia event reveals later (not drawn yet) */
+		/** a text box a showTextBox event reveals later (not drawn yet) */
 		dialogHidden?: (dialog: DialogModel) => boolean;
-		/** a text box being revealed by an onomatopoeia event right now */
+		/** a text box being revealed by a showTextBox event right now */
 		dialogPlay?: (dialog: DialogModel) => DialogPlay | null | undefined;
+		/** the reader's answers for `{…}` in the text boxes (none: the texts as written – the creator's previews) */
+		expressions?: TextExpressions;
 		/** draw the image blurred and leave a video unloaded (a sensitive slice the reader hides) */
 		blurred?: boolean;
 		before?: Snippet;
@@ -121,7 +124,7 @@
 		/>
 	{/if}
 	<SliceItems items={slice.items} resolve={itemInfo} hidden={itemHidden} ontap={onitemtap} />
-	<Dialogs dialogs={slice.dialog} {lang} hidden={dialogHidden} play={dialogPlay} />
+	<Dialogs dialogs={slice.dialog} {lang} hidden={dialogHidden} play={dialogPlay} {expressions} />
 	{@render children?.()}
 </div>
 

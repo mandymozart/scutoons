@@ -51,8 +51,6 @@
 			</div>
 			<button type="button" class="ghost" onclick={() => change((p) => { p.transitions?.splice(i, 1); if (!p.transitions?.length) delete p.transitions; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 		</div>
-	{:else}
-		<p class="hint">{m['creator.characters_no_transitions_short']()}</p>
 	{/each}
 	{#if lookIds.length > 1}
 		<button type="button" class="ghost" onclick={add} data-testid="add-transition"><Icon name="plus" /> {m['creator.characters_add_transition']()}</button>

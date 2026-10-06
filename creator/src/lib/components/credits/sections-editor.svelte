@@ -78,7 +78,7 @@
 				{/if}
 				<span class="spacer"></span>
 				<ReorderButtons index={i} count={sections.length} onmove={(from, to) => moveSection(from, to)} variant="ghost mini" labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
-				<button type="button" class="ghost mini" onclick={() => remove(i, section)} data-testid="remove-section">{m['creator.credits_remove']()}</button>
+				<button type="button" class="ghost mini" onclick={() => remove(i, section)} data-testid="remove-section">{m['creator.remove']()}</button>
 			</header>
 
 			{#if section.kind === 'song' || section.kind === 'performance'}

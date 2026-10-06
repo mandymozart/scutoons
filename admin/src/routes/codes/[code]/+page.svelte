@@ -209,7 +209,6 @@
 			columns={eventColumns}
 			rows={eventRows}
 			rowKey={(e) => e.key}
-			emptyLabel={m['codes.no_events']()}
 			caption={m['codes.timeline_caption']({ count: events.length })}
 			labels={tableLabels()}
 		>

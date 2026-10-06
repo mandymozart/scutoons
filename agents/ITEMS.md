@@ -1280,7 +1280,7 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   `events` = the placement's VN events run like a click trigger's (`EventProcessor`), `once` per page view by default.
 - Creator: slice inspector tab "Items": "Place an item …" / "Choose the item …" open the item drawer
   (`ItemPickerSheet`), x / y / width / rotation, "On tap" (nothing · pick up + pieces + respawn · run events with the VN
-  event editor, whose onomatopoeia events pick or create the text box they reveal). On the canvas: move, a round rotate
+  event editor, whose "show text box" events pick or create the text box they reveal). On the canvas: move, a round rotate
   handle above the box and a round scale handle off the bottom-right corner (width around the centre); the Snap toggle
   (grid 0.5 / 1 / 2.5 / 5 %, remembered per device) snaps moving, resizing, scaling and rotating (15°, Shift switches).
 - **Round 2 (2026-10-03, owner):**
@@ -1292,7 +1292,10 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   - A slight hint on tappable placed items (`action` ≠ none): a slow glow (3.2 s) – static with reduced motion.
 - **Respawn (round 3, owner 2026-10-03: "per item when they reappear, if they do … both: item, and an override within
   the range the item allows")** – `@scutoons/content` respawn.ts, server `Domain\Catalog\ItemRespawn`:
-  - Interval = `"visit"` (every visit / reload) or `{ minutes | hours | days: n }`.
+  - Interval = `"visit"` (every visit / reload) or `{ minutes | hours | days: n }` – the one recurrence model of items
+    and events since EXPRESSIONS.md step 3 (`@scutoons/content` recurrence.ts: `RecurrenceInterval`, `periodOf` – the
+    period buckets; respawn.ts keeps only the item rules). The creator's pickup select is the shared "Repeats" field
+    (item default · once for good = `"never"` · once per page view = `"visit"` · every n … within the range).
   - ITEM (catalog, `ItemDef.respawn`): `{ default, min?, max? }` – the default interval and the range a placement may
     choose (no `min` = the default is the shortest); none / null = it never reappears (a one-time find). Set in
     the catalog (was server config/items.json; cucumber 6 h and tuna can 12 h (1 h … 7 d), weed 12 h (1 h … 7 d), testo 1 d (6 h … 7 d), psilocybin and lsd 3 d (1 … 14 d), semaglutide 7 d (1 … 30 d); every other item: never – there is no onion item in the catalog yet) and
@@ -1308,4 +1311,10 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
     120 grants / hour stay authoritative. A client can't go below the item's minimum; it could choose any interval
     within the range (the server doesn't read the placement), which the range bounds.
   - The reader remembers the period (`picked:<slice image>#<id>` = the period key for timed intervals, in memory for
-    visits; 1 = taken for good when it never reappears). A visit = one stay on the page path; a reload starts a new one.
+    visits; 1 = taken for good when it never reappears). A visit = the page view (viewer `visual-novel/page-view.ts`: the
+    path + its `?label=`; a reload or coming back starts a new one) – the same page view as the events' "once per page
+    view". Pickups stay in these game variables (not in the history's `event:` keys): readers' saved states hold them
+    and the server's grant is the authority.
+  - A placement's **tap events** (`action: "events"`) run by `SliceItem.repeat` (EXPRESSIONS.md §5; replaces the boolean
+    `once` – migration 2026-10-06-repeat): none = every tap, `{ mode: "view" }` once per page view (what `once` meant),
+    `once` for good, `interval` every n …, decided from the reader's history `event:<id>` of its events.

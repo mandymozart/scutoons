@@ -72,15 +72,13 @@
 				onchanged?.();
 			}}
 		/>
-		<h3>{m['codes.latest_events']()}</h3>
 		{#if events.length}
+			<h3>{m['codes.latest_events']()}</h3>
 			<ol class="events">
 				{#each events as e, i (i)}
 					<li><span class="muted">{minute(e.created_at)}</span> {eventLabel(e.event)}{#if e.account} · {m['events.with_account']()}{/if}</li>
 				{/each}
 			</ol>
-		{:else}
-			<p class="muted">{m['codes.no_events']()}</p>
 		{/if}
 		<p class="muted">{m['codes.first_last']({ first: day(detail.stats.first_seen), last: day(detail.stats.last_seen) })}</p>
 	</div>

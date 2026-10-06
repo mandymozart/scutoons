@@ -1,230 +1,77 @@
-import type { Checkpoint } from '@scutoons/content';
-import { advanceCheckpoint, chapterCheckpointUri } from '@scutoons/content';
+import type { Checkpoint, ReaderHistory } from '@scutoons/content';
 import { setContext, getContext, onDestroy } from 'svelte';
-import { fetchProgress, putProgress } from '$lib/api.ts';
-import { getCurrentSession } from './session.svelte.ts';
+import { getWorldContext, type WorldContext } from './world.svelte.ts';
 
 const GAME_KEY = Symbol('game');
-const STORAGE_PREFIX = 'scutoons_game_';
-const SYNC_DEBOUNCE_MS = 2000;
 
-interface GameState {
-	toonId: string;
-	variables: Record<string, string | number>;
-	progress: Checkpoint[];
-	created_at: string;
-	updated_at: string;
+/**
+ * A toon page's view on the reader's ONE save game (contexts/world.svelte.ts, DATA.md "The save game", owner 2026-10-06:
+ * variables across all toons): story variables, the history and every toon's checkpoints are the save game's; this
+ * context only adds the toon of the page (`toonId` – checkpoint uris `<toon>/chapter/<n>`, jump urls). Every toon's shell
+ * (toon-shell.svelte) gets one, all of them on the same save game – a variable set in toptoy is the one catpope reads.
+ */
+interface GameView {
+	readonly toonId: string;
+	readonly variables: Record<string, string | number>;
+	/** every toon's checkpoints (filter by the uri's toon – progress.ts helpers do) */
+	readonly progress: Checkpoint[];
+	readonly history: ReaderHistory;
+	/** when the reader started SCUTOONS (reader.daysSinceStart, the seed of shuffles / random()) */
+	readonly created_at: string;
+	readonly updated_at: string;
 }
 
 export type GameContext = ReturnType<typeof createGameContext>;
 
 let _currentContext: GameContext | undefined;
 
-export function createGameContext(toonId: string) {
-	const storageKey = `${STORAGE_PREFIX}${toonId}`;
-
-	const state = $state<GameState>({
+export function createGameContext(toonId: string, world: WorldContext) {
+	const save = world.state;
+	const state: GameView = {
 		toonId,
-		variables: {},
-		progress: [],
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString()
-	});
-
-	function loadState() {
-		if (typeof localStorage === 'undefined') return;
-
-		const saved = localStorage.getItem(storageKey);
-		if (!saved) return;
-
-		try {
-			const parsed = JSON.parse(saved);
-			state.variables = parsed.variables || {};
-			state.progress = Array.isArray(parsed.progress) ? parsed.progress : [];
-			state.created_at = parsed.created_at || state.created_at;
-			state.updated_at = parsed.updated_at || state.updated_at;
-		} catch (error) {
-			console.error('Failed to load game state:', error);
+		get variables() {
+			return save.variables;
+		},
+		get progress() {
+			return save.progress;
+		},
+		get history() {
+			return save.history;
+		},
+		get created_at() {
+			return save.created_at;
+		},
+		get updated_at() {
+			return save.updated_at;
 		}
-	}
-
-	function saveState() {
-		if (typeof localStorage === 'undefined') return;
-
-		state.updated_at = new Date().toISOString();
-		localStorage.setItem(storageKey, JSON.stringify(state));
-		schedulePush();
-	}
-
-	// ---------- account progress sync (/progress/<toonId>/, last-write-wins by updated_at) ----------
-
-	let pushTimer: ReturnType<typeof setTimeout> | undefined;
-	let synced = false;
-
-	function snapshot() {
-		return $state.snapshot(state);
-	}
-
-	function schedulePush() {
-		if (!getCurrentSession()?.isLoggedIn) return;
-		clearTimeout(pushTimer);
-		pushTimer = setTimeout(push, SYNC_DEBOUNCE_MS);
-	}
-
-	/** API timestamps are ms since 1970 (numbers); older states may carry ISO strings. */
-	function toMillis(value: unknown): number {
-		if (typeof value === 'number') return value;
-		return Date.parse(String(value ?? '')) || 0;
-	}
-
-	function applyRemote(remoteState: any, remoteTime: number) {
-		state.variables = remoteState.variables || {};
-		state.progress = Array.isArray(remoteState.progress) ? remoteState.progress : [];
-		state.created_at = remoteState.created_at || state.created_at;
-		state.updated_at = new Date(remoteTime).toISOString();
-		localStorage.setItem(storageKey, JSON.stringify(state));
-	}
-
-	async function push() {
-		if (!getCurrentSession()?.isLoggedIn) return;
-		try {
-			const result = await putProgress(toonId, snapshot(), toMillis(state.updated_at));
-			// another device wrote a newer state in between -> take it (last write wins)
-			if (result?.status === 'stale' && result.state) applyRemote(result.state, toMillis(result.updated_at));
-		} catch (error) {
-			console.warn('Progress sync (push) failed:', error);
-		}
-	}
-
-	/** Pull once per login: newer server state replaces local, newer local state is pushed. */
-	async function sync() {
-		if (synced || !getCurrentSession()?.isLoggedIn) return;
-		synced = true;
-		try {
-			const remote = await fetchProgress(toonId).catch(() => null);
-			const remoteState = remote?.state;
-			const remoteTime = toMillis(remote?.updated_at ?? remoteState?.updated_at);
-			const localHasData = Object.keys(state.variables).length > 0 || state.progress.length > 0;
-			// a device that never saved anything always takes the account state
-			const localTime = localHasData ? toMillis(state.updated_at) : 0;
-
-			if (remoteState && remoteTime > localTime) {
-				applyRemote(remoteState, remoteTime);
-			} else if (localHasData && localTime > remoteTime) {
-				await push();
-			}
-		} catch (error) {
-			synced = false;
-			console.warn('Progress sync failed:', error);
-		}
-	}
-
-	const unsubscribe =
-		getCurrentSession()?.subscribe((event) => {
-			if (event === 'logout') {
-				synced = false;
-				clearTimeout(pushTimer);
-			} else {
-				sync();
-			}
-		}) ?? (() => {});
-
-	function getVariable(key: string): string | number | undefined {
-		return state.variables[key];
-	}
-
-	function setVariable(key: string, value: string | number): void {
-		state.variables[key] = value;
-		saveState();
-	}
-
-	function addVariable(key: string, amount: number): void {
-		const current = state.variables[key];
-		// a number written as text ("330", set from a choice or a setVariable) counts as that number
-		const currentNum = typeof current === 'number' ? current : Number.isFinite(Number(current)) && current !== '' ? Number(current) : 0;
-		state.variables[key] = currentNum + amount;
-		saveState();
-	}
-
-	function hasCheckpoint(uri: string) {
-		if (!Array.isArray(state.progress)) return false;
-		return state.progress.some((p) => p.uri === uri);
-	}
-
-	function addCheckpoint(uri: string) {
-		state.progress.push({
-			uri: uri,
-			isComplete: false,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString()
-		});
-		saveState();
-	}
-
-	function completeCheckpoint(uri: string) {
-		const checkpoint = state.progress.find((p) => p.uri === uri);
-		if (!checkpoint) return;
-		checkpoint.isComplete = true;
-		checkpoint.updated_at = new Date().toISOString();
-		saveState();
-	}
-
-	/**
-	 * Reading progress of a chapter (the toon page's start button, agents/DESIGN.md "Start button"): `position` = how far
-	 * (0..1, slices seen / the chapter's slices; 1 = its last slice was reached = finished); `fresh` = the first call of
-	 * this visit. Stored like every checkpoint: localStorage, and for a member `/api/progress/<toon>` (debounced).
-	 */
-	function readChapter(chapter: number, position: number, fresh: boolean) {
-		if (!Array.isArray(state.progress)) state.progress = [];
-		const uri = chapterCheckpointUri(toonId, chapter);
-		const index = state.progress.findIndex((p) => p.uri === uri);
-		const next = advanceCheckpoint(index >= 0 ? $state.snapshot(state.progress[index]) : undefined, uri, position, fresh, new Date().toISOString());
-		if (!next) return;
-		if (index >= 0) state.progress[index] = next;
-		else state.progress.push(next);
-		saveState();
-	}
-
-	function clear() {
-		if (typeof localStorage === 'undefined') return;
-		localStorage.removeItem(storageKey);
-		state.variables = {};
-		state.progress = [];
-	}
-
-	loadState();
-	sync();
-
-	function destroy() {
-		unsubscribe();
-		clearTimeout(pushTimer);
-	}
+	};
 
 	return {
 		get state() {
 			return state;
 		},
-		getVariable,
-		setVariable,
-		addVariable,
-		saveState,
-		loadState,
-		hasCheckpoint,
-		addCheckpoint,
-		completeCheckpoint,
-		readChapter,
-		clear,
-		sync,
-		destroy
+		getVariable: world.getVariable,
+		setVariable: world.setVariable,
+		addVariable: world.addVariable,
+		saveState: world.save,
+		hasCheckpoint: world.hasCheckpoint,
+		addCheckpoint: world.addCheckpoint,
+		completeCheckpoint: world.completeCheckpoint,
+		/** reading progress of a chapter of THIS toon (0..1, `fresh` = the first call of this visit) */
+		readChapter: (chapter: number, position: number, fresh: boolean) => world.readChapter(toonId, chapter, position, fresh),
+		visits: world.visits,
+		recordVisit: world.recordVisit,
+		sync: world.sync
 	};
 }
 
 export function setGameContext(toonId: string) {
-	const context = createGameContext(toonId);
+	const world = getWorldContext();
+	if (!world) throw new Error('the save game (world context) is set by the root layout');
+	const context = createGameContext(toonId, world);
 	setContext(GAME_KEY, context);
 	_currentContext = context;
 	onDestroy(() => {
-		context.destroy();
 		if (_currentContext === context) _currentContext = undefined;
 	});
 	return context;

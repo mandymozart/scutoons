@@ -61,7 +61,7 @@
 	function setImageMedia(next: VariantMedia) {
 		const image = next.variants?.low ?? next.src ?? '';
 		const extra = next.variants?.medium || next.variants?.high ? next.variants : undefined;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
 			s.image = image;
@@ -75,7 +75,7 @@
 	 * readers with "Hide sensitive content" on see the slice blurred and muted.
 	 */
 	function setSensitive(on: boolean) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
 			if (on) s.sensitive = true;
@@ -88,7 +88,7 @@
 
 	/** edits `video` of the shown slice (shared by every language) */
 	function editVideo(change: (v: any) => void, key: string) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const v = getAt(file, [...slicePath, 'video']);
 			if (v) change(v);
 		}, key);
@@ -130,7 +130,7 @@
 	const videoMedia = $derived<VariantMedia>({ src: video?.src || undefined, variants: video?.variants });
 	/** the optional video: a file makes the slice a video slice (the image its poster), clearing it removes the video */
 	function setVideoMedia(next: VariantMedia) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
 			if (!next.src) return void delete s.video;
@@ -217,12 +217,6 @@
 <div class="media" data-testid="slice-media">
 	<!-- the image always (a video's poster and fallback), a video optionally – not either / or (owner 2026-10-03) -->
 	<MediaVariantsSlot {toon} {place} kind="image" label={m['creator.media_image']()} value={imageMedia} onchange={setImageMedia} testid="slice-image" />
-	{#each doc.overrides([...slicePath, 'image']) as l}
-		<p class="hint">
-			{l}: {doc.get(l, [...slicePath, 'image'])} ({m['creator.override']()})
-			<button class="ghost" onclick={() => doc.resetOverride(l, [...slicePath, 'image'])}>{m['creator.use_shared']()}</button>
-		</p>
-	{/each}
 
 	<MediaVariantsSlot
 			{toon}
@@ -237,14 +231,14 @@
 	{#if video}
 		<div class="flags">
 			<label title={m['creator.video_player_hint']()}
-				><input type="checkbox" checked={video.player === true} onchange={(e) => setPlayer(e.currentTarget.checked)} data-testid="video-player" /> player</label
+				><input type="checkbox" checked={video.player === true} onchange={(e) => setPlayer(e.currentTarget.checked)} data-testid="video-player" /> {m['creator.video_flag_player']()}</label
 			>
 			{#if video.player !== true}
-				<label><input type="checkbox" checked={video.loop !== false} onchange={(e) => setFlag('loop', e.currentTarget.checked)} /> loop</label>
-				<label><input type="checkbox" checked={video.autoplay !== false} onchange={(e) => setFlag('autoplay', e.currentTarget.checked)} /> autoplay</label>
+				<label><input type="checkbox" checked={video.loop !== false} onchange={(e) => setFlag('loop', e.currentTarget.checked)} /> {m['creator.field_loop']()}</label>
+				<label><input type="checkbox" checked={video.autoplay !== false} onchange={(e) => setFlag('autoplay', e.currentTarget.checked)} /> {m['creator.video_flag_autoplay']()}</label>
 			{/if}
 			<label title={m['creator.video_controls_hint']()}
-				><input type="checkbox" checked={showsControls} onchange={(e) => setControls(e.currentTarget.checked)} data-testid="video-controls" /> controls</label
+				><input type="checkbox" checked={showsControls} onchange={(e) => setControls(e.currentTarget.checked)} data-testid="video-controls" /> {m['creator.video_flag_controls']()}</label
 			>
 		</div>
 

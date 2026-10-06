@@ -32,6 +32,13 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Commit ONLY on `main`, guarded: `[ "$(git branch --show-current)" = main ] && git commit …`. **Never push** – pushing
   `main` deploys; the owner pushes, or asks you to (owner 2026-10-05). Never add Claude attribution lines.
 - Deploy: the owner runs `git push origin main` (or asks an agent to).
+- Stored format changes (owner 2026-10-06): first analyse the existing data (dev DB = latest production dump), then a DB
+  migration (SQL, idempotent, a SELECT to check first; the owner runs it in phpMyAdmin) and the old form leaves the code –
+  no aliases. Only when a migration can't work (backwards compatibility): a code helper WITH creator feedback ("action
+  required" error or warning) – never a silent load-time conversion. Exception: data in readers' browsers (localStorage) – no
+  SQL reaches it, no author is involved: a one-time helper on load (e.g. the old per-toon game states → the save game).
+- One checkout, one dev DB `scutoons`, no worktrees / extra DBs / SQLite (owner 2026-10-06); agents one after another or
+  in at most two lanes with separate files, each committing only its own named paths.
 - The owner works in the shared browser pane: test in your OWN tab (`tabs_create`), never in theirs.
 - Give the owner steps one at a time; don't re-ask answered questions (e.g. "no upper-case certificates exist – ever").
 - Agents work on their own branch in a worktree; the coordinator reviews, merges into `main` (no push), runs the checks
@@ -54,8 +61,26 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
   one slot with resolution chips (default 720p → 480p → 1080p).
 - Show design drafts (on the real page, mobile + desktop) before building bigger UI.
+- Empty states (owner 2026-10-06): an empty list shows nothing – its add button is enough. A text only when ALL hold:
+  the page / main area would otherwise be completely blank with nothing to act on, the reason isn't obvious, and it says
+  what to do. Never in tabs, inspectors, side panels or lists with an add button; never framed – one muted line in the
+  flow (`.sc-empty`, tools.css). DESIGN.md "Empty states".
 
 ## Open owner decisions / loose ends
+- Production: run `2026-10-06-show-text-box.mysql.sql` with the deploy of `showTextBox` (CUTOVER 10.32 – the SELECT
+  first; old code can't read the new event type, new code not the old one).
+- Production: run `2026-10-06-clock-syntax.mysql.sql` with the deploy of expressions step 2 (CUTOVER 10.33 – the SELECT
+  first; `{x:clock}` → `{clock(x)}`, 0 rows in the dump).
+- Production: run `2026-10-06-repeat.mysql.sql` + `2026-10-06-display-name.mysql.sql` with the deploy of expressions
+  step 3 (CUTOVER 10.34 – the SELECTs first; trigger / item `once` → `repeat`, 81 versions in the dump). Event ids need
+  no migration: the creator assigns them, the next save of a chapter / scene stores them (a bar says so).
+- Production: run `2026-10-06-target-value.mysql.sql` (CUTOVER 10.35 – the SELECT first; numeric jump target values →
+  strings, 11 versions of scene-14 in the dump). Decide: the published scene-14 still has an unknown `end` event
+  (content:check reports it) – publish the scene's newest version or delete the event.
+- Production: run `2026-10-06-global-save-game.mysql.sql` with the deploy of viewer + API (CUTOVER 10.36 – the SELECTs
+  first: members with per-toon states, and the variable clashes – the newest toon's value wins). One save game for
+  every toon (DATA.md "The save game"); guests' old keys are taken in by the viewer on load (the stored-format rule's
+  exception: no SQL reaches a browser, no author involved).
 - Onions: no onion item in the catalog yet (needed before it can respawn). The onion camera (branch `items/onion-camera`,
   6 commits, checkout `C:\Development\scutoons-onion-camera`) waits until **February 2027** (owner 2026-10-05: no priority
   before); it predates the catalog in the database – its items.json changes go through the admin catalog then.

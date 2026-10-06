@@ -14,12 +14,12 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 
 | What | Where | Edited in |
 |---|---|---|
-| toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
-| language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) | DB entity `toon:<toon>` (the same entry) | creator (toon settings, "Same in every language") |
+| toon list entry (status, languages; the name = `title` per language, decision 4 of agents/NEUTRAL.md) | DB entity `toon:<toon>` | creator (toon page / toon settings) |
+| language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) + the toon's title / description / release / status per language (locale maps, agents/NEUTRAL.md step 4) | DB entity `toon:<toon>` (the same entry); legacy `toon-settings:<toon>:<l>` | creator (toon settings) |
 | toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
-| season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>:<l>` | creator (season page) |
-| chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>:<l>` | creator |
-| VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
+| season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>` (language-neutral, texts as locale maps); legacy `season:<toon>:<n>:<l>` | creator (season page) |
+| chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>` (language-neutral); legacy `chapter:<toon>:<n>:<l>` | creator |
+| VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>` (language-neutral); legacy `scene:<toon>:<chapter>:<name>:<l>` | creator |
 | the world map (places, routes, layers; names `{ de, en }`; unlock points) | DB `map` (platform-wide, language-neutral; agents/MAP.md §8) | creator (Universe → Map; a slice's "unlocks place" in the chapter editor) |
 | old per-toon map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` – read-only since `map`, removed from the seed after one release | – |
 | cast per season | DB `cast:<toon>` | creator (cast page) |
@@ -49,7 +49,8 @@ every read is "one entity (+ its children) of one toon in one locale"; compositi
 
 ```
 toon:<toon>                              index entry            toon-settings:<toon>:<l>      settings
-season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>
+season:<toon>:<n>                        chapter:<toon>:<n>      scene:<toon>:<chapter>:<name>   (language-neutral)
+season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>  (legacy per locale)
 locations:<toon>:<l>   routes:<toon>:<l>  cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
 characters   moods   asset-requests   people   roles   events   map    (platform-wide)
 ```
@@ -61,6 +62,26 @@ columns for filtering (NULL = platform-wide / language-neutral). A chapter group
 format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:scene-14` (`sceneEntityOfRef`,
 `EntityKey::sceneOf`). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
 endpoint and the season overview pass it through; the `/cast` answer always has the toon's star in every season.
+
+**Language-neutral chapters, scenes, seasons (2026-10-06, agents/NEUTRAL.md):** one document per entity, stored under
+the entity itself (`chapter:catpope:2`, `EntityKey::NEUTRAL_DOC_KINDS` / `NEUTRAL_DOC_KINDS`, `isNeutralDocKey`;
+`locale` column NULL). Structure once; every text leaf is a locale map – chapter `title` / `description` / `release`,
+text box `text` (`{ de: string | string[] }`), VN `showMessage.params.text` / `addChoice.params.label`, season `title` /
+`description` / `release` / `sequence[].status`. No `language`, no chapter `status`. Types `ChapterDoc` / `GroupDoc` /
+`SeasonDoc` (`neutral.ts`), schemas `chapter-doc` / `group-doc` / `season-doc` (the save guard picks them for a key
+without locale, `ContentSchemas::NEUTRAL_BY_KIND`). The per-locale keys stay valid (legacy) until production is
+converted; the library prefers a neutral document and falls back to them per entity (§3). The interchange layout puts
+neutral documents in `<toon>/_/chapter<N>.json`, `<toon>/_/chapter<N>/<scene>.json`, `<toon>/_/season<N>.json`.
+The creator edits only the neutral documents (phase 2A, 2026-10-06): one `ContentDoc` per chapter / scene / season
+(locale `_`, `texts` = the toon's languages), texts in the header's text language (`doc.text` / `doc.setText`); an
+entity without a neutral document is converted in memory on load (`neutralizeDocs`, a notice) and saved as the neutral
+key – the per-locale keys are never written again. Validation: `validateNeutral` (structure once + per-locale
+completeness); accepted per-locale warnings keep their locale in the key (`en:<place>#<hash>`). The owner converts a
+whole toon on `/<toon>/convert` (`planConversion`, shared with `npm run dev:neutralize`). Phase 2B (2026-10-06): season
+page, cover editor, new chapter / season flows, the MCP tools (`read_entity` / `save_draft` / `validate` on the neutral
+key, `validateNeutral`), the sandbox generator and the test fixtures are neutral too; a chapter's status per language is
+edited in its meta panel only (in the header's text language). A new language adds nothing but the language in the
+toon entry (texts missing → warnings); only the per-locale toon settings get a "create from the source".
 
 **Season downloads and supporters (2026-09-30, owner):** the music album belongs to its season: `Season.download
 { music?, complete? }` (was `Toon.download`, removed from the type/schema; a leftover `download` in toon settings is only
@@ -126,6 +147,18 @@ registry name, owner 2026-10-01) and its entry has the duo `avatar.webp`. Seed (
 `server/db/local.sqlite.bak-2026-10-01-landing`, `…-top-toy`), seed SQL: 6 toon-settings statements (2 changed, 4 new),
 `toon:toptoy` and `characters` (also in `characters-seed.mysql.sql`); unchanged statements keep their timestamps.
 
+**Since 2026-10-06 (agents/NEUTRAL.md step 4) the per-language part is in the entry too**: `title`, `description`,
+`release` as locale maps and `languageStatus` (the status per language; the entry's `status` stays the whole toon's);
+`toon-settings:<toon>:<l>` is legacy – the library reads it only while the entry has no `title` map, the creator edits
+the entry only (one document), `/library/toons?locale=` leaves out a toon closed in that language. **The name is `title`**
+(owner 2026-10-06, NEUTRAL.md decision 4): the old `i18n.<l>.name` is no longer stored (folded into `title` by the
+conversion; `ToonIndex.i18n` is `@deprecated`, read only from older entries); every list / menu / nav reads
+`toonName(entry, locale)` (`@scutoons/content`: `title` locale → source → any, else the old i18n name, else the id). The
+answered entries (`/library/toons`, the bundle's `entry`) carry `title` = the name in each toon language (resolved) and,
+**legacy for older viewer builds (drop later)**, `i18n.<l>.name` computed from it (`Library::indexEntry`, FORMAT 7); an
+entry without texts keeps its stored `i18n`. `toonLanguages()` / `Library::languages`: `languages` → `title` keys → old
+`i18n` keys. The paragraph below is the 2026-10-01 state.
+
 **Language-neutral toon settings in the toon entry (2026-10-01, owner):** "fields with no text are edited and stored per
 language, which is pointless". Every toon setting that is not text lives once in the index entry `toon:<toon>`
 (`TOON_NEUTRAL_FIELDS` in `@scutoons/content` = `Library::TOON_NEUTRAL_FIELDS`): `authors`, `chapters` (count),
@@ -176,11 +209,36 @@ rules as the editor's parser (which knows only the German terms; the English scr
   (published versions 482/483, backup `server/db/local.sqlite.bak-2026-10-01-script`). Other toons have none (the page
   starts empty).
 
-**Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
-in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API). The map's
-discoveries are one **world** state for every toon under the reserved id `scutoons` (`/api/progress/scutoons/`, localStorage
-`scutoons_game_scutoons`): its `map` (places, routes, positions) merges as sets on the server and in the viewer
-(`mergeMapState`), the rest is last-write-wins (agents/MAP.md §2.4, §8.2).
+**The save game** (owner 2026-10-06: "Variables are per save game … make them across all toons"): ONE state per reader
+for every toon, under the reserved id `scutoons` – guests localStorage `scutoons_game_scutoons`, members the relational
+`progress` table row `toon_id = 'scutoons'` via `/api/progress/scutoons/` (`@scutoons/content` save-game.ts, viewer
+`contexts/world.svelte.ts`; `contexts/game.svelte.ts` is only a toon page's view on it):
+`{ variables, progress, history, map, created_at, updated_at }`. Story variables are global – a variable set in toptoy
+is the one catpope reads (the mama story's `mama_tips`, EXAMPLES.md); reading progress stays keyed by toon inside it
+(checkpoint uris `<toon>/chapter/<n>`). Two states MERGE (`mergeSaveGame` in TS, `ProgressService::mergeSaveGame` on
+every PUT): the map as sets, checkpoints by uri (the later `updated_at`; finished once = finished), history entries per
+key (larger count, first first, last last; ≤ 1000, the longest-unseen go), `variables` the NEWER write's as a whole,
+`created_at` the earliest – a write can't remove a checkpoint or a history entry (dev checks restore the row through
+the database: `scripts/dev/save-game-row.mjs`). Before 2026-10-06 the game state was per toon (`scutoons_game_<toon>`,
+`/api/progress/<toon>/` – still answered for older viewer builds, last write wins, not read by the new viewer): the
+migration `2026-10-06-global-save-game` merged members' per-toon states into the save game (CUTOVER 10.36; a clash –
+the same variable in two toons – takes the newest state's value; the per-toon rows stay), guests' keys are taken in
+once on load by the viewer with the same rule and removed (`absorbToonStates` – no SQL reaches a browser and no author
+is involved, so no creator feedback: the HANDOVER rule's exception). Creator / flow: variable names are global – the
+flow index lists every name with the toons that set / read it (`variables`), `variablesElsewhere` feeds
+`toonFacts(…, { elsewhere })`: dead things (set here + read in another toon = used), "never true", the builder's names
+and unknown-name warnings judge all toons (TS `deadThings` and `FlowIndex.php` agree on the dev DB); a name that looks
+like another (`visits_harbor` / `visits_harbour`, `similarVariable`) warns.
+The fields: `variables` = the story variables, `progress` = the checkpoints, `history` =
+the reader's history (EXPRESSIONS.md §5, `@scutoons/content` history.ts: `key → { n, first, last }` (count, ms), keys
+`text:<toon>/<chapter>/<box/<id>/<line> | vn/<group>/<origin>/<event>>#<list>` – visits of `{a|b|c}` lists;
+`event:<event id>` – runs of slice triggers' and placed items' tap events (step 3: their repeat rules – recurrence.ts
+`isDue` –, `resolved(id)` / `count(id)`; group-script events are not recorded); at most 1000 entries, the
+longest-unseen go; missing in older states = empty);
+`created_at` = when the reader started SCUTOONS (`reader.daysSinceStart`, the seed of shuffles / `random()`). The
+reader's **name** (askText scope "reader", `{reader.name}`) is not in the save game: members `users.display_name` (≤ 32,
+plain, `PUT /me/ { display_name }`, migration 2026-10-06-display-name), guests localStorage `scutoons_reader_name`. The map's
+discoveries are the save game's `map` (places, routes, positions – `mergeMapState`, agents/MAP.md §2.4, §8.2).
 
 **The world map (2026-10-01, branch `map`, agents/MAP.md §8):** entity `map` (`WorldMap`: width, height, layers, places
 with `{ de, en }` names, toons, `hidden` + `unlock { toon, chapter, at, slice, scene }`, card `chapter`, image; routes with
@@ -213,6 +271,14 @@ locales differ; not a boolean = error). Readers with "Hide sensitive content" on
 (credits, referenced people, roles) · `/library/characters` (whole registry, avatar bodies) · `/library/map?locale=&toon=`
 (the world map, agents/MAP.md) · `/api/events/`.
 - Locale `?locale=`, per-document fallback to the source language (`Content-Language`, `X-Content-Fallback`).
+- Chapters, scenes, seasons (2026-10-06): a language-neutral document wins (`Context::pick` → `NeutralDoc::resolve`, the
+  same rules as `resolveNeutral` in `@scutoons/content`, golden fixtures `shared/content/test/fixtures/neutral/`); the
+  answer keeps the per-locale shape (`language` = served locale, a chapter's `status` = its season status in that
+  locale). Served locale: the asked one when the document has it (chapter / season: a `title` in it; scene: any text;
+  no text at all = every locale), else the source, else the toon's other languages; a text missing or blank in it falls
+  back the same way. Without a neutral document the per-locale ones are read as before. Mixed works both ways (neutral
+  chapter + per-locale scene and back). `Library::FORMAT` 5. `content:neutral-check` compares every answer with the
+  legacy one (`Library::legacyOnly()`).
 - Visibility on the server (the viewer's rules): `403 coming_soon { chapter }`, `403 not_public`, draft toon `404`;
   `CONTENT_SHOW_DRAFTS=1` locally. `?draft=1` (role creator) = newest versions, no gates, `private, no-store`.
 - `Cache-Control: public, max-age=60` + `ETag`/304; server cache (APCu, else `storage/cache/library/`) keyed by the
@@ -227,7 +293,8 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
   the schemas are generated from the TS types – `npm run schema -w @scutoons/content` writes shared/content/schema/ and
   the server's copy server/schema/content/, `npm run check` fails when either is stale) → `422 invalid_content
   { problems: ["/0/city: …"] }`. Extra fields are allowed; `locations` / `routes` (old map) are not checked.
-  `php bin/console content:check [--db] [--kind]` checks what is stored (newest + published per key). Restore and
+  `php bin/console content:check [--db] [--kind]` checks what is stored (newest + published per key; neutral
+  chapters / scenes / seasons against their neutral schemas). Restore and
   the seed import are not guarded. The first run fixed stale types (narration `showMessage` without `character`,
   `RefLink { src }`, optional audio trigger `rect`/`gate`/`exclusive`, `keyvisual` as a plain path).
 
@@ -239,8 +306,12 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
 - `php server/bin/console import-content <dir> [--toon=] [--only=<kinds>] [--update] [--sql]` – idempotent; `--sql`
   prints guarded INSERTs into `entity_versions` (dev-only `sandbox` left out).
 - `export-content <dir> [--toon] [--draft]` writes the store back into the layout (backup, diff).
+- `npm run dev:neutralize [-- --apply] [--toon x] [--json file]` (local dev only): per-locale chapters / scenes /
+  seasons → neutral documents with `neutralizeDocs` (report of what the source locale overrode); new versions only,
+  idempotent. Production converts from the creator's Convert page (NEUTRAL.md, phase 2).
 - The sandbox toon (dev only): `make-sandbox.ts` reads characters + moods from the local DB, writes `logs/dev/sandbox`
-  and imports it (`npm run dev:db sandbox`).
+  and imports it (`npm run dev:db sandbox`). Chapters, scenes and the season are language-neutral (`_/chapter<N>.json`
+  …; dialogue de + en, ko not translated → German); per-locale ones of earlier runs are deleted from the dev DB first.
 
 **Cutover on production (Oct 3, phpMyAdmin, in this order; history – the seed SQL and compare suite no longer exist)** – replaces the earlier `import-content <viewer/static/api>`
 step: (1) the pending migrations in file-name order, including `2026-09-30-content-versions` and then
@@ -336,6 +407,73 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   | chapter 1 | 2839 → **2672 ms** | 1036 → **896 ms** | 86 → 78 | 14 → **4** |
   | sandbox chapter 5 (VN) | 1008 → **862 ms** | 808 → **740 ms** | 67 → 61 | 13 → **4** |
 
+## Linked groups and a group's end (2026-10-06, owner)
+
+- **`Group.continues: true`** – the group flows straight into the next one on the same reader page, no follow-up bar
+  between. A **chain** = a maximal run of consecutive groups where all but the last continue (`chainOf`, `chainSlices`,
+  `linksToNext` in `@scutoons/content` chains.ts). `?label=` of any group of a chain shows the whole chain (scrolled to
+  that group); slice indices on the page run on across it.
+- **VN in linked groups** (owner 2026-10-06): any group of a chain may have a VN script and slice events. The cases:
+
+  | Case | Rule |
+  |---|---|
+  | several scripts (`events`) in one chain | allowed. They run ONE AFTER ANOTHER through the one VN context (viewer `script-queue.ts`, `interactions/vn-page.svelte`): a script asks to start when its group's first slice is seen and starts once no other script of the page runs and nothing waits for the reader (no message waiting for its click, no choice open, no slice trigger running) – else it waits in line. The stage carries over between the scripts of a page (authors use join / leave; validation checks each script on its own, a chain can be entered in the middle). A script's label (random jumps, choices) = its own group's. |
+  | when a script starts | a lone group (no chain): on mount (as before). In a chain – its first group too: when the group's first slice is seen; a group without slices: when the page slice before it is seen (at once when it is the page's first). |
+  | a script that can jump away (a `jumpTo` event, a choice whose `onSelect` jumps) in a group that `continues` | allowed (other scenes may jump back into the chain). Whatever follows a jump must be reachable by a label: the next group needs a `label` – a **warning** when it has none (`scriptJumps`); the creator reminds next to the script with a one-click "Give it a label". |
+  | slice events (triggers) | allowed in every group. A slice choice with jumpTo is the author's deliberate exit. |
+  | a slice event's `divert` | goes into its OWN group's script (the slice's group context, viewer `group-scope.ts`); validation: that script needs the `label` point (`checkScriptPoints`, per group). |
+  | text boxes revealed by scripts (`showTextBox params.dialog`) | kept per group on the page (`scope`: refs, revealed boxes, playing effects). Text box ids are unique within the chapter, its scenes included: the creator gives a new box an id no other box of the chapter has (ids stay hidden, never typed); validation **error** on a duplicate (safety net). |
+  | scrolling | frozen (no wheel / touch scroll) while anything waits: a message waiting for its click, a choice open, a script running or in line, a slice trigger running – until all of it is through (`vn.state.frozen`). Shown by a Feather `pause` mark directly below the logo (an indicator, not a button; tooltip "Scrolling paused – answer the message first"). Never a dead end (2026-10-06, EXPRESSIONS.md "Dead-end safety"): frozen only with something to answer on screen; slice-trigger runs take turns and always give a parked message back. |
+  | follow-up bar / `end` (`auto` too) | only when the chain's last slice was seen AND every script the page must run has finished (none in line, none waiting) and nothing is frozen (`vn.state.pageDone`). |
+  | `?label=` into the middle of a chain (option B) | the whole chain renders, scrolled to the labelled group (as before); scrolling back up works. The groups ABOVE the target count as read: their scripts don't run (they don't block or freeze), their slice triggers don't fire, their text boxes show as plain (revealed) content, the follow-up bar doesn't wait for them. The target group and those below run as normal. |
+  | a jump into the page the reader is on (same chain) | the page starts again (like "Nochmal"): another group of the chain = another arrival (`{#key}` on chain start + arrival group), the very same URL = a replay. |
+  | "↺ Nochmal" / leaving the page | a fresh page: every script of the chain again, the stage and revealed boxes cleared (`vn.claimPage`); leaving cancels the line and every script. |
+  | the VN box / characters overlay | one per page (vn-page.svelte), shared by all groups of the chain. |
+  | game variables, reading progress | unchanged (variables are SCUTOONS-wide – the one save game; progress counts slices across the chain). |
+  | the chapter's last group | can't continue (error; the creator doesn't offer it). |
+
+- **Reachability** (owner 2026-10-06, `@scutoons/content` reach.ts `chapterReach`): a graph over the chapter – groups,
+  slices, script events, slice-event runs and placed items' tap events, named points, diverts, jumps, choices,
+  conditions – walked with visited sets (iterative, O(nodes + edges), never runs a script; cycles are harmless). Every
+  group / slice / script event is *reachable*, *only through a condition* or *unreachable*. Entry points: the chapter's
+  first group, a labelled chain start the follow-up bar leads to (the chain before can finish, no authored `end`), and a
+  labelled group something in the toon refers to (`toonFacts`: any jump target, end, random list or map place in the
+  toon's documents; without the facts every labelled group counts). Scrolling past a group needs its script to finish
+  (the page is frozen meanwhile) and past a slice its scroll triggers' runs. A condition whose variable is set nowhere in
+  the toon (setVariable, a choice's set / add, a picked-up item) and that needs a value is *never true* – its branch
+  counts as never taken; a divert / question loop with no end and no jump is an *endless loop*. Validation warns
+  (`checkReach`: "unreachable", "never true", "endless loop"); the creator labels the items with a chip (chapter tree,
+  slice list, VN event lists – `reach-chip.svelte`, debounced, the toon's other documents loaded once) so the author can
+  find and delete them.
+- **`Group.end: { target: JumpToTarget, auto? }`** – where the reader goes after the chain's last group instead of the
+  next group / chapter (`nextStep` kind `jump`; the URL via the VN's `buildJumpToUrl`). `auto` = at once, else the
+  follow-up bar offers it with the countdown. Only read on a chain's last group.
+- Stored like `renderer.params.fullWidth`: on the group itself (a `ref` group's in its scene document); the creator writes
+  them to every language. Validation: `continues` on the chapter's last group = error; `end` on a group
+  that continues = warning (ignored); a chain that isn't the chapter's start without a label on its first group =
+  warning (unreachable); `end.target` is checked like a jumpTo target. The chapter check reads ref groups' scenes through
+  `ValidateContext.resolveGroup` (the creator passes its loaded scenes).
+- **Jumps into another toon at a label** (owner 2026-10-06, "at label"): `JumpToTarget = { type, value, toon?, label?,
+  anyOf? }` – `type: 'chapter'` + `toon` = a chapter of ANOTHER toon (`value` = its number, `label` / `anyOf` = its
+  groups); no `toon` = this toon; `type: 'toon'` stays the toon's page. Only optional field added – no migration (dev DB
+  = production dump: no stored target had a `toon`; the 5 `type: 'toon'` targets of the mama story became chapter
+  jumps as new drafts, EXAMPLES.md). Helpers `targetToon` / `intoOtherToon` (vn-script.ts).
+  - Viewer: `buildJumpToUrl` → `/<toon>/chapter/<n>?label=…`; `anyOf` ignores the current group there. The story
+    variables travel along (one save game for every toon since 2026-10-06, "The save game" above); each toon keeps its
+    own reader shell (toon-shell.svelte: VN, audio, sequence, cast).
+  - Reach / flow: a target into another toon is no entry point of the toon it is in (`toonFacts(docs, { toon })`); a
+    label another toon jumps to IS one of the target toon (`incomingJumps` over the server's flow index →
+    `toonFacts(…, { incoming })`, `ToonFlowInput.incoming` = chapters other toons jump into, entries like a visible map
+    place). Chapter / toon level: an exit `x:chapter:<toon>/<n>`; SCUTOONS level: a toon → toon edge.
+    `FlowIndex.php` keeps `toon` on edges and counts incoming labels in the dead things (the same rules; PHPUnit
+    `FlowIndexApiTest::testJumpsIntoAnotherToonsLabel`, TS `toon-jumps.test.ts`).
+  - Validation: `toon` only on chapter targets (error); `ValidateContext.targets` (`JumpTargets`: toons, a toon's
+    chapters, a chapter's labels – the creator's `JumpPlaces`, loaded on demand) → warnings for an unknown toon, a
+    missing chapter, a missing label, and another toon's labels the creator couldn't load ("can't check …").
+  - Creator: the target editor (`event-target.svelte`) – type; for a chapter "In toon" (this toon / the others), the
+    chapter as a select of that toon's chapters, the group (and the random list) from THAT chapter's groups (a ref group's
+    label from its scene) – another chapter's / toon's documents load on demand (`editor/jump-places.svelte.ts`).
+
 ## Language-independent media (2026-10-01, owner rule – PLAN.md RULES)
 
 "Everything should be language-independent": media are shared by every language, text lives only in text fields, lettering
@@ -411,7 +549,8 @@ cover editor"):
   reads `cover.portrait` (owner 2026-10-02: "portrait I think we are not using"). The type keeps `portrait` optional and
   the layout per format; the editor edits `square`.
 - **Which cover:** the season's (`season.cover`, owner 2026-10-02). The editor is `/<toon>/season/<n>/cover`; it writes
-  `cover.lettering` and `cover.square` to every locale's season document (`ContentDoc.structural`). The season editor
+  `cover.lettering` and `cover.square` to the language-neutral season document (since 2026-10-06; before: every
+locale's season document). The season editor
   shows the cover (thumbnail + lettering state) and links to it; its two path fields are gone. The toon settings have no
   cover any more.
 - **catpope** stays as it is (lettering off, the baked German cover) until the owner switches it on with the text-free art
@@ -450,7 +589,7 @@ Every file referenced by the seed (+ the apps' static images) was looked at. Sli
 |---|---|---|---|---|
 | `catpope/images/s1-cover-square.webp`, `s1-cover-portrait.webp` (+ unused `.jpg` twins) | "KATZENPAPST", "DAS ERWACHEN" | de | `toon:catpope` + `season:catpope:1:*` `cover`, sandbox cover | **new artwork** (requested); lettering via `cover.lettering` |
 | `toptoy/images/1x/{de,en}/s1-cover-*.jpg`, `yellowmouse/…` | – (never existed) | de/en paths | were `toon-settings` covers | removed; **new artwork** (requested), lettering-free |
-| `catpope/images/webtoon/s1c2/s1c2-slice-1.webp` (+ `.jpg`) | SFX "FLATTER FLATTER" (in no text field) | de | chapter 2, slice 1 | **extract** to an onomatopoeia text box (`dialog` + a `showOnomatopeia` event); clean art requested. Slices 2–22 are text-free |
+| `catpope/images/webtoon/s1c2/s1c2-slice-1.webp` (+ `.jpg`) | SFX "FLATTER FLATTER" (in no text field) | de | chapter 2, slice 1 | **extract** to an onomatopoeia text box (`dialog` + a `showTextBox` event); clean art requested. Slices 2–22 are text-free |
 | `catpope/images/webtoon/s1c1/*` (source `webtoon/de/S1C1 - Slice N.jpg`) | speech, captions | de | chapter 1 | **extracted** already (`dialog` + `mask`, MEMORY "Chapter 1 text extraction"); `mask` is deprecated (owner 2026-10-03): re-import the slice backgrounds without the text boxes, keep the dialog data in the DB |
 | `catpope/images/characters/{catpope,boy,crows,mountain-tiger,cat,plf}/*.svg` | placeholder names ("Katzenpapst", "Junge", "Krähen", "Gebirgs Tiger", "Katze"/"Cat", "PLF", "Character Placeholder") | de (en) | `characters` registry (old `image` / view paths of these characters) | **new artwork** via the characters' own wanted images; until then the on-brand "?" substitutes are a better fallback than named placeholders (owner decision) |
 | `catpope/images/s1-trailer-poster.webp`, `images/s1c0-thumbnail.webp`, `images/webtoon/s1c0/s1c0-slice-1.webp`, `videos/s1-trailer-loop.*`, `videos/roar-little-kitty.*` | "ROAR LITTLE KITTY" (title card) | en (song title) | season `trailer`, chapter 0 thumbnail + player slice | **keep** – the song's name, the same in every language; a clean poster/thumbnail frame is optional |

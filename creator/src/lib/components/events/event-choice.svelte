@@ -22,7 +22,7 @@
 	}: { doc: ContentDoc; path: Path; event: any; index: number; pointNames: string[]; groupLabels: string[] } = $props();
 
 	function editActions(change: (list: any[]) => void) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const params = getAt(file, [...path, 'params']);
 			if (!params) return;
 			const list = actionsOf(params.onSelect).map((a: any) => clone(a));
@@ -33,7 +33,7 @@
 	}
 </script>
 
-<LocaleText {doc} path={[...path, 'params', 'label']} label="label" multiline={false} />
+<LocaleText {doc} path={[...path, 'params', 'label']} label={m['creator.field_text']()} multiline={false} expressions />
 <div class="actions" data-testid="choice-actions-{index}">
 	<span class="sc-label">{m['creator.vn_actions']()}</span>
 	{#each actionsOf(event.params?.onSelect) as any[] as action, ai (ai)}
@@ -44,11 +44,11 @@
 			</select>
 			<div class="sc-fields action-fields" data-cols="3" data-density="dense" data-align="end">
 				{#if action?.set}
-					<PropField {doc} path={[...ap, 'set', 'variable']} label="variable" required />
-					<PropField {doc} path={[...ap, 'set', 'value']} label="value" required />
+					<PropField {doc} path={[...ap, 'set', 'variable']} label={m['creator.field_variable']()} required />
+					<PropField {doc} path={[...ap, 'set', 'value']} label={m['creator.field_value']()} required />
 				{:else if action?.add}
-					<PropField {doc} path={[...ap, 'add', 'variable']} label="variable" required />
-					<PropField {doc} path={[...ap, 'add', 'value']} label="value" type="number" step={1} required />
+					<PropField {doc} path={[...ap, 'add', 'variable']} label={m['creator.field_variable']()} required />
+					<PropField {doc} path={[...ap, 'add', 'value']} label={m['creator.field_value']()} type="number" step={1} required />
 				{:else if action?.jumpTo}
 					<EventTarget {doc} path={[...ap, 'jumpTo', 'target']} target={action.jumpTo.target} {groupLabels} />
 				{:else if action?.divert}

@@ -313,17 +313,12 @@
 											{#if issues.length}<span class="issue" title={issues.map((x) => `${x.persona} · ${x.look}: ${x.path ?? 'no neutral portrait'}`).join('\n')}><Badge tone="warning">{m['creator.characters_missing_images']()}</Badge></span>{/if}
 										</button>
 									</li>
-								{:else}
-									<li class="hint">{m['creator.characters_none_found']()}</li>
 								{/each}
 							</ul>
 						{/if}
 					</aside>
 					<div class="detail">
 						{#if !registry.loading}
-							{#if !registry.present.length}
-								<p class="hint">{m['creator.characters_empty_registry']()}</p>
-							{/if}
 							{#key selected}
 								<CharacterDetail
 									{registry}

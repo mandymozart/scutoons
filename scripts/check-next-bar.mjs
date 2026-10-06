@@ -34,6 +34,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './dev/ports.mjs';
+import { saveGameRow } from './dev/save-game-row.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
@@ -51,7 +52,8 @@ const sessionFile = join(root, 'logs/dev/test-user.json');
 const token = existsSync(sessionFile) ? JSON.parse(readFileSync(sessionFile, 'utf8')).token : null;
 if (!token || !(await fetch(`${api}/me/`, { headers: { Authorization: `Bearer ${token}` } })).ok) { console.error('no working test-user session (run `npm run dev:test-user`)'); process.exit(2); }
 const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-const progressBefore = await (await fetch(`${api}/progress/${toon}`, { headers: auth })).json();
+// the member's save game (one for every toon – progress row `scutoons`), put back exactly afterwards
+const saveGame = saveGameRow(JSON.parse(readFileSync(sessionFile, 'utf8')).email);
 const titles = {};
 for (const l of ['de', 'en']) {
 	const bundle = await (await fetch(`${api}/library/toons/${toon}?locale=${l}`)).json();
@@ -69,7 +71,7 @@ let restored = false;
 async function restoreProgress() {
 	if (restored) return;
 	restored = true;
-	await fetch(`${api}/progress/${toon}`, { method: 'PUT', headers: auth, body: JSON.stringify({ state: progressBefore?.state ?? {} }) });
+	if (!saveGame.restore()) throw new Error('the save game row differs');
 }
 async function done(code) {
 	await restoreProgress().catch((e) => console.log(`  could not restore the member's progress: ${e}`));
@@ -238,7 +240,7 @@ async function run(width, locale) {
 	// 2. the in-app way: a click on the toon page's start button → with sound
 	await open(`${viewer}${prefix}/${toon}`);
 	await waitFor(`document.querySelector('[data-testid="start-button"], [data-testid="hero-start"]') ? true : null`);
-	await evaluate(`localStorage.removeItem('scutoons_game_${toon}'), true`);
+	await evaluate(`localStorage.removeItem('scutoons_game_scutoons'), true`);
 	const startSel = width >= 1024 ? '[data-testid="hero-start"]' : '[data-testid="start-button"]';
 	await click(startSel);
 	await waitFor(`location.pathname.endsWith('/chapter/0') ? true : null`, 10000);

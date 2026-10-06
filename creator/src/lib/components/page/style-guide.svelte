@@ -50,7 +50,7 @@
 			<dt>narration</dt>
 			<dd>The narrator's voice (screenplay prose): like caption, but italic. <code>frame: false</code> for bare text.</dd>
 			<dt>onomatopoeia</dt>
-			<dd>Sounds (GRRRR, ZISCH): a bubble without frame – lettering, uppercase, white with an ink outline, may rotate and scale – revealed by an onomatopoeia event with its effect. Short, loud, one or two words.</dd>
+			<dd>Sounds (GRRRR, ZISCH): a bubble without frame – lettering, uppercase, white with an ink outline, may rotate and scale – revealed by a showTextBox event with its effect. Short, loud, one or two words.</dd>
 		</dl>
 	{/if}
 

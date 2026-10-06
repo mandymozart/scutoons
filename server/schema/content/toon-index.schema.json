@@ -44,7 +44,27 @@
 					"type": "string"
 				},
 				"status": {
-					"$ref": "#/definitions/Status"
+					"$ref": "#/definitions/Status",
+					"description": "the whole toon's visibility (the admin catalog / creator); each language has its own on top (`languageStatus`)"
+				},
+				"title": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "The toon's title per language – THE toon's name (the reader's `Toon.title`, the lists' / menu's / creator's name; read it with `toonName(entry, locale)`; agents/NEUTRAL.md step 4 + decision 4). With it the entry holds the toon's settings in every language – the per-language `toon-settings:<toon>:<l>` documents are legacy then."
+				},
+				"description": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the toon's description per language (`Toon.description`)"
+				},
+				"release": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the release date per language, YYYY-MM-DD (a translation can be released later)"
+				},
+				"languageStatus": {
+					"type": "object",
+					"additionalProperties": {
+						"$ref": "#/definitions/Status"
+					},
+					"description": "The visibility per language (`Toon.status`; a translation can stay a draft): the library gates the toon page of a language on it and the toons list of a locale. A language without one has the source's; none at all = published."
 				},
 				"avatar": {
 					"type": "string"
@@ -56,18 +76,19 @@
 						"additionalProperties": {
 							"type": "string"
 						}
-					}
+					},
+					"deprecated": "the old per-language name (`i18n.<l>.name`) – the name is `title` now (owner decision 4, 2026-10-06);\nnever stored any more, only read from older entries (`toonName`). The library still answers it, computed from\n`title`, for older viewer builds (legacy, drop later)."
 				},
 				"sourceLanguage": {
 					"$ref": "#/definitions/Language",
-					"description": "The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `i18n` key, else `de`."
+					"description": "The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `title` key, else `de`."
 				},
 				"languages": {
 					"type": "array",
 					"items": {
 						"$ref": "#/definitions/Language"
 					},
-					"description": "Every language of the toon, the source first. Default: the `i18n` keys (source first)."
+					"description": "Every language of the toon, the source first. Default: the `title` keys, else the old `i18n` keys (source first)."
 				},
 				"announced": {
 					"type": "boolean",
@@ -78,8 +99,7 @@
 				"id",
 				"uri",
 				"status",
-				"avatar",
-				"i18n"
+				"avatar"
 			],
 			"description": "One toon's entry in `toons.json` (language-neutral). The creator keeps the newest version of it in the content store as `<toon>/_/index.json` (see `TOON_INDEX_FILE`); read the languages with `toonLanguages()`."
 		},
@@ -131,6 +151,13 @@
 				"draft",
 				"coming-soon"
 			]
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
 		},
 		"Language": {
 			"type": "string",

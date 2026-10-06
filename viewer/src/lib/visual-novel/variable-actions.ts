@@ -1,6 +1,6 @@
 import type { GameContext } from '$lib/contexts/game.svelte';
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
-import { actionsOf, type VNAction, type VNVariableSetter, type VNVariableAdder, type VNJumpTo, type RespawnInterval } from '@scutoons/content';
+import { actionsOf, type VNAction, type VNVariableSetter, type VNVariableAdder, type VNJumpTo, type RecurrenceInterval } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 type VariableAction = VNVariableSetter | VNVariableAdder | VNJumpTo;
@@ -26,14 +26,20 @@ export function grantStoryItem(
 	variable: string,
 	qty: number,
 	place?: string,
-	options?: { quietWhenNone?: boolean; respawn?: { respawn: RespawnInterval; visit?: string } }
+	options?: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } }
 ): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
 	const inventory = getCurrentInventory();
 	if (!inventory?.item(variable) || qty <= 0) return null;
 	return inventory.grant(variable, 'story', qty, storyRef(variable, place), options);
 }
 
-export function executeVariableAction(action: VariableAction, gameContext: GameContext, currentLabel: string | null = null): string | null {
+export function executeVariableAction(
+	action: VariableAction,
+	gameContext: GameContext,
+	currentLabel: string | null = null,
+	/** why a jump can't go there (vn context `jumpProblem`) – a jump into nothing is no jump: the script goes on */
+	check?: (target: VNJumpTo['jumpTo']['target']) => string | null
+): string | null {
 	if ('set' in action) {
 		const previous = Number(gameContext.getVariable(action.set.variable)) || 0;
 		gameContext.setVariable(action.set.variable, action.set.value);
@@ -51,6 +57,11 @@ export function executeVariableAction(action: VariableAction, gameContext: GameC
 		grantStoryItem(action.add.variable, action.add.value);
 		return null;
 	} else if ('jumpTo' in action) {
+		const problem = check?.(action.jumpTo.target);
+		if (problem) {
+			console.warn(`Choice: the jump stays – ${problem}`, action.jumpTo.target);
+			return null;
+		}
 		const destination = buildJumpToUrl(action.jumpTo.target, gameContext.state.toonId, currentLabel);
 		if (destination) {
 			console.log(`Choice selected, will jump to: ${destination}`);
@@ -70,7 +81,8 @@ export function executeVariableAction(action: VariableAction, gameContext: GameC
 export function runChoiceActions(
 	onSelect: VNAction | VNAction[] | undefined,
 	gameContext: GameContext,
-	currentLabel: string | null
+	currentLabel: string | null,
+	check?: (target: VNJumpTo['jumpTo']['target']) => string | null
 ): { jumpTo: string | null; divert: string | null } {
 	let divert: string | null = null;
 	for (const action of actionsOf(onSelect)) {
@@ -78,7 +90,7 @@ export function runChoiceActions(
 			divert = action.divert.to;
 			continue;
 		}
-		const jumpTo = executeVariableAction(action, gameContext, currentLabel);
+		const jumpTo = executeVariableAction(action, gameContext, currentLabel, check);
 		if (jumpTo) return { jumpTo, divert: null };
 	}
 	return { jumpTo: null, divert };

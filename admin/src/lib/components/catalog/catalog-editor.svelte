@@ -323,7 +323,6 @@
 				rowKey={(e: CatalogEntry) => e.id}
 				activeKey={creating ? null : openId}
 				onrowclick={(e: CatalogEntry) => openEntry(e.id)}
-				emptyLabel={m['catalog.empty']()}
 				labels={tableLabels()}
 			>
 				{#snippet cell(entry: CatalogEntry, column: Column)}

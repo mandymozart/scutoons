@@ -10,18 +10,22 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import SliceImport from '$lib/components/chapter/slice-import.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
+	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	let {
 		doc,
 		groupPath,
 		chapterNumber,
 		selected = -1,
+		markOf = () => null,
 		onselect
 	}: {
 		doc: ContentDoc;
 		groupPath: Path;
 		chapterNumber: number;
 		selected?: number;
+		/** a slice the reader can never reach gets a label (@scutoons/content reach.ts) */
+		markOf?: (index: number) => ReachMark;
 		onselect: (index: number) => void;
 	} = $props();
 
@@ -67,7 +71,7 @@
 		const moving = dragging;
 		if (!moving?.length) return;
 		let map = new Map<number, number>();
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, [...groupPath, 'slices']);
 			if (!Array.isArray(list)) return;
 			const result = moveMany(list, moving, target);
@@ -81,7 +85,7 @@
 
 	function add(after: number) {
 		const at = after + 1;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const path = [...groupPath, 'slices'];
 			let list = getAt(file, path);
 			if (!Array.isArray(list)) {
@@ -104,7 +108,7 @@
 	async function remove(index: number) {
 		const s = slices[index];
 		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `slice ${index + 1} (${s?.image ?? ''})` })))) return;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, [...groupPath, 'slices']);
 			if (Array.isArray(list)) list.splice(index, 1);
 		});
@@ -158,9 +162,10 @@
 				<span class="info">
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
-						{#if count(slice, 'dialog')}<span title="texts">T{count(slice, 'dialog')}</span>{/if}
-						{#if slice?.audio}<span title="audio"><Icon name="music" label="audio" /></span>{/if}
-						{#if count(slice, 'events')}<span title="events"><Icon name="zap" label="events" />{count(slice, 'events')}</span>{/if}
+						<ReachChip mark={markOf(index)} />
+						{#if count(slice, 'dialog')}<span title={m['creator.text_boxes']()}>T{count(slice, 'dialog')}</span>{/if}
+						{#if slice?.audio}<span title={m['creator.audio']()}><Icon name="music" label={m['creator.audio']()} /></span>{/if}
+						{#if count(slice, 'events')}<span title={m['creator.events']()}><Icon name="zap" label={m['creator.events']()} />{count(slice, 'events')}</span>{/if}
 					</span>
 				</span>
 			</button>

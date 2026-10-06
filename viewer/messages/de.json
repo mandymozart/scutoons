@@ -82,8 +82,8 @@
 		"hide_sensitive": "Sensible Inhalte ausblenden",
 		"hide_sensitive_hint": "Markierte Bilder werden unscharf, ihr Ton stumm.",
 		"draft_preview": "Entwurfsvorschau",
-		"draft_preview_hint": "Entwürfe und bald erscheinende Kapitel hier lesen, zum Prüfen. Nur auf diesem Gerät; ein Balken zeigt es auf jeder Seite.",
-		"draft_preview_off": "Ausschalten",
+		"draft_preview_hint": "Entwürfe und bald erscheinende Kapitel hier lesen, zum Prüfen. Nur auf diesem Gerät; ein kleines Auge oben rechts zeigt es auf jeder Seite.",
+		"draft_preview_mark": "Entwurfsvorschau ist an – auf der Kontoseite ausschalten",
 		"roles": "Rollen",
 		"role_member": "Mitglied",
 		"role_creator": "Creator",
@@ -101,7 +101,12 @@
 		"claim_withdraw": "Zurückziehen",
 		"claim_add_file": "Nachweis anhängen",
 		"claim_files": "{count} Dateien angehängt",
-		"claim_failed": "Das hat nicht geklappt – bitte versuch es nochmal."
+		"claim_failed": "Das hat nicht geklappt – bitte versuch es nochmal.",
+		"reader_name": "Dein Name",
+		"reader_name_hint": "Geschichten können dich so ansprechen. Nur du siehst ihn.",
+		"reader_name_saved_account": "In deinem Konto gespeichert.",
+		"reader_name_saved_device": "Auf diesem Gerät gespeichert.",
+		"reader_name_failed": "Speichern ging nicht – bitte noch einmal."
 	},
 	"inventory": {
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"
@@ -117,7 +122,11 @@
 		"season_title": "Staffel {number}: {title}",
 		"prologue": "Prolog",
 		"sensitive_hidden": "Sensibler Inhalt ausgeblendet",
-		"sensitive_hidden_hint": "In deinem Konto: „Sensible Inhalte ausblenden“"
+		"sensitive_hidden_hint": "In deinem Konto: „Sensible Inhalte ausblenden“",
+		"scroll_paused": "Scrollen pausiert – erst die Nachricht beantworten",
+		"ask_label": "Deine Antwort",
+		"ask_ok": "OK",
+		"ask_skip": "Überspringen"
 	},
 	"player": {
 		"sound_on": "Ton an",

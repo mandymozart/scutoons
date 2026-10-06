@@ -30,6 +30,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './dev/ports.mjs';
+import { saveGameRow } from './dev/save-game-row.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
@@ -168,7 +169,7 @@ const VIDEO_STATE = `(() => {
 		seekableEnd: v.seekable.length ? v.seekable.end(v.seekable.length - 1) : 0, width: box.width, height: box.height,
 		blocker: !!document.querySelector('.view-membership-blocker'), music: music.map((m) => ({ paused: m.paused })) };
 })()`;
-const checkpoint = (n) => `(() => { try { const s = JSON.parse(localStorage.getItem('scutoons_game_${toon}') || '{}'); return (s.progress || []).find((c) => c.uri === '${toon}/chapter/${n}') || 'none'; } catch (e) { return 'none'; } })()`;
+const checkpoint = (n) => `(() => { try { const s = JSON.parse(localStorage.getItem('scutoons_game_scutoons') || '{}'); return (s.progress || []).find((c) => c.uri === '${toon}/chapter/${n}') || 'none'; } catch (e) { return 'none'; } })()`;
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
 
 async function toonPage(prefix, locale, label, expect) {
@@ -330,10 +331,11 @@ if (!opt['no-member']) {
 	if (!me?.ok) report('member', [`no working test-user session (run \`npm run dev:test-user\`)`]);
 	else {
 		const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-		const before = await (await fetch(`${api}/progress/${toon}`, { headers: auth })).json();
+		// the member's save game (one for every toon – progress row `scutoons`): put back exactly (a PUT merges)
+		const saveGame = saveGameRow(JSON.parse(readFileSync(sessionFile, 'utf8')).email);
 		restoreMember = async () => {
 			restoreMember = null;
-			await fetch(`${api}/progress/${toon}`, { method: 'PUT', headers: auth, body: JSON.stringify({ state: before?.state ?? {} }) });
+			if (!saveGame.restore()) report('member: the save game is put back', ['the row differs']);
 		};
 		await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 812, deviceScaleFactor: 1, mobile: true });
 		await send('Network.clearBrowserCookies');
@@ -351,12 +353,12 @@ if (!opt['no-member']) {
 		// the member's progress reaches the server (debounced push)
 		let server = null;
 		for (let i = 0; i < 30 && !server; i++) {
-			const p = await (await fetch(`${api}/progress/${toon}`, { headers: auth })).json();
+			const p = await (await fetch(`${api}/progress/scutoons/`, { headers: auth })).json();
 			const state = typeof p.state === 'string' ? JSON.parse(p.state) : p.state;
 			server = (state?.progress ?? []).find((c) => c.uri === `${toon}/chapter/0` && c.isComplete) ?? null;
 			if (!server) await sleep(500);
 		}
-		report('member: chapter 0 plays to its end, the finished checkpoint reaches /api/progress', v && !v.error && !v.blocker && ended && server ? [] : [`video ${!!v && !v.error}, ended ${!!ended}, server checkpoint ${JSON.stringify(server)}`]);
+		report('member: chapter 0 plays to its end, the finished checkpoint reaches /api/progress/scutoons/', v && !v.error && !v.blocker && ended && server ? [] : [`video ${!!v && !v.error}, ended ${!!ended}, server checkpoint ${JSON.stringify(server)}`]);
 		await restoreMember();
 	}
 }

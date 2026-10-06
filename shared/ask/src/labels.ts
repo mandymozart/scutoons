@@ -2,7 +2,6 @@
 export interface AskLabels {
 	title: string;
 	history: string;
-	historyEmpty: string;
 	historyUnavailable: string;
 	newChat: string;
 	close: string;

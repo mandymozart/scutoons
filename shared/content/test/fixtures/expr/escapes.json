@@ -1,0 +1,338 @@
+{
+	"description": "escapes",
+	"resolver": {
+		"names": {
+			"coins": 3,
+			"one": 1,
+			"zero": 0,
+			"time": 330,
+			"name": "Pope",
+			"empty": "",
+			"yes": true,
+			"no": false,
+			"half": 2.5,
+			"five": "5",
+			"map.total": 12,
+			"map.unlocked": 10,
+			"map.here": "lake",
+			"reader.name": "mia",
+			"reader.signedIn": true,
+			"reader.language": "en",
+			"now.hour": 21,
+			"stats.testo": 7
+		},
+		"calls": {
+			"has(\"cucumber\")": true,
+			"has(\"onion\")": false,
+			"count_of(\"coin\")": 4,
+			"read_chapter(2)": true,
+			"read_chapter(3)": false,
+			"inventory.has(\"cucumber\")": true,
+			"inventory.count(\"coin\")": 4,
+			"resolved(\"ev-lake\")": true,
+			"count(\"ev-lake\")": 2,
+			"read.chapter(1)": true
+		},
+		"visits": {},
+		"seed": "reader-1:text-9",
+		"language": "en"
+	},
+	"knownNames": [
+		"coins",
+		"one",
+		"zero",
+		"time",
+		"name",
+		"empty",
+		"yes",
+		"no",
+		"half",
+		"five",
+		"missing"
+	],
+	"cases": [
+		{
+			"text": "\\{not a construct\\}",
+			"ast": "\"{not a construct}\"",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 0,
+			"out": "{not a construct}",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "a \\| b",
+			"ast": "\"a | b\"",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 0,
+			"out": "a | b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "back\\\\slash",
+			"ast": "\"back\\\\slash\"",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 0,
+			"out": "back\\slash",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "trailing \\",
+			"ast": "\"trailing \\\\\"",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 0,
+			"out": "trailing \\",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "a | b",
+			"ast": "\"a | b\"",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 0,
+			"out": "a | b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "a } b",
+			"ast": "\"a } b\"",
+			"errors": [
+				{
+					"code": "stray-close",
+					"severity": "warning",
+					"start": 2,
+					"end": 3,
+					"message": "unmatched `}` – to show it, write `\\}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 0,
+			"out": "a } b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: a\\|b|c}",
+			"ast": "(if yes [\" a|b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "a|b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: \\{x\\}}",
+			"ast": "(if yes [\" {x}\"] nil)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "{x}",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{a\\|b|c}",
+			"ast": "(sequence#0 [\"a|b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "a|b",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "x \\{coins} {coins}",
+			"ast": "\"x {coins} \" (print coins)",
+			"errors": [
+				{
+					"code": "stray-close",
+					"severity": "warning",
+					"start": 9,
+					"end": 10,
+					"message": "unmatched `}` – to show it, write `\\}`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "x {coins} 3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"\\\\\"}",
+			"ast": "(print \"\\\\\")",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "\\",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "line one\n{yes: two}\n  three  ",
+			"ast": "\"line one\\n\" (if yes [\" two\"] nil) \"\\n  three  \"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "line one\ntwo\nthree",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "  {yes:a}   {no:b}  c  ",
+			"ast": "\"  \" (if yes [\"a\"] nil) \"   \" (if no [\"b\"] nil) \"  c  \"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					],
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "a c",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "Hey {name} ,  ok",
+			"ast": "\"Hey \" (print name) \" ,  ok\"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"name"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "Hey Pope , ok",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: x}{no: y}z",
+			"ast": "(if yes [\" x\"] nil) (if no [\" y\"] nil) \"z\"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					],
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "xz",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "Ünïcödé {name} „Los!“ 🙂 {coins}",
+			"ast": "\"Ünïcödé \" (print name) \" „Los!“ 🙂 \" (print coins)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"name"
+					],
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "Ünïcödé Pope „Los!“ 🙂 3",
+			"runtime": [],
+			"visited": []
+		}
+	]
+}

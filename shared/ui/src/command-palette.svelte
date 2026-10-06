@@ -35,7 +35,6 @@
 		hotkeys = true,
 		label = 'Command palette',
 		placeholder = 'Type a command or search …',
-		emptyLabel = 'No matching command.',
 		hint = '↑↓ to move · Enter to run · Esc to close'
 	}: {
 		open?: boolean;
@@ -44,7 +43,6 @@
 		hotkeys?: boolean;
 		label?: string;
 		placeholder?: string;
-		emptyLabel?: string;
 		hint?: string;
 	} = $props();
 
@@ -150,8 +148,6 @@
 				<span class="label">{command.label}</span>
 				{#if command.hint}<span class="hint">{command.hint}</span>{/if}
 			</li>
-		{:else}
-			<li class="empty" role="presentation">{emptyLabel}</li>
 		{/each}
 	</ul>
 	<p class="keys">{hint}</p>
@@ -227,10 +223,6 @@
 	}
 	li.active .hint {
 		color: var(--paper);
-	}
-	.empty {
-		padding: var(--space-1);
-		color: var(--text-muted);
 	}
 	.keys {
 		margin: 0;

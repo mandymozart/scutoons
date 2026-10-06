@@ -191,8 +191,6 @@
 					</li>
 				{/each}
 			</ul>
-		{:else}
-			<p class="hint">{m['users.review_none']()}</p>
 		{/if}
 		<form class="unlock" onsubmit={addReviewRule}>
 			<Field label={m['users.review_toon']()}>
@@ -244,7 +242,7 @@
 	</Section>
 
 	<Section title={m['users.section_codes']()}>
-		<DataTable columns={codeColumns} rows={user.codes} rowKey={(c) => c.code} emptyLabel={m['users.no_codes']()} labels={tableLabels()}>
+		<DataTable columns={codeColumns} rows={user.codes} rowKey={(c) => c.code} labels={tableLabels()}>
 			{#snippet cell(c, column)}
 				{#if column.id === 'code'}<a class="mono-code" href="/codes/{encodeURIComponent(c.code)}">{c.code}</a>
 				{:else if column.id === 'edition_id'}{c.edition_id ?? '—'}{c.edition_number ? ` #${c.edition_number}` : ''}
@@ -292,11 +290,6 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-05);
-	}
-	.hint {
-		margin: 0 0 var(--space-1);
-		font-size: var(--type-caption-size);
-		opacity: 0.7;
 	}
 	.unlocks .meta {
 		font-size: var(--type-caption-size);

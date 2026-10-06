@@ -19,7 +19,7 @@
 	/** a track's / sample's files: `path` = the default (128k), `variants` = one per level (96k / 128k / 320k) */
 	const mediaOf = (entry: any): VariantMedia => ({ src: entry?.path || undefined, variants: entry?.variants });
 	function setMedia(path: (string | number)[], media: VariantMedia) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const entry = getAt(file, path);
 			if (!entry) return;
 			entry.path = media.src ?? '';
@@ -49,7 +49,7 @@
 	}
 
 	function addTo(list: 'tracks' | 'sampleLibrary') {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			file.audio ??= {};
 			if (list === 'tracks') {
 				file.audio.music ??= { transitionDuration: 3000, tracks: [] };
@@ -66,20 +66,20 @@
 		const path = list === 'tracks' ? ['audio', 'music', 'tracks'] : ['audio', 'sampleLibrary'];
 		const item = getAt(doc.data[doc.primary], [...path, index]);
 		if (!(await confirmRemove(m['creator.remove_confirm']({ what: item?.id ?? '' })))) return;
-		doc.structural((file) => getAt(file, path)?.splice(index, 1));
+		doc.edit((file) => getAt(file, path)?.splice(index, 1));
 	}
 </script>
 
 <section class="audio-panel" data-testid="audio-panel">
 	<h2>{m['creator.audio']()}</h2>
 
-	<h3>Music</h3>
+	<h3>{m['creator.music']()}</h3>
 	<div class="sc-fields" data-cols="2">
-		<PropField {doc} path={['audio', 'music', 'transitionDuration']} label="transitionDuration (ms)" type="number" step={100} placeholder="3000" />
-		<PropField {doc} path={['audio', 'music', 'defaultTrack']} label="defaultTrack" type="select" options={tracks.map((t) => t.id)} placeholder="none" />
+		<PropField {doc} path={['audio', 'music', 'transitionDuration']} label={m['creator.music_crossfade']()} type="number" step={100} placeholder="3000" />
+		<PropField {doc} path={['audio', 'music', 'defaultTrack']} label={m['creator.music_default_track']()} type="select" options={tracks.map((t) => t.id)} placeholder={m['creator.field_none']()} />
 	</div>
 	<table>
-		<thead><tr><th>id</th><th>path</th><th></th></tr></thead>
+		<thead><tr><th>{m['creator.field_id']()}</th><th>{m['creator.audio_file']()}</th><th></th></tr></thead>
 		<tbody>
 			{#each tracks as track, i (i)}
 				<tr>
@@ -93,11 +93,11 @@
 			{/each}
 		</tbody>
 	</table>
-	<button type="button" class="secondary" onclick={() => addTo('tracks')}>+ track</button>
+	<button type="button" class="secondary" onclick={() => addTo('tracks')}>+ {m['creator.music_add_track']()}</button>
 
-	<h3>Sample library</h3>
+	<h3>{m['creator.sample_library']()}</h3>
 	<table>
-		<thead><tr><th>id</th><th>path</th><th></th></tr></thead>
+		<thead><tr><th>{m['creator.field_id']()}</th><th>{m['creator.audio_file']()}</th><th></th></tr></thead>
 		<tbody>
 			{#each samples as sample, i (i)}
 				<tr>
@@ -111,7 +111,7 @@
 			{/each}
 		</tbody>
 	</table>
-	<button type="button" class="secondary" onclick={() => addTo('sampleLibrary')}>+ sample</button>
+	<button type="button" class="secondary" onclick={() => addTo('sampleLibrary')}>+ {m['creator.sample_add']()}</button>
 </section>
 
 <style>

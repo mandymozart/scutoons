@@ -3,22 +3,42 @@
 import {
 	JumpToTargetType,
 	Language,
-	OnomatopoeiaEffect,
+	TextBoxEffect,
 	Renderer,
 	Status,
 	Trigger,
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
+import { linksToNext, scriptJumps } from './chains.ts';
+import { askVariable, chapterReach, similarVariable, type ToonFacts } from './reach.ts';
+import { stuckMessage, stuckPoints } from './stuck.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, DIALOG_SHAPES, DIALOG_TAILS, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import {
+	DEFAULT_SLICE,
+	DIALOG_SHAPES,
+	DIALOG_TAILS,
+	SLICE_ITEM_ACTIONS,
+	TOON_NEUTRAL_FIELDS,
+	VIEWPORT_FITS,
+	frameSliceSize,
+	hasToonTexts,
+	isFrameRatioAllowed,
+	parseFrameRatio,
+	type ToonIndex
+} from './content.ts';
 import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
 import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
+import { repeatOf, repeatProblem } from './recurrence.ts';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, ASK_TEXT_SCOPES } from './visual-novel.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
+import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
+import { forEachText, type TextLeafKind } from './neutralize.ts';
+import { analyseExpression, analyseText } from './expr/analyse.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -30,13 +50,31 @@ export interface Problem {
 	locale: string | null;
 	path: Path;
 	message: string;
+	/** a stable code for problems that have one (`expr:<code>` – expressions in texts; the creator translates by it) */
+	code?: string;
+	/** `expr:*` problems: where in the text (UTF-16 offsets, end exclusive; `line` = a text box's line in a string[]) and
+	 *  the analyser's `args` / `suggestion` – the creator jumps to the range and words the message in its language */
+	expr?: { start: number; end: number; line?: number; args?: string[]; suggestion?: string };
 }
 
 export const LENGTH_WARNING_RATIO = 1.3;
 
 const values = (e: object) => Object.values(e) as string[];
 const DIALOG_VARIANTS = ['bubble', 'caption', 'narration'];
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showOnomatopeia', 'jumpTo', 'label', 'divert', 'setVariable'];
+/** an event id: what the creator assigns (`e` + random letters / digits) or any plain key */
+const EVENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** the old boolean `once` (a trigger's, a placed item's): moved to `repeat` by the migration 2026-10-06-repeat */
+const ONCE_GONE = 'once is replaced by repeat ({ mode: "view" } = once per page view) – stored documents: run the migration 2026-10-06-repeat';
+/** a rule the reader decides from its save game (by the event's id) */
+const needsIds = (rule: unknown) => {
+	const mode = repeatOf(rule).mode;
+	return mode === 'once' || mode === 'interval';
+};
+const repeatWords = (rule: unknown) => {
+	const r = repeatOf(rule);
+	return r.mode === 'once' ? 'once for good' : r.mode === 'interval' ? `every ${JSON.stringify(r.every)}` : r.mode;
+};
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable', 'askText'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -72,6 +110,34 @@ export interface ValidateContext {
 	items?: string[];
 	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
 	itemRespawn?: Record<string, ItemRespawn | null>;
+	/**
+	 * chapter files: a `ref` group → its scene (the creator's loaded scene document), so the chapter's linked groups
+	 * (chains.ts) are checked with the scenes' `continues`; none / null = the ref group as it is
+	 */
+	resolveGroup?: (group: any) => any;
+	/**
+	 * chapter files: what the whole toon says (`toonFacts` over its documents – the creator loads them): which labels
+	 * something jumps to, which variables something sets. None: every labelled group counts as reachable by a jump and no
+	 * condition is judged (reach.ts)
+	 */
+	facts?: ToonFacts;
+	/** jump targets: what the caller knows about the places a jump can lead to – none: not checked (`checkTargetPlace`) */
+	targets?: JumpTargets;
+}
+
+/**
+ * The places jumps can lead to, as far as the caller knows them (the creator: the toons, this toon's chapters and the
+ * chapters it loaded for the target editor). `undefined` from a function = not known (no check).
+ */
+export interface JumpTargets {
+	/** the toon of the document being checked (a chapter target without `toon` leads here) */
+	toon: string;
+	/** every toon id */
+	toons?: readonly string[];
+	/** a toon's chapter numbers */
+	chapters?: (toon: string) => readonly number[] | undefined;
+	/** a chapter's group labels (its scenes' included) */
+	labels?: (toon: string, chapter: number) => readonly string[] | undefined;
 }
 
 class Collector {
@@ -80,8 +146,8 @@ class Collector {
 		private file: string,
 		private locale: string | null
 	) {}
-	add(level: Level, path: Path, message: string) {
-		this.problems.push({ level, file: this.file, locale: this.locale, path, message });
+	add(level: Level, path: Path, message: string, code?: string, expr?: Problem['expr']) {
+		this.problems.push({ level, file: this.file, locale: this.locale, path, message, ...(code ? { code } : {}), ...(expr ? { expr } : {}) });
 	}
 	error(path: Path, message: string) {
 		this.add('error', path, message);
@@ -159,7 +225,15 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 		c.error([...path, 'action'], `action must be one of ${SLICE_ITEM_ACTIONS.join(', ')}`);
 	}
 	if (it.qty !== undefined && (!Number.isInteger(it.qty) || it.qty < 1)) c.error([...path, 'qty'], 'qty must be a whole number ≥ 1');
-	if (it.once !== undefined && typeof it.once !== 'boolean') c.error([...path, 'once'], 'once must be true/false');
+	if (it.once !== undefined) c.error([...path, 'once'], ONCE_GONE);
+	if (it.repeat !== undefined) {
+		const problem = repeatProblem(it.repeat);
+		if (problem) c.error([...path, 'repeat'], problem);
+		else if (it.action !== 'events') c.info([...path, 'repeat'], 'repeat only matters for tap events (a pickup reappears by its respawn)');
+		else if (needsIds(it.repeat) && Array.isArray(it.events) && it.events.some((e: any) => !isStr(e?.id) || !e.id)) {
+			c.error([...path, 'repeat'], `"${repeatWords(it.repeat)}" needs the events' ids (the reader's save game remembers them) – the creator assigns them`);
+		}
+	}
 	if (it.respawn !== undefined) {
 		const rule = ctx.itemRespawn && isStr(it.item) ? (ctx.itemRespawn[it.item] ?? null) : undefined;
 		const problem = placementRespawnProblem(it.respawn, rule);
@@ -173,13 +247,19 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	if (it.action === 'events' && !(Array.isArray(it.events) && it.events.length)) c.warn([...path, 'events'], 'the tap runs events, but there are none');
 }
 
-function checkTrigger(c: Collector, trigger: any, path: Path, sample: boolean) {
+function checkTrigger(c: Collector, trigger: any, path: Path, sample: boolean, hasId = true) {
 	if (!isObj(trigger)) {
 		if (!sample) c.error(path, 'trigger is missing');
 		return;
 	}
 	if (!values(Trigger).includes(trigger.type)) c.error([...path, 'type'], `trigger.type must be one of ${values(Trigger).join(', ')}`);
 	if (trigger.mode !== undefined && !values(TriggerMode).includes(trigger.mode)) c.error([...path, 'mode'], 'trigger.mode must be mono or poly');
+	if (trigger.once !== undefined) c.error([...path, 'once'], ONCE_GONE);
+	if (trigger.repeat !== undefined) {
+		const problem = repeatProblem(trigger.repeat);
+		if (problem) c.error([...path, 'repeat'], problem);
+		else if (needsIds(trigger.repeat) && !sample && !hasId) c.error([...path, 'repeat'], `"${repeatWords(trigger.repeat)}" needs the event's id (the reader's save game remembers it) – the creator assigns it`);
+	}
 	if ((trigger.type === Trigger.CLICK || trigger.type === Trigger.HOVER) && sample) {
 		checkRect(c, trigger.rect, [...path, 'rect'], true);
 	} else if (trigger.rect !== undefined) {
@@ -187,7 +267,7 @@ function checkTrigger(c: Collector, trigger: any, path: Path, sample: boolean) {
 	}
 }
 
-function checkTarget(c: Collector, target: any, path: Path) {
+function checkTarget(c: Collector, target: any, path: Path, ctx: ValidateContext) {
 	if (!isObj(target)) return c.error(path, 'target is missing');
 	if (!values(JumpToTargetType).includes(target.type)) c.error([...path, 'type'], `target.type must be one of ${values(JumpToTargetType).join(', ')}`);
 	if (target.value === undefined || target.value === '') c.error([...path, 'value'], 'target.value is missing');
@@ -196,23 +276,68 @@ function checkTarget(c: Collector, target: any, path: Path) {
 			c.error([...path, 'anyOf'], 'anyOf must be a list of group labels (one of them is picked at random)');
 		}
 	}
+	if (target.toon !== undefined) {
+		if (target.type !== 'chapter') c.error([...path, 'toon'], 'toon belongs to a chapter target (a chapter of another toon) – a toon page is type "toon"');
+		else if (!isStr(target.toon) || !target.toon) c.error([...path, 'toon'], 'toon must be a toon id (absent = this toon)');
+	}
+	checkTargetPlace(c, target, path, ctx.targets);
 }
 
-/** "Only if" on an event: { variable, op, value? } */
-function checkCondition(c: Collector, cond: any, path: Path) {
+/**
+ * Does the place a jump leads to exist – where the caller can tell (`ctx.targets`): the toon, its chapter, the chapter's
+ * group labels. A place that is known not to exist is an ERROR (owner 2026-10-06: a jump into nothing must not be saved
+ * – the reader would stay where they are); another toon's labels the caller couldn't load (no access, not loaded) warn
+ * that they can't be checked. The server's save guard checks the same against the database (`JumpCheck`).
+ */
+function checkTargetPlace(c: Collector, target: Record<string, any>, path: Path, known: JumpTargets | undefined) {
+	if (!known) return;
+	const toons = known.toons;
+	if (target.type === 'toon' && isStr(target.value) && toons && !toons.includes(target.value)) {
+		return c.error([...path, 'value'], `there is no toon "${target.value}"`);
+	}
+	if (target.type !== 'chapter' || target.value === undefined || target.value === '') return;
+	const other = isStr(target.toon) && target.toon && target.toon !== known.toon;
+	const toon: string = other ? target.toon : known.toon;
+	if (other && toons && !toons.includes(toon)) return c.error([...path, 'toon'], `there is no toon "${toon}"`);
+	const number = Number(target.value);
+	const chapters = known.chapters?.(toon);
+	const where = other ? `${toon} chapter ${target.value}` : `chapter ${target.value}`;
+	if (chapters && !chapters.includes(number)) return c.error([...path, 'value'], `${other ? `${toon} has` : 'the toon has'} no chapter ${target.value}`);
+	const wanted: string[] = [...(isStr(target.label) && target.label ? [target.label] : []), ...(Array.isArray(target.anyOf) ? target.anyOf.filter((l: unknown) => isStr(l) && l) : [])];
+	if (!wanted.length) return;
+	const labels = known.labels?.(toon, number);
+	if (!labels) {
+		if (other) c.warn([...path, isStr(target.label) && target.label ? 'label' : 'anyOf'], `can't check ${where}: its groups aren't loaded (no access to ${toon}?) – make sure ${wanted.map((l) => `"${l}"`).join(', ')} exist there`);
+		return;
+	}
+	const field = isStr(target.label) && target.label ? 'label' : 'anyOf';
+	for (const l of wanted) if (!labels.includes(l)) c.error([...path, field], `${where} has no group labelled "${l}"`);
+}
+
+/** "Only if" on an event: { variable, op, value? }, or an expression { expr } (EXPRESSIONS.md §3: syntax errors are errors) */
+function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContext) {
+	if (isObj(cond) && cond.expr !== undefined) {
+		if (!isStr(cond.expr) || !cond.expr.trim()) return c.error([...path, 'expr'], 'the condition needs an expression');
+		for (const key of Object.keys(cond)) if (key !== 'expr') c.error([...path, key], 'an expression condition has only expr');
+		const knownNames = ctx.facts ? [...ctx.facts.variables] : undefined;
+		for (const p of analyseExpression(cond.expr, { knownNames }).errors) {
+			c.add(exprLevel(p), [...path, 'expr'], `the condition: ${p.message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''}`, `expr:${p.code}`, exprAt(p));
+		}
+		return;
+	}
 	if (!isObj(cond) || !isStr(cond.variable) || !cond.variable) return c.error([...path, 'variable'], 'the condition needs a variable');
 	if (!CONDITION_OPS.includes(cond.op)) return c.error([...path, 'op'], `the condition's op must be one of ${CONDITION_OPS.join(' ')}`);
 	if (cond.op !== 'set' && cond.op !== 'unset' && (cond.value === undefined || cond.value === '')) c.error([...path, 'value'], 'the condition needs a value to compare with');
 }
 
 /** a choice's action(s): set / add / jumpTo / divert, one or a list */
-function checkActions(c: Collector, onSelect: any, path: Path) {
+function checkActions(c: Collector, onSelect: any, path: Path, ctx: ValidateContext) {
 	if (onSelect === undefined) return;
 	const list = Array.isArray(onSelect) ? onSelect : [onSelect];
 	list.forEach((a: any, i: number) => {
 		const ap = Array.isArray(onSelect) ? [...path, i] : path;
 		if (!isObj(a)) return c.error(ap, 'an action must be an object');
-		if (isObj(a.jumpTo)) checkTarget(c, a.jumpTo.target, [...ap, 'jumpTo', 'target']);
+		if (isObj(a.jumpTo)) checkTarget(c, a.jumpTo.target, [...ap, 'jumpTo', 'target'], ctx);
 		else if (isObj(a.divert)) {
 			if (!isStr(a.divert.to) || !a.divert.to) c.error([...ap, 'divert', 'to'], 'divert needs the name of a point in the script');
 		} else if (isObj(a.set)) {
@@ -279,7 +404,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			break;
 		case 'addChoice':
 			if (!isObj(p) || !isStr(p.label)) c.error([...pp, 'label'], 'addChoice needs params.label');
-			if (isObj(p)) checkActions(c, p.onSelect, [...pp, 'onSelect']);
+			if (isObj(p)) checkActions(c, p.onSelect, [...pp, 'onSelect'], ctx);
 			break;
 		case 'label':
 			if (!isObj(p) || !isStr(p.name) || !p.name) c.error([...pp, 'name'], 'a point needs a name');
@@ -298,7 +423,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			break;
 		case 'jumpTo':
 			if (!isObj(p)) c.error(pp, 'jumpTo needs params.target');
-			else checkTarget(c, p.target, [...pp, 'target']);
+			else checkTarget(c, p.target, [...pp, 'target'], ctx);
 			break;
 		case 'joinScene':
 		case 'leaveScene':
@@ -315,11 +440,25 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 					}
 				});
 			break;
-		case 'showOnomatopeia':
-			// an onomatopoeia is a text box this event reveals (owner 2026-10-03)
-			if (!isObj(p) || !isStr(p.dialog) || !p.dialog) c.error([...pp, 'dialog'], 'showOnomatopeia needs params.dialog (the id of the text box it reveals)');
+		case 'askText':
+			if (!isObj(p) || !isStr(p.text)) c.error([...pp, 'text'], 'askText needs params.text (the question)');
 			if (isObj(p)) {
-				if (p.effect !== undefined && !values(OnomatopoeiaEffect).includes(p.effect)) c.error([...pp, 'effect'], `effect must be one of ${values(OnomatopoeiaEffect).join(', ')}`);
+				if (p.character) checkCharacterRef(c, { name: p.character, persona: p.persona }, pp, ctx, 'character');
+				if (p.scope !== undefined && !(ASK_TEXT_SCOPES as readonly string[]).includes(p.scope)) c.error([...pp, 'scope'], `scope must be ${ASK_TEXT_SCOPES.join(' or ')}`);
+				if (p.scope !== 'reader') {
+					if (!isStr(p.variable) || !p.variable) c.error([...pp, 'variable'], 'askText needs the variable the answer goes to');
+					else if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(p.variable)) c.error([...pp, 'variable'], 'a variable name is letters, digits and _ (not starting with a digit)');
+				} else if (p.variable !== undefined) c.info([...pp, 'variable'], "the answer is the reader's name (reader.name) – the variable is not used");
+				if (p.maxLength !== undefined && (!Number.isInteger(p.maxLength) || p.maxLength < 1 || p.maxLength > ASK_TEXT_LIMIT)) c.error([...pp, 'maxLength'], `maxLength is a whole number 1 … ${ASK_TEXT_LIMIT}`);
+				for (const key of ['placeholder', 'default'] as const) if (p[key] !== undefined && !isStr(p[key])) c.error([...pp, key], `${key} must be a text`);
+				if (isStr(p.default) && p.default.trim().length > (p.maxLength ?? ASK_TEXT_MAX_LENGTH)) c.warn([...pp, 'default'], 'the default answer is longer than maxLength');
+			}
+			break;
+		case 'showTextBox':
+			// any text box (e.g. an onomatopoeia) this event reveals (owner 2026-10-03)
+			if (!isObj(p) || !isStr(p.dialog) || !p.dialog) c.error([...pp, 'dialog'], 'showTextBox needs params.dialog (the id of the text box it reveals)');
+			if (isObj(p)) {
+				if (p.effect !== undefined && !values(TextBoxEffect).includes(p.effect)) c.error([...pp, 'effect'], `effect must be one of ${values(TextBoxEffect).join(', ')}`);
 				if (p.duration !== undefined && (!isNum(p.duration) || p.duration > 5000)) c.warn([...pp, 'duration'], 'duration is capped at 5000 ms by the reader');
 				if (p.delay !== undefined && (!isNum(p.delay) || p.delay > 5000)) c.warn([...pp, 'delay'], 'delay is capped at 5000 ms by the reader');
 				if (p.mode !== undefined && !values(TriggerMode).includes(p.mode)) c.error([...pp, 'mode'], 'mode must be mono or poly');
@@ -328,8 +467,9 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			}
 			break;
 	}
-	if (e.if !== undefined) checkCondition(c, e.if, [...path, 'if']);
-	if (sliceEvent) checkTrigger(c, e.trigger, [...path, 'trigger'], false);
+	if (e.id !== undefined && (!isStr(e.id) || !EVENT_ID.test(e.id))) c.error([...path, 'id'], 'an event id is letters, digits, - and _ (the creator assigns it)');
+	if (e.if !== undefined) checkCondition(c, e.if, [...path, 'if'], ctx);
+	if (sliceEvent) checkTrigger(c, e.trigger, [...path, 'trigger'], false, isStr(e.id) && !!e.id);
 }
 
 /**
@@ -474,12 +614,12 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	}
 }
 
-/** onomatopoeia events that reveal a text box (`params.dialog`): the box must be there (slice events: on the slice) */
+/** showTextBox events that reveal a text box (`params.dialog`): the box must be there (slice events: on the slice) */
 function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path, where: string) {
 	const ids = new Set(slices.flatMap((s) => (Array.isArray(s?.dialog) ? s.dialog.map((d: any) => d?.id) : [])).filter(isStr));
 	const seen = new Map<string, number>();
 	events.forEach((e: any, i: number) => {
-		const ref = e?.type === 'showOnomatopeia' ? e?.params?.dialog : undefined;
+		const ref = e?.type === 'showTextBox' ? e?.params?.dialog : undefined;
 		if (!isStr(ref) || !ref) return;
 		if (!ids.has(ref)) c.warn([...path, i, 'params', 'dialog'], `text box "${ref}" is not on ${where} – the event shows nothing`);
 		if (seen.has(ref)) c.info([...path, i, 'params', 'dialog'], `text box "${ref}" is revealed by event ${seen.get(ref)! + 1} already`);
@@ -488,8 +628,9 @@ function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path,
 }
 
 /**
- * The VN's logic in a group (owner 2026-10-03: "people need to enter before they can speak"): the scene starts empty and
- * is cleared when the group ends (viewer visual-novel.svelte.ts `clear`), so per group – the group's script first, then
+ * The VN's logic in a group (owner 2026-10-03: "people need to enter before they can speak"): the scene starts empty on a
+ * page and is cleared when the page ends (viewer visual-novel.svelte.ts `clear`); linked groups carry the stage on, but
+ * a chain can be entered in the middle (`?label=`), so each group is checked on its own – per group – the group's script first, then
  * the slices' events in reading order – a speaker must have joined and not left, nobody leaves without being there (joining
  * again updates the character on stage), and choices are added before they are shown and shown once added. Warnings: the reader still plays it.
  */
@@ -564,6 +705,140 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	}
 	checkScriptPoints(c, g, path);
 	checkVnFlow(c, g, path);
+	// where the reader could get stuck (stuck.ts, owner 2026-10-06): refused – the save guard on the server too
+	for (const p of stuckPoints([g])) c.error([...path, ...p.path.slice(2)], stuckMessage(p));
+	checkGroupLinks(c, g, path, ctx);
+}
+
+/** Linked groups (chains.ts): `continues` a boolean, `end` { target, auto? } – ignored on a group that continues */
+function checkGroupLinks(c: Collector, g: any, path: Path, ctx: ValidateContext) {
+	if (g.continues !== undefined && typeof g.continues !== 'boolean') c.error([...path, 'continues'], 'continues must be true or false');
+	if (g.end === undefined) return;
+	if (!isObj(g.end)) return c.error([...path, 'end'], 'end must be an object { target, auto? }');
+	checkTarget(c, g.end.target, [...path, 'end', 'target'], ctx);
+	if (g.end.auto !== undefined && typeof g.end.auto !== 'boolean') c.error([...path, 'end', 'auto'], 'end.auto must be true or false');
+	if (g.continues === true) c.warn([...path, 'end'], "end is ignored: the group continues into the next group (only a chain's last group has an end)");
+}
+
+/**
+ * The chapter's chains (chains.ts, owner 2026-10-06): the last group can't continue; a chain that isn't the chapter's start
+ * needs a label on its first group (else nothing reaches it); a group whose script can jump away and continues needs a
+ * label on the next group (whatever follows a jumpTo must be reachable by a label) – what can't be reached at all is
+ * `checkReach`'s. `groups` = the chapter's groups with each scene in place of its ref (where known).
+ */
+function checkChains(c: Collector, groups: any[]) {
+	groups.forEach((g, i) => {
+		if (!isObj(g) || g.continues !== true) return;
+		if (i === groups.length - 1) c.error(['groups', i, 'continues'], "the chapter's last group can't continue (nothing follows it on the page)");
+		else if (scriptJumps(g) && isObj(groups[i + 1]) && !groups[i + 1].label)
+			c.warn(['groups', i + 1, 'label'], 'the group before can jump away (jumpTo) and continues into this one – give this group a label so a jump can lead back here');
+		if (i > 0 && !g.label && !linksToNext(groups, i - 1)) c.warn(['groups', i, 'label'], 'linked groups start here without a label – nothing can reach them');
+	});
+}
+
+/**
+ * Reachability (reach.ts, owner 2026-10-06): unreachable groups / slices / script events, conditions that can never be
+ * true (only with the toon's facts), loops with no way out.
+ */
+function checkReach(c: Collector, groups: any[], facts: ToonFacts | undefined) {
+	const r = chapterReach(groups, facts);
+	r.groups.forEach((reach, gi) => reach === 'unreachable' && c.warn(['groups', gi], 'unreachable: nothing leads to this group (no jump to its label, and the content before it always leaves or never finishes)'));
+	r.slices.forEach((list, gi) => {
+		if (r.groups[gi] === 'unreachable') return;
+		list.forEach((reach, si) => reach === 'unreachable' && c.warn(['groups', gi, 'slices', si], 'unreachable: a slice before always leaves when it is seen'));
+	});
+	r.events.forEach((list, gi) => {
+		if (r.groups[gi] === 'unreachable') return;
+		list.forEach((reach, i) => reach === 'unreachable' && c.warn(['groups', gi, 'events', i], 'unreachable: no run of the script gets here (an unconditional divert or jumpTo before it, and nothing leads here)'));
+	});
+	for (const p of r.neverTrue) c.warn(p, `never true: "${String(getIf(groups, p)?.variable ?? '')}" is set nowhere (in no toon), so this test always fails`);
+	for (const p of r.loops) c.warn(p, 'endless loop: from here the script only goes round (no end, no jump)');
+}
+
+/**
+ * Story variables are ONE save game for every toon (owner 2026-10-06): a name that looks like another known one
+ * (`visits_harbor` / `visits_harbour`, reach.ts `similarVariable`) is probably a slip that makes a second variable – a
+ * warning at the first place this chapter sets or tests it. Known = what any toon sets or reads (the facts) and this
+ * chapter's own names.
+ */
+function checkVariableNames(c: Collector, groups: any[], facts: ToonFacts) {
+	const first = new Map<string, Path>();
+	const walk = (v: unknown, path: Path) => {
+		if (!v || typeof v !== 'object') return;
+		if (Array.isArray(v)) return v.forEach((x, i) => walk(x, [...path, i]));
+		const o = v as Record<string, any>;
+		const at = (name: unknown, p: Path) => typeof name === 'string' && name && !first.has(name) && first.set(name, p);
+		if (o.type === 'setVariable') at(o.params?.variable, [...path, 'params', 'variable']);
+		at(askVariable(o), [...path, 'params', 'variable']);
+		if (isObj(o.set)) at(o.set.variable, [...path, 'set', 'variable']);
+		if (isObj(o.add)) at(o.add.variable, [...path, 'add', 'variable']);
+		if (isObj(o.if)) at(o.if.variable, [...path, 'if', 'variable']);
+		for (const key in o) walk(o[key], [...path, key]);
+	};
+	groups.forEach((g, gi) => walk(g, ['groups', gi]));
+	const known = new Set([...facts.variables, ...(facts.reads ?? []), ...first.keys()]);
+	for (const [name, path] of first) {
+		const like = similarVariable(name, known);
+		if (like) c.warn(path, `story variable "${name}" looks like "${like}" – the same one? (story variables are shared by every toon; a slip makes a second variable)`);
+	}
+}
+
+/** the `if` at a reach path (groups.g.….if) */
+function getIf(groups: any[], path: (string | number)[]): any {
+	let v: any = { groups };
+	for (const key of path) v = v?.[key];
+	return v;
+}
+
+/**
+ * Event ids (agents/EXPRESSIONS.md §5): hidden, stable, unique in the chapter and its scenes – the reader's save game
+ * remembers an event by it (repeat, `resolved(id)` / `count(id)`). The creator assigns them (on load and with every
+ * edit: an event without one gets one, the document is then unsaved); a document stored without them (production
+ * before the step-3 creator) gets one warning until it is saved in the creator. `own(gi)`: the group is this document's
+ * own (a chapter's scenes report their missing ids themselves).
+ */
+function checkEventIds(c: Collector, groups: any[], base: (gi: number) => Path, own: (gi: number) => boolean = () => true) {
+	const seen = new Map<string, string>();
+	let missing = 0;
+	const visit = (list: unknown, at: Path, gi: number, where: string) =>
+		(Array.isArray(list) ? list : []).forEach((e: any, i: number) => {
+			if (!isObj(e)) return;
+			if (!isStr(e.id) || !e.id) {
+				if (own(gi)) missing++;
+				return;
+			}
+			if (seen.has(e.id)) c.error([...at, i, 'id'], `event id "${e.id}" is used twice in this chapter (also ${seen.get(e.id)})`);
+			else seen.set(e.id, where);
+		});
+	groups.forEach((g, gi) => {
+		if (!isObj(g)) return;
+		const gp = base(gi);
+		visit(g.events, [...gp, 'events'], gi, `group ${gi + 1}`);
+		(Array.isArray(g.slices) ? g.slices : []).forEach((s: any, si: number) => {
+			if (!isObj(s)) return;
+			visit(s.events, [...gp, 'slices', si, 'events'], gi, `group ${gi + 1}, slice ${si + 1}`);
+			(Array.isArray(s.items) ? s.items : []).forEach((it: any, ii: number) => isObj(it) && visit(it.events, [...gp, 'slices', si, 'items', ii, 'events'], gi, `group ${gi + 1}, slice ${si + 1}, item ${ii + 1}`));
+		});
+	});
+	if (missing) c.warn([], `${missing} event${missing === 1 ? ' has' : 's have'} no id yet (the reader's save game needs them) – open it in the creator and save: it assigns them`);
+}
+
+/**
+ * Text box ids are unique within the chapter, its scenes included (owner 2026-10-06): linked groups share one page, and an
+ * showTextBox event reveals a box by its id. The creator assigns fresh ids; this is the safety net.
+ */
+function checkDialogIds(c: Collector, groups: any[]) {
+	const seen = new Map<string, string>();
+	groups.forEach((g, gi) =>
+		(isObj(g) && Array.isArray(g.slices) ? g.slices : []).forEach((s: any, si: number) =>
+			(isObj(s) && Array.isArray(s.dialog) ? s.dialog : []).forEach((d: any, di: number) => {
+				if (!isStr(d?.id) || !d.id) return;
+				const where = `group ${gi + 1}, slice ${si + 1}`;
+				if (seen.has(d.id)) c.error(['groups', gi, 'slices', si, 'dialog', di, 'id'], `text box id "${d.id}" is used twice in this chapter (also ${seen.get(d.id)})`);
+				else seen.set(d.id, where);
+			})
+		)
+	);
 }
 
 function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContext) {
@@ -611,7 +886,15 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		(ch.audio?.sampleLibrary ?? []).forEach((t: any, i: number) => checkAudioVariants(c, t, ['audio', 'sampleLibrary', i]));
 	}
 	if (!Array.isArray(ch.groups) || !ch.groups.length) c.error(['groups'], 'chapter needs at least one group');
-	else ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
+	else {
+		ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
+		const resolved = ch.groups.map((g: any) => (isObj(g) && g.ref ? (ctx.resolveGroup?.(g) ?? g) : g));
+		checkChains(c, resolved);
+		checkReach(c, resolved, ctx.facts);
+		if (ctx.facts) checkVariableNames(c, resolved, ctx.facts);
+		checkDialogIds(c, resolved);
+		checkEventIds(c, resolved, (gi) => ['groups', gi], (gi) => !(isObj(ch.groups[gi]) && ch.groups[gi].ref));
+	}
 }
 
 function checkStringList(c: Collector, value: unknown, path: Path, required = false) {
@@ -770,8 +1053,8 @@ function checkSeason(c: Collector, s: any, locale: string, ctx?: ValidateContext
 }
 
 /**
- * toon.json (`ToonSettings`, entity `toon-settings:<toon>:<l>`): the per-language settings (title, description, release,
- * status). The language-neutral ones (`TOON_NEUTRAL_FIELDS`: map, tile, announce, cover …) belong to the index entry
+ * toon.json (`ToonSettings`, entity `toon-settings:<toon>:<l>`, legacy since agents/NEUTRAL.md step 4 – the toon entry
+ * holds these as locale maps): the per-language settings (title, description, release, status). The language-neutral ones (`TOON_NEUTRAL_FIELDS`: map, tile, announce, cover …) belong to the index entry
  * `toon:<toon>` – a copy here is a warning (the reader takes the entry's), so they don't creep back per language.
  */
 function checkToon(c: Collector, t: any, locale: string) {
@@ -792,7 +1075,10 @@ function checkToon(c: Collector, t: any, locale: string) {
 /** covers are per season (owner 2026-10-02): a toon is represented by its avatar */
 const COVER_BELONGS_TO_SEASON = "the cover belongs to the season (season.cover, the season's cover editor in the creator) – a toon is shown with its avatar";
 
-/** The toon's index entry (`ToonIndex`, entity `toon:<toon>`): the language-neutral settings (`TOON_NEUTRAL_FIELDS`), all optional */
+/**
+ * The toon's index entry (`ToonIndex`, entity `toon:<toon>`): the language-neutral settings (`TOON_NEUTRAL_FIELDS`), all
+ * optional. Its texts per language (`TOON_TEXT_FIELDS`) are checked by `validateNeutral('index', …)`.
+ */
 function checkToonIndex(c: Collector, t: any) {
 	if (!isObj(t)) return c.error([], 'toon entry must be an object');
 	if (!isStr(t.id) || !t.id) c.error(['id'], 'id must be the toon id');
@@ -800,6 +1086,14 @@ function checkToonIndex(c: Collector, t: any) {
 	if (t.chapters !== undefined && !Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
 	if (t.thumbnail !== undefined) checkImagePath(c, t.thumbnail, ['thumbnail']);
 	if (t.cover !== undefined) c.warn(['cover'], COVER_BELONGS_TO_SEASON);
+	// the old per-language name (owner decision 4, 2026-10-06: the name is `title`)
+	if (t.i18n !== undefined)
+		c.warn(
+			['i18n'],
+			hasToonTexts(t)
+				? 'i18n is the old per-language name – drop it, the name is "title" (a text per language)'
+				: 'i18n is the old per-language name – converting the toon (Convert) puts it into "title" (a text per language)'
+		);
 	if (t.map !== undefined) {
 		// the toon's start view on the world map (agents/MAP.md §2.2); the world's size and layers live in the entity `map`
 		if (!isObj(t.map)) c.error(['map'], 'map must be the start view { center?: { x, y }, zoom? }');
@@ -866,7 +1160,10 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 		return c.problems;
 	}
 	if (kind === 'chapter') checkChapter(c, data, locale, ctx);
-	else if (kind === 'group') checkGroup(c, data, [], ctx);
+	else if (kind === 'group') {
+		checkGroup(c, data, [], ctx);
+		checkEventIds(c, [data], () => []);
+	}
 	else if (kind === 'season') checkSeason(c, data, locale, ctx);
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
@@ -888,7 +1185,135 @@ export function forEachSlice(kind: string, data: any, fn: (slice: any, path: Pat
 	for (const [g, gp] of groups) (g?.slices ?? []).forEach((s: any, i: number) => fn(s, [...gp, 'slices', i]));
 }
 
-/** Structure + translations across the locale files of one doc */
+/**
+ * Problems of a text's `{…}` (agents/EXPRESSIONS.md §4, ink's inline syntax): syntax errors are errors (the reader would
+ * show nothing there), what the analyser can only doubt – unknown names / functions, wrong arguments – warnings; the old
+ * clock form `{x:clock}` is an error (no alias: the migration 2026-10-06-clock-syntax rewrites stored texts).
+ */
+const EXPR_DOUBTS = new Set(['unknown-name', 'unknown-variable', 'unknown-function', 'function-needs-call', 'not-a-function', 'namespace-needs-member', 'argument-count', 'argument-type']);
+
+/** an analyser problem's level in validation (and in the creator's text fields): doubts warn, the old clock form is an error */
+export function exprLevel(p: { code: string; severity: 'error' | 'warning' }): Level {
+	return p.code === 'old-clock-syntax' ? 'error' : EXPR_DOUBTS.has(p.code) ? 'warning' : p.severity;
+}
+const exprAt = (p: { start: number; end: number; args?: string[]; suggestion?: string }, line?: number): Problem['expr'] => ({
+	start: p.start,
+	end: p.end,
+	...(line !== undefined ? { line } : {}),
+	...(p.args ? { args: p.args } : {}),
+	...(p.suggestion ? { suggestion: p.suggestion } : {})
+});
+
+function checkTextExpressions(c: Collector, path: Path, text: string, what: string, knownNames?: readonly string[], line?: number) {
+	if (!/[{}\\]/.test(text)) return;
+	for (const p of analyseText(text, { knownNames }).errors) {
+		const level = exprLevel(p);
+		const message =
+			p.code === 'old-clock-syntax'
+				? `\`{${p.args?.[0]}:clock}\` is the old clock form – write \`{clock(${p.args?.[0]})}\` (stored texts: run the migration 2026-10-06-clock-syntax)`
+				: p.message;
+		const snippet = text.slice(p.start, Math.min(p.end, p.start + 40)) || text.slice(Math.max(0, p.start - 10), p.start + 10);
+		c.add(level, path, `${what}: ${message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''} \`${snippet}\``, `expr:${p.code}`, exprAt(p, line));
+	}
+}
+
+const LEAF_WORD: Record<TextLeafKind, string> = { title: 'title', description: 'description', release: 'release', status: 'status', dialog: 'text', message: 'text', choice: 'label', hint: 'hint' };
+
+/**
+ * The toon entry's own problems (the language-neutral settings) + its texts resolved for the source: an empty title or
+ * description, no release date (warnings – a toon is shown with them). An entry without texts yet (production before its
+ * conversion: the per-language toon settings hold them) has only the first.
+ */
+function toonEntryProblems(data: any, languages: NeutralLanguages, ctx: ValidateContext): Problem[] {
+	const problems = validateFile('index', data, languages.source, ctx).map((p) => ({ ...p, locale: null }));
+	const c = new Collector(ctx.file, null);
+	// no texts yet (a field that isn't a locale map is reported with the locale maps' shape)
+	if (!hasToonTexts(data)) return problems;
+	const toon = resolveToon(data as ToonIndex, languages.source, languages);
+	if (!toon.title.trim()) c.warn(['title'], 'title is empty');
+	if (!String(toon.description ?? '').trim()) c.warn(['description'], 'description is empty');
+	if (!toon.release) c.warn(['release'], 'no release date yet (a date per language)');
+	return [...problems, ...c.problems];
+}
+
+/**
+ * A language-neutral chapter / scene (`group`) / season (agents/NEUTRAL.md), or the toon entry (`index`, step 4: its
+ * title / description / release / languageStatus maps): the structure once – the document as the
+ * source language's readers get it (`resolve*`), problems without a locale –, the locale maps' shape (a text per
+ * language, `release` a date in every locale, `sequence[].status` a status in every locale), and per toon language
+ * the completeness of the texts like `validateLocales` did for per-locale documents: a missing text (warning), the same
+ * as the source (info), a text box / VN text more than 130 % of the source (warning) – those carry their locale.
+ * `ctx.seasonStatus` of a chapter: its status in the season's source language (null = not in the season).
+ */
+export function validateNeutral(kind: string, data: any, languages: NeutralLanguages, ctx: ValidateContext): Problem[] {
+	const file = ctx.file;
+	if (data === null || data === undefined) return [{ level: 'error', file, locale: null, path: [], message: 'no document' }];
+	if (!isObj(data)) return [{ level: 'error', file, locale: null, path: [], message: 'the document must be an object' }];
+	const source = languages.source;
+	const all = [...new Set([source, ...(languages.languages ?? [])])];
+	const resolved =
+		kind === 'chapter'
+			? resolveChapter(data as ChapterDoc, source, languages)
+			: kind === 'season'
+				? resolveSeason(data as SeasonDoc, source, languages)
+				: kind === 'index'
+					? null
+					: resolveGroup(data as GroupDoc, source, languages);
+	const problems = kind === 'index' ? toonEntryProblems(data, languages, ctx) : validateFile(kind, resolved, source, ctx).map((p) => ({ ...p, locale: null }));
+	const c = new Collector(file, null);
+	const at = (locale: string) => new Collector(file, locale);
+	const neutralKind: NeutralKind | 'toon' = kind === 'group' ? 'scene' : kind === 'index' ? 'toon' : (kind as NeutralKind);
+	const perLocale: Collector[] = [];
+	// the toon's story variables (what something sets – the creator loads the toon's documents): an unknown one in a text warns
+	const knownNames = ctx.facts ? [...ctx.facts.variables] : undefined;
+	forEachText(neutralKind, data, (path, value, leaf) => {
+		const word = LEAF_WORD[leaf];
+		if (!isObj(value)) {
+			c.error(path, `${path.join('.')} must be ${leaf === 'release' ? 'a date' : leaf === 'status' ? 'a status' : 'a text'} per language { ${source}: … }`);
+			return;
+		}
+		for (const [locale, v] of Object.entries(value)) {
+			const l = at(locale);
+			perLocale.push(l);
+			if (leaf === 'release') {
+				if (!isStr(v) || !DATE.test(v)) l.error(path, `release must be a date YYYY-MM-DD (${locale})`);
+			} else if (leaf === 'status') {
+				if (!values(Status).includes(v as string)) l.error(path, `status must be published, draft or coming-soon (${locale})`);
+			} else if (!(isStr(v) || (leaf === 'dialog' && Array.isArray(v) && v.every(isStr)))) {
+				l.error(path, `the ${locale} ${word} must be ${leaf === 'dialog' ? 'a string or string[]' : 'a string'}`);
+			} else if (leaf === 'dialog' || leaf === 'message' || leaf === 'choice') {
+				// expressions in the text (each line of a text box on its own)
+				const lines = Array.isArray(v) ? v : [v];
+				lines.forEach((line, i) => checkTextExpressions(l, path, line, `the ${locale} ${word}${Array.isArray(v) ? ` (line ${i + 1})` : ''}`, knownNames, Array.isArray(v) ? i : undefined));
+			}
+		}
+		if (leaf === 'release' || leaf === 'status') return;
+		const src = textOf(value[source]).trim();
+		const quote = (text: string) => (leaf === 'title' || leaf === 'description' ? '' : ` for "${text.slice(0, 40)}"`);
+		if (!src) {
+			const other = all.find((l) => l !== source && textOf(value[l]).trim());
+			if (other) {
+				const l = at(source);
+				perLocale.push(l);
+				l.warn(path, `missing ${source} ${word}${quote(textOf(value[other]).trim())} (the source language; readers get the ${other} text)`);
+			}
+			return;
+		}
+		for (const locale of all) {
+			if (locale === source) continue;
+			const tr = textOf(value[locale]).trim();
+			const l = at(locale);
+			perLocale.push(l);
+			if (!tr) l.warn(path, `missing ${locale} ${word}${quote(src)}`);
+			else if (tr === src) l.info(path, `${locale} ${word} is the same as ${source} (not translated?)`);
+			else if ((leaf === 'dialog' || leaf === 'message' || leaf === 'choice') && tr.length > src.length * LENGTH_WARNING_RATIO)
+				l.warn(path, `${locale} ${word} is ${Math.round((tr.length / src.length) * 100)}% of ${source} (> 130%) – check the fit`);
+		}
+	});
+	return [...problems, ...c.problems, ...perLocale.flatMap((l) => l.problems)];
+}
+
+/** Structure + translations across the locale files of one doc (legacy per-locale documents; neutral ones: validateNeutral) */
 export function validateLocales(kind: string, file: string, files: Record<string, any>, primary: string): Problem[] {
 	const problems: Problem[] = [];
 	const add = (level: Level, locale: string | null, path: Path, message: string) =>

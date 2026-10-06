@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { isPrologue, Renderer, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
+	import { intoOtherToon, isPrologue, Renderer, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
 	import { SLICE_PLAYER_EVENT, SLICE_SKIP_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
@@ -11,11 +11,14 @@
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
+	import { buildJumpToUrl } from '$lib/visual-novel/jump-to.ts';
 
 	/**
-	 * The follow-up bar (agents/DESIGN.md "Follow-up bar"): once the shown group is done – its last slice seen, its
+	 * The follow-up bar (agents/DESIGN.md "Follow-up bar"): once the shown group – the last of linked groups (a chain,
+	 * @scutoons/content chains.ts, all on this page) – is done – its last slice seen, its
 	 * player video ended, a VN group's scene finished (no message waiting, no choice open) – a fixed bar at the bottom
-	 * says what comes next (`nextStep`): the next group, the next chapter (a 5 s countdown, then it goes there), the
+	 * says what comes next (`nextStep`): the group's authored end (`Group.end`: offered with the countdown, or with `auto`
+	 * gone to at once, no bar), the next group, the next chapter (a 5 s countdown, then it goes there), the
 	 * membership it needs (sign in / redeem a code), coming soon, or the season's end. The countdown stops with
 	 * "Abbrechen", when the end scrolls out of view, on any other click (a menu, an overlay) or Escape, and waits while the
 	 * tab is hidden; with reduced motion there is none. "Nochmal" replays the group and stops it too (a group ending with a
@@ -29,6 +32,7 @@
 		season,
 		sequence,
 		group,
+		count: slices,
 		download = false,
 		onreplay
 	}: {
@@ -40,11 +44,13 @@
 		season: number;
 		/** the season's listed chapters (titles, release dates) */
 		sequence: LoadedSequenceItem[];
-		/** the shown group */
+		/** the shown group (of linked groups: the last one – its end is the page's end) */
 		group: Group;
+		/** the page's slices (linked groups: all of theirs, `data-slice-index` 0 … count − 1); default the group's */
+		count?: number;
 		/** the season has a music download */
 		download?: boolean;
-		/** start the group again from its beginning */
+		/** start the group (linked groups: the first one) again from its beginning */
 		onreplay: () => void;
 	} = $props();
 
@@ -55,9 +61,9 @@
 	const itemsUi = getItemsUiContext();
 	const nav = getNavigationContext();
 
-	const count = $derived(group.slices?.length ?? 0);
+	const count = $derived(slices ?? group.slices?.length ?? 0);
 	/** the group ends with a player video: it is done when the video ended (not when it was seen) */
-	const endsWithPlayer = $derived(group.slices?.[count - 1]?.video?.player === true);
+	const endsWithPlayer = $derived(group.slices?.at(-1)?.video?.player === true);
 	/**
 	 * a full-width strip (renderer.params.fullWidth): it already fills the screen, so the bar sits over its last screen
 	 * instead of adding room below it – that room made the page longer right at the strip's end, and the next scroll
@@ -72,10 +78,9 @@
 	/** the last slice is (partly) on screen */
 	let endInView = $state(false);
 
-	// a VN group: its script ran to the end, nothing waits for a click or a choice; slice triggers (a cucumber offer) too
-	const sceneDone = $derived(
-		(!group.events || vn.state.eventsDone) && !vn.state.choicesVisible && !(vn.state.messageVisible && vn.state.message.wait)
-	);
+	// the page's VN is through (owner 2026-10-06): every script it must run finished (linked groups: all from the shown
+	// group on), none in line, nothing waits for a click or a choice, no slice trigger running (a cucumber offer)
+	const sceneDone = $derived(vn.state.pageDone && !vn.state.frozen);
 	const shown = $derived(reachedEnd && sceneDone);
 
 	// the end of the group in the chapter view (the bar's host sits in it, after the group)
@@ -132,12 +137,22 @@
 	});
 
 	// ── what the bar offers ──────────────────────────────────────────────────────────────────────────────────────────
-	const target = $derived('chapter' in step ? sequence.find((item) => item.number === step.chapter) : undefined);
+	/** an authored end to a chapter (`jump`) is named like the next chapter */
+	const jumpChapter = $derived(step.kind === 'jump' && step.target.type === 'chapter' && !intoOtherToon(step.target, toonId) && /^\d+$/.test(String(step.target.value)) ? Number(step.target.value) : null);
+	const targetChapter = $derived('chapter' in step ? step.chapter : jumpChapter);
+	const target = $derived(targetChapter !== null ? sequence.find((item) => item.number === targetChapter) : undefined);
 	const chapterHref = (n: number) => localizeHref(`/${toonId}/chapter/${n}`);
 	const overviewHref = $derived(localizeHref(`/${toonId}`));
-	/** the automatic cases: on to the next group / chapter */
-	const automatic = $derived(step.kind === 'group' || step.kind === 'chapter');
+	/** the automatic cases: on to the next group / chapter, or the authored end */
+	const automatic = $derived(step.kind === 'group' || step.kind === 'chapter' || step.kind === 'jump');
+	/** the authored end's URL (a random one of `anyOf` picked once per showing) */
+	const jumpHref = $derived.by(() => {
+		if (step.kind !== 'jump') return null;
+		const url = buildJumpToUrl(step.target, toonId, group.label ?? null);
+		return url ? localizeHref(url) : null;
+	});
 	const primaryHref = $derived.by(() => {
+		if (step.kind === 'jump') return jumpHref;
 		if (step.kind === 'group') return localizeHref(`/${toonId}/chapter/${chapter}?label=${encodeURIComponent(step.label)}`);
 		if (step.kind === 'chapter') return chapterHref(step.chapter);
 		// sign in, then back to the chapter (the account page's `return`)
@@ -147,6 +162,11 @@
 	});
 	const primaryLabel = $derived.by(() => {
 		if (step.kind === 'group') return m['next_bar.next']();
+		if (step.kind === 'jump') {
+			if (jumpChapter === null || jumpChapter === chapter) return m['next_bar.next']();
+			const name = chapterName(jumpChapter);
+			return target?.title ? m['next_bar.chapter']({ chapter: name, title: target.title }) : name;
+		}
 		if (step.kind === 'chapter') {
 			// from the prologue like the start button: "S1 K1 lesen"
 			if (isPrologue(chapter)) return m['start.read']({ season, chapter: step.chapter });
@@ -205,13 +225,22 @@
 		requestAnimationFrame(() => host?.scrollIntoView({ behavior: smooth, block: 'end' }));
 	}
 
+	// an authored end with `auto`: there as soon as the group is done – no bar, no countdown
+	const goesAtOnce = $derived(step.kind === 'jump' && step.auto && !!primaryHref);
+	let went = false;
+	$effect(() => {
+		if (!shown || !goesAtOnce || went || !primaryHref) return;
+		went = true;
+		goto(primaryHref);
+	});
+
 	// ── the countdown ────────────────────────────────────────────────────────────────────────────────────────────────
 	const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 	/** stopped for this showing of the bar (the button stays) */
 	let cancelled = $state(false);
 	let elapsed = $state(0);
 	let hidden = $state(typeof document !== 'undefined' && document.visibilityState === 'hidden');
-	const counting = $derived(shown && automatic && !reducedMotion && !cancelled);
+	const counting = $derived(shown && automatic && !goesAtOnce && !reducedMotion && !cancelled);
 	const remaining = $derived(Math.max(1, Math.ceil((COUNTDOWN_MS - elapsed) / 1000)));
 
 	function stop() {
@@ -275,8 +304,8 @@
 	});
 </script>
 
-<div class="next-host" bind:this={host} class:shown={shown && !strip}>
-	{#if shown}
+<div class="next-host" bind:this={host} class:shown={shown && !strip && !goesAtOnce}>
+	{#if shown && !goesAtOnce}
 		<section
 			class="next-bar"
 			bind:this={bar}

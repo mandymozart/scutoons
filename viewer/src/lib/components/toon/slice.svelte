@@ -8,17 +8,34 @@
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { isTaken, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
+	import { idsOf, isRunDue, recordRun, type RunMemory } from '$lib/visual-novel/repeat.ts';
+	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audioPlayer } from '$lib/actions/audio/index.ts';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
+	import { getReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 	import Samples from './audio/samples.svelte';
 	import Triggers from './vn/triggers.svelte';
 
-	let { slice, sliceIndex = 0, allSlices = [] }: { slice: SliceModel; sliceIndex?: number; allSlices?: SliceModel[] } =
-		$props();
+	let {
+		slice,
+		sliceIndex = 0,
+		pageIndex,
+		allSlices = []
+	}: {
+		slice: SliceModel;
+		/** the slice's index in its group (`allSlices`): the music state, eager loading */
+		sliceIndex?: number;
+		/**
+		 * its index on the page (`data-slice-index`: reading progress, the follow-up bar, a player's skip): linked groups
+		 * share one page and number their slices on across it; default = `sliceIndex`
+		 */
+		pageIndex?: number;
+		allSlices?: SliceModel[];
+	} = $props();
 
 	const toonId = $derived(page.params.toonId);
 	// a sensitive slice while the reader hides sensitive content (members: their account setting, on by default; guests and
@@ -70,10 +87,16 @@
 	const EAGER_SLICES = 2;
 	// chapter files are loaded per locale, so the UI locale is the language of the text
 	const lang = getLocale();
+	// `{…}` in the text boxes, answered for this reader (agents/EXPRESSIONS.md); visits counted once per page view
+	const expressions = getReaderExpressions()?.textBoxes;
 
 	// placed items (Slice.items): icons from the item catalog; a tap does what the creator chose (lib/visual-novel/slice-items.ts)
 	const game = getGameContext();
 	const vn = getVisualNovelContext();
+	// the slice's group (linked groups share a page): its script for diverts, its text boxes; `done` = above the `?label=`
+	// target of a chain – read already: its boxes show as they are (owner 2026-10-06)
+	const group = getGroupScope();
+	const scope = group?.scope ?? '';
 	const itemInfo: ResolveSliceItem = (item) => {
 		const inventory = getCurrentInventory();
 		const def = inventory?.item(item.item);
@@ -85,8 +108,8 @@
 		void taken;
 		return item.action === 'pickup' ? isTaken(slice, item, game) : false;
 	};
-	/** placements whose events already ran on this page view (`once`, default true) */
-	const ran = new Set<string>();
+	/** how often a placement's tap events run: its `repeat` over the reader's history (visual-novel/repeat.ts) */
+	const tapMemory = new Map<string, RunMemory>();
 	async function onItemTap(item: SliceItem) {
 		if (!game) return;
 		if (item.action === 'pickup') {
@@ -95,31 +118,33 @@
 			// tell the reader why it stayed (or that it was theirs already); a tap while one is pending says nothing
 			if (!result.ok && result.error) getCurrentInventory()?.refused(item.item, result.error);
 		} else if (item.action === 'events' && vn) {
-			const once = item.once ?? true;
-			if (once && ran.has(item.id)) return;
-			if (once) ran.add(item.id);
-			const destination = await runSliceItemEvents(item, game, vn);
+			const ids = idsOf(item.events);
+			const memory = tapMemory.get(item.id) ?? { ran: false };
+			tapMemory.set(item.id, memory);
+			if (!isRunDue(item.repeat, ids, game, memory)) return;
+			recordRun(ids, game, memory);
+			const destination = await runSliceItemEvents(item, game, vn, group);
 			if (destination) goto(destination);
 		}
 	}
 
-	// text boxes revealed by onomatopoeia events (params.dialog): hidden until then, then they play the event's effect
+	// text boxes revealed by showTextBox events (params.dialog): hidden until then, then they play the event's effect
 	// the slice's events and its placed items' tap events
 	const sliceRefs = $derived(
 		new Set(
 			[...(slice.events ?? []), ...(slice.items ?? []).flatMap((it) => it.events ?? [])].flatMap((e) =>
-				e.type === 'showOnomatopeia' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
+				e.type === 'showTextBox' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
 			)
 		)
 	);
-	const dialogHidden = (dialog: Dialog) => !!vn?.dialogHidden(dialog.id, sliceRefs);
+	const dialogHidden = (dialog: Dialog) => !group?.done && !!vn?.dialogHidden(dialog.id, sliceRefs, scope);
 	const dialogPlay = (dialog: Dialog): DialogPlay | null => {
-		const active = vn?.dialogPlaying(dialog.id);
+		const active = vn?.dialogPlaying(dialog.id, scope);
 		if (!active) return null;
 		return {
 			key: active.id,
 			effect: active.effect,
-			// the same limits as the event's own onomatopoeia (@scutoons/reader Onomatopoeia)
+			// the limits of a showTextBox event's timing (ShowTextBoxParams)
 			duration: sanitizeNumber(active.duration ?? 2000, 2000, 0, 5000),
 			delay: sanitizeNumber(active.delay ?? 0, 0, 0, 5000),
 			onComplete: active.onComplete
@@ -129,7 +154,7 @@
 
 <Slice
 	{slice}
-	data-slice-index={sliceIndex}
+	data-slice-index={pageIndex ?? sliceIndex}
 	src={imageUrl}
 	videoSrc={videoUrl}
 	eager={sliceIndex < EAGER_SLICES}
@@ -142,6 +167,7 @@
 	onitemtap={onItemTap}
 	{dialogHidden}
 	{dialogPlay}
+	{expressions}
 	{blurred}
 	{@attach fromAction(sliceAudio, () => ({
 		events: audioEvents,

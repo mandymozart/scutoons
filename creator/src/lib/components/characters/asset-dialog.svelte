@@ -61,7 +61,7 @@
 	}
 </script>
 
-<Sheet bind:open {title} closeLabel={m['creator.characters_close']()}>
+<Sheet bind:open {title} closeLabel={m['creator.close']()}>
 	<div class="asset" data-testid="asset-dialog">
 		<section>
 			<h3>{m['creator.characters_set_path']()}</h3>

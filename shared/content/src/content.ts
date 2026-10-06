@@ -5,9 +5,11 @@ import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
 import type { SliceItemRespawn } from './respawn.ts';
+import type { Repeat } from './recurrence.ts';
 import type { CoverLettering } from './cover.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 import type { SensitiveFlag } from './sensitive.ts';
+import type { LocaleText } from './credits.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -15,8 +17,8 @@ export interface KeyVisual {
 }
 
 /**
- * An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals
- * (`VNShowOnomatopeiaEvent` `params.dialog`).
+ * An onomatopoeia is a text box too (the "onomatopoeia" text preset: white letters with an ink outline); a `showTextBox`
+ * event reveals any text box with an effect (`VNShowTextBoxEvent` `params.dialog`).
  */
 export type DialogVariant = 'bubble' | 'caption' | 'narration';
 
@@ -95,6 +97,12 @@ export interface Dialog {
 export interface JumpToTarget {
 	type: JumpToTargetType;
 	value: string;
+	/**
+	 * `type: 'chapter'` only: the chapter (and `label` / `anyOf`) of ANOTHER toon (owner 2026-10-06, "at label");
+	 * absent = this toon. `type: 'toon'` stays the toon's page. Variables are per toon – a jump into another toon reads
+	 * and writes that toon's story variables (`targetToon`, DATA.md "Linked groups").
+	 */
+	toon?: string;
 	label?: string;
 	/**
 	 * a random group of this chapter instead of `label` (owner 2026-10-03, the chapter 2 stroll): one of these labels, never
@@ -326,8 +334,8 @@ export interface SliceItem {
 	qty?: number;
 	/** events: run on tap (no trigger – the tap is the trigger) */
 	events?: VNEvent[];
-	/** events: only the first tap per page view runs them (default true, like a click trigger's `once`) */
-	once?: boolean;
+	/** events: how often a tap runs them (recurrence.ts, like a slice trigger's `repeat`); none = every tap */
+	repeat?: Repeat;
 	/**
 	 * pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without
 	 * one never reappears); `never` = once here even if the item could reappear; an interval = an override within the
@@ -409,6 +417,24 @@ export interface Group extends AcceptedWarnings {
 	slices?: Slice[];
 	events?: VNEvent[];
 	ref?: RefLink;
+	/**
+	 * Linked groups (owner 2026-10-06): this group flows straight into the next group on the same page, no follow-up bar
+	 * between. A chain = consecutive groups where every one but the last continues (`chainOf` in chains.ts). Any group may
+	 * have a VN script or slice events (their scripts run one after another on the page); after a group whose script can
+	 * jump away, the next group needs a label.
+	 */
+	continues?: boolean;
+	/**
+	 * Where the reader goes when this group – the chain's last – is done, instead of the next group / chapter. Ignored on a
+	 * group that `continues`.
+	 */
+	end?: GroupEnd;
+}
+
+/** A group's authored end (`Group.end`): the destination; `auto` = go there at once, else the follow-up bar offers it */
+export interface GroupEnd {
+	target: JumpToTarget;
+	auto?: boolean;
 }
 
 /** A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers */
@@ -603,9 +629,11 @@ export interface Download {
 }
 
 /**
- * A toon's settings as the reader gets them (`/library/toons/<toon>` → `toon`): the per-language document
- * `toon-settings:<toon>:<l>` (`ToonSettings`: title, description, language, release, status) with the
- * language-neutral settings of the index entry `toon:<toon>` (`ToonNeutralSettings`) merged in by the library.
+ * A toon's settings as the reader gets them (`/library/toons/<toon>` → `toon`): the toon entry `toon:<toon>` resolved
+ * for the served locale – its locale maps (`TOON_TEXT_FIELDS`: title, description, release, the language's status) and
+ * its language-neutral settings (`ToonNeutralSettings`). Before the entry has texts (production before its conversion,
+ * agents/NEUTRAL.md step 4) the per-language document `toon-settings:<toon>:<l>` (`ToonSettings`) with the entry's
+ * neutral settings merged in.
  */
 export interface Toon extends AcceptedWarnings {
 	id: string;
@@ -650,7 +678,12 @@ export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
  */
 export type ToonNeutralSettings = Partial<Pick<Toon, Exclude<ToonNeutralField, 'map'>>> & { map?: ToonMapView };
 
-/** The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings */
+/**
+ * The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral
+ * settings.
+ * @deprecated legacy since 2026-10-06 (agents/NEUTRAL.md step 4): the texts, release and status per language live in the
+ * toon entry (`ToonIndex.title` …, `TOON_TEXT_FIELDS`); the library reads these documents only while the entry has none
+ */
 // AcceptedWarnings added back explicitly: through `Omit` the schema generator made the inherited optional field required
 export type ToonSettings = Omit<Toon, ToonNeutralField | 'cover' | 'accepted_warnings'> & AcceptedWarnings;
 
@@ -669,18 +702,51 @@ export interface ToonTile {
 export interface ToonIndex extends ToonNeutralSettings, AcceptedWarnings {
 	id: string;
 	uri: string;
+	/** the whole toon's visibility (the admin catalog / creator); each language has its own on top (`languageStatus`) */
 	status: Status;
+	/**
+	 * The toon's title per language – THE toon's name (the reader's `Toon.title`, the lists' / menu's / creator's name;
+	 * read it with `toonName(entry, locale)`; agents/NEUTRAL.md step 4 + decision 4). With it the entry holds the toon's
+	 * settings in every language – the per-language `toon-settings:<toon>:<l>` documents are legacy then.
+	 */
+	title?: LocaleText;
+	/** the toon's description per language (`Toon.description`) */
+	description?: LocaleText;
+	/** the release date per language, YYYY-MM-DD (a translation can be released later) */
+	release?: LocaleText;
+	/**
+	 * The visibility per language (`Toon.status`; a translation can stay a draft): the library gates the toon page of a
+	 * language on it and the toons list of a locale. A language without one has the source's; none at all = published.
+	 */
+	languageStatus?: Record<string, Status>;
 	avatar: string;
-	i18n: Record<string, Record<string, string>>;
-	/** The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `i18n` key, else `de`. */
+	/**
+	 * @deprecated the old per-language name (`i18n.<l>.name`) – the name is `title` now (owner decision 4, 2026-10-06);
+	 * never stored any more, only read from older entries (`toonName`). The library still answers it, computed from
+	 * `title`, for older viewer builds (legacy, drop later).
+	 */
+	i18n?: Record<string, Record<string, string>>;
+	/** The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `title` key, else `de`. */
 	sourceLanguage?: Language;
-	/** Every language of the toon, the source first. Default: the `i18n` keys (source first). */
+	/** Every language of the toon, the source first. Default: the `title` keys, else the old `i18n` keys (source first). */
 	languages?: Language[];
 	/**
 	 * Library answer only (`/library/toons`): the toon is not published but announced (`announce`) – list it as "soon",
 	 * never link it (its pages stay 404 publicly)
 	 */
 	announced?: boolean;
+}
+
+/**
+ * The toon entry's per-language fields (locale maps, agents/NEUTRAL.md step 4) – resolved into the reader's `Toon`
+ * (`title`, `description`, `release`, `status`), never part of the `entry` the library answers with
+ */
+export const TOON_TEXT_FIELDS = ['title', 'description', 'release', 'languageStatus'] as const;
+
+/** Whether a toon entry holds the toon's texts (converted from the per-language toon settings, or made so) */
+export function hasToonTexts(entry: unknown): boolean {
+	const title = (entry as { title?: unknown } | null | undefined)?.title;
+	return title !== null && typeof title === 'object' && !Array.isArray(title);
 }
 
 /** A toon the reader lists (landing page, main menu): published, or announced before its release (`announced`) */

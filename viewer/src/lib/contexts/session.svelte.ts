@@ -69,6 +69,13 @@ export function createSessionContext() {
 		return result.user;
 	}
 
+	/** The reader's name (askText scope "reader", the account page): `PUT /me/ { display_name }` (null clears it) */
+	async function setDisplayName(value: string | null) {
+		const result = await updateMe({ display_name: value });
+		if (auth.me) auth.patchMe({ user: { ...auth.me.user, ...result.user } });
+		return result.user;
+	}
+
 	function subscribe(listener: Listener) {
 		listeners.add(listener);
 		return () => listeners.delete(listener);
@@ -124,6 +131,7 @@ export function createSessionContext() {
 		/** Replace parts of `me` after inventory/avatar mutations without refetching. */
 		patchMe: auth.patchMe,
 		setMediaQuality,
+		setDisplayName,
 		subscribe
 	};
 	return context;

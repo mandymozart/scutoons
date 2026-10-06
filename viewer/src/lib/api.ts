@@ -65,7 +65,7 @@ export const { fetchCatalog, fetchEditions } = createQrApi(publicApi);
  * requests (agents/PERFORMANCE.md).
  */
 export const library = createLibraryApi({ publicClient: publicApi, sessionClient: api, cacheMs: 60_000 });
-export const { fetchCharacters, fetchRegistry, fetchCredits, fetchEvents, fetchMap } = library;
+export const { fetchRegistry, fetchCredits, fetchEvents, fetchMap } = library;
 
 /**
  * Toons, a toon, a chapter – with a creator's draft preview on (lib/draft-preview.svelte.ts) as `?draft=1`. When the
@@ -83,7 +83,9 @@ async function preview<T>(load: (draft: boolean) => Promise<T>): Promise<T> {
 		throw e;
 	}
 }
-export const fetchToons = () => preview((draft) => library.fetchToons({ draft }));
+export const fetchToons = (locale?: string) => preview((draft) => library.fetchToons({ draft }, locale));
 export const fetchToon = (toon: string, locale?: string) => preview((draft) => library.fetchToon(toon, locale, { draft }));
 export const fetchChapter = (toon: string, number: number, locale?: string) =>
 	preview((draft) => library.fetchChapter(toon, number, locale, { draft }));
+/** the cast with the draft preview too: a draft chapter's new characters (a draft cast) are on stage */
+export const fetchCharacters = (toon: string, locale: string) => preview((draft) => library.fetchCharacters(toon, locale, { draft }));

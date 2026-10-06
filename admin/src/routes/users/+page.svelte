@@ -93,7 +93,6 @@
 		defaultSortDir={{ codes: 'desc', created_at: 'desc' }}
 		onrowclick={(u) => goto(`/users/${encodeURIComponent(u.id)}`)}
 		{loading}
-		emptyLabel={m['users.empty']()}
 		labels={tableLabels()}
 	>
 		{#snippet cell(u, column)}

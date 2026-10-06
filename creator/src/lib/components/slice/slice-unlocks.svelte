@@ -69,8 +69,6 @@
 					</li>
 				{/each}
 			</ul>
-		{:else}
-			<p class="hint">{m['creator.slice_unlocks_none']()}</p>
 		{/if}
 		<select value="" onchange={(e) => { add(e.currentTarget.value); e.currentTarget.value = ''; }} aria-label={m['creator.slice_unlocks_add']()} data-testid="slice-unlock-add">
 			<option value="">{m['creator.slice_unlocks_add']()}</option>

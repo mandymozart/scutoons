@@ -237,7 +237,6 @@
 		<ol class="history" data-testid="ask-history">
 			{#if historyError}<li class="empty">{historyError}</li>
 			{:else if !history}<li class="empty">…</li>
-			{:else if !history.length}<li class="empty">{labels.historyEmpty}</li>
 			{:else}
 				{#each history as item (item.id)}
 					<li>
@@ -251,7 +250,7 @@
 		</ol>
 	{:else}
 	<ol class="chat" bind:this={list} aria-live="polite">
-		{#if !turns.length}<li class="empty">{labels.empty}</li>{/if}
+		{#if !turns.length}<li class="sc-empty">{labels.empty}</li>{/if}
 		{#each turns as turn, i (i)}
 			<li class="turn {turn.who}">
 				<p class="who">{turn.who === 'you' ? labels.you : labels.agent}</p>

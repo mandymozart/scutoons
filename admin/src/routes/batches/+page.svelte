@@ -158,7 +158,6 @@
 		sort={query.sort}
 		sortHref={(sort) => href({ sort })}
 		{loading}
-		emptyLabel={m['batches.empty']()}
 		labels={tableLabels()}
 	>
 		{#snippet cell(b, column)}

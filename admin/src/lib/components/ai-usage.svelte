@@ -109,8 +109,8 @@
 		</ul>
 		<p class="caption">{m['dashboard.ai_chart']()}</p>
 		<Chart kind="bar" labels={chart.labels} series={chart.series} ariaLabel={m['dashboard.ai_chart']()} formatLabel={shortDay} formatValue={amount} height={140} />
-		<p class="caption">{m['dashboard.ai_people']()}</p>
 		{#if people.length}
+			<p class="caption">{m['dashboard.ai_people']()}</p>
 			<table class="people">
 				<thead>
 					<tr>
@@ -130,8 +130,6 @@
 					{/each}
 				</tbody>
 			</table>
-		{:else}
-			<p class="muted">{m['dashboard.ai_none']()}</p>
 		{/if}
 	{/if}
 </Panel>

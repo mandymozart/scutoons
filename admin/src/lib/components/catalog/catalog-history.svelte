@@ -87,9 +87,7 @@
 	<p class="error-box" role="alert">{error}</p>
 {:else if !items}
 	<p class="muted">{m['shell.loading']()}</p>
-{:else if items.length === 0}
-	<p class="muted">{m['catalog.history_empty']()}</p>
-{:else}
+{:else if items.length}
 	<ol class="history" data-testid="catalog-history">
 		{#each items as h (h.id)}
 			{@const keys = h.action === 'update' ? changedKeys(h) : []}

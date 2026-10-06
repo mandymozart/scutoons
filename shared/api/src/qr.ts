@@ -1,7 +1,7 @@
 // Typed endpoints of the SCUTOONS API: accounts, access, items, inventory, avatar, progress
 // (agents/ITEMS.md → HTTP API contract). `createQrApi(client)` binds them to one configured client.
 import type { ApiClient } from './client.ts';
-import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, OwnershipClaim, User, RespawnInterval } from '@scutoons/content';
+import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, OwnershipClaim, User, RecurrenceInterval } from '@scutoons/content';
 
 export interface VerifyResult {
 	status: string;
@@ -108,9 +108,9 @@ export function createQrApi(api: ApiClient) {
 		fetchMe: () => api.get<Me>('/me/'),
 
 		/**
-		 * Account settings: `PUT /me/ { marketing_opt_in?, hide_sensitive?, media_quality? }` → the updated user and avatar
+		 * Account settings: `PUT /me/ { marketing_opt_in?, hide_sensitive?, media_quality?, display_name? }` → the updated user and avatar
 		 */
-		updateMe: (patch: { marketing_opt_in?: boolean; hide_sensitive?: boolean; media_quality?: User['media_quality'] }) =>
+		updateMe: (patch: { marketing_opt_in?: boolean; hide_sensitive?: boolean; media_quality?: User['media_quality']; display_name?: string | null }) =>
 			api.put<{ status: string; user: User; avatar?: Avatar }>('/me/', patch),
 
 		fetchCatalog: () => api.get<Catalog>('/items/', { auth: false }),
@@ -131,7 +131,7 @@ export function createQrApi(api: ApiClient) {
 			api.post<InventoryResult>('/inventory/craft/', { recipe_id }),
 
 		/** `respawn` (+ `visit` for every visit): a placed item that reappears – the server checks it and adds the period to the ref */
-		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RespawnInterval; visit?: string }) =>
+		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RecurrenceInterval; visit?: string }) =>
 			api.post<InventoryResult & { granted?: number }>('/inventory/grant/', { item_id, source, ref, ...(respawn ?? {}) }),
 
 		importItems: (items: { item_id: string; qty: number }[]) =>

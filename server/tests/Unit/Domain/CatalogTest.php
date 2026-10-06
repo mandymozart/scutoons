@@ -232,7 +232,10 @@ final class CatalogTest extends TestCase
         self::assertSame('New Toon', $this->get(Toons::class)->find('newtoon')['name'] ?? null);
         $entry = $this->get(EntityStore::class)->latest('toon:newtoon');
         self::assertSame(['draft', (string) $user['id']], [$entry['status'] ?? null, $entry['author'] ?? null]);
-        self::assertSame(['de' => ['name' => 'New Toon', 'description' => ''], 'en' => ['name' => 'New Toon', 'description' => '']], json_decode((string) ($entry['json'] ?? ''), true)['i18n']);
+        $created = json_decode((string) ($entry['json'] ?? ''), true);
+        self::assertArrayNotHasKey('i18n', $created, 'the name is the title (decision 4)');
+        self::assertSame([['de' => 'New Toon', 'en' => 'New Toon'], ['de' => 'draft', 'en' => 'draft']], [$created['title'], $created['languageStatus']],
+            'the toon settings per language in the entry (agents/NEUTRAL.md step 4)');
         $library = $this->get(Library::class);
         self::assertContains('newtoon', array_column(json_decode($library->toons(true)->body, true), 'id'), 'the creator lists it (drafts)');
         self::assertNotContains('newtoon', array_column(json_decode($library->toons(false)->body, true), 'id'), 'readers don\'t');

@@ -56,11 +56,12 @@ final class EntityStoreTest extends TestCase
     public function testKeyScheme(): void
     {
         foreach (['toon:catpope', 'toon-settings:catpope:de', 'season:catpope:1:en', 'chapter:catpope:12:de', 'chapter:catpope:0:de', 'scene:catpope:2:scene-14:de', 'scene:catpope:0:intro:en',
-            'locations:catpope:de', 'routes:catpope:en', 'cast:catpope', 'credits:catpope', 'script:catpope:de', 'script:yellowmouse:en', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events'] as $key) {
+            'locations:catpope:de', 'routes:catpope:en', 'cast:catpope', 'credits:catpope', 'script:catpope:de', 'script:yellowmouse:en', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events',
+            'chapter:catpope:1', 'chapter:catpope:0', 'season:catpope:1', 'scene:catpope:2:scene-14'] as $key) {
             self::assertSame($key, (string) EntityKey::parse($key), $key);
         }
         // chapter 0 = a season's prologue; seasons start at 1; no leading zeros
-        foreach (['chapter:catpope:1', 'chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'nope', 'scene:catpope:2:de', 'season:catpope:1:deu', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de'] as $key) {
+        foreach (['chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'nope', 'scene:catpope:2', 'season:catpope:1:deu', 'season:catpope', 'toon-settings:catpope', 'locations:catpope', 'chapter:catpope:1:de:x', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de'] as $key) {
             self::assertFalse(EntityKey::isValid($key), $key);
         }
         $key = EntityKey::parse('scene:catpope:2:scene-14:de');
@@ -70,6 +71,12 @@ final class EntityStoreTest extends TestCase
         self::assertNull(EntityKey::sceneOf('catpope', '../x.json'));
         self::assertSame('scene:catpope:0:intro', EntityKey::sceneOf('catpope', 'chapter0/intro.json'));
         self::assertSame(0, EntityKey::parse('chapter:catpope:0:de')->number);
+        // chapters, scenes, seasons: the language-neutral document (no locale, agents/NEUTRAL.md) or the legacy per-locale one
+        $neutral = EntityKey::parse('scene:catpope:2:scene-14');
+        self::assertSame([null, true, true, 'scene:catpope:2:scene-14'], [$neutral->locale, $neutral->isNeutral(), $neutral->isNeutralDoc(), $neutral->entity()]);
+        self::assertSame([false, false], [$key->isNeutral(), $key->isNeutralDoc()]);
+        self::assertSame([true, false], [EntityKey::parse('toon:catpope')->isNeutral(), EntityKey::parse('toon:catpope')->isNeutralDoc()]);
+        self::assertSame('de', EntityKey::parse('scene:catpope:2:de')->scene, 'four parts: a neutral scene (named de)');
     }
 
     public function testInterchangeLayout(): void
@@ -80,12 +87,13 @@ final class EntityStoreTest extends TestCase
             ['catpope', 'de', 'locations.json', 'locations:catpope:de'], ['catpope', '_', 'cast.json', 'cast:catpope'],
             ['catpope', '_', 'credits.json', 'credits:catpope'], ['scutoons', '_', 'characters.json', 'characters'], ['scutoons', '_', 'people.json', 'people'],
             ['catpope', 'de', 'script.json', 'script:catpope:de'], ['catpope', 'en', 'script.json', 'script:catpope:en'],
+            ['catpope', '_', 'chapter2.json', 'chapter:catpope:2'], ['catpope', '_', 'season1.json', 'season:catpope:1'], ['catpope', '_', 'chapter2/scene-14.json', 'scene:catpope:2:scene-14'],
         ];
         foreach ($cases as [$dir, $locale, $path, $key]) {
             self::assertSame($key, ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path");
             self::assertSame("$dir/$locale/$path", ContentFiles::pathOf(EntityKey::parse($key)), $key);
         }
-        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json']] as [$dir, $locale, $path]) {
+        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json'], ['catpope', '_', 'season0.json'], ['catpope', '_', 'toon.json'], ['scutoons', '_', 'chapter1.json']] as [$dir, $locale, $path]) {
             self::assertNull(ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path is no entity");
         }
         self::assertSame('toons.json', ContentFiles::pathOf(EntityKey::parse('toon:catpope')));
@@ -126,4 +134,98 @@ final class EntityStoreTest extends TestCase
         self::assertSame($text, $read->text);
     }
 
+    /** 2026-10-06-show-text-box: the event type `showOnomatopeia` → `showTextBox` in every stored version, texts untouched */
+    public function testTheShowTextBoxMigration(): void
+    {
+        $json = '{"groups":[{"slices":[{"events":[{"type":"showOnomatopeia","params":{"dialog":"b1"}}],"dialog":[{"id":"b1","text":{"de":"kein showOnomatopeia hier"}}]}]}]}';
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('chapter:smoke:1', 'chapter', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-show-text-box.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-show-text-box.mysql.sql'); // idempotent
+        self::assertSame(str_replace('"showOnomatopeia"', '"showTextBox"', $json), $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+        self::assertStringContainsString('kein showOnomatopeia hier', (string) $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+    }
+
+    /** 2026-10-06-clock-syntax: `{name:clock}` → `{clock(name)}` in every stored version; other braces untouched */
+    public function testTheClockSyntaxMigration(): void
+    {
+        $json = '{"groups":[{"events":[{"type":"showMessage","params":{"text":{"de":"Es ist {time:clock} Uhr, {who}.","en":"{_t2:clock}{x:clock2} {a b:clock} {time: clock}"}}}]}]}';
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('chapter:smoke:1', 'chapter', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-clock-syntax.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-clock-syntax.mysql.sql'); // idempotent
+        self::assertSame(
+            '{"groups":[{"events":[{"type":"showMessage","params":{"text":{"de":"Es ist {clock(time)} Uhr, {who}.","en":"{clock(_t2)}{x:clock2} {a b:clock} {time: clock}"}}}]}]}',
+            $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'")
+        );
+    }
+
+    /**
+     * 2026-10-06-target-value: a jump target's numeric value becomes a string (chapter / season / toon / product / xr);
+     * strings, other objects with a numeric value and texts stay; a second run changes nothing
+     */
+    public function testTheTargetValueMigration(): void
+    {
+        $json = '{"events":[{"type":"addChoice","params":{"label":{"de":"Weiter \\"type\\":\\"chapter\\",\\"value\\":7"},"onSelect":{"jumpTo":{"target":{"type":"chapter","value":2,"label":"scene-14"}}}}},'
+            . '{"type":"jumpTo","params":{"target":{"type":"season","value":12}}},{"type":"jumpTo","params":{"target":{"type":"chapter","value":"3"}}},'
+            . '{"type":"setVariable","params":{"variable":"time","value":15}},{"type":"slider","value":4}]}';
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('scene:smoke:2:scene-14', 'scene', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-target-value.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-target-value.mysql.sql'); // idempotent
+        self::assertSame(
+            '{"events":[{"type":"addChoice","params":{"label":{"de":"Weiter \\"type\\":\\"chapter\\",\\"value\\":7"},"onSelect":{"jumpTo":{"target":{"type":"chapter","value":"2","label":"scene-14"}}}}},'
+            . '{"type":"jumpTo","params":{"target":{"type":"season","value":"12"}}},{"type":"jumpTo","params":{"target":{"type":"chapter","value":"3"}}},'
+            . '{"type":"setVariable","params":{"variable":"time","value":15}},{"type":"slider","value":4}]}',
+            $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'scene:smoke:2:scene-14'")
+        );
+    }
+
+    /**
+     * 2026-10-06-repeat: `once` (triggers, placed items) → `repeat` (false → every time, written out); a VN trigger /
+     * tap-event item without once (it meant true) gets once per page view; audio sample triggers, texts and other
+     * objects stay as they are; a second run changes nothing
+     */
+    public function testTheRepeatMigration(): void
+    {
+        $slice = '{"image":"a.webp","audio":{"audio":{"samples":[{"id":"bell","trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":2,"width":3,"height":4}},"volume":1,"repeat":2}]}},'
+            . '"events":['
+            . '{"type":"showMessage","params":{"text":{"de":"Ein \\"trigger\\":{ und {once} – \\"once\\":true bleibt"},"wait":true},"trigger":{"type":"click","rect":{"x":1,"y":2,"width":3,"height":4}}},'
+            . '{"type":"showChoices","trigger":{"type":"intersect"}},'
+            . '{"trigger":{"once":false,"type":"hover"},"type":"hideMessage"},'
+            . '{"type":"showTextBox","params":{"dialog":"b1"},"trigger":{"type":"intersect","once":true}},'
+            . '{"type":"showTextBox","params":{"dialog":"b2"},"trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":1,"width":1,"height":1}}},'
+            . '{"type":"showTextBox","params":{"dialog":"b3"},"trigger":{"type":"click","repeat":{"mode":"once"}}}'
+            . '],"items":['
+            . '{"id":"coin-1","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"showMessage","params":{"text":{"de":"{a|b}"}}}]},'
+            . '{"id":"coin-2","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"hideMessage"}],"once":false},'
+            . '{"id":"coin-3","item":"coin","action":"events","once":true,"events":[]},'
+            . '{"id":"coin-4","item":"coin","action":"pickup","rect":{"x":1,"y":1,"width":5}}'
+            . ']}';
+        $json = '{"groups":[{"label":"g","renderer":{"type":"vertical"},"slices":[' . $slice . '],"events":[{"type":"showMessage","params":{"text":{"de":"x"}}}]}]}';
+        $view = '"repeat":{"mode":"view"}';
+        $expected = '{"groups":[{"label":"g","renderer":{"type":"vertical"},"slices":[{"image":"a.webp","audio":{"audio":{"samples":[{"id":"bell","trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":2,"width":3,"height":4}},"volume":1,"repeat":2}]}},'
+            . '"events":['
+            . '{"type":"showMessage","params":{"text":{"de":"Ein \\"trigger\\":{ und {once} – \\"once\\":true bleibt"},"wait":true},"trigger":{"type":"click","rect":{"x":1,"y":2,"width":3,"height":4},' . $view . '}},'
+            . '{"type":"showChoices","trigger":{"type":"intersect",' . $view . '}},'
+            . '{"trigger":{"repeat":{"mode":"every"},"type":"hover"},"type":"hideMessage"},'
+            . '{"type":"showTextBox","params":{"dialog":"b1"},"trigger":{"type":"intersect",' . $view . '}},'
+            . '{"type":"showTextBox","params":{"dialog":"b2"},"trigger":{"type":"click","mode":"poly","rect":{"x":1,"y":1,"width":1,"height":1},' . $view . '}},'
+            . '{"type":"showTextBox","params":{"dialog":"b3"},"trigger":{"type":"click","repeat":{"mode":"once"}}}'
+            . '],"items":['
+            . '{"id":"coin-1","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"showMessage","params":{"text":{"de":"{a|b}"}}}],' . $view . '},'
+            . '{"id":"coin-2","item":"coin","rect":{"x":1,"y":1,"width":5},"action":"events","events":[{"type":"hideMessage"}],"repeat":{"mode":"every"}},'
+            . '{"id":"coin-3","item":"coin","action":"events",' . $view . ',"events":[]},'
+            . '{"id":"coin-4","item":"coin","action":"pickup","rect":{"x":1,"y":1,"width":5}}'
+            . ']}],"events":[{"type":"showMessage","params":{"text":{"de":"x"}}}]}]}';
+        self::assertNotNull(json_decode($json), 'the input is JSON');
+        self::assertNotNull(json_decode($expected), 'the expectation is JSON');
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('chapter:smoke:1', 'chapter', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $stored = fn(): mixed => $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'");
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-repeat.mysql.sql');
+        $first = $stored();
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-repeat.mysql.sql'); // idempotent
+        self::assertSame([$expected, $expected], [$first, $stored()]);
+    }
 }

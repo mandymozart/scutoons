@@ -53,9 +53,6 @@
 	<div class="filters">
 		<label><input type="checkbox" bind:checked={showAccepted} disabled={!counts.accepted} /> {m['catalog.problems_accepted']({ count: counts.accepted })}</label>
 	</div>
-	{#if !visible.length}
-		<p class="hint">{m['catalog.no_problems']()}</p>
-	{/if}
 	<ul>
 		{#each visible as p, i (i)}
 			{@const done = accepted(p)}

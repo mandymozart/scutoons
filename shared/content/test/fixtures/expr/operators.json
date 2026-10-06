@@ -1,0 +1,704 @@
+{
+	"description": "operators",
+	"resolver": {
+		"names": {
+			"coins": 3,
+			"one": 1,
+			"zero": 0,
+			"time": 330,
+			"name": "Pope",
+			"empty": "",
+			"yes": true,
+			"no": false,
+			"half": 2.5,
+			"five": "5",
+			"map.total": 12,
+			"map.unlocked": 10,
+			"map.here": "lake",
+			"reader.name": "mia",
+			"reader.signedIn": true,
+			"reader.language": "en",
+			"now.hour": 21,
+			"stats.testo": 7
+		},
+		"calls": {
+			"has(\"cucumber\")": true,
+			"has(\"onion\")": false,
+			"count_of(\"coin\")": 4,
+			"read_chapter(2)": true,
+			"read_chapter(3)": false,
+			"inventory.has(\"cucumber\")": true,
+			"inventory.count(\"coin\")": 4,
+			"resolved(\"ev-lake\")": true,
+			"count(\"ev-lake\")": 2,
+			"read.chapter(1)": true
+		},
+		"visits": {},
+		"seed": "reader-1:text-9",
+		"language": "en"
+	},
+	"knownNames": [
+		"coins",
+		"one",
+		"zero",
+		"time",
+		"name",
+		"empty",
+		"yes",
+		"no",
+		"half",
+		"five",
+		"missing"
+	],
+	"cases": [
+		{
+			"text": "{1 + 2 * 3}",
+			"ast": "(print (+ 1 (* 2 3)))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "7",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{(1 + 2) * 3}",
+			"ast": "(print (* (+ 1 2) 3))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "9",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{10 - 2 - 3}",
+			"ast": "(print (- (- 10 2) 3))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{2 * 3 mod 2}",
+			"ast": "(print (* 2 (% 3 2)))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "2",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{7 mod 3}",
+			"ast": "(print (% 7 3))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "1",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{7 % 3}",
+			"ast": "(print (% 7 3))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "1",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{7 / 2}",
+			"ast": "(print (/ 7 2))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "3.5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{1 / 0}",
+			"ast": "(print (/ 1 0))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"division-by-zero@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{5 mod 0}",
+			"ast": "(print (% 5 0))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"division-by-zero@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{2 + 3 == 5}",
+			"ast": "(print (== (+ 2 3) 5))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{true || false && false}",
+			"ast": "(sequence#0 [\"true \"] [] [\" false && false\"])",
+			"errors": [
+				{
+					"code": "or-in-list",
+					"severity": "warning",
+					"start": 0,
+					"end": 24,
+					"message": "`||` here splits a list (as in ink) – for “or”, write `or`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{yes or no and no}",
+			"ast": "(print (&& (|| yes no) no))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					],
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "false",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{not yes}",
+			"ast": "(print (! yes))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "false",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{!no}",
+			"ast": "(once#0 [\"no\"])",
+			"errors": [
+				{
+					"code": "not-in-list",
+					"severity": "warning",
+					"start": 0,
+					"end": 5,
+					"message": "`{!…}` is a once-only list (as in ink) – for “not”, write `not`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "no",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{not yes == false}",
+			"ast": "(print (== (! yes) false))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{- -coins}",
+			"ast": "(print (- (- coins)))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"a\" + \"b\"}",
+			"ast": "(print (+ \"a\" \"b\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "ab",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"n=\" + coins}",
+			"ast": "(print (+ \"n=\" coins))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "n=3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins + \"x\"}",
+			"ast": "(print (+ coins \"x\"))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "3x",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"5\" == 5}",
+			"ast": "(print (== \"5\" 5))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{five == 5}",
+			"ast": "(print (== five 5))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"five"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"a\" < \"b\"}",
+			"ast": "(print (< \"a\" \"b\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"compare-text@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{\"a\" - 1}",
+			"ast": "(print (- \"a\" 1))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"not-a-number@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{yes + 1}",
+			"ast": "(print (+ yes 1))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "2",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes == 1}",
+			"ast": "(print (== yes 1))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins != 3}",
+			"ast": "(print (!= coins 3))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "false",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins <= 3} {coins < 3} {coins >= 4} {coins > 2}",
+			"ast": "(print (<= coins 3)) \" \" (print (< coins 3)) \" \" (print (>= coins 4)) \" \" (print (> coins 2))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 4,
+			"out": "true false false true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{missing + 1}",
+			"ast": "(print (+ missing 1))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{missing == missing}",
+			"ast": "(print (== missing missing))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [
+				"missing-value@1",
+				"missing-value@12"
+			],
+			"visited": []
+		},
+		{
+			"text": "{missing != 1}",
+			"ast": "(print (!= missing 1))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{missing < 1}",
+			"ast": "(print (< missing 1))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "false",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{missing or yes}",
+			"ast": "(print (|| missing yes))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					],
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{coins and \"x\"}",
+			"ast": "(print (&& coins \"x\"))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{0.5 * 3}",
+			"ast": "(print (* 0.5 3))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "1.5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{half * 2}",
+			"ast": "(print (* half 2))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"half"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{a.b.c}",
+			"ast": "(print a.b.c)",
+			"errors": [
+				{
+					"code": "unknown-name",
+					"severity": "error",
+					"start": 1,
+					"end": 6,
+					"message": "unknown name `a.b.c`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{(((coins)))}",
+			"ast": "(print coins)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "3",
+			"runtime": [],
+			"visited": []
+		}
+	]
+}

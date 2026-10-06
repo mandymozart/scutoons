@@ -1,0 +1,883 @@
+{
+	"description": "errors",
+	"resolver": {
+		"names": {
+			"coins": 3,
+			"one": 1,
+			"zero": 0,
+			"time": 330,
+			"name": "Pope",
+			"empty": "",
+			"yes": true,
+			"no": false,
+			"half": 2.5,
+			"five": "5",
+			"map.total": 12,
+			"map.unlocked": 10,
+			"map.here": "lake",
+			"reader.name": "mia",
+			"reader.signedIn": true,
+			"reader.language": "en",
+			"now.hour": 21,
+			"stats.testo": 7
+		},
+		"calls": {
+			"has(\"cucumber\")": true,
+			"has(\"onion\")": false,
+			"count_of(\"coin\")": 4,
+			"read_chapter(2)": true,
+			"read_chapter(3)": false,
+			"inventory.has(\"cucumber\")": true,
+			"inventory.count(\"coin\")": 4,
+			"resolved(\"ev-lake\")": true,
+			"count(\"ev-lake\")": 2,
+			"read.chapter(1)": true
+		},
+		"visits": {},
+		"seed": "reader-1:text-9",
+		"language": "en"
+	},
+	"knownNames": [
+		"coins",
+		"one",
+		"zero",
+		"time",
+		"name",
+		"empty",
+		"yes",
+		"no",
+		"half",
+		"five",
+		"missing"
+	],
+	"cases": [
+		{
+			"text": "{",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-close",
+					"severity": "error",
+					"start": 0,
+					"end": 1,
+					"message": "missing `}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{x",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-close",
+					"severity": "error",
+					"start": 0,
+					"end": 2,
+					"message": "missing `}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "empty-braces",
+					"severity": "error",
+					"start": 0,
+					"end": 2,
+					"message": "empty `{}` – to show a brace, write `\\{`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{  }",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "empty-braces",
+					"severity": "error",
+					"start": 0,
+					"end": 4,
+					"message": "empty `{}` – to show a brace, write `\\{`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{hello world}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unexpected",
+					"severity": "error",
+					"start": 7,
+					"end": 12,
+					"message": "unexpected `world`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{x = 1}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "single-equals",
+					"severity": "error",
+					"start": 3,
+					"end": 4,
+					"message": "`=` doesn’t compare – write `==`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{x ? y}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unsupported-operator",
+					"severity": "error",
+					"start": 3,
+					"end": 4,
+					"message": "`?` isn’t supported (ink lists aren’t)"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{a ^ b}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unsupported-operator",
+					"severity": "error",
+					"start": 3,
+					"end": 4,
+					"message": "`^` isn’t supported (ink lists aren’t)"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{a & b}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unexpected-char",
+					"severity": "error",
+					"start": 3,
+					"end": 4,
+					"message": "unexpected character `&`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{1 +}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "expected-value",
+					"severity": "error",
+					"start": 4,
+					"end": 5,
+					"message": "expected a value"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{(1 + 2}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-paren",
+					"severity": "error",
+					"start": 7,
+					"end": 8,
+					"message": "missing `)`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{clock(1}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-paren",
+					"severity": "error",
+					"start": 8,
+					"end": 9,
+					"message": "missing `)`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{clock(1 2)}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unexpected",
+					"severity": "error",
+					"start": 9,
+					"end": 10,
+					"message": "unexpected `2`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"open}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unterminated-string",
+					"severity": "error",
+					"start": 1,
+					"end": 7,
+					"message": "missing closing `\"`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{1 2}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unexpected",
+					"severity": "error",
+					"start": 3,
+					"end": 4,
+					"message": "unexpected `2`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins:",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-close",
+					"severity": "error",
+					"start": 0,
+					"end": 7,
+					"message": "missing `}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: a",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-close",
+					"severity": "error",
+					"start": 0,
+					"end": 7,
+					"message": "missing `}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: a|b",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-close",
+					"severity": "error",
+					"start": 0,
+					"end": 9,
+					"message": "missing `}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{map.totl}",
+			"ast": "(print map.totl)",
+			"errors": [
+				{
+					"code": "unknown-name",
+					"severity": "error",
+					"start": 1,
+					"end": 9,
+					"message": "unknown name `map.totl` – did you mean `map.total`?"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{reader.nam}",
+			"ast": "(print reader.nam)",
+			"errors": [
+				{
+					"code": "unknown-name",
+					"severity": "error",
+					"start": 1,
+					"end": 11,
+					"message": "unknown name `reader.nam` – did you mean `reader.name`?"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{cois}",
+			"ast": "(print cois)",
+			"errors": [
+				{
+					"code": "unknown-variable",
+					"severity": "warning",
+					"start": 1,
+					"end": 5,
+					"message": "unknown variable `cois` – did you mean `coins`?"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"cois"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{xyz.total}",
+			"ast": "(print xyz.total)",
+			"errors": [
+				{
+					"code": "unknown-name",
+					"severity": "error",
+					"start": 1,
+					"end": 10,
+					"message": "unknown name `xyz.total`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{a, b}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unexpected",
+					"severity": "error",
+					"start": 2,
+					"end": 3,
+					"message": "unexpected `,`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{@}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unexpected-char",
+					"severity": "error",
+					"start": 1,
+					"end": 2,
+					"message": "unexpected character `@`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{🙂}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unexpected-char",
+					"severity": "error",
+					"start": 1,
+					"end": 3,
+					"message": "unexpected character `🙂`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{map.unlocked +}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "expected-value",
+					"severity": "error",
+					"start": 15,
+					"end": 16,
+					"message": "expected a value"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{)}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "expected-value",
+					"severity": "error",
+					"start": 1,
+					"end": 2,
+					"message": "expected a value"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{(}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "expected-value",
+					"severity": "error",
+					"start": 2,
+					"end": 3,
+					"message": "expected a value"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes: {&a|b}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-close",
+					"severity": "error",
+					"start": 0,
+					"end": 12,
+					"message": "missing `}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 2,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "ok {1 +} ok {coins}",
+			"ast": "\"ok \" bad \" ok \" (print coins)",
+			"errors": [
+				{
+					"code": "expected-value",
+					"severity": "error",
+					"start": 7,
+					"end": 8,
+					"message": "expected a value"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "ok ok 3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{__proto__}",
+			"ast": "(print __proto__)",
+			"errors": [
+				{
+					"code": "unknown-variable",
+					"severity": "warning",
+					"start": 1,
+					"end": 10,
+					"message": "unknown variable `__proto__`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"__proto__"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{constructor}",
+			"ast": "(print constructor)",
+			"errors": [
+				{
+					"code": "unknown-variable",
+					"severity": "warning",
+					"start": 1,
+					"end": 12,
+					"message": "unknown variable `constructor`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"constructor"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{map.__proto__}",
+			"ast": "(print map.__proto__)",
+			"errors": [
+				{
+					"code": "unknown-name",
+					"severity": "error",
+					"start": 1,
+					"end": 14,
+					"message": "unknown name `map.__proto__`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{__proto__.x}",
+			"ast": "(print __proto__.x)",
+			"errors": [
+				{
+					"code": "unknown-name",
+					"severity": "error",
+					"start": 1,
+					"end": 12,
+					"message": "unknown name `__proto__.x`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{toString(1)}",
+			"ast": "(print (call toString 1))",
+			"errors": [
+				{
+					"code": "unknown-function",
+					"severity": "error",
+					"start": 1,
+					"end": 12,
+					"message": "unknown function `toString`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{inventory.constructor(\"x\")}",
+			"ast": "(print (call inventory.constructor \"x\"))",
+			"errors": [
+				{
+					"code": "unknown-function",
+					"severity": "error",
+					"start": 1,
+					"end": 27,
+					"message": "unknown function `inventory.constructor`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		}
+	]
+}

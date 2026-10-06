@@ -10,7 +10,7 @@ No Svelte, no DOM access, no bundler globals (`import.meta.env`), no app state: 
 
 | Module | Exports |
 |---|---|
-| `enums.ts` | `Renderer`, `Status`, `Language`, `EventCategory`, `Trigger`, `TriggerMode`, `OnomatopoeiaVariant`, `OnomatopoeiaEffect`, `JumpToTargetType` |
+| `enums.ts` | `Renderer`, `Status`, `Language`, `EventCategory`, `Trigger`, `TriggerMode`, `TextBoxEffect` (a `showTextBox` event's effect), `JumpToTargetType` |
 | `content.ts` | `Toon`, `ToonIndex`, `Season`, `SequenceItem`, `Chapter`, `Group`, `RefLink`, `Slice` (`image` + required `width` / `height` in px + optional `video` `SliceVideo` { src, loop?, autoplay? } – the image is the video's poster), `DEFAULT_SLICE` (390 × 625), `Dialog` (+ `DialogVariant`, `DialogFont`), `Onomatopoeia`, `KeyVisual`, map / credits / event types, `LoadedSequenceItem` |
 | `audio.ts` | `AudioConfiguration`, `AudioTrack`, `AudioEvents`, `MusicEvent(Track)`, `Sample`, `SampleTrigger`, `AudioEventsConfig` |
 | `visual-novel.ts` | `VNEvent` (union of all event types), `VNSliceEvent`, `VNEventTrigger`, `Character`, choices / setters / jumpTo |

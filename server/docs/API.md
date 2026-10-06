@@ -528,6 +528,18 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 JSON folder layout is `Console\ContentFiles`. Migration `2026-09-30-entity-keys` created `entity_versions` from the
 former path-keyed `content_versions` (same ids).
 
+## Flow index (the creator's SCUTOONS-wide Flow, 2026-10-06)
+
+`GET /api/creator/flow-index` (role creator, `Domain\Content\FlowIndex`) – from the NEWEST version of every chapter /
+scene / season / toon document (drafts included; a legacy per-locale chapter only when it has no neutral document;
+ref groups read through their scenes):
+`{ toons: [{ id, title, status, seasons: [{ number, chapters: [{ number, status }] }] }], edges: [{ source: { toon,
+chapter, group }, target: { type, value, label?, anyOf? }, kind: 'jump' | 'choice' | 'end', label? }], dead: { <toon>:
+{ unread, unset, points, labels } } }`. `edges` = every jumpTo event, choice that jumps and authored group end (group
+scripts, slice triggers, item taps); `dead` = @scutoons/content `deadThings`' rules (variables set but never read / read
+but never set, script points and group labels nothing jumps to). Cached under the version ids it was built from (the
+library's cache, nothing to invalidate).
+
 ## Agent chats (the Ask panel history, per app)
 
 The chats of the Ask panels (agents/CUTOVER.md 10.28 step 2), saved by the Ask service (tools/mcp) so a user can look

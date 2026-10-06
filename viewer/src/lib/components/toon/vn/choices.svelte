@@ -12,7 +12,8 @@
 
 	function handleSelect(choice: typeof choices[0]) {
 		// the choice's actions in order: variables, then a jump (navigates) or a divert (the script continues there)
-		const { jumpTo, divert } = runChoiceActions(choice.onSelect, game, vn.scriptLabel);
+		// a jump into a group that isn't there is no jump (the script goes on – no dead end)
+		const { jumpTo, divert } = runChoiceActions(choice.onSelect, game, choice.from ?? vn.scriptLabel, (target) => vn.jumpProblem(target));
 		if (divert) vn.setPendingDivert(divert);
 
 		if (jumpTo) {

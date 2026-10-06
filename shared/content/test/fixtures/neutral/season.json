@@ -1,0 +1,247 @@
+{
+	"description": "a season: texts, release, sequence status per locale (en coming-soon; a status missing in en → the source's; none at all → no status)",
+	"kind": "season",
+	"languages": {
+		"source": "de",
+		"languages": [
+			"de",
+			"en"
+		]
+	},
+	"doc": {
+		"title": {
+			"de": "Das Erwachen",
+			"en": "The Awakening"
+		},
+		"authors": [
+			"M"
+		],
+		"number": 1,
+		"release": {
+			"de": "2025-10-04",
+			"en": "2025-10-04"
+		},
+		"description": {
+			"de": "Beschreibung",
+			"en": "Description"
+		},
+		"cover": {
+			"square": "s1/cover.jpg",
+			"lettering": {
+				"square": [
+					{
+						"text": "custom",
+						"custom": {
+							"de": "Staffel 1",
+							"en": "Season 1"
+						},
+						"x": 1,
+						"y": 1,
+						"size": 1,
+						"maxWidth": 1
+					}
+				]
+			}
+		},
+		"sequence": [
+			{
+				"type": "chapter",
+				"number": 0,
+				"status": {
+					"de": "published",
+					"en": "published"
+				}
+			},
+			{
+				"type": "chapter",
+				"number": 1,
+				"status": {
+					"de": "published",
+					"en": "coming-soon"
+				}
+			},
+			{
+				"type": "chapter",
+				"number": 2,
+				"status": {
+					"de": "draft"
+				}
+			},
+			{
+				"type": "chapter",
+				"number": 3,
+				"status": {}
+			}
+		]
+	},
+	"cases": [
+		{
+			"locale": "de",
+			"expected": {
+				"locale": "de",
+				"fallback": false,
+				"doc": {
+					"title": "Das Erwachen",
+					"authors": [
+						"M"
+					],
+					"number": 1,
+					"release": "2025-10-04",
+					"description": "Beschreibung",
+					"cover": {
+						"square": "s1/cover.jpg",
+						"lettering": {
+							"square": [
+								{
+									"text": "custom",
+									"custom": {
+										"de": "Staffel 1",
+										"en": "Season 1"
+									},
+									"x": 1,
+									"y": 1,
+									"size": 1,
+									"maxWidth": 1
+								}
+							]
+						}
+					},
+					"sequence": [
+						{
+							"type": "chapter",
+							"number": 0,
+							"status": "published"
+						},
+						{
+							"type": "chapter",
+							"number": 1,
+							"status": "published"
+						},
+						{
+							"type": "chapter",
+							"number": 2,
+							"status": "draft"
+						},
+						{
+							"type": "chapter",
+							"number": 3
+						}
+					],
+					"language": "de"
+				}
+			}
+		},
+		{
+			"locale": "en",
+			"expected": {
+				"locale": "en",
+				"fallback": false,
+				"doc": {
+					"title": "The Awakening",
+					"authors": [
+						"M"
+					],
+					"number": 1,
+					"release": "2025-10-04",
+					"description": "Description",
+					"cover": {
+						"square": "s1/cover.jpg",
+						"lettering": {
+							"square": [
+								{
+									"text": "custom",
+									"custom": {
+										"de": "Staffel 1",
+										"en": "Season 1"
+									},
+									"x": 1,
+									"y": 1,
+									"size": 1,
+									"maxWidth": 1
+								}
+							]
+						}
+					},
+					"sequence": [
+						{
+							"type": "chapter",
+							"number": 0,
+							"status": "published"
+						},
+						{
+							"type": "chapter",
+							"number": 1,
+							"status": "coming-soon"
+						},
+						{
+							"type": "chapter",
+							"number": 2,
+							"status": "draft"
+						},
+						{
+							"type": "chapter",
+							"number": 3
+						}
+					],
+					"language": "en"
+				}
+			}
+		},
+		{
+			"locale": "fr",
+			"expected": {
+				"locale": "de",
+				"fallback": true,
+				"doc": {
+					"title": "Das Erwachen",
+					"authors": [
+						"M"
+					],
+					"number": 1,
+					"release": "2025-10-04",
+					"description": "Beschreibung",
+					"cover": {
+						"square": "s1/cover.jpg",
+						"lettering": {
+							"square": [
+								{
+									"text": "custom",
+									"custom": {
+										"de": "Staffel 1",
+										"en": "Season 1"
+									},
+									"x": 1,
+									"y": 1,
+									"size": 1,
+									"maxWidth": 1
+								}
+							]
+						}
+					},
+					"sequence": [
+						{
+							"type": "chapter",
+							"number": 0,
+							"status": "published"
+						},
+						{
+							"type": "chapter",
+							"number": 1,
+							"status": "published"
+						},
+						{
+							"type": "chapter",
+							"number": 2,
+							"status": "draft"
+						},
+						{
+							"type": "chapter",
+							"number": 3
+						}
+					],
+					"language": "de"
+				}
+			}
+		}
+	]
+}

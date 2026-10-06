@@ -224,12 +224,10 @@
 							{#if entry.character === star}
 								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><CloseIcon /></button>
 							{:else}
-								<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.credits_remove']()}><CloseIcon /></button>
+								<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.remove']()}><CloseIcon /></button>
 							{/if}
 						</span>
 					</li>
-				{:else}
-					<li class="hint">{m['creator.cast_empty']()}</li>
 				{/each}
 			</ol>
 			<div class="add">

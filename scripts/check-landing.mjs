@@ -207,7 +207,7 @@ async function guest(width, height, locale) {
 		for (const t of s.tiles) {
 			const want = listed.find((x) => x.id === t.toon);
 			if (!want) continue;
-			const name = want.i18n[locale]?.name;
+			const name = want.title?.[locale] ?? want.i18n?.[locale]?.name;
 			if (t.bg !== tileColor(want)) p.push(`${t.toon}: background ${t.bg}, expected ${tileColor(want)}`);
 			if (!t.loaded || !t.img?.endsWith(want.tile?.image?.replace(/^\.\.\//, '') ?? '\u0000')) p.push(`${t.toon}: image ${t.img} (loaded ${t.loaded}), expected …${want.tile?.image}`);
 			if (!t.imgBox || Math.abs(t.imgBox.w - t.imgBox.h) > 1) p.push(`${t.toon}: image not square ${JSON.stringify(t.imgBox)}`);

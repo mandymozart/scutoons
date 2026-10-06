@@ -1,6 +1,6 @@
 import type { Action } from 'svelte/action';
 import type { VNEvent, VNSliceEvent } from '@scutoons/content';
-import { Trigger } from '@scutoons/content';
+import { Trigger, repeatOf } from '@scutoons/content';
 import { isWithinRect } from '../rect.ts';
 import type { PercentRect } from '../types.ts';
 
@@ -16,7 +16,8 @@ export interface SliceEventsConfig {
 
 /**
  * Slice-triggered VN events as an action on the slice element: click / hover (optionally inside a rect in % of the
- * slice) and intersect (the slice or a rect of it scrolled half into view). `trigger.once` defaults to true.
+ * slice) and intersect (the slice or a rect of it scrolled half into view). `trigger.repeat`: none = every time; any
+ * other rule runs once while this action lives (a preview has no save game – the reader decides from its history).
  * The VN logic itself stays in the app (`run`).
  */
 export const sliceEvents: Action<HTMLElement, SliceEventsConfig | null | undefined> = (node, config) => {
@@ -64,7 +65,7 @@ function handlePointerEvents(
 	const handler = async (event: MouseEvent) => {
 		for (let i = 0; i < events.length; i++) {
 			const eventWithTrigger = events[i];
-			const once = eventWithTrigger.trigger?.once ?? true;
+			const once = repeatOf(eventWithTrigger.trigger?.repeat).mode !== 'every';
 
 			if (once && triggered.has(i)) continue;
 			if (!isWithinRect(event, node, eventWithTrigger.trigger?.rect)) continue;
@@ -97,7 +98,7 @@ function handleIntersectionEvents(node: HTMLElement, events: VNSliceEvent[], cfg
 				for (const entry of entries) {
 					if (!entry.isIntersecting) continue;
 
-					const once = eventWithTrigger.trigger?.once ?? true;
+					const once = repeatOf(eventWithTrigger.trigger?.repeat).mode !== 'every';
 					if (once && triggered.has(i)) continue;
 
 					await runEvent(eventWithTrigger, cfg);

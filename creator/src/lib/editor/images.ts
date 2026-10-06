@@ -68,11 +68,11 @@ export function readImageSize(url: string): Promise<{ width: number; height: num
 
 /**
  * Every slice carries the size of its image (owner 2026-09-30): read it from the CDN and write `width` / `height` when
- * they differ (a shared edit in every locale, undoable). A missing image keeps the current (standard) size. A player
+ * they differ (one undoable edit of the document). A missing image keeps the current (standard) size. A player
  * video's poster may be larger (sharp behind the controls): its slice gets the poster's ratio at the slice width.
  */
 export async function fillSliceSize(
-	doc: { primary: string; get(locale: string, path: Path): any; setShared(path: Path, value: any, key?: string): void },
+	doc: { primary: string; get(locale: string, path: Path): any; set(path: Path, value: any, key?: string): void },
 	slicePath: Path,
 	url: (image: string) => string
 ): Promise<void> {
@@ -80,8 +80,8 @@ export async function fillSliceSize(
 	const framed = frameSliceSize(doc.get(doc.primary, slicePath)?.video?.frame?.ratio);
 	if (framed && !doc.get(doc.primary, slicePath)?.video?.viewport) {
 		const current = doc.get(doc.primary, slicePath);
-		if (current.width !== framed.width) doc.setShared([...slicePath, 'width'], framed.width, 'slice-size');
-		if (current.height !== framed.height) doc.setShared([...slicePath, 'height'], framed.height, 'slice-size');
+		if (current.width !== framed.width) doc.set([...slicePath, 'width'], framed.width, 'slice-size');
+		if (current.height !== framed.height) doc.set([...slicePath, 'height'], framed.height, 'slice-size');
 		return;
 	}
 	const image = doc.get(doc.primary, slicePath)?.image;
@@ -93,6 +93,6 @@ export async function fillSliceSize(
 		size.height = Math.round((size.height * DEFAULT_SLICE.width) / size.width);
 		size.width = DEFAULT_SLICE.width;
 	}
-	if (slice.width !== size.width) doc.setShared([...slicePath, 'width'], size.width, 'slice-size');
-	if (slice.height !== size.height) doc.setShared([...slicePath, 'height'], size.height, 'slice-size');
+	if (slice.width !== size.width) doc.set([...slicePath, 'width'], size.width, 'slice-size');
+	if (slice.height !== size.height) doc.set([...slicePath, 'height'], size.height, 'slice-size');
 }

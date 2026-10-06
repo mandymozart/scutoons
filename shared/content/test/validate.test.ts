@@ -1,7 +1,7 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntityKey, sceneEntityOfRef, unifyAudio, unifyGeometry, validateFile, validateLocales } from '../src/index.ts';
+import { parseEntityKey, sceneEntityOfRef, validateFile, validateLocales } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
@@ -111,13 +111,13 @@ test('season.download.image: an image path on the CDN (decorative, beside the mu
 
 test('toon entry: announce (boolean) and the landing tile { image, color? }', () => {
 	const entry = (extra: object) => ({
-		id: 't', uri: 't', status: 'draft', avatar: 'avatar.webp', i18n: {}, authors: ['A'], chapters: 0, thumbnail: 'images/t.webp',
+		id: 't', uri: 't', status: 'draft', avatar: 'avatar.webp', authors: ['A'], chapters: 0, thumbnail: 'images/t.webp',
 		map: { center: { x: 0, y: 0 }, zoom: 1.5 },
 		...extra
 	});
 	const tileProblems = (extra: object) => problems('index', entry(extra)).filter((p) => /announce|tile/.test(p));
 	assert.deepEqual(problems('index', entry({})), []);
-	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {} }), [], 'every neutral setting is optional');
+	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp' }), [], 'every neutral setting is optional');
 	assert.deepEqual(tileProblems({ announce: true, tile: { image: '../characters/y/y_helmet_portrait-neutral.webp' } }), []);
 	assert.deepEqual(tileProblems({ announce: false, tile: { image: 'images/tile.webp', color: '#ff0' } }), []);
 	assert.deepEqual(tileProblems({ tile: { image: 'images/tile.webp', color: 'darkgreen' } }), []);
@@ -161,7 +161,7 @@ test('cover (season; owner 2026-10-02: not the toon): square / portrait images +
 	assert.deepEqual(entry({ lettering: true }), ['warning cover.lettering'], 'lettering without an image');
 	assert.deepEqual(entry('images/c.webp'), ['error cover']);
 	// a cover left in the toon entry is a warning: it belongs to the season, the toon is shown with its avatar
-	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover: { square: 'images/c.webp' } }), ['warning cover']);
+	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', cover: { square: 'images/c.webp' } }), ['warning cover']);
 	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: false } })), []);
 	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: 1 } })), ['error cover.lettering']);
 });
@@ -227,10 +227,10 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', variant: 'sfx' }] }), ['error groups.0.slices.0.dialog.0.variant']);
 });
 
-test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {
+test('showTextBox event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {
 	const rect = { x: 10, y: 10, width: 30 };
 	const box = (extra: object = {}) => ({ id: 'b1', rect, text: 'BAM', ...extra });
-	const ono = (params: object) => ({ type: 'showOnomatopeia', params, trigger: { type: 'intersect' } });
+	const ono = (params: object) => ({ type: 'showTextBox', params, trigger: { type: 'intersect' } });
 	const chapter = (slice: object, events?: object[]) => ({
 		title: 'P',
 		number: 2,
@@ -248,7 +248,7 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'nope' })] })), ['warning groups.0.slices.0.events.0.params.dialog']);
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 3 })] })), ['error groups.0.slices.0.events.0.params.dialog']);
 	// a group script may reveal a box on any of the group's slices
-	const groupEvent = { type: 'showOnomatopeia', params: { dialog: 'b1' } };
+	const groupEvent = { type: 'showTextBox', params: { dialog: 'b1' } };
 	assert.deepEqual(list(chapter({ dialog: [box()] }, [groupEvent])), []);
 	assert.deepEqual(list(chapter({}, [groupEvent])), ['warning groups.0.events.0.params.dialog']);
 	// bubble: frame (a drawn bubble) + tail; outline
@@ -277,7 +277,7 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	assert.deepEqual(withRules({ days: 2 }), ['error groups.0.slices.0.items.0.respawn'], 'longer than the item allows');
 	assert.deepEqual(withRules({ hours: 2 }, 'weed'), ['error groups.0.slices.0.items.0.respawn'], 'the item never reappears');
 	// a placed item's tap events may reveal a text box on its slice
-	const tapEvents = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showOnomatopeia', params: { dialog } }] }] });
+	const tapEvents = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showTextBox', params: { dialog } }] }] });
 	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b1') })), []);
 	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b2') })), ['warning groups.0.slices.0.items.0.events.0.params.dialog']);
 	// the box stays or disappears again; the wobbly (shout) bubble
@@ -285,20 +285,6 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'b1', stay: 'no' })] })), ['error groups.0.slices.0.events.0.params.stay']);
 	assert.deepEqual(list(chapter({ dialog: [box({ variant: 'bubble', frame: true, shape: 'wobbly' })] })), []);
 	assert.deepEqual(list(chapter({ dialog: [box({ variant: 'bubble', frame: true, shape: 'star' })] })), ['error groups.0.slices.0.dialog.0.shape']);
-});
-
-test('geometry is the same in every language: unifyGeometry copies the source locale geometry', () => {
-	const box = (width: number, text: string, extra: object = {}) => ({ id: 'b', rect: { x: 1, y: 2, width }, text, ...extra });
-	const chapter = (dialog: object[], items: object[] = []) => ({ groups: [{ slices: [{ image: 'a.webp', dialog, items }] }] });
-	const files: Record<string, any> = {
-		de: chapter([box(20, 'Hallo', { rotation: 5 })], [{ id: 'x-1', item: 'x', rect: { x: 1, y: 1, width: 10 } }]),
-		en: chapter([box(25, 'Hello', { scale: 2 })], [{ id: 'x-1', item: 'x', rect: { x: 9, y: 1, width: 10 }, rotation: 3 }])
-	};
-	assert.equal(unifyGeometry('chapter', files, 'de'), 2);
-	const en = files.en.groups[0].slices[0];
-	assert.deepEqual(en.dialog[0], { id: 'b', rect: { x: 1, y: 2, width: 20 }, text: 'Hello', rotation: 5 }, 'the text stays per language');
-	assert.deepEqual(en.items[0], { id: 'x-1', item: 'x', rect: { x: 1, y: 1, width: 10 } });
-	assert.equal(unifyGeometry('chapter', files, 'de'), 0, 'nothing left to do');
 });
 
 test('VN flow in a group: enter before speaking, choices added then shown (owner 2026-10-03)', () => {
@@ -328,20 +314,6 @@ test('VN flow in a group: enter before speaking, choices added then shown (owner
 	assert.deepEqual(flow(group([add, { type: 'divert', params: { to: 'x' } }, { type: 'label', params: { name: 'x' } }, add, { type: 'showChoices' }])), ['warning events.0']);
 });
 
-test('audio is the same in every language: unifyAudio replaces the old audio.samples of a locale with the source audio', () => {
-	const samples = [{ id: 'bells', trigger: { type: 'intersect' }, volume: 0.8 }];
-	const files: Record<string, any> = {
-		de: { audio: { sampleLibrary: [{ id: 'bells', path: 's1/c1/b.128.mp3' }] }, groups: [{ slices: [{ image: 'a.webp', audio: { audio: { samples } } }, { image: 'b.webp' }] }] },
-		en: { audio: { sampleLibrary: [{ id: 'bells', path: 's1/c1/b.128.mp3' }] }, groups: [{ slices: [{ image: 'a.webp', audio: { samples } }, { image: 'b.webp', audio: { music: { tracks: [{ id: 'x', volume: 1 }] } } }] }] }
-	};
-	assert.equal(unifyAudio('chapter', files, 'de'), 2);
-	const en = files.en.groups[0].slices;
-	assert.deepEqual(en[0].audio, { audio: { samples } });
-	assert.equal(en[1].audio, undefined);
-	assert.equal(unifyAudio('chapter', files, 'de'), 0);
-	assert.ok(!problems('chapter', files.en).some((p) => p.includes('audio.samples')));
-});
-
 test('audio quality levels: variants on music tracks and samples (96k / 128k / 320k)', () => {
 	const chapter = (variants: unknown) => ({
 		title: 'C', description: 'D', number: 1, thumbnail: 't.webp', keyvisual: { image: 'k.webp' },
@@ -353,4 +325,36 @@ test('audio quality levels: variants on music tracks and samples (96k / 128k / 3
 	assert.deepEqual(audioProblems(undefined), []);
 	assert.deepEqual(audioProblems({ ultra: 'x.mp3' }), ['error audio.music.tracks.0.variants.ultra', 'error audio.sampleLibrary.0.variants.ultra']);
 	assert.deepEqual(audioProblems({ low: 'x.png' }), ['warning audio.music.tracks.0.variants.low', 'warning audio.sampleLibrary.0.variants.low']);
+});
+
+test('step 3 (EXPRESSIONS.md §5–6): repeat rules, event ids, askText, conditions as expressions', () => {
+	const at = (data: object) =>
+		validateFile('group', data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}${p.code ? ` ${p.code}` : ''}`);
+	const slice = (events: object[], items: object[] = []) => ({ image: 'a.webp', width: 390, height: 625, events, items });
+	const group = (slices: object[], events: object[] = []) => ({ label: 's', renderer: { type: 'vertical' }, slices, events });
+	const msg = (extra: object = {}) => ({ type: 'showMessage', params: { text: 'Hi' }, ...extra });
+	// the old boolean once is gone (migration 2026-10-06-repeat)
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click', once: true } })])])), ['error slices.0.events.0.trigger.once']);
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click', repeat: { mode: 'view' } } })])])), []);
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click', repeat: { mode: 'interval' } } })])])), ['error slices.0.events.0.trigger.repeat']);
+	// once for good / every n … need the id (the save game remembers the event by it)
+	assert.deepEqual(at(group([slice([msg({ trigger: { type: 'click', repeat: { mode: 'once' } } })])])), ['error slices.0.events.0.trigger.repeat', 'warning ']);
+	assert.deepEqual(at(group([slice([msg({ trigger: { type: 'click' } })])])), ['warning '], 'no id yet: one warning for the document');
+	// placed items: repeat instead of once
+	const item = (extra: object) => ({ id: 'coin-1', item: 'coin', rect: { x: 1, y: 1, width: 5 }, action: 'events', events: [msg({ id: 'e9' })], ...extra });
+	assert.deepEqual(at(group([slice([], [item({ once: true })])])), ['error slices.0.items.0.once']);
+	assert.deepEqual(at(group([slice([], [item({ repeat: { mode: 'once' } })])])), []);
+	assert.deepEqual(at(group([slice([], [item({ action: 'pickup', repeat: { mode: 'once' } })])])), ['info slices.0.items.0.repeat']);
+	// ids are unique in the document
+	assert.deepEqual(at(group([slice([msg({ id: 'e1', trigger: { type: 'click' } })])], [msg({ id: 'e1' })])), ['error slices.0.events.0.id']);
+	// askText: the toon scope needs a variable; the reader scope is the reader's name
+	const ask = (params: object) => group([], [{ id: 'a1', type: 'askText', params: { text: 'Wie heißt du?', ...params } }]);
+	assert.deepEqual(at(ask({ variable: 'hero_name', maxLength: 12, placeholder: 'Name', default: 'Mia' })), []);
+	assert.deepEqual(at(ask({})), ['error events.0.params.variable']);
+	assert.deepEqual(at(ask({ scope: 'reader' })), []);
+	assert.deepEqual(at(ask({ scope: 'world', variable: 'x', maxLength: 500 })), ['error events.0.params.scope', 'error events.0.params.maxLength']);
+	// conditions: the simple test or an expression (syntax errors are errors, unknown names warnings)
+	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'count("e1") < 3 and not has("cucumber")' } })])), []);
+	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'coins > (' } })])), ['error events.0.if.expr expr:expected-value']);
+	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'map.totl > 1' } })])), ['warning events.0.if.expr expr:unknown-name']);
 });

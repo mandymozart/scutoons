@@ -8,14 +8,18 @@
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { FORM_TYPES, castOptions, conditionWords, summary, template, triggerWord } from '$lib/editor/vn-forms.ts';
+	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import EventMessage from '$lib/components/events/event-message.svelte';
+	import EventAskText from '$lib/components/events/event-ask-text.svelte';
 	import EventChoice from '$lib/components/events/event-choice.svelte';
 	import EventFlow from '$lib/components/events/event-flow.svelte';
-	import EventOnomatopoeia from '$lib/components/events/event-onomatopoeia.svelte';
+	import EventShowTextBox from '$lib/components/events/event-show-text-box.svelte';
 	import EventCast from '$lib/components/events/event-cast.svelte';
 	import EventCondition from '$lib/components/events/event-condition.svelte';
 	import EventTrigger from '$lib/components/events/event-trigger.svelte';
+	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	/**
 	 * Visual-novel events: group scripts (`group.events`) or slice-triggered events (`slice.events`, with `trigger`).
@@ -34,7 +38,8 @@
 		dialogs = [],
 		oncreatebox,
 		points: groupPoints,
-		groupLabels = []
+		groupLabels = [],
+		markOf = () => null
 	}: {
 		doc: ContentDoc;
 		eventsPath: Path;
@@ -45,19 +50,23 @@
 		selected?: number;
 		onselect?: (index: number) => void;
 		/**
-		 * text boxes an onomatopoeia event may reveal (`params.dialog`): the slice's boxes (slice events) or the boxes of
+		 * text boxes a showTextBox event may reveal (`params.dialog`): the slice's boxes (slice events) or the boxes of
 		 * the group's slices (a group script)
 		 */
 		dialogs?: { id: string; label: string }[];
-		/** "Create a text box for this": a new text box on the slice, revealed by event `index` */
+		/** "+ New text box": a new text box on the slice, revealed by event `index` */
 		oncreatebox?: (index: number) => void;
 		/** the named points of the group's script (slice events divert into it); a group script uses its own */
 		points?: string[];
 		/** the chapter's group labels (a jump's group, the random list) */
 		groupLabels?: string[];
+		/** an event no run reaches, a test that is never true, a loop with no way out: a label (@scutoons/content reach.ts) */
+		markOf?: (index: number) => ReachMark;
 	} = $props();
 
 	const events = $derived<any[]>(doc.get(doc.primary, eventsPath) ?? []);
+	/** the summaries' language: the header's text language, else the source */
+	const chain = $derived([listLanguage(doc.textLanguages, doc.textSource), doc.textSource]);
 	/** the points a divert can go to: the group's script (a slice event diverts into it) or this script */
 	const pointNames = $derived(groupPoints ?? scriptLabels(events));
 	const charOptions = $derived(characters.map((c) => ({ value: c.name, label: c.label ? `${c.name} (${c.label})` : c.name })));
@@ -68,7 +77,7 @@
 		const event = newEvent(type);
 		// a new slice event covers the whole slice (when scrolled into view); an area is drawn with the ⚡ tool or switched on below
 		if (sliceEvents) event.trigger = { type: Trigger.INTERSECT };
-		doc.structural((file) => {
+		doc.edit((file) => {
 			let list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) {
 				const parent = getAt(file, eventsPath.slice(0, -1));
@@ -98,7 +107,7 @@
 		if (!root) return;
 		const first = (selector: string) => root.querySelector<HTMLElement>(selector);
 		const target =
-			(type === 'showMessage' && first('textarea')) ||
+			((type === 'showMessage' || type === 'askText') && first('textarea')) ||
 			((type === 'joinScene' || type === 'leaveScene') && first('[data-testid="character-ref-open"]')) ||
 			[...root.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), textarea, select, button[data-testid]')].find(
 				(el) => !el.closest('.type-field') && !el.closest('header')
@@ -108,7 +117,7 @@
 	}
 
 	function remove(index: number) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, eventsPath);
 			if (Array.isArray(list)) list.splice(index, 1);
 		});
@@ -116,7 +125,7 @@
 
 	async function changeType(index: number, type: string) {
 		if (!(await confirmDialog({ title: m['creator.change_type_title'](), message: m['creator.change_type_confirm']({ index: index + 1, type }), confirmLabel: m['creator.change_type_label']() }))) return;
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) return;
 			const next = newEvent(type);
@@ -131,6 +140,14 @@
 		if (selected >= 0 && !untrack(() => open).includes(selected)) open = [...untrack(() => open), selected];
 	});
 	const isOpen = (i: number) => open.includes(i);
+	// a jump to an expression's problem in one of these events (Problems panel): its form opens, the field takes the jump
+	$effect(() => {
+		const key = exprContext.focus?.key;
+		const prefix = `${doc.entity}|${eventsPath.join('.')}.`;
+		if (!key?.startsWith(prefix)) return;
+		const index = Number.parseInt(key.slice(prefix.length), 10);
+		if (Number.isInteger(index) && !untrack(() => open).includes(index)) open = [...untrack(() => open), index];
+	});
 
 	// ── multi-select + drag (like the chapter tree): click = one (opens / folds it), Shift = range, Ctrl / Cmd = add / remove ──
 	let picked = $state<number[]>([]);
@@ -149,7 +166,7 @@
 		const moving = dragging;
 		if (!moving?.length) return;
 		let map = new Map<number, number>();
-		doc.structural((file) => {
+		doc.edit((file) => {
 			const list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) return;
 			const result = moveMany(list, moving, target);
@@ -175,7 +192,7 @@
 	}
 	/** who the line is about: the speaker (showMessage) or everyone joining / leaving – avatar, else the name (owner 2026-10-03) */
 	function people(event: any): { id: string; src: string }[] {
-		const refs = event?.type === 'showMessage' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
+		const refs = event?.type === 'showMessage' || event?.type === 'askText' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
 		return refs.map((r: any) => ({ id: String(r?.character ?? r?.name ?? ''), src: avatarOf(r) })).filter((p: { id: string }) => p.id);
 	}
 </script>
@@ -224,7 +241,8 @@
 					{#each people(event) as who, wi (wi)}
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
-					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event)}</span>
+					<span class="sum">{conditionWords(event?.if) ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain, dialogs)}</span>
+					<ReachChip mark={markOf(i)} />
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
 				<span class="tools">
@@ -234,7 +252,7 @@
 
 			{#if isOpen(i)}
 				<label class="type-field">
-					<span class="sc-label">type</span>
+					<span class="sc-label">{m['creator.field_type']()}</span>
 					<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
 						{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
 						{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
@@ -244,16 +262,16 @@
 					<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>
 				{:else if event.type === 'showMessage'}
 					<EventMessage {doc} path={p} {choices} {charOptions} {cast} />
+				{:else if event.type === 'askText'}
+					<EventAskText {doc} path={p} {event} {choices} {charOptions} />
 				{:else if event.type === 'addChoice'}
 					<EventChoice {doc} path={p} {event} index={i} {pointNames} {groupLabels} />
 				{:else if event.type === 'jumpTo' || event.type === 'label' || event.type === 'divert' || event.type === 'setVariable'}
 					<EventFlow {doc} path={p} {event} {pointNames} {groupLabels} />
-				{:else if event.type === 'showOnomatopeia'}
-					<EventOnomatopoeia {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
+				{:else if event.type === 'showTextBox'}
+					<EventShowTextBox {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
-				{:else}
-					<p class="hint">No parameters.</p>
 				{/if}
 
 				<EventCondition {doc} path={p} {event} index={i} />

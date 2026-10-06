@@ -25,7 +25,7 @@
 
 {#snippet visibility()}
 	<h3>{m['creator.help_visibility_title']()}</h3>
-	<p>{m['creator.status_hint']({ file: seasonFile ? fileLabel(seasonFile) : m['creator.season']({ number: 1 }) })} {m['creator.status_follow_chapters']()}</p>
+	<p>{m['creator.status_hint']({ file: seasonFile ? fileLabel(seasonFile) : m['creator.season']({ number: 1 }) })}</p>
 	<p>{m['creator.status_where']()}</p>
 {/snippet}
 

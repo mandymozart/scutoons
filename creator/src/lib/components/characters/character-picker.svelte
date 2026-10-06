@@ -113,7 +113,7 @@
 			{onkeydown}
 			data-testid="{testid}-input"
 		/>
-		<button type="button" class="ghost" onclick={close} aria-label="Close"><CloseIcon /></button>
+		<button type="button" class="ghost" onclick={close} aria-label={m['creator.close']()}><CloseIcon /></button>
 		<ul id="{uid}-list" role="listbox">
 			{#each options as option, i (option.character?.id ?? 'create')}
 				<li id="{uid}-{i}" role="option" aria-selected={i === active} class:active={i === active}>
@@ -126,8 +126,6 @@
 						{/if}
 					</button>
 				</li>
-			{:else}
-				<li class="hint">{m['creator.characters_none_found']()}</li>
 			{/each}
 		</ul>
 	</div>
@@ -162,9 +160,6 @@
 	li.active {
 		background: var(--ink);
 		color: var(--paper);
-	}
-	li.hint {
-		padding: 0.3rem 0.5rem;
 	}
 	.option {
 		all: unset;

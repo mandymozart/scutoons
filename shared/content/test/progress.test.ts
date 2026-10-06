@@ -109,3 +109,22 @@ test('nextStep: the follow-up bar after a group (agents/DESIGN.md "Follow-up bar
 	// a chapter the sequence doesn't list (a draft in production): the next listed one after it
 	assert.deepEqual(nextStep({ groups: [{}], group: 0, chapter: 2, sequence: [sequence[0], sequence[1], sequence[3]], member: true }), { kind: 'coming-soon', chapter: 3, release: '2025-12-01' });
 });
+
+test('the reader history (game state `history`): counts, normalizing older / broken states, the limit', async () => {
+	const { HISTORY_LIMIT, historyCount, normalizeHistory, recordHistory, textHistoryKey } = await import('../src/index.ts');
+	const key = textHistoryKey('chapter:t:1', 'b1/0', 0);
+	assert.equal(key, 'text:chapter:t:1/b1/0#0');
+	const h = normalizeHistory(undefined);
+	assert.deepEqual(h, {});
+	assert.equal(historyCount(h, key), 0);
+	assert.deepEqual(recordHistory(h, key, 10), { n: 1, first: 10, last: 10 });
+	assert.deepEqual(recordHistory(h, key, 20), { n: 2, first: 10, last: 20 });
+	assert.equal(historyCount(h, key), 2);
+	assert.deepEqual(normalizeHistory({ a: { n: 3, last: 5 }, b: { n: -1 }, c: 'x', d: null }), { a: { n: 3, first: 5, last: 5 } });
+	assert.deepEqual(normalizeHistory([1, 2]), {});
+	const many = normalizeHistory({});
+	for (let i = 0; i <= HISTORY_LIMIT; i++) recordHistory(many, `k${i}`, i);
+	assert.equal(Object.keys(many).length, HISTORY_LIMIT);
+	assert.equal(historyCount(many, 'k0'), 0, 'the longest-unseen entry went');
+	assert.equal(historyCount(many, `k${HISTORY_LIMIT}`), 1);
+});

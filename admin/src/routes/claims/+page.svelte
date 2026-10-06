@@ -124,7 +124,6 @@
 		defaultSortDir={{ created_at: 'desc', decided_at: 'desc' }}
 		onrowclick={(c) => goto(`/claims/${encodeURIComponent(c.id)}`)}
 		{loading}
-		emptyLabel={query.q || Object.keys(query.filters).length ? m['claims.empty_filtered']() : m['claims.empty']()}
 		labels={tableLabels()}
 	>
 		{#snippet cell(c, column)}

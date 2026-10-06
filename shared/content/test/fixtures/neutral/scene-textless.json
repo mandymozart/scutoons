@@ -1,0 +1,57 @@
+{
+	"description": "a scene without any text serves every locale as asked (no fallback)",
+	"kind": "scene",
+	"languages": {
+		"source": "de",
+		"languages": [
+			"de",
+			"en"
+		]
+	},
+	"doc": {
+		"label": "pics",
+		"slices": [
+			{
+				"image": "d.webp",
+				"width": 1,
+				"height": 1
+			}
+		]
+	},
+	"cases": [
+		{
+			"locale": "en",
+			"expected": {
+				"locale": "en",
+				"fallback": false,
+				"doc": {
+					"label": "pics",
+					"slices": [
+						{
+							"image": "d.webp",
+							"width": 1,
+							"height": 1
+						}
+					]
+				}
+			}
+		},
+		{
+			"locale": "fr",
+			"expected": {
+				"locale": "fr",
+				"fallback": false,
+				"doc": {
+					"label": "pics",
+					"slices": [
+						{
+							"image": "d.webp",
+							"width": 1,
+							"height": 1
+						}
+					]
+				}
+			}
+		}
+	]
+}

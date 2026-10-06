@@ -43,7 +43,8 @@
 				"status",
 				"title"
 			],
-			"description": "The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings"
+			"description": "The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings.",
+			"deprecated": "legacy since 2026-10-06 (agents/NEUTRAL.md step 4): the texts, release and status per language live in the\ntoon entry (`ToonIndex.title` …, `TOON_TEXT_FIELDS`); the library reads these documents only while the entry has none"
 		},
 		"Status": {
 			"type": "string",

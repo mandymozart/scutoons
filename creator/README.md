@@ -28,7 +28,7 @@ The editor for toon / season / chapter configs and VN scene files, a standalone 
   are shown one below the other.
 
 Built on the shared packages: `@scutoons/content` (types, validation, paths), `@scutoons/reader` (Dialogs, Slice,
-Onomatopoeia), `@scutoons/api` (session, content store), `@scutoons/ui` (login screen, preview controls),
+text box reveal effects), `@scutoons/api` (session, content store), `@scutoons/ui` (login screen, preview controls),
 `@scutoons/tokens`.
 
 ## Local development

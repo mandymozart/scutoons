@@ -264,7 +264,7 @@
 		}
 		if (added.length || updated.length) {
 			let first = -1;
-			doc.structural((file) => {
+			doc.edit((file) => {
 				const group = getAt(file, groupPath) ?? file;
 				if (!Array.isArray(group.slices)) group.slices = [];
 				const list: any[] = group.slices;

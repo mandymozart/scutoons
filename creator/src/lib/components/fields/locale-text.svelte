@@ -5,30 +5,41 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import TextOriginal from '$lib/components/fields/text-original.svelte';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
+	import ExprText from '$lib/components/fields/expr-text.svelte';
+	import { fieldKey } from '$lib/editor/expr-context.svelte.ts';
 
 	/**
-	 * One text field in every locale, side by side (text is per locale, inline in each chapter file) – or only the
-	 * creator's chosen TEXT language (text-language.svelte.ts); a translation then shows the source above it
-	 * (translate mode: the source as a muted line under it). `string[]` values (paragraphs) are edited with a blank line between entries and stay arrays.
+	 * One text field in the creator's chosen TEXT language (text-language.svelte.ts – the header's switch; default the
+	 * source, marked with the star): exactly one language; a translation shows the source as a muted line under it
+	 * (translate mode). A language-neutral document (chapter, scene, season) keeps the text as a locale map at `path`
+	 * (`doc.text` / `doc.setText`); a per-locale document in each locale's file. `string[]` values (paragraphs) are
+	 * edited with a blank line between entries and stay arrays. `type="date"`: a date per language (`release`).
+	 * `expressions`: a text that can hold `{…}` (agents/EXPRESSIONS.md – text box, VN message, choice label, askText
+	 * question): the expression-aware field (chips, builder, wavy underlines; fields/expr-text.svelte).
 	 */
 	let {
 		doc,
 		path,
-		label = 'text',
+		label = m['creator.field_text'](),
 		rows = 3,
-		multiline = true
-	}: { doc: ContentDoc; path: Path; label?: string; rows?: number; multiline?: boolean } = $props();
+		multiline = true,
+		type = 'text',
+		expressions = false
+	}: { doc: ContentDoc; path: Path; label?: string; rows?: number; multiline?: boolean; type?: 'text' | 'date'; expressions?: boolean } = $props();
 
-	const sourceText = $derived(textOf(doc.get(doc.primary, path)).trim());
-	/** the locales shown: all present ones, or the chosen text language */
-	const shown = $derived(textLanguage.visible(doc.present, doc.primary));
-	/** translate mode: the source shown read-only above the field */
-	const original = $derived(textLanguage.original(doc.present, doc.primary));
+	const source = $derived(doc.textSource);
+	const sourceText = $derived(textOf(doc.text(path, source)).trim());
+	/** the one locale shown: the chosen text language, else the source */
+	const shown = $derived(textLanguage.visible(doc.textLanguages, source));
+	/** translate mode: the source shown read-only under the field */
+	const original = $derived(textLanguage.original(doc.textLanguages, source));
+	const key = (locale: string) => `text:${locale}:${path.join('.')}`;
 
 	/** "Copy original": the source value into the translation (arrays stay arrays) */
 	function copyOriginal(locale: string) {
-		const value = doc.get(doc.primary, path);
-		doc.setLocal(locale, path, Array.isArray(value) ? [...value] : value, `text:${locale}:${path.join('.')}`);
+		const value = doc.text(path, source);
+		doc.setText(path, locale, Array.isArray(value) ? [...value] : (value ?? ''), key(locale));
 	}
 
 	function display(value: unknown) {
@@ -36,40 +47,53 @@
 	}
 
 	function update(locale: string, input: string) {
-		const current = doc.get(locale, path);
-		const reference = doc.get(doc.primary, path);
-		const asArray = Array.isArray(current) || (current === undefined && Array.isArray(reference));
-		const value = asArray ? input.split(/\n{2,}/).map((p) => p.replace(/^\n+|\n+$/g, '')) : input;
-		doc.setLocal(locale, path, value, `text:${locale}:${path.join('.')}`);
+		const current = doc.text(path, locale);
+		const reference = doc.text(path, source);
+		const asArray = Array.isArray(current) || ((current === undefined || current === '') && Array.isArray(reference));
+		const value = asArray && input ? input.split(/\n{2,}/).map((p) => p.replace(/^\n+|\n+$/g, '')) : input;
+		doc.setText(path, locale, value, key(locale));
 	}
 
 	function toggleArray(locale: string) {
-		const current = doc.get(locale, path);
-		doc.setLocal(locale, path, Array.isArray(current) ? current.join('\n') : [textOf(current)]);
+		const current = doc.text(path, locale);
+		doc.setText(path, locale, Array.isArray(current) ? current.join('\n') : [textOf(current)]);
 	}
 
 	function state(locale: string) {
-		const text = textOf(doc.get(locale, path)).trim();
-		if (locale === doc.primary) return { missing: !text, ratio: 1, long: false };
+		const text = textOf(doc.text(path, locale)).trim();
+		if (locale === source) return { missing: !text, ratio: 1, long: false };
 		const ratio = sourceText ? text.length / sourceText.length : 1;
-		return { missing: !!sourceText && !text, ratio, long: !!text && !!sourceText && ratio > LENGTH_WARNING_RATIO };
+		return { missing: !!sourceText && !text, ratio, long: type === 'text' && !!text && !!sourceText && ratio > LENGTH_WARNING_RATIO };
 	}
 </script>
 
-<div class="locale-text" style:--cols={shown.length}>
+<div class="locale-text">
 	{#each shown as locale (locale)}
 		{@const s = state(locale)}
-		{@const value = doc.get(locale, path)}
+		{@const value = doc.text(path, locale)}
 		<div class="field">
 			<label class:missing={s.missing} class:long={s.long}>
 				<span class="head">
-					<span>{label} · {locale}</span>
-					{#if locale === doc.primary}<span class="sc-chip">{m['creator.source']()}</span>{/if}
+					<span>{label} · {locale}{#if locale === source}<SourceMark />{/if}</span>
 					{#if s.missing}<span class="sc-chip is-error">{m['creator.missing']()}</span>{/if}
 					{#if s.long}<span class="sc-chip is-warning">{Math.round(s.ratio * 100)}%</span>{/if}
-					{#if Array.isArray(value)}<button type="button" class="ghost mini" title="paragraphs (string[]) – click for one string" onclick={() => toggleArray(locale)}>[ ]</button>{/if}
+					{#if Array.isArray(value)}<button type="button" class="ghost mini" title={m['creator.text_paragraphs_hint']()} onclick={() => toggleArray(locale)}>[ ]</button>{/if}
 				</span>
-				{#if multiline}
+				{#if expressions && type === 'text'}
+					<ExprText
+						value={display(value)}
+						onchange={(v) => update(locale, v)}
+						{multiline}
+						{rows}
+						lang={locale}
+						paragraphs={Array.isArray(value)}
+						focusKey={fieldKey(doc.entity, path, locale)}
+						tone={s.missing ? 'missing' : s.long ? 'long' : undefined}
+						testid="text-{locale}"
+					/>
+				{:else if type === 'date'}
+					<input type="date" value={display(value)} oninput={(e) => update(locale, e.currentTarget.value)} data-testid="{path.join('-')}-{locale}" />
+				{:else if multiline}
 					<textarea
 						{rows}
 						lang={locale}
@@ -87,17 +111,17 @@
 					/>
 				{/if}
 			</label>
-			{#if original}
-				<TextOriginal locale={original} text={display(doc.get(original, path))} oncopy={() => copyOriginal(locale)} testid="original-{path.join('-')}" />
+			{#if original && type === 'text'}
+				<TextOriginal locale={original} text={display(doc.text(path, original))} oncopy={() => copyOriginal(locale)} testid="original-{path.join('-')}" />
 			{/if}
 		</div>
 	{/each}
 </div>
 
+
 <style>
 	.locale-text {
 		display: grid;
-		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
 		gap: var(--space-1);
 	}
 	.field {

@@ -21,6 +21,10 @@ const SCHEMAS = {
 	toon: 'ToonSettings',
 	'toon-index': 'ToonIndex',
 	group: 'Group',
+	// the language-neutral documents chapter:<toon>:<n>, scene:<toon>:<chapter>:<name>, season:<toon>:<n> (neutral.ts)
+	'chapter-doc': 'ChapterDoc',
+	'group-doc': 'GroupDoc',
+	'season-doc': 'SeasonDoc',
 	catalog: 'Catalog',
 	credits: 'ToonCredits',
 	people: 'PeopleRegistry',

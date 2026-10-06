@@ -4,8 +4,11 @@
 	import ClickTrigger from './triggers/click.svelte';
 	import HoverTrigger from './triggers/hover.svelte';
 	import IntersectTrigger from './triggers/intersect.svelte';
+	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 
 	let { events }: { events?: VNSliceEvent[] } = $props();
+	// a group above the `?label=` target of linked groups counts as read: its triggers don't fire (owner 2026-10-06)
+	const done = getGroupScope()?.done ?? false;
 
 	/**
 	 * Events with the same trigger (type, rect, once) run as ONE script, in their order: a click on a cucumber is
@@ -14,7 +17,7 @@
 	 */
 	const groups = $derived.by(() => {
 		const byTrigger = new Map<string, VNSliceEvent[]>();
-		for (const event of events ?? []) {
+		for (const event of done ? [] : (events ?? [])) {
 			if (!event.trigger) continue;
 			const key = JSON.stringify(event.trigger);
 			byTrigger.set(key, [...(byTrigger.get(key) ?? []), event]);

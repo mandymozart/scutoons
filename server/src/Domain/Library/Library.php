@@ -5,6 +5,7 @@ namespace Scutoons\Domain\Library;
 
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\NeutralDoc;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -41,18 +42,42 @@ final class Library
      * its avatar). An older per-language toon `cover` still passes through (the reader's fallback).
      */
     public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'];
+    /**
+     * The toon entry's per-language fields (locale maps, agents/NEUTRAL.md step 4; @scutoons/content TOON_TEXT_FIELDS):
+     * resolved into the reader's `toon` (title, description, release, status) – never part of an answered `entry`. An entry
+     * without a `title` map has no texts yet: the per-language `toon-settings:<toon>:<l>` documents are read (legacy).
+     */
+    public const TOON_TEXT_FIELDS = ['title', 'description', 'release', 'languageStatus'];
     /** Bump when the shape of an answer changes: old cache entries are never read again */
-    private const FORMAT = 4;
+    private const FORMAT = 7;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */
     private const LEGACY_CHARACTER_IDS = ['plf' => 'catpope', 'cat' => 'catpope', 'mountain-tiger' => 'catpope'];
+
+    /** answers from the legacy per-locale chapters / scenes / seasons only (Snapshot::withoutNeutralDocs) */
+    private bool $legacyOnly = false;
+    /** answers from the legacy per-language toon settings (the toon entry read without its texts, TOON_TEXT_FIELDS) */
+    private bool $legacyToonTexts = false;
 
     public function __construct(
         private readonly Database $db,
         private readonly Cache $cache,
         private readonly Settings $settings,
     ) {
+    }
+
+    /**
+     * This library ignoring every language-neutral chapter / scene / season document and the toon entry's texts – the
+     * answers as before the conversion (agents/NEUTRAL.md; content:neutral-check compares both). `$docs: false` keeps the
+     * neutral documents and ignores only the entry's texts (the toon settings' conversion on its own, step 4).
+     */
+    public function legacyOnly(bool $docs = true): self
+    {
+        $library = clone $this;
+        $library->legacyOnly = $docs;
+        $library->legacyToonTexts = true;
+        return $library;
     }
 
     public function showDrafts(): bool
@@ -66,17 +91,21 @@ final class Library
      * GET /library/toons → ToonIndex[]: published entries + announced ones (`announce: true` in the index entry, marked
      * `announced: true` – their pages stay 404, so no season or chapter of them is exposed); drafts too with
      * CONTENT_SHOW_DRAFTS; all in draft mode. The dev-only toons (sandbox) are never listed publicly. Every entry carries
-     * its landing `tile` when there is one; the other language-neutral settings (map …) are left out of the list.
+     * its landing `tile` when there is one and its name (`title` per language, the legacy `i18n` – `indexEntry`); the other
+     * language-neutral settings (map …) are left out of the list.
      * Entries stored before the neutral settings moved to the index read `announce` / `tile` from the toon settings.
+     * With a locale (the reader's language) a toon whose page is closed in that language (its language status, the same
+     * gate as the toon page) is left out; announced toons stay.
      */
-    public function toons(bool $draft): Answer
+    public function toons(bool $draft, ?string $locale = null): Answer
     {
         $snapshot = Snapshot::toonIndex($this->db, $draft);
-        return $this->answer('toons', $snapshot, function () use ($snapshot, $draft): array {
+        $what = $locale === null ? 'toons' : "toons:$locale";
+        return $this->answer($what, $snapshot, function () use ($snapshot, $draft, $locale): array {
             $list = [];
             foreach ($snapshot->ordered() as $key) {
                 if (!str_starts_with($key, 'toon:')) continue;
-                $entry = $snapshot->doc($key);
+                $entry = $this->entryDoc($snapshot, $key);
                 if (!$entry instanceof stdClass) continue;
                 $toon = substr($key, strlen('toon:'));
                 $settings = $this->listSettings($snapshot, $toon, $entry);
@@ -88,6 +117,9 @@ final class Library
                 $visible = $draft || ($status === self::DRAFT && $this->showDrafts())
                     || ($public && !in_array($toon, self::DEV_ONLY_TOONS, true));
                 if (!$visible) continue;
+                // a locale's list: a toon whose page in that language is closed (its language status) is left out, like
+                // the toon page's 404 - announced toons stay ("soon")
+                if ($locale !== null && !$draft && !$announced && !$this->languagePublic($snapshot, $toon, $entry, $locale)) continue;
                 $entry = self::indexEntry($entry);
                 if ($announced) $entry->announced = true;
                 if ($tile instanceof stdClass) $entry->tile = $tile;
@@ -111,11 +143,117 @@ final class Library
         return null;
     }
 
-    /** The index entry without the language-neutral toon settings it stores (the shape of `ToonIndex` in the answers) */
+    /** Whether a toon's page in a locale is open by its language status (the served language's; drafts with CONTENT_SHOW_DRAFTS) */
+    private function languagePublic(Snapshot $snapshot, string $toon, stdClass $entry, string $locale): bool
+    {
+        $stored = [];
+        foreach ($snapshot->keys("toon-settings:$toon:") as $key) $stored[] = substr($key, strlen("toon-settings:$toon:"));
+        [$source, $languages] = self::languages($entry, $stored);
+        $settings = self::toonSettings($snapshot, $toon, $entry, $locale, $source, $languages);
+        if ($settings === null) return false;
+        $status = $settings[1]->status ?? null;
+        $status = is_string($status) && $status !== '' ? $status : self::PUBLISHED;
+        return $status === self::PUBLISHED || ($status === self::DRAFT && $this->showDrafts());
+    }
+
+    /**
+     * A toon's index entry from a snapshot; legacy-only answers (content:neutral-check) see it without its texts
+     * (`TOON_TEXT_FIELDS`), i.e. as before the conversion
+     */
+    private function entryDoc(Snapshot $snapshot, string $key): mixed
+    {
+        $entry = $snapshot->doc($key);
+        if (!$this->legacyToonTexts || !$entry instanceof stdClass) return $entry;
+        $entry = clone $entry;
+        // before the conversion the entry held the name as `i18n.<l>.name` (decision 4 folded it into `title`)
+        if (self::hasToonTexts($entry)) {
+            $names = self::names($entry);
+            if ($names !== []) $entry->i18n = self::legacyNames($names);
+        }
+        foreach (self::TOON_TEXT_FIELDS as $field) unset($entry->$field);
+        return $entry;
+    }
+
+    /**
+     * The toon's name per language (owner decision 4, 2026-10-06: the entry's `title` is the one name), for each of the
+     * toon's languages, resolved like every text (the language → source → the toon's languages → any); an older entry
+     * without texts: its `i18n.<l>.name` as stored. Blank names are left out.
+     * @return array<string, string>
+     */
+    private static function names(stdClass $entry): array
+    {
+        $names = [];
+        if (self::hasToonTexts($entry)) {
+            [$source, $languages] = self::languages($entry, []);
+            foreach ($languages as $l) {
+                $name = NeutralDoc::text($entry->title, NeutralDoc::chain($l, $source, $languages));
+                if (is_string($name) && trim($name) !== '') $names[$l] = $name;
+            }
+            return $names;
+        }
+        foreach ((array) ($entry->i18n ?? []) as $l => $value) {
+            $name = $value instanceof stdClass ? ($value->name ?? null) : null;
+            if (is_string($name) && trim($name) !== '') $names[(string) $l] = $name;
+        }
+        return $names;
+    }
+
+    /**
+     * LEGACY (drop once no viewer build older than 2026-10-06 runs): the old `i18n: { <l>: { name } }` older viewer builds
+     * read the toon's name from – computed from the names (`title`)
+     * @param array<string, string> $names
+     */
+    private static function legacyNames(array $names): stdClass
+    {
+        $i18n = new stdClass();
+        foreach ($names as $l => $name) $i18n->$l = (object) ['name' => $name];
+        return $i18n;
+    }
+
+    /** Whether a toon entry holds the toon's texts (a `title` locale map) - @scutoons/content hasToonTexts */
+    public static function hasToonTexts(?stdClass $entry): bool
+    {
+        return $entry !== null && ($entry->title ?? null) instanceof stdClass;
+    }
+
+    /**
+     * The toon's per-language settings for an asked locale: [served locale, settings, fallback] - from the entry's locale
+     * maps (NeutralDoc::toon) when it has texts, else the legacy `toon-settings:<toon>:<l>` (asked, source, the other
+     * languages); null when there are none
+     * @param list<string> $languages
+     * @return array{0: string, 1: stdClass, 2: bool}|null
+     */
+    private static function toonSettings(Snapshot $snapshot, string $toon, ?stdClass $entry, string $locale, string $source, array $languages): ?array
+    {
+        if (self::hasToonTexts($entry)) {
+            [$served, $fallback, $doc] = NeutralDoc::resolve('toon', $entry, $locale, $source, $languages);
+            if (!$doc instanceof stdClass) return null;
+            $doc->id ??= $toon;
+            return [$served, $doc, $fallback];
+        }
+        foreach (array_values(array_unique([$locale, $source, ...$languages])) as $candidate) {
+            $doc = $snapshot->doc("toon-settings:$toon:$candidate");
+            if ($doc instanceof stdClass) return [$candidate, $doc, $candidate !== $locale];
+        }
+        return null;
+    }
+
+    /**
+     * The index entry without the toon settings it stores (neutral + per-language: the shape of `ToonIndex` in the
+     * answers) – plus the toon's name: `title` = the name in each of the toon's languages (resolved, `names()`; the lists /
+     * menu read it) and, for older viewer builds, the legacy `i18n.<l>.name` computed from it (an entry without texts
+     * keeps its stored `i18n`)
+     */
     private static function indexEntry(stdClass $entry): stdClass
     {
+        $names = self::names($entry);
+        $converted = self::hasToonTexts($entry);
         $entry = clone $entry;
-        foreach (self::TOON_NEUTRAL_FIELDS as $field) unset($entry->$field);
+        foreach ([...self::TOON_NEUTRAL_FIELDS, ...self::TOON_TEXT_FIELDS] as $field) unset($entry->$field);
+        if ($names !== []) {
+            $entry->title = (object) $names;
+            if ($converted) $entry->i18n = self::legacyNames($names);
+        }
         return $entry;
     }
 
@@ -178,7 +316,10 @@ final class Library
         }, $ctx);
     }
 
-    /** GET /library/toons/{toon}/chapters/{n}?locale= → Chapter with every `ref` group replaced by its scene file */
+    /**
+     * GET /library/toons/{toon}/chapters/{n}?locale= → Chapter with every `ref` group replaced by its scene; a
+     * language-neutral chapter / scene resolved for the locale (NeutralDoc), else the per-locale documents
+     */
     public function chapter(string $toon, int $number, ?string $locale, bool $draft): Answer
     {
         $ctx = $this->context($toon, $draft);
@@ -199,8 +340,16 @@ final class Library
             $ctx->fallback = false; // the answer's fallback flag = the chapter + its scenes
             $picked = $ctx->pick("chapter:$ctx->toon:$number", $locale)
                 ?? throw new ApiError(404, 'not_found', "Chapter $number of $ctx->toon not found.");
-            [$served, $chapter] = $picked;
+            [$served, $chapter, $neutral] = $picked;
             if (!$chapter instanceof stdClass) throw new ApiError(404, 'not_found', "Chapter $number of $ctx->toon not found.");
+            if ($neutral) {
+                // the deprecated mirror older viewer builds read: the season's status in the served locale (the creator
+                // wrote it into each per-locale document); not part of the answer's fallback flag
+                $fallback = $ctx->fallback;
+                $status = $this->chapterStatus($ctx, $number, $served);
+                $ctx->fallback = $fallback;
+                if ($status !== null) $chapter->status = $status;
+            }
             return [$this->withScenes($ctx, $chapter, $served), $served];
         }, $ctx);
     }
@@ -487,7 +636,8 @@ final class Library
         if (!preg_match(EntityKey::TOON_PATTERN, $toon)) throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
         if ($toon === self::PLATFORM) throw new ApiError(404, 'not_found', "Unknown toon $toon.");
         $snapshot = Snapshot::toon($this->db, $toon, $draft);
-        $entry = $snapshot->doc("toon:$toon");
+        if ($this->legacyOnly) $snapshot = $snapshot->withoutNeutralDocs();
+        $entry = $this->entryDoc($snapshot, "toon:$toon");
         $entry = $entry instanceof stdClass ? $entry : null;
         $stored = [];
         foreach ($snapshot->keys("toon-settings:$toon:") as $key) $stored[] = substr($key, strlen("toon-settings:$toon:"));
@@ -496,7 +646,8 @@ final class Library
     }
 
     /**
-     * toonLanguages() of @scutoons/content: `languages` → `i18n` keys → the locales the store has; source first
+     * toonLanguages() of @scutoons/content: `languages` → `title` keys → the old `i18n` keys → the locales the store has;
+     * source first
      * @param list<string> $stored
      * @return array{0: string, 1: list<string>}
      */
@@ -505,6 +656,7 @@ final class Library
         $valid = fn(mixed $l) => is_string($l) && preg_match(self::LOCALE_PATTERN, $l) === 1;
         $entry ??= new stdClass();
         $listed = array_values(array_filter(is_array($entry->languages ?? null) ? $entry->languages : [], $valid));
+        if ($listed === [] && ($entry->title ?? null) instanceof stdClass) $listed = array_values(array_filter(array_keys((array) $entry->title), $valid));
         if ($listed === []) $listed = array_values(array_filter(array_keys((array) ($entry->i18n ?? [])), $valid));
         if ($listed === []) {
             sort($stored);
@@ -527,9 +679,10 @@ final class Library
         if (!$ctx->draft) {
             if ($ctx->entry === null ? !$ctx->includeDrafts : !$ctx->isPublic($ctx->entry->status ?? null)) throw $notFound;
         }
-        $picked = $ctx->pick("toon-settings:$ctx->toon", $locale);
-        if ($picked === null || !$picked[1] instanceof stdClass) throw $notFound;
+        $picked = self::toonSettings($ctx->snapshot, $ctx->toon, $ctx->entry, $locale, $ctx->source, $ctx->languages);
+        if ($picked === null) throw $notFound;
         if (!$ctx->draft && !$ctx->isPublic($picked[1]->status ?? null)) throw $notFound;
+        if ($picked[2]) $ctx->fallback = true;
         $ctx->servedLocale = $picked[0];
         return [$picked[0], $picked[1]];
     }
@@ -723,7 +876,7 @@ final class Library
     /** @param callable(): array{0: mixed, 1: ?string} $compose [data, served locale] */
     private function answer(string $what, Snapshot $snapshot, callable $compose, ?Context $ctx = null): Answer
     {
-        $key = 'library:' . self::FORMAT . ':' . $what . ':' . ($this->showDrafts() ? 'd:' : '') . $snapshot->fingerprint();
+        $key = 'library:' . self::FORMAT . ':' . $what . ':' . ($this->showDrafts() ? 'd:' : '') . ($this->legacyOnly ? 'legacy:' : '') . ($this->legacyToonTexts ? 'legacy-toon:' : '') . $snapshot->fingerprint();
         $etag = '"l' . substr(sha1($key), 0, 24) . '"';
         if (!$snapshot->draft) {
             $raw = $this->cache->get($key);

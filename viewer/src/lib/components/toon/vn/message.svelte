@@ -2,6 +2,7 @@
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import Choices from './choices.svelte';
 	import { legacyCharacterLabel } from '@scutoons/content';
+	import { m } from '$lib/paraglide/messages.js';
 
 	const vn = getVisualNovelContext();
 
@@ -10,27 +11,22 @@
 	let height = $state(0);
 	$effect(() => vn.setBoxHeight(height));
 
-	/**
-	 * The story waits for the reader (open choices, or a message waiting for its click): the page doesn't scroll until it
-	 * is answered (owner 2026-10-03: "freeze the ability to scroll once a message or choice depends on it") – so a scroll
-	 * trigger further down can't start while a question is open, and nobody reads past a question.
-	 */
-	const blocking = $derived(vn.state.choicesVisible || (vn.state.messageVisible && vn.state.message.wait));
+	// the page doesn't scroll while the story waits: interactions/vn-page.svelte (the whole page's scripts and triggers)
+
+	// an askText (agents/EXPRESSIONS.md §6): one input line under the question; Enter / ✓ answers, Skip takes the default
+	let typed = $state('');
+	let input = $state<HTMLInputElement | null>(null);
+	const question = $derived(vn.state.question);
 	$effect(() => {
-		if (!blocking) return;
-		const html = document.documentElement;
-		const before = { overflow: html.style.overflow, overscroll: html.style.overscrollBehavior, touch: html.style.touchAction };
-		html.style.overflow = 'hidden';
-		html.style.overscrollBehavior = 'none';
-		html.style.touchAction = 'none';
-		html.dataset.vnBlocking = '';
-		return () => {
-			html.style.overflow = before.overflow;
-			html.style.overscrollBehavior = before.overscroll;
-			html.style.touchAction = before.touch;
-			delete html.dataset.vnBlocking;
-		};
+		if (!question) return;
+		typed = '';
+		// the reader types right away (the page doesn't scroll meanwhile)
+		queueMicrotask(() => input?.focus({ preventScroll: true }));
 	});
+	function submit(event: SubmitEvent) {
+		event.preventDefault();
+		vn.answer(typed);
+	}
 
 	function handleClick() {
 		if (vn.state.message.wait && !vn.state.choicesVisible) {
@@ -56,6 +52,23 @@
 			<div class="text" class:narrator={!vn.state.message.character}>
 				{vn.state.message.text}
 			</div>
+		{/if}
+		{#if question}
+			<form class="ask" onsubmit={submit} data-testid="vn-ask">
+				<input
+					bind:this={input}
+					bind:value={typed}
+					type="text"
+					maxlength={question.maxLength}
+					placeholder={question.placeholder}
+					aria-label={m['chapter.ask_label']()}
+					autocomplete="off"
+					enterkeyhint="done"
+					data-testid="vn-ask-input"
+				/>
+				<button type="submit" class="ok" aria-label={m['chapter.ask_ok']()} title={m['chapter.ask_ok']()} data-testid="vn-ask-ok">✓</button>
+			</form>
+			<button type="button" class="skip" onclick={() => vn.answer(null)} title={question.fallback || undefined} data-testid="vn-ask-skip">{m['chapter.ask_skip']()}</button>
 		{/if}
 		<Choices />
 	</div>
@@ -135,6 +148,48 @@
 
 	.text {
 		margin-bottom: .5rem;
+	}
+
+	.ask {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
+	.ask input {
+		flex: 1;
+		min-width: 0;
+		height: var(--control-height);
+		padding: 0 0.75rem;
+		border: 2px solid black;
+		background: white;
+		color: black;
+		font: inherit;
+		font-size: 1rem;
+	}
+	/* the round ✓ (icon-only buttons are round) */
+	.ok {
+		flex: 0 0 var(--control-height);
+		width: var(--control-height);
+		min-width: 0;
+		height: var(--control-height);
+		padding: 0;
+		border-radius: 50%;
+		border: 2px solid black;
+		background: black;
+		color: white;
+		font-size: 1.25rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.skip {
+		background: none;
+		border: 0;
+		padding: 0;
+		color: #555;
+		font-size: 0.875rem;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 
 	.text.narrator {

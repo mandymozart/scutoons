@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Content;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Content\Expr\TextCheck;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
@@ -38,6 +39,13 @@ final class ContentSchemas
         'map' => 'map',
     ];
 
+    /** the language-neutral documents of these kinds (a key without locale, agents/NEUTRAL.md) → schema file */
+    public const NEUTRAL_BY_KIND = [
+        'chapter' => 'chapter-doc',
+        'scene' => 'group-doc',
+        'season' => 'season-doc',
+    ];
+
     private ?Validator $validator = null;
 
     public function __construct(private readonly Settings $settings)
@@ -48,9 +56,10 @@ final class ContentSchemas
      * Problems of $content (decoded with stdClass objects) as a document of $kind; [] = valid or not checked
      * @return list<string>
      */
-    public function problems(string $kind, mixed $content, int $limit = 20): array
+    public function problems(string $kind, mixed $content, int $limit = 20, bool $neutral = false): array
     {
-        $name = self::BY_KIND[$kind] ?? null; // EntityKey only parses known kinds; a stray older kind isn't checked
+        // EntityKey only parses known kinds; a stray older kind isn't checked
+        $name = $neutral && isset(self::NEUTRAL_BY_KIND[$kind]) ? self::NEUTRAL_BY_KIND[$kind] : (self::BY_KIND[$kind] ?? null);
         if ($name === null) return [];
         $result = $this->validator($limit)->validate($content, "https://scutoons.com/schema/$name.schema.json");
         $error = $result->error();
@@ -62,12 +71,26 @@ final class ContentSchemas
         return array_slice($problems, 0, $limit);
     }
 
-    /** Throws 422 invalid_content { problems } when $content doesn't fit its kind */
+    /**
+     * Problems of a stored document by its key: a neutral chapter / scene / season against its neutral schema, a
+     * per-locale one (legacy) against the old; a neutral chapter / scene's texts also by their expressions (syntax
+     * errors and the old `{x:clock}`, Expr\TextCheck – agents/EXPRESSIONS.md §4)
+     * @return list<string>
+     */
+    public function problemsOf(EntityKey $key, mixed $content, int $limit = 20): array
+    {
+        $problems = $this->problems($key->kind, $content, $limit, $key->isNeutralDoc());
+        if ($problems || !$key->isNeutralDoc() || !in_array($key->kind, ['chapter', 'scene'], true)) return $problems;
+        return TextCheck::problems($key->kind, $content, $limit);
+    }
+
+    /** Throws 422 invalid_content { problems } when $content doesn't fit its kind (or a text's expression is broken) */
     public function guard(EntityKey $key, mixed $content): void
     {
-        $problems = $this->problems($key->kind, $content);
+        $problems = $this->problemsOf($key, $content);
         if ($problems) {
-            throw new ApiError(422, 'invalid_content', "The $key->kind document doesn't fit its type: " . $problems[0]
+            $what = str_contains($problems[0], '(expr:') ? "has a text that can't be shown" : "doesn't fit its type";
+            throw new ApiError(422, 'invalid_content', "The $key->kind document $what: " . $problems[0]
                 . (count($problems) > 1 ? ' (+' . (count($problems) - 1) . ' more)' : ''), ['problems' => $problems]);
         }
     }

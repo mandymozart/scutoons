@@ -48,7 +48,7 @@ import type {
 	Localized,
 	ReaderState,
 	Recipe,
-	RespawnInterval
+	RecurrenceInterval
 } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import type { SessionContext } from './session.svelte.ts';
@@ -426,7 +426,7 @@ export function createInventoryContext(session: SessionContext) {
 		source: GrantSource,
 		qty = 1,
 		ref?: string,
-		options: { quietWhenNone?: boolean; respawn?: { respawn: RespawnInterval; visit?: string } } = {}
+		options: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } } = {}
 	): Promise<{ ok: boolean; error?: string; granted?: number }> {
 		const def = item(item_id);
 		if (!def || !def.grantable?.includes(source) || qty <= 0) return { ok: false, error: 'not_grantable' };

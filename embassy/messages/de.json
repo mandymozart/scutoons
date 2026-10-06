@@ -210,7 +210,6 @@
 	"palette": {
 		"search": "Suchen oder springen …",
 		"label": "Befehlspalette",
-		"empty": "Nichts gefunden.",
 		"keys": "↑↓ wählen · Enter öffnen · Esc schließen · Ctrl K oder / überall",
 		"go_to": "Gehe zu",
 		"actions": "Aktionen",
@@ -242,7 +241,6 @@
 		"unavailable": "Der Agent ist gerade nicht erreichbar.",
 		"signed_out": "Deine Sitzung ist abgelaufen – melde dich neu an.",
 		"history": "Frühere Chats",
-		"history_empty": "Noch keine Chats.",
 		"history_unavailable": "Der Chat-Verlauf ist noch nicht verfügbar.",
 		"resize": "Ziehen, um die Breite zu ändern",
 		"draft": "Entwurf #{id}"

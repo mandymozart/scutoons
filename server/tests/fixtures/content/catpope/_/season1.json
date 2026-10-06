@@ -1,0 +1,119 @@
+{
+	"title": {
+		"de": "Das Erwachen",
+		"en": "Awakening"
+	},
+	"authors": [
+		"Mandy Mozart",
+		"Thomas Dalby"
+	],
+	"number": 1,
+	"release": {
+		"de": "2025-10-04",
+		"en": "2025-12-01"
+	},
+	"description": {
+		"de": "Als die Morgenroutine einer narzisstischen religiösen Persönlichkeit durch eine mysteriöse Sphynx-Katze gestört wird, geraten sie in eine Spirale surrealer Begegnungen mit digitalen Verschwörungen, mythischen Kreaturen und glitchigen Realitäten, nur um schließlich zu entdecken, dass die Katze die ganze Zeit über ihre eigene gespaltene Identität war.",
+		"en": "When the morning routine of a narcissistic religious personality is disrupted by a mysterious Sphynx cat, they are plunged into a spiral of surreal encounters with digital conspiracies, mythological creatures, and glitchy realities, only to finally discover that the cat was her own split identity all along."
+	},
+	"cover": {
+		"square": "s1/s1-cover-square.webp",
+		"portrait": "s1/s1-cover-portrait.webp"
+	},
+	"download": {
+		"music": "s1/CatPope-Awakening-Music.zip",
+		"image": "s1/s1-music-vinyl.webp"
+	},
+	"supporters": [
+		{
+			"name": "SKE / austro mechana",
+			"logo": "s1/supporters/ske.svg"
+		},
+		{
+			"name": "Westbahnstudios",
+			"logo": "s1/supporters/westbahnstudios.svg"
+		},
+		{
+			"name": "Künstlerhof Frohnau",
+			"logo": "s1/supporters/kuenstlerhof-frohnau.svg"
+		}
+	],
+	"trailer": {
+		"loop": "s1/s1-trailer-loop.720p.mp4",
+		"variants": {
+			"low": "s1/s1-trailer-loop.480p.mp4",
+			"medium": "s1/s1-trailer-loop.720p.mp4",
+			"high": "s1/s1-trailer-loop.1080p.mp4"
+		},
+		"poster": "s1/s1-trailer-poster.webp",
+		"chapter": 0
+	},
+	"related_items": [
+		"awakening_vinyl"
+	],
+	"credits": {
+		"artist": [
+			"Mandy Mozart",
+			"Thomas Dalby"
+		],
+		"writer": "Mandy Mozart",
+		"music": [
+			"Mandy Mozart",
+			"Nova Lux"
+		],
+		"sound": [
+			"Mandy Mozart",
+			"Nova Lux"
+		]
+	},
+	"sequence": [
+		{
+			"type": "chapter",
+			"number": 0,
+			"status": {
+				"de": "published",
+				"en": "published"
+			}
+		},
+		{
+			"type": "chapter",
+			"number": 1,
+			"status": {
+				"de": "published",
+				"en": "published"
+			}
+		},
+		{
+			"type": "chapter",
+			"number": 2,
+			"status": {
+				"de": "draft",
+				"en": "draft"
+			}
+		},
+		{
+			"type": "chapter",
+			"number": 3,
+			"status": {
+				"de": "coming-soon",
+				"en": "coming-soon"
+			}
+		},
+		{
+			"type": "chapter",
+			"number": 4,
+			"status": {
+				"de": "coming-soon",
+				"en": "coming-soon"
+			}
+		},
+		{
+			"type": "chapter",
+			"number": 5,
+			"status": {
+				"de": "coming-soon",
+				"en": "coming-soon"
+			}
+		}
+	]
+}

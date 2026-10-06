@@ -792,6 +792,73 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      otherwise: the API ignores it).
   3. Delete the naked A-pose looks in the creator (registry: each character → A-pose → × on "naked"; the Problems panel
      lists them as "no longer used"), publish the registry, then delete the CDN files `characters/*/…_apose-naked.webp`.
+- [ ] 10.32 **VN event `showOnomatopeia` → `showTextBox`** (owner 2026-10-06, branch `chapter-neutral`): the event
+      reveals any text box; the misspelt old name is gone without an alias (types, validation, schemas, viewer, creator).
+      The creator's picker is one select "choose or create new" (DESIGN.md "Onomatopoeia = a text box"). Dev DB done
+      2026-10-06 (31 rows in entity_versions, all compact `"type":"showOnomatopeia"` in old catpope chapter 2 / scene-14
+      versions; 0 left). **O – production steps, together (old code can't read the new type, new code not the old):**
+  1. phpMyAdmin → d0487143 → SQL, check first: `SELECT COUNT(*) FROM entity_versions WHERE json LIKE '%"showOnomatopeia"%';`
+  2. Deploy (API + viewer + creator), then right away run `server/migrations/mysql/2026-10-06-show-text-box.mysql.sql`
+     (idempotent; entity_versions + content_versions); the SELECT of step 1 answers 0 afterwards.
+- [ ] 10.33 **Expressions in texts + the clock syntax** (owner 2026-10-06, branch `chapter-neutral`, EXPRESSIONS.md step 2):
+      texts use ink's inline syntax; the old `{name:clock}` is gone (no alias) – it is `{clock(name)}` now, validation
+      calls the old form an error and the API refuses to save it (422). Dev DB (= the production dump) checked 2026-10-06:
+      0 occurrences in entity_versions / content_versions; the migration is for production's newer test content.
+      **O – production steps, together with the deploy of step 2:**
+  1. phpMyAdmin → d0487143 → SQL, check first:
+     `SELECT COUNT(*) FROM entity_versions WHERE json REGEXP '\\{[A-Za-z_][A-Za-z0-9_]*:clock\\}';` (and the same on
+     `content_versions`).
+  2. Deploy (API + viewer + creator), then run `server/migrations/mysql/2026-10-06-clock-syntax.mysql.sql` (idempotent,
+     `REGEXP_REPLACE` → `{clock(name)}`; tested on MariaDB 10.11.14); the SELECTs of step 1 answer 0 afterwards.
+- [ ] 10.34 **Events: repeat rules, ids, askText, the reader's name** (owner 2026-10-06, branch `chapter-neutral`,
+      EXPRESSIONS.md step 3): a trigger's / placed item's boolean `once` is the repeat rule `repeat` now (no alias;
+      every time = none – the new default; what `once` meant = `{"mode":"view"}`); events get hidden ids (the creator
+      assigns them – stored ones get theirs with the next save, a bar says so); `users.display_name` for the reader's
+      name. Dev DB done 2026-10-06 (81 versions changed: 166 `"once":true` triggers, 55 triggers and 4 tap-event items
+      without once → view; 0 left; the result checked against a JSON-walking transform of all 457 versions).
+      **O – production steps, together with the deploy (old code reads no `repeat`, new code no `once`):**
+  1. phpMyAdmin → d0487143 → SQL, check first: `SELECT COUNT(*) FROM entity_versions WHERE json LIKE '%"once":%';` (and
+     the two REGEXP SELECTs in the migration's header; the same on `content_versions`).
+  2. Deploy (API + viewer + creator), then run `server/migrations/mysql/2026-10-06-repeat.mysql.sql` (idempotent, PCRE
+     JSON walk – < 1 s on the dump) and `server/migrations/mysql/2026-10-06-display-name.mysql.sql` (`ADD COLUMN IF NOT
+     EXISTS`); the SELECTs of step 1 answer 0 afterwards.
+  3. Event ids: nothing to run – a chapter / scene opened and saved in the creator stores them; until then validation
+     warns ("N events have no id yet") and the reader keeps such events' "once per page view" in memory.
+- [ ] 10.35 **Jump targets: string values + jumps into another toon at a label** (owner 2026-10-06, branch
+      `chapter-neutral`, DATA.md "Jumps into another toon at a label"): `JumpToTarget.toon` is a new optional field (no
+      migration; old code ignores it – such a jump would land in the CURRENT toon's chapter of that number – so deploy
+      viewer + creator + API together before saving such jumps). `content:check` found the old chapter 2 stroll's targets with a NUMBER value (`"value":2`
+      – the type says string): 11 versions, all `scene:catpope:2:scene-14` (+ de / en), 3 targets each.
+      **O – production steps:**
+  1. phpMyAdmin → d0487143 → SQL, check first:
+     `SELECT COUNT(*) FROM entity_versions WHERE json REGEXP '"type":"(chapter|season|toon|product|xr)","value":-?[0-9]';`
+     (and the same on `content_versions`).
+  2. Run `server/migrations/mysql/2026-10-06-target-value.mysql.sql` (idempotent, `"value":2` → `"value":"2"`, any
+     time – old and new code read both); the SELECTs answer 0 afterwards.
+  3. **Owner decision**: the published `scene:catpope:2:scene-14` (201, + de 127 / en 128) still has an event of the
+     unknown type `end` (`{"type":"end","params":{"jumpTo":…scene-20}}` – the reader skips it, `content:check` reports
+     it). Publishing the scene's newest version (no `end`) or deleting the event clears it; which one is yours.
+- [ ] 10.36 **One save game across all toons** (owner 2026-10-06, branch `chapter-neutral`, DATA.md "The save game"):
+      story variables, the history and every toon's checkpoints move from the per-toon game states (`progress` rows
+      `toon_id = <toon>`) into the member's save game (`toon_id = 'scutoons'`, which holds the map). The new viewer reads
+      and writes only `/api/progress/scutoons/` (PUT merges: map / checkpoints / history as sets, variables the newer
+      write's); old per-toon calls keep working for older viewer builds (their rows are not read by the new viewer).
+      Guests: the viewer takes the old `scutoons_game_<toon>` keys in once (same clash rule) and removes them.
+      **O – production steps (with the deploy of viewer + API):**
+  1. phpMyAdmin → d0487143 → SQL, check first (both SELECTs are in the migration's header): the members with per-toon
+     states (`SELECT user_id, COUNT(*) … WHERE toon_id <> 'scutoons' GROUP BY user_id`) and the **clashes** – a variable
+     with different values in two toons, listed oldest → newest; the NEWEST toon's value wins.
+  2. Run `server/migrations/mysql/2026-10-06-global-save-game.mysql.sql` (idempotent: a second run changes nothing; the
+     per-toon rows stay as they were – rollback = the old viewer). Afterwards the header's last SELECT answers 0.
+  3. Deploy viewer + API together right after (an old viewer keeps writing per-toon rows the new one doesn't read; a
+     member who reads in between with an old build: their per-toon progress after the migration isn't merged – run the
+     migration again after the deploy, it folds them in by the same rule).
+- [ ] 10.37 **No dead ends: the save guard** (owner 2026-10-06, EXPRESSIONS.md "Dead-end safety"): no data change, no
+      migration. With the API deploy, `PUT /api/entities` refuses (422) chapters / scenes that can get a reader stuck – a
+      question whose choices can all be hidden, a divert / jump into nothing (`FlowCheck`); `content:check` reports the
+      same. **O:** after the deploy run `php bin/console content:check` on production: a document it lists can't be saved
+      unchanged any more – fix it in the creator (the Problems panel names the place). Known from the dump: only the old
+      `scene:catpope:2:scene-14` versions (its `scene-20` jump – the 10.35 decision).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

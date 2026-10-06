@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RESPAWN_UNITS, intervalParts, itemRespawnProblems, type ItemRespawn, type RespawnInterval, type RespawnUnit } from '@scutoons/content';
+	import { RECURRENCE_UNITS, intervalParts, itemRespawnProblems, type ItemRespawn, type RecurrenceInterval, type RecurrenceUnit } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -9,19 +9,19 @@
 	 */
 	let { value, onchange }: { value: ItemRespawn | null | undefined; onchange: (next: ItemRespawn | null) => void } = $props();
 
-	type Kind = 'visit' | RespawnUnit;
+	type Kind = 'visit' | RecurrenceUnit;
 	interface Part {
 		kind: Kind;
 		n: number;
 	}
 
-	const toPart = (i: RespawnInterval | undefined, fallback: Part): Part => {
+	const toPart = (i: RecurrenceInterval | undefined, fallback: Part): Part => {
 		if (!i) return fallback;
 		if (i === 'visit') return { kind: 'visit', n: 1 };
 		const { unit, n } = intervalParts(i);
-		return { kind: unit as RespawnUnit, n };
+		return { kind: unit as RecurrenceUnit, n };
 	};
-	const toInterval = (p: Part): RespawnInterval => (p.kind === 'visit' ? 'visit' : ({ [p.kind]: Math.max(1, Math.floor(p.n || 1)) } as RespawnInterval));
+	const toInterval = (p: Part): RecurrenceInterval => (p.kind === 'visit' ? 'visit' : ({ [p.kind]: Math.max(1, Math.floor(p.n || 1)) } as RecurrenceInterval));
 
 	const parts = $derived({
 		default: toPart(value?.default, { kind: 'hours', n: 6 }),
@@ -45,7 +45,7 @@
 		<span class="inputs">
 			<select value={parts[key].kind} onchange={(e) => set(key, { kind: e.currentTarget.value as Kind, n: parts[key].n })} data-testid="respawn-{key}-unit">
 				<option value="visit">{m['catalog.respawn_visit']()}</option>
-				{#each RESPAWN_UNITS as u (u)}<option value={u}>{m[`catalog.respawn_unit_${u}`]()}</option>{/each}
+				{#each RECURRENCE_UNITS as u (u)}<option value={u}>{m[`catalog.respawn_unit_${u}`]()}</option>{/each}
 			</select>
 			{#if parts[key].kind !== 'visit'}
 				<input type="number" min="1" step="1" value={parts[key].n} onchange={(e) => set(key, { kind: parts[key].kind, n: Number(e.currentTarget.value) })} aria-label="{title} n" data-testid="respawn-{key}-n" />

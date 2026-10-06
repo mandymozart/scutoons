@@ -166,8 +166,6 @@
 							</button>
 						{/each}
 					</div>
-				{:else}
-					<p class="hint">{m['creator.characters_none_found']()}</p>
 				{/each}
 			</div>
 		{:else}

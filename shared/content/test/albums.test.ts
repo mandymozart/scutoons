@@ -1,5 +1,5 @@
 // Players, albums, related items (agents/ITEMS.md "Players, albums, related items"): against the test fixtures
-// (server/tests/fixtures: the catalog + a few catpope files of 2026-10-04).   npm test -w @scutoons/content
+// (server/tests/fixtures: the catalog + catpope's season 1 and chapter 1 of 2026-10-04 as language-neutral documents).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,9 +14,13 @@ import {
 	seasonMusic,
 	validateCatalog,
 	catalogFromSeed,
+	resolveChapter,
+	resolveSeason,
 	validateFile,
-	validateLocales,
+	validateNeutral,
 	type Catalog,
+	type ChapterDoc,
+	type SeasonDoc,
 	type ItemDef
 } from '../src/index.ts';
 
@@ -155,31 +159,28 @@ test('albums: validation errors', () => {
 	assert.ok(validateCatalog(lonely).some((p) => p.level === 'warning' && p.message.includes('no player plays "vinyl"')));
 });
 
-test('related items: the fixture season lists catalog items, the same in every language', () => {
-	const de = json('../../../server/tests/fixtures/content/catpope/de/season1.json');
-	const en = json('../../../server/tests/fixtures/content/catpope/en/season1.json');
-	assert.deepEqual(de.related_items, ['awakening_vinyl']);
-	for (const [l, doc] of [['de', de], ['en', en]] as const) {
-		const problems = validateFile('season', doc, l, { file: 'season:catpope:1', items: itemIds }).filter((p) => p.path[0] === 'related_items');
-		assert.deepEqual(problems, []);
-	}
-	assert.deepEqual(validateLocales('season', 'season:catpope:1', { de, en }, 'de').filter((p) => p.path[0] === 'related_items'), []);
-	// differing lists, unknown ids, duplicates, wrong type
-	const other = { ...en, related_items: ['awakening_vinyl', 'awakening_test_press'] };
-	assert.ok(validateLocales('season', 'season:catpope:1', { de, en: other }, 'de').some((p) => p.level === 'warning' && p.path[0] === 'related_items'));
-	const wrong = validateFile('season', { ...de, related_items: ['awakening_vinyl', 'nope', 'awakening_vinyl'] }, 'de', { file: 's', items: itemIds });
-	assert.ok(wrong.some((p) => p.message.includes('"nope" is not in the item catalog')));
+test('related items: the fixture season lists catalog items, once for every language', () => {
+	const doc: SeasonDoc = json('../../../server/tests/fixtures/content/catpope/_/season1.json');
+	const languages = { source: 'de', languages: ['de', 'en'] };
+	assert.deepEqual(doc.related_items, ['awakening_vinyl']);
+	assert.deepEqual(validateNeutral('season', doc, languages, { file: 'season:catpope:1', items: itemIds }).filter((p) => p.path[0] === 'related_items'), []);
+	// what readers get in every language: the same list
+	for (const l of ['de', 'en']) assert.deepEqual(resolveSeason(doc, l, languages).related_items, ['awakening_vinyl']);
+	const de = resolveSeason(doc, 'de', languages);
+	// unknown ids, duplicates, wrong type
+	const wrong = validateNeutral('season', { ...doc, related_items: ['awakening_vinyl', 'nope', 'awakening_vinyl'] }, languages, { file: 's', items: itemIds });
+	assert.ok(wrong.some((p) => p.message.includes('"nope" is not in the item catalog') && p.locale === null));
 	assert.ok(wrong.some((p) => p.message.includes('listed twice')));
 	assert.ok(validateFile('season', { ...de, related_items: 'awakening_vinyl' }, 'de', { file: 's' }).some((p) => p.level === 'error' && p.path[0] === 'related_items'));
 	// chapters take the same field
-	const chapter = json('../../../server/tests/fixtures/content/catpope/de/chapter1.json');
-	const ch = validateFile('chapter', { ...chapter, related_items: ['record_player', 'nope'] }, 'de', { file: 'c', items: itemIds }).filter((p) => p.path[0] === 'related_items');
+	const chapter: ChapterDoc = json('../../../server/tests/fixtures/content/catpope/_/chapter1.json');
+	const ch = validateFile('chapter', { ...resolveChapter(chapter, 'de', languages), related_items: ['record_player', 'nope'] }, 'de', { file: 'c', items: itemIds }).filter((p) => p.path[0] === 'related_items');
 	assert.equal(ch.length, 1);
 	assert.match(ch[0].message, /"nope"/);
 });
 
 test('season music comes from the related items’ album; old seasons keep their download fields', () => {
-	const season = json('../../../server/tests/fixtures/content/catpope/de/season1.json');
+	const season = resolveSeason(json('../../../server/tests/fixtures/content/catpope/_/season1.json'), 'de', { source: 'de', languages: ['de', 'en'] });
 	const music = seasonMusic(catalog, season, 'catpope');
 	assert.equal(music?.album?.id, 'awakening');
 	assert.equal(music?.carrier, 'awakening_vinyl');

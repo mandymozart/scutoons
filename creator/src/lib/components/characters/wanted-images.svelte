@@ -118,8 +118,6 @@
 				{/each}
 			</ul>
 		</article>
-	{:else}
-		{#if !media.length}<p class="hint">{m['creator.characters_nothing_wanted']()}</p>{/if}
 	{/each}
 	{#if media.length}
 		<!-- toon media without a character (a lettering-free cover …): owner rule 2026-10-01, media are language-independent -->

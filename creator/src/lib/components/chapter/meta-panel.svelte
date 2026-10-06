@@ -9,11 +9,16 @@
 	import { MediaSlot } from '@scutoons/media';
 	import { fileLabel } from '$lib/labels.ts';
 	import { entities } from '@scutoons/content';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
-	 * Chapter meta. Title/description per locale; the rest shared, with per-locale overrides shown.
-	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, per locale; this is the only place
-	 * where it is changed (lists show it read-only). `featuring`: the chapter's featuring field (chapter editor).
+	 * Chapter meta (one language-neutral document): title / description / release per language (the header's text
+	 * language), the rest once.
+	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, a locale map per sequence entry
+	 * (agents/NEUTRAL.md); this is the only place where it is changed (lists show it read-only as badges), in the
+	 * header's text language like the texts (source by default, all side by side, or one language; a language without
+	 * its own status shows the source's, like the reader). `featuring`: the chapter's featuring field (chapter editor).
 	 */
 	let {
 		doc,
@@ -26,12 +31,12 @@
 	const ch = $derived(doc.get(doc.primary, []));
 	/** the chapter's folder by the content rules – uploads from its fields land there (catpope/s1/c2/) */
 	const place = $derived(`${doc.toon}/s${Number(season?.get(season.primary, ['number'])) || 1}/c${number}/`);
-	const statusLocales = $derived(season && !season.loading ? season.locales : []);
-	const syncChanges = $derived(chapterSyncChanges(doc, season, number));
-	const stringKeyvisual = $derived(doc.present.filter((l) => typeof doc.get(l, ['keyvisual']) === 'string'));
+	const statusLocales = $derived(season && !season.loading ? textLanguage.visible(season.textLanguages, season.textSource) : []);
+	const syncChanges = $derived(chapterSyncChanges(doc));
+	const stringKeyvisual = $derived(typeof ch?.keyvisual === 'string');
 
 	function convertKeyvisual() {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			if (typeof file.keyvisual === 'string') file.keyvisual = { image: file.keyvisual };
 		});
 	}
@@ -44,8 +49,8 @@
 		<p class="hint">{m['creator.chapter_number_hint']({ path: `/${doc.toon}/chapter/${number}` })}</p>
 	</header>
 
-	<LocaleText {doc} path={['title']} label="title" multiline={false} />
-	<LocaleText {doc} path={['description']} label="description" rows={3} />
+	<LocaleText {doc} path={['title']} label={m['creator.field_title']()} multiline={false} />
+	<LocaleText {doc} path={['description']} label={m['creator.field_description']()} rows={3} />
 
 	<div class="status" data-testid="chapter-status">
 		<span class="sc-label">{m['creator.status']()}</span>
@@ -56,7 +61,7 @@
 				{#each statusLocales as l (l)}
 					{@const status = seasonStatusOf(season, l, number)}
 					<label class="status-field">
-						<span>{l}{l === season.primary ? ` (${m['creator.source']()})` : ''}</span>
+						<span>{l}{#if l === season.textSource}<SourceMark />{/if}</span>
 						{#if status === undefined}
 							<span class="hint">{m['creator.status_no_season']()}</span>
 						{:else if status === null}
@@ -71,38 +76,32 @@
 			</div>
 			{#if syncChanges.length}
 				<p class="hint" data-testid="status-sync">
-					{m['creator.status_sync']()} <span>({syncChanges.join(' · ')})</span>
-					<button type="button" class="ghost" onclick={() => syncChapter(doc, season, number)}>{m['creator.status_sync_now']()}</button>
+					{m['creator.status_sync']()}
+					<button type="button" class="ghost" onclick={() => syncChapter(doc)}>{m['creator.status_sync_now']()}</button>
 				</p>
 			{/if}
 		{/if}
 	</div>
 
 	<div class="sc-fields" data-cols="2">
-		<PropField {doc} path={['release']} label="release" type="date" required />
-		<PropField {doc} path={['author']} label="author" required />
+		<LocaleText {doc} path={['release']} label={m['creator.field_release']()} type="date" />
+		<PropField {doc} path={['author']} label={m['creator.field_author']()} required />
 	</div>
 
 	<!-- the images as slots: the preview is the button, no path fields (owner 2026-10-03) -->
-	{#if stringKeyvisual.length}
+	{#if stringKeyvisual}
 		<p class="warn">
-			keyvisual is a string in {stringKeyvisual.join(', ')} – the type expects <code>{'{ image, video? }'}</code>.
-			<button type="button" class="secondary" onclick={convertKeyvisual}>Convert</button>
+			{m['creator.field_keyvisual_legacy']()}
+			<button type="button" class="secondary" onclick={convertKeyvisual}>{m['creator.convert']()}</button>
 		</p>
 	{/if}
 	<div class="media">
-		<MediaSlot toon={doc.toon} {place} label="thumbnail" value={ch?.thumbnail} onchange={(v) => doc.setShared(['thumbnail'], v)} testid="slot-thumbnail" />
-		{#if !stringKeyvisual.length}
-			<MediaSlot toon={doc.toon} {place} label="keyvisual" value={ch?.keyvisual?.image} onchange={(v) => doc.setShared(['keyvisual', 'image'], v)} testid="slot-keyvisual" />
-			<MediaSlot toon={doc.toon} {place} kind="video" label="keyvisual video" value={ch?.keyvisual?.video} onchange={(v) => doc.setShared(['keyvisual', 'video'], v)} testid="slot-keyvisual-video" />
+		<MediaSlot toon={doc.toon} {place} label={m['creator.field_thumbnail']()} value={ch?.thumbnail} onchange={(v) => doc.set(['thumbnail'], v)} testid="slot-thumbnail" />
+		{#if !stringKeyvisual}
+			<MediaSlot toon={doc.toon} {place} label={m['creator.field_keyvisual']()} value={ch?.keyvisual?.image} onchange={(v) => doc.set(['keyvisual', 'image'], v)} testid="slot-keyvisual" />
+			<MediaSlot toon={doc.toon} {place} kind="video" label={m['creator.field_keyvisual_video']()} value={ch?.keyvisual?.video} onchange={(v) => doc.set(['keyvisual', 'video'], v)} testid="slot-keyvisual-video" />
 		{/if}
 	</div>
-	{#each doc.present.filter((l) => l !== doc.primary) as l}
-		{#if doc.get(l, ['thumbnail']) !== ch?.thumbnail}
-			<p class="hint">{l} thumbnail: {doc.get(l, ['thumbnail'])} ({m['creator.override']()})
-				<button type="button" class="ghost" onclick={() => doc.resetOverride(l, ['thumbnail'])}>{m['creator.use_shared']()}</button></p>
-		{/if}
-	{/each}
 
 	{@render featuring?.()}
 </section>

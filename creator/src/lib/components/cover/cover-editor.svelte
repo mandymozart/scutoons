@@ -9,7 +9,6 @@
 		coverLines,
 		coverLineText,
 		defaultCoverLines,
-		setAt,
 		type Cover,
 		type CoverFormat,
 		type CoverLettering,
@@ -30,8 +29,9 @@
 	 * drawn over it – drag to move, handles for width / size / angle, number fields, add / remove / reorder lines, the
 	 * text source per line – a preview language, and every language "as readers see it". One component for any doc
 	 * holding a `Cover` at `path`: the season's (owner 2026-10-02: covers are per season, the toon is shown with its
-	 * avatar). It writes `<path>.lettering` and `<path>.square` to EVERY locale document of the doc (a cover is the same in
-	 * every language – the art is chosen once, the lettering's texts come from the text fields).
+	 * avatar). It writes `<path>.lettering` and `<path>.square` once into the language-neutral season document
+	 * (agents/NEUTRAL.md: the art is chosen once; a line's `custom` text is a locale map, the other lines' texts come
+	 * from the title fields).
 	 * The square format only: the reader shows no portrait cover (owner 2026-10-02 "portrait I think we are not using").
 	 * Parts (COMPONENTS.md step 9): CoverLetteringCanvas (drag / handles / keys), CoverInspector (art, lines, the line's
 	 * properties), CoverPreviews; the writing stays here.
@@ -67,8 +67,9 @@
 	const lines = $derived<CoverLine[]>(mode === 'off' ? [] : (coverLines(lettering, format) ?? defaultCoverLines(format)));
 	const image = $derived(cover?.[format] ? asset(`${toon}/${cover[format]}`) : '');
 
-	// the preview language = the header's text language switch (owner 2026-10-03: no own switch here); source / all = the source
-	const previewLang = $derived(textLanguage.chosen(languages) ?? source);
+	// the preview language = the header's text language switch (owner 2026-10-03: no own switch here; 2026-10-06: one
+	// language, default the source) – the canvas, an own line's text and "as readers see it" all show it
+	const previewLang = $derived(textLanguage.current(languages, source));
 	const previewTexts = $derived(texts(previewLang || source));
 
 	let selected = $state<number | null>(null);
@@ -81,9 +82,9 @@
 	const round = (v: number) => Math.round(v * 10) / 10;
 	const clamp = (v: number, key: keyof typeof COVER_LIMITS) => Math.min(COVER_LIMITS[key].max, Math.max(COVER_LIMITS[key].min, v));
 
-	/** a cover field, written to every locale document (the cover is language-neutral) */
+	/** a cover field of the language-neutral season (once; the lettering's custom texts are locale maps) */
 	function writeCover(field: 'lettering' | CoverFormat, value: unknown, key: string) {
-		doc.structural((file) => setAt(file, [...path, field], value === undefined ? undefined : clone(value)), key);
+		doc.set([...path, field], value === undefined ? undefined : clone(value), key);
 	}
 
 	function writeLettering(next: boolean | CoverLettering | undefined, key: string) {
@@ -159,7 +160,7 @@
 	const lineLabel = (l: CoverLine) => coverLineText(l, previewTexts, previewLang) || m['creator.cover_text_empty']();
 	/** the default layout becomes the format's own (touched on the canvas, a line added / removed) */
 	const ownLayout = () => writeLines(defaultCoverLines(format), 'cover-mode');
-	const customLanguages = $derived(textLanguage.visible(languages, source));
+	const customLanguages = $derived([previewLang]);
 </script>
 
 <div class="cover-editor" data-testid="cover-editor">
@@ -188,6 +189,7 @@
 			{lines}
 			bind:selected
 			{customLanguages}
+			{source}
 			{lineLabel}
 			onart={(v) => writeCover(format, v, 'cover-art')}
 			onadd={() => (mode === 'default' ? (ownLayout(), addLine()) : addLine())}
@@ -201,7 +203,7 @@
 	</div>
 
 	{#if image}
-		<CoverPreviews {image} {format} {lines} off={mode === 'off'} {languages} {source} {texts} />
+		<CoverPreviews {image} {format} {lines} off={mode === 'off'} languages={[previewLang]} {source} {texts} />
 	{/if}
 </div>
 

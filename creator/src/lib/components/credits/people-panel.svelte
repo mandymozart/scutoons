@@ -73,6 +73,7 @@
 <div class="people" data-testid="people-panel">
 	<div class="list">
 		<input type="search" placeholder={m['creator.credits_search_people']()} bind:value={query} data-testid="people-search" />
+		{#if shown.length}
 		<ul>
 			{#each shown as p (p.id)}
 				<li>
@@ -81,10 +82,9 @@
 						<span class="hint">{usage.get(p.id) ?? 0}×</span>
 					</button>
 				</li>
-			{:else}
-				<li class="hint">{m['creator.credits_no_people']()}</li>
 			{/each}
 		</ul>
+		{/if}
 		<form
 			class="new"
 			onsubmit={(e) => {
@@ -103,7 +103,7 @@
 			<h3>{person.name} <span class="hint">{person.id}</span></h3>
 			{#if person.merged_into}<p class="bad">{m['creator.credits_merged_into']({ id: person.merged_into })}</p>{/if}
 			<label>{m['creator.credits_name']()}<input type="text" value={person.name} oninput={(e) => setField('name', e.currentTarget.value)} data-testid="person-name" /></label>
-			<label>sort_name<input type="text" value={person.sort_name ?? ''} placeholder="Mozart, Mandy" oninput={(e) => setField('sort_name', e.currentTarget.value)} /></label>
+			<label>{m['creator.field_sort_name']()}<input type="text" value={person.sort_name ?? ''} placeholder="Mozart, Mandy" oninput={(e) => setField('sort_name', e.currentTarget.value)} /></label>
 			<label
 				>{m['creator.credits_aliases']()}<input
 					type="text"
@@ -123,7 +123,7 @@
 					<div class="link">
 						<input type="text" value={link.label} placeholder="Instagram" oninput={(e) => change((p) => (p.links![j].label = e.currentTarget.value), `link-label-${j}`)} />
 						<input type="url" value={link.url} placeholder="https://…" oninput={(e) => change((p) => (p.links![j].url = e.currentTarget.value), `link-url-${j}`)} />
-						<button type="button" class="ghost" aria-label={m['creator.credits_remove']()} onclick={() => change((p) => (p.links!.splice(j, 1), p.links!.length || delete p.links))}><CloseIcon /></button>
+						<button type="button" class="ghost" aria-label={m['creator.remove']()} onclick={() => change((p) => (p.links!.splice(j, 1), p.links!.length || delete p.links))}><CloseIcon /></button>
 					</div>
 				{/each}
 				<button type="button" class="ghost" onclick={() => change((p) => (p.links = [...(p.links ?? []), { label: '', url: '' }]))}><Icon name="plus" /> {m['creator.credits_link']()}</button>
@@ -132,7 +132,7 @@
 				value={person.bio}
 				{languages}
 				multiline
-				label="bio"
+				label={m['creator.field_bio']()}
 				onchange={(v) =>
 					change((p) => {
 						if (Object.values(v).some((t) => t.trim())) p.bio = v;

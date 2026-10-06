@@ -42,7 +42,7 @@ final class AssetLayout
         $rows = $this->db->all("SELECT v.entity_key, v.json FROM entity_versions v
             WHERE v.kind = 'season' AND v.id = (SELECT MAX(w.id) FROM entity_versions w WHERE w.entity_key = v.entity_key)");
         foreach ($rows as $row) {
-            if (!preg_match('/^season:([a-z0-9_-]+):(\d+):/', (string) $row['entity_key'], $m)) continue;
+            if (!preg_match('/^season:([a-z0-9_-]+):(\d+)(?::|$)/', (string) $row['entity_key'], $m)) continue; // neutral or per locale
             $doc = json_decode((string) $row['json'], true);
             foreach ((array) ($doc['sequence'] ?? []) as $entry) {
                 if (is_array($entry) && isset($entry['number']) && is_numeric($entry['number'])) $map[$m[1]][(int) $entry['number']] ??= (int) $m[2];

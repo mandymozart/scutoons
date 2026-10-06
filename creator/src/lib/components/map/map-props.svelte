@@ -46,8 +46,6 @@
 		<RouteProps {doc} {map} {route} {toons} {languages} locked={publishedIds.routes.has(route.id)} {onselect} />
 	{:else if layer}
 		<LayerProps {doc} {map} {layer} index={layerIndex} {onselect} />
-	{:else}
-		<p class="hint">{m['creator.map_none_selected']()}</p>
 	{/if}
 </div>
 

@@ -1,7 +1,7 @@
 // The VN script logic (CUTOVER 10.27, owner 2026-10-03).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { actionsOf, formatClock, interpolateText, labelIndex, pickJumpLabel, scriptLabels, testCondition, validateFile } from '../src/index.ts';
+import { actionsOf, evaluateText, formatClock, labelIndex, pickJumpLabel, scriptLabels, testCondition, validateFile } from '../src/index.ts';
 
 test('conditions: numbers as numbers, text as text, set / unset', () => {
 	const vars: Record<string, string | number> = { time: 420, name: 'Pope', zero: 0 };
@@ -34,8 +34,9 @@ test('actions, points, random jumps, clock, text', () => {
 	assert.equal(formatClock(330), '5:30');
 	assert.equal(formatClock(420), '7:00');
 	assert.equal(formatClock(1445), '0:05');
-	const get = (v: string) => ({ time: 345, who: 'Pope' })[v as 'time'];
-	assert.equal(interpolateText('Es ist {time:clock} Uhr, {who}. {nope}', get), 'Es ist 5:45 Uhr, Pope. {nope}');
+	// texts: the expression syntax (the old `{time:clock}` is gone – migration 2026-10-06-clock-syntax)
+	const name = (path: readonly string[]) => ({ time: 345, who: 'Pope' })[path.join('.') as 'time'];
+	assert.equal(evaluateText('Es ist {clock(time)} Uhr, {who}. {nope}', { name }).text, 'Es ist 5:45 Uhr, Pope.');
 });
 
 test('validation: points, diverts, conditions, action lists, random targets', () => {

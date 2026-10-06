@@ -2,7 +2,7 @@
 	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, confirmDialog, Icon, panelWidth } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -33,7 +33,10 @@
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
-	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
+	import { loadIncoming, loadToonDocs } from '$lib/editor/toon-facts.ts';
+	import { JumpPlaces, setJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
+	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
@@ -55,13 +58,17 @@
 	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import FlowPanel from '$lib/components/flow/flow-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
 
 	const panelSize = panelWidth('sc-panel-width:chapter', 16); // normal = --tool-panel-width
+	// the Flow panel's graph needs more room from the start (owner 2026-10-06: drags wider up to half the window too)
+	const flowSize = panelWidth('sc-panel-width:flow', 28);
 	// the slice inspector drags wider too (owner 2026-10-03): from its normal 22rem up to half the window
 	let columnsEl = $state<HTMLElement>();
 	const inspectorSize = panelWidth('sc-panel-width:slice-inspector', 22, () => columnsEl?.getBoundingClientRect().right ?? window.innerWidth);
@@ -136,7 +143,7 @@
 		const library: any[] = chapterData?.audio?.sampleLibrary ?? [];
 		const known = library.find((s) => s?.path === path || (media.variants && Object.values(s?.variants ?? {}).includes(path)));
 		if (known?.id) {
-			chapter.structural((file) => {
+			chapter.edit((file) => {
 				const entry = (file.audio?.sampleLibrary ?? []).find((s: any) => s?.id === known.id);
 				if (!entry) return;
 				entry.path = path;
@@ -148,7 +155,7 @@
 		const base = (path.split('/').pop() ?? path).replace(/(\.\d+)?\.[a-z0-9]+$/i, '').replace(/^s\d+c\d+-/i, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'sample';
 		let id = base;
 		for (let n = 2; library.some((s) => s?.id === id); n++) id = `${base}_${n}`;
-		chapter.structural((file) => {
+		chapter.edit((file) => {
 			file.audio ??= {};
 			file.audio.sampleLibrary ??= [];
 			if (!file.audio.sampleLibrary.some((s: any) => s?.id === id)) file.audio.sampleLibrary.push(media.variants ? { id, path, variants: media.variants } : { id, path });
@@ -186,11 +193,11 @@
 	const sliceDocs = $derived<ContentDoc[]>([chapter, ...Object.values(refs)]);
 	/** texts that still have the old look (a mask over baked text, chapter 1) */
 	const legacyTexts = $derived(sliceDocs.reduce((n, d) => n + (d.loading ? 0 : legacyTextCount(d.data[d.primary])), 0));
-	/** one step (owner 2026-10-03): every masked text → its preset, in every language; save / publish as usual */
+	/** one step (owner 2026-10-03): every masked text → its preset; save / publish as usual */
 	function convertLegacyTexts() {
 		for (const d of sliceDocs) {
 			const plan = legacyPlan($state.snapshot(d.data[d.primary]));
-			if (plan.length) d.structural((file) => applyLegacyPlan(file, plan), 'convert-presets');
+			if (plan.length) d.edit((file) => applyLegacyPlan(file, plan), 'convert-presets');
 		}
 	}
 	const anySaving = $derived(allDocs.some((d) => d.saving));
@@ -208,10 +215,56 @@
 		loadToons(getLocale()).then((list) => (toonInfos = list));
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		refreshImages();
+		// the rest of the toon (reachability: labels something jumps to, variables something sets) – without it no
+		// condition is judged and every labelled group counts as reachable
+		// + the labels other toons jump to (the server's flow index)
+		Promise.all([loadToonDocs(toon, new Set(sliceDocs.map((d) => d.entity))), loadIncoming(toon)])
+			.then(([docs, incoming]) => (toonDocsFacts = toonFacts(docs, { toon, incoming: incoming.labels, elsewhere: incoming.elsewhere })))
+			.catch(() => (toonDocsFacts = null));
 	});
 
+	// ── Reachability (owner 2026-10-06, @scutoons/content reach.ts) ─────────────────────────────────────────────────
+	let toonDocsFacts = $state<ToonFacts | null>(null);
+	/** the toon's facts: the other documents (loaded once) + this chapter's own, live */
+	const facts = $derived.by<ToonFacts | undefined>(() => {
+		const rest = toonDocsFacts;
+		if (!rest) return undefined;
+		const live = toonFacts([...sliceDocs.map((d) => $state.snapshot(d.data[d.primary])), $state.snapshot(worldMap.data?.[worldMap.primary])], { toon });
+		return { variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]), ...(rest.reads ? { reads: rest.reads } : {}) };
+	});
+	// the expression fields: the story variables of every toon (one save game – the builder offers them, unknown names warn)
+	$effect(() => exprContext.setVariables(facts?.variables));
+	$effect(() => () => exprContext.setVariables(null));
+	/** the chapter's reachability for the labels in the tree / slice list / event lists – debounced while editing */
+	let reach = $state<ChapterReach | null>(null);
+	/** the groups `reach` was computed from (the Flow panel draws exactly what the chips say) */
+	let reachGroups = $state.raw<any[] | null>(null);
+	$effect(() => {
+		const snapshot = $state.snapshot(sceneGroups());
+		const f = facts;
+		const timer = setTimeout(() => {
+			reach = chapterReach(snapshot, f);
+			reachGroups = snapshot;
+		}, 250);
+		return () => clearTimeout(timer);
+	});
+	/** chapter path (groups.g.…) → its mark */
+	const marks = $derived.by(() => {
+		const out = new Map<string, ReachMark>();
+		const r = reach;
+		if (!r) return out;
+		r.groups.forEach((x, gi) => x === 'unreachable' && out.set(`groups.${gi}`, 'unreachable'));
+		r.slices.forEach((list, gi) => list.forEach((x, si) => x === 'unreachable' && r.groups[gi] !== 'unreachable' && out.set(`groups.${gi}.slices.${si}`, 'unreachable')));
+		r.events.forEach((list, gi) => list.forEach((x, i) => x === 'unreachable' && r.groups[gi] !== 'unreachable' && out.set(`groups.${gi}.events.${i}`, 'unreachable')));
+		for (const p of r.loops) out.set(p.join('.'), 'loop');
+		for (const p of r.neverTrue) out.set(p.slice(0, -1).join('.'), 'never');
+		for (const p of r.stuck ?? []) out.set(p.join('.'), 'stuck');
+		return out;
+	});
+	const markAt = (...path: (string | number)[]): ReachMark => marks.get(path.join('.')) ?? null;
+
 	function refreshImages() {
-		knownImages(toon, chapter.locales, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
+		knownImages(toon, chapter.textLanguages, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
 	}
 
 	// ── Selection / view state: one object (lib/editor/chapter-state.svelte.ts) – the tree, the canvas, the inspector
@@ -220,26 +273,23 @@
 		const src = groups[index]?.ref?.src;
 		if (src) ensureRef(src);
 	});
-	// svelte-ignore state_referenced_locally
-	let displayLocale = $state<string>(textLanguage.chosen(languages.languages) ?? languages.source);
-	// the canvas shows the top bar's TEXT language when one is chosen (the buttons above the canvas still switch it)
-	$effect(() => {
-		const chosen = textLanguage.chosen(languages.languages);
-		if (chosen) displayLocale = chosen;
-	});
+	// the canvas, the strip preview and the inspector show the top bar's TEXT language (default the source; owner
+	// 2026-10-06: one language everywhere, the header's switch the only one)
+	const displayLocale = $derived(textLanguage.current(languages.languages, languages.source));
 	// snap + grid size are remembered on this device
 	$effect(() => {
 		void view.snap;
 		void view.gridSize;
 		view.savePrefs();
 	});
-	let panel = $state<'problems' | 'history' | null>(null);
+	// `?flow=1` (from the season's / toon's Flow): the chapter opens with its Flow panel
+	let panel = $state<'problems' | 'history' | 'flow' | null>(page.url.searchParams.get('flow') === '1' ? 'flow' : null);
 	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
 	$effect(() => {
 		pagePanel.open = panel !== null;
 		return () => (pagePanel.open = false);
 	});
-	function togglePanel(next: 'problems' | 'history') {
+	function togglePanel(next: 'problems' | 'history' | 'flow') {
 		panel = panel === next ? null : next;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
@@ -248,29 +298,12 @@
 		docs: () => allDocs,
 		beforeSave: () => {
 			// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
-			syncChapter(chapter, season, chapterNumber);
+			syncChapter(chapter);
 			// a cast saved from here keeps the toon's star in every season
 			if (castTouched || cast.dirty) castWithStar(cast, registry, toon, [SEASON]);
 		},
 		afterSave: () => refreshImages(),
 		errorCount: () => errorCount
-	});
-	// geometry is the same in every language: tell once when loading made a language follow the source (saved with the next save)
-	const unifiedGeometry = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.geometryUnified), 0));
-	const unifiedAudio = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.audioUnified), 0));
-	let unifiedAudioShown = 0;
-	let unifiedShown = 0;
-	$effect(() => {
-		const notes: string[] = [];
-		if (unifiedGeometry > unifiedShown) {
-			notes.push(m['creator.geometry_unified']({ n: unifiedGeometry }));
-			unifiedShown = unifiedGeometry;
-		}
-		if (unifiedAudio > unifiedAudioShown) {
-			notes.push(m['creator.audio_unified']({ n: unifiedAudio }));
-			unifiedAudioShown = unifiedAudio;
-		}
-		if (notes.length) session.notice = notes.join(' ');
 	});
 
 	const currentGroup = $derived(groups[view.groupIndex]);
@@ -323,6 +356,7 @@
 	}
 	usePageNav({
 		sidebar: tree,
+		actions: flowToggle,
 		fill: true,
 		extra: () => {
 			if (view.section !== 'group' && view.section !== 'slice') return [];
@@ -383,29 +417,36 @@
 		const names = characters.map((c) => c.name);
 		const expressions = registryOf(registry) ? expressionIndex(registryOf(registry)) : undefined;
 		const moodIds = moodsOf(moods).moods.map((x) => x.id);
+		const catalogItems = itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined;
+		const itemRespawn = itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined;
 		for (const doc of allDocs) {
 			if (doc.loading) continue;
-			for (const l of doc.locales) {
-				if (doc.source[l] === 'missing' && doc.data[l] == null) {
-					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.entity, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
-					continue;
-				}
-				out.push(
-					...validateFile(doc.kind, doc.data[l], l, {
-						file: doc.entity,
-						audio: chapterData?.audio,
-						characters: !hasCast && names.length ? names : undefined,
-						cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
-						expressions,
-						moods: moodIds,
-						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined,
-						// placed items (and related items) are checked against the catalog once it is loaded
-						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined,
-						itemRespawn: itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined
-					})
-				);
+			const data = doc.data[doc.primary];
+			const ctx = {
+				file: doc.entity,
+				audio: chapterData?.audio,
+				characters: !hasCast && names.length ? names : undefined,
+				cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
+				expressions,
+				moods: moodIds,
+				// the chapter's visibility: its entry in the season (null = none)
+				seasonStatus: doc === chapter ? seasonStatusOf(season, languages.source, chapterNumber) : undefined,
+				// linked groups: a ref group's `continues` lives in its scene
+				resolveGroup: (g: any) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g),
+				// reachability: what the rest of the toon jumps to / sets
+				facts,
+				// jump targets: the toon / chapter / label they name exist (as far as loaded)
+				targets: jumpPlaces.targets(),
+				// placed items (and related items) are checked against the catalog once it is loaded
+				items: catalogItems,
+				itemRespawn
+			};
+			if (data == null) {
+				if (doc.source[doc.primary] === 'missing') out.push({ level: 'error', file: doc.entity, locale: null, path: [], message: m['creator.missing']() });
+				continue;
 			}
-			out.push(...validateLocales(doc.kind, doc.entity, doc.data, doc.primary));
+			// chapter, scenes, season: one language-neutral document, checked once + its texts per language
+			out.push(...(doc.texts ? validateNeutral(doc.kind, data, doc.texts, ctx) : validateFile(doc.kind, data, doc.primary, ctx)));
 		}
 		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: entities.cast(toon) }));
 		// suggestions from the VN usage (info): who the scenes use but the featuring / the season cast lacks
@@ -417,7 +458,17 @@
 	// accepted warnings ("Looks fine") don't count
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(allDocs, p)).length);
 
+	/** a slice whose text boxes hold `{…}`: the canvas toolbar offers the sample readers */
+	const sliceHasExpressions = (slice: any) =>
+		(slice?.dialog ?? []).some((d: any) => {
+			const t = d?.text;
+			const all = t && typeof t === 'object' && !Array.isArray(t) ? Object.values(t) : [t];
+			return all.flat().some((x) => typeof x === 'string' && x.includes('{'));
+		});
+
 	function gotoProblem(p: Problem) {
+		// an expression's problem: its field (once shown) focuses and selects the range (expr-text.svelte)
+		if (p.expr) exprContext.focus = { key: fieldKey(p.file, p.path, p.locale), line: p.expr.line, start: p.expr.start, end: p.expr.end };
 		let path = p.path;
 		if (p.file === season.entity) {
 			view.section = 'meta';
@@ -434,7 +485,8 @@
 			view.section = path[0] === 'audio' ? 'audio' : 'meta';
 			return;
 		}
-		if (p.locale) displayLocale = p.locale;
+		// a problem in another language switches the header's text language to it
+		if (p.locale && p.locale !== displayLocale && (languages.languages as string[]).includes(p.locale)) textLanguage.set(p.locale);
 		if (path[0] === 'slices' && typeof path[1] === 'number') {
 			view.selectSlice(path[1]);
 			const rest = path.slice(2);
@@ -446,22 +498,87 @@
 		}
 	}
 
+	// ── Flow panel (owner 2026-10-06, read-only): a box opens its place in the editor – navigation only ──────────
+	/** a group's name in the graph (the tree's) and a text in the header's language (a choice's label) */
+	const flowName = (g: any, i: number) => groupName(groups[i] ?? g, i);
+	const flowText = (v: unknown): string => {
+		if (typeof v === 'string') return v;
+		if (!v || typeof v !== 'object') return '';
+		const map = v as Record<string, unknown>;
+		const pick = [displayLocale, languages.source, ...Object.keys(map)].map((l) => map[l]).find((t) => typeof t === 'string' && t.trim());
+		return typeof pick === 'string' ? pick : '';
+	};
+	/** a character key of the graph (`boy`, `catpope·cat`) as its name in the header's language */
+	const flowWho = (key: string): string => {
+		const [id, persona] = key.split('·');
+		return characterName(registryIndex.get(id), displayLocale, persona) || key;
+	};
+	/** the chapter the follow-up bar leads to after the last group: the season's next one (the Flow's next-chapter picture) */
+	const flowNextChapter = $derived.by(() => {
+		const items: any[] = (season.get(season.primary, ['sequence']) as any[] | undefined) ?? [];
+		const numbers = items.filter((i) => (i?.type ?? 'chapter') === 'chapter' && Number.isFinite(Number(i?.number))).map((i) => Number(i.number));
+		const at = numbers.indexOf(chapterNumber);
+		return at >= 0 ? numbers[at + 1] : undefined;
+	});
+	async function openFlowNode(node: FlowNode) {
+		if (!node.path) return;
+		gotoProblem({ level: 'info', file: chapter.entity, locale: null, path: node.path, message: '' });
+		// a script's event: scroll its row into view (the group's VN list)
+		const [, , list, index] = node.path;
+		if (list === 'events' && typeof index === 'number') {
+			await tick();
+			document.querySelector(`[data-testid="vn-events"] [data-testid="event-${index}"]`)?.scrollIntoView({ block: 'center' });
+		}
+	}
+
 	// ── Editing actions (lib/editor/slice-edit.ts) ────────────────────────────────────────────────────────────
 	/** the chapter's group labels: a jump's group and the random list (CUTOVER 10.27) */
 	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
+	// the places jumps lead to (the target editor's toon → chapter → label; validation checks targets against them)
+	// svelte-ignore state_referenced_locally
+	const jumpPlaces = setJumpPlaces(new JumpPlaces(toon, chapterNumber, () => sceneGroups().map((g) => g?.label).filter((l): l is string => typeof l === 'string' && !!l)));
+	$effect(() => {
+		jumpPlaces.toons = toonInfos.length ? toonInfos.map((t) => ({ id: t.id, name: t.name })) : null;
+	});
+	// load what the chapter's targets name (other chapters' / toons' labels) – once per target, debounced while editing
+	$effect(() => {
+		const docs = sliceDocs.map((d) => $state.snapshot(d.data[d.primary]));
+		const timer = setTimeout(() => jumpPlaces.prefetch(docs), 500);
+		return () => clearTimeout(timer);
+	});
+	/** every text box id of the chapter and its scenes: a new box gets a fresh one (owner 2026-10-06: unique in the chapter) */
+	const chapterDialogIds = () =>
+		new Set<string>(sceneGroups().flatMap((g: any) => (g?.slices ?? []).flatMap((s: any) => (s?.dialog ?? []).map((d: any) => d?.id).filter((id: unknown) => typeof id === 'string'))));
 	const sliceTarget = (): edits.SliceTarget | null =>
-		activeDoc && view.sliceIndex >= 0 ? { doc: activeDoc, slicePath, chapterNumber, sliceIndex: view.sliceIndex, slice: activeSlice } : null;
+		activeDoc && view.sliceIndex >= 0 ? { doc: activeDoc, slicePath, chapterNumber, sliceIndex: view.sliceIndex, slice: activeSlice, taken: chapterDialogIds } : null;
+
+	// linked groups (owner 2026-10-06): a group whose script can jump away and that continues – the next group needs a
+	// label, else nothing leads back to it (a reminder with one click, next to the script)
+	const nextGroup = $derived(sceneGroups()[view.groupIndex + 1]);
+	const needsNextLabel = $derived(!!activeGroup?.continues && scriptJumps(activeGroup) && !!nextGroup && !nextGroup.label);
+	function labelNextGroup() {
+		const index = view.groupIndex + 1;
+		const raw = groups[index];
+		const taken = new Set(sceneGroups().map((g: any) => g?.label).filter(Boolean));
+		let label = raw?.ref?.src ? sceneNameOfRef(raw.ref.src) : `scene-${index + 1}`;
+		for (let n = 2; !label || taken.has(label); n++) label = `scene-${index + 1}-${n}`;
+		if (raw?.ref?.src) refs[raw.ref.src]?.edit((file) => void (file.label = label));
+		else chapter.edit((file) => void (file.groups[index].label = label));
+	}
 	/** a new text with a preset's look (default speech; a drawn one keeps the drawn rect); the cursor goes to its text */
 	function addDialog(rect?: { x: number; y: number; width: number; height?: number }, preset?: TextPreset) {
 		view.pickingPreset = false;
 		const t = sliceTarget();
 		if (!t) return;
 		view.select(edits.addDialog(t, rect, preset));
-		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${t.doc.primary}"]`)?.focus());
+		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('[data-testid="dialog-inspector"] textarea')?.focus());
 	}
 	function createBoxForEvent(index: number, eventsPath?: Path) {
 		const t = sliceTarget();
-		if (t) view.select(edits.createBoxForEvent(t, index, eventsPath));
+		if (!t) return;
+		// the new box is selected (the text box tab opens) with its text ready to type
+		view.select(edits.createBoxForEvent(t, index, eventsPath));
+		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('[data-testid="dialog-inspector"] textarea')?.focus());
 	}
 	function addSliceItem(itemId: string) {
 		const spot = view.itemSpot;
@@ -492,7 +609,7 @@
 	 * The chapter in the live reader with its draft preview on (`?preview=draft`, viewer lib/draft-preview.svelte.ts):
 	 * the saved drafts, at the open group. The locale prefix picks the text language; the reader has de and en only.
 	 */
-	const readerLocales = $derived(chapter.locales.filter((l) => l === 'de' || l === 'en'));
+	const readerLocales = $derived(chapter.textLanguages.filter((l) => l === 'de' || l === 'en'));
 	const previewHref = (locale: string) =>
 		`${VIEWER_URL}/${locale}/${toon}/chapter/${chapterNumber}?preview=draft${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
 	/** unsaved changes would be missing in the reader: save the draft first (with the note dialog), then open it */
@@ -551,11 +668,16 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-{#snippet tree()}
-	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
+<!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06) -->
+{#snippet flowToggle()}
+	<button type="button" class="sc-round" aria-pressed={panel === 'flow'} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
 {/snippet}
 
-<div class="editor" class:with-panel={panel !== null} style:--panel-width={panelSize.css}>
+{#snippet tree()}
+	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} {markAt} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
+{/snippet}
+
+<div class="editor" class:with-panel={panel !== null} style:--panel-width={panel === 'flow' ? flowSize.css : panelSize.css}>
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
 	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
@@ -586,15 +708,15 @@
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each readerLocales as l}
-					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title="In the reader, {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
+					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
-			<input class="message in-start" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={session.message} />
+			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet end()}
 			{@render sliceNav('end')}
-			<input class="message in-end" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={session.message} />
+			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
@@ -619,14 +741,12 @@
 			{session}
 			docs={allDocs}
 			dirty={anyDirty && !chapter.saving}
-			dirtyDetail={activeDoc?.dirty && view.section === 'slice' ? activeDoc.dirtyLocales.join(', ') : undefined}
-			createLocale={(doc, locale) => doc.createLocale(locale, (f) => (f && doc.kind === 'chapter' ? { ...f, language: locale } : f))}
 		/>
 		{#if castNotice}
 			<div class="sc-bar is-note" data-testid="cast-notice">
 				{castNotice}
 				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
-				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><CloseIcon /></button>
+				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
 			</div>
 		{/if}
 
@@ -661,16 +781,21 @@
 					<AudioPanel doc={chapter} {season} number={chapterNumber} />
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
-						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
+						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
 						{#if activeGroup?.renderer?.type === Renderer.HORIZONTAL && activeGroup.renderer.params?.fullWidth}
 							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} onopen={(i) => view.selectSlice(i)} />
 						{/if}
-						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
+						<h3 class="sub">{m['creator.vn']()}</h3>
+						{#if needsNextLabel}
+							<div class="sc-bar is-note" data-testid="next-label-hint">
+								<span>{m['creator.next_label_hint']()}</span>
+								<button class="secondary" onclick={labelNextGroup} data-testid="next-label-add">{m['creator.next_label_add']()}</button>
+							</div>
+						{/if}
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices)} {groupLabels} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} markOf={(i) => markAt('groups', view.groupIndex, 'events', i)} />
 						{:else}
-							<p class="hint">No VN script in this group.
-								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
+							<p><button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ {m['creator.vn_script_add']()}</button></p>
 						{/if}
 					{:else if activeDoc?.error}
 						<p class="error">{activeDoc.error}</p>
@@ -678,7 +803,7 @@
 						<p>{m['creator.loading']()}</p>
 					{/if}
 				{:else if view.section === 'slice' && activeDoc && activeSlice}
-					<SliceToolbar {view} />
+					<SliceToolbar {view} expressions={sliceHasExpressions(activeSlice)} />
 					<div class="canvas-scroll">
 						<SliceCanvas
 							bind:this={canvas}
@@ -694,7 +819,7 @@
 						/>
 					</div>
 				{:else}
-					<p class="hint">{m['creator.select_slice']()}</p>
+					<p class="sc-empty pad">{m['creator.select_slice']()}</p>
 				{/if}
 			</main>
 
@@ -725,20 +850,39 @@
 					onadditem={addSliceItem}
 					oncreatebox={createBoxForEvent}
 					onremove={removeSelected}
+					eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}
 				/>
 			{/if}
 		</div>
 	{/if}
 
 	{#if panel}
+			{@const size = panel === 'flow' ? flowSize : panelSize}
 			<!-- a focusable separator is a widget (WAI-ARIA window splitter): drag the panel wider (owner 2026-10-03) -->
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
-		<aside class="side-panel">
+			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={size.start} onkeydown={size.key} ondblclick={size.reset}></div>
+		<aside class="side-panel" class:is-flow={panel === 'flow'}>
 			{#if panel === 'problems'}
 				<ProblemsPanel {problems} docs={allDocs} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && activeDoc}
 				<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
+			{:else if panel === 'flow'}
+				<FlowPanel
+					groups={reachGroups}
+					{reach}
+					chapter={chapterNumber}
+					current={view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1}
+					slice={view.section === 'slice' ? view.sliceIndex : -1}
+					who={flowWho}
+					{toon}
+					registry={registryOf(registry)}
+					{facts}
+					nextChapter={flowNextChapter}
+					name={flowName}
+					text={flowText}
+					onopen={openFlowNode}
+					onclose={() => (panel = null)}
+				/>
 			{/if}
 		</aside>
 	{/if}
@@ -877,6 +1021,11 @@
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		z-index: 20;
 		box-sizing: border-box;
+	}
+	/* the Flow panel: its graph fills the panel's height (it pans / zooms itself) */
+	.side-panel.is-flow {
+		overflow: hidden;
+		padding-bottom: var(--space-1);
 	}
 	.pad {
 		padding: var(--space-1);

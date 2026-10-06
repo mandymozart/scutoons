@@ -1,0 +1,33 @@
+{
+	"description": "a toon entry with a title only (no description, no release) and a status in the source only: every language has the source's status",
+	"kind": "toon",
+	"languages": {
+		"source": "de",
+		"languages": ["de", "en"]
+	},
+	"doc": {
+		"id": "p",
+		"uri": "p",
+		"status": "draft",
+		"title": { "de": "Prost", "en": "Cheers" },
+		"languageStatus": { "de": "coming-soon" }
+	},
+	"cases": [
+		{
+			"locale": "en",
+			"expected": {
+				"locale": "en",
+				"fallback": false,
+				"doc": { "id": "p", "title": "Cheers", "language": "en", "status": "coming-soon" }
+			}
+		},
+		{
+			"locale": "fr",
+			"expected": {
+				"locale": "de",
+				"fallback": true,
+				"doc": { "id": "p", "title": "Prost", "language": "de", "status": "coming-soon" }
+			}
+		}
+	]
+}

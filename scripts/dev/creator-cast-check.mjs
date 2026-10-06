@@ -3,7 +3,7 @@
 // headless Chrome (own throw-away profile, CDP, no dependencies) signed in as the local test user
 // (agent@scutoons.test, `npm run dev:test-user`) on the running dev stack (creator :10000, API :9000).
 //
-//   npm run check:creator-cast
+//   npm run check:creator-cast          (SCUTOONS_CAST_TOON=<toon>: another toon's cast, default catpope)
 //   (another stack, e.g. a worktree's side ports: SCUTOONS_API=http://localhost:19300/api SCUTOONS_CREATOR=http://localhost:20300,
 //    like dev:test-user's SCUTOONS_API)
 //
@@ -24,7 +24,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // the owner's dev stack (ports from shared/dev-ports.json); SCUTOONS_API / SCUTOONS_CREATOR point it at other local servers
 const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
-const TOON = 'catpope';
+// SCUTOONS_CAST_TOON=sandbox when catpope's cast has someone's draft (e.g. the mama story's, agents/EXAMPLES.md)
+const TOON = process.env.SCUTOONS_CAST_TOON ?? 'catpope';
 const KEYS = [`cast:${TOON}`, 'characters'];
 const NEW_NAME = 'Regression Figur';
 const ROLE = 'Regressionstest';

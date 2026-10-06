@@ -45,7 +45,7 @@
 	$effect(() => {
 		if (textLanguage.value === followed) return;
 		followed = textLanguage.value;
-		// a language from the header; "source" / "all" = the script's source language (one script at a time)
+		// the header's language; one this toon has not = the script's source language
 		const chosen = textLanguage.chosen(doc.locales) ?? doc.primary;
 		untrack(() => switchLocale(chosen));
 	});
@@ -307,7 +307,7 @@
 
 </script>
 
-<MetaPage {toon} title={m['creator.script']()} docs={[doc]} {validate} wide help="script" translationsOptional beforeSave={flush}>
+<MetaPage {toon} title={m['creator.script']()} docs={[doc]} {validate} wide help="script" beforeSave={flush}>
 	<!-- format rules + line / column in the file status line (owner 2026-10-03: no row of their own) -->
 	{#snippet status()}
 		<a class="rules-link" href="/guide#script-format" target="_blank" rel="noopener" data-testid="script-rules-link">{m['creator.script_rules']()}</a>
@@ -321,7 +321,7 @@
 
 		{#if !script}
 			<section class="missing" data-testid="script-missing">
-				<p>{m['creator.script_missing_locale']({ locale, source: doc.primary })}</p>
+				<p class="sc-empty">{m['creator.script_missing_locale']({ locale, source: doc.primary })}</p>
 				<p class="buttons">
 					<button type="button" onclick={() => startLocale(false)} data-testid="script-start-empty">{m['creator.script_start_empty']()}</button>
 					{#if doc.data[doc.primary]?.text}
@@ -485,8 +485,11 @@
 		resize: none;
 	}
 	.missing {
-		border: 2px dashed var(--ink);
-		padding: 1rem;
+		display: grid;
+		gap: var(--space-1);
+	}
+	.missing p {
+		margin: 0;
 	}
 	.buttons {
 		display: flex;

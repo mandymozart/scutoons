@@ -48,7 +48,7 @@
 	};
 
 	function set(list: string[]) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			if (list.length) file.featuring = [...list];
 			else delete file.featuring;
 		}, 'featuring');
@@ -89,8 +89,6 @@
 				<ReorderButtons index={i} count={featuring.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.featuring_remove']({ name: name(id) })} title={m['creator.featuring_remove']({ name: name(id) })}><CloseIcon /></button>
 			</li>
-		{:else}
-			<li class="hint">{m['creator.featuring_empty']()}</li>
 		{/each}
 	</ul>
 	<div class="actions">

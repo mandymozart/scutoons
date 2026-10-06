@@ -5,11 +5,11 @@
 	import type { Supporter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import SharedField from '$lib/components/fields/shared-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 	import { MediaSlot } from '@scutoons/media';
 
 	/**
-	 * The season's supporters (`supporters: [{ name, logo?, url? }]`, in order), the same in every language: the reader
+	 * The season's supporters (`supporters: [{ name, logo?, url? }]`, in order), once in the language-neutral season (agents/NEUTRAL.md): the reader
 	 * shows them as "Supported by" logos at the end of the credits fine print (agents/DESIGN.md "Credits colophon").
 	 */
 	let { doc, toon, place = '' }: { doc: ContentDoc; toon: string; /** where logo uploads go (catpope/s1/supporters/) */ place?: string } = $props();
@@ -17,7 +17,7 @@
 	const list = $derived<Supporter[]>(Array.isArray(doc.get(doc.primary, ['supporters'])) ? doc.get(doc.primary, ['supporters']) : []);
 
 	function change(fn: (list: Supporter[]) => void) {
-		doc.structural((file) => {
+		doc.edit((file) => {
 			if (!Array.isArray(file.supporters)) file.supporters = [];
 			fn(file.supporters);
 		}, 'supporters');
@@ -35,10 +35,10 @@
 		<li class="supporter" data-testid="supporter-{i}">
 			<div class="fields">
 				<!-- the logo as a slot (the preview is the button), name and link are never translated -->
-				<MediaSlot {toon} {place} label="logo" value={supporter.logo} onchange={(v) => change((l) => { if (v) l[i].logo = v; else delete l[i].logo; })} testid="supporter-{i}-logo" />
+				<MediaSlot {toon} {place} label={m['creator.field_logo']()} value={supporter.logo} onchange={(v) => change((l) => { if (v) l[i].logo = v; else delete l[i].logo; })} testid="supporter-{i}-logo" />
 				<div class="texts">
-					<SharedField {doc} path={['supporters', i, 'name']} label="name" required splittable={false} testid="supporter-{i}-name" />
-					<SharedField {doc} path={['supporters', i, 'url']} label="url" placeholder="https://…" splittable={false} testid="supporter-{i}-url" />
+					<PropField {doc} path={['supporters', i, 'name']} label={m['creator.field_name']()} required testid="supporter-{i}-name" />
+					<PropField {doc} path={['supporters', i, 'url']} label={m['creator.field_link']()} placeholder="https://…" testid="supporter-{i}-url" />
 				</div>
 			</div>
 			<div class="actions">
@@ -46,8 +46,6 @@
 				<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()}><CloseIcon /></button>
 			</div>
 		</li>
-	{:else}
-		<li class="hint">{m['creator.supporters_empty']()}</li>
 	{/each}
 </ol>
 <button type="button" class="secondary" onclick={add} data-testid="supporter-add">{m['creator.supporter_add']()}</button>
@@ -90,9 +88,6 @@
 	}
 	.actions button {
 		padding: 0 0.4em;
-	}
-	.hint {
-		color: var(--muted);
 	}
 	button.secondary {
 		align-self: flex-start;

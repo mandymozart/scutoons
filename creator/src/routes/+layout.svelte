@@ -31,6 +31,7 @@
 	import NavSidebar from '$lib/components/page/nav-sidebar.svelte';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
+	import { PLATFORM_SOURCE_LANGUAGE } from '$lib/editor/text-language.svelte.ts';
 	import AskPanel from '$lib/components/ask/ask-panel.svelte';
 	import { ask, pagePanel } from '$lib/ask.svelte.ts';
 
@@ -73,16 +74,17 @@
 	const toonName = (id: string) => nav.toonName(id);
 	/**
 	 * the TEXT language switch (content, not the UI language): a toon page offers the toon's languages (source first);
-	 * the universe pages every language of every toon; hidden while there is only one
+	 * the universe pages every language of every toon, the platform's source `de` first and the default; hidden while
+	 * there is only one
 	 */
-	const textLanguages = $derived.by<{ languages: string[]; source: string | null }>(() => {
+	const textLanguages = $derived.by<{ languages: string[]; source: string }>(() => {
 		const toon = toonId ? nav.toons.find((t) => t.id === toonId || t.uri === toonId) : null;
 		if (toon) {
 			const l = toonLanguages(toon);
 			return { languages: l.languages as string[], source: l.source };
 		}
-		if (toonId) return { languages: [], source: null };
-		return { languages: [...new Set(nav.toons.flatMap((t) => toonLanguages(t).languages as string[]))], source: null };
+		if (toonId) return { languages: [], source: PLATFORM_SOURCE_LANGUAGE };
+		return { languages: [...new Set([PLATFORM_SOURCE_LANGUAGE, ...nav.toons.flatMap((t) => toonLanguages(t).languages as string[])])], source: PLATFORM_SOURCE_LANGUAGE };
 	});
 	/** the crumbs of the route: Creator / toon / season / chapter (the chapter editor adds group and slice) */
 	const base = $derived.by<Crumb[]>(() => {
@@ -97,6 +99,8 @@
 		}
 		// the world map (agents/MAP.md §4.1): Creator / Karte / <selection – added by the builder>
 		if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
+		// the SCUTOONS-wide Flow (owner 2026-10-06): Creator / Ablauf
+		if (route === '/flow') out.push({ href: '/flow', label: m['creator.flow_universe']() });
 		if (!toonId) return out;
 		out.push({ href: `/${toonId}`, label: toonName(toonId) });
 		// every chapter belongs to a season; the editor works on season 1 for now
@@ -110,6 +114,7 @@
 		if (route === '/[toonId]/cast') out.push({ href: `/${toonId}/cast`, label: m['creator.cast']() });
 		if (route === '/[toonId]/credits') out.push({ href: `/${toonId}/credits`, label: m['creator.credits']() });
 		if (route === '/[toonId]/script') out.push({ href: `/${toonId}/script`, label: m['creator.script']() });
+		if (route === '/[toonId]/convert') out.push({ href: `/${toonId}/convert`, label: m['creator.convert']() });
 		if (route === '/[toonId]/toon') out.push({ href: `/${toonId}/toon`, label: fileLabel(entities.toonSettings(toonId)) });
 		return out;
 	});
@@ -125,11 +130,12 @@
 		{ href: '/characters', label: m['creator.characters'](), tab: null as string | null },
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
 		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
-		{ href: '/map', label: m['creator.map'](), tab: 'map' }
+		{ href: '/map', label: m['creator.map'](), tab: 'map' },
+		{ href: '/flow', label: m['creator.flow_universe'](), tab: 'flow', title: m['creator.flow_universe_hint']() }
 	]);
 	const universeCurrent = (tab: string | null) =>
-		tab === 'map'
-			? page.route.id === '/map'
+		tab === 'map' || tab === 'flow'
+			? page.route.id === `/${tab}`
 				? 'page'
 				: undefined
 			: page.route.id === '/characters' && (page.url.searchParams.get('tab') ?? null) === tab
@@ -270,6 +276,7 @@
 					{#if textLanguages.languages.length > 1}
 						<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
 					{/if}
+					{#if nav.actions}{@render nav.actions()}{/if}
 					<button type="button" class="sc-round" class:is-active={ask.open} title={m['creator.ask_open']()} aria-label={m['creator.ask_open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>
@@ -289,7 +296,7 @@
 						<p class="sc-nav-head">{m['creator.universe']()}</p>
 						<ul>
 							{#each universe as item (item.href)}
-								<li><a class="sc-nav-item" href={item.href} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
+								<li><a class="sc-nav-item" href={item.href} title={'title' in item ? item.title : undefined} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
 							{/each}
 						</ul>
 					</div>
@@ -302,7 +309,6 @@
 			commands={paletteCommands}
 			label={m['palette.label']()}
 			placeholder={m['palette.placeholder']()}
-			emptyLabel={m['palette.empty']()}
 			hint={m['palette.keys']()}
 		/>
 		{#if ask.open}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (ask.open = false)} />{/if}

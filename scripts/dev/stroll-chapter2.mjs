@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// OBSOLETE (2026-10-06): written for the per-locale chapter 2 documents and the old `{x:clock}` syntax – both gone
+// (CUTOVER 10.30 / 10.33; the server refuses `{x:clock}`). Kept as the example the MCP README / CUTOVER 10.27 name;
+// `npm run check:stroll` brings its own stroll now (a sandbox chapter 9 draft).
 // The chapter 2 stroll (owner 2026-10-03, CUTOVER 10.27) on the LOCAL dev stack, as the local test user: each of the five
 // stroll groups (scene-14 … scene-18) gets a "stroll-end" section in its script that its last slice starts when it scrolls
 // into view – 15 minutes pass, at 7:00 the stroll ends (forced jump to scene-20), else the time shows and the reader picks

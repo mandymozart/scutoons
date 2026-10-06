@@ -82,8 +82,8 @@
 		"hide_sensitive": "Hide sensitive content",
 		"hide_sensitive_hint": "Blurs marked panels and mutes their sound.",
 		"draft_preview": "Draft preview",
-		"draft_preview_hint": "Read draft and coming-soon chapters here, for checking. This device only; a bar shows it on every page.",
-		"draft_preview_off": "Turn off",
+		"draft_preview_hint": "Read draft and coming-soon chapters here, for checking. This device only; a small eye top right shows it on every page.",
+		"draft_preview_mark": "Draft preview is on – switch it off on your account page",
 		"roles": "Roles",
 		"role_member": "Member",
 		"role_creator": "Creator",
@@ -101,7 +101,12 @@
 		"claim_withdraw": "Withdraw",
 		"claim_add_file": "Add proof",
 		"claim_files": "{count} files attached",
-		"claim_failed": "That didn't work – please try again."
+		"claim_failed": "That didn't work – please try again.",
+		"reader_name": "Your name",
+		"reader_name_hint": "Stories may call you by it. Only you see it.",
+		"reader_name_saved_account": "Saved in your account.",
+		"reader_name_saved_device": "Saved on this device.",
+		"reader_name_failed": "Could not save – please try again."
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"
@@ -117,7 +122,11 @@
 		"season_title": "Season {number}: {title}",
 		"prologue": "Prologue",
 		"sensitive_hidden": "Sensitive content hidden",
-		"sensitive_hidden_hint": "In your account: “Hide sensitive content”"
+		"sensitive_hidden_hint": "In your account: “Hide sensitive content”",
+		"scroll_paused": "Scrolling paused – answer the message first",
+		"ask_label": "Your answer",
+		"ask_ok": "OK",
+		"ask_skip": "Skip"
 	},
 	"player": {
 		"sound_on": "Sound on",

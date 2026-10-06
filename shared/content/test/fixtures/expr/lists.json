@@ -1,0 +1,638 @@
+{
+	"description": "lists",
+	"resolver": {
+		"names": {
+			"coins": 3,
+			"one": 1,
+			"zero": 0,
+			"time": 330,
+			"name": "Pope",
+			"empty": "",
+			"yes": true,
+			"no": false,
+			"half": 2.5,
+			"five": "5",
+			"map.total": 12,
+			"map.unlocked": 10,
+			"map.here": "lake",
+			"reader.name": "mia",
+			"reader.signedIn": true,
+			"reader.language": "en",
+			"now.hour": 21,
+			"stats.testo": 7
+		},
+		"calls": {
+			"has(\"cucumber\")": true,
+			"has(\"onion\")": false,
+			"count_of(\"coin\")": 4,
+			"read_chapter(2)": true,
+			"read_chapter(3)": false,
+			"inventory.has(\"cucumber\")": true,
+			"inventory.count(\"coin\")": 4,
+			"resolved(\"ev-lake\")": true,
+			"count(\"ev-lake\")": 2,
+			"read.chapter(1)": true
+		},
+		"visits": {},
+		"seed": "reader-1:text-9",
+		"language": "en"
+	},
+	"knownNames": [
+		"coins",
+		"one",
+		"zero",
+		"time",
+		"name",
+		"empty",
+		"yes",
+		"no",
+		"half",
+		"five",
+		"missing"
+	],
+	"cases": [
+		{
+			"text": "{a|b|c}",
+			"ast": "(sequence#0 [\"a\"] [\"b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{a|b|c}",
+			"resolver": {
+				"visits": {
+					"0": 1
+				}
+			},
+			"ast": "(sequence#0 [\"a\"] [\"b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "b",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{a|b|c}",
+			"resolver": {
+				"visits": {
+					"0": 7
+				}
+			},
+			"ast": "(sequence#0 [\"a\"] [\"b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "c",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{&a|b|c}",
+			"resolver": {
+				"visits": {
+					"0": 4
+				}
+			},
+			"ast": "(cycle#0 [\"a\"] [\"b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "b",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{!a|b}",
+			"ast": "(once#0 [\"a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{!a|b}",
+			"resolver": {
+				"visits": {
+					"0": 1
+				}
+			},
+			"ast": "(once#0 [\"a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "b",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{!a|b}",
+			"resolver": {
+				"visits": {
+					"0": 2
+				}
+			},
+			"ast": "(once#0 [\"a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{~a|b|c|d}",
+			"ast": "(shuffle#0 [\"a\"] [\"b\"] [\"c\"] [\"d\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "d",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{~a|b|c|d}",
+			"resolver": {
+				"visits": {
+					"0": 1
+				}
+			},
+			"ast": "(shuffle#0 [\"a\"] [\"b\"] [\"c\"] [\"d\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "b",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{~a|b|c|d}",
+			"resolver": {
+				"visits": {
+					"0": 5
+				}
+			},
+			"ast": "(shuffle#0 [\"a\"] [\"b\"] [\"c\"] [\"d\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{~a|b|c|d}",
+			"resolver": {
+				"seed": "other"
+			},
+			"ast": "(shuffle#0 [\"a\"] [\"b\"] [\"c\"] [\"d\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "d",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{$a|b}",
+			"resolver": {
+				"visits": {
+					"0": 3
+				}
+			},
+			"ast": "(sequence#0 [\"a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "b",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{~!a|b}",
+			"resolver": {
+				"visits": {
+					"0": 2
+				}
+			},
+			"ast": "(shuffle-once#0 [\"a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{!~a|b}",
+			"ast": "(shuffle-once#0 [\"a\"] [\"b\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{~$a|b|c}",
+			"resolver": {
+				"visits": {
+					"0": 9
+				}
+			},
+			"ast": "(shuffle-stopping#0 [\"a\"] [\"b\"] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "c",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{|a}",
+			"ast": "(sequence#0 [] [\"a\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{a||b}",
+			"ast": "(sequence#0 [\"a\"] [] [\"b\"])",
+			"errors": [
+				{
+					"code": "or-in-list",
+					"severity": "warning",
+					"start": 0,
+					"end": 6,
+					"message": "`||` here splits a list (as in ink) – for “or”, write `or`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{a||b}",
+			"resolver": {
+				"visits": {
+					"0": 1
+				}
+			},
+			"ast": "(sequence#0 [\"a\"] [] [\"b\"])",
+			"errors": [
+				{
+					"code": "or-in-list",
+					"severity": "warning",
+					"start": 0,
+					"end": 6,
+					"message": "`||` here splits a list (as in ink) – for “or”, write `or`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{!once}",
+			"ast": "(once#0 [\"once\"])",
+			"errors": [
+				{
+					"code": "not-in-list",
+					"severity": "warning",
+					"start": 0,
+					"end": 7,
+					"message": "`{!…}` is a once-only list (as in ink) – for “not”, write `not`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "once",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{&only}",
+			"ast": "(cycle#0 [\"only\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "only",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{a|b} and {c|d}",
+			"resolver": {
+				"visits": {
+					"1": 1
+				}
+			},
+			"ast": "(sequence#0 [\"a\"] [\"b\"]) \" and \" (sequence#1 [\"c\"] [\"d\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 2
+			},
+			"constructs": 2,
+			"out": "a and d",
+			"runtime": [],
+			"visited": [
+				0,
+				1
+			]
+		},
+		{
+			"text": "{a|{x|y}|c}",
+			"resolver": {
+				"visits": {
+					"0": 1,
+					"1": 1
+				}
+			},
+			"ast": "(sequence#0 [\"a\"] [(sequence#1 [\"x\"] [\"y\"])] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 2
+			},
+			"constructs": 2,
+			"out": "y",
+			"runtime": [],
+			"visited": [
+				0,
+				1
+			]
+		},
+		{
+			"text": "{a|{x|y}|c}",
+			"ast": "(sequence#0 [\"a\"] [(sequence#1 [\"x\"] [\"y\"])] [\"c\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 2
+			},
+			"constructs": 2,
+			"out": "a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{yes: {&a|b}|{&c|d}}",
+			"ast": "(if yes [\" \" (cycle#0 [\"a\"] [\"b\"])] [(cycle#1 [\"c\"] [\"d\"])])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [],
+				"sequences": 2
+			},
+			"constructs": 3,
+			"out": "a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{no: {&a|b}|{&c|d}}",
+			"ast": "(if no [\" \" (cycle#0 [\"a\"] [\"b\"])] [(cycle#1 [\"c\"] [\"d\"])])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 2
+			},
+			"constructs": 3,
+			"out": "c",
+			"runtime": [],
+			"visited": [
+				1
+			]
+		},
+		{
+			"text": "{Hello there, {name}|Hi again}",
+			"ast": "(sequence#0 [\"Hello there, \" (print name)] [\"Hi again\"])",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"name"
+					]
+				],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 2,
+			"out": "Hello there, Pope",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{\"a|b\"}",
+			"ast": "(sequence#0 [\"\\\"a\"] [\"b\\\"\"])",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "\"a",
+			"runtime": [],
+			"visited": [
+				0
+			]
+		},
+		{
+			"text": "{&!a|b}",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "unsupported-list",
+					"severity": "error",
+					"start": 0,
+					"end": 3,
+					"message": "`&!` isn’t a list type – use `&` (cycle), `~` (shuffle), `!` (once only), `~!` or `~$`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 1
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{a|b",
+			"ast": "bad",
+			"errors": [
+				{
+					"code": "missing-close",
+					"severity": "error",
+					"start": 0,
+					"end": 4,
+					"message": "missing `}`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		}
+	]
+}

@@ -1,0 +1,509 @@
+{
+	"description": "print",
+	"resolver": {
+		"names": {
+			"coins": 3,
+			"one": 1,
+			"zero": 0,
+			"time": 330,
+			"name": "Pope",
+			"empty": "",
+			"yes": true,
+			"no": false,
+			"half": 2.5,
+			"five": "5",
+			"map.total": 12,
+			"map.unlocked": 10,
+			"map.here": "lake",
+			"reader.name": "mia",
+			"reader.signedIn": true,
+			"reader.language": "en",
+			"now.hour": 21,
+			"stats.testo": 7
+		},
+		"calls": {
+			"has(\"cucumber\")": true,
+			"has(\"onion\")": false,
+			"count_of(\"coin\")": 4,
+			"read_chapter(2)": true,
+			"read_chapter(3)": false,
+			"inventory.has(\"cucumber\")": true,
+			"inventory.count(\"coin\")": 4,
+			"resolved(\"ev-lake\")": true,
+			"count(\"ev-lake\")": 2,
+			"read.chapter(1)": true
+		},
+		"visits": {},
+		"seed": "reader-1:text-9",
+		"language": "en"
+	},
+	"knownNames": [
+		"coins",
+		"one",
+		"zero",
+		"time",
+		"name",
+		"empty",
+		"yes",
+		"no",
+		"half",
+		"five",
+		"missing"
+	],
+	"cases": [
+		{
+			"text": "Hello {name}!",
+			"ast": "\"Hello \" (print name) \"!\"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"name"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "Hello Pope!",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{coins}",
+			"ast": "(print coins)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{  coins  }",
+			"ast": "(print coins)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{reader.name}",
+			"ast": "(print reader.name)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"reader",
+						"name"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "mia",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "You are at {map.here}.",
+			"ast": "\"You are at \" (print map.here) \".\"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"map",
+						"here"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "You are at lake.",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{yes} {no}",
+			"ast": "(print yes) \" \" (print no)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					],
+					[
+						"no"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "true false",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{half}",
+			"ast": "(print half)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"half"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "2.5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{0.1 + 0.2}",
+			"ast": "(print (+ 0.1 0.2))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "0.3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"text\"}",
+			"ast": "(print \"text\")",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "text",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"say \\\"hi\\\"\"}",
+			"ast": "(print \"say \\\"hi\\\"\")",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "say \"hi\"",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{\"a}b\"}",
+			"ast": "(print \"a}b\")",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "a}b",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{12}",
+			"ast": "(print 12)",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "12",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{1.50}",
+			"ast": "(print 1.5)",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "1.5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{missing}",
+			"ast": "(print missing)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "Hi {missing}!",
+			"ast": "\"Hi \" (print missing) \"!\"",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "Hi !",
+			"runtime": [
+				"missing-value@4"
+			],
+			"visited": []
+		},
+		{
+			"text": "{-coins}",
+			"ast": "(print (- coins))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "-3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{true}",
+			"ast": "(print true)",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{five}",
+			"ast": "(print five)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"five"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{empty}",
+			"ast": "(print empty)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"empty"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "no braces at all",
+			"ast": "\"no braces at all\"",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 0,
+			"out": "no braces at all",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{map.unlocked}/{map.total}",
+			"ast": "(print map.unlocked) \"/\" (print map.total)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"map",
+						"unlocked"
+					],
+					[
+						"map",
+						"total"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "10/12",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{stats.testo}",
+			"ast": "(print stats.testo)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"stats",
+						"testo"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "7",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{now.hour}",
+			"ast": "(print now.hour)",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"now",
+						"hour"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "21",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{코인}",
+			"ast": "(print 코인)",
+			"errors": [
+				{
+					"code": "unknown-variable",
+					"severity": "warning",
+					"start": 1,
+					"end": 3,
+					"message": "unknown variable `코인`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"코인"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{_x1}",
+			"ast": "(print _x1)",
+			"errors": [
+				{
+					"code": "unknown-variable",
+					"severity": "warning",
+					"start": 1,
+					"end": 4,
+					"message": "unknown variable `_x1`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"_x1"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		}
+	]
+}

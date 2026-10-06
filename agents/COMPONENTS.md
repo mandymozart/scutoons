@@ -96,7 +96,7 @@ Drift between the two save/keyboard copies: `isField` checks `isContentEditable`
 chapter-editor undoes the document even with the cursor in a field, meta-page skips undo in fields; publish messages differ.
 
 ### Natural splits elsewhere
-- **vn-events**: row chrome (type select + up/down/remove) + one form per type (message, choice, jump, onomatopoeia,
+- **vn-events**: row chrome (type select + up/down/remove) + one form per type (message, choice, jump, show text box,
   join/leave) + trigger.
 - **slice-canvas**: pure geometry (`deltas`, `transformedDeltas`, `rotateTo`, `scaleTo`) → `lib/editor/canvas-geometry.ts`
   (unit-testable); pointer state machine; render.
@@ -158,7 +158,7 @@ components/
   slice/       slice-canvas, slice-toolbar NEW, slice-inspector NEW, slice-media, slice-audio, slice-unlocks
   text/        dialog-inspector, text-preset-picker, text-language-switch
   items/       item-inspector, item-picker-sheet
-  events/      vn-events (list + row), event-message, event-choice, event-jump, event-onomatopoeia, event-cast, event-trigger
+  events/      vn-events (list + row), event-message, event-choice, event-jump, event-show-text-box, event-cast, event-trigger
   map/         map-builder, map-canvas, place-props, route-props, layer-props, map-toons-chips
   characters/  characters-editor, character-detail (shell) + identity / personas / apose-section / artwork, cast-editor,
                expression-grid, apose-editor, moods-panel, wanted-images, asset-dialog, character-picker(-sheet), character-ref-field
@@ -240,7 +240,7 @@ Done (branch `components`):
   reorder by drag (moveMany), unchanged.
 - Step 6 ✓ (the commit adding this line) – @scutoons/ui `Segmented` (options with label / icon / title / testid, `radio`,
   `grid` + `min`) on tools.css `.sc-seg` (token `--seg-min`): chapter canvas tools, cover lettering mode, text presets,
-  onomatopoeia presets, video fit / position (radio), admin email language; the snap toggle + grid size share the
+  text box reveal presets, video fit / position (radio), admin email language; the snap toggle + grid size share the
   `.sc-seg` frame. Testids kept. Visible: video fit / position (was grey joined outlines) and the admin email language
   (had dividers) look like the others now. `check:tools-css` flags a local `.seg/.segments`. Found: "+ event" on a slice
   without events adds nothing visible (works on a slice that has events) – pre-existing, see step 8.
@@ -250,7 +250,7 @@ Done (branch `components`):
   gone). Visible: one card frame everywhere (2px border-muted; the item cards had a hairline ink frame, the character
   cards a 1px grey one), filters wrap instead of a fixed 4-column grid; the item picker got arrow keys too.
 - Step 8 ✓ (the commit adding this line; platform merged before it, 2b29ddc) – vn-events 812 → 387 lines: the list + row
-  chrome; `events/event-message`, `-choice`, `-flow` (jumpTo, label, divert, setVariable), `-onomatopoeia`, `-cast`
+  chrome; `events/event-message`, `-choice`, `-flow` (jumpTo, label, divert, setVariable), `-show-text-box` (was -onomatopoeia), `-cast`
   (join / leave), `-target` (a jump's target), `-condition` ("Only if"), `-trigger`; pure parts in
   `lib/editor/vn-forms.ts`. tools.css `.sc-fields[data-align=start|end]` replaces the local align rules (also toon /
   season editor). check:creator-chapter covers the VN forms (55 checks). 797109b: fix found on the way – "+ event" on a
@@ -363,6 +363,5 @@ Slice music as a mixer (same day, owner: "a different UI could be useful"): one 
 fader, name). A track the slice doesn't set holds the level of the last earlier slice that did (the reader keeps a level
 until a slice changes it; every track starts silent) – shown faint and dashed with "slice n" (`heldMusic`, computed in the
 chapter editor across groups); moving the fader sets it for this slice, × hands it back. No checkbox.
-Audio is the same in every language (`unifyAudio` in @scutoons/content geometry.ts, run on load next to unifyGeometry,
-notice `creator.audio_unified`): the chapter's `audio` and each slice's `audio` follow the source locale – an `en` file
-with samples at the old `audio.samples` showed every sample field as an en override and filled the problems list.
+Audio is the same in every language: since 2026-10-06 the chapter is one language-neutral document (agents/NEUTRAL.md),
+so audio exists once (`unifyAudio` / `unifyGeometry` and their load notices are gone).

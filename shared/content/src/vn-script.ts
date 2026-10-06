@@ -1,12 +1,26 @@
 // The VN script's logic as pure functions (owner 2026-10-03, CUTOVER 10.27): one runner in the viewer uses them, the
 // creator's forms and the validator read the same rules. A group's `events` is its script; `label` events are named points
 // in it, a divert continues there (no page change); jumpTo is navigation only (another group / chapter, or a random one).
-import type { VNAction, VNCondition, VNEvent } from './visual-novel.ts';
+import type { VNAction, VNEvent, VNEventCondition, VNExprCondition } from './visual-novel.ts';
+import { evaluateExpression, isTruthy, type ExprResolver } from './expr/index.ts';
 
 type Value = string | number | undefined;
 
-/** does the reader's state pass the test? (numbers compare as numbers, `set` / `unset` = has a value at all) */
-export function testCondition(condition: VNCondition | null | undefined, get: (variable: string) => Value): boolean {
+/** is this `if` an expression (`{ expr }`, the advanced form) rather than the simple variable–op–value test? */
+export const isExprCondition = (condition: unknown): condition is VNExprCondition =>
+	!!condition && typeof condition === 'object' && typeof (condition as VNExprCondition).expr === 'string';
+
+/**
+ * does the reader's state pass the test? Simple form: numbers compare as numbers, `set` / `unset` = has a value at all.
+ * Expression form (`{ expr }`): evaluated with `resolver` (the reader's names and functions; without one only the story
+ * variables); a missing value or a runtime error is false – never thrown.
+ */
+export function testCondition(condition: VNEventCondition | null | undefined, get: (variable: string) => Value, resolver?: ExprResolver): boolean {
+	if (isExprCondition(condition)) {
+		if (!condition.expr.trim()) return true;
+		const { value } = evaluateExpression(condition.expr, resolver ?? { name: (path) => (path.length === 1 ? get(path[0]) : undefined) });
+		return isTruthy(value);
+	}
 	if (!condition || !condition.variable) return true;
 	const have = get(condition.variable);
 	const has = have !== undefined && have !== null && have !== '';
@@ -49,6 +63,21 @@ export function scriptLabels(events: readonly unknown[] | null | undefined): str
 	return (events ?? []).flatMap((e: any) => (e?.type === 'label' && typeof e.params?.name === 'string' && e.params.name ? [e.params.name] : []));
 }
 
+/**
+ * The toon a jump target leads into: a chapter target's `toon` (another toon's chapter + label), else `here` (the toon
+ * the jump is in). A `type: 'toon'` target is that toon's page – its `value`.
+ */
+export function targetToon(target: { type?: unknown; value?: unknown; toon?: unknown } | null | undefined, here: string): string {
+	if (target?.type === 'chapter' && typeof target.toon === 'string' && target.toon) return target.toon;
+	if (target?.type === 'toon' && typeof target.value === 'string' && target.value) return target.value;
+	return here;
+}
+
+/** a chapter target into another toon than `here` (an unknown `here`: any chapter target that names a toon) */
+export function intoOtherToon(target: { type?: unknown; toon?: unknown } | null | undefined, here?: string | null): boolean {
+	return target?.type === 'chapter' && typeof target.toon === 'string' && !!target.toon && target.toon !== here;
+}
+
 /** a random group label from `anyOf`, never `current` (unless it is the only one); null when the list is empty */
 export function pickJumpLabel(anyOf: readonly string[] | null | undefined, current: string | null | undefined, random: () => number = Math.random): string | null {
 	const all = (anyOf ?? []).filter((l) => typeof l === 'string' && l);
@@ -58,18 +87,8 @@ export function pickJumpLabel(anyOf: readonly string[] | null | undefined, curre
 	return from[Math.min(from.length - 1, Math.floor(random() * from.length))];
 }
 
-/** minutes since midnight as a clock: 330 → "5:30", 1445 → "0:05" */
+/** minutes since midnight as a clock: 330 → "5:30", 1445 → "0:05" (texts: `{clock(t)}`, the expression registry) */
 export function formatClock(minutes: number): string {
 	const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
 	return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
-}
-
-/** `{variable}` → its value, `{variable:clock}` → minutes as a clock; unknown variables stay as written */
-export function interpolateText(text: string, get: (variable: string) => Value): string {
-	return String(text ?? '').replace(/{(\w+)(?::(clock))?}/g, (match, name: string, format?: string) => {
-		const value = get(name);
-		if (value === undefined || value === null) return match;
-		if (format === 'clock' && Number.isFinite(Number(value))) return formatClock(Number(value));
-		return String(value);
-	});
 }

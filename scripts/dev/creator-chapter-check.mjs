@@ -18,8 +18,9 @@
 //   undo:    outside a field, Ctrl+Z undoes the last nudge, Ctrl+Shift+Z / Ctrl+Y redo it; the Undo / Redo buttons too
 //   keys:    Escape lets the selection go; Delete removes the selected box
 //   slices:  next / previous slice (bar buttons) move the slice editor and the URL
-//   save:    Save draft (note dialog skipped) stores the chapter draft with the new text; the published version stays
-//   VN:      chapter 2's scene-14: each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
+//   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
+//            new text; the published version stays; Publish asks first, naming the chapter and its languages
+//   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
 // Refuses to run while the chapter has an unpublished draft (someone's work in progress is never touched).
@@ -38,10 +39,9 @@ const CHAPTER = 1;
 const GROUP = 0;
 const SLICE = 1; // the first story slice (0 is the key visual)
 const LOCALES = ['de', 'en'];
-const CHAPTER_KEYS = LOCALES.map((l) => `chapter:${TOON}:${CHAPTER}:${l}`);
+/** the chapter's one language-neutral document (agents/NEUTRAL.md) */
+const CHAPTER_KEYS = [`chapter:${TOON}:${CHAPTER}`];
 const TEXT = 'Regressionstext';
-/** a chapter-2 scene with a group script and slice events (catpope) */
-const VN_GROUP = 'scene-14';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 for (const url of [API, CREATOR]) {
@@ -99,6 +99,27 @@ const sliceWidth = slice.width > 0 ? slice.width : 390;
 const dialogsBefore = (slice.dialog ?? []).length;
 const baselineGroupKey = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].label ?? String(GROUP + 1);
 if ((slice.events ?? []).length) console.log(`note: slice ${SLICE + 1} has events – the empty-slice event check is weaker`);
+
+/**
+ * The VN part's scene: one with a group script and a slice with events – catpope's scenes first, else the sandbox's
+ * (generated, always has them; the dev content changes – catpope's scene-14 lost its script on 2026-10-06)
+ */
+async function findVnScene() {
+	for (const toon of [TOON, 'sandbox']) {
+		const keys = (await api('GET', `/entities?toon=${toon}`)).entities.map((e) => e.key).filter((k) => /^scene:[^:]+:\d+:[^:]+$/.test(k)).sort();
+		for (const key of keys) {
+			const doc = (await api('GET', `/entities/${key}?draft=1&wrap=1`)).content;
+			const slice = (doc?.slices ?? []).findIndex((s) => (s?.events ?? []).length > 0);
+			if ((doc?.events ?? []).length && slice >= 0) {
+				const [, , chapter, name] = key.split(':');
+				return { key, toon, chapter: Number(chapter), group: doc.label ?? name, slice: slice + 1 };
+			}
+		}
+	}
+	return null;
+}
+const VN = await findVnScene();
+if (!VN) console.log('note: no scene with a group script and slice events – the VN part is skipped');
 
 /** every entity whose newest version changed during the run gets its old content back (published again if it was) */
 async function restore() {
@@ -441,7 +462,7 @@ try {
 	await answerDialog('button.secondary'); // the note dialog: save without a note
 	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.textContent.includes('•')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
-	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (de) 200, nothing published', JSON.stringify(saved));
+	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (one neutral document) 200, nothing published', JSON.stringify(saved));
 	const draft = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
 	const savedDialogs = draft.content.groups[GROUP].slices[SLICE].dialog ?? [];
 	check(
@@ -454,12 +475,13 @@ try {
 	await click(tid('publish'));
 	const confirmText = (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) ? await js(`document.querySelector('dialog.sc-dialog[open] .message')?.textContent ?? ''`) : '';
 	await answerDialog('button.ghost');
+	// a neutral chapter's draft is every language's
 	const drafted = [];
-	for (const [i, key] of CHAPTER_KEYS.entries()) {
-		const e = await api('GET', `/entities/${key}?draft=1&wrap=1`);
-		if (e.published?.id !== e.version.id) drafted.push(LOCALES[i]);
-	}
-	const named = confirmText.match(/\(([^)]*)\)/)?.[1].split(/,\s*/) ?? [];
+	const e = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
+	if (e.published?.id !== e.version.id) drafted.push(...LOCALES);
+	// the source language marked with ★ (owner 2026-10-06)
+	const named = confirmText.match(/\(([^)]*)\)/)?.[1].split(/,\s*/).map((l) => l.replace(/\s*★$/, '')) ?? [];
+	check(/\(de ★[,)]/.test(confirmText), 'the source language is marked ★', confirmText);
 	check(
 		/Chapter 1|Kapitel 1/.test(confirmText) && drafted.length > 0 && JSON.stringify([...named].sort()) === JSON.stringify([...drafted].sort()),
 		`Publish asks first, naming the file and exactly the languages with a draft (${drafted.join(', ')})`,
@@ -467,30 +489,31 @@ try {
 	);
 	check((await writesSince(n).filter((w) => /publish/.test(w.url)).length) === 0, 'cancelled: nothing published');
 
-	// ── VN events (step 8: one form per type): chapter 2's first scene – its group script, then a slice's events ──
+	// ── VN events (step 8: one form per type): a scene with a script (findVnScene) – its group script, then a slice's events ──
 	// edits here are never saved (the page is left with them; nothing is written)
-	await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/2?group=${VN_GROUP}` });
-	check(await until(`!!${q('vn-events')} && !!${q('event-line-0')}`, 30000), `VN: the group script of ${VN_GROUP} lists its events`);
-	const typeIndex = await js(`(() => { const out = {}; document.querySelectorAll('[data-testid^="event-line-"]').forEach((b) => { const t = b.querySelector('.type')?.textContent; if (t && !(t in out)) out[t] = Number(b.dataset.testid.slice(11)); }); return out; })()`);
-	/** what each type's form shows once its line is opened */
-	const FORMS = {
-		showMessage: (i) => `!!document.querySelector('[data-testid="event-${i}"] textarea') && !!document.querySelector('[data-testid="event-${i}"] .sc-fields')`,
-		joinScene: (i) => `!!document.querySelector('[data-testid="event-${i}"] [data-testid="character-ref-open"]')`,
-		addChoice: (i) => `!!document.querySelector('[data-testid="choice-actions-${i}"]')`,
-		setVariable: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields input, [data-testid="event-${i}"] .sc-fields select').length >= 3`,
-		label: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields input')`,
-		divert: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields select')`,
-		jumpTo: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields select').length >= 1`
-	};
-	for (const [type, ready] of Object.entries(FORMS)) {
-		const i = typeIndex[type];
-		if (i === undefined) continue;
-		await click(tid(`event-line-${i}`));
-		check(
-			(await until(`${q(`event-line-${i}`)}.getAttribute('aria-expanded') === 'true' && (${ready(i)}) && (!!${q(`add-condition-${i}`)} || !!document.querySelector('[data-testid="event-${i}"] details.only-if[open]'))`, 3000)) === true,
-			`VN: a ${type} line opens its form (+ "Only if")`
-		);
-		await click(tid(`event-line-${i}`));
+	if (VN) {
+		await send('Page.navigate', { url: `${CREATOR}/${VN.toon}/chapter/${VN.chapter}?group=${encodeURIComponent(VN.group)}` });
+		check(await until(`!!${q('vn-events')} && !!${q('event-line-0')}`, 30000), `VN: the group script of ${VN.key} lists its events`);
+		const typeIndex = await js(`(() => { const out = {}; document.querySelectorAll('[data-testid^="event-line-"]').forEach((b) => { const t = b.querySelector('.type')?.textContent; if (t && !(t in out)) out[t] = Number(b.dataset.testid.slice(11)); }); return out; })()`);
+		/** what each type's form shows once its line is opened */
+		const FORMS = {
+			showMessage: (i) => `!!document.querySelector('[data-testid="event-${i}"] textarea') && !!document.querySelector('[data-testid="event-${i}"] .sc-fields')`,
+			joinScene: (i) => `!!document.querySelector('[data-testid="event-${i}"] [data-testid="character-ref-open"]')`,
+			addChoice: (i) => `!!document.querySelector('[data-testid="choice-actions-${i}"]')`,
+			setVariable: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields input, [data-testid="event-${i}"] .sc-fields select').length >= 3`,
+			label: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields input')`,
+			divert: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields select')`,
+			jumpTo: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields select').length >= 1`
+		};
+		for (const [type, ready] of Object.entries(FORMS)) {
+			const i = typeIndex[type];
+			if (i === undefined) continue;
+			await click(tid(`event-line-${i}`));
+			check(
+				(await until(`${q(`event-line-${i}`)}.getAttribute('aria-expanded') === 'true' && (${ready(i)}) && (!!${q(`add-condition-${i}`)} || !!document.querySelector('[data-testid="event-${i}"] details.only-if[open]'))`, 3000)) === true,
+				`VN: a ${type} line opens its form (+ "Only if")`
+			);
+			await click(tid(`event-line-${i}`));
 	}
 	const lines = await js(`document.querySelectorAll('[data-testid^="event-line-"]').length`);
 	await click(`[data-testid="vn-events"] .add button:last-child`); // + setVariable
@@ -505,13 +528,14 @@ try {
 	await click(tid('tab-events'));
 	await until(`!!${q('vn-events')}`, 5000);
 	await click(`[data-testid="vn-events"] .add button:last-child`);
-	check(await until(`!!${q('event-line-0')} && ${q('tab-events')}.textContent.includes('(1)')`, 3000), 'VN: "+ event" on a slice without events shows the new event');
-	await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/2?group=${VN_GROUP}&slice=1` });
+	check(await until(`!!${q('event-line-0')} && ${q('tab-events')}.querySelector('.count')?.textContent === '1'`, 3000), 'VN: "+ event" on a slice without events shows the new event');
+	await send('Page.navigate', { url: `${CREATOR}/${VN.toon}/chapter/${VN.chapter}?group=${encodeURIComponent(VN.group)}&slice=${VN.slice}` });
 	await until(`!!${q('tab-events')}`, 30000);
 	await click(tid('tab-events'));
 	check(await until(`!!${q('event-line-0')} && !!${q('vn-events')}`, 5000), 'VN: the slice events tab lists the slice\'s events');
 	await click(tid('event-line-0'));
 	check(await until(`!!${q('event-whole-0')}`, 3000), 'VN: a slice event has its trigger (whole slice / area)');
+	}
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } catch (e) {
 	failed = true;

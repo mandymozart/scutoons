@@ -40,6 +40,7 @@ use Scutoons\Http\Controllers\CertificatesController;
 use Scutoons\Http\Controllers\ClaimsController;
 use Scutoons\Http\Controllers\EmbassyController;
 use Scutoons\Http\Controllers\EntitiesController;
+use Scutoons\Http\Controllers\FlowController;
 use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
 use Scutoons\Http\Controllers\KeysController;
@@ -149,6 +150,8 @@ return static function (App $app): void {
     $app->put('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'put']);
     $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
     $app->post('/api/entities/{key:[a-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
+    // the creator's SCUTOONS-wide flow: every toon's ways out of its chapters + dead things (docs/API.md "Flow index", role creator)
+    $app->get('/api/creator/flow-index', [FlowController::class, 'index']);
     // Review before publish (docs/API.md "Reviews", role creator; the review rules per toon decide the rest)
     $app->get('/api/reviews', [ReviewsController::class, 'overview']);
     $app->post('/api/reviews', [ReviewsController::class, 'submit']);
