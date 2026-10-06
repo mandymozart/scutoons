@@ -25,15 +25,19 @@ compiles whole stories; we evaluate single texts).
 - Plurals the ink way: `{coins == 1: coin|coins}` – every language writes its own.
 - Our extras are ink-style (external) functions: `clock(t)`, `upper(s)`, `lower(s)`, `has("cucumber")`,
   `count_of("cucumber")`, `read_chapter(2)`, `resolved(id)`, `count(id)`, `min`, `max`, `round`, `floor`,
-  `random(a, b)` (stable per reader + text). Reader state as names (§2): `map.total`, `reader.name`, `var.coins`.
+  `random(a, b)` (stable per reader + text). Reader state as names (§2): `map.total`, `reader.name`; story variables bare (`coins`).
 - **Functions are defined in code only (owner 2026-10-06):** ONE registry in `@scutoons/content` (name, params, result
   type, a short description de/en, an example) – the builder OFFERS them as a list to pick from (e.g. `clock`), and
   validation, the analyser and the PHP check read the same registry. Adding one = a few lines there. No author-defined
   functions.
 - Safety: no generic property access (names resolved by a SCUTOONS resolver against fixed namespaces), only registered
   functions, limits (500 chars, depth 32, 64 nodes), runtime errors never break the reader, never eval.
-- **Old syntax discarded** (owner): `{x:clock}` is not supported – no alias, no migration (VN events aren't used in
-  production for real yet); old texts are flagged as invalid in the creator.
+- **Old syntax discarded** (owner): `{x:clock}` is not supported in code (no alias, no load-time conversion). Stored data
+  is moved by a DB MIGRATION (SQL, run in phpMyAdmin like `2026-10-06-show-text-box`): `2026-10-06-clock-syntax.mysql.sql`
+  rewrites `{name:clock}` → `{clock(name)}` in `entity_versions` / `content_versions` (MariaDB `REGEXP_REPLACE`,
+  idempotent, SELECT first). Dev DB check 2026-10-06: 0 occurrences – it's for production's newer test content. Rule
+  (owner): data changes = DB migrations, never code that converts old data on load.
+- Story variables are bare names as in ink (`{coins}` keeps working); reader state is namespaced (`map.total`, …).
 - Missing value: readers never see raw code – empty; the creator warns.
 - Difference to real ink: a text using our names / functions doesn't run in inkle's Inky – the syntax rules are ink's.
 
@@ -41,7 +45,7 @@ compiles whole stories; we evaluate single texts).
 
 | Namespace | Names (proposal) |
 |---|---|
-| `var.` | the toon's story variables (VN `setVariable` / choice set+add) |
+| (bare) | the toon's story variables, ink-style bare names: `coins` (VN `setVariable` / choice set+add) |
 | `reader.` | `name` (askText, platform scope), `signedIn`, `member`, `memberDays`, `since`, `gifts`, `language`, `daysSinceStart` |
 | `read.` | `chapter(n)`, `chapters`, `finished`, `position(n)` |
 | `inventory.` | `has(id)`, `count(id)`, `items`, `edition(id)` |
@@ -99,7 +103,7 @@ the account, synced, changeable on the account page).
 ## 7. Order
 
 1. Language core (ink inline syntax: parser, evaluator, analyser, function registry) + tests; PHP validator port + shared fixtures.
-2. Reader integration (namespaces resolver, text boxes / messages / choices / conditions).
+2. Reader integration (namespaces resolver, text boxes / messages / choices / conditions) + the clock-syntax DB migration.
 3. Event ids + repeat modes + save game; `askText`.
 4. Creator: chips, builder, wavy underline, insert-variable list, sample readers; validation in the Problems panel.
 5. The example story (a little one searching for their mama – everyone: "I'm not your mama, you have to go on", tips
