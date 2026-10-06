@@ -44,12 +44,10 @@
 	const fullOrder = $derived(frontToBack(fullCharacters.map(sceneKey)));
 	const groups = $derived(stageLayout(leftCharacters.length, rightCharacters.length, width, rem));
 	const fullPlaces = $derived(fullLayout(fullCharacters.length, width, height, rem));
-	/** the box's lift above the viewport bottom (1 rem; more above the draft-preview label – vn/message.svelte) */
-	const lift = $derived(vn.state.boxBottom || rem);
-	/** the full characters' feet: the box's bottom edge */
-	const fullGround = $derived(Math.round(lift));
-	/** feet on the box top, a few px into it */
-	const ground = $derived(Math.round(lift + (vn.state.boxHeight || 12 * rem + 4) - STAGE.sink));
+	/** the full characters' feet: the box's bottom edge (the box sits 1 rem above the viewport bottom) */
+	const fullGround = $derived(Math.round(rem));
+	/** feet on the box top (the box sits 1 rem above the bottom), a few px into it */
+	const ground = $derived(Math.round(rem + (vn.state.boxHeight || 12 * rem + 4) - STAGE.sink));
 	const onStage = $derived([
 		...leftCharacters.map((c) => ({ c, place: groups.left.places[leftOrder.indexOf(sceneKey(c))] })),
 		...rightCharacters.map((c) => ({ c, place: groups.right.places[rightOrder.indexOf(sceneKey(c))] }))

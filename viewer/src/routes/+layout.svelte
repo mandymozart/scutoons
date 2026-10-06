@@ -8,7 +8,7 @@
 	import Header from '$lib/components/header.svelte';
 	import { draftPreview } from '$lib/draft-preview.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { invalidateAll } from '$app/navigation';
+	import { Icon } from '@scutoons/ui';
 	import Loader from '$lib/components/loader.svelte';
 	import ItemsHost from '$lib/components/items/items-host.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
@@ -21,10 +21,6 @@
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	let toons = $derived(data.toons);
-	// the draft-preview label bottom left: the VN box keeps clear of it (--vn-inset-bottom below)
-	$effect(() => {
-		document.documentElement.classList.toggle('draft-preview-on', draftPreview.on);
-	});
 	const session = setSessionContext();
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
@@ -82,11 +78,11 @@
 <Loader visible={!!navigating.to} oncancel={() => goto(page.url.href, { noScroll: true })} />
 
 {#if draftPreview.on}
-	<!-- a creator's draft preview is on (account page): drafts and coming-soon chapters are readable here -->
-	<p class="draft-preview" data-testid="draft-preview-bar">
-		{m['account.draft_preview']()}
-		<button type="button" onclick={() => { draftPreview.set(false); invalidateAll(); }}>{m['account.draft_preview_off']()}</button>
-	</p>
+	<!-- a creator's draft preview is on (account page): drafts and coming-soon chapters are readable here. Only a mark
+	     (owner 2026-10-06): the switch is on the account page -->
+	<a class="draft-preview" href={localizeHref('/account')} title={m['account.draft_preview_mark']()} aria-label={m['account.draft_preview_mark']()} data-testid="draft-preview-mark">
+		<Icon name="eye" size="0.875rem" />
+	</a>
 {/if}
 <Header {toons} />
 
@@ -103,39 +99,22 @@
 </div>
 
 <style>
-	/* the VN box (message, question, choices) stays above the draft-preview label: its bottom edge + 0.5rem
-	   (vn/message.svelte reads --vn-inset-bottom) */
-	:global(html.draft-preview-on) {
-		--vn-inset-bottom: calc(var(--control-height) + 1rem + env(safe-area-inset-bottom, 0rem));
-	}
-	/* a small label bottom left: clear of the fixed header buttons, below the menus that slide in (owner 2026-10-03:
-	   the bar at the top looked broken on mobile) */
+	/* a tiny round mark top right, under the round toggles (main-menu.svelte: top 0.5rem, --control-height high) –
+	   clear of the logo / pause mark (top left), the VN box and the next bar (bottom); below the slide-in menus */
 	.draft-preview {
 		position: fixed;
-		left: 0.5rem;
-		bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+		top: calc(0.5rem + var(--control-height) + 0.5rem);
+		right: calc(0.5rem + (var(--control-height) - 1.5rem) / 2);
 		z-index: 900;
-		margin: 0;
+		box-sizing: border-box;
+		width: 1.5rem;
+		height: 1.5rem;
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+		justify-content: center;
+		border-radius: var(--radius-full);
 		background: var(--ink);
 		color: var(--paper);
-		font-size: 0.6667rem;
-		line-height: 1;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		white-space: nowrap;
-		button {
-			font: inherit;
-			color: inherit;
-			background: none;
-			border: 1px solid currentColor;
-			box-sizing: border-box;
-			height: var(--control-height);
-			padding: 0 0.5rem;
-			cursor: pointer;
-		}
+		text-decoration: none;
 	}
 </style>
