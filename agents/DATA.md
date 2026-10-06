@@ -14,7 +14,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 
 | What | Where | Edited in |
 |---|---|---|
-| toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
+| toon list entry (status, languages; the name = `title` per language, decision 4 of agents/NEUTRAL.md) | DB entity `toon:<toon>` | creator (toon page / toon settings) |
 | language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) + the toon's title / description / release / status per language (locale maps, agents/NEUTRAL.md step 4) | DB entity `toon:<toon>` (the same entry); legacy `toon-settings:<toon>:<l>` | creator (toon settings) |
 | toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>` (language-neutral, texts as locale maps); legacy `season:<toon>:<n>:<l>` | creator (season page) |
@@ -150,8 +150,14 @@ registry name, owner 2026-10-01) and its entry has the duo `avatar.webp`. Seed (
 **Since 2026-10-06 (agents/NEUTRAL.md step 4) the per-language part is in the entry too**: `title`, `description`,
 `release` as locale maps and `languageStatus` (the status per language; the entry's `status` stays the whole toon's);
 `toon-settings:<toon>:<l>` is legacy – the library reads it only while the entry has no `title` map, the creator edits
-the entry only (one document), `/library/toons?locale=` leaves out a toon closed in that language. The paragraph below is
-the 2026-10-01 state.
+the entry only (one document), `/library/toons?locale=` leaves out a toon closed in that language. **The name is `title`**
+(owner 2026-10-06, NEUTRAL.md decision 4): the old `i18n.<l>.name` is no longer stored (folded into `title` by the
+conversion; `ToonIndex.i18n` is `@deprecated`, read only from older entries); every list / menu / nav reads
+`toonName(entry, locale)` (`@scutoons/content`: `title` locale → source → any, else the old i18n name, else the id). The
+answered entries (`/library/toons`, the bundle's `entry`) carry `title` = the name in each toon language (resolved) and,
+**legacy for older viewer builds (drop later)**, `i18n.<l>.name` computed from it (`Library::indexEntry`, FORMAT 7); an
+entry without texts keeps its stored `i18n`. `toonLanguages()` / `Library::languages`: `languages` → `title` keys → old
+`i18n` keys. The paragraph below is the 2026-10-01 state.
 
 **Language-neutral toon settings in the toon entry (2026-10-01, owner):** "fields with no text are edited and stored per
 language, which is pointless". Every toon setting that is not text lives once in the index entry `toon:<toon>`

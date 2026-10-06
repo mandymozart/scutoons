@@ -17,8 +17,8 @@ fix. All checks green: `npm run check`, every `check:creator-*`, `check:mcp`, PH
 1. Text-box styles are the same in every language – no per-language style overrides (source wins, as converted).
 2. A missing translation falls back to the source language (as built).
 3. `/library/toons?locale=` leaves out a toon whose page is closed in that language – better (as built).
-4. Open: the toon entry stores the translated name twice (`i18n.<l>.name` for landing / menu / creator nav, `title.<l>`
-   for the toon page / cover) – proposal: keep only `title` (still per language), drop `i18n`.
+4. One name: `title` (per language) is the toon's name, `i18n` is no longer stored (owner: "one property – if title is
+   adequate do it") – done 2026-10-06, see "Decision 4 – one toon name" below.
 
 **Ship (when you like it):** merge `chapter-neutral` into `main`, push (deploys api, creator, viewer, admin). Readers see
 no change – without neutral documents the library serves the per-language ones as before. Then in the creator, per
@@ -404,7 +404,7 @@ the toon page in de / en (titles from the entry).
 
 Notes: `check:creator-cover`'s reader step (only when the viewer runs) fails – pre-existing: the sandbox is a draft toon
 and the check's browser has no draft-preview session, so `/de/sandbox` is 404; with the viewer down the step is skipped
-(as in 2B). Open: fold `i18n.<l>.name` into `title`? Remove the legacy toon-settings path (library fallback,
+(as in 2B). ~~Open: fold `i18n.<l>.name` into `title`?~~ (done, decision 4 below). Remove the legacy toon-settings path (library fallback,
 `ToonSettings` schema, MCP's legacy read, the Convert page's toon step) once production is converted.
 
 ## Step 5 "Creator wording" – done (2026-10-06, branch `chapter-neutral`)
@@ -425,3 +425,39 @@ and the check's browser has no draft-preview session, so `/de/sandbox` is 404; w
   them), the style guide page (English reference text), font names (lettering / mono), audio trigger modes
   (mono / poly), validation messages from `@scutoons/content` (English, shared with the MCP tools; a few still say
   "chapter file" for the legacy per-locale path).
+
+## Decision 4 "One toon name" – done (2026-10-06, branch `chapter-neutral`)
+
+Owner: "one property – if title is adequate do it". The toon entry's `title` (LocaleText) is THE name; `i18n.<l>.name`
+is gone from stored entries.
+
+- **Types**: `ToonIndex.i18n` optional + `@deprecated` (read only from older entries); schema regenerated.
+  `toonName(entry, locale)` (`@scutoons/content` neutral.ts): `title` resolved locale → source → the toon's languages →
+  any, else the old i18n name the same way, else the id. `toonLanguages()`: `languages` → `title` keys → old `i18n` keys.
+- **Readers** (all via `toonName`): viewer landing + main menu, creator nav (`nav.toonName`), nav sidebar, toon list,
+  `loadToons` (characters), MCP `list_toons` (`names` per toon language), `scripts/check-landing.mjs`.
+- **Library** (FORMAT 7): the answered entries (`/library/toons`, the bundle's `entry`) carry `title` = the name in each
+  toon language (resolved, `Library::names`) and – **legacy for older viewer builds, drop later** – `i18n.<l>.name`
+  computed from it; an entry without texts (production before its conversion) keeps its stored `i18n` (title from its
+  names). `Library::languages`: `languages` → `title` keys → `i18n` keys. Legacy answers (`content:neutral-check`) see a
+  converted entry with its names as `i18n` (as before the conversion), so both sides answer the same.
+- **Conversion**: `neutralizeToon` ends with `foldToonName` – a language without a settings title (missing / blank) gets
+  its `i18n` name; where both differ the settings title wins and `differs i18n.<l>.name` (`entry` = the old name) is
+  reported; an old `i18n.<l>.description` is reported `invisible`; `i18n` dropped. `planToonConversion`: an entry that
+  has its texts but still stores `i18n` gets only the fold (`nameOnly` steps: published after the published entry, a
+  draft after a newer one; never for an entry without texts – the name alone would open its pages). The Convert page
+  plans every toon with an entry (not only those with toon settings); `dev:neutralize` likewise. The creator's entry
+  doc folds an `i18n` in memory on load (the next save drops it).
+- **Creator / admin**: no name field besides `title` anywhere; the admin's new toon stores `title` only (CatalogTest);
+  the toon page's "start an entry" no longer writes `i18n: {}`.
+- **Validation**: `checkToonIndex` warns on a stored `i18n` ("drop it, the name is "title"" – without texts: "Convert
+  puts it into title"); a title missing in a language → the existing completeness warnings.
+- **MCP guidance** (resources: `title` is the one name, never write `i18n`), `make-sandbox` (no `i18n`), the golden
+  fixture `toon.json` (no `i18n`), `check:mcp` (+3: list_toons names = title, the entry has no i18n, the warning).
+
+Dev DB: `npm run dev:neutralize -- --apply` stored 7 entry versions (catpope / toptoy / yellowmouse published + draft,
+sandbox published; names equal to the titles everywhere – only the sandbox's 3 old descriptions reported, invisible); a
+second run stores nothing. `content:neutral-check`: 86 answers, only the 7 known differences. `/library/toons?locale=de`
+/ `en`: catpope Katzenpapst / Cat Pope, toptoy Top Toy, yellowmouse Mausboss / Yellow Mouse (title + legacy i18n).
+Checks: `npm run check` (exit 0, incl. `check:tools-css`), `check:creator-cast` (19), `-chapter` (59), `-script` (28),
+`-cover` (40), `check:mcp` (39), `scripts/check-landing.mjs` (49), PHPUnit (270), phpstan clean.
