@@ -95,6 +95,44 @@ final class ContentSchemasTest extends TestCase
         }
     }
 
+    /** expressions in texts (agents/EXPRESSIONS.md §4): syntax errors and the old `{x:clock}` block, doubts don't */
+    public function testExpressionsInNeutralTexts(): void
+    {
+        $schemas = $this->get(ContentSchemas::class);
+        $check = fn(string $key, mixed $content) => $schemas->problemsOf(EntityKey::parse($key), json_decode((string) json_encode($content)));
+        $chapter = fn(array $dialog, array $message, array $label) => ['title' => ['de' => 'Eins'], 'author' => 'M', 'number' => 1, 'release' => ['de' => '2025-10-04'], 'description' => ['de' => ''],
+            'thumbnail' => '', 'groups' => [['slices' => [['image' => 'a.webp', 'width' => 1, 'height' => 1, 'dialog' => [['rect' => ['x' => 0, 'y' => 0, 'width' => 1], 'text' => $dialog]],
+                'items' => [['id' => 'i1', 'item' => 'coin', 'rect' => ['x' => 0, 'y' => 0, 'width' => 1, 'height' => 1], 'events' => [['type' => 'showMessage', 'params' => ['text' => $message]]]]]]],
+                'events' => [['type' => 'addChoice', 'params' => ['label' => $label]]]]]];
+        $fine = $chapter(['de' => ['{map.total - map.unlocked} Orte', '{map.totl}'], 'en' => '{coins == 1: coin|coins}'], ['de' => '{Hallo.|Du schon wieder?|Geh weg!} {clock(t)}'], ['de' => '{unknown_fn(1)} {coinz}']);
+        self::assertSame([], $check('chapter:catpope:1', $fine), 'unknown names / functions are warnings in the creator, not a reason to refuse');
+        $broken = $chapter(['de' => ['ok', 'Noch {map.total - } Orte']], ['de' => 'Es ist {time:clock} Uhr'], ['de' => 'Ja {coins', 'en' => 'fine']);
+        self::assertSame([
+            '/groups/0/slices/0/dialog/0/text/de/1: expected a value – at 19 (expr:expected-value)',
+            '/groups/0/slices/0/items/0/events/0/params/text/de: `{time:clock}` is the old clock form – write `{clock(time)}` – at 8–19 (expr:old-clock-syntax)',
+            '/groups/0/events/0/params/label/de: missing `}` – at 4–9 (expr:missing-close)',
+        ], $check('chapter:catpope:1', $broken));
+        self::assertNotSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => '{a +}']]]]]));
+        self::assertSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => '{a + 1}']]]]]));
+    }
+
+    public function testABrokenExpressionRefusesTheSave(): void
+    {
+        $user = $this->user('creator@example.com');
+        $this->get(Roles::class)->grant((string) $user['id'], Roles::CREATOR);
+        $auth = ['Authorization' => 'Bearer ' . $this->get(Sessions::class)->create((string) $user['id'])];
+        $scene = fn(string $text) => (string) json_encode(['content' => ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => $text]]]]]]);
+
+        $bad = $this->request('PUT', '/api/entities/scene:smoke:1:kiosk', $auth, $scene('Hallo {name'));
+        self::assertSame(422, $bad->getStatusCode(), (string) $bad->getBody());
+        $body = json_decode((string) $bad->getBody(), true);
+        self::assertStringContainsString("has a text that can't be shown: /events/0/params/text/de: missing `}`", (string) ($body['message'] ?? $body['error'] ?? ''));
+        self::assertSame(['/events/0/params/text/de: missing `}` – at 7–11 (expr:missing-close)'], $body['problems'] ?? null);
+
+        $good = $this->request('PUT', '/api/entities/scene:smoke:1:kiosk', $auth, $scene('Hallo {coinz}'));
+        self::assertSame(200, $good->getStatusCode(), (string) $good->getBody());
+    }
+
     public function testNewToonSettingsWithoutAcceptedWarnings(): void
     {
         // as the creator's "Create season 1" writes them (newToon): no accepted_warnings until a warning is accepted

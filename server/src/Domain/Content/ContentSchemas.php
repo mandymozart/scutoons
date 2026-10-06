@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Content;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Content\Expr\TextCheck;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
@@ -72,20 +73,24 @@ final class ContentSchemas
 
     /**
      * Problems of a stored document by its key: a neutral chapter / scene / season against its neutral schema, a
-     * per-locale one (legacy) against the old
+     * per-locale one (legacy) against the old; a neutral chapter / scene's texts also by their expressions (syntax
+     * errors and the old `{x:clock}`, Expr\TextCheck – agents/EXPRESSIONS.md §4)
      * @return list<string>
      */
     public function problemsOf(EntityKey $key, mixed $content, int $limit = 20): array
     {
-        return $this->problems($key->kind, $content, $limit, $key->isNeutralDoc());
+        $problems = $this->problems($key->kind, $content, $limit, $key->isNeutralDoc());
+        if ($problems || !$key->isNeutralDoc() || !in_array($key->kind, ['chapter', 'scene'], true)) return $problems;
+        return TextCheck::problems($key->kind, $content, $limit);
     }
 
-    /** Throws 422 invalid_content { problems } when $content doesn't fit its kind */
+    /** Throws 422 invalid_content { problems } when $content doesn't fit its kind (or a text's expression is broken) */
     public function guard(EntityKey $key, mixed $content): void
     {
         $problems = $this->problemsOf($key, $content);
         if ($problems) {
-            throw new ApiError(422, 'invalid_content', "The $key->kind document doesn't fit its type: " . $problems[0]
+            $what = str_contains($problems[0], '(expr:') ? "has a text that can't be shown" : "doesn't fit its type";
+            throw new ApiError(422, 'invalid_content', "The $key->kind document $what: " . $problems[0]
                 . (count($problems) > 1 ? ' (+' . (count($problems) - 1) . ' more)' : ''), ['problems' => $problems]);
         }
     }
