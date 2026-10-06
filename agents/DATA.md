@@ -388,13 +388,43 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   between. A **chain** = a maximal run of consecutive groups where all but the last continue (`chainOf`, `chainSlices`,
   `linksToNext` in `@scutoons/content` chains.ts). `?label=` of any group of a chain shows the whole chain (scrolled to
   that group); slice indices on the page run on across it.
-- A group with a VN script (`events`) or slice events can only be a chain's **last** group: its `continues` is ignored
-  (the reader treats it as a break); further down a chain its script starts when its first slice is seen.
+- **VN in linked groups** (owner 2026-10-06): any group of a chain may have a VN script and slice events. The cases:
+
+  | Case | Rule |
+  |---|---|
+  | several scripts (`events`) in one chain | allowed. They run ONE AFTER ANOTHER through the one VN context (viewer `script-queue.ts`, `interactions/vn-page.svelte`): a script asks to start when its group's first slice is seen and starts once no other script of the page runs and nothing waits for the reader (no message waiting for its click, no choice open, no slice trigger running) – else it waits in line. The stage carries over between the scripts of a page (authors use join / leave; validation checks each script on its own, a chain can be entered in the middle). A script's label (random jumps, choices) = its own group's. |
+  | when a script starts | a lone group (no chain): on mount (as before). In a chain – its first group too: when the group's first slice is seen; a group without slices: when the page slice before it is seen (at once when it is the page's first). |
+  | a script that can jump away (a `jumpTo` event, a choice whose `onSelect` jumps) in a group that `continues` | allowed (other scenes may jump back into the chain). Whatever follows a jump must be reachable by a label: the next group needs a `label` – a **warning** when it has none (`scriptJumps`); the creator reminds next to the script with a one-click "Give it a label". |
+  | slice events (triggers) | allowed in every group. A slice choice with jumpTo is the author's deliberate exit. |
+  | a slice event's `divert` | goes into its OWN group's script (the slice's group context, viewer `group-scope.ts`); validation: that script needs the `label` point (`checkScriptPoints`, per group). |
+  | text boxes revealed by scripts (`showOnomatopeia params.dialog`) | kept per group on the page (`scope`: refs, revealed boxes, playing effects). Text box ids are unique within the chapter, its scenes included: the creator gives a new box an id no other box of the chapter has (ids stay hidden, never typed); validation **error** on a duplicate (safety net). |
+  | scrolling | frozen (no wheel / touch scroll) while anything waits: a message waiting for its click, a choice open, a script running or in line, a slice trigger running – until all of it is through (`vn.state.frozen`). Shown by a Feather `pause` mark directly below the logo (an indicator, not a button; tooltip "Scrolling paused – answer the message first"). |
+  | follow-up bar / `end` (`auto` too) | only when the chain's last slice was seen AND every script the page must run has finished (none in line, none waiting) and nothing is frozen (`vn.state.pageDone`). |
+  | `?label=` into the middle of a chain (option B) | the whole chain renders, scrolled to the labelled group (as before); scrolling back up works. The groups ABOVE the target count as read: their scripts don't run (they don't block or freeze), their slice triggers don't fire, their text boxes show as plain (revealed) content, the follow-up bar doesn't wait for them. The target group and those below run as normal. |
+  | a jump into the page the reader is on (same chain) | the page starts again (like "Nochmal"): another group of the chain = another arrival (`{#key}` on chain start + arrival group), the very same URL = a replay. |
+  | "↺ Nochmal" / leaving the page | a fresh page: every script of the chain again, the stage and revealed boxes cleared (`vn.claimPage`); leaving cancels the line and every script. |
+  | the VN box / characters overlay | one per page (vn-page.svelte), shared by all groups of the chain. |
+  | game variables, reading progress | unchanged (variables are toon-wide; progress counts slices across the chain). |
+  | the chapter's last group | can't continue (error; the creator doesn't offer it). |
+
+- **Reachability** (owner 2026-10-06, `@scutoons/content` reach.ts `chapterReach`): a graph over the chapter – groups,
+  slices, script events, slice-event runs and placed items' tap events, named points, diverts, jumps, choices,
+  conditions – walked with visited sets (iterative, O(nodes + edges), never runs a script; cycles are harmless). Every
+  group / slice / script event is *reachable*, *only through a condition* or *unreachable*. Entry points: the chapter's
+  first group, a labelled chain start the follow-up bar leads to (the chain before can finish, no authored `end`), and a
+  labelled group something in the toon refers to (`toonFacts`: any jump target, end, random list or map place in the
+  toon's documents; without the facts every labelled group counts). Scrolling past a group needs its script to finish
+  (the page is frozen meanwhile) and past a slice its scroll triggers' runs. A condition whose variable is set nowhere in
+  the toon (setVariable, a choice's set / add, a picked-up item) and that needs a value is *never true* – its branch
+  counts as never taken; a divert / question loop with no end and no jump is an *endless loop*. Validation warns
+  (`checkReach`: "unreachable", "never true", "endless loop"); the creator labels the items with a chip (chapter tree,
+  slice list, VN event lists – `reach-chip.svelte`, debounced, the toon's other documents loaded once) so the author can
+  find and delete them.
 - **`Group.end: { target: JumpToTarget, auto? }`** – where the reader goes after the chain's last group instead of the
   next group / chapter (`nextStep` kind `jump`; the URL via the VN's `buildJumpToUrl`). `auto` = at once, else the
   follow-up bar offers it with the countdown. Only read on a chain's last group.
 - Stored like `renderer.params.fullWidth`: on the group itself (a `ref` group's in its scene document); the creator writes
-  them to every language. Validation: `continues` on the chapter's last group / on a VN group = error; `end` on a group
+  them to every language. Validation: `continues` on the chapter's last group = error; `end` on a group
   that continues = warning (ignored); a chain that isn't the chapter's start without a label on its first group =
   warning (unreachable); `end.target` is checked like a jumpTo target. The chapter check reads ref groups' scenes through
   `ValidateContext.resolveGroup` (the creator passes its loaded scenes).

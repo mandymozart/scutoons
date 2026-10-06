@@ -273,14 +273,20 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   kept aligned while the page above settles. One `{#key}` per chain; the follow-up bar only after its last group, "↺
   Nochmal" from the chain's top. Creator: "geht weiter in die nächste Gruppe" (not on the chapter's last group), "Ende"
   (set / removed with a button: the jumpTo target fields + "sofort") on a group that doesn't continue; a Feather link
-  mark in the chapter tree on a group that continues.
+  mark in the chapter tree on a group that continues. VN in any group of a chain (DATA.md "Linked groups", the case
+  table): one box per page, scripts one after another; while the story waits the page doesn't scroll and a Feather
+  `pause` mark sits directly below the logo (an indicator, no button, white ground, `title` = why). `?label=` into a
+  chain: the groups above count as read. Creator: a jumping group that continues into an unlabelled one gets a note
+  above its script with "Label vergeben"; unreachable groups / slices / events and never-true tests carry a warning
+  chip ("unerreichbar", "nie wahr", "Endlosschleife").
 - **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group
   (of linked groups: after the last one).
   - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
     track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);
-    a VN group additionally needs its script run to the end without a jump (`vn.state.eventsDone`, set by `endOfEvents`)
-    and nothing waiting (no message waiting for its click, no choice open). A script that ends with `jumpTo` navigates
-    itself, the bar never shows there.
+    a page with VN additionally needs every script it must run finished – of linked groups all from the shown group on
+    – none in line and nothing waiting (no message waiting for its click, no choice open, no trigger running;
+    `vn.state.pageDone` and not `frozen`, owner 2026-10-06). A script that ends with `jumpTo` navigates itself, the bar
+    never shows there.
   - **Look:** fixed at the bottom of the viewport, full width, `paper`, a 2px `ink` top rule, IBM Plex Mono, square,
     content max(500px, 30rem) centred; z 110 (above the VN box's 100 – it only shows once the scene finished – under the
     toggles and overlays ≥ 1000); a spacer keeps the last slice clear of it. An optional one-line text, then the
