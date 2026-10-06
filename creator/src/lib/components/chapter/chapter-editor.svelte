@@ -60,6 +60,7 @@
 	import FlowPanel from '$lib/components/flow/flow-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
@@ -229,6 +230,9 @@
 		const live = toonFacts([...sliceDocs.map((d) => $state.snapshot(d.data[d.primary])), $state.snapshot(worldMap.data?.[worldMap.primary])]);
 		return { variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]) };
 	});
+	// the expression fields: the toon's story variables (the builder offers them, unknown names warn)
+	$effect(() => exprContext.setVariables(facts?.variables));
+	$effect(() => () => exprContext.setVariables(null));
 	/** the chapter's reachability for the labels in the tree / slice list / event lists – debounced while editing */
 	let reach = $state<ChapterReach | null>(null);
 	/** the groups `reach` was computed from (the Flow panel draws exactly what the chips say) */
@@ -449,7 +453,17 @@
 	// accepted warnings ("Looks fine") don't count
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(allDocs, p)).length);
 
+	/** a slice whose text boxes hold `{…}`: the canvas toolbar offers the sample readers */
+	const sliceHasExpressions = (slice: any) =>
+		(slice?.dialog ?? []).some((d: any) => {
+			const t = d?.text;
+			const all = t && typeof t === 'object' && !Array.isArray(t) ? Object.values(t) : [t];
+			return all.flat().some((x) => typeof x === 'string' && x.includes('{'));
+		});
+
 	function gotoProblem(p: Problem) {
+		// an expression's problem: its field (once shown) focuses and selects the range (expr-text.svelte)
+		if (p.expr) exprContext.focus = { key: fieldKey(p.file, p.path, p.locale), line: p.expr.line, start: p.expr.start, end: p.expr.end };
 		let path = p.path;
 		if (p.file === season.entity) {
 			view.section = 'meta';
@@ -765,7 +779,7 @@
 						<p>{m['creator.loading']()}</p>
 					{/if}
 				{:else if view.section === 'slice' && activeDoc && activeSlice}
-					<SliceToolbar {view} />
+					<SliceToolbar {view} expressions={sliceHasExpressions(activeSlice)} />
 					<div class="canvas-scroll">
 						<SliceCanvas
 							bind:this={canvas}

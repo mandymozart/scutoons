@@ -17,6 +17,9 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
+	import { sampleResolver } from '$lib/editor/sample-readers.ts';
+	import type { TextExpressions } from '@scutoons/reader';
 	import { deltas, dialogScale, gridSteps, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
@@ -50,6 +53,12 @@
 
 	/** the slice as the reader shows it in `locale` (texts resolved – the editing below writes the document itself) */
 	const slice = $derived<any>(doc.resolvedSlice(slicePath, locale));
+	/** text boxes with `{…}` as the toolbar's sample reader sees them (agents/EXPRESSIONS.md step 4), or as written */
+	const expressions = $derived.by<TextExpressions | undefined>(() => {
+		const sample = exprContext.sample;
+		if (sample === 'written') return undefined;
+		return { resolver: (_text, lang) => sampleResolver(sample, lang ?? locale) };
+	});
 	const image = $derived(slice?.image ? replacedImages.src(asset(`${doc.toon}/${slice.image}`), `${doc.toon}/${slice.image}`) : '');
 	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
 	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);
@@ -428,7 +437,7 @@
 			<p class="image-error">Image not found: {slice?.image}</p>
 		{/if}
 		<SliceItems items={slice?.items} resolve={resolveItem} />
-		<Dialogs dialogs={slice?.dialog} lang={locale} />
+		<Dialogs dialogs={slice?.dialog} lang={locale} {expressions} />
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div

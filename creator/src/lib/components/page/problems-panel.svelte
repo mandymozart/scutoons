@@ -10,6 +10,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { acceptStore, isAccepted as accepted, toggleAccepted } from '$lib/editor/accepted.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { exprTextAt } from '$lib/editor/expr-messages.ts';
 
 	let {
 		problems,
@@ -49,6 +50,9 @@
 		dialog: (n) => m['creator.line_n']({ number: n }),
 		events: (n) => m['creator.event_n']({ number: n })
 	};
+	/** an expression's problem in the creator's language (the validator's message is English), with its place */
+	const messageOf = (p: Problem) => (p.expr && p.code?.startsWith('expr:') ? exprTextAt({ code: p.code, ...p.expr }) : p.message);
+
 	function placeOf(p: Problem): string {
 		const parts = p.file === home ? [] : [fileLabel(p.file)];
 		const path = p.path.at(-1) === 'text' ? p.path.slice(0, -1) : p.path;
@@ -84,7 +88,7 @@
 			<li class="level-{p.level}" class:is-accepted={done}>
 				<button type="button" class="goto" onclick={() => ongoto?.(p)} title={m['creator.problems_goto']()}>
 					<span class="where">{place}</span>
-					<span class="msg">{p.message}</span>
+					<span class="msg">{messageOf(p)}</span>
 				</button>
 				<span class="actions">
 					{#if storeOf(p)}

@@ -9,6 +9,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { FORM_TYPES, castOptions, conditionWords, summary, template, triggerWord } from '$lib/editor/vn-forms.ts';
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import EventMessage from '$lib/components/events/event-message.svelte';
 	import EventAskText from '$lib/components/events/event-ask-text.svelte';
@@ -139,6 +140,14 @@
 		if (selected >= 0 && !untrack(() => open).includes(selected)) open = [...untrack(() => open), selected];
 	});
 	const isOpen = (i: number) => open.includes(i);
+	// a jump to an expression's problem in one of these events (Problems panel): its form opens, the field takes the jump
+	$effect(() => {
+		const key = exprContext.focus?.key;
+		const prefix = `${doc.entity}|${eventsPath.join('.')}.`;
+		if (!key?.startsWith(prefix)) return;
+		const index = Number.parseInt(key.slice(prefix.length), 10);
+		if (Number.isInteger(index) && !untrack(() => open).includes(index)) open = [...untrack(() => open), index];
+	});
 
 	// ── multi-select + drag (like the chapter tree): click = one (opens / folds it), Shift = range, Ctrl / Cmd = add / remove ──
 	let picked = $state<number[]>([]);
