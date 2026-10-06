@@ -1,7 +1,7 @@
 // Linked groups ("chains", owner 2026-10-06; agents/DATA.md "Linked groups").   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chainOf, chainsOf, chainSlices, groupEnd, hasVisualNovel, linksToNext, nextStep, scriptFlow, scriptJumps, unreachable, unreachableEvents, validateFile } from '../src/index.ts';
+import { chainOf, chainsOf, chainSlices, groupEnd, hasVisualNovel, linksToNext, nextStep, chapterReach, neverTrue, scriptJumps, toonFacts, validateFile } from '../src/index.ts';
 
 const slices = (n: number) => Array.from({ length: n }, () => ({ image: 'images/p.webp', width: 390, height: 625 }));
 
@@ -30,52 +30,101 @@ test('chainOf: VN groups (scripts, slice events, even jumping scripts) link like
 	assert.deepEqual(chainOf(groups, 0), { start: 0, end: 3 });
 });
 
-test('scriptFlow / scriptJumps: where a script can go', () => {
+test('scriptJumps: a jumpTo event or a choice that jumps', () => {
 	const jump = { type: 'jumpTo', params: { target: { type: 'chapter', value: '2' } } };
-	const msg = { type: 'showMessage', params: { text: 'x' } };
-	assert.equal(scriptJumps({ events: [msg] }), false);
-	assert.equal(scriptJumps({ events: [msg, jump] }), true);
+	assert.equal(scriptJumps({ events: [{ type: 'showMessage' }] }), false);
+	assert.equal(scriptJumps({ events: [{ type: 'showMessage' }, { ...jump, if: { variable: 'v', op: 'set' } }] }), true);
 	assert.equal(scriptJumps({ events: [{ type: 'addChoice', params: { label: 'a', onSelect: [{ jumpTo: { target: { type: 'chapter', value: '2' } } }] } }, { type: 'showChoices' }] }), true);
-	// always leaves: no run ends
-	let flow = scriptFlow([msg, jump, msg]);
-	assert.deepEqual([flow.ends, flow.jumps, [...flow.reachable]], [false, true, [0, 1]]);
-	// a conditional jump may be skipped
-	flow = scriptFlow([{ ...jump, if: { variable: 'v', op: 'set' } }, msg]);
-	assert.deepEqual([flow.ends, flow.jumps], [true, true]);
-	// a choice that stays + one that jumps
-	flow = scriptFlow([
-		{ type: 'addChoice', params: { label: 'stay' } },
-		{ type: 'addChoice', params: { label: 'go', onSelect: { jumpTo: { target: { type: 'chapter', value: '2' } } } } },
-		{ type: 'showChoices' }
-	]);
-	assert.deepEqual([flow.ends, flow.jumps], [true, true]);
-	// a divert skips events; a divert loop never ends
-	flow = scriptFlow([{ type: 'divert', params: { to: 'b' } }, msg, { type: 'label', params: { name: 'b' } }, msg]);
-	assert.deepEqual([flow.ends, [...flow.reachable].sort()], [true, [0, 2, 3]]);
-	flow = scriptFlow([{ type: 'label', params: { name: 'a' } }, { type: 'divert', params: { to: 'a' } }]);
-	assert.deepEqual([flow.ends, flow.jumps], [false, false]);
 });
 
-test('unreachable: groups / slices after content that always leaves, events no run reaches', () => {
+test('toonFacts / neverTrue: variables set somewhere, labels something jumps to', () => {
+	const facts = toonFacts([
+		{ groups: [{ events: [{ type: 'setVariable', params: { variable: 'clock', value: 1 } }, { type: 'addChoice', params: { onSelect: [{ add: { variable: 'coins', value: 1 } }, { jumpTo: { target: { type: 'chapter', value: '2', label: 'there', anyOf: ['x', 'y'] } } }] } }] }] },
+		{ places: [{ unlock: { type: 'chapter', value: '1', label: 'map-label' } }] },
+		{ slices: [{ items: [{ item: 'onion', action: 'pickup' }] }] }
+	]);
+	assert.deepEqual([...facts.variables].sort(), ['clock', 'coins', 'onion']);
+	assert.deepEqual([...facts.labels].sort(), ['map-label', 'there', 'x', 'y']);
+	assert.equal(neverTrue({ variable: 'nope', op: 'set' }, facts), true);
+	assert.equal(neverTrue({ variable: 'nope', op: '==', value: 'a' }, facts), true);
+	assert.equal(neverTrue({ variable: 'nope', op: '==', value: '' }, facts), false, 'unset == "" holds');
+	assert.equal(neverTrue({ variable: 'nope', op: 'unset' }, facts), false);
+	assert.equal(neverTrue({ variable: 'nope', op: '!=', value: 'a' }, facts), false);
+	assert.equal(neverTrue({ variable: 'clock', op: '>', value: 3 }, facts), false);
+	assert.equal(neverTrue({ variable: 'picked:x#1', op: 'set' }, facts), false, 'internal keys are not judged');
+	assert.equal(neverTrue({ variable: 'nope', op: 'set' }, undefined), false, 'without the toon nothing is judged');
+});
+
+test('chapterReach: groups / slices / events – reachable, only through a condition, unreachable', () => {
 	const jump = { type: 'jumpTo', params: { target: { type: 'chapter', value: '2' } } };
-	const g = (o: object = {}) => ({ slices: [{}, {}, {}], ...o });
-	// a always jumps: b (no label) is unreachable, c (label) may be jumped to
-	assert.deepEqual(unreachable([g({ events: [jump], continues: true }), g({ continues: true }), g({ label: 'c' })]).groups, [1]);
-	// not continuing: nothing follows on the page
-	assert.deepEqual(unreachable([g({ events: [jump] }), g()]).groups, []);
-	// a conditional jump makes nothing unreachable
-	assert.deepEqual(unreachable([g({ events: [{ ...jump, if: { variable: 'v', op: 'set' } }], continues: true }), g()]).groups, []);
-	// a scroll trigger on slice 2 that always jumps: slice 3 and the next group
-	const exit = g({ continues: true, slices: [{}, { events: [{ ...jump, trigger: { type: 'intersect' } }] }, {}] });
-	const lost = unreachable([exit, g()]);
-	assert.deepEqual([lost.groups, [...lost.slices]], [[1], [[0, [2]]]]);
-	// a click trigger may never be clicked
-	assert.deepEqual(unreachable([g({ continues: true, slices: [{ events: [{ ...jump, trigger: { type: 'click' } }] }, {}] }), g()]).groups, []);
-	// events: after an unconditional jump / divert, unless a slice event diverts to a point there
 	const msg = { type: 'showMessage', params: { text: 'x' } };
+	const g = (o: object = {}) => ({ slices: [{}, {}, {}], ...o });
+	const none = toonFacts([]);
+	// a always jumps: b (no label) can't be reached; c's label is unknown to the toon → unreachable too (with facts)
+	let r = chapterReach([g({ label: 'a', events: [jump], continues: true }), g({ continues: true }), g({ label: 'c' })], none);
+	assert.deepEqual(r.groups, ['reachable', 'unreachable', 'unreachable']);
+	// without facts every labelled group may be jumped to
+	r = chapterReach([g({ label: 'a', events: [jump], continues: true }), g({ continues: true }), g({ label: 'c' })]);
+	assert.deepEqual(r.groups, ['reachable', 'unreachable', 'reachable']);
+	// a conditional jump: the rest only through a condition (the test must fail)
+	r = chapterReach([g({ events: [{ ...jump, if: { variable: 'v', op: 'set' } }, msg], continues: true }), g()]);
+	assert.deepEqual([r.groups, r.events[0]], [['reachable', 'conditional'], ['reachable', 'conditional']]);
+	// a conditional message is no branch: what follows is reached either way
+	r = chapterReach([g({ events: [{ ...msg, if: { variable: 'v', op: 'set' } }, msg], continues: true }), g()]);
+	assert.deepEqual([r.groups, r.events[0]], [['reachable', 'reachable'], ['reachable', 'reachable']]);
+	// a scroll trigger on slice 2 that always jumps: slice 3 and the next group; a click trigger may never be clicked
+	r = chapterReach([g({ continues: true, slices: [{}, { events: [{ ...jump, trigger: { type: 'intersect' } }] }, {}] }), g()]);
+	assert.deepEqual([r.slices[0], r.groups[1]], [['reachable', 'reachable', 'unreachable'], 'unreachable']);
+	r = chapterReach([g({ continues: true, slices: [{ events: [{ ...jump, trigger: { type: 'click' } }] }, {}] }), g()]);
+	assert.deepEqual(r.groups, ['reachable', 'reachable']);
+	// the follow-up bar leads to a labelled next chain – not after an authored end, not to an unlabelled group
+	r = chapterReach([g(), g({ label: 'b' })], none);
+	assert.deepEqual(r.groups, ['reachable', 'reachable']);
+	r = chapterReach([g({ end: { target: { type: 'chapter', value: '3' } } }), g({ label: 'b' })], none);
+	assert.deepEqual(r.groups, ['reachable', 'unreachable']);
+	// events after an unconditional jump / divert; a slice event's divert enters the script at its point
 	const script = [msg, jump, msg, { type: 'label', params: { name: 'p' } }, msg];
-	assert.deepEqual(unreachableEvents({ events: script }), [2, 3, 4]);
-	assert.deepEqual(unreachableEvents({ events: script, slices: [{ events: [{ type: 'divert', params: { to: 'p' }, trigger: { type: 'click' } }] }] }), [2]);
+	assert.deepEqual(chapterReach([g({ events: script })]).events[0], ['reachable', 'reachable', 'unreachable', 'unreachable', 'unreachable']);
+	r = chapterReach([g({ events: script, slices: [{ events: [{ type: 'divert', params: { to: 'p' }, trigger: { type: 'click' } }] }] })]);
+	assert.deepEqual(r.events[0], ['reachable', 'reachable', 'unreachable', 'reachable', 'reachable']);
+	// a choice: one that stays, one that jumps – both ways
+	r = chapterReach([
+		g({
+			continues: true,
+			events: [{ type: 'addChoice', params: { label: 'stay' } }, { type: 'addChoice', params: { label: 'go', onSelect: { jumpTo: { target: { type: 'chapter', value: '2' } } } } }, { type: 'showChoices' }, msg]
+		}),
+		g()
+	]);
+	assert.deepEqual([r.groups[1], r.events[0][3]], ['reachable', 'reachable']);
+});
+
+test('chapterReach: never-true conditions cut their branch; endless loops; big cyclic scripts stay fast', () => {
+	const jump = { type: 'jumpTo', params: { target: { type: 'chapter', value: '2' } } };
+	const msg = { type: 'showMessage', params: { text: 'x' } };
+	const facts = toonFacts([]);
+	// "if v is set → divert to p" with v set nowhere: p is unreachable, the test is reported
+	const r = chapterReach([{ slices: [{}], events: [{ type: 'divert', params: { to: 'p' }, if: { variable: 'v', op: 'set' } }, jump, { type: 'label', params: { name: 'p' } }, msg] }], facts);
+	assert.deepEqual(r.events[0], ['reachable', 'reachable', 'unreachable', 'unreachable']);
+	assert.deepEqual(r.neverTrue, [['groups', 0, 'events', 0, 'if']]);
+	// a slice event's condition too, at its own index
+	const r2 = chapterReach([{ slices: [{ events: [{ ...msg, trigger: { type: 'click' } }, { ...msg, trigger: { type: 'intersect' }, if: { variable: 'w', op: '>', value: 1 } }] }] }], facts);
+	assert.deepEqual(r2.neverTrue, [['groups', 0, 'slices', 0, 'events', 1, 'if']]);
+	// a loop with no way out; a menu loop with a way out is fine
+	const loop = chapterReach([{ slices: [{}], events: [{ type: 'label', params: { name: 'a' } }, msg, { type: 'divert', params: { to: 'a' } }] }]);
+	assert.deepEqual(loop.loops, [['groups', 0, 'events', 2]]);
+	const menu = chapterReach([
+		{
+			slices: [{}],
+			events: [{ type: 'label', params: { name: 'm' } }, { type: 'addChoice', params: { label: 'again', onSelect: { divert: { to: 'm' } } } }, { type: 'addChoice', params: { label: 'leave', onSelect: { jumpTo: { target: { type: 'chapter', value: '2' } } } } }, { type: 'showChoices' }]
+		}
+	]);
+	assert.deepEqual(menu.loops, []);
+	// 3000 events diverting around in a cycle, 200 groups: linear, no recursion
+	const big = Array.from({ length: 3000 }, (_, i) => (i % 3 === 0 ? { type: 'label', params: { name: `l${i}` } } : i % 3 === 1 ? { type: 'divert', params: { to: `l${(i + 2) % 3000}` }, if: { variable: 'v', op: 'set' } } : msg));
+	const t = Date.now();
+	const many = chapterReach(Array.from({ length: 200 }, (_, i) => ({ label: `g${i}`, continues: i < 199, slices: [{}, {}], events: big })));
+	assert.equal(many.groups.length, 200);
+	assert.ok(Date.now() - t < 3000, `took ${Date.now() - t} ms`);
 });
 
 test('chainSlices: page slice indices run on across the chain', () => {
@@ -190,5 +239,5 @@ test('validate: text box ids unique in the chapter (scenes too); unreachable con
 	// unreachable: events after an unconditional jump, the unlabelled group after it
 	const jump = { type: 'jumpTo', params: { target: { type: 'chapter', value: '2' } } };
 	const data = chapter([group('a', { continues: true, slices: [slice()], events: [jump, { type: 'hideMessage' }] }), { renderer: { type: 'vertical' }, slices: [slice()] }]);
-	assert.deepEqual(run(data, {}, /unreachable/), ['warning groups.0.events.1', 'warning groups.1']);
+	assert.deepEqual(run(data, {}, /unreachable/), ['warning groups.1', 'warning groups.0.events.1']);
 });

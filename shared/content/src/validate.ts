@@ -10,7 +10,8 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
-import { linksToNext, scriptJumps, unreachable, unreachableEvents } from './chains.ts';
+import { linksToNext, scriptJumps } from './chains.ts';
+import { chapterReach, type ToonFacts } from './reach.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import {
 	DEFAULT_SLICE,
@@ -92,6 +93,12 @@ export interface ValidateContext {
 	 * (chains.ts) are checked with the scenes' `continues`; none / null = the ref group as it is
 	 */
 	resolveGroup?: (group: any) => any;
+	/**
+	 * chapter files: what the whole toon says (`toonFacts` over its documents – the creator loads them): which labels
+	 * something jumps to, which variables something sets. None: every labelled group counts as reachable by a jump and no
+	 * condition is judged (reach.ts)
+	 */
+	facts?: ToonFacts;
 }
 
 class Collector {
@@ -585,7 +592,6 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	}
 	checkScriptPoints(c, g, path);
 	checkVnFlow(c, g, path);
-	for (const i of unreachableEvents(g)) c.warn([...path, 'events', i], 'unreachable: no run of the script gets here (an unconditional divert or jumpTo before it, and no divert leads here)');
 	checkGroupLinks(c, g, path);
 }
 
@@ -602,8 +608,8 @@ function checkGroupLinks(c: Collector, g: any, path: Path) {
 /**
  * The chapter's chains (chains.ts, owner 2026-10-06): the last group can't continue; a chain that isn't the chapter's start
  * needs a label on its first group (else nothing reaches it); a group whose script can jump away and continues needs a
- * label on the next group (whatever follows a jumpTo must be reachable by a label); content after a script that always
- * leaves is unreachable. `groups` = the chapter's groups with each scene in place of its ref (where known).
+ * label on the next group (whatever follows a jumpTo must be reachable by a label) – what can't be reached at all is
+ * `checkReach`'s. `groups` = the chapter's groups with each scene in place of its ref (where known).
  */
 function checkChains(c: Collector, groups: any[]) {
 	groups.forEach((g, i) => {
@@ -613,9 +619,32 @@ function checkChains(c: Collector, groups: any[]) {
 			c.warn(['groups', i + 1, 'label'], 'the group before can jump away (jumpTo) and continues into this one – give this group a label so a jump can lead back here');
 		if (i > 0 && !g.label && !linksToNext(groups, i - 1)) c.warn(['groups', i, 'label'], 'linked groups start here without a label – nothing can reach them');
 	});
-	const lost = unreachable(groups);
-	for (const gi of lost.groups) c.warn(['groups', gi], 'unreachable: the group before always jumps away and this group has no label a jump could lead to');
-	for (const [gi, slices] of lost.slices) for (const si of slices) c.warn(['groups', gi, 'slices', si], 'unreachable: a slice before always jumps away when it is seen');
+}
+
+/**
+ * Reachability (reach.ts, owner 2026-10-06): unreachable groups / slices / script events, conditions that can never be
+ * true (only with the toon's facts), loops with no way out.
+ */
+function checkReach(c: Collector, groups: any[], facts: ToonFacts | undefined) {
+	const r = chapterReach(groups, facts);
+	r.groups.forEach((reach, gi) => reach === 'unreachable' && c.warn(['groups', gi], 'unreachable: nothing leads to this group (no jump to its label, and the content before it always leaves or never finishes)'));
+	r.slices.forEach((list, gi) => {
+		if (r.groups[gi] === 'unreachable') return;
+		list.forEach((reach, si) => reach === 'unreachable' && c.warn(['groups', gi, 'slices', si], 'unreachable: a slice before always leaves when it is seen'));
+	});
+	r.events.forEach((list, gi) => {
+		if (r.groups[gi] === 'unreachable') return;
+		list.forEach((reach, i) => reach === 'unreachable' && c.warn(['groups', gi, 'events', i], 'unreachable: no run of the script gets here (an unconditional divert or jumpTo before it, and nothing leads here)'));
+	});
+	for (const p of r.neverTrue) c.warn(p, `never true: "${String(getIf(groups, p)?.variable ?? '')}" is set nowhere in this toon, so this test always fails`);
+	for (const p of r.loops) c.warn(p, 'endless loop: from here the script only goes round (no end, no jump)');
+}
+
+/** the `if` at a reach path (groups.g.….if) */
+function getIf(groups: any[], path: (string | number)[]): any {
+	let v: any = { groups };
+	for (const key of path) v = v?.[key];
+	return v;
 }
 
 /**
@@ -685,6 +714,7 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
 		const resolved = ch.groups.map((g: any) => (isObj(g) && g.ref ? (ctx.resolveGroup?.(g) ?? g) : g));
 		checkChains(c, resolved);
+		checkReach(c, resolved, ctx.facts);
 		checkDialogIds(c, resolved);
 	}
 }
