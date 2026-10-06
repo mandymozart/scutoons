@@ -11,7 +11,7 @@
 //   4. no two visible labels overlap (the phone overlap fix);
 //   5. a click on a place opens its card (name; "Kapitel N lesen" only when that chapter is readable for this reader);
 //   6. "Orte" lists the visible places A–Z;
-//   7. universe-wide: in another toon (the sandbox) the unlocked catpope places are on the map as plain markers (no label);
+//   7. universe-wide: in another public toon (none in the production data: skipped) the unlocked catpope places are on the map as plain markers (no label);
 //   8. markers are round (bbox width = height) and screen-sized after zooming;
 // Reading (a fresh guest, 390 de): the places unlock as their slices are passed (`unlock.slice`, the reading tracker):
 //  R1. chapter 1 scrolled slice by slice: each place appears at its slice, not before;
@@ -29,7 +29,7 @@
 // usage: node scripts/check-map.mjs [--viewer=http://localhost:8000] [--creator=http://localhost:10000]
 //        [--api=http://localhost:9000/api] [--shots=<dir>] [--only=reader|reading|member|builder] [--verbose]
 // Exit code 1 on any failure.
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -57,6 +57,18 @@ if (!token || !(await fetch(`${api}/me/`, { headers: { Authorization: `Bearer ${
 const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 // the member's save game (map + every toon's progress, row `scutoons`): put back exactly (a PUT merges)
 const saveGame = saveGameRow(JSON.parse(readFileSync(sessionFile, 'utf8')).email);
+// a promo code of the dev database for a guest's reading access (`npm run dev:db` makes `devpromo`; the SQLite era's
+// `promo_test` first when it is there – like scripts/dev/test-user.mjs)
+const promo = (() => {
+	try {
+		const container = process.env.SCUTOONS_DB_CONTAINER ?? 'scutoons-mariadb-1';
+		const db = process.env.SCUTOONS_DB_NAME ?? 'scutoons';
+		const query = "SELECT code FROM qr WHERE type = 'promo' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY (code = 'promo_test') DESC, created_at LIMIT 1";
+		return execFileSync('docker', ['exec', '-i', container, 'sh', '-c', `mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -r ${db}`], { input: query }).toString().trim() || 'promo_test';
+	} catch {
+		return 'promo_test';
+	}
+})();
 const world = Object.fromEntries(await Promise.all(['de', 'en'].map(async (l) => [l, await (await fetch(`${api}/library/map?locale=${l}&toon=catpope`)).json()])));
 const bundle = Object.fromEntries(await Promise.all(['de', 'en'].map(async (l) => [l, await (await fetch(`${api}/library/toons/catpope?locale=${l}`)).json()])));
 const mapEntity = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
@@ -280,14 +292,22 @@ async function reader(width, locale) {
 	report(`a place's card: "${first.name}"${link ? ` + "${link}"` : ' (chapter not readable for a guest: no link)'}`, s?.card === first.name && s?.cardLink === link ? [] : [JSON.stringify({ card: s?.card, link: s?.cardLink })]);
 	await shot(`map-${width}-${locale}-4-card`);
 
-	// 7. universe-wide: the sandbox (dev toon) shows catpope's unlocked places as plain markers
-	await open(`${viewer}${prefix}/sandbox`);
+	// 7. universe-wide: another toon a guest can open shows catpope's unlocked places as plain markers. The dev DB is
+	// production's (2026-10-06): the sandbox, Top Toy and Yellow Mouse are drafts there (a guest gets no toon page) – with
+	// no other public toon there is nothing to look at, and it says so
+	const toons = await (await fetch(`${api}/library/toons?locale=${locale}`)).json().catch(() => []);
+	const other = (Array.isArray(toons) ? toons : []).find((t) => t?.id !== 'catpope' && t?.status === 'published')?.id;
+	if (!other) {
+		console.log('  skip  universe-wide: no other toon is public for a guest (sandbox, toptoy, yellowmouse are drafts)');
+		return;
+	}
+	await open(`${viewer}${prefix}/${other}`);
 	const ok = await waitFor(`document.querySelector('[data-testid="map-toggle"]') ? true : null`, 8000);
 	if (ok) {
 		await click('[data-testid="map-toggle"]');
 		s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.places.length ? s : null; })()`, 8000);
-		report('universe-wide: another toon (sandbox) shows the discovered places, as markers without labels', s && expected.every((id) => s.places.includes(id)) && s.labels.length === 0 ? [] : [JSON.stringify(s && { places: s.places, labels: s.labels.map((l) => l.text) })]);
-	} else report('universe-wide: the sandbox toon page', ['no map toggle on /sandbox']);
+		report(`universe-wide: another toon (${other}) shows the discovered places, as markers without labels`, s && expected.every((id) => s.places.includes(id)) && s.labels.length === 0 ? [] : [JSON.stringify(s && { places: s.places, labels: s.labels.map((l) => l.text) })]);
+	} else report(`universe-wide: the ${other} toon page`, [`no map toggle on /${other}`]);
 }
 
 // ── reading: a passed slice unlocks its places ──────────────────────────────────────────────────────────────────────
@@ -325,7 +345,7 @@ async function reading() {
 	await open(`${viewer}/catpope`);
 	await evaluate('localStorage.clear(), sessionStorage.clear(), true');
 	// a guest with reading access: a code redeemed on the device (no account), like check-next-bar.mjs
-	await open(`${viewer}/catpope/chapter/0?code=promo_test`);
+	await open(`${viewer}/catpope/chapter/0?code=${encodeURIComponent(promo)}`);
 	const access = await waitFor(`JSON.parse(localStorage.getItem('scutoons_access') || 'null')?.permissions?.length ? true : null`, 10000);
 	report('a fresh guest (no discoveries) with a code redeemed on the device', access && !(await worldPlaces()).length ? [] : [`access ${access}`, JSON.stringify(await worldPlaces())]);
 	const chapterOf = async (n) => (await (await fetch(`${api}/library/toons/catpope/chapters/${n}?locale=de&draft=1`, { headers: auth })).json());
@@ -343,27 +363,34 @@ async function reading() {
 	const exp1 = want(1, c1.groups);
 	report(`chapter 1: ${Object.values(exp1).flat().length} places appear as their slices are passed (${describe(exp1)})`,
 		JSON.stringify(got1) === JSON.stringify(exp1) ? [] : [`got ${JSON.stringify(got1)}`, `want ${JSON.stringify(exp1)}`]);
-	// R2. chapter 2, group by group (its walk is a VN choice: a group not visited unlocks nothing)
+	// R2. chapter 2, group by group (its walk is a VN choice: a group not visited unlocks nothing) – only when a guest can
+	// read it: a coming-soon / draft chapter shows its teaser (the dev DB is production's: chapter 2 is "coming soon" there
+	// since 2026-10-06 – then R2 has nothing to read and says so)
 	const c2 = await chapterOf(2);
 	if (!c2.groups) { report('chapter 2 is readable here', [JSON.stringify(c2).slice(0, 120)]); return; }
-	const got2 = {};
-	for (const [gi, g] of c2.groups.entries()) {
-		const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.label)}`);
-		for (const [k, v] of Object.entries(r.appeared)) got2[`${g.label}#${k}`] = v;
-		if (gi === 1) {
-			const sofar = (await worldPlaces()).filter((id) => data.locations.find((p) => p.id === id)?.unlock?.chapter === 2).sort();
-			const exp = Object.values(want(2, c2.groups.slice(0, 2))).flat().sort();
-			report(`chapter 2 after its first 2 groups: only their places (${exp.join(', ')})`, JSON.stringify(sofar) === JSON.stringify(exp) ? [] : [JSON.stringify(sofar)]);
+	const c2Status = bundle.de.seasons.flatMap((x) => x.chapters).find((c) => c.number === 2)?.status;
+	let exp2 = {};
+	if (c2Status !== 'published') console.log(`  skip  chapter 2 is ${c2Status ?? 'not listed'} for readers – nothing to read as a guest (R2)`);
+	else {
+		const got2 = {};
+		for (const [gi, g] of c2.groups.entries()) {
+			const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.label)}`);
+			for (const [k, v] of Object.entries(r.appeared)) got2[`${g.label}#${k}`] = v;
+			if (gi === 1) {
+				const sofar = (await worldPlaces()).filter((id) => data.locations.find((p) => p.id === id)?.unlock?.chapter === 2).sort();
+				const exp = Object.values(want(2, c2.groups.slice(0, 2))).flat().sort();
+				report(`chapter 2 after its first 2 groups: only their places (${exp.join(', ')})`, JSON.stringify(sofar) === JSON.stringify(exp) ? [] : [JSON.stringify(sofar)]);
+			}
 		}
+		exp2 = want(2, c2.groups);
+		// the chapter's last slice finishes it: its places without a slice yet (their chapter position) come with it
+		const last = c2.groups.at(-1);
+		const lastKey = `${last.label}#${last.slices.length}`;
+		const noSlice = data.locations.filter((p) => p.hidden && p.unlock?.toon === 'catpope' && p.unlock.chapter === 2 && !p.unlock.slice).map((p) => p.id);
+		if (noSlice.length) exp2[lastKey] = [...(exp2[lastKey] ?? []), ...noSlice].sort();
+		report(`chapter 2: ${Object.values(exp2).flat().length} places appear as their slices are passed (${describe(exp2)})`,
+			JSON.stringify(got2) === JSON.stringify(exp2) ? [] : [`got ${JSON.stringify(got2)}`, `want ${JSON.stringify(exp2)}`]);
 	}
-	const exp2 = want(2, c2.groups);
-	// the chapter's last slice finishes it: its places without a slice yet (their chapter position) come with it
-	const last = c2.groups.at(-1);
-	const lastKey = `${last.label}#${last.slices.length}`;
-	const noSlice = data.locations.filter((p) => p.hidden && p.unlock?.toon === 'catpope' && p.unlock.chapter === 2 && !p.unlock.slice).map((p) => p.id);
-	if (noSlice.length) exp2[lastKey] = [...(exp2[lastKey] ?? []), ...noSlice].sort();
-	report(`chapter 2: ${Object.values(exp2).flat().length} places appear as their slices are passed (${describe(exp2)})`,
-		JSON.stringify(got2) === JSON.stringify(exp2) ? [] : [`got ${JSON.stringify(got2)}`, `want ${JSON.stringify(exp2)}`]);
 	await open(`${viewer}/catpope`);
 	await click('[data-testid="map-toggle"]');
 	const s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.places.length ? s : null; })()`, 10000);
