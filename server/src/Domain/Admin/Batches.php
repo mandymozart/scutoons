@@ -95,7 +95,7 @@ final class Batches
         if (!$force) {
             foreach ($this->summaries() as $batch) {
                 if ($batch['editionId'] === $editionId && $batch['complete']) {
-                    throw new ApiError(409, 'batch_complete', 'A complete batch of this edition exists already. Add a new edition to editions.json to make more codes.', ['batch' => $batch]);
+                    throw new ApiError(409, 'batch_complete', 'A complete batch of this edition exists already. Add a new edition (admin → Catalog → Editions) to make more codes.', ['batch' => $batch]);
                 }
             }
         }

@@ -7,30 +7,48 @@ find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the 
 New entries: the next free number (10.39, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
-## Priorities (owner 2026-10-06 evening: "prioritise now and then set a plan to work through it alone through the night")
+## Priorities (owner 2026-10-06 evening: "prioritise now and then set a plan to work through it alone through the night";
+## then: "prioritize based on technical implementation and when refactors would be needed")
 
-**Night run 2026-10-06 → 07 (agent alone, in this order).** Rules: commit / merge on `main` in small steps, **never
-push** (a push deploys – owner: "just merge to main, but do not push to production"), nothing on production; the dev DB
-is free to change (owner: "you can do anything to the dev database" – its content, the sandbox's and catpope's stories,
-is the test case for migrations); `npm run check` + the step's browser checks before each commit; a step that needs an owner
-decision stops there – the question goes into "Morning: for the owner" and the next step starts.
+**Night run 2026-10-06 → 07 (agent alone).** Rules: commit / merge on `main` in small steps, **never push** (a push
+deploys – owner: "just merge to main, but do not push to production"), nothing on production; the dev DB is free to
+change (owner: "you can do anything to the dev database" – its catpope / sandbox stories are the test case); `npm run
+check` + the step's browser checks before each commit. A step that needs an owner decision stops there – the question
+goes into "Morning: for the owner". **Bigger UI is drafted, not built** (HANDOVER UI rule: design drafts before bigger
+UI) – M.3, M.4, M.5/M.13, M.6/M.14, M.10 get a written concept tonight, the owner picks in the morning.
 
-1. **10.38 Items are not variables** – step 2 (warn), step 3 (`giveItem`), step 5 (analysis + migration + drop the
-   bridge's variable side effect); step 4 (`takeItem`) as a proposal only (owner decision).
-2. **B.1–B.3** – re-check the three old bugs on today's code; fix what is still broken, close the rest.
-3. **`tokens-switch-knob`** – the one unmerged commit (tokens check) after a check run.
-4. **10.20** Asset picker: the selected tile's icon inverted, the size label (small, no layout change).
-5. **10.13** Visibility rule: why the signed-in creator's viewer showed draft chapters 4–5 as "coming soon" – find, fix.
-6. **10.11** Server errors in admin: the admin-only log endpoint + the "Server errors" page.
-7. **10.22** Creator chapter tree: one "Add group" (the storage is the editor's business), scene keys never as names.
-8. **10.18** Batches + code generation from the database instead of the static lists.
-9. **10.19** One setup step for a fresh environment (migrate → seed → asset scan, each checked).
+How the list is ordered – by what the code needs, not by size:
+- **A. Finish what is open in the code** – 10.38 (items vs variables) is half built; its data step changes stored
+  content, so it goes first while the rest is quiet.
+- **B. Quick, independent fixes** – one component each, no shared code touched: M.11, M.12, M.1, M.7, M.16, 10.20.
+- **C. Bugs that need finding first** – M.2 (page jumps on effects), M.8 (horizontal scroll input), B.1–B.3 (old,
+  re-check), M.15 (slice quality: a report where it is lost, fix only if it's one clear place).
+- **D. Self-contained features** – 10.11 (server errors page), `tokens-switch-knob` (1 commit).
+- **E. Refactors – concept first, in this order (each one builds on the one before):**
+  1. **M.5 + M.13 One notification model** (shared/ui: transient toasts for info – "Published" fades by itself –, a
+     persistent status only where something needs doing, never pushing the layout). Every app's pages use the
+     banners today, so this is a shared/ui refactor touching creator, admin, embassy; it frees the room M.4 / M.14 need.
+  2. **M.14 Header + breadcrumbs** (AppShell header: the creator title gives way, crumbs SCUTOONS > Toon > Season >
+     Chapter > Group > Slice with a "…" for the left ones). Needed before M.6, because the crumbs ARE the hierarchy.
+  3. **M.6 Navigation hierarchy** (sidebar + main = the hierarchy; Flow / Ask take their context from it, entry points
+     only) – fixes the Flow's jumps as a consequence; builds on the dock model (DOCKING.md) and M.14.
+  4. **M.4 Slice editor room** (vertical tool strip, a bigger canvas, zoom like the Flow, Snap as one small button) –
+     the slice inspector region (DOCKING step 3) stays; gains from M.5/M.13 (no status bar) and M.14 (smaller header).
+  5. **M.3 VN message box + end actions** (reader: avatar / portrait anchored to the page bottom without a box, the
+     end actions inside the message box) – the viewer's VN overlay layout; drafts on the real page first.
+  6. **M.9** strip preview for vertical groups (after M.4 – the same editor), **M.10** the viewer as a dock panel
+     (exploration, after M.6 – it is a third context consumer like Flow / Ask).
+- **F. Last** – 10.19 (setup step for a fresh environment; owner: priority last).
+
+**Tonight, in order:** 10.38 step 5 (+ step 4 as a proposal) → M.11 → M.12 → M.1 → M.7 → M.16 → 10.20 → M.2 → M.8 →
+B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1–E.6 (written into this file) → 10.19.
 
 **Morning: for the owner** (production steps, decisions – the night run doesn't touch them):
 - Production steps still open (which of these already ran?): 10.1c `check:fonts` on production, 10.3 steps 6–8,
-  10.5 qr deploy with `PROXY_FULL_API=0`, 10.24 code-case migration, 10.32–10.35 migrations, 10.37 `content:check`.
+  10.5 qr deploy with `PROXY_FULL_API=0`, 10.24 code-case migration, 10.32–10.35 migrations, 10.37 `content:check`,
+  10.38's migration (when step 5 is in).
 - Decisions: 10.12 (link or drop credits / download), 10.14 (claim page – details), 10.21 (picker drafts), 10.25 (map
-  places ↔ story), 10.26 (delete-a-chapter rules), 10.38 step 4 (`takeItem` rules).
+  places ↔ story), 10.26 (delete-a-chapter rules), 10.38 step 4 (`takeItem` rules), the E. concepts.
 - With the owner, not alone: 10.17 atomic deploys (only testable by deploying), 10.23 asset jobs through the API,
   10.2 / 10.4 asset layer, 10.7 / 10.9 cleanups, 10.8 the release.
 - 10.1 ("fix the beta's issues on `platform`") – `platform` is abandoned, everything is on `main`: close it?
@@ -126,10 +144,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
       **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
       image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
-- [ ] 10.13 Visibility rule (owner 2026-10-02): `draft` is seen by creators only, `coming-soon` is the only non-published
-      status the public sees. Production's public API follows it (season 1 lists chapters 0, 1, 2 = coming soon). Check
-      the signed-in creator's viewer list: it showed chapters 4 and 5 as "coming soon" while the creator marks them draft.
-      Later: drafts only for creators who are authors of that toon.
 - [ ] 10.14 Admin claim page rework (owner 2026-10-02, during 6.8: "the ui in admin for claim needs rework") – details
       from the owner; first guess: the two side-by-side note fields + the decision buttons hidden in the bottom bar.
       Also: the viewer's claim form promises the current owner never reads the statement – true for owners, but an owner who
@@ -138,10 +152,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] 10.17 Deploys are not atomic: FTP replaces files one by one, so for a few seconds the API runs half old / half new
       code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
       (rename / symlink), or a maintenance flag during the upload.
-- [ ] 10.18 Batches + code generation on real data (owner 2026-10-03): admin → Batches (and the generate side) still
-      read the static lists (editions / items / batch manifests from files); populate them from the database (catalog,
-      editions, codes) instead.
-- [ ] 10.19 Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
+- [ ] 10.19 _(priority last – owner 2026-10-06)_ Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
       seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
       only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
       _(locally largely `npm run dev:db` since 10.30: migrate + prod seed incl. the asset tables; no content seed any more)_
@@ -152,10 +163,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
       opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
       includes 10.20.
-- [ ] 10.22 Creator chapter tree: "Add group" + "Add separate scene" (cut off, owner 2026-10-03: "weird") – the second is a
-      storage detail (a ref group = its own scene entity, from the old file layout). One "Add group"; the editor picks the
-      storage. Scene keys (`chapter2/scene-14`) are internal IDs only, never shown as names (owner 2026-10-03: "legacy from
-      files – in the db we don't care about ids that way"); the label is the name (done for the tree / crumbs: 3109fd8).
 - [ ] 10.23 Asset jobs on production (owner 2026-10-03: "Optimize" stays queued): `assets:jobs` reads the queue from its
       own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
       (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
@@ -446,6 +453,42 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   5. Data: analyse every `setVariable` / choice `set|add` on an item name in `entity_versions` / `content_versions`
      → a SQL migration to `giveItem` (the 2026-10-06-show-text-box pattern), then drop the bridge's side effect; a
      slice pickup only grants (no variable any more).
+- [ ] M.1 **Reader: the intersect area shows** – the orange dashed outline where a sticker overlaps a speech bubble must
+      not appear in the reader (owner 2026-10-06 "minor bugs" list).
+- [ ] M.2 **Reader: the page jumps when animations fire** – e.g. when a showTextBox effect fires, the page jumps oddly.
+- [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
+      anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
+      portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
+      anything the reader does), one consistent style that gets readers used to the VN style. _(concept first – E.5)_
+- [ ] M.4 **Creator: the slice editor needs more room** (owner screenshot 2) – a bigger canvas by default, zoom like
+      the Flow graph, the tool icons (text, item, sound, effect) as a vertical strip on the left, Snap + its "30 px"
+      as one small button (options on click), the slice takes the freed space. _(concept first – E.4)_
+- [ ] M.5 **Top messages need a new concept** (screenshot 2, the "Published ×" banner) – they take a lot of room,
+      appear often and make the layout jump; informative ones ("Published") fade by themselves; they show without
+      pushing the layout. _(with M.13 – E.1)_
+- [ ] M.6 **Navigation hierarchy (concept)** – bug: the Flow view jumps at slice / group / chapter / season / toon
+      level. Problem: two navigations compete (left of the edit view, and the Flow on the right; either jumps to the
+      other), so it's never clear how the edit view relates to the Flow's level. Idea: the left menu and the main
+      panel are linked and ARE the hierarchy; Ask and Flow only take their context from it and otherwise stay
+      independent – entry points, not a second navigation. _(with M.14 – E.3)_
+- [ ] M.7 **Reader: "Coming soon" on the chapter key visual** needs a nicer style.
+- [ ] M.8 **Reader: horizontal scroll keeps native left / right** – down → right and up → left already; left / right
+      input (trackpad swipe, horizontal wheel, arrow keys) must keep working on top.
+- [ ] M.9 **Creator: strip preview for vertical groups** – the same strip preview horizontal groups have. _(after M.4)_
+- [ ] M.10 **Explore: the viewer as a dock panel** (like Flow and Ask) – up to date with every saved draft; selecting
+      an element in the other views jumps the viewer there. Exploration first, not a fix. _(after M.6)_
+- [ ] M.11 **Creator: "Import slices"** needs the padding of "Add group".
+- [ ] M.12 **Creator: lighter dividers between a group's slices** – a lighter grey; the selected slice stands out more.
+- [ ] M.13 **Creator: the published / unpublished status bar takes room** (e.g. from the slice editor). _(with M.5 –
+      E.1)_
+- [ ] M.14 **Header + breadcrumbs take too much room** (the creator title next to the SCUTOONS logo, plus the crumbs).
+      Too many crumbs → the left ones collapse into a clickable "…". The crumbs are the main way back up – they must
+      stay usable (a problem today). The hierarchy: SCUTOONS > Toon > Season > Chapter > Group > Slice (owner: the
+      season level too). The creator title is what gives way (owner: "the creator title can go"). _(with M.6 – E.2)_
+- [ ] M.15 **Investigate: some slices look poor even at 2x and high quality** – where is it lost: the upload /
+      resize pipeline, compression settings, which size variant the reader serves, or CSS scaling.
+- [ ] M.16 **Creator: the "Add video" picker starts empty** – like the default empty slice; today its placeholder is
+      landscape (suggests videos are landscape).
 - [ ] B.1 Ch1 audio samples are at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never
       fire _(from MEMORY.md "Known bugs spotted", 2026-09-30 – not re-checked since)_.
 - [ ] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30 – not re-checked)_.
@@ -454,6 +497,20 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 
 ## Done
 
+- [x] 10.18 Batches + code generation on real data (owner 2026-10-03): admin → Batches (and the generate side) still
+      read the static lists (editions / items / batch manifests from files); populate them from the database (catalog,
+      editions, codes) instead.
+      _(done with 10.29 – editions come from catalog_editions (Editions.php), batches are run manifests by design; the last "editions.json" error text fixed 2026-10-06 (owner: "should be done already"))_
+- [x] 10.22 Creator chapter tree: "Add group" + "Add separate scene" (cut off, owner 2026-10-03: "weird") – the second is a
+      storage detail (a ref group = its own scene entity, from the old file layout). One "Add group"; the editor picks the
+      storage. Scene keys (`chapter2/scene-14`) are internal IDs only, never shown as names (owner 2026-10-03: "legacy from
+      files – in the db we don't care about ids that way"); the label is the name (done for the tree / crumbs: 3109fd8).
+      _(done – the chapter tree has one "Add group" (checked 2026-10-06; owner: "is existing"))_
+- [x] 10.13 Visibility rule (owner 2026-10-02): `draft` is seen by creators only, `coming-soon` is the only non-published
+      status the public sees. Production's public API follows it (season 1 lists chapters 0, 1, 2 = coming soon). Check
+      the signed-in creator's viewer list: it showed chapters 4 and 5 as "coming soon" while the creator marks them draft.
+      Later: drafts only for creators who are authors of that toon.
+      _(closed 2026-10-06, owner: "not relevant anymore")_
 - [x] 10.1b _(done 2026-10-02. Hint: setting secrets with `gh` gave 404 until gh was re-authorised – the fine-grained
       token did not cover the `scutoons` repo.)_ Right after the assets merge: the 7 bunny keys (`BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`,
       `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL`)

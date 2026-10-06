@@ -149,7 +149,7 @@ final class Catalog
         return $tools ? ['tools' => $tools, 'cooldown' => (int) $cooldown, 'per_day' => $limited ? $perDay : 0] : null;
     }
 
-    /** @return array<string, mixed>|null the edition from editions.json */
+    /** @return array<string, mixed>|null the edition (catalog_editions) */
     public function edition(?string $id): ?array
     {
         return $this->editions->find($id);
