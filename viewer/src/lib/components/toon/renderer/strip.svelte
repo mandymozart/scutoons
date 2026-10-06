@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { on } from 'svelte/events';
 	import type { Group } from '@scutoons/content';
 	import { DEFAULT_SLICE } from '@scutoons/content';
 	import { Icon } from '@scutoons/ui';
@@ -112,13 +113,39 @@
 	});
 
 	function onWheel(event: WheelEvent) {
-		if (!fullscreen) return;
+		if (fullscreen) {
+			event.preventDefault();
+			move(offset + event.deltaY + event.deltaX);
+			return;
+		}
+		// on the page the page's scroll moves the strip (down → right, up → left); a sideways wheel / trackpad swipe
+		// (or Shift + wheel) moves it too – by scrolling the page the same distance (owner 2026-10-06, BACKLOG M.8)
+		if (travel === 0 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
 		event.preventDefault();
-		move(offset + event.deltaY + event.deltaX);
+		window.scrollBy({ top: event.deltaX * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1), behavior: 'instant' });
 	}
 
+	/** the strip fills the window (pinned) – the page's scroll is the strip's */
+	function pinned() {
+		const r = section?.getBoundingClientRect();
+		return !!r && travel > 0 && r.top <= 1 && r.bottom >= window.innerHeight - 1;
+	}
+	const editable = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
 	function onKey(event: KeyboardEvent) {
-		if (!fullscreen) return;
+		if (!fullscreen) {
+			// pinned on the page: ← / → step frame by frame (the page scrolls to the frame's edge; ↑ / ↓ stay the page's)
+			if ((event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') || event.altKey || event.ctrlKey || event.metaKey || editable(event.target) || !pinned()) return;
+			// where the strip is now (the scroll position itself – `offset` follows it a frame later)
+			const now = Math.min(Math.max(-(section?.getBoundingClientRect().top ?? 0), 0), travel);
+			const at = edges();
+			const next = event.key === 'ArrowRight' ? at.find((x) => x > now + 1) : [...at].reverse().find((x) => x < now - 1);
+			const to = Math.min(Math.max(next ?? (event.key === 'ArrowRight' ? travel : 0), 0), travel);
+			const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+			window.scrollBy({ top: to - now, behavior: smooth ? 'smooth' : 'instant' });
+			event.preventDefault();
+			return;
+		}
 		if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') step(1);
 		else if (event.key === 'ArrowLeft' || event.key === 'PageUp') step(-1);
 		else if (event.key === 'Home') move(0);
@@ -132,7 +159,7 @@
 
 <section class="strip" data-group-label={group.label} bind:this={section} style:--travel="{travel}px">
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="pin" class:fits={travel === 0} class:fullscreen bind:this={pin} onwheel={onWheel}>
+	<div class="pin" class:fits={travel === 0} class:fullscreen bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>
 		<div class="track" bind:this={track} style:transform="translate3d({-offset}px, 0, 0)">
 			{#each frames as frame, index}
 				<div class="frame" style:aspect-ratio="{frame.width} / {frame.height}">
