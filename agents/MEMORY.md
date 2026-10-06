@@ -66,10 +66,7 @@ is still German). Slice 19 has a cucumber painted in, without any event. The own
 
 ## Known bugs spotted (not fixed)
 
-- Ch1 audio samples at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never fire.
-- Scene files use `{"type":"end"}` → "Unknown event type".
-- Ch3–5 `keyvisual` is a string, type expects `{image, video?}` (ch2 fixed 2026-09-30).
-- ~~`Collectable` type lacks `name`/`image`~~ – collectables removed 2026-09-30 (see "Collectables removed").
+Moved to agents/BACKLOG.md (B.1–B.3, 2026-10-06).
 
 ## Membership / inventory (viewer)
 
