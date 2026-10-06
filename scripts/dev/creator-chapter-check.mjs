@@ -528,7 +528,7 @@ try {
 	await click(tid('tab-events'));
 	await until(`!!${q('vn-events')}`, 5000);
 	await click(`[data-testid="vn-events"] .add button:last-child`);
-	check(await until(`!!${q('event-line-0')} && ${q('tab-events')}.textContent.includes('(1)')`, 3000), 'VN: "+ event" on a slice without events shows the new event');
+	check(await until(`!!${q('event-line-0')} && ${q('tab-events')}.querySelector('.count')?.textContent === '1'`, 3000), 'VN: "+ event" on a slice without events shows the new event');
 	await send('Page.navigate', { url: `${CREATOR}/${VN.toon}/chapter/${VN.chapter}?group=${encodeURIComponent(VN.group)}&slice=${VN.slice}` });
 	await until(`!!${q('tab-events')}`, 30000);
 	await click(tid('tab-events'));
