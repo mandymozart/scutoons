@@ -51,8 +51,45 @@ final class LibraryTest extends TestCase
         return (array) json_decode($body, true);
     }
 
-    /** A toon `t` (source de, languages de + en): season 1 = ch. 1 published, 2 draft, 3 coming-soon; ch. 1 has a scene */
+    /**
+     * A toon `t` (source de, languages de + en): season 1 = ch. 1 published, 2 draft, 3 coming-soon; ch. 1 has a scene.
+     * Chapters, scenes and the season are language-neutral documents (texts per locale, agents/NEUTRAL.md); the toon
+     * settings and the locations are per locale.
+     */
     private function seedToon(): void
+    {
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']]);
+        foreach (['de', 'en'] as $l) {
+            $this->doc('t', $l, 'toon.json', ['id' => 't', 'title' => "T $l", 'status' => 'published']);
+            $this->doc('t', $l, 'locations.json', [['id' => "loc-$l"]]);
+        }
+        $this->seedSeason();
+        $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'Eins de', 'en' => 'Eins en'], 'number' => 1, 'release' => ['de' => '2025-10-04', 'en' => '2025-10-04'], 'thumbnail' => 'x.webp',
+            'audio' => ['volume' => 1.0], 'groups' => [['ref' => ['src' => 'chapter1/scene-1.json']], ['label' => 'inline', 'slices' => []], ['ref' => ['src' => 'chapter1/gone.json']]]]);
+        $this->doc('t', '_', 'chapter1/scene-1.json', ['label' => 'scene', 'events' => [['type' => 'joinScene', 'params' => ['character' => 'plf']]], 'params' => new \stdClass()]);
+        $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => []]);
+        $this->doc('t', '_', 'chapter3.json', ['title' => ['de' => 'Drei'], 'number' => 3, 'release' => ['de' => '2026-12-01'], 'groups' => [['label' => 'secret']]]);
+    }
+
+    /**
+     * seedToon()'s season 1 (language-neutral; more fields for one test)
+     * @param array<string, mixed> $more
+     */
+    private function seedSeason(array $more = []): void
+    {
+        $both = fn(string $status) => ['de' => $status, 'en' => $status];
+        $this->doc('t', '_', 'season1.json', ['title' => ['de' => 'S de', 'en' => 'S en'], 'number' => 1] + $more + ['sequence' => [
+            ['type' => 'chapter', 'number' => 1, 'status' => $both('published')],
+            ['type' => 'chapter', 'number' => 2, 'status' => $both('draft')],
+            ['type' => 'chapter', 'number' => 3, 'status' => $both('coming-soon')],
+        ]]);
+    }
+
+    /**
+     * seedToon() as legacy per-locale documents (production before its conversion, agents/NEUTRAL.md): the library's
+     * fallback path when an entity has no neutral document
+     */
+    private function seedLegacy(): void
     {
         $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']]);
         foreach (['de', 'en'] as $l) {
@@ -84,8 +121,8 @@ final class LibraryTest extends TestCase
         self::assertSame([], $data['routes'], 'missing lists are empty');
         $chapters = $data['seasons'][0]['chapters'];
         self::assertSame([1, 3], array_column($chapters, 'number'), 'the draft chapter is not listed, coming-soon is');
-        self::assertSame(['title' => 'Eins en', 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'type' => 'chapter', 'status' => 'published'], $chapters[0],
-            'summary = chapter without groups/audio/own status + season type/number/status');
+        self::assertSame(['title' => 'Eins en', 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'language' => 'en', 'type' => 'chapter', 'status' => 'published'], $chapters[0],
+            'summary = chapter without groups/audio/own status (+ the served language) + season type/number/status');
         self::assertSame('Drei', $chapters[1]['title'], 'coming-soon: en file missing → de file');
         self::assertArrayNotHasKey('groups', $chapters[1]);
     }
@@ -96,7 +133,7 @@ final class LibraryTest extends TestCase
         $answer = $this->library()->chapter('t', 1, 'en', false);
         $data = self::decode($answer->body);
         self::assertSame(['en', false], [$answer->locale, $answer->fallback]);
-        self::assertSame('scene en', $data['groups'][0]['label'], 'ref group replaced by the scene file');
+        self::assertSame('scene', $data['groups'][0]['label'], 'ref group replaced by the scene');
         self::assertSame('inline', $data['groups'][1]['label']);
         self::assertSame(['ref' => ['src' => 'chapter1/gone.json']], $data['groups'][2], 'a missing scene keeps its ref group');
         self::assertSame(['scene:t:1:gone'], $answer->missing);
@@ -118,12 +155,12 @@ final class LibraryTest extends TestCase
             } catch (ApiError $error) {
                 self::assertSame([403, $code], [$error->status, $error->errorCode], "chapter $number");
                 if ($code === 'coming_soon') {
-                    self::assertSame(['title' => 'Drei', 'number' => 3, 'release' => '2026-12-01', 'type' => 'chapter', 'status' => 'coming-soon'], json_decode((string) json_encode($error->extra['chapter']), true));
+                    self::assertSame(['title' => 'Drei', 'number' => 3, 'release' => '2026-12-01', 'language' => 'de', 'type' => 'chapter', 'status' => 'coming-soon'], json_decode((string) json_encode($error->extra['chapter']), true));
                 }
             }
         }
         // draft mode (creators): no gates, the newest version
-        $this->doc('t', 'de', 'chapter2.json', ['title' => 'Zwei neu', 'number' => 2, 'groups' => []], false);
+        $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei neu'], 'number' => 2, 'groups' => []], false);
         self::assertSame('Zwei neu', self::decode($this->library()->chapter('t', 2, 'de', true)->body)['title']);
         self::assertSame('Drei', self::decode($this->library()->chapter('t', 3, 'de', true)->body)['title']);
     }
@@ -268,9 +305,7 @@ final class LibraryTest extends TestCase
     public function testCastHasTheStarAndTheChapterFeaturing(): void
     {
         $this->seedToon();
-        foreach (['de', 'en'] as $l) {
-            $this->doc('t', $l, 'chapter2.json', ['title' => "Zwei $l", 'number' => 2, 'groups' => [], 'featuring' => ['star', 'crows']]);
-        }
+        $this->doc('t', '_', 'chapter2.json', ['title' => ['de' => 'Zwei de', 'en' => 'Zwei en'], 'number' => 2, 'groups' => [], 'featuring' => ['star', 'crows']]);
         $this->doc('t', '_', 'cast.json', ['seasons' => ['1' => [['character' => 'boy', 'personas' => ['regular']], ['character' => 'crows', 'personas' => ['regular']]], '2' => [['character' => 'star', 'personas' => ['regular', 'x']]]]]);
         $this->doc(Library::PLATFORM, '_', 'characters.json', ['characters' => [['id' => 'star', 'own_toon' => 't'], ['id' => 'boy'], ['id' => 'crows'], ['id' => 'other', 'own_toon' => 'u']]]);
         $all = self::decode($this->library()->cast('t', null, false)->body);
@@ -289,9 +324,7 @@ final class LibraryTest extends TestCase
         $download = ['music' => 'audio/album.zip', 'image' => 'images/s1-music-vinyl.webp'];
         $supporters = [['name' => 'A', 'logo' => 'images/supporters/a.svg'], ['name' => 'B', 'url' => 'https://b.example']];
         $trailer = ['loop' => 'videos/l.1280w.mp4', 'sources' => [['src' => 'videos/l.1920w.mp4', 'media' => '(min-width: 1600px)']], 'poster' => 'images/p.webp', 'chapter' => 0];
-        foreach (['de', 'en'] as $l) {
-            $this->doc('t', $l, 'season1.json', ['title' => "S $l", 'download' => $download, 'supporters' => $supporters, 'trailer' => $trailer, 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => 'published']]]);
-        }
+        $this->seedSeason(['download' => $download, 'supporters' => $supporters, 'trailer' => $trailer]);
         $bundle = self::decode($this->library()->toon('t', 'en', false)->body);
         self::assertSame($download, $bundle['seasons'][0]['season']['download'], 'the season download (the music album) is passed through');
         self::assertSame($supporters, $bundle['seasons'][0]['season']['supporters'], 'the supporters are passed through in order');
@@ -337,10 +370,10 @@ final class LibraryTest extends TestCase
         $this->library()->chapter('t', 1, 'de', true);
         self::assertCount($count, glob($this->dir . '/cache/library/*.cache') ?: [], 'draft answers are not cached');
 
-        $this->doc('t', 'de', 'chapter1/scene-1.json', ['label' => 'scene de v2'], true);
+        $this->doc('t', '_', 'chapter1/scene-1.json', ['label' => 'scene v2'], true);
         $after = $this->library()->chapter('t', 1, 'de', false);
         self::assertNotSame($first->etag, $after->etag, 'a publish changes the key');
-        self::assertSame('scene de v2', self::decode($after->body)['groups'][0]['label']);
+        self::assertSame('scene v2', self::decode($after->body)['groups'][0]['label']);
     }
 
     /** The screenplay (creator material) is never in a library answer and saving it changes no reader cache key */
@@ -465,7 +498,7 @@ final class LibraryTest extends TestCase
 
     // ── Language-neutral chapters, scenes, seasons (agents/NEUTRAL.md) ─────────────────────────────────────
 
-    /** Neutral documents for seedToon()'s season 1, chapter 1 and its scene (texts per locale; en: chapter 1 coming soon) */
+    /** Neutral documents for seedLegacy()'s season 1, chapter 1 and its scene (texts per locale; en: chapter 1 coming soon) */
     private function seedNeutral(bool $scene = true): void
     {
         $this->doc('t', '_', 'season1.json', ['title' => ['de' => 'NS de', 'en' => 'NS en'], 'number' => 1, 'sequence' => [
@@ -484,7 +517,7 @@ final class LibraryTest extends TestCase
 
     public function testNeutralChapterWinsOverThePerLocaleDocuments(): void
     {
-        $this->seedToon();
+        $this->seedLegacy();
         $this->seedNeutral();
         $answer = $this->library()->chapter('t', 1, 'de', false);
         $data = self::decode($answer->body);
@@ -518,7 +551,7 @@ final class LibraryTest extends TestCase
 
     public function testNeutralFallbackWhenTheLocaleHasNoTitle(): void
     {
-        $this->seedToon();
+        $this->seedLegacy();
         $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'Nur de', 'en' => ' '], 'number' => 1, 'release' => ['de' => '2025-10-04'], 'groups' => []]);
         $answer = $this->library()->chapter('t', 1, 'en', false);
         $data = self::decode($answer->body);
@@ -530,14 +563,14 @@ final class LibraryTest extends TestCase
 
     public function testNeutralChapterWithLegacySceneAndBack(): void
     {
-        $this->seedToon();
+        $this->seedLegacy();
         $this->seedNeutral(false);
         $answer = $this->library()->chapter('t', 1, 'de', false);
         $data = self::decode($answer->body);
         self::assertSame(['N Eins', 'scene de', false], [$data['title'], $data['groups'][0]['label'], $answer->fallback], 'no neutral scene → the per-locale one');
         // and a legacy chapter with a neutral scene
         $this->setUp();
-        $this->seedToon();
+        $this->seedLegacy();
         $this->doc('t', '_', 'chapter1/scene-1.json', ['label' => 'N scene']);
         $data = self::decode($this->library()->chapter('t', 1, 'en', false)->body);
         self::assertSame(['Eins en', 'N scene'], [$data['title'], $data['groups'][0]['label']]);
@@ -545,7 +578,7 @@ final class LibraryTest extends TestCase
 
     public function testNeutralSeasonInTheToonBundleCastAndSummaries(): void
     {
-        $this->seedToon();
+        $this->seedLegacy();
         $this->seedNeutral();
         $de = self::decode($this->library()->toon('t', 'de', false)->body);
         self::assertCount(1, $de['seasons'], 'a season stored both ways is one season');
