@@ -68,3 +68,24 @@ Read in the viewer (phone, draft preview): screenshots `mama-*.png` in the sessi
 draft preview loaded the PUBLISHED cast (new characters of a draft cast had no name / image) – fixed in
 `viewer/src/lib/api.ts` (`fetchCharacters` through the preview); a text box revealed with effect `pulse` logs
 `Cannot read properties of null (reading 'onComplete')` (shared/reader dialog.svelte → effect-pulse.svelte) – not fixed.
+
+## Horizontal strips in catpope chapter 2 (owner 2026-10-06, for testing the scrolling)
+
+Drafts (same message `example: mama story`, so the rollback above removes them too): versions 561 (`chapter:catpope:2`,
+group `scene-12`), 562 (`scene:catpope:2:scene-14`, label `scene-13`), 563 (`scene:catpope:2:scene-17`, label `scene-14`),
+564 (`scene:catpope:2:scene-18`, label `scene-15`). Each is now `renderer: { type: 'horizontal', params: { fullWidth: true } }`
+with `continues: true`, so the chain is scene-12 → 13 → 14 → 15 → scene-17-24 (strip, strip, strip, strip, then vertical).
+Old values (the versions before: 553, 536, 451, 452):
+
+| group | renderer before | continues before |
+|---|---|---|
+| `scene-12` (inline) | `{ type: 'horizontal', params: { loop: true, autoPlay: { enabled: false }, fullWidth: true } }` | – |
+| `scene-13` (scene-14 doc) | `{ type: 'horizontal', params: { freeMode: true, loop: true } }` | – |
+| `scene-14` (scene-17 doc) | `{ type: 'vertical' }` | – |
+| `scene-15` (scene-18 doc) | `{ type: 'vertical' }` | – |
+
+Checked: the library's draft answer (`/library/toons/catpope/chapters/2?draft=1`) has the four strips with `continues: true`
+and `scene-17-24` vertical; read at phone size (375 × 812, the wheel in 120 px steps): each strip pins at the top (pin top 0),
+moves sideways 1:1 to its end (travel 2824 / 5109 / 5109 / 5566 px), releases, the next one arrives and pins – offsets only
+grow, never two strips moving at once, no scroll jumps, then the vertical group. (One run reset to the top once: a Vite
+reload of the viewer while the other lane edited viewer files – not reproducible in the next two runs.)
