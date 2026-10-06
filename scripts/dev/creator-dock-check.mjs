@@ -4,9 +4,13 @@
 // the content ends where the dock starts; with Ask open too the dock is left of Ask and the sidebar folds to its rail
 // (not remembered); the sidebar folds by Ctrl+\, by its chevrons and by dragging its edge narrow, a drag out of the rail
 // opens it, a double-click resets it; the dock's Divider drags wider (remembered, ← = 16 px, double-click resets) and
-// stops where the content would get narrower than 24rem; Ask's Divider drags it wider; on a phone the dock covers the page.
+// stops where the content would get narrower than 24rem; the dock folds to a rail (its fold button, Enter, dragging it
+// narrow; the rail shows the panel's icon + title, a click / a drag opens it; next to a folded dock + Ask the sidebar
+// stays open; a panel opens unfolded); the script outline folds to its rail and drags on its Divider (remembered); the
+// slice inspector is a region beside the canvas (at most half the area, below it under 1280px); Ask's Divider drags it
+// wider; on a phone the dock covers the page. Admin + embassy (Info, SplitView, Ask): check:tools-dock.
 //   node scripts/dev/creator-dock-check.mjs        (creator :10000, API :9000)
-//   DOCK_SHOTS=<dir>: screenshots dock-*.png into <dir>
+//   DOCK_SHOTS=<dir>: screenshots <DOCK_PREFIX, default dock->*.png into <dir>
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,6 +20,7 @@ import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = process.env.DOCK_SHOTS ?? '';
+const PREFIX = process.env.DOCK_PREFIX ?? 'dock-';
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 if (!['localhost', '127.0.0.1'].includes(new URL(CREATOR).hostname)) {
 	console.error(`creator-dock-check: refusing ${CREATOR} – local dev stack only`);
@@ -64,8 +69,8 @@ async function until(expression, ms = 15000) {
 const q = (id) => `document.querySelector('[data-testid="${id}"]')`;
 const shot = async (name) => {
 	if (!SHOTS) return;
-	writeFileSync(`${OUT}/dock-${name}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).result.data, 'base64'));
-	console.log(`     shot dock-${name}.png`);
+	writeFileSync(`${OUT}/${PREFIX}${name}.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).result.data, 'base64'));
+	console.log(`     shot ${PREFIX}${name}.png`);
 };
 const size = (w, h = 1000) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
 const go = async (url, ready) => {
@@ -74,7 +79,7 @@ const go = async (url, ready) => {
 	return until(ready, 30000);
 };
 /** rects of the regions (px, rounded) */
-const layout = () => js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), dock: r('.sc-shell-dock'), ask: r('[data-testid="ask-panel"]'), folded: !!document.querySelector('.sc-app-shell.folded'), rail: !!document.querySelector('.sc-shell-rail') }; })()`);
+const layout = () => js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), dock: r('.sc-shell-dock'), ask: r('[data-testid="ask-panel"]'), folded: !!document.querySelector('.sc-app-shell.folded'), rail: !!document.querySelector('[data-testid="shell-rail"]'), dockRail: !!document.querySelector('[data-testid="dock-rail"]') }; })()`);
 const setAsk = async (open) => {
 	const now = await js(`${q('ask-toggle')}?.getAttribute('aria-pressed') === 'true'`);
 	if (now !== open) await js(`${q('ask-toggle')}.click(), true`);
@@ -140,7 +145,7 @@ try {
 	let g = await layout();
 	check(g.folded && g.rail && g.sidebar.w <= 2.5 * 24, 'Ctrl+\\ folds the sidebar to its rail', JSON.stringify(g));
 	await shot('1600-toon-sidebar-folded');
-	await js(`document.querySelector('.sc-shell-fold').click(), true`);
+	await js(`document.querySelector('[data-testid="shell-rail"] button').click(), true`);
 	await sleep(300);
 	g = await layout();
 	check(!g.folded, 'the rail\'s chevrons unfold it');
@@ -188,14 +193,124 @@ try {
 	await shot('1920-toon-flow-wide');
 	await js(`document.querySelector('.sc-shell-dock ~ .sc-divider').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
 
+	// ── the right dock folds to a rail (owner 2026-10-06): its fold button, the rail, keys, dragging it narrow ──
+	await size(1600);
+	check(await go('/catpope/chapter/1?flow=1', `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node')`), '1600: chapter Flow for the rail');
+	await sleep(500);
+	const railPx = await js(`Math.round(2.5 * parseFloat(getComputedStyle(document.documentElement).fontSize))`);
+	const enter = async () => {
+		await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
+		await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+		await sleep(300);
+	};
+	const open0 = await layout();
+	await js(`${q('dock-fold')}.click(), true`);
+	await sleep(300);
+	g = await layout();
+	const railText = await js(`document.querySelector('[data-testid="dock-rail"]')?.innerText.trim()`);
+	check(g.dockRail && Math.abs(g.dock.w - railPx) <= 2 && g.content.r <= g.dock.l + 1 && g.content.w > open0.content.w + 200 && !!railText, `the dock's fold button folds it to a rail labelled "${railText}" (${g.dock.w} px), the content takes the room`, JSON.stringify(g));
+	check(await js(`!!document.querySelector('[data-testid="dock-rail"] .sc-rail-icon svg')`), "the rail shows the panel's icon");
+	await shot('1600-dock-rail');
+	await setAsk(true);
+	g = await layout();
+	check(g.dockRail && !g.folded && g.dock.r <= g.ask.l + 1, '+ Ask: the folded dock left of Ask, the sidebar stays open (a rail needs no room)', JSON.stringify(g));
+	await shot('1600-dock-rail-ask');
+	await setAsk(false);
+	await js(`document.querySelector('[data-testid="dock-rail"] .sc-rail-label').click(), true`);
+	await sleep(300);
+	g = await layout();
+	check(!g.dockRail && g.dock.w === open0.dock.w && (await js(`!!${q('flow-panel')}`)), `a click on the rail unfolds it (${g.dock.w} px)`, JSON.stringify(g));
+	// keyboard: Enter on the fold button, then on the rail's button
+	await js(`${q('dock-fold')}.focus(), true`);
+	await enter();
+	check((await layout()).dockRail, 'keyboard: Enter on the fold button folds the dock');
+	await js(`document.querySelector('[data-testid="dock-rail"] button').focus(), true`);
+	await enter();
+	check(!(await layout()).dockRail, "keyboard: Enter on the rail's button unfolds it");
+	d = await drag('.sc-shell-dock-resize', open0.dock.w * 0.6);
+	await d.release();
+	g = await layout();
+	check(g.dockRail, "dragging the dock's edge narrow folds it to the rail", JSON.stringify(g));
+	d = await drag('.sc-shell-dock-resize', -open0.dock.w * 1.1);
+	await d.release();
+	g = await layout();
+	check(!g.dockRail && g.dock.w >= open0.dock.w, `dragging out of the rail opens it (${g.dock.w} px)`, JSON.stringify(g));
+	await js(`document.querySelector('.sc-shell-dock-resize').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
+	await sleep(200);
+	await js(`${q('dock-fold')}.click(), true`);
+	await sleep(200);
+	await js(`${q('flow-toggle')}.click(), true`);
+	await sleep(300);
+	await js(`${q('flow-toggle')}.click(), true`);
+	await sleep(400);
+	check(!(await layout()).dockRail && (await js(`!!${q('flow-panel')}`)), 'closed and opened again, the panel opens unfolded (the fold is not remembered)');
+
+	// ── the script outline: a left region of the page on the shared fold + Divider ──
+	check(await go('/catpope/script', `!!${q('script-outline')}`), 'script page with its outline');
+	await sleep(500);
+	const side = () => js(`(() => { const b = document.querySelector('#script-outline').getBoundingClientRect(); return { w: Math.round(b.width), rail: !!document.querySelector('[data-testid="script-outline-rail"]'), folded: localStorage.getItem('sc-script-outline-folded') }; })()`);
+	const o0 = await side();
+	await shot('1600-script-outline');
+	await js(`${q('script-outline-fold')}.click(), true`);
+	await sleep(300);
+	let o = await side();
+	check(o.rail && Math.abs(o.w - railPx) <= 2 && o.folded === '1', `the outline's fold button folds it to its rail (${o.w} px, remembered)`, JSON.stringify(o));
+	await shot('1600-script-outline-folded');
+	await js(`document.querySelector('[data-testid="script-outline-rail"] .sc-rail-label').click(), true`);
+	await sleep(300);
+	o = await side();
+	check(!o.rail && o.w === o0.w && o.folded === null, 'a click on its rail unfolds it', JSON.stringify(o));
+	d = await drag('.outline-resize', 120);
+	await d.release();
+	o = await side();
+	check(o.w >= o0.w + 100 && Number(await js(`localStorage.getItem('sc-script-outline-width')`)) === o.w, `its Divider drags it wider (${o0.w} → ${o.w} px, remembered)`);
+	await js(`document.querySelector('.outline-resize').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
+	await sleep(200);
+	check((await side()).w === o0.w, 'double-click: its normal width again');
+	d = await drag('.outline-resize', -o0.w * 0.6);
+	await d.release();
+	check((await side()).rail, 'dragging it narrow folds it to the rail');
+	d = await drag('.outline-resize', o0.w * 1.1);
+	await d.release();
+	o = await side();
+	check(!o.rail && o.w >= o0.w, `dragging out of the rail opens it (${o.w} px)`);
+	await js(`document.querySelector('.outline-resize').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
+
+	// ── the slice inspector: a right region of the chapter editor's main area ──
+	const ins = () => js(`(() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), b: Math.round(b.bottom), w: Math.round(b.width) }; }; return { main: r('.columns > .main'), region: r('[data-testid="inspector-region"]'), columns: r('.columns') }; })()`);
+	for (const w of [1280, 1600]) {
+		await size(w);
+		check(await go('/catpope/chapter/1?group=1&slice=2', `!!${q('inspector-region')} && !!document.querySelector('.canvas-scroll')`), `${w}: a slice with its inspector`);
+		await sleep(500);
+		const i0 = await ins();
+		check(i0.main.r <= i0.region.l + 1 && i0.region.r <= i0.columns.r + 1, `${w}: the inspector beside the canvas (${i0.region.w} px), nothing overlaps`, JSON.stringify(i0));
+		await shot(`${w}-slice-inspector`);
+		d = await drag('.inspector-resize', -2000);
+		await d.release();
+		const i1 = await ins();
+		// half the area – never below its normal width (at 1280 the normal 22rem is already more than half)
+		const half = Math.ceil(i1.columns.w / 2);
+		check(i1.region.w === Math.max(i0.region.w, half) || Math.abs(i1.region.w - Math.max(i0.region.w, half)) <= 1, `${w}: dragged far it stops at half the editor's area, never below its normal width (${i0.region.w} → ${i1.region.w} of ${i1.columns.w} px)`, JSON.stringify(i1));
+		await js(`document.querySelector('.inspector-resize').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
+		await sleep(200);
+		check((await ins()).region.w === i0.region.w, `${w}: double-click resets it`);
+	}
+	await size(1200);
+	await go('/catpope/chapter/1?group=1&slice=2', `!!${q('inspector-region')}`);
+	await sleep(500);
+	g = await js(`(() => { const m = document.querySelector('.columns > .main').getBoundingClientRect(); const r = document.querySelector('[data-testid="inspector-region"]').getBoundingClientRect(); const d = document.querySelector('.inspector-resize'); return { mainBottom: Math.round(m.bottom), regionTop: Math.round(r.top), divider: d ? getComputedStyle(d).display : 'none' }; })()`);
+	check(g.regionTop >= g.mainBottom - 1 && g.divider === 'none', '1200: the inspector below the canvas (no Divider)', JSON.stringify(g));
+	await shot('1200-slice-inspector');
+	await size(1920);
+
 	// Ask's own divider
 	await setAsk(true);
 	const a0 = (await layout()).ask.w;
-	d = await drag('.ask-edge .sc-divider', -120);
+	d = await drag('.sc-shell-ask .sc-divider', -120);
 	await d.release();
 	const a1 = (await layout()).ask.w;
 	check(a1 > a0 + 100, `Ask's divider drags it wider (${a0} → ${a1})`);
-	await js(`document.querySelector('.ask-edge .sc-divider').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
+	await js(`document.querySelector('.sc-shell-ask .sc-divider').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
 	await setAsk(false);
 
 	// phones: the dock covers the page

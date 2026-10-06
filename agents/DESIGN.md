@@ -285,7 +285,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   shows and how to use it – no intro line in the panel); docked on the right like Problems / History on EVERY level
   (in the AppShell's right dock, left of Ask, the page makes room – never an overlay; drags wider up to half the window,
   one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns with Problems /
-  History; every page hands its panel to the shell with `usePageDock` – agents/DOCKING.md). Svelte Flow + dagre are loaded only when it
+  History and Info; every page hands its panel to the shell with `useDock` – agents/DOCKING.md; it folds to a rail like
+  every dock panel). Svelte Flow + dagre are loaded only when it
   opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates (read-only otherwise).
   - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
     group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the
@@ -612,7 +613,8 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   (published / draft / coming soon per language, `status-badges.svelte`: toon page, season editor, season sidebar);
   the status is changed only on the chapter page (Meta).
 - **Help lives in Info** (`@scutoons/ui` InfoPanel via the ActionBar's "Info" toggle, closed by default, remembered),
-  not above the fields. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
+  not above the fields. Info is a panel of the shell's right dock (agents/DOCKING.md): it takes turns with Problems /
+  History / Flow / a list's detail, drags wider and folds to a rail like them. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
   slice) have an accessible label.
 
 Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route crumbs from the root layout, `extra`
@@ -754,7 +756,8 @@ askText's placeholder / default stay plain fields (the reader shows them as writ
   MetaPage has `translationsOptional`). A toon without a script opens with an empty, clean (not dirty) source text.
 - **Title page**: a collapsed block with the 6 meta fields (per language, text).
 - **Bottom bar**: the normal MetaPage ActionBar (Save draft, Publish, History with restore, undo/redo, problems, note).
-- **Outline** (left, sticky, own scroll): chapters (uppercase, "KAPITEL 1 · DENIAL"), their scenes (number + heading, one
+- **Outline** (the page's left region, agents/DOCKING.md: its Divider drags it 16rem … half the page, its fold button
+  or a drag folds it to a rail "Outline", both remembered; above the text under 900px; own scroll): chapters (uppercase, "KAPITEL 1 · DENIAL"), their scenes (number + heading, one
   line, ellipsis) and songs (italic); a click puts the cursor at the line and scrolls it to the top; the item the cursor
   is in is marked. Below it a collapsible **Format rules** panel (also in the Info panel): a summary of the screenplay
   editor's Writing Guide + a link to its README.
@@ -927,7 +930,9 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 - Generous padding: panels `space-1`, page content `space-15`, gaps between fields `space-1` (`space-15` after a
   `Field`). Inspector forms use **two fields per row**.
 - The tool frame (tokens): top bar = ActionBar height `--tool-bar-height` max(48px, 3rem) (48 · 48 · 72px), sidebar
-  `--tool-sidebar-width` 12rem (admin 14rem with descriptions), Info / side panels `--tool-panel-width` 16rem.
+  `--tool-sidebar-width` 12rem (admin 14rem with descriptions), Info / side panels `--tool-panel-width` 16rem. Every
+  region (sidebar, right dock, Ask, the outline, the inspector) follows ONE model – tiles, one Divider, one fold to a
+  rail, remembered sizes: agents/DOCKING.md.
 - ActionBars that don't fit move `start` + `secondary` into "More" (`breakpoint`); the primary actions stay. Filters
   that need more than one line leave the bar and sit above the list (`.toolbar`), the pager stays in the bar.
 

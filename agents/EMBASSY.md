@@ -285,8 +285,9 @@ start with basics, and make Ask a shared integration of embassy, creator and adm
 sends – no approval step; replies are **read back by IMAP** in this slice; what gets pitched are the **catalog's albums
 and products** (no new "pitch" record yet). The agent only **drafts**: a person reads the draft and presses Send.
 
-- **Ask panel** (`@scutoons/ask`, shared/ask): round message button in the top bar, docked right below it (the page
-  makes room, stays centred), full screen on phones. On an organisation page the agent knows which one (name shown,
+- **Ask panel** (`@scutoons/ask`, shared/ask): round message button in the top bar, the outermost region of the
+  embassy's AppShell (agents/DOCKING.md: the page makes room and stays centred, its edge drags it wider), full screen on
+  phones. On an organisation page the agent knows which one (name shown,
   id sent). Tools (tools/mcp `src/embassy.ts`): `today`, `search_orgs`, `read_org` (incl. the log and `recipients` =
   addresses that may get mail), `list_team`, `list_releases`, `log_activity`, `set_lead`, `draft_mail`, `check_inbox`.
   The system prompt carries the "Communication strategy" above (individual first contact, their language, "Top Toy /

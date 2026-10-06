@@ -146,7 +146,8 @@ plus "New Item" / "New Toon".
 (`admin/src/lib/catalog/kinds.ts`: label, list columns, a new entry's data, the keys the form shows, id rule, what the
 kind allows) + one form component per kind (`…/catalog/<kind>-form.svelte`):
 - list in order (DataTable); round ↑ / ↓ per row = `catalogReorder` with the whole order (no drag: less UI, one way);
-- a click opens the entry next to the list (SplitView; a drawer below 1100 px), URL `?open=<id>`; "New …" = `?new=1`
+- a click opens the entry next to the list (SplitView: the admin's right dock – drags wider, folds to a rail; covers the
+  page on phones; agents/DOCKING.md), URL `?open=<id>`; "New …" = `?new=1`
   with an id field (checked against the server's pattern and the existing ids before saving); leaving an edited entry
   asks first ("Discard the changes?");
 - Save / Delete in the entry's header. 422 `invalid_catalog`: the problems as a list above the form, and each problem

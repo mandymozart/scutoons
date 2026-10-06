@@ -52,11 +52,15 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Every control at `--control-height`; icon-only buttons are round (`class="sc-round"`, tools.css); one tooltip style
   via `title`; bold very rarely; field groups without frames (legend = label).
 - Spacing on a 1rem line: sidebars, outline, fold button all start at 1rem; dividers run edge to edge.
-- Right-side drawers/panels drag wider (up to half the window); the sidebar folds to a rail (Feather chevrons button at its top right / drag / Ctrl+\); the script outline folds
-  the same way, its rail labelled "Outline". The script is read-only until "Edit script" is confirmed.
+- ONE layout model for every area (agents/DOCKING.md, approved 2026-10-06): regions tile (sidebar | page | right dock |
+  Ask – AppShell in creator, admin, embassy), one `Divider` for every drag edge (up to half the window), one fold to a
+  `Rail` (sidebar: chevrons at its top right / drag / Ctrl+\; script outline: rail "Outline"; right dock: the panel's
+  `DockFold`, rail with its icon + title, not remembered); sizes remembered per panel kind. The script is read-only
+  until "Edit script" is confirmed.
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
-- Right-docked page panels (Problems, History, Flow) sit in the shell's right dock left of the Ask panel; with both open
-  the sidebar folds to its rail. One layout model for all areas (one `Divider`, one fold-to-rail): agents/DOCKING.md. Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
+- Page panels (Problems, History, Flow, Info, the admin's list detail) take turns in the shell's right dock (`useDock`),
+  left of Ask; with an unfolded dock and Ask open the sidebar folds to its rail (never without Ask). Pickers stay modal
+  drawers (`Sheet`). Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
   can't. The admin catalog has the same panel (items / recipes / albums; stored in the entry, DATA.md §5).
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
   one slot with resolution chips (default 720p → 480p → 1080p).

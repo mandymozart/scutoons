@@ -288,6 +288,11 @@ Done (branch `components`):
   inspector) and the script outline. Checked by hand (drag + reset of all four) and in check:creator-chapter (the
   inspector edge). `ResizeEdge.svelte` not made: the four edges differ in markup / position; one function is the
   shared part.
+- Docking (2026-10-06, agents/DOCKING.md) – the edges and folds became components after all: `Divider` (the one drag
+  edge: sidebar, dock, Ask, outline, inspector, Sheet), `dockRegion` (resize + fold to a rail; `panelWidth` is built on
+  it), `FoldButton` / `Rail` / `DockFold`, and `useDock` (dock.svelte.ts: one page panel in the AppShell's right dock –
+  the creator's panels, Info, SplitView's detail). The script outline's own fold / resize and the Sheet's own edge
+  markup are gone.
 - Step 14a ✓ (the commit adding this line) – every creator / admin `confirm()` → `confirmDialog` (one structure: title,
   the question, the action's own word). `lib/editor/ask.ts`: `confirmRemove`, `confirmDelete`, `leaveGuard(dirty)` (holds
   the navigation, asks in-page, then `goto`s the same address; closing the tab keeps the browser's question) in the
