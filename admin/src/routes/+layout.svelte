@@ -229,8 +229,6 @@
 	.admin {
 		--topbar-height: var(--tool-bar-height);
 		--action-bar-height: var(--topbar-height);
-		--split-view-top: calc(var(--topbar-height) + var(--space-1));
-		--split-view-bottom: calc(var(--action-bar-height) + var(--space-1));
 		--admin-sidebar-width: 14rem;
 		min-height: 100dvh;
 	}

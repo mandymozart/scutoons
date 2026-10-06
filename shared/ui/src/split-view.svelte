@@ -1,19 +1,23 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Sheet from './sheet.svelte';
 	import CloseButton from './close-button.svelte';
+	import DockFold from './dock-fold.svelte';
+	import { panelWidth } from './panel-width.svelte.ts';
+	import { useDock } from './dock.svelte.ts';
 
 	/**
-	 * List + detail for fast triage. Wide screens (≥ `breakpoint` px): the detail is a pane next to the list (sticky,
-	 * with a close button); narrower: a right drawer (modal Sheet). `open` = a detail is shown; `onclose` fires when the
-	 * user closes it (the app clears its selection / URL parameter).
+	 * List + detail for fast triage (admin catalog, codes): the list is the page, the detail opens in the AppShell's
+	 * right dock (agents/DOCKING.md – `useDock`): the list makes room, the dock's edge drags it wider (remembered once
+	 * for every list detail, `sc-panel-width:detail`), it folds to a rail, it takes turns with the Info panel; on phones
+	 * it covers the page. `open` = a detail is shown; `onclose` fires when the user closes it (✕, Escape, or another
+	 * panel taking the dock – the app clears its selection / URL parameter).
 	 */
 	let {
 		open = false,
 		title,
 		onclose,
 		closeLabel = 'Close',
-		breakpoint = 1100,
+		foldLabel,
 		list,
 		detail,
 		actions
@@ -22,80 +26,52 @@
 		title?: string;
 		onclose: () => void;
 		closeLabel?: string;
-		breakpoint?: number;
+		/** the dock's fold button */
+		foldLabel?: string;
 		list: Snippet;
 		detail: Snippet;
 		/** extra header actions of the detail (e.g. "Open page") */
 		actions?: Snippet;
 	} = $props();
 
-	let wide = $state(true);
-
-	$effect(() => {
-		const query = window.matchMedia(`(min-width: ${breakpoint}px)`);
-		wide = query.matches;
-		const change = (event: MediaQueryListEvent) => (wide = event.matches);
-		query.addEventListener('change', change);
-		return () => query.removeEventListener('change', change);
-	});
-
-	let sheetOpen = $state(false);
-	$effect.pre(() => {
-		sheetOpen = open && !wide;
-	});
+	const size = panelWidth('sc-panel-width:detail', 24, undefined, { foldable: true });
+	useDock(() => (open ? { panel: pane, size, title: title ?? '', icon: 'sidebar', close: () => onclose() } : null));
 
 	function keydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && open && wide) {
+		if (event.key === 'Escape' && open) {
 			event.stopPropagation();
 			onclose();
 		}
 	}
 </script>
 
-<div class="sc-split" class:with-detail={open && wide}>
-	<div class="list">{@render list()}</div>
-	{#if open && wide}
-		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<aside class="detail" aria-label={title} onkeydown={keydown}>
-			<header>
-				{#if title}<h2>{title}</h2>{/if}
-				<div class="actions">
-					{#if actions}{@render actions()}{/if}
-					<CloseButton label={closeLabel} onclick={onclose} />
-				</div>
-			</header>
-			<div class="body">{@render detail()}</div>
-		</aside>
-	{/if}
-</div>
+<div class="sc-split">{@render list()}</div>
 
-{#if !wide}
-	<Sheet bind:open={sheetOpen} side="right" {title} {closeLabel} onclose={() => open && onclose()}>
-		{#if actions}<div class="sheet-actions">{@render actions()}</div>{/if}
-		{@render detail()}
-	</Sheet>
-{/if}
+{#snippet pane()}
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<section class="detail" aria-label={title} onkeydown={keydown} data-testid="split-detail">
+		<header>
+			{#if title}<h2 {title}>{title}</h2>{/if}
+			<div class="actions">
+				{#if actions}{@render actions()}{/if}
+				<DockFold label={foldLabel} />
+				<CloseButton label={closeLabel} onclick={onclose} />
+			</div>
+		</header>
+		<div class="body">{@render detail()}</div>
+	</section>
+{/snippet}
 
 <style>
 	.sc-split {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: var(--space-1);
-		align-items: start;
-	}
-	.sc-split.with-detail {
-		grid-template-columns: minmax(0, 1fr) minmax(22rem, 34%);
-	}
-	.list {
 		min-width: 0;
 	}
+	/* fills the dock (AppShell); the body scrolls */
 	.detail {
-		position: sticky;
-		top: var(--split-view-top, 0);
-		max-height: calc(100dvh - var(--split-view-top, 0px) - var(--split-view-bottom, var(--space-1)));
 		display: flex;
 		flex-direction: column;
-		border: var(--border-width-regular) solid var(--ink);
+		min-height: 0;
+		height: 100%;
 		background: var(--paper);
 	}
 	header {
@@ -103,30 +79,35 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--space-05);
-		padding: var(--space-05) var(--space-075);
+		flex: none;
+		padding: var(--space-05) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
+	/* one line: the actions keep their room, a long title ends in … (its full text is the dock's name) */
 	h2 {
+		flex: 1;
+		min-width: 0;
 		margin: 0;
 		font-size: var(--type-label-size);
 		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		overflow-wrap: anywhere;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.actions {
 		display: flex;
 		align-items: center;
 		gap: var(--space-05);
+		margin-left: auto;
 	}
 	.body {
-		padding: var(--space-075);
+		flex: 1;
+		min-height: 0;
+		padding: var(--space-1);
 		overflow: auto;
-	}
-	.sheet-actions {
-		display: flex;
-		gap: var(--space-05);
-		margin-bottom: var(--space-075);
+		overscroll-behavior: contain;
 	}
 </style>

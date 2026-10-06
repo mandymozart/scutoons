@@ -196,6 +196,7 @@
 	open={!!open}
 	title={open ?? ''}
 	closeLabel={m['common.close']()}
+	foldLabel={m['shell.fold_panel']()}
 	onclose={() => nav({ open: null, page: query.page > 1 ? query.page : null })}
 >
 	{#snippet list()}
