@@ -16,7 +16,8 @@ use Throwable;
  * row per AI API call in `agent_usage`, written by the Ask service for the signed-in user and the app whose panel asked
  * (`app`: AgentApps – creator, embassy, admin), summed for the admin per day / month, app, user, service and model.
  * Nothing is limited from it. Before migration 2026-10-04-ask-embassy-mail there is no `app` column: every row is the
- * creator's, other apps answer 503 not_available.
+ * creator's, other apps answer 503 not_available. `web_searches` (migration 2026-10-06-agent-web-search) counts the
+ * call's web search requests – billed per search, already part of `cost_usd`; without the column the count is dropped.
  */
 final class AgentUsage
 {
@@ -32,6 +33,7 @@ final class AgentUsage
     private const ID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/';
 
     private ?bool $hasApp = null;
+    private ?bool $hasWebSearches = null;
 
     public function __construct(private readonly Database $db, private readonly Clock $clock)
     {
@@ -70,9 +72,24 @@ final class AgentUsage
         return $this->hasApp;
     }
 
+    /** The `web_searches` column (migration 2026-10-06-agent-web-search) */
+    private function hasWebSearches(): bool
+    {
+        if ($this->hasWebSearches === null) {
+            try {
+                $this->db->value('SELECT web_searches FROM agent_usage WHERE 1 = 0');
+                $this->hasWebSearches = true;
+            } catch (Throwable) {
+                $this->hasWebSearches = false;
+            }
+        }
+        return $this->hasWebSearches;
+    }
+
     /**
      * Logs one AI API call of the user in an app's Ask panel. Body `{ app?, service, model, chat_id?, input_tokens,
-     * output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` (`app` is read by the caller) · 422 invalid_<field>
+     * output_tokens, cache_read_tokens, cache_write_tokens, web_searches?, cost_usd }` (`app` is read by the caller; `cost_usd`
+     * includes the searches) · 422 invalid_<field>
      */
     public function record(string $userId, stdClass $body, string $app = AgentApps::CREATOR): void
     {
@@ -81,15 +98,20 @@ final class AgentUsage
         $model = self::text($body, 'model', self::MODEL_MAX);
         $chatId = self::chatId($body->chat_id ?? null);
         $tokens = array_map(fn(string $field) => self::tokens($body, $field), self::TOKEN_FIELDS);
+        $searches = isset($body->web_searches) ? self::tokens($body, 'web_searches') : 0;
         $cost = self::cost($body->cost_usd ?? null);
-        $withApp = $this->hasApp();
-        $this->db->run('INSERT INTO agent_usage (created_at, user_id, service, model, chat_id, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd'
-            . ($withApp ? ', app' : '') . ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?' . ($withApp ? ', ?' : '') . ')',
-            [$this->clock->utc(), $userId, $service, $model, $chatId, ...$tokens, number_format($cost, 6, '.', ''), ...($withApp ? [$app] : [])]);
+        $extra = [];
+        if ($this->hasApp()) $extra['app'] = $app;
+        if ($this->hasWebSearches()) $extra['web_searches'] = $searches;
+        $columns = implode('', array_map(fn(string $c) => ", $c", array_keys($extra)));
+        $marks = str_repeat(', ?', count($extra));
+        $this->db->run("INSERT INTO agent_usage (created_at, user_id, service, model, chat_id, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd$columns)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?$marks)",
+            [$this->clock->utc(), $userId, $service, $model, $chatId, ...$tokens, number_format($cost, 6, '.', ''), ...array_values($extra)]);
     }
 
     /**
-     * The admin overview: calls, tokens and cost per period (UTC day `YYYY-MM-DD` or month `YYYY-MM`), app, user,
+     * The admin overview: calls, tokens, web searches and cost per period (UTC day `YYYY-MM-DD` or month `YYYY-MM`), app, user,
      * service and model, newest period first, then the most expensive. `from` / `to` = UTC days, both included; default the
      * last 30 days · 422 invalid_from|invalid_to|invalid_group|invalid_range
      * @param array<string, mixed> $query
@@ -110,7 +132,8 @@ final class AgentUsage
         }
 
         $length = $group === 'day' ? 10 : 7;
-        $sums = implode(', ', array_map(fn(string $f) => "SUM(a.$f) AS $f", self::TOKEN_FIELDS));
+        $sums = implode(', ', array_map(fn(string $f) => "SUM(a.$f) AS $f", self::TOKEN_FIELDS))
+            . ', ' . ($this->hasWebSearches() ? 'SUM(a.web_searches)' : '0') . ' AS web_searches';
         $where = 'a.created_at >= ? AND a.created_at < ?';
         $params = [$from->format('Y-m-d') . ' 00:00:00', $to->modify('+1 day')->format('Y-m-d') . ' 00:00:00'];
         // before the migration there is no app column: every row is the creator's
@@ -149,6 +172,7 @@ final class AgentUsage
     {
         $sums = ['calls' => (int) ($row['calls'] ?? 0)];
         foreach (self::TOKEN_FIELDS as $field) $sums[$field] = (int) ($row[$field] ?? 0);
+        $sums['web_searches'] = (int) ($row['web_searches'] ?? 0);
         $sums['cost_usd'] = round((float) ($row['cost_usd'] ?? 0), 6);
         return $sums;
     }

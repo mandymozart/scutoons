@@ -129,6 +129,7 @@
 		"ai_hint": "Was die Ask-Agenten kosten (Anthropic API, USD): dieser Monat pro App und Person, pro Tag im Zeitraum.",
 		"ai_month": "Dieser Monat",
 		"ai_calls": "{count} Aufrufe",
+		"ai_searches": "{count} Websuchen",
 		"ai_chart": "KI-Kosten pro Tag (USD)",
 		"ai_people": "Pro Person, dieser Monat",
 		"ai_person": "Person",

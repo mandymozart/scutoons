@@ -157,6 +157,8 @@ tables with today's data, history; folds and removes the settings `item_respawn`
 the admin's overview per creator and service; without it the Ask service keeps logging to its own file),
 `2026-10-04-ask-embassy-mail.mysql.sql` (after those two and the Embassy ones: `app` on agent chats / usage, the mail
 fields of `embassy_activities`, `embassy_mail_state` for the inbox sync; without it chats and usage are the creator's
-only, Embassy mails are sent and logged without subject / addresses, the inbox sync answers 503); then the edition-number backfill
+only, Embassy mails are sent and logged without subject / addresses, the inbox sync answers 503),
+`2026-10-06-agent-web-search.mysql.sql` (`agent_usage.web_searches`: the web searches of the Ask panels, billed per
+search and already in `cost_usd`; without it the count is dropped); then the edition-number backfill
 above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

@@ -4,6 +4,10 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Web search in the Ask panels (owner 2026-10-06): `agent_usage.web_searches` (migration
+  `2026-10-06-agent-web-search`, additive; without it the count is dropped). `POST /api/agent-usage` takes
+  `web_searches?` (`422 invalid_web_searches`), `GET /api/admin/agent-usage` sums it per row and in `totals`;
+  `cost_usd` stays the whole cost (tokens + searches).
 - Naked A-pose removed (agents/CUTOVER.md 10.31, owner 2026-10-05): `AVATAR_DEFAULT_UNLOCKS` default
   `{"catpope":["swim"]}`; a look `naked` (or one still marked `sensitive: true`) in the registry is ignored
   (`CharacterUnlocks::RETIRED_LOOKS`: no grant – `invalid_look` –, no unlock from rows / the setting, a stored body reads
