@@ -10,7 +10,7 @@
 //
 //   node scripts/dev/chain-vn-check.mjs        (viewer :8000, API :9000, MariaDB container)
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,6 +165,8 @@ try {
 	check(s, 'chain top: script A starts (its first slice is seen)', JSON.stringify(await state()));
 	check(s?.frozen && s?.paused, 'frozen with the pause mark while A1 waits for its click', JSON.stringify(s));
 	check(!s?.box, 'the box A reveals is hidden before its event');
+	// CHAIN_VN_SHOT=<file.png>: a phone screenshot of the frozen page (the pause mark under the logo)
+	if (process.env.CHAIN_VN_SHOT) writeFileSync(process.env.CHAIN_VN_SHOT, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).result.data, 'base64'));
 	const y0 = await js('scrollY');
 	await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 180, y: 400, deltaX: 0, deltaY: 600 });
 	await sleep(300);
