@@ -18,7 +18,7 @@ The `message` filter keeps anything else saved after id 539 (the owner's own edi
 (seasons / chapters of toptoy and yellowmouse, catpope chapter drafts) disappear with their only versions; existing keys
 fall back to their previous newest version.
 
-Saved versions (ids 540–548, all `draft`): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
+Saved versions (ids 540–553, all `draft`; the chapters were saved again after the stage rework): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
 appended), `season:toptoy:1` + `chapter:toptoy:1`, `season:yellowmouse:1` + `chapter:yellowmouse:1` (new),
 `cast:catpope` / `cast:toptoy` / `cast:yellowmouse` (cast additions so every character may be on stage there).
 
@@ -30,12 +30,20 @@ persona meet it: boy, crows, Bill the Frog, passerby, yellowbubu, Cat Pope (regu
 Top Toy, Yellow Mouse – and the mama is Cat Pope · Human (the cat was her own split identity all along).
 Texts de + en (no toon has ko).
 
+The stage (owner 2026-10-06, DESIGN.md "VN layout"): LEFT (`avatar`) = the little one, always there, and whoever teams
+up with it – the boy after the first meeting, the crows at the harbour, Bubu at the market, the tiger for a stretch of the
+forest; they stay on the left and comment the next encounters (3 avatars at the pier, the whole team at the reunion).
+RIGHT (`portrait`) = the one met (two at once on the crowded market: the speaker comes to the front). CENTRE
+(`full`) = the big moments: the boy turns to the reader ("Bist DU vielleicht ihre Mama?", first visit only), the
+Pope's entrance, Top Toy's "Hey, DU! Ja, du am Handy", Mama at the reunion. Moods and looks change through the refs
+(crows laughing → thinking → happy; the biker and Yellow Mouse take the helmet off: look helmet → default).
+
 ### Story map
 
 | where | group (label) | what happens | leads to |
 |---|---|---|---|
 | catpope 2 | (owner's groups 0–4 unchanged) | – | the last one's follow-up bar → `mama-start` |
-| catpope 2 | `mama-start` (continues) | the kitten wakes; "Mama?"; text box "WO BIST DU, MAMA?!" (`showTextBox`, shiver, waits for a tap); `searching` set (never read – a dead variable); a **slice event** (tap on slice 3) diverts into the group's script at `miau` (counts `shouts`) | chain on |
+| catpope 2 | `mama-start` (continues) | the kitten (left) wakes; "Mama?"; text box "WO BIST DU, MAMA?!" (`showTextBox`, shiver, waits for a tap); `searching` set (never read – a dead variable); a **slice event** (tap on slice 3) diverts into the group's script at `miau` (counts `shouts`) | chain on |
 | catpope 2 | `mama-boy` (continues) | the boy: not your mama, ask the crows; a placed **cucumber** (item tap → message + `found_cucumber`) | chain on |
 | catpope 2 | `mama-crossroads` | the hub: `visits_crossroads` +1, "{visits_harbour} times at the harbour", "not at the market yet" (`looked_market unset`), **never true**: `rocket_ready == yes` (set nowhere); text box pulse; label `ask` → question: Hafen / Markt / Wald (ch 3) / im Kreis / "Zu Mama!" (only `tips >= 3`); `circle`: **running in circles** (`circles` +1, "Noch eine Runde!" diverts back, "Stopp" diverts to `ask`; at 5 laps a conditional `jumpTo` event back to `mama-start`) | jumps: `mama-harbour`, `mama-market`, ch 3 `mama-forest`, `mama-reunion` |
 | catpope 2 | `mama-harbour` (continues) | crows (`visits_harbour`, "{visits_harbour}. time", ≥ 3: "you'll wear your paws out"; "been to the market?" by `looked_market`); `looked_harbour` | chain on |
@@ -55,3 +63,8 @@ true. The circle loop is NOT an "endless loop" warning – it has a way out (a c
 Limits found (today's model): a jump to another toon lands on that toon's page (`/toptoy`) – a label / chapter of
 another toon can't be targeted; variables are per toon (toptoy's `visits_hypercity` is not catpope's); no catpope
 season 2 exists, so no season jump; the viewer has no `/season/<n>` route either.
+
+Read in the viewer (phone, draft preview): screenshots `mama-*.png` in the session scratchpad. Found on the way: the
+draft preview loaded the PUBLISHED cast (new characters of a draft cast had no name / image) – fixed in
+`viewer/src/lib/api.ts` (`fetchCharacters` through the preview); a text box revealed with effect `pulse` logs
+`Cannot read properties of null (reading 'onComplete')` (shared/reader dialog.svelte → effect-pulse.svelte) – not fixed.
