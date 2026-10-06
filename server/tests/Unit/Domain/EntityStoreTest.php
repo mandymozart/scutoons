@@ -161,6 +161,27 @@ final class EntityStoreTest extends TestCase
     }
 
     /**
+     * 2026-10-06-target-value: a jump target's numeric value becomes a string (chapter / season / toon / product / xr);
+     * strings, other objects with a numeric value and texts stay; a second run changes nothing
+     */
+    public function testTheTargetValueMigration(): void
+    {
+        $json = '{"events":[{"type":"addChoice","params":{"label":{"de":"Weiter \\"type\\":\\"chapter\\",\\"value\\":7"},"onSelect":{"jumpTo":{"target":{"type":"chapter","value":2,"label":"scene-14"}}}}},'
+            . '{"type":"jumpTo","params":{"target":{"type":"season","value":12}}},{"type":"jumpTo","params":{"target":{"type":"chapter","value":"3"}}},'
+            . '{"type":"setVariable","params":{"variable":"time","value":15}},{"type":"slider","value":4}]}';
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('scene:smoke:2:scene-14', 'scene', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-target-value.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-target-value.mysql.sql'); // idempotent
+        self::assertSame(
+            '{"events":[{"type":"addChoice","params":{"label":{"de":"Weiter \\"type\\":\\"chapter\\",\\"value\\":7"},"onSelect":{"jumpTo":{"target":{"type":"chapter","value":"2","label":"scene-14"}}}}},'
+            . '{"type":"jumpTo","params":{"target":{"type":"season","value":"12"}}},{"type":"jumpTo","params":{"target":{"type":"chapter","value":"3"}}},'
+            . '{"type":"setVariable","params":{"variable":"time","value":15}},{"type":"slider","value":4}]}',
+            $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'scene:smoke:2:scene-14'")
+        );
+    }
+
+    /**
      * 2026-10-06-repeat: `once` (triggers, placed items) → `repeat` (false → every time, written out); a VN trigger /
      * tap-event item without once (it meant true) gets once per page view; audio sample triggers, texts and other
      * objects stay as they are; a second run changes nothing

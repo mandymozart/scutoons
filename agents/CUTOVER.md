@@ -824,6 +824,20 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      EXISTS`); the SELECTs of step 1 answer 0 afterwards.
   3. Event ids: nothing to run – a chapter / scene opened and saved in the creator stores them; until then validation
      warns ("N events have no id yet") and the reader keeps such events' "once per page view" in memory.
+- [ ] 10.35 **Jump targets: string values + jumps into another toon at a label** (owner 2026-10-06, branch
+      `chapter-neutral`, DATA.md "Jumps into another toon at a label"): `JumpToTarget.toon` is a new optional field (no
+      migration; old code ignores it and lands at the target toon's chapter of the same number in ITS toon – deploy viewer
+      + creator + API together). `content:check` found the old chapter 2 stroll's targets with a NUMBER value (`"value":2`
+      – the type says string): 11 versions, all `scene:catpope:2:scene-14` (+ de / en), 3 targets each.
+      **O – production steps:**
+  1. phpMyAdmin → d0487143 → SQL, check first:
+     `SELECT COUNT(*) FROM entity_versions WHERE json REGEXP '"type":"(chapter|season|toon|product|xr)","value":-?[0-9]';`
+     (and the same on `content_versions`).
+  2. Run `server/migrations/mysql/2026-10-06-target-value.mysql.sql` (idempotent, `"value":2` → `"value":"2"`, any
+     time – old and new code read both); the SELECTs answer 0 afterwards.
+  3. **Owner decision**: the published `scene:catpope:2:scene-14` (201, + de 127 / en 128) still has an event of the
+     unknown type `end` (`{"type":"end","params":{"jumpTo":…scene-20}}` – the reader skips it, `content:check` reports
+     it). Publishing the scene's newest version (no `end`) or deleting the event clears it; which one is yours.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
