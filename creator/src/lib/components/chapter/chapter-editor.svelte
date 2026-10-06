@@ -552,7 +552,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#snippet tree()}
-	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} />
+	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
 {/snippet}
 
 <div class="editor" class:with-panel={panel !== null} style:--panel-width={panelSize.css}>

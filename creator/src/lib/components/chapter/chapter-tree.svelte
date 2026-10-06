@@ -22,7 +22,8 @@
 		groupName,
 		activeDoc,
 		groupPath,
-		chapterNumber
+		chapterNumber,
+		resolveGroup = (g) => g
 	}: {
 		view: ChapterView;
 		chapter: ContentDoc;
@@ -32,7 +33,11 @@
 		activeDoc: ContentDoc | null;
 		groupPath: Path;
 		chapterNumber: number;
+		/** a group as stored: a `ref` group's separate scene document (undefined while it loads), else the group itself */
+		resolveGroup?: (g: any) => any;
 	} = $props();
+	/** slices · VN of a group – a `ref` group's from its scene document (owner 2026-10-06: the count was missing there) */
+	const groupHint = (g: any) => (g ? `${g.slices?.length ?? 0}${g.events ? ' · VN' : ''}` : '');
 
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
@@ -119,7 +124,7 @@
 					data-testid="group-{gi}"
 				>
 					{groupName(g, gi)}
-					<span class="hint">{g?.ref ? '' : `${g?.slices?.length ?? 0}${g?.events ? ' · VN' : ''}`}</span>
+					<span class="hint">{groupHint(resolveGroup(g))}</span>
 				</button>
 				<span class="tools">
 					<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
