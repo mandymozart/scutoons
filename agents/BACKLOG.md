@@ -7,6 +7,33 @@ find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the 
 New entries: the next free number (10.39, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
+## Priorities (owner 2026-10-06 evening: "prioritise now and then set a plan to work through it alone through the night")
+
+**Night run 2026-10-06 → 07 (agent alone, in this order).** Rules: commit on `main` in small steps, **never push**
+(a push deploys), nothing on production, the dev DB is not reset / reseeded / migrated (migrations are tested in
+PHPUnit's `scutoons_test`), `npm run check` + the step's browser checks before each commit; a step that needs an owner
+decision stops there – the question goes into "Morning: for the owner" and the next step starts.
+
+1. **10.38 Items are not variables** – step 2 (warn), step 3 (`giveItem`), step 5 (analysis + migration + drop the
+   bridge's variable side effect); step 4 (`takeItem`) as a proposal only (owner decision).
+2. **B.1–B.3** – re-check the three old bugs on today's code; fix what is still broken, close the rest.
+3. **`tokens-switch-knob`** – the one unmerged commit (tokens check) after a check run.
+4. **10.20** Asset picker: the selected tile's icon inverted, the size label (small, no layout change).
+5. **10.13** Visibility rule: why the signed-in creator's viewer showed draft chapters 4–5 as "coming soon" – find, fix.
+6. **10.11** Server errors in admin: the admin-only log endpoint + the "Server errors" page.
+7. **10.22** Creator chapter tree: one "Add group" (the storage is the editor's business), scene keys never as names.
+8. **10.18** Batches + code generation from the database instead of the static lists.
+9. **10.19** One setup step for a fresh environment (migrate → seed → asset scan, each checked).
+
+**Morning: for the owner** (production steps, decisions – the night run doesn't touch them):
+- Production steps still open (which of these already ran?): 10.1c `check:fonts` on production, 10.3 steps 6–8,
+  10.5 qr deploy with `PROXY_FULL_API=0`, 10.24 code-case migration, 10.32–10.35 migrations, 10.37 `content:check`.
+- Decisions: 10.12 (link or drop credits / download), 10.14 (claim page – details), 10.21 (picker drafts), 10.25 (map
+  places ↔ story), 10.26 (delete-a-chapter rules), 10.38 step 4 (`takeItem` rules).
+- With the owner, not alone: 10.17 atomic deploys (only testable by deploying), 10.23 asset jobs through the API,
+  10.2 / 10.4 asset layer, 10.7 / 10.9 cleanups, 10.8 the release.
+- 10.1 ("fix the beta's issues on `platform`") – `platform` is abandoned, everything is on `main`: close it?
+
 ## Open
 
 - [ ] 10.1 Fix the beta's issues on `platform` → `main` (deploys automatically).
