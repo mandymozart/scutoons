@@ -167,11 +167,14 @@
 	const ordered = (list: AssetRendition[]) => [...list].sort((x, y) => rank(x) - rank(y) || x.label.localeCompare(y.label));
 	const icon = (k: AssetKind) => ({ image: 'image', video: 'film', audio: 'music', archive: 'archive', document: 'file-text', other: 'file' })[k];
 
-	function meta(a: { width: number | null; height: number | null; duration: number | null; size: number }) {
+	/** the asset's own file (its current path) – the size a reader loads, not the master's (BACKLOG 10.20) */
+	const mainSize = (a: { path?: string; size: number; renditions?: AssetRendition[] }) => a.renditions?.find((r) => r.path === a.path)?.size || a.size;
+	function meta(a: { width: number | null; height: number | null; duration: number | null; size: number; path?: string; renditions?: AssetRendition[] }) {
 		const parts: string[] = [];
 		if (a.width && a.height) parts.push(`${a.width} × ${a.height}`);
 		if (a.duration) parts.push(`${Math.floor(a.duration / 60)}:${String(Math.round(a.duration % 60)).padStart(2, '0')}`);
-		parts.push(bytes(a.size));
+		const files = a.renditions?.length ?? 0;
+		parts.push(files > 1 ? `${bytes(mainSize(a))} (${t.allFiles(files, bytes(a.size))})` : bytes(a.size));
 		return parts.join(' · ');
 	}
 	/** a field that takes one file: the rendition matching the kind (an image field never gets the mp4) */
@@ -410,7 +413,7 @@
 						{#if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
 					</span>
 					<span class="name">{fileName(a.path)}</span>
-					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(a.size)}{#if !a.usages} · {t.unused}{/if}</span>
+					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(mainSize(a))}{#if !a.usages} · {t.unused}{/if}</span>
 					{#if a.renditions.length > 1}
 						<span class="chips">{#each ordered(a.renditions).filter((r) => r.label !== 'original').slice(0, 5) as r (r.id)}<span class="sc-chip">{r.label}</span>{/each}</span>
 					{/if}
@@ -452,6 +455,11 @@
 	.sc-card-img {
 		background: var(--paper);
 		border: 1px solid var(--ink);
+	}
+	/* selected (the card inverts): the picture box too – a kind icon in the card's colour stays visible (BACKLOG 10.20) */
+	.sc-card.is-selected .sc-card-img {
+		background: var(--ink);
+		border-color: var(--paper);
 	}
 	.sc-card-img.large {
 		width: 6rem;

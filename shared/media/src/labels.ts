@@ -12,6 +12,8 @@ export interface MediaLabels {
 	unavailable: string;
 	usedN: (count: number) => string;
 	unused: string;
+	/** a size line's total: every file of the asset (master, renditions) */
+	allFiles: (count: number, size: string) => string;
 	renditions: string;
 	quality: Record<AssetQuality, string>;
 	use: string;
@@ -64,6 +66,7 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		unavailable: 'Die Asset-Verwaltung ist auf diesem Server noch nicht eingerichtet.',
 		usedN: (count) => `${count}× benutzt`,
 		unused: 'unbenutzt',
+		allFiles: (count, size) => `alle ${count} Dateien ${size}`,
 		renditions: 'Dateien',
 		quality: { low: 'Niedrig', medium: 'Mittel', high: 'Hoch' },
 		use: 'Verwenden',
@@ -113,6 +116,7 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		unavailable: 'The asset manager is not set up on this server yet.',
 		usedN: (count) => `used ${count}×`,
 		unused: 'unused',
+		allFiles: (count, size) => `all ${count} files ${size}`,
 		renditions: 'Files',
 		quality: { low: 'Low', medium: 'Medium', high: 'High' },
 		use: 'Use',
