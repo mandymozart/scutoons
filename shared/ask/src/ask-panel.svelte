@@ -9,7 +9,7 @@
 	// browser and comes back after a reload. Every message carries the page (`context`), the app language and what the
 	// app adds (`extra`, e.g. the creator's text language).
 	import { onMount, type Snippet } from 'svelte';
-	import { Icon, CloseButton, panelWidth } from '@scutoons/ui';
+	import { Icon, CloseButton, Divider, panelWidth } from '@scutoons/ui';
 	import { getSessionToken, type AgentApp, type AgentChatsApi, type AgentChatSummary, type AgentStep, type AgentTurn } from '@scutoons/api';
 	import { ask } from './ask.svelte.ts';
 	import { chatMarkdown } from './chat-markdown.ts';
@@ -222,10 +222,11 @@
 	}
 </script>
 
-<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
-<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-<div class="resize" role="separator" aria-orientation="vertical" aria-label={labels.resize} title={labels.resize} tabindex="0" style:--panel-width={size.css} onpointerdown={size.start} onkeydown={size.key} ondblclick={size.reset}></div>
-<aside class="ask" style:--panel-width={size.css} aria-label={labels.title} data-testid="ask-panel">
+<!-- the app's outermost region on the right: fixed, the app's frame ends at it (agents/DOCKING.md) -->
+<div class="ask-edge" style:--sc-divider-top="var(--ask-top, var(--top, 0rem))" style:--sc-divider-bottom="var(--action-bar-height, 0rem)">
+	<Divider {size} edge="left" at={size.css} label={labels.resize} controls="sc-ask-panel" fixed />
+</div>
+<aside class="ask" id="sc-ask-panel" style:--panel-width={size.css} aria-label={labels.title} data-testid="ask-panel">
 	<header>
 		<h2>{labels.title}</h2>
 		<button type="button" class="sc-round" class:is-active={view === 'history'} title={labels.history} aria-label={labels.history} aria-pressed={view === 'history'} onclick={showHistory}><Icon name="clock" /></button>
@@ -315,15 +316,8 @@
 		background: var(--paper);
 		border-left: var(--border-width-regular) solid var(--ink);
 	}
-	.resize {
-		position: fixed;
-		z-index: 31;
-		top: var(--ask-top, var(--top, 0rem));
-		bottom: var(--action-bar-height, 0rem);
-		right: calc(var(--panel-width) - 0.375rem);
-		width: 0.75rem;
-		cursor: col-resize;
-		touch-action: none;
+	.ask-edge {
+		display: contents;
 	}
 	header {
 		display: flex;
@@ -489,9 +483,6 @@
 			border-left: 0;
 			/* full screen: above an app's bottom navigation */
 			z-index: 40;
-		}
-		.resize {
-			display: none;
 		}
 	}
 </style>

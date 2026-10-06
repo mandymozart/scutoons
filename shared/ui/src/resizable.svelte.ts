@@ -9,7 +9,8 @@
  *
  * `edge`: where the handle sits – 'left' for a panel on the right (the width is `anchor − x`), 'right' for one on the
  * left (`x − anchor`). `filter` sees every raw drag width before it is clamped and may skip it or end the drag (the app
- * shell's fold to a rail); `onstart` / `onend` wrap a drag.
+ * shell's fold to a rail); `onstart` / `onend` wrap a drag. While dragging, `html.sc-resizing` is set (the resize
+ * cursor everywhere, no text selection). The handle itself: `Divider.svelte` (agents/DOCKING.md).
  */
 export interface ResizableOptions {
 	storageKey: string | (() => string);
@@ -65,11 +66,14 @@ export function resizable(options: ResizableOptions) {
 			event.stopPropagation();
 			const handle = event.currentTarget as HTMLElement;
 			handle.setPointerCapture?.(event.pointerId);
+			// every drag: the resize cursor everywhere, no text selection (Divider / AppShell CSS)
+			document.documentElement.classList.add('sc-resizing');
 			options.onstart?.();
 			const end = () => {
 				handle.removeEventListener('pointermove', move);
 				handle.removeEventListener('pointerup', end);
 				handle.removeEventListener('pointercancel', end);
+				document.documentElement.classList.remove('sc-resizing');
 				options.onend?.();
 				remember();
 			};

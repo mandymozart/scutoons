@@ -10,14 +10,13 @@
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
 	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
-	import { pagePanel } from '$lib/ask.svelte.ts';
 	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
 	import { fileLabel } from '$lib/labels.ts';
-	import { flowWidth } from '$lib/components/flow/flow-dock.svelte';
+	import { flowWidth, usePageDock } from '$lib/nav.svelte.ts';
 
 	/**
 	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
@@ -90,11 +89,8 @@
 	$effect(() => {
 		if (dockOpen) untrack(() => (panel = null));
 	});
-	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
-	$effect(() => {
-		pagePanel.open = shown !== null;
-		return () => (pagePanel.open = false);
-	});
+	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds
+	usePageDock(() => (shown ? { panel: sidePanel, size } : null));
 	function togglePanel(next: 'problems' | 'history') {
 		dockOpen = false;
 		panel = panel === next ? null : next;
@@ -145,7 +141,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="meta-page" class:with-panel={shown !== null} class:wide class:fill style:--panel-width={size.css}>
+<div class="meta-page" class:wide class:fill>
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
@@ -184,29 +180,28 @@
 		</main>
 	{/if}
 
-	{#if shown}
-			<!-- a focusable separator is a widget (WAI-ARIA window splitter): drag the panel wider (owner 2026-10-03) -->
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={size.start} onkeydown={size.key} ondblclick={size.reset}></div>
-		<aside class="side-panel" class:is-dock={shown === 'dock'}>
-			{#if shown === 'dock'}
-				{@render dock?.()}
-			{:else if panel === 'problems'}
-				<ProblemsPanel {problems} {docs} home={main?.entity} onclose={() => (panel = null)} />
-			{:else if panel === 'history' && historyDoc}
-				{#if docs.length > 1}
-					<p class="history-files">
-						{#each docs as d (d.entity)}
-							<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.entity)}>{fileLabel(d.entity)}</button>
-						{/each}
-					</p>
-				{/if}
-				{#key historyDoc}<HistoryPanel doc={historyDoc} onclose={() => (panel = null)} />{/key}
-			{/if}
-		</aside>
-	{/if}
 </div>
 
+
+<!-- the open page panel, shown in the shell's right dock (usePageDock) -->
+{#snippet sidePanel()}
+	<div class="side-panel" class:is-dock={shown === 'dock'}>
+		{#if shown === 'dock'}
+			{@render dock?.()}
+		{:else if panel === 'problems'}
+			<ProblemsPanel {problems} {docs} home={main?.entity} onclose={() => (panel = null)} />
+		{:else if panel === 'history' && historyDoc}
+			{#if docs.length > 1}
+				<p class="history-files">
+					{#each docs as d (d.entity)}
+						<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.entity)}>{fileLabel(d.entity)}</button>
+					{/each}
+				</p>
+			{/if}
+			{#key historyDoc}<HistoryPanel doc={historyDoc} onclose={() => (panel = null)} />{/key}
+		{/if}
+	</div>
+{/snippet}
 <style>
 	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here;
 	   --top (the top bar's height) comes from the layout */
@@ -255,50 +250,20 @@
 		gap: 0.25rem;
 		margin: 0 0 0.5rem;
 	}
-	.with-panel .content {
-		margin-right: var(--panel-width);
-	}
+	/* the open page panel (in the shell's right dock: it sizes and places it) */
 	.side-panel {
-		position: fixed;
-		top: var(--top);
-		/* left of the Ask panel: Ask belongs to the shell, the page's panels to the page */
-		right: var(--ask-inset, 0rem);
-		bottom: var(--action-bar-height);
-		width: var(--panel-width);
-		background: var(--paper);
-		border-left: var(--border-width-regular) solid var(--ink);
+		box-sizing: border-box;
 		overflow: auto;
 		padding: var(--space-1) var(--space-1) var(--space-3);
-		z-index: 20;
-		box-sizing: border-box;
 	}
 	/* the page's dock (the season's Flow): its content fills the panel's height */
 	.side-panel.is-dock {
+		display: flex;
+		flex-direction: column;
 		overflow: hidden;
 		padding-bottom: var(--space-1);
 	}
 	.pad {
 		padding: 1rem;
-	}
-	/* the side panel's left edge drags it wider (@scutoons/ui panelWidth) */
-	.panel-resize {
-		position: fixed;
-		z-index: 21;
-		top: var(--top);
-		bottom: var(--action-bar-height);
-		right: calc(var(--ask-inset, 0rem) + var(--panel-width) - 0.375rem);
-		width: 0.75rem;
-		cursor: col-resize;
-		touch-action: none;
-	}
-	.panel-resize:hover,
-	.panel-resize:focus-visible {
-		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
-		outline: none;
-	}
-	@media (max-width: 767px) {
-		.panel-resize {
-			display: none;
-		}
 	}
 </style>

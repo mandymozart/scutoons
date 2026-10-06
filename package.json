@@ -34,6 +34,7 @@
 		"check:vn-safety": "node --experimental-transform-types --no-warnings scripts/dev/vn-safety-check.mjs",
 		"check:creator-reach": "node scripts/dev/creator-reach-check.mjs",
 		"check:creator-expr": "node scripts/dev/creator-expr-check.mjs",
+		"check:creator-dock": "node scripts/dev/creator-dock-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",
 		"check:creator-cover": "node --experimental-transform-types --no-warnings scripts/dev/creator-cover-check.mjs",
 		"dev:viewer": "npm run dev -w viewer",

@@ -18,9 +18,8 @@
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import FileStatus from '$lib/components/status/file-status.svelte';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
-	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import { flowWidth, getCreatorNav, usePageDock, usePageNav } from '$lib/nav.svelte.ts';
 	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
-	import FlowDock, { flowWidth } from '$lib/components/flow/flow-dock.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
@@ -29,6 +28,7 @@
 	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
 	// docked on the right like the chapter's Flow: the page makes room for it (left of Ask, drags wider)
 	const flowSize = flowWidth();
+	usePageDock(() => (flowOpen ? { panel: flowDock, size: flowSize } : null));
 	usePageNav({ actions: flowToggle });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
@@ -318,7 +318,7 @@
 	}
 </script>
 
-<div class="creator-page" class:with-flow={flowOpen} style:--panel-width={flowSize.css}>
+<div class="creator-page">
 	<main class="browser">
 		<section>
 			<h1 class="toon-title">
@@ -433,24 +433,27 @@
 		{/snippet}
 	</ActionBar>
 </div>
-{#if flowOpen}
-	<FlowDock size={flowSize}>
+<!-- the toon's Flow in the shell's right dock (usePageDock) -->
+{#snippet flowDock()}
+	<div class="flow-dock" data-testid="flow-dock">
 		{#key toonId}
 			<ToonFlowPanel toon={toonId} onclose={() => (flowOpen = false)} />
 		{/key}
-	</FlowDock>
-{/if}
+	</div>
+{/snippet}
 
 {#snippet flowToggle()}
 	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_toon_open']()} aria-label={m['creator.flow_toon_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
 {/snippet}
 
 <style>
-	/* the page makes room for the docked Flow instead of hiding under it; phones: it covers the page */
-	@media (min-width: 768px) {
-		.creator-page.with-flow {
-			margin-right: var(--panel-width);
-		}
+	/* the docked Flow fills the dock (it pans / zooms itself) */
+	.flow-dock {
+		display: flex;
+		flex-direction: column;
+		box-sizing: border-box;
+		padding: var(--space-1);
+		overflow: hidden;
 	}
 	.toon-title {
 		font-size: var(--type-title-size);

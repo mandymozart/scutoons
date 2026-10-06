@@ -941,6 +941,7 @@
 		"app_label": "Creator",
 		"resize_sidebar": "Seitenleiste breiter oder schmaler ziehen",
 		"resize_panel": "Ziehen, um das Panel breiter oder schmaler zu machen",
+		"dock_label": "Seitenpanel",
 		"fold_sidebar": "Seitenleiste einklappen",
 		"unfold_sidebar": "Seitenleiste zeigen",
 		"related_items": "Verwandte Gegenstände",

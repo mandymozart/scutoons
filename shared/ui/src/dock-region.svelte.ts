@@ -1,0 +1,118 @@
+import { resizable } from './resizable.svelte.ts';
+
+/**
+ * One docked region's size (agents/DOCKING.md): its width (dragged on its `Divider`, arrow keys, Home / double-click =
+ * the normal width, remembered per key) and – for a foldable region on the left (the sidebar; the script outline next)
+ * – its fold to a rail: dragging narrower than 60 % of the normal width snaps it to the rail, dragging out of the rail
+ * opens it again (one direction per drag – owner 2026-10-03: folding and unfolding in the same drag glitched).
+ * `foldWhen`: the page needs the room (a right dock + Ask open, the content would be too narrow) – folded for now,
+ * not remembered; unfolding by hand wins until it turns false again.
+ *
+ *   const region = dockRegion({ key: () => 'sc-sidebar-width:creator', foldKey: () => 'sc-sidebar-folded:creator',
+ *     side: 'left', anchor: () => el.getBoundingClientRect().left, normal: () => el.offsetWidth, max: () => innerWidth / 3 });
+ *   region.restore();   <Divider size={region} edge="right" … />
+ */
+export interface DockRegionOptions {
+	/** localStorage key of the width ('' = not remembered) */
+	key: () => string;
+	/** localStorage key of the folded state ('' = the region doesn't fold) */
+	foldKey?: () => string;
+	/** where the region is docked: its divider is on the other side (left region → right edge) */
+	side: 'left' | 'right';
+	/** px: the region's fixed side (a left region's left start, a right region's right end) */
+	anchor: () => number;
+	/** px: the normal width (also the minimum) */
+	normal: () => number;
+	/** px */
+	max: () => number;
+	foldWhen?: () => boolean;
+}
+
+export function dockRegion(options: DockRegionOptions) {
+	const foldKey = () => options.foldKey?.() ?? '';
+	/** folded by the person (remembered) */
+	let foldedByUser = $state(false);
+	/** unfolded by hand while `foldWhen` holds */
+	let unfoldedByHand = $state(false);
+	const pressed = () => !!options.foldWhen?.();
+	const folded = $derived(!!foldKey() && (foldedByUser || (pressed() && !unfoldedByHand)));
+	$effect(() => {
+		if (!pressed()) unfoldedByHand = false;
+	});
+
+	function setFolded(value: boolean) {
+		const k = foldKey();
+		if (!k) return;
+		if (pressed()) {
+			// folded for the page's sake: unfolding is a choice for now, not a remembered setting
+			unfoldedByHand = !value;
+			if (!foldedByUser) return;
+		}
+		foldedByUser = value;
+		try {
+			if (value) localStorage.setItem(k, '1');
+			else localStorage.removeItem(k);
+		} catch {
+			// not remembered
+		}
+	}
+
+	let startedFolded = false;
+	const threshold = () => options.normal() * 0.6;
+	const size = resizable({
+		storageKey: options.key,
+		edge: options.side === 'left' ? 'right' : 'left',
+		anchor: options.anchor,
+		min: options.normal,
+		max: options.max,
+		filter: (x) => {
+			if (!foldKey()) return;
+			if (startedFolded) {
+				if (folded && x < threshold()) return 'skip'; // still the rail
+				if (folded) setFolded(false);
+			} else if (x < threshold()) {
+				setFolded(true);
+				return 'end';
+			}
+		},
+		onstart: () => {
+			startedFolded = folded;
+		}
+	});
+
+	return {
+		/** px set by dragging / keys; null = the normal width */
+		get width() {
+			return size.width;
+		},
+		set width(next: number | null) {
+			size.width = next;
+		},
+		get folded() {
+			return folded;
+		},
+		/** fold / unfold (the fold buttons, Ctrl + \) */
+		fold(value: boolean) {
+			setFolded(value);
+		},
+		/** reads the remembered width and folded state */
+		restore() {
+			size.restore();
+			const k = foldKey();
+			if (!k) return;
+			try {
+				foldedByUser = localStorage.getItem(k) === '1';
+			} catch {
+				// not remembered
+			}
+		},
+		/** a remembered width wider than `max` (a smaller window) shrinks to it */
+		fit() {
+			if (size.width !== null) size.width = Math.min(size.width, Math.round(options.max()));
+		},
+		start: size.start,
+		key: size.key,
+		reset: size.reset
+	};
+}
+export type DockRegion = ReturnType<typeof dockRegion>;

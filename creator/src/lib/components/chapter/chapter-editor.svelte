@@ -3,10 +3,10 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, CloseIcon, confirmDialog, Icon, panelWidth } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, confirmDialog, Divider, Icon, panelWidth } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { usePageNav } from '$lib/nav.svelte.ts';
+	import { flowWidth, usePageDock, usePageNav } from '$lib/nav.svelte.ts';
 	import { fileLabel, sceneLabel } from '$lib/labels.ts';
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
@@ -54,7 +54,6 @@
 	import StripPreview from '$lib/components/chapter/strip-preview.svelte';
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
-	import { pagePanel } from '$lib/ask.svelte.ts';
 	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
@@ -68,7 +67,7 @@
 
 	const panelSize = panelWidth('sc-panel-width:chapter', 16); // normal = --tool-panel-width
 	// the Flow panel's graph needs more room from the start (owner 2026-10-06: drags wider up to half the window too)
-	const flowSize = panelWidth('sc-panel-width:flow', 28);
+	const flowSize = flowWidth();
 	// the slice inspector drags wider too (owner 2026-10-03): from its normal 22rem up to half the window
 	let columnsEl = $state<HTMLElement>();
 	const inspectorSize = panelWidth('sc-panel-width:slice-inspector', 22, () => columnsEl?.getBoundingClientRect().right ?? window.innerWidth);
@@ -284,11 +283,8 @@
 	});
 	// `?flow=1` (from the season's / toon's Flow): the chapter opens with its Flow panel
 	let panel = $state<'problems' | 'history' | 'flow' | null>(page.url.searchParams.get('flow') === '1' ? 'flow' : null);
-	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
-	$effect(() => {
-		pagePanel.open = panel !== null;
-		return () => (pagePanel.open = false);
-	});
+	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds
+	usePageDock(() => (panel ? { panel: sidePanel, size: panel === 'flow' ? flowSize : panelSize } : null));
 	function togglePanel(next: 'problems' | 'history' | 'flow') {
 		panel = panel === next ? null : next;
 	}
@@ -677,7 +673,7 @@
 	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} {markAt} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
 {/snippet}
 
-<div class="editor" class:with-panel={panel !== null} style:--panel-width={panel === 'flow' ? flowSize.css : panelSize.css}>
+<div class="editor">
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
 	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
@@ -825,8 +821,7 @@
 
 			<!-- Inspector -->
 			{#if view.section === 'slice' && activeDoc && activeSlice}
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-				<div class="inspector-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={inspectorSize.start} onkeydown={inspectorSize.key} ondblclick={inspectorSize.reset}></div>
+				<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} class="inspector-resize" />
 				<SliceInspector
 					{view}
 					doc={activeDoc}
@@ -856,37 +851,36 @@
 		</div>
 	{/if}
 
-	{#if panel}
-			{@const size = panel === 'flow' ? flowSize : panelSize}
-			<!-- a focusable separator is a widget (WAI-ARIA window splitter): drag the panel wider (owner 2026-10-03) -->
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={size.start} onkeydown={size.key} ondblclick={size.reset}></div>
-		<aside class="side-panel" class:is-flow={panel === 'flow'}>
-			{#if panel === 'problems'}
-				<ProblemsPanel {problems} docs={allDocs} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
-			{:else if panel === 'history' && activeDoc}
-				<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
-			{:else if panel === 'flow'}
-				<FlowPanel
-					groups={reachGroups}
-					{reach}
-					chapter={chapterNumber}
-					current={view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1}
-					slice={view.section === 'slice' ? view.sliceIndex : -1}
-					who={flowWho}
-					{toon}
-					registry={registryOf(registry)}
-					{facts}
-					nextChapter={flowNextChapter}
-					name={flowName}
-					text={flowText}
-					onopen={openFlowNode}
-					onclose={() => (panel = null)}
-				/>
-			{/if}
-		</aside>
-	{/if}
 </div>
+
+
+<!-- the open page panel, shown in the shell's right dock (usePageDock) -->
+{#snippet sidePanel()}
+	<div class="side-panel" class:is-flow={panel === 'flow'}>
+		{#if panel === 'problems'}
+			<ProblemsPanel {problems} docs={allDocs} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
+		{:else if panel === 'history' && activeDoc}
+			<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
+		{:else if panel === 'flow'}
+			<FlowPanel
+				groups={reachGroups}
+				{reach}
+				chapter={chapterNumber}
+				current={view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1}
+				slice={view.section === 'slice' ? view.sliceIndex : -1}
+				who={flowWho}
+				{toon}
+				registry={registryOf(registry)}
+				{facts}
+				nextChapter={flowNextChapter}
+				name={flowName}
+				text={flowText}
+				onopen={openFlowNode}
+				onclose={() => (panel = null)}
+			/>
+		{/if}
+	</div>
+{/snippet}
 
 <style>
 	/* DESIGN.md "Brutalist tools": the reader's type sizes, 2px ink frames, selected = inverted, ≥ 44px controls.
@@ -951,29 +945,13 @@
 	.columns.has-inspector {
 		grid-template-columns: minmax(0, 1fr) var(--inspector-width, 22rem);
 	}
-	/* the inspector's left border drags it wider (@scutoons/ui panelWidth) */
-	.inspector-resize {
-		position: absolute;
-		z-index: 5;
-		top: 0;
-		bottom: 0;
-		right: calc(var(--inspector-width, 22rem) - 0.375rem);
-		width: 0.75rem;
-		cursor: col-resize;
-		touch-action: none;
-	}
-	.inspector-resize:hover,
-	.inspector-resize:focus-visible {
-		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
-		outline: none;
-	}
 	/* narrower: the inspector goes below the canvas (sidebar 12rem + inspector 22rem + a 390px slice need ≈ 1280px) */
 	@media (max-width: 1279px) {
 		.columns.has-inspector {
 			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: minmax(0, 1fr) minmax(0, 50%);
 		}
-		.inspector-resize {
+		.columns :global(.inspector-resize) {
 			display: none;
 		}
 	}
@@ -1007,23 +985,16 @@
 	.sub {
 		margin-top: var(--space-15);
 	}
+	/* the open page panel (in the shell's right dock: it sizes and places it) */
 	.side-panel {
-		position: fixed;
-		top: var(--top);
-		/* left of the Ask panel: Ask belongs to the shell, the page's panels to the page */
-		right: var(--ask-inset, 0rem);
-		/* ends at the bottom ActionBar (its border and last lines are not hidden behind it) */
-		bottom: var(--action-bar-height);
-		width: var(--panel-width);
-		background: var(--paper);
-		border-left: var(--border-width-regular) solid var(--ink);
+		box-sizing: border-box;
 		overflow: auto;
 		padding: var(--space-1) var(--space-1) var(--space-3);
-		z-index: 20;
-		box-sizing: border-box;
 	}
 	/* the Flow panel: its graph fills the panel's height (it pans / zooms itself) */
 	.side-panel.is-flow {
+		display: flex;
+		flex-direction: column;
 		overflow: hidden;
 		padding-bottom: var(--space-1);
 	}
@@ -1032,32 +1003,5 @@
 	}
 	.error {
 		color: var(--error);
-	}
-	/* the page makes room for the side panel instead of hiding under it (like the meta pages); phones: it covers the page */
-	@media (min-width: 768px) {
-		.editor.with-panel {
-			margin-right: var(--panel-width);
-		}
-	}
-	/* the side panel's left edge drags it wider (@scutoons/ui panelWidth) */
-	.panel-resize {
-		position: fixed;
-		z-index: 21;
-		top: var(--top);
-		bottom: var(--action-bar-height);
-		right: calc(var(--ask-inset, 0rem) + var(--panel-width) - 0.375rem);
-		width: 0.75rem;
-		cursor: col-resize;
-		touch-action: none;
-	}
-	.panel-resize:hover,
-	.panel-resize:focus-visible {
-		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
-		outline: none;
-	}
-	@media (max-width: 767px) {
-		.panel-resize {
-			display: none;
-		}
 	}
 </style>

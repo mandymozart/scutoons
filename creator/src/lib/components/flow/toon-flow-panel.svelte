@@ -14,8 +14,8 @@
 	 * reach in the toon, unreachable groups), the season order, jumps and ends between chapters, exits to other seasons /
 	 * toons / products; the toon level adds the map places. Dead things below the graph. A box opens its chapter (with its
 	 * Flow), an exit its season / toon. Read-only; the graph is loaded only when it opens. The page docks it on the right
-	 * like the chapter's Flow panel (the season: MetaPage's dock, the toon page: flow-dock.svelte) – left of the Ask panel,
-	 * pushing the page, dragging wider.
+	 * like the chapter's Flow panel (the season: MetaPage's dock, the toon page: a snippet) – in the shell's right dock
+	 * (usePageDock), left of the Ask panel, pushing the page, dragging wider.
 	 */
 	let { toon, season, onclose }: { toon: string; season?: number; onclose: () => void } = $props();
 

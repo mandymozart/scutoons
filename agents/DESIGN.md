@@ -283,9 +283,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   story flow ("Ablauf" / "Flow") on every level, one look (boxes, edges, buttons, minimap). Opened by a round Feather
   `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`; its `title` says what it
   shows and how to use it – no intro line in the panel); docked on the right like Problems / History on EVERY level
-  (left of Ask, the page makes room – `margin-right: var(--panel-width)` from 768px, never an overlay; drags wider up to
-  half the window, one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns
-  with Problems / History, the toon page uses `flow/flow-dock.svelte`). Svelte Flow + dagre are loaded only when it
+  (in the AppShell's right dock, left of Ask, the page makes room – never an overlay; drags wider up to half the window,
+  one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns with Problems /
+  History; every page hands its panel to the shell with `usePageDock` – agents/DOCKING.md). Svelte Flow + dagre are loaded only when it
   opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates (read-only otherwise).
   - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
     group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the

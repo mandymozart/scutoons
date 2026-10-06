@@ -941,6 +941,7 @@
 		"app_label": "Creator",
 		"resize_sidebar": "Drag to resize the sidebar",
 		"resize_panel": "Drag to resize the panel",
+		"dock_label": "Page panel",
 		"fold_sidebar": "Fold the sidebar",
 		"unfold_sidebar": "Show the sidebar",
 		"related_items": "Related items",

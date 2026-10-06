@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Loaded only when a Flow panel / page opens (flow-panel.svelte, flow-dock.svelte import it dynamically): Svelte Flow +
+	// Loaded only when a Flow panel / page opens (flow-panel.svelte, toon-flow-panel.svelte import it dynamically): Svelte Flow +
 	// dagre stay out of the pages that never show it. Draws any level's graph (@scutoons/content flow.ts) the same way.
 	import '@xyflow/svelte/dist/style.css';
 	import { SvelteFlow, MiniMap, MarkerType, type Edge, type EdgeTypes, type Node, type NodeTypes } from '@xyflow/svelte';

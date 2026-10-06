@@ -1,39 +1,57 @@
 <script lang="ts">
-	import { resizable } from './resizable.svelte.ts';
+	import { dockRegion } from './dock-region.svelte.ts';
+	import Divider from './divider.svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import Icon from './icon.svelte';
 
 	/**
-	 * Page frame of the tools (admin, creator): top bar + optional sidebar (left) + content + optional aside (right),
-	 * above the fixed bottom `ActionBar` (PLATFORM.md "Bottom action bar"). The sidebar/aside borders always reach the
-	 * ActionBar (or the viewport bottom without one), at any scroll position and content length:
+	 * Page frame of the tools (admin, creator): top bar + optional sidebar (left) + content + optional dock (right),
+	 * above the fixed bottom `ActionBar` (PLATFORM.md "Bottom action bar"). From 768px the regions tile and never
+	 * overlap (agents/DOCKING.md); their borders always reach the ActionBar (or the viewport bottom without one), at any
+	 * scroll position and content length:
 	 *
-	 * - `mode="page"` (default): the document scrolls. The top bar is sticky; sidebar and aside are sticky and exactly
+	 * - `mode="page"` (default): the document scrolls. The top bar is sticky; sidebar and dock are sticky and exactly
 	 *   as tall as the space between the top bar and the ActionBar, and scroll on their own when taller. A short page
 	 *   does not scroll at all.
 	 * - `mode="fill"`: the shell is exactly the viewport minus the ActionBar and the document never scrolls; sidebar,
-	 *   content and aside scroll on their own (editors).
+	 *   content and dock scroll on their own (editors).
 	 *
 	 * The shell reserves the ActionBar's height itself (`--action-bar-height`, inherited from the app; default 3.25rem)
 	 * instead of the `body` padding the ActionBar adds, so the page never scrolls by a wrong amount (rem-based padding
 	 * on a fluid root size). The top bar's height is measured (`--sc-shell-top`), so a wrapping top bar is fine.
 	 *
 	 * `collapsible`: below 768px the sidebar becomes an off-canvas drawer (`sidebarOpen`, scrim → `onclose`).
-	 * `resizeKey`: from 768px on, the sidebar's right edge can be dragged wider (owner 2026-10-02: creator) – from its
-	 * normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per key in
-	 * localStorage (`sc-sidebar-width:<key>`).
+	 * `resizeKey`: from 768px on, the sidebar's right edge (a `Divider`) drags it wider (owner 2026-10-02: creator) –
+	 * from its normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per
+	 * key in localStorage (`sc-sidebar-width:<key>`).
 	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a 2.5rem rail –
-	 * the fold button (Feather chevrons-left) at its top right, dragging the edge narrower than the normal width, or Ctrl + \; the rail shows chevrons-right and
-	 * `railLabel` (the current place) written vertically. Remembered per key (`sc-sidebar-folded:<key>`).
+	 * the fold button (Feather chevrons-left) at its top right, dragging the edge narrower than the normal width, or
+	 * Ctrl + \; the rail shows chevrons-right and `railLabel` (the current place) written vertically. Remembered per key
+	 * (`sc-sidebar-folded:<key>`). It folds by itself (not remembered) while `foldWhen` holds (who gives way first:
+	 * agents/DOCKING.md "Running out of room").
+	 * `dock` (+ `dockSize`, a `panelWidth`): a page's panel docked on the right (the creator's Problems / History / Flow)
+	 * – a column of the frame, so the content makes room; its left edge is a `Divider`; dragged wider, it stops where the
+	 * content would get narrower than `minContent` (default 20rem) next to the sidebar; below its normal width only when
+	 * the content would get less than half of that. Below 768px it covers the page.
 	 */
+	interface DockSize {
+		readonly css: string;
+		/** CSS length: the normal width – the dock never gives way below it */
+		readonly normal?: string;
+		/** set by the shell: px a drag may widen it to (the content keeps `minContent`) */
+		room?: (() => number) | null;
+		readonly width: number | null;
+		start(event: PointerEvent): void;
+		key(event: KeyboardEvent): void;
+		reset(): void;
+	}
 	let {
 		topbar,
 		sidebar,
-		aside,
+		dock,
 		children,
 		mode = 'page',
 		sidebarWidth = 'var(--tool-sidebar-width)',
-		asideWidth = '24rem',
 		sidebarLabel,
 		sidebarId,
 		sidebarTag = 'nav',
@@ -48,16 +66,20 @@
 		foldLabel = 'Fold the sidebar',
 		unfoldLabel = 'Show the sidebar',
 		foldWhen = false,
+		minContent,
+		dockSize,
+		dockLabel,
+		dockResizeLabel = 'Resize panel',
 		class: className = ''
 	}: {
 		topbar?: Snippet;
 		sidebar?: Snippet;
-		aside?: Snippet;
+		/** the page's panel docked on the right */
+		dock?: Snippet;
 		children: Snippet;
 		mode?: 'page' | 'fill';
 		/** CSS length; may use `var(…)` so an app can change it per breakpoint */
 		sidebarWidth?: string;
-		asideWidth?: string;
 		/** accessible name of the sidebar landmark */
 		sidebarLabel?: string;
 		sidebarId?: string;
@@ -78,130 +100,101 @@
 		/** fold to the rail while true (the page needs the room, e.g. two panels docked on the right); not remembered –
 		 * unfolding by hand wins until it turns false again */
 		foldWhen?: boolean;
+		/** rem: the content's minimum width – a dock dragged wider stops there */
+		minContent?: number;
+		/** the dock's width (`panelWidth`: its `css` length, the drag / keys / reset of its edge) */
+		dockSize?: DockSize;
+		/** accessible name of the dock */
+		dockLabel?: string;
+		dockResizeLabel?: string;
 		class?: string;
 	} = $props();
 
-	// ---------- foldable sidebar (a rail) ----------
-	/** folded by the user (remembered) */
-	let foldedByUser = $state(false);
-	/** unfolded by hand while `foldWhen` holds */
-	let unfoldedByHand = $state(false);
-	$effect(() => {
-		if (!foldWhen) unfoldedByHand = false;
-	});
-	const folded = $derived(foldedByUser || (foldWhen && !unfoldedByHand));
-	const foldKey = $derived(foldable && resizeKey ? `sc-sidebar-folded:${resizeKey}` : '');
-	$effect(() => {
-		if (!foldKey) return;
-		try {
-			foldedByUser = localStorage.getItem(foldKey) === '1';
-		} catch {
-			// not remembered
-		}
-	});
-	function setFolded(value: boolean) {
-		if (foldWhen) {
-			// folded for the page's sake: unfolding is a choice for now, not a remembered setting
-			unfoldedByHand = !value;
-			if (!foldedByUser) return;
-		}
-		foldedByUser = value;
-		try {
-			if (value) localStorage.setItem(foldKey, '1');
-			else localStorage.removeItem(foldKey);
-		} catch {
-			// not remembered
-		}
+	let topHeight = $state(0);
+
+	// ---------- the sidebar: resizable, folds to a rail (dock-region.svelte.ts) ----------
+	let sidebarEl = $state<HTMLElement>();
+	/** the normal width in px (the minimum) – measured before the first drag */
+	let baseWidth = 0;
+	function measureBase() {
+		if (!baseWidth && sidebarEl && region.width === null && !region.folded) baseWidth = sidebarEl.offsetWidth;
+		return baseWidth || 240;
 	}
+	const widthKey = $derived(resizeKey ? `sc-sidebar-width:${resizeKey}` : '');
+	const foldKey = $derived(foldable && resizeKey ? `sc-sidebar-folded:${resizeKey}` : '');
+	const region = dockRegion({
+		key: () => widthKey,
+		foldKey: () => foldKey,
+		side: 'left',
+		anchor: () => sidebarEl?.getBoundingClientRect().left ?? 0,
+		normal: measureBase,
+		max: () => window.innerWidth / 3,
+		foldWhen: () => foldWhen
+	});
+	const folded = $derived(region.folded);
+
 	$effect(() => {
 		if (!foldKey) return;
 		const key = (e: KeyboardEvent) => {
 			if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
 				e.preventDefault();
-				setFolded(!folded);
+				region.fold(!region.folded);
 			}
 		};
 		window.addEventListener('keydown', key);
 		return () => window.removeEventListener('keydown', key);
 	});
 
-	let topHeight = $state(0);
-
-	// ---------- resizable sidebar (resizable.svelte.ts) ----------
-	let sidebarEl = $state<HTMLElement>();
-	/** the normal width in px (the minimum) – measured before the first drag */
-	let baseWidth = 0;
-	const storageKey = $derived(resizeKey ? `sc-sidebar-width:${resizeKey}` : '');
-	function measureBase() {
-		if (!baseWidth && sidebarEl && size.width === null && !folded) baseWidth = sidebarEl.offsetWidth;
-		return baseWidth || 240;
-	}
-	// one direction per drag (owner 2026-10-03: unfolding and folding again in the same drag glitched): a drag that
-	// starts on the rail only opens the sidebar, a drag that starts open only folds it
-	let startedFolded = false;
-	const threshold = () => measureBase() * 0.6;
-	const size = resizable({
-		storageKey: () => storageKey,
-		edge: 'right',
-		anchor: () => sidebarEl?.getBoundingClientRect().left ?? 0,
-		min: measureBase,
-		max: () => window.innerWidth / 3,
-		filter: (x) => {
-			if (startedFolded) {
-				if (folded && x < threshold()) return 'skip'; // still the rail
-				if (folded) setFolded(false);
-			} else if (foldKey && x < threshold()) {
-				setFolded(true);
-				return 'end';
-			}
-		},
-		onstart: () => {
-			measureBase();
-			startedFolded = !!foldKey && folded;
-			document.documentElement.classList.add('sc-resizing');
-		},
-		onend: () => document.documentElement.classList.remove('sc-resizing')
-	});
-	/** px set by dragging; null = the normal `sidebarWidth` */
-	const customWidth = $derived(size.width);
-
 	$effect(() => {
-		if (!storageKey || !sidebarEl) return;
+		if (!widthKey || !sidebarEl) return;
 		// measured before a saved width applies, never the rail; untracked: folding must not re-run this restore
-		if (!untrack(() => folded)) baseWidth = sidebarEl.offsetWidth;
-		size.restore();
+		if (!untrack(() => region.folded)) baseWidth = sidebarEl.offsetWidth;
+		untrack(() => region.restore());
 	});
-
-	function startResize(event: PointerEvent) {
-		if (!sidebarEl) return;
-		size.start(event);
-	}
-	const keyResize = size.key;
-	const resetWidth = size.reset;
 
 	/** a remembered width wider than a third of a smaller window shrinks with it */
 	$effect(() => {
 		if (!resizeKey) return;
-		const fit = () => size.width !== null && (size.width = Math.min(size.width, Math.round(window.innerWidth / 3)));
+		const fit = () => region.fit();
 		window.addEventListener('resize', fit);
 		return () => window.removeEventListener('resize', fit);
+	});
+
+	let frameEl = $state<HTMLElement>();
+	// a drag stops where the content would get narrower than its minimum (the CSS below keeps it so on a smaller window)
+	$effect(() => {
+		const size = dockSize;
+		if (!size || !frameEl) return;
+		const frame = frameEl;
+		size.room = () => frame.clientWidth - (minContent ?? 20) * (parseFloat(getComputedStyle(frame).fontSize) || 16) - (sidebarEl?.offsetWidth ?? 0);
+		return () => (size.room = null);
+	});
+	/** the dock gives way (agents/DOCKING.md "Running out of room"): dragged wider than leaves the content its minimum
+	 * (next to the sidebar) it stops there; its normal width stays unless even that leaves the content less than half its
+	 * minimum */
+	const dockCss = $derived.by(() => {
+		if (!dockSize) return '0rem';
+		const min = minContent ?? 20;
+		const room = (keep: number) => `calc(100% - ${keep}rem - ${sidebar ? 'var(--sc-shell-sidebar-width)' : '0rem'})`;
+		return `min(${dockSize.css}, max(${room(min)}, min(${dockSize.normal ?? '0rem'}, ${room(min / 2)})))`;
 	});
 </script>
 
 <div
 	class="sc-app-shell {mode} {className}"
 	class:has-sidebar={!!sidebar}
-	class:has-aside={!!aside}
+	class:has-dock={!!dock}
 	class:collapsible
 	style:--sc-shell-top="{topHeight}px"
 	class:folded={folded && !!foldKey}
-	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : customWidth !== null ? `max(${customWidth}px, ${sidebarWidth})` : sidebarWidth}
-	style:--sc-shell-aside-width={asideWidth}
+	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
+	style:--sc-shell-dock-width={dockCss}
+	style:--sc-shell-dock-own={dockSize?.css}
 >
 	{#if topbar}
 		<div class="sc-shell-top" bind:offsetHeight={topHeight}>{@render topbar()}</div>
 	{/if}
-	<div class="sc-shell-frame">
+	<div class="sc-shell-frame" bind:this={frameEl}>
 		{#if sidebar}
 			<svelte:element
 				this={sidebarTag}
@@ -214,40 +207,29 @@
 				{#if foldKey && folded}
 					<!-- the rail: unfold + where the user is -->
 					<div class="sc-shell-rail">
-						<button type="button" class="sc-shell-fold sc-round" onclick={() => setFolded(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)"><Icon name="chevrons-right" /></button>
+						<button type="button" class="sc-shell-fold sc-round" onclick={() => region.fold(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)"><Icon name="chevrons-right" /></button>
 						{#if railLabel}<span class="sc-shell-rail-label">{railLabel}</span>{/if}
 					</div>
 				{:else}
 					{#if foldKey}
-						<button type="button" class="sc-shell-fold sc-shell-fold-in sc-round" onclick={() => setFolded(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)"><Icon name="chevrons-left" /></button>
+						<button type="button" class="sc-shell-fold sc-shell-fold-in sc-round" onclick={() => region.fold(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)"><Icon name="chevrons-left" /></button>
 					{/if}
 					{@render sidebar()}
 				{/if}
 			</svelte:element>
 			{#if resizeKey}
-				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-				<div
-					class="sc-shell-resize"
-					role="separator"
-					aria-orientation="vertical"
-					aria-label={resizeLabel}
-					aria-controls={sidebarId}
-					aria-valuenow={customWidth ?? undefined}
-					tabindex="0"
-					title={resizeLabel}
-					onpointerdown={startResize}
-					onkeydown={keyResize}
-					ondblclick={resetWidth}
-				></div>
+				<Divider size={region} edge="right" at="var(--sc-shell-sidebar-width)" label={resizeLabel} controls={sidebarId} class="sc-shell-resize" />
 			{/if}
 			{#if collapsible && sidebarOpen}
 				<button type="button" class="sc-shell-scrim" aria-label={closeLabel} onclick={() => onclose?.()}></button>
 			{/if}
 		{/if}
 		<div class="sc-shell-content">{@render children()}</div>
-		{#if aside}
-			<aside class="sc-shell-aside">{@render aside()}</aside>
+		{#if dock}
+			<aside class="sc-shell-dock" id="sc-shell-dock" aria-label={dockLabel} data-testid="shell-dock">{@render dock()}</aside>
+			{#if dockSize}
+				<Divider size={dockSize} edge="left" at="var(--sc-shell-dock-width)" label={dockResizeLabel} controls="sc-shell-dock" />
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -287,17 +269,17 @@
 	.has-sidebar .sc-shell-frame {
 		grid-template-columns: var(--sc-shell-sidebar-width) minmax(0, 1fr);
 	}
-	.has-aside .sc-shell-frame {
-		grid-template-columns: minmax(0, 1fr) var(--sc-shell-aside-width);
+	.has-dock .sc-shell-frame {
+		grid-template-columns: minmax(0, 1fr) var(--sc-shell-dock-width);
 	}
-	.has-sidebar.has-aside .sc-shell-frame {
-		grid-template-columns: var(--sc-shell-sidebar-width) minmax(0, 1fr) var(--sc-shell-aside-width);
+	.has-sidebar.has-dock .sc-shell-frame {
+		grid-template-columns: var(--sc-shell-sidebar-width) minmax(0, 1fr) var(--sc-shell-dock-width);
 	}
 	.sc-shell-content {
 		min-width: 0;
 	}
 	.sc-shell-sidebar,
-	.sc-shell-aside {
+	.sc-shell-dock {
 		position: sticky;
 		top: var(--sc-shell-top);
 		align-self: start;
@@ -310,8 +292,16 @@
 	.sc-shell-sidebar {
 		border-right: var(--border-width-regular) solid var(--ink);
 	}
-	.sc-shell-aside {
+	/* the dock: one page panel; its content fills it and scrolls on its own (or pans, like the Flow) */
+	.sc-shell-dock {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 		border-left: var(--border-width-regular) solid var(--ink);
+	}
+	.sc-shell-dock > :global(*) {
+		flex: 1 1 auto;
+		min-height: 0;
 	}
 
 	/* fill: exactly the viewport minus the ActionBar; every column scrolls on its own */
@@ -328,7 +318,7 @@
 		grid-template-rows: minmax(0, 1fr);
 	}
 	.fill .sc-shell-sidebar,
-	.fill .sc-shell-aside {
+	.fill .sc-shell-dock {
 		position: static;
 		align-self: stretch;
 		height: auto;
@@ -369,27 +359,6 @@
 		overflow: hidden;
 	}
 
-	/* the drag handle sits on the sidebar's right border */
-	.sc-shell-resize {
-		position: absolute;
-		z-index: 15;
-		top: 0;
-		bottom: 0;
-		left: calc(var(--sc-shell-sidebar-width) - 0.375rem);
-		width: 0.75rem;
-		cursor: col-resize;
-		touch-action: none;
-	}
-	.sc-shell-resize:hover,
-	.sc-shell-resize:focus-visible {
-		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
-		outline: none;
-	}
-	:global(html.sc-resizing),
-	:global(html.sc-resizing *) {
-		cursor: col-resize !important;
-		user-select: none !important;
-	}
 	.sc-shell-scrim {
 		display: none;
 	}
@@ -397,10 +366,26 @@
 		.collapsible.has-sidebar .sc-shell-frame {
 			grid-template-columns: minmax(0, 1fr);
 		}
-		.collapsible.has-sidebar.has-aside .sc-shell-frame {
-			grid-template-columns: minmax(0, 1fr) var(--sc-shell-aside-width);
+		/* phones: the dock covers the page (closed by its own button) */
+		.has-dock .sc-shell-frame,
+		.has-sidebar.has-dock .sc-shell-frame {
+			grid-template-columns: minmax(0, 1fr);
 		}
-		.sc-shell-resize,
+		.collapsible.has-sidebar.has-dock .sc-shell-frame {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.sc-shell-dock,
+		.fill .sc-shell-dock {
+			position: fixed;
+			z-index: 20;
+			top: var(--sc-shell-top);
+			right: 0;
+			bottom: var(--sc-shell-bottom);
+			width: min(var(--sc-shell-dock-own, 100vw), 100vw);
+			height: auto;
+			/* `start` would shrink a fixed box with both insets to its content */
+			align-self: stretch;
+		}
 		.sc-shell-fold {
 			display: none;
 		}

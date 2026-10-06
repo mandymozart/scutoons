@@ -33,7 +33,7 @@
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 	import { PLATFORM_SOURCE_LANGUAGE } from '$lib/editor/text-language.svelte.ts';
 	import AskPanel from '$lib/components/ask/ask-panel.svelte';
-	import { ask, pagePanel } from '$lib/ask.svelte.ts';
+	import { ask } from '$lib/ask.svelte.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -226,6 +226,9 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+<!-- the page's open panel (Problems, History, Flow): docked right, left of Ask (agents/DOCKING.md) -->
+{#snippet pageDock()}{@render nav.dock?.panel()}{/snippet}
+
 <div class="creator sc-tool">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- One stable frame for every page: top bar (breadcrumb of the full path), sidebar (children of the current
@@ -239,7 +242,12 @@
 			railLabel={nav.crumbs.slice(-2).map((c) => c.label).join(' · ')}
 			foldLabel={m['creator.fold_sidebar']()}
 			unfoldLabel={m['creator.unfold_sidebar']()}
-			foldWhen={ask.open && pagePanel.open}
+			foldWhen={ask.open && !!nav.dock}
+			minContent={24}
+			dock={nav.dock ? pageDock : undefined}
+			dockSize={nav.dock?.size}
+			dockLabel={m['creator.dock_label']()}
+			dockResizeLabel={m['creator.resize_panel']()}
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible

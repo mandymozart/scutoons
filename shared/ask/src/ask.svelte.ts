@@ -8,5 +8,3 @@ export function askAbout(text: string) {
 	ask.open = true;
 }
 
-/** the page has a panel docked on the right (Problems, History): with the Ask panel open the sidebar folds to its rail */
-export const pagePanel = $state({ open: false });

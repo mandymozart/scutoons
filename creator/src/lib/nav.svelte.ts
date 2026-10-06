@@ -1,4 +1,5 @@
 import { getContext, setContext, type Snippet } from 'svelte';
+import { panelWidth, type PanelWidth } from '@scutoons/ui';
 import { toonName as entryName, type ToonIndex } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
@@ -27,6 +28,8 @@ export class CreatorNav {
 	actions = $state<Snippet | null>(null);
 	/** editors that scroll their own columns (AppShell mode "fill") */
 	fill = $state(false);
+	/** the page's panel in the shell's right dock (Problems, History, Flow, …): one at a time; null = none open */
+	dock = $state.raw<PageDock | null>(null);
 	/** which page registered `extra` / `sidebar` / `fill` (a page leaving must not clear the next page's entries) */
 	owner = 0;
 
@@ -79,3 +82,31 @@ export function usePageNav(options: { sidebar?: Snippet; actions?: Snippet; extr
 		if (nav.owner === owner || nav.owner === 0) nav.extra = extra;
 	});
 }
+
+/** a page's panel in the AppShell's right dock (agents/DOCKING.md) and its remembered width */
+export interface PageDock {
+	panel: Snippet;
+	size: PanelWidth;
+	/** the page that docked it */
+	owner: object;
+}
+
+/**
+ * Docks the page's open panel on the right while the page is mounted (call during component init): `current()` says
+ * which one is open (its snippet and its width) or null. The shell makes room for it – left of Ask, never under it;
+ * with Ask open too the sidebar folds to its rail. Pages never position panels themselves.
+ */
+export function usePageDock(current: () => { panel: Snippet; size: PanelWidth } | null) {
+	const nav = getCreatorNav();
+	const owner = {};
+	$effect(() => {
+		const open = current();
+		nav.dock = open ? { ...open, owner } : null;
+		return () => {
+			if (nav.dock?.owner === owner) nav.dock = null;
+		};
+	});
+}
+
+/** the Flow panel's width (every level: one stored width, 28rem by default, drags wider up to half the window) */
+export const flowWidth = () => panelWidth('sc-panel-width:flow', 28);
