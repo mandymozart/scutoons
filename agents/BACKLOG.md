@@ -7,6 +7,26 @@ find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the 
 New entries: the next free number (10.39, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
+## Night run result (2026-10-07 morning) – read this first
+
+18 commits on `main`, **not pushed** (`git log origin/main..main`). `npm run check` green, PHPUnit 295 / 295; the
+browser checks run for each step (creator-dock 82, creator-chapter 60, creator-reach 21, events 32, chain-vn 24).
+
+**Done:** 10.38 items are not variables (steps 1–3 + 5: `inventory.<item>`, the warnings, `giveItem` / a choice's `give`,
+the migration run on the dev DB, the old variable→item bridge gone) · M.1 intersect area invisible · M.7 "Coming soon"
+stamp · M.8 sideways scroll on strips · M.11 / M.12 creator list padding + dividers · M.16 empty video slot portrait ·
+10.20 asset picker icon + sizes · 10.11 admin "Server errors" (+ qr writes its own log) · 10.19 `console setup` ·
+M.3 part 1 (characters without a box stand lower) · M.6 the Flow's jump · B.1 / B.3 closed (no longer true) ·
+10.13 / 10.18 / 10.22 closed (owner / already done) · `agents/UI-CONCEPTS.md` (E.1–E.6 concepts).
+
+**Please look at (couldn't be watched at night – the browser pane was hidden):** M.3 (characters with the box gone, on
+the phone), M.6 (the Flow: group → group, slice → slice), M.8 (← / → on a strip, smooth).
+
+**Decisions waiting for you** (details at each item): 10.38 step 4 `takeItem` rules · M.1 hide click / hover areas too?
+· M.2 where exactly does the page jump? · M.15 re-export ch1 slices at 3x + the two code proposals · UI-CONCEPTS E.1–E.6
+(which first; E.3 b/c, E.5 b need drafts) · the "Morning: for the owner" list below (production steps incl. **10.38's
+migration with the next deploy**, 10.1, check-testo, check-next-bar).
+
 ## Priorities (owner 2026-10-06 evening: "prioritise now and then set a plan to work through it alone through the night"; – then: "prioritize based on technical implementation and when refactors would be needed")
 
 **Night run 2026-10-06 → 07 (agent alone).** Rules: commit / merge on `main` in small steps, **never push** (a push
