@@ -55,8 +55,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Right-side drawers/panels drag wider (up to half the window); the sidebar folds to a rail (Feather chevrons button at its top right / drag / Ctrl+\); the script outline folds
   the same way, its rail labelled "Outline". The script is read-only until "Edit script" is confirmed.
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
-- Right-docked page panels (Problems, History, help) sit left of the Ask panel (`--ask-inset`); with both open the
-  sidebar folds to its rail. Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
+- Right-docked page panels (Problems, History, Flow) sit in the shell's right dock left of the Ask panel; with both open
+  the sidebar folds to its rail. One layout model for all areas (one `Divider`, one fold-to-rail): agents/DOCKING.md. Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
   can't. The admin catalog has the same panel (items / recipes / albums; stored in the entry, DATA.md §5).
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
   one slot with resolution chips (default 720p → 480p → 1080p).
