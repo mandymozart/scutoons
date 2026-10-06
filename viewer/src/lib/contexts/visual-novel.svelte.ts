@@ -62,8 +62,10 @@ export function createVisualNovelContext() {
 	let page = 0;
 	/** where the page is (its toon, chapter, group labels): a jump into a group that isn't there stays (jump-to.ts) */
 	let place: JumpPlace | null = null;
-	/** the dialogue box's height (px): the characters stand on its top edge */
+	/** the dialogue box's height (px) while it shows, else 0: the characters stand on its top edge */
 	let boxHeight = $state(0);
+	/** the follow-up bar's height (px) while it shows, else 0: without a box the characters stand on it (BACKLOG M.3) */
+	let endHeight = $state(0);
 	/** scene key → when it last spoke (a counter), for the stage order: the speaker, then by recency (vn/characters) */
 	const lastSpoke = $state<Record<string, number>>({});
 	let spokeCounter = 0;
@@ -350,6 +352,7 @@ export function createVisualNovelContext() {
 				question: boxData.question,
 				activeTextBoxes,
 				boxHeight,
+				endHeight,
 				lastSpoke,
 				eventsDone: boxData.eventsDone,
 				pageBusy: boxData.pageBusy,
@@ -369,6 +372,9 @@ export function createVisualNovelContext() {
 		getCharacter,
 		setBoxHeight: (h: number) => {
 			boxHeight = h;
+		},
+		setEndHeight: (h: number) => {
+			endHeight = h;
 		},
 		findInScene,
 		joinScene,

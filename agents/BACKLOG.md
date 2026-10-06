@@ -55,6 +55,9 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   since 10.30 (the production seed) the sandbox toon is creators-only – a guest gets "Not found". Not from tonight's
   work (the member path works: the testo lands in the inventory, checked 2026-10-07). Make the sandbox public in dev,
   run the guest half on a published toon, or drop it?
+- `check-next-bar.mjs` fails 7 of its checks with and without tonight's changes (checked 2026-10-07): it expects chapter 2
+  to be readable (it is coming soon in the seed) and a replay label that renders "↺ undefined" – update the check
+  (and look at that label).
 - `tokens-switch-knob` deleted (2026-10-07): main already had the same tokens-check fix; the branch's commit was d9f838f8.
 
 ## Open
@@ -477,6 +480,10 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
       portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
       anything the reader does), one consistent style that gets readers used to the VN style. _(concept first – E.5)_
+      _(2026-10-07, part 1 built – the ground: the box reports its height only while it shows, the follow-up bar reports
+      its own; the characters stand on the shown box, else on the bar, else 1 rem above the page bottom (vn/characters.svelte,
+      message.svelte, next-bar.svelte). chain-vn 24/24; not watched with the box gone (the pane was hidden at night) –
+      **owner: a look on the phone**. Part 2 (the end actions inside the box) = UI-CONCEPTS.md E.5, drafts first.)_
 - [ ] M.4 **Creator: the slice editor needs more room** (owner screenshot 2) – a bigger canvas by default, zoom like
       the Flow graph, the tool icons (text, item, sound, effect) as a vertical strip on the left, Snap + its "30 px"
       as one small button (options on click), the slice takes the freed space. _(concept first – E.4)_

@@ -57,6 +57,12 @@
 	const COUNTDOWN_MS = 5000;
 
 	const vn = getVisualNovelContext();
+	// the characters stand on the bar while it shows and no box does (vn/characters.svelte, BACKLOG M.3)
+	let barHeight = $state(0);
+	$effect(() => {
+		vn.setEndHeight(shown && !goesAtOnce ? barHeight : 0);
+		return () => vn.setEndHeight(0);
+	});
 	const session = getSessionContext();
 	const itemsUi = getItemsUiContext();
 	const nav = getNavigationContext();
@@ -309,6 +315,7 @@
 		<section
 			class="next-bar"
 			bind:this={bar}
+			bind:offsetHeight={barHeight}
 			aria-label={m['next_bar.label']()}
 			data-testid="next-bar"
 			data-kind={step.kind}

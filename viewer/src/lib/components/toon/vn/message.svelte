@@ -7,9 +7,10 @@
 	const vn = getVisualNovelContext();
 
 	const visible = $derived(vn.state.messageVisible || vn.state.choicesVisible);
-	// the characters stand on the box's top edge (vn/characters.svelte)
+	// the characters stand on the box's top edge while it shows (vn/characters.svelte); hidden it slides away – 0, so they
+	// stand at the page's bottom (owner 2026-10-06, BACKLOG M.3: offsetHeight ignores the slide-out)
 	let height = $state(0);
-	$effect(() => vn.setBoxHeight(height));
+	$effect(() => vn.setBoxHeight(visible ? height : 0));
 
 	// the page doesn't scroll while the story waits: interactions/vn-page.svelte (the whole page's scripts and triggers)
 
