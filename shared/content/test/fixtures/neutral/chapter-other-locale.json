@@ -1,0 +1,47 @@
+{
+	"description": "a chapter whose only title is in a language that is not the toon's: served in it (fallback)",
+	"kind": "chapter",
+	"languages": {
+		"source": "de",
+		"languages": [
+			"de",
+			"en"
+		]
+	},
+	"status": "draft",
+	"doc": {
+		"title": {
+			"ko": "둘"
+		},
+		"author": "M",
+		"number": 3,
+		"release": {
+			"ko": ""
+		},
+		"description": {
+			"ko": "설명"
+		},
+		"thumbnail": "",
+		"groups": []
+	},
+	"cases": [
+		{
+			"locale": "de",
+			"expected": {
+				"locale": "ko",
+				"fallback": true,
+				"doc": {
+					"title": "둘",
+					"author": "M",
+					"number": 3,
+					"release": "",
+					"description": "설명",
+					"thumbnail": "",
+					"groups": [],
+					"language": "ko",
+					"status": "draft"
+				}
+			}
+		}
+	]
+}

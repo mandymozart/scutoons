@@ -1,0 +1,186 @@
+{
+	"description": "en without a title (→ served in de, fallback); en texts blank or missing fall back to the source; a text only in en; no status given (none in the answer)",
+	"kind": "chapter",
+	"languages": {
+		"source": "de",
+		"languages": [
+			"de",
+			"en"
+		]
+	},
+	"status": null,
+	"doc": {
+		"title": {
+			"de": "Zwei",
+			"en": "  "
+		},
+		"author": "M",
+		"number": 2,
+		"release": {
+			"de": "2026-01-01"
+		},
+		"description": {
+			"en": "only en"
+		},
+		"thumbnail": "",
+		"groups": [
+			{
+				"slices": [
+					{
+						"image": "b.webp",
+						"width": 1,
+						"height": 1,
+						"dialog": [
+							{
+								"rect": {
+									"x": 0,
+									"y": 0,
+									"width": 1
+								},
+								"text": {
+									"de": "Hallo",
+									"en": ""
+								}
+							},
+							{
+								"rect": {
+									"x": 0,
+									"y": 0,
+									"width": 1
+								},
+								"text": {
+									"en": [
+										"only",
+										"en"
+									]
+								}
+							},
+							{
+								"rect": {
+									"x": 0,
+									"y": 0,
+									"width": 1
+								},
+								"text": {}
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	"cases": [
+		{
+			"locale": "en",
+			"expected": {
+				"locale": "de",
+				"fallback": true,
+				"doc": {
+					"title": "Zwei",
+					"author": "M",
+					"number": 2,
+					"release": "2026-01-01",
+					"description": "only en",
+					"thumbnail": "",
+					"groups": [
+						{
+							"slices": [
+								{
+									"image": "b.webp",
+									"width": 1,
+									"height": 1,
+									"dialog": [
+										{
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 1
+											},
+											"text": "Hallo"
+										},
+										{
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 1
+											},
+											"text": [
+												"only",
+												"en"
+											]
+										},
+										{
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 1
+											},
+											"text": ""
+										}
+									]
+								}
+							]
+						}
+					],
+					"language": "de"
+				}
+			}
+		},
+		{
+			"locale": "de",
+			"expected": {
+				"locale": "de",
+				"fallback": false,
+				"doc": {
+					"title": "Zwei",
+					"author": "M",
+					"number": 2,
+					"release": "2026-01-01",
+					"description": "only en",
+					"thumbnail": "",
+					"groups": [
+						{
+							"slices": [
+								{
+									"image": "b.webp",
+									"width": 1,
+									"height": 1,
+									"dialog": [
+										{
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 1
+											},
+											"text": "Hallo"
+										},
+										{
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 1
+											},
+											"text": [
+												"only",
+												"en"
+											]
+										},
+										{
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 1
+											},
+											"text": ""
+										}
+									]
+								}
+							]
+						}
+					],
+					"language": "de"
+				}
+			}
+		}
+	]
+}

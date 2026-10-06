@@ -1,0 +1,157 @@
+{
+	"description": "a scene with texts in de only (en → served de, fallback) and its VN script",
+	"kind": "scene",
+	"languages": {
+		"source": "de",
+		"languages": [
+			"de",
+			"en"
+		]
+	},
+	"doc": {
+		"label": "scene-14",
+		"renderer": {
+			"type": "vn"
+		},
+		"slices": [
+			{
+				"image": "c.webp",
+				"width": 1,
+				"height": 1,
+				"dialog": [
+					{
+						"id": "o1",
+						"rect": {
+							"x": 0,
+							"y": 0,
+							"width": 1
+						},
+						"text": {
+							"de": "BUMM"
+						}
+					}
+				]
+			}
+		],
+		"events": [
+			{
+				"type": "showMessage",
+				"params": {
+					"text": {
+						"de": "Na?"
+					},
+					"wait": true
+				}
+			},
+			{
+				"type": "showChoices"
+			},
+			{
+				"type": "showOnomatopeia",
+				"params": {
+					"dialog": "o1"
+				}
+			}
+		]
+	},
+	"cases": [
+		{
+			"locale": "en",
+			"expected": {
+				"locale": "de",
+				"fallback": true,
+				"doc": {
+					"label": "scene-14",
+					"renderer": {
+						"type": "vn"
+					},
+					"slices": [
+						{
+							"image": "c.webp",
+							"width": 1,
+							"height": 1,
+							"dialog": [
+								{
+									"id": "o1",
+									"rect": {
+										"x": 0,
+										"y": 0,
+										"width": 1
+									},
+									"text": "BUMM"
+								}
+							]
+						}
+					],
+					"events": [
+						{
+							"type": "showMessage",
+							"params": {
+								"text": "Na?",
+								"wait": true
+							}
+						},
+						{
+							"type": "showChoices"
+						},
+						{
+							"type": "showOnomatopeia",
+							"params": {
+								"dialog": "o1"
+							}
+						}
+					]
+				}
+			}
+		},
+		{
+			"locale": "de",
+			"expected": {
+				"locale": "de",
+				"fallback": false,
+				"doc": {
+					"label": "scene-14",
+					"renderer": {
+						"type": "vn"
+					},
+					"slices": [
+						{
+							"image": "c.webp",
+							"width": 1,
+							"height": 1,
+							"dialog": [
+								{
+									"id": "o1",
+									"rect": {
+										"x": 0,
+										"y": 0,
+										"width": 1
+									},
+									"text": "BUMM"
+								}
+							]
+						}
+					],
+					"events": [
+						{
+							"type": "showMessage",
+							"params": {
+								"text": "Na?",
+								"wait": true
+							}
+						},
+						{
+							"type": "showChoices"
+						},
+						{
+							"type": "showOnomatopeia",
+							"params": {
+								"dialog": "o1"
+							}
+						}
+					]
+				}
+			}
+		}
+	]
+}

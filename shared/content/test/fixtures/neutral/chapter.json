@@ -1,0 +1,538 @@
+{
+	"description": "a chapter in de + en: texts, release, inline group (text boxes as string and lines, VN message / choice, item events), a scene ref; chapter status from the season",
+	"kind": "chapter",
+	"languages": {
+		"source": "de",
+		"languages": [
+			"de",
+			"en"
+		]
+	},
+	"status": "published",
+	"doc": {
+		"title": {
+			"de": "Leugnen",
+			"en": "Denial"
+		},
+		"author": "Mandy",
+		"number": 1,
+		"release": {
+			"de": "2025-10-04",
+			"en": "2025-11-01"
+		},
+		"description": {
+			"de": "Die Morgenroutine",
+			"en": "The morning routine"
+		},
+		"thumbnail": "s1/c1/thumb.jpg",
+		"keyvisual": "s1/c1/kv.webp",
+		"audio": {
+			"volume": 1
+		},
+		"featuring": [
+			"catpope"
+		],
+		"groups": [
+			{
+				"ref": {
+					"src": "chapter1/scene-1.json"
+				}
+			},
+			{
+				"label": "inline",
+				"renderer": {
+					"type": "vertical"
+				},
+				"slices": [
+					{
+						"image": "a.webp",
+						"width": 390,
+						"height": 625,
+						"dialog": [
+							{
+								"id": "d1",
+								"rect": {
+									"x": 1,
+									"y": 2,
+									"width": 50
+								},
+								"text": {
+									"de": "EIN NEUER TAG",
+									"en": "A NEW DAY"
+								},
+								"variant": "narration"
+							},
+							{
+								"rect": {
+									"x": 1,
+									"y": 20,
+									"width": 50
+								},
+								"text": {
+									"de": [
+										"Zeile 1",
+										"Zeile 2"
+									],
+									"en": "one line"
+								}
+							}
+						],
+						"events": [
+							{
+								"type": "showMessage",
+								"params": {
+									"text": {
+										"de": "Hallo",
+										"en": "Hello"
+									},
+									"character": "catpope",
+									"mood": "happy"
+								},
+								"trigger": {
+									"type": "intersect"
+								}
+							}
+						],
+						"items": [
+							{
+								"id": "apple-1",
+								"item": "apple",
+								"rect": {
+									"x": 0,
+									"y": 0,
+									"width": 10
+								},
+								"action": "events",
+								"events": [
+									{
+										"type": "addChoice",
+										"params": {
+											"label": {
+												"de": "Nimm",
+												"en": "Take"
+											},
+											"onSelect": {
+												"set": {
+													"variable": "a",
+													"value": "1"
+												}
+											}
+										}
+									}
+								]
+							}
+						]
+					}
+				],
+				"events": [
+					{
+						"type": "joinScene",
+						"params": {
+							"characters": [
+								{
+									"character": "catpope"
+								}
+							]
+						}
+					},
+					{
+						"type": "addChoice",
+						"params": {
+							"label": {
+								"de": "Weiter",
+								"en": "Go on"
+							}
+						},
+						"if": {
+							"variable": "a",
+							"op": "set"
+						}
+					}
+				]
+			}
+		]
+	},
+	"cases": [
+		{
+			"locale": "de",
+			"expected": {
+				"locale": "de",
+				"fallback": false,
+				"doc": {
+					"title": "Leugnen",
+					"author": "Mandy",
+					"number": 1,
+					"release": "2025-10-04",
+					"description": "Die Morgenroutine",
+					"thumbnail": "s1/c1/thumb.jpg",
+					"keyvisual": "s1/c1/kv.webp",
+					"audio": {
+						"volume": 1
+					},
+					"featuring": [
+						"catpope"
+					],
+					"groups": [
+						{
+							"ref": {
+								"src": "chapter1/scene-1.json"
+							}
+						},
+						{
+							"label": "inline",
+							"renderer": {
+								"type": "vertical"
+							},
+							"slices": [
+								{
+									"image": "a.webp",
+									"width": 390,
+									"height": 625,
+									"dialog": [
+										{
+											"id": "d1",
+											"rect": {
+												"x": 1,
+												"y": 2,
+												"width": 50
+											},
+											"text": "EIN NEUER TAG",
+											"variant": "narration"
+										},
+										{
+											"rect": {
+												"x": 1,
+												"y": 20,
+												"width": 50
+											},
+											"text": [
+												"Zeile 1",
+												"Zeile 2"
+											]
+										}
+									],
+									"events": [
+										{
+											"type": "showMessage",
+											"params": {
+												"text": "Hallo",
+												"character": "catpope",
+												"mood": "happy"
+											},
+											"trigger": {
+												"type": "intersect"
+											}
+										}
+									],
+									"items": [
+										{
+											"id": "apple-1",
+											"item": "apple",
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 10
+											},
+											"action": "events",
+											"events": [
+												{
+													"type": "addChoice",
+													"params": {
+														"label": "Nimm",
+														"onSelect": {
+															"set": {
+																"variable": "a",
+																"value": "1"
+															}
+														}
+													}
+												}
+											]
+										}
+									]
+								}
+							],
+							"events": [
+								{
+									"type": "joinScene",
+									"params": {
+										"characters": [
+											{
+												"character": "catpope"
+											}
+										]
+									}
+								},
+								{
+									"type": "addChoice",
+									"params": {
+										"label": "Weiter"
+									},
+									"if": {
+										"variable": "a",
+										"op": "set"
+									}
+								}
+							]
+						}
+					],
+					"language": "de",
+					"status": "published"
+				}
+			}
+		},
+		{
+			"locale": "en",
+			"expected": {
+				"locale": "en",
+				"fallback": false,
+				"doc": {
+					"title": "Denial",
+					"author": "Mandy",
+					"number": 1,
+					"release": "2025-11-01",
+					"description": "The morning routine",
+					"thumbnail": "s1/c1/thumb.jpg",
+					"keyvisual": "s1/c1/kv.webp",
+					"audio": {
+						"volume": 1
+					},
+					"featuring": [
+						"catpope"
+					],
+					"groups": [
+						{
+							"ref": {
+								"src": "chapter1/scene-1.json"
+							}
+						},
+						{
+							"label": "inline",
+							"renderer": {
+								"type": "vertical"
+							},
+							"slices": [
+								{
+									"image": "a.webp",
+									"width": 390,
+									"height": 625,
+									"dialog": [
+										{
+											"id": "d1",
+											"rect": {
+												"x": 1,
+												"y": 2,
+												"width": 50
+											},
+											"text": "A NEW DAY",
+											"variant": "narration"
+										},
+										{
+											"rect": {
+												"x": 1,
+												"y": 20,
+												"width": 50
+											},
+											"text": "one line"
+										}
+									],
+									"events": [
+										{
+											"type": "showMessage",
+											"params": {
+												"text": "Hello",
+												"character": "catpope",
+												"mood": "happy"
+											},
+											"trigger": {
+												"type": "intersect"
+											}
+										}
+									],
+									"items": [
+										{
+											"id": "apple-1",
+											"item": "apple",
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 10
+											},
+											"action": "events",
+											"events": [
+												{
+													"type": "addChoice",
+													"params": {
+														"label": "Take",
+														"onSelect": {
+															"set": {
+																"variable": "a",
+																"value": "1"
+															}
+														}
+													}
+												}
+											]
+										}
+									]
+								}
+							],
+							"events": [
+								{
+									"type": "joinScene",
+									"params": {
+										"characters": [
+											{
+												"character": "catpope"
+											}
+										]
+									}
+								},
+								{
+									"type": "addChoice",
+									"params": {
+										"label": "Go on"
+									},
+									"if": {
+										"variable": "a",
+										"op": "set"
+									}
+								}
+							]
+						}
+					],
+					"language": "en",
+					"status": "published"
+				}
+			}
+		},
+		{
+			"locale": "fr",
+			"expected": {
+				"locale": "de",
+				"fallback": true,
+				"doc": {
+					"title": "Leugnen",
+					"author": "Mandy",
+					"number": 1,
+					"release": "2025-10-04",
+					"description": "Die Morgenroutine",
+					"thumbnail": "s1/c1/thumb.jpg",
+					"keyvisual": "s1/c1/kv.webp",
+					"audio": {
+						"volume": 1
+					},
+					"featuring": [
+						"catpope"
+					],
+					"groups": [
+						{
+							"ref": {
+								"src": "chapter1/scene-1.json"
+							}
+						},
+						{
+							"label": "inline",
+							"renderer": {
+								"type": "vertical"
+							},
+							"slices": [
+								{
+									"image": "a.webp",
+									"width": 390,
+									"height": 625,
+									"dialog": [
+										{
+											"id": "d1",
+											"rect": {
+												"x": 1,
+												"y": 2,
+												"width": 50
+											},
+											"text": "EIN NEUER TAG",
+											"variant": "narration"
+										},
+										{
+											"rect": {
+												"x": 1,
+												"y": 20,
+												"width": 50
+											},
+											"text": [
+												"Zeile 1",
+												"Zeile 2"
+											]
+										}
+									],
+									"events": [
+										{
+											"type": "showMessage",
+											"params": {
+												"text": "Hallo",
+												"character": "catpope",
+												"mood": "happy"
+											},
+											"trigger": {
+												"type": "intersect"
+											}
+										}
+									],
+									"items": [
+										{
+											"id": "apple-1",
+											"item": "apple",
+											"rect": {
+												"x": 0,
+												"y": 0,
+												"width": 10
+											},
+											"action": "events",
+											"events": [
+												{
+													"type": "addChoice",
+													"params": {
+														"label": "Nimm",
+														"onSelect": {
+															"set": {
+																"variable": "a",
+																"value": "1"
+															}
+														}
+													}
+												}
+											]
+										}
+									]
+								}
+							],
+							"events": [
+								{
+									"type": "joinScene",
+									"params": {
+										"characters": [
+											{
+												"character": "catpope"
+											}
+										]
+									}
+								},
+								{
+									"type": "addChoice",
+									"params": {
+										"label": "Weiter"
+									},
+									"if": {
+										"variable": "a",
+										"op": "set"
+									}
+								}
+							]
+						}
+					],
+					"language": "de",
+					"status": "published"
+				}
+			}
+		}
+	]
+}

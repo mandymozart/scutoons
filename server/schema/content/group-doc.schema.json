@@ -1,0 +1,1775 @@
+{
+	"$id": "https://scutoons.com/schema/group-doc.schema.json",
+	"title": "GroupDoc",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/GroupDoc",
+	"definitions": {
+		"GroupDoc": {
+			"type": "object",
+			"properties": {
+				"slices": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/SliceDoc"
+					}
+				},
+				"events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/VNEventDoc"
+					}
+				},
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
+				"label": {
+					"type": "string"
+				},
+				"renderer": {
+					"type": "object",
+					"properties": {
+						"type": {
+							"$ref": "#/definitions/Renderer"
+						},
+						"params": {
+							"$ref": "#/definitions/RendererParams"
+						}
+					},
+					"required": [
+						"type"
+					]
+				},
+				"ref": {
+					"$ref": "#/definitions/RefLink"
+				},
+				"interaction": {
+					"type": "string",
+					"deprecated": "legacy leftover (`webtoon`) in some older groups; nothing reads it"
+				}
+			},
+			"description": "A group: inline in a chapter, or stored on its own as a scene (`scene:<toon>:<chapter>:<name>`)"
+		},
+		"SliceDoc": {
+			"type": "object",
+			"properties": {
+				"dialog": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/DialogDoc"
+					}
+				},
+				"events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/VNSliceEventDoc"
+					}
+				},
+				"items": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/SliceItemDoc"
+					}
+				},
+				"sensitive": {
+					"type": "boolean",
+					"description": "hidden while \"Hide sensitive content\" is on (members: on by default, guests: always on)"
+				},
+				"image": {
+					"type": "string",
+					"description": "CDN path of the slice image (1x WebP, 390 px wide) relative to the toon's folder; the poster of a video slice"
+				},
+				"width": {
+					"type": "number",
+					"description": "Size of the image in px (1x): the reader reserves the space before the lazy image loads."
+				},
+				"height": {
+					"type": "number"
+				},
+				"imageVariants": {
+					"$ref": "#/definitions/QualityVariants",
+					"description": "The image per quality level (owner 2026-10-03, PLAN.md \"Slices\"): low = 1x (= `image`), medium = 2x, high = 3x (390 / 780 / 1170 px wide WebP, `<name>.2x.webp`). The reader picks by its media quality (`pickQualityVariant`); none = just `image`."
+				},
+				"video": {
+					"$ref": "#/definitions/SliceVideo"
+				},
+				"audio": {
+					"$ref": "#/definitions/AudioEvents"
+				},
+				"_type": {
+					"type": "string"
+				},
+				"_label": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"height",
+				"image",
+				"width"
+			]
+		},
+		"DialogDoc": {
+			"type": "object",
+			"properties": {
+				"text": {
+					"$ref": "#/definitions/DialogText"
+				},
+				"id": {
+					"type": "string",
+					"description": "Stable key (Figma node id) → i18n file."
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width"
+					],
+					"description": "% of the slice box, top-left origin. `height` optional (needed for `valign` and auto-fit)."
+				},
+				"variant": {
+					"$ref": "#/definitions/DialogVariant",
+					"description": "Default 'bubble'."
+				},
+				"frame": {
+					"type": "boolean",
+					"description": "caption / narration: draw the paper box + ink border, default true (false = bare text, use `mask`). bubble: draw a speech bubble (paper, ink outline, a tail), default false – the bubble shape of chapter 1/2 art is in the image; the creator sets `true` for new bubbles on text-free art."
+				},
+				"shape": {
+					"$ref": "#/definitions/DialogShape",
+					"description": "a drawn bubble's outline (bubble with `frame: true`), default 'oval'"
+				},
+				"tail": {
+					"$ref": "#/definitions/DialogTail",
+					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for an oval, 'none' for a wobbly one"
+				},
+				"size": {
+					"type": "number",
+					"description": "Font size in % of the slice width (rendered as cqw). Default 4."
+				},
+				"align": {
+					"type": "string",
+					"enum": [
+						"left",
+						"center",
+						"right"
+					],
+					"description": "Default 'center' for bubble, 'left' for caption/narration."
+				},
+				"valign": {
+					"type": "string",
+					"enum": [
+						"top",
+						"middle",
+						"bottom"
+					],
+					"description": "Default 'middle' (only has an effect with `rect.height`)."
+				},
+				"font": {
+					"$ref": "#/definitions/DialogFont",
+					"description": "Default 'lettering' for bubble, 'mono' for caption/narration (matches chapter 1)."
+				},
+				"weight": {
+					"type": "number",
+					"enum": [
+						400,
+						700
+					]
+				},
+				"uppercase": {
+					"type": "boolean"
+				},
+				"color": {
+					"type": "string",
+					"description": "Text color, default ink (#000)."
+				},
+				"stroke": {
+					"type": "string",
+					"description": "Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline."
+				},
+				"strokeWidth": {
+					"type": "number",
+					"description": "outline width in em of the font size, default 0.14"
+				},
+				"letterSpacing": {
+					"type": "number",
+					"description": "letter spacing in em of the font size (owner 2026-10-03), e.g. 0.05; default the font's own (0)"
+				},
+				"rotation": {
+					"type": "number",
+					"description": "Degrees, around the box's centre."
+				},
+				"scale": {
+					"type": "number",
+					"description": "Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out. Default 1. Lets an onomatopoeia grow or shrink without re-wrapping its text."
+				},
+				"mask": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "boolean",
+							"const": true
+						}
+					],
+					"description": "Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'.",
+					"deprecated": "owner 2026-10-03: the chapter's art is re-imported text-free; the dialog data stays. Still drawn for old data."
+				},
+				"maskShape": {
+					"type": "string",
+					"enum": [
+						"rect",
+						"ellipse"
+					],
+					"description": "Default 'rect'.",
+					"deprecated": "with `mask`"
+				},
+				"pad": {
+					"type": "number",
+					"description": "Extra mask padding in % of slice width. Default 0.5.",
+					"deprecated": "with `mask`"
+				}
+			},
+			"required": [
+				"rect",
+				"text"
+			]
+		},
+		"DialogText": {
+			"type": "object",
+			"additionalProperties": {
+				"anyOf": [
+					{
+						"type": "string"
+					},
+					{
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				]
+			},
+			"description": "A text box's text per locale; a locale's text may be several lines / paragraphs like `Dialog.text`"
+		},
+		"DialogVariant": {
+			"type": "string",
+			"enum": [
+				"bubble",
+				"caption",
+				"narration"
+			],
+			"description": "An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals (`VNShowOnomatopeiaEvent` `params.dialog`)."
+		},
+		"DialogShape": {
+			"type": "string",
+			"enum": [
+				"oval",
+				"wobbly"
+			]
+		},
+		"DialogTail": {
+			"type": "string",
+			"enum": [
+				"bottom-left",
+				"bottom",
+				"bottom-right",
+				"top-left",
+				"top",
+				"top-right",
+				"none"
+			]
+		},
+		"DialogFont": {
+			"type": "string",
+			"enum": [
+				"lettering",
+				"mono"
+			]
+		},
+		"VNSliceEventDoc": {
+			"anyOf": [
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "showMessage"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"text": {
+									"$ref": "#/definitions/LocaleText"
+								},
+								"character": {
+									"type": "string",
+									"description": "the speaking character's id; none = narration (no speaker)"
+								},
+								"persona": {
+									"type": "string",
+									"description": "the speaker's persona (none = regular)"
+								},
+								"mood": {
+									"type": "string",
+									"description": "the speaker's mood while saying it (the creator writes it; none = the mood they are in)"
+								},
+								"wait": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"text"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "showChoices"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "addChoice"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"label": {
+									"$ref": "#/definitions/LocaleText"
+								},
+								"onSelect": {
+									"anyOf": [
+										{
+											"$ref": "#/definitions/VNAction"
+										},
+										{
+											"type": "array",
+											"items": {
+												"$ref": "#/definitions/VNAction"
+											}
+										}
+									]
+								}
+							},
+							"required": [
+								"label"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "joinScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "leaveScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "hideMessage"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "showOnomatopeia"
+						},
+						"params": {
+							"$ref": "#/definitions/OnomatopoeiaParams"
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "jumpTo"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"target": {
+									"$ref": "#/definitions/JumpToTarget"
+								},
+								"wait": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"target"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "label"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"name"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "divert"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"to": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"to"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "setVariable"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"variable": {
+									"type": "string"
+								},
+								"value": {
+									"type": [
+										"string",
+										"number"
+									]
+								},
+								"op": {
+									"type": "string",
+									"enum": [
+										"set",
+										"add"
+									]
+								}
+							},
+							"required": [
+								"variable",
+								"value"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				}
+			]
+		},
+		"VNEventTrigger": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/Trigger"
+				},
+				"once": {
+					"type": "boolean"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width",
+						"height"
+					]
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"Trigger": {
+			"type": "string",
+			"enum": [
+				"intersect",
+				"hover",
+				"click"
+			]
+		},
+		"VNCondition": {
+			"type": "object",
+			"properties": {
+				"variable": {
+					"type": "string"
+				},
+				"op": {
+					"$ref": "#/definitions/VNConditionOp"
+				},
+				"value": {
+					"type": [
+						"string",
+						"number"
+					]
+				}
+			},
+			"required": [
+				"variable",
+				"op"
+			]
+		},
+		"VNConditionOp": {
+			"type": "string",
+			"enum": [
+				"==",
+				"!=",
+				"<",
+				"<=",
+				">",
+				">=",
+				"set",
+				"unset"
+			],
+			"description": "\"Only if\" on any event (owner 2026-10-03): the event runs only when the reader's variable passes the test, else it is skipped. Numbers compare as numbers; `set` / `unset` ask whether the variable has a value at all."
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		},
+		"VNAction": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/VNVariableSetter"
+				},
+				{
+					"$ref": "#/definitions/VNVariableAdder"
+				},
+				{
+					"$ref": "#/definitions/VNJumpTo"
+				},
+				{
+					"$ref": "#/definitions/VNDivert"
+				}
+			],
+			"description": "what a choice does when picked – one action or several in order (e.g. add 15 minutes, then jump)"
+		},
+		"VNVariableSetter": {
+			"type": "object",
+			"properties": {
+				"set": {
+					"type": "object",
+					"properties": {
+						"variable": {
+							"type": "string"
+						},
+						"value": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"variable",
+						"value"
+					]
+				}
+			},
+			"required": [
+				"set"
+			]
+		},
+		"VNVariableAdder": {
+			"type": "object",
+			"properties": {
+				"add": {
+					"type": "object",
+					"properties": {
+						"variable": {
+							"type": "string"
+						},
+						"value": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"variable",
+						"value"
+					]
+				}
+			},
+			"required": [
+				"add"
+			]
+		},
+		"VNJumpTo": {
+			"type": "object",
+			"properties": {
+				"jumpTo": {
+					"type": "object",
+					"properties": {
+						"target": {
+							"$ref": "#/definitions/JumpToTarget"
+						}
+					},
+					"required": [
+						"target"
+					]
+				}
+			},
+			"required": [
+				"jumpTo"
+			]
+		},
+		"JumpToTarget": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/JumpToTargetType"
+				},
+				"value": {
+					"type": "string"
+				},
+				"label": {
+					"type": "string"
+				},
+				"anyOf": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "a random group of this chapter instead of `label` (owner 2026-10-03, the chapter 2 stroll): one of these labels, never the group the reader is on (`pickJumpLabel`)"
+				}
+			},
+			"required": [
+				"type",
+				"value"
+			]
+		},
+		"JumpToTargetType": {
+			"type": "string",
+			"enum": [
+				"chapter",
+				"season",
+				"toon",
+				"product",
+				"xr"
+			]
+		},
+		"VNDivert": {
+			"type": "object",
+			"properties": {
+				"divert": {
+					"type": "object",
+					"properties": {
+						"to": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"to"
+					]
+				}
+			},
+			"required": [
+				"divert"
+			],
+			"description": "continue the group's script at a named point (`label` event) – the story's own branch, no page change"
+		},
+		"VNCharacterRef": {
+			"type": "object",
+			"properties": {
+				"character": {
+					"type": "string",
+					"description": "the character id"
+				},
+				"persona": {
+					"type": "string",
+					"description": "a persona of the character (none = `regular`)"
+				},
+				"look": {
+					"type": "string",
+					"description": "a look of the persona (e.g. `helmet`); none = its default look"
+				},
+				"mood": {
+					"type": "string"
+				},
+				"variant": {
+					"$ref": "#/definitions/CharacterView",
+					"description": "the view (avatar / portrait / full)"
+				},
+				"name": {
+					"type": "string",
+					"deprecated": "old form: the character id"
+				},
+				"position": {
+					"type": "object",
+					"properties": {
+						"variant": {
+							"$ref": "#/definitions/CharacterView"
+						}
+					},
+					"required": [
+						"variant"
+					],
+					"deprecated": "old form: the view"
+				}
+			},
+			"description": "A character reference in a VN event (joinScene / leaveScene), as authored: `{ character, persona, look?, mood?, variant? }` (`variant` = the view). The old form `{ name, position: { variant } }` and old character ids (plf, cat, mountain-tiger → catpope personas) still resolve (`normalizeSceneRef` in characters.ts). The same character may be in a scene with several personas (Cat Pope meets Cat Pope · Biker)."
+		},
+		"CharacterView": {
+			"type": "string",
+			"enum": [
+				"avatar",
+				"full",
+				"portrait"
+			],
+			"description": "A view (framing) of a character in a scene."
+		},
+		"OnomatopoeiaParams": {
+			"type": "object",
+			"properties": {
+				"dialog": {
+					"type": "string"
+				},
+				"effect": {
+					"$ref": "#/definitions/OnomatopoeiaEffect",
+					"description": "default 'none'"
+				},
+				"duration": {
+					"type": "number",
+					"description": "ms the effect plays, default 2000 (max 5000)"
+				},
+				"delay": {
+					"type": "number",
+					"description": "ms before the box appears, default 0 (max 5000)"
+				},
+				"mode": {
+					"$ref": "#/definitions/TriggerMode",
+					"description": "`mono` = one at a time (queued), `poly` = together; default poly"
+				},
+				"wait": {
+					"type": "boolean",
+					"description": "the script waits for a tap before it continues"
+				},
+				"stay": {
+					"type": "boolean",
+					"description": "after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`)"
+				}
+			},
+			"required": [
+				"dialog"
+			],
+			"description": "An onomatopoeia = a text box revealed by this event (owner 2026-10-03, option B): `dialog` is the id of a text box (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the event fires, then appears with `effect` / `delay` / `duration` and stays; the box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing."
+		},
+		"OnomatopoeiaEffect": {
+			"type": "string",
+			"enum": [
+				"none",
+				"shiver",
+				"pulse",
+				"wobble"
+			]
+		},
+		"TriggerMode": {
+			"type": "string",
+			"enum": [
+				"mono",
+				"poly"
+			]
+		},
+		"SliceItemDoc": {
+			"type": "object",
+			"properties": {
+				"events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/VNEventDoc"
+					}
+				},
+				"id": {
+					"type": "string",
+					"description": "stable key of this placement (pickups are remembered by it); `<item>-<n>`"
+				},
+				"item": {
+					"type": "string",
+					"description": "catalog item id (`ItemDef.id`)"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width"
+					],
+					"description": "% of the slice box, top-left origin; `height` omitted = the icon's own ratio"
+				},
+				"rotation": {
+					"type": "number",
+					"description": "degrees, around the centre"
+				},
+				"action": {
+					"$ref": "#/definitions/SliceItemAction",
+					"description": "default 'none'"
+				},
+				"qty": {
+					"type": "number",
+					"description": "pickup: pieces, default 1"
+				},
+				"once": {
+					"type": "boolean",
+					"description": "events: only the first tap per page view runs them (default true, like a click trigger's `once`)"
+				},
+				"respawn": {
+					"$ref": "#/definitions/SliceItemRespawn",
+					"description": "pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without one never reappears); `never` = once here even if the item could reappear; an interval = an override within the item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply."
+				}
+			},
+			"required": [
+				"id",
+				"item",
+				"rect"
+			]
+		},
+		"VNEventDoc": {
+			"anyOf": [
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "showMessage"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"text": {
+									"$ref": "#/definitions/LocaleText"
+								},
+								"character": {
+									"type": "string",
+									"description": "the speaking character's id; none = narration (no speaker)"
+								},
+								"persona": {
+									"type": "string",
+									"description": "the speaker's persona (none = regular)"
+								},
+								"mood": {
+									"type": "string",
+									"description": "the speaker's mood while saying it (the creator writes it; none = the mood they are in)"
+								},
+								"wait": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"text"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "showChoices"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "addChoice"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"label": {
+									"$ref": "#/definitions/LocaleText"
+								},
+								"onSelect": {
+									"anyOf": [
+										{
+											"$ref": "#/definitions/VNAction"
+										},
+										{
+											"type": "array",
+											"items": {
+												"$ref": "#/definitions/VNAction"
+											}
+										}
+									]
+								}
+							},
+							"required": [
+								"label"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "joinScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "leaveScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "hideMessage"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "showOnomatopeia"
+						},
+						"params": {
+							"$ref": "#/definitions/OnomatopoeiaParams"
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "jumpTo"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"target": {
+									"$ref": "#/definitions/JumpToTarget"
+								},
+								"wait": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"target"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "label"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"name"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "divert"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"to": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"to"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "setVariable"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"variable": {
+									"type": "string"
+								},
+								"value": {
+									"type": [
+										"string",
+										"number"
+									]
+								},
+								"op": {
+									"type": "string",
+									"enum": [
+										"set",
+										"add"
+									]
+								}
+							},
+							"required": [
+								"variable",
+								"value"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				}
+			],
+			"description": "`VNEvent` with its texts as locale maps (the same members as `VNEvent`)"
+		},
+		"SliceItemAction": {
+			"type": "string",
+			"enum": [
+				"none",
+				"pickup",
+				"events"
+			]
+		},
+		"SliceItemRespawn": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/RespawnInterval"
+				},
+				{
+					"type": "string",
+					"const": "never"
+				}
+			],
+			"description": "A placement's choice: `never` = once even if the item could reappear; none = the item's default"
+		},
+		"RespawnInterval": {
+			"anyOf": [
+				{
+					"type": "string",
+					"const": "visit"
+				},
+				{
+					"type": "object",
+					"properties": {
+						"minutes": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"minutes"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"hours": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"hours"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"days": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"days"
+					]
+				}
+			],
+			"description": "Every visit of the page (a reload counts), or every n minutes / hours / days."
+		},
+		"QualityVariants": {
+			"type": "object",
+			"properties": {
+				"low": {
+					"type": "string"
+				},
+				"medium": {
+					"type": "string"
+				},
+				"high": {
+					"type": "string"
+				}
+			},
+			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
+		},
+		"SliceVideo": {
+			"type": "object",
+			"properties": {
+				"src": {
+					"type": "string",
+					"description": "CDN path of an H.264 MP4, relative to the toon's folder like `image`: the default file – it plays when no variant fits the reader's quality (`pickQualityVariant`) and in readers that don't know `variants`."
+				},
+				"variants": {
+					"$ref": "#/definitions/QualityVariants",
+					"description": "One file per quality level (media-quality.ts): low = 480p, medium = 720p, high = 1080p. The reader takes its quality setting's level, else the nearest lower one, else `src`. No adaptive streaming (HLS) – one file per load."
+				},
+				"loop": {
+					"type": "boolean",
+					"description": "default true (ignored with `player`)"
+				},
+				"autoplay": {
+					"type": "boolean",
+					"description": "default true: plays while the slice is in view (paused outside, poster only with reduced motion; ignored with `player`)"
+				},
+				"player": {
+					"type": "boolean",
+					"description": "A video player instead of the loop: sound, native controls (fullscreen through them), started by the reader, no loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no 390 × 625 crop). While it plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress."
+				},
+				"controls": {
+					"type": "boolean",
+					"description": "the browser's basic controls (play/pause, time, volume, fullscreen); default: on for a player, off for a loop"
+				},
+				"viewport": {
+					"$ref": "#/definitions/SliceViewport",
+					"description": "fills the viewport instead of the reading column, placed like this (`SliceViewport`); omitted = in the column"
+				},
+				"frame": {
+					"$ref": "#/definitions/SliceFrame",
+					"description": "in the column: the box's ratio + how the video sits in it (`SliceFrame`); omitted = \"Original\" (the media's ratio)"
+				}
+			},
+			"required": [
+				"src"
+			],
+			"description": "A video instead of the slice image. The slice's `image` is its poster. By default a muted, inline loop that plays while in view; with `player` a video to watch (a music video, a trailer)."
+		},
+		"SliceViewport": {
+			"type": "object",
+			"properties": {
+				"position": {
+					"type": "string",
+					"enum": [
+						"top",
+						"center",
+						"bottom"
+					],
+					"description": "default 'center'"
+				},
+				"fit": {
+					"$ref": "#/definitions/ViewportFit",
+					"description": "default 'contain'"
+				}
+			},
+			"description": "Where a full-viewport slice video sits (`SliceVideo.viewport`, owner 2026-10-01). The slice then fills the whole viewport (its whole width, the screen's height) instead of the reading column, and the video – and its poster – is placed in that box (owner 2026-10-01, four fits):\n- `contain` \"Ganz sichtbar\" / \"Show all\" (the default): the whole video, as big as the box allows, ink bars where needed;\n- `width` \"An Breite einpassen\" / \"Fit width\": the video is as wide as the viewport; a taller video is cropped at the   top/bottom, a flatter one gets bars above/below;\n- `height` \"An Höhe einpassen\" / \"Fit height\": the video is as high as the viewport; a wider video is cropped at the   sides, a narrower one gets bars left/right;\n- `cover` \"Füllen (beschnitten)\" / \"Fill (cropped)\": always fills the viewport, the overflow is cropped. `position` = which part stays when the video is cropped vertically, or where it sits when there are bars above/below. Cropping at the sides always keeps the centre. `viewportObjectFit` turns width/height into contain or cover for a box."
+		},
+		"ViewportFit": {
+			"type": "string",
+			"enum": [
+				"contain",
+				"width",
+				"height",
+				"cover"
+			]
+		},
+		"SliceFrame": {
+			"type": "object",
+			"properties": {
+				"ratio": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "array",
+							"items": {
+								"type": "number"
+							},
+							"minItems": 2,
+							"maxItems": 2
+						}
+					],
+					"description": "\"w:h\" (a preset like \"9:16\", or any) or [w, h]; between 4:1 and 1:4"
+				},
+				"fit": {
+					"$ref": "#/definitions/ViewportFit",
+					"description": "default 'contain'"
+				},
+				"position": {
+					"type": "string",
+					"enum": [
+						"top",
+						"center",
+						"bottom"
+					],
+					"description": "default 'center'"
+				}
+			},
+			"required": [
+				"ratio"
+			],
+			"description": "The box of a video slice in the reading column (`SliceVideo.frame`, owner 2026-10-01): a ratio instead of the media's own (\"Original\" = no `frame`). The slice is 390 px wide and `width` / `height` follow the ratio (390 × 693 for 9:16), so the reader reserves the space before anything loads; the media is placed in the box with `fit` / `position` like a full-viewport video (`SliceViewport`). Doesn't apply in full viewport (the box is the viewport there)."
+		},
+		"AudioEvents": {
+			"type": "object",
+			"properties": {
+				"music": {
+					"$ref": "#/definitions/MusicEvent"
+				},
+				"audio": {
+					"$ref": "#/definitions/AudioEvent"
+				}
+			}
+		},
+		"MusicEvent": {
+			"type": "object",
+			"properties": {
+				"tracks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/MusicEventTrack"
+					}
+				}
+			},
+			"required": [
+				"tracks"
+			]
+		},
+		"MusicEventTrack": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"volume": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"id",
+				"volume"
+			]
+		},
+		"AudioEvent": {
+			"type": "object",
+			"properties": {
+				"samples": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Sample"
+					}
+				}
+			},
+			"required": [
+				"samples"
+			]
+		},
+		"Sample": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"trigger": {
+					"$ref": "#/definitions/SampleTrigger"
+				},
+				"volume": {
+					"type": "number"
+				},
+				"delay": {
+					"type": "number"
+				},
+				"loop": {
+					"type": "boolean"
+				},
+				"repeat": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"id"
+			]
+		},
+		"SampleTrigger": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/Trigger"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width",
+						"height"
+					],
+					"description": "hit area in % of the slice; none = the whole slice"
+				},
+				"mode": {
+					"$ref": "#/definitions/TriggerMode"
+				},
+				"exclusive": {
+					"type": "boolean",
+					"description": "mute other audio (default false)"
+				},
+				"gate": {
+					"type": "boolean",
+					"description": "only play if not already playing (default false)"
+				}
+			},
+			"required": [
+				"type",
+				"mode"
+			]
+		},
+		"Renderer": {
+			"type": "string",
+			"enum": [
+				"vertical",
+				"horizontal"
+			]
+		},
+		"RendererParams": {
+			"type": "object",
+			"properties": {
+				"autoPlay": {
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"type": "boolean"
+						},
+						"delay": {
+							"type": "number"
+						}
+					}
+				},
+				"loop": {
+					"type": "boolean"
+				},
+				"flip": {
+					"type": "boolean"
+				},
+				"keyboard": {
+					"type": "boolean"
+				},
+				"cube": {
+					"type": "boolean"
+				},
+				"freeMode": {
+					"type": "boolean"
+				},
+				"fullWidth": {
+					"type": "boolean",
+					"description": "Full width (owner 2026-10-06): instead of the swiper, the group leaves the reading column and becomes a strip of its slices side by side, each at the screen's full height. Scrolling down pins the strip and moves it sideways (1:1, no snapping), then reading goes on downwards; on a desktop the strip can go full screen (← →). The swiper params above don't apply to it."
+				}
+			}
+		},
+		"RefLink": {
+			"type": "object",
+			"properties": {
+				"src": {
+					"type": "string"
+				},
+				"id": {
+					"type": "string"
+				},
+				"type": {
+					"type": "string",
+					"enum": [
+						"chapter",
+						"group"
+					]
+				}
+			},
+			"required": [
+				"src"
+			],
+			"description": "A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers"
+		}
+	}
+}
