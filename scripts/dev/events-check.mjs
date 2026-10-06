@@ -228,7 +228,7 @@ async function pageView(view, offsetMinutes) {
 		check(s?.asking, 'askText with scope reader asks (no name yet)', JSON.stringify(await state()));
 		await js(`document.querySelector('[data-testid="vn-ask-skip"]').click(), true`);
 		s = await waitText(/^READER /, 5000);
-		check(s?.text === 'READER Ada', `reader scope: Skip stores the default, {reader.name} shows it → "${s?.text}"`);
+		check(s?.text === 'READER Ada', `reader scope: the answer button stores the default, {reader.name} shows it → "${s?.text}"`);
 		await shot('reader-name');
 		await sleep(400);
 		const stored = sql(`SELECT IFNULL(display_name, '') FROM users WHERE id = ${quote(userId)}`);

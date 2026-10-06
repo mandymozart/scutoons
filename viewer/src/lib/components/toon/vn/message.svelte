@@ -13,7 +13,8 @@
 
 	// the page doesn't scroll while the story waits: interactions/vn-page.svelte (the whole page's scripts and triggers)
 
-	// an askText (agents/EXPRESSIONS.md §6): one input line under the question; Enter / ✓ answers, Skip takes the default
+	// an askText (agents/EXPRESSIONS.md §6): one input line under the question; Enter / ✓ answers, the answer button
+	// (the default's text) answers with the default
 	let typed = $state('');
 	let input = $state<HTMLInputElement | null>(null);
 	const question = $derived(vn.state.question);
@@ -68,7 +69,11 @@
 				/>
 				<button type="submit" class="ok" aria-label={m['chapter.ask_ok']()} title={m['chapter.ask_ok']()} data-testid="vn-ask-ok">✓</button>
 			</form>
-			<button type="button" class="skip" onclick={() => vn.answer(null)} title={question.fallback || undefined} data-testid="vn-ask-skip">{m['chapter.ask_skip']()}</button>
+			<!-- the ready answer as an action button with its own text (owner 2026-10-06: no "Skip" link); none set: no
+			     button – an empty ✓ goes on without storing anything -->
+			{#if question.fallback}
+				<button type="button" class="vn-choice answer" data-control-exempt="dialogue answer (may wrap)" onclick={() => vn.answer(null)} data-testid="vn-ask-skip">{question.fallback}</button>
+			{/if}
 		{/if}
 		<Choices />
 	</div>
@@ -182,14 +187,24 @@
 		line-height: 1;
 		cursor: pointer;
 	}
-	.skip {
-		background: none;
-		border: 0;
-		padding: 0;
-		color: #555;
-		font-size: 0.875rem;
-		text-decoration: underline;
+	/* the answer button looks like a dialogue choice (choices.svelte) */
+	.answer {
+		display: block;
+		width: 100%;
+		background: white;
+		color: black;
+		padding: 1rem 1.5rem; /* control-ok: a dialogue answer may wrap */
+		border: 2px solid lightgrey;
 		cursor: pointer;
+		font: inherit;
+		font-size: 1rem;
+		text-align: left;
+	}
+	.answer:hover {
+		border-color: #333;
+	}
+	.answer:active {
+		border-color: black;
 	}
 
 	.text.narrator {

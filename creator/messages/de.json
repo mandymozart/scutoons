@@ -1134,7 +1134,7 @@
 		"ask_scope_reader": "den Namen der Leser:in (Konto)",
 		"ask_scope_reader_hint": "Texte zeigen ihn als reader.name – in jedem Toon; Leser:innen können ihn auf ihrer Kontoseite ändern.",
 		"ask_max_length": "Max. Länge",
-		"ask_default": "Antwort beim Überspringen",
+		"ask_default": "Antwort-Button",
 		"vn_condition_simple": "Einfach",
 		"vn_condition_expression": "Ausdruck",
 		"vn_condition_kind": "Bedingung als",
