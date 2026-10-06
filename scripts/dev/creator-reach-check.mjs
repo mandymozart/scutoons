@@ -7,7 +7,8 @@
 //     labelled "unreachable" in the tree; A's event after the jump is "unreachable"; a test of a variable set nowhere
 //     in the toon is "never true"; a divert loop with no way out is "endless loop" – each also a Problems warning
 //   - the Flow panel (read-only graph) follows the selection (group level), and on the chapter level shows the same
-//     statuses, the jump's edge, and a box opens its group
+//     statuses, the jump's edge, and a box opens its group; its first view is 1:1, edge labels don't overlap, no intro line
+//   - the season's and the toon's Flow dock on the right and push the page; the dead things are words
 //
 //   node scripts/dev/creator-reach-check.mjs        (creator :10000, API :9000, MariaDB container)
 //   REACH_SHOT=<file.png>: a screenshot of the group section
@@ -147,6 +148,21 @@ try {
 	await sleep(500);
 	await js(`document.querySelector('[data-testid="flow-node-g2"]').click(), true`);
 	check(await until(`location.search.includes('group=reach-c') || null`, 5000), 'Flow panel: a box opens its group in the editor');
+	// labels of edges never overlap (dagre lays them out like boxes); the first view is readable (1:1); no intro line
+	await js(`${q('group-0')}.click(), true`);
+	await sleep(300);
+	await js(`${q('flow-level-chapter')}?.click(), true`);
+	const view = await until(`(() => { const vp = document.querySelector('.svelte-flow__viewport'); const labels = [...document.querySelectorAll('.svelte-flow__edge-label')].map((l) => l.getBoundingClientRect()); if (!vp || !document.querySelector('.svelte-flow__node')) return null; let overlaps = 0; for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) { const a = labels[i], b = labels[j]; if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) overlaps++; } return { transform: vp.style.transform, overlaps, hint: !!document.querySelector('[data-testid="flow-panel"] p.hint:not(.error)') }; })()`, 10000);
+	check(view && /scale\(1\)/.test(view.transform) && view.overlaps === 0 && !view.hint, 'Flow panel: the first view at 1:1, no edge labels on top of each other, no intro line', JSON.stringify(view));
+	// the season's and the toon's Flow dock on the right and push the page (like the chapter's Flow and the Ask panel)
+	const pushed = (sel) => `(() => { const dock = document.querySelector('[data-testid="toon-flow"]')?.closest('aside'); const page = document.querySelector('${sel}'); if (!dock || !page || !document.querySelector('.svelte-flow__node')) return null; const d = dock.getBoundingClientRect(), p = page.getBoundingClientRect(); return { dockLeft: Math.round(d.left), pageRight: Math.round(p.right), zoom: document.querySelector('.svelte-flow__viewport')?.style.transform, dead: document.querySelector('[data-testid="flow-dead"] summary')?.textContent ?? '' }; })()`;
+	for (const [what, url, sel] of [['season', `${CREATOR}/sandbox/season/1?flow=1`, '.meta-page .content'], ['toon', `${CREATOR}/sandbox?flow=1`, '.creator-page']]) {
+		await send('Page.navigate', { url });
+		const g = await until(pushed(sel), 30000);
+		check(g && g.pageRight <= g.dockLeft + 1 && /scale\(1\)/.test(g.zoom), `${what} Flow: docked, the page makes room (page ends ${g?.pageRight}, dock starts ${g?.dockLeft}), first view 1:1`, JSON.stringify(g));
+		// the dead things in words ("Unused: 1 variable · 9 labels"), never bare numbers
+		check(!g?.dead || !/:\s*\d+\s*·\s*\d+/.test(g.dead), `${what} Flow: the dead-things line in words`, g?.dead);
+	}
 	check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | '));
 } catch (error) {
 	check(false, 'the run', String(error?.stack ?? error));

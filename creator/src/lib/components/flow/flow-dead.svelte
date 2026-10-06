@@ -4,7 +4,7 @@
 
 	/**
 	 * Dead things under the season / toon / SCUTOONS graph (owner 2026-10-06, @scutoons/content `deadThings`): one muted
-	 * line with the counts, open = the lists (where each one is; a place opens its chapter). Nothing dead: nothing shown.
+	 * line with the counts in words (only the parts there are), open = the lists (where each one is; a place opens its chapter). Nothing dead: nothing shown.
 	 */
 	let { dead, onopen }: { dead: DeadThings | null | undefined; onopen?: (at: DeadPlace) => void } = $props();
 
@@ -19,15 +19,25 @@
 			: []
 	);
 	const total = $derived(sections.reduce((n, [, , list]) => n + list.length, 0));
+	/** the summary in words, only the parts there are: "Unused: 1 variable · 1 never set · 9 labels" */
+	const counts: Record<string, [(count: number) => string, (count: number) => string]> = {
+		unread: [() => m['creator.flow_dead_unread_1'](), (count) => m['creator.flow_dead_unread_n']({ count })],
+		unset: [() => m['creator.flow_dead_unset_1'](), (count) => m['creator.flow_dead_unset_n']({ count })],
+		points: [() => m['creator.flow_dead_points_1'](), (count) => m['creator.flow_dead_points_n']({ count })],
+		labels: [() => m['creator.flow_dead_labels_1'](), (count) => m['creator.flow_dead_labels_n']({ count })]
+	};
+	const summary = $derived(
+		sections
+			.filter(([, , list]) => list.length)
+			.map(([key, , list]) => counts[key][list.length === 1 ? 0 : 1](list.length))
+			.join(' · ')
+	);
 	const where = (at: DeadPlace) => m['creator.flow_at']({ chapter: at.chapter, group: at.label ?? `#${at.group + 1}` });
 </script>
 
 {#if dead && total}
 	<details class="dead" data-testid="flow-dead">
-		<summary>
-			{m['creator.flow_dead']()}:
-			{m['creator.flow_dead_summary']({ unread: dead.unread.length, unset: dead.unset.length, points: dead.points.length, labels: dead.labels.length })}
-		</summary>
+		<summary>{m['creator.flow_dead']()}: {summary}</summary>
 		{#each sections as [key, title, list] (key)}
 			{#if list.length}
 				<p class="title">{title}</p>

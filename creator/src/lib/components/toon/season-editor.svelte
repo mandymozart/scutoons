@@ -115,6 +115,7 @@
 	docs={[season]}
 	companions={() => Object.values(chapters).filter((d) => !d.unconverted)}
 	beforeSave={() => syncChapters(chapters)}
+	bind:dockOpen={flowOpen}
 >
 	{#if season.present.length === 0}
 		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
@@ -186,10 +187,10 @@
 			<SupportersField doc={season} {toon} place="{place}supporters/" />
 		</section>
 	{/if}
+	{#snippet dock()}
+		<ToonFlowPanel {toon} season={number} onclose={() => (flowOpen = false)} />
+	{/snippet}
 </MetaPage>
-{#if flowOpen}
-	<ToonFlowPanel {toon} season={number} onclose={() => (flowOpen = false)} />
-{/if}
 
 <style>
 	.block {

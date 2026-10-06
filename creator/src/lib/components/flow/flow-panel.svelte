@@ -83,7 +83,6 @@
 			<Segmented options={levels} value={level} onchange={(v) => (picked = v)} label={m['creator.flow_levels']()} testid="flow-levels" />
 		</div>
 	{/if}
-	<p class="hint">{m['creator.flow_hint']()}</p>
 	<div class="canvas">
 		{#if !flow}
 			<p class="hint">{m['creator.loading']()}</p>
@@ -131,6 +130,7 @@
 	.canvas {
 		flex: 1;
 		min-height: 0;
+		margin-top: var(--space-05);
 		position: relative;
 		border: var(--border-width-regular) solid var(--ink);
 	}

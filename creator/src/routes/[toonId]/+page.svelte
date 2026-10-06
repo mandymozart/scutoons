@@ -20,12 +20,15 @@
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
+	import FlowDock, { flowWidth } from '$lib/components/flow/flow-dock.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
 	// the toon's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it
 	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
+	// docked on the right like the chapter's Flow: the page makes room for it (left of Ask, drags wider)
+	const flowSize = flowWidth();
 	usePageNav({ actions: flowToggle });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
@@ -315,7 +318,7 @@
 	}
 </script>
 
-<div class="creator-page">
+<div class="creator-page" class:with-flow={flowOpen} style:--panel-width={flowSize.css}>
 	<main class="browser">
 		<section>
 			<h1 class="toon-title">
@@ -431,9 +434,11 @@
 	</ActionBar>
 </div>
 {#if flowOpen}
-	{#key toonId}
-		<ToonFlowPanel toon={toonId} onclose={() => (flowOpen = false)} />
-	{/key}
+	<FlowDock size={flowSize}>
+		{#key toonId}
+			<ToonFlowPanel toon={toonId} onclose={() => (flowOpen = false)} />
+		{/key}
+	</FlowDock>
 {/if}
 
 {#snippet flowToggle()}
@@ -441,6 +446,12 @@
 {/snippet}
 
 <style>
+	/* the page makes room for the docked Flow instead of hiding under it; phones: it covers the page */
+	@media (min-width: 768px) {
+		.creator-page.with-flow {
+			margin-right: var(--panel-width);
+		}
+	}
 	.toon-title {
 		font-size: var(--type-title-size);
 		line-height: var(--type-title-line);

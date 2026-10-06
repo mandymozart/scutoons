@@ -131,7 +131,7 @@
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
 		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
 		{ href: '/map', label: m['creator.map'](), tab: 'map' },
-		{ href: '/flow', label: m['creator.flow_universe'](), tab: 'flow' }
+		{ href: '/flow', label: m['creator.flow_universe'](), tab: 'flow', title: m['creator.flow_universe_hint']() }
 	]);
 	const universeCurrent = (tab: string | null) =>
 		tab === 'map' || tab === 'flow'
@@ -296,7 +296,7 @@
 						<p class="sc-nav-head">{m['creator.universe']()}</p>
 						<ul>
 							{#each universe as item (item.href)}
-								<li><a class="sc-nav-item" href={item.href} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
+								<li><a class="sc-nav-item" href={item.href} title={'title' in item ? item.title : undefined} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
 							{/each}
 						</ul>
 					</div>

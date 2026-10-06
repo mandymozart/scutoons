@@ -34,8 +34,7 @@
 </script>
 
 <section class="universe-flow" data-testid="universe-flow">
-	<h1>{m['creator.flow_universe']()}</h1>
-	<p class="hint">{m['creator.flow_universe_hint']()}</p>
+	<h1 title={m['creator.flow_universe_hint']()}>{m['creator.flow_universe']()}</h1>
 	<div class="canvas">
 		{#if error}
 			<p class="hint error">{error}</p>
@@ -80,6 +79,7 @@
 	.canvas {
 		flex: 1;
 		min-height: 20rem;
+		margin-top: var(--space-05);
 		position: relative;
 		border: var(--border-width-regular) solid var(--ink);
 	}

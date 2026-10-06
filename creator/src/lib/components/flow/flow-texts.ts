@@ -19,6 +19,10 @@ export interface FlowTextContext {
 const clip = (s: string, n = 28) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const list = (items: string[] | undefined, n = 3) => (items?.length ? (items.length > n ? `${items.slice(0, n).join(', ')} +${items.length - n}` : items.join(', ')) : '');
 
+/** how often a trigger / item tap runs, when not every time (once for good with its ✓) */
+export const repeatWord = (mode: string) =>
+	mode === 'once' ? `✓ ${m['creator.repeat_once']()}` : mode === 'view' ? m['creator.repeat_view']() : mode === 'interval' ? m['creator.flow_repeat_interval']() : '';
+
 export const triggerWord = (t: string | undefined) =>
 	t === 'click' ? m['creator.trigger_click']() : t === 'hover' ? m['creator.trigger_hover']() : t === 'intersect' ? m['creator.trigger_intersect']() : t === 'item' ? m['creator.flow_item_tap']() : (t ?? '');
 
@@ -72,8 +76,11 @@ export function boxText(n: FlowNode, ctx: FlowTextContext = {}): BoxText {
 			const here = t && t.type === 'chapter' && ctx.chapter !== undefined && Number(t.value) === ctx.chapter ? (t.anyOf?.length ? m['creator.vn_random_one']({ list: t.anyOf.join(', ') }) : (t.label ?? m['creator.vn_group_first']())) : null;
 			return { title: `${m['creator.flow_jump']()} → ${here ?? targetText(t)}` };
 		}
-		case 'trigger':
-			return { title: `${m['creator.flow_slice']({ number: (n.slice ?? 0) + 1 })} · ${triggerWord(n.trigger)}` };
+		case 'trigger': {
+			const title = `${m['creator.flow_slice']({ number: (n.slice ?? 0) + 1 })} · ${triggerWord(n.trigger)}`;
+			// once for good: ✓ – it runs at most once per reader (the save game checks it off)
+			return { title, ...(n.repeat ? { meta: repeatWord(n.repeat) } : {}) };
+		}
 		case 'exit':
 			return { title: n.next ? `→ ${m['creator.flow_next_chapter']()}` : `→ ${targetText(n.target, n.season)}` };
 		case 'run':
@@ -81,6 +88,13 @@ export function boxText(n: FlowNode, ctx: FlowTextContext = {}): BoxText {
 			const range = n.events ? (n.events[0] === n.events[1] ? `${n.events[0] + 1}` : `${n.events[0] + 1}–${n.events[1] + 1}`) : '';
 			const head = n.first ? `„${clip(n.first, 34)}“` : m['creator.flow_events']({ range });
 			const meta = summary(n, ctx);
+			if (n.kind === 'step' && n.event === 'askText') {
+				// a question with an input line: where the answer goes, the question
+				const asks = m['creator.flow_asks']({ into: n.asks || '–' });
+				const question = n.first ? `„${clip(n.first, 24)}“` : '';
+				if (n.condition) return { title: m['creator.vn_if_short']({ test: n.condition }), meta: [asks, question].filter(Boolean).join(' · ') };
+				return { title: asks, meta: question || undefined };
+			}
 			if (n.kind === 'step') return { title: m['creator.vn_if_short']({ test: n.condition ?? '' }), meta: [n.first ? `„${clip(n.first, 24)}“` : '', meta].filter(Boolean).join(' · ') };
 			return { title: head, meta: n.first ? meta : meta || undefined };
 		}
@@ -110,7 +124,7 @@ export const chipOf = (n: FlowNode) =>
 				? m['creator.reach_loop']()
 				: undefined;
 
-export const hintOf = (n: FlowNode) =>
+const statusHint = (n: FlowNode) =>
 	n.status === 'unreachable'
 		? m['creator.reach_unreachable_hint']()
 		: n.status === 'never'
@@ -121,19 +135,22 @@ export const hintOf = (n: FlowNode) =>
 					? m['creator.flow_conditional']()
 					: undefined;
 
+/** a box's tooltip after its title: its status, and that a trigger runs at most once (once for good) */
+export const hintOf = (n: FlowNode) => [statusHint(n), n.kind === 'trigger' && n.repeat === 'once' ? m['creator.flow_once_hint']() : ''].filter(Boolean).join(' – ') || undefined;
+
 export function edgeText(e: FlowEdge): string {
 	const parts: string[] = [];
 	if (e.label) parts.push(clip(e.label));
 	if (e.count && e.count > 1 && !e.label?.includes(' · ')) parts.push(`×${e.count}`);
 	if (e.kind === 'reveal') parts.push(m['creator.flow_reveal']());
 	if (e.branch) parts.push(e.branch === 'else' ? m['creator.flow_else']() : e.branch === 'none' ? m['creator.flow_none']() : m['creator.flow_auto']());
-	if (e.condition && e.branch !== 'else') parts.push(m['creator.vn_if_short']({ test: e.condition }));
+	if (e.condition && e.branch !== 'else') parts.push(m['creator.vn_if_short']({ test: clip(e.condition, 32) }));
 	return parts.join(' · ');
 }
 
 /** a box's size in rem (the box's CSS gets the same numbers) */
 export function boxSize(n: FlowNode, d: { chip?: string; meta?: string }): { w: number; h: number } {
-	const big = n.kind === 'group' || n.kind === 'chapter' || n.kind === 'toon' || n.kind === 'run' || n.kind === 'step';
+	const big = n.kind === 'group' || n.kind === 'chapter' || n.kind === 'toon' || n.kind === 'run' || n.kind === 'step' || (n.kind === 'trigger' && !!d.meta);
 	const w = n.kind === 'run' || n.kind === 'step' ? 15 : n.kind === 'toon' || n.kind === 'chapter' ? 14 : big ? 13 : 12;
 	const h = big ? 3.25 : 2 + (d.chip ? 1.25 : 0);
 	return { w, h };

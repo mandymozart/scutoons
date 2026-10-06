@@ -28,6 +28,7 @@
 	class:current={data.current}
 	class:link={!!data.link}
 	class:stub={!!data.flow.stub}
+	class:has-test={!!data.flow.condition}
 	title={data.hint ? `${data.title} – ${data.hint}` : data.title}
 	data-testid="flow-node-{data.flow.id}"
 >
@@ -95,8 +96,8 @@
 	.kind-place {
 		border-width: var(--border-width-hairline);
 	}
-	/* only if its test holds */
-	.kind-step {
+	/* only if its test holds (an askText step without one is solid) */
+	.kind-step.has-test {
 		border-style: dashed;
 	}
 	.kind-exit {

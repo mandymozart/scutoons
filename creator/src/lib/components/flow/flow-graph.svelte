@@ -2,12 +2,13 @@
 	// Loaded only when a Flow panel / page opens (flow-panel.svelte, flow-dock.svelte import it dynamically): Svelte Flow +
 	// dagre stay out of the pages that never show it. Draws any level's graph (@scutoons/content flow.ts) the same way.
 	import '@xyflow/svelte/dist/style.css';
-	import { SvelteFlow, MiniMap, MarkerType, type Edge, type Node, type NodeTypes } from '@xyflow/svelte';
+	import { SvelteFlow, MiniMap, MarkerType, type Edge, type EdgeTypes, type Node, type NodeTypes } from '@xyflow/svelte';
 	import dagre from '@dagrejs/dagre';
 	import type { FlowEdge, FlowNode } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import FlowBox, { type FlowNodeData } from '$lib/components/flow/flow-node.svelte';
 	import FlowControls from '$lib/components/flow/flow-controls.svelte';
+	import FlowLine, { type FlowEdgeData } from '$lib/components/flow/flow-edge.svelte';
 	import { boxSize, boxText, chipOf, edgeText, hintOf, type FlowTextContext } from '$lib/components/flow/flow-texts.ts';
 
 	let {
@@ -27,10 +28,15 @@
 	} = $props();
 
 	const nodeTypes: NodeTypes = { flow: FlowBox };
+	const edgeTypes: EdgeTypes = { flow: FlowLine };
 	const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
 	let nodes = $state.raw<Node<FlowNodeData>[]>([]);
-	let edges = $state.raw<Edge[]>([]);
+	let edges = $state.raw<Edge<FlowEdgeData>[]>([]);
+	/** the box of what's open: the first view centres it */
+	let focus = $state<string | undefined>(undefined);
+	/** where reading starts (the first box that isn't drawn for context): the first view shows it when nothing is open */
+	let entry = $state<string | undefined>(undefined);
 
 	// layout: dagre, top to bottom; sizes in rem, converted once for the layout
 	$effect(() => {
@@ -49,7 +55,8 @@
 		for (const e of flow.edges) {
 			const label = edgeText(e);
 			labels.set(e.id, label);
-			g.setEdge(e.from, e.to, label ? { width: Math.min(label.length, 30) * px * 0.42, height: px * 1.1, labelpos: 'c' } : {}, e.id);
+			// a label is laid out like a box (dagre keeps it clear of the others): caption type ≈ 0.45rem per character
+			g.setEdge(e.from, e.to, label ? { width: (label.length * 0.45 + 0.75) * px, height: px * 1.25, labelpos: 'c' } : {}, e.id);
 		}
 		dagre.layout(g);
 		nodes = flow.nodes.map((n) => {
@@ -66,16 +73,24 @@
 				deletable: false
 			};
 		});
-		edges = flow.edges.map((e) => ({
+		focus = flow.nodes.find((n) => data.get(n.id)?.current)?.id;
+		entry = flow.nodes.find((n) => !n.stub && n.kind !== 'exit')?.id;
+		edges = flow.edges.map((e) => {
+			const route = g.edge({ v: e.from, w: e.to, name: e.id }) as { points?: { x: number; y: number }[]; x?: number; y?: number } | undefined;
+			const label = labels.get(e.id) || undefined;
+			return {
 			id: e.id,
+			type: 'flow',
 			source: e.from,
 			target: e.to,
-			label: labels.get(e.id) || undefined,
+			label,
+			data: { bends: (route?.points ?? []).slice(1, -1), ...(label && route?.x !== undefined && route.y !== undefined ? { labelAt: { x: route.x, y: route.y } } : {}) },
 			class: `flow-edge kind-${e.kind} from-${e.status}${e.never ? ' is-never' : ''}${e.condition || e.status === 'conditional' ? ' is-conditional' : ''}`,
 			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: e.never || e.status === 'unreachable' ? 'var(--badge-warning)' : 'var(--ink)' }, // px-ok: the marker's own units
 			deletable: false,
 			selectable: false
-		}));
+			};
+		});
 	});
 
 	const miniColor = (n: Node) => {
@@ -91,6 +106,7 @@
 		bind:nodes
 		bind:edges
 		{nodeTypes}
+		{edgeTypes}
 		minZoom={0.1}
 		maxZoom={2}
 		nodesDraggable={false}
@@ -104,7 +120,7 @@
 			if (d.link) onopen(d.flow);
 		}}
 	>
-		<FlowControls />
+		<FlowControls {focus} {entry} />
 		<MiniMap position="bottom-right" width={miniSize * 7.5} height={miniSize * 5.5} nodeColor={miniColor} nodeStrokeWidth={0} pannable zoomable ariaLabel={m['creator.flow']()} />
 	</SvelteFlow>
 </div>
