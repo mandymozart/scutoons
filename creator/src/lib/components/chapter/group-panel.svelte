@@ -39,6 +39,11 @@
 
 	const addEnd = () => doc.set(p('end'), { target: { type: 'chapter', value: String(chapterNumber + 1) } });
 	const removeEnd = () => doc.set(p('end'), undefined);
+	// the preset of a horizontal group (owner 2026-10-06): it continues (strips read best inside a chain); full width
+	// stays on demand. Only when nothing is set yet – a chosen continues / end stays.
+	const onLayout = (next: unknown) => {
+		if (next === Renderer.HORIZONTAL && !last && group?.continues === undefined && !group?.end) doc.set(p('continues'), true);
+	};
 </script>
 
 <section class="group-panel" data-testid="group-panel">
@@ -48,7 +53,7 @@
 	     gets the room -->
 	<div class="sc-fields" data-cols="fill" data-density="panel" data-align="end">
 		<PropField {doc} path={p('label')} label={m['creator.group_name']()} title={m['creator.group_name_hint']()} />
-		<PropField {doc} path={p('renderer', 'type')} label={m['creator.group_layout']()} type="select" options={[{ value: Renderer.VERTICAL, label: m['creator.layout_vertical']() }, { value: Renderer.HORIZONTAL, label: m['creator.layout_horizontal']() }]} required />
+		<PropField {doc} path={p('renderer', 'type')} label={m['creator.group_layout']()} type="select" options={[{ value: Renderer.VERTICAL, label: m['creator.layout_vertical']() }, { value: Renderer.HORIZONTAL, label: m['creator.layout_horizontal']() }]} required onchange={onLayout} />
 		<!-- full width (owner 2026-10-06) replaces the swiper with the screen-high strip: only for a horizontal group -->
 		{#if group?.renderer?.type === Renderer.HORIZONTAL}
 			<PropField {doc} path={p('renderer', 'params', 'fullWidth')} label={m['creator.group_full_width']()} title={m['creator.group_full_width_hint']()} type="bool" placeholder="false" />

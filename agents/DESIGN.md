@@ -349,7 +349,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
   Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
   Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the
-  swiper settings only for a horizontal group that isn't full width. No "Interaction" field (`Group.interaction` is gone
+  swiper settings only for a horizontal group that isn't full width. Preset (owner 2026-10-06): switching a group to
+  horizontal turns Continuous on (not on the chapter's last group, not when continues / an end is already set); full
+  width stays off – on demand. No "Interaction" field (`Group.interaction` is gone
   from the model; old stored values are ignored). The **strip preview** of a full-width group below it: the mouse wheel
   down moves the strip sideways while the pointer is over it (like the reader's page scroll); at either end the page
   scrolls on; a horizontal wheel / trackpad scrolls natively.
