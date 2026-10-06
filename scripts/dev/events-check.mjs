@@ -204,9 +204,15 @@ async function answer(text) {
 	await js(`document.querySelector('[data-testid="vn-ask-ok"]').click(), true`);
 }
 
+/**
+ * The page's clock starts 30 s into a fresh 10-minute period (periods are fixed UTC buckets – recurrence.ts `periodOf`):
+ * page views 1 and 2 then share one period (else a run that straddles a boundary sees "every 10 min" run again).
+ */
+const CLOCK_BASE = Math.ceil(Date.now() / 600_000) * 600_000 + 30_000 - Date.now();
+
 /** one page view: the script (questions while unanswered), then every trigger / item twice */
 async function pageView(view, offsetMinutes) {
-	await js(`localStorage.setItem('evc-clock', ${String(offsetMinutes * 60_000)})`);
+	await js(`localStorage.setItem('evc-clock', ${String(CLOCK_BASE + offsetMinutes * 60_000)})`);
 	await send('Page.navigate', { url: `${VIEWER}/sandbox/chapter/9` });
 	if (view === 1) {
 		let s = await waitText(/^Q1 /, 15000);
@@ -315,14 +321,21 @@ try {
 	await js(`document.querySelector('[data-testid="reader-name"]').scrollIntoView({ block: 'center' }), true`);
 	await sleep(300);
 	await shot('account-name');
-	// a guest: the name stays on the device
+	// a guest: the name stays on the device. Signed out for real: the session lives in the HttpOnly cookie scutoons_sid
+	// since single sign-on (@scutoons/auth moves the stored token into it on the first page) – removing the token alone
+	// left this browser signed in, and the "guest's" name went to the account whenever the session check was done first
+	await send('Network.clearBrowserCookies');
 	await js(`localStorage.removeItem('scutoons_session'), true`);
 	await send('Page.navigate', { url: `${VIEWER}/account` });
 	await until(`!!document.querySelector('[data-testid="reader-name-input"]')`, 15000);
+	const asGuest = await until(`(() => { const t = document.querySelector('[data-testid="reader-name"] small')?.textContent ?? ''; return /device|Gerät/.test(t) ? t : null; })()`, 15000);
+	check(!!asGuest, `signed out: the field saves on the device ("${asGuest}")`);
 	await js(`(() => { const i = document.querySelector('[data-testid="reader-name-input"]'); i.value = 'Gus'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
 	await sleep(500);
 	const guest = await js(`localStorage.getItem('scutoons_reader_name')`);
 	check(guest === 'Gus', `a guest's name is on the device (localStorage scutoons_reader_name = "${guest}")`);
+	const account = sql(`SELECT IFNULL(display_name, '') FROM users WHERE id = ${quote(userId)}`);
+	check(account === 'Bea', `… and not on the account (users.display_name stays "${account}")`);
 	check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | '));
 } catch (error) {
 	check(false, 'the run', String(error?.stack ?? error));

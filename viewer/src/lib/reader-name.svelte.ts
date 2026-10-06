@@ -42,9 +42,13 @@ class ReaderNameState {
 		return this.local || undefined;
 	}
 
-	/** Stores the name ("" clears it): a member's on the account, a guest's on this device. */
+	/**
+	 * Stores the name ("" clears it): a member's on the account, a guest's on this device – decided once it is known who
+	 * reads (a member typing while the session check still runs must not land on the device).
+	 */
 	async set(raw: string): Promise<void> {
 		const name = cleanText(raw, READER_NAME_MAX);
+		await readerKnown();
 		const session = getCurrentSession();
 		if (session?.isLoggedIn) {
 			await session.setDisplayName(name || null);
