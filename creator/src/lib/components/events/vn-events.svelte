@@ -17,6 +17,7 @@
 	import EventCast from '$lib/components/events/event-cast.svelte';
 	import EventCondition from '$lib/components/events/event-condition.svelte';
 	import EventTrigger from '$lib/components/events/event-trigger.svelte';
+	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	/**
 	 * Visual-novel events: group scripts (`group.events`) or slice-triggered events (`slice.events`, with `trigger`).
@@ -35,7 +36,8 @@
 		dialogs = [],
 		oncreatebox,
 		points: groupPoints,
-		groupLabels = []
+		groupLabels = [],
+		markOf = () => null
 	}: {
 		doc: ContentDoc;
 		eventsPath: Path;
@@ -56,6 +58,8 @@
 		points?: string[];
 		/** the chapter's group labels (a jump's group, the random list) */
 		groupLabels?: string[];
+		/** an event no run reaches, a test that is never true, a loop with no way out: a label (@scutoons/content reach.ts) */
+		markOf?: (index: number) => ReachMark;
 	} = $props();
 
 	const events = $derived<any[]>(doc.get(doc.primary, eventsPath) ?? []);
@@ -228,6 +232,7 @@
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
 					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain)}</span>
+					<ReachChip mark={markOf(i)} />
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
 				<span class="tools">

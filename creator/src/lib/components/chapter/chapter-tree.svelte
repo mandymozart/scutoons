@@ -8,6 +8,7 @@
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 	import { newGroup } from '$lib/editor/defaults.ts';
 	import SliceList from '$lib/components/chapter/slice-list.svelte';
+	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	/**
 	 * The chapter's children in the sidebar (COMPONENTS.md step 12): meta, audio, groups → the open group's slices
@@ -23,6 +24,7 @@
 		activeDoc,
 		groupPath,
 		chapterNumber,
+		markAt = () => null,
 		resolveGroup = (g) => g
 	}: {
 		view: ChapterView;
@@ -33,6 +35,8 @@
 		activeDoc: ContentDoc | null;
 		groupPath: Path;
 		chapterNumber: number;
+		/** the reachability mark at a chapter path (groups.g, groups.g.slices.s – @scutoons/content reach.ts) */
+		markAt?: (...path: (string | number)[]) => ReachMark;
 		/** a group as stored: a `ref` group's separate scene document (undefined while it loads), else the group itself */
 		resolveGroup?: (g: any) => any;
 	} = $props();
@@ -125,7 +129,8 @@
 					data-nav-child={view.section === 'meta' || view.section === 'audio' ? '' : undefined}
 					data-testid="group-{gi}"
 				>
-					{groupName(g, gi)}
+					<span class="name">{groupName(g, gi)}</span>
+					<ReachChip mark={markAt('groups', gi)} />
 					<span class="hint">
 						{#if linksToNext(resolved, gi)}
 							<span class="link" title={m['creator.group_linked']()} data-testid="group-linked-{gi}"><Icon name="link" size="0.875rem" label={m['creator.group_linked']()} /></span>
@@ -140,7 +145,7 @@
 			{#if open}
 				{#if activeDoc && !activeDoc.loading}
 					<div class="slices" data-child-slices={view.section === 'group' ? '' : undefined}>
-						<SliceList doc={activeDoc} {groupPath} {chapterNumber} selected={view.section === 'slice' ? view.sliceIndex : -1} onselect={(i) => view.selectSlice(i)} />
+						<SliceList doc={activeDoc} {groupPath} {chapterNumber} markOf={(si) => markAt('groups', gi, 'slices', si)} selected={view.section === 'slice' ? view.sliceIndex : -1} onselect={(i) => view.selectSlice(i)} />
 					</div>
 				{:else}
 					<p class="hint pad">{m['creator.loading']()}</p>
@@ -185,6 +190,13 @@
 	}
 	.node .hint {
 		color: inherit;
+	}
+	.node .name {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		text-align: left;
 	}
 	/* the link mark of a group that continues into the next one */
 	.node .hint .link {

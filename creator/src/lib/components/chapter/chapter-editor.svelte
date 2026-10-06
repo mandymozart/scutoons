@@ -33,7 +33,9 @@
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
-	import { validateFile, validateNeutral, type Problem } from '@scutoons/content';
+	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, type ChapterReach, type Problem, type ToonFacts } from '@scutoons/content';
+	import { loadToonDocs } from '$lib/editor/toon-facts.ts';
+	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
@@ -208,7 +210,43 @@
 		loadToons(getLocale()).then((list) => (toonInfos = list));
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		refreshImages();
+		// the rest of the toon (reachability: labels something jumps to, variables something sets) – without it no
+		// condition is judged and every labelled group counts as reachable
+		loadToonDocs(toon, new Set(sliceDocs.map((d) => d.entity)))
+			.then((docs) => (toonDocsFacts = toonFacts(docs)))
+			.catch(() => (toonDocsFacts = null));
 	});
+
+	// ── Reachability (owner 2026-10-06, @scutoons/content reach.ts) ─────────────────────────────────────────────────
+	let toonDocsFacts = $state<ToonFacts | null>(null);
+	/** the toon's facts: the other documents (loaded once) + this chapter's own, live */
+	const facts = $derived.by<ToonFacts | undefined>(() => {
+		const rest = toonDocsFacts;
+		if (!rest) return undefined;
+		const live = toonFacts([...sliceDocs.map((d) => $state.snapshot(d.data[d.primary])), $state.snapshot(worldMap.data?.[worldMap.primary])]);
+		return { variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]) };
+	});
+	/** the chapter's reachability for the labels in the tree / slice list / event lists – debounced while editing */
+	let reach = $state<ChapterReach | null>(null);
+	$effect(() => {
+		const snapshot = $state.snapshot(sceneGroups());
+		const f = facts;
+		const timer = setTimeout(() => (reach = chapterReach(snapshot, f)), 250);
+		return () => clearTimeout(timer);
+	});
+	/** chapter path (groups.g.…) → its mark */
+	const marks = $derived.by(() => {
+		const out = new Map<string, ReachMark>();
+		const r = reach;
+		if (!r) return out;
+		r.groups.forEach((x, gi) => x === 'unreachable' && out.set(`groups.${gi}`, 'unreachable'));
+		r.slices.forEach((list, gi) => list.forEach((x, si) => x === 'unreachable' && r.groups[gi] !== 'unreachable' && out.set(`groups.${gi}.slices.${si}`, 'unreachable')));
+		r.events.forEach((list, gi) => list.forEach((x, i) => x === 'unreachable' && r.groups[gi] !== 'unreachable' && out.set(`groups.${gi}.events.${i}`, 'unreachable')));
+		for (const p of r.loops) out.set(p.join('.'), 'loop');
+		for (const p of r.neverTrue) out.set(p.slice(0, -1).join('.'), 'never');
+		return out;
+	});
+	const markAt = (...path: (string | number)[]): ReachMark => marks.get(path.join('.')) ?? null;
 
 	function refreshImages() {
 		knownImages(toon, chapter.textLanguages, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
@@ -382,6 +420,8 @@
 				seasonStatus: doc === chapter ? seasonStatusOf(season, languages.source, chapterNumber) : undefined,
 				// linked groups: a ref group's `continues` lives in its scene
 				resolveGroup: (g: any) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g),
+				// reachability: what the rest of the toon jumps to / sets
+				facts,
 				// placed items (and related items) are checked against the catalog once it is loaded
 				items: catalogItems,
 				itemRespawn
@@ -435,8 +475,25 @@
 	// ── Editing actions (lib/editor/slice-edit.ts) ────────────────────────────────────────────────────────────
 	/** the chapter's group labels: a jump's group and the random list (CUTOVER 10.27) */
 	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
+	/** every text box id of the chapter and its scenes: a new box gets a fresh one (owner 2026-10-06: unique in the chapter) */
+	const chapterDialogIds = () =>
+		new Set<string>(sceneGroups().flatMap((g: any) => (g?.slices ?? []).flatMap((s: any) => (s?.dialog ?? []).map((d: any) => d?.id).filter((id: unknown) => typeof id === 'string'))));
 	const sliceTarget = (): edits.SliceTarget | null =>
-		activeDoc && view.sliceIndex >= 0 ? { doc: activeDoc, slicePath, chapterNumber, sliceIndex: view.sliceIndex, slice: activeSlice } : null;
+		activeDoc && view.sliceIndex >= 0 ? { doc: activeDoc, slicePath, chapterNumber, sliceIndex: view.sliceIndex, slice: activeSlice, taken: chapterDialogIds } : null;
+
+	// linked groups (owner 2026-10-06): a group whose script can jump away and that continues – the next group needs a
+	// label, else nothing leads back to it (a reminder with one click, next to the script)
+	const nextGroup = $derived(sceneGroups()[view.groupIndex + 1]);
+	const needsNextLabel = $derived(!!activeGroup?.continues && scriptJumps(activeGroup) && !!nextGroup && !nextGroup.label);
+	function labelNextGroup() {
+		const index = view.groupIndex + 1;
+		const raw = groups[index];
+		const taken = new Set(sceneGroups().map((g: any) => g?.label).filter(Boolean));
+		let label = raw?.ref?.src ? sceneNameOfRef(raw.ref.src) : `scene-${index + 1}`;
+		for (let n = 2; !label || taken.has(label); n++) label = `scene-${index + 1}-${n}`;
+		if (raw?.ref?.src) refs[raw.ref.src]?.edit((file) => void (file.label = label));
+		else chapter.edit((file) => void (file.groups[index].label = label));
+	}
 	/** a new text with a preset's look (default speech; a drawn one keeps the drawn rect); the cursor goes to its text */
 	function addDialog(rect?: { x: number; y: number; width: number; height?: number }, preset?: TextPreset) {
 		view.pickingPreset = false;
@@ -538,7 +595,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#snippet tree()}
-	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
+	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} {markAt} resolveGroup={(g) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g)} />
 {/snippet}
 
 <div class="editor" class:with-panel={panel !== null} style:--panel-width={panelSize.css}>
@@ -650,8 +707,14 @@
 							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} onopen={(i) => view.selectSlice(i)} />
 						{/if}
 						<h3 class="sub">{m['creator.vn']()}</h3>
+						{#if needsNextLabel}
+							<div class="sc-bar is-note" data-testid="next-label-hint">
+								<span>{m['creator.next_label_hint']()}</span>
+								<button class="secondary" onclick={labelNextGroup} data-testid="next-label-add">{m['creator.next_label_add']()}</button>
+							</div>
+						{/if}
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices, [displayLocale, languages.source])} {groupLabels} markOf={(i) => markAt('groups', view.groupIndex, 'events', i)} />
 						{:else}
 							<p class="hint">{m['creator.vn_no_script']()}
 								<button class="secondary" onclick={() => activeDoc?.edit((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ {m['creator.vn_script_add']()}</button></p>
@@ -709,6 +772,7 @@
 					onadditem={addSliceItem}
 					oncreatebox={createBoxForEvent}
 					onremove={removeSelected}
+					eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}
 				/>
 			{/if}
 		</div>

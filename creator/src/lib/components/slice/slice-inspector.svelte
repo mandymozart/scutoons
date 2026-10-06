@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import type { VariantMedia } from '@scutoons/media';
 	import { Icon, Tabs } from '@scutoons/ui';
 	import { previewText, scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
@@ -48,7 +49,8 @@
 		onaddtext,
 		onadditem,
 		oncreatebox,
-		onremove
+		onremove,
+		eventMark
 	}: {
 		view: ChapterView;
 		doc: ContentDoc;
@@ -77,6 +79,8 @@
 		/** "Create a text box for this": an onomatopoeia event's box (`eventsPath` relative to the slice) */
 		oncreatebox: (index: number, eventsPath?: Path) => void;
 		onremove: () => void;
+		/** the reachability mark of a slice event (never true, endless loop – @scutoons/content reach.ts) */
+		eventMark?: (index: number) => ReachMark;
 	} = $props();
 
 	const dialogs = $derived<any[]>(slice?.dialog ?? []);
@@ -184,6 +188,7 @@
 			{choices}
 			dialogs={boxChoices([slice], [locale, doc.textSource])}
 			oncreatebox={(i) => oncreatebox(i)}
+			markOf={eventMark}
 			selected={selection?.kind === 'event' ? selection.index : -1}
 			onselect={(i) => (view.selection = { kind: 'event', index: i })}
 		/>

@@ -114,10 +114,13 @@ export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['var
 	return { id, rect, text: {}, variant, size: 4 };
 }
 
-/** A free dialog id `s1c2-<slice>-<n>` (slice number is 1-based, like chapter 1) */
-export function nextDialogId(chapter: number, sliceIndex: number, existing: (Dialog | undefined)[], season = 1) {
+/**
+ * A free dialog id `s1c2-<slice>-<n>` (slice number is 1-based, like chapter 1); `taken` = the chapter's other ids (ids are
+ * unique in the chapter, its scenes too – linked groups share a page; the author never types them)
+ */
+export function nextDialogId(chapter: number, sliceIndex: number, existing: (Dialog | undefined)[], season = 1, taken: Iterable<string> = []) {
 	const prefix = `${chapterSlug(chapter, season)}-${sliceIndex + 1}-`;
-	const used = new Set(existing.map((d) => d?.id));
+	const used = new Set<string | undefined>([...existing.map((d) => d?.id), ...taken]);
 	let n = existing.length + 1;
 	while (used.has(prefix + n)) n++;
 	return prefix + n;

@@ -14,6 +14,8 @@ export interface SliceTarget {
 	chapterNumber: number;
 	sliceIndex: number;
 	slice: any;
+	/** every text box id of the chapter (its scenes too): a new id is none of them (owner 2026-10-06) */
+	taken?: () => ReadonlySet<string>;
 }
 
 export const presetOf = (id: string) => TEXT_PRESETS.find((p) => p.id === id)!;
@@ -21,7 +23,7 @@ export const presetOf = (id: string) => TEXT_PRESETS.find((p) => p.id === id)!;
 /** ids follow the image number like chapter 1 (s1c1-<slice>-<n>), else the position in the group */
 function nextId(t: SliceTarget) {
 	const imageNo = Number(String(t.slice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
-	return nextDialogId(t.chapterNumber, (imageNo || t.sliceIndex + 1) - 1, t.slice?.dialog ?? []);
+	return nextDialogId(t.chapterNumber, (imageNo || t.sliceIndex + 1) - 1, t.slice?.dialog ?? [], 1, t.taken?.());
 }
 
 /** a new text with a preset's look (default speech; a drawn one keeps the drawn rect) */

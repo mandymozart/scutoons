@@ -10,18 +10,22 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import SliceImport from '$lib/components/chapter/slice-import.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
+	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	let {
 		doc,
 		groupPath,
 		chapterNumber,
 		selected = -1,
+		markOf = () => null,
 		onselect
 	}: {
 		doc: ContentDoc;
 		groupPath: Path;
 		chapterNumber: number;
 		selected?: number;
+		/** a slice the reader can never reach gets a label (@scutoons/content reach.ts) */
+		markOf?: (index: number) => ReachMark;
 		onselect: (index: number) => void;
 	} = $props();
 
@@ -158,6 +162,7 @@
 				<span class="info">
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
+						<ReachChip mark={markOf(index)} />
 						{#if count(slice, 'dialog')}<span title={m['creator.text_boxes']()}>T{count(slice, 'dialog')}</span>{/if}
 						{#if slice?.audio}<span title={m['creator.audio']()}><Icon name="music" label={m['creator.audio']()} /></span>{/if}
 						{#if count(slice, 'events')}<span title={m['creator.events']()}><Icon name="zap" label={m['creator.events']()} />{count(slice, 'events')}</span>{/if}
