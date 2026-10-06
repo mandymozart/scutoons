@@ -2,7 +2,7 @@
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import NextBar from '$lib/components/chapter/next-bar.svelte';
 	import ChapterTeaser from '$lib/components/chapter/chapter-teaser.svelte';
-	import { chainOf, chainSlices, hasVisualNovel, nextStep, seasonMusic } from '@scutoons/content';
+	import { chainOf, chainSlices, hasVisualNovel, nextStep, seasonMusic, seasonMusicDownload } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
@@ -247,7 +247,10 @@
 						chapter={data.chapter.number}
 						season={data.season?.number ?? 1}
 						sequence={data.sequence ?? []}
-						download={!!seasonMusic(inventory.catalog, data.season, page.params.toonId ?? '')?.download}
+						download={!!seasonMusicDownload(inventory.catalog, seasonMusic(inventory.catalog, data.season, page.params.toonId ?? ''), {
+							owned: inventory.entries.map((e) => e.item_id),
+							member: membership.isValid
+						})}
 						onreplay={replay}
 					/>
 				{/if}

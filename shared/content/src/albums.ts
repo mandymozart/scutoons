@@ -148,6 +148,16 @@ export function seasonMusic(
 	return { album, download: `${toon}/${music}`, image: album?.cover ?? (season.download?.image ? `${toon}/${season.download.image}` : null) };
 }
 
+/**
+ * The season's music zip if this reader may have it, else null – the one rule for every music button (toon page, next-bar,
+ * download page): the album's `access.download`; an old season's zip that is no album's download = `members`
+ */
+export function seasonMusicDownload(catalog: Pick<Catalog, 'items'> | null | undefined, music: SeasonMusic | null | undefined, who: Listener): string | null {
+	if (!music?.download) return null;
+	const owner = music.album ? ownsAlbum(catalog, music.album, who.owned) : false;
+	return allows(albumAccess(music.album).download, who.member, owner) ? music.download : null;
+}
+
 /** The album an item carries (`item.album`), or undefined */
 export function albumOf(catalog: Pick<Catalog, 'albums'> | null | undefined, item: Pick<ItemDef, 'album'> | null | undefined): Album | undefined {
 	if (!item?.album) return undefined;

@@ -12,6 +12,7 @@ import {
 	playerAlbums,
 	playersFor,
 	seasonMusic,
+	seasonMusicDownload,
 	validateCatalog,
 	catalogFromSeed,
 	resolveChapter,
@@ -116,6 +117,23 @@ test('albums: access – download for members (as before), listening for owners 
 	const messages = validateCatalog(bad).filter((p) => p.level === 'error').map((p) => p.message);
 	assert.ok(messages.some((m) => m.includes('access.download must be one of')));
 	assert.ok(messages.some((m) => m.includes('unknown access "stream"')));
+});
+
+test('albums: the season music button only for a reader who may download (owner 2026-10-06)', () => {
+	const zip = 'catpope/s1/CatPope-Awakening-Music.zip';
+	const music = seasonMusic(catalog, { related_items: ['awakening_vinyl'] }, 'catpope');
+	assert.equal(seasonMusicDownload(catalog, music, guest()), null, 'no code, no button');
+	assert.equal(seasonMusicDownload(catalog, music, member()), zip);
+	assert.equal(seasonMusicDownload(catalog, music, guest('awakening_vinyl')), zip, 'an owner');
+	const open = structuredClone(catalog);
+	open.albums![0].access = { download: 'everyone' };
+	assert.equal(seasonMusicDownload(open, seasonMusic(open, { related_items: ['awakening_vinyl'] }, 'catpope'), guest()), zip, 'a free download');
+	// an old season's zip that is no album's download: members only
+	const old = seasonMusic(catalog, { download: { music: 'old/music.zip' } }, 'catpope');
+	assert.equal(old?.album, undefined);
+	assert.equal(seasonMusicDownload(catalog, old, guest()), null);
+	assert.equal(seasonMusicDownload(catalog, old, member()), 'catpope/old/music.zip');
+	assert.equal(seasonMusicDownload(catalog, null, member()), null);
 });
 
 test('albums: the old play_audio skill is still read (plays without a player)', () => {

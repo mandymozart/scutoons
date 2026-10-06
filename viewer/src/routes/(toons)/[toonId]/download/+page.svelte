@@ -5,7 +5,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import type { PageProps } from './$types.js';
-	import { albumAccess, albumDownload, seasonMusic } from '@scutoons/content';
+	import { albumAccess, seasonMusic, seasonMusicDownload } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 
@@ -19,9 +19,10 @@
 	// the music = the album of the season's related items (older seasons: season.download.music – seasonMusic)
 	const music = $derived(seasonMusic(inventory.catalog, data.season, params.toonId));
 	const album = $derived(music?.album);
-	const access = $derived(album ? albumAccess(album).download : 'members');
+	const access = $derived(albumAccess(album).download);
+	// the same rule as the toon page's and the next-bar's button (seasonMusicDownload)
 	const allowed = $derived(
-		!!album && !!albumDownload(inventory.catalog, album, { owned: inventory.entries.map((e) => e.item_id), member: membership.isValid })
+		!!seasonMusicDownload(inventory.catalog, music, { owned: inventory.entries.map((e) => e.item_id), member: membership.isValid })
 	);
 
 	function handleDownload(url: string) {
@@ -33,15 +34,16 @@
 	}
 </script>
 
-{#if access === 'members'}
-	<MembershipBlocker>{@render downloads()}</MembershipBlocker>
-{:else if allowed}
+{#if allowed}
 	{@render downloads()}
-{:else}
+{:else if access === 'owners'}
 	<div class="view download-page">
 		<p data-testid="download-owners-only">{m['download.owners_only']()}</p>
 		<button onclick={goBack}>← {m['download.read_webtoon']()}</button>
 	</div>
+{:else}
+	<!-- no code yet: the membership blocker (scan, sign in, buy) – it never renders the downloads here -->
+	<MembershipBlocker>{@render downloads()}</MembershipBlocker>
 {/if}
 
 {#snippet downloads()}

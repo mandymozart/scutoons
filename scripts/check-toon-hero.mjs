@@ -395,12 +395,14 @@ for (const [w, h] of [[1440, 900], [390, 844]]) for (const l of ['de', 'en']) {
 }
 
 // the season's music in its record's row (owner 2026-10-02): the record's cut-out (season.download.image) as the row's
-// picture, "Download the music" under it; desktop in the season column; decorative (alt ""), lazy
+// picture; desktop in the season column; decorative (alt ""), lazy. "Download the music" only for a reader who may
+// download (owner 2026-10-06) – this fresh guest has no code: the record without the button
 const musicImage = bundles.de.seasons[0].season.download?.image;
 const MUSIC = `(async () => {
-	const btn = document.querySelector('[data-testid="season-download"]');
-	if (!btn) return null;
-	const wrap = btn.closest('li') ?? btn.parentElement;
+	const pic = document.querySelector('[data-testid="season-download-image"]');
+	if (!pic) return null;
+	const wrap = pic.closest('li') ?? pic.parentElement;
+	const btn = wrap.querySelector('[data-testid="season-download"]') ?? document.querySelector('a[data-testid="season-download"]');
 	wrap.scrollIntoView({ block: 'center' });
 	const img = wrap.querySelector('[data-testid="season-download-image"]');
 	for (let i = 0; i < 40 && img && !(img.complete && img.naturalWidth); i++) await new Promise((r) => setTimeout(r, 100));
@@ -421,8 +423,7 @@ else for (const [w, h] of [[390, 844], [768, 1024], [1280, 800], [1440, 900]]) f
 	if (!s || s.error || !s.img) p.push(`music block ${JSON.stringify(s)}`);
 	else {
 		if (!s.img.src.endsWith(`/${toon}/${musicImage}`) || s.img.alt !== '' || s.img.loading !== 'lazy' || !s.img.loaded) p.push(`image ${JSON.stringify(s.img)}`);
-		if (s.text !== messages[l].season.download || s.href !== `${prefix}/${toon}/download`) p.push(`button "${s.text}" → ${s.href}`);
-		if (s.btn.y < s.img.y + s.img.h - 1) p.push(`the button is not below the record: ${JSON.stringify({ img: s.img, btn: s.btn })}`);
+		if (s.btn) p.push(`a guest without a code sees "${s.text}" → ${s.href}`);
 		if (w >= 1024) {
 			if (!s.inSeasonColumn) p.push('not in the season column');
 			if (s.img.w < 120 || s.img.w > 160) p.push(`record ${s.img.w} px wide (120-160 on desktop)`);
@@ -430,7 +431,7 @@ else for (const [w, h] of [[390, 844], [768, 1024], [1280, 800], [1440, 900]]) f
 			if (s.img.w < 96 || s.img.w > 200) p.push(`record ${s.img.w} px wide (96-200 on phone / tablet: the row's big picture)`);
 		}
 	}
-	report(`${w} ${l}: the record (${musicImage}) beside "${messages[l].season.download}"`, p, JSON.stringify(s?.img));
+	report(`${w} ${l}: the record (${musicImage}), no "${messages[l].season.download}" without a code`, p, JSON.stringify(s?.img));
 	await shot(`music-${w}-${l}`);
 }
 

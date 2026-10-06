@@ -5,8 +5,9 @@
 	import StartButton from '$lib/components/toon/start-button.svelte';
 	import Hero from '$lib/components/toon/hero.svelte';
 	import RelatedItems from '$lib/components/toon/related-items.svelte';
-	import { albumAccess, ownsAlbum, seasonMusic } from '@scutoons/content';
+	import { seasonMusic, seasonMusicDownload } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
+	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { onMount } from 'svelte';
 	import { CoverArt, CreditsColophon } from '@scutoons/reader';
 	import ClampText from '$lib/components/clamp-text.svelte';
@@ -26,14 +27,19 @@
 	const musicCarrier = $derived(
 		seasonSound?.carrier ?? (musicAlbum ? (season?.related_items ?? []).find((id) => inventory.item(id)?.album === musicAlbum.id) : undefined)
 	);
-	/** the download button in that row: `everyone` / `members` (the download page gates members), `owners` only for owners */
+	// the download button only for a reader who may have the zip (the album's `access.download`; owner 2026-10-06: no
+	// button without a code unless the album is a free download)
+	const membership = getMembershipContext();
+	const mayDownload = $derived(
+		!!seasonMusicDownload(inventory.catalog, seasonSound, { owned: inventory.entries.map((e) => e.item_id), member: membership.isValid })
+	);
+	/** the record's row: its cut-out always, the download button only when allowed */
 	const musicLink = $derived.by(() => {
 		if (!musicCarrier || !musicAlbum || !seasonSound?.download) return null;
-		const owner = ownsAlbum(inventory.catalog, musicAlbum, inventory.entries.map((e) => e.item_id));
 		return {
 			item: musicCarrier,
 			image: seasonSound.image ? asset(seasonSound.image) : null,
-			href: albumAccess(musicAlbum).download === 'owners' && !owner ? null : localizeHref(`/${params.toonId}/download`)
+			href: mayDownload ? localizeHref(`/${params.toonId}/download`) : null
 		};
 	});
 	let sequence = $state(data.sequence);
@@ -100,7 +106,7 @@
 			{#if desktop}
 				<!-- desktop: cover, title and description are in the hero – this column only has music, related items, credits -->
 				<div class="season-column">
-					{#if seasonSound?.download && !musicLink}
+					{#if mayDownload && !musicLink}
 						{@render music()}
 					{/if}
 					{#if season.related_items?.length}
@@ -111,7 +117,7 @@
 			{/if}
 			<!-- the season's related items (season.related_items): icon, name, price + "Kaufen" for physical products; the
 			     season's music sits in its record's row (owner 2026-10-02) – the music block only without related items -->
-			{#if !desktop && seasonSound?.download && !musicLink}
+			{#if !desktop && mayDownload && !musicLink}
 				{@render music()}
 			{/if}
 			{#if !desktop && season.related_items?.length}
@@ -125,7 +131,7 @@
 	{/if}
 </div>
 
-<!-- the season's music (members: the download page), with the record's cut-out beside the button when the season has one -->
+<!-- the season's music (only for a reader who may download it), with the record's cut-out beside the button when the season has one -->
 {#snippet music()}
 	<div class="season-download" class:with-image={!!seasonSound?.image} data-testid="season-download">
 		{#if seasonSound?.image}
