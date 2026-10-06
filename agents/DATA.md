@@ -77,7 +77,11 @@ The creator edits only the neutral documents (phase 2A, 2026-10-06): one `Conten
 entity without a neutral document is converted in memory on load (`neutralizeDocs`, a notice) and saved as the neutral
 key – the per-locale keys are never written again. Validation: `validateNeutral` (structure once + per-locale
 completeness); accepted per-locale warnings keep their locale in the key (`en:<place>#<hash>`). The owner converts a
-whole toon on `/<toon>/convert` (`planConversion`, shared with `npm run dev:neutralize`).
+whole toon on `/<toon>/convert` (`planConversion`, shared with `npm run dev:neutralize`). Phase 2B (2026-10-06): season
+page, cover editor, new chapter / season flows, the MCP tools (`read_entity` / `save_draft` / `validate` on the neutral
+key, `validateNeutral`), the sandbox generator and the test fixtures are neutral too; a chapter's status per language is
+edited in its meta panel only (in the header's text language). A new language adds nothing but the language in the
+toon entry (texts missing → warnings); only the per-locale toon settings get a "create from the source".
 
 **Season downloads and supporters (2026-09-30, owner):** the music album belongs to its season: `Season.download
 { music?, complete? }` (was `Toon.download`, removed from the type/schema; a leftover `download` in toon settings is only
@@ -269,7 +273,8 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
   seasons → neutral documents with `neutralizeDocs` (report of what the source locale overrode); new versions only,
   idempotent. Production converts from the creator's Convert page (NEUTRAL.md, phase 2).
 - The sandbox toon (dev only): `make-sandbox.ts` reads characters + moods from the local DB, writes `logs/dev/sandbox`
-  and imports it (`npm run dev:db sandbox`).
+  and imports it (`npm run dev:db sandbox`). Chapters, scenes and the season are language-neutral (`_/chapter<N>.json`
+  …; dialogue de + en, ko not translated → German); per-locale ones of earlier runs are deleted from the dev DB first.
 
 **Cutover on production (Oct 3, phpMyAdmin, in this order; history – the seed SQL and compare suite no longer exist)** – replaces the earlier `import-content <viewer/static/api>`
 step: (1) the pending migrations in file-name order, including `2026-09-30-content-versions` and then

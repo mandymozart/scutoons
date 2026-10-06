@@ -77,8 +77,8 @@ translation by design).
    library read path + legacy fallback, server validation/schemas/AssetUsages/Reviews/ContentFiles, conversion script +
    equivalence check on the dev DB (sandbox / fixtures stay per locale until phase 2).
 2. Creator: ~~2A editing core~~ done 2026-10-06 (see Phase 2A below: document model, in-memory conversion, Convert
-   page, chapter editor, validation, history). 2B: season editor UI, cover editor, visibility / status per locale, new
-   chapter / season / toon flows, MCP tools, make-sandbox, server test fixtures.
+   page, chapter editor, validation, history). ~~2B~~ done 2026-10-06 (see Phase 2B below: season editor, cover editor,
+   status per language, new chapter / season / language flows, MCP tools, make-sandbox, test fixtures, dev checks).
 3. Linked groups (`groups/chains`) merged in; its fields live in the neutral document.
 4. Toon settings into the toon entry.
 5. Creator messages refactor (owner 2026-10-06): `creator/messages/{de,en}.json` + hints/tooltips in the code still
@@ -233,19 +233,75 @@ don't fit the group schema (an `addChoice` jumpTo `value` is a number; an `end` 
 - catpope chapter 2 + scenes 14 / 18: the browser test's edits were restored (new drafts #325–327 with the content of
   #196 / #202 / #208).
 - **sandbox converted** (in the editor: chapter 1 + its scenes + season, published by hand; the rest with the Convert
-  page): every sandbox chapter / scene / season is neutral, published, identical answers in `content:neutral-check`.
-  Caveat until make-sandbox writes neutral documents (2B): `npm run dev:db sandbox` re-imports per-locale versions that
-  the neutral ones shadow – delete the sandbox's neutral rows first
-  (`DELETE FROM entity_versions WHERE toon = 'sandbox' AND locale IS NULL AND kind IN ('chapter', 'scene', 'season')`).
-- `check:creator-chapter`: the VN part fails on today's content – scene-14's newest version (per-locale #183 and
-  neutral #202 alike) has no group script and no slice events any more; the check expects some (pre-existing, content).
+  page). Since 2B make-sandbox writes neutral documents itself – no caveat any more (Phase 2B).
+- `check:creator-chapter`'s VN part failed on today's content (catpope scene-14 lost its script) – fixed in 2B (the
+  check looks for a scene with a script).
 
-### Left for 2B
+## Phase 2B "Creator flows, tools, sandbox, fixtures" – done (2026-10-06, branch `chapter-neutral`)
 
-- Season editor UI per the neutral model (it works: title / description / release via LocaleText, the rest once; the
-  status per language is still edited in the chapter's meta panel), cover editor (`structural` on the neutral season –
-  works, untouched), visibility per locale wording.
-- New chapter / season / toon flows: minimal neutral shapes are in (`newChapterDoc`, `newSeasonDoc`,
-  `sequenceStatus` in defaults.ts; the toon page's "New chapter" / "Create season"), not browser-tested.
-- MCP tools, make-sandbox, server test fixtures → neutral; creator message wording cleanup.
-- Toon settings into the toon entry (step 4).
+- **Season page** (`season-editor.svelte`): title / description / release via LocaleText (the header's text language),
+  everything else once through `PropField` (now also `type="list"` and a `testid`): authors, supporters (name / url),
+  trailer, related items, the cover link. No `SharedField` / per-language split on any neutral document.
+- **Cover editor**: writes `cover.<format>` / `cover.lettering` once with `doc.set` (one undo step); a custom line's text
+  is the locale map `custom` in the header's text language, as before.
+- **Status per language – decision**: edited in ONE place, the chapter's meta panel (where the chapter is edited; the
+  season page has no chapter list since the owner's 2026-10-03 "no second list"), and like every other per-language
+  field it follows the header's text language: source (default) = one select, a language = that one, "all" = side by
+  side. A language without its own status shows the source's (the reader's rule). Lists (toon page, season sidebar)
+  show it read-only as badges ("Draft · en"). `visibility.ts` reads / writes only the neutral season's locale map
+  (`sequenceIndex` lost its locale argument; an older plain-string status counts for every language).
+- **New chapter / season / language** (toon page): "New chapter" and "Create season 1" store neutral documents
+  (`newChapterDoc` / `newSeasonDoc`, `sequenceStatus` = draft in every language); a new language = the language in the
+  toon entry, nothing else – texts missing (warnings, "missing" chips). Only the per-locale toon settings still get the
+  "create <l> from <source>" bar (until they move into the toon entry). Browser-tested on toptoy (no season before):
+  season + chapter 1 created, `es` added, the library answers de / en / ko (fallback) / fr (fallback); then removed again
+  (the test versions deleted from the dev DB). "New toon" is not a creator flow (toons are created in the admin
+  catalog); a toon without a season gets "Create season 1".
+- **Dead code removed**: `ContentDoc.structural` (cast / credits / map / characters editors use `edit`), the toon page's
+  scene loading + per-locale copies for content documents, `visibility.ts`'s per-locale season branch. Kept for the
+  per-locale toon settings / script: `setShared` / `setLocal` / `overrides` / `createLocale`, `SharedField`
+  (toon-editor), DocNotices' "create <locale>".
+- **MCP tools** (`tools/mcp`): a chapter / scene / season entity = its one neutral document (`keysOf`); `read_entity`
+  reads it (an entity not converted yet: its per-locale documents, marked `legacy`, read only); `save_draft` refuses a
+  per-locale key of these kinds ("save `chapter:catpope:2`"); `validate` / the save check use `validateNeutral` (toon
+  languages from the toon entry, a scene's chapter audio from the neutral chapter); `list_chapters` reads the neutral
+  chapter / scenes (falls back per locale), title in `locale` (fallback chain), status from the season's locale map;
+  `search_content` skips per-locale documents shadowed by a neutral one and, with `locale`, the other languages' entries
+  of a locale map. Guidance (`scutoons://rules/workflow` "Languages", entity-keys, text presets, the Ask panel's system
+  prompt): texts are locale maps, structure once, set one language at `[…, "text", "en"]`.
+- **Sandbox** (`make-sandbox.ts`): writes `_/chapter<N>.json`, `_/chapter<N>/<scene>.json`, `_/season1.json` (texts
+  de + en from the generator's `Text` maps, ko titles / descriptions; the dialogue has no ko – readers get German, the
+  creator warns). **Decision**: before the import it deletes the sandbox's per-locale chapter / scene / season versions
+  (+ their asset usages) from the dev DB – the sandbox is generated, nobody edits it per locale, and a stale per-locale
+  version behind the neutral one only confuses (Convert page, history, `content:neutral-check`). On the current DB:
+  75 removed, 15 neutral versions updated; a fresh DB gets neutral ones only. `content:neutral-check` skips a toon
+  without per-locale chapters / seasons ("nothing to compare with": the sandbox) – still 60 catpope answers, the same 7
+  explained differences.
+- **Fixtures**: `server/tests/fixtures/content/catpope/_/{season1,chapter1}.json` (neutral, made from the old de / en
+  files with `neutralizeDocs`; the en credits "Nova Ludwig" dropped like the real conversion); `albums.test.ts`
+  validates / resolves them. `LibraryTest`: `seedToon()` is neutral now (the library's main path; summaries carry the
+  served `language`); the old per-locale seed is `seedLegacy()`, used only by the neutral-vs-legacy tests (fallback
+  path, mixed neutral / legacy). Kept with per-locale keys on purpose: `ReviewsTest`, `EntityStoreTest`, `AssetsTest`
+  (they test key handling / the review flow with generic documents; legacy keys stay valid until production is
+  converted).
+- **Dev checks**: `check:mcp` on the neutral scene key (+ the per-locale key refused, a missing `en` text is a warning
+  with its locale; robust when the scene has no script yet; inline group labels instead of the gone `scene-20`);
+  `check:creator-chapter`'s VN part picks a scene with a group script and slice events (catpope's first, else the
+  sandbox's – today `scene:sandbox:1:regular-default`).
+
+### Checks 2026-10-06 (after 2B)
+
+`npm run check` (root), `check:tools-css`, `check:creator-chapter` (59), `check:creator-cover` (36),
+`check:creator-cast` (19), `check:creator-script` (28), `check:mcp` (33), PHPUnit (267 tests), phpstan clean,
+`content:neutral-check` (60 compared, the 7 known differences), `content:check` (only the pre-existing scene-14 #127 /
+#128 / #201 misfits). Browser (screenshots `2b-*`): season page (texts de / en / ko, authors, a supporter, trailer
+poster + chapter), status per language (all / en only), cover editor (own layout, a custom en line stored once),
+toptoy new season + chapter + `es`, the viewer reading sandbox chapter 1 in de and en (draft preview).
+
+### Left (later steps)
+
+- Toon settings into the toon entry (step 4) – then `SharedField`, `setShared` / `overrides` and DocNotices' "create
+  <locale>" can go (the script keeps `setLocal` / `createLocale`).
+- Creator message wording (step 5): e.g. "Create season 1 … as drafts in every language", `locale_files_created`.
+- After production's conversion: remove the legacy per-locale path (library fallback, per-locale schemas, MCP's
+  `legacy` read, `seedLegacy`).

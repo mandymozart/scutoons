@@ -594,7 +594,7 @@ page"). The toon settings have no cover.
   an own layout (the default's lines copied first). Undo / redo / autosave / Save draft / Publish = the MetaPage bar.
 - **Inspector** (right): first the **Art (text-free)** slot – `cover.square` as a media slot (`media-slot.svelte`: the
   preview is the button that opens the asset picker, uploads go to `<toon>/s<n>/`, the path only as the tooltip, × clears),
-  once for every language, written to every locale's season document like the lettering; then (lettering on) the "Lines" list (source label + the text in the preview language, the selected row inverted),
+  once for every language, stored once in the language-neutral season document like the lettering; then (lettering on) the "Lines" list (source label + the text in the preview language, the selected row inverted),
   "Add line" (an own text at 60 %), then the selected line: Text (Toon title / Season title / Own text; own text = one
   field per language, following the i18n switch), "In quotes", X / Y / Size / Width / Angle / Skew (number fields, two per
   row), Align (Feather align-left / center / right, segmented), Fill / Outline (palette selects with a swatch), up / down /
