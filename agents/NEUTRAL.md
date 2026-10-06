@@ -13,15 +13,12 @@ Done: steps 1–5 below + linked groups (`Group.continues` / `Group.end`, merged
 fix. All checks green: `npm run check`, every `check:creator-*`, `check:mcp`, PHPUnit 269, phpstan, `content:neutral-check`
 (only the 7 explained catpope differences). The dev DB `scutoons` is fully converted.
 
-**Decide:**
-1. catpope chapter 1 **en**: 70 text boxes were styled differently from de (deprecated `mask`, `size` 4.04–4.15, 11 ×
-   `bubble` where de has `caption`). Source-wins gives them the German style. Keep that, or do we need a per-language
-   style override on text boxes (fit tweaks for longer translations)?
-2. catpope chapter 2 **en**: 9 untranslated text boxes + 2 empty VN messages now show the German text (fallback)
-   instead of nothing. OK?
-3. `/library/toons?locale=` now leaves out a toon whose page is closed in that language (announced ones stay "soon") –
-   a draft translation no longer puts a dead link on that language's landing page. OK?
-4. The toon entry's `i18n.<l>.name` repeats the new per-language `title` – fold them into one?
+**Owner decisions (2026-10-06):**
+1. Text-box styles are the same in every language – no per-language style overrides (source wins, as converted).
+2. A missing translation falls back to the source language (as built).
+3. `/library/toons?locale=` leaves out a toon whose page is closed in that language – better (as built).
+4. Open: the toon entry stores the translated name twice (`i18n.<l>.name` for landing / menu / creator nav, `title.<l>`
+   for the toon page / cover) – proposal: keep only `title` (still per language), drop `i18n`.
 
 **Ship (when you like it):** merge `chapter-neutral` into `main`, push (deploys api, creator, viewer, admin). Readers see
 no change – without neutral documents the library serves the per-language ones as before. Then in the creator, per
