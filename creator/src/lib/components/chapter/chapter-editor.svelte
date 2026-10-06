@@ -15,7 +15,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
-	import { entities, getAt, deleteAt, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
+	import { entities, getAt, deleteAt, Renderer, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, characterName, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -48,6 +48,7 @@
 	import FeaturingField from '$lib/components/fields/featuring-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
 	import GroupPanel from '$lib/components/chapter/group-panel.svelte';
+	import StripPreview from '$lib/components/chapter/strip-preview.svelte';
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import { pagePanel } from '$lib/ask.svelte.ts';
@@ -661,6 +662,9 @@
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
+						{#if activeGroup?.renderer?.type === Renderer.HORIZONTAL && activeGroup.renderer.params?.fullWidth}
+							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} onopen={(i) => view.selectSlice(i)} />
+						{/if}
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
 							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices)} {groupLabels} />
