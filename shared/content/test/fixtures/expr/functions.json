@@ -1,0 +1,932 @@
+{
+	"description": "functions",
+	"resolver": {
+		"names": {
+			"coins": 3,
+			"one": 1,
+			"zero": 0,
+			"time": 330,
+			"name": "Pope",
+			"empty": "",
+			"yes": true,
+			"no": false,
+			"half": 2.5,
+			"five": "5",
+			"map.total": 12,
+			"map.unlocked": 10,
+			"map.here": "lake",
+			"reader.name": "mia",
+			"reader.signedIn": true,
+			"reader.language": "en",
+			"now.hour": 21,
+			"stats.testo": 7
+		},
+		"calls": {
+			"has(\"cucumber\")": true,
+			"has(\"onion\")": false,
+			"count_of(\"coin\")": 4,
+			"read_chapter(2)": true,
+			"read_chapter(3)": false,
+			"inventory.has(\"cucumber\")": true,
+			"inventory.count(\"coin\")": 4,
+			"resolved(\"ev-lake\")": true,
+			"count(\"ev-lake\")": 2,
+			"read.chapter(1)": true
+		},
+		"visits": {},
+		"seed": "reader-1:text-9",
+		"language": "en"
+	},
+	"knownNames": [
+		"coins",
+		"one",
+		"zero",
+		"time",
+		"name",
+		"empty",
+		"yes",
+		"no",
+		"half",
+		"five",
+		"missing"
+	],
+	"cases": [
+		{
+			"text": "{clock(time)}",
+			"ast": "(print (call clock time))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"time"
+					]
+				],
+				"functions": [
+					{
+						"name": "clock",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "5:30",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{clock(1445)}",
+			"ast": "(print (call clock 1445))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "clock",
+						"literalArgs": [
+							1445
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "0:05",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{clock(-15)}",
+			"ast": "(print (call clock (- 15)))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "clock",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "23:45",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{upper(name)}",
+			"ast": "(print (call upper name))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"name"
+					]
+				],
+				"functions": [
+					{
+						"name": "upper",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "POPE",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{lower(\"ÄRGER\")}",
+			"ast": "(print (call lower \"ÄRGER\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "lower",
+						"literalArgs": [
+							"ÄRGER"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "ärger",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{capitalize(reader.name)}",
+			"ast": "(print (call capitalize reader.name))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"reader",
+						"name"
+					]
+				],
+				"functions": [
+					{
+						"name": "capitalize",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "Mia",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{capitalize(\"\")}",
+			"ast": "(print (call capitalize \"\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "capitalize",
+						"literalArgs": [
+							""
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{number(1234.5)}",
+			"ast": "(print (call number 1234.5))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "number",
+						"literalArgs": [
+							1234.5
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "1,234.5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{number(1234.5)}",
+			"resolver": {
+				"language": "de"
+			},
+			"ast": "(print (call number 1234.5))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "number",
+						"literalArgs": [
+							1234.5
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "1.234,5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{min(4, coins)} {max(4, coins, 9)}",
+			"ast": "(print (call min 4 coins)) \" \" (print (call max 4 coins 9))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"coins"
+					]
+				],
+				"functions": [
+					{
+						"name": "min",
+						"literalArgs": [
+							4,
+							null
+						]
+					},
+					{
+						"name": "max",
+						"literalArgs": [
+							4,
+							null,
+							9
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "3 9",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{round(half)} {floor(half)}",
+			"ast": "(print (call round half)) \" \" (print (call floor half))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"half"
+					]
+				],
+				"functions": [
+					{
+						"name": "round",
+						"literalArgs": [
+							null
+						]
+					},
+					{
+						"name": "floor",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "3 2",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{random(1, 6)}",
+			"ast": "(print (call random 1 6))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "random",
+						"literalArgs": [
+							1,
+							6
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "6",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{random(1, 6)} {random(1, 6)}",
+			"ast": "(print (call random 1 6)) \" \" (print (call random 1 6))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "random",
+						"literalArgs": [
+							1,
+							6
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "6 3",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{random(1, 6)}",
+			"resolver": {
+				"seed": "reader-2"
+			},
+			"ast": "(print (call random 1 6))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "random",
+						"literalArgs": [
+							1,
+							6
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "5",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{count_of(\"coin\")} coins",
+			"ast": "(print (call count_of \"coin\")) \" coins\"",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "count_of",
+						"literalArgs": [
+							"coin"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "4 coins",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{inventory.has(\"cucumber\")}",
+			"ast": "(print (call inventory.has \"cucumber\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "inventory.has",
+						"literalArgs": [
+							"cucumber"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{resolved(\"ev-lake\")} {count(\"ev-lake\")}",
+			"ast": "(print (call resolved \"ev-lake\")) \" \" (print (call count \"ev-lake\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "resolved",
+						"literalArgs": [
+							"ev-lake"
+						]
+					},
+					{
+						"name": "count",
+						"literalArgs": [
+							"ev-lake"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "true 2",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{read.chapter(1)}",
+			"ast": "(print (call read.chapter 1))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "read.chapter",
+						"literalArgs": [
+							1
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "true",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{has(\"zzz\")}",
+			"ast": "(print (call has \"zzz\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "has",
+						"literalArgs": [
+							"zzz"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{has(name)}",
+			"ast": "(print (call has name))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"name"
+					]
+				],
+				"functions": [
+					{
+						"name": "has",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{clock(\"noon\")}",
+			"ast": "(print (call clock \"noon\"))",
+			"errors": [
+				{
+					"code": "argument-type",
+					"severity": "error",
+					"start": 7,
+					"end": 13,
+					"message": "`clock` expects a number as argument 1"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "clock",
+						"literalArgs": [
+							"noon"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"bad-arguments@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{clock(yes)}",
+			"ast": "(print (call clock yes))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"yes"
+					]
+				],
+				"functions": [
+					{
+						"name": "clock",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "0:01",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{clock()}",
+			"ast": "(print (call clock))",
+			"errors": [
+				{
+					"code": "argument-count",
+					"severity": "error",
+					"start": 1,
+					"end": 8,
+					"message": "`clock` expects 1 argument"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"bad-arguments@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{clock(1, 2)}",
+			"ast": "(print (call clock 1 2))",
+			"errors": [
+				{
+					"code": "argument-count",
+					"severity": "error",
+					"start": 1,
+					"end": 12,
+					"message": "`clock` expects 1 argument"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "0:01",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{min(1)}",
+			"ast": "(print (call min 1))",
+			"errors": [
+				{
+					"code": "argument-count",
+					"severity": "error",
+					"start": 1,
+					"end": 7,
+					"message": "`min` expects at least 2 arguments"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "1",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{upper()}",
+			"ast": "(print (call upper))",
+			"errors": [
+				{
+					"code": "argument-count",
+					"severity": "error",
+					"start": 1,
+					"end": 8,
+					"message": "`upper` expects 1 argument"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{nope(1)}",
+			"ast": "(print (call nope 1))",
+			"errors": [
+				{
+					"code": "unknown-function",
+					"severity": "error",
+					"start": 1,
+					"end": 8,
+					"message": "unknown function `nope`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{clok(time)}",
+			"ast": "(print (call clok time))",
+			"errors": [
+				{
+					"code": "unknown-function",
+					"severity": "error",
+					"start": 1,
+					"end": 11,
+					"message": "unknown function `clok` – did you mean `clock`?"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"time"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{inventory.hass(\"x\")}",
+			"ast": "(print (call inventory.hass \"x\"))",
+			"errors": [
+				{
+					"code": "unknown-function",
+					"severity": "error",
+					"start": 1,
+					"end": 20,
+					"message": "unknown function `inventory.hass` – did you mean `inventory.has`?"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{map.total()}",
+			"ast": "(print (call map.total))",
+			"errors": [
+				{
+					"code": "not-a-function",
+					"severity": "error",
+					"start": 1,
+					"end": 12,
+					"message": "`map.total` isn’t a function – write `map.total` without `(…)`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{clock}",
+			"ast": "(print clock)",
+			"errors": [
+				{
+					"code": "function-needs-call",
+					"severity": "error",
+					"start": 1,
+					"end": 6,
+					"message": "`clock` is a function – write `clock(…)`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{inventory.has}",
+			"ast": "(print inventory.has)",
+			"errors": [
+				{
+					"code": "function-needs-call",
+					"severity": "error",
+					"start": 1,
+					"end": 14,
+					"message": "`inventory.has` is a function – write `inventory.has(…)`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{map}",
+			"ast": "(print map)",
+			"errors": [
+				{
+					"code": "namespace-needs-member",
+					"severity": "error",
+					"start": 1,
+					"end": 4,
+					"message": "`map` needs a name after it, e.g. `map.unlocked`"
+				}
+			],
+			"reads": {
+				"names": [],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{upper(clock(time))}",
+			"ast": "(print (call upper (call clock time)))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"time"
+					]
+				],
+				"functions": [
+					{
+						"name": "clock",
+						"literalArgs": [
+							null
+						]
+					},
+					{
+						"name": "upper",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "5:30",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{inventory.count(\"coin\")}",
+			"ast": "(print (call inventory.count \"coin\"))",
+			"errors": [],
+			"reads": {
+				"names": [],
+				"functions": [
+					{
+						"name": "inventory.count",
+						"literalArgs": [
+							"coin"
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "4",
+			"runtime": [],
+			"visited": []
+		},
+		{
+			"text": "{clock(missing)}",
+			"ast": "(print (call clock missing))",
+			"errors": [],
+			"reads": {
+				"names": [
+					[
+						"missing"
+					]
+				],
+				"functions": [
+					{
+						"name": "clock",
+						"literalArgs": [
+							null
+						]
+					}
+				],
+				"sequences": 0
+			},
+			"constructs": 1,
+			"out": "",
+			"runtime": [
+				"missing-value@7",
+				"bad-arguments@1"
+			],
+			"visited": []
+		}
+	]
+}
