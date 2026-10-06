@@ -1,15 +1,17 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import CloseButton from './close-button.svelte';
+	import Divider from './divider.svelte';
 	import { resizable } from './resizable.svelte.ts';
 
 	/**
 	 * Modal sheet on the native <dialog> (focus trap, Escape, top layer). `side`: bottom sheet (mobile reader
 	 * pattern), right drawer (detail / triage view) or centered dialog. Square, 2px ink border, no shadow.
 	 * Closes on Escape, backdrop click and the close button; `onclose` fires after every close.
-	 * `side="right"`: the left edge drags the drawer wider – from its normal width up to half the window (owner 2026-10-03:
-	 * the pickers overlap the page anyway); arrow keys on the edge, double-click resets; remembered for all right
-	 * drawers (`sc-sheet-width`).
+	 * `side="right"`: the left edge (the one `Divider`, agents/DOCKING.md) drags the drawer wider – from its normal width
+	 * up to half the window (owner 2026-10-03: the pickers overlap the page anyway); arrow keys on the edge, Home /
+	 * double-click resets; remembered per kind of drawer (`widthKey`: `sc-sheet-width:<kind>`, default one width for
+	 * all). It stays modal: a choice or a side task, not a docked panel.
 	 */
 	let {
 		open = $bindable(false),
@@ -17,6 +19,7 @@
 		side = 'center',
 		closeLabel = 'Close',
 		resizeLabel = 'Resize',
+		widthKey = '',
 		onclose,
 		footer,
 		children
@@ -28,6 +31,8 @@
 		closeLabel?: string;
 		/** translated label of the drag edge (side="right") */
 		resizeLabel?: string;
+		/** side="right": the drawer's kind – its width is remembered per kind ('' = the width all drawers share) */
+		widthKey?: string;
 		onclose?: () => void;
 		/** sticky action bar at the bottom */
 		footer?: Snippet;
@@ -42,7 +47,7 @@
 		if (!baseWidth && dialog && size.width === null) baseWidth = dialog.offsetWidth;
 		return baseWidth || 512;
 	}
-	const size = resizable({ storageKey: 'sc-sheet-width', edge: 'left', anchor: () => window.innerWidth, min: measureBase, max: () => window.innerWidth / 2 });
+	const size = resizable({ storageKey: () => (widthKey ? `sc-sheet-width:${widthKey}` : 'sc-sheet-width'), edge: 'left', anchor: () => window.innerWidth, min: measureBase, max: () => window.innerWidth / 2 });
 	$effect(() => {
 		if (side === 'right') size.restore();
 	});
@@ -77,19 +82,8 @@
 >
 	<div class="frame">
 		{#if side === 'right'}
-			<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-			<div
-				class="resize"
-				role="separator"
-				aria-orientation="vertical"
-				aria-label={resizeLabel}
-				tabindex="0"
-				title={resizeLabel}
-				onpointerdown={size.start}
-				onkeydown={size.key}
-				ondblclick={size.reset}
-			></div>
+			<!-- inside the drawer (the modal dialog clips what lies outside it) -->
+			<Divider {size} edge="left" at="calc(100% - 0.375rem)" label={resizeLabel} />
 		{/if}
 		<header>
 			{#if title}<h2>{title}</h2>{/if}
@@ -131,26 +125,6 @@
 		width: min(32rem, 100vw);
 		margin: 0 0 0 auto;
 		border-width: 0 0 0 var(--border-width-regular);
-	}
-	.resize {
-		position: absolute;
-		z-index: 5;
-		top: 0;
-		bottom: 0;
-		left: 0;
-		width: 0.75rem;
-		cursor: col-resize;
-		touch-action: none;
-	}
-	.resize:hover,
-	.resize:focus-visible {
-		background: linear-gradient(var(--ink), var(--ink)) left / var(--border-width-focus) 100% no-repeat;
-		outline: none;
-	}
-	@media (max-width: 767px) {
-		.resize {
-			display: none;
-		}
 	}
 	.frame {
 		position: relative;

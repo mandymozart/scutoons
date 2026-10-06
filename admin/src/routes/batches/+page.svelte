@@ -191,7 +191,7 @@
 	</DataTable>
 {/if}
 
-<Sheet bind:open={sheetOpen} side="right" title={m['batches.new']()} closeLabel={m['common.close']()} onclose={() => newOpen && closeForm()}>
+<Sheet bind:open={sheetOpen} side="right" widthKey="form" title={m['batches.new']()} closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()} onclose={() => newOpen && closeForm()}>
 	<form id="new-batch" onsubmit={(e) => (e.preventDefault(), create(false))}>
 		<Field label={m['common.edition']()}>
 			{#snippet children({ id })}

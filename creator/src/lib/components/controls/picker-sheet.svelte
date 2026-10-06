@@ -12,7 +12,7 @@
 	let { open = $bindable(false), title, testid, children }: { open?: boolean; title: string; testid: string; children: Snippet } = $props();
 </script>
 
-<Sheet bind:open {title} side="right" closeLabel={m['creator.close']()} resizeLabel={m['creator.resize_panel']()}>
+<Sheet bind:open {title} side="right" widthKey="picker" closeLabel={m['creator.close']()} resizeLabel={m['creator.resize_panel']()}>
 	<div class="picker" data-testid={testid}>
 		{@render children()}
 	</div>

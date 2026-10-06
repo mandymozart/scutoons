@@ -414,11 +414,11 @@
 	{/snippet}
 </SplitView>
 
-<Sheet bind:open={kindHistoryOpen} title={m['catalog.history_of']({ what: def.label() })} side="right" closeLabel={m['common.close']()}>
+<Sheet bind:open={kindHistoryOpen} title={m['catalog.history_of']({ what: def.label() })} side="right" widthKey="history" closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()}>
 	{#if kindHistoryOpen}<CatalogHistory {kind} reload={historyReload} onundone={undone} />{/if}
 </Sheet>
 
-<Sheet bind:open={problemsOpen} title={m['catalog.problems_title']({ what: def.label() })} side="right" closeLabel={m['common.close']()}>
+<Sheet bind:open={problemsOpen} title={m['catalog.problems_title']({ what: def.label() })} side="right" widthKey="problems" closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()}>
 	{#if problemsOpen}<CatalogProblems problems={kindProblems} lists={liveLists} {accepted} busy={accepting} onopen={openProblem} ontoggle={toggleAccepted} />{/if}
 </Sheet>
 

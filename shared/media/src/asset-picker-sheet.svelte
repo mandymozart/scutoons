@@ -318,7 +318,7 @@
 	}
 </script>
 
-<Sheet bind:open title={title ?? t.pickerTitle} side="right" closeLabel={t.close} resizeLabel={t.resize}>
+<Sheet bind:open title={title ?? t.pickerTitle} side="right" widthKey="assets" closeLabel={t.close} resizeLabel={t.resize}>
 	<div class="picker" data-testid="asset-picker">
 		<!-- order (owner 2026-10-03): the selected asset · upload · the library (search, filters, grid) -->
 		{#if chosen}

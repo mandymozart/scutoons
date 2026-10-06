@@ -310,7 +310,7 @@
 	{/snippet}
 </Tabs>
 
-<Sheet open={detailOpen} side="right" title={m['assets.detail_title']()} closeLabel={m['common.close']()} onclose={() => nav({ asset: null })}>
+<Sheet open={detailOpen} side="right" widthKey="asset" title={m['assets.detail_title']()} closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()} onclose={() => nav({ asset: null })}>
 	{#if query.filters.asset}
 		{#key query.filters.asset}
 			<AssetDetail id={query.filters.asset} {cdn} onchange={() => reload++} ondeleted={() => (nav({ asset: null }), reload++)} />
