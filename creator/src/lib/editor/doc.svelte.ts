@@ -558,10 +558,9 @@ export class ContentDoc {
 				this.idsAssigned = 0;
 			}
 			return done;
-		} catch (e) {
-			// a conflict is the session's bar (Reload / Overwrite), not a load error: `error` replaces the whole editor
-			if (!(e instanceof SaveConflict)) this.error = e instanceof Error ? e.message : String(e);
-			throw e;
+			// a refused save is the caller's notice (the session's bar; a conflict: Reload / Overwrite), never `error` –
+			// that is a load error and replaces the whole editor: a text the server refuses (a syntax error in `{…}`,
+			// agents/EXPRESSIONS.md step 4) must stay editable
 		} finally {
 			this.saving = false;
 		}
