@@ -70,6 +70,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   first; old code can't read the new event type, new code not the old one).
 - Production: run `2026-10-06-clock-syntax.mysql.sql` with the deploy of expressions step 2 (CUTOVER 10.33 – the SELECT
   first; `{x:clock}` → `{clock(x)}`, 0 rows in the dump).
+- Production: run `2026-10-06-repeat.mysql.sql` + `2026-10-06-display-name.mysql.sql` with the deploy of expressions
+  step 3 (CUTOVER 10.34 – the SELECTs first; trigger / item `once` → `repeat`, 81 versions in the dump). Event ids need
+  no migration: the creator assigns them, the next save of a chapter / scene stores them (a bar says so).
 - Onions: no onion item in the catalog yet (needed before it can respawn). The onion camera (branch `items/onion-camera`,
   6 commits, checkout `C:\Development\scutoons-onion-camera`) waits until **February 2027** (owner 2026-10-05: no priority
   before); it predates the catalog in the database – its items.json changes go through the admin catalog then.

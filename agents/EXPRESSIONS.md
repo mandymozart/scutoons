@@ -180,3 +180,60 @@ the account, synced, changeable on the account page).
 - **Check**: `npm run check:expr` (headless Chrome, sandbox chapter 9 draft: messages, choice label, live text box,
   a sequence over four reloads, the history; draft rows + the test user's sandbox progress put back).
 - Not yet: event conditions as expressions (`if` – step 3 with the event modes).
+
+## Step 3 – done (2026-10-06, branch chapter-neutral)
+
+- **One recurrence model** – `@scutoons/content` recurrence.ts (tests `recurrence.test.ts`, the respawn interval / period
+  tests moved there): `RecurrenceInterval` (`"visit"` | `{ minutes | hours | days: n }`), `intervalMinutes`, `periodOf`
+  (fixed UTC buckets since 1970 – the server's respawn check uses the same), and the events' rule `Repeat = { mode:
+  every | view | once | interval, every? }` with `repeatOf` / `repeatProblem` / `isDue(rule, entry, now, pageView)`
+  (`every` = no `repeat` = the default; `view` = the entry's `last` is before the page view's start; `once` = never
+  after the first; `interval` = another bucket than the last run's). "When a condition holds" = every time + `if`.
+  respawn.ts keeps only the item rules (catalog range, placement override); `respawnAsRepeat` / `repeatAsRespawn` put a
+  pickup into the same words. Items keep the server's once-per-ref grant as the authority and their `picked:` game
+  variables (readers' saved states hold them; a guest's localStorage can't be migrated) – the period logic is shared.
+- **Stored format** – `VNEventTrigger.repeat` and `SliceItem.repeat` (tap events) replace the boolean `once` (no alias;
+  validation calls `once` an error naming the migration). Analysis on the dev DB (= production dump): 221 slice events
+  (166 `once:true`, 0 `once:false`, 55 without – which meant true), 4 tap-event items without `once`, no other `"once":`
+  anywhere. **Migration** `server/migrations/mysql/2026-10-06-repeat.mysql.sql` (CUTOVER 10.34): MariaDB PCRE2 with a
+  DEFINE block that walks JSON exactly (strings with escapes, objects, arrays – only top-level keys count), so VN slice
+  events (top-level `type` + `trigger`) are told apart from audio samples' triggers (no top-level `type`); missing once →
+  `{"mode":"view"}`, `once:true` → `{"mode":"view"}`, `once:false` → `{"mode":"every"}` (written out, so a second run
+  sees nothing to do). Checked: the result equals a JSON-walking reference transform for all 457 versions (81 changed);
+  idempotent; PHPUnit `EntityStoreTest::testTheRepeatMigration` (edge cases, strict sql_mode). Dev DB migrated.
+- **Event ids** (decision): generated ids can't reasonably come from SQL (one per event, unique per chapter incl. scenes,
+  in nested JSON), so the CREATOR assigns them (creator `editor/event-ids.ts`: `e` + 7 random letters / digits; random,
+  so a chapter and its scenes – separate documents – don't collide; a copy in the same document gets a fresh one):
+  on load in memory – the document stays saved (no autosave, no "unsaved"), a warning bar names the documents and the
+  count ("… events have no hidden id yet – the next save stores them") – and with every structural edit (new, pasted,
+  imported events). Validation: one warning per document while events lack ids, an error for duplicates in the chapter,
+  an error for `once` / `interval` rules on events without ids (the save game needs them). The reader keeps id-less
+  events' "once per page view" in memory (as before). Group-script events get ids too (the flow graph, the builder);
+  they are not recorded (no repeat in scripts – an `if` covers it; keeps the 1000-entry history for what repeats).
+- **Reader** – viewer `visual-novel/repeat.ts` (`isRunDue` / `recordRun` over the game state's history `event:<id>`;
+  events that run as one – a trigger's group, an item's taps – share the newest entry), `visual-novel/page-view.ts`
+  (path + `?label=`, renewed after every navigation – the items' "every visit" uses it too). `resolved(id)` /
+  `count(id)` answer from the history; `reader.name` from `reader-name.svelte.ts`. Trigger texts' identity is now the
+  first event's id (`on/<id>`, stable across rule edits) instead of the trigger JSON's hash.
+- **askText** (§6) – `VNAskTextEvent { text, character?, persona?, variable?, placeholder?, maxLength? (24, ≤ 200),
+  default?, scope?: toon | reader }`; texts per language (neutral `EVENT_TEXT_FIELDS` – TS + PHP NeutralDoc, golden
+  fixture); the question goes through the expression engine, placeholder / default are plain. The message box shows
+  one input line + a round ✓ (Enter) + Skip (→ default); the page doesn't scroll meanwhile (`vn.state.question` in
+  `frozen`). Answers: control characters → spaces, trimmed, cut; toon scope → the story variable, reader scope → the
+  reader's name (≤ 32): members `users.display_name` (`PUT /me/ { display_name }`, migration
+  2026-10-06-display-name, PHPUnit `DisplayNameTest`), guests localStorage `scutoons_reader_name`; the account page has
+  the one field ("Your name"). Scripts wait (≤ 3 s) until the session is known, so a member's name / access are there
+  from the first text.
+- **Conditions as expressions** (§3) – `if: { expr }` besides `{ variable, op, value }` (`VNEventCondition`);
+  `testCondition(cond, get, resolver)` evaluates it with the reader's resolver (missing / error = false); validation:
+  syntax errors = errors, doubts = warnings (story variables from the facts); the PHP save guard blocks syntax errors in
+  `if.expr` (and in askText questions). Creator: "Only if" → "Condition as Simple / Expression" (a text field with the
+  analyser's problems; switching converts the simple test, `coins >= 3`).
+- **Creator** – one `fields/repeats-field.svelte` for slice triggers (all events sharing the trigger change together),
+  item tap events and pickups (respawn in the same words); the askText form (`events/event-ask-text.svelte`).
+- **Checks** – `npm run check:events` (headless Chrome, sandbox chapter 9 draft: once for good / per page view / every
+  10 min / every time over three page views with the page's clock 61 min ahead, item taps, a pickup's respawn and the
+  server's refusal in its real period, askText both scopes + Skip, an expression condition, the account field, a
+  guest's name; draft, progress, name, inventory and grant refs put back). Screenshots `step3-*`.
+- **For the flow graph / reachability (LANE A's flow.ts / reach.ts, not changed here)**: see the coordinator's notes –
+  "once for good" events run at most once; askText (scope toon) sets its variable; `if.expr` conditions.

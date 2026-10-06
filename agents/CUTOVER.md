@@ -810,6 +810,20 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      `content_versions`).
   2. Deploy (API + viewer + creator), then run `server/migrations/mysql/2026-10-06-clock-syntax.mysql.sql` (idempotent,
      `REGEXP_REPLACE` → `{clock(name)}`; tested on MariaDB 10.11.14); the SELECTs of step 1 answer 0 afterwards.
+- [ ] 10.34 **Events: repeat rules, ids, askText, the reader's name** (owner 2026-10-06, branch `chapter-neutral`,
+      EXPRESSIONS.md step 3): a trigger's / placed item's boolean `once` is the repeat rule `repeat` now (no alias;
+      every time = none – the new default; what `once` meant = `{"mode":"view"}`); events get hidden ids (the creator
+      assigns them – stored ones get theirs with the next save, a bar says so); `users.display_name` for the reader's
+      name. Dev DB done 2026-10-06 (81 versions changed: 166 `"once":true` triggers, 55 triggers and 4 tap-event items
+      without once → view; 0 left; the result checked against a JSON-walking transform of all 457 versions).
+      **O – production steps, together with the deploy (old code reads no `repeat`, new code no `once`):**
+  1. phpMyAdmin → d0487143 → SQL, check first: `SELECT COUNT(*) FROM entity_versions WHERE json LIKE '%"once":%';` (and
+     the two REGEXP SELECTs in the migration's header; the same on `content_versions`).
+  2. Deploy (API + viewer + creator), then run `server/migrations/mysql/2026-10-06-repeat.mysql.sql` (idempotent, PCRE
+     JSON walk – < 1 s on the dump) and `server/migrations/mysql/2026-10-06-display-name.mysql.sql` (`ADD COLUMN IF NOT
+     EXISTS`); the SELECTs of step 1 answer 0 afterwards.
+  3. Event ids: nothing to run – a chapter / scene opened and saved in the creator stores them; until then validation
+     warns ("N events have no id yet") and the reader keeps such events' "once per page view" in memory.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
