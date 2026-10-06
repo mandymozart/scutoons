@@ -213,6 +213,12 @@
 		border-style: dashed;
 		color: var(--muted);
 	}
+	/* an empty image / video slot looks like the default empty slice (390 × 625, portrait) – not landscape, which
+	   suggested videos are landscape (owner 2026-10-06, BACKLOG M.16); a chosen video shows its own ratio */
+	.slot.empty:not(.audio) {
+		flex-basis: 6rem;
+		aspect-ratio: 390 / 625;
+	}
 	.slot:hover,
 	.slot:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);

@@ -84,26 +84,11 @@
 {/if}
 
 <style>
+	/* only the area the observer watches – invisible to the reader (owner 2026-10-06, BACKLOG M.1: the orange dashed
+	   outline over a sticker / speech bubble was a debug look; the creator shows trigger areas in its editor) */
 	.vn-trigger {
 		position: absolute;
 		pointer-events: none;
-		opacity: 0.5;
-		transition: opacity 0.3s ease;
-		z-index: 2;
-	}
-
-	.vn-trigger.intersect {
-		border: 2px dashed rgba(255, 152, 0, 0.8);
-		background: rgba(255, 152, 0, 0.1);
-		box-shadow: inset 0 0 20px rgba(255, 152, 0, 0.3);
-	}
-
-	.vn-trigger:hover {
-		opacity: 0.8;
-	}
-
-	.vn-trigger.triggered {
-		opacity: 0.2;
-		border-style: solid;
+		visibility: hidden;
 	}
 </style>

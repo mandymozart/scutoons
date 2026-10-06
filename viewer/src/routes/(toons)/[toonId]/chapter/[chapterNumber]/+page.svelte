@@ -270,10 +270,21 @@
 			font-size: 1.25rem;
 			margin: 0.5rem 0;
 		}
+		/* "Coming soon" as a comic stamp (owner 2026-10-06, BACKLOG M.7): the lettering font, a solid ink block, slightly
+		   tilted – on the page and over the teaser's picture */
 		.gate-badge {
+			display: inline-block;
+			margin: 0 0 0.5rem;
+			padding: 0.125rem 0.625rem 0;
+			border: var(--border-width-regular) solid currentColor;
+			background: var(--ink);
+			color: var(--paper);
+			font-family: var(--font-lettering);
+			font-size: 1.5rem;
+			line-height: 1.25;
+			letter-spacing: 0.04em;
 			text-transform: uppercase;
-			font-size: 0.75rem;
-			margin: 0;
+			transform: rotate(-3deg);
 		}
 		.gate-release {
 			margin: 0;
