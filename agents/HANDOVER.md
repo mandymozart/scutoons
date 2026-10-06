@@ -32,6 +32,12 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Commit ONLY on `main`, guarded: `[ "$(git branch --show-current)" = main ] && git commit …`. **Never push** – pushing
   `main` deploys; the owner pushes, or asks you to (owner 2026-10-05). Never add Claude attribution lines.
 - Deploy: the owner runs `git push origin main` (or asks an agent to).
+- Stored format changes (owner 2026-10-06): first analyse the existing data (dev DB = latest production dump), then a DB
+  migration (SQL, idempotent, a SELECT to check first; the owner runs it in phpMyAdmin) and the old form leaves the code –
+  no aliases. Only when a migration can't work (backwards compatibility): a code helper WITH creator feedback ("action
+  required" error or warning) – never a silent load-time conversion.
+- One checkout, one dev DB `scutoons`, no worktrees / extra DBs / SQLite (owner 2026-10-06); agents one after another or
+  in at most two lanes with separate files, each committing only its own named paths.
 - The owner works in the shared browser pane: test in your OWN tab (`tabs_create`), never in theirs.
 - Give the owner steps one at a time; don't re-ask answered questions (e.g. "no upper-case certificates exist – ever").
 - Agents work on their own branch in a worktree; the coordinator reviews, merges into `main` (no push), runs the checks
