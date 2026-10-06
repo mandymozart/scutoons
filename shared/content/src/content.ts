@@ -409,6 +409,8 @@ export interface Group extends AcceptedWarnings {
 	slices?: Slice[];
 	events?: VNEvent[];
 	ref?: RefLink;
+	/** @deprecated legacy leftover (`webtoon`) in some older groups; nothing reads it */
+	interaction?: string;
 }
 
 /** A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers */

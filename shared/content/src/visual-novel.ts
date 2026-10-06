@@ -161,6 +161,8 @@ export interface VNShowMessageEvent {
 		character?: string;
 		/** the speaker's persona (none = regular) */
 		persona?: string;
+		/** the speaker's mood while saying it (the creator writes it; none = the mood they are in) */
+		mood?: string;
 		wait?: boolean;
 	};
 }

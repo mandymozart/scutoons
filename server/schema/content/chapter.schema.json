@@ -227,6 +227,10 @@
 				},
 				"ref": {
 					"$ref": "#/definitions/RefLink"
+				},
+				"interaction": {
+					"type": "string",
+					"deprecated": "legacy leftover (`webtoon`) in some older groups; nothing reads it"
 				}
 			}
 		},
@@ -874,6 +878,10 @@
 								"persona": {
 									"type": "string",
 									"description": "the speaker's persona (none = regular)"
+								},
+								"mood": {
+									"type": "string",
+									"description": "the speaker's mood while saying it (the creator writes it; none = the mood they are in)"
 								},
 								"wait": {
 									"type": "boolean"
@@ -1531,6 +1539,10 @@
 								"persona": {
 									"type": "string",
 									"description": "the speaker's persona (none = regular)"
+								},
+								"mood": {
+									"type": "string",
+									"description": "the speaker's mood while saying it (the creator writes it; none = the mood they are in)"
 								},
 								"wait": {
 									"type": "boolean"

@@ -80,4 +80,7 @@ translation by design).
    language, Convert page, MCP tools.
 3. Linked groups (`groups/chains`) merged in; its fields live in the neutral document.
 4. Toon settings into the toon entry.
-5. Full checks, browser tests creator + viewer.
+5. Creator messages refactor (owner 2026-10-06): `creator/messages/{de,en}.json` + hints/tooltips in the code still
+   name JSON files that no longer exist since the content lives in the database – say what it is today (the document,
+   published / draft), shorter and consistent wording, drop unused keys.
+6. Full checks, browser tests creator + viewer.

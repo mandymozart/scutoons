@@ -2,7 +2,10 @@
 //
 //   toon:<toon>                       the toon's index entry (status, names, languages + the language-neutral settings: map, tile …)
 //   toon-settings:<toon>:<locale>     the toon's per-language settings (title, description, release, status, covers)
-//   season:<toon>:<n>:<locale>        chapter:<toon>:<n>:<locale>        scene:<toon>:<chapter>:<name>:<locale>
+//   season:<toon>:<n>                 chapter:<toon>:<n>                 scene:<toon>:<chapter>:<name>
+//                                     one language-neutral document each, texts as locale maps (neutral.ts, agents/NEUTRAL.md)
+//   season:<toon>:<n>:<locale>  chapter:<toon>:<n>:<locale>  scene:<toon>:<chapter>:<name>:<locale>
+//                                     legacy per-locale documents: read while the entity has no neutral document
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
 //   script:<toon>:<locale>            the toon's screenplay (creator only: no library endpoint, readers never get it)
@@ -10,7 +13,8 @@
 //   (`locations:*` / `routes:*` are the old per-toon map, read-only since the world map `map`, agents/MAP.md)
 //
 // An "entity" is a key without its locale (`chapter:catpope:2`); the stored document of one language adds `:<locale>`.
-// Language-neutral entities are stored under the entity itself. JSON file names exist only in the import/export
+// Language-neutral entities are stored under the entity itself – so are chapters, scenes and seasons since 2026-10-06
+// (NEUTRAL_DOC_KINDS; their per-locale keys stay readable until production is converted). JSON file names exist only in the import/export
 // format (server `Console\ContentFiles`), never in the apps.
 
 import { NEUTRAL_LOCALE } from './languages.ts';
@@ -88,7 +92,25 @@ export const entities = {
 	map: 'map'
 } as const;
 
-/** Whether an entity (or key) of this kind is stored per locale */
+/**
+ * Kinds stored as one language-neutral document under the entity itself (`chapter:catpope:2`, neutral.ts). Their
+ * per-locale keys (`chapter:catpope:2:de`) are the legacy form: the library reads them while no neutral document exists.
+ */
+export const NEUTRAL_DOC_KINDS: readonly EntityKind[] = ['chapter', 'scene', 'season'];
+
+/** Whether a stored key holds a language-neutral document (no locale segment: `toon:x`, `chapter:x:2`; not `chapter:x:2:de`) */
+export function isNeutralKey(key: string): boolean {
+	const ref = parseEntityKey(key);
+	return !!ref && !ref.locale;
+}
+
+/** Whether a stored key is the neutral document of a chapter, scene or season (not a legacy per-locale one) */
+export function isNeutralDocKey(key: string): boolean {
+	const ref = parseEntityKey(key);
+	return !!ref && !ref.locale && NEUTRAL_DOC_KINDS.includes(ref.kind);
+}
+
+/** Whether an entity (or key) of this kind is stored per locale (for chapter / scene / season: the legacy form) */
 export function isLocalizedEntity(entity: string): boolean {
 	const shape = SHAPES[entity.split(':')[0] as EntityKind];
 	return !!shape?.[3];
