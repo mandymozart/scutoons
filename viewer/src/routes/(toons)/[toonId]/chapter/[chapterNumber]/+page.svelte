@@ -52,20 +52,35 @@
 	const lastGroup = $derived(chain ? chain.groups[chain.groups.length - 1].group : undefined);
 
 	// `?label=` of a group further down a chain: the chain from its top, scrolled to that group (instant) – on arrival
-	// only (not on "Nochmal", not on back / forward: the browser restores the place)
+	// only (not on "Nochmal", not on back / forward: the browser restores the place). Kept aligned while the page above
+	// settles (a strip measures its sideways travel after it mounted, images load) until the reader scrolls themselves.
+	const SETTLE_MS = 2000;
 	afterNavigate(async ({ type }) => {
 		if (type === 'popstate') return;
 		const c = chain;
 		if (!c || c.at === c.start) return;
 		const offset = c.groups[c.at - c.start].offset;
 		await tick();
-		requestAnimationFrame(() => {
-			const el = document.querySelector(`.chapter-view [data-slice-index="${offset}"]`);
+		const view = document.querySelector('.chapter-view');
+		const align = () => {
+			const el = view?.querySelector(`[data-slice-index="${offset}"]`);
 			if (!el) return;
 			// a strip's slice sits in its pinned track: its section's top is the group's top
 			const top = (el.closest('.strip') ?? el).getBoundingClientRect().top;
-			window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });
-		});
+			if (Math.abs(top) >= 1) window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });
+		};
+		align();
+		if (!view || typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver(align);
+		observer.observe(view);
+		const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+		const stop = () => {
+			observer.disconnect();
+			clearTimeout(timer);
+			for (const name of events) window.removeEventListener(name, stop, true);
+		};
+		const timer = setTimeout(stop, SETTLE_MS);
+		for (const name of events) window.addEventListener(name, stop, { capture: true, passive: true });
 	});
 
 	// reading progress for the toon page's start button: how far into the chapter (all its groups' slices), finished at
