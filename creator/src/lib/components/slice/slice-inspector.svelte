@@ -93,7 +93,7 @@
 	}
 </script>
 
-<aside class="inspector">
+<div class="inspector">
 	<!-- one icon each (owner 2026-10-03), the same as the canvas tools; background + map are one "Slice" tab -->
 	<Tabs
 		variant="grid"
@@ -195,23 +195,15 @@
 			onselect={(i) => (view.selection = { kind: 'event', index: i })}
 		/>
 	{/if}
-</aside>
+</div>
 
 <style>
+	/* the region around it (border, width, scrolling, below the canvas under 1280px): the chapter editor */
 	.inspector {
-		overflow: auto;
-		border-left: var(--border-width-regular) solid var(--ink);
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
-	}
-	/* narrower: the inspector goes below the canvas (the editor's columns) */
-	@media (max-width: 1279px) {
-		.inspector {
-			border-left: 0;
-			border-top: var(--border-width-regular) solid var(--ink);
-		}
 	}
 	.slice-map {
 		border-top: var(--border-width-regular) solid var(--ink);

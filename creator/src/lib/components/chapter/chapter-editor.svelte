@@ -68,9 +68,11 @@
 	const panelSize = dockWidth('chapter', 16); // normal = --tool-panel-width
 	// the Flow panel's graph needs more room from the start (owner 2026-10-06: drags wider up to half the window too)
 	const flowSize = flowWidth();
-	// the slice inspector drags wider too (owner 2026-10-03): from its normal 22rem up to half the window
+	// the slice inspector: a right region of the editor's main area (agents/DOCKING.md) – its Divider drags it from its
+	// normal 22rem up to half the area (owner 2026-10-03), remembered; under 1280px it sits below the canvas
 	let columnsEl = $state<HTMLElement>();
 	const inspectorSize = panelWidth('sc-panel-width:slice-inspector', 22, () => columnsEl?.getBoundingClientRect().right ?? window.innerWidth);
+	inspectorSize.room = () => (columnsEl?.clientWidth ?? window.innerWidth) / 2;
 
 	// ── Documents ───────────────────────────────────────────────────────────────────────────────────────
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
@@ -822,7 +824,8 @@
 
 			<!-- Inspector -->
 			{#if view.section === 'slice' && activeDoc && activeSlice}
-				<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} class="inspector-resize" />
+				<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} controls="slice-inspector" class="inspector-resize" />
+				<aside class="inspector-region" id="slice-inspector" aria-label={m['creator.inspector']()} data-testid="inspector-region">
 				<SliceInspector
 					{view}
 					doc={activeDoc}
@@ -848,6 +851,7 @@
 					onremove={removeSelected}
 					eventMark={(i) => markAt('groups', view.groupIndex, 'slices', view.sliceIndex, 'events', i)}
 				/>
+				</aside>
 			{/if}
 		</div>
 	{/if}
@@ -946,11 +950,23 @@
 	.columns.has-inspector {
 		grid-template-columns: minmax(0, 1fr) var(--inspector-width, 22rem);
 	}
+	/* the inspector's region: its own scrolling, the border its Divider sits on */
+	.inspector-region {
+		min-width: 0;
+		min-height: 0;
+		overflow: auto;
+		overscroll-behavior: contain;
+		border-left: var(--border-width-regular) solid var(--ink);
+	}
 	/* narrower: the inspector goes below the canvas (sidebar 12rem + inspector 22rem + a 390px slice need ≈ 1280px) */
 	@media (max-width: 1279px) {
 		.columns.has-inspector {
 			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: minmax(0, 1fr) minmax(0, 50%);
+		}
+		.inspector-region {
+			border-left: 0;
+			border-top: var(--border-width-regular) solid var(--ink);
 		}
 		.columns :global(.inspector-resize) {
 			display: none;

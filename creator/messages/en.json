@@ -942,6 +942,7 @@
 		"resize_sidebar": "Drag to resize the sidebar",
 		"resize_panel": "Drag to resize the panel",
 		"dock_label": "Page panel",
+		"inspector": "Inspector",
 		"fold_sidebar": "Fold the sidebar",
 		"unfold_sidebar": "Show the sidebar",
 		"fold_panel": "Fold the panel",
