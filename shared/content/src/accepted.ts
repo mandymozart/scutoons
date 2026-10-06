@@ -1,7 +1,7 @@
 // Accepted warnings (owner 2026-10-04): a warning the creator checked and found fine ("Looks fine") is listed in the
-// file it is about, in that locale's document, so the decision is versioned with the content (saved, published, undone
-// like any edit). An entry names the place (array items by their id where they have one, so inserting a slice does not
-// move it) and a short hash of the message and the value there: when the value changes, the warning is back.
+// file it is about, in that locale's document (a language-neutral document holds every locale's, a per-locale warning
+// with its locale in the key), so the decision is versioned with the content (saved, published, undone like any edit).
+// An entry names the place (array items by their id where they have one, so inserting a slice does not move it) and a short hash of the message and the value there: when the value changes, the warning is back.
 import { getAt, type Path } from './paths.ts';
 
 export const ACCEPTED_WARNINGS_FIELD = 'accepted_warnings';
@@ -34,11 +34,23 @@ function fingerprint(text: string): string {
 	return (h >>> 0).toString(36);
 }
 
-/** The entry for a warning about `data` (the document of the warning's locale). A warning about the whole document
- *  (empty path) is keyed by its message only. */
-export function acceptedWarningKey(warning: { path: Path; message: string }, data: unknown): string {
+/** The warning an entry is about: its place and message (+ the locale of a language-neutral document's per-locale warning) */
+export interface AcceptableWarning {
+	path: Path;
+	message: string;
+	/**
+	 * set only for a language-neutral document's warning about one locale ("missing en text"): kept in the key
+	 * (`en:<place>#<hash>`). Per-locale documents leave it out (their keys stay as they were).
+	 */
+	scope?: string | null;
+}
+
+/** The entry for a warning about `data` (the document of the warning's locale, or the language-neutral document). A
+ *  warning about the whole document (empty path) is keyed by its message only. */
+export function acceptedWarningKey(warning: AcceptableWarning, data: unknown): string {
 	const value = warning.path.length ? JSON.stringify(getAt(data, warning.path) ?? null) : '';
-	return `${stablePlace(data, warning.path)}#${fingerprint(`${warning.message}\u0000${value}`)}`;
+	const key = `${stablePlace(data, warning.path)}#${fingerprint(`${warning.message}\u0000${value}`)}`;
+	return warning.scope ? `${warning.scope}:${key}` : key;
 }
 
 export function acceptedWarningsOf(data: unknown): string[] {
@@ -46,12 +58,12 @@ export function acceptedWarningsOf(data: unknown): string[] {
 	return Array.isArray(list) ? list.filter((k) => typeof k === 'string') : [];
 }
 
-export function isAcceptedWarning(warning: { path: Path; message: string }, data: unknown): boolean {
+export function isAcceptedWarning(warning: AcceptableWarning, data: unknown): boolean {
 	return acceptedWarningsOf(data).includes(acceptedWarningKey(warning, data));
 }
 
 /** The list with the warning accepted (`on`) or not; undefined when it ends up empty (the field is left out). */
-export function withAcceptedWarning(warning: { path: Path; message: string }, data: unknown, on: boolean): string[] | undefined {
+export function withAcceptedWarning(warning: AcceptableWarning, data: unknown, on: boolean): string[] | undefined {
 	const key = acceptedWarningKey(warning, data);
 	const list = acceptedWarningsOf(data).filter((k) => k !== key);
 	if (on) list.push(key);

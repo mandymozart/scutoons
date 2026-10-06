@@ -20,6 +20,8 @@ import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
 import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
+import { resolveChapter, resolveGroup, resolveSeason, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
+import { forEachText, type TextLeafKind } from './neutralize.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -922,7 +924,77 @@ export function forEachSlice(kind: string, data: any, fn: (slice: any, path: Pat
 	for (const [g, gp] of groups) (g?.slices ?? []).forEach((s: any, i: number) => fn(s, [...gp, 'slices', i]));
 }
 
-/** Structure + translations across the locale files of one doc */
+const LEAF_WORD: Record<TextLeafKind, string> = { title: 'title', description: 'description', release: 'release', status: 'status', dialog: 'text', message: 'text', choice: 'label' };
+
+/**
+ * A language-neutral chapter / scene (`group`) / season (agents/NEUTRAL.md): the structure once – the document as the
+ * source language's readers get it (`resolve*`), problems without a locale –, the locale maps' shape (a text per
+ * language, `release` a date in every locale, `sequence[].status` a status in every locale), and per toon language
+ * the completeness of the texts like `validateLocales` did for per-locale documents: a missing text (warning), the same
+ * as the source (info), a text box / VN text more than 130 % of the source (warning) – those carry their locale.
+ * `ctx.seasonStatus` of a chapter: its status in the season's source language (null = not in the season).
+ */
+export function validateNeutral(kind: string, data: any, languages: NeutralLanguages, ctx: ValidateContext): Problem[] {
+	const file = ctx.file;
+	if (data === null || data === undefined) return [{ level: 'error', file, locale: null, path: [], message: 'no document' }];
+	if (!isObj(data)) return [{ level: 'error', file, locale: null, path: [], message: 'the document must be an object' }];
+	const source = languages.source;
+	const all = [...new Set([source, ...(languages.languages ?? [])])];
+	const resolved =
+		kind === 'chapter'
+			? resolveChapter(data as ChapterDoc, source, languages)
+			: kind === 'season'
+				? resolveSeason(data as SeasonDoc, source, languages)
+				: resolveGroup(data as GroupDoc, source, languages);
+	const problems = validateFile(kind, resolved, source, ctx).map((p) => ({ ...p, locale: null }));
+	const c = new Collector(file, null);
+	const at = (locale: string) => new Collector(file, locale);
+	const neutralKind: NeutralKind = kind === 'group' ? 'scene' : (kind as NeutralKind);
+	const perLocale: Collector[] = [];
+	forEachText(neutralKind, data, (path, value, leaf) => {
+		const word = LEAF_WORD[leaf];
+		if (!isObj(value)) {
+			c.error(path, `${path.join('.')} must be ${leaf === 'release' ? 'a date' : leaf === 'status' ? 'a status' : 'a text'} per language { ${source}: … }`);
+			return;
+		}
+		for (const [locale, v] of Object.entries(value)) {
+			const l = at(locale);
+			perLocale.push(l);
+			if (leaf === 'release') {
+				if (!isStr(v) || !DATE.test(v)) l.error(path, `release must be a date YYYY-MM-DD (${locale})`);
+			} else if (leaf === 'status') {
+				if (!values(Status).includes(v as string)) l.error(path, `status must be published, draft or coming-soon (${locale})`);
+			} else if (!(isStr(v) || (leaf === 'dialog' && Array.isArray(v) && v.every(isStr)))) {
+				l.error(path, `the ${locale} ${word} must be ${leaf === 'dialog' ? 'a string or string[]' : 'a string'}`);
+			}
+		}
+		if (leaf === 'release' || leaf === 'status') return;
+		const src = textOf(value[source]).trim();
+		const quote = (text: string) => (leaf === 'title' || leaf === 'description' ? '' : ` for "${text.slice(0, 40)}"`);
+		if (!src) {
+			const other = all.find((l) => l !== source && textOf(value[l]).trim());
+			if (other) {
+				const l = at(source);
+				perLocale.push(l);
+				l.warn(path, `missing ${source} ${word}${quote(textOf(value[other]).trim())} (the source language; readers get the ${other} text)`);
+			}
+			return;
+		}
+		for (const locale of all) {
+			if (locale === source) continue;
+			const tr = textOf(value[locale]).trim();
+			const l = at(locale);
+			perLocale.push(l);
+			if (!tr) l.warn(path, `missing ${locale} ${word}${quote(src)}`);
+			else if (tr === src) l.info(path, `${locale} ${word} is the same as ${source} (not translated?)`);
+			else if ((leaf === 'dialog' || leaf === 'message' || leaf === 'choice') && tr.length > src.length * LENGTH_WARNING_RATIO)
+				l.warn(path, `${locale} ${word} is ${Math.round((tr.length / src.length) * 100)}% of ${source} (> 130%) – check the fit`);
+		}
+	});
+	return [...problems, ...c.problems, ...perLocale.flatMap((l) => l.problems)];
+}
+
+/** Structure + translations across the locale files of one doc (legacy per-locale documents; neutral ones: validateNeutral) */
 export function validateLocales(kind: string, file: string, files: Record<string, any>, primary: string): Problem[] {
 	const problems: Problem[] = [];
 	const add = (level: Level, locale: string | null, path: Path, message: string) =>

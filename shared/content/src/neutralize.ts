@@ -11,7 +11,7 @@
 //   not taken (never guessed) and are listed (`text-lost`), the mismatch too (`structure`).
 // - Every other field must be the same in every locale; where a locale differs the source wins (`differs`).
 // - A locale without a text the source has (or with a blank one) resolves to the source's text (`text-missing`).
-import { deepEqual } from './paths.ts';
+import { deepEqual, type Path } from './paths.ts';
 import type { Chapter, Group, Season } from './content.ts';
 import type { ChapterDoc, GroupDoc, NeutralKind, SeasonDoc } from './neutral.ts';
 import { isLocaleValue } from './neutral.ts';
@@ -89,6 +89,35 @@ function collectTexts(node: unknown, ctx: Ctx | null, path: string, out: [string
 			collectTexts(value, childCtx(ctx, node, key), join(path, key), out);
 		}
 	}
+}
+
+/** What a text leaf is (for messages): the chapter / season `title` …, a text box's `text`, a VN message `text`, a choice `label` */
+export type TextLeafKind = 'title' | 'description' | 'release' | 'status' | 'dialog' | 'message' | 'choice';
+
+/**
+ * Every locale-map leaf of a neutral document (texts, `release`, season `sequence[].status`), by the same rules as the
+ * conversion: `fn(path, value, kind)` with the path into the document (array indices as numbers) and the stored value
+ * (a locale map – or an older plain value). Leaves that are missing are not visited.
+ */
+export function forEachText(kind: NeutralKind, doc: unknown, fn: (path: Path, value: unknown, leaf: TextLeafKind) => void) {
+	const walk = (node: unknown, ctx: Ctx | null, path: Path) => {
+		if (ctx === null) return;
+		if (Array.isArray(node)) {
+			node.forEach((item, i) => walk(item, ctx, [...path, i]));
+			return;
+		}
+		if (!isObject(node)) return;
+		for (const [key, value] of Object.entries(node)) {
+			if (TEXT[ctx]?.includes(key)) {
+				const leaf: TextLeafKind =
+					ctx === 'dialog' ? 'dialog' : ctx === 'params-showMessage' ? 'message' : ctx === 'params-addChoice' ? 'choice' : (key as TextLeafKind);
+				fn([...path, key], value, leaf);
+			} else {
+				walk(value, childCtx(ctx, node, key), [...path, key]);
+			}
+		}
+	};
+	walk(doc, kind === 'scene' ? 'group' : kind, []);
 }
 
 class Merger {
@@ -210,4 +239,80 @@ export function neutralizeSeason(docs: Record<string, Season | undefined>, sourc
 /** neutralizeChapter / neutralizeGroup / neutralizeSeason by kind */
 export function neutralizeDocs(kind: NeutralKind, docs: Record<string, unknown>, source: string): NeutralizeResult<ChapterDoc | GroupDoc | SeasonDoc> {
 	return neutralize(kind, docs, source);
+}
+
+// ── Conversion plan (the creator's Convert page and scripts/dev/neutralize.mjs) ──────────────────────────────────
+
+/** One stored per-locale version */
+export interface LocaleVersion {
+	id: number;
+	content: unknown;
+}
+
+export interface ConversionInput {
+	kind: NeutralKind;
+	/** the toon's source language */
+	source: string;
+	/** the toon's languages, source first (the order of the locale maps) */
+	languages: readonly string[];
+	/** the per-locale published versions by locale */
+	published: Record<string, LocaleVersion>;
+	/** the per-locale newest versions by locale */
+	newest: Record<string, LocaleVersion>;
+	/** the neutral entity's published / newest content when it has versions (unchanged steps are marked) */
+	neutralPublished?: unknown;
+	neutralNewest?: unknown;
+}
+
+/** One neutral version to store: published (from the published per-locale versions) or a draft after it */
+export interface ConversionStep {
+	status: 'published' | 'draft';
+	doc: ChapterDoc | GroupDoc | SeasonDoc;
+	report: NeutralDifference[];
+	/** the converted versions, e.g. `de#12 en#13` (the version message) */
+	versions: string;
+	/** the neutral entity already has this content (nothing to store) */
+	unchanged: boolean;
+}
+
+/** the versions in the toon's language order (source first, then the rest, then locales the toon doesn't list) */
+function ordered(byLocale: Record<string, LocaleVersion>, languages: readonly string[]): [string, LocaleVersion][] {
+	const locales = [...languages.filter((l) => byLocale[l]), ...Object.keys(byLocale).filter((l) => !languages.includes(l)).sort()];
+	return locales.map((l) => [l, byLocale[l]]);
+}
+
+/**
+ * What the conversion of one entity stores (agents/NEUTRAL.md decision 6): the published per-locale versions → a
+ * published neutral version; when a locale has a newer draft (or the entity was never published) the newest versions →
+ * a draft neutral version after it (creators' draft mode reads the newest). Steps whose content the neutral entity
+ * already has are `unchanged`.
+ */
+export function planConversion(input: ConversionInput): ConversionStep[] {
+	const variants: ['published' | 'draft', [string, LocaleVersion][]][] = [];
+	if (Object.keys(input.published).length) variants.push(['published', ordered(input.published, input.languages)]);
+	if (Object.entries(input.newest).some(([l, v]) => v.id !== input.published[l]?.id)) variants.push(['draft', ordered(input.newest, input.languages)]);
+	let published = input.neutralPublished === undefined ? undefined : JSON.stringify(input.neutralPublished);
+	let newest = input.neutralNewest === undefined ? undefined : JSON.stringify(input.neutralNewest);
+	const steps: ConversionStep[] = [];
+	for (const [status, versions] of variants) {
+		const result = neutralize<ChapterDoc | GroupDoc | SeasonDoc>(input.kind, Object.fromEntries(versions.map(([l, v]) => [l, v.content])), input.source);
+		const json = JSON.stringify(result.doc);
+		const unchanged = (status === 'published' ? published : newest) === json;
+		steps.push({ status, doc: result.doc, report: result.report, versions: versions.map(([l, v]) => `${l}#${v.id}`).join(' '), unchanged });
+		if (!unchanged) {
+			newest = json;
+			if (status === 'published') published = json;
+		}
+	}
+	return steps;
+}
+
+/**
+ * The differences a reader would see (the creator's conversion notice): texts that are not taken (`text-lost`), and
+ * neutral fields that differ where the reader shows them (not the deprecated / invisible ones: `interaction`, season
+ * `credits`, `accepted_warnings`). `text-missing` (shows the source's text) and `structure` are listed by the caller.
+ */
+export function visibleDifferences(report: readonly NeutralDifference[]): NeutralDifference[] {
+	const hidden = /(^|\.)(interaction|credits)(\.|$)/;
+	return report.filter((r) => r.kind === 'text-lost' || r.kind === 'text-missing' || r.kind === 'structure' || (r.kind === 'differs' && !hidden.test(r.path)));
 }

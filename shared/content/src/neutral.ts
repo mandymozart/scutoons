@@ -211,7 +211,7 @@ function resolveEvent(event: unknown, chain: readonly string[]): unknown {
 
 const resolveEvents = (events: unknown, chain: readonly string[]) => (Array.isArray(events) ? events.map((e) => resolveEvent(e, chain)) : events);
 
-function resolveSlice(slice: unknown, chain: readonly string[]): unknown {
+function resolveSliceWith(slice: unknown, chain: readonly string[]): unknown {
 	if (!isObject(slice)) return slice;
 	const out: Record<string, unknown> = { ...slice };
 	if (Array.isArray(slice.dialog)) {
@@ -232,9 +232,24 @@ function resolveSlice(slice: unknown, chain: readonly string[]): unknown {
 function resolveGroupWith(group: unknown, chain: readonly string[]): unknown {
 	if (!isObject(group)) return group;
 	const out: Record<string, unknown> = { ...group };
-	if (Array.isArray(group.slices)) out.slices = group.slices.map((s) => resolveSlice(s, chain));
+	if (Array.isArray(group.slices)) out.slices = group.slices.map((s) => resolveSliceWith(s, chain));
 	if (Object.hasOwn(group, 'events')) out.events = resolveEvents(group.events, chain);
 	return out;
+}
+
+/** A neutral slice in a locale (its text boxes' and events' texts resolved; the creator's canvas and previews) */
+export function resolveSlice(slice: SliceDoc, locale: string, languages: NeutralLanguages): Slice {
+	return resolveSliceWith(slice, localeChain(locale, languages)) as Slice;
+}
+
+/**
+ * A text leaf as one line for a list / preview (a locale map's text in the chain – else the first there is –, a plain
+ * string, or a string[] joined by spaces); '' when there is none
+ */
+export function previewText(value: unknown, chain: readonly string[] = []): string {
+	const text = resolveText<unknown>(value, chain);
+	if (Array.isArray(text)) return text.filter((t) => typeof t === 'string').join(' ');
+	return typeof text === 'string' ? text : '';
 }
 
 /** A neutral group / scene in the served locale (today's `Group`) */

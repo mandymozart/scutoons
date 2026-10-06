@@ -15,7 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { localSql, MARIADB, phpDbEnv, phpMysqlArgs } from './db-env.mjs';
-import { neutralizeDocs, parseEntityKey, toonLanguages } from '../../shared/content/src/index.ts';
+import { parseEntityKey, planConversion, toonLanguages } from '../../shared/content/src/index.ts';
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
@@ -68,48 +68,44 @@ const short = (value) => {
 	return text.length > 140 ? `${text.slice(0, 137)}…` : text;
 };
 
-/** the per-locale rows in the toon's language order (source first, then the rest) */
-function ordered(byLocale, languages) {
-	const locales = [...languages.filter((l) => byLocale[l]), ...Object.keys(byLocale).filter((l) => !languages.includes(l)).sort()];
-	return Object.fromEntries(locales.map((l) => [l, byLocale[l]]));
-}
-
 const report = [];
 const inserts = [];
 let unchanged = 0;
 console.log(`Neutral conversion on ${MARIADB.name}${apply ? '' : ' (dry run – --apply stores)'}\n`);
+const version = (row) => ({ id: row.id, content: JSON.parse(row.json) });
+const versions = (byLocale) => Object.fromEntries(Object.entries(byLocale).map(([l, row]) => [l, version(row)]));
 for (const [entity, e] of [...entities].sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))) {
 	const { source, languages } = toonLanguages(toonEntries.get(e.toon));
-	const variants = [];
-	if (Object.keys(e.published).length) variants.push(['published', ordered(e.published, languages)]);
-	const newerDraft = Object.entries(e.newest).some(([l, row]) => row.id !== e.published[l]?.id);
-	if (newerDraft) variants.push(['draft', ordered(e.newest, languages)]);
-	let { published, newest } = neutral.get(entity) ?? { published: null, newest: null };
-	for (const [status, byLocale] of variants) {
-		const docs = Object.fromEntries(Object.entries(byLocale).map(([l, row]) => [l, JSON.parse(row.json)]));
-		const result = neutralizeDocs(e.kind, docs, source);
-		const versions = Object.entries(byLocale).map(([l, row]) => `${l}#${row.id}`).join(' ');
-		report.push({ entity, status, source, versions, report: result.report });
-		console.log(`${entity}  ${status}  (${versions})${result.report.length ? `  – ${result.report.length} difference(s)` : ''}`);
-		for (const r of result.report) {
+	const n = neutral.get(entity);
+	// the same plan as the creator's Convert page (@scutoons/content planConversion)
+	const steps = planConversion({
+		kind: e.kind,
+		source,
+		languages,
+		published: versions(e.published),
+		newest: versions(e.newest),
+		neutralPublished: n?.published ? JSON.parse(n.published.json) : undefined,
+		neutralNewest: n?.newest ? JSON.parse(n.newest.json) : undefined
+	});
+	for (const step of steps) {
+		report.push({ entity, status: step.status, source, versions: step.versions, report: step.report });
+		console.log(`${entity}  ${step.status}  (${step.versions})${step.report.length ? `  – ${step.report.length} difference(s)` : ''}`);
+		for (const r of step.report) {
 			const values = Object.entries(r.values).map(([l, v]) => `${l}=${short(v)}`).join('  ');
 			console.log(`    ${r.kind.padEnd(14)} ${r.path || '(document)'}  ${values}${r.missing ? `  (missing in ${r.missing.join(', ')})` : ''}`);
 		}
-		const json = JSON.stringify(result.doc);
-		if ((status === 'published' ? published : newest)?.json === json) {
+		if (step.unchanged) {
 			unchanged++;
 			continue;
 		}
-		const message = `neutral conversion (${status}) from ${versions}`;
+		const message = `neutral conversion (${step.status}) from ${step.versions}`;
 		const ref = parseEntityKey(entity);
 		inserts.push([`INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, ?, ?, NULL, ?, NULL, UTC_TIMESTAMP(), 'draft', ?)`,
-			[entity, ref.kind, ref.toon, json, message]]);
-		if (status === 'published') {
+			[entity, ref.kind, ref.toon, JSON.stringify(step.doc), message]]);
+		if (step.status === 'published') {
 			// the only published version of the neutral entity (EntityStore::setPublished); per-locale rows are never touched
 			inserts.push([`UPDATE entity_versions SET status = CASE WHEN id = LAST_INSERT_ID() THEN 'published' ELSE 'draft' END WHERE entity_key = ? AND (status = 'published' OR id = LAST_INSERT_ID())`, [entity]]);
 		}
-		newest = { json };
-		if (status === 'published') published = newest;
 	}
 }
 
@@ -119,12 +115,12 @@ if (jsonFile) {
 	writeFileSync(jsonFile, JSON.stringify(report, null, '\t') + '\n');
 	console.log(`Report: ${jsonFile}`);
 }
-const versions = inserts.filter(([s]) => s.startsWith('INSERT')).length;
+const stored = inserts.filter(([s]) => s.startsWith('INSERT')).length;
 if (!apply) {
-	console.log(versions ? `Would store ${versions} neutral version(s) – run again with --apply.` : 'Nothing to store.');
-} else if (versions) {
+	console.log(stored ? `Would store ${stored} neutral version(s) – run again with --apply.` : 'Nothing to store.');
+} else if (stored) {
 	write(inserts);
-	console.log(`Stored ${versions} neutral version(s).`);
+	console.log(`Stored ${stored} neutral version(s).`);
 } else {
 	console.log('Nothing to store.');
 }

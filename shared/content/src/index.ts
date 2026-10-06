@@ -6,7 +6,6 @@ export * from './visual-novel.ts';
 export * from './vn-script.ts';
 export * from './items.ts';
 export * from './respawn.ts';
-export * from './geometry.ts';
 export * from './albums.ts';
 export * from './membership.ts';
 export * from './products.ts';

@@ -1,7 +1,7 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntityKey, sceneEntityOfRef, unifyAudio, unifyGeometry, validateFile, validateLocales } from '../src/index.ts';
+import { parseEntityKey, sceneEntityOfRef, validateFile, validateLocales } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
@@ -287,20 +287,6 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	assert.deepEqual(list(chapter({ dialog: [box({ variant: 'bubble', frame: true, shape: 'star' })] })), ['error groups.0.slices.0.dialog.0.shape']);
 });
 
-test('geometry is the same in every language: unifyGeometry copies the source locale geometry', () => {
-	const box = (width: number, text: string, extra: object = {}) => ({ id: 'b', rect: { x: 1, y: 2, width }, text, ...extra });
-	const chapter = (dialog: object[], items: object[] = []) => ({ groups: [{ slices: [{ image: 'a.webp', dialog, items }] }] });
-	const files: Record<string, any> = {
-		de: chapter([box(20, 'Hallo', { rotation: 5 })], [{ id: 'x-1', item: 'x', rect: { x: 1, y: 1, width: 10 } }]),
-		en: chapter([box(25, 'Hello', { scale: 2 })], [{ id: 'x-1', item: 'x', rect: { x: 9, y: 1, width: 10 }, rotation: 3 }])
-	};
-	assert.equal(unifyGeometry('chapter', files, 'de'), 2);
-	const en = files.en.groups[0].slices[0];
-	assert.deepEqual(en.dialog[0], { id: 'b', rect: { x: 1, y: 2, width: 20 }, text: 'Hello', rotation: 5 }, 'the text stays per language');
-	assert.deepEqual(en.items[0], { id: 'x-1', item: 'x', rect: { x: 1, y: 1, width: 10 } });
-	assert.equal(unifyGeometry('chapter', files, 'de'), 0, 'nothing left to do');
-});
-
 test('VN flow in a group: enter before speaking, choices added then shown (owner 2026-10-03)', () => {
 	const group = (events: object[], slices: object[] = []) => ({ label: 'g', renderer: { type: 'vertical' }, slices, events });
 	const flow = (g: object) => problems('group', g).filter((p) => /^warning (events|slices\.\d+\.events)/.test(p));
@@ -326,20 +312,6 @@ test('VN flow in a group: enter before speaking, choices added then shown (owner
 	assert.deepEqual(flow(group([add])), ['warning events.0']);
 	// a divert / jump leaves before they are shown (the stroll end's showChoices further down doesn't count)
 	assert.deepEqual(flow(group([add, { type: 'divert', params: { to: 'x' } }, { type: 'label', params: { name: 'x' } }, add, { type: 'showChoices' }])), ['warning events.0']);
-});
-
-test('audio is the same in every language: unifyAudio replaces the old audio.samples of a locale with the source audio', () => {
-	const samples = [{ id: 'bells', trigger: { type: 'intersect' }, volume: 0.8 }];
-	const files: Record<string, any> = {
-		de: { audio: { sampleLibrary: [{ id: 'bells', path: 's1/c1/b.128.mp3' }] }, groups: [{ slices: [{ image: 'a.webp', audio: { audio: { samples } } }, { image: 'b.webp' }] }] },
-		en: { audio: { sampleLibrary: [{ id: 'bells', path: 's1/c1/b.128.mp3' }] }, groups: [{ slices: [{ image: 'a.webp', audio: { samples } }, { image: 'b.webp', audio: { music: { tracks: [{ id: 'x', volume: 1 }] } } }] }] }
-	};
-	assert.equal(unifyAudio('chapter', files, 'de'), 2);
-	const en = files.en.groups[0].slices;
-	assert.deepEqual(en[0].audio, { audio: { samples } });
-	assert.equal(en[1].audio, undefined);
-	assert.equal(unifyAudio('chapter', files, 'de'), 0);
-	assert.ok(!problems('chapter', files.en).some((p) => p.includes('audio.samples')));
 });
 
 test('audio quality levels: variants on music tracks and samples (96k / 128k / 320k)', () => {
