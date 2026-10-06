@@ -10,16 +10,17 @@
 // links to the cover editor; lettering off → no text on the art; "Default" → the two default lines; the preview language switches the texts (de / en / ko titles from the text
 // fields); dragging a line moves it and turns the default into an own layout; the corner handle makes it bigger, the
 // side handle narrower; a long translation shrinks into its box (every language "as readers see it"); an own line with a
-// text per language (Korean too); Save draft stores a valid layout (`validateFile`) with the texts NOT in the layout's
-// geometry, the same cover in every locale's season document; Publish → the reader's toon page shows it. Afterwards the
-// season documents are as before (restored also on failure). Refuses to run while one of them has an unpublished draft.
+// text per language (Korean too); Save draft stores a valid layout (`validateNeutral`) with the texts NOT in the layout's
+// geometry, in the one language-neutral season document (agents/NEUTRAL.md; the sandbox must be converted – the
+// creator's Convert page); Publish → the reader's toon page shows it. Afterwards the season document is as before
+// (restored also on failure). Refuses to run while it has an unpublished draft.
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './ports.mjs';
-import { validateFile } from '../../shared/content/src/index.ts';
+import { resolveText, validateNeutral } from '../../shared/content/src/index.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
@@ -59,10 +60,11 @@ async function api(method, path, body) {
 	return json;
 }
 
-// ── baseline: the published season documents (every language), no pending draft ────────────────────────────
+// ── baseline: the published language-neutral season document, no pending draft ─────────────────────────────
 const entry = await api('GET', `/entities/toon:${TOON}`);
 const LOCALES = entry.languages?.length ? entry.languages : ['de', 'en'];
-const KEYS = LOCALES.map((l) => `season:${TOON}:${SEASON}:${l}`);
+const SOURCE = entry.sourceLanguage ?? LOCALES[0];
+const KEYS = [`season:${TOON}:${SEASON}`];
 const baseline = {};
 const latestIds = {};
 for (const key of KEYS) {
@@ -79,14 +81,14 @@ const titles = {};
 for (const l of LOCALES) {
 	titles[l] = {
 		toon: (await api('GET', `/entities/toon-settings:${TOON}:${l}`)).title,
-		season: (await api('GET', `/entities/season:${TOON}:1:${l}`)).title
+		season: resolveText(baseline[KEY].title, [l, SOURCE, ...LOCALES]) ?? ''
 	};
 }
 // the text-free art when the CDN has it (owner 2026-10-02), else the toon's own cover
 const textless = (await fetch(`${CDN}/catpope/s1/s1-cover-square-textless.webp`, { method: 'HEAD' }).catch(() => null))?.ok;
 const square = textless ? TEXTLESS : baseline[KEY].cover?.square;
 check(!!square, `the art: ${square}${textless ? ' (text-free)' : ''}`);
-// start from drafts: the art, lettering off, in every language
+// start from a draft: the art, lettering off
 for (const key of KEYS) await api('PUT', `/entities/${key}`, { content: { ...baseline[key], cover: { square } }, base: latestIds[key], message: 'creator-cover-check: start' });
 
 async function restore() {
@@ -301,13 +303,11 @@ try {
 	await answerDialog('button.secondary');
 	await until(`!document.querySelector('.sc-bar.is-dirty')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
-	const others = await Promise.all(KEYS.slice(1).map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));
-	check(others.every((o) => JSON.stringify(o.content.cover) === JSON.stringify(stored.content.cover)), `the same cover in every locale (${KEYS.length} season documents)`);
 	const layout = stored.content.cover?.lettering?.square;
 	check(Array.isArray(layout) && layout.length === 3 && layout[0].text === 'toon' && layout[1].text === 'season' && layout[2].text === 'custom', 'Save draft: cover.lettering.square = 3 lines (toon, season, own)', JSON.stringify(stored.content.cover));
 	check(JSON.stringify(layout?.[2]?.custom) === JSON.stringify(Object.fromEntries(LOCALES.filter((l) => LONG[l]).map((l) => [l, LONG[l]]))), 'the own line keeps its text per language');
 	check(!JSON.stringify(layout?.slice(0, 2)).includes(titles.de.season), 'the title lines carry no text (it comes from the text fields)');
-	const problems = validateFile('season', stored.content, LOCALES[0], { file: KEY });
+	const problems = validateNeutral('season', stored.content, { source: SOURCE, languages: LOCALES }, { file: KEY });
 	check(!problems.some((p) => p.level === 'error' && p.path[0] === 'cover'), 'the stored layout validates', JSON.stringify(problems));
 	check(stored.content.cover.square === square, 'the art is the same one path for every language');
 
@@ -320,7 +320,7 @@ try {
 		const live = await api('GET', `/entities/${KEY}`);
 		check(Array.isArray(live.cover?.lettering?.square), 'Publish: the layout is live');
 		const liveAll = await Promise.all(KEYS.map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));
-		check(liveAll.every((x) => x.published?.id === x.version.id), "Publish: every locale's season document is published");
+		check(liveAll.every((x) => x.published?.id === x.version.id), 'Publish: the season document is published');
 		await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
 		for (const l of LOCALES.filter((x) => x === 'de' || x === 'en')) {
 			await send('Page.navigate', { url: `${VIEWER}/${l}/${TOON}` });

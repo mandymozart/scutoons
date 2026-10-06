@@ -18,7 +18,8 @@
 //   undo:    outside a field, Ctrl+Z undoes the last nudge, Ctrl+Shift+Z / Ctrl+Y redo it; the Undo / Redo buttons too
 //   keys:    Escape lets the selection go; Delete removes the selected box
 //   slices:  next / previous slice (bar buttons) move the slice editor and the URL
-//   save:    Save draft (note dialog skipped) stores the chapter draft with the new text; the published version stays
+//   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
+//            new text; the published version stays; Publish asks first, naming the chapter and its languages
 //   VN:      chapter 2's scene-14: each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
 //            the cursor in it; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
@@ -38,7 +39,8 @@ const CHAPTER = 1;
 const GROUP = 0;
 const SLICE = 1; // the first story slice (0 is the key visual)
 const LOCALES = ['de', 'en'];
-const CHAPTER_KEYS = LOCALES.map((l) => `chapter:${TOON}:${CHAPTER}:${l}`);
+/** the chapter's one language-neutral document (agents/NEUTRAL.md) */
+const CHAPTER_KEYS = [`chapter:${TOON}:${CHAPTER}`];
 const TEXT = 'Regressionstext';
 /** a chapter-2 scene with a group script and slice events (catpope) */
 const VN_GROUP = 'scene-14';
@@ -441,7 +443,7 @@ try {
 	await answerDialog('button.secondary'); // the note dialog: save without a note
 	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.textContent.includes('•')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
-	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (de) 200, nothing published', JSON.stringify(saved));
+	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (one neutral document) 200, nothing published', JSON.stringify(saved));
 	const draft = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
 	const savedDialogs = draft.content.groups[GROUP].slices[SLICE].dialog ?? [];
 	check(
@@ -454,11 +456,10 @@ try {
 	await click(tid('publish'));
 	const confirmText = (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) ? await js(`document.querySelector('dialog.sc-dialog[open] .message')?.textContent ?? ''`) : '';
 	await answerDialog('button.ghost');
+	// a neutral chapter's draft is every language's
 	const drafted = [];
-	for (const [i, key] of CHAPTER_KEYS.entries()) {
-		const e = await api('GET', `/entities/${key}?draft=1&wrap=1`);
-		if (e.published?.id !== e.version.id) drafted.push(LOCALES[i]);
-	}
+	const e = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
+	if (e.published?.id !== e.version.id) drafted.push(...LOCALES);
 	const named = confirmText.match(/\(([^)]*)\)/)?.[1].split(/,\s*/) ?? [];
 	check(
 		/Chapter 1|Kapitel 1/.test(confirmText) && drafted.length > 0 && JSON.stringify([...named].sort()) === JSON.stringify([...drafted].sort()),

@@ -146,7 +146,11 @@ async function main() {
 	const registry = reg.json?.characters ?? reg.json;
 	const entry = Array.isArray(registry) ? registry.find((c) => c.id === CHARACTER) : registry?.[CHARACTER];
 	const looks = (entry?.apose?.looks ?? []).map((l) => l.id).filter(Boolean);
-	const unlock = await api('PUT', `/admin/users/${user.id}/characters/${CHARACTER}`, { looks, source: 'admin', ref: 'dev:test-user' }, token);
+	let unlock = await api('PUT', `/admin/users/${user.id}/characters/${CHARACTER}`, { looks, source: 'admin', ref: 'dev:test-user' }, token);
+	// the library's registry may list a look the server's (published) registry doesn't have yet: the looks it knows
+	if (unlock.status === 400 && unlock.json?.error === 'invalid_look' && Array.isArray(unlock.json.looks)) {
+		unlock = await api('PUT', `/admin/users/${user.id}/characters/${CHARACTER}`, { looks: looks.filter((l) => unlock.json.looks.includes(l)), source: 'admin', ref: 'dev:test-user' }, token);
+	}
 	if (unlock.status !== 200) fail(`Cat Pope unlock answered ${unlock.status}: ${unlock.text.slice(0, 200)}`);
 
 	if (flag('--reset')) {
