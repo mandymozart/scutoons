@@ -23,7 +23,7 @@ How the list is ordered – by what the code needs, not by size:
 - **C. Bugs that need finding first** – M.2 (page jumps on effects), M.8 (horizontal scroll input), B.1–B.3 (old,
   re-check), M.15 (slice quality: a report where it is lost, fix only if it's one clear place).
 - **D. Self-contained features** – 10.11 (server errors page), `tokens-switch-knob` (1 commit).
-- **E. Refactors – concept first, in this order (each one builds on the one before):**
+- **E. Refactors – concept first, in this order (each one builds on the one before)** – the concepts: **agents/UI-CONCEPTS.md** (2026-10-07):
   1. **M.5 + M.13 One notification model** (shared/ui: transient toasts for info – "Published" fades by itself –, a
      persistent status only where something needs doing, never pushing the layout). Every app's pages use the
      banners today, so this is a shared/ui refactor touching creator, admin, embassy; it frees the room M.4 / M.14 need.

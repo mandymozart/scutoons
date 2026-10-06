@@ -1,7 +1,7 @@
 # SCUTOONS – project entry point
 
 Read `agents/HANDOVER.md` first (short: current state, working rules, UI rules, open decisions). Then only the agents/
-file for what you touch: PLAN.md (the plan), BACKLOG.md (everything open: post-beta items 10.x + known bugs), CUTOVER.md (the production cutover runbook), DESIGN.md (UI),
+file for what you touch: PLAN.md (the plan), UI-CONCEPTS.md (the drafted UI refactors), BACKLOG.md (everything open: post-beta items 10.x + known bugs), CUTOVER.md (the production cutover runbook), DESIGN.md (UI),
 PLATFORM.md / DATA.md / ITEMS.md / ASSETS.md (system), DOCKING.md (panels, sidebar, dividers). `agents/MEMORY.md` is long – grep it, don't read it whole.
 
 Keep context small: prefer targeted reads/greps over whole files; delegate broad work to agents on their own branches.
