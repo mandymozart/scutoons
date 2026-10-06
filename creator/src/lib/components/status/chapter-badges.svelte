@@ -5,6 +5,7 @@
 	import { seasonStatusOf } from '$lib/editor/visibility.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { statusWord } from '$lib/editor/status-word.ts';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
 	 * A chapter's row in a list (toon page, season editor) says only what is up (owner 2026-10-02: "only show badges when
@@ -46,14 +47,18 @@
 		}
 		return out;
 	});
-	/** the languages only when the issue doesn't concern all of them */
-	const which = (issue: Issue) => (season.textLanguages.length > 1 && issue.locales.length < season.textLanguages.length ? ` · ${issue.locales.join(', ')}` : '');
+	/** the languages only when the issue doesn't concern all of them (the source marked with the star) */
+	const which = (issue: Issue) => (season.textLanguages.length > 1 && issue.locales.length < season.textLanguages.length ? [...new Set(issue.locales)] : []);
 </script>
 
 {#if issues.length}
 	<span class="chapter-badges" data-testid="chapter-badges-{number}">
 		{#each issues as issue (issue.word + issue.tone)}
-			<Badge tone={issue.tone}><span class="word">{issue.word}{which(issue)}</span></Badge>
+			<Badge tone={issue.tone}
+				><span class="word"
+					>{issue.word}{#each which(issue) as l, i (l)}{i ? ', ' : ' · '}{l}{#if l === season.textSource}<SourceMark />{/if}{/each}</span
+				></Badge
+			>
 		{/each}
 	</span>
 {/if}

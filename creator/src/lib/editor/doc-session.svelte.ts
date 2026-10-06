@@ -11,6 +11,7 @@ import { docLabel, fileLabels } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { confirmSubmit, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
+import { markedLanguage } from '$lib/editor/text-language.svelte.ts';
 
 /**
  * The confirm dialog before publishing (one structure everywhere): the files and their languages (none for the
@@ -18,9 +19,11 @@ import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
  */
 export async function confirmPublish(files: ContentDoc[], errorCount = 0): Promise<boolean> {
 	if (errorCount && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: errorCount }), confirmLabel: m['creator.publish']() }))) return false;
-	// a language-neutral chapter / scene / season publishes every language of its texts at once
+	// a language-neutral chapter / scene / season publishes every language of its texts at once; the source marked ★
+	const source = files.find((d) => d.texts)?.texts?.source;
 	const locales = [...new Set(files.flatMap((d) => (d.texts ? (d.dirty || d.unpublished.length ? d.texts.languages : []) : [...d.dirtyLocales, ...d.unpublished])))]
 		.filter((l) => l !== NEUTRAL_LOCALE)
+		.map((l) => markedLanguage(l, source))
 		.join(', ');
 	const file = fileLabels(files.map((d) => d.entity));
 	return confirmDialog({

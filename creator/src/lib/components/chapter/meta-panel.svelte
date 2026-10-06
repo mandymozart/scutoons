@@ -10,6 +10,7 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import { entities } from '@scutoons/content';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
 	 * Chapter meta (one language-neutral document): title / description / release per language (the header's text
@@ -60,7 +61,7 @@
 				{#each statusLocales as l (l)}
 					{@const status = seasonStatusOf(season, l, number)}
 					<label class="status-field">
-						<span>{l}{l === season.textSource ? ` (${m['creator.source']()})` : ''}</span>
+						<span>{l}{#if l === season.textSource}<SourceMark />{/if}</span>
 						{#if status === undefined}
 							<span class="hint">{m['creator.status_no_season']()}</span>
 						{:else if status === null}

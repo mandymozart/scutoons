@@ -479,7 +479,9 @@ try {
 	const drafted = [];
 	const e = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
 	if (e.published?.id !== e.version.id) drafted.push(...LOCALES);
-	const named = confirmText.match(/\(([^)]*)\)/)?.[1].split(/,\s*/) ?? [];
+	// the source language marked with ★ (owner 2026-10-06)
+	const named = confirmText.match(/\(([^)]*)\)/)?.[1].split(/,\s*/).map((l) => l.replace(/\s*★$/, '')) ?? [];
+	check(/\(de ★[,)]/.test(confirmText), 'the source language is marked ★', confirmText);
 	check(
 		/Chapter 1|Kapitel 1/.test(confirmText) && drafted.length > 0 && JSON.stringify([...named].sort()) === JSON.stringify([...drafted].sort()),
 		`Publish asks first, naming the file and exactly the languages with a draft (${drafted.join(', ')})`,

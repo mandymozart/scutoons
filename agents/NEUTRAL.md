@@ -269,8 +269,8 @@ don't fit the group schema (an `addChoice` jumpTo `value` is a number; an `end` 
   is the locale map `custom` in the header's text language, as before.
 - **Status per language – decision**: edited in ONE place, the chapter's meta panel (where the chapter is edited; the
   season page has no chapter list since the owner's 2026-10-03 "no second list"), and like every other per-language
-  field it follows the header's text language: source (default) = one select, a language = that one, "all" = side by
-  side. A language without its own status shows the source's (the reader's rule). Lists (toon page, season sidebar)
+  field it follows the header's text language: the chosen one (default the source; one at a time since the owner's
+  2026-10-06 UI round). A language without its own status shows the source's (the reader's rule). Lists (toon page, season sidebar)
   show it read-only as badges ("Draft · en"). `visibility.ts` reads / writes only the neutral season's locale map
   (`sequenceIndex` lost its locale argument; an older plain-string status counts for every language).
 - **New chapter / season / language** (toon page): "New chapter" and "Create season 1" store neutral documents

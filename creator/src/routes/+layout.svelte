@@ -31,6 +31,7 @@
 	import NavSidebar from '$lib/components/page/nav-sidebar.svelte';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
+	import { PLATFORM_SOURCE_LANGUAGE } from '$lib/editor/text-language.svelte.ts';
 	import AskPanel from '$lib/components/ask/ask-panel.svelte';
 	import { ask, pagePanel } from '$lib/ask.svelte.ts';
 
@@ -73,16 +74,17 @@
 	const toonName = (id: string) => nav.toonName(id);
 	/**
 	 * the TEXT language switch (content, not the UI language): a toon page offers the toon's languages (source first);
-	 * the universe pages every language of every toon; hidden while there is only one
+	 * the universe pages every language of every toon, the platform's source `de` first and the default; hidden while
+	 * there is only one
 	 */
-	const textLanguages = $derived.by<{ languages: string[]; source: string | null }>(() => {
+	const textLanguages = $derived.by<{ languages: string[]; source: string }>(() => {
 		const toon = toonId ? nav.toons.find((t) => t.id === toonId || t.uri === toonId) : null;
 		if (toon) {
 			const l = toonLanguages(toon);
 			return { languages: l.languages as string[], source: l.source };
 		}
-		if (toonId) return { languages: [], source: null };
-		return { languages: [...new Set(nav.toons.flatMap((t) => toonLanguages(t).languages as string[]))], source: null };
+		if (toonId) return { languages: [], source: PLATFORM_SOURCE_LANGUAGE };
+		return { languages: [...new Set([PLATFORM_SOURCE_LANGUAGE, ...nav.toons.flatMap((t) => toonLanguages(t).languages as string[])])], source: PLATFORM_SOURCE_LANGUAGE };
 	});
 	/** the crumbs of the route: Creator / toon / season / chapter (the chapter editor adds group and slice) */
 	const base = $derived.by<Crumb[]>(() => {

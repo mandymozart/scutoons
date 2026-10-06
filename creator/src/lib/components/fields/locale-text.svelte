@@ -5,10 +5,11 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import TextOriginal from '$lib/components/fields/text-original.svelte';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
-	 * One text field in the creator's chosen TEXT language (text-language.svelte.ts – the header's switch), its source
-	 * language (the default) or every language side by side; a translation shows the source as a muted line under it
+	 * One text field in the creator's chosen TEXT language (text-language.svelte.ts – the header's switch; default the
+	 * source, marked with the star): exactly one language; a translation shows the source as a muted line under it
 	 * (translate mode). A language-neutral document (chapter, scene, season) keeps the text as a locale map at `path`
 	 * (`doc.text` / `doc.setText`); a per-locale document in each locale's file. `string[]` values (paragraphs) are
 	 * edited with a blank line between entries and stay arrays. `type="date"`: a date per language (`release`).
@@ -24,7 +25,7 @@
 
 	const source = $derived(doc.textSource);
 	const sourceText = $derived(textOf(doc.text(path, source)).trim());
-	/** the locales shown: the chosen text language, the source (default) or all of them */
+	/** the one locale shown: the chosen text language, else the source */
 	const shown = $derived(textLanguage.visible(doc.textLanguages, source));
 	/** translate mode: the source shown read-only under the field */
 	const original = $derived(textLanguage.original(doc.textLanguages, source));
@@ -61,15 +62,14 @@
 	}
 </script>
 
-<div class="locale-text" style:--cols={shown.length}>
+<div class="locale-text">
 	{#each shown as locale (locale)}
 		{@const s = state(locale)}
 		{@const value = doc.text(path, locale)}
 		<div class="field">
 			<label class:missing={s.missing} class:long={s.long}>
 				<span class="head">
-					<span>{label} · {locale}</span>
-					{#if locale === source}<span class="sc-chip">{m['creator.source']()}</span>{/if}
+					<span>{label} · {locale}{#if locale === source}<SourceMark />{/if}</span>
 					{#if s.missing}<span class="sc-chip is-error">{m['creator.missing']()}</span>{/if}
 					{#if s.long}<span class="sc-chip is-warning">{Math.round(s.ratio * 100)}%</span>{/if}
 					{#if Array.isArray(value)}<button type="button" class="ghost mini" title={m['creator.text_paragraphs_hint']()} onclick={() => toggleArray(locale)}>[ ]</button>{/if}
@@ -105,7 +105,6 @@
 <style>
 	.locale-text {
 		display: grid;
-		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
 		gap: var(--space-1);
 	}
 	.field {

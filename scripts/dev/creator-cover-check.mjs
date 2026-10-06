@@ -9,8 +9,8 @@
 // On the sandbox toon's season 1 (de, en, ko), with the text-free catpope art when the CDN has it: the season editor
 // links to the cover editor; lettering off → no text on the art; "Default" → the two default lines; the preview language switches the texts (de / en / ko titles from the text
 // fields); dragging a line moves it and turns the default into an own layout; the corner handle makes it bigger, the
-// side handle narrower; a long translation shrinks into its box (every language "as readers see it"); an own line with a
-// text per language (Korean too); Save draft stores a valid layout (`validateNeutral`) with the texts NOT in the layout's
+// side handle narrower; a long translation shrinks into its box ("as readers see it", one language at a time); an own
+// line with a text per language (Korean too; one field at a time); Save draft stores a valid layout (`validateNeutral`) with the texts NOT in the layout's
 // geometry, in the one language-neutral season document (agents/NEUTRAL.md; the sandbox must be converted – the
 // creator's Convert page); Publish → the reader's toon page shows it. Afterwards the season document is as before
 // (restored also on failure). Refuses to run while it has an unpublished draft.
@@ -218,7 +218,7 @@ let failed = false;
 try {
 	await send('Page.navigate', { url: `${CREATOR}/` });
 	await until('document.readyState === "complete"');
-	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)}); localStorage.setItem('scutoons_creator_text_language', 'all')`);
+	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)}); localStorage.removeItem('scutoons_creator_text_language')`);
 	// the toon settings have no cover any more (the toon is shown with its avatar)
 	await send('Page.navigate', { url: `${CREATOR}/${TOON}/toon` });
 	check((await until(`!!${q('toon-neutral')}`)) && !(await js(`!!${q('toon-cover-lettering')} || !!document.querySelector('[data-testid^="field-cover"]')`)), 'toon settings: no cover');
@@ -277,26 +277,33 @@ try {
 	check(lines.every((x) => x.fits), `every line fits its box (fit ${lines.map((x) => x.fit.toFixed(2)).join(', ')})`, JSON.stringify(lines));
 	await shot('4-dragged');
 
-	// 5. an own line with a text per language: the header's switch back to all languages (step 2 left the last one picked)
-	await js(`(() => { const s = document.querySelector('[data-testid="text-language-select"]'); s.value = 'all'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
-	await sleep(300);
+	// 5. an own line with a text per language: one language at a time (owner 2026-10-06 – the header's switch shows only
+	// the chosen one: one own-text field, one "as readers see it" preview)
+	const pick = (l) => js(`(() => { const s = document.querySelector('[data-testid="text-language-select"]'); s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 	await click('[data-testid="cover-add-line"]');
-	check(await until(`!!${q(`cover-custom-${LOCALES.at(-1)}`)}`), 'Add line: an own text, one field per language');
+	check(await until(`!!${q(`cover-custom-${LOCALES[0]}`)}`), 'Add line: an own text');
+	const fit = {};
 	for (const l of LOCALES) {
-		if (!LONG[l]) continue;
-		await js(`(() => { const el = ${q(`cover-custom-${l}`)}; el.focus(); el.value = ${JSON.stringify(LONG[l])}; el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-	}
-	await sleep(400);
-	for (const l of LOCALES) {
+		await pick(l);
+		await until(`!!${q(`cover-custom-${l}`)} && !!${q(`cover-reader-${l}`)}`, 3000);
+		check(
+			(await js(`document.querySelectorAll('[data-testid^="cover-custom-"]:not([data-testid="cover-custom-text"])').length === 1 && document.querySelectorAll('[data-testid^="cover-reader-"]').length === 1`)),
+			`${l}: one own-text field, one preview (only the chosen language)`
+		);
+		if (LONG[l]) {
+			await js(`(() => { const el = ${q(`cover-custom-${l}`)}; el.focus(); el.value = ${JSON.stringify(LONG[l])}; el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+			await sleep(400);
+		}
 		const shown = await js(`[...${q(`cover-reader-${l}`)}.querySelectorAll('.line .text')].map((t) => t.textContent)`);
 		if (LONG[l]) check(shown.includes(LONG[l]), `as readers see it, ${l}: ${shown.join(' / ')}`);
 		const fits = await stageLines(q(`cover-reader-${l}`));
 		check(fits.every((x) => x.fits), `${l}: every line fits its box (fit ${fits.map((x) => x.fit.toFixed(2)).join(', ')})`, JSON.stringify(fits));
+		fit[l] = fits.find((x) => x.text === LONG[l])?.fit ?? 1;
+		if (l === 'de') await shot('5-own-line');
 	}
-	const longFit = (await stageLines(q('cover-reader-de'))).find((x) => x.text === LONG.de)?.fit ?? 1;
-	const shortFit = (await stageLines(q('cover-reader-en'))).find((x) => x.text === LONG.en)?.fit ?? 1;
-	check(longFit < shortFit, `the long German line shrinks (${longFit.toFixed(2)}), the short English one does not (${shortFit.toFixed(2)})`, JSON.stringify(await stageLines(q('cover-reader-en'))));
-	await shot('5-own-line');
+	check((fit.de ?? 1) < (fit.en ?? 1), `the long German line shrinks (${(fit.de ?? 1).toFixed(2)}), the short English one does not (${(fit.en ?? 1).toFixed(2)})`);
+	await pick(LOCALES[0]);
+	await sleep(300);
 	await js(`${q('cover-readers')}.scrollIntoView({ block: 'center' })`);
 	await shot('6-readers');
 

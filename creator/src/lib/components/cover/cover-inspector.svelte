@@ -5,6 +5,7 @@
 	import { alignLabel, colorLabel, sourceLabel } from '$lib/editor/cover-words.ts';
 	import { MediaSlot } from '@scutoons/media';
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
 	 * The cover editor's side: the art (a slot → the asset picker), the lettering lines (select, add) and the selected
@@ -19,6 +20,7 @@
 		lines,
 		selected = $bindable(null),
 		customLanguages,
+		source,
 		lineLabel,
 		onart,
 		onadd,
@@ -37,6 +39,8 @@
 		selected?: number | null;
 		/** the languages an own text is written in (the header's text language) */
 		customLanguages: string[];
+		/** the source language (marked) */
+		source: string;
 		lineLabel: (l: CoverLine) => string;
 		onart: (path: string | undefined) => void;
 		onadd: () => void;
@@ -84,7 +88,7 @@
 				<div class="custom" data-testid="cover-custom-text">
 					{#each customLanguages as l (l)}
 						<label class="field">
-							<span class="sc-label">{l}</span>
+							<span class="sc-label">{l}{#if l === source}<SourceMark />{/if}</span>
 							<input type="text" value={line.custom?.[l] ?? ''} lang={l} oninput={(e) => oncustom(i, l, e.currentTarget.value)} data-testid="cover-custom-{l}" />
 						</label>
 					{/each}

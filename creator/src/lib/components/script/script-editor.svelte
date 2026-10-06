@@ -45,7 +45,7 @@
 	$effect(() => {
 		if (textLanguage.value === followed) return;
 		followed = textLanguage.value;
-		// a language from the header; "source" / "all" = the script's source language (one script at a time)
+		// the header's language; one this toon has not = the script's source language
 		const chosen = textLanguage.chosen(doc.locales) ?? doc.primary;
 		untrack(() => switchLocale(chosen));
 	});

@@ -258,13 +258,9 @@
 		const src = groups[index]?.ref?.src;
 		if (src) ensureRef(src);
 	});
-	// svelte-ignore state_referenced_locally
-	let displayLocale = $state<string>(textLanguage.chosen(languages.languages) ?? languages.source);
-	// the canvas shows the top bar's TEXT language when one is chosen (the buttons above the canvas still switch it)
-	$effect(() => {
-		const chosen = textLanguage.chosen(languages.languages);
-		if (chosen) displayLocale = chosen;
-	});
+	// the canvas, the strip preview and the inspector show the top bar's TEXT language (default the source; owner
+	// 2026-10-06: one language everywhere, the header's switch the only one)
+	const displayLocale = $derived(textLanguage.current(languages.languages, languages.source));
 	// snap + grid size are remembered on this device
 	$effect(() => {
 		void view.snap;
@@ -460,7 +456,8 @@
 			view.section = path[0] === 'audio' ? 'audio' : 'meta';
 			return;
 		}
-		if (p.locale) displayLocale = p.locale;
+		// a problem in another language switches the header's text language to it
+		if (p.locale && p.locale !== displayLocale && (languages.languages as string[]).includes(p.locale)) textLanguage.set(p.locale);
 		if (path[0] === 'slices' && typeof path[1] === 'number') {
 			view.selectSlice(path[1]);
 			const rest = path.slice(2);

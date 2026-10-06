@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages.js';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
-	 * Translate mode (text-language.svelte.ts): one muted caption line under the field being translated – the source
-	 * text, read-only, and a small "Copy original" (writes the source into the translation).
+	 * Translate mode (text-language.svelte.ts): one muted caption line under the field being translated – "DE ★: " + the
+	 * source text, read-only, and a small "Copy original" (writes the source into the translation).
 	 */
 	let {
 		locale,
@@ -21,7 +22,7 @@
 </script>
 
 <p class="original" data-testid={testid}>
-	<span class="tag">{m['creator.text_original']({ locale: locale.toUpperCase() })}:</span>
+	<span class="tag">{locale.toUpperCase()}<SourceMark />:</span>
 	<span class="text" lang={locale}>{text || '–'}</span>
 	{#if text}
 		<button type="button" class="copy" onclick={oncopy} title={m['creator.text_copy_hint']({ locale: locale.toUpperCase() })} data-testid={testid ? `${testid}-copy` : undefined}

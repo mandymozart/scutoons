@@ -3,6 +3,7 @@
 	import { confirmSubmit, publishLabel, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
 	import { ActionBar, CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
@@ -324,7 +325,7 @@
 					</div>
 					<div class="language-grid">
 						<label class="field">
-							<span>{m['creator.source_language']()}</span>
+							<span>{m['creator.source_language']()}<SourceMark /></span>
 							<select value={edited.source} onchange={(e) => setSource(e.currentTarget.value as Language)} data-testid="source-language">
 								{#each ALL_LANGUAGES as l}<option value={l}>{languageLabel(l)}</option>{/each}
 							</select>
@@ -335,7 +336,7 @@
 								{#each targets as l (l)}
 									<li class="sc-chip-control" data-testid="language-{l}">
 										{languageLabel(l)}
-										<button class="ghost" title={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}>★</button>
+										<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
 										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
 									</li>
 								{:else}

@@ -2,8 +2,12 @@
 	import { CoverArt } from '@scutoons/reader';
 	import type { CoverFormat, CoverLine, CoverTexts } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 
-	/** The cover in every language "as readers see it" (the reader's own CoverArt, the titles of each language). */
+	/**
+	 * The cover "as readers see it" (the reader's own CoverArt with the titles of the language): the header's chosen text
+	 * language only (owner 2026-10-06) – the check for long translations, one language at a time.
+	 */
 	let {
 		image,
 		format,
@@ -22,7 +26,7 @@
 			{@const t = texts(l)}
 			<figure class="reader" data-testid="cover-reader-{l}">
 				<CoverArt src={image} {format} lettering={off ? false : { [format]: lines }} title={t.toon} subtitle={t.season} lang={l} />
-				<figcaption class="hint">{l.toUpperCase()}{l === source ? ` · ${m['creator.source']()}` : ''}</figcaption>
+				<figcaption class="hint">{l.toUpperCase()}{#if l === source}<SourceMark />{/if}</figcaption>
 			</figure>
 		{/each}
 	</div>

@@ -9,6 +9,7 @@
 	import { STATUSES } from '$lib/editor/visibility.ts';
 	import { statusWord } from '$lib/editor/status-word.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
@@ -58,7 +59,7 @@
 				<div class="status-row">
 					{#each statusLocales as l (l)}
 						<label class="status-field">
-							<span>{l}{l === entry.textSource ? ` (${m['creator.source']()})` : ''}</span>
+							<span>{l}{#if l === entry.textSource}<SourceMark />{/if}</span>
 							<select
 								class:inherited={!ownStatus(l)}
 								value={statusOf(l) ?? 'published'}

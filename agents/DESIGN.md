@@ -271,7 +271,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   chain read top to bottom (vertical → strip → strip → vertical reads smoothly: each strip pins, moves sideways,
   releases). One URL: `?label=` of a group inside a chain renders the whole chain and jumps (instant) to that group,
   kept aligned while the page above settles. One `{#key}` per chain; the follow-up bar only after its last group, "↺
-  Nochmal" from the chain's top. Creator: "geht weiter in die nächste Gruppe" (not on the chapter's last group), "Ende"
+  Nochmal" from the chain's top. Creator: "Durchgehend" / "Continuous" (not on the chapter's last group), "Ende"
   (set / removed with a button: the jumpTo target fields + "sofort") on a group that doesn't continue; a Feather link
   mark in the chapter tree on a group that continues. VN in any group of a chain (DATA.md "Linked groups", the case
   table): one box per page, scripts one after another; while the story waits the page doesn't scroll and a Feather
@@ -279,6 +279,13 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   chain: the groups above count as read. Creator: a jumping group that continues into an unlabelled one gets a note
   above its script with "Label vergeben"; unreachable groups / slices / events and never-true tests carry a warning
   chip ("unerreichbar", "nie wahr", "Endlosschleife").
+- **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
+  Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
+  Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the
+  swiper settings only for a horizontal group that isn't full width. No "Interaction" field (`Group.interaction` is gone
+  from the model; old stored values are ignored). The **strip preview** of a full-width group below it: the mouse wheel
+  down moves the strip sideways while the pointer is over it (like the reader's page scroll); at either end the page
+  scrolls on; a horizontal wheel / trackpad scrolls natively.
 - **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group
   (of linked groups: after the last one).
   - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
@@ -569,21 +576,32 @@ default in brackets ("(nein)"); a select's default likewise ("(Links)").
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
+- **One language at a time** (owner 2026-10-06: no "all side by side", no "each field in its source" mode any more):
+  every translatable field shows exactly the chosen language; the default is the source language – the toon's, or the
+  platform's `de` on pages without a toon (characters, moods, roles, map names).
 - **The switch** sits in the top bar, left of the search: a compact frame like the compact palette trigger – Feather
-  `globe` + the current choice ("ALL", "DE", "KO"; inverted while a language is chosen), a native select invisibly over
-  it (its own list: "All" + the toon's languages, the source marked "· source"). Tooltip / accessible name: "i18n:
-  Content language of the translatable fields … – not the interface language". The UI language stays in the Ctrl K
-  palette (with sign out). Offered: a toon page → the toon's languages (source first); the universe pages → every
-  language of every toon; hidden with one language. Remembered per browser (`localStorage`
-  `scutoons_creator_text_language`, try/catch), default **All** = every language side by side (as before); a language
-  the current toon doesn't have shows All.
-- **One language chosen:** every translatable field shows only that language (one column). Not the source → **translate
-  mode**: under the field one muted caption line "Original (DE): <source text>" + a small text link "Copy original"
-  (writes the source into the field; on touch the link gets the 44 px target on its own line).
+  `globe` + the current code ("DE", "KO") + the source mark (★, below) when it is the source; inverted while a
+  translation is shown. A native select invisibly over it (its own list: the toon's languages, the source marked "★" –
+  a native option holds only text). Tooltip / accessible name: "i18n: Content language of the translatable fields … –
+  not the interface language". The UI language stays in the Ctrl K palette (with sign out). Offered: a toon page → the
+  toon's languages (source first); the universe pages → every language of every toon (`de` first); hidden with one
+  language. Remembered per browser (`localStorage` `scutoons_creator_text_language` = a language code, try/catch;
+  nothing stored = the source; an old stored "all" / "source" reads as the source); a language the current toon
+  doesn't have shows the source.
+- **The source mark** (owner 2026-10-06): the Feather `star` (the toon page's "make source" star) right after the
+  language code it marks – `source-mark.svelte`, 0.9em, `title` "Quellsprache / Source language" – everywhere the
+  source language is marked: the switch, field labels (LocaleText, LocaleMapField), status per language, the
+  translate hint, cover previews and own-text fields, chapter badges, the character's language list; "★" where only
+  text fits (native options, the publish dialog's language list). Never "· source" / "(source)" words.
+- **A translation shown → translate mode**: under the field one muted caption line "DE ★: <source text>" + a small
+  text link "Copy original" (writes the source into the field; on touch the link gets the 44 px target on its own line).
 - Where: `LocaleText` (the texts of a chapter, group, season or the toon settings: titles, descriptions, text boxes, VN messages / choices) and
   `LocaleMapField` (`{ <locale>: text }` values: characters, moods, cast roles, credits, map names) – the two shared
   field components (`creator/src/lib/editor/text-language.svelte.ts` + `components/text-original.svelte`). The chapter
-  canvas shows the chosen language, the script page opens / switches to it, the cover preview shows only it.
+  canvas, strip preview and inspector show the chosen language (a problem in another language switches the header to
+  it), the script page opens / switches to it, the cover editor (canvas, own text, "as readers see it") shows only it.
+  Per-language status (chapter meta panel, toon settings): the chosen language's only. Tooltips may still list the
+  other languages' texts (`otherTexts`).
 - **Chapter lists** (toon page, season editor + its sidebar; owner 2026-10-02 "no spreadsheet vibe", "only show badges
   when something is up"): a plain list, no header row – number (muted), the title in the chosen language (else the
   source; a missing translation shows the source's title muted), the whole row a link; the other languages' titles in
@@ -601,8 +619,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
   = row n, horizontal scroll instead of wrapping), spellcheck off, as wide as the content column, `tab-size: 4`. Tab
   inserts 4 spaces (the format counts spaces), Shift+Tab removes up to 4 leading spaces, **Esc then Tab** leaves the
   text (keyboard users); edits go through the browser's own command so Ctrl+Z inside the text works.
-- **Language switch** above the text: one button per toon language, the source marked "· Quelle"/"· source", "•" when
-  unsaved. A missing translation shows "Start empty" / "Copy the de script" (no "create locale" bars: the page's
+- **Language**: the top bar's i18n switch (the only language switch; one script at a time, `?lang=` opens one). A missing translation shows "Start empty" / "Copy the de script" (no "create locale" bars: the page's
   MetaPage has `translationsOptional`). A toon without a script opens with an empty, clean (not dirty) source text.
 - **Title page**: a collapsed block with the 6 meta fields (per language, text).
 - **Bottom bar**: the normal MetaPage ActionBar (Save draft, Publish, History with restore, undo/redo, problems, note).
@@ -622,8 +639,8 @@ Translators switch back and forth to copy, adapt and review originals, and there
 "Creator / <toon> / Season n / Cover", Ctrl K "Season n · Cover"; the season editor's "Cover" section shows a thumbnail,
 the state ("Lettering: Off / Default / Own layout"); the cover preview is the link into the editor (see "Creator: season
 page"). The toon settings have no cover.
-- **Toolbar:** "Lettering" segmented Off · Default · Own layout; "Preview language" one segment per toon language (follows
-  the top bar's i18n choice when it is a language). The hint line under it says what the mode does.
+- **Toolbar:** "Lettering" segmented Off · Default · Own layout (the preview language is the top bar's i18n choice – no
+  own switch). The hint line under it says what the mode does.
 - **Canvas** (left, the art as big as the screen height allows, ≤ 36rem): the reader's own `CoverArt` with editing boxes on
   top in the same geometry (dashed white / ink frame; selected = cyan frame, the live-selection colour). Drag a box to
   move it (snaps to the vertical centre ±1.5 %, a cyan guide; Alt = free); the selected box has three handles: side =
@@ -634,10 +651,11 @@ page"). The toon settings have no cover.
   preview is the button that opens the asset picker, uploads go to `<toon>/s<n>/`, the path only as the tooltip, × clears),
   once for every language, stored once in the language-neutral season document like the lettering; then (lettering on) the "Lines" list (source label + the text in the preview language, the selected row inverted),
   "Add line" (an own text at 60 %), then the selected line: Text (Toon title / Season title / Own text; own text = one
-  field per language, following the i18n switch), "In quotes", X / Y / Size / Width / Angle / Skew (number fields, two per
+  field, in the i18n switch's language), "In quotes", X / Y / Size / Width / Angle / Skew (number fields, two per
   row), Align (Feather align-left / center / right, segmented), Fill / Outline (palette selects with a swatch), up / down /
   Remove.
-- **As readers see it:** every toon language side by side (14rem each) – the check for long translations.
+- **As readers see it:** the chosen text language only (owner 2026-10-06; 14rem) – switch the header's language to check
+  long translations one by one.
 - Square only (the reader shows no portrait cover). Tools rules: regular weight, rem sizes, `--control-height` controls,
   Feather icons, tooltips via `title`; the lettering itself is comic lettering (cqw, exempt).
 - Check: `npm run check:creator-cover` (SCUTOONS_API / SCUTOONS_CREATOR / SCUTOONS_VIEWER / SCUTOONS_CDN for other ports;

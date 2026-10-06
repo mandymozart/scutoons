@@ -67,8 +67,9 @@
 	const lines = $derived<CoverLine[]>(mode === 'off' ? [] : (coverLines(lettering, format) ?? defaultCoverLines(format)));
 	const image = $derived(cover?.[format] ? asset(`${toon}/${cover[format]}`) : '');
 
-	// the preview language = the header's text language switch (owner 2026-10-03: no own switch here); source / all = the source
-	const previewLang = $derived(textLanguage.chosen(languages) ?? source);
+	// the preview language = the header's text language switch (owner 2026-10-03: no own switch here; 2026-10-06: one
+	// language, default the source) – the canvas, an own line's text and "as readers see it" all show it
+	const previewLang = $derived(textLanguage.current(languages, source));
 	const previewTexts = $derived(texts(previewLang || source));
 
 	let selected = $state<number | null>(null);
@@ -159,7 +160,7 @@
 	const lineLabel = (l: CoverLine) => coverLineText(l, previewTexts, previewLang) || m['creator.cover_text_empty']();
 	/** the default layout becomes the format's own (touched on the canvas, a line added / removed) */
 	const ownLayout = () => writeLines(defaultCoverLines(format), 'cover-mode');
-	const customLanguages = $derived(textLanguage.visible(languages, source));
+	const customLanguages = $derived([previewLang]);
 </script>
 
 <div class="cover-editor" data-testid="cover-editor">
@@ -188,6 +189,7 @@
 			{lines}
 			bind:selected
 			{customLanguages}
+			{source}
 			{lineLabel}
 			onart={(v) => writeCover(format, v, 'cover-art')}
 			onadd={() => (mode === 'default' ? (ownLayout(), addLine()) : addLine())}
@@ -201,7 +203,7 @@
 	</div>
 
 	{#if image}
-		<CoverPreviews {image} {format} {lines} off={mode === 'off'} {languages} {source} {texts} />
+		<CoverPreviews {image} {format} {lines} off={mode === 'off'} languages={[previewLang]} {source} {texts} />
 	{/if}
 </div>
 
