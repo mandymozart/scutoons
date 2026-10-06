@@ -165,7 +165,7 @@ try {
 	await sleep(400);
 	g = await layout();
 	const mx = await js(`(() => { const b = ${q('dock-maximize')}; return { max: !!document.querySelector('.sc-app-shell.max-dock'), hidden: getComputedStyle(document.querySelector('.sc-shell-content')).visibility, icon: b.querySelector('svg').dataset.icon, title: b.title }; })()`);
-	check(mx.max && mx.hidden === 'hidden' && g.folded && g.dock.r >= 1600 - 2 && g.dock.l <= 64 && mx.icon === 'minimize-2' && /^Restore|^Wiederherstellen/.test(mx.title), `admin: the detail maximizes (${g.dock.l}–${g.dock.r} px, "${mx.title}"), the list hidden`, JSON.stringify({ g, mx }));
+	check(mx.max && mx.hidden === 'hidden' && g.folded && g.dock.r >= 1600 - 2 && g.dock.l <= g.sidebar.r + 4 && mx.icon === 'minimize-2' && /^Restore|^Wiederherstellen/.test(mx.title), `admin: the detail maximizes (${g.dock.l}–${g.dock.r} px, "${mx.title}"), the list hidden`, JSON.stringify({ g, mx }));
 	await shot('admin-1600-codes-max');
 	await js(`${q('dock-maximize')}.focus(), true`);
 	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });

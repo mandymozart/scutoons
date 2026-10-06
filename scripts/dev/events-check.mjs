@@ -222,7 +222,7 @@ async function pageView(view, offsetMinutes) {
 		await shot('ask-text');
 		await answer('  Zed\n ');
 		s = await waitText(/^HERO /, 5000);
-		check(s?.text === 'HERO Zed' && s.vars.hero === 'Zed', `toon scope: trimmed into the story variable → "${s?.text}" (hero = ${JSON.stringify(s?.vars.hero)})`);
+		check(s?.text === 'HERO Zed' && s.vars['sandbox/hero'] === 'Zed', `toon scope: trimmed into the story variable → "${s?.text}" (sandbox/hero = ${JSON.stringify(s?.vars['sandbox/hero'])})`);
 		await next();
 		s = await waitText(/^Q2 /, 5000);
 		check(s?.asking, 'askText with scope reader asks (no name yet)', JSON.stringify(await state()));
@@ -281,7 +281,7 @@ try {
 
 	// page view 1: everything runs once / twice
 	let s = await pageView(1, 0);
-	const counts = (v) => ['c_once', 'c_view', 'c_int', 'c_every', 'c_item'].map((k) => v[k] ?? 0).join(' ');
+	const counts = (v) => ['c_once', 'c_view', 'c_int', 'c_every', 'c_item'].map((k) => v[`sandbox/${k}`] ?? 0).join(' ');
 	check(counts(s.vars) === '1 1 1 2 1', `page view 1: once for good / per page view / every 10 min / every time / item tap → ${counts(s.vars)} (want 1 1 1 2 1)`);
 	check(['evc-once', 'evc-view', 'evc-int', 'evc-every', 'evc-item-e1'].every((id) => s.history[`event:${id}`]), 'the runs are in the save game (history event:<id>)', JSON.stringify(Object.keys(s.history)));
 	check(s.history['event:evc-every']?.n === 2, `count("evc-every") = ${s.history['event:evc-every']?.n}`);

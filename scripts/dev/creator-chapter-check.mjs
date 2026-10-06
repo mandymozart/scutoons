@@ -459,7 +459,7 @@ try {
 	// ── save draft ──────────────────────────────────────────────────────────────────────────────────────
 	const n = writes.length;
 	await click(tid('save-draft'));
-	await answerDialog('button.secondary'); // the note dialog: save without a note
+	await answerDialog('button.primary'); // the note dialog: "Save without note" (its one primary button while the field is empty)
 	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.textContent.includes('•')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (one neutral document) 200, nothing published', JSON.stringify(saved));
@@ -519,7 +519,7 @@ try {
 	await click(`[data-testid="vn-events"] .add button:last-child`); // + setVariable
 	check(
 		(await until(`document.querySelectorAll('[data-testid^="event-line-"]').length === ${lines + 1} && ${q(`event-line-${lines}`)}.getAttribute('aria-expanded') === 'true'`, 3000)) &&
-			(await js(`document.activeElement?.closest('[data-testid="event-${lines}"]') !== null && document.activeElement?.tagName === 'INPUT'`)),
+			(await js(`document.activeElement?.closest('[data-testid="event-${lines}"]') !== null && ['INPUT', 'SELECT'].includes(document.activeElement?.tagName)`)),
 		'VN: "+ setVariable" adds an event, opened, the cursor in its first field'
 	);
 	// a slice without events: "+ event" shows the new one (it used to land outside the reactive list)
