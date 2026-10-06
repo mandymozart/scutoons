@@ -279,6 +279,16 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   chain: the groups above count as read. Creator: a jumping group that continues into an unlabelled one gets a note
   above its script with "Label vergeben"; unreachable groups / slices / events and never-true tests carry a warning
   chip ("unerreichbar", "nie wahr", "Endlosschleife").
+- **Flow panel** (owner 2026-10-06, DRAFT – chapter level only; `components/flow/`): a read-only, zoomable graph of the
+  chapter's story flow ("Ablauf" / "Flow") – `@scutoons/content` `chapterFlow` over the editor's own `chapterReach`, so it
+  says what the chips say. Opened by a round Feather `git-merge` button in the top bar left of the Ask button (a page's
+  `usePageNav({ actions })`); docked on the right like Problems / History (left of Ask, pushes the page, drags wider up to
+  half the window, 28rem by default). Boxes: group (2px ink; slices · Script · unreachable slices), script points
+  (hairline: point, question, divert, jump), slice triggers / item taps that branch, exits (pill: another chapter /
+  season / toon, the next chapter). Only through a condition = dashed; unreachable / never true / endless loop = the
+  warning colour + its chip; the group open in the editor = inverted. Edges: linked (thick), follow-up bar, end, choices
+  (their text), conditions ("wenn …"), else. A box opens its group / slice / event (navigation only). Svelte Flow +
+  dagre are loaded only when the panel opens; zoom / fit are the creator's round buttons, a minimap bottom right.
 - **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
   Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
   Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the
