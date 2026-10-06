@@ -29,6 +29,7 @@ export * from './history.ts';
 export * from './save-game.ts';
 export * from './chains.ts';
 export * from './reach.ts';
+export * from './stuck.ts';
 export * from './flow.ts';
 export * from './script.ts';
 export * from './media-quality.ts';

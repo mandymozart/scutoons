@@ -95,6 +95,7 @@
 
 	const miniColor = (n: Node) => {
 		const f = (n.data as FlowNodeData).flow;
+		if (f.status === 'stuck') return 'var(--badge-error)';
 		if (f.status === 'unreachable' || f.status === 'never' || f.status === 'loop') return 'var(--badge-warning)';
 		return f.kind === 'group' || f.kind === 'chapter' || f.kind === 'toon' ? 'var(--ink)' : 'var(--border-muted)';
 	};

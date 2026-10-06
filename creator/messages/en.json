@@ -618,6 +618,8 @@
 		"next_label_hint": "This group can jump away and continues into the next group, which has no label – nothing can lead back to it.",
 		"reach_loop_hint": "From here the script only goes round – no end, no jump.",
 		"reach_loop": "endless loop",
+		"reach_stuck": "may get stuck",
+		"reach_stuck_hint": "The reader may get stuck here: every choice has a condition, all of them can be hidden at once. Give one choice no condition (e.g. \"Go on\") – it won’t save otherwise.",
 		"reach_never_hint": "This test can never pass: its variable is set nowhere (in no toon).",
 		"reach_never": "never true",
 		"reach_unreachable_hint": "Nothing leads here: the content before it always leaves (jumpTo) or never finishes, and no jump or divert comes here. Delete it or give it a way in.",

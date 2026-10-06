@@ -12,6 +12,7 @@ import {
 import { getAt, type Path } from './paths.ts';
 import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, similarVariable, type ToonFacts } from './reach.ts';
+import { stuckMessage, stuckPoints } from './stuck.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import {
 	DEFAULT_SLICE,
@@ -284,23 +285,24 @@ function checkTarget(c: Collector, target: any, path: Path, ctx: ValidateContext
 
 /**
  * Does the place a jump leads to exist – where the caller can tell (`ctx.targets`): the toon, its chapter, the chapter's
- * group labels. All warnings (content of other documents may still come); another toon's labels the caller couldn't load
- * (no access, not loaded) warn that they can't be checked.
+ * group labels. A place that is known not to exist is an ERROR (owner 2026-10-06: a jump into nothing must not be saved
+ * – the reader would stay where they are); another toon's labels the caller couldn't load (no access, not loaded) warn
+ * that they can't be checked. The server's save guard checks the same against the database (`JumpCheck`).
  */
 function checkTargetPlace(c: Collector, target: Record<string, any>, path: Path, known: JumpTargets | undefined) {
 	if (!known) return;
 	const toons = known.toons;
 	if (target.type === 'toon' && isStr(target.value) && toons && !toons.includes(target.value)) {
-		return c.warn([...path, 'value'], `there is no toon "${target.value}"`);
+		return c.error([...path, 'value'], `there is no toon "${target.value}"`);
 	}
 	if (target.type !== 'chapter' || target.value === undefined || target.value === '') return;
 	const other = isStr(target.toon) && target.toon && target.toon !== known.toon;
 	const toon: string = other ? target.toon : known.toon;
-	if (other && toons && !toons.includes(toon)) return c.warn([...path, 'toon'], `there is no toon "${toon}"`);
+	if (other && toons && !toons.includes(toon)) return c.error([...path, 'toon'], `there is no toon "${toon}"`);
 	const number = Number(target.value);
 	const chapters = known.chapters?.(toon);
 	const where = other ? `${toon} chapter ${target.value}` : `chapter ${target.value}`;
-	if (chapters && !chapters.includes(number)) return c.warn([...path, 'value'], `${other ? `${toon} has` : 'the toon has'} no chapter ${target.value}`);
+	if (chapters && !chapters.includes(number)) return c.error([...path, 'value'], `${other ? `${toon} has` : 'the toon has'} no chapter ${target.value}`);
 	const wanted: string[] = [...(isStr(target.label) && target.label ? [target.label] : []), ...(Array.isArray(target.anyOf) ? target.anyOf.filter((l: unknown) => isStr(l) && l) : [])];
 	if (!wanted.length) return;
 	const labels = known.labels?.(toon, number);
@@ -309,7 +311,7 @@ function checkTargetPlace(c: Collector, target: Record<string, any>, path: Path,
 		return;
 	}
 	const field = isStr(target.label) && target.label ? 'label' : 'anyOf';
-	for (const l of wanted) if (!labels.includes(l)) c.warn([...path, field], `${where} has no group labelled "${l}"`);
+	for (const l of wanted) if (!labels.includes(l)) c.error([...path, field], `${where} has no group labelled "${l}"`);
 }
 
 /** "Only if" on an event: { variable, op, value? }, or an expression { expr } (EXPRESSIONS.md §3: syntax errors are errors) */
@@ -703,6 +705,8 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	}
 	checkScriptPoints(c, g, path);
 	checkVnFlow(c, g, path);
+	// where the reader could get stuck (stuck.ts, owner 2026-10-06): refused – the save guard on the server too
+	for (const p of stuckPoints([g])) c.error([...path, ...p.path.slice(2)], stuckMessage(p));
 	checkGroupLinks(c, g, path, ctx);
 }
 

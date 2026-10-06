@@ -258,6 +258,7 @@
 		r.events.forEach((list, gi) => list.forEach((x, i) => x === 'unreachable' && r.groups[gi] !== 'unreachable' && out.set(`groups.${gi}.events.${i}`, 'unreachable')));
 		for (const p of r.loops) out.set(p.join('.'), 'loop');
 		for (const p of r.neverTrue) out.set(p.slice(0, -1).join('.'), 'never');
+		for (const p of r.stuck ?? []) out.set(p.join('.'), 'stuck');
 		return out;
 	});
 	const markAt = (...path: (string | number)[]): ReachMark => marks.get(path.join('.')) ?? null;

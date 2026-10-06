@@ -124,7 +124,9 @@ export const chipOf = (n: FlowNode) =>
 			? m['creator.reach_never']()
 			: n.status === 'loop'
 				? m['creator.reach_loop']()
-				: undefined;
+				: n.status === 'stuck'
+					? m['creator.reach_stuck']()
+					: undefined;
 
 const statusHint = (n: FlowNode) =>
 	n.status === 'unreachable'
@@ -133,7 +135,9 @@ const statusHint = (n: FlowNode) =>
 			? m['creator.reach_never_hint']()
 			: n.status === 'loop'
 				? m['creator.reach_loop_hint']()
-				: n.status === 'conditional'
+				: n.status === 'stuck'
+					? m['creator.reach_stuck_hint']()
+					: n.status === 'conditional'
 					? m['creator.flow_conditional']()
 					: undefined;
 

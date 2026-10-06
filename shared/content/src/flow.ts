@@ -22,8 +22,11 @@ import { askVariable, chapterReach, isConditional, runRepeat, triggerKey, type C
 import type { RepeatMode } from './recurrence.ts';
 import { actionsOf, intoOtherToon } from './vn-script.ts';
 
-/** a node's state: the reach of its item, or a condition that can never be true / a loop with no way out at it */
-export type FlowStatus = Reach | 'never' | 'loop';
+/**
+ * a node's state: the reach of its item, or a condition that can never be true / a loop with no way out at it / a
+ * question where the reader may get stuck (stuck.ts: every choice conditional – the save refuses it)
+ */
+export type FlowStatus = Reach | 'never' | 'loop' | 'stuck';
 
 export type FlowNodeKind =
 	/** a group of the chapter (a scene in place of its ref) */
@@ -194,7 +197,7 @@ const firstText = (v: unknown): string => {
 };
 
 const conditional = isConditional;
-const RANK: Record<FlowStatus, number> = { reachable: 3, conditional: 2, loop: 1, never: 1, unreachable: 0 };
+const RANK: Record<FlowStatus, number> = { reachable: 3, conditional: 2, loop: 1, never: 1, stuck: 1, unreachable: 0 };
 const KEY_EVENTS = new Set(['label', 'addChoice', 'showChoices', 'divert', 'jumpTo']);
 /** the story variable an askText's answer goes to, or the reader's name */
 const asksInto = (e: any): string => askVariable(e) ?? (e?.params?.scope === 'reader' ? 'reader.name' : '');
@@ -245,6 +248,7 @@ class Builder {
 	readonly byId = new Map<string, FlowNode>();
 	readonly loops: Set<string>;
 	readonly never: Set<string>;
+	readonly stuck: Set<string>;
 	readonly labelled = new Map<string, number>();
 	readonly text: (value: unknown) => string;
 	readonly name: (group: any, index: number) => string;
@@ -258,6 +262,7 @@ class Builder {
 		this.name = options.name ?? ((g: any, i: number) => (typeof g?.label === 'string' && g.label ? g.label : `#${i + 1}`));
 		this.loops = new Set(reach.loops.map((p) => p.join('.')));
 		this.never = new Set(reach.neverTrue.map((p) => p.slice(0, -1).join('.')));
+		this.stuck = new Set((reach.stuck ?? []).map((p) => p.join('.')));
 		groups.forEach((g, gi) => typeof g?.label === 'string' && g.label && !this.labelled.has(g.label) && this.labelled.set(g.label, gi));
 	}
 
@@ -273,7 +278,7 @@ class Builder {
 	}
 	statusAt(path: Path, base: Reach): FlowStatus {
 		const key = path.join('.');
-		return this.loops.has(key) ? 'loop' : this.never.has(key) ? 'never' : base;
+		return this.stuck.has(key) ? 'stuck' : this.loops.has(key) ? 'loop' : this.never.has(key) ? 'never' : base;
 	}
 	/** a group's box (`stub`: drawn for context on the group / slice level) */
 	group(gi: number, stub = false): string {

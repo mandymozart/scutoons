@@ -5,6 +5,7 @@ namespace Scutoons\Console;
 
 use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\FlowCheck;
 use Scutoons\Infrastructure\Database\Database;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -12,10 +13,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'content:check', description: 'READ-ONLY: checks the newest and the published version of every stored entity against its type (ContentSchemas)')]
+#[AsCommand(name: 'content:check', description: 'READ-ONLY: checks the newest and the published version of every stored entity against its type (ContentSchemas) and where a reader could get stuck (FlowCheck)')]
 final class ContentCheckCommand extends Command
 {
-    public function __construct(private readonly Database $db, private readonly ContentSchemas $schemas)
+    public function __construct(private readonly Database $db, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow)
     {
         parent::__construct();
     }
@@ -49,6 +50,8 @@ final class ContentCheckCommand extends Command
             $problems = EntityKey::isValid($row['entity_key']) // neutral chapters / scenes / seasons against their neutral schema
                 ? $this->schemas->problemsOf(EntityKey::parse($row['entity_key']), $content, $limit)
                 : $this->schemas->problems($k, $content, $limit);
+            // a document that fits: where a reader could get stuck (the save guard's rules – 422 on save)
+            if (!$problems && EntityKey::isValid($row['entity_key'])) $problems = $this->flow->problems(EntityKey::parse($row['entity_key']), $content, $limit);
             if (!$problems) continue;
             $bad++;
             $perKind[$k]['bad']++;

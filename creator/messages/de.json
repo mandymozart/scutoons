@@ -618,6 +618,8 @@
 		"next_label_hint": "Diese Gruppe kann wegspringen und geht in die nächste Gruppe weiter, die kein Label hat – nichts kann zu ihr zurückführen.",
 		"reach_loop_hint": "Ab hier dreht sich das Skript nur im Kreis – kein Ende, kein Sprung.",
 		"reach_loop": "Endlosschleife",
+		"reach_stuck": "kann hängen",
+		"reach_stuck_hint": "Hier kann die Leser:in hängen bleiben: Jede Auswahl hat eine Bedingung, alle können zugleich ausgeblendet sein. Gib einer Auswahl keine Bedingung (z. B. „Weiter“) – sonst wird nicht gespeichert.",
 		"reach_never_hint": "Diese Bedingung ist nie erfüllt: ihre Variable wird nirgends gesetzt (in keinem Toon).",
 		"reach_never": "nie wahr",
 		"reach_unreachable_hint": "Hierher führt nichts: Was davor kommt, springt immer weg (jumpTo) oder endet nie, und kein Sprung oder Divert führt her. Löschen oder einen Weg hinein schaffen.",

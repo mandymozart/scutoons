@@ -8,6 +8,7 @@ import { Trigger } from './enums.ts';
 import { repeatOf, type Repeat } from './recurrence.ts';
 import { actionsOf } from './vn-script.ts';
 import { editDistance } from './expr/analyse.ts';
+import { stuckPoints } from './stuck.ts';
 
 export type Reach = 'reachable' | 'conditional' | 'unreachable';
 type Path = (string | number)[];
@@ -165,6 +166,11 @@ export interface ChapterReach {
 	 * path of the run's first event (…slices.s.events.j, …slices.s.items.x.events.0)
 	 */
 	once: Path[];
+	/**
+	 * questions where the reader may get stuck (stuck.ts `stuckPoints`: every choice conditional) – the showChoices'
+	 * path; validation refuses them, the Flow graph marks them "may get stuck"
+	 */
+	stuck: Path[];
 }
 
 interface Edge {
@@ -413,6 +419,7 @@ export function chapterReach(groups: readonly any[], facts?: ToonFacts): Chapter
 		events: eventNodes.map((nodes) => nodes.map(reach)),
 		neverTrue: never.map((p) => [...p]),
 		loops,
-		once
+		once,
+		stuck: stuckPoints(groups).map((p) => p.path)
 	};
 }

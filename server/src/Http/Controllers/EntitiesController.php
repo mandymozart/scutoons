@@ -10,6 +10,7 @@ use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Content\FlowCheck;
 use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
@@ -23,7 +24,8 @@ use stdClass;
  *   GET  /api/entities?toon=                     every stored entity of a toon (`toon=` empty: platform-wide ones)
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
- *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas)
+ *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas,
+ *                                                or can get the reader stuck: FlowCheck)
  *   GET  /api/entities/<key>/versions?limit=     history, newest first
  *   POST /api/entities/<key>/publish { version? } · /unpublish · /restore { id, message? }
  * publish / unpublish: 403 review_required for accounts that need a review for the toon (Reviews; submit through
@@ -31,7 +33,7 @@ use stdClass;
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow)
     {
     }
 
@@ -65,7 +67,11 @@ final class EntitiesController
         $key = EntityKey::parse($args['key']);
         $user = $this->creator($request);
         $body = $this->body($request);
-        if (property_exists($body, 'content')) $this->schemas->guard($key, $body->content);
+        if (property_exists($body, 'content')) {
+            $this->schemas->guard($key, $body->content);
+            // where a reader could get stuck (a question whose choices can all be hidden, a divert / jump into nothing)
+            $this->flow->guard($key, $body->content);
+        }
         $result = $this->store->save($user, $key, $body);
         $this->usages->reindexEntity((string) $key); // the asset usage index (agents/ASSETS.md); never fails the save
         return Json::response($response, 200, $result);

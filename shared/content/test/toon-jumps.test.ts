@@ -85,7 +85,7 @@ test('flow: chapter / toon level exits into the other toon, toon reach entries, 
 	assert.deepEqual(u.edges.map((e) => `${e.from}>${e.to}:${e.kind}:${e.count}`), ['t:catpope>t:toptoy:choice:1', 't:catpope>t:toptoy:jump:2', 't:toptoy>t:catpope:end:1']);
 });
 
-test('validation: toon only on chapter targets; toon / chapter / label checked where the caller knows them', () => {
+test('validation: toon only on chapter targets; toon / chapter / label checked where the caller knows them – a known missing place is an error (owner 2026-10-06)', () => {
 	const chapter = (target: object) => ({ number: 3, groups: [{ label: 'a', slices: [{ image: 'x.webp' }], end: { target } }] });
 	const run = (target: object, targets?: object) =>
 		validateFile('chapter', chapter(target), 'de', { file: 'x', ...(targets ? { targets } : {}) } as never)
@@ -102,12 +102,12 @@ test('validation: toon only on chapter targets; toon / chapter / label checked w
 	};
 	assert.deepEqual(run(into('toptoy', '1', 'hyper'), known), []);
 	assert.deepEqual(run({ type: 'chapter', value: '2', label: 'mama-crossroads' }, known), []);
-	assert.deepEqual(run(into('nobody', '1'), known), ['warning target.toon: there is no toon "nobody"']);
-	assert.deepEqual(run({ type: 'toon', value: 'nobody' }, known), ['warning target.value: there is no toon "nobody"']);
-	assert.deepEqual(run(into('toptoy', '7'), known), ['warning target.value: toptoy has no chapter 7']);
-	assert.deepEqual(run({ type: 'chapter', value: '8' }, known), ['warning target.value: the toon has no chapter 8']);
-	assert.deepEqual(run(into('toptoy', '1', undefined, { anyOf: ['hyper', 'gone'] }), known), ['warning target.anyOf: toptoy chapter 1 has no group labelled "gone"']);
-	assert.deepEqual(run({ type: 'chapter', value: '2', label: 'nope' }, known), ['warning target.label: chapter 2 has no group labelled "nope"']);
+	assert.deepEqual(run(into('nobody', '1'), known), ['error target.toon: there is no toon "nobody"']);
+	assert.deepEqual(run({ type: 'toon', value: 'nobody' }, known), ['error target.value: there is no toon "nobody"']);
+	assert.deepEqual(run(into('toptoy', '7'), known), ['error target.value: toptoy has no chapter 7']);
+	assert.deepEqual(run({ type: 'chapter', value: '8' }, known), ['error target.value: the toon has no chapter 8']);
+	assert.deepEqual(run(into('toptoy', '1', undefined, { anyOf: ['hyper', 'gone'] }), known), ['error target.anyOf: toptoy chapter 1 has no group labelled "gone"']);
+	assert.deepEqual(run({ type: 'chapter', value: '2', label: 'nope' }, known), ['error target.label: chapter 2 has no group labelled "nope"']);
 	// this toon's chapter not loaded: no check; another toon the creator can't see: its labels can't be checked
 	assert.deepEqual(run({ type: 'chapter', value: '1', label: 'x' }, known), []);
 	assert.deepEqual(run(into('yellowmouse', '1', 'mama-boss'), known), [
