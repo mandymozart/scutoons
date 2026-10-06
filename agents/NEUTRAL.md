@@ -81,9 +81,8 @@ translation by design).
    status per language, new chapter / season / language flows, MCP tools, make-sandbox, test fixtures, dev checks).
 3. Linked groups (`groups/chains`) merged in; its fields live in the neutral document.
 4. ~~Toon settings into the toon entry~~ done 2026-10-06 (see "Step 4 – toon settings" below).
-5. Creator messages refactor (owner 2026-10-06): `creator/messages/{de,en}.json` + hints/tooltips in the code still
-   name JSON files that no longer exist since the content lives in the database – say what it is today (the document,
-   published / draft), shorter and consistent wording, drop unused keys.
+5. ~~Creator messages refactor~~ done 2026-10-06 (see "Step 5 – creator wording" below; the glossary is in
+   agents/DESIGN.md "Creator wording").
 6. Full checks, browser tests creator + viewer.
 
 ## Phase 1 "Foundation" – done (2026-10-06, branch `chapter-neutral`)
@@ -389,3 +388,22 @@ Notes: `check:creator-cover`'s reader step (only when the viewer runs) fails –
 and the check's browser has no draft-preview session, so `/de/sandbox` is 404; with the viewer down the step is skipped
 (as in 2B). Open: fold `i18n.<l>.name` into `title`? Remove the legacy toon-settings path (library fallback,
 `ToonSettings` schema, MCP's legacy read, the Convert page's toon step) once production is converted.
+
+## Step 5 "Creator wording" – done (2026-10-06, branch `chapter-neutral`)
+
+- Glossary + rules: agents/DESIGN.md "Creator wording" (one term per concept, de = en, no data paths as labels).
+- Messages: 110 keys removed (103 unused – among them the `login.*` texts left from before the shared sign-in, the
+  per-locale override texts, the old character groups / affiliations –, 7 merged or obsolete: `close` for the three
+  close labels, `remove` for `credits_remove`, `text_box` for `ono_text_box`, `status_follow_chapters`, `toon_entry`),
+  ~125 added (the field labels that were hard-coded data keys: title / description / release / author(s), thumbnail,
+  key visual, group name / layout / swiper settings, text box fields, music / samples, VN event fields, toon settings'
+  tile / map, supporters, people), 82 rewritten (no JSON files / store / per-language documents; the Convert page and
+  the "converted" bar in plain words; Textbox, Vorlage, Gegenstand, Event, Stimmung, Version, Leser:innen …).
+- Code: PropField got `title` (the label's tooltip) and reads bool selects as yes / no with the default in brackets
+  ("(no)"), a select's default likewise; align / valign / effect / trigger / layout / target options in words;
+  `VIEW_SLOTS` / `OP_WORDS` → `viewSlots()` / `opWord()` (translated); the save-conflict bar names the language only
+  for a per-language document (the script).
+- Left as they are: the VN event type names (`showMessage`, `joinScene` … – the script's vocabulary, the checks key on
+  them), the style guide page (English reference text), font names (lettering / mono), audio trigger modes
+  (mono / poly), validation messages from `@scutoons/content` (English, shared with the MCP tools; a few still say
+  "chapter file" for the legacy per-locale path).

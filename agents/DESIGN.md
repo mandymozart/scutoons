@@ -528,6 +528,38 @@ Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route cru
 crumbs + `sidebar` + `fill` registered by a page with `usePageNav`), root layout = `AppShell` with the top bar and
 sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every ActionBar.
 
+### Creator wording (owner 2026-10-06)
+
+Short, plain, no marketing, no exclamation marks; de and en say the same. Messages: `creator/messages/{de,en}.json`
+(paraglide, keys `creator.*`); no user-facing text hard-coded in `creator/src` (field labels included – a label is a
+word, never a data path; technical detail at most in the label's `title`). One term per concept:
+
+| de | en | means |
+|---|---|---|
+| Toon | toon | a series; its settings page = **Toon-Einstellungen / toon settings** (the toon entry: languages, texts per language, tile, map) |
+| Staffel | season | |
+| Kapitel | chapter | |
+| Gruppe | group | a part of a chapter (its slices, layout, VN script); one stored on its own is still a group in the UI ("Gruppe scene-14") |
+| Szene | scene | only the screenplay's scene (script, map unlock) |
+| der Slice | slice | |
+| Textbox | text box | the inspector tab says "Texte / Texts" (short) |
+| Vorlage | preset | a text box's preset (Erzählung, Rede …) – never "Look" (that is a character's) |
+| Gegenstand | item | catalog items, also "Verwandte Gegenstände" |
+| Event | event | slice and VN events; **VN-Skript / VN script** = a group's events |
+| Drehbuch | script | the screenplay page |
+| Figur, Besetzung, Stimmung | character, cast, mood | |
+| Entwurf / Entwurf speichern | draft / save draft | |
+| veröffentlichen / zurückziehen | publish / unpublish | status words: veröffentlicht, Entwurf, demnächst / published, draft, coming soon |
+| Version | version | (never "Fassung") |
+| Sprache, Quellsprache, Übersetzung, pro Sprache | language, source language, translation, per language | "Für alle Sprachen gleich" / "The same in every language" |
+| der Reader / Leser:innen | the reader / readers | the app vs the people |
+| Gewünschte Bilder | wanted images | |
+
+Never in the UI: file names or paths of documents (`chapter2.json`, `<toon>/<l>/…`), "store", "per-locale document",
+overrides per language – a chapter, group, season or the toon settings is one thing with its texts per language
+(agents/NEUTRAL.md). Real files stay files: images, audio, video on the CDN. A bool select reads "ja / nein" with the
+default in brackets ("(nein)"); a select's default likewise ("(Links)").
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
@@ -542,7 +574,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
 - **One language chosen:** every translatable field shows only that language (one column). Not the source → **translate
   mode**: under the field one muted caption line "Original (DE): <source text>" + a small text link "Copy original"
   (writes the source into the field; on touch the link gets the 44 px target on its own line).
-- Where: `LocaleText` (per-locale files: titles, descriptions, text boxes, VN messages / choices / onomatopoeia) and
+- Where: `LocaleText` (the texts of a chapter, group, season or the toon settings: titles, descriptions, text boxes, VN messages / choices) and
   `LocaleMapField` (`{ <locale>: text }` values: characters, moods, cast roles, credits, map names) – the two shared
   field components (`creator/src/lib/editor/text-language.svelte.ts` + `components/text-original.svelte`). The chapter
   canvas shows the chosen language, the script page opens / switches to it, the cover preview shows only it.
@@ -553,7 +585,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
   visibility draft / coming soon (season sequence), "Not published" (info), "not saved" (warning), "Missing" (error),
   "· ko" when only some languages are concerned. Everything published: nothing.
 - **Header on phones** (< 480 px): only the current crumb (truncated), the i18n control and the search icon.
-- Language-neutral fields (`SharedField`: numbers, dates, paths with per-language overrides) don't follow the switch.
+- Language-neutral fields (`PropField`, media slots: the same in every language) don't follow the switch.
 
 ### Creator: script page (owner 2026-10-01)
 
@@ -691,8 +723,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   No `surface-*` greys and no tinted fills for structure or state: a state is the frame's colour + a thick left rule
   (0.5rem / 0.5em) in `state-error` / `state-warning` / cyan, the text stays ink. Unsaved = an inverted bar.
 - Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks).
-- Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection, per-locale overrides'
-  rule. Never for the current nav entry or a selected row.
+- Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection. Never for the current nav entry or a selected row.
 - **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **white text where it reaches
   4.5:1, else ink**; caption size, regular weight (status words in uppercase with `--tracking-label`; ids / codes keep
   their case). The colours (the owner's refined palette) live in one place, `shared/tokens/tokens.css`
