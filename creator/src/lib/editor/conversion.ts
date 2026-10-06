@@ -4,19 +4,64 @@
 // per-locale versions → a published neutral version, a draft after it where a language has newer drafts. Entities that
 // already have a neutral document are left alone (idempotent; the creator may have edited it since). The per-locale
 // documents are never changed (rollback = delete the neutral entity).
+// Step 4: the per-language toon settings (`toon-settings:<toon>:<l>`) are folded into the toon entry `toon:<toon>`
+// (`planToonConversion`) – new entry versions after the newest one; listed while the entry has no texts.
 import { contentIndex, getVersion, publishVersion, putDraft } from '$lib/api.ts';
-import { NEUTRAL_DOC_KINDS, parseEntityKey, planConversion, type ConversionStep, type LocaleVersion, type NeutralDifference, type NeutralKind, type ToonLanguages } from '@scutoons/content';
+import {
+	entities,
+	NEUTRAL_DOC_KINDS,
+	parseEntityKey,
+	planConversion,
+	planToonConversion,
+	type ConversionStep,
+	type LocaleVersion,
+	type NeutralDifference,
+	type NeutralKind,
+	type ToonConversionStep,
+	type ToonLanguages
+} from '@scutoons/content';
 
 /** One entity to convert and what its conversion stores */
 export interface EntityConversion {
 	entity: string;
-	kind: NeutralKind;
+	kind: NeutralKind | 'toon';
 	/** the per-locale documents it is made of (source first) */
 	locales: string[];
-	steps: ConversionStep[];
+	steps: (ConversionStep | (ToonConversionStep & { unchanged: false }))[];
+	/** the toon entry: its newest version (the new versions are saved after it); neutral documents have none */
+	base?: number;
 }
 
-/** The dry run: every chapter / scene / season of the toon without a neutral document, planned (nothing is stored) */
+/** The toon settings of a toon folded into its entry (step 4), or null when there is nothing to fold */
+async function planToonEntry(toon: string, index: { key: string; latest: number; published: number | null }[], languages: ToonLanguages): Promise<EntityConversion | null> {
+	const entity = entities.toon(toon);
+	const entryRow = index.find((row) => row.key === entity);
+	const settings = index.filter((row) => parseEntityKey(row.key)?.kind === 'toon-settings' && parseEntityKey(row.key)?.toon === toon);
+	if (!entryRow || !settings.length) return null;
+	const load = async (key: string, id: number): Promise<LocaleVersion> => ({ id, content: (await getVersion(key, id)).content });
+	const entryNewest = await load(entity, entryRow.latest);
+	const entryPublished = entryRow.published === null ? undefined : entryRow.published === entryRow.latest ? entryNewest : await load(entity, entryRow.published);
+	const published: Record<string, LocaleVersion> = {};
+	const newest: Record<string, LocaleVersion> = {};
+	await Promise.all(
+		settings.map(async (row) => {
+			const locale = parseEntityKey(row.key)!.locale!;
+			newest[locale] = await load(row.key, row.latest);
+			if (row.published !== null) published[locale] = row.published === row.latest ? newest[locale] : await load(row.key, row.published);
+		})
+	);
+	const steps = planToonConversion({ source: languages.source, languages: languages.languages, entryPublished, entryNewest, published, newest });
+	if (!steps.length) return null;
+	const known: readonly string[] = languages.languages;
+	const order = (l: string) => (known.includes(l) ? known.indexOf(l) : known.length);
+	const locales = Object.keys(newest).sort((a, b) => order(a) - order(b) || a.localeCompare(b));
+	return { entity, kind: 'toon', locales, steps: steps.map((step) => ({ ...step, unchanged: false as const })), base: entryRow.latest };
+}
+
+/**
+ * The dry run: the toon settings while the toon entry has no texts, every chapter / scene / season of the toon without
+ * a neutral document – planned (nothing is stored)
+ */
 export async function planToon(toon: string, languages: ToonLanguages): Promise<EntityConversion[]> {
 	const index = (await contentIndex(toon)).entities;
 	const neutral = new Set<string>();
@@ -33,7 +78,8 @@ export async function planToon(toon: string, languages: ToonLanguages): Promise<
 		perLocale.get(entity)!.rows.push({ locale: ref.locale, key: row.key, latest: row.latest, published: row.published });
 	}
 	const todo = [...perLocale].filter(([entity]) => !neutral.has(entity)).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }));
-	return Promise.all(
+	const entry = await planToonEntry(toon, index, languages);
+	const documents = await Promise.all(
 		todo.map(async ([entity, { kind, rows }]) => {
 			const published: Record<string, LocaleVersion> = {};
 			const newest: Record<string, LocaleVersion> = {};
@@ -48,9 +94,10 @@ export async function planToon(toon: string, languages: ToonLanguages): Promise<
 			const known: readonly string[] = languages.languages;
 			const order = (l: string) => (known.includes(l) ? known.indexOf(l) : known.length);
 			const locales = rows.map((r) => r.locale).sort((a, b) => order(a) - order(b) || a.localeCompare(b));
-			return { entity, kind, locales, steps: planConversion({ kind, source: languages.source, languages: languages.languages, published, newest }) };
+			return { entity, kind, locales, steps: planConversion({ kind, source: languages.source, languages: languages.languages, published, newest }) } as EntityConversion;
 		})
 	);
+	return entry ? [entry, ...documents] : documents;
 }
 
 /** the neutral versions a plan stores */
@@ -65,10 +112,14 @@ export async function convertToon(plan: readonly EntityConversion[], progress?: 
 	let stored = 0;
 	let done = 0;
 	for (const entry of plan) {
-		let base: number | null = null;
+		let base: number | null = entry.base ?? null;
 		for (const step of entry.steps) {
 			if (step.unchanged) continue;
-			const saved = await putDraft(entry.entity, step.doc, base, `neutral conversion (${step.status}) from the ${entry.locales.join(', ')} documents`);
+			const message =
+				entry.kind === 'toon'
+					? `toon settings folded into the entry (${step.status}) from ${step.versions}`
+					: `neutral conversion (${step.status}) from the ${entry.locales.join(', ')} documents`;
+			const saved = await putDraft(entry.entity, step.doc, base, message);
 			base = saved.version.id;
 			if (step.status === 'published') await publishVersion(entry.entity, base);
 			stored++;

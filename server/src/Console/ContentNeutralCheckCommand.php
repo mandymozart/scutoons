@@ -19,6 +19,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  * season × chapter × locale (+ one locale the toon doesn't have), published and draft mode, once from the neutral
  * documents and once from the legacy per-locale ones (Library::legacyOnly) – compared as sorted JSON, with the served
  * locale, the fallback flag, the missing references and refusals (403 / 404).
+ * Step 4 (the toon settings in the toon entry): the toons list (without and with each locale) and every toon bundle
+ * per locale of a toon with per-language toon settings and an entry with texts, once from the entry's texts and once
+ * from the toon settings (Library::legacyOnly(false): the neutral chapters / seasons stay, only the toon settings differ).
  */
 #[AsCommand(name: 'content:neutral-check', description: 'READ-ONLY: compares the library answers from the neutral chapters / scenes / seasons with the legacy per-locale answers')]
 final class ContentNeutralCheckCommand extends Command
@@ -42,21 +45,59 @@ final class ContentNeutralCheckCommand extends Command
         $only = $input->getOption('toon');
         $limit = max(1, (int) $input->getOption('limit'));
         $legacy = $this->library->legacyOnly();
-        $rows = $this->db->all("SELECT DISTINCT entity_key FROM entity_versions WHERE kind IN ('toon', 'chapter', 'season') ORDER BY entity_key");
-        /** @var array<string, array{neutral: bool, numbers: array<string, array<int, true>>, locales: array<string, true>}> $toons */
+        $rows = $this->db->all("SELECT DISTINCT entity_key FROM entity_versions WHERE kind IN ('toon', 'toon-settings', 'chapter', 'season') ORDER BY entity_key");
+        /** @var array<string, array{neutral: bool, numbers: array<string, array<int, true>>, locales: array<string, true>, settings: array<string, true>}> $toons */
         $toons = [];
         foreach ($rows as $row) {
             $key = (string) $row['entity_key'];
             if (!EntityKey::isValid($key)) continue;
             $ref = EntityKey::parse($key);
             if ($ref->toon === null || (is_string($only) && $ref->toon !== $only)) continue;
-            $toons[$ref->toon] ??= ['neutral' => false, 'numbers' => ['chapter' => [], 'season' => []], 'locales' => []];
+            $toons[$ref->toon] ??= ['neutral' => false, 'numbers' => ['chapter' => [], 'season' => []], 'locales' => [], 'settings' => []];
             if ($ref->kind === 'toon') continue;
+            if ($ref->kind === 'toon-settings') {
+                $toons[$ref->toon]['settings'][(string) $ref->locale] = true;
+                continue;
+            }
             $toons[$ref->toon]['numbers'][$ref->kind][(int) $ref->number] = true;
             if ($ref->isNeutralDoc()) $toons[$ref->toon]['neutral'] = true;
             if ($ref->locale !== null) $toons[$ref->toon]['locales'][$ref->locale] = true;
         }
         $compared = $differing = 0;
+        $compare = function (string $label, callable $call, Library $before) use ($output, $limit, &$compared, &$differing): void {
+            $compared++;
+            $differences = self::differences(self::outcome($call, $before), self::outcome($call, $this->library));
+            if ($differences === []) return;
+            $differing++;
+            $output->writeln("$label: " . count($differences) . ' difference(s)');
+            foreach (array_slice($differences, 0, $limit) as $line) $output->writeln("    $line");
+            if (count($differences) > $limit) $output->writeln('    … ' . (count($differences) - $limit) . ' more');
+        };
+
+        // step 4: the toon settings → the toon entry (its texts; the chapters / seasons as they are)
+        $settingsOnly = $this->library->legacyOnly(false);
+        $listLocales = [];
+        foreach ($toons as $toon => $info) {
+            if ($info['settings'] === []) continue;
+            $locales = array_map('strval', array_keys($info['settings']));
+            sort($locales);
+            $listLocales = [...$listLocales, ...$locales];
+            $locales[] = self::FOREIGN_LOCALE;
+            foreach ([false, true] as $draft) {
+                $mode = $draft ? 'draft' : 'published';
+                foreach ($locales as $locale) $compare("$toon $mode toon settings $locale", fn(Library $l) => $l->toon($toon, $locale, $draft), $settingsOnly);
+            }
+        }
+        if (!is_string($only)) {
+            $listLocales = array_values(array_unique([...$listLocales, self::FOREIGN_LOCALE]));
+            sort($listLocales);
+            foreach ([false, true] as $draft) {
+                $mode = $draft ? 'draft' : 'published';
+                $compare("toons list $mode", fn(Library $l) => $l->toons($draft), $settingsOnly);
+                foreach ($listLocales as $locale) $compare("toons list $mode $locale", fn(Library $l) => $l->toons($draft, $locale), $settingsOnly);
+            }
+        }
+
         foreach ($toons as $toon => $info) {
             if (!$info['neutral']) {
                 $output->writeln("$toon: no neutral documents – skipped");
@@ -83,15 +124,7 @@ final class ContentNeutralCheckCommand extends Command
                     foreach ($chapters as $n) $calls["chapter $n $locale"] = fn(Library $l) => $l->chapter($toon, $n, $locale, $draft);
                 }
                 foreach ($chapters as $n) $calls["cast $n"] = fn(Library $l) => $l->cast($toon, $n, $draft);
-                foreach ($calls as $label => $call) {
-                    $compared++;
-                    $differences = self::differences(self::outcome($call, $legacy), self::outcome($call, $this->library));
-                    if ($differences === []) continue;
-                    $differing++;
-                    $output->writeln("$toon $mode $label: " . count($differences) . ' difference(s)');
-                    foreach (array_slice($differences, 0, $limit) as $line) $output->writeln("    $line");
-                    if (count($differences) > $limit) $output->writeln('    … ' . (count($differences) - $limit) . ' more');
-                }
+                foreach ($calls as $label => $call) $compare("$toon $mode $label", $call, $legacy);
             }
         }
         $output->writeln('');

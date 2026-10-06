@@ -57,6 +57,8 @@ final class Library
 
     /** answers from the legacy per-locale chapters / scenes / seasons only (Snapshot::withoutNeutralDocs) */
     private bool $legacyOnly = false;
+    /** answers from the legacy per-language toon settings (the toon entry read without its texts, TOON_TEXT_FIELDS) */
+    private bool $legacyToonTexts = false;
 
     public function __construct(
         private readonly Database $db,
@@ -66,13 +68,15 @@ final class Library
     }
 
     /**
-     * This library ignoring every language-neutral chapter / scene / season document – the answers as before the
-     * conversion (agents/NEUTRAL.md; content:neutral-check compares both)
+     * This library ignoring every language-neutral chapter / scene / season document and the toon entry's texts – the
+     * answers as before the conversion (agents/NEUTRAL.md; content:neutral-check compares both). `$docs: false` keeps the
+     * neutral documents and ignores only the entry's texts (the toon settings' conversion on its own, step 4).
      */
-    public function legacyOnly(): self
+    public function legacyOnly(bool $docs = true): self
     {
         $library = clone $this;
-        $library->legacyOnly = true;
+        $library->legacyOnly = $docs;
+        $library->legacyToonTexts = true;
         return $library;
     }
 
@@ -158,7 +162,7 @@ final class Library
     private function entryDoc(Snapshot $snapshot, string $key): mixed
     {
         $entry = $snapshot->doc($key);
-        if (!$this->legacyOnly || !$entry instanceof stdClass) return $entry;
+        if (!$this->legacyToonTexts || !$entry instanceof stdClass) return $entry;
         $entry = clone $entry;
         foreach (self::TOON_TEXT_FIELDS as $field) unset($entry->$field);
         return $entry;
@@ -817,7 +821,7 @@ final class Library
     /** @param callable(): array{0: mixed, 1: ?string} $compose [data, served locale] */
     private function answer(string $what, Snapshot $snapshot, callable $compose, ?Context $ctx = null): Answer
     {
-        $key = 'library:' . self::FORMAT . ':' . $what . ':' . ($this->showDrafts() ? 'd:' : '') . ($this->legacyOnly ? 'legacy:' : '') . $snapshot->fingerprint();
+        $key = 'library:' . self::FORMAT . ':' . $what . ':' . ($this->showDrafts() ? 'd:' : '') . ($this->legacyOnly ? 'legacy:' : '') . ($this->legacyToonTexts ? 'legacy-toon:' : '') . $snapshot->fingerprint();
         $etag = '"l' . substr(sha1($key), 0, 24) . '"';
         if (!$snapshot->draft) {
             $raw = $this->cache->get($key);

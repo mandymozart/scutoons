@@ -358,9 +358,12 @@ export function neutralizeToon(entry: ToonIndex, docs: Record<string, ToonSettin
 		if (top === 'download' || ((TOON_NEUTRAL_FIELDS as readonly string[]).includes(top) && Object.hasOwn(out, top))) r.invisible = true;
 	}
 	for (const field of TOON_TEXT_FIELDS) delete out[field];
+	// the texts in the order of TOON_TEXT_FIELDS (title, description, release, languageStatus)
+	for (const [field, from] of [['title', 'title'], ['description', 'description'], ['release', 'release'], ['languageStatus', 'status']]) {
+		if (Object.hasOwn(merged, from)) out[field] = merged[from];
+	}
 	for (const [key, value] of Object.entries(merged)) {
-		if (key === 'title' || key === 'description' || key === 'release') out[key] = value;
-		else if (key === 'status') out.languageStatus = value;
+		if (key === 'title' || key === 'description' || key === 'release' || key === 'status') continue;
 		else if (key === ACCEPTED) {
 			const union = [...new Set([...(Array.isArray(out[ACCEPTED]) ? (out[ACCEPTED] as unknown[]) : []), ...(value as unknown[])])];
 			out[ACCEPTED] = union;

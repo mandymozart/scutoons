@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // The language-neutral conversion on the LOCAL dev database (agents/NEUTRAL.md "Migration"): every chapter, scene and
 // season stored per locale (`chapter:<toon>:<n>:<l>` …) → one neutral document (`chapter:<toon>:<n>` …) with
-// @scutoons/content `neutralize*` – the same function the creator's Convert page uses for production.
+// @scutoons/content `neutralize*` – the same function the creator's Convert page uses for production. The per-language
+// toon settings (`toon-settings:<toon>:<l>`) are folded into the toon entry `toon:<toon>` (step 4, `planToonConversion`):
+// a new entry version with their texts / release / status as locale maps.
 //
 //   npm run dev:neutralize                     dry run: the report per entity (what the source locale overrides)
 //   npm run dev:neutralize -- --apply          … and store the neutral documents as NEW entity versions
@@ -15,7 +17,7 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { localSql, MARIADB, phpDbEnv, phpMysqlArgs } from './db-env.mjs';
-import { parseEntityKey, planConversion, toonLanguages } from '../../shared/content/src/index.ts';
+import { parseEntityKey, planConversion, planToonConversion, toonLanguages } from '../../shared/content/src/index.ts';
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
@@ -33,7 +35,7 @@ function write(statements) {
 const rows = localSql([
 	`SELECT v.id, v.entity_key, v.kind, v.toon, v.locale, v.status, v.json FROM entity_versions v
 	 JOIN (SELECT entity_key, MAX(id) AS newest, MAX(CASE WHEN status = 'published' THEN id END) AS published FROM entity_versions
-	       WHERE kind IN ('chapter', 'scene', 'season', 'toon') GROUP BY entity_key) g ON v.id = g.newest OR v.id = g.published
+	       WHERE kind IN ('chapter', 'scene', 'season', 'toon', 'toon-settings') GROUP BY entity_key) g ON v.id = g.newest OR v.id = g.published
 	 ORDER BY v.id`
 ])[0];
 
@@ -41,14 +43,28 @@ const rows = localSql([
 const entities = new Map();
 const neutral = new Map();
 const toonEntries = new Map();
+/** toon → { published: row, newest: row } of its entry; toon → { published: { locale: row }, newest } of its settings */
+const entryRows = new Map();
+const settingRows = new Map();
 for (const row of rows) {
 	const ref = parseEntityKey(row.entity_key);
 	if (!ref) continue;
 	if (ref.kind === 'toon') {
 		if (!toonEntries.has(ref.toon) || row.status === 'published') toonEntries.set(ref.toon, JSON.parse(row.json));
+		if (!entryRows.has(ref.toon)) entryRows.set(ref.toon, { published: null, newest: null });
+		const e = entryRows.get(ref.toon);
+		if (row.status === 'published') e.published = row;
+		if (!e.newest || e.newest.id < row.id) e.newest = row;
 		continue;
 	}
 	if (onlyToon && ref.toon !== onlyToon) continue;
+	if (ref.kind === 'toon-settings') {
+		if (!settingRows.has(ref.toon)) settingRows.set(ref.toon, { published: {}, newest: {} });
+		const e = settingRows.get(ref.toon);
+		if (row.status === 'published') e.published[ref.locale] = row;
+		if (!e.newest[ref.locale] || e.newest[ref.locale].id < row.id) e.newest[ref.locale] = row;
+		continue;
+	}
 	if (!ref.locale) {
 		if (!neutral.has(row.entity_key)) neutral.set(row.entity_key, { published: null, newest: null });
 		const n = neutral.get(row.entity_key);
@@ -104,6 +120,40 @@ for (const [entity, e] of [...entities].sort(([a], [b]) => a.localeCompare(b, 'e
 			[entity, ref.kind, ref.toon, JSON.stringify(step.doc), message]]);
 		if (step.status === 'published') {
 			// the only published version of the neutral entity (EntityStore::setPublished); per-locale rows are never touched
+			inserts.push([`UPDATE entity_versions SET status = CASE WHEN id = LAST_INSERT_ID() THEN 'published' ELSE 'draft' END WHERE entity_key = ? AND (status = 'published' OR id = LAST_INSERT_ID())`, [entity]]);
+		}
+	}
+}
+
+// the toon settings → the toon entry (step 4)
+for (const [toon, e] of [...settingRows].sort(([a], [b]) => a.localeCompare(b))) {
+	const entity = `toon:${toon}`;
+	const { source, languages } = toonLanguages(toonEntries.get(toon));
+	const entry = entryRows.get(toon);
+	const steps = planToonConversion({
+		source,
+		languages,
+		entryPublished: entry?.published ? version(entry.published) : undefined,
+		entryNewest: entry?.newest ? version(entry.newest) : undefined,
+		published: versions(e.published),
+		newest: versions(e.newest)
+	});
+	if (!steps.length) {
+		unchanged++;
+		console.log(`${entity}  ${entry ? 'has its texts already' : 'no toon entry – nothing to fold the settings into'}`);
+		continue;
+	}
+	for (const step of steps) {
+		report.push({ entity, status: step.status, source, versions: step.versions, report: step.report });
+		console.log(`${entity}  ${step.status}  (${step.versions})${step.report.length ? `  – ${step.report.length} difference(s)` : ''}`);
+		for (const r of step.report) {
+			const values = Object.entries(r.values).map(([l, v]) => `${l}=${short(v)}`).join('  ');
+			console.log(`    ${r.kind.padEnd(14)} ${r.path || '(document)'}  ${values}${r.missing ? `  (missing in ${r.missing.join(', ')})` : ''}${r.invisible ? '  (no reader saw it)' : ''}`);
+		}
+		const message = `toon settings folded into the entry (${step.status}) from ${step.versions}`;
+		inserts.push([`INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, 'toon', ?, NULL, ?, NULL, UTC_TIMESTAMP(), 'draft', ?)`,
+			[entity, toon, JSON.stringify(step.doc), message]]);
+		if (step.status === 'published') {
 			inserts.push([`UPDATE entity_versions SET status = CASE WHEN id = LAST_INSERT_ID() THEN 'published' ELSE 'draft' END WHERE entity_key = ? AND (status = 'published' OR id = LAST_INSERT_ID())`, [entity]]);
 		}
 	}
