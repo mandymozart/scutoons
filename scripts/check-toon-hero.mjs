@@ -33,6 +33,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './dev/ports.mjs';
+import { saveGameRow } from './dev/save-game-row.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
@@ -442,7 +443,8 @@ if (!opt['no-member']) {
 	const me = token ? await fetch(`${api}/me/`, { headers: auth }) : null;
 	if (!me?.ok) report('member', ['no working test-user session (run `npm run dev:test-user`)']);
 	else {
-		const before = await (await fetch(`${api}/progress/${toon}`, { headers: auth })).json();
+		// the member's save game (one for every toon – progress row `scutoons`): set per state, put back exactly (a PUT merges)
+		const saveGame = saveGameRow(JSON.parse(readFileSync(sessionFile, 'utf8')).email);
 		const now = Date.now();
 		const iso = (t) => new Date(t).toISOString();
 		const cp = (n, position, isComplete, t) => ({ uri: `${toon}/chapter/${n}`, isComplete, position, created_at: iso(t), updated_at: iso(t) });
@@ -452,7 +454,7 @@ if (!opt['no-member']) {
 		];
 		try {
 			for (const st of states) {
-				await fetch(`${api}/progress/${toon}`, { method: 'PUT', headers: auth, body: JSON.stringify({ state: { variables: {}, progress: st.progress } }) });
+				saveGame.set({ variables: {}, progress: st.progress, history: {}, map: { places: {}, routes: {}, positions: {} } });
 				await size(1440, 900);
 				await open(`${viewer}/`, 'de');
 				await evaluate(`localStorage.clear(), localStorage.setItem('scutoons_session', ${JSON.stringify(token)}), true`);
@@ -465,7 +467,7 @@ if (!opt['no-member']) {
 				await shot(`hero-member-${st.kind}`);
 			}
 		} finally {
-			await fetch(`${api}/progress/${toon}`, { method: 'PUT', headers: auth, body: JSON.stringify({ state: before?.state ?? {} }) });
+			if (!saveGame.restore()) report('member: the save game is put back', ['the row differs']);
 		}
 	}
 }

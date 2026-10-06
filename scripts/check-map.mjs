@@ -35,6 +35,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { local } from './dev/ports.mjs';
+import { saveGameRow } from './dev/save-game-row.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
@@ -54,7 +55,8 @@ const sessionFile = join(root, 'logs/dev/test-user.json');
 const token = existsSync(sessionFile) ? JSON.parse(readFileSync(sessionFile, 'utf8')).token : null;
 if (!token || !(await fetch(`${api}/me/`, { headers: { Authorization: `Bearer ${token}` } })).ok) { console.error('no working test-user session (run `npm run dev:test-user`)'); process.exit(2); }
 const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-const worldBefore = await (await fetch(`${api}/progress/scutoons/`, { headers: auth })).json();
+// the member's save game (map + every toon's progress, row `scutoons`): put back exactly (a PUT merges)
+const saveGame = saveGameRow(JSON.parse(readFileSync(sessionFile, 'utf8')).email);
 const world = Object.fromEntries(await Promise.all(['de', 'en'].map(async (l) => [l, await (await fetch(`${api}/library/map?locale=${l}&toon=catpope`)).json()])));
 const bundle = Object.fromEntries(await Promise.all(['de', 'en'].map(async (l) => [l, await (await fetch(`${api}/library/toons/catpope?locale=${l}`)).json()])));
 const mapEntity = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
@@ -90,7 +92,7 @@ const profile = mkdtempSync(join(tmpdir(), 'check-map-'));
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--mute-audio', '--window-size=1440,900', 'about:blank'], { stdio: 'ignore' });
 let restoreMap = null;
 async function restore() {
-	await fetch(`${api}/progress/scutoons/`, { method: 'PUT', headers: auth, body: JSON.stringify({ state: worldBefore?.state ?? {}, updated_at: Date.now() }) }).catch(() => {});
+	if (!saveGame.restore()) console.log('  could not restore the save game row');
 	if (restoreMap) await restoreMap().catch((e) => console.log(`  could not restore the map: ${e}`));
 }
 async function done(code) {
@@ -374,7 +376,7 @@ async function reading() {
 async function member() {
 	console.log('member (test user)');
 	await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-	await fetch(`${api}/progress/scutoons/`, { method: 'PUT', headers: auth, body: JSON.stringify({ state: { map: { places: { monastery: { unlocked: 5 } }, routes: {}, positions: {} } }, updated_at: Date.now() }) });
+	saveGame.set({ map: { places: { monastery: { unlocked: 5 } }, routes: {}, positions: {} } });
 	await send('Network.clearBrowserCookies');
 	await setLocale('de', viewer);
 	await open(`${viewer}/catpope`);

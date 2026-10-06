@@ -5,6 +5,8 @@
 //     removed: a variable in two toons → the NEWEST state's value; checkpoints, history and the map kept
 //   - signing in: the account's save game (newer) and the device's become one – the account's variables, both sides'
 //     checkpoints – and the merge is pushed (the server holds the device's checkpoint too)
+//   - one variable across toons (the mama story drafts, agents/EXAMPLES.md): catpope's 3 tips + Top Toy's in toptoy = 4,
+//     then catpope offers "Zu Mama!" (needs 4)
 // The test user's save game (progress row `scutoons`) is put back as it was.
 //
 //   node scripts/dev/save-game-check.mjs        (viewer :8000, API :9000, MariaDB container)
@@ -17,6 +19,7 @@ import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const VIEWER = (process.env.SCUTOONS_VIEWER ?? local('viewer')).replace(/\/$/, '');
+const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
 const DB = process.env.SCUTOONS_DB_NAME ?? 'scutoons';
 const CONTAINER = process.env.SCUTOONS_DB_CONTAINER ?? 'scutoons-mariadb-1';
 const { token, email } = JSON.parse(readFileSync(resolve(ROOT, 'logs/dev/test-user.json'), 'utf8'));
@@ -76,6 +79,13 @@ const check = (ok, what, detail = '') => (results.push(!!ok), console.log(`${ok 
 const iso = (ms) => new Date(ms).toISOString();
 const cp = (uri, at) => ({ uri, isComplete: false, position: 0.5, created_at: iso(at), updated_at: iso(at) });
 const SAVE = `JSON.parse(localStorage.getItem('scutoons_game_scutoons') || 'null')`;
+/** the mama story's drafts are in this database (agents/EXAMPLES.md) – else that part is skipped */
+async function mamaStory() {
+	const res = await fetch(`${API}/entities/chapter:toptoy:1?draft=1`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+	const ok = !!res?.ok && JSON.stringify(await res.json()).includes('tip_hypercity');
+	if (!ok) console.log('skip the mama story part (its drafts are not in this database)');
+	return ok;
+}
 
 try {
 	await send('Runtime.enable');
@@ -122,6 +132,38 @@ try {
 		return null;
 	})();
 	check(!!pushed && pushed.variables.mama_tips === 9, 'the merge is pushed to the account (the device\u2019s checkpoints on the server, the account\u2019s variables)', JSON.stringify(pushed));
+
+	// \u2500\u2500 one variable across toons: the mama story (drafts, agents/EXAMPLES.md) \u2013 catpope's 3 tips, Top Toy's in toptoy
+	// counts on, then catpope offers "Zu Mama!" (needs 4) \u2500\u2500
+	if (await mamaStory()) {
+		sql(`DELETE FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+		const fresh = { variables: { mama_tips: 3, tip_hat: 'yes', tip_crown: 'yes', tip_road: 'yes' }, progress: [], history: {}, map: { places: {}, routes: {}, positions: {} }, created_at: iso(Date.now()), updated_at: iso(Date.now()) };
+		await js(`(() => { localStorage.setItem('scutoons_game_scutoons', ${JSON.stringify(JSON.stringify(fresh))}); localStorage.setItem('scutoons.draft-preview', '1'); return true; })()`);
+		await send('Page.navigate', { url: `${VIEWER}/toptoy/chapter/1?label=mama-hypercity` });
+		let said = null;
+		for (let i = 0; i < 30 && !said; i++) {
+			const text = await until(`document.querySelector('.vn-message.visible .text')?.innerText.trim() || null`, 8000);
+			if (/Tipp Nummer|tip number/.test(text ?? '')) said = text;
+			else await js(`document.querySelector('.vn-message.visible .continue-overlay')?.click(), true`);
+			await sleep(250);
+		}
+		check(/\b4\b/.test(said ?? ''), `toptoy counts catpope's tips on: "${said}"`);
+		check((await js(SAVE))?.variables?.mama_tips === 4, 'the one save game holds mama_tips = 4');
+		await send('Page.navigate', { url: `${VIEWER}/catpope/chapter/2?label=mama-crossroads` });
+		// the crossroads' script starts when its first slice is seen: its slices are the chain's last two
+		await until(`document.querySelectorAll('[data-slice-index]').length > 2`, 15000);
+		await js(`(() => { const s = [...document.querySelectorAll('[data-slice-index]')]; s[s.length - 2].scrollIntoView({ block: 'start' }); return true; })()`);
+		let choices = null;
+		for (let i = 0; i < 30 && !choices; i++) {
+			choices = await js(`(() => { const c = [...document.querySelectorAll('.vn-choice')].map((b) => b.innerText.trim()); return c.length ? c : null; })()`);
+			if (!choices) {
+				await until(`!!document.querySelector('.vn-message.visible .continue-overlay') || document.querySelectorAll('.vn-choice').length > 0`, 8000);
+				await js(`document.querySelector('.vn-message.visible .continue-overlay')?.click(), true`);
+				await sleep(250);
+			}
+		}
+		check(choices?.some((c) => /Zu Mama|To Mama/.test(c)), `catpope offers "Zu Mama!" with the tip from toptoy (${JSON.stringify(choices)})`);
+	}
 	check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | '));
 } catch (error) {
 	console.error(error);
