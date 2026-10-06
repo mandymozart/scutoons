@@ -20,6 +20,12 @@ fix. All checks green: `npm run check`, every `check:creator-*`, `check:mcp`, PH
 4. One name: `title` (per language) is the toon's name, `i18n` is no longer stored (owner: "one property – if title is
    adequate do it") – done 2026-10-06, see "Decision 4 – one toon name" below.
 
+**Queued in this session:** VN groups anywhere in linked groups (running), creator UI round (language switch shows only
+the chosen language, compact group panel + wording, `interaction` removed, wheel scrolls the strip preview sideways, ★
+marks the source language everywhere), read-only story-flow graph panel (Svelte Flow, pushes the page like Ask; levels
+slice → group → chapter → season → toon → SCUTOONS; chapter view as a draft first).
+**After this session (owner):** Blender-style docking areas for the creator panels – own branch, same checkout.
+
 **Ship (when you like it):** merge `chapter-neutral` into `main`, push (deploys api, creator, viewer, admin). Readers see
 no change – without neutral documents the library serves the per-language ones as before. Then in the creator, per
 toon: the bar "still stored per language" → **Convert** (dry run first, then Convert). Afterwards (follow-up): remove the
