@@ -105,8 +105,10 @@ export const triggerWord = (event: any) => triggerOptions().find((o) => o.value 
 
 export function jumpWords(t: any): string {
 	if (!t) return '';
-	if (t.anyOf?.length) return `${t.type} ${t.value} · ${m['creator.vn_random_one']({ list: t.anyOf.join(' / ') })}`;
-	return `${t.type ?? ''} ${t.value ?? ''}${t.label ? ` · ${t.label}` : ''}`;
+	// a chapter of another toon: "toptoy · chapter 1 · mama-hypercity"
+	const where = `${t.type === 'chapter' && typeof t.toon === 'string' && t.toon ? `${t.toon} · ` : ''}${t.type ?? ''} ${t.value ?? ''}`;
+	if (t.anyOf?.length) return `${where} · ${m['creator.vn_random_one']({ list: t.anyOf.join(' / ') })}`;
+	return `${where}${t.label ? ` · ${t.label}` : ''}`;
 }
 
 /**
