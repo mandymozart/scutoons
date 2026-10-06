@@ -1,8 +1,19 @@
-// The story flow of a chapter as a graph (owner 2026-10-06, the creator's read-only "Flow" panel): what leads where –
-// groups in reading order (linked groups, the follow-up bar, an authored end), the key points of each group's script
-// (named points, questions with their choices, diverts, jumps), slice triggers / item taps that branch, and the places
-// outside the chapter a jump leads to. The status of every node comes from `chapterReach` (reach.ts) – the single source
-// of truth, so the graph agrees with the "unreachable" chips. Pure: no layout, no texts of the UI.
+// The story flow as a graph (owner 2026-10-06, the creator's read-only "Flow" panel), on every level (agents/DESIGN.md
+// "Flow panel"):
+//   - chapter (`chapterFlow`): groups in reading order (linked groups, the follow-up bar, an authored end), the key points
+//     of each group's script (named points, questions with their choices, diverts, jumps), slice triggers / item taps that
+//     branch, and the places outside the chapter a jump leads to;
+//   - group (`groupFlow`): one group closer up – every script event, plain ones (messages, joins / leaves, variables, text
+//     boxes) collapsed into runs between the key points, its triggers, where the reader comes from and goes on to;
+//   - slice (`sliceFlow`): one slice – its triggers, item taps, the script events that reveal its text boxes, their targets;
+//   - season / toon (`toonFlow`): one box per chapter (status, reach in the toon, dead groups), the season order, jumps
+//     and ends between chapters (the toon adds map places and the other seasons); `toonReach` = what the season order or
+//     any jump in the toon reaches;
+//   - SCUTOONS (`universeFlow`): one box per toon, the jumps between toons and to products / XR (from the server's
+//     flow index);
+//   - dead things (`deadThings`): variables set but never read, read but never set, points and labels nothing jumps to.
+// Statuses come from `chapterReach` (reach.ts) – the single source of truth, so the graph agrees with the chips. Pure: no
+// layout, no texts of the UI.
 import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
 import type { JumpToTarget } from './content.ts';
 import { chapterReach, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
@@ -25,7 +36,19 @@ export type FlowNodeKind =
 	/** a slice's trigger run (click / hover / scroll) or a placed item's tap that branches (a divert, a jump, a question) */
 	| 'trigger'
 	/** a place outside the chapter (`target`), or the next chapter (`next`) */
-	| 'exit';
+	| 'exit'
+	/** group / slice level: plain events in a row (messages, joins / leaves, variables, text boxes) */
+	| 'run'
+	/** group / slice level: one plain event that runs only if its test holds */
+	| 'step'
+	/** slice level: the slice */
+	| 'slice'
+	/** season / toon level: a chapter */
+	| 'chapter'
+	/** toon level: the map places that lead into a chapter */
+	| 'place'
+	/** SCUTOONS level: a toon */
+	| 'toon';
 
 export interface FlowNode {
 	id: string;
@@ -35,9 +58,9 @@ export interface FlowNode {
 	group?: number;
 	/** where it lives in the chapter (groups.g, …events.i, …slices.s.events.j, …slices.s.items.x.events.j): what to open */
 	path?: (string | number)[];
-	/** group: its label (or the caller's `name`); label / divert: the point's name; trigger: the slice number and how */
+	/** group: its label (or the caller's `name`); label / divert: the point's name; chapter / toon: its title */
 	name?: string;
-	/** group: slice count; choices: the number of choices */
+	/** group: slice count; choices: the number of choices; chapter: its groups; toon: its chapters */
 	count?: number;
 	/** group: slices that can't be reached (indices) while the group itself can */
 	deadSlices?: number[];
@@ -45,12 +68,43 @@ export interface FlowNode {
 	script?: boolean;
 	/** trigger: `intersect` / `click` / `hover` / `item` */
 	trigger?: string;
-	/** trigger: the slice index */
+	/** trigger / slice: the slice index */
 	slice?: number;
 	/** jump / exit: where to */
 	target?: JumpToTarget;
 	/** exit: the next chapter (the follow-up bar after the last chain or before an unlabelled group) */
 	next?: boolean;
+	/** group / slice level: drawn for context only (another group, a point of the group's script) */
+	stub?: boolean;
+	/** run / step: the events it stands for (first, last index in their list) */
+	events?: [number, number];
+	/** run / step: messages shown */
+	messages?: number;
+	/** run / step: who speaks / joins / leaves (character id, `id·persona` for a persona other than regular) */
+	speakers?: string[];
+	joins?: string[];
+	leaves?: string[];
+	/** run / step: variables set */
+	sets?: string[];
+	/** run / step: text boxes revealed */
+	boxes?: string[];
+	/** run / step: the first message (as `text` shows it) */
+	first?: string;
+	/** step: its event type and the test it runs under */
+	event?: string;
+	condition?: string;
+	/** chapter: its number; chapter / exit: the season it belongs to */
+	chapter?: number;
+	season?: number;
+	/** chapter: its status in the season (draft / coming-soon / published); toon: the toon's status */
+	state?: string;
+	/** chapter: groups nothing reaches */
+	dead?: number;
+	/** place: the places' names; toon: its id */
+	places?: string[];
+	toon?: string;
+	/** toon: its seasons' numbers */
+	seasons?: number[];
 }
 
 export type FlowEdgeKind =
@@ -69,7 +123,13 @@ export type FlowEdgeKind =
 	/** the group's authored end (`Group.end`) */
 	| 'end'
 	/** a slice trigger / item tap of the group */
-	| 'trigger';
+	| 'trigger'
+	/** slice level: a script event reveals one of the slice's text boxes */
+	| 'reveal'
+	/** season / toon level: the next chapter of the season (the follow-up bar) */
+	| 'order'
+	/** toon level: a map place leads into a chapter */
+	| 'place';
 
 export interface FlowEdge {
 	id: string;
@@ -86,6 +146,8 @@ export interface FlowEdge {
 	never?: boolean;
 	/** the status of the node it leaves from (an edge out of something unreachable is dead too) */
 	status: FlowStatus;
+	/** season / toon / SCUTOONS: how many ways it stands for (more than one: merged) */
+	count?: number;
 }
 
 export interface ChapterFlow {
@@ -122,111 +184,165 @@ const firstText = (v: unknown): string => {
 };
 
 const conditional = (e: any) => typeof e?.if?.variable === 'string' && !!e.if.variable;
+const RANK: Record<FlowStatus, number> = { reachable: 3, conditional: 2, loop: 1, never: 1, unreachable: 0 };
+const KEY_EVENTS = new Set(['label', 'addChoice', 'showChoices', 'divert', 'jumpTo']);
+/** a character ref as one key: `boy`, `catpope·cat` */
+const who = (c: any): string => {
+	const id = String(c?.character ?? c?.name ?? '');
+	return c?.persona && c.persona !== 'regular' ? `${id}·${c.persona}` : id;
+};
 
-/**
- * The flow of a chapter. `groups` = the chapter's groups with each scene in place of its ref (what `chapterReach` gets).
- */
-export function chapterFlow(groups: readonly any[], options: FlowOptions = {}): ChapterFlow {
-	const reach = options.reach ?? chapterReach(groups, options.facts);
-	const text = options.text ?? firstText;
-	const name = options.name ?? ((g: any, i: number) => (typeof g?.label === 'string' && g.label ? g.label : `#${i + 1}`));
-	const nodes: FlowNode[] = [];
-	const edges: FlowEdge[] = [];
-	const byId = new Map<string, FlowNode>();
-	const add = (n: FlowNode) => {
-		if (!byId.has(n.id)) {
-			byId.set(n.id, n);
-			nodes.push(n);
+type Path = (string | number)[];
+type Pending = { from: string; kind: FlowEdgeKind; label?: string; branch?: FlowEdge['branch']; condition?: string; never?: boolean };
+interface ScriptWalk {
+	status: (j: number) => FlowStatus;
+	id: (j: number) => string;
+	path: (j: number) => Path;
+	gi: number;
+	pending: Pending[];
+}
+interface TriggerRun {
+	trigger: string;
+	events: any[];
+	idx: number[];
+	base: Path;
+}
+
+/** the slice's trigger runs (one per trigger: click / hover / scroll) and its placed items' taps, in order */
+function runsOf(slice: any, gi: number, k: number): TriggerRun[] {
+	const runs = new Map<string, TriggerRun>();
+	(Array.isArray(slice?.events) ? slice.events : []).forEach((e: any, j: number) => {
+		if (!e?.trigger) return;
+		const key = JSON.stringify(e.trigger);
+		if (!runs.has(key)) runs.set(key, { trigger: String(e.trigger.type ?? ''), events: [], idx: [], base: ['groups', gi, 'slices', k, 'events'] });
+		runs.get(key)!.events.push(e);
+		runs.get(key)!.idx.push(j);
+	});
+	(Array.isArray(slice?.items) ? slice.items : []).forEach((item: any, x: number) => {
+		if (!Array.isArray(item?.events) || !item.events.length) return;
+		runs.set(`item${x}`, { trigger: 'item', events: item.events, idx: item.events.map((_: unknown, j: number) => j), base: ['groups', gi, 'slices', k, 'items', x, 'events'] });
+	});
+	return [...runs.values()];
+}
+
+/** builds one level's graph: nodes, edges and the walks every level shares */
+class Builder {
+	readonly nodes: FlowNode[] = [];
+	readonly edges: FlowEdge[] = [];
+	readonly byId = new Map<string, FlowNode>();
+	readonly loops: Set<string>;
+	readonly never: Set<string>;
+	readonly labelled = new Map<string, number>();
+	readonly text: (value: unknown) => string;
+	readonly name: (group: any, index: number) => string;
+
+	constructor(
+		readonly groups: readonly any[],
+		readonly options: FlowOptions,
+		readonly reach: ChapterReach
+	) {
+		this.text = options.text ?? firstText;
+		this.name = options.name ?? ((g: any, i: number) => (typeof g?.label === 'string' && g.label ? g.label : `#${i + 1}`));
+		this.loops = new Set(reach.loops.map((p) => p.join('.')));
+		this.never = new Set(reach.neverTrue.map((p) => p.slice(0, -1).join('.')));
+		groups.forEach((g, gi) => typeof g?.label === 'string' && g.label && !this.labelled.has(g.label) && this.labelled.set(g.label, gi));
+	}
+
+	add(n: FlowNode): string {
+		if (!this.byId.has(n.id)) {
+			this.byId.set(n.id, n);
+			this.nodes.push(n);
 		}
 		return n.id;
-	};
-	const loops = new Set(reach.loops.map((p) => p.join('.')));
-	const never = new Set(reach.neverTrue.map((p) => p.slice(0, -1).join('.')));
-	const statusAt = (path: (string | number)[], base: Reach): FlowStatus => {
+	}
+	edge(from: string, to: string, kind: FlowEdgeKind, extra: Partial<FlowEdge> = {}) {
+		this.edges.push({ id: `${from}>${to}#${this.edges.length}`, from, to, kind, status: this.byId.get(from)?.status ?? 'reachable', ...extra });
+	}
+	statusAt(path: Path, base: Reach): FlowStatus {
 		const key = path.join('.');
-		return loops.has(key) ? 'loop' : never.has(key) ? 'never' : base;
-	};
-	const edge = (from: string, to: string, kind: FlowEdgeKind, extra: Partial<FlowEdge> = {}) => {
-		edges.push({ id: `${from}>${to}#${edges.length}`, from, to, kind, status: byId.get(from)?.status ?? 'reachable', ...extra });
-	};
-
-	// group labels → index (the first group with that label)
-	const labelled = new Map<string, number>();
-	groups.forEach((g, gi) => typeof g?.label === 'string' && g.label && !labelled.has(g.label) && labelled.set(g.label, gi));
-	const groupId = (gi: number) => `g${gi}`;
-	groups.forEach((g, gi) => {
+		return this.loops.has(key) ? 'loop' : this.never.has(key) ? 'never' : base;
+	}
+	/** a group's box (`stub`: drawn for context on the group / slice level) */
+	group(gi: number, stub = false): string {
+		const id = `g${gi}`;
+		if (this.byId.has(id)) return id;
+		const g = this.groups[gi];
 		const slices: any[] = Array.isArray(g?.slices) ? g.slices : [];
-		const status = reach.groups[gi] ?? 'unreachable';
-		const dead = status === 'unreachable' ? [] : (reach.slices[gi] ?? []).flatMap((r, k) => (r === 'unreachable' ? [k] : []));
-		add({
-			id: groupId(gi),
+		const status = this.reach.groups[gi] ?? 'unreachable';
+		const dead = status === 'unreachable' ? [] : (this.reach.slices[gi] ?? []).flatMap((r, k) => (r === 'unreachable' ? [k] : []));
+		return this.add({
+			id,
 			kind: 'group',
 			status,
 			group: gi,
 			path: ['groups', gi],
-			name: name(g, gi),
+			name: this.name(g, gi),
 			count: slices.length,
 			...(dead.length ? { deadSlices: dead } : {}),
-			...(Array.isArray(g?.events) && g.events.length ? { script: true } : {})
+			...(Array.isArray(g?.events) && g.events.length ? { script: true } : {}),
+			...(stub ? { stub: true } : {})
 		});
-	});
-
+	}
 	/** where a jump leads: groups of this chapter, else an exit node */
-	const targets = (t: any): { id: string; random: boolean }[] => {
+	targets(t: any): { id: string; random: boolean }[] {
 		if (!t || typeof t !== 'object' || typeof t.type !== 'string') return [];
-		const here = t.type === 'chapter' && options.chapter !== undefined && Number(t.value) === options.chapter;
+		const here = t.type === 'chapter' && this.options.chapter !== undefined && Number(t.value) === this.options.chapter;
 		const anyOf: string[] = Array.isArray(t.anyOf) ? t.anyOf.filter((l: unknown) => typeof l === 'string' && l) : [];
 		if (here) {
 			const labels = anyOf.length ? anyOf : typeof t.label === 'string' && t.label ? [t.label] : [];
-			if (!labels.length) return groups.length ? [{ id: groupId(0), random: false }] : [];
+			if (!labels.length) return this.groups.length ? [{ id: this.group(0, true), random: false }] : [];
 			return labels.map((l) => {
-				const gi = labelled.get(l);
-				if (gi !== undefined) return { id: groupId(gi), random: anyOf.length > 0 };
+				const gi = this.labelled.get(l);
+				if (gi !== undefined) return { id: this.group(gi, true), random: anyOf.length > 0 };
 				const target: JumpToTarget = { type: t.type, value: String(t.value), label: l };
-				return { id: add({ id: `x:${t.type}:${t.value}:${l}`, kind: 'exit', status: 'unreachable', target }), random: anyOf.length > 0 };
+				return { id: this.add({ id: `x:${t.type}:${t.value}:${l}`, kind: 'exit', status: 'unreachable', target }), random: anyOf.length > 0 };
 			});
 		}
 		const target: JumpToTarget = { type: t.type, value: String(t.value ?? '') };
 		if (typeof t.label === 'string' && t.label) target.label = t.label;
 		if (anyOf.length) target.anyOf = anyOf;
 		const id = `x:${t.type}:${target.value}:${target.label ?? ''}:${anyOf.join('|')}`;
-		return [{ id: add({ id, kind: 'exit', status: 'unreachable', target }), random: false }];
-	};
-	const jumpEdges = (from: string, t: unknown, extra: Partial<FlowEdge>) => {
-		for (const x of targets(t)) edge(from, x.id, x.random ? 'random' : 'jump', extra);
-	};
-	const cond = (e: any): Partial<FlowEdge> => {
-		if (!conditional(e)) return {};
-		return { condition: conditionText(e.if) };
-	};
+		return [{ id: this.add({ id, kind: 'exit', status: 'unreachable', target }), random: false }];
+	}
+	jumpEdges(from: string, t: unknown, extra: Partial<FlowEdge>) {
+		for (const x of this.targets(t)) this.edge(from, x.id, x.random ? 'random' : 'jump', extra);
+	}
+	cond(e: any): Partial<FlowEdge> {
+		return conditional(e) ? { condition: conditionText(e.if) } : {};
+	}
+	carry(p: Pending): Partial<FlowEdge> {
+		return {
+			...(p.label ? { label: p.label } : {}),
+			...(p.branch ? { branch: p.branch } : {}),
+			...(p.condition ? { condition: p.condition } : {}),
+			...(p.never ? { never: true } : {})
+		};
+	}
 
-	/** what a pending way carries onto its edge */
-	const carry = (p: Pending): Partial<FlowEdge> => ({
-		...(p.label ? { label: p.label } : {}),
-		...(p.branch ? { branch: p.branch } : {}),
-		...(p.condition ? { condition: p.condition } : {}),
-		...(p.never ? { never: true } : {})
-	});
-	type Pending = { from: string; kind: FlowEdgeKind; label?: string; branch?: FlowEdge['branch']; condition?: string; never?: boolean };
 	/**
-	 * A script's key points in order; returns what falls through its end. `id` = a node id for event j, `path` its path.
-	 * `pending` = what leads into the script's start.
+	 * A script's nodes in order; returns what falls through its end. `detail`: plain events too (runs / steps), else only
+	 * the key points (the chapter level). `w.pending` = what leads into the script's start.
 	 */
-	const script = (events: any[], status: (j: number) => FlowStatus, id: (j: number) => string, path: (j: number) => (string | number)[], gi: number, pending: Pending[]): Pending[] => {
+	script(events: any[], w: ScriptWalk, detail: boolean): Pending[] {
+		const { status, id, path, gi } = w;
+		let pending = w.pending;
 		const points = new Map<string, string>();
 		events.forEach((e, j) => {
 			if (e?.type === 'label' && typeof e.params?.name === 'string' && e.params.name && !points.has(e.params.name)) {
-				points.set(e.params.name, add({ id: id(j), kind: 'label', status: status(j), group: gi, path: path(j), name: e.params.name }));
+				points.set(e.params.name, this.add({ id: id(j), kind: 'label', status: status(j), group: gi, path: path(j), name: e.params.name }));
 			}
 		});
 		let block: number[] = [];
-		const enter = (to: string) => {
-			for (const p of pending) edge(p.from, to, p.kind, carry(p));
+		let run: FlowNode | null = null;
+		const enter = (to: string, extra: Partial<FlowEdge> = {}) => {
+			for (const p of pending) this.edge(p.from, to, p.kind, { ...this.carry(p), ...extra });
 			pending = [];
 		};
 		events.forEach((e, j) => {
-			const dead = never.has(path(j).join('.'));
-			switch (e?.type) {
+			const dead = this.never.has(path(j).join('.'));
+			const type = e?.type;
+			if (KEY_EVENTS.has(type)) run = null;
+			switch (type) {
 				case 'label': {
 					const at = points.get(e.params?.name);
 					if (at !== id(j)) return; // a duplicate name: the first one counts
@@ -239,23 +355,23 @@ export function chapterFlow(groups: readonly any[], options: FlowOptions = {}): 
 					return;
 				case 'divert':
 				case 'jumpTo': {
-					const at = add({
+					const at = this.add({
 						id: id(j),
-						kind: e.type === 'divert' ? 'divert' : 'jump',
+						kind: type === 'divert' ? 'divert' : 'jump',
 						status: status(j),
 						group: gi,
 						path: path(j),
-						...(e.type === 'divert' ? { name: String(e.params?.to ?? '') } : { target: e.params?.target })
+						...(type === 'divert' ? { name: String(e.params?.to ?? '') } : { target: e.params?.target })
 					});
 					enter(at);
-					const extra = { ...cond(e), ...(dead ? { never: true } : {}) };
-					if (e.type === 'divert') {
+					const extra = { ...this.cond(e), ...(dead ? { never: true } : {}) };
+					if (type === 'divert') {
 						const to = points.get(e.params?.to);
-						if (to) edge(at, to, 'divert', extra);
+						if (to) this.edge(at, to, 'divert', extra);
 						// a divert to a point that isn't there goes on (as the reader does)
-						if (!to || conditional(e)) pending = [{ from: at, kind: 'then', ...(to ? { branch: 'else' } : {}) }];
+						if (!to || conditional(e)) pending = [{ from: at, kind: 'then', ...(to ? { branch: 'else' as const } : {}) }];
 					} else {
-						jumpEdges(at, e.params?.target, extra);
+						this.jumpEdges(at, e.params?.target, extra);
 						if (conditional(e)) pending = [{ from: at, kind: 'then', branch: 'else' }];
 					}
 					return;
@@ -263,25 +379,25 @@ export function chapterFlow(groups: readonly any[], options: FlowOptions = {}): 
 				case 'showChoices': {
 					const choices = block;
 					block = [];
-					const at = add({ id: id(j), kind: 'choices', status: status(j), group: gi, path: path(j), count: choices.length });
+					const at = this.add({ id: id(j), kind: 'choices', status: status(j), group: gi, path: path(j), count: choices.length });
 					enter(at);
-					const extra = { ...cond(e), ...(dead ? { never: true } : {}) };
+					const extra = { ...this.cond(e), ...(dead ? { never: true } : {}) };
 					let sure = false;
 					for (const c of choices) {
 						const choice = events[c];
-						const label = text(choice?.params?.label) || `#${choices.indexOf(c) + 1}`;
-						const deadChoice = never.has(path(c).join('.'));
+						const label = this.text(choice?.params?.label) || `#${choices.indexOf(c) + 1}`;
+						const deadChoice = this.never.has(path(c).join('.'));
 						if (!conditional(choice)) sure = true;
 						const own: Partial<FlowEdge> = { label, ...(conditional(choice) ? { condition: conditionText(choice.if) } : extra.condition ? { condition: extra.condition } : {}), ...(deadChoice || dead ? { never: true } : {}) };
 						const actions = actionsOf(choice?.params?.onSelect) as any[];
 						const jump = actions.find((x) => x && 'jumpTo' in x);
 						if (jump) {
-							jumpEdges(at, jump.jumpTo?.target, own);
+							this.jumpEdges(at, jump.jumpTo?.target, own);
 							continue;
 						}
 						const divert = actions.find((x) => x && 'divert' in x);
 						const to = divert ? points.get(divert.divert?.to) : undefined;
-						if (to) edge(at, to, 'choice', own);
+						if (to) this.edge(at, to, 'choice', own);
 						else pending.push({ from: at, kind: 'choice', ...own } as Pending);
 					}
 					// no choice, or only conditional ones: the question may be skipped
@@ -290,99 +406,592 @@ export function chapterFlow(groups: readonly any[], options: FlowOptions = {}): 
 					return;
 				}
 			}
+			if (!detail) return;
+			// a plain event (message, join / leave, variable, text box …)
+			if (conditional(e)) {
+				run = null;
+				const condition = conditionText(e.if);
+				const at = this.add({ id: id(j), kind: 'step', status: status(j), group: gi, path: path(j), events: [j, j], event: String(type ?? ''), condition });
+				this.summarize(this.byId.get(at)!, e);
+				// in line (the test only skips this one event – the flow goes on either way): the edge into it carries the test
+				enter(at, { condition, ...(dead ? { never: true } : {}) });
+				pending = [{ from: at, kind: 'then' }];
+				return;
+			}
+			if (run) {
+				run.events![1] = j;
+				if (RANK[status(j)] > RANK[run.status]) run.status = status(j);
+				this.summarize(run, e);
+				return;
+			}
+			const at = this.add({ id: id(j), kind: 'run', status: status(j), group: gi, path: path(j), events: [j, j] });
+			run = this.byId.get(at)!;
+			this.summarize(run, e);
+			enter(at);
+			pending = [{ from: at, kind: 'then' }];
 		});
 		return pending;
-	};
+	}
 
-	/** what leaves each group when it is through (its script's end, or the group itself) */
-	const through: Pending[][] = groups.map((g, gi) => {
+	/** what a plain event adds to its run / step */
+	summarize(n: FlowNode, e: any) {
+		const push = (key: 'speakers' | 'joins' | 'leaves' | 'sets' | 'boxes', v: string) => {
+			if (!v) return;
+			const list = (n[key] ??= []);
+			if (!list.includes(v)) list.push(v);
+		};
+		switch (e?.type) {
+			case 'showMessage':
+				n.messages = (n.messages ?? 0) + 1;
+				if (e.params?.character) push('speakers', who(e.params));
+				if (n.first === undefined) {
+					const t = this.text(e.params?.text);
+					if (t) n.first = t;
+				}
+				break;
+			case 'joinScene':
+				for (const c of Array.isArray(e.params?.characters) ? e.params.characters : []) push('joins', who(c));
+				break;
+			case 'leaveScene':
+				for (const c of Array.isArray(e.params?.characters) ? e.params.characters : []) push('leaves', who(c));
+				break;
+			case 'setVariable':
+				push('sets', String(e.params?.variable ?? ''));
+				break;
+			case 'showTextBox':
+				push('boxes', String(e.params?.dialog ?? ''));
+				break;
+		}
+	}
+
+	/** a group's script from its box; returns what falls through its end */
+	groupScript(gi: number, detail: boolean): Pending[] {
+		const g = this.groups[gi];
 		const events: any[] = Array.isArray(g?.events) ? g.events : [];
 		const base = ['groups', gi, 'events'];
-		const start: Pending[] = [{ from: groupId(gi), kind: 'then' }];
+		const start: Pending[] = [{ from: `g${gi}`, kind: 'then' }];
 		if (!events.length) return start;
-		return script(
+		return this.script(
 			events,
-			(j) => statusAt([...base, j], reach.events[gi]?.[j] ?? 'unreachable'),
-			(j) => `g${gi}e${j}`,
-			(j) => [...base, j],
-			gi,
-			start
+			{ status: (j) => this.statusAt([...base, j], this.reach.events[gi]?.[j] ?? 'unreachable'), id: (j) => `g${gi}e${j}`, path: (j) => [...base, j], gi, pending: start },
+			detail
 		);
-	});
+	}
 
-	// slice triggers and item taps that branch: a node each, from the group
-	groups.forEach((g, gi) => {
+	/**
+	 * Slice triggers and item taps: a node each. `detail`: every run and its plain events (group / slice level), else only
+	 * the runs that branch with their key points (chapter level). `from(k)` = the box they hang off; `only` = one slice;
+	 * `points`: a divert into the group's script draws that point as a stub when the script isn't drawn.
+	 */
+	triggers(gi: number, o: { detail: boolean; from: (k: number) => string; only?: number; points?: boolean }) {
+		const g = this.groups[gi];
 		const slices: any[] = Array.isArray(g?.slices) ? g.slices : [];
+		const script: any[] = Array.isArray(g?.events) ? g.events : [];
 		slices.forEach((s, k) => {
-			const sliceStatus = reach.slices[gi]?.[k] ?? 'unreachable';
-			const runs = new Map<string, { trigger: string; events: any[]; idx: number[]; base: (string | number)[] }>();
-			(Array.isArray(s?.events) ? s.events : []).forEach((e: any, j: number) => {
-				if (!e?.trigger) return;
-				const key = JSON.stringify(e.trigger);
-				if (!runs.has(key)) runs.set(key, { trigger: String(e.trigger.type ?? ''), events: [], idx: [], base: ['groups', gi, 'slices', k, 'events'] });
-				runs.get(key)!.events.push(e);
-				runs.get(key)!.idx.push(j);
-			});
-			(Array.isArray(s?.items) ? s.items : []).forEach((item: any, x: number) => {
-				if (!Array.isArray(item?.events) || !item.events.length) return;
-				runs.set(`item${x}`, { trigger: 'item', events: item.events, idx: item.events.map((_: unknown, j: number) => j), base: ['groups', gi, 'slices', k, 'items', x, 'events'] });
-			});
+			if (o.only !== undefined && k !== o.only) return;
+			const sliceStatus = this.reach.slices[gi]?.[k] ?? 'unreachable';
 			let n = 0;
-			for (const run of runs.values()) {
+			for (const run of runsOf(s, gi, k)) {
 				const branches = run.events.some((e) => e?.type === 'divert' || e?.type === 'jumpTo' || e?.type === 'showChoices');
-				if (!branches) continue;
+				if (!branches && !o.detail) continue;
 				const id = `g${gi}s${k}t${n++}`;
-				add({ id, kind: 'trigger', status: sliceStatus, group: gi, path: [...run.base, run.idx[0]], slice: k, trigger: run.trigger });
-				edge(groupId(gi), id, 'trigger');
+				this.add({ id, kind: 'trigger', status: sliceStatus, group: gi, path: [...run.base, run.idx[0]], slice: k, trigger: run.trigger });
+				this.edge(o.from(k), id, 'trigger');
 				// a lone divert goes into the group's script at its point
 				const lone = run.events.length === 1 && run.events[0]?.type === 'divert' ? run.events[0] : null;
 				if (lone) {
-					const at = (Array.isArray(g?.events) ? g.events : []).findIndex((e: any) => e?.type === 'label' && e.params?.name === lone.params?.to);
-					if (at >= 0 && byId.has(`g${gi}e${at}`)) {
-						edge(id, `g${gi}e${at}`, 'divert', { ...cond(lone), ...(never.has([...run.base, run.idx[0]].join('.')) ? { never: true } : {}) });
+					const at = script.findIndex((e: any) => e?.type === 'label' && e.params?.name === lone.params?.to);
+					const point = `g${gi}e${at}`;
+					if (at >= 0 && !this.byId.has(point) && o.points) {
+						this.add({ id: point, kind: 'label', status: this.statusAt(['groups', gi, 'events', at], this.reach.events[gi]?.[at] ?? 'unreachable'), group: gi, path: ['groups', gi, 'events', at], name: String(lone.params?.to ?? ''), stub: true });
+					}
+					if (at >= 0 && this.byId.has(point)) {
+						this.edge(id, point, 'divert', { ...this.cond(lone), ...(this.never.has([...run.base, run.idx[0]].join('.')) ? { never: true } : {}) });
 						continue;
 					}
 				}
 				// its own little script: what branches in it hangs off the trigger node (its end goes nowhere: the page goes on)
-				script(
+				this.script(
 					run.events,
-					(j) => statusAt([...run.base, run.idx[j]], sliceStatus),
-					(j) => `${id}e${j}`,
-					(j) => [...run.base, run.idx[j]],
-					gi,
-					[{ from: id, kind: 'then' }]
+					{ status: (j) => this.statusAt([...run.base, run.idx[j]], sliceStatus), id: (j) => `${id}e${j}`, path: (j) => [...run.base, run.idx[j]], gi, pending: [{ from: id, kind: 'then' }] },
+					o.detail
 				);
 			}
 		});
-	});
+	}
 
-	// reading order: linked groups, the follow-up bar, an authored end, the next chapter
-	groups.forEach((g, gi) => {
-		const out = through[gi];
+	/** reading order after a group: linked groups, the follow-up bar, an authored end, the next chapter */
+	after(gi: number, out: Pending[]) {
 		if (!out.length) return;
+		const g = this.groups[gi];
 		const link = (to: string, kind: FlowEdgeKind, extra: Partial<FlowEdge> = {}) => {
-			for (const p of out) edge(p.from, to, p.kind === 'choice' ? 'choice' : kind, { ...carry(p), ...extra });
+			for (const p of out) this.edge(p.from, to, p.kind === 'choice' ? 'choice' : kind, { ...this.carry(p), ...extra });
 		};
-		if (linksToNext(groups as ChainGroupLike[], gi)) return link(groupId(gi + 1), 'continues');
+		if (linksToNext(this.groups as ChainGroupLike[], gi)) return link(this.group(gi + 1, true), 'continues');
 		const end = groupEnd(g);
 		if (end) {
-			for (const x of targets(end.target)) link(x.id, x.random ? 'random' : 'end', end.auto ? { branch: 'auto' } : {});
+			for (const x of this.targets(end.target)) link(x.id, x.random ? 'random' : 'end', end.auto ? { branch: 'auto' } : {});
 			return;
 		}
-		const next = groups[gi + 1];
-		if (next && typeof next.label === 'string' && next.label) return link(groupId(gi + 1), 'follow');
-		link(add({ id: 'x:next', kind: 'exit', status: 'unreachable', next: true }), 'follow');
-	});
+		const next = this.groups[gi + 1];
+		if (next && typeof next.label === 'string' && next.label) return link(this.group(gi + 1, true), 'follow');
+		link(this.add({ id: 'x:next', kind: 'exit', status: 'unreachable', next: true }), 'follow');
+	}
 
-	// an exit is as reachable as the best way into it
-	const rank: Record<FlowStatus, number> = { reachable: 3, conditional: 2, loop: 1, never: 1, unreachable: 0 };
-	const best = new Map<string, number>();
-	for (const e of edges) {
+	/** an exit is as reachable as the best way into it */
+	exits() {
+		const best = new Map<string, number>();
+		for (const e of this.edges) {
+			const to = this.byId.get(e.to);
+			if (to?.kind !== 'exit') continue;
+			const r = e.never ? 0 : Math.min(RANK[e.status], e.condition ? 2 : 3);
+			best.set(e.to, Math.max(best.get(e.to) ?? 0, r));
+		}
+		for (const n of this.nodes) if (n.kind === 'exit') n.status = (best.get(n.id) ?? 0) >= 3 ? 'reachable' : (best.get(n.id) ?? 0) >= 1 ? 'conditional' : 'unreachable';
+	}
+
+	done(): ChapterFlow {
+		this.exits();
+		return { nodes: this.nodes, edges: this.edges, reach: this.reach };
+	}
+}
+
+/**
+ * The flow of a chapter. `groups` = the chapter's groups with each scene in place of its ref (what `chapterReach` gets).
+ */
+export function chapterFlow(groups: readonly any[], options: FlowOptions = {}): ChapterFlow {
+	const reach = options.reach ?? chapterReach(groups, options.facts);
+	const b = new Builder(groups, options, reach);
+	groups.forEach((_, gi) => b.group(gi));
+	const through = groups.map((_, gi) => b.groupScript(gi, false));
+	groups.forEach((_, gi) => b.triggers(gi, { detail: false, from: () => `g${gi}` }));
+	groups.forEach((_, gi) => b.after(gi, through[gi]));
+	return b.done();
+}
+
+/**
+ * One group closer up: every event of its script (plain ones collapsed into runs between the key points, a plain event
+ * under a test as a step), its slice triggers and item taps with their own events, the groups the reader comes from
+ * (reading order, jumps – as stubs) and where it goes on to. Same statuses as `chapterFlow`.
+ */
+export function groupFlow(groups: readonly any[], gi: number, options: FlowOptions = {}): ChapterFlow {
+	const reach = options.reach ?? chapterReach(groups, options.facts);
+	const b = new Builder(groups, options, reach);
+	if (!groups[gi]) return b.done();
+	const head = b.group(gi);
+	// where the reader comes from: the chapter's flow, edges into this group from other groups
+	const whole = chapterFlow(groups, { ...options, reach });
+	const wholeById = new Map(whole.nodes.map((n) => [n.id, n]));
+	const seen = new Set<string>();
+	for (const e of whole.edges) {
+		if (e.to !== head) continue;
+		const from = wholeById.get(e.from);
+		if (from?.group === undefined || from.group === gi) continue;
+		const key = `${from.group}|${e.kind}|${e.label ?? ''}|${e.condition ?? ''}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		const stub = b.group(from.group, true);
+		b.edge(stub, head, e.kind, { ...(e.label ? { label: e.label } : {}), ...(e.branch ? { branch: e.branch } : {}), ...(e.condition ? { condition: e.condition } : {}), ...(e.never ? { never: true } : {}), status: e.status });
+	}
+	const out = b.groupScript(gi, true);
+	b.triggers(gi, { detail: true, from: () => head });
+	b.after(gi, out);
+	return b.done();
+}
+
+/**
+ * One slice closer up: the slice, its group (a stub), its trigger runs and item taps with every event, the points of the
+ * group's script they divert into (stubs), the script events that reveal the slice's text boxes, and where it all leads.
+ */
+export function sliceFlow(groups: readonly any[], gi: number, k: number, options: FlowOptions = {}): ChapterFlow {
+	const reach = options.reach ?? chapterReach(groups, options.facts);
+	const b = new Builder(groups, options, reach);
+	const g = groups[gi];
+	const slice = Array.isArray(g?.slices) ? g.slices[k] : undefined;
+	if (!slice) return b.done();
+	const group = b.group(gi, true);
+	const head = b.add({ id: `g${gi}s${k}`, kind: 'slice', status: reach.slices[gi]?.[k] ?? 'unreachable', group: gi, slice: k, path: ['groups', gi, 'slices', k], name: `${k + 1}` });
+	b.edge(group, head, 'then');
+	// the group's script events that reveal one of this slice's text boxes
+	const boxes = new Set<string>((Array.isArray(slice.dialog) ? slice.dialog : []).map((d: any) => d?.id).filter((id: unknown): id is string => typeof id === 'string'));
+	(Array.isArray(g.events) ? g.events : []).forEach((e: any, j: number) => {
+		if (e?.type !== 'showTextBox' || !boxes.has(e.params?.dialog)) return;
+		const path = ['groups', gi, 'events', j];
+		const at = b.add({ id: `g${gi}e${j}`, kind: conditional(e) ? 'step' : 'run', status: b.statusAt(path, reach.events[gi]?.[j] ?? 'unreachable'), group: gi, path, events: [j, j], boxes: [String(e.params.dialog)], stub: true, ...(conditional(e) ? { event: 'showTextBox', condition: conditionText(e.if) } : {}) });
+		b.edge(group, at, 'then');
+		b.edge(at, head, 'reveal', b.cond(e));
+	});
+	b.triggers(gi, { detail: true, from: () => head, only: k, points: true });
+	return b.done();
+}
+
+// ── Season / toon level ─────────────────────────────────────────────────────────────────────────────────────────
+
+/** a chapter of the toon as the season / toon level reads it */
+export interface FlowChapter {
+	number: number;
+	/** its groups with each scene in place of its ref */
+	groups: readonly any[];
+	/** its status in its season (source language): draft / coming-soon / published */
+	status?: string;
+	title?: string;
+}
+/** a season and its chapters in reading order (`sequence`) */
+export interface FlowSeason {
+	number: number;
+	chapters: number[];
+}
+/** a map place that leads into a chapter of this toon (hidden = unlocked by reading, not an entry by itself) */
+export interface FlowPlace {
+	id: string;
+	name: string;
+	chapter: number;
+	hidden?: boolean;
+}
+export interface ToonFlowInput {
+	toon: string;
+	chapters: readonly FlowChapter[];
+	seasons: readonly FlowSeason[];
+	/** the toon's facts (`toonFacts` over its documents + the map) */
+	facts?: ToonFacts;
+	places?: readonly FlowPlace[];
+	/** a text (a choice's label) as shown */
+	text?: (value: unknown) => string;
+}
+
+/** a way out of a chapter: another chapter / season / toon … (`target`) or the next chapter of the season (`next`) */
+export interface ChapterExit {
+	target?: JumpToTarget;
+	next?: boolean;
+	kind: FlowEdgeKind;
+	/** the choice's text (a choice that jumps) */
+	label?: string;
+	/** how sure the way is: reachable, only through a condition, or not at all */
+	status: Reach;
+}
+
+/** what leaves a chapter (from its flow's exits; one entry per way, the best status of its edges) */
+export function chapterExits(flow: ChapterFlow): ChapterExit[] {
+	const byId = new Map(flow.nodes.map((n) => [n.id, n]));
+	const out = new Map<string, ChapterExit>();
+	for (const e of flow.edges) {
 		const to = byId.get(e.to);
 		if (to?.kind !== 'exit') continue;
-		const r = e.never ? 0 : Math.min(rank[e.status], e.condition ? 2 : 3);
-		best.set(e.to, Math.max(best.get(e.to) ?? 0, r));
+		const r = e.never ? 0 : Math.min(RANK[e.status], e.condition ? 2 : 3);
+		const status: Reach = r >= 3 ? 'reachable' : r >= 1 ? 'conditional' : 'unreachable';
+		const kind = e.kind === 'follow' && to.next ? 'order' : e.kind;
+		const key = `${to.id}|${kind}|${e.label ?? ''}`;
+		const had = out.get(key);
+		if (had && RANK[had.status] >= RANK[status]) continue;
+		out.set(key, { ...(to.next ? { next: true } : { target: to.target }), kind, ...(e.label ? { label: e.label } : {}), status });
 	}
-	for (const n of nodes) if (n.kind === 'exit') n.status = (best.get(n.id) ?? 0) >= 3 ? 'reachable' : (best.get(n.id) ?? 0) >= 1 ? 'conditional' : 'unreachable';
+	return [...out.values()];
+}
+
+export interface ToonChapterReach {
+	/** reachable in the toon: the season order or a jump leads there (or the reader opens it from the overview) */
+	reach: Reach;
+	/** groups of the chapter nothing reaches (`chapterReach`) */
+	dead: number;
+	flow: ChapterFlow;
+	exits: ChapterExit[];
+}
+
+/**
+ * A toon's reach over its chapters (owner 2026-10-06): entries are every season's first chapter, the published chapters
+ * (readable from the toon page's list) and chapters a visible map place opens; from a reached chapter its follow-up bar
+ * leads to the next chapter of the season (when the chapter can get there), its jumps / ends to other chapters, a season
+ * (its first chapter) or the toon page (every season's start). Iterative, cycles are harmless.
+ */
+export function toonReach(input: ToonFlowInput): Map<number, ToonChapterReach> {
+	const out = new Map<number, ToonChapterReach>();
+	for (const c of input.chapters) {
+		const flow = chapterFlow(c.groups, { chapter: c.number, facts: input.facts, text: input.text });
+		out.set(c.number, { reach: 'unreachable', dead: flow.reach.groups.filter((r) => r === 'unreachable').length, flow, exits: chapterExits(flow) });
+	}
+	const nextOf = new Map<number, number>();
+	const starts: number[] = [];
+	for (const s of input.seasons) {
+		if (s.chapters.length) starts.push(s.chapters[0]);
+		s.chapters.forEach((n, i) => i + 1 < s.chapters.length && nextOf.set(n, s.chapters[i + 1]));
+	}
+	const seasonStart = (n: number) => input.seasons.find((s) => s.number === n)?.chapters[0];
+	const lead = (number: number, x: ChapterExit): number[] => {
+		if (x.next) return nextOf.has(number) ? [nextOf.get(number)!] : [];
+		const t = x.target;
+		if (!t) return [];
+		if (t.type === 'chapter') return [Number(t.value)];
+		if (t.type === 'season') return [seasonStart(Number(t.value))].filter((n): n is number => n !== undefined);
+		if (t.type === 'toon' && t.value === input.toon) return starts;
+		return [];
+	};
+	const entries = new Set<number>(starts);
+	for (const c of input.chapters) if (c.status === 'published') entries.add(c.number);
+	for (const p of input.places ?? []) if (!p.hidden) entries.add(p.chapter);
+	const walk = (withConditions: boolean): Set<number> => {
+		const reached = new Set<number>();
+		const queue = [...entries].filter((n) => out.has(n));
+		queue.forEach((n) => reached.add(n));
+		while (queue.length) {
+			const n = queue.pop()!;
+			for (const x of out.get(n)!.exits) {
+				if (x.status === 'unreachable' || (x.status === 'conditional' && !withConditions)) continue;
+				for (const to of lead(n, x)) if (out.has(to) && !reached.has(to)) (reached.add(to), queue.push(to));
+			}
+		}
+		return reached;
+	};
+	const sure = walk(false);
+	const maybe = walk(true);
+	for (const [n, r] of out) r.reach = sure.has(n) ? 'reachable' : maybe.has(n) ? 'conditional' : 'unreachable';
+	return out;
+}
+
+/**
+ * The season level (`season` given: its chapters as boxes, the others as exits) or the toon level (every chapter, the
+ * map places): chapter boxes with their status and reach, the season order, jumps / ends between chapters (parallel ways
+ * merged, their texts on the edge) and exits to other seasons / toons / products.
+ */
+export function toonFlow(input: ToonFlowInput, options: { season?: number; reach?: Map<number, ToonChapterReach> } = {}): { nodes: FlowNode[]; edges: FlowEdge[]; reach: Map<number, ToonChapterReach> } {
+	const reach = options.reach ?? toonReach(input);
+	const nodes: FlowNode[] = [];
+	const edges: FlowEdge[] = [];
+	const byId = new Map<string, FlowNode>();
+	const add = (n: FlowNode) => (byId.has(n.id) ? n.id : (byId.set(n.id, n), nodes.push(n), n.id));
+	const seasonOf = new Map<number, number>();
+	for (const s of input.seasons) for (const n of s.chapters) if (!seasonOf.has(n)) seasonOf.set(n, s.number);
+	const shown = (n: number) => reach.has(n) && (options.season === undefined || seasonOf.get(n) === options.season);
+	const ordered = [...input.chapters].sort((a, b) => (seasonOf.get(a.number) ?? 1e9) - (seasonOf.get(b.number) ?? 1e9) || a.number - b.number);
+	for (const c of ordered) {
+		if (!shown(c.number)) continue;
+		const r = reach.get(c.number)!;
+		add({
+			id: `c${c.number}`,
+			kind: 'chapter',
+			status: r.reach,
+			chapter: c.number,
+			...(seasonOf.has(c.number) ? { season: seasonOf.get(c.number) } : {}),
+			...(c.status ? { state: c.status } : {}),
+			...(c.title ? { name: c.title } : {}),
+			count: c.groups.length,
+			dead: r.dead
+		});
+	}
+	/** merged edges: from|to|kind → edge */
+	const merged = new Map<string, FlowEdge>();
+	const link = (from: string, to: string, kind: FlowEdgeKind, status: Reach, label?: string) => {
+		if (from === to) return;
+		const key = `${from}|${to}|${kind}`;
+		const had = merged.get(key);
+		if (had) {
+			had.count = (had.count ?? 1) + 1;
+			if (label && !(had.label ?? '').split(' · ').includes(label)) had.label = had.label ? `${had.label} · ${label}` : label;
+			if (RANK[status] > RANK[had.status]) had.status = status;
+			return;
+		}
+		const e: FlowEdge = { id: `${from}>${to}#${edges.length}`, from, to, kind, status, ...(label ? { label } : {}) };
+		merged.set(key, e);
+		edges.push(e);
+	};
+	const exitNode = (t: JumpToTarget): string => {
+		const id = `x:${t.type}:${t.value}`;
+		return add({ id, kind: 'exit', status: 'unreachable', target: { type: t.type, value: String(t.value) }, ...(t.type === 'chapter' && seasonOf.has(Number(t.value)) ? { season: seasonOf.get(Number(t.value)) } : {}) });
+	};
+	for (const c of ordered) {
+		if (!shown(c.number)) continue;
+		const r = reach.get(c.number)!;
+		const from = `c${c.number}`;
+		const fromStatus = (s: Reach): Reach => (r.reach === 'unreachable' ? 'unreachable' : r.reach === 'conditional' && s === 'reachable' ? 'conditional' : s);
+		for (const x of r.exits) {
+			if (x.status === 'unreachable') continue;
+			if (x.next) {
+				const s = input.seasons.find((s) => s.chapters.includes(c.number));
+				const at = s ? s.chapters.indexOf(c.number) : -1;
+				const next = s && at >= 0 ? s.chapters[at + 1] : undefined;
+				if (next !== undefined && reach.has(next)) link(from, shown(next) ? `c${next}` : exitNode({ type: 'chapter', value: String(next) } as JumpToTarget), 'order', fromStatus(x.status));
+				continue;
+			}
+			const t = x.target!;
+			const label = x.label ?? t.label ?? (t.anyOf?.length ? t.anyOf.join(' / ') : undefined);
+			let to: string;
+			if (t.type === 'chapter' && reach.has(Number(t.value))) to = shown(Number(t.value)) ? `c${Number(t.value)}` : exitNode(t);
+			else if (t.type === 'season' && options.season === undefined) {
+				const start = input.seasons.find((s) => s.number === Number(t.value))?.chapters[0];
+				to = start !== undefined && shown(start) ? `c${start}` : exitNode(t);
+			} else to = exitNode(t);
+			link(from, to, x.kind, fromStatus(x.status), label);
+		}
+	}
+	// the toon level: map places as entries (one box per chapter)
+	if (options.season === undefined) {
+		const byChapter = new Map<number, FlowPlace[]>();
+		for (const p of input.places ?? []) if (shown(p.chapter)) byChapter.set(p.chapter, [...(byChapter.get(p.chapter) ?? []), p]);
+		for (const [n, list] of byChapter) {
+			const id = add({ id: `p${n}`, kind: 'place', status: list.some((p) => !p.hidden) ? 'reachable' : 'conditional', chapter: n, places: list.map((p) => p.name) });
+			link(id, `c${n}`, 'place', byId.get(id)!.status as Reach);
+		}
+	}
+	// an exit is as reachable as the best way into it
+	for (const n of nodes) {
+		if (n.kind !== 'exit') continue;
+		const best = Math.max(0, ...edges.filter((e) => e.to === n.id).map((e) => RANK[e.status]));
+		n.status = best >= 3 ? 'reachable' : best >= 1 ? 'conditional' : 'unreachable';
+	}
 	return { nodes, edges, reach };
+}
+
+// ── SCUTOONS level (the server's flow index) ────────────────────────────────────────────────────────────────────
+
+/** one way somewhere, as the server's flow index lists it (`GET /api/creator/flow-index`) */
+export interface FlowIndexEdge {
+	source: { toon: string; chapter: number; group?: string | null };
+	target: JumpToTarget;
+	kind: 'jump' | 'choice' | 'end';
+	label?: string;
+}
+export interface FlowIndexToon {
+	id: string;
+	title?: unknown;
+	status?: string;
+	seasons: { number: number; chapters: { number: number; status?: unknown }[] }[];
+}
+export interface FlowIndex {
+	toons: FlowIndexToon[];
+	edges: FlowIndexEdge[];
+	/** per toon: its dead things (the same rules as `deadThings`) */
+	dead?: Record<string, DeadThings>;
+}
+
+/** one box per toon (its seasons), the jumps between toons (merged, counted) and to products / XR */
+export function universeFlow(index: FlowIndex, options: { text?: (value: unknown) => string } = {}): { nodes: FlowNode[]; edges: FlowEdge[] } {
+	const text = options.text ?? firstText;
+	const nodes: FlowNode[] = [];
+	const edges: FlowEdge[] = [];
+	const byId = new Map<string, FlowNode>();
+	const add = (n: FlowNode) => (byId.has(n.id) ? n.id : (byId.set(n.id, n), nodes.push(n), n.id));
+	for (const t of index.toons) {
+		add({
+			id: `t:${t.id}`,
+			kind: 'toon',
+			status: 'reachable',
+			toon: t.id,
+			name: text(t.title) || t.id,
+			...(t.status ? { state: t.status } : {}),
+			seasons: t.seasons.map((s) => s.number),
+			count: t.seasons.reduce((sum, s) => sum + s.chapters.length, 0)
+		});
+	}
+	const merged = new Map<string, FlowEdge>();
+	for (const e of index.edges) {
+		const from = `t:${e.source.toon}`;
+		if (!byId.has(from)) continue;
+		const t = e.target;
+		let to: string;
+		if (t.type === 'toon') {
+			if (t.value === e.source.toon) continue;
+			to = byId.has(`t:${t.value}`) ? `t:${t.value}` : add({ id: `x:toon:${t.value}`, kind: 'exit', status: 'reachable', target: { type: 'toon', value: String(t.value) } as JumpToTarget });
+		} else if (t.type === 'product' || t.type === 'xr') {
+			to = add({ id: `x:${t.type}:${t.value}`, kind: 'exit', status: 'reachable', target: { type: t.type, value: String(t.value) } });
+		} else continue; // chapter / season: inside the toon
+		const kind: FlowEdgeKind = e.kind;
+		const key = `${from}|${to}|${kind}`;
+		const where = `${e.source.chapter}${e.label ? `: ${e.label}` : ''}`;
+		const had = merged.get(key);
+		if (had) {
+			had.count = (had.count ?? 1) + 1;
+			continue;
+		}
+		const edge: FlowEdge = { id: `${from}>${to}#${edges.length}`, from, to, kind, status: 'reachable', label: where, count: 1 };
+		merged.set(key, edge);
+		edges.push(edge);
+	}
+	return { nodes, edges };
+}
+
+// ── Dead things ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** where something dead is: chapter, group (index), its label */
+export interface DeadPlace {
+	chapter: number;
+	group: number;
+	label?: string;
+}
+export interface DeadItem {
+	name: string;
+	at: DeadPlace[];
+}
+export interface DeadThings {
+	/** variables something sets that nothing tests or shows (`{name}` in a text) */
+	unread: DeadItem[];
+	/** variables tested or shown that nothing in the toon sets (their tests are never true) */
+	unset: DeadItem[];
+	/** named points of a group's script nothing diverts to */
+	points: DeadItem[];
+	/** group labels nothing jumps to (no jump / end / random list / map place, and the follow-up bar doesn't lead there) */
+	labels: DeadItem[];
+}
+
+/** `{name}` / `{name:clock}` in a text (today's interpolation; the expression language will read more) */
+const TEXT_VARIABLE = /\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*clock\s*)?\}/g;
+
+/**
+ * The toon's dead things over its chapters (groups with each scene in place of its ref). `facts` = the toon's
+ * (`toonFacts` over every document + the map): variables set elsewhere (item pickups, other documents) and labels
+ * something refers to; without them no label is judged.
+ */
+export function deadThings(chapters: readonly { number: number; groups: readonly any[] }[], facts?: ToonFacts): DeadThings {
+	const sets = new Map<string, DeadPlace[]>();
+	const reads = new Map<string, DeadPlace[]>();
+	const note = (map: Map<string, DeadPlace[]>, name: string, at: DeadPlace) => {
+		if (!name || name.startsWith('picked:')) return;
+		const list = map.get(name) ?? [];
+		if (!list.some((p) => p.chapter === at.chapter && p.group === at.group)) list.push(at);
+		map.set(name, list);
+	};
+	const points: DeadItem[] = [];
+	const labels: DeadItem[] = [];
+	for (const c of chapters) {
+		c.groups.forEach((g, gi) => {
+			const at: DeadPlace = { chapter: c.number, group: gi, ...(typeof g?.label === 'string' && g.label ? { label: g.label } : {}) };
+			const named: string[] = [];
+			const diverted = new Set<string>();
+			// every object of the group once: events, choices, slices, items, text boxes
+			const stack: unknown[] = [g];
+			while (stack.length) {
+				const v = stack.pop();
+				if (!v || typeof v !== 'object') {
+					if (typeof v === 'string') for (const m of v.matchAll(TEXT_VARIABLE)) note(reads, m[1], at);
+					continue;
+				}
+				if (Array.isArray(v)) {
+					for (const x of v) stack.push(x);
+					continue;
+				}
+				const o = v as Record<string, any>;
+				if (o.type === 'setVariable' && typeof o.params?.variable === 'string') note(sets, o.params.variable, at);
+				if (typeof o.set?.variable === 'string') note(sets, o.set.variable, at);
+				if (typeof o.add?.variable === 'string') note(sets, o.add.variable, at);
+				if (typeof o.if?.variable === 'string') note(reads, o.if.variable, at);
+				if (o.type === 'label' && typeof o.params?.name === 'string' && o.params.name) named.push(o.params.name);
+				if (o.type === 'divert' && typeof o.params?.to === 'string') diverted.add(o.params.to);
+				if (typeof o.divert?.to === 'string') diverted.add(o.divert.to);
+				for (const key in o) if (key !== 'if') stack.push(o[key]);
+			}
+			for (const name of new Set(named)) if (!diverted.has(name)) points.push({ name, at: [at] });
+			// a group label: something refers to it, it starts the chapter, or the follow-up bar leads there
+			if (facts && at.label && gi > 0 && !facts.labels.has(at.label)) {
+				const before = c.groups[gi - 1];
+				const bar = !before?.continues && !groupEnd(before);
+				if (!bar) labels.push({ name: at.label, at: [at] });
+			}
+		});
+	}
+	const setAnywhere = (name: string) => sets.has(name) || !!facts?.variables.has(name);
+	const sorted = (list: DeadItem[]) => list.sort((a, b) => a.name.localeCompare(b.name));
+	return {
+		unread: sorted([...sets].filter(([name]) => !reads.has(name)).map(([name, at]) => ({ name, at }))),
+		unset: sorted([...reads].filter(([name]) => !setAnywhere(name)).map(([name, at]) => ({ name, at }))),
+		points,
+		labels
+	};
 }
