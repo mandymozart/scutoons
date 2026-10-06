@@ -33,7 +33,7 @@
 		min?: number;
 		max?: number;
 		hint?: string;
-		/** the label's tooltip (technical detail, if useful) */
+		/** the field's tooltip (label and control): an explanation or technical detail, if useful */
 		title?: string;
 		/** required keys are never removed (empty number → 0, empty text → '', empty list → []) */
 		required?: boolean;
@@ -74,8 +74,8 @@
 	}
 </script>
 
-<div class="field" data-testid={testid || undefined}>
-	<label for={id} {title}>{label}</label>
+<div class="field" {title} data-testid={testid || undefined}>
+	<label for={id}>{label}</label>
 	{#if type === 'list'}
 		<ListField {value} onchange={(list) => write(list.length || required ? list : undefined)} testid={testid ? `${testid}-list` : id} />
 	{:else if type === 'bool'}
