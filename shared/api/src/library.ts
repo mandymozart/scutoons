@@ -66,8 +66,11 @@ export function createLibraryApi({ publicClient, sessionClient, cacheMs = 0 }: L
 	}
 
 	return {
-		/** Published toons (drafts too for creators with `draft`) */
-		fetchToons: (options?: LibraryOptions) => get<ToonIndex[]>('/library/toons', options),
+		/**
+		 * Published toons (drafts too for creators with `draft`); with a `locale` (the reader's language) without the toons
+		 * whose page is closed in it (their language status – announced ones stay)
+		 */
+		fetchToons: (options?: LibraryOptions, locale?: string) => get<ToonIndex[]>(`/library/toons${q(locale)}`, options),
 
 		/** The toon page's data in one answer: index entry, settings, every season with its chapter list, the map */
 		fetchToon: (toon: string, locale?: string, options?: LibraryOptions) => get<ToonBundle>(`${toonPath(toon)}${q(locale)}`, options),

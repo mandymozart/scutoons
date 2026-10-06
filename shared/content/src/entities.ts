@@ -1,7 +1,8 @@
 // Entity keys (agents/DATA.md §2): how every toon-related document is addressed in the database and the API.
 //
-//   toon:<toon>                       the toon's index entry (status, names, languages + the language-neutral settings: map, tile …)
-//   toon-settings:<toon>:<locale>     the toon's per-language settings (title, description, release, status, covers)
+//   toon:<toon>                       the toon's index entry (status, names, languages, the language-neutral settings: map, tile …
+//                                     and – agents/NEUTRAL.md step 4 – title / description / release / status per language)
+//   toon-settings:<toon>:<locale>     legacy: the toon's per-language settings, read while the entry has no texts
 //   season:<toon>:<n>                 chapter:<toon>:<n>                 scene:<toon>:<chapter>:<name>
 //                                     one language-neutral document each, texts as locale maps (neutral.ts, agents/NEUTRAL.md)
 //   season:<toon>:<n>:<locale>  chapter:<toon>:<n>:<locale>  scene:<toon>:<chapter>:<name>:<locale>
@@ -73,6 +74,7 @@ export interface EntityRef {
 /** Builders of entities (keys without locale) */
 export const entities = {
 	toon: (toon: string) => `toon:${toon}`,
+	/** @deprecated legacy per-language toon settings (read-only: the toon entry holds them since agents/NEUTRAL.md step 4) */
 	toonSettings: (toon: string) => `toon-settings:${toon}`,
 	season: (toon: string, n: number) => `season:${toon}:${n}`,
 	chapter: (toon: string, n: number) => `chapter:${toon}:${n}`,

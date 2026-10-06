@@ -12,7 +12,19 @@ import {
 import { getAt, type Path } from './paths.ts';
 import { hasVisualNovel, linksToNext } from './chains.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, DIALOG_SHAPES, DIALOG_TAILS, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import {
+	DEFAULT_SLICE,
+	DIALOG_SHAPES,
+	DIALOG_TAILS,
+	SLICE_ITEM_ACTIONS,
+	TOON_NEUTRAL_FIELDS,
+	VIEWPORT_FITS,
+	frameSliceSize,
+	hasToonTexts,
+	isFrameRatioAllowed,
+	parseFrameRatio,
+	type ToonIndex
+} from './content.ts';
 import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
@@ -20,7 +32,7 @@ import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
 import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
-import { resolveChapter, resolveGroup, resolveSeason, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
+import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
 import { forEachText, type TextLeafKind } from './neutralize.ts';
 
 export type Level = 'error' | 'warning' | 'info';
@@ -806,8 +818,8 @@ function checkSeason(c: Collector, s: any, locale: string, ctx?: ValidateContext
 }
 
 /**
- * toon.json (`ToonSettings`, entity `toon-settings:<toon>:<l>`): the per-language settings (title, description, release,
- * status). The language-neutral ones (`TOON_NEUTRAL_FIELDS`: map, tile, announce, cover …) belong to the index entry
+ * toon.json (`ToonSettings`, entity `toon-settings:<toon>:<l>`, legacy since agents/NEUTRAL.md step 4 – the toon entry
+ * holds these as locale maps): the per-language settings (title, description, release, status). The language-neutral ones (`TOON_NEUTRAL_FIELDS`: map, tile, announce, cover …) belong to the index entry
  * `toon:<toon>` – a copy here is a warning (the reader takes the entry's), so they don't creep back per language.
  */
 function checkToon(c: Collector, t: any, locale: string) {
@@ -828,7 +840,10 @@ function checkToon(c: Collector, t: any, locale: string) {
 /** covers are per season (owner 2026-10-02): a toon is represented by its avatar */
 const COVER_BELONGS_TO_SEASON = "the cover belongs to the season (season.cover, the season's cover editor in the creator) – a toon is shown with its avatar";
 
-/** The toon's index entry (`ToonIndex`, entity `toon:<toon>`): the language-neutral settings (`TOON_NEUTRAL_FIELDS`), all optional */
+/**
+ * The toon's index entry (`ToonIndex`, entity `toon:<toon>`): the language-neutral settings (`TOON_NEUTRAL_FIELDS`), all
+ * optional. Its texts per language (`TOON_TEXT_FIELDS`) are checked by `validateNeutral('index', …)`.
+ */
 function checkToonIndex(c: Collector, t: any) {
 	if (!isObj(t)) return c.error([], 'toon entry must be an object');
 	if (!isStr(t.id) || !t.id) c.error(['id'], 'id must be the toon id');
@@ -927,7 +942,25 @@ export function forEachSlice(kind: string, data: any, fn: (slice: any, path: Pat
 const LEAF_WORD: Record<TextLeafKind, string> = { title: 'title', description: 'description', release: 'release', status: 'status', dialog: 'text', message: 'text', choice: 'label' };
 
 /**
- * A language-neutral chapter / scene (`group`) / season (agents/NEUTRAL.md): the structure once – the document as the
+ * The toon entry's own problems (the language-neutral settings) + its texts resolved for the source: an empty title or
+ * description, no release date (warnings – a toon is shown with them). An entry without texts yet (production before its
+ * conversion: the per-language toon settings hold them) has only the first.
+ */
+function toonEntryProblems(data: any, languages: NeutralLanguages, ctx: ValidateContext): Problem[] {
+	const problems = validateFile('index', data, languages.source, ctx).map((p) => ({ ...p, locale: null }));
+	const c = new Collector(ctx.file, null);
+	// no texts yet (a field that isn't a locale map is reported with the locale maps' shape)
+	if (!hasToonTexts(data)) return problems;
+	const toon = resolveToon(data as ToonIndex, languages.source, languages);
+	if (!toon.title.trim()) c.warn(['title'], 'title is empty');
+	if (!String(toon.description ?? '').trim()) c.warn(['description'], 'description is empty');
+	if (!toon.release) c.warn(['release'], 'no release date yet (a date per language)');
+	return [...problems, ...c.problems];
+}
+
+/**
+ * A language-neutral chapter / scene (`group`) / season (agents/NEUTRAL.md), or the toon entry (`index`, step 4: its
+ * title / description / release / languageStatus maps): the structure once – the document as the
  * source language's readers get it (`resolve*`), problems without a locale –, the locale maps' shape (a text per
  * language, `release` a date in every locale, `sequence[].status` a status in every locale), and per toon language
  * the completeness of the texts like `validateLocales` did for per-locale documents: a missing text (warning), the same
@@ -945,11 +978,13 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 			? resolveChapter(data as ChapterDoc, source, languages)
 			: kind === 'season'
 				? resolveSeason(data as SeasonDoc, source, languages)
-				: resolveGroup(data as GroupDoc, source, languages);
-	const problems = validateFile(kind, resolved, source, ctx).map((p) => ({ ...p, locale: null }));
+				: kind === 'index'
+					? null
+					: resolveGroup(data as GroupDoc, source, languages);
+	const problems = kind === 'index' ? toonEntryProblems(data, languages, ctx) : validateFile(kind, resolved, source, ctx).map((p) => ({ ...p, locale: null }));
 	const c = new Collector(file, null);
 	const at = (locale: string) => new Collector(file, locale);
-	const neutralKind: NeutralKind = kind === 'group' ? 'scene' : (kind as NeutralKind);
+	const neutralKind: NeutralKind | 'toon' = kind === 'group' ? 'scene' : kind === 'index' ? 'toon' : (kind as NeutralKind);
 	const perLocale: Collector[] = [];
 	forEachText(neutralKind, data, (path, value, leaf) => {
 		const word = LEAF_WORD[leaf];

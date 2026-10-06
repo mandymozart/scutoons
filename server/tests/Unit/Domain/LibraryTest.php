@@ -51,18 +51,20 @@ final class LibraryTest extends TestCase
         return (array) json_decode($body, true);
     }
 
+    /** seedToon()'s toon entry: the toon's settings as locale maps (agents/NEUTRAL.md step 4) + more fields for one test */
+    private const ENTRY = ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']];
+    private const ENTRY_TEXTS = ['title' => ['de' => 'T de', 'en' => 'T en'], 'languageStatus' => ['de' => 'published', 'en' => 'published']];
+
     /**
      * A toon `t` (source de, languages de + en): season 1 = ch. 1 published, 2 draft, 3 coming-soon; ch. 1 has a scene.
-     * Chapters, scenes and the season are language-neutral documents (texts per locale, agents/NEUTRAL.md); the toon
-     * settings and the locations are per locale.
+     * The toon entry holds the toon's settings per language; chapters, scenes and the season are language-neutral
+     * documents (texts per locale, agents/NEUTRAL.md); the locations are per locale.
+     * @param array<string, mixed> $entry more fields of the toon entry
      */
-    private function seedToon(): void
+    private function seedToon(array $entry = []): void
     {
-        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']]);
-        foreach (['de', 'en'] as $l) {
-            $this->doc('t', $l, 'toon.json', ['id' => 't', 'title' => "T $l", 'status' => 'published']);
-            $this->doc('t', $l, 'locations.json', [['id' => "loc-$l"]]);
-        }
+        $this->doc('t', '_', 'index.json', $entry + self::ENTRY + self::ENTRY_TEXTS);
+        foreach (['de', 'en'] as $l) $this->doc('t', $l, 'locations.json', [['id' => "loc-$l"]]);
         $this->seedSeason();
         $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'Eins de', 'en' => 'Eins en'], 'number' => 1, 'release' => ['de' => '2025-10-04', 'en' => '2025-10-04'], 'thumbnail' => 'x.webp',
             'audio' => ['volume' => 1.0], 'groups' => [['ref' => ['src' => 'chapter1/scene-1.json']], ['label' => 'inline', 'slices' => []], ['ref' => ['src' => 'chapter1/gone.json']]]]);
@@ -87,11 +89,11 @@ final class LibraryTest extends TestCase
 
     /**
      * seedToon() as legacy per-locale documents (production before its conversion, agents/NEUTRAL.md): the library's
-     * fallback path when an entity has no neutral document
+     * fallback path when an entity has no neutral document – the toon entry without texts, per-locale toon settings
      */
     private function seedLegacy(): void
     {
-        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']]);
+        $this->doc('t', '_', 'index.json', self::ENTRY);
         foreach (['de', 'en'] as $l) {
             $this->doc('t', $l, 'toon.json', ['id' => 't', 'title' => "T $l", 'status' => 'published']);
             $this->doc('t', $l, 'season1.json', ['title' => "S $l", 'sequence' => [
@@ -253,7 +255,7 @@ final class LibraryTest extends TestCase
     public function testCoverFromOlderToonSettings(): void
     {
         $this->seedToon();
-        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']]);
+        $this->doc('t', '_', 'index.json', self::ENTRY); // an entry without texts: the legacy toon settings are read
         $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'cover' => ['square' => 'images/en.webp']]);
         $data = self::decode($this->library()->toon('t', 'en', false)->body);
         self::assertSame(['square' => 'images/en.webp'], $data['toon']['cover']);
@@ -262,9 +264,7 @@ final class LibraryTest extends TestCase
     /** Covers belong to the season (owner 2026-10-02): a cover left in the toon entry is not merged into the toon */
     public function testToonEntryCoverIsNotMerged(): void
     {
-        $this->seedToon();
-        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'],
-            'cover' => ['square' => 'images/s1-cover-square.webp', 'lettering' => true]]);
+        $this->seedToon(['cover' => ['square' => 'images/s1-cover-square.webp', 'lettering' => true]]);
         $data = self::decode($this->library()->toon('t', 'de', false)->body);
         self::assertArrayNotHasKey('cover', $data['toon']);
     }
@@ -272,12 +272,10 @@ final class LibraryTest extends TestCase
     /** The language-neutral settings (index entry) are merged into every locale's `toon`; `entry` stays the plain index entry */
     public function testToonBundleMergesTheNeutralSettings(): void
     {
-        $this->seedToon();
         $map = ['layers' => ['terrain' => 'images/map/m.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]];
-        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'],
-            'authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc']]);
-        // a stale per-language value loses against the index entry
-        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'map' => ['width' => 0]]);
+        $this->seedToon(['authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc']]);
+        // a stale per-language document (legacy) is not read once the entry has texts
+        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T old', 'status' => 'published', 'map' => ['width' => 0]]);
         foreach (['de', 'en'] as $l) {
             $data = self::decode($this->library()->toon('t', $l, false)->body);
             self::assertSame("T $l", $data['toon']['title']);
@@ -288,6 +286,60 @@ final class LibraryTest extends TestCase
             self::assertSame(['image' => 'tile.webp', 'color' => '#0066cc'], $data['toon']['tile']);
             self::assertSame(['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']], $data['entry'], 'entry without the settings');
         }
+    }
+
+    /**
+     * The toon settings per language in the toon entry (agents/NEUTRAL.md step 4): the reader's `toon` is resolved from its
+     * locale maps (the per-language documents are legacy), a language without a title falls back, `entry` stays plain
+     */
+    public function testToonSettingsFromTheEntry(): void
+    {
+        $this->seedToon(['title' => ['de' => 'T de', 'en' => 'T en', 'ko' => ' '], 'description' => ['de' => 'Geschichten', 'en' => ''],
+            'release' => ['de' => '2025-10-04', 'en' => '2025-12-01'], 'authors' => ['A']]);
+        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T legacy', 'status' => 'published']);
+        $en = $this->library()->toon('t', 'en', false);
+        $data = self::decode($en->body);
+        self::assertSame(['id' => 't', 'title' => 'T en', 'language' => 'en', 'release' => '2025-12-01', 'status' => 'published', 'description' => 'Geschichten', 'authors' => ['A']],
+            $data['toon'], 'the per-language settings from the entry (a blank text → the source\'s) + the neutral settings');
+        self::assertSame(self::ENTRY, $data['entry'], 'the entry without its texts and neutral settings');
+        self::assertSame(['en', true], [$en->locale, $en->fallback], 'chapter 3 has no en title');
+        $ko = $this->library()->toon('t', 'ko', false);
+        self::assertSame(['de', 'T de', 'de'], [$ko->locale, self::decode($ko->body)['toon']['title'], self::decode($ko->body)['toon']['language']]);
+        self::assertTrue($ko->fallback);
+        $legacy = self::decode($this->library()->legacyOnly()->toon('t', 'en', false)->body);
+        self::assertSame('T legacy', $legacy['toon']['title'], 'legacy answers read the per-language documents');
+    }
+
+    /** A language's status closes the toon page in that language (404) and leaves the toon out of that language's list */
+    public function testToonLanguageStatusGates(): void
+    {
+        $this->seedToon(['languageStatus' => ['de' => 'published', 'en' => 'draft']]);
+        self::assertSame('T de', self::decode($this->library()->toon('t', 'de', false)->body)['toon']['title']);
+        try {
+            $this->library()->toon('t', 'en', false);
+            self::fail('en is a draft: 404 expected');
+        } catch (ApiError $error) {
+            self::assertSame(404, $error->status);
+        }
+        self::assertSame('draft', self::decode($this->library()->toon('t', 'en', true)->body)['toon']['status'], 'creators see it');
+        self::assertSame(['t'], array_column(self::decode($this->library()->toons(false)->body), 'id'), 'no locale: as before');
+        self::assertSame(['t'], array_column(self::decode($this->library()->toons(false, 'de')->body), 'id'));
+        self::assertSame([], self::decode($this->library()->toons(false, 'en')->body), 'closed in en: not listed in en');
+        self::assertSame(['t'], array_column(self::decode($this->library()->toons(true, 'en')->body), 'id'), 'draft mode lists it');
+        self::assertSame(['t'], array_column(self::decode($this->library()->toons(false, 'fr')->body), 'id'), 'fr is served in de: open');
+        // a status only in the source is every language's; none at all = published
+        $this->seedToon(['languageStatus' => ['de' => 'coming-soon']]);
+        self::assertSame([], self::decode($this->library()->toons(false, 'en')->body));
+        $entry = self::ENTRY + self::ENTRY_TEXTS;
+        unset($entry['languageStatus']);
+        $this->doc('t', '_', 'index.json', $entry);
+        self::assertArrayNotHasKey('status', self::decode($this->library()->toon('t', 'en', false)->body)['toon']);
+        // legacy toon settings gate the same way
+        $this->doc('t', '_', 'index.json', self::ENTRY);
+        $this->doc('t', 'de', 'toon.json', ['id' => 't', 'title' => 'T de', 'status' => 'published']);
+        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'draft']);
+        self::assertSame([], self::decode($this->library()->toons(false, 'en')->body));
+        self::assertSame(['t'], array_column(self::decode($this->library()->toons(false, 'de')->body), 'id'));
     }
 
     public function testShowDraftsListsDraftsAndTheSandbox(): void
@@ -406,8 +458,7 @@ final class LibraryTest extends TestCase
     /** The world map (agents/MAP.md): a published toon `t`, a draft toon `d`, the sandbox; places of each + one of nobody */
     private function seedWorldMap(): void
     {
-        $this->seedToon();
-        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'], 'map' => ['center' => ['x' => 100, 'y' => 50]]]);
+        $this->seedToon(['map' => ['center' => ['x' => 100, 'y' => 50]]]);
         $this->doc('d', '_', 'index.json', ['id' => 'd', 'uri' => 'd', 'status' => 'draft', 'announce' => true]);
         $this->doc('sandbox', '_', 'index.json', ['id' => 'sandbox', 'uri' => 'sandbox', 'status' => 'draft']);
         $this->doc(Library::PLATFORM, '_', 'map.json', [

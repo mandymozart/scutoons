@@ -3,7 +3,24 @@
 //   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { neutralizeChapter, neutralizeGroup, neutralizeSeason, resolveChapter, resolveGroup, resolveSeason, type Chapter, type Group, type Season } from '../src/index.ts';
+import {
+	hasToonTexts,
+	neutralizeChapter,
+	neutralizeGroup,
+	neutralizeSeason,
+	neutralizeToon,
+	planToonConversion,
+	resolveChapter,
+	resolveGroup,
+	resolveSeason,
+	resolveToon,
+	visibleDifferences,
+	type Chapter,
+	type Group,
+	type Season,
+	type ToonIndex,
+	type ToonSettings
+} from '../src/index.ts';
 
 const L = { source: 'de', languages: ['de', 'en'] };
 const slice = (text: unknown, extra: object = {}) => ({ image: 'a.webp', width: 390, height: 625, dialog: [{ id: 'd1', rect: { x: 1, y: 2, width: 50 }, text, size: 4 }], ...extra });
@@ -131,4 +148,66 @@ test('season: status per locale, neutral cover, per-locale cover difference repo
 	assert.deepEqual(doc.sequence[1].status, { de: 'published', en: 'coming-soon' });
 	assert.equal('language' in doc, false);
 	assert.deepEqual(resolveSeason(doc, 'en', L), season('en', 'coming-soon'));
+});
+
+// ── Toon settings → the toon entry (agents/NEUTRAL.md step 4) ──────────────────────────────────────────────────────
+
+const entry = (over: object = {}): ToonIndex =>
+	({ id: 't', uri: 't', status: 'published', sourceLanguage: 'de', languages: ['de', 'en'], i18n: {}, avatar: 'a.webp', authors: ['A'], ...over }) as ToonIndex;
+const settings = (l: string, over: object = {}): ToonSettings =>
+	({ id: 't', title: l === 'de' ? 'Katzenpapst' : 'Cat Pope', language: l, release: l === 'de' ? '2025-10-04' : '2025-12-01', status: 'published', description: `d ${l}`, ...over }) as ToonSettings;
+
+test('toon: the settings become the entry\'s locale maps, resolving gives each language\'s settings back', () => {
+	const { doc, report } = neutralizeToon(entry(), { de: settings('de'), en: settings('en', { status: 'draft' }) }, 'de');
+	assert.deepEqual(report, []);
+	assert.deepEqual(doc.title, { de: 'Katzenpapst', en: 'Cat Pope' });
+	assert.deepEqual(doc.release, { de: '2025-10-04', en: '2025-12-01' });
+	assert.deepEqual(doc.languageStatus, { de: 'published', en: 'draft' });
+	assert.equal('language' in doc, false);
+	assert.equal(doc.status, 'published', "the whole toon's status is the entry's own");
+	assert.deepEqual(doc.authors, ['A']);
+	assert.equal(hasToonTexts(doc), true);
+	for (const l of ['de', 'en']) assert.deepEqual(resolveToon(doc, l, L), settings(l, l === 'en' ? { status: 'draft' } : {}));
+});
+
+test('toon: leftovers – neutral ones the entry has are dropped (invisible), others moved; cover / download / id reported', () => {
+	const de = settings('de', { id: 'x', authors: ['old'], thumbnail: 't.webp', cover: { square: 'c.webp' }, download: { music: 'm.zip' }, accepted_warnings: ['title#1'] });
+	const { doc, report } = neutralizeToon(entry({ accepted_warnings: ['map#2'] }), { de, en: settings('en', { thumbnail: 't-en.webp' }) }, 'de');
+	const fields = ['id', 'authors', 'thumbnail', 'cover', 'download'];
+	// first the languages against each other (the source wins), then what the entry does with the source's leftovers
+	assert.deepEqual(kinds(report), [...fields, ...fields].map((f) => `differs ${f}`));
+	const by = (path: string) => report.filter((r) => r.path === path)[1];
+	assert.deepEqual(by('id').values, { entry: 't', de: 'x' });
+	assert.deepEqual(by('authors').values, { entry: ['A'], de: ['old'] });
+	assert.equal(by('authors').invisible, true, "the reader always took the entry's");
+	assert.equal(by('thumbnail').invisible, true, 'moved into the entry: the reader keeps it');
+	assert.deepEqual(by('thumbnail').missing, ['entry']);
+	assert.equal(doc.thumbnail, 't.webp');
+	assert.deepEqual(doc.authors, ['A']);
+	assert.equal(by('cover').invisible, undefined, 'the reader showed the deprecated cover');
+	assert.equal(by('download').invisible, true);
+	assert.equal('cover' in doc, false);
+	assert.deepEqual(doc.accepted_warnings, ['map#2', 'title#1']);
+	assert.deepEqual(visibleDifferences(report).map((r) => r.path), ['id', 'thumbnail', 'cover', 'id', 'cover'], "not authors (the entry's), not download (ignored)");
+});
+
+test('toon: the plan – published entry + settings, a draft after it; nothing once the entry has texts or without an entry', () => {
+	const v = (id: number, content: unknown) => ({ id, content });
+	const input = {
+		source: 'de',
+		languages: ['de', 'en'],
+		entryPublished: v(1, entry()),
+		entryNewest: v(5, entry({ announce: true })),
+		published: { de: v(2, settings('de')), en: v(3, settings('en')) },
+		newest: { de: v(2, settings('de')), en: v(4, settings('en', { title: 'Cat Pope!' })) }
+	};
+	const steps = planToonConversion(input);
+	assert.deepEqual(steps.map((s) => [s.status, s.versions]), [['published', 'toon#1 de#2 en#3'], ['draft', 'toon#5 de#2 en#4']]);
+	assert.equal(steps[0].doc.announce, undefined);
+	assert.deepEqual(steps[1].doc.title, { de: 'Katzenpapst', en: 'Cat Pope!' });
+	assert.equal(steps[1].doc.announce, true);
+	assert.deepEqual(planToonConversion({ ...input, entryNewest: v(1, entry()), newest: input.published }).map((s) => s.status), ['published']);
+	assert.deepEqual(planToonConversion({ ...input, entryPublished: undefined }).map((s) => s.status), ['draft'], 'an entry never published: a draft only');
+	assert.deepEqual(planToonConversion({ ...input, entryNewest: v(6, steps[1].doc) }), [], 'converted');
+	assert.deepEqual(planToonConversion({ ...input, entryPublished: undefined, entryNewest: undefined }), [], 'no entry: never created here');
 });

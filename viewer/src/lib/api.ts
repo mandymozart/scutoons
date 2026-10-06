@@ -83,7 +83,7 @@ async function preview<T>(load: (draft: boolean) => Promise<T>): Promise<T> {
 		throw e;
 	}
 }
-export const fetchToons = () => preview((draft) => library.fetchToons({ draft }));
+export const fetchToons = (locale?: string) => preview((draft) => library.fetchToons({ draft }, locale));
 export const fetchToon = (toon: string, locale?: string) => preview((draft) => library.fetchToon(toon, locale, { draft }));
 export const fetchChapter = (toon: string, number: number, locale?: string) =>
 	preview((draft) => library.fetchChapter(toon, number, locale, { draft }));

@@ -14,7 +14,7 @@ use Scutoons\Http\Middleware\Cors;
 
 /**
  * The reader's entity endpoints (agents/DATA.md §3, docs/API.md "Library"), public GETs:
- *   GET /api/library/toons                               ToonIndex[]
+ *   GET /api/library/toons[?locale=]                     ToonIndex[] (with a locale: without the toons closed in it)
  *   GET /api/library/toons/{toon}?locale=                { entry, toon, seasons, locations, routes }
  *   GET /api/library/toons/{toon}/seasons/{n}?locale=    SeasonOverview
  *   GET /api/library/toons/{toon}/chapters/{n}?locale=   Chapter with its scenes inlined
@@ -37,7 +37,7 @@ final class LibraryController
 
     public function toons(Request $request, Response $response): Response
     {
-        return $this->send($request, $response, $this->library->toons($this->draft($request)));
+        return $this->send($request, $response, $this->library->toons($this->draft($request), $this->locale($request)));
     }
 
     /** @param array{toon: string} $args */

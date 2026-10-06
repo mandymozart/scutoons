@@ -16,7 +16,8 @@ use stdClass;
  *   document's first locale.
  * - A text: the served locale → the source → the other languages → the first text there is (blank = missing); none → ''.
  * - Chapter: `language` = the served locale, `status` = the season's status of the chapter when given. Season:
- *   `language` = the served locale, `sequence[].status` resolved (none at all → no status).
+ *   `language` = the served locale, `sequence[].status` resolved (none at all → no status). Toon entry (`toon`): its
+ *   per-language settings (`toon()`).
  * Documents are never changed: changed levels are copies.
  */
 final class NeutralDoc
@@ -103,6 +104,7 @@ final class NeutralDoc
         $resolved = match ($kind) {
             'chapter' => $doc instanceof stdClass ? self::chapter($doc, $served, $chain, $chapterStatus) : $doc,
             'season' => $doc instanceof stdClass ? self::season($doc, $served, $chain) : $doc,
+            'toon' => $doc instanceof stdClass ? self::toon($doc, $served, $chain) : $doc,
             default => self::group($doc, $chain),
         };
         return [$served, $fallback, $resolved];
@@ -135,6 +137,25 @@ final class NeutralDoc
                 return $copy;
             }, $doc->sequence);
         }
+        return $out;
+    }
+
+    /**
+     * The toon entry `toon:<toon>` in a locale (agents/NEUTRAL.md step 4): the per-language toon settings it replaces –
+     * `id`, `title`, `language` = the locale, `release` / `description` when the entry has them, `status` = the
+     * language's `languageStatus` (none at all → no status); @scutoons/content `resolveToon`
+     * @param list<string> $chain
+     */
+    public static function toon(stdClass $entry, string $locale, array $chain): stdClass
+    {
+        $out = new stdClass();
+        $out->id = $entry->id ?? null;
+        $out->title = self::text($entry->title ?? null, $chain) ?? '';
+        $out->language = $locale;
+        if (property_exists($entry, 'release')) $out->release = self::text($entry->release, $chain) ?? '';
+        $status = self::text($entry->languageStatus ?? null, $chain);
+        if ($status !== null) $out->status = $status;
+        if (property_exists($entry, 'description')) $out->description = self::text($entry->description, $chain) ?? '';
         return $out;
     }
 

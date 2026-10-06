@@ -11,8 +11,11 @@
 //   not taken (never guessed) and are listed (`text-lost`), the mismatch too (`structure`).
 // - Every other field must be the same in every locale; where a locale differs the source wins (`differs`).
 // - A locale without a text the source has (or with a blank one) resolves to the source's text (`text-missing`).
+//
+// The toon settings (`toon-settings:<toon>:<l>`, agents/NEUTRAL.md step 4) are folded into the toon entry `toon:<toon>`
+// instead (`neutralizeToon`): their title / description / release / status become the entry's locale maps.
 import { deepEqual, type Path } from './paths.ts';
-import type { Chapter, Group, Season } from './content.ts';
+import { TOON_NEUTRAL_FIELDS, TOON_TEXT_FIELDS, hasToonTexts, type Chapter, type Group, type Season, type ToonIndex, type ToonSettings } from './content.ts';
 import type { ChapterDoc, GroupDoc, NeutralKind, SeasonDoc } from './neutral.ts';
 import { isLocaleValue } from './neutral.ts';
 
@@ -31,6 +34,11 @@ export interface NeutralDifference {
 	values: Record<string, unknown>;
 	/** differs: the locales without the field */
 	missing?: string[];
+	/**
+	 * no reader sees it (toon settings: a per-language copy of a field the reader always took from the toon entry, a
+	 * field the reader ignores) – listed in the report, not in the creator's notice
+	 */
+	invisible?: boolean;
 }
 
 export interface NeutralizeResult<T> {
@@ -42,17 +50,20 @@ export interface NeutralizeResult<T> {
 	base: string;
 }
 
-type Ctx = 'chapter' | 'season' | 'group' | 'slice' | 'dialog' | 'event' | 'item' | 'sequence' | 'params-showMessage' | 'params-addChoice';
+type Ctx = 'chapter' | 'season' | 'group' | 'slice' | 'dialog' | 'event' | 'item' | 'sequence' | 'params-showMessage' | 'params-addChoice' | 'toon' | 'toon-entry';
 
 const TEXT: Partial<Record<Ctx, readonly string[]>> = {
 	chapter: ['title', 'description', 'release'],
 	season: ['title', 'description', 'release'],
+	// the per-language toon settings (their `status` becomes the entry's `languageStatus`) and the entry itself
+	toon: ['title', 'description', 'release', 'status'],
+	'toon-entry': TOON_TEXT_FIELDS,
 	dialog: ['text'],
 	sequence: ['status'],
 	'params-showMessage': ['text'],
 	'params-addChoice': ['label']
 };
-const DROP: Partial<Record<Ctx, readonly string[]>> = { chapter: ['language', 'status'], season: ['language'] };
+const DROP: Partial<Record<Ctx, readonly string[]>> = { chapter: ['language', 'status'], season: ['language'], toon: ['language'] };
 const CHILD: Partial<Record<Ctx, Record<string, Ctx>>> = {
 	chapter: { groups: 'group' },
 	group: { slices: 'slice', events: 'event' },
@@ -99,7 +110,7 @@ export type TextLeafKind = 'title' | 'description' | 'release' | 'status' | 'dia
  * conversion: `fn(path, value, kind)` with the path into the document (array indices as numbers) and the stored value
  * (a locale map – or an older plain value). Leaves that are missing are not visited.
  */
-export function forEachText(kind: NeutralKind, doc: unknown, fn: (path: Path, value: unknown, leaf: TextLeafKind) => void) {
+export function forEachText(kind: NeutralKind | 'toon', doc: unknown, fn: (path: Path, value: unknown, leaf: TextLeafKind) => void) {
 	const walk = (node: unknown, ctx: Ctx | null, path: Path) => {
 		if (ctx === null) return;
 		if (Array.isArray(node)) {
@@ -110,14 +121,22 @@ export function forEachText(kind: NeutralKind, doc: unknown, fn: (path: Path, va
 		for (const [key, value] of Object.entries(node)) {
 			if (TEXT[ctx]?.includes(key)) {
 				const leaf: TextLeafKind =
-					ctx === 'dialog' ? 'dialog' : ctx === 'params-showMessage' ? 'message' : ctx === 'params-addChoice' ? 'choice' : (key as TextLeafKind);
+					ctx === 'dialog'
+						? 'dialog'
+						: ctx === 'params-showMessage'
+							? 'message'
+							: ctx === 'params-addChoice'
+								? 'choice'
+								: key === 'languageStatus'
+									? 'status'
+									: (key as TextLeafKind);
 				fn([...path, key], value, leaf);
 			} else {
 				walk(value, childCtx(ctx, node, key), [...path, key]);
 			}
 		}
 	};
-	walk(doc, kind === 'scene' ? 'group' : kind, []);
+	walk(doc, kind === 'scene' ? 'group' : kind === 'toon' ? 'toon-entry' : kind, []);
 }
 
 class Merger {
@@ -307,6 +326,106 @@ export function planConversion(input: ConversionInput): ConversionStep[] {
 	return steps;
 }
 
+// ── Toon settings → the toon entry (agents/NEUTRAL.md step 4) ─────────────────────────────────────────────────────
+
+/** the pseudo-locale of the toon entry's own value in a report (`values.entry`) */
+export const TOON_ENTRY = 'entry';
+
+/**
+ * The per-language toon settings (`{ de: ToonSettings, en: … }`) folded into the toon entry: a copy of `entry` with
+ * `title` / `description` / `release` as locale maps and `languageStatus` = the settings' `status` per language (blank
+ * texts kept – they resolve to the source like missing ones). Everything else of the settings is reported:
+ * - `language` dropped silently; `id` reported when a language's differs from the entry's (the reader got the setting's);
+ * - a language-neutral setting (`TOON_NEUTRAL_FIELDS`) the entry has: dropped (the reader always took the entry's –
+ *   `invisible`); one the entry lacks: moved into the entry (the source's value; the reader keeps getting it);
+ * - the deprecated `cover` (the reader's fallback) and anything unknown: dropped (visible); `download`: dropped
+ *   (`invisible`, the reader ignored it); `accepted_warnings`: the union goes into the entry's.
+ * Language-by-language differences of these fields are reported like any conversion (`differs`, the source wins).
+ */
+export function neutralizeToon(entry: ToonIndex, docs: Record<string, ToonSettings | undefined>, source: string): NeutralizeResult<ToonIndex> {
+	const present = Object.keys(docs).filter((l) => docs[l] !== undefined && docs[l] !== null);
+	if (!present.length) throw new Error('neutralizeToon: no toon settings');
+	const base = present.includes(source) ? source : present[0];
+	const merger = new Merger(base);
+	if (base !== source) merger.report.push({ kind: 'source-missing', path: '', values: { [source]: null, ...Object.fromEntries(present.map((l) => [l, true])) } });
+	const others = present.filter((l) => l !== base).map((l) => [l, docs[l]] as [string, unknown]);
+	const merged = merger.value(docs[base], others, '', 'toon') as Record<string, unknown>;
+	const report = merger.report;
+	const out = clone(entry) as unknown as Record<string, unknown>;
+	// languages differing in a field no reader saw (the entry's neutral setting won; `download` was ignored)
+	for (const r of report) {
+		const top = r.path.split('.')[0];
+		if (top === 'download' || ((TOON_NEUTRAL_FIELDS as readonly string[]).includes(top) && Object.hasOwn(out, top))) r.invisible = true;
+	}
+	for (const field of TOON_TEXT_FIELDS) delete out[field];
+	for (const [key, value] of Object.entries(merged)) {
+		if (key === 'title' || key === 'description' || key === 'release') out[key] = value;
+		else if (key === 'status') out.languageStatus = value;
+		else if (key === ACCEPTED) {
+			const union = [...new Set([...(Array.isArray(out[ACCEPTED]) ? (out[ACCEPTED] as unknown[]) : []), ...(value as unknown[])])];
+			out[ACCEPTED] = union;
+		} else if (key === 'id') {
+			if (value !== out.id) report.push({ kind: 'differs', path: 'id', values: { [TOON_ENTRY]: out.id ?? null, [base]: value } });
+		} else if ((TOON_NEUTRAL_FIELDS as readonly string[]).includes(key)) {
+			if (!Object.hasOwn(out, key)) {
+				out[key] = value;
+				report.push({ kind: 'differs', path: key, values: { [base]: value }, missing: [TOON_ENTRY], invisible: true });
+			} else if (!deepEqual(out[key], value)) {
+				report.push({ kind: 'differs', path: key, values: { [TOON_ENTRY]: out[key], [base]: value }, invisible: true });
+			}
+		} else {
+			report.push({ kind: 'differs', path: key, values: { [base]: value }, missing: [TOON_ENTRY], ...(key === 'download' ? { invisible: true } : {}) });
+		}
+	}
+	// the toon's texts in the toon's language order (the merger kept the source first)
+	return { doc: out as unknown as ToonIndex, report, locales: [base, ...others.map(([l]) => l)], base };
+}
+
+export interface ToonConversionInput {
+	/** the toon's source language */
+	source: string;
+	/** the toon's languages, source first */
+	languages: readonly string[];
+	/** the toon entry's published / newest version (none: nothing to convert into) */
+	entryPublished?: LocaleVersion;
+	entryNewest?: LocaleVersion;
+	/** the per-language toon settings' published / newest versions by locale */
+	published: Record<string, LocaleVersion>;
+	newest: Record<string, LocaleVersion>;
+}
+
+/** One toon entry version to store (the published one after the published entry, or a draft after the newest) */
+export interface ToonConversionStep {
+	status: 'published' | 'draft';
+	doc: ToonIndex;
+	report: NeutralDifference[];
+	/** the converted versions, e.g. `toon#1 de#21 en#36` (the version message) */
+	versions: string;
+}
+
+/**
+ * What folding a toon's settings into its entry stores (decision 6 of agents/NEUTRAL.md, like `planConversion`): the
+ * published entry + the published settings → a new published entry version; when the entry or a language has a newer
+ * draft (or nothing was published) the newest entry + the newest settings → a draft after it. Nothing when the entry
+ * already has texts (`hasToonTexts` – converted, or edited since), has no version (an entry is never created here: its
+ * status would make the toon public), or there are no toon settings.
+ */
+export function planToonConversion(input: ToonConversionInput): ToonConversionStep[] {
+	const newestEntry = input.entryNewest ?? input.entryPublished;
+	if (!newestEntry || hasToonTexts(newestEntry.content) || !Object.keys(input.newest).length) return [];
+	const steps: ToonConversionStep[] = [];
+	const step = (status: 'published' | 'draft', entry: LocaleVersion, settings: Record<string, LocaleVersion>) => {
+		const versions = ordered(settings, input.languages);
+		const result = neutralizeToon(entry.content as ToonIndex, Object.fromEntries(versions.map(([l, v]) => [l, v.content as ToonSettings])), input.source);
+		steps.push({ status, doc: result.doc, report: result.report, versions: [`toon#${entry.id}`, ...versions.map(([l, v]) => `${l}#${v.id}`)].join(' ') });
+	};
+	const publishedStep = !!input.entryPublished && Object.keys(input.published).length > 0;
+	if (publishedStep) step('published', input.entryPublished!, input.published);
+	const newer = newestEntry.id !== input.entryPublished?.id || Object.entries(input.newest).some(([l, v]) => v.id !== input.published[l]?.id);
+	if (!publishedStep || newer) step('draft', newestEntry, input.newest);
+	return steps;
+}
+
 /**
  * The differences a reader would see (the creator's conversion notice): texts that are not taken (`text-lost`), and
  * neutral fields that differ where the reader shows them (not the deprecated / invisible ones: `interaction`, season
@@ -314,5 +433,7 @@ export function planConversion(input: ConversionInput): ConversionStep[] {
  */
 export function visibleDifferences(report: readonly NeutralDifference[]): NeutralDifference[] {
 	const hidden = /(^|\.)(interaction|credits)(\.|$)/;
-	return report.filter((r) => r.kind === 'text-lost' || r.kind === 'text-missing' || r.kind === 'structure' || (r.kind === 'differs' && !hidden.test(r.path)));
+	return report.filter(
+		(r) => !r.invisible && (r.kind === 'text-lost' || r.kind === 'text-missing' || r.kind === 'structure' || (r.kind === 'differs' && !hidden.test(r.path)))
+	);
 }

@@ -44,7 +44,27 @@
 					"type": "string"
 				},
 				"status": {
-					"$ref": "#/definitions/Status"
+					"$ref": "#/definitions/Status",
+					"description": "the whole toon's visibility (the admin catalog / creator); each language has its own on top (`languageStatus`)"
+				},
+				"title": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "The toon's title per language (the reader's `Toon.title`; agents/NEUTRAL.md step 4). With it the entry holds the toon's settings in every language – the per-language `toon-settings:<toon>:<l>` documents are legacy then."
+				},
+				"description": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the toon's description per language (`Toon.description`)"
+				},
+				"release": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the release date per language, YYYY-MM-DD (a translation can be released later)"
+				},
+				"languageStatus": {
+					"type": "object",
+					"additionalProperties": {
+						"$ref": "#/definitions/Status"
+					},
+					"description": "The visibility per language (`Toon.status`; a translation can stay a draft): the library gates the toon page of a language on it and the toons list of a locale. A language without one has the source's; none at all = published."
 				},
 				"avatar": {
 					"type": "string"
@@ -131,6 +151,13 @@
 				"draft",
 				"coming-soon"
 			]
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
 		},
 		"Language": {
 			"type": "string",

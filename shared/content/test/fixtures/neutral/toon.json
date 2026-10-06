@@ -1,0 +1,49 @@
+{
+	"description": "a toon entry with its texts, release and status per language (agents/NEUTRAL.md step 4): the per-language toon settings; a blank text and a language without a title fall back",
+	"kind": "toon",
+	"languages": {
+		"source": "de",
+		"languages": ["de", "en", "ko"]
+	},
+	"doc": {
+		"id": "t",
+		"uri": "t",
+		"status": "published",
+		"avatar": "avatar.webp",
+		"sourceLanguage": "de",
+		"languages": ["de", "en", "ko"],
+		"i18n": { "de": { "name": "Katzenpapst" }, "en": { "name": "Cat Pope" } },
+		"title": { "de": "Katzenpapst", "en": "Cat Pope", "ko": " " },
+		"description": { "de": "Geschichten", "en": "" },
+		"release": { "de": "2025-10-04", "en": "2025-12-01" },
+		"languageStatus": { "de": "published", "en": "draft" },
+		"authors": ["A"],
+		"tile": { "image": "tile.webp" }
+	},
+	"cases": [
+		{
+			"locale": "de",
+			"expected": {
+				"locale": "de",
+				"fallback": false,
+				"doc": { "id": "t", "title": "Katzenpapst", "language": "de", "release": "2025-10-04", "status": "published", "description": "Geschichten" }
+			}
+		},
+		{
+			"locale": "en",
+			"expected": {
+				"locale": "en",
+				"fallback": false,
+				"doc": { "id": "t", "title": "Cat Pope", "language": "en", "release": "2025-12-01", "status": "draft", "description": "Geschichten" }
+			}
+		},
+		{
+			"locale": "ko",
+			"expected": {
+				"locale": "de",
+				"fallback": true,
+				"doc": { "id": "t", "title": "Katzenpapst", "language": "de", "release": "2025-10-04", "status": "published", "description": "Geschichten" }
+			}
+		}
+	]
+}

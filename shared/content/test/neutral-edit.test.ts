@@ -106,6 +106,26 @@ test('validateNeutral: a scene (group)', () => {
 	assert.deepEqual(lines(validateNeutral('group', scene, L, { file: 'scene:x:1:scene-1' })), ['warning en events.0.params.text']);
 });
 
+test('validateNeutral: the toon entry (index) – texts, release and status per language; an entry without texts', () => {
+	const entry = {
+		id: 't',
+		uri: 't',
+		status: 'published',
+		avatar: 'a.webp',
+		i18n: {},
+		authors: ['A'],
+		title: { de: 'Katzenpapst', en: 'Cat Pope' },
+		description: { de: 'Geschichten' },
+		release: { de: '2025-10-04', en: '1.12.2025' },
+		languageStatus: { de: 'published', en: 'later' }
+	};
+	assert.deepEqual(lines(validateNeutral('index', entry, L, { file: 'toon:t' })), ['warning en description', 'error en release', 'error en languageStatus']);
+	const { release: _r, description: _d, ...bare } = { ...entry, languageStatus: { de: 'draft' } };
+	assert.deepEqual(lines(validateNeutral('index', bare, L, { file: 'toon:t' })), ['warning - description', 'warning - release']);
+	assert.deepEqual(lines(validateNeutral('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {} }, L, { file: 'toon:t' })), [], 'not converted yet: the toon settings hold the texts');
+	assert.deepEqual(lines(validateNeutral('index', { id: 't', title: 'T' }, L, { file: 'toon:t' })), ['error - title']);
+});
+
 test('accepted warnings in a neutral document keep their locale', () => {
 	const doc = chapterDoc();
 	const warning = { path: ['title'], message: 'missing en title' };

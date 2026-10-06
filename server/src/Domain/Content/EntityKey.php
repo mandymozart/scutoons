@@ -8,8 +8,9 @@ use Scutoons\Domain\ApiError;
 /**
  * The key of a stored entity (agents/DATA.md §2 "Entity keys"): `<kind>[:<toon>][:<number>][:<scene>][:<locale>]`.
  *
- *   toon:<toon>                          the toon's index entry (list entry, status, languages, names)
- *   toon-settings:<toon>:<l>             the toon's per-language settings (title, description, release, status); the language-neutral ones (map, tile, cover …) are in toon:<toon>
+ *   toon:<toon>                          the toon's index entry (list entry, status, languages, names, the toon settings – texts per language)
+ *   toon-settings:<toon>:<l>             legacy: the toon's per-language settings (title, description, release, status) – since agents/NEUTRAL.md step 4 they
+ *                                        are locale maps in toon:<toon> (with the language-neutral ones: map, tile …); read while the entry has no texts
  *   season:<toon>:<n>                    chapter:<toon>:<n>            scene:<toon>:<chapter>:<name>
  *                                        one language-neutral document each, texts as locale maps (NeutralDoc, agents/NEUTRAL.md)
  *   season:<toon>:<n>:<l>  chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>

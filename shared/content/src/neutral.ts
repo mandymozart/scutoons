@@ -12,7 +12,7 @@
 //                            source language, else its other languages, else the document's first locale
 //   a text in that locale    `resolveText`: the served locale → the source → the toon's other languages → the first
 //                            text there is (a text is there when it isn't blank); none → ''
-import type { Chapter, Dialog, Group, Season, SequenceItem, Slice, SliceItem } from './content.ts';
+import type { Chapter, Dialog, Group, Season, SequenceItem, Slice, SliceItem, ToonIndex, ToonSettings } from './content.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 import type { SensitiveFlag } from './sensitive.ts';
 import type { LocaleText } from './credits.ts';
@@ -117,6 +117,12 @@ export type SeasonDoc = Omit<Season, 'title' | 'description' | 'release' | 'lang
 /** The kinds stored as one language-neutral document (also accepted per locale until production is converted) */
 export type NeutralKind = 'chapter' | 'scene' | 'season';
 
+/**
+ * What resolves for a locale: the neutral kinds + the toon entry `toon:<toon>` (its locale maps → the per-language toon
+ * settings, agents/NEUTRAL.md step 4; served in the locale of its `title` like a season)
+ */
+export type ResolvableKind = NeutralKind | 'toon';
+
 // ── Resolution ────────────────────────────────────────────────────────────────────────────────────────────────
 
 export interface NeutralLanguages {
@@ -180,7 +186,7 @@ function groupLocales(group: unknown, out: string[]) {
  * The locales a neutral document has, in its own order: chapter / season = the locales of its `title`; scene = the
  * locales of any of its texts. [] = it has no text at all (then it serves every locale).
  */
-export function neutralLocales(kind: NeutralKind, doc: unknown): string[] {
+export function neutralLocales(kind: ResolvableKind, doc: unknown): string[] {
 	const out: string[] = [];
 	if (!isObject(doc)) return out;
 	if (kind === 'scene') groupLocales(doc, out);
@@ -189,7 +195,7 @@ export function neutralLocales(kind: NeutralKind, doc: unknown): string[] {
 }
 
 /** The locale a neutral document is served in for an asked locale (see the header) + whether that is a fallback */
-export function servedLocale(kind: NeutralKind, doc: unknown, locale: string, languages: NeutralLanguages): { locale: string; fallback: boolean } {
+export function servedLocale(kind: ResolvableKind, doc: unknown, locale: string, languages: NeutralLanguages): { locale: string; fallback: boolean } {
 	const has = neutralLocales(kind, doc);
 	if (!has.length) return { locale, fallback: false };
 	const served = localeChain(locale, languages).find((l) => has.includes(l)) ?? has[0];
@@ -292,22 +298,41 @@ export function resolveSeason(doc: SeasonDoc, locale: string, languages: Neutral
 }
 
 /**
+ * The toon entry's per-language settings in a locale (today's `ToonSettings`, the per-language document it replaces):
+ * `id` (the entry's), `title`, `language` = the locale, `release` and `description` when the entry has them, `status`
+ * = the language's `languageStatus` (missing → the source's → …; none at all → no status = published). The entry's
+ * language-neutral settings are merged by the library as before.
+ */
+export function resolveToon(entry: ToonIndex, locale: string, languages: NeutralLanguages): ToonSettings {
+	const chain = localeChain(locale, languages);
+	const doc = entry as unknown as Record<string, unknown>;
+	const out: Record<string, unknown> = { id: doc.id, title: resolveText(doc.title, chain) ?? '', language: locale };
+	if (Object.hasOwn(doc, 'release')) out.release = resolveText(doc.release, chain) ?? '';
+	const status = resolveText(doc.languageStatus, chain);
+	if (status !== undefined && status !== null) out.status = status;
+	if (Object.hasOwn(doc, 'description')) out.description = resolveText(doc.description, chain) ?? '';
+	return out as unknown as ToonSettings;
+}
+
+/**
  * A neutral document for an asked locale, as the library serves it: the served locale (+ fallback flag) and the
- * document in it (a chapter's `status` = `chapterStatus` when given, else none)
+ * document in it (a chapter's `status` = `chapterStatus` when given, else none; a toon entry → its `ToonSettings`)
  */
 export function resolveNeutral(
-	kind: NeutralKind,
+	kind: ResolvableKind,
 	doc: unknown,
 	locale: string,
 	languages: NeutralLanguages,
 	chapterStatus?: Status | null
-): { locale: string; fallback: boolean; doc: Chapter | Group | Season } {
+): { locale: string; fallback: boolean; doc: Chapter | Group | Season | ToonSettings } {
 	const served = servedLocale(kind, doc, locale, languages);
 	const resolved =
 		kind === 'chapter'
 			? resolveChapter(doc as ChapterDoc, served.locale, languages, chapterStatus)
 			: kind === 'season'
 				? resolveSeason(doc as SeasonDoc, served.locale, languages)
-				: resolveGroup(doc as GroupDoc, served.locale, languages);
+				: kind === 'toon'
+					? resolveToon(doc as ToonIndex, served.locale, languages)
+					: resolveGroup(doc as GroupDoc, served.locale, languages);
 	return { ...served, doc: resolved };
 }
