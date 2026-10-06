@@ -24,6 +24,7 @@ export * from './entities.ts';
 export * from './neutral.ts';
 export * from './neutralize.ts';
 export * from './progress.ts';
+export * from './history.ts';
 export * from './chains.ts';
 export * from './reach.ts';
 export * from './flow.ts';
