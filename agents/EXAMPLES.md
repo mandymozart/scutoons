@@ -18,7 +18,7 @@ The `message` filter keeps anything else saved after id 539 (the owner's own edi
 (seasons / chapters of toptoy and yellowmouse, catpope chapter drafts) disappear with their only versions; existing keys
 fall back to their previous newest version.
 
-Saved versions (ids 540–553, all `draft`; the chapters were saved again after the stage rework): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
+Saved versions (ids 540–553 + 561–564 + 605, all `draft`; the chapters were saved again after the stage rework): `chapter:catpope:2` (groups appended), `chapter:catpope:3` (groups
 appended), `season:toptoy:1` + `chapter:toptoy:1`, `season:yellowmouse:1` + `chapter:yellowmouse:1` (new),
 `cast:catpope` / `cast:toptoy` / `cast:yellowmouse` (cast additions so every character may be on stage there).
 
@@ -63,6 +63,24 @@ true. The circle loop is NOT an "endless loop" warning – it has a way out (a c
 Limits found (today's model): a jump to another toon lands on that toon's page (`/toptoy`) – a label / chapter of
 another toon can't be targeted; variables are per toon (toptoy's `visits_hypercity` is not catpope's); no catpope
 season 2 exists, so no season jump; the viewer has no `/season/<n>` route either.
+
+### Step 3 in the story (2026-10-06, version 605 of `chapter:catpope:2`, same message)
+
+The repeat migration (`2026-10-06-repeat`) rewrote the story's drafts in place (no new versions): the slice tap in
+`mama-start` and the cucumber's taps are `repeat: { mode: 'view' }` (once per page view – as before). Added as a new
+draft:
+
+- `mama-harbour`, last slice: the crows' welcome "Willkommen am Hafen! Das sagen wir nur einmal." – a scroll trigger
+  with `repeat: { mode: 'once' }` (once for good; event id `emamacrw`, the save game's `event:emamacrw`);
+- `mama-boy`: the boy asks the READER's name (`askText`, scope `reader`, placeholder "Dein Name") only while there is
+  none (`if: { expr: '!reader.name' }`);
+- `mama-reunion`: Mama "Und danke dir, {reader.name}, dass du mein Kleines begleitet hast." (`if: { expr: 'reader.name' }`).
+
+Checked in the viewer (phone, draft preview, the test user; progress + name put back): the boy asks once, the answer
+becomes `users.display_name`, the welcome shows on the first harbour visit and not on the second ("Zum 2. Mal"), the
+cucumber's message once per page view, the reunion names the reader. Validation: 0 errors (warnings: the owner's
+groups, missing en texts, events without ids until the next creator save). Screenshots `flow2-mama-*.png`. The rollback
+above removes it too (`message = 'example: mama story'`).
 
 Read in the viewer (phone, draft preview): screenshots `mama-*.png` in the session scratchpad. Found on the way: the
 draft preview loaded the PUBLISHED cast (new characters of a draft cast had no name / image) – fixed in

@@ -281,10 +281,21 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   chip ("unerreichbar", "nie wahr", "Endlosschleife").
 - **Flow panel** (owner 2026-10-06; `components/flow/`, @scutoons/content flow.ts): a read-only, zoomable graph of the
   story flow ("Ablauf" / "Flow") on every level, one look (boxes, edges, buttons, minimap). Opened by a round Feather
-  `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`); docked on the right like
-  Problems / History (left of Ask, drags wider up to half the window, 28rem by default; `?flow=1` opens it). Svelte Flow +
-  dagre are loaded only when it opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates
-  (read-only otherwise).
+  `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`; its `title` says what it
+  shows and how to use it – no intro line in the panel); docked on the right like Problems / History on EVERY level
+  (left of Ask, the page makes room – `margin-right: var(--panel-width)` from 768px, never an overlay; drags wider up to
+  half the window, one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns
+  with Problems / History, the toon page uses `flow/flow-dock.svelte`). Svelte Flow + dagre are loaded only when it
+  opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates (read-only otherwise).
+  - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
+    group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the
+    minimap shows the rest). Edges follow dagre's route and their labels sit where dagre made room for them (a label is a
+    node in dagre's layout), so the labels of edges leaving one box never overlap (`flow-edge.svelte`).
+  - Expressions step 3: an `if: { expr }` is a condition like a simple test (dashed, its text on the edge – the
+    expression as written; never judged "never true"); `askText` is a step of its own on the group / slice level
+    ("fragt → name / reader.name" + the question) and sets its variable (scope toon) for reach and dead things; a
+    trigger / item tap that runs once for good shows "✓ einmal für immer" (tooltip: at most once per reader), once per
+    page view its words; triggers group by their meaning (no `repeat` = every time).
   - **Chapter** (chapter editor, nothing selected): `chapterFlow` over the editor's own `chapterReach` (so it says what the
     chips say). Boxes: group (2px ink; slices · Script · unreachable slices), script points (hairline: point, question,
     divert, jump), slice triggers / item taps that branch, exits (pill: another chapter / season / toon, the next chapter).
@@ -311,12 +322,14 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     (`GET /api/creator/flow-index`, so the browser doesn't load every toon): one box per toon (status · seasons ·
     chapters), the jumps between toons (merged, counted, their texts), products / XR as exits. A toon box opens the
     toon page with its Flow (the seasons and chapters).
-  - **Dead things** (season / toon / SCUTOONS, `deadThings`; the server's index uses the same rules): one muted line under
-    the graph – "Tot: 1 · 1 · 0 · 5" (set never read · read never set · points nothing diverts to · labels nothing jumps
-    to) – opening into the lists, each with where it is (a link to its chapter). Nothing dead: nothing shown. Reads =
-    conditions + `{name}` in texts (today's interpolation; the expression language will add its own names). A group
-    label counts as used when something jumps there or the follow-up bar leads there (the group before doesn't continue
-    and has no end).
+  - **Dead things** (season / toon / SCUTOONS, `deadThings`; the server's index uses the same rules – TS and PHP agree on
+    the dev DB): one muted line under the graph in words, only the parts there are – "Ungenutzt: 1 Variable · 1 nie
+    gesetzt · 9 Labels" / "Unused: 1 variable · 1 never set · 9 labels" (set never read · read never set · points nothing
+    diverts to · labels nothing jumps to) – opening into the lists, each with where it is (a link to its chapter).
+    Nothing dead: nothing shown. Sets = setVariable, a choice's set / add, an askText's variable; reads = simple tests,
+    `if.expr` and every text's `{…}` through the expression analyser (names of one part – `reader.name` is no story
+    variable). A group label counts as used when something jumps there or the follow-up bar leads there (the group before
+    doesn't continue and has no end).
 - **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
   Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
   Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the
