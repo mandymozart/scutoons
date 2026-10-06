@@ -67,7 +67,7 @@ season 2 exists, so no season jump; the viewer has no `/season/<n>` route either
 Read in the viewer (phone, draft preview): screenshots `mama-*.png` in the session scratchpad. Found on the way: the
 draft preview loaded the PUBLISHED cast (new characters of a draft cast had no name / image) – fixed in
 `viewer/src/lib/api.ts` (`fetchCharacters` through the preview); a text box revealed with effect `pulse` logs
-`Cannot read properties of null (reading 'onComplete')` (shared/reader dialog.svelte → effect-pulse.svelte) – not fixed.
+`Cannot read properties of null (reading 'onComplete')` (shared/reader dialog.svelte → effect-pulse.svelte) – fixed by the other lane in 30caaed0.
 
 ## Horizontal strips in catpope chapter 2 (owner 2026-10-06, for testing the scrolling)
 
