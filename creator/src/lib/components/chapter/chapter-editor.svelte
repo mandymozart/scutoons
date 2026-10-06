@@ -399,6 +399,8 @@
 						expressions,
 						moods: moodIds,
 						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined,
+						// linked groups: a ref group's `continues` lives in its scene (this locale's, else the source's)
+						resolveGroup: (g: any) => (g?.ref?.src ? (refs[g.ref.src]?.data?.[l] ?? refs[g.ref.src]?.data?.[refs[g.ref.src].primary]) : g),
 						// placed items (and related items) are checked against the catalog once it is loaded
 						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined,
 						itemRespawn: itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined
@@ -661,7 +663,7 @@
 					<AudioPanel doc={chapter} {season} number={chapterNumber} />
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
-						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
+						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
 						{#if activeGroup?.renderer?.type === Renderer.HORIZONTAL && activeGroup.renderer.params?.fullWidth}
 							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} onopen={(i) => view.selectSlice(i)} />
 						{/if}

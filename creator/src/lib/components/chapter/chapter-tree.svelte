@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import type { Path } from '@scutoons/content';
+	import { linksToNext, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { ChapterView } from '$lib/editor/chapter-state.svelte.ts';
@@ -38,6 +38,8 @@
 	} = $props();
 	/** slices · VN of a group – a `ref` group's from its scene document (owner 2026-10-06: the count was missing there) */
 	const groupHint = (g: any) => (g ? `${g.slices?.length ?? 0}${g.events ? ' · VN' : ''}` : '');
+	/** linked groups (owner 2026-10-06): which groups flow into the next one on the reader's page (scenes resolved) */
+	const resolved = $derived(groups.map((g) => resolveGroup(g)));
 
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
@@ -124,7 +126,12 @@
 					data-testid="group-{gi}"
 				>
 					{groupName(g, gi)}
-					<span class="hint">{groupHint(resolveGroup(g))}</span>
+					<span class="hint">
+						{#if linksToNext(resolved, gi)}
+							<span class="link" title={m['creator.group_linked']()} data-testid="group-linked-{gi}"><Icon name="link" size="0.875rem" label={m['creator.group_linked']()} /></span>
+						{/if}
+						{groupHint(resolved[gi])}
+					</span>
 				</button>
 				<span class="tools">
 					<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
@@ -178,6 +185,12 @@
 	}
 	.node .hint {
 		color: inherit;
+	}
+	/* the link mark of a group that continues into the next one */
+	.node .hint .link {
+		display: inline-flex;
+		vertical-align: -0.125rem;
+		margin-right: 0.25rem;
 	}
 	.group-row .tools {
 		display: none;
