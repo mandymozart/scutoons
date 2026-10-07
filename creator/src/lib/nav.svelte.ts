@@ -1,12 +1,13 @@
 import { getContext, setContext, type Snippet } from 'svelte';
 import { panelWidth } from '@scutoons/ui';
-import { toonName as entryName, type ToonIndex } from '@scutoons/content';
+import { chapterPlace, toonName as entryName, type SeasonPlaces, type ToonIndex } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
+import { contentIndex, getDraft } from '$lib/api.ts';
 import { contextKey } from '$lib/utils/shared.ts';
 
 /**
  * Creator navigation (agents/DESIGN.md "Creator navigation"): ONE top bar with the breadcrumb of the full path
- * (Creator / toon / season / chapter / group / slice), a left sidebar with the children of the current level (+ the
+ * (SCUTOONS / toon / season / chapter / group / slice – the logo is the root crumb, UI-CONCEPTS E.2), a left sidebar with the children of the current level (+ the
  * Universe section) and the content. The root layout builds the crumbs of the route; a page adds deeper levels it
  * owns itself (the chapter editor: group, slice) and may replace the sidebar with its own children (the chapter tree,
  * the season's chapters). Alt+ArrowUp goes to the parent crumb, Alt+ArrowDown to the first child in the sidebar.
@@ -36,6 +37,45 @@ export class CreatorNav {
 	toons = $state<ToonIndex[]>([]);
 
 	readonly crumbs = $derived([...this.base, ...this.extra]);
+
+	/** toon → its seasons (number + stored sequence, newest versions) – where a chapter sits (the season crumb) */
+	seasons = $state<Record<string, SeasonPlaces[]>>({});
+	#seasonLoads = new Map<string, number>();
+
+	/**
+	 * (Re)loads a toon's seasons (the season crumb of a chapter, BACKLOG 10.45): the language-neutral season documents
+	 * (a not yet converted season: its first language file). The last result stays while a reload runs (no flicker).
+	 */
+	async loadSeasons(toon: string): Promise<void> {
+		const run = (this.#seasonLoads.get(toon) ?? 0) + 1;
+		this.#seasonLoads.set(toon, run);
+		try {
+			const index = (await contentIndex(toon)).entities.filter((e) => e.kind === 'season');
+			const chosen = new Map<number, string>();
+			for (const e of [...index].sort((a, b) => Number(!!a.locale) - Number(!!b.locale) || a.key.localeCompare(b.key))) {
+				const number = Number(e.key.split(':')[2]);
+				if (Number.isInteger(number) && !chosen.has(number)) chosen.set(number, e.key);
+			}
+			const places = await Promise.all(
+				[...chosen].map(async ([number, key]) => {
+					const doc: any = await getDraft(key)
+						.then((r) => r.content)
+						.catch(() => null);
+					return { number, sequence: Array.isArray(doc?.sequence) ? doc.sequence : [] };
+				})
+			);
+			if (this.#seasonLoads.get(toon) === run) this.seasons[toon] = places;
+		} catch {
+			// no index (no access, offline): the chapter crumbs go without a season
+		}
+	}
+
+	/** the season a chapter belongs to (the first that lists it); null: none lists it; undefined: not loaded yet */
+	chapterSeason(toon: string, chapter: number): number | null | undefined {
+		const seasons = this.seasons[toon];
+		if (!seasons) return undefined;
+		return chapterPlace(seasons, chapter)?.season ?? null;
+	}
 
 	/** A toon's display name in the UI locale (else its source language); the id only while the list is loading. */
 	toonName(id: string): string {

@@ -44,6 +44,12 @@ creator-chapter / creator-dock look for these bars by testid – update.
 
 ## E.2 Header + breadcrumbs (M.14)
 
+**Built 2026-10-07 (BACKLOG 10.45)** – the "…" menu (not a scroll). `@scutoons/ui` `Breadcrumbs` (`items`, `label`,
+`moreLabel`, `root` snippet, `keep` = 2); the creator layout passes `nav.crumbs` with the logo as root, `.brand-name`
+is gone; the season crumb from `CreatorNav.chapterSeason` (the season whose sequence lists the chapter). Under 768px the
+crumbs have their own row under the header and the text language + Flow sit at the top of the ☰ drawer. When even the
+last two crumbs don't fit, the trail wraps. The text below is the concept as written.
+
 **Today.** The creator builds its top bar itself (`creator/src/routes/+layout.svelte:257–290`): logo + "CREATOR"
 (`.brand-name`) + `<nav class="crumbs">` from `lib/nav.svelte.ts` (`base` from the route: toon, **season** (hard-coded
 season 1 for chapters, `:106–107`), chapter …; `extra` from the page: group, "Slice n"). Overflow: `nowrap`, middle

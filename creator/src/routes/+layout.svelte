@@ -4,8 +4,10 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { MediaQuery } from 'svelte/reactivity';
 	import {
 		AppShell,
+		Breadcrumbs,
 		CommandPalette,
 		Icon,
 		PaletteTrigger,
@@ -92,9 +94,12 @@
 	$effect(() => {
 		textLanguage.page = textLanguages;
 	});
-	/** the crumbs of the route: Creator / toon / season / chapter (the chapter editor adds group and slice) */
+	/**
+	 * the crumbs of the route: SCUTOONS (the logo, the root crumb) / toon / season / chapter (the chapter editor adds
+	 * group and slice) – UI-CONCEPTS E.2
+	 */
 	const base = $derived.by<Crumb[]>(() => {
-		const out: Crumb[] = [{ href: '/', label: 'Creator' }];
+		const out: Crumb[] = [{ href: '/', label: 'SCUTOONS' }];
 		const route = page.route.id ?? '/';
 		const tab = page.url.searchParams.get('tab');
 		if (route === '/guide') out.push({ href: '/guide', label: m['creator.style_guide']() });
@@ -109,8 +114,9 @@
 		if (route === '/flow') out.push({ href: '/flow', label: m['creator.flow_universe']() });
 		if (!toonId) return out;
 		out.push({ href: `/${toonId}`, label: toonName(toonId) });
-		// every chapter belongs to a season; the editor works on season 1 for now
-		const season = page.params.seasonNumber ?? (page.params.chapterNumber ? '1' : null);
+		// a chapter's season: the season whose sequence lists it (BACKLOG 10.45; none lists it / still loading: no season crumb)
+		const chapterSeason = page.params.chapterNumber ? nav.chapterSeason(toonId, Number(page.params.chapterNumber)) : null;
+		const season = page.params.seasonNumber ?? (chapterSeason != null ? String(chapterSeason) : null);
 		if (season) out.push({ href: `/${toonId}/season/${season}`, label: fileLabel(entities.season(toonId, Number(season))) });
 		if (route === '/[toonId]/season/[seasonNumber]/cover') out.push({ href: `/${toonId}/season/${season}/cover`, label: m['creator.cover_editor']() });
 		if (page.params.chapterNumber) {
@@ -127,6 +133,17 @@
 	$effect(() => {
 		nav.base = base;
 	});
+	// the toon's seasons (where a chapter sits): read again on every chapter opened (a season's sequence may have changed)
+	$effect(() => {
+		const toon = toonId;
+		const chapter = page.params.chapterNumber;
+		if (isCreator && toon && chapter) void nav.loadSeasons(toon);
+	});
+	/**
+	 * narrow screens (< 768px – where the sidebar is the ☰ drawer; DESIGN.md "Header on phones"): the crumbs get their own
+	 * row under the header, the text language + the page's Flow move to the top of the drawer
+	 */
+	const phone = new MediaQuery('max-width: 767px', false);
 	// the drawer (< 768px) closes on every navigation
 	$effect(() => {
 		void page.url.href;
@@ -232,6 +249,9 @@
 
 <svelte:window onkeydown={onKeydown} />
 
+{#snippet logo()}<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />{/snippet}
+{#snippet logoCrumb()}<span class="brand" data-testid="creator-brand">{@render logo()}</span>{/snippet}
+
 <!-- Ask: the outermost region of the shell (agents/DOCKING.md); the page's panels dock left of it (useDock) -->
 {#snippet askRegion()}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (ask.open = false)} />{/snippet}
 
@@ -272,30 +292,39 @@
 					>
 						<Icon name="menu" />
 					</button>
-					<a class="brand" href="/" data-testid="creator-brand">
-						<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
-						<span class="brand-name">{m['creator.app_label']()}</span>
-					</a>
-					<nav class="crumbs" aria-label="Breadcrumb">
-						<ol>
-							<!-- the root crumb ("Creator") is the brand next to the logo -->
-							{#each nav.crumbs.slice(1) as crumb, i (i)}
-								<li>
-									<a href={crumb.href} aria-current={i === nav.crumbs.length - 2 ? 'page' : undefined} data-testid="crumb-{i + 1}">{crumb.label}</a>
-								</li>
-							{/each}
-						</ol>
-					</nav>
-					{#if textLanguages.languages.length > 1}
-						<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
+					{#if phone.current}
+						<!-- phones: the logo alone here, the trail in its own row below (without the root) -->
+						<a class="brand" href="/" data-testid="creator-brand">{@render logo()}</a>
+						<span class="spacer"></span>
+					{:else}
+						<!-- the logo is the trail's root crumb (the "CREATOR" word went – the app name is in the tab title) -->
+						<Breadcrumbs items={nav.crumbs} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} root={logoCrumb} />
+						{#if textLanguages.languages.length > 1}
+							<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
+						{/if}
+						{#if nav.actions}{@render nav.actions()}{/if}
 					{/if}
-					{#if nav.actions}{@render nav.actions()}{/if}
 					<button type="button" class="sc-round" class:is-active={ask.open} title={m['creator.ask_open']()} aria-label={m['creator.ask_open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
+				{#if phone.current && nav.crumbs.length > 1}
+					<div class="crumb-row" data-testid="crumb-row">
+						<Breadcrumbs items={nav.crumbs.slice(1)} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} testid="phone-crumb" />
+					</div>
+				{/if}
 			{/snippet}
 			{#snippet sidebar()}
+				{#if phone.current && (textLanguages.languages.length > 1 || nav.actions)}
+					<!-- phones: the header's text language + the page's Flow sit at the top of the drawer (BACKLOG 10.50 draft) -->
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<div class="drawer-tools" data-testid="drawer-tools" onclick={(e) => (e.target as HTMLElement).closest('button') && (menuOpen = false)}>
+						{#if textLanguages.languages.length > 1}
+							<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
+						{/if}
+						{#if nav.actions}{@render nav.actions()}{/if}
+					</div>
+				{/if}
 				<div class="nav-children">
 					{#if nav.sidebar}
 						{@render nav.sidebar()}
@@ -352,23 +381,20 @@
 		align-items: center;
 		gap: var(--space-075);
 		box-sizing: border-box;
-		height: var(--top);
+		min-height: var(--top);
 		padding: 0 var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 	}
+	/* the logo: the root crumb (wide screens) or alone (phones) */
 	.brand {
 		display: flex;
+		flex: none;
 		align-items: center;
-		gap: var(--space-05);
 		color: var(--ink);
 		text-decoration: none;
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		white-space: nowrap;
 	}
-	.brand img {
+	:global(.creator .brand img) {
 		display: block;
 		height: 1.25rem;
 		width: auto;
@@ -376,59 +402,25 @@
 	.burger {
 		display: none;
 	}
-	@media (max-width: 479px) {
-		.brand-name {
-			display: none;
-		}
-	}
-	.crumbs {
+	.spacer {
 		flex: 1;
-		min-width: 0;
 	}
-	.crumbs ol {
+	/* phones: the trail in its own row under the header (the root is the header's logo) */
+	.crumb-row {
 		display: flex;
 		align-items: center;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		overflow: hidden;
-		white-space: nowrap;
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: var(--space-025) var(--space-1);
+		border-bottom: var(--border-width-regular) solid var(--ink);
+		background: var(--paper);
 	}
-	.crumbs li {
+	.drawer-tools {
 		display: flex;
 		align-items: center;
-		min-width: 3em;
-	}
-	/* "Creator" and the current level stay whole; the levels between shrink first */
-	.crumbs li:first-child,
-	.crumbs li:last-child {
-		flex: none;
-	}
-	.crumbs li + li::before {
-		content: '/';
-		padding: 0 0.45rem;
-	}
-	.crumbs a {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		color: var(--ink);
-	}
-	/* phones: only the current page, truncated (the burger + the sidebar give the way up) */
-	@media (max-width: 479px) {
-		.crumbs li:not(:last-child) {
-			display: none;
-		}
-		.crumbs li:last-child {
-			flex: 0 1 auto;
-			min-width: 0;
-		}
-		.crumbs li:last-child::before {
-			content: none;
-		}
-	}
-	.crumbs a[aria-current='page'] {
-		font-weight: var(--font-weight-regular);
-		text-decoration: none;
+		gap: var(--space-075);
+		padding: var(--space-05) var(--space-1);
+		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	.who {
 		flex: none;
@@ -439,7 +431,8 @@
 		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
-	@media (max-width: 1099px) {
+	/* the account only where the full trail still fits beside it (the crumbs come first, E.2) */
+	@media (max-width: 1599px) {
 		.who {
 			display: none;
 		}

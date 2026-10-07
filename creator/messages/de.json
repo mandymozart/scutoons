@@ -708,6 +708,8 @@
 		"nav_label": "Navigation",
 		"nav_menu": "Menü",
 		"nav_close": "Menü schließen",
+		"breadcrumb": "Pfad",
+		"breadcrumb_more": "Die Ebenen darüber zeigen",
 		"universe": "Universum",
 		"seasons": "Staffeln",
 		"slice_n": "Slice {number}",

@@ -708,6 +708,8 @@
 		"nav_label": "Navigation",
 		"nav_menu": "Menu",
 		"nav_close": "Close menu",
+		"breadcrumb": "Breadcrumb",
+		"breadcrumb_more": "Show the levels above",
 		"universe": "Universe",
 		"seasons": "Seasons",
 		"slice_n": "Slice {number}",

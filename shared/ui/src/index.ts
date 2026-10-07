@@ -17,6 +17,7 @@ export { sortable, type SortableOptions } from './sortable.ts';
 export { liveRegion, region, type RegionOptions } from './selection.svelte.ts';
 export { default as Badge } from './badge.svelte';
 export { default as Menu } from './menu.svelte';
+export { default as Breadcrumbs, type BreadcrumbItem } from './breadcrumbs.svelte';
 export { default as ToastStack } from './toast-stack.svelte';
 export { createToaster, type Toast, type ToastAction, type ToastInput, type ToastType, type Toaster } from './toasts.svelte.ts';
 export { clickOutside } from './click-outside.ts';

@@ -601,9 +601,13 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
 **Universe** (characters, moods, wanted images). Editing deeper must never change the frame around you.
 
 - **One top bar, the same on every page.** It holds only the breadcrumb of the full path
-  (`Creator / Cat Pope / Season 1 / Chapter 2 / scene-14 / Slice 3`) and, on wide screens, the signed-in account.
-  Every crumb is a link. The structure never changes between pages, only the depth (fixed 64 px; the middle crumbs
-  shrink first, "Creator" and the current level stay whole; burger for the sidebar below 768 px).
+  (`SCUTOONS › Cat Pope › Season 1 › Chapter 2 › scene-14 › Slice 3` – the logo is the root crumb; the "Creator" word
+  is gone, the app name stays in the tab title, owner 2026-10-07) and, from 1600px, the signed-in account. Every crumb
+  is a link with its full text – never a per-crumb ellipsis. The structure never changes between pages, only the depth.
+  **Breadcrumbs** (`@scutoons/ui` `Breadcrumbs`, UI-CONCEPTS E.2): when the trail doesn't fit, the crumbs after the
+  root collapse from the left into ONE "…" button (square – a text control) that opens a small menu of them (Enter /
+  ↓ open, ↑ ↓ Home End move, Esc back); the last two never collapse; when even they don't fit the trail wraps. The
+  season crumb is the chapter's real season (the season whose sequence lists it). Burger for the sidebar below 768px.
 - **Left sidebar = the children of the current level:** home → toons; toon (and its cast / credits / settings) →
   seasons + Cast + Credits + Script + Toon settings; season → its chapters with the status per language; chapter → Meta,
   Audio, groups → slices (the chapter tree). A leaf page shows its siblings with the
@@ -762,7 +766,9 @@ Translators switch back and forth to copy, adapt and review originals, and there
   the row's tooltip. Right-aligned filled badges with a word only when something is up (`chapter-badges.svelte`):
   visibility draft / coming soon (season sequence), "Not published" (info), "not saved" (warning), "Missing" (error),
   "· ko" when only some languages are concerned. Everything published: nothing.
-- **Header on phones** (< 480 px): only the current crumb (truncated), the i18n control and the search icon.
+- **Header on phones** (< 768px, where the sidebar is the ☰ drawer; owner-approved draft 2026-10-07): ☰ · logo · Ask ·
+  search (round); the crumbs in their OWN row under the header (`… › Chapter 1 › blotter-deal › Slice 1`, every part
+  tappable, no root – the logo is above); the text-language switch and the page's Flow button at the top of the drawer.
 - Language-neutral fields (`PropField`, media slots: the same in every language) don't follow the switch.
 
 ### Expressions in text fields (owner 2026-10-06, agents/EXPRESSIONS.md step 4)
