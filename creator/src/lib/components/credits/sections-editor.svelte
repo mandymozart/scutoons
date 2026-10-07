@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { Icon } from '@scutoons/ui';
-	import { tick } from 'svelte';
+	import { Icon, SortGrip, sortable } from '@scutoons/ui';
 	import { CREDIT_SECTION_KINDS, sectionName, type CreditSection, type CreditSectionKind, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, move, newSection } from '$lib/editor/credits.ts';
@@ -22,18 +20,13 @@
 	const file = $derived(creditsOf(credits));
 	const sections = $derived(file?.sections ?? []);
 	let addKind = $state<CreditSectionKind>('song');
-	let root = $state<HTMLElement>();
 
 	const change = (fn: (file: ToonCredits) => void, key?: string) => edit<ToonCredits>(credits, fn, key);
 	const kindLabel = (kind: CreditSectionKind) => m[`creator.credits_kind_${kind}`]();
 
-	async function moveSection(from: number, to: number, focus = false) {
+	function moveSection(from: number, to: number) {
 		if (to < 0 || to >= sections.length) return;
 		change((f) => move(f.sections, from, to));
-		if (focus) {
-			await tick();
-			root?.querySelectorAll<HTMLElement>('[data-section-handle]')[to]?.focus();
-		}
 	}
 	function add() {
 		change((f) => f.sections.push(newSection(addKind, f, languages)));
@@ -45,23 +38,11 @@
 	}
 </script>
 
-<div class="sections" bind:this={root} data-testid="credits-sections">
+<div class="sections" use:sortable={{ onmove: moveSection }} data-testid="credits-sections">
 	{#each sections as section, i (section.id)}
-		<section class="section" data-testid="credits-section" data-kind={section.kind} data-section={section.id}>
+		<section class="section" data-sort-row data-testid="credits-section" data-kind={section.kind} data-section={section.id}>
 			<header>
-				<button
-					type="button"
-					class="handle"
-					data-section-handle
-					aria-label={m['creator.credits_move']({ name: sectionName(section, languages[0]) })}
-					title={m['creator.credits_move_hint']()}
-					onkeydown={(e) => {
-						if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-							e.preventDefault();
-							moveSection(i, i + (e.key === 'ArrowUp' ? -1 : 1), true);
-						}
-					}}>⋮⋮</button
-				>
+				<SortGrip label={m['creator.sort_move']({ name: sectionName(section, languages[0]) })} title={m['creator.sort_hint']()} />
 				<span class="kind">{kindLabel(section.kind)}</span>
 				{#if section.kind === 'season' || section.kind === 'chapter'}
 					<label class="num">
@@ -77,7 +58,6 @@
 					<span class="title">{sectionName(section, languages[0])}</span>
 				{/if}
 				<span class="spacer"></span>
-				<ReorderButtons index={i} count={sections.length} onmove={(from, to) => moveSection(from, to)} variant="ghost mini" labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
 				<button type="button" class="ghost mini" onclick={() => remove(i, section)} data-testid="remove-section">{m['creator.remove']()}</button>
 			</header>
 
@@ -129,19 +109,6 @@
 		align-items: center;
 		gap: 0.5rem;
 		flex-wrap: wrap;
-	}
-	.handle {
-		all: unset;
-		display: inline-flex;
-		align-items: center;
-		min-height: var(--control-height);
-		cursor: grab;
-		color: var(--text-muted);
-		letter-spacing: -2px;
-		padding: 0 0.25rem;
-	}
-	.handle:focus-visible {
-		outline: 2px solid var(--ink);
 	}
 	.kind {
 		font-size: var(--type-caption-size);

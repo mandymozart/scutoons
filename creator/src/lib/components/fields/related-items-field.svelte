@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { movedAt } from '$lib/editor/move.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { onMount } from 'svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
 	import type { Catalog } from '@scutoons/content';
 	import { itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -55,15 +54,15 @@
 <fieldset class="related" data-testid={testid}>
 	{#if legend}<legend>{m['creator.related_items']()}</legend>{/if}
 	<p class="hint">{hint}</p>
-	<ul class="chips">
+	<ul class="chips" use:sortable={{ onmove: move, axis: 'horizontal' }}>
 		{#each list as id, i (id)}
 			{@const item = byId.get(id)}
 			{@const name = itemName(item, id)}
-			<li class="sc-chip-control has-image" class:is-warning={!loading && !item} data-testid="{testid}-{id}" title={id}>
+			<li class="sc-chip-control has-image" class:is-warning={!loading && !item} data-sort-row data-testid="{testid}-{id}" title={id}>
+				<SortGrip label={m['creator.sort_move']({ name })} title={m['creator.sort_hint']()} />
 				<span class="icon">{#if item?.icon}<img src={asset(item.icon)} alt="" />{/if}</span>
 				<span class="name">{name}</span>
 				{#if !loading && !item}<span class="hint">{m['creator.related_items_unknown']()}</span>{/if}
-				<ReorderButtons index={i} count={list.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><CloseIcon /></button>
 			</li>
 		{/each}
@@ -118,6 +117,10 @@
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	/* the grip spans the chip's frame like the chip's other buttons */
+	.chips :global(.sc-sort-grip) {
+		margin-block: calc(-1 * var(--border-width-regular));
 	}
 	.icon {
 		flex: none;

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { moveAt } from '$lib/editor/move.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
 	import type { Supporter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -30,9 +29,10 @@
 	}
 </script>
 
-<ol class="supporters" data-testid="supporters">
+<ol class="supporters" use:sortable={{ onmove: move }} data-testid="supporters">
 	{#each list as supporter, i (i)}
-		<li class="supporter" data-testid="supporter-{i}">
+		<li class="supporter" data-sort-row data-testid="supporter-{i}">
+			<SortGrip label={m['creator.sort_move']({ name: supporter.name || String(i + 1) })} title={m['creator.sort_hint']()} />
 			<div class="fields">
 				<!-- the logo as a slot (the preview is the button), name and link are never translated -->
 				<MediaSlot {toon} {place} label={m['creator.field_logo']()} value={supporter.logo} onchange={(v) => change((l) => { if (v) l[i].logo = v; else delete l[i].logo; })} testid="supporter-{i}-logo" />
@@ -42,7 +42,6 @@
 				</div>
 			</div>
 			<div class="actions">
-				<ReorderButtons index={i} count={list.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()}><CloseIcon /></button>
 			</div>
 		</li>

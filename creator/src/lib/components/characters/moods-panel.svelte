@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { moveAt } from '$lib/editor/move.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
 	import { DEFAULT_MOOD, MOOD_ID, sortedMoods, type CharacterRegistry, type LocaleText, type MoodVocabulary } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, ensureMoods, moodsOf } from '$lib/editor/characters.ts';
@@ -55,12 +54,10 @@
 </script>
 
 <section class="moods" data-testid="moods-panel">
-	<ol>
+	<ol use:sortable={{ onmove: move }}>
 		{#each list as mood, i (mood.id)}
-			<li data-testid="mood-{mood.id}">
-				<span class="order">
-					<ReorderButtons index={i} count={list.length} onmove={move} labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
-				</span>
+			<li data-sort-row data-testid="mood-{mood.id}">
+				<SortGrip label={m['creator.sort_move']({ name: mood.id })} title={m['creator.sort_hint']()} />
 				<code>{mood.id}</code>
 				<LocaleMapField value={mood.label} {languages} label={m['creator.characters_look_label']()} required onchange={(v) => change((x) => { const t = x.moods.find((y) => y.id === mood.id); if (t) t.label = v; }, `mood-${mood.id}`)} />
 				<label class="check">
@@ -108,9 +105,6 @@
 		align-items: end;
 		border-bottom: 1px solid var(--border-subtle);
 		padding-bottom: 0.3rem;
-	}
-	.order {
-		display: flex;
 	}
 	.check {
 		display: flex;

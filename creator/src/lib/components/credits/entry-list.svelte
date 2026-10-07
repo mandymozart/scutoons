@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { CloseIcon } from '@scutoons/ui';
-	import { tick } from 'svelte';
+	import { CloseIcon, SortGrip, sortable } from '@scutoons/ui';
 	import { getAt, Language, peopleIndex, roleIndex, roleText, type CreditEntry, type LocaleText, type Path, type RoleCategory, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, move, newPerson, newRole, peopleOf, rolesOf } from '$lib/editor/credits.ts';
@@ -10,8 +9,8 @@
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
-	 * An ordered list of `{ person, roles }` of a section (toon sections have two: lead + entries). Reorder by dragging a
-	 * row or with the ⋮⋮ handle focused + ArrowUp / ArrowDown; roles are chips (click = detail / language, × = remove).
+	 * An ordered list of `{ person, roles }` of a section (toon sections have two: lead + entries). Reorder with the
+	 * shared Sortable (the ⋮⋮ grip: drag, or Alt+ArrowUp / ArrowDown); roles are chips (click = detail / language, × = remove).
 	 */
 	let {
 		credits,
@@ -40,26 +39,13 @@
 	const roleList = $derived([...roleMap.values()]);
 	const listed = $derived(new Set(list.map((e) => e.person)));
 	let open = $state<string | null>(null); // `${entry}:${role}` whose details are shown
-	let dragFrom = $state<number | null>(null);
-	let dropAt = $state<number | null>(null);
-	let root = $state<HTMLElement>();
 
 	const change = (fn: (list: CreditEntry[], file: ToonCredits) => void, key?: string) =>
 		edit<ToonCredits>(credits, (file) => fn(getAt(file, path) as CreditEntry[], file), key);
 
-	async function moveEntry(from: number, to: number, focus = false) {
+	function moveEntry(from: number, to: number) {
 		if (to < 0 || to >= list.length) return;
 		change((l) => move(l, from, to));
-		if (focus) {
-			await tick();
-			root?.querySelectorAll<HTMLElement>('[data-handle]')[to]?.focus();
-		}
-	}
-	function onHandleKey(event: KeyboardEvent, i: number) {
-		if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-			event.preventDefault();
-			moveEntry(i, i + (event.key === 'ArrowUp' ? -1 : 1), true);
-		}
 	}
 	function addPerson(id: string) {
 		change((l) => l.push({ person: id, roles: [] }));
@@ -83,41 +69,17 @@
 	}
 </script>
 
-<div class="entries" bind:this={root} data-testid={testid}>
-	<ol>
+<div class="entries" data-testid={testid}>
+	<ol use:sortable={{ onmove: moveEntry }}>
 		{#each list as entry, i (entry.person + ':' + i)}
 			{@const person = peopleMap.get(entry.person)}
 			<li
-				class:drop={dropAt === i && dragFrom !== null && dragFrom !== i}
-				class:dragging={dragFrom === i}
-				draggable="true"
-				ondragstart={(e) => {
-					dragFrom = i;
-					e.dataTransfer?.setData('text/plain', String(i));
-				}}
-				ondragover={(e) => {
-					if (dragFrom === null) return;
-					e.preventDefault();
-					dropAt = i;
-				}}
-				ondrop={(e) => {
-					e.preventDefault();
-					if (dragFrom !== null) moveEntry(dragFrom, i);
-					dragFrom = dropAt = null;
-				}}
-				ondragend={() => (dragFrom = dropAt = null)}
+				data-sort-row
 				data-testid="{testid}-entry"
 				data-person={entry.person}
 			>
 				<div class="line">
-					<button
-						type="button"
-						class="handle"
-						data-handle
-						aria-label={m['creator.credits_move']({ name: person?.name ?? entry.person })}
-						title={m['creator.credits_move_hint']()}
-						onkeydown={(e) => onHandleKey(e, i)}>⋮⋮</button
-					>
+					<SortGrip label={m['creator.sort_move']({ name: person?.name ?? entry.person })} title={m['creator.sort_hint']()} />
 					{#if person}
 						<button type="button" class="name" onclick={() => onperson?.(entry.person)}>{person.name}</button>
 						{#if person.merged_into}<span class="bad" title={m['creator.credits_merged_into']({ id: person.merged_into })}>({person.merged_into})</span>{/if}
@@ -207,31 +169,11 @@
 		flex-direction: column;
 		gap: 0.2rem;
 	}
-	li.dragging {
-		opacity: 0.4;
-	}
-	li.drop {
-		border-top: 3px solid var(--primary-cyan);
-	}
 	.line {
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
 		flex-wrap: wrap;
-	}
-	.handle {
-		all: unset;
-		display: inline-flex;
-		align-items: center;
-		min-height: var(--control-height);
-		cursor: grab;
-		padding: 0 0.25rem;
-		color: var(--text-muted);
-		letter-spacing: -2px;
-	}
-	.handle:focus-visible {
-		outline: 2px solid var(--ink);
-		color: var(--ink);
 	}
 	.name {
 		all: unset;

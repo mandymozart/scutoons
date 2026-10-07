@@ -716,6 +716,8 @@
 		"prompts_base_views": "Base views (avatar, portrait, full, A-poses)",
 		"prompts_moods": "Moods without a portrait ({count})",
 		"prompts_copy": "Copy",
+		"sort_move": "Move {name}",
+		"sort_hint": "Drag, or Alt+↑ / Alt+↓",
 		"move_up": "Move up",
 		"move_down": "Move down",
 		"status_published": "published",

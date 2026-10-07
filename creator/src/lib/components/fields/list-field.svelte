@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { movedAt } from '$lib/editor/move.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/** An editable list of names (authors, credits): one input per entry, remove, reorder, add. */
@@ -35,11 +34,11 @@
 	}
 </script>
 
-<ul class="list-field" data-testid={testid}>
+<ul class="list-field" use:sortable={{ onmove: move }} data-testid={testid}>
 	{#each list as item, i (i)}
-		<li>
+		<li data-sort-row>
+			<SortGrip label={m['creator.sort_move']({ name: item || `${placeholder} ${i + 1}` })} title={m['creator.sort_hint']()} />
 			<input type="text" value={item} oninput={(e) => set(i, e.currentTarget.value)} aria-label="{placeholder} {i + 1}" />
-			<ReorderButtons index={i} count={list.length} onmove={move} down={false} />
 			<button type="button" class="ghost" onclick={() => remove(i)} title={m['creator.remove']()} aria-label={m['creator.remove']()}><CloseIcon /></button>
 		</li>
 	{/each}

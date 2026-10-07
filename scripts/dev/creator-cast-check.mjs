@@ -165,6 +165,17 @@ async function click(selector) {
 	for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
 	await sleep(250);
 }
+/** a real mouse drag of a Sortable grip onto the upper quarter of the target row (lands before it) */
+async function dragGrip(grip, target) {
+	const [x, y] = await js(`(() => { const el = document.querySelector(${JSON.stringify(grip)}); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+	const ty = await js(`(() => { const r = document.querySelector(${JSON.stringify(target)}).getBoundingClientRect(); return r.y + r.height / 4; })()`);
+	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+	await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+	for (let i = 1; i <= 8; i++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y: y + ((ty - y) * i) / 8, button: 'left', buttons: 1 });
+	await sleep(100);
+	await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y: ty, button: 'left', buttons: 0, clickCount: 1 });
+	await sleep(300);
+}
 async function type(selector, text) {
 	await click(selector);
 	await send('Input.insertText', { text });
@@ -247,9 +258,21 @@ try {
 	s = await state();
 	const newId = s.members.find((m) => ![first, second, last].includes(m) && m.startsWith('regression'));
 	check(!!newId && /Characters\s+\S.*(Unsaved|Ungespeichert|•)/i.test(s.chips), 'an inline new character joins the cast and marks the registry dirty', JSON.stringify(s));
-	await click(`[data-testid="cast-member-${newId}"] .order button`);
+	// the shared Sortable (BACKLOG 10.53): drag the grip above the member before it
+	await dragGrip(`[data-testid="cast-member-${newId}"] [data-sort-grip]`, `[data-testid="cast-member-${last}"]`);
 	s = await state();
-	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'moving up reorders the cast', JSON.stringify(s.members));
+	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'dragging the grip up one place reorders the cast', JSON.stringify(s.members));
+	// … and back down with the keyboard: Alt+ArrowDown on the focused grip
+	await js(`document.querySelector('[data-testid="cast-member-${newId}"] [data-sort-grip]').focus()`);
+	await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40, modifiers: 1 });
+	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40, modifiers: 1 });
+	await sleep(300);
+	s = await state();
+	const focused = await js(`document.activeElement?.closest('[data-sort-row]')?.dataset.testid`);
+	check(s.members.indexOf(newId) === s.members.length - 1 && focused === `cast-member-${newId}`, 'Alt+ArrowDown on the grip moves it back down, the focus follows', JSON.stringify({ members: s.members, focused }));
+	await dragGrip(`[data-testid="cast-member-${newId}"] [data-sort-grip]`, `[data-testid="cast-member-${last}"]`);
+	s = await state();
+	check(s.members.indexOf(newId) === s.members.length - 2, 'dragged up again', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
 	await answerDialog('button[type="submit"]'); // Publish confirms in-page

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { moveAt } from '$lib/editor/move.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { CloseIcon, Icon, Tabs } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, Tabs, sortable } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import {
 		AUTHORED_VIEW,
@@ -65,7 +64,6 @@
 	let season = $state(1);
 	let pickerOpen = $state(false);
 	let newName = $state('');
-	let dragging = $state<number | null>(null);
 
 	onMount(async () => {
 		await Promise.all([cast.load(), registry.load(), moods.load()]);
@@ -154,45 +152,12 @@
 		{#if cast.loading || registry.loading}
 			<p class="hint">{m['creator.loading']()}</p>
 		{:else}
-			<ol>
+			<ol use:sortable={{ onmove: move }}>
 				{#each entries as entry, i (entry.character)}
 					{@const c = index.get(entry.character)}
 					{@const src = c ? characterImage(c, { persona: entry.personas[0] }, AUTHORED_VIEW, { isMissing: isKnownMissing }) : ''}
-					<li
-						class="member"
-						class:dragging={dragging === i}
-						draggable="true"
-						ondragstart={(e) => {
-							dragging = i;
-							// Firefox starts a drag only with data set
-							e.dataTransfer?.setData('text/plain', entry.character);
-							if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-						}}
-						ondragover={(e) => e.preventDefault()}
-						ondrop={(e) => {
-							// never let the browser open the dragged image / link
-							e.preventDefault();
-							if (dragging !== null) move(dragging, i);
-							dragging = null;
-						}}
-						ondragend={() => (dragging = null)}
-						data-testid="cast-member-{entry.character}"
-					>
-						<button
-							type="button"
-							class="ghost handle"
-							aria-label={m['creator.credits_move']({ name: entry.character })}
-							title={m['creator.credits_move_hint']()}
-							onkeydown={(e) => {
-								if (e.key === 'ArrowUp') {
-									e.preventDefault();
-									move(i, i - 1);
-								} else if (e.key === 'ArrowDown') {
-									e.preventDefault();
-									move(i, i + 1);
-								}
-							}}>⠿</button
-						>
+					<li class="member" data-sort-row data-testid="cast-member-{entry.character}">
+						<SortGrip label={m['creator.sort_move']({ name: c ? shownCharacterName(c) : entry.character })} title={m['creator.sort_hint']()} />
 						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 						<span class="who">
 							{#if c}
@@ -220,7 +185,6 @@
 						</span>
 						<LocaleMapField value={entry.role} languages={langs} label={m['creator.cast_role']()} onchange={(v) => setRole(entry.character, v)} testid="cast-role-{entry.character}" />
 						<span class="order">
-							<ReorderButtons index={i} count={entries.length} onmove={move} labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
 							{#if entry.character === star}
 								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><CloseIcon /></button>
 							{:else}
@@ -275,12 +239,6 @@
 		border: 1px solid var(--border-subtle);
 		padding: 0.4rem;
 		background: var(--paper);
-	}
-	.member.dragging {
-		opacity: 0.5;
-	}
-	.handle {
-		cursor: grab;
 	}
 	.avatar {
 		width: 3.2rem;

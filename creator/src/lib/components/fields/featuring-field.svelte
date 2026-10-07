@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { movedAt } from '$lib/editor/move.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
 	import { characterImage, characterIndex, suggestFeaturing, type CastEntry, type CharacterRegistry } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
@@ -76,16 +75,16 @@
 <fieldset class="featuring" data-testid="featuring">
 	<legend>{m['creator.featuring']()}</legend>
 	<p class="hint">{m['creator.featuring_hint']()}</p>
-	<ul class="chips">
+	<ul class="chips" use:sortable={{ onmove: move, axis: 'horizontal' }}>
 		{#each featuring as id, i (id)}
 			{@const src = avatar(id)}
-			<li class="sc-chip-control has-image" class:is-warning={!inCast(id)} data-testid="featuring-{id}">
+			<li class="sc-chip-control has-image" class:is-warning={!inCast(id)} data-sort-row data-testid="featuring-{id}">
+				<SortGrip label={m['creator.sort_move']({ name: name(id) })} title={m['creator.sort_hint']()} />
 				<span class="avatar" style:background={index.get(id)?.color || 'transparent'}>
 					{#if src}<img src={asset(src)} alt="" onerror={() => imageExists(src)} />{/if}
 				</span>
 				<span class="name">{name(id)}</span>
 				{#if !inCast(id)}<span class="hint">{m['creator.featuring_not_in_cast']()}</span>{/if}
-				<ReorderButtons index={i} count={featuring.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.featuring_remove']({ name: name(id) })} title={m['creator.featuring_remove']({ name: name(id) })}><CloseIcon /></button>
 			</li>
 		{/each}
@@ -143,6 +142,10 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
+	}
+	/* the grip spans the chip's frame like the chip's other buttons (tools.css .sc-chip-control) */
+	.chips :global(.sc-sort-grip) {
+		margin-block: calc(-1 * var(--border-width-regular));
 	}
 	.avatar {
 		width: 1.6rem;

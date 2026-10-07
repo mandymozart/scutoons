@@ -243,9 +243,8 @@ export function sortable(node: HTMLElement, initial: SortableOptions): ActionRet
 		if (!grip || !own(row) || grip.matches(':disabled, [aria-disabled="true"]')) return;
 		if (e.pointerType !== 'touch') {
 			if (e.button !== 0) return;
-			// no text selection while dragging; the grip still takes the focus
+			// no text selection while dragging
 			e.preventDefault();
-			grip.focus({ preventScroll: true });
 			start(row, grip, e.pointerId, e.clientX, e.clientY);
 			return;
 		}

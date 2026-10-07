@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
-	import { CloseIcon } from '@scutoons/ui';
+	import { CloseIcon, SortGrip, sortable } from '@scutoons/ui';
 	import { MAP_SOURCE_LANGUAGE, isPlaceWaypoint, mapName, slugId, type LocaleText, type MapPath, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -8,7 +8,6 @@
 	import { moveAt } from '$lib/editor/move.ts';
 	import { autoId, editRoute, removeRoute, renameRoute } from '$lib/editor/map.ts';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import MapToonsChips from '$lib/components/map/map-toons-chips.svelte';
 	import type { MapSelection } from '$lib/components/map/map-canvas.svelte';
 
@@ -67,9 +66,10 @@
 <fieldset>
 	<legend>{m['creator.map_waypoints']()} ({route.waypoints.length})</legend>
 	<p class="hint">{m['creator.map_insert_hint']()}</p>
-	<ol class="waypoints" data-testid="route-waypoints">
+	<ol class="waypoints" use:sortable={{ onmove: moveWaypoint }} data-testid="route-waypoints">
 		{#each route.waypoints as w, i (i)}
-			<li>
+			<li data-sort-row>
+				<SortGrip label={m['creator.sort_move']({ name: isPlaceWaypoint(w) ? w.location : mapName(w.name, locale) || w.id })} title={m['creator.sort_hint']()} />
 				{#if isPlaceWaypoint(w)}
 					{@const target = map.locations.find((p) => p.id === w.location)}
 					<button type="button" class="link" class:bad={!target} onclick={() => target && onselect({ kind: 'place', id: target.id })}>{target ? mapName(target.name, locale) || target.id : `${w.location} · ${m['creator.map_waypoint_unknown']()}`}</button>
@@ -80,7 +80,6 @@
 					</span>
 				{/if}
 				<span class="tools">
-					<ReorderButtons index={i} count={route.waypoints.length} onmove={moveWaypoint} labels={{ up: m['creator.map_move_up'](), down: m['creator.map_move_down']() }} />
 					<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><CloseIcon /></button>
 				</span>
 			</li>
@@ -102,11 +101,11 @@
 		display: flex;
 		gap: 0.3rem;
 		align-items: center;
-		justify-content: space-between;
 	}
 	.waypoints .tools {
 		display: flex;
 		flex: none;
+		margin-left: auto;
 	}
 	.waypoints .tools :global(button) {
 		padding: 0 0.3rem;

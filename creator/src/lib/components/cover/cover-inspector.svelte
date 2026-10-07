@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { Icon, Segmented } from '@scutoons/ui';
+	import { Icon, Segmented, SortGrip, sortable } from '@scutoons/ui';
 	import { COVER_ALIGNS, COVER_COLORS, COVER_COLOR_VALUES, COVER_LIMITS, COVER_TEXT_SOURCES, type CoverLine } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { alignLabel, colorLabel, sourceLabel } from '$lib/editor/cover-words.ts';
 	import { MediaSlot } from '@scutoons/media';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 
 	/**
@@ -62,9 +61,10 @@
 	</div>
 	{#if mode !== 'off'}
 		<p class="sc-label">{m['creator.cover_lines']()}</p>
-		<ul class="lines">
+		<ul class="lines" use:sortable={{ onmove }}>
 			{#each lines as l, i (i)}
-				<li>
+				<li data-sort-row>
+					<SortGrip label={m['creator.sort_move']({ name: lineLabel(l) || sourceLabel(l.text) })} title={m['creator.sort_hint']()} />
 					<button type="button" class="ghost row" class:active={selected === i} onclick={() => (selected = i)} data-testid="cover-line-{i}">
 						<span class="src">{sourceLabel(l.text)}</span>
 						<span class="txt">{lineLabel(l)}</span>
@@ -133,7 +133,6 @@
 				{/each}
 			</div>
 			<div class="line-actions">
-				<ReorderButtons index={i} count={lines.length} {onmove} variant="secondary" labels={{ up: m['creator.cover_line_up'](), down: m['creator.cover_line_down']() }} />
 				<button type="button" class="secondary" title={m['creator.cover_remove_line']()} onclick={() => onremove(i)} data-testid="cover-remove-line"><Icon name="trash-2" /> {m['creator.cover_remove_line']()}</button>
 			</div>
 		</div>
@@ -159,11 +158,16 @@
 		padding: 0;
 		border: var(--border-width-regular) solid var(--ink);
 	}
+	.lines li {
+		display: flex;
+		align-items: center;
+	}
 	.lines li + li {
 		border-top: var(--border-width-hairline) solid var(--ink);
 	}
 	.row {
-		width: 100%;
+		flex: 1;
+		min-width: 0;
 		justify-content: flex-start;
 		gap: var(--space-05);
 		text-align: left;

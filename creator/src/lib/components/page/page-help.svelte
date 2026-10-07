@@ -99,7 +99,7 @@
 			<li>{m['creator.credits_custom_roles']()}: {m['creator.credits_custom_roles_hint']()}</li>
 			<li>{m['creator.credits_vocabulary']()}: {m['creator.credits_vocabulary_hint']()}</li>
 		</ul>
-		<p>{m['creator.credits_move_hint']()}</p>
+		<p>{m['creator.sort_hint']()}</p>
 		{@render saving()}
 	{:else if page === 'characters'}
 		<h3>{m['creator.characters_glossary']()}</h3>

@@ -716,6 +716,8 @@
 		"prompts_base_views": "Basisansichten (Avatar, Porträt, ganz, A-Posen)",
 		"prompts_moods": "Stimmungen ohne Porträt ({count})",
 		"prompts_copy": "Kopieren",
+		"sort_move": "{name} verschieben",
+		"sort_hint": "Ziehen, oder Alt+↑ / Alt+↓",
 		"move_up": "Nach oben",
 		"move_down": "Nach unten",
 		"status_published": "veröffentlicht",
