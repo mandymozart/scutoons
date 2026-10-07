@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../hint-areas.css';
+	import { fireflies } from '../fireflies.ts';
 	import type { SampleTrigger } from '@scutoons/content';
 
 	/**
@@ -15,6 +16,7 @@
 	<div
 		class="sample-trigger sc-hint-area"
 		data-hint="sound"
+		{@attach fireflies()}
 		style:left="{trigger.rect.x}%"
 		style:top="{trigger.rect.y}%"
 		style:width="{trigger.rect.width}%"

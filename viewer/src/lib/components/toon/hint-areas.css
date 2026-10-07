@@ -1,14 +1,36 @@
 /*
  * The reader's tap / hover / sound areas with "Show hints" on (account page; owner 2026-10-07: nicer than dashed boxes
- * and see-through zones): corner marks like the camera's viewfinder, glowing softly, and one small marker in the middle
- * – tap: a ring that pings now and then, sound: a speaker, hover: a quiet ring. Without hints nothing is drawn (the
- * areas still work). Tuning in the inspector: --sc-hint-color, --sc-hint-blend (mix-blend-mode), --sc-hint-corner.
+ * and see-through zones): corner marks like the camera's viewfinder, glowing softly, fireflies wandering over the area
+ * (fireflies.ts, owner 2026-10-08) and on a sound area a speaker in the middle. Without hints nothing is drawn (the
+ * areas still work). Tuning in the inspector: --sc-hint-color, --sc-hint-blend (mix-blend-mode), --sc-hint-corner,
+ * --sc-firefly-core, --sc-firefly-glow.
  * Elements: `.sc-hint-area` + `data-hint="tap | sound | hover"` (vn/triggers, audio/sample-trigger).
  */
 :root {
 	--sc-hint-color: #00d1ff;
 	--sc-hint-blend: normal;
 	--sc-hint-corner: 1rem;
+	--sc-firefly-core: #fff6c9;
+	--sc-firefly-glow: #ffc93c;
+}
+
+/* a firefly (fireflies.ts): a warm core with a blurred glow, after nerdmanship's Miyazaki pen */
+.sc-firefly {
+	position: absolute;
+	width: 0.5rem;
+	height: 0.375rem;
+	margin: -0.1875rem 0 0 -0.25rem;
+	border-radius: 50%;
+	background: radial-gradient(ellipse at 58% 50%, var(--sc-firefly-core) 0%, var(--sc-firefly-glow) 100%);
+	box-shadow:
+		0 0 0.35rem 0.1rem color-mix(in srgb, var(--sc-firefly-glow) 70%, transparent),
+		0 0 1rem 0.3rem color-mix(in srgb, var(--sc-firefly-glow) 30%, transparent);
+	mix-blend-mode: var(--sc-hint-blend);
+	pointer-events: none;
+	z-index: 1;
+}
+html:not(.sc-show-hints) .sc-firefly {
+	display: none;
 }
 
 .sc-hint-area {
@@ -38,8 +60,8 @@ html.sc-show-hints .sc-hint-area:hover {
 	filter: drop-shadow(0 0 0.45rem var(--c));
 }
 
-/* the marker in the middle */
-html.sc-show-hints .sc-hint-area::after {
+/* a sound area's speaker in the middle */
+html.sc-show-hints .sc-hint-area[data-hint='sound']::after {
 	content: '';
 	position: absolute;
 	left: 50%;
@@ -49,21 +71,6 @@ html.sc-show-hints .sc-hint-area::after {
 	margin: -0.75rem 0 0 -0.75rem;
 	box-sizing: border-box;
 	pointer-events: none;
-}
-
-html.sc-show-hints .sc-hint-area[data-hint='tap']::after {
-	border: 2px solid var(--c);
-	border-radius: 50%;
-	animation: sc-hint-ping 2.8s ease-out infinite;
-}
-
-html.sc-show-hints .sc-hint-area[data-hint='hover']::after {
-	border: 2px dotted var(--c);
-	border-radius: 50%;
-	opacity: 0.8;
-}
-
-html.sc-show-hints .sc-hint-area[data-hint='sound']::after {
 	background: var(--c);
 	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5' fill='black'/%3E%3Cpath d='M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14'/%3E%3C/svg%3E") center / contain no-repeat;
 	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5' fill='black'/%3E%3Cpath d='M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14'/%3E%3C/svg%3E") center / contain no-repeat;
@@ -76,21 +83,6 @@ html.sc-show-hints .sc-hint-area.triggered {
 }
 html.sc-show-hints .sc-hint-area.triggered::after {
 	animation: none;
-}
-
-@keyframes sc-hint-ping {
-	0% {
-		transform: scale(0.6);
-		opacity: 0;
-	}
-	15% {
-		opacity: 1;
-	}
-	60%,
-	100% {
-		transform: scale(1.8);
-		opacity: 0;
-	}
 }
 
 @keyframes sc-hint-breathe {

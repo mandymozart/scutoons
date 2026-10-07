@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../../hint-areas.css';
+	import { fireflies } from '../../fireflies.ts';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { repeatOf, type VNSliceEvent, type VNEvent } from '@scutoons/content';
@@ -78,6 +79,7 @@
 		bind:this={triggerElement}
 		class="vn-trigger hover sc-hint-area"
 		data-hint="hover"
+		{@attach fireflies()}
 		class:own
 		class:triggered
 		style:left="{rect.x}%"
