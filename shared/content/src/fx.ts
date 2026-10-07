@@ -17,10 +17,11 @@ export const FX_MAX_DURATION = 3000;
 
 /**
  * How the reader highlights a chapter's tap / hover / sound areas while "Show hints" is on (owner 2026-10-08: chosen
- * in the editor, a list to extend): `fireflies` – warm round glows drifting over the area (the default), `alienshine`
- * – brush strokes and specks from the owner's attention.svg, each one random.
+ * in the editor, a list to extend): `fireflies` – warm round glows drifting over the area (the default); from the
+ * owner's attention.svg: `alienflies` – its brush strokes flying the same way, `specks` – its small specks, `trails` – a
+ * streak of light running along one of its thin arcs. Each instance random (shape, size, turn).
  */
-export const HIGHLIGHTERS = ['fireflies', 'alienshine'] as const;
+export const HIGHLIGHTERS = ['fireflies', 'alienflies', 'specks', 'trails'] as const;
 export type Highlighter = (typeof HIGHLIGHTERS)[number];
 
 export function isFxSoundChoice(value: unknown): value is FxSoundChoice {

@@ -87,11 +87,14 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
   (viewer `components/toon/fireflies.ts` + `hint-areas.css`; the dashed boxes, corners and icons went), more on bigger
   areas (one per --sc-firefly-area rem², at most --sc-firefly-max). Chosen per chapter in the creator (meta panel
   "Hinweise (Tippflächen)", `Chapter.highlight`, `@scutoons/content` fx.ts `HIGHLIGHTERS` – a list to extend):
-  `fireflies` (default; round warm glows after nerdmanship's Miyazaki pen) or `alienshine` (a random brush stroke /
-  speck of the owner's attention.svg each – a random third of its 172 radial-filled paths in
-  `alienshine-shapes.ts`, loaded only when used; random size and turn). Colours / blend from the owner's tuning:
-  --sc-firefly-core #000, --sc-firefly-glow #ec60cf, --sc-hint-blend difference; --sc-hint-style on :root overrides
-  the chapter's choice in the inspector. Everything re-reads live when the variables change.
+  `fireflies` (default; round warm glows after nerdmanship's Miyazaki pen), and from the owner's attention.svg
+  (`alien-shapes.ts`, loaded only when used): `alienflies` (its 35 filled brush strokes flying like the fireflies),
+  `specks` (a random third – 46 – of its specks, about 1–3rem each) and `trails` (a streak of light running along one of
+  its 21 thin arcs – a non-scaling 2px stroke –, fading, then the next one elsewhere; --sc-trail-density × the fireflies'
+  count, default 2, at most --sc-trail-max 24). Each instance random (shape, size, turn); the first "alienshine" (all
+  mixed) was dropped. Colours / blend from the owner's tuning: --sc-firefly-core #000, --sc-firefly-glow #ec60cf,
+  --sc-hint-blend difference; --sc-hint-style on :root overrides the chapter's choice in the inspector. Everything
+  re-reads live when the variables change.
 
 **Phases**
 1. `pickup.collect` + `pickup.refuse` with default sounds – viewer only, no data change.

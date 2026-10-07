@@ -2687,7 +2687,9 @@
 			"type": "string",
 			"enum": [
 				"fireflies",
-				"alienshine"
+				"alienflies",
+				"specks",
+				"trails"
 			]
 		}
 	}

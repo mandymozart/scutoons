@@ -4,7 +4,7 @@
  * "the fireflies are obvious enough"; no icon in the middle either). Without hints nothing is drawn (the areas still
  * work). Tuning in the inspector: --sc-hint-blend (mix-blend-mode),
  * --sc-firefly-core, --sc-firefly-glow, --sc-firefly-area (rem² per firefly), --sc-firefly-max, --sc-hint-style
- * (fireflies | alienshine – overrides the chapter's highlighter).
+ * (fireflies | alienflies | specks | trails – overrides the chapter's highlighter), --sc-trail-density, --sc-trail-max.
  * Elements: `.sc-hint-area` + `data-hint="tap | sound | hover"` (vn/triggers, audio/sample-trigger).
  */
 :root {
@@ -15,6 +15,9 @@
 	/* one firefly per this much area (rem²), at most this many on one area */
 	--sc-firefly-area: 100;
 	--sc-firefly-max: 12;
+	/* trails: this many times the fireflies' count, at most this many on one area */
+	--sc-trail-density: 2;
+	--sc-trail-max: 24;
 }
 
 /* a firefly (fireflies.ts): a warm core with a blurred glow, after nerdmanship's Miyazaki pen */
@@ -32,8 +35,9 @@
 	pointer-events: none;
 	z-index: 1;
 }
-/* alienshine (fireflies.ts): an SVG shape with its own gradient – its size inline; the glow follows the shape */
-.sc-firefly.sc-alienshine {
+/* alienflies / specks / trails (fireflies.ts): an SVG shape of attention.svg with its own gradient – its size inline; the
+   glow follows the shape */
+.sc-firefly.sc-alien {
 	margin: 0;
 	border-radius: 0;
 	background: none;
