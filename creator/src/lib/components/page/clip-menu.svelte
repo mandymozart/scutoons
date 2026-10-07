@@ -102,6 +102,8 @@
 	.clip-menu button {
 		display: flex;
 		align-items: center;
+		/* a menu reads from the left (tools.css centres a button's content) */
+		justify-content: flex-start;
 		gap: var(--space-05);
 		min-height: var(--control-height);
 		padding: 0 var(--space-1);
