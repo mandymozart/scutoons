@@ -79,6 +79,10 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
   variation each with a de / en label: pickups with the three sound levels and an edge item, can't take it, nudge,
   item tap events, the four entrances on scroll, sound overrides, the old effects with sounds, impacts by tap / scroll,
   a 3 s vignette, wait-then-slam) on the local API as the test user; read it with the draft preview. Never published.
+- typeOn reworked (owner 2026-10-07): the box opens like an old screen – a 2px square, a 2px line across, the full
+  height (60 + 220 + 220 ms, clip-path) – then its text is typed letter by letter (the drawn text nodes emptied and
+  filled back, 18–55 ms a letter so a long text stays under ~2.5 s) with a key click per letter, or the event's one
+  sound; the event completes when the typing has (at least its duration).
 
 **Phases**
 1. `pickup.collect` + `pickup.refuse` with default sounds – viewer only, no data change.

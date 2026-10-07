@@ -60,32 +60,66 @@
 		} else if (kind === 'fade') {
 			playRevealSound(sound, 'soft');
 			el.animate([{ opacity: 0, filter: 'blur(6px)' }, { opacity: 1, filter: 'blur(0)' }], { duration: 700, easing: 'ease-out' });
-		} else {
-			// typed: wiped in from the left in one step per letter, a small key click per step (or the event's one sound)
-			const letters = Math.max(1, Math.min(60, (el.textContent ?? '').replace(/\s+/g, '').length));
-			const ms = Math.min(Math.max(letters * 55, 300), Math.max(300, duration));
-			el.animate([{ clipPath: 'inset(-50% 100% -50% -50%)' }, { clipPath: 'inset(-50% -50% -50% -50%)' }], { duration: ms, easing: `steps(${letters}, end)` });
+		} else typedMs = typeOn();
+	}
+	let typedMs = 0;
+
+	/**
+	 * typeOn (owner 2026-10-07): the box opens like an old screen – a tiny square, a thin line across, then the full
+	 * height – and only then its text is typed letter by letter with key clicks (or the event's one sound). Returns
+	 * when it has finished (ms from now).
+	 */
+	let typing: ReturnType<typeof setInterval> | undefined;
+	function typeOn(): number {
+		// the text nodes as drawn; emptied now, typed back below (the same strings – nothing else changes)
+		const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+		const nodes: { node: Text; text: string }[] = [];
+		for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.trim()) nodes.push({ node: n as Text, text: (n as Text).data });
+		for (const t of nodes) t.node.data = '';
+		const OPEN = [60, 220, 220];
+		const opened = OPEN.reduce((a, b) => a + b, 0);
+		el.animate(
+			[
+				{ clipPath: 'inset(calc(50% - 1px) calc(50% - 1px))', offset: 0 },
+				{ clipPath: 'inset(calc(50% - 1px) calc(50% - 1px))', offset: OPEN[0] / opened },
+				{ clipPath: 'inset(calc(50% - 1px) 0)', offset: (OPEN[0] + OPEN[1]) / opened },
+				{ clipPath: 'inset(0)', offset: 1 }
+			],
+			{ duration: opened, easing: 'ease-out' }
+		);
+		const total = nodes.reduce((a, t) => a + [...t.text].length, 0);
+		const step = Math.max(18, Math.min(55, 2500 / Math.max(1, total)));
+		setTimeout(() => {
 			if (sound) playRevealSound(sound);
-			else {
-				let i = 0;
-				const step = ms / letters;
-				const timer = setInterval(() => {
-					if (++i > letters) return clearInterval(timer);
-					playFxSound('key');
-				}, step);
-			}
-		}
+			let node = 0;
+			let at = 0;
+			typing = setInterval(() => {
+				const t = nodes[node];
+				if (!t) return clearInterval(typing);
+				const chars = [...t.text];
+				at++;
+				t.node.data = chars.slice(0, at).join('');
+				if (!sound && chars[at - 1]?.trim()) playFxSound('key');
+				if (at >= chars.length) {
+					node++;
+					at = 0;
+				}
+			}, step);
+		}, opened);
+		return opened + total * step;
 	}
 
 	onMount(() => {
 		let durationTimer: ReturnType<typeof setTimeout> | undefined;
 		const delayTimer = setTimeout(() => {
 			enter();
-			durationTimer = setTimeout(onComplete, duration);
+			// typeOn takes as long as its text needs (at least the event's duration)
+			durationTimer = setTimeout(onComplete, kind === 'typeOn' ? Math.max(duration, typedMs) : duration);
 		}, delay);
 		return () => {
 			clearTimeout(delayTimer);
 			clearTimeout(durationTimer);
+			clearInterval(typing);
 		};
 	});
 </script>
