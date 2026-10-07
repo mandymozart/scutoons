@@ -46,6 +46,9 @@
 	import { clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
 	import { setClipContext } from '$lib/editor/clip-context.ts';
+	import { countPlacements } from '$lib/editor/clip.ts';
+	import { itemName } from '$lib/editor/catalog.svelte.ts';
+	import { api } from '$lib/api.ts';
 	import type { ClipResult } from '$lib/editor/clipboard.svelte.ts';
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
@@ -505,6 +508,15 @@
 			// chapter, scenes, season: one language-neutral document, checked once + its texts per language
 			out.push(...(doc.texts ? validateNeutral(doc.kind, data, doc.texts, ctx) : validateFile(doc.kind, data, doc.primary, ctx)));
 		}
+		// item limits (BACKLOG 10.39): an item placed more often than the catalog allows, every toon together
+		for (const [id, c] of placementCounts) {
+			const total = c.here + c.others.reduce((sum, p) => sum + p.count, 0);
+			if (total <= c.limit || !c.here) continue;
+			const at = placementPath(id);
+			if (!at) continue;
+			const item = itemCatalog.catalog?.items.find((i) => i.id === id);
+			out.push({ level: 'error', file: at.file, locale: null, path: at.path, message: m['creator.clip_limit_problem']({ item: itemName(item, id), count: total, limit: c.limit, where: placesText(c.others) }) });
+		}
 		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: entities.cast(toon) }));
 		// suggestions from the VN usage (info): who the scenes use but the featuring / the season cast lacks
 		if (!chapter.loading && hasCast) out.push(...featuringSuggestions(chapterData?.featuring, chapterSceneCharacters(sceneGroups()), castIndex(castOf(cast), SEASON), chapter.entity));
@@ -512,6 +524,18 @@
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
 	const errorCount = $derived(problems.filter((p) => p.level === 'error').length);
+	/** the first placement of an item in this chapter's documents (a problem's place) */
+	function placementPath(id: string): { file: string; path: Path } | null {
+		for (const d of sliceDocs) {
+			const data = d.data[d.primary];
+			if (!data) continue;
+			const groupsOf: [Path, any][] = Array.isArray(data.groups) ? data.groups.map((g: any, gi: number) => [['groups', gi], g]) : [[[], data]];
+			for (const [base, g] of groupsOf)
+				for (const [si, s] of (g?.slices ?? []).entries())
+					for (const [ii, it] of (s?.items ?? []).entries()) if (it?.item === id) return { file: d.entity, path: [...base, 'slices', si, 'items', ii] };
+		}
+		return null;
+	}
 	// accepted warnings ("Looks fine") don't count
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(allDocs, p)).length);
 
@@ -641,7 +665,11 @@
 		const spot = view.itemSpot;
 		view.itemSpot = null;
 		const t = sliceTarget();
-		if (t && itemId) view.select(edits.addSliceItem(t, itemId, spot));
+		if (!t || !itemId) return;
+		// the item's placement limit (BACKLOG 10.39): refused with a toast
+		const refused = placementLimit(new Map([[itemId, 1]]));
+		if (refused) return void toast(refused.message, { type: 'error', timeout: 0 });
+		view.select(edits.addSliceItem(t, itemId, spot));
 	}
 	function addSliceEvent(rect: { x: number; y: number; width: number; height: number }) {
 		const t = sliceTarget();
@@ -704,8 +732,47 @@
 	// copy / cut / paste (BACKLOG 10.39, lib/editor/clipboard.svelte.ts): the DOM events act on the live region's handler;
 	// the canvas region copies its selection and pastes into the open slice
 	$effect(() => clipboardEvents());
-	/** a paste that would place catalog items over their limit (BACKLOG 10.39 step 7): the refusal; null = fine */
-	const placementLimit = (_adds: Map<string, number>): ClipResult | null => null;
+	// ── item limits (BACKLOG 10.39 step 7, ITEMS.md "Item limits"): a catalog item's `placements` count over every toon –
+	// this chapter's documents live, every other chapter / scene from the API (GET /api/catalog/items/<id>/placements,
+	// loaded once per limited item); over the limit = a Problems error, a paste that would go over it is refused
+	let placedElsewhere = $state<Record<string, { key: string; count: number }[]>>({});
+	$effect(() => {
+		const items = itemCatalog.catalog?.items ?? [];
+		for (const it of items) {
+			if (!it.placements || untrack(() => it.id in placedElsewhere)) continue;
+			placedElsewhere = { ...untrack(() => placedElsewhere), [it.id]: [] };
+			api.get<{ placements: { key: string; count: number }[] }>(`/catalog/items/${encodeURIComponent(it.id)}/placements`)
+				.then((r) => (placedElsewhere = { ...placedElsewhere, [it.id]: r.placements ?? [] }))
+				.catch(() => {});
+		}
+	});
+	/** per limited item: its limit, the placements in this chapter's documents and elsewhere (other chapters / scenes) */
+	const placementCounts = $derived.by(() => {
+		const out = new Map<string, { limit: number; here: number; others: { key: string; count: number }[] }>();
+		const own = new Set(sliceDocs.map((d) => d.entity));
+		const here = new Map<string, number>();
+		for (const d of sliceDocs) if (!d.loading) for (const [id, n] of countPlacements(d.data[d.primary])) here.set(id, (here.get(id) ?? 0) + n);
+		for (const it of itemCatalog.catalog?.items ?? []) {
+			if (!it.placements) continue;
+			out.set(it.id, { limit: it.placements, here: here.get(it.id) ?? 0, others: (placedElsewhere[it.id] ?? []).filter((p) => !own.has(p.key)) });
+		}
+		return out;
+	});
+	const placesText = (others: { key: string; count: number }[]) =>
+		[m['creator.clip_limit_here'](), ...others.map((p) => `${fileLabel(p.key)} (${p.count})`)].join(', ');
+	/** a paste that would place catalog items over their limit: the refusal (a toast); null = fine */
+	const placementLimit = (adds: Map<string, number>): ClipResult | null => {
+		for (const [id, n] of adds) {
+			const c = placementCounts.get(id);
+			if (!c) continue;
+			const total = c.here + n + c.others.reduce((sum, p) => sum + p.count, 0);
+			if (total > c.limit) {
+				const item = itemCatalog.catalog?.items.find((i) => i.id === id);
+				return { message: m['creator.clip_limit']({ item: itemName(item, id), limit: c.limit, count: total, where: placesText(c.others) }), error: true };
+			}
+		}
+		return null;
+	};
 	useClipHandler(
 		() => (view.section === 'slice' ? SLICE_REGION : null),
 		// svelte-ignore state_referenced_locally

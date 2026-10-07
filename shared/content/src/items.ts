@@ -137,6 +137,17 @@ export interface ItemDef extends AcceptedWarnings {
 	 */
 	max?: number;
 	/**
+	 * Item limits across the system (BACKLOG 10.39, ITEMS.md "Item limits"): how often it may be placed on slices, in
+	 * every toon together (the creator: a Problems error, a paste refuses; the API: 422 item_limit on a save that adds
+	 * one over it) – none = unlimited.
+	 */
+	placements?: number | null;
+	/**
+	 * How many accounts may own it at once (1 = it exists only once in the world); the server refuses anyone else
+	 * (409 taken) while that many own it – none = unlimited.
+	 */
+	max_world?: number | null;
+	/**
 	 * Can a reader gift it to another reader (ITEMS.md "Ownership, claims, gifting")? None = yes, except starters / the
 	 * basic dress and membership / access-only items (`isGiftable`). The server decides (403 not_giftable).
 	 */

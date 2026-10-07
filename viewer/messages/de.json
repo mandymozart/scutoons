@@ -217,6 +217,7 @@
 		"granted": "+{qty} {name}",
 		"taken": "−{qty} {name}",
 		"pickup_max_reached": "Du hast schon genug davon.",
+		"pickup_taken": "Das gehört schon jemand anderem.",
 		"pickup_not_grantable": "{name} kannst du hier nicht mitnehmen.",
 		"pickup_already_taken": "{name} hast du schon mitgenommen.",
 		"pickup_rate_limited": "Genug für den Moment – versuch es später noch einmal.",

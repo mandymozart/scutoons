@@ -206,6 +206,10 @@ final class CatalogValidator
         if (($item['default_worn'] ?? null) === true && (($item['starter'] ?? null) !== true || !is_string($item['slot'] ?? null))) $p[] = "$id: default_worn: true is only for starter items with a slot";
         if (($item['edition_id'] ?? null) !== null && !is_array($this->store->get('editions', (string) self::show($item['edition_id'])))) $p[] = "$id: unknown edition \"" . self::show($item['edition_id']) . '"';
         if (($item['product'] ?? null) !== null && !is_array($this->store->get('products', (string) self::show($item['product'])))) $p[] = "$id: unknown product \"" . self::show($item['product']) . '"';
+        // item limits (BACKLOG 10.39, ITEMS.md "Item limits"): placements on slices in every toon / owners in the world
+        foreach (['placements', 'max_world', 'max'] as $limit) {
+            if (($item[$limit] ?? null) !== null && !(is_int($item[$limit]) && $item[$limit] >= 1)) $p[] = "$id: $limit must be a whole number ≥ 1 (or none)";
+        }
         if (array_key_exists('respawn', $item)) foreach (ItemRespawn::problems($item['respawn']) as $problem) $p[] = "$id: $problem";
         // albums.ts: a record plays only with a player for its format
         if (($item['plays'] ?? null) !== null && !(is_array($item['plays']) && $item['plays'] !== [] && array_diff($item['plays'], self::MEDIA_FORMATS) === [])) $p[] = "$id: plays must be a list of " . implode(', ', self::MEDIA_FORMATS);

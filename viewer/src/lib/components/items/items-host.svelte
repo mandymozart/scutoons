@@ -63,6 +63,8 @@
 	/** a placed item that stayed on the slice: why (the API's error code where it said one) */
 	function refusedText(reason: string | undefined, name: string) {
 		if (reason === 'max_reached') return m['items.pickup_max_reached']();
+		// the world limit (max_world, BACKLOG 10.39): owned by as many accounts as the catalog allows
+		if (reason === 'taken') return m['items.pickup_taken']();
 		if (reason === 'not_grantable' || reason === 'unknown_item' || reason?.startsWith('respawn_') || reason === 'invalid_respawn') {
 			return m['items.pickup_not_grantable']({ name });
 		}

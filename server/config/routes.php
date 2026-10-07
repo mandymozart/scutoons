@@ -153,6 +153,8 @@ return static function (App $app): void {
     $app->put('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'put']);
     $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
     $app->post('/api/entities/{key:[a-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
+    // where a catalog item is placed in every toon (item limits, BACKLOG 10.39) – role creator
+    $app->get('/api/catalog/items/{id:[A-Za-z0-9_.-]{1,100}}/placements', [EntitiesController::class, 'itemPlacements']);
     // the creator's SCUTOONS-wide flow: every toon's ways out of its chapters + dead things (docs/API.md "Flow index", role creator)
     $app->get('/api/creator/flow-index', [FlowController::class, 'index']);
     // Review before publish (docs/API.md "Reviews", role creator; the review rules per toon decide the rest)

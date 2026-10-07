@@ -11,6 +11,7 @@ use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Content\FlowCheck;
+use Scutoons\Domain\Content\ItemPlacements;
 use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
@@ -25,15 +26,18 @@ use stdClass;
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
  *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas,
- *                                                or can get the reader stuck: FlowCheck)
+ *                                                or can get the reader stuck: FlowCheck; 422 item_limit { problems }
+ *                                                when it adds placements over a catalog item's `placements`)
  *   GET  /api/entities/<key>/versions?limit=     history, newest first
  *   POST /api/entities/<key>/publish { version? } · /unpublish · /restore { id, message? }
+ *   GET  /api/catalog/items/<id>/placements      where a catalog item is placed in every toon + its limits and owners
+ *                                                (ItemPlacements, BACKLOG 10.39) – 404 unknown_item
  * publish / unpublish: 403 review_required for accounts that need a review for the toon (Reviews; submit through
  * /api/reviews instead).
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements)
     {
     }
 
@@ -71,10 +75,19 @@ final class EntitiesController
             $this->schemas->guard($key, $body->content);
             // where a reader could get stuck (a question whose choices can all be hidden, a divert / jump into nothing)
             $this->flow->guard($key, $body->content);
+            // an item placed more often than its catalog limit allows, counted over every toon (BACKLOG 10.39)
+            $this->placements->guard($key, $body->content);
         }
         $result = $this->store->save($user, $key, $body);
         $this->usages->reindexEntity((string) $key); // the asset usage index (agents/ASSETS.md); never fails the save
         return Json::response($response, 200, $result);
+    }
+
+    /** @param array{id: string} $args */
+    public function itemPlacements(Request $request, Response $response, array $args): Response
+    {
+        $this->creator($request);
+        return Json::response($response, 200, $this->placements->report($args['id']));
     }
 
     /** @param array{key: string} $args */

@@ -514,7 +514,8 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 | GET | `/entities/<key>` | the published version as raw JSON (`no-store`, `X-Content-Version`/`X-Content-Status`) · 404 when nothing is published |
 | GET | same `?draft=1` / `?version=<id>` | the newest version / that version · 404 |
 | GET | same `…&wrap=1` | `{ status, version: meta, published: { id, created_at } \| null, content }` |
-| PUT | `/entities/<key>` | `{ content, message?, base? }` → `{ status, unchanged, version: meta }`; `base` not the newest → **409 `conflict`** `{ latest: meta }` |
+| PUT | `/entities/<key>` | `{ content, message?, base? }` → `{ status, unchanged, version: meta }`; `base` not the newest → **409 `conflict`** `{ latest: meta }`; a chapter / scene that adds placements of a catalog item over its `placements` (every toon together) → **422 `item_limit`** `{ problems }` (BACKLOG 10.39) |
+| GET | `/catalog/items/<id>/placements` | (creator) `{ status, item, limits: { placements, max_world }, placements: [{ key, toon, count }], total, owners }` – where the item is placed (each chapter / scene with the more of its newest and its published version; neutral documents only) and how many accounts own it · 404 `unknown_item` |
 | GET | `/entities/<key>/versions?limit=` | `{ versions: [{ id, status, created_at, author, author_email, message, size }] }` newest first |
 | POST | `/entities/<key>/publish` | `{ version? }` (default: newest) → `{ version }` · 404 for a version of another key |
 | POST | `/entities/<key>/unpublish` | → `{ unpublished: n }` |

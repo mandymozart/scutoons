@@ -893,12 +893,23 @@ The Check It camera needs nothing extra on deploy (catalog + viewer): it is craf
   checks it). Physical products are therefore the existing "exists only once" items; reading with someone else's code
   is still allowed by the access model (device access, "Access model" above) unless the owner changes that.
 
-**Planned (not built – no such item exists yet):**
-- **Unique items:** some items exist **only once in the world**; if anybody else owns it, nobody else can get it
-  (grant/craft/claim refuse, e.g. 409 `taken`). Needs a catalog flag (e.g. `unique: true`, or `max_world: <n>` for
-  "only N exist"), a server check across all accounts inside the grant transaction, and a decision on what happens when
-  the owner's account is deleted (back into the world?) and whether it can be given away.
-- **Rarer items** set a lower `max` (built) – which items and how many is the owner's call per item.
+**Item limits (built 2026-10-07, BACKLOG 10.39 step 7 – owner: "combined"):** two optional catalog fields (admin →
+Catalog → Items, "Placements (all toons)" / "Owners in the world"; whole numbers ≥ 1, empty = unlimited; JSON fields of
+`catalog_items.data`, no migration):
+- **`placements`** – how often the item may be placed on slices, every toon and every author together. Counted per
+  chapter / scene (language-neutral documents) with the more of its newest and its published version. The API refuses
+  a save that ADDS placements over it (`PUT /api/entities` → 422 `item_limit`; a document already over a lowered limit
+  still saves while it adds none); `GET /api/catalog/items/<id>/placements` lists where it is placed (+ `owners`). The
+  creator shows a Problems error on the chapter (at its first placement, naming the other places) and a paste / a
+  new placement that would go over it is refused with a toast.
+- **`max_world`** – how many accounts may own it at once (`1` = "unique", it exists only once in the world). Grant and
+  craft refuse anyone who doesn't own one yet while that many accounts own it (409 `taken`; the reader: "Someone else
+  already owns this one."), a guest import skips it (`taken`). An owner may hold more (its `max` still applies);
+  pieces given back / consumed free it for the next one. Claims (physical products, one code = one owner) and gifts
+  (they move a piece – the number of owners only grows when the giver keeps some) are not checked. Not decided: what
+  happens to a unique item when its owner's account is deleted.
+- **Rarer items** set a lower `max` (built; now in the admin form too, "Most per account") – which items and how many is
+  the owner's call per item.
 
 ## Certificates (2026-10-02, owner)
 

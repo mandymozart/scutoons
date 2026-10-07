@@ -26,6 +26,11 @@
 	const variants = $derived<Data[]>(Array.isArray(data.variants) ? data.variants : []);
 	const newVariant = (): Data => ({ id: '', name: { de: '', en: '' }, icon: null, ...(data.product ? { product: data.product } : {}) });
 	const err = (...words: string[]) => problemFor(problems, ...words);
+	/** a limit field: a whole number, empty = none (the key goes) */
+	function setLimit(key: 'max' | 'placements' | 'max_world', value: unknown) {
+		if (value === null || value === undefined || value === '') delete data[key];
+		else data[key] = typeof value === 'number' ? Math.round(value) : value;
+	}
 </script>
 
 <CatalogField label={m['catalog.toon']()} type="select" value={data.toon} options={options('toons')} none={m['catalog.toon_none']()} error={err('toon')} onchange={(v) => (data.toon = v)} testid="item-toon" />
@@ -122,6 +127,13 @@
 	{/snippet}
 	{#snippet footer()}{#if id && variants.length}<p class="sc-caption muted">{m['catalog.variant_files']({ id })}</p>{/if}{/snippet}
 </CatalogRows>
+
+<!-- item limits across the system (BACKLOG 10.39, ITEMS.md "Item limits"): empty = unlimited -->
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="12rem">
+	<CatalogField label={m['catalog.max']()} type="number" value={data.max} hint={m['catalog.max_hint']()} error={err('max')} onchange={(v) => setLimit('max', v)} testid="item-max" />
+	<CatalogField label={m['catalog.placements']()} type="number" value={data.placements} hint={m['catalog.placements_hint']()} error={err('placements')} onchange={(v) => setLimit('placements', v)} testid="item-placements" />
+	<CatalogField label={m['catalog.max_world']()} type="number" value={data.max_world} hint={m['catalog.max_world_hint']()} error={err('max_world')} onchange={(v) => setLimit('max_world', v)} testid="item-max-world" />
+</div>
 
 <RespawnField
 	value={data.respawn}

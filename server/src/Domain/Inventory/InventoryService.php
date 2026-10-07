@@ -128,6 +128,33 @@ final class InventoryService
         return max(0, self::maxOf($item) - $this->count($userId, (string) $item['id']));
     }
 
+    /**
+     * The world limit (`max_world`, BACKLOG 10.39 / ITEMS.md "Item limits"): how many accounts may own the item at once
+     * (1 = it exists only once). An account that already owns it is within it; anyone else gets 409 `taken` while that
+     * many accounts own it. Checked inside the grant / craft transaction.
+     * @param array<string, mixed> $item
+     */
+    public function guardWorld(string $userId, array $item): void
+    {
+        if (!$this->worldFull($userId, $item)) return;
+        throw new ApiError(409, 'taken', 'Someone else owns this – it exists only ' . self::worldMax($item) . ' time(s).', ['max_world' => self::worldMax($item)]);
+    }
+
+    /** @param array<string, mixed> $item */
+    private static function worldMax(array $item): ?int
+    {
+        $max = $item['max_world'] ?? null;
+        return is_int($max) && $max >= 1 ? $max : null;
+    }
+
+    /** @param array<string, mixed> $item */
+    private function worldFull(string $userId, array $item): bool
+    {
+        $max = self::worldMax($item);
+        if ($max === null || $this->count($userId, (string) $item['id']) > 0) return false;
+        return (int) $this->db->value('SELECT COUNT(DISTINCT user_id) FROM inventory WHERE item_id = ? AND qty > 0', [$item['id']]) >= $max;
+    }
+
     public function count(string $userId, string $itemId): int
     {
         return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ?', [$userId, $itemId]);
@@ -171,6 +198,7 @@ final class InventoryService
             if ($output && $this->room($userId, $output) < (int) $recipe['output']['qty']) {
                 throw new ApiError(409, 'max_reached', 'You cannot hold more of this.', ['max' => self::maxOf($output)]);
             }
+            if ($output) $this->guardWorld($userId, $output);
             foreach ($recipe['inputs'] as $input) $this->remove($userId, $input['item'], (int) $input['qty']);
             $this->add($userId, $recipe['output']['item'], null, (int) $recipe['output']['qty'], 'craft');
         });
@@ -212,7 +240,8 @@ final class InventoryService
      * respawn_not_allowed / respawn_out_of_range, 400 invalid_respawn / visit_required / ref_required.
      * 403 not_grantable (source not in the item's `grantable`) / no_tool (scan without a tool that detects it),
      * 429 rate_limited (hourly limit) / cooldown (scan tool cooldown) / daily_limit (the camera's `per_day` scans of
-     * this item in the last 24 h), 409 max_reached (the collection limit: `max`, default 99), 400 invalid_source,
+     * this item in the last 24 h), 409 max_reached (the collection limit: `max`, default 99), 409 taken (the world limit:
+     * `max_world` accounts own it already), 400 invalid_source,
      * 404 unknown_item.
      * @param array<string, mixed> $body
      */
@@ -235,6 +264,7 @@ final class InventoryService
             $refBucket = "grantref:$userId:{$item['id']}";
             if ($ref !== null && $this->limits->exists($refBucket, $ref)) return 0;
             if ($this->room($userId, $item) < 1) throw new ApiError(409, 'max_reached', 'You cannot hold more of this.', ['max' => self::maxOf($item)]);
+            $this->guardWorld($userId, $item);
             $this->limits->guard("grant:$userId", $this->settings->int('GRANT_MAX_PER_HOUR'), 3600, 'Too many items granted – try again later.');
             if ($source === 'scan') {
                 $tools = $this->catalog->scanTools($item['id']);
@@ -283,6 +313,7 @@ final class InventoryService
                 if (!$item) { $skipped[] = ['item_id' => $itemId, 'reason' => 'unknown_item']; continue; }
                 if (empty($item['grantable'])) { $skipped[] = ['item_id' => $itemId, 'reason' => 'not_grantable']; continue; }
                 if ($qty < 1) { $skipped[] = ['item_id' => $itemId, 'reason' => 'invalid_qty']; continue; }
+                if ($this->worldFull($userId, $item)) { $skipped[] = ['item_id' => $itemId, 'reason' => 'taken']; continue; }
                 $qty = min($qty, $max);
                 // Non-stackable finds: at most one piece
                 if (empty($item['stackable'])) {
