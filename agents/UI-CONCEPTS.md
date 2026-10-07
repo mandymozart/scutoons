@@ -111,6 +111,19 @@ pages".
 
 ## E.4 Slice editor room (M.4)
 
+**Built 2026-10-07 (BACKLOG 10.47)** – the owner's draft (strip left of the canvas, not over the art; 50–300 %).
+`slice/slice-toolbar.svelte` = the strip: two square vertical groups (`sc-seg is-column`; `Segmented` `vertical`).
+**View**: the grid button (pressed = snap, its size in the corner; hold, right-click, the corner number or → open the
+sizes 5 / 10 / 15 / 30 – a pick also switches snap on), the zoom button (flyout: zoom out · % · zoom in · fit · 1:1 –
+one square group like the Flow's since 10.52, not the draft's round buttons), and with `{…}` texts an eye button whose
+flyout holds the sample-reader select. **Content**: text / item / sound / event. One flyout at a time beside its
+button; Esc / ← / a click outside closes it (focus back). Zoom = `ChapterView.zoom` (null = fit, else a factor of the
+slice's 1x width, `scutoons_creator_zoom`, try/catch) – `slice-canvas.svelte` `.canvas-wrap` is laid out at
+`--slice-w × --zoom` inside the scrolling `canvas-area` (no transform: boxes, handles, snapping stay in %); fit = the
+area's height, capped at 2x (a phone: its full width). Ctrl / Cmd + wheel over the area zooms around the pointer
+(`wheelZoom` in chapter-editor, flyout open or not). The toolbar row is gone. Phones: the same strip at the canvas's
+left, buttons ≥ 2.75rem. Checks: check:creator-chapter's E.4 part; shots `e4-*`.
+
 **Today.** `slice/slice-toolbar.svelte`: Snap toggle + a grid select (5/10/15/30, localStorage) + a Segmented of the
 tools (text / item / sound / event). `slice-canvas.svelte` fits the column's height and is **capped at the slice's 1x
 width** (`max-width: min(<width>px, 100cqh / ratio)`) – on a big screen it never grows; no zoom. The inspector is a

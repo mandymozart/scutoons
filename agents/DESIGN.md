@@ -761,6 +761,22 @@ Three kinds, three places; none moves the layout:
   keys): the same four as one square group in the ActionBar's "More". A menu paste reads the system clipboard where the
   browser allows it, else the clip copied last in this tab.
 
+### Slice editor: tool strip + zoom (owner 2026-10-07, BACKLOG 10.47, UI-CONCEPTS E.4) – the creator's chapter editor
+
+- **The strip, left of the canvas** (never over the art; no toolbar row above it): two square vertical groups
+  (`sc-seg is-column`, `Segmented vertical`). **View**: the grid (one button, pressed = snap on, the size in its
+  corner; hold, right-click, the corner number or → open the sizes 5 / 10 / 15 / 30 – picking one switches snap on),
+  the zoom (a zoom icon), and – when the slice has texts with `{…}` – the sample-reader preview (an eye, pressed when
+  not "as written"). **Content**: text · item · sound · event (each opens its inspector tab).
+- **Flyouts**: one at a time, beside its button, over the canvas; Esc / ← / a click outside closes it, the focus goes
+  back to its button. The zoom flyout is the Flow's look – one square group: zoom out · percentage · zoom in · fit ·
+  **1:1** (original size).
+- **Zoom**: 50–300 % of the slice's 1x width, remembered on this device (`scutoons_creator_zoom`; fit = null). Fit =
+  the area's height, at most 2x the slice (a phone: the full width, the area scrolls down). Zoomed, the canvas is laid
+  out at that width – no transform – and the area scrolls; boxes, handles and snapping stay in slice coordinates.
+  Ctrl / Cmd + wheel (a trackpad pinch) over the area zooms around the pointer, flyout open or not.
+- **Phones** (< 768): the same strip at the canvas's left, the canvas the rest of the width; buttons ≥ 2.75rem.
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
