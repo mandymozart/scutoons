@@ -302,9 +302,11 @@
 			</Button>
 		{/if}
 		<Button size="sm" variant="secondary" onclick={() => (kindHistoryOpen = true)} data-testid="catalog-kind-history">{m['catalog.history']()}</Button>
+		<!-- the page's own actions (items: Import images …) – in "More" when narrow: the bar's end pushed them under More on a
+		     phone (E.9); wide, the secondary actions sit right before the end, so the order stays -->
+		{#if barActions}{@render barActions()}{/if}
 	{/snippet}
 	{#snippet end()}
-		{#if barActions}{@render barActions()}{/if}
 		{#if def.creatable}
 			<Button size="sm" onclick={openNew} data-testid="catalog-new">{m['catalog.new']({ what: def.singular() })}</Button>
 		{/if}

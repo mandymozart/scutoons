@@ -217,7 +217,9 @@
 		white-space: nowrap;
 		font-variant-numeric: tabular-nums;
 	}
+	/* positioned: the cells' sr-only words stay inside it (they made the page 869px wide on a tablet – E.9) */
 	.table-scroll {
+		position: relative;
 		overflow: auto;
 		max-height: 70dvh;
 		border: var(--border-width-regular) solid var(--ink);

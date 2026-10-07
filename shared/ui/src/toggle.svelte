@@ -55,6 +55,8 @@
 		box-sizing: border-box;
 		width: 2.5em;
 		height: 1.25em; /* control-ok: a switch track (role=switch), not a single-line control */
+		/* control-ok: the tools' button min-height (44px on touch) made the track a tall box on a phone (E.9) */
+		min-height: 0;
 		margin: 0.1em 0 0;
 		padding: 0;
 		background: var(--paper);
@@ -65,6 +67,18 @@
 	}
 	button[aria-checked='true'] {
 		background: var(--primary-cyan);
+	}
+	/* touch screens: the target is --control-height high around the track (it stays a switch) */
+	@media (pointer: coarse) {
+		button::before {
+			content: '';
+			position: absolute;
+			left: -0.25rem;
+			right: -0.25rem;
+			top: 50%;
+			height: var(--control-height);
+			transform: translateY(-50%);
+		}
 	}
 	.knob {
 		position: absolute;

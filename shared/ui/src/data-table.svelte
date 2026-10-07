@@ -314,6 +314,13 @@
 	.sort:hover {
 		text-decoration: underline;
 	}
+	/* touch screens (BACKLOG 10.50 audit, E.9): a header's sort link is a full-height target (14px on a phone) */
+	@media (pointer: coarse) {
+		.sort {
+			align-items: center;
+			min-height: var(--control-height);
+		}
+	}
 	.arrow {
 		display: inline-block;
 		min-width: 0.8em;

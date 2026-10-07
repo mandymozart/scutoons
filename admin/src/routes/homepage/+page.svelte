@@ -214,10 +214,25 @@
 		display: flex;
 		gap: 0.25rem;
 	}
+	/* narrow (E.9): the select gives way, the add button wraps below it – the row made the page 532px wide on a phone */
 	.add {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: flex-end;
 		gap: var(--space-05, 0.5rem);
+		max-width: 52rem;
+	}
+	.add label {
+		flex: 1 1 12rem;
+		min-width: 0;
+	}
+	.variant {
+		min-width: 0;
+	}
+	.add select,
+	.variant select {
+		width: 100%;
+		min-width: 0;
 	}
 	.muted {
 		color: var(--text-muted);
@@ -228,7 +243,8 @@
 	.error {
 		color: var(--error, #c00);
 	}
-	@media (max-width: 640px) {
+	/* up to tablets (E.9: a long variant name made the row 1205px wide at 768) */
+	@media (max-width: 1023px) {
 		.row {
 			grid-template-columns: auto 1.5rem 3rem minmax(0, 1fr);
 		}

@@ -257,6 +257,12 @@
 		height: 1.25rem;
 		width: auto;
 	}
+	/* touch screens: the logo link is a full-height target (BACKLOG 10.50 audit, E.9) */
+	@media (pointer: coarse) {
+		.brand {
+			min-height: var(--control-height);
+		}
+	}
 	/* as in the creator's bar: the search and the signed-in account sit on the right */
 	.topbar :global(.sc-palette-trigger) {
 		margin-left: auto;
