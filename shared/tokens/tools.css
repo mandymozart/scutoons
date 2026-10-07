@@ -535,6 +535,11 @@
 	background: var(--ink);
 	color: var(--paper);
 	--text-muted: currentColor;
+	--muted: currentColor;
+}
+/* frameless controls in a selected row (its line button, a nav entry, ghost tools, the grip) take the row's colour */
+.sc-tool .sc-selected :where(.ghost, .sc-nav-item, [data-sort-grip]) {
+	color: inherit;
 }
 .sc-tool [data-sc-region][data-live] .sc-selected {
 	background: var(--select-live-bg);

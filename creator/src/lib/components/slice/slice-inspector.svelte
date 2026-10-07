@@ -147,13 +147,12 @@
 		{#if layers.length}
 			<ul class="layers" use:sortable={{ onmove: moveLayer }} data-testid="layers">
 				{#each layers as row (`${row.kind}:${row.index}`)}
-					{@const active = selection?.kind === row.kind && selection.index === row.index}
-					<li data-sort-row class:active data-testid="layer-{row.kind}-{row.index}">
+					<!-- the canvas selection: the canvas + this inspector are ONE region ('slice', the chapter editor) -->
+					<li data-sort-row class:sc-selected={selection?.kind === row.kind && selection.index === row.index} data-testid="layer-{row.kind}-{row.index}">
 						<SortGrip label={m['creator.sort_move']({ name: row.name })} title={m['creator.sort_hint']()} />
 						<button
 							type="button"
 							class="ghost row"
-							class:active
 							title={row.title}
 							onclick={() => view.select({ kind: row.kind, index: row.index })}
 							data-testid={row.kind === 'dialog' ? `dialog-${row.index}` : `slice-item-${row.index}`}
@@ -222,6 +221,7 @@
 			{doc}
 			eventsPath={[...slicePath, 'events']}
 			sliceEvents
+			region={null}
 			points={scriptLabels(group?.events)}
 			{groupLabels}
 			{characters}
@@ -271,10 +271,6 @@
 	}
 	.layers li + li {
 		border-top: var(--border-width-hairline) solid var(--ink);
-	}
-	.layers li.active {
-		background: var(--ink);
-		color: var(--paper);
 	}
 	.layers .row {
 		flex: 1;

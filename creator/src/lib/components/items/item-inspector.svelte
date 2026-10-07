@@ -128,7 +128,8 @@
 				<RepeatsField id="repeat-{path.join('-')}" testid="item-repeat" value={placed.repeat} onchange={(next) => doc.set(p('repeat'), next)} />
 			</div>
 			<p class="hint">{m['creator.slice_item_hint_events']()}</p>
-			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} {dialogs} {oncreatebox} />
+			<!-- part of the slice canvas region (one selection) -->
+			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} {dialogs} {oncreatebox} region={null} />
 		{/if}
 	</div>
 {/if}

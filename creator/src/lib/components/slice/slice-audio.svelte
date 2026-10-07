@@ -182,8 +182,9 @@
 	{/if}
 	{#each samples as sample, i (i)}
 		{@const file = pathOf(sample?.id)}
-		<article class="sample" class:selected={i === selectedSample} class:open={isOpen(i)} data-testid="sample-{i}">
-			<header>
+		<!-- the selected sample area = the canvas selection (the canvas + the inspector are one region, DESIGN.md "Selection") -->
+		<article class="sample" class:open={isOpen(i)} data-testid="sample-{i}">
+			<header class:sc-selected={i === selectedSample}>
 				<button type="button" class="ghost line" onclick={() => clickLine(i)} aria-expanded={isOpen(i)} data-testid="sample-line-{i}">
 					<Icon name="chevron-right" />
 					<span class="idx">{i + 1}</span>
@@ -287,9 +288,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
-	}
-	.sample.selected {
-		border: 2px solid var(--ink);
 	}
 	header {
 		display: flex;

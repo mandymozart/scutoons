@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, region, sortable } from '@scutoons/ui';
+	import { untrack } from 'svelte';
 	import { linksToNext, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -15,6 +16,9 @@
 	 * (Alt+ArrowDown opens the first child). Groups: click opens / folds one, Shift+click picks the range from the anchor,
 	 * Ctrl / Cmd+click adds / removes one; dragging a picked group by its grip (the shared Sortable) moves all picked
 	 * ones (in their order) – owner 2026-10-03. One "Add group" (new groups live in the chapter).
+	 * Selection (DESIGN.md "Selection"): the tree is a region ('tree'); the open group and every picked one are
+	 * `sc-selected` – inverted, the live look while the tree is the live region. The open group's slice list is a region
+	 * of its own (nested). With a slice open the slice is the selection: the tree's picks are let go.
 	 */
 	let {
 		view,
@@ -47,6 +51,18 @@
 
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
+	// the open group is selected (a jump from the Flow / Problems too); meta, audio or a slice open: no group is
+	$effect(() => {
+		const section = view.section;
+		const index = view.groupIndex;
+		untrack(() => {
+			if (section !== 'group') picked = [];
+			else if (!picked.includes(index)) {
+				picked = [index];
+				anchor = index;
+			}
+		});
+	});
 
 	function clickGroup(index: number, event: MouseEvent) {
 		const next = clickSelect(picked, anchor, index, event);
@@ -84,7 +100,7 @@
 	}
 </script>
 
-<div class="tree" data-testid="chapter-tree">
+<div class="tree" data-testid="chapter-tree" use:region={'tree'}>
 	<button class="node sc-nav-item" class:is-current={view.section === 'meta'} onclick={() => (view.section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
 	<button class="node sc-nav-item" class:is-current={view.section === 'audio'} onclick={() => (view.section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
 	<div class="sc-nav-head">{m['creator.groups']()}</div>
@@ -92,11 +108,10 @@
 	{#each groups as g, gi (gi)}
 		{@const open = gi === view.groupIndex && view.inGroup && !view.collapsed}
 		<div class="group" class:open data-sort-row>
-			<div class="group-row" class:picked={picked.length > 1 && picked.includes(gi)}>
+			<div class="group-row" class:sc-selected={picked.includes(gi)} data-testid="group-row-{gi}">
 				<SortGrip label={m['creator.sort_move']({ name: groupName(g, gi) })} title={m['creator.sort_hint']()} testid="group-grip-{gi}" />
 				<button
 					class="node sc-nav-item"
-					class:is-current={view.section === 'group' && gi === view.groupIndex}
 					onclick={(e) => clickGroup(gi, e)}
 					aria-expanded={open}
 					data-nav-child={view.section === 'meta' || view.section === 'audio' ? '' : undefined}
@@ -139,11 +154,6 @@
 	}
 	.group-row {
 		display: flex;
-	}
-	/* picked groups (Shift / Ctrl) framed: a drag by one picked group's grip moves them all */
-	.group-row.picked {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.group-row .node {
 		flex: 1;

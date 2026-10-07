@@ -4,6 +4,7 @@
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
 	import { ActionBar, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { dockWidth, flowWidth, usePageNav } from '$lib/nav.svelte.ts';
@@ -663,6 +664,9 @@
 		return () => clearTimeout(timer);
 	});
 
+	/** the selection region of the slice canvas + its inspector (Layers, audio samples, slice events: one selection) */
+	const SLICE_REGION = 'slice';
+
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
 		const key = event.key.toLowerCase();
@@ -670,6 +674,9 @@
 		// 2026-10-03, COMPONENTS.md 4.4.1); lib/editor/editor-keys.ts
 		if (editorKeys(event, { save: () => session.saveAll(), undo: undoLast, redo: redoLast })) return;
 		if (isField(event.target) || view.section !== 'slice') return;
+		// the keys act on the LIVE region only (DESIGN.md "Selection", BACKLOG 10.40): the canvas + its inspector. A
+		// Delete in the slice list or the tree no longer removes the canvas's text box.
+		if (!liveRegion.is(SLICE_REGION)) return;
 		// one grid step (snap off: 1 px), Shift × 10
 		const step = (view.grid || 1) * (event.shiftKey ? 10 : 1);
 		const arrows: Record<string, [number, number]> = { arrowleft: [-step, 0], arrowright: [step, 0], arrowup: [0, -step], arrowdown: [0, step] };
@@ -754,7 +761,8 @@
 	{:else}
 		<DocNotices {session} docs={allDocs} />
 
-		<div class="columns" class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
+		<!-- the slice canvas + its inspector = ONE selection region (live on load; the keys act on it) -->
+		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
 			<!-- Main -->
 			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
 				{#if view.section === 'meta'}
@@ -817,6 +825,7 @@
 							tool={view.tool}
 							layers={view.layers}
 							selection={view.selection}
+							live={liveRegion.is(SLICE_REGION)}
 							onselect={(next) => view.select(next)}
 							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? view.pickItem({ x: rect.x, y: rect.y }) : t === 'event' ? addSliceEvent(rect) : addSampleArea(rect))}
 						/>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, region, sortable } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
 	import { fillSliceSize } from '$lib/editor/images.ts';
@@ -32,7 +32,8 @@
 	const slices = $derived<any[]>(doc.get(doc.primary, [...groupPath, 'slices']) ?? []);
 
 	// multi-select (owner 2026-10-03): click = one, Shift+click = the range from the anchor, Ctrl / Cmd+click = add / remove;
-	// dragging a picked slice by its grip (the shared Sortable) moves all picked ones (in their order)
+	// dragging a picked slice by its grip (the shared Sortable) moves all picked ones (in their order). Every picked one
+	// is `sc-selected` (DESIGN.md "Selection"): inverted, the live look while the list ('slices') is the live region
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
 	// image files dragged from the computer (owner 2026-10-06): onto the middle of a slice = replace its image, onto its
@@ -115,12 +116,12 @@
 	const count = (s: any, key: string) => (Array.isArray(s?.[key]) ? s[key].length : 0);
 </script>
 
-<ol class="slices" use:sortable={{ onmove: moveSlices }} data-testid="slice-list">
+<ol class="slices" use:sortable={{ onmove: moveSlices }} use:region={'slices'} data-testid="slice-list">
 	{#each slices as slice, index (index)}
 		<li
 			data-sort-row
-			class:selected={index === selected}
-			class:picked={picked.includes(index) && index !== selected}
+			class:sc-selected={picked.includes(index)}
+			class:shown={index === selected}
 			class:file-on={fileOver?.index === index && fileOver.zone === 'on'}
 			class:file-before={fileOver?.index === index && fileOver.zone === 'before'}
 			class:file-after={fileOver?.index === index && fileOver.zone === 'after'}
@@ -196,22 +197,12 @@
 		display: flex;
 		flex-direction: column;
 	}
-	/* light dividers between a group's slices: the selected (inverted) one stands out (owner 2026-10-06, BACKLOG M.12) */
+	/* light dividers between a group's slices: the selected ones stand out (owner 2026-10-06, BACKLOG M.12; their look:
+	   tools.css .sc-selected) */
 	li {
 		display: flex;
 		align-items: stretch;
 		border-bottom: var(--border-width-hairline) solid var(--border-muted);
-	}
-	/* selected = inverted (DESIGN.md "Brutalist tools") */
-	li.selected {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	li.selected .thumb,
-	li.selected .no,
-	li.selected .marks,
-	li.selected .tools button {
-		color: var(--paper);
 	}
 	/* image files from the computer: the drop line above / below a slice (new slices there) */
 	li.file-before {
@@ -219,11 +210,6 @@
 	}
 	li.file-after {
 		box-shadow: inset 0 -3px 0 var(--cyan);
-	}
-	/* picked with Shift / Ctrl besides the shown slice: framed */
-	li.picked {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	/* image files from the computer: the middle of a slice framed in cyan (replace its image); an edge shows the drop
 	   line above (.file-before) or below (.file-after) – new slices there */
@@ -248,7 +234,7 @@
 		align-items: center;
 		padding: var(--space-025) var(--space-05);
 		background: transparent;
-		color: var(--ink);
+		color: inherit;
 		border: 0;
 		text-align: left;
 		min-width: 0;
@@ -291,12 +277,14 @@
 		justify-content: center;
 		opacity: 0;
 	}
+	/* the shown slice keeps its + / × at hand (E.8: it stands out by its tools, not by another look) */
 	li:hover .tools,
-	li.selected .tools {
+	li.shown .tools {
 		opacity: 1;
 	}
 	.tools button {
 		min-width: var(--control-height);
 		padding: 0;
+		color: inherit;
 	}
 </style>

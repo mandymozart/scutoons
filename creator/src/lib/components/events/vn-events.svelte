@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { CloseIcon, Icon, SortGrip, confirmDialog, sortable } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, confirmDialog, region as selectionRegion, sortable } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { characterImage, characterIndex, clone, getAt, resolveCharacterId, scriptLabels, Trigger, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -26,7 +26,9 @@
 	 * Visual-novel events: group scripts (`group.events`) or slice-triggered events (`slice.events`, with `trigger`).
 	 * The list and each row's chrome (one line until opened, multi-select + drag, the type, "Only if", the trigger); one
 	 * form component per type (events/event-*.svelte, COMPONENTS.md step 8). No raw JSON (owner 2026-10-03) – another
-	 * type is only named, to remove.
+	 * type is only named, to remove. Selection (DESIGN.md "Selection"): every picked event's line is `sc-selected`;
+	 * the list is a region of its own (`region`, default 'events') – slice events pass null: they belong to the slice
+	 * canvas's region (the canvas selection).
 	 */
 	let {
 		doc,
@@ -40,7 +42,8 @@
 		oncreatebox,
 		points: groupPoints,
 		groupLabels = [],
-		markOf = () => null
+		markOf = () => null,
+		region = 'events'
 	}: {
 		doc: ContentDoc;
 		eventsPath: Path;
@@ -63,6 +66,8 @@
 		groupLabels?: string[];
 		/** an event no run reaches, a test that is never true, a loop with no way out: a label (@scutoons/content reach.ts) */
 		markOf?: (index: number) => ReachMark;
+		/** the selection region (@scutoons/ui region); null: part of the surrounding one */
+		region?: string | null;
 	} = $props();
 
 	const events = $derived<any[]>(doc.get(doc.primary, eventsPath) ?? []);
@@ -154,6 +159,13 @@
 	// the grip (the shared Sortable) moves the picked ones together ──
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
+	// the event selected elsewhere (the canvas, a new one): it alone is picked
+	$effect(() => {
+		if (selected >= 0 && !untrack(() => picked).includes(selected)) {
+			picked = [selected];
+			anchor = selected;
+		}
+	});
 	function clickRow(index: number, event: MouseEvent) {
 		const next = clickSelect(picked, anchor, index, event);
 		picked = next.selected;
@@ -196,12 +208,12 @@
 	}
 </script>
 
-<section class="vn-events" use:sortable={{ onmove: moveEvents }} data-testid="vn-events">
+<section class="vn-events" use:sortable={{ onmove: moveEvents }} use:selectionRegion={region ? { name: region, initial: true } : null} data-testid="vn-events">
 	{#each events as event, i (i)}
 		{@const p = [...eventsPath, i]}
 		{@const known = FORM_TYPES.includes(event?.type)}
-		<article class="event" class:selected={i === selected} class:open={isOpen(i)} class:picked={picked.length > 1 && picked.includes(i)} data-sort-row data-testid="event-{i}">
-			<header>
+		<article class="event" class:open={isOpen(i)} data-sort-row data-testid="event-{i}">
+			<header class:sc-selected={i === selected || picked.includes(i)}>
 				<SortGrip label={m['creator.sort_move']({ name: `${i + 1} ${event?.type ?? ''}`.trim() })} title={m['creator.sort_hint']()} testid="event-grip-{i}" />
 				<button type="button" class="ghost line" onclick={(e) => clickRow(i, e)} aria-expanded={isOpen(i)} data-testid="event-line-{i}">
 					<Icon name="chevron-right" />
@@ -275,9 +287,6 @@
 		flex-direction: column;
 		gap: 0.35rem;
 	}
-	.event.selected {
-		border: 2px solid var(--ink);
-	}
 	/* one line until opened: chevron, number, type, what it does (muted, cut), the trigger */
 	.line {
 		flex: 1;
@@ -339,11 +348,6 @@
 		flex-direction: column;
 		gap: 0.15rem;
 		max-width: 16rem;
-	}
-	/* picked ones (Shift / Ctrl) framed: a drag by one picked event's grip moves them all */
-	.event.picked {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	header {
 		display: flex;

@@ -30,6 +30,7 @@
 		tool = 'text',
 		layers = null,
 		selection = null,
+		live = true,
 		onselect,
 		oncreate
 	}: {
@@ -46,6 +47,11 @@
 		 */
 		layers?: readonly ItemKind[] | null;
 		selection?: CanvasSelection | null;
+		/**
+		 * the canvas is the live region (DESIGN.md "Selection": canvas objects can't be inverted): selected = the kind's
+		 * frame; live = the frame + handles + its tag (the keys act on it)
+		 */
+		live?: boolean;
 		onselect?: (selection: CanvasSelection | null) => void;
 		/** a rect was drawn on empty space */
 		oncreate?: (tool: Tool, rect: Required<Rect>) => void;
@@ -466,6 +472,7 @@
 				<div
 					class="box kind-{item.kind}"
 					class:selected
+					class:live={selected && live}
 					class:inactive={layers !== null && !layers.includes(item.kind)}
 					style:left="{item.rect.x}%"
 					style:top="{item.rect.y}%"
@@ -481,7 +488,7 @@
 					{#if item.revealedBy}
 						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.reveal_hidden_until']({ event: item.revealedBy })}</span>
 					{/if}
-					{#if selected}
+					{#if selected && live}
 						{#each handlesOf(item) as h}
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<span class="handle h-{h}" onpointerdown={(e) => beginEdit(e, item, h)}></span>
@@ -624,7 +631,7 @@
 		border: 1px dashed var(--ink);
 	}
 	.box:hover .tag,
-	.box.selected .tag {
+	.box.live .tag {
 		opacity: 1;
 	}
 	.handle {
