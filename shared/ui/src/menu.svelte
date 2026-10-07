@@ -120,10 +120,13 @@
 		text-decoration: none;
 		cursor: pointer;
 	}
-	.popup :global(:is(a, button):hover),
+	/* hover frames, focus = the 3px ring (DESIGN.md "Selection": hover is never inverted) – inside the popup's frame */
+	.popup :global(:is(a, button):hover) {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
+	}
 	.popup :global(:is(a, button):focus-visible) {
-		background: var(--ink);
-		color: var(--paper);
-		outline: none;
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 </style>

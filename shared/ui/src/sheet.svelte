@@ -3,6 +3,7 @@
 	import CloseButton from './close-button.svelte';
 	import Divider from './divider.svelte';
 	import { resizable } from './resizable.svelte.ts';
+	import { region } from './selection.svelte.ts';
 
 	/**
 	 * Modal sheet on the native <dialog> (focus trap, Escape, top layer). `side`: bottom sheet (mobile reader
@@ -11,7 +12,8 @@
 	 * `side="right"`: the left edge (the one `Divider`, agents/DOCKING.md) drags the drawer wider – from its normal width
 	 * up to half the window (owner 2026-10-03: the pickers overlap the page anyway); arrow keys on the edge, Home /
 	 * double-click resets; remembered per kind of drawer (`widthKey`: `sc-sheet-width:<kind>`, default one width for
-	 * all). It stays modal: a choice or a side task, not a docked panel.
+	 * all). It stays modal: a choice or a side task, not a docked panel. While open it is the live region (E.8): its
+	 * selection (a picker's chosen card, a listbox's highlight) shows the live look; closing returns to the region before.
 	 */
 	let {
 		open = $bindable(false),
@@ -79,6 +81,7 @@
 	aria-label={title}
 	onclose={handleClose}
 	onclick={onBackdrop}
+	use:region={open ? { name: 'sheet', modal: true } : null}
 >
 	<div class="frame">
 		{#if side === 'right'}

@@ -79,8 +79,8 @@
 		transform: translateX(1.25em);
 	}
 	button:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: 2px;
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 	.text {
 		display: flex;

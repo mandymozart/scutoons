@@ -23,6 +23,8 @@
 </script>
 
 <script lang="ts">
+	import { region } from './selection.svelte.ts';
+
 	/**
 	 * Command palette on the native <dialog>: Ctrl+K / ⌘K anywhere, `/` outside text fields (`hotkeys`), arrow keys,
 	 * Enter runs, Escape closes. `commands` are filtered by the query; `dynamic(query)` adds commands that depend on
@@ -115,7 +117,8 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-<dialog bind:this={dialog} class="sc-palette" aria-label={label} onclose={() => (open = false)} onclick={backdrop}>
+<!-- live while open (E.8): its highlight = the live selection -->
+<dialog bind:this={dialog} class="sc-palette" aria-label={label} onclose={() => (open = false)} onclick={backdrop} use:region={open ? { name: 'palette', modal: true } : null}>
 	<input
 		bind:this={input}
 		bind:value={query}
@@ -141,7 +144,7 @@
 				role="option"
 				data-command={command.id}
 				aria-selected={i === index}
-				class:active={i === index}
+				class:sc-selected={i === index}
 				onclick={() => run(command)}
 				onmousemove={() => (index = i)}
 			>
@@ -204,11 +207,6 @@
 		padding: var(--space-05) var(--space-1);
 		cursor: pointer;
 	}
-	/* selected = inverted (cyan is for "live" states only) */
-	li.active {
-		background: var(--ink);
-		color: var(--paper);
-	}
 	.group {
 		padding: var(--space-05) var(--space-1) var(--space-025);
 		color: var(--text-muted);
@@ -220,9 +218,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-	li.active .hint {
-		color: var(--paper);
 	}
 	.keys {
 		margin: 0;

@@ -62,7 +62,7 @@
 		border: var(--border-width-regular) solid var(--ink);
 		color: var(--ink);
 	}
-	/* icon only = round (tools.css .sc-round): a --control-height circle, ink, inverted on hover */
+	/* icon only = round (tools.css .sc-round): a --control-height circle, ink; hover thickens the ring (never inverted) */
 	.compact {
 		flex: none;
 		justify-content: center;
@@ -72,10 +72,9 @@
 		border-radius: 50%;
 		color: var(--ink);
 	}
-	.compact:hover,
-	.compact:focus-visible {
-		background: var(--ink);
-		color: var(--paper);
+	.compact:hover {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: 0;
 	}
 	.compact .wide-only,
 	.compact kbd {
@@ -91,10 +90,9 @@
 			border-radius: 50%;
 			color: var(--ink);
 		}
-		.sc-palette-trigger:hover,
-		.sc-palette-trigger:focus-visible {
-			background: var(--ink);
-			color: var(--paper);
+		.sc-palette-trigger:hover {
+			outline: var(--border-width-regular) solid var(--ink);
+			outline-offset: 0;
 		}
 		.wide-only,
 		kbd {

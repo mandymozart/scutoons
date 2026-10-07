@@ -34,11 +34,14 @@
 	import Icon from './icon.svelte';
 	import SortGrip from './sort-grip.svelte';
 	import { sortable } from './sortable.ts';
+	import { region as selectionRegion } from './selection.svelte.ts';
 
 	/**
 	 * Data table (admin UI pattern): sortable headers, bulk select + actions, keyboard-reachable rows, a loading
 	 * state (no rows = an empty body, no text). Server-side lists: pass `sort` (`field` | `-field`) and `sortHref(field)` so the headers are links that
 	 * change the URL (the app's `load` refetches) – or `onsort` for client-side sorting. Pair it with `Pager`.
+	 * Selection (DESIGN.md "Selection"): the open row (`activeKey`) and the checked rows are `sc-selected`; the table is
+	 * a region (`region`, live on load when nothing else is), so they show the live look while it is the live one.
 	 */
 	let {
 		columns,
@@ -61,6 +64,7 @@
 		moveLabel = (key: string) => key,
 		moveHint,
 		moveDisabled = false,
+		region,
 		labels = {
 			selectAll: 'Select all rows',
 			selectRow: (key: string) => `Select ${key}`,
@@ -103,8 +107,12 @@
 		moveHint?: string;
 		/** no reordering (e.g. while a reorder is saved) */
 		moveDisabled?: boolean;
+		/** the selection region's name (@scutoons/ui region; default one per table) */
+		region?: string;
 		labels?: DataTableLabels;
 	} = $props();
+	const uid = $props.id();
+	const regionName = $derived(region || `table-${uid}`);
 
 	const keys = $derived(rows.map(rowKey));
 	const allSelected = $derived(keys.length > 0 && keys.every((k) => selected.includes(k)));
@@ -145,7 +153,7 @@
 	};
 </script>
 
-<div class="sc-data-table" aria-busy={loading}>
+<div class="sc-data-table" aria-busy={loading} use:selectionRegion={{ name: regionName, initial: true }}>
 	{#if selectable && selected.length > 0}
 		<div class="bulk" role="region" aria-label={labels.selected(selected.length)}>
 			<span>{labels.selected(selected.length)}</span>
@@ -206,8 +214,7 @@
 					<tr
 						class={rowClass?.(row) ?? ''}
 						class:clickable={!!onrowclick}
-						class:active={activeKey === key}
-						class:checked={selectable && selected.includes(key)}
+						class:sc-selected={activeKey === key || (selectable && selected.includes(key))}
 						tabindex={onrowclick ? 0 : undefined}
 						onclick={onrowclick ? (event) => rowClick(event, row) : undefined}
 						onkeydown={onrowclick ? (event) => rowKeydown(event, row) : undefined}
@@ -321,15 +328,8 @@
 		outline: var(--border-width-regular) solid var(--ink);
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
-	tr.checked {
-		background: var(--surface-hover);
-	}
-	/* selected = inverted */
-	tr.active {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	tr.active :global(a) {
+	/* the open / checked rows: tools.css .sc-selected (inverted; the live look while the table is live) */
+	tr:global(.sc-selected) :global(a) {
 		color: inherit;
 	}
 	tr:focus-visible {
