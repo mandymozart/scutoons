@@ -15,14 +15,13 @@ import {
 	applySampleSettings,
 	applySliceEventSettings,
 	dropEventIds,
-	foreignFiles,
 	makeClip,
 	mergeSounds,
 	newPlacementId,
 	soundsOf,
 	type Clip
 } from '$lib/editor/clip.ts';
-import { clipWhat, type ClipHandler, type ClipResult } from '$lib/editor/clipboard.svelte.ts';
+import { clipWhat, pastedMessage, type ClipHandler, type ClipResult } from '$lib/editor/clipboard.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
 
 export interface SliceClipContext {
@@ -38,14 +37,6 @@ export interface SliceClipContext {
 }
 
 const LISTS: Record<CanvasSelection['kind'], Path> = { dialog: ['dialog'], item: ['items'], sample: ['audio', 'audio', 'samples'], event: ['events'] };
-
-/** "Pasted: text box" (+ " – uses 2 files from catpope" across toons) */
-export function pastedMessage(clip: Clip, toon: string, settings = false): string {
-	const what = clipWhat(clip);
-	const message = settings ? m['creator.clip_pasted_settings']({ what }) : m['creator.clip_pasted']({ what });
-	const files = foreignFiles(clip.entries, clip.sounds, clip.toon, toon);
-	return files ? m['creator.clip_foreign_files']({ message, count: files, toon: clip.toon }) : message;
-}
 
 /** a rect sitting exactly on another entry's moves one step right / down (2 % of the slice) */
 function offsetRect(rect: any, others: any[]): any {

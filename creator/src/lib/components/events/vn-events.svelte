@@ -5,6 +5,8 @@
 	import { characterImage, characterIndex, clone, getAt, resolveCharacterId, scriptLabels, Trigger, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
+	import { applyVnSettings, makeClip } from '$lib/editor/clip.ts';
+	import { clipWhat, pastedMessage, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { FORM_TYPES, castOptions, conditionWords, summary, template, triggerWord } from '$lib/editor/vn-forms.ts';
@@ -190,6 +192,67 @@
 		anchor = anchor === null ? null : moved(anchor);
 		if (selected >= 0) onselect?.(moved(selected));
 	}
+
+	// ── copy / cut / paste (BACKLOG 10.39 step 4): the picked events of a script (its own region; slice events belong to
+	// the canvas region – region null); a paste goes after the last picked one (else at the end), Shift+V puts the params
+	// + `if` of the copied event of the same type onto every picked one ──
+	const pickedNow = () => (picked.length ? [...picked] : selected >= 0 ? [selected] : []).filter((i) => i < events.length).sort((a, b) => a - b);
+	useClipHandler(() => region, {
+		copy() {
+			const entries = pickedNow().map((i) => events[i]).filter(Boolean);
+			if (!entries.length) return null;
+			const clip = makeClip('events', doc.toon, $state.snapshot(entries));
+			return { clip, what: clipWhat(clip) };
+		},
+		remove() {
+			const gone = pickedNow();
+			if (!gone.length) return;
+			doc.edit((file) => {
+				const list = getAt(file, eventsPath);
+				if (Array.isArray(list)) for (const i of [...gone].reverse()) list.splice(i, 1);
+			});
+			picked = [];
+			open = [];
+			anchor = null;
+		},
+		paste(clip) {
+			if (clip.kind !== 'events' && clip.kind !== 'event') return null;
+			const at = pickedNow().length ? Math.max(...pickedNow()) + 1 : events.length;
+			const entries = clip.entries.map((e) => {
+				const copy = clone(e);
+				delete copy.id; // a fresh one (assignEventIds in the edit)
+				if (!sliceEvents) delete copy.trigger; // a slice event's trigger means nothing in a script
+				else if (!copy.trigger) copy.trigger = { type: Trigger.INTERSECT };
+				return copy;
+			});
+			doc.edit((file) => {
+				let list = getAt(file, eventsPath);
+				if (!Array.isArray(list)) {
+					const parent = getAt(file, eventsPath.slice(0, -1));
+					if (!parent) return;
+					parent[eventsPath[eventsPath.length - 1]] = [];
+					list = parent[eventsPath[eventsPath.length - 1]];
+				}
+				list.splice(at, 0, ...entries);
+			});
+			picked = entries.map((_, n) => at + n);
+			anchor = at;
+			open = open.map((i) => (i >= at ? i + entries.length : i));
+			return { message: pastedMessage(clip, doc.toon) };
+		},
+		pasteSettings(clip) {
+			if (clip.kind !== 'events' && clip.kind !== 'event') return null;
+			const targets = pickedNow();
+			if (!targets.length) return { message: m['creator.clip_no_settings']() };
+			let applied = 0;
+			doc.edit((file) => {
+				const list = getAt(file, eventsPath);
+				if (Array.isArray(list)) for (const i of targets) if (list[i] && applyVnSettings(list[i], clip.entries)) applied++;
+			});
+			if (!applied) return { message: m['creator.clip_settings_kind']({ what: clipWhat(clip) }) };
+			return { message: pastedMessage(clip, doc.toon, true, m['creator.clip_what_events']({ count: applied })) };
+		}
+	});
 
 	/** the speaker's avatar (a tiny one in the line, owner 2026-10-03); none without a registry image */
 	const registryIndex = $derived(choices ? characterIndex(choices.registry) : null);

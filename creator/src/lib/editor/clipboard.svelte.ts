@@ -8,7 +8,7 @@
 // allows, else the clip copied last in this tab.
 import { liveRegion } from '@scutoons/ui';
 import { isField } from '$lib/editor/editor-keys.ts';
-import { clipText, readClip, type Clip } from '$lib/editor/clip.ts';
+import { clipText, foreignFiles, readClip, type Clip } from '$lib/editor/clip.ts';
 import { toast } from '$lib/toasts.ts';
 import { shared } from '$lib/utils/shared.ts';
 import { m } from '$lib/paraglide/messages.js';
@@ -49,6 +49,13 @@ export function clipWhat(clip: Pick<Clip, 'kind' | 'entries'>): string {
 		case 'groups':
 			return m['creator.clip_what_groups']({ count });
 	}
+}
+
+/** "Pasted: text box" (+ " – uses 2 files from catpope" across toons: they are referenced, never copied) */
+export function pastedMessage(clip: Clip, toon: string, settings = false, what = clipWhat(clip)): string {
+	const message = settings ? m['creator.clip_pasted_settings']({ what }) : m['creator.clip_pasted']({ what });
+	const files = foreignFiles(clip.entries, clip.sounds, clip.toon, toon);
+	return files ? m['creator.clip_foreign_files']({ message, count: files, toon: clip.toon }) : message;
 }
 
 class CreatorClipboard {
