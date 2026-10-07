@@ -6,7 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
-import { createApiClient, createEmbassyApi, createProductsApi, STAGES, TRACKS, type Activity, type OrgDetail } from '@scutoons/api';
+import { ApiError, createApiClient, createEmbassyApi, createProductsApi, ORG_TYPES, STAGES, TRACKS, type Activity, type OrgDetail } from '@scutoons/api';
 import type { Config } from './config.ts';
 import { apiMessage } from './server.ts';
 
@@ -258,6 +258,47 @@ export function createEmbassyServer(config: Config): McpServer {
 		guard(async ({ org_id, track, ...input }) => {
 			const { lead } = await embassy.setLead(org_id, track, input);
 			return text({ track: lead.track, stage: lead.stage, next_at: lead.next_at, owner: lead.owner_email });
+		})
+	);
+
+	server.registerTool(
+		'create_org',
+		{
+			description:
+				'Adds a new organisation (and optionally its leads, one per track – stage, next date, owner) like the app\'s "New organisation". search_orgs first: the same name in the same city / country answers "duplicate" with the existing id – use that one instead. Only fill in what the person told you or what you checked (website, city, country); never invent contact data. Answers the new id.',
+			inputSchema: z.object({
+				name: z.string().min(1).max(255),
+				type: z.enum(ORG_TYPES),
+				city: z.string().max(255).optional(),
+				country: z.string().regex(/^[A-Za-z]{2}$/).optional().describe('ISO code, e.g. NL'),
+				website: z.string().max(1024).optional(),
+				email: z.string().max(255).optional(),
+				phone: z.string().max(64).optional(),
+				tags: z.array(z.string()).optional().describe('genre / scene tags'),
+				source: z.string().max(255).optional().describe('where the contact came from, e.g. "tip from a friend"'),
+				notes: z.string().max(20000).optional(),
+				leads: z
+					.array(
+						z.object({
+							track: z.enum(TRACKS),
+							stage: z.enum(STAGES).optional().describe('default research'),
+							next_at: date.nullable().optional(),
+							owner_id: z.string().nullable().optional().describe('a user id from list_team')
+						})
+					)
+					.optional()
+			}),
+			annotations: write
+		},
+		guard(async ({ country, ...input }) => {
+			try {
+				const { org, leads } = await embassy.createOrg({ ...input, ...(country ? { country: country.toUpperCase() } : {}) });
+				return text({ id: org.id, name: org.name, leads: leads.map((l) => ({ track: l.track, stage: l.stage, next_at: l.next_at, owner: l.owner_email })) });
+			} catch (error) {
+				if (error instanceof ApiError && error.code === 'duplicate')
+					return fail(`duplicate: ${input.name} exists already (id ${String((error.body as Record<string, unknown> | undefined)?.id ?? '?')}) – use that organisation.`);
+				throw error;
+			}
 		})
 	);
 

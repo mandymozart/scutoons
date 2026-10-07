@@ -130,6 +130,8 @@ const EMBASSY_SYSTEM = [
 	'',
 	'Only log what the person tells you happened. Before changing a lead or the log for several organisations, list what',
 	'you will do and ask. Keep answers short; the panel shows your tool calls as steps and drafts as cards.',
+	'An organisation that is not in Embassy yet: create_org (after search_orgs found nothing), with its leads, when the',
+	'person asks for it; never create one on your own initiative.',
 	'',
 	'A draft card may have been sent since you made it: the log (read_org) shows what went out.',
 	'',
@@ -369,6 +371,7 @@ function stepOf(name: string, input: any, text: string, isError: boolean) {
 	if (isError) step.error = text.slice(0, 300);
 	else if (name === 'propose_changes' && result?.card) Object.assign(step, { data: result.card, target: result.card.title });
 	else if (name === 'draft_mail' && result?.draft) Object.assign(step, { data: result.draft, target: `${result.draft.org} · ${result.draft.to}` });
+	else if (name === 'create_org' && result?.id) Object.assign(step, { changed: true, link: `/orgs/${result.id}`, target: result.name });
 	else if (name === 'log_activity' || name === 'set_lead') step.changed = true;
 	else if (name === 'save_draft' && result?.version) Object.assign(step, { key: input.key, version: result.version });
 	else if (name === 'restore_version' && result?.version) Object.assign(step, { key: input.key, version: result.version });
