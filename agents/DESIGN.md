@@ -385,7 +385,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     moving the video away from its end (↺, the seek line) hides the bar until it ends again. "↺ Nochmal"
     scrolls to the top and starts the group again (a VN group runs its script again: the page's `{#key}` gets a replay
     counter). A redeemed code / a login turns the members case into the countdown case by itself.
-  - **Countdown** (only next group / next chapter): a 2px rule under the primary fills in **5 s** + "Weiter in 4 s ·
+  - **Countdown** (only next group / next chapter): a 2px rule under the primary fills in **10 s** (owner 2026-10-07; was 5) + "Weiter in 9 s ·
     Abbrechen" in caption type, then it navigates. Stops (the button stays): "Abbrechen", the end scrolled out of view, a
     click anywhere outside the bar (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
     camera or a claim sheet. A hidden tab pauses it (the time away doesn't count). Reduced motion: no countdown.

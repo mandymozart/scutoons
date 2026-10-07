@@ -9,7 +9,7 @@
 //          3. at its end the bar asks for a membership: hint, "Anmelden →" (→ /account?return=<chapter 1>) + "Code
 //             einlösen" (opens the QR camera), no countdown, it stays;
 //   member (the test user agent@scutoons.test, `npm run dev:test-user`)
-//          4. the prologue's end: "S1 K1 lesen →" + "↺ Nochmal ansehen" + the countdown → chapter 1 after 5 s;
+//          4. the prologue's end: "S1 K1 lesen →" + "↺ Nochmal ansehen" + the countdown → chapter 1 after 10 s;
 //          5. "Abbrechen" stops it (the bar stays, no navigation); "Nochmal ansehen" plays the video again, the bar goes;
 //          6. chapter 1 scrolled to its end: "Kapitel 2: Ärger →" + countdown; scrolling back up stops it; opening the
 //             chapter list (an overlay) stops it; "↺ Nochmal" starts the chapter from the top;
@@ -288,15 +288,15 @@ async function run(width, locale) {
 			if (s.kind !== 'chapter' || !s.counting) problems.push(`kind ${s.kind}, counting ${s.counting}`);
 			if (s.primary !== label || s.primaryHref !== `${prefix}/${toon}/chapter/1`) problems.push(`primary "${s.primary}" → ${s.primaryHref}, expected "${label}"`);
 			if (s.secondary !== `↺ ${nb.replay_video}`) problems.push(`secondary "${s.secondary}"`);
-			if (!s.countdown?.startsWith(fill(nb.countdown, { seconds: 5 }).replace(/5 s$/, '')) || !s.countdown.includes(nb.cancel)) problems.push(`countdown "${s.countdown}"`);
+			if (!s.countdown?.startsWith(fill(nb.countdown, { seconds: 10 }).replace(/10 s$/, '')) || !s.countdown.includes(nb.cancel)) problems.push(`countdown "${s.countdown}"`);
 			barLook(s, problems);
 		}
 		report(`prologue end (member): "${fill(msg.start.read, { season: 1, chapter: 1 })} →" + "↺ ${nb.replay_video}" + countdown`, problems, JSON.stringify(s));
 	}
 	await sleep(1500);
 	await shot(`next-${name}-4-member-countdown`);
-	const went = await waitFor(`location.pathname === '${prefix}/${toon}/chapter/1' ? true : null`, 7000);
-	report('…after 5 s it goes to chapter 1', went ? [] : [`still at ${(await evaluate('location.pathname'))}`]);
+	const went = await waitFor(`location.pathname === '${prefix}/${toon}/chapter/1' ? true : null`, 12000);
+	report('…after 10 s it goes to chapter 1', went ? [] : [`still at ${(await evaluate('location.pathname'))}`]);
 
 	// 5. "Abbrechen", then "Nochmal ansehen"
 	await open(`${viewer}${prefix}/${toon}/chapter/0`);
@@ -334,7 +334,7 @@ async function run(width, locale) {
 	await sleep(600);
 	s = await evaluate(BAR);
 	report('scrolling back up stops the countdown', s.shown && !s.counting && s.path === `${prefix}/${toon}/chapter/1` ? [] : [JSON.stringify(s)]);
-	await sleep(5000);
+	await sleep(10500);
 	report('…and nothing navigates', (await evaluate('location.pathname')) === `${prefix}/${toon}/chapter/1` ? [] : ['navigated']);
 	// opening an overlay stops it: a fresh showing (replay, then the end again)
 	await click('[data-testid="next-bar-replay"]');
@@ -354,8 +354,8 @@ async function run(width, locale) {
 	s = await reachEnd();
 	report(`a group's end (chapter 2 scene-15): "${nb.next} →" + countdown`, s?.shown && s.kind === 'group' && s.counting && s.primary === nb.next && s.primaryHref === `${prefix}/${toon}/chapter/2?label=scene-16` && s.secondary === `↺ ${nb.replay}` ? [] : [JSON.stringify(s)]);
 	await shot(`next-${name}-7-group`);
-	const nextGroup = await waitFor(`location.search === '?label=scene-16' ? true : null`, 7500);
-	report('…after 5 s the next group (?label=scene-16)', nextGroup ? [] : [`at ${await evaluate('location.pathname + location.search')}`]);
+	const nextGroup = await waitFor(`location.search === '?label=scene-16' ? true : null`, 12500);
+	report('…after 10 s the next group (?label=scene-16)', nextGroup ? [] : [`at ${await evaluate('location.pathname + location.search')}`]);
 
 	// 8. coming soon
 	await open(`${viewer}${prefix}/${toon}/chapter/2?label=scene-20`);

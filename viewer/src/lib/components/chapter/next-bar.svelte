@@ -18,7 +18,7 @@
 	 * @scutoons/content chains.ts, all on this page) – is done – its last slice seen, its
 	 * player video ended, a VN group's scene finished (no message waiting, no choice open) – a fixed bar at the bottom
 	 * says what comes next (`nextStep`): the group's authored end (`Group.end`: offered with the countdown, or with `auto`
-	 * gone to at once, no bar), the next group, the next chapter (a 5 s countdown, then it goes there), the
+	 * gone to at once, no bar), the next group, the next chapter (a 10 s countdown, then it goes there), the
 	 * membership it needs (sign in / redeem a code), coming soon, or the season's end. The countdown stops with
 	 * "Abbrechen", when the end scrolls out of view, on any other click (a menu, an overlay) or Escape, and waits while the
 	 * tab is hidden; with reduced motion there is none. "Nochmal" replays the group and stops it too (a group ending with a
@@ -54,7 +54,7 @@
 		onreplay: () => void;
 	} = $props();
 
-	const COUNTDOWN_MS = 5000;
+	const COUNTDOWN_MS = 10_000; // owner 2026-10-07: 10 s (was 5)
 
 	const vn = getVisualNovelContext();
 	// the characters stand on the bar while it shows and no box does (vn/characters.svelte, BACKLOG M.3)
@@ -375,7 +375,7 @@
 							</button>
 						{/if}
 						{#if counting}
-							<!-- the countdown: a 2px rule under the button that fills in 5 s -->
+							<!-- the countdown: a 2px rule under the button that fills in 10 s -->
 							<span class="countdown-rule" aria-hidden="true"><span style:width="{Math.min(100, (elapsed / COUNTDOWN_MS) * 100)}%"></span></span>
 							<span class="countdown" data-testid="next-bar-countdown">
 								<span aria-live="off">{m['next_bar.countdown']({ seconds: remaining })}</span>
