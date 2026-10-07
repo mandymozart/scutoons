@@ -537,6 +537,8 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.wait !== undefined && typeof p.wait !== 'boolean') c.error([...pp, 'wait'], 'wait must be true/false');
 				if (p.stay !== undefined && typeof p.stay !== 'boolean') c.error([...pp, 'stay'], 'stay must be true/false');
 				if (p.sound !== undefined && !isFxSoundChoice(p.sound)) c.error([...pp, 'sound'], `sound must be none or one of ${FX_SOUNDS.join(', ')}`);
+				if (p.shake !== undefined && !['slice', 'screen', 'none'].includes(p.shake)) c.error([...pp, 'shake'], 'shake must be slice, screen or none');
+				else if (p.shake !== undefined && p.effect !== 'slam') c.info([...pp, 'shake'], 'shake only matters for the slam entrance');
 			}
 			break;
 		case 'fx':

@@ -134,6 +134,7 @@
 				<ItemIcon srcs={[inventory.item(notice.item_id)?.icon ?? '']} name={inventory.nameOf({ item_id: notice.item_id, variant: null })} />
 			</div>
 			<span>{noticeText(notice)}</span>
+			{#if (notice.repeat ?? 1) > 1}<span class="repeat" data-testid="notice-repeat">× {notice.repeat}</span>{/if}
 		</div>
 	{/each}
 </div>
@@ -243,6 +244,11 @@
 		pointer-events: none;
 		width: max-content;
 		max-width: calc(100vw - 2rem);
+	}
+	.repeat {
+		flex: none;
+		font-variant-numeric: tabular-nums;
+		color: #6b6b6b;
 	}
 	.notice {
 		display: flex;

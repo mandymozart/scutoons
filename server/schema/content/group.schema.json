@@ -1652,6 +1652,15 @@
 				"sound": {
 					"$ref": "#/definitions/FxSoundChoice",
 					"description": "the sound when it appears (agents/FX.md): none = the effect's own (pop, slam, fade, typeOn have one), `none` = silent"
+				},
+				"shake": {
+					"type": "string",
+					"enum": [
+						"slice",
+						"screen",
+						"none"
+					],
+					"description": "slam: what shakes when it lands – none set = its slice, `screen` = the whole screen, `none` = nothing (owner 2026-10-08)"
 				}
 			},
 			"required": [

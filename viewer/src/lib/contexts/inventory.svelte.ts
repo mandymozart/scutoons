@@ -113,6 +113,8 @@ export interface Notice {
 	entry?: EntryId;
 	/** gifted: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership, claims, gifting") */
 	email?: string | null;
+	/** the same notice again while it shows: counted here ("× 2") instead of one more toast (owner 2026-10-08) */
+	repeat?: number;
 }
 
 export type InventoryContext = ReturnType<typeof createInventoryContext>;
@@ -364,11 +366,23 @@ export function createInventoryContext(session: SessionContext) {
 		return Object.values(worn).some((id) => id != null && String(id) === String(entry.id));
 	}
 
+	const noticeTimers = new Map<number, ReturnType<typeof setTimeout>>();
 	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId, email?: string | null, reason?: string) {
+		// a received gift stays a little longer ("X schenkt dir Y")
+		const ms = kind === 'gift_received' || kind === 'now_yours' ? 7000 : 3500;
+		const hide = (id: number) => {
+			clearTimeout(noticeTimers.get(id));
+			noticeTimers.set(id, setTimeout(() => ((notices = notices.filter((n) => n.id !== id)), noticeTimers.delete(id)), ms));
+		};
+		// the same text again while it shows (a blocked item tapped again and again): "× 2", "× 3" on it, not one more toast
+		const same = notices.find((n) => n.kind === kind && n.item_id === item_id && n.qty === qty && n.reason === reason && (n.email ?? null) === (email ?? null));
+		if (same) {
+			notices = notices.map((n) => (n.id === same.id ? { ...n, repeat: (n.repeat ?? 1) + 1 } : n));
+			return hide(same.id);
+		}
 		const notice = { id: ++noticeSeq, item_id, qty, kind, entry, email, reason };
 		notices = [...notices, notice];
-		// a received gift stays a little longer ("X schenkt dir Y")
-		setTimeout(() => (notices = notices.filter((n) => n.id !== notice.id)), kind === 'gift_received' || kind === 'now_yours' ? 7000 : 3500);
+		hide(notice.id);
 	}
 
 	/**

@@ -181,7 +181,7 @@
 	{#if play && Effect}
 		{#key play.key}
 			{#if ENTRANCES.includes(play.effect as Entrance)}
-				<EffectEnter kind={play.effect as Entrance} duration={play.duration} delay={play.delay} sound={play.sound} onComplete={() => play?.onComplete()}>
+				<EffectEnter kind={play.effect as Entrance} duration={play.duration} delay={play.delay} sound={play.sound} shake={play.shake} onComplete={() => play?.onComplete()}>
 					{@render body()}
 				</EffectEnter>
 			{:else}

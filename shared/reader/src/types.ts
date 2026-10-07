@@ -19,6 +19,8 @@ export interface DialogPlay {
 	delay?: number;
 	/** the event's sound when it appears (agents/FX.md; none = the effect's own, `none` = silent) */
 	sound?: FxSoundChoice;
+	/** slam: what shakes when it lands (none = its slice) */
+	shake?: 'slice' | 'screen' | 'none';
 	onComplete: () => void;
 }
 

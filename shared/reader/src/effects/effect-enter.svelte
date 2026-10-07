@@ -15,9 +15,12 @@
 		delay = 0,
 		onComplete,
 		sound,
+		shake = 'slice',
 		children
 	}: {
 		kind: 'pop' | 'slam' | 'fade' | 'typeOn';
+		/** slam: what shakes when it lands – its slice (default), the whole screen, nothing */
+		shake?: 'slice' | 'screen' | 'none';
 		duration?: number;
 		delay?: number;
 		onComplete: () => void;
@@ -55,7 +58,7 @@
 			setTimeout(() => {
 				playRevealSound(sound, 'thud');
 				buzz(40);
-				impactCue('shake', { slice: el.closest<HTMLElement>('.slice'), sound: null, duration: 320 });
+				if (shake !== 'none') impactCue('shake', { slice: shake === 'screen' ? null : el.closest<HTMLElement>('.slice'), screen: document.querySelector<HTMLElement>('.chapter-view'), sound: null, duration: shake === 'screen' ? 450 : 320 });
 			}, 180);
 		} else if (kind === 'fade') {
 			playRevealSound(sound, 'soft');

@@ -139,6 +139,8 @@ export class AdaptiveMusicPlayer implements IAdaptiveMusicPlayer {
 		this.currentVolumes = new Map(); // Map<trackId, number>
 		this.isPlaying = false;
 		this.defaultTransitionDuration = 3000; // ms
+		// DEV only: the headless checks read the tracks' state
+		if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsMusic = () => ({ ctx: musicOutput()?.ctx.state, playing: this.isPlaying, tracks: [...this.tracks].map(([id, t]) => ({ id, paused: t.element.paused, time: Math.round(t.element.currentTime * 10) / 10, volume: Math.round(t.volume() * 100) / 100, ready: t.element.readyState })) });
 		this.defaultTrackId = null; // Default track to play at full volume
 	}
 

@@ -90,6 +90,10 @@
 />
 <div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
 	<PropField {doc} path={[...path, 'params', 'sound']} label={m['creator.fx_sound']()} type="select" options={soundOptions()} placeholder={m['creator.fx_sound_own']()} />
+	{#if event.params?.effect === 'slam'}
+		<!-- what shakes when it lands (owner 2026-10-08: "where to say use whole page") -->
+		<PropField {doc} path={[...path, 'params', 'shake']} label={m['creator.slam_shake']()} type="select" options={[{ value: 'screen', label: m['creator.fx_target_screen']() }, { value: 'none', label: m['creator.slam_shake_none']() }]} placeholder={m['creator.slam_shake_slice']()} />
+	{/if}
 </div>
 <details class="advanced">
 	<summary>{m['creator.advanced']()}</summary>

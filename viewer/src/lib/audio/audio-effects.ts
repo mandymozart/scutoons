@@ -11,8 +11,8 @@ import { musicOutput } from './AdaptiveMusicPlayer.ts';
  *
  * One chain per reader effect (@scutoons/content READER_EFFECTS).
  * `psychedelic` ("Farbrausch", owner: "a delay and some high pass filter"): a high-pass that sweeps
- * slowly (≈ 160 … 600 Hz – higher took the music's body away, owner 2026-10-08) into a feedback echo (feedback 0.65)
- * whose time drifts with two slow LFOs (≈ 210 … 550 ms, speeding up and slowing down unevenly), mixed with the filtered
+ * slowly (≈ 160 … 600 Hz – higher took the music's body away, owner 2026-10-08) into a feedback echo (feedback 0.78 –
+ * owner: "longer") whose time drifts with two slow LFOs (≈ 120 … 640 ms, speeding up and slowing down unevenly), mixed with the filtered
  * sound.
  */
 export type AudioEffectKind = ReaderEffectKind;
@@ -45,22 +45,22 @@ function farbrausch(ctx: AudioContext): Chain {
 	const delay = ctx.createDelay(1);
 	delay.delayTime.value = 0.38;
 	// the echo's time drifts – slower, faster, in uneven waves (owner 2026-10-08): two slow LFOs of unrelated rates on it
-	// (≈ 0.21 … 0.55 s; the warble that comes with it is welcome)
+	// (≈ 0.12 … 0.64 s – owner: "a bit more intense"; the warble that comes with it is welcome)
 	const drift1 = ctx.createOscillator();
 	const drift1Depth = ctx.createGain();
 	drift1.frequency.value = 0.07;
-	drift1Depth.gain.value = 0.12;
+	drift1Depth.gain.value = 0.18;
 	const drift2 = ctx.createOscillator();
 	const drift2Depth = ctx.createGain();
 	drift2.type = 'triangle';
 	drift2.frequency.value = 0.193;
-	drift2Depth.gain.value = 0.05;
+	drift2Depth.gain.value = 0.08;
 	drift1.connect(drift1Depth).connect(delay.delayTime);
 	drift2.connect(drift2Depth).connect(delay.delayTime);
 	drift1.start();
 	drift2.start();
 	const feedback = ctx.createGain();
-	feedback.gain.value = 0.65;
+	feedback.gain.value = 0.78;
 	const wet = ctx.createGain();
 	wet.gain.value = 0;
 	wet.gain.setTargetAtTime(0.55, ctx.currentTime, FADE / 3);
@@ -234,3 +234,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 		}))
 	});
 }
+
+// DEV: a hot module swap (an edit while the page is open) takes this module's chains out first – otherwise the old
+// copy keeps its chains in while the new one puts its own in, and the outputs end up tangled (silent music)
+if (import.meta.hot) import.meta.hot.dispose(() => setAudioEffect(null));

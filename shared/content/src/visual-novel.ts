@@ -272,6 +272,8 @@ export interface ShowTextBoxParams {
 	stay?: boolean;
 	/** the sound when it appears (agents/FX.md): none = the effect's own (pop, slam, fade, typeOn have one), `none` = silent */
 	sound?: FxSoundChoice;
+	/** slam: what shakes when it lands – none set = its slice, `screen` = the whole screen, `none` = nothing (owner 2026-10-08) */
+	shake?: 'slice' | 'screen' | 'none';
 }
 
 export interface VNShowTextBoxEvent {
