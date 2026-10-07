@@ -1,7 +1,7 @@
 # LIVE — performance mode (plan, final; not started)
 
 Owner 2026-10-07: plan only. **No development until the rest of the backlog is done**; building starts **Mon 2026-11-02**,
-target: a live show around **Fri 2027-02-26** (B.10). Builds on the reader's feedback cues (agents/FX.md, BACKLOG 10.56 –
+target: **show-ready February 1st, 2027**, the first show in the first two weeks of February (B.10). Builds on the reader's feedback cues (agents/FX.md, BACKLOG 10.56 –
 its own plan, not redesigned here) and the reader's **event bus** (B.1). Decisions of the 2026-10-07 plan session: B.11.
 
 Drafts (basic, iterated in the plan session): artifact "Scutoons Live drafts"
@@ -263,7 +263,7 @@ computer can become the conductor.
   **Unsigned for now** (owner 2026-10-07): macOS "right-click → Open", Windows SmartScreen "Run anyway" – documented in
   the app's README. Signing (Apple Developer + a Windows cert) only when other people install it.
 - MIDI timing: messages go out at `at` from the bridge's own clock (not a browser tab, never throttled).
-- Phase 1 runs the same code as `npm run live` (no Electron) – packaging comes in phase 5.
+- Phase 1 runs the same code as `npm run live` (no Electron) – packaging comes in phase 4.
 
 ## B.8 Rehearsal mode
 All four (owner 2026-10-07):
@@ -285,19 +285,26 @@ All four (owner 2026-10-07):
 - Effects stay within the viewport (FX.md rules); no reduced-motion setting.
 - Background: a phone that sleeps / switches app reconnects with `resume` and gets the snapshot.
 
-## B.10 Phases (dated; building starts Mon 2026-11-02)
-Must = the show needs it; Could = cut first if late. Holiday break 2026-12-21 → 2027-01-01 assumed.
+## B.10 Phases (dated; building starts Mon 2026-11-02, show-ready Fri 2027-01-29)
+Owner 2026-10-07: **target February 1st** – the first show may be in the first two weeks of February. That is ~11
+working weeks (holiday break 2026-12-21 → 2027-01-01 assumed), four fewer than first sketched, so the scope is cut to
+what the first show needs. Must = the first show needs it; Could = after the first show, or earlier if a phase ends
+early. The FX cues (FX.md) are not a dependency: phase 0 takes only the bus + the cue registry; FX's own phases stay
+in BACKLOG 10.56.
 
-| # | Dates | Step | Must / Could | Proves |
-|---|---|---|---|---|
-| 0 | Nov 2 – Nov 13 | FX cues phases 1–2 (FX.md) + the bus (B.1); **spikes**: bunny WebSocket + one instance, iPhone audio / wake lock, RtMidi + `serialport` in Electron on mac + win, Art-Net to a cheap node | Must | the bus, the risky platform facts |
-| 1 | Nov 16 – Nov 27 | `live/` workspace, local relay + device drivers (`npm run live`): MIDI out default map → loopMIDI / IAC → Ableton, MIDI in → next / go; a bare conductor (`?live`) | Must | the fun, without the network |
-| 2 | Nov 30 – Dec 18 | Protocol v1 complete (B.6: tokens, snapshot, replay, clock), outputs (scroll, slice, surtitles), hosted `scutoons-live` + `live-image.yml` + deploy freeze, linked mode; the Show schema + `show:` entity (a hand-written JSON show) | Must | several screens in sync, LAN + hosted |
-| 3 | Jan 4 – Jan 15 | Audience: QR per group, guest + account join, votes (rules, tally, override), instructions, sound / colour / haptics, pickups to the inventory; fake-audience bots | Must | the room plays along |
-| 4 | Jan 18 – Jan 29 | Creator: stage builder (row + matrix), cue sheet, venue patches, Problems for broken references; rehearsal: simulated room + real devices partially | Must | authoring without code |
-| 5 | Feb 1 – Feb 12 | Performers (lines, countdown, ready); DMX fixtures + looks, OSC; live media video / image; jump + record; the Electron app (mac + win, unsigned) | Must · musician sheets (PDF / image / text) · **Could**: MIDI clock in, 3D layers, camera feed, USB-DMX | a real cast, real lights |
-| 6 | Feb 15 – Feb 19 | Tech week on the venue's setup: the patch, preload, load test (500 bots), drills (internet gone, laptop restart, phone sleep) | Must | it holds |
-| — | Feb 22 → | **Freeze**: no deploys of viewer / creator / `scutoons-live`; dress rehearsal Feb 24–25; **show Fri Feb 26, 2027** | | the show |
+| # | Dates | Step | Proves |
+|---|---|---|---|
+| 0 | Nov 2 – Nov 6 | The bus (B.1) + the FX cue registry; **spikes**: bunny WebSocket + one instance, iPhone audio / wake lock, RtMidi + `serialport` in Electron on mac + win | the bus, the risky platform facts |
+| 1 | Nov 9 – Nov 20 | `live/` workspace, local relay + MIDI drivers (`npm run live`): MIDI out default map → loopMIDI / IAC → Ableton, MIDI in → next / go; a bare conductor; the Show schema (a hand-written JSON show) | the fun, without the network |
+| 2 | Nov 23 – Dec 11 | Protocol v1 complete (B.6: tokens, snapshot, replay, clock), outputs (scroll, slice, live video / image), hosted `scutoons-live` + `live-image.yml` + deploy freeze, linked mode; the `show:` entity + the `live` permission | several screens in sync, LAN + hosted |
+| 3 | Dec 14 – Dec 18, Jan 4 – Jan 8 | Audience: QR per group, guest + account join, votes (rules, tally, override), instructions, sound / colour / haptics, pickups; performers (lines, countdown, ready); bots (join, random votes, reconnect) | the room and the cast play along |
+| 4 | Jan 11 – Jan 22 | Creator: stage builder **row view**, cue sheet, venue patches, Problems for broken references; rehearsal: simulated room + real devices partially, jump to a row with a state; musician sheets (PDF / image / text); the Electron app (mac + win, unsigned) | authoring without code |
+| 5 | Jan 25 – Jan 29 | Full run-through on our own setup: the patch, preload, load test (500 bots), drills (internet gone, laptop restart, phone sleep) | it holds |
+| — | Feb 1 → | **Freeze**: no deploys of viewer / creator / `scutoons-live` until the show is done; tech at the venue the day(s) before; **first show in Feb 1 – Feb 14, 2027** | the show |
+
+**Could** (cut line – after the first show unless time is left): the matrix view (the row view is enough to author),
+DMX fixtures + looks (until then: lights via a desk / QLab cue over MIDI), OSC, USB-DMX, 3D layers, camera feed,
+MIDI clock in, record + replay, weighted / scripted bots. Starting before Nov 2 (if the backlog allows) buys these back.
 
 ## B.11 Decisions (owner 2026-10-07) and what is still open
 Decided: (1) the relay is its own bunny app `scutoons-live`; (2) audience = guest first, account optional; (3) votes:
@@ -308,11 +315,11 @@ designer comes); (8) one local bridge for all devices, as the Electron app **Scu
 for now; (9) one flow: the toon's flow decides everything (triggers, choices, jumps – across chapters, seasons, toons); a show
 has a start + ends, adds in-between rows and its stage layer, overrides are performance-only (hold, vote override,
 panic, manual jump); rows are never launched (not a clip launcher); keep = no change at runtime; (10) building
-Nov 2 → show late February; (11) rehearsal: simulated room, fake audience, jump + record, real devices partially; (12) musicians get a
+Nov 2 → show-ready Feb 1 2027, first show Feb 1–14 (the B.10 cut line); (11) rehearsal: simulated room, fake audience, jump + record, real devices partially; (12) musicians get a
 free-form sheet (PDF / images / text), no score rendering or bar following; (13) a `live` permission per toon to
 build and conduct shows; (14) several setups (shows / venue patches) over time, one to start with; (15) show pickups:
 any catalog item for now; (16) no surtitles on the audience phones for now.
 
 Open:
-1. The venue and the exact show date (fixes phase 6 and the patch) – not known yet.
+1. The venue and the exact show date within Feb 1–14 (fixes the venue patch and the tech day) – not known yet.
 2. A show that reaches into another toon: does conducting need `live` for that toon too, or is the home toon enough?
