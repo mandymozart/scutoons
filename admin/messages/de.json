@@ -84,6 +84,8 @@
 		"catalog_kind": "Katalog: {what}"
 	},
 	"common": {
+		"move": "{name} verschieben",
+		"move_hint": "Ziehen, oder Alt+↑ / Alt+↓",
 		"all": "Alle",
 		"edition": "Edition",
 		"no_edition": "Ohne Edition",
@@ -441,8 +443,6 @@
 		"new": "Neu: {what}",
 		"new_entry": "Neu: {what}",
 		"not_found": "„{id}“ ist nicht (mehr) im Katalog.",
-		"up": "Nach oben",
-		"down": "Nach unten",
 		"save": "Speichern",
 		"saving": "Speichert …",
 		"saved": "{id} gespeichert.",
@@ -680,8 +680,6 @@
 		"variant": "Variante",
 		"variant_default": "Standard ({name})",
 		"sold_out": "ausverkauft",
-		"up": "Nach oben",
-		"down": "Nach unten",
 		"remove": "Entfernen",
 		"add": "Hinzufügen",
 		"add_product": "Produkt",

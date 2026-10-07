@@ -84,6 +84,8 @@
 		"catalog_kind": "Catalog: {what}"
 	},
 	"common": {
+		"move": "Move {name}",
+		"move_hint": "Drag, or Alt+↑ / Alt+↓",
 		"all": "All",
 		"edition": "Edition",
 		"no_edition": "Without edition",
@@ -441,8 +443,6 @@
 		"new": "New {what}",
 		"new_entry": "New {what}",
 		"not_found": "“{id}” is not in the catalog (any more).",
-		"up": "Move up",
-		"down": "Move down",
 		"save": "Save",
 		"saving": "Saving …",
 		"saved": "{id} saved.",
@@ -680,8 +680,6 @@
 		"variant": "Variant",
 		"variant_default": "Default ({name})",
 		"sold_out": "sold out",
-		"up": "Move up",
-		"down": "Move down",
 		"remove": "Remove",
 		"add": "Add",
 		"add_product": "Product",

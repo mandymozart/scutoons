@@ -1,11 +1,11 @@
 <script lang="ts" generics="T">
 	import type { Snippet } from 'svelte';
-	import { Button, CloseIcon, ReorderButtons } from '@scutoons/ui';
+	import { Button, CloseIcon, SortGrip, sortable } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * A list inside a catalog form (an item's / product's variants, an album's tracks): one fieldset, a row per entry
-	 * with its head (the id field or the number), optional ↑ / ↓, × remove, the row's own fields, "+ add" at the end.
+	 * with its head (the id field or the number), optional the reorder grip (the shared Sortable), × remove, the row's own fields, "+ add" at the end.
 	 * The form keeps the data: `onchange(next)` gets the new list (moved, removed, added).
 	 */
 	let {
@@ -31,7 +31,7 @@
 		create: () => T;
 		addLabel: string;
 		removeLabel: string;
-		/** ↑ / ↓ per row (an album's track order) */
+		/** a reorder grip per row (an album's track order) */
 		reorder?: boolean;
 		error?: string | null;
 		testid?: string;
@@ -45,6 +45,7 @@
 	} = $props();
 
 	function move(from: number, to: number) {
+		if (from === to) return;
 		const next = [...items];
 		const [entry] = next.splice(from, 1);
 		next.splice(to, 0, entry);
@@ -52,15 +53,15 @@
 	}
 </script>
 
-<fieldset class="rows" data-testid={testid}>
+<fieldset class="rows" use:sortable={{ onmove: move, disabled: !reorder }} data-testid={testid}>
 	<legend>{legend}</legend>
 	{#if error}<p class="sc-error">{error}</p>{/if}
 	{#each items as entry, i (i)}
-		<div class="row" data-testid={rowTestid}>
+		<div class="row" data-sort-row={reorder ? '' : undefined} data-testid={rowTestid}>
 			<div class="head">
+				{#if reorder}<SortGrip label={m['common.move']({ name: String(i + 1) })} title={m['common.move_hint']()} />{/if}
 				<span class="lead">{#if head}{@render head(entry, i)}{:else}<span class="sc-caption">{i + 1}</span>{/if}</span>
 				<span class="tools">
-					{#if reorder}<ReorderButtons index={i} count={items.length} onmove={move} variant="sc-round" labels={{ up: m['catalog.up'](), down: m['catalog.down']() }} />{/if}
 					<button type="button" class="sc-round" onclick={() => onchange(items.filter((_, j) => j !== i))} title={removeLabel} aria-label={removeLabel}><CloseIcon /></button>
 				</span>
 			</div>

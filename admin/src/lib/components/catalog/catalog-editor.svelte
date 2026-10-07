@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Button, DataTable, Field, ReorderButtons, Sheet, Skeleton, SplitView, ToonAvatar, confirmDialog, listHref, type Column } from '@scutoons/ui';
+	import { ActionBar, Button, DataTable, Field, Sheet, Skeleton, SplitView, ToonAvatar, confirmDialog, listHref, type Column } from '@scutoons/ui';
 	import { mediaUrl } from '@scutoons/media';
 	import { ApiError, type CatalogEntry } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
@@ -24,7 +24,7 @@
 
 
 	/**
-	 * The one catalog scaffold every kind uses (agents/CATALOG.md part 3): the list in its order (↑ / ↓ = POST reorder),
+	 * The one catalog scaffold every kind uses (agents/CATALOG.md part 3): the list in its order (the grip – the shared Sortable – = POST reorder),
 	 * a click opens the entry's form next to it (SplitView; `?open=<id>`), "New" a blank one (`?new=1`); Save = PUT (422
 	 * problems listed above the form and at the fields), Delete asks in-page and shows what still uses it (409 in_use);
 	 * the entry's history under the form and the kind's history in a drawer, both with undo. The kind's own fields are
@@ -206,11 +206,11 @@
 		}
 	}
 
-	async function move(index: number, by: number) {
-		if (!entries || moving) return;
+	async function move(from: number, to: number) {
+		if (!entries || moving || from === to) return;
 		const ids = entries.map((e) => e.id);
-		const [id] = ids.splice(index, 1);
-		ids.splice(index + by, 0, id);
+		const [id] = ids.splice(from, 1);
+		ids.splice(to, 0, id);
 		moving = true;
 		try {
 			await admin.catalogReorder(kind, ids);
@@ -234,7 +234,6 @@
 
 	const columns = $derived<Column[]>([
 		...def.columns.map((c) => ({ id: c.id, label: c.label(), secondary: c.secondary, width: c.image || c.id === 'avatar' ? '3.5rem' : undefined })),
-		...(def.reorderable ? [{ id: 'order', label: '', width: '6rem' }] : [])
 	]);
 	const columnDef = (id: string) => def.columns.find((c) => c.id === id);
 	// accepted warnings are kept out of the Advanced JSON: the Problems panel is their one control
@@ -324,15 +323,14 @@
 				activeKey={creating ? null : openId}
 				onrowclick={(e: CatalogEntry) => openEntry(e.id)}
 				labels={tableLabels()}
+				onmove={def.reorderable ? move : undefined}
+				moveLabel={(id) => m['common.move']({ name: String(entries?.find((e) => e.id === id)?.data?.name ?? id) })}
+				moveHint={m['common.move_hint']()}
+				moveDisabled={moving}
 			>
 				{#snippet cell(entry: CatalogEntry, column: Column)}
 					{@const c = columnDef(column.id)}
-					{#if column.id === 'order'}
-						{@const i = entries.indexOf(entry)}
-						<span class="order">
-							<ReorderButtons index={i} count={entries.length} onmove={(from, to) => move(from, to - from)} variant="sc-round" disabled={moving} labels={{ up: m['catalog.up'](), down: m['catalog.down']() }} testid="catalog" />
-						</span>
-					{:else if column.id === 'avatar'}
+					{#if column.id === 'avatar'}
 						<ToonAvatar src={toonAvatarUrl(entry.id)} name={String(entry.data?.name ?? entry.id)} />
 					{:else if c?.image}
 						{@const path = c.image(entry.data, lists)}
@@ -425,10 +423,6 @@
 <style>
 	.bad {
 		color: var(--state-error);
-	}
-	.order {
-		display: inline-flex;
-		gap: var(--space-025);
 	}
 	.thumb {
 		display: block;

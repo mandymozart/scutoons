@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
-	import { ActionBar, Badge, Button, CloseIcon, Icon, Section, Skeleton } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, CloseIcon, Section, Skeleton, SortGrip, sortable } from '@scutoons/ui';
 	import type { AdminFeatured } from '@scutoons/api';
 	import { localized, pickVariant, type FeaturedProduct, type Product, type ProductCatalog } from '@scutoons/content';
 	import { admin, fetchProducts } from '$lib/api.ts';
@@ -50,10 +50,10 @@
 	const changed = $derived(current !== null && !same(draft, current.items));
 	const max = $derived(current?.max ?? 12);
 
-	function move(index: number, by: number) {
+	function move(from: number, to: number) {
 		const next = [...draft];
-		const [item] = next.splice(index, 1);
-		next.splice(index + by, 0, item);
+		const [item] = next.splice(from, 1);
+		next.splice(to, 0, item);
 		draft = next;
 	}
 
@@ -116,11 +116,12 @@
 {:else}
 	<Section title={m['homepage.section_featured']()} hint={m['homepage.section_featured_hint']({ max })}>
 		{#if draft.length}
-			<ol class="featured" data-testid="featured-list">
+			<ol class="featured" use:sortable={{ onmove: move }} data-testid="featured-list">
 				{#each draft as item, i (`${item.product}/${item.variant ?? ''}/${i}`)}
 					{@const product = productOf(item.product)}
 					{@const shown = product ? pickVariant(product, item.variant) : null}
-					<li class="row" data-testid="featured-row" data-product={item.product} data-variant={item.variant ?? ''}>
+					<li class="row" data-testid="featured-row" data-product={item.product} data-variant={item.variant ?? ''} data-sort-row>
+						<SortGrip label={m['common.move']({ name: product?.name ?? item.product })} title={m['common.move_hint']()} />
 						<span class="pos">{i + 1}</span>
 						{#if product}
 							<img class="icon" src={icon(shown?.icon ?? product.icon)} alt="" loading="lazy" />
@@ -145,8 +146,6 @@
 							<span class="name error">{m['homepage.unknown']({ product: item.product })}</span>
 						{/if}
 						<span class="tools">
-							<Button size="sm" variant="secondary" onclick={() => move(i, -1)} disabled={i === 0} aria-label={m['homepage.up']()} title={m['homepage.up']()}><Icon name="arrow-up" /></Button>
-							<Button size="sm" variant="secondary" onclick={() => move(i, 1)} disabled={i === draft.length - 1} aria-label={m['homepage.down']()} title={m['homepage.down']()}><Icon name="arrow-down" /></Button>
 							<Button size="sm" variant="secondary" onclick={() => (draft = draft.filter((_, j) => j !== i))} aria-label={m['homepage.remove']()} title={m['homepage.remove']()} data-testid="featured-remove"><CloseIcon /></Button>
 						</span>
 					</li>
@@ -185,7 +184,7 @@
 	}
 	.row {
 		display: grid;
-		grid-template-columns: 1.5rem 3rem minmax(0, 1fr) auto auto auto;
+		grid-template-columns: auto 1.5rem 3rem minmax(0, 1fr) auto auto auto;
 		align-items: center;
 		gap: var(--space-075, 0.75rem);
 		padding: var(--space-05, 0.5rem) 0;
@@ -231,11 +230,11 @@
 	}
 	@media (max-width: 640px) {
 		.row {
-			grid-template-columns: 1.5rem 3rem minmax(0, 1fr);
+			grid-template-columns: auto 1.5rem 3rem minmax(0, 1fr);
 		}
 		.variant,
 		.tools {
-			grid-column: 3;
+			grid-column: 4;
 		}
 	}
 </style>
