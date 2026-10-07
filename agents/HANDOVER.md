@@ -75,8 +75,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   flow (`.sc-empty`, tools.css). DESIGN.md "Empty states".
 
 ## Open owner decisions / loose ends
-- Copy / paste (BACKLOG 10.39, built 2026-10-07): **owed** while Docker was hung – PHPUnit (`ItemLimitsTest`), the
-  browser checks + headless runs of steps 6–8 (item limits, random placement ids, the menu). Production: nothing to run
+- Copy / paste (BACKLOG 10.39, built 2026-10-07; PHPUnit incl. `ItemLimitsTest` + steps 6–8 checked headless after
+  Docker came back; still owed: `check:tools-dock` + the admin's item-limit fields with the admin running). Production: nothing to run
   (item limits = catalog JSON fields). Decide: a unique item (`max_world: 1`) when its owner's account is deleted?
 - Production: run `2026-10-06-show-text-box.mysql.sql` with the deploy of `showTextBox` (CUTOVER 10.32 – the SELECT
   first; old code can't read the new event type, new code not the old one).
