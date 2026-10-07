@@ -28,10 +28,11 @@
 	<legend>{m['fx.title']()}</legend>
 	<div class="volume">
 		<label for="fx-volume">{m['fx.volume']()}</label>
-		<input id="fx-volume" type="range" min="0" max="100" step="5" value={percent} oninput={onVolume} />
 		<output for="fx-volume">{percent} %</output>
 		<button type="button" class="btn-secondary" onclick={() => playFxSound('pling')}>{m['fx.try']()}</button>
 	</div>
+	<!-- the slider on its own line, edge to edge (owner 2026-10-08: the native one stopped short of both ends) -->
+	<input id="fx-volume" class="range" type="range" min="0" max="100" step="5" value={percent} oninput={onVolume} style:--fill="{percent}%" />
 	<small>{m['fx.hint']()}</small>
 	<label class="check">
 		<input type="checkbox" checked={fxSettings.haptics} onchange={onHaptics} data-testid="fx-haptics" />
@@ -65,10 +66,58 @@
 		align-items: center;
 		gap: 0.5rem 0.75rem;
 	}
-	.volume input {
-		flex: 1 1 8rem;
-		min-width: 0;
-		accent-color: black;
+	.range {
+		-webkit-appearance: none;
+		appearance: none;
+		display: block;
+		width: 100%;
+		height: var(--control-height);
+		margin: 0;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		box-shadow: none;
+		background: transparent;
+		cursor: pointer;
+	}
+	/* the track: a 2px line, ink up to the value */
+	.range::-webkit-slider-runnable-track {
+		height: 2px;
+		background: linear-gradient(to right, black var(--fill), #cccccc var(--fill));
+	}
+	.range::-moz-range-track {
+		height: 2px;
+		background: #cccccc;
+	}
+	.range::-moz-range-progress {
+		height: 2px;
+		background: black;
+	}
+	/* the thumb: a square (the brand's), centred on the line */
+	.range::-webkit-slider-thumb {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 1.25rem;
+		height: 1.25rem;
+		margin-top: calc(1px - 0.625rem);
+		border: 2px solid black;
+		border-radius: 0;
+		background: white;
+	}
+	.range::-moz-range-thumb {
+		width: 1.25rem;
+		height: 1.25rem;
+		box-sizing: border-box;
+		border: 2px solid black;
+		border-radius: 0;
+		background: white;
+	}
+	.range:focus-visible {
+		outline: 3px solid #00d1ff;
+		outline-offset: 2px;
+	}
+	.volume label {
+		flex: 1 1 auto;
 	}
 	output {
 		min-width: 3.5rem;
