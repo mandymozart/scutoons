@@ -246,7 +246,9 @@
 	let cancelled = $state(false);
 	let elapsed = $state(0);
 	let hidden = $state(typeof document !== 'undefined' && document.visibilityState === 'hidden');
-	const counting = $derived(shown && automatic && !goesAtOnce && !reducedMotion && !cancelled);
+	/** the reader tapped something on this page (outside the bar) since this step came up */
+	let tapped = $state(false);
+	const counting = $derived(shown && automatic && !goesAtOnce && !reducedMotion && !cancelled && !tapped);
 	const remaining = $derived(Math.max(1, Math.ceil((COUNTDOWN_MS - elapsed) / 1000)));
 
 	function stop() {
@@ -270,11 +272,16 @@
 		if (counting && (nav.activeOverlay || itemsUi.camera || itemsUi.claimCode)) stop();
 	});
 	// the reader taps something on the page (picks up an item, taps a figure, answers a choice): not ready to leave –
-	// stop (owner 2026-10-07: the blotter deal's page went on while the cucumbers were being picked up)
+	// no countdown for this step any more, also when the bar comes back after a figure's talk (owner 2026-10-07: the
+	// blotter deal's page went on while the cucumbers were being picked up); the button stays
+	const stepKey = $derived(`${step.kind}:${primaryHref}`);
 	$effect(() => {
-		if (!counting) return;
+		void stepKey;
+		tapped = false;
+	});
+	$effect(() => {
 		const onTap = (e: PointerEvent) => {
-			if (!(e.target instanceof Node) || !bar?.contains(e.target)) stop();
+			if (!(e.target instanceof Node) || !bar?.contains(e.target)) tapped = true;
 		};
 		window.addEventListener('pointerdown', onTap, { capture: true });
 		return () => window.removeEventListener('pointerdown', onTap, { capture: true });
