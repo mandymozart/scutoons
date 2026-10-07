@@ -12,7 +12,7 @@
 	import { contentIndex } from '$lib/api.ts';
 	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { chapterSyncChanges, syncChapter } from '$lib/editor/visibility.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { entities, hasToonTexts, Language, NEUTRAL_LOCALE, parseEntityKey, previewText, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
@@ -67,7 +67,7 @@
 	const languagesChanged = $derived(!!edited && !!langs && edited.languages.join(',') !== langs.languages.join(','));
 
 	/** navigation avatar: the index entry's `avatar`, else the convention `<toon>/avatar.webp` */
-	const avatarSrc = $derived(asset(`${toonId}/${index?.data?.[NEUTRAL_LOCALE]?.avatar || 'avatar.webp'}`));
+	const avatarSrc = $derived(toonUrl(toonId, index?.data?.[NEUTRAL_LOCALE]?.avatar || 'avatar.webp'));
 
 	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
 	const titleLocale = $derived(season ? listLanguage(season.textLanguages, season.textSource) : '');

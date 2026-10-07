@@ -18,7 +18,7 @@
 	} from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import CoverLetteringCanvas from '$lib/components/cover/cover-lettering-canvas.svelte';
 	import CoverInspector from '$lib/components/cover/cover-inspector.svelte';
@@ -65,7 +65,7 @@
 	const mode = $derived<'off' | 'default' | 'custom'>(!coverLetteringOn(lettering) ? 'off' : coverLines(lettering, format) ? 'custom' : 'default');
 	/** the lines on the canvas: the format's own, or the default layout's (editing them makes them the format's own) */
 	const lines = $derived<CoverLine[]>(mode === 'off' ? [] : (coverLines(lettering, format) ?? defaultCoverLines(format)));
-	const image = $derived(cover?.[format] ? asset(`${toon}/${cover[format]}`) : '');
+	const image = $derived(cover?.[format] ? toonUrl(toon, cover[format]) : '');
 
 	// the preview language = the header's text language switch (owner 2026-10-03: no own switch here; 2026-10-06: one
 	// language, default the source) – the canvas, an own line's text and "as readers see it" all show it

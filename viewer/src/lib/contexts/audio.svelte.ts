@@ -1,7 +1,7 @@
 import { AudioManager } from '$lib/audio/AudioManager.ts';
 import type { AudioConfiguration, Sample } from '@scutoons/content';
 import { getContext, setContext } from 'svelte';
-import { asset } from '$lib/utils/cdn.ts';
+import { toonUrl } from '$lib/utils/cdn.ts';
 import { mediaQuality } from '$lib/media-quality.svelte.ts';
 import { pickQualityVariant, type AudioTrack } from '@scutoons/content';
 import { Howler } from 'howler';
@@ -58,7 +58,7 @@ function transformAudioPaths(config: AudioConfiguration, toonId: string): AudioC
 			...transformed.music,
 			tracks: transformed.music.tracks.map((track) => ({
 				...track,
-				path: asset(`${toonId}/${audioFile(track)}`)
+				path: toonUrl(toonId, audioFile(track))
 			}))
 		};
 	}
@@ -66,7 +66,7 @@ function transformAudioPaths(config: AudioConfiguration, toonId: string): AudioC
 	if (transformed.sampleLibrary) {
 		transformed.sampleLibrary = transformed.sampleLibrary.map((sample) => ({
 			...sample,
-			path: asset(`${toonId}/${audioFile(sample)}`)
+			path: toonUrl(toonId, audioFile(sample))
 		}));
 	}
 

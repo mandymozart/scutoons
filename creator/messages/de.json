@@ -366,7 +366,7 @@
 		"clip_cut": "Ausgeschnitten: {what}",
 		"clip_pasted": "Eingefügt: {what}",
 		"clip_pasted_settings": "Einstellungen übertragen auf: {what}",
-		"clip_foreign_files": "{message} – nutzt {count} Dateien aus {toon}",
+		"clip_foreign_files": "{message} · Dateien aus {toon}: {count}",
 		"clip_wrong_place": "{what} lässt sich hier nicht einfügen",
 		"clip_no_target": "Erst einen Slice öffnen oder wählen, wo eingefügt wird",
 		"clip_no_settings": "Nichts ausgewählt, worauf die Einstellungen sollen",

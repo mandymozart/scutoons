@@ -2,6 +2,7 @@
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { mediaText, mediaUrl as asset } from './setup.ts';
+	import { toonAsset } from '@scutoons/content';
 	import AssetPickerSheet from './asset-picker-sheet.svelte';
 
 	/**
@@ -39,7 +40,7 @@
 	let open = $state(false);
 	let size = $state<{ w: number; h: number } | null>(null);
 	let failed = $state(false);
-	const src = $derived(value ? asset(toon ? `${toon}/${value}` : value) + (bust ? `?v=${bust}` : '') : '');
+	const src = $derived(value ? asset(toonAsset(toon, value)) + (bust ? `?v=${bust}` : '') : '');
 
 	$effect(() => {
 		void value;

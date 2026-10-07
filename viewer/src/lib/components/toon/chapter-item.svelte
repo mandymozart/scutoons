@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { sanitizeNumber, isPrologue, chapterProgress } from '@scutoons/content';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import type { LoadedSequenceItem } from '@scutoons/content';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -59,7 +59,7 @@
 		{#if chapter.thumbnail}
 			<img
 				class="chapter-thumbnail"
-				src={asset(`${toonId}/${chapter.thumbnail}`)}
+				src={toonUrl(toonId, chapter.thumbnail)}
 				alt={`${chapterName(chapter.number)} Thumbnail`}
 				loading="lazy"
 			/>

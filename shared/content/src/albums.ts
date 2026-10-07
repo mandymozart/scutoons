@@ -7,6 +7,7 @@
 // and offers the album download (if the album has one and `access.download` lets this reader have it). Paths are
 // CDN-root paths like item icons.
 import type { Catalog, ItemDef, Localized, Skill } from './items.ts';
+import { toonAsset } from './paths.ts';
 import type { Problem } from './validate.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
@@ -137,15 +138,15 @@ export function seasonMusic(
 			return {
 				album,
 				carrier: id,
-				download: album.download ?? (season.download?.music ? `${toon}/${season.download.music}` : null),
-				image: album.cover ?? (season.download?.image ? `${toon}/${season.download.image}` : null)
+				download: album.download ?? (season.download?.music ? toonAsset(toon, season.download.music) : null),
+				image: album.cover ?? (season.download?.image ? toonAsset(toon, season.download.image) : null)
 			};
 		}
 	}
 	const music = season.download?.music;
 	if (!music) return null;
-	const album = albumByDownload(catalog, `${toon}/${music}`);
-	return { album, download: `${toon}/${music}`, image: album?.cover ?? (season.download?.image ? `${toon}/${season.download.image}` : null) };
+	const album = albumByDownload(catalog, toonAsset(toon, music));
+	return { album, download: toonAsset(toon, music), image: album?.cover ?? (season.download?.image ? toonAsset(toon, season.download.image) : null) };
 }
 
 /**

@@ -45,6 +45,8 @@
 	import * as edits from '$lib/editor/slice-edit.ts';
 	import { clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
+	import { setClipContext } from '$lib/editor/clip-context.ts';
+	import type { ClipResult } from '$lib/editor/clipboard.svelte.ts';
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
@@ -702,10 +704,23 @@
 	// copy / cut / paste (BACKLOG 10.39, lib/editor/clipboard.svelte.ts): the DOM events act on the live region's handler;
 	// the canvas region copies its selection and pastes into the open slice
 	$effect(() => clipboardEvents());
+	/** a paste that would place catalog items over their limit (BACKLOG 10.39 step 7): the refusal; null = fine */
+	const placementLimit = (_adds: Map<string, number>): ClipResult | null => null;
 	useClipHandler(
 		() => (view.section === 'slice' ? SLICE_REGION : null),
 		// svelte-ignore state_referenced_locally
-		sliceClipHandler({ view, target: sliceTarget, toon, chapterNumber, chapter })
+		sliceClipHandler({ view, target: sliceTarget, toon, chapterNumber, chapter, placementLimit })
+	);
+	// the slice list, the tree and the VN events: their copy / paste share the chapter, its box ids, labels, the limits
+	$effect(() =>
+		setClipContext({
+			chapter,
+			toon,
+			chapterNumber,
+			boxIds: chapterDialogIds,
+			groupLabels: () => sceneGroups().map((g: any) => g?.label).filter((l: unknown): l is string => typeof l === 'string' && !!l),
+			placementLimit
+		})
 	);
 
 	function onKeydown(event: KeyboardEvent) {

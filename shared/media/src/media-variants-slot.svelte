@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AUDIO_QUALITY_LABELS, IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
+	import { AUDIO_QUALITY_LABELS, IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, toonAsset, type MediaQuality } from '@scutoons/content';
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { mediaText, mediaUrl as asset } from './setup.ts';
@@ -53,7 +53,7 @@
 	const t = $derived(mediaText());
 	const levelLabel = (level: MediaQuality) =>
 		kind === 'image' ? `${IMAGE_QUALITY_DENSITIES[level]}x` : kind === 'audio' ? AUDIO_QUALITY_LABELS[level] : VIDEO_QUALITY_LABELS[level];
-	const url = (path: string) => asset(`${toon}/${path}`);
+	const url = (path: string) => asset(toonAsset(toon, path));
 	const main = $derived(defaultLevel(value));
 
 	/** null = the picker fills the whole medium; a level = it replaces only that file */

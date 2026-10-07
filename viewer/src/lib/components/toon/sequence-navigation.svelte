@@ -2,7 +2,7 @@
 	import { type LoadedSequenceItem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
-	import { asset } from '$lib/utils/cdn.js';
+	import { toonUrl } from '$lib/utils/cdn.js';
 	import { goto } from '$app/navigation';
 	import ChaptersList from './chapters-list.svelte';
 	import { setContext } from 'svelte';
@@ -117,7 +117,7 @@
 			>
 				<div class="nav-image">
 					{#if nextItem.thumbnail}
-						<img src={asset(`${params.toonId}/${nextItem.thumbnail}`)} alt={`Next: ${nextItem.title || ''}`} />
+						<img src={toonUrl(params.toonId ?? '', nextItem.thumbnail)} alt={`Next: ${nextItem.title || ''}`} />
 					{/if}
 				</div>
 				<div class="nav-meta">

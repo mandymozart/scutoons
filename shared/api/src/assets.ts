@@ -1,6 +1,7 @@
 // The asset manager (server Domain\Assets, agents/ASSETS.md): content editors browse / look up / upload media
 // (`/assets/*` – the creator's asset picker); admins replace, rename, relink, delete, scan, run jobs and see the storage
 // (`/admin/assets/*`). Content keeps referencing the stable CDN paths these calls hand out.
+import { toonAsset } from '@scutoons/content';
 import type { ApiClient } from './client.ts';
 import { toQuery, type ListParams, type ListResult } from './admin.ts';
 
@@ -249,13 +250,7 @@ export function toonRelativePath(path: string, toon: string): string {
 	return path.startsWith(`${toon}/`) ? path.slice(toon.length + 1) : `../${path}`;
 }
 
-/** the reverse: a content path of a toon document → its CDN-root path */
+/** the reverse: a content path of a toon document → its CDN-root path (@scutoons/content `toonAsset`: a leading `/` = the CDN root) */
 export function rootPath(value: string, toon: string): string {
-	const parts: string[] = [];
-	for (const segment of `${toon ? `${toon}/` : ''}${value.replace(/^\/+/, '')}`.split('/')) {
-		if (!segment || segment === '.') continue;
-		if (segment === '..') parts.pop();
-		else parts.push(segment);
-	}
-	return parts.join('/');
+	return toonAsset(toon, value);
 }

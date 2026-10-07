@@ -4,7 +4,8 @@
 	import { Segmented } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
+	import { toonAsset } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -22,7 +23,7 @@
 	let screen = $state<Screen>('phone');
 
 	const slices = $derived<SliceModel[]>(doc.resolvedGroup(groupPath, locale)?.slices ?? []);
-	const src = (image: string) => replacedImages.src(asset(`${doc.toon}/${image}`), `${doc.toon}/${image}`);
+	const src = (image: string) => replacedImages.src(toonUrl(doc.toon, image), toonAsset(doc.toon, image));
 	let screenEl = $state<HTMLElement>();
 	/**
 	 * The vertical wheel scrolls the strip sideways while the pointer is over it (horizontal deltas keep their native

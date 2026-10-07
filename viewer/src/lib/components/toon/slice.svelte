@@ -10,7 +10,7 @@
 	import { isTaken, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
 	import { idsOf, isRunDue, recordRun, type RunMemory } from '$lib/visual-novel/repeat.ts';
 	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -72,25 +72,25 @@
 	const imageUrl = $derived.by(() => {
 		const hasImageVariants = Object.values(slice.imageVariants ?? {}).some((file) => !!file);
 		const level = hasImageVariants ? mediaQuality.level : null;
-		return asset(`${toonId}/${level ? pickQualityVariant({ src: slice.image, variants: slice.imageVariants }, level) : slice.image}`);
+		return toonUrl(toonId, level ? pickQualityVariant({ src: slice.image, variants: slice.imageVariants }, level) : slice.image);
 	});
 	// the file for the reader's media quality (lib/media-quality.svelte.ts); a video without variants is just its `src`
 	const hasVariants = $derived(Object.values(slice.video?.variants ?? {}).some((file) => !!file));
 	const videoUrl = $derived.by(() => {
 		const video = slice.video;
 		if (!video?.src || blurred) return undefined;
-		if (!hasVariants) return asset(`${toonId}/${video.src}`);
+		if (!hasVariants) return toonUrl(toonId, video.src);
 		const level = mediaQuality.level;
-		return level ? asset(`${toonId}/${pickQualityVariant(video, level)}`) : undefined;
+		return level ? toonUrl(toonId, pickQualityVariant(video, level)) : undefined;
 	});
 	// "Automatic" without the Network Information API: measure with the first media (its low variant)
 	$effect(() => {
 		const video = slice.video;
-		if (video?.src && !blurred && hasVariants && mediaQuality.needsMeasure) void mediaQuality.measure(asset(`${toonId}/${pickQualityVariant(video, 'low')}`));
+		if (video?.src && !blurred && hasVariants && mediaQuality.needsMeasure) void mediaQuality.measure(toonUrl(toonId, pickQualityVariant(video, 'low')));
 	});
 	// the same for an image with 2x / 3x: measured with its 1x file
 	$effect(() => {
-		if (slice.image && Object.values(slice.imageVariants ?? {}).some((file) => !!file) && mediaQuality.needsMeasure) void mediaQuality.measure(asset(`${toonId}/${slice.image}`));
+		if (slice.image && Object.values(slice.imageVariants ?? {}).some((file) => !!file) && mediaQuality.needsMeasure) void mediaQuality.measure(toonUrl(toonId, slice.image));
 	});
 	// the player video's controls (@scutoons/reader PlayerOverlay) in the reader's language
 	const playerLabels: Partial<PlayerLabels> = {

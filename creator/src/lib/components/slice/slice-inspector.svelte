@@ -5,7 +5,7 @@
 	import { Icon, SortGrip, Tabs, sortable } from '@scutoons/ui';
 	import { getAt, previewText, scriptLabels, setSliceLayers, sliceLayers, type ChapterSliceRef, type Path, type SliceLayerKind } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { ChapterView, InspectorTab } from '$lib/editor/chapter-state.svelte.ts';
 	import { boxChoices } from '$lib/editor/slice-edit.ts';
@@ -196,7 +196,7 @@
 		</div>
 		{#if view.pickingPreset}
 			<TextPresetPicker
-				image={slice.image ? asset(`${toon}/${slice.image}`) : ''}
+				image={toonUrl(toon, slice.image)}
 				ratio={slice.width > 0 && slice.height > 0 ? slice.height / slice.width : SLICE_RATIO}
 				lang={locale}
 				onpick={onaddtext}

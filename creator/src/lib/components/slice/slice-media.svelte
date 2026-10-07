@@ -7,7 +7,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { fillSliceSize } from '$lib/editor/images.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PlacementPicker from '$lib/components/media/placement-picker.svelte';
 	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
@@ -34,7 +34,7 @@
 
 	const slice = $derived<any>(doc.get(doc.primary, slicePath));
 	const video = $derived<Partial<SliceVideo> | undefined>(slice?.video);
-	const url = (path: string) => asset(`${toon}/${path}`);
+	const url = (path: string) => toonUrl(toon, path);
 
 	// a slice without a size (older data) gets it as soon as it is opened
 	$effect(() => {

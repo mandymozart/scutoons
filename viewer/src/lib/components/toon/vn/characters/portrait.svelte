@@ -2,7 +2,7 @@
 	import type { SceneCharacter as VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { isKnownMissing, markMissing } from '$lib/utils/missing-images.svelte.ts';
-	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
+	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel, toonAsset } from '@scutoons/content';
 	import { STAGE, type StagePlace } from '$lib/visual-novel/stage.ts';
 
 	// A character on the stage, left (`avatar` view) or right (`portrait` view), standing on the dialogue box (z 100):
@@ -45,7 +45,7 @@
 		}
 
 		// a leading / = from the CDN root (a registry character whose images live outside this toon's folder)
-		return path.startsWith('/') ? path : `${toonId}/${path}`;
+		return toonAsset(toonId, path);
 	});
 	const imageUrl = $derived(asset(imagePath()));
 </script>

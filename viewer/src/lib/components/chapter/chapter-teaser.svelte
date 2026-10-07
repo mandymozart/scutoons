@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -16,8 +16,8 @@
 		children
 	}: { toonId: string; keyvisual: { image?: string; video?: string }; children?: Snippet } = $props();
 
-	const poster = $derived(keyvisual.image ? asset(`${toonId}/${keyvisual.image}`) : undefined);
-	const src = $derived(keyvisual.video ? asset(`${toonId}/${keyvisual.video}`) : undefined);
+	const poster = $derived(keyvisual.image ? toonUrl(toonId, keyvisual.image) : undefined);
+	const src = $derived(keyvisual.video ? toonUrl(toonId, keyvisual.video) : undefined);
 
 	let video = $state<HTMLVideoElement>();
 	let muted = $state(true);

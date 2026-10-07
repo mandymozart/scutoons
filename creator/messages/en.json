@@ -366,7 +366,7 @@
 		"clip_cut": "Cut: {what}",
 		"clip_pasted": "Pasted: {what}",
 		"clip_pasted_settings": "Settings pasted onto: {what}",
-		"clip_foreign_files": "{message} – uses {count} files from {toon}",
+		"clip_foreign_files": "{message} · files from {toon}: {count}",
 		"clip_wrong_place": "{what} can't be pasted here",
 		"clip_no_target": "Open a slice or select where to paste first",
 		"clip_no_settings": "Nothing selected to paste the settings onto",

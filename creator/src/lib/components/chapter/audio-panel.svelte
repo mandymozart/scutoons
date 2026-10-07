@@ -3,7 +3,7 @@
 	import { CloseIcon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt } from '@scutoons/content';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
@@ -41,7 +41,7 @@
 			playingPath = null;
 			return;
 		}
-		playing = new Audio(asset(`${doc.toon}/${path}`));
+		playing = new Audio(toonUrl(doc.toon, path));
 		playing.volume = 0.6;
 		playing.onended = () => (playingPath = null);
 		playing.play().catch(() => (playingPath = null));

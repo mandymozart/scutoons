@@ -2,7 +2,7 @@
 	import { coverLetteringOn, coverLines, entities, previewText, type Cover, type SeasonTrailer } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
 	import { Icon, shellDock } from '@scutoons/ui';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -149,7 +149,7 @@
 						data-testid="season-cover-editor"
 					>
 						{#if cover?.square}
-							<CoverArt src={asset(`${toon}/${cover.square}`)} lettering={cover.lettering} title={nav.toonName(toon)} subtitle={previewText(season.get(season.primary, ['title']), [season.textSource])} lang={season.textSource} />
+							<CoverArt src={toonUrl(toon, cover.square)} lettering={cover.lettering} title={nav.toonName(toon)} subtitle={previewText(season.get(season.primary, ['title']), [season.textSource])} lang={season.textSource} />
 						{:else}
 							<Icon name="plus" />
 						{/if}

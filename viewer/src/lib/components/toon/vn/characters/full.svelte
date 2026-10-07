@@ -2,7 +2,7 @@
 	import type { SceneCharacter as VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { isKnownMissing, markMissing } from '$lib/utils/missing-images.svelte.ts';
-	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
+	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel, toonAsset } from '@scutoons/content';
 	import { FULL, STAGE, type FullPlace } from '$lib/visual-novel/stage.ts';
 
 	// A full character in the centre group (stage.ts `fullLayout`): in the middle of the screen (owner 2026-10-07; the box,
@@ -41,7 +41,7 @@
 		}
 
 		// a leading / = from the CDN root (a registry character whose images live outside this toon's folder)
-		return path.startsWith('/') ? path : `${toonId}/${path}`;
+		return toonAsset(toonId, path);
 	});
 	const imageUrl = $derived(asset(imagePath()));
 </script>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageProps } from './$types.js';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import ChaptersList from '$lib/components/toon/chapters-list.svelte';
 	import StartButton from '$lib/components/toon/start-button.svelte';
 	import Hero from '$lib/components/toon/hero.svelte';
@@ -84,7 +84,7 @@
 		{#if cover?.square}
 			<!-- the season's cover, one for every language; with cover.lettering the title is set over the text-free art in the reader's language -->
 			<CoverArt
-				src={asset(`${params.toonId}/${cover.square}`)}
+				src={toonUrl(params.toonId, cover.square)}
 				alt="Cover"
 				class="Cover"
 				lettering={cover.lettering}
@@ -164,7 +164,7 @@
 	{#await data.credits then credits}
 		{#if credits.lead.length || credits.sections.length || season?.supporters?.length}
 			<section class="credits-section">
-				<CreditsColophon {credits} supporters={season?.supporters} imageUrl={(path) => asset(`${params.toonId}/${path}`)} />
+				<CreditsColophon {credits} supporters={season?.supporters} imageUrl={(path) => toonUrl(params.toonId, path)} />
 			</section>
 		{/if}
 	{/await}

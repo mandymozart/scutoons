@@ -14,7 +14,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, getAt, round2, sliceLayers, type Path } from '@scutoons/content';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset, toonUrl } from '$lib/utils/cdn.ts';
+	import { toonAsset } from '@scutoons/content';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
@@ -66,7 +67,7 @@
 		if (sample === 'written') return undefined;
 		return { resolver: (_text, lang) => sampleResolver(sample, lang ?? locale) };
 	});
-	const image = $derived(slice?.image ? replacedImages.src(asset(`${doc.toon}/${slice.image}`), `${doc.toon}/${slice.image}`) : '');
+	const image = $derived(slice?.image ? replacedImages.src(toonUrl(doc.toon, slice.image), toonAsset(doc.toon, slice.image)) : '');
 	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
 	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);
 	const sliceRatio = $derived(slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO);

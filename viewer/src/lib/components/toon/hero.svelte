@@ -3,7 +3,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { pickQualityVariant, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import StartButton from './start-button.svelte';
@@ -36,7 +36,7 @@
 	// the hero sets the title itself, so the season's cover is the bare artwork here (no CoverArt lettering; older data:
 	// the toon's cover); no image → just ink
 	const posterPath = $derived(trailer?.poster || season.cover?.square || toon.cover?.square || '');
-	const poster = $derived(posterPath ? asset(`${toonId}/${posterPath}`) : undefined);
+	const poster = $derived(posterPath ? toonUrl(toonId, posterPath) : undefined);
 
 	let hero = $state<HTMLElement | null>(null);
 	let video = $state<HTMLVideoElement | null>(null);
@@ -121,12 +121,12 @@
 		<video bind:this={video} class="hero-media" {poster} muted loop playsinline preload="auto" aria-hidden="true" data-testid="hero-video">
 			{#if trailerVariants}
 				<!-- the reader's media quality picks the encoding (like slice videos); the loop while it is not known yet -->
-				<source src={asset(`${toonId}/${pickQualityVariant({ src: trailer.loop, variants: trailer.variants }, mediaQuality.level ?? 'low')}`)} type="video/mp4" />
+				<source src={toonUrl(toonId, pickQualityVariant({ src: trailer.loop, variants: trailer.variants }, mediaQuality.level ?? 'low'))} type="video/mp4" />
 			{:else}
 				{#each trailer.sources ?? [] as source (source.src)}
-					<source src={asset(`${toonId}/${source.src}`)} media={source.media || undefined} type="video/mp4" />
+					<source src={toonUrl(toonId, source.src)} media={source.media || undefined} type="video/mp4" />
 				{/each}
-				<source src={asset(`${toonId}/${trailer.loop}`)} type="video/mp4" />
+				<source src={toonUrl(toonId, trailer.loop)} type="video/mp4" />
 			{/if}
 		</video>
 	{:else if poster}

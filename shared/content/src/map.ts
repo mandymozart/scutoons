@@ -5,6 +5,7 @@
 import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
 import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
+import { toonAsset } from './paths.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
 // ── The entity `map` ────────────────────────────────────────────────────────────────────────────────────────────
@@ -539,7 +540,7 @@ export function migrateLegacyMap(input: {
 	const { toon, toonMap, source } = input;
 	const locales = [source, ...Object.keys(input.locations).filter((l) => l !== source)];
 	const terrain = toonMap.layers?.terrain ?? '';
-	const image = terrain.startsWith('../') ? terrain.slice(3) : `${toon}/${terrain}`;
+	const image = toonAsset(toon, terrain);
 	const map: WorldMap = { width: toonMap.width, height: toonMap.height, layers: terrain ? [{ id: 'terrain', image }] : [], locations: [], routes: [] };
 	for (const loc of input.locations[source] ?? []) {
 		const name: LocaleText = {};

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import type { PageProps } from './$types.js';
@@ -66,7 +66,7 @@
 				{@const downloadUrl = data.download.complete}
 	<div class="download-item">
 		<h2>{data.toon.title} - Complete</h2>
-		<button onclick={() => handleDownload(asset(`${params.toonId}/${downloadUrl}`))}>
+		<button onclick={() => handleDownload(toonUrl(params.toonId, downloadUrl))}>
 			Download Complete
 		</button>
 	</div>

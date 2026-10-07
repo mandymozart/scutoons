@@ -5,11 +5,15 @@
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
 	import { fillSliceSize } from '$lib/editor/images.ts';
 	import { newSlice } from '$lib/editor/defaults.ts';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { toonUrl } from '$lib/utils/cdn.ts';
+	import { toonAsset } from '@scutoons/content';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SliceImport from '$lib/components/chapter/slice-import.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
+	import { applySliceSettings, clipPlacements, makeClip, mergeSounds, prepareSlices, remapSounds, soundsOf } from '$lib/editor/clip.ts';
+	import { clipWhat, pastedMessage, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
+	import { boxIdSource, getClipContext } from '$lib/editor/clip-context.ts';
 	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 
 	let {
@@ -99,7 +103,7 @@
 			list.splice(at, 0, { image, width: DEFAULT_SLICE.width, height: DEFAULT_SLICE.height });
 		});
 		// the standard size until the real one is read from the image on the CDN
-		fillSliceSize(doc, [...groupPath, 'slices', at], (path) => asset(`${doc.toon}/${path}`));
+		fillSliceSize(doc, [...groupPath, 'slices', at], (path) => toonUrl(doc.toon, path));
 		onselect(at);
 	}
 
@@ -112,6 +116,80 @@
 		});
 		onselect(Math.max(0, Math.min(index, slices.length - 1)));
 	}
+
+	// ── copy / cut / paste (BACKLOG 10.39 step 5): the picked slices with their boxes, items, events and sounds; a paste
+	// goes after the last picked slice (else at the end) – fresh ids, media of another toon referenced (`../<toon>/…`);
+	// Shift+V puts the copied slice's audio + events onto every picked one ──
+	const pickedNow = () => (picked.length ? [...picked] : selected >= 0 ? [selected] : []).filter((i) => i < slices.length).sort((a, b) => a - b);
+	const noSounds = () => ({ samples: new Map<string, string>(), tracks: new Map<string, string>() });
+	useClipHandler(() => 'slices', {
+		copy() {
+			const clipCtx = getClipContext();
+			const list = pickedNow().map((i) => slices[i]).filter(Boolean);
+			if (!list.length || !clipCtx) return null;
+			const entries = $state.snapshot(list);
+			const clip = makeClip('slices', doc.toon, entries, { sounds: soundsOf(entries, clipCtx.chapter.get(clipCtx.chapter.primary, ['audio'])), chapter: clipCtx.chapterNumber });
+			return { clip, what: clipWhat(clip) };
+		},
+		remove() {
+			const gone = pickedNow();
+			if (!gone.length) return;
+			doc.edit((file) => {
+				const list = getAt(file, [...groupPath, 'slices']);
+				if (Array.isArray(list)) for (const i of [...gone].reverse()) list.splice(i, 1);
+			});
+			picked = [];
+			anchor = null;
+			onselect(Math.max(0, Math.min(gone[0], slices.length - 1)));
+		},
+		paste(clip) {
+			const clipCtx = getClipContext();
+			if (clip.kind !== 'slices' || !clipCtx) return null;
+			const refused = clipCtx.placementLimit(clipPlacements(clip));
+			if (refused) return refused;
+			const at = pickedNow().length ? Math.max(...pickedNow()) + 1 : slices.length;
+			const placementIds = new Set<string>(slices.flatMap((s) => (s?.items ?? []).map((i: any) => i?.id)));
+			const prepared = prepareSlices(clip, clip.entries, { toon: doc.toon, placementIds, nextBoxId: boxIdSource(clipCtx, (_s, i) => at + i + 1) });
+			let map = noSounds();
+			// the sounds go into the chapter's library (a separate scene: a second undo step in the chapter document)
+			if (clip.sounds && doc !== clipCtx.chapter) clipCtx.chapter.edit((file) => (map = mergeSounds(file, clip.sounds, clip.toon, doc.toon)));
+			doc.edit((file) => {
+				if (clip.sounds && doc === clipCtx.chapter) map = mergeSounds(file, clip.sounds, clip.toon, doc.toon);
+				for (const s of prepared) remapSounds(s, map);
+				let list = getAt(file, [...groupPath, 'slices']);
+				if (!Array.isArray(list)) {
+					const group = getAt(file, groupPath) ?? file;
+					group.slices = [];
+					list = group.slices;
+				}
+				list.splice(at, 0, ...prepared);
+			});
+			picked = prepared.map((_, n) => at + n);
+			anchor = at;
+			onselect(at);
+			return { message: pastedMessage(clip, doc.toon) };
+		},
+		pasteSettings(clip) {
+			const clipCtx = getClipContext();
+			if (clip.kind !== 'slices' || !clipCtx) return null;
+			const targets = pickedNow();
+			const source = clip.entries[0];
+			if (!targets.length || !source) return { message: m['creator.clip_no_settings']() };
+			let map = noSounds();
+			if (clip.sounds && doc !== clipCtx.chapter) clipCtx.chapter.edit((file) => (map = mergeSounds(file, clip.sounds, clip.toon, doc.toon)));
+			doc.edit((file) => {
+				if (clip.sounds && doc === clipCtx.chapter) map = mergeSounds(file, clip.sounds, clip.toon, doc.toon);
+				const list = getAt(file, [...groupPath, 'slices']);
+				if (!Array.isArray(list)) return;
+				for (const i of targets) {
+					if (!list[i]) continue;
+					applySliceSettings(list[i], source);
+					remapSounds(list[i], map);
+				}
+			});
+			return { message: pastedMessage(clip, doc.toon, true, m['creator.clip_what_slices']({ count: targets.length })) };
+		}
+	});
 
 	const count = (s: any, key: string) => (Array.isArray(s?.[key]) ? s[key].length : 0);
 </script>
@@ -143,7 +221,7 @@
 			<SortGrip label={m['creator.sort_move']({ name: `${index + 1} ${slice?.image?.split('/').pop() ?? ''}`.trim() })} title={m['creator.sort_hint']()} testid="slice-grip-{index}" />
 			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={(e) => pick(index, e)} data-testid="slice-{index}">
 				<span class="no">{index + 1}</span>
-				<img src={replacedImages.src(asset(`${doc.toon}/${slice?.image}`), `${doc.toon}/${slice?.image}`)} alt="" loading="lazy" draggable="false" />
+				<img src={replacedImages.src(toonUrl(doc.toon, slice?.image), toonAsset(doc.toon, slice?.image))} alt="" loading="lazy" draggable="false" />
 				<span class="info">
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">

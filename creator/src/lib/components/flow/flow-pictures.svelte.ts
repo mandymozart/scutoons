@@ -5,7 +5,7 @@
 import { getContext, setContext } from 'svelte';
 import { characterImage, characterIndex, isMissingImagePath, type Catalog, type CharacterRegistry, type FlowFace, type FlowImage, type FlowIndex } from '@scutoons/content';
 import { api } from '$lib/api.ts';
-import { asset } from '$lib/utils/cdn.ts';
+import { asset, toonUrl } from '$lib/utils/cdn.ts';
 import { loadCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
 import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
 import { pickText } from '$lib/editor/toon-flow.ts';
@@ -27,7 +27,7 @@ export function loadFlowIndex(): Promise<FlowIndex | null> {
 }
 
 /** a path relative to a toon's folder (`s1/c2/…`, `../catpope/…`) as a CDN URL */
-const inToon = (toon: string, path: string | null | undefined) => (path ? asset(`${toon}/${path}`) : '');
+const inToon = (toon: string, path: string | null | undefined) => toonUrl(toon, path);
 
 export class FlowPictures {
 	index = $state.raw<FlowIndex | null>(null);
