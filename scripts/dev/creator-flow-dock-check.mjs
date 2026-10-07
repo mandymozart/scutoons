@@ -8,10 +8,10 @@
 //   node scripts/dev/creator-flow-dock-check.mjs        (creator :10000, API :9000)
 //   SCUTOONS_FLOW_TOON (default catpope)
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tempProfile } from './chrome-profile.mjs';
 import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -28,7 +28,7 @@ const check = (ok, what, detail = '') => (results.push(!!ok), console.log(`${ok 
 
 const CHROME = process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome'].find((p) => existsSync(p));
 const port = 9750 + Math.floor(Math.random() * 150);
-const profile = mkdtempSync(join(tmpdir(), 'creator-flow-dock-'));
+const profile = tempProfile('creator-flow-dock-'); // removed on exit (chrome-profile.mjs)
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-extensions', '--window-size=1600,1000', 'about:blank'], { stdio: 'ignore' });
 let wsUrl;
 for (let i = 0; i < 50 && !wsUrl; i++) {

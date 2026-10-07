@@ -15,10 +15,10 @@
 //   node scripts/dev/events-check.mjs        (viewer :8000, API :9000, MariaDB container)
 //   EVENTS_SHOTS=<dir>: phone screenshots step3-*.png
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tempProfile } from './chrome-profile.mjs';
 import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -89,6 +89,25 @@ async function api(method, path, body) {
 const sql = (query) => execFileSync('docker', ['exec', '-i', CONTAINER, 'sh', '-c', `mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -r ${DB}`], { input: query }).toString().trim();
 const quote = (s) => (s === null ? 'NULL' : `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`);
 const userId = sql(`SELECT id FROM users WHERE email = ${quote(email)}`);
+// a run that died before its restore (a hung Docker, Ctrl+C) leaves its draft, its event runs (history event:evc-*),
+// chapter 9's progress and the pickup's grant refs behind – the next run's counters then start above 0 (7 failures
+// 2026-10-07): sweep them first
+{
+	const drafts = sql(`SELECT id FROM entity_versions WHERE entity_key = ${quote(KEY)} AND status = 'draft' AND message = 'events-check (removed again)'`).split('\n').filter(Boolean);
+	if (drafts.length) sql(`DELETE FROM entity_versions WHERE id IN (${drafts.map(Number).join(',')})`);
+	const refs = sql(`SELECT id FROM rate_limits WHERE bucket = ${quote(`grantref:${userId}:cucumber`)} AND ref LIKE '%/sandbox/chapter/9#%#evc-%'`).split('\n').filter(Boolean);
+	if (refs.length) sql(`DELETE FROM rate_limits WHERE id IN (${refs.map(quote).join(',')})`);
+	const row = sql(`SELECT state FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	const state = row ? JSON.parse(row) : null;
+	const stale = state ? Object.keys(state.history ?? {}).filter((k) => k.startsWith('event:evc-')) : [];
+	const ch9 = state?.progress?.some((p) => p.uri === 'sandbox/chapter/9');
+	if (stale.length || ch9) {
+		for (const k of stale) delete state.history[k];
+		state.progress = state.progress.filter((p) => p.uri !== 'sandbox/chapter/9');
+		sql(`UPDATE progress SET state = ${quote(JSON.stringify(state))} WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+	}
+	if (drafts.length || refs.length || stale.length || ch9) console.log(`note an earlier run's leftovers removed: ${drafts.length} draft(s), ${refs.length} grant ref(s), ${stale.length} event run(s)${ch9 ? ', chapter 9 progress' : ''}`);
+}
 const progressBefore = sql(`SELECT CONCAT(updated_at, CHAR(9), state) FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
 const nameBefore = sql(`SELECT IFNULL(display_name, CHAR(0)) FROM users WHERE id = ${quote(userId)}`);
 const inventoryBefore = sql(`SELECT CONCAT(id, CHAR(9), qty, CHAR(9), updated_at) FROM inventory WHERE user_id = ${quote(userId)}`).split('\n').filter(Boolean).map((l) => l.split('\t'));
@@ -133,7 +152,7 @@ created.push(saved.version.id);
 const CHROME = process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome'].find((p) => existsSync(p));
 if (!CHROME) throw new Error('no Chrome/Edge found (set CHROME)');
 const port = 9800 + Math.floor(Math.random() * 150);
-const profile = mkdtempSync(join(tmpdir(), 'events-'));
+const profile = tempProfile('events-'); // removed on exit, stale ones swept (chrome-profile.mjs)
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--disable-extensions', '--window-size=375,812', 'about:blank'], { stdio: 'ignore' });
 const cleanup = () => {
 	try { chrome.kill(); } catch {}

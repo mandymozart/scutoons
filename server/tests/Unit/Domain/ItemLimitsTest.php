@@ -40,7 +40,7 @@ final class ItemLimitsTest extends TestCase
 
     private function limit(string $item, string $field, int $value): void
     {
-        $this->db->run("UPDATE catalog_items SET data = JSON_SET(data, ?, ?) WHERE id = ?", ['$.' . $field, $value, $item]);
+        $this->db->run("UPDATE catalog_items SET data = JSON_SET(data, ?, CAST(? AS SIGNED)) WHERE id = ?", ['$.' . $field, $value, $item]); // a bound int arrives as a string: CAST keeps it a JSON number
     }
 
     public function testPlacementsAreCountedOverEveryToonAndASaveMayNotAddOverTheLimit(): void
