@@ -167,7 +167,7 @@
 					<nav class="nav" aria-label={m['shell.navigation']()}>
 						{#each nav as item (item.href)}
 							<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-								<span class="icon"><Icon name={item.icon} /></span><span>{item.label}</span>
+								<span class="icon"><Icon name={item.icon} /></span><span class="label">{item.label}</span>
 							</a>
 						{/each}
 					</nav>
@@ -230,6 +230,12 @@
 		height: 1.25rem;
 		width: auto;
 	}
+	/* touch screens: the logo link is a full-height target (BACKLOG 10.50 audit, E.9) */
+	@media (pointer: coarse) {
+		.brand {
+			min-height: var(--control-height);
+		}
+	}
 	.nav {
 		display: flex;
 		gap: var(--space-025);
@@ -252,6 +258,18 @@
 		background: var(--ink);
 		color: var(--paper);
 		border-color: var(--ink);
+	}
+	/* tablets (BACKLOG 10.50 audit, E.9): the reader's 24px root made brand + four labelled entries wider than 768px –
+	   the top nav shows its icons only up to 1023px (the label stays the accessible name) */
+	@media (min-width: 768px) and (max-width: 1023px) {
+		.nav .label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 	main {
 		max-width: 64rem;
