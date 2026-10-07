@@ -311,7 +311,10 @@ and products** (no new "pitch" record yet). The agent only **drafts**: a person 
 - **Pace + weekly portion** (owner 2026-10-05: "consumable portions per day or per week … I need to outsource this and
   I want liaisons to stay on their own pace"; migration `2026-10-05-embassy-pace`): every liaison / ambassador sets
   contacts per week (preset 10; 5/10/15/20 or any 1–100) and a reminder (Mondays – preset, every working day, none) in
-  an **onboarding** on their first visit, changeable on Today any time. **Today (mine)** = this week's portion: "X of Y"
+  an **onboarding** on their first visit, changeable on Today any time. The onboarding also asks their **first name**
+  (required; owner 2026-10-07: mails are signed with the writer's first name) – the account's `display_name`
+  (`PUT /me/`, the same name readers see); Today asks for it when it is missing and edits it with the pace. Ask gets it
+  as "Writing: …" in every Embassy message and signs with its first word. **Today (mine)** = this week's portion: "X of Y"
   bar, today's slice first (what was left this morning spread over the working days left), then later this week, what
   doesn't fit waits for next week. Order: due calls → answered before, quiet now → first contacts (research/ready,
   never contacted). Each card says why it's there (`hint`) and has an Ask button (prepare the call / draft a mail);

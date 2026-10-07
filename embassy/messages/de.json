@@ -268,6 +268,13 @@
 		"pace": "Dein Tempo – wie viele Kontakte pro Woche sich richtig anfühlen. Jederzeit änderbar; alle 4 Wochen fragen wir, ob es noch passt.",
 		"start": "Mit dieser Woche beginnen"
 	},
+	"name": {
+		"label": "Dein Vorname",
+		"hint": "Damit werden Mails und Nachrichten unterschrieben (auch der Agent nimmt ihn). Es ist dein Kontoname – Leser sehen ihn auch in den Geschichten.",
+		"required": "Bitte gib deinen Vornamen ein.",
+		"missing": "Trag deinen Vornamen ein – damit werden Mails unterschrieben.",
+		"saved": "Name gespeichert."
+	},
 	"pace": {
 		"per_week": "Kontakte pro Woche",
 		"other": "andere",

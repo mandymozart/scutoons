@@ -117,7 +117,9 @@ const EMBASSY_SYSTEM = [
 	'  work with – only what the log, the notes or the person told you; never invent facts), what we are in one sentence',
 	'  (SCUTOONS – the webtoon and its music), one concrete ask, one link (from list_releases). Short.',
 	"- In the recipient's language (the person's language; else by the country; German or English when unsure – say which).",
-	"- Signed with the first name of the person you work for (ask for it if you don't know it).",
+	'- Signed with the first name of the person you work for: the account name in "Writing:" of the message header',
+	'  (its first word when it is a full name). No name there: ask for their first name once, and tell them they can set',
+	'  it on their scutoons.com account page (the name readers see) so you know it next time.',
 	'- Never assume anything about the person you work for (where they work, their role, a band or label they belong to):',
 	'  only what they tell you in this chat. Do not use "Top Toy" in mails or DMs (owner 2026-10-07).',
 	'- Read the log first: never pitch as new what they already got, answer an open thread instead (reply_to_activity_id),',
@@ -145,9 +147,9 @@ const EMBASSY_SYSTEM = [
 	'',
 	'A draft card may have been sent since you made it: the log (read_org) shows what went out.',
 	'',
-	'Each user message starts with [Page: … | App language: … | Today: …]: where the person is in the app (on an',
-	'organisation page its name and "(organisation <id>)"), the language of their app – answer in it unless they write',
-	'in another one – and the date of today.'
+	'Each user message starts with [Page: … | App language: … | Today: … | Writing: …]: where the person is in the app (on',
+	'an organisation page its name and "(organisation <id>)"), the language of their app – answer in it unless they write',
+	'in another one –, the date of today and the name of their account (the one who writes and signs).'
 ].join('\n');
 
 // the admin app's pages (admin/src/lib/navigation.ts) – the agent points to the right one instead of guessing
@@ -221,6 +223,8 @@ interface Person {
 	email: string;
 	token: string;
 	roles: string[];
+	/** the account's name (users.display_name, "" = none set) – the Embassy signs mails and DMs with its first name */
+	name: string;
 }
 const sessions = new Map<string, { person: Person | null; at: number }>();
 
@@ -238,7 +242,7 @@ async function personOf(api: string, token: string): Promise<Person | null> {
 	const res = await fetch(`${api}/me/`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
 	const body: any = res.ok ? await res.json() : null;
 	const user = body?.user;
-	const person = user ? { id: String(user.id), email: String(user.email ?? ''), token, roles: Array.isArray(user.roles) ? user.roles.map(String) : [] } : null;
+	const person = user ? { id: String(user.id), email: String(user.email ?? ''), token, roles: Array.isArray(user.roles) ? user.roles.map(String) : [], name: typeof user.display_name === 'string' ? user.display_name.trim() : '' } : null;
 	sessions.set(token, { person, at: Date.now() });
 	return person;
 }
@@ -462,7 +466,9 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 	const header =
 		app === 'creator'
 			? `[Page: ${where} | Text language: ${textLanguage} | App language: ${appLanguage} | Today: ${today}]`
-			: `[Page: ${where} | App language: ${appLanguage} | Today: ${today}]`;
+			: app === 'embassy'
+				? `[Page: ${where} | App language: ${appLanguage} | Today: ${today} | Writing: ${person.name || '– (no name in the account)'}]`
+				: `[Page: ${where} | App language: ${appLanguage} | Today: ${today}]`;
 	if (!chat.title) chat.title = text.replace(/\s+/g, ' ').slice(0, 120);
 	if (!chat.page) chat.page = page;
 	// what the panel shows, saved with the chat

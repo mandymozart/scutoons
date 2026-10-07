@@ -3,7 +3,7 @@
 // page. Without the API's pace table (migration 2026-10-05-embassy-pace not run) `available` is false and the app works
 // as before.
 import type { EmbassyPace } from '@scutoons/api';
-import { embassy } from '$lib/api.ts';
+import { authApi, embassy } from '$lib/api.ts';
 
 export const pace = $state<{ loaded: boolean; available: boolean; value: EmbassyPace | null }>({ loaded: false, available: false, value: null });
 
@@ -17,6 +17,17 @@ export async function loadPace() {
 	} finally {
 		pace.loaded = true;
 	}
+}
+
+/**
+ * Saves the first name the person signs with (the account's `display_name`, at most 32 characters) and reloads the
+ * session, so `session.user.display_name` – and the agent's "Writing:" – has it. Nothing to save → nothing happens.
+ */
+export async function saveName(session: { user: { display_name?: string | null } | null; loadMe: () => Promise<unknown> }, value: string) {
+	const name = value.trim().slice(0, 32);
+	if (name === (session.user?.display_name ?? '').trim()) return;
+	await authApi.updateMe({ display_name: name || null });
+	await session.loadMe();
 }
 
 /** the onboarding / Today saved a new pace */

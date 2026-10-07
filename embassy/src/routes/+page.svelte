@@ -6,11 +6,12 @@
 	import { getEmbassySession } from '$lib/session.svelte.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { hintText, label, relativeDay, shortDate } from '$lib/labels.ts';
-	import { pace, setPace } from '$lib/pace.svelte.ts';
+	import { pace, saveName, setPace } from '$lib/pace.svelte.ts';
 	import { changed } from '$lib/ask-page.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import DueCard from '$lib/components/due-card.svelte';
 	import PaceChoice from '$lib/components/pace-choice.svelte';
+	import WriterName from '$lib/components/writer-name.svelte';
 
 	/**
 	 * Today. Mine: this week's portion at my own pace (owner 2026-10-05: "consumable portions per day or per week …
@@ -64,13 +65,27 @@
 	let editing = $state(false);
 	let perWeek = $state(10);
 	let reminder = $state<PaceReminder>('weekly');
+	// the first name mails are signed with (owner 2026-10-07) – edited with the pace; asked for here when it's missing
+	let name = $state('');
+	const nameMissing = $derived(!!session.user && !(session.user.display_name ?? '').trim());
 	function editPace() {
 		perWeek = pace.value?.per_week ?? 10;
 		reminder = pace.value?.reminder ?? 'weekly';
+		name = session.user?.display_name ?? '';
 		editing = !editing;
+	}
+	async function saveOwnName() {
+		if (!name.trim()) return toaster.addToast({ type: 'error', message: m['name.required']() });
+		try {
+			await saveName(session, name);
+			toaster.addToast({ type: 'success', message: m['name.saved']() });
+		} catch (e) {
+			toaster.addToast({ type: 'error', message: e instanceof Error ? e.message : String(e) });
+		}
 	}
 	async function savePace() {
 		try {
+			if (name.trim()) await saveName(session, name);
 			setPace((await embassy.setPace({ per_week: Math.max(1, Math.min(100, Math.round(perWeek) || 10)), reminder })).pace);
 			editing = false;
 			toaster.addToast({ type: 'success', message: m['pace.saved']() });
@@ -149,6 +164,14 @@
 	</label>
 </div>
 
+{#if nameMissing && pace.value && !editing}
+	<div class="card checkin" data-testid="name-missing">
+		<p>{m['name.missing']()}</p>
+		<WriterName bind:value={name} compact />
+		<div><Button size="sm" onclick={saveOwnName}>{m['org.save']()}</Button></div>
+	</div>
+{/if}
+
 {#if portionMode}
 	{#if pace.value?.checkin_due}
 		<div class="card checkin" data-testid="pace-checkin">
@@ -174,6 +197,7 @@
 		</div>
 		{#if editing}
 			<div class="card edit">
+				<WriterName bind:value={name} compact />
 				<PaceChoice bind:perWeek bind:reminder compact />
 				<div><Button size="sm" onclick={savePace}>{m['org.save']()}</Button></div>
 			</div>

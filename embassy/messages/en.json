@@ -268,6 +268,13 @@
 		"pace": "Your pace – how many contacts a week feels right. Change it any time; every 4 weeks we ask if it still fits.",
 		"start": "Start with this week"
 	},
+	"name": {
+		"label": "Your first name",
+		"hint": "Mails and messages are signed with it (the agent uses it too). It is your account name, so readers see it in the stories as well.",
+		"required": "Please enter your first name.",
+		"missing": "Add your first name – mails are signed with it.",
+		"saved": "Name saved."
+	},
 	"pace": {
 		"per_week": "Contacts per week",
 		"other": "other",
