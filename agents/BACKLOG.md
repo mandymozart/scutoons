@@ -41,9 +41,10 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
 - [ ] 10.54 **Layers 2: sound areas and area events join the stack** (owner 2026-10-07, corrected twice – final:
       events started by click / hover / tap that are NOT "Whole slice", and samples with a trigger area, depend on the
       hierarchy) – each such object is a row of the one Layers list (10.43) and takes the same `layer` order: higher =
-      in front = gets the tap / hover first, in the creator's canvas AND the reader's hit testing. Whole-slice events
-      (the "Whole slice" toggle on) and other starts (in view, …) stay only in the Events tab; samples without an area
-      only in Audio. Row icon: the sound / event feather icon + name / type. Absent `layer` = today's order (analyse the
+      in front = gets the tap / hover first, in the creator's canvas AND the reader's hit testing. They STAY listed in
+      their own tabs too (Events / Audio – edited there as today); the Layers list shows them as well so their place in
+      the hierarchy is visible and reorderable (owner: "that is the important thing"). Whole-slice events and other
+      starts (in view, …) and samples without an area: only their own tab. Row icon: the sound / event feather icon + name / type. Absent `layer` = today's order (analyse the
       reader's current stacking of event areas vs sample areas vs items vs text boxes first; keep it when unlayered).
 - [x] 10.44 **E.1 notifications** – as UI-CONCEPTS E.1; owner: toasts bottom-right (the shared stack), the
       language status as a chip next to Publish (phone: `de ▾`), only conflict / autosave / converted stay as bars.
