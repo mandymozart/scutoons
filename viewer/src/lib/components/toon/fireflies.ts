@@ -3,7 +3,7 @@ import type { Attachment } from 'svelte/attachments';
 /**
  * Fireflies over a tap / hover / sound area with "Show hints" on (owner 2026-10-08, after nerdmanship's "Miyazaki
  * tribute" pen): a warm core with a blurred glow, drifting along soft curves over the area – a little past its edges –
- * flickering now and then. One per small area, two or three on bigger ones. They only move while the area is on
+ * flickering now and then. The bigger the area, the more (one per --sc-firefly-area rem², at most --sc-firefly-max). They only move while the area is on
  * screen and the hints are on; look in hint-areas.css (`.sc-firefly`, --sc-firefly-core / --sc-firefly-glow).
  */
 export function fireflies(): Attachment<HTMLElement> {
@@ -26,10 +26,17 @@ export function fireflies(): Attachment<HTMLElement> {
 			return [lo + Math.random() * Math.max(0, hi - lo), -10 + Math.random() * 120];
 		}
 
+		/**
+		 * how many: one per --sc-firefly-area of the area (rem², default 100), at least one, at most --sc-firefly-max
+		 * (default 12) – read live, so changing them in the inspector re-counts at once
+		 */
 		function count() {
+			const css = getComputedStyle(document.documentElement);
+			const rem = parseFloat(css.fontSize) || 16;
+			const per = Math.max(1, parseFloat(css.getPropertyValue('--sc-firefly-area')) || 100);
+			const max = Math.max(1, Math.round(parseFloat(css.getPropertyValue('--sc-firefly-max')) || 12));
 			const r = area.getBoundingClientRect();
-			const share = (r.width * r.height) / Math.max(1, window.innerWidth * window.innerHeight);
-			return share > 0.25 ? 3 : share > 0.08 ? 2 : 1;
+			return Math.min(max, Math.max(1, Math.round((r.width * r.height) / (rem * rem) / per)));
 		}
 
 		function make() {
@@ -79,7 +86,14 @@ export function fireflies(): Attachment<HTMLElement> {
 
 		function wake() {
 			if (!visible || !hintsOn()) return;
-			if (!flies.length) for (let i = 0; i < count(); i++) make();
+			const want = count();
+			while (flies.length < want) make();
+			while (flies.length > want) {
+				const fly = flies.pop()!;
+				running.get(fly)?.cancel();
+				running.delete(fly);
+				fly.remove();
+			}
 			for (const fly of flies) if (!running.has(fly)) wander(fly);
 		}
 
@@ -88,9 +102,10 @@ export function fireflies(): Attachment<HTMLElement> {
 			if (visible) wake();
 		});
 		io.observe(area);
-		// "Show hints" switched on later (account page, another tab): they start then
+		// "Show hints" switched on later (account page, another tab): they start then; the count variables changed on
+		// :root in the inspector: re-counted
 		const mo = new MutationObserver(wake);
-		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
 
 		return () => {
 			stopped = true;
