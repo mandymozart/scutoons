@@ -38,12 +38,13 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
       (analyse first; a stored order both the creator canvas and the reader's slice honour; absent = today's order).
       Rows single-line: grip ⋮⋮, small icon preview (item image / text-box glyph), name, a feather icon for "pick up"
       (`download`); no `#n`, no hint text. Uses 10.53. Draft: this session (toptoy ch1 blotter-deal slice 1).
-- [ ] 10.54 **Layers 2: sound areas join the stack** (owner 2026-10-07: audio areas are layered too; "events are not
-      area based – only audio") – every sample with a trigger AREA on the slice is a row of the one Layers list (10.43)
-      and takes the same `layer` order: higher = in front = gets the tap / hover first, in the creator's canvas AND the
-      reader's hit testing. Samples without an area stay in the Audio tab; events stay in the Events tab. Row icon: the
-      sound feather icon + the sample's name. Absent `layer` = today's order (analyse the reader's current stacking of
-      sample areas vs items vs text boxes first; keep it for unlayered slices).
+- [ ] 10.54 **Layers 2: sound areas and area events join the stack** (owner 2026-10-07, corrected twice – final:
+      events started by click / hover / tap that are NOT "Whole slice", and samples with a trigger area, depend on the
+      hierarchy) – each such object is a row of the one Layers list (10.43) and takes the same `layer` order: higher =
+      in front = gets the tap / hover first, in the creator's canvas AND the reader's hit testing. Whole-slice events
+      (the "Whole slice" toggle on) and other starts (in view, …) stay only in the Events tab; samples without an area
+      only in Audio. Row icon: the sound / event feather icon + name / type. Absent `layer` = today's order (analyse the
+      reader's current stacking of event areas vs sample areas vs items vs text boxes first; keep it when unlayered).
 - [x] 10.44 **E.1 notifications** – as UI-CONCEPTS E.1; owner: toasts bottom-right (the shared stack), the
       language status as a chip next to Publish (phone: `de ▾`), only conflict / autosave / converted stay as bars.
 - [x] 10.45 **E.2 crumbs** – as E.2; owner: the "…" menu (not a scroll); the logo is the root crumb, "CREATOR" goes;
