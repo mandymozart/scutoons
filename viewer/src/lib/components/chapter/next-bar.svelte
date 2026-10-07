@@ -10,7 +10,7 @@
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
-	import { chapterName } from '$lib/utils/chapter-name.ts';
+	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { buildJumpToUrl } from '$lib/visual-novel/jump-to.ts';
 
 	/**
@@ -181,7 +181,7 @@
 		}
 		if (step.kind === 'chapter') {
 			// from the prologue like the start button: "S1 K1 lesen"
-			if (isPrologue(chapter)) return m['start.read']({ season, chapter: step.chapter });
+			if (isPrologue(chapter)) return m['start.read']({ season, chapter: chapterShownNumber(step.chapter) ?? step.chapter });
 			const name = chapterName(step.chapter);
 			return target?.title ? m['next_bar.chapter']({ chapter: name, title: target.title }) : name;
 		}

@@ -5,6 +5,7 @@ import type { LayoutLoad } from './$types.js';
 import { Status } from '@scutoons/content';
 import { ApiError, fetchCharacters, fetchToon } from '$lib/api.ts';
 import { isListed, isReadable, showDrafts } from '$lib/draft-preview.svelte.ts';
+import type { ToonSeason } from '$lib/utils/chapter-name.ts';
 
 export const load: LayoutLoad = async ({ params, parent }) => {
 	const lang = getLocale();
@@ -32,11 +33,16 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const toon: Toon = bundle.toon;
 	if (!isReadable(toon)) error(404, 'Not found');
+	// every season (BACKLOG 10.41): its stored sequence (positions: /season/S/chapter/K, the labels "Staffel 2 · Kapitel 1")
+	// and its listed chapters (the toon page's list per season)
+	const seasons: ToonSeason[] = bundle.seasons
+		.map((o) => ({ number: o.number, season: o.season, sequence: o.season?.sequence ?? [], chapters: o.chapters.filter((item) => isListed(item)) }))
+		.sort((a, b) => a.number - b.number);
 	// the reader shows season 1 (visibility = the season's status per locale; coming-soon chapters are listed, not clickable)
-	const overview = bundle.seasons.find((s) => s.number === 1) ?? bundle.seasons[0];
+	const overview = seasons.find((s) => s.number === 1) ?? seasons[0];
 	if (!overview) error(404, `Toon ${params.toonId} has no season`);
 	const season: Season = overview.season;
-	const sequence: LoadedSequenceItem[] = overview.chapters.filter((item) => isListed(item));
+	const sequence: LoadedSequenceItem[] = overview.chapters;
 	// the map loads its own data (`/library/map`, agents/MAP.md M1); the bundle's `locations` / `routes` are for older builds
-	return { sequence, characters, toon, season };
+	return { sequence, characters, toon, season, seasons };
 };

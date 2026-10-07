@@ -16,7 +16,7 @@
 // The locales and the source ("primary") come from the toon (`ToonIndex.languages` / `.sourceLanguage`, loaded with
 // `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
-import { getDraft, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
+import { getDraft, getVersion, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
 import {
 	clone,
 	deepEqual,
@@ -127,6 +127,16 @@ export function kindOfEntity(entity: string): DocKind {
 	}
 }
 
+/** the `sequence` of a stored season's JSON (null: none) */
+function sequenceOf(json: string): any[] | null {
+	try {
+		const doc = JSON.parse(json);
+		return Array.isArray(doc?.sequence) ? doc.sequence : null;
+	} catch {
+		return null;
+	}
+}
+
 export class ContentDoc {
 	/** the entity (key without locale), e.g. `chapter:catpope:1` */
 	readonly entity: string;
@@ -169,6 +179,12 @@ export class ContentDoc {
 	private lastTime = 0;
 	/** time of the newest undo step (pages editing several docs undo the most recently edited one) */
 	lastEditAt = $state(0);
+
+	/**
+	 * seasons: the `sequence` of the last published version per locale (null: never published / not loaded) – the
+	 * validator keeps its listed chapters' positions (`publishedSequence`, BACKLOG 10.41)
+	 */
+	publishedSequences = $state<Record<string, any[] | null>>({});
 
 	/** a language-neutral chapter / scene / season: the languages of its texts (locale maps); null for other documents */
 	readonly texts: DocTexts | null;
@@ -297,6 +313,7 @@ export class ContentDoc {
 		// save stores it without (the Convert page / dev:neutralize store it on their own)
 		if (this.kind === 'index' && hasToonTexts(data[this.primary]) && hasLegacyToonName(data[this.primary])) data[this.primary] = foldToonName(data[this.primary]).doc;
 		this.adopt(data, base, published, source);
+		if (this.kind === 'season') void this.loadPublishedSequences();
 		// a conversion is not stored yet: unsaved until the next save stores the neutral document
 		if (legacy) this.saved[this.primary] = '';
 		this.converted = legacy?.conversion ?? null;
@@ -389,6 +406,25 @@ export class ContentDoc {
 		this.undoStack = [];
 		this.redoStack = [];
 		this.lastKey = null;
+	}
+
+	/** seasons: the published version's sequence per locale (the loaded one when it is the published one) */
+	private async loadPublishedSequences() {
+		const out: Record<string, any[] | null> = {};
+		await Promise.all(
+			this.locales.map(async (l) => {
+				const id = this.published[l];
+				if (id === null || id === undefined) return void (out[l] = null);
+				if (id === this.base[l] && this.saved[l]) return void (out[l] = sequenceOf(this.saved[l]));
+				try {
+					const content = (await getVersion(this.key(l), id)).content as any;
+					out[l] = Array.isArray(content?.sequence) ? content.sequence : null;
+				} catch {
+					out[l] = null;
+				}
+			})
+		);
+		this.publishedSequences = out;
 	}
 
 	// ── History ─────────────────────────────────────────────────────────────────────────────────────────
@@ -574,6 +610,8 @@ export class ContentDoc {
 			for (const l of this.stored) {
 				const result = await publishVersion(this.key(l), this.base[l] ?? undefined);
 				this.published[l] = result.version.id;
+				// the published version = the saved one: its positions are frozen from now on (BACKLOG 10.41)
+				if (this.kind === 'season' && this.saved[l]) this.publishedSequences[l] = sequenceOf(this.saved[l]);
 				done.push(l);
 			}
 			return done;

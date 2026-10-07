@@ -10,20 +10,27 @@
 //          3. at its end the bar asks for a membership: hint, "Anmelden →" (→ /account?return=<chapter 1>) + "Code
 //             einlösen" (opens the QR camera), no countdown, it stays;
 //   member (the test user agent@scutoons.test, `npm run dev:test-user`)
-//          4. the prologue's end: "S1 K1 lesen →" + "↺ Nochmal ansehen" + the countdown → chapter 1 after 10 s;
-//          5. "Abbrechen" stops it (the bar stays, no navigation); "Nochmal ansehen" plays the video again, the bar goes;
-//          6. chapter 1 scrolled to its end: "Kapitel 2: Ärger →" + countdown; scrolling back up stops it; opening the
-//             chapter list (an overlay) stops it; "↺ Nochmal" starts the chapter from the top;
-//          7. chapter 2 scene-15's end: "Weiter →" + countdown → ?label=scene-16;
-//          8. chapter 2's last group: "Kapitel 3 erscheint am …" + "Zur Übersicht", no countdown;
-//          9. the season's end (the check drops chapters 3–5 from the toon answer): "Staffel 1 geschafft" + "Zur
-//             Übersicht" + "Musik herunterladen", no countdown;
-//         10. signed in without a membership (the check strips the access from /me/): "Code einlösen →" + "Wo bekomme ich
+//          4. the prologue's end: "S1 K1 lesen →" + the countdown → chapter 1 after 10 s (a group ending with a player
+//             video has no "Nochmal" in the box – its ↺ is on the video);
+//          5. "Abbrechen" stops it (the box stays, no navigation); the video's ↺ plays it again, the box goes;
+//          6. chapter 1: the tab title "<toon> · Kapitel 1: <title>" (BACKLOG 10.41); scrolled to its end: chapter 2 is
+//             coming soon (content 2026-10-07) – "Kapitel 2 erscheint am …" + "Zur Übersicht", no countdown; then with
+//             chapter 2 published in the toon answer (rewritten): "Kapitel 2: Ärger →" + countdown; scrolling back up
+//             stops it; opening the chapter list (an overlay) stops it; "↺ Nochmal" starts the chapter from the top;
+//   with the test user's draft preview (role creator: chapter 2, the sandbox):
+//          7. chapter 2's first linked groups (scene-12 … scene-17-24, one page): their end "Weiter →" + countdown → the
+//             group after them (?label=mama-start – read from the chapter);
+//          8. the season's end (the check drops the chapters after 1 from the toon answer, chapter 1's end): "Staffel 1
+//             geschafft" + "Zur Übersicht" + "Musik herunterladen", no countdown;
+//          9. signed in without a membership (the check strips the access from /me/): "Code einlösen →" + "Wo bekomme ich
 //             einen Code?", no countdown;
-//         11. the sandbox VN chapter 2 (the check drops its final jump): no bar while a message waits, the bar after the
+//         10. the sandbox VN chapter 2 (the check drops its final jump): no bar while a message waits, the bar after the
 //             last message was clicked away (→ sandbox chapter 3, countdown);
-//   once   12. guest at 390 de: "Anmelden" → the login (the test user, OTP from server/logs/mail.log) → back in chapter 1,
-//             readable; a guest redeeming a code (`?code=promo_test`) gets the member bar with the countdown.
+//   once   11. guest at 390 de: "Anmelden" → the login (the test user, OTP from server/logs/mail.log) → back in chapter 1,
+//             readable; a guest redeeming a code (`?code=devpromo`, npm run dev:db) gets the member bar with the countdown;
+//          12. season addresses (BACKLOG 10.41): /<toon>/season/1/chapter/1 → /<toon>/chapter/1, /<toon>/season/1 → the
+//             toon page, an unknown season / position → the not-found page.
+// A case the content can't provide (chapter 2 not coming soon, no draft preview) is skipped with a note, not failed.
 // Reduced motion (390 de): no autoplay, no countdown (the check presses play muted: no click, no sound allowed). The member's server progress is restored afterwards.
 //
 // usage: node scripts/check-next-bar.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
@@ -56,10 +63,23 @@ const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/js
 // the member's save game (one for every toon – progress row `scutoons`), put back exactly afterwards
 const saveGame = saveGameRow(JSON.parse(readFileSync(sessionFile, 'utf8')).email);
 const titles = {};
+const toonTitles = {};
 for (const l of ['de', 'en']) {
 	const bundle = await (await fetch(`${api}/library/toons/${toon}?locale=${l}`)).json();
 	titles[l] = Object.fromEntries((bundle.seasons.find((s) => s.number === 1) ?? bundle.seasons[0]).chapters.map((c) => [c.number, c]));
+	toonTitles[l] = bundle.toon?.title ?? '';
 }
+// the draft preview (the test user has the role creator): chapter 2 (coming soon) and the sandbox (a draft toon)
+const previewOk = (await fetch(`${api}/library/toons/sandbox?locale=de&draft=1`, { headers: auth })).ok && (await fetch(`${api}/library/toons/${toon}/chapters/2?locale=de&draft=1`, { headers: auth })).ok;
+// chapter 2's first page (its linked groups from the top) and the group after it
+let ch2Next = null;
+if (previewOk) {
+	const groups = (await (await fetch(`${api}/library/toons/${toon}/chapters/2?locale=de&draft=1`, { headers: auth })).json()).groups ?? [];
+	const end = groups.findIndex((g) => !g.continues);
+	ch2Next = end >= 0 && groups[end + 1]?.label && !groups[end].end ? { first: groups[0].label, next: groups[end + 1].label } : null;
+}
+let skipped = 0;
+function skip(name, why) { skipped++; console.log(`  skip  ${name} – ${why}`); }
 
 // ── Chrome ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 const CHROME = process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find((p) => existsSync(p));
@@ -92,7 +112,7 @@ for (let i = 0; i < 50 && !ws; i++) {
 await new Promise((r) => ws.addEventListener('open', r));
 let seq = 0; const pending = new Map(); let lastNet = Date.now();
 /** answer rewrites (CDP Fetch at the response stage) */
-const rewrite = { seasonEnd: false, noAccess: false, sandboxNoJump: false };
+const rewrite = { seasonEnd: false, noAccess: false, sandboxNoJump: false, ch2Published: false };
 const send = (method, params = {}) => new Promise((r) => { const i = ++seq; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 async function fulfillJson(p, change) {
 	const body = await send('Fetch.getResponseBody', { requestId: p.requestId });
@@ -108,9 +128,14 @@ ws.addEventListener('message', async (e) => {
 	if (m.method === 'Fetch.requestPaused') {
 		const url = new URL(p.request.url);
 		if (p.responseStatusCode !== 200 || p.request.method !== 'GET') return send('Fetch.continueResponse', { requestId: p.requestId });
-		// the season's end: the season lists nothing after chapter 2
+		// the season's end: the season lists nothing after chapter 1
 		if (rewrite.seasonEnd && url.pathname.endsWith(`/library/toons/${toon}`)) {
-			return fulfillJson(p, (b) => { for (const s of b.seasons) { s.chapters = s.chapters.filter((c) => c.number <= 2); s.season.sequence = s.season.sequence.filter((c) => Number(c.number) <= 2); } return b; });
+			return fulfillJson(p, (b) => { for (const s of b.seasons) { s.chapters = s.chapters.filter((c) => c.number <= 1); s.season.sequence = s.season.sequence.filter((c) => Number(c.number) <= 1); } return b; });
+		}
+		// chapter 2 published (content 2026-10-07: coming soon) – chapter 1's end counts down to it
+		if (rewrite.ch2Published && url.pathname.endsWith(`/library/toons/${toon}`)) {
+			const published = (st) => (st && typeof st === 'object' ? Object.fromEntries(Object.keys(st).map((k) => [k, 'published'])) : 'published');
+			return fulfillJson(p, (b) => { for (const s of b.seasons) { for (const c of s.chapters) if (c.number === 2) c.status = published(c.status); for (const c of s.season.sequence) if (Number(c.number) === 2) c.status = published(c.status); } return b; });
 		}
 		// signed in without a membership
 		if (rewrite.noAccess && /\/api\/me\/?$/.test(url.pathname)) {
@@ -293,11 +318,11 @@ async function run(width, locale) {
 			const label = fill(msg.start.read, { season: 1, chapter: 1 });
 			if (s.kind !== 'chapter' || !s.counting) problems.push(`kind ${s.kind}, counting ${s.counting}`);
 			if (s.primary !== label || s.primaryHref !== `${prefix}/${toon}/chapter/1`) problems.push(`primary "${s.primary}" → ${s.primaryHref}, expected "${label}"`);
-			if (s.secondary !== `↺ ${nb.replay_video}`) problems.push(`secondary "${s.secondary}"`);
+			if (s.secondary) problems.push(`secondary "${s.secondary}" (none: the video has its own ↺)`);
 			if (!s.countdown?.startsWith(fill(nb.countdown, { seconds: 10 }).replace(/10 s$/, '')) || !s.countdown.includes(nb.cancel)) problems.push(`countdown "${s.countdown}"`);
 			barLook(s, problems);
 		}
-		report(`prologue end (member): "${fill(msg.start.read, { season: 1, chapter: 1 })} →" + "↺ ${nb.replay_video}" + countdown`, problems, JSON.stringify(s));
+		report(`prologue end (member): "${fill(msg.start.read, { season: 1, chapter: 1 })} →" + countdown, no "Nochmal" in the box`, problems, JSON.stringify(s));
 	}
 	await sleep(1500);
 	await shot(`next-${name}-4-member-countdown`);
@@ -314,15 +339,35 @@ async function run(width, locale) {
 	s = await evaluate(BAR);
 	report(`"${nb.cancel}" stops the countdown (the bar and its button stay)`, s.shown && !s.counting && !s.countdown && s.path === `${prefix}/${toon}/chapter/0` && s.primary ? [] : [JSON.stringify(s)]);
 	await shot(`next-${name}-5-cancelled`);
-	await click('[data-testid="next-bar-replay"]');
+	await click('[data-testid="player-replay"]');
 	v = await waitFor(`(() => { const s = ${VIDEO}; return s && !s.paused && !s.ended && s.time < 5 && !document.querySelector('[data-testid="next-bar"]') ? s : null; })()`, 8000);
 	s = await evaluate(BAR);
-	report(`"↺ ${nb.replay_video}" plays the video again from the start, the bar goes`, v && !s.shown ? [] : [`video ${JSON.stringify(await evaluate(VIDEO))}, bar ${s.shown}`]);
+	report(`the video's ↺ "${msg.player.replay}" plays it again from the start, the box's end actions go`, v && !s.shown ? [] : [`video ${JSON.stringify(await evaluate(VIDEO))}, bar ${s.shown}`]);
 
-	// 6. chapter 1's end → chapter 2 (a draft: readable in dev)
+	// 6. chapter 1: its tab title; its end – chapter 2 is coming soon (content 2026-10-07)
+	await open(`${viewer}${prefix}/${toon}/chapter/1`);
+	await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
+	{
+		const expected = `${toonTitles[locale]} · ${chapterName(1)}: ${titles[locale][1].title}`;
+		const title = await evaluate('document.title');
+		report(`the tab title "${expected}"`, title === expected ? [] : [`"${title}"`]);
+	}
+	s = await reachEnd(60000);
+	{
+		const c2 = titles[locale][2];
+		if (c2?.status !== 'coming-soon') skip("chapter 1's end: coming soon", `chapter 2 is ${c2?.status ?? 'not listed'} in the content`);
+		else {
+			const text = c2.release ? fill(nb.coming_soon, { chapter: chapterName(2), date: new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${c2.release}T00:00:00Z`)) }) : fill(nb.coming_soon_undated, { chapter: chapterName(2) });
+			report(`chapter 1's end (chapter 2 coming soon): "${text}" + "${nb.overview}", no countdown`, s?.shown && s.kind === 'coming-soon' && !s.counting && s.message === text && s.primary === nb.overview && s.primaryHref === `${prefix || ''}/${toon}` && !s.secondary ? [] : [JSON.stringify(s)]);
+		}
+	}
+	await shot(`next-${name}-6-ch1-coming-soon`);
+	// … chapter 2 published (the toon answer rewritten): the countdown to it
+	rewrite.ch2Published = true;
 	await open(`${viewer}${prefix}/${toon}/chapter/1`);
 	await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
 	s = await reachEnd(60000);
+	rewrite.ch2Published = false;
 	{
 		const problems = [];
 		const label = fill(nb.chapter, { chapter: chapterName(2), title: titles[locale][2].title });
@@ -354,40 +399,39 @@ async function run(width, locale) {
 	report('the end again counts; opening the chapter list stops it', countingAgain && !s.counting ? [] : [`counting before ${countingAgain}, after ${s.counting}`]);
 	await evaluate(`document.querySelector('.sequence-navigation-toggle')?.click(), true`);
 
-	// 7. a group with a group after it
-	await open(`${viewer}${prefix}/${toon}/chapter/2?label=scene-15`);
-	await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
-	s = await reachEnd();
-	report(`a group's end (chapter 2 scene-15): "${nb.next} →" + countdown`, s?.shown && s.kind === 'group' && s.counting && s.primary === nb.next && s.primaryHref === `${prefix}/${toon}/chapter/2?label=scene-16` && s.secondary === `↺ ${nb.replay}` ? [] : [JSON.stringify(s)]);
-	await shot(`next-${name}-7-group`);
-	const nextGroup = await waitFor(`location.search === '?label=scene-16' ? true : null`, 12500);
-	report('…after 10 s the next group (?label=scene-16)', nextGroup ? [] : [`at ${await evaluate('location.pathname + location.search')}`]);
-
-	// 8. coming soon
-	await open(`${viewer}${prefix}/${toon}/chapter/2?label=scene-20`);
-	await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
-	s = await reachEnd();
-	{
-		const c3 = titles[locale][3] ?? { release: '1970-01-01' };
-		const date = new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${c3.release}T00:00:00Z`));
-		const text = fill(nb.coming_soon, { chapter: chapterName(3), date });
-		report(`coming soon: "${text}" + "${nb.overview}", no countdown`, s?.shown && s.kind === 'coming-soon' && !s.counting && s.message === text && s.primary === nb.overview && s.primaryHref === `${prefix || ''}/${toon}` && !s.secondary ? [] : [JSON.stringify(s)]);
+	// 7–10 with the draft preview: chapter 2 and the sandbox
+	if (!previewOk) {
+		skip('7–10 (chapter 2 groups, season end, no membership, sandbox VN)', 'no draft preview for the test user (role creator) – chapter 2 / the sandbox are not readable');
+		await open(`${viewer}/`);
+		return;
 	}
-	await shot(`next-${name}-8-coming-soon`);
+	await evaluate(`localStorage.setItem('scutoons.draft-preview', '1'), true`);
+	// 7. linked groups with a group after them
+	if (!ch2Next) skip('chapter 2: a group\'s end', 'chapter 2 has no group after its first linked groups');
+	else {
+		await open(`${viewer}${prefix}/${toon}/chapter/2?label=${ch2Next.first}`);
+		await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
+		s = await reachEnd(60000);
+		const href = `${prefix}/${toon}/chapter/2?label=${ch2Next.next}`;
+		report(`a group's end (chapter 2 ${ch2Next.first} …): "${nb.next} →" + countdown → ?label=${ch2Next.next}`, s?.shown && s.kind === 'group' && s.counting && s.primary === nb.next && s.primaryHref === href && s.secondary === `↺ ${nb.replay}` ? [] : [JSON.stringify(s)]);
+		await shot(`next-${name}-7-group`);
+		const nextGroup = await waitFor(`location.search === '?label=${ch2Next.next}' ? true : null`, 12500);
+		report(`…after 10 s the next group (?label=${ch2Next.next})`, nextGroup ? [] : [`at ${await evaluate('location.pathname + location.search')}`]);
+	}
 
-	// 9. the season's end
+	// 8. the season's end: chapter 1 is the season's last (the toon answer rewritten)
 	rewrite.seasonEnd = true;
-	await open(`${viewer}${prefix}/${toon}/chapter/2?label=scene-20`);
+	await open(`${viewer}${prefix}/${toon}/chapter/1`);
 	await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
-	s = await reachEnd();
+	s = await reachEnd(60000);
 	rewrite.seasonEnd = false;
 	{
 		const text = fill(nb.season_end, { season: 1 });
 		report(`season end: "${text}" + "${nb.overview}" + "${msg.season.download}", no countdown`, s?.shown && s.kind === 'season-end' && !s.counting && s.message === text && s.primary === nb.overview && s.secondary === msg.season.download && s.secondaryHref === `${prefix}/${toon}/download` ? [] : [JSON.stringify(s)]);
 	}
-	await shot(`next-${name}-9-season-end`);
+	await shot(`next-${name}-8-season-end`);
 
-	// 10. signed in without a membership
+	// 9. signed in without a membership
 	rewrite.noAccess = true;
 	await open(`${viewer}${prefix}/${toon}/chapter/0`);
 	await waitFor(VIDEO);
@@ -397,7 +441,7 @@ async function run(width, locale) {
 	report(`signed in, no membership: "${nb.redeem} →" + "${nb.where_code}", no countdown`, s?.kind === 'members' && !s.counting && s.primary === nb.redeem && s.primaryTag === 'BUTTON' && s.secondary === nb.where_code && /^https?:\/\//.test(s.secondaryHref ?? '') && s.message === fill(nb.members_hint_signed_in, { chapter: chapterName(1) }) ? [] : [JSON.stringify(s)]);
 	await shot(`next-${name}-10-signed-in-no-membership`);
 
-	// 11. a VN group: the bar only after the scene finished
+	// 10. a VN group: the bar only after the scene finished
 	rewrite.sandboxNoJump = true;
 	await open(`${viewer}${prefix}/sandbox/chapter/2`);
 	await waitFor(`document.querySelector('.continue-overlay') ? true : null`, 30000);
@@ -421,6 +465,7 @@ async function run(width, locale) {
 	}
 	await shot(`next-${name}-11-vn-finished`);
 	rewrite.sandboxNoJump = false;
+	await evaluate(`localStorage.removeItem('scutoons.draft-preview'), true`);
 	await open(`${viewer}/`);
 }
 
@@ -433,6 +478,9 @@ async function once() {
 	await waitFor(VIDEO);
 	await evaluate(playToEnd);
 	await waitFor(`(() => { const s = ${BAR}; return s.shown ? s : null; })()`, 20000);
+	// the box fades in: click once it stands
+	await waitFor(`(() => { const s = ${BAR}; return s.shown && s.inBox ? s : null; })()`, 5000);
+	await sleep(800);
 	await click('[data-testid="next-bar-primary"]');
 	const onAccount = await waitFor(`location.pathname === '/account' && document.querySelector('input[type="email"]') ? location.search : null`, 10000);
 	const mailLog = join(root, 'server/logs/mail.log');
@@ -452,14 +500,17 @@ async function once() {
 
 	// redeeming a code as a guest: the member bar
 	await asGuest('de');
-	await open(`${viewer}/${toon}/chapter/0?code=promo_test`);
+	await open(`${viewer}/${toon}/chapter/0?code=devpromo`);
 	await waitFor(`document.querySelector('.claim-backdrop') ? true : null`, 10000);
 	await waitFor(`JSON.parse(localStorage.getItem('scutoons_access') || 'null')?.permissions?.includes('catalog') ? true : null`, 10000);
 	await evaluate(`document.querySelector('.claim-backdrop')?.click(), true`);
-	await waitFor(VIDEO);
+	// the claim dialog closes (its fade) before the video is played to its end
+	await waitFor(`!document.querySelector('.claim-backdrop') ? true : null`, 5000);
+	await sleep(800);
+	await waitFor(`(() => { const s = ${VIDEO}; return s && s.readyState >= 1 ? s : null; })()`, 15000);
 	await evaluate(playToEnd);
 	const s = await waitFor(`(() => { const s = ${BAR}; return s.shown ? s : null; })()`, 20000);
-	report('a guest who redeemed a code (?code=promo_test) gets the member bar: "S1 K1 lesen →" + countdown', s?.kind === 'chapter' && s.counting ? [] : [JSON.stringify(s)]);
+	report('a guest who redeemed a code (?code=devpromo) gets the member bar: "S1 K1 lesen →" + countdown', s?.kind === 'chapter' && s.counting ? [] : [JSON.stringify(s)]);
 
 	// reduced motion: no autoplay, no countdown
 	console.log('390-de reduced motion (member)');
@@ -475,11 +526,25 @@ async function once() {
 	report('reduced motion: the bar without a countdown', r?.kind === 'chapter' && !r.counting && !r.countdown ? [] : [JSON.stringify(r)]);
 	await shot('next-390-de-13-reduced-motion');
 	await send('Emulation.setEmulatedMedia', { features: [] });
+
+	// season addresses (BACKLOG 10.41): resolved from the season's sequence to THE chapter address
+	console.log('390-de season addresses');
+	// (unprefixed addresses keep the reader's language – the cookie: de here; /en/… switches it)
+	for (const [from, to] of [[`/${toon}/season/1/chapter/1`, `/${toon}/chapter/1`], [`/${toon}/season/1`, `/${toon}`], [`/en/${toon}/season/1/chapter/2`, `/en/${toon}/chapter/2`]]) {
+		await open(`${viewer}${from}`);
+		const at = await waitFor(`location.pathname === ${JSON.stringify(to)} ? location.pathname : null`, 10000);
+		report(`${from} → ${to}`, at ? [] : [`at ${await evaluate('location.pathname')}`]);
+	}
+	for (const from of [`/${toon}/season/9/chapter/1`, `/${toon}/season/1/chapter/99`, `/${toon}/season/9`]) {
+		await open(`${viewer}${from}`);
+		const notFound = await waitFor(`location.pathname === ${JSON.stringify(from)} && /not found/i.test(document.body.innerText) ? true : null`, 10000);
+		report(`${from} → the not-found page`, notFound ? [] : [`at ${await evaluate('location.pathname')}: ${(await evaluate('document.body.innerText'))?.slice(0, 80)}`]);
+	}
 }
 
 const combos = [[390, 'de'], [390, 'en'], [1440, 'de'], [1440, 'en']].filter(([w, l]) => !opt.only || String(opt.only).split(',').includes(`${w}-${l}`));
 for (const [w, l] of combos) await run(w, l);
 if (!opt.only || opt.once) await once();
 
-console.log(`\n${passed} passed, ${failed} failed`);
+console.log(`\n${passed} passed, ${failed} failed${skipped ? `, ${skipped} skipped` : ''}`);
 await done(failed ? 1 : 0);

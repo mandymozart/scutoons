@@ -3,7 +3,7 @@ import type { PageLoad } from './$types.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import type { Chapter } from '@scutoons/content';
 
-import { sequenceStatus, Status } from '@scutoons/content';
+import { chapterPlace, sequenceStatus, Status } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { ApiError, fetchChapter } from '$lib/api.ts';
 import { draftPreview, isReadable, showDrafts } from '$lib/draft-preview.svelte.ts';
@@ -30,7 +30,13 @@ export const load: PageLoad = async ({ params, parent }) => {
 
 	// Visibility = the season's status of this chapter in this locale (the toon layout loaded the season); the chapter
 	// file's own `status` is not read. The URL itself always resolves (printed-URL rule) – only the content is gated.
-	const { season, sequence } = await parent();
+	const layout = await parent();
+	// the season that lists the chapter (BACKLOG 10.41: a later season's chapters are read with their own season – status,
+	// what comes next, its music); none: the presented one
+	const place = Number.isInteger(number) ? chapterPlace(layout.seasons, number) : null;
+	const own = place ? layout.seasons.find((s) => s.number === place.season) : undefined;
+	const season = own?.season ?? layout.season;
+	const sequence = own?.chapters ?? layout.sequence;
 	const status = sequenceStatus(season, number);
 	// a creator's draft preview reads coming-soon and draft chapters (the API checks the role)
 	if (status === Status.COMING_SOON && !draftPreview.on) {
@@ -41,19 +47,19 @@ export const load: PageLoad = async ({ params, parent }) => {
 		const kv = typeof raw === 'string' ? { image: raw } : raw;
 		const keyvisual = kv?.image || kv?.video ? kv : undefined;
 		const gate: ChapterGate = { reason: 'coming-soon', number, title: item?.title || undefined, release: item?.release || undefined, keyvisual };
-		return { chapter: null, gate };
+		return { chapter: null, gate, season, sequence };
 	}
 	// drafts (and chapters the season doesn't list) are readable in dev only, like the chapter overview
 	if (status === null ? !showDrafts() : !isReadable({ status })) {
 		const gate: ChapterGate = { reason: 'draft', number };
-		return { chapter: null, gate };
+		return { chapter: null, gate, season, sequence };
 	}
 
 	const chapter = await chapterPromise;
 	if (chapter instanceof ApiError) {
-		if (chapter.code === 'coming_soon') return { chapter: null, gate: { reason: 'coming-soon', number } as ChapterGate };
-		if (chapter.code === 'not_public') return { chapter: null, gate: { reason: 'draft', number } as ChapterGate };
+		if (chapter.code === 'coming_soon') return { chapter: null, gate: { reason: 'coming-soon', number } as ChapterGate, season, sequence };
+		if (chapter.code === 'not_public') return { chapter: null, gate: { reason: 'draft', number } as ChapterGate, season, sequence };
 		throw error(chapter.status === 404 ? 404 : 503, `${m['common.chapter']({ number: params.chapterNumber })} not found in ${locale.toUpperCase()}`);
 	}
-	return { chapter, gate: null };
+	return { chapter, gate: null, season, sequence };
 };

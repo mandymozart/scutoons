@@ -13,6 +13,7 @@
 	import ClampText from '$lib/components/clamp-text.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
+	import { shownSeasons } from '$lib/utils/chapter-name.ts';
 
 	let { data, params }: PageProps = $props();
 	let toon = $state(data.toon);
@@ -45,6 +46,14 @@
 	let sequence = $state(data.sequence);
 
 	const seasonNumber = $derived(season?.number ?? 1);
+	// the chapter list grouped by season (BACKLOG 10.41): two or more seasons with listed chapters – each with its heading
+	// (`#season-S`, where /<toon>/season/S lands); else the presented season's list
+	const listSeasons = $derived.by(() => {
+		const shown = shownSeasons(data.seasons);
+		return shown.length >= 2
+			? shown.map((s) => ({ number: s.number, title: s.season?.title ?? '', chapters: s.chapters }))
+			: [{ number: seasonNumber, title: season?.title ?? '', chapters: sequence }];
+	});
 	// the cover of the season this page presents (owner 2026-10-02: covers are per season); older data: the toon's
 	const cover = $derived(season?.cover?.square ? season.cover : toon.cover);
 
@@ -100,8 +109,10 @@
 		{#if season}
 			<!-- Chapter List: left on desktop, the season's heading above it (owner 2026-10-03) -->
 			<div class="list-column">
-				<h2 class="list-heading">{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
-				<ChaptersList items={sequence} toonId={params.toonId} />
+				{#each listSeasons as listed (listed.number)}
+					<h2 class="list-heading" id="season-{listed.number}">{m['chapter.season_title']({ number: listed.number, title: listed.title })}</h2>
+					<ChaptersList items={listed.chapters} toonId={params.toonId} />
+				{/each}
 			</div>
 			{#if desktop}
 				<!-- desktop: cover, title and description are in the hero – this column only has music, related items, credits -->
@@ -237,6 +248,13 @@
 		font-size: 1.25rem;
 		font-weight: normal;
 		border-bottom: var(--border-width-regular) solid var(--ink);
+	}
+	/* a further season's list (BACKLOG 10.41): room above its heading, also where /season/S scrolls to */
+	.list-heading:not(:first-child) {
+		margin-top: 2rem;
+	}
+	.list-heading {
+		scroll-margin-top: 4rem;
 	}
 	.list-column :global(.chapters-list) {
 		padding: 0;

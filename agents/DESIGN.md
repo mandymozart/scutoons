@@ -75,7 +75,12 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **ChapterItem** — grid `6rem 1fr auto` (`5rem …` < 768px; the number column at least 3rem, wider only for the
   prologue's label, set in `caption` size; < 768px the row keeps 0.5rem off the right edge), hover `surface-hover`, meta in `caption` + `text-muted`, coming-soon row at 0.5 opacity. Chapter 0
   (the season's prologue) shows "Prolog" / "Prologue" (paraglide `chapter.prologue`) instead of "#0"; prev/next in the
-  chapter navigation and the coming-soon page name it the same way (`chapterName`, viewer `lib/utils/chapter-name.ts`). No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
+  chapter navigation and the coming-soon page name it the same way (`chapterName`, viewer `lib/utils/chapter-name.ts`).
+  Season labels (BACKLOG 10.41): a chapter is named by its position in its season – "Kapitel 2" / "Chapter 2", with
+  two or more seasons (that list chapters) "Staffel 2 · Kapitel 1" / "Season 2 · Chapter 1" (`common.season_chapter`),
+  never with the absolute #N next to it: the chapter page's tab title ("<toon> · <label>: <title>"), the coming-soon
+  heading, the end actions in the box, the start button's "S2 K1", the list's "#1". The toon page's list is grouped
+  by season, each under its heading `#season-S` (one season: as before). No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
   and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
 - **Coming-soon page** (owner 2026-10-05): with a key visual the page is a fullscreen teaser (`chapter-teaser.svelte`):
   the key visual video fills the window, muted, on a loop, autoplay (reduced motion: the poster until "Ton an"); the

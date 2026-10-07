@@ -40,6 +40,7 @@ import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
 import { repeatOf, repeatProblem } from './recurrence.ts';
 import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, ASK_TEXT_SCOPES, GIVE_ITEM_MAX } from './visual-novel.ts';
 import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
+import { frozenSequenceProblems } from './seasons.ts';
 import { resolveChapter, resolveGroup, resolveSeason, resolveToon, type ChapterDoc, type GroupDoc, type NeutralKind, type NeutralLanguages, type SeasonDoc } from './neutral.ts';
 import { forEachText, type TextLeafKind } from './neutralize.ts';
 import { analyseExpression, analyseText, type AnalyseOptions } from './expr/analyse.ts';
@@ -127,6 +128,11 @@ export interface ValidateContext {
 	facts?: ToonFacts;
 	/** jump targets: what the caller knows about the places a jump can lead to – none: not checked (`checkTargetPlace`) */
 	targets?: JumpTargets;
+	/**
+	 * seasons: the `sequence` of the last PUBLISHED version (the creator loads it): a listed chapter there keeps its
+	 * position (`frozenSequenceProblems`, BACKLOG 10.41); none / null = never published (no check)
+	 */
+	publishedSequence?: readonly { number: number | string; status?: unknown }[] | null;
 }
 
 /**
@@ -1325,6 +1331,9 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 					: resolveGroup(data as GroupDoc, source, languages);
 	const problems = kind === 'index' ? toonEntryProblems(data, languages, ctx) : validateFile(kind, resolved, source, ctx).map((p) => ({ ...p, locale: null }));
 	const c = new Collector(file, null);
+	// a season's published positions are frozen (printed /season/S/chapter/K addresses, BACKLOG 10.41)
+	if (kind === 'season' && ctx.publishedSequence)
+		for (const p of frozenSequenceProblems(ctx.publishedSequence as any, data.sequence, data.number ?? '')) c.error(p.path, p.message);
 	const at = (locale: string) => new Collector(file, locale);
 	const neutralKind: NeutralKind | 'toon' = kind === 'group' ? 'scene' : kind === 'index' ? 'toon' : (kind as NeutralKind);
 	const perLocale: Collector[] = [];

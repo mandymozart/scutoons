@@ -8,7 +8,7 @@
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import chapterIcon from '$lib/icons/chapter.svg';
 	import { m } from '$lib/paraglide/messages.js';
-	import { chapterName } from '$lib/utils/chapter-name.ts';
+	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	let {
@@ -82,7 +82,7 @@
 		{/if}
 	</div>
 	<div class="chapter-number" data-testid="chapter-number">
-		{#if isPrologue(chapter.number)}<span class="chapter-label">{m['chapter.prologue']()}</span>{:else}{isPublic ? ' ' : ''}#{chapter.number}{/if}
+		{#if isPrologue(chapter.number)}<span class="chapter-label">{m['chapter.prologue']()}</span>{:else}{isPublic ? ' ' : ''}#{chapterShownNumber(chapter.number) ?? chapter.number}{/if}
 	</div>
 </div>
 

@@ -192,7 +192,18 @@
 		if (Number.isNaN(date.getTime())) return release;
 		return new Intl.DateTimeFormat(getLocale(), { dateStyle: 'long', timeZone: 'UTC' }).format(date);
 	}
+
+	// the tab title (BACKLOG 10.41): the toon, the chapter's label ("Staffel 2 · Kapitel 1" / "Kapitel 2" / "Prolog"), its title
+	const tabTitle = $derived.by(() => {
+		const number = data.chapter?.number ?? data.gate?.number ?? Number(page.params.chapterNumber);
+		const title = data.chapter?.title || data.gate?.title || data.sequence?.find((item) => item.number === number)?.title || '';
+		return [data.toon?.title, `${chapterName(number)}${title ? `: ${title}` : ''}`].filter(Boolean).join(' · ');
+	});
 </script>
+
+<svelte:head>
+	<title>{tabTitle}</title>
+</svelte:head>
 
 {#if data.gate || !data.chapter}
 	<!-- visibility comes from the season status (the load gates drafts in production and coming-soon chapters); the URL stays valid -->

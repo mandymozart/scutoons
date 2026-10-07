@@ -4,6 +4,7 @@
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
+	import { chapterShownNumber } from '$lib/utils/chapter-name.ts';
 
 	/**
 	 * The season's one start button (agents/DESIGN.md "Start button"): "S1 K1 lesen" / "S1 K4 weiterlesen" (+ how far,
@@ -32,7 +33,8 @@
 	const target = $derived(reading ? readable.find((c) => c.number === reading.chapter) : undefined);
 	const label = $derived.by(() => {
 		if (!reading) return '';
-		const values = { season, chapter: reading.chapter };
+		// K = the position in the season (BACKLOG 10.41), never the absolute number
+		const values = { season, chapter: chapterShownNumber(reading.chapter) ?? reading.chapter };
 		if (reading.kind === 'prologue') return m['start.prologue']();
 		if (reading.kind === 'continue') return m['start.continue'](values);
 		if (reading.kind === 'again') return m['start.again'](values);
@@ -49,7 +51,7 @@
 			href={localizeHref(`/${toonId}/chapter/${reading.chapter}`)}
 			title={reading.kind === 'prologue'
 				? m['start.prologue_title']({ season, title: target.title ?? '' })
-				: m['start.title']({ season, chapter: reading.chapter, title: target.title ?? '' })}
+				: m['start.title']({ season, chapter: chapterShownNumber(reading.chapter) ?? reading.chapter, title: target.title ?? '' })}
 			data-testid={testid}
 			data-state={reading.kind}
 		>

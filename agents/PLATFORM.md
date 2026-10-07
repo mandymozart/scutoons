@@ -463,7 +463,8 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 | qr.scutoons.com | `/api/validate/` (GET `?code=` / `?c=`, POST `{code}` / `{c}`) and its response shape | old viewer builds, external links |
 | qr.scutoons.com | `/api/keys/keys.php` (public key) | verify page, third-party signature checks |
 | scutoons.com / www.scutoons.com | `/<toonId>` e.g. `/catpope` (toon entry + chapter overview) | `redirect_to` of all codes (`https://scutoons.com/catpope`, `https://www.scutoons.com/catpope`) |
-| scutoons.com | `/<toonId>/chapter/<n>` (+ `?label=`) | chapter links |
+| scutoons.com | `/<toonId>/chapter/<n>` (+ `?label=`) | chapter links – THE address of a chapter, forever (printed QR codes) |
+| scutoons.com | `/<toonId>/season/<s>/chapter/<k>`, `/<toonId>/season/<s>` (BACKLOG 10.41) | redirect to `/<toonId>/chapter/<n>` (position k of season s, the prologue not counted) / the toon page at season s (`#season-s`); unknown → not found |
 | scutoons.com | `/<toonId>/credits`, `/<toonId>/download` | links in prints / socials |
 | scutoons.com | query param **`code`** on any viewer page (`?code=<CODE>`), plus `&inventory=open` | redirects from the QR landing page |
 | scutoons.com | `/de/...`, `/en/...` locale prefixes | shared links |

@@ -26,6 +26,7 @@ export * from './entities.ts';
 export * from './neutral.ts';
 export * from './neutralize.ts';
 export * from './progress.ts';
+export * from './seasons.ts';
 export * from './history.ts';
 export * from './variables.ts';
 export * from './save-game.ts';

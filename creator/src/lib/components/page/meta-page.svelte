@@ -108,7 +108,9 @@
 			if (doc.loading) continue;
 			// a language-neutral season: once + its texts per language (agents/NEUTRAL.md)
 			if (doc.texts) {
-				out.push(...validateNeutral(doc.kind, doc.data[doc.primary], doc.texts, { file: doc.entity }));
+				// a season: its published positions are frozen (BACKLOG 10.41)
+				const publishedSequence = doc.kind === 'season' ? doc.publishedSequences[doc.primary] : undefined;
+				out.push(...validateNeutral(doc.kind, doc.data[doc.primary], doc.texts, { file: doc.entity, publishedSequence }));
 				continue;
 			}
 			for (const l of doc.locales) {

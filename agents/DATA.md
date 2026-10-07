@@ -18,6 +18,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) + the toon's title / description / release / status per language (locale maps, agents/NEUTRAL.md step 4) | DB entity `toon:<toon>` (the same entry); legacy `toon-settings:<toon>:<l>` | creator (toon settings) |
 | toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>` (language-neutral, texts as locale maps); legacy `season:<toon>:<n>:<l>` | creator (season page) |
+| season positions (BACKLOG 10.41): `/<toon>/season/S/chapter/K` = the K-th `sequence` entry with number ≠ 0 (the prologue 0 not counted; drafts / coming-soon counted) – computed, not stored (`@scutoons/content` seasons.ts); frozen once published (the season validator) | – | – |
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>` (language-neutral); legacy `chapter:<toon>:<n>:<l>` | creator |
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>` (language-neutral); legacy `scene:<toon>:<chapter>:<name>:<l>` | creator |
 | the world map (places, routes, layers; names `{ de, en }`; unlock points) | DB `map` (platform-wide, language-neutral; agents/MAP.md §8) | creator (Universe → Map; a slice's "unlocks place" in the chapter editor) |

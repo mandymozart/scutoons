@@ -16,6 +16,7 @@
 	},
 	"common": {
 		"chapter": "Chapter {number}",
+		"season_chapter": "Season {season} · Chapter {number}",
 		"loading": "Patience ...",
 		"cancel": "Cancel"
 	},

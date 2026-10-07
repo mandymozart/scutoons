@@ -16,6 +16,7 @@
 	},
 	"common": {
 		"chapter": "Kapitel {number}",
+		"season_chapter": "Staffel {season} · Kapitel {number}",
 		"loading": "Geduld ...",
 		"cancel": "Abbrechen"
 	},
