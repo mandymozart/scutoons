@@ -46,7 +46,8 @@ its rows).
 `NewsletterSender::batch()` – from the host's cron (`/api/newsletter/cron?key=NEWSLETTER_CRON_KEY`, every 5 minutes) or
 "Send now" on the Newsletters page (batch after batch while the page is open). One batch:
 
-- runs alone (MariaDB `GET_LOCK`), at most `NEWSLETTER_BATCH` (20) mails, at most `NEWSLETTER_SECONDS` (25 s)
+- runs alone (MariaDB `GET_LOCK`), at most `newsletter_batch` mails (runtime setting, admin → Settings, 1–25, default
+  `NEWSLETTER_BATCH` 20 – 20 every 5 minutes = 240 an hour, so the hourly limit decides), at most `NEWSLETTER_SECONDS` (25 s)
 - never over the hourly limit: runtime setting `newsletter_per_hour` (admin → Settings, default 200, owner
   2026-10-07: "start with 200"). Every mail of the last hour counts (`mail_log`), login codes too – so a sign-in never
   waits behind a newsletter more than the limit allows

@@ -189,6 +189,25 @@ final class NewsletterTest extends TestCase
         self::assertSame('idle', $this->get(NewsletterSender::class)->batch()['status']);
     }
 
+    public function testTheBatchSizeIsARuntimeSetting(): void
+    {
+        $transport = $this->fakeTransport();
+        $this->get(RuntimeSettings::class)->update([RuntimeSettings::NEWSLETTER_BATCH => 2], 'admin:x');
+        $this->get(Contacts::class)->import("a@example.com, de\nb@example.com, de\nc@example.com, de", 'qr-claim', null, null, false, 'admin:x');
+        $this->get(Campaigns::class)->start($this->campaign(['contacts']), 'admin:x');
+        self::assertSame([2, 1], [($r = $this->get(NewsletterSender::class)->batch())['sent'], $r['queued']]);
+        self::assertSame(1, $this->get(NewsletterSender::class)->batch()['sent']);
+        self::assertCount(3, $transport->sent);
+        self::assertSame('invalid_setting', (function () {
+            try {
+                $this->get(RuntimeSettings::class)->update([RuntimeSettings::NEWSLETTER_BATCH => 26], 'admin:x');
+            } catch (ApiError $error) {
+                return $error->errorCode;
+            }
+            return null;
+        })(), 'at most 25: a batch ends after NEWSLETTER_SECONDS anyway');
+    }
+
     public function testTheHourlyLimitCountsEveryMailOfTheLastHour(): void
     {
         $transport = $this->fakeTransport();

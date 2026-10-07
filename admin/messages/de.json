@@ -585,7 +585,9 @@
 		"nothing_changed": "Nichts geändert.",
 		"unsaved": "Ungespeicherte Änderungen",
 		"newsletter_per_hour": "Newsletter-Mails pro Stunde",
-		"newsletter_per_hour_hint": "Höchstens so viele Mails pro Stunde über das SMTP-Konto, solange ein Newsletter verschickt wird – jede Mail der letzten Stunde zählt, auch Anmeldecodes. Frag deinen Mail-Host nach seinem Limit. 0 = kein Limit."
+		"newsletter_per_hour_hint": "Höchstens so viele Mails pro Stunde über das SMTP-Konto, solange ein Newsletter verschickt wird – jede Mail der letzten Stunde zählt, auch Anmeldecodes. Frag deinen Mail-Host nach seinem Limit. 0 = kein Limit.",
+		"newsletter_batch": "Newsletter-Mails pro Paket",
+		"newsletter_batch_hint": "Wie viele Mails ein Paket verschickt – der Cronjob alle 5 Minuten oder ein Schritt von „Jetzt senden“. 20 alle 5 Minuten ergibt 200 pro Stunde. Höchstens 25: ein Paket hört nach 25 Sekunden auf, eine Mail pro Sekunde."
 	},
 	"emails": {
 		"title": "E-Mails",

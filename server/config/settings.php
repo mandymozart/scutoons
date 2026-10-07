@@ -83,7 +83,8 @@ return [
     // Mass mails go out in small batches – from the host's cron (GET|POST /api/newsletter/cron?key=NEWSLETTER_CRON_KEY,
     // e.g. every 5 minutes; empty key = the URL answers 404) or "Send now" in the admin – through the SMTP account above,
     // one connection per batch. PER_HOUR = the default of the runtime setting newsletter_per_hour (admin → Settings):
-    // every mail sent in the last hour counts (mail_log). One batch: at most BATCH mails, DELAY_MS between two, SECONDS
+    // every mail sent in the last hour counts (mail_log). One batch: at most BATCH mails (the default of the runtime
+    // setting newsletter_batch, 1–25), DELAY_MS between two, SECONDS
     // in all (below the host's max_execution_time), a new connection every PER_CONNECTION mails. A temporary failure is
     // tried again after RETRY_MINUTES, at most ATTEMPTS times. API_URL = where the unsubscribe links point.
     'NEWSLETTER_CRON_KEY' => '',

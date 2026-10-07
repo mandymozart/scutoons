@@ -17,7 +17,7 @@ use Throwable;
  * batch = one call of batch(): from the host's cron (GET|POST /api/newsletter/cron?key=…, every few minutes) or "Send
  * now" in the admin (the page calls it again while it is open). A batch
  *   - runs alone (a MariaDB named lock – a second call at the same time answers busy)
- *   - sends at most NEWSLETTER_BATCH mails and stops after NEWSLETTER_SECONDS
+ *   - sends at most the runtime setting newsletter_batch (default NEWSLETTER_BATCH) mails and stops after NEWSLETTER_SECONDS
  *   - never goes over the runtime setting newsletter_per_hour: every mail sent in the last hour counts (mail_log, the
  *     login codes too, so they always get through)
  *   - keeps ONE SMTP connection (Transport::beginBatch), a new one every NEWSLETTER_PER_CONNECTION mails, waits
@@ -81,7 +81,7 @@ final class NewsletterSender
     {
         $deadline = microtime(true) + max(1, $this->settings->int('NEWSLETTER_SECONDS'));
         $perHour = $result['per_hour'];
-        $budget = max(1, $this->settings->int('NEWSLETTER_BATCH'));
+        $budget = $this->runtime->newsletterBatch();
         if ($perHour > 0) $budget = min($budget, $perHour - $this->sentLastHour());
         $perConnection = max(1, $this->settings->int('NEWSLETTER_PER_CONNECTION'));
         $delay = max(0, $this->settings->int('NEWSLETTER_DELAY_MS'));

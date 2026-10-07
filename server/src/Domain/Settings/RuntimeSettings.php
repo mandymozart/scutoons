@@ -20,6 +20,8 @@ use Scutoons\Support\Time;
  *   lookup_limit_per_hour  direct /code/ + /access/ lookups per IP and hour – default ACCESS_MAX_PER_IP_HOUR
  *   newsletter_per_hour    at most this many mails per hour through the SMTP account while a newsletter sends (every
  *                          mail of the last hour counts, login codes too) – default NEWSLETTER_PER_HOUR
+ *   newsletter_batch       mails per newsletter batch (one cron call / one "Send now" step), 1–25: a batch also stops
+ *                          after NEWSLETTER_SECONDS with NEWSLETTER_DELAY_MS between two mails, so more never fit – default NEWSLETTER_BATCH
  * 0 = no limit.
  */
 final class RuntimeSettings
@@ -27,6 +29,7 @@ final class RuntimeSettings
     public const SCAN_LIMIT = 'scan_limit_per_hour';
     public const LOOKUP_LIMIT = 'lookup_limit_per_hour';
     public const NEWSLETTER_PER_HOUR = 'newsletter_per_hour';
+    public const NEWSLETTER_BATCH = 'newsletter_batch';
     public const MAX_LIMIT = 1000000;
 
     /** key → config key of the default, allowed range */
@@ -34,6 +37,7 @@ final class RuntimeSettings
         self::SCAN_LIMIT => ['config' => 'SCAN_MAX_PER_IP_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
         self::LOOKUP_LIMIT => ['config' => 'ACCESS_MAX_PER_IP_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
         self::NEWSLETTER_PER_HOUR => ['config' => 'NEWSLETTER_PER_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
+        self::NEWSLETTER_BATCH => ['config' => 'NEWSLETTER_BATCH', 'min' => 1, 'max' => 25],
     ];
 
     /** @var array<string, array{value: mixed, updated_at: string, updated_by: ?string}>|null */
@@ -59,6 +63,12 @@ final class RuntimeSettings
     public function newsletterPerHour(): int
     {
         return $this->int(self::NEWSLETTER_PER_HOUR);
+    }
+
+    /** Mails per newsletter batch (1–25) */
+    public function newsletterBatch(): int
+    {
+        return max(1, $this->int(self::NEWSLETTER_BATCH));
     }
 
     public function int(string $key): int

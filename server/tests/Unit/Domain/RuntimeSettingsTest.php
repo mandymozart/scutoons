@@ -16,7 +16,7 @@ final class RuntimeSettingsTest extends TestCase
         $settings = $this->get(RuntimeSettings::class);
         self::assertSame([1000, 120], [$settings->scanLimitPerHour(), $settings->lookupLimitPerHour()]);
         $items = $settings->all();
-        self::assertSame(['scan_limit_per_hour', 'lookup_limit_per_hour', 'newsletter_per_hour'], array_column($items, 'key'));
+        self::assertSame(['scan_limit_per_hour', 'lookup_limit_per_hour', 'newsletter_per_hour', 'newsletter_batch'], array_column($items, 'key'));
         self::assertSame(['key' => 'scan_limit_per_hour', 'value' => 1000, 'default' => 1000, 'min' => 0, 'max' => RuntimeSettings::MAX_LIMIT,
             'stored' => false, 'updated_at' => null, 'updated_by' => null], $items[0]);
     }

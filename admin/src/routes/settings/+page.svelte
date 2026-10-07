@@ -16,7 +16,8 @@
 	const LABELS: Record<string, { label: () => string }> = {
 		scan_limit_per_hour: { label: () => m['settings.scan_limit_per_hour']() },
 		lookup_limit_per_hour: { label: () => m['settings.lookup_limit_per_hour']() },
-		newsletter_per_hour: { label: () => m['settings.newsletter_per_hour']() }
+		newsletter_per_hour: { label: () => m['settings.newsletter_per_hour']() },
+		newsletter_batch: { label: () => m['settings.newsletter_batch']() }
 	};
 
 	let items = $state<AdminSetting[] | null>(null);
