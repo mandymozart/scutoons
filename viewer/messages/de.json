@@ -82,6 +82,8 @@
 		"marketing_opt_in_hint": "Höchstens ein paar E-Mails im Jahr. Du kannst das hier jederzeit abschalten.",
 		"marketing_opt_in_failed": "Die Einstellung konnte nicht gespeichert werden. Versuch es später noch einmal.",
 		"hide_sensitive": "Sensible Inhalte ausblenden",
+		"show_hints": "Hinweise zeigen",
+		"show_hints_hint": "Umrandet, was du in einem Kapitel antippen kannst.",
 		"hide_sensitive_hint": "Markierte Bilder werden unscharf, ihr Ton stumm.",
 		"draft_preview": "Entwurfsvorschau",
 		"draft_preview_hint": "Entwürfe und bald erscheinende Kapitel hier lesen, zum Prüfen. Nur auf diesem Gerät; ein kleines Auge oben rechts zeigt es auf jeder Seite.",

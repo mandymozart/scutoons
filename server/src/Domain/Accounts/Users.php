@@ -78,6 +78,15 @@ final class Users
             [$hide ? 1 : 0, $this->clock->utc(), $userId, $hide ? 1 : 0])->rowCount() > 0;
     }
 
+    /**
+     * Sets "Show hints" (BACKLOG M.1; off by default): the reader outlines what can be tapped. Returns whether it changed.
+     */
+    public function setShowHints(string $userId, bool $show): bool
+    {
+        return $this->db->run('UPDATE users SET show_hints = ?, updated_at = ? WHERE id = ? AND show_hints <> ?',
+            [$show ? 1 : 0, $this->clock->utc(), $userId, $show ? 1 : 0])->rowCount() > 0;
+    }
+
     /** "Media quality" values (agents/DESIGN.md "Media quality"): auto = by the reader's bandwidth (the default) */
     public const MEDIA_QUALITIES = ['auto', 'low', 'medium', 'high'];
     public const MEDIA_QUALITY_DEFAULT = 'auto';
@@ -150,6 +159,7 @@ final class Users
             'roles' => $this->roles->of((string) $row['id']),
             'marketing_opt_in' => (bool) (int) ($row['marketing_opt_in'] ?? 0),
             'hide_sensitive' => self::hidesSensitive($row),
+            'show_hints' => (bool) (int) ($row['show_hints'] ?? 0),
             'media_quality' => self::mediaQuality($row),
             'display_name' => is_string($row['display_name'] ?? null) && $row['display_name'] !== '' ? $row['display_name'] : null,
         ];
@@ -180,6 +190,7 @@ final class Users
             'marketing_opt_in' => (bool) (int) ($row['marketing_opt_in'] ?? 0),
             'marketing_opt_in_at' => Time::iso($row['marketing_opt_in_at'] ?? null),
             'hide_sensitive' => self::hidesSensitive($row),
+            'show_hints' => (bool) (int) ($row['show_hints'] ?? 0),
             'media_quality' => self::mediaQuality($row),
         ];
     }

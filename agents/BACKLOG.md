@@ -590,6 +590,10 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [x] M.1 **Reader: the intersect area shows** – the orange dashed outline where a sticker overlaps a speech bubble must
       not appear in the reader (owner 2026-10-06 "minor bugs" list).
       _(done 2026-10-07 (3fb7a5f0): the intersect area is invisible – click / hover / audio areas keep their look (a tap hint?) – owner: hide those too?)_
+      _(2026-10-07, owner: "hide click outlines for any interaction element … a toggle in the account: show hints"):
+      click / hover / sound areas are drawn only with "Show hints" (account page, off by default; users.show_hints,
+      PUT /me/ { show_hints }, migration 2026-10-07-show-hints – **O: with the next API deploy**); guests: off, no toggle
+      (like "Hide sensitive"); the creator keeps showing every area. Checked headless: off → transparent, on → outlined.)_
 - [x] B.3 Ch3–5 `keyvisual` is a string, the type expects `{image, video?}` (ch2 fixed 2026-09-30) _(MEMORY.md – not
       re-checked)_.
       _(closed 2026-10-07: every chapter's keyvisual is an object; chapters 3–5 have none)_

@@ -62,7 +62,7 @@ final class AccountService
     }
 
     /**
-     * PUT /me/ { marketing_opt_in?: bool, hide_sensitive?: bool, media_quality?: auto|low|medium|high, display_name?:
+     * PUT /me/ { marketing_opt_in?: bool, hide_sensitive?: bool, show_hints?: bool, media_quality?: auto|low|medium|high, display_name?:
      * string|null } (at least one) → { user, avatar }. 400 invalid_body. `display_name` = the reader's name (askText,
      * `{reader.name}`): plain text, trimmed, at most 32 characters; null / "" clears it.
      * @param array<string, mixed> $user
@@ -71,12 +71,12 @@ final class AccountService
      */
     public function update(array $user, array $body): array
     {
-        $fields = array_intersect_key($body, array_flip(['marketing_opt_in', 'hide_sensitive', 'media_quality', 'display_name']));
+        $fields = array_intersect_key($body, array_flip(['marketing_opt_in', 'hide_sensitive', 'show_hints', 'media_quality', 'display_name']));
         $flags = array_diff_key($fields, ['media_quality' => true, 'display_name' => true]);
         $name = array_key_exists('display_name', $fields) ? Users::displayName($fields['display_name']) : null;
         if ($fields === [] || array_filter($flags, fn($v) => !is_bool($v)) !== []
             || (array_key_exists('media_quality', $fields) && !in_array($fields['media_quality'], Users::MEDIA_QUALITIES, true))) {
-            throw new ApiError(400, 'invalid_body', 'marketing_opt_in and/or hide_sensitive (true/false) and/or media_quality (auto, low, medium, high) and/or display_name are required.');
+            throw new ApiError(400, 'invalid_body', 'marketing_opt_in and/or hide_sensitive and/or show_hints (true/false) and/or media_quality (auto, low, medium, high) and/or display_name are required.');
         }
         if ($name === false) throw new ApiError(400, 'invalid_body', 'display_name is a text of at most ' . Users::DISPLAY_NAME_MAX . ' characters (or null).');
         $userId = (string) $user['id'];
@@ -84,6 +84,7 @@ final class AccountService
         if (array_key_exists('media_quality', $fields)) $this->users->setMediaQuality($userId, (string) $fields['media_quality']);
         if (array_key_exists('marketing_opt_in', $fields)) $this->users->setMarketingOptIn($userId, $fields['marketing_opt_in']);
         if (array_key_exists('hide_sensitive', $fields)) $this->users->setHideSensitive($userId, $fields['hide_sensitive']);
+        if (array_key_exists('show_hints', $fields)) $this->users->setShowHints($userId, $fields['show_hints']);
         return ['user' => $this->users->toJson($this->users->byId($userId) ?? $user), 'avatar' => $this->avatar->toJson($userId)];
     }
 

@@ -62,6 +62,13 @@ export function createSessionContext() {
 		return result.user;
 	}
 
+	/** Account page toggle "Show hints": `PUT /me/ { show_hints }` (off by default; outlines what can be tapped – BACKLOG M.1) */
+	async function setShowHints(value: boolean) {
+		const result = await updateMe({ show_hints: value });
+		if (auth.me) auth.patchMe({ user: { ...auth.me.user, ...result.user } });
+		return result.user;
+	}
+
 	/** Account page "Media quality": `PUT /me/ { media_quality }` (auto by default; lib/media-quality.svelte.ts) */
 	async function setMediaQuality(value: NonNullable<User['media_quality']>) {
 		const result = await updateMe({ media_quality: value });
@@ -126,6 +133,7 @@ export function createSessionContext() {
 		verifyToken: auth.verifyToken,
 		setMarketingOptIn,
 		setHideSensitive,
+		setShowHints,
 		hasRole: auth.hasRole,
 		logout: auth.logout,
 		/** Replace parts of `me` after inventory/avatar mutations without refetching. */

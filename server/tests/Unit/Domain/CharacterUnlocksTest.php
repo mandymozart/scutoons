@@ -139,7 +139,11 @@ final class CharacterUnlocksTest extends TestCase
         self::assertSame(['character' => 'catpope', 'look' => 'swim'], $out['avatar']['body']);
         self::assertTrue($accounts->update($user, ['hide_sensitive' => true])['user']['hide_sensitive']);
         self::assertNull(((array) $avatar->toJson($id)['slots'])['legs'] ?? null, 'turning it on puts nothing on');
-        foreach ([[], ['hide_sensitive' => 'yes'], ['marketing_opt_in' => true, 'hide_sensitive' => 1]] as $bad) {
+        // "Show hints" (BACKLOG M.1): off by default, switchable, validated like the others
+        self::assertFalse($accounts->me($user)['user']['show_hints']);
+        self::assertTrue($accounts->update($user, ['show_hints' => true])['user']['show_hints']);
+        self::assertFalse($accounts->update($user, ['show_hints' => false])['user']['show_hints']);
+        foreach ([[], ['hide_sensitive' => 'yes'], ['marketing_opt_in' => true, 'hide_sensitive' => 1], ['show_hints' => 'on']] as $bad) {
             try {
                 $accounts->update($user, $bad);
                 self::fail('invalid_body expected');

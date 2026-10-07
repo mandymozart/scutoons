@@ -17,6 +17,14 @@
 {/if}
 
 <style>
+	/* the outline only with "Show hints" (account page, off by default – owner 2026-10-07, BACKLOG M.1): without it the
+	   area is still tappable, just not drawn */
+	:global(html:not(.sc-show-hints)) .sample-trigger {
+		border-color: transparent !important;
+		background: none !important;
+		box-shadow: none !important;
+	}
+
 	/* Audio Hotzones */
 	.sample-trigger {
 		position: absolute;

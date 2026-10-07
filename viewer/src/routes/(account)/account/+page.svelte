@@ -83,6 +83,25 @@
 		}
 	}
 
+	// "Show hints" (PUT /me/ { show_hints }, off by default; guests: off – no toggle there): the reader outlines what can be
+	// tapped / hovered (BACKLOG M.1)
+	let hintsSaving = $state(false);
+	let hintsError = $state<string | null>(null);
+	async function toggleShowHints(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const value = input.checked;
+		hintsSaving = true;
+		hintsError = null;
+		try {
+			await session.setShowHints(value);
+		} catch {
+			input.checked = !value;
+			hintsError = m['account.marketing_opt_in_failed']();
+		} finally {
+			hintsSaving = false;
+		}
+	}
+
 	// "Hide sensitive content" (PUT /me/ { hide_sensitive }, on by default; guests always hide – no toggle there)
 	let hideSaving = $state(false);
 	let hideError = $state<string | null>(null);
@@ -187,6 +206,16 @@
 			</label>
 			{#if hideError}
 				<p class="error" role="alert">{hideError}</p>
+			{/if}
+			<label class="opt-in" data-testid="show-hints">
+				<input type="checkbox" checked={session.user.show_hints === true} disabled={hintsSaving} onchange={toggleShowHints} />
+				<span>
+					{m['account.show_hints']()}
+					<small>{m['account.show_hints_hint']()}</small>
+				</span>
+			</label>
+			{#if hintsError}
+				<p class="error" role="alert">{hintsError}</p>
 			{/if}
 			{#if canUseApp('creator', session.roles)}
 				<p class="creator-line">

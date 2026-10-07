@@ -247,6 +247,8 @@ export interface User {
 	marketing_opt_in?: boolean;
 	/** "Hide sensitive content" (on by default; `PUT /me/ { hide_sensitive }`) – sensitive.ts, ITEMS.md "Sensitive content" */
 	hide_sensitive?: boolean;
+	/** "Show hints" (off by default; `PUT /me/ { show_hints }`): the reader outlines what can be tapped (BACKLOG M.1) */
+	show_hints?: boolean;
 	/** "Media quality" (`auto` by default; `PUT /me/ { media_quality }`) – media-quality.ts */
 	media_quality?: 'auto' | 'low' | 'medium' | 'high';
 	/** the reader's name (askText scope "reader", `{reader.name}`; `PUT /me/ { display_name }`, at most 32 characters) – null = none */

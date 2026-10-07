@@ -22,6 +22,10 @@
 
 	let toons = $derived(data.toons);
 	const session = setSessionContext();
+	// "Show hints" (account page, off by default): the outlines of what can be tapped (vn/triggers, audio sample areas)
+	$effect(() => {
+		document.documentElement.classList.toggle('sc-show-hints', session.me?.user?.show_hints === true);
+	});
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
 	const itemsUi = setItemsUiContext();
