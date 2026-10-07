@@ -32,6 +32,8 @@
 <script lang="ts" generics="T">
 	import type { Snippet } from 'svelte';
 	import Icon from './icon.svelte';
+	import SortGrip from './sort-grip.svelte';
+	import { sortable } from './sortable.ts';
 
 	/**
 	 * Data table (admin UI pattern): sortable headers, bulk select + actions, keyboard-reachable rows, a loading
@@ -55,6 +57,10 @@
 		rowClass,
 		loading = false,
 		caption,
+		onmove,
+		moveLabel = (key: string) => key,
+		moveHint,
+		moveDisabled = false,
 		labels = {
 			selectAll: 'Select all rows',
 			selectRow: (key: string) => `Select ${key}`,
@@ -89,6 +95,14 @@
 		rowClass?: (row: T) => string;
 		loading?: boolean;
 		caption?: string;
+		/** a reorderable list (`sortable`): a grip at each row's start; the row at `from` goes to `to` */
+		onmove?: (from: number, to: number) => void | Promise<unknown>;
+		/** the grip's accessible name per row, e.g. "Move hat" */
+		moveLabel?: (key: string) => string;
+		/** the grip's tooltip */
+		moveHint?: string;
+		/** no reordering (e.g. while a reorder is saved) */
+		moveDisabled?: boolean;
 		labels?: DataTableLabels;
 	} = $props();
 
@@ -144,6 +158,7 @@
 			{#if caption}<caption>{caption}</caption>{/if}
 			<thead>
 				<tr>
+					{#if onmove}<th class="grip" scope="col"></th>{/if}
 					{#if selectable}
 						<th class="select" scope="col">
 							<input
@@ -184,7 +199,7 @@
 					{/each}
 				</tr>
 			</thead>
-			<tbody>
+			<tbody use:sortable={{ onmove: (from, to) => onmove?.(from, to), disabled: !onmove || moveDisabled }}>
 				{#each rows as row, i (keys[i])}
 					{@const key = keys[i]}
 					<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -196,7 +211,9 @@
 						tabindex={onrowclick ? 0 : undefined}
 						onclick={onrowclick ? (event) => rowClick(event, row) : undefined}
 						onkeydown={onrowclick ? (event) => rowKeydown(event, row) : undefined}
+						data-sort-row={onmove ? '' : undefined}
 					>
+						{#if onmove}<td class="grip"><SortGrip label={moveLabel(key)} title={moveHint} disabled={moveDisabled} /></td>{/if}
 						{#if selectable}
 							<td class="select">
 								<input
@@ -267,6 +284,14 @@
 	}
 	.select {
 		width: 1.25rem;
+	}
+	/* the reorder grip (sortable): the row's first cell */
+	th.grip,
+	td.grip {
+		width: 1.5rem;
+		padding-block: 0;
+		padding-inline: var(--space-05) 0;
+		vertical-align: middle;
 	}
 	.sort {
 		display: inline-flex;
