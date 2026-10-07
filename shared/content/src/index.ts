@@ -1,5 +1,6 @@
 // @scutoons/content: the content contract (types), pure helpers and validation. No Svelte, no DOM, no app state.
 export * from './enums.ts';
+export * from './fx.ts';
 export * from './content.ts';
 export * from './audio.ts';
 export * from './visual-novel.ts';

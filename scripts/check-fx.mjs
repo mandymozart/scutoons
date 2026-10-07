@@ -7,6 +7,8 @@
 //      one pickup less, the "+1" notice; the page never gets wider than the viewport
 //   4. refuse: the grant answers max_reached (faked) – the item shakes and stays, the notice says why
 //   5. account page: "Sound effects" volume + "Vibration", kept on this device
+//   6. text box entrances: catpope chapter 2's tap reveal on slice 24 (shiver in the content) is rewritten in the API's
+//      answer to pop / slam / fade / typeOn – the box comes in, slam shakes the slice, the page never gets wider
 // The test user is reset afterwards (npm run dev:test-user -- --reset clears the pickup refs).
 //
 //   node scripts/check-fx.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api] [--page=…] [--shots=<dir>] [--verbose]
@@ -55,11 +57,27 @@ for (let i = 0; i < 50 && !ws; i++) {
 await new Promise((r) => ws.addEventListener('open', r));
 let seq = 0; const pending = new Map(); let lastNet = Date.now();
 let refuseGrants = false;
+/** step 6: the chapter's answer with this effect on the reveal of s1c2-24-2 */
+let rewriteEffect = null;
 const send = (method, params = {}) => new Promise((r) => { const i = ++seq; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 ws.addEventListener('message', (e) => {
 	const m = JSON.parse(e.data);
 	if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return; }
 	if (m.method?.startsWith('Network.')) lastNet = Date.now();
+	// step 6: the chapter's answer with another effect on one reveal
+	if (m.method === 'Fetch.requestPaused' && m.params.responseStatusCode !== undefined) {
+		const { requestId, responseStatusCode, responseHeaders } = m.params;
+		(async () => {
+			if (!rewriteEffect || responseStatusCode !== 200) return send('Fetch.continueResponse', { requestId });
+			const r = await send('Fetch.getResponseBody', { requestId });
+			const text = r.result.base64Encoded ? Buffer.from(r.result.body, 'base64').toString('utf8') : r.result.body;
+			const changed = rewriteEffect.startsWith('fx:')
+				? text.replace(/"type":\s*"showTextBox",\s*"params":\s*\{\s*"effect":\s*"shiver",\s*"dialog":\s*"s1c2-24-2"\s*\}/, () => { const [, effect, target] = rewriteEffect.split(':'); return `"type":"fx","params":{"effect":"${effect}","target":"${target}"}`; })
+				: text.replace(/"effect":\s*"shiver",\s*"dialog":\s*"s1c2-24-2"/, `"effect":"${rewriteEffect}","dialog":"s1c2-24-2"`);
+			send('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: responseHeaders.filter((h) => !/^content-(length|encoding)$/i.test(h.name)), body: Buffer.from(changed).toString('base64') });
+		})();
+		return;
+	}
 	// step 4: the server says "max reached" (the CORS preflight passes)
 	if (m.method === 'Fetch.requestPaused') {
 		const { requestId, request } = m.params;
@@ -71,7 +89,7 @@ ws.addEventListener('message', (e) => {
 });
 const evaluate = async (expression) => { const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); return r.result?.exceptionDetails ? { error: r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails.text } : r.result?.result?.value; };
 await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
-await send('Fetch.enable', { patterns: [{ urlPattern: '*/inventory/grant/*' }] });
+await send('Fetch.enable', { patterns: [{ urlPattern: '*/inventory/grant/*' }, { urlPattern: '*/library/toons/catpope/chapters/2*', requestStage: 'Response' }] });
 await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
 async function idle(quietMs = 700, maxMs = 15000) { const t0 = Date.now(); while (Date.now() - t0 < maxMs) { if (Date.now() - lastNet > quietMs) return; await sleep(100); } }
 async function waitFor(js, ms = 10000) { const t0 = Date.now(); let r; while (Date.now() - t0 < ms) { r = await evaluate(js); if (r && !r.error) return r; await sleep(150); } return null; }
@@ -219,6 +237,57 @@ let alphaReadable = false;
 	}
 	report('account: sound effects volume + vibration, kept on this device', p);
 }
+
+// 6 – text box entrances
+for (const kind of ['pop', 'slam', 'fade', 'typeOn']) {
+	const p = [];
+	rewriteEffect = kind;
+	await open(`${viewer}/de/catpope/chapter/2?label=scene-17-24`);
+	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
+	if (!slice) { report(`entrance ${kind}`, ['slice 24 not found']); continue; }
+	await sleep(800);
+	await evaluate(`window.__fx = { maxW: 0, shook: false }; (function watch() { window.__fx.maxW = Math.max(window.__fx.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations().length) window.__fx.shook = true; const e = document.querySelector('[data-id="s1c2-24-2"] .effect-enter.visible'); if (e && !window.__fx.first) window.__fx.first = { clip: getComputedStyle(e).clipPath, opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }; requestAnimationFrame(watch); })(); true`);
+	await tap(slice.x, slice.y);
+	await sleep(kind === 'slam' ? 120 : 200);
+	await shot(`6-${kind}`);
+	await sleep(1200);
+	const box = await evaluate(`(() => { const d = document.querySelector('[data-id="s1c2-24-2"]'); if (!d) return null; return { enter: !!d.querySelector('.effect-enter'), visible: !!d.querySelector('.effect-enter.visible'), shiver: !!d.querySelector('.effect-shiver') }; })()`);
+	const fx = await evaluate('window.__fx');
+	if (!box) p.push('the text box s1c2-24-2 is not drawn');
+	else if (box.shiver || !box.enter) p.push(`the reveal played ${box.shiver ? 'shiver' : 'no entrance'} – the rewrite didn't apply`);
+	else if (!box.visible) p.push('the box did not come in');
+	if (kind === 'slam' && !fx.shook) p.push('slam: the slice did not shake');
+	// the first frame it is visible: still coming in
+	const first = fx.first ?? {};
+	if (kind === 'typeOn' && !/inset/.test(first.clip ?? '')) p.push(`typeOn: not wiped in (clip ${first.clip})`);
+	if ((kind === 'pop' || kind === 'slam') && (first.transform ?? 'none') === 'none') p.push(`${kind}: no scale at the start`);
+	if (kind === 'fade' && Number(first.opacity ?? 1) >= 1) p.push('fade: fully there at once');
+	if (fx.maxW > 390) p.push(`the page got ${fx.maxW} px wide (viewport 390)`);
+	report(`entrance ${kind}: the box comes in${kind === 'slam' ? ', the slice shakes' : ''}`, p);
+}
+// 7 – the fx event: the same tap runs an impact instead
+for (const [effect, target] of [['shake', 'slice'], ['flash', 'screen'], ['punch', 'screen'], ['vignette', 'slice']]) {
+	const p = [];
+	rewriteEffect = `fx:${effect}:${target}`;
+	await open(`${viewer}/de/catpope/chapter/2?label=scene-17-24`);
+	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
+	if (!slice) { report(`fx ${effect}`, ['slice 24 not found']); continue; }
+	await sleep(800);
+	await evaluate(`window.__fx = { maxW: 0, slice: false, screen: false, cover: false, layer: false }; (function watch() { const f = window.__fx; f.maxW = Math.max(f.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations().length) f.slice = true; if (document.querySelector('.chapter-view')?.getAnimations().length) f.screen = true; if (s && [...s.children].some((c) => c.style?.zIndex === '4')) f.cover = true; if (document.getElementById('sc-fx-layer')?.children.length) f.layer = true; requestAnimationFrame(watch); })(); true`);
+	await tap(slice.x, slice.y);
+	await sleep(effect === 'vignette' ? 500 : 120);
+	await shot(`7-${effect}-${target}`);
+	await sleep(2000);
+	const fx = await evaluate('window.__fx');
+	if (effect === 'shake' && !fx.slice) p.push('the slice did not shake');
+	if (effect === 'punch' && !fx.screen) p.push('the chapter view did not punch');
+	if (effect === 'flash' && !fx.layer) p.push('no flash over the screen');
+	if (effect === 'vignette' && !fx.cover) p.push('no vignette over the slice');
+	if (fx.maxW > 390) p.push(`the page got ${fx.maxW} px wide (viewport 390)`);
+	if ((await evaluate(layerKids)) !== 0) p.push('something stays in the layer');
+	report(`fx ${effect} on the ${target}`, p);
+}
+rewriteEffect = null;
 
 console.log(`\n${passed} ok, ${failed} failed${alphaReadable ? '' : ' (alpha hit-test not checked)'}`);
 await done(failed ? 1 : 0);

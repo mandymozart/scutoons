@@ -731,7 +731,9 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       reveals and impacts as one set of cues (motion + sound + haptic) inside the visible viewport; no external MIDI /
       devices. Plan, rules, phases and open decisions: agents/FX.md. The live performance mode that builds on it:
       agents/LIVE.md (target February 2027, explored in its own session). Phases 1 + 2 built (pickup collect / refuse,
-      nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`); next: entrances + sounds, the `fx` event.
+      nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
+      typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
+      sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
 
 ## Done
 

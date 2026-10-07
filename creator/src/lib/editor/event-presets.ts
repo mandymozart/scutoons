@@ -4,7 +4,7 @@ import { TextBoxEffect, type ShowTextBoxParams } from '@scutoons/content';
  * Reveal presets of a showTextBox event (owner 2026-10-03: "looks horrible to understand … a preset would be useful"): how the revealed
  * text comes in, as one choice. Only existing params; the "Advanced" fold has every field.
  */
-export type RevealPresetId = 'appear' | 'shiver' | 'pulse' | 'wobble' | 'flash';
+export type RevealPresetId = 'appear' | 'shiver' | 'pulse' | 'wobble' | 'flash' | 'pop' | 'slam' | 'fade' | 'typeOn';
 
 export interface RevealPreset {
 	id: RevealPresetId;
@@ -18,7 +18,12 @@ export const REVEAL_PRESETS: RevealPreset[] = [
 	{ id: 'pulse', params: { effect: TextBoxEffect.PULSE } },
 	{ id: 'wobble', params: { effect: TextBoxEffect.WOBBLE } },
 	/** a short shiver, then gone again */
-	{ id: 'flash', params: { effect: TextBoxEffect.SHIVER, duration: 800, stay: false } }
+	{ id: 'flash', params: { effect: TextBoxEffect.SHIVER, duration: 800, stay: false } },
+	/** entrances (agents/FX.md): come in once, with their own sound */
+	{ id: 'pop', params: { effect: TextBoxEffect.POP } },
+	{ id: 'slam', params: { effect: TextBoxEffect.SLAM } },
+	{ id: 'fade', params: { effect: TextBoxEffect.FADE } },
+	{ id: 'typeOn', params: { effect: TextBoxEffect.TYPE_ON } }
 ];
 
 /** the timing params a preset owns (the text, mode and wait stay) */

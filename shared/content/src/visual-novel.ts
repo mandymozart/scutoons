@@ -1,6 +1,7 @@
 import type { JumpToTarget } from './content.ts';
 import type { TextBoxEffect, Trigger, TriggerMode } from './enums.ts';
 import type { Repeat } from './recurrence.ts';
+import type { FxImpact, FxSoundChoice } from './fx.ts';
 
 /**
  * One mood of a character in its three views (framings). "View" is the term in the UI (never "variant", which would be
@@ -269,11 +270,34 @@ export interface ShowTextBoxParams {
 	wait?: boolean;
 	/** after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`) */
 	stay?: boolean;
+	/** the sound when it appears (agents/FX.md): none = the effect's own (pop, slam, fade, typeOn have one), `none` = silent */
+	sound?: FxSoundChoice;
 }
 
 export interface VNShowTextBoxEvent {
 	type: 'showTextBox';
 	params: ShowTextBoxParams;
+}
+
+/**
+ * An impact (agents/FX.md): the slice shakes, flashes white, zooms in and out quickly, or dark edges close in – with its
+ * sound. Everything stays inside the visible screen: nothing scrolls or jumps.
+ */
+export interface FxParams {
+	effect: FxImpact;
+	/** `slice` (default) = the slice in view (a slice's own event: that slice), `screen` = the whole screen */
+	target?: 'slice' | 'screen';
+	/** ms (default per effect: shake 450, flash 420, punch 380, vignette 1600; at most 3000) */
+	duration?: number;
+	/** none = the effect's own sound (boom, zap, thud, hum), `none` = silent */
+	sound?: FxSoundChoice;
+	/** the script waits until it is over */
+	wait?: boolean;
+}
+
+export interface VNFxEvent {
+	type: 'fx';
+	params: FxParams;
 }
 
 /**
@@ -332,6 +356,7 @@ export type VNEvent = (
 	| VNLeaveSceneEvent
 	| VNHideMessageEvent
 	| VNShowTextBoxEvent
+	| VNFxEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

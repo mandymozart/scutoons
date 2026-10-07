@@ -1115,6 +1115,30 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "fx"
+						},
+						"params": {
+							"$ref": "#/definitions/FxParams"
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
 							"const": "jumpTo"
 						},
 						"params": {
@@ -1787,6 +1811,10 @@
 				"stay": {
 					"type": "boolean",
 					"description": "after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`)"
+				},
+				"sound": {
+					"$ref": "#/definitions/FxSoundChoice",
+					"description": "the sound when it appears (agents/FX.md): none = the effect's own (pop, slam, fade, typeOn have one), `none` = silent"
 				}
 			},
 			"required": [
@@ -1800,7 +1828,80 @@
 				"none",
 				"shiver",
 				"pulse",
-				"wobble"
+				"wobble",
+				"pop",
+				"slam",
+				"fade",
+				"typeOn"
+			]
+		},
+		"FxSoundChoice": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/FxSoundName"
+				},
+				{
+					"type": "string",
+					"const": "none"
+				}
+			],
+			"description": "a sound choice in content: one of the sounds, or `none` (none set = the effect's own)"
+		},
+		"FxSoundName": {
+			"type": "string",
+			"enum": [
+				"pling",
+				"whoosh",
+				"thunk",
+				"tick",
+				"pop",
+				"thud",
+				"soft",
+				"key",
+				"zap",
+				"boom",
+				"hum"
+			]
+		},
+		"FxParams": {
+			"type": "object",
+			"properties": {
+				"effect": {
+					"$ref": "#/definitions/FxImpact"
+				},
+				"target": {
+					"type": "string",
+					"enum": [
+						"slice",
+						"screen"
+					],
+					"description": "`slice` (default) = the slice in view (a slice's own event: that slice), `screen` = the whole screen"
+				},
+				"duration": {
+					"type": "number",
+					"description": "ms (default per effect: shake 450, flash 420, punch 380, vignette 1600; at most 3000)"
+				},
+				"sound": {
+					"$ref": "#/definitions/FxSoundChoice",
+					"description": "none = the effect's own sound (boom, zap, thud, hum), `none` = silent"
+				},
+				"wait": {
+					"type": "boolean",
+					"description": "the script waits until it is over"
+				}
+			},
+			"required": [
+				"effect"
+			],
+			"description": "An impact (agents/FX.md): the slice shakes, flashes white, zooms in and out quickly, or dark edges close in – with its sound. Everything stays inside the visible screen: nothing scrolls or jumps."
+		},
+		"FxImpact": {
+			"type": "string",
+			"enum": [
+				"shake",
+				"flash",
+				"punch",
+				"vignette"
 			]
 		},
 		"AskTextScope": {
@@ -2116,6 +2217,38 @@
 						},
 						"params": {
 							"$ref": "#/definitions/ShowTextBoxParams"
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number",
+							"description": "a click / hover area's place in the slice's ONE layer stack (layers.ts, BACKLOG 10.54): higher = in front (drawn on top, gets the tap / hover first); the events sharing the trigger carry the same number. None = the old order."
+						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "fx"
+						},
+						"params": {
+							"$ref": "#/definitions/FxParams"
 						}
 					},
 					"required": [

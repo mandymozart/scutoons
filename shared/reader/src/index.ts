@@ -18,6 +18,6 @@ export { default as CreditsColophon } from './credits/credits-colophon.svelte';
 export { default as CoverArt } from './cover/cover-art.svelte';
 export { MapViewport, mapGestures, type MapGestureOptions } from './map/viewport.svelte.ts';
 export { default as MapRoutes, type DrawnRoute } from './map/map-routes.svelte';
-export { configureFx, playFxSound, buzz, isFxSound, FX_SOUNDS, type FxSound, type FxOutput } from './fx/sounds.ts';
+export { configureFx, playFxSound, playRevealSound, buzz, isFxSound, FX_SOUNDS, type FxSound, type FxOutput } from './fx/sounds.ts';
 export { fxLayer, liftCue, refuseCue, nudgeCue, sparkles, impactCue, IMPACTS, IMPACT_DEFAULT_MS, type Impact, type Lift } from './fx/cues.ts';
 export { loadShape, type Shape } from './fx/shape.ts';

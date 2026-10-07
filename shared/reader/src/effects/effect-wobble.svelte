@@ -2,16 +2,21 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import type { FxSoundChoice } from '@scutoons/content';
+	import { playRevealSound } from '../fx/sounds.ts';
 
 	let {
 		duration = 1000,
 		delay = 0,
 		onComplete,
+		sound,
 		children
 	}: {
 		duration?: number;
 		delay?: number;
 		onComplete: () => void;
+		/** the event's sound when it appears (none = silent for this effect) */
+		sound?: FxSoundChoice;
 		children: Snippet;
 	} = $props();
 
@@ -22,6 +27,7 @@
 	onMount(() => {
 		const delayTimer = setTimeout(() => {
 			visible = true;
+			playRevealSound(sound);
 			playing = true;
 
 			const durationTimer = setTimeout(() => {

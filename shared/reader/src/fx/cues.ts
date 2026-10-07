@@ -1,3 +1,4 @@
+import { FX_IMPACTS, type FxImpact } from '@scutoons/content';
 import { buzz, playFxSound, type FxSound } from './sounds.ts';
 import { frameOf, toScreen, type Shape } from './shape.ts';
 
@@ -26,12 +27,29 @@ export function fxLayer(): HTMLElement {
 const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 const imgOf = (el: HTMLElement) => (el instanceof HTMLImageElement ? el : el.querySelector('img')) ?? el;
 
-/** the viewport's content may move (a screen shake) without a horizontal scrollbar while it does */
-function clipViewport(ms: number) {
-	const root = document.documentElement;
-	const before = root.style.overflowX;
-	root.style.overflowX = 'clip';
-	setTimeout(() => (root.style.overflowX = before), ms + 50);
+/**
+ * `el` moves sideways for `ms` (a shake, a punch): its parent clips it meanwhile, so the page never gets wider – a
+ * clip, not a scroll container (sticky and fixed children keep working). Overlapping impacts share one clip.
+ */
+const clipping = new WeakMap<HTMLElement, { count: number; before: string }>();
+function holdClip(el: HTMLElement | null): () => void {
+	const parent = el?.parentElement;
+	if (!parent) return () => {};
+	const held = clipping.get(parent) ?? { count: 0, before: parent.style.overflowX };
+	held.count++;
+	clipping.set(parent, held);
+	parent.style.overflowX = 'clip';
+	let released = false;
+	return () => {
+		if (released) return;
+		released = true;
+		if (--held.count > 0) return;
+		parent.style.overflowX = held.before;
+		clipping.delete(parent);
+	};
+}
+function clipAround(el: HTMLElement, ms: number) {
+	setTimeout(holdClip(el), ms + 50);
 }
 
 export interface Lift {
@@ -58,6 +76,8 @@ export function liftCue(el: HTMLElement, rotation = 0): Lift {
 	);
 	playFxSound('pop');
 	buzz(12);
+	// lifted (1.22×) near the slice's edge while the grant asks: its slice's parent clips meanwhile
+	const release = holdClip(el.closest<HTMLElement>('[data-slice-index], .slice') ?? el);
 
 	return {
 		fly(target, sound = 'pling') {
@@ -70,6 +90,7 @@ export function liftCue(el: HTMLElement, rotation = 0): Lift {
 				Object.assign(fly.style, { position: 'absolute', left: '0', top: '0', width: `${f.w}px`, height: `${f.h}px`, objectFit: 'contain', willChange: 'transform' });
 				fxLayer().appendChild(fly);
 				anim.cancel();
+				release();
 				el.style.visibility = 'hidden';
 
 				const vw = window.innerWidth;
@@ -112,9 +133,11 @@ export function liftCue(el: HTMLElement, rotation = 0): Lift {
 		refuse() {
 			anim.cancel();
 			refuseCue(el, rotation);
+			setTimeout(release, 450);
 		},
 		drop() {
 			anim.cancel();
+			release();
 		}
 	};
 }
@@ -171,6 +194,7 @@ export function sparkles(el: HTMLElement, rotation: number, shape: Shape | null,
 
 /** "you can tap me": one wiggle with sparkles on its outline and a soft tick (the app decides when – once per visit) */
 export function nudgeCue(el: HTMLElement, rotation: number, shape: Shape | null) {
+	clipAround(el.closest<HTMLElement>('[data-slice-index], .slice') ?? el, 700);
 	el.animate(
 		[0, -12, 10, -7, 4, 0].map((r, i) => ({ transform: `rotate(${rotation + r}deg) scale(${i === 1 || i === 2 ? 1.08 : 1})` })),
 		{ duration: 700, easing: 'ease-in-out' }
@@ -180,8 +204,8 @@ export function nudgeCue(el: HTMLElement, rotation: number, shape: Shape | null)
 	setTimeout(() => playFxSound('tick'), 140);
 }
 
-export const IMPACTS = ['shake', 'flash', 'punch', 'vignette'] as const;
-export type Impact = (typeof IMPACTS)[number];
+export const IMPACTS = FX_IMPACTS;
+export type Impact = FxImpact;
 
 const IMPACT_SOUND: Record<Impact, FxSound> = { shake: 'boom', flash: 'zap', punch: 'thud', vignette: 'hum' };
 export const IMPACT_DEFAULT_MS: Record<Impact, number> = { shake: 450, flash: 420, punch: 380, vignette: 1600 };
@@ -215,11 +239,11 @@ export function impactCue(kind: Impact, options: { slice?: HTMLElement | null; s
 	playFxSound(options.sound === undefined ? IMPACT_SOUND[kind] : options.sound);
 	if (kind === 'shake') {
 		buzz(80);
-		clipViewport(ms);
+		clipAround(slice ?? screen, ms);
 		shake(slice ?? screen, (slice ? 0.55 : 0.75) * rem(), ms);
 	} else if (kind === 'punch') {
 		buzz(35);
-		clipViewport(ms);
+		clipAround(slice ?? screen, ms);
 		(slice ?? screen).animate([{ transform: 'scale(1)' }, { transform: `scale(${slice ? 1.08 : 1.04})`, offset: 0.25 }, { transform: 'scale(1)' }], {
 			duration: ms,
 			easing: 'cubic-bezier(.2,.8,.3,1)'

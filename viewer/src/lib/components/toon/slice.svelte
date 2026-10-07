@@ -177,6 +177,7 @@
 		return {
 			key: active.id,
 			effect: active.effect,
+			sound: active.sound,
 			// the limits of a showTextBox event's timing (ShowTextBoxParams)
 			duration: sanitizeNumber(active.duration ?? 2000, 2000, 0, 5000),
 			delay: sanitizeNumber(active.delay ?? 0, 0, 0, 5000),

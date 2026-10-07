@@ -6,8 +6,10 @@
  * still locked (no tap yet – a scroll-fired cue) stays silent: the browser only unlocks audio on a gesture.
  */
 
-export const FX_SOUNDS = ['pling', 'whoosh', 'thunk', 'tick', 'pop', 'thud', 'soft', 'key', 'zap', 'boom', 'hum'] as const;
-export type FxSound = (typeof FX_SOUNDS)[number];
+import { FX_SOUNDS, type FxSoundChoice, type FxSoundName } from '@scutoons/content';
+
+export { FX_SOUNDS };
+export type FxSound = FxSoundName;
 
 export function isFxSound(value: unknown): value is FxSound {
 	return typeof value === 'string' && (FX_SOUNDS as readonly string[]).includes(value);
@@ -144,6 +146,12 @@ export function playFxSound(sound: FxSound | null | undefined) {
 	} catch {
 		/* a closed context: no sound */
 	}
+}
+
+/** a reveal's sound: the content's choice (`none` = silent), else the effect's own */
+export function playRevealSound(choice: FxSoundChoice | undefined, own?: FxSound) {
+	if (choice === 'none') return;
+	playFxSound(choice ?? own);
 }
 
 /** a short vibration (phones; the account's "Vibration" switch) */

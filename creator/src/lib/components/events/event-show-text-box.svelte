@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Segmented } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { getAt, TextBoxEffect, TriggerMode, type Path } from '@scutoons/content';
+	import { FX_SOUNDS, getAt, TextBoxEffect, TriggerMode, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { REVEAL_PRESETS, applyRevealPreset, matchRevealPreset, type RevealPreset } from '$lib/editor/event-presets.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
@@ -48,8 +48,14 @@
 		{ value: TextBoxEffect.NONE, label: m['creator.reveal_effect_none']() },
 		{ value: TextBoxEffect.SHIVER, label: m['creator.reveal_preset_shiver']() },
 		{ value: TextBoxEffect.PULSE, label: m['creator.reveal_preset_pulse']() },
-		{ value: TextBoxEffect.WOBBLE, label: m['creator.reveal_preset_wobble']() }
+		{ value: TextBoxEffect.WOBBLE, label: m['creator.reveal_preset_wobble']() },
+		{ value: TextBoxEffect.POP, label: m['creator.reveal_preset_pop']() },
+		{ value: TextBoxEffect.SLAM, label: m['creator.reveal_preset_slam']() },
+		{ value: TextBoxEffect.FADE, label: m['creator.reveal_preset_fade']() },
+		{ value: TextBoxEffect.TYPE_ON, label: m['creator.reveal_preset_typeOn']() }
 	];
+	/** the sound when it appears (agents/FX.md): the effect's own (placeholder), silent or one of the reader's sounds */
+	const soundOptions = () => [{ value: 'none', label: m['creator.fx_sound_none']() }, ...FX_SOUNDS.map((s) => ({ value: s, label: m[`creator.fx_sound_${s}`]() }))];
 	const preset = $derived(matchRevealPreset(event.params));
 
 	/** the reveal preset (effect + timing); the text and mode / wait stay */
@@ -82,6 +88,9 @@
 	onchange={(id) => setPreset(REVEAL_PRESETS.find((p) => p.id === id)!)}
 	options={REVEAL_PRESETS.map((p) => ({ value: p.id, label: m[`creator.reveal_preset_${p.id}`](), testid: `reveal-preset-${p.id}` }))}
 />
+<div class="sc-fields" data-cols="3" data-density="dense" data-align="end">
+	<PropField {doc} path={[...path, 'params', 'sound']} label={m['creator.fx_sound']()} type="select" options={soundOptions()} placeholder={m['creator.fx_sound_own']()} />
+</div>
 <details class="advanced">
 	<summary>{m['creator.advanced']()}</summary>
 	{#if box}<p class="hint">{m['creator.reveal_box_hint']()}</p>{/if}

@@ -1,4 +1,4 @@
-import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, GIVE_ITEM_MAX, evaluateText, isStoryPath, labelIndex, testCondition, type ExprResolver, type ExprValue, type JumpToTarget, type VNEvent } from '@scutoons/content';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, GIVE_ITEM_MAX, evaluateText, isStoryPath, labelIndex, testCondition, type ExprResolver, type ExprValue, type FxParams, type JumpToTarget, type VNEvent } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 /**
@@ -34,6 +34,8 @@ export interface RunnerVn {
 	setTextBoxResolver(resolver: () => void): void;
 	whenNoRun(): Promise<void>;
 	runHolds(): boolean;
+	/** an impact (`fx`, agents/FX.md): plays it, returns how long it lasts (ms) – none: not drawn here (tests) */
+	playFx?(params: FxParams, scope?: string): number;
 }
 
 /** what the runner needs of the game state */
@@ -229,6 +231,17 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 					if (wait) {
 						jumpsWithoutWait = 0;
 						await new Promise<void>((resolve) => vn.setTextBoxResolver(resolve));
+					}
+					break;
+				}
+
+				case 'fx': {
+					// an impact – it ends by itself, so waiting for it is never a dead end
+					const ms = vn.playFx?.(event.params, deps.scope ?? '') ?? 0;
+					if (event.params.wait && ms > 0) {
+						jumpsWithoutWait = 0;
+						await new Promise((resolve) => setTimeout(resolve, ms));
+						if (cancelled()) return 'cancelled';
 					}
 					break;
 				}

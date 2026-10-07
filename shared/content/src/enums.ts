@@ -40,6 +40,14 @@ export enum TextBoxEffect {
 	SHIVER = "shiver",
 	PULSE = "pulse",
 	WOBBLE = "wobble",
+	/** entrances (agents/FX.md): grows from nothing with an overshoot */
+	POP = "pop",
+	/** falls in from 3× size and lands with a thud, the slice shakes */
+	SLAM = "slam",
+	/** a soft blur-in */
+	FADE = "fade",
+	/** wiped in from the left with small key clicks */
+	TYPE_ON = "typeOn",
 }
 
 export enum JumpToTargetType {

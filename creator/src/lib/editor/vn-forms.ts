@@ -1,6 +1,7 @@
 // The VN event forms' pure parts (COMPONENTS.md step 8): the types with a form, a new event per type, the one-line
 // summary, choice actions, conditions in words, the trigger words, and the cast rows' look / mood options.
 import {
+	FX_IMPACTS,
 	REGULAR_PERSONA,
 	Trigger,
 	actionsOf,
@@ -16,6 +17,7 @@ import {
 	resolveCharacterId,
 	scriptLabels,
 	sortedMoods,
+	type FxImpact,
 	type Path
 } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
@@ -23,7 +25,7 @@ import { matchRevealPreset } from '$lib/editor/event-presets.ts';
 import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
 /** the types the editor has a form for (another type is only named, to remove) */
-export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'askText', 'jumpTo', 'showTextBox', 'joinScene', 'leaveScene', 'label', 'divert', 'giveItem', 'takeItem', 'setVariable'];
+export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'askText', 'jumpTo', 'showTextBox', 'fx', 'joinScene', 'leaveScene', 'label', 'divert', 'giveItem', 'takeItem', 'setVariable'];
 
 /** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
 export const viewSlots = () => [
@@ -45,6 +47,9 @@ export function template(type: string, ctx: { firstCharacter?: string; events: a
 		case 'showTextBox':
 			// the text box is picked (or created) in the form
 			return { type, params: { effect: 'shiver' } };
+		case 'fx':
+			// an impact on the slice in view (agents/FX.md)
+			return { type, params: { effect: 'shake' } };
 		case 'joinScene':
 		case 'leaveScene':
 			return { type, params: { characters: [{ character: ctx.firstCharacter ?? '', persona: 'regular', ...(type === 'joinScene' ? { variant: 'avatar' } : {}) }] } };
@@ -158,6 +163,8 @@ export function summary(event: any, chain: readonly string[] = [], boxes: { id: 
 			const box = p.dialog ? (boxes.find((b) => b.id === p.dialog)?.label ?? m['creator.reveal_box_missing']()) : '';
 			return [box, preset ? m[`creator.reveal_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
 		}
+		case 'fx':
+			return [(FX_IMPACTS as readonly string[]).includes(p.effect) ? m[`creator.fx_effect_${p.effect as FxImpact}`]() : String(p.effect ?? ''), p.target === 'screen' ? m['creator.fx_target_screen']() : ''].filter(Boolean).join(' · ');
 		default:
 			// joinScene / leaveScene: the avatars say who
 			return '';

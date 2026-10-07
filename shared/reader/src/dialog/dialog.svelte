@@ -7,6 +7,7 @@
 	import EffectShiver from '../effects/effect-shiver.svelte';
 	import EffectPulse from '../effects/effect-pulse.svelte';
 	import EffectWobble from '../effects/effect-wobble.svelte';
+	import EffectEnter from '../effects/effect-enter.svelte';
 
 	/**
 	 * One text box. `play` = a showTextBox event is revealing it right now (`params.dialog`): the box appears with the
@@ -28,12 +29,15 @@
 		lang?: string;
 	} = $props();
 
-	const EFFECTS = {
+	const EFFECTS: Partial<Record<TextBoxEffect, typeof EffectNone>> = {
 		[TextBoxEffect.NONE]: EffectNone,
 		[TextBoxEffect.SHIVER]: EffectShiver,
 		[TextBoxEffect.PULSE]: EffectPulse,
 		[TextBoxEffect.WOBBLE]: EffectWobble
 	};
+	/** the entrances (agents/FX.md): one component, the kind decides */
+	const ENTRANCES = [TextBoxEffect.POP, TextBoxEffect.SLAM, TextBoxEffect.FADE, TextBoxEffect.TYPE_ON] as const;
+	type Entrance = (typeof ENTRANCES)[number];
 	const Effect = $derived(play ? (EFFECTS[play.effect ?? TextBoxEffect.NONE] ?? EffectNone) : null);
 
 	/** Smallest scale the auto-fit pass may shrink the font to before it lets the text overflow. */
@@ -176,9 +180,15 @@
 >
 	{#if play && Effect}
 		{#key play.key}
-			<Effect duration={play.duration} delay={play.delay} onComplete={() => play?.onComplete()}>
-				{@render body()}
-			</Effect>
+			{#if ENTRANCES.includes(play.effect as Entrance)}
+				<EffectEnter kind={play.effect as Entrance} duration={play.duration} delay={play.delay} sound={play.sound} onComplete={() => play?.onComplete()}>
+					{@render body()}
+				</EffectEnter>
+			{:else}
+				<Effect duration={play.duration} delay={play.delay} sound={play.sound} onComplete={() => play?.onComplete()}>
+					{@render body()}
+				</Effect>
+			{/if}
 		{/key}
 	{:else}
 		{@render body()}

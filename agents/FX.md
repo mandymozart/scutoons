@@ -51,6 +51,20 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
   "Show hints" draws the cut-out's contour. Account page "Soundeffekte": volume (0–100 %, "Anhören") + "Vibration",
   on this device (localStorage `scutoons_fx_volume` / `scutoons_fx_haptics`; members and guests). Check:
   `npm run check:fx` (headless; nudge, alpha miss, collect, refuse with a faked max_reached, account).
+- Phase 3 (2026-10-07): text box entrances `pop` / `slam` / `fade` / `typeOn` (`TextBoxEffect`; reader
+  `effects/effect-enter.svelte` – slam lands with a thud and shakes its slice through `impactCue`, typeOn wipes in one
+  step per letter with key clicks) and `ShowTextBoxParams.sound` (`@scutoons/content` fx.ts `FX_SOUNDS`: none set = the
+  effect's own – pop / thud / soft / key clicks for the entrances, nothing for the old ones –, `none` = silent; validated).
+  Creator: four more "How it comes in" presets + a "Sound" select under them. No migration: new optional values only.
+  Still open from phase 3: an item's own pickup sound in the catalog (`ItemDef.sound`) – the pickup plays "pling".
+- Phase 4 (2026-10-07): the VN event `fx` – `{ type: "fx", params: { effect: shake | flash | punch | vignette, target?:
+  slice | screen, duration? (ms, ≤ 3000), sound?, wait? } }` (`@scutoons/content` `FX_IMPACTS`, validated, schemas
+  regenerated; no migration – a new type). Viewer: the script runner calls the VN context's `playFx` – `slice` = the slice
+  across the screen's middle (a slice's own event is normally that one), `screen` = `.chapter-view`; `wait` waits for
+  its length (it ends by itself – no dead end). Whatever moves sideways is clipped by its parent meanwhile (also a lifted
+  / refused / nudged pickup), so the page never gets wider. Creator: `fx` in the event list (effect, on, sound, duration,
+  wait, ▶ on the slice canvas). `npm run check:fx` 13/13 (+ the four impacts by rewriting the slice-24 tap in the API
+  answer).
 
 **Phases**
 1. `pickup.collect` + `pickup.refuse` with default sounds – viewer only, no data change.

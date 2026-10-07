@@ -1266,6 +1266,10 @@
 				"stay": {
 					"type": "boolean",
 					"description": "after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`)"
+				},
+				"sound": {
+					"$ref": "#/definitions/FxSoundChoice",
+					"description": "the sound when it appears (agents/FX.md): none = the effect's own (pop, slam, fade, typeOn have one), `none` = silent"
 				}
 			},
 			"required": [
@@ -1279,7 +1283,11 @@
 				"none",
 				"shiver",
 				"pulse",
-				"wobble"
+				"wobble",
+				"pop",
+				"slam",
+				"fade",
+				"typeOn"
 			]
 		},
 		"TriggerMode": {
@@ -1287,6 +1295,34 @@
 			"enum": [
 				"mono",
 				"poly"
+			]
+		},
+		"FxSoundChoice": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/FxSoundName"
+				},
+				{
+					"type": "string",
+					"const": "none"
+				}
+			],
+			"description": "a sound choice in content: one of the sounds, or `none` (none set = the effect's own)"
+		},
+		"FxSoundName": {
+			"type": "string",
+			"enum": [
+				"pling",
+				"whoosh",
+				"thunk",
+				"tick",
+				"pop",
+				"thud",
+				"soft",
+				"key",
+				"zap",
+				"boom",
+				"hum"
 			]
 		},
 		"AskTextScope": {

@@ -1,4 +1,4 @@
-import type { ExprResolver, TextBoxEffect, ShowTextBoxParams, TriggerMode } from '@scutoons/content';
+import type { ExprResolver, FxSoundChoice, TextBoxEffect, ShowTextBoxParams, TriggerMode } from '@scutoons/content';
 
 /** A showTextBox event playing right now (its text box is drawn by the slice): the params + the VN player's runtime bits. */
 export interface ActiveTextBox extends Omit<ShowTextBoxParams, 'wait' | 'mode'> {
@@ -17,6 +17,8 @@ export interface DialogPlay {
 	effect?: TextBoxEffect;
 	duration?: number;
 	delay?: number;
+	/** the event's sound when it appears (agents/FX.md; none = the effect's own, `none` = silent) */
+	sound?: FxSoundChoice;
 	onComplete: () => void;
 }
 

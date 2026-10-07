@@ -1,7 +1,9 @@
 import { setContext, getContext, type Snippet } from 'svelte';
 import type { Character, VNChoice, VNEvent, Message, VNCharacterRef, SceneCharacter } from '@scutoons/content';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, legacyTransition, normalizeSceneRef } from '@scutoons/content';
-import type { ShowTextBoxParams } from '@scutoons/content';
+import type { FxParams, ShowTextBoxParams } from '@scutoons/content';
+import { FX_IMPACTS, FX_MAX_DURATION } from '@scutoons/content';
+import { IMPACT_DEFAULT_MS, impactCue } from '@scutoons/reader';
 import type { TriggerMode } from '@scutoons/content';
 import type { ActiveTextBox } from '@scutoons/reader';
 import type { JumpToTarget } from '@scutoons/content';
@@ -216,6 +218,35 @@ export function createVisualNovelContext() {
 	}
 
 
+	/**
+	 * An impact (`fx`, agents/FX.md) on the slice in view (the one across the screen's middle; none: the most visible) or
+	 * the whole chapter view; returns its length (ms) for `wait`. Unknown effects play nothing (the validation flags them).
+	 */
+	function playFx(params: FxParams): number {
+		if (typeof document === 'undefined' || !(FX_IMPACTS as readonly string[]).includes(params?.effect)) return 0;
+		const ms = Math.min(FX_MAX_DURATION, Math.max(50, Number(params.duration) || IMPACT_DEFAULT_MS[params.effect]));
+		impactCue(params.effect, {
+			slice: params.target === 'screen' ? null : sliceInView(),
+			screen: document.querySelector<HTMLElement>('.chapter-view'),
+			sound: params.sound === 'none' ? null : params.sound,
+			duration: ms
+		});
+		return ms;
+	}
+
+	function sliceInView(): HTMLElement | null {
+		const middle = window.innerHeight / 2;
+		let best: HTMLElement | null = null;
+		let seen = 0;
+		for (const el of document.querySelectorAll<HTMLElement>('[data-slice-index]')) {
+			const r = el.getBoundingClientRect();
+			if (r.top <= middle && r.bottom >= middle) return el;
+			const visible = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+			if (visible > seen) [best, seen] = [el, visible];
+		}
+		return best;
+	}
+
 	/** Reveals the event's text box (`params.dialog`); an event without one shows nothing (the validation flags it). */
 	function showTextBox(params: ShowTextBoxParams, scope = ''): boolean {
 		if (typeof params?.dialog !== 'string' || !params.dialog) {
@@ -425,6 +456,7 @@ export function createVisualNovelContext() {
 		takePendingDivert: box.takePendingDivert,
 		isNavigationTriggered: box.isNavigationTriggered,
 		showTextBox,
+		playFx,
 		registerDialogRefs,
 		dialogHidden,
 		dialogPlaying,

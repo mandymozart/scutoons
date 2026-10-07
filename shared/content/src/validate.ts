@@ -10,6 +10,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
+import { FX_IMPACTS, FX_MAX_DURATION, FX_SOUNDS, isFxSoundChoice } from './fx.ts';
 import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
@@ -79,7 +80,7 @@ const repeatWords = (rule: unknown) => {
 	const r = repeatOf(rule);
 	return r.mode === 'once' ? 'once for good' : r.mode === 'interval' ? `every ${JSON.stringify(r.every)}` : r.mode;
 };
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'takeItem', 'askText'];
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'fx', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'takeItem', 'askText'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -531,6 +532,17 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.mode !== undefined && !values(TriggerMode).includes(p.mode)) c.error([...pp, 'mode'], 'mode must be mono or poly');
 				if (p.wait !== undefined && typeof p.wait !== 'boolean') c.error([...pp, 'wait'], 'wait must be true/false');
 				if (p.stay !== undefined && typeof p.stay !== 'boolean') c.error([...pp, 'stay'], 'stay must be true/false');
+				if (p.sound !== undefined && !isFxSoundChoice(p.sound)) c.error([...pp, 'sound'], `sound must be none or one of ${FX_SOUNDS.join(', ')}`);
+			}
+			break;
+		case 'fx':
+			// an impact (agents/FX.md)
+			if (!isObj(p) || !(FX_IMPACTS as readonly unknown[]).includes(p.effect)) c.error([...pp, 'effect'], `fx needs params.effect: one of ${FX_IMPACTS.join(', ')}`);
+			if (isObj(p)) {
+				if (p.target !== undefined && p.target !== 'slice' && p.target !== 'screen') c.error([...pp, 'target'], 'target must be slice or screen');
+				if (p.duration !== undefined && (!isNum(p.duration) || p.duration <= 0 || p.duration > FX_MAX_DURATION)) c.warn([...pp, 'duration'], `duration is 1 … ${FX_MAX_DURATION} ms (the reader caps it)`);
+				if (p.sound !== undefined && !isFxSoundChoice(p.sound)) c.error([...pp, 'sound'], `sound must be none or one of ${FX_SOUNDS.join(', ')}`);
+				if (p.wait !== undefined && typeof p.wait !== 'boolean') c.error([...pp, 'wait'], 'wait must be true/false');
 			}
 			break;
 	}

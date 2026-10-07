@@ -18,6 +18,7 @@
 	import EventChoice from '$lib/components/events/event-choice.svelte';
 	import EventFlow from '$lib/components/events/event-flow.svelte';
 	import EventShowTextBox from '$lib/components/events/event-show-text-box.svelte';
+	import EventFx from '$lib/components/events/event-fx.svelte';
 	import EventCast from '$lib/components/events/event-cast.svelte';
 	import EventCondition from '$lib/components/events/event-condition.svelte';
 	import EventTrigger from '$lib/components/events/event-trigger.svelte';
@@ -318,6 +319,8 @@
 					<div class="sc-fields" data-cols="3" data-density="panel"><GiveItemField {doc} path={[...p, 'params']} take testid="event-{i}-take" /></div>
 				{:else if event.type === 'showTextBox'}
 					<EventShowTextBox {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
+				{:else if event.type === 'fx'}
+					<EventFx {doc} path={p} {event} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
 				{/if}
