@@ -485,11 +485,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **O – production:** run `2026-10-07-give-item.mysql.sql` in phpMyAdmin **together with** the viewer + creator
       + API deploy (an old viewer doesn't know `give` – a choice would give nothing; the new one doesn't grant on
       `add`). Check first: the header's SELECT; afterwards it answers nothing.
-- [ ] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30)_.
-      _(2026-10-07, re-checked: still in the PUBLISHED versions of scene:catpope:2:scene-14 (neutral 201, de 127, en 128)
-      and older drafts – stored with spaces (`"type": "end"`, an end with a jump to scene-20), so a first search for the
-      compact form missed it; content:check and the new `setup` command report them. The same case as 10.37's known one
-      – decided with 10.35 (the scene-20 jump).)_
 - [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
       anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
       portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
@@ -542,6 +537,12 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
 ## Done
 
+- [x] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30)_.
+      _(2026-10-07, re-checked: still in the PUBLISHED versions of scene:catpope:2:scene-14 (neutral 201, de 127, en 128)
+      and older drafts – stored with spaces (`"type": "end"`, an end with a jump to scene-20), so a first search for the
+      compact form missed it; content:check and the new `setup` command report them. The same case as 10.37's known one
+      – decided with 10.35 (the scene-20 jump).)_
+      _(closed 2026-10-07, owner: "only configuration – a test scene"; the owner fixes it in the local DB.)_
 - [x] M.2 **Reader: the page jumps when animations fire** – e.g. when a showTextBox effect fires, the page jumps oddly.
       _(2026-10-07, not reproduced: the effects are transforms inside the absolutely placed box (no layout change);
       scrolling catpope ch2 at 390 px recorded no layout shift and no scroll jump; a slice's showTextBox click
