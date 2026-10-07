@@ -66,6 +66,7 @@
 	import ProblemsDock from '$lib/components/page/problems-dock.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FlowDock from '$lib/components/flow/flow-dock.svelte';
+	import ReaderDock from '$lib/components/reader/reader-dock.svelte';
 	import LiveChip from '$lib/components/status/live-chip.svelte';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
 	import { toast } from '$lib/toasts.ts';
@@ -78,6 +79,8 @@
 	const panelSize = dockWidth('chapter', 16); // normal = --tool-panel-width
 	// the Flow panel's graph needs more room from the start (owner 2026-10-06: drags wider up to half the window too)
 	const flowSize = flowWidth();
+	// the Reader (BACKLOG 10.49): a phone screen reads well from 24rem
+	const readerSize = dockWidth('reader', 24);
 	// the slice inspector: a right region of the editor's main area (agents/DOCKING.md) – its Divider drags it from its
 	// normal 22rem up to half the area (owner 2026-10-03), remembered; under 1280px it sits below the canvas
 	let columnsEl = $state<HTMLElement>();
@@ -311,12 +314,18 @@
 	});
 	// the Flow / Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); `?flow=1`
 	// (a deep link) opens the Flow
-	let panel = $state<'problems' | 'history' | 'flow' | null>(
-		page.url.searchParams.get('flow') === '1' || shellDock.has('flow') ? 'flow' : shellDock.has('problems') ? 'problems' : null
+	let panel = $state<'problems' | 'history' | 'flow' | 'reader' | null>(
+		page.url.searchParams.get('flow') === '1' || shellDock.has('flow')
+			? 'flow'
+			: shellDock.has('problems')
+				? 'problems'
+				: shellDock.has('reader')
+					? 'reader'
+					: null
 	);
 	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds. The
 	// Flow and Problems are mounted by the shell (`kind` + `content`): the next page of the same kind takes them over
-	const PANELS = { problems: { icon: 'alert-triangle', title: () => m['creator.problems']() }, history: { icon: 'clock', title: () => m['creator.history']() }, flow: { icon: 'git-merge', title: () => m['creator.flow']() } };
+	const PANELS = { problems: { icon: 'alert-triangle', title: () => m['creator.problems']() }, history: { icon: 'clock', title: () => m['creator.history']() }, flow: { icon: 'git-merge', title: () => m['creator.flow']() }, reader: { icon: 'smartphone', title: () => m['creator.reader']() } };
 	const flowProps = () => ({
 		input: {
 			level: 'chapter' as const,
@@ -336,15 +345,29 @@
 		},
 		onclose: () => (panel = null)
 	});
+	// the Reader (UI-CONCEPTS E.6): the viewer's draft preview at the open group / slice (the chapter's start on its meta /
+	// audio), in the text language when the reader has it (de / en), else the first it has
+	const readerLocale = $derived(displayLocale === 'de' || displayLocale === 'en' ? displayLocale : (chapter.textLanguages.find((l) => l === 'de' || l === 'en') ?? 'de'));
+	const readerProps = () => ({
+		place: {
+			toon,
+			chapter: chapterNumber,
+			group: view.section === 'group' || view.section === 'slice' ? Math.max(0, view.groupIndex) : 0,
+			slice: view.section === 'slice' ? view.sliceIndex : -1
+		},
+		locale: readerLocale,
+		onclose: () => (panel = null)
+	});
 	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, ongoto: gotoProblem, onclose: () => (panel = null) });
 	useDock(() => {
 		if (!panel) return null;
-		const docked = { size: panel === 'flow' ? flowSize : panelSize, title: PANELS[panel].title(), icon: PANELS[panel].icon, close: () => (panel = null) };
+		const docked = { size: panel === 'flow' ? flowSize : panel === 'reader' ? readerSize : panelSize, title: PANELS[panel].title(), icon: PANELS[panel].icon, close: () => (panel = null) };
 		if (panel === 'flow') return { ...docked, kind: 'flow', content: { component: FlowDock, props: flowProps } };
 		if (panel === 'problems') return { ...docked, kind: 'problems', content: { component: ProblemsDock, props: problemsProps } };
+		if (panel === 'reader') return { ...docked, kind: 'reader', content: { component: ReaderDock, props: readerProps } };
 		return { ...docked, panel: sidePanel };
 	});
-	function togglePanel(next: 'problems' | 'history' | 'flow') {
+	function togglePanel(next: 'problems' | 'history' | 'flow' | 'reader') {
 		panel = panel === next ? null : next;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
@@ -851,8 +874,10 @@
 <!-- right-click / long-press in a copy region: Copy · Cut · Paste · Paste settings (BACKLOG 10.39 step 8) -->
 <ClipMenu />
 
-<!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06) -->
+<!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06); the Reader next to it
+     (BACKLOG 10.49) -->
 {#snippet flowToggle()}
+	<button type="button" class="sc-round" aria-pressed={panel === 'reader'} title={m['creator.reader_open']()} aria-label={m['creator.reader_open']()} onclick={() => togglePanel('reader')} data-testid="reader-toggle"><Icon name="smartphone" /></button>
 	<button type="button" class="sc-round" aria-pressed={panel === 'flow'} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
 {/snippet}
 
@@ -949,8 +974,11 @@
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
+						<!-- the reader's screen: a full-width horizontal group sideways, a vertical group stacked (UI-CONCEPTS E.6) -->
 						{#if activeGroup?.renderer?.type === Renderer.HORIZONTAL && activeGroup.renderer.params?.fullWidth}
 							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} onopen={(i) => view.selectSlice(i)} />
+						{:else if activeGroup?.renderer?.type === Renderer.VERTICAL}
+							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} vertical onopen={(i) => view.selectSlice(i)} />
 						{/if}
 						<h3 class="sub">{m['creator.vn']()}</h3>
 						{#if needsNextLabel}

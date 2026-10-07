@@ -11,8 +11,9 @@
 	import { audio } from '$lib/actions/audio/index.ts';
 	import type { PageProps } from './$types.js';
 	import { page } from '$app/state';
-	import { afterNavigate } from '$app/navigation';
-	import { onDestroy, tick } from 'svelte';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { onDestroy, tick, untrack } from 'svelte';
+	import { creatorLink, type ShowRequest } from '$lib/creator-link.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
@@ -89,8 +90,17 @@
 		const align = () => {
 			const el = target();
 			if (!el) return;
-			// a strip's slice sits in its pinned track: its section's top is the group's top
-			const top = (el.closest('.strip') ?? el).getBoundingClientRect().top;
+			// a strip's slice sits in its pinned track: its section's top is the group's top, the page scroll below it moves
+			// the track sideways 1:1 (strip.svelte) – a later slice is that far further down (at most the strip's travel)
+			const strip = el.closest('.strip');
+			const frame = el.closest('.frame');
+			const track = frame?.parentElement;
+			let top = (strip ?? el).getBoundingClientRect().top;
+			if (strip && frame && track) {
+				const pin = track.parentElement ?? strip;
+				const x = frame.getBoundingClientRect().left - track.getBoundingClientRect().left;
+				top += Math.min(Math.max(x, 0), Math.max(0, track.scrollWidth - pin.clientWidth));
+			}
 			if (Math.abs(top) >= 1) window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });
 		};
 		let observer: ResizeObserver | null = null;
@@ -124,6 +134,43 @@
 		};
 		wait();
 		return stop;
+	}
+
+	// the creator's dock Reader (BACKLOG 10.49, lib/creator-link.svelte.ts): "show group / slice" – a group of the chain
+	// on the page is scrolled to; another chain is opened at the group's `?label=` (or the label of a group above it in its
+	// chain; the chapter's first chain needs none), then scrolled. Each request once; a group the saved draft hasn't got:
+	// nothing happens.
+	let shown = 0;
+	$effect(() => {
+		const r = creatorLink.request;
+		const chapter = data.chapter;
+		if (!r || r.seq === shown || !chapter || r.toon !== page.params.toonId || r.chapter !== chapter.number) return;
+		shown = r.seq;
+		untrack(() => void showFromCreator(r, chapter.groups));
+	});
+	async function showFromCreator(r: ShowRequest, groups: NonNullable<typeof data.chapter>['groups']) {
+		if (!groups[r.group]) return;
+		const inChain = () => !!chain && r.group >= chain.start && r.group <= chain.end;
+		if (!inChain()) {
+			const { start } = chainOf(groups, r.group);
+			const label = groups.slice(start, r.group + 1).findLast((g) => g.label)?.label ?? null;
+			if (!label && start !== 0) return;
+			const url = new URL(location.href);
+			if (label) url.searchParams.set('label', label);
+			else url.searchParams.delete('label');
+			await goto(url.pathname + url.search, { replaceState: true, noScroll: true, keepFocus: true });
+			await tick();
+			if (!inChain() || creatorLink.request?.seq !== r.seq) return;
+		}
+		const c = chain!;
+		arrival?.();
+		// the page's first slice: its very top (the header above it too)
+		if (r.group === c.start && r.slice <= 0) {
+			arrival = null;
+			window.scrollTo({ top: 0, behavior: 'instant' });
+			return;
+		}
+		arrival = arriveAt(c.groups[r.group - c.start].offset + Math.max(0, r.slice));
 	}
 
 	// reading progress for the toon page's start button: how far into the chapter (all its groups' slices), finished at

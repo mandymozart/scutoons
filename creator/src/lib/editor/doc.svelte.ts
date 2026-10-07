@@ -42,6 +42,7 @@ import {
 } from '@scutoons/content';
 import { repairBooleans } from '$lib/editor/repair-booleans.ts';
 import { assignEventIds } from '$lib/editor/event-ids.ts';
+import { draftSaves } from '$lib/editor/draft-saves.svelte.ts';
 
 export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script';
 export type DocSource = 'store' | 'new' | 'missing';
@@ -589,6 +590,8 @@ export class ContentDoc {
 				}
 			}
 			this.lastSavedAt = Date.now();
+			// the dock's Reader reloads the viewer's draft preview (BACKLOG 10.49)
+			if (done.length) draftSaves.report(this.toon);
 			if (!this.dirty) {
 				this.clearAutosave();
 				this.idsAssigned = 0;

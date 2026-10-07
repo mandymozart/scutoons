@@ -14,8 +14,17 @@
 	 * text boxes and placed items drawn by the reader's own `Slice`. Scrolled sideways here – the mouse wheel down moves
 	 * it sideways like the reader's page scroll (owner 2026-10-06); at either end the page scrolls on. A click on a frame
 	 * opens that slice.
+	 * `vertical` (a vertical group, BACKLOG 10.49 / UI-CONCEPTS E.6): the same screen with a vertical track – the slices
+	 * stacked at the reading column's width (a phone: the screen's width; a desktop: the reader's 500 px column of a
+	 * 1440 px window, centred), scrolled up / down inside the screen's fixed height, the wheel left as it is.
 	 */
-	let { doc, groupPath, locale, onopen }: { doc: ContentDoc; groupPath: Path; locale: string; onopen: (index: number) => void } = $props();
+	let {
+		doc,
+		groupPath,
+		locale,
+		vertical = false,
+		onopen
+	}: { doc: ContentDoc; groupPath: Path; locale: string; vertical?: boolean; onopen: (index: number) => void } = $props();
 
 	type Screen = 'phone' | 'desktop';
 	/** the screens: a common phone (390 × 844) and a desktop window (16 : 9) */
@@ -31,7 +40,7 @@
 	 */
 	$effect(() => {
 		const el = screenEl;
-		if (!el) return;
+		if (!el || vertical) return;
 		const onwheel = (e: WheelEvent) => {
 			if (e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
 			// lines / pages into pixels (Firefox reports lines)
@@ -47,7 +56,7 @@
 	const ratio = (slice: SliceModel) => `${slice.width > 0 ? slice.width : DEFAULT_SLICE.width} / ${slice.height > 0 ? slice.height : DEFAULT_SLICE.height}`;
 </script>
 
-<section class="strip-preview" data-testid="strip-preview">
+<section class="strip-preview" class:vertical data-testid="strip-preview" data-direction={vertical ? 'vertical' : 'horizontal'}>
 	<div class="head">
 		<h3 class="sub">{m['creator.strip_preview']()}</h3>
 		<Segmented
@@ -60,7 +69,7 @@
 			]}
 		/>
 	</div>
-	<div class="screen" style:--ratio={RATIOS[screen]} bind:this={screenEl} data-testid="strip-preview-screen">
+	<div class="screen" style:--ratio={RATIOS[screen]} data-screen={screen} bind:this={screenEl} data-testid="strip-preview-screen">
 		<div class="track">
 			{#each slices as slice, index}
 				<button type="button" class="frame" style:aspect-ratio={ratio(slice)} onclick={() => onopen(index)} title={m['creator.strip_preview_open']({ number: index + 1 })} data-control-exempt="strip preview frame">
@@ -70,7 +79,7 @@
 			{/each}
 		</div>
 	</div>
-	<p class="sc-caption">{m['creator.strip_preview_hint']()}</p>
+	<p class="sc-caption">{vertical ? m['creator.strip_preview_hint_vertical']() : m['creator.strip_preview_hint']()}</p>
 </section>
 
 <style>
@@ -114,6 +123,27 @@
 		background: transparent;
 		cursor: pointer;
 		display: block;
+	}
+	/* vertical: the slices stacked, scrolled up / down inside the screen (the wheel's own scroll; at either end the page
+	   scrolls on); the track is the reading column – the screen's width on a phone, the reader's 500 px column of a
+	   1440 px window on a desktop (500 / 1440 of the screen), centred */
+	.vertical .screen {
+		overflow-x: hidden;
+		overflow-y: auto;
+		overscroll-behavior: auto;
+	}
+	.vertical .track {
+		flex-direction: column;
+		height: auto;
+		width: 100%;
+	}
+	.vertical .screen[data-screen='desktop'] .track {
+		width: calc(100% * 500 / 1440);
+		margin-inline: auto;
+	}
+	.vertical .frame {
+		width: 100%;
+		height: auto;
 	}
 	.frame :global(.slice) {
 		min-height: 0;

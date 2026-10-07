@@ -17,6 +17,7 @@
 	import { setItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { setWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
+	import { listenToCreator } from '$lib/creator-link.svelte.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -38,6 +39,9 @@
 		void page.url.pathname;
 		document.documentElement.lang = getLocale();
 	});
+
+	// framed by the creator's dock Reader (BACKLOG 10.49): "show group / slice" – only from the creator, only in the draft preview
+	onMount(() => listenToCreator());
 
 	onMount(async () => {
 		initAnimatedFavicon();
