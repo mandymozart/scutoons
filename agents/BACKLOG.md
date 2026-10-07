@@ -69,7 +69,7 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
       switch, fallback the source language. Today mixed: source language (featuring-field, cast-editor,
       character-detail, the chapter editor's cast notice), UI language (`itemName`, characters-editor, flow-pictures),
       text language (character refs, picker). One shared place for "the display locale".
-- [ ] 10.52 **UI rule: round vs square** (owner) – a standalone icon-only button is round (`sc-round`); grouped
+- [x] 10.52 **UI rule: round vs square** (owner) – a standalone icon-only button is round (`sc-round`); grouped
       controls (segmented, toolbars, language switchers in every app) are square. Into HANDOVER + DESIGN.md; fix the
       outliers met on the way (the creator header's square search / language next to round buttons).
 - [ ] 10.53 **One reorderable-list mechanism** – a shared `Sortable` in @scutoons/ui: grip ⋮⋮, the lifted row,
@@ -84,6 +84,7 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
 ### Day run result
 
 - 10.51 done (lane C): `textLanguage.names` (creator text-language.svelte.ts) = the header switch as it stands on the page (the layout publishes the page's languages); `shownCharacterName` / `contentName` / `itemName` use it with the fallbacks source → en / de / id – featuring, cast notice, cast, characters page + detail, picker, ref fields, related items, item rows, the Flow. Universe pages use the switch over all toons' languages (source `de`); a page whose toon is still loading the remembered choice, else the source. Toon titles and map place names still follow the UI language. check:creator-cast (sandbox) 18/18, creator-dock 82/82, check:creator-chapter refused (catpope ch1 has a draft).
+- 10.52 done (lane C): the rule in HANDOVER "UI rules" + DESIGN.md "Round vs square". Fixed: the palette trigger (compact = creator / admin / embassy, and every one under 768px) is a round search icon, "Ctrl K" moved into its tooltip; the Flow's zoom / fit = one square `sc-seg` (a toolbar, were 3 round); the viewer menu's languages = one square joined frame, the chosen one inverted (were circles). Already right: the creator's text-language switch, the shop's languages, the ActionBar's undo / redo. Left open: the frameless `CloseButton` (HANDOVER open decision), slice toolbar (10.47), reorder chevrons (10.53). check:tools-css ok, svelte-check creator / admin / embassy / viewer 0 errors, creator-dock 82/82, check:tools-ui only the known slot / text-wrap / batches findings; creator-cover / creator-script checks now answer the note dialog with `button.primary`.
 - 10.42 done (lane V): `SequenceItem` / `SequenceItemDoc` / `LoadedSequenceItem` without `type` (schemas regenerated), no type checks left (Library, FlowIndex, template, validate – a leftover `type` is an error now –, the creator's toon page + visibility, the viewer's sequence navigation, make-sandbox, fixtures); the library's chapter summary has no `type` either. Migration `2026-10-07-sequence-no-type.mysql.sql` run on the dev DB (49 versions); **O –** run it with the deploy (HANDOVER loose ends). Checks: npm run check, PHPUnit 296 / 296, phpstan clean.
 
 ## Night run result (2026-10-07 morning) – read this first

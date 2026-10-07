@@ -309,7 +309,7 @@ try {
 
 	// 6. Save draft → a valid layout in the store, texts only in the custom line
 	await click('[data-testid="save-draft"]');
-	await answerDialog('button.secondary');
+	await answerDialog('button.primary'); // the note dialog: one primary button, "Save without note" while empty
 	await until(`!document.querySelector('.sc-bar.is-dirty')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 	const layout = stored.content.cover?.lettering?.square;

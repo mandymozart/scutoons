@@ -56,23 +56,20 @@
 </script>
 
 <Panel position="top-left">
-	<div class="controls">
-		<button type="button" class="sc-round" title={m['creator.flow_zoom_in']()} aria-label={m['creator.flow_zoom_in']()} onclick={() => flow.zoomIn()} data-testid="flow-zoom-in"><Icon name="zoom-in" /></button>
-		<button type="button" class="sc-round" title={m['creator.flow_zoom_out']()} aria-label={m['creator.flow_zoom_out']()} onclick={() => flow.zoomOut()} data-testid="flow-zoom-out"><Icon name="zoom-out" /></button>
-		<button type="button" class="sc-round" title={m['creator.flow_fit']()} aria-label={m['creator.flow_fit']()} onclick={fit} data-testid="flow-fit"><Icon name="maximize" /></button>
+	<!-- a toolbar = grouped = square (owner 2026-10-07, DESIGN.md "Round vs square"): one segmented frame -->
+	<div class="controls sc-seg">
+		<button type="button" title={m['creator.flow_zoom_in']()} aria-label={m['creator.flow_zoom_in']()} onclick={() => flow.zoomIn()} data-testid="flow-zoom-in"><Icon name="zoom-in" /></button>
+		<button type="button" title={m['creator.flow_zoom_out']()} aria-label={m['creator.flow_zoom_out']()} onclick={() => flow.zoomOut()} data-testid="flow-zoom-out"><Icon name="zoom-out" /></button>
+		<button type="button" title={m['creator.flow_fit']()} aria-label={m['creator.flow_fit']()} onclick={fit} data-testid="flow-fit"><Icon name="maximize" /></button>
 	</div>
 </Panel>
 
 <style>
-	.controls {
-		display: flex;
-		gap: var(--space-025);
-	}
-	.controls .sc-round {
-		background: var(--paper);
-	}
-	.controls .sc-round:hover,
-	.controls .sc-round:focus-visible {
-		background: var(--ink);
+	.controls > button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--control-height);
+		padding: 0;
 	}
 </style>

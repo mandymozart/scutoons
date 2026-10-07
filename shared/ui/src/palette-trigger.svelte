@@ -1,9 +1,9 @@
 <script lang="ts">
 	/**
 	 * The top bar's button that opens the `CommandPalette` (admin, creator, embassy): search icon, the label and the
-	 * shortcut hint in a 2px ink frame. Below 768px it collapses to the icon (the label stays the accessible name and
-	 * tooltip). `compact` never shows the label text (icon + kbd), for bars that need the room (creator breadcrumb,
-	 * embassy nav).
+	 * shortcut hint in a 2px ink frame (a text control: square). Below 768px, and always when `compact`, it is the
+	 * icon alone – a standalone icon-only button, so round like `.sc-round` (owner 2026-10-07, DESIGN.md "Round vs
+	 * square"); the label + shortcut stay the accessible name and tooltip.
 	 * Spacing to its neighbours is the bar's business.
 	 */
 	import Icon from './icon.svelte';
@@ -18,13 +18,13 @@
 		label: string;
 		/** the hotkey hint shown in the `kbd` (hidden below 768px) */
 		shortcut?: string;
-		/** icon + kbd only (no label text) at every width */
+		/** the round search icon at every width (label + shortcut only in the tooltip) */
 		compact?: boolean;
 		onclick: () => void;
 	} = $props();
 </script>
 
-<button type="button" class="sc-palette-trigger" class:compact aria-label={label} title={label} data-testid="palette-trigger" {onclick}>
+<button type="button" class="sc-palette-trigger" class:compact aria-label={label} title="{label} ({shortcut})" data-testid="palette-trigger" {onclick}>
 	<span class="search-label"><Icon name="search" /> <span class="wide-only">{label}</span></span><kbd>{shortcut}</kbd>
 </button>
 
@@ -62,17 +62,39 @@
 		border: var(--border-width-regular) solid var(--ink);
 		color: var(--ink);
 	}
+	/* icon only = round (tools.css .sc-round): a --control-height circle, ink, inverted on hover */
 	.compact {
 		flex: none;
-		min-width: 0;
+		justify-content: center;
+		width: var(--control-height);
+		min-width: var(--control-height);
+		padding: 0;
+		border-radius: 50%;
+		color: var(--ink);
 	}
-	.compact .wide-only {
+	.compact:hover,
+	.compact:focus-visible {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.compact .wide-only,
+	.compact kbd {
 		display: none;
 	}
 	@media (max-width: 767px) {
 		.sc-palette-trigger {
+			flex: none;
 			justify-content: center;
+			width: var(--control-height);
 			min-width: var(--control-height);
+			padding: 0;
+			border-radius: 50%;
+			color: var(--ink);
+		}
+		.sc-palette-trigger:hover,
+		.sc-palette-trigger:focus-visible {
+			background: var(--ink);
+			color: var(--paper);
 		}
 		.wide-only,
 		kbd {

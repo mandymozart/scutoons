@@ -6,7 +6,7 @@
 
 	/**
 	 * The creator's content-language switch in the top bar: globe + the current code ("DE", "KO"), the source marked
-	 * with the star, in a compact frame like the palette trigger (owner 2026-10-02, 2026-10-06; agents/DESIGN.md
+	 * with the star, in a compact square frame – a language switcher is square (owner 2026-10-02, 2026-10-06, 2026-10-07; agents/DESIGN.md
 	 * "Creator: content language (i18n) + translate mode"). A native select lies invisibly over it (its own list,
 	 * keyboard and screen-reader support). Which ONE content language the translatable fields show – default the
 	 * source; a translation shows its original as a muted line under each field. The interface language is elsewhere
@@ -39,7 +39,7 @@
 </label>
 
 <style>
-	/* the palette trigger's compact footprint: 2px ink frame, control height, icon + a short word */
+	/* a compact square frame (language switchers are square – DESIGN.md "Round vs square"): 2px ink, control height, icon + a short word */
 	.text-language {
 		position: relative;
 		flex: none;

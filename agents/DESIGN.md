@@ -287,7 +287,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns with Problems /
   History and Info; every page hands its panel to the shell with `useDock` – agents/DOCKING.md; it folds to a rail like
   every dock panel). Svelte Flow + dagre are loaded only when it
-  opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates (read-only otherwise).
+  opens; zoom / fit are one square segmented group (a toolbar: "Round vs square"), a minimap bottom right. A box navigates (read-only otherwise).
   The panel is edge to edge (owner 2026-10-06): its header is the Ask panel's (one control row, title, round close
   button, the divider across), the canvas has no frame of its own; the toon's dead-things line sits under a divider.
   - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
@@ -685,7 +685,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
 - **One language at a time** (owner 2026-10-06: no "all side by side", no "each field in its source" mode any more):
   every translatable field shows exactly the chosen language; the default is the source language – the toon's, or the
   platform's `de` on pages without a toon (characters, moods, roles, map names).
-- **The switch** sits in the top bar, left of the search: a compact frame like the compact palette trigger – Feather
+- **The switch** sits in the top bar, left of the search: a compact square frame (a language switcher: square) – Feather
   `globe` + the current code ("DE", "KO") + the source mark (★, below) when it is the source; inverted while a
   translation is shown. A native select invisibly over it (its own list: the toon's languages, the source marked "★" –
   a native option holds only text). Tooltip / accessible name: "i18n: Content language of the translatable fields … –
@@ -885,6 +885,13 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   No `surface-*` greys and no tinted fills for structure or state: a state is the frame's colour + a thick left rule
   (0.5rem / 0.5em) in `state-error` / `state-warning` / cyan, the text stays ink. Unsaved = an inverted bar.
 - Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks).
+- **Round vs square** (owner 2026-10-07, every app – creator, admin, embassy, viewer, shop): a **standalone icon-only
+  button is round** – a `--control-height` circle, 2px ink ring (`class="sc-round"`, tools.css; `IconButton`,
+  `FoldButton`, `MaximizeButton`, `Rail`; the viewer's top-right toggles; the palette trigger in its icon-only state).
+  **Grouped controls are square**: segmented groups (`sc-seg` / `Segmented`), toolbars (the Flow's zoom / fit is one
+  `sc-seg`, the ActionBar, canvas tools), tab rows, and every **language switcher** (the creator's text-language
+  switch, the viewer menu's languages – one joined frame, the chosen one inverted – the shop's). A control that shows
+  text (label, code, "Ctrl K") is square too. Exception still open: the frameless close cross (`CloseButton`).
 - Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection. Never for the current nav entry or a selected row.
 - **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **white text where it reaches
   4.5:1, else ink**; caption size, regular weight (status words in uppercase with `--tracking-label`; ids / codes keep

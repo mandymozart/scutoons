@@ -243,7 +243,7 @@ try {
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
 	// Save draft asks for a note (askDialog): save without one
-	await answerDialog('button.secondary');
+	await answerDialog('button.primary'); // one primary button, "Save without note" while empty
 	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.disabled`);
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/${KEYS[0]}` && saved[0].status === 200, 'Save draft: PUT script:catpope:de 200', JSON.stringify(saved));

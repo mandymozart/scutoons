@@ -360,8 +360,9 @@
 	.main-menu .menu-header nav ul {
 		margin-bottom: 0;
 	}
-	/* language + close: the round icon toggles of the top-right group (.menu-toggle) – --control-height circles,
-	   regular frame, paper, cyan on hover (owner 2026-10-04) */
+	/* close: the round icon toggle of the top-right group (.menu-toggle) – a --control-height circle, regular frame,
+	   paper, cyan on hover (owner 2026-10-04). The languages share the look but are a group, so square and joined
+	   into one frame (owner 2026-10-07, DESIGN.md "Round vs square") */
 	.menu-close,
 	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn {
 		box-sizing: border-box;
@@ -379,9 +380,13 @@
 		touch-action: manipulation;
 		transition: all 0.2s ease;
 	}
-	/* the inactive language: muted frame; the active one keeps the ink frame */
-	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn:not(.active) {
-		border-color: var(--border-muted);
+	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn {
+		border-radius: var(--radius-none);
+	}
+	/* the chosen language inverted (DESIGN.md "Active / selected = inverted"), the others plain in the shared frame */
+	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn.active {
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.menu-close:hover,
 	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn:hover {
@@ -398,6 +403,11 @@
 	}
 	.nav.nav--language .nav-list {
 		flex-direction: row;
+		gap: 0;
+	}
+	/* one frame around the row: neighbours share their 2px edge */
+	.nav.nav--language .nav-item + .nav-item {
+		margin-left: calc(-1 * var(--border-width-regular));
 	}
 
 	.nav--toons .nav-item .nav-btn {
