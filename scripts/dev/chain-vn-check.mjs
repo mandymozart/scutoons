@@ -147,6 +147,8 @@ const STATE = `(() => ({
 }))()`;
 const state = () => js(STATE);
 const waitText = (text, ms) => until(`(${STATE}).text === ${JSON.stringify(text)} ? (${STATE}) : null`, ms);
+/** the speaker's feet against the shown box's top (px; the characters stand on the box – also on the end actions) */
+const FEET = `(() => { const box = document.querySelector('.vn-message.visible'); const p = document.querySelector('.character-portrait'); return box && p ? Math.round(p.getBoundingClientRect().bottom - box.getBoundingClientRect().top) : null; })()`;
 const click = () => js(`document.querySelector('.vn-message.visible .continue-overlay')?.click(), true`);
 const scrollTo = (index) => js(`document.querySelector('[data-slice-index="${index}"]')?.scrollIntoView({ block: 'center' }), true`);
 
@@ -165,6 +167,8 @@ try {
 	check(s, 'chain top: script A starts (its first slice is seen)', JSON.stringify(await state()));
 	check(s?.frozen && s?.paused, 'frozen with the pause mark while A1 waits for its click', JSON.stringify(s));
 	check(!s?.box, 'the box A reveals is hidden before its event');
+	await sleep(800);
+	const onMessage = await js(FEET);
 	// CHAIN_VN_SHOT=<file.png>: a phone screenshot of the frozen page (the pause mark under the logo)
 	if (process.env.CHAIN_VN_SHOT) writeFileSync(process.env.CHAIN_VN_SHOT, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).result.data, 'base64'));
 	const y0 = await js('scrollY');
@@ -207,6 +211,10 @@ try {
 	await js('scrollTo(0, document.documentElement.scrollHeight), true');
 	s = await until(`(${STATE}).bar ? (${STATE}) : null`, 6000);
 	check(s?.bar && !s.frozen, 'everything through: the follow-up bar shows', JSON.stringify(await state()));
+	// BACKLOG 10.48: the end actions are choices of the message box, the scene's characters stand on it
+	await sleep(800);
+	const end = await js(`(() => { const bar = document.querySelector('.vn-message.visible [data-testid="next-bar"]'); return { inBox: !!bar, choices: bar ? bar.querySelectorAll('.vn-end-choice').length : 0, feet: ${FEET}, onMessage: ${JSON.stringify(onMessage)} }; })()`);
+	check(end?.inBox && end.choices >= 1 && end.feet !== null && end.onMessage !== null && Math.abs(end.feet - end.onMessage) <= 2, 'the end actions are choices in the message box, the character stands on it as on a message', JSON.stringify(end));
 
 	// "Nochmal": the chain from its top – every script again, the stage cleared, A's box hidden again
 	await js(`document.querySelector('[data-testid="next-bar-replay"]')?.click(), true`);

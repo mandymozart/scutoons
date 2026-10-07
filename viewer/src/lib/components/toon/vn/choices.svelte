@@ -46,22 +46,5 @@
 		display: flex;
 	}
 
-	.vn-choice {
-		background: white;
-		color: black;
-		padding: 1rem 1.5rem; /* control-ok: a dialogue choice may wrap */
-		border: 2px solid lightgrey;
-		cursor: pointer;
-		font-size: 1rem;
-		text-align: left;
-	}
-
-	.vn-choice:hover {
-		background: white;
-		border-color: #333;
-	}
-
-	.vn-choice:active {
-		border-color: black;
-	}
+	/* the choice look: vn/message.svelte (shared with the chapter's end actions) */
 </style>

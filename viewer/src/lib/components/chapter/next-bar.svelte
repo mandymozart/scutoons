@@ -14,11 +14,11 @@
 	import { buildJumpToUrl } from '$lib/visual-novel/jump-to.ts';
 
 	/**
-	 * The follow-up bar (agents/DESIGN.md "Follow-up bar"): once the shown group – the last of linked groups (a chain,
+	 * The chapter's end actions (agents/DESIGN.md "Follow-up bar", BACKLOG 10.48 / UI-CONCEPTS E.5): once the shown group – the last of linked groups (a chain,
 	 * @scutoons/content chains.ts, all on this page) – is done – its last slice seen, its
-	 * player video ended, a VN group's scene finished (no message waiting, no choice open) – a fixed bar at the bottom
-	 * says what comes next (`nextStep`): the group's authored end (`Group.end`: offered with the countdown, or with `auto`
-	 * gone to at once, no bar), the next group, the next chapter (a 10 s countdown, then it goes there), the
+	 * player video ended, a VN group's scene finished (no message waiting, no choice open) – the VN message box (every
+	 * page has it, also without a VN) says what comes next, its offers are the box's choices (`nextStep`): the group's authored end (`Group.end`: offered with the countdown, or with `auto`
+	 * gone to at once, no box), the next group, the next chapter (a 10 s countdown – a line along the choice's bottom –, then it goes there), the
 	 * membership it needs (sign in / redeem a code), coming soon, or the season's end. The countdown stops with
 	 * "Abbrechen", when the end scrolls out of view, on any other click (a menu, an overlay) or Escape, and waits while the
 	 * tab is hidden; with reduced motion there is none. "Nochmal" replays the group and stops it too (a group ending with a
@@ -57,11 +57,17 @@
 	const COUNTDOWN_MS = 10_000; // owner 2026-10-07: 10 s (was 5)
 
 	const vn = getVisualNovelContext();
-	// the characters stand on the bar while it shows and no box does (vn/characters.svelte, BACKLOG M.3)
-	let barHeight = $state(0);
+	// the end actions are choices of the message box (BACKLOG 10.48): the box shows them, the characters stand on it
 	$effect(() => {
-		vn.setEndHeight(shown && !goesAtOnce ? barHeight : 0);
-		return () => vn.setEndHeight(0);
+		if (!shown || goesAtOnce) return;
+		return vn.setEnd(endActions);
+	});
+	/** the page's end reserve: the box's height + its 1 rem above the bottom + 1 rem air (rem, not px) */
+	const reserve = $derived.by(() => {
+		const px = vn.state.boxHeight;
+		if (px <= 0 || typeof document === 'undefined') return '13rem';
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+		return `${(px / rem + 2).toFixed(3)}rem`;
 	});
 	const session = getSessionContext();
 	const itemsUi = getItemsUiContext();
@@ -327,190 +333,114 @@
 	});
 </script>
 
-<div class="next-host" bind:this={host} class:shown={shown && !strip && !goesAtOnce}>
-	{#if shown && !goesAtOnce}
-		<section
-			class="next-bar"
-			bind:this={bar}
-			bind:offsetHeight={barHeight}
-			aria-label={m['next_bar.label']()}
-			data-testid="next-bar"
-			data-kind={step.kind}
-			data-counting={counting ? 'true' : 'false'}
-		>
-			<div class="inner">
-				{#if message}
-					<p class="message" data-testid="next-bar-message">{message}</p>
-				{/if}
-				<div class="actions">
-					<!-- the secondary action (at most one): replay, redeem, where to get a code, the music -->
-					{#if automatic && !endsWithPlayer}
-						<button type="button" class="secondary" onclick={replay} data-testid="next-bar-replay">
-							↺ {m['next_bar.replay']()}
-						</button>
-					{:else if step.kind === 'members' && !session.isLoggedIn}
-						<button type="button" class="secondary" onclick={redeem} data-testid="next-bar-secondary">{m['next_bar.redeem']()}</button>
-					{:else if step.kind === 'members'}
-						<a class="secondary" href={shopUrl(getLocale())} data-testid="next-bar-secondary">{m['next_bar.where_code']()}</a>
-					{:else if step.kind === 'season-end' && download}
-						<a class="secondary" href={localizeHref(`/${toonId}/download`)} data-testid="next-bar-secondary">{m['season.download']()}</a>
-					{:else}
-						<span></span>
-					{/if}
+<!-- the reserve at the page's end: the last slice can scroll clear of the box (a strip: the box sits over its last screen) -->
+<div class="next-host" bind:this={host} class:shown={shown && !strip && !goesAtOnce} style:height={shown && !strip && !goesAtOnce ? reserve : null}></div>
 
-					<div class="primary-box">
-						{#if primaryHref}
-							<a class="primary sc-control" href={primaryHref} onclick={stop} data-testid="next-bar-primary">
-								{primaryLabel}
-								<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-									<path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
-								</svg>
-							</a>
-						{:else}
-							<button type="button" class="primary" onclick={redeem} data-testid="next-bar-primary">
-								{primaryLabel}
-								<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-									<path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
-								</svg>
-							</button>
-						{/if}
-						{#if counting}
-							<!-- the countdown: a 2px rule under the button that fills in 10 s -->
-							<span class="countdown-rule" aria-hidden="true"><span style:width="{Math.min(100, (elapsed / COUNTDOWN_MS) * 100)}%"></span></span>
-							<span class="countdown" data-testid="next-bar-countdown">
-								<span aria-live="off">{m['next_bar.countdown']({ seconds: remaining })}</span>
-								<button type="button" class="cancel" onclick={stop} data-testid="next-bar-cancel">{m['next_bar.cancel']()}</button>
-							</span>
-						{/if}
-					</div>
-				</div>
-			</div>
-		</section>
-	{/if}
-</div>
+<!-- drawn inside the VN message box (vn/message.svelte) – every page has the box (vn-page.svelte) -->
+{#snippet endActions()}
+	<section
+		class="end-actions"
+		bind:this={bar}
+		aria-label={m['next_bar.label']()}
+		data-testid="next-bar"
+		data-kind={step.kind}
+		data-counting={counting ? 'true' : 'false'}
+	>
+		{#if message}
+			<p class="message" data-testid="next-bar-message">{message}</p>
+		{/if}
+		<!-- the primary first (on, sign in, redeem, the overview), then at most one more: replay, redeem, where to get a code,
+		     the music -->
+		<div class="primary-box">
+			{#if primaryHref}
+				<a class="vn-end-choice primary" data-control-exempt="dialogue choice (may wrap)" href={primaryHref} onclick={stop} data-testid="next-bar-primary">
+					{primaryLabel}
+					{#if counting}
+						<!-- the countdown: a thin ink line along the choice's bottom that fills in 10 s -->
+						<span class="countdown-rule" aria-hidden="true" style:width="{Math.min(100, (elapsed / COUNTDOWN_MS) * 100)}%"></span>
+					{/if}
+				</a>
+			{:else}
+				<button type="button" class="vn-end-choice primary" data-control-exempt="dialogue choice (may wrap)" onclick={redeem} data-testid="next-bar-primary">
+					{primaryLabel}
+					{#if counting}
+						<span class="countdown-rule" aria-hidden="true" style:width="{Math.min(100, (elapsed / COUNTDOWN_MS) * 100)}%"></span>
+					{/if}
+				</button>
+			{/if}
+			{#if counting}
+				<span class="countdown" data-testid="next-bar-countdown">
+					<span class="sr-only" aria-live="off">{m['next_bar.countdown']({ seconds: remaining })}</span>
+					<button type="button" class="cancel" onclick={stop} data-testid="next-bar-cancel">{m['next_bar.cancel']()}</button>
+				</span>
+			{/if}
+		</div>
+		{#if automatic && !endsWithPlayer}
+			<button type="button" class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" onclick={replay} data-testid="next-bar-replay">
+				↺ {m['next_bar.replay']()}
+			</button>
+		{:else if step.kind === 'members' && !session.isLoggedIn}
+			<button type="button" class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" onclick={redeem} data-testid="next-bar-secondary">{m['next_bar.redeem']()}</button>
+		{:else if step.kind === 'members'}
+			<a class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" href={shopUrl(getLocale())} data-testid="next-bar-secondary">{m['next_bar.where_code']()}</a>
+		{:else if step.kind === 'season-end' && download}
+			<a class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" href={localizeHref(`/${toonId}/download`)} data-testid="next-bar-secondary">{m['season.download']()}</a>
+		{/if}
+	</section>
+{/snippet}
 
 <style>
-	/* keeps the last slice clear of the bar once it is shown */
-	.next-host.shown {
-		height: 9rem;
-	}
-	.next-bar {
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		/* above the VN box (100; the bar only shows once the scene finished), under the toggles and overlays (1000+) */
-		z-index: 110;
-		background: var(--paper);
-		color: var(--ink);
-		border-top: var(--border-width-regular) solid var(--ink);
-		font-family: var(--font-mono);
-		padding: var(--space-1) var(--space-1) calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
-	}
-	.inner {
-		/* the chapter column's width on phones, a little more where the type is 24 px */
-		max-width: max(500px, 30rem);
-		margin: 0 auto;
+	.end-actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-075);
+		gap: 0.75rem;
 	}
+	/* the box's text (vn/message.svelte .text) */
 	.message {
 		margin: 0;
-		font-size: var(--type-body-size);
-		line-height: var(--type-body-line);
-	}
-	.actions {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: var(--space-1);
 	}
 	.primary-box {
-		flex: none;
 		display: flex;
 		flex-direction: column;
-		align-items: stretch;
-		gap: var(--space-05);
-		min-width: 0;
+		gap: 0.25rem;
 	}
 	.primary {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--space-075);
-		box-sizing: border-box;
-		min-height: var(--control-height);
-		margin: 0;
-		padding: 0 var(--space-15);
-		border: 0;
-		border-radius: var(--radius-none);
-		background: var(--ink);
-		color: var(--paper);
-		font-family: var(--font-mono);
-		font-size: var(--type-button-size);
-		line-height: var(--type-button-line);
-		text-decoration: none;
-		white-space: nowrap;
-		cursor: pointer;
-		touch-action: manipulation;
-	}
-	.primary svg {
-		flex: none;
-		width: 1em;
-		height: 1em;
-	}
-	/* the secondary: a text link in the button type */
-	.secondary {
-		/* on the primary button's line (same height, one control height), the countdown below it doesn't move it */
-		align-self: flex-start;
-		display: inline-flex;
-		align-items: center;
-		box-sizing: border-box;
-		min-height: var(--control-height);
-		margin: 0;
-		padding: 0;
-		border: 0;
-		background: none;
-		color: var(--ink);
-		font-family: var(--font-mono);
-		font-size: var(--type-button-size);
-		/* a long one may wrap (the primary never does) */
-		line-height: 1.3;
-		text-align: left;
-		min-width: 0;
-		text-decoration: underline;
-		text-underline-offset: 0.2em;
-		cursor: pointer;
-		touch-action: manipulation;
+		position: relative;
 	}
 	.countdown-rule {
-		display: block;
+		position: absolute;
+		left: 0;
+		bottom: 0;
 		height: var(--border-width-regular);
-		background: var(--border-muted);
-	}
-	.countdown-rule span {
-		display: block;
-		height: 100%;
 		background: var(--ink);
 	}
+	/* a small "Abbrechen" under the counting choice */
 	.countdown {
 		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: var(--space-05);
+		justify-content: flex-end;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--text-muted);
 	}
 	.cancel {
 		margin: 0;
-		padding: 0;
+		padding: 0.25rem 0; /* control-ok: a small text link under the choice */
 		border: 0;
 		background: none;
 		color: var(--ink);
 		font: inherit;
 		text-decoration: underline;
+		text-underline-offset: 0.2em;
 		cursor: pointer;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border-width: 0;
 	}
 </style>

@@ -109,6 +109,10 @@ width** (`max-width: min(<width>px, 100cqh / ratio)`) – on a big screen it nev
 
 ## E.5 The VN message box + end actions (M.3)
 
+**Status: built** (2026-10-07, BACKLOG 10.48 – (a) earlier with M.3 part 1): the end actions are choices of the message
+box on every chapter page (VN or not), handed over as a snippet (`vn.setEnd`); the separate bar is gone, the characters
+stand on the box. DESIGN.md "Follow-up bar" has the details.
+
 **Today.** The message box is fixed at the bottom (`toon/vn/message.svelte:83–99`, slides out by `translateY`); its
 height is reported (`vn.setBoxHeight`) and the avatar / portrait stand on the box's top
 (`characters.svelte:47–50`: ground = box height + 1rem). `offsetHeight` ignores the slide-out transform, so **with

@@ -6,7 +6,11 @@
 
 	const vn = getVisualNovelContext();
 
-	const visible = $derived(vn.state.messageVisible || vn.state.choicesVisible);
+	/** the story talks (a message, choices) */
+	const talking = $derived(vn.state.messageVisible || vn.state.choicesVisible);
+	/** the chapter's end actions as the box's choices (chapter/next-bar.svelte, BACKLOG 10.48): one box to act in */
+	const end = $derived(vn.state.end);
+	const visible = $derived(talking || !!end);
 	// the characters stand on the box's top edge while it shows (vn/characters.svelte); hidden it slides away – 0, so they
 	// stand at the page's bottom (owner 2026-10-06, BACKLOG M.3: offsetHeight ignores the slide-out)
 	let height = $state(0);
@@ -38,19 +42,19 @@
 </script>
 
 <div class="vn-message" class:visible bind:offsetHeight={height}>
-	{#if vn.state.message.wait && !vn.state.choicesVisible}
+	{#if vn.state.messageVisible && vn.state.message.wait && !vn.state.choicesVisible}
 		<button class="continue-overlay" onclick={handleClick} aria-label="Continue">
 			<span class="sr-only">Continue</span>
 		</button>
 	{/if}
 	<div class="body">
-		{#if vn.state.message.character}
+		{#if talking && vn.state.message.character}
 			{@const character = vn.getCharacter(vn.state.message.character.name)}
 			{#if character}
 				<div class="character-name">{legacyCharacterLabel(character, vn.state.message.character.persona)}</div>
 			{/if}
 		{/if}
-		{#if vn.state.message.text}
+		{#if talking && vn.state.message.text}
 			<div class="text" class:narrator={!vn.state.message.character}>
 				{vn.state.message.text}
 			</div>
@@ -77,6 +81,9 @@
 			{/if}
 		{/if}
 		<Choices />
+		{#if end}
+			{@render end()}
+		{/if}
 	</div>
 </div>
 
@@ -210,5 +217,30 @@
 
 	.text.narrator {
 		font-style: italic;
+	}
+
+	/* one choice look for the story's choices (choices.svelte) and the chapter's end actions (chapter/next-bar.svelte) */
+	.vn-message :global(:is(.vn-choice, .vn-end-choice)) {
+		box-sizing: border-box;
+		display: block;
+		width: 100%;
+		margin: 0;
+		background: white;
+		color: black;
+		padding: 1rem 1.5rem; /* control-ok: a dialogue choice may wrap */
+		border: 2px solid lightgrey;
+		border-radius: 0;
+		cursor: pointer;
+		font: inherit;
+		font-size: 1rem;
+		text-align: left;
+		text-decoration: none;
+	}
+	.vn-message :global(:is(.vn-choice, .vn-end-choice):hover) {
+		background: white;
+		border-color: #333;
+	}
+	.vn-message :global(:is(.vn-choice, .vn-end-choice):active) {
+		border-color: black;
 	}
 </style>

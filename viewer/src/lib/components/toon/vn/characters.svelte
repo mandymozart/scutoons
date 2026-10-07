@@ -47,11 +47,10 @@
 	/** a full character stands in the middle of the screen, also further back (owner 2026-10-07: "the full character
 	 *  should be in the center of the screen whenever they appear"): its feet half its free height above the bottom */
 	const fullGround = (place: { height: number }) => Math.max(0, Math.round((height - place.height) / 2));
-	/** feet on the shown box's top (the box sits 1 rem above the bottom), a few px into it; without a box on the
-	 *  follow-up bar's top; with neither at the page's bottom like the full characters (owner 2026-10-06, BACKLOG M.3) */
-	const ground = $derived(
-		Math.round(vn.state.boxHeight > 0 ? rem + vn.state.boxHeight - STAGE.sink : vn.state.endHeight > 0 ? vn.state.endHeight - STAGE.sink : rem)
-	);
+	/** feet on the shown box's top (the box sits 1 rem above the bottom), a few px into it – also when it shows the
+	 *  chapter's end actions (BACKLOG 10.48); without a box at the page's bottom like the full characters (owner
+	 *  2026-10-06, BACKLOG M.3) */
+	const ground = $derived(Math.round(vn.state.boxHeight > 0 ? rem + vn.state.boxHeight - STAGE.sink : rem));
 	const onStage = $derived([
 		...leftCharacters.map((c) => ({ c, place: groups.left.places[leftOrder.indexOf(sceneKey(c))] })),
 		...rightCharacters.map((c) => ({ c, place: groups.right.places[rightOrder.indexOf(sceneKey(c))] }))

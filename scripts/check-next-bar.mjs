@@ -1,4 +1,5 @@
-// Follow-up bar + player autoplay check (agents/DESIGN.md "Follow-up bar" / "Player video slice", owner 2026-10-01):
+// Follow-up bar + player autoplay check (agents/DESIGN.md "Follow-up bar" / "Player video slice", owner 2026-10-01; since
+// BACKLOG 10.48 the end actions are choices of the VN message box – the testids stay "next-bar"):
 // headless Chrome via CDP (own temp profile, no dependencies; Node 22 WebSocket), like scripts/check-prolog.mjs. Chrome
 // runs with the normal autoplay policy (`document-user-activation-required`): sound only after a click in the document.
 //
@@ -165,15 +166,18 @@ const BAR = `(() => {
 	if (!bar) return { shown: false, path: location.pathname + location.search };
 	const primary = bar.querySelector('[data-testid="next-bar-primary"]');
 	const secondary = bar.querySelector('[data-testid="next-bar-secondary"], [data-testid="next-bar-replay"]');
-	const b = bar.getBoundingClientRect();
-	const cs = getComputedStyle(bar);
+	const box = bar.closest('.vn-message');
+	const b = (box ?? bar).getBoundingClientRect();
+	const cs = getComputedStyle(box ?? bar);
 	return { shown: true, path: location.pathname + location.search, kind: bar.dataset.kind, counting: bar.dataset.counting === 'true',
 		message: bar.querySelector('[data-testid="next-bar-message"]')?.textContent.trim() ?? null,
 		primary: primary?.textContent.trim() ?? null, primaryHref: primary?.getAttribute('href') ?? null, primaryTag: primary?.tagName,
 		secondary: secondary?.textContent.trim().replace(/\\s+/g, ' ') ?? null, secondaryHref: secondary?.getAttribute('href') ?? null,
 		countdown: bar.querySelector('[data-testid="next-bar-countdown"]')?.textContent.trim() ?? null,
-		bottom: Math.round(innerHeight - b.bottom), width: Math.round(b.width), vw: document.documentElement.clientWidth, z: Number(cs.zIndex), border: cs.borderTopWidth + ' ' + cs.borderTopStyle,
-		font: cs.fontFamily, radius: getComputedStyle(primary).borderRadius, actions: bar.querySelectorAll('a, button:not(.cancel)').length };
+		inBox: !!box && box.classList.contains('visible'), rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+		bottom: box ? Math.round(parseFloat(cs.bottom)) : Math.round(innerHeight - b.bottom), width: Math.round(b.width), vw: document.documentElement.clientWidth, z: Number(cs.zIndex), border: cs.borderTopWidth + ' ' + cs.borderTopStyle,
+		font: cs.fontFamily, radius: getComputedStyle(primary).borderRadius, choiceLook: [...bar.querySelectorAll('a, button:not(.cancel)')].every((c) => c.classList.contains('vn-end-choice')),
+		actions: bar.querySelectorAll('a, button:not(.cancel)').length };
 })()`;
 const playToEnd = `(() => { const v = document.querySelector('video[data-player]'); return new Promise((ok, no) => {
 	const go = () => { v.addEventListener('seeked', () => v.play().catch(() => ((v.muted = true), v.play())).then(() => ok(true), no), { once: true }); v.currentTime = v.duration - 1.2; };
@@ -191,9 +195,11 @@ async function reachEnd(ms = 20000) {
 	}
 	return evaluate(BAR);
 }
+// the end actions are choices of the VN message box (BACKLOG 10.48): the box 1 rem above the bottom, 1 rem in from the sides
 function barLook(s, problems) {
-	if (s.bottom !== 0 || Math.abs(s.width - s.vw) > 1) problems.push(`bar not fixed at the bottom over the full width (bottom ${s.bottom}, width ${s.width}/${s.vw})`);
-	if (!/IBM Plex Mono/.test(s.font) || s.border !== '2px solid' || s.radius !== '0px' || s.z <= 100) problems.push(`look: font ${s.font}, border ${s.border}, radius ${s.radius}, z ${s.z}`);
+	if (!s.inBox) problems.push('the end actions are not in the shown message box (.vn-message.visible)');
+	if (Math.abs(s.bottom - s.rem) > 1 || Math.abs(s.width - (s.vw - 2 * s.rem)) > 1) problems.push(`box not at the bottom (bottom ${s.bottom}, width ${s.width}/${s.vw})`);
+	if (!/IBM Plex Mono/.test(s.font) || s.border !== '2px solid' || s.radius !== '0px' || !s.choiceLook) problems.push(`look: font ${s.font}, border ${s.border}, radius ${s.radius}, choices ${s.choiceLook}`);
 	if (s.actions > 2) problems.push(`${s.actions} actions (at most 2)`);
 }
 async function setLocale(locale) {
@@ -362,7 +368,7 @@ async function run(width, locale) {
 	await waitFor(`document.querySelector('[data-slice-index="0"]') ? true : null`, 20000);
 	s = await reachEnd();
 	{
-		const c3 = titles[locale][3];
+		const c3 = titles[locale][3] ?? { release: '1970-01-01' };
 		const date = new Intl.DateTimeFormat(locale, { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${c3.release}T00:00:00Z`));
 		const text = fill(nb.coming_soon, { chapter: chapterName(3), date });
 		report(`coming soon: "${text}" + "${nb.overview}", no countdown`, s?.shown && s.kind === 'coming-soon' && !s.counting && s.message === text && s.primary === nb.overview && s.primaryHref === `${prefix || ''}/${toon}` && !s.secondary ? [] : [JSON.stringify(s)]);

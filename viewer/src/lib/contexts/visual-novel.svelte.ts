@@ -1,4 +1,4 @@
-import { setContext, getContext } from 'svelte';
+import { setContext, getContext, type Snippet } from 'svelte';
 import type { Character, VNChoice, VNEvent, Message, VNCharacterRef, SceneCharacter } from '@scutoons/content';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, legacyTransition, normalizeSceneRef } from '@scutoons/content';
 import type { ShowTextBoxParams } from '@scutoons/content';
@@ -64,8 +64,11 @@ export function createVisualNovelContext() {
 	let place: JumpPlace | null = null;
 	/** the dialogue box's height (px) while it shows, else 0: the characters stand on its top edge */
 	let boxHeight = $state(0);
-	/** the follow-up bar's height (px) while it shows, else 0: without a box the characters stand on it (BACKLOG M.3) */
-	let endHeight = $state(0);
+	/**
+	 * the chapter's end actions (chapter/next-bar.svelte, BACKLOG 10.48 / UI-CONCEPTS E.5): drawn as choices inside the
+	 * message box (vn/message.svelte) while set – the box shows for them, the characters stand on it
+	 */
+	let end = $state.raw<{ render: Snippet } | null>(null);
 	/** scene key → when it last spoke (a counter), for the stage order: the speaker, then by recency (vn/characters) */
 	const lastSpoke = $state<Record<string, number>>({});
 	let spokeCounter = 0;
@@ -352,7 +355,7 @@ export function createVisualNovelContext() {
 				question: boxData.question,
 				activeTextBoxes,
 				boxHeight,
-				endHeight,
+				end: end?.render ?? null,
 				lastSpoke,
 				eventsDone: boxData.eventsDone,
 				pageBusy: boxData.pageBusy,
@@ -373,8 +376,13 @@ export function createVisualNovelContext() {
 		setBoxHeight: (h: number) => {
 			boxHeight = h;
 		},
-		setEndHeight: (h: number) => {
-			endHeight = h;
+		/** show the end actions in the box (null: none); returns a release that clears only this showing */
+		setEnd: (render: Snippet | null) => {
+			const mine = render ? { render } : null;
+			end = mine;
+			return () => {
+				if (end === mine) end = null;
+			};
 		},
 		findInScene,
 		joinScene,

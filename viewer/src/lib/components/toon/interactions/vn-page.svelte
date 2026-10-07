@@ -65,10 +65,11 @@
 	});
 </script>
 
+<!-- the box on every page: a page without a VN still shows the chapter's end actions in it (BACKLOG 10.48) -->
+<MessageBox />
 {#if hasVn}
 	<Characters />
 	<TextBoxWait />
-	<MessageBox />
 	{#if frozen}
 		<!-- an indicator, not a button: scrolling waits for the story (owner 2026-10-06) -->
 		<span class="scroll-paused" role="status" title={m['chapter.scroll_paused']()} aria-label={m['chapter.scroll_paused']()} data-testid="scroll-paused">

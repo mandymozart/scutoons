@@ -358,7 +358,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   from the model; old stored values are ignored). The **strip preview** of a full-width group below it: the mouse wheel
   down moves the strip sideways while the pointer is over it (like the reader's page scroll); at either end the page
   scrolls on; a horizontal wheel / trackpad scrolls natively.
-- **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group
+- **Follow-up bar** = the chapter's **end actions** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01;
+  since 2026-10-07 choices of the VN message box, BACKLOG 10.48 / UI-CONCEPTS E.5): what comes after the shown group
   (of linked groups: after the last one).
   - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
     track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);
@@ -366,28 +367,31 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     – none in line and nothing waiting (no message waiting for its click, no choice open, no trigger running;
     `vn.state.pageDone` and not `frozen`, owner 2026-10-06). A script that ends with `jumpTo` navigates itself, the bar
     never shows there.
-  - **Look:** fixed at the bottom of the viewport, full width, `paper`, a 2px `ink` top rule, IBM Plex Mono, square,
-    content max(500px, 30rem) centred; z 110 (above the VN box's 100 – it only shows once the scene finished – under the
-    toggles and overlays ≥ 1000); a spacer keeps the last slice clear of it. An optional one-line text, then the
-    secondary as a text link (left) and the primary button (ink, "→", right, never wraps). At most 2 actions.
+  - **Look** (owner 2026-10-07: "the box at the bottom is where I act"): no own bar – the VN message box
+    (`vn/message.svelte`, every chapter page has it, also without a VN – `vn-page.svelte`) shows them: the text (if any)
+    as the box's text, every action as a box choice in the story choices' look (`.vn-end-choice` = `.vn-choice`, the
+    style lives in message.svelte), the primary first, at most 2. Handed over as a snippet (`vn.setEnd`); the box
+    reports its height, so the VN characters stand on it as on a message. A spacer (`.next-host`, the box's height +
+    2rem) keeps the last slice clear of it (a full-width strip: none, the box sits over its last screen).
   - **Rules** (`nextStep` in `@scutoons/content` progress.ts + tests, over the season's whole `sequence` – a draft is
     never skipped –, `isItemPublic` for drafts in dev, the membership context):
     | case | text | primary | secondary | countdown |
     |---|---|---|---|---|
-    | the group has an authored end (`Group.end`, 2026-10-06) | – | "Weiter →", to a chapter like the next-chapter case ("Kapitel 2: Ärger →"); with `auto` no bar: it goes there at once | "↺ Nochmal" | yes |
-    | more groups follow | – | "Weiter →" (`?label=` of the next group) | "↺ Nochmal" | yes |
-    | the next chapter readable (preview or member) | – | "Kapitel 2: Ärger →" (`chapterName` + title); from the prologue "S1 K1 lesen →" | "↺ Nochmal" | yes |
-    | the next chapter members-only, not signed in | "Kapitel 1 ist für Mitglieder: melde dich an oder löse deinen Code ein." | "Anmelden →" (`/account?return=<chapter>`, back there after the login) | "Code einlösen" (the QR camera = the claim flow) | no |
-    | … signed in, no membership | "Kapitel 1 ist für Mitglieder: löse deinen Code ein." | "Code einlösen →" (the QR camera) | "Wo bekomme ich einen Code?" (the shop, like the blocker's "buy access") | no |
-    | the next chapter coming soon | "Kapitel 3 erscheint am 1. Dezember 2025" (no date, or a draft not public here: "erscheint bald") | "Zur Übersicht →" | – | no |
-    | the season's end | "Staffel 1 geschafft" | "Zur Übersicht →" | "Musik herunterladen" (only with `season.download.music`) | no |
+    | the group has an authored end (`Group.end`, 2026-10-06) | – | "Weiter", to a chapter like the next-chapter case ("Kapitel 2: Ärger"); with `auto` no bar: it goes there at once | "↺ Nochmal" | yes |
+    | more groups follow | – | "Weiter" (`?label=` of the next group) | "↺ Nochmal" | yes |
+    | the next chapter readable (preview or member) | – | "Kapitel 2: Ärger" (`chapterName` + title); from the prologue "S1 K1 lesen" | "↺ Nochmal" | yes |
+    | the next chapter members-only, not signed in | "Kapitel 1 ist für Mitglieder: melde dich an oder löse deinen Code ein." | "Anmelden" (`/account?return=<chapter>`, back there after the login) | "Code einlösen" (the QR camera = the claim flow) | no |
+    | … signed in, no membership | "Kapitel 1 ist für Mitglieder: löse deinen Code ein." | "Code einlösen" (the QR camera) | "Wo bekomme ich einen Code?" (the shop, like the blocker's "buy access") | no |
+    | the next chapter coming soon | "Kapitel 3 erscheint am 1. Dezember 2025" (no date, or a draft not public here: "erscheint bald") | "Zur Übersicht" | – | no |
+    | the season's end | "Staffel 1 geschafft" | "Zur Übersicht" | "Musik herunterladen" (only with `season.download.music`) | no |
     After a group ending with a player video there is no secondary: its replay is the ↺ on the video (player overlay);
     moving the video away from its end (↺, the seek line) hides the bar until it ends again. "↺ Nochmal"
     scrolls to the top and starts the group again (a VN group runs its script again: the page's `{#key}` gets a replay
     counter). A redeemed code / a login turns the members case into the countdown case by itself.
-  - **Countdown** (only next group / next chapter): a 2px rule under the primary fills in **10 s** (owner 2026-10-07; was 5) + "Weiter in 9 s ·
-    Abbrechen" in caption type, then it navigates. Stops (the button stays): "Abbrechen", the end scrolled out of view, a
-    click anywhere outside the bar (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
+  - **Countdown** (only next group / next chapter): a thin `ink` line along the bottom of the primary choice fills in
+    **10 s** (owner 2026-10-07; was 5), a small "Abbrechen" link under it ("Weiter in 9 s" for screen readers only),
+    then it navigates. Stops (the choice stays): "Abbrechen", the end scrolled out of view, a
+    click anywhere outside the end actions (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
     camera or a claim sheet. A hidden tab pauses it (the time away doesn't count). Reduced motion: no countdown.
   - Strings: paraglide `next_bar.*`. The per-group override is `Group.end` (built 2026-10-06, table above).
 - **Credits colophon** (`@scutoons/reader` `CreditsColophon`, owner 2026-09-30, typography after the back of the vinyl
