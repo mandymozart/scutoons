@@ -6,6 +6,7 @@ namespace Scutoons\Tests\Domain;
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Domain\Codes\CodeService;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Content\ItemPlacements;
@@ -120,5 +121,61 @@ final class ItemLimitsTest extends TestCase
         self::assertSame('taken', $import['skipped'][0]['reason'] ?? null);
         $inventory->remove($first, 'cucumber', 2);
         self::assertSame(1, $inventory->grant($second, ['item_id' => 'cucumber', 'source' => 'story', 'ref' => 'a']), 'back in the world: the next one may have it');
+    }
+
+    /**
+     * Owner 2026-10-07: a unique item whose owner's account is deleted is back up for grabs, and its code still applies.
+     * An account goes by `DELETE FROM users`: the foreign keys remove its inventory (the world count frees up), the
+     * trigger users_release_codes (migration 2026-10-07-account-deletion-frees-codes) releases its codes and withdraws
+     * the claims it filed open.
+     */
+    public function testADeletedAccountsCodeCanBeClaimedAgainAndItsUniqueItemIsFree(): void
+    {
+        $this->limit('awakening_vinyl', 'max_world', 1);
+        $inventory = $this->get(InventoryService::class);
+        $codes = $this->get(CodeService::class);
+        $first = $this->user('first@example.com');
+        $second = $this->user('second@example.com');
+        $firstId = (string) $first['id'];
+        $secondId = (string) $second['id'];
+        // a code with a unique item and a non-unique one
+        $code = $this->code('membership', ['edition_id' => '3_catpope_vinyl', 'edition_number' => 3]);
+        $this->db->run('INSERT INTO code_items (code, item_id, variant, qty) VALUES (?, ?, NULL, 1), (?, ?, NULL, 2)', [$code, 'awakening_vinyl', $code, 'cucumber']);
+        $other = $this->code('membership', ['edition_id' => '3_catpope_vinyl']);
+        self::assertTrue($codes->claim($first, $code, null, null));
+        self::assertTrue($codes->claim($second, $other, null, null));
+        $this->db->run("INSERT INTO ownership_claims (id, code, claimant_id, owner_id, statement, status, created_at) VALUES (?, ?, ?, ?, 'mine, really', 'open', ?)",
+            ['11111111-1111-4111-8111-111111111111', $other, $firstId, $secondId, $this->clock->utc()]);
+        $this->assertApiError(409, 'already_claimed', fn() => $codes->claim($second, $code, null, null));
+
+        $this->db->run('DELETE FROM users WHERE id = ?', [$firstId]);
+        self::assertSame(0, (int) $this->db->value('SELECT COUNT(*) FROM inventory WHERE user_id = ?', [$firstId]), "the account's items are gone");
+        self::assertSame(0, (int) $this->db->value("SELECT COUNT(DISTINCT user_id) FROM inventory WHERE item_id = 'awakening_vinyl' AND qty > 0 AND user_id <> ?", [$secondId]), 'nobody else owns the unique item');
+        $row = (array) $codes->find($code);
+        self::assertSame([null, ''], [$row['claimed_by'], $row['email']], 'the code is free again, no trace of the deleted address');
+        self::assertSame('withdrawn', $this->db->value('SELECT status FROM ownership_claims WHERE claimant_id = ?', [$firstId]));
+        self::assertSame($secondId, $codes->find($other)['claimed_by'] ?? null, "other accounts' codes stay theirs");
+
+        // the code still applies: the next person gets what it contains
+        $third = $this->user('third@example.com');
+        self::assertTrue($codes->claim($third, $code, null, null));
+        $owned = [];
+        foreach ($inventory->entries((string) $third['id']) as $entry) $owned[$entry['item_id']] = ($owned[$entry['item_id']] ?? 0) + $entry['qty'];
+        self::assertSame(1, $owned['awakening_vinyl'] ?? 0);
+        self::assertSame(2, $owned['cucumber'] ?? 0);
+        self::assertSame(2, (int) $this->db->value("SELECT COUNT(*) FROM code_events WHERE code = ? AND event = 'claim'", [$code]));
+        // one owner again: others are refused as before, the non-unique item is not limited
+        $this->assertApiError(409, 'already_claimed', fn() => $codes->claim($second, $code, null, null));
+        self::assertSame(1, $inventory->grant($secondId, ['item_id' => 'cucumber', 'source' => 'story', 'ref' => 'a']));
+    }
+
+    private function assertApiError(int $status, string $code, callable $call): void
+    {
+        try {
+            $call();
+            self::fail("$status $code expected");
+        } catch (ApiError $error) {
+            self::assertSame([$status, $code], [$error->status, $error->errorCode]);
+        }
     }
 }

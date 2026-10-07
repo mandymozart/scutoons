@@ -113,7 +113,8 @@ unreferenced (left on the CDN).
 - If a code has no `code_items` rows but has an `edition_id`, the edition's catalog items are the **options**: the
   claimer picks one item + variant at claim time (the owner decides per product how codes are printed (U); e.g. the
   Dago edition covers hoodie and tee, so the buyer picks).
-- One code can be claimed by exactly one user; re-claim by the same user is idempotent. Ownership moves between accounts only through the
+- One code can be claimed by exactly one user; re-claim by the same user is idempotent. A deleted account's codes are
+  free again (the next person claims them as usual – "Item limits"). Ownership moves between accounts only through the
   transfer core ("Ownership, claims, gifting": a claim decided by an admin, an admin transfer, a gift).
 - `n` codes → one account (email) (U).
 
@@ -906,8 +907,20 @@ Catalog → Items, "Placements (all toons)" / "Owners in the world"; whole numbe
   craft refuse anyone who doesn't own one yet while that many accounts own it (409 `taken`; the reader: "Someone else
   already owns this one."), a guest import skips it (`taken`). An owner may hold more (its `max` still applies);
   pieces given back / consumed free it for the next one. Claims (physical products, one code = one owner) and gifts
-  (they move a piece – the number of owners only grows when the giver keeps some) are not checked. Not decided: what
-  happens to a unique item when its owner's account is deleted.
+  (they move a piece – the number of owners only grows when the giver keeps some) are not checked.
+- **A deleted account** (owner 2026-10-07: "It is back up for grabs. The code still applies."): there is no deletion
+  feature – an account goes by `DELETE FROM users` (phpMyAdmin). The foreign keys (ON DELETE CASCADE) remove its
+  inventory, avatar, sessions, save game, …, so its pieces stop counting toward `max_world` at once (nothing is
+  excluded at read time). The trigger `users_release_codes` (migration `2026-10-07-account-deletion-frees-codes`, which
+  also repairs accounts deleted earlier) **releases every code the account owned** (`claimed_by` NULL, `email` '' – as
+  an admin release) and withdraws the ownership claims it filed that were still open; claims others filed for its codes
+  stay open (a "transfer" then claims the free code for the claimant). **The rule for a code with several things:** a
+  code is all-or-nothing and has one owner – all its items were code-bound to the deleted account and went with it, so
+  the next claimer gets the whole code (no piece of it exists twice; nobody can claim it a second time). Every code is
+  released, not only those holding a `max_world` item: the code is the physical product and its items are gone either
+  way, and a code bound to a missing account would be dead for good and keep the deleted person's email. History:
+  `item_transfers` / `code_events` keep their rows (no foreign keys; the admin shows "deleted account"), the next claim
+  is a normal `claim` event. Guests' local inventories are untouched (an import still skips a `taken` item).
 - **Rarer items** set a lower `max` (built; now in the admin form too, "Most per account") – which items and how many is
   the owner's call per item.
 

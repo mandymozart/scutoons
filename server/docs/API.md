@@ -683,6 +683,9 @@ transfer core + history + admin transfer + `received` notices + the two ownershi
   previous owner's avatar slots wearing them are cleared, `qr.email` / `claimed_at` follow. A never-registered code
   (or one registered by the old email form) is claimed for the new owner instead (its items are added). The previous
   owner keeps reading with the code (device access is not ownership).
+- **A deleted account** (`DELETE FROM users`; no API for it): the trigger `users_release_codes` (migration
+  `2026-10-07-account-deletion-frees-codes`) frees its codes (`claimed_by` NULL, `email` '') and withdraws its open
+  claims; the foreign keys remove its inventory. The next person claims the code as usual (ITEMS.md "Item limits").
 - **Before the migrations ran** (production runs the code first): `GET /me/` (`received: []`), the code history and
   the admin claims list keep working; gift / claim / transfer answer `503 not_available`; a `dispute` sign-in too.
 - Settings: `CLAIM_MAX_PER_DAY` (5), `CLAIM_FILES_MAX` (5), `CLAIM_FILE_MAX_BYTES` (5 MB), `GIFT_MAX_PER_DAY` (10),
