@@ -4,7 +4,8 @@
 // signed in as the local test user (agent@scutoons.test, `npm run dev:test-user`) on the running LOCAL dev stack
 // (creator :10000, API :9000). Refuses any API / creator that is not on localhost – never production.
 //
-//   npm run check:creator-chapter
+//   npm run check:creator-chapter      (SCUTOONS_CHAPTER_TOON=sandbox SCUTOONS_CHAPTER=1: another toon / chapter, e.g. while
+//                                        catpope's chapter 1 has someone's draft)
 //   (another local stack, e.g. a worktree's side ports: SCUTOONS_API=http://localhost:19420/api
 //    SCUTOONS_CREATOR=http://localhost:20420, like dev:test-user's SCUTOONS_API)
 //
@@ -18,6 +19,8 @@
 //   undo:    outside a field, Ctrl+Z undoes the last nudge, Ctrl+Shift+Z / Ctrl+Y redo it; the Undo / Redo buttons too
 //   keys:    Escape lets the selection go; Delete removes the selected box
 //   slices:  next / previous slice (bar buttons) move the slice editor and the URL
+//   reorder: the shared Sortable (BACKLOG 10.53) – dragging a slice's grip moves it, one undo brings it back; Alt+ArrowDown
+//            on a grip moves it one down (the focus follows), one undo again; the same for the groups when there are two
 //   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
 //            new text; the published version stays; Publish asks first, naming the chapter and its languages
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
@@ -34,8 +37,8 @@ import { local } from './ports.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
-const TOON = 'catpope';
-const CHAPTER = 1;
+const TOON = process.env.SCUTOONS_CHAPTER_TOON ?? 'catpope';
+const CHAPTER = Number(process.env.SCUTOONS_CHAPTER ?? 1);
 const GROUP = 0;
 const SLICE = 1; // the first story slice (0 is the key visual)
 const LOCALES = ['de', 'en'];
@@ -242,12 +245,23 @@ const KEYS = {
 };
 /** a real key press; mods: 'ctrl', 'shift' */
 async function press(key, ...mods) {
-	const modifiers = (mods.includes('ctrl') ? 2 : 0) | (mods.includes('shift') ? 8 : 0);
+	const modifiers = (mods.includes('alt') ? 1 : 0) | (mods.includes('ctrl') ? 2 : 0) | (mods.includes('shift') ? 8 : 0);
 	const code = key.length === 1 ? `Key${key.toUpperCase()}` : key;
 	const base = { key: mods.includes('shift') && key.length === 1 ? key.toUpperCase() : key, code, windowsVirtualKeyCode: KEYS[key], modifiers };
 	await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...base });
 	await send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
 	await sleep(200);
+}
+/** a real mouse drag of a Sortable grip onto the upper quarter of the target (it lands before it) */
+async function dragGrip(grip, target) {
+	const [x, y] = await js(`(() => { const el = document.querySelector(${JSON.stringify(grip)}); el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+	const ty = await js(`(() => { const r = document.querySelector(${JSON.stringify(target)}).getBoundingClientRect(); return r.y + r.height / 4; })()`);
+	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+	await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+	for (let i = 1; i <= 8; i++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y: y + ((ty - y) * i) / 8, button: 'left', buttons: 1 });
+	await sleep(100);
+	await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y: ty, button: 'left', buttons: 0, clickCount: 1 });
+	await sleep(300);
 }
 /** an in-page dialog (confirmDialog / askDialog), when one opens: click its button */
 async function answerDialog(button) {
@@ -455,6 +469,35 @@ try {
 	check((await dialogCount()) === (baseline[CHAPTER_KEYS[0]].content.groups[GROUP].slices[SLICE + 1].dialog ?? []).length, 'next slice: the canvas shows that slice');
 	await click(tid('prev-slice'));
 	check(new URLSearchParams(await search()).get('slice') === String(SLICE + 1) && (await dialogCount()) === n0, 'previous slice: back, with the new text box', await search());
+
+	// ── reorder: the shared Sortable (BACKLOG 10.53) ────────────────────────────────────────────────────
+	const sliceNames = () => js(`[...document.querySelectorAll('[data-testid="slice-list"] > li .thumb .name')].map((e) => e.textContent)`);
+	const s0 = await sliceNames();
+	if (s0.length >= 3) {
+		await dragGrip(tid(`slice-grip-${SLICE + 1}`), `[data-testid="slice-list"] > li:nth-child(${SLICE + 1})`);
+		const s1 = await sliceNames();
+		check(s1[SLICE] === s0[SLICE + 1] && s1[SLICE + 1] === s0[SLICE] && s1.length === s0.length, 'reorder: dragging a slice grip up one place moves the slice', JSON.stringify({ s0, s1 }));
+		await barClick('undo');
+		check(JSON.stringify(await sliceNames()) === JSON.stringify(s0), 'reorder: one undo brings the order back');
+		await js(`${q(`slice-grip-${SLICE}`)}.focus()`);
+		await press('ArrowDown', 'alt');
+		const s2 = await sliceNames();
+		const focused = await js(`document.activeElement?.dataset.testid ?? ''`);
+		check(s2[SLICE + 1] === s0[SLICE] && focused === `slice-grip-${SLICE + 1}`, 'reorder: Alt+ArrowDown on a slice grip moves it down, the focus follows', JSON.stringify({ s2, focused }));
+		await barClick('undo');
+		check(JSON.stringify(await sliceNames()) === JSON.stringify(s0), 'reorder: undo again');
+	} else check(false, 'reorder: the group has at least 3 slices', JSON.stringify(s0));
+	const groupNames = () => js(`[...document.querySelectorAll('[data-testid="chapter-tree"] .group-row .name')].map((e) => e.textContent)`);
+	const g0 = await groupNames();
+	if (g0.length >= 2) {
+		await js(`${q('group-grip-0')}.focus()`);
+		await press('ArrowDown', 'alt');
+		const g1 = await groupNames();
+		check(g1[0] === g0[1] && g1[1] === g0[0], 'reorder: Alt+ArrowDown on a group grip moves the group down', JSON.stringify({ g0, g1 }));
+		await barClick('undo');
+		check(JSON.stringify(await groupNames()) === JSON.stringify(g0), 'reorder: one undo brings the groups back');
+		await click(tid(`slice-${SLICE}`));
+	}
 
 	// ── save draft ──────────────────────────────────────────────────────────────────────────────────────
 	const n = writes.length;

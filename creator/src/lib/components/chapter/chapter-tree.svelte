@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
 	import { linksToNext, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -13,8 +13,8 @@
 	/**
 	 * The chapter's children in the sidebar (COMPONENTS.md step 12): meta, audio, groups → the open group's slices
 	 * (Alt+ArrowDown opens the first child). Groups: click opens / folds one, Shift+click picks the range from the anchor,
-	 * Ctrl / Cmd+click adds / removes one; dragging a picked group moves all picked ones (in their order) – owner
-	 * 2026-10-03. One "Add group" (new groups live in the chapter).
+	 * Ctrl / Cmd+click adds / removes one; dragging a picked group by its grip (the shared Sortable) moves all picked
+	 * ones (in their order) – owner 2026-10-03. One "Add group" (new groups live in the chapter).
 	 */
 	let {
 		view,
@@ -47,8 +47,6 @@
 
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
-	let dragging = $state<number[] | null>(null);
-	let over = $state<number | null>(null);
 
 	function clickGroup(index: number, event: MouseEvent) {
 		const next = clickSelect(picked, anchor, index, event);
@@ -57,13 +55,13 @@
 		// a plain click opens / folds it; Shift / Ctrl only pick
 		if (!event.shiftKey && !event.ctrlKey && !event.metaKey) view.toggleGroup(index);
 	}
-	function dropGroups(target: number) {
-		const moving = dragging;
-		if (!moving?.length) return;
+	/** the shared Sortable's move: the row at `from` (and every other picked one with it) goes to `to` */
+	function moveGroups(from: number, to: number) {
+		const moving = picked.length > 1 && picked.includes(from) ? [...picked] : [from];
 		let map = new Map<number, number>();
 		chapter.edit((file) => {
 			if (!Array.isArray(file.groups)) return;
-			const result = moveMany(file.groups, moving, target);
+			const result = moveMany(file.groups, moving, from, to);
 			map = result.map;
 			file.groups.splice(0, file.groups.length, ...result.list);
 		});
@@ -90,37 +88,12 @@
 	<button class="node sc-nav-item" class:is-current={view.section === 'meta'} onclick={() => (view.section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
 	<button class="node sc-nav-item" class:is-current={view.section === 'audio'} onclick={() => (view.section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
 	<div class="sc-nav-head">{m['creator.groups']()}</div>
+	<div class="groups" use:sortable={{ onmove: moveGroups }}>
 	{#each groups as g, gi (gi)}
 		{@const open = gi === view.groupIndex && view.inGroup && !view.collapsed}
-		<div class="group" class:open>
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="group-row"
-				class:picked={picked.length > 1 && picked.includes(gi)}
-				class:over={over === gi && !dragging?.includes(gi)}
-				class:below={over === gi && !!dragging?.length && gi > Math.min(...dragging)}
-				class:moving={dragging?.includes(gi)}
-				draggable="true"
-				ondragstart={(e) => {
-					dragging = picked.includes(gi) ? [...picked] : [gi];
-					if (!picked.includes(gi)) picked = [gi];
-					e.dataTransfer?.setData('text/plain', dragging.join(','));
-					if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-				}}
-				ondragover={(e) => {
-					if (!dragging) return;
-					e.preventDefault();
-					over = gi;
-				}}
-				ondragleave={() => (over = over === gi ? null : over)}
-				ondrop={(e) => {
-					if (!dragging) return;
-					e.preventDefault();
-					dropGroups(gi);
-					dragging = over = null;
-				}}
-				ondragend={() => (dragging = over = null)}
-			>
+		<div class="group" class:open data-sort-row>
+			<div class="group-row" class:picked={picked.length > 1 && picked.includes(gi)}>
+				<SortGrip label={m['creator.sort_move']({ name: groupName(g, gi) })} title={m['creator.sort_hint']()} testid="group-grip-{gi}" />
 				<button
 					class="node sc-nav-item"
 					class:is-current={view.section === 'group' && gi === view.groupIndex}
@@ -153,6 +126,7 @@
 			{/if}
 		</div>
 	{/each}
+	</div>
 	<div class="tree-add">
 		<button class="secondary" title={m['creator.add_group']()} onclick={addGroup}><Icon name="plus" /> <span class="one-line">{m['creator.add_group']()}</span></button>
 	</div>
@@ -166,19 +140,10 @@
 	.group-row {
 		display: flex;
 	}
-	/* group drag (owner 2026-10-03): the drop line above / below the target, picked groups framed, the moving ones faint */
-	.group-row.over {
-		box-shadow: inset 0 3px 0 var(--cyan);
-	}
-	.group-row.over.below {
-		box-shadow: inset 0 -3px 0 var(--cyan);
-	}
+	/* picked groups (Shift / Ctrl) framed: a drag by one picked group's grip moves them all */
 	.group-row.picked {
 		outline: var(--border-width-regular) solid var(--ink);
 		outline-offset: calc(-1 * var(--border-width-regular));
-	}
-	.group-row.moving {
-		opacity: 0.5;
 	}
 	.group-row .node {
 		flex: 1;

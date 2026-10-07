@@ -1,7 +1,7 @@
 /**
  * Multi-select + drag for ordered lists (owner 2026-10-03: the chapter tree's groups and a group's slices): a click
  * selects one, Shift+click the range from the last plain click (the anchor), Ctrl / Cmd+click adds or removes one;
- * dragging a selected row moves the whole selection (kept in its order) to the drop place.
+ * dragging a selected row (the shared Sortable's grip) moves the whole selection (kept in its order) to the drop place.
  */
 
 /** the selection after a click on `index` (`anchor` = the last plain / Ctrl click) */
@@ -23,23 +23,19 @@ export function clickSelect(
 }
 
 /**
- * Moves the items at `picked` (indices) so they sit where `target` was dropped: before the target when it lies above
- * the picked items, after it when below. Returns the new list and where every old index went (old → new).
+ * The shared Sortable's move with a selection: the row at `from` was dragged to `to` (its index after the move, among
+ * the other rows); every picked row goes with it, kept in its order, where the dragged one lands. A `from` that is not
+ * picked moves alone. Returns the new list and where every old index went (old → new).
  */
-export function moveMany<T>(list: readonly T[], picked: readonly number[], target: number): { list: T[]; map: Map<number, number> } {
-	const set = new Set(picked.filter((i) => i >= 0 && i < list.length));
-	const map = new Map<number, number>();
-	if (!set.size || set.has(target)) {
-		list.forEach((_, i) => map.set(i, i));
-		return { list: [...list], map };
-	}
-	const first = Math.min(...set);
-	// the insertion point in the original list: before the target (dragging up) or after it (dragging down)
-	const point = target < first ? target : target + 1;
+export function moveMany<T>(list: readonly T[], picked: readonly number[], from: number, to: number): { list: T[]; map: Map<number, number> } {
+	const set = new Set(picked.includes(from) ? picked.filter((i) => i >= 0 && i < list.length) : [from]);
+	// the boundary in the original list the dragged row was dropped on (the others keep their indices around it)
+	const point = to < from ? to : to + 1;
 	const rest = list.map((item, i) => ({ item, i })).filter((x) => !set.has(x.i));
 	const moving = list.map((item, i) => ({ item, i })).filter((x) => set.has(x.i));
 	const at = rest.filter((x) => x.i < point).length;
 	const out = [...rest.slice(0, at), ...moving, ...rest.slice(at)];
+	const map = new Map<number, number>();
 	out.forEach((x, n) => map.set(x.i, n));
 	return { list: out.map((x) => x.item), map };
 }

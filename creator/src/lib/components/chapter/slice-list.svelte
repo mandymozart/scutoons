@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, sortable } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
 	import { fillSliceSize } from '$lib/editor/images.ts';
@@ -32,11 +32,9 @@
 	const slices = $derived<any[]>(doc.get(doc.primary, [...groupPath, 'slices']) ?? []);
 
 	// multi-select (owner 2026-10-03): click = one, Shift+click = the range from the anchor, Ctrl / Cmd+click = add / remove;
-	// dragging a picked slice moves all picked ones (in their order)
+	// dragging a picked slice by its grip (the shared Sortable) moves all picked ones (in their order)
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
-	let dragging = $state<number[] | null>(null);
-	let dragOver = $state<number | null>(null);
 	// image files dragged from the computer (owner 2026-10-06): onto the middle of a slice = replace its image, onto its
 	// top / bottom edge = new slices before / after it (between two slices, before the first, after the last)
 	let fileOver = $state<{ index: number; zone: 'before' | 'on' | 'after' } | null>(null);
@@ -67,14 +65,13 @@
 		if (picked.includes(index)) onselect(index);
 	}
 
-	function moveTo(target: number) {
-		const moving = dragging;
-		if (!moving?.length) return;
+	function moveSlices(from: number, to: number) {
+		const moving = picked.length > 1 && picked.includes(from) ? [...picked] : [from];
 		let map = new Map<number, number>();
 		doc.edit((file) => {
 			const list = getAt(file, [...groupPath, 'slices']);
 			if (!Array.isArray(list)) return;
-			const result = moveMany(list, moving, target);
+			const result = moveMany(list, moving, from, to);
 			map = result.map;
 			list.splice(0, list.length, ...result.list);
 		});
@@ -118,44 +115,31 @@
 	const count = (s: any, key: string) => (Array.isArray(s?.[key]) ? s[key].length : 0);
 </script>
 
-<ol class="slices" data-testid="slice-list">
+<ol class="slices" use:sortable={{ onmove: moveSlices }} data-testid="slice-list">
 	{#each slices as slice, index (index)}
 		<li
+			data-sort-row
 			class:selected={index === selected}
 			class:picked={picked.includes(index) && index !== selected}
-			class:over={dragOver === index && !dragging?.includes(index)}
-			class:moving={dragging?.includes(index)}
-			class:below={dragOver === index && !!dragging?.length && index > Math.min(...dragging)}
 			class:file-on={fileOver?.index === index && fileOver.zone === 'on'}
 			class:file-before={fileOver?.index === index && fileOver.zone === 'before'}
 			class:file-after={fileOver?.index === index && fileOver.zone === 'after'}
-			draggable="true"
-			ondragstart={(e) => {
-				dragging = picked.includes(index) ? [...picked] : [index];
-				if (!picked.includes(index)) picked = [index];
-				e.dataTransfer?.setData('text/plain', dragging.join(','));
-				if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-			}}
 			ondragover={(e) => {
+				if (!hasFiles(e)) return;
 				e.preventDefault();
-				if (hasFiles(e)) {
-					fileOver = { index, zone: fileZone(e) };
-					if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-				} else dragOver = index;
+				fileOver = { index, zone: fileZone(e) };
+				if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
 			}}
-			ondragleave={() => {
-				dragOver = dragOver === index ? null : dragOver;
-				fileOver = fileOver?.index === index ? null : fileOver;
-			}}
+			ondragleave={() => (fileOver = fileOver?.index === index ? null : fileOver)}
 			ondrop={(e) => {
-				e.preventDefault();
 				const files = [...(e.dataTransfer?.files ?? [])];
-				if (files.length) dropFiles(index, files, fileZone(e));
-				else moveTo(index);
-				dragging = dragOver = fileOver = null;
+				if (!files.length) return;
+				e.preventDefault();
+				dropFiles(index, files, fileZone(e));
+				fileOver = null;
 			}}
-			ondragend={() => (dragging = dragOver = null)}
 		>
+			<SortGrip label={m['creator.sort_move']({ name: `${index + 1} ${slice?.image?.split('/').pop() ?? ''}`.trim() })} title={m['creator.sort_hint']()} testid="slice-grip-{index}" />
 			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={(e) => pick(index, e)} data-testid="slice-{index}">
 				<span class="no">{index + 1}</span>
 				<img src={replacedImages.src(asset(`${doc.toon}/${slice?.image}`), `${doc.toon}/${slice?.image}`)} alt="" loading="lazy" draggable="false" />
@@ -229,12 +213,10 @@
 	li.selected .tools button {
 		color: var(--paper);
 	}
-	/* the drop line: above the target when moving up, below it when moving down (where the slices land) */
-	li.over,
+	/* image files from the computer: the drop line above / below a slice (new slices there) */
 	li.file-before {
 		box-shadow: inset 0 3px 0 var(--cyan);
 	}
-	li.over.below,
 	li.file-after {
 		box-shadow: inset 0 -3px 0 var(--cyan);
 	}
@@ -244,7 +226,7 @@
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	/* image files from the computer: the middle of a slice framed in cyan (replace its image); an edge shows the drop
-	   line above (li.over / .file-before) or below (li.over.below / .file-after) – new slices there */
+	   line above (.file-before) or below (.file-after) – new slices there */
 	li.file-on,
 	.empty.file-on {
 		outline: var(--border-width-focus) solid var(--cyan);
@@ -258,9 +240,6 @@
 		padding: var(--space-1);
 		border: var(--border-width-hairline) dashed var(--ink);
 	}
-	li.moving {
-		opacity: 0.5;
-	}
 	.thumb {
 		flex: 1;
 		display: flex;
@@ -273,7 +252,6 @@
 		border: 0;
 		text-align: left;
 		min-width: 0;
-		cursor: grab;
 	}
 	.no {
 		flex: none;

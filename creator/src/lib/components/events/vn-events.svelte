@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { CloseIcon, Icon, confirmDialog } from '@scutoons/ui';
+	import { CloseIcon, Icon, SortGrip, confirmDialog, sortable } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { characterImage, characterIndex, clone, getAt, resolveCharacterId, scriptLabels, Trigger, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -150,11 +150,10 @@
 		if (Number.isInteger(index) && !untrack(() => open).includes(index)) open = [...untrack(() => open), index];
 	});
 
-	// ── multi-select + drag (like the chapter tree): click = one (opens / folds it), Shift = range, Ctrl / Cmd = add / remove ──
+	// ── multi-select + drag (like the chapter tree): click = one (opens / folds it), Shift = range, Ctrl / Cmd = add / remove;
+	// the grip (the shared Sortable) moves the picked ones together ──
 	let picked = $state<number[]>([]);
 	let anchor = $state<number | null>(null);
-	let dragging = $state<number[] | null>(null);
-	let dragOver = $state<number | null>(null);
 	function clickRow(index: number, event: MouseEvent) {
 		const next = clickSelect(picked, anchor, index, event);
 		picked = next.selected;
@@ -163,22 +162,21 @@
 		open = isOpen(index) ? open.filter((i) => i !== index) : [...open, index];
 		onselect?.(index);
 	}
-	function dropOn(target: number) {
-		const moving = dragging;
-		if (!moving?.length) return;
+	function moveEvents(from: number, to: number) {
+		const moving = picked.length > 1 && picked.includes(from) ? [...picked] : [from];
 		let map = new Map<number, number>();
 		doc.edit((file) => {
 			const list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) return;
-			const result = moveMany(list, moving, target);
+			const result = moveMany(list, moving, from, to);
 			map = result.map;
 			list.splice(0, list.length, ...result.list);
 		});
-		const to = (i: number) => map.get(i) ?? i;
-		picked = moving.map(to).sort((a, b) => a - b);
-		open = open.map(to);
-		anchor = anchor === null ? null : to(anchor);
-		if (selected >= 0) onselect?.(to(selected));
+		const moved = (i: number) => map.get(i) ?? i;
+		picked = moving.map(moved).sort((a, b) => a - b);
+		open = open.map(moved);
+		anchor = anchor === null ? null : moved(anchor);
+		if (selected >= 0) onselect?.(moved(selected));
 	}
 
 	/** the speaker's avatar (a tiny one in the line, owner 2026-10-03); none without a registry image */
@@ -198,43 +196,13 @@
 	}
 </script>
 
-<section class="vn-events" data-testid="vn-events">
+<section class="vn-events" use:sortable={{ onmove: moveEvents }} data-testid="vn-events">
 	{#each events as event, i (i)}
 		{@const p = [...eventsPath, i]}
 		{@const known = FORM_TYPES.includes(event?.type)}
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<article
-			class="event"
-			class:selected={i === selected}
-			class:open={isOpen(i)}
-			class:picked={picked.length > 1 && picked.includes(i)}
-			class:over={dragOver === i && !dragging?.includes(i)}
-			class:below={dragOver === i && !!dragging?.length && i > Math.min(...dragging)}
-			class:moving={dragging?.includes(i)}
-			ondragover={(e) => {
-				if (!dragging) return;
-				e.preventDefault();
-				dragOver = i;
-			}}
-			ondragleave={() => (dragOver = dragOver === i ? null : dragOver)}
-			ondrop={(e) => {
-				if (!dragging) return;
-				e.preventDefault();
-				dropOn(i);
-				dragging = dragOver = null;
-			}}
-			data-testid="event-{i}"
-		>
-			<header
-				draggable="true"
-				ondragstart={(e) => {
-					dragging = picked.includes(i) ? [...picked] : [i];
-					if (!picked.includes(i)) picked = [i];
-					e.dataTransfer?.setData('text/plain', dragging.join(','));
-					if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-				}}
-				ondragend={() => (dragging = dragOver = null)}
-			>
+		<article class="event" class:selected={i === selected} class:open={isOpen(i)} class:picked={picked.length > 1 && picked.includes(i)} data-sort-row data-testid="event-{i}">
+			<header>
+				<SortGrip label={m['creator.sort_move']({ name: `${i + 1} ${event?.type ?? ''}`.trim() })} title={m['creator.sort_hint']()} testid="event-grip-{i}" />
 				<button type="button" class="ghost line" onclick={(e) => clickRow(i, e)} aria-expanded={isOpen(i)} data-testid="event-line-{i}">
 					<Icon name="chevron-right" />
 					<span class="idx">{i + 1}</span>
@@ -372,22 +340,10 @@
 		gap: 0.15rem;
 		max-width: 16rem;
 	}
-	/* drag: the drop line above / below the target, picked ones framed, the moving ones faint */
-	.event.over {
-		box-shadow: inset 0 3px 0 var(--cyan);
-	}
-	.event.over.below {
-		box-shadow: inset 0 -3px 0 var(--cyan);
-	}
+	/* picked ones (Shift / Ctrl) framed: a drag by one picked event's grip moves them all */
 	.event.picked {
 		outline: var(--border-width-regular) solid var(--ink);
 		outline-offset: calc(-1 * var(--border-width-regular));
-	}
-	.event.moving {
-		opacity: 0.5;
-	}
-	header[draggable='true'] {
-		cursor: grab;
 	}
 	header {
 		display: flex;
