@@ -249,8 +249,11 @@ async function pageView(view, offsetMinutes) {
 		s = await waitText(/^READER /, 5000);
 		check(s?.text === 'READER Ada', `reader scope: the answer button stores the default, {reader.name} shows it → "${s?.text}"`);
 		await shot('reader-name');
-		await sleep(400);
-		const stored = sql(`SELECT IFNULL(display_name, '') FROM users WHERE id = ${quote(userId)}`);
+		let stored = '';
+		for (let i = 0; i < 40 && stored !== 'Ada'; i++) {
+			await sleep(250);
+			stored = sql(`SELECT IFNULL(display_name, '') FROM users WHERE id = ${quote(userId)}`);
+		}
 		check(stored === 'Ada', `the member's name is on the account (users.display_name = "${stored}")`);
 		await next();
 		s = await waitText(/^COND /, 5000);
@@ -282,6 +285,20 @@ async function pageView(view, offsetMinutes) {
 	return state();
 }
 
+/**
+ * the reader's debounced progress push: wait until the server's save game has it (a fixed 2.5 s lost it on a busy
+ * machine – the next page view then asked again and counted from 0: the old "known 7" failures)
+ */
+async function pushed(test) {
+	for (let i = 0; i < 60; i++) {
+		const row = sql(`SELECT state FROM progress WHERE user_id = ${quote(userId)} AND toon_id = 'scutoons'`);
+		try { if (row && test(JSON.parse(row).variables ?? {})) return true; } catch {}
+		await sleep(250);
+	}
+	console.log('note the save game push was not seen in 15 s');
+	return false;
+}
+
 try {
 	await send('Runtime.enable');
 	await send('Page.enable');
@@ -310,12 +327,13 @@ try {
 	check(s, 'the pickup is taken (gone from the slice)', JSON.stringify(await state()));
 	check(Number(sql(`SELECT IFNULL(SUM(qty), 0) FROM inventory WHERE user_id = ${quote(userId)} AND item_id = 'cucumber'`)) >= 1, 'the server granted it (inventory)');
 	await shot('page-view-1');
-	await sleep(2500); // the debounced progress push
+	await pushed((v) => v['sandbox/hero'] === 'Zed' && v['sandbox/c_item'] === 1);
 
 	// page view 2 (a reload): per page view again, once for good not, the same 10-minute bucket not
 	s = await pageView(2, 0);
 	check(counts(s.vars) === '1 2 1 4 2', `page view 2 (reload): → ${counts(s.vars)} (want 1 2 1 4 2)`);
 	check(s.items === 1, 'the pickup stays gone in its period');
+	await pushed((v) => v['sandbox/c_item'] === 2);
 
 	// page view 3, 61 minutes later (the page's clock): the 10-minute rule and the pickup are due again
 	s = await pageView(3, 61);
@@ -359,7 +377,9 @@ try {
 } catch (error) {
 	check(false, 'the run', String(error?.stack ?? error));
 } finally {
-	await sleep(1000);
+	// leave the page first: a save game it still flushes (pagehide) must land BEFORE the restore, not after it
+	await send('Page.navigate', { url: 'about:blank' }).catch(() => {});
+	await sleep(1500);
 	await restore().catch((error) => check(false, 'restore', String(error)));
 	cleanup();
 }

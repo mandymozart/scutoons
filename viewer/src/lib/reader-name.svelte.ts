@@ -49,6 +49,10 @@ class ReaderNameState {
 	async set(raw: string): Promise<void> {
 		const name = cleanText(raw, READER_NAME_MAX);
 		await readerKnown();
+		// a write doesn't guess: while the session check still runs past readerKnown's 3 s (a slow API), wait on (≤ 15 s
+		// more) – else a member's name landed on the device, the account stayed empty and the next page asked again
+		// (events-check, 2026-10-07)
+		for (let i = 0; i < 300 && getCurrentSession()?.pending; i++) await new Promise((r) => setTimeout(r, 50));
 		const session = getCurrentSession();
 		if (session?.isLoggedIn) {
 			await session.setDisplayName(name || null);
