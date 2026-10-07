@@ -87,7 +87,7 @@
 			{@const place = placeOf(p)}
 			{@const done = isAccepted(p)}
 			<li class="level-{p.level}" class:is-accepted={done}>
-				<button type="button" class="goto" onclick={() => (shellDock.restore(), ongoto?.(p))} title={m['creator.problems_goto']()}>
+				<button type="button" class="goto" onclick={() => (shellDock.restore(), shellDock.foldMain(false), ongoto?.(p))} title={m['creator.problems_goto']()}>
 					<span class="where">{place}</span>
 					<span class="msg">{messageOf(p)}</span>
 				</button>

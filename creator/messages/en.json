@@ -987,6 +987,8 @@
 		"unfold_sidebar": "Show the sidebar",
 		"fold_panel": "Fold the panel",
 		"unfold_panel": "Show the panel",
+		"fold_page": "Fold the page",
+		"unfold_page": "Show the page",
 		"maximize_panel": "Maximize",
 		"restore_panel": "Restore",
 		"related_items": "Related items",

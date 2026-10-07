@@ -10,7 +10,10 @@
 // slice inspector is a region beside the canvas (at most half the area, below it under 1280px); Ask's Divider drags it
 // wider; maximize (owner 2026-10-06): the Flow / the slice inspector fill the space between the sidebar's rail and Ask by
 // their button, Esc, Ctrl+Space (the main stays mounted: its unsaved edit, scroll and widths survive), a Flow box click
-// restores and navigates, another panel stays maximized, closing ends it; on a phone the dock covers the page. Admin + embassy (Info, SplitView, Ask): check:tools-dock.
+// restores and navigates, another panel takes the maximize over, closing ends it; on a phone the dock covers the page.
+// 10.57 (owner 2026-10-07): maximize = fold everything else to its rail (main, other panels, Ask; the ActionBar stays);
+// several panels: the room running out folds the least recently used first (a squeezed rail's click brings it back,
+// the next folds), Ctrl+Shift+\ folds the main; every rail's button at the height of Ask's header buttons (±1 px). Admin + embassy (Info, SplitView, Ask): check:tools-dock.
 //   node scripts/dev/creator-dock-check.mjs        (creator :10000, API :9000)
 //   DOCK_SHOTS=<dir>: screenshots <DOCK_PREFIX, default dock->*.png into <dir>
 import { spawn } from 'node:child_process';
@@ -260,7 +263,7 @@ try {
 	const ctrlSpace = () => press(' ', 'Space', 32, 2);
 	const escape = () => press('Escape', 'Escape', 27);
 	const maxState = () =>
-		js(`(() => { const b = ${q('dock-maximize')}; const c = document.querySelector('.sc-shell-content'); return { dock: !!document.querySelector('.sc-app-shell.max-dock'), main: !!document.querySelector('.sc-app-shell.max-main'), contentHidden: c ? getComputedStyle(c).visibility === 'hidden' : null, icon: b?.querySelector('svg')?.dataset.icon ?? null, title: b?.title ?? null, label: b?.getAttribute('aria-label') ?? null }; })()`);
+		js(`(() => { const b = ${q('dock-maximize')}; const c = document.querySelector('.sc-shell-content'); const bar = document.querySelector('.sc-action-bar'); const br = bar?.getBoundingClientRect(); return { dock: !!document.querySelector('.sc-app-shell.max-dock'), main: !!document.querySelector('.sc-app-shell.max-main'), contentHidden: c ? getComputedStyle(c).visibility === 'hidden' : null, mainRail: !!${q('main-rail')}, askRail: !!${q('ask-rail')}, bar: !!bar && getComputedStyle(bar).visibility === 'visible' && br.bottom <= innerHeight + 1 && br.height > 10, icon: b?.querySelector('svg')?.dataset.icon ?? null, title: b?.title ?? null, label: b?.getAttribute('aria-label') ?? null }; })()`);
 	const field = `document.querySelector('.columns > .main input[type="text"], .columns > .main textarea')`;
 	check(await go('/catpope/chapter/1?flow=1', `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node') && !!${field}`), '1600: chapter Flow + an editable main for maximize');
 	await sleep(500);
@@ -279,13 +282,16 @@ try {
 	await sleep(400);
 	let mx = await maxState();
 	g = await layout();
-	check(mx.dock && mx.contentHidden && g.folded && g.rail && g.dock.l <= railPx + 4 && g.dock.r >= 1600 - 2 && !(await js(`!!${q('dock-fold')}`)), `maximized: the Flow fills from the sidebar's rail to the edge (${g.dock.l}–${g.dock.r} px), the main is hidden, no fold button`, JSON.stringify({ mx, g }));
+	check(mx.dock && mx.contentHidden && mx.mainRail && g.folded && g.rail && g.dock.l <= 2 * railPx + 4 && g.dock.r >= 1600 - 2 && !(await js(`!!${q('dock-fold')}`)), `maximized: the Flow fills from the sidebar's and the main's rails to the edge (${g.dock.l}–${g.dock.r} px), the main folded to its rail (laid out, hidden), no fold button`, JSON.stringify({ mx, g }));
+	check(mx.bar, 'maximized: the ActionBar stays visible (Save / Publish / undo still act on the main)', JSON.stringify(mx));
 	check(mx.icon === 'minimize-2' && mx.label === 'Restore' && mx.title?.startsWith('Restore'), `maximized: the button says "${mx.title}" (minimize-2)`, JSON.stringify(mx));
 	check((await js(`${field}.value`)) === edited && (await js(`!!${q('flow-panel')}`)), 'maximized: the hidden main keeps its edit (nothing unmounted)');
 	await shot('1600-flow-max');
 	await setAsk(true);
 	g = await layout();
-	check((await maxState()).dock && g.ask && Math.abs(g.dock.r - g.ask.l) <= 2, 'maximized + Ask: the Flow ends where Ask starts', JSON.stringify(g));
+	mx = await maxState();
+	const askRailAt = await js(`(() => { const b = ${q('ask-rail')}?.getBoundingClientRect(); return b ? Math.round(b.left) : null; })()`);
+	check(mx.dock && mx.askRail && askRailAt !== null && Math.abs(g.dock.r - askRailAt) <= 2, `maximized + Ask: Ask folds to its rail, the Flow ends where it starts (${g.dock.r} / ${askRailAt})`, JSON.stringify({ mx, g, askRailAt }));
 	await setAsk(false);
 	await js(`${q('dock-maximize')}.click(), true`);
 	await sleep(400);
@@ -311,15 +317,9 @@ try {
 	check((await maxState()).dock && (await js(`document.activeElement === ${q('dock-maximize')}`)), 'Ctrl+Space in the main maximizes the open dock panel, focus goes to its button');
 	await escape();
 	check(!(await maxState()).dock && (await js(`document.activeElement === ${field}`)), 'Esc restores, focus back in the field');
-	// Esc in a text field belongs to the field (Ask's input)
 	await js(`${q('dock-maximize')}.click(), true`);
 	await sleep(300);
-	await setAsk(true);
-	await js(`document.querySelector('.sc-shell-ask textarea, .sc-shell-ask input').focus(), true`);
-	await escape();
-	check((await maxState()).dock, 'Esc in a text field (Ask) leaves the maximize alone');
-	await setAsk(false);
-	// another dock panel while maximized keeps the maximize
+	// another dock panel opened while one is maximized takes the maximize over (10.57: the Flow stays open, on its rail)
 	// Problems sits in the ActionBar's "More" below 2048px
 	if (!(await js(`!!${q('problems-toggle')}`))) {
 		await js(`[...document.querySelectorAll('.sc-action-bar button')].find((b) => /more|mehr/i.test(b.getAttribute('aria-label') ?? b.textContent)).click(), true`);
@@ -328,11 +328,15 @@ try {
 	await js(`${q('problems-toggle')}.click(), true`);
 	await sleep(400);
 	mx = await maxState();
-	check(mx.dock && (await js(`!!${q('problems-panel')}`)), 'another panel taking the dock stays maximized (Problems)', JSON.stringify(mx));
-	await js(`${q('flow-toggle')}.click(), true`);
+	check(mx.dock && (await js(`!!document.querySelector('.sc-shell-dock.maxed [data-testid="problems-panel"]') && !!document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-rail-maximized"]')`)), 'Problems opened while the Flow is maximized: Problems maximized, the Flow open on its rail', JSON.stringify(mx));
+	// closing the maximized Problems ends the maximize; the Flow maximized again
+	await js(`${q('problems-toggle')}.click(), true`);
+	await sleep(400);
+	check(!(await maxState()).dock && (await js(`!!${q('flow-panel')}`)), 'Problems closed: the maximize ends, the Flow shows again');
+	await js(`document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-maximize"]').click(), true`);
 	await until(`!!document.querySelector('.sc-shell-dock .box.kind-group')`);
 	await sleep(800);
-	check((await maxState()).dock, 'the Flow again, still maximized');
+	check((await maxState()).dock, 'the Flow maximized again');
 	// a click on a box restores and opens it in the main
 	const box = await js(`(() => { const e = document.querySelector('.sc-shell-dock .box.kind-group'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + Math.min(b.height / 2, 20) }; })()`);
 	if (box) {
@@ -355,8 +359,15 @@ try {
 	const i0m = await js(`Math.round(document.querySelector('[data-testid="inspector-region"]').getBoundingClientRect().width)`);
 	await js(`${q('inspector-maximize')}.click(), true`);
 	await sleep(400);
-	let im = await js(`(() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width) }; }; return { region: r('[data-testid="inspector-region"]'), columns: r('.columns'), main: getComputedStyle(document.querySelector('.columns > .main')).visibility, dock: getComputedStyle(document.querySelector('.sc-shell-dock')).visibility, shell: !!document.querySelector('.sc-app-shell.max-main'), folded: !!document.querySelector('.sc-app-shell.folded'), icon: ${q('inspector-maximize')}.querySelector('svg').dataset.icon, title: ${q('inspector-maximize')}.title }; })()`);
-	check(im.shell && im.folded && im.main === 'hidden' && im.dock === 'hidden' && Math.abs(im.region.l - im.columns.l) <= 2 && im.region.r >= 1600 - 2 && im.icon === 'minimize-2' && im.title.startsWith('Restore'), `the inspector maximized: it fills from the rail to the edge (${im.region.w} px), canvas and Flow hidden`, JSON.stringify(im));
+	let im = await js(`(() => { const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width) }; }; return { region: r('[data-testid="inspector-region"]'), columns: r('.columns'), main: getComputedStyle(document.querySelector('.columns > .main')).visibility, flowRail: !!document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-rail-maximized"]'), shell: !!document.querySelector('.sc-app-shell.max-main'), folded: !!document.querySelector('.sc-app-shell.folded'), icon: ${q('inspector-maximize')}.querySelector('svg').dataset.icon, title: ${q('inspector-maximize')}.title }; })()`);
+	check(im.shell && im.folded && im.main === 'hidden' && im.flowRail && Math.abs(im.region.l - im.columns.l) <= 2 && im.region.r >= 1600 - railPx - 2 && im.icon === 'minimize-2' && im.title.startsWith('Restore'), `the inspector maximized: it fills from the sidebar's rail to the Flow's (${im.region.w} px), the canvas hidden, the Flow on its rail`, JSON.stringify(im));
+	check((await maxState()).bar, 'the inspector maximized: the ActionBar stays visible');
+	// Esc in a text field belongs to the field (a field of the maximized inspector)
+	if (await js(`!!document.querySelector('[data-testid="inspector-region"] input[type="text"], [data-testid="inspector-region"] textarea')`)) {
+		await js(`document.querySelector('[data-testid="inspector-region"] input[type="text"], [data-testid="inspector-region"] textarea').focus(), true`);
+		await escape();
+		check(await js(`!!document.querySelector('.sc-app-shell.max-main')`), 'Esc in a text field leaves the maximize alone');
+	}
 	await shot('1600-inspector-max');
 	await js(`document.activeElement.blur(), true`);
 	await escape();
@@ -367,6 +378,52 @@ try {
 	check(await js(`!!document.querySelector('.sc-app-shell.max-main') && document.activeElement === ${q('tab-layers')}`), 'Ctrl+Space in the inspector maximizes the inspector (focus stays)');
 	await ctrlSpace();
 	check(await js(`!document.querySelector('.sc-app-shell.max-main, .sc-app-shell.max-dock')`), 'Ctrl+Space restores');
+
+	// ── several panels (10.57): the room running out folds the least recently used first; every rail's button at the
+	//    height of Ask's header buttons ──
+	const docks = () => js(`[...document.querySelectorAll('.sc-shell-dock')].map((e) => ({ kind: e.dataset.kind, rail: e.classList.contains('railed'), squeezed: !!e.querySelector('[data-testid="dock-rail-squeezed"]'), w: Math.round(e.getBoundingClientRect().width) }))`);
+	const squeezedKinds = async () => (await docks()).filter((d) => d.squeezed).map((d) => d.kind).sort().join();
+	for (const [w, first, after] of [[1440, 'flow,reader', 'problems,reader'], [1920, 'flow', 'reader']]) {
+		await size(w);
+		await setAsk(false);
+		check(await go('/catpope/chapter/1?flow=1', `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node')`), `${w}: chapter with its Flow`);
+		await js(`['flow', 'reader', 'chapter', 'ask'].forEach((k) => localStorage.removeItem('sc-panel-width:' + k)), true`);
+		await js(`${q('reader-toggle')}.click(), true`);
+		await sleep(400);
+		if (!(await js(`!!${q('problems-toggle')}`))) {
+			await js(`[...document.querySelectorAll('.sc-action-bar button')].find((b) => /more|mehr/i.test(b.getAttribute('aria-label') ?? b.textContent)).click(), true`);
+			await until(`!!${q('problems-toggle')}`, 3000);
+		}
+		await js(`${q('problems-toggle')}.click(), true`);
+		await setAsk(true);
+		await sleep(700);
+		const order = (await docks()).map((d) => d.kind).join();
+		check(order === 'problems,flow,reader', `${w}: three panels in their places: ${order}`);
+		const sq = await squeezedKinds();
+		g = await layout();
+		check(sq === first && g.content.w >= 24 * (await js('parseFloat(getComputedStyle(document.documentElement).fontSize)')) / 2 - 2, `${w}: Flow, Reader, Problems opened in that order + Ask: the least recently used fold to their rails first (${sq || 'none'})`, JSON.stringify(await docks()));
+		await shot(`${w}-three-panels-ask`);
+		// the Flow's rail: it comes back (now the most recently used), the next least recently used folds instead
+		await js(`document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-rail-squeezed"] button').click(), true`);
+		await sleep(500);
+		const sq2 = await squeezedKinds();
+		check(sq2 === after && !(await docks()).find((d) => d.kind === 'flow').rail, `${w}: a click on the Flow's rail brings it back, ${sq2} on rails now`, JSON.stringify(await docks()));
+		// rails at the height of Ask's header buttons: the sidebar's (Ctrl+\), a folded panel's, the main's (Ctrl+Shift+\)
+		await js(`${q('dock-fold')}?.click(), true`);
+		await sleep(200);
+		if (!(await js(`!!${q('shell-rail')}`))) await press('\\', 'Backslash', 220, 2);
+		// the Reader's frame may hold the focus (keys go to the viewer then): the creator's page first
+		await js(`document.activeElement?.blur(), true`);
+		await press('|', 'Backslash', 220, 2 + 8);
+		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { ask: t('.sc-shell-ask header .sc-round'), sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button, [data-testid="dock-rail-squeezed"] button') }; })()`);
+		check(tops.ask !== null && tops.sidebar !== null && tops.main !== null && tops.dock !== null && [tops.sidebar, tops.main, tops.dock].every((t) => Math.abs(t - tops.ask) <= 1), `${w}: every rail's button at the height of Ask's header buttons (Ask ${tops.ask}, sidebar ${tops.sidebar}, main ${tops.main}, panel ${tops.dock})`, JSON.stringify(tops));
+		await shot(`${w}-rails`);
+		await press('|', 'Backslash', 220, 2 + 8);
+		check(!(await js(`!!${q('main-rail')}`)), `${w}: Ctrl+Shift+\\ again unfolds the main`);
+		if (await js(`!!${q('shell-rail')}`)) await js(`${q('shell-rail')}.querySelector('button').click(), true`);
+		await setAsk(false);
+	}
+	await size(1600);
 
 	// ── the script outline: a left region of the page on the shared fold + Divider ──
 	check(await go('/catpope/script', `!!${q('script-outline')}`), 'script page with its outline');

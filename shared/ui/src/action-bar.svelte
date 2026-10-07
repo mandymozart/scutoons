@@ -4,8 +4,7 @@
 	import InfoPanel from './info-panel.svelte';
 	import Icon from './icon.svelte';
 	import { panelWidth } from './panel-width.svelte.ts';
-	import { shellDock, useDock } from './dock.svelte.ts';
-	import { untrack } from 'svelte';
+	import { useDock } from './dock.svelte.ts';
 
 	/**
 	 * Fixed bottom action bar (PLATFORM.md "Admin UI patterns" → "Bottom action bar", owner rule for admin + creator):
@@ -17,9 +16,9 @@
 	 *
 	 * `info`: the page's help. The bar then shows an "ⓘ Info" toggle (left-most, also on narrow screens) that opens an
 	 * `InfoPanel` with this snippet (+ `infoHref`, a link to the full guide) in the AppShell's right dock (`useDock`,
-	 * agents/DOCKING.md – it takes turns with the page's own panels; one remembered width `sc-panel-width:info`).
+	 * agents/DOCKING.md – next to the page's own panels, outermost; one remembered width `sc-panel-width:info`).
 	 * Closed by default; open/closed is remembered in localStorage (`infoKey`), so it stays open across pages until the
-	 * user closes it (or a page panel takes the dock).
+	 * user closes it.
 	 */
 	let {
 		start,
@@ -77,16 +76,15 @@
 	$effect(() => {
 		if (!info) return;
 		try {
-			// a panel the page opened itself (a deep link: `?flow=1`) keeps the dock; the last page's Info held across the
-			// navigation is taken over (agents/DOCKING.md "Panels across pages")
-			infoOpen = localStorage.getItem(infoKey) === '1' && untrack(() => !shellDock.current || shellDock.has('info'));
+			// next to the page's own panels (10.57); the last page's Info held across the navigation is taken over
+			// (agents/DOCKING.md "Panels across pages")
+			infoOpen = localStorage.getItem(infoKey) === '1';
 		} catch {
 			/* private mode etc. */
 		}
 	});
 
-	// docked in the shell's right dock while open; a page panel taking the dock closes it for now (still remembered). The
-	// shell mounts it (`kind` + `content`): the next page's Info takes the same panel over – only its text changes
+	// docked in the shell's right dock while open, next to the page's own panels (10.57). The shell mounts it (`kind` + `content`): the next page's Info takes the same panel over – only its text changes
 	const infoSize = panelWidth('sc-panel-width:info', 16, undefined, { foldable: true });
 	const infoProps = () => ({
 		id: `${uid}-info`,

@@ -8,7 +8,7 @@
 	/**
 	 * List + detail for fast triage (admin catalog, codes): the list is the page, the detail opens in the AppShell's
 	 * right dock (agents/DOCKING.md – `useDock`): the list makes room, the dock's edge drags it wider (remembered once
-	 * for every list detail, `sc-panel-width:detail`), it folds to a rail, it takes turns with the Info panel; on phones
+	 * for every list detail, `sc-panel-width:detail`), it folds to a rail, next to the Info panel (10.57); on phones
 	 * it covers the page. `open` = a detail is shown; `onclose` fires when the user closes it (✕, Escape, or another
 	 * panel taking the dock – the app clears its selection / URL parameter).
 	 */
@@ -40,7 +40,7 @@
 	} = $props();
 
 	const size = panelWidth('sc-panel-width:detail', 24, undefined, { foldable: true });
-	useDock(() => (open ? { panel: pane, size, title: title ?? '', icon: 'sidebar', close: () => onclose() } : null));
+	useDock(() => (open ? { kind: 'detail', panel: pane, size, title: title ?? '', icon: 'sidebar', close: () => onclose() } : null));
 
 	function keydown(event: KeyboardEvent) {
 		// maximized: Escape restores first (AppShell)

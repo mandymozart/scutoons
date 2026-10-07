@@ -284,6 +284,9 @@
 			dockLabel={m['creator.dock_label']()}
 			dockResizeLabel={m['creator.resize_panel']()}
 			dockUnfoldLabel={m['creator.unfold_panel']()}
+			pageLabel={nav.crumbs.at(-1)?.label}
+			pageFoldLabel={m['creator.fold_page']()}
+			pageUnfoldLabel={m['creator.unfold_page']()}
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible

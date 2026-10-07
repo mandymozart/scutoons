@@ -987,6 +987,8 @@
 		"unfold_sidebar": "Seitenleiste zeigen",
 		"fold_panel": "Panel einklappen",
 		"unfold_panel": "Panel zeigen",
+		"fold_page": "Seite einklappen",
+		"unfold_page": "Seite zeigen",
 		"maximize_panel": "Maximieren",
 		"restore_panel": "Wiederherstellen",
 		"related_items": "Verwandte Gegenstände",

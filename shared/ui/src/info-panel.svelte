@@ -8,7 +8,7 @@
 	/**
 	 * The one place for a page's help (owner 2026-09-30): explanations, conventions, glossaries and the style guide live
 	 * here instead of long hint texts above the fields. A page panel of the AppShell's right dock (agents/DOCKING.md):
-	 * it takes turns with the page's own panels (Problems / History / Flow, a list's detail), drags wider and folds to a
+	 * it sits next to the page's own panels (Problems / History / Flow / Reader, a list's detail – outermost), drags wider and folds to a
 	 * rail like them. Usually opened by the ActionBar's "ⓘ Info" toggle (`ActionBar` `info` snippet), which docks it and
 	 * remembers the open state. `href` + `hrefLabel`: a link to the full guide at the end of the panel. Escape inside the
 	 * panel closes it.

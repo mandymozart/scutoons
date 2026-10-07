@@ -8,7 +8,11 @@
 //   - a saved draft reloads the frame: a draft of a sandbox chapter is saved through the editor's Save (note
 //     "reader-check (removed again)") and its version rows deleted afterwards (the dev DB as before; an interrupted run's
 //     rows are swept first);
-//   - the viewer ignores a well-formed "show" from another origin (a page on the CDN's origin framing the viewer).
+//   - the viewer ignores a well-formed "show" from another origin (a page on the CDN's origin framing the viewer);
+//   - several panels (BACKLOG 10.57) at 1440 + 1920: Flow · Reader · Ask side by side in their places; not room for both
+//     next to a 24rem main: the Flow (opened first) folds to its rail, "Fold the page" gives both room; a Flow box moves the
+//     main and the Reader (same frame); maximize folds everything else to rails (the Reader keeps its frame, the
+//     ActionBar stays), Esc restores. DOCK2_SHOTS=<dir> (default READER_SHOTS): dock2-*.png
 //   node scripts/dev/creator-reader-check.mjs        (creator :10000, viewer :8000, API :9000, cdn :8001, MariaDB container)
 //   SCUTOONS_READER_TOON / _CHAPTER (default toptoy 1: vertical groups), SCUTOONS_READER_SAVE (default sandbox 2)
 //   READER_SHOTS=<dir>: e6-reader-<toon>-ch<n>.png (1440, the Reader open) + e6-strip-vertical.png
@@ -255,6 +259,93 @@ try {
 	const vf = await inFrame(`({ path: location.pathname, y: Math.round(scrollY), shows: document.documentElement.dataset.creatorShows ?? null })`);
 	check(foreignReady && vf && vf.shows === null && vf.path.endsWith(`/${TOON}/chapter/${CHAPTER}`) && vf.y === 0, `a "show" from ${OTHER}: ignored (no request, the page stays)`, JSON.stringify(vf));
 	check((await js('window.__got.length')) === 0, `no "ready" reached the foreign page (sent only to the creator's origin)`);
+
+	// ── several panels side by side (BACKLOG 10.57, agents/DOCKING.md "Several panels"): Flow + Reader + Ask together,
+	//    a click in the Flow moves the Reader, the room running out folds the least recently used, maximize ──
+	const panelsAt = () =>
+		js(`(() => { const r = (e) => { const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width) }; }; const docks = [...document.querySelectorAll('.sc-shell-dock')].map((e) => ({ kind: e.dataset.kind, rail: e.classList.contains('railed'), squeezed: !!e.querySelector('[data-testid="dock-rail-squeezed"]'), ...r(e) })); const a = document.querySelector('.sc-shell-ask'); const bar = document.querySelector('.sc-action-bar'); return { docks, content: r(document.querySelector('.sc-shell-content')), ask: a ? r(a) : null, askRail: !!${q('ask-rail')}, mainRail: !!${q('main-rail')}, rem: parseFloat(getComputedStyle(document.documentElement).fontSize), bar: bar ? getComputedStyle(bar).visibility : null, max: !!document.querySelector('.sc-app-shell.max-dock') }; })()`);
+	/** the visible part of an element (clipped by its dock panel): its centre, or null when nothing of it shows there */
+	const visibleAt = `(e) => { const b = e.getBoundingClientRect(); const d = e.closest('.sc-shell-dock')?.getBoundingClientRect() ?? b; const l = Math.max(b.left, d.left), r = Math.min(b.right, d.right), t = Math.max(b.top, d.top), bt = Math.min(b.bottom, d.bottom); if (r - l < 8 || bt - t < 8) return null; const x = (l + r) / 2, y = t + Math.min((bt - t) / 2, 16); const hit = document.elementFromPoint(x, y); return hit && e.contains(hit) ? { x, y } : null; }`;
+	const click = async (expr) => {
+		const at = await js(`(() => { const e = ${expr}; return e ? (${visibleAt})(e) : null; })()`);
+		if (!at) return false;
+		for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+		return true;
+	};
+	const DOCK2 = process.env.DOCK2_SHOTS ?? SHOTS;
+	const shot2 = async (name) => {
+		if (!DOCK2) return;
+		const r = await send('Page.captureScreenshot', { format: 'png' });
+		writeFileSync(join(DOCK2, name), Buffer.from(r.result.data, 'base64'));
+		console.log(`     shot ${name}`);
+	};
+	for (const w of [1440, 1920]) {
+		await send('Emulation.setDeviceMetricsOverride', { width: w, height: 1000, deviceScaleFactor: 1, mobile: false });
+		await go(`/${TOON}/chapter/${CHAPTER}?flow=1`, `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node')`);
+		await js(`['flow', 'reader', 'ask'].forEach((k) => localStorage.removeItem('sc-panel-width:' + k)), true`);
+		await js(`${q('reader-toggle')}.click(), true`);
+		await until(`${q('reader-dock')}?.dataset.ready === 'true' ? true : null`, 30000);
+		if ((await js(`${q('ask-toggle')}?.getAttribute('aria-pressed')`)) !== 'true') await js(`${q('ask-toggle')}.click(), true`);
+		await sleep(900);
+		let p = await panelsAt();
+		const min = 24 * p.rem;
+		const ordered = p.docks.length === 2 && p.docks[0].kind === 'flow' && p.docks[1].kind === 'reader' && p.content.r <= p.docks[0].l + 1 && p.docks[0].r <= p.docks[1].l + 1 && p.ask && p.docks[1].r <= p.ask.l + 1;
+		check(ordered, `${w}: Flow · Reader · Ask side by side in their places, the main left of them`, JSON.stringify(p));
+		const squeezed = p.docks.filter((d) => d.squeezed).map((d) => d.kind);
+		if (squeezed.length) {
+			// not room for both next to a main of 24rem: the least recently used (the Flow, opened first) folds to its rail
+			check(squeezed.join() === "flow" && !p.docks[1].rail && p.content.w >= min / 2 - 2, `${w}: the room runs out – the Flow (opened first) folds to its rail, the Reader stays, the main keeps at least half its 24rem (${p.content.w} px)`, JSON.stringify(p));
+			await shot2(`dock2-${w}-squeezed.png`);
+			// the author folds the main: the panels take its room
+			await js(`${q('page-fold')}.click(), true`);
+			await sleep(700);
+			p = await panelsAt();
+			check(p.mainRail && p.docks.every((d) => !d.rail) && p.bar === 'visible', `${w}: "Fold the page" – the main is a rail, Flow and Reader both open (${p.docks.map((d) => d.w).join(' + ')} px), the ActionBar stays`, JSON.stringify(p));
+		} else {
+			check(p.docks.every((d) => !d.rail) && p.content.w >= min - 2, `${w}: room for all: Flow ${p.docks[0].w} + Reader ${p.docks[1].w} px, the main keeps 24rem (${p.content.w} px)`, JSON.stringify(p));
+		}
+		await shot2(`dock2-${w}-flow-reader-ask.png`);
+		// a click on a group box in the Flow moves the main AND the Reader (the same panel and frame)
+		await js(`window.__readerDock = ${q('reader-dock')}, window.__readerFrame = ${q('reader-frame')}, true`);
+		const shows0 = (await viewerAt(0))?.shows ?? 0;
+		const before = await js('location.search');
+		const boxes = await js(`[...document.querySelectorAll('.sc-shell-dock .box.kind-group')].length`);
+		// a group box after the first (the Reader already shows the chapter's start) that shows (not under a toast)
+		const clicked = await click(`[...document.querySelectorAll('.sc-shell-dock .box.kind-group')].slice(1).find((e) => !!(${visibleAt})(e))`);
+		const moved = await until(`location.search.includes('group=') && location.search !== ${JSON.stringify(before)} ? location.search : null`, 8000);
+		const shows1 = await untilFrame(`Number(document.documentElement.dataset.creatorShows ?? 0) > ${shows0} ? Number(document.documentElement.dataset.creatorShows) : null`, 15000);
+		const dk = await dock();
+		check(clicked && moved && shows1 && dk.same && dk.frameSame, `${w}: a Flow box opens its group in the main (${moved}) and the Reader follows (show #${shows1}, the same panel and frame)`, JSON.stringify({ boxes, moved, shows0, shows1, dk }));
+		if (squeezed.length) {
+			p = await panelsAt();
+			check(p.mainRail, `${w}: the main stays folded while the Flow navigates it`, JSON.stringify(p));
+		}
+	}
+	// maximize = fold everything else (owner 2026-10-07): the Flow fills, the main, the Reader and Ask are rails; the
+	// ActionBar stays; restore brings the layout back
+	const before = await panelsAt();
+	await js(`document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-maximize"]').click(), true`);
+	await sleep(600);
+	let mx = await panelsAt();
+	const flowBox = mx.docks.find((d) => d.kind === 'flow');
+	const readerBox = mx.docks.find((d) => d.kind === 'reader');
+	check(mx.max && mx.mainRail && mx.askRail && readerBox.rail && !flowBox.rail && flowBox.w > 1920 / 2 && mx.bar === 'visible', `maximized Flow: everything else on its rail (main, Reader, Ask), the Flow ${flowBox.w} px, the ActionBar visible`, JSON.stringify(mx));
+	const fr = await dock();
+	check(fr.same && fr.frameSame, 'maximized: the Reader on its rail keeps its panel and frame (nothing unmounts)', JSON.stringify(fr));
+	await shot2('dock2-1920-flow-maximized.png');
+	await js(`document.activeElement?.blur(), true`);
+	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	await sleep(600);
+	mx = await panelsAt();
+	check(!mx.max && !mx.askRail && mx.mainRail === before.mainRail && mx.docks.map((d) => `${d.kind}:${d.rail}`).join() === before.docks.map((d) => `${d.kind}:${d.rail}`).join(), 'Esc: everything as before the maximize', JSON.stringify({ before, mx }));
+	// back to the normal page: unfold the main, close Ask, the Reader, the Flow
+	if (mx.mainRail) await js(`${q('main-rail')}.querySelector('button').click(), true`);
+	await sleep(300);
+	check(!(await panelsAt()).mainRail, 'the main\'s rail unfolds it');
+	await js(`${q('ask-toggle')}.click(), ${q('reader-toggle')}.click(), ${q('flow-toggle')}.click(), true`);
+	await sleep(500);
+	check((await panelsAt()).docks.length === 0, 'Reader and Flow closed: no panel left');
 
 	if (errors.length) check(false, `page errors: ${errors.length}`, errors.slice(0, 3).join(' | '));
 } catch (e) {

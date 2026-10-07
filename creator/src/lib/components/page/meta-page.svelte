@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
-	import { untrack, type Snippet } from 'svelte';
+	import type { Snippet } from 'svelte';
 	import { ActionBar, shellDock, useDock, type DockContent } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
@@ -62,7 +62,7 @@
 		status?: Snippet;
 		/**
 		 * the page's Flow (the season's `FlowDock` + its props), docked where Problems / History are: shown while `dockOpen`;
-		 * it and Problems / History take turns – the page makes room for whichever is open. Mounted by the shell (`kind:
+		 * next to Problems / History (10.57) – the page makes room for every open one. Mounted by the shell (`kind:
 		 * 'flow'`): the next page's Flow takes it over (UI-CONCEPTS E.3 b)
 		 */
 		dock?: DockContent;
@@ -82,30 +82,21 @@
 	const session = new DocSession({ docs: () => docs, companions: () => companions(), beforeSave: () => beforeSave(), errorCount: () => errorCount });
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
-	// Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b)
-	let panel = $state<'problems' | 'history' | null>(shellDock.has('problems') ? 'problems' : null);
-	/** what is docked on the right: Problems / History, or the page's own dock */
-	const shown = $derived(dockOpen && dock ? 'dock' : panel);
-	const size = $derived(shown === 'dock' ? dockSize : panelSize);
-	// the page's dock opens: Problems / History close
-	$effect(() => {
-		if (dockOpen) untrack(() => (panel = null));
-	});
-	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds
-	const dockTitle = $derived(shown === 'dock' ? m['creator.flow']() : shown === 'history' ? m['creator.history']() : m['creator.problems']());
-	const dockIcon = $derived(shown === 'dock' ? 'git-merge' : shown === 'history' ? 'clock' : 'alert-triangle');
-	const problemsProps = () => ({ problems, docs, home: main?.entity, onclose: () => (panel = null) });
-	useDock(() => {
-		if (!shown) return null;
-		const docked = { size, title: dockTitle, icon: dockIcon, close: () => ((panel = null), (dockOpen = false)) };
-		// the Flow and Problems are mounted by the shell: the next page of the same kind takes them over
-		if (shown === 'dock' && dock) return { ...docked, kind: 'flow', content: dock };
-		if (shown === 'problems') return { ...docked, kind: 'problems', content: { component: ProblemsDock, props: problemsProps } };
-		return { ...docked, panel: sidePanel };
-	});
+	// Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); Problems, History
+	// and the page's Flow can be open together (10.57), each its own panel side by side
+	const open = $state({ problems: shellDock.has('problems'), history: false });
+	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds. The
+	// Flow and Problems are mounted by the shell: the next page of the same kind takes them over
+	const problemsProps = () => ({ problems, docs, home: main?.entity, onclose: () => (open.problems = false) });
+	useDock(() => (dockOpen && dock ? { kind: 'flow', content: dock, size: dockSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (dockOpen = false) } : null));
+	useDock(() =>
+		open.problems
+			? { kind: 'problems', content: { component: ProblemsDock, props: problemsProps }, size: panelSize, title: m['creator.problems'](), icon: 'alert-triangle', close: () => (open.problems = false) }
+			: null
+	);
+	useDock(() => (open.history ? { kind: 'history', panel: sidePanel, size: panelSize, title: m['creator.history'](), icon: 'clock', close: () => (open.history = false) } : null));
 	function togglePanel(next: 'problems' | 'history') {
-		dockOpen = false;
-		panel = panel === next ? null : next;
+		open[next] = !open[next];
 	}
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
@@ -158,7 +149,7 @@
 <div class="meta-page" class:wide class:fill>
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
-			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
+			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 			{@render actions?.()}
@@ -167,7 +158,7 @@
 		{#snippet secondary()}
 			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
 			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
-			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
+			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
@@ -196,7 +187,7 @@
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
 	<div class="side-panel">
-		{#if panel === 'history' && historyDoc}
+		{#if open.history && historyDoc}
 			{#if docs.length > 1}
 				<p class="history-files">
 					{#each docs as d (d.entity)}
@@ -204,7 +195,7 @@
 					{/each}
 				</p>
 			{/if}
-			{#key historyDoc}<HistoryPanel doc={historyDoc} onclose={() => (panel = null)} />{/key}
+			{#key historyDoc}<HistoryPanel doc={historyDoc} onclose={() => (open.history = false)} />{/key}
 		{/if}
 	</div>
 {/snippet}

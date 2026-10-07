@@ -2,8 +2,9 @@
 // The docked regions of admin + embassy (agents/DOCKING.md) in headless Chrome (own profile) as the local test user –
 // nothing is saved. Admin at 1280 / 1600 / 1920: a code list's detail (SplitView) opens in the AppShell's right dock, the
 // list ends where it starts; with Ask open the dock is left of Ask and the sidebar folds to its rail; the Info panel
-// takes the dock (the detail closes, its URL parameter goes) and gives it back; the dock folds to a rail with the
-// detail's title, a click unfolds it; it maximizes (button; Escape restores first); Escape closes the detail; the catalog's entry form docks the same way; on a phone
+// opens next to the detail (10.57: both open, Info outermost); the dock folds to a rail with the detail's title, a click
+// unfolds it; it maximizes = everything else on its rail (button; Escape restores first; the ActionBar stays); every
+// rail's button at the height of Ask's header buttons (1440 / 1920); Escape closes the detail; the catalog's entry form docks the same way; on a phone
 // the detail covers the page. Embassy: AppShell with Ask as the outermost region – the page ends where Ask starts, Ask's
 // Divider drags it wider; on a phone Ask covers the page.
 //   node scripts/dev/tools-dock-check.mjs        (admin :11000, embassy :13000, API :9000 – `npm run dev -w admin` /
@@ -126,20 +127,20 @@ try {
 	}
 
 	await size(1600);
-	// Info takes the dock and gives it back
+	// Info opens next to the detail (10.57: several panels side by side; Info outermost, next to Ask)
 	check(await go(`${ADMIN}/codes`, `!!${firstRow} && !!${q('info-toggle')}`), 'admin: codes list with Info');
 	await js(`${firstRow}.click(), true`);
 	await until(`!!document.querySelector('[data-testid="split-detail"]')`);
 	await js(`${q('info-toggle')}.click(), true`);
 	await sleep(500);
 	let g = await layout();
-	check(g.info && !g.detail && !(await js(`location.search.includes('open=')`)), 'admin: Info takes the dock – the detail closes, its URL parameter goes', JSON.stringify(g));
+	const pair = await js(`[...document.querySelectorAll('.sc-shell-dock')].map((e) => { const b = e.getBoundingClientRect(); return { kind: e.dataset.kind, l: Math.round(b.left), r: Math.round(b.right) }; })`);
+	check(g.info && g.detail && (await js(`location.search.includes('open=')`)) && pair.length === 2 && pair[0].kind === 'detail' && pair[1].kind === 'info' && pair[0].r <= pair[1].l + 1 && g.content.r <= pair[0].l + 1, 'admin: Info opens next to the detail (both open, the detail left, Info outermost, the list makes room)', JSON.stringify({ g, pair }));
 	await shot('admin-1600-codes-info');
-	await js(`${firstRow}.click(), true`);
-	await until(`!!document.querySelector('[data-testid="split-detail"]')`);
+	await js(`${q('info-toggle')}.click(), true`);
 	await sleep(300);
 	g = await layout();
-	check(g.detail && !g.info && (await js(`${q('info-toggle')}.getAttribute('aria-expanded') === 'false'`)), 'admin: a row takes it back – Info closes', JSON.stringify(g));
+	check(g.detail && !g.info && (await js(`${q('info-toggle')}.getAttribute('aria-expanded') === 'false'`)), 'admin: Info closed – the detail stays', JSON.stringify(g));
 	// the dock folds to a rail with the detail's title
 	const before = g;
 	await js(`${q('dock-fold')}.click(), true`);
@@ -164,8 +165,8 @@ try {
 	await js(`${q('dock-maximize')}.click(), true`);
 	await sleep(400);
 	g = await layout();
-	const mx = await js(`(() => { const b = ${q('dock-maximize')}; return { max: !!document.querySelector('.sc-app-shell.max-dock'), hidden: getComputedStyle(document.querySelector('.sc-shell-content')).visibility, icon: b.querySelector('svg').dataset.icon, title: b.title }; })()`);
-	check(mx.max && mx.hidden === 'hidden' && g.folded && g.dock.r >= 1600 - 2 && g.dock.l <= g.sidebar.r + 4 && mx.icon === 'minimize-2' && /^Restore|^Wiederherstellen/.test(mx.title), `admin: the detail maximizes (${g.dock.l}–${g.dock.r} px, "${mx.title}"), the list hidden`, JSON.stringify({ g, mx }));
+	const mx = await js(`(() => { const b = ${q('dock-maximize')}; const rail = document.querySelector('[data-testid="main-rail"]')?.getBoundingClientRect(); const bar = document.querySelector('.sc-action-bar'); return { max: !!document.querySelector('.sc-app-shell.max-dock'), hidden: getComputedStyle(document.querySelector('.sc-shell-content')).visibility, mainRail: rail ? Math.round(rail.right) : null, bar: !bar || getComputedStyle(bar).visibility === 'visible', icon: b.querySelector('svg').dataset.icon, title: b.title }; })()`);
+	check(mx.max && mx.hidden === 'hidden' && mx.mainRail !== null && g.folded && g.dock.r >= 1600 - 2 && g.dock.l <= mx.mainRail + 4 && mx.bar && mx.icon === 'minimize-2' && /^Restore|^Wiederherstellen/.test(mx.title), `admin: the detail maximizes (${g.dock.l}–${g.dock.r} px, "${mx.title}"), the list on its rail (hidden), the ActionBar stays`, JSON.stringify({ g, mx }));
 	await shot('admin-1600-codes-max');
 	await js(`${q('dock-maximize')}.focus(), true`);
 	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
@@ -178,6 +179,31 @@ try {
 	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
 	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
 	check(await until(`!document.querySelector('.sc-shell-dock') && !location.search.includes('open=')`, 5000), 'admin: Escape closes the detail');
+
+	// every rail's button at the height of Ask's header buttons (owner 2026-10-07): the sidebar's, the folded detail's, the
+	// main's (Ctrl+Shift+\)
+	for (const w of [1440, 1920]) {
+		await size(w);
+		check(await go(`${ADMIN}/codes`, `!!${firstRow}`), `admin ${w}: codes list for the rails`);
+		await js(`${firstRow}.click(), true`);
+		await until(`!!document.querySelector('[data-testid="split-detail"]')`);
+		await setAsk(true);
+		await js(`${q('dock-fold')}.click(), document.activeElement?.blur(), true`);
+		await sleep(300);
+		const key = async (key, modifiers) => {
+			for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key, code: 'Backslash', modifiers, windowsVirtualKeyCode: 220 });
+			await sleep(300);
+		};
+		if (!(await js(`!!${q('shell-rail')}`))) await key('\\', 2);
+		await key('|', 2 + 8);
+		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { ask: t('.sc-shell-ask header .sc-round'), sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button') }; })()`);
+		check(Object.values(tops).every((t) => t !== null) && [tops.sidebar, tops.main, tops.dock].every((t) => Math.abs(t - tops.ask) <= 1), `admin ${w}: every rail's button at the height of Ask's header buttons (${JSON.stringify(tops)})`, JSON.stringify(tops));
+		await shot(`admin-${w}-rails`);
+		await key('|', 2 + 8);
+		if (await js(`!!${q('shell-rail')}`)) await js(`${q('shell-rail')}.querySelector('button').click(), true`);
+		await setAsk(false);
+	}
+	await size(1600);
 
 	// the catalog's entry form
 	check(await go(`${ADMIN}/catalog/items`, `!!${firstRow}`), 'admin: catalog items');

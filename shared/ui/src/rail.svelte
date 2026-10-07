@@ -56,7 +56,9 @@
 		box-sizing: border-box;
 		height: 100%;
 		min-height: 0;
-		padding-top: 1rem;
+		/* the round button at the height of the region headers' buttons (Ask's, a dock panel's – one control row with
+		   var(--space-05) above it; owner 2026-10-07, 10.57) */
+		padding-top: var(--space-05);
 		overflow: hidden;
 		cursor: pointer;
 	}

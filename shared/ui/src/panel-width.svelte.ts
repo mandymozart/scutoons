@@ -12,11 +12,14 @@ export function panelWidth(storageKey: string, normalRem = 24, rightEdge: () => 
 	const normal = () => normalRem * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
 	/** px the place it is docked in leaves it (the AppShell's dock: the content keeps its minimum) */
 	let room: (() => number) | null = null;
+	/** px: where the region ends, set by the place it is docked in (the AppShell: the panel's right edge – another
+	 * panel or Ask may sit right of it) */
+	let edge: (() => number) | null = null;
 	const region = dockRegion({
 		key: () => storageKey,
 		foldable: () => !!options.foldable,
 		side: 'right',
-		anchor: rightEdge,
+		anchor: () => edge?.() ?? rightEdge(),
 		normal,
 		max: () => Math.min(window.innerWidth / 2, room?.() ?? Infinity)
 	});
@@ -34,6 +37,13 @@ export function panelWidth(storageKey: string, normalRem = 24, rightEdge: () => 
 		},
 		set room(fn: (() => number) | null) {
 			room = fn;
+		},
+		set edge(fn: (() => number) | null) {
+			edge = fn;
+		},
+		/** px: the normal width */
+		get normalPx() {
+			return normal();
 		},
 		get folded() {
 			return region.folded;

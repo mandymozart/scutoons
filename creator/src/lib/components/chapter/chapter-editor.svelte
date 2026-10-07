@@ -352,19 +352,18 @@
 		void view.zoom;
 		view.savePrefs();
 	});
-	// the Flow / Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); `?flow=1`
-	// (a deep link) opens the Flow
-	let panel = $state<'problems' | 'history' | 'flow' | 'reader' | null>(
-		page.url.searchParams.get('flow') === '1' || shellDock.has('flow')
-			? 'flow'
-			: shellDock.has('problems')
-				? 'problems'
-				: shellDock.has('reader')
-					? 'reader'
-					: null
-	);
+	// the Flow / Problems / Reader the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b);
+	// `?flow=1` (a deep link) opens the Flow. Several at once (10.57): each its own panel, side by side
+	type PanelKind = 'problems' | 'history' | 'flow' | 'reader';
+	const open = $state<Record<PanelKind, boolean>>({
+		flow: page.url.searchParams.get('flow') === '1' || shellDock.has('flow'),
+		problems: shellDock.has('problems'),
+		reader: shellDock.has('reader'),
+		history: false
+	});
 	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds. The
-	// Flow and Problems are mounted by the shell (`kind` + `content`): the next page of the same kind takes them over
+	// Flow, Problems and the Reader are mounted by the shell (`kind` + `content`): the next page of the same kind takes
+	// them over
 	const PANELS = { problems: { icon: 'alert-triangle', title: () => m['creator.problems']() }, history: { icon: 'clock', title: () => m['creator.history']() }, flow: { icon: 'git-merge', title: () => m['creator.flow']() }, reader: { icon: 'smartphone', title: () => m['creator.reader']() } };
 	const flowProps = () => ({
 		input: {
@@ -383,7 +382,7 @@
 			text: flowText,
 			onopen: openFlowNode
 		},
-		onclose: () => (panel = null)
+		onclose: () => (open.flow = false)
 	});
 	// the Reader (UI-CONCEPTS E.6): the viewer's draft preview at the open group / slice (the chapter's start on its meta /
 	// audio), in the text language when the reader has it (de / en), else the first it has
@@ -396,19 +395,16 @@
 			slice: view.section === 'slice' ? view.sliceIndex : -1
 		},
 		locale: readerLocale,
-		onclose: () => (panel = null)
+		onclose: () => (open.reader = false)
 	});
-	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, ongoto: gotoProblem, onclose: () => (panel = null) });
-	useDock(() => {
-		if (!panel) return null;
-		const docked = { size: panel === 'flow' ? flowSize : panel === 'reader' ? readerSize : panelSize, title: PANELS[panel].title(), icon: PANELS[panel].icon, close: () => (panel = null) };
-		if (panel === 'flow') return { ...docked, kind: 'flow', content: { component: FlowDock, props: flowProps } };
-		if (panel === 'problems') return { ...docked, kind: 'problems', content: { component: ProblemsDock, props: problemsProps } };
-		if (panel === 'reader') return { ...docked, kind: 'reader', content: { component: ReaderDock, props: readerProps } };
-		return { ...docked, panel: sidePanel };
-	});
-	function togglePanel(next: 'problems' | 'history' | 'flow' | 'reader') {
-		panel = panel === next ? null : next;
+	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, ongoto: gotoProblem, onclose: () => (open.problems = false) });
+	const docked = (kind: PanelKind, size: typeof panelSize) => ({ kind, size, title: PANELS[kind].title(), icon: PANELS[kind].icon, close: () => (open[kind] = false) });
+	useDock(() => (open.flow ? { ...docked('flow', flowSize), content: { component: FlowDock, props: flowProps } } : null));
+	useDock(() => (open.reader ? { ...docked('reader', readerSize), content: { component: ReaderDock, props: readerProps } } : null));
+	useDock(() => (open.problems ? { ...docked('problems', panelSize), content: { component: ProblemsDock, props: problemsProps } } : null));
+	useDock(() => (open.history ? { ...docked('history', panelSize), panel: sidePanel } : null));
+	function togglePanel(next: PanelKind) {
+		open[next] = !open[next];
 	}
 	let canvas = $state<SliceCanvas | null>(null);
 	/**
@@ -917,8 +913,8 @@
 <!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06); the Reader next to it
      (BACKLOG 10.49) -->
 {#snippet flowToggle()}
-	<button type="button" class="sc-round" aria-pressed={panel === 'reader'} title={m['creator.reader_open']()} aria-label={m['creator.reader_open']()} onclick={() => togglePanel('reader')} data-testid="reader-toggle"><Icon name="smartphone" /></button>
-	<button type="button" class="sc-round" aria-pressed={panel === 'flow'} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+	<button type="button" class="sc-round" aria-pressed={open.reader} title={m['creator.reader_open']()} aria-label={m['creator.reader_open']()} onclick={() => togglePanel('reader')} data-testid="reader-toggle"><Icon name="smartphone" /></button>
+	<button type="button" class="sc-round" aria-pressed={open.flow} title={m['creator.flow_open']()} aria-label={m['creator.flow_open']()} onclick={() => togglePanel('flow')} data-testid="flow-toggle"><Icon name="git-merge" /></button>
 {/snippet}
 
 {#snippet tree()}
@@ -948,7 +944,7 @@
 			<!-- phones have no Cmd keys: copy / cut / paste on the live region from here (BACKLOG 10.39) -->
 			<span class="clip-phone"><ClipMenu bar /></span>
 			<!-- phones: slice nav, problems, undo / redo are in the slice bar above (BACKLOG 10.50 c) -->
-			<button class="ghost not-phone" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
+			<button class="ghost not-phone" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
@@ -961,7 +957,7 @@
 					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
-			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
+			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet end()}
@@ -1153,7 +1149,7 @@
 				type="button"
 				class="sc-round bar-problems"
 				class:is-bad={errorCount > 0}
-				aria-pressed={panel === 'problems'}
+				aria-pressed={open.problems}
 				title="{m['creator.problems']()} {errorCount}/{warningCount}"
 				aria-label="{m['creator.problems']()} {errorCount}/{warningCount}"
 				onclick={() => togglePanel('problems')}
@@ -1169,8 +1165,8 @@
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
 	<div class="side-panel">
-		{#if panel === 'history' && activeDoc}
-			<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
+		{#if open.history && activeDoc}
+			<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (open.history = false)} />
 		{/if}
 	</div>
 {/snippet}
