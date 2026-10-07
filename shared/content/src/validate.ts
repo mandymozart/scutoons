@@ -262,6 +262,10 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 		if (problem) c.error([...path, 'respawn'], problem);
 		if (it.action !== 'pickup') c.info([...path, 'respawn'], 'respawn only matters for a pickup');
 	}
+	if (it.sound !== undefined) {
+		if (!isFxSoundChoice(it.sound)) c.error([...path, 'sound'], `sound must be none or one of ${FX_SOUNDS.join(', ')}`);
+		else if (it.action !== 'pickup') c.info([...path, 'sound'], 'the sound only matters for a pickup');
+	}
 	if (it.events !== undefined) {
 		if (!Array.isArray(it.events)) c.error([...path, 'events'], 'events must be an array');
 		else it.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, false));

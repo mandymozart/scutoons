@@ -5,6 +5,7 @@ import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
 import type { SliceItemRespawn } from './respawn.ts';
+import type { FxSoundChoice } from './fx.ts';
 import type { Repeat } from './recurrence.ts';
 import type { CoverLettering } from './cover.ts';
 import type { AcceptedWarnings } from './accepted.ts';
@@ -348,6 +349,11 @@ export interface SliceItem {
 	 * item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply.
 	 */
 	respawn?: SliceItemRespawn;
+	/**
+	 * pickup: the sound when it lands in the bag (agents/FX.md) – none = the item's (catalog `sound`), else "pling";
+	 * `none` = silent
+	 */
+	sound?: FxSoundChoice;
 	/** place in the slice's one layer stack of text boxes, placed items and areas (`Dialog.layer`, layers.ts) */
 	layer?: number;
 }

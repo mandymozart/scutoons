@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { RECURRENCE_UNITS, isRecurrenceInterval, placementRespawnProblem, repeatAsRespawn, respawnAsRepeat, respawnRange, type Path, type Repeat, type RecurrenceInterval, type RecurrenceUnit } from '@scutoons/content';
+	import { FX_SOUNDS, RECURRENCE_UNITS, isRecurrenceInterval, placementRespawnProblem, repeatAsRespawn, respawnAsRepeat, respawnRange, type Path, type Repeat, type RecurrenceInterval, type RecurrenceUnit, type FxSoundName } from '@scutoons/content';
+	import { playFxSound } from '@scutoons/reader';
+	import { Icon } from '@scutoons/ui';
 	import RepeatsField from '$lib/components/fields/repeats-field.svelte';
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 	import { intervalLabel } from '$lib/editor/respawn.ts';
@@ -46,6 +48,15 @@
 	const action = $derived(placed?.action ?? 'none');
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
 	let picking = $state(false);
+
+	// ── the sound when it lands in the bag (agents/FX.md): this placement's, else the item's (catalog), else pling ──
+	const soundLabel = (s: string) => (s === 'none' ? m['creator.fx_sound_none']() : m[`creator.fx_sound_${s as FxSoundName}`]());
+	const soundOptions = () => [{ value: 'none', label: m['creator.fx_sound_none']() }, ...FX_SOUNDS.map((s) => ({ value: s, label: soundLabel(s) }))];
+	const itemSoundLabel = $derived(m['creator.pickup_sound_item']({ sound: def?.sound ? soundLabel(def.sound) : soundLabel('pling') }));
+	function trySound() {
+		const chosen = placed?.sound ?? def?.sound ?? 'pling';
+		if (chosen !== 'none') playFxSound(chosen);
+	}
 
 	// ── respawn: the item's rule (catalog, admin → Catalog) and this placement's override within its range ──
 	const UNIT_MINUTES: Record<RecurrenceUnit, number> = { minutes: 1, hours: 60, days: 1440 };
@@ -104,6 +115,10 @@
 
 		{#if action === 'pickup'}
 			<PropField {doc} path={p('qty')} label={m['creator.slice_item_qty']()} type="number" step={1} min={1} placeholder="1" />
+			<div class="sc-fields" data-cols="2" data-density="panel" data-align="end">
+				<PropField {doc} path={p('sound')} label={m['creator.pickup_sound']()} type="select" options={soundOptions()} placeholder={itemSoundLabel} />
+				<button type="button" class="sc-round" title={m['creator.pickup_sound_try']()} aria-label={m['creator.pickup_sound_try']()} onclick={trySound} data-testid="item-sound-try"><Icon name="play" /></button>
+			</div>
 			{#if rule === null}
 				<p class="hint" data-testid="item-respawn-never">{m['creator.respawn_item_never']()}</p>
 			{:else if rule}

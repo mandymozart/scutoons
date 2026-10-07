@@ -681,6 +681,10 @@
 					"$ref": "#/definitions/SliceItemRespawn",
 					"description": "pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without one never reappears); `never` = once here even if the item could reappear; an interval = an override within the item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply."
 				},
+				"sound": {
+					"$ref": "#/definitions/FxSoundChoice",
+					"description": "pickup: the sound when it lands in the bag (agents/FX.md) – none = the item's (catalog `sound`), else \"pling\"; `none` = silent"
+				},
 				"layer": {
 					"type": "number",
 					"description": "place in the slice's one layer stack of text boxes, placed items and areas (`Dialog.layer`, layers.ts)"

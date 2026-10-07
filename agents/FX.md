@@ -65,6 +65,20 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
   / refused / nudged pickup), so the page never gets wider. Creator: `fx` in the event list (effect, on, sound, duration,
   wait, ▶ on the slice canvas). `npm run check:fx` 13/13 (+ the four impacts by rewriting the slice-24 tap in the API
   answer).
+- Pickup sound (2026-10-07, owner: "an override for the sound pickup defaults on item level in catalog and on slice
+  level"): catalog `ItemDef.sound` (admin → Catalog → Items, "Pickup sound"; none = pling, `none` = silent; validated
+  in CatalogValidator – `FX_SOUNDS` kept equal to the TS list by CatalogTest; stored in the item's JSON, no migration)
+  and `SliceItem.sound` (creator: the placed item's "Sound in the bag" with ▶, placeholder = the item's). The reader
+  plays the placement's, else the item's, else pling. Fixed with it: the stored chapter format (`VNEventDoc`) lacked
+  `fx`, so the creator couldn't save an fx event.
+- Slice impacts without gaps (owner 2026-10-07): shake / punch on a slice move its content inside its own box (every
+  child, zoomed just enough to cover the edges, the box clips) – the box stays, no white gaps to the neighbours; the
+  whole column moving together is `target: "screen"`. A slice's vignette is a soft spotlight in the viewport layer
+  (clear on the slice, darkening across its neighbours, following it while scrolling) – no hard edges.
+- Local test content: `node scripts/dev/fx-test-content.mjs` writes a DRAFT of catpope chapter 1 (slices 1–14, one
+  variation each with a de / en label: pickups with the three sound levels and an edge item, can't take it, nudge,
+  item tap events, the four entrances on scroll, sound overrides, the old effects with sounds, impacts by tap / scroll,
+  a 3 s vignette, wait-then-slam) on the local API as the test user; read it with the draft preview. Never published.
 
 **Phases**
 1. `pickup.collect` + `pickup.refuse` with default sounds – viewer only, no data change.

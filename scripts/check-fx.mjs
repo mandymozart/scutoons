@@ -246,7 +246,7 @@ for (const kind of ['pop', 'slam', 'fade', 'typeOn']) {
 	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
 	if (!slice) { report(`entrance ${kind}`, ['slice 24 not found']); continue; }
 	await sleep(800);
-	await evaluate(`window.__fx = { maxW: 0, shook: false }; (function watch() { window.__fx.maxW = Math.max(window.__fx.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations().length) window.__fx.shook = true; const e = document.querySelector('[data-id="s1c2-24-2"] .effect-enter.visible'); if (e && !window.__fx.first) window.__fx.first = { clip: getComputedStyle(e).clipPath, opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }; requestAnimationFrame(watch); })(); true`);
+	await evaluate(`window.__fx = { maxW: 0, shook: false }; (function watch() { window.__fx.maxW = Math.max(window.__fx.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations({ subtree: true }).length) window.__fx.shook = true; if (s) { const b = s.getBoundingClientRect(); window.__fx.box ??= [b.top, b.left]; if (Math.abs(b.top - window.__fx.box[0]) > 0.5 || Math.abs(b.left - window.__fx.box[1]) > 0.5) window.__fx.moved = true; } const e = document.querySelector('[data-id="s1c2-24-2"] .effect-enter.visible'); if (e && !window.__fx.first) window.__fx.first = { clip: getComputedStyle(e).clipPath, opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }; requestAnimationFrame(watch); })(); true`);
 	await tap(slice.x, slice.y);
 	await sleep(kind === 'slam' ? 120 : 200);
 	await shot(`6-${kind}`);
@@ -257,6 +257,7 @@ for (const kind of ['pop', 'slam', 'fade', 'typeOn']) {
 	else if (box.shiver || !box.enter) p.push(`the reveal played ${box.shiver ? 'shiver' : 'no entrance'} – the rewrite didn't apply`);
 	else if (!box.visible) p.push('the box did not come in');
 	if (kind === 'slam' && !fx.shook) p.push('slam: the slice did not shake');
+	if (fx.moved) p.push('the slice box moved – gaps to its neighbours');
 	// the first frame it is visible: still coming in
 	const first = fx.first ?? {};
 	if (kind === 'typeOn' && !/inset/.test(first.clip ?? '')) p.push(`typeOn: not wiped in (clip ${first.clip})`);
@@ -273,19 +274,21 @@ for (const [effect, target] of [['shake', 'slice'], ['flash', 'screen'], ['punch
 	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
 	if (!slice) { report(`fx ${effect}`, ['slice 24 not found']); continue; }
 	await sleep(800);
-	await evaluate(`window.__fx = { maxW: 0, slice: false, screen: false, cover: false, layer: false }; (function watch() { const f = window.__fx; f.maxW = Math.max(f.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations().length) f.slice = true; if (document.querySelector('.chapter-view')?.getAnimations().length) f.screen = true; if (s && [...s.children].some((c) => c.style?.zIndex === '4')) f.cover = true; if (document.getElementById('sc-fx-layer')?.children.length) f.layer = true; requestAnimationFrame(watch); })(); true`);
+	await evaluate(`window.__fx = { maxW: 0, slice: false, screen: false, cover: false, layer: false }; (function watch() { const f = window.__fx; f.maxW = Math.max(f.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations({ subtree: true }).length) f.slice = true; if (s && !f.screen) { const b = s.getBoundingClientRect(); f.box ??= [b.top, b.left]; if (Math.abs(b.top - f.box[0]) > 0.5 || Math.abs(b.left - f.box[1]) > 0.5) f.moved = true; } if (document.querySelector('.chapter-view')?.getAnimations().length) f.screen = true; if (s && [...s.children].some((c) => c.style?.zIndex === '4')) f.cover = true; if (document.getElementById('sc-fx-layer')?.children.length) f.layer = true; requestAnimationFrame(watch); })(); true`);
 	await tap(slice.x, slice.y);
 	await sleep(effect === 'vignette' ? 500 : 120);
 	await shot(`7-${effect}-${target}`);
 	await sleep(2000);
 	const fx = await evaluate('window.__fx');
 	if (effect === 'shake' && !fx.slice) p.push('the slice did not shake');
+	if (target === 'slice' && fx.moved) p.push('the slice box moved – gaps to its neighbours (its content shakes inside)');
 	if (effect === 'punch' && !fx.screen) p.push('the chapter view did not punch');
 	if (effect === 'flash' && !fx.layer) p.push('no flash over the screen');
-	if (effect === 'vignette' && !fx.cover) p.push('no vignette over the slice');
+	if (effect === 'vignette' && !fx.layer) p.push('no spotlight in the viewport layer');
+	if (effect === 'vignette' && fx.cover) p.push('the vignette sits inside the slice – hard edges to its neighbours');
 	if (fx.maxW > 390) p.push(`the page got ${fx.maxW} px wide (viewport 390)`);
 	if ((await evaluate(layerKids)) !== 0) p.push('something stays in the layer');
-	report(`fx ${effect} on the ${target}`, p);
+	report(`fx ${effect} on the ${target}${effect === 'vignette' ? ' (a soft spotlight across the neighbours)' : effect === 'shake' && target === 'slice' ? ' (its content inside the frame, the box stays)' : ''}`, p);
 }
 rewriteEffect = null;
 

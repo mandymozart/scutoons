@@ -600,6 +600,35 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "fx"
+						},
+						"params": {
+							"$ref": "#/definitions/FxParams"
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
+						},
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
 							"const": "jumpTo"
 						},
 						"params": {
@@ -1325,6 +1354,47 @@
 				"hum"
 			]
 		},
+		"FxParams": {
+			"type": "object",
+			"properties": {
+				"effect": {
+					"$ref": "#/definitions/FxImpact"
+				},
+				"target": {
+					"type": "string",
+					"enum": [
+						"slice",
+						"screen"
+					],
+					"description": "`slice` (default) = the slice in view (a slice's own event: that slice), `screen` = the whole screen"
+				},
+				"duration": {
+					"type": "number",
+					"description": "ms (default per effect: shake 450, flash 420, punch 380, vignette 1600; at most 3000)"
+				},
+				"sound": {
+					"$ref": "#/definitions/FxSoundChoice",
+					"description": "none = the effect's own sound (boom, zap, thud, hum), `none` = silent"
+				},
+				"wait": {
+					"type": "boolean",
+					"description": "the script waits until it is over"
+				}
+			},
+			"required": [
+				"effect"
+			],
+			"description": "An impact (agents/FX.md): the slice shakes, flashes white, zooms in and out quickly, or dark edges close in – with its sound. Everything stays inside the visible screen: nothing scrolls or jumps."
+		},
+		"FxImpact": {
+			"type": "string",
+			"enum": [
+				"shake",
+				"flash",
+				"punch",
+				"vignette"
+			]
+		},
 		"AskTextScope": {
 			"type": "string",
 			"enum": [
@@ -1391,6 +1461,10 @@
 				"respawn": {
 					"$ref": "#/definitions/SliceItemRespawn",
 					"description": "pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without one never reappears); `never` = once here even if the item could reappear; an interval = an override within the item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply."
+				},
+				"sound": {
+					"$ref": "#/definitions/FxSoundChoice",
+					"description": "pickup: the sound when it lands in the bag (agents/FX.md) – none = the item's (catalog `sound`), else \"pling\"; `none` = silent"
 				},
 				"layer": {
 					"type": "number",
@@ -1616,6 +1690,28 @@
 						},
 						"params": {
 							"$ref": "#/definitions/ShowTextBoxParams"
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "fx"
+						},
+						"params": {
+							"$ref": "#/definitions/FxParams"
 						}
 					},
 					"required": [

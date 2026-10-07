@@ -32,7 +32,8 @@ import type {
 	VNSetVariableEvent,
 	VNShowChoicesEvent,
 	VNShowMessageEvent,
-	VNShowTextBoxEvent
+	VNShowTextBoxEvent,
+	VNFxEvent
 } from './visual-novel.ts';
 
 // ── Stored types ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ export type VNEventDoc = (
 	| VNLeaveSceneEvent
 	| VNHideMessageEvent
 	| VNShowTextBoxEvent
+	| VNFxEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

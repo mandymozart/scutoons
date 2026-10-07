@@ -26,6 +26,8 @@ final class CatalogValidator
     public const PERMISSION_ID_PATTERN = '#^[A-Za-z0-9][A-Za-z0-9_:.-]{0,99}$#';
     public const ALBUM_ID_PATTERN = '#^[a-z0-9][a-z0-9_]{0,63}$#';
     public const MEDIA_FORMATS = ['vinyl', 'tape', 'cd'];
+    /** the reader's effect sounds (@scutoons/content fx.ts FX_SOUNDS – CatalogTest keeps them equal): an item's pickup sound */
+    public const FX_SOUNDS = ['pling', 'whoosh', 'thunk', 'tick', 'pop', 'thud', 'soft', 'key', 'zap', 'boom', 'hum'];
     public const MEDIA_ACCESS = ['public', 'members', 'owners'];
     public const GRANT_SOURCES = ['story', 'scan'];
     public const MAX_FEATURED = 12;
@@ -211,6 +213,8 @@ final class CatalogValidator
             if (($item[$limit] ?? null) !== null && !(is_int($item[$limit]) && $item[$limit] >= 1)) $p[] = "$id: $limit must be a whole number ≥ 1 (or none)";
         }
         if (array_key_exists('respawn', $item)) foreach (ItemRespawn::problems($item['respawn']) as $problem) $p[] = "$id: $problem";
+        // agents/FX.md: the sound when a picked-up placement lands in the bag (none = pling, "none" = silent)
+        if (($item['sound'] ?? null) !== null && !in_array($item['sound'], [...self::FX_SOUNDS, 'none'], true)) $p[] = "$id: sound must be none or one of " . implode(', ', self::FX_SOUNDS);
         // albums.ts: a record plays only with a player for its format
         if (($item['plays'] ?? null) !== null && !(is_array($item['plays']) && $item['plays'] !== [] && array_diff($item['plays'], self::MEDIA_FORMATS) === [])) $p[] = "$id: plays must be a list of " . implode(', ', self::MEDIA_FORMATS);
         $hasAlbum = ($item['album'] ?? null) !== null;

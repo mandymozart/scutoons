@@ -192,6 +192,10 @@
 					],
 					"description": "When a picked-up placement of this item is back on its slice (respawn.ts): a default interval and the range a placement may choose; none / null = it never reappears (a one-time find). Admin → Catalog can override it."
 				},
+				"sound": {
+					"$ref": "#/definitions/FxSoundChoice",
+					"description": "the sound when a picked-up placement lands in the bag (agents/FX.md) – none = \"pling\", `none` = silent; a placement can choose its own (`SliceItem.sound`)"
+				},
 				"effects": {
 					"anyOf": [
 						{
@@ -551,6 +555,34 @@
 				}
 			],
 			"description": "A timed interval: every n minutes / hours / days (n a whole number ≥ 1, at most a year)."
+		},
+		"FxSoundChoice": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/FxSoundName"
+				},
+				{
+					"type": "string",
+					"const": "none"
+				}
+			],
+			"description": "a sound choice in content: one of the sounds, or `none` (none set = the effect's own)"
+		},
+		"FxSoundName": {
+			"type": "string",
+			"enum": [
+				"pling",
+				"whoosh",
+				"thunk",
+				"tick",
+				"pop",
+				"thud",
+				"soft",
+				"key",
+				"zap",
+				"boom",
+				"hum"
+			]
 		},
 		"StatEffect": {
 			"type": "object",

@@ -210,14 +210,52 @@ export type Impact = FxImpact;
 const IMPACT_SOUND: Record<Impact, FxSound> = { shake: 'boom', flash: 'zap', punch: 'thud', vignette: 'hum' };
 export const IMPACT_DEFAULT_MS: Record<Impact, number> = { shake: 450, flash: 420, punch: 380, vignette: 1600 };
 
-function shake(el: HTMLElement, px: number, ms: number) {
-	el.animate(
-		Array.from({ length: 10 }, (_, i) => {
-			const k = px * (1 - i / 10);
-			return { transform: `translate(${(Math.random() - 0.5) * 2 * k}px,${(Math.random() - 0.5) * 2 * k}px)` };
-		}).concat([{ transform: 'none' }]),
-		{ duration: ms, easing: 'linear' }
-	);
+/** shake keyframes: random offsets that calm down; `zoom` keeps a frame's edges covered while its content moves */
+function shakeFrames(px: number, zoom = 1): Keyframe[] {
+	return Array.from({ length: 10 }, (_, i) => {
+		const k = px * (1 - i / 10);
+		return { transform: `translate(${(Math.random() - 0.5) * 2 * k}px,${(Math.random() - 0.5) * 2 * k}px) scale(${zoom})` };
+	}).concat([{ transform: 'none' }]);
+}
+
+/**
+ * A slice's own impact (owner 2026-10-07: no white gaps to the slices before / after): the slice's box stays where it is
+ * and clips; its content (image, text boxes, items, areas – every child, the same keyframes) moves inside it, zoomed
+ * just enough that no edge shows. The whole column moving together is the `screen` target.
+ */
+function inFrame(slice: HTMLElement, frames: (zoom: number) => Keyframe[], ms: number, easing: string, px = 0) {
+	const before = slice.style.clipPath;
+	slice.style.clipPath = 'inset(0)';
+	// enough zoom that a shift of px never uncovers an edge
+	const zoom = 1 + (2 * px) / Math.max(1, Math.min(slice.offsetWidth, slice.offsetHeight)) + 0.01;
+	const keyframes = frames(zoom);
+	for (const child of slice.children) if (child instanceof HTMLElement || child instanceof SVGElement) child.animate(keyframes, { duration: ms, easing });
+	setTimeout(() => (slice.style.clipPath = before), ms + 30);
+}
+
+/**
+ * A slice's vignette (owner 2026-10-07: no hard edges against the slices before / after): a soft spotlight over the
+ * whole viewport (the fx layer), clear on the slice and darkening smoothly across its neighbours; it follows the slice
+ * while the reader scrolls.
+ */
+function spotlight(slice: HTMLElement, keyframes: Keyframe[], ms: number) {
+	const d = document.createElement('div');
+	Object.assign(d.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+	fxLayer().appendChild(d);
+	let live = true;
+	const place = () => {
+		if (!live) return;
+		const r = slice.getBoundingClientRect();
+		const cx = r.left + r.width / 2;
+		const cy = r.top + r.height / 2;
+		d.style.background = `radial-gradient(ellipse ${r.width * 0.75}px ${r.height * 0.75}px at ${cx}px ${cy}px, rgba(0,0,0,0) 45%, rgba(0,0,0,0.85) 100%)`;
+		requestAnimationFrame(place);
+	};
+	place();
+	d.animate(keyframes, { duration: ms, easing: 'ease-out' }).onfinish = () => {
+		live = false;
+		d.remove();
+	};
 }
 
 function cover(host: HTMLElement, background: string, keyframes: Keyframe[], ms: number) {
@@ -239,19 +277,27 @@ export function impactCue(kind: Impact, options: { slice?: HTMLElement | null; s
 	playFxSound(options.sound === undefined ? IMPACT_SOUND[kind] : options.sound);
 	if (kind === 'shake') {
 		buzz(80);
-		clipAround(slice ?? screen, ms);
-		shake(slice ?? screen, (slice ? 0.55 : 0.75) * rem(), ms);
+		if (slice) {
+			const px = 0.55 * rem();
+			inFrame(slice, (zoom) => shakeFrames(px, zoom), ms, 'linear', px);
+		} else {
+			clipAround(screen, ms);
+			screen.animate(shakeFrames(0.75 * rem()), { duration: ms, easing: 'linear' });
+		}
 	} else if (kind === 'punch') {
 		buzz(35);
-		clipAround(slice ?? screen, ms);
-		(slice ?? screen).animate([{ transform: 'scale(1)' }, { transform: `scale(${slice ? 1.08 : 1.04})`, offset: 0.25 }, { transform: 'scale(1)' }], {
-			duration: ms,
-			easing: 'cubic-bezier(.2,.8,.3,1)'
-		});
+		const punch = (zoom: number): Keyframe[] => [{ transform: 'scale(1)' }, { transform: `scale(${zoom})`, offset: 0.25 }, { transform: 'scale(1)' }];
+		if (slice) inFrame(slice, () => punch(1.12), ms, 'cubic-bezier(.2,.8,.3,1)');
+		else {
+			clipAround(screen, ms);
+			screen.animate(punch(1.04), { duration: ms, easing: 'cubic-bezier(.2,.8,.3,1)' });
+		}
 	} else if (kind === 'flash') {
 		buzz(25);
 		cover(slice ?? fxLayer(), '#ffffff', [{ opacity: 0.95 }, { opacity: 0 }], ms);
 	} else if (kind === 'vignette') {
-		cover(slice ?? fxLayer(), 'radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,0.85) 100%)', [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], ms);
+		const fade: Keyframe[] = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }];
+		if (!slice) cover(fxLayer(), 'radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,0.85) 100%)', fade, ms);
+		else spotlight(slice, fade, ms);
 	}
 }

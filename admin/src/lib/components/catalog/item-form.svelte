@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AVATAR_SLOTS } from '@scutoons/content';
+	import { AVATAR_SLOTS, FX_SOUNDS } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
 	import { problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -20,6 +20,7 @@
 	const FORMATS = ['vinyl', 'tape', 'cd'];
 	const options = (kind: 'toons' | 'editions' | 'products' | 'albums') =>
 		(lists[kind] ?? []).map((e) => ({ value: e.id, label: `${text(e.data?.name ?? e.data?.title) || e.id}` }));
+	const soundOptions = [{ value: 'none', label: m['catalog.pickup_sound_none']() }, ...FX_SOUNDS.map((s) => ({ value: s }))];
 	const place = $derived(`${data.toon || 'scutoons'}/items/`);
 	let bust = $state(0);
 
@@ -142,6 +143,9 @@
 		else data.respawn = rule;
 	}}
 />
+
+<!-- agents/FX.md: the sound when a picked-up placement lands in the bag (a placement may choose its own) -->
+<CatalogField label={m['catalog.pickup_sound']()} type="select" value={data.sound} options={soundOptions} none={m['catalog.pickup_sound_default']()} hint={m['catalog.pickup_sound_hint']()} error={err('sound')} onchange={(v) => (v ? (data.sound = v) : delete data.sound)} testid="item-sound" />
 
 <style>
 	.picture {

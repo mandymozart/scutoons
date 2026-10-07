@@ -2,6 +2,7 @@
 import type { StatDef, StatEffect, TimedEffect, ReaderState } from './substances.ts';
 import type { Album, MediaFormat } from './albums.ts';
 import type { ItemRespawn } from './respawn.ts';
+import type { FxSoundChoice } from './fx.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
 export type Localized = Record<string, string>;
@@ -127,6 +128,11 @@ export interface ItemDef extends AcceptedWarnings {
 	 * placement may choose; none / null = it never reappears (a one-time find). Admin → Catalog can override it.
 	 */
 	respawn?: ItemRespawn | null;
+	/**
+	 * the sound when a picked-up placement lands in the bag (agents/FX.md) – none = "pling", `none` = silent; a
+	 * placement can choose its own (`SliceItem.sound`)
+	 */
+	sound?: FxSoundChoice;
 	/** a substance's stat changes (`catalog.stats` ids), ITEMS.md "Substances" */
 	effects?: StatEffect[] | null;
 	/** a substance's temporary reader effect */

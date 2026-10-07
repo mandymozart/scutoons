@@ -138,7 +138,9 @@
 			// agents/FX.md: it jumps up at once, then flies into the bag (the inventory button) or shakes and stays
 			const lift = liftCue(el, item.rotation ?? 0);
 			const result = await pickUpSliceItem(slice, item, game);
-			if (result.ok) await lift.fly(document.querySelector('.inventory-toggle'));
+			// the sound in the bag: this placement's, else the item's (catalog), else pling; `none` = silent
+			const sound = item.sound ?? getCurrentInventory()?.item(item.item)?.sound;
+			if (result.ok) await lift.fly(document.querySelector('.inventory-toggle'), sound === 'none' ? null : (sound ?? 'pling'));
 			else if (result.error) lift.refuse();
 			else lift.drop(); // a second tap while the first is still asking: nothing
 			taken++;
