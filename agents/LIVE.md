@@ -294,6 +294,9 @@ what the first show needs. Must = the first show needs it; Could = after the fir
 early. The FX cues (FX.md) are not a dependency: phase 0 takes only the bus + the cue registry; FX's own phases stay
 in BACKLOG 10.56.
 
+**A try-out, no crunch** (owner 2026-10-07): the whole performance mode is a nice-to-try – what isn't ready for the
+first show comes with the next shows. Must / Could is the order of work, not a promise; the dates are a target.
+
 | # | Dates | Step | Proves |
 |---|---|---|---|
 | 0 | Nov 2 – Nov 6 | The bus (B.1) + the FX cue registry; **spikes**: bunny WebSocket + one instance, iPhone audio / wake lock, RtMidi + `serialport` in Electron on mac + win, a test frame through the USB-DMX interface to the strobe + the colour panel | the bus, the risky platform facts |
