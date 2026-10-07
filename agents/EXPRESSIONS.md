@@ -85,6 +85,12 @@ Text boxes (slice dialog text – rendered by @scutoons/reader, live when values
 event conditions (`if`: the simple form variable–op–value stays the default in the creator; "expression" = advanced
 mode on the same engine).
 
+**Pattern – an offer the reader can't afford** (owner 2026-10-07: "solved by good button text"): guard the
+paying choices (`if: inventory.cucumber >= 5`) and give the always-there answer a conditional label instead of a
+second, hidden-or-shown choice – `{inventory.cucumber >= 5 or inventory.lsd >= 1: Nein danke|Können wir uns leider grad
+nicht leisten}`. Two complementary conditions on two choices would trip the save guard ("every choice of this question
+has a condition"); one unconditional choice with a changing text doesn't. Example: toptoy ch1 `blotter-deal` (dev DB).
+
 ## 4. Validation + editing
 
 - Validated in the creator while typing AND on the server when saving (a PHP port of the parser/analyser, ~300 lines,
