@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { Segmented } from '@scutoons/ui';
+	import { Segmented, liveRegion, region } from '@scutoons/ui';
 	import { moveAt } from '$lib/editor/move.ts';
 	import {
 		COVER_LIMITS,
@@ -179,8 +179,10 @@
 	</div>
 	<p class="hint">{mode === 'off' ? m['creator.cover_mode_hint_off']() : mode === 'default' ? m['creator.cover_mode_hint_default']() : m['creator.cover_mode_hint_custom']()}</p>
 
-	<div class="work">
-		<CoverLetteringCanvas {image} {format} {lines} {mode} texts={previewTexts} lang={previewLang} bind:selected {lineLabel} onedit={editLine} onown={ownLayout} onremove={removeLine} />
+	<!-- the cover canvas + its Lines list = ONE selection region (DESIGN.md "Selection"): live, the selected line shows its
+	     handles and takes the keys -->
+	<div class="work" use:region={{ name: 'cover', initial: true }}>
+		<CoverLetteringCanvas {image} {format} {lines} {mode} texts={previewTexts} lang={previewLang} bind:selected live={liveRegion.is('cover')} {lineLabel} onedit={editLine} onown={ownLayout} onremove={removeLine} />
 		<CoverInspector
 			{toon}
 			{place}

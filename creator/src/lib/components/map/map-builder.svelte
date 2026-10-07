@@ -19,7 +19,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { Icon, confirmDialog } from '@scutoons/ui';
+	import { Icon, confirmDialog, liveRegion, region } from '@scutoons/ui';
 	import { getPublished, library } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -338,10 +338,11 @@
 			if (e.key === 'Escape') return void (e.preventDefault(), canvas.cancelRoute(), (tool = 'select'));
 			if (e.key === 'Backspace' && canvas.undoDraftPoint()) return void e.preventDefault();
 		}
-		if (e.key === 'Escape' && selection) return void (selection = null);
+		// Esc / arrows act on the selection only while the map region is live (DESIGN.md "Selection")
+		if (e.key === 'Escape' && selection && liveRegion.is('map')) return void (selection = null);
 		const tools: Record<string, MapTool> = { v: 'select', p: 'place', r: 'route' };
 		if (tools[e.key.toLowerCase()] && !e.shiftKey) return void (tool = tools[e.key.toLowerCase()]);
-		if (e.key.startsWith('Arrow') && selection?.kind === 'place') {
+		if (e.key.startsWith('Arrow') && selection?.kind === 'place' && liveRegion.is('map')) {
 			e.preventDefault();
 			const step = e.shiftKey ? 10 : 1;
 			const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
@@ -402,13 +403,15 @@
 {/snippet}
 
 {#snippet mapNav()}
-	<div class="map-nav" data-testid="map-nav">
+	<!-- the nav lists + the map = ONE selection region ('map', DESIGN.md "Selection"): the selected layer / place / route
+	     is sc-selected here, the marker's halo on the map -->
+	<div class="map-nav" data-testid="map-nav" use:region={'map'}>
 		<p class="head"><Icon name="layers" size="1.1em" /> {m['creator.map_layers']()}</p>
 		<ul>
 			{#each map?.layers ?? [] as l (l.id)}
 				<li class="item-row">
 					<input type="checkbox" checked={!hiddenLayers.has(l.id)} onchange={() => toggleLayer(l.id)} aria-label={m['creator.map_layer_show']()} title={m['creator.map_layer_show']()} />
-					<button type="button" class="item" aria-current={selection?.kind === 'layer' && selection.id === l.id ? 'page' : undefined} onclick={() => select({ kind: 'layer', id: l.id })}>{l.id}{@render mark(`layer:${l.id}`)}</button>
+					<button type="button" class="item" class:sc-selected={selection?.kind === 'layer' && selection.id === l.id} onclick={() => select({ kind: 'layer', id: l.id })}>{l.id}{@render mark(`layer:${l.id}`)}</button>
 				</li>
 			{/each}
 			<li><button type="button" class="item add" onclick={addLayer}>{m['creator.map_add_layer']()}</button></li>
@@ -417,7 +420,7 @@
 		<ul data-testid="map-nav-places">
 			{#each sortedPlaces as p (p.id)}
 				<li>
-					<button type="button" class="item" class:dim={!!toonFilter && !p.toons?.includes(toonFilter)} aria-current={selection?.kind === 'place' && selection.id === p.id ? 'page' : undefined} onclick={() => select({ kind: 'place', id: p.id }, true)} data-testid="nav-place-{p.id}">
+					<button type="button" class="item" class:dim={!!toonFilter && !p.toons?.includes(toonFilter)} class:sc-selected={selection?.kind === 'place' && selection.id === p.id} onclick={() => select({ kind: 'place', id: p.id }, true)} data-testid="nav-place-{p.id}">
 						<span class="dot" class:hidden-dot={!!p.hidden} title={p.hidden ? m['creator.map_hidden']() : undefined}></span>
 						<span class="name">{mapName(p.name, locale) || p.id}</span>{@render mark(`place:${p.id}`)}
 					</button>
@@ -429,7 +432,7 @@
 		<ul data-testid="map-nav-routes">
 			{#each map?.routes ?? [] as r (r.id)}
 				<li>
-					<button type="button" class="item" class:dim={!!toonFilter && !r.toons?.includes(toonFilter)} aria-current={selection?.kind === 'route' && selection.id === r.id ? 'page' : undefined} onclick={() => select({ kind: 'route', id: r.id }, true)} data-testid="nav-route-{r.id}">
+					<button type="button" class="item" class:dim={!!toonFilter && !r.toons?.includes(toonFilter)} class:sc-selected={selection?.kind === 'route' && selection.id === r.id} onclick={() => select({ kind: 'route', id: r.id }, true)} data-testid="nav-route-{r.id}">
 						<span class="name">{mapName(r.name, locale) || r.id}</span>{@render mark(`route:${r.id}`)}
 					</button>
 				</li>
@@ -443,7 +446,7 @@
 
 <MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map">
 	{#if map}
-		<div class="builder" data-testid="map-builder">
+		<div class="builder" data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
 			<div class="toolbar" role="toolbar" aria-label={m['creator.map']()}>
 				<div class="group" role="radiogroup">
 					<!-- icons for the tools (DESIGN.md "Icons": Feather, label + shortcut in the tooltip) -->
@@ -675,13 +678,10 @@
 		border-left: 3px solid transparent;
 		cursor: pointer;
 	}
+	/* hover frames (never inverted); the selected one: tools.css .sc-selected */
 	.map-nav .item:hover {
-		background: var(--surface-hover);
-	}
-	.map-nav .item[aria-current='page'] {
-		border-left-color: var(--ink);
-		background: var(--surface-hover);
-		font-weight: var(--font-weight-regular);
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.map-nav .item.dim {
 		opacity: 0.45;

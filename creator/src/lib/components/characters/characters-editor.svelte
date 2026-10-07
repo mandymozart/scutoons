@@ -25,7 +25,7 @@
 		type ToonCast
 	} from '@scutoons/content';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { Badge, CloseIcon, Icon, Tabs } from '@scutoons/ui';
+	import { Badge, CloseIcon, Icon, Tabs, region } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -291,12 +291,13 @@
 						{#if registry.loading}
 							<p class="hint">{m['creator.loading']()}</p>
 						{:else}
-							<ul>
+							<!-- a selection region (DESIGN.md "Selection"): the open character is sc-selected -->
+							<ul use:region={'characters'}>
 								{#each visible as c (c.id)}
 									{@const issues = imageIssues(c)}
 									{@const src = thumb(c)}
 									<li>
-										<button type="button" class="item" data-control-exempt="two-line list row with avatar" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
+										<button type="button" class="item" data-control-exempt="two-line list row with avatar" class:sc-selected={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
 											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
 												<span>{shownCharacterName(c)}</span>
@@ -406,9 +407,6 @@
 	}
 	.item:hover {
 		border-color: var(--ink);
-	}
-	.item.active {
-		border: 2px solid var(--ink);
 	}
 	.avatar {
 		width: 2.6rem;

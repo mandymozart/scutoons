@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmDialog } from '@scutoons/ui';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, region } from '@scutoons/ui';
 	import { personUsage, replacePerson, type CreditPerson, type PeopleRegistry, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, newPerson, peopleOf, searchPeople } from '$lib/editor/credits.ts';
@@ -74,10 +74,11 @@
 	<div class="list">
 		<input type="search" placeholder={m['creator.credits_search_people']()} bind:value={query} data-testid="people-search" />
 		{#if shown.length}
-		<ul>
+		<!-- a selection region (DESIGN.md "Selection"): the open person is sc-selected; hover frames, never inverts -->
+		<ul use:region={'people'}>
 			{#each shown as p (p.id)}
 				<li>
-					<button type="button" class="row" class:active={p.id === selected} onclick={() => (selected = p.id)} data-testid="people-row" data-person={p.id}>
+					<button type="button" class="row" class:sc-selected={p.id === selected} onclick={() => (selected = p.id)} data-testid="people-row" data-person={p.id}>
 						<span>{p.name}</span>
 						<span class="hint">{usage.get(p.id) ?? 0}×</span>
 					</button>
@@ -186,13 +187,9 @@
 		padding: 0 0.5rem;
 		cursor: pointer;
 	}
-	.row:hover,
-	.row.active {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.row.active {
-		font-weight: var(--font-weight-regular);
+	.row:hover {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.new {
 		display: flex;

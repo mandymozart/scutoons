@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon } from '@scutoons/ui';
+	import { CloseIcon, region } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -99,7 +99,8 @@
 {#if !open}
 	<button type="button" class="ghost add" onclick={start} data-testid="{testid}-open">+ {label}</button>
 {:else}
-	<div class="picker" data-testid={testid}>
+	<!-- live while open (DESIGN.md "Selection"): the keyboard highlight is the live selection -->
+	<div class="picker" data-testid={testid} use:region={{ name: 'character-picker', modal: true }}>
 		<input
 			bind:this={input}
 			type="search"
@@ -116,7 +117,7 @@
 		<button type="button" class="ghost" onclick={close} aria-label={m['creator.close']()}><CloseIcon /></button>
 		<ul id="{uid}-list" role="listbox">
 			{#each options as option, i (option.character?.id ?? 'create')}
-				<li id="{uid}-{i}" role="option" aria-selected={i === active} class:active={i === active}>
+				<li id="{uid}-{i}" role="option" aria-selected={i === active} class:sc-selected={i === active}>
 					<button type="button" class="option" onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} data-testid="{testid}-option">
 						{#if option.kind === 'create'}
 							{m['creator.characters_create_named']({ name: query.trim() })}
@@ -156,10 +157,6 @@
 		border: 2px solid var(--ink);
 		max-height: 18rem;
 		overflow: auto;
-	}
-	li.active {
-		background: var(--ink);
-		color: var(--paper);
 	}
 	.option {
 		all: unset;

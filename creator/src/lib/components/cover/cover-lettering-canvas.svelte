@@ -18,6 +18,7 @@
 		texts,
 		lang,
 		selected = $bindable(null),
+		live = true,
 		lineLabel,
 		onedit,
 		onown,
@@ -31,6 +32,8 @@
 		texts: CoverTexts;
 		lang: string;
 		selected?: number | null;
+		/** the cover region is live (DESIGN.md "Selection"): the selected line's handles show, the keys act on it */
+		live?: boolean;
 		lineLabel: (l: CoverLine) => string;
 		onedit: (index: number, change: Partial<CoverLine>, key: string) => void;
 		/** the default layout is touched: it becomes the format's own */
@@ -115,7 +118,14 @@
 		guide = false;
 	}
 
+	/** keys on a focused box: Enter / Space select it (focus is not selection – E.8); arrows, Delete, Esc act on the selected one */
 	function onKey(event: KeyboardEvent, index: number) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			selected = index;
+			return;
+		}
+		if (selected !== index) return;
 		const step = event.shiftKey ? 5 : 0.5;
 		const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
 		if (moves[event.key]) {
@@ -142,6 +152,7 @@
 					<div
 						class="box"
 						class:selected={selected === i}
+						class:live={selected === i && live}
 						style="left: {l.x}%; top: {l.y}%; width: {l.maxWidth}%; height: {height}cqw; transform: translate(-50%, -50%) rotate({l.rotate ?? 0}deg) skewX({l.skew ?? 0}deg)"
 						role="button"
 						tabindex="0"
@@ -149,10 +160,9 @@
 						title="{sourceLabel(l.text)}: {lineLabel(l)}"
 						onpointerdown={(e) => startDrag(e, i, 'move')}
 						onkeydown={(e) => onKey(e, i)}
-						onfocus={() => (selected = i)}
 						data-testid="cover-box-{i}"
 					>
-						{#if selected === i}
+						{#if selected === i && live}
 							<span class="handle width" role="presentation" title={m['creator.cover_handle_width']()} onpointerdown={(e) => startDrag(e, i, 'width')} data-testid="cover-handle-width"></span>
 							<span class="handle size" role="presentation" title={m['creator.cover_handle_size']()} onpointerdown={(e) => startDrag(e, i, 'size')} data-testid="cover-handle-size"></span>
 							<span class="handle rotate" role="presentation" title={m['creator.cover_handle_rotate']()} onpointerdown={(e) => startDrag(e, i, 'rotate')} data-testid="cover-handle-rotate"></span>
@@ -191,10 +201,14 @@
 	.box:hover {
 		border-style: solid;
 	}
-	.box.selected,
-	.box:focus-visible {
+	/* selected = the cyan frame; live = + its handles; focus = the 3px ink ring (focus is not selection – E.8) */
+	.box.selected {
 		border: var(--border-width-regular) solid var(--primary-cyan);
 		outline: var(--border-width-hairline) solid var(--ink);
+	}
+	.box:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 	.guide {
 		position: absolute;

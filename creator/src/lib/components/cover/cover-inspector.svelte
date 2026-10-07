@@ -63,9 +63,9 @@
 		<p class="sc-label">{m['creator.cover_lines']()}</p>
 		<ul class="lines" use:sortable={{ onmove }}>
 			{#each lines as l, i (i)}
-				<li data-sort-row>
+				<li data-sort-row class:sc-selected={selected === i}>
 					<SortGrip label={m['creator.sort_move']({ name: lineLabel(l) || sourceLabel(l.text) })} title={m['creator.sort_hint']()} />
-					<button type="button" class="ghost row" class:active={selected === i} onclick={() => (selected = i)} data-testid="cover-line-{i}">
+					<button type="button" class="ghost row" onclick={() => (selected = i)} data-testid="cover-line-{i}">
 						<span class="src">{sourceLabel(l.text)}</span>
 						<span class="txt">{lineLabel(l)}</span>
 					</button>

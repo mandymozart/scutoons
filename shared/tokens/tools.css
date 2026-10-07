@@ -531,7 +531,8 @@
    text, not bold. Muted text inside follows the row's colour. Canvas objects (slice / cover / map) keep their kind's
    frame instead (the art is under them). Nav "you are here" (.sc-nav-item.is-current) stays inverted; it takes the
    live look only when it is also the live selection (both classes). */
-.sc-tool .sc-selected {
+/* [class]: one step above a component's own single-class rule (e.g. a row's `all: unset`) */
+.sc-tool .sc-selected[class] {
 	background: var(--ink);
 	color: var(--paper);
 	--text-muted: currentColor;

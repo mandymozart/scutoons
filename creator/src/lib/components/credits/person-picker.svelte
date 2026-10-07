@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon } from '@scutoons/ui';
+	import { CloseIcon, region } from '@scutoons/ui';
 	import type { CreditPerson } from '@scutoons/content';
 	import { searchPeople } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -70,7 +70,8 @@
 {#if !open}
 	<button type="button" class="ghost add" onclick={start} data-testid="{testid}-open">+ {label}</button>
 {:else}
-	<div class="picker" data-testid={testid}>
+	<!-- live while open (DESIGN.md "Selection"): the keyboard highlight is the live selection -->
+	<div class="picker" data-testid={testid} use:region={{ name: 'person-picker', modal: true }}>
 		<input
 			bind:this={input}
 			type="search"
@@ -87,7 +88,7 @@
 		<button type="button" class="ghost" onclick={() => (open = false)} aria-label={m['creator.close']()}><CloseIcon /></button>
 		<ul id="{uid}-list" role="listbox">
 			{#each options as option, i (option.person?.id ?? 'create')}
-				<li id="{uid}-{i}" role="option" aria-selected={i === active} class:active={i === active}>
+				<li id="{uid}-{i}" role="option" aria-selected={i === active} class:sc-selected={i === active}>
 					<button type="button" class="option" onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} data-testid="{testid}-option">
 						{#if option.kind === 'create'}
 							{m['creator.credits_create_person']({ name: query.trim() })}
@@ -129,10 +130,6 @@
 		border: 2px solid var(--ink);
 		max-height: 18rem;
 		overflow: auto;
-	}
-	li.active {
-		background: var(--ink);
-		color: var(--paper);
 	}
 	li.hint {
 		padding: 0.3rem 0.5rem;

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { clickOutside, Segmented } from '@scutoons/ui';
+	import { clickOutside, region, Segmented } from '@scutoons/ui';
 	import { EXPR_FUNCTIONS, EXPR_NAMESPACES, evaluateExpression, evaluateText, showValue, type ExprFunction, type ExprParam } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -211,6 +211,7 @@
 	onkeydown={onKeydown}
 	{@attach portal}
 	{@attach clickOutside(() => onclose(), { escape: false })}
+	use:region={{ name: 'expr-builder', modal: true }}
 	data-testid="expr-builder"
 >
 	<Segmented label={m['creator.expr_kind']()} value={model.kind} onchange={(k: BuilderKind) => setKind(k)} options={kinds} />
@@ -239,7 +240,7 @@
 					{#each hits as entry, i (entry.group + entry.label)}
 						{#if i === 0 || hits[i - 1].group !== entry.group}<li class="group" role="presentation">{entry.group}</li>{/if}
 						<li id="{uid}-hit-{i}" role="option" aria-selected={i === highlight}>
-							<button type="button" class="hit" class:active={i === highlight} onmousedown={(e) => e.preventDefault()} onclick={() => pick(entry)} title={entry.detail || undefined} data-testid="expr-hit">
+							<button type="button" class="hit" class:sc-selected={i === highlight} onmousedown={(e) => e.preventDefault()} onclick={() => pick(entry)} title={entry.detail || undefined} data-testid="expr-hit">
 								<span class="code">{entry.label}</span>{#if entry.detail}<span class="detail">{entry.detail}</span>{/if}
 							</button>
 						</li>
@@ -376,9 +377,10 @@
 		padding: var(--space-025) var(--space-05);
 		cursor: pointer;
 	}
-	.hit:hover,
-	.hit.active {
-		background: var(--surface-hover);
+	/* the highlighted hit: sc-selected (the open builder is the live region → the live look); hover frames */
+	.hit:hover {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.hit:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
