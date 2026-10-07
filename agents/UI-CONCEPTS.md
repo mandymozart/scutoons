@@ -154,10 +154,9 @@ multi-selection (`picked`, multi-select.ts – groups, slices, events); Ctrl+X /
 selection (chapter-editor.svelte onKeydown); no copy, no duplicate, no context menu.
 
 **Proposal:**
-- **The active area:** a small `clipboard.svelte.ts` records the area clicked last (canvas, event list, slice list,
-  group tree). Its selection is drawn in the accent colour, the others' in grey (the OS convention for an inactive
-  selection) – no new controls. Cmd/Ctrl+C / X / V act on the accent selection; with none, nothing happens. In a text
-  field the keys stay the browser's.
+- **The live area:** the selection model of E.8 – the region clicked / focused last is "live", its selection is drawn
+  in the live look (light cyan, dark blue text); Cmd/Ctrl+C / X / V act on the live selection only; with none, nothing
+  happens. In a text field the keys stay the browser's. Canvas and the inspector's text box / item list are ONE region.
 - **What pastes where:**
 
   | Active selection | V (as new) | Shift+V (settings only, onto the selection) |
@@ -173,5 +172,117 @@ selection (chapter-editor.svelte onKeydown); no copy, no duplicate, no context m
   catpope ch. 3"). With E.1 (one notification model).
 - **Later, optional:** the same actions in a right-click menu on the canvas and the lists.
 
-**Steps:** the active area (draft on the real chapter page, desktop + mobile) → text boxes → the rest (BACKLOG 10.39).
-**Owner decides:** the draft of the active / inactive selection colours.
+- **Toast:** the shared ToastStack (`@scutoons/ui`), success style (cyan left bar): "Text box copied · s1c1-2-3",
+  "2 events copied", "Slice copied · 3"; above the ActionBar (E.1).
+- **Phone:** only one region shows at a time (the slice list is in the menu drawer) and phones have no Cmd keys –
+  copy / paste would be desktop-only until the optional menu. The toast must not cover the inspector's last row (short-lived
+  or at the top on narrow screens).
+
+**Steps:** E.8 first (the live region is what the keys act on) → text boxes → the rest (BACKLOG 10.39).
+**Decided (owner 2026-10-07):** the live look as in the E.8 draft. **Owner decides:** phone desktop-only for now, or
+the menu?
+
+---
+
+## E.8 One selection model, app-wide (creator, admin, embassy; BACKLOG 10.40)
+
+**Why:** copy / paste (E.7) has to show WHICH selection the keys act on. The inventory (2026-10-07, every editing app)
+shows that the inverted look carries six meanings, while "selected" is drawn four ways:
+
+- **Inverted ink / paper today means:** nav "you are here" (`.sc-nav-item.is-current` / `aria-current`, admin + embassy
+  nav, the Flow node `.current`, the script outline `.current`) · the edited object (slice `li.selected`, DataTable
+  `tr.active`, slice-inspector + cover-inspector lists, people rows) · the keyboard highlight in a listbox (command
+  palette, character + person pickers) · a toggle that is on (tabs, segmented, `.ghost.active`, `.on`, aria-pressed) ·
+  **hover** (`.sc-round:hover`, menu items, people-panel `.row:hover`) · a row in progress (admin batches `tr.current`).
+- **"Selected" is drawn as:** inverted (above) · a 2px ink border (VN event `.event.selected`, sample `.sample.selected`,
+  characters `.item.active`) · a kind-coloured border + cyan tint (slice canvas `.box.selected`) · a cyan ring / halo
+  (cover box, map place marker, map route).
+- **Multi-pick ("picked")** = a 2px ink inset outline in slice list / groups / events, shown inconsistently (the slice
+  list excludes the selected one, groups / events only from 2 on); DataTable checks = `--surface-hover`.
+- **No region model:** the chapter editor's Delete / Backspace / Ctrl+X / arrows act on the canvas selection even when
+  focus is in the slice list or the tree (chapter-editor.svelte onKeydown, no region check). The only region notion is
+  `data-sc-maximize` (app-shell.svelte, Ctrl+Space).
+- **Focus gaps:** rows with `all: unset` beat the `:where(.sc-tool)` focus rule (map-builder `.item`, characters `.item`,
+  people `.row` have no visible focus); toggle.svelte's ring is 2px, not 3px; the menu draws focus as inversion; the
+  cover box treats focus as selection.
+
+### The vocabulary: one look per meaning
+
+| Meaning | Look | Tokens |
+|---|---|---|
+| **Selected** (content: what the inspector / editor shows; every picked one too) | inverted, the brutalist look, unchanged | `--ink` bg, `--paper` text |
+| **Live selection** (selected AND in the live region: what the keys act on) | light cyan background, 2px inset border in the primary colour, dark blue text, not bold | new `--select-live-bg` (= `--surface-tint-cyan`), `--select-live-border` (= `--primary-color`, owner 2026-10-07), `--select-live-text` (#005a70, tested on the page) |
+| **Keyboard highlight in a listbox** (palette, pickers, comboboxes, expr-builder) | = live selection (focus is in that list) | as above |
+| **Picker tile being chosen** (`.sc-card.is-selected`, asset / expression tiles) | = live selection (the open sheet is the live region) | as above |
+| **Current value of a picker field** (`.sc-card.is-current`) | cyan left bar (unchanged) | `--primary-color` |
+| **Nav "you are here"** (sidebar, tree's current group, Flow node, outline, admin / embassy nav) | inverted, unchanged (owner 2026-10-07: "keep as is"); when it is ALSO the live selection (the tree's group in the live tree region) it gets the live look | `--ink` / `--paper` |
+| **Toggle on / tab / segmented / pressed** | inverted: small controls, stays | `--ink` / `--paper` |
+| **Hover** | never inverted: 2px ink border / outline (as `.sc-nav-item:hover` does) | `--ink` |
+| **Focus (keyboard)** | 3px ink outline everywhere (fix the gaps) | `--border-width-focus` |
+| **Drag / drop** | cyan drop line, moving 0.5 (unchanged) | `--primary-color` |
+| **Dimmed** (other layer, filtered) | opacity (unchanged) | – |
+| **In progress** (admin batches row) | not a selection: `--surface-tint-cyan` + its status text, not inverted | – |
+
+**Canvas objects** (slice canvas, cover canvas, map) can't be inverted, the art is under them. Selected = the kind's
+frame without handles; live = the frame + handles + the tag (arrows / Delete / Cmd+C act on it). The cover box stops
+treating focus as selection (focus = the focus ring; a click selects).
+
+**Multi-pick:** every picked item has the selected look (inverted, or live when its region is live); the slice list's
+"the shown one vs the others" distinction goes (the main area shows which one is open). Copy / Delete / drag take all
+picked ones. DataTable's checked rows = the selected look.
+
+### The live region
+
+- **One mechanism in `@scutoons/ui`:** a `region` action (`use:region={'slices'}`) on each selectable area + one shared
+  store `liveRegion` (`selection.svelte.ts`). `pointerdown` / `focusin` inside a region makes it live; the region gets
+  `data-live`. Components mark selected items with ONE class `sc-selected` (replacing `.selected` / `.active` /
+  `.is-current`-as-selection / `.picked` / `.item.active` …). tools.css then holds the only rules: `.sc-selected`
+  (inverted) and `[data-live] .sc-selected` (live look). No per-component selection CSS any more.
+- **Keys act on the live region only:** Cmd/Ctrl+C / X / V (E.7), Delete / Backspace, arrows (nudge / move), Esc
+  (clears the live selection). The chapter editor's onKeydown asks `liveRegion` instead of acting on the canvas
+  regardless, which fixes "Delete in the slice list deletes the canvas box".
+- **Modal sheets / dialogs / the palette** are live while open; closing returns live to the region before.
+- **Default:** on page load the main editor region is live (the canvas on a slice, the events on a VN group, the list
+  on admin catalog pages).
+- **Phone:** one region visible at a time; it is live, no extra state shows.
+
+### Where the regions are
+
+- **Creator:** chapter tree (groups) · slice list · slice canvas + its inspector box / item list (one region) · slice
+  audio samples · VN events · script outline · map builder: lists + map canvas · characters list · cast · people panel ·
+  cover canvas + Lines list (one region). The Flow panel is nav only (no selection); season sequence has hover only.
+- **Admin:** each DataTable (catalog lists, codes, assets, users …) · the detail panel's own lists.
+- **Embassy:** only its nav, no regions needed.
+- **Shared:** command palette, menu, the picker sheets (asset, character, item), comboboxes.
+
+### Steps (each one shippable)
+
+1. **Tokens + tools.css:** `--select-live-*`, `.sc-selected`, `[data-live] .sc-selected`; the hover / focus fixes
+   (`.sc-round:hover` not inverted; the focus ring must win over `all: unset`); DESIGN.md "Active / selected =
+   inverted" rewritten to the vocabulary above.
+2. **`@scutoons/ui`:** `selection.svelte.ts` (the store) + the `region` action; DataTable (`tr.active` / `tr.checked`
+   → `sc-selected`, the table is a region); command palette + menu (highlight = live look, hover not inverted);
+   toggle's 3px focus ring; `.sc-card.is-selected` → live look.
+3. **Creator chapter editor:** slice list, chapter tree, VN events, slice canvas + inspector lists, slice audio →
+   `region` + `sc-selected`; picked = selected look; onKeydown scoped to the live region.
+4. **Creator other pages:** script outline, map builder (+ the focus fix), characters, cast, people panel, cover editor
+   (focus ≠ selection), pickers.
+5. **Admin + embassy:** the DataTables, admin nav, the batches progress row (not inverted).
+6. **Checks:** the browser checks that assert `.selected` / `.active` / `.picked` (creator-chapter, creator-dock, events,
+   admin) move to `.sc-selected` / `[data-live]`; one check per app that at most one region has `data-live`.
+
+Then E.7 (copy / paste) builds on `liveRegion`.
+
+**Draft (2026-10-07, CSS injected on catpope ch1 slice 3, no code):** live = `--surface-tint-cyan` background, 2px
+inset border in `--primary-color`, text `#005a70`; selected elsewhere = inverted as today. **Owner: "like it"; border =
+the primary colour.** Contrast: text ≈ 7.5:1 on the tint; the cyan border alone on white is ≈ 1.8:1 – the background +
+text carry the state.
+
+**Multi-select draft** (headless, slices 2–4 picked): list live = three cyan rows, each with its own inset border (draw
+the border as `box-shadow: inset 0 0 0 2px`, not an outline – outlines of neighbouring rows overlap); canvas live = the
+three slices inverted as one black block, the text box row cyan. The slice open in the editor stands out only by its
++ / × tools.
+
+**Decided (owner 2026-10-07):** nav "you are here" stays inverted; only the live selection gets the cyan treatment;
+the border is the primary colour.
+**Owner decides:** picked = the selected look (the multi-select draft) – fine?

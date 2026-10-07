@@ -4,7 +4,7 @@ One list for the open work (owner 2026-10-06: "we need to merge cutover post ite
 CUTOVER.md Phase 10 ("after the beta", items keep their numbers 10.x so commits and docs that cite "CUTOVER 10.x" still
 find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the runbook of the cutover itself.
 
-New entries: the next free number (10.40, …), owner + date, then **O –** for steps the owner runs on production. Tick
+New entries: the next free number (10.41, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Night run result (2026-10-07 morning) – read this first
@@ -503,8 +503,9 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
         marker; a paste goes into the open document (`doc.edit` = one undo step) and is saved by the normal PUT.
         Cmd/Ctrl+C / X / V; Shift+V = the settings only onto the selection (a text box's look, an event's params …).
         Ctrl+X today only deletes (chapter-editor.svelte onKeydown) – it becomes copy + delete.
-      - **The active area shows:** the area clicked last (canvas, events, slices, groups) has the accent selection,
-        the others grey; the shortcuts act on the accent one. _(draft first)_
+      - **The live region shows (10.40, UI-CONCEPTS E.8):** the region clicked / focused last is live; its selection is
+        light cyan with a primary-colour border and dark blue text, selections elsewhere stay inverted; the shortcuts
+        act on the live selection only.
       - **Ids:** fresh on paste (events via assignEventIds, text boxes via `taken`, `showTextBox` follows its box).
         Placement ids become **random** (`<item>-<7 random>`, like event ids) for new placements and pastes – today
         `<item>-<n>` is unique per slice only, so the same image reused on another slice of the toon with the same
@@ -520,9 +521,21 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
         (the planned `unique` / `max_world`, ITEMS.md). **API extension:** the catalog fields (admin), a count on save
         (PUT /api/entities → 422 over the limit), `GET /api/catalog/items/<id>/placements` (where else it is placed),
         the grant check across all accounts. The creator: a Problems error + a paste refuses with a toast.
-      Steps: 1. active area (draft) · 2. clipboard + text boxes (+ Shift+V) · 3. items, sound + event areas · 4. VN
+      Steps: 1. the live region = 10.40 (first) · 2. clipboard + text boxes (+ Shift+V) · 3. items, sound + event areas · 4. VN
       events · 5. slices + groups, `toonAsset` + the path SELECT · 6. random placement ids · 7. item limits (API) ·
       8. optional: a right-click menu.
+- [ ] 10.40 **One selection model, app-wide** (owner 2026-10-07: "we need an all app wide concept, done thoroughly";
+      concept + inventory + drafts: UI-CONCEPTS.md E.8). Inverted today means six things (nav, selection, listbox
+      highlight, toggle on, hover, progress) and "selected" is drawn four ways. Decided (owner 2026-10-07, drafts on the
+      chapter page): selected = inverted (brutalist, unchanged); **live selection** (selected AND in the live region –
+      what keys act on) = `--surface-tint-cyan` background, 2px inset border in `--primary-color`, text #005a70 (new
+      tokens `--select-live-*`); nav "you are here" stays inverted (live look only when it is also the live
+      selection); toggles / tabs / segmented stay inverted; hover never inverted; focus = 3px ink everywhere (fix the
+      `all: unset` gaps, toggle 2px, menu). One `region` action + `liveRegion` store in @scutoons/ui, one class
+      `sc-selected`, the only selection CSS in tools.css; keys (Delete, arrows, Esc, copy / paste) act on the live
+      region only – fixes Delete in the slice list deleting the canvas box. Steps 1–6 in E.8 (tokens + tools.css →
+      @scutoons/ui → creator chapter editor → other creator pages → admin / embassy → checks). Open: picked = the
+      selected look (multi-select draft) – owner to confirm.
 - [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
       anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
       portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
