@@ -296,16 +296,16 @@ in BACKLOG 10.56.
 
 | # | Dates | Step | Proves |
 |---|---|---|---|
-| 0 | Nov 2 – Nov 6 | The bus (B.1) + the FX cue registry; **spikes**: bunny WebSocket + one instance, iPhone audio / wake lock, RtMidi + `serialport` in Electron on mac + win | the bus, the risky platform facts |
-| 1 | Nov 9 – Nov 20 | `live/` workspace, local relay + MIDI drivers (`npm run live`): MIDI out default map → loopMIDI / IAC → Ableton, MIDI in → next / go; a bare conductor; the Show schema (a hand-written JSON show) | the fun, without the network |
+| 0 | Nov 2 – Nov 6 | The bus (B.1) + the FX cue registry; **spikes**: bunny WebSocket + one instance, iPhone audio / wake lock, RtMidi + `serialport` in Electron on mac + win, a test frame through the USB-DMX interface to the strobe + the colour panel | the bus, the risky platform facts |
+| 1 | Nov 9 – Nov 20 | `live/` workspace, local relay + MIDI drivers (`npm run live`): MIDI out default map → loopMIDI / IAC → Ableton, MIDI in → next / go; **USB-DMX** out (Enttec DMX USB Pro / Open DMX via `serialport`, ~40 frames/s, fades in the bridge): fixtures + looks in the JSON, a look on row enter / cue; a bare conductor; the Show schema (a hand-written JSON show) | the fun and the lights, without the network |
 | 2 | Nov 23 – Dec 11 | Protocol v1 complete (B.6: tokens, snapshot, replay, clock), outputs (scroll, slice, live video / image), hosted `scutoons-live` + `live-image.yml` + deploy freeze, linked mode; the `show:` entity + the `live` role (a migration: one `roles` row) | several screens in sync, LAN + hosted |
 | 3 | Dec 14 – Dec 18, Jan 4 – Jan 8 | Audience: QR per group, guest + account join, votes (rules, tally, override), instructions, sound / colour / haptics, pickups; performers (lines, countdown, ready); bots (join, random votes, reconnect) | the room and the cast play along |
-| 4 | Jan 11 – Jan 22 | Creator: stage builder **row view**, cue sheet, venue patches, Problems for broken references; rehearsal: simulated room + real devices partially, jump to a row with a state; musician sheets (PDF / image / text); the Electron app (mac + win, unsigned) | authoring without code |
+| 4 | Jan 11 – Jan 22 | Creator: stage builder **row view**, cue sheet, venue patches, **fixtures + looks** (profiles, a look editor with sliders that drives the real fixtures through the bridge while editing), Problems for broken references; rehearsal: simulated room + real devices partially, jump to a row with a state; musician sheets (PDF / image / text); the Electron app (mac + win, unsigned) | authoring without code |
 | 5 | Jan 25 – Jan 29 | Full run-through on our own setup: the patch, preload, load test (500 bots), drills (internet gone, laptop restart, phone sleep) | it holds |
 | — | Feb 1 → | **Freeze**: no deploys of viewer / creator / `scutoons-live` until the show is done; tech at the venue the day(s) before; **first show in Feb 1 – Feb 14, 2027** | the show |
 
 **Could** (cut line – after the first show unless time is left): the matrix view (the row view is enough to author),
-DMX fixtures + looks (until then: lights via a desk / QLab cue over MIDI), OSC, USB-DMX, 3D layers, camera feed,
+Art-Net / sACN (the first show uses USB-DMX), OSC, 3D layers, camera feed,
 MIDI clock in, record + replay, weighted / scripted bots. Starting before Nov 2 (if the backlog allows) buys these back.
 
 ## B.11 Decisions (owner 2026-10-07) and what is still open
@@ -320,7 +320,9 @@ panic, manual jump); rows are never launched (not a clip launcher); keep = no ch
 Nov 2 → show-ready Feb 1 2027, first show Feb 1–14 (the B.10 cut line); (11) rehearsal: simulated room, fake audience, jump + record, real devices partially; (12) musicians get a
 free-form sheet (PDF / images / text), no score rendering or bar following; (13) a global `live` role (all toons, no per-toon
 limits) to build and conduct shows; (14) several setups (shows / venue patches) over time, one to start with; (15) show pickups:
-any catalog item for now; (16) no surtitles on the audience phones for now.
+any catalog item for now; (16) no surtitles on the audience phones for now; (17) DMX fixtures + looks are a Must for
+the first show (an LED strobe and a multi-colour panel are available) over a **USB-DMX interface**; fixture models /
+DMX modes follow at build time – generic profiles (dimmer, RGB, RGBW, RGBW + strobe) + custom channel lists until then.
 
 Open:
 1. The venue and the exact show date within Feb 1–14 (fixes the venue patch and the tech day) – not known yet.
