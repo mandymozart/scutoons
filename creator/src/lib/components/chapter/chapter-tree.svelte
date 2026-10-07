@@ -47,8 +47,8 @@
 		/** a group as stored: a `ref` group's separate scene document (undefined while it loads), else the group itself */
 		resolveGroup?: (g: any) => any;
 	} = $props();
-	/** slices · VN of a group – a `ref` group's from its scene document (owner 2026-10-06: the count was missing there) */
-	const groupHint = (g: any) => (g ? `${g.slices?.length ?? 0}${g.events ? ' · VN' : ''}` : '');
+	/** a group's slice count – a `ref` group's from its scene document (owner 2026-10-06: the count was missing there) */
+	const sliceCount = (g: any) => (g ? String(g.slices?.length ?? 0) : '');
 	/** linked groups (owner 2026-10-06): which groups flow into the next one on the reader's page (scenes resolved) */
 	const resolved = $derived(groups.map((g) => resolveGroup(g)));
 
@@ -192,7 +192,10 @@
 						{#if linksToNext(resolved, gi)}
 							<span class="link" title={m['creator.group_linked']()} data-testid="group-linked-{gi}"><Icon name="link" size="0.875rem" label={m['creator.group_linked']()} /></span>
 						{/if}
-						{groupHint(resolved[gi])}
+						{#if resolved[gi]?.events}
+							<span class="link" title={m['creator.events']()} data-testid="group-events-{gi}"><Icon name="zap" size="0.875rem" label={m['creator.events']()} /></span>
+						{/if}
+						{sliceCount(resolved[gi])}
 					</span>
 				</button>
 				<span class="tools">
@@ -248,7 +251,8 @@
 		overflow-wrap: anywhere;
 		text-align: left;
 	}
-	/* the link mark of a group that continues into the next one */
+	/* the marks before the slice count (owner 2026-10-07, they replace the "· VN" text): continues into the next group
+	   (link), has VN events (zap) */
 	.node .hint .link {
 		display: inline-flex;
 		vertical-align: -0.125rem;

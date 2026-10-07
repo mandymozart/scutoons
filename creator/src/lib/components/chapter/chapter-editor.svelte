@@ -989,7 +989,7 @@
 						{#each sceneGroups() as g, gi (gi)}
 							<button type="button" class="sc-nav-item" onclick={() => view.selectGroup(gi)} data-testid="phone-group-{gi}">
 								<span class="phone-name">{groupName(groups[gi], gi)}</span>
-								<span class="phone-hint">{g?.slices?.length ?? 0}{g?.events ? ' · VN' : ''}</span>
+								<span class="phone-hint">{#if g?.events}<Icon name="zap" size="0.875rem" label={m['creator.events']()} />{/if}{g?.slices?.length ?? 0}</span>
 							</button>
 						{/each}
 					</nav>
