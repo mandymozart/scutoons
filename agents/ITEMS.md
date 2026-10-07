@@ -1267,8 +1267,9 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
 > is the editor's decision per placed item, not prebaked.
 
 - Data: `Slice.items?: SliceItem[]` (`@scutoons/content`): `{ id, item, rect: { x, y, width, height? }, rotation?,
-  action?: 'none' | 'pickup' | 'events', qty?, events?: VNEvent[], once? }`. `id` = `<item>-<n>` (stable, pickups are
-  remembered by it); `rect` in % of the slice like text boxes, no `height` = the icon's own ratio; language-neutral
+  action?: 'none' | 'pickup' | 'events', qty?, events?: VNEvent[], once? }`. `id` = `<item>-<7 random>` for every placement
+  made or pasted since 2026-10-07 (BACKLOG 10.39 step 6; before: `<item>-<n>`, unique per slice only – the same image
+  on another slice of the toon shared its pickup memory; existing ids stay – stable, pickups are remembered by it); `rect` in % of the slice like text boxes, no `height` = the icon's own ratio; language-neutral
   (geometry is the same in every language – the creator writes every locale and makes a differing one follow the
   source on load, `unifyGeometry`).
 - Rendering: `@scutoons/reader` `SliceLayers` (inside `Slice`, above the image; one `SliceItem` per placement): the

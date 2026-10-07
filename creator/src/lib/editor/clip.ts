@@ -304,7 +304,7 @@ export function applyBoxLook(target: Obj, source: Obj): void {
 }
 
 /** what a placement does (Shift+V on a placed item): action, qty, repeat, respawn, its events */
-const ITEM_SETTINGS = ['action', 'qty', 'repeat', 'respawn', 'once', 'events'] as const;
+const ITEM_SETTINGS = ['action', 'qty', 'repeat', 'respawn', 'events'] as const;
 
 export function applyItemSettings(target: Obj, source: Obj): void {
 	for (const key of ITEM_SETTINGS) {

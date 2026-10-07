@@ -5,6 +5,7 @@ import { deleteAt, getAt, previewText, Trigger, TriggerMode, type Path } from '@
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import type { CanvasSelection } from '$lib/components/slice/slice-canvas.svelte';
 import { newDialog, nextDialogId } from '$lib/editor/defaults.ts';
+import { newPlacementId } from '$lib/editor/clip.ts';
 import { TEXT_PRESETS, applyTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 import { m } from '$lib/paraglide/messages.js';
 
@@ -66,17 +67,19 @@ export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Pat
 	return { kind: 'dialog', index: boxIndex };
 }
 
-/** places a catalog item at the spot (else in the middle of the slice; a quarter of its width) */
+/**
+ * places a catalog item at the spot (else in the middle of the slice; a quarter of its width). Its id is random,
+ * `<item>-<7 random>` (BACKLOG 10.39 step 6): `<item>-<n>` was unique per slice only, so the same image on another slice
+ * of the toon shared the pickup memory (`picked:<slice image>#<id>`); existing ids stay.
+ */
 export function addSliceItem(t: SliceTarget, itemId: string, spot: { x: number; y: number } | null): CanvasSelection {
 	const items: any[] = t.slice?.items ?? [];
-	const taken = new Set(items.map((it) => it?.id));
-	let n = 1;
-	while (taken.has(`${itemId}-${n}`)) n++;
+	const id = newPlacementId(itemId, new Set(items.map((it) => it?.id)));
 	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		if (!slice) return;
 		slice.items ??= [];
-		slice.items.push({ id: `${itemId}-${n}`, item: itemId, rect: spot ? { x: Math.min(75, Math.max(0, spot.x)), y: Math.min(95, Math.max(0, spot.y)), width: 25 } : { x: 37.5, y: 40, width: 25 } });
+		slice.items.push({ id, item: itemId, rect: spot ? { x: Math.min(75, Math.max(0, spot.x)), y: Math.min(95, Math.max(0, spot.y)), width: 25 } : { x: 37.5, y: 40, width: 25 } });
 	});
 	return { kind: 'item', index: items.length };
 }
