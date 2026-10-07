@@ -67,6 +67,7 @@
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FlowDock from '$lib/components/flow/flow-dock.svelte';
 	import LiveChip from '$lib/components/status/live-chip.svelte';
+	import ClipMenu from '$lib/components/page/clip-menu.svelte';
 	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
@@ -819,6 +820,8 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
+<!-- right-click / long-press in a copy region: Copy · Cut · Paste · Paste settings (BACKLOG 10.39 step 8) -->
+<ClipMenu />
 
 <!-- the Flow panel opens where the Ask panel does: a round button in the top bar (owner 2026-10-06) -->
 {#snippet flowToggle()}
@@ -849,6 +852,8 @@
 		breakpoint={2048}
 	>
 		{#snippet start()}
+			<!-- phones have no Cmd keys: copy / cut / paste on the live region from here (BACKLOG 10.39) -->
+			<span class="clip-phone"><ClipMenu bar /></span>
 			{@render sliceNav('start')}
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
@@ -1032,6 +1037,15 @@
 		.save-short,
 		.slice-short {
 			display: inline;
+		}
+	}
+	/* the clipboard buttons only where there are no keys: phones (in "More") */
+	.clip-phone {
+		display: none;
+	}
+	@media (max-width: 767px) {
+		.clip-phone {
+			display: contents;
 		}
 	}
 	.slice-nav {
