@@ -313,6 +313,9 @@ signs in with the same cookie (one site: creator. and the viewer are both scutoo
 and carry the `SameSite=Lax` cookie). No session token is ever passed – not in a URL (history, logs, referrers), not
 by postMessage. The two windows exchange only "ready" / "show group / slice", each origin-checked and source-checked on
 both sides, the viewer only in its draft preview (agents/DOCKING.md "The Reader panel").
+Only the creator may frame the viewer (owner 2026-10-07): `viewer/static/.htaccess` sends `Content-Security-Policy:
+frame-ancestors 'self' https://creator.scutoons.com` (Apache mod_headers; the dev server doesn't, localhost:10000 frames
+freely). Another embedder = one more origin there.
 
 ## SSO — result (branch `sso`, 2026-10-01)
 

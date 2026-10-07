@@ -6,3 +6,9 @@
 	RewriteCond %{REQUEST_FILENAME} !-d
 	RewriteRule . /index.html [L]
 </IfModule>
+
+# Only the creator may show the reader in a frame (its Reader dock panel, BACKLOG 10.49; owner 2026-10-07: "only the
+# creator page for now") – other sites can't embed scutoons.com. Add an origin here to allow another embedder.
+<IfModule mod_headers.c>
+	Header always set Content-Security-Policy "frame-ancestors 'self' https://creator.scutoons.com"
+</IfModule>
