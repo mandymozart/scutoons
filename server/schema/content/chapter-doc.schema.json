@@ -883,6 +883,92 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "giveItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string",
+									"description": "a catalog item id (picked from the catalog – a script can't make items)"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								}
+							},
+							"required": [
+								"item"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
+						},
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "takeItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								},
+								"repeat": {
+									"$ref": "#/definitions/Repeat"
+								}
+							},
+							"required": [
+								"item"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
+						},
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
 							"const": "askText"
 						},
 						"params": {
@@ -1930,6 +2016,78 @@
 							"required": [
 								"variable",
 								"value"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "giveItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string",
+									"description": "a catalog item id (picked from the catalog – a script can't make items)"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								}
+							},
+							"required": [
+								"item"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "takeItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								},
+								"repeat": {
+									"$ref": "#/definitions/Repeat"
+								}
+							},
+							"required": [
+								"item"
 							]
 						}
 					},
