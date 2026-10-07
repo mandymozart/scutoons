@@ -19,7 +19,8 @@
 //            top; Alt+ArrowDown on its grip moves it one layer back in the list and on the canvas, one undo brings it back
 //   snap:    snap on (default 30 px): an arrow moves the selected box onto the grid; snap off: 1 px, Shift: 10 px
 //   undo:    outside a field, Ctrl+Z undoes the last nudge, Ctrl+Shift+Z / Ctrl+Y redo it; the Undo / Redo buttons too
-//   keys:    Escape lets the selection go; Delete removes the selected box
+//   keys:    Escape lets the selection go; Delete removes the selected box; the keys act on the live region only
+//            (BACKLOG 10.40): with the slice list live, Delete / arrows / Esc leave the canvas selection alone
 //   slices:  next / previous slice (bar buttons) move the slice editor and the URL
 //   reorder: the shared Sortable (BACKLOG 10.53) – dragging a slice's grip moves it, one undo brings it back; Alt+ArrowDown
 //            on a grip moves it one down (the focus follows), one undo again; the same for the groups when there are two
@@ -482,6 +483,18 @@ try {
 	check((await dialogCount()) === n0 - 1 && !(await js(`!!${q(`dialog-${added}`)}`)), 'Delete removes the selected text box');
 	await barClick('undo');
 	check((await dialogCount()) === n0, 'undo brings the deleted box back');
+
+	// ── the selection model (BACKLOG 10.40, DESIGN.md "Selection"): the keys act on the LIVE region only ──────────
+	const lives = () => js(`[...document.querySelectorAll('[data-live]')].map((e) => e.dataset.scRegion).join(',')`);
+	await click(`[data-testid="box-dialog-${added}"]`);
+	check((await lives()) === 'slice' && (await js(`!!${q(`box-dialog-${added}`)}.querySelector('.handle') && ${q(`layer-dialog-${added}`)}.classList.contains('sc-selected')`)), 'selection: the canvas is the one live region – the box with handles, its Layers row sc-selected', await lives());
+	await click(`[data-testid="slice-grip-${SLICE}"]`);
+	check((await lives()) === 'slices' && !(await js(`!!${q(`box-dialog-${added}`)}.querySelector('.handle')`)), 'selection: a click in the slice list makes it live – the box loses its handles (selected, not live)', await lives());
+	const n1 = await dialogCount();
+	await press('Delete');
+	check((await dialogCount()) === n1, 'selection: Delete with the slice list live leaves the canvas box alone');
+	await press('Escape');
+	check(await js(`!!document.querySelector('[data-testid="box-dialog-${added}"].selected')`), 'selection: Esc with the slice list live keeps the canvas selection');
 
 	// ── prev / next slice ───────────────────────────────────────────────────────────────────────────────
 	await click(tid('next-slice'));

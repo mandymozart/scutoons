@@ -408,6 +408,16 @@ try {
 		const i0 = await ins();
 		check(i0.main.r <= i0.region.l + 1 && i0.region.r <= i0.columns.r + 1, `${w}: the inspector beside the canvas (${i0.region.w} px), nothing overlaps`, JSON.stringify(i0));
 		await shot(`${w}-slice-inspector`);
+		// the selection model (BACKLOG 10.40, DESIGN.md "Selection"): the canvas + inspector are the one live region on
+		// load; a click in the slice list makes the list live (only it) and its shown slice takes the live look
+		const lives = () => js(`[...document.querySelectorAll('[data-live]')].map((e) => e.dataset.scRegion).join(',')`);
+		check((await lives()) === 'slice', `${w}: on load the slice canvas + inspector is the one live region`, await lives());
+		// a real click on the shown slice's row (its thumbnail – it stays the shown one)
+		const at = await js(`(() => { const b = document.querySelector('[data-testid="slice-list"] > li.sc-selected .thumb'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+		for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+		await sleep(300);
+		const shown = await js(`(() => { const li = document.querySelector('[data-testid="slice-list"] > li.sc-selected'); return li ? getComputedStyle(li).backgroundColor : null; })()`);
+		check((await lives()) === 'slices' && shown === 'rgb(240, 252, 255)', `${w}: a click in the slice list – the list is the one live region, its slice in the live look`, `${await lives()} ${shown}`);
 		d = await drag('.inspector-resize', -2000);
 		await d.release();
 		const i1 = await ins();

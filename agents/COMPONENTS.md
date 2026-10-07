@@ -135,6 +135,7 @@ chapter-editor undoes the document even with the cursor in a field, meta-page sk
 | Comboboxes | character-picker, person-picker (same listbox logic), role-picker similar | `controls/combobox.svelte` |
 | Status chips | tools.css `.sc-chip.is-*` exists; file-status `.badge.*`, status-badges `.st-*`, 7 local `.chip` | `.sc-chip` everywhere, one `StatusChip` |
 | Reorder rows | chapter-editor, featuring-field, list-field, related-items-field, supporters-field, vn-events, cover-editor `moveLine`, map-props `moveWaypoint` | ~~`controls/reorder-buttons.svelte`~~ → the shared Sortable (`sortable` + `SortGrip`, @scutoons/ui, BACKLOG 10.53; DESIGN.md "Reorderable lists") + `moveAt()` |
+| Selection | `.selected` / `.active` / `.picked` / `is-current` / `li.active` drawn 4 ways (UI-CONCEPTS E.8) | one class `sc-selected` (tools.css) + the `region` action / `liveRegion` store (@scutoons/ui `selection.svelte.ts`, BACKLOG 10.40; DESIGN.md "Selection") – done 2026-10-07 |
 | Document session | meta-page vs chapter-editor vs routes/[toonId]/+page | `lib/editor/doc-session.svelte.ts` |
 | Notice bars | meta-page = chapter-editor (markup + CSS) | `page/doc-notices.svelte` |
 | Per-locale fields | `locale-text` (path) vs `locale-map-field` (value); `prop-field` vs `shared-field` | two families in `fields/`; check merging prop/shared-field |

@@ -201,6 +201,22 @@ the menu?
 
 ## E.8 One selection model, app-wide (creator, admin, embassy; BACKLOG 10.40)
 
+**Built 2026-10-07 (BACKLOG 10.40), steps 1–6.** Tokens `--select-live-bg / -border / -text`; tools.css `.sc-selected`
++ `[data-sc-region][data-live] .sc-selected` (table rows framed by their cells; a non-live region nested in the live
+one stays inverted) – the only selection CSS; `@scutoons/ui` `region` action + `liveRegion` store
+(`selection.svelte.ts`: `initial`, `modal`; the innermost region wins). Regions: creator chapter editor `tree` ·
+`slices` · `slice` (canvas + the whole inspector: Layers, audio samples, slice / item events – one canvas selection) ·
+`events` (group script); characters · people · `map` (nav lists + map, one region) · `cover` (canvas + Lines); every
+DataTable (admin); modal: Sheet, the palette, the character / person comboboxes, the expression builder. The chapter
+editor's keys and the map's Esc / arrows act only while their region is live. Hover never inverts (menu items, people
+rows, map nav, `.sc-round`, the palette trigger), focus = the 3px ring everywhere (wins over `all: unset`; toggle 3px).
+The cover box: focus is not selection (Enter / Space select). Not migrated (as decided): nav "you are here" (sidebar,
+script outline, Flow node, admin / embassy nav) stays inverted; the tree's group row is not selected
+while one of its slices is open; the map canvas markers keep their halo (a canvas object). Checks: creator-dock
+(the live region on load, a click in the slice list), tools-dock (the admin's open row is the live selection, at most
+one live region in the embassy), creator-chapter (the keys with the slice list live). The text below is the concept as
+written.
+
 **Why:** copy / paste (E.7) has to show WHICH selection the keys act on. The inventory (2026-10-07, every editing app)
 shows that the inverted look carries six meanings, while "selected" is drawn four ways:
 

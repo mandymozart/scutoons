@@ -187,6 +187,10 @@ try {
 	g = await layout();
 	check(g.content.r <= g.dock.l + 1, 'admin: the catalog list makes room', JSON.stringify(g));
 	await shot('admin-1600-catalog-entry');
+	// the selection model (BACKLOG 10.40, DESIGN.md "Selection"): the open row is sc-selected; the table is the one live
+	// region (live on load), so the row shows the live look – a cyan tint, the cells framed in the primary colour
+	const sel = await js(`(() => { const r = document.querySelector('tr.sc-selected'); const live = [...document.querySelectorAll('[data-live]')].map((e) => e.dataset.scRegion); return { live, rows: document.querySelectorAll('tr.sc-selected').length, bg: r && getComputedStyle(r).backgroundColor, frame: r && getComputedStyle(r.querySelector('td')).boxShadow }; })()`);
+	check(sel.live.length === 1 && sel.live[0].startsWith('table') && sel.rows === 1 && sel.bg === 'rgb(240, 252, 255)' && /0, 209, 255/.test(sel.frame ?? ''), 'admin: the open catalog row is the live selection (one live region: the table)', JSON.stringify(sel));
 
 	// phones: the detail covers the page
 	await size(390, 844);
@@ -210,6 +214,8 @@ try {
 		g = await layout();
 		check(!g.ask && g.content.r >= w - 1, `embassy ${w}: Ask closed – the page takes the width again`, JSON.stringify(g));
 	}
+	// the selection model: at most one live region (the embassy has none of its own – its nav is "you are here")
+	check((await js(`document.querySelectorAll('[data-live]').length`)) <= 1, 'embassy: at most one live selection region');
 	await size(1600);
 	await go(`${EMBASSY}/leads`, `!!document.querySelector('.sc-app-shell main')`);
 	await setAsk(true);
