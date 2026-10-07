@@ -947,8 +947,11 @@
 		gap: var(--space-025);
 		white-space: nowrap;
 	}
+	/* the note gives way first: it shrinks (ActionBar's end may shrink) before anything is pushed out */
 	.message {
+		flex: 0 1 10rem;
 		width: 10rem !important;
+		min-width: 4rem !important;
 	}
 	/* below 1024 the slice nav keeps its arrows (the count is in the crumbs) */
 	@media (max-width: 1023px) {
@@ -963,20 +966,6 @@
 		.message.in-start {
 			width: 100% !important;
 		}
-	/* the note gives way first: it shrinks (ActionBar's end may shrink) before anything is pushed out */
-	}
-		flex: 0 1 10rem;
-	@media (min-width: 768px) {
-		min-width: 4rem !important;
-		.slice-nav.in-start {
-			display: none !important;
-		}
-	}
-	.preview {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-05);
-		white-space: nowrap;
 	}
 	@media (min-width: 1280px) {
 		.message.in-start {
@@ -987,6 +976,17 @@
 		.in-end {
 			display: none !important;
 		}
+	}
+	@media (min-width: 768px) {
+		.slice-nav.in-start {
+			display: none !important;
+		}
+	}
+	.preview {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-05);
+		white-space: nowrap;
 	}
 	.preview a {
 		color: var(--ink);

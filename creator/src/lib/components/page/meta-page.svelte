@@ -162,6 +162,7 @@
 				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 			{@render actions?.()}
+			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet secondary()}
 			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
@@ -172,7 +173,6 @@
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
-			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			</button>
 			<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />
 			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{publishLabel(toon)}</button>
@@ -226,13 +226,13 @@
 		padding: 0.35rem 0.75rem;
 		border-bottom: 1px solid var(--border-subtle);
 	}
+	/* the bar fits at every width ≥ 375 (as the chapter editor): below 1280 "Save" and the note in "More" (the ActionBar's
+	   breakpoint is 1024 here – between them the note sits in the bar's start); the chip drops its state word below 1600 */
 	.message {
 		width: 11rem !important;
 	}
 	.save-short {
 		display: none;
-	/* the bar fits at every width ≥ 375 (as the chapter editor): below 1280 "Save" and the note in "More" (the ActionBar's
-	   breakpoint is 1024 here – between them the note sits in the bar's start); the chip drops its state word below 1600 */
 	}
 	@media (max-width: 1279px) {
 		.save-long,
@@ -243,17 +243,17 @@
 			display: inline;
 		}
 	}
+	@media (min-width: 1280px) {
+		.message.in-start {
+			display: none !important;
+		}
+	}
 	.bad {
 		color: var(--error);
 	}
 	.content {
 		padding: 1rem;
 		max-width: 70rem;
-	@media (min-width: 1280px) {
-		.message.in-start {
-			display: none !important;
-		}
-	}
 	}
 	.wide .content {
 		max-width: none;
