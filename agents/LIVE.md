@@ -30,7 +30,7 @@ the story logic (variables, jumps, the save game) stays the toon's own – the s
 | **Output** | projectors, monitors (a browser window each, fullscreen, `/live/<code>/out/<outlet>`) | renders its screen outlet's cell (B.5.2): the slice scroll (eased follow), one slice large, surtitles, characters, live media, black |
 | **Bridge** | the Scutoons Live app on the conductor laptop | the local relay + every device: MIDI in / out, DMX (Art-Net / sACN / USB), OSC in / out (B.7) |
 | **Performer** | actors' and singers' phones | their lines and cues ahead of time, a countdown to the entrance, a "ready" tap back |
-| **Musician** | a tablet on the stand (landscape) | a **free-form sheet** (owner 2026-10-07: keep it simple) – PDF pages, images or text per row / cue, whatever the musician brings; the page jumps with the cue, swipe / pedal turns pages; what comes next; "ready" |
+| **Musician** | a tablet on the stand (portrait) | a **free-form sheet** (owner 2026-10-07: keep it simple) – PDF pages, images or text per row / cue, whatever the musician brings; the page jumps with the cue, swipe / pedal turns pages; what comes next; "ready" |
 | **Audience** | visitors' phones (QR) | join a **group** (B.5.3); instructions, sounds, haptics, colours (phones as light pixels), votes, pickups, reactions (a spatial phone choir) |
 
 ## B.3 MIDI mapping
