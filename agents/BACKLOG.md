@@ -91,10 +91,10 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
 
 ### Day run result
 
-**Status (paused):** done 10.39–10.46, 10.48, 10.51–10.54 (+ the content-test flake fix); all on `main`, not pushed.
+**Status (paused):** done 10.39–10.49, 10.51–10.54 (+ the content-test flake fix); all on `main`, not pushed.
 Docker / MariaDB is back (afternoon) and the checks owed while it hung ran – see "owed checks" below: nothing owed any
 more except `check:tools-dock` and the admin's item-limit fields (admin :11000 not running – the folder's dev-server
-limit). Still to run: 10.47 (E.4, lane C on it), 10.49 (E.6), 10.50 (mobile).
+limit). Still to run: 10.50 (mobile).
 **Decisions waiting:** (1) 10.39 pastes into another toon write `../<toon>/…` (all 272 existing cross-toon paths use
 `../`) instead of BACKLOG's `/<toon>/…` – confirm; (2) a unique item (`max_world: 1`) when its owner's account is
 deleted; (3) 10.52 made the Flow's zoom one SQUARE group (a toolbar) – the E.4 draft showed round ones: which for the
