@@ -4,7 +4,7 @@ One list for the open work (owner 2026-10-06: "we need to merge cutover post ite
 CUTOVER.md Phase 10 ("after the beta", items keep their numbers 10.x so commits and docs that cite "CUTOVER 10.x" still
 find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the runbook of the cutover itself.
 
-New entries: the next free number (10.39, …), owner + date, then **O –** for steps the owner runs on production. Tick
+New entries: the next free number (10.40, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Night run result (2026-10-07 morning) – read this first
@@ -477,6 +477,14 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
        detour (`divert`).
      - Test content: toptoy ch1 (the mama story) – 5 cucumbers to pick up on one slice, Top Toy trades a blotter (`lsd`)
        for 5 cucumbers, swallowing it diverts into a short psychedelic detour.
+     - ✅ _(2026-10-07, 53859498 + this commit)_ built: the engine (see the commit), the catalog flag set for `cucumber` /
+       `lsd` in the dev DB, toptoy ch1 draft 819 (dev DB): group `blotter-deal` (s1c2-slice-53: 5 cucumber pickups, a tap on
+       Top Toy offers "Trade (5 cucumbers)" if `inventory.cucumber >= 5` → take 5 + give a blotter, "Swallow the blotter"
+       if `inventory.lsd >= 1` → take it + jump to `lsd-trip`, "No thanks"), `mama-hypercity`, `lsd-trip` (a short
+       psychedelic talk, then back to mama-hypercity). End to end headless as the test user: all 7 steps pass. Found on
+       the way: the follow-up bar's 5 s countdown went on while the reader picked things up – a tap on the page stops it now.
+       **O – production:** set "a story may take it" on the items in admin, and the content via the creator (the dev
+       draft isn't on production).
   5. ✅ _(this commit)_ Data: the dev DB analysed (latest versions: 4 choice adds in scene:sandbox:1/2/5 – cucumber ×3,
      testo; older versions catpope's repair_coupon / broken_record_player; no setVariable / condition on an item) →
      `server/migrations/mysql/2026-10-07-give-item.mysql.sql` (choice `add` / setVariable `add` of an item-named
@@ -487,6 +495,34 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **O – production:** run `2026-10-07-give-item.mysql.sql` in phpMyAdmin **together with** the viewer + creator
       + API deploy (an old viewer doesn't know `give` – a choice would give nothing; the new one doesn't grant on
       `add`). Check first: the header's SELECT; afterwards it answers nothing.
+- [ ] 10.39 **Creator: copy / cut / paste** (owner 2026-10-07: "as granular as possible", to save editing time; the main
+      case: from one toon or hidden draft to another, inside the same system). Concept: UI-CONCEPTS.md E.7. Decided:
+      - **One system only.** No sandbox → production transfer (owner: "too much overhead") – no media in the clipboard,
+        no upload on paste.
+      - **System clipboard, no API change:** the DOM copy / cut / paste events (no permission prompt), JSON with a
+        marker; a paste goes into the open document (`doc.edit` = one undo step) and is saved by the normal PUT.
+        Cmd/Ctrl+C / X / V; Shift+V = the settings only onto the selection (a text box's look, an event's params …).
+        Ctrl+X today only deletes (chapter-editor.svelte onKeydown) – it becomes copy + delete.
+      - **The active area shows:** the area clicked last (canvas, events, slices, groups) has the accent selection,
+        the others grey; the shortcuts act on the accent one. _(draft first)_
+      - **Ids:** fresh on paste (events via assignEventIds, text boxes via `taken`, `showTextBox` follows its box).
+        Placement ids become **random** (`<item>-<7 random>`, like event ids) for new placements and pastes – today
+        `<item>-<n>` is unique per slice only, so the same image reused on another slice of the toon with the same
+        item shares the pickup memory (`picked:<slice image>#<id>`, slice-items.ts). Existing ids stay (readers'
+        keys); a one-off SELECT for collisions that already exist.
+      - **Media: cross-toon references, no copies** (owner: duplicates "create a mess"). A paste into another toon
+        writes `/<source toon>/…` (CDN root); one helper `toonAsset(toon, path)` in reader + creator replaces every
+        `` `${toon}/${path}` `` (slice image, variants, video, audio, key visual) – today only the VN character views
+        read a leading `/`, so a picked slice image from another toon is broken (an existing bug, fixed by this).
+        Stored `slice.image` values are never rewritten (the pickup key contains them) – a SELECT first for `/` / `../`.
+      - **Sounds:** the clipboard carries the used `audio` library entries; a paste adds the missing ones.
+      - **Item limits, combined (owner):** placements across all toons (`placements: n`) AND owners in the world
+        (the planned `unique` / `max_world`, ITEMS.md). **API extension:** the catalog fields (admin), a count on save
+        (PUT /api/entities → 422 over the limit), `GET /api/catalog/items/<id>/placements` (where else it is placed),
+        the grant check across all accounts. The creator: a Problems error + a paste refuses with a toast.
+      Steps: 1. active area (draft) · 2. clipboard + text boxes (+ Shift+V) · 3. items, sound + event areas · 4. VN
+      events · 5. slices + groups, `toonAsset` + the path SELECT · 6. random placement ids · 7. item limits (API) ·
+      8. optional: a right-click menu.
 - [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
       anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
       portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for

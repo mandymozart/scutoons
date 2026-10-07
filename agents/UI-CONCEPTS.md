@@ -144,3 +144,34 @@ preview (`?draft=1`, the creator's session) at phone width, reloaded on every sa
 and a `postMessage` "show group / slice" when the selection changes (the viewer scrolls there). Needs: the viewer to
 accept the message (only from the creator's origin), the dock's E.3(b) (a panel that survives navigation). Explore
 after E.3. **Owner decides:** worth a spike?
+
+---
+
+## E.7 Copy / cut / paste (BACKLOG 10.39)
+
+**Today:** one canvas selection (`ChapterView.selection`, chapter-state.svelte.ts), each list keeps its own
+multi-selection (`picked`, multi-select.ts – groups, slices, events); Ctrl+X / Delete / Backspace delete the canvas
+selection (chapter-editor.svelte onKeydown); no copy, no duplicate, no context menu.
+
+**Proposal:**
+- **The active area:** a small `clipboard.svelte.ts` records the area clicked last (canvas, event list, slice list,
+  group tree). Its selection is drawn in the accent colour, the others' in grey (the OS convention for an inactive
+  selection) – no new controls. Cmd/Ctrl+C / X / V act on the accent selection; with none, nothing happens. In a text
+  field the keys stay the browser's.
+- **What pastes where:**
+
+  | Active selection | V (as new) | Shift+V (settings only, onto the selection) |
+  |---|---|---|
+  | text box | a new box (same slice: one grid step offset) | the look: variant, frame, shape, tail, font, stroke, rotation, scale |
+  | placed item | a new placement (random id) | action, qty, repeat, respawn, events |
+  | sound / event area | a new area | trigger + params |
+  | VN events (several) | after the selected event | params of the same type + `if` |
+  | slices | after the selected slice, with boxes, items, events | audio + events |
+  | groups | after the selected group | renderer, `end`, `continues` |
+
+- **Feedback:** a toast ("3 events copied", "pasted – uses 4 files from catpope", "only 1 placement allowed – also in
+  catpope ch. 3"). With E.1 (one notification model).
+- **Later, optional:** the same actions in a right-click menu on the canvas and the lists.
+
+**Steps:** the active area (draft on the real chapter page, desktop + mobile) → text boxes → the rest (BACKLOG 10.39).
+**Owner decides:** the draft of the active / inactive selection colours.

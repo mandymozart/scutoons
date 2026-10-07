@@ -269,6 +269,16 @@
 	$effect(() => {
 		if (counting && (nav.activeOverlay || itemsUi.camera || itemsUi.claimCode)) stop();
 	});
+	// the reader taps something on the page (picks up an item, taps a figure, answers a choice): not ready to leave –
+	// stop (owner 2026-10-07: the blotter deal's page went on while the cucumbers were being picked up)
+	$effect(() => {
+		if (!counting) return;
+		const onTap = (e: PointerEvent) => {
+			if (!(e.target instanceof Node) || !bar?.contains(e.target)) stop();
+		};
+		window.addEventListener('pointerdown', onTap, { capture: true });
+		return () => window.removeEventListener('pointerdown', onTap, { capture: true });
+	});
 
 	$effect(() => {
 		if (!counting) return;
