@@ -183,7 +183,7 @@
 		if (!season || !langs) return null;
 		const authors = chapterAuthors();
 		const adopted = [...orphans];
-		const draft = (number: number) => ({ type: 'chapter' as const, number, status: sequenceStatus(langs!.languages) });
+		const draft = (number: number) => ({ number, status: sequenceStatus(langs!.languages) });
 		season.create(() => ({ ...newSeasonDoc(langs!.languages, authors), sequence: adopted.map(draft) }));
 		return adopted;
 	}
@@ -236,7 +236,7 @@
 			chapter.create(() => newChapterDoc(number, langs!.languages, author));
 			season.edit((file) => {
 				file.sequence ??= [];
-				file.sequence.push({ type: 'chapter', number, status: sequenceStatus(langs!.languages) });
+				file.sequence.push({ number, status: sequenceStatus(langs!.languages) });
 			});
 			await chapter.save(`new chapter ${number}`);
 			await season.save(`add chapter ${number}`);

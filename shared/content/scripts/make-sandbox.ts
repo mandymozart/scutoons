@@ -281,7 +281,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], testos: [], sundayCast: 0, sundayStage: 0, sundayFull: [], sundayTransitions: 0, perEncounter: [] };
 	const files: Record<string, unknown> = {};
 	/** the season's sequence: every chapter a draft in every language (the status is a locale map) */
-	const sequence: { type: 'chapter'; number: number; status: Record<string, 'draft'> }[] = [];
+	const sequence: { number: number; status: Record<string, 'draft'> }[] = [];
 	const draftEverywhere = () => Object.fromEntries([...LOCALES, PARTIAL].map((l) => [l, 'draft' as const]));
 	const met: Ref[] = [];
 	/** slices whose cucumber is already offered (a scene shared by several groups offers it in the first one) */
@@ -402,7 +402,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 				: `Sandbox (VN test bed): ${stats.moods} moods in ${plans.length} ${plans.length === 1 ? 'look' : 'looks'}, Cat Pope mimics.`
 		);
 		chapter(number, title, description, labels, ko);
-		sequence.push({ type: 'chapter', number, status: draftEverywhere() });
+		sequence.push({ number, status: draftEverywhere() });
 		report.encounters++;
 		report.perEncounter.push(stats);
 	});
@@ -518,7 +518,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			title: '일요일 오후',
 			description: '샌드박스(레이아웃 테스트): 모든 캐릭터가 한 거리에 – 자리, 순서, 기분, 룩.'
 		});
-		sequence.push({ type: 'chapter', number, status: draftEverywhere() });
+		sequence.push({ number, status: draftEverywhere() });
 	}
 
 	function scene(number: number, label: string, [from, to]: [number, number], events: Draft[]) {

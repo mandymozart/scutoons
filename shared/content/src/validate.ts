@@ -1099,7 +1099,9 @@ function checkSeason(c: Collector, s: any, locale: string, ctx?: ValidateContext
 	else {
 		const numbers = new Set<number>();
 		s.sequence.forEach((item: any, i: number) => {
-			if (item?.type !== 'chapter' || !Number.isInteger(item?.number)) c.error(['sequence', i], 'sequence item needs type "chapter" and a number');
+			// a sequence holds chapters only (BACKLOG 10.42): the old `"type":"chapter"` is gone (migration 2026-10-07-sequence-no-type)
+			if (item && typeof item === 'object' && 'type' in item) c.error(['sequence', i, 'type'], 'sequence items have no type any more (chapters only)');
+			if (!Number.isInteger(item?.number)) c.error(['sequence', i], 'sequence item needs a chapter number');
 			else if (numbers.has(item.number)) c.error(['sequence', i], `chapter ${item.number} is in the sequence twice`);
 			else numbers.add(item.number);
 			if (!values(Status).includes(item?.status)) c.error(['sequence', i, 'status'], 'status must be published, draft or coming-soon');

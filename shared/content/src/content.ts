@@ -533,8 +533,8 @@ export interface FullCredits {
 	specialThanks: string[];
 }
 
+/** A season's `sequence` entry: always a chapter (owner 2026-10-07, BACKLOG 10.42 – no `type`). */
 export interface SequenceItem {
-	type: 'chapter';
 	number: number;
 	/**
 	 * Visibility of the chapter in this locale – the single source of truth (a toon may release de before en):
@@ -754,13 +754,11 @@ export function isToonListed(toon: Pick<ToonIndex, 'status' | 'announced'>): boo
 	return toon.status === Status.PUBLISHED || toon.announced === true;
 }
 
-/** A season sequence item with its chapter file loaded; `status` is the season's (never the chapter file's). */
 /**
  * A chapter in a season's overview (the library's `ChapterSummary`): the chapter without its content (`groups`,
- * `audio`) and its deprecated own `status`, plus the season entry's `type`, `number`, `status`.
+ * `audio`) and its deprecated own `status`, plus the season entry's `number`, `status` (never the chapter file's).
  */
 export type LoadedSequenceItem = Omit<Chapter, 'status' | 'groups' | 'audio'> & {
-	type: 'chapter';
 	number: number;
 	status: Status;
 };

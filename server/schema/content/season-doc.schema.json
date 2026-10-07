@@ -89,18 +89,13 @@
 					"$ref": "#/definitions/LocaleStatus",
 					"description": "visibility of the chapter per locale (a toon may release de before en)"
 				},
-				"type": {
-					"type": "string",
-					"const": "chapter"
-				},
 				"number": {
 					"type": "number"
 				}
 			},
 			"required": [
 				"number",
-				"status",
-				"type"
+				"status"
 			]
 		},
 		"LocaleStatus": {

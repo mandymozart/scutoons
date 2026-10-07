@@ -74,7 +74,7 @@ export function isItemListed(item: SequenceItem | { status?: string } | null | u
 
 /** The season status of chapter `number` (the source of its visibility), or null when the sequence doesn't have it. */
 export function sequenceStatus(season: Pick<Season, 'sequence'> | null | undefined, number: number): Status | null {
-	const item = (season?.sequence ?? []).find((i) => i?.type === 'chapter' && Number(i.number) === Number(number));
+	const item = (season?.sequence ?? []).find((i) => Number(i?.number) === Number(number));
 	return item?.status ?? null;
 }
 

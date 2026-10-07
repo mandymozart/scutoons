@@ -87,8 +87,8 @@ final class ContentSchemasTest extends TestCase
         self::assertNotSame([], $check('chapter:catpope:1', $perLocale));
         self::assertSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => ['de' => 'Na?'], 'mood' => 'sad']]]]));
         self::assertNotSame([], $check('scene:catpope:1:kiosk', ['events' => [['type' => 'showMessage', 'params' => ['text' => 'Na?']]]]));
-        self::assertSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => ['de' => 'published', 'en' => 'coming-soon']]]]));
-        self::assertNotSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => 'published']]]));
+        self::assertSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['number' => 1, 'status' => ['de' => 'published', 'en' => 'coming-soon']]]]));
+        self::assertNotSame([], $check('season:catpope:1', ['title' => ['de' => 'S'], 'sequence' => [['number' => 1, 'status' => 'published']]]));
         foreach (ContentSchemas::NEUTRAL_BY_KIND as $kind => $name) {
             self::assertContains($kind, EntityKey::NEUTRAL_DOC_KINDS);
             self::assertFileExists(self::root() . "/schema/content/$name.schema.json");

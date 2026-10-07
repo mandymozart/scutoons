@@ -27,12 +27,12 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
       by season. **Positions frozen (option A):** the creator's validator errors when a listed (not draft) chapter is
       moved / removed / something inserted before it in its season; appending is always fine. Optional: an API
       lookup season+position → number.
-- [ ] 10.42 **A season's `sequence` holds chapters only** – data: every entry is `"type":"chapter"` (dev dump). A
+- [x] 10.42 **A season's `sequence` holds chapters only** – data: every entry is `"type":"chapter"` (dev dump). A
       migration `2026-10-07-sequence-no-type.mysql.sql` (SELECT first: entries whose type isn't chapter → 0; then
       remove `type` from every sequence entry of `season` rows in entity_versions / content_versions as present),
       `SequenceItemDoc` without `type`, no type checks left (Library.php :712 / :756, template.ts :77, the creator's
       sequence editor, make-sandbox.ts). Songs in credits + scripts stay (owner). **O –** run the migration with the
-      deploy.
+      deploy (the SELECTs in its header first; dev DB: 49 versions, 374 entries, all chapters – applied 2026-10-07).
 - [ ] 10.43 **Slice editor: one layer stack** – text boxes AND items in ONE drag-reorderable list ("Layers" tab
       replaces "Text boxes" + "Items"; Audio / Events / Slice stay), the order = what's on top (top row = front), stored
       (analyse first; a stored order both the creator canvas and the reader's slice honour; absent = today's order).
@@ -84,6 +84,7 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
 ### Day run result
 
 - 10.51 done (lane C): `textLanguage.names` (creator text-language.svelte.ts) = the header switch as it stands on the page (the layout publishes the page's languages); `shownCharacterName` / `contentName` / `itemName` use it with the fallbacks source → en / de / id – featuring, cast notice, cast, characters page + detail, picker, ref fields, related items, item rows, the Flow. Universe pages use the switch over all toons' languages (source `de`); a page whose toon is still loading the remembered choice, else the source. Toon titles and map place names still follow the UI language. check:creator-cast (sandbox) 18/18, creator-dock 82/82, check:creator-chapter refused (catpope ch1 has a draft).
+- 10.42 done (lane V): `SequenceItem` / `SequenceItemDoc` / `LoadedSequenceItem` without `type` (schemas regenerated), no type checks left (Library, FlowIndex, template, validate – a leftover `type` is an error now –, the creator's toon page + visibility, the viewer's sequence navigation, make-sandbox, fixtures); the library's chapter summary has no `type` either. Migration `2026-10-07-sequence-no-type.mysql.sql` run on the dev DB (49 versions); **O –** run it with the deploy (HANDOVER loose ends). Checks: npm run check, PHPUnit 296 / 296, phpstan clean.
 
 ## Night run result (2026-10-07 morning) – read this first
 

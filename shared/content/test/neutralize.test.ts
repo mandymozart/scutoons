@@ -142,8 +142,8 @@ test('season: status per locale, neutral cover, per-locale cover difference repo
 			description: `d ${l}`,
 			cover: { square: cover },
 			sequence: [
-				{ type: 'chapter', number: 1, status: 'published' },
-				{ type: 'chapter', number: 2, status }
+				{ number: 1, status: 'published' },
+				{ number: 2, status }
 			]
 		}) as Season;
 	const { doc, report } = neutralizeSeason({ de: season('de', 'published'), en: season('en', 'coming-soon', 's1/c-en.jpg') }, 'de');

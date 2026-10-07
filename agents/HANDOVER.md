@@ -88,6 +88,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   every toon, variables with a domain: `x` this toon's, `global.x`, `<toon>.x` (DATA.md "The save game"); guests' old
   keys are taken in by the viewer on load (the stored-format rule's exception: no SQL reaches a browser, no author
   involved).
+- Production: run `2026-10-07-sequence-no-type.mysql.sql` with the deploy of BACKLOG 10.42 (the SELECTs first: a
+  sequence entry that isn't a chapter → must be 0; then the rows to change, 49 versions in the dump): a season's
+  `sequence` holds chapters only, `"type":"chapter"` goes (old code reads entries without it, new code rejects it).
 - Onions: no onion item in the catalog yet (needed before it can respawn). The onion camera (branch `items/onion-camera`,
   6 commits, checkout `C:\Development\scutoons-onion-camera`) waits until **February 2027** (owner 2026-10-05: no priority
   before); it predates the catalog in the database – its items.json changes go through the admin catalog then.

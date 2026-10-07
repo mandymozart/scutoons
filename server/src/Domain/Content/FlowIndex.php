@@ -109,7 +109,7 @@ final class FlowIndex
             } elseif ($kind === 'season' && isset($parts[2])) {
                 $list = [];
                 foreach (is_array($doc['sequence'] ?? null) ? $doc['sequence'] : [] as $item) {
-                    if (is_array($item) && ($item['type'] ?? 'chapter') === 'chapter' && is_numeric($item['number'] ?? null)) {
+                    if (is_array($item) && is_numeric($item['number'] ?? null)) {
                         $list[] = ['number' => (int) $item['number'], 'status' => $item['status'] ?? null];
                     }
                 }

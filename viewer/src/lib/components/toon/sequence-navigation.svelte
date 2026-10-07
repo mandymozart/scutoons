@@ -27,14 +27,7 @@
 	const readable = $derived(sequence.filter((item) => isReadable(item)));
 
 	function getCurrentItem(): LoadedSequenceItem | undefined {
-		return readable.find((item) => {
-			if (
-				params.chapterNumber &&
-				item.type === 'chapter' &&
-				item.number.toString() === params.chapterNumber
-			)
-				return item;
-		});
+		return readable.find((item) => params.chapterNumber && item.number.toString() === params.chapterNumber);
 	}
 
 	function findCurrentPosition(items: LoadedSequenceItem[]): number {
@@ -91,7 +84,7 @@
 		{#if prevItem}
 			<button
 				onclick={() =>
-					navigate(localizeHref(`/${params.toonId}/${prevItem.type}/${prevItem.number}`))}
+					navigate(localizeHref(`/${params.toonId}/chapter/${prevItem.number}`))}
 				class="btn-clear btn-prev"
 				title={`${chapterName(prevItem.number)}: ${prevItem.title}`}
 			>
@@ -117,7 +110,7 @@
 		{#if nextItem}
 			<button
 				onclick={() =>
-					navigate(localizeHref(`/${params.toonId}/${nextItem.type}/${nextItem.number}`))}
+					navigate(localizeHref(`/${params.toonId}/chapter/${nextItem.number}`))}
 				class=" btn-clear btn-next"
 				data-control-exempt="chapter navigation card (two lines + image)"
 				title={`${chapterName(nextItem.number)}: ${nextItem.title}`}

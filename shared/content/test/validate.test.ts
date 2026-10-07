@@ -91,7 +91,7 @@ test('slice video frame: a ratio within 4:1 … 1:4, the slice height follows it
 });
 
 test('season.trailer: { loop, poster, variants?, chapter? } (sources: older data)', () => {
-	const sequence = [{ type: 'chapter', number: 0, status: 'published' }, { type: 'chapter', number: 1, status: 'published' }];
+	const sequence = [{ number: 0, status: 'published' }, { number: 1, status: 'published' }];
 	const trailer = { loop: 'videos/s1-trailer-loop.1280w.mp4', variants: { high: 'videos/s1-trailer-loop.1920w.mp4' }, poster: 'images/s1-trailer-poster.webp' };
 	assert.deepEqual(problems('season', season({ sequence, trailer })), []);
 	assert.deepEqual(problems('season', season({ sequence, trailer: { ...trailer, chapter: 1 } })), []);
@@ -101,8 +101,14 @@ test('season.trailer: { loop, poster, variants?, chapter? } (sources: older data
 	assert.deepEqual(problems('season', season({ sequence, trailer: 'videos/l.mp4' })), ['error trailer']);
 });
 
+test('season.sequence: chapters only – an entry keeps no `type` (BACKLOG 10.42, migration 2026-10-07-sequence-no-type)', () => {
+	assert.deepEqual(problems('season', season({ sequence: [{ number: 1, status: 'published' }] })), []);
+	assert.deepEqual(problems('season', season({ sequence: [{ type: 'chapter', number: 1, status: 'published' }] })), ['error sequence.0.type']);
+	assert.deepEqual(problems('season', season({ sequence: [{ status: 'published' }] })), ['error sequence.0']);
+});
+
 test('season.download.image: an image path on the CDN (decorative, beside the music button)', () => {
-	const sequence = [{ type: 'chapter', number: 1, status: 'published' }];
+	const sequence = [{ number: 1, status: 'published' }];
 	const download = { music: 'audio/m.zip', image: 'images/s1-music-vinyl.webp' };
 	assert.deepEqual(problems('season', season({ sequence, download })), []);
 	assert.deepEqual(problems('season', season({ sequence, download: { ...download, image: 'audio/m.zip' } })), ['warning download.image']);

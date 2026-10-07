@@ -405,7 +405,7 @@ final class AssetsTest extends TestCase
     {
         $this->entity('chapter:catpope:2', ['title' => ['de' => 'Zwei', 'en' => 'Two'], 'number' => 2, 'groups' => [['slices' => [['image' => 'images/webtoon/s1c2/s1c2-slice-1.webp',
             'dialog' => [['text' => ['de' => 'images/not-a-path.webp is text', 'en' => 'x']]]]]]]]);
-        $this->entity('season:catpope:3', ['title' => ['de' => 'S3'], 'sequence' => [['type' => 'chapter', 'number' => 2, 'status' => ['de' => 'published']]]]);
+        $this->entity('season:catpope:3', ['title' => ['de' => 'S3'], 'sequence' => [['number' => 2, 'status' => ['de' => 'published']]]]);
         $usages = $this->get(AssetUsages::class);
         $usages->reindexEntity('chapter:catpope:2');
         $rows = array_map(fn($u) => [$u['path'], $u['ref'], $u['field'], $u['state']], $this->get(AssetRegistry::class)->usagesOf(['catpope/images/webtoon/s1c2/s1c2-slice-1.webp']));

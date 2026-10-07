@@ -346,10 +346,6 @@
 		"SequenceItem": {
 			"type": "object",
 			"properties": {
-				"type": {
-					"type": "string",
-					"const": "chapter"
-				},
 				"number": {
 					"type": "number"
 				},
@@ -359,10 +355,10 @@
 				}
 			},
 			"required": [
-				"type",
 				"number",
 				"status"
-			]
+			],
+			"description": "A season's `sequence` entry: always a chapter (owner 2026-10-07, BACKLOG 10.42 – no `type`)."
 		},
 		"Status": {
 			"type": "string",

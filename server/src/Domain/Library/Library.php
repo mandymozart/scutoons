@@ -331,7 +331,7 @@ final class Library
                 if ($status === self::COMING_SOON) {
                     $picked = $ctx->pick("chapter:$ctx->toon:$number", $locale);
                     throw new ApiError(403, 'coming_soon', "Chapter $number is coming soon.",
-                        ['chapter' => self::summary($picked[1] ?? null, 'chapter', $number, $status)]);
+                        ['chapter' => self::summary($picked[1] ?? null, $number, $status)]);
                 }
                 if ($status === null ? !$ctx->includeDrafts : !$ctx->isPublic($status)) {
                     throw new ApiError(403, 'not_public', "Chapter $number is not published.");
@@ -709,15 +709,14 @@ final class Library
             if (!is_int($itemNumber) && !is_string($itemNumber)) continue;
             $status = $item->status ?? null;
             if (!$ctx->draft && !$ctx->isListed($status)) continue;
-            $type = is_string($item->type ?? null) ? $item->type : 'chapter';
-            $entity = "$type:$ctx->toon:$itemNumber";
+            $entity = "chapter:$ctx->toon:$itemNumber";
             $chapter = $ctx->pick($entity, $served);
             if ($chapter === null) {
                 if ($status !== self::COMING_SOON) $ctx->missing[] = $entity;
-                $chapters[] = self::summary(null, $type, $itemNumber, $status);
+                $chapters[] = self::summary(null, $itemNumber, $status);
                 continue;
             }
-            $chapters[] = self::summary($chapter[1], $type, $itemNumber, $status);
+            $chapters[] = self::summary($chapter[1], $itemNumber, $status);
         }
         $overview = new stdClass();
         $overview->number = $number;
@@ -727,10 +726,11 @@ final class Library
     }
 
     /**
-     * ChapterSummary: the chapter file without `groups`, `audio` and its deprecated `status`, plus the season's `type`,
-     * `number`, `status` (the viewer's LoadedSequenceItem without the heavy fields). No file: empty title/thumbnail/release.
+     * ChapterSummary: the chapter file without `groups`, `audio` and its deprecated `status`, plus the season's `number`,
+     * `status` (the viewer's LoadedSequenceItem without the heavy fields; a sequence holds chapters only – no `type`,
+     * BACKLOG 10.42). No file: empty title/thumbnail/release.
      */
-    private static function summary(mixed $chapter, string $type, mixed $number, mixed $status): stdClass
+    private static function summary(mixed $chapter, mixed $number, mixed $status): stdClass
     {
         if ($chapter instanceof stdClass) {
             $summary = clone $chapter;
@@ -741,7 +741,6 @@ final class Library
             $summary->thumbnail = '';
             $summary->release = '';
         }
-        $summary->type = $type;
         $summary->number = $number;
         $summary->status = $status;
         return $summary;
@@ -753,7 +752,7 @@ final class Library
         foreach ($this->seasonNumbers($ctx) as $season) {
             $doc = $ctx->pick("season:$ctx->toon:$season", $locale)[1] ?? null;
             foreach ($doc instanceof stdClass && is_array($doc->sequence ?? null) ? $doc->sequence : [] as $item) {
-                if (is_object($item) && ($item->type ?? 'chapter') === 'chapter' && (int) ($item->number ?? 0) === $number) {
+                if (is_object($item) && (int) ($item->number ?? 0) === $number) {
                     return is_string($item->status ?? null) ? $item->status : self::PUBLISHED;
                 }
             }

@@ -18,7 +18,7 @@ function sequenceOf(season: ContentDoc | null | undefined): SequenceItem[] {
 
 /** Index of chapter `number` in the season sequence, -1 when missing (or no season document). */
 export function sequenceIndex(season: ContentDoc | null | undefined, number: number): number {
-	return sequenceOf(season).findIndex((i) => i?.type === 'chapter' && Number(i.number) === Number(number));
+	return sequenceOf(season).findIndex((i) => Number(i?.number) === Number(number));
 }
 
 /**

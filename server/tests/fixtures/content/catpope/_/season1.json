@@ -68,7 +68,6 @@
 	},
 	"sequence": [
 		{
-			"type": "chapter",
 			"number": 0,
 			"status": {
 				"de": "published",
@@ -76,7 +75,6 @@
 			}
 		},
 		{
-			"type": "chapter",
 			"number": 1,
 			"status": {
 				"de": "published",
@@ -84,7 +82,6 @@
 			}
 		},
 		{
-			"type": "chapter",
 			"number": 2,
 			"status": {
 				"de": "draft",
@@ -92,7 +89,6 @@
 			}
 		},
 		{
-			"type": "chapter",
 			"number": 3,
 			"status": {
 				"de": "coming-soon",
@@ -100,7 +96,6 @@
 			}
 		},
 		{
-			"type": "chapter",
 			"number": 4,
 			"status": {
 				"de": "coming-soon",
@@ -108,7 +103,6 @@
 			}
 		},
 		{
-			"type": "chapter",
 			"number": 5,
 			"status": {
 				"de": "coming-soon",

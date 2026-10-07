@@ -45,7 +45,6 @@
 		},
 		"sequence": [
 			{
-				"type": "chapter",
 				"number": 0,
 				"status": {
 					"de": "published",
@@ -53,7 +52,6 @@
 				}
 			},
 			{
-				"type": "chapter",
 				"number": 1,
 				"status": {
 					"de": "published",
@@ -61,14 +59,12 @@
 				}
 			},
 			{
-				"type": "chapter",
 				"number": 2,
 				"status": {
 					"de": "draft"
 				}
 			},
 			{
-				"type": "chapter",
 				"number": 3,
 				"status": {}
 			}
@@ -108,22 +104,18 @@
 					},
 					"sequence": [
 						{
-							"type": "chapter",
 							"number": 0,
 							"status": "published"
 						},
 						{
-							"type": "chapter",
 							"number": 1,
 							"status": "published"
 						},
 						{
-							"type": "chapter",
 							"number": 2,
 							"status": "draft"
 						},
 						{
-							"type": "chapter",
 							"number": 3
 						}
 					],
@@ -164,22 +156,18 @@
 					},
 					"sequence": [
 						{
-							"type": "chapter",
 							"number": 0,
 							"status": "published"
 						},
 						{
-							"type": "chapter",
 							"number": 1,
 							"status": "coming-soon"
 						},
 						{
-							"type": "chapter",
 							"number": 2,
 							"status": "draft"
 						},
 						{
-							"type": "chapter",
 							"number": 3
 						}
 					],
@@ -220,22 +208,18 @@
 					},
 					"sequence": [
 						{
-							"type": "chapter",
 							"number": 0,
 							"status": "published"
 						},
 						{
-							"type": "chapter",
 							"number": 1,
 							"status": "published"
 						},
 						{
-							"type": "chapter",
 							"number": 2,
 							"status": "draft"
 						},
 						{
-							"type": "chapter",
 							"number": 3
 						}
 					],

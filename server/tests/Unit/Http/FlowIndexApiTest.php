@@ -46,7 +46,7 @@ final class FlowIndexApiTest extends TestCase
     {
         $jump = fn(string $type, string $value, ?string $label = null) => ['type' => $type, 'value' => $value] + ($label !== null ? ['label' => $label] : []);
         $this->store('toon:catpope', ['id' => 'catpope', 'status' => 'published', 'avatar' => 'avatar.webp', 'title' => ['de' => 'Katzenpapst', 'en' => 'Cat Pope']]);
-        $this->store('season:catpope:1', ['number' => 1, 'sequence' => [['type' => 'chapter', 'number' => 2, 'status' => ['de' => 'draft']], ['type' => 'chapter', 'number' => 3, 'status' => ['de' => 'draft']]]]);
+        $this->store('season:catpope:1', ['number' => 1, 'sequence' => [['number' => 2, 'status' => ['de' => 'draft']], ['number' => 3, 'status' => ['de' => 'draft']]]]);
         $this->store('chapter:catpope:2', ['number' => 2, 'thumbnail' => 's1/c2/thumb.jpg', 'groups' => [
             ['label' => 'start', 'continues' => true, 'slices' => [['events' => [['type' => 'jumpTo', 'params' => ['target' => $jump('product', 'vinyl')], 'trigger' => ['type' => 'click']]]]],
                 'events' => [

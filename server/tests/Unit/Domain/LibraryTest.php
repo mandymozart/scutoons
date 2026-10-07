@@ -83,9 +83,9 @@ final class LibraryTest extends TestCase
     {
         $both = fn(string $status) => ['de' => $status, 'en' => $status];
         $this->doc('t', '_', 'season1.json', ['title' => ['de' => 'S de', 'en' => 'S en'], 'number' => 1] + $more + ['sequence' => [
-            ['type' => 'chapter', 'number' => 1, 'status' => $both('published')],
-            ['type' => 'chapter', 'number' => 2, 'status' => $both('draft')],
-            ['type' => 'chapter', 'number' => 3, 'status' => $both('coming-soon')],
+            ['number' => 1, 'status' => $both('published')],
+            ['number' => 2, 'status' => $both('draft')],
+            ['number' => 3, 'status' => $both('coming-soon')],
         ]]);
     }
 
@@ -99,9 +99,9 @@ final class LibraryTest extends TestCase
         foreach (['de', 'en'] as $l) {
             $this->doc('t', $l, 'toon.json', ['id' => 't', 'title' => "T $l", 'status' => 'published']);
             $this->doc('t', $l, 'season1.json', ['title' => "S $l", 'sequence' => [
-                ['type' => 'chapter', 'number' => 1, 'status' => 'published'],
-                ['type' => 'chapter', 'number' => 2, 'status' => 'draft'],
-                ['type' => 'chapter', 'number' => 3, 'status' => 'coming-soon'],
+                ['number' => 1, 'status' => 'published'],
+                ['number' => 2, 'status' => 'draft'],
+                ['number' => 3, 'status' => 'coming-soon'],
             ]]);
             $this->doc('t', $l, 'chapter1.json', ['title' => "Eins $l", 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'status' => 'published',
                 'audio' => ['volume' => 1.0], 'groups' => [['ref' => ['src' => 'chapter1/scene-1.json']], ['label' => 'inline', 'slices' => []], ['ref' => ['src' => 'chapter1/gone.json']]]]);
@@ -125,7 +125,7 @@ final class LibraryTest extends TestCase
         self::assertSame([], $data['routes'], 'missing lists are empty');
         $chapters = $data['seasons'][0]['chapters'];
         self::assertSame([1, 3], array_column($chapters, 'number'), 'the draft chapter is not listed, coming-soon is');
-        self::assertSame(['title' => 'Eins en', 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'language' => 'en', 'type' => 'chapter', 'status' => 'published'], $chapters[0],
+        self::assertSame(['title' => 'Eins en', 'number' => 1, 'release' => '2025-10-04', 'thumbnail' => 'x.webp', 'language' => 'en', 'status' => 'published'], $chapters[0],
             'summary = chapter without groups/audio/own status (+ the served language) + season type/number/status');
         self::assertSame('Drei', $chapters[1]['title'], 'coming-soon: en file missing → de file');
         self::assertArrayNotHasKey('groups', $chapters[1]);
@@ -159,7 +159,7 @@ final class LibraryTest extends TestCase
             } catch (ApiError $error) {
                 self::assertSame([403, $code], [$error->status, $error->errorCode], "chapter $number");
                 if ($code === 'coming_soon') {
-                    self::assertSame(['title' => 'Drei', 'number' => 3, 'release' => '2026-12-01', 'language' => 'de', 'type' => 'chapter', 'status' => 'coming-soon'], json_decode((string) json_encode($error->extra['chapter']), true));
+                    self::assertSame(['title' => 'Drei', 'number' => 3, 'release' => '2026-12-01', 'language' => 'de', 'status' => 'coming-soon'], json_decode((string) json_encode($error->extra['chapter']), true));
                 }
             }
         }
@@ -584,9 +584,9 @@ final class LibraryTest extends TestCase
     private function seedNeutral(bool $scene = true): void
     {
         $this->doc('t', '_', 'season1.json', ['title' => ['de' => 'NS de', 'en' => 'NS en'], 'number' => 1, 'sequence' => [
-            ['type' => 'chapter', 'number' => 1, 'status' => ['de' => 'published', 'en' => 'coming-soon']],
-            ['type' => 'chapter', 'number' => 2, 'status' => ['de' => 'draft', 'en' => 'draft']],
-            ['type' => 'chapter', 'number' => 3, 'status' => ['de' => 'coming-soon']],
+            ['number' => 1, 'status' => ['de' => 'published', 'en' => 'coming-soon']],
+            ['number' => 2, 'status' => ['de' => 'draft', 'en' => 'draft']],
+            ['number' => 3, 'status' => ['de' => 'coming-soon']],
         ]]);
         $this->doc('t', '_', 'chapter1.json', ['title' => ['de' => 'N Eins', 'en' => 'N One'], 'number' => 1, 'release' => ['de' => '2025-10-04', 'en' => '2025-11-01'],
             'description' => ['de' => 'Beschreibung'], 'thumbnail' => 'x.webp', 'featuring' => ['catpope'], 'audio' => ['volume' => 1.0],
@@ -668,7 +668,7 @@ final class LibraryTest extends TestCase
         self::assertSame(['NS de', 'de'], [$season['season']['title'], $season['season']['language']]);
         self::assertSame([1, 3], array_column($season['chapters'], 'number'));
         self::assertSame(['title' => 'N Eins', 'number' => 1, 'release' => '2025-10-04', 'description' => 'Beschreibung', 'thumbnail' => 'x.webp', 'featuring' => ['catpope'],
-            'language' => 'de', 'type' => 'chapter', 'status' => 'published'], $season['chapters'][0], 'summary of the neutral chapter: no groups / audio');
+            'language' => 'de', 'status' => 'published'], $season['chapters'][0], 'summary of the neutral chapter: no groups / audio');
         self::assertSame('Drei', $season['chapters'][1]['title'], 'chapter 3 stays per locale');
         $en = self::decode($this->library()->toon('t', 'en', false)->body)['seasons'][0];
         self::assertSame(['NS en', 'coming-soon', 'N One', '2025-11-01'], [$en['season']['title'], $en['chapters'][0]['status'], $en['chapters'][0]['title'], $en['chapters'][0]['release']]);

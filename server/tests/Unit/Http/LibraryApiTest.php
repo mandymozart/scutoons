@@ -47,7 +47,7 @@ final class LibraryApiTest extends TestCase
         parent::setUp();
         $this->publish('t', '_', 'index.json', ['id' => 't', 'status' => 'published', 'languages' => ['de', 'en']]);
         $this->publish('t', 'de', 'toon.json', ['id' => 't', 'status' => 'published']);
-        $this->publish('t', 'de', 'season1.json', ['sequence' => [['type' => 'chapter', 'number' => 1, 'status' => 'published'], ['type' => 'chapter', 'number' => 2, 'status' => 'draft']]]);
+        $this->publish('t', 'de', 'season1.json', ['sequence' => [['number' => 1, 'status' => 'published'], ['number' => 2, 'status' => 'draft']]]);
         $this->publish('t', 'de', 'chapter1.json', ['title' => 'Eins', 'groups' => []]);
         $this->publish('t', 'de', 'chapter2.json', ['title' => 'Zwei', 'groups' => []]);
         $this->publish('scutoons', '_', 'events.json', [['title' => 'E']]);

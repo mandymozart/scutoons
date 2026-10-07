@@ -61,7 +61,7 @@ test('forEachText: every locale-map leaf with its path and kind', () => {
 		'choice groups.0.events.1.params.label'
 	]);
 	const season: string[] = [];
-	forEachText('season', { title: { de: 'S' }, sequence: [{ type: 'chapter', number: 1, status: { de: 'published' } }] }, (path, _v, leaf) => season.push(`${leaf} ${path.join('.')}`));
+	forEachText('season', { title: { de: 'S' }, sequence: [{ number: 1, status: { de: 'published' } }] }, (path, _v, leaf) => season.push(`${leaf} ${path.join('.')}`));
 	assert.deepEqual(season, ['title title', 'status sequence.0.status']);
 });
 
@@ -97,7 +97,7 @@ test('validateNeutral: shapes of the locale maps, a source without text, season 
 	assert.ok(problems.includes('error en release'));
 	assert.ok(problems.includes('warning de description'), 'the source has no text, en has one');
 	assert.ok(problems.includes('error - status'), 'not in the season');
-	const season = { title: { de: 'S', en: 'S1' }, description: { de: 'P', en: 'Plot' }, number: 1, sequence: [{ type: 'chapter', number: 1, status: { de: 'published', en: 'later' } }] } as unknown as SeasonDoc;
+	const season = { title: { de: 'S', en: 'S1' }, description: { de: 'P', en: 'Plot' }, number: 1, sequence: [{ number: 1, status: { de: 'published', en: 'later' } }] } as unknown as SeasonDoc;
 	assert.deepEqual(lines(validateNeutral('season', season, L, { file: 's' })), ['error en sequence.0.status']);
 });
 
