@@ -276,11 +276,11 @@ return static function (App $app): void {
         $admin->get('/newsletter/contacts', [AdminNewsletterController::class, 'contacts']);
         $admin->post('/newsletter/contacts/import', [AdminNewsletterController::class, 'import']);
         $admin->put('/newsletter/contacts', [AdminNewsletterController::class, 'updateContacts']);
-        $admin->delete('/newsletter/contacts', [AdminNewsletterController::class, 'deleteContacts']);
+        $admin->post('/newsletter/contacts/delete', [AdminNewsletterController::class, 'deleteContacts']);
         $admin->put("/newsletter/contacts/$newsletter", [AdminNewsletterController::class, 'updateContact']);
         $admin->get('/newsletter/suppressions', [AdminNewsletterController::class, 'suppressions']);
         $admin->post('/newsletter/suppressions', [AdminNewsletterController::class, 'suppress']);
-        $admin->delete('/newsletter/suppressions', [AdminNewsletterController::class, 'unsuppress']);
+        $admin->post('/newsletter/suppressions/remove', [AdminNewsletterController::class, 'unsuppress']);
         $admin->get('/newsletter/campaigns', [AdminNewsletterController::class, 'campaigns']);
         $admin->post('/newsletter/campaigns', [AdminNewsletterController::class, 'create']);
         $admin->get("/newsletter/campaigns/$newsletter", [AdminNewsletterController::class, 'get']);

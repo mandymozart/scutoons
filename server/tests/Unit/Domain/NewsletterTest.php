@@ -30,39 +30,17 @@ final class NewsletterTest extends TestCase
      * A transport that records every mail and fails the addresses in $failures with their SmtpFailure
      * @param array<string, SmtpFailure> $failures
      */
-    private function fakeTransport(array $failures = []): object
+    private function fakeTransport(array $failures = []): FakeNewsletterTransport
     {
-        $transport = new class(Settings::fixed(self::root(), $this->settings()), $failures) extends Transport {
-            /** @var list<array{to: string, subject: string, text: string, html: string, headers: list<string>}> */
-            public array $sent = [];
-            public int $batches = 0;
-
-            /** @param array<string, SmtpFailure> $failures */
-            public function __construct(Settings $settings, public array $failures)
-            {
-                parent::__construct($settings);
-            }
-
-            public function beginBatch(): void
-            {
-                $this->batches++;
-            }
-
-            public function name(): string
-            {
-                return 'smtp';
-            }
-
-            public function deliverWithHeaders(string $to, string $subject, string $text, string $html, array $headers): void
-            {
-                if (isset($this->failures[$to])) throw $this->failures[$to];
-                $this->sent[] = compact('to', 'subject', 'text', 'html', 'headers');
-            }
-        };
+        $transport = new FakeNewsletterTransport(Settings::fixed(self::root(), $this->settings()), $failures);
         $this->container->set(Transport::class, $transport);
         return $transport;
     }
 
+    /**
+     * @param list<string> $audiences
+     * @param array<string, mixed> $fields
+     */
     private function campaign(array $audiences, array $fields = []): int
     {
         return (int) $this->get(Campaigns::class)->create($fields + [
@@ -305,5 +283,35 @@ final class NewsletterTest extends TestCase
         self::assertStringContainsString('href="https://x.test/?a=1&amp;b=2"', $mail['html']);
         self::assertStringNotContainsString('href="javascript', $mail['html']);
         self::assertStringContainsString("No more news? Unsubscribe: http://api.test/api/newsletter/unsubscribe?t=", $mail['text']);
+    }
+}
+
+/** The transport of NewsletterTest: records the mails, fails the addresses in $failures */
+final class FakeNewsletterTransport extends Transport
+{
+    /** @var list<array{to: string, subject: string, text: string, html: string, headers: list<string>}> */
+    public array $sent = [];
+    public int $batches = 0;
+
+    /** @param array<string, SmtpFailure> $failures */
+    public function __construct(Settings $settings, public array $failures)
+    {
+        parent::__construct($settings);
+    }
+
+    public function beginBatch(): void
+    {
+        $this->batches++;
+    }
+
+    public function name(): string
+    {
+        return 'smtp';
+    }
+
+    public function deliverWithHeaders(string $to, string $subject, string $text, string $html, array $headers): void
+    {
+        if (isset($this->failures[$to])) throw $this->failures[$to];
+        $this->sent[] = ['to' => $to, 'subject' => $subject, 'text' => $text, 'html' => $html, 'headers' => array_values($headers)];
     }
 }

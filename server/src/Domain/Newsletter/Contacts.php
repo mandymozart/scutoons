@@ -210,7 +210,7 @@ final class Contacts
         return self::row($row);
     }
 
-    /** DELETE /api/admin/newsletter/contacts – { ids: [..] }; returns how many went */
+    /** POST /api/admin/newsletter/contacts/delete – { ids: [..] }; returns how many went */
     public function delete(mixed $ids): int
     {
         $ids = self::ids($ids);

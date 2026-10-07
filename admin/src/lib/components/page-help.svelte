@@ -122,6 +122,8 @@
 			<dd>{m['settings.scan_limit_per_hour_hint']()}</dd>
 			<dt>{m['settings.lookup_limit_per_hour']()}</dt>
 			<dd>{m['settings.lookup_limit_per_hour_hint']()}</dd>
+			<dt>{m['settings.newsletter_per_hour']()}</dt>
+			<dd>{m['settings.newsletter_per_hour_hint']()}</dd>
 		</dl>
 	{:else if page === 'homepage'}
 		<p>{m['help.homepage']()}</p>

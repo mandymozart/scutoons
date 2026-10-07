@@ -27,15 +27,16 @@ use Throwable;
 /**
  * /api/admin/newsletter – role admin (docs/API.md "Admin API" → Newsletter; agents/NEWSLETTER.md):
  *   GET    /newsletter/status                       { transport, cron, per_hour, sent_last_hour, queued }
- *   GET    /newsletter/audiences                    { items: [{ id, kind, source, count, missing_locale }] }
+ *   GET    /newsletter/audiences?selected=a,b       { items: [{ id, kind, source, count, missing_locale }], selected?: { count,
+ *                                                missing_locale, locales: { de: n, en: n, none: n } } – the choice together }
  *   GET    /newsletter/contacts                     list (sort created_at|email|source|locale|name; filters source, locale = de|en|none; q)
  *   POST   /newsletter/contacts/import              { text, source, consented_at?, locale?, dry_run? } → { rows, counts, added }
  *   PUT    /newsletter/contacts                     { ids, locale?, source? } → { changed }
- *   DELETE /newsletter/contacts                     { ids } → { deleted }
+ *   POST   /newsletter/contacts/delete              { ids } → { deleted }
  *   PUT    /newsletter/contacts/{id}                { name?, locale? } → { item }
  *   GET    /newsletter/suppressions                 list (sort created_at|email|reason; filter reason; q)
  *   POST   /newsletter/suppressions                 { email } – block by hand
- *   DELETE /newsletter/suppressions                 { email } – mail it again
+ *   POST   /newsletter/suppressions/remove          { email } – mail it again
  *   GET    /newsletter/campaigns                    { items }
  *   POST   /newsletter/campaigns                    { title, audiences?, subject_de?, subject_en?, body_de?, body_en? } → { item }
  *   GET|PUT|DELETE /newsletter/campaigns/{id}
@@ -77,7 +78,18 @@ final class NewsletterController
 
     public function audiences(Request $request, Response $response): Response
     {
-        return $this->ok($response, ['items' => $this->audiences->all()]);
+        $data = ['items' => $this->audiences->all()];
+        $selected = $request->getQueryParams()['selected'] ?? null;
+        if (is_string($selected)) {
+            // the recipients of this choice together (each address once) – what "Start" would fix
+            $recipients = $this->audiences->recipients(Audiences::check($selected === '' ? [] : explode(',', $selected)));
+            $data['selected'] = [
+                'count' => count($recipients),
+                'missing_locale' => count(array_filter($recipients, fn(array $r) => $r['locale'] === null)),
+                'locales' => array_count_values(array_map(fn(array $r) => $r['locale'] ?? 'none', $recipients)),
+            ];
+        }
+        return $this->ok($response, $data);
     }
 
     public function contacts(Request $request, Response $response): Response

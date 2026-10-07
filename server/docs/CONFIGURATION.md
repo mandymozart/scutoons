@@ -29,6 +29,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `GENERATE_PASSWORD` | – | legacy `generate/` SPA password (its token = HMAC of it); empty = the SPA is locked |
 | `QR_PROXY_SECRET` | – | shared with the qr app (qr.scutoons.com): only requests carrying it in `X-Scutoons-Proxy-Secret` may forward the client IP (`X-Scutoons-Client-Ip`) and device id (`X-Scutoons-Device-Id`), and only they can log landing-page scans (`/api/code/?scan=1`). Empty = trust nobody |
 | `EMBASSY_CRON_KEY` | – | key of the Embassy cron URL `GET\|POST /api/embassy/cron?key=…` (inbox sync + the team's reminder mails; also accepted as the HTTP Basic password – docs/API.md "Embassy" → "Pace"). Empty = the URL answers 404 (off). `openssl rand -hex 32` |
+| `NEWSLETTER_CRON_KEY` | – | key of the newsletter cron URL `GET\|POST /api/newsletter/cron?key=…` (one batch, agents/NEWSLETTER.md; also the HTTP Basic password). Empty = 404 (off). `openssl rand -hex 32` |
 | `AGENT_SERVICE_KEY` | – | shared with the creator's Ask service (tools/mcp): only requests carrying it in `X-Service-Key` (plus a creator's session) may write the AI usage log `POST /api/agent-usage` (docs/API.md "Agent usage"). Empty = not configured (`503 not_configured`) |
 | `QR_URL` | `https://qr.scutoons.com` | the qr app: magic links of login requests without an Origin (it forwards `/?login=` to the viewer) |
 | `APP_URL` | `https://scutoons.com` | the viewer: old magic links are forwarded there; "Open SCUTOONS" in mails |
@@ -44,6 +45,10 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `MAIL_ADMIN_LOCALE` | `de` | language of the admin notification mails |
 | `MAIL_LOG_DAYS` | 180 | days the sent-mail log (`mail_log`, with recipient addresses) is kept; 0 = forever |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_TIMEOUT` | –, 587, `tls`, –, –, 15 | `SMTP_SECURE`: `tls` (STARTTLS) / `ssl` (465) / `none` |
+| `NEWSLETTER_PER_HOUR` | 200 | default of the runtime setting `newsletter_per_hour` (admin → Settings): at most this many mails per hour while a newsletter sends – every mail of the last hour counts (`mail_log`), login codes too; 0 = no limit |
+| `NEWSLETTER_BATCH`, `NEWSLETTER_DELAY_MS`, `NEWSLETTER_SECONDS`, `NEWSLETTER_PER_CONNECTION` | 20, 1000, 25, 50 | one newsletter batch: at most BATCH mails, DELAY_MS between two, SECONDS in all (below max_execution_time), a new SMTP connection every PER_CONNECTION mails |
+| `NEWSLETTER_ATTEMPTS`, `NEWSLETTER_RETRY_MINUTES` | 3, 15 | a temporary failure (not a 5xx at RCPT = bounce) is tried again after RETRY_MINUTES, failed after ATTEMPTS |
+| `API_URL` | `https://api.scutoons.com` | where the newsletter's unsubscribe links point (`/api/newsletter/unsubscribe?t=…`) |
 | `EMBASSY_MAIL_FROM`, `EMBASSY_MAIL_FROM_NAME` | `hello@scutoons.com`, `Top Toy · SCUTOONS` | sender (and Reply-To) of the mails people send from the Embassy app (docs/API.md "Embassy" → "Mail"); same transport and SMTP server as above |
 | `EMBASSY_SMTP_USER`, `EMBASSY_SMTP_PASS` | – | the SMTP account of that mailbox; empty = `SMTP_USER` / `SMTP_PASS` |
 | `EMBASSY_IMAP_HOST`, `EMBASSY_IMAP_PORT` | –, 993 | the Embassy inbox sync (implicit TLS; 143 = plain, local test servers only); empty host = no sync |
