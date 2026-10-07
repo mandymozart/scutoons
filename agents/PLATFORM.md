@@ -308,6 +308,12 @@ phpMyAdmin (idempotent; until then nothing is logged), then set the admin recipi
 ~~Same endpoints, token per origin (localStorage `scutoons_session`) for now.~~ Single sign-on since branch `sso`
 (2026-10-01) – see "SSO — result" below.
 
+**Framed apps (the creator's dock Reader, BACKLOG 10.49):** the creator frames the viewer's draft preview; the frame
+signs in with the same cookie (one site: creator. and the viewer are both scutoons.com, so its API calls are same-site
+and carry the `SameSite=Lax` cookie). No session token is ever passed – not in a URL (history, logs, referrers), not
+by postMessage. The two windows exchange only "ready" / "show group / slice", each origin-checked and source-checked on
+both sides, the viewer only in its draft preview (agents/DOCKING.md "The Reader panel").
+
 ## SSO — result (branch `sso`, 2026-10-01)
 
 **Owner:** "once a member is logged in they will not need to log in again on any of the apps, depending on whether their

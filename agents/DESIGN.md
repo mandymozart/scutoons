@@ -364,7 +364,15 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   width stays off – on demand. No "Interaction" field (`Group.interaction` is gone
   from the model; old stored values are ignored). The **strip preview** of a full-width group below it: the mouse wheel
   down moves the strip sideways while the pointer is over it (like the reader's page scroll); at either end the page
-  scrolls on; a horizontal wheel / trackpad scrolls natively.
+  scrolls on; a horizontal wheel / trackpad scrolls natively. A **vertical** group has the same preview (BACKLOG 10.49,
+  UI-CONCEPTS E.6): the same screen (phone 390:844 / desktop 16:9), the slices stacked at the reading column's width
+  (phone: the screen's; desktop: the reader's 500 px column of a 1440 px window, centred), scrolled up / down inside
+  the screen's fixed height with the wheel's own scroll (no remap; at either end the page scrolls on). A horizontal
+  swiper group has none.
+- **Reader panel** (BACKLOG 10.49, agents/DOCKING.md "The Reader panel"): the chapter editor's top bar has a round
+  `smartphone` button left of the Flow's; it docks the viewer's draft preview – a phone (or, the square
+  phone / desktop group in its header, a 1440 × 810 window) scaled into the panel, following the group / slice open in
+  the editor, reloaded after every saved draft.
 - **Follow-up bar** = the chapter's **end actions** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01;
   since 2026-10-07 choices of the VN message box, BACKLOG 10.48 / UI-CONCEPTS E.5): what comes after the shown group
   (of linked groups: after the last one).

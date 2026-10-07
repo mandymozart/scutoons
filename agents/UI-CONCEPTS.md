@@ -174,6 +174,16 @@ cover the characters' feet.
 
 ## E.6 Strip preview for vertical groups (M.9) and the viewer as a dock panel (M.10)
 
+**Built 2026-10-07 (BACKLOG 10.49).** Strip preview: `strip-preview.svelte` `vertical` – the slices stacked at the
+reading column's width (phone: the screen's; desktop: 500 / 1440 of it, centred), scrolled inside the screen, no wheel
+remap; mounted for every vertical group (a horizontal swiper group has none). The Reader: a dock panel of kind
+`reader` (`lib/components/reader/reader-dock.svelte`, the top bar's round `smartphone` button) – the viewer's draft
+preview at phone size (390 × 844 scaled; a square phone / desktop group in its header), kept across group / slice /
+chapter, the place sent by `postMessage` (`@scutoons/content` reader-link.ts), reloaded after every stored draft
+(`draftSaves`); the viewer accepts "show" only framed, from its parent, from the creator's origin, in its draft
+preview. The session: the shared cookie (one site), no token passed. agents/DOCKING.md "The Reader panel", DESIGN.md
+"Reader panel"; `npm run check:creator-reader`. The text below is the concept as written.
+
 **Strip preview today** (`chapter/strip-preview.svelte`): one reader screen (phone 390:844 / desktop 16:9), the
 slices side by side at screen height with the reader's own `Slice`, wheel → sideways; mounted only for a horizontal
 full-width group (`chapter-editor.svelte:800–802`). **For vertical groups:** the same component with a vertical track

@@ -38,9 +38,42 @@ every area below is on the model. Closing panels is unchanged (their ✕).
   Nobody takes it: it closes after that navigation's task; a route still loading (`{#await languages}`) puts a
   `DockHold` in its pending branch, so the held panel waits until the page has mounted. Leaving the page ends a
   maximize. Kinds: `flow` (creator `FlowDock` – toon / season / chapter, the zoom kept across levels and pages),
-  `problems` (`ProblemsDock` – chapter editor, meta pages), `info` (the ActionBar's `InfoPanel` – every app). Page
+  `problems` (`ProblemsDock` – chapter editor, meta pages), `reader` (`ReaderDock` – the chapter editor, below), `info` (the ActionBar's `InfoPanel` – every app). Page
   bound (a snippet, gone with the page): History (another document's history), the admin's list detail. Ask is a region
   of the layout and never remounts; it reads the place from the crumbs (E.3 c).
+- **The Reader panel** (BACKLOG 10.49, UI-CONCEPTS E.6, 2026-10-07): the chapter editor's round `smartphone` button
+  (top bar, left of the Flow's) docks `kind: 'reader'` (creator `lib/components/reader/reader-dock.svelte`, width
+  `sc-panel-width:reader`, 24rem): the viewer's draft preview in an iframe – a phone, 390 × 844 CSS px, or a desktop
+  window, 1440 × 810 (the header's square phone / desktop group, `sc-reader-screen` per device), scaled into the panel
+  (the frame's viewport must be the device's exactly, whatever the creator's root size – a device size, not a UI size,
+  so px there). Group → group, slice → slice and chapter → chapter (another toon too) keep the instance and the frame:
+  the place goes by message, the frame does NOT reload. It reloads only after a stored draft of its toon (every
+  `ContentDoc.save` and every Ask save report to `draftSaves`, debounced 300 ms – a save of several files = one reload),
+  or a change of language / screen; after each load it re-shows the place. The language: the header's text language
+  when the reader has it (de / en), else the chapter's first of those.
+  **Messages** (`@scutoons/content` reader-link.ts, only two): viewer → creator `scutoons:reader-ready` (sent with the
+  creator's origin as target, so a foreign page framing the viewer gets nothing); creator → viewer
+  `scutoons:reader-show { toon, chapter, group, slice }` (sent with the viewer's origin as target; group / slice are
+  indexes of the saved draft – a group the draft hasn't got: nothing happens). The viewer
+  (`viewer/src/lib/creator-link.svelte.ts`, listening in the root layout) accepts a message only when ALL hold: it is
+  framed, `event.source === window.parent`, `event.origin` is the creator's configured origin (`CREATOR_URL` –
+  `VITE_CREATOR_URL`, production https://creator.scutoons.com, dev http://localhost:10000), its draft preview is on, and
+  the data parses (`parseReaderShow`: the type, a toon id `[a-z0-9_-]`, integer indexes in range). It then only moves
+  the reader – another chapter: an in-app navigation; a group of another chain: its `?label=`; then it scrolls to the
+  slice (a full-width strip's later slice: into the strip's sideways travel). The creator accepts only "ready", only
+  from its frame's own `contentWindow` and the viewer's origin.
+  **Session (security):** no token travels – not in the address, not in a message. The frame signs in with the shared
+  single-sign-on cookie `scutoons_sid` (PLATFORM.md "SSO"): the creator and the viewer are ONE site (scutoons.com;
+  locally localhost), so the viewer's API calls from inside the frame are same-site and the browser sends the
+  `SameSite=Lax`, HttpOnly cookie as it does in a tab; the draft data still needs the role (`?draft=1` is checked by the
+  API, Roles::CONTENT_EDITORS). A browser that refuses the cookie (the creator's Bearer fallback) shows the published
+  reader in the frame (the viewer's preview switches itself off on 401 / 403) – no token is handed over to fix that,
+  deliberately (a token in a URL leaks via history, logs and referrers; one sent by postMessage would put a session into a
+  second origin's storage). `?draft=1` turns the viewer origin's per-device draft preview on, as the "Preview" links in
+  More always did (`?preview=draft`). The frame has `referrerpolicy="no-referrer"` and `allow="autoplay; fullscreen"`
+  (the reader's sound, a strip's full screen). The viewer sends no frame-blocking header today; a
+  `Content-Security-Policy: frame-ancestors` limited to the creator would need the static hosts' .htaccess – not done
+  (the messages are origin-checked anyway). Check: `npm run check:creator-reader`.
 - **ONE `Divider`** (`@scutoons/ui` divider.svelte) for every drag edge: `role="separator"`, 0.75rem hit zone on the
   2px border, 3px ink line on hover / focus, pointer drag, ← / → 16 px (Shift 64), Home or double-click = normal width,
   `html.sc-resizing` during a drag. It drives any size object (`resizable`, `dockRegion`, `panelWidth`). Placed in its
