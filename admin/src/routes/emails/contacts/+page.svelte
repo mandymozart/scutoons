@@ -193,7 +193,7 @@
 				{#if c.suppressed}<Badge tone="warning">{m['newsletter.i_suppressed']()}</Badge>{/if}
 			{:else if column.id === 'name'}{c.name ?? ''}
 			{:else if column.id === 'locale'}
-				<select class="locale" class:missing={!c.locale} value={c.locale ?? ''} aria-label={m['newsletter.col_language']()} onchange={(e) => setOne(c, e.currentTarget.value)}>
+				<select class="locale" value={c.locale ?? ''} aria-label={m['newsletter.col_language']()} onchange={(e) => setOne(c, e.currentTarget.value)}>
 					<option value="">{m['newsletter.language_none']()}</option>
 					<option value="de">de</option>
 					<option value="en">en</option>
@@ -253,10 +253,6 @@
 </Sheet>
 
 <style>
-	.locale.missing {
-		background: var(--badge-warning);
-		color: var(--badge-warning-text);
-	}
 	.import {
 		display: grid;
 		gap: var(--space-1);

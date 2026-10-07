@@ -232,8 +232,8 @@
 	{/if}
 
 	<Section title={m['newsletter.audiences']()}>
-		<fieldset class="audiences" disabled={!editable}>
-			<legend class="muted">{m['newsletter.audiences_hint']()}</legend>
+		<p class="muted hint">{m['newsletter.audiences_hint']()}</p>
+		<fieldset class="audiences" disabled={!editable} aria-label={m['newsletter.audiences']()}>
 			{#each audiences as a (a.id)}
 				<label class="audience">
 					<input type="checkbox" checked={draft.audiences.includes(a.id)} onchange={(e) => toggleAudience(a.id, e.currentTarget.checked)} />
@@ -323,9 +323,8 @@
 		padding: 0;
 		border: 0;
 	}
-	.audiences legend {
-		margin-bottom: var(--space-05);
-		padding: 0;
+	.hint {
+		margin: 0 0 var(--space-1);
 	}
 	.audience {
 		display: flex;
@@ -338,7 +337,8 @@
 	}
 	.compose {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		/* side by side when the page is wide enough for both, else the preview under the text */
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
 		gap: var(--space-2);
 		margin: var(--space-2) 0;
 	}
@@ -362,10 +362,5 @@
 	}
 	.error-text {
 		overflow-wrap: anywhere;
-	}
-	@media (max-width: 1023px) {
-		.compose {
-			grid-template-columns: minmax(0, 1fr);
-		}
 	}
 </style>
