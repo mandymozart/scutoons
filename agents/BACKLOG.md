@@ -4,7 +4,7 @@ One list for the open work (owner 2026-10-06: "we need to merge cutover post ite
 CUTOVER.md Phase 10 ("after the beta", items keep their numbers 10.x so commits and docs that cite "CUTOVER 10.x" still
 find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the runbook of the cutover itself.
 
-New entries: the next free number (10.54, …), owner + date, then **O –** for steps the owner runs on production. Tick
+New entries: the next free number (10.55, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Day run 2026-10-07 (owner away: "go automatically") – the plan, all decided with the owner
@@ -16,7 +16,7 @@ owner's (2026-10-07, drafts reviewed in this session's browser). Results go into
 section.
 
 Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 10.52 → 10.53 + 10.43 → 10.40 → 10.39 → 10.44
-(E.1) → 10.45 (E.2) → 10.47 (E.4) → 10.46 (E.3 b/c) → 10.49 (E.6, after lane V) → 10.50 (mobile).
+(E.1) → 10.45 (E.2) → 10.47 (E.4) → 10.46 (E.3 b/c) → 10.49 (E.6, after lane V) → 10.50 (mobile). Added later: 10.54 (layers 2) before 10.47.
 
 - [x] 10.41 **Season URLs + season labels** – `/<toon>/chapter/N` stays THE address forever (printed QR codes);
       `/<toon>/season/S/chapter/K` and `/<toon>/season/S` (toon page at that season) redirect to it, resolved from the
@@ -38,6 +38,13 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
       (analyse first; a stored order both the creator canvas and the reader's slice honour; absent = today's order).
       Rows single-line: grip ⋮⋮, small icon preview (item image / text-box glyph), name, a feather icon for "pick up"
       (`download`); no `#n`, no hint text. Uses 10.53. Draft: this session (toptoy ch1 blotter-deal slice 1).
+- [ ] 10.54 **Layers 2: sound areas and area events join the stack** (owner 2026-10-07: "audio and events are also, if
+      they are not triggered on the entire frame, layered in a way") – every slice object with an AREA on the slice
+      (a sample's trigger rect, an event with a tap / hover / intersect area) is a row of the one Layers list (10.43)
+      and takes the same `layer` order: higher = in front = gets the tap / hover first, in the creator's canvas AND
+      the reader's hit testing. Whole-slice events / non-area samples stay in their tabs (Events / Audio). Row icon:
+      the sound / event feather icon + its name / type. Absent `layer` = today's order (analyse the reader's current
+      stacking of event areas vs items vs text boxes first; keep it for unlayered slices).
 - [x] 10.44 **E.1 notifications** – as UI-CONCEPTS E.1; owner: toasts bottom-right (the shared stack), the
       language status as a chip next to Publish (phone: `de ▾`), only conflict / autosave / converted stay as bars.
 - [x] 10.45 **E.2 crumbs** – as E.2; owner: the "…" menu (not a scroll); the logo is the root crumb, "CREATOR" goes;
