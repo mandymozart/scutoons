@@ -106,6 +106,21 @@
 		border-bottom: 1px solid var(--border-subtle);
 		padding-bottom: 0.3rem;
 	}
+	/* narrower (BACKLOG 10.50 audit, E.9: the label field was squeezed to 16px on a phone, the row 912px wide on a tablet):
+	   id · standard · remove on the first line, the label field and the usage below */
+	@media (max-width: 1023px) {
+		li {
+			grid-template-columns: auto minmax(0, 1fr) auto auto;
+			grid-template-areas: 'grip id check remove' 'grip label label label' 'grip used used used';
+			align-items: center;
+		}
+		li > :global(:nth-child(1)) { grid-area: grip; }
+		li > :global(:nth-child(2)) { grid-area: id; }
+		li > :global(:nth-child(3)) { grid-area: label; }
+		li > :global(:nth-child(4)) { grid-area: check; }
+		li > :global(:nth-child(5)) { grid-area: used; }
+		li > :global(:nth-child(6)) { grid-area: remove; }
+	}
 	.check {
 		display: flex;
 		gap: 0.25rem;

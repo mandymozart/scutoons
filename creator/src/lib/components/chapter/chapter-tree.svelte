@@ -223,9 +223,10 @@
 	}
 	.group-row {
 		display: flex;
+		align-items: center;
 	}
-	/* the name comes first (BACKLOG 10.50 g: grip + remove left it a letter or two in a narrow sidebar): it keeps its full
-	   width (cut only when even the whole row is too narrow), the count / VN wraps below it when there is no room */
+	/* the name comes first (BACKLOG 10.50 g: grip + remove left it a letter or two in a narrow sidebar): it is never cut –
+	   a long name wraps onto more lines beside the count (at least 6rem wide; narrower, the count wraps below it) */
 	.group-row .node {
 		flex: 1;
 		min-width: 0;
@@ -242,9 +243,8 @@
 		white-space: nowrap;
 	}
 	.node .name {
-		flex: 1 0 auto;
-		max-width: 100%;
-		min-width: 0;
+		flex: 1 1 0;
+		min-width: min(6rem, 100%);
 		overflow-wrap: anywhere;
 		text-align: left;
 	}

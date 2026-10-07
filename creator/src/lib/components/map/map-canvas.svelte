@@ -416,6 +416,18 @@
 		pointer-events: auto;
 		cursor: pointer;
 	}
+	/* touch screens (E.9): a 2.75rem target around the 16px point – the point itself stays small (the map's density) */
+	@media (pointer: coarse) {
+		.marker::before {
+			content: '';
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			width: 2.75rem;
+			height: 2.75rem;
+			transform: translate(-50%, -50%);
+		}
+	}
 	.hidden-place .marker {
 		border-style: dashed;
 	}

@@ -482,11 +482,12 @@
 						{#if startView}<button type="button" class="ghost" onclick={gotoStartView} data-testid="start-view-go">{m['creator.map_start_view_go']()}</button>{/if}
 					</div>
 				{/if}
-				<div class="group zoom">
-					<button type="button" class="ghost" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()} title={m['creator.map_zoom_out']()}><Icon name="zoom-out" /></button>
+				<!-- a toolbar = grouped = square (DESIGN.md "Round vs square", E.9): one segmented frame like the Flow's zoom -->
+				<div class="zoom sc-seg" role="group" aria-label={m['creator.field_map_zoom']()}>
+					<button type="button" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()} title={m['creator.map_zoom_out']()}><Icon name="zoom-out" /></button>
 					<span class="pct" data-testid="zoom-pct">{zoomPercent} %</span>
-					<button type="button" class="ghost" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()} title={m['creator.map_zoom_in']()}><Icon name="zoom-in" /></button>
-					<button type="button" class="ghost" onclick={() => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5))} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
+					<button type="button" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()} title={m['creator.map_zoom_in']()}><Icon name="zoom-in" /></button>
+					<button type="button" onclick={() => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5))} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 				</div>
 			</div>
 			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
@@ -590,9 +591,14 @@
 		gap: 0.3rem;
 		align-items: center;
 	}
+	.zoom {
+		align-self: flex-start;
+	}
 	.zoom .pct {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		min-width: 3.5rem;
-		text-align: center;
 	}
 	.stage {
 		position: relative;

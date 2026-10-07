@@ -189,7 +189,7 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(22rem, 100%), 1fr));
 		gap: 0.15rem 1rem;
 	}
 	h5 {
@@ -213,6 +213,11 @@
 		flex-wrap: wrap;
 		gap: 0.5rem;
 		align-items: baseline;
+	}
+	/* a long file path breaks (E.9: it made the page 840px wide at 768) */
+	li code {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 	.link {
 		all: unset;
