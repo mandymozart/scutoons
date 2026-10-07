@@ -289,9 +289,10 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`; its `title` says what it
   shows and how to use it – no intro line in the panel); docked on the right like Problems / History on EVERY level
   (in the AppShell's right dock, left of Ask, the page makes room – never an overlay; drags wider up to half the window,
-  one stored width, 28rem by default; `?flow=1` opens it (a deep link); the chapter editor and MetaPage take turns with Problems /
-  History and Info; every page hands its panel to the shell with `useDock` – agents/DOCKING.md; it folds to a rail like
-  every dock panel). ONE panel across pages (UI-CONCEPTS E.3 b): `FlowDock` (`kind: 'flow'`) stays mounted toon →
+  one stored width, 28rem by default; `?flow=1` opens it (a deep link); the Flow sits next to Problems / History, the Reader
+  and Info – several panels side by side, one per kind, each in its place (10.57); every page hands its panel to the
+  shell with `useDock` – agents/DOCKING.md "Several panels"; it folds to a rail like every dock panel; a click on a box
+  moves the main and, with the Reader open, the Reader too). ONE panel across pages (UI-CONCEPTS E.3 b): `FlowDock` (`kind: 'flow'`) stays mounted toon →
   season → chapter (a box, the sidebar, a crumb – the next page's Flow takes it over), a new level is rebuilt at the
   kept zoom; the Flow only reads the current place and navigates only on a click on a box. Svelte Flow + dagre are loaded only when it
   opens; zoom / fit are one square segmented group (a toolbar: "Round vs square"), a minimap bottom right. A box navigates (read-only otherwise).
@@ -649,8 +650,8 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   (published / draft / coming soon per language, `status-badges.svelte`: toon page, season editor, season sidebar);
   the status is changed only on the chapter page (Meta).
 - **Help lives in Info** (`@scutoons/ui` InfoPanel via the ActionBar's "Info" toggle, closed by default, remembered),
-  not above the fields. Info is a panel of the shell's right dock (agents/DOCKING.md): it takes turns with Problems /
-  History / Flow / a list's detail, drags wider and folds to a rail like them. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
+  not above the fields. Info is a panel of the shell's right dock (agents/DOCKING.md): it sits next to Problems /
+  History / Flow / Reader / a list's detail (outermost, beside Ask – 10.57), drags wider and folds to a rail like them. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
   slice) have an accessible label.
 
 Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route crumbs from the root layout, `extra`
@@ -1096,8 +1097,11 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   `Field`). Inspector forms use **two fields per row**.
 - The tool frame (tokens): top bar = ActionBar height `--tool-bar-height` max(48px, 3rem) (48 · 48 · 72px), sidebar
   `--tool-sidebar-width` 12rem (admin 14rem with descriptions), Info / side panels `--tool-panel-width` 16rem. Every
-  region (sidebar, right dock, Ask, the outline, the inspector) follows ONE model – tiles, one Divider, one fold to a
-  rail, remembered sizes: agents/DOCKING.md.
+  region (sidebar, the main, the dock panels, Ask, the outline, the inspector) follows ONE model – tiles, one Divider,
+  one fold to a rail (every rail's button at the height of the region headers' buttons), remembered sizes; several page
+  panels side by side; maximize = fold everything else: agents/DOCKING.md.
+- The ActionBar is the page's chrome, not a region: it stays while a panel / the inspector is maximized or the main is
+  folded to its rail (10.57 – Save / Publish / undo still act on the main's document; DOCKING.md "Maximize").
 - ActionBars that don't fit move `start` + `secondary` into "More" (`breakpoint`); the primary actions stay. Filters
   that need more than one line leave the bar and sit above the list (`.toolbar`), the pager stays in the bar.
 

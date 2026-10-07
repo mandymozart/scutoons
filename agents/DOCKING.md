@@ -3,38 +3,41 @@
 Owner 2026-10-06: "these areas should all behave a bit more like in Blender or here in the Claude Code desktop app, so we
 don't have to deal with their sizing and collapsing individually. Closing them is a different story." Status: approved
 (owner 2026-10-06: "go go go, sounds good, we can still revise it later") and migrated on branch `ui/docking-areas` –
-every area below is on the model. Closing panels is unchanged (their ✕).
+every area below is on the model. Closing panels is unchanged (their ✕). Several page panels side by side, the main's
+fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, below).
 
 ## The model
 
 ```
- ┌──────────────────────────── top bar (crumbs · page actions · Flow · Ask) ─────────────────────────────┐
- ├──────────┬╫──────────────────────────────────────────┬╫──────────────────────┬╫────────────────────────┤
- │ LEFT     │╫ MAIN                                     │╫ RIGHT DOCK           │╫ ASK                   │
- │ sidebar  │╫ the page (may split itself:              │╫ ONE page panel:      │╫ app-wide, outermost   │
- │ (tree,   │╫  outline | text, canvas | inspector)     │╫ Problems / History / │╫ region of the shell   │
- │ children)│╫                                          │╫ Flow / Info / a      │╫ (`ask`)               │
- │ folds to │╫ keeps ≥ minContent (24rem) when a dock   │╫ list's detail; folds │╫ closes (×)            │
- │ a rail   │╫ is dragged wider                         │╫ to a rail, closes ×  │╫                        │
- ├──────────┴╫──────────────────────────────────────────┴╫──────────────────────┴╫────────────────────────┤
- └──────────────────────────────── bottom ActionBar (page actions) ──────────────────────────────────────┘
-   ╫ = a Divider (the only drag edge)                   < 768px: sidebar = drawer, dock + Ask cover the page
+ ┌──────────────────────────── top bar (crumbs · page actions · Reader · Flow · Ask) ─────────────────────────┐
+ ├──────────┬╫────────────────────────────────┬╫─────────────┬╫─────────────┬╫─────────────┬╫────────────────┤
+ │ LEFT     │╫ MAIN                           │╫ RIGHT DOCK: the page panels side by side   │╫ ASK            │
+ │ sidebar  │╫ the page (may split itself:    │╫ detail · History · Problems · Flow ·       │╫ app-wide,      │
+ │ (tree,   │╫  outline | text, canvas |      │╫ Reader · Info – each its own header, fold, │╫ outermost      │
+ │ children)│╫  inspector); keeps ≥ 24rem;    │╫ maximize, ✕ and Divider; one per kind      │╫ region (`ask`) │
+ │ folds to │╫  folds to a rail only by hand  │╫ (e.g. │ Flow       │╫ Reader     │╫ Info)   │╫ closes (×)     │
+ │ a rail   │╫  (10.57)                       │╫                                            │╫                │
+ ├──────────┴╫────────────────────────────────┴╫─────────────┴╫─────────────┴╫─────────────┴╫────────────────┤
+ └──────────────────────────────── bottom ActionBar (page actions – stays, also while maximized) ─────────────┘
+   ╫ = a Divider (the only drag edge)          < 768px: sidebar = drawer, the newest panel + Ask cover the page
 ```
 
 - **Regions tile, never overlap** (from 768px): every open region pushes its neighbour; nothing is positioned over the
   page. The shell (`@scutoons/ui` `AppShell`, in creator, admin AND embassy) owns the grid: `sidebar | content | dock |
   ask` (`--sc-shell-columns`). Pages never position panels themselves; no app reads Ask's width (`--ask-inset`,
   `--ask-top`, `html.sc-ask-open` are gone).
-- **Panels live in regions**: a component hands its open panel to the right dock with `useDock(() => ({ panel, size,
-  title, icon, close }) | null)` (`@scutoons/ui` dock.svelte.ts, a module-level registry – one shell per app). ONE at a
-  time: opening one calls the shown one's `close`, so its page's toggle follows (Problems / History / Flow / a page's
-  own dock, the ActionBar's Info, the admin's list detail take turns). Info restored from localStorage never displaces a
-  panel the page opened itself (`?flow=1`); a panel that takes the dock from Info leaves Info remembered.
+- **Panels live in regions**: a component hands its open panel to the right dock with `useDock(() => ({ kind, panel |
+  content, size, title, icon, close }) | null)` (`@scutoons/ui` dock.svelte.ts, a module-level registry – one shell per
+  app; one `useDock` per panel – the chapter editor calls it for the Flow, the Reader, Problems and History). Several
+  panels are open at once, side by side (10.57, "Several panels" below); ONE per kind: a panel of the same kind from
+  another owner replaces the shown one (its `close`, so that page's toggle follows).
 - **Panels across pages** (UI-CONCEPTS E.3 b, 2026-10-07): a panel docked with a `kind` and a `content` (`{ component,
   props }` instead of the `panel` snippet) is mounted by the SHELL (`DockContent`), not by the page. When its page
   leaves, the dock HOLDS it (still shown, its last props); the next page that docks the same kind takes the mounted
   instance over and hands it its own props – no remount, no flash, the fold kept. Pages ask `shellDock.has(kind)` on
-  init and open their own panel of that kind then (the Flow stays open toon → season → chapter without `?flow=1`).
+  init and open their own panel of that kind then (the Flow stays open toon → season → chapter without `?flow=1`). Every
+  kind on its own (10.57): the Flow, the Reader, Problems and Info held together are taken over together, each in its
+  place, with its width, its fold and its recency (`used`); the main's fold goes on across the navigation too.
   Nobody takes it: it closes after that navigation's task; a route still loading (`{#await languages}`) puts a
   `DockHold` in its pending branch, so the held panel waits until the page has mounted. Leaving the page ends a
   maximize. Kinds: `flow` (creator `FlowDock` – toon / season / chapter, the zoom kept across levels and pages),
@@ -74,6 +77,32 @@ every area below is on the model. Closing panels is unchanged (their ✕).
   (the reader's sound, a strip's full screen). The viewer sends no frame-blocking header today; a
   `Content-Security-Policy: frame-ancestors` limited to the creator would need the static hosts' .htaccess – not done
   (the messages are origin-checked anyway). Check: `npm run check:creator-reader`.
+- **Several panels** (BACKLOG 10.57, owner 2026-10-07: "why is it either Flow or phone preview? … jumping through the
+  Flow would also directly show the final result in the preview"): the page panels no longer take turns – any of them
+  can be open together (the Flow + the Reader + Ask is the case that matters: a click in the Flow moves the main AND the
+  Reader; Problems, History, Info and the admin's list detail join the same way). Rules:
+  1. **One per kind, a fixed place** (`DOCK_ORDER`, from the main outwards): list detail · History · Problems · Flow ·
+     Reader · Info, then Ask. What belongs to the page's document sits next to it, the Flow drives the main, the Reader
+     shows the result, help is outermost beside Ask. A panel opens in its place – nothing jumps when another opens or
+     closes (Blender's areas, not a tab stack); unknown kinds before Info, equal places by opening order.
+  2. **Each panel is a region of its own**: its header (title – cut with … first when narrow –, its buttons), its
+     `DockFold` (fold to its rail, maximize), its ✕, and a `Divider` on its left edge; dragging it resizes that panel
+     (the panels left of it move, the main gives or takes the room; it stops where the main would get narrower than
+     `minContent`). Widths remembered per kind as before.
+  3. **Recency** (`used`): opening, unfolding, a click on its rail and maximizing make a panel the most recently used.
+  4. **Keyboard**: Ctrl+Space maximizes the panel that has focus; from the main (outside a maximizable region) the most
+     recently used open panel. Note: the Reader's frame can hold the focus – keys then go to the viewer (click the
+     creator page first).
+  5. **Phones**: one panel at a time – the most recently used covers the page, the others stay open (mounted) behind it
+     and show again when it closes.
+- **The main folds – by hand only** (10.57, owner 2026-10-07: "with the phone preview and Flow or the agent available,
+  the main could also fold"): the leftmost open panel's header has a round "Fold the page" button (`chevrons-left`,
+  `page-fold`) and Ctrl+Shift+\ toggles it (while a panel is open). Folded, the main is a `Rail` labelled with the
+  page's place (the deepest crumb) – its button or a click on it, the key again, or the last panel closing bring it
+  back; the panels take its room (the most recently used grows into the rest). It never folds by itself (the person
+  decides when the page may go); not remembered across loads, but kept across navigation (a Flow box still navigates the
+  folded main and the Reader follows). A Problems row's "go to" unfolds it (the field must show). The folded main stays
+  mounted and laid out at its last width, only hidden – scroll, selection, unsaved edits stay. The ActionBar stays.
 - **ONE `Divider`** (`@scutoons/ui` divider.svelte) for every drag edge: `role="separator"`, 0.75rem hit zone on the
   2px border, 3px ink line on hover / focus, pointer drag, ← / → 16 px (Shift 64), Home or double-click = normal width,
   `html.sc-resizing` during a drag. It drives any size object (`resizable`, `dockRegion`, `panelWidth`). Placed in its
@@ -87,41 +116,61 @@ every area below is on the model. Closing panels is unchanged (their ✕).
   detail's title); a click anywhere on it unfolds. Remembered: the sidebar's and the outline's fold
   (`sc-sidebar-folded:<app>`, `sc-script-outline-folded`); the dock's is not – a panel always opens unfolded (owner
   2026-10-06 decision 3 + "closing is a different story"). Folded "for the page's sake" (`foldWhen`) is not remembered.
+  A dock panel, the main and Ask on their rail stay MOUNTED (10.57): laid out at their last width, only hidden – the
+  Flow's zoom, the Reader's frame, a scroll position survive the rail. Every rail's round button sits at the height of
+  the region headers' buttons (Ask's, a dock panel's: one control row with `--space-05` above it; owner 2026-10-07 –
+  `check:creator-dock` / `check:tools-dock` measure it, ±1 px).
 - **Sizes remembered per panel kind** (localStorage, per browser – owner rule: no server state for chrome):
   `sc-sidebar-width:<app>`, `sc-sidebar-folded:<app>`, `sc-panel-width:chapter` (Problems/History in the chapter,
   16rem), `:meta` (meta pages, 24rem), `:flow` (every level, 28rem), `:info` (16rem), `:detail` (admin list detail,
   24rem), `:slice-inspector` (22rem), `:ask` (24rem), `sc-script-outline-width` (16rem) / `-folded`,
   `sc-sheet-width:<kind>` (right drawers: picker, assets, history, problems, asset, form). Normal width = the minimum;
   max = half the window (sidebar a third; the inspector half the editor's area).
-- **Running out of room** – who gives way, in order:
-  1. the sidebar folds to its rail when an unfolded dock AND Ask are open (owner rule, decision 1: no fold without
-     Ask; the shell does it for every app; a dock folded to its rail needs no room; unfolding by hand wins);
-  2. a dock dragged wider stops where the content would get narrower than `minContent` (creator 24rem, admin / embassy
-     20rem) next to the sidebar and left of Ask (`panelWidth.room`, set by the shell; a smaller window: the same in CSS);
-  3. only when even its normal width leaves the content less than half of that, the dock gets narrower than normal;
-  4. inside the main region the page's own rules (the slice inspector moves below the canvas under 1280px, the script
-     outline above the text under 900px);
-  5. Ask never shrinks by itself (the person sized it).
-- **Maximize, never fold the main** (owner 2026-10-06): the MAIN region never folds. Instead any dock panel (Flow,
-  Problems, History, Info, the admin's list detail) and the chapter editor's slice inspector can be MAXIMIZED for a
-  moment: a round button in its header (Feather `maximize-2` "Maximize" / while maximized `minimize-2` "Restore", de
-  "Maximieren" / "Wiederherstellen", `title` + "(Ctrl + Space)"; the dock's sits in `DockFold` between the fold button
-  and ✕ – the fold button hides while maximized; the inspector's right of its tabs). Maximized, it fills everything
-  between the sidebar (folded to its rail, `foldWhen`, not remembered) and Ask (unchanged). The main area and the other
-  regions are only HIDDEN (`visibility`, the grid stays as it was – the maximized region spans the content's and the
-  dock's columns above the hidden one): nothing unmounts, widths, folds, scroll positions, selection and unsaved edits
-  stay. Back: the button, Esc (not while a dialog / popover / menu / open combobox shows, nor in a text field – that
-  Escape is theirs; a maximized Info / list detail restores on Esc instead of closing), Ctrl+Space, or a click in a
-  Flow (a box, a dead place) or on a Problems row: restore AND navigate the main there. Ctrl+Space: maximizes the
-  region that has focus (`data-sc-maximize`), from anywhere else the open dock panel (not from Ask); focus moves to the
-  maximized region's button and comes back on a keyboard restore; nothing in the apps uses Ctrl+Space (IME composition
-  is left alone). One maximized region at a time (`shellDock.maximized`: `'dock'` or a main region's id); another panel
-  taking the dock keeps the maximize (the dock is what's maximized); closing the panel, leaving the slice (inspector)
-  or the page ends it. Not remembered across page loads. Shared: `shellDock.maximize/restore`, `MaximizeButton`,
-  AppShell (`max-dock` / `max-main`); a main region (the inspector) hides the rest of its page itself
-  (`.columns.inspector-max`; the editor's file bar stays). Phones: no button (the dock covers the page anyway).
-- **Phones (< 768px)**: no dividers, no fold buttons, no maximize; the sidebar is the burger drawer, the dock and Ask cover the page
-  (closed by ×).
+- **Running out of room** – who gives way, in order (10.57: several panels):
+  1. the sidebar folds to its rail when an unfolded panel AND Ask are open (owner rule, decision 1: no fold without
+     Ask; the shell does it for every app; panels folded to their rails need no room; unfolding by hand wins);
+  2. a panel dragged wider stops where the main would get narrower than `minContent` (creator 24rem, admin / embassy
+     20rem) next to the sidebar, the other panels and Ask (`panelWidth.room`, set by the shell);
+  3. the open panels get narrower together – each by the same share of what it is above its floor – down to 12rem each
+     (or its normal width, if smaller), while the main keeps `minContent`;
+  4. even the floors don't fit: the LEAST RECENTLY USED panel folds to its rail (`dock-rail-squeezed`, not remembered),
+     then the next – the newest you opened always shows. A click on a squeezed panel's rail makes it the most recently
+     used: it comes back and the now least recently used folds instead;
+  5. the last panel alone gets narrower than its floor only while the main keeps half its minimum;
+  6. the main never folds by itself (only by hand, above); inside it the page's own rules (the slice inspector moves
+     below the canvas under 1280px, the script outline above the text under 900px);
+  7. Ask never shrinks by itself (the person sized it).
+  At 1440 (60rem at the tools' 24px root) with Ask open there is room for ONE panel next to a 24rem main – the Flow +
+  Reader + Ask set needs "Fold the page" there; at 1920 the three fit (Flow ≈ 353, Reader ≈ 337 px, main 24rem).
+- **Maximize = fold everything else** (owner 2026-10-06; 10.57, owner 2026-10-07: "maximize = fold everything else"):
+  any dock panel (Flow, Reader, Problems, History, Info, the admin's list detail) and the chapter editor's slice
+  inspector can be MAXIMIZED for a moment: a round button in its header (Feather `maximize-2` "Maximize" / while
+  maximized `minimize-2` "Restore", de "Maximieren" / "Wiederherstellen", `title` + "(Ctrl + Space)"; the dock's sits in
+  `DockFold` between the fold button and ✕ – the fold button hides while maximized; the inspector's right of its tabs).
+  Maximized, it takes the room and EVERY other region goes to its rail – the sidebar, the main (a dock panel
+  maximized), the other panels, Ask – one mechanism with the folds above (the shell derives the rails from
+  `shellDock.maximized`; nothing's own fold state changes, so restore brings back exactly what was open before).
+  The railed regions stay mounted, laid out at their last width, hidden: widths, folds, scroll positions, selection,
+  unsaved edits, the Reader's frame stay. A click on any rail while maximized restores. Back: the button, Esc (not while
+  a dialog / popover / menu / open combobox shows, nor in a text field – that Escape is theirs; a maximized Info / list
+  detail restores on Esc instead of closing), Ctrl+Space, or a click in a Flow (a box, a dead place) or on a Problems
+  row: restore AND navigate the main there. Ctrl+Space: maximizes the region that has focus (`data-sc-maximize`:
+  `dock:<id>` or a main region's id), from anywhere else the most recently used open panel (not from Ask); focus moves
+  to the maximized region's button and comes back on a keyboard restore; nothing in the apps uses Ctrl+Space (IME
+  composition is left alone). One maximized region at a time (`shellDock.maximized`); a panel opened while another is
+  maximized takes the maximize over (the other stays open on its rail); closing the panel, leaving the slice
+  (inspector) or the page ends it. Not remembered across page loads. Shared: `shellDock.maximize/restore`,
+  `MaximizeButton`, AppShell (`max-dock` / `max-main`, `main-railed`, `ask-railed`); a main region (the inspector) hides
+  the rest of its page itself (`.columns.inspector-max`; the editor's file bar stays). Phones: no button.
+  **The ActionBar stays** (10.57 (2), owner: "when in maximize mode the footer disappears – not 100 % intended"): it
+  vanished only as a side effect – the page renders it inside the main, and hiding the main (`visibility`) hid it too.
+  Kept on purpose now (`.main-railed … .sc-action-bar { visibility: visible }`): it is the page's chrome like the top
+  bar, not a region; Save / Publish / undo / redo / the live chip / Info still act on the main's document, and the
+  maximized Flow / Reader / inspector are exactly the views that drive or show that document (an edit in the inspector
+  wants its Save; the Reader reloads on Save). No reason to hide it on any width: phones have no maximize, and the
+  shell already reserves its height. The same for the main folded by hand.
+- **Phones (< 768px)**: no dividers, no fold buttons, no maximize, no main fold; the sidebar is the burger drawer, the
+  most recently used panel and Ask cover the page (closed by ×; the other open panels wait behind it).
 - **Modal drawers stay modal**: `Sheet side="right"` (pickers, the admin's history / problems / asset / new batch) is a
   choice or a side task, not a docked panel – its edge is the same `Divider` (inside the drawer), its width remembered
   per kind (`widthKey`).
@@ -151,8 +200,10 @@ every area below is on the model. Closing panels is unchanged (their ✕).
 | Problems / History / dock (meta pages, season Flow) | `page/meta-page.svelte` → `useDock` | shell dock | 24rem / 28rem; DockFold + rail | `:meta`, `:flow` |
 | Flow (toon page) | `[toonId]/+page.svelte` → `useDock` | shell dock | 28rem; DockFold + rail | `:flow` |
 | Flow across pages | `flow/flow-dock.svelte` (`kind: 'flow'`), `shared/ui` dock.svelte.ts / dock-content / dock-hold | shell dock | one instance toon → season → chapter, zoom kept | `:flow` |
-| Info (help) | `shared/ui/src/action-bar.svelte` → `useDock`, `info-panel.svelte` | shell dock | 16rem, drags, DockFold + rail; takes turns with the page's panels | `:info`, open state `infoKey` |
-| List + detail | `shared/ui/src/split-view.svelte` (admin catalog, codes) → `useDock` | shell dock | 24rem, drags, DockFold + rail, Escape / ✕ close; on phones covers the page | `:detail` |
+| Info (help) | `shared/ui/src/action-bar.svelte` → `useDock`, `info-panel.svelte` | shell dock | 16rem, drags, DockFold + rail; next to the page's panels, outermost | `:info`, open state `infoKey` |
+| List + detail | `shared/ui/src/split-view.svelte` (admin catalog, codes) → `useDock` (`kind: 'detail'`) | shell dock | 24rem, drags, DockFold + rail, Escape / ✕ close; next to Info; on phones covers the page | `:detail` |
+| Reader | `reader/reader-dock.svelte` (`kind: 'reader'`) | shell dock | 24rem, DockFold + rail; next to the Flow | `:reader` |
+| Main (folded) | AppShell `main-rail` (`shellDock.foldMain`) | shell main | by hand: the leftmost panel's "Fold the page", Ctrl+Shift+\; rail with the page's place | not remembered |
 | Ask | `shared/ask/src/ask-panel.svelte` via the shell's `ask` (creator, admin, embassy) | shell outermost right | `panelWidth` 24rem … ½, its own Divider; full screen < 768px | `:ask` |
 | Right drawers | `shared/ui/src/sheet.svelte` (`side="right"`) | modal | Divider inside the drawer, normal … ½ window | `sc-sheet-width:<kind>` |
 
@@ -162,6 +213,13 @@ the fixed Info panel (`--info-panel-top/-width`, its 1100px page margin), `--ask
 (+ `--split-view-top/-bottom`), the script outline's own fold state / separator / px sizes, the Sheet's own drag edge
 markup, Divider's `fixed` mode.
 
+Checks (10.57 additions): `npm run check:creator-reader` (Flow · Reader · Ask side by side at 1440 + 1920, the Flow
+folds for room at 1440 and "Fold the page" gives both room, a Flow box moves the main and the Reader – same frame,
+maximize folds everything else and keeps the Reader's frame and the ActionBar, Esc restores; shots `DOCK2_SHOTS`
+dock2-*), `check:creator-dock` (three panels in their places, the least recently used fold first and a squeezed rail's
+click brings it back, every rail's button at Ask's header buttons ±1 px at 1440 / 1920, Ctrl+Shift+\, the ActionBar
+while a panel or the inspector is maximized, another panel takes the maximize over), `check:tools-dock` (Info next to
+the list detail, the admin's rails aligned, the maximized detail's rails + ActionBar).
 Checks: `npm run check:creator-flow-dock` (panels across pages: the same Flow toon → season → chapter → chapter, group
 → group keeps the graph, the zoom kept, a box navigates, a page without a Flow closes the held one, Problems chapter →
 season, the admin's Info codes → assets, Ask's place); `npm run check:creator-dock` (maximize: Flow + inspector by button / Esc / Ctrl+Space, the main's unsaved edit,
@@ -178,9 +236,15 @@ Ask's Divider, phone). `DOCK_SHOTS=<dir>` (+ `DOCK_PREFIX`) for screenshots.
 3. The right dock folds to a rail like the sidebar (fold button, drag narrow, the rail shows the panel's icon + title,
    a click unfolds; ✕ still closes). Not remembered: a panel opens unfolded.
 
+4. (10.57, owner 2026-10-07) Several page panels side by side, one per kind, in fixed places; the room runs out → the
+   least recently used folds first; the main folds only by hand (never by itself); maximize = fold everything else to
+   its rail; the ActionBar stays while maximized; every rail's button at the height of Ask's header buttons.
+
 ## Later options
 
 - A bottom region (Blender's timeline / VS Code's panel), e.g. for the script's or the chapter's audio – a row of the
   shell above the ActionBar on the same `dockRegion` (vertical Divider); not needed today.
 - Ctrl+\ for the dock / the outline too (today only the sidebar has a key).
 - The dock's fold remembered per panel kind, if folding turns out to be a habit rather than a moment.
+- The main folding by itself as the last step when the room runs out (owner's alternative; today only by hand).
+- A shortcut per panel kind (open / focus the Flow, the Reader).

@@ -57,13 +57,17 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - ONE layout model for every area (agents/DOCKING.md, approved 2026-10-06): regions tile (sidebar | page | right dock |
   Ask – AppShell in creator, admin, embassy), one `Divider` for every drag edge (up to half the window), one fold to a
   `Rail` as wide as its round button + 0.5rem either side (sidebar: chevrons at its top right / drag / Ctrl+\; script outline: rail "Outline"; right dock: the panel's
-  `DockFold`, rail with its icon + title, not remembered); sizes remembered per panel kind. The main never folds: dock
-  panels and the slice inspector MAXIMIZE instead (button / Ctrl+Space / Esc; the rest only hidden – DOCKING.md). The script is read-only
-  until "Edit script" is confirmed.
+  `DockFold`, rail with its icon + title, not remembered); every rail's button at the height of the region headers'
+  buttons (Ask's); sizes remembered per panel kind. The main folds to a rail only BY HAND (the leftmost panel's "Fold
+  the page", Ctrl+Shift+\ – never by itself; owner 2026-10-07). Dock panels and the slice inspector MAXIMIZE = fold
+  everything else to its rail (button / Ctrl+Space / Esc; railed regions stay mounted; the ActionBar stays – DOCKING.md).
+  The script is read-only until "Edit script" is confirmed.
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()` – the primary action last, one
   primary only: the save-draft note's button says "Save without note" while empty, "Save" once typed (owner 2026-10-06).
-- Page panels (Problems, History, Flow, Info, the admin's list detail) take turns in the shell's right dock (`useDock`),
-  left of Ask; with an unfolded dock and Ask open the sidebar folds to its rail (never without Ask). Pickers stay modal
+- Page panels (Problems, History, Flow, Reader, Info, the admin's list detail) open SIDE BY SIDE in the shell's right
+  dock (`useDock`, one per kind, fixed places detail · History · Problems · Flow · Reader · Info), left of Ask; out of
+  room → narrower together, then the least recently used folds to its rail (BACKLOG 10.57, DOCKING.md "Several
+  panels"); with an unfolded panel and Ask open the sidebar folds to its rail (never without Ask). Pickers stay modal
   drawers (`Sheet`). Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
   can't. The admin catalog has the same panel (items / recipes / albums; stored in the entry, DATA.md §5).
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
