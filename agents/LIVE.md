@@ -71,19 +71,28 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
   false]`. Not readers' content: no library endpoint reads it (like `script`, CREATOR_ONLY_KINDS) – the conductor loads
   the published version (or a draft in rehearsal) and the relay hands each client only what its role / group needs
   (no spoilers, no full download on a phone).
-- A show references **one or more chapters** of its toon and lays its layer over them by scene / slice / event id –
-  the chapters are never touched. One chapter can have several shows (tour cut, school version). References that no
-  longer resolve (a deleted slice or event) are **Problems errors** in the creator; the conductor refuses to start a
-  show with errors.
-- Who may conduct / edit: the `creator` role for the toon (open: a separate `live` permission, B.11).
+- **One flow to rule them all** (owner 2026-10-07): the show never diverts the story. Triggers, choices, jumps follow
+  exactly the toon's flow – across chapters, seasons, even into another toon (jumpTo / chapter targets with `toon`,
+  one save game). A show is not tied to a chapter or a season: it has a **start** (toon + chapter + group label) and
+  optional **ends**, and its rows are the scenes that flow can reach from the start (the creator's FlowIndex graph).
+  `<toon>` in the key is the show's home toon (where it starts; permissions); the flow may lead elsewhere.
+- The show only **adds**: its stage layer over the toon's scenes (by scene / slice / event id – the toon is never
+  touched), **in-between rows** (live-only: intro, intermission, encore – played when the flow passes a given point),
+  and **performance overrides** in the conductor (hold, vote override, panic, a manual jump = the same as a toon jump).
+- Several shows per toon ("setups": a tour cut, a school version; one to start with). References that no longer resolve
+  (a deleted slice, event or label) are **Problems errors** in the creator; the conductor refuses a show with errors.
+- Who may conduct / edit: a new **`live` permission** (owner 2026-10-07; per toon, given in the admin like the other
+  permissions) – a stage manager can build and run shows without editing the toon.
 
 ### B.5.2 Shape (TypeScript, `@scutoons/live` `show.ts`; JSON Schema next to the content schemas)
 
 ```ts
 type Show = {
-  v: 1; title: Loc; chapters: number[];               // chapter numbers of this toon, in play order
+  v: 1; title: Loc;
+  start: Place; ends?: Place[];                       // Place = { toon, chapter, label? } – the scope of the performance
   outlets: Outlet[];                                  // the builder's columns, in column order
-  rows: Row[];                                        // the builder's rows
+  rows: Row[];                                        // in-between rows + scene rows that carry settings (scene rows
+                                                      // themselves come from the flow, not stored)
   cells: Record<RowId, Record<OutletId, Cell>>;       // missing = keep (see "Inheritance")
   cues: Cue[];                                        // timed changes inside a row (the cue sheet)
   votes: Vote[]; fixtures: Fixture[]; looks: Look[];
@@ -101,8 +110,10 @@ type Outlet =
 type RoomPos = { x: number; y: number; rot: number; w?: number };   // floor plan, metres
 
 type Row =
-  | { id; scene: SceneKey }                                    // from the toon (chapter + scene name), story order
-  | { id; live: { name: Loc; next?: RowId | SceneKey } };     // live-only: intro, intermission, encore
+  | { id; scene: SceneKey }                                    // a toon scene / group (any chapter, season, toon the flow reaches)
+  | { id; live: { name: Loc; at: 'start' | 'end' | { after: SceneKey; before?: SceneKey } } };
+      // in-between row: plays when the flow leaves `after` (into `before`, if given), then the flow goes on
+      // where the toon says – it never changes where the story goes
 
 type Cell =
   | { mode: 'own'; layers?: Layer[]; send?: DeviceMsg[] }      // screens / groups: layers; devices: messages on enter
@@ -154,7 +165,7 @@ type VenuePatch = { id; name: string;                           // "Home studio"
   osc: Record<OutletId, { host: string; port: number }> };
 ```
 
-**Inheritance** (owner 2026-10-07: play follows the path): a missing cell = **keep** – at runtime nothing changes on
+**Inheritance** (owner 2026-10-07: play follows the toon's path): a missing cell = **keep** – at runtime nothing changes on
 that outlet when the row starts, so it holds whatever the path actually played left there. The builder shows a keep
 cell's look along the default path (story order, first option of each choice) and marks it "↑". `mirror` resolves at
 runtime too. Device cells send on row enter; `keep` sends nothing.
@@ -175,14 +186,19 @@ are stored in the show (a list), picked in the conductor at start. The bridge li
 outlets / devices are red in the conductor's checklist, simulated in rehearsal.
 
 ### B.5.5 The stage builder (UI)
-- The creator shell: **sidebar = rows** (the chapters' scenes in story order, branches indented under their choice,
-  live-only rows inserted anywhere with their "next"), **main = the row** (every outlet of the selected row at its real
+- The creator shell: **sidebar = rows** (the scenes the flow reaches from the start, in story order, branches indented
+  under their choice / jump, other chapters / seasons / toons as headed sections; in-between rows inserted between
+  two scenes), **main = the row** (every outlet of the selected row at its real
   proportions: screens as canvases, groups as phones, devices as message lists; a floor-plan mini view), **right dock =
   the inspector** of the selected layer / message / cue. A **matrix** mode (rows × outlets as thumbnails, own / keep ↑ /
   mirror = / live-only marked) for the overview. Tabs: Stage · Cues · Media · Venues.
 - Pickers stay drawers (`Sheet`): "From the toon …" (slices, panels, characters, items, surtitles, map, audio) and
   "Live media …". Toon layers carry a "toon" tag, live-only ones "live".
 - ▶ on a row plays its cues through the row (simulated outlets); "Rehearse" opens B.8.
+- **Not a clip launcher** (owner asked 2026-10-07 "are we rebuilding Ableton?"): the matrix looks like Ableton's
+  session view (rows × tracks), but rows are never launched – the toon's flow decides which row is current, the matrix
+  only says what each outlet does when the flow gets there. No launch quantization, follow actions, clip slots or
+  per-clip transport. Where music needs that, Ableton stays in the room and a row enter fires its scene (MIDI).
 - Kit: AppShell, Tabs / Segmented, Divider, DockFold, Sheet, Field, Badge, ActionBar, Sortable, the selection model,
   copy / paste (10.39) for cells and layers – no new chrome; rem sizes; round icon buttons / square groups.
 
@@ -204,8 +220,8 @@ reach); JSON over one WebSocket per client; the session is the connection's, not
   musician / output join with the session code (+ group from their QR); conductor and bridge with a **session token**.
 - `welcome` `{ client, group, snapshot, now }` – or, on `resume` within the replay buffer (last 500 messages / 5 min),
   the missed messages instead of the snapshot.
-- Session token: the conductor creates a session via the API (`POST /api/live/sessions` → `{ code, token }`, role
-  creator); the token is an HMAC-signed `{ session, show, role: conductor | bridge | uplink, exp }` with a secret shared
+- Session token: the conductor creates a session via the API (`POST /api/live/sessions` → `{ code, token }`,
+  the `live` permission for the show's toon); the token is an HMAC-signed `{ session, show, role: conductor | bridge | uplink, exp }` with a secret shared
   by API and relay. Only conductor-role messages can change state; audience messages are rate-limited (5 / s) and
   nicknames are trimmed to 24 characters, the conductor can rename / kick (no word filter exists yet – a small
   blocklist in the relay); max 1000 clients per session.
@@ -286,16 +302,17 @@ Must = the show needs it; Could = cut first if late. Holiday break 2026-12-21 �
 ## B.11 Decisions (owner 2026-10-07) and what is still open
 Decided: (1) the relay is its own bunny app `scutoons-live`; (2) audience = guest first, account optional; (3) votes:
 a rule per vote (majority / per group / first to n) + time + fallback, applied automatically, the conductor can hold
-or override; (4) a show is its own entity `show:<toon>:<n>`; (5) logical outlets + venue patches; (6) groups by QR, else
+or override; (4) a show is its own entity `show:<toon>:<n>` (home toon); (5) logical outlets + venue patches; (6) groups by QR, else
 auto-balanced, the conductor can move; (7) DMX = fixtures + looks (no effects engine; a real desk via OSC if a lighting
 designer comes); (8) one local bridge for all devices, as the Electron app **Scutoons Live** for mac + win, unsigned
-for now; (9) rows = toon scenes + live-only rows, play follows the path, keep = no change at runtime; (10) building
+for now; (9) one flow: the toon's flow decides everything (triggers, choices, jumps – across chapters, seasons, toons); a show
+has a start + ends, adds in-between rows and its stage layer, overrides are performance-only (hold, vote override,
+panic, manual jump); rows are never launched (not a clip launcher); keep = no change at runtime; (10) building
 Nov 2 → show late February; (11) rehearsal: simulated room, fake audience, jump + record, real devices partially; (12) musicians get a
-free-form sheet (PDF / images / text), no score rendering or bar following.
+free-form sheet (PDF / images / text), no score rendering or bar following; (13) a `live` permission per toon to
+build and conduct shows; (14) several setups (shows / venue patches) over time, one to start with; (15) show pickups:
+any catalog item for now; (16) no surtitles on the audience phones for now.
 
 Open:
-1. Who may conduct / edit shows – the `creator` role for the toon, or a separate `live` permission (e.g. a guest
-   director without creator access)?
-2. The venue and the exact show date (fixes phase 6 and the patch).
-3. Show items: any catalog item, or only items marked "show" (a souvenir that can't be found at home)?
-4. Surtitle languages on the audience phones too (read along in your language), or screens only?
+1. The venue and the exact show date (fixes phase 6 and the patch) – not known yet.
+2. A show that reaches into another toon: does conducting need `live` for that toon too, or is the home toon enough?
