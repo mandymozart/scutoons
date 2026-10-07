@@ -43,6 +43,8 @@
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { ChapterView, type Section } from '$lib/editor/chapter-state.svelte.ts';
 	import * as edits from '$lib/editor/slice-edit.ts';
+	import { clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
+	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
 	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
@@ -697,6 +699,15 @@
 	/** the selection region of the slice canvas + its inspector (Layers, audio samples, slice events: one selection) */
 	const SLICE_REGION = 'slice';
 
+	// copy / cut / paste (BACKLOG 10.39, lib/editor/clipboard.svelte.ts): the DOM events act on the live region's handler;
+	// the canvas region copies its selection and pastes into the open slice
+	$effect(() => clipboardEvents());
+	useClipHandler(
+		() => (view.section === 'slice' ? SLICE_REGION : null),
+		// svelte-ignore state_referenced_locally
+		sliceClipHandler({ view, target: sliceTarget, toon, chapterNumber, chapter })
+	);
+
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
 		const key = event.key.toLowerCase();
@@ -713,8 +724,8 @@
 		if (arrows[key] && view.selection) {
 			event.preventDefault();
 			canvas?.nudge(...arrows[key]);
-		} else if (((key === 'delete' || key === 'backspace') && !mod) || (mod && key === 'x')) {
-			// Delete / Backspace / Ctrl+X remove the selected text, item, sample area or event area
+		} else if ((key === 'delete' || key === 'backspace') && !mod) {
+			// Delete / Backspace remove the selected text, item, sample area or event area (Ctrl+X = cut: the clipboard)
 			if (!view.selection) return;
 			event.preventDefault();
 			removeSelected();
