@@ -2,7 +2,7 @@
 	import { confirmPublish } from '$lib/editor/doc-session.svelte.ts';
 	import { confirmSubmit, publishLabel, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, ToonAvatar, useDock } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, ToonAvatar, shellDock, useDock } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -19,16 +19,21 @@
 	import FileStatus from '$lib/components/status/file-status.svelte';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { flowWidth, getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
-	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
+	import FlowDock from '$lib/components/flow/flow-dock.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
-	// the toon's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it
-	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
-	// docked on the right like the chapter's Flow: the page makes room for it (left of Ask, drags wider)
+	// the toon's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it, and so
+	// does a Flow the last page docked (the same panel goes on with this toon – UI-CONCEPTS E.3 b)
+	let flowOpen = $state(page.url.searchParams.get('flow') === '1' || shellDock.has('flow'));
+	// docked on the right like the chapter's Flow: the page makes room for it (left of Ask, drags wider); mounted by the
+	// shell (`kind: 'flow'`), the next page's Flow takes it over
 	const flowSize = flowWidth();
-	useDock(() => (flowOpen ? { panel: flowDock, size: flowSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (flowOpen = false) } : null));
+	const flowProps = () => ({ input: { level: 'toon' as const, toon: toonId }, onclose: () => (flowOpen = false) });
+	useDock(() =>
+		flowOpen ? { kind: 'flow', content: { component: FlowDock, props: flowProps }, size: flowSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (flowOpen = false) } : null
+	);
 	usePageNav({ actions: flowToggle });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
@@ -433,28 +438,11 @@
 		{/snippet}
 	</ActionBar>
 </div>
-<!-- the toon's Flow in the shell's right dock (useDock) -->
-{#snippet flowDock()}
-	<div class="flow-dock" data-testid="flow-dock">
-		{#key toonId}
-			<ToonFlowPanel toon={toonId} onclose={() => (flowOpen = false)} />
-		{/key}
-	</div>
-{/snippet}
-
 {#snippet flowToggle()}
 	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_toon_open']()} aria-label={m['creator.flow_toon_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
 {/snippet}
 
 <style>
-	/* the docked Flow fills the dock edge to edge (it pans / zooms itself): its header is the Ask panel's, the canvas has no
-	   frame (owner 2026-10-06) */
-	.flow-dock {
-		display: flex;
-		flex-direction: column;
-		box-sizing: border-box;
-		overflow: hidden;
-	}
 	.toon-title {
 		font-size: var(--type-title-size);
 		line-height: var(--type-title-line);

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { coverLetteringOn, coverLines, entities, previewText, type Cover, type SeasonTrailer } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
-	import { Icon } from '@scutoons/ui';
+	import { Icon, shellDock } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
@@ -20,7 +20,7 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { page } from '$app/state';
-	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
+	import FlowDock from '$lib/components/flow/flow-dock.svelte';
 
 	/**
 	 * Season meta (the entity season:<toon>:<N>, ONE language-neutral document – agents/NEUTRAL.md), cleaned up like the
@@ -85,8 +85,10 @@
 
 	// the season's children in the sidebar: its chapters with their status per language
 	usePageNav({ sidebar: chapterNav, actions: flowToggle });
-	// the season's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it
-	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
+	// the season's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it, and so
+	// does a Flow the last page docked (the same panel goes on with this season – UI-CONCEPTS E.3 b)
+	let flowOpen = $state(page.url.searchParams.get('flow') === '1' || shellDock.has('flow'));
+	const flowDock = { component: FlowDock, props: () => ({ input: { level: 'toon' as const, toon, season: number }, onclose: () => (flowOpen = false) }) };
 	const nav = getCreatorNav();
 </script>
 
@@ -116,6 +118,7 @@
 	companions={() => Object.values(chapters).filter((d) => !d.unconverted)}
 	beforeSave={() => syncChapters(chapters)}
 	bind:dockOpen={flowOpen}
+	dock={flowDock}
 >
 	{#if season.present.length === 0}
 		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
@@ -187,9 +190,6 @@
 			<SupportersField doc={season} {toon} place="{place}supporters/" />
 		</section>
 	{/if}
-	{#snippet dock()}
-		<ToonFlowPanel {toon} season={number} onclose={() => (flowOpen = false)} />
-	{/snippet}
 </MetaPage>
 
 <style>

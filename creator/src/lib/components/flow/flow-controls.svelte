@@ -1,20 +1,40 @@
 <script lang="ts">
 	import { Panel, useNodesInitialized, useStore, useSvelteFlow, useViewport } from '@xyflow/svelte';
+	import { untrack } from 'svelte';
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/** zoom / fit as the creator's round icon buttons (instead of Svelte Flow's small square controls) */
-	let { focus, entry, onzoom }: { focus?: string; entry?: string; onzoom?: (zoom: number) => void } = $props();
+	let {
+		focus,
+		entry,
+		zoom: start,
+		onzoom,
+		onview
+	}: {
+		focus?: string;
+		entry?: string;
+		/** the zoom of the first view (the dock's Flow keeps it across levels and pages – UI-CONCEPTS E.3 b); default 1:1 */
+		zoom?: number;
+		onzoom?: (zoom: number) => void;
+		/** the zoom once the first view is set (what the dock keeps) */
+		onview?: (zoom: number) => void;
+	} = $props();
 	const flow = useSvelteFlow();
 	const store = useStore();
 	const viewport = useViewport();
-	$effect(() => onzoom?.(viewport.current.zoom));
+	const first = untrack(() => start) ?? 1;
+	$effect(() => {
+		const z = viewport.current.zoom;
+		onzoom?.(z);
+		if (started) untrack(() => onview?.(z));
+	});
 
 	/** below this zoom the boxes' caption type is too small to read: "Show everything" stops there (the minimap shows the rest) */
 	const READABLE = 0.5;
 
-	// the first view never shrinks the text: 1:1 around what's open (`focus`: the current box, centred) or else the
-	// entry (the chapter's first group, the season's first chapter, the first toon), near the top below the buttons; "Show everything" fits the graph down to READABLE
+	// the first view never shrinks the text: 1:1 (or the zoom the dock kept) around what's open (`focus`: the current box,
+	// centred) or else the entry (the chapter's first group, the season's first chapter, the first toon), near the top below the buttons; "Show everything" fits the graph down to READABLE
 	const ready = useNodesInitialized();
 	let started = $state(false);
 	$effect(() => {
@@ -26,13 +46,13 @@
 		const current = focus ? nodes.find((n) => n.id === focus) : undefined;
 		if (current) {
 			const s = box(current);
-			return void flow.setCenter(current.position.x + s.w / 2, current.position.y + s.h / 2, { zoom: 1 });
+			return void flow.setCenter(current.position.x + s.w / 2, current.position.y + s.h / 2, { zoom: first });
 		}
 		const top = nodes.find((n) => n.id === entry) ?? [...nodes].sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x)[0];
 		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 		const s = box(top);
 		// the entry's top edge 4rem below the canvas' top (the zoom buttons sit there)
-		void flow.setCenter(top.position.x + s.w / 2, top.position.y - 4 * rem + store.height / 2, { zoom: 1 });
+		void flow.setCenter(top.position.x + s.w / 2, top.position.y + (store.height / 2 - 4 * rem) / first, { zoom: first });
 	});
 	// later: another box becomes the current one (a new selection, the graph updated in place) – the zoom stays, the
 	// view only pans to it when it is out of sight (owner 2026-10-06, BACKLOG M.6)

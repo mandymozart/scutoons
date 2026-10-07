@@ -56,9 +56,9 @@
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import ProblemsDock from '$lib/components/page/problems-dock.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
-	import FlowPanel from '$lib/components/flow/flow-panel.svelte';
+	import FlowDock from '$lib/components/flow/flow-dock.svelte';
 	import LiveChip from '$lib/components/status/live-chip.svelte';
 	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -300,11 +300,41 @@
 		void view.gridSize;
 		view.savePrefs();
 	});
-	// `?flow=1` (from the season's / toon's Flow): the chapter opens with its Flow panel
-	let panel = $state<'problems' | 'history' | 'flow' | null>(page.url.searchParams.get('flow') === '1' ? 'flow' : null);
-	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds
+	// the Flow / Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); `?flow=1`
+	// (a deep link) opens the Flow
+	let panel = $state<'problems' | 'history' | 'flow' | null>(
+		page.url.searchParams.get('flow') === '1' || shellDock.has('flow') ? 'flow' : shellDock.has('problems') ? 'problems' : null
+	);
+	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds. The
+	// Flow and Problems are mounted by the shell (`kind` + `content`): the next page of the same kind takes them over
 	const PANELS = { problems: { icon: 'alert-triangle', title: () => m['creator.problems']() }, history: { icon: 'clock', title: () => m['creator.history']() }, flow: { icon: 'git-merge', title: () => m['creator.flow']() } };
-	useDock(() => (panel ? { panel: sidePanel, size: panel === 'flow' ? flowSize : panelSize, title: PANELS[panel].title(), icon: PANELS[panel].icon, close: () => (panel = null) } : null));
+	const flowProps = () => ({
+		input: {
+			level: 'chapter' as const,
+			groups: reachGroups,
+			reach,
+			chapter: chapterNumber,
+			current: view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1,
+			slice: view.section === 'slice' ? view.sliceIndex : -1,
+			who: flowWho,
+			toon,
+			registry: registryOf(registry),
+			facts,
+			nextChapter: flowNextChapter,
+			name: flowName,
+			text: flowText,
+			onopen: openFlowNode
+		},
+		onclose: () => (panel = null)
+	});
+	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, ongoto: gotoProblem, onclose: () => (panel = null) });
+	useDock(() => {
+		if (!panel) return null;
+		const docked = { size: panel === 'flow' ? flowSize : panelSize, title: PANELS[panel].title(), icon: PANELS[panel].icon, close: () => (panel = null) };
+		if (panel === 'flow') return { ...docked, kind: 'flow', content: { component: FlowDock, props: flowProps } };
+		if (panel === 'problems') return { ...docked, kind: 'problems', content: { component: ProblemsDock, props: problemsProps } };
+		return { ...docked, panel: sidePanel };
+	});
 	function togglePanel(next: 'problems' | 'history' | 'flow') {
 		panel = panel === next ? null : next;
 	}
@@ -876,30 +906,11 @@
 </div>
 
 
-<!-- the open page panel, shown in the shell's right dock (useDock) -->
+<!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
-	<div class="side-panel" class:is-flow={panel === 'flow'}>
-		{#if panel === 'problems'}
-			<ProblemsPanel {problems} docs={allDocs} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
-		{:else if panel === 'history' && activeDoc}
+	<div class="side-panel">
+		{#if panel === 'history' && activeDoc}
 			<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
-		{:else if panel === 'flow'}
-			<FlowPanel
-				groups={reachGroups}
-				{reach}
-				chapter={chapterNumber}
-				current={view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1}
-				slice={view.section === 'slice' ? view.sliceIndex : -1}
-				who={flowWho}
-				{toon}
-				registry={registryOf(registry)}
-				{facts}
-				nextChapter={flowNextChapter}
-				name={flowName}
-				text={flowText}
-				onopen={openFlowNode}
-				onclose={() => (panel = null)}
-			/>
 		{/if}
 	</div>
 {/snippet}
@@ -1065,13 +1076,6 @@
 		box-sizing: border-box;
 		overflow: auto;
 		padding: var(--space-1) var(--space-1) var(--space-3);
-	}
-	/* the Flow fills the panel edge to edge: its header is the Ask panel's, the canvas has no frame (owner 2026-10-06) */
-	.side-panel.is-flow {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		padding: 0;
 	}
 	.pad {
 		padding: var(--space-1);

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { DockHold } from '@scutoons/ui';
 	import CoverPage from '$lib/components/cover/cover-page.svelte';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -11,6 +12,8 @@
 
 {#await languages}
 	<p class="pad">{m['creator.loading']()}</p>
+	<!-- the last page's Flow / Problems / Info stay docked until this page takes them over (UI-CONCEPTS E.3 b) -->
+	<DockHold />
 {:then langs}
 	{#key `${toon}/${number}/${langs.languages.join(',')}`}
 		<CoverPage {toon} {number} languages={langs} />

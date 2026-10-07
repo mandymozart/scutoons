@@ -12,7 +12,12 @@
 	import { ASK_URL } from '$lib/config.ts';
 	import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
 
-	let { context, onclose }: { context: string; onclose: () => void } = $props();
+	/**
+	 * `context`: the current place as the crumb trail names it (Toon · Season · Chapter · Group · Slice – the layout's
+	 * `nav.crumbs`, UI-CONCEPTS E.3 c); `place`: the deepest crumb's address (`/catpope/chapter/1?group=…&slice=2`), sent
+	 * to the agent as the page's `ref` so it knows the ids, not only the names
+	 */
+	let { context, place, onclose }: { context: string; place?: string; onclose: () => void } = $props();
 
 	const labels: AskLabels = {
 		title: m['creator.ask'](),
@@ -67,7 +72,7 @@
 	{context}
 	appLanguage={getLocale()}
 	{labels}
-	extra={() => ({ textLanguage: textLanguage.value })}
+	extra={() => ({ textLanguage: textLanguage.value, ...(place ? { ref: place } : {}) })}
 	{hrefOf}
 	{stepLabel}
 	onstep={(step) => {

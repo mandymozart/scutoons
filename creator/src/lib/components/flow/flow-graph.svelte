@@ -19,6 +19,8 @@
 		current = () => false,
 		link = (n: FlowNode) => !!n.path,
 		pictures,
+		zoom,
+		onzoom,
 		onopen
 	}: {
 		flow: { nodes: FlowNode[]; edges: FlowEdge[] };
@@ -29,6 +31,10 @@
 		link?: (n: FlowNode) => boolean;
 		/** the boxes' pictures (images in the Flow): resolved in the boxes, loaded when a box comes near the view */
 		pictures?: FlowPictures;
+		/** the first view's zoom (the dock's Flow keeps the zoom across levels and pages – UI-CONCEPTS E.3 b) */
+		zoom?: number;
+		/** the zoom after the first view and on every change */
+		onzoom?: (zoom: number) => void;
 		onopen: (node: FlowNode) => void;
 	} = $props();
 
@@ -134,7 +140,7 @@
 			if (d.link) onopen(d.flow);
 		}}
 	>
-		<FlowControls {focus} {entry} onzoom={(zoom) => (small = zoom < SMALL_ZOOM)} />
+		<FlowControls {focus} {entry} {zoom} onzoom={(z) => (small = z < SMALL_ZOOM)} onview={onzoom} />
 		<MiniMap position="bottom-right" width={miniSize * 7.5} height={miniSize * 5.5} nodeColor={miniColor} nodeStrokeWidth={0} pannable zoomable ariaLabel={m['creator.flow']()} />
 	</SvelteFlow>
 </div>

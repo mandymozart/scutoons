@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseButton, DockFold, Segmented, shellDock } from '@scutoons/ui';
+	import { Segmented, shellDock } from '@scutoons/ui';
 	import { chapterFlow, groupFlow, sliceFlow, type ChapterReach, type CharacterRegistry, type FlowNode, type ToonFacts } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
@@ -9,8 +9,8 @@
 	 * The chapter's story flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"): a read-only, zoomable graph of what leads
 	 * where – @scutoons/content `chapterFlow` / `groupFlow` / `sliceFlow` over the editor's own `chapterReach`, so it
 	 * agrees with the "unreachable" chips. The level follows what is selected in the editor (a group → its group level, a
-	 * slice → its slice level); the small level switch goes back up. Docked on the right like Problems / History (left of
-	 * the Ask panel). The graph (Svelte Flow + dagre) is loaded only when the panel opens.
+	 * slice → its slice level); the small level switch goes back up. Shown in the dock's `FlowDock` (its header, the zoom it
+	 * keeps across levels and pages). The graph (Svelte Flow + dagre) is loaded only when the panel opens.
 	 */
 	let {
 		groups,
@@ -25,8 +25,9 @@
 		registry = null,
 		facts,
 		nextChapter,
-		onopen,
-		onclose
+		zoom,
+		onzoom,
+		onopen
 	}: {
 		/** the groups `reach` was computed from (scenes in place of their refs) */
 		groups: readonly any[] | null;
@@ -48,8 +49,10 @@
 		facts?: ToonFacts;
 		/** the season's next chapter (the follow-up bar's picture after the last group) */
 		nextChapter?: number;
+		/** the first view's zoom of a rebuilt graph (FlowDock keeps it) */
+		zoom?: number;
+		onzoom?: (zoom: number) => void;
 		onopen: (node: FlowNode) => void;
-		onclose: () => void;
 	} = $props();
 
 	const graph = import('$lib/components/flow/flow-graph.svelte');
@@ -98,11 +101,6 @@
 </script>
 
 <section class="flow" data-testid="flow-panel" data-level={level}>
-	<header>
-		<h2>{m['creator.flow']()}</h2>
-		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-		<CloseButton label={m['creator.close']()} onclick={onclose} />
-	</header>
 	{#if levels.length > 1}
 		<div class="levels">
 			<Segmented options={levels} value={level} onchange={(v) => (picked = v)} label={m['creator.flow_levels']()} testid="flow-levels" />
@@ -118,7 +116,7 @@
 				<!-- rebuilt only for another level; a new selection on the same level updates the graph in place and keeps the
 				     view (owner 2026-10-06, BACKLOG M.6: the Flow "jumped" on every selection) -->
 				{#key level}
-					<mod.default {flow} {ctx} current={isCurrent} {pictures} onopen={open} />
+					<mod.default {flow} {ctx} current={isCurrent} {pictures} {zoom} {onzoom} onopen={open} />
 				{/key}
 			{:catch error}
 				<p class="hint error">{String(error?.message ?? error)}</p>
@@ -131,20 +129,8 @@
 	.flow {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
-		min-height: 0;
-	}
-	/* the Ask panel's header (owner 2026-10-06): one control row, the title fills, edge to edge */
-	header {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
-		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-	}
-	h2 {
-		margin: 0;
 		flex: 1;
+		min-height: 0;
 	}
 	.levels {
 		padding: var(--space-05) var(--space-1) 0;

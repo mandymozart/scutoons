@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { untrack, type Snippet } from 'svelte';
-	import { ActionBar, useDock } from '@scutoons/ui';
+	import { ActionBar, shellDock, useDock, type DockContent } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -11,7 +11,7 @@
 	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
-	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import ProblemsDock from '$lib/components/page/problems-dock.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import LiveChip from '$lib/components/status/live-chip.svelte';
 	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
@@ -61,10 +61,11 @@
 		/** right end of the file status line (e.g. the script's line / column) – no row of its own */
 		status?: Snippet;
 		/**
-		 * a page panel of the page's own, docked where Problems / History are (the season's Flow): shown while `dockOpen`;
-		 * it and Problems / History take turns – the page makes room for whichever is open
+		 * the page's Flow (the season's `FlowDock` + its props), docked where Problems / History are: shown while `dockOpen`;
+		 * it and Problems / History take turns – the page makes room for whichever is open. Mounted by the shell (`kind:
+		 * 'flow'`): the next page's Flow takes it over (UI-CONCEPTS E.3 b)
 		 */
-		dock?: Snippet;
+		dock?: DockContent;
 		dockOpen?: boolean;
 	} = $props();
 
@@ -81,7 +82,8 @@
 	const session = new DocSession({ docs: () => docs, companions: () => companions(), beforeSave: () => beforeSave(), errorCount: () => errorCount });
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
-	let panel = $state<'problems' | 'history' | null>(null);
+	// Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b)
+	let panel = $state<'problems' | 'history' | null>(shellDock.has('problems') ? 'problems' : null);
 	/** what is docked on the right: Problems / History, or the page's own dock */
 	const shown = $derived(dockOpen && dock ? 'dock' : panel);
 	const size = $derived(shown === 'dock' ? dockSize : panelSize);
@@ -92,7 +94,15 @@
 	// docked in the shell's right dock (agents/DOCKING.md): the page makes room; with Ask open too the sidebar folds
 	const dockTitle = $derived(shown === 'dock' ? m['creator.flow']() : shown === 'history' ? m['creator.history']() : m['creator.problems']());
 	const dockIcon = $derived(shown === 'dock' ? 'git-merge' : shown === 'history' ? 'clock' : 'alert-triangle');
-	useDock(() => (shown ? { panel: sidePanel, size, title: dockTitle, icon: dockIcon, close: () => ((panel = null), (dockOpen = false)) } : null));
+	const problemsProps = () => ({ problems, docs, home: main?.entity, onclose: () => (panel = null) });
+	useDock(() => {
+		if (!shown) return null;
+		const docked = { size, title: dockTitle, icon: dockIcon, close: () => ((panel = null), (dockOpen = false)) };
+		// the Flow and Problems are mounted by the shell: the next page of the same kind takes them over
+		if (shown === 'dock' && dock) return { ...docked, kind: 'flow', content: dock };
+		if (shown === 'problems') return { ...docked, kind: 'problems', content: { component: ProblemsDock, props: problemsProps } };
+		return { ...docked, panel: sidePanel };
+	});
 	function togglePanel(next: 'problems' | 'history') {
 		dockOpen = false;
 		panel = panel === next ? null : next;
@@ -183,14 +193,10 @@
 </div>
 
 
-<!-- the open page panel, shown in the shell's right dock (useDock) -->
+<!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
-	<div class="side-panel" class:is-dock={shown === 'dock'}>
-		{#if shown === 'dock'}
-			{@render dock?.()}
-		{:else if panel === 'problems'}
-			<ProblemsPanel {problems} {docs} home={main?.entity} onclose={() => (panel = null)} />
-		{:else if panel === 'history' && historyDoc}
+	<div class="side-panel">
+		{#if panel === 'history' && historyDoc}
 			{#if docs.length > 1}
 				<p class="history-files">
 					{#each docs as d (d.entity)}
@@ -274,14 +280,6 @@
 		box-sizing: border-box;
 		overflow: auto;
 		padding: var(--space-1) var(--space-1) var(--space-3);
-	}
-	/* the page's dock (the season's Flow): its content fills the panel's height */
-	/* the dock (the Flow) fills the panel edge to edge (owner 2026-10-06) */
-	.side-panel.is-dock {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		padding: 0;
 	}
 	.pad {
 		padding: 1rem;

@@ -93,6 +93,19 @@ current place and never navigate by themselves except when the author clicks a b
 graph's nodes / edges in place + "pan only when off-screen"; (b) the dock keeps a panel across navigation when the new
 page registers the same kind; (c) Ask reads the trail (it already uses the crumbs).
 **Size:** (a) small, (b) medium (dock.svelte.ts). **Owner decides:** (a) can be done right away – yes?
+**Status (2026-10-07): (a) built** (47a5c8cd – the `{#key}` and the zoom-1 first view described under "Today" are gone;
+`flow-panel.svelte` rebuilds only for another level). **(b) built** (BACKLOG 10.46): a dock panel with a `kind` + a
+`content` (component + props) is mounted by the shell (`@scutoons/ui` dock.svelte.ts `DockContent`, app-shell.svelte);
+its page leaving HOLDS it, the next page docking the same kind takes the instance over (no remount, fold kept), nobody
+→ it closes after the navigation (`DockHold` in a loading route's `{#await}`); pages open their own when
+`shellDock.has(kind)`. The Flow is ONE `FlowDock` (creator `flow/flow-dock.svelte`) for toon / season / chapter: the
+header, width and fold stay, a new level (toon ↔ season ↔ chapter ↔ group ↔ slice, another chapter / toon) is rebuilt
+at the kept zoom, group → group on one level keeps the graph and its view; the toon / season boxes `goto` without
+`?flow=1` (a deep link still opens it). Also kept: Problems (`ProblemsDock`) and the ActionBar's Info (every app);
+History and the admin's list detail stay page-bound. **(c) built**: Ask already took its context from `nav.crumbs`
+(the Breadcrumbs' source, the real season since E.2); it now also sends the deepest crumb's address as the agent's
+`ref` (`/catpope/chapter/2?group=…`). Check: `npm run check:creator-flow-dock` (19). agents/DOCKING.md "Panels across
+pages".
 
 ---
 

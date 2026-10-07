@@ -77,16 +77,32 @@
 	$effect(() => {
 		if (!info) return;
 		try {
-			// a panel the page opened itself (a deep link: `?flow=1`) keeps the dock
-			infoOpen = localStorage.getItem(infoKey) === '1' && !untrack(() => shellDock.current);
+			// a panel the page opened itself (a deep link: `?flow=1`) keeps the dock; the last page's Info held across the
+			// navigation is taken over (agents/DOCKING.md "Panels across pages")
+			infoOpen = localStorage.getItem(infoKey) === '1' && untrack(() => !shellDock.current || shellDock.has('info'));
 		} catch {
 			/* private mode etc. */
 		}
 	});
 
-	// docked in the shell's right dock while open; a page panel taking the dock closes it for now (still remembered)
+	// docked in the shell's right dock while open; a page panel taking the dock closes it for now (still remembered). The
+	// shell mounts it (`kind` + `content`): the next page's Info takes the same panel over – only its text changes
 	const infoSize = panelWidth('sc-panel-width:info', 16, undefined, { foldable: true });
-	useDock(() => (info && infoOpen ? { panel: infoPanel, size: infoSize, title: infoTitle, icon: 'info', close: () => (infoOpen = false) } : null));
+	const infoProps = () => ({
+		id: `${uid}-info`,
+		title: infoTitle,
+		closeLabel: infoLabels.close,
+		foldLabel: infoLabels.fold,
+		maximizeLabel: infoLabels.maximize,
+		restoreLabel: infoLabels.restore,
+		href: infoHref,
+		hrefLabel: infoLabels.guide,
+		onclose: () => setInfo(false),
+		children: info
+	});
+	useDock(() =>
+		info && infoOpen ? { kind: 'info', content: { component: InfoPanel, props: infoProps }, size: infoSize, title: infoTitle, icon: 'info', close: () => (infoOpen = false) } : null
+	);
 
 	function setInfo(open: boolean) {
 		infoOpen = open;
@@ -146,22 +162,6 @@
 		</div>
 	{/if}
 </div>
-
-{#snippet infoPanel()}
-	<InfoPanel
-		id="{uid}-info"
-		title={infoTitle}
-		closeLabel={infoLabels.close}
-		foldLabel={infoLabels.fold}
-		maximizeLabel={infoLabels.maximize}
-		restoreLabel={infoLabels.restore}
-		href={infoHref}
-		hrefLabel={infoLabels.guide}
-		onclose={() => setInfo(false)}
-	>
-		{#if info}{@render info()}{/if}
-	</InfoPanel>
-{/snippet}
 
 <style>
 	/* the page gets the bottom padding wherever the bar is placed in the markup */

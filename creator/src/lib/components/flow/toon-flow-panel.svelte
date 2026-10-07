@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseButton, DockFold, shellDock } from '@scutoons/ui';
+	import { shellDock } from '@scutoons/ui';
 	import { toonFlow, type DeadPlace, type FlowNode } from '@scutoons/content';
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
@@ -13,11 +13,11 @@
 	 * The season's / toon's flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"): one box per chapter (its status, its
 	 * reach in the toon, unreachable groups), the season order, jumps and ends between chapters, exits to other seasons /
 	 * toons / products; the toon level adds the map places. Dead things below the graph. A box opens its chapter (with its
-	 * Flow), an exit its season / toon. Read-only; the graph is loaded only when it opens. The page docks it on the right
-	 * like the chapter's Flow panel (the season: MetaPage's dock, the toon page: a snippet) – in the shell's right dock
-	 * (useDock), left of the Ask panel, pushing the page, dragging wider.
+	 * Flow), an exit its season / toon. Read-only; the graph is loaded only when it opens. Shown in the dock's `FlowDock`
+	 * (the same panel as the chapter's: toon → season → chapter keep it mounted – UI-CONCEPTS E.3 b); a box navigates
+	 * the main area, the dock's Flow follows (no `?flow=1`: the open Flow is the dock's).
 	 */
-	let { toon, season, onclose }: { toon: string; season?: number; onclose: () => void } = $props();
+	let { toon, season, zoom, onzoom }: { toon: string; season?: number; zoom?: number; onzoom?: (zoom: number) => void } = $props();
 
 	const graph = import('$lib/components/flow/flow-graph.svelte');
 	let data = $state.raw<ToonFlowData | null>(null);
@@ -40,22 +40,17 @@
 	/** a box opens its page – a maximized Flow steps back (owner 2026-10-06) */
 	function open(n: FlowNode) {
 		shellDock.restore();
-		if (n.kind === 'chapter' || n.kind === 'place') return goto(`/${toon}/chapter/${n.chapter}?flow=1`);
+		if (n.kind === 'chapter' || n.kind === 'place') return goto(`/${toon}/chapter/${n.chapter}`);
 		const t = n.target;
 		if (!t) return;
-		if (t.type === 'chapter') return goto(`/${t.toon || toon}/chapter/${t.value}?flow=1`);
-		if (t.type === 'season') return goto(`/${toon}/season/${t.value}?flow=1`);
-		if (t.type === 'toon') return goto(`/${t.value}?flow=1`);
+		if (t.type === 'chapter') return goto(`/${t.toon || toon}/chapter/${t.value}`);
+		if (t.type === 'season') return goto(`/${toon}/season/${t.value}`);
+		if (t.type === 'toon') return goto(`/${t.value}`);
 	}
-	const openDead = (at: DeadPlace) => (shellDock.restore(), goto(`/${toon}/chapter/${at.chapter}?flow=1`));
+	const openDead = (at: DeadPlace) => (shellDock.restore(), goto(`/${toon}/chapter/${at.chapter}`));
 </script>
 
 <section class="flow" data-testid="toon-flow" data-level={season !== undefined ? 'season' : 'toon'}>
-	<header>
-		<h2>{m['creator.flow']()}</h2>
-		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
-		<CloseButton label={m['creator.close']()} onclick={onclose} />
-	</header>
 	<div class="canvas">
 		{#if error}
 			<p class="hint error">{error}</p>
@@ -65,7 +60,10 @@
 			{#await graph}
 				<p class="hint">{m['creator.loading']()}</p>
 			{:then mod}
-				<mod.default {flow} {ctx} {link} {pictures} onopen={open} />
+				<!-- toon ↔ season: another graph – rebuilt, the zoom kept (FlowDock) -->
+				{#key season}
+					<mod.default {flow} {ctx} {link} {pictures} {zoom} {onzoom} onopen={open} />
+				{/key}
 			{/await}
 		{/if}
 	</div>
@@ -76,20 +74,8 @@
 	.flow {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
-		min-height: 0;
-	}
-	/* the Ask panel's header (owner 2026-10-06): one control row, the title fills, edge to edge */
-	header {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
-		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-	}
-	h2 {
-		margin: 0;
 		flex: 1;
+		min-height: 0;
 	}
 	.hint {
 		font-size: var(--type-caption-size);

@@ -253,7 +253,9 @@
 {#snippet logoCrumb()}<span class="brand" data-testid="creator-brand">{@render logo()}</span>{/snippet}
 
 <!-- Ask: the outermost region of the shell (agents/DOCKING.md); the page's panels dock left of it (useDock) -->
-{#snippet askRegion()}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (ask.open = false)} />{/snippet}
+<!-- Ask reads the current place from the crumb trail (UI-CONCEPTS E.3 c – the Breadcrumbs' own source, the real season
+     included): the names for the person and the agent, the deepest crumb's address (ids) for the agent -->
+{#snippet askRegion()}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} place={nav.crumbs.length > 1 ? nav.crumbs[nav.crumbs.length - 1].href : undefined} onclose={() => (ask.open = false)} />{/snippet}
 
 <div class="creator sc-tool">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>

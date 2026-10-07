@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { dockRegion } from './dock-region.svelte.ts';
 	import { shellDock } from './dock.svelte.ts';
+	import DockContentHost from './dock-content.svelte';
 	import Divider from './divider.svelte';
 	import FoldButton from './fold-button.svelte';
 	import Rail from './rail.svelte';
@@ -316,7 +317,10 @@
 			<aside class="sc-shell-dock" id="sc-shell-dock" aria-label={dockFolded ? dock.title : dockLabel} data-testid="shell-dock" data-sc-maximize="dock">
 				{#if dockFolded}
 					<Rail side="right" label={dock.title} icon={dock.icon} unfoldLabel={dockUnfoldLabel} controls="sc-shell-dock" onunfold={() => dock.size.fold(false)} testid="dock-rail" />
-				{:else}
+				{:else if dock.content}
+					<!-- a panel that survives navigation (E.3 b): mounted here, the next page of the same kind hands it its props -->
+					{#key dock.kind}<DockContentHost content={dock.content} />{/key}
+				{:else if dock.panel}
 					{@render dock.panel()}
 				{/if}
 			</aside>

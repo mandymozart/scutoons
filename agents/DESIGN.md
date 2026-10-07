@@ -289,9 +289,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`; its `title` says what it
   shows and how to use it – no intro line in the panel); docked on the right like Problems / History on EVERY level
   (in the AppShell's right dock, left of Ask, the page makes room – never an overlay; drags wider up to half the window,
-  one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns with Problems /
+  one stored width, 28rem by default; `?flow=1` opens it (a deep link); the chapter editor and MetaPage take turns with Problems /
   History and Info; every page hands its panel to the shell with `useDock` – agents/DOCKING.md; it folds to a rail like
-  every dock panel). Svelte Flow + dagre are loaded only when it
+  every dock panel). ONE panel across pages (UI-CONCEPTS E.3 b): `FlowDock` (`kind: 'flow'`) stays mounted toon →
+  season → chapter (a box, the sidebar, a crumb – the next page's Flow takes it over), a new level is rebuilt at the
+  kept zoom; the Flow only reads the current place and navigates only on a click on a box. Svelte Flow + dagre are loaded only when it
   opens; zoom / fit are one square segmented group (a toolbar: "Round vs square"), a minimap bottom right. A box navigates (read-only otherwise).
   The panel is edge to edge (owner 2026-10-06): its header is the Ask panel's (one control row, title, round close
   button, the divider across), the canvas has no frame of its own; the toon's dead-things line sits under a divider.

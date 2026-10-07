@@ -30,6 +30,17 @@ every area below is on the model. Closing panels is unchanged (their ✕).
   time: opening one calls the shown one's `close`, so its page's toggle follows (Problems / History / Flow / a page's
   own dock, the ActionBar's Info, the admin's list detail take turns). Info restored from localStorage never displaces a
   panel the page opened itself (`?flow=1`); a panel that takes the dock from Info leaves Info remembered.
+- **Panels across pages** (UI-CONCEPTS E.3 b, 2026-10-07): a panel docked with a `kind` and a `content` (`{ component,
+  props }` instead of the `panel` snippet) is mounted by the SHELL (`DockContent`), not by the page. When its page
+  leaves, the dock HOLDS it (still shown, its last props); the next page that docks the same kind takes the mounted
+  instance over and hands it its own props – no remount, no flash, the fold kept. Pages ask `shellDock.has(kind)` on
+  init and open their own panel of that kind then (the Flow stays open toon → season → chapter without `?flow=1`).
+  Nobody takes it: it closes after that navigation's task; a route still loading (`{#await languages}`) puts a
+  `DockHold` in its pending branch, so the held panel waits until the page has mounted. Leaving the page ends a
+  maximize. Kinds: `flow` (creator `FlowDock` – toon / season / chapter, the zoom kept across levels and pages),
+  `problems` (`ProblemsDock` – chapter editor, meta pages), `info` (the ActionBar's `InfoPanel` – every app). Page
+  bound (a snippet, gone with the page): History (another document's history), the admin's list detail. Ask is a region
+  of the layout and never remounts; it reads the place from the crumbs (E.3 c).
 - **ONE `Divider`** (`@scutoons/ui` divider.svelte) for every drag edge: `role="separator"`, 0.75rem hit zone on the
   2px border, 3px ink line on hover / focus, pointer drag, ← / → 16 px (Shift 64), Home or double-click = normal width,
   `html.sc-resizing` during a drag. It drives any size object (`resizable`, `dockRegion`, `panelWidth`). Placed in its
@@ -106,6 +117,7 @@ every area below is on the model. Closing panels is unchanged (their ✕).
 | Problems / History / Flow (chapter) | `chapter-editor.svelte` → `useDock` | shell dock | `panelWidth(… { foldable })` 16rem / Flow 28rem; DockFold + rail | `:chapter`, `:flow` |
 | Problems / History / dock (meta pages, season Flow) | `page/meta-page.svelte` → `useDock` | shell dock | 24rem / 28rem; DockFold + rail | `:meta`, `:flow` |
 | Flow (toon page) | `[toonId]/+page.svelte` → `useDock` | shell dock | 28rem; DockFold + rail | `:flow` |
+| Flow across pages | `flow/flow-dock.svelte` (`kind: 'flow'`), `shared/ui` dock.svelte.ts / dock-content / dock-hold | shell dock | one instance toon → season → chapter, zoom kept | `:flow` |
 | Info (help) | `shared/ui/src/action-bar.svelte` → `useDock`, `info-panel.svelte` | shell dock | 16rem, drags, DockFold + rail; takes turns with the page's panels | `:info`, open state `infoKey` |
 | List + detail | `shared/ui/src/split-view.svelte` (admin catalog, codes) → `useDock` | shell dock | 24rem, drags, DockFold + rail, Escape / ✕ close; on phones covers the page | `:detail` |
 | Ask | `shared/ask/src/ask-panel.svelte` via the shell's `ask` (creator, admin, embassy) | shell outermost right | `panelWidth` 24rem … ½, its own Divider; full screen < 768px | `:ask` |
@@ -117,7 +129,9 @@ the fixed Info panel (`--info-panel-top/-width`, its 1100px page margin), `--ask
 (+ `--split-view-top/-bottom`), the script outline's own fold state / separator / px sizes, the Sheet's own drag edge
 markup, Divider's `fixed` mode.
 
-Checks: `npm run check:creator-dock` (maximize: Flow + inspector by button / Esc / Ctrl+Space, the main's unsaved edit,
+Checks: `npm run check:creator-flow-dock` (panels across pages: the same Flow toon → season → chapter → chapter, group
+→ group keeps the graph, the zoom kept, a box navigates, a page without a Flow closes the held one, Problems chapter →
+season, the admin's Info codes → assets, Ask's place); `npm run check:creator-dock` (maximize: Flow + inspector by button / Esc / Ctrl+Space, the main's unsaved edit,
 scroll and widths survive, a Flow box restores + navigates, another panel stays maximized, closing ends it; dock at 1280 / 1600 / 1920 + Ask, sidebar fold, dock rail by button / Enter /
 drag, outline fold + drag, inspector region, Ask, phone) and `npm run check:tools-dock` (36: admin list detail in the
 dock at 1280 / 1600 / 1920 + Ask, Info takes turns, rail, drag, Escape, catalog form, phone; embassy AppShell + Ask,
