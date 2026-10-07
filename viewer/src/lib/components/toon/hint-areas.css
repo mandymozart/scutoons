@@ -1,0 +1,106 @@
+/*
+ * The reader's tap / hover / sound areas with "Show hints" on (account page; owner 2026-10-07: nicer than dashed boxes
+ * and see-through zones): corner marks like the camera's viewfinder, glowing softly, and one small marker in the middle
+ * – tap: a ring that pings now and then, sound: a speaker, hover: a quiet ring. Without hints nothing is drawn (the
+ * areas still work). Tuning in the inspector: --sc-hint-color, --sc-hint-blend (mix-blend-mode), --sc-hint-corner.
+ * Elements: `.sc-hint-area` + `data-hint="tap | sound | hover"` (vn/triggers, audio/sample-trigger).
+ */
+:root {
+	--sc-hint-color: #00d1ff;
+	--sc-hint-blend: normal;
+	--sc-hint-corner: 1rem;
+}
+
+.sc-hint-area {
+	--c: var(--sc-hint-color);
+	--k: var(--sc-hint-corner);
+	opacity: 1;
+	transition:
+		opacity 0.3s ease,
+		filter 0.3s ease;
+}
+
+html.sc-show-hints .sc-hint-area {
+	mix-blend-mode: var(--sc-hint-blend);
+	background:
+		linear-gradient(var(--c), var(--c)) top left / var(--k) 2px no-repeat,
+		linear-gradient(var(--c), var(--c)) top left / 2px var(--k) no-repeat,
+		linear-gradient(var(--c), var(--c)) top right / var(--k) 2px no-repeat,
+		linear-gradient(var(--c), var(--c)) top right / 2px var(--k) no-repeat,
+		linear-gradient(var(--c), var(--c)) bottom left / var(--k) 2px no-repeat,
+		linear-gradient(var(--c), var(--c)) bottom left / 2px var(--k) no-repeat,
+		linear-gradient(var(--c), var(--c)) bottom right / var(--k) 2px no-repeat,
+		linear-gradient(var(--c), var(--c)) bottom right / 2px var(--k) no-repeat;
+	filter: drop-shadow(0 0 0.2rem var(--c));
+}
+
+html.sc-show-hints .sc-hint-area:hover {
+	filter: drop-shadow(0 0 0.45rem var(--c));
+}
+
+/* the marker in the middle */
+html.sc-show-hints .sc-hint-area::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 1.5rem;
+	height: 1.5rem;
+	margin: -0.75rem 0 0 -0.75rem;
+	box-sizing: border-box;
+	pointer-events: none;
+}
+
+html.sc-show-hints .sc-hint-area[data-hint='tap']::after {
+	border: 2px solid var(--c);
+	border-radius: 50%;
+	animation: sc-hint-ping 2.8s ease-out infinite;
+}
+
+html.sc-show-hints .sc-hint-area[data-hint='hover']::after {
+	border: 2px dotted var(--c);
+	border-radius: 50%;
+	opacity: 0.8;
+}
+
+html.sc-show-hints .sc-hint-area[data-hint='sound']::after {
+	background: var(--c);
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5' fill='black'/%3E%3Cpath d='M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14'/%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5' fill='black'/%3E%3Cpath d='M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14'/%3E%3C/svg%3E") center / contain no-repeat;
+	animation: sc-hint-breathe 2.8s ease-in-out infinite;
+}
+
+/* used up (a tap area that already ran): quieter */
+html.sc-show-hints .sc-hint-area.triggered {
+	opacity: 0.45;
+}
+html.sc-show-hints .sc-hint-area.triggered::after {
+	animation: none;
+}
+
+@keyframes sc-hint-ping {
+	0% {
+		transform: scale(0.6);
+		opacity: 0;
+	}
+	15% {
+		opacity: 1;
+	}
+	60%,
+	100% {
+		transform: scale(1.8);
+		opacity: 0;
+	}
+}
+
+@keyframes sc-hint-breathe {
+	0%,
+	100% {
+		opacity: 0.55;
+		transform: scale(0.92);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.05);
+	}
+}

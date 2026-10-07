@@ -175,6 +175,13 @@
 		"members_hint_signed_in": "{chapter} ist für Mitglieder: löse deinen Code ein.",
 		"where_code": "Wo bekomme ich einen Code?"
 	},
+	"code_entry": {
+		"type_instead": "Code lieber eintippen",
+		"label": "Oder Code eintippen",
+		"placeholder": "z. B. Ab3xY9",
+		"submit": "Einlösen",
+		"invalid": "Das sieht nicht nach einem Code aus – Buchstaben, Ziffern, - und _ (so wie gedruckt, Groß- und Kleinschreibung zählt)."
+	},
 	"membership_blocker": {
 		"title": "Mitgliedschaft erforderlich",
 		"description": "Dieser Inhalt erfordert eine gültige SCUTOONS-Mitgliedschaft.",

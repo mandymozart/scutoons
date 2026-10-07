@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../../hint-areas.css';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { repeatOf, type VNSliceEvent, type VNEvent } from '@scutoons/content';
@@ -75,7 +76,8 @@
 {#if rect}
 	<div
 		bind:this={triggerElement}
-		class="event-trigger event-trigger--click"
+		class="event-trigger event-trigger--click sc-hint-area"
+		data-hint="tap"
 		class:own
 		class:triggered
 		style:left="{rect.x}%"
@@ -88,26 +90,14 @@
 {/if}
 
 <style>
+	/* drawn only with "Show hints" (account page, off by default – BACKLOG M.1): corner marks + a ping (hint-areas.css) */
 	.event-trigger {
 		position: absolute;
 		pointer-events: none;
-		opacity: 0.5;
-		transition: opacity 0.3s ease;
 		z-index: 2;
 	}
 
-	/* the outline only with "Show hints" (account page, off by default – owner 2026-10-07, BACKLOG M.1): without it the
-	   area is still tappable, just not drawn */
-	:global(html:not(.sc-show-hints)) .event-trigger {
-		border-color: transparent !important;
-		background: none !important;
-		box-shadow: none !important;
-	}
-
 	.event-trigger--click {
-		border: 2px dashed rgba(76, 175, 80, 0.8);
-		background: rgba(76, 175, 80, 0.1);
-		box-shadow: inset 0 0 20px rgba(76, 175, 80, 0.3);
 		cursor: pointer;
 	}
 
@@ -117,12 +107,5 @@
 		z-index: auto;
 	}
 
-	.event-trigger:hover {
-		opacity: 0.8;
-	}
 
-	.event-trigger.triggered {
-		opacity: 0.2;
-		border-style: solid;
-	}
 </style>

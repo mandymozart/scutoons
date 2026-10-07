@@ -8,6 +8,7 @@
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import accountIcon from '$lib/icons/account.svg';
+	import CodeEntry from '$lib/components/camera/code-entry.svelte';
 
 	let {
 		isPreview = false,
@@ -69,6 +70,10 @@
 						{m['account.buy_access']()}
 					</button>
 				</div>
+				<!-- the code as printed for the buyer, when the camera won't read it (owner 2026-10-07): the same way on as a scan -->
+				<div class="membership-code">
+					<CodeEntry id="blocker-code" oncode={(code) => itemsUi.openClaim(code)} />
+				</div>
 			</div>
 		</section>
 	</div>
@@ -96,6 +101,10 @@
 	}
 	section {
 		padding: 1rem;
+	}
+	.membership-code {
+		margin-top: 1.5rem;
+		max-width: 28rem;
 	}
 	.membership-actions {
 		display: flex;

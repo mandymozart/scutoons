@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../hint-areas.css';
 	import type { SampleTrigger } from '@scutoons/content';
 
 	/**
@@ -12,7 +13,8 @@
 {#if trigger?.rect && (trigger.type === 'click' || trigger.type === 'hover')}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
-		class="sample-trigger"
+		class="sample-trigger sc-hint-area"
+		data-hint="sound"
 		style:left="{trigger.rect.x}%"
 		style:top="{trigger.rect.y}%"
 		style:width="{trigger.rect.width}%"
@@ -25,24 +27,12 @@
 {/if}
 
 <style>
-	/* the outline only with "Show hints" (account page, off by default – owner 2026-10-07, BACKLOG M.1): without it the
-	   area is still tappable, just not drawn */
-	:global(html:not(.sc-show-hints)) .sample-trigger {
-		border-color: transparent !important;
-		background: none !important;
-		box-shadow: none !important;
-	}
-
-	/* Audio Hotzones */
+	/* a sound area – drawn only with "Show hints" (account page, off by default – BACKLOG M.1): corner marks + a speaker
+	   (hint-areas.css) */
 	.sample-trigger {
 		position: absolute;
-		border: 2px dashed rgba(255, 193, 7, 0.8);
-		background: rgba(255, 193, 7, 0.1);
 		pointer-events: auto;
-		opacity: 0.5;
-		transition: opacity 0.3s ease;
 		z-index: 1;
-		box-shadow: inset 0 0 20px rgba(255, 193, 7, 0.3);
 		cursor: pointer;
 	}
 
@@ -51,13 +41,7 @@
 		z-index: auto;
 	}
 
-	.sample-trigger:hover {
-		opacity: 0.8;
-	}
 
-	.sample-trigger:active {
-		opacity: 1;
-	}
 
 	/* Flash animation when hotzone comes into view */
 	@keyframes hotzoneFlash {

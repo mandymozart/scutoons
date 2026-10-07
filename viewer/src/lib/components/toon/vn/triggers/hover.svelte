@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../../hint-areas.css';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { repeatOf, type VNSliceEvent, type VNEvent } from '@scutoons/content';
@@ -75,7 +76,8 @@
 {#if rect}
 	<div
 		bind:this={triggerElement}
-		class="vn-trigger hover"
+		class="vn-trigger hover sc-hint-area"
+		data-hint="hover"
 		class:own
 		class:triggered
 		style:left="{rect.x}%"
@@ -88,26 +90,11 @@
 {/if}
 
 <style>
+	/* drawn only with "Show hints" (account page, off by default – BACKLOG M.1): corner marks + a quiet ring (hint-areas.css) */
 	.vn-trigger {
 		position: absolute;
 		pointer-events: none;
-		opacity: 0.5;
-		transition: opacity 0.3s ease;
 		z-index: 2;
-	}
-
-	/* the outline only with "Show hints" (account page, off by default – owner 2026-10-07, BACKLOG M.1): without it the
-	   area is still tappable, just not drawn */
-	:global(html:not(.sc-show-hints)) .vn-trigger {
-		border-color: transparent !important;
-		background: none !important;
-		box-shadow: none !important;
-	}
-
-	.vn-trigger.hover {
-		border: 2px dashed rgba(156, 39, 176, 0.8);
-		background: rgba(156, 39, 176, 0.1);
-		box-shadow: inset 0 0 20px rgba(156, 39, 176, 0.3);
 	}
 
 	/* in the layer stack: it takes the pointer itself, at its place in the stack (no z-index of its own) */
@@ -116,12 +103,5 @@
 		z-index: auto;
 	}
 
-	.vn-trigger:hover {
-		opacity: 0.8;
-	}
 
-	.vn-trigger.triggered {
-		opacity: 0.2;
-		border-style: solid;
-	}
 </style>

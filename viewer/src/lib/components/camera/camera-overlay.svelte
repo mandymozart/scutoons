@@ -11,6 +11,7 @@
 	import { maxOf, scanPasses, scanTargets, scoreScan } from '@scutoons/content';
 	import { localized } from '$lib/contexts/inventory.svelte.ts';
 	import { findKnown, remember } from './scan-memory.ts';
+	import CodeEntry from './code-entry.svelte';
 
 	let {
 		request,
@@ -19,6 +20,17 @@
 	}: { request: CameraRequest; onclose: () => void; oncode: (code: string) => void } = $props();
 
 	const inventory = getInventoryContext();
+
+	/** the page's own code field under the camera (membership screen): "type it instead" goes there */
+	const pageCodeField = untrack(() => (typeof document === 'undefined' ? null : document.querySelector<HTMLInputElement>('[data-code-entry]:not([data-code-entry="camera-code"]) input')));
+	function typeInstead() {
+		const field = pageCodeField;
+		onclose();
+		requestAnimationFrame(() => {
+			field?.scrollIntoView({ block: 'center' });
+			field?.focus();
+		});
+	}
 
 	type Mode = 'qr' | 'object';
 	type Status = 'starting' | 'running' | 'denied' | 'unsupported' | 'insecure' | 'not_found' | 'error';
@@ -252,7 +264,8 @@
 	<canvas bind:this={canvas} hidden></canvas>
 
 	<!-- 80s HUD (owner 2026-10-02, drafts 1 + 2): no bars, thin lines over the picture, 1rem mono everywhere -->
-	<div class="scanlines" aria-hidden="true"></div>
+	<!-- the QR scanner without scan lines (owner 2026-10-07: "the camera style markers are fine, the scan lines are too much") -->
+	{#if mode !== 'qr'}<div class="scanlines" aria-hidden="true"></div>{/if}
 	<header>
 		<h2>{mode === 'qr' ? m['camera.title_qr']() : objectTitle}</h2>
 		<button class="close" onclick={onclose} aria-label={m['items.close']()}>
@@ -330,6 +343,13 @@
 			{/if}
 		{:else}
 			<p>{m['camera.hint_qr']()}</p>
+			<!-- when the camera won't read it (owner 2026-10-07): back to the page's code field, the cursor in it – no second
+			     field here; a page without one (e.g. the end-of-chapter redeem) gets the field in the camera -->
+			{#if pageCodeField}
+				<button type="button" class="type-code" onclick={typeInstead} data-testid="camera-type-code">{m['code_entry.type_instead']()}</button>
+			{:else}
+				<CodeEntry dark id="camera-code" {oncode} />
+			{/if}
 		{/if}
 	</footer>
 </div>
@@ -363,6 +383,13 @@
 	}
 	video.hidden {
 		visibility: hidden;
+	}
+	.type-code {
+		border: 2px solid currentColor;
+		background: transparent;
+		color: inherit;
+		text-transform: none;
+		padding: 0 1rem;
 	}
 	.scanlines {
 		position: absolute;

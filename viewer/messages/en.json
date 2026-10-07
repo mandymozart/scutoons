@@ -175,6 +175,13 @@
 		"members_hint_signed_in": "{chapter} is for members: redeem your code.",
 		"where_code": "Where do I get a code?"
 	},
+	"code_entry": {
+		"type_instead": "Type the code instead",
+		"label": "Or type the code",
+		"placeholder": "e.g. Ab3xY9",
+		"submit": "Redeem",
+		"invalid": "That doesn't look like a code – letters, digits, - and _ (as printed, upper and lower case matter)."
+	},
 	"membership_blocker": {
 		"title": "Membership Required",
 		"description": "This content requires a valid SCUTOONS membership.",

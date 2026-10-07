@@ -240,7 +240,7 @@ function inFrame(slice: HTMLElement, frames: (zoom: number) => Keyframe[], ms: n
  */
 function spotlight(slice: HTMLElement, keyframes: Keyframe[], ms: number) {
 	const d = document.createElement('div');
-	Object.assign(d.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+	Object.assign(d.style, { position: 'absolute', inset: '0', pointerEvents: 'none', mixBlendMode: 'var(--sc-fx-blend, normal)' });
 	fxLayer().appendChild(d);
 	let live = true;
 	const place = () => {
@@ -248,7 +248,7 @@ function spotlight(slice: HTMLElement, keyframes: Keyframe[], ms: number) {
 		const r = slice.getBoundingClientRect();
 		const cx = r.left + r.width / 2;
 		const cy = r.top + r.height / 2;
-		d.style.background = `radial-gradient(ellipse ${r.width * 0.75}px ${r.height * 0.75}px at ${cx}px ${cy}px, rgba(0,0,0,0) 45%, rgba(0,0,0,0.85) 100%)`;
+		d.style.background = `radial-gradient(ellipse ${r.width * 0.75}px ${r.height * 0.75}px at ${cx}px ${cy}px, rgba(0,0,0,0) 45%, var(--sc-fx-shade, rgba(0,0,0,0.85)) 100%)`;
 		requestAnimationFrame(place);
 	};
 	place();
@@ -260,7 +260,8 @@ function spotlight(slice: HTMLElement, keyframes: Keyframe[], ms: number) {
 
 function cover(host: HTMLElement, background: string, keyframes: Keyframe[], ms: number) {
 	const d = document.createElement('div');
-	Object.assign(d.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '4', background });
+	// tuning in the inspector: --sc-fx-blend (mix-blend-mode), --sc-fx-flash, --sc-fx-shade
+	Object.assign(d.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '4', background, mixBlendMode: 'var(--sc-fx-blend, normal)' });
 	host.appendChild(d);
 	d.animate(keyframes, { duration: ms, easing: 'ease-out' }).onfinish = () => d.remove();
 }
@@ -294,10 +295,10 @@ export function impactCue(kind: Impact, options: { slice?: HTMLElement | null; s
 		}
 	} else if (kind === 'flash') {
 		buzz(25);
-		cover(slice ?? fxLayer(), '#ffffff', [{ opacity: 0.95 }, { opacity: 0 }], ms);
+		cover(slice ?? fxLayer(), 'var(--sc-fx-flash, #ffffff)', [{ opacity: 0.95 }, { opacity: 0 }], ms);
 	} else if (kind === 'vignette') {
 		const fade: Keyframe[] = [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }];
-		if (!slice) cover(fxLayer(), 'radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,0.85) 100%)', fade, ms);
+		if (!slice) cover(fxLayer(), 'radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, var(--sc-fx-shade, rgba(0,0,0,0.85)) 100%)', fade, ms);
 		else spotlight(slice, fade, ms);
 	}
 }
