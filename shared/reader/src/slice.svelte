@@ -135,6 +135,10 @@
 		min-height: 200px;
 		/* dialog font sizes are in cqw = % of the slice width */
 		container-type: inline-size;
+		/* a text box reaching past the slice's side (or one shivering there) never widens the page – on phones a page
+		   wider than the screen moves / re-zooms ("the page jumps", owner 2026-10-07, BACKLOG M.2); up / down it may
+		   still overlap the next slice (clip: no scroll container) */
+		overflow-x: clip;
 	}
 
 	.slice img {

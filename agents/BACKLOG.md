@@ -490,12 +490,6 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       and older drafts – stored with spaces (`"type": "end"`, an end with a jump to scene-20), so a first search for the
       compact form missed it; content:check and the new `setup` command report them. The same case as 10.37's known one
       – decided with 10.35 (the scene-20 jump).)_
-- [ ] M.2 **Reader: the page jumps when animations fire** – e.g. when a showTextBox effect fires, the page jumps oddly.
-      _(2026-10-07, not reproduced: the effects are transforms inside the absolutely placed box (no layout change);
-      scrolling catpope ch2 at 390 px recorded no layout shift and no scroll jump; a slice's showTextBox click
-      trigger only plays inside its group's run. **Owner: where exactly (chapter / slice / phone or desktop)?**
-      Candidates once it is seen: the box's text fitting (dialog.svelte measures and resizes), the wait overlay
-      (an inset-0 button over the VN area), the pulse's scale(1.2) at a slice edge.)_
 - [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
       anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
       portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
@@ -548,6 +542,17 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
 ## Done
 
+- [x] M.2 **Reader: the page jumps when animations fire** – e.g. when a showTextBox effect fires, the page jumps oddly.
+      _(2026-10-07, not reproduced: the effects are transforms inside the absolutely placed box (no layout change);
+      scrolling catpope ch2 at 390 px recorded no layout shift and no scroll jump; a slice's showTextBox click
+      trigger only plays inside its group's run. **Owner: where exactly (chapter / slice / phone or desktop)?**
+      Candidates once it is seen: the box's text fitting (dialog.svelte measures and resizes), the wait overlay
+      (an inset-0 button over the VN area), the pulse's scale(1.2) at a slice edge.)_
+      _(found + fixed 2026-10-07 with the owner's repro (catpope ch1 slice 31, the "GRRRR" showTextBox): the box
+      reaches past the slice's right edge (x 37 % + 70 %, rotated), the reader didn't clip a slice sideways, so the page
+      became 421–424 px wide on a 390 px screen while it shivered – a phone moves / re-zooms such a page. Now `.slice`
+      clips sideways (`overflow-x: clip`, shared/reader slice.svelte – up / down a box may still overlap), the page stays
+      390 px (measured headless at 390 × 844); the creator warns about a box past a side (the only one in the content).)_
 - [x] 10.19 _(priority last – owner 2026-10-06)_ Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
       seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
       only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.

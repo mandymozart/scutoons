@@ -184,6 +184,10 @@ function checkRect(c: Collector, rect: unknown, path: Path, heightRequired: bool
 function checkDialog(c: Collector, d: any, path: Path) {
 	if (!isObj(d)) return c.error(path, 'dialog entry must be an object');
 	checkRect(c, d.rect, [...path, 'rect'], false);
+	// the reader clips a slice sideways (a box past the side used to widen the page – BACKLOG M.2)
+	if (isObj(d.rect) && isNum(d.rect.x) && isNum(d.rect.width) && (d.rect.x < -0.5 || d.rect.x + d.rect.width > 100.5)) {
+		c.warn([...path, 'rect'], `the text box reaches past the slice's side (${Math.round(d.rect.x)} – ${Math.round(d.rect.x + d.rect.width)} %) – the reader cuts it at the edge`);
+	}
 	const text = d.text;
 	if (!(isStr(text) || (Array.isArray(text) && text.every(isStr)))) c.error([...path, 'text'], 'text must be a string or string[]');
 	if (d.id !== undefined && !isStr(d.id)) c.error([...path, 'id'], 'id must be a string');
