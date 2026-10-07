@@ -247,9 +247,9 @@
 	.step.ok {
 		font-weight: var(--font-weight-regular);
 	}
+	/* the row in progress: not a selection (DESIGN.md "Selection") – a cyan tint + its status badge, not inverted */
 	tr.current {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--surface-tint-cyan);
 	}
 	.err {
 		display: block;
