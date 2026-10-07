@@ -133,3 +133,6 @@ the graph.
   feedback 0.65, its time drifting with two slow LFOs (≈ 210–550 ms); Dunst's echo: feedback 0.6. Fixed: the sound
   didn't come back after leaving a page while an effect ran (taking a chain out disconnected the output 1.2 s later,
   the new chain included).
+- LSD sound, final for now (owner): feedback 0.78, the echo time drifting ≈ 120–640 ms (two LFOs), and a stereo panner
+  swinging left / right at a pace that speeds up and slows down (an LFO on the swing LFO's rate, ≈ 0.05–0.45 Hz).
+  Slam's shake: `showTextBox.shake` slice | screen | none. Repeated reader notices count up (× 2) instead of stacking.

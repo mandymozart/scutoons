@@ -12,7 +12,8 @@ import { musicOutput } from './AdaptiveMusicPlayer.ts';
  * One chain per reader effect (@scutoons/content READER_EFFECTS).
  * `psychedelic` ("Farbrausch", owner: "a delay and some high pass filter"): a high-pass that sweeps
  * slowly (≈ 160 … 600 Hz – higher took the music's body away, owner 2026-10-08) into a feedback echo (feedback 0.78 –
- * owner: "longer") whose time drifts with two slow LFOs (≈ 120 … 640 ms, speeding up and slowing down unevenly), mixed with the filtered
+ * owner: "longer") whose time drifts with two slow LFOs (≈ 120 … 640 ms, speeding up and slowing down unevenly), then
+ * panned left and right at a pace that itself speeds up and slows down; mixed with the filtered
  * sound.
  */
 export type AudioEffectKind = ReaderEffectKind;
@@ -65,24 +66,41 @@ function farbrausch(ctx: AudioContext): Chain {
 	wet.gain.value = 0;
 	wet.gain.setTargetAtTime(0.55, ctx.currentTime, FADE / 3);
 	const output = ctx.createGain();
+	// the sound wanders left and right, and the wandering itself speeds up and slows down (owner 2026-10-08): a panner
+	// swung by an LFO whose rate a second, slower LFO moves (≈ 0.05 … 0.45 swings a second)
+	const panner = ctx.createStereoPanner();
+	const swing = ctx.createOscillator();
+	const swingDepth = ctx.createGain();
+	swing.frequency.value = 0.25;
+	swingDepth.gain.value = 0.8;
+	const pace = ctx.createOscillator();
+	const paceDepth = ctx.createGain();
+	pace.frequency.value = 0.045;
+	paceDepth.gain.value = 0.2;
+	pace.connect(paceDepth).connect(swing.frequency);
+	swing.connect(swingDepth).connect(panner.pan);
+	swing.start();
+	pace.start();
+	const mix = ctx.createGain();
 
 	input.connect(highpass);
-	highpass.connect(dry).connect(output);
+	highpass.connect(dry).connect(mix);
 	highpass.connect(delay);
 	delay.connect(feedback).connect(delay);
-	delay.connect(wet).connect(output);
+	delay.connect(wet).connect(mix);
+	mix.connect(panner).connect(output);
 	return {
 		input,
 		output,
 		stop() {
-			for (const o of [lfo, drift1, drift2]) {
+			for (const o of [lfo, drift1, drift2, swing, pace]) {
 				try {
 					o.stop();
 				} catch {
 					/* stopped */
 				}
 			}
-			for (const n of [input, highpass, lfo, depth, drift1, drift1Depth, drift2, drift2Depth, dry, delay, feedback, wet, output]) n.disconnect();
+			for (const n of [input, highpass, lfo, depth, drift1, drift1Depth, drift2, drift2Depth, dry, delay, feedback, wet, mix, panner, swing, swingDepth, pace, paceDepth, output]) n.disconnect();
 		}
 	};
 }
