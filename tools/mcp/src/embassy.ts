@@ -6,7 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
-import { ApiError, createApiClient, createEmbassyApi, createProductsApi, ORG_TYPES, STAGES, TRACKS, type Activity, type OrgDetail } from '@scutoons/api';
+import { ApiError, createApiClient, createEmbassyApi, createProductsApi, isStockist, ORG_TYPES, STAGES, TRACKS, type Activity, type OrgDetail } from '@scutoons/api';
 import type { Config } from './config.ts';
 import { apiMessage } from './server.ts';
 
@@ -26,6 +26,48 @@ const guard =
 const KINDS = ['call', 'mail_out', 'mail_in', 'dm', 'meeting', 'note'] as const;
 const OUTCOMES = ['reached', 'voicemail', 'no_answer', 'call_back', 'declined'] as const;
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('YYYY-MM-DD');
+const countries = z.array(z.string().regex(/^[A-Za-z]{2}$/)).describe('ISO codes, e.g. ["DE", "AT"] – the whole list');
+const upper = (codes: string[] | undefined) => (codes === undefined ? {} : { territories: codes.map((c) => c.toUpperCase()) });
+
+/** An organisation's own fields as the agent may set them (all optional: an update changes only what it names) */
+const orgFields = {
+	name: z.string().min(1).max(255).optional(),
+	type: z.enum(ORG_TYPES).optional(),
+	city: z.string().max(255).optional(),
+	country: z.string().regex(/^([A-Za-z]{2})?$/).optional().describe('ISO code, e.g. NL; "" = unknown'),
+	website: z.string().max(1024).optional(),
+	email: z.string().max(255).optional().describe('the organisation\'s general address; "" clears it'),
+	phone: z.string().max(64).optional(),
+	links: z
+		.array(z.string())
+		.optional()
+		.describe('social profiles and other pages (Instagram, Facebook, Bandcamp, Soundcloud …) as full URLs – the whole list: read_org first and keep the ones that stay'),
+	tags: z.array(z.string()).optional().describe('genre / scene tags – the whole list'),
+	territories: countries.optional().describe('countries they cover (agents, distributors)'),
+	tier: z.enum(['A', 'B', 'C', '']).optional().describe('"" = none'),
+	source: z.string().max(255).optional().describe('where the contact came from, e.g. "tip from a friend"'),
+	notes: z.string().max(20000).optional().describe('replaces the notes – read them first and keep what stays'),
+	do_not_contact: z.boolean().optional().describe('true = they asked not to be contacted: no mail, no DM, no call'),
+	// stores (type store / record_shop): the public "Where to buy" page
+	listed: z.boolean().optional().describe('stores: shown on scutoons.com'),
+	independent: z.boolean().optional().describe('stores: a small / independent vendor (listed first)'),
+	address: z.string().max(255).optional().describe('stores: street + postcode (public)'),
+	opening: z.string().max(255).optional().describe('stores: opening info as the store writes it (public)'),
+	carries: z.array(z.string()).optional().describe('stores: product ids (list_releases) it carries – the whole list')
+};
+
+/** A person's fields (all optional: an update changes only what it names) */
+const personFields = {
+	name: z.string().min(1).max(255).optional(),
+	role: z.string().max(255).optional().describe('booker, editor, buyer, owner …'),
+	email: z.string().max(255).optional(),
+	phone: z.string().max(64).optional(),
+	link: z.string().max(1024).optional().describe('their social profile or page (Instagram …) as a full URL – a DM goes there'),
+	language: z.string().max(16).optional().describe('e.g. de, en, nl'),
+	territories: countries.optional(),
+	notes: z.string().max(20000).optional(),
+	do_not_contact: z.boolean().optional().describe('true = they asked not to be contacted')
+};
 
 /** a log entry as the agent reads it (long mail texts cut) */
 const entry = (a: Activity) => ({
@@ -113,10 +155,12 @@ export function createEmbassyServer(config: Config): McpServer {
 					city: i.org.city,
 					// the organisation's own address / number (a mail can go there when no person is known)
 					email: i.org.email,
+					// social profiles (Instagram, Facebook, Bandcamp …): a DM is a valid first contact when no address is known
+					links: i.org.links,
 					phone: i.org.phone,
 					track: i.lead.track,
 					stage: i.lead.stage,
-					people: i.people.map((x) => ({ id: x.id, name: x.name, role: x.role, phone: x.phone, email: x.email })),
+					people: i.people.map((x) => ({ id: x.id, name: x.name, role: x.role, phone: x.phone, email: x.email, link: x.link })),
 					last: i.last_activity ? entry(i.last_activity) : null
 				}))
 			});
@@ -165,7 +209,7 @@ export function createEmbassyServer(config: Config): McpServer {
 		'read_org',
 		{
 			description:
-				'One organisation with everything known: details, notes, people (role, email, phone, language, opted out), leads per track and the communication log (newest first; mails with subject and text). `recipients` = the addresses you may draft to (opted-out ones are left out; language "" = unknown, go by the country).',
+				'One organisation with everything known: details (incl. `links` = social profiles), notes, people (role, email, phone, `link` = their profile, language, opted out), leads per track and the communication log (newest first; mails with subject and text). `recipients` = the addresses you may draft to (opted-out ones are left out; language "" = unknown, go by the country).',
 			inputSchema: z.object({ id: z.string(), log: z.number().int().min(0).max(200).optional().describe('log entries, default 30') }),
 			annotations: read
 		},
@@ -180,15 +224,18 @@ export function createEmbassyServer(config: Config): McpServer {
 					city: org.city,
 					country: org.country,
 					website: org.website,
+					links: org.links,
 					email: org.email,
 					phone: org.phone,
 					tags: org.tags,
 					tier: org.tier,
 					territories: org.territories,
+					source: org.source,
 					notes: org.notes,
-					do_not_contact: org.do_not_contact
+					do_not_contact: org.do_not_contact,
+					...(isStockist(org.type) ? { listed: org.listed, independent: org.independent, address: org.address, opening: org.opening, carries: org.carries } : {})
 				},
-				people: d.people.map((p) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, link: p.link, language: p.language, notes: p.notes, do_not_contact: p.do_not_contact })),
+				people: d.people.map((p) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, link: p.link, language: p.language, territories: p.territories, notes: p.notes, do_not_contact: p.do_not_contact })),
 				leads: d.leads.map((l) => ({ track: l.track, stage: l.stage, next_at: l.next_at, owner: l.owner_email, last_contact_at: l.last_contact_at })),
 				recipients: recipients(d),
 				log: d.activities.slice(0, log ?? 30).map(entry)
@@ -223,7 +270,7 @@ export function createEmbassyServer(config: Config): McpServer {
 		'log_activity',
 		{
 			description:
-				'Writes a touchpoint into an organisation\'s communication log and moves the lead on like the app does: call reached / mail_in / meeting → in conversation, next check in 10 days; voicemail / no_answer → 3 days; call_back needs next_at; declined → stage "no"; mail_out → contacted, call in 6 days. Mails sent from the app are logged on their own – use mail_out only for a mail sent elsewhere. Only log what the person told you happened.',
+				'Writes a touchpoint into an organisation\'s communication log and moves the lead on like the app does: call reached / mail_in / meeting → in conversation, next check in 10 days; voicemail / no_answer → 3 days; call_back needs next_at; declined → stage "no"; mail_out → contacted, call in 6 days; dm (a message the person sent on social media / a messenger) → contacted, check in 6 days. Mails sent from the app are logged on their own – use mail_out only for a mail sent elsewhere. Only log what the person told you happened.',
 			inputSchema: z.object({
 				org_id: z.string(),
 				kind: z.enum(KINDS),
@@ -265,18 +312,15 @@ export function createEmbassyServer(config: Config): McpServer {
 		'create_org',
 		{
 			description:
-				'Adds a new organisation (and optionally its leads, one per track – stage, next date, owner) like the app\'s "New organisation". search_orgs first: the same name in the same city / country answers "duplicate" with the existing id – use that one instead. Only fill in what the person told you or what you checked (website, city, country); never invent contact data. Answers the new id.',
+				'Adds a new organisation (and optionally its people and its leads, one per track – stage, next date, owner) like the app\'s "New organisation". search_orgs first: the same name in the same city / country answers "duplicate" with the existing id – use that one instead. Only fill in what the person told you or what you checked (website, social links, city, country); never invent contact data. Answers the new id.',
 			inputSchema: z.object({
+				...orgFields,
 				name: z.string().min(1).max(255),
 				type: z.enum(ORG_TYPES),
-				city: z.string().max(255).optional(),
-				country: z.string().regex(/^[A-Za-z]{2}$/).optional().describe('ISO code, e.g. NL'),
-				website: z.string().max(1024).optional(),
-				email: z.string().max(255).optional(),
-				phone: z.string().max(64).optional(),
-				tags: z.array(z.string()).optional().describe('genre / scene tags'),
-				source: z.string().max(255).optional().describe('where the contact came from, e.g. "tip from a friend"'),
-				notes: z.string().max(20000).optional(),
+				people: z
+					.array(z.object({ ...personFields, name: z.string().min(1).max(255) }))
+					.optional()
+					.describe('the people known there'),
 				leads: z
 					.array(
 						z.object({
@@ -290,15 +334,74 @@ export function createEmbassyServer(config: Config): McpServer {
 			}),
 			annotations: write
 		},
-		guard(async ({ country, ...input }) => {
+		guard(async ({ country, territories, people, ...input }) => {
 			try {
-				const { org, leads } = await embassy.createOrg({ ...input, ...(country ? { country: country.toUpperCase() } : {}) });
-				return text({ id: org.id, name: org.name, leads: leads.map((l) => ({ track: l.track, stage: l.stage, next_at: l.next_at, owner: l.owner_email })) });
+				const { org, people: added, leads } = await embassy.createOrg({
+					...input,
+					...(country !== undefined ? { country: country.toUpperCase() } : {}),
+					...upper(territories),
+					...(people ? { people: people.map(({ territories: t, ...p }) => ({ ...p, ...upper(t) })) } : {})
+				});
+				return text({ id: org.id, name: org.name, people: added.map((p) => ({ id: p.id, name: p.name })), leads: leads.map((l) => ({ track: l.track, stage: l.stage, next_at: l.next_at, owner: l.owner_email })) });
 			} catch (error) {
 				if (error instanceof ApiError && error.code === 'duplicate')
 					return fail(`duplicate: ${input.name} exists already (id ${String((error.body as Record<string, unknown> | undefined)?.id ?? '?')}) – use that organisation.`);
 				throw error;
 			}
+		})
+	);
+
+	server.registerTool(
+		'update_org',
+		{
+			description:
+				"Changes an organisation's details – only the fields you name: contact details, social links, type, place, tags, tier, notes, source, do not contact, the store fields. Lists (links, tags, territories, carries) and notes are replaced as a whole: read_org first and keep what stays. Only set what the person told you or what you checked; never invent contact data.",
+			inputSchema: z.object({ org_id: z.string(), ...orgFields }),
+			annotations: write
+		},
+		guard(async ({ org_id, country, territories, ...input }) => {
+			const { org } = await embassy.updateOrg(org_id, { ...input, ...(country !== undefined ? { country: country.toUpperCase() } : {}), ...upper(territories) });
+			return text({ id: org.id, name: org.name, changed: [...Object.keys(input), ...(country !== undefined ? ['country'] : []), ...(territories ? ['territories'] : [])] });
+		})
+	);
+
+	server.registerTool(
+		'add_person',
+		{
+			description: 'Adds a person (booker, editor, buyer …) to an organisation: name, role, email, phone, social profile link, language, notes. Only what the person told you or what you checked.',
+			inputSchema: z.object({ org_id: z.string(), ...personFields, name: z.string().min(1).max(255) }),
+			annotations: write
+		},
+		guard(async ({ org_id, territories, ...input }) => {
+			const { person } = await embassy.addPerson(org_id, { ...input, ...upper(territories) });
+			return text({ id: person.id, name: person.name, org_id });
+		})
+	);
+
+	server.registerTool(
+		'update_person',
+		{
+			description: "Changes a person's details – only the fields you name: role, email, phone, social profile link, language, notes, do not contact. Notes are replaced as a whole: read_org first.",
+			inputSchema: z.object({ person_id: z.string(), ...personFields }),
+			annotations: write
+		},
+		guard(async ({ person_id, territories, ...input }) => {
+			const { person } = await embassy.updatePerson(person_id, { ...input, ...upper(territories) });
+			return text({ id: person.id, name: person.name, org_id: person.org_id, changed: [...Object.keys(input), ...(territories ? ['territories'] : [])] });
+		})
+	);
+
+	server.registerTool(
+		'delete_person',
+		{
+			description:
+				'Removes a person from an organisation (ambassadors only; their log entries stay, without the person). Only when the person you work for asks for exactly this – someone who left, or a duplicate. Someone who does not want to hear from us is not deleted: update_person do_not_contact.',
+			inputSchema: z.object({ person_id: z.string() }),
+			annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false }
+		},
+		guard(async ({ person_id }) => {
+			await embassy.deletePerson(person_id);
+			return text({ deleted: person_id });
 		})
 	);
 

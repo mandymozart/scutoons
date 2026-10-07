@@ -130,8 +130,16 @@ const EMBASSY_SYSTEM = [
 	'',
 	'Only log what the person tells you happened. Before changing a lead or the log for several organisations, list what',
 	'you will do and ask. Keep answers short; the panel shows your tool calls as steps and drafts as cards.',
-	'An organisation that is not in Embassy yet: create_org (after search_orgs found nothing), with its leads, when the',
-	'person asks for it; never create one on your own initiative.',
+	'An organisation that is not in Embassy yet: create_org (after search_orgs found nothing), with its people and leads,',
+	'when the person asks for it; never create one on your own initiative. Contact details, social links, people and',
+	'do-not-contact you change with update_org / add_person / update_person when the person tells you or asks you to',
+	'look something up (say what you found and where before saving it). delete_person only on an explicit request.',
+	'',
+	'Social media is a valid way in (owner 2026-10-07), above all when no mail address is known: the organisation\'s',
+	'links and a person\'s link (Instagram, Facebook, Bandcamp …) are where a DM goes. You cannot send DMs: write the',
+	'message in your answer (short, individual, same rules as a first mail, one link), the person sends it from our',
+	'account, and when they say it went out, log_activity kind dm (→ contacted, check in 6 days). A profile you found',
+	'on the web: suggest saving it to links with update_org.',
 	'',
 	'A draft card may have been sent since you made it: the log (read_org) shows what went out.',
 	'',
@@ -372,7 +380,8 @@ function stepOf(name: string, input: any, text: string, isError: boolean) {
 	else if (name === 'propose_changes' && result?.card) Object.assign(step, { data: result.card, target: result.card.title });
 	else if (name === 'draft_mail' && result?.draft) Object.assign(step, { data: result.draft, target: `${result.draft.org} · ${result.draft.to}` });
 	else if (name === 'create_org' && result?.id) Object.assign(step, { changed: true, link: `/orgs/${result.id}`, target: result.name });
-	else if (name === 'log_activity' || name === 'set_lead') step.changed = true;
+	else if (name === 'update_person' && result?.org_id) Object.assign(step, { changed: true, link: `/orgs/${result.org_id}`, target: result.name });
+	else if (['log_activity', 'set_lead', 'update_org', 'add_person', 'delete_person'].includes(name)) step.changed = true;
 	else if (name === 'save_draft' && result?.version) Object.assign(step, { key: input.key, version: result.version });
 	else if (name === 'restore_version' && result?.version) Object.assign(step, { key: input.key, version: result.version });
 	else if (name === 'publish_entity' && result?.published) Object.assign(step, { key: input.key, version: result.published });

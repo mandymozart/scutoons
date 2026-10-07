@@ -94,7 +94,7 @@ the tools (`APPS` in ask.ts):
 | app | role (API `/me/`) | tools |
 | --- | --- | --- |
 | `creator` | creator | the tools above (`src/server.ts`) |
-| `embassy` | liaison / ambassador / admin | `src/embassy.ts`: `today`, `my_portion` (the week at their own pace), `search_orgs` (`quiet`: answered before, quiet now), `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org` (new organisation + leads, duplicate check), `draft_mail` (a card in the panel – the person sends it from the app, the agent never sends), `check_inbox` |
+| `embassy` | liaison / ambassador / admin | `src/embassy.ts`: `today`, `my_portion` (the week at their own pace), `search_orgs` (`quiet`: answered before, quiet now), `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org` (new organisation + people + leads, duplicate check), `update_org`, `add_person`, `update_person`, `delete_person`, `draft_mail` (a card in the panel – the person sends it from the app, the agent never sends), `check_inbox` |
 | `admin` | admin | the tools above that only read + `src/admin.ts`: the admin API read (`dashboard`, `count_codes`, `list_codes`, `read_code`, `list_events`, `list_users`, `read_user`, `list_claims`, `read_claim`, `email_log`, `read_catalog`, `catalog_history`, `read_calendar`, `asset_usages`, `read_settings`, `agent_usage`) and `propose_changes` (a card in the panel – catalog fields, calendar entries as a draft, an asset file replaced in place; the admin presses Apply, the agent never writes) |
 
 It runs Claude (Sonnet 5.5) with the app's tools in-process (the person's session; the API's role checks decide),

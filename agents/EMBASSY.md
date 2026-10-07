@@ -289,7 +289,7 @@ and products** (no new "pitch" record yet). The agent only **drafts**: a person 
   embassy's AppShell (agents/DOCKING.md: the page makes room and stays centred, its edge drags it wider), full screen on
   phones. On an organisation page the agent knows which one (name shown,
   id sent). Tools (tools/mcp `src/embassy.ts`): `today`, `search_orgs`, `read_org` (incl. the log and `recipients` =
-  addresses that may get mail), `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org` (a new organisation + its leads; duplicate → the existing id), `draft_mail`, `check_inbox`.
+  addresses that may get mail), `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org` (a new organisation + its people and leads; duplicate → the existing id), `update_org` (only the fields named: contact details, social `links`, do-not-contact, store fields), `add_person`, `update_person`, `delete_person` (ambassadors), `draft_mail`, `check_inbox`. Social media is a valid channel (owner 2026-10-07), above all without a mail address: the agent writes the DM in its answer, the person sends it from our account, then `log_activity` kind `dm` (→ contacted, check in 6 days).
   The system prompt carries the "Communication strategy" above (individual first contact, their language, "Top Toy /
   <name>", one ask, one link, never invent facts, calls for follow-ups).
 - **Draft card** (`embassy/src/lib/components/mail-draft.svelte`): `draft_mail` comes back as a card (to, subject,
