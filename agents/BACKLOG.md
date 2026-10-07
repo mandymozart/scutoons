@@ -102,14 +102,22 @@ after Docker: check:events 29/29 incl. a real reader-name bug, PHPUnit 299/299, 
 video autoplay regression from M.2). All on `main`, **not pushed**. **O –** with the deploy run
 `2026-10-07-sequence-no-type.mysql.sql` (SELECT first; HANDOVER loose ends). Still owed: the admin's item-limit fields
 checked with the admin running. Found, not changed: the Reader panel's frame takes the keyboard focus when it loads
-(creator shortcuts go to the viewer until the page is clicked). UI-CONCEPTS E.9 lists 9 phone findings for the owner.
-**Decisions waiting:** (1) 10.39 pastes into another toon write `../<toon>/…` (all 272 existing cross-toon paths use
-`../`) instead of BACKLOG's `/<toon>/…` – confirm; (2) a unique item (`max_world: 1`) when its owner's account is
-deleted; (3) 10.52 made the Flow's zoom one SQUARE group (a toolbar) – the E.4 draft showed round ones: which for the
-slice editor's zoom flyout?; (4) 10.48 the end-action box on desktop is full width / ≥ 10rem – narrower / lower? the
-primary choice lost its arrow – back?; (5) toasts can cover the field clicked next (moved bottom-left, owner); (6) a
-crumb read "scene-13" while the group key was "scene-14" (10.46 note); (7) `check:creator-chapter` never runs – every
-fitting chapter has an unpublished draft: publish / drop the drafts, or make a clean test chapter.
+(creator shortcuts go to the viewer until the page is clicked). UI-CONCEPTS E.9's 9 phone findings: deferred (owner).
+**Decisions waiting** (owner answers 2026-10-07) – still open:
+- 10.52 / E.4: the slice editor's zoom flyout – one SQUARE group like the Flow's zoom (a toolbar), or round as the E.4
+  draft showed?
+- 10.49: a `frame-ancestors` CSP for the viewer (framing limited to the creator; needs the static hosts' .htaccess –
+  DOCKING.md "The Reader panel").
+
+Answered: cross-toon pastes write `../<toon>/…` – **keep `../`** (10.39 text + ASSETS.md updated); the end-action box on
+desktop – **good as it is** (full width, no arrow back); toasts – **good** (bottom-left); UI-CONCEPTS E.9's phone
+findings – **ignore for now** (marked deferred there); the crumb "scene-13" on group key "scene-14" – **data, not a
+bug**: catpope ch2's scene document `scene:catpope:2:scene-14` has carried `label: "scene-13"` since 2026-10-03 (renamed,
+EXAMPLES.md), the crumb shows a group's label and the URL its key – the same group; `check:creator-chapter` – **runs
+again**: catpope ch1 was published (no pending draft), 87/87 after two fixes in the check (catpope ch1's content has
+an error – an audio sample with an empty id on group 1 slice 2 – so Publish asks "publish anyway?" first: the check
+now prints the errors and goes on to the naming confirm; "+ event" counts one line more instead of assuming an empty
+slice).
 
 
 - 10.57 done (lane C): the dock holds several panels side by side (`shellDock.panels`, one per kind, fixed places detail · History · Problems · Flow · Reader · Info, recency `used`; one `useDock` per panel – chapter editor Flow / Reader / Problems / History, MetaPage Flow / Problems / History; Info no longer gives way); each panel its own header, `DockFold` (via `DockSlot`), ✕ and Divider (measured from its own right edge); out of room → narrower together to 12rem, then the least recently used folds to its rail (a squeezed rail's click brings it back); the main folds by hand only ("Fold the page" in the leftmost panel, Ctrl+Shift+\, its rail with the deepest crumb; a Problems "go to" unfolds it); maximize = everything else on its rail (sidebar, main, other panels, Ask), railed regions stay mounted (laid out at their last width, hidden – the Reader keeps its frame); **footer: the ActionBar stays** while maximized / the main folded – it vanished only because the page renders it inside the hidden main; it is the page's chrome and acts on the document the maximized panel drives. Rails' buttons at Ask's header buttons (Rail padding `--space-05`). Checks: svelte-check ui / creator / admin / embassy 0, tools-css ok, creator-dock 100/100, tools-dock 44/44, creator-flow-dock 19/19, creator-reader 36/36 (+ Flow · Reader · Ask at 1440 / 1920, a Flow box moves the Reader, squeeze + "Fold the page", maximize); shots `dock2-*`. Found: the Reader's frame takes the keyboard focus when it loads (creator shortcuts then go to the viewer) – not changed.
@@ -638,7 +646,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
         item shares the pickup memory (`picked:<slice image>#<id>`, slice-items.ts). Existing ids stay (readers'
         keys); a one-off SELECT for collisions that already exist.
       - **Media: cross-toon references, no copies** (owner: duplicates "create a mess"). A paste into another toon
-        writes `/<source toon>/…` (CDN root); one helper `toonAsset(toon, path)` in reader + creator replaces every
+        writes `../<source toon>/…` (owner 2026-10-07: keep `../`); one helper `toonAsset(toon, path)` in reader + creator replaces every
         `` `${toon}/${path}` `` (slice image, variants, video, audio, key visual) – today only the VN character views
         read a leading `/`, so a picked slice image from another toon is broken (an existing bug, fixed by this).
         Stored `slice.image` values are never rewritten (the pickup key contains them) – a SELECT first for `/` / `../`.

@@ -85,8 +85,8 @@ levels and videos, keyvisuals, thumbnails, covers, hero, credits, download, audi
 Stored `slice.image` values are never rewritten (they are part of the pickup key `picked:<slice image>#<id>`).
 Dev data 2026-10-07 (all versions): 272 out-of-folder values, all `../` (slice images 32 + 162 scene, thumbnails 19 +
 3, season squares 38, toon avatars 3, tile images 18 – e.g. toptoy / yellowmouse / sandbox chapters using catpope's
-slices); 0 with a leading `/`. Writing `../` for pastes keeps ONE form in the data (the BACKLOG draft said `/<toon>/…`;
-both resolve alike).
+slices); 0 with a leading `/`. Writing `../` for pastes keeps ONE form in the data (owner 2026-10-07: keep `../` –
+the BACKLOG draft's `/<toon>/…` is not written; a leading `/` still resolves, from the CDN root).
 
 ## Operations (`AssetService`, API + CLI)
 

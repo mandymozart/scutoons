@@ -393,24 +393,25 @@ ActionBar, the inspector as a sheet with icon + count tabs, More · Save · `de 
 | creator wanted images | 768 | the list's 22rem columns (24px root) made the page 840px wide | no horizontal page scroll | ✓ e1a6dadd – columns at most the width, paths break |
 | creator map | 375 / 768 | zoom out · % · zoom in · fit as frameless icon buttons | "Round vs square": a toolbar is one square group | ✓ e1a6dadd – one `sc-seg` like the Flow's |
 | creator map | 375 / 768 | place markers 16px | touch ≥ 2.75rem | ✓ e1a6dadd – a 2.75rem target around the point (the point stays small) |
-| creator Flow | 375 / 768 | a box's jump links ("C2 · mama-start") 15px high | touch ≥ 2.75rem | **owner decides** – the graph's density; zoom in, or bigger links in the boxes on touch? |
-| creator cast | 375 | rows cramped: the name wraps in a narrow column, the remove × drops under the grip | the name comes first | **owner decides** – stack the role field below the name on phones (left alone: the file has the owner's pending edit) |
-| creator cast, credits, script | 375 / 768 | standalone text links ("edit", "Reader (published)", "Format rules") 14–20px high | touch ≥ 2.75rem | **owner decides** – text links count as inline (WCAG's inline exception); give standalone ones full height? (admin "Claims for this code", "Open (n)"; embassy mail links: the same question) |
-| creator chapter drawer | 375 | a slice row's file name cut to "s1c2-…" | – | **owner decides** – number + thumbnail identify the slice; drop the file name on phones? |
-| creator toon page | 375 | the bar says "Save draft", the chapter / meta pages "Save" below 1280 | one wording per width | **owner decides** – it fits; make it "Save" too? |
+| creator Flow | 375 / 768 | a box's jump links ("C2 · mama-start") 15px high | touch ≥ 2.75rem | **deferred** (owner 2026-10-07: "ignore for now") – the graph's density; zoom in, or bigger links in the boxes on touch? |
+| creator cast | 375 | rows cramped: the name wraps in a narrow column, the remove × drops under the grip | the name comes first | **deferred** (owner 2026-10-07: "ignore for now") – stack the role field below the name on phones (left alone: the file has the owner's pending edit) |
+| creator cast, credits, script | 375 / 768 | standalone text links ("edit", "Reader (published)", "Format rules") 14–20px high | touch ≥ 2.75rem | **deferred** (owner 2026-10-07: "ignore for now") – text links count as inline (WCAG's inline exception); give standalone ones full height? (admin "Claims for this code", "Open (n)"; embassy mail links: the same question) |
+| creator chapter drawer | 375 | a slice row's file name cut to "s1c2-…" | – | **deferred** (owner 2026-10-07: "ignore for now") – number + thumbnail identify the slice; drop the file name on phones? |
+| creator toon page | 375 | the bar says "Save draft", the chapter / meta pages "Save" below 1280 | one wording per width | **deferred** (owner 2026-10-07: "ignore for now") – it fits; make it "Save" too? |
 | creator media slots, "New character" | 390 | not `--control-height` high (check:tools-ui's known findings) | one control height | known, unchanged (tiles, not single-line controls) |
 | admin homepage | 375 / 768 | the add row (select + Add) made the page 532px wide; a long variant name 1205px at 768 | no horizontal page scroll | ✓ 24841820 – the row wraps, the selects shrink, rows stack below 1024px |
 | admin batch | 768 | the progress cells' sr-only words escaped the table's scroll box: page 869px wide | no horizontal page scroll | ✓ 24841820 – the scroll box is positioned |
 | admin catalog (items) | 375 | "Import images …" in the bar's end ran under "More" | the ActionBar fits | ✓ 24841820 – the page's bar actions go with the secondary ones into More when narrow |
 | admin tables | 375 / 768 | sort links 14px high; the logo link 18px | touch ≥ 2.75rem | ✓ 24841820 |
 | admin user | 375 / 768 | role toggles drawn as tall boxes (the button min-height on touch) | a switch is a switch | ✓ 24841820 – the track keeps its size, a `--control-height` target around it |
-| admin lists (codes, catalog, users …) | 375 | the table scrolls sideways inside its frame | reachable, no page scroll | **owner decides** – fine as is, or a stacked (card) row on phones? |
-| admin catalog | 375 | the nine kind tabs wrap into three rows | – | **owner decides** – a select on phones? |
+| admin lists (codes, catalog, users …) | 375 | the table scrolls sideways inside its frame | reachable, no page scroll | **deferred** (owner 2026-10-07: "ignore for now") – fine as is, or a stacked (card) row on phones? |
+| admin catalog | 375 | the nine kind tabs wrap into three rows | – | **deferred** (owner 2026-10-07: "ignore for now") – a select on phones? |
 | embassy, every page | 768 | brand + four labelled nav entries + search + Ask: page 1014px wide | no horizontal page scroll | ✓ 5a00d309 – the top nav shows its icons only from 768 to 1023px |
 | embassy | 375 / 768 | the logo link 20px high | touch ≥ 2.75rem | ✓ 5a00d309 |
-| embassy Today | 375 | the week row's second round button wraps onto its own line | – | **owner decides** – minor |
-| embassy import | 375 / 768 | the file input is the browser's (22px high) | one control height | **owner decides** – a media slot / button for the CSV? |
+| embassy Today | 375 | the week row's second round button wraps onto its own line | – | **deferred** (owner 2026-10-07: "ignore for now") – minor |
+| embassy import | 375 / 768 | the file input is the browser's (22px high) | one control height | **deferred** (owner 2026-10-07: "ignore for now") – a media slot / button for the CSV? |
 
 **Counts:** creator 19 findings – 13 fixed, 5 owner decides, 1 known; admin 7 – 5 fixed, 2 owner decides (+ the shared
 text-link question); embassy 4 – 2 fixed, 2 owner decides. After the fixes no page scrolls sideways at 375 or 768 and
-no ActionBar overflows (the audit's measure).
+no ActionBar overflows (the audit's measure). **Owner 2026-10-07:** the 9 "owner decides" findings are deferred –
+"ignore for now"; nothing to build until the owner brings them up again.
