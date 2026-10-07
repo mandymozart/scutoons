@@ -46,7 +46,8 @@ final class SetupCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $apply = (bool) $input->getOption('apply');
-        $failed = false;
+        /** every step's result (ok = true) */
+        $ok = [];
         $output->writeln('Database: ' . (string) $this->db->value('SELECT DATABASE()') . ($apply ? '' : ' (report only – --apply to do the missing steps)'));
 
         // 1. schema
@@ -56,7 +57,7 @@ final class SetupCommand extends Command
             $this->runCommand('migrate', [], $output);
             $pending = ($runner->needsBaseSchema() ? 1 : 0) + count(array_filter($runner->status(), fn($at) => $at === null));
         }
-        $failed = !$this->report($output, 'schema', $pending === 0, $pending ? "$pending migration(s) pending" : 'every migration applied') || $failed;
+        $ok[] = $this->report($output, 'schema', $pending === 0, $pending ? "$pending migration(s) pending" : 'every migration applied');
         if ($pending) return self::FAILURE; // the rest needs the tables
 
         // 2. content + catalog
@@ -65,7 +66,7 @@ final class SetupCommand extends Command
             $this->runCommand('db:prod-seed', [], $output);
             [$entities, $items] = [$this->count('entity_versions'), $this->count('catalog_items')];
         }
-        $failed = !$this->report($output, 'content', $entities > 0 && $items > 0, "$entities stored versions, $items catalog items" . ($entities && $items ? '' : ' – locally: --apply --seed (db:prod-seed); production: import the export')) || $failed;
+        $ok[] = $this->report($output, 'content', $entities > 0 && $items > 0, "$entities stored versions, $items catalog items" . ($entities && $items ? '' : ' – locally: --apply --seed (db:prod-seed); production: import the export'));
 
         // 3. asset registry
         $assets = $this->count('assets');
@@ -73,19 +74,20 @@ final class SetupCommand extends Command
             $this->runCommand('assets:scan', [], $output);
             $assets = $this->count('assets');
         }
-        $failed = !$this->report($output, 'assets', $assets > 0, $assets ? "$assets assets registered" : 'the registry is empty – assets:scan') || $failed;
+        $ok[] = $this->report($output, 'assets', $assets > 0, $assets ? "$assets assets registered" : 'the registry is empty – assets:scan');
 
         // 4. content check (read-only)
         $check = $entities ? $this->runCommand('content:check', [], new NullOutput()) : 0;
-        $failed = !$this->report($output, 'check', $check === 0, $check === 0 ? 'every stored document is valid' : 'content:check found problems – run it for the list') || $failed;
+        $ok[] = $this->report($output, 'check', $check === 0, $check === 0 ? 'every stored document is valid' : 'content:check found problems – run it for the list');
 
         // 5. settings
         $missing = array_values(array_filter(['CDN_URL', 'MAIL_FROM', 'LOG_PATH'], fn(string $key) => trim($this->settings->get($key)) === ''));
         $log = $this->settings->path('LOG_PATH');
         $logDir = $log !== '' ? dirname($log) : '';
         $writable = $logDir === '' || (is_dir($logDir) ? is_writable($logDir) : is_writable(dirname($logDir)));
-        $failed = !$this->report($output, 'settings', !$missing && $writable, $missing ? 'empty: ' . implode(', ', $missing) : ($writable ? 'set; the log folder is writable' : "the log folder $logDir is not writable")) || $failed;
+        $ok[] = $this->report($output, 'settings', !$missing && $writable, $missing ? 'empty: ' . implode(', ', $missing) : ($writable ? 'set; the log folder is writable' : "the log folder $logDir is not writable"));
 
+        $failed = in_array(false, $ok, true);
         $output->writeln($failed ? 'Not ready yet.' : 'Ready.');
         return $failed ? self::FAILURE : self::SUCCESS;
     }
