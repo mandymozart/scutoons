@@ -4,8 +4,86 @@ One list for the open work (owner 2026-10-06: "we need to merge cutover post ite
 CUTOVER.md Phase 10 ("after the beta", items keep their numbers 10.x so commits and docs that cite "CUTOVER 10.x" still
 find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the runbook of the cutover itself.
 
-New entries: the next free number (10.41, …), owner + date, then **O –** for steps the owner runs on production. Tick
+New entries: the next free number (10.54, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
+
+## Day run 2026-10-07 (owner away: "go automatically") – the plan, all decided with the owner
+
+Rules as for night runs: small commits on `main`, **never push**, the dev DB is free, `npm run check` + the step's
+browser checks before each commit, each agent commits only its own paths. Two lanes with separate files:
+**lane V** (viewer / server / content schema) and **lane C** (creator / admin / shared ui). Decisions below are the
+owner's (2026-10-07, drafts reviewed in this session's browser). Results go into "Day run result" at the end of this
+section.
+
+Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 10.52 → 10.53 + 10.43 → 10.40 → 10.39 → 10.44
+(E.1) → 10.45 (E.2) → 10.47 (E.4) → 10.46 (E.3 b/c) → 10.49 (E.6, after lane V) → 10.50 (mobile).
+
+- [ ] 10.41 **Season URLs + season labels** – `/<toon>/chapter/N` stays THE address forever (printed QR codes);
+      `/<toon>/season/S/chapter/K` and `/<toon>/season/S` (toon page at that season) redirect to it, resolved from the
+      season's `sequence`. Chapter 0 = "Prologue" (name stays), not counted: `season/1/chapter/2` = `chapter/2`,
+      `season/2/chapter/1` = `chapter/6` when season 1 holds 0–5. A later season's trailer is just its first chapter.
+      Labels: "Season 2 · Chapter 1" (one-season toons: "Chapter N"; no #6 shown) in the tab title (new, the chapter
+      page has none), the coming-soon / gate heading, the next bar / box choice, the toon page's chapter list grouped
+      by season. **Positions frozen (option A):** the creator's validator errors when a listed (not draft) chapter is
+      moved / removed / something inserted before it in its season; appending is always fine. Optional: an API
+      lookup season+position → number.
+- [ ] 10.42 **A season's `sequence` holds chapters only** – data: every entry is `"type":"chapter"` (dev dump). A
+      migration `2026-10-07-sequence-no-type.mysql.sql` (SELECT first: entries whose type isn't chapter → 0; then
+      remove `type` from every sequence entry of `season` rows in entity_versions / content_versions as present),
+      `SequenceItemDoc` without `type`, no type checks left (Library.php :712 / :756, template.ts :77, the creator's
+      sequence editor, make-sandbox.ts). Songs in credits + scripts stay (owner). **O –** run the migration with the
+      deploy.
+- [ ] 10.43 **Slice editor: one layer stack** – text boxes AND items in ONE drag-reorderable list ("Layers" tab
+      replaces "Text boxes" + "Items"; Audio / Events / Slice stay), the order = what's on top (top row = front), stored
+      (analyse first; a stored order both the creator canvas and the reader's slice honour; absent = today's order).
+      Rows single-line: grip ⋮⋮, small icon preview (item image / text-box glyph), name, a feather icon for "pick up"
+      (`download`); no `#n`, no hint text. Uses 10.53. Draft: this session (toptoy ch1 blotter-deal slice 1).
+- [ ] 10.44 **E.1 notifications** – as UI-CONCEPTS E.1; owner: toasts bottom-right (the shared stack), the
+      language status as a chip next to Publish (phone: `de ▾`), only conflict / autosave / converted stay as bars.
+- [ ] 10.45 **E.2 crumbs** – as E.2; owner: the "…" menu (not a scroll); the logo is the root crumb, "CREATOR" goes;
+      the real season. On phones the crumbs get their own row (where the file-status row was).
+- [ ] 10.46 **E.3 b/c** – the dock keeps its panel across navigation; Ask reads the crumbs.
+- [ ] 10.47 **E.4 slice editor room** – owner-approved draft: the toolbar = two **square** vertical groups left of the
+      canvas, **View** (grid/snap with its size – hold / chevron for 5/10/15/30; zoom) and **Content** (text, item,
+      sound, event); zoom hides behind its toolbar icon and opens the Flow's round buttons (zoom out, %, zoom in, fit,
+      **1:1**); Ctrl/Cmd + wheel zooms; 50–300 %, remembered per device; the canvas fills (cap 2x).
+- [ ] 10.48 **E.5 end actions in the box** (viewer) – all end actions become choices of the VN message box, the
+      same style as story choices: next chapter (with the 10 s countdown line + Cancel), replay, redeem a code, where to
+      get a code, download the season; coming soon: the release date as the box text + "To the overview". The separate
+      next bar goes (next-host's reserve stays). Checks: check-next-bar, chain-vn.
+- [ ] 10.49 **E.6** – strip preview for vertical groups; the viewer as a full dock panel (iframe of the draft preview
+      at phone width, reload on each saved draft, postMessage "show group / slice", the viewer accepts it only from
+      the creator's origin).
+- [ ] 10.50 **Creator mobile make-over** – phone walk (375 px) found: (a) the drawer's fold leaves a blank ~250 px
+      panel over the page; (b) the drawer stays open after picking a group / slice; (c) ‹ slice ›, undo / redo,
+      Problems, History hidden in More (+ a half black bar at More's top); (d) canvas ~150 px, handles ~8 px; (e) the
+      toolbar duplicates the inspector tabs, the tabs wrap 2+2+1; (f) header: 6 controls, square + round mixed; (g)
+      crumb only "Chapter 1"; (h) toon / chapter pages open with settings first. **Approved phone draft:** header ☰ ·
+      logo · Ask · search (language switch + Flow at the top of the ☰ drawer); crumbs in their own row; canvas full
+      width with the square tool groups at its left; inspector below as a sheet (grab handle, icon + count tabs); a
+      slice bar above the action bar (‹ Slice n/m ›, undo, redo, ⚠ problems); action bar More · Save · `de ▾` ·
+      Publish. Copy / paste on phones via a menu (10.39). Then audit every creator / admin / embassy page at 375 and
+      768 (UI-CONCEPTS E.9) and apply the same patterns; touch targets ≥ 2.75rem.
+- [ ] 10.51 **Creator: names follow the text language** (owner screenshot: EN showed "Katzenpapst", "Krähen" in
+      Featuring) – every shown name of a character / persona / item / recipe / album follows the header's text-language
+      switch, fallback the source language. Today mixed: source language (featuring-field, cast-editor,
+      character-detail, the chapter editor's cast notice), UI language (`itemName`, characters-editor, flow-pictures),
+      text language (character refs, picker). One shared place for "the display locale".
+- [ ] 10.52 **UI rule: round vs square** (owner) – a standalone icon-only button is round (`sc-round`); grouped
+      controls (segmented, toolbars, language switchers in every app) are square. Into HANDOVER + DESIGN.md; fix the
+      outliers met on the way (the creator header's square search / language next to round buttons).
+- [ ] 10.53 **One reorderable-list mechanism** – a shared `Sortable` in @scutoons/ui: grip ⋮⋮, the lifted row,
+      a primary-colour drop line; touch = press-and-hold on the grip (the list still scrolls); keyboard Alt+↑/↓; one
+      reorder = one undo step. Replaces every chevron (`ReorderButtons`: supporters, credits sections / entries
+      (authors), featuring, related items, list-field, moods, cover inspector, map routes; admin catalog editor / rows)
+      and the four own drag codes (chapter tree, slice list, VN events, cast editor). First user: 10.43.
+- **Content (owner, production):** catpope chapter 1's last caption says chapter 2 comes "1. November 2025", the
+  release is 15 October 2026.
+- 10.40: owner confirmed the multi-select look (all picked rows cyan when live); 10.39 on phones: yes, via a menu.
+
+### Day run result
+
+_(filled in by the run)_
 
 ## Night run result (2026-10-07 morning) – read this first
 
