@@ -32,9 +32,18 @@ export interface StatEffect {
 	delta: number;
 }
 
-/** A temporary reader effect of a substance (e.g. `psychedelic`): active until now + duration. */
+/**
+ * The reader effects an item can start (owner 2026-10-08: "different drugs hit differently … we need to configure these
+ * effects per item"; the server's CatalogValidator::READER_EFFECTS – CatalogTest keeps them equal): what the reader sees
+ * and hears while one runs – `psychedelic` ("Farbrausch"): a moving plasma cloud over everything, the sound through a
+ * sweeping high-pass and an echo; `haze` ("Dunst"): drifting haze over the screen, the sound muffled.
+ */
+export const READER_EFFECTS = ['psychedelic', 'haze'] as const;
+export type ReaderEffectKind = (typeof READER_EFFECTS)[number];
+
+/** A temporary reader effect of a substance (`READER_EFFECTS`): active until now + duration. */
 export interface TimedEffect {
-	kind: string;
+	kind: ReaderEffectKind;
 	duration_min: number;
 }
 

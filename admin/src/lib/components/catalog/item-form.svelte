@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AVATAR_SLOTS, FX_SOUNDS } from '@scutoons/content';
+	import { AVATAR_SLOTS, FX_SOUNDS, READER_EFFECTS } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
 	import { problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -146,6 +146,12 @@
 
 <!-- agents/FX.md: the sound when a picked-up placement lands in the bag (a placement may choose its own) -->
 <CatalogField label={m['catalog.pickup_sound']()} type="select" value={data.sound} options={soundOptions} none={m['catalog.pickup_sound_default']()} hint={m['catalog.pickup_sound_hint']()} error={err('sound')} onchange={(v) => (v ? (data.sound = v) : delete data.sound)} testid="item-sound" />
+
+<!-- the reader effect it starts when used (owner 2026-10-08: "configure these effects per item" – content READER_EFFECTS) -->
+<CatalogField label={m['catalog.reader_effect']()} type="select" value={data.effect?.kind ?? null} options={READER_EFFECTS.map((k) => ({ value: k, label: m[`catalog.reader_effect_${k}`]() }))} none={m['catalog.none']()} hint={m['catalog.reader_effect_hint']()} error={err('effect')} onchange={(v) => (v ? (data.effect = { kind: v, duration_min: data.effect?.duration_min ?? 30 }) : delete data.effect)} testid="item-effect" />
+{#if data.effect}
+	<CatalogField label={m['catalog.reader_effect_minutes']()} type="number" value={data.effect.duration_min} onchange={(v) => (data.effect = { ...data.effect, duration_min: Number(v) > 0 ? Number(v) : 30 })} testid="item-effect-minutes" />
+{/if}
 
 <style>
 	.picture {

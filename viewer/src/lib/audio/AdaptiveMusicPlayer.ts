@@ -7,7 +7,8 @@ import type { IAdaptiveMusicPlayer, IAudioManager } from './types.ts';
  */
 let output: { ctx: AudioContext; master: GainNode } | null | undefined;
 
-function musicOutput(): { ctx: AudioContext; master: GainNode } | null {
+/** the music's output (its context + master gain → speakers) – audio-effects.ts inserts a chain after the master */
+export function musicOutput(): { ctx: AudioContext; master: GainNode } | null {
 	if (output !== undefined) return output;
 	const Ctx =
 		typeof window === 'undefined'

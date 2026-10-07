@@ -254,6 +254,7 @@
 		"eaten": "Eaten: {name}",
 		"use_failed": "That didn't work – please try again.",
 		"effect_psychedelic": "Colour rush",
+		"effect_haze": "Haze",
 		"effect_left": "{min} min left",
 		"effect_end": "End effect",
 		"worn": "worn",

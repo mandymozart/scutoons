@@ -605,7 +605,7 @@
 			"type": "object",
 			"properties": {
 				"kind": {
-					"type": "string"
+					"$ref": "#/definitions/ReaderEffectKind"
 				},
 				"duration_min": {
 					"type": "number"
@@ -615,7 +615,14 @@
 				"kind",
 				"duration_min"
 			],
-			"description": "A temporary reader effect of a substance (e.g. `psychedelic`): active until now + duration."
+			"description": "A temporary reader effect of a substance (`READER_EFFECTS`): active until now + duration."
+		},
+		"ReaderEffectKind": {
+			"type": "string",
+			"enum": [
+				"psychedelic",
+				"haze"
+			]
 		},
 		"MediaFormat": {
 			"type": "string",

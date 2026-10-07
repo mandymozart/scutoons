@@ -9,7 +9,7 @@ import type { AvatarSlot, Catalog, ItemDef } from './items.ts';
 import { AVATAR_SLOTS } from './items.ts';
 import type { Problem } from './validate.ts';
 import { validateAlbums } from './albums.ts';
-import { READER_STATS } from './substances.ts';
+import { READER_EFFECTS, READER_STATS } from './substances.ts';
 
 /**
  * Draw order of the overlays, bottom → top (legs under the shoes, the shirt over the waistband, the backpack over the
@@ -134,8 +134,8 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 				else if (typeof e.delta !== 'number' || !Number.isFinite(e.delta) || e.delta === 0) add('error', [...path, 'effects', j, 'delta'], `${item.id}: delta must be a number ≠ 0`);
 			});
 		}
-		if (item.effect != null && !(isObj(item.effect) && typeof item.effect.kind === 'string' && /^[a-z0-9][a-z0-9_-]*$/.test(item.effect.kind) && typeof item.effect.duration_min === 'number' && item.effect.duration_min > 0)) {
-			add('error', [...path, 'effect'], `${item.id}: effect must be { kind, duration_min > 0 }`);
+		if (item.effect != null && !(isObj(item.effect) && (READER_EFFECTS as readonly unknown[]).includes(item.effect.kind) && typeof item.effect.duration_min === 'number' && item.effect.duration_min > 0)) {
+			add('error', [...path, 'effect'], `${item.id}: effect must be { kind: ${READER_EFFECTS.join(' | ')}, duration_min > 0 }`);
 		}
 		if (substance !== applies) add('error', [...path, 'skills'], `${item.id}: ${substance ? 'a substance needs the "apply" skill' : 'the "apply" skill needs effects or an effect'}`);
 		for (const sk of Array.isArray(item.skills) ? item.skills : []) {

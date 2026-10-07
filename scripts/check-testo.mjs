@@ -8,8 +8,8 @@
 //   3. the decay: the stored time moved back three days (guests: localStorage; the member: the local dev DB) → 60;
 //   4. testo + camera combined in the inventory → the testo camera; its scan grant (members: the API's scan grant with the
 //      tool, then the cooldown – the camera's on-device detection itself is not driven here);
-//   5. a magic mushroom (psychedelic): the effect bar + the slices' hue/wobble animation, off with reduced motion,
-//      "Effekt beenden" ends it.
+//   5. a magic mushroom (psychedelic, "Farbrausch"): the effect bar + the moving plasma cloud over everything (the
+//      slices themselves stay still), "Effekt beenden" ends it.
 // The member's inventory, stats and effects are put back with `npm run dev:test-user -- --reset` at the end.
 //
 // usage: node scripts/check-testo.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
@@ -235,17 +235,19 @@ async function flow(who) {
 	if (!bar?.startsWith(de.items.effect_psychedelic)) p5.push(`effect bar "${bar}"`);
 	await open(`${viewer}/de/sandbox/chapter/2`);
 	await waitFor(`document.querySelector('[data-slice-index] img')`, 20000);
-	const anim = await evaluate(`[document.documentElement.dataset.effect, getComputedStyle(document.querySelector('[data-slice-index] img')).animationName]`);
-	if (anim?.[0] !== 'psychedelic' || !/psychedelic-hue/.test(anim?.[1] ?? '')) p5.push(`html/effect animation ${JSON.stringify(anim)}`);
+	// the plasma (owner 2026-10-08): a canvas over everything that keeps changing; the slices don't tilt any more
+	const plasma = await evaluate(`(async () => { const c = document.querySelector('[data-testid="farbrausch-plasma"]'); if (!c) return null; const a = c.toDataURL(); await new Promise((r) => setTimeout(r, 400)); return { effect: document.documentElement.dataset.effect, moving: c.toDataURL() !== a, still: getComputedStyle(document.querySelector('[data-slice-index] img')).animationName }; })()`);
+	if (!plasma) p5.push('no plasma cloud');
+	else {
+		if (plasma.effect !== 'psychedelic') p5.push(`html data-effect ${plasma.effect}`);
+		if (!plasma.moving) p5.push('the plasma does not move');
+		if (plasma.still !== 'none') p5.push(`the slices still animate (${plasma.still})`);
+	}
 	await shot(`testo-${who}-5-psychedelic`);
-	await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-	const reduced = await evaluate(`getComputedStyle(document.querySelector('[data-slice-index] img')).animationName`);
-	if (reduced !== 'none') p5.push(`reduced motion: animation ${reduced}`);
-	await send('Emulation.setEmulatedMedia', { features: [] });
 	await clickEl(`document.querySelector('[data-testid="reader-effect-end"]')`);
-	const gone = await waitFor(`!document.querySelector('[data-testid="reader-effect"]') && !document.documentElement.dataset.effect ? true : null`);
+	const gone = await waitFor(`!document.querySelector('[data-testid="reader-effect"]') && !document.documentElement.dataset.effect && !document.querySelector('[data-testid="farbrausch-plasma"]') ? true : null`);
 	if (!gone) p5.push('"Effekt beenden" did not end it');
-	report(`${who}: magic mushroom → colour rush on the slices (off with reduced motion), "Effekt beenden" ends it`, p5);
+	report(`${who}: magic mushroom → Farbrausch (a moving plasma cloud over everything), "Effekt beenden" ends it`, p5);
 
 	// 6 – the Check It camera: the mandatory notice + the multi-label scan (a fake camera stream and fake model
 	// predictions through the DEV-only hook `__scutoonsFakePredictions`; MobileNet itself is not downloaded)

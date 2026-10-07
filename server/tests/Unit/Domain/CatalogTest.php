@@ -118,6 +118,9 @@ final class CatalogTest extends TestCase
         $ts = [];
         foreach ($rows as $r) $ts[$r[1]] = ['label' => ['de' => $r[2], 'en' => $r[3]], 'baseline' => (int) $r[4], 'half_life_days' => (int) $r[5]];
         self::assertSame(ReaderStats::DEFINITIONS, $ts);
+        $substances = (string) file_get_contents(dirname(self::root()) . '/shared/content/src/substances.ts');
+        self::assertSame(1, preg_match('/export const READER_EFFECTS = \[(.*?)\] as const;/s', $substances, $m));
+        self::assertSame(CatalogValidator::READER_EFFECTS, array_map(fn($s) => trim(trim($s), "'"), array_values(array_filter(explode(',', $m[1] ?? ''), fn($s) => trim($s) !== ''))));
         $fx = (string) file_get_contents(dirname(self::root()) . '/shared/content/src/fx.ts');
         self::assertSame(1, preg_match('/export const FX_SOUNDS = \[(.*?)\] as const;/s', $fx, $m));
         self::assertSame(CatalogValidator::FX_SOUNDS, array_map(fn($s) => trim(trim($s), "'"), array_values(array_filter(explode(',', $m[1] ?? ''), fn($s) => trim($s) !== ''))));

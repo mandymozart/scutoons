@@ -27,6 +27,8 @@ final class CatalogValidator
     public const ALBUM_ID_PATTERN = '#^[a-z0-9][a-z0-9_]{0,63}$#';
     public const MEDIA_FORMATS = ['vinyl', 'tape', 'cd'];
     /** the reader's effect sounds (@scutoons/content fx.ts FX_SOUNDS – CatalogTest keeps them equal): an item's pickup sound */
+    /** the reader effects an item can start (@scutoons/content substances.ts READER_EFFECTS – CatalogTest keeps them equal) */
+    public const READER_EFFECTS = ['psychedelic', 'haze'];
     public const FX_SOUNDS = ['pling', 'whoosh', 'thunk', 'tick', 'pop', 'thud', 'soft', 'key', 'zap', 'boom', 'hum'];
     public const MEDIA_ACCESS = ['public', 'members', 'owners'];
     public const GRANT_SOURCES = ['story', 'scan'];
@@ -184,8 +186,8 @@ final class CatalogValidator
         }
         if (($item['effect'] ?? null) !== null) {
             $effect = $item['effect'];
-            if (!is_array($effect) || !is_string($effect['kind'] ?? null) || !preg_match('/^[a-z0-9][a-z0-9_-]*$/', $effect['kind'])
-                || !(is_int($effect['duration_min'] ?? null) || is_float($effect['duration_min'] ?? null)) || $effect['duration_min'] <= 0) $p[] = "$id: effect must be { kind, duration_min > 0 }";
+            if (!is_array($effect) || !in_array($effect['kind'] ?? null, self::READER_EFFECTS, true)
+                || !(is_int($effect['duration_min'] ?? null) || is_float($effect['duration_min'] ?? null)) || $effect['duration_min'] <= 0) $p[] = "$id: effect must be { kind: " . implode(' | ', self::READER_EFFECTS) . ', duration_min > 0 }';
         }
         if ($substance !== $applies) $p[] = $substance ? "$id: a substance needs the \"apply\" skill" : "$id: the \"apply\" skill needs effects or an effect";
         // scan_object grants an item that is grantable by "scan" (this entry counts with its new data)

@@ -254,6 +254,7 @@
 		"eaten": "Gegessen: {name}",
 		"use_failed": "Das hat nicht geklappt – bitte nochmal versuchen.",
 		"effect_psychedelic": "Farbrausch",
+		"effect_haze": "Dunst",
 		"effect_left": "noch {min} min",
 		"effect_end": "Effekt beenden",
 		"worn": "angezogen",

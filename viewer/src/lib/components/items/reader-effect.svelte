@@ -1,13 +1,22 @@
 <script lang="ts">
+	import { READER_EFFECTS, type ReaderEffectKind } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { setAudioEffect } from '$lib/audio/audio-effects.ts';
+	import PlasmaOverlay from './plasma-overlay.svelte';
+	import HazeOverlay from './haze-overlay.svelte';
 
 	/**
-	 * A running reader effect (ITEMS.md "Substances"): `psychedelic` lets the slices drift in hue and wobble gently
-	 * (`html[data-effect]`, CSS below) – off with "prefers-reduced-motion" – with a bar to end it at once. Game effect only.
+	 * A running reader effect (ITEMS.md "Substances"; each item chooses its own – catalog `effect.kind`, @scutoons/content
+	 * READER_EFFECTS, owner 2026-10-08: "different drugs hit differently"), with a bar to end it at once. Game effect only.
+	 * - `psychedelic` ("Farbrausch", LSD …): a moving plasma cloud blended over everything (plasma-overlay.svelte; the
+	 *   frames don't tilt – owner: "tilting is not good"), the sound through a sweeping high-pass and an echo
+	 * - `haze` ("Dunst", weed): drifting haze over the screen (haze-overlay.svelte), the sound muffled
+	 * The sound: audio/audio-effects.ts over everything heard. One at a time – the one started last.
 	 */
 	const inventory = getInventoryContext();
-	const running = $derived(inventory.effects.find((e) => e.kind === 'psychedelic'));
+	const running = $derived(inventory.effects.findLast((e) => (READER_EFFECTS as readonly string[]).includes(e.kind)) as { kind: ReaderEffectKind; until: string } | undefined);
+	const LABEL: Record<ReaderEffectKind, () => string> = { psychedelic: () => m['items.effect_psychedelic'](), haze: () => m['items.effect_haze']() };
 	let now = $state(Date.now());
 	$effect(() => {
 		const t = setInterval(() => (now = Date.now()), 5_000);
@@ -20,11 +29,17 @@
 		else delete root.dataset.effect;
 		return () => delete root.dataset.effect;
 	});
+	// the sound of it: on while it runs, faded out when it ends
+	$effect(() => {
+		setAudioEffect(running?.kind ?? null);
+		return () => setAudioEffect(null);
+	});
 </script>
 
 {#if running}
+	{#if running.kind === 'psychedelic'}<PlasmaOverlay />{:else if running.kind === 'haze'}<HazeOverlay />{/if}
 	<div class="effect-bar" role="status" data-testid="reader-effect" data-kind={running.kind}>
-		<span>{m['items.effect_psychedelic']()} · {m['items.effect_left']({ min: minutes })}</span>
+		<span>{LABEL[running.kind]()} · {m['items.effect_left']({ min: minutes })}</span>
 		<button type="button" onclick={() => inventory.endEffect(running.kind)} data-testid="reader-effect-end">{m['items.effect_end']()}</button>
 	</div>
 {/if}
@@ -46,32 +61,5 @@
 	}
 	.effect-bar button {
 		padding: 0 0.75rem;
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		:global(html[data-effect='psychedelic'] [data-slice-index] img) {
-			animation:
-				psychedelic-hue 9s linear infinite,
-				psychedelic-wobble 7s ease-in-out infinite;
-		}
-	}
-	@keyframes -global-psychedelic-hue {
-		from {
-			filter: hue-rotate(0deg) saturate(1.2);
-		}
-		to {
-			filter: hue-rotate(360deg) saturate(1.2);
-		}
-	}
-	@keyframes -global-psychedelic-wobble {
-		0%,
-		100% {
-			transform: none;
-		}
-		25% {
-			transform: skewX(0.6deg) scale(1.005);
-		}
-		75% {
-			transform: skewX(-0.6deg) scale(1.005);
-		}
 	}
 </style>

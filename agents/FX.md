@@ -108,3 +108,20 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
 2. Default sounds (pling, thunk, tick, whoosh, thud): own sound design or a licensed library?
 3. The "+1" chip: the shared toast model, or a lighter reader-only chip at the bag?
 4. Nudge always on (once per visit), or only with "Show hints"?
+
+## Reader effects per item (owner 2026-10-08)
+
+"Different drugs hit differently … configure these effects per item": an item's `effect: { kind, duration_min }`
+chooses from `@scutoons/content` substances.ts `READER_EFFECTS` (server `CatalogValidator::READER_EFFECTS`, CatalogTest
+keeps both equal; unknown kinds refused), set in admin → Catalog → Items ("Leser-Effekt beim Benutzen" + minutes).
+- `psychedelic` ("Farbrausch" – LSD, magic mushrooms): a moving sine-plasma cloud (computed at ~96 px, blurred into a
+  cloud) fixed over everything, `mix-blend-mode` --sc-farbrausch-blend (overlay) at --sc-farbrausch-opacity (0.55),
+  --sc-farbrausch-speed; no tilting frames any more (owner). Sound: a high-pass sweeping ≈ 160–600 Hz into a 380 ms echo.
+- `haze` ("Dunst" – weed, set locally; production: the owner in admin): a light veil with a slight blur and big soft
+  haze banks drifting (--sc-haze-color / -opacity / -blur / -blend). Sound: muffled (low-pass ≈ 700–1300 Hz) with a
+  soft 90 ms echo.
+- testo: no visual effect yet. Next idea (owner): wearables with an effect while worn – sunglasses = everything orange.
+Audio: `viewer/src/lib/audio/audio-effects.ts` puts the effect's chain between a master gain and the speakers on both
+outputs – the music's own AudioContext (AdaptiveMusicPlayer `musicOutput`) and Howler's (samples + effect sounds;
+re-attached when Howler replaces its context) – with 1.2 s crossfades in and out. DEV hook `__scutoonsAudioFx()` shows
+the graph.
