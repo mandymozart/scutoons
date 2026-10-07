@@ -12,7 +12,6 @@ export { default as Sheet } from './sheet.svelte';
 export { default as Tabs, type Tab } from './tabs.svelte';
 export { default as Toggle } from './toggle.svelte';
 export { default as Segmented, type SegmentedOption } from './segmented.svelte';
-export { default as ReorderButtons } from './reorder-buttons.svelte';
 export { default as SortGrip } from './sort-grip.svelte';
 export { sortable, type SortableOptions } from './sortable.ts';
 export { default as Badge } from './badge.svelte';

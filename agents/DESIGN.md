@@ -683,6 +683,23 @@ default in brackets ("(nein)"); a select's default likewise ("(Links)").
   yet – keep reading …", "No shop carries … yet" + buy online, nothing to wear for a slot) – the same test, read with a
   reader in mind; the reader keeps its own look (no tools.css).
 
+### Reorderable lists (owner 2026-10-07, BACKLOG 10.53) – creator, admin
+
+- **One mechanism**: `use:sortable={{ onmove }}` on the list + `data-sort-row` on each row + a `SortGrip` (the drawn
+  ⋮⋮, frameless, in the row's colour) at the row's start – @scutoons/ui `sortable.ts` / `sort-grip.svelte`;
+  `DataTable` takes `onmove` (a grip column first). No ↑ / ↓ / chevron buttons, no own HTML5 drag code.
+- **Pointer**: drag by the grip – a mouse right away, touch after a ~300 ms press-and-hold on the grip (a swipe over
+  the list still scrolls). The row is **lifted** (a hard ink offset of 0.25rem – the one shadow, only while dragging),
+  a **drop line** in `--primary-color` (`--border-width-focus` thick) shows where it lands; near the scroll
+  container's edges the list scrolls; Esc cancels. Chip rows (featuring, related items) drag sideways (`axis`).
+- **Keyboard**: Alt+↑ / Alt+↓ on a focused row or its grip (the grip takes the plain arrows too); the new place is
+  announced (aria-live "3 / 7"), the focus follows the row. Elsewhere Alt+arrows keep their navigation meaning.
+- **One reorder = one undo step**: the list only reports `onmove(from, to)` (`to` = the row's index after the move,
+  like `moveAt`); the page makes ONE edit of its document (creator `doc.edit`, admin: one POST reorder).
+- Rows keep their own classes and selection: with a selection (chapter tree groups, slices, VN events: Shift / Ctrl
+  click) a drag by a picked row's grip moves all picked rows (`moveMany`). Lists nest (a group's slices inside the
+  group rows): each row belongs to the nearest sortable list.
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
