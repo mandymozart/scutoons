@@ -38,7 +38,7 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
       (analyse first; a stored order both the creator canvas and the reader's slice honour; absent = today's order).
       Rows single-line: grip ⋮⋮, small icon preview (item image / text-box glyph), name, a feather icon for "pick up"
       (`download`); no `#n`, no hint text. Uses 10.53. Draft: this session (toptoy ch1 blotter-deal slice 1).
-- [ ] 10.44 **E.1 notifications** – as UI-CONCEPTS E.1; owner: toasts bottom-right (the shared stack), the
+- [x] 10.44 **E.1 notifications** – as UI-CONCEPTS E.1; owner: toasts bottom-right (the shared stack), the
       language status as a chip next to Publish (phone: `de ▾`), only conflict / autosave / converted stay as bars.
 - [ ] 10.45 **E.2 crumbs** – as E.2; owner: the "…" menu (not a scroll); the logo is the root crumb, "CREATOR" goes;
       the real season. On phones the crumbs get their own row (where the file-status row was).
@@ -90,6 +90,7 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
 - 10.42 done (lane V): `SequenceItem` / `SequenceItemDoc` / `LoadedSequenceItem` without `type` (schemas regenerated), no type checks left (Library, FlowIndex, template, validate – a leftover `type` is an error now –, the creator's toon page + visibility, the viewer's sequence navigation, make-sandbox, fixtures); the library's chapter summary has no `type` either. Migration `2026-10-07-sequence-no-type.mysql.sql` run on the dev DB (49 versions); **O –** run it with the deploy (HANDOVER loose ends). Checks: npm run check, PHPUnit 296 / 296, phpstan clean.
 - 10.53 done (lane C): `sortable` (action) + `SortGrip` in @scutoons/ui (DESIGN.md "Reorderable lists"; DataTable `onmove`): grip ⋮⋮, lifted row, primary drop line, touch hold 300 ms, auto-scroll, Esc, Alt+↑/↓ + aria-live, `onmove(from, to)` = one edit. Migrated: cast, credits sections + entries, supporters, featuring, related items, list-field, moods, cover lines, map waypoints, chapter tree groups, slice list (file drops kept), VN events (selection moves together, `moveMany(list, picked, from, to)`), admin catalog order + catalog rows + homepage featured; `ReorderButtons` (ui + creator) removed. check:creator-cast 20/20 (drags the grip), creator-dock 82/82, tools-dock 38/38, creator-reach 21/21, creator-cover 43/43, svelte-check ui / creator / admin 0; check:creator-chapter has a new reorder part + SCUTOONS_CHAPTER_TOON / SCUTOONS_CHAPTER but refused (catpope ch1 draft; no other chapter with inline slices is clean) – the same steps ran headless without saving on catpope ch1/ch2 + sandbox ch2 VN (all ok).
 - 10.43 done (lane C): stored as `layer?: number` on each `dialog[]` / `items[]` entry (higher = on top; `@scutoons/content` layers.ts `sliceLayers` / `setSliceLayers`, validation: whole number ≥ 0, schemas regenerated); none = the old order (items under text boxes, an entry without `layer` above the numbered ones) – no migration (dev DB: no `layer` key anywhere), arrays + ids untouched (showTextBox refs, pickup refs). Reader: one `SliceLayers` (dialogs + `SliceItem`s in one container, `SliceItems` gone) in the viewer's `Slice` and the creator canvas (its boxes take the pointer in the same order). Creator: one "Layers" tab (text + item tools open it), rows grip · icon / T tile · name · `download` for pickups, Sortable + Alt+↑/↓ = one `doc.edit`. Docs: ITEMS.md "Placed items", DESIGN.md Part 2. Checks: npm run check, PHPUnit 296/296, creator-dock 82/82, chain-vn 24/24, events the known 7, tools-css ok; check:creator-chapter (new layers part) refused (catpope / toptoy chapters have drafts) – the steps ran headless without saving on toptoy ch1 blotter-deal slice 1 (all ok).
+- 10.44 done (lane C, E.1): transient info = toasts bottom-right above the ActionBar (creator `lib/toasts.ts` + the layout's shared ToastStack; `DocSession.notify`: Saved / Published / Nothing to save · publish / review submitted, errors stay; event ids assigned 8 s; "added to the cast" with **Undo** – the shared toast's new `action: { label, run }`); unsaved = the Save button's dot (bar gone; phones "Save"); the not-live languages = one chip next to Publish (`status/live-chip.svelte`, "de en · draft ▾", phones "de en ▾", opens the file-status list upwards) on the chapter editor and every meta page – the file-status row is gone (the script page keeps its rules / cursor line); only conflict / autosave / converted stay as bars (DocNotices). DESIGN.md "Notifications". Checks: svelte-check creator / admin / embassy / ui 0, tools-css ok, creator-dock 82/82, tools-dock 38/38, creator-cast (sandbox) 20/20, creator-script 28/28, creator-cover 43/43, creator-expr 36/36 (the dirty / notice probes now read the Save dot / the toasts); creator-chapter (new E.1 part + a Saved-toast check) refused (catpope / toptoy / sandbox chapters have drafts) – its steps ran headless without saving on catpope ch1: all E.1 ok (one known content miss: the layers part needs a 2nd box on that slice). M.5 + M.13 ticked.
 
 ## Night run result (2026-10-07 morning) – read this first
 
@@ -631,7 +632,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] M.4 **Creator: the slice editor needs more room** (owner screenshot 2) – a bigger canvas by default, zoom like
       the Flow graph, the tool icons (text, item, sound, effect) as a vertical strip on the left, Snap + its "30 px"
       as one small button (options on click), the slice takes the freed space. _(concept first – E.4)_
-- [ ] M.5 **Top messages need a new concept** (screenshot 2, the "Published ×" banner) – they take a lot of room,
+- [x] M.5 **Top messages need a new concept** (screenshot 2, the "Published ×" banner) – they take a lot of room,
       appear often and make the layout jump; informative ones ("Published") fade by themselves; they show without
       pushing the layout. _(with M.13 – E.1)_
 - [ ] M.6 **Navigation hierarchy (concept)** – bug: the Flow view jumps at slice / group / chapter / season / toon
@@ -648,7 +649,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] M.9 **Creator: strip preview for vertical groups** – the same strip preview horizontal groups have. _(after M.4)_
 - [ ] M.10 **Explore: the viewer as a dock panel** (like Flow and Ask) – up to date with every saved draft; selecting
       an element in the other views jumps the viewer there. Exploration first, not a fix. _(after M.6)_
-- [ ] M.13 **Creator: the published / unpublished status bar takes room** (e.g. from the slice editor). _(with M.5 –
+- [x] M.13 **Creator: the published / unpublished status bar takes room** (e.g. from the slice editor). _(with M.5 –
       E.1)_
 - [ ] M.14 **Header + breadcrumbs take too much room** (the creator title next to the SCUTOONS logo, plus the crumbs).
       Too many crumbs → the left ones collapse into a clickable "…". The crumbs are the main way back up – they must

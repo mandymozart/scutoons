@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import { CloseIcon } from '@scutoons/ui';
+	import { untrack } from 'svelte';
+	import { toast } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import { NEUTRAL_LOCALE, visibleDifferences } from '@scutoons/content';
@@ -9,40 +9,37 @@
 	import type { DocSession } from '$lib/editor/doc-session.svelte.ts';
 
 	/**
-	 * The bars under an editor page's file status (COMPONENTS.md step 11; meta pages and the chapter editor had copies):
-	 * unsaved changes, an autosave to recover, a document converted from its per-language versions on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded),
-	 * events that got their hidden id on load (saving keeps them), a save conflict, the last notice.
+	 * An editor page's blocking problems – the only bars left in the page flow (UI-CONCEPTS E.1; COMPONENTS.md step 11:
+	 * meta pages and the chapter editor share it): an autosave to recover, a document converted from its per-language
+	 * versions on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded), a
+	 * save conflict (Reload / Overwrite). Unsaved changes = the Save button's dot, the not-live languages = the ActionBar's
+	 * file-status chip, Saved / Published / errors = toasts (DocSession); events that got their hidden id on load
+	 * (saving keeps them) = one toast per file here.
 	 */
-	let {
-		session,
-		docs,
-		dirty,
-		dirtyDetail,
-		extra
-	}: {
-		session: DocSession;
-		docs: ContentDoc[];
-		/** show the "unsaved" bar */
-		dirty: boolean;
-		/** after "unsaved" (e.g. the slice's languages with changes) */
-		dirtyDetail?: string;
-		/** more bars at the end (e.g. the chapter's cast notice) */
-		extra?: Snippet;
-	} = $props();
+	let { session, docs }: { session: DocSession; docs: ContentDoc[] } = $props();
 
 	const recoverables = $derived(docs.filter((d) => d.recoverable));
 	/** documents converted in memory that are not stored yet – one bar for all of them */
 	const conversions = $derived(docs.filter((d) => d.unconverted));
 	/** events that got their hidden id on load (agents/EXPRESSIONS.md §5): the next save stores them */
 	const withNewIds = $derived(docs.filter((d) => d.idsAssigned > 0));
+	/** the files already announced (a toast once per file and count, not on every change) */
+	const announced = new Set<string>();
+	$effect(() => {
+		const fresh = withNewIds.filter((d) => !announced.has(`${d.entity}:${d.idsAssigned}`));
+		if (!fresh.length) return;
+		untrack(() => {
+			for (const d of fresh) announced.add(`${d.entity}:${d.idsAssigned}`);
+			toast(m['creator.event_ids_assigned']({ count: fresh.reduce((n, d) => n + d.idsAssigned, 0), files: fileLabels(fresh.map((d) => d.entity)) }), { timeout: 8000 });
+		});
+	});
 	const differences = $derived(conversions.flatMap((d) => visibleDifferences(d.converted!.report).map((r) => ({ file: fileLabel(d.entity), line: differenceLine(r) }))));
 	/** "Chapter 2", "Script (en)": a language only for a document stored per language (not the neutral `_`) */
 	const conflictLabel = (locale: string | undefined, entity: string) => (locale && locale !== NEUTRAL_LOCALE ? `${fileLabel(entity)} (${locale})` : fileLabel(entity));
 </script>
 
-{#if dirty}<div class="sc-bar is-dirty">{m['creator.unsaved']()}{#if dirtyDetail} · {dirtyDetail}{/if}</div>{/if}
 {#each recoverables as d (d.entity)}
-	<div class="sc-bar is-warning">
+	<div class="sc-bar is-warning" data-testid="recover">
 		{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
 		{#if d.recoverableIsStale}<strong class="sc-emphasis">{m['creator.recover_stale']()}</strong>{/if}
 		<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
@@ -64,20 +61,13 @@
 		{/if}
 	</div>
 {/if}
-{#if withNewIds.length}
-	<div class="sc-bar is-warning" data-testid="event-ids-assigned">
-		{m['creator.event_ids_assigned']({ count: withNewIds.reduce((n, d) => n + d.idsAssigned, 0), files: fileLabels(withNewIds.map((d) => d.entity)) })}
-	</div>
-{/if}
 {#if session.conflict}
-	<div class="sc-bar is-error">
+	<div class="sc-bar is-error" data-testid="conflict">
 		{m['creator.conflict']({ file: conflictLabel(session.conflict.error.locale, session.conflict.doc.entity) })}
 		<button class="secondary" onclick={() => session.resolveConflict('reload')}>{m['creator.reload']()}</button>
 		<button class="secondary" onclick={() => session.resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 	</div>
 {/if}
-{#if session.notice}<div class="sc-bar is-note">{session.notice} <button class="ghost" onclick={() => (session.notice = null)} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button></div>{/if}
-{@render extra?.()}
 
 <style>
 	.conversion {

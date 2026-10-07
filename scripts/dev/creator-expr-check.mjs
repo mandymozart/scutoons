@@ -323,8 +323,8 @@ try {
 	await until(`${JSON.stringify(n)} < 0 || false`, 1500);
 	let saved = writes.slice(n).filter((w) => w.url.startsWith(`/entities/${KEY}`));
 	check(saved.length && saved.every((w) => w.status === 422), `Save draft with a syntax error: refused (${saved.map((w) => `${w.method} ${w.status}`).join(', ')})`);
-	const notice = await until(`[...document.querySelectorAll('.sc-bar')].map((b) => b.textContent).find((t) => /expr:/.test(t)) ?? null`, 3000);
-	check(notice && (await js(`!!${q(FIELD)}`)), `… the reason is a bar, the field stays editable (“${(notice ?? '').trim().slice(0, 90)}…”)`);
+	const notice = await until(`[...document.querySelectorAll('.sc-toast-stack .toast.error')].map((b) => b.textContent).find((t) => /expr:/.test(t)) ?? null`, 3000);
+	check(notice && (await js(`!!${q(FIELD)}`)), `… the reason is an error toast, the field stays editable (“${(notice ?? '').trim().slice(0, 90)}…”)`);
 	await toEnd();
 	await press('Backspace'); // the chip, whole
 	await press('Backspace'); // the space
@@ -364,7 +364,7 @@ try {
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
 	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click('dialog.sc-dialog[open] button.primary');
-	await until(`!document.querySelector('.sc-bar.is-dirty')`, 5000);
+	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`, 5000);
 	saved = writes.slice(n).filter((w) => w.url.startsWith(`/entities/${KEY}`));
 	const stored = (await api('GET', `/entities/${KEY}?draft=1&wrap=1`)).content.groups.find((g) => g.label === GROUP)?.slices[0].dialog[0].text.de;
 	check(saved.some((w) => w.status === 200) && stored === 'Münzen {coins} {coins >= 3: reich|arm} {map.totl}', `Save draft with only a warning: stored (“${stored}”)`);

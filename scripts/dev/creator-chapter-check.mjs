@@ -23,6 +23,8 @@
 //   slices:  next / previous slice (bar buttons) move the slice editor and the URL
 //   reorder: the shared Sortable (BACKLOG 10.53) – dragging a slice's grip moves it, one undo brings it back; Alt+ArrowDown
 //            on a grip moves it one down (the focus follows), one undo again; the same for the groups when there are two
+//   E.1:     no unsaved bar / file-status row in the flow; the Save button's dot; the ActionBar's not-live chip opens
+//            the file-status list (Escape closes it); Saved = a toast
 //   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
 //            new text; the published version stays; Publish asks first, naming the chapter and its languages
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
@@ -355,7 +357,7 @@ try {
 	check(await until(`document.activeElement?.dataset?.testid === 'text-de'`, 3000), 'add: the cursor is in the new text field');
 	await send('Input.insertText', { text: TEXT });
 	await sleep(300);
-	check(await until(`!!document.querySelector('.sc-bar.is-dirty') && ${q('save-draft')}.textContent.includes('•')`, 3000), 'add: typing marks the page dirty');
+	check(await until(`!!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`, 3000), 'add: typing marks the page dirty');
 	// leaving with unsaved changes asks in-page (step 14: no browser confirm()); "Cancel" stays
 	const toonLink = await js(`!!document.querySelector('a[href="/${TOON}"]')`);
 	if (toonLink) {
@@ -517,13 +519,24 @@ try {
 		await click(tid(`slice-${SLICE}`));
 	}
 
+	// ── E.1 notifications (BACKLOG 10.44): no bars in the flow, the Save dot, the not-live chip + its popover ──
+	const CHIP = `document.querySelector('.sc-action-bar [data-testid="file-status"]')`;
+	check(await js(`!document.querySelector('.sc-bar.is-dirty') && !document.querySelector('.editor > .files')`), 'E.1: no unsaved bar, no file-status row above the editor');
+	check(await js(`document.querySelector('[data-testid="save-draft"]').textContent.includes('•')`), 'E.1: the Save button carries the dot');
+	check(await js(`!!${CHIP}`), 'E.1: the not-live chip sits in the ActionBar');
+	await click(tid('file-status-toggle'));
+	check(await until(`!${CHIP}.querySelector('[id$="-files"]').hidden && /Chapter|Kapitel/.test(${CHIP}.querySelector('[id$="-files"]').innerText)`, 3000), 'E.1: the chip opens the file-status list (the chapter)');
+	await press('Escape');
+	check(await until(`${CHIP}.querySelector('[id$="-files"]').hidden`, 3000), 'E.1: Escape closes it');
+
 	// ── save draft ──────────────────────────────────────────────────────────────────────────────────────
 	const n = writes.length;
 	await click(tid('save-draft'));
 	await answerDialog('button.primary'); // the note dialog: "Save without note" (its one primary button while the field is empty)
-	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.textContent.includes('•')`);
+	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (one neutral document) 200, nothing published', JSON.stringify(saved));
+	check(await until(`!!document.querySelector('.sc-toast-stack .toast.success')`, 3000), 'E.1: "Saved" is a toast (bottom-right, not a bar in the flow)');
 	const draft = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
 	const savedDialogs = draft.content.groups[GROUP].slices[SLICE].dialog ?? [];
 	check(

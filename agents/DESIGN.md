@@ -708,6 +708,25 @@ default in brackets ("(nein)"); a select's default likewise ("(Links)").
   click) a drag by a picked row's grip moves all picked rows (`moveMany`). Lists nest (a group's slices inside the
   group rows): each row belongs to the nearest sortable list.
 
+### Notifications (owner 2026-10-07, BACKLOG 10.44, UI-CONCEPTS E.1) – creator, admin, embassy
+
+Three kinds, three places; none moves the layout:
+- **Transient info → a toast** (@scutoons/ui `createToaster` + `ToastStack`, one per app: admin / embassy
+  `lib/toasts.ts` context, the creator a module toaster `lib/toasts.ts` – `toast(message, { type, timeout, action })`).
+  Fixed bottom-right, **above the ActionBar** when the page has one, never in the page flow; fades after 4 s.
+  Creator: Saved, Published, Nothing to save / publish, review submitted, event ids assigned (8 s), "added to the cast"
+  (+ **Undo**). Errors are toasts that stay until dismissed (`type: 'error'`, announced as an alert). A toast may carry
+  ONE `action` (`{ label, run }`, a secondary button before the ×; it runs, then the toast goes; such a toast stays 8 s).
+  An editor page's new save / publish replaces its previous toast (`DocSession.notify`).
+- **State that needs doing → in the ActionBar**, where the doing happens: unsaved changes = the Save button's dot
+  ("Save draft •"; phones "Save •"); the languages that aren't live = ONE chip next to Publish (`status/live-chip.svelte`:
+  the codes + the worst state, its colour = that state – "de en · draft ▾", phones "de en ▾"; a neutral chapter /
+  scene / season stands for all its text languages) that opens the file-status list upwards (per file: label,
+  languages, state in words; Esc / outside click closes). Nothing when everything is live.
+- **Blocking problems → a bar in the flow, only these**: a save conflict (Reload / Overwrite), an autosave to recover,
+  a converted document (`page/doc-notices.svelte`). Contextual hints inside an editor's own area (legacy texts, "label
+  the next group") stay where they belong; they are not notifications.
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.

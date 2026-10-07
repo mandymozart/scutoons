@@ -8,6 +8,11 @@ order), **owner decides**. Order = the order to build them in (each one frees ro
 
 ## E.1 One notification model (M.5 + M.13)
 
+**Built 2026-10-07 (BACKLOG 10.44)** – as proposed; owner: toasts bottom-right, the language chip next to Publish
+(phones `de ▾`, Save reads "Save"). Now: `creator/src/lib/toasts.ts` + the layout's ToastStack; `DocSession.notify`;
+`status/live-chip.svelte`; `page/doc-notices.svelte` = conflict / autosave / converted only; the shared toast's
+`action`. The rule: DESIGN.md "Notifications". (The "Today" below is the state before.)
+
 **Today.** The creator's messages are `.sc-bar` rows **in the page flow** above the editor
 (`creator/src/lib/components/page/doc-notices.svelte`): unsaved changes (inverted), autosave recovery, converted
 document, event ids assigned, conflict (Reload / Overwrite), and `DocSession.notice` – one string with a × for
@@ -33,7 +38,7 @@ goes; (b) the dirty bar → the ActionBar's Save state; (c) `file-status` → a 
 too); (d) the cast notice → a toast with Undo (the shared toast needs an `action` – a small addition); (e) checks:
 creator-chapter / creator-dock look for these bars by testid – update.
 **Size:** medium, creator only + one toast option in shared/ui. **Frees:** the rows above the slice (M.13).
-**Owner decides:** toasts bottom-right (admin's place) or top-center? The language status as a chip in the bar – yes?
+**Owner decided (2026-10-07):** toasts bottom-right; the language status as a chip next to Publish – built.
 
 ---
 

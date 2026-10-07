@@ -3,7 +3,7 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, CloseIcon, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { ActionBar, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { dockWidth, flowWidth, usePageNav } from '$lib/nav.svelte.ts';
@@ -58,7 +58,8 @@
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FlowPanel from '$lib/components/flow/flow-panel.svelte';
-	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
+	import LiveChip from '$lib/components/status/live-chip.svelte';
+	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
 
@@ -107,7 +108,6 @@
 	let mapTouched = $state(false);
 	let toonInfos = $state<ToonInfo[]>([]);
 	let castTouched = $state(false);
-	let castNotice = $state<string | null>(null);
 	const registryIndex = $derived(characterIndex(registryOf(registry)));
 	const hasCast = $derived(!!castOf(cast) && !!registryOf(registry));
 	const seasonCast = $derived(castEntries(castOf(cast), SEASON));
@@ -118,11 +118,10 @@
 		const changed = addToSeasonCast(cast, SEASON, character, persona);
 		if (!changed) return;
 		castTouched = true;
-		castNotice = m['creator.characters_cast_added']({ name: shownCharacterName(registryIndex.get(character), persona) || character, season: m['creator.season']({ number: SEASON }) });
-	}
-	function undoCast() {
-		cast.undo();
-		castNotice = null;
+		// a toast with Undo (E.1): the cast change is undone, the chapter edit stays
+		toast(m['creator.characters_cast_added']({ name: shownCharacterName(registryIndex.get(character), persona) || character, season: m['creator.season']({ number: SEASON }) }), {
+			action: { label: m['creator.undo'](), run: () => cast.undo() }
+		});
 	}
 	const choices = $derived<CharacterChoices | undefined>(
 		registry.loading || cast.loading
@@ -362,6 +361,13 @@
 	};
 	const groupName = (g: any, i: number) =>
 		g?.ref?.src ? (refLabel(g.ref.src) ?? sceneLabel(toon, g.ref.src)) : (g?.label ?? `${m['creator.groups']()} ${i + 1}`);
+	/** the ActionBar's not-live chip (E.1): the chapter, the scene while one of its parts is open (owner 2026-10-03:
+	 * "scene-14" next to Meta confused), the season while it has something unpublished */
+	const liveFiles = $derived([
+		{ doc: chapter, label: fileLabel(chapter.entity) },
+		...(refSrc && refs[refSrc] && (view.section === 'group' || view.section === 'slice') ? [{ doc: refs[refSrc], label: refLabel(refSrc) ?? sceneLabel(toon, refSrc) }] : []),
+		...(!season.loading && (season.dirty || season.unpublished.length) ? [{ doc: season, label: fileLabel(season.entity) }] : [])
+	]);
 	function hrefFor(next: { section: Section; group?: number; slice?: number }) {
 		const params = new URLSearchParams();
 		if (next.section === 'audio') params.set('section', 'audio');
@@ -611,7 +617,7 @@
 		if (!t) return;
 		const next = edits.addSampleArea(t, rect, chapterData?.audio?.sampleLibrary ?? []);
 		if (next) view.select(next);
-		else session.notice = 'The chapter has no sample library yet (Audio in the tree).';
+		else session.notify('The chapter has no sample library yet (Audio in the tree).');
 	}
 	function removeSelected() {
 		const t = sliceTarget();
@@ -643,7 +649,7 @@
 		// a popup blocker may refuse the window after the dialogs: then a hint (not 'noopener': that always returns null)
 		const tab = window.open(previewHref(locale), '_blank');
 		if (tab) tab.opener = null;
-		else session.notice = m['creator.preview_saved_open']();
+		else session.notify(m['creator.preview_saved_open']());
 	}
 
 	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
@@ -734,8 +740,9 @@
 			{@render sliceNav('end')}
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
-				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
+				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
+			<LiveChip files={liveFiles} />
 			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
@@ -745,26 +752,7 @@
 	{:else if chapter.error}
 		<p class="pad error">{chapter.error}</p>
 	{:else}
-		{#if hasStatus(chapter) || (refSrc && refs[refSrc] && (view.section === 'group' || view.section === 'slice') && hasStatus(refs[refSrc])) || (!season.loading && (season.dirty || season.unpublished.length))}
-		<div class="files" data-testid="file-status">
-			<FileStatus doc={chapter} label={fileLabel(chapter.entity)} />
-			<!-- the scene's own status only while one of its parts is open (owner 2026-10-03: "scene-14" next to Meta confused) -->
-			{#if refSrc && refs[refSrc] && (view.section === 'group' || view.section === 'slice')}<FileStatus doc={refs[refSrc]} label={refLabel(refSrc) ?? sceneLabel(toon, refSrc)} />{/if}
-			{#if !season.loading && (season.dirty || season.unpublished.length)}<FileStatus doc={season} label={fileLabel(season.entity)} />{/if}
-		</div>
-		{/if}
-		<DocNotices
-			{session}
-			docs={allDocs}
-			dirty={anyDirty && !chapter.saving}
-		/>
-		{#if castNotice}
-			<div class="sc-bar is-note" data-testid="cast-notice">
-				{castNotice}
-				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
-				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.close']()} title={m['creator.close']()}><CloseIcon /></button>
-			</div>
-		{/if}
+		<DocNotices {session} docs={allDocs} />
 
 		<div class="columns" class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
 			<!-- Main -->
@@ -916,13 +904,17 @@
 		height: 100%;
 		overflow: hidden;
 	}
-	.files {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
-		align-items: center;
-		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
+	/* phones: "Save" (owner 2026-10-07: More · Save · de ▾ · Publish fits at 375 px) */
+	.save-short {
+		display: none;
+	}
+	@media (max-width: 479px) {
+		.save-long {
+			display: none;
+		}
+		.save-short {
+			display: inline;
+		}
 	}
 	.slice-nav {
 		display: inline-flex;

@@ -187,9 +187,9 @@ async function answerDialog(button) {
 }
 const state = () =>
 	js(`({
-		dirty: !!document.querySelector('.sc-bar.is-dirty'),
+		dirty: !!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•'),
 		chips: ${CHIPS},
-		notice: document.querySelector('.sc-bar.is-note')?.innerText.replace('✕', '').trim() ?? '',
+		notice: [...document.querySelectorAll('.sc-toast-stack .toast')].at(-1)?.innerText.trim() ?? '', // E.1: a toast
 		saveDisabled: ${q('save-draft')}?.disabled,
 		publishDisabled: ${q('publish')}?.disabled,
 		members: [...document.querySelectorAll('[data-testid^="cast-member-"]')].map((e) => e.dataset.testid.slice(12))
@@ -223,6 +223,8 @@ try {
 	await click('[data-testid="publish"]');
 	s = await state();
 	check(s.notice.length > 0 && writesSince(n).length === 0, 'Publish with everything published says so (no request)', JSON.stringify(s));
+	// the toasts (E.1) float over the page bottom-right: close them so they don't cover the fields clicked next
+	await js(`document.querySelectorAll('.sc-toast-stack .sc-close-button').forEach((b) => b.click())`);
 
 	// 2. the only persona of an entry can't be unticked
 	const lone = await js(`[...document.querySelectorAll('[data-testid^="cast-personas-"]')].map((el) => [...el.querySelectorAll('input')]).find((l) => l.filter((i) => i.checked).length === 1)?.find((i) => i.checked)?.disabled`);
@@ -240,7 +242,7 @@ try {
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
 	await answerDialog('button.primary'); // the note dialog: one primary button, "Save without note" while empty
-	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.disabled`);
+	await until(`!document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•') && !${q('save-draft')}.disabled`);
 	s = await state();
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/cast:${TOON}` && saved[0].status === 200, 'Save draft: PUT cast 200', JSON.stringify(saved));
@@ -276,7 +278,7 @@ try {
 	n = writes.length;
 	await click('[data-testid="publish"]');
 	await answerDialog('button[type="submit"]'); // Publish confirms in-page
-	await until(`${CHIPS} === '' && !document.querySelector('.sc-bar.is-dirty')`);
+	await until(`${CHIPS} === '' && !document.querySelector('[data-testid="save-draft"]')?.textContent.includes('•')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(

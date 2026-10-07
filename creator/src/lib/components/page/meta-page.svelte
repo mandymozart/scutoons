@@ -13,14 +13,14 @@
 	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
-	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
+	import LiveChip from '$lib/components/status/live-chip.svelte';
 	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { dockWidth, flowWidth } from '$lib/nav.svelte.ts';
 
 	/**
 	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
-	 * (problems · undo/redo · history · note + Save draft / Publish), autosave + recover, missing-locale bars, the
+	 * (problems · undo/redo · history · note + Save draft / Publish), autosave + recover, missing-locale bars (only the blocking ones stay in the flow – E.1), the
 	 * leave guard and Ctrl+S / Ctrl+Z (outside a field). `docs` are validated, saved and published; `companions()` are
 	 * files that follow them (the chapter files whose status mirrors the season) – saved when dirty, published with the
 	 * docs. Save / publish / conflict: lib/editor/doc-session.svelte.ts; the bars: DocNotices.
@@ -161,8 +161,9 @@
 		{#snippet end()}
 			<input class="message" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
-				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
+				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
+			<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />
 			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
@@ -170,15 +171,9 @@
 	{#if !loaded}
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else}
-		{#if docs.some(hasStatus) || status}
-		<div class="files" data-testid="file-status">
-			{#each docs as d (d.entity)}
-				<FileStatus doc={d} label={fileLabel(d.entity)} />
-			{/each}
-			{#if status}<span class="status-end">{@render status()}</span>{/if}
-		</div>
-		{/if}
-		<DocNotices {session} {docs} dirty={anyDirty} />
+		<!-- the page's own status line (the script's rules link + cursor); the files' status is the ActionBar's chip (E.1) -->
+		{#if status}<div class="files" data-testid="page-status"><span class="status-end">{@render status()}</span></div>{/if}
+		<DocNotices {session} {docs} />
 		<main class="content">
 			{@render children()}
 		</main>
@@ -226,6 +221,18 @@
 	}
 	.message {
 		width: 11rem !important;
+	}
+	/* phones: "Save" (owner 2026-10-07: More · Save · de ▾ · Publish fits at 375 px) */
+	.save-short {
+		display: none;
+	}
+	@media (max-width: 479px) {
+		.save-long {
+			display: none;
+		}
+		.save-short {
+			display: inline;
+		}
 	}
 	.bad {
 		color: var(--error);

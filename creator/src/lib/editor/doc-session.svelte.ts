@@ -1,8 +1,8 @@
 // One editor page's save / publish / conflict state (COMPONENTS.md step 11): the meta pages (meta-page.svelte) and the
 // chapter editor share it – before, the chapter editor had a copy that had drifted. The page passes its files; the
 // session saves the dirty ones (asking for a note first), publishes after one confirm dialog that names exactly what
-// is published and in which language (owner 2026-10-03, 4.4.3), and keeps the notice / conflict the page shows
-// (DocNotices).
+// is published and in which language (owner 2026-10-03, 4.4.3), says what happened as a toast (UI-CONCEPTS E.1:
+// Saved, Published, Nothing to save, errors – lib/toasts.ts) and keeps the conflict the page shows as a bar (DocNotices).
 import { untrack } from 'svelte';
 import { askDialog, confirmDialog } from '@scutoons/ui';
 import { NEUTRAL_LOCALE } from '@scutoons/content';
@@ -11,6 +11,7 @@ import { docLabel, fileLabels } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { confirmSubmit, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
+import { toast, toaster } from '$lib/toasts.ts';
 import { markedLanguage } from '$lib/editor/text-language.svelte.ts';
 
 /**
@@ -47,12 +48,13 @@ export interface DocSessionOptions {
 }
 
 export class DocSession {
-	notice = $state<string | null>(null);
 	conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
 	/** the optional note of the next save */
 	message = $state('');
 	/** companions saved on this page (published together with the docs) */
 	private savedCompanions: ContentDoc[] = [];
+	/** this page's last toast: a new save / publish replaces it (an old error must not outlive a good save) */
+	private lastToast: number | null = null;
 
 	constructor(private readonly options: DocSessionOptions) {
 		// the Ask panel saved one of this page's files: load it when nothing is unsaved here, else the conflict bar now
@@ -85,9 +87,19 @@ export class DocSession {
 		return this.docs.some((d) => d.saving);
 	}
 
-	/** saves every dirty file (the note as the versions' message); false on a conflict or an error (shown as the notice / conflict bar) */
+	/** this page's toast (the previous one goes) */
+	notify(message: string, type: 'info' | 'success' | 'error' = 'info') {
+		this.clearNotice();
+		this.lastToast = toast(message, { type });
+	}
+	private clearNotice() {
+		if (this.lastToast !== null) toaster.dismiss(this.lastToast);
+		this.lastToast = null;
+	}
+
+	/** saves every dirty file (the note as the versions' message); false on a conflict or an error (an error toast / the conflict bar) */
 	async saveAll(force = false): Promise<boolean> {
-		this.notice = null;
+		this.clearNotice();
 		this.conflict = null;
 		this.options.beforeSave?.();
 		for (const doc of [...this.docs, ...this.companions]) {
@@ -97,12 +109,12 @@ export class DocSession {
 				if (!this.docs.includes(doc) && !this.savedCompanions.includes(doc)) this.savedCompanions.push(doc);
 			} catch (e) {
 				if (e instanceof SaveConflict) this.conflict = { doc, error: e };
-				else this.notice = `${docLabel(doc)}${e instanceof SaveError ? ` (${e.locale})` : ''}: ${e instanceof Error ? e.message : String(e)}`;
+				else this.notify(`${docLabel(doc)}${e instanceof SaveError ? ` (${e.locale})` : ''}: ${e instanceof Error ? e.message : String(e)}`, 'error');
 				return false;
 			}
 		}
 		this.message = '';
-		this.notice = m['creator.saved']();
+		this.notify(m['creator.saved'](), 'success');
 		this.options.afterSave?.();
 		return true;
 	}
@@ -111,7 +123,7 @@ export class DocSession {
 	async saveDraft(): Promise<void> {
 		this.options.beforeSave?.();
 		if (!this.anyDirty) {
-			this.notice = m['creator.nothing_to_save']();
+			this.notify(m['creator.nothing_to_save']());
 			return;
 		}
 		if (!this.message.trim()) {
@@ -138,17 +150,17 @@ export class DocSession {
 		const follow = [...new Set([...this.companions.filter((d) => d.dirty), ...this.savedCompanions])];
 		const files = [...this.docs.filter((d) => d.dirty || d.unpublished.length), ...follow];
 		if (!files.length) {
-			this.notice = m['creator.nothing_to_publish']();
+			this.notify(m['creator.nothing_to_publish']());
 			return;
 		}
 		if (reviews.needsReview(files[0].toon)) {
 			const note = await confirmSubmit(files, this.options.errorCount?.() ?? 0);
 			if (note === null || !(await this.saveAll())) return;
 			try {
-				this.notice = await submitForReview([...this.docs, ...this.savedCompanions].filter((d) => d.stored.length && d.unpublished.length), note);
+				this.notify(await submitForReview([...this.docs, ...this.savedCompanions].filter((d) => d.stored.length && d.unpublished.length), note), 'success');
 				this.savedCompanions = [];
 			} catch (e) {
-				this.notice = e instanceof Error ? e.message : String(e);
+				this.notify(e instanceof Error ? e.message : String(e), 'error');
 			}
 			return;
 		}
@@ -157,9 +169,9 @@ export class DocSession {
 		try {
 			for (const doc of [...this.docs, ...this.savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
 			this.savedCompanions = [];
-			this.notice = m['creator.published']();
+			this.notify(m['creator.published'](), 'success');
 		} catch (e) {
-			this.notice = e instanceof Error ? e.message : String(e);
+			this.notify(e instanceof Error ? e.message : String(e), 'error');
 		}
 	}
 

@@ -15,8 +15,10 @@
 		type Command,
 		type PaletteLink,
 		installTooltips,
-		DialogHost
+		DialogHost,
+		ToastStack
 	} from '@scutoons/ui';
+	import { toaster } from '$lib/toasts.ts';
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
 	import { entities, parseEntityKey, toonLanguages } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
@@ -324,6 +326,8 @@
 		/>
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
+	<!-- transient info + errors (UI-CONCEPTS E.1): bottom-right above the ActionBar, never in the page flow -->
+	<ToastStack {toaster} dismissLabel={m['creator.close']()} />
 </div>
 
 <style>

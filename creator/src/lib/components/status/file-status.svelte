@@ -1,15 +1,31 @@
 <script lang="ts" module>
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { m } from '$lib/paraglide/messages.js';
 
 	/** a language is live: published as it is, no unsaved edits */
 	export const isLive = (doc: ContentDoc, l: string) =>
 		doc.source[l] === 'store' && doc.base[l] === doc.published[l] && !doc.dirtyLocales.includes(l);
 	/** the file has something to show (not every language live) – the status row only then (owner 2026-10-03) */
 	export const hasStatus = (doc: ContentDoc) => !doc.loading && doc.locales.some((l) => !isLive(doc, l));
+	/** what keeps a language from being live, the worst first (the ActionBar's chip shows the worst – live-chip.svelte) */
+	export const STATES = ['missing', 'unsaved', 'draft'] as const;
+	export type NotLive = (typeof STATES)[number];
+	export const notLive = (doc: ContentDoc, l: string): NotLive | null =>
+		isLive(doc, l) ? null
+		: doc.source[l] === 'missing' ? 'missing'
+		: doc.dirtyLocales.includes(l) || doc.source[l] === 'new' ? 'unsaved'
+		: 'draft';
+	/** a language's state in words: "Published", "Draft · not published", "Not published", "Missing", "not saved" */
+	export function stateWords(doc: ContentDoc, l: string) {
+		const source = doc.source[l];
+		if (source === 'missing') return m['creator.state_missing']();
+		if (source === 'new') return m['creator.not_saved']();
+		if (doc.published[l] == null) return m['creator.state_unpublished']();
+		return doc.base[l] === doc.published[l] ? m['creator.state_published']() : m['creator.state_draft']();
+	}
 </script>
 
 <script lang="ts">
-	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 
 	/**
@@ -44,13 +60,7 @@
 	 */
 	const shown = $derived(full ? doc.locales : doc.locales.filter((l) => !isLive(doc, l)));
 
-	function label(l: string) {
-		const source = doc.source[l];
-		if (source === 'missing') return m['creator.state_missing']();
-		if (source === 'new') return m['creator.not_saved']();
-		if (doc.published[l] == null) return m['creator.state_unpublished']();
-		return doc.base[l] === doc.published[l] ? m['creator.state_published']() : m['creator.state_draft']();
-	}
+	const label = (l: string) => stateWords(doc, l);
 	const date = (iso: string | null | undefined) => {
 		const d = iso ? new Date(iso) : null;
 		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d) : '';
