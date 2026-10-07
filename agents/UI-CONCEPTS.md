@@ -361,3 +361,56 @@ three slices inverted as one black block, the text box row cyan. The slice open 
 **Decided (owner 2026-10-07):** nav "you are here" stays inverted; only the live selection gets the cyan treatment;
 the border is the primary colour.
 **Owner decides:** picked = the selected look (the multi-select draft) – fine?
+
+---
+
+## E.9 Phones and tablets – the audit (BACKLOG 10.50, 2026-10-07)
+
+Every page of the creator, admin and embassy, headless at **375 × 812** and **768 × 1024** with a touch screen (coarse
+pointer – the tools' 44px touch minimum applies; the root is 14px on the phone, 24px on the tablet), as the test user,
+nothing saved. Measured per page: horizontal page scroll (the layout wider than the screen), controls past the right
+edge, touch targets under 2.75rem, an ActionBar whose start / end overflows; plus the screenshots read by eye.
+Shots: the session scratchpad `shots/mobile/` (`before-*`, `final-*` per app / page / width; the chapter editor's
+before / after `m-*`). Not reachable with the dev data: an admin claim's detail (no claims).
+
+The phone draft (BACKLOG 10.50, owner-approved) is built: header ☰ · logo · Ask · search, crumbs in their own row, the
+language switch + Flow in the drawer (10.45), the square tool strip left of the canvas (10.47), the slice bar above the
+ActionBar, the inspector as a sheet with icon + count tabs, More · Save · `de ▾` · Publish (10.44), copy / paste in More
+(10.39).
+
+| Page | Width | Finding | Rule | Fixed? |
+|---|---|---|---|---|
+| creator chapter editor | 375 | the drawer's fold (« ) left a blank rail as wide as the drawer over the page | DOCKING "Phones": no fold on phones | ✓ 9f88fba7 – the drawer's fold closes it; a fold remembered on a desktop / forced by dock + Ask never shows the rail |
+| creator chapter editor | 375 | the drawer stayed open after picking a group / slice | the drawer is navigation | ✓ 9f88fba7 – a pick (Meta, Audio, an opening group, a slice) closes it |
+| creator chapter editor | 375 | ‹ slice ›, undo / redo, Problems only in More; a tab row peeking above More read as a black bar of the panel | reachable controls | ✓ 9f88fba7 – the slice bar (‹ Slice n/m ›, undo, redo, ⚠ count; round), More = a sheet on the bar with the page dimmed, toasts above the slice bar and under the More scrim |
+| creator chapter editor | 375 | canvas handles 10px, grips 21px, remove × 25–28px, the list field's "+" 24px wide | touch ≥ 2.75rem | ✓ 9f88fba7 – handles 1rem with a 2.75rem target, grips and frameless icon buttons ≥ `--control-height` wide, + / × square |
+| creator chapter editor | 375 | inspector tabs wrapped 2 + 2 | one row of tabs | ✓ 9f88fba7 – icon + count in one row, the label the name + tooltip; the inspector a sheet below the canvas (45 %, grab handle: drag, tap 45 ↔ 80 %, ↑ ↓) |
+| creator chapter tree | all | an open group's name squeezed to a few letters by grip + count + remove | the name comes first | ✓ 9f88fba7, e1a6dadd – the name wraps (min 6rem) instead of being cut, the count beside / below it |
+| creator toon page | all | languages (setup) before the chapters | content first | ✓ 9f88fba7 – chapters first, the languages after (desktop too: a one-time setup) |
+| creator chapter page | 375 | the details form first, the groups / slices only in the drawer | content first | ✓ 9f88fba7 – meta leads with the groups (a tap opens one), a group with its slice thumbnails (a tap opens the slice editor); a deep link to a slice opens the editor |
+| creator, every page | 375 | crumbs 20px, the logo link 18px high | touch ≥ 2.75rem | ✓ 9f88fba7 – full height on touch screens |
+| creator moods | 375 / 768 | the label field 16px wide; the row made the page 912px wide at 768 | no horizontal page scroll | ✓ e1a6dadd – below 1024px id · standard · remove, the label and usage below |
+| creator wanted images | 768 | the list's 22rem columns (24px root) made the page 840px wide | no horizontal page scroll | ✓ e1a6dadd – columns at most the width, paths break |
+| creator map | 375 / 768 | zoom out · % · zoom in · fit as frameless icon buttons | "Round vs square": a toolbar is one square group | ✓ e1a6dadd – one `sc-seg` like the Flow's |
+| creator map | 375 / 768 | place markers 16px | touch ≥ 2.75rem | ✓ e1a6dadd – a 2.75rem target around the point (the point stays small) |
+| creator Flow | 375 / 768 | a box's jump links ("C2 · mama-start") 15px high | touch ≥ 2.75rem | **owner decides** – the graph's density; zoom in, or bigger links in the boxes on touch? |
+| creator cast | 375 | rows cramped: the name wraps in a narrow column, the remove × drops under the grip | the name comes first | **owner decides** – stack the role field below the name on phones (left alone: the file has the owner's pending edit) |
+| creator cast, credits, script | 375 / 768 | standalone text links ("edit", "Reader (published)", "Format rules") 14–20px high | touch ≥ 2.75rem | **owner decides** – text links count as inline (WCAG's inline exception); give standalone ones full height? (admin "Claims for this code", "Open (n)"; embassy mail links: the same question) |
+| creator chapter drawer | 375 | a slice row's file name cut to "s1c2-…" | – | **owner decides** – number + thumbnail identify the slice; drop the file name on phones? |
+| creator toon page | 375 | the bar says "Save draft", the chapter / meta pages "Save" below 1280 | one wording per width | **owner decides** – it fits; make it "Save" too? |
+| creator media slots, "New character" | 390 | not `--control-height` high (check:tools-ui's known findings) | one control height | known, unchanged (tiles, not single-line controls) |
+| admin homepage | 375 / 768 | the add row (select + Add) made the page 532px wide; a long variant name 1205px at 768 | no horizontal page scroll | ✓ 24841820 – the row wraps, the selects shrink, rows stack below 1024px |
+| admin batch | 768 | the progress cells' sr-only words escaped the table's scroll box: page 869px wide | no horizontal page scroll | ✓ 24841820 – the scroll box is positioned |
+| admin catalog (items) | 375 | "Import images …" in the bar's end ran under "More" | the ActionBar fits | ✓ 24841820 – the page's bar actions go with the secondary ones into More when narrow |
+| admin tables | 375 / 768 | sort links 14px high; the logo link 18px | touch ≥ 2.75rem | ✓ 24841820 |
+| admin user | 375 / 768 | role toggles drawn as tall boxes (the button min-height on touch) | a switch is a switch | ✓ 24841820 – the track keeps its size, a `--control-height` target around it |
+| admin lists (codes, catalog, users …) | 375 | the table scrolls sideways inside its frame | reachable, no page scroll | **owner decides** – fine as is, or a stacked (card) row on phones? |
+| admin catalog | 375 | the nine kind tabs wrap into three rows | – | **owner decides** – a select on phones? |
+| embassy, every page | 768 | brand + four labelled nav entries + search + Ask: page 1014px wide | no horizontal page scroll | ✓ 5a00d309 – the top nav shows its icons only from 768 to 1023px |
+| embassy | 375 / 768 | the logo link 20px high | touch ≥ 2.75rem | ✓ 5a00d309 |
+| embassy Today | 375 | the week row's second round button wraps onto its own line | – | **owner decides** – minor |
+| embassy import | 375 / 768 | the file input is the browser's (22px high) | one control height | **owner decides** – a media slot / button for the CSV? |
+
+**Counts:** creator 19 findings – 13 fixed, 5 owner decides, 1 known; admin 7 – 5 fixed, 2 owner decides (+ the shared
+text-link question); embassy 4 – 2 fixed, 2 owner decides. After the fixes no page scrolls sideways at 375 or 768 and
+no ActionBar overflows (the audit's measure).

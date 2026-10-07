@@ -785,6 +785,28 @@ Three kinds, three places; none moves the layout:
   Ctrl / Cmd + wheel (a trackpad pinch) over the area zooms around the pointer, flyout open or not.
 - **Phones** (< 768): the same strip at the canvas's left, the canvas the rest of the width; buttons ≥ 2.75rem.
 
+### Phones and tablets (owner-approved phone draft 2026-10-07, BACKLOG 10.50, UI-CONCEPTS E.9) – creator, admin, embassy
+
+- **The drawer** (< 768, the sidebar): its fold button closes it (no rail on a phone – a fold remembered on a desktop
+  never shows there); a pick in it (a link, Meta, Audio, a group that opens, a slice – `data-drawer-pick`) closes it.
+- **Content first:** the toon page lists its chapters, then its languages (every width); the chapter page on a phone
+  leads with its groups (meta) and a group with its slice thumbnails – a tap opens the slice editor.
+- **The slice bar** (chapter editor, < 768): a row above the ActionBar – ‹ Slice n/m ›, undo, redo, ⚠ (the problems'
+  count in its corner, opens Problems); round icon buttons. "More" keeps the rest (copy / paste, preview, History, the
+  note). Toasts sit above it (`--sc-above-action-bar`).
+- **More on a phone** is a sheet flush on the ActionBar, the page above it dimmed (a tap there closes it; the toasts
+  wait under the dim).
+- **The inspector on a phone** is a sheet below the canvas (45 % of the editor) with a grab handle: drag it, tap it
+  (45 ↔ 80 %), ↑ / ↓ on it. Its tabs are one row: icon + count, the label the accessible name and tooltip.
+- **Touch targets** (coarse pointer): every control ≥ `--control-height` high (44px), frameless icon-only buttons and
+  sort grips as wide as high, crumbs and logo links full height, canvas handles 1rem with a 2.75rem target, map
+  markers a 2.75rem target, a Toggle keeps its switch track with a full-height target. Standalone text links are still
+  open (E.9).
+- **No page wider than the screen** at 375 or 768: lists of fields stack below 1024 (moods, the admin homepage), grid
+  columns are `min(Nrem, 100%)` wide, an sr-only word sits inside a positioned scroll box, the embassy's top nav shows
+  icons only from 768 to 1023; a page's own bar actions go into "More" when narrow (the bar's end keeps the primary
+  ones).
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
