@@ -3,7 +3,7 @@
 	import CloseButton from './close-button.svelte';
 
 	/**
-	 * Renders a toaster's toasts, fixed bottom-right – above the ActionBar when the page has one (never in the page
+	 * Renders a toaster's toasts, fixed bottom-left (owner 2026-10-07: the left side is used less; bottom-right covered fields) – above the ActionBar when the page has one (never in the page
 	 * flow). Errors are announced assertively. A toast's `action` (e.g. Undo) is a button before the close cross.
 	 */
 	let { toaster, dismissLabel = 'Dismiss' }: { toaster: Toaster; dismissLabel?: string } = $props();
@@ -22,12 +22,12 @@
 <style>
 	.sc-toast-stack {
 		position: fixed;
-		right: var(--space-1);
+		left: var(--space-1);
 		bottom: var(--space-1);
 		z-index: 1000;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-end;
+		align-items: flex-start;
 		gap: var(--space-05);
 		max-width: min(24rem, calc(100vw - 2rem));
 		pointer-events: none;

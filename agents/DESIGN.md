@@ -713,7 +713,7 @@ default in brackets ("(nein)"); a select's default likewise ("(Links)").
 Three kinds, three places; none moves the layout:
 - **Transient info → a toast** (@scutoons/ui `createToaster` + `ToastStack`, one per app: admin / embassy
   `lib/toasts.ts` context, the creator a module toaster `lib/toasts.ts` – `toast(message, { type, timeout, action })`).
-  Fixed bottom-right, **above the ActionBar** when the page has one, never in the page flow; fades after 4 s.
+  Fixed bottom-left (owner 2026-10-07: bottom-right covered fields in use), **above the ActionBar** when the page has one, never in the page flow; fades after 4 s.
   Creator: Saved, Published, Nothing to save / publish, review submitted, event ids assigned (8 s), "added to the cast"
   (+ **Undo**). Errors are toasts that stay until dismissed (`type: 'error'`, announced as an alert). A toast may carry
   ONE `action` (`{ label, run }`, a secondary button before the ×; it runs, then the toast goes; such a toast stays 8 s).
