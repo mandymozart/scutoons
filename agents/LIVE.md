@@ -75,14 +75,16 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
   exactly the toon's flow – across chapters, seasons, even into another toon (jumpTo / chapter targets with `toon`,
   one save game). A show is not tied to a chapter or a season: it has a **start** (toon + chapter + group label) and
   optional **ends**, and its rows are the scenes that flow can reach from the start (the creator's FlowIndex graph).
-  `<toon>` in the key is the show's home toon (where it starts; permissions); the flow may lead elsewhere.
+  `<toon>` in the key is the show's home toon (where it starts); the flow may lead elsewhere.
 - The show only **adds**: its stage layer over the toon's scenes (by scene / slice / event id – the toon is never
   touched), **in-between rows** (live-only: intro, intermission, encore – played when the flow passes a given point),
   and **performance overrides** in the conductor (hold, vote override, panic, a manual jump = the same as a toon jump).
 - Several shows per toon ("setups": a tour cut, a school version; one to start with). References that no longer resolve
   (a deleted slice, event or label) are **Problems errors** in the creator; the conductor refuses a show with errors.
-- Who may conduct / edit: a new **`live` permission** (owner 2026-10-07; per toon, given in the admin like the other
-  permissions) – a stage manager can build and run shows without editing the toon.
+- Who may conduct / edit: a new **`live` role** (owner 2026-10-07) in `roles` / `user_roles`, granted in the admin's
+  Users page like `creator` – **for all toons, no per-toon limits** (roles are global today; a toon scope on
+  `user_roles` can come later if a guest stage manager needs it). A stage manager can build and run shows without
+  editing the toon; `creator` / `admin` don't imply `live`.
 
 ### B.5.2 Shape (TypeScript, `@scutoons/live` `show.ts`; JSON Schema next to the content schemas)
 
@@ -221,7 +223,7 @@ reach); JSON over one WebSocket per client; the session is the connection's, not
 - `welcome` `{ client, group, snapshot, now }` – or, on `resume` within the replay buffer (last 500 messages / 5 min),
   the missed messages instead of the snapshot.
 - Session token: the conductor creates a session via the API (`POST /api/live/sessions` → `{ code, token }`,
-  the `live` permission for the show's toon); the token is an HMAC-signed `{ session, show, role: conductor | bridge | uplink, exp }` with a secret shared
+  the `live` role); the token is an HMAC-signed `{ session, show, role: conductor | bridge | uplink, exp }` with a secret shared
   by API and relay. Only conductor-role messages can change state; audience messages are rate-limited (5 / s) and
   nicknames are trimmed to 24 characters, the conductor can rename / kick (no word filter exists yet – a small
   blocklist in the relay); max 1000 clients per session.
@@ -296,7 +298,7 @@ in BACKLOG 10.56.
 |---|---|---|---|
 | 0 | Nov 2 – Nov 6 | The bus (B.1) + the FX cue registry; **spikes**: bunny WebSocket + one instance, iPhone audio / wake lock, RtMidi + `serialport` in Electron on mac + win | the bus, the risky platform facts |
 | 1 | Nov 9 – Nov 20 | `live/` workspace, local relay + MIDI drivers (`npm run live`): MIDI out default map → loopMIDI / IAC → Ableton, MIDI in → next / go; a bare conductor; the Show schema (a hand-written JSON show) | the fun, without the network |
-| 2 | Nov 23 – Dec 11 | Protocol v1 complete (B.6: tokens, snapshot, replay, clock), outputs (scroll, slice, live video / image), hosted `scutoons-live` + `live-image.yml` + deploy freeze, linked mode; the `show:` entity + the `live` permission | several screens in sync, LAN + hosted |
+| 2 | Nov 23 – Dec 11 | Protocol v1 complete (B.6: tokens, snapshot, replay, clock), outputs (scroll, slice, live video / image), hosted `scutoons-live` + `live-image.yml` + deploy freeze, linked mode; the `show:` entity + the `live` role (a migration: one `roles` row) | several screens in sync, LAN + hosted |
 | 3 | Dec 14 – Dec 18, Jan 4 – Jan 8 | Audience: QR per group, guest + account join, votes (rules, tally, override), instructions, sound / colour / haptics, pickups; performers (lines, countdown, ready); bots (join, random votes, reconnect) | the room and the cast play along |
 | 4 | Jan 11 – Jan 22 | Creator: stage builder **row view**, cue sheet, venue patches, Problems for broken references; rehearsal: simulated room + real devices partially, jump to a row with a state; musician sheets (PDF / image / text); the Electron app (mac + win, unsigned) | authoring without code |
 | 5 | Jan 25 – Jan 29 | Full run-through on our own setup: the patch, preload, load test (500 bots), drills (internet gone, laptop restart, phone sleep) | it holds |
@@ -316,10 +318,9 @@ for now; (9) one flow: the toon's flow decides everything (triggers, choices, ju
 has a start + ends, adds in-between rows and its stage layer, overrides are performance-only (hold, vote override,
 panic, manual jump); rows are never launched (not a clip launcher); keep = no change at runtime; (10) building
 Nov 2 → show-ready Feb 1 2027, first show Feb 1–14 (the B.10 cut line); (11) rehearsal: simulated room, fake audience, jump + record, real devices partially; (12) musicians get a
-free-form sheet (PDF / images / text), no score rendering or bar following; (13) a `live` permission per toon to
-build and conduct shows; (14) several setups (shows / venue patches) over time, one to start with; (15) show pickups:
+free-form sheet (PDF / images / text), no score rendering or bar following; (13) a global `live` role (all toons, no per-toon
+limits) to build and conduct shows; (14) several setups (shows / venue patches) over time, one to start with; (15) show pickups:
 any catalog item for now; (16) no surtitles on the audience phones for now.
 
 Open:
 1. The venue and the exact show date within Feb 1–14 (fixes the venue patch and the tech day) – not known yet.
-2. A show that reaches into another toon: does conducting need `live` for that toon too, or is the home toon enough?
