@@ -467,14 +467,16 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   3. ✅ _(dadb1e2d)_ Give: VN event `giveItem` { item, qty 1 … 10 } and a choice's action `give` { item, qty } – types,
      validation, schemas, the Flow box ("gives cucumber ×2"), the viewer (`giveStoryItem`: source story, once per place),
      the creator (+ giveItem, "give an item", the GiveItemField with the catalog picker).
-  4. **Proposal – owner decision** – Take: VN event `takeItem` { item, qty } / a choice's `take`. Today nothing can take:
-     `InventoryService::remove` is internal (craft / use). Proposed: `POST /api/inventory/take { item_id, qty, ref }`,
-     source story only (the item's catalog flag `takeable` – default no, so a story can't eat a bought hoodie), once
-     per ref like a grant (a replay takes nothing), **too few pieces → nothing is taken and the event says so**
-     (`taken: 0`; the script goes on – for "pay 3 coins to pass" a condition `inventory.coin >= 3` guards the choice
-     first, the creator suggests it). Guests: their local inventory the same way. Questions: is `takeable` per item
-     right (or per category – food, collectibles)? Should a failed take stop the script (a dead-end risk) or just go
-     on (proposed)?
+  4. **Take – decided (owner 2026-10-07):** VN event `takeItem` { item, qty, repeat } and a choice's `take`.
+     - What: an item with the catalog flag **"a story may take it"** (admin, off by default) – also another toon's items;
+       **physical items never** (only claims move those).
+     - Repeats: the trigger / pickup intervals (`repeat`: every time – the default –, once, per page view, every N
+       minutes / hours / days), per event.
+     - Too few: all or nothing – nothing is taken; the script guards it (`if inventory.x >= n`). In a choice's action
+       list a failed take stops the rest (a trade never gives for free); the story goes on. A take can lead into a
+       detour (`divert`).
+     - Test content: toptoy ch1 (the mama story) – 5 cucumbers to pick up on one slice, Top Toy trades a blotter (`lsd`)
+       for 5 cucumbers, swallowing it diverts into a short psychedelic detour.
   5. ✅ _(this commit)_ Data: the dev DB analysed (latest versions: 4 choice adds in scene:sandbox:1/2/5 – cucumber ×3,
      testo; older versions catpope's repair_coupon / broken_record_player; no setVariable / condition on an item) →
      `server/migrations/mysql/2026-10-07-give-item.mysql.sql` (choice `add` / setVariable `add` of an item-named
