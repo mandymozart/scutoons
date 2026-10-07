@@ -1,9 +1,21 @@
 import type { Attachment } from 'svelte/attachments';
+import { HIGHLIGHTERS, type Highlighter } from '@scutoons/content';
+
+type Shapes = (typeof import('./alienshine-shapes.ts'))['ALIENSHINE_SHAPES'];
+/** the alienshine shapes: loaded the first time a chapter uses them (a chunk of its own) */
+let shapes: Shapes | null = null;
+let loading: Promise<void> | null = null;
+const loadShapes = () => (loading ??= import('./alienshine-shapes.ts').then((m) => void (shapes = m.ALIENSHINE_SHAPES)));
+let gradients = 0;
+const SVG = 'http://www.w3.org/2000/svg';
 
 /**
  * Fireflies over a tap / hover / sound area with "Show hints" on (owner 2026-10-08, after nerdmanship's "Miyazaki
  * tribute" pen): a warm core with a blurred glow, drifting along soft curves over the area – a little past its edges –
- * flickering now and then. The bigger the area, the more (one per --sc-firefly-area rem², at most --sc-firefly-max). They only move while the area is on
+ * flickering now and then. The bigger the area, the more (one per --sc-firefly-area rem², at most --sc-firefly-max).
+ * The highlighter is the chapter's (`Chapter.highlight`, chosen in the creator – `data-highlight` on the chapter view):
+ * `fireflies` (round glows) or `alienshine` (a random brush stroke / speck of the owner's attention.svg each, random size
+ * and turn); --sc-hint-style on :root overrides it for trying things out in the inspector. They only move while the area is on
  * screen and the hints are on; look in hint-areas.css (`.sc-firefly`, --sc-firefly-core / --sc-firefly-glow).
  */
 export function fireflies(): Attachment<HTMLElement> {
@@ -15,6 +27,14 @@ export function fireflies(): Attachment<HTMLElement> {
 		let stopped = false;
 
 		const hintsOn = () => document.documentElement.classList.contains('sc-show-hints');
+		const valid = (v: string | undefined | null): v is Highlighter => !!v && (HIGHLIGHTERS as readonly string[]).includes(v);
+		function kindOf(): Highlighter {
+			const override = getComputedStyle(document.documentElement).getPropertyValue('--sc-hint-style').trim();
+			if (valid(override)) return override;
+			const chosen = area.closest<HTMLElement>('[data-highlight]')?.dataset.highlight;
+			return valid(chosen) ? chosen : 'fireflies';
+		}
+		let kind: Highlighter = 'fireflies';
 		// a point over the area, up to 10 % past its edges (in % of the area) – sideways never out of its slice, so the
 		// page never gets wider
 		function spot() {
@@ -40,8 +60,9 @@ export function fireflies(): Attachment<HTMLElement> {
 		}
 
 		function make() {
-			const fly = document.createElement('span');
-			fly.className = 'sc-firefly';
+			const fly = kind === 'alienshine' && shapes ? alien(shapes) : document.createElement('span');
+			fly.classList.add('sc-firefly');
+			if (kind === 'alienshine') fly.classList.add('sc-alienshine');
 			fly.setAttribute('aria-hidden', 'true');
 			const [x, y] = spot();
 			fly.style.left = `${x}%`;
@@ -60,6 +81,38 @@ export function fireflies(): Attachment<HTMLElement> {
 			);
 			flies.push(fly);
 			return fly;
+		}
+
+		/** one random shape of attention.svg with its own gradient (core → glow), a random size and turn */
+		function alien(list: Shapes): HTMLElement {
+			const [d, x, y, w, h, transform, rule] = list[Math.floor(Math.random() * list.length)];
+			const id = `sc-alienshine-${++gradients}`;
+			const svg = document.createElementNS(SVG, 'svg');
+			svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+			// rem: a speck about 0.5, a long stroke up to 2.5 (the square root keeps the specks visible), ±20 % at random
+			const size = Math.min(2.5, Math.max(0.5, 0.55 * Math.sqrt(Math.max(w, h)))) * (0.8 + Math.random() * 0.4);
+			svg.style.width = `${(size * w) / Math.max(w, h)}rem`;
+			svg.style.height = `${(size * h) / Math.max(w, h)}rem`;
+			svg.style.rotate = `${Math.round(Math.random() * 360)}deg`;
+			const gradient = document.createElementNS(SVG, 'radialGradient');
+			gradient.setAttribute('id', id);
+			gradient.setAttribute('cx', '0');
+			gradient.setAttribute('cy', '0');
+			gradient.setAttribute('r', '1');
+			gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
+			gradient.setAttribute('gradientTransform', transform);
+			for (const [offset, color] of [['0', 'var(--sc-firefly-core)'], ['1', 'var(--sc-firefly-glow)']]) {
+				const stop = document.createElementNS(SVG, 'stop');
+				stop.setAttribute('offset', offset);
+				stop.style.stopColor = color;
+				gradient.appendChild(stop);
+			}
+			const path = document.createElementNS(SVG, 'path');
+			path.setAttribute('d', d);
+			path.setAttribute('fill', `url(#${id})`);
+			if (rule) path.setAttribute('fill-rule', rule);
+			svg.append(gradient, path);
+			return svg as unknown as HTMLElement;
 		}
 
 		/** to a new spot along a curve (two bends on the way), then on again */
@@ -84,8 +137,17 @@ export function fireflies(): Attachment<HTMLElement> {
 			};
 		}
 
+		function clear() {
+			for (const anim of running.values()) anim.cancel();
+			running.clear();
+			for (const fly of flies.splice(0)) fly.remove();
+		}
+
 		function wake() {
 			if (!visible || !hintsOn()) return;
+			const next = kindOf();
+			if (next === 'alienshine' && !shapes) return void loadShapes().then(wake);
+			if (next !== kind) (clear(), (kind = next));
 			const want = count();
 			while (flies.length < want) make();
 			while (flies.length > want) {
@@ -111,8 +173,7 @@ export function fireflies(): Attachment<HTMLElement> {
 			stopped = true;
 			io.disconnect();
 			mo.disconnect();
-			for (const anim of running.values()) anim.cancel();
-			for (const fly of flies) fly.remove();
+			clear();
 		};
 	};
 }

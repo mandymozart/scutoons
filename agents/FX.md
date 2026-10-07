@@ -83,6 +83,15 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
   height (60 + 220 + 220 ms, clip-path) – then its text is typed letter by letter (the drawn text nodes emptied and
   filled back, 18–55 ms a letter so a long text stays under ~2.5 s) with a key click per letter, or the event's one
   sound; the event completes when the typing has (at least its duration).
+- Show hints highlighters (owner 2026-10-08): tap / hover / sound areas are marked only by wandering lights
+  (viewer `components/toon/fireflies.ts` + `hint-areas.css`; the dashed boxes, corners and icons went), more on bigger
+  areas (one per --sc-firefly-area rem², at most --sc-firefly-max). Chosen per chapter in the creator (meta panel
+  "Hinweise (Tippflächen)", `Chapter.highlight`, `@scutoons/content` fx.ts `HIGHLIGHTERS` – a list to extend):
+  `fireflies` (default; round warm glows after nerdmanship's Miyazaki pen) or `alienshine` (a random brush stroke /
+  speck of the owner's attention.svg each – a random third of its 172 radial-filled paths in
+  `alienshine-shapes.ts`, loaded only when used; random size and turn). Colours / blend from the owner's tuning:
+  --sc-firefly-core #000, --sc-firefly-glow #ec60cf, --sc-hint-blend difference; --sc-hint-style on :root overrides
+  the chapter's choice in the inspector. Everything re-reads live when the variables change.
 
 **Phases**
 1. `pickup.collect` + `pickup.refuse` with default sounds – viewer only, no data change.

@@ -276,7 +276,8 @@
 	</div>
 {:else}
 <MembershipBlocker isPreview={data.chapter.isPreview}>
-	<div class="chapter-view" use:audio={data.chapter.audio} {@attach trackReading(spot)}>
+	<!-- data-highlight: how "Show hints" marks the tap areas (the chapter's highlighter – components/toon/fireflies.ts) -->
+	<div class="chapter-view" data-highlight={data.chapter.highlight ?? 'fireflies'} use:audio={data.chapter.audio} {@attach trackReading(spot)}>
 		<!-- another chain, another group of it (`?label=` – also a jump back into the same chain) or another chapter starts
 		     the page from scratch (scripts, stage, the follow-up bar) -->
 		{#key `${data.chapter.number}:${chain?.start ?? currentLabel}:${chain?.at ?? ''}:${replays}`}

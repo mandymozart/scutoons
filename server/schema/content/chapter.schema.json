@@ -75,6 +75,10 @@
 						"type": "string"
 					},
 					"description": "Items that go with this chapter (catalog item ids, in order; language-neutral – the creator writes the same list to every locale), agents/ITEMS.md \"Players, albums, related items\". Stored + edited; the reader does not show it yet."
+				},
+				"highlight": {
+					"$ref": "#/definitions/Highlighter",
+					"description": "how \"Show hints\" highlights the chapter's tap / hover / sound areas (fx.ts `HIGHLIGHTERS`); none = fireflies"
 				}
 			},
 			"required": [
@@ -2678,6 +2682,13 @@
 				"target"
 			],
 			"description": "A group's authored end (`Group.end`): the destination; `auto` = go there at once, else the follow-up bar offers it"
+		},
+		"Highlighter": {
+			"type": "string",
+			"enum": [
+				"fireflies",
+				"alienshine"
+			]
 		}
 	}
 }

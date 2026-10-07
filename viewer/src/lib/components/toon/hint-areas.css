@@ -3,7 +3,8 @@
  * and see-through zones): fireflies wandering over the area (fireflies.ts, owner 2026-10-08 – the corner marks went:
  * "the fireflies are obvious enough"; no icon in the middle either). Without hints nothing is drawn (the areas still
  * work). Tuning in the inspector: --sc-hint-blend (mix-blend-mode),
- * --sc-firefly-core, --sc-firefly-glow, --sc-firefly-area (rem² per firefly), --sc-firefly-max.
+ * --sc-firefly-core, --sc-firefly-glow, --sc-firefly-area (rem² per firefly), --sc-firefly-max, --sc-hint-style
+ * (fireflies | alienshine – overrides the chapter's highlighter).
  * Elements: `.sc-hint-area` + `data-hint="tap | sound | hover"` (vn/triggers, audio/sample-trigger).
  */
 :root {
@@ -30,6 +31,15 @@
 	mix-blend-mode: var(--sc-hint-blend);
 	pointer-events: none;
 	z-index: 1;
+}
+/* alienshine (fireflies.ts): an SVG shape with its own gradient – its size inline; the glow follows the shape */
+.sc-firefly.sc-alienshine {
+	margin: 0;
+	border-radius: 0;
+	background: none;
+	box-shadow: none;
+	overflow: visible;
+	filter: drop-shadow(0 0 0.3rem color-mix(in srgb, var(--sc-firefly-glow) 60%, transparent));
 }
 html:not(.sc-show-hints) .sc-firefly {
 	display: none;

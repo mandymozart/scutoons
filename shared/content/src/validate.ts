@@ -10,7 +10,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
-import { FX_IMPACTS, FX_MAX_DURATION, FX_SOUNDS, isFxSoundChoice } from './fx.ts';
+import { FX_IMPACTS, FX_MAX_DURATION, FX_SOUNDS, HIGHLIGHTERS, isFxSoundChoice } from './fx.ts';
 import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
@@ -933,6 +933,7 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		if (!isStr(ch[key])) c.error([key], `${key} must be a string`);
 	}
 	if (isStr(ch.title) && !ch.title.trim()) c.warn(['title'], 'title is empty');
+	if (ch.highlight !== undefined && !(HIGHLIGHTERS as readonly unknown[]).includes(ch.highlight)) c.error(['highlight'], `highlight must be one of ${HIGHLIGHTERS.join(', ')}`);
 	if (!Number.isInteger(ch.number)) c.error(['number'], 'number must be an integer');
 	if (!values(Language).includes(ch.language)) c.error(['language'], `language must be one of ${values(Language).join(', ')}`);
 	else if (ch.language !== locale) c.warn(['language'], `language is "${ch.language}" in the ${locale} file`);

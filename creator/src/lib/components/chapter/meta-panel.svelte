@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { HIGHLIGHTERS } from '@scutoons/content';
 	import type { Snippet } from 'svelte';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { statusWord } from '$lib/editor/status-word.ts';
@@ -86,6 +87,8 @@
 	<div class="sc-fields" data-cols="2">
 		<LocaleText {doc} path={['release']} label={m['creator.field_release']()} type="date" />
 		<PropField {doc} path={['author']} label={m['creator.field_author']()} required />
+		<!-- how "Show hints" marks the chapter's tap areas (owner 2026-10-08: chosen here, a list that grows – content fx.ts HIGHLIGHTERS) -->
+		<PropField {doc} path={['highlight']} label={m['creator.field_highlight']()} type="select" options={HIGHLIGHTERS.filter((h) => h !== 'fireflies').map((h) => ({ value: h, label: m[`creator.highlight_${h}`]() }))} placeholder={m['creator.highlight_fireflies']()} />
 	</div>
 
 	<!-- the images as slots: the preview is the button, no path fields (owner 2026-10-03) -->

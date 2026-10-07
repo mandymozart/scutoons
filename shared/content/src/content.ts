@@ -5,7 +5,7 @@ import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
 import type { SliceItemRespawn } from './respawn.ts';
-import type { FxSoundChoice } from './fx.ts';
+import type { FxSoundChoice, Highlighter } from './fx.ts';
 import type { Repeat } from './recurrence.ts';
 import type { CoverLettering } from './cover.ts';
 import type { AcceptedWarnings } from './accepted.ts';
@@ -489,6 +489,8 @@ export interface Chapter extends AcceptedWarnings {
 	 * every locale), agents/ITEMS.md "Players, albums, related items". Stored + edited; the reader does not show it yet.
 	 */
 	related_items?: string[];
+	/** how "Show hints" highlights the chapter's tap / hover / sound areas (fx.ts `HIGHLIGHTERS`); none = fireflies */
+	highlight?: Highlighter;
 }
 
 export interface ChapterWithId extends Chapter {

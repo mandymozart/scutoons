@@ -15,6 +15,14 @@ export type FxImpact = (typeof FX_IMPACTS)[number];
 /** the longest an impact may play (ms) */
 export const FX_MAX_DURATION = 3000;
 
+/**
+ * How the reader highlights a chapter's tap / hover / sound areas while "Show hints" is on (owner 2026-10-08: chosen
+ * in the editor, a list to extend): `fireflies` – warm round glows drifting over the area (the default), `alienshine`
+ * – brush strokes and specks from the owner's attention.svg, each one random.
+ */
+export const HIGHLIGHTERS = ['fireflies', 'alienshine'] as const;
+export type Highlighter = (typeof HIGHLIGHTERS)[number];
+
 export function isFxSoundChoice(value: unknown): value is FxSoundChoice {
 	return value === 'none' || (typeof value === 'string' && (FX_SOUNDS as readonly string[]).includes(value));
 }

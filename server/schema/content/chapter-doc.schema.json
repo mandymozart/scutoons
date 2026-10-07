@@ -69,6 +69,10 @@
 						"type": "string"
 					},
 					"description": "Items that go with this chapter (catalog item ids, in order; language-neutral – the creator writes the same list to every locale), agents/ITEMS.md \"Players, albums, related items\". Stored + edited; the reader does not show it yet."
+				},
+				"highlight": {
+					"$ref": "#/definitions/Highlighter",
+					"description": "how \"Show hints\" highlights the chapter's tap / hover / sound areas (fx.ts `HIGHLIGHTERS`); none = fireflies"
 				}
 			},
 			"required": [
@@ -2422,6 +2426,13 @@
 				"path"
 			],
 			"description": "A music track or a sample-library sound. `path` = the default file (the medium level, 128k – what older readers and a reader without a known level play); `variants` = one file per quality level (low 96k / medium 128k / high 320k, PLAN.md \"RULE: one file per quality level\"), toon-relative like `path`. A missing level falls back to the next lower one."
+		},
+		"Highlighter": {
+			"type": "string",
+			"enum": [
+				"fireflies",
+				"alienshine"
+			]
 		}
 	}
 }
