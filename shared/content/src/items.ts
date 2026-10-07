@@ -138,6 +138,12 @@ export interface ItemDef extends AcceptedWarnings {
 	/** a substance's temporary reader effect */
 	effect?: TimedEffect | null;
 	/**
+	 * sobers up (owner 2026-10-08: "eating candy reduces the effect to half the time … lots of cucumbers reduce the time
+	 * it lasts"): each piece used takes this share (0 < x < 1) off the remaining time of every running reader effect –
+	 * 0.5 halves it. An item with it is used like a substance (`apply` skill).
+	 */
+	sober?: number | null;
+	/**
 	 * Collection limit: at most this many per account (owner 2026-10-02); none = `MAX_PER_ACCOUNT` (99). Rarer items set
 	 * less. The server refuses more (409 max_reached); a claimed physical product (QR code) is always added.
 	 */

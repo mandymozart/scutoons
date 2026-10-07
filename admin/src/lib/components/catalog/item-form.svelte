@@ -152,6 +152,8 @@
 {#if data.effect}
 	<CatalogField label={m['catalog.reader_effect_minutes']()} type="number" value={data.effect.duration_min} onchange={(v) => (data.effect = { ...data.effect, duration_min: Number(v) > 0 ? Number(v) : 30 })} testid="item-effect-minutes" />
 {/if}
+<!-- sobering up (owner 2026-10-08): each piece used takes this share off every running effect – shown in %, stored as 0…1 -->
+<CatalogField label={m['catalog.sober']()} type="number" value={data.sober != null ? Math.round(data.sober * 100) : null} hint={m['catalog.sober_hint']()} error={err('sober')} onchange={(v) => (Number(v) > 0 && Number(v) < 100 ? (data.sober = Number(v) / 100) : delete data.sober)} testid="item-sober" />
 
 <style>
 	.picture {

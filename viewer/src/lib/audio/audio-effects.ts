@@ -11,8 +11,9 @@ import { musicOutput } from './AdaptiveMusicPlayer.ts';
  *
  * One chain per reader effect (@scutoons/content READER_EFFECTS).
  * `psychedelic` ("Farbrausch", owner: "a delay and some high pass filter"): a high-pass that sweeps
- * slowly (≈ 160 … 600 Hz – higher took the music's body away, owner 2026-10-08) into a feedback echo (380 ms, feedback
- * 0.5), mixed with the filtered sound.
+ * slowly (≈ 160 … 600 Hz – higher took the music's body away, owner 2026-10-08) into a feedback echo (feedback 0.65)
+ * whose time drifts with two slow LFOs (≈ 210 … 550 ms, speeding up and slowing down unevenly), mixed with the filtered
+ * sound.
  */
 export type AudioEffectKind = ReaderEffectKind;
 
@@ -43,8 +44,23 @@ function farbrausch(ctx: AudioContext): Chain {
 	dry.gain.value = 0.9;
 	const delay = ctx.createDelay(1);
 	delay.delayTime.value = 0.38;
+	// the echo's time drifts – slower, faster, in uneven waves (owner 2026-10-08): two slow LFOs of unrelated rates on it
+	// (≈ 0.21 … 0.55 s; the warble that comes with it is welcome)
+	const drift1 = ctx.createOscillator();
+	const drift1Depth = ctx.createGain();
+	drift1.frequency.value = 0.07;
+	drift1Depth.gain.value = 0.12;
+	const drift2 = ctx.createOscillator();
+	const drift2Depth = ctx.createGain();
+	drift2.type = 'triangle';
+	drift2.frequency.value = 0.193;
+	drift2Depth.gain.value = 0.05;
+	drift1.connect(drift1Depth).connect(delay.delayTime);
+	drift2.connect(drift2Depth).connect(delay.delayTime);
+	drift1.start();
+	drift2.start();
 	const feedback = ctx.createGain();
-	feedback.gain.value = 0.5;
+	feedback.gain.value = 0.65;
 	const wet = ctx.createGain();
 	wet.gain.value = 0;
 	wet.gain.setTargetAtTime(0.55, ctx.currentTime, FADE / 3);
@@ -59,19 +75,21 @@ function farbrausch(ctx: AudioContext): Chain {
 		input,
 		output,
 		stop() {
-			try {
-				lfo.stop();
-			} catch {
-				/* stopped */
+			for (const o of [lfo, drift1, drift2]) {
+				try {
+					o.stop();
+				} catch {
+					/* stopped */
+				}
 			}
-			for (const n of [input, highpass, lfo, depth, dry, delay, feedback, wet, output]) n.disconnect();
+			for (const n of [input, highpass, lfo, depth, drift1, drift1Depth, drift2, drift2Depth, dry, delay, feedback, wet, output]) n.disconnect();
 		}
 	};
 }
 
 /**
  * `haze` ("Dunst", owner 2026-10-08: weed – "not a party drug … in haze"): muffled – a low-pass drifting slowly
- * (≈ 700 … 1300 Hz) – with a soft short echo (90 ms, feedback 0.3) that blurs the edges.
+ * (≈ 700 … 1300 Hz) – with a short echo that keeps ringing (90 ms, feedback 0.6 – owner: "more feedback").
  */
 function haze(ctx: AudioContext): Chain {
 	const input = ctx.createGain();
@@ -91,10 +109,10 @@ function haze(ctx: AudioContext): Chain {
 	const delay = ctx.createDelay(1);
 	delay.delayTime.value = 0.09;
 	const feedback = ctx.createGain();
-	feedback.gain.value = 0.3;
+	feedback.gain.value = 0.6;
 	const wet = ctx.createGain();
 	wet.gain.value = 0;
-	wet.gain.setTargetAtTime(0.35, ctx.currentTime, FADE / 3);
+	wet.gain.setTargetAtTime(0.45, ctx.currentTime, FADE / 3);
 	const output = ctx.createGain();
 	input.connect(lowpass);
 	lowpass.connect(dry).connect(output);
@@ -153,7 +171,11 @@ function insert(ctx: AudioContext, from: AudioNode, effect: AudioEffectKind): In
 	return { ctx, from, chain };
 }
 
-/** takes the chain out again: the plain line fades back in */
+/**
+ * takes the chain out again: the plain line fades back in and stays (the output's route from now on); afterwards only
+ * this chain's own connections go – never the output's others (owner 2026-10-08: the sound didn't come back after the
+ * account page – the old version disconnected everything 1.2 s later, a chain put in meanwhile included)
+ */
 function remove({ ctx, from, chain }: Insert) {
 	if (ctx.state === 'closed') return chain.stop();
 	const plain = ctx.createGain();
@@ -164,14 +186,12 @@ function remove({ ctx, from, chain }: Insert) {
 	chain.output.gain.setValueAtTime(chain.output.gain.value, now);
 	chain.output.gain.linearRampToValueAtTime(0, now + FADE);
 	setTimeout(() => {
-		chain.stop();
 		try {
-			from.disconnect();
-			from.connect(ctx.destination);
-			plain.disconnect();
+			from.disconnect(chain.input);
 		} catch {
-			/* the context went meanwhile */
+			/* already gone (a new chain took the output) */
 		}
+		chain.stop();
 	}, FADE * 1000 + 50);
 }
 

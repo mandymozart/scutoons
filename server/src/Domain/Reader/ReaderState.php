@@ -105,7 +105,7 @@ final class ReaderState
         $itemId = is_string($body['item_id'] ?? null) ? $body['item_id'] : '';
         $item = $this->catalog->item($itemId) ?? throw new ApiError(404, 'unknown_item', 'Unknown item.');
         $applies = array_filter($item['skills'] ?? [], fn($s) => is_array($s) && ($s['type'] ?? null) === 'apply') !== [];
-        if (!$applies || (empty($item['effects']) && empty($item['effect']))) throw new ApiError(422, 'not_usable', 'This item cannot be used like that.');
+        if (!$applies || (empty($item['effects']) && empty($item['effect']) && empty($item['sober']))) throw new ApiError(422, 'not_usable', 'This item cannot be used like that.');
         $this->db->transaction(function () use ($userId, $item) {
             if ($this->inventory->count($userId, (string) $item['id']) < 1) throw new ApiError(422, 'missing', 'This item is not in your inventory.', ['item_id' => $item['id']]);
             $this->inventory->remove($userId, (string) $item['id'], 1);
@@ -123,6 +123,14 @@ final class ReaderState
                 $this->db->run('INSERT INTO member_stats (user_id, stat, level, updated_at) VALUES (?, ?, ?, ?)', [$userId, $e['stat'], $next, $at]);
             }
             $this->db->run('DELETE FROM member_effects WHERE user_id = ? AND until <= ?', [$userId, $at]);
+            // sobering up (catalog `sober`, owner 2026-10-08): every running effect loses that share of its remaining time
+            $sober = (float) ($item['sober'] ?? 0);
+            if ($sober > 0 && $sober < 1) {
+                foreach ($this->db->all('SELECT kind, until FROM member_effects WHERE user_id = ?', [$userId]) as $row) {
+                    $left = max(0, (int) strtotime($row['until'] . ' UTC') - $now);
+                    $this->db->run('UPDATE member_effects SET until = ? WHERE user_id = ? AND kind = ?', [$this->clock->utc((int) round($left * (1 - $sober))), $userId, $row['kind']]);
+                }
+            }
             if (is_array($item['effect'] ?? null)) {
                 $kind = (string) $item['effect']['kind'];
                 $this->db->run('DELETE FROM member_effects WHERE user_id = ? AND kind = ?', [$userId, $kind]);

@@ -59,11 +59,22 @@
 		const b = bounds(u);
 		onchange({ mode: 'interval', every: { [u]: Math.min(b.max, Math.max(b.min, 1)) } as TimedInterval });
 	}
+	/**
+	 * a typed number outside the bounds (owner 2026-10-08: "no warning that it can't be set below the catalog's minimum?"):
+	 * not stored – a warning says why and what is allowed; leaving the field shows the stored value again
+	 */
+	let outside = $state(false);
 	function setN(raw: string) {
 		if (kind === 'default' || kind === 'every' || kind === 'view' || kind === 'once') return;
 		const b = bounds(kind);
 		const count = Math.floor(Number(raw));
-		if (count >= b.min && count <= b.max) onchange({ mode: 'interval', every: { [kind]: count } as TimedInterval });
+		outside = raw.trim() !== '' && !(count >= b.min && count <= b.max);
+		if (!outside && raw.trim() !== '') onchange({ mode: 'interval', every: { [kind]: count } as TimedInterval });
+	}
+	function leaveN(input: HTMLInputElement) {
+		if (!outside) return;
+		input.value = String(n);
+		outside = false;
 	}
 	const unitWord = (u: RecurrenceUnit) => m[`creator.repeat_every_${u}_n`]();
 </script>
@@ -88,8 +99,27 @@
 	{@const b = bounds(kind)}
 	<div class="field">
 		<label for="{id}-n">{m[`creator.respawn_unit_${kind}`]()}{pickup ? ` (${b.min} … ${b.max})` : ''}</label>
-		<input id="{id}-n" type="number" step="1" min={b.min} max={b.max} value={n} oninput={(e) => setN(e.currentTarget.value)} data-testid="{testid}-n" />
+		<input
+			id="{id}-n"
+			type="number"
+			step="1"
+			min={b.min}
+			max={b.max}
+			value={n}
+			oninput={(e) => setN(e.currentTarget.value)}
+			onblur={(e) => leaveN(e.currentTarget)}
+			aria-invalid={outside}
+			aria-describedby={outside ? `${id}-range` : undefined}
+			data-testid="{testid}-n"
+		/>
 	</div>
+	{#if outside}
+		<p class="warn" id="{id}-range" role="alert" data-testid="{testid}-range">
+			{pickup
+				? m['creator.repeat_outside_catalog']({ min: b.min, max: b.max, unit: m[`creator.respawn_unit_${kind}`](), stored: n })
+				: m['creator.repeat_outside']({ min: b.min, max: b.max, stored: n })}
+		</p>
+	{/if}
 {/if}
 
 <style>

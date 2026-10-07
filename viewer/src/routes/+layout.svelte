@@ -11,6 +11,7 @@
 	import { Icon } from '@scutoons/ui';
 	import Loader from '$lib/components/loader.svelte';
 	import ItemsHost from '$lib/components/items/items-host.svelte';
+	import ReaderEffect from '$lib/components/items/reader-effect.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { setSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { setInventoryContext } from '$lib/contexts/inventory.svelte.ts';
@@ -102,6 +103,8 @@
 </div>
 
 <ItemsHost />
+<!-- a running reader effect goes wherever the reader goes (owner 2026-10-08) – not only the toon pages -->
+<ReaderEffect />
 
 <div style="display:none">
 	{#each locales as locale}

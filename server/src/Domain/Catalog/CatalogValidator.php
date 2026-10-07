@@ -176,7 +176,9 @@ final class CatalogValidator
         // substances (ITEMS.md "Substances"): stat changes of known stats, a timed effect, the `apply` skill
         $skills = is_array($item['skills'] ?? null) ? $item['skills'] : [];
         $applies = array_filter($skills, fn($s) => is_array($s) && ($s['type'] ?? null) === 'apply') !== [];
-        $substance = (is_array($item['effects'] ?? null) && $item['effects'] !== []) || ($item['effect'] ?? null) !== null;
+        $substance = (is_array($item['effects'] ?? null) && $item['effects'] !== []) || ($item['effect'] ?? null) !== null || ($item['sober'] ?? null) !== null;
+        // sobering up (owner 2026-10-08): each piece takes this share off every running effect's remaining time
+        if (($item['sober'] ?? null) !== null && !((is_float($item['sober']) || is_int($item['sober'])) && $item['sober'] > 0 && $item['sober'] < 1)) $p[] = "$id: sober must be a share between 0 and 1 (0.5 halves a running effect)";
         if (($item['effects'] ?? null) !== null) {
             if (!is_array($item['effects']) || !array_is_list($item['effects'])) $p[] = "$id: effects must be a list of { stat, delta }";
             else foreach ($item['effects'] as $e) {
@@ -189,7 +191,7 @@ final class CatalogValidator
             if (!is_array($effect) || !in_array($effect['kind'] ?? null, self::READER_EFFECTS, true)
                 || !(is_int($effect['duration_min'] ?? null) || is_float($effect['duration_min'] ?? null)) || $effect['duration_min'] <= 0) $p[] = "$id: effect must be { kind: " . implode(' | ', self::READER_EFFECTS) . ', duration_min > 0 }';
         }
-        if ($substance !== $applies) $p[] = $substance ? "$id: a substance needs the \"apply\" skill" : "$id: the \"apply\" skill needs effects or an effect";
+        if ($substance !== $applies) $p[] = $substance ? "$id: a substance needs the \"apply\" skill" : "$id: the \"apply\" skill needs effects, an effect or sober";
         // scan_object grants an item that is grantable by "scan" (this entry counts with its new data)
         $items = $this->store->map('items');
         $items[$id] = $item;

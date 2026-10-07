@@ -5,6 +5,8 @@ namespace Scutoons\Tests\Domain;
 
 use Scutoons\Domain\Accounts\AccountService;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\CatalogAdmin;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Domain\Reader\ReaderState;
 use Scutoons\Tests\TestCase;
@@ -104,6 +106,24 @@ final class ReaderStateTest extends TestCase
         self::assertTrue($reader->end($id, 'psychedelic'));
         self::assertSame([], $reader->effects($id), '"Effekt beenden"');
         self::assertFalse($reader->end($id, 'psychedelic'));
+    }
+
+    public function testEatingSobersUp(): void
+    {
+        // owner 2026-10-08: candy halves a running effect, cucumbers shorten it – catalog `sober` (here the tuna can: 0.5)
+        $tuna = (array) $this->get(CatalogStore::class)->get('items', 'tuna_can');
+        $this->get(CatalogAdmin::class)->put('items', 'tuna_can', ['sober' => 0.5] + $tuna, 'test');
+        $id = (string) $this->user()['id'];
+        $inventory = $this->get(InventoryService::class);
+        $inventory->add($id, 'psilocybin', null, 1, 'story');
+        $inventory->add($id, 'tuna_can', null, 2, 'story');
+        $reader = $this->get(ReaderState::class);
+        $reader->use($id, ['item_id' => 'psilocybin']);
+        $this->clock->advance(4 * 60);
+        $reader->use($id, ['item_id' => 'tuna_can']);
+        self::assertSame(gmdate('c', $this->clock->time() + 8 * 60), $reader->effects($id)[0]['until'] ?? null, '16 minutes left → 8');
+        $reader->use($id, ['item_id' => 'tuna_can']);
+        self::assertSame(gmdate('c', $this->clock->time() + 4 * 60), $reader->effects($id)[0]['until'] ?? null, 'and 4');
     }
 
     public function testTestoCameraRecipeAndScanCooldown(): void

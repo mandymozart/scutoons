@@ -6,7 +6,6 @@
 	import { setVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import Map from '$lib/components/toon/map/map.svelte';
 	import Inventory from '$lib/components/toon/inventory/inventory.svelte';
-	import ReaderEffect from '$lib/components/items/reader-effect.svelte';
 	import { setGameContext } from '$lib/contexts/game.svelte.ts';
 	import { setNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
@@ -87,4 +86,3 @@
 <SequenceNavigation {sequence} {params} />
 <Map />
 <Inventory />
-<ReaderEffect />

@@ -125,3 +125,11 @@ Audio: `viewer/src/lib/audio/audio-effects.ts` puts the effect's chain between a
 outputs – the music's own AudioContext (AdaptiveMusicPlayer `musicOutput`) and Howler's (samples + effect sounds;
 re-attached when Howler replaces its context) – with 1.2 s crossfades in and out. DEV hook `__scutoonsAudioFx()` shows
 the graph.
+- Later the same day (owner): a running effect can't be ended – the bar only says how long it lasts (no "Effekt
+  beenden"); it lives in the root layout, so it goes wherever the reader goes (account page too). Eating sobers up:
+  catalog `sober` (0 < x < 1; admin "Ernüchtert: kürzt laufende Effekte um (%)") – each piece takes that share off every
+  running effect's remaining time (server ReaderState::use + client applySubstance for guests; a candy item at 50 %
+  halves it, cucumbers e.g. 15 %). The plasma: blend difference, colours only purple → blue → green → yellow. LSD's echo:
+  feedback 0.65, its time drifting with two slow LFOs (≈ 210–550 ms); Dunst's echo: feedback 0.6. Fixed: the sound
+  didn't come back after leaving a page while an effect ran (taking a chain out disconnected the output 1.2 s later,
+  the new chain included).

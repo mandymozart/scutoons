@@ -4,7 +4,8 @@
 	/**
 	 * Farbrausch's plasma cloud (owner 2026-10-08: "a plasma cloud which we can overlay with some blending effect, that is
 	 * moving"): the classic sine plasma, computed small (about 96 pixels across) and scaled up softly with a blur so it
-	 * becomes a cloud, fixed over the whole screen (text and controls too), blended with --sc-farbrausch-blend at
+	 * becomes a cloud, fixed over the whole screen (text and controls too), in purple, blue, green and yellow only (owner),
+	 * blended with --sc-farbrausch-blend (difference) at
 	 * --sc-farbrausch-opacity; --sc-farbrausch-speed scales its movement. Never takes a tap. About 30 frames a second,
 	 * none while the tab is hidden.
 	 */
@@ -34,6 +35,23 @@
 		};
 		let k = speed();
 		let tick = 0;
+		// the colours (owner 2026-10-08: "purple and green and yellow and blue, not the full rainbow"): a cyclic palette
+		// purple → blue → green → yellow → purple, 256 steps
+		const STOPS = [
+			[122, 31, 209],
+			[31, 79, 224],
+			[47, 209, 74],
+			[242, 224, 31]
+		];
+		const PALETTE = new Uint8ClampedArray(256 * 3);
+		for (let i = 0; i < 256; i++) {
+			const f = (i / 256) * STOPS.length;
+			const a = STOPS[Math.floor(f) % STOPS.length];
+			const b = STOPS[(Math.floor(f) + 1) % STOPS.length];
+			const t = f - Math.floor(f);
+			for (let c = 0; c < 3; c++) PALETTE[i * 3 + c] = a[c] + (b[c] - a[c]) * t;
+		}
+		const TAU = Math.PI * 2;
 
 		function draw(now: number) {
 			frame = requestAnimationFrame(draw);
@@ -54,9 +72,11 @@
 						Math.sin(Math.hypot(x - cx, y - cy) * 0.12 - t * 1.1);
 					const p = v * 0.8 + t * 0.4;
 					const i = (y * W + x) * 4;
-					d[i] = 128 + 127 * Math.sin(p);
-					d[i + 1] = 128 + 127 * Math.sin(p + 2.094);
-					d[i + 2] = 128 + 127 * Math.sin(p + 4.189);
+					const u = ((p % TAU) + TAU) % TAU;
+					const c = Math.min(255, Math.floor((u / TAU) * 256)) * 3;
+					d[i] = PALETTE[c];
+					d[i + 1] = PALETTE[c + 1];
+					d[i + 2] = PALETTE[c + 2];
 					d[i + 3] = 255;
 				}
 			}
@@ -75,7 +95,7 @@
 
 <style>
 	:global(:root) {
-		--sc-farbrausch-blend: overlay;
+		--sc-farbrausch-blend: difference;
 		--sc-farbrausch-opacity: 0.55;
 		--sc-farbrausch-speed: 1;
 	}

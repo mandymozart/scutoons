@@ -156,3 +156,14 @@ test('scoreScan sums matching classes and ranks them; scanPasses: threshold or t
 	assert.equal(scanPasses(scoreScan([{ className: 'cucumber', probability: 0.3 }], skill), rule), true);
 	assert.equal(scoreScan([{ className: 'slug', probability: 0.9 }], skill), null);
 });
+
+test('eating sobers up: each piece takes its share off every running effect (owner 2026-10-08)', () => {
+	const now = Date.parse('2026-10-08T12:00:00Z');
+	const state = { stats: {}, effects: [{ kind: 'psychedelic' as const, until: new Date(now + 16 * 60_000).toISOString() }] };
+	const candy = { sober: 0.5 };
+	const once = applySubstance(state, candy, {}, now);
+	assert.equal(once.effects[0].until, new Date(now + 8 * 60_000).toISOString(), '16 minutes left → 8');
+	const twice = applySubstance(once, candy, {}, now);
+	assert.equal(twice.effects[0].until, new Date(now + 4 * 60_000).toISOString(), 'and 4');
+	assert.ok(isSubstance(candy), 'an item that only sobers is used like a substance');
+});

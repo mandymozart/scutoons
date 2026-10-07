@@ -413,6 +413,8 @@
 		"reader_effect_haze": "Haze (drifting haze, muffled sound)",
 		"reader_effect_hint": "what the reader sees and hears while it runs; it needs the \"apply\" skill",
 		"reader_effect_minutes": "Effect duration (minutes)",
+		"sober": "Sobers up: shortens running effects by (%)",
+		"sober_hint": "each piece eaten / used takes this share off every running reader effect – 50 halves it; empty = no; needs the \"apply\" skill",
 		"stackable": "stackable",
 		"recipes": "Recipes",
 		"edition_count": "Size",

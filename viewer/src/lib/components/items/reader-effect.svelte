@@ -8,7 +8,8 @@
 
 	/**
 	 * A running reader effect (ITEMS.md "Substances"; each item chooses its own – catalog `effect.kind`, @scutoons/content
-	 * READER_EFFECTS, owner 2026-10-08: "different drugs hit differently"), with a bar to end it at once. Game effect only.
+	 * READER_EFFECTS, owner 2026-10-08: "different drugs hit differently"); an info line says how long it lasts – it can't
+	 * be ended (owner: "no button to exit"), eating something that sobers (catalog `sober`) shortens it. Game effect only.
 	 * - `psychedelic` ("Farbrausch", LSD …): a moving plasma cloud blended over everything (plasma-overlay.svelte; the
 	 *   frames don't tilt – owner: "tilting is not good"), the sound through a sweeping high-pass and an echo
 	 * - `haze` ("Dunst", weed): drifting haze over the screen (haze-overlay.svelte), the sound muffled
@@ -40,7 +41,6 @@
 	{#if running.kind === 'psychedelic'}<PlasmaOverlay />{:else if running.kind === 'haze'}<HazeOverlay />{/if}
 	<div class="effect-bar" role="status" data-testid="reader-effect" data-kind={running.kind}>
 		<span>{LABEL[running.kind]()} · {m['items.effect_left']({ min: minutes })}</span>
-		<button type="button" onclick={() => inventory.endEffect(running.kind)} data-testid="reader-effect-end">{m['items.effect_end']()}</button>
 	</div>
 {/if}
 
@@ -53,13 +53,11 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+		padding: 0.25rem 0.75rem;
 		background: var(--paper, #fff);
 		color: var(--ink, #000);
 		border: 2px solid var(--ink, #000);
 		font-size: 0.75rem;
 	}
-	.effect-bar button {
-		padding: 0 0.75rem;
-	}
+
 </style>

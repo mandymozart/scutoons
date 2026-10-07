@@ -175,6 +175,8 @@
 		"fx_sound_zap": "Zapp",
 		"fx_sound_boom": "Bumm",
 		"fx_sound_hum": "Brummen",
+		"repeat_outside_catalog": "Der Katalog erlaubt für diesen Gegenstand nur {min} … {max} ({unit}) – gespeichert bleibt {stored}. Kürzer oder länger: Admin → Katalog → der Gegenstand → Respawn.",
+		"repeat_outside": "Nur {min} … {max} – gespeichert bleibt {stored}.",
 		"field_highlight": "Hinweise (Tippflächen)",
 		"highlight_fireflies": "Glühwürmchen (Standard)",
 		"highlight_alienflies": "Alienflies",

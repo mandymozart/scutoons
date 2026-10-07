@@ -104,8 +104,8 @@ export function activeEffects(effects: ActiveEffect[] | null | undefined, now = 
 }
 
 /** An item that can be applied (`apply` skill with stat changes or a timed effect). */
-export function isSubstance(item: Pick<ItemDef, 'effects' | 'effect'> | null | undefined): boolean {
-	return !!item && ((item.effects?.length ?? 0) > 0 || !!item.effect);
+export function isSubstance(item: Pick<ItemDef, 'effects' | 'effect' | 'sober'> | null | undefined): boolean {
+	return !!item && ((item.effects?.length ?? 0) > 0 || !!item.effect || !!item.sober);
 }
 
 /**
@@ -113,13 +113,18 @@ export function isSubstance(item: Pick<ItemDef, 'effects' | 'effect'> | null | u
  * stored with `now`), a timed effect runs until now + its duration (a running one of the same kind is replaced).
  * Same math on the server (ReaderState::apply).
  */
-export function applySubstance(state: ReaderState, item: Pick<ItemDef, 'effects' | 'effect'>, stats: Record<string, StatDef>, now = Date.now()): ReaderState {
+export function applySubstance(state: ReaderState, item: Pick<ItemDef, 'effects' | 'effect' | 'sober'>, stats: Record<string, StatDef>, now = Date.now()): ReaderState {
 	const at = new Date(now).toISOString();
 	const next: ReaderState = { stats: { ...state.stats }, effects: activeEffects(state.effects, now) };
 	for (const e of item.effects ?? []) {
 		const def = stats[e.stat];
 		if (!def) continue;
 		next.stats[e.stat] = { level: clampStat(statLevel(def, state.stats[e.stat], now) + e.delta), updated_at: at };
+	}
+	// sobering up: every running effect loses this share of its remaining time (before this item's own effect starts)
+	if (item.sober && item.sober > 0 && item.sober < 1) {
+		const keep = 1 - item.sober;
+		next.effects = next.effects.map((e) => ({ ...e, until: new Date(now + (Date.parse(e.until) - now) * keep).toISOString() }));
 	}
 	if (item.effect) {
 		next.effects = [...next.effects.filter((x) => x.kind !== item.effect!.kind), { kind: item.effect.kind, until: new Date(now + item.effect.duration_min * 60_000).toISOString() }];

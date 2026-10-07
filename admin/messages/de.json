@@ -413,6 +413,8 @@
 		"reader_effect_haze": "Dunst (ziehender Dunst, gedämpfter Ton)",
 		"reader_effect_hint": "was Leser sehen und hören, solange er läuft; braucht die Fähigkeit \"apply\"",
 		"reader_effect_minutes": "Dauer des Effekts (Minuten)",
+		"sober": "Ernüchtert: kürzt laufende Effekte um (%)",
+		"sober_hint": "jedes gegessene / benutzte Stück nimmt diesen Anteil von jedem laufenden Leser-Effekt – 50 halbiert ihn; leer = nicht; braucht die Fähigkeit \"apply\"",
 		"stackable": "stapelbar",
 		"recipes": "Rezepte",
 		"edition_count": "Größe",
