@@ -28,9 +28,10 @@
 //   E.1:     no unsaved bar / file-status row in the flow; the Save button's dot; the ActionBar's not-live chip opens
 //            the file-status list (Escape closes it); Saved = a toast
 //   save:    Save draft (note dialog skipped) stores the chapter's language-neutral draft (chapter:catpope:1) with the
-//            new text; the published version stays; Publish asks first, naming the chapter and its languages
+//            new text; the published version stays; Publish asks first, naming the chapter and its languages (when the
+//            chapter's content has errors, the "Publish anyway?" step comes first: the run prints them and goes on)
 //   VN:      a scene with a group script + slice events (catpope's, else the sandbox's): each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
-//            the cursor in it; a slice event has its trigger (never saved)
+//            the cursor in it; "+ event" on the chapter's slice adds one line; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
 // Refuses to run while the chapter has an unpublished draft (someone's work in progress is never touched).
 import { execFileSync, spawn } from 'node:child_process';
@@ -600,7 +601,21 @@ try {
 
 	// the publish confirm names what is published and in which language (4.4.3) – cancelled here
 	await click(tid('publish'));
-	const confirmText = (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) ? await js(`document.querySelector('dialog.sc-dialog[open] .message')?.textContent ?? ''`) : '';
+	const dialogText = async () => ((await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) ? await js(`document.querySelector('dialog.sc-dialog[open] .message')?.textContent ?? ''`) : '');
+	let confirmText = await dialogText();
+	// errors in the problem list ask once more first (the chapter's content, not this run's): name them, go on to the confirm
+	if (/problem list|Problemliste/i.test(confirmText)) {
+		await answerDialog('button.ghost');
+		await barClick('problems-toggle');
+		await until(`!!${q('problems-panel')}`, 5000);
+		console.log(`note: the chapter has errors – ${(await js(`${q('problems-panel')}?.innerText ?? ''`)).replace(/\s+/g, ' ').slice(0, 400)}`);
+		await barClick('problems-toggle');
+		await click(tid('publish'));
+		await dialogText();
+		await answerDialog('button.primary');
+		await sleep(300);
+		confirmText = await dialogText();
+	}
 	await answerDialog('button.ghost');
 	// a neutral chapter's draft is every language's
 	const drafted = [];
@@ -654,8 +669,14 @@ try {
 	await until(`!!${q('tab-events')}`, 30000);
 	await click(tid('tab-events'));
 	await until(`!!${q('vn-events')}`, 5000);
+	// the chapter's slice may already have events (catpope 1 slice 2 does): the new one is one line more either way
+	const sliceLines = await js(`document.querySelectorAll('[data-testid="vn-events"] [data-testid^="event-line-"]').length`);
 	await click(`[data-testid="vn-events"] .add button:last-child`);
-	check(await until(`!!${q('event-line-0')} && ${q('tab-events')}.querySelector('.count')?.textContent === '1'`, 3000), 'VN: "+ event" on a slice without events shows the new event');
+	check(
+		await until(`document.querySelectorAll('[data-testid="vn-events"] [data-testid^="event-line-"]').length === ${sliceLines + 1} && ${q('tab-events')}.querySelector('.count')?.textContent === '${sliceLines + 1}'`, 3000),
+		`VN: "+ event" on a slice${sliceLines ? ` with ${sliceLines} event(s)` : ' without events'} shows the new event`,
+		JSON.stringify(await js(`({ lines: document.querySelectorAll('[data-testid="vn-events"] [data-testid^="event-line-"]').length, count: ${q('tab-events')}?.querySelector('.count')?.textContent })`))
+	);
 	await send('Page.navigate', { url: `${CREATOR}/${VN.toon}/chapter/${VN.chapter}?group=${encodeURIComponent(VN.group)}&slice=${VN.slice}` });
 	await until(`!!${q('tab-events')}`, 30000);
 	await click(tid('tab-events'));
