@@ -193,12 +193,21 @@
 		overflow-x: auto;
 		scrollbar-width: thin;
 	}
+	/* the end may shrink: a flexible item in it (a note field) gives way before anything is pushed past the edge */
 	.end {
 		display: flex;
 		align-items: center;
+		justify-content: flex-end;
 		gap: var(--space-05);
-		flex: none;
+		flex: 0 1 auto;
+		min-width: 0;
 		margin-left: auto;
+	}
+	.end > :global(*) {
+		flex-shrink: 0;
+	}
+	.end > :global(input) {
+		flex-shrink: 1;
 	}
 	.more {
 		position: relative;

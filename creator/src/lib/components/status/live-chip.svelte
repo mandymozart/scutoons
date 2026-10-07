@@ -134,9 +134,14 @@
 		color: var(--text-muted);
 		font-size: var(--type-caption-size);
 	}
-	/* phones: the language codes + ▾ only (owner 2026-10-07: More · Save · de ▾ · Publish fits at 375 px) */
-	@media (max-width: 479px) {
-		.word:not(.solo),
+	/* narrower than 1600px (the reader's type size): the dot + codes + ▾ (the state = the dot's colour, the words in the
+	   tooltip and the list); phones: the codes + ▾ only (owner 2026-10-07: More · Save · de ▾ · Publish fits at 375 px) */
+	@media (max-width: 1599px) {
+		.word:not(.solo) {
+			display: none;
+		}
+	}
+	@media (max-width: 1023px) {
 		.toggle .sc-chip {
 			display: none;
 		}

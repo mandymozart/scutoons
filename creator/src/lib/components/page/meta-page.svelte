@@ -159,9 +159,10 @@
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
-			<input class="message" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
+			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
+			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			</button>
 			<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />
 			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{publishLabel(toon)}</button>
@@ -222,13 +223,15 @@
 	.message {
 		width: 11rem !important;
 	}
-	/* phones: "Save" (owner 2026-10-07: More · Save · de ▾ · Publish fits at 375 px) */
 	.save-short {
 		display: none;
+	/* the bar fits at every width ≥ 375 (as the chapter editor): below 1280 "Save" and the note in "More" (the ActionBar's
+	   breakpoint is 1024 here – between them the note sits in the bar's start); the chip drops its state word below 1600 */
 	}
-	@media (max-width: 479px) {
-		.save-long {
-			display: none;
+	@media (max-width: 1279px) {
+		.save-long,
+		.message.in-end {
+			display: none !important;
 		}
 		.save-short {
 			display: inline;
@@ -240,6 +243,11 @@
 	.content {
 		padding: 1rem;
 		max-width: 70rem;
+	@media (min-width: 1280px) {
+		.message.in-start {
+			display: none !important;
+		}
+	}
 	}
 	.wide .content {
 		max-width: none;

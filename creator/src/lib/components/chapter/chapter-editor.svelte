@@ -714,7 +714,7 @@
 		{#if view.section === 'slice' && activeGroup?.slices?.length}
 			<span class="slice-nav in-{where}" role="group" aria-label={m['creator.slice_navigation']()}>
 				<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex - 1)} disabled={view.sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid={where === 'end' ? 'prev-slice' : undefined}><Icon name="chevron-left" /></button>
-				<span>{m['creator.slice_of']({ index: view.sliceIndex + 1, count: activeGroup.slices.length })}</span>
+				<span class="slice-long">{m['creator.slice_of']({ index: view.sliceIndex + 1, count: activeGroup.slices.length })}</span><span class="slice-short">{view.sliceIndex + 1} / {activeGroup.slices.length}</span>
 				<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex + 1)} disabled={view.sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid={where === 'end' ? 'next-slice' : undefined}><Icon name="chevron-right" /></button>
 			</span>
 		{/if}
@@ -913,15 +913,20 @@
 		height: 100%;
 		overflow: hidden;
 	}
-	/* phones: "Save" (owner 2026-10-07: More · Save · de ▾ · Publish fits at 375 px) */
-	.save-short {
+	/* the bar fits at every width ≥ 375 (owner screenshot 2026-10-07: the live chip pushed Publish out at 1440 – the
+	   reader's type size): below 1280 "Save" + the slice count without its word + the note in "More"; below 768 the
+	   bar holds only save / publish (slice nav and note in "More"). The chip drops its state word below 1600 (live-chip). */
+	.save-short,
+	.slice-short {
 		display: none;
 	}
-	@media (max-width: 479px) {
-		.save-long {
+	@media (max-width: 1279px) {
+		.save-long,
+		.slice-long {
 			display: none;
 		}
-		.save-short {
+		.save-short,
+		.slice-short {
 			display: inline;
 		}
 	}
@@ -934,17 +939,25 @@
 	.message {
 		width: 10rem !important;
 	}
-	/* the phone bar holds only save / publish: slice nav and the note move into "More" */
-	@media (max-width: 767px) {
-		.in-end {
+	/* below 1024 the slice nav keeps its arrows (the count is in the crumbs) */
+	@media (max-width: 1023px) {
+		.slice-nav.in-end .slice-short {
+			display: none;
+		}
+	}
+	@media (max-width: 1279px) {
+		.message.in-end {
 			display: none !important;
 		}
 		.message.in-start {
 			width: 100% !important;
 		}
+	/* the note gives way first: it shrinks (ActionBar's end may shrink) before anything is pushed out */
 	}
+		flex: 0 1 10rem;
 	@media (min-width: 768px) {
-		.in-start {
+		min-width: 4rem !important;
+		.slice-nav.in-start {
 			display: none !important;
 		}
 	}
@@ -953,6 +966,16 @@
 		align-items: center;
 		gap: var(--space-05);
 		white-space: nowrap;
+	}
+	@media (min-width: 1280px) {
+		.message.in-start {
+			display: none !important;
+		}
+	}
+	@media (max-width: 767px) {
+		.in-end {
+			display: none !important;
+		}
 	}
 	.preview a {
 		color: var(--ink);
