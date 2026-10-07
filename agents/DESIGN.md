@@ -913,7 +913,8 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   inactive tab).
   No `surface-*` greys and no tinted fills for structure or state: a state is the frame's colour + a thick left rule
   (0.5rem / 0.5em) in `state-error` / `state-warning` / cyan, the text stays ink. Unsaved = an inverted bar.
-- Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks).
+- Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks) –
+  two exceptions: the live selection's 2px inset frame (rows would overlap as outlines) and a dragged row's lift.
 - **Round vs square** (owner 2026-10-07, every app – creator, admin, embassy, viewer, shop): a **standalone icon-only
   button is round** – a `--control-height` circle, 2px ink ring (`class="sc-round"`, tools.css; `IconButton`,
   `FoldButton`, `MaximizeButton`, `Rail`; the viewer's top-right toggles; the palette trigger in its icon-only state).
@@ -921,7 +922,8 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   `sc-seg`, the ActionBar, canvas tools), tab rows, and every **language switcher** (the creator's text-language
   switch, the viewer menu's languages – one joined frame, the chosen one inverted – the shop's). A control that shows
   text (label, code, "Ctrl K") is square too. Exception still open: the frameless close cross (`CloseButton`).
-- Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection. Never for the current nav entry or a selected row.
+- Cyan (`primary-cyan`) only for **live** states: the "published" badge, the live selection (see "Selection" below),
+  the canvas selection. Never for the current nav entry or a selected row outside the live region.
 - **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **white text where it reaches
   4.5:1, else ink**; caption size, regular weight (status words in uppercase with `--tracking-label`; ids / codes keep
   their case). The colours (the owner's refined palette) live in one place, `shared/tokens/tokens.css`
@@ -956,9 +958,31 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   plain buttons) – `sm` is narrower, never lower. Square, 1rem.
   On phones (< 480px) the ActionBar narrows its buttons to `space-1` at the sides and shows Info as its icon only.
 - **Focus = a 3px ink outline** (`--border-width-focus`) 2px outside the frame (`--focus-offset`), everywhere.
-- **Active / selected = inverted** (ink bg, paper text) — only for **toggles, tabs and selected list items**: current
-  sidebar entry, open tab, chosen segment, selected list item / table row, pressed / open toggle (Info, More), current
-  page in the pager. Pager links and menu triggers otherwise look like secondary buttons. Hover on lists = a 2px ink frame inside the row.
+- **Selection** (owner 2026-10-07, BACKLOG 10.40, UI-CONCEPTS E.8) – one look per meaning, app-wide (creator, admin,
+  embassy); the only selection CSS is tools.css:
+
+  | Meaning | Look |
+  |---|---|
+  | **Selected** – the edited object (what the inspector / editor / detail shows) and every picked one (Shift / Ctrl) | inverted: ink bg, paper text – `class="sc-selected"` |
+  | **Live selection** – selected AND in the live region (what Delete / arrows / Esc / copy act on) | `--select-live-bg` (= `--surface-tint-cyan`), a 2px **inset** frame in `--select-live-border` (= the primary colour; `box-shadow: inset`, neighbouring rows' outlines would overlap), text `--select-live-text` #005a70 (≈ 7.5:1), not bold – automatic: `[data-live] .sc-selected` |
+  | Keyboard highlight in a listbox (palette, pickers, comboboxes, the expression builder) | `sc-selected` in a region that is live while it is open / focused → the live look |
+  | Picker tile being chosen (`.sc-card.is-selected`) | the live look (the open sheet is the live region) |
+  | Current value of a picker field (`.sc-card.is-current`) | cyan left bar |
+  | Nav "you are here" (`.sc-nav-item.is-current` / `aria-current`, the Flow's node, the script outline) | inverted; the live look only when it is also the live selection (the chapter tree's group: both classes) |
+  | Toggle on / tab / segment / pressed (`aria-pressed`, `.active` buttons), the pager's current page | inverted (small controls); pager links and menu triggers otherwise look like secondary buttons |
+  | Hover | **never inverted**: a 2px ink frame inside the row / a thicker ring on `.sc-round` |
+  | Focus (keyboard) | the 3px ink ring everywhere – it wins over a component's `all: unset` (tools.css); a control that draws its own focus is a `role="separator"` or carries `data-focus-own` |
+  | Drag / drop | the primary drop line, the moving row lifted (DESIGN "Reorderable lists") |
+  | In progress (admin batches' running row) | not a selection: `--surface-tint-cyan`, not inverted |
+
+  **Regions** (`@scutoons/ui` `selection.svelte.ts`): `use:region={'slices'}` (or `{ name, initial, modal }`) on each
+  selectable area; `pointerdown` / `focusin` inside it makes it live (`data-live`; the innermost region wins, so the slice
+  list inside the chapter tree is its own region); `liveRegion.current` / `liveRegion.is(name)` tell the page which one.
+  `initial` = live on page load when nothing else is (the main editor area), `modal` = live while mounted (sheets, the
+  palette), closing returns to the region before. Keys (Delete / Backspace / Ctrl+X, arrows, Esc, later copy / paste)
+  act on the live region only. One region shows at a time on a phone: it is live, nothing extra shows.
+  **Canvas objects** (slice canvas, cover, map) can't be inverted – the art is under them: selected = the kind's frame;
+  live = the frame + handles + its tag. **Multi-pick**: every picked row has the selected look (all cyan when live).
 - Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = the tool label.
   details/summary = a regular uppercase label row (`--control-height`).
 - **Icons:** Feather via `Icon` (see "Icons"; the close cross is NOT Feather, see "Close cross"): menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
@@ -984,7 +1008,7 @@ size (comic lettering exempt), and on touch no button / field / nav entry under 
 single-line control exactly `--control-height` ("One control height" below).
 
 **Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-emphasis`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
-`.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted), `.sc-chip-control`, `.sc-control`
+`.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted), `.sc-selected` (+ `[data-sc-region][data-live]`, "Selection" above), `.sc-chip-control`, `.sc-control`
 ("One control height"). Creator-wide button classes stay
 `.secondary`, `.ghost`, `.active` (creator layout).
 

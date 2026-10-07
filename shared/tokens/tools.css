@@ -10,7 +10,9 @@
  *   (owner 2026-10-03: tells fields apart from selects and buttons).
  * - Square, no shadows. Sizes in rem (`--control-height`). Focus = a 3px ink outline outside the frame.
  * - Buttons are the viewer's: primary ink, secondary paper + 2px border-muted → ink on hover (no inversion).
- * - Selected / active toggles, tabs, list items = inverted (ink bg, paper text). Badges are filled (--badge-*).
+ * - Selected = inverted (ink bg, paper text; `.sc-selected`); the LIVE selection (in the region clicked / focused last,
+ *   what the keys act on: `[data-live] .sc-selected`) = cyan tint, 2px inset primary border, dark blue text. Toggles,
+ *   tabs, segments, pressed = inverted. Hover is never inverted. Badges are filled (--badge-*).
  *
  * Element rules use :where() (specificity 0): any component or app rule still wins. The utility classes (`sc-*`) are
  * the vocabulary for components that need the type styles without their own rules.
@@ -196,6 +198,12 @@
 :where(.sc-tool) :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
 	outline: var(--border-width-focus) solid var(--ink);
 	outline-offset: var(--focus-offset);
+}
+/* the ring itself wins over a component's `all: unset` / `outline: none` (UI-CONCEPTS E.8: rows without a visible
+   focus); the offset stays the component's. A control that draws its own focus (the Divider's line) is a separator or
+   carries data-focus-own */
+.sc-tool :is(a, button, summary, [tabindex]):not([role='separator'], [data-focus-own]):focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
 }
 
 /* ── Groups: fieldset = no frame (owner 2026-10-03: framed groups looked like a different form concept than the other
@@ -514,6 +522,56 @@
 	background: var(--ink);
 	color: var(--paper);
 }
+
+/* ── Selection (owner 2026-10-07, agents/DESIGN.md "Selection", UI-CONCEPTS E.8) – the ONLY selection rules ─────────
+   A component marks what is selected (the edited object, every picked one, a listbox's highlight) with `.sc-selected`;
+   @scutoons/ui's `region` action marks each selectable area `data-sc-region` and the live one (clicked / focused last –
+   what Delete / arrows / Esc / copy act on) `data-live`. Selected = inverted; selected in the live region = the live
+   look: a cyan tint, a 2px INSET primary border (a box-shadow: neighbouring rows' outlines would overlap), dark blue
+   text, not bold. Muted text inside follows the row's colour. Canvas objects (slice / cover / map) keep their kind's
+   frame instead (the art is under them). Nav "you are here" (.sc-nav-item.is-current) stays inverted; it takes the
+   live look only when it is also the live selection (both classes). */
+.sc-tool .sc-selected {
+	background: var(--ink);
+	color: var(--paper);
+	--text-muted: currentColor;
+}
+.sc-tool [data-sc-region][data-live] .sc-selected {
+	background: var(--select-live-bg);
+	color: var(--select-live-text);
+	box-shadow: inset 0 0 0 var(--border-width-regular) var(--select-live-border);
+}
+/* a table row: the cells draw the frame (a row's own box-shadow is not painted in every engine) */
+.sc-tool [data-sc-region][data-live] tr.sc-selected {
+	box-shadow: none;
+}
+.sc-tool [data-sc-region][data-live] tr.sc-selected > :is(td, th) {
+	box-shadow:
+		inset 0 var(--border-width-regular) 0 var(--select-live-border),
+		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--select-live-border);
+}
+.sc-tool [data-sc-region][data-live] tr.sc-selected > :is(td, th):first-child {
+	box-shadow:
+		inset 0 var(--border-width-regular) 0 var(--select-live-border),
+		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--select-live-border),
+		inset var(--border-width-regular) 0 0 var(--select-live-border);
+}
+.sc-tool [data-sc-region][data-live] tr.sc-selected > :is(td, th):last-child {
+	box-shadow:
+		inset 0 var(--border-width-regular) 0 var(--select-live-border),
+		inset 0 calc(-1 * var(--border-width-regular)) 0 var(--select-live-border),
+		inset calc(-1 * var(--border-width-regular)) 0 0 var(--select-live-border);
+}
+/* a region inside the live one that is not live itself (the slice list inside the chapter tree): its selection stays
+   inverted */
+.sc-tool [data-sc-region][data-live] [data-sc-region]:not([data-live]) .sc-selected {
+	background: var(--ink);
+	color: var(--paper);
+	box-shadow: none;
+}
+.sc-tool [data-sc-region][data-live] [data-sc-region]:not([data-live]) tr.sc-selected > :is(td, th) {
+	box-shadow: none;
+}
 /* field grid: fields side by side (owner 2026-10-03, agents/COMPONENTS.md 4.4.2). The spacing follows the hierarchy
    level, on the token scale only (row gap / column gap):
      data-density="page"  (default) page forms – toon settings, character detail   --space-075 / --space-1
@@ -605,8 +663,8 @@
 
 /* picker sheets (owner 2026-10-03, COMPONENTS.md step 7; the creator's PickerSheet): a filter row (search wider than
    the selects, wraps on a phone), a grid of picture cards (--cards-min wide at least; set it on the grid for
-   smaller cells), the card = a framed button: hover ink, the current value marked on the left, the chosen one
-   inverted, a missing picture dashed */
+   smaller cells), the card = a framed button: hover ink, the current value marked on the left, the chosen one in the
+   live look (the open sheet is the live region – E.8), a missing picture dashed */
 .sc-picker-filters {
 	display: flex;
 	flex-wrap: wrap;
@@ -659,9 +717,9 @@
 	border-left: 0.5rem solid var(--primary-cyan);
 }
 .sc-card.is-selected {
-	background: var(--ink);
-	color: var(--paper);
-	border-color: var(--ink);
+	background: var(--select-live-bg);
+	color: var(--select-live-text);
+	border-color: var(--select-live-border);
 }
 .sc-card.is-selected .sc-caption {
 	color: inherit;
@@ -742,7 +800,8 @@
 }
 
 /* ── Icon-only buttons are round (owner 2026-10-03: "if there is only an icon – like in the viewer – it is round",
-   also in header menus): a --control-height circle, ink ring, inverted on hover / focus / pressed ─────────────── */
+   also in header menus): a --control-height circle, ink ring; inverted only when pressed / its menu is open; hover
+   thickens the ring (never inverted – E.8), focus = the 3px ring outside ─────────────────────────────────────── */
 :where(.sc-tool) .sc-round {
 	box-sizing: border-box;
 	display: inline-flex;
@@ -761,8 +820,14 @@
 	line-height: 1;
 	cursor: pointer;
 }
-:where(.sc-tool) .sc-round:hover,
-:where(.sc-tool) .sc-round:focus-visible,
+:where(.sc-tool) .sc-round:hover:not(:disabled) {
+	outline: var(--border-width-regular) solid var(--ink);
+	outline-offset: 0;
+}
+:where(.sc-tool) .sc-round:focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
+	outline-offset: var(--focus-offset);
+}
 :where(.sc-tool) .sc-round[aria-pressed='true'],
 :where(.sc-tool) .sc-round[aria-expanded='true'][data-menu] {
 	background: var(--ink);
