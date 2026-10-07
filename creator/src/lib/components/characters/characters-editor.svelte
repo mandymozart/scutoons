@@ -10,7 +10,6 @@
 		REGULAR_PERSONA,
 		castsOf,
 		characterImage,
-		characterName,
 		lookImage,
 		personaIds,
 		pickText,
@@ -25,6 +24,7 @@
 		type RegistryCharacter,
 		type ToonCast
 	} from '@scutoons/content';
+	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { Badge, CloseIcon, Icon, Tabs } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
@@ -119,7 +119,6 @@
 	const file = $derived(registryOf(registry));
 	const characters = $derived<RegistryCharacter[]>(file?.characters.filter((c) => !!c?.id) ?? []);
 	const allLanguages = $derived([...new Set(['de', ...toons.flatMap((t) => t.languages.languages as string[])])]);
-	const uiLocale = $derived(getLocale());
 	const vocabulary = $derived(moodsOf(moods));
 
 	// ── CDN status of every neutral portrait (list badge, "missing images" filter, problems) ────────────────
@@ -217,7 +216,7 @@
 					if (!issue.path) continue;
 					const pi = c.personas.findIndex((p) => p.id === issue.persona);
 					const li = c.personas[pi]?.looks.findIndex((l) => l.id === issue.look) ?? -1;
-					out.push({ level: 'error', file: registryFile, locale: null, path: ['characters', i, 'personas', pi, 'looks', li, 'images', DEFAULT_MOOD, AUTHORED_VIEW], message: `${characterName(c, uiLocale, issue.persona)} (${issue.look}): the neutral portrait is not on the CDN: ${issue.path}` });
+					out.push({ level: 'error', file: registryFile, locale: null, path: ['characters', i, 'personas', pi, 'looks', li, 'images', DEFAULT_MOOD, AUTHORED_VIEW], message: `${shownCharacterName(c, issue.persona)} (${issue.look}): the neutral portrait is not on the CDN: ${issue.path}` });
 				}
 			});
 		}
@@ -236,7 +235,7 @@
 	usePageNav({
 		extra: () => {
 			const c = tab === 'characters' ? characters.find((x) => x.id === selected) : undefined;
-			return c ? [{ href: `/characters?id=${encodeURIComponent(c.id)}`, label: characterName(c, uiLocale) || c.id }] : [];
+			return c ? [{ href: `/characters?id=${encodeURIComponent(c.id)}`, label: shownCharacterName(c) || c.id }] : [];
 		}
 	});
 	// URL → state (the Universe links in the sidebar, crumbs, back / forward); the effect below mirrors state → URL
@@ -269,7 +268,7 @@
 			{#if active === 'moods'}
 				<div class="pad-top"><MoodsPanel {moods} registry={file} languages={allLanguages} /></div>
 			{:else if active === 'wanted'}
-				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={uiLocale} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
+				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={textLanguage.names} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
 			{:else}
 				<div class="layout">
 					<aside class="list" data-testid="character-list">
@@ -300,12 +299,12 @@
 										<button type="button" class="item" data-control-exempt="two-line list row with avatar" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
 											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
-												<span>{characterName(c, uiLocale)}</span>
+												<span>{shownCharacterName(c)}</span>
 												<span class="hint">{c.id}{c.own_toon ? ` · ${c.own_toon}` : ''}{castsOf(c.id, casts).length ? ` · ${castsOf(c.id, casts).join(', ')}` : ''}</span>
 												{#if personaIds(c).length > 1}
 													<span class="chips">
 														{#each personaIds(c) as p (p)}
-															<span class="sc-chip is-tag" class:is-quiet={p === REGULAR_PERSONA}>{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, uiLocale) || p}</span>
+															<span class="sc-chip is-tag" class:is-quiet={p === REGULAR_PERSONA}>{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, textLanguage.names) || p}</span>
 														{/each}
 													</span>
 												{/if}

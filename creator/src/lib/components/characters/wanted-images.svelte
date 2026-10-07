@@ -2,7 +2,6 @@
 	import { Icon } from '@scutoons/ui';
 	import {
 		characterIndex,
-		characterName,
 		findPersona,
 		lookLabel,
 		MAP_PLACE_REQUEST_PREFIX,
@@ -18,6 +17,7 @@
 		type MoodVocabulary,
 		type WorldMap
 	} from '@scutoons/content';
+	import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -102,9 +102,9 @@
 		<article class="group">
 			<h4>
 				{#if onopen}
-					<button type="button" class="link" onclick={() => onopen?.(g.character, g.persona, g.look)}>{characterName(c, locale, g.persona)}</button>
+					<button type="button" class="link" onclick={() => onopen?.(g.character, g.persona, g.look)}>{shownCharacterName(c, g.persona)}</button>
 				{:else}
-					{characterName(c, locale, g.persona)}
+					{shownCharacterName(c, g.persona)}
 				{/if}
 				<span class="hint">· {lookLabel(findPersona(c, g.persona), g.look, locale)} · {m['creator.characters_wanted_count']({ count: g.items.length })}</span>
 			</h4>

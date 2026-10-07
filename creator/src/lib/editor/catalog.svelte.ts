@@ -1,6 +1,6 @@
 import type { Catalog, ItemDef } from '@scutoons/content';
 import { authApi } from '$lib/api.ts';
-import { getLocale } from '$lib/paraglide/runtime.js';
+import { contentName } from '$lib/editor/text-language.svelte.ts';
 
 /**
  * The item catalog (`/api/items/`), loaded once per page load: related items of seasons / chapters, items placed on
@@ -27,9 +27,7 @@ export function loadCatalog(): Promise<Catalog | null> {
 	return catalogPromise;
 }
 
-/** an item's name in the UI language (else en / de / the id) */
+/** an item's name in the header's text language (`textLanguage.names`; else the source, en / de / id, the id) */
 export function itemName(item: ItemDef | undefined, id: string): string {
-	if (!item) return id;
-	const locale = getLocale();
-	return item.name[locale] ?? item.name.en ?? item.name.de ?? id;
+	return contentName(item?.name, id);
 }

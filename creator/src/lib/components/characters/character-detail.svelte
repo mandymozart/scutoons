@@ -4,7 +4,6 @@
 	import {
 		REGULAR_PERSONA,
 		castsOf,
-		characterName,
 		defaultLookId,
 		findPersona,
 		isRetiredAposeLook,
@@ -18,6 +17,7 @@
 		type RegistryCharacter,
 		type ToonCast
 	} from '@scutoons/content';
+	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { addLook, addPersona, characterLanguages, edit, editCharacter, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
 	import { aposeLooksOf, applyApose, closeRequests } from '$lib/editor/character-form.ts';
@@ -87,7 +87,7 @@
 	async function remove() {
 		if (!character) return;
 		const used = appearsIn.length ? m['creator.characters_remove_used']({ toons: appearsIn.join(', ') }) : '';
-		if (!(await confirmRemove(`${m['creator.characters_remove_confirm']({ name: characterName(character, source) })} ${used}`.trim()))) return;
+		if (!(await confirmRemove(`${m['creator.characters_remove_confirm']({ name: shownCharacterName(character) })} ${used}`.trim()))) return;
 		edit<CharacterRegistry>(registry, (f) => (f.characters = f.characters.filter((c) => c.id !== id)));
 		onselect('');
 	}
@@ -98,7 +98,7 @@
 		newPersonaLabel = '';
 	}
 	async function removePersona() {
-		if (personaId === REGULAR_PERSONA || !(await confirmRemove(m['creator.characters_remove_persona_confirm']({ persona: characterName(character, source, personaId) })))) return;
+		if (personaId === REGULAR_PERSONA || !(await confirmRemove(m['creator.characters_remove_persona_confirm']({ persona: shownCharacterName(character, personaId) })))) return;
 		change((c) => (c.personas = c.personas.filter((p) => p.id !== personaId)));
 		persona = REGULAR_PERSONA;
 	}
@@ -135,7 +135,7 @@
 		<header class="head">
 			<div>
 				<span class="type">{m['creator.characters_character']()}</span>
-				<h2 data-testid="character-title">{characterName(character, source)}</h2>
+				<h2 data-testid="character-title">{shownCharacterName(character)}</h2>
 				<span class="hint">id <code>{character.id}</code> · {m['creator.characters_languages']()} {#each languages as l, i (l)}{i ? ', ' : ''}{l}{#if l === source}<SourceMark />{/if}{/each}</span>
 			</div>
 			<button type="button" class="ghost danger" onclick={remove} data-testid="remove-character">{m['creator.characters_remove']()}</button>
@@ -155,7 +155,7 @@
 				label={m['creator.characters_personas']()}
 				value={personaId}
 				onchange={(p) => ((persona = p), (look = ''))}
-				tabs={personas.map((p) => ({ id: p, label: p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, source, languages) || p, testid: `persona-${p}` }))}
+				tabs={personas.map((p) => ({ id: p, label: p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, textLanguage.names, [source, ...languages]) || p, testid: `persona-${p}` }))}
 			>
 				{#snippet after()}
 					<span class="add">
@@ -175,7 +175,7 @@
 						label={m['creator.characters_looks']()}
 						value={lookId}
 						onchange={(l) => (look = l)}
-						tabs={currentPersona.looks.map((l) => ({ id: l.id, label: lookLabel(currentPersona, l.id, source), warning: lookPortraitMoods(l).length === 0, testid: `look-${l.id}` }))}
+						tabs={currentPersona.looks.map((l) => ({ id: l.id, label: lookLabel(currentPersona, l.id, textLanguage.names), warning: lookPortraitMoods(l).length === 0, testid: `look-${l.id}` }))}
 					>
 						{#snippet tab(t)}
 							{@const l = currentPersona.looks.find((x) => x.id === t.id)}
@@ -192,19 +192,19 @@
 					</Tabs>
 					<CharacterLook {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} persona={currentPersona} {lookId} {languages} {source} {bust} onlookchange={(l) => (look = l)} />
 
-					<CharacterTransitions {registry} characterId={id} persona={currentPersona} {languages} {source} />
+					<CharacterTransitions {registry} characterId={id} persona={currentPersona} {languages} />
 				</div>
 			{/if}
 		</section>
 
 		<section class="block" data-testid="apose">
 			<h3>{m['creator.characters_apose']()}</h3>
-			<AposeEditor character={id} looks={aposeLooks} locale={source} {bust} onchange={setAposePath} />
+			<AposeEditor character={id} looks={aposeLooks} locale={textLanguage.names} {bust} onchange={setAposePath} />
 		</section>
 
 		<section class="block">
 			<h3>{m['creator.characters_wanted']()}</h3>
-			<WantedImages registry={file} {moods} {requests} locale={source} character={id} onopen={(_, p, l) => ((persona = p), (look = l))} />
+			<WantedImages registry={file} {moods} {requests} locale={textLanguage.names} character={id} onopen={(_, p, l) => ((persona = p), (look = l))} />
 		</section>
 
 		<section class="block" data-testid="prompts">

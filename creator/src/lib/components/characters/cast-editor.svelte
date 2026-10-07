@@ -10,7 +10,6 @@
 		castSeasons,
 		characterImage,
 		characterIndex,
-		characterName,
 		personaIds,
 		pickText,
 		findPersona,
@@ -22,6 +21,7 @@
 		type ToonCast,
 		type ToonLanguages
 	} from '@scutoons/content';
+	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import {
 		addCharacter,
 		addToSeasonCast,
@@ -196,7 +196,7 @@
 						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 						<span class="who">
 							{#if c}
-								<span>{characterName(c, source)}{#if c.id === star} <span class="star sc-chip" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</span>
+								<span>{shownCharacterName(c)}{#if c.id === star} <span class="star sc-chip" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</span>
 								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{m['creator.characters_edit']()}</a>
 								<!-- a character with one persona has nothing to choose: no row (owner read "regular" as a flag) -->
 								{#if personaIds(c).length > 1}
@@ -208,7 +208,7 @@
 										<!-- the last persona can't be unticked (an entry has at least one): disabled instead of a tick that changes nothing -->
 										<label class="chip" class:on class:last title={last ? m['creator.cast_last_persona']() : undefined}>
 											<input type="checkbox" checked={on} disabled={last} onchange={(e) => togglePersona(entry.character, p, e.currentTarget.checked)} />
-											{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, source, langs) || p}
+											{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, textLanguage.names, [source, ...langs]) || p}
 										</label>
 									{/each}
 								</span>
@@ -248,7 +248,7 @@
 	{toons}
 	cast={entries}
 	season={m['creator.season']({ number: season })}
-	locale={source}
+	locale={textLanguage.names}
 	mode="persona"
 	onpick={(p) => addToSeasonCast(cast, season, p.character, p.persona)}
 />

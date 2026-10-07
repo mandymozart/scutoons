@@ -31,7 +31,7 @@
 	import NavSidebar from '$lib/components/page/nav-sidebar.svelte';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
-	import { PLATFORM_SOURCE_LANGUAGE } from '$lib/editor/text-language.svelte.ts';
+	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import AskPanel from '$lib/components/ask/ask-panel.svelte';
 	import { ask } from '$lib/ask.svelte.ts';
 
@@ -85,6 +85,10 @@
 		}
 		if (toonId) return { languages: [], source: PLATFORM_SOURCE_LANGUAGE };
 		return { languages: [...new Set([PLATFORM_SOURCE_LANGUAGE, ...nav.toons.flatMap((t) => toonLanguages(t).languages as string[])])], source: PLATFORM_SOURCE_LANGUAGE };
+	});
+	// every shown content name follows the switch as it stands here (textLanguage.names, BACKLOG 10.51)
+	$effect(() => {
+		textLanguage.page = textLanguages;
 	});
 	/** the crumbs of the route: Creator / toon / season / chapter (the chapter editor adds group and slice) */
 	const base = $derived.by<Crumb[]>(() => {

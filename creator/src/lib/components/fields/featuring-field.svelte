@@ -2,8 +2,9 @@
 	import { movedAt } from '$lib/editor/move.ts';
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import { characterImage, characterIndex, characterName, suggestFeaturing, type CastEntry, type CharacterRegistry } from '@scutoons/content';
+	import { characterImage, characterIndex, suggestFeaturing, type CastEntry, type CharacterRegistry } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
 	import { imageExists, isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -18,7 +19,6 @@
 		cast,
 		registry,
 		star,
-		locale,
 		sceneGroups,
 		addToCast
 	}: {
@@ -28,8 +28,6 @@
 		registry: CharacterRegistry | null;
 		/** the toon's star (own_toon) */
 		star: string | null;
-		/** names in this language (the toon's source) */
-		locale: string;
 		/** the chapter's groups with its scene documents in place of their refs (source language) */
 		sceneGroups: () => unknown[];
 		/** puts a character into the season cast (the editor shows an undo notice) */
@@ -41,7 +39,8 @@
 	const inCast = (id: string) => cast.some((e) => e.character === id);
 	const castOptions = $derived(cast.filter((e) => !featuring.includes(e.character)).map((e) => e.character));
 	const otherOptions = $derived((registry?.characters ?? []).map((c) => c.id).filter((id) => !featuring.includes(id) && !inCast(id)));
-	const name = (id: string) => characterName(index.get(id), locale) || id;
+	// names in the header's text language (BACKLOG 10.51)
+	const name = (id: string) => shownCharacterName(index.get(id)) || id;
 	const avatar = (id: string) => {
 		const c = index.get(id);
 		return c ? characterImage(c, {}, 'avatar', { isMissing: isKnownMissing }) : '';

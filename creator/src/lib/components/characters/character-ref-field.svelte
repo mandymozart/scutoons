@@ -24,7 +24,6 @@
 		REGULAR_PERSONA,
 		characterImage,
 		characterIndex,
-		characterName,
 		findPersona,
 		getAt,
 		resolveCharacterId,
@@ -32,6 +31,7 @@
 		moodLabel,
 		type Path
 	} from '@scutoons/content';
+	import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -72,7 +72,7 @@
 	const summary = $derived.by(() => {
 		if (!id) return placeholder;
 		if (!character) return `${id} (${m['creator.characters_unknown']()})`;
-		const parts = [characterName(character, choices.locale, persona)];
+		const parts = [shownCharacterName(character, persona)];
 		if (kind === 'scene' && ref.look) parts.push(lookLabel(findPersona(character, persona), ref.look, choices.locale));
 		if (kind === 'scene' && ref.mood) parts.push(moodLabel(ref.mood, choices.locale, choices.moods));
 		return parts.join(' · ');

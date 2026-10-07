@@ -64,7 +64,7 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
       slice bar above the action bar (‹ Slice n/m ›, undo, redo, ⚠ problems); action bar More · Save · `de ▾` ·
       Publish. Copy / paste on phones via a menu (10.39). Then audit every creator / admin / embassy page at 375 and
       768 (UI-CONCEPTS E.9) and apply the same patterns; touch targets ≥ 2.75rem.
-- [ ] 10.51 **Creator: names follow the text language** (owner screenshot: EN showed "Katzenpapst", "Krähen" in
+- [x] 10.51 **Creator: names follow the text language** (owner screenshot: EN showed "Katzenpapst", "Krähen" in
       Featuring) – every shown name of a character / persona / item / recipe / album follows the header's text-language
       switch, fallback the source language. Today mixed: source language (featuring-field, cast-editor,
       character-detail, the chapter editor's cast notice), UI language (`itemName`, characters-editor, flow-pictures),
@@ -83,7 +83,7 @@ Lane V, in order: 10.42 → 10.48 (E.5) → 10.41. Lane C, in order: 10.51 → 1
 
 ### Day run result
 
-_(filled in by the run)_
+- 10.51 done (lane C): `textLanguage.names` (creator text-language.svelte.ts) = the header switch as it stands on the page (the layout publishes the page's languages); `shownCharacterName` / `contentName` / `itemName` use it with the fallbacks source → en / de / id – featuring, cast notice, cast, characters page + detail, picker, ref fields, related items, item rows, the Flow. Universe pages use the switch over all toons' languages (source `de`); a page whose toon is still loading the remembered choice, else the source. Toon titles and map place names still follow the UI language. check:creator-cast (sandbox) 18/18, creator-dock 82/82, check:creator-chapter refused (catpope ch1 has a draft).
 
 ## Night run result (2026-10-07 morning) – read this first
 

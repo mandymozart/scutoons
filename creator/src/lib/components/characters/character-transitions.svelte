@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { conventionTransitionPath, defaultLookId, lookLabel, type CharacterPersona } from '@scutoons/content';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { editPersona } from '$lib/editor/characters.ts';
 	import { cleanText } from '$lib/editor/character-form.ts';
@@ -13,9 +14,8 @@
 		registry,
 		characterId,
 		persona,
-		languages,
-		source
-	}: { registry: ContentDoc; characterId: string; persona: CharacterPersona; languages: string[]; source: string } = $props();
+		languages
+	}: { registry: ContentDoc; characterId: string; persona: CharacterPersona; languages: string[] } = $props();
 
 	const lookIds = $derived(persona.looks.map((l) => l.id));
 	function change(fn: (p: CharacterPersona) => void, key?: string) {
@@ -39,11 +39,11 @@
 			<div class="col">
 				<span class="inline">
 					<select value={t.from} onchange={(e) => change((p) => p.transitions && (p.transitions[i].from = e.currentTarget.value))}>
-						{#each lookIds as l (l)}<option value={l}>{lookLabel(persona, l, source)}</option>{/each}
+						{#each lookIds as l (l)}<option value={l}>{lookLabel(persona, l, textLanguage.names)}</option>{/each}
 					</select>
 					→
 					<select value={t.to} onchange={(e) => change((p) => p.transitions && (p.transitions[i].to = e.currentTarget.value))}>
-						{#each lookIds as l (l)}<option value={l}>{lookLabel(persona, l, source)}</option>{/each}
+						{#each lookIds as l (l)}<option value={l}>{lookLabel(persona, l, textLanguage.names)}</option>{/each}
 					</select>
 				</span>
 				<input type="text" value={t.image} onchange={(e) => change((p) => p.transitions && (p.transitions[i].image = e.currentTarget.value.trim()))} />

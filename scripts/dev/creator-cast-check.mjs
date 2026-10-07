@@ -228,7 +228,7 @@ try {
 	check(s.dirty && s.saveDisabled === false, 'a role text marks the page dirty', JSON.stringify(s));
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
-	await answerDialog('button.secondary'); // the note dialog: save without a note
+	await answerDialog('button.primary'); // the note dialog: one primary button, "Save without note" while empty
 	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.disabled`);
 	s = await state();
 	const saved = writesSince(n);

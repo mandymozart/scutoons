@@ -16,7 +16,7 @@
 	import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
 	import { entities, getAt, deleteAt, Renderer, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
-	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, characterName, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
+	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
 		castDoc,
@@ -59,7 +59,7 @@
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FlowPanel from '$lib/components/flow/flow-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
-	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { exprContext, fieldKey } from '$lib/editor/expr-context.svelte.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
@@ -112,13 +112,13 @@
 	const hasCast = $derived(!!castOf(cast) && !!registryOf(registry));
 	const seasonCast = $derived(castEntries(castOf(cast), SEASON));
 	const characters = $derived<{ name: string; label?: string }[]>(
-		hasCast ? seasonCast.map((e) => ({ name: e.character, label: characterName(registryIndex.get(e.character), languages.source) || e.character })) : []
+		hasCast ? seasonCast.map((e) => ({ name: e.character, label: shownCharacterName(registryIndex.get(e.character)) || e.character })) : []
 	);
 	function ensureCast(character: string, persona: string) {
 		const changed = addToSeasonCast(cast, SEASON, character, persona);
 		if (!changed) return;
 		castTouched = true;
-		castNotice = m['creator.characters_cast_added']({ name: characterName(registryIndex.get(character), languages.source, persona) || character, season: m['creator.season']({ number: SEASON }) });
+		castNotice = m['creator.characters_cast_added']({ name: shownCharacterName(registryIndex.get(character), persona) || character, season: m['creator.season']({ number: SEASON }) });
 	}
 	function undoCast() {
 		cast.undo();
@@ -133,7 +133,8 @@
 					toons: toonInfos,
 					cast: seasonCast,
 					season: m['creator.season']({ number: SEASON }),
-					locale: languages.source,
+					// names, looks and moods in the header's text language (BACKLOG 10.51)
+					locale: textLanguage.names,
 					ensureCast
 				}
 	);
@@ -526,7 +527,7 @@
 	/** a character key of the graph (`boy`, `catpope·cat`) as its name in the header's language */
 	const flowWho = (key: string): string => {
 		const [id, persona] = key.split('·');
-		return characterName(registryIndex.get(id), displayLocale, persona) || key;
+		return shownCharacterName(registryIndex.get(id), persona) || key;
 	};
 	/** the chapter the follow-up bar leads to after the last group: the season's next one (the Flow's next-chapter picture) */
 	const flowNextChapter = $derived.by(() => {
@@ -783,7 +784,6 @@
 									cast={seasonCast}
 									registry={registryOf(registry)}
 									{star}
-									locale={languages.source}
 									{sceneGroups}
 									addToCast={(id) => ensureCast(id, REGULAR_PERSONA)}
 								/>

@@ -3,10 +3,11 @@
 // (the server's flow index), catalog items' images, the registry's avatar view of a character (the same rule the reader
 // uses, `characterImage`). A picture that can't be found is '' – the box draws its dashed empty slot.
 import { getContext, setContext } from 'svelte';
-import { characterImage, characterIndex, characterName, isMissingImagePath, type Catalog, type CharacterRegistry, type FlowFace, type FlowImage, type FlowIndex } from '@scutoons/content';
+import { characterImage, characterIndex, isMissingImagePath, type Catalog, type CharacterRegistry, type FlowFace, type FlowImage, type FlowIndex } from '@scutoons/content';
 import { api } from '$lib/api.ts';
 import { asset } from '$lib/utils/cdn.ts';
 import { loadCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
+import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
 import { pickText } from '$lib/editor/toon-flow.ts';
 import { m } from '$lib/paraglide/messages.js';
 import { getLocale } from '$lib/paraglide/runtime.js';
@@ -89,7 +90,7 @@ export class FlowPictures {
 	face(face: FlowFace): Picture {
 		const character = this.#characters.get(face.character);
 		const path = character ? characterImage(character, { persona: face.persona, look: face.look, mood: face.mood }, 'avatar', { substitute: '' }) : '';
-		return { src: path && !isMissingImagePath(path) ? asset(path) : '', title: characterName(character, getLocale(), face.persona) || face.character };
+		return { src: path && !isMissingImagePath(path) ? asset(path) : '', title: shownCharacterName(character, face.persona) || face.character };
 	}
 }
 

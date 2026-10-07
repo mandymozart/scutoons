@@ -17,7 +17,6 @@
 		DEFAULT_MOOD,
 		REGULAR_PERSONA,
 		characterImage,
-		characterName,
 		defaultLookId,
 		findPersona,
 		lookImage,
@@ -33,6 +32,7 @@
 		type MoodVocabulary,
 		type RegistryCharacter
 	} from '@scutoons/content';
+	import { shownCharacterName } from '$lib/editor/text-language.svelte.ts';
 	import type { ToonInfo } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -158,7 +158,7 @@
 							{@const src = thumb(c)}
 							<button type="button" class="sc-card" data-control-exempt="picture card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
 								<span class="sc-card-img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
-								<span>{characterName(c, locale)}</span>
+								<span>{shownCharacterName(c)}</span>
 								<span class="hint">{c.own_toon ? (toons.find((t) => t.id === c.own_toon)?.name ?? c.own_toon) : '–'}</span>
 								{#if personaIds(c).length > 1}
 									<span class="chips">{#each personaIds(c) as p (p)}<span class="sc-chip is-tag">{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, locale) || p}</span>{/each}</span>
@@ -171,7 +171,7 @@
 		{:else}
 			<header class="step2">
 				<button type="button" class="ghost" onclick={() => (step = 1)} data-testid="picker-back">{m['creator.characters_picker_back']()}</button>
-				<span>{characterName(character, locale)}</span>
+				<span>{shownCharacterName(character)}</span>
 				{#if !castIds.has(character.id) && season}<span class="sc-mark">{m['creator.characters_picker_will_add']({ season })}</span>{/if}
 			</header>
 			{#if mode === 'persona'}
@@ -181,7 +181,7 @@
 						{@const src = thumb(character, p)}
 						<button type="button" class="sc-card" data-control-exempt="picture card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
 							<span class="sc-card-img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
-							<span>{characterName(character, locale, p)}</span>
+							<span>{shownCharacterName(character, p)}</span>
 							{#if castPersonas.includes(p)}<span class="hint">{m['creator.characters_in_cast']()}</span>{/if}
 						</button>
 					{/each}

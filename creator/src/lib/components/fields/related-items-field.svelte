@@ -3,11 +3,10 @@
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { onMount } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import type { Catalog, ItemDef } from '@scutoons/content';
-	import { loadCatalog } from '$lib/editor/catalog.svelte.ts';
+	import type { Catalog } from '@scutoons/content';
+	import { itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 
@@ -33,10 +32,8 @@
 		});
 	});
 
-	const locale = getLocale();
 	const list = $derived<string[]>(Array.isArray(doc.data[doc.primary]?.related_items) ? doc.data[doc.primary].related_items : []);
 	const byId = $derived(new Map((catalog?.items ?? []).map((i) => [i.id, i])));
-	const nameOf = (item: ItemDef | undefined, id: string) => (item ? (item.name[locale] ?? item.name.en ?? item.name.de ?? id) : id);
 
 	function set(next: string[]) {
 		doc.edit((file) => {
@@ -61,7 +58,7 @@
 	<ul class="chips">
 		{#each list as id, i (id)}
 			{@const item = byId.get(id)}
-			{@const name = nameOf(item, id)}
+			{@const name = itemName(item, id)}
 			<li class="sc-chip-control has-image" class:is-warning={!loading && !item} data-testid="{testid}-{id}" title={id}>
 				<span class="icon">{#if item?.icon}<img src={asset(item.icon)} alt="" />{/if}</span>
 				<span class="name">{name}</span>
