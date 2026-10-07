@@ -19,7 +19,7 @@
 	 * the chosen option inverted. `value` = the chosen option (none chosen: null, e.g. a preset that no longer matches);
 	 * `onchange` gets the clicked option (also the chosen one again – a preset is re-applied). `radio` makes it a
 	 * radiogroup (aria-checked) instead of toggle buttons (aria-pressed). `grid` wraps into equal columns of at least
-	 * `min` (a CSS length).
+	 * `min` (a CSS length). `vertical` stacks the options in a column (a tool strip – the slice editor's, E.4).
 	 */
 	let {
 		options,
@@ -29,6 +29,7 @@
 		radio = false,
 		grid = false,
 		min,
+		vertical = false,
 		testid
 	}: {
 		options: SegmentedOption<V>[];
@@ -38,11 +39,12 @@
 		radio?: boolean;
 		grid?: boolean;
 		min?: string;
+		vertical?: boolean;
 		testid?: string;
 	} = $props();
 </script>
 
-<div class="sc-seg" class:is-grid={grid} role={radio ? 'radiogroup' : 'group'} aria-label={label} style:--seg-min={min} data-testid={testid}>
+<div class="sc-seg" class:is-grid={grid} class:is-column={vertical} role={radio ? 'radiogroup' : 'group'} aria-label={label} style:--seg-min={min} data-testid={testid}>
 	{#each options as o (o.value)}
 		<button
 			type="button"

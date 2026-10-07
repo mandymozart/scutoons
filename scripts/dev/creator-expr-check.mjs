@@ -299,7 +299,9 @@ try {
 	// ── the canvas as a sample reader sees it ────────────────────────────────────────────────────────────────────
 	const boxText = () => js(`${q('box-dialog-0')}?.closest('[data-testid="slice-canvas"]')?.querySelector('.dialog, .sc-dialog, [class*="dialog"]')?.innerText ?? ''`);
 	const canvasText = () => js(`[...${q('slice-canvas')}.querySelectorAll('*')].filter((e) => !e.children.length && /Münzen/.test(e.textContent)).map((e) => e.textContent).join(' | ')`);
-	check(await until(`!!${q('canvas-sample')}`, 2000), 'the canvas toolbar offers the sample readers (the slice has a text with {…})');
+	check(await until(`!!${q('canvas-sample-open')}`, 2000), 'the tool strip offers the sample-reader preview (the slice has a text with {…})');
+	await js(`${q('canvas-sample-open')}.click()`);
+	check(await until(`!!${q('canvas-sample')}`, 2000), 'its flyout holds the sample readers');
 	await js(`(() => { const s = ${q('canvas-sample')}; s.value = 'halfway'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
 	await sleep(300);
 	const asHalfway = await canvasText();

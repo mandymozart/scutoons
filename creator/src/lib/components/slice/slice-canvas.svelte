@@ -32,6 +32,8 @@
 		layers = null,
 		selection = null,
 		live = true,
+		zoom = null,
+		onshown,
 		onselect,
 		oncreate
 	}: {
@@ -54,6 +56,14 @@
 		 * frame; live = the frame + handles + its tag (the keys act on it)
 		 */
 		live?: boolean;
+		/**
+		 * a factor of the slice's 1x width (UI-CONCEPTS E.4: 50–300 %, the area scrolls); null = fit – the area's height, at
+		 * most 2x (on a phone its width). No CSS transform: the canvas is laid out at its size, so handles, snapping and the
+		 * pointer stay in slice coordinates (%)
+		 */
+		zoom?: number | null;
+		/** the factor the canvas is shown at (its width / the slice's 1x width), on every size change */
+		onshown?: (factor: number) => void;
 		onselect?: (selection: CanvasSelection | null) => void;
 		/** a rect was drawn on empty space */
 		oncreate?: (tool: Tool, rect: Required<Rect>) => void;
@@ -158,6 +168,17 @@
 	}
 
 	let canvas = $state<HTMLDivElement | null>(null);
+	let wrap = $state<HTMLDivElement | null>(null);
+	$effect(() => {
+		const el = wrap;
+		const w = sliceWidth;
+		if (!el || !onshown) return;
+		const report = () => el.clientWidth > 0 && onshown(Math.round((el.clientWidth / w) * 100) / 100);
+		const ro = new ResizeObserver(report);
+		ro.observe(el);
+		report();
+		return () => ro.disconnect();
+	});
 	let overlay = $state<HTMLDivElement | null>(null);
 	let imageLoaded = $state(false);
 	let imageError = $state(false);
@@ -438,8 +459,17 @@
 	});
 </script>
 
-<!-- one resolution in the whole app (owner 2026-09-30): the slice at its 1x size, scaled down to fit the column (its width and, in the slice editor, its height) -->
-<div class="canvas-wrap" style:max-width="min({sliceWidth}px, calc(100cqh * {1 / sliceRatio}))">
+<!-- one resolution in the whole app (owner 2026-09-30): the slice's 1x size (its own px – content, not a UI size) is the
+     unit; fit = the area's height (a phone: its width), at most 2x (E.4); zoomed = 1x × the factor, the area scrolls -->
+<div
+	class="canvas-wrap"
+	class:fit={zoom === null}
+	bind:this={wrap}
+	style:--slice-w="{sliceWidth}px"
+	style:--fit-h="calc(100cqh * {1 / sliceRatio})"
+	style:--zoom={zoom}
+	data-testid="canvas-wrap"
+>
 	<div
 		class="slice creator-canvas"
 		bind:this={canvas}
@@ -529,8 +559,18 @@
 	.canvas-wrap {
 		position: relative;
 		flex: none;
-		width: 100%;
+		width: calc(var(--slice-w) * var(--zoom, 1));
 		margin: 0 auto;
+	}
+	.canvas-wrap.fit {
+		width: 100%;
+		max-width: min(calc(2 * var(--slice-w)), var(--fit-h));
+	}
+	/* a phone: fit = the full width (the area scrolls down – the owner's phone draft) */
+	@media (max-width: 767px) {
+		.canvas-wrap.fit {
+			max-width: calc(2 * var(--slice-w));
+		}
 	}
 	.creator-canvas {
 		position: relative;

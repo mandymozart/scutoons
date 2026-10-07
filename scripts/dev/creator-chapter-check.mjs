@@ -409,7 +409,7 @@ try {
 	// ── snap + nudge (outside a field: the list entry has the focus) ──────────────────────────────────────
 	await click(tid(`dialog-${added}`));
 	check((await js(`document.activeElement?.dataset?.testid`)) === `dialog-${added}` && (await js(`${q(`box-dialog-${added}`)}.classList.contains('selected')`)), 'the list entry selects the box (focus outside a field)');
-	check((await js(`${q('snap-toggle')}.getAttribute('aria-pressed') === 'true' && ${q('grid-size')}.value === '30'`)) === true, 'snap: on by default, 30 px grid');
+	check((await js(`${q('snap-toggle')}.getAttribute('aria-pressed') === 'true' && ${q('grid-size')}.textContent.trim() === '30'`)) === true, 'snap: on by default, 30 px grid');
 	await sleep(1200); // separate undo steps (checkpoints within ~1 s merge)
 	const p0 = await boxAt(added);
 	await press('ArrowRight');
@@ -420,7 +420,7 @@ try {
 	const p2 = await boxAt(added);
 	check(p2.y > p1.y && near(p2.x, p1.x, 0.01), 'nudge: ArrowDown moves the box down', JSON.stringify({ p1, p2 }));
 	await click(tid('snap-toggle'));
-	check((await js(`${q('snap-toggle')}.getAttribute('aria-pressed') === 'false' && ${q('grid-size')}.disabled`)) === true, 'snap: the toggle switches it off (grid size disabled)');
+	check((await js(`${q('snap-toggle')}.getAttribute('aria-pressed') === 'false'`)) === true, 'snap: the grid button switches it off');
 	await click(tid(`dialog-${added}`));
 	await sleep(1200);
 	await press('ArrowRight');
@@ -432,6 +432,35 @@ try {
 	check(near(p3.x - p4.x, 10), 'snap off: Shift+ArrowLeft moves 10 px', JSON.stringify({ p3, p4 }));
 	await click(tid('snap-toggle'));
 	check((await js(`${q('snap-toggle')}.getAttribute('aria-pressed') === 'true'`)) === true, 'snap: the toggle switches it on again');
+
+	// ── E.4 the tool strip + zoom (UI-CONCEPTS E.4): two square groups left of the canvas, no toolbar row ──────────
+	check(
+		(await js(`(() => { const v = ${q('tools-view')}.getBoundingClientRect(), c = ${q('tools-content')}.getBoundingClientRect(), w = ${q('canvas-wrap')}.getBoundingClientRect(); return !document.querySelector('.canvas-tools') && v.right <= w.left && c.right <= w.left && c.top >= v.bottom && getComputedStyle(${q('tools-content')}).flexDirection === 'column'; })()`)) === true,
+		'E.4: View + Content are vertical groups left of the canvas (the toolbar row is gone)'
+	);
+	await click(tid('grid-size'));
+	check(await until(`!!${q('grid-sizes')} && ${q('grid-size-30')}.getAttribute('aria-checked') === 'true'`, 2000), 'E.4: the corner number opens the grid sizes (30 checked)');
+	await click(tid('grid-size-15'));
+	check(await until(`!${q('grid-sizes')} && ${q('grid-size')}.textContent.trim() === '15' && ${q('snap-toggle')}.getAttribute('aria-pressed') === 'true'`, 2000), 'E.4: picking 15 closes the sizes, the corner says 15');
+	await js(`${q('snap-toggle')}.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))`);
+	check(await until(`!!${q('grid-sizes')}`, 2000), 'E.4: a right-click on the grid opens the sizes');
+	await click(tid('grid-size-30'));
+	const wrapW = () => js(`${q('canvas-wrap')}.getBoundingClientRect().width`);
+	await click(tid('canvas-zoom'));
+	check(await until(`!!${q('canvas-zoom-flyout')}`, 2000), 'E.4: the zoom button opens its flyout');
+	await click(tid('canvas-zoom-1x'));
+	check(await until(`Math.abs(${q('canvas-wrap')}.getBoundingClientRect().width - ${SLICE_W}) < 1 && ${q('canvas-zoom-value')}.textContent.trim() === '100 %'`, 2000), 'E.4: 1:1 shows the slice at its own width (100 %)', String(await wrapW()));
+	await click(tid('canvas-zoom-in'));
+	check(await until(`Math.abs(${q('canvas-wrap')}.getBoundingClientRect().width - ${SLICE_W * 1.25}) < 1`, 2000), 'E.4: zoom in = the next step (125 %)', String(await wrapW()));
+	const z0 = await wrapW();
+	const [wx, wy] = await js(`(() => { const r = ${q('canvas-area')}.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 3]; })()`);
+	await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: wx, y: wy, deltaX: 0, deltaY: -200, modifiers: 2 });
+	check(await until(`${q('canvas-wrap')}.getBoundingClientRect().width > ${z0 + 1}`, 2000), 'E.4: Ctrl + wheel over the canvas zooms in', `${z0} → ${await wrapW()}`);
+	await click(tid('canvas-zoom-fit'));
+	check(await until(`${q('canvas-zoom-fit')}.getAttribute('aria-pressed') === 'true'`, 2000), 'E.4: fit');
+	await press('Escape');
+	check(await until(`!${q('canvas-zoom-flyout')}`, 2000), 'E.4: Escape closes the flyout');
+	await click(tid(`dialog-${added}`));
 
 	// ── drag on the canvas (lib/editor/canvas-geometry.ts): move onto the grid, the rotate handle (15° steps with snap) ──
 	const dragFrom = async (selector, ddx, ddy) => {

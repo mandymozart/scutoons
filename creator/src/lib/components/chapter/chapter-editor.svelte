@@ -41,7 +41,7 @@
 	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
-	import { ChapterView, type Section } from '$lib/editor/chapter-state.svelte.ts';
+	import { ChapterView, clampZoom, type Section } from '$lib/editor/chapter-state.svelte.ts';
 	import * as edits from '$lib/editor/slice-edit.ts';
 	import { clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
@@ -302,10 +302,11 @@
 	// the canvas, the strip preview and the inspector show the top bar's TEXT language (default the source; owner
 	// 2026-10-06: one language everywhere, the header's switch the only one)
 	const displayLocale = $derived(textLanguage.current(languages.languages, languages.source));
-	// snap + grid size are remembered on this device
+	// snap, grid size and zoom are remembered on this device
 	$effect(() => {
 		void view.snap;
 		void view.gridSize;
+		void view.zoom;
 		view.savePrefs();
 	});
 	// the Flow / Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); `?flow=1`
@@ -347,6 +348,33 @@
 		panel = panel === next ? null : next;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
+	/**
+	 * Ctrl / Cmd + wheel over the slice area zooms the canvas (also with the zoom flyout closed; a trackpad's pinch is the
+	 * same event), 50–300 %, the point under the pointer stays put (UI-CONCEPTS E.4). Non-passive: it replaces the
+	 * browser's page zoom there.
+	 */
+	function wheelZoom(area: HTMLElement) {
+		const onWheel = async (event: WheelEvent) => {
+			if (!event.ctrlKey && !event.metaKey) return;
+			event.preventDefault();
+			const el = area.querySelector<HTMLElement>('[data-testid="canvas-wrap"]');
+			if (!el) return;
+			const before = el.getBoundingClientRect();
+			const fx = (event.clientX - before.left) / (before.width || 1);
+			const fy = (event.clientY - before.top) / (before.height || 1);
+			const step = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+			const next = clampZoom(view.shownZoom * Math.exp(-step * 0.002));
+			if (next === view.shownZoom && view.zoom !== null) return;
+			view.zoom = next;
+			view.shownZoom = next;
+			await tick();
+			const after = el.getBoundingClientRect();
+			area.scrollLeft += after.left + fx * after.width - event.clientX;
+			area.scrollTop += after.top + fy * after.height - event.clientY;
+		};
+		area.addEventListener('wheel', onWheel, { passive: false });
+		return () => area.removeEventListener('wheel', onWheel);
+	}
 	/** save / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
 	const session = new DocSession({
 		docs: () => allDocs,
@@ -942,8 +970,10 @@
 						<p>{m['creator.loading']()}</p>
 					{/if}
 				{:else if view.section === 'slice' && activeDoc && activeSlice}
+					<!-- the tool strip left of the canvas, the canvas fills the rest (UI-CONCEPTS E.4) -->
+					<div class="slice-room">
 					<SliceToolbar {view} expressions={sliceHasExpressions(activeSlice)} />
-					<div class="canvas-scroll">
+					<div class="canvas-scroll" {@attach wheelZoom} data-testid="canvas-area">
 						<SliceCanvas
 							bind:this={canvas}
 							doc={activeDoc}
@@ -954,9 +984,12 @@
 							layers={view.layers}
 							selection={view.selection}
 							live={liveRegion.is(SLICE_REGION)}
+							zoom={view.zoom}
+							onshown={(f) => (view.shownZoom = f)}
 							onselect={(next) => view.select(next)}
 							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? view.pickItem({ x: rect.x, y: rect.y }) : t === 'event' ? addSliceEvent(rect) : addSampleArea(rect))}
 						/>
+					</div>
 					</div>
 				{:else}
 					<p class="sc-empty pad">{m['creator.select_slice']()}</p>
@@ -1157,17 +1190,23 @@
 		overflow: auto;
 		padding: var(--space-1) 0 var(--space-15);
 	}
-	/* the slice editor: tools on top, the slice fits the rest of the column's height – no scrolling unless the slice is
-	   taller than the column even at its smallest (owner 2026-10-03) */
+	/* the slice editor (UI-CONCEPTS E.4): the tool strip left, the slice fills the rest – fit = the column's height (at most
+	   2x the slice), zoomed = the area scrolls (owner 2026-10-03 + 2026-10-07) */
 	.main.fit {
 		display: flex;
 		flex-direction: column;
 		padding-bottom: var(--space-1);
 	}
+	.slice-room {
+		flex: 1;
+		display: flex;
+		gap: var(--space-05);
+		min-height: 12rem;
+	}
 	.main.fit .canvas-scroll {
 		flex: 1;
-		min-height: 12rem;
-		padding-bottom: 0;
+		min-width: 0;
+		padding: 0;
 		container-type: size;
 	}
 	.row {

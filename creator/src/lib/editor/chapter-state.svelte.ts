@@ -12,6 +12,13 @@ export type InspectorTab = 'layers' | 'slice' | 'audio' | 'events';
 export const GRID_SIZES = [5, 10, 15, 30];
 const SNAP_KEY = 'scutoons_creator_snap';
 const GRID_KEY = 'scutoons_creator_grid';
+const ZOOM_KEY = 'scutoons_creator_zoom';
+/** the slice canvas's zoom range (owner 2026-10-07, UI-CONCEPTS E.4): 50–300 % of the slice's 1x width */
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 3;
+/** the zoom buttons' steps */
+const ZOOM_STEPS = [0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+export const clampZoom = (z: number) => Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
 
 // tool = tab = layer (owner 2026-10-03): a tool opens its tab, a tab picks its tool; the canvas only takes the pointer
 // on that tab's kinds (a full-slice event no longer covers the texts). The Layers tab holds text boxes AND placed items
@@ -44,6 +51,13 @@ export class ChapterView {
 	/** snap to grid (owner 2026-10-03: one toggle for moving, resizing, scaling, rotating), remembered on this device */
 	snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
 	gridSize = $state(readPref(GRID_KEY, 30, (v) => GRID_SIZES.includes(v as number)));
+	/**
+	 * the canvas zoom, a factor of the slice's 1x width (50–300 %); null = fit (the area's height, at most 2x; on a phone
+	 * its width) – remembered on this device (UI-CONCEPTS E.4)
+	 */
+	zoom = $state<number | null>(readPref(ZOOM_KEY, null, (v) => v === null || (typeof v === 'number' && v >= ZOOM_MIN && v <= ZOOM_MAX)));
+	/** the factor the canvas is shown at (measured – in fit mode too): the zoom's percentage, the steps start from it */
+	shownZoom = $state(1);
 	/** the item tool's click on the canvas: where the picked item goes */
 	itemSpot = $state<{ x: number; y: number } | null>(null);
 	/** the item picker sheet is open */
@@ -58,6 +72,13 @@ export class ChapterView {
 	get grid() {
 		return this.snap ? this.gridSize : 0;
 	}
+	/** the next zoom step up / down from what is shown */
+	zoomIn() {
+		this.zoom = ZOOM_STEPS.find((z) => z > this.shownZoom + 0.005) ?? ZOOM_MAX;
+	}
+	zoomOut() {
+		this.zoom = ZOOM_STEPS.findLast((z) => z < this.shownZoom - 0.005) ?? ZOOM_MIN;
+	}
 	/** the kinds the inspector's tab is on (their boxes take the pointer); null = every kind */
 	get layers() {
 		return KINDS[this.inspectorTab] ?? null;
@@ -67,11 +88,12 @@ export class ChapterView {
 		return this.section === 'group' || this.section === 'slice';
 	}
 
-	/** remembers snap + grid size on this device (storage unavailable: the choice holds for this visit) */
+	/** remembers snap, grid size and zoom on this device (storage unavailable: the choice holds for this visit) */
 	savePrefs() {
 		try {
 			localStorage.setItem(SNAP_KEY, JSON.stringify(this.snap));
 			localStorage.setItem(GRID_KEY, JSON.stringify(this.gridSize));
+			localStorage.setItem(ZOOM_KEY, JSON.stringify(this.zoom));
 		} catch {
 			/* not remembered */
 		}

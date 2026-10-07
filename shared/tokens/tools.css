@@ -634,12 +634,15 @@
 /* segmented control (owner 2026-10-03, COMPONENTS.md step 6; @scutoons/ui Segmented renders it): one 2px ink frame
    around a row of choices, no frame on the buttons, the chosen one (aria-pressed / aria-checked) inverted, a hover
    frame inside. .is-grid wraps into equal columns of at least --seg-min (presets). Also the frame for a toggle + its
-   option (a <select> inside is fine). */
+   option (a <select> inside is fine). .is-column stacks it (a vertical tool strip – the slice editor, E.4). */
 .sc-seg {
 	display: inline-flex;
 	box-sizing: border-box;
 	border: var(--border-width-regular) solid var(--ink);
 	background: var(--paper);
+}
+.sc-seg.is-column {
+	flex-direction: column;
 }
 .sc-seg.is-grid {
 	display: grid;
