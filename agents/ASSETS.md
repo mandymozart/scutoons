@@ -73,6 +73,21 @@ built in app code beyond `AssetUsages::CODE_REFERENCES` (source `code`, state `c
 MobileNet – and the map / inventory frame `catpope/vectors/vector-demon-saw-1.svg`; AssetsTest checks each entry still
 appears in its code file). Add a path there whenever app code builds a CDN path itself.
 
+## Paths in content (BACKLOG 10.39, 2026-10-07)
+
+A toon document stores media paths relative to its toon's folder (`s1/c1/s1c1-slice-3.webp`). Another toon's file is
+referenced, never copied: `../catpope/s1/c2/s1c2-slice-53.webp` (the asset picker writes that – `toonRelativePath` –
+and so does a paste across toons, `rebaseToonAsset`); a leading `/` starts at the CDN root (`/characters/x.webp`, the
+VN character views the reader gets). ONE resolver, `@scutoons/content` **`toonAsset(toon, path)`** → the path from the
+CDN root (`.` / `..` resolved in code, not by the browser's URL normalisation); the apps' `toonUrl(toon, path)` (viewer
+and creator `utils/cdn.ts`) = `asset(toonAsset(…))` – every former `` `${toon}/${path}` `` join uses it (slices, their
+levels and videos, keyvisuals, thumbnails, covers, hero, credits, download, audio, the media slots, `rootPath`).
+Stored `slice.image` values are never rewritten (they are part of the pickup key `picked:<slice image>#<id>`).
+Dev data 2026-10-07 (all versions): 272 out-of-folder values, all `../` (slice images 32 + 162 scene, thumbnails 19 +
+3, season squares 38, toon avatars 3, tile images 18 – e.g. toptoy / yellowmouse / sandbox chapters using catpope's
+slices); 0 with a leading `/`. Writing `../` for pastes keeps ONE form in the data (the BACKLOG draft said `/<toon>/…`;
+both resolve alike).
+
 ## Operations (`AssetService`, API + CLI)
 
 | Operation | What happens | Who |

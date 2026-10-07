@@ -177,6 +177,14 @@ after E.3. **Owner decides:** worth a spike?
 
 ## E.7 Copy / cut / paste (BACKLOG 10.39)
 
+**Built 2026-10-07 (BACKLOG 10.39, steps 1–8).** `lib/editor/clipboard.svelte.ts` (the DOM copy / cut / paste events,
+the live region's handler, Shift+V, the menu's copy / paste) + `clip.ts` (the JSON with a marker, fresh ids, media
+references across toons, settings only) – handlers: the slice canvas + inspector (`slice-clip.ts`), the slice list,
+the chapter tree, a group's VN events. Phones: the ActionBar's "More" holds Copy · Cut · Paste · Paste settings; a
+right-click / long-press opens the same menu (`clip-menu.svelte`). Item limits (`placements`, `max_world`) in the
+catalog, the API and the creator. DESIGN.md "Copy / paste", ASSETS.md "Paths in content", ITEMS.md "Item limits".
+The text below is the concept as written.
+
 **Today:** one canvas selection (`ChapterView.selection`, chapter-state.svelte.ts), each list keeps its own
 multi-selection (`picked`, multi-select.ts – groups, slices, events); Ctrl+X / Delete / Backspace delete the canvas
 selection (chapter-editor.svelte onKeydown); no copy, no duplicate, no context menu.

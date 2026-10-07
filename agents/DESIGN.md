@@ -739,6 +739,28 @@ Three kinds, three places; none moves the layout:
   a converted document (`page/doc-notices.svelte`). Contextual hints inside an editor's own area (legacy texts, "label
   the next group") stay where they belong; they are not notifications.
 
+### Copy / paste (owner 2026-10-07, BACKLOG 10.39, UI-CONCEPTS E.7) – the creator's chapter editor
+
+- **One system:** Cmd/Ctrl+C / X / V act on the LIVE region's selection only (the selection model, E.8); Ctrl/Cmd+
+  Shift+V pastes the settings only onto the selection. In a text field, or with page text selected, the keys stay the
+  browser's. Ctrl+X cuts (copy + remove); Delete / Backspace only remove.
+- **What pastes where:** the slice canvas + inspector (one region): a text box, a placed item, a sound area, an event
+  area – as a new one on the open slice (a step offset when it would sit on another, on top of the layer stack);
+  Shift+V: a box's look / a placement's action, qty, repeat, respawn, events / a sound area's sound + trigger / an event
+  area's event, onto the selected one of the same kind. VN events (a group script): after the last picked one; Shift+V
+  = params + `if` of the copied event of the same type. Slices: after the last picked slice, with boxes, items, events
+  and their sounds; Shift+V = audio + events. Groups (the tree): after the last picked / open group (a separate scene
+  is pasted as a group of the chapter), labels kept unique; Shift+V = renderer, end, `continues`.
+- **Ids are fresh, media are references:** new ids on paste (boxes the chapter's next free ones, a showTextBox follows
+  its box; events via assignEventIds; placements `<item>-<7 random>`); a paste into another toon references the source
+  toon's files (`../<toon>/…`, ASSETS.md "Paths in content") and adds the sounds it uses to the chapter's library.
+- **Feedback:** a toast – "Copied: text box", "Pasted: slices (2) · files from catpope: 4", "Settings pasted onto: …";
+  a paste over an item's placement limit is refused (an error toast that stays; ITEMS.md "Item limits").
+- **The menu:** a right-click (on a phone the long-press) inside a copy region opens Copy · Cut · Paste · Paste
+  settings at the pointer (`clip-menu.svelte`; the browser's own menu stays in fields, on grips, on links). Phones (no
+  keys): the same four as one square group in the ActionBar's "More". A menu paste reads the system clipboard where the
+  browser allows it, else the clip copied last in this tab.
+
 ### Creator: content language (i18n) + translate mode (owner 2026-10-02)
 
 Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
