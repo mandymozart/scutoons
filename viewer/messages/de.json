@@ -452,5 +452,13 @@
 		"loading": "Karte wird geladen …",
 		"unavailable": "Die Karte ist gerade nicht verfügbar.",
 		"hint": "Ziehen zum Verschieben, Mausrad oder zwei Finger zum Zoomen"
+	},
+	"fx": {
+		"title": "Soundeffekte",
+		"volume": "Lautstärke",
+		"hint": "Antippen, Aufheben und Effekte in den Kapiteln. Musik und Stimmen behalten ihre eigene Lautstärke. Auf diesem Gerät gespeichert.",
+		"try": "Anhören",
+		"haptics": "Vibration",
+		"haptics_hint": "Ein kurzes Brummen beim Antippen und Aufheben (Handys)."
 	}
 }

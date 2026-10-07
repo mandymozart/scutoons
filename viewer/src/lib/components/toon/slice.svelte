@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { fromAction } from 'svelte/attachments';
 	import { hasSliceLayers, hidesSensitive, isAreaTrigger, isSensitive, pickQualityVariant, sanitizeNumber, Trigger, type Dialog, type Slice as SliceModel, type SliceItem, type SliceLayerRef } from '@scutoons/content';
-	import { Slice, sliceAudio, type DialogPlay, type PlayerLabels, type ResolveSliceItem } from '@scutoons/reader';
+	import { Slice, liftCue, nudgeCue, sliceAudio, type DialogPlay, type PlayerLabels, type ResolveSliceItem, type Shape } from '@scutoons/reader';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
-	import { isTaken, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
+	import { isTaken, markNudged, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
 	import { idsOf, isRunDue, recordRun, type RunMemory } from '$lib/visual-novel/repeat.ts';
 	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
@@ -132,10 +132,15 @@
 	};
 	/** how often a placement's tap events run: its `repeat` over the reader's history (visual-novel/repeat.ts) */
 	const tapMemory = new Map<string, RunMemory>();
-	async function onItemTap(item: SliceItem) {
+	async function onItemTap(item: SliceItem, _index: number, el: HTMLElement) {
 		if (!game) return;
 		if (item.action === 'pickup') {
+			// agents/FX.md: it jumps up at once, then flies into the bag (the inventory button) or shakes and stays
+			const lift = liftCue(el, item.rotation ?? 0);
 			const result = await pickUpSliceItem(slice, item, game);
+			if (result.ok) await lift.fly(document.querySelector('.inventory-toggle'));
+			else if (result.error) lift.refuse();
+			else lift.drop(); // a second tap while the first is still asking: nothing
 			taken++;
 			// tell the reader why it stayed (or that it was theirs already); a tap while one is pending says nothing
 			if (!result.ok && result.error) getCurrentInventory()?.refused(item.item, result.error);
@@ -148,6 +153,12 @@
 			const destination = await runSliceItemEvents(item, game, vn, group);
 			if (destination) goto(destination);
 		}
+	}
+
+	/** "you can tap me" (agents/FX.md): an untouched tappable item wiggles – one per slice and page view */
+	function onItemIdle(item: SliceItem, _index: number, el: HTMLElement, shape: Shape | null) {
+		if (blurred || !markNudged(slice.image)) return;
+		nudgeCue(el, item.rotation ?? 0, shape);
 	}
 
 	// text boxes revealed by showTextBox events (params.dialog): hidden until then, then they play the event's effect
@@ -201,6 +212,7 @@
 	{itemInfo}
 	{itemHidden}
 	onitemtap={onItemTap}
+	onitemidle={onItemIdle}
 	{dialogHidden}
 	{dialogPlay}
 	{expressions}

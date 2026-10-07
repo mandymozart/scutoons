@@ -452,5 +452,13 @@
 		"loading": "Loading the map …",
 		"unavailable": "The map is not available right now.",
 		"hint": "Drag to move, wheel or two fingers to zoom"
+	},
+	"fx": {
+		"title": "Sound effects",
+		"volume": "Volume",
+		"hint": "Taps, pickups and impacts in the chapters. Music and voices keep their own volume. Saved on this device.",
+		"try": "Try",
+		"haptics": "Vibration",
+		"haptics_hint": "A short buzz with taps and pickups (phones)."
 	}
 }

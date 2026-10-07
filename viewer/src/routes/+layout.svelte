@@ -18,6 +18,7 @@
 	import { setWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
 	import { listenToCreator } from '$lib/creator-link.svelte.ts';
+	import { fxSettings } from '$lib/fx-settings.svelte.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -45,6 +46,8 @@
 
 	onMount(async () => {
 		initAnimatedFavicon();
+		// the effect sounds' routing + this device's volume / vibration (agents/FX.md)
+		fxSettings.init();
 
 		// device access from a scanned code (+ silent legacy migration, periodic re-check)
 		membership.init();

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 	import { sliceLayers, type Dialog as DialogModel, type Sample, type SliceItem as SliceItemModel, type SliceLayerRef, type VNSliceEvent } from '@scutoons/content';
 	import Dialog from './dialog/dialog.svelte';
 	import SliceItem, { type ResolveSliceItem } from './items/slice-item.svelte';
@@ -26,6 +26,7 @@
 		resolve,
 		itemHidden,
 		ontap,
+		onidle,
 		events,
 		samples,
 		area
@@ -38,7 +39,9 @@
 		expressions?: TextExpressions;
 		resolve?: ResolveSliceItem;
 		itemHidden?: (item: SliceItemModel) => boolean;
-		ontap?: (item: SliceItemModel, index: number) => void;
+		ontap?: ComponentProps<typeof SliceItem>['ontap'];
+		/** a tappable item untouched on screen for a while (the app's nudge) */
+		onidle?: ComponentProps<typeof SliceItem>['onidle'];
 		/** the slice's events (its click / hover areas join the stack) */
 		events?: VNSliceEvent[];
 		/** the slice's samples (`audio.audio.samples`: those with a click / hover area join the stack) */
@@ -62,7 +65,7 @@
 				{@const item = items![ref.index]}
 				{@const info = item?.rect && resolve ? resolve(item) : null}
 				{#if info && !itemHidden?.(item)}
-					<SliceItem {item} index={ref.index} {info} {ontap} />
+					<SliceItem {item} index={ref.index} {info} {ontap} {onidle} />
 				{/if}
 			{:else if area}
 				{@render area(ref)}

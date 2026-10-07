@@ -57,6 +57,7 @@
 		"check:sso": "node scripts/check-sso.mjs",
 		"check:wardrobe": "node scripts/check-wardrobe.mjs",
 		"check:testo": "node scripts/check-testo.mjs",
+		"check:fx": "node scripts/check-fx.mjs",
 		"check:stores": "node scripts/check-stores.mjs",
 		"build": "npm run build --workspaces --if-present",
 		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary",

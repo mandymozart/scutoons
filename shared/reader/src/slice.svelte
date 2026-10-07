@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 	import type { SliceLayerRef } from '@scutoons/content';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { DEFAULT_SLICE, type Slice, type SliceItem } from '@scutoons/content';
@@ -42,6 +42,7 @@
 		itemInfo,
 		itemHidden,
 		onitemtap,
+		onitemidle,
 		dialogHidden,
 		dialogPlay,
 		expressions,
@@ -75,7 +76,9 @@
 		/** a placed item the reader already took (not drawn) */
 		itemHidden?: (item: SliceItem) => boolean;
 		/** a tap on a placed item whose `action` isn't `none` */
-		onitemtap?: (item: SliceItem, index: number) => void;
+		onitemtap?: ComponentProps<typeof SliceLayers>['ontap'];
+		/** a tappable item untouched on screen for a while (the app nudges – agents/FX.md) */
+		onitemidle?: ComponentProps<typeof SliceLayers>['onidle'];
 		/** a text box a showTextBox event reveals later (not drawn yet) */
 		dialogHidden?: (dialog: DialogModel) => boolean;
 		/** a text box being revealed by a showTextBox event right now */
@@ -140,6 +143,7 @@
 		resolve={itemInfo}
 		{itemHidden}
 		ontap={onitemtap}
+		onidle={onitemidle}
 		events={area ? slice.events : undefined}
 		samples={area ? slice.audio?.audio?.samples : undefined}
 		{area}

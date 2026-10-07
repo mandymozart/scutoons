@@ -727,6 +727,12 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
          encodes with libwebp `-sharp_yuv` (the asset jobs) – compare on one slice first.
       4. CSS: `.slice img { width: 100% }` in a ≤ 500 px column – no extra scaling beyond 1. / 2.
       **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
+- [ ] 10.56 **Reader FX: feedback cues** (owner 2026-10-07; started the same day: "free to go") – hints, pickups,
+      reveals and impacts as one set of cues (motion + sound + haptic) inside the visible viewport; no external MIDI /
+      devices. Plan, rules, phases and open decisions: agents/FX.md. The live performance mode that builds on it:
+      agents/LIVE.md (target February 2027, explored in its own session). Phases 1 + 2 built (pickup collect / refuse,
+      nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`); next: entrances + sounds, the `fx` event.
+
 ## Done
 
 - [x] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30)_.

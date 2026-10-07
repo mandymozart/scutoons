@@ -56,6 +56,17 @@ function remember(slice: Pick<Slice, 'image'>, item: SliceItem, interval: Recurr
 	else game.setVariable(pickedKey(slice, item), period);
 }
 
+/** slices whose pickup was nudged on this page view (agents/FX.md: once per visit): `<page view>:<slice image>` */
+const nudged = new Set<string>();
+
+/** true the first time on this page view – the caller nudges */
+export function markNudged(place: string): boolean {
+	const key = `${visitId()}:${place}`;
+	if (nudged.has(key)) return false;
+	nudged.add(key);
+	return true;
+}
+
 const pending = new Set<string>();
 
 export interface PickupResult {
