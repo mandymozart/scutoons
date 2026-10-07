@@ -101,6 +101,7 @@ function summary(n: FlowNode, ctx: FlowTextContext): string {
 	if (n.leaves?.length) parts.push(m['creator.flow_leaves']({ list: who(n.leaves) }));
 	if (n.sets?.length) parts.push(m['creator.flow_sets']({ list: list(n.sets) }));
 	if (n.gives?.length) parts.push(m['creator.flow_gives']({ list: list(n.gives) }));
+	if (n.takes?.length) parts.push(m['creator.flow_takes']({ list: list(n.takes) }));
 	if (n.boxes?.length) parts.push(m['creator.flow_boxes']({ list: list(n.boxes, 2) }));
 	return parts.join(' · ');
 }

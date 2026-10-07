@@ -21,6 +21,7 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST /api/inventory/claim/   { code, item_id?, variant? } → { status, claimed: "new"|"already_yours", code, inventory }
  *   POST /api/inventory/craft/   { recipe_id } → { status, recipe_id, inventory }
  *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
+ *   POST /api/inventory/take/    { item_id, qty?, ref? } → { status, taken, reason: null|too_few|already_taken, inventory } (a story takes – BACKLOG 10.38)
  *   POST /api/inventory/import/  { items: [{ item_id, qty }] } → { status, imported, skipped, inventory }
  *   POST /api/inventory/use/     { item_id } → { status, item_id, stats, effects, inventory } (a substance, ITEMS.md "Substances")
  *   POST /api/effects/end/       { kind } → { status, ended, effects } ("Effekt beenden")
@@ -99,6 +100,14 @@ final class InventoryController
         $user = CurrentSession::of($request)->requireUser();
         $granted = $this->inventory->grant((string) $user['id'], $body);
         return Json::response($response, 200, ['status' => 'success', 'granted' => $granted, 'inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+
+    public function take(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $result = $this->inventory->take((string) $user['id'], $body);
+        return Json::response($response, 200, ['status' => 'success'] + $result + ['inventory' => $this->inventory->entries((string) $user['id'])]);
     }
 
     public function import(Request $request, Response $response): Response

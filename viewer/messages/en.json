@@ -214,6 +214,7 @@
 		"craft": "Combine",
 		"crafted": "Made: {name}",
 		"granted": "+{qty} {name}",
+		"taken": "−{qty} {name}",
 		"pickup_max_reached": "You already have enough of these.",
 		"pickup_not_grantable": "You can't take {name} here.",
 		"pickup_already_taken": "You've already taken {name}.",

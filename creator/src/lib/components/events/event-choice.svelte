@@ -53,6 +53,8 @@
 					<PropField {doc} path={[...ap, 'add', 'value']} label={m['creator.field_value']()} type="number" step={1} required />
 				{:else if action?.give}
 					<GiveItemField {doc} path={[...ap, 'give']} testid="choice-{index}-give-{ai}" />
+				{:else if action?.take}
+					<GiveItemField {doc} path={[...ap, 'take']} take testid="choice-{index}-take-{ai}" />
 				{:else if action?.jumpTo}
 					<EventTarget {doc} path={[...ap, 'jumpTo', 'target']} target={action.jumpTo.target} {groupLabels} />
 				{:else if action?.divert}

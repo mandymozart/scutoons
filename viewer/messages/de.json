@@ -214,6 +214,7 @@
 		"craft": "Kombinieren",
 		"crafted": "Gebaut: {name}",
 		"granted": "+{qty} {name}",
+		"taken": "−{qty} {name}",
 		"pickup_max_reached": "Du hast schon genug davon.",
 		"pickup_not_grantable": "{name} kannst du hier nicht mitnehmen.",
 		"pickup_already_taken": "{name} hast du schon mitgenommen.",

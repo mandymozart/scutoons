@@ -64,3 +64,14 @@ test('a story variable named like a catalog item warns (write: giveItem; read: i
 	assert.equal(e.code, 'item-as-variable');
 	assert.equal(e.suggestion, 'inventory.cucumber');
 });
+
+test('takeItem / a choice\'s take: a catalog item, 1 … 10, a valid repeat rule', () => {
+	const items = ['cucumber', 'lsd'];
+	assert.deepEqual(check([{ type: 'takeItem', params: { item: 'cucumber', qty: 5, repeat: { mode: 'interval', every: { days: 1 } } } }], items), []);
+	assert.match(check([{ type: 'takeItem', params: { item: '' } }], items)[0].message, /takeItem needs an item/);
+	assert.match(check([{ type: 'takeItem', params: { item: 'cucumber', qty: 0 } }], items)[0].message, /qty is a whole number/);
+	const bad = validateFile('chapter', chapter([{ type: 'takeItem', params: { item: 'cucumber', repeat: { mode: 'sometimes' } } }]), 'de', { file: 'c', items } as never);
+	assert.ok(bad.some((p) => p.level === 'error' && /repeat\.mode/.test(p.message)));
+	const trade = { type: 'addChoice', params: { label: { de: 'Tauschen' }, onSelect: [{ take: { item: 'cucumber', qty: 5 } }, { give: { item: 'lsd' } }] } };
+	assert.ok(!validateFile('chapter', chapter([trade]), 'de', { file: 'c', items } as never).some((p) => p.message.includes('an action is')));
+});

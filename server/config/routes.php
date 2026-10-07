@@ -127,6 +127,8 @@ return static function (App $app): void {
     $app->post('/api/inventory/claim', [InventoryController::class, 'claim']);
     $app->post('/api/inventory/craft', [InventoryController::class, 'craft']);
     $app->post('/api/inventory/grant', [InventoryController::class, 'grant']);
+    // a story takes an item (VN takeItem, BACKLOG 10.38)
+    $app->post('/api/inventory/take', [InventoryController::class, 'take']);
     $app->post('/api/inventory/import', [InventoryController::class, 'import']);
     $app->post('/api/inventory/use', [InventoryController::class, 'use']);
     $app->post('/api/effects/end', [InventoryController::class, 'endEffect']);

@@ -118,6 +118,10 @@
 						"$ref": "#/definitions/GrantSource"
 					}
 				},
+				"takeable": {
+					"type": "boolean",
+					"description": "a story may take it from the reader (VN `takeItem` / a choice's `take`; owner 2026-10-07, BACKLOG 10.38) – never a physical item; off by default"
+				},
 				"slot": {
 					"anyOf": [
 						{

@@ -158,7 +158,9 @@ final class CatalogValidator
         if (!is_string($item['category'] ?? null) || $item['category'] === '') $p[] = "$id: category is required";
         if (array_key_exists('toon', $item) && $item['toon'] !== null && !(is_string($item['toon']) && preg_match(EntityKey::TOON_PATTERN, $item['toon']))) $p[] = "$id: toon must be a toon id or null";
         if (($item['slot'] ?? null) !== null && !AvatarSlots::isSlot($item['slot'])) $p[] = "$id: unknown slot \"" . self::show($item['slot']) . '" (' . implode(', ', AvatarSlots::ALL) . ')';
-        foreach (['stackable', 'starter', 'default_worn', 'giftable'] as $flag) {
+        // a story may take it (VN takeItem) – never a physical item (claims move those; owner 2026-10-07, BACKLOG 10.38)
+        if (($item['takeable'] ?? null) === true && ($item['kind'] ?? null) === 'physical') $p[] = "$id: a physical item can't be takeable (only claims move it)";
+        foreach (['stackable', 'starter', 'default_worn', 'giftable', 'takeable'] as $flag) {
             if (array_key_exists($flag, $item) && $item[$flag] !== null && !is_bool($item[$flag])) $p[] = "$id: $flag must be true or false";
         }
         if (array_key_exists('icon', $item) && $item['icon'] !== null && !is_string($item['icon'])) $p[] = "$id: icon must be a path";

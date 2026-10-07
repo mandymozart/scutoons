@@ -178,6 +178,34 @@ final class InventoryService
     }
 
     /**
+     * A story takes an item (VN takeItem / a choice's take – owner 2026-10-07, BACKLOG 10.38): { item_id, qty?, ref? } →
+     * the pieces taken, all or nothing: 0 = too few (nothing taken) or this `ref` took before (the client's repeat rule
+     * puts the period into the ref; none = every time). Only an item the catalog marks `takeable`, never a physical one
+     * (claims move those): 403 not_takeable; 404 unknown_item; 400 invalid_qty (1 … 10).
+     * @param array<string, mixed> $body
+     * @return array{taken: int, reason: ?string}
+     */
+    public function take(string $userId, array $body): array
+    {
+        $itemId = is_string($body['item_id'] ?? null) ? $body['item_id'] : '';
+        $item = $this->catalog->item($itemId) ?? throw new ApiError(404, 'unknown_item', 'Unknown item.');
+        if (($item['kind'] ?? null) === 'physical' || ($item['takeable'] ?? false) !== true) {
+            throw new ApiError(403, 'not_takeable', 'A story cannot take this item.');
+        }
+        $qty = $body['qty'] ?? 1;
+        if (!is_int($qty) || $qty < 1 || $qty > 10) throw new ApiError(400, 'invalid_qty', 'qty is a whole number 1 … 10.');
+        $ref = is_string($body['ref'] ?? null) && $body['ref'] !== '' ? substr($body['ref'], 0, 191) : null;
+        return $this->db->transaction(function () use ($userId, $item, $qty, $ref) {
+            $refBucket = "takeref:$userId:{$item['id']}";
+            if ($ref !== null && $this->limits->exists($refBucket, $ref)) return ['taken' => 0, 'reason' => 'already_taken'];
+            if ($this->count($userId, $item['id']) < $qty) return ['taken' => 0, 'reason' => 'too_few'];
+            $this->remove($userId, $item['id'], $qty);
+            if ($ref !== null) $this->limits->hit($refBucket, $ref);
+            return ['taken' => $qty, 'reason' => null];
+        });
+    }
+
+    /**
      * Grants a found item: { item_id, source: "story"|"scan", ref?, respawn?, visit? } → 1 granted, 0 = repeated ref.
      * `respawn` (a placed item that reappears, Catalog\ItemRespawn): the interval is checked against the item's range and
      * the ref gets the current period (time bucket / `visit`), so the placement grants once per period – 422

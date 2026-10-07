@@ -6,6 +6,7 @@ import {
 	fetchCatalog,
 	fetchEditions,
 	grantItem,
+	takeItem,
 	importItems,
 	putAvatar,
 	putAvatarBody,
@@ -105,7 +106,7 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory) */
-	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused';
+	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused';
 	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
 	reason?: string;
 	/** the inventory entry (returned) */
@@ -453,6 +454,26 @@ export function createInventoryContext(session: SessionContext) {
 		return { ok: true, granted };
 	}
 
+	/**
+	 * A story takes an item (VN takeItem / a choice's take – BACKLOG 10.38): all or nothing, decided here at once from
+	 * what the reader has (a trade's next actions depend on it); only a `takeable` item, never a physical one. Members:
+	 * the server takes too (`ref` = once per ref) and its answer updates the inventory.
+	 */
+	function take(item_id: string, qty: number, ref?: string): boolean {
+		const def = item(item_id);
+		if (!def || def.kind === 'physical' || def.takeable !== true || qty <= 0 || count(item_id) < qty) return false;
+		if (isAccount) {
+			void takeItem(item_id, qty, ref)
+				.then((result) => applyInventory(result.inventory))
+				.catch((e) => console.warn('Take failed', e));
+		} else {
+			removeGuestItems(item_id, qty);
+			saveGuest();
+		}
+		notify(item_id, qty, 'taken');
+		return true;
+	}
+
 	/** Tells the reader an item could not be taken (a placed item's pickup) and why (`reason` = an error code). */
 	function refused(item_id: string, reason: string) {
 		notify(item_id, 0, 'refused', undefined, null, reason);
@@ -733,6 +754,7 @@ export function createInventoryContext(session: SessionContext) {
 		equippedEntry,
 		isEquipped,
 		grant,
+		take,
 		refused,
 		craft,
 		claim,

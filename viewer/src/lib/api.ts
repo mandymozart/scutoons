@@ -34,6 +34,7 @@ export const {
 	claimCode,
 	craftRecipe,
 	grantItem,
+	takeItem,
 	importItems,
 	putAvatar,
 	putAvatarBody,

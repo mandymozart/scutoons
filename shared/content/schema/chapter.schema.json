@@ -1285,6 +1285,45 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "takeItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								},
+								"repeat": {
+									"$ref": "#/definitions/Repeat"
+								}
+							},
+							"required": [
+								"item"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
 							"const": "askText"
 						},
 						"params": {
@@ -1408,6 +1447,9 @@
 					"$ref": "#/definitions/VNGiveItem"
 				},
 				{
+					"$ref": "#/definitions/VNTakeItem"
+				},
+				{
 					"$ref": "#/definitions/VNJumpTo"
 				},
 				{
@@ -1486,6 +1528,95 @@
 				"give"
 			],
 			"description": "give the reader a catalog item (BACKLOG 10.38: an item is never a story variable) – the inventory's rules apply: the item must be grantable from the story, its max count, once per place (a replay grants nothing)"
+		},
+		"VNTakeItem": {
+			"type": "object",
+			"properties": {
+				"take": {
+					"type": "object",
+					"properties": {
+						"item": {
+							"type": "string"
+						},
+						"qty": {
+							"type": "number",
+							"description": "how many, 1 … 10 (default 1)"
+						},
+						"repeat": {
+							"$ref": "#/definitions/Repeat"
+						}
+					},
+					"required": [
+						"item"
+					]
+				}
+			},
+			"required": [
+				"take"
+			],
+			"description": "take a catalog item from the reader (owner 2026-10-07, BACKLOG 10.38): only an item the catalog marks `takeable` (never a physical one); all or nothing – with too few nothing is taken (and in a choice's list the actions after it don't run: a trade never gives for free); the story goes on. `repeat`: how often it takes again (the trigger intervals; none = every time)."
+		},
+		"Repeat": {
+			"type": "object",
+			"properties": {
+				"mode": {
+					"$ref": "#/definitions/RepeatMode"
+				},
+				"every": {
+					"$ref": "#/definitions/TimedInterval",
+					"description": "`interval` only: the period"
+				}
+			},
+			"required": [
+				"mode"
+			]
+		},
+		"RepeatMode": {
+			"type": "string",
+			"enum": [
+				"every",
+				"view",
+				"once",
+				"interval"
+			]
+		},
+		"TimedInterval": {
+			"anyOf": [
+				{
+					"type": "object",
+					"properties": {
+						"minutes": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"minutes"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"hours": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"hours"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"days": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"days"
+					]
+				}
+			],
+			"description": "A timed interval: every n minutes / hours / days (n a whole number ≥ 1, at most a year)."
 		},
 		"VNJumpTo": {
 			"type": "object",
@@ -1666,68 +1797,6 @@
 				"toon",
 				"reader"
 			]
-		},
-		"Repeat": {
-			"type": "object",
-			"properties": {
-				"mode": {
-					"$ref": "#/definitions/RepeatMode"
-				},
-				"every": {
-					"$ref": "#/definitions/TimedInterval",
-					"description": "`interval` only: the period"
-				}
-			},
-			"required": [
-				"mode"
-			]
-		},
-		"RepeatMode": {
-			"type": "string",
-			"enum": [
-				"every",
-				"view",
-				"once",
-				"interval"
-			]
-		},
-		"TimedInterval": {
-			"anyOf": [
-				{
-					"type": "object",
-					"properties": {
-						"minutes": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"minutes"
-					]
-				},
-				{
-					"type": "object",
-					"properties": {
-						"hours": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"hours"
-					]
-				},
-				{
-					"type": "object",
-					"properties": {
-						"days": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"days"
-					]
-				}
-			],
-			"description": "A timed interval: every n minutes / hours / days (n a whole number ≥ 1, at most a year)."
 		},
 		"SliceItemRespawn": {
 			"anyOf": [
@@ -2204,6 +2273,49 @@
 								"qty": {
 									"type": "number",
 									"description": "how many, 1 … 10 (default 1)"
+								}
+							},
+							"required": [
+								"item"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "takeItem"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"item": {
+									"type": "string"
+								},
+								"qty": {
+									"type": "number",
+									"description": "how many, 1 … 10 (default 1)"
+								},
+								"repeat": {
+									"$ref": "#/definitions/Repeat"
 								}
 							},
 							"required": [

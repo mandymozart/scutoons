@@ -395,6 +395,7 @@
 		"slot": "Slot",
 		"flags": "Flags",
 		"starter": "starter",
+		"takeable": "a story may take it",
 		"stackable": "stackable",
 		"recipes": "Recipes",
 		"edition_count": "Size",

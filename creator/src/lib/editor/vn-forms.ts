@@ -23,7 +23,7 @@ import { matchRevealPreset } from '$lib/editor/event-presets.ts';
 import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
 /** the types the editor has a form for (another type is only named, to remove) */
-export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'askText', 'jumpTo', 'showTextBox', 'joinScene', 'leaveScene', 'label', 'divert', 'giveItem', 'setVariable'];
+export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'askText', 'jumpTo', 'showTextBox', 'joinScene', 'leaveScene', 'label', 'divert', 'giveItem', 'takeItem', 'setVariable'];
 
 /** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
 export const viewSlots = () => [
@@ -55,6 +55,7 @@ export function template(type: string, ctx: { firstCharacter?: string; events: a
 		case 'setVariable':
 			return { type, params: { variable: '', value: '', op: 'set' } };
 		case 'giveItem':
+		case 'takeItem':
 			// the item is picked from the catalog in the form (BACKLOG 10.38)
 			return { type, params: { item: '' } };
 		case 'askText':
@@ -66,8 +67,8 @@ export function template(type: string, ctx: { firstCharacter?: string; events: a
 }
 
 // ── choice actions (a list, CUTOVER 10.27) ──
-export const ACTION_KINDS = ['set', 'add', 'give', 'jumpTo', 'divert'] as const;
-export const actionKind = (a: any) => (a?.set ? 'set' : a?.add ? 'add' : a?.give ? 'give' : a?.jumpTo ? 'jumpTo' : a?.divert ? 'divert' : 'other');
+export const ACTION_KINDS = ['set', 'add', 'give', 'take', 'jumpTo', 'divert'] as const;
+export const actionKind = (a: any) => (a?.set ? 'set' : a?.add ? 'add' : a?.give ? 'give' : a?.take ? 'take' : a?.jumpTo ? 'jumpTo' : a?.divert ? 'divert' : 'other');
 export const newAction = (kind: string, pointNames: string[]): any =>
 	kind === 'set'
 		? { set: { variable: '', value: '' } }
@@ -75,6 +76,8 @@ export const newAction = (kind: string, pointNames: string[]): any =>
 			? { add: { variable: '', value: 1 } }
 			: kind === 'give'
 				? { give: { item: '' } }
+				: kind === 'take'
+					? { take: { item: '' } }
 			: kind === 'jumpTo'
 				? { jumpTo: { target: { type: 'chapter', value: '1' } } }
 				: { divert: { to: pointNames[0] ?? '' } };
@@ -132,7 +135,7 @@ export function summary(event: any, chain: readonly string[] = [], boxes: { id: 
 			return cut(p.text) ? `“${cut(p.text)}”` : '';
 		case 'addChoice': {
 			const acts = actionsOf(p.onSelect).map((a: any) =>
-				a.set ? `${a.set.variable} = ${a.set.value}` : a.add ? `${a.add.variable} + ${a.add.value}` : a.give ? giveWords(a.give) : a.divert ? `↪ ${a.divert.to}` : a.jumpTo ? `→ ${jumpWords(a.jumpTo.target)}` : ''
+				a.set ? `${a.set.variable} = ${a.set.value}` : a.add ? `${a.add.variable} + ${a.add.value}` : a.give ? giveWords(a.give) : a.take ? takeWords(a.take) : a.divert ? `↪ ${a.divert.to}` : a.jumpTo ? `→ ${jumpWords(a.jumpTo.target)}` : ''
 			);
 			return `“${cut(p.label, 32)}”${acts.length ? ` ${acts.join(', ')}` : ''}`;
 		}
@@ -146,6 +149,8 @@ export function summary(event: any, chain: readonly string[] = [], boxes: { id: 
 			return `${p.variable ?? ''} ${p.op === 'add' ? '+' : '='} ${p.value ?? ''}`;
 		case 'giveItem':
 			return giveWords(p);
+		case 'takeItem':
+			return takeWords(p);
 		case 'askText':
 			return `${cut(p.text) ? `“${cut(p.text, 32)}” ` : ''}→ ${p.scope === 'reader' ? 'reader.name' : (p.variable ?? '')}`;
 		case 'showTextBox': {
@@ -161,6 +166,9 @@ export function summary(event: any, chain: readonly string[] = [], boxes: { id: 
 
 /** what a giveItem / give hands out, in a line: "gives cucumber ×2" (the Flow's words) */
 const giveWords = (g: any) => m['creator.flow_gives']({ list: `${g?.item || '?'}${(g?.qty ?? 1) > 1 ? ` ×${g.qty}` : ''}` });
+
+/** what a takeItem / take takes, in a line: "takes cucumber ×5" (the Flow's words) */
+const takeWords = (g: any) => m['creator.flow_takes']({ list: `${g?.item || '?'}${(g?.qty ?? 1) > 1 ? ` ×${g.qty}` : ''}` });
 
 /** the character choices of a cast row: its persona's looks (the default first) and the moods (with an image first) */
 export function castOptions(choices: CharacterChoices | undefined) {

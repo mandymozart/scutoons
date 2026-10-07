@@ -395,6 +395,7 @@
 		"slot": "Slot",
 		"flags": "Merkmale",
 		"starter": "Start",
+		"takeable": "die Story darf es nehmen",
 		"stackable": "stapelbar",
 		"recipes": "Rezepte",
 		"edition_count": "Größe",

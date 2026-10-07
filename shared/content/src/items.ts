@@ -101,6 +101,9 @@ export interface ItemDef extends AcceptedWarnings {
 	stackable: boolean;
 	starter: boolean;
 	grantable: GrantSource[];
+	/** a story may take it from the reader (VN `takeItem` / a choice's `take`; owner 2026-10-07, BACKLOG 10.38) – never a
+	 *  physical item; off by default */
+	takeable?: boolean;
 	slot: AvatarSlot | null;
 	skills: Skill[];
 	edition_id: string | null;

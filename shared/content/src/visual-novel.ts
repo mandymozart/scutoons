@@ -132,8 +132,23 @@ export interface VNGiveItem {
 	};
 }
 
+/**
+ * take a catalog item from the reader (owner 2026-10-07, BACKLOG 10.38): only an item the catalog marks `takeable`
+ * (never a physical one); all or nothing – with too few nothing is taken (and in a choice's list the actions after it
+ * don't run: a trade never gives for free); the story goes on. `repeat`: how often it takes again (the trigger
+ * intervals; none = every time).
+ */
+export interface VNTakeItem {
+	take: {
+		item: string;
+		/** how many, 1 … 10 (default 1) */
+		qty?: number;
+		repeat?: Repeat;
+	};
+}
+
 /** what a choice does when picked – one action or several in order (e.g. add 15 minutes, then jump) */
-export type VNAction = VNVariableSetter | VNVariableAdder | VNGiveItem | VNJumpTo | VNDivert;
+export type VNAction = VNVariableSetter | VNVariableAdder | VNGiveItem | VNTakeItem | VNJumpTo | VNDivert;
 
 /**
  * "Only if" on any event (owner 2026-10-03): the event runs only when the reader's variable passes the test, else it is
@@ -180,6 +195,12 @@ export interface VNSetVariableEvent {
 export interface VNGiveItemEvent {
 	type: 'giveItem';
 	params: VNGiveItem['give'];
+}
+
+/** take a catalog item from the reader (VNTakeItem's rules) – the script's way; a choice has the action `take` */
+export interface VNTakeItemEvent {
+	type: 'takeItem';
+	params: VNTakeItem['take'];
 }
 
 export interface VNShowMessageEvent {
@@ -316,6 +337,7 @@ export type VNEvent = (
 	| VNDivertEvent
 	| VNSetVariableEvent
 	| VNGiveItemEvent
+	| VNTakeItemEvent
 	| VNAskTextEvent
 ) & {
 	/**

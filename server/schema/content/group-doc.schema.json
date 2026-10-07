@@ -960,6 +960,9 @@
 					"$ref": "#/definitions/VNGiveItem"
 				},
 				{
+					"$ref": "#/definitions/VNTakeItem"
+				},
+				{
 					"$ref": "#/definitions/VNJumpTo"
 				},
 				{
@@ -1038,6 +1041,33 @@
 				"give"
 			],
 			"description": "give the reader a catalog item (BACKLOG 10.38: an item is never a story variable) – the inventory's rules apply: the item must be grantable from the story, its max count, once per place (a replay grants nothing)"
+		},
+		"VNTakeItem": {
+			"type": "object",
+			"properties": {
+				"take": {
+					"type": "object",
+					"properties": {
+						"item": {
+							"type": "string"
+						},
+						"qty": {
+							"type": "number",
+							"description": "how many, 1 … 10 (default 1)"
+						},
+						"repeat": {
+							"$ref": "#/definitions/Repeat"
+						}
+					},
+					"required": [
+						"item"
+					]
+				}
+			},
+			"required": [
+				"take"
+			],
+			"description": "take a catalog item from the reader (owner 2026-10-07, BACKLOG 10.38): only an item the catalog marks `takeable` (never a physical one); all or nothing – with too few nothing is taken (and in a choice's list the actions after it don't run: a trade never gives for free); the story goes on. `repeat`: how often it takes again (the trigger intervals; none = every time)."
 		},
 		"VNJumpTo": {
 			"type": "object",

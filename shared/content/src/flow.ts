@@ -133,6 +133,8 @@ export interface FlowNode {
 	sets?: string[];
 	/** run / step: catalog items given (`cucumber`, `cucumber ×2` – BACKLOG 10.38) */
 	gives?: string[];
+	/** run / step: catalog items taken (`cucumber ×5`) */
+	takes?: string[];
 	/** run / step: text boxes revealed */
 	boxes?: string[];
 	/** run / step: the first message (as `text` shows it) */
@@ -592,7 +594,7 @@ class Builder {
 
 	/** what a plain event adds to its run / step */
 	summarize(n: FlowNode, e: any) {
-		const push = (key: 'speakers' | 'joins' | 'leaves' | 'sets' | 'gives' | 'boxes', v: string) => {
+		const push = (key: 'speakers' | 'joins' | 'leaves' | 'sets' | 'gives' | 'takes' | 'boxes', v: string) => {
 			if (!v) return;
 			const list = (n[key] ??= []);
 			if (!list.includes(v)) list.push(v);
@@ -614,6 +616,9 @@ class Builder {
 				break;
 			case 'setVariable':
 				push('sets', String(e.params?.variable ?? ''));
+				break;
+			case 'takeItem':
+				push('takes', `${e.params?.item ?? ''}${(e.params?.qty ?? 1) > 1 ? ` ×${e.params.qty}` : ''}`);
 				break;
 			case 'giveItem':
 				push('gives', `${e.params?.item ?? ''}${(e.params?.qty ?? 1) > 1 ? ` ×${e.params.qty}` : ''}`);

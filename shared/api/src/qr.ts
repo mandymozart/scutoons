@@ -134,6 +134,10 @@ export function createQrApi(api: ApiClient) {
 		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RecurrenceInterval; visit?: string }) =>
 			api.post<InventoryResult & { granted?: number }>('/inventory/grant/', { item_id, source, ref, ...(respawn ?? {}) }),
 
+		/** a story takes an item (BACKLOG 10.38): all or nothing; `ref` = once per ref (the repeat rule's period) */
+		takeItem: (item_id: string, qty: number, ref?: string) =>
+			api.post<InventoryResult & { taken: number; reason: 'too_few' | 'already_taken' | null }>('/inventory/take/', { item_id, qty, ref }),
+
 		importItems: (items: { item_id: string; qty: number }[]) =>
 			api.post<InventoryResult>('/inventory/import/', { items }),
 

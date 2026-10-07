@@ -55,6 +55,10 @@
 	<legend>{m['catalog.flags']()}</legend>
 	<CheckField label={m['catalog.stackable']()} checked={!!data.stackable} onchange={(v) => (data.stackable = v)} />
 	<CheckField label={m['catalog.starter']()} checked={!!data.starter} onchange={(v) => (data.starter = v)} />
+	<!-- a story may take it (VN takeItem, owner 2026-10-07 – BACKLOG 10.38); a physical item never: only claims move those -->
+	{#if data.kind !== 'physical'}
+		<CheckField label={m['catalog.takeable']()} checked={data.takeable === true} onchange={(v) => (data.takeable = v || undefined)} testid="item-takeable" />
+	{/if}
 </fieldset>
 
 <CatalogField label={m['catalog.slot']()} type="select" value={data.slot} options={AVATAR_SLOTS.map((s) => ({ value: s }))} none={m['catalog.slot_none']()} error={err('slot')} onchange={(v) => (data.slot = v)} />

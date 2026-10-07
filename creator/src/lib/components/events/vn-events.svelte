@@ -271,6 +271,8 @@
 					<EventFlow {doc} path={p} {event} {pointNames} {groupLabels} />
 				{:else if event.type === 'giveItem'}
 					<div class="sc-fields" data-cols="2" data-density="panel"><GiveItemField {doc} path={[...p, 'params']} testid="event-{i}-give" /></div>
+				{:else if event.type === 'takeItem'}
+					<div class="sc-fields" data-cols="3" data-density="panel"><GiveItemField {doc} path={[...p, 'params']} take testid="event-{i}-take" /></div>
 				{:else if event.type === 'showTextBox'}
 					<EventShowTextBox {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}

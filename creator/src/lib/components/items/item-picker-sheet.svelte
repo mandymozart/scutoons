@@ -15,11 +15,14 @@
 		open = $bindable(false),
 		title,
 		exclude = [],
+		only,
 		onpick
 	}: {
 		open?: boolean;
 		title?: string;
 		exclude?: string[];
+		/** only these items are offered (e.g. what a story may take) */
+		only?: (item: ItemDef) => boolean;
 		onpick: (item: ItemDef) => void;
 	} = $props();
 
@@ -32,7 +35,7 @@
 		void loadCatalog();
 	});
 
-	const items = $derived(itemCatalog.catalog?.items ?? []);
+	const items = $derived((itemCatalog.catalog?.items ?? []).filter((i) => !only || only(i)));
 	const categories = $derived([...new Set(items.map((i) => i.category))].sort());
 	const shown = $derived.by(() => {
 		const q = query.trim().toLowerCase();

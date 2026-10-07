@@ -78,7 +78,7 @@ const repeatWords = (rule: unknown) => {
 	const r = repeatOf(rule);
 	return r.mode === 'once' ? 'once for good' : r.mode === 'interval' ? `every ${JSON.stringify(r.every)}` : r.mode;
 };
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'askText'];
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'takeItem', 'askText'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -329,6 +329,15 @@ function checkGive(c: Collector, p: any, path: Path, ctx: ValidateContext, what:
 	if (p.qty !== undefined && (!Number.isInteger(p.qty) || p.qty < 1 || p.qty > GIVE_ITEM_MAX)) c.error([...path, 'qty'], `qty is a whole number 1 … ${GIVE_ITEM_MAX}`);
 }
 
+/** what a script takes (`takeItem` / a choice's `take`): like a give, plus its repeat rule (the trigger intervals) */
+function checkTake(c: Collector, p: any, path: Path, ctx: ValidateContext, what: string) {
+	checkGive(c, p, path, ctx, what);
+	if (isObj(p) && p.repeat !== undefined) {
+		const problem = repeatProblem(p.repeat);
+		if (problem) c.error([...path, 'repeat'], problem);
+	}
+}
+
 /** a story variable named like a catalog item (BACKLOG 10.38): an item is never a variable – `write`: set / add / an
  *  answer, else a condition that reads it */
 function checkItemNamed(c: Collector, name: unknown, path: Path, ctx: ValidateContext, write: boolean) {
@@ -380,7 +389,8 @@ function checkActions(c: Collector, onSelect: any, path: Path, ctx: ValidateCont
 			else checkItemNamed(c, a.add.variable, [...ap, 'add', 'variable'], ctx, true);
 			if (!isNum(a.add.value)) c.error([...ap, 'add', 'value'], 'add needs a number');
 		} else if (isObj(a.give)) checkGive(c, a.give, [...ap, 'give'], ctx, 'give');
-		else c.error(ap, 'an action is set, add, give, jumpTo or divert');
+		else if (isObj(a.take)) checkTake(c, a.take, [...ap, 'take'], ctx, 'take');
+		else c.error(ap, 'an action is set, add, give, take, jumpTo or divert');
 	});
 }
 
@@ -460,6 +470,9 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			break;
 		case 'giveItem':
 			checkGive(c, p, pp, ctx, 'giveItem');
+			break;
+		case 'takeItem':
+			checkTake(c, p, pp, ctx, 'takeItem');
 			break;
 		case 'jumpTo':
 			if (!isObj(p)) c.error(pp, 'jumpTo needs params.target');

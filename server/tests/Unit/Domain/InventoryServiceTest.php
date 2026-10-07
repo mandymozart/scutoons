@@ -61,6 +61,28 @@ final class InventoryServiceTest extends TestCase
         $this->assertError('cooldown', fn() => $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'scan']));
     }
 
+    /** a story takes (BACKLOG 10.38): all or nothing, once per ref, only a takeable item – never a physical one */
+    public function testTakeIsAllOrNothingOncePerRefOnlyTakeable(): void
+    {
+        // the catalog flag (admin) – the test catalog has no takeable item
+        $this->db->run("UPDATE catalog_items SET data = JSON_SET(data, '$.takeable', true) WHERE id = 'cucumber'");
+        $this->inventory = $this->get(InventoryService::class);
+        $id = (string) $this->user()['id'];
+        $this->inventory->add($id, 'cucumber', null, 4, 'story');
+        self::assertSame(['taken' => 0, 'reason' => 'too_few'], $this->inventory->take($id, ['item_id' => 'cucumber', 'qty' => 5]));
+        self::assertSame(4, $this->inventory->count($id, 'cucumber'), 'too few: nothing taken');
+        $this->inventory->add($id, 'cucumber', null, 1, 'story');
+        self::assertSame(5, $this->inventory->take($id, ['item_id' => 'cucumber', 'qty' => 5, 'ref' => 'tt1:lsd'])['taken']);
+        self::assertSame(0, $this->inventory->count($id, 'cucumber'));
+        $this->inventory->add($id, 'cucumber', null, 5, 'story');
+        self::assertSame(['taken' => 0, 'reason' => 'already_taken'], $this->inventory->take($id, ['item_id' => 'cucumber', 'qty' => 5, 'ref' => 'tt1:lsd']), 'the same ref takes once');
+        self::assertSame(1, $this->inventory->take($id, ['item_id' => 'cucumber'])['taken'], 'no ref: every time');
+        $this->assertError('not_takeable', fn() => $this->inventory->take($id, ['item_id' => 'camera']));
+        $this->assertError('not_takeable', fn() => $this->inventory->take($id, ['item_id' => 'dago_hoodie']));
+        $this->assertError('invalid_qty', fn() => $this->inventory->take($id, ['item_id' => 'cucumber', 'qty' => 11]));
+        $this->assertError('unknown_item', fn() => $this->inventory->take($id, ['item_id' => 'unicorn']));
+    }
+
     public function testCollectionLimitIs99PerItemUnlessTheItemSetsMax(): void
     {
         $id = (string) $this->user()['id'];
