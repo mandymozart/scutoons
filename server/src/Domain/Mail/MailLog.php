@@ -26,8 +26,8 @@ final class MailLog
     public const STATUSES = ['sent', 'failed'];
     public const SORTABLE = ['created_at', 'template', 'status', 'recipient'];
     public const FILTERS = ['template', 'status', 'recipient', 'from', 'to'];
-    /** Logged mails that are no registered template: `embassy` = written by a person in the Embassy app (EmbassyMail) */
-    public const OTHER_TEMPLATES = ['embassy'];
+    /** Logged mails that are no registered template: `embassy` = written by a person in the Embassy app (EmbassyMail), `newsletter` = NewsletterSender (Domain/Newsletter) */
+    public const OTHER_TEMPLATES = ['embassy', 'newsletter'];
 
     public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly Settings $settings)
     {

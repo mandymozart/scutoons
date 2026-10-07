@@ -14,11 +14,42 @@ use Scutoons\Infrastructure\Config\Settings;
  *   the one-time codes there; keep the entry format: "=== <ISO time> ===", headers, To, Subject, blank line, text)
  * - `mail`: PHP mail() – quick tests on a host that has it set up
  * - `smtp`: the SMTP account in SMTP_* – production (Smtp, no library needed)
+ * Batches (the newsletter, Domain\Newsletter\NewsletterSender): beginBatch() … deliverWithHeaders() … endBatch() keeps
+ * one SMTP connection open for all of them (a failed one is reopened by the next mail).
  */
 class Transport
 {
+    /** The connection of a batch (null with $batching = none open yet) */
+    private ?Smtp $batch = null;
+    private bool $batching = false;
+
     public function __construct(private readonly Settings $settings)
     {
+    }
+
+    /** From now on SMTP mails share one connection until endBatch() (log / mail: no difference) */
+    public function beginBatch(): void
+    {
+        $this->batching = true;
+    }
+
+    public function endBatch(): void
+    {
+        $this->batch?->close();
+        $this->batch = null;
+        $this->batching = false;
+    }
+
+    /** How many mails the batch's open connection has delivered (0 = none open) */
+    public function batchDelivered(): int
+    {
+        return $this->batch !== null && $this->batch->isOpen() ? $this->batch->delivered() : 0;
+    }
+
+    /** Closes the batch's connection; the next mail opens a new one (the sender does it every NEWSLETTER_PER_CONNECTION mails) */
+    public function reconnect(): void
+    {
+        $this->batch?->close();
     }
 
     /** The configured transport: log | mail | smtp */
@@ -31,6 +62,17 @@ class Transport
     public function deliver(string $to, string $subject, string $text, string $html): void
     {
         $message = $this->message($subject, $text, $html);
+        $this->hand($this->settings->get('MAIL_FROM'), $to, $subject, $message['headers'], $message['body'], $text);
+    }
+
+    /**
+     * deliver() with more headers (the newsletter's List-Unsubscribe / List-Unsubscribe-Post)
+     * @param list<string> $headers whole lines, e.g. "List-Unsubscribe-Post: List-Unsubscribe=One-Click"
+     * @throws RuntimeException when the mail could not be handed over (SmtpFailure with smtp)
+     */
+    public function deliverWithHeaders(string $to, string $subject, string $text, string $html, array $headers): void
+    {
+        $message = $this->message($subject, $text, $html, $headers);
         $this->hand($this->settings->get('MAIL_FROM'), $to, $subject, $message['headers'], $message['body'], $text);
     }
 
@@ -88,7 +130,13 @@ class Transport
                 return;
             case 'smtp':
                 $data = $headers . "\r\nTo: $to\r\nSubject: " . self::encodeHeader($subject) . "\r\n\r\n" . $body;
-                (new Smtp($this->settings))->send($from, $to, $data, $user, $pass);
+                if (!$this->batching) {
+                    (new Smtp($this->settings))->send($from, $to, $data, $user, $pass);
+                    return;
+                }
+                $this->batch ??= new Smtp($this->settings);
+                $this->batch->open($user, $pass);
+                $this->batch->deliver($from, $to, $data);
                 return;
             default:
                 throw new RuntimeException("Unknown MAIL_TRANSPORT: $transport");
@@ -97,9 +145,10 @@ class Transport
 
     /**
      * Headers (without To / Subject – mail() adds those) and the multipart body
+     * @param list<string> $extra more header lines (lines with a line break are dropped)
      * @return array{headers: string, body: string}
      */
-    private function message(string $subject, string $text, string $html): array
+    private function message(string $subject, string $text, string $html, array $extra = []): array
     {
         $boundary = 'scutoons-' . bin2hex(random_bytes(12));
         $from = $this->settings->get('MAIL_FROM');
@@ -112,6 +161,7 @@ class Transport
             ...(filter_var($replyTo, FILTER_VALIDATE_EMAIL) ? ["Reply-To: <$replyTo>"] : []),
             'Date: ' . date(DATE_RFC2822),
             'Message-ID: <' . bin2hex(random_bytes(16)) . "@$domain>",
+            ...array_values(array_filter($extra, fn(string $line) => $line !== '' && !preg_match('/[\r\n]/', $line))),
             'MIME-Version: 1.0',
             "Content-Type: multipart/alternative; boundary=\"$boundary\"",
         ]);

@@ -61,12 +61,21 @@ final class Users
         return $this->byId($id) ?? throw new RuntimeException('user not stored');
     }
 
-    /** Sets "Send me news about new releases"; marketing_opt_in_at = time of the last change */
+    /**
+     * Sets "Send me news about new releases"; marketing_opt_in_at = time of the last change. Ticking it lifts an earlier
+     * newsletter unsubscribe of this address (mail_suppressions, Domain\Newsletter\Suppressions – a bounce stays).
+     */
     public function setMarketingOptIn(string $userId, bool $optIn): void
     {
         $now = $this->clock->utc();
-        $this->db->run('UPDATE users SET marketing_opt_in = ?, marketing_opt_in_at = ?, updated_at = ? WHERE id = ? AND marketing_opt_in <> ?',
-            [$optIn ? 1 : 0, $now, $now, $userId, $optIn ? 1 : 0]);
+        $changed = $this->db->run('UPDATE users SET marketing_opt_in = ?, marketing_opt_in_at = ?, updated_at = ? WHERE id = ? AND marketing_opt_in <> ?',
+            [$optIn ? 1 : 0, $now, $now, $userId, $optIn ? 1 : 0])->rowCount() > 0;
+        if (!$optIn || !$changed) return;
+        try {
+            $this->db->run("DELETE s FROM mail_suppressions s JOIN users u ON u.email = s.email WHERE u.id = ? AND s.reason = 'unsubscribe'", [$userId]);
+        } catch (\PDOException) {
+            // no mail_suppressions table yet (migration pending)
+        }
     }
 
     /**

@@ -18,18 +18,22 @@ use Scutoons\Support\Time;
  *
  *   scan_limit_per_hour    QR scans per client IP and hour (/code/?scan=1 from the qr app) – default SCAN_MAX_PER_IP_HOUR
  *   lookup_limit_per_hour  direct /code/ + /access/ lookups per IP and hour – default ACCESS_MAX_PER_IP_HOUR
+ *   newsletter_per_hour    at most this many mails per hour through the SMTP account while a newsletter sends (every
+ *                          mail of the last hour counts, login codes too) – default NEWSLETTER_PER_HOUR
  * 0 = no limit.
  */
 final class RuntimeSettings
 {
     public const SCAN_LIMIT = 'scan_limit_per_hour';
     public const LOOKUP_LIMIT = 'lookup_limit_per_hour';
+    public const NEWSLETTER_PER_HOUR = 'newsletter_per_hour';
     public const MAX_LIMIT = 1000000;
 
     /** key → config key of the default, allowed range */
     private const DEFINITIONS = [
         self::SCAN_LIMIT => ['config' => 'SCAN_MAX_PER_IP_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
         self::LOOKUP_LIMIT => ['config' => 'ACCESS_MAX_PER_IP_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
+        self::NEWSLETTER_PER_HOUR => ['config' => 'NEWSLETTER_PER_HOUR', 'min' => 0, 'max' => self::MAX_LIMIT],
     ];
 
     /** @var array<string, array{value: mixed, updated_at: string, updated_by: ?string}>|null */
@@ -49,6 +53,12 @@ final class RuntimeSettings
     public function lookupLimitPerHour(): int
     {
         return $this->int(self::LOOKUP_LIMIT);
+    }
+
+    /** Mails per hour through the SMTP account while a newsletter sends (Domain\Newsletter\NewsletterSender); 0 = no limit */
+    public function newsletterPerHour(): int
+    {
+        return $this->int(self::NEWSLETTER_PER_HOUR);
     }
 
     public function int(string $key): int
