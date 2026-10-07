@@ -137,7 +137,7 @@
 					"items": {
 						"$ref": "#/definitions/SliceItem"
 					},
-					"description": "catalog items placed on the slice (drawn above the image, below the text boxes)"
+					"description": "catalog items placed on the slice, drawn above the image; with the text boxes ONE layer stack (`layer` on each entry, `sliceLayers`) – without any `layer` below the text boxes"
 				},
 				"events": {
 					"type": "array",
@@ -569,6 +569,10 @@
 					"type": "number",
 					"description": "Extra mask padding in % of slice width. Default 0.5.",
 					"deprecated": "with `mask`"
+				},
+				"layer": {
+					"type": "number",
+					"description": "Place in the slice's ONE layer stack of text boxes and placed items (`SliceItem.layer`, layers.ts): higher = drawn on top. None = today's order (items under text boxes, each in array order) – see `sliceLayers`."
 				}
 			},
 			"required": [
@@ -672,6 +676,10 @@
 				"respawn": {
 					"$ref": "#/definitions/SliceItemRespawn",
 					"description": "pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without one never reappears); `never` = once here even if the item could reappear; an interval = an override within the item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply."
+				},
+				"layer": {
+					"type": "number",
+					"description": "place in the slice's one layer stack of text boxes and placed items (`Dialog.layer`, layers.ts)"
 				}
 			},
 			"required": [

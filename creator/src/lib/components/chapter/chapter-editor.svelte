@@ -827,7 +827,7 @@
 							locale={displayLocale}
 							grid={view.grid}
 							tool={view.tool}
-							layer={view.layer}
+							layers={view.layers}
 							selection={view.selection}
 							onselect={(next) => view.select(next)}
 							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? view.pickItem({ x: rect.x, y: rect.y }) : t === 'event' ? addSliceEvent(rect) : addSampleArea(rect))}

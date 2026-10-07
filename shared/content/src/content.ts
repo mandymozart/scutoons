@@ -92,6 +92,11 @@ export interface Dialog {
 	maskShape?: 'rect' | 'ellipse';
 	/** Extra mask padding in % of slice width. Default 0.5. @deprecated with `mask` */
 	pad?: number;
+	/**
+	 * Place in the slice's ONE layer stack of text boxes and placed items (`SliceItem.layer`, layers.ts): higher = drawn
+	 * on top. None = today's order (items under text boxes, each in array order) – see `sliceLayers`.
+	 */
+	layer?: number;
 }
 
 export interface JumpToTarget {
@@ -342,6 +347,8 @@ export interface SliceItem {
 	 * item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply.
 	 */
 	respawn?: SliceItemRespawn;
+	/** place in the slice's one layer stack of text boxes and placed items (`Dialog.layer`, layers.ts) */
+	layer?: number;
 }
 
 /**
@@ -364,11 +371,13 @@ export interface Slice extends SensitiveFlag {
 	video?: SliceVideo;
 	// TODO: refactor at some point to use a unified entity system
 	// trigger: any[]; // placeholder for combined event system audio and vn
-	// layers: any[]; // placeholder for combined dialog and image layers
 	// entities: Entity[]; // even more general but requires massive refactor
 	audio?: AudioEvents;
 	dialog?: Dialog[];
-	/** catalog items placed on the slice (drawn above the image, below the text boxes) */
+	/**
+	 * catalog items placed on the slice, drawn above the image; with the text boxes ONE layer stack (`layer` on each
+	 * entry, `sliceLayers`) – without any `layer` below the text boxes
+	 */
 	items?: SliceItem[];
 	events?: Array<VNSliceEvent>;
 	_type?: string;

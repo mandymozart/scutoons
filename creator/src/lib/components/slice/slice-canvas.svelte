@@ -9,10 +9,10 @@
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { Dialogs, SliceItems, type ResolveSliceItem } from '@scutoons/reader';
+	import { SliceLayers, type ResolveSliceItem } from '@scutoons/reader';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { DEFAULT_SLICE, getAt, round2, type Path } from '@scutoons/content';
+	import { DEFAULT_SLICE, getAt, round2, sliceLayers, type Path } from '@scutoons/content';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
@@ -28,7 +28,7 @@
 		locale,
 		grid = 0,
 		tool = 'text',
-		layer = null,
+		layers = null,
 		selection = null,
 		onselect,
 		oncreate
@@ -41,10 +41,10 @@
 		grid?: number;
 		tool?: Tool;
 		/**
-		 * the layer the inspector's tab is on (owner 2026-10-03: full-slice events covered everything): only its boxes take
-		 * the pointer, the others show faintly; null = every layer
+		 * the kinds the inspector's tab is on (owner 2026-10-03: full-slice events covered everything; the Layers tab = text
+		 * boxes + placed items): only their boxes take the pointer, the others show faintly; null = every kind
 		 */
-		layer?: ItemKind | null;
+		layers?: readonly ItemKind[] | null;
 		selection?: CanvasSelection | null;
 		onselect?: (selection: CanvasSelection | null) => void;
 		/** a rect was drawn on empty space */
@@ -121,13 +121,18 @@
 		return out;
 	});
 
-	/** drawing order: the big areas (events, samples) under items under texts, larger first; the selected one last (on top) */
-	const KIND_ORDER: Record<ItemKind, number> = { event: 0, sample: 1, item: 2, dialog: 3 };
+	/**
+	 * drawing order: the big areas (events, samples) under the layer stack, larger first; text boxes and placed items in
+	 * the slice's one layer order (`sliceLayers`, as the reader draws them); the selected one last (on top)
+	 */
+	const KIND_ORDER: Record<ItemKind, number> = { event: 0, sample: 1, item: 2, dialog: 2 };
+	const layerRank = $derived(new Map(sliceLayers(slice).map((ref, rank) => [`${ref.kind}${ref.index}`, rank])));
 	const ordered = $derived(
 		[...items].sort((a, b) => {
 			const sel = (i: Item) => (selection?.kind === i.kind && selection?.index === i.index ? 1 : 0);
 			const area = (i: Item) => i.rect.width * (i.rect.height ?? 10);
-			return sel(a) - sel(b) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || area(b) - area(a);
+			const rank = (i: Item) => layerRank.get(`${i.kind}${i.index}`) ?? 0;
+			return sel(a) - sel(b) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || (KIND_ORDER[a.kind] === 2 ? rank(a) - rank(b) : area(b) - area(a));
 		})
 	);
 	/** a pointer on the canvas takes the keyboard from a field (Delete / Ctrl+X / arrows then act on the selection) */
@@ -140,8 +145,8 @@
 	let overlay = $state<HTMLDivElement | null>(null);
 	let imageLoaded = $state(false);
 	let imageError = $state(false);
-	/** rendered heights (% of the slice) of text boxes without rect.height */
-	let measured = $state<number[]>([]);
+	/** rendered heights (% of the slice) of text boxes without rect.height, by text box index */
+	let measured = $state<Record<number, number>>({});
 	/** rendered heights (% of the slice) of placed items without rect.height (the icon's ratio), by item index */
 	let measuredItems = $state<Record<number, number>>({});
 
@@ -149,10 +154,11 @@
 		if (!canvas) return;
 		const height = canvas.clientHeight;
 		if (!height) return;
-		const els = canvas.querySelectorAll<HTMLElement>('.dialogs > .dialog');
-		measured = Array.from(els).map((el) => round2((el.offsetHeight / height) * 100));
+		const boxes: Record<number, number> = {};
+		for (const el of canvas.querySelectorAll<HTMLElement>('.slice-layers > .dialog')) boxes[Number(el.dataset.index)] = round2((el.offsetHeight / height) * 100);
+		measured = boxes;
 		const next: Record<number, number> = {};
-		for (const el of canvas.querySelectorAll<HTMLElement>('.slice-items > .slice-item')) {
+		for (const el of canvas.querySelectorAll<HTMLElement>('.slice-layers > .slice-item')) {
 			if (el.offsetHeight) next[Number(el.dataset.index)] = round2((el.offsetHeight / height) * 100);
 		}
 		measuredItems = next;
@@ -436,8 +442,7 @@
 		{#if imageError}
 			<p class="image-error">Image not found: {slice?.image}</p>
 		{/if}
-		<SliceItems items={slice?.items} resolve={resolveItem} />
-		<Dialogs dialogs={slice?.dialog} lang={locale} {expressions} />
+		<SliceLayers dialogs={slice?.dialog} items={slice?.items} lang={locale} {expressions} resolve={resolveItem} />
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
@@ -461,7 +466,7 @@
 				<div
 					class="box kind-{item.kind}"
 					class:selected
-					class:inactive={layer !== null && item.kind !== layer}
+					class:inactive={layers !== null && !layers.includes(item.kind)}
 					style:left="{item.rect.x}%"
 					style:top="{item.rect.y}%"
 					style:width="{item.rect.width}%"

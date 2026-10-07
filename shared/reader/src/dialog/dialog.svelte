@@ -13,7 +13,20 @@
 	 * event's effect / delay / duration and stays. `expressions`: its `{…}` are evaluated for the reader (live: a value
 	 * that changes re-renders the text) in the text's language `lang`; none = the text as written.
 	 */
-	let { dialog, play, expressions, lang }: { dialog: Dialog; play?: DialogPlay | null; expressions?: TextExpressions; lang?: string } = $props();
+	let {
+		dialog,
+		index,
+		play,
+		expressions,
+		lang
+	}: {
+		dialog: Dialog;
+		/** its place in the slice's `dialog[]` (`data-index`: the creator measures the drawn boxes by it) */
+		index?: number;
+		play?: DialogPlay | null;
+		expressions?: TextExpressions;
+		lang?: string;
+	} = $props();
 
 	const EFFECTS = {
 		[TextBoxEffect.NONE]: EffectNone,
@@ -146,6 +159,7 @@
 	class:stroked
 	class:uppercase={dialog.uppercase ?? false}
 	data-id={dialog.id}
+	data-index={index}
 	style:left="{dialog.rect.x}%"
 	style:top="{dialog.rect.y}%"
 	style:width="{dialog.rect.width}%"

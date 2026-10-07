@@ -2,8 +2,8 @@
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { DEFAULT_SLICE, type Slice, type SliceItem } from '@scutoons/content';
-	import Dialogs from './dialog/dialogs.svelte';
-	import SliceItems, { type ResolveSliceItem } from './items/slice-items.svelte';
+	import SliceLayers from './slice-layers.svelte';
+	import type { ResolveSliceItem } from './items/slice-item.svelte';
 	import type { DialogPlay, TextExpressions } from './types.ts';
 	import type { Dialog as DialogModel } from '@scutoons/content';
 	import SliceVideo from './slice-video.svelte';
@@ -15,8 +15,9 @@
 	 * in the reader) or `children` (after the text boxes). Other attributes (and `{@attach}`) go to the `.slice`
 	 * element, e.g. the app's audio action via `fromAction(sliceAudio, …)`.
 	 *
-	 * Placed items (`slice.items`) are drawn between the image and the text boxes once the app resolves their icons
-	 * (`itemInfo`); `itemHidden` / `onitemtap` are the app's (what the reader took, what a tap does).
+	 * Placed items (`slice.items`) and text boxes are ONE layer stack above the image (`SliceLayers`, their `layer`;
+	 * none = items under the text boxes); items are drawn once the app resolves their icons (`itemInfo`); `itemHidden` /
+	 * `onitemtap` are the app's (what the reader took, what a tap does).
 	 *
 	 * The image loads lazily (`eager` for the first slices) with `width` / `height` from the slice, so the box has its
 	 * final height before the image arrives: no layout shift, and the slices below don't all intersect at once.
@@ -123,8 +124,17 @@
 			fetchpriority={eager ? 'high' : 'auto'}
 		/>
 	{/if}
-	<SliceItems items={slice.items} resolve={itemInfo} hidden={itemHidden} ontap={onitemtap} />
-	<Dialogs dialogs={slice.dialog} {lang} hidden={dialogHidden} play={dialogPlay} {expressions} />
+	<SliceLayers
+		dialogs={slice.dialog}
+		items={slice.items}
+		{lang}
+		hidden={dialogHidden}
+		play={dialogPlay}
+		{expressions}
+		resolve={itemInfo}
+		{itemHidden}
+		ontap={onitemtap}
+	/>
 	{@render children?.()}
 </div>
 

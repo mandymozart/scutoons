@@ -12,9 +12,11 @@
 // Checks (catpope chapter 1, its first group, desktop 1440 × 900):
 //   tree:    Audio / Meta select their section; a click on the group opens it (slice list), a slice opens the slice
 //            editor (canvas + inspector) and the URL follows (?group=…&slice=2)
-//   tabs:    each inspector tab activates and picks its canvas tool; each tool opens its tab
+//   tabs:    each inspector tab activates and picks its canvas tool; each tool opens its tab (text + item: Layers)
 //   add:     "+ Add text" shows the presets; a preset adds a text box (canvas box, list entry, inspector, cursor in the
 //            text field); typing marks the page dirty
+//   layers:  the Layers tab's list (text boxes + placed items, BACKLOG 10.43) is the canvas's drawn order, the new box on
+//            top; Alt+ArrowDown on its grip moves it one layer back in the list and on the canvas, one undo brings it back
 //   snap:    snap on (default 30 px): an arrow moves the selected box onto the grid; snap off: 1 px, Shift: 10 px
 //   undo:    outside a field, Ctrl+Z undoes the last nudge, Ctrl+Shift+Z / Ctrl+Y redo it; the Undo / Redo buttons too
 //   keys:    Escape lets the selection go; Delete removes the selected box
@@ -312,18 +314,18 @@ try {
 	);
 	await click(tid(`slice-${SLICE}`));
 	check(
-		(await until(`!!${q('slice-canvas')} && !!${q('tab-text')}`)) && new URLSearchParams(await search()).get('slice') === String(SLICE + 1),
+		(await until(`!!${q('slice-canvas')} && !!${q('tab-layers')}`)) && new URLSearchParams(await search()).get('slice') === String(SLICE + 1),
 		`tree: a slice opens the slice editor (canvas + inspector, slice=${SLICE + 1})`,
 		await search()
 	);
 	check((await dialogCount()) === dialogsBefore, `the canvas shows the slice's ${dialogsBefore} text box(es)`);
 
 	// ── tabs ↔ tools ─────────────────────────────────────────────────────────────────────────────────────
+	// the Layers tab (BACKLOG 10.43) holds text boxes AND placed items: it picks the text tool, the item tool opens it too
 	const pairs = [
-		['tab-items', 'tool-item'],
 		['tab-audio', 'tool-sample'],
 		['tab-events', 'tool-event'],
-		['tab-text', 'tool-text']
+		['tab-layers', 'tool-text']
 	];
 	for (const [tab, tool] of pairs) {
 		await click(tid(tab));
@@ -334,7 +336,7 @@ try {
 	}
 	await click(tid('tab-background'));
 	check((await js(`${q('tab-background')}.classList.contains('active') && !!${q('slice-map')}`)) === true, 'tabs: the Slice tab shows the slice media + map');
-	for (const [tab, tool] of [...pairs].reverse()) {
+	for (const [tab, tool] of [...pairs, ['tab-layers', 'tool-item']].reverse()) {
 		await click(tid(tool));
 		check((await js(`${q(tool)}.getAttribute('aria-pressed') === 'true' && ${q(tab)}.classList.contains('active')`)) === true, `tools: ${tool} opens ${tab}`);
 	}
@@ -373,6 +375,22 @@ try {
 	await sleep(300);
 	const inField = await js(`({ value: ${q('text-de')}?.value ?? null, focus: document.activeElement?.dataset?.testid, boxes: document.querySelectorAll('[data-testid^="box-dialog-"]').length })`);
 	check(inField.value === TEXT && inField.focus === 'text-de' && inField.boxes === dialogsBefore + 1, 'undo in a field: Ctrl+Z undoes the typing there, the text box stays (the file is not undone)', JSON.stringify(inField));
+
+	// ── layers: one stack of text boxes + placed items (BACKLOG 10.43) – the new box is the top row (in front) ──
+	const layerRows = () => js(`[...document.querySelectorAll('[data-testid="layers"] > li')].map((li) => li.dataset.testid)`);
+	/** the canvas's drawn stack, back to front (what the reader draws the same way) */
+	const drawn = () => js(`[...document.querySelectorAll('[data-testid="slice-canvas"] .slice-layers > *')].map((el) => (el.classList.contains('dialog') ? 'layer-dialog-' : 'layer-item-') + el.dataset.index)`);
+	const l0 = await layerRows();
+	if (l0.length >= 2) {
+		check(l0[0] === `layer-dialog-${added}` && JSON.stringify([...(await drawn())].reverse()) === JSON.stringify(l0), 'layers: the new text box is the top row and drawn in front; the list = the canvas order', JSON.stringify({ l0, drawn: await drawn() }));
+		await js(`document.querySelector('[data-testid="layer-dialog-${added}"] [data-sort-grip]').focus()`);
+		await press('ArrowDown', 'alt');
+		const l1 = await layerRows();
+		const d1 = await drawn();
+		check(l1[0] === l0[1] && l1[1] === l0[0] && d1[d1.length - 1] === l0[1] && d1[d1.length - 2] === l0[0], 'layers: Alt+ArrowDown on the top row moves the box one layer back (list + canvas)', JSON.stringify({ l1, d1 }));
+		await barClick('undo');
+		check(JSON.stringify(await layerRows()) === JSON.stringify(l0), 'layers: one undo brings the order back');
+	} else check(false, 'layers: the slice has a second text box / item to reorder against', JSON.stringify(l0));
 
 	// ── snap + nudge (outside a field: the list entry has the focus) ──────────────────────────────────────
 	await click(tid(`dialog-${added}`));

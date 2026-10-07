@@ -362,9 +362,9 @@ try {
 	await escape();
 	im = await js(`(() => ({ w: Math.round(document.querySelector('[data-testid="inspector-region"]').getBoundingClientRect().width), main: getComputedStyle(document.querySelector('.columns > .main')).visibility, shell: !!document.querySelector('.sc-app-shell.max-main') }))()`);
 	check(!im.shell && im.main === 'visible' && im.w === i0m, `Esc: the inspector back beside the canvas (${im.w} px)`, JSON.stringify(im));
-	await js(`${q('tab-text')}.focus(), true`);
+	await js(`${q('tab-layers')}.focus(), true`);
 	await ctrlSpace();
-	check(await js(`!!document.querySelector('.sc-app-shell.max-main') && document.activeElement === ${q('tab-text')}`), 'Ctrl+Space in the inspector maximizes the inspector (focus stays)');
+	check(await js(`!!document.querySelector('.sc-app-shell.max-main') && document.activeElement === ${q('tab-layers')}`), 'Ctrl+Space in the inspector maximizes the inspector (focus stays)');
 	await ctrlSpace();
 	check(await js(`!document.querySelector('.sc-app-shell.max-main, .sc-app-shell.max-dock')`), 'Ctrl+Space restores');
 

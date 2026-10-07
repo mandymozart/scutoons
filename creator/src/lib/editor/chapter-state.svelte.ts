@@ -5,7 +5,8 @@ import type { CanvasSelection, Tool } from '$lib/components/slice/slice-canvas.s
 import { loadCatalog } from '$lib/editor/catalog.svelte.ts';
 
 export type Section = 'meta' | 'audio' | 'group' | 'slice';
-export type InspectorTab = 'text' | 'items' | 'slice' | 'audio' | 'events';
+/** `layers` = the slice's one layer stack: text boxes + placed items (BACKLOG 10.43) */
+export type InspectorTab = 'layers' | 'slice' | 'audio' | 'events';
 
 /** px of the slice's 1x size; 30 = the default (owner 2026-10-03), 15 the slices' base grid (390 = 26 × 15) */
 export const GRID_SIZES = [5, 10, 15, 30];
@@ -13,10 +14,11 @@ const SNAP_KEY = 'scutoons_creator_snap';
 const GRID_KEY = 'scutoons_creator_grid';
 
 // tool = tab = layer (owner 2026-10-03): a tool opens its tab, a tab picks its tool; the canvas only takes the pointer
-// on that tab's layer (a full-slice event no longer covers the texts)
-const TAB_TOOL: Partial<Record<InspectorTab, Tool>> = { text: 'text', items: 'item', audio: 'sample', events: 'event' };
-const TOOL_TAB: Record<Tool, InspectorTab> = { text: 'text', item: 'items', sample: 'audio', event: 'events' };
-const LAYER: Partial<Record<InspectorTab, CanvasSelection['kind']>> = { text: 'dialog', items: 'item', audio: 'sample', events: 'event' };
+// on that tab's kinds (a full-slice event no longer covers the texts). The Layers tab holds text boxes AND placed items
+// (BACKLOG 10.43): both tools open it; it keeps the one of the two that is picked (else text)
+const TAB_TOOL: Partial<Record<InspectorTab, Tool>> = { layers: 'text', audio: 'sample', events: 'event' };
+const TOOL_TAB: Record<Tool, InspectorTab> = { text: 'layers', item: 'layers', sample: 'audio', event: 'events' };
+const KINDS: Partial<Record<InspectorTab, readonly CanvasSelection['kind'][]>> = { layers: ['dialog', 'item'], audio: ['sample'], events: ['event'] };
 
 function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
 	try {
@@ -33,7 +35,7 @@ export class ChapterView {
 	groupIndex = $state(0);
 	sliceIndex = $state(-1);
 	selection = $state<CanvasSelection | null>(null);
-	inspectorTab = $state<InspectorTab>('text');
+	inspectorTab = $state<InspectorTab>('layers');
 	tool = $state<Tool>('text');
 	/** the selected group's slices folded away: a second click on the open group (owner 2026-10-03) */
 	collapsed = $state(false);
@@ -54,9 +56,9 @@ export class ChapterView {
 	get grid() {
 		return this.snap ? this.gridSize : 0;
 	}
-	/** the layer the inspector's tab is on (its boxes take the pointer); null = every layer */
-	get layer() {
-		return LAYER[this.inspectorTab] ?? null;
+	/** the kinds the inspector's tab is on (their boxes take the pointer); null = every kind */
+	get layers() {
+		return KINDS[this.inspectorTab] ?? null;
 	}
 	/** a group or one of its slices is open */
 	get inGroup() {
@@ -97,17 +99,18 @@ export class ChapterView {
 	/** a canvas / list selection opens its layer's tab */
 	select(next: CanvasSelection | null) {
 		this.selection = next;
-		if (next?.kind === 'dialog') this.setTab('text');
-		else if (next?.kind === 'item') this.setTab('items');
+		if (next?.kind === 'dialog' || next?.kind === 'item') this.setTab('layers');
 		else if (next?.kind === 'sample') this.setTab('audio');
 		else if (next?.kind === 'event') this.setTab('events');
 	}
 	setTab(next: InspectorTab) {
 		this.inspectorTab = next;
 		// a selection on another layer is let go (its handles would sit on a layer that no longer takes the pointer)
-		if (this.selection && LAYER[next] !== this.selection.kind) this.selection = null;
-		if (TAB_TOOL[next]) this.tool = TAB_TOOL[next]!;
-		if (next === 'items') loadCatalog();
+		if (this.selection && !KINDS[next]?.includes(this.selection.kind)) this.selection = null;
+		if (next === 'layers') {
+			if (this.tool !== 'text' && this.tool !== 'item') this.tool = 'text';
+			loadCatalog();
+		} else if (TAB_TOOL[next]) this.tool = TAB_TOOL[next]!;
 	}
 	setTool(next: Tool) {
 		this.tool = next;

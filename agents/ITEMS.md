@@ -1271,15 +1271,30 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   remembered by it); `rect` in % of the slice like text boxes, no `height` = the icon's own ratio; language-neutral
   (geometry is the same in every language – the creator writes every locale and makes a differing one follow the
   source on load, `unifyGeometry`).
-- Rendering: `@scutoons/reader` `SliceItems` (inside `Slice`, between the image and the text boxes): the catalog icon,
-  rotated around its centre; only `action` ≠ `none` makes it a button. The app resolves the icon (`itemInfo`).
+- Rendering: `@scutoons/reader` `SliceLayers` (inside `Slice`, above the image; one `SliceItem` per placement): the
+  catalog icon, rotated around its centre; only `action` ≠ `none` makes it a button. The app resolves the icon (`itemInfo`).
+- **One layer stack with the text boxes (owner 2026-10-07, BACKLOG 10.43)** – stored as a number `layer?: number` on
+  each `dialog[]` and `items[]` entry (`@scutoons/content` layers.ts): higher = drawn on top. `sliceLayers(slice)` gives
+  the paint order (back to front) for both apps – the reader's `SliceLayers` and the creator's canvas (its boxes take the
+  pointer in that order too). An entry without `layer` counts as above every numbered one, among themselves in the old
+  order; so a slice without any `layer` (every slice before 10.43 – no migration) keeps the old look: items under text
+  boxes, each in array order, and a box added after a reorder lands on top. The arrays never change order and no id
+  changes (showTextBox `params.dialog`, pickup refs `…#<placement id>`, problem paths keep pointing at the same entries).
+  Validation: a whole number ≥ 0 (schema: `Dialog.layer`, `SliceItem.layer`). Chosen over a slice-level list of refs
+  (`layers: ["d:<id>", "i:<id>"]`): no refs to keep in step on delete / paste / rename, `Dialog.id` is optional.
+  The creator writes `layer` 0…n-1 on every entry of the slice on a reorder (`setSliceLayers`, one `doc.edit` = one
+  undo step).
 - Tap (`viewer/src/lib/visual-novel/slice-items.ts`): `none` = art only (default); `pickup` = a give
   (`giveStoryItem` in variable-actions.ts → `inventory.grant(item, 'story', qty, ref)` with the ref
   `vn:<item>:<page>#<slice image>#<placement id>`; no story variable since 2026-10-07 – BACKLOG 10.38) – the catalog's rules apply
   (grantable story, max count, the server's once-per-ref); on success the game state gets `picked:<slice image>#<id>`
   (synced with a member's progress) and the item is gone from the slice for that reader; on a refusal it stays.
   `events` = the placement's VN events run like a click trigger's (`EventProcessor`), `once` per page view by default.
-- Creator: slice inspector tab "Items": "Place an item …" / "Choose the item …" open the item drawer
+- Creator: slice inspector tab "Layers" (since 10.43; was "Items" + "Text boxes"): one single-line row per text box /
+  placed item, the top row in front – grip ⋮⋮ (the shared Sortable: drag, or Alt+↑ / ↓), the item's icon (a text box: a
+  "T" tile), its name (a text box: the start of its text, else its id; the id as tooltip), a Feather `download` for a
+  pickup ("Pick up"); a click selects it on the canvas. "+ Add text box" and "Place an item …" sit under the list; the
+  text / item tool both open the tab. "Place an item …" / "Choose the item …" open the item drawer
   (`ItemPickerSheet`), x / y / width / rotation, "On tap" (nothing · pick up + pieces + respawn · run events with the VN
   event editor, whose "show text box" events pick or create the text box they reveal). On the canvas: move, a round rotate
   handle above the box and a round scale handle off the bottom-right corner (width around the centre); the Snap toggle

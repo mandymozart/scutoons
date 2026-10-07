@@ -2,14 +2,15 @@
 	import type { Snippet } from 'svelte';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import type { VariantMedia } from '@scutoons/media';
-	import { Icon, Tabs } from '@scutoons/ui';
-	import { previewText, scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
+	import { Icon, SortGrip, Tabs, sortable } from '@scutoons/ui';
+	import { getAt, previewText, scriptLabels, setSliceLayers, sliceLayers, type ChapterSliceRef, type Path, type SliceLayerKind } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { ChapterView, InspectorTab } from '$lib/editor/chapter-state.svelte.ts';
 	import { boxChoices } from '$lib/editor/slice-edit.ts';
-	import { matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
+	import type { TextPreset } from '$lib/editor/text-presets.ts';
+	import { moveAt } from '$lib/editor/move.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { itemCatalog, itemName } from '$lib/editor/catalog.svelte.ts';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
@@ -23,9 +24,9 @@
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 
 	/**
-	 * The open slice's inspector (COMPONENTS.md step 12): one tab per canvas layer – texts (list, + text with presets, the
-	 * text inspector), placed items (list, + item, the item inspector), audio, events – and "Slice" (media + the map
-	 * places it unlocks). The tab and the selection are the chapter's view state (the canvas and the keyboard write
+	 * The open slice's inspector (COMPONENTS.md step 12): one tab per canvas layer – Layers (the slice's one stack of text
+	 * boxes and placed items, BACKLOG 10.43: the list front first, drag to reorder; + text with presets, + item; the
+	 * text / item inspector), audio, events – and "Slice" (media + the map places it unlocks). The tab and the selection are the chapter's view state (the canvas and the keyboard write
 	 * them too).
 	 */
 	let {
@@ -90,10 +91,38 @@
 	const dialogs = $derived<any[]>(slice?.dialog ?? []);
 	const items = $derived<any[]>(slice?.items ?? []);
 	const selection = $derived(view.selection);
-	/** a text's preset in the list ("custom" when its look was changed) */
-	function presetLabel(d: Record<string, unknown>) {
-		const id = matchTextPreset(d);
-		return id ? m[`creator.preset_${id}`]() : m['creator.preset_custom']();
+
+	interface LayerRow {
+		kind: SliceLayerKind;
+		index: number;
+		/** the item's name / the start of the text (else the box's id) */
+		name: string;
+		/** tooltip: a text box's id */
+		title?: string;
+		/** the item's icon (a text box: the T glyph) */
+		icon?: string;
+		pickup: boolean;
+	}
+	/** the layer stack front first (the top row is drawn on top) */
+	const layers = $derived.by<LayerRow[]>(() =>
+		sliceLayers(slice)
+			.reverse()
+			.map(({ kind, index }): LayerRow => {
+				if (kind === 'dialog') {
+					const d = dialogs[index];
+					const text = previewText(d?.text, [locale, doc.textSource]).trim().slice(0, 40);
+					return { kind, index, name: text || d?.id || `#${index + 1}`, title: d?.id, pickup: false };
+				}
+				const it = items[index];
+				const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);
+				return { kind, index, name: itemName(def, it?.item ?? '?'), icon: def?.icon ? asset(def.icon) : undefined, pickup: it?.action === 'pickup' };
+			})
+	);
+	/** a drag in the list (front first): every entry gets its `layer` (back = 0) – one edit, one undo step */
+	function moveLayer(from: number, to: number) {
+		const rows = layers.map(({ kind, index }) => ({ kind, index }));
+		if (!moveAt(rows, from, to)) return;
+		doc.edit((file) => setSliceLayers(getAt(file, slicePath), rows.reverse()));
 	}
 </script>
 
@@ -106,27 +135,45 @@
 		value={view.inspectorTab}
 		onchange={(id) => view.setTab(id as InspectorTab)}
 		tabs={[
-			{ id: 'text', icon: 'type', label: m['creator.text_boxes'](), count: dialogs.length, testid: 'tab-text' },
-			{ id: 'items', icon: 'box', label: m['creator.slice_items'](), count: items.length, testid: 'tab-items' },
+			{ id: 'layers', icon: 'layers', label: m['creator.layers'](), count: layers.length, testid: 'tab-layers' },
 			{ id: 'audio', icon: 'music', label: m['creator.audio'](), testid: 'tab-audio' },
 			{ id: 'events', icon: 'zap', label: m['creator.events'](), count: slice?.events?.length ?? 0, testid: 'tab-events' },
 			{ id: 'slice', icon: 'image', label: m['creator.slice_tab'](), testid: 'tab-background' }
 		]}
 	/>
 
-	{#if view.inspectorTab === 'text'}
-		{#if dialogs.length}
-		<ul class="boxes">
-			{#each dialogs as d, di (di)}
-				<li>
-					<button class="ghost" class:active={selection?.kind === 'dialog' && selection.index === di} onclick={() => view.select({ kind: 'dialog', index: di })} data-testid="dialog-{di}">
-						<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{presetLabel(d)}</span> {previewText(d.text, [locale, doc.textSource]).slice(0, 40)}
-					</button>
-				</li>
-			{/each}
-		</ul>
+	{#if view.inspectorTab === 'layers'}
+		<!-- the slice's ONE layer stack (BACKLOG 10.43): text boxes and placed items, the top row in front; a drag changes what is drawn on top -->
+		{#if layers.length}
+			<ul class="layers" use:sortable={{ onmove: moveLayer }} data-testid="layers">
+				{#each layers as row (`${row.kind}:${row.index}`)}
+					{@const active = selection?.kind === row.kind && selection.index === row.index}
+					<li data-sort-row class:active data-testid="layer-{row.kind}-{row.index}">
+						<SortGrip label={m['creator.sort_move']({ name: row.name })} title={m['creator.sort_hint']()} />
+						<button
+							type="button"
+							class="ghost row"
+							class:active
+							title={row.title}
+							onclick={() => view.select({ kind: row.kind, index: row.index })}
+							data-testid={row.kind === 'dialog' ? `dialog-${row.index}` : `slice-item-${row.index}`}
+						>
+							<span class="thumb">
+								{#if row.icon}<img src={row.icon} alt="" draggable="false" />{:else}<Icon name="type" size="1rem" />{/if}
+							</span>
+							<span class="name">{row.name}</span>
+						</button>
+						{#if row.pickup}
+							<span class="pickup" title={m['creator.slice_item_action_pickup']()}><Icon name="download" size="1rem" label={m['creator.slice_item_action_pickup']()} /></span>
+						{/if}
+					</li>
+				{/each}
+			</ul>
 		{/if}
-		<button class="secondary" class:active={view.pickingPreset} aria-expanded={view.pickingPreset} onclick={() => (view.pickingPreset = !view.pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
+		<div class="adds">
+			<button type="button" class="secondary" class:active={view.pickingPreset} aria-expanded={view.pickingPreset} onclick={() => (view.pickingPreset = !view.pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
+			<button type="button" class="secondary" onclick={() => view.pickItem()} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
+		</div>
 		{#if view.pickingPreset}
 			<TextPresetPicker
 				image={slice.image ? asset(`${toon}/${slice.image}`) : ''}
@@ -135,25 +182,11 @@
 				onpick={onaddtext}
 			/>
 		{/if}
+		<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => onadditem(item.id)} />
 		{#if selection?.kind === 'dialog' && dialogs[selection.index]}
 			<hr />
 			<DialogInspector {doc} path={[...slicePath, 'dialog', selection.index]} {onremove} />
-		{/if}
-	{:else if view.inspectorTab === 'items'}
-		{#if items.length}
-		<ul class="boxes">
-			{#each items as it, ii (ii)}
-				<li>
-					<button class="ghost" class:active={selection?.kind === 'item' && selection.index === ii} onclick={() => view.select({ kind: 'item', index: ii })} data-testid="slice-item-{ii}">
-						<span>{itemName(itemCatalog.catalog?.items.find((x) => x.id === it?.item), it?.item ?? '?')}</span> <span class="hint">{it?.action === 'pickup' ? m['creator.slice_item_action_pickup']() : it?.action === 'events' ? m['creator.slice_item_action_events']() : ''}</span>
-					</button>
-				</li>
-			{/each}
-		</ul>
-		{/if}
-		<button type="button" class="secondary" onclick={() => view.pickItem()} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
-		<ItemPickerSheet bind:open={view.pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => onadditem(item.id)} />
-		{#if selection?.kind === 'item' && items[selection.index]}
+		{:else if selection?.kind === 'item' && items[selection.index]}
 			<hr />
 			<ItemInspector
 				{doc}
@@ -223,28 +256,71 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
-	.boxes {
+	/* the layer stack: one line per entry – grip, icon, name, the pickup mark */
+	.layers {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		border: var(--border-width-regular) solid var(--ink);
 	}
-	.boxes li + li {
+	.layers li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+		padding-inline: var(--space-05);
+	}
+	.layers li + li {
 		border-top: var(--border-width-hairline) solid var(--ink);
 	}
-	/* one line per box, ellipsis (block, not flex: a text node can't ellipsize in flex) */
-	.boxes button {
-		display: block;
-		width: 100%;
-		padding-block: 0;
-		line-height: calc(var(--control-height) - 2 * var(--border-width-regular));
+	.layers li.active {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.layers .row {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: var(--space-05);
+		height: calc(var(--control-height) - var(--border-width-hairline));
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
 		text-align: left;
+	}
+	.thumb {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		box-sizing: border-box;
+		border: var(--border-width-hairline) solid var(--ink);
+		background: var(--paper);
+		color: var(--ink);
+	}
+	.thumb img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+	.name {
+		min-width: 0;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.boxes button.active .hint {
-		color: inherit;
+	.pickup {
+		flex: none;
+		display: inline-flex;
+	}
+	.adds {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-05);
 	}
 	hr {
 		border: 0;

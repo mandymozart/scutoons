@@ -209,10 +209,16 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.shape !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'shape'], 'shape only shows on a drawn bubble (variant bubble, frame true)');
 	if (d.rotation !== undefined && !isNum(d.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
 	checkScale(c, d.scale, [...path, 'scale']);
+	checkLayer(c, d.layer, [...path, 'layer']);
 	if (d.mask !== undefined && d.mask !== true && !isStr(d.mask)) c.error([...path, 'mask'], 'mask must be true or a CSS color');
 	if (d.maskShape !== undefined && !['rect', 'ellipse'].includes(d.maskShape)) c.error([...path, 'maskShape'], 'maskShape must be rect or ellipse');
 	if (d.pad !== undefined && !isNum(d.pad)) c.error([...path, 'pad'], 'pad must be a number');
 	if (d.tail !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'tail'], 'tail only shows on a drawn bubble (variant bubble, frame true)');
+}
+
+/** a text box's / placed item's place in the slice's layer stack (layers.ts): a whole number ≥ 0 */
+function checkLayer(c: Collector, layer: unknown, path: Path) {
+	if (layer !== undefined && (!Number.isInteger(layer) || (layer as number) < 0)) c.error(path, 'layer must be a whole number ≥ 0 (higher = on top)');
 }
 
 function checkScale(c: Collector, scale: unknown, path: Path) {
@@ -229,6 +235,7 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	else if (ctx.items && !ctx.items.includes(it.item)) c.warn([...path, 'item'], `"${it.item}" is not in the item catalog`);
 	checkRect(c, it.rect, [...path, 'rect'], false);
 	if (it.rotation !== undefined && !isNum(it.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
+	checkLayer(c, it.layer, [...path, 'layer']);
 	if (it.action !== undefined && !(SLICE_ITEM_ACTIONS as readonly string[]).includes(it.action)) {
 		c.error([...path, 'action'], `action must be one of ${SLICE_ITEM_ACTIONS.join(', ')}`);
 	}
