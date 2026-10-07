@@ -76,6 +76,9 @@ async function api(method, path, body) {
 function sql(query) {
 	return execFileSync('docker', ['exec', CONTAINER, 'sh', '-c', `mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N ${DB} -e "${query}"`]).toString().trim();
 }
+// a run that died before its restore (a hung Docker, Ctrl+C) left its draft: it goes first (else this run's identical
+// save is "unchanged", returns that draft and the restore removes it – reported as a failed restore)
+sql(`DELETE FROM entity_versions WHERE entity_key = '${KEY}' AND status = 'draft' AND message = 'chain-vn-check (removed again)'`);
 const before = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 const created = [];
 async function restore() {

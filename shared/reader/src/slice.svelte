@@ -95,7 +95,7 @@
 	const height = $derived(slice.height > 0 ? slice.height : DEFAULT_SLICE.height);
 </script>
 
-<div {...rest} class="slice">
+<div {...rest} class="slice" class:full-width={!blurred && !!slice.video?.viewport}>
 	{@render before?.()}
 	{#if blurred}
 		<div class="blurred">
@@ -158,6 +158,12 @@
 		   wider than the screen moves / re-zooms ("the page jumps", owner 2026-10-07, BACKLOG M.2); up / down it may
 		   still overlap the next slice (clip: no scroll container) */
 		overflow-x: clip;
+	}
+	/* …except a video placed over the whole viewport (`video.viewport`): it is as wide as the page, not the column –
+	   clipped to the column it showed a strip of itself on wide screens, and its autoplay (half of it in view) never
+	   started (2026-10-07, check-next-bar 1440) */
+	.slice.full-width {
+		overflow-x: visible;
 	}
 
 	.slice img {
