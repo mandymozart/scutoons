@@ -5,7 +5,7 @@ import type { CanvasSelection, Tool } from '$lib/components/slice/slice-canvas.s
 import { loadCatalog } from '$lib/editor/catalog.svelte.ts';
 
 export type Section = 'meta' | 'audio' | 'group' | 'slice';
-/** `layers` = the slice's one layer stack: text boxes + placed items (BACKLOG 10.43) */
+/** `layers` = the slice's one layer stack: text boxes + placed items (BACKLOG 10.43) + click / hover areas (10.54) */
 export type InspectorTab = 'layers' | 'slice' | 'audio' | 'events';
 
 /** px of the slice's 1x size; 30 = the default (owner 2026-10-03), 15 the slices' base grid (390 = 26 × 15) */
@@ -15,10 +15,12 @@ const GRID_KEY = 'scutoons_creator_grid';
 
 // tool = tab = layer (owner 2026-10-03): a tool opens its tab, a tab picks its tool; the canvas only takes the pointer
 // on that tab's kinds (a full-slice event no longer covers the texts). The Layers tab holds text boxes AND placed items
-// (BACKLOG 10.43): both tools open it; it keeps the one of the two that is picked (else text)
+// (BACKLOG 10.43): both tools open it; it keeps the one of the two that is picked (else text). Its stack also holds the
+// click / hover areas of events and samples (10.54) – edited in their own tabs, but selectable and in pointer order here
+// (the canvas lets only the areas of the stack take the pointer on this tab)
 const TAB_TOOL: Partial<Record<InspectorTab, Tool>> = { layers: 'text', audio: 'sample', events: 'event' };
 const TOOL_TAB: Record<Tool, InspectorTab> = { text: 'layers', item: 'layers', sample: 'audio', event: 'events' };
-const KINDS: Partial<Record<InspectorTab, readonly CanvasSelection['kind'][]>> = { layers: ['dialog', 'item'], audio: ['sample'], events: ['event'] };
+const KINDS: Partial<Record<InspectorTab, readonly CanvasSelection['kind'][]>> = { layers: ['dialog', 'item', 'event', 'sample'], audio: ['sample'], events: ['event'] };
 
 function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
 	try {
@@ -96,9 +98,10 @@ export class ChapterView {
 		this.selection = null;
 		this.section = 'slice';
 	}
-	/** a canvas / list selection opens its layer's tab */
+	/** a canvas / list selection opens its layer's tab (the Layers tab keeps an area picked in its stack) */
 	select(next: CanvasSelection | null) {
 		this.selection = next;
+		if (next && KINDS[this.inspectorTab]?.includes(next.kind)) return;
 		if (next?.kind === 'dialog' || next?.kind === 'item') this.setTab('layers');
 		else if (next?.kind === 'sample') this.setTab('audio');
 		else if (next?.kind === 'event') this.setTab('events');

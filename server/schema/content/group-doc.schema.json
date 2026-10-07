@@ -254,7 +254,7 @@
 				},
 				"layer": {
 					"type": "number",
-					"description": "Place in the slice's ONE layer stack of text boxes and placed items (`SliceItem.layer`, layers.ts): higher = drawn on top. None = today's order (items under text boxes, each in array order) – see `sliceLayers`."
+					"description": "Place in the slice's ONE layer stack of text boxes, placed items and click / hover areas (`SliceItem.layer`, layers.ts): higher = drawn on top. None = the old order (sample areas, items, text boxes, event areas) – see `sliceLayers`."
 				}
 			},
 			"required": [
@@ -322,6 +322,9 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"layer": {
+							"type": "number"
+						},
 						"id": {
 							"type": "string"
 						},
@@ -371,6 +374,9 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"layer": {
+							"type": "number"
+						},
 						"id": {
 							"type": "string"
 						},
@@ -395,6 +401,9 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
 						},
 						"id": {
 							"type": "string"
@@ -443,6 +452,9 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"layer": {
+							"type": "number"
+						},
 						"id": {
 							"type": "string"
 						},
@@ -479,6 +491,9 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
 						},
 						"id": {
 							"type": "string"
@@ -517,6 +532,9 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"layer": {
+							"type": "number"
+						},
 						"id": {
 							"type": "string"
 						},
@@ -541,6 +559,9 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
 						},
 						"id": {
 							"type": "string"
@@ -567,6 +588,9 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
 						},
 						"id": {
 							"type": "string"
@@ -605,6 +629,9 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"layer": {
+							"type": "number"
+						},
 						"id": {
 							"type": "string"
 						},
@@ -639,6 +666,9 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"layer": {
+							"type": "number"
+						},
 						"id": {
 							"type": "string"
 						},
@@ -672,6 +702,9 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
 						},
 						"id": {
 							"type": "string"
@@ -720,6 +753,9 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
 						},
 						"id": {
 							"type": "string"
@@ -1322,7 +1358,7 @@
 				},
 				"layer": {
 					"type": "number",
-					"description": "place in the slice's one layer stack of text boxes and placed items (`Dialog.layer`, layers.ts)"
+					"description": "place in the slice's one layer stack of text boxes, placed items and areas (`Dialog.layer`, layers.ts)"
 				}
 			},
 			"required": [
@@ -1977,6 +2013,10 @@
 				},
 				"repeat": {
 					"type": "number"
+				},
+				"layer": {
+					"type": "number",
+					"description": "a click / hover area's place in the slice's ONE layer stack (`VNSliceEvent.layer`, layers.ts – BACKLOG 10.54)"
 				}
 			},
 			"required": [

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fromAction } from 'svelte/attachments';
-	import { hidesSensitive, isSensitive, pickQualityVariant, sanitizeNumber, type Dialog, type Slice as SliceModel, type SliceItem } from '@scutoons/content';
+	import { hasSliceLayers, hidesSensitive, isAreaTrigger, isSensitive, pickQualityVariant, sanitizeNumber, Trigger, type Dialog, type Slice as SliceModel, type SliceItem, type SliceLayerRef } from '@scutoons/content';
 	import { Slice, sliceAudio, type DialogPlay, type PlayerLabels, type ResolveSliceItem } from '@scutoons/reader';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -18,7 +18,10 @@
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 	import { getReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 	import Samples from './audio/samples.svelte';
+	import SampleTrigger from './audio/sample-trigger.svelte';
 	import Triggers from './vn/triggers.svelte';
+	import ClickTrigger from './vn/triggers/click.svelte';
+	import HoverTrigger from './vn/triggers/hover.svelte';
 
 	let {
 		slice,
@@ -44,8 +47,27 @@
 	const session = getSessionContext();
 	const member = $derived(!!session?.isLoggedIn);
 	const blurred = $derived(isSensitive(slice) && hidesSensitive(member ? session.me?.user : null));
-	/** the slice's audio events without its own sounds while blurred (the chapter's music levels still follow the slices) */
-	const audioEvents = $derived(blurred ? (slice.audio?.music ? { music: slice.audio.music } : undefined) : slice.audio);
+	/**
+	 * the author ordered the slice's layer stack (BACKLOG 10.54, @scutoons/content layers.ts): its click / hover areas
+	 * (events with a rect, samples with an area) are drawn in the stack and take the pointer there – the front-most under
+	 * the pointer reacts, not the ones it covers. None ordered: the old way (the areas under the stack, the slice listens:
+	 * every area under the pointer reacts).
+	 */
+	const layered = $derived(hasSliceLayers(slice));
+	/**
+	 * the slice's audio events without its own sounds while blurred (the chapter's music levels still follow the slices);
+	 * the slice plays its first sample (`sliceAudio`) – unless it is an area of the ordered stack (it plays itself)
+	 */
+	const audioEvents = $derived.by(() => {
+		if (blurred) return slice.audio?.music ? { music: slice.audio.music } : undefined;
+		if (layered && isAreaTrigger(slice.audio?.audio?.samples?.[0]?.trigger)) return { ...slice.audio, audio: undefined };
+		return slice.audio;
+	});
+	/** an area's sample (the ordered stack): played by the area itself */
+	const playSample = (index: number) => {
+		const sample = slice.audio?.audio?.samples?.[index];
+		if (sample) audioPlayer()?.triggerSample(sample);
+	};
 	// the image for the reader's media quality (1x / 2x / 3x = low / medium / high); 1x until the level is known
 	const imageUrl = $derived.by(() => {
 		const hasImageVariants = Object.values(slice.imageVariants ?? {}).some((file) => !!file);
@@ -152,6 +174,20 @@
 	};
 </script>
 
+<!-- one click / hover area of the ordered stack (BACKLOG 10.54): an event area (its events run as one) or a sample's -->
+{#snippet stackArea(ref: SliceLayerRef)}
+	{#if ref.kind === 'event' && !group?.done}
+		{@const events = (ref.events ?? [ref.index]).map((i) => slice.events![i])}
+		{#if events[0]?.trigger?.type === Trigger.CLICK}
+			<ClickTrigger {events} own />
+		{:else if events[0]?.trigger?.type === Trigger.HOVER}
+			<HoverTrigger {events} own />
+		{/if}
+	{:else if ref.kind === 'sample' && !blurred}
+		<SampleTrigger trigger={slice.audio?.audio?.samples?.[ref.index]?.trigger} onplay={() => playSample(ref.index)} />
+	{/if}
+{/snippet}
+
 <Slice
 	{slice}
 	data-slice-index={pageIndex ?? sliceIndex}
@@ -169,6 +205,7 @@
 	{dialogPlay}
 	{expressions}
 	{blurred}
+	area={layered ? stackArea : undefined}
 	{@attach fromAction(sliceAudio, () => ({
 		events: audioEvents,
 		index: sliceIndex,
@@ -178,9 +215,9 @@
 >
 	{#snippet before()}
 		{#if !blurred}
-			<Samples samples={slice.audio?.audio?.samples} />
+			<Samples samples={slice.audio?.audio?.samples} areas={!layered} />
 		{/if}
-		<Triggers events={slice.events} />
+		<Triggers events={slice.events} areas={!layered} />
 	{/snippet}
 	{#snippet children()}
 		{#if blurred}

@@ -88,7 +88,7 @@ export type VNEventDoc = (
 	if?: VNEventCondition;
 };
 
-export type VNSliceEventDoc = VNEventDoc & { trigger: VNEventTrigger };
+export type VNSliceEventDoc = VNEventDoc & { trigger: VNEventTrigger; layer?: number };
 
 export type SliceItemDoc = Omit<SliceItem, 'events'> & { events?: VNEventDoc[] };
 

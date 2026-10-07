@@ -1284,6 +1284,27 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   (`layers: ["d:<id>", "i:<id>"]`): no refs to keep in step on delete / paste / rename, `Dialog.id` is optional.
   The creator writes `layer` 0…n-1 on every entry of the slice on a reorder (`setSliceLayers`, one `doc.edit` = one
   undo step).
+- **Layers 2: click / hover areas in the stack (owner 2026-10-07, BACKLOG 10.54)** – slice events started by click /
+  hover with an area (`trigger.rect`; the events sharing one trigger – `triggerKey` – are ONE area, the reader runs them
+  as one script) and samples with a click / hover area (`audio.audio.samples[]`) take a place in the same stack:
+  `layer` on each event entry (`VNSliceEvent.layer`, all events of an area carry the same number – the lowest counts)
+  and on the sample (`Sample.layer`); `sliceLayers` answers `{ kind: 'event', index: <first>, events: [...] }` /
+  `{ kind: 'sample', index }`. Not in the stack: whole-slice events, in-view starts, samples without an area.
+  - **Before 10.54 (analysed 2026-10-07)** the reader drew the sample areas under the stack (z-index 1, before it in the
+    DOM), items + text boxes in the stack (z-index 1), the event areas above it (z-index 2) – but nothing occluded: event
+    and sample areas were `pointer-events: none` listeners on the `.slice` (a click / move anywhere tested every rect),
+    so a tap ran every area under the pointer AND a placed item's tap bubbled into the areas below it. Text boxes and
+    art-only items never take the pointer.
+  - **Absent `layer` everywhere = exactly that** (no migration – the dev DB has no `layer` key): the old order (sample
+    areas, items, text boxes, event areas) and the old hit testing (every area under the pointer).
+  - **Any `layer` on the slice (`hasSliceLayers`) = the author ordered it:** the reader (viewer `Slice`) draws the areas
+    inside `SliceLayers` at their place (`area` snippet; `ClickTrigger` / `HoverTrigger` with `own`, `SampleTrigger`
+    with `onplay`) and they take the pointer themselves: the browser's hit testing gives the front-most area / tappable
+    item under the pointer, what it covers doesn't react (higher = gets the tap / hover first). Text boxes and art-only
+    items stay transparent to the pointer; whole-slice events still hear every click on the slice. In such a slice
+    every sample area plays itself (the slice's `sliceAudio` no longer plays `samples[0]` when that is an area).
+  - The creator canvas sorts its boxes by the same stack (pointer order; the selected box lifted), on the Layers tab only
+    the stack's areas take the pointer; the inspector's Layers list shows them as rows (DESIGN.md Part 2).
 - Tap (`viewer/src/lib/visual-novel/slice-items.ts`): `none` = art only (default); `pickup` = a give
   (`giveStoryItem` in variable-actions.ts → `inventory.grant(item, 'story', qty, ref)` with the ref
   `vn:<item>:<page>#<slice image>#<placement id>`; no story variable since 2026-10-07 – BACKLOG 10.38) – the catalog's rules apply

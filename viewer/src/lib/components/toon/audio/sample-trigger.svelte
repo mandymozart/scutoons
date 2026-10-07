@@ -1,11 +1,16 @@
 <script lang="ts">
 	import type { SampleTrigger } from '@scutoons/content';
 
-	let { trigger }: { trigger?: SampleTrigger } = $props();
-	$inspect(trigger);
+	/**
+	 * A sample's click / hover area (the outline with "Show hints"). The slice plays it (`sliceAudio`, the old way) –
+	 * or, with `onplay`, the area itself: it is a row of the slice's layer stack (the author ordered it, BACKLOG 10.54)
+	 * and takes the pointer at its place there, so what lies in front of it covers it.
+	 */
+	let { trigger, onplay }: { trigger?: SampleTrigger; onplay?: () => void } = $props();
 </script>
 
 {#if trigger?.rect && (trigger.type === 'click' || trigger.type === 'hover')}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
 		class="sample-trigger"
 		style:left="{trigger.rect.x}%"
@@ -13,6 +18,9 @@
 		style:width="{trigger.rect.width}%"
 		style:height="{trigger.rect.height}%"
 		data-trigger-type={trigger.type}
+		class:own={!!onplay}
+		onclick={onplay && trigger.type === 'click' ? onplay : undefined}
+		onmouseenter={onplay && trigger.type === 'hover' ? onplay : undefined}
 	></div>
 {/if}
 
@@ -36,6 +44,11 @@
 		z-index: 1;
 		box-shadow: inset 0 0 20px rgba(255, 193, 7, 0.3);
 		cursor: pointer;
+	}
+
+	/* in the layer stack: at its place there (no z-index of its own) */
+	.sample-trigger.own {
+		z-index: auto;
 	}
 
 	.sample-trigger:hover {

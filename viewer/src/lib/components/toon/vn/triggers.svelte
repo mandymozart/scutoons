@@ -1,12 +1,13 @@
 <script lang="ts">
 	import type { VNSliceEvent } from '@scutoons/content';
-	import { Trigger } from '@scutoons/content';
+	import { isAreaTrigger, Trigger } from '@scutoons/content';
 	import ClickTrigger from './triggers/click.svelte';
 	import HoverTrigger from './triggers/hover.svelte';
 	import IntersectTrigger from './triggers/intersect.svelte';
 	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 
-	let { events }: { events?: VNSliceEvent[] } = $props();
+	/** `areas: false` = without the click / hover areas (they are in the slice's layer stack – BACKLOG 10.54) */
+	let { events, areas = true }: { events?: VNSliceEvent[]; areas?: boolean } = $props();
 	// a group above the `?label=` target of linked groups counts as read: its triggers don't fire (owner 2026-10-06)
 	const done = getGroupScope()?.done ?? false;
 
@@ -18,7 +19,7 @@
 	const groups = $derived.by(() => {
 		const byTrigger = new Map<string, VNSliceEvent[]>();
 		for (const event of done ? [] : (events ?? [])) {
-			if (!event.trigger) continue;
+			if (!event.trigger || (!areas && isAreaTrigger(event.trigger))) continue;
 			const key = JSON.stringify(event.trigger);
 			byTrigger.set(key, [...(byTrigger.get(key) ?? []), event]);
 		}

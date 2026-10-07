@@ -499,6 +499,12 @@ images and only the words change.
 - **One layer stack** (owner 2026-10-07, BACKLOG 10.43): text boxes and placed items share one paint order – `layer`
   on each entry, higher = on top; none = items under the text boxes (agents/ITEMS.md "Placed items"). The creator's
   slice inspector lists them in one "Layers" tab, the top row in front, reordered with the shared Sortable.
+  **Layers 2** (owner 2026-10-07, BACKLOG 10.54): the click / hover areas join the same stack – an event area (the
+  events sharing one click / hover trigger with a rect = one row: Feather `zap`, "first type +n · Tap") and a sample's
+  area (Feather `music`, "sample id · Tap"). They stay listed and edited in their own tabs (Events / Audio); in Layers a
+  row only selects the area on the canvas (region `slice`, `sc-selected`), a square "Events" / "Audio" button under the
+  list opens its tab. On the Layers tab the canvas lets these areas take the pointer too (in the stack's order), not the
+  whole-slice / in-view events. Whole-slice events, other starts and samples without an area are in their tabs only.
 - Font size in **% of slice width** rendered as `cqw` (`.slice { container-type: inline-size }`) → lettering scales
   exactly like the art at any column width (≤ 500px).
 - It is comic lettering, not UI chrome: the UI tokens above do not apply, except `ink`/`paper` as default colors.

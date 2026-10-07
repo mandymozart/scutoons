@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { SliceLayerRef } from '@scutoons/content';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { DEFAULT_SLICE, type Slice, type SliceItem } from '@scutoons/content';
 	import SliceLayers from './slice-layers.svelte';
@@ -17,7 +18,9 @@
 	 *
 	 * Placed items (`slice.items`) and text boxes are ONE layer stack above the image (`SliceLayers`, their `layer`;
 	 * none = items under the text boxes); items are drawn once the app resolves their icons (`itemInfo`); `itemHidden` /
-	 * `onitemtap` are the app's (what the reader took, what a tap does).
+	 * `onitemtap` are the app's (what the reader took, what a tap does). Click / hover areas (events with a rect, samples
+	 * with an area – BACKLOG 10.54) join that stack when the app passes `area` (it draws one area per call, in the
+	 * stack's order); without it the app draws them in `before` (the old way: under the stack in paint order).
 	 *
 	 * The image loads lazily (`eager` for the first slices) with `width` / `height` from the slice, so the box has its
 	 * final height before the image arrives: no layout shift, and the slices below don't all intersect at once.
@@ -43,6 +46,7 @@
 		dialogPlay,
 		expressions,
 		blurred = false,
+		area,
 		before,
 		children,
 		...rest
@@ -80,6 +84,8 @@
 		expressions?: TextExpressions;
 		/** draw the image blurred and leave a video unloaded (a sensitive slice the reader hides) */
 		blurred?: boolean;
+		/** draws one click / hover area in the layer stack (`SliceLayers`); none = the areas are not in the stack */
+		area?: Snippet<[SliceLayerRef]>;
 		before?: Snippet;
 		children?: Snippet;
 	} & Omit<HTMLAttributes<HTMLDivElement>, 'children'> = $props();
@@ -134,6 +140,9 @@
 		resolve={itemInfo}
 		{itemHidden}
 		ontap={onitemtap}
+		events={area ? slice.events : undefined}
+		samples={area ? slice.audio?.audio?.samples : undefined}
+		{area}
 	/>
 	{@render children?.()}
 </div>

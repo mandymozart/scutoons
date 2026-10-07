@@ -93,8 +93,9 @@ export interface Dialog {
 	/** Extra mask padding in % of slice width. Default 0.5. @deprecated with `mask` */
 	pad?: number;
 	/**
-	 * Place in the slice's ONE layer stack of text boxes and placed items (`SliceItem.layer`, layers.ts): higher = drawn
-	 * on top. None = today's order (items under text boxes, each in array order) – see `sliceLayers`.
+	 * Place in the slice's ONE layer stack of text boxes, placed items and click / hover areas (`SliceItem.layer`,
+	 * layers.ts): higher = drawn on top. None = the old order (sample areas, items, text boxes, event areas) – see
+	 * `sliceLayers`.
 	 */
 	layer?: number;
 }
@@ -347,7 +348,7 @@ export interface SliceItem {
 	 * item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply.
 	 */
 	respawn?: SliceItemRespawn;
-	/** place in the slice's one layer stack of text boxes and placed items (`Dialog.layer`, layers.ts) */
+	/** place in the slice's one layer stack of text boxes, placed items and areas (`Dialog.layer`, layers.ts) */
 	layer?: number;
 }
 

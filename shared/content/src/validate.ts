@@ -222,7 +222,7 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.tail !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'tail'], 'tail only shows on a drawn bubble (variant bubble, frame true)');
 }
 
-/** a text box's / placed item's place in the slice's layer stack (layers.ts): a whole number ≥ 0 */
+/** a text box's / placed item's / area's place in the slice's layer stack (layers.ts): a whole number ≥ 0 */
 function checkLayer(c: Collector, layer: unknown, path: Path) {
 	if (layer !== undefined && (!Number.isInteger(layer) || (layer as number) < 0)) c.error(path, 'layer must be a whole number ≥ 0 (higher = on top)');
 }
@@ -537,6 +537,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 	if (e.id !== undefined && (!isStr(e.id) || !EVENT_ID.test(e.id))) c.error([...path, 'id'], 'an event id is letters, digits, - and _ (the creator assigns it)');
 	if (e.if !== undefined) checkCondition(c, e.if, [...path, 'if'], ctx);
 	if (sliceEvent) checkTrigger(c, e.trigger, [...path, 'trigger'], false, isStr(e.id) && !!e.id);
+	if (sliceEvent) checkLayer(c, e.layer, [...path, 'layer']);
 }
 
 /**
@@ -664,6 +665,7 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 					if (!sampleIds.includes(smp?.id)) c.error([...sp, 'id'], `sample "${smp?.id}" is not in the chapter's sampleLibrary`);
 					if (smp?.volume !== undefined && (!isNum(smp.volume) || smp.volume < 0 || smp.volume > 1)) c.error([...sp, 'volume'], 'volume must be 0…1');
 					checkTrigger(c, smp?.trigger, [...sp, 'trigger'], true);
+					checkLayer(c, smp?.layer, [...sp, 'layer']);
 				});
 			checkSamples(audio.audio?.samples, [...path, 'audio', 'audio', 'samples']);
 			if (Array.isArray(audio.samples)) {

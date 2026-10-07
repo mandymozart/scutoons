@@ -48,6 +48,8 @@ export interface Sample {
 	delay?: number;
 	loop?: boolean;
 	repeat?: number; // not implemented
+	/** a click / hover area's place in the slice's ONE layer stack (`VNSliceEvent.layer`, layers.ts – BACKLOG 10.54) */
+	layer?: number;
 }
 
 export interface AudioEvent {

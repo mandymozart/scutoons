@@ -15,7 +15,8 @@
 //   tabs:    each inspector tab activates and picks its canvas tool; each tool opens its tab (text + item: Layers)
 //   add:     "+ Add text" shows the presets; a preset adds a text box (canvas box, list entry, inspector, cursor in the
 //            text field); typing marks the page dirty
-//   layers:  the Layers tab's list (text boxes + placed items, BACKLOG 10.43) is the canvas's drawn order, the new box on
+//   layers:  the Layers tab's list (text boxes + placed items, BACKLOG 10.43, + click / hover areas, 10.54) is the canvas's
+//            drawn and pointer order, the new box on
 //            top; Alt+ArrowDown on its grip moves it one layer back in the list and on the canvas, one undo brings it back
 //   snap:    snap on (default 30 px): an arrow moves the selected box onto the grid; snap off: 1 px, Shift: 10 px
 //   undo:    outside a field, Ctrl+Z undoes the last nudge, Ctrl+Shift+Z / Ctrl+Y redo it; the Undo / Redo buttons too
@@ -379,21 +380,31 @@ try {
 	const inField = await js(`({ value: ${q('text-de')}?.value ?? null, focus: document.activeElement?.dataset?.testid, boxes: document.querySelectorAll('[data-testid^="box-dialog-"]').length })`);
 	check(inField.value === TEXT && inField.focus === 'text-de' && inField.boxes === dialogsBefore + 1, 'undo in a field: Ctrl+Z undoes the typing there, the text box stays (the file is not undone)', JSON.stringify(inField));
 
-	// ── layers: one stack of text boxes + placed items (BACKLOG 10.43) – the new box is the top row (in front) ──
+	// ── layers: one stack of text boxes + placed items (BACKLOG 10.43) + click / hover areas (10.54, rows without a drawn
+	// layer on the canvas – the canvas's boxes show them) – the new box is the top text box / item row (in front) ──
 	const layerRows = () => js(`[...document.querySelectorAll('[data-testid="layers"] > li')].map((li) => li.dataset.testid)`);
+	/** the rows the canvas draws in its `.slice-layers` (text boxes, items) */
+	const drawnRows = (rows) => rows.filter((r) => /^layer-(dialog|item)-/.test(r));
 	/** the canvas's drawn stack, back to front (what the reader draws the same way) */
 	const drawn = () => js(`[...document.querySelectorAll('[data-testid="slice-canvas"] .slice-layers > *')].map((el) => (el.classList.contains('dialog') ? 'layer-dialog-' : 'layer-item-') + el.dataset.index)`);
+	/** the canvas boxes in pointer order, back to front, as stack rows (an event area's boxes = one row) */
+	const boxRows = () =>
+		js(`[...document.querySelectorAll('[data-testid="slice-canvas"] .box[data-testid^="box-"]:not(.inactive)')].map((el) => el.dataset.testid.replace('box-', 'layer-'))`);
 	const l0 = await layerRows();
-	if (l0.length >= 2) {
-		check(l0[0] === `layer-dialog-${added}` && JSON.stringify([...(await drawn())].reverse()) === JSON.stringify(l0), 'layers: the new text box is the top row and drawn in front; the list = the canvas order', JSON.stringify({ l0, drawn: await drawn() }));
+	const at = l0.indexOf(`layer-dialog-${added}`);
+	if (l0.length >= 2 && at >= 0 && at < l0.length - 1) {
+		check(drawnRows(l0)[0] === `layer-dialog-${added}` && JSON.stringify([...(await drawn())].reverse()) === JSON.stringify(drawnRows(l0)), 'layers: the new text box is the top text box / item row and drawn in front; the list = the canvas order', JSON.stringify({ l0, drawn: await drawn() }));
 		await js(`document.querySelector('[data-testid="layer-dialog-${added}"] [data-sort-grip]').focus()`);
 		await press('ArrowDown', 'alt');
 		const l1 = await layerRows();
 		const d1 = await drawn();
-		check(l1[0] === l0[1] && l1[1] === l0[0] && d1[d1.length - 1] === l0[1] && d1[d1.length - 2] === l0[0], 'layers: Alt+ArrowDown on the top row moves the box one layer back (list + canvas)', JSON.stringify({ l1, d1 }));
+		check(l1[at + 1] === l0[at] && l1[at] === l0[at + 1] && JSON.stringify([...d1].reverse()) === JSON.stringify(drawnRows(l1)), 'layers: Alt+ArrowDown on its row moves the box one layer back (list + canvas)', JSON.stringify({ l1, d1 }));
+		// the canvas's pointer order (its boxes on the Layers tab; the selected one is lifted) = the list, areas included
+		const boxes = [...new Set(await boxRows())].reverse().filter((r) => r !== `layer-dialog-${added}` && l1.includes(r));
+		check(JSON.stringify(boxes) === JSON.stringify(l1.filter((r) => r !== `layer-dialog-${added}` && boxes.includes(r))) && boxes.length === l1.length - 1, 'layers: the canvas boxes take the pointer in the list order (areas too)', JSON.stringify({ boxes, l1 }));
 		await barClick('undo');
 		check(JSON.stringify(await layerRows()) === JSON.stringify(l0), 'layers: one undo brings the order back');
-	} else check(false, 'layers: the slice has a second text box / item to reorder against', JSON.stringify(l0));
+	} else check(false, 'layers: the slice has a row under the new text box to reorder against', JSON.stringify(l0));
 
 	// ── snap + nudge (outside a field: the list entry has the focus) ──────────────────────────────────────
 	await click(tid(`dialog-${added}`));

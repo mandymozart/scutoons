@@ -366,7 +366,12 @@ export interface VNEventTrigger {
 }
 
 export type VNSliceEvent = VNEvent & {
-	trigger: VNEventTrigger
+	trigger: VNEventTrigger;
+	/**
+	 * a click / hover area's place in the slice's ONE layer stack (layers.ts, BACKLOG 10.54): higher = in front (drawn on
+	 * top, gets the tap / hover first); the events sharing the trigger carry the same number. None = the old order.
+	 */
+	layer?: number;
 }
 
 export interface VNEventsConfig {

@@ -43,7 +43,8 @@
 		tool?: Tool;
 		/**
 		 * the kinds the inspector's tab is on (owner 2026-10-03: full-slice events covered everything; the Layers tab = text
-		 * boxes + placed items): only their boxes take the pointer, the others show faintly; null = every kind
+		 * boxes + placed items + the click / hover areas of its stack): only their boxes take the pointer, the others show
+		 * faintly; null = every kind
 		 */
 		layers?: readonly ItemKind[] | null;
 		selection?: CanvasSelection | null;
@@ -128,20 +129,28 @@
 	});
 
 	/**
-	 * drawing order: the big areas (events, samples) under the layer stack, larger first; text boxes and placed items in
-	 * the slice's one layer order (`sliceLayers`, as the reader draws them); the selected one last (on top)
+	 * drawing (= pointer) order: the slice's one layer stack (`sliceLayers` – text boxes, placed items and the click / hover
+	 * areas of events and samples, BACKLOG 10.43 + 10.54) as the reader draws and hit-tests it, every event of an area at
+	 * the area's place; under it the other areas (in view), larger first; the selected one last (on top)
 	 */
-	const KIND_ORDER: Record<ItemKind, number> = { event: 0, sample: 1, item: 2, dialog: 2 };
-	const layerRank = $derived(new Map(sliceLayers(slice).map((ref, rank) => [`${ref.kind}${ref.index}`, rank])));
+	const layerRank = $derived(
+		new Map(sliceLayers(slice).flatMap((ref, rank) => (ref.events ?? [ref.index]).map((index) => [`${ref.kind}${index}`, rank] as const)))
+	);
+	const inStack = (i: Item) => layerRank.has(`${i.kind}${i.index}`);
 	const ordered = $derived(
 		[...items].sort((a, b) => {
 			const sel = (i: Item) => (selection?.kind === i.kind && selection?.index === i.index ? 1 : 0);
 			const area = (i: Item) => i.rect.width * (i.rect.height ?? 10);
-			const rank = (i: Item) => layerRank.get(`${i.kind}${i.index}`) ?? 0;
-			return sel(a) - sel(b) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || (KIND_ORDER[a.kind] === 2 ? rank(a) - rank(b) : area(b) - area(a));
+			const rank = (i: Item) => layerRank.get(`${i.kind}${i.index}`) ?? -1;
+			return sel(a) - sel(b) || rank(a) - rank(b) || area(b) - area(a);
 		})
 	);
 	/** a pointer on the canvas takes the keyboard from a field (Delete / Ctrl+X / arrows then act on the selection) */
+	/**
+	 * a box takes the pointer on its tab; on the Layers tab (the one with the text boxes) only the areas of the stack, not
+	 * a whole-slice / in-view event's
+	 */
+	const active = (i: Item) => layers === null || (layers.includes(i.kind) && (!layers.includes('dialog') || inStack(i)));
 	function releaseField() {
 		const el = document.activeElement as HTMLElement | null;
 		if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) el.blur();
@@ -473,7 +482,7 @@
 					class="box kind-{item.kind}"
 					class:selected
 					class:live={selected && live}
-					class:inactive={layers !== null && !layers.includes(item.kind)}
+					class:inactive={!active(item)}
 					style:left="{item.rect.x}%"
 					style:top="{item.rect.y}%"
 					style:width="{item.rect.width}%"

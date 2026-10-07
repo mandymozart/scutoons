@@ -9,8 +9,12 @@
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 
-	/** the slice events sharing this trigger: one run per click / hover / intersect, in their order */
-	let { events }: { events: VNSliceEvent[] } = $props();
+	/**
+	 * the slice events sharing this trigger: one run per click / hover / intersect, in their order. `own`: the area is
+	 * a row of the slice's layer stack (the author ordered it – BACKLOG 10.54): it takes the pointer itself, so what lies
+	 * in front of it covers it; else the slice listens (every area under the pointer reacts – the old way).
+	 */
+	let { events, own = false }: { events: VNSliceEvent[]; own?: boolean } = $props();
 
 	const vn = getVisualNovelContext();
 	const game = getGameContext();
@@ -43,7 +47,7 @@
 		if (!isRunDue(rule, ids, game, memory)) return;
 		if (running) return;
 		if (!triggerElement?.parentElement) return;
-		if (!isWithinRect(e, triggerElement.parentElement)) return;
+		if (!own && !isWithinRect(e, triggerElement.parentElement)) return;
 
 		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group, `on/${ids[0] ?? shortHash(JSON.stringify(events[0].trigger))}`);
 		running = true;
@@ -60,11 +64,11 @@
 	}
 
 	onMount(() => {
-		const parent = triggerElement?.parentElement;
-		if (!parent) return;
+		const target = own ? triggerElement : triggerElement?.parentElement;
+		if (!target) return;
 
-		parent.addEventListener('click', handleClick);
-		return () => parent.removeEventListener('click', handleClick);
+		target.addEventListener('click', handleClick);
+		return () => target.removeEventListener('click', handleClick);
 	});
 </script>
 
@@ -72,6 +76,7 @@
 	<div
 		bind:this={triggerElement}
 		class="event-trigger event-trigger--click"
+		class:own
 		class:triggered
 		style:left="{rect.x}%"
 		style:top="{rect.y}%"
@@ -104,6 +109,12 @@
 		background: rgba(76, 175, 80, 0.1);
 		box-shadow: inset 0 0 20px rgba(76, 175, 80, 0.3);
 		cursor: pointer;
+	}
+
+	/* in the layer stack: it takes the pointer itself, at its place in the stack (no z-index of its own) */
+	.event-trigger.own {
+		pointer-events: auto;
+		z-index: auto;
 	}
 
 	.event-trigger:hover {
