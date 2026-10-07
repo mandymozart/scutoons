@@ -80,4 +80,8 @@
 	li button {
 		padding: 0 0.4em;
 	}
+	/* remove / add: a square target (the "+" alone was 24px wide on a phone, BACKLOG 10.50 d) */
+	li button:not([data-sort-grip]) {
+		min-width: var(--control-height);
+	}
 </style>

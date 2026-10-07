@@ -68,6 +68,7 @@
 	import FlowDock from '$lib/components/flow/flow-dock.svelte';
 	import ReaderDock from '$lib/components/reader/reader-dock.svelte';
 	import LiveChip from '$lib/components/status/live-chip.svelte';
+	import { toonUrl } from '$lib/utils/cdn.ts';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
 	import { toast } from '$lib/toasts.ts';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
@@ -89,6 +90,45 @@
 	// maximized (owner 2026-10-06, agents/DOCKING.md "Maximize"): the inspector fills the editor's columns and the shell
 	// gives the content the dock's room too; the canvas is only hidden (its edits, scroll and size stay)
 	const INSPECTOR = 'slice-inspector';
+	/**
+	 * phones (BACKLOG 10.50 e): the inspector is a sheet below the canvas – its grab handle drags it taller / lower (rem,
+	 * not remembered), a tap switches between the normal height (45 %) and tall (80 %); arrows step it
+	 */
+	let sheetRem = $state<number | null>(null);
+	let sheetDrag: { id: number; y: number; moved: boolean } | null = null;
+	const rootRem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+	function sheetLimits() {
+		const h = (columnsEl?.clientHeight ?? window.innerHeight) / rootRem();
+		return { min: 3.5, max: Math.max(3.5, h - 6), h };
+	}
+	function setSheet(rem: number) {
+		const { min, max } = sheetLimits();
+		sheetRem = Math.round(Math.min(max, Math.max(min, rem)) * 4) / 4;
+	}
+	function sheetDown(event: PointerEvent) {
+		sheetDrag = { id: event.pointerId, y: event.clientY, moved: false };
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+	}
+	function sheetMove(event: PointerEvent) {
+		if (!sheetDrag || sheetDrag.id !== event.pointerId || !columnsEl) return;
+		if (!sheetDrag.moved && Math.abs(event.clientY - sheetDrag.y) < 6) return;
+		sheetDrag.moved = true;
+		setSheet((columnsEl.getBoundingClientRect().bottom - event.clientY) / rootRem());
+	}
+	function sheetUp(event: PointerEvent) {
+		if (!sheetDrag || sheetDrag.id !== event.pointerId) return;
+		const tap = !sheetDrag.moved;
+		sheetDrag = null;
+		if (!tap) return;
+		const { h } = sheetLimits();
+		setSheet(sheetRem !== null && sheetRem > h * 0.6 ? h * 0.45 : h * 0.8);
+	}
+	function sheetKey(event: KeyboardEvent) {
+		const step = event.key === 'ArrowUp' ? 2 : event.key === 'ArrowDown' ? -2 : 0;
+		if (!step) return;
+		event.preventDefault();
+		setSheet((sheetRem ?? sheetLimits().h * 0.45) + step);
+	}
 	const inspectorMax = $derived(shellDock.maximized === INSPECTOR);
 	$effect(() => () => {
 		if (shellDock.maximized === INSPECTOR) shellDock.restore();
@@ -907,14 +947,14 @@
 		{#snippet start()}
 			<!-- phones have no Cmd keys: copy / cut / paste on the live region from here (BACKLOG 10.39) -->
 			<span class="clip-phone"><ClipMenu bar /></span>
-			{@render sliceNav('start')}
-			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
+			<!-- phones: slice nav, problems, undo / redo are in the slice bar above (BACKLOG 10.50 c) -->
+			<button class="ghost not-phone" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="undo"><Icon name="rotate-ccw" /></button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="redo"><Icon name="rotate-cw" /></button>
+			<button class="ghost not-phone" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="undo"><Icon name="rotate-ccw" /></button>
+			<button class="ghost not-phone" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="redo"><Icon name="rotate-cw" /></button>
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each readerLocales as l}
@@ -943,10 +983,20 @@
 		<DocNotices {session} docs={allDocs} />
 
 		<!-- the slice canvas + its inspector = ONE selection region (live on load; the keys act on it) -->
-		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
+		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css} style:--sheet-height={sheetRem === null ? null : `${sheetRem}rem`}>
 			<!-- Main -->
 			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
 				{#if view.section === 'meta'}
+					<!-- phones (BACKLOG 10.50 h): the chapter leads with its groups – the tree is in the drawer there -->
+					<nav class="phone-only phone-groups" aria-label={m['creator.groups']()} data-testid="phone-groups">
+						<p class="sc-nav-head">{m['creator.groups']()}</p>
+						{#each sceneGroups() as g, gi (gi)}
+							<button type="button" class="sc-nav-item" onclick={() => view.selectGroup(gi)} data-testid="phone-group-{gi}">
+								<span class="phone-name">{groupName(groups[gi], gi)}</span>
+								<span class="phone-hint">{g?.slices?.length ?? 0}{g?.events ? ' · VN' : ''}</span>
+							</button>
+						{/each}
+					</nav>
 					{#if legacyTexts}
 						<div class="sc-bar is-note" data-testid="legacy-texts">
 							<span>{m['creator.legacy_texts']({ count: legacyTexts })}</span>
@@ -973,6 +1023,17 @@
 					<AudioPanel doc={chapter} {season} number={chapterNumber} />
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
+						<!-- phones (BACKLOG 10.50 h): the group's slices first – a tap opens the slice editor -->
+						{#if activeGroup?.slices?.length}
+							<nav class="phone-only phone-slices" aria-label={m['creator.slices']()} data-testid="phone-slices">
+								{#each activeGroup.slices as s, si (si)}
+									<button type="button" class="phone-slice" onclick={() => view.selectSlice(si)} aria-label={m['creator.slice_n']({ number: si + 1 })} title={m['creator.slice_n']({ number: si + 1 })} data-control-exempt="slice thumbnail" data-testid="phone-slice-{si}">
+										<img src={toonUrl(activeDoc.toon, s?.image)} alt="" loading="lazy" />
+										<span>{si + 1}</span>
+									</button>
+								{/each}
+							</nav>
+						{/if}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
 						<!-- the reader's screen: a full-width horizontal group sideways, a vertical group stacked (UI-CONCEPTS E.6) -->
 						{#if activeGroup?.renderer?.type === Renderer.HORIZONTAL && activeGroup.renderer.params?.fullWidth}
@@ -1028,6 +1089,23 @@
 			{#if view.section === 'slice' && activeDoc && activeSlice}
 				<Divider size={inspectorSize} edge="left" at="var(--inspector-width, 22rem)" label={m['creator.resize_panel']()} controls="slice-inspector" class="inspector-resize" />
 				<aside class="inspector-region" id="slice-inspector" aria-label={m['creator.inspector']()} data-testid="inspector-region" data-sc-maximize={INSPECTOR}>
+				<!-- phones: the sheet's grab handle (BACKLOG 10.50 e) – a separator like the Divider -->
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+				<div
+					class="sheet-handle"
+					role="separator"
+					aria-orientation="horizontal"
+					aria-label={m['creator.resize_panel']()}
+					title={m['creator.resize_panel']()}
+					tabindex="0"
+					data-focus-own
+					data-testid="sheet-handle"
+					onpointerdown={sheetDown}
+					onpointermove={sheetMove}
+					onpointerup={sheetUp}
+					onpointercancel={() => (sheetDrag = null)}
+					onkeydown={sheetKey}
+				><span></span></div>
 				<SliceInspector
 					{view}
 					doc={activeDoc}
@@ -1059,6 +1137,29 @@
 				</SliceInspector>
 				</aside>
 			{/if}
+		</div>
+		<!-- phones (BACKLOG 10.50 c, the approved draft): the slice bar above the ActionBar – ‹ Slice n/m ›, undo, redo, the
+		     problems (opens Problems); round icon buttons, More keeps the rest -->
+		<div class="slice-bar" role="toolbar" aria-label={m['creator.slice_navigation']()} data-testid="slice-bar">
+			{#if view.section === 'slice' && activeGroup?.slices?.length}
+				<button type="button" class="sc-round" onclick={() => view.selectSlice(view.sliceIndex - 1)} disabled={view.sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid="bar-prev-slice"><Icon name="chevron-left" /></button>
+				<span class="bar-count" data-testid="bar-slice-count">{m['creator.slice_of']({ index: view.sliceIndex + 1, count: activeGroup.slices.length })}</span>
+				<button type="button" class="sc-round" onclick={() => view.selectSlice(view.sliceIndex + 1)} disabled={view.sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid="bar-next-slice"><Icon name="chevron-right" /></button>
+			{/if}
+			<span class="bar-spacer"></span>
+			<button type="button" class="sc-round" title={m['creator.undo']()} aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="bar-undo"><Icon name="rotate-ccw" /></button>
+			<button type="button" class="sc-round" title={m['creator.redo']()} aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="bar-redo"><Icon name="rotate-cw" /></button>
+			<button
+				type="button"
+				class="sc-round bar-problems"
+				class:is-bad={errorCount > 0}
+				aria-pressed={panel === 'problems'}
+				title="{m['creator.problems']()} {errorCount}/{warningCount}"
+				aria-label="{m['creator.problems']()} {errorCount}/{warningCount}"
+				onclick={() => togglePanel('problems')}
+				data-testid="bar-problems"
+				><Icon name="alert-triangle" />{#if errorCount + warningCount}<span class="corner">{errorCount || warningCount}</span>{/if}</button
+			>
 		</div>
 	{/if}
 
@@ -1145,10 +1246,114 @@
 			display: none !important;
 		}
 	}
-	@media (min-width: 768px) {
-		.slice-nav.in-start {
+	/* phones (BACKLOG 10.50 h): the content first – the chapter's groups, a group's slices */
+	.phone-only {
+		display: none;
+	}
+	@media (max-width: 767px) {
+		.phone-only {
+			display: block;
+		}
+	}
+	.phone-groups {
+		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) var(--space-15);
+		border-bottom: var(--border-width-regular) solid var(--ink);
+	}
+	.phone-groups .sc-nav-item {
+		justify-content: space-between;
+	}
+	.phone-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.phone-hint {
+		flex: none;
+		color: var(--muted);
+	}
+	@media (max-width: 767px) {
+		.phone-slices {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+			gap: var(--space-05);
+			margin-bottom: var(--space-15);
+		}
+	}
+	.phone-slice {
+		position: relative;
+		display: block;
+		width: 100%;
+		aspect-ratio: 3 / 4;
+		padding: 0;
+		border: var(--border-width-regular) solid var(--ink);
+		background: var(--paper);
+		overflow: hidden;
+	}
+	.phone-slice img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.phone-slice span {
+		position: absolute;
+		left: 0;
+		top: 0;
+		padding: 0 0.25rem;
+		background: var(--ink);
+		color: var(--paper);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+	}
+	/* phones: the slice bar above the ActionBar (BACKLOG 10.50 c) – its controls leave "More" */
+	.slice-bar {
+		display: none;
+	}
+	@media (max-width: 767px) {
+		.not-phone {
 			display: none !important;
 		}
+		.slice-bar {
+			flex: none;
+			display: flex;
+			align-items: center;
+			gap: var(--space-05);
+			padding: var(--space-025) var(--space-1);
+			border-top: var(--border-width-regular) solid var(--ink);
+			background: var(--paper);
+		}
+		/* the toasts sit above the slice bar too */
+		:global(body:has(.slice-bar)) {
+			--sc-above-action-bar: calc(var(--control-height) + 2 * var(--space-025) + var(--border-width-regular));
+		}
+	}
+	.bar-count {
+		white-space: nowrap;
+	}
+	.bar-spacer {
+		flex: 1;
+	}
+	.bar-problems {
+		position: relative;
+	}
+	.bar-problems .corner {
+		position: absolute;
+		right: -0.25rem;
+		bottom: -0.25rem;
+		min-width: 1.25rem;
+		padding: 0 0.25rem;
+		box-sizing: border-box;
+		border: var(--border-width-hairline) solid var(--ink);
+		background: var(--paper);
+		color: var(--ink);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+	}
+	.bar-problems.is-bad .corner {
+		background: var(--error);
+		border-color: var(--error);
+		color: var(--paper);
 	}
 	.preview {
 		display: inline-flex;
@@ -1193,6 +1398,40 @@
 		}
 		.columns :global(.inspector-resize) {
 			display: none;
+		}
+	}
+	/* phones: the inspector is a sheet below the canvas with a grab handle (BACKLOG 10.50 e) */
+	.sheet-handle {
+		display: none;
+	}
+	@media (max-width: 767px) {
+		.columns.has-inspector {
+			grid-template-rows: minmax(0, 1fr) minmax(0, var(--sheet-height, 45%));
+		}
+		.sheet-handle {
+			position: sticky;
+			top: 0;
+			z-index: 2;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			height: 1.5rem;
+			background: var(--paper);
+			cursor: ns-resize;
+			touch-action: none;
+		}
+		.sheet-handle span {
+			width: 3rem;
+			height: 0.3125rem;
+			border-radius: 0.25rem;
+			background: var(--ink);
+		}
+		.sheet-handle:focus-visible {
+			outline: var(--border-width-focus) solid var(--ink);
+			outline-offset: calc(-1 * var(--border-width-focus));
+		}
+		.inspector-region :global(.inspector) {
+			padding-top: 0;
 		}
 	}
 	/* the inspector maximized: it covers the columns (beside or below the canvas), the canvas stays laid out, hidden */

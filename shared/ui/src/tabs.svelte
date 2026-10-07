@@ -83,7 +83,7 @@
 					aria-controls={children ? `${uid}-panel` : undefined}
 					tabindex={active === t.id ? 0 : -1}
 					disabled={t.disabled}
-					title={t.title}
+					title={t.title ?? (variant === 'grid' ? t.label : undefined)}
 					class:active={active === t.id}
 					class:warning={t.warning}
 					data-testid={t.testid}
@@ -215,5 +215,19 @@
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		opacity: 0.7;
+	}
+	/* phones (BACKLOG 10.50 e): every tab in ONE row – icon + count, the label stays the accessible name (+ the tooltip) */
+	@media (max-width: 767px) {
+		[data-variant='grid'] .list {
+			grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+		}
+		[data-variant='grid'] .label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 </style>

@@ -143,6 +143,8 @@
 					{moreLabel}
 				</button>
 				{#if moreOpen}
+					<!-- phones: the page under the open panel is dimmed (a tab row peeking above it read as part of it – BACKLOG 10.50 c) -->
+					<button type="button" class="more-scrim" tabindex="-1" data-control-exempt="scrim" aria-label={moreLabel} onclick={() => (moreOpen = false)}></button>
 					<div class="more-panel" id="{uid}-more">
 						{#if start}<div class="more-start">{@render start()}</div>{/if}
 						{#if secondary}<div class="more-secondary">{@render secondary()}</div>{/if}
@@ -292,6 +294,31 @@
 		padding: var(--space-1);
 		background: var(--paper);
 		border: var(--border-width-regular) solid var(--ink);
+	}
+	.more-scrim {
+		display: none;
+	}
+	/* phones: the panel is a sheet on the bar – the full width, flush on its top rule, the page above dimmed */
+	@media (max-width: 767px) {
+		.more-scrim {
+			display: block;
+			position: fixed;
+			inset: 0 0 var(--action-bar-height, var(--tool-bar-height)) 0;
+			min-height: 0;
+			padding: 0;
+			border: 0;
+			background: rgb(0 0 0 / 0.4);
+			cursor: default;
+		}
+		.more-panel {
+			position: fixed;
+			left: 0;
+			right: 0;
+			bottom: calc(var(--action-bar-height, var(--tool-bar-height)) - var(--border-width-regular));
+			width: auto;
+			margin: 0;
+			border-width: var(--border-width-regular) 0;
+		}
 	}
 	.more-start,
 	.more-secondary {

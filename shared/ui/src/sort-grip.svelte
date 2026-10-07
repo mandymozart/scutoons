@@ -77,6 +77,12 @@
 		cursor: default;
 		opacity: 0.35;
 	}
+	/* touch screens (BACKLOG 10.50 d): a target as wide as it is high (≥ 2.75rem) – the drawn dots stay small */
+	@media (pointer: coarse) {
+		.sc-sort-grip {
+			width: var(--control-height);
+		}
+	}
 	:global([data-sort-dragging]) .sc-sort-grip {
 		cursor: grabbing;
 	}

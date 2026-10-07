@@ -715,4 +715,23 @@
 	.h-s { left: 50%; top: 100%; cursor: ns-resize; }
 	.h-sw { left: 0; top: 100%; cursor: nesw-resize; }
 	.h-w { left: 0; top: 50%; cursor: ew-resize; }
+	/* touch screens (BACKLOG 10.50 d): a bigger handle, a 2.75rem target around it; rotate / scale further out so their
+	   targets don't cover the corner ones */
+	@media (pointer: coarse) {
+		.handle {
+			width: 1rem;
+			height: 1rem;
+		}
+		.handle::before {
+			content: '';
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			width: 2.75rem;
+			height: 2.75rem;
+			transform: translate(-50%, -50%);
+		}
+		.h-rotate { top: calc(-2.5rem / var(--box-scale, 1)); }
+		.h-scale { left: calc(100% + 1.5rem / var(--box-scale, 1)); top: calc(100% + 1.5rem / var(--box-scale, 1)); }
+	}
 </style>

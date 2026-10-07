@@ -329,44 +329,6 @@
 			<h1 class="toon-title">
 				<a href="/{toonId}/toon" title={m['creator.open_toon_settings']({ name: toonName })} data-testid="toon-title"><ToonAvatar src={avatarSrc} name={toonName} /> <span>{toonName}</span></a>
 			</h1>
-			{#if index && !index.loading && edited}
-				<section class="languages" data-testid="languages">
-					<div class="season-head">
-						<h2>{m['creator.languages']()}</h2>
-						<FileStatus doc={index} />
-					</div>
-					<div class="language-grid">
-						<label class="field">
-							<span>{m['creator.source_language']()}<SourceMark /></span>
-							<select value={edited.source} onchange={(e) => setSource(e.currentTarget.value as Language)} data-testid="source-language">
-								{#each ALL_LANGUAGES as l}<option value={l}>{languageLabel(l)}</option>{/each}
-							</select>
-						</label>
-						<div class="field">
-							<span>{m['creator.target_languages']()}</span>
-							<ul class="chips">
-								{#each targets as l (l)}
-									<li class="sc-chip-control" data-testid="language-{l}">
-										{languageLabel(l)}
-										<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
-										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
-									</li>
-								{/each}
-							</ul>
-							{#if addable.length}
-								<span class="add-language">
-									<select bind:value={addLanguage} aria-label={m['creator.add_language_label']()} data-testid="add-language-select">
-										<option value="">{m['creator.add_language_label']()} …</option>
-										{#each addable as l}<option value={l}>{languageLabel(l)}</option>{/each}
-									</select>
-									<button class="secondary" disabled={!addLanguage} onclick={addTarget} data-testid="add-language"><Icon name="plus" /> {m['creator.add_language']()}</button>
-								</span>
-							{/if}
-						</div>
-					</div>
-					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()}</p>{/if}
-				</section>
-			{/if}
 			{#if unconverted}
 				<!-- only while something is still stored per language (agents/NEUTRAL.md): the owner's Convert page -->
 				<p class="sc-bar is-note" data-testid="convert-bar">{m['creator.convert_bar']()} <a href="/{toonId}/convert" data-testid="open-convert">{m['creator.convert_open']()}</a></p>
@@ -418,6 +380,45 @@
 			{/if}
 			{#if season && !season.loading && !seasonMissing && orphans.length}
 				<p class="error" data-testid="orphans">{m['creator.orphans']({ numbers: orphans.join(', '), file: fileLabel(season.entity) })}</p>
+			{/if}
+			<!-- the content first (BACKLOG 10.50 h): the chapters, then the toon's languages (set up once, rarely changed) -->
+			{#if index && !index.loading && edited}
+				<section class="languages" data-testid="languages">
+					<div class="season-head">
+						<h2>{m['creator.languages']()}</h2>
+						<FileStatus doc={index} />
+					</div>
+					<div class="language-grid">
+						<label class="field">
+							<span>{m['creator.source_language']()}<SourceMark /></span>
+							<select value={edited.source} onchange={(e) => setSource(e.currentTarget.value as Language)} data-testid="source-language">
+								{#each ALL_LANGUAGES as l}<option value={l}>{languageLabel(l)}</option>{/each}
+							</select>
+						</label>
+						<div class="field">
+							<span>{m['creator.target_languages']()}</span>
+							<ul class="chips">
+								{#each targets as l (l)}
+									<li class="sc-chip-control" data-testid="language-{l}">
+										{languageLabel(l)}
+										<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
+										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
+									</li>
+								{/each}
+							</ul>
+							{#if addable.length}
+								<span class="add-language">
+									<select bind:value={addLanguage} aria-label={m['creator.add_language_label']()} data-testid="add-language-select">
+										<option value="">{m['creator.add_language_label']()} …</option>
+										{#each addable as l}<option value={l}>{languageLabel(l)}</option>{/each}
+									</select>
+									<button class="secondary" disabled={!addLanguage} onclick={addTarget} data-testid="add-language"><Icon name="plus" /> {m['creator.add_language']()}</button>
+								</span>
+							{/if}
+						</div>
+					</div>
+					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()}</p>{/if}
+				</section>
 			{/if}
 			{#if message}<p class="hint">{message}</p>{/if}
 			{#if error}<p class="error">{error}</p>{/if}
@@ -523,10 +524,11 @@
 	.error {
 		color: var(--error);
 	}
+	/* after the chapters: a rule above it */
 	.languages {
-		margin-bottom: 2rem;
-		padding-bottom: 1.5rem;
-		border-bottom: 2px solid var(--ink);
+		margin-top: 2rem;
+		padding-top: 1.5rem;
+		border-top: 2px solid var(--ink);
 	}
 	.language-grid {
 		display: flex;

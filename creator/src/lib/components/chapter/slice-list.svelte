@@ -219,7 +219,7 @@
 			}}
 		>
 			<SortGrip label={m['creator.sort_move']({ name: `${index + 1} ${slice?.image?.split('/').pop() ?? ''}`.trim() })} title={m['creator.sort_hint']()} testid="slice-grip-{index}" />
-			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={(e) => pick(index, e)} data-testid="slice-{index}">
+			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={(e) => pick(index, e)} data-drawer-pick data-testid="slice-{index}">
 				<span class="no">{index + 1}</span>
 				<img src={replacedImages.src(toonUrl(doc.toon, slice?.image), toonAsset(doc.toon, slice?.image))} alt="" loading="lazy" draggable="false" />
 				<span class="info">

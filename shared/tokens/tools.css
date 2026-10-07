@@ -193,6 +193,13 @@
 :where(.sc-tool) :where(button:disabled) {
 	cursor: not-allowed;
 }
+/* touch screens (BACKLOG 10.50 d): a frameless icon-only button in a row (remove ×, the star, a row tool) is at least as
+   wide as it is high – it was 24–28px wide on a phone */
+@media (pointer: coarse) {
+	:where(.sc-tool) :where(button.ghost[aria-label]) {
+		min-width: var(--control-height);
+	}
+}
 
 /* ── Focus: one thick ink outline everywhere ─────────────────────────────────────────────────────────────────────── */
 :where(.sc-tool) :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {

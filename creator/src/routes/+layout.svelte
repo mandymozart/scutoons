@@ -149,6 +149,15 @@
 		void page.url.href;
 		menuOpen = false;
 	});
+	/** a pick inside the drawer closes it on phones – a group that only folds (aria-expanded false afterwards) keeps it open */
+	function closeOnPick(event: MouseEvent) {
+		if (!phone.current || !menuOpen) return;
+		const el = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-drawer-pick]');
+		if (!el) return;
+		requestAnimationFrame(() => {
+			if (el.getAttribute('aria-expanded') !== 'false') menuOpen = false;
+		});
+	}
 	const universe = $derived([
 		{ href: '/characters', label: m['creator.characters'](), tab: null as string | null },
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
@@ -327,7 +336,9 @@
 						{#if nav.actions}{@render nav.actions()}{/if}
 					</div>
 				{/if}
-				<div class="nav-children">
+				<!-- phones: a pick in the drawer (a group, a slice, Meta / Audio – `data-drawer-pick`) closes it, like a link (10.50 b) -->
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<div class="nav-children" onclick={closeOnPick}>
 					{#if nav.sidebar}
 						{@render nav.sidebar()}
 					{:else}
@@ -403,6 +414,12 @@
 	}
 	.burger {
 		display: none;
+	}
+	/* touch screens: the logo link is a full-height target (BACKLOG 10.50 d) */
+	@media (pointer: coarse) {
+		a.brand {
+			min-height: var(--control-height);
+		}
 	}
 	.spacer {
 		flex: 1;

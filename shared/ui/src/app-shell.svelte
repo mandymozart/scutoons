@@ -137,6 +137,18 @@
 		foldWhen: () => foldWhen || (!!ask && !!dock && !dock.size.folded) || !!maximized
 	});
 	const folded = $derived(region.folded);
+	/** phones (< 768px): a collapsible sidebar is the drawer – it never shows the rail (a fold remembered on a desktop, or
+	 * one forced by dock + Ask, would leave an empty rail as wide as the drawer); its fold button closes the drawer */
+	let phone = $state(false);
+	$effect(() => {
+		const query = window.matchMedia('(max-width: 767px)');
+		const change = () => (phone = query.matches);
+		change();
+		query.addEventListener('change', change);
+		return () => query.removeEventListener('change', change);
+	});
+	const drawer = $derived(collapsible && phone);
+	const railed = $derived(folded && !!foldKey && !drawer);
 
 	$effect(() => {
 		if (!foldKey) return;
@@ -296,10 +308,13 @@
 				bind:this={sidebarEl}
 				aria-label={sidebarLabel}
 			>
-				{#if foldKey && folded}
+				{#if railed}
 					<Rail side="left" label={railLabel} {unfoldLabel} title="{unfoldLabel} (Ctrl + \)" controls={sidebarId} onunfold={() => region.fold(false)} testid="shell-rail" />
 				{:else}
-					{#if foldKey}
+					{#if drawer}
+						<!-- the drawer's fold = close it (BACKLOG 10.50 a) -->
+						<FoldButton side="left" label={closeLabel} title={closeLabel} controls={sidebarId} onclick={() => onclose?.()} class="sc-shell-fold" />
+					{:else if foldKey}
 						<FoldButton side="left" label={foldLabel} title="{foldLabel} (Ctrl + \)" controls={sidebarId} onclick={() => region.fold(true)} class="sc-shell-fold" />
 					{/if}
 					{@render sidebar()}

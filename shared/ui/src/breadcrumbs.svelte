@@ -241,6 +241,12 @@
 	a[aria-current='page'] {
 		text-decoration: none;
 	}
+	/* touch screens (BACKLOG 10.50 d): every crumb a full-height target (they were 20px high on a phone) */
+	@media (pointer: coarse) {
+		a {
+			min-height: var(--control-height);
+		}
+	}
 	.root a {
 		text-decoration: none;
 	}

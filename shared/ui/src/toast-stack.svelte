@@ -32,9 +32,16 @@
 		max-width: min(24rem, calc(100vw - 2rem));
 		pointer-events: none;
 	}
-	/* a page with the fixed bottom ActionBar: the stack sits right above it */
+	/* a page with the fixed bottom ActionBar: the stack sits right above it (and above a bar a page puts on it:
+	   `--sc-above-action-bar`, e.g. the creator's slice bar on phones) */
 	:global(body:has(.sc-action-bar)) .sc-toast-stack {
-		bottom: calc(var(--action-bar-height, var(--tool-bar-height)) + var(--space-1));
+		bottom: calc(var(--action-bar-height, var(--tool-bar-height)) + var(--sc-above-action-bar, 0rem) + var(--space-1));
+	}
+	/* phones: while the ActionBar's "More" sheet is open the toasts wait under its scrim (they covered its entries) */
+	@media (max-width: 767px) {
+		:global(body:has(.sc-action-bar .more-panel)) .sc-toast-stack {
+			z-index: 30;
+		}
 	}
 	.toast {
 		display: flex;

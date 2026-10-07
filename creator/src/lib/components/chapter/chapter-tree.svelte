@@ -168,8 +168,8 @@
 </script>
 
 <div class="tree" data-testid="chapter-tree" use:region={'tree'}>
-	<button class="node sc-nav-item" class:is-current={view.section === 'meta'} onclick={() => (view.section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
-	<button class="node sc-nav-item" class:is-current={view.section === 'audio'} onclick={() => (view.section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
+	<button class="node sc-nav-item" class:is-current={view.section === 'meta'} onclick={() => (view.section = 'meta')} data-drawer-pick data-testid="tree-meta">{m['creator.meta']()}</button>
+	<button class="node sc-nav-item" class:is-current={view.section === 'audio'} onclick={() => (view.section = 'audio')} data-drawer-pick data-testid="tree-audio">{m['creator.audio']()}</button>
 	<div class="sc-nav-head">{m['creator.groups']()}</div>
 	<div class="groups" use:sortable={{ onmove: moveGroups }}>
 	{#each groups as g, gi (gi)}
@@ -181,6 +181,8 @@
 					class="node sc-nav-item"
 					onclick={(e) => clickGroup(gi, e)}
 					aria-expanded={open}
+					data-drawer-pick
+					data-control-exempt="a long group name wraps its count below"
 					data-nav-child={view.section === 'meta' || view.section === 'audio' ? '' : undefined}
 					data-testid="group-{gi}"
 				>
@@ -222,22 +224,28 @@
 	.group-row {
 		display: flex;
 	}
+	/* the name comes first (BACKLOG 10.50 g: grip + remove left it a letter or two in a narrow sidebar): it keeps its full
+	   width (cut only when even the whole row is too narrow), the count / VN wraps below it when there is no room */
 	.group-row .node {
 		flex: 1;
 		min-width: 0;
+		flex-wrap: wrap;
 		justify-content: space-between;
+		column-gap: var(--space-05);
+		row-gap: 0;
+		padding-block: var(--space-025);
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	.node .hint {
+		margin-left: auto;
 		color: inherit;
+		white-space: nowrap;
 	}
 	.node .name {
-		flex: 1;
+		flex: 1 0 auto;
+		max-width: 100%;
 		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		overflow-wrap: anywhere;
 		text-align: left;
 	}
 	/* the link mark of a group that continues into the next one */
