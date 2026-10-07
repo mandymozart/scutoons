@@ -5,8 +5,8 @@
 	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
 	import { FULL, STAGE, type FullPlace } from '$lib/visual-novel/stage.ts';
 
-	// A full character in the centre group (stage.ts `fullLayout`): feet on the dialogue box's bottom edge (the box, z 100,
-	// covers the lower body), the speaker un-dimmed with the glow in front of the stage, the others dimmed behind it.
+	// A full character in the centre group (stage.ts `fullLayout`): in the middle of the screen (owner 2026-10-07; the box,
+	// z 100, may cover its lower body), the speaker un-dimmed with the glow in front of the stage, the others dimmed behind it.
 	let {
 		charRef,
 		character,
@@ -20,7 +20,7 @@
 		toonId: string;
 		isActive: boolean;
 		place: FullPlace;
-		/** px from the viewport bottom to the feet (the box's bottom edge) */
+		/** px from the viewport bottom to the feet (centred: half the free height) */
 		ground: number;
 	} = $props();
 

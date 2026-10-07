@@ -44,8 +44,9 @@
 	const fullOrder = $derived(frontToBack(fullCharacters.map(sceneKey)));
 	const groups = $derived(stageLayout(leftCharacters.length, rightCharacters.length, width, rem));
 	const fullPlaces = $derived(fullLayout(fullCharacters.length, width, height, rem));
-	/** the full characters' feet: the box's bottom edge (the box sits 1 rem above the viewport bottom) */
-	const fullGround = $derived(Math.round(rem));
+	/** a full character stands in the middle of the screen, also further back (owner 2026-10-07: "the full character
+	 *  should be in the center of the screen whenever they appear"): its feet half its free height above the bottom */
+	const fullGround = (place: { height: number }) => Math.max(0, Math.round((height - place.height) / 2));
 	/** feet on the shown box's top (the box sits 1 rem above the bottom), a few px into it; without a box on the
 	 *  follow-up bar's top; with neither at the page's bottom like the full characters (owner 2026-10-06, BACKLOG M.3) */
 	const ground = $derived(
@@ -78,6 +79,6 @@
 	{@const character = vn.getCharacter(charRef.name)}
 	{@const place = fullPlaces[fullOrder.indexOf(sceneKey(charRef))]}
 	{#if character && place}
-		<CharacterFull {charRef} {character} {toonId} {place} ground={fullGround} isActive={sceneKey(charRef) === activeSpeaker} />
+		<CharacterFull {charRef} {character} {toonId} {place} ground={fullGround(place)} isActive={sceneKey(charRef) === activeSpeaker} />
 	{/if}
 {/each}
