@@ -49,8 +49,7 @@
 <section class="group-panel" data-testid="group-panel">
 	<!-- the label is the name; the scene's storage key is an internal ID (owner 2026-10-03) -->
 	<h3>{m['creator.group_named']({ label: group?.label ?? '' })}</h3>
-	<!-- compact (owner 2026-10-06): one tight grid, the explanations in the labels' tooltips – the strip preview below
-	     gets the room -->
+	<!-- compact (owner 2026-10-06): one tight grid, the explanations in the labels' tooltips -->
 	<div class="sc-fields" data-cols="fill" data-density="panel" data-align="end">
 		<PropField {doc} path={p('label')} label={m['creator.group_name']()} title={m['creator.group_name_hint']()} />
 		<PropField {doc} path={p('renderer', 'type')} label={m['creator.group_layout']()} type="select" options={[{ value: Renderer.VERTICAL, label: m['creator.layout_vertical']() }, { value: Renderer.HORIZONTAL, label: m['creator.layout_horizontal']() }]} required onchange={onLayout} />

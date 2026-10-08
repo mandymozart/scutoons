@@ -174,7 +174,7 @@ cover the characters' feet.
 
 ## E.6 Strip preview for vertical groups (M.9) and the viewer as a dock panel (M.10)
 
-**Built 2026-10-07 (BACKLOG 10.49).** Strip preview: `strip-preview.svelte` `vertical` – the slices stacked at the
+**Removed 2026-10-08 (owner): the strip preview is gone – the Reader in the right dock shows how a group reads.** **Built 2026-10-07 (BACKLOG 10.49).** Strip preview: `strip-preview.svelte` `vertical` – the slices stacked at the
 reading column's width (phone: the screen's; desktop: 500 / 1440 of it, centred), scrolled inside the screen, no wheel
 remap; mounted for every vertical group (a horizontal swiper group has none). The Reader: a dock panel of kind
 `reader` (`lib/components/reader/reader-dock.svelte`, the top bar's round `smartphone` button) – the viewer's draft

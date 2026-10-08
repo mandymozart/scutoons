@@ -160,20 +160,9 @@ try {
 	const vertical = groups.findIndex((g) => g.renderer?.type === 'vertical' && (g.slices?.length ?? 0) >= 2);
 	check(vertical >= 0, `${TOON} ch${CHAPTER}: a vertical group with ≥ 2 slices (#${vertical})`);
 
-	// ── the vertical strip preview ──
+	// ── the vertical group in the chapter editor ──
 	check(await go(`/${TOON}/chapter/${CHAPTER}`, `!!${q(`group-${vertical}`)}`), `chapter editor ${TOON} ch${CHAPTER}`);
 	await js(`${q(`group-${vertical}`)}.click(), true`);
-	check(await until(`${q('strip-preview')}?.dataset.direction === 'vertical' ? true : null`, 10000), 'a vertical group: the strip preview, vertical');
-	const stack = await js(`(() => { const s = ${q('strip-preview-screen')}; const f = [...s.querySelectorAll('.frame')].map((e) => e.getBoundingClientRect()); const r = s.getBoundingClientRect(); return { n: f.length, stacked: f.length > 1 && f.every((b, i) => !i || (b.top >= f[i - 1].bottom - 1 && Math.abs(b.left - f[0].left) < 1)), fill: Math.abs(f[0].width - s.clientWidth) < 2, scrollsY: getComputedStyle(s).overflowY === 'auto' && s.scrollHeight > s.clientHeight, noX: s.scrollWidth <= s.clientWidth + 1, ratio: +(r.width / r.height).toFixed(3) }; })()`);
-	check(stack.n === groups[vertical].slices.length && stack.stacked && stack.fill && stack.noX, `phone screen: ${stack.n} slices stacked at the screen's width, no sideways track`, JSON.stringify(stack));
-	check(Math.abs(stack.ratio - 390 / 844) < 0.01 && stack.scrollsY, `phone screen 390:844 (${stack.ratio}), scrolled up / down inside`, JSON.stringify(stack));
-	await shot('e6-strip-vertical.png');
-	await js(`${q('strip-preview-desktop')}.click(), true`);
-	await sleep(300);
-	const desk = await js(`(() => { const s = ${q('strip-preview-screen')}; const t = s.querySelector('.track').getBoundingClientRect(); const r = s.getBoundingClientRect(); const left = r.left + s.clientLeft; return { ratio: +(r.width / r.height).toFixed(3), column: +(t.width / s.clientWidth).toFixed(3), centred: Math.abs((t.left - left) - (left + s.clientWidth - t.right)) < 3 }; })()`);
-	check(Math.abs(desk.ratio - 16 / 9) < 0.02 && Math.abs(desk.column - 500 / 1440) < 0.01 && desk.centred, `desktop screen 16:9: the reading column (500 of 1440), centred`, JSON.stringify(desk));
-	await shot('e6-strip-vertical-desktop.png');
-	await js(`${q('strip-preview-phone')}.click(), true`);
 
 	// ── the Reader opens ──
 	await js(`${q('reader-toggle')}.click(), true`);

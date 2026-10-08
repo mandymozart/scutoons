@@ -16,7 +16,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
-	import { entities, getAt, deleteAt, Renderer, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
+	import { entities, getAt, deleteAt, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -59,7 +59,6 @@
 	import FeaturingField from '$lib/components/fields/featuring-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
 	import GroupPanel from '$lib/components/chapter/group-panel.svelte';
-	import StripPreview from '$lib/components/chapter/strip-preview.svelte';
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import { isAccepted } from '$lib/editor/accepted.ts';
@@ -342,7 +341,7 @@
 		const src = groups[index]?.ref?.src;
 		if (src) ensureRef(src);
 	});
-	// the canvas, the strip preview and the inspector show the top bar's TEXT language (default the source; owner
+	// the canvas and the inspector show the top bar's TEXT language (default the source; owner
 	// 2026-10-06: one language everywhere, the header's switch the only one)
 	const displayLocale = $derived(textLanguage.current(languages.languages, languages.source));
 	// snap, grid size and zoom are remembered on this device
@@ -1031,12 +1030,6 @@
 							</nav>
 						{/if}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} {chapterNumber} {groupLabels} last={view.groupIndex === groups.length - 1} />
-						<!-- the reader's screen: a full-width horizontal group sideways, a vertical group stacked (UI-CONCEPTS E.6) -->
-						{#if activeGroup?.renderer?.type === Renderer.HORIZONTAL && activeGroup.renderer.params?.fullWidth}
-							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} onopen={(i) => view.selectSlice(i)} />
-						{:else if activeGroup?.renderer?.type === Renderer.VERTICAL}
-							<StripPreview doc={activeDoc} {groupPath} locale={displayLocale} vertical onopen={(i) => view.selectSlice(i)} />
-						{/if}
 						<h3 class="sub">{m['creator.vn']()}</h3>
 						{#if needsNextLabel}
 							<div class="sc-bar is-note" data-testid="next-label-hint">
