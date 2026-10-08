@@ -193,18 +193,20 @@
 
 <style>
 	/* the whole width of the viewport, out of the reading column (like a full-viewport video slice); as tall as the
-	   screen plus the sideways travel, so scrolling through it moves the pinned strip 1:1 */
+	   screen plus the sideways travel, so scrolling through it moves the pinned strip 1:1. dvh, not svh: once the mobile
+	   toolbar slides away (Firefox Android) the visible area grows – an svh pin left a black bar under it (owner 2026-10-08) */
 	.strip {
 		width: var(--viewport-width, 100vw);
 		margin-left: calc(50% - var(--viewport-width, 100vw) / 2);
-		height: calc(100svh + var(--travel, 0px));
+		height: calc(100vh + var(--travel, 0px));
+		height: calc(100dvh + var(--travel, 0px));
 		background: var(--ink, #000);
 	}
 	.pin {
 		position: sticky;
 		top: 0;
 		height: 100vh;
-		height: 100svh;
+		height: 100dvh;
 		overflow: hidden;
 		background: var(--ink, #000);
 	}
