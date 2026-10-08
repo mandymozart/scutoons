@@ -2,6 +2,7 @@
 	import { CloseIcon } from '@scutoons/ui';
 	import { setLocale, localizeHref, locales, getLocale } from '$lib/paraglide/runtime.js';
 	import { onMount, tick } from 'svelte';
+	import { holdChrome } from '$lib/chrome.ts';
 	import { loadStockists } from '$lib/stockists.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset, toonImage } from '$lib/utils/cdn.ts';
@@ -28,6 +29,10 @@
 	});
 
 	let menuOpen = $state(false);
+	// the top row stays while the menu is open (lib/chrome.ts)
+	$effect(() => {
+		if (menuOpen) return holdChrome();
+	});
 	let menuElement = $state<HTMLDivElement>();
 	let toggleElement = $state<HTMLButtonElement>();
 

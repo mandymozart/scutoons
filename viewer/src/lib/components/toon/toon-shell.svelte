@@ -19,6 +19,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { readerName } from '$lib/reader-name.svelte.ts';
 	import { pageView } from '$lib/visual-novel/page-view.ts';
+	import { chromeFollowsScroll, holdChrome } from '$lib/chrome.ts';
 
 	/**
 	 * One toon's reader shell (its VN, audio, sequence, characters, reader expressions, map, inventory) – the toon layout
@@ -75,6 +76,12 @@
 	vn.setCharacters(data.characters || []);
 	// every navigation counts as a page view (events "once per page view", items "every visit") – also coming back
 	afterNavigate(() => void pageView());
+
+	// the top row slides away while reading (lib/chrome.ts), never while an overlay is open
+	$effect(() => chromeFollowsScroll());
+	$effect(() => {
+		if (nav.activeOverlay) return holdChrome();
+	});
 
 	onDestroy(async () => {
 		await audio.unload();

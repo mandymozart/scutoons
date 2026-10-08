@@ -21,6 +21,7 @@
 	import SampleTrigger from './audio/sample-trigger.svelte';
 	import Triggers from './vn/triggers.svelte';
 	import ClickTrigger from './vn/triggers/click.svelte';
+	import { showChrome } from '$lib/chrome.ts';
 	import HoverTrigger from './vn/triggers/hover.svelte';
 
 	let {
@@ -140,7 +141,10 @@
 		if (item.action === 'pickup') {
 			// agents/FX.md: it jumps up at once, then flies into the bag (the inventory button) or shakes and stays
 			const lift = liftCue(el, item.rotation ?? 0);
+			// the bag must be on screen before the item flies into it (the top row may be hidden – lib/chrome.ts)
+			const rowIn = showChrome();
 			const result = await pickUpSliceItem(slice, item, game);
+			await rowIn;
 			// the sound in the bag: this placement's, else the item's (catalog), else pling; `none` = silent
 			const sound = item.sound ?? getCurrentInventory()?.item(item.item)?.sound;
 			if (result.ok) await lift.fly(document.querySelector('.inventory-toggle'), sound === 'none' ? null : (sound ?? 'pling'));

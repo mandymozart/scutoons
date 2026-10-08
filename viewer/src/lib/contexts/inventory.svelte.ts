@@ -53,6 +53,7 @@ import type {
 } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import type { SessionContext } from './session.svelte.ts';
+import { showChrome } from '$lib/chrome.ts';
 
 const INVENTORY_KEY = Symbol('inventory');
 const GUEST_STORAGE_KEY = 'scutoons_inventory';
@@ -380,6 +381,8 @@ export function createInventoryContext(session: SessionContext) {
 
 	const noticeTimers = new Map<number, ReturnType<typeof setTimeout>>();
 	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId, email?: string | null, reason?: string) {
+		// an item came or went: the bag (top row) shows again (lib/chrome.ts)
+		void showChrome();
 		// a received gift stays a little longer ("X schenkt dir Y")
 		const ms = kind === 'gift_received' || kind === 'now_yours' ? 7000 : 3500;
 		const hide = (id: number) => {

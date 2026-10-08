@@ -2,6 +2,7 @@
 	import { untrack, type Snippet } from 'svelte';
 	import { Icon } from '@scutoons/ui';
 	import { toonUrl } from '$lib/utils/cdn.ts';
+	import { chromeHidesWhenIdle } from '$lib/chrome.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -51,6 +52,11 @@
 		muted = !muted;
 		if (video) video.muted = muted;
 	}
+
+	// while it plays the top row hides when the reader is idle (owner 2026-10-08); it ends → the row is back
+	$effect(() => {
+		if (video && !stopped) return chromeHidesWhenIdle();
+	});
 
 	$effect(() => {
 		const el = video;

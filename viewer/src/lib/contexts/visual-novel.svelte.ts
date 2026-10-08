@@ -9,6 +9,7 @@ import type { ActiveTextBox } from '@scutoons/reader';
 import type { JumpToTarget } from '@scutoons/content';
 import { createBox, createBoxData, type BoxQuestion } from '$lib/visual-novel/box-state.ts';
 import { jumpProblem as jumpProblemAt, type JumpPlace } from '$lib/visual-novel/jump-to.ts';
+import { showChrome } from '$lib/chrome.ts';
 
 const VN_KEY = Symbol('visual-novel');
 
@@ -224,6 +225,8 @@ export function createVisualNovelContext() {
 	 */
 	function playFx(params: FxParams): number {
 		if (typeof document === 'undefined' || !(FX_IMPACTS as readonly string[]).includes(params?.effect)) return 0;
+		// choices, questions and effects bring the top row back (lib/chrome.ts, owner 2026-10-08)
+		void showChrome();
 		const ms = Math.min(FX_MAX_DURATION, Math.max(50, Number(params.duration) || IMPACT_DEFAULT_MS[params.effect]));
 		impactCue(params.effect, {
 			slice: params.target === 'screen' ? null : sliceInView(),
@@ -426,10 +429,14 @@ export function createVisualNovelContext() {
 		beginEvents: box.beginEvents,
 		endOfEvents: box.endOfEvents,
 		addChoice: (choice: VNPageChoice) => box.addChoice(choice),
-		ask: box.ask,
+		ask: (question: Parameters<typeof box.ask>[0]) => (void showChrome(), box.ask(question)),
 		answer: box.answer,
 		dropUnshownChoices: box.dropUnshownChoices,
-		showChoices: box.showChoices,
+		showChoices: () => {
+			const shown = box.showChoices();
+			if (shown) void showChrome();
+			return shown;
+		},
 		whenChoicesClosed: box.whenChoicesClosed,
 		hideChoices: box.hideChoices,
 		clearChoices: box.clearChoices,
