@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '@scutoons/tokens/index.css';
+	import '$lib/chrome.css';
 	import { getLocale, localizeHref, locales } from '$lib/paraglide/runtime.js';
 	import { page, navigating } from '$app/state';
 	import { goto } from '$app/navigation';
