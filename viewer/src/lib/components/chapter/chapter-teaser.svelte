@@ -1,13 +1,15 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * A coming-soon chapter's teaser (owner 2026-10-03: the key visual / key visual video "as a trailer for the episode";
-	 * 2026-10-05: "fullscreen player in a loop … the text is overlayed. autoplay"): the video fills the window, muted on
-	 * a loop from the start, the key visual as poster, the chapter text (`children`) on top; "Ton an" / "Ton aus" like
-	 * the toon hero. Only the image when there is no video. With reduced motion the video waits for "Ton an".
+	 * 2026-10-05: "fullscreen player … the text is overlayed. autoplay"; 2026-10-08: with sound from the start, plays once,
+	 * a replay button in the centre): the video fills the window and starts with sound, the key visual as poster, the
+	 * chapter text (`children`) on top; "Ton an" / "Ton aus" like the toon hero. When the browser refuses autoplay with
+	 * sound (no recent click) it plays muted and "Ton an" brings the sound. At the end (and with reduced motion before
+	 * it starts) a play / "Nochmal ansehen" button sits in the centre. Only the image when there is no video.
 	 * Portrait windows crop to fill, landscape windows show the whole (portrait) key visual on black.
 	 */
 	let {
@@ -20,19 +22,42 @@
 	const src = $derived(keyvisual.video ? toonUrl(toonId, keyvisual.video) : undefined);
 
 	let video = $state<HTMLVideoElement>();
-	let muted = $state(true);
+	let muted = $state(false);
 	const reducedMotion =
 		typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+	/** stopped: before the start with reduced motion, after the end – the centre button shows */
+	let stopped = $state(reducedMotion);
+	let played = $state(false);
+
+	// with sound if the browser lets us, else muted ("Ton an" brings the sound)
+	function play(el: HTMLVideoElement) {
+		stopped = false;
+		el.muted = muted;
+		el.play().catch(() => {
+			if (el.muted) return;
+			muted = el.muted = true;
+			el.play().catch(() => {});
+		});
+	}
+
+	function replay() {
+		if (!video) return;
+		video.currentTime = 0;
+		play(video);
+	}
+
+	function toggleSound() {
+		muted = !muted;
+		if (video) video.muted = muted;
+	}
 
 	$effect(() => {
 		const el = video;
 		if (!el) return;
-		el.muted = muted;
-		if (reducedMotion && muted) return;
-		const play = () => el.play().catch(() => {});
-		play();
+		// only the element: toggling the sound must not restart the video
+		untrack(() => !stopped && play(el));
 		// opened in a background tab: the browser holds autoplay back – start once the page shows
-		const onVisible = () => document.visibilityState === 'visible' && el.paused && play();
+		const onVisible = () => document.visibilityState === 'visible' && el.paused && !stopped && !el.ended && play(el);
 		document.addEventListener('visibilitychange', onVisible);
 		return () => document.removeEventListener('visibilitychange', onVisible);
 	});
@@ -45,11 +70,10 @@
 			bind:this={video}
 			class="teaser-media"
 			{poster}
-			muted
-			loop
 			playsinline
-			autoplay={!reducedMotion}
 			preload="auto"
+			onplay={() => (played = true)}
+			onended={() => (stopped = true)}
 			data-testid="chapter-teaser-video"
 		>
 			<source {src} type="video/mp4" />
@@ -62,11 +86,16 @@
 			type="button"
 			class="teaser-sound"
 			aria-pressed={!muted}
-			onclick={() => (muted = !muted)}
+			onclick={toggleSound}
 			data-testid="chapter-teaser-sound"
 		>
 			{muted ? m['hero.sound_on']() : m['hero.sound_off']()}
 		</button>
+		{#if stopped}
+			<button type="button" class="teaser-replay" onclick={replay} data-testid="chapter-teaser-replay">
+				{played ? m['player.replay']() : m['player.play']()}
+			</button>
+		{/if}
 	{/if}
 	<figcaption class="teaser-text">
 		{@render children?.()}
@@ -123,7 +152,27 @@
 	.teaser-sound[aria-pressed='true'] {
 		border-color: var(--paper);
 	}
-	.teaser-sound:focus-visible {
+	/* in the centre once the video has ended (or before it starts with reduced motion) */
+	.teaser-replay {
+		position: absolute;
+		z-index: 1;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 1rem;
+		border: var(--border-width-regular) solid var(--paper);
+		background: rgb(0 0 0 / 0.4);
+		color: var(--paper);
+		font: inherit;
+		cursor: pointer;
+	}
+	.teaser-replay:hover {
+		background: rgb(0 0 0 / 0.6);
+	}
+	.teaser-sound:focus-visible,
+	.teaser-replay:focus-visible {
 		outline: var(--border-width-regular) solid var(--paper);
 		outline-offset: 0.125rem;
 	}
