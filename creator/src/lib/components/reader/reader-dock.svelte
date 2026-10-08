@@ -125,9 +125,11 @@
 	<div class="box">
 		<div class="fit" bind:clientWidth={boxWidth} bind:clientHeight={boxHeight}>
 			<div class="device" style:width="{device.width * scale}px" style:height="{device.height * scale}px">
+				<!-- named by aria-label, not title: a title shows as a tooltip over the whole reader (owner 2026-10-08) -->
+				<!-- svelte-ignore a11y_missing_attribute -->
 				<iframe
 					bind:this={frame}
-					title={m['creator.reader_frame']()}
+					aria-label={m['creator.reader_frame']()}
 					style:width="{device.width}px"
 					style:height="{device.height}px"
 					style:transform="scale({scale})"
