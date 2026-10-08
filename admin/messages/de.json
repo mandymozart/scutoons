@@ -415,6 +415,8 @@
 		"reader_effect_minutes": "Dauer des Effekts (Minuten)",
 		"sober": "Ernüchtert: kürzt laufende Effekte um (%)",
 		"sober_hint": "jedes gegessene / benutzte Stück nimmt diesen Anteil von jedem laufenden Leser-Effekt – 50 halbiert ihn; leer = nicht; braucht die Fähigkeit \"apply\"",
+		"worn_tint": "Tönung beim Tragen",
+		"worn_tint_hint": "eine Farbe #rrggbb über allem, was Leser sehen, solange es getragen wird (Sonnenbrille: orange); leer = keine; nur für Tragbares (ein Slot)",
 		"stackable": "stapelbar",
 		"recipes": "Rezepte",
 		"edition_count": "Größe",

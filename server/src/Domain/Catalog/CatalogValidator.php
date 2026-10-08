@@ -179,6 +179,8 @@ final class CatalogValidator
         $substance = (is_array($item['effects'] ?? null) && $item['effects'] !== []) || ($item['effect'] ?? null) !== null || ($item['sober'] ?? null) !== null;
         // sobering up (owner 2026-10-08): each piece takes this share off every running effect's remaining time
         if (($item['sober'] ?? null) !== null && !((is_float($item['sober']) || is_int($item['sober'])) && $item['sober'] > 0 && $item['sober'] < 1)) $p[] = "$id: sober must be a share between 0 and 1 (0.5 halves a running effect)";
+        // a wearable's tint while worn (owner 2026-10-08: sunglasses make everything orange)
+        if (($item['worn_tint'] ?? null) !== null && !(is_string($item['worn_tint']) && preg_match('/^#[0-9a-fA-F]{6}$/', $item['worn_tint']))) $p[] = "$id: worn_tint must be a colour #rrggbb";
         if (($item['effects'] ?? null) !== null) {
             if (!is_array($item['effects']) || !array_is_list($item['effects'])) $p[] = "$id: effects must be a list of { stat, delta }";
             else foreach ($item['effects'] as $e) {

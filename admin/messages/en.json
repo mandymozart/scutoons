@@ -415,6 +415,8 @@
 		"reader_effect_minutes": "Effect duration (minutes)",
 		"sober": "Sobers up: shortens running effects by (%)",
 		"sober_hint": "each piece eaten / used takes this share off every running reader effect – 50 halves it; empty = no; needs the \"apply\" skill",
+		"worn_tint": "Tint while worn",
+		"worn_tint_hint": "a colour #rrggbb laid over everything the reader sees while it is worn (sunglasses: orange); empty = none; only for wearables (a slot)",
 		"stackable": "stackable",
 		"recipes": "Recipes",
 		"edition_count": "Size",

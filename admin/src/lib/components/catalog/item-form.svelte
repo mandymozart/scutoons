@@ -154,6 +154,8 @@
 {/if}
 <!-- sobering up (owner 2026-10-08): each piece used takes this share off every running effect – shown in %, stored as 0…1 -->
 <CatalogField label={m['catalog.sober']()} type="number" value={data.sober != null ? Math.round(data.sober * 100) : null} hint={m['catalog.sober_hint']()} error={err('sober')} onchange={(v) => (Number(v) > 0 && Number(v) < 100 ? (data.sober = Number(v) / 100) : delete data.sober)} testid="item-sober" />
+<!-- a wearable's tint while worn (owner 2026-10-08: sunglasses make everything orange) -->
+<CatalogField label={m['catalog.worn_tint']()} value={data.worn_tint ?? null} placeholder="#ff9a2e" hint={m['catalog.worn_tint_hint']()} error={err('worn_tint')} onchange={(v) => (v ? (data.worn_tint = String(v).trim()) : delete data.worn_tint)} testid="item-worn-tint" />
 
 <style>
 	.picture {

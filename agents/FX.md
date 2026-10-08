@@ -140,3 +140,8 @@ the graph.
   divided by a pace 1 … 4 (≈ 2500 px/s and more = 4), smoothed, gliding ≈ 0.8 s up and ≈ 0.6 s back when the scrolling
   stops (`followScroll` in audio-effects.ts, only while psychedelic runs). Screen shake / punch: zoomed to cover the
   sides, around the middle of the screen.
+- Wearables that tint (owner 2026-10-08: "sunglasses will make everything orange hued"): catalog `worn_tint` (`#rrggbb`,
+  admin "Tönung beim Tragen"; validated TS + PHP): while an item with it is worn, the reader lays that colour over
+  everything (reader-effect.svelte, multiply, --sc-tint-blend / --sc-tint-opacity 0.6), under any running effect.
+  Items: `punschkrapfen` (food, sober 0.5 – halves a running trip, appetite −10) and `sunglasses` (face, worn_tint
+  #ff9a2e) – created in the local catalog; production: the owner creates them in admin (icons to upload).

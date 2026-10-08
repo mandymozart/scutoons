@@ -37,6 +37,11 @@
 	});
 </script>
 
+<!-- something worn tints everything (catalog worn_tint – sunglasses: orange; owner 2026-10-08), under any effect -->
+{#if inventory.wornTint}
+	<div class="tint" style:background={inventory.wornTint} aria-hidden="true" data-testid="worn-tint"></div>
+{/if}
+
 {#if running}
 	{#if running.kind === 'psychedelic'}<PlasmaOverlay />{:else if running.kind === 'haze'}<HazeOverlay />{/if}
 	<div class="effect-bar" role="status" data-testid="reader-effect" data-kind={running.kind}>
@@ -45,6 +50,24 @@
 {/if}
 
 <style>
+	:global(:root) {
+		--sc-tint-blend: multiply;
+		--sc-tint-opacity: 0.6;
+	}
+	.tint {
+		position: fixed;
+		inset: 0;
+		z-index: 989;
+		pointer-events: none;
+		mix-blend-mode: var(--sc-tint-blend);
+		opacity: var(--sc-tint-opacity);
+		animation: tint-in 0.6s ease-out both;
+	}
+	@keyframes tint-in {
+		from {
+			opacity: 0;
+		}
+	}
 	.effect-bar {
 		position: fixed;
 		left: 0.5rem;

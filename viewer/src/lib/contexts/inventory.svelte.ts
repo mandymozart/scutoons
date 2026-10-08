@@ -362,6 +362,17 @@ export function createInventoryContext(session: SessionContext) {
 		return id == null ? undefined : entries.find((e) => String(e.id) === String(id));
 	}
 
+	/** the tint of something worn (catalog `worn_tint`, e.g. sunglasses): the first one found, none = null */
+	const wornTint = $derived.by(() => {
+		for (const id of Object.values(worn)) {
+			if (id == null) continue;
+			const entry = entries.find((e) => String(e.id) === String(id));
+			const tint = entry ? item(entry.item_id)?.worn_tint : null;
+			if (tint) return tint;
+		}
+		return null;
+	});
+
 	function isEquipped(entry: Entry): boolean {
 		return Object.values(worn).some((id) => id != null && String(id) === String(entry.id));
 	}
@@ -703,6 +714,9 @@ export function createInventoryContext(session: SessionContext) {
 		},
 		get catalogError() {
 			return catalogError;
+		},
+		get wornTint() {
+			return wornTint;
 		},
 		get entries() {
 			return entries;

@@ -144,6 +144,11 @@ export interface ItemDef extends AcceptedWarnings {
 	 */
 	sober?: number | null;
 	/**
+	 * a wearable that tints what the reader sees while it is worn (owner 2026-10-08: "putting on some cool sunglasses will
+	 * make everything orange hued"): a colour `#rrggbb`, laid over everything (multiply)
+	 */
+	worn_tint?: string | null;
+	/**
 	 * Collection limit: at most this many per account (owner 2026-10-02); none = `MAX_PER_ACCOUNT` (99). Rarer items set
 	 * less. The server refuses more (409 max_reached); a claimed physical product (QR code) is always added.
 	 */

@@ -138,6 +138,8 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 			add('error', [...path, 'effect'], `${item.id}: effect must be { kind: ${READER_EFFECTS.join(' | ')}, duration_min > 0 }`);
 		}
 		if (item.sober != null && !(typeof item.sober === 'number' && item.sober > 0 && item.sober < 1)) add('error', [...path, 'sober'], `${item.id}: sober must be a share between 0 and 1 (0.5 halves a running effect)`);
+		if (item.worn_tint != null && !(typeof item.worn_tint === 'string' && /^#[0-9a-fA-F]{6}$/.test(item.worn_tint))) add('error', [...path, 'worn_tint'], `${item.id}: worn_tint must be a colour #rrggbb`);
+		else if (item.worn_tint != null && !item.slot) add('warning', [...path, 'worn_tint'], `${item.id}: worn_tint only matters for something worn (no slot)`);
 		if (substance !== applies) add('error', [...path, 'skills'], `${item.id}: ${substance ? 'a substance needs the "apply" skill' : 'the "apply" skill needs effects or an effect'}`);
 		for (const sk of Array.isArray(item.skills) ? item.skills : []) {
 			if (sk?.type !== 'scan_object') continue;
