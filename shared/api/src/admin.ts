@@ -483,6 +483,126 @@ export interface AdminEmailLogRow {
 	created_at: string;
 }
 
+// ── Newsletter (agents/NEWSLETTER.md; /admin/newsletter/*) ──────────────────────────────────────────────
+
+export type NewsletterLocale = 'de' | 'en';
+export type NewsletterStatus = 'draft' | 'sending' | 'paused' | 'done';
+
+/** A newsletter address that is no account (table mail_contacts) */
+export interface NewsletterContact {
+	id: number;
+	email: string;
+	name: string | null;
+	/** null = not set yet (a newsletter can't start while a recipient has none) */
+	locale: NewsletterLocale | null;
+	/** qr-claim (the old QR form) | event:<where, when> | … */
+	source: string;
+	consented_at: string | null;
+	created_at: string;
+	created_by: string | null;
+	/** has an account (mailed as the member) */
+	member: boolean;
+	/** unsubscribe | bounce | manual, null = not suppressed */
+	suppressed: string | null;
+}
+
+export interface NewsletterSource {
+	source: string;
+	count: number;
+	missing_locale: number;
+}
+
+/** members_opted_in | members_all | contacts | contacts:<source> */
+export interface NewsletterAudience {
+	id: string;
+	kind: 'members' | 'contacts';
+	source: string | null;
+	count: number;
+	missing_locale: number;
+}
+
+export type NewsletterImportStatus = 'new' | 'exists' | 'member' | 'suppressed' | 'duplicate' | 'invalid';
+
+export interface NewsletterImportResult {
+	status: 'success';
+	rows: { line: number; email: string | null; name: string | null; locale: NewsletterLocale | null; status: NewsletterImportStatus }[];
+	counts: Record<NewsletterImportStatus, number>;
+	added: number;
+}
+
+export interface NewsletterSuppression {
+	email: string;
+	reason: 'unsubscribe' | 'bounce' | 'manual';
+	detail: string | null;
+	created_at: string;
+}
+
+export interface NewsletterProgress {
+	queued: number;
+	sent: number;
+	failed: number;
+	skipped: number;
+	total: number;
+}
+
+export interface Newsletter {
+	id: number;
+	title: string;
+	audiences: string[];
+	subject_de: string;
+	subject_en: string;
+	body_de: string;
+	body_en: string;
+	status: NewsletterStatus;
+	/** why the last batch stopped (SMTP login / connection) */
+	last_error: string | null;
+	created_at: string;
+	created_by: string | null;
+	updated_at: string;
+	updated_by: string | null;
+	started_at: string | null;
+	finished_at: string | null;
+	progress: NewsletterProgress;
+}
+
+export type NewsletterInput = Partial<Pick<Newsletter, 'title' | 'audiences' | 'subject_de' | 'subject_en' | 'body_de' | 'body_en'>>;
+
+export interface NewsletterRecipient {
+	id: number;
+	email: string;
+	locale: NewsletterLocale;
+	name: string | null;
+	source: 'member' | 'contact';
+	status: 'queued' | 'sent' | 'failed' | 'skipped';
+	attempts: number;
+	next_attempt_at: string | null;
+	sent_at: string | null;
+	error: string | null;
+}
+
+/** One batch (NewsletterSender::batch) */
+export interface NewsletterBatchResult {
+	status: 'idle' | 'sent' | 'limit' | 'busy' | 'error';
+	sent: number;
+	failed: number;
+	retry: number;
+	skipped: number;
+	queued: number;
+	per_hour: number;
+	sent_last_hour: number;
+	error: string | null;
+}
+
+export interface NewsletterState {
+	status: 'success';
+	transport: string;
+	/** NEWSLETTER_CRON_KEY is set (the host's cron can send) */
+	cron: boolean;
+	per_hour: number;
+	sent_last_hour: number;
+	queued: number;
+}
+
 /** The admin notification addresses (setting `mail_admin_recipients`), `GET/PUT /admin/emails/recipients` */
 export interface AdminEmailRecipients {
 	status: 'success';
@@ -720,6 +840,47 @@ export function createAdminApi(api: ApiClient) {
 			api.get<AdminServerErrors>(`/admin/server-errors${toQuery(params)}`),
 		/** the new list, or null = back to the default (MAIL_ADMIN_TO) */
 		saveEmailRecipients: (items: string[] | null) => api.put<AdminEmailRecipients>('/admin/emails/recipients', { items }),
+
+		// newsletters (agents/NEWSLETTER.md)
+		newsletterState: () => api.get<NewsletterState>('/admin/newsletter/status'),
+		/** selected = audience ids: also the recipients of that choice together (each address once) */
+		newsletterAudiences: (selected?: string[]) =>
+			api.get<{ status: 'success'; items: NewsletterAudience[]; selected?: { count: number; missing_locale: number; locales: Record<string, number> } }>(
+				`/admin/newsletter/audiences${selected ? toQuery({ selected: selected.join(',') }) : ''}`
+			),
+		/** filters source, locale (de | en | none); q = part of the address or name */
+		newsletterContacts: (params: ListParams = {}) =>
+			api.get<ListResult<NewsletterContact> & { sources: NewsletterSource[] }>(`/admin/newsletter/contacts${toQuery(params)}`),
+		/** one address per line ("email, name, de"); dry_run = only the preview */
+		newsletterImport: (input: { text: string; source: string; consented_at?: string | null; locale?: NewsletterLocale | null; dry_run?: boolean }) =>
+			api.post<NewsletterImportResult>('/admin/newsletter/contacts/import', input),
+		newsletterUpdateContacts: (ids: number[], patch: { locale?: NewsletterLocale | null; source?: string }) =>
+			api.put<{ status: 'success'; changed: number }>('/admin/newsletter/contacts', { ids, ...patch }),
+		newsletterUpdateContact: (id: number, patch: { locale?: NewsletterLocale | null; name?: string | null }) =>
+			api.put<{ status: 'success'; item: NewsletterContact }>(`/admin/newsletter/contacts/${id}`, patch),
+		newsletterDeleteContacts: (ids: number[]) => api.post<{ status: 'success'; deleted: number }>('/admin/newsletter/contacts/delete', { ids }),
+		/** filter reason; q = part of the address */
+		newsletterSuppressions: (params: ListParams = {}) => api.get<ListResult<NewsletterSuppression>>(`/admin/newsletter/suppressions${toQuery(params)}`),
+		newsletterSuppress: (email: string) => api.post<{ status: 'success'; added: boolean }>('/admin/newsletter/suppressions', { email }),
+		newsletterUnsuppress: (email: string) => api.post<{ status: 'success'; removed: boolean }>('/admin/newsletter/suppressions/remove', { email }),
+		newsletters: () => api.get<{ status: 'success'; items: Newsletter[] }>('/admin/newsletter/campaigns'),
+		newsletter: (id: number) => api.get<{ status: 'success'; item: Newsletter }>(`/admin/newsletter/campaigns/${id}`),
+		createNewsletter: (input: NewsletterInput & { title: string }) => api.post<{ status: 'success'; item: Newsletter }>('/admin/newsletter/campaigns', input),
+		saveNewsletter: (id: number, input: NewsletterInput) => api.put<{ status: 'success'; item: Newsletter }>(`/admin/newsletter/campaigns/${id}`, input),
+		deleteNewsletter: (id: number) => api.delete<{ status: 'success' }>(`/admin/newsletter/campaigns/${id}`),
+		/** subject / body = unsaved text to preview */
+		previewNewsletter: (id: number, locale: NewsletterLocale, draft: { subject?: string; body?: string } = {}) =>
+			api.post<{ status: 'success'; locale: NewsletterLocale; subject: string; text: string; html: string }>(`/admin/newsletter/campaigns/${id}/preview`, { locale, ...draft }),
+		/** sends the saved text to the signed-in admin */
+		testNewsletter: (id: number, locale: NewsletterLocale) =>
+			api.post<{ status: 'success'; to: string; locale: NewsletterLocale }>(`/admin/newsletter/campaigns/${id}/test`, { locale }),
+		newsletterAction: (id: number, action: 'start' | 'pause' | 'resume') =>
+			api.post<{ status: 'success'; item: Newsletter }>(`/admin/newsletter/campaigns/${id}/${action}`),
+		/** filters status, locale, source; q = part of the address */
+		newsletterRecipients: (id: number, params: ListParams = {}) =>
+			api.get<ListResult<NewsletterRecipient>>(`/admin/newsletter/campaigns/${id}/recipients${toQuery(params)}`),
+		/** one batch now */
+		sendNewsletterBatch: () => api.post<{ status: 'success'; result: NewsletterBatchResult; items: Newsletter[] }>('/admin/newsletter/send'),
 
 		// ownership claims + transfers (agents/ITEMS.md "Ownership, claims, gifting")
 		/** filters status (open|transferred|rejected|withdrawn), code, user (claimant or owner id); q = code or claimant email; `open` = open claims in all */

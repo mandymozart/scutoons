@@ -27,6 +27,7 @@ use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
 use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
+use Scutoons\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
@@ -48,6 +49,7 @@ use Scutoons\Http\Controllers\KeysController;
 use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\GenerateController;
 use Scutoons\Http\Controllers\MeController;
+use Scutoons\Http\Controllers\NewsletterController;
 use Scutoons\Http\Controllers\NotFoundController;
 use Scutoons\Http\Controllers\PageNotFoundController;
 use Scutoons\Http\Controllers\ProductsController;
@@ -117,6 +119,12 @@ return static function (App $app): void {
     // Single sign-on (docs/API.md): who is signed in (cookie or Bearer) · move an app's stored Bearer token into the cookie
     $app->get('/api/auth/session', [AuthController::class, 'session']);
     $app->post('/api/auth/session', [AuthController::class, 'exchange']);
+
+    // Newsletter (agents/NEWSLETTER.md): the unsubscribe link of every newsletter (GET = a page with one button, POST =
+    // unsubscribe, also the mail client's one-click), the batches from the host's cron (no session: a key)
+    $app->get('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribePage']);
+    $app->post('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribe']);
+    $app->map(['GET', 'POST'], '/api/newsletter/cron', [NewsletterController::class, 'cron']);
 
     $app->get('/api/me', [MeController::class, 'get']);
     $app->put('/api/me', [MeController::class, 'put']);
@@ -261,6 +269,30 @@ return static function (App $app): void {
         $admin->get('/emails/log', [EmailsController::class, 'log']);
         $admin->get('/emails/recipients', [EmailsController::class, 'recipients']);
         $admin->put('/emails/recipients', [EmailsController::class, 'saveRecipients']);
+        // newsletters (Domain\Newsletter, agents/NEWSLETTER.md): contacts + import, suppressions, newsletters, a batch now
+        $newsletter = '{id:[0-9]{1,18}}';
+        $admin->get('/newsletter/status', [AdminNewsletterController::class, 'status']);
+        $admin->get('/newsletter/audiences', [AdminNewsletterController::class, 'audiences']);
+        $admin->get('/newsletter/contacts', [AdminNewsletterController::class, 'contacts']);
+        $admin->post('/newsletter/contacts/import', [AdminNewsletterController::class, 'import']);
+        $admin->put('/newsletter/contacts', [AdminNewsletterController::class, 'updateContacts']);
+        $admin->post('/newsletter/contacts/delete', [AdminNewsletterController::class, 'deleteContacts']);
+        $admin->put("/newsletter/contacts/$newsletter", [AdminNewsletterController::class, 'updateContact']);
+        $admin->get('/newsletter/suppressions', [AdminNewsletterController::class, 'suppressions']);
+        $admin->post('/newsletter/suppressions', [AdminNewsletterController::class, 'suppress']);
+        $admin->post('/newsletter/suppressions/remove', [AdminNewsletterController::class, 'unsuppress']);
+        $admin->get('/newsletter/campaigns', [AdminNewsletterController::class, 'campaigns']);
+        $admin->post('/newsletter/campaigns', [AdminNewsletterController::class, 'create']);
+        $admin->get("/newsletter/campaigns/$newsletter", [AdminNewsletterController::class, 'get']);
+        $admin->put("/newsletter/campaigns/$newsletter", [AdminNewsletterController::class, 'update']);
+        $admin->delete("/newsletter/campaigns/$newsletter", [AdminNewsletterController::class, 'delete']);
+        $admin->post("/newsletter/campaigns/$newsletter/preview", [AdminNewsletterController::class, 'preview']);
+        $admin->post("/newsletter/campaigns/$newsletter/test", [AdminNewsletterController::class, 'test']);
+        $admin->post("/newsletter/campaigns/$newsletter/start", [AdminNewsletterController::class, 'start']);
+        $admin->post("/newsletter/campaigns/$newsletter/pause", [AdminNewsletterController::class, 'pause']);
+        $admin->post("/newsletter/campaigns/$newsletter/resume", [AdminNewsletterController::class, 'resume']);
+        $admin->get("/newsletter/campaigns/$newsletter/recipients", [AdminNewsletterController::class, 'recipients']);
+        $admin->post('/newsletter/send', [AdminNewsletterController::class, 'send']);
         // the editions on the landing page (table catalog_featured; GET /api/products/featured/ reads it)
         $admin->get('/featured', [FeaturedController::class, 'get']);
         $admin->put('/featured', [FeaturedController::class, 'put']);

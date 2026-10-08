@@ -79,6 +79,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   flow (`.sc-empty`, tools.css). DESIGN.md "Empty states".
 
 ## Open owner decisions / loose ends
+- Newsletter (BACKLOG 10.58, agents/NEWSLETTER.md, branch `newsletter`): production – run
+  `2026-10-07-newsletter.mysql.sql` (the SELECTs first), secret `NEWSLETTER_CRON_KEY`, KAS cron every 5 minutes; then
+  set the `qr-claim` contacts' languages, import the event lists, write + test + start (the steps: NEWSLETTER.md "Going live").
 - Copy / paste (BACKLOG 10.39, built 2026-10-07; PHPUnit incl. `ItemLimitsTest` + steps 6–8 checked headless after
   Docker came back; still owed: `check:tools-dock` + the admin's item-limit fields with the admin running). Production: nothing to run
   (item limits = catalog JSON fields).

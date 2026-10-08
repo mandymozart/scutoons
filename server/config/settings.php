@@ -79,6 +79,24 @@ return [
     'SMTP_PASS' => '',
     'SMTP_TIMEOUT' => '15',
 
+    // ── Newsletter (agents/NEWSLETTER.md; Domain\Newsletter; admin app → Emails → Newsletters) ────────────────
+    // Mass mails go out in small batches – from the host's cron (GET|POST /api/newsletter/cron?key=NEWSLETTER_CRON_KEY,
+    // e.g. every 5 minutes; empty key = the URL answers 404) or "Send now" in the admin – through the SMTP account above,
+    // one connection per batch. PER_HOUR = the default of the runtime setting newsletter_per_hour (admin → Settings):
+    // every mail sent in the last hour counts (mail_log). One batch: at most BATCH mails (the default of the runtime
+    // setting newsletter_batch, 1–25), DELAY_MS between two, SECONDS
+    // in all (below the host's max_execution_time), a new connection every PER_CONNECTION mails. A temporary failure is
+    // tried again after RETRY_MINUTES, at most ATTEMPTS times. API_URL = where the unsubscribe links point.
+    'NEWSLETTER_CRON_KEY' => '',
+    'NEWSLETTER_PER_HOUR' => '200',
+    'NEWSLETTER_BATCH' => '20',
+    'NEWSLETTER_DELAY_MS' => '1000',
+    'NEWSLETTER_SECONDS' => '25',
+    'NEWSLETTER_PER_CONNECTION' => '50',
+    'NEWSLETTER_ATTEMPTS' => '3',
+    'NEWSLETTER_RETRY_MINUTES' => '15',
+    'API_URL' => 'https://api.scutoons.com',
+
     // ── Embassy mail (agents/EMBASSY.md "Communication strategy"; docs/API.md "Embassy" → "Mail" / "Inbox") ───
     // People send one-to-one mails from the Embassy app (POST /api/embassy/orgs/{id}/mail) from this shared mailbox,
     // through MAIL_TRANSPORT and the SMTP server in SMTP_HOST / _PORT / _SECURE; Reply-To is the same address. The

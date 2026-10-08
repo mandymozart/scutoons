@@ -715,6 +715,49 @@ app (`Domain\Embassy\EmbassyMail`, "Embassy" → "Mail": same transport, logged 
   `Mailer::sendToAdmins($templateId, $vars)` in `MAIL_ADMIN_LOCALE`.
 - Admin app → **Emails** (`/emails` log, `/emails/templates` previews + recipients); admin API above.
 
+## Newsletter (2026-10-07, migration `2026-10-07-newsletter` – agents/NEWSLETTER.md)
+
+Mass mails to members and contacts, sent in batches through the SMTP account (`Domain\Newsletter`). Not a
+`MailTemplates` template: the text is written in the admin; same HTML frame, logged in `mail_log` as `newsletter`.
+
+Public (no session):
+
+| Method | Path | |
+|---|---|---|
+| GET | `/newsletter/unsubscribe?t=<token>` | HTML page in the token's language with one "Unsubscribe" button (a GET changes nothing – mail scanners open links); invalid token → a page that says so |
+| POST | `/newsletter/unsubscribe?t=<token>` | unsubscribes (`mail_suppressions` reason `unsubscribe`, a member's `marketing_opt_in` → 0) → HTML "done"; also the mail client's one-click (`List-Unsubscribe-Post`, RFC 8058); 400 for an invalid token |
+| GET / POST | `/newsletter/cron?key=<NEWSLETTER_CRON_KEY>` | one batch → `{ result }` (below); key also as the HTTP Basic password; empty key → 404, wrong → 403 |
+
+Token = `base64url("<locale>|<email>") . "." . base64url(HMAC-SHA256 truncated to 16 bytes)`, key derived from
+`AUTH_SECRET` (label `newsletter-unsubscribe`); nothing stored, never expires.
+
+Admin (`/api/admin/newsletter/*`, role `admin`):
+
+| Method | Path | |
+|---|---|---|
+| GET | `status` | `{ transport, cron, per_hour, sent_last_hour, queued }` |
+| GET | `audiences[?selected=a,b]` | `{ items: [{ id, kind, source, count, missing_locale }], selected?: { count, missing_locale, locales } }` – ids `members_opted_in`, `members_all`, `contacts`, `contacts:<source>`; counts without suppressed / invalid addresses, each address once |
+| GET | `contacts?q=&source=&locale=de\|en\|none&sort=&page=&page_size=` | list + `sources: [{ source, count, missing_locale }]`; a row: `id, email, name, locale, source, consented_at, created_at, created_by, member, suppressed` |
+| POST | `contacts/import` | `{ text, source, consented_at?, locale?, dry_run? }` → `{ rows: [{ line, email, name, locale, status }], counts, added }` – status `new` · `exists` · `member` · `suppressed` · `duplicate` · `invalid`; only `new` is added |
+| PUT | `contacts` | `{ ids, locale?, source? }` → `{ changed }` |
+| PUT | `contacts/{id}` | `{ name?, locale? }` → `{ item }` |
+| POST | `contacts/delete` | `{ ids }` → `{ deleted }` |
+| GET | `suppressions?q=&reason=` | list `{ email, reason: unsubscribe\|bounce\|manual, detail, created_at }` |
+| POST | `suppressions` · `suppressions/remove` | `{ email }` – block by hand · mail again |
+| GET / POST | `campaigns` | `{ items }` · create `{ title, audiences?, subject_de?, subject_en?, body_de?, body_en? }` → 201 `{ item }` |
+| GET / PUT / DELETE | `campaigns/{id}` | a draft changes everything, a paused one only subject / body (409 `invalid_status` otherwise); delete: draft or done |
+| POST | `campaigns/{id}/preview` | `{ locale, subject?, body? }` (unsaved text) → `{ subject, text, html }` |
+| POST | `campaigns/{id}/test` | `{ locale }` → the saved text to the signed-in admin, subject `[Test] …` (502 `mail_failed`) |
+| POST | `campaigns/{id}/start` | draft → sending, recipients fixed (snapshot); 409 `no_audience` · `no_recipients` · `missing_locale` (`count`, `emails`) · `missing_text` (`locale`) |
+| POST | `campaigns/{id}/pause` · `resume` | sending ⇄ paused |
+| GET | `campaigns/{id}/recipients?status=&locale=&source=&q=` | `{ email, locale, name, source: member\|contact, status: queued\|sent\|failed\|skipped, attempts, next_attempt_at, sent_at, error }` |
+| POST | `send` | one batch now → `{ result, items }` |
+
+A newsletter item: `id, title, audiences, subject_de, subject_en, body_de, body_en, status (draft | sending | paused |
+done), last_error, created_at/by, updated_at/by, started_at, finished_at, progress { queued, sent, failed, skipped,
+total }`. A batch result: `{ status: idle | sent | limit | busy | error, sent, failed, retry, skipped, queued, per_hour,
+sent_last_hour, error }`.
+
 ## Assets (the media asset layer, 2026-10-02 – agents/ASSETS.md)
 
 Content keeps referencing CDN paths; this API manages the registry over the storage (local `media/` or the bunny.net

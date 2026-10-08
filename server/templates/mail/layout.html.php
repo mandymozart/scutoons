@@ -6,6 +6,7 @@
  * @var callable $e  @var string $locale
  * @var list<array{type: string, text: string, url?: string, value?: string}> $blocks
  * @var list<string> $fineprint
+ * @var array{text: string, url: string}|null $unsubscribe optional: a link under the fine print (the newsletter, Domain\Newsletter\NewsletterRenderer)
  */
 $mono = "'IBM Plex Mono',Menlo,Consolas,monospace";
 ?>
@@ -27,8 +28,10 @@ $mono = "'IBM Plex Mono',Menlo,Consolas,monospace";
 <p style="margin:0;font-size:28px;letter-spacing:6px;font-weight:700"><?= $e($block['value'] ?? '') ?></p>
 <?php endif ?>
 <?php endforeach ?>
-<?php if ($fineprint !== []): ?>
-<p style="margin:24px 0 0;color:#6b6b6b;font-size:12px"><?= implode('<br>', array_map($e, $fineprint)) ?></p>
+<?php $unsubscribe ??= null; ?>
+<?php if ($fineprint !== [] || $unsubscribe !== null): ?>
+<p style="margin:24px 0 0;color:#6b6b6b;font-size:12px"><?= implode('<br>', array_map($e, $fineprint)) ?>
+<?php if ($unsubscribe !== null): ?><?= $fineprint !== [] ? '<br>' : '' ?><a href="<?= $e($unsubscribe['url']) ?>" style="color:#6b6b6b"><?= $e($unsubscribe['text']) ?></a><?php endif ?></p>
 <?php endif ?>
 </div>
 </body>

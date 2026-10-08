@@ -4,7 +4,7 @@ One list for the open work (owner 2026-10-06: "we need to merge cutover post ite
 CUTOVER.md Phase 10 ("after the beta", items keep their numbers 10.x so commits and docs that cite "CUTOVER 10.x" still
 find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the runbook of the cutover itself.
 
-New entries: the next free number (10.58, …), owner + date, then **O –** for steps the owner runs on production. Tick
+New entries: the next free number (10.59, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Day run 2026-10-07 (owner away: "go automatically") – the plan, all decided with the owner
@@ -727,6 +727,13 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
          encodes with libwebp `-sharp_yuv` (the asset jobs) – compare on one slice first.
       4. CSS: `.slice img { width: 100% }` in a ≤ 500 px column – no extra scaling beyond 1. / 2.
       **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
+- [ ] 10.58 **Newsletter** (owner 2026-10-07: mails to every member and to the old QR form's addresses, bundled so the
+      SMTP isn't overloaded; first one: the invitation to the next chapter release, week of 2026-10-12) – built on branch
+      `newsletter` (agents/NEWSLETTER.md): contacts (old QR form + event lists, language per contact), audiences,
+      batches through the SMTP account with an hourly limit (runtime setting, 200), bounces / unsubscribe (link +
+      one-click), admin Emails → Newsletters / Contacts / Unsubscribed. **O –** the going-live steps in NEWSLETTER.md
+      (migration `2026-10-07-newsletter.mysql.sql`, secret `NEWSLETTER_CRON_KEY`, KAS cron every 5 min, SPF / DKIM /
+      DMARC check, contact languages, event lists).
 - [ ] 10.56 **Reader FX: feedback cues** (owner 2026-10-07; started the same day: "free to go") – hints, pickups,
       reveals and impacts as one set of cues (motion + sound + haptic) inside the visible viewport; no external MIDI /
       devices. Plan, rules, phases and open decisions: agents/FX.md. The live performance mode that builds on it:
