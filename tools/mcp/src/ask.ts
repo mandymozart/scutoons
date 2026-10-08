@@ -302,6 +302,23 @@ async function saveChat(cfg: AskConfig, person: Person, id: string, chat: Chat) 
 	}
 }
 
+/**
+ * An answer that stopped inside a web search (paused – `pause_turn` – and then the panel was closed or Stop pressed)
+ * holds a server tool call without its result; the API refuses every later request of that chat with a 400
+ * ("tool use … without a corresponding … result"). Before the next question such answers go – they are only ever
+ * followed by the person's own messages (no tool results refer to them), so dropping them leaves a valid history.
+ * Also heals chats saved broken before this.
+ */
+export function settle(messages: Param[]) {
+	const unresolved = (m: Param) => {
+		if (m.role !== 'assistant' || !Array.isArray(m.content)) return false;
+		const answered = new Set(m.content.map((b: any) => b.tool_use_id).filter(Boolean));
+		return m.content.some((b: any) => b.type === 'server_tool_use' && !answered.has(b.id));
+	};
+	const plainUser = (m: Param | undefined) => !m || (m.role === 'user' && (typeof m.content === 'string' || !m.content.some((b: any) => b.type === 'tool_result')));
+	for (let i = messages.length - 1; i >= 0; i--) if (unresolved(messages[i]) && plainUser(messages[i + 1])) messages.splice(i, 1);
+}
+
 // ── usage ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 const unpriced = new Set<string>();
@@ -518,6 +535,7 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 	}
 	const allTools: Anthropic.Beta.BetaToolUnion[] = [...tools, ...WEB_TOOLS];
 
+	settle(chat.messages);
 	chat.messages.push({ role: 'user', content: `${header}\n${text}` });
 	await saveChat(cfg, person, chatId, chat);
 	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, webSearches: 0, cost: 0 };
