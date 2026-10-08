@@ -136,3 +136,7 @@ the graph.
 - LSD sound, final for now (owner): feedback 0.78, the echo time drifting ≈ 120–640 ms (two LFOs), and a stereo panner
   swinging left / right at a pace that speeds up and slows down (an LFO on the swing LFO's rate, ≈ 0.05–0.45 Hz).
   Slam's shake: `showTextBox.shake` slice | screen | none. Repeated reader notices count up (× 2) instead of stacking.
+- LSD and scrolling (owner 2026-10-08): the faster the reader scrolls, the faster the echo repeats – its time and drift
+  divided by a pace 1 … 4 (≈ 2500 px/s and more = 4), smoothed, gliding ≈ 0.8 s up and ≈ 0.6 s back when the scrolling
+  stops (`followScroll` in audio-effects.ts, only while psychedelic runs). Screen shake / punch: zoomed to cover the
+  sides, around the middle of the screen.

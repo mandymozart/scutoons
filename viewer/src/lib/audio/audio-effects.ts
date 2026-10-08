@@ -22,6 +22,8 @@ interface Chain {
 	input: AudioNode;
 	output: GainNode;
 	stop(): void;
+	/** the reader's scroll pace (1 = still … 4 = fast): psychedelic speeds its echo up by it */
+	pace?(factor: number): void;
 }
 
 const FADE = 1.2;
@@ -82,6 +84,7 @@ function farbrausch(ctx: AudioContext): Chain {
 	swing.start();
 	pace.start();
 	const mix = ctx.createGain();
+	let paced = 1;
 
 	input.connect(highpass);
 	highpass.connect(dry).connect(mix);
@@ -92,6 +95,16 @@ function farbrausch(ctx: AudioContext): Chain {
 	return {
 		input,
 		output,
+		// scrolling faster: the echo repeats up to 4× faster (its time and its drift divided), back when the reader stops
+		// a slow glide either way, so the speeding up is felt (owner: "smoother increase"): ≈ 0.8 s up, ≈ 0.6 s back
+		pace(factor) {
+			const now = ctx.currentTime;
+			const glide = factor > paced ? 0.27 : 0.2;
+			paced = factor;
+			delay.delayTime.setTargetAtTime(0.38 / factor, now, glide);
+			drift1Depth.gain.setTargetAtTime(0.18 / factor, now, glide);
+			drift2Depth.gain.setTargetAtTime(0.08 / factor, now, glide);
+		},
 		stop() {
 			for (const o of [lfo, drift1, drift2, swing, pace]) {
 				try {
@@ -229,6 +242,46 @@ function attach() {
 	for (const o of outputs()) if (!inserts.some((x) => x.from === o.from)) inserts.push(insert(o.ctx, o.from, kind));
 }
 
+/**
+ * The scroll pace while psychedelic runs (owner 2026-10-08: "if we scroll faster it speeds up the delay time by a
+ * multiple, slowing down to a stop it goes back"): the speed of the page's scrolling, smoothed and decaying, as a factor
+ * 1 … 4 (≈ 2500 px/s and faster = 4) for the chains' `pace`.
+ */
+let stopPace: (() => void) | null = null;
+let currentPace = 1;
+function followScroll() {
+	let lastY = window.scrollY;
+	let lastT = performance.now();
+	let speed = 0;
+	let applied = 1;
+	const apply = () => {
+		const factor = 1 + 3 * Math.min(1, speed / 2500);
+		if (Math.abs(factor - applied) < 0.05) return;
+		applied = currentPace = factor;
+		for (const x of inserts) x.chain.pace?.(factor);
+	};
+	const onScroll = () => {
+		const now = performance.now();
+		const v = (Math.abs(window.scrollY - lastY) / Math.max(1, now - lastT)) * 1000;
+		lastY = window.scrollY;
+		lastT = now;
+		// smoothed: the pace builds up with the scrolling rather than jumping
+		speed += (Math.min(v, 4000) - speed) * 0.25;
+		apply();
+	};
+	// no scrolling: the pace sinks back to 1 within about half a second
+	const decay = setInterval(() => {
+		if (performance.now() - lastT > 80) speed *= 0.7;
+		if (speed < 20) speed = 0;
+		apply();
+	}, 100);
+	window.addEventListener('scroll', onScroll, { passive: true });
+	return () => {
+		window.removeEventListener('scroll', onScroll);
+		clearInterval(decay);
+	};
+}
+
 /** an effect over everything the reader hears (null = none) */
 export function setAudioEffect(next: AudioEffectKind | null) {
 	if (next === kind) return;
@@ -236,15 +289,19 @@ export function setAudioEffect(next: AudioEffectKind | null) {
 	kind = next;
 	if (watch) clearInterval(watch);
 	watch = null;
+	stopPace?.();
+	stopPace = null;
 	if (!kind) return;
 	attach();
 	watch = setInterval(attach, 1000);
+	if (kind === 'psychedelic' && typeof window !== 'undefined') stopPace = followScroll();
 }
 
 // DEV only: the headless checks look at the graph (which outputs carry the chain, which context each sample plays on)
 if (import.meta.env.DEV && typeof window !== 'undefined') {
 	(window as unknown as Record<string, unknown>).__scutoonsAudioFx = () => ({
 		kind,
+		pace: Math.round(currentPace * 100) / 100,
 		inserts: inserts.map((x) => ({ state: x.ctx.state, howler: x.ctx === Howler.ctx, master: x.from === Howler.masterGain })),
 		howls: ((Howler as unknown as { _howls: { _sounds: { _node?: AudioNode }[]; _src: string | string[] }[] })._howls ?? []).map((h) => ({
 			src: String(h._src).split('/').pop(),
