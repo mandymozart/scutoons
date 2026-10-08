@@ -267,14 +267,14 @@ for (const kind of ['pop', 'slam', 'fade', 'typeOn']) {
 	report(`entrance ${kind}: the box comes in${kind === 'slam' ? ', the slice shakes' : ''}`, p);
 }
 // 7 – the fx event: the same tap runs an impact instead
-for (const [effect, target] of [['shake', 'slice'], ['flash', 'screen'], ['punch', 'screen'], ['vignette', 'slice']]) {
+for (const [effect, target] of [['shake', 'slice'], ['shake', 'screen'], ['flash', 'screen'], ['punch', 'screen'], ['vignette', 'slice']]) {
 	const p = [];
 	rewriteEffect = `fx:${effect}:${target}`;
 	await open(`${viewer}/de/catpope/chapter/2?label=scene-17-24`);
 	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
 	if (!slice) { report(`fx ${effect}`, ['slice 24 not found']); continue; }
 	await sleep(800);
-	await evaluate(`window.__fx = { maxW: 0, slice: false, screen: false, cover: false, layer: false }; (function watch() { const f = window.__fx; f.maxW = Math.max(f.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations({ subtree: true }).length) f.slice = true; if (s && !f.screen) { const b = s.getBoundingClientRect(); f.box ??= [b.top, b.left]; if (Math.abs(b.top - f.box[0]) > 0.5 || Math.abs(b.left - f.box[1]) > 0.5) f.moved = true; } if (document.querySelector('.chapter-view')?.getAnimations().length) f.screen = true; if (s && [...s.children].some((c) => c.style?.zIndex === '4')) f.cover = true; if (document.getElementById('sc-fx-layer')?.children.length) f.layer = true; requestAnimationFrame(watch); })(); true`);
+	await evaluate(`window.__fx = { maxW: 0, slice: false, screen: false, cover: false, layer: false }; (function watch() { const f = window.__fx; f.maxW = Math.max(f.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations({ subtree: true }).length) f.slice = true; if (s && !f.screen) { const b = s.getBoundingClientRect(); f.box ??= [b.top, b.left]; if (Math.abs(b.top - f.box[0]) > 0.5 || Math.abs(b.left - f.box[1]) > 0.5) f.moved = true; } if (document.querySelector('.chapter-view')?.getAnimations().length) f.screen = true; if (s && [...s.children].some((c) => c.style?.zIndex === '4')) f.cover = true; if (document.getElementById('sc-fx-layer')?.children.length) f.layer = true; const v = document.querySelector('.chapter-view'); if (v?.getAnimations().length) { const r = v.getBoundingClientRect(); if (r.left > 0.5 || r.right < innerWidth - 0.5) f.gap = true; if (s) { const t = s.getBoundingClientRect().top; f.top0 ??= t; f.jump = Math.max(f.jump ?? 0, Math.abs(t - f.top0)); } } requestAnimationFrame(watch); })(); true`);
 	await tap(slice.x, slice.y);
 	await sleep(effect === 'vignette' ? 500 : 120);
 	await shot(`7-${effect}-${target}`);
@@ -283,6 +283,11 @@ for (const [effect, target] of [['shake', 'slice'], ['flash', 'screen'], ['punch
 	if (effect === 'shake' && !fx.slice) p.push('the slice did not shake');
 	if (target === 'slice' && fx.moved) p.push('the slice box moved – gaps to its neighbours (its content shakes inside)');
 	if (effect === 'punch' && !fx.screen) p.push('the chapter view did not punch');
+	if (target === 'screen' && (effect === 'shake' || effect === 'punch')) {
+		if (!fx.screen) p.push('the chapter view did not move');
+		if (fx.gap) p.push('an edge showed at the side while it moved (owner: no white space left and right)');
+		if ((fx.jump ?? 0) > 40) p.push(`the slice in view jumped ${Math.round(fx.jump)} px (the zoom must centre on the screen)`);
+	}
 	if (effect === 'flash' && !fx.layer) p.push('no flash over the screen');
 	if (effect === 'vignette' && !fx.layer) p.push('no spotlight in the viewport layer');
 	if (effect === 'vignette' && fx.cover) p.push('the vignette sits inside the slice – hard edges to its neighbours');

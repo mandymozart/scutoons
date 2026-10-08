@@ -258,6 +258,18 @@ function spotlight(slice: HTMLElement, keyframes: Keyframe[], ms: number) {
 	};
 }
 
+/**
+ * The whole chapter view moves (a screen shake / punch): around the middle of what is on screen – the view is far taller
+ * than the screen, its own middle would shift what the reader sees – clipped by its parent meanwhile
+ */
+function onScreen(screen: HTMLElement, keyframes: Keyframe[], ms: number, easing: string) {
+	const r = screen.getBoundingClientRect();
+	const before = screen.style.transformOrigin;
+	screen.style.transformOrigin = `${window.innerWidth / 2 - r.left}px ${window.innerHeight / 2 - r.top}px`;
+	clipAround(screen, ms);
+	screen.animate(keyframes, { duration: ms, easing }).onfinish = () => (screen.style.transformOrigin = before);
+}
+
 function cover(host: HTMLElement, background: string, keyframes: Keyframe[], ms: number) {
 	const d = document.createElement('div');
 	// tuning in the inspector: --sc-fx-blend (mix-blend-mode), --sc-fx-flash, --sc-fx-shade
@@ -282,17 +294,16 @@ export function impactCue(kind: Impact, options: { slice?: HTMLElement | null; s
 			const px = 0.55 * rem();
 			inFrame(slice, (zoom) => shakeFrames(px, zoom), ms, 'linear', px);
 		} else {
-			clipAround(screen, ms);
-			screen.animate(shakeFrames(0.75 * rem()), { duration: ms, easing: 'linear' });
+			// zoomed just enough that no edge shows while it moves (owner 2026-10-08: no white at the sides)
+			const px = 0.75 * rem();
+			const zoom = 1 + (2 * px) / Math.max(1, Math.min(screen.offsetWidth || window.innerWidth, window.innerWidth)) + 0.01;
+			onScreen(screen, shakeFrames(px, zoom), ms, 'linear');
 		}
 	} else if (kind === 'punch') {
 		buzz(35);
 		const punch = (zoom: number): Keyframe[] => [{ transform: 'scale(1)' }, { transform: `scale(${zoom})`, offset: 0.25 }, { transform: 'scale(1)' }];
 		if (slice) inFrame(slice, () => punch(1.12), ms, 'cubic-bezier(.2,.8,.3,1)');
-		else {
-			clipAround(screen, ms);
-			screen.animate(punch(1.04), { duration: ms, easing: 'cubic-bezier(.2,.8,.3,1)' });
-		}
+		else onScreen(screen, punch(1.04), ms, 'cubic-bezier(.2,.8,.3,1)');
 	} else if (kind === 'flash') {
 		buzz(25);
 		cover(slice ?? fxLayer(), 'var(--sc-fx-flash, #ffffff)', [{ opacity: 0.95 }, { opacity: 0 }], ms);
