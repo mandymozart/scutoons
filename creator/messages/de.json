@@ -175,6 +175,8 @@
 		"fx_sound_zap": "Zapp",
 		"fx_sound_boom": "Bumm",
 		"fx_sound_hum": "Brummen",
+		"item_variant": "Variante",
+		"item_variant_none": "der Gegenstand selbst",
 		"slam_shake": "Wackelt beim Aufprall",
 		"slam_shake_slice": "dieser Slice",
 		"slam_shake_none": "nichts",

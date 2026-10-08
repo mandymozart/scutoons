@@ -255,12 +255,18 @@ final class InventoryService
             throw new ApiError(403, 'not_grantable', "This item cannot be granted by $source.");
         }
         $ref = is_string($body['ref'] ?? null) && $body['ref'] !== '' ? substr($body['ref'], 0, 191) : null;
+        // one of the item's variants (owner 2026-10-08: a colour of the sunglasses); none = the item itself
+        $variant = $body['variant'] ?? null;
+        if ($variant !== null) {
+            $known = array_map(fn($v) => is_array($v) ? ($v['id'] ?? null) : null, is_array($item['variants'] ?? null) ? $item['variants'] : []);
+            if (!is_string($variant) || !in_array($variant, $known, true)) throw new ApiError(422, 'unknown_variant', 'This item has no such variant.');
+        }
         if (($body['respawn'] ?? null) !== null) {
             if ($ref === null || $source !== 'story') throw new ApiError(400, 'ref_required', 'A respawning story grant needs its ref.');
             $ref = $this->respawn->periodRef($item, $ref, $body['respawn'], $body['visit'] ?? null);
         }
 
-        $granted = $this->db->transaction(function () use ($userId, $item, $source, $ref) {
+        $granted = $this->db->transaction(function () use ($userId, $item, $source, $ref, $variant) {
             $refBucket = "grantref:$userId:{$item['id']}";
             if ($ref !== null && $this->limits->exists($refBucket, $ref)) return 0;
             if ($this->room($userId, $item) < 1) throw new ApiError(409, 'max_reached', 'You cannot hold more of this.', ['max' => self::maxOf($item)]);
@@ -281,7 +287,7 @@ final class InventoryService
             }
             $this->limits->hit("grant:$userId");
             if ($ref !== null) $this->limits->hit($refBucket, $ref);
-            $this->add($userId, $item['id'], null, 1, $source);
+            $this->add($userId, $item['id'], $variant, 1, $source);
             return 1;
         });
         $this->limits->prune();
@@ -311,17 +317,22 @@ final class InventoryService
                 $qty = is_array($entry) && is_int($entry['qty'] ?? null) ? $entry['qty'] : (is_array($entry) && !isset($entry['qty']) ? 1 : 0);
                 $item = $itemId !== null ? $this->catalog->item($itemId) : null;
                 if (!$item) { $skipped[] = ['item_id' => $itemId, 'reason' => 'unknown_item']; continue; }
+                // the guest's variant (a colour) comes along when the item still has it; else the item itself
+                $variants = array_map(fn($v) => is_array($v) ? ($v['id'] ?? null) : null, is_array($item['variants'] ?? null) ? $item['variants'] : []);
+                $variant = is_array($entry) && is_string($entry['variant'] ?? null) && in_array($entry['variant'], $variants, true) ? $entry['variant'] : null;
                 if (empty($item['grantable'])) { $skipped[] = ['item_id' => $itemId, 'reason' => 'not_grantable']; continue; }
                 if ($qty < 1) { $skipped[] = ['item_id' => $itemId, 'reason' => 'invalid_qty']; continue; }
                 if ($this->worldFull($userId, $item)) { $skipped[] = ['item_id' => $itemId, 'reason' => 'taken']; continue; }
                 $qty = min($qty, $max);
                 // Non-stackable finds: at most one piece
                 if (empty($item['stackable'])) {
-                    if ($this->count($userId, (string) $itemId) > 0) { $skipped[] = ['item_id' => $itemId, 'reason' => 'already_owned']; continue; }
+                    // one piece per variant (orange and blue sunglasses are two things)
+                    $owned = (int) $this->db->value('SELECT COUNT(*) FROM inventory WHERE user_id = ? AND item_id = ? AND ' . ($variant === null ? 'variant IS NULL' : 'variant = ?'), $variant === null ? [$userId, $itemId] : [$userId, $itemId, $variant]);
+                    if ($owned > 0) { $skipped[] = ['item_id' => $itemId, 'reason' => 'already_owned']; continue; }
                     $qty = 1;
                 }
-                $this->add($userId, (string) $itemId, null, $qty, $item['grantable'][0]);
-                $imported[] = ['item_id' => $itemId, 'qty' => $qty];
+                $this->add($userId, (string) $itemId, $variant, $qty, $item['grantable'][0]);
+                $imported[] = ['item_id' => $itemId, 'qty' => $qty] + ($variant !== null ? ['variant' => $variant] : []);
             }
         });
         return ['imported' => $imported, 'skipped' => $skipped];

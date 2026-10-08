@@ -89,6 +89,10 @@ export interface ItemVariant {
 	id: string;
 	name: Localized;
 	icon?: string | null;
+	/** this variant's tint while worn (owner 2026-10-08: sunglasses in six colours as variants); none = the item's `worn_tint` */
+	worn_tint?: string | null;
+	/** this variant's wardrobe overlays (`ItemDef.wear`'s keys); none = the item's */
+	wear?: Record<string, string> | null;
 }
 
 export interface ItemDef extends AcceptedWarnings {

@@ -685,6 +685,10 @@
 					"$ref": "#/definitions/FxSoundChoice",
 					"description": "pickup: the sound when it lands in the bag (agents/FX.md) – none = the item's (catalog `sound`), else \"pling\"; `none` = silent"
 				},
+				"variant": {
+					"type": "string",
+					"description": "pickup: one of the item's variants (its icon here, the variant goes into the inventory); none = the item itself"
+				},
 				"layer": {
 					"type": "number",
 					"description": "place in the slice's one layer stack of text boxes, placed items and areas (`Dialog.layer`, layers.ts)"
@@ -1133,6 +1137,10 @@
 								"qty": {
 									"type": "number",
 									"description": "how many, 1 … 10 (default 1)"
+								},
+								"variant": {
+									"type": "string",
+									"description": "one of the item's variants (a colour of the sunglasses); none = the item itself"
 								}
 							},
 							"required": [
@@ -1390,6 +1398,10 @@
 						"qty": {
 							"type": "number",
 							"description": "how many, 1 … 10 (default 1)"
+						},
+						"variant": {
+							"type": "string",
+							"description": "one of the item's variants (a colour of the sunglasses); none = the item itself"
 						}
 					},
 					"required": [
@@ -2312,6 +2324,10 @@
 								"qty": {
 									"type": "number",
 									"description": "how many, 1 … 10 (default 1)"
+								},
+								"variant": {
+									"type": "string",
+									"description": "one of the item's variants (a colour of the sunglasses); none = the item itself"
 								}
 							},
 							"required": [

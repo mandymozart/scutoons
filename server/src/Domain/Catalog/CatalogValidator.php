@@ -427,6 +427,9 @@ final class CatalogValidator
             }
             if (isset($seen[$v['id']])) $p[] = "$id: variant id \"{$v['id']}\" is used twice";
             $seen[$v['id']] = true;
+            // a variant's own tint / overlays (owner 2026-10-08: the sunglasses' colours)
+            if (($v['worn_tint'] ?? null) !== null && !(is_string($v['worn_tint']) && preg_match('/^#[0-9a-fA-F]{6}$/', $v['worn_tint']))) $p[] = "$id/{$v['id']}: worn_tint must be a colour #rrggbb";
+            if (($v['wear'] ?? null) !== null && !(is_array($v['wear']) && !array_is_list($v['wear']) && array_filter($v['wear'], fn($x) => !is_string($x) || trim($x) === '') === [])) $p[] = "$id/{$v['id']}: wear must be { \"<character>[/<slot instance>]\": \"<path>\" }";
         }
         return $p;
     }

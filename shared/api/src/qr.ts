@@ -131,14 +131,14 @@ export function createQrApi(api: ApiClient) {
 			api.post<InventoryResult>('/inventory/craft/', { recipe_id }),
 
 		/** `respawn` (+ `visit` for every visit): a placed item that reappears – the server checks it and adds the period to the ref */
-		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RecurrenceInterval; visit?: string }) =>
-			api.post<InventoryResult & { granted?: number }>('/inventory/grant/', { item_id, source, ref, ...(respawn ?? {}) }),
+		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RecurrenceInterval; visit?: string }, variant?: string | null) =>
+			api.post<InventoryResult & { granted?: number }>('/inventory/grant/', { item_id, source, ref, ...(respawn ?? {}), ...(variant ? { variant } : {}) }),
 
 		/** a story takes an item (BACKLOG 10.38): all or nothing; `ref` = once per ref (the repeat rule's period) */
 		takeItem: (item_id: string, qty: number, ref?: string) =>
 			api.post<InventoryResult & { taken: number; reason: 'too_few' | 'already_taken' | null }>('/inventory/take/', { item_id, qty, ref }),
 
-		importItems: (items: { item_id: string; qty: number }[]) =>
+		importItems: (items: { item_id: string; qty: number; variant?: string | null }[]) =>
 			api.post<InventoryResult>('/inventory/import/', { items }),
 
 		/** apply one piece of a substance (ITEMS.md "Substances"): 422 missing / not_usable */

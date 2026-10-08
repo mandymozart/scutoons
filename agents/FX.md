@@ -145,3 +145,10 @@ the graph.
   everything (reader-effect.svelte, multiply, --sc-tint-blend / --sc-tint-opacity 0.6), under any running effect.
   Items: `punschkrapfen` (food, sober 0.5 – halves a running trip, appetite −10) and `sunglasses` (face, worn_tint
   #ff9a2e) – created in the local catalog; production: the owner creates them in admin (icons to upload).
+- Variants with their own tint and wear (owner 2026-10-08: "use variants and have colour as variant"): `ItemVariant.worn_tint`
+  and `.wear` (none = the item's; validated TS + CatalogValidator; admin: a tint field per variant row, wear in the
+  advanced JSON). A story can grant a variant: `SliceItem.variant` (pickup; the slice and the creator canvas show the
+  variant's picture), `giveItem` / a choice's `give` `variant`; `POST /inventory/grant/ { variant }` (422
+  unknown_variant), guests keep it locally, the guest import carries it (one piece per variant). Reader: the tint and
+  the avatar overlay come from the worn entry's variant first. Creator: a "Variante" select on placed items and gives.
+  The sunglasses: ONE item `sunglasses` with six colour variants (orange, green, purple, red, black, blue).

@@ -87,7 +87,7 @@ export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceIt
 		const qty = Math.max(1, Math.floor(Number(item.qty) || 1));
 		const respawn = interval === null ? undefined : { respawn: interval, ...(interval === 'visit' ? { visit: visitId() } : {}) };
 		// guests have no server: their period is the local key (the grant ref isn't checked anywhere)
-		const result = await giveStoryItem(item.item, qty, place, { quietWhenNone: true, respawn });
+		const result = await giveStoryItem(item.item, qty, place, { quietWhenNone: true, respawn, variant: item.variant });
 		if (!result) return { ok: false, error: 'not_grantable' }; // not in the catalog (yet)
 		if (!result.ok) return { ok: false, error: result.error ?? 'failed' };
 		if (result.granted === 0) {

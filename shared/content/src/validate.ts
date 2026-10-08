@@ -114,6 +114,8 @@ export interface ValidateContext {
 	seasonStatus?: string | null;
 	/** the item catalog's ids (`related_items` of seasons / chapters are checked against them; none = no check) */
 	items?: string[];
+	/** the catalog items' variant ids (gives / pickups may name one) */
+	itemVariants?: Record<string, string[]>;
 	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
 	itemRespawn?: Record<string, ItemRespawn | null>;
 	/**
@@ -262,6 +264,10 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 		if (problem) c.error([...path, 'respawn'], problem);
 		if (it.action !== 'pickup') c.info([...path, 'respawn'], 'respawn only matters for a pickup');
 	}
+	if (it.variant !== undefined) {
+		checkVariant(c, it.item, it.variant, [...path, 'variant'], ctx);
+		if (it.action !== 'pickup') c.info([...path, 'variant'], 'the variant only matters for a pickup (and the icon here)');
+	}
 	if (it.sound !== undefined) {
 		if (!isFxSoundChoice(it.sound)) c.error([...path, 'sound'], `sound must be none or one of ${FX_SOUNDS.join(', ')}`);
 		else if (it.action !== 'pickup') c.info([...path, 'sound'], 'the sound only matters for a pickup');
@@ -345,6 +351,15 @@ function checkGive(c: Collector, p: any, path: Path, ctx: ValidateContext, what:
 	if (!isObj(p) || !isStr(p.item) || !p.item) return c.error([...path, 'item'], `${what} needs an item from the catalog`);
 	if (ctx.items && !ctx.items.includes(p.item)) c.warn([...path, 'item'], `"${p.item}" is not in the item catalog`);
 	if (p.qty !== undefined && (!Number.isInteger(p.qty) || p.qty < 1 || p.qty > GIVE_ITEM_MAX)) c.error([...path, 'qty'], `qty is a whole number 1 … ${GIVE_ITEM_MAX}`);
+	checkVariant(c, p.item, p.variant, [...path, 'variant'], ctx);
+}
+
+/** a give's / pickup's variant: one of the item's (`ctx.itemVariants` when known) */
+function checkVariant(c: Collector, item: unknown, variant: unknown, path: Path, ctx: ValidateContext) {
+	if (variant === undefined) return;
+	if (!isStr(variant) || !variant) return c.error(path, "variant must be the id of one of the item's variants");
+	const known = isStr(item) ? ctx.itemVariants?.[item] : undefined;
+	if (known && !known.includes(variant)) c.error(path, `"${item}" has no variant "${variant}" (${known.join(', ') || 'none'})`);
 }
 
 /** what a script takes (`takeItem` / a choice's `take`): like a give, plus its repeat rule (the trigger intervals) */

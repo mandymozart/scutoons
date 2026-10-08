@@ -210,7 +210,9 @@
 	/** placed items: the item's icon from the catalog (the same component as the reader) */
 	const resolveItem: ResolveSliceItem = (it) => {
 		const def = itemCatalog.catalog?.items.find((x) => x.id === it.item);
-		return def?.icon ? { src: asset(def.icon), label: itemName(def, it.item) } : null;
+		// a placed variant shows its own picture (a colour of the sunglasses)
+		const icon = (it.variant ? def?.variants?.find((v) => v.id === it.variant)?.icon : null) || def?.icon;
+		return icon ? { src: asset(icon), label: itemName(def, it.item) } : null;
 	};
 
 	onMount(() => {

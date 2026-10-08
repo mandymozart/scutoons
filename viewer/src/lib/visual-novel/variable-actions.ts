@@ -27,7 +27,7 @@ export function giveStoryItem(
 	item: string,
 	qty = 1,
 	place?: string,
-	options?: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } }
+	options?: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string }; variant?: string | null }
 ): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
 	const inventory = getCurrentInventory();
 	const n = Math.min(GIVE_ITEM_MAX, Math.max(1, Math.floor(Number(qty) || 1)));
@@ -80,7 +80,7 @@ export function executeVariableAction(
 		console.log(`Add ${action.add.variable} += ${action.add.value}`);
 		return null;
 	} else if ('give' in action) {
-		giveStoryItem(action.give.item, action.give.qty);
+		giveStoryItem(action.give.item, action.give.qty, undefined, action.give.variant ? { variant: action.give.variant } : undefined);
 		return null;
 	} else if ('jumpTo' in action) {
 		const problem = check?.(action.jumpTo.target);

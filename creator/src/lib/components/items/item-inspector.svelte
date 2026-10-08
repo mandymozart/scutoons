@@ -113,6 +113,10 @@
 			placeholder={m['creator.slice_item_action_none']()}
 		/>
 
+		{#if def?.variants?.length}
+			<!-- one of the item's variants: its picture here, the variant into the inventory (owner 2026-10-08: the sunglasses' colours) -->
+			<PropField {doc} path={p('variant')} label={m['creator.item_variant']()} type="select" options={def.variants.map((v) => ({ value: v.id, label: (typeof v.name === 'string' ? v.name : (v.name?.de ?? v.name?.en)) || v.id }))} placeholder={m['creator.item_variant_none']()} />
+		{/if}
 		{#if action === 'pickup'}
 			<PropField {doc} path={p('qty')} label={m['creator.slice_item_qty']()} type="number" step={1} min={1} placeholder="1" />
 			<div class="sc-fields" data-cols="2" data-density="panel" data-align="end">

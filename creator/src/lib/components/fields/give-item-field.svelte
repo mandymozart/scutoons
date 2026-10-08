@@ -25,20 +25,29 @@
 	const takeable = (i: { kind: string; takeable?: boolean }) => i.kind !== 'physical' && i.takeable === true;
 	const repeat = $derived(doc.get(doc.primary, [...path, 'repeat']) as Repeat | undefined);
 	let picking = $state(false);
+	/** giving: one of the item's variants (a colour of the sunglasses – owner 2026-10-08); none = the item itself */
+	const variants = $derived(take ? [] : (def?.variants ?? []));
+	const variantOptions = $derived(variants.map((v) => ({ value: v.id, label: localName(v.name) || v.id })));
+	const localName = (name: unknown) => (typeof name === 'string' ? name : ((name as Record<string, string> | null)?.de ?? (name as Record<string, string> | null)?.en ?? ''));
+	const variantId = $derived(doc.get(doc.primary, [...path, 'variant']) as string | undefined);
+	const shownIcon = $derived(variants.find((v) => v.id === variantId)?.icon || def?.icon);
 </script>
 
 <div class="field">
 	<span class="sc-label">{m['creator.field_item']()}</span>
 	<button type="button" class="secondary pick" onclick={() => (picking = true)} data-testid="{testid}-pick">
-		{#if def?.icon}<img src={asset(def.icon)} alt="" />{/if}
+		{#if shownIcon}<img src={asset(shownIcon)} alt="" />{/if}
 		<span>{id ? itemName(def, id) : m['creator.slice_item_change']()}</span>
 	</button>
 </div>
 <PropField {doc} path={[...path, 'qty']} label={m['creator.field_qty']()} type="number" step={1} min={1} max={GIVE_ITEM_MAX} placeholder="1" />
+{#if variants.length}
+	<PropField {doc} path={[...path, 'variant']} label={m['creator.item_variant']()} type="select" options={variantOptions} placeholder={m['creator.item_variant_none']()} />
+{/if}
 {#if take}
 	<RepeatsField id="{testid}-repeat" testid="{testid}-repeat" value={repeat} onchange={(next) => doc.set([...path, 'repeat'], next)} />
 {/if}
-<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} only={take ? takeable : undefined} onpick={(item) => doc.set([...path, 'item'], item.id)} />
+<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} only={take ? takeable : undefined} onpick={(item) => (doc.set([...path, 'item'], item.id), doc.set([...path, 'variant'], undefined))} />
 
 <style>
 	.field {

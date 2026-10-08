@@ -5,6 +5,8 @@ namespace Scutoons\Tests\Domain;
 
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Avatar\AvatarService;
+use Scutoons\Domain\Catalog\CatalogAdmin;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Domain\Progress\ProgressService;
 use Scutoons\Tests\TestCase;
@@ -62,6 +64,35 @@ final class InventoryServiceTest extends TestCase
     }
 
     /** a story takes (BACKLOG 10.38): all or nothing, once per ref, only a takeable item – never a physical one */
+    public function testAStoryGrantCanNameAVariant(): void
+    {
+        // owner 2026-10-08: sunglasses in six colours as variants – a pickup / give names one, each with its own tint
+        $admin = $this->get(CatalogAdmin::class);
+        $glasses = ['id' => 'sunglasses', 'toon' => null, 'name' => ['de' => 'Sonnenbrille', 'en' => 'Sunglasses'], 'description' => ['de' => '', 'en' => ''],
+            'kind' => 'virtual', 'category' => 'wearable', 'icon' => 'scutoons/items/sunglasses.webp', 'stackable' => false, 'starter' => false,
+            'grantable' => ['story'], 'slot' => 'face', 'skills' => [], 'edition_id' => null, 'product' => null,
+            'variants' => [['id' => 'orange', 'name' => ['de' => 'Orange', 'en' => 'Orange'], 'worn_tint' => '#ff9a2e'], ['id' => 'blue', 'name' => ['de' => 'Blau', 'en' => 'Blue'], 'worn_tint' => '#4a8cff']]];
+        $admin->put('items', 'sunglasses', $glasses, 'test');
+        try {
+            $bad = $glasses;
+            $bad['variants'][1]['worn_tint'] = 'blue';
+            $admin->put('items', 'sunglasses', $bad, 'test');
+            self::fail('a variant tint must be a colour');
+        } catch (ApiError $e) {
+            self::assertStringContainsString('sunglasses/blue: worn_tint', $e->getMessage());
+        }
+        $id = (string) $this->user()['id'];
+        self::assertSame(1, $this->inventory->grant($id, ['item_id' => 'sunglasses', 'source' => 'story', 'ref' => 'a', 'variant' => 'blue']));
+        self::assertSame('blue', $this->db->value("SELECT variant FROM inventory WHERE user_id = ? AND item_id = 'sunglasses'", [$id]));
+        try {
+            $this->inventory->grant($id, ['item_id' => 'sunglasses', 'source' => 'story', 'ref' => 'b', 'variant' => 'pink']);
+            self::fail('an unknown variant must be refused');
+        } catch (ApiError $e) {
+            self::assertSame('unknown_variant', $e->errorCode);
+        }
+        self::assertSame('#4a8cff', ((array) $this->get(CatalogStore::class)->get('items', 'sunglasses'))['variants'][1]['worn_tint']);
+    }
+
     public function testTakeIsAllOrNothingOncePerRefOnlyTakeable(): void
     {
         // the catalog flag (admin) – the test catalog has no takeable item

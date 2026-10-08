@@ -367,7 +367,8 @@ export function createInventoryContext(session: SessionContext) {
 		for (const id of Object.values(worn)) {
 			if (id == null) continue;
 			const entry = entries.find((e) => String(e.id) === String(id));
-			const tint = entry ? item(entry.item_id)?.worn_tint : null;
+			// a variant's own tint (a colour of the sunglasses), else the item's
+			const tint = entry ? (variantOf(entry)?.worn_tint ?? item(entry.item_id)?.worn_tint) : null;
 			if (tint) return tint;
 		}
 		return null;
@@ -452,7 +453,7 @@ export function createInventoryContext(session: SessionContext) {
 		source: GrantSource,
 		qty = 1,
 		ref?: string,
-		options: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } } = {}
+		options: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string }; variant?: string | null } = {}
 	): Promise<{ ok: boolean; error?: string; granted?: number }> {
 		const def = item(item_id);
 		if (!def || !def.grantable?.includes(source) || qty <= 0) return { ok: false, error: 'not_grantable' };
@@ -463,7 +464,7 @@ export function createInventoryContext(session: SessionContext) {
 				let result;
 				granted = 0;
 				for (let i = 0; i < Math.min(qty, 10); i++) {
-					result = await grantItem(item_id, source, ref, options.respawn);
+					result = await grantItem(item_id, source, ref, options.respawn, options.variant);
 					granted += Number(result?.granted ?? 1);
 				}
 				applyInventory(result?.inventory);
@@ -472,7 +473,7 @@ export function createInventoryContext(session: SessionContext) {
 				return { ok: false, error: typeof e?.code === 'string' ? e.code : 'failed' };
 			}
 		} else {
-			addGuestEntry(item_id, qty, source);
+			addGuestEntry(item_id, qty, source, options.variant && def.variants?.some((v) => v.id === options.variant) ? options.variant : null);
 			saveGuest();
 		}
 		if (granted > 0 || !options.quietWhenNone) notify(item_id, granted > 0 ? granted : qty, 'grant');
@@ -595,8 +596,8 @@ export function createInventoryContext(session: SessionContext) {
 	}
 
 	/** The wardrobe overlay of an entry on a slot instance of the current body (null = draw its icon at the anchor). */
-	function overlayOf(entry: Pick<Entry, 'item_id'>, slotId: string): string | null {
-		return wearOverlay(item(entry.item_id), currentBody?.character, slotId);
+	function overlayOf(entry: Pick<Entry, 'item_id' | 'variant'>, slotId: string): string | null {
+		return wearOverlay(item(entry.item_id), currentBody?.character, slotId, variantOf(entry));
 	}
 
 	/**
@@ -673,19 +674,23 @@ export function createInventoryContext(session: SessionContext) {
 
 	/** First login on this device: move guest items into the account (crafted items are split back into their inputs). */
 	async function importGuest() {
-		const totals: Record<string, number> = {};
-		const add = (id: string, qty: number) => {
+		// per item and variant (a guest's orange and blue sunglasses stay two things)
+		const totals = new Map<string, { item_id: string; qty: number; variant: string | null }>();
+		const add = (id: string, qty: number, variant: string | null = null) => {
 			const def = item(id);
 			if (!def || def.starter) return;
 			if (def.grantable?.length) {
-				totals[id] = (totals[id] ?? 0) + qty;
+				const key = `${id}|${variant ?? ''}`;
+				const t = totals.get(key) ?? { item_id: id, qty: 0, variant };
+				t.qty += qty;
+				totals.set(key, t);
 				return;
 			}
 			const recipe = catalog?.recipes.find((r) => r.output.item === id);
 			if (recipe) for (const input of recipe.inputs) add(input.item, input.qty * qty);
 		};
-		for (const entry of guest.entries) if (entry.source !== 'qr') add(entry.item_id, entry.qty);
-		const items = Object.entries(totals).map(([item_id, qty]) => ({ item_id, qty }));
+		for (const entry of guest.entries) if (entry.source !== 'qr') add(entry.item_id, entry.qty, entry.variant ?? null);
+		const items = [...totals.values()];
 		if (items.length === 0) {
 			resetGuest();
 			return;

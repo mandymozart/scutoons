@@ -60,7 +60,7 @@ export interface RunnerEnv {
 	/** a choice's / a setVariable's actions (variables, item grants) */
 	setVariable(action: { set: { variable: string; value: string | number } } | { add: { variable: string; value: number } }): void;
 	/** give the reader a catalog item (`giveItem` – BACKLOG 10.38; the inventory's rules apply) */
-	giveItem?(item: string, qty: number): void;
+	giveItem?(item: string, qty: number, variant?: string): void;
 	/** take a catalog item from the reader (`takeItem` – BACKLOG 10.38): all or nothing, the story goes on either way */
 	takeItem?(take: { item: string; qty?: number; repeat?: unknown }): void;
 	/** plain text, trimmed, cut (askText answers) */
@@ -144,8 +144,8 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 				}
 
 				case 'giveItem': {
-					const { item, qty } = event.params ?? {};
-					if (typeof item === 'string' && item) env.giveItem?.(item, Math.min(GIVE_ITEM_MAX, Math.max(1, Math.floor(Number(qty) || 1))));
+					const { item, qty, variant } = event.params ?? {};
+					if (typeof item === 'string' && item) env.giveItem?.(item, Math.min(GIVE_ITEM_MAX, Math.max(1, Math.floor(Number(qty) || 1))), typeof variant === 'string' && variant ? variant : undefined);
 					break;
 				}
 

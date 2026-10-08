@@ -354,6 +354,8 @@ export interface SliceItem {
 	 * `none` = silent
 	 */
 	sound?: FxSoundChoice;
+	/** pickup: one of the item's variants (its icon here, the variant goes into the inventory); none = the item itself */
+	variant?: string;
 	/** place in the slice's one layer stack of text boxes, placed items and areas (`Dialog.layer`, layers.ts) */
 	layer?: number;
 }

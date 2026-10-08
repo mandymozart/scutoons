@@ -47,7 +47,7 @@ export function readerEnv(game: GameContext): RunnerEnv {
 		...(expressions ? { evaluate: (source: string, at: string) => expressions.evaluate(source, at) } : {}),
 		...(conditions ? { conditions } : {}),
 		setVariable: (action) => void executeVariableAction(action as never, game),
-		giveItem: (item, qty) => void giveStoryItem(item, qty),
+		giveItem: (item, qty, variant) => void giveStoryItem(item, qty, undefined, variant ? { variant } : undefined),
 		takeItem: (take) => void takeStoryItem(take as never, game),
 		cleanText
 	};

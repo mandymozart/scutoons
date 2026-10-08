@@ -122,7 +122,10 @@
 	const itemInfo: ResolveSliceItem = (item) => {
 		const inventory = getCurrentInventory();
 		const def = inventory?.item(item.item);
-		return def?.icon ? { src: asset(def.icon), label: inventory!.nameOf({ item_id: item.item, variant: null }) } : null;
+		// a placed variant shows its own picture and name (a colour of the sunglasses)
+		const variant = item.variant ? def?.variants?.find((v) => v.id === item.variant) : undefined;
+		const icon = variant?.icon || def?.icon;
+		return icon ? { src: asset(icon), label: inventory!.nameOf({ item_id: item.item, variant: variant ? item.variant! : null }) } : null;
 	};
 	/** bumped after a pickup: a respawning item's "taken on this visit" isn't reactive state */
 	let taken = $state(0);

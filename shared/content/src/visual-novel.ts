@@ -130,6 +130,8 @@ export interface VNGiveItem {
 		item: string;
 		/** how many, 1 … 10 (default 1) */
 		qty?: number;
+		/** one of the item's variants (a colour of the sunglasses); none = the item itself */
+		variant?: string;
 	};
 }
 

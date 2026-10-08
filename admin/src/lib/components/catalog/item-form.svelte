@@ -125,6 +125,8 @@
 			}}
 		/>
 		<MediaSlot toon="" value={v.icon ?? undefined} label={m['catalog.picture']()} {place} {bust} onchange={(path) => ((v.icon = path ?? null), (bust = Date.now()))} testid="item-variant-icon" />
+		<!-- its own tint while worn (owner 2026-10-08: the sunglasses' colours as variants); empty = the item's -->
+		<CatalogField label={m['catalog.worn_tint']()} value={v.worn_tint ?? null} placeholder={data.worn_tint ?? '#ff9a2e'} onchange={(x) => (x ? (v.worn_tint = String(x).trim()) : delete v.worn_tint)} testid="item-variant-tint" />
 	{/snippet}
 	{#snippet footer()}{#if id && variants.length}<p class="sc-caption muted">{m['catalog.variant_files']({ id })}</p>{/if}{/snippet}
 </CatalogRows>

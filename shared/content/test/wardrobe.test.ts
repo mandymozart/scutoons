@@ -91,3 +91,10 @@ test('wardrobe: the base image is always the swim look (the legacy naked look is
 	assert.equal(wardrobeBase(cat)?.path, 'characters/catpope/catpope_apose-swim.webp');
 	assert.equal(wardrobeBase(null), null);
 });
+
+test('a variant can have its own overlay; without one the item\'s counts (owner 2026-10-08: the sunglasses\' colours)', () => {
+	const glasses = { wear: { catpope: 'characters/catpope/wear/sunglasses.webp' } };
+	assert.equal(wearOverlay(glasses, 'catpope', 'face', { wear: { catpope: 'characters/catpope/wear/sunglasses-blue.webp' } }), 'characters/catpope/wear/sunglasses-blue.webp');
+	assert.equal(wearOverlay(glasses, 'catpope', 'face', { wear: null }), 'characters/catpope/wear/sunglasses.webp');
+	assert.equal(wearOverlay({ wear: null }, 'catpope', 'face', { wear: { catpope: 'x.webp' } }), 'x.webp');
+});

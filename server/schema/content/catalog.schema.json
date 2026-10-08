@@ -495,6 +495,27 @@
 						"string",
 						"null"
 					]
+				},
+				"worn_tint": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "this variant's tint while worn (owner 2026-10-08: sunglasses in six colours as variants); none = the item's `worn_tint`"
+				},
+				"wear": {
+					"anyOf": [
+						{
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "this variant's wardrobe overlays (`ItemDef.wear`'s keys); none = the item's"
 				}
 			},
 			"required": [

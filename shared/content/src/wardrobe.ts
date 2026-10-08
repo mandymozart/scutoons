@@ -5,7 +5,7 @@
 // empty. The server applies the same rules (AvatarService).
 import type { AvatarBody, AvatarSlotInstance, CharacterRegistry } from './characters.ts';
 import { bodySlots } from './characters.ts';
-import type { AvatarSlot, Catalog, ItemDef } from './items.ts';
+import type { AvatarSlot, Catalog, ItemDef, ItemVariant } from './items.ts';
 import { AVATAR_SLOTS } from './items.ts';
 import type { Problem } from './validate.ts';
 import { validateAlbums } from './albums.ts';
@@ -34,11 +34,20 @@ export function wearConventionPath(character: string, item: string, instance?: P
 }
 
 /** The overlay of an item on a character's slot instance: `<character>/<instance>` first, then `<character>`; null = none. */
-export function wearOverlay(item: Pick<ItemDef, 'wear'> | null | undefined, character: string | null | undefined, instanceId: string): string | null {
-	const wear = item?.wear;
-	if (!wear || !character) return null;
-	const path = wear[`${character}/${instanceId}`] ?? wear[character];
-	return typeof path === 'string' && path.trim() ? path.trim() : null;
+export function wearOverlay(
+	item: Pick<ItemDef, 'wear'> | null | undefined,
+	character: string | null | undefined,
+	instanceId: string,
+	variant?: Pick<ItemVariant, 'wear'> | null
+): string | null {
+	if (!character) return null;
+	// a variant's own overlay first (a colour of the sunglasses), else the item's
+	for (const wear of [variant?.wear, item?.wear]) {
+		if (!wear) continue;
+		const path = wear[`${character}/${instanceId}`] ?? wear[character];
+		if (typeof path === 'string' && path.trim()) return path.trim();
+	}
+	return null;
 }
 
 /** The item has an overlay for some slot instance of this character (`<character>` or `<character>/<instance>`). */
@@ -140,6 +149,11 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		if (item.sober != null && !(typeof item.sober === 'number' && item.sober > 0 && item.sober < 1)) add('error', [...path, 'sober'], `${item.id}: sober must be a share between 0 and 1 (0.5 halves a running effect)`);
 		if (item.worn_tint != null && !(typeof item.worn_tint === 'string' && /^#[0-9a-fA-F]{6}$/.test(item.worn_tint))) add('error', [...path, 'worn_tint'], `${item.id}: worn_tint must be a colour #rrggbb`);
 		else if (item.worn_tint != null && !item.slot) add('warning', [...path, 'worn_tint'], `${item.id}: worn_tint only matters for something worn (no slot)`);
+		// variants with their own tint / overlays (owner 2026-10-08: the sunglasses' colours)
+		(Array.isArray(item.variants) ? item.variants : []).forEach((v, vi) => {
+			if (v?.worn_tint != null && !(typeof v.worn_tint === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.worn_tint))) add('error', [...path, 'variants', vi, 'worn_tint'], `${item.id}/${v.id}: worn_tint must be a colour #rrggbb`);
+			if (v?.wear != null && !(isObj(v.wear) && Object.values(v.wear).every((x) => typeof x === 'string' && x.trim()))) add('error', [...path, 'variants', vi, 'wear'], `${item.id}/${v.id}: wear must be { "<character>[/<slot instance>]": "<path>" }`);
+		});
 		if (substance !== applies) add('error', [...path, 'skills'], `${item.id}: ${substance ? 'a substance needs the "apply" skill' : 'the "apply" skill needs effects or an effect'}`);
 		for (const sk of Array.isArray(item.skills) ? item.skills : []) {
 			if (sk?.type !== 'scan_object') continue;

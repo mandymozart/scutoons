@@ -175,6 +175,8 @@
 		"fx_sound_zap": "Zap",
 		"fx_sound_boom": "Boom",
 		"fx_sound_hum": "Hum",
+		"item_variant": "Variant",
+		"item_variant_none": "the item itself",
 		"slam_shake": "Shakes when it lands",
 		"slam_shake_slice": "this slice",
 		"slam_shake_none": "nothing",
