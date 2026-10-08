@@ -156,6 +156,7 @@
 			onstep?.(data);
 		}
 		else if (name === 'error') turn.error = data.message;
+		else if (name === 'done' && typeof data.usage?.cost === 'number') turn.cost = data.usage.cost;
 	}
 
 	async function send(event?: Event) {
@@ -203,6 +204,9 @@
 			controller = null;
 		}
 	}
+
+	/** what an answer cost, in US dollars like the admin's AI usage (the owner pays the AI per call) */
+	const usd = (cost: number) => `$${cost.toFixed(cost < 0.1 ? 3 : 2)}`;
 
 	function onkeydown(event: KeyboardEvent) {
 		// Enter sends, Shift+Enter is a new line
@@ -267,6 +271,7 @@
 					{/each}
 				{/if}
 				{#if turn.error}<p class="sc-error">{turn.error}</p>{/if}
+				{#if turn.cost}<p class="cost">{usd(turn.cost)}</p>{/if}
 				{#if busy && i === turns.length - 1}<p class="working">{labels.working}</p>{/if}
 			</li>
 		{/each}
@@ -395,6 +400,11 @@
 	.working {
 		margin: 0;
 		color: var(--text-muted);
+	}
+	.cost {
+		margin: var(--space-1) 0 0;
+		color: var(--text-muted);
+		font-size: var(--type-caption-size);
 	}
 	.steps {
 		list-style: none;

@@ -325,6 +325,15 @@ export function costOf(model: string, u: Anthropic.Beta.BetaUsage): number {
 	return tokens + (u.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_PRICE;
 }
 
+/**
+ * The account has no credit left: a billing error (402 `billing_error`), or the 400 the API answers with "Your credit
+ * balance is too low …"
+ */
+function noCredit(error: unknown): boolean {
+	if (!(error instanceof Anthropic.APIError)) return false;
+	return error.status === 402 || error.type === 'billing_error' || (error.status === 400 && /credit balance/i.test(error.message));
+}
+
 interface Usage {
 	app: AgentApp;
 	service: string;
@@ -513,6 +522,31 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 	await saveChat(cfg, person, chatId, chat);
 	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, webSearches: 0, cost: 0 };
 	let jsonRetries = 0;
+	/** one API call into the totals and the usage log */
+	const account = async (message: Anthropic.Beta.BetaMessage) => {
+		const u = message.usage;
+		const cost = costOf(message.model, u);
+		total.input += u.input_tokens;
+		total.output += u.output_tokens;
+		total.cacheRead += u.cache_read_input_tokens ?? 0;
+		total.cacheWrite += u.cache_creation_input_tokens ?? 0;
+		const searches = u.server_tool_use?.web_search_requests ?? 0;
+		total.webSearches += searches;
+		total.cost += cost;
+		turn.cost = Number(total.cost.toFixed(6));
+		await logUsage(cfg, person, {
+			app,
+			service: 'anthropic',
+			model: message.model,
+			chat_id: chatId,
+			input_tokens: u.input_tokens,
+			output_tokens: u.output_tokens,
+			cache_read_tokens: u.cache_read_input_tokens ?? 0,
+			cache_write_tokens: u.cache_creation_input_tokens ?? 0,
+			web_searches: searches,
+			cost_usd: Number(cost.toFixed(6))
+		});
+	};
 
 	try {
 		for (let round = 0; round < MAX_ROUNDS && !closed; round++) {
@@ -536,33 +570,15 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 				jsonRetries = 0;
 			} catch (error) {
 				res.off('close', abort);
+				// a call that broke off (panel closed, Stop, a stream error) is billed for what ran so far: log that too
+				const partial = stream.currentMessage;
+				if (partial) await account(partial);
 				// eager input streaming: a tool input that could not be parsed at all → re-issue the turn (twice at most)
 				if (error instanceof Anthropic.APIError || closed || jsonRetries++ >= 2) throw error;
 				continue;
 			}
 			res.off('close', abort);
-
-			const u = message.usage;
-			const cost = costOf(message.model, u);
-			total.input += u.input_tokens;
-			total.output += u.output_tokens;
-			total.cacheRead += u.cache_read_input_tokens ?? 0;
-			total.cacheWrite += u.cache_creation_input_tokens ?? 0;
-			const searches = u.server_tool_use?.web_search_requests ?? 0;
-			total.webSearches += searches;
-			total.cost += cost;
-			await logUsage(cfg, person, {
-				app,
-				service: 'anthropic',
-				model: message.model,
-				chat_id: chatId,
-				input_tokens: u.input_tokens,
-				output_tokens: u.output_tokens,
-				cache_read_tokens: u.cache_read_input_tokens ?? 0,
-				cache_write_tokens: u.cache_creation_input_tokens ?? 0,
-				web_searches: searches,
-				cost_usd: Number(cost.toFixed(6))
-			});
+			await account(message);
 
 			chat.messages.push({ role: 'assistant', content: message.content });
 			// the web searches / page reads of this answer as steps in the panel (they ran at Anthropic)
@@ -595,12 +611,14 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 		}
 	} catch (error) {
 		const message =
-			error instanceof Anthropic.RateLimitError
+			noCredit(error)
+				? 'The AI credit is used up – nothing was answered. The owner tops it up in the Claude Console (platform.claude.com → Billing).'
+				: error instanceof Anthropic.RateLimitError
 				? 'The AI service is busy – try again in a minute.'
 				: error instanceof Anthropic.AuthenticationError
 					? 'The AI service key is not valid (server configuration).'
 					: error instanceof Anthropic.BadRequestError
-						? 'The AI service refused the request (details in the service log – e.g. no credit left on the account).'
+						? 'The AI service refused the request (details in the service log).'
 						: error instanceof Anthropic.APIError
 						? `AI service error ${error.status}`
 						: error instanceof Error

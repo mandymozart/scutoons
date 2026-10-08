@@ -25,6 +25,8 @@ export interface AgentTurn {
 	text: string;
 	steps: AgentStep[];
 	error?: string;
+	/** what the agent's answer cost (USD: its AI calls' tokens + web searches, as logged in the usage log) */
+	cost?: number;
 }
 
 export interface AgentChatSummary {
