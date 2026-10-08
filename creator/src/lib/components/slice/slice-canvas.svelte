@@ -156,12 +156,12 @@
 			return sel(a) - sel(b) || rank(a) - rank(b) || area(b) - area(a);
 		})
 	);
-	/** a pointer on the canvas takes the keyboard from a field (Delete / Ctrl+X / arrows then act on the selection) */
 	/**
 	 * a box takes the pointer on its tab; on the Layers tab (the one with the text boxes) only the areas of the stack, not
 	 * a whole-slice / in-view event's
 	 */
 	const active = (i: Item) => layers === null || (layers.includes(i.kind) && (!layers.includes('dialog') || inStack(i)));
+	/** a pointer on the canvas takes the keyboard from a field (Delete / Ctrl+X / arrows then act on the selection) */
 	function releaseField() {
 		const el = document.activeElement as HTMLElement | null;
 		if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) el.blur();
