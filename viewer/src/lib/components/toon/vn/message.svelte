@@ -3,6 +3,7 @@
 	import Choices from './choices.svelte';
 	import { legacyCharacterLabel } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { holdChrome } from '$lib/chrome.ts';
 
 	const vn = getVisualNovelContext();
 
@@ -22,6 +23,9 @@
 	// (its own text) answers with the default – or nothing
 	let typed = $state('');
 	let input = $state<HTMLInputElement | null>(null);
+	// typing keeps the top row: the phone keyboard opening scrolls the page, which would hide it (lib/chrome.ts)
+	let releaseChrome: (() => void) | undefined;
+	$effect(() => () => releaseChrome?.());
 	const question = $derived(vn.state.question);
 	$effect(() => {
 		if (!question) return;
@@ -64,6 +68,8 @@
 				<input
 					bind:this={input}
 					bind:value={typed}
+					onfocus={() => (releaseChrome = holdChrome())}
+					onblur={() => releaseChrome?.()}
 					type="text"
 					maxlength={question.maxLength}
 					placeholder={question.placeholder}

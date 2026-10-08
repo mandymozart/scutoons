@@ -429,6 +429,7 @@ export function createVisualNovelContext() {
 		beginEvents: box.beginEvents,
 		endOfEvents: box.endOfEvents,
 		addChoice: (choice: VNPageChoice) => box.addChoice(choice),
+		// a question / choices bring the top row back (lib/chrome.ts); the question's input holds it while typing (message.svelte)
 		ask: (question: Parameters<typeof box.ask>[0]) => (void showChrome(), box.ask(question)),
 		answer: box.answer,
 		dropUnshownChoices: box.dropUnshownChoices,

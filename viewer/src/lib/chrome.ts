@@ -15,7 +15,8 @@ const HIDE_AFTER = 1.5;
 const SHOW_AFTER = 1;
 
 let hidden = false;
-let holds = 0;
+/** what keeps the row showing (an open overlay, the menu, a focused question); a navigation clears them */
+const holds = new Set<symbol>();
 
 function root() {
 	return typeof document === 'undefined' ? null : document.documentElement;
@@ -23,7 +24,7 @@ function root() {
 
 export function hideChrome() {
 	const html = root();
-	if (!html || hidden || holds > 0) return;
+	if (!html || hidden || holds.size > 0) return;
 	hidden = true;
 	html.classList.add('chrome-hidden');
 }
@@ -39,14 +40,16 @@ export function showChrome(): Promise<void> {
 
 /** keeps the row showing until the returned release is called (an open overlay) */
 export function holdChrome(): () => void {
-	holds++;
+	const hold = Symbol();
+	holds.add(hold);
 	void showChrome();
-	let released = false;
-	return () => {
-		if (released) return;
-		released = true;
-		holds--;
-	};
+	return () => void holds.delete(hold);
+}
+
+/** a new page: no holds left over from the last one, the row shows */
+export function resetChrome() {
+	holds.clear();
+	void showChrome();
 }
 
 /** scrolling down hides the row, a little up (or the top of the page) shows it; returns the stop */
