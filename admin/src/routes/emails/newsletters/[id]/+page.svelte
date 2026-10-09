@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import EmailsNav from '$lib/components/emails-nav.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import { goto } from '$app/navigation';
@@ -44,7 +45,25 @@
 		// many pictures exist only as WebP: Outlook (desktop) shows none
 		if (/\.webp$/i.test(picked.path)) toaster.addToast({ message: m['newsletter.picture_webp'](), type: 'warning' });
 		const caret = (before ? before.length + 2 : 0) + line.length;
-		requestAnimationFrame(() => bodyArea?.setSelectionRange(caret, caret));
+		void tick().then(() => bodyArea?.setSelectionRange(caret, caret));
+	}
+	// the placeholders the renderer knows (NewsletterRenderer: {name}, {name|fallback}), picked from a list (owner 2026-10-09)
+	const variables = $derived([
+		{ value: '{name}', label: m['newsletter.variable_name']() },
+		{ value: locale === 'de' ? '{name|du}' : '{name|there}', label: m['newsletter.variable_name_or']({ word: locale === 'de' ? 'du' : 'there' }) }
+	]);
+	/** puts a placeholder at the cursor of the body, inside the line */
+	function insertVariable(value: string) {
+		const key = locale === 'de' ? 'body_de' : 'body_en';
+		const text = draft[key];
+		const start = bodyArea?.selectionStart ?? text.length;
+		const end = bodyArea?.selectionEnd ?? start;
+		draft[key] = text.slice(0, start) + value + text.slice(end);
+		const caret = start + value.length;
+		void tick().then(() => {
+			bodyArea?.focus();
+			bodyArea?.setSelectionRange(caret, caret);
+		});
 	}
 	let previewSubject = $state('');
 
@@ -300,7 +319,23 @@
 				</Field>
 			{/if}
 			{#if textEditable}
-				<div><Button variant="secondary" onclick={() => (picking = true)}>{m['newsletter.picture_add']()}</Button></div>
+				<div class="inserts">
+					<Button variant="secondary" onclick={() => (picking = true)}>{m['newsletter.picture_add']()}</Button>
+					<select
+						aria-label={m['newsletter.variable_add']()}
+						value=""
+						onchange={(e) => {
+							const value = e.currentTarget.value;
+							e.currentTarget.value = '';
+							if (value) insertVariable(value);
+						}}
+					>
+						<option value="" disabled>{m['newsletter.variable_add']()}</option>
+						{#each variables as v (v.value)}
+							<option value={v.value}>{v.value} – {v.label}</option>
+						{/each}
+					</select>
+				</div>
 			{/if}
 		</div>
 		<div class="preview">
@@ -368,6 +403,12 @@
 	.text {
 		display: grid;
 		align-content: start;
+		gap: var(--space-1);
+	}
+	/* "Bild einfügen" and the variable list side by side */
+	.inserts {
+		display: flex;
+		flex-wrap: wrap;
 		gap: var(--space-1);
 	}
 	.text textarea {
