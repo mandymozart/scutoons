@@ -10,9 +10,11 @@
 //
 //   node scripts/storyboard/refpack.mjs storyboards/catpope/s1c3 [--only sb-28-2,sb-28-3] [--out storyboards/_out]
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
-import { ROOT, mediaRoot, textOf } from './lib.mjs';
+import { ROOT, readEntity } from './lib.mjs';
+import { lumaPrompt } from './luma.js';
+import { STYLE_DIR, shotCharacters, styleFiles } from './refs.mjs';
 import { loadStoryboards } from './storyboard.mjs';
 
 const args = process.argv.slice(2);
@@ -23,42 +25,19 @@ const src = args[0];
 if (!src) { console.error('usage: refpack.mjs <storyboard folder> [--only ids]'); process.exit(2); }
 const name = basename(resolve(src));
 const frames = resolve(outRoot, name, 'frames');
-const styleDir = resolve(ROOT, 'storyboards/style');
-const styles = existsSync(styleDir) ? readdirSync(styleDir).filter((f) => /\.(png|jpe?g|webp)$/i.test(f)) : [];
-const media = mediaRoot();
+const styles = styleFiles();
 
-/** the registry's moods (characters / moods entity) – the character images exist for these */
-const MOODS = ['acceptance', 'angry', 'bargaining', 'confused', 'crying', 'denial', 'disgusted', 'dizzy', 'embarrassed', 'furious', 'happy', 'laughing', 'neutral', 'sad', 'scared', 'smug', 'surprised', 'thinking'];
-/** free storyboard moods → the nearest registry mood (until storyboards use the registry's words) */
-const NEAR = {
-	terrified: 'scared', panicked: 'scared', uneasy: 'confused', curious: 'confused', dazed: 'dizzy', clumsy: 'dizzy', falling: 'dizzy',
-	exhausted: 'sad', cold: 'sad', nostalgic: 'sad', desperate: 'crying', despairing: 'crying',
-	determined: 'smug', driven: 'smug', knowing: 'smug', focused: 'thinking', reverent: 'thinking',
-	fierce: 'furious', hunting: 'furious', charging: 'furious', menacing: 'furious', impatient: 'angry', frustrated: 'angry', urgent: 'angry',
-	awe: 'surprised', entranced: 'surprised', excited: 'happy', thrilled: 'happy', ecstatic: 'laughing', delighted: 'happy', eager: 'happy', playful: 'happy',
-	relieved: 'acceptance', hopeful: 'acceptance', mocking: 'laughing'
-};
-const moodOf = (m) => (MOODS.includes(m) ? m : NEAR[m] ?? 'neutral');
-
-function characterImage(c, framing, mood) {
-	if (!media || !c?.character) return null;
-	const folder = !c.persona || c.persona === 'regular' ? c.character : `${c.character}-${c.persona}`;
-	const views = ['cu', 'ecu', 'mcu'].includes(framing) ? ['portrait', 'avatar', 'full'] : ['full', 'portrait'];
-	for (const view of views) for (const m of [moodOf(mood), 'neutral']) for (const ext of ['webp', 'png']) {
-		const f = resolve(media, 'characters', folder, `${folder}_${view}-${m}.${ext}`);
-		if (existsSync(f)) return { file: f, mood: m };
-	}
-	return null;
+// the script per scene (local dev DB, read-only) for the prompt's context; without the DB the prompt goes without it
+let scriptText = '';
+try { scriptText = readEntity(`script:${loadStoryboards(src)[0]?.sb.toon ?? 'catpope'}:de`).text ?? ''; } catch {}
+function sceneScript(n) {
+	const lines = scriptText.split('\n');
+	const start = lines.findIndex((l) => new RegExp(`^${n}\\s{1,4}\\S`).test(l));
+	if (start < 0) return '';
+	let end = lines.findIndex((l, i) => i > start && (/^\d+\s{1,4}\S/.test(l) || /^\s+# \d+\. Kapitel/.test(l)));
+	if (end < 0) end = lines.length;
+	return lines.slice(start, end).join('\n');
 }
-
-const PERSONA = {
-	'catpope/human': 'Cat Pope in human form (PLF): the long white papal robe with the cape, a sphynx cat head',
-	'catpope/mountaintiger': 'the white mountain tiger: muscular, half upright, big claws, a rune glyph on the forehead and body (Cat Pope himself, as PLF fights himself)',
-	'catpope/regular': 'Cat Pope (the narrator): sphynx cat head, papal robe',
-	'catpope/cat': 'a hairless sphynx cat',
-	'crows/regular': 'crow creatures, black, big beaks'
-};
-const VIEW = { belief: 'as the character perceives it', memory: 'a memory, more distant', narration: 'the narrator, outside the scene', real: '' };
 
 let packs = 0, missing = [];
 for (const { sb } of loadStoryboards(src)) {
@@ -70,27 +49,15 @@ for (const { sb } of loadStoryboards(src)) {
 		const frame = resolve(frames, `${shot.id}.png`);
 		if (existsSync(frame)) copyFileSync(frame, resolve(dir, '1-structure.png'));
 		else missing.push(shot.id);
-		styles.forEach((f, i) => copyFileSync(resolve(styleDir, f), resolve(dir, `2-style-${i + 1}${extname(f)}`)));
-		const who = [];
-		for (const fig of shot.figures ?? []) {
-			const c = { ...(cast[fig.cast] ?? {}), ...(fig.persona ? { persona: fig.persona } : {}) };
-			const hit = characterImage(c, fig.framing, fig.mood);
-			const img = hit?.file;
-			const mood = moodOf(fig.mood);
-			if (img) copyFileSync(img, resolve(dir, `3-${fig.cast}-${c.persona ?? 'regular'}-${hit.mood}${extname(img)}`));
-			who.push(`${PERSONA[`${c.character}/${c.persona}`] ?? c.new ?? c.character ?? fig.cast} – ${mood}${fig.mood && fig.mood !== mood ? ` (${fig.mood})` : ''}${fig.pose ? `, ${fig.pose}` : ''}${img ? '' : ' [no character image yet – the render only]'}`);
+		styles.forEach((f, i) => copyFileSync(resolve(STYLE_DIR, f), resolve(dir, `2-style-${i + 1}${extname(f)}`)));
+		const refs = { structure: '1-structure.png', style: styles.map((f, i) => `2-style-${i + 1}${extname(f)}`), characters: [] };
+		for (const { fig, cast, image } of shotCharacters(sb, shot)) {
+			if (!image) { refs.characters.push(`(none yet for ${fig.cast} / ${cast.persona ?? 'regular'} – the render only)`); continue; }
+			const f = `3-${fig.cast}-${cast.persona ?? 'regular'}-${image.mood}${extname(image.file)}`;
+			copyFileSync(image.file, resolve(dir, f));
+			refs.characters.push(f);
 		}
-		const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
-		const prompt = [
-			'Keep the exact composition, camera, poses and the hard light of the structure image (image reference).',
-			`Render it as clean line art in the look of the style reference: crisp even contour lines on white, solid black shadow shapes from the one hard light so the lighting reads clearly, no hatching, no grey shading, no sketchy or hand-drawn strokes${light.accent?.color ? `, the only colour: ${light.accent.color}${light.accent.on ? ` on ${light.accent.on}` : ''}` : ', no colour'}.`,
-			who.length ? `Characters (character references): ${who.join('; ')}.` : 'No characters.',
-			shot.prompt?.en ? `The scene: ${shot.prompt.en}` : `The scene (German storyboard – translate the key details): ${textOf(shot.action)}`,
-			shot.view && VIEW[shot.view] ? `Perspective: ${VIEW[shot.view]}.` : '',
-			light.note?.de ? `Light (storyboard): ${light.note.de}` : '',
-			'No text, no lettering, no speech bubbles.'
-		].filter(Boolean).join('\n');
-		writeFileSync(resolve(dir, 'prompt.txt'), `${shot.id} – ${shot.format} ${shot.aspect}\n\n${prompt}\n\nLuma: image reference = 1-structure.png (strong), style reference = 2-style-*, character references = 3-*.\nAspect: ${shot.format === 'loop360' ? `${shot.aspect} panorama (seamless – generate wide or in parts)` : shot.aspect}\n`);
+		writeFileSync(resolve(dir, 'prompt.txt'), lumaPrompt(sb, shot, { references: refs, script: sceneScript(sb.source?.scene) }));
 		packs++;
 	}
 }

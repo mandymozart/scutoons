@@ -62,3 +62,6 @@ dialog pre { white-space: pre-wrap; font: 0.75rem ui-monospace, monospace; max-h
 .drop { border: 0.125rem dashed var(--line); border-radius: 0.25rem; padding: 0.75rem 0.5rem; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; }
 .drop.over { border-color: var(--fg); color: var(--fg); }
 .drop input { display: block; margin-top: 0.375rem; max-width: 100%; }
+
+#luma textarea { min-height: 18rem; font: 0.75rem/1.45 ui-monospace, Consolas, monospace; }
+.refs { margin: 0.25rem 0 0; padding-left: 1rem; font-size: 0.75rem; }

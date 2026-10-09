@@ -265,6 +265,10 @@ function drawEditor() {
 				el('button', { on: { click: () => review('ok') } }, '✓ ok (→ Datensatz)'),
 				el('button', { on: { click: () => review('change') } }, '✎ ändern'),
 				el('button', { on: { click: addTaste } }, '+ Regel für taste.md'))),
+		el('fieldset', {}, el('legend', {}, 'Prompt für Luma'),
+			el('p', { class: 'muted' }, 'Aus dem Shot, wie er gerade eingestellt ist (auch ungespeichert) – mit Skript, Perspektive, Figuren, Kamera, Licht, Leerflächen und Look.'),
+			el('div', { class: 'actions' }, el('button', { on: { click: showPrompt } }, 'Prompt erzeugen')),
+			el('div', { id: 'luma' })),
 		field('Varianten-Notiz', '', (v) => { state.variantNote = v; }, 'text'),
 		el('div', { class: 'actions' },
 			el('button', { class: 'primary', on: { click: saveShot } }, 'Speichern + Frame'),
@@ -272,6 +276,20 @@ function drawEditor() {
 			el('button', { on: { click: () => { state.dirty = false; selectShot(state.sel.id, true); } } }, 'Verwerfen'),
 			el('button', { on: { click: () => runCmd('refpacks', state.sel.id) } }, 'Referenzpaket'))
 	);
+}
+
+// --- the Luma prompt --------------------------------------------------------------------------------------------------
+async function showPrompt() {
+	const { text, refs } = await api('POST', '/api/prompt', { toon: state.toon, ch: state.ch, shot: state.sel.shot });
+	const area = el('textarea', { readonly: true, rows: 18 }, text);
+	fill($('#luma'),
+		area,
+		el('div', { class: 'actions' },
+			el('button', { class: 'primary', on: { click: async () => { await navigator.clipboard.writeText(text); log('Prompt kopiert – in Luma einfügen.'); } } }, 'Prompt kopieren'),
+			el('button', { on: { click: async () => { const png = await renderPng(state.sel.shot); const a = el('a', { href: png, download: `${state.sel.id}-structure.png` }); a.click(); } } }, 'Render (aktueller Stand) laden')),
+		el('p', { class: 'muted' }, 'In Luma anhängen:'),
+		el('ul', { class: 'refs' }, ...refs.map((r) => el('li', {}, r.url ? el('a', { href: r.url, download: r.name ?? '' }, r.name) : el('span', { class: 'muted' }, 'noch kein Bild'), ' – ', r.role))));
+	area.select();
 }
 
 // --- saving, variants, reviews ----------------------------------------------------------------------------------------

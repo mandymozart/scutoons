@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { PORTS } from '../../scripts/dev/ports.mjs';
 import { mediaRoot, readEntity } from '../../scripts/storyboard/lib.mjs';
 import { loadStoryboards, summarize, validate } from '../../scripts/storyboard/storyboard.mjs';
+import { lumaPrompt } from '../../scripts/storyboard/luma.js';
+import { shotCharacters, styleFiles } from '../../scripts/storyboard/refs.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -151,6 +153,24 @@ const api = {
 	'POST /api/generated/approve': ({ toon, ch, id, file, note }) => {
 		if (!/^[\w.-]+$/.test(file)) throw new Error('bad file');
 		return run('scripts/storyboard/approve.mjs', [`storyboards/${toon}/${ch}`, id, '--image', resolve(OUT, ch, 'generated', file), ...(note ? ['--note', note] : [])]);
+	},
+	// the prompt for Luma for the shot as it is edited right now (scripts/storyboard/luma.js) + the references to attach
+	'POST /api/prompt': ({ toon, ch, shot }) => {
+		const hit = findShot(toon, ch, shot.id);
+		const scene = scriptScenes(toon)[hit.sb.source?.scene];
+		const chars = shotCharacters(hit.sb, shot);
+		const refs = [
+			{ role: 'Image reference (strong) – the layout', name: `${shot.id}.png`, url: `/out/${ch}/frames/${shot.id}.png` },
+			...styleFiles().map((f) => ({ role: 'Style reference', name: f, url: `/style/${encodeURIComponent(f)}` })),
+			...chars.map(({ fig, cast, image }) => image
+				? { role: `Character reference – ${fig.cast} (${cast.persona ?? 'regular'}, ${image.mood})`, name: image.rel.split('/').pop(), url: `/media/${image.rel}` }
+				: { role: `Character reference – ${fig.cast} (${cast.persona ?? 'regular'})`, name: null, url: null })
+		];
+		const text = lumaPrompt(hit.sb, shot, {
+			script: scene ? scene.lines.join('\n') : '',
+			references: { structure: refs[0].name, style: refs.filter((r) => r.role === 'Style reference').map((r) => r.name), characters: refs.filter((r) => r.role.startsWith('Character')).map((r) => r.name ?? '(none yet – the render only)') }
+		});
+		return { text, refs };
 	},
 	'GET /api/variants': ({ toon, ch, id }) => readVariants(toon, ch, id),
 	'POST /api/variants': ({ toon, ch, id, shot, note }) => {
