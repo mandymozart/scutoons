@@ -88,6 +88,17 @@ export function decimate(positions, faces, target) {
 		if (u < v) pushEdge(u, v);
 	}
 
+	const minQuality = 0.25;
+	/** 4√3 · area / Σ edge² – 1 for an equilateral triangle, → 0 for a sliver */
+	const quality = (f) => {
+		const a = F[f * 3] * 3, b = F[f * 3 + 1] * 3, c = F[f * 3 + 2] * 3;
+		normal(f, nq);
+		const area2 = Math.hypot(nq[0], nq[1], nq[2]);
+		const e = (i, j) => (P[i] - P[j]) ** 2 + (P[i + 1] - P[j + 1]) ** 2 + (P[i + 2] - P[j + 2]) ** 2;
+		const s = e(a, b) + e(b, c) + e(c, a);
+		return s ? (2 * Math.sqrt(3) * area2) / s : 0;
+	};
+	const nq = [0, 0, 0];
 	let faceCount = nf;
 	const na = [0, 0, 0], nb = [0, 0, 0];
 	const neighbours = (u) => { const s = new Set(); for (const f of vf[u]) if (alive[f]) for (let k = 0; k < 3; k++) s.add(F[f * 3 + k]); s.delete(u); return s; };
@@ -113,6 +124,12 @@ export function decimate(positions, faces, target) {
 			P[w * 3] = save[0]; P[w * 3 + 1] = save[1]; P[w * 3 + 2] = save[2];
 			const la = Math.hypot(...na), lb = Math.hypot(...nb);
 			if (lb < 1e-12 || (na[0] * nb[0] + na[1] * nb[1] + na[2] * nb[2]) / (la * lb) < 0.2) { ok = false; break; }
+			// triangle quality after the move (1 = equilateral): refuse slivers – long thin faces read as noise
+			const save2 = [P[w * 3], P[w * 3 + 1], P[w * 3 + 2]];
+			P[w * 3] = p[0]; P[w * 3 + 1] = p[1]; P[w * 3 + 2] = p[2];
+			const qa = quality(f);
+			P[w * 3] = save2[0]; P[w * 3 + 1] = save2[1]; P[w * 3 + 2] = save2[2];
+			if (qa < minQuality && qa < quality(f)) { ok = false; break; }
 		}
 		if (!ok) continue;
 		// collapse v into u

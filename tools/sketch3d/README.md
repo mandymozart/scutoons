@@ -23,8 +23,11 @@ node tools/sketch3d/test/synthetic.mjs       # the pipeline in Node on a synthet
    tell), *–* (ignored: ¾, back). Two figures → the second is the side.
 3. **Inflate** (`core/mesh.js`): every inside cell carries a ball as big as its distance to the outline; the surface is
    the hull of those balls, squashed in depth ("Tiefe") → round limbs and head, a flatter torso. *Drehen* turns the
-   silhouette instead (bottle, vase, trunk). Meshed with surface nets, Taubin-smoothed, then reduced to the wanted
-   triangle count by quadric edge collapse (`core/decimate.js`; three's SimplifyModifier took minutes).
+   silhouette instead (bottle, vase, trunk). With a side view every height gets an elliptic cross-section – as wide as
+   the front, as deep as the side, limbs round – trimmed to the side outline (front ∩ side alone gave flat slabs).
+   Meshed with surface nets, Taubin-smoothed, then reduced to the wanted
+   triangle count by quadric edge collapse (`core/decimate.js`; three's SimplifyModifier took minutes) that refuses
+   slivers (long thin triangles read as noise).
 4. **Rig** (`core/rig.js`): the joints read off the silhouette – the neck (narrowest row under the head), the armpits
    (where arm and body separate), the arm's axis (fitted), the hand tips, the crotch (a gap near the centre line – a
    tail between the legs is fine), the soles. No gap at the knees → a **robe**: one `robe` bone (figures.js swings

@@ -168,6 +168,41 @@ export function buildMesh(grid, { height = 1.8, depth = 0.8, mode = 'inflate', s
 		scx = (a + b) / 2;
 		maxH = Math.max(maxH * depth, (b - a) / 2 + 1);
 	}
+	// with a side view, every row's cross-section is an ellipse: as wide as the front view's run there, as deep as the
+	// side view at that height (around its middle) – the trunk takes the side's depth, a limb (a run of its own) stays
+	// round. Then trimmed to the exact side outline. (Only front ∩ side gave flat slabs on the chest and the dress.)
+	let runC = null, runA = null, rowZc = null, rowB = null;
+	if (side) {
+		runC = new Float32Array(w * h); runA = new Float32Array(w * h);
+		for (let y = 0; y < h; y++) {
+			let s0 = -1;
+			for (let x = 0; x <= w; x++) {
+				const on = x < w && mask[y * w + x];
+				if (on && s0 < 0) s0 = x;
+				if (!on && s0 >= 0) {
+					const c = (s0 + x - 1) / 2, a = (x - s0) / 2;
+					const trunk = s0 <= cx && cx <= x - 1;
+					for (let k = s0; k < x; k++) { runC[y * w + k] = c; runA[y * w + k] = trunk ? -a : a; } // − marks the trunk
+					s0 = -1;
+				}
+			}
+		}
+		rowZc = new Float32Array(h); rowB = new Float32Array(h);
+		for (let y = 0; y < h; y++) {
+			let a = Infinity, b = -Infinity;
+			if (y < side.h) for (let x = 0; x < side.w; x++) if (side.mask[y * side.w + x]) { a = Math.min(a, x); b = Math.max(b, x); }
+			rowZc[y] = a <= b ? (a + b) / 2 - scx : 0;
+			rowB[y] = a <= b ? (b - a) / 2 + 0.5 : 0;
+		}
+	}
+	const ellipse = (x, y, z) => {
+		const i = y * w + x;
+		const trunk = runA[i] < 0, a = Math.abs(runA[i]);
+		const b = trunk ? rowB[y] : Math.min(rowB[y], a);
+		if (!a || !b) return -1;
+		const r = Math.hypot((x - runC[i]) / a, (z - rowZc[y]) / b);
+		return (1 - r) * Math.min(a, b);
+	};
 
 	const zr = Math.ceil(maxH * Math.max(depth, 1)) + 3;
 	const nx = w, ny = h, nz = zr * 2 + 1;
@@ -178,6 +213,7 @@ export function buildMesh(grid, { height = 1.8, depth = 0.8, mode = 'inflate', s
 			const i = y * w + x;
 			let v;
 			if (lathe) v = lathe[y] > 0 ? lathe[y] - Math.hypot(x - cx, z) : -1;
+			else if (side) v = mask[i] ? ellipse(x, y, z) : sd[i];
 			else v = mask[i] ? hgt[i] * depth - Math.abs(z) : sd[i];
 			if (sideSd) {
 				const sxp = Math.round(scx + z);
@@ -188,6 +224,20 @@ export function buildMesh(grid, { height = 1.8, depth = 0.8, mode = 'inflate', s
 			if (x === 0 || y === 0 || k === 0 || x === nx - 1 || y === ny - 1 || k === nz - 1) v = Math.min(v, -1);
 			f[x + nx * (y + ny * k)] = v;
 		}
+	}
+	// the per-row ellipses step by a cell from row to row (rings): smooth the field up / down (and a little sideways)
+	if (side) {
+		const tmp = new Float32Array(f.length);
+		const pass = (stride, n, at) => {
+			for (let i = 0; i < f.length; i++) {
+				const c = at(i);
+				const lo = c > 0 ? f[i - stride] : f[i], hi = c < n - 1 ? f[i + stride] : f[i];
+				tmp[i] = (lo + 2 * f[i] + hi) / 4;
+			}
+			f.set(tmp);
+		};
+		for (let r = 0; r < 4; r++) pass(nx, ny, (i) => Math.floor(i / nx) % ny);
+		pass(1, nx, (i) => i % nx);
 	}
 	const { pos, faces } = surfaceNets(f, nx, ny, nz);
 	if (!faces.length) throw new Error('empty mesh');
