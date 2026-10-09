@@ -7,6 +7,7 @@
 	import {
 		AppShell,
 		CommandPalette,
+		DialogHost,
 		Icon,
 		PaletteTrigger,
 		ToastStack,
@@ -156,6 +157,8 @@
 		/>
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
+	<!-- in-page confirmations (confirmDialog: discarding a mail draft) -->
+	<DialogHost cancelLabel={m['org.cancel']()} />
 </div>
 
 <style>

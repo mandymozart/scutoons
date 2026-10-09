@@ -10,7 +10,11 @@
 		"navigation": "Sections",
 		"dismiss": "Dismiss",
 		"liaison": "Liaison",
-		"ambassador": "Ambassador"
+		"ambassador": "Ambassador",
+		"close": "Close",
+		"fold_panel": "Fold the panel",
+		"maximize_panel": "Maximize the panel",
+		"restore_panel": "Restore"
 	},
 	"nav": {
 		"today": "Today",
@@ -238,7 +242,17 @@
 		"reply": "Reply",
 		"blocked": "Opted out – no mail.",
 		"empty": "Subject and text first.",
-		"no_recipient": "No address to write to – or everyone here opted out."
+		"no_recipient": "No address to write to – or everyone here opted out.",
+		"drafts": "Drafts",
+		"draft_by_ai": "Drafted by {author}'s AI · {when}",
+		"draft_by": "Draft by {author} · {when}",
+		"discard": "Discard",
+		"discard_title": "Discard this draft?",
+		"discard_message": "Nothing is sent. The draft is deleted.",
+		"discarded": "Draft discarded.",
+		"not_yours": "Only {author} sends this draft – it goes out in their name.",
+		"draft_gone": "This draft was sent or discarded already.",
+		"open_draft": "Open"
 	},
 	"welcome": {
 		"title": "Welcome to Embassy",

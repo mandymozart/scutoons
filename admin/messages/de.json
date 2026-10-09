@@ -983,8 +983,7 @@
 		"dismiss_message": "Nichts wird geändert. Er bleibt in der Liste unter Verworfen.",
 		"dismissed": "Verworfen",
 		"by": "Vorgeschlagen von {who} · {when}",
-		"decided": "{status} von {who} · {when}",
-		"by_ai": "ihre KI"
+		"decided": "{status} von {who} · {when}"
 	},
 	"server_errors": {
 		"title": "Serverfehler",
@@ -1148,11 +1147,11 @@
 	"proposals": {
 		"title": "Vorschläge",
 		"type": "KI",
-		"count": "{count} Vorschläge",
+		"count": "Vorschläge: {count}",
 		"status_open": "Offen",
 		"status_applied": "Übernommen",
 		"status_dismissed": "Verworfen",
-		"changes": "{count} Änderungen",
+		"changes": "Änderungen: {count}",
 		"status": "Status",
 		"not_found": "Diesen Vorschlag gibt es nicht (mehr)."
 	}

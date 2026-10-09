@@ -10,7 +10,11 @@
 		"navigation": "Bereiche",
 		"dismiss": "Schließen",
 		"liaison": "Liaison",
-		"ambassador": "Ambassador"
+		"ambassador": "Ambassador",
+		"close": "Schließen",
+		"fold_panel": "Panel einklappen",
+		"maximize_panel": "Panel maximieren",
+		"restore_panel": "Wiederherstellen"
 	},
 	"nav": {
 		"today": "Heute",
@@ -238,7 +242,17 @@
 		"reply": "Antwort",
 		"blocked": "Abgemeldet – keine Mail.",
 		"empty": "Erst Betreff und Text.",
-		"no_recipient": "Keine Adresse – oder alle hier haben sich abgemeldet."
+		"no_recipient": "Keine Adresse – oder alle hier haben sich abgemeldet.",
+		"drafts": "Entwürfe",
+		"draft_by_ai": "Entwurf von {author}s KI · {when}",
+		"draft_by": "Entwurf von {author} · {when}",
+		"discard": "Verwerfen",
+		"discard_title": "Diesen Entwurf verwerfen?",
+		"discard_message": "Nichts wird gesendet. Der Entwurf wird gelöscht.",
+		"discarded": "Entwurf verworfen.",
+		"not_yours": "Nur {author} sendet diesen Entwurf – er geht in deren Namen raus.",
+		"draft_gone": "Dieser Entwurf wurde schon gesendet oder verworfen.",
+		"open_draft": "Öffnen"
 	},
 	"welcome": {
 		"title": "Willkommen in der Embassy",

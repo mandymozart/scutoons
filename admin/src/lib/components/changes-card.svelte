@@ -192,6 +192,7 @@
 			</li>
 		{/each}
 	</ol>
+	{#if proposal.status !== 'dismissed'}
 	<div class="row">
 		{#if proposal.status === 'applied'}
 			<span class="caption">{#if hasCatalog}{m['changes.undo_catalog']()}{/if}{#if hasCatalog && hasCalendar}{' · '}{/if}{#if hasCalendar}{m['changes.calendar_draft']()}{/if}</span>
@@ -203,6 +204,7 @@
 			</span>
 		{/if}
 	</div>
+	{/if}
 </div>
 
 <style>

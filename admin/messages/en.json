@@ -983,8 +983,7 @@
 		"dismiss_message": "Nothing is changed. It stays in the list under Dismissed.",
 		"dismissed": "Dismissed",
 		"by": "Proposed by {who} · {when}",
-		"decided": "{status} by {who} · {when}",
-		"by_ai": "their AI"
+		"decided": "{status} by {who} · {when}"
 	},
 	"server_errors": {
 		"title": "Server errors",
@@ -1148,11 +1147,11 @@
 	"proposals": {
 		"title": "Proposals",
 		"type": "AI",
-		"count": "{count} proposals",
+		"count": "Proposals: {count}",
 		"status_open": "Open",
 		"status_applied": "Applied",
 		"status_dismissed": "Dismissed",
-		"changes": "{count} changes",
+		"changes": "Changes: {count}",
 		"status": "Status",
 		"not_found": "This proposal does not exist (any more)."
 	}

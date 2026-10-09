@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Button, Icon } from '@scutoons/ui';
-	import type { CallOutcome, CheckinAnswer, DueItem, PaceReminder, Portion, PortionItem, TeamMember, TeamPaceRow } from '@scutoons/api';
+	import type { CallOutcome, CheckinAnswer, DueItem, MailDraft, PaceReminder, Portion, PortionItem, TeamMember, TeamPaceRow } from '@scutoons/api';
 	import { ApiError, embassy } from '$lib/api.ts';
 	import { getEmbassySession } from '$lib/session.svelte.ts';
 	import { getToaster } from '$lib/toasts.ts';
-	import { hintText, relativeDay, shortDate } from '$lib/labels.ts';
+	import { dateTime, hintText, relativeDay, shortDate } from '$lib/labels.ts';
 	import { pace, saveName, setPace } from '$lib/pace.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import DueCard from '$lib/components/due-card.svelte';
@@ -30,6 +30,11 @@
 	let portion = $state<Portion | null>(null);
 	let teamPace = $state<TeamPaceRow[]>([]);
 	const isAmbassador = $derived(session.hasRole('ambassador') || session.hasRole('admin'));
+	// my open mail drafts (saved by my AI through the SCUTOONS MCP – agents/MCP.md "Draft → link"): only when there are any
+	let drafts = $state<MailDraft[]>([]);
+	$effect(() => {
+		embassy.drafts().then((r) => (drafts = r.items.filter((d) => d.created_by === String(session.user?.id ?? ''))), () => {});
+	});
 	// the weekly portion needs the API's pace table (migration 2026-10-05-embassy-pace); without it: the due list
 	const portionMode = $derived(owner === 'me' && !!pace.value);
 
@@ -143,6 +148,15 @@
 
 <h1>{m['today.title']()}</h1>
 {#if !portionMode}<p class="muted caption intro">{m['today.intro']()}</p>{/if}
+
+{#if drafts.length}
+	<h2>{m['mail.drafts']()} ({drafts.length})</h2>
+	<ul class="drafts" data-testid="my-drafts">
+		{#each drafts as d (d.id)}
+			<li><a href={`/orgs/${encodeURIComponent(d.org_id)}?draft=${encodeURIComponent(d.id)}`}>{d.org} · {d.subject}</a> <span class="caption muted">{dateTime(d.created_at)}</span></li>
+		{/each}
+	</ul>
+{/if}
 
 <div class="row owner">
 	<label class="field">
@@ -329,5 +343,16 @@
 		margin: 0 0 var(--space-15);
 		padding: 0;
 		list-style: none;
+	}
+	.drafts {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-025);
+		margin: 0 0 var(--space-1);
+		padding: 0;
+		list-style: none;
+	}
+	.drafts a {
+		color: var(--ink);
 	}
 </style>

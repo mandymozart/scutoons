@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Badge, Button, Icon } from '@scutoons/ui';
+	import { Badge, Button, Icon, SplitView } from '@scutoons/ui';
 	import {
 		ACTIVITY_KINDS,
 		CALL_OUTCOMES,
@@ -29,7 +29,11 @@
 	import { loadProducts, productIcon } from '$lib/products.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 
-	/** One organisation: facts, leads per track, logging a call/mail/note, people, history */
+	/**
+	 * One organisation: facts, leads per track, logging a call/mail/note, people, history. Its open mail drafts (saved by
+	 * a member's own AI through the SCUTOONS MCP, agents/MCP.md "Draft → link") are listed under Drafts; `?draft=<id>` (the
+	 * link the AI hands out) opens one in the right dock to check, send or discard.
+	 */
 	const session = getEmbassySession();
 	const toaster = getToaster();
 	const id = $derived(page.params.id ?? '');
@@ -183,6 +187,18 @@
 		}
 	}
 
+	// the stored draft in the dock (?draft=<id>)
+	const draftId = $derived(page.url.searchParams.get('draft'));
+	const openDraft = $derived(detail?.drafts?.find((d) => d.id === draftId) ?? null);
+	const draftHref = (did: string | null) => (did ? `/orgs/${encodeURIComponent(id)}?draft=${encodeURIComponent(did)}` : `/orgs/${encodeURIComponent(id)}`);
+	const closeDraft = () => goto(draftHref(null), { keepFocus: true, noScroll: true });
+	/** sent or discarded: off the list at once, the dock closes, the page reloads (the log shows a sent mail) */
+	function draftDone(did: string) {
+		if (detail) detail = { ...detail, drafts: (detail.drafts ?? []).filter((d) => d.id !== did) };
+		closeDraft();
+		load();
+	}
+
 	const missingTracks = $derived(TRACKS.filter((t) => !detail?.leads.some((l) => l.track === t)));
 	const personName = (pid: string | null) => detail?.people.find((p) => p.id === pid)?.name ?? '';
 	const mayWork = (lead: Lead) => isAmbassador || !lead.owner_id || lead.owner_id === session.user?.id;
@@ -190,231 +206,277 @@
 		isAmbassador ? team : team.filter((t) => t.id === session.user?.id || t.id === lead.owner_id);
 </script>
 
-{#if error}
-	<p class="error-box">{error}</p>
-{:else if !detail}
-	<p class="muted">{m['shell.loading']()}</p>
-{:else}
-	{@const org = detail.org}
-	<header class="org-head">
-		<h1>{org.name}</h1>
-		<div class="row">
-			<span class="muted">{label('type', org.type)}{org.city || org.country ? ` · ${[org.city, org.country].filter(Boolean).join(', ')}` : ''}</span>
-			{#if org.tier}<Badge tone="accent">{org.tier}</Badge>{/if}
-			{#if org.do_not_contact}<Badge tone="error">{m['org.blocked']()}</Badge>{/if}
-			{#each org.tags as tag (tag)}<Badge>{tag}</Badge>{/each}
-			{#if org.territories.length}<span class="caption muted"><Icon name="map-pin" /> {org.territories.join(' ')}</span>{/if}
-		</div>
-	</header>
-
-	{#if editing}
-		<section class="card">
-			<OrgForm {org} onsubmit={save}>
-				{#snippet actions()}
-					<Button type="submit" disabled={working}>{m['org.save']()}</Button>
-					<Button variant="clear" onclick={() => (editing = false)}>{m['org.cancel']()}</Button>
-				{/snippet}
-			</OrgForm>
-		</section>
+{#snippet orgPage()}
+	{#if error}
+		<p class="error-box">{error}</p>
+	{:else if !detail}
+		<p class="muted">{m['shell.loading']()}</p>
 	{:else}
-		<ul class="contacts">
-			{#if org.phone}<li><a class="tel" href={telHref(org.phone)}><Icon name="phone" /> {org.phone}</a></li>{/if}
-			{#if org.email}<li><a href={`mailto:${org.email}`}><Icon name="mail" /> {org.email}</a></li>{/if}
-			{#if org.website}<li><a href={org.website} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {org.website.replace(/^https?:\/\//, '')}</a></li>{/if}
-			{#each org.links as link (link)}
-				<li><a href={link} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {link.replace(/^https?:\/\/(www\.)?/, '')}</a></li>
-			{/each}
-		</ul>
-		{#if isStockist(org.type)}
-			{@const shown = org.listed && org.carries.length > 0}
-			<section class="card store" data-testid="store-summary">
-				<div class="row">
-					<Icon name="shopping-bag" />
-					<span class="sc-label">{m['store.title']()}</span>
-					{#if shown}
-						<Badge tone="published">{m['store.badge_listed']()}</Badge>
-					{:else}
-						<Badge tone="draft">{m['store.badge_hidden']()}</Badge>
-					{/if}
-					{#if org.independent}<Badge tone="info">{m['store.badge_independent']()}</Badge>{/if}
-				</div>
-				{#if org.listed && !org.carries.length}
-					<p class="caption warn">{m['store.listed_without_products']()}</p>
-				{/if}
-				{#if org.address || org.opening}
-					<p class="caption">{[org.address, org.opening].filter(Boolean).join(' · ')}</p>
-				{/if}
-				{#if org.carries.length}
-					<ul class="carried">
-						{#each org.carries as id (id)}
-							{@const product = productOf(id)}
-							{@const icon = productIcon(product)}
-							<li title={id}>
-								{#if icon}<img src={icon} alt="" width="32" height="32" loading="lazy" />{/if}
-								<span>{product?.name ?? id}</span>
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<p class="caption muted">{m['store.carries_none']()}</p>
-				{/if}
-				{#if shown}
-					<a class="caption" href={`${VIEWER_URL}/stores`} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {m['store.public_page']()}</a>
-				{/if}
-			</section>
-		{/if}
-		{#if org.notes}<p class="notes">{org.notes}</p>{/if}
-		<p class="caption muted">{m['org.source']()}: {org.source || '–'}</p>
-		<Button size="sm" variant="secondary" onclick={() => (editing = true)}>{m['org.edit']()}</Button>
-	{/if}
-
-	<h2>{m['org.leads']()}</h2>
-	<div class="leads">
-		{#each detail.leads as lead (lead.id)}
-			<div class="card lead">
-				<span>{label('track', lead.track)}</span>
-				<label class="field">
-					<span>{m['org.stage']()}</span>
-					<select value={lead.stage} disabled={!mayWork(lead)} onchange={(e) => setLead(lead, { stage: e.currentTarget.value as Stage })}>
-						{#each STAGES as s (s)}<option value={s}>{label('stage', s)}</option>{/each}
-					</select>
-				</label>
-				<label class="field">
-					<span>{m['org.next_at']()} {lead.next_at ? `· ${relativeDay(lead.next_at)}` : ''}</span>
-					<input type="date" value={lead.next_at ?? ''} disabled={!mayWork(lead)} onchange={(e) => setLead(lead, { next_at: e.currentTarget.value || null })} />
-				</label>
-				<label class="field">
-					<span>{m['org.owner']()}</span>
-					<select value={lead.owner_id ?? ''} disabled={!mayWork(lead)} onchange={(e) => setLead(lead, { owner_id: e.currentTarget.value || null })}>
-						<option value="">{m['org.nobody']()}</option>
-						{#each ownerChoices(lead) as member (member.id)}<option value={member.id}>{member.email}</option>{/each}
-						{#if lead.owner_id && !ownerChoices(lead).some((t) => t.id === lead.owner_id)}
-							<option value={lead.owner_id}>{lead.owner_email}</option>
-						{/if}
-					</select>
-				</label>
+		{@const org = detail.org}
+		<header class="org-head">
+			<h1>{org.name}</h1>
+			<div class="row">
+				<span class="muted">{label('type', org.type)}{org.city || org.country ? ` · ${[org.city, org.country].filter(Boolean).join(', ')}` : ''}</span>
+				{#if org.tier}<Badge tone="accent">{org.tier}</Badge>{/if}
+				{#if org.do_not_contact}<Badge tone="error">{m['org.blocked']()}</Badge>{/if}
+				{#each org.tags as tag (tag)}<Badge>{tag}</Badge>{/each}
+				{#if org.territories.length}<span class="caption muted"><Icon name="map-pin" /> {org.territories.join(' ')}</span>{/if}
 			</div>
-		{/each}
-	</div>
-	{#if missingTracks.length}
-		<div class="row add-tracks">
-			{#each missingTracks as t (t)}
-				<Button size="sm" variant="secondary" onclick={() => setLead({ track: t }, {})}>{m['org.add_track']({ track: label('track', t) })}</Button>
+		</header>
+
+		{#if editing}
+			<section class="card">
+				<OrgForm {org} onsubmit={save}>
+					{#snippet actions()}
+						<Button type="submit" disabled={working}>{m['org.save']()}</Button>
+						<Button variant="clear" onclick={() => (editing = false)}>{m['org.cancel']()}</Button>
+					{/snippet}
+				</OrgForm>
+			</section>
+		{:else}
+			<ul class="contacts">
+				{#if org.phone}<li><a class="tel" href={telHref(org.phone)}><Icon name="phone" /> {org.phone}</a></li>{/if}
+				{#if org.email}<li><a href={`mailto:${org.email}`}><Icon name="mail" /> {org.email}</a></li>{/if}
+				{#if org.website}<li><a href={org.website} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {org.website.replace(/^https?:\/\//, '')}</a></li>{/if}
+				{#each org.links as link (link)}
+					<li><a href={link} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {link.replace(/^https?:\/\/(www\.)?/, '')}</a></li>
+				{/each}
+			</ul>
+			{#if isStockist(org.type)}
+				{@const shown = org.listed && org.carries.length > 0}
+				<section class="card store" data-testid="store-summary">
+					<div class="row">
+						<Icon name="shopping-bag" />
+						<span class="sc-label">{m['store.title']()}</span>
+						{#if shown}
+							<Badge tone="published">{m['store.badge_listed']()}</Badge>
+						{:else}
+							<Badge tone="draft">{m['store.badge_hidden']()}</Badge>
+						{/if}
+						{#if org.independent}<Badge tone="info">{m['store.badge_independent']()}</Badge>{/if}
+					</div>
+					{#if org.listed && !org.carries.length}
+						<p class="caption warn">{m['store.listed_without_products']()}</p>
+					{/if}
+					{#if org.address || org.opening}
+						<p class="caption">{[org.address, org.opening].filter(Boolean).join(' · ')}</p>
+					{/if}
+					{#if org.carries.length}
+						<ul class="carried">
+							{#each org.carries as id (id)}
+								{@const product = productOf(id)}
+								{@const icon = productIcon(product)}
+								<li title={id}>
+									{#if icon}<img src={icon} alt="" width="32" height="32" loading="lazy" />{/if}
+									<span>{product?.name ?? id}</span>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="caption muted">{m['store.carries_none']()}</p>
+					{/if}
+					{#if shown}
+						<a class="caption" href={`${VIEWER_URL}/stores`} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {m['store.public_page']()}</a>
+					{/if}
+				</section>
+			{/if}
+			{#if org.notes}<p class="notes">{org.notes}</p>{/if}
+			<p class="caption muted">{m['org.source']()}: {org.source || '–'}</p>
+			<Button size="sm" variant="secondary" onclick={() => (editing = true)}>{m['org.edit']()}</Button>
+		{/if}
+
+		{#if detail.drafts?.length}
+			<h2>{m['mail.drafts']()} <Badge tone="info">{detail.drafts.length}</Badge></h2>
+			<ul class="drafts" data-testid="org-drafts">
+				{#each detail.drafts as d (d.id)}
+					<li class:is-open={d.id === draftId}>
+						<a href={draftHref(d.id)}>
+							<span class="draft-what">{d.subject}<span class="caption muted">{d.to} · {d.author} · {dateTime(d.created_at)}</span></span>
+							<span class="caption muted">{m['mail.open_draft']()} ›</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<h2>{m['org.leads']()}</h2>
+		<div class="leads">
+			{#each detail.leads as lead (lead.id)}
+				<div class="card lead">
+					<span>{label('track', lead.track)}</span>
+					<label class="field">
+						<span>{m['org.stage']()}</span>
+						<select value={lead.stage} disabled={!mayWork(lead)} onchange={(e) => setLead(lead, { stage: e.currentTarget.value as Stage })}>
+							{#each STAGES as s (s)}<option value={s}>{label('stage', s)}</option>{/each}
+						</select>
+					</label>
+					<label class="field">
+						<span>{m['org.next_at']()} {lead.next_at ? `· ${relativeDay(lead.next_at)}` : ''}</span>
+						<input type="date" value={lead.next_at ?? ''} disabled={!mayWork(lead)} onchange={(e) => setLead(lead, { next_at: e.currentTarget.value || null })} />
+					</label>
+					<label class="field">
+						<span>{m['org.owner']()}</span>
+						<select value={lead.owner_id ?? ''} disabled={!mayWork(lead)} onchange={(e) => setLead(lead, { owner_id: e.currentTarget.value || null })}>
+							<option value="">{m['org.nobody']()}</option>
+							{#each ownerChoices(lead) as member (member.id)}<option value={member.id}>{member.email}</option>{/each}
+							{#if lead.owner_id && !ownerChoices(lead).some((t) => t.id === lead.owner_id)}
+								<option value={lead.owner_id}>{lead.owner_email}</option>
+							{/if}
+						</select>
+					</label>
+				</div>
 			{/each}
 		</div>
-	{/if}
-
-	<h2>{m['org.log_title']()}</h2>
-	<form class="card sc-fields" data-cols="fit" onsubmit={log} data-testid="log-form">
-		<label class="field">
-			<span>{m['org.kind']()}</span>
-			<select bind:value={kind}>
-				{#each ACTIVITY_KINDS as k (k)}<option value={k}>{label('kind', k)}</option>{/each}
-			</select>
-		</label>
-		{#if kind === 'mail_out'}
-			<label class="check wide"><input type="checkbox" bind:checked={onlyLog} /> {m['mail.only_log']()}</label>
+		{#if missingTracks.length}
+			<div class="row add-tracks">
+				{#each missingTracks as t (t)}
+					<Button size="sm" variant="secondary" onclick={() => setLead({ track: t }, {})}>{m['org.add_track']({ track: label('track', t) })}</Button>
+				{/each}
+			</div>
 		{/if}
-		{#if kind === 'call'}
+
+		<h2>{m['org.log_title']()}</h2>
+		<form class="card sc-fields" data-cols="fit" onsubmit={log} data-testid="log-form">
 			<label class="field">
-				<span>{m['org.outcome']()}</span>
-				<select bind:value={outcome}>
-					{#each CALL_OUTCOMES as o (o)}<option value={o}>{label('outcome', o).replace(' …', '')}</option>{/each}
+				<span>{m['org.kind']()}</span>
+				<select bind:value={kind}>
+					{#each ACTIVITY_KINDS as k (k)}<option value={k}>{label('kind', k)}</option>{/each}
 				</select>
 			</label>
-		{/if}
-		<label class="field">
-			<span>{m['org.track']()}</span>
-			<select bind:value={track}>
-				<option value="">{m['org.no_track']()}</option>
-				{#each TRACKS as t (t)}<option value={t}>{label('track', t)}</option>{/each}
-			</select>
-		</label>
-		{#if !writing}
-		<label class="field">
-			<span>{m['org.person']()}</span>
-			<select bind:value={personId}>
-				<option value="">{m['org.nobody_specific']()}</option>
-				{#each detail.people as p (p.id)}<option value={p.id}>{p.name || p.email}</option>{/each}
-			</select>
-		</label>
-		<label class="field wide">
-			<span>{m['org.note']()}</span>
-			<textarea rows="2" bind:value={note}></textarea>
-		</label>
-		<label class="field">
-			<span>{m['org.next_override']()}</span>
-			<input type="date" bind:value={nextAt} required={kind === 'call' && outcome === 'call_back'} />
-		</label>
-		<div class="wide row"><Button type="submit" disabled={working}>{m['org.log']()}</Button></div>
-		{/if}
-	</form>
-	{#if writing}
-		{#if recipients.length}
-			{#key mails}
-				<MailDraft draft={{ org_id: id, to: recipients[0].email, track: track || null, subject: '', text: '' }} {recipients} onsent={() => (mails++, (kind = 'call'), load())} />
-			{/key}
-		{:else}
-			<p class="caption muted">{m['mail.no_recipient']()}</p>
-		{/if}
-	{/if}
-
-	<h2>{m['org.people']()}</h2>
-	<ul class="people">
-		{#each detail.people as person (person.id)}
-			<li class="row">
-				<span>{person.name || '–'}</span>
-				{#if person.role}<span class="muted caption">{person.role}</span>{/if}
-				{#if person.phone}<a class="tel" href={telHref(person.phone)}><Icon name="phone" /> {person.phone}</a>{/if}
-				{#if person.email}<a href={`mailto:${person.email}`}><Icon name="mail" /> {person.email}</a>{/if}
-				{#if person.link}<a href={person.link} target="_blank" rel="noopener noreferrer"><Icon name="external-link" label={person.link} /></a>{/if}
-				{#if person.do_not_contact}<Badge tone="error">{m['org.blocked']()}</Badge>{/if}
-				<Button size="sm" variant="clear" onclick={() => (personForm = { ...person })}>{m['org.edit']()}</Button>
-				{#if isAmbassador}<Button size="sm" variant="clear" onclick={() => removePerson(person)}>{m['org.remove']()}</Button>{/if}
-			</li>
-		{/each}
-	</ul>
-	{#if personForm}
-		<form class="card sc-fields" data-cols="fit" onsubmit={savePerson}>
-			<label class="field"><span>{m['org.person_name']()}</span><input bind:value={personForm.name} /></label>
-			<label class="field"><span>{m['org.person_role']()}</span><input bind:value={personForm.role} /></label>
-			<label class="field"><span>{m['org.person_phone']()}</span><input type="tel" bind:value={personForm.phone} /></label>
-			<label class="field"><span>{m['org.person_email']()}</span><input type="email" bind:value={personForm.email} /></label>
-			<label class="field"><span>{m['org.person_link']()}</span><input bind:value={personForm.link} /></label>
-			<label class="field"><span>{m['org.person_language']()}</span><input bind:value={personForm.language} maxlength="16" /></label>
-			<label class="check wide"><input type="checkbox" bind:checked={personForm.do_not_contact} /> {m['org.do_not_contact']()}</label>
-			<div class="wide row">
-				<Button type="submit" disabled={working}>{m['org.save']()}</Button>
-				<Button variant="clear" onclick={() => (personForm = null)}>{m['org.cancel']()}</Button>
-			</div>
+			{#if kind === 'mail_out'}
+				<label class="check wide"><input type="checkbox" bind:checked={onlyLog} /> {m['mail.only_log']()}</label>
+			{/if}
+			{#if kind === 'call'}
+				<label class="field">
+					<span>{m['org.outcome']()}</span>
+					<select bind:value={outcome}>
+						{#each CALL_OUTCOMES as o (o)}<option value={o}>{label('outcome', o).replace(' …', '')}</option>{/each}
+					</select>
+				</label>
+			{/if}
+			<label class="field">
+				<span>{m['org.track']()}</span>
+				<select bind:value={track}>
+					<option value="">{m['org.no_track']()}</option>
+					{#each TRACKS as t (t)}<option value={t}>{label('track', t)}</option>{/each}
+				</select>
+			</label>
+			{#if !writing}
+			<label class="field">
+				<span>{m['org.person']()}</span>
+				<select bind:value={personId}>
+					<option value="">{m['org.nobody_specific']()}</option>
+					{#each detail.people as p (p.id)}<option value={p.id}>{p.name || p.email}</option>{/each}
+				</select>
+			</label>
+			<label class="field wide">
+				<span>{m['org.note']()}</span>
+				<textarea rows="2" bind:value={note}></textarea>
+			</label>
+			<label class="field">
+				<span>{m['org.next_override']()}</span>
+				<input type="date" bind:value={nextAt} required={kind === 'call' && outcome === 'call_back'} />
+			</label>
+			<div class="wide row"><Button type="submit" disabled={working}>{m['org.log']()}</Button></div>
+			{/if}
 		</form>
-	{:else}
-		<Button size="sm" variant="secondary" onclick={() => (personForm = { name: '', role: '', email: '', phone: '', link: '', language: '' })}>{m['org.add_person']()}</Button>
-	{/if}
+		{#if writing}
+			{#if recipients.length}
+				{#key mails}
+					<MailDraft draft={{ org_id: id, to: recipients[0].email, track: track || null, subject: '', text: '' }} {recipients} onsent={() => (mails++, (kind = 'call'), load())} />
+				{/key}
+			{:else}
+				<p class="caption muted">{m['mail.no_recipient']()}</p>
+			{/if}
+		{/if}
 
-	<h2>{m['org.timeline']()}</h2>
-	{#if !detail.activities.length}
-		<p class="muted">{m['org.timeline_empty']()}</p>
-	{/if}
-	<ol class="timeline">
-		{#each detail.activities as a (a.id)}
-			<li>
-				<span class="caption muted">{dateTime(a.at)} · {a.by_email.split('@')[0]}</span>
-				<span>
-					<span>{label('kind', a.kind)}{a.outcome ? ` – ${label('outcome', a.outcome).replace(' …', '')}` : ''}</span>
-					{#if a.track}<span class="caption"> · {label('track', a.track)}</span>{/if}
-					{#if a.person_id}<span class="caption"> · {personName(a.person_id)}</span>{/if}
-				</span>
-				{#if a.subject}<span class="caption">{a.kind === 'mail_in' ? a.mail_from : a.mail_to} · {a.subject}</span>{/if}
-				{#if a.note}<span class="note">{a.note}</span>{/if}
-			</li>
-		{/each}
-	</ol>
+		<h2>{m['org.people']()}</h2>
+		<ul class="people">
+			{#each detail.people as person (person.id)}
+				<li class="row">
+					<span>{person.name || '–'}</span>
+					{#if person.role}<span class="muted caption">{person.role}</span>{/if}
+					{#if person.phone}<a class="tel" href={telHref(person.phone)}><Icon name="phone" /> {person.phone}</a>{/if}
+					{#if person.email}<a href={`mailto:${person.email}`}><Icon name="mail" /> {person.email}</a>{/if}
+					{#if person.link}<a href={person.link} target="_blank" rel="noopener noreferrer"><Icon name="external-link" label={person.link} /></a>{/if}
+					{#if person.do_not_contact}<Badge tone="error">{m['org.blocked']()}</Badge>{/if}
+					<Button size="sm" variant="clear" onclick={() => (personForm = { ...person })}>{m['org.edit']()}</Button>
+					{#if isAmbassador}<Button size="sm" variant="clear" onclick={() => removePerson(person)}>{m['org.remove']()}</Button>{/if}
+				</li>
+			{/each}
+		</ul>
+		{#if personForm}
+			<form class="card sc-fields" data-cols="fit" onsubmit={savePerson}>
+				<label class="field"><span>{m['org.person_name']()}</span><input bind:value={personForm.name} /></label>
+				<label class="field"><span>{m['org.person_role']()}</span><input bind:value={personForm.role} /></label>
+				<label class="field"><span>{m['org.person_phone']()}</span><input type="tel" bind:value={personForm.phone} /></label>
+				<label class="field"><span>{m['org.person_email']()}</span><input type="email" bind:value={personForm.email} /></label>
+				<label class="field"><span>{m['org.person_link']()}</span><input bind:value={personForm.link} /></label>
+				<label class="field"><span>{m['org.person_language']()}</span><input bind:value={personForm.language} maxlength="16" /></label>
+				<label class="check wide"><input type="checkbox" bind:checked={personForm.do_not_contact} /> {m['org.do_not_contact']()}</label>
+				<div class="wide row">
+					<Button type="submit" disabled={working}>{m['org.save']()}</Button>
+					<Button variant="clear" onclick={() => (personForm = null)}>{m['org.cancel']()}</Button>
+				</div>
+			</form>
+		{:else}
+			<Button size="sm" variant="secondary" onclick={() => (personForm = { name: '', role: '', email: '', phone: '', link: '', language: '' })}>{m['org.add_person']()}</Button>
+		{/if}
 
-	{#if isAmbassador}
-		<p class="danger"><Button size="sm" variant="secondary" onclick={remove}>{m['org.delete']()}</Button></p>
+		<h2>{m['org.timeline']()}</h2>
+		{#if !detail.activities.length}
+			<p class="muted">{m['org.timeline_empty']()}</p>
+		{/if}
+		<ol class="timeline">
+			{#each detail.activities as a (a.id)}
+				<li>
+					<span class="caption muted">{dateTime(a.at)} · {a.by_email.split('@')[0]}</span>
+					<span>
+						<span>{label('kind', a.kind)}{a.outcome ? ` – ${label('outcome', a.outcome).replace(' …', '')}` : ''}</span>
+						{#if a.track}<span class="caption"> · {label('track', a.track)}</span>{/if}
+						{#if a.person_id}<span class="caption"> · {personName(a.person_id)}</span>{/if}
+					</span>
+					{#if a.subject}<span class="caption">{a.kind === 'mail_in' ? a.mail_from : a.mail_to} · {a.subject}</span>{/if}
+					{#if a.note}<span class="note">{a.note}</span>{/if}
+				</li>
+			{/each}
+		</ol>
+
+		{#if isAmbassador}
+			<p class="danger"><Button size="sm" variant="secondary" onclick={remove}>{m['org.delete']()}</Button></p>
+		{/if}
 	{/if}
-{/if}
+{/snippet}
+
+{#snippet draftPane()}
+	{#if openDraft}
+		{@const did = openDraft.id}
+		{#key did}
+			<MailDraft
+				draft={{ org_id: id, to: openDraft.to, person_id: openDraft.person_id, track: openDraft.track, subject: openDraft.subject, text: openDraft.text, reply_to_activity_id: openDraft.reply_to_activity_id }}
+				stored={openDraft}
+				{recipients}
+				framed={false}
+				onsent={() => draftDone(did)}
+				ondiscarded={() => draftDone(did)}
+			/>
+		{/key}
+	{:else if detail}
+		<p class="caption muted">{m['mail.draft_gone']()}</p>
+	{/if}
+{/snippet}
+
+<SplitView
+	open={!!draftId}
+	title={openDraft?.subject ?? m['mail.drafts']()}
+	closeLabel={m['shell.close']()}
+	foldLabel={m['shell.fold_panel']()}
+	maximizeLabel={m['shell.maximize_panel']()}
+	restoreLabel={m['shell.restore_panel']()}
+	onclose={closeDraft}
+	list={orgPage}
+	detail={draftPane}
+/>
 
 <style>
 	.org-head {
@@ -509,5 +571,41 @@
 	}
 	.danger {
 		margin-top: var(--space-3);
+	}
+	.drafts {
+		display: flex;
+		flex-direction: column;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.drafts li {
+		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+	}
+	.drafts li:first-child {
+		border-top: var(--border-width-hairline) solid var(--border-subtle);
+	}
+	.drafts a {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-1);
+		min-height: var(--control-height);
+		padding: var(--space-05);
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.drafts a:hover {
+		background: var(--surface-hover);
+	}
+	.drafts li.is-open a {
+		background: var(--select-live-bg);
+		box-shadow: inset var(--border-width-regular) 0 0 var(--select-live-border);
+	}
+	.draft-what {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 </style>
