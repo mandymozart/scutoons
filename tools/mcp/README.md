@@ -1,42 +1,64 @@
 # @scutoons/mcp – the SCUTOONS MCP server
 
-An agent (Claude Code, Claude Desktop, any MCP client) with the rights of one signed-in creator: it reads and edits
-content through the existing API (`/api/entities`, `/api/assets`) with that creator's session token. The API's role
-checks are the only authority – the agent can do exactly what that creator can. CUTOVER.md 10.28.
+The member's own AI (Claude Desktop, Claude Code) working in SCUTOONS with the member's rights (agents/MCP.md). It runs
+on the member's computer (stdio), started by their AI app, and calls the existing API with the member's **personal
+token** (`sct_…`, scutoons.com/account → AI connections). The API's role checks are the only authority; the server only
+picks which tools to list from the member's roles. Nothing runs on a SCUTOONS server, and SCUTOONS pays nothing for AI
+(owner 2026-10-09: the in-app Ask panel is gone).
 
-stdio only (step 1). Node ≥ 22, run from this repository (the shared packages are TypeScript sources, nothing is built).
+Readers (no member role) can't connect. ChatGPT / Cursor: not offered for now.
 
-## Tools
+## Services by role
 
-| tool | what |
-| --- | --- |
-| `list_toons` | toons, names, languages |
-| `list_chapters` | chapters with their groups: label, scene entity, slices, script points |
-| `read_entity` | a document by entity key – draft or published, one or every language, with version ids; `path` for a part |
-| `read_characters` | the toon's cast, the registry's looks / portrait moods, the mood vocabulary |
-| `read_map_places` | world map places |
-| `search_assets` | media in the asset manager (paths to put into content) |
-| `upload_asset` | a NEW file (URL or local file, e.g. from another AI service) into the asset manager – never overwrites (409) |
-| `validate` | the creator's checks (`@scutoons/content` validate.ts), one language or all + cross-language |
-| `save_draft` | a new draft version: `ops` (set / insert / remove at a path) or the whole `content`, on a `base` version |
-| `list_versions` / `restore_version` | history; restoring saves the old content as a new draft |
-| `submit_for_review` | hands drafts to the toon's reviewers (for accounts that need a review before publishing) |
-| `publish_entity` | only with `SCUTOONS_MCP_PUBLISH=1`, and every call needs `confirm: true` |
+| role | service | tools |
+| --- | --- | --- |
+| creator | content (read + write) | `src/server.ts`: `list_toons`, `list_chapters`, `read_entity`, `list_entities`, `search_content`, `read_characters`, `read_map_places`, `search_assets`, `list_versions`, `validate`, `upload_asset`, `save_draft`, `restore_version`, `submit_for_review` – plus `src/story.ts` |
+| admin (not creator) | content (read only) | the reading tools above + `src/story.ts` |
+| creator / admin | story | `src/story.ts`: `read_flow` (SCUTOONS / toon / chapter / group – the Flow panel's own functions, stuck points), `story_variables`, `dead_things`, `item_placements`, `asset_usages`, `missing_assets`, `list_reviews`, `compare_versions` |
+| liaison / ambassador / admin | Embassy | `src/embassy.ts`: `today`, `my_portion`, `search_orgs`, `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org`, `update_org`, `add_person`, `update_person`, `delete_person`, `draft_mail`, `check_inbox` |
+| admin | admin | `src/admin.ts`: `dashboard`, `count_codes`, `list_codes`, `read_code`, `list_events`, `list_users`, `read_user`, `list_claims`, `read_claim`, `email_log`, `read_catalog`, `catalog_history`, `read_calendar`, `read_settings`, `propose_changes` |
+| everyone | – | `whoami` (member, services, the app links) |
 
-Resources `scutoons://rules/*` (workflow, entity keys, VN events, flow rules, text presets, slices) are generated from
-the source files when the server starts, so they follow the code.
+**Prompts** (`src/prompts.ts`; Claude Desktop "+" menu, Claude Code `/`): `creator`, `embassy` (how SCUTOONS writes to
+its network), `embassy-my-week`, `embassy-first-contact`, `admin`. **Resources** `scutoons://rules/*` (workflow, entity
+keys, VN events, flow rules, text presets, slices) come from the source files (`src/resources.ts`), so they follow the code.
 
-## Safety model
+## Draft → link → the member confirms
 
-- **Drafts only.** Every save is a new version (append-only); nothing is overwritten or deleted. Readers keep seeing
-  the published version. Any version comes back with `restore_version` (also in the creator's history).
-- **Validated.** `save_draft` runs the same checks as the creator first and refuses errors (`allow_errors: true`
-  overrides); warnings come back with the result.
-- **Conflicts.** `base` = the version the edit started from; a newer save in between → 409, nothing is saved.
-- **Publish is off** unless the server is started with `SCUTOONS_MCP_PUBLISH=1`, and even then one explicit
-  `confirm: true` per call.
-- The token is the creator's session: whatever the API lets that account do. Use your own creator account, never a
-  shared one; stop the session by signing out (or let it expire).
+The AI never publishes, sends or applies. It saves a draft and hands back the link (`open` in the result):
+
+| tool | saves | the member, in the browser |
+| --- | --- | --- |
+| `save_draft` / `restore_version` | a new draft version (append-only, restorable) | checks it in the creator, **Publish** |
+| `draft_mail` | a mail draft on the organisation (`/api/embassy/orgs/{id}/drafts`, checked like a send) | `embassy…/orgs/<id>?draft=<id>`: edits, **Send** (its author only) |
+| `propose_changes` | a proposal (`/api/admin/proposals`) | `admin…/proposals/<id>`: before → after, **Apply** or Dismiss |
+
+The API enforces it too: a personal token is refused (403 `not_for_ai`, `server/src/Http/ApiTokenScope.php`) on publish,
+review decisions, sending a mail, admin changes other than proposals, sign-in and managing tokens. Saves through a token
+are signed "(AI: <connection name>)" in the history. `save_draft` validates first (the creator's checks; errors refuse
+the save unless `allow_errors`), and a newer save since `base` answers 409.
+
+## Members: install
+
+On scutoons.com/account → **AI connections** → New connection: the token is shown once, with the steps.
+
+- **Claude Desktop:** download `scutoons.com/ai/scutoons.mcpb`, double-click, paste the token.
+- **Claude Code:** download `scutoons.com/ai/scutoons-mcp.mjs` (Node ≥ 22), then
+  `claude mcp add scutoons --scope user -e SCUTOONS_API=https://api.scutoons.com/api -e SCUTOONS_TOKEN=sct_… -- node <folder>/scutoons-mcp.mjs`.
+  Claude Code's Remote Control (driving the session from claude.ai or the phone) works: the server runs where the session runs.
+
+Revoking the token on the account page ends the access at once.
+
+## Build (the member's copy)
+
+```bash
+npm run build:mcp
+```
+
+`scripts/build.mjs` bundles the server with rolldown into ONE file (the format rules read at build time and embedded; the
+API defaults to production) and packs `scutoons.mcpb` (MCPB manifest 0.3, the token as a sensitive setting) into
+`viewer/static/ai/` (gitignored). The viewer's build runs it, so every viewer deploy serves the current version from our
+own host.
 
 ## Local (dev stack)
 
@@ -44,12 +66,15 @@ the source files when the server starts, so they follow the code.
 npm run dev:test-user
 ```
 
-Without `SCUTOONS_API` the server uses the local API (`shared/dev-ports.json`) and the test user's session from
-`logs/dev/test-user.json`. Claude Code, from the repository root:
+Without `SCUTOONS_API` the server (run from the repository) uses the local API (`shared/dev-ports.json`) and the test
+user's session from `logs/dev/test-user.json`. Claude Code, from the repository root:
 
 ```bash
 claude mcp add scutoons -- node tools/mcp/bin/scutoons-mcp.mjs
 ```
+
+Against production from the repository (developers): `-e SCUTOONS_API=https://api.scutoons.com/api -e SCUTOONS_TOKEN=sct_…`
+(user scope, so the token is not in the project's `.mcp.json`).
 
 Check (local only, restores what it changes):
 
@@ -57,88 +82,9 @@ Check (local only, restores what it changes):
 npm run check:mcp
 ```
 
-## Production (personal token)
-
-The token is your creator session. Sign in to the creator (creator.scutoons.com), open the browser's developer tools →
-Application / Storage → Cookies → the creator site → copy the value of `scutoons_sid` (domain scutoons.com). It is your browser's
-session: signing out there ends the agent's access too. Keep it out of the repository and out of chats.
-
-Claude Code (user scope, so the token is not in the project's `.mcp.json`):
-
-```bash
-claude mcp add scutoons-prod --scope user -e SCUTOONS_API=https://api.scutoons.com/api -e SCUTOONS_TOKEN=<token> -- node C:/Development/scutoons/tools/mcp/bin/scutoons-mcp.mjs
-```
-
-Claude Desktop (`claude_desktop_config.json`, Settings → Developer → Edit config):
-
-```json
-{
-	"mcpServers": {
-		"scutoons": {
-			"command": "node",
-			"args": ["C:/Development/scutoons/tools/mcp/bin/scutoons-mcp.mjs"],
-			"env": { "SCUTOONS_API": "https://api.scutoons.com/api", "SCUTOONS_TOKEN": "<token>" }
-		}
-	}
-}
-```
-
-Add `"SCUTOONS_MCP_PUBLISH": "1"` only for a session that should be able to publish.
-
-## The Ask service (the "Ask" panel of creator, embassy, admin)
-
-`src/ask.ts` + `src/ask-main.ts`: the agent behind the Ask panel (`@scutoons/ask`) – one HTTP endpoint `POST /api/ask`
-(Server-Sent Events). The request names its app (`creator` when missing); the app sets the role, the system prompt and
-the tools (`APPS` in ask.ts):
-
-| app | role (API `/me/`) | tools |
-| --- | --- | --- |
-| `creator` | creator | the tools above (`src/server.ts`) |
-| `embassy` | liaison / ambassador / admin | `src/embassy.ts`: `today`, `my_portion` (the week at their own pace), `search_orgs` (`quiet`: answered before, quiet now), `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org` (new organisation + people + leads, duplicate check), `update_org`, `add_person`, `update_person`, `delete_person`, `draft_mail` (a card in the panel – the person sends it from the app, the agent never sends), `check_inbox` |
-| `admin` | admin | the tools above that only read + `src/admin.ts`: the admin API read (`dashboard`, `count_codes`, `list_codes`, `read_code`, `list_events`, `list_users`, `read_user`, `list_claims`, `read_claim`, `email_log`, `read_catalog`, `catalog_history`, `read_calendar`, `asset_usages`, `read_settings`, `agent_usage`) and `propose_changes` (a card in the panel – catalog fields, calendar entries as a draft, an asset file replaced in place; the admin presses Apply, the agent never writes) |
-
-It runs Claude (Sonnet 5.5) with the app's tools in-process (the person's session; the API's role checks decide),
-saves the chat in the API (`/api/agent-chats`, per app) after every round and logs every AI call with its app
-(`/api/agent-usage`, else its own file). Locally: `npm run dev:ask` (port 9002; key `ANTHROPIC_API_KEY` in the
-repo-root `.env`).
-
-### Production: bunny.net Magic Containers
-
-The image is built by GitHub (`.github/workflows/ask-image.yml`) on every push to `main` that changes the service:
-`ghcr.io/mandymozart/scutoons-ask:latest` (and `:<commit>`). Build it by hand from the repository root:
-`docker build -f tools/mcp/Dockerfile -t scutoons-ask .`
-
-Once:
-
-1. **Database** (phpMyAdmin): `server/migrations/mysql/2026-10-04-agent-chats.mysql.sql` (chat history) and
-   `2026-10-04-agent-usage.mysql.sql` (usage log).
-2. **Service key**: a long random value (`openssl rand -hex 32`) – GitHub `production` secret `AGENT_SERVICE_KEY` (goes
-   into the API's `config.php` with the next API deploy) and the same value as `SCUTOONS_SERVICE_KEY` on bunny.
-3. **bunny → Magic Containers → new app**: image `ghcr.io/mandymozart/scutoons-ask:latest` (GitHub registry; the package
-   is private by default – give bunny a GitHub token with `read:packages`, or make the package public), port **8080**,
-   health check `GET /api/ask/health`, a region in the EU, the smallest size. Environment:
-
-   | name | value |
-   |---|---|
-   | `ANTHROPIC_API_KEY` | the Claude API key (platform.claude.com) – secret |
-   | `SCUTOONS_API` | `https://api.scutoons.com/api` |
-   | `ASK_ORIGINS` | `https://creator.scutoons.com,https://embassy.scutoons.com,https://admin.scutoons.com` |
-   | `SCUTOONS_SERVICE_KEY` | the service key from 2. – secret |
-
-4. **Address**: `ask.scutoons.com` → the container (a CNAME to the address bunny shows). It must be a scutoons.com name:
-   the creator's sign-in cookie is sent only there (and only under `/api`, which is where the endpoint lives).
-5. **Creator build**: GitHub variable `VITE_ASK_URL` = `https://ask.scutoons.com/api/ask`, then deploy the creator.
-   Without it the panel says "not available".
-
-Updates: push to `main` → new image (tagged with the commit) → the workflow tells bunny to run it (bunny's action
-`BunnyWay/actions/container-update-image`, a rolling update). Once: in GitHub → environment `production`, the variables
-`BUNNY_ASK_APP_ID` (the app id in the bunny dashboard) and `BUNNY_ASK_CONTAINER` (the container's name in that app);
-the secret `BUNNY_API_KEY` is already there (the main account key – bunny sub-user keys don't work). Without the app id
-the step is skipped: then "Container Settings → Edit → pick the new image version" in the dashboard.
-
 ## Example
 
-"Set up the chapter 2 stroll" (what `scripts/dev/stroll-chapter2.mjs` does): the agent reads `scutoons://rules/vn-events`
+"Set up the chapter 2 stroll" (what `scripts/dev/stroll-chapter2.mjs` does): the AI reads `scutoons://rules/vn-events`
 and `/flow`, finds the stroll groups with `list_chapters` (catpope, chapter 2: scene-14 … scene-18, scene-20), reads each
-scene in de and en, adds the `stroll-end` section (label, setVariable add, if, addChoice with `jumpTo.target.anyOf`,
-showChoices) with `save_draft` ops per language, and checks the result with `validate`.
+scene, adds the `stroll-end` section (label, setVariable add, if, addChoice with `jumpTo.target.anyOf`, showChoices) with
+`save_draft` ops, checks the result with `validate` and `read_flow`, and gives the creator the links to check and publish.

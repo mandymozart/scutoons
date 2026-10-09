@@ -2,8 +2,7 @@
 
 Owner 2026-10-09: the Ask service goes because it costs too much for what it does. People use their own AI plan
 (Claude; ChatGPT skipped for now, owner 2026-10-09) and connect it to SCUTOONS through the MCP server. Their plan pays for the model, and
-SCUTOONS pays for no tokens. This file covers the analysis, the target, auth and the removal. Status: **analysis, nothing
-built**. Owner decisions are marked **D1–D6**.
+SCUTOONS pays for no tokens. This file covers the analysis, the target, auth and the removal. Status: **built 2026-10-09** (phases 1–5, §7) – the production steps and the drop of the Ask tables are the owner's. "What exists today" (§1) and "Removing Ask" (§4) describe the state BEFORE.
 
 ## 1. What exists today
 
@@ -87,7 +86,7 @@ checks it and confirms in the app.** The AI never sends, applies or publishes.
 - `publish_entity` leaves the MCP server (also stdio): publishing is the creator's button (D4 decided by the same rule).
   Asset replace-in-place: a proposal like the others (the page shows how many uses change).
 
-## 3. Auth: personal access tokens (decided 2026-10-04, never built)
+## 3. Auth: personal access tokens (decided 2026-10-04, built 2026-10-09)
 
 The API takes them like a session (`Authorization: Bearer`). Claude Code and Claude Desktop pass them as an env
 variable to the local server (`SCUTOONS_TOKEN`), as today with the copied cookie.
@@ -183,3 +182,28 @@ liaisons lose their tool in between.
   personal token only (§2, §3, §3a).
 - ~~D5~~ decided 2026-10-09: no export – the chat and usage tables are dropped.
 - ~~D6~~ decided 2026-10-09: every member gets an AI plan – no fallback needed beyond the normal apps.
+
+## 7. Built (2026-10-09)
+
+| commit | what |
+| --- | --- |
+| 2dac9209 | one server by role (`member.ts`, `services.ts`), prompts (`prompts.ts`), story tools (`story.ts`), no publish tool, the Ask service deleted; `@scutoons/content` toon-flow-input.ts |
+| 560104a1 | Ask out of the apps and the API; Embassy mail drafts + admin proposals (API, MCP, admin Proposals page) – migration `2026-10-09-mcp-drafts` |
+| dc7d1d36 | Embassy: drafts in the org page's dock (?draft=<id>), "Drafts" on the start page; DialogHost in the Embassy |
+| e966f508 | AI connections: `api_tokens` (migration `2026-10-09-api-tokens`), `/api/me/tokens`, ApiTokenScope (403 not_for_ai), saves signed "(AI: <name>)", the account page section; `npm run build:mcp` → scutoons.com/ai/scutoons-mcp.mjs + scutoons.mcpb (the viewer's build) |
+
+Deviations from the plan above: the token page is on the viewer's account page with an inline revoke confirm (the
+viewer has no DialogHost); `delete_person` stays allowed for a token (internal data, on an explicit request – the prompt
+says so); `asset_usages` moved to the story tools (every content editor); the drop of the Ask tables is parked in
+`server/migrations/later/2026-10-09-drop-ask.mysql.sql` (the migrator only reads migrations/mysql/).
+
+Open:
+- **Owner, production:** run `2026-10-09-mcp-drafts` + `2026-10-09-api-tokens` with the deploy (the SELECTs first);
+  then delete the bunny app, the `ask.` DNS, the ghcr image, the GitHub vars `VITE_ASK_URL` / `BUNNY_ASK_*` and the
+  secret `AGENT_SERVICE_KEY`, revoke the Anthropic API key. Once the move is done: move the drop migration to
+  migrations/mysql/ and run it.
+- **Owner:** install the extension once in Claude Desktop (account page → AI connections) – not tried (no Claude Desktop
+  in the agent's reach).
+- Not built: the version check (`/api/meta` → `mcp_min_version`, §3a) – a member with an old copy simply downloads again.
+- The four browser checks that lost their Ask steps (creator-dock, creator-flow-dock, creator-reader, tools-dock) were
+  not run after the change.
