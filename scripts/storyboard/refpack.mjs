@@ -46,14 +46,14 @@ function characterImage(c, framing, mood) {
 	const views = ['cu', 'ecu', 'mcu'].includes(framing) ? ['portrait', 'avatar', 'full'] : ['full', 'portrait'];
 	for (const view of views) for (const m of [moodOf(mood), 'neutral']) for (const ext of ['webp', 'png']) {
 		const f = resolve(media, 'characters', folder, `${folder}_${view}-${m}.${ext}`);
-		if (existsSync(f)) return f;
+		if (existsSync(f)) return { file: f, mood: m };
 	}
 	return null;
 }
 
 const PERSONA = {
 	'catpope/human': 'Cat Pope in human form (PLF): the long white papal robe with the cape, a sphynx cat head',
-	'catpope/mountaintiger': 'the white mountain tiger (Cat Pope himself, as PLF fights himself)',
+	'catpope/mountaintiger': 'the white mountain tiger with glowing blue rune markings and blue eyes (Cat Pope himself, as PLF fights himself)',
 	'catpope/regular': 'Cat Pope (the narrator): sphynx cat head, papal robe',
 	'catpope/cat': 'a hairless sphynx cat',
 	'crows/regular': 'crow creatures, black, big beaks'
@@ -74,9 +74,10 @@ for (const { sb } of loadStoryboards(src)) {
 		const who = [];
 		for (const fig of shot.figures ?? []) {
 			const c = { ...(cast[fig.cast] ?? {}), ...(fig.persona ? { persona: fig.persona } : {}) };
-			const img = characterImage(c, fig.framing, fig.mood);
+			const hit = characterImage(c, fig.framing, fig.mood);
+			const img = hit?.file;
 			const mood = moodOf(fig.mood);
-			if (img) copyFileSync(img, resolve(dir, `3-${fig.cast}-${c.persona ?? 'regular'}-${mood}${extname(img)}`));
+			if (img) copyFileSync(img, resolve(dir, `3-${fig.cast}-${c.persona ?? 'regular'}-${hit.mood}${extname(img)}`));
 			who.push(`${PERSONA[`${c.character}/${c.persona}`] ?? c.new ?? c.character ?? fig.cast} – ${mood}${fig.mood && fig.mood !== mood ? ` (${fig.mood})` : ''}${fig.pose ? `, ${fig.pose}` : ''}${img ? '' : ' [no character image yet – the render only]'}`);
 		}
 		const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
