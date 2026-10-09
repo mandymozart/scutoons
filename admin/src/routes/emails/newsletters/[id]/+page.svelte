@@ -10,6 +10,7 @@
 	import { tableLabels } from '$lib/labels.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { audienceLabel, newsletterError, newsletterStatus, statusTone } from '$lib/newsletter.ts';
+	import { AssetPickerSheet, type PickedAsset } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -28,6 +29,23 @@
 	let busy = $state(false);
 	let draft = $state({ title: '', audiences: [] as string[], subject_de: '', subject_en: '', body_de: '', body_en: '' });
 	let previewHtml = $state('');
+	// pictures (owner 2026-10-09): the asset manager's picker puts `![](path)` as its own paragraph at the cursor
+	let picking = $state(false);
+	let bodyArea = $state<HTMLTextAreaElement | null>(null);
+	function insertPicture(picked: PickedAsset) {
+		const key = locale === 'de' ? 'body_de' : 'body_en';
+		const text = draft[key];
+		// the cursor (a textarea keeps it after losing focus), else the end
+		const at = bodyArea?.selectionStart ?? text.length;
+		const before = text.slice(0, at).replace(/\s*$/, '');
+		const after = text.slice(at).replace(/^\s*/, '');
+		const line = `![](${picked.path})`;
+		draft[key] = [before, line, after].filter((part) => part !== '').join('\n\n');
+		// many pictures exist only as WebP: Outlook (desktop) shows none
+		if (/\.webp$/i.test(picked.path)) toaster.addToast({ message: m['newsletter.picture_webp'](), type: 'warning' });
+		const caret = (before ? before.length + 2 : 0) + line.length;
+		requestAnimationFrame(() => bodyArea?.setSelectionRange(caret, caret));
+	}
 	let previewSubject = $state('');
 
 	const fields = ['title', 'audiences', 'subject_de', 'subject_en', 'body_de', 'body_en'] as const;
@@ -271,15 +289,18 @@
 					{#snippet children({ id: fieldId })}<input id={fieldId} maxlength="200" disabled={!textEditable} bind:value={draft.subject_de} />{/snippet}
 				</Field>
 				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|du}' })}>
-					{#snippet children({ id: fieldId, describedby })}<textarea id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_de}></textarea>{/snippet}
+					{#snippet children({ id: fieldId, describedby })}<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_de}></textarea>{/snippet}
 				</Field>
 			{:else}
 				<Field label={m['newsletter.subject']()}>
 					{#snippet children({ id: fieldId })}<input id={fieldId} maxlength="200" disabled={!textEditable} bind:value={draft.subject_en} />{/snippet}
 				</Field>
 				<Field label={m['newsletter.body']()} hint={m['newsletter.body_hint']({ example: '{name|there}' })}>
-					{#snippet children({ id: fieldId, describedby })}<textarea id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_en}></textarea>{/snippet}
+					{#snippet children({ id: fieldId, describedby })}<textarea bind:this={bodyArea} id={fieldId} aria-describedby={describedby} rows="16" disabled={!textEditable} bind:value={draft.body_en}></textarea>{/snippet}
 				</Field>
+			{/if}
+			{#if textEditable}
+				<div><Button variant="secondary" onclick={() => (picking = true)}>{m['newsletter.picture_add']()}</Button></div>
 			{/if}
 		</div>
 		<div class="preview">
@@ -314,6 +335,8 @@
 		</Section>
 	{/if}
 {/if}
+
+<AssetPickerSheet bind:open={picking} kind="image" place="newsletter/" title={m['newsletter.picture_add']()} onpick={insertPicture} />
 
 <style>
 	.audiences {

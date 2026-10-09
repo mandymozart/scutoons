@@ -13,6 +13,7 @@ use Scutoons\Domain\Newsletter\NewsletterSender;
 use Scutoons\Domain\Newsletter\Suppressions;
 use Scutoons\Domain\Newsletter\UnsubscribeTokens;
 use Scutoons\Domain\Settings\RuntimeSettings;
+use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Mail\SmtpFailure;
 use Scutoons\Infrastructure\Mail\Transport;
@@ -327,6 +328,18 @@ fan@notscutoons.com, en", 'qr-claim', null, null, false, 'admin:x');
         self::assertStringContainsString('href="https://x.test/?a=1&amp;b=2"', $mail['html']);
         self::assertStringNotContainsString('href="javascript', $mail['html']);
         self::assertStringContainsString("No more news? Unsubscribe: http://api.test/api/newsletter/unsubscribe?t=", $mail['text']);
+    }
+
+    public function testPicturesFromTheCdnOrAUrl(): void
+    {
+        $base = rtrim($this->get(AssetStorages::class)->publicBase(), '/');
+        $body = "![Das Cover <neu>](/catpope/s1/cover.png)\n\n![](https://example.test/a.jpg)\n\n![up](../secret.png)\n\n![x](javascript:alert(1))\n\nsee ![inline](a.png) here";
+        $mail = $this->get(NewsletterRenderer::class)->render(['subject' => 'S', 'body' => $body], 'de', 'a@example.com', null);
+        self::assertStringContainsString('<img src="' . $base . '/catpope/s1/cover.png" alt="Das Cover &lt;neu&gt;"', $mail['html']);
+        self::assertStringContainsString('<img src="https://example.test/a.jpg" alt=""', $mail['html']);
+        self::assertSame(2, substr_count($mail['html'], '<img '), 'a path stepping out, a script URL and an inline one stay text');
+        self::assertStringContainsString('![up](../secret.png)', $mail['text']);
+        self::assertStringContainsString("[Das Cover <neu>]\n\n", $mail['text']);
     }
 }
 

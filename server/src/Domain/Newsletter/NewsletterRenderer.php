@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Newsletter;
 
 use Scutoons\Domain\Mail\MailTemplates;
+use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\Templates\Templates;
 
 /**
@@ -11,6 +12,9 @@ use Scutoons\Infrastructure\Templates\Templates;
  * platform mail (templates/mail/layout.html.php), text and HTML from the same blocks. The body is plain text:
  *   - a blank line starts a new paragraph; single line breaks stay
  *   - a paragraph that is only `[Button text](https://…)` becomes a button (the text part prints the URL)
+ *   - a paragraph that is only `![description](path)` becomes a picture (owner 2026-10-09): the path from the CDN root
+ *     (what the asset picker gives) or an http(s) URL; the mail loads it from the public CDN, the text part prints the
+ *     description. Anything else that looks like it stays text.
  *   - `{name}` = the recipient's name (empty without one), `{name|there}` = the name or "there" (also in the subject)
  * Under the body: why the person gets it and the unsubscribe link (also the List-Unsubscribe header, NewsletterSender).
  */
@@ -27,8 +31,26 @@ final class NewsletterRenderer
         ],
     ];
 
-    public function __construct(private readonly Templates $templates, private readonly UnsubscribeTokens $tokens)
+    public function __construct(
+        private readonly Templates $templates,
+        private readonly UnsubscribeTokens $tokens,
+        private readonly AssetStorages $storages,
+    ) {
+    }
+
+    /**
+     * `![description](path)` → [description, absolute URL]; null when it isn't a picture a mail can load
+     * @return array{0: string, 1: string}|null
+     */
+    private function picture(string $paragraph): ?array
     {
+        if (!preg_match('/^!\[([^\]\n]*)\]\(([^\s)]+)\)$/', $paragraph, $m)) return null;
+        [, $alt, $src] = $m;
+        if (preg_match('#^https?://#i', $src)) return [$alt, $src];
+        // a CDN path: plain segments only (no scheme, no .., no query)
+        $path = ltrim($src, '/');
+        if ($path === '' || !preg_match('#^[A-Za-z0-9._~/-]+$#', $path) || in_array('..', explode('/', $path), true)) return null;
+        return [$alt, rtrim($this->storages->publicBase(), '/') . '/' . implode('/', array_map('rawurlencode', explode('/', $path)))];
     }
 
     /**
@@ -47,7 +69,11 @@ final class NewsletterRenderer
         foreach (preg_split('/\n[ \t]*\n/', trim($body)) ?: [] as $paragraph) {
             $paragraph = trim($paragraph);
             if ($paragraph === '') continue;
-            if (preg_match('/^\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)$/', $paragraph, $m)) {
+            if (($picture = $this->picture($paragraph)) !== null) {
+                [$alt, $url] = $picture;
+                $blocks[] = ['type' => 'image', 'text' => $alt, 'url' => $url];
+                if ($alt !== '') $text .= '[' . $alt . "]\n\n";
+            } elseif (preg_match('/^\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)$/', $paragraph, $m)) {
                 $blocks[] = ['type' => 'button', 'text' => $m[1], 'url' => $m[2]];
                 $text .= $m[1] . ': ' . $m[2] . "\n\n";
             } else {
