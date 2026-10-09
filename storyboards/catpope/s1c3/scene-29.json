@@ -4,8 +4,8 @@
   "chapter": 3,
   "source": { "script": "script:catpope:de", "scene": 29, "heading": "INT. KLOSTERBIBLIOTHEK" },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" },
-    { "ref": "yplf", "character": null, "new": "YPLF – junge PLF" }
+    { "ref": "plf", "character": "catpope", "persona": "human", "look": "default" },
+    { "ref": "yplf", "character": null, "new": "YPLF – junge PLF", "look": "default" }
   ],
   "locations": [
     { "ref": "library", "place": "library", "time": "interior" }
@@ -22,6 +22,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-up",
           "shot": { "size": "ews", "angle": "worm" },
           "location": "library",
+          "view": "real",
           "light": { "note": { "de": "Die Lichtschächte stehen wie weiße Säulen im Dunkel; PLF klein in einem Lichtfleck an der Tür, der Schnee glitzert auf dem Gewand." } },
           "action": { "de": "Die Klosterbibliothek von unten: PLF klein in der Tür, Schnee noch auf dem Gewand, Augen weit aufgerissen. Der Blick steigt an Säulen mit Lesepulten hinauf, die im Dämmer wie in den Himmel ragen; Kerzenlicht, Staub in den Lichtstrahlen, Bücherwände ohne Ende." },
           "air": [[0, 15]],
@@ -39,6 +40,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "mcu", "angle": "low" },
           "location": "library",
+          "view": "real",
           "light": { "key": "bottom", "height": "below", "source": "candle", "note": { "de": "Kerze von unten: die Predigerpose wirft einen riesigen Schatten über die Regale – das Entzücken kippt ins Fanatische." } },
           "action": { "de": "PLF entzückt, Arme ausgebreitet, ein dickes Buch in der Hand erhoben wie ein Prediger. Kerzenlicht von unten, hinter ihr Regale." },
           "air": [[0, 20]],
@@ -56,6 +58,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "medium", "angle": "eye" },
           "location": "library",
+          "view": "memory",
           "light": { "key": "top", "note": { "de": "Ein einziger Lichtschacht fällt genau auf die Mittelachse und trennt Gegenwart und Erinnerung mit einer harten Kante." } },
           "action": { "de": "Gespiegelt: links PLF in Farbe, rechts an derselben Stelle YPLF – die junge PLF in der Ausbildung, schlichtes Novizengewand, Bücherstapel im Arm, sepia / monochrom getönt wie eine alte Fotografie. Beide in derselben Pose." },
           "air": [[0, 10]],
@@ -69,13 +72,14 @@
           ],
           "source": { "type": "schematic", "want": "direct" },
           "status": "draft",
-          "note": "Erster Auftritt von YPLF. Wer spielt YPLF (jüngere Darstellerin / Kostüm)? Monochrom wie die Erinnerung in sb-25-5."
+          "note": "Erster Auftritt von YPLF. Wer spielt YPLF (jüngere Darstellerin / Kostüm)? Monochrom wie die Erinnerung in sb-25-5. Perspektive: memory – der Moment, in dem die Erinnerung einsetzt (PLF heute, YPLF als Erinnerung daneben)."
         },
         {
           "id": "sb-29-4",
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "ecu", "angle": "high" },
           "location": "library",
+          "view": "real",
           "light": { "key": "left", "height": "low", "source": "candle", "note": { "de": "Die flackernde Kerze als einziges Licht: Streiflicht holt Staub, Risse im Leder und die Fingerspur als harte Reliefs aus dem Schwarz." } },
           "action": { "de": "Sinnes-Collage auf dunklem Grund, drei gerahmte Nahaufnahmen: vergilbte, verstaubte Seiten; rissiger, modriger Ledereinband; flackernde Kerzenflamme. Darunter groß PLFs Hand, die eine Spur durch den Staub eines Lesepults zieht." },
           "air": [[0, 6]],
@@ -92,6 +96,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "high" },
           "location": "library",
+          "view": "memory",
           "light": { "note": { "de": "Lichtstrahlen fallen zwischen den Säulen auf YPLF; das eine Buch leuchtet selbst weiß aus den schwarzen Stapeln – Erkenntnis als Licht." } },
           "action": { "de": "Erinnerung, monochrom: von hohen Säulen und Lichtstrahlen hinab zu YPLF, allein an einem Pult über ein aufgeschlagenes Buch gebeugt, umgeben von Stapeln lateinischer Folianten. Ein Buch leuchtet hell aus dem Stapel heraus." },
           "air": [[0, 25], [90, 100]],
@@ -110,6 +115,7 @@
     "YPLF ist nicht in der Registry: als neue Figur („YPLF – junge PLF“) gesetzt, kommt auf die Wanted-Liste.",
     "Frage an den Owner: das Zitat. Überliefert ist „Beware the man of one book“ (hominem unius libri timeo); das Skript schreibt „with the one book“. Wortlaut so lassen? Englisch oder deutsch?",
     "Frage an den Owner: „PAH“ als Lettering-SFX oder als Teil der Sprechblase?",
-    "Gekürzt: „Entzückt“ (im Bild), die Säulen „die in den Himmel ragten“ (sb-29-1)."
+    "Gekürzt: „Entzückt“ (im Bild), die Säulen „die in den Himmel ragten“ (sb-29-1).",
+    "Perspektive Szene 29: real in der Bibliothek von heute (PLF, human), memory für YPLF und die Ausbildungsjahre (sb-29-3, sb-29-5)."
   ]
 }

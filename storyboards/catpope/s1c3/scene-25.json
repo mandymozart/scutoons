@@ -4,7 +4,8 @@
   "chapter": 3,
   "source": { "script": "script:catpope:de", "scene": 25, "heading": "EXT. WINTERLICHES BERGDORF - TAG" },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" }
+    { "ref": "plf", "character": "catpope", "persona": "human", "look": "default" },
+    { "ref": "catpope", "character": "catpope", "persona": "regular", "look": "default" }
   ],
   "locations": [
     { "ref": "village", "place": "mountain-village", "time": "snow" },
@@ -22,6 +23,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "ews", "angle": "high" },
           "location": "village",
+          "view": "real",
           "light": { "note": { "de": "Gleißender Schnee frisst das Dorf weg; nur PLF und ihr langer schwarzer Schatten halten das Bild." } },
           "action": { "de": "Von weißem Himmel und verschneiten Gipfeln hinab ins Bergdorf: eine kleine Haltestelle, der Zug / Bus fährt ab. PLF steht klein im weißen Gewand im Schnee, der Atem dampft." },
           "air": [[0, 35]],
@@ -39,6 +41,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "ecu", "angle": "eye" },
           "location": "village",
+          "view": "real",
           "light": { "key": "bottom", "height": "below", "source": "snow", "shadow": "short", "note": { "de": "Schneereflex von unten: harte Kanten an Sandalen, Fingern und Lippen – die Kälte als grelles Weiß gegen schwarze Schatten." } },
           "action": { "de": "Kälte-Collage auf weißem Schneegrund, vier gerahmte Nahaufnahmen: Sandalen im Schnee, rote Finger, blaue Lippen mit gefrorener Rotze, Hände unter die Achseln geklemmt. Wind pfeift durch die Schlitze der Robe." },
           "air": [[0, 8], [92, 100]],
@@ -56,6 +59,7 @@
           "format": "vertical", "aspect": "1:4", "projection": "perspective", "move": "tilt-up",
           "shot": { "size": "ews", "angle": "low" },
           "location": "village",
+          "view": "real",
           "light": { "key": "back", "rim": true, "note": { "de": "Das Licht dreht ins Gegenlicht vom Hang: PLF nur schwarzer Umriss mit weißem Rand, der Weg ein gleißendes Band nach oben." } },
           "action": { "de": "Der Weg: von PLFs Füßen im Schnee führt ein vereister Pfad den Hang hinauf und verschwindet zwischen weißen Bergen im Dunst. PLF klein von hinten am unteren Rand." },
           "air": [[0, 30]],
@@ -71,6 +75,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "mcu", "angle": "low" },
           "location": "village",
+          "view": "real",
           "light": { "key": "left", "shadow": "short", "note": { "de": "Zurück zur Sonne von links: hartes Streiflicht teilt das Gesicht in Weiß und Schwarz – Entschlossenheit gegen die Kälte." } },
           "action": { "de": "PLF entschlossen, Kinn hoch, Atemwolke, Schneeflocken. Hinter ihr nur Weiß." },
           "air": [[0, 25]],
@@ -87,6 +92,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "wide", "angle": "low" },
           "location": "village",
+          "view": "memory",
           "light": { "key": "top", "height": "high", "note": { "de": "Erinnerung: das Kloster oben im Licht, alles darunter versinkt im Schwarz – ein ausgeschnittenes altes Foto im Dunkel." } },
           "action": { "de": "Erinnerung, monochrom getönt: das Kloster hoch oben auf dem Berg, darunter klein die junge PLF in der Ausbildung mit Büchern. Wie eine alte Fotografie im Rahmen auf dunklem Grund." },
           "air": [[0, 15], [85, 100]],
@@ -103,8 +109,9 @@
           "format": "vertical", "aspect": "1:5", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "high" },
           "location": "undergrowth",
+          "view": "belief",
           "light": { "source": "none", "shadow": "none", "note": { "de": "Pechschwarzes Unterholz ohne Licht: nur die weißen Linien-Geister und PLFs weißes Gewand stehen im Schwarz." } },
-          "action": { "de": "Der beschwerliche Weg: pechschwarzes Unterholz, flimmernde kalte Luft. Links, rechts, oben, unten weiße Linien-Geister (wie die Wolken in Kapitel 1/2) – Seelen der Gewässer, Bäume, Steine, Lüfte. PLF klein mittendrin." },
+          "action": { "de": "Der beschwerliche Weg: pechschwarzes Unterholz, flimmernde kalte Luft. Links, rechts, oben, unten weiße Linien-Geister (wie die Wolken in Kapitel 1/2) – Seelen der Gewässer, Bäume, Steine, Lüfte – sie greifen nach PLF und drängen sich ihr in den Weg. PLF klein mittendrin." },
           "air": [[0, 10]],
           "figures": [ { "cast": "plf", "framing": "full", "mood": "scared", "pose": "walk", "facing": "right", "x": 0.45, "y": 0.62, "h": 0.14 } ],
           "dialog": [
@@ -113,28 +120,31 @@
           ],
           "source": { "type": "schematic", "want": "art" },
           "status": "draft",
-          "note": "Foto (dunkler Wald) + gezeichnete Geister darüber. 1:5 liegt über der Planungsgröße 1:4, darf aber, da Foto + Grafik statt generiert."
+          "note": "Foto (dunkler Wald) + gezeichnete Geister darüber. 1:5 liegt über der Planungsgröße 1:4, darf aber, da Foto + Grafik statt generiert. Perspektive: belief – die „täuschenden Visionen“, wie PLF sie sieht. Natur aktiv (Owner 2026-10-09): die Geister greifen nach ihr und versperren den Weg, nicht nur Kulisse."
         },
         {
           "id": "sb-25-7",
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "full", "angle": "eye" },
           "location": "undergrowth",
+          "view": "narration",
           "light": { "key": "front", "note": { "de": "Die Sonne im Rücken der Kamera wirft PLFs Schatten lang in den schwarzen Wald – sie steht vor einer Wand aus Dunkel." } },
-          "action": { "de": "PLF von hinten am Waldrand, die Natur als dunkle Wand vor ihr. Viel Weiß nach unten – Übergang zur nächsten Szene." },
+          "action": { "de": "Cat Pope (regular, der Erzähler) von hinten am Waldrand, in den PLF gleich hineingeht, die Natur als dunkle Wand davor. Viel Weiß nach unten – Übergang zur nächsten Szene." },
           "air": [[70, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "uneasy", "pose": "stand", "facing": "away", "x": 0.5, "y": 0.45, "h": 0.3 } ],
+          "figures": [ { "cast": "catpope", "framing": "full", "mood": "uneasy", "pose": "stand", "facing": "away", "x": 0.5, "y": 0.45, "h": 0.3 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 6, "width": 70 }, "text": { "de": "Die Natur war ihr immer das Monster, das sie mied. Menschen waren schon anstrengend genug." } }
           ],
           "source": { "type": "schematic", "want": "photo" },
-          "status": "draft"
+          "status": "draft",
+          "note": "Perspektive: narration – keine Handlung, nur der reflektierende Satz der Erzählstimme über die Natur; daher steht hier Cat Pope (regular) statt PLF am Waldrand (Owner 2026-10-09: beim Erzählen erscheint Cat Pope in seiner regulären Form)."
         }
       ]
     }
   ],
   "notes": [
     "Gekürzt: der Absatz über katholische Bildung als Studium der Philosophie / Mathematik – nur der Satz zur Natur bleibt (sb-25-7).",
-    "Frage an den Owner: steigt PLF aus dem Zug (Ende Kapitel 2) oder aus einem Bus? Die Haltestelle in sb-25-1 hängt davon ab."
+    "Frage an den Owner: steigt PLF aus dem Zug (Ende Kapitel 2) oder aus einem Bus? Die Haltestelle in sb-25-1 hängt davon ab.",
+    "Perspektive Szene 25: real – PLF (human) allein gegen die Kälte; die Erinnerung ans Kloster (sb-25-5) ist memory, die Geister im Unterholz (sb-25-6) sind belief und greifen als Natur nach ihr, und den Satz über die Natur als Monster (sb-25-7) erzählt Cat Pope selbst (narration, regular)."
   ]
 }

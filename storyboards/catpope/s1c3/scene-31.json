@@ -11,7 +11,8 @@
     {
       "ref": "plf",
       "character": "catpope",
-      "persona": "human"
+      "persona": "human",
+      "look": "default"
     }
   ],
   "locations": [
@@ -54,6 +55,7 @@
             "angle": "eye"
           },
           "location": "library",
+          "view": "real",
           "light": {
             "height": "low",
             "note": {
@@ -125,6 +127,7 @@
             "angle": "low"
           },
           "location": "library",
+          "view": "real",
           "light": {
             "key": "bottom",
             "height": "below",
@@ -198,6 +201,7 @@
             "angle": "high"
           },
           "location": "serverfarm",
+          "view": "real",
           "light": {
             "key": "back",
             "height": "low",
@@ -283,6 +287,7 @@
     "Das Skript markiert die Szene als „INTERACTIVE SZENE Rätsel“. Vorschlag (keine Spiel-Logik gesetzt): der Leser setzt die vier Wörter in die richtige Reihenfolge (Daten / Geschäft / Geld / Gott), z. B. als Items zum Antippen am Sensor in sb-31-1/2; erst dann öffnen sich die Regale (sb-31-3). Frage an den Owner: Rätsel ja – und welche Mechanik (Reihenfolge, Eingabe, Auswahl)?",
     "Frage an den Owner: die „digitale Pranke“ – ist PLF hier schon halb Katze (erste Verwandlung), oder ein Bild für die Hand? sb-31-1 zeigt die menschliche Hand mit einem gezeichneten Pranken-Umriss.",
     "Gekürzt: „Das Zischen der Regale klang wie ein ferner Hauch“ (als ZSCHHH), „Bildschirme … als würde sie selbst atmen“ (im Bild), „Kein Rätsel des Schicksals“.",
-    "Budget: 3 Shots / ~3 Screens, wie vorgegeben (Übergang)."
+    "Budget: 3 Shots / ~3 Screens, wie vorgegeben (Übergang).",
+    "Perspektive Szene 31: durchgehend real – PLF (human) öffnet mit dem Code die Serverfarm."
   ]
 }

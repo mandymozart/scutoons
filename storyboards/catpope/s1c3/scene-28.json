@@ -11,12 +11,14 @@
     {
       "ref": "plf",
       "character": "catpope",
-      "persona": "human"
+      "persona": "human",
+      "look": "default"
     },
     {
       "ref": "tiger",
       "character": "catpope",
-      "persona": "mountaintiger"
+      "persona": "mountaintiger",
+      "look": "default"
     }
   ],
   "locations": [
@@ -64,6 +66,7 @@
             "angle": "eye"
           },
           "location": "forest",
+          "view": "belief",
           "light": {
             "note": {
               "de": "Gesprenkeltes Sonnenlicht durchs Geäst: der Schemen bleibt weiß im Weiß, nur zwei Augen und sein Schatten schneiden durch."
@@ -143,7 +146,7 @@
             "want": "photo"
           },
           "status": "draft",
-          "note": "Der Tiger bleibt hier Andeutung (Fell, Augen im Geäst) – der volle Auftritt kommt im nächsten Bild."
+          "note": "Der Tiger bleibt hier Andeutung (Fell, Augen im Geäst) – der volle Auftritt kommt im nächsten Bild. Perspektive: belief – der Schemen, wie PLF ihn im Augenwinkel sieht."
         },
         {
           "id": "sb-28-2",
@@ -156,6 +159,7 @@
             "angle": "low"
           },
           "location": "forest",
+          "view": "belief",
           "light": {
             "key": "bottom",
             "height": "below",
@@ -209,7 +213,7 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Skript: „TIGER ist weiß mit riesen Zähnen. Anger Stage Character.“ Bewusst ohne Luft – der Schock füllt den Screen. Wie das ROARRR aus Kapitel 1/2 gesetzt.",
+          "note": "Skript: „TIGER ist weiß mit riesen Zähnen. Anger Stage Character.“ Bewusst ohne Luft – der Schock füllt den Screen. Wie das ROARRR aus Kapitel 1/2 gesetzt. Perspektive: belief – der Tiger, wie PLF ihn sieht: die volle Bedrohung.",
           "prompt": {
             "en": "The person in the white robe has turned around, small in the lower corner, backing away. The rest of the frame is filled by the head of a huge white tiger: jaws wide open, enormous teeth, warm breath steaming into the freezing air."
           }
@@ -225,6 +229,7 @@
             "angle": "eye"
           },
           "location": "forest",
+          "view": "real",
           "light": {
             "key": "top",
             "height": "high",
@@ -234,7 +239,7 @@
             }
           },
           "action": {
-            "de": "Profil, seitlich: PLF und der weiße Tiger rennen gleichauf nebeneinander den verschneiten Hang hinauf, im selben Schritt, das Gewand und das Fell wehen gleich. Schneestaub hinter beiden, Bäume als verwischte Streifen."
+            "de": "Profil, seitlich: PLF und der weiße Tiger rennen gleichauf nebeneinander den verschneiten Hang hinauf, im selben Schritt und in spiegelbildlich gleicher Haltung, das Gewand und das Fell wehen gleich. Schneestaub hinter beiden, Bäume als verwischte Streifen."
           },
           "air": [
             [
@@ -283,7 +288,7 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Ein Stop statt eines vertikalen Moves: die Bewegung ist seitlich, und der Witz ist der Gleichschritt. PLF rennend als Direktaufnahme möglich, der Tiger generiert dazu.",
+          "note": "Ein Stop statt eines vertikalen Moves: die Bewegung ist seitlich, und der Witz ist der Gleichschritt. PLF rennend als Direktaufnahme möglich, der Tiger generiert dazu. Perspektive: real (Owner 2026-10-09: der Tiger ist PLF selbst) – die spiegelbildlich gleiche Haltung lässt ahnen, dass hier ein Wesen in zwei Gestalten läuft.",
           "prompt": {
             "en": "Side view, profile: the person in the long white robe and a huge white tiger run side by side up a snowy slope in the same stride, robe and fur flowing the same way. Powder snow kicked up behind them, trees as motion-blurred streaks."
           }
@@ -312,6 +317,7 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "view": "real",
           "light": {
             "key": "top",
             "height": "overhead",
@@ -321,7 +327,7 @@
             }
           },
           "action": {
-            "de": "360°-Panorama der Lichtung, High Noon: Sonne im Zenit, kaum Schatten, ein Ring verschneiter Bäume. Auf der einen Seite PLF breitbeinig, auf der gegenüberliegenden der Tiger, der ihr den Weg versperrt. Dazwischen nur glatter Schnee. Wer zieht, sieht immer nur einen von beiden scharf."
+            "de": "360°-Panorama der Lichtung, High Noon: Sonne im Zenit, kaum Schatten, ein Ring verschneiter Bäume. Auf der einen Seite PLF breitbeinig, auf der gegenüberliegenden der Tiger, der ihr den Weg versperrt – in genau derselben breitbeinigen Haltung, der Kopf im selben Winkel. Dazwischen nur glatter Schnee. Wer zieht, sieht immer nur einen von beiden scharf."
           },
           "air": [
             [
@@ -370,7 +376,7 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Der breite Stop der Szene: die Flucht ist zu Ende, der Leser muss selbst zwischen den beiden hin- und herdrehen (Western-Duell). 3:1 = 6,5 Screens breit, unter der Planungsbreite 8. Leere Mitte (40–60 %) = die Strecke zwischen ihnen.",
+          "note": "Der breite Stop der Szene: die Flucht ist zu Ende, der Leser muss selbst zwischen den beiden hin- und herdrehen (Western-Duell). 3:1 = 6,5 Screens breit, unter der Planungsbreite 8. Leere Mitte (40–60 %) = die Strecke zwischen ihnen. Perspektive: real – wer zwischen beiden hin- und herdreht, sieht zweimal dieselbe Haltung: PLF steht sich selbst gegenüber.",
           "prompt": {
             "en": "Seamless 360° panorama of a snowy forest clearing at high noon: the sun at its zenith, almost no shadows, a ring of snow-laden trees. On one side the person in the white robe stands with legs apart; on the opposite side a huge white tiger blocks the way. Between them only smooth untouched snow."
           }
@@ -395,6 +401,7 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "view": "belief",
           "light": {
             "key": "top",
             "height": "overhead",
@@ -477,7 +484,7 @@
             "want": "art"
           },
           "status": "draft",
-          "note": "Foto-Ausschnitte (PLF direkt, Tiger generiert) + schwarz-weiße Tusche-Grafik der Boxen. „AAAAAHHH!“ ist neu gesetzt – das Skript nennt PLFs Schrei nicht wörtlich."
+          "note": "Foto-Ausschnitte (PLF direkt, Tiger generiert) + schwarz-weiße Tusche-Grafik der Boxen. „AAAAAHHH!“ ist neu gesetzt – das Skript nennt PLFs Schrei nicht wörtlich. Perspektive: belief – das Duell, wie PLF es erlebt."
         },
         {
           "id": "sb-28-6",
@@ -490,6 +497,7 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "view": "real",
           "light": {
             "key": "top",
             "height": "overhead",
@@ -544,6 +552,7 @@
             "angle": "high"
           },
           "location": "clearing",
+          "view": "belief",
           "light": {
             "key": "front",
             "height": "eye",
@@ -624,7 +633,7 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Der Ball IST die Bewegung: der Leser scrollt ihm hinterher. Energie-Effekt eher als Grafik (art) über Fotos, falls generiert zu sehr nach Anime aussieht. Gekürzt: „PLF ging in sich, sammelte alle Energien“ – steckt im Bild.",
+          "note": "Der Ball IST die Bewegung: der Leser scrollt ihm hinterher. Energie-Effekt eher als Grafik (art) über Fotos, falls generiert zu sehr nach Anime aussieht. Gekürzt: „PLF ging in sich, sammelte alle Energien“ – steckt im Bild. Perspektive: belief – der Treffer gegen den Tiger, wie PLF ihn erlebt.",
           "prompt": {
             "en": "Top: the person in the white robe, eyes closed, cupped hands, a glowing blue-white ball of ice energy growing between them. Middle: the ball shoots downwards, a trail of ice and lightning. Bottom: it hits a charging white tiger, sparks and ice shards; at the edge the person already runs toward a large boulder."
           }
@@ -640,6 +649,7 @@
             "angle": "high"
           },
           "location": "clearing",
+          "view": "belief",
           "light": {
             "key": "top",
             "height": "overhead",
@@ -720,7 +730,7 @@
             "want": "photo"
           },
           "status": "draft",
-          "note": "Felswand-Foto (Stitch) + ausgeschnittener Tiger; der Fall ist der Scroll. Der Schrei wird nach unten leiser (Lettering kleiner). Frage an den Owner: der Tiger stürzt hier nur aus dem Bild – kommt er (als Anger Stage) später wieder?"
+          "note": "Felswand-Foto (Stitch) + ausgeschnittener Tiger; der Fall ist der Scroll. Der Schrei wird nach unten leiser (Lettering kleiner). Frage an den Owner: der Tiger stürzt hier nur aus dem Bild – kommt er (als Anger Stage) später wieder? Perspektive: belief – der Sturz des Tigers aus PLFs Sicht."
         },
         {
           "id": "sb-28-9",
@@ -733,6 +743,7 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "view": "real",
           "light": {
             "key": "left",
             "note": {
@@ -740,7 +751,7 @@
             }
           },
           "action": {
-            "de": "PLF hinter dem Felsen, Hände gefaltet zum Stoßgebet, dann der prüfende Blick über die Kante in die Tiefe. Hinter ihr verdunkelt sich der Himmel, erste Schneeschleier wehen heran."
+            "de": "PLF hinter dem Felsen, Hände gefaltet zum Stoßgebet, dann der prüfende Blick über die Kante in die Tiefe: unten kein Tiger, im Schnee am Abgrund nur eine einzige Spur – ihre eigene. Hinter ihr verdunkelt sich der Himmel, erste Schneeschleier wehen heran."
           },
           "air": [
             [
@@ -778,7 +789,8 @@
             "type": "schematic",
             "want": "direct"
           },
-          "status": "draft"
+          "status": "draft",
+          "note": "Perspektive: real (Owner 2026-10-09: der Tiger ist PLF selbst) – der Blick in die Tiefe findet keinen Tiger, nur PLFs eigene Spur: der Leser kann die Wahrheit ahnen. Die Spur im Schnee ist neu gegenüber dem Skript."
         },
         {
           "id": "sb-28-10",
@@ -791,6 +803,7 @@
             "angle": "high"
           },
           "location": "forest",
+          "view": "real",
           "light": {
             "key": "front",
             "height": "eye",
@@ -805,7 +818,7 @@
             }
           },
           "action": {
-            "de": "Weißer Schneesturm, fast nur Weiß und waagrechte Schneestreifen. In der Mitte PLF kaum sichtbar, auf allen Vieren kriechend, halb verschluckt. Ganz unten taucht aus dem Weiß ein Stück graue Mauer auf und ein Strauch mit kleinen roten Beeren – die einzige Farbe im Bild."
+            "de": "Weißer Schneesturm, fast nur Weiß und waagrechte Schneestreifen. In der Mitte PLF kaum sichtbar, auf allen Vieren kriechend, die Böen drücken sie zu Boden und zerren am Gewand, halb verschluckt. Ganz unten taucht aus dem Weiß ein Stück graue Mauer auf und ein Strauch mit kleinen roten Beeren – die einzige Farbe im Bild."
           },
           "air": [
             [
@@ -856,7 +869,7 @@
             "want": "photo"
           },
           "status": "draft",
-          "note": "Geplante Stille: die obere Hälfte ist fast nur Sturm-Weiß (Luft), damit das Verirren Zeit kostet. Rote Beeren als einziger Farbpunkt (monochrom getönt wie Kapitel 2 sonst)."
+          "note": "Geplante Stille: die obere Hälfte ist fast nur Sturm-Weiß (Luft), damit das Verirren Zeit kostet. Rote Beeren als einziger Farbpunkt (monochrom getönt wie Kapitel 2 sonst). Natur aktiv (Owner 2026-10-09): nach dem Tiger ist der Sturm der zweite Gegner – er drückt PLF nieder, nicht nur Kulisse."
         },
         {
           "id": "sb-28-11",
@@ -869,6 +882,7 @@
             "angle": "low"
           },
           "location": "monastery",
+          "view": "real",
           "light": {
             "key": "back",
             "height": "eye",
@@ -956,10 +970,11 @@
     }
   ],
   "notes": [
-    "Registry: der TIGER ist als catpope / mountaintiger eingetragen (die Lesart der Registry: eine Persona von PLF / catpope). Das Skript nennt ihn „Anger Stage Character“ – ein eigenes Wesen. Owner bitte bestätigen: Persona von catpope oder eigener Charakter?",
+    "Beantwortet (Owner 2026-10-09): der TIGER ist PLF selbst – catpope / mountaintiger („Großes Tier, PLF kämpft mit sich selbst“), kein eigener Charakter. PLF kämpft gegen sich selbst und gegen die Natur, glaubt aber, gegen einen Tiger zu kämpfen.",
     "Frage an den Owner: zwei neu gesetzte SFX ohne Wortlaut im Skript – „AAAAAHHH!“ (PLFs Schrei, sb-28-5) und „WUMMS“ (Ausrutscher, sb-28-11). Passen sie, oder lieber ohne?",
-    "Frage an den Owner: der Tiger stürzt in den Abgrund – Ende der Figur oder kommt er wieder (z. B. als PLFs eigene Wut)?",
+    "Frage an den Owner: der Tiger (PLF selbst) stürzt in den Abgrund – Ende dieser Persona in Kapitel 3, oder kehrt mountaintiger später zurück (z. B. als PLFs eigene Wut)?",
     "Gekürzt: „Nach einem schnellen Blick war es immer noch dicht auf den Fersen“, „blitzartig wandte sich PLF“, „Sich beinahe verirrend, verzweifelt am Boden kriechend … mit letzter Kraft“ – steckt in den Bildern (sb-28-1, sb-28-7, sb-28-10).",
-    "Budget: 11 Shots / 14 Screens. Das Anschreien, der Ball und der Sturz sind vertikale Moves; der Duell-Stop ist das 360°-Panorama (sb-28-4, eigene horizontale Gruppe)."
+    "Budget: 11 Shots / 14 Screens. Das Anschreien, der Ball und der Sturz sind vertikale Moves; der Duell-Stop ist das 360°-Panorama (sb-28-4, eigene horizontale Gruppe).",
+    "Perspektive Szene 28: die Tiger-Shots sind meist belief (der Tiger, wie PLF ihn sieht: sb-28-1, -2, -5, -7, -8), drei real-Momente lassen die Wahrheit ahnen (sb-28-3 spiegelbildlicher Gleichschritt, sb-28-4 dieselbe Haltung im Duell, sb-28-9 nur eine Spur am Abgrund), und am Ende ist der Sturm der Gegner (sb-28-10)."
   ]
 }

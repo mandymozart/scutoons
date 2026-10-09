@@ -11,11 +11,14 @@
     {
       "ref": "plf",
       "character": "catpope",
-      "persona": "human"
+      "persona": "human",
+      "look": "default"
     },
     {
       "ref": "crows",
-      "character": "crows"
+      "character": "crows",
+      "persona": "regular",
+      "look": "default"
     }
   ],
   "locations": [
@@ -62,6 +65,7 @@
             "angle": "eye"
           },
           "location": "serverfarm",
+          "view": "real",
           "light": {
             "note": {
               "de": "Die Röhren springen nacheinander an: das Panorama wird Bahn für Bahn aus dem Schwarz gerissen, PLF reglos in einem Lichtkegel."
@@ -156,6 +160,7 @@
             "angle": "eye"
           },
           "location": "serverfarm",
+          "view": "real",
           "light": {
             "key": "front",
             "height": "eye",
@@ -229,6 +234,7 @@
             "angle": "high"
           },
           "location": "serverfarm",
+          "view": "real",
           "light": {
             "key": "back",
             "height": "eye",
@@ -315,6 +321,7 @@
             "angle": "eye"
           },
           "location": "serverfarm",
+          "view": "real",
           "light": {
             "key": "front",
             "height": "eye",
@@ -402,6 +409,7 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "key": "bottom",
             "height": "below",
@@ -488,6 +496,7 @@
             "angle": "low"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "key": "bottom",
             "height": "low",
@@ -587,6 +596,7 @@
             "angle": "dutch"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "key": "right",
             "height": "eye",
@@ -683,6 +693,7 @@
     "Gekürzt: die nostalgische Hoffnung, die Vergangenheit zu ergründen (in sb-32-2 verdichtet); „eine seltsame Ladung erfüllte die Luft“ (Statik-Linien im Bild); der lange Kommissions-Absatz des Manifests (Konzerne, Dauerkonsum, Überbeanspruchung neuraler Prozesse durch digitale und nicht digitale Rituale) auf eine Zeile; „Fragmente eines Rituals“ steckt im Bild; die DEFCON4-Kino-Pointe am Geruchs-Satz.",
     "Vorschlag interaktiv (keine Logik gesetzt): CATS.MANIFEST als Item / antippbare Datei, die das ganze Dokument (auch die gekürzten Absätze) als Lesetext öffnet – so bleibt der Volltext verfügbar, ohne eine Wand zu bauen.",
     "Pronomen: das Skript wechselt hier zu „er / sein“; durchgehend „sie“ wie in den Szenen 25–30.",
-    "Budget: 7 Shots, 1 Panorama + ~7,1 Screens vertikal (der Validator zählt das Panorama als 1 Screen)."
+    "Budget: 7 Shots, 1 Panorama + ~7,1 Screens vertikal (der Validator zählt das Panorama als 1 Screen).",
+    "Perspektive Szene 32: durchgehend real – PLF (human) in der Serverfarm, der Angriff der Krähenwesen (crows / regular) geschieht wirklich."
   ]
 }

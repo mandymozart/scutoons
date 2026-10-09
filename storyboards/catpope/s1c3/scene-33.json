@@ -4,7 +4,7 @@
   "chapter": 3,
   "source": { "script": "script:catpope:de", "scene": 33, "heading": "INT. STREAMER STUDIO" },
   "cast": [
-    { "ref": "catpope", "character": "catpope", "persona": "regular" }
+    { "ref": "catpope", "character": "catpope", "persona": "regular", "look": "default" }
   ],
   "locations": [
     { "ref": "studio", "place": null, "new": "Streamer-Studio (kein MAP-Ort)", "time": "interior" }
@@ -21,6 +21,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "medium", "angle": "eye" },
           "location": "studio",
+          "view": "narration",
           "light": { "note": { "de": "Volles Ringlicht von vorn: Cat Pope weiß vor schwarzem Studio, nur Mikro und Kopfhörer zeichnen harte Schatten." } },
           "action": { "de": "Harter Schnitt ins Helle: Cat Pope frontal vor der Kamera im Podcast-Setup – Ringlicht, großes Mikro am Schwenkarm, Kopfhörer, LED-Leiste in Pink/Cyan. Das Bild als Livestream-Screen: LIVE-Badge, Zuschauerzahl, aufsteigende Herzen, Chat-Spalte am Rand." },
           "air": [[0, 18]],
@@ -38,6 +39,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "eye" },
           "location": "studio",
+          "view": "narration",
           "light": { "key": "top-left", "height": "high", "source": "window", "shadow": "long", "note": { "de": "Im Kirchenbild ein harter Lichtstrahl durch Weihrauch, im Protestantismus-Bild Streiflicht über rauen Kalk – Cat Pope im Eck bleibt im Ringlicht." } },
           "action": { "de": "Zwei gerahmte Bilder im Stream-Layout, je mit einem Titel-Banner. Oben KATHOLIZISMUS: altes Kirchenschiff, Holz, staubiger Stein, Weihrauchschwaden im Lichtstrahl. Unten PROTESTANTISMUS: schlichte, weiß gekalkte Wand, raues altes Mauerwerk, eine schwielige Hand. Cat Pope klein als Bild-im-Bild in der Ecke, gestikulierend." },
           "air": [[46, 54]],
@@ -55,6 +57,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "wide", "angle": "eye" },
           "location": "studio",
+          "view": "narration",
           "light": { "key": "back", "source": "screen", "rim": true, "note": { "de": "Kaltes Gegenlicht von Monitoren und Servern: das Büro aus schwarzen Silhouetten mit weißen Rändern – dieselben Racks wie in der Serverfarm." } },
           "action": { "de": "NEOLIBERALISMUS: ein klimatisiertes Großraumbüro, Plastik, Monitore überall, hinten surrende Server-Racks im kalten blauen Licht – dieselben Racks wie in der Serverfarm. Cat Pope als Bild-im-Bild, rümpft die Nase." },
           "air": [[0, 8]],
@@ -71,6 +74,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "eye" },
           "location": "studio",
+          "view": "narration",
           "light": { "key": "right", "height": "low", "source": "sun", "shadow": "long", "note": { "de": "Oben Morgensonne von der Seite über die Yogamatte, unten wieder ein Ringlicht frontal – Selbstoptimierung und Selbstdarstellung im selben harten Licht." } },
           "action": { "de": "Zwei gerahmte Bilder im Stream-Layout. Oben YOGA / SELBSTOPTIMIERUNG: Yogamatte vor Bergpanorama, Räucherstäbchen, Sandelholz, ein „Nicht stören“-Mond-Symbol. Unten TIKTOK-STREAMER: Ringlichter, Make-up, Parfümflakon, Fast-Food-Tüte, Chips, ein Schwarm Like-Herzen. Cat Pope als Bild-im-Bild." },
           "air": [[46, 54]],
@@ -88,6 +92,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "cu", "angle": "eye" },
           "location": "studio",
+          "view": "narration",
           "light": { "key": "left", "source": "candle", "shadow": "long", "note": { "de": "Ernstes Seitenlicht von links, eine Gesichtshälfte im Schwarz – der einzige ruhige Moment im Stream." } },
           "action": { "de": "ISLAM: ruhiger, warmer Grund in Bernstein und Rosé. Ein kleines Flakon Oud-Öl, Rosenblätter, eine Schale Rosenwasser, warmes Seitenlicht. Cat Pope als Bild-im-Bild, ausnahmsweise ernst, Hand auf dem Herzen." },
           "air": [[0, 10]],
@@ -104,6 +109,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "mcu", "angle": "eye" },
           "location": "studio",
+          "view": "narration",
           "light": { "note": { "de": "Das Ringlicht noch im Zwinkern, dann zerfällt das Bild und das Licht geht aus – Schwarz als Schnitt zurück in die Serverfarm." } },
           "action": { "de": "Cat Pope beugt sich zur Kamera, zwinkert. Kommentar-Blasen fluten das Bild nach oben (unleserlich, nur Emojis). Weiter unten friert das Stream-Bild ein, zerfällt in Pixelblöcke und RGB-Streifen, dann Schwarz." },
           "air": [[66, 100]],
@@ -119,12 +125,13 @@
     }
   ],
   "notes": [
-    "Frage an den Owner: wer streamt? Das Skript sagt „Cat Pope steht vor der Kamera“, der Sprecher heißt aber PLF. Gesetzt: catpope / regular (Cat Pope). Ist das ein Blick nach vorn (PLF nach der Verwandlung), ein Fiebertraum mitten im Kampf, oder PLF als Mensch (human)?",
+    "Frage an den Owner: wer streamt? Das Skript sagt „Cat Pope steht vor der Kamera“, der Sprecher heißt aber PLF. Gesetzt: catpope / regular (Cat Pope). Ist das ein Blick nach vorn (PLF nach der Verwandlung), ein Fiebertraum mitten im Kampf, oder PLF als Mensch (human)? Nach der Owner-Richtung vom 2026-10-09 (beim Erzählen erscheint Cat Pope regulär) sind alle sechs Shots als view narration gesetzt – bitte bestätigen.",
     "Frage an den Owner: „Video Sequence“ – soll Szene 33 ein echtes Video werden (ein gedrehter Podcast-Clip als Video-Item) statt Stills? Die Shots hier funktionieren auch als Storyboard für den Dreh.",
     "Frage an den Owner: der Ort. Das Streamer-Studio ist kein MAP-Ort (location ohne place, „new“). Gehört es ins Kloster (ein Raum der Serverfarm?) oder ist es ein Ort außerhalb der Geschichte?",
     "Vorschlag interaktiv (keine Logik gesetzt): „Schreibt's mir in die Kommentare“ als Umfrage für den Leser – „Nach was riecht dein Vibe?“ mit den sechs Gerüchen zur Wahl (oder ein freies Kommentarfeld). Kein echter Story-Choice, daher keine VN-Gruppe.",
     "Gekürzt: jede der sechs Duft-Beschreibungen auf ~15 Wörter (u. a. „lasst uns reinjumpen“, „tausend Geheimnisse und heilige Momente“, „Fokus auf den Basics“, „wie so ein neuer Laptop“, „instant Peace-Modus“, „Elektronik durch die ganzen Lichter“, „grounding“). Die Reihenfolge des Skripts bleibt.",
     "Frage an den Owner: „die Luft im Apple Store“ – Markenname so lassen?",
-    "Budget: 6 Shots / ~6,6 Screens."
+    "Budget: 6 Shots / ~6,6 Screens.",
+    "Perspektive Szene 33: durchgehend narration – Cat Pope (regular) spricht im Stream direkt zum Publikum, außerhalb der Handlung im Kloster."
   ]
 }

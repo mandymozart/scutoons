@@ -4,8 +4,9 @@
   "chapter": 3,
   "source": { "script": "script:catpope:de", "scene": 30, "heading": "INT. BÜCHER REGAL" },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" },
-    { "ref": "yplf", "character": null, "new": "YPLF – junge PLF" }
+    { "ref": "plf", "character": "catpope", "persona": "human", "look": "default" },
+    { "ref": "yplf", "character": null, "new": "YPLF – junge PLF", "look": "default" },
+    { "ref": "catpope", "character": "catpope", "persona": "regular", "look": "default" }
   ],
   "locations": [
     { "ref": "library", "place": "library", "time": "interior" }
@@ -22,6 +23,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "medium", "angle": "eye" },
           "location": "library",
+          "view": "real",
           "light": { "note": { "de": "Seitliches Kerzenlicht kratzt die Titel aus den Buchrücken, das leere obere Fach ist ein schwarzes Loch." } },
           "action": { "de": "Das Regal frontal, nach der Skizze im Skript: oberstes Fach leer bis auf EIN Buch ganz links; darunter zwei volle Fächer mit je vier Büchern. Auf den Rücken in Lettering die Titel (siehe note). Dunkles Holz, Kerzenlicht von der Seite." },
           "air": [[0, 18]],
@@ -39,6 +41,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "medium", "angle": "low" },
           "location": "library",
+          "view": "real",
           "light": { "key": "bottom", "height": "below", "note": { "de": "Die Kerzen flackern im Takt, der polierte Boden wirft das Licht von unten auf PLFs geschlossene Augen – die Wellenlinien weiß über schwarzem Holz." } },
           "action": { "de": "PLF, eine Hand flach am Regal, Augen geschlossen. Der polierte Boden flackert, die Regale vibrieren: weiße Wellenlinien laufen durch Holz und Buchrücken, die Kerzenflammen zittern im Takt." },
           "air": [[0, 12]],
@@ -56,6 +59,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "high" },
           "location": "library",
+          "view": "memory",
           "light": { "key": "top-right", "height": "high", "source": "window", "note": { "de": "Erinnerung: ein Fensterschacht von oben ins Skriptorium, YPLF im einzigen Lichtfleck, das Buchstabenraster weiß im Dunkel." } },
           "action": { "de": "Erinnerung, monochrom: oben Mönche im Skriptorium über lateinischen Handschriften; ein verborgenes Fach mit den Büchern der Feinde der Kirche. Unten YPLF am Pult, kopiert Zeile um Zeile, über allem ein feines Raster aus Buchstaben wie ein Code (Matrix)." },
           "air": [[0, 8]],
@@ -74,6 +78,7 @@
           "format": "vertical", "aspect": "1:4", "projection": "top-down", "move": "tilt-down",
           "shot": { "size": "medium", "angle": "bird" },
           "location": "library",
+          "view": "real",
           "light": { "height": "low", "note": { "de": "Die Kerze links neben den Büchern: aufgeschlagene Seiten weiß, PLFs Hände werfen lange schwarze Schatten übers Papier." } },
           "action": { "de": "Von oben auf einen Tisch voller aufgeschlagener Bücher, PLFs Hände blättern: oben die Bibel (Arche Noah, keine Mäuse); dann griechische Texte – Artemis mit einem Luchs, Hekate mit schwarzen Katzen; PLF zuckt die Schultern; unten ein Buch mit dem Bild eines Bastet-Sistrums." },
           "air": [[0, 5]],
@@ -94,6 +99,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "mcu", "angle": "eye" },
           "location": "library",
+          "view": "real",
           "light": { "key": "front", "note": { "de": "Die Staubwolke fängt das Kerzenlicht als weiße Explosion, das Gesicht hart von vorn – kein Versteck für den Ärger." } },
           "action": { "de": "PLF schlägt mit beiden Händen ein dickes Buch zu, Staubwolke explodiert, Kerzen flackern. Gesicht genervt, Kiefer angespannt." },
           "air": [[0, 10]],
@@ -112,10 +118,11 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "ews", "angle": "high" },
           "location": "library",
+          "view": "narration",
           "light": { "key": "top", "height": "overhead", "source": "window", "shadow": "short", "note": { "de": "Ausgeblichenes Oberlicht wie ein überbelichteter Schnappschuss: PLF winzig in einem weißen Fleck, die Regale schwarze Schluchten." } },
-          "action": { "de": "Ein Schnappschuss: PLF winzig und reglos zwischen endlosen Regalen, das Bild wie ein eingefrorenes, ausgebleichtes Polaroid mit weißem Rand auf dunklem Grund. Ein Luftstoß (Linien) reißt durch das Bild." },
+          "action": { "de": "Ein Schnappschuss: Cat Pope (regular, der Erzähler) winzig und reglos zwischen endlosen Regalen, das Bild wie ein eingefrorenes, ausgebleichtes Polaroid mit weißem Rand auf dunklem Grund. Ein Luftstoß (Linien) reißt durch das Bild." },
           "air": [[0, 8], [92, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "despairing", "pose": "stand", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.12 } ],
+          "figures": [ { "cast": "catpope", "framing": "full", "mood": "despairing", "pose": "stand", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.12 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 6, "width": 66 }, "text": { "de": "Die Sprache war alt. Sie war alt. Sie fühlte sich alt." } },
             { "variant": "narration", "font": "mono", "rect": { "x": 28, "y": 72, "width": 66 }, "text": { "de": "Ein Standpunkt ist nur alt, weil man gerade auf ihm steht. Ein anderer öffnet neue Türen." } },
@@ -123,13 +130,14 @@
           ],
           "source": { "type": "schematic", "want": "photo" },
           "status": "draft",
-          "note": "Der „Snapshot“ des Skripts wörtlich als Polaroid. Der Erzähler-Absatz über die Non-Linearität der Zeit ist auf zwei Sätze gekürzt (siehe notes)."
+          "note": "Der „Snapshot“ des Skripts wörtlich als Polaroid. Der Erzähler-Absatz über die Non-Linearität der Zeit ist auf zwei Sätze gekürzt (siehe notes). Perspektive: narration – keine Handlung, nur die Erzählstimme über Standpunkt und Zeit; daher steht hier Cat Pope (regular) statt PLF im eingefrorenen Bild (Owner 2026-10-09: beim Erzählen erscheint Cat Pope in seiner regulären Form)."
         },
         {
           "id": "sb-30-7",
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "ecu", "angle": "eye" },
           "location": "library",
+          "view": "real",
           "light": { "shadow": "none", "note": { "de": "Nur ein schmaler Lichtstreif über den Augen, der Rest Schwarz – der Augenbalken: sie sieht alles." } },
           "action": { "de": "Im Schatten des Gewölbes PLFs Augen, extrem nah, glänzend, ein flüchtiger Lichtstreif darüber. In den Pupillen spiegelt sich der lange, kalte Gang mit dem schiefen Regal. Sonst Dunkel." },
           "air": [[0, 15], [85, 100]],
@@ -147,6 +155,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "top-down", "move": "travel",
           "shot": { "size": "wide", "angle": "bird" },
           "location": "library",
+          "view": "real",
           "light": { "key": "top", "height": "overhead", "source": "window", "note": { "de": "Fensterbänder zerschneiden den Gang in Licht und Schwarz; PLF geht durch die Streifen auf das schiefe Regal im letzten Lichtfleck zu." } },
           "action": { "de": "Von oben auf einen langen, kalten, steinernen Gang: PLF oben im Bild, geht nach unten. Der Scroll ist ihr Weg. Ganz unten am Ende des Ganges ein einzelnes, verstaubtes, schiefes Regal mit wenigen, belanglosen Büchern." },
           "air": [[20, 55], [92, 100]],
@@ -169,6 +178,7 @@
     "Frage an den Owner: der CHOR – der deutsche Text des Chorus aus Kapitel 4 („NO HE SAID“). Als Text-Caption (so gesetzt), als Audio-Cue oder beides? Wer ist der Chor?",
     "Frage an den Owner: „ihre glänzenden Augen, die alles sahen“ – kündigt sich hier schon die Katze an (Katzenaugen, geschlitzte Pupillen), oder bleiben es PLFs menschliche Augen? sb-30-7 ist neutral beschrieben.",
     "Frage an den Owner: das Skript wechselt bei PLF zwischen „sie“ und „er / ihn“ (Szene 30, 32). Hier überall „sie“ wie in Szene 25.",
-    "Budget: 8 Shots / ~9,3 Screens – etwas über 7–9, weil die Szene viel Text trägt; weiter kürzen ginge über sb-30-2 (in sb-30-1 einbauen)."
+    "Budget: 8 Shots / ~9,3 Screens – etwas über 7–9, weil die Szene viel Text trägt; weiter kürzen ginge über sb-30-2 (in sb-30-1 einbauen).",
+    "Perspektive Szene 30: real an Regal und Büchern (PLF, human), memory im Skriptorium (sb-30-3), narration im Polaroid-Schnappschuss (sb-30-6), wo Cat Pope (regular) als Erzähler im Bild steht."
   ]
 }

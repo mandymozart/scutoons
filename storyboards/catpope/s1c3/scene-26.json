@@ -11,7 +11,8 @@
     {
       "ref": "plf",
       "character": "catpope",
-      "persona": "human"
+      "persona": "human",
+      "look": "default"
     }
   ],
   "locations": [
@@ -49,6 +50,7 @@
             "angle": "eye"
           },
           "location": "crossroads",
+          "view": "real",
           "light": {
             "key": "back",
             "rim": true,
@@ -57,7 +59,7 @@
             }
           },
           "action": {
-            "de": "Verschneiter Waldweg, der hinter einer Kurve zwischen dunklen Fichten verschwindet. PLF klein im weißen Gewand von hinten, mitten in der Kurve, die Arme um den Körper geschlungen. Über den Baumwipfeln ein heller Lichtreflex, noch ohne Form."
+            "de": "Verschneiter Waldweg, der hinter einer Kurve zwischen dunklen Fichten verschwindet. PLF klein im weißen Gewand von hinten, mitten in der Kurve, die Arme um den Körper geschlungen; ein Windstoß fegt ihr den Schnee von den Fichtenästen entgegen. Über den Baumwipfeln ein heller Lichtreflex, noch ohne Form."
           },
           "air": [
             [
@@ -108,7 +110,7 @@
             "want": "photo"
           },
           "status": "draft",
-          "note": "Luft oben = Szenenwechsel nach dem weißen Ende von sb-25-7. Der Reflex über den Wipfeln kündigt die Kugel an, ohne sie zu zeigen."
+          "note": "Luft oben = Szenenwechsel nach dem weißen Ende von sb-25-7. Der Reflex über den Wipfeln kündigt die Kugel an, ohne sie zu zeigen. Natur aktiv (Owner 2026-10-09): der Wind wirft ihr den Schnee entgegen – der Wald stößt sie zurück."
         },
         {
           "id": "sb-26-2",
@@ -121,6 +123,7 @@
             "angle": "worm"
           },
           "location": "crossroads",
+          "view": "real",
           "light": {
             "key": "top",
             "height": "overhead",
@@ -185,6 +188,7 @@
             "angle": "low"
           },
           "location": "crossroads",
+          "view": "real",
           "light": {
             "key": "top-right",
             "height": "high",
@@ -252,6 +256,7 @@
   "notes": [
     "Frage an den Owner: Was ist die Kugel? (Ein Hinweis auf die Serverfarm unter dem Kloster in Szene 31/32, ein Zeichen, reine Fata Morgana?) Das Aussehen (Chrom, Glas, Wasser, Licht) hängt davon ab – hier als Chrom-Spiegelkugel angenommen.",
     "Frage an den Owner: PLFs Zeilen stehen im Skript als Dialog, lesen sich aber wie Gedanken. Sprechblase (so gesetzt) oder Gedankenblase / Erzählbox?",
-    "Gekürzt: „Es war so kalt, es konnte eine Luftspiegelung sein“ zu „So kalt … vielleicht nur eine Luftspiegelung.“"
+    "Gekürzt: „Es war so kalt, es konnte eine Luftspiegelung sein“ zu „So kalt … vielleicht nur eine Luftspiegelung.“",
+    "Perspektive Szene 26: durchgehend real – PLF (human) gegen Wind und Kälte; die Kugel bleibt so mehrdeutig, wie das Skript sie lässt (Vision oder Luftspiegelung, siehe die Owner-Frage oben)."
   ]
 }

@@ -4,7 +4,7 @@
   "chapter": 3,
   "source": { "script": "script:catpope:de", "scene": 27, "heading": "EXT. WALDPFAD - TAG" },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" }
+    { "ref": "plf", "character": "catpope", "persona": "human", "look": "default" }
   ],
   "locations": [
     { "ref": "path", "place": "mountain-path", "time": "snow" }
@@ -21,6 +21,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "high" },
           "location": "path",
+          "view": "real",
           "light": { "note": { "de": "Die Kugel oben ein weißer Glanzpunkt; die Spur hinter PLF ein schwarzer Graben im gleißenden Schnee." } },
           "action": { "de": "Oben, weit weg zwischen den Hängen, glänzt die Kugel. Der Blick sinkt den verschneiten Waldpfad hinab zu PLF, die hüfttief durch die Schneemassen watet und sich vorwärts schleppt, die Hände blau, eine tiefe Spur hinter sich." },
           "air": [[0, 25]],
@@ -38,6 +39,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "full", "angle": "low" },
           "location": "path",
+          "view": "real",
           "light": { "key": "left", "note": { "de": "Harte Seitensonne friert jede Bewegungsphase als scharfe Silhouette mit eigenem Schatten ein – der Schnee spritzt weiß aus dem Schwarz." } },
           "action": { "de": "Die Choreografie: PLF frontal, Arme fest um den Körper geschlungen, ein Knie hochgerissen, der Fuß stampft auf den gefrorenen Boden, Schnee spritzt. Dahinter zwei, drei blasse Wiederholungen derselben Pose (Bewegungsphasen, wie Mehrfachbelichtung)." },
           "air": [[0, 10]],
@@ -54,6 +56,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "travel",
           "shot": { "size": "ews", "angle": "high" },
           "location": "path",
+          "view": "real",
           "light": { "note": { "de": "Von oben wird die Stampf-Spur ein Muster aus schwarzen Schattenlöchern; die weißen Schallringe laufen über die schattigen Gegenhänge." } },
           "action": { "de": "Das Tal von oben: PLF winzig am Hang, ihre Stampf-Spur im Schnee als regelmäßiges Muster. Vom Punkt aus laufen weiße, gezeichnete Schallringe über das ganze Tal wie Trommelschläge, an den gegenüberliegenden Hängen hallen sie wider." },
           "air": [[0, 15], [88, 100]],
@@ -72,6 +75,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "cu", "angle": "eye" },
           "location": "path",
+          "view": "real",
           "light": { "key": "left", "height": "eye", "shadow": "short", "note": { "de": "Hartes Seitenlicht modelliert Hände, Atemwolke und Lippen mit schwarzen Kanten – das Blut kommt zurück." } },
           "action": { "de": "Collage aus drei gerahmten Nahaufnahmen auf weißem Schneegrund: Hände reiben sich, Dampf steigt auf; tiefer Atemzug, Atemwolke; PLFs Lippen murmeln, die Wangen werden wieder rot." },
           "air": [[0, 8], [92, 100]],
@@ -89,8 +93,9 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-up",
           "shot": { "size": "wide", "angle": "low" },
           "location": "path",
+          "view": "real",
           "light": { "key": "back", "rim": true, "note": { "de": "Das Licht dreht ins Gegenlicht vom Grat: das Schneebrett ein schwarzer Überhang mit weißer Risskante, PLF rennt als Umriss darauf zu." } },
-          "action": { "de": "Von PLF, die jetzt fast mühelos bergauf eilt, hinauf zu einem überhängenden Schneebrett am Grat: ein feiner Riss läuft hindurch, erste Schneebröckchen rieseln. Ganz oben wieder der Glanz der Kugel." },
+          "action": { "de": "Von PLF, die jetzt fast mühelos bergauf eilt, hinauf zu einem überhängenden Schneebrett am Grat: ein feiner Riss läuft hindurch, als wolle der Berg sie abschütteln; erste Schneebröckchen rieseln auf sie herab. Ganz oben wieder der Glanz der Kugel." },
           "air": [[0, 10]],
           "figures": [ { "cast": "plf", "framing": "full", "mood": "thrilled", "pose": "run", "facing": "left", "x": 0.5, "y": 0.86, "h": 0.22 } ],
           "dialog": [
@@ -99,13 +104,14 @@
           ],
           "source": { "type": "schematic", "want": "photo" },
           "status": "draft",
-          "note": "Lawinengefahr nur angedeutet (Riss, rieselnder Schnee) – im Skript kommt keine Lawine. Der Blick nach oben übergibt an die Verfolgung in Szene 28."
+          "note": "Lawinengefahr nur angedeutet (Riss, rieselnder Schnee) – im Skript kommt keine Lawine. Der Blick nach oben übergibt an die Verfolgung in Szene 28. Natur aktiv (Owner 2026-10-09): der Berg selbst ist der Gegner – der Riss läuft auf PLF zu, der Schnee rieselt auf sie."
         }
       ]
     }
   ],
   "notes": [
     "Gekürzt: „Gelegentlich hielt PLF inne“, „ihre Bewegungen bestimmt und energisch, die Kälte mit jedem Schritt zurückdrängend“ – steckt im Bild (sb-27-2, sb-27-4).",
-    "Frage an den Owner: das Skript wechselt in 27 in den Plural („Sie atmeten“, „murmelten sie“). Ist das Absicht (PLF als „they“) oder ein Tippfehler? Hier als PLF im Singular gesetzt."
+    "Frage an den Owner: das Skript wechselt in 27 in den Plural („Sie atmeten“, „murmelten sie“). Ist das Absicht (PLF als „they“) oder ein Tippfehler? Hier als PLF im Singular gesetzt.",
+    "Perspektive Szene 27: durchgehend real – PLF (human) kämpft gegen Kälte, Schnee und Berg; die Urgewalten sind hier der Gegner, der Tiger kommt erst in Szene 28."
   ]
 }

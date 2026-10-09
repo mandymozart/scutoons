@@ -11,11 +11,14 @@
     {
       "ref": "plf",
       "character": "catpope",
-      "persona": "human"
+      "persona": "human",
+      "look": "default"
     },
     {
       "ref": "crows",
-      "character": "crows"
+      "character": "crows",
+      "persona": "regular",
+      "look": "default"
     }
   ],
   "locations": [
@@ -58,6 +61,7 @@
             "angle": "high"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "note": {
               "de": "Notlicht von unten auf die zitternden Hände, ringsum Schwarz mit einem Dutzend Augenpunkten – eingekesselt."
@@ -150,6 +154,7 @@
             "angle": "low"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "key": "front",
             "height": "eye",
@@ -239,6 +244,7 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "key": "front",
             "height": "eye",
@@ -298,6 +304,7 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "source": "none",
             "shadow": "none",
@@ -373,6 +380,7 @@
             "angle": "high"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "key": "back",
             "height": "low",
@@ -447,6 +455,7 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "view": "real",
           "light": {
             "key": "right",
             "height": "eye",
@@ -519,6 +528,7 @@
             "angle": "high"
           },
           "location": "graveyard",
+          "view": "real",
           "light": {
             "key": "top-left",
             "height": "high",
@@ -606,6 +616,7 @@
     "Frage an den Owner: Tageszeit beim Austritt. Kapitel 4 spricht von klarem Himmel und Sonnenlicht – daher „day“. Und: die Tür ist „wie der Eingang zu einer Gruft“ – kommt PLF tatsächlich aus einer Gruft (Szene 35 „GRUFT“)? sb-34-7 zeigt sie am Fuß einer Gruft.",
     "Frage an den Owner: das Lied „NO HE SAID“ (4. Lied) steht im Skript zwischen dem Ende von Szene 34 und Kapitel 4. Läuft es am Ende von Kapitel 3 (Audio unter sb-34-7 / als Abspann), am Anfang von Kapitel 4, oder gar nicht im Toon? Nicht gestoryboardet.",
     "Gekürzt: „Ihre Hände zitterten, als sie sich an das Kamehameha erinnerte“ (im Bild), „kanalisierte ihre Energie“, „flirrende Spannung“, „für einen Augenblick schien die Zeit stillzustehen“ (sb-34-3 als stilles Bild), „der metallische Geruch von Überhitzung“, „der Geruch von feuchter Erde und verwesenden Blättern“ (im Bild von sb-34-7), „Doch was war der Preis?“ aus der Schlussrede.",
-    "Budget: 7 Shots / ~7,9 Screens."
+    "Budget: 7 Shots / ~7,9 Screens.",
+    "Perspektive Szene 34: durchgehend real – der Sieg über die Krähenwesen und der Austritt auf den Friedhof; sb-34-7 bleibt trotz der Ich-Stimme real (PLF, human), weil Kapitel 4 dort mit PLF anschließt."
   ]
 }
