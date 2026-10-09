@@ -12,6 +12,11 @@ to 1:7** (beyond 1:4 most generators give up).
 
 ## Summary + recommendation
 
+- **Timeline (owner 2026-10-09):** ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout starts the week of
+  2026-10-12. The tool's first job is the **ch3 storyboard + flow before that layout** – what gets built when: §9.
+- **Existing material first** (owner 2026-10-09): ~15,000 photos, Unreal scenes and direct shots are matched to the
+  shots first; the first throw is layouted, brought into the creator, and only the **gaps** are prompted (§9 "The flow").
+
 - **The storyboard is a list of shots, stacked.** Each shot = one image on the 390-wide canvas, delivered as one slice or
   cut into 625-high slices like chapters 1 and 2 (a 360° loop = one panorama, cut into the slides of a looping
   horizontal group). There is no gutter field, and none is needed: a pause
@@ -62,6 +67,8 @@ in this cloud environment):
 - The text is **lumpy, not paced**: the first third alternates walls and empties with no build-up; then **13 silent
   slices in a row** (63–75, ~10 screens) – either a deliberate action stretch or air that wasn't planned as such.
 - Music changes at slices 1, 17, 21, 28, 32, 95 – the sound has a structure the text doesn't follow.
+- **Careful reading: 15–20 minutes** (owner 2026-10-09) = 13–17 s per screen. The text explains only ~4 s of that;
+  the rest is looking at the images (§6, calibration point 1).
 
 What this says for the tool: the measurements in §6 work on today's chapters already (no storyboard needed), so the
 **rhythm rail is useful from day one** – for chapter 1/2 as a diagnosis, for chapter 3 as the plan. With the images
@@ -87,13 +94,27 @@ Verified in the code 2026-10-09. Types: `shared/content/src/content.ts`, `visual
 
 ## 1. The shot vocabulary (owner's parameters, made explicit)
 
+**Terms (owner 2026-10-09):** a **shot** is an image used for layouting the toon (limits: height up to 1:7,
+panoramas up to 13 screens wide – a generator limit, not a design rule: the widest Luma managed without massive
+problems, usually less; it moves when the tools do). A **shooting** is a photo session at a specific location – the Figma library is
+sorted by shooting. Never mix the two.
+
+**Safe formats (owner 2026-10-09: the limits are a restriction for what we prompt and suggest).** The storyboard only
+**suggests** shots inside the envelope the generators are proven to deliver today, and the prompts target it:
+- **vertical:** up to 1:7; **loop360:** up to 13 screens wide (Luma's proven maximum) – plan **below** the maximum
+  (it usually comes out less), the maximum is the exception;
+- a shot beyond the envelope isn't suggested; if the story needs more, it is **split** into several shots, or made
+  from a source that has no such limit (Unreal render, a photo stitch);
+- the envelope is one small table of settings (format → max aspect / width, the tool that proved it, date), updated
+  when a tool proves more. The validator warns "beyond what we can generate today" instead of failing.
+
 ### Formats
 
 | Format | Aspect | In the reader | Reading | Use |
 |---|---|---|---|---|
 | `viewport` | 9:16 (= the screen) | one image filling the screen; a video with `viewport` | a **stop**: the reader sees all of it at once | establishing, impact, a beat that must land whole, the key visual |
-| `vertical` | 9:16 → 1:4 → 1:7 | one tall image, scrolled through | a **move**: the scroll is the camera. Height = duration | falls, climbs, reveals, travel, descent, long establishing pans |
-| `loop360` | a seamless panorama (2:1 … 6:1), cut into N slides | horizontal group, `loop` + `freeMode` | **looking around**: the reader stops scrolling and drags; no end | a place to explore (room, square, crowd), hidden items, "where is …" |
+| `vertical` | 9:16 → 1:4 → **1:7 (the maximum)** | one tall image, scrolled through | a **move**: the scroll is the camera. Height = duration | falls, climbs, reveals, travel, descent, long establishing pans |
+| `loop360` | a seamless panorama, **at most 13 screens wide** (13 × 390 = 5,070 px at 1x; screen-high = ~6:1 – today's limit: the widest Luma generated without massive problems; usually less), cut into N slides | horizontal group, `loop` + `freeMode` | **looking around**: the reader stops scrolling and drags; no end | a place to explore (room, square, crowd), hidden items, "where is …" |
 
 Between them: a one-way **sideways pass** (the pinned strip, `fullWidth`) for chases and walks – a vertical shot
 turned 90°.
@@ -280,6 +301,16 @@ Practical notes:
 
 ### Open models on a serverless GPU (owner 2026-10-09: no own GPU, everything in the cloud, only on while jobs run)
 
+**Direction (owner 2026-10-09):** today several services are in use (Luma for panoramas, FLORA's models, …); in the
+long run generation **moves to a cloud GPU running open models** to reduce costs. So: every job goes through the API
+with its provider booked (§7 "Budget" ledger) – the switch is then decided **per format** with numbers (cost per
+usable shot, not per generation), and the safe-format table (§1) records which tool proved which limit. A format moves
+to the own GPU once an open model matches the service on the same shots.
+**Parallel, not a cut-over (owner 2026-10-09):** the services are the current set and stay. The own GPU runs
+**next to them**; where its result isn't good enough yet, the shot goes to the service. A format switches only once the
+own GPU has proven functional enough – and even then the service stays the fallback. So a shot's generation plan names
+a **preferred** tool and a **fallback**, and the ledger books both attempts.
+
 Open models (run by us on a rented GPU) fit this workflow better than the closed services in three places: **any aspect** (no 9:16 cap; tall
 shots via tiled / outpainted generation), **hard layout control** (ControlNet: the schematic SVG itself becomes the
 control image) and **seamless wrap** (circular padding = loop360 seamless by construction). The price is setup and
@@ -404,6 +435,23 @@ Units: W = 390, a screen S = 844 (phone 390 × 844).
 | Loop | items / text in a loop360 | a pickup only findable by dragging needs a hint (FX "hint.nudge") |
 | VN | per message `0.8 s + words / 4` + a click | > 6 messages without a choice / plate change = "talking heads" |
 | Episode | screens, minutes, shots | measure the existing chapters as the reference |
+| Look time | `L s × h / S` (looking at the image, not reading) | **L ≈ 8–12 s per screen** – from the ch1 calibration below |
+
+**Calibration point 1 (owner 2026-10-09): chapter 1, careful reading = 15–20 minutes.** The model without look time
+gives ~6.5 min for ch1 (894 words / 4 = 224 s + 70 boxes × 0.8 s = 56 s + 70.6 screens × 1.2 s = 85 s + elements
+≈ 30 s) – **2.5–3× too fast**. Reading the text isn't what takes the time: 70.6 screens in 15–20 min =
+**13–17 s per screen**, of which text is only ~4 s on average. The gap is looking at the images (plus the key
+visual's video and the music). So the model gets a **look-time term**, L ≈ 8–12 s per screen to start, and the rail
+shows text and look time as separate parts of each bar. Consequences:
+- **Images, not text, set a chapter's length** for careful readers. A silent stretch isn't "fast"; at ~10 s per
+  screen ch1's 13 silent slices (~10 screens) are ~1.5–2 minutes of looking.
+- **Reference for chapter 3:** ~70 screens ≈ 15–20 min. Use it as the length target, unless the owner sets another.
+- **Calibration point 2 (owner 2026-10-09): the chapters are almost the same length; chapter 2 has more frames but
+  less text.** Same time with more images and fewer words confirms the look-time model: the images carry the time,
+  the text shifts it only a little. **Target for chapters 3–5: about the same length as 1 and 2** (~15–20 min careful
+  reading). The rhythm report (1a) states ch2's slice / screen / word counts next to ch1's, and L is fitted to both.
+- Still a single data point from one careful reader (the author). A skimming reader is probably 2–3× faster, so the
+  rail could show both (careful / skim) once there's a second data point (chapter 2, or §10 Q10).
 
 **How the tool shows it:** a **reading-time rail** next to the stacked column (each shot a bar at its height, labelled
 with seconds; air hatched; dense stretches in the accent colour); a **screen ruler** (a faint band every 844); a
@@ -535,7 +583,121 @@ work side by side without touching the same thing.
 planned generation, 360° loops inside a scroll, a VN stage with persistent sprites, choices and items in the board,
 and a time model tied to scroll length. That justifies owning the schema; it stays small by reusing the chapter's types.
 
-## 9. Phases + effort
+## 9. Build strategy against the release dates (owner 2026-10-09)
+
+**The dates are fixed, the tool flexes.** Chapter 3 releases **Sun 2026-11-15**, chapter 4 **Tue 2026-12-15**,
+chapter 5 **Fri 2027-01-15**. Chapter 3's layout starts the **week of Mon 2026-10-12**. Script scenes per chapter
+(MAP.md): ch3 = scenes 25–34 (10 scenes), ch4 = 35–37, ch5 = 38.
+
+**Rule: build only what the next chapter needs, one step ahead of it.** Each chapter is one month. Nothing of the tool
+may sit on a chapter's critical path: if a milestone slips, that chapter is made the chapter-2 way.
+
+### The flow: existing material first, prompting only for the gaps (owner 2026-10-09)
+
+"First use all the images we got": **~15,000 photos**, **scenes built in Unreal** (renders exist, new cameras can be
+rendered), and **direct shots** (photographed on purpose). Generation is not the first throw; it fills what's missing.
+**Applies from chapter 3 on and to every remaining chapter of catpope season 1** (3, 4, 5; owner 2026-10-09).
+
+1. **Scene → storyboard** (shots, as §1–2), as now.
+2. **Match:** each shot gets candidate images from the owner's **Figma preselection** – photo, Unreal render, direct shot. A shot with a
+   match carries its source; a shot without one stays a schematic (= a visible gap). Unreal also covers the shots
+   generators can't do (§3): it renders tall aspects, 360° panoramas (loop360 / polar) and top-down / isometric
+   cameras natively, so a place built in Unreal needs no outpainting.
+3. **First throw:** the storyboard with the matched images (schematic where nothing matched) → the owner layouts a
+   draft from it.
+4. **Back into the creator** as the chapter's draft (Reader dock: read it on the phone).
+5. **From there, fill the gaps:** prompting the missing sections and images (the matched photos / renders as
+   references), or a new Unreal camera, or a direct shot – a **shot list of the gaps** is the output for the shoot.
+
+The shot's status (§7) gets a **source**: `photo` · `unreal` · `direct` · `generated` · `schematic` (gap) · `art`.
+
+**The library is Figma (owner 2026-10-09: "already done in our Figma – sorted and preselected there").** No index of
+the 15,000 photos is built. The tool **reads** the preselection from the Figma file (read-only: the REST API
+`GET /v1/files/:key/nodes` + image export, as PLAN.md Track A drafted it, or the Figma connector) – per scene / place
+the preselected images, as thumbnails with their Figma node ids. The storyboard refers to an image by its node id;
+only the images used in the chapter go into the asset manager (the existing manual Figma → CDN step, or the export
+once Track A is built). Nothing is written to Figma.
+
+**The first throw lands in Figma (proposal, owner 2026-10-09: "upload the pre-generated SVGs to a long 390-wide draft
+frame, prefilled with a group that can be hidden or locked, then layout on top").** Via Figma's remote MCP server
+(`https://mcp.figma.com/mcp`, OAuth): its write tool `use_figma` runs Plugin-API code in the file, so it can
+create frames, place SVGs (`figma.createNodeFromSvg`), group, lock and hide. **Each chapter has its own Figma page**
+(owner 2026-10-09), so the draft goes onto that chapter's page (ch3's page), next to the preselection, never onto
+another page. Per scene:
+- a frame `s1c3 / scene-25 – draft`, **390 wide**, as tall as the storyboard;
+- inside it a **locked group `storyboard`**: one sub-group per shot (`shot-25-03`) at its y – the schematic SVG, the
+  air zones hatched, the shot's id / format / move as a small label; optionally the preselected Figma images placed
+  in their slot (same file, so no upload);
+- a **screen ruler** (a faint line every 844) and **slice guides** (every 625) as a second locked group, hideable;
+- the **rhythm rail** *beside* the frame (x > 390), so it never exports;
+- the dialog as **real TEXT layers** in an unlocked group `text` – the convention Track A wants (PLAN.md), so the
+  text later becomes live, translatable text boxes without retyping;
+- an empty group `layout` on top for the owner's work. Hide `storyboard` to judge the layout alone.
+The loop back: the read tools (`get_metadata`, `get_screenshot`) let the rhythm report measure the **layouted** frame
+against the storyboard – what changed, where text walls appeared.
+Caveats (2026-10): `use_figma` is **beta** – free during the beta, usage-based later; users report it sometimes
+missing from the tool list. **The MCP is the way (owner 2026-10-09: "full control")** – no plugin fallback; the old
+`graphic-novel-figma-plugin` is deprecated and not used. If `use_figma` is missing for a while, the storyboard page /
+creator draft carries the work until it is back. Test on a copy page first.
+**Figma plan (owner 2026-10-09):** the catpope file moves to the owner's **drafts in "My Designs"** (Full seat,
+Starter = free); seat costs are too high right now. Starter is for **testing**; upgrade only if the test shows the need.
+Starter's MCP allowance: **~20 read calls per month** (developer docs; an older note says 6), **writes exempt**. So:
+place drafts with `use_figma`, read sparingly (also through `use_figma`, whose description lists inspecting nodes –
+whether Figma counts that is checked on the first call). If Starter's allowance is too tight in practice, that is the
+upgrade signal.
+
+**SCUTOONS Figma bridge (owner 2026-10-09: "then we just build a SCUTOONS plugin bridge")** – the answer if Starter's
+read cap bites, and the long-run piece either way. A small private Figma plugin (development plugin, not published,
+no cost) opens a WebSocket to a local relay; the SCUTOONS MCP server (`tools/mcp`) gets Figma tools that send commands
+through it (read a page, place a draft frame, export slices). The pattern is known (open source: the MIT-licensed
+"talk to Figma" MCP + plugin pairs). What it gives:
+- **no MCP rate limit, no beta, works on Starter** – the Plugin API itself has no call cap;
+- **one MCP for everything:** the same server that reads the script and saves chapter drafts also reads / writes Figma;
+- **the way back:** the plugin can export the layouted frames as slices + TEXT layers and hand them to the API
+  (asset manager upload, chapter draft) – that is PLAN.md Track A, without the REST token;
+- costs: Figma desktop must be open with the plugin running (it acts in the owner's session, not headless); the
+  plugin's manifest allows only `localhost` (+ `api.scutoons.com` for the export).
+Effort ~1–2 agent days for read + place; the export after. **When:** `use_figma` first (no build); the bridge as soon
+as its reads count against the cap or the first draft frames need more than it gives – at the latest for the way back
+into the creator (M2).
+
+### Milestones
+
+| # | Ready by | Build (phases below) | Used for |
+|---|---|---|---|
+| M1 | **Mon–Tue 2026-10-12/13** | **0b** read ch3's preselection from Figma (thumbnails + node ids per scene / place) · **1 slim** (`workflows/scenes/storyboard.md`, `scripts/storyboard/`: types, validate, storyboard page with the matched images + rhythm rail) · **1a** rhythm report ch1 (+ ch2) for the targets | **ch3 first throw**: storyboards for scenes 25–34 with matched images, owner gate G1 |
+| M2 | ~Fri 2026-10-16 | **2** first throw → draft of chapter 3 in the creator (images + schematics for the gaps, text boxes, VN, items, loop groups) – or the owner's layouted draft brought back (see Q below) | **ch3 draft on the phone** (G2); the gap list |
+| M3 | **~Fri 2026-10-23** | **3a** budget (before any paid job) → **3** prompting the gaps: prompts with the Figma images as references, FLORA; gap shot list for Unreal / direct shots | **filling ch3's gaps** (Oct 26 – Nov 13) |
+| – | Nov 13 | – | ch3 final, rhythm check on the real slices; release **Nov 15** |
+| M4 | Nov 16–20 | read ch4's preselection (`crypt`, `graveyard`, `well`) | **ch4 first throw** (scenes 35–37); gaps prompted; release **Dec 15** |
+| M5 | Dec 11 (pilot) | **3b** serverless GPU with open models – the **long-run direction for cost** (owner 2026-10-09). Season 1 still runs on the services; a pilot on a few ch4/ch5 gap shots (same shots also through the service) gives the cost and quality comparison from the ledger | ch5 gaps, then season 2 |
+| M6 | Dec 16–18 | read ch5's preselection (`garden`) | **ch5 first throw** (scene 38) before the holidays; release **Jan 15** |
+| – | after 2027-01-15 | **4 / 5** creator rail, `storyboard:` entity, the Figma export (Track A) – only if ch3–5 used the workflow | the next season |
+
+- **Generation moved up** (M3 was Nov 13, now ~Oct 23): ch3's gaps are filled by prompting, so the budget gate (3a)
+  has to stand before that – it is the one build that can't be skipped.
+- **M1 is tight** (Fri → Mon). Fallback: the first throw for scenes 25–28 by Monday, the rest during the
+  week, always ahead of the layout.
+- **The owner's time is the bottleneck, not agent days:** picking from candidates, the layout and the gates are the
+  owner's; the tool's job is that every decision has its candidates ready.
+- **§10 questions 1–4** take the recommended defaults (changeable later); **6**: one JSON per scene in the repo for
+  ch3, the entity comes with phase 5.
+- **Needs for M1:** read access to the Figma file (below); the script (scenes 25–34) from the local prod
+  seed (`npm run dev:db`). For M2: the SCUTOONS MCP running locally (`upload_asset`, `save_draft`).
+
+**Open for M1 (owner):**
+- **Figma access:** a personal access token (read-only, kept outside the repo, e.g. a local `.env`) + the file key, or
+  the Figma connector – or Figma's remote MCP server, which also writes (above). **Answered (owner 2026-10-09):** the
+material sits on **pages by shooting** (a photo session at one location); what a chapter needs is copied as a **second selection onto the chapter's page**
+(`S1C2`, `S1C3`, …). So the match reads the chapter page's selection first and looks into the shooting pages only for a
+gap; the draft frames go onto the chapter page. Open: does `S1C3` hold its selection yet?
+- Are photos used **as they are** (processed into the toon's look, like chapters 1–2?) or **as references** for
+  generation – or both, per shot?
+- Where does the owner layout the first throw: in **Figma** (then the existing Figma → CDN export brings it back), or
+  straight in the **creator** from the compiled draft?
+- Which Unreal scenes exist, and can new cameras be rendered on request (who renders)?
+
+### Phases + effort
 
 | Phase | What | Effort (agent days) | Needs |
 |---|---|---|---|
@@ -561,7 +723,7 @@ if the owner agrees.
 1. **The formats:** viewport · vertical · loop360 (+ the one-way sideways strip) – complete? Is "horizontal loop 360"
    the Swiper with `loop` + `freeMode` (drag, wraps), or should the pinned strip learn to loop?
 2. **Projections:** perspective · top-down · isometric · polar – more (fisheye, Dutch tilt as its own, split-screen)?
-3. **1:7 as the upper limit**, or longer shots split into several shots by the storyboard?
+3. ~~1:7~~ – answered 2026-10-09: **1:7 is the maximum height, panoramas at most 13 screens wide**; longer → split into several shots. Was: **1:7 as the upper limit**, or longer shots split into several shots by the storyboard?
 4. **Pauses:** always air inside the shots / transition shots made by code – never a real spacing field in the
    chapter? (recommended: yes, no new field)
 5. **Storyboard = treatment?** One document, with the treatment as its prompt export?
