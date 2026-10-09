@@ -1,7 +1,5 @@
-// SCUTOONS storyboard studio – a local tool (owner 2026-10-09: "just start the studio over night. i want to see where
-// this goes"). One command, no dependencies beyond the repo:
-//
-//   node workflows/storyboard-studio/server.mjs      → http://localhost:14000 (shared/dev-ports.json "studio")
+// The storyboard studio's local API (owner 2026-10-09: "just start the studio over night. i want to see where this
+// goes"): mounted into the studio's Vite dev server (vite.config.js) – `npm run dev:studio` → http://localhost:14000.
 //
 // The layers of the storyboard workflow side by side – script → scene → shots → render – for one chapter; a shot
 // opened renders live in the page (the same renderer as the frames: tools/storyboard-render/core.js); edits, figure
@@ -10,10 +8,8 @@
 
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
-import { createServer } from 'node:http';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PORTS } from '../../scripts/dev/ports.mjs';
 import { mediaRoot, readEntity } from '../../scripts/storyboard/lib.mjs';
 import { loadStoryboards, summarize, validate } from '../../scripts/storyboard/storyboard.mjs';
 import { lumaPrompt } from '../../scripts/storyboard/luma.js';
@@ -23,7 +19,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
 const BOARDS = resolve(ROOT, 'storyboards');
 const OUT = resolve(BOARDS, '_out');
-const port = Number(process.argv[process.argv.indexOf('--port') + 1]) || PORTS.studio; // shared/dev-ports.json
 const threeDir = [resolve(ROOT, 'tools/storyboard-render/node_modules/three'), resolve(ROOT, 'node_modules/three')].find((d) => existsSync(resolve(d, 'build/three.module.js')));
 const media = mediaRoot();
 
@@ -33,8 +28,7 @@ const MOUNTS = {
 	'/three/': threeDir,
 	'/media/': media,
 	'/out/': OUT,
-	'/style/': resolve(BOARDS, 'style'),
-	'/': resolve(HERE, 'public')
+	'/style/': resolve(BOARDS, 'style')
 };
 
 // --- the script, per scene (the local dev DB, read-only; cached) -------------------------------------------------
@@ -160,7 +154,7 @@ const api = {
 		const scene = scriptScenes(toon)[hit.sb.source?.scene];
 		const chars = shotCharacters(hit.sb, shot);
 		const refs = [
-			{ role: 'Image reference (strong) – the layout', name: `${shot.id}.png`, url: `/out/${ch}/frames/${shot.id}.png` },
+			{ role: 'Image reference (strong) – the layout (the render without texts)', name: `${shot.id}.png`, url: existsSync(resolve(OUT, ch, 'clean', `${shot.id}.png`)) ? `/out/${ch}/clean/${shot.id}.png` : `/out/${ch}/frames/${shot.id}.png` },
 			...styleFiles().map((f) => ({ role: 'Style reference', name: f, url: `/style/${encodeURIComponent(f)}` })),
 			...chars.map(({ fig, cast, image }) => image
 				? { role: `Character reference – ${fig.cast} (${cast.persona ?? 'regular'}, ${image.mood})`, name: image.rel.split('/').pop(), url: `/media/${image.rel}` }
@@ -220,8 +214,8 @@ const api = {
 	}
 };
 
-// --- the server ----------------------------------------------------------------------------------------------------
-createServer(async (req, res) => {
+// --- the handler (connect-style middleware: unknown paths go on to Vite) -----------------------------------------------
+export async function handle(req, res, next) {
 	const url = new URL(req.url, 'http://x');
 	const send = (code, body, type = 'application/json') => { res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' }); res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body)); };
 	try {
@@ -235,16 +229,15 @@ createServer(async (req, res) => {
 			}
 			return send(200, await route({ ...Object.fromEntries(url.searchParams), ...body }));
 		}
-		if (req.method !== 'GET') return send(404, { error: 'no such api' });
-		const mount = Object.keys(MOUNTS).find((m) => url.pathname.startsWith(m));
+		const mount = req.method === 'GET' && Object.keys(MOUNTS).find((m) => url.pathname.startsWith(m));
+		if (!mount) return next();
 		const base = MOUNTS[mount];
 		if (!base) return send(404, 'not found', 'text/plain');
-		let file = normalize(join(base, decodeURIComponent(url.pathname.slice(mount.length)) || 'index.html'));
+		const file = normalize(join(base, decodeURIComponent(url.pathname.slice(mount.length))));
 		if (!file.startsWith(base)) return send(403, 'no', 'text/plain');
-		if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
-		if (!existsSync(file)) return send(404, 'not found', 'text/plain');
+		if (!existsSync(file) || statSync(file).isDirectory()) return send(404, 'not found', 'text/plain');
 		return send(200, readFileSync(file), TYPES[extname(file)] ?? 'application/octet-stream');
 	} catch (e) {
 		return send(500, { error: e.message });
 	}
-}).listen(port, '127.0.0.1', () => console.log(`storyboard studio → http://localhost:${port}`));
+}

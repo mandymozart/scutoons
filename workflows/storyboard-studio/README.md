@@ -1,44 +1,44 @@
 # Storyboard Studio
 
 A local tool for the storyboard workflow (owner 2026-10-09: "just start the studio over night. i want to see where
-this goes. we might dump it later anyhow if there is easier way"). It shows the layers of one chapter side by side and
-lets you change single frames by hand; everything goes back into the repo's storyboard files.
+this goes. we might dump it later anyhow if there is easier way"; 2026-10-10: "use our scutoons ui and design
+dogmas", "a free moving camera in a 3d view"). Built like the tools: `@scutoons/ui` (AppShell, dock panels, rails,
+Segmented, dialogs) and `@scutoons/tokens` (tools.css). Everything goes back into the repo's storyboard files.
 
 ```bash
 npm run dev:studio
 ```
 
-→ http://localhost:14000 (`shared/dev-ports.json` "studio"; `npm run dev -- studio` starts it with the stack; the Claude
-desktop app's preview: `studio`). Needs the local dev DB for the script text (`npm run dev:db`), `three` installed
-(`npm install`) and, for the character images, the media dev copy (`media/`).
+→ http://localhost:14000 (`shared/dev-ports.json` "studio"; `npm run dev -- studio` with the stack). A Vite + Svelte app
+(no SvelteKit); its API (`api.mjs`) runs inside the dev server. Needs the local dev DB for the script text
+(`npm run dev:db`) and the media dev copy (`media/`) for the character images.
 
-## Columns
+## The layout
 
-1. **Skript** – the script lines of the selected scene (`script:<toon>:de`, local dev DB) and the scene's notes.
-2. **Szenen → Shots** – every shot in reading order: its frame, view, review dot (green ok, orange change), variants.
-3. **Render** – the selected shot rendered **live** in the page with the frames' own renderer
-   (`tools/storyboard-render/core.js`). Drag a figure = its position (x / y); mouse wheel on it = its size (h);
-   Alt + wheel = turn it.
-4. **Beschreibung** – every field of the shot: what it shows (action, English prompt, view, source, note), format and
-   camera (presets + a hand camera: distance, height, pitch, pan, roll, lens), light (key / height / source / shadow /
-   rim, a free direction by azimuth / elevation, the accent), figures (cast, persona, pose, facing, framing, mood,
-   x / y / h). Each change re-renders.
-5. **Varianten** – "Als Variante" keeps the edited shot as a variant (with a note and its frame) without touching the
-   shot; "Diese nehmen" swaps it in (the old shot becomes a variant); "Laden" loads it into the editor.
-
-Buttons: **Speichern + Frame** (writes the shot, renders the frame at 2× → `storyboards/_out/<ch>/frames/`), **Urteil**
-ok (→ `review` + the dataset, `approve.mjs`) / ändern (an open change, shown as a warning) / **+ Regel** (→
-`workflows/scenes/storyboard-taste.md`), **Referenzpaket** for the shot; top bar: check, storyboard page, all frames,
-reference packs, chapter draft, the chapter's warnings.
+- **Sidebar – the shots** of the chapter in reading order, by scene: frame, id, format, view, review dot, variants.
+  Resizable, folds to a rail.
+- **Page – the 3D view**: the shot's scene with the frames' own renderer (`tools/storyboard-render/core.js`), live.
+  Drag = orbit, right-drag = pan, wheel = dolly – the camera is written into the shot as a hand camera
+  (`camera: { pos, target, fov }`); "Shot camera" goes back to the camera of size + angle. Click a figure → the gizmo
+  moves it on the ground (Move) or turns it (Turn); its place goes back as the storyboard's x / y / h / turn. The texts
+  in the SCUTOONS presets on top (switchable). **Look switches**: shadows Solid (Sin City, the default) · Hatch
+  (crosshatching) · Tone, inner lines, colour, wobble (after Maxime Heckel's "Moebius-style post-processing"; black
+  and white unless colour is on).
+- **Right dock** (toggles in the top bar; each folds to a rail, drags wider): **Shot** – every field (what it shows,
+  format + camera, light incl. a free direction, figures) + Save + frame / Keep as variant / Revert / Approve / Ask for a
+  change / Rule (→ storyboard-taste.md); **Script** – the scene's script lines + notes; **Variants** – the saved frame,
+  variants (Load / Take this), generated images dropped in (Approve as chosen → the dataset); **Luma** – the full prompt
+  from the shot as set (scripts/storyboard/luma.js), the render without texts, the references to attach.
+- **Top bar**: chapter, summary, Check, All frames, Reference packs, Chapter draft.
 
 ## Files
 
-- the shots: `storyboards/<toon>/<chapter>/scene-*.json` (the studio writes them with 2-space JSON)
-- variants: `storyboards/<toon>/<chapter>/variants/<shot>.json`, their frames `storyboards/_out/<chapter>/variants/`
-- `server.mjs` (plain Node, 127.0.0.1 only) + `public/` (no build step; three from `node_modules`)
+- the shots: `storyboards/<toon>/<chapter>/scene-*.json` (written as 2-space JSON)
+- variants: `storyboards/<toon>/<chapter>/variants/<shot>.json`, frames under `storyboards/_out/<chapter>/` (`frames/`,
+  `clean/` without texts, `variants/`, `generated/`)
 
 ## Not yet
 
-- a 3D view to grab joints directly (poses come from the pose list today), props placed by hand, undo;
-- a column for generated images (Luma results) next to the variants – drop them in via `approve.mjs --image` for now;
+- joints posed by hand in 3D (poses come from the pose list), props placed by hand, undo;
+- the look saved per chapter (the switches are a view setting; `render-shots.mjs --look hatch,inner` for files);
 - the move into the creator, if the team works with it (agents/STORYBOARD.md §7 / phase 5).

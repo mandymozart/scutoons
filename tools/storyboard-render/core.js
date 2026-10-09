@@ -203,48 +203,99 @@ export function sinPass(renderer) {
 	renderer.shadowMap.type = THREE.BasicShadowMap;
 	renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 	const maskMats = {};
+	const normalMat = new THREE.MeshNormalMaterial();
 	const SIN = new THREE.ShaderMaterial({
 		uniforms: {
-			tLit: { value: null }, tMask: { value: null }, tDepth: { value: null },
+			tLit: { value: null }, tMask: { value: null }, tDepth: { value: null }, tNorm: { value: null },
 			texel: { value: new THREE.Vector2() }, res: { value: new THREE.Vector2() }, threshold: { value: 0.32 }, sky: { value: 1 },
 			ink: { value: 1.6 }, inkVar: { value: 2.2 }, seed: { value: 0 },
-			accent: { value: new THREE.Color('#c00000') }, near: { value: 0.05 }, far: { value: 600 }, ortho: { value: 0 }
+			accent: { value: new THREE.Color('#c00000') }, near: { value: 0.05 }, far: { value: 600 }, ortho: { value: 0 },
+			shade: { value: 0 }, color: { value: 0 }, wobble: { value: 0 }, inner: { value: 0 }, hatch: { value: 8 }, K: { value: 1 }
 		},
 		vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+		// THE LOOK. Base: pure black / white from a hard luminance threshold (the one hard key did the work) – the Sin City
+		// storyboard. Options (owner 2026-10-10, after "Moebius-style post-processing" by Maxime Heckel – black and white
+		// by default, colour optional):
+		//   shade 0 = solid black shadows · 1 = crosshatching (more layers the darker: diagonal <= .80, vertical <= .55,
+		//   horizontal <= .35, stripes every `hatch` px) · 2 = tones (0 / .25 / .5 / .75 steps)
+		//   inner = Sobel lines inside things too (depth x 25 + the normals' luma; for figurines off by default – the owner
+		//   wants no lines at joints) · wobble = hand-drawn displacement of the line sampling (0 = clean line art)
+		//   color = keep the lit colour (the tiger's texture, accents) instead of black / white
+		// Outlines: where one THING ends (object ids) and depth jumps between set pieces, organic width, inverted against
+		// what is behind them.
 		fragmentShader: `
-			uniform sampler2D tLit, tMask, tDepth; uniform vec2 texel, res; uniform float threshold, sky, near, far, ortho, ink, inkVar, seed; uniform vec3 accent;
+			uniform sampler2D tLit, tMask, tDepth, tNorm; uniform vec2 texel, res; uniform float threshold, sky, near, far, ortho, ink, inkVar, seed, shade, color, wobble, inner, hatch, K; uniform vec3 accent;
 			varying vec2 vUv;
 			float lin(float d){ if (ortho > .5) return near + d * (far - near); float z = d * 2. - 1.; return 2. * near * far / (far + near - z * (far - near)); }
 			float dep(vec2 uv){ return lin(texture2D(tDepth, uv).r); }
 			float oid(vec2 uv){ return floor(texture2D(tMask, uv).g * 255. + .5); }
+			float luma(vec3 c){ return dot(c, vec3(.2125, .7154, .0721)); }
 			float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)) + seed) * 43758.5453); }
 			float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
 				return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y); }
+			// Sobel over depth (relative to the distance, weighted) and the normals' luma – the Moebius inner lines
+			float sobel(vec2 uv, vec2 st){
+				float gx = 0., gy = 0., nx = 0., ny = 0.;
+				float dc = max(dep(uv), .001);
+				for (int j = 0; j < 3; j++) for (int i = 0; i < 3; i++) {
+					float fx = float(i) - 1., fy = float(j) - 1.;
+					float wx = fx * (fy == 0. ? 2. : 1.), wy = fy * (fx == 0. ? 2. : 1.);
+					vec2 o = vec2(fx, fy) * st;
+					float d = dep(uv + o) / dc;
+					float n = luma(texture2D(tNorm, uv + o).rgb);
+					gx += wx * d; gy += wy * d; nx += wx * n; ny += wy * n;
+				}
+				return sqrt(gx * gx + gy * gy) * 3. + sqrt(nx * nx + ny * ny);
+			}
 			void main(){
-				bool empty = texture2D(tDepth, vUv).r > 0.99999;
-				float l = dot(texture2D(tLit, vUv).rgb, vec3(.299, .587, .114));
-				float v = empty ? sky : step(threshold, l);
 				vec2 px = vUv * res;
+				vec2 wob = wobble > 0. ? vec2(sin(px.y * .08), cos(px.x * .08)) * hash(floor(px / 6.)) * wobble * texel : vec2(0.);
+				vec2 uv = vUv + wob;
+				bool empty = texture2D(tDepth, vUv).r > 0.99999;
+				vec3 lit = texture2D(tLit, vUv).rgb;
+				float l = luma(lit);
+				float v = empty ? sky : step(threshold, l);
+				float s = v;
+				if (!empty && shade > .5 && shade < 1.5) {
+					float sp = hatch * K, w = max(1., K);
+					s = 1.;
+					if (l <= .80 && mod(px.x + px.y, sp) <= w) s = 0.;
+					if (l <= .55 && mod(px.x, sp) <= w) s = 0.;
+					if (l <= .35 && mod(px.y, sp) <= w) s = 0.;
+					if (l <= .12) s = 0.;
+				} else if (!empty && shade > 1.5) {
+					s = l <= .2 ? 0. : l <= .35 ? .25 : l <= .5 ? .5 : l <= .7 ? .75 : 1.;
+				}
 				float n = vnoise(px / 46.) * .65 + vnoise(px / 13.) * .35;
 				float width = ink + inkVar * n * n;
-				float dc = dep(vUv), ic = oid(vUv), e = 0.;
+				float dc = dep(uv), ic = oid(uv), e = 0.;
 				for (int r = 1; r <= 6; r++) {
 					float rr = float(r);
 					if (rr > width) break;
 					for (int k = 0; k < 8; k++) {
 						float a = float(k) * .7853982;
-						vec2 uv = vUv + vec2(cos(a), sin(a)) * texel * rr;
-						float id = oid(uv);
+						vec2 q = uv + vec2(cos(a), sin(a)) * texel * rr;
+						float id = oid(q);
 						if (id != ic) { e = 1.; break; }
-						float dn = dep(uv);
+						float dn = dep(q);
 						if (ic < .5 && abs(dn - dc) > .06 * min(dc, dn)) { e = 1.; break; }
 					}
 					if (e > .5) break;
 				}
-				float c = e > .5 ? 1. - v : v;
-				vec3 col = vec3(c);
+				if (!empty && e < .5 && (inner > .5 || (ic < .5 && shade > .5))) {
+					if (sobel(uv, texel * max(1., K) * 1.5) > .9) e = 1.;
+				}
+				vec3 col;
+				if (color > .5) {
+					col = empty ? vec3(sky) : lit * (shade > .5 ? s : (v > .5 ? 1. : .18));
+					if (e > .5) col = vec3(0.);
+				} else {
+					float c = s;
+					if (e > .5) c = 1. - step(.5, s); // ink inverted against what is under it – also on a hatched or toned shadow
+					col = vec3(c);
+				}
 				float acc = texture2D(tMask, vUv).r;
-				if (acc > .5 && e < .5) col = v > .5 ? accent : accent * .55;
+				if (acc > .5 && e < .5 && color < .5) col = v > .5 ? accent : accent * .55;
 				gl_FragColor = vec4(col, 1.);
 			}`,
 		depthTest: false, depthWrite: false
@@ -255,16 +306,22 @@ export function sinPass(renderer) {
 	let rt = null;
 	const targets = (w, h) => {
 		if (rt && rt.w === w && rt.h === h) return rt;
-		rt?.lit.dispose(); rt?.mask.dispose();
+		rt?.lit.dispose(); rt?.mask.dispose(); rt?.norm.dispose();
 		const make = () => { const t = new THREE.WebGLRenderTarget(w, h, { depthBuffer: true }); t.depthTexture = new THREE.DepthTexture(w, h); return t; };
-		return (rt = { w, h, lit: make(), mask: make() });
+		return (rt = { w, h, lit: make(), mask: make(), norm: make() });
 	};
 	return {
+		/** p: { sky, accent, K, seed, shade: 'solid' | 'hatch' | 'tone', color, wobble (px), inner } */
 		render(scene, cam, w, h, p = {}) {
 			renderer.setSize(w, h, false);
-			const { lit, mask } = targets(w, h);
+			const { lit, mask, norm } = targets(w, h);
 			renderer.setClearColor(0x000000, 1);
 			renderer.setRenderTarget(lit); renderer.render(scene, cam);
+			if ((p.shade && p.shade !== 'solid') || p.inner) {
+				scene.overrideMaterial = normalMat;
+				renderer.setRenderTarget(norm); renderer.render(scene, cam);
+				scene.overrideMaterial = null;
+			}
 			const swap = [];
 			scene.traverse((o) => {
 				if (!o.isMesh || o.userData.helper) return;
@@ -275,15 +332,16 @@ export function sinPass(renderer) {
 			renderer.setRenderTarget(mask); renderer.render(scene, cam);
 			for (const [o, m] of swap) o.material = m;
 			const u = SIN.uniforms;
-			u.tLit.value = lit.texture; u.tMask.value = mask.texture; u.tDepth.value = lit.depthTexture;
+			u.tLit.value = lit.texture; u.tMask.value = mask.texture; u.tDepth.value = lit.depthTexture; u.tNorm.value = norm.texture;
 			u.texel.value.set(1 / w, 1 / h); u.res.value.set(w, h);
 			u.near.value = cam.near; u.far.value = cam.far; u.ortho.value = cam.isOrthographicCamera ? 1 : 0;
-			u.sky.value = p.sky ?? 1; u.ink.value = 1.6 * (p.K ?? 1); u.inkVar.value = 2.2 * (p.K ?? 1); u.seed.value = p.seed ?? 0;
+			u.sky.value = p.sky ?? 1; u.ink.value = 1.6 * (p.K ?? 1); u.inkVar.value = 2.2 * (p.K ?? 1); u.seed.value = p.seed ?? 0; u.K.value = p.K ?? 1;
+			u.shade.value = { hatch: 1, tone: 2 }[p.shade] ?? 0; u.color.value = p.color ? 1 : 0; u.wobble.value = (p.wobble ?? 0) * (p.K ?? 1); u.inner.value = p.inner ? 1 : 0;
 			u.accent.value.set(p.accent ?? '#c00000');
 			renderer.setRenderTarget(null); renderer.render(post, postCam);
 			return renderer.domElement;
 		},
-		dispose() { rt?.lit.dispose(); rt?.mask.dispose(); SIN.dispose(); for (const m of Object.values(maskMats)) m.dispose(); }
+		dispose() { rt?.lit.dispose(); rt?.mask.dispose(); rt?.norm.dispose(); SIN.dispose(); normalMat.dispose(); for (const m of Object.values(maskMats)) m.dispose(); }
 	};
 }
 
@@ -313,7 +371,7 @@ export async function renderShot(shot, opts = {}) {
 	const pass = sinPass(renderer);
 	const built = await buildScene(shot, opts);
 	const { scene, camera, figs, camY, K, skyWhite } = built;
-	const look = { sky: skyWhite ? 1 : 0, accent: shot.accent ?? '#c00000', K, seed: seedOf(shot.id) };
+	const look = { sky: skyWhite ? 1 : 0, accent: shot.accent ?? '#c00000', K, seed: seedOf(shot.id), ...(shot.look ?? {}) };
 
 	const panorama = (pw, ph) => {
 		const n = Math.max(4, Math.round(pw / (390 * K)));

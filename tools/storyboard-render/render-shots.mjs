@@ -17,6 +17,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(i, 2)[1] : d; };
 const only = take('--only', null)?.split(',');
+// --look hatch,color,inner,wobble=1.5  (core.js sinPass options; default: solid black and white)
+const lookArg = take('--look', '');
+const LOOK = Object.fromEntries(lookArg.split(',').filter(Boolean).map((t) => { const [k, v] = t.split('='); return ['solid', 'hatch', 'tone'].includes(k) ? ['shade', k] : [k, v ? Number(v) : true]; }));
 const outRoot = resolve(ROOT, take('--out', 'storyboards/_out'));
 const src = args[0];
 if (!src) { console.error('usage: render-shots.mjs <storyboard folder or file> [--only ids]'); process.exit(2); }
@@ -36,7 +39,7 @@ const specs = [];
 for (const { sb } of loadStoryboards(src)) {
 	for (const g of sb.groups ?? []) for (const shot of g.shots ?? []) {
 		if (only && !only.includes(shot.id)) continue;
-		specs.push(shotSpec(sb, shot, SS)); // the same spec the studio builds (spec.js)
+		specs.push(shotSpec(sb, shot, SS, LOOK)); // the same spec the studio builds (spec.js)
 	}
 }
 const specFile = resolve(out, '_shots.mjs');

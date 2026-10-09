@@ -13,7 +13,7 @@ export function parseAspect(a) {
 const ACCENT = { red: '#c40000', green: '#00b04a', amber: '#e08a00', blue: '#2060ff', yellow: '#e8c800' };
 
 /** sb = the storyboard (scene file), shot = one of its shots; ss = supersampling (2 for files, 1 for live previews) */
-export function shotSpec(sb, shot, ss = 1) {
+export function shotSpec(sb, shot, ss = 1, look = null) {
 	const cast = Object.fromEntries((sb.cast ?? []).map((c) => [c.ref, c]));
 	const places = Object.fromEntries((sb.locations ?? []).map((l) => [l.ref, l]));
 	const a = parseAspect(shot.aspect) ?? { w: 9, h: 16 };
@@ -29,6 +29,8 @@ export function shotSpec(sb, shot, ss = 1) {
 		location: places[shot.location] ?? null, light,
 		accent: light.accent?.color ? ACCENT[light.accent.color] ?? light.accent.color : null,
 		air: shot.air ?? [],
+		// the look options (core.js sinPass): the storyboard's own, then the caller's (studio switches, --look)
+		look: { ...(sb.look ?? {}), ...(look ?? {}) },
 		dialog: (shot.dialog ?? []).map((d) => ({ variant: d.variant ?? 'narration', font: d.font, tail: d.tail, rect: d.rect ?? { x: 5, y: 5, width: 60 }, text: typeof d.text === 'string' ? d.text : d.text?.de ?? Object.values(d.text ?? {})[0] ?? '' })),
 		figures: (shot.figures ?? []).map((f) => ({ ...f, cast: { ...(cast[f.cast] ?? { ref: f.cast }), ...(f.persona ? { persona: f.persona } : {}), ...(f.look ? { look: f.look } : {}) } }))
 	};
