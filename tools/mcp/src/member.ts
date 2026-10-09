@@ -6,6 +6,7 @@ import * as z from 'zod';
 import { registerAdminTools } from './admin.ts';
 import type { Config } from './config.ts';
 import { registerEmbassyTools } from './embassy.ts';
+import { registerFigmaTools } from './figma.ts';
 import { instructions, registerPrompts } from './prompts.ts';
 import { registerContentTools } from './server.ts';
 import { appLinks, type Member, type Services } from './services.ts';
@@ -51,6 +52,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 	if (services.content) {
 		registerContentTools(server, config, { write: services.content === 'write', links });
 		registerStoryTools(server, config);
+		// the member's own Figma file through the SCUTOONS Figma bridge (tools/figma-bridge) – creators who write
+		if (services.content === 'write') registerFigmaTools(server);
 	}
 	if (services.embassy) registerEmbassyTools(server, config, { member, links });
 	if (services.admin) registerAdminTools(server, config, { links });
