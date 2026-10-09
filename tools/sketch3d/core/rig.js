@@ -121,10 +121,13 @@ export function landmarks(grid, cx) {
 			sh = [shX, shY];
 			far = Math.hypot(tip[0] - sh[0], tip[1] - sh[1]);
 		}
-		// the shoulder cap (between neck and armpit, beyond the trunk's edge at the armpit) belongs to the arm too
-		for (let y = neck; y <= y0 + armW * 2; y++) for (let x = 0; x < w; x++) {
+		// the shoulder cap belongs to the arm too: between neck and armpit (not below – a dress flaring out under a narrow
+		// waist would be dragged along), beyond the trunk's edge, and near the arm's axis (a cape's far hem stays)
+		const ax = tip[0] - sh[0], ay = tip[1] - sh[1], al = Math.hypot(ax, ay) || 1;
+		for (let y = neck; y <= y0; y++) for (let x = 0; x < w; x++) {
 			const i = y * w + x;
-			if (mask[i] && (dir > 0 ? x > edge - armW * 0.15 : x < edge + armW * 0.15)) seen[i] = 1;
+			const off = Math.abs((x - sh[0]) * ay - (y - sh[1]) * ax) / al; // distance to the axis line
+			if (mask[i] && off <= armW * 0.9 && (dir > 0 ? x > edge - armW * 0.15 : x < edge + armW * 0.15)) seen[i] = 1;
 		}
 		// the hand: splayed fingers are runs of their own – a run beside the body (not the trunk, not the leg) that touches
 		// the arm's cells in the row above is the arm's too, down to a little below the traced arm's end
