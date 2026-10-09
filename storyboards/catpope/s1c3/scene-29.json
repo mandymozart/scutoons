@@ -1,0 +1,109 @@
+{
+  "storyboard": 2,
+  "toon": "catpope",
+  "chapter": 3,
+  "source": { "script": "script:catpope:de", "scene": 29, "heading": "INT. KLOSTERBIBLIOTHEK" },
+  "cast": [
+    { "ref": "plf", "character": "catpope", "persona": "human" },
+    { "ref": "yplf", "character": null, "new": "YPLF – junge PLF" }
+  ],
+  "locations": [
+    { "ref": "library", "place": "library", "time": "interior" }
+  ],
+  "groups": [
+    {
+      "label": "scene-29",
+      "renderer": { "type": "vertical" },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-29-1",
+          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-up",
+          "shot": { "size": "ews", "angle": "worm" },
+          "location": "library",
+          "action": { "de": "Die Klosterbibliothek von unten: PLF klein in der Tür, Schnee noch auf dem Gewand, Augen weit aufgerissen. Der Blick steigt an Säulen mit Lesepulten hinauf, die im Dämmer wie in den Himmel ragen; Kerzenlicht, Staub in den Lichtstrahlen, Bücherwände ohne Ende." },
+          "air": [[0, 15]],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "delighted", "facing": "front", "x": 0.5, "y": 0.9, "h": 0.2 } ],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 18, "width": 62 }, "text": { "de": "29 INT. KLOSTERBIBLIOTHEK" } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 66, "width": 60 }, "text": { "de": "Mit weit aufgerissenen Augen, voll Freude wie ein Kind, betrat PLF die vertrauten Räume." } }
+          ],
+          "source": { "type": "schematic", "want": "photo" },
+          "status": "draft",
+          "note": "Die Überschrift sitzt unter dem warmen Dunkel oben (Luft = Szenenwechsel aus dem weißen Sturm). Klosterbibliothek-Shooting oder Archivfoto (Barockbibliothek), PLF hineinmontiert."
+        },
+        {
+          "id": "sb-29-2",
+          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
+          "shot": { "size": "mcu", "angle": "low" },
+          "location": "library",
+          "action": { "de": "PLF entzückt, Arme ausgebreitet, ein dickes Buch in der Hand erhoben wie ein Prediger. Kerzenlicht von unten, hinter ihr Regale." },
+          "air": [[0, 20]],
+          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "ecstatic", "facing": "right", "x": 0.45, "y": 0.6, "h": 0.6 } ],
+          "dialog": [
+            { "variant": "bubble", "rect": { "x": 40, "y": 6, "width": 54 }, "tail": "left", "text": { "de": "Beware the man with the one book!" } },
+            { "variant": "caption", "font": "lettering", "rect": { "x": 8, "y": 78, "width": 40 }, "text": { "de": "PAH …" } }
+          ],
+          "source": { "type": "schematic", "want": "direct" },
+          "status": "draft",
+          "note": "PLF zitiert Thomas von Aquin (englisch im Skript, so belassen). Das „…“ läuft ins nächste Bild weiter, wo YPLF den Satz beendet."
+        },
+        {
+          "id": "sb-29-3",
+          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
+          "shot": { "size": "medium", "angle": "eye" },
+          "location": "library",
+          "action": { "de": "Gespiegelt: links PLF in Farbe, rechts an derselben Stelle YPLF – die junge PLF in der Ausbildung, schlichtes Novizengewand, Bücherstapel im Arm, sepia / monochrom getönt wie eine alte Fotografie. Beide in derselben Pose." },
+          "air": [[0, 10]],
+          "figures": [
+            { "cast": "plf", "framing": "medium", "mood": "nostalgic", "facing": "right", "x": 0.28, "y": 0.6, "h": 0.5 },
+            { "cast": "yplf", "framing": "medium", "mood": "eager", "facing": "left", "x": 0.72, "y": 0.6, "h": 0.45 }
+          ],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 64 }, "text": { "de": "Augenblicklich fühlte sich PLF zurückversetzt, in die Zeit, als sie noch YPLF war." } },
+            { "variant": "bubble", "rect": { "x": 46, "y": 78, "width": 48 }, "tail": "up", "text": { "de": "… Fear the man who owns all the books!" } }
+          ],
+          "source": { "type": "schematic", "want": "direct" },
+          "status": "draft",
+          "note": "Erster Auftritt von YPLF. Wer spielt YPLF (jüngere Darstellerin / Kostüm)? Monochrom wie die Erinnerung in sb-25-5."
+        },
+        {
+          "id": "sb-29-4",
+          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
+          "shot": { "size": "ecu", "angle": "high" },
+          "location": "library",
+          "action": { "de": "Sinnes-Collage auf dunklem Grund, drei gerahmte Nahaufnahmen: vergilbte, verstaubte Seiten; rissiger, modriger Ledereinband; flackernde Kerzenflamme. Darunter groß PLFs Hand, die eine Spur durch den Staub eines Lesepults zieht." },
+          "air": [[0, 6]],
+          "figures": [],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 80, "width": 72 }, "text": { "de": "Verstaubtes Papier. Modriges Leder. Das Schimmern der Kerzen." } }
+          ],
+          "source": { "type": "schematic", "want": "direct" },
+          "status": "draft",
+          "note": "Panels im Bild wie sb-25-2; Direktaufnahmen von Requisiten."
+        },
+        {
+          "id": "sb-29-5",
+          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
+          "shot": { "size": "wide", "angle": "high" },
+          "location": "library",
+          "action": { "de": "Erinnerung, monochrom: von hohen Säulen und Lichtstrahlen hinab zu YPLF, allein an einem Pult über ein aufgeschlagenes Buch gebeugt, umgeben von Stapeln lateinischer Folianten. Ein Buch leuchtet hell aus dem Stapel heraus." },
+          "air": [[0, 25], [90, 100]],
+          "figures": [ { "cast": "yplf", "framing": "full", "mood": "absorbed", "facing": "left", "x": 0.5, "y": 0.75, "h": 0.25 } ],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 30, "width": 62 }, "text": { "de": "Genau erinnerte sich PLF, wie sie hier zwischen all dem Kirchenlatein die Bücher fand, die ihr Weltbild prägen sollten." } }
+          ],
+          "source": { "type": "schematic", "want": "photo" },
+          "status": "draft",
+          "note": "Das leuchtende Buch übergibt an das Bücherregal in Szene 30."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "YPLF ist nicht in der Registry: als neue Figur („YPLF – junge PLF“) gesetzt, kommt auf die Wanted-Liste.",
+    "Frage an den Owner: das Zitat. Überliefert ist „Beware the man of one book“ (hominem unius libri timeo); das Skript schreibt „with the one book“. Wortlaut so lassen? Englisch oder deutsch?",
+    "Frage an den Owner: „PAH“ als Lettering-SFX oder als Teil der Sprechblase?",
+    "Gekürzt: „Entzückt“ (im Bild), die Säulen „die in den Himmel ragten“ (sb-29-1)."
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "storyboard": 2,
+  "toon": "catpope",
+  "chapter": 3,
+  "source": { "script": "script:catpope:de", "scene": 30, "heading": "INT. BÜCHER REGAL" },
+  "cast": [
+    { "ref": "plf", "character": "catpope", "persona": "human" },
+    { "ref": "yplf", "character": null, "new": "YPLF – junge PLF" }
+  ],
+  "locations": [
+    { "ref": "library", "place": "library", "time": "interior" }
+  ],
+  "groups": [
+    {
+      "label": "scene-30",
+      "renderer": { "type": "vertical" },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-30-1",
+          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
+          "shot": { "size": "medium", "angle": "eye" },
+          "location": "library",
+          "action": { "de": "Das Regal frontal, nach der Skizze im Skript: oberstes Fach leer bis auf EIN Buch ganz links; darunter zwei volle Fächer mit je vier Büchern. Auf den Rücken in Lettering die Titel (siehe note). Dunkles Holz, Kerzenlicht von der Seite." },
+          "air": [[0, 18]],
+          "figures": [],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 56 }, "text": { "de": "30 INT. BÜCHERREGAL" } },
+            { "variant": "caption", "font": "lettering", "rect": { "x": 30, "y": 26, "width": 64 }, "text": { "de": "Der feuchte Traum der Patriarchen" } }
+          ],
+          "source": { "type": "schematic", "want": "art" },
+          "status": "draft",
+          "note": "Rücken-Titel als Teil des Bildes (nicht als Textbox, daher nicht im Wort-Zähler – kosten aber Lesezeit): oben allein „Der feuchte Traum der Patriarchen“ (als Caption hervorgehoben, das „eine Buch“ aus Szene 29); Fach 2: „Outsmart everyone“, „Effizienz über Alles“, „Grüne Lüge“, „Permabodentrollfarming in Sibirien“; Fach 3: „KI: Die neue Gottheit?“, „Reinliche Macht“, „Manipulierte Zahlen“, „Der große Deal“. Regal-Foto + Buchrücken als Grafik."
+        },
+        {
+          "id": "sb-30-2",
+          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
+          "shot": { "size": "medium", "angle": "low" },
+          "location": "library",
+          "action": { "de": "PLF, eine Hand flach am Regal, Augen geschlossen. Der polierte Boden flackert, die Regale vibrieren: weiße Wellenlinien laufen durch Holz und Buchrücken, die Kerzenflammen zittern im Takt." },
+          "air": [[0, 12]],
+          "figures": [ { "cast": "plf", "framing": "medium", "mood": "entranced", "facing": "left", "x": 0.6, "y": 0.6, "h": 0.55 } ],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 66 }, "text": { "de": "Eine pulsierende Energie. Die alten Regale vibrierten in kosmischen Frequenzen." } },
+            { "variant": "caption", "font": "lettering", "rect": { "x": 8, "y": 80, "width": 50 }, "text": { "de": "432 HERTZ" } }
+          ],
+          "source": { "type": "schematic", "want": "art" },
+          "status": "draft",
+          "note": "Direktaufnahme PLF + Linien-Grafik (Wellen). „Ein vertrautes Gefühl, das so lange gefehlt hatte“ steckt im Gesicht."
+        },
+        {
+          "id": "sb-30-3",
+          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
+          "shot": { "size": "wide", "angle": "high" },
+          "location": "library",
+          "action": { "de": "Erinnerung, monochrom: oben Mönche im Skriptorium über lateinischen Handschriften; ein verborgenes Fach mit den Büchern der Feinde der Kirche. Unten YPLF am Pult, kopiert Zeile um Zeile, über allem ein feines Raster aus Buchstaben wie ein Code (Matrix)." },
+          "air": [[0, 8]],
+          "figures": [ { "cast": "yplf", "framing": "full", "mood": "driven", "facing": "left", "x": 0.5, "y": 0.78, "h": 0.28 } ],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 62 }, "text": { "de": "Hier suchte YPLF die Werkzeuge, die Sprache der Welt zu verstehen – und die Menschen mit ihr zu lenken." } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 40, "width": 60 }, "text": { "de": "Sie fühlte sich auserwählt. Elite, wie die Mönche, die Latein beherrschten." } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 90, "width": 62 }, "text": { "de": "Auswendig lernen, kopieren, verfeinern. Die Wahrheit entsteht in diesem Prozess." } }
+          ],
+          "source": { "type": "schematic", "want": "art" },
+          "status": "draft",
+          "note": "Drei Boxen auf 1,4 Screens = an der Grenze, aber keine Wand (~40 Wörter). Archivfotos Skriptorium + YPLF-Direktaufnahme + Buchstaben-Raster als Grafik."
+        },
+        {
+          "id": "sb-30-4",
+          "format": "vertical", "aspect": "1:4", "projection": "top-down", "move": "tilt-down",
+          "shot": { "size": "medium", "angle": "bird" },
+          "location": "library",
+          "action": { "de": "Von oben auf einen Tisch voller aufgeschlagener Bücher, PLFs Hände blättern: oben die Bibel (Arche Noah, keine Mäuse); dann griechische Texte – Artemis mit einem Luchs, Hekate mit schwarzen Katzen; PLF zuckt die Schultern; unten ein Buch mit dem Bild eines Bastet-Sistrums." },
+          "air": [[0, 5]],
+          "figures": [ { "cast": "plf", "framing": "medium", "mood": "frustrated", "facing": "front", "x": 0.75, "y": 0.6, "h": 0.3 } ],
+          "dialog": [
+            { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 56 }, "tail": "down", "text": { "de": "Gut, Katze! Was ist dein Geheimnis?" } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 36, "y": 22, "width": 58 }, "text": { "de": "Die Bibel: keine Antwort. Keine Mäuse – die Sintflut muss sie dahingerafft haben." } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 46, "width": 58 }, "text": { "de": "Artemis? Eher ein Luchs. Hekates Begleiter? Schwarze Katzen. Hexerei?" } },
+            { "variant": "caption", "font": "lettering", "rect": { "x": 56, "y": 64, "width": 38 }, "text": { "de": "SHRUG" } },
+            { "variant": "bubble", "rect": { "x": 6, "y": 84, "width": 60 }, "tail": "up", "text": { "de": "Party-Katze? Fruchtbarkeitsgottheit? Furchtbarkeitsgottheit eher." } }
+          ],
+          "source": { "type": "schematic", "want": "direct" },
+          "status": "draft",
+          "note": "Die Suche als ein Move: der Scroll blättert durch die Bücher. Fünf Boxen auf 1,85 Screens (≤ 3 pro Screen). Buchseiten mit Abbildungen: Requisiten / Archivbilder, Hände direkt fotografiert."
+        },
+        {
+          "id": "sb-30-5",
+          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
+          "shot": { "size": "mcu", "angle": "eye" },
+          "location": "library",
+          "action": { "de": "PLF schlägt mit beiden Händen ein dickes Buch zu, Staubwolke explodiert, Kerzen flackern. Gesicht genervt, Kiefer angespannt." },
+          "air": [[0, 10]],
+          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "impatient", "facing": "front", "x": 0.5, "y": 0.55, "h": 0.6 } ],
+          "dialog": [
+            { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 60 }, "tail": "down", "text": { "de": "Nichts! So komm ich nicht weiter. Jetzt muss ich ernst machen." } },
+            { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 50, "width": 44 }, "text": { "de": "KLAPP!" } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 84, "width": 50 }, "text": { "de": "Reiss dich zusammen!" } }
+          ],
+          "source": { "type": "schematic", "want": "direct" },
+          "status": "draft",
+          "note": "Der Zuruf der ERZÄHLER:IN als Erzählbox (die Stimme des Erzählens). „KLAPP!“ ist neu gesetzt (Skript: „schlug das Buch zu“)."
+        },
+        {
+          "id": "sb-30-6",
+          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
+          "shot": { "size": "ews", "angle": "high" },
+          "location": "library",
+          "action": { "de": "Ein Schnappschuss: PLF winzig und reglos zwischen endlosen Regalen, das Bild wie ein eingefrorenes, ausgebleichtes Polaroid mit weißem Rand auf dunklem Grund. Ein Luftstoß (Linien) reißt durch das Bild." },
+          "air": [[0, 8], [92, 100]],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "despairing", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.12 } ],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 6, "width": 66 }, "text": { "de": "Die Sprache war alt. Sie war alt. Sie fühlte sich alt." } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 28, "y": 72, "width": 66 }, "text": { "de": "Ein Standpunkt ist nur alt, weil man gerade auf ihm steht. Ein anderer öffnet neue Türen." } },
+            { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 44, "width": 44 }, "text": { "de": "WOOSH" } }
+          ],
+          "source": { "type": "schematic", "want": "photo" },
+          "status": "draft",
+          "note": "Der „Snapshot“ des Skripts wörtlich als Polaroid. Der Erzähler-Absatz über die Non-Linearität der Zeit ist auf zwei Sätze gekürzt (siehe notes)."
+        },
+        {
+          "id": "sb-30-7",
+          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
+          "shot": { "size": "ecu", "angle": "eye" },
+          "location": "library",
+          "action": { "de": "Im Schatten des Gewölbes PLFs Augen, extrem nah, glänzend, ein flüchtiger Lichtstreif darüber. In den Pupillen spiegelt sich der lange, kalte Gang mit dem schiefen Regal. Sonst Dunkel." },
+          "air": [[0, 15], [85, 100]],
+          "figures": [ { "cast": "plf", "framing": "ecu", "mood": "knowing", "facing": "front", "x": 0.5, "y": 0.5, "h": 1 } ],
+          "dialog": [
+            { "variant": "caption", "rect": { "x": 8, "y": 4, "width": 70 }, "text": { "de": "Ich musste es tun. Ich wollte ihn töten. Ich fing an zu wein'n. Ich sah' zu ihn." } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 86, "width": 64 }, "text": { "de": "Ihre glänzenden Augen sahen alles. Kein Raum war vor ihr verborgen." } }
+          ],
+          "source": { "type": "schematic", "want": "direct" },
+          "status": "draft",
+          "note": "Der CHOR („hauchte sanft“) als freie Caption, leise und klein gesetzt – das ist der deutsche Chorus aus „NO HE SAID“ (Kapitel 4). Ob als Text, als Audio oder beides: Owner-Entscheidung (notes)."
+        },
+        {
+          "id": "sb-30-8",
+          "format": "vertical", "aspect": "1:3", "projection": "top-down", "move": "travel",
+          "shot": { "size": "wide", "angle": "bird" },
+          "location": "library",
+          "action": { "de": "Von oben auf einen langen, kalten, steinernen Gang: PLF oben im Bild, geht nach unten. Der Scroll ist ihr Weg. Ganz unten am Ende des Ganges ein einzelnes, verstaubtes, schiefes Regal mit wenigen, belanglosen Büchern." },
+          "air": [[20, 55], [92, 100]],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "cold", "facing": "front", "x": 0.5, "y": 0.12, "h": 0.15 } ],
+          "dialog": [
+            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 58 }, "text": { "de": "Am Ende des langen, kalten Ganges: ein Regal. Verstaubt. Schief. Eine Täuschung." } },
+            { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 60, "width": 60 }, "text": { "de": "Keine Magie. Keine Geheimnisse. Nur Code. Ein Spiel, das darauf wartete, entschlüsselt zu werden." } }
+          ],
+          "source": { "type": "schematic", "want": "photo" },
+          "status": "draft",
+          "note": "Leerer Gang in der Mitte = die Annäherung „wissend und kalt“. Endet am Regal, vor dem Wandsensor in Szene 31 (Luft unten = Szenenwechsel)."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Gekürzt: die Untertitel aller neun Buchtitel (z. B. „– Eine düstere Vision von Ausbeutung, Macht …“); nur die Haupttitel stehen auf den Rücken. Frage an den Owner: sollen die Untertitel lesbar sein (z. B. als Klappentext beim Antippen / items) oder reichen die Titel?",
+    "Gekürzt: „Sie fühlte sich … wie die Mönche in den alten Klöstern“, „das Werkzeug für die, die die Matrix verstanden und sie neu zusammensetzen konnten“, „YPLF brannte, sie zu steuern“ – verdichtet in sb-30-3.",
+    "Gekürzt: Bastet-Passage („Die Ägypter wussten, wie gefeiert wird“, „das Geräusch mag ich mir gar nicht vorstellen“), „Alles nur Semantik … Rhetorik der Kunde des heiligen Willens des Einen“, PLFs Satz „So schön es auch ist, in Nostalgie zu schwelgen“, die Passage „Ich werde in diesem Labyrinth nichts mehr finden … die Religion besaß nicht mehr die Macht“ und der lange Erzähler-Absatz über den Standpunkt in der Non-Linearität der Zeit (sb-30-6 hält zwei Sätze davon).",
+    "Frage an den Owner: der CHOR – der deutsche Text des Chorus aus Kapitel 4 („NO HE SAID“). Als Text-Caption (so gesetzt), als Audio-Cue oder beides? Wer ist der Chor?",
+    "Frage an den Owner: „ihre glänzenden Augen, die alles sahen“ – kündigt sich hier schon die Katze an (Katzenaugen, geschlitzte Pupillen), oder bleiben es PLFs menschliche Augen? sb-30-7 ist neutral beschrieben.",
+    "Frage an den Owner: das Skript wechselt bei PLF zwischen „sie“ und „er / ihn“ (Szene 30, 32). Hier überall „sie“ wie in Szene 25.",
+    "Budget: 8 Shots / ~9,3 Screens – etwas über 7–9, weil die Szene viel Text trägt; weiter kürzen ginge über sb-30-2 (in sb-30-1 einbauen)."
+  ]
+}
