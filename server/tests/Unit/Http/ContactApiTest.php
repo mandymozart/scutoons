@@ -31,7 +31,10 @@ final class ContactApiTest extends TestCase
         return is_file($path) ? (string) file_get_contents($path) : '';
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param array<string, mixed> $over
+     * @return array<string, mixed>
+     */
     private static function message(array $over = []): array
     {
         return $over + ['topic' => 'code', 'email' => 'reader@example.com', 'name' => 'Ana', 'code' => 'ABC123', 'message' => "Der Code geht nicht.\nWas tun?", 'locale' => 'de', 'page' => '/verify', 'website' => '', 'elapsed' => 8000];
