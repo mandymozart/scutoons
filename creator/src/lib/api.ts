@@ -1,6 +1,6 @@
 // The creator's API wiring: @scutoons/api with this app's API base and session token. Content is read and written by
 // entity key (`/api/entities`, the creator's write path) and previewed through the library (`draft`); agents/DATA.md.
-import { createAgentChatsApi, createApiClient, createAssetsApi, createContentApi, createLibraryApi, createQrApi, getDeviceId, getSessionToken } from '@scutoons/api';
+import { createApiClient, createAssetsApi, createContentApi, createLibraryApi, createQrApi, getDeviceId, getSessionToken } from '@scutoons/api';
 import { API_URL } from '$lib/config.ts';
 
 export {
@@ -25,6 +25,3 @@ export const library = createLibraryApi({ publicClient: api, sessionClient: api 
 
 /** The asset registry (agents/ASSETS.md): the asset picker browses, looks up and uploads media */
 export const assetsApi = createAssetsApi(api);
-
-// the Ask panel's chat history (CUTOVER 10.28)
-export const agentChatsApi = createAgentChatsApi(api, 'creator');

@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Embassy\Embassy;
+use Scutoons\Domain\Embassy\EmbassyDrafts;
 use Scutoons\Domain\Embassy\EmbassyInbox;
 use Scutoons\Domain\Embassy\EmbassyMail;
 use Scutoons\Domain\Embassy\EmbassyPace;
@@ -33,8 +34,14 @@ use Scutoons\Infrastructure\Config\Settings;
  *   DELETE /embassy/people/{id}                 (ambassador)
  *   PUT    /embassy/orgs/{id}/leads/{track}     { stage?, owner_id?, next_at? } → { lead }
  *   POST   /embassy/orgs/{id}/activities        { kind, track?, person_id?, outcome?, note?, stage?, next_at? } → { activity, lead } (201)
- *   POST   /embassy/orgs/{id}/mail              { to, person_id?, track?, subject, text, reply_to_activity_id?, language? } → { activity, lead } (201)
- *                                               sends from the shared mailbox (EmbassyMail) · 400 / 409 do_not_contact / 502 mail_failed
+ *   POST   /embassy/orgs/{id}/mail              { to, person_id?, track?, subject, text, reply_to_activity_id?, language?, draft_id? } → { activity, lead } (201)
+ *                                               sends from the shared mailbox (EmbassyMail) · 400 / 409 do_not_contact / 502 mail_failed;
+ *                                               with draft_id: only its author, the draft is deleted once sent
+ *   POST   /embassy/orgs/{id}/drafts            { to, person_id?, track?, subject, text, reply_to_activity_id?, source? } → { draft, url } (201)
+ *                                               a mail draft (EmbassyDrafts, agents/MCP.md): checked like a send, never sent; `url` = its page
+ *   GET    /embassy/drafts                      → { items } every open draft · GET /embassy/drafts/{id} → { draft, url }
+ *   DELETE /embassy/drafts/{id}                 (its author or an ambassador)
+ *   GET /embassy/orgs/{id} also returns `drafts` (the organisation's open drafts)
  *   GET    /embassy/inbox                       → { configured, synced_at, error }
  *   POST   /embassy/inbox/sync                  { force? } → { configured, synced_at, matched, skipped, new_activities, error, throttled }
  *                                               (EmbassyInbox; at most every 2 minutes – ambassadors may force)
@@ -52,6 +59,7 @@ final class EmbassyController
     public function __construct(
         private readonly Embassy $embassy,
         private readonly EmbassyMail $mail,
+        private readonly EmbassyDrafts $drafts,
         private readonly EmbassyInbox $inbox,
         private readonly EmbassyPace $pace,
         private readonly EmbassyReminders $reminders,
@@ -99,7 +107,7 @@ final class EmbassyController
     public function get(Request $request, Response $response, array $args): Response
     {
         $this->user($request);
-        return $this->ok($response, $this->embassy->get($args['id']));
+        return $this->ok($response, $this->embassy->get($args['id']) + ['drafts' => $this->drafts->list($args['id'])]);
     }
 
     /** @param array<string, string> $args */
@@ -149,7 +157,47 @@ final class EmbassyController
     /** @param array<string, string> $args */
     public function mail(Request $request, Response $response, array $args): Response
     {
-        return $this->ok($response, $this->mail->send($args['id'], JsonBody::of($request), $this->user($request)), 201);
+        $user = $this->user($request);
+        $data = JsonBody::of($request);
+        $draft = isset($data['draft_id']) && $data['draft_id'] !== '' ? (string) $data['draft_id'] : null;
+        if ($draft !== null) $this->drafts->assertSendable($draft, $args['id'], $user);
+        $result = $this->mail->send($args['id'], $data, $user);
+        if ($draft !== null) $this->drafts->sent($draft);
+        return $this->ok($response, $result, 201);
+    }
+
+    /** @param array<string, string> $args */
+    public function createDraft(Request $request, Response $response, array $args): Response
+    {
+        $draft = $this->drafts->create($args['id'], JsonBody::of($request), $this->user($request));
+        return $this->ok($response, ['draft' => $draft, 'url' => $this->draftUrl($draft)], 201);
+    }
+
+    public function listDrafts(Request $request, Response $response): Response
+    {
+        $this->user($request);
+        return $this->ok($response, ['items' => $this->drafts->list()]);
+    }
+
+    /** @param array<string, string> $args */
+    public function getDraft(Request $request, Response $response, array $args): Response
+    {
+        $this->user($request);
+        $draft = $this->drafts->get($args['id']);
+        return $this->ok($response, ['draft' => $draft, 'url' => $this->draftUrl($draft)]);
+    }
+
+    /** @param array<string, string> $args */
+    public function deleteDraft(Request $request, Response $response, array $args): Response
+    {
+        $this->drafts->delete($args['id'], $this->user($request));
+        return $this->ok($response, []);
+    }
+
+    /** @param array<string, mixed> $draft */
+    private function draftUrl(array $draft): string
+    {
+        return rtrim($this->settings->get('EMBASSY_URL'), '/') . '/orgs/' . rawurlencode((string) $draft['org_id']) . '?draft=' . rawurlencode((string) $draft['id']);
     }
 
     public function inbox(Request $request, Response $response): Response

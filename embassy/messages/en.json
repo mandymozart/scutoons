@@ -10,7 +10,11 @@
 		"navigation": "Sections",
 		"dismiss": "Dismiss",
 		"liaison": "Liaison",
-		"ambassador": "Ambassador"
+		"ambassador": "Ambassador",
+		"close": "Close",
+		"fold_panel": "Fold the panel",
+		"maximize_panel": "Maximize the panel",
+		"restore_panel": "Restore"
 	},
 	"nav": {
 		"today": "Today",
@@ -225,26 +229,6 @@
 		"new_org": "New organisation",
 		"quiet": "Answered before, quiet now"
 	},
-	"ask": {
-		"title": "Ask",
-		"open": "Ask the agent",
-		"new": "New chat",
-		"close": "Close",
-		"you": "You",
-		"agent": "Agent",
-		"placeholder": "Find contacts, log a call, draft a mail …",
-		"send": "Send",
-		"stop": "Stop",
-		"working": "Working …",
-		"context": "{page} · drafts only – you send",
-		"empty": "Ask about your contacts and leads, log what happened, or let the agent draft a mail – for a new release, a follow-up, a thank-you. It never sends: you read the draft and send it.",
-		"unavailable": "The agent is not available right now.",
-		"signed_out": "Your session ended – sign in again.",
-		"history": "Earlier chats",
-		"history_unavailable": "The chat history is not available yet.",
-		"resize": "Drag to resize",
-		"draft": "Draft #{id}"
-	},
 	"mail": {
 		"to": "To",
 		"subject": "Subject",
@@ -258,7 +242,17 @@
 		"reply": "Reply",
 		"blocked": "Opted out – no mail.",
 		"empty": "Subject and text first.",
-		"no_recipient": "No address to write to – or everyone here opted out."
+		"no_recipient": "No address to write to – or everyone here opted out.",
+		"drafts": "Drafts",
+		"draft_by_ai": "Drafted by {author}'s AI · {when}",
+		"draft_by": "Draft by {author} · {when}",
+		"discard": "Discard",
+		"discard_title": "Discard this draft?",
+		"discard_message": "Nothing is sent. The draft is deleted.",
+		"discarded": "Draft discarded.",
+		"not_yours": "Only {author} sends this draft – it goes out in their name.",
+		"draft_gone": "This draft was sent or discarded already.",
+		"open_draft": "Open"
 	},
 	"welcome": {
 		"title": "Welcome to Embassy",
@@ -305,11 +299,7 @@
 		"done_week": "Your portion for this week is done. Thank you!",
 		"none_owned": "No contacts of yours yet – add one, or take unowned ones.",
 		"add": "Add a contact",
-		"unowned": "Unowned leads",
-		"ask": "Go through my week",
-		"ask_text": "Go through my portion this week ({count} contacts) and suggest for each what to say or write – short, one line each. Today is {date}.",
-		"prepare": "Ask: prepare this",
-		"prepare_text": "Help me with {org} ({track}): {hint}. Read the log first and suggest what to say on the phone or draft a mail."
+		"unowned": "Unowned leads"
 	},
 	"hint": {
 		"mail_no_answer": "mail sent {days} days ago, no answer – refer to “{subject}”",

@@ -64,6 +64,42 @@ final class EmbassyMail
      */
     public function send(string $orgId, array $data, array $user): array
     {
+        ['org' => $org, 'person' => $person, 'to' => $to, 'subject' => $subject, 'text' => $text, 'track' => $track,
+            'parent_id' => $parentId, 'references' => $references] = $this->prepare($orgId, $data, $user);
+
+        $language = self::language($data['language'] ?? null, $person, $org);
+        $body = self::withFooter($text, $language);
+        $from = $this->from();
+        $at = strrchr($from, '@');
+        $messageId = Ids::uuid7() . '@' . substr($at !== false ? $at : '@scutoons.com', 1);
+        $account = $this->settings->get('EMBASSY_SMTP_USER');
+        try {
+            $raw = $this->transport->deliverText($to, $subject, $body, [
+                'from' => $from, 'from_name' => $this->settings->get('EMBASSY_MAIL_FROM_NAME'), 'reply_to' => $from,
+                'message_id' => $messageId, 'in_reply_to' => $parentId, 'references' => $references,
+                'user' => $account !== '' ? $account : null, 'pass' => $account !== '' ? $this->settings->get('EMBASSY_SMTP_PASS') : null,
+            ]);
+        } catch (Throwable $error) {
+            $this->log->record(self::TEMPLATE, $to, $language, 'failed', $this->transport->name(), $error->getMessage());
+            error_log('[qr-api] embassy mail failed: ' . $error->getMessage());
+            throw new ApiError(502, 'mail_failed', 'The mail could not be sent: ' . mb_substr($error->getMessage(), 0, 200));
+        }
+        $this->log->record(self::TEMPLATE, $to, $language, 'sent', $this->transport->name(), null);
+        $result = $this->embassy->logMail($orgId, ['kind' => 'mail_out', 'track' => $track, 'person_id' => $person['id'] ?? null, 'note' => $body], $user,
+            ['subject' => $subject, 'mail_from' => $from, 'mail_to' => $to, 'message_id' => $messageId, 'in_reply_to' => $parentId]);
+        $this->copyToSent($raw);
+        return $result;
+    }
+
+    /**
+     * Every check of a mail before it may go out (recipient of the organisation, do-not-contact, subject, text, the
+     * track the user may log on, the mail it answers) – the send itself and a stored draft (EmbassyDrafts) use it.
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $user
+     * @return array{org: array<string, mixed>, person: array<string, mixed>|null, to: string, subject: string, text: string, track: ?string, reply_to: ?string, parent_id: ?string, references: list<string>}
+     */
+    public function prepare(string $orgId, array $data, array $user): array
+    {
         $this->embassy->access($user);
         $detail = $this->embassy->get($orgId);
         $org = $detail['org'];
@@ -118,28 +154,8 @@ final class EmbassyMail
         $parentId = ($parent['message_id'] ?? null) !== null && $parent['message_id'] !== '' ? (string) $parent['message_id'] : null;
         $references = $parentId !== null ? array_values(array_filter([(string) ($parent['in_reply_to'] ?? ''), $parentId], fn(string $id) => $id !== '')) : [];
 
-        $language = self::language($data['language'] ?? null, $person, $org);
-        $body = self::withFooter($text, $language);
-        $from = $this->from();
-        $at = strrchr($from, '@');
-        $messageId = Ids::uuid7() . '@' . substr($at !== false ? $at : '@scutoons.com', 1);
-        $account = $this->settings->get('EMBASSY_SMTP_USER');
-        try {
-            $raw = $this->transport->deliverText($to, $subject, $body, [
-                'from' => $from, 'from_name' => $this->settings->get('EMBASSY_MAIL_FROM_NAME'), 'reply_to' => $from,
-                'message_id' => $messageId, 'in_reply_to' => $parentId, 'references' => $references,
-                'user' => $account !== '' ? $account : null, 'pass' => $account !== '' ? $this->settings->get('EMBASSY_SMTP_PASS') : null,
-            ]);
-        } catch (Throwable $error) {
-            $this->log->record(self::TEMPLATE, $to, $language, 'failed', $this->transport->name(), $error->getMessage());
-            error_log('[qr-api] embassy mail failed: ' . $error->getMessage());
-            throw new ApiError(502, 'mail_failed', 'The mail could not be sent: ' . mb_substr($error->getMessage(), 0, 200));
-        }
-        $this->log->record(self::TEMPLATE, $to, $language, 'sent', $this->transport->name(), null);
-        $result = $this->embassy->logMail($orgId, ['kind' => 'mail_out', 'track' => $track, 'person_id' => $person['id'] ?? null, 'note' => $body], $user,
-            ['subject' => $subject, 'mail_from' => $from, 'mail_to' => $to, 'message_id' => $messageId, 'in_reply_to' => $parentId]);
-        $this->copyToSent($raw);
-        return $result;
+        return ['org' => $org, 'person' => $person, 'to' => $to, 'subject' => $subject, 'text' => $text, 'track' => $track,
+            'reply_to' => $replyTo, 'parent_id' => $parentId, 'references' => $references];
     }
 
     /** The text with the opt-out line under it (unless it has one) */

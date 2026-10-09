@@ -20,16 +20,14 @@
 		installTooltips,
 	} from '@scutoons/ui';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
-	import { AskPanel, ask, type AskLabels } from '@scutoons/ask';
-	import ChangesCard, { isChangesCard } from '$lib/components/changes-card.svelte';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
 	import { EDITED_KINDS, KINDS } from '$lib/catalog/kinds.ts';
 	import { openClaims } from '$lib/claims.svelte.ts';
 	import { setupMedia } from '@scutoons/media';
-	import { agentChats, assets } from '$lib/api.ts';
-	import { ASK_URL, CDN_SERVER, CREATOR_URL, VIEWER_URL } from '$lib/config.ts';
+	import { assets } from '$lib/api.ts';
+	import { CDN_SERVER, CREATOR_URL, VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -109,42 +107,11 @@
 		);
 		return list;
 	}
-
-	// Ask (@scutoons/ask): the agent with the admin's rights (tools/mcp ask.ts "admin"): it reads; changes come as a card
-	// the admin applies (ChangesCard)
-	const askLabels: AskLabels = {
-		title: m['ask.title'](),
-		history: m['ask.history'](),
-		historyUnavailable: m['ask.history_unavailable'](),
-		newChat: m['ask.new'](),
-		close: m['ask.close'](),
-		empty: m['ask.empty'](),
-		you: m['ask.you'](),
-		agent: m['ask.agent'](),
-		working: m['ask.working'](),
-		context: (page) => m['ask.context']({ page }),
-		placeholder: m['ask.placeholder'](),
-		send: m['ask.send'](),
-		stop: m['ask.stop'](),
-		resize: m['ask.resize'](),
-		unavailable: m['ask.unavailable'](),
-		signedOut: m['ask.signed_out'](),
-		draft: (id) => m['ask.draft']({ id })
-	};
 </script>
 
 <svelte:head>
 	<title>{current ? `${current.title()} · ` : ''}{m['shell.title']()}</title>
 </svelte:head>
-
-<!-- Ask: the outermost region of the shell (agents/DOCKING.md); a list's detail docks left of it (SplitView) -->
-{#snippet askRegion()}
-	<AskPanel app="admin" url={ASK_URL} chats={agentChats} context={current?.title() ?? m['shell.admin']()} appLanguage={getLocale()} labels={askLabels} onclose={() => (ask.open = false)}>
-		{#snippet result(step)}
-			{#if isChangesCard(step.data)}<ChangesCard card={step.data} />{/if}
-		{/snippet}
-	</AskPanel>
-{/snippet}
 
 <div class="admin sc-tool">
 	<AuthGate {session} app="admin" appName="Admin" locale={getLocale()} readerHref={VIEWER_URL}>
@@ -162,7 +129,6 @@
 			sidebarOpen={menuOpen}
 			onclose={() => (menuOpen = false)}
 			closeLabel={m['shell.close_menu']()}
-			ask={ask.open ? askRegion : undefined}
 			dockLabel={m['shell.dock_label']()}
 			dockResizeLabel={m['shell.resize_panel']()}
 			dockUnfoldLabel={m['shell.unfold_panel']()}
@@ -183,7 +149,6 @@
 						<span class="brand-name">{m['shell.admin']()}</span>
 					</a>
 					<PaletteTrigger label={m['shell.search']()} compact onclick={() => (paletteOpen = true)} />
-					<button type="button" class="sc-round" class:is-active={ask.open} title={m['ask.open']()} aria-label={m['ask.open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
 			{/snippet}

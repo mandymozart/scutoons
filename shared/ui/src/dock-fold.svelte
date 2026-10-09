@@ -6,7 +6,7 @@
 	/**
 	 * The buttons of a panel in the AppShell's right dock (owner 2026-10-06): placed in the docked panel's header, next to
 	 * its close cross – fold to the rail (the rail unfolds it; closing stays the ✕) and maximize (the panel fills
-	 * everything between the sidebar's rail and Ask until restored; agents/DOCKING.md "Maximize"). Several panels can be
+	 * everything right of the sidebar's rail until restored; agents/DOCKING.md "Maximize"). Several panels can be
 	 * open (10.57): the buttons act on the panel they sit in (the shell's `DockSlot`). While maximized there is nothing
 	 * to fold. Nothing outside a foldable dock.
 	 */

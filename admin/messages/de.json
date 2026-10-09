@@ -62,7 +62,9 @@
 		"assets": "Assets",
 		"assets_hint": "Medien im CDN: Dateien, Fassungen, Verwendung, Speicher",
 		"calendar": "Termine",
-		"calendar_hint": "Termine auf scutoons.com/events"
+		"calendar_hint": "Termine auf scutoons.com/events",
+		"proposals": "Vorschläge",
+		"proposals_hint": "Änderungen, die die eigene KI eines Admins vorschlägt – prüfen und übernehmen"
 	},
 	"palette": {
 		"label": "Befehlspalette",
@@ -134,20 +136,7 @@
 		"editions_hint": "Eingelöst von allen Codes (gesamt); Scans und Claims im Zeitraum.",
 		"claimed_total": "Eingelöst / Codes",
 		"of_edition": "Edition von {count}",
-		"signed": "Signiert",
-		"ai_title": "KI-Nutzung",
-		"ai_hint": "Was die Ask-Agenten kosten (Anthropic API, USD): dieser Monat pro App und Person, pro Tag im Zeitraum.",
-		"ai_month": "Dieser Monat",
-		"ai_calls": "{count} Aufrufe",
-		"ai_searches": "{count} Websuchen",
-		"ai_chart": "KI-Kosten pro Tag (USD)",
-		"ai_people": "Pro Person, dieser Monat",
-		"ai_person": "Person",
-		"ai_total": "Gesamt",
-		"ai_unavailable": "Das KI-Nutzungsprotokoll ist noch nicht verfügbar.",
-		"app_creator": "Creator",
-		"app_embassy": "Embassy",
-		"app_admin": "Admin"
+		"signed": "Signiert"
 	},
 	"events": {
 		"scan": "Scan",
@@ -971,26 +960,6 @@
 		"conflict": "Jemand hat die Termine inzwischen gespeichert – neu geladen, bitte die Änderung wiederholen.",
 		"publish": "Veröffentlichen"
 	},
-	"ask": {
-		"title": "Ask",
-		"open": "Den Agenten fragen",
-		"new": "Neuer Chat",
-		"close": "Schließen",
-		"you": "Du",
-		"agent": "Agent",
-		"placeholder": "Was willst du wissen?",
-		"send": "Senden",
-		"stop": "Stopp",
-		"working": "Arbeitet …",
-		"context": "{page}",
-		"empty": "Frag nach Codes, Konten, Ansprüchen, dem Katalog, Assets, dem Kalender oder den KI-Kosten. Änderungen kommen als Karte – nichts ändert sich, bevor du sie übernimmst.",
-		"unavailable": "Der Agent ist gerade nicht erreichbar.",
-		"signed_out": "Deine Sitzung ist abgelaufen – melde dich neu an.",
-		"history": "Frühere Chats",
-		"history_unavailable": "Der Chat-Verlauf ist noch nicht verfügbar.",
-		"resize": "Ziehen, um die Breite zu ändern",
-		"draft": "Entwurf #{id}"
-	},
 	"changes": {
 		"title": "Vorgeschlagene Änderungen",
 		"apply": "Übernehmen",
@@ -1007,8 +976,14 @@
 		"asset_from": "durch {path}",
 		"asset_pick": "Neue Datei wählen",
 		"asset_missing": "Erst die neue Datei wählen.",
-		"changed_since": "Seit dem Lesen geändert – frag noch einmal.",
-		"empty": "(leer)"
+		"changed_since": "Seit die KI es gelesen hat geändert – frag noch einmal.",
+		"empty": "(leer)",
+		"dismiss": "Verwerfen",
+		"dismiss_title": "Diesen Vorschlag verwerfen?",
+		"dismiss_message": "Nichts wird geändert. Er bleibt in der Liste unter Verworfen.",
+		"dismissed": "Verworfen",
+		"by": "Vorgeschlagen von {who} · {when}",
+		"decided": "{status} von {who} · {when}"
 	},
 	"server_errors": {
 		"title": "Serverfehler",
@@ -1168,5 +1143,16 @@
 		"unblock_title": "{email} wieder anschreiben?",
 		"unblock_message": "Nur wenn die Person das wieder möchte.",
 		"unblocked": "{email} bekommt wieder Newsletter."
+	},
+	"proposals": {
+		"title": "Vorschläge",
+		"type": "KI",
+		"count": "Vorschläge: {count}",
+		"status_open": "Offen",
+		"status_applied": "Übernommen",
+		"status_dismissed": "Verworfen",
+		"changes": "Änderungen: {count}",
+		"status": "Status",
+		"not_found": "Diesen Vorschlag gibt es nicht (mehr)."
 	}
 }

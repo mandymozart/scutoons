@@ -75,9 +75,9 @@ export {
 	type AdminUserDetail,
 	type AdminChange,
 	type AdminChangeField,
-	type AdminChangesCard,
-	type AgentUsageOverview,
-	type AgentUsageRow,
+	type AdminProposal,
+	type AdminProposalRow,
+	type ProposalStatus,
 	type AdminCharacterUnlock,
 	type AdminReviewRule,
 	type AdminUserRow,
@@ -119,6 +119,7 @@ export {
 	type ImportReport,
 	type Lead,
 	type LogInput,
+	type MailDraft,
 	type MailInput,
 	type EmbassyPace,
 	type PaceReminder,
@@ -166,12 +167,3 @@ export {
 	type AssetVersion,
 	type AssetsApi
 } from './assets.ts';
-export {
-	createAgentChatsApi,
-	type AgentChat,
-	type AgentApp,
-	type AgentChatSummary,
-	type AgentChatsApi,
-	type AgentStep,
-	type AgentTurn
-} from './agent-chats.ts';

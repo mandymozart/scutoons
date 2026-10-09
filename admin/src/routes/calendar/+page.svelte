@@ -15,7 +15,7 @@
 	/**
 	 * The public events list (viewer /events): the platform-wide content entity `events` (entity_versions;
 	 * production's events entity is the source). Saving stores a new version and publishes it; a stored draft that is newer (the
-	 * Ask agent's calendar changes are drafts) is published with Publish. The viewer splits upcoming / past.
+	 * calendar changes from a proposal are drafts) is published with Publish. The viewer splits upcoming / past.
 	 * Fields the form doesn't know (e.g. `toon`) are kept as they are.
 	 */
 	const KEY = 'events';
@@ -59,7 +59,7 @@
 
 	const list = () => draft.map((d) => $state.snapshot(d.event) as Event);
 	const changed = $derived(loaded && JSON.stringify(draft.map((d) => d.event)) !== saved);
-	/** a stored draft newer than the published list (e.g. from the Ask agent's changes card): Publish makes it live */
+	/** a stored draft newer than the published list (e.g. from an applied changes card): Publish makes it live */
 	const unpublished = $derived(!!stored && stored.version.status !== 'published');
 	const now = Date.now();
 	const upcoming = $derived(draft.filter((d) => !d.event.date || Date.parse(d.event.date) > now).sort((a, b) => (a.event.date || '￿').localeCompare(b.event.date || '￿')));

@@ -36,8 +36,6 @@
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 	import { PLATFORM_SOURCE_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import AskPanel from '$lib/components/ask/ask-panel.svelte';
-	import { ask } from '$lib/ask.svelte.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -261,11 +259,6 @@
 {#snippet logo()}<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />{/snippet}
 {#snippet logoCrumb()}<span class="brand" data-testid="creator-brand">{@render logo()}</span>{/snippet}
 
-<!-- Ask: the outermost region of the shell (agents/DOCKING.md); the page's panels dock left of it (useDock) -->
-<!-- Ask reads the current place from the crumb trail (UI-CONCEPTS E.3 c – the Breadcrumbs' own source, the real season
-     included): the names for the person and the agent, the deepest crumb's address (ids) for the agent -->
-{#snippet askRegion()}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} place={nav.crumbs.length > 1 ? nav.crumbs[nav.crumbs.length - 1].href : undefined} onclose={() => (ask.open = false)} />{/snippet}
-
 <div class="creator sc-tool">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- One stable frame for every page: top bar (breadcrumb of the full path), sidebar (children of the current
@@ -280,7 +273,6 @@
 			foldLabel={m['creator.fold_sidebar']()}
 			unfoldLabel={m['creator.unfold_sidebar']()}
 			minContent={24}
-			ask={ask.open ? askRegion : undefined}
 			dockLabel={m['creator.dock_label']()}
 			dockResizeLabel={m['creator.resize_panel']()}
 			dockUnfoldLabel={m['creator.unfold_panel']()}
@@ -318,7 +310,6 @@
 						{/if}
 						{#if nav.actions}{@render nav.actions()}{/if}
 					{/if}
-					<button type="button" class="sc-round" class:is-active={ask.open} title={m['creator.ask_open']()} aria-label={m['creator.ask_open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>

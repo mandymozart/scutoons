@@ -1,50 +1,37 @@
-<script module lang="ts">
-	import type { AdminChangesCard } from '@scutoons/api';
-
-	export const isChangesCard = (data: unknown): data is AdminChangesCard => (data as AdminChangesCard | null)?.kind === 'admin_changes';
-</script>
-
 <script lang="ts">
-	// Changes the Ask agent proposes (tools/mcp admin.ts `propose_changes`, owner 2026-10-05: the agent never writes on
-	// its own): before → after, applied only when the admin presses Apply – here, with the admin's session. Catalog
-	// entries are written one by one (each a catalog history row with undo; refused when the entry changed since the
-	// agent read it), calendar entries go into ONE new draft of `events` (a person publishes it on the Calendar page),
-	// an asset file is replaced under its old path (the old bytes stay as an archived version). An applied card is
-	// remembered per browser, so a reopened chat doesn't offer to apply it twice.
-	import { ApiError, type AdminChange } from '@scutoons/api';
-	import { Button, Icon } from '@scutoons/ui';
+	// One stored proposal (agents/MCP.md "Draft → link", owner 2026-10-09): changes an admin's own AI proposed (tools/mcp
+	// admin.ts `propose_changes` → /api/admin/proposals), before → after, applied only when the admin presses Apply –
+	// here, with the admin's session. Catalog entries are written one by one (each a catalog history row with undo;
+	// refused when the entry changed since the AI read it), calendar entries go into ONE new draft of `events` (a person
+	// publishes it on the Calendar page), an asset file is replaced under its old path (the old bytes stay as an archived
+	// version). Fully applied → the proposal is marked applied; Dismiss marks it dismissed. Shown in the Proposals page's
+	// detail panel.
+	import { ApiError, type AdminChange, type AdminProposal } from '@scutoons/api';
+	import { Button, Icon, confirmDialog } from '@scutoons/ui';
 	import { admin, assets, content } from '$lib/api.ts';
 	import { invalidateCatalog } from '$lib/catalog.ts';
 	import { CDN_SERVER } from '$lib/config.ts';
-	import { errorText } from '$lib/format.ts';
+	import { errorText, minute } from '$lib/format.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
-	let { card }: { card: AdminChangesCard } = $props();
+	let { proposal, ondecided }: { proposal: AdminProposal; ondecided?: (proposal: AdminProposal) => void } = $props();
 
 	const toaster = getToaster();
-	const APPLIED = 'scutoons_admin_applied_changes';
-	const appliedIds = (): string[] => {
-		try {
-			return JSON.parse(localStorage.getItem(APPLIED) ?? '[]');
-		} catch {
-			return [];
-		}
-	};
 
 	/** per change: '' = not yet, 'ok', or the error */
 	// svelte-ignore state_referenced_locally
-	let results = $state<string[]>(card.changes.map(() => ''));
-	// svelte-ignore state_referenced_locally
-	let done = $state(appliedIds().includes(card.id));
+	let results = $state<string[]>(proposal.changes.map(() => ''));
 	let applying = $state(false);
 	/** files the admin picked for asset changes without a source */
 	let files = $state<Record<number, File>>({});
 
-	const note = $derived(`Ask: ${card.title}`.slice(0, 200));
+	const done = $derived(proposal.status !== 'open');
+	// the catalog history / the calendar draft name where the change came from
+	const note = $derived(`AI proposal: ${proposal.title}`.slice(0, 200));
 	const okCount = $derived(results.filter((r) => r === 'ok').length);
-	const hasCatalog = $derived(card.changes.some((c) => c.type === 'catalog'));
-	const hasCalendar = $derived(card.changes.some((c) => c.type === 'calendar'));
+	const hasCatalog = $derived(proposal.changes.some((c) => c.type === 'catalog'));
+	const hasCalendar = $derived(proposal.changes.some((c) => c.type === 'calendar'));
 
 	const segments = (path: string) => path.split('.').map((s) => (/^\d+$/.test(s) ? Number(s) : s));
 	function setPath(data: any, path: string, value: unknown) {
@@ -60,6 +47,7 @@
 	const src = (path: string) => (/^https?:/.test(path) ? path : `${CDN_SERVER}/${path.replace(/^\/+/, '')}`);
 	const show = (v: unknown) => (v === null || v === undefined || v === '' ? m['changes.empty']() : typeof v === 'string' ? v : JSON.stringify(v));
 	const kindLabel = (kind: string) => kind.replace(/s$/, '');
+	const statusLabel = (s: AdminProposal['status']) => m[`proposals.status_${s}`]();
 
 	async function applyCatalog(c: Extract<AdminChange, { type: 'catalog' }>) {
 		const { entry } = await admin.catalogGet(c.kind, c.id);
@@ -79,9 +67,9 @@
 		} catch (e) {
 			if (!(e instanceof ApiError && e.status === 404)) throw e;
 		}
-		if (version !== card.calendar_base) throw new Error(m['changes.changed_since']());
+		if (version !== proposal.calendar_base) throw new Error(m['changes.changed_since']());
 		for (const i of indexes) {
-			const c = card.changes[i];
+			const c = proposal.changes[i];
 			if (c.type !== 'calendar') continue;
 			if (c.action === 'add') list.push({ ...c.event });
 			else for (const f of c.fields) setPath(list[c.index], f.path, f.after);
@@ -105,7 +93,7 @@
 	async function apply() {
 		applying = true;
 		const calendar: number[] = [];
-		for (const [i, c] of card.changes.entries()) {
+		for (const [i, c] of proposal.changes.entries()) {
 			if (results[i] === 'ok') continue;
 			if (c.type === 'calendar') {
 				calendar.push(i);
@@ -128,16 +116,27 @@
 			}
 		}
 		if (hasCatalog) invalidateCatalog();
-		applying = false;
-		if (okCount === card.changes.length) {
-			done = true;
+		if (okCount === proposal.changes.length) {
 			try {
-				localStorage.setItem(APPLIED, JSON.stringify([...appliedIds(), card.id].slice(-200)));
-			} catch {
-				/* storage blocked: the catalog history / the asset show it was applied */
+				const r = await admin.decideProposal(proposal.id, 'applied');
+				ondecided?.(r.proposal);
+				toaster.addToast({ type: 'success', message: m['changes.applied']() });
+			} catch (e) {
+				toaster.addToast({ type: 'error', message: errorText(e) });
 			}
-			toaster.addToast({ type: 'success', message: m['changes.applied']() });
-		} else toaster.addToast({ type: 'error', message: m['changes.partly']({ done: okCount, total: card.changes.length }) });
+		} else toaster.addToast({ type: 'error', message: m['changes.partly']({ done: okCount, total: proposal.changes.length }) });
+		applying = false;
+	}
+
+	async function dismiss() {
+		if (!(await confirmDialog({ title: m['changes.dismiss_title'](), message: m['changes.dismiss_message'](), confirmLabel: m['changes.dismiss']() }))) return;
+		try {
+			const r = await admin.decideProposal(proposal.id, 'dismissed');
+			ondecided?.(r.proposal);
+			toaster.addToast({ type: 'success', message: m['changes.dismissed']() });
+		} catch (e) {
+			toaster.addToast({ type: 'error', message: errorText(e) });
+		}
 	}
 </script>
 
@@ -146,10 +145,12 @@
 {/snippet}
 
 <div class="changes" data-testid="changes-card">
-	<p class="head"><Icon name="edit-3" size="1em" /><span>{m['changes.title']()}</span></p>
-	<p class="what">{card.title}</p>
+	<p class="meta">{m['changes.by']({ who: proposal.author, when: minute(proposal.created_at) })}</p>
+	{#if done}
+		<p class="meta">{m['changes.decided']({ status: statusLabel(proposal.status), who: proposal.decided_by, when: proposal.decided_at ? minute(proposal.decided_at) : '' })}</p>
+	{/if}
 	<ol class="list">
-		{#each card.changes as c, i (i)}
+		{#each proposal.changes as c, i (i)}
 			<li class:failed={results[i] && results[i] !== 'ok'}>
 				{#if c.type === 'catalog'}
 					<p class="target">
@@ -191,14 +192,19 @@
 			</li>
 		{/each}
 	</ol>
+	{#if proposal.status !== 'dismissed'}
 	<div class="row">
-		{#if done}
-			<span class="caption"><Icon name="check" size="1em" /> {m['changes.applied']()}{#if hasCatalog}{' · '}{m['changes.undo_catalog']()}{/if}{#if hasCalendar}{' · '}{m['changes.calendar_draft']()}{/if}</span>
-		{:else}
+		{#if proposal.status === 'applied'}
+			<span class="caption">{#if hasCatalog}{m['changes.undo_catalog']()}{/if}{#if hasCatalog && hasCalendar}{' · '}{/if}{#if hasCalendar}{m['changes.calendar_draft']()}{/if}</span>
+		{:else if !done}
 			<span class="caption muted">{m['changes.note']()}</span>
-			<Button onclick={apply} disabled={applying} data-testid="changes-apply">{applying ? m['changes.applying']() : m['changes.apply']()}</Button>
+			<span class="buttons">
+				<Button size="sm" variant="clear" onclick={dismiss} disabled={applying} data-testid="changes-dismiss">{m['changes.dismiss']()}</Button>
+				<Button size="sm" onclick={apply} disabled={applying} data-testid="changes-apply">{applying ? m['changes.applying']() : m['changes.apply']()}</Button>
+			</span>
 		{/if}
 	</div>
+	{/if}
 </div>
 
 <style>
@@ -206,21 +212,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-05);
-		margin-top: var(--space-1);
-		padding: var(--space-1);
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
 	}
-	.head {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
+	.meta {
 		margin: 0;
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
-	}
-	.what {
-		margin: 0;
 	}
 	.list {
 		display: flex;
@@ -228,8 +224,6 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		max-height: 24rem;
-		overflow-y: auto;
 	}
 	.list li {
 		display: flex;
@@ -282,8 +276,15 @@
 	}
 	.row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
+		gap: var(--space-05);
+		padding-top: var(--space-05);
+		border-top: var(--border-width-regular) solid var(--ink);
+	}
+	.buttons {
+		display: flex;
 		gap: var(--space-05);
 	}
 </style>

@@ -112,8 +112,6 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `VITE_CREATOR_URL` | variable | viewer, admin |
 | `VITE_SHOP_URL` | variable | viewer |
 | `VITE_ADMIN_URL` | variable | admin |
-| `VITE_ASK_URL` | variable | creator, admin, embassy – the Ask service (`https://ask.scutoons.com/api/ask`; unset = "not available") |
-| `VITE_ASK_URL` | variable | creator – the Ask service, e.g. `https://ask.scutoons.com/api/ask` (unset = the Ask panel says "not available"; tools/mcp/README.md) |
 | `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_API_KEY` | secret | api `config.php` – the asset manager's bunny.net storage zone passwords (read/write, read-only) and the account API key (all optional; agents/ASSETS.md) |
 | `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_PULLZONE_ID` | variable | api `config.php` (optional, same); `CDN_PUBLIC_URL` is fixed in `targets.json` (a `production` variable of that name is not read) |
 

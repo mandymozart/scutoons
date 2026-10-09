@@ -27,7 +27,8 @@ export const navigation: NavGroup[] = [
 		id: 'overview',
 		title: () => m['nav.group_overview'](),
 		items: [
-			{ id: 'dashboard', title: () => m['nav.dashboard'](), description: () => m['nav.dashboard_hint'](), href: '/', icon: 'bar-chart-2', keywords: 'kpi stats' }
+			{ id: 'dashboard', title: () => m['nav.dashboard'](), description: () => m['nav.dashboard_hint'](), href: '/', icon: 'bar-chart-2', keywords: 'kpi stats' },
+			{ id: 'proposals', title: () => m['nav.proposals'](), description: () => m['nav.proposals_hint'](), href: '/proposals', icon: 'inbox', keywords: 'ai claude mcp apply vorschlag' }
 		]
 	},
 	{

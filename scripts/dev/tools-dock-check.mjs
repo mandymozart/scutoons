@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 // The docked regions of admin + embassy (agents/DOCKING.md) in headless Chrome (own profile) as the local test user –
 // nothing is saved. Admin at 1280 / 1600 / 1920: a code list's detail (SplitView) opens in the AppShell's right dock, the
-// list ends where it starts; with Ask open the dock is left of Ask and the sidebar folds to its rail; the Info panel
+// list ends where it starts, the sidebar stays; the Info panel
 // opens next to the detail (10.57: both open, Info outermost); the dock folds to a rail with the detail's title, a click
 // unfolds it; it maximizes = everything else on its rail (button; Escape restores first; the ActionBar stays); every
-// rail's button at the height of Ask's header buttons (1440 / 1920); Escape closes the detail; the catalog's entry form docks the same way; on a phone
-// the detail covers the page. Embassy: AppShell with Ask as the outermost region – the page ends where Ask starts, Ask's
-// Divider drags it wider; on a phone Ask covers the page.
+// rail's button at one height (1440 / 1920); Escape closes the detail; the catalog's entry form docks the same way; on a phone
+// the detail covers the page. Embassy: the page in the AppShell takes the full width.
 //   node scripts/dev/tools-dock-check.mjs        (admin :11000, embassy :13000, API :9000 – `npm run dev -w admin` /
 //   `-w embassy` when they aren't running)
 //   DOCK_SHOTS=<dir>: screenshots <DOCK_PREFIX, default tools-dock->*.png into <dir>
@@ -80,12 +79,7 @@ const go = async (url, ready) => {
 	return until(ready, 30000);
 };
 const layout = () =>
-	js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), main: r('main'), dock: r('.sc-shell-dock'), ask: r('[data-testid="ask-panel"]'), detail: !!document.querySelector('.sc-shell-dock [data-testid="split-detail"]'), info: !!document.querySelector('.sc-shell-dock [data-testid="info-panel"]'), folded: !!document.querySelector('.sc-app-shell.folded'), dockRail: !!document.querySelector('[data-testid="dock-rail"]') }; })()`);
-const setAsk = async (open) => {
-	const now = await js(`${q('ask-toggle')}?.getAttribute('aria-pressed') === 'true'`);
-	if (now !== open) await js(`${q('ask-toggle')}.click(), true`);
-	await sleep(500);
-};
+	js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), main: r('main'), dock: r('.sc-shell-dock'), detail: !!document.querySelector('.sc-shell-dock [data-testid="split-detail"]'), info: !!document.querySelector('.sc-shell-dock [data-testid="info-panel"]'), folded: !!document.querySelector('.sc-app-shell.folded'), dockRail: !!document.querySelector('[data-testid="dock-rail"]') }; })()`);
 async function drag(selector, dx) {
 	const p = await js(`(() => { const b = document.querySelector('${selector}').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
 	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
@@ -112,22 +106,16 @@ try {
 	for (const w of [1280, 1600, 1920]) {
 		await size(w);
 		check(await go(`${ADMIN}/codes`, `!!${firstRow}`), `admin ${w}: codes list`);
-		await setAsk(false);
 		await js(`${firstRow}.click(), true`);
 		check(await until(`!!document.querySelector('.sc-shell-dock [data-testid="split-detail"]') && location.search.includes('open=')`), `admin ${w}: a row opens its detail in the dock`);
 		await sleep(400);
 		let g = await layout();
 		check(g.dock && g.content.r <= g.dock.l + 1 && !g.folded, `admin ${w}: the list ends where the dock starts, the sidebar stays`, JSON.stringify(g));
 		await shot(`admin-${w}-codes-detail`);
-		await setAsk(true);
-		g = await layout();
-		check(g.ask && g.dock.r <= g.ask.l + 1 && g.content.r <= g.dock.l + 1 && g.folded, `admin ${w}: + Ask – the detail left of Ask, the sidebar folds to its rail`, JSON.stringify(g));
-		await shot(`admin-${w}-codes-detail-ask`);
-		await setAsk(false);
 	}
 
 	await size(1600);
-	// Info opens next to the detail (10.57: several panels side by side; Info outermost, next to Ask)
+	// Info opens next to the detail (10.57: several panels side by side; Info outermost)
 	check(await go(`${ADMIN}/codes`, `!!${firstRow} && !!${q('info-toggle')}`), 'admin: codes list with Info');
 	await js(`${firstRow}.click(), true`);
 	await until(`!!document.querySelector('[data-testid="split-detail"]')`);
@@ -180,14 +168,12 @@ try {
 	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
 	check(await until(`!document.querySelector('.sc-shell-dock') && !location.search.includes('open=')`, 5000), 'admin: Escape closes the detail');
 
-	// every rail's button at the height of Ask's header buttons (owner 2026-10-07): the sidebar's, the folded detail's, the
-	// main's (Ctrl+Shift+\)
+	// every rail's button at one height (owner 2026-10-07): the sidebar's, the folded detail's, the main's (Ctrl+Shift+\)
 	for (const w of [1440, 1920]) {
 		await size(w);
 		check(await go(`${ADMIN}/codes`, `!!${firstRow}`), `admin ${w}: codes list for the rails`);
 		await js(`${firstRow}.click(), true`);
 		await until(`!!document.querySelector('[data-testid="split-detail"]')`);
-		await setAsk(true);
 		await js(`${q('dock-fold')}.click(), document.activeElement?.blur(), true`);
 		await sleep(300);
 		const key = async (key, modifiers) => {
@@ -196,12 +182,11 @@ try {
 		};
 		if (!(await js(`!!${q('shell-rail')}`))) await key('\\', 2);
 		await key('|', 2 + 8);
-		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { ask: t('.sc-shell-ask header .sc-round'), sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button') }; })()`);
-		check(Object.values(tops).every((t) => t !== null) && [tops.sidebar, tops.main, tops.dock].every((t) => Math.abs(t - tops.ask) <= 1), `admin ${w}: every rail's button at the height of Ask's header buttons (${JSON.stringify(tops)})`, JSON.stringify(tops));
+		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button') }; })()`);
+		check(Object.values(tops).every((t) => t !== null) && [tops.main, tops.dock].every((t) => Math.abs(t - tops.sidebar) <= 1), `admin ${w}: every rail's button at one height (${JSON.stringify(tops)})`, JSON.stringify(tops));
 		await shot(`admin-${w}-rails`);
 		await key('|', 2 + 8);
 		if (await js(`!!${q('shell-rail')}`)) await js(`${q('shell-rail')}.querySelector('button').click(), true`);
-		await setAsk(false);
 	}
 	await size(1600);
 
@@ -228,36 +213,21 @@ try {
 	check(g.dock && g.dock.l >= 0 && g.dock.r <= 390 && g.dock.h > 600, 'admin phone: the detail covers the page', JSON.stringify(g));
 	await shot('admin-390-codes-detail');
 
-	// ── embassy: AppShell, Ask as the outermost region ──
+	// ── embassy: AppShell, the page takes the full width ──
 	for (const w of [1280, 1600, 1920]) {
 		await size(w);
-		check(await go(`${EMBASSY}/`, `!!document.querySelector('.sc-app-shell main') && !!${q('ask-toggle')}`), `embassy ${w}: Today in the AppShell`);
-		await setAsk(true);
+		check(await go(`${EMBASSY}/`, `!!document.querySelector('.sc-app-shell main')`), `embassy ${w}: Today in the AppShell`);
 		g = await layout();
-		check(g.ask && g.content.r <= g.ask.l + 1 && g.main.r <= g.ask.l + 1, `embassy ${w}: Ask open – the page ends where Ask starts`, JSON.stringify(g));
-		await shot(`embassy-${w}-ask`);
-		await setAsk(false);
-		g = await layout();
-		check(!g.ask && g.content.r >= w - 1, `embassy ${w}: Ask closed – the page takes the width again`, JSON.stringify(g));
+		check(g.content.r >= w - 1, `embassy ${w}: the page takes the full width`, JSON.stringify(g));
+		await shot(`embassy-${w}-today`);
 	}
 	// the selection model: at most one live region (the embassy has none of its own – its nav is "you are here")
 	check((await js(`document.querySelectorAll('[data-live]').length`)) <= 1, 'embassy: at most one live selection region');
-	await size(1600);
-	await go(`${EMBASSY}/leads`, `!!document.querySelector('.sc-app-shell main')`);
-	await setAsk(true);
-	const a0 = (await layout()).ask.w;
-	await drag('.sc-shell-ask .sc-divider', -120);
-	const a1 = (await layout()).ask.w;
-	check(a1 > a0 + 100, `embassy: Ask's divider drags it wider (${a0} → ${a1} px)`);
-	await shot('embassy-1600-leads-ask-wide');
-	await js(`document.querySelector('.sc-shell-ask .sc-divider').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
 	await size(390, 844);
-	await go(`${EMBASSY}/`, `!!${q('ask-toggle')}`);
-	await setAsk(true);
+	check(await go(`${EMBASSY}/`, `!!document.querySelector('.sc-app-shell main')`), 'embassy phone: Today');
 	g = await layout();
-	check(g.ask && g.ask.l <= 0 && g.ask.r >= 389 && g.ask.h > 600, 'embassy phone: Ask covers the page', JSON.stringify(g));
-	await shot('embassy-390-ask');
-	await setAsk(false);
+	check(g.content.l <= 0 && g.content.r >= 389, 'embassy phone: the page takes the full width', JSON.stringify(g));
+	await shot('embassy-390-today');
 
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } finally {

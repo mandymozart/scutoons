@@ -13,7 +13,7 @@ export function panelWidth(storageKey: string, normalRem = 24, rightEdge: () => 
 	/** px the place it is docked in leaves it (the AppShell's dock: the content keeps its minimum) */
 	let room: (() => number) | null = null;
 	/** px: where the region ends, set by the place it is docked in (the AppShell: the panel's right edge – another
-	 * panel or Ask may sit right of it) */
+	 * panel may sit right of it) */
 	let edge: (() => number) | null = null;
 	const region = dockRegion({
 		key: () => storageKey,

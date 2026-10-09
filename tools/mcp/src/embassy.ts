@@ -3,7 +3,6 @@
 // ambassador / admin) decide. The agent reads, logs touchpoints, sets next dates and DRAFTS mails; it never sends:
 // a draft comes back to the panel as a card, the person reviews it and sends it from the app (owner 2026-10-04: "the
 // agent only drafts – a person reviews and sends", one-to-one, no mass mail).
-import { randomUUID } from 'node:crypto';
 import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { ApiError, createApiClient, createEmbassyApi, createProductsApi, isStockist, ORG_TYPES, STAGES, TRACKS, type Activity, type OrgDetail } from '@scutoons/api';
@@ -406,7 +405,7 @@ export function registerEmbassyTools(server: McpServer, config: Config, options:
 		'draft_mail',
 		{
 			description:
-				'Puts a mail draft in front of the person as a card: they edit it, then send it from the app (one-to-one, from the shared mailbox) – you never send. `to` must be one of read_org\'s `recipients` (people who opted out never get mail). Write in the recipient\'s language. The opt-out line is added when sent – don\'t write one. Several recipients = several drafts, each individual.',
+				'SAVES a mail draft on the organisation and returns its link: the person opens it, edits it and sends it from the Embassy app (one-to-one, from the shared mailbox) – you never send. Give them the link. `to` must be one of read_org\'s `recipients` (people who opted out never get mail). Write in the recipient\'s language. The opt-out line is added when sent – don\'t write one. Several recipients = several drafts, each individual.',
 			inputSchema: z.object({
 				org_id: z.string(),
 				to: z.string().describe('an address from read_org recipients'),
@@ -416,7 +415,7 @@ export function registerEmbassyTools(server: McpServer, config: Config, options:
 				text: z.string().min(1).max(20000).describe('plain text, signed by the person (see the system prompt)'),
 				reply_to_activity_id: z.string().optional().describe('a mail log entry this answers (keeps the thread)')
 			}),
-			annotations: read
+			annotations: write
 		},
 		guard(async ({ org_id, to, track, language, subject, text: body, reply_to_activity_id }) => {
 			const detail = await embassy.org(org_id);
@@ -425,22 +424,22 @@ export function registerEmbassyTools(server: McpServer, config: Config, options:
 				const opted = detail.org.do_not_contact || detail.people.some((p) => p.do_not_contact && p.email.toLowerCase() === to.trim().toLowerCase());
 				return fail(opted ? `${to} opted out (do not contact) – no mail to them, ever.` : `${to} is not an address of ${detail.org.name} – use one of read_org's recipients.`);
 			}
-			// `id`: the panel remembers which drafts were sent, so a reopened chat doesn't offer to send one twice
-			const draft = {
-				id: randomUUID(),
-				kind: 'mail_draft',
-				org_id,
-				org: detail.org.name,
+			const r = await embassy.createDraft(org_id, {
 				to: recipient.email,
-				name: recipient.name,
 				person_id: recipient.person_id,
 				track: track ?? null,
-				language,
 				subject,
 				text: body,
-				reply_to_activity_id: reply_to_activity_id ?? null
-			};
-			return text({ draft, shown: 'The person sees the draft as a card and sends it themselves. Do not repeat the mail text in your answer.' });
+				reply_to_activity_id: reply_to_activity_id ?? null,
+				language,
+				source: 'agent'
+			});
+			return text({
+				draft: r.draft.id,
+				to: `${recipient.name ? `${recipient.name} · ` : ''}${recipient.email}`,
+				open: `${options.links.embassy}/orgs/${encodeURIComponent(org_id)}?draft=${encodeURIComponent(r.draft.id)}`,
+				shown: 'Saved as a draft – nothing is sent. Give the person the link: they check it and press Send there. Do not repeat the mail text.'
+			});
 		})
 	);
 

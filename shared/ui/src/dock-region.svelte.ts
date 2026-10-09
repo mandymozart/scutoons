@@ -6,7 +6,7 @@ import { resizable } from './resizable.svelte.ts';
  * than 60 % of the normal width snaps it to the rail, dragging out of the rail opens it again (one direction per drag –
  * owner 2026-10-03: folding and unfolding in the same drag glitched). Left regions (the sidebar, the script outline)
  * remember the fold (`foldKey`); the right dock folds for now (`foldable`, owner 2026-10-06) – it opens unfolded.
- * `foldWhen`: the page needs the room (a right dock + Ask open) – folded for now, not remembered; unfolding by hand wins
+ * `foldWhen`: the page needs the room (e.g. a region is maximized) – folded for now, not remembered; unfolding by hand wins
  * until it turns false again.
  *
  *   const region = dockRegion({ key: () => 'sc-sidebar-width:creator', foldKey: () => 'sc-sidebar-folded:creator',

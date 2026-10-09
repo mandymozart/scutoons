@@ -18,8 +18,6 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Domain\Secrets;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
-use Scutoons\Http\Controllers\AgentChatsController;
-use Scutoons\Http\Controllers\AgentUsageController;
 use Scutoons\Http\Controllers\ReviewsController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
@@ -28,6 +26,7 @@ use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
+use Scutoons\Http\Controllers\Admin\ProposalsController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
@@ -180,16 +179,6 @@ return static function (App $app): void {
     $app->post('/api/reviews', [ReviewsController::class, 'submit']);
     $app->post('/api/reviews/{action:publish|return}', [ReviewsController::class, 'decide']);
 
-    // The creator's Ask panel chat history (docs/API.md "Agent chats", content editors, each only their own chats);
-    // the id is any path segment so a malformed one answers 422 invalid_id, not 404
-    $app->get('/api/agent-chats', [AgentChatsController::class, 'index']);
-    $app->get('/api/agent-chats/{id}', [AgentChatsController::class, 'get']);
-    $app->put('/api/agent-chats/{id}', [AgentChatsController::class, 'put']);
-    $app->delete('/api/agent-chats/{id}', [AgentChatsController::class, 'delete']);
-    // ...and its usage log: one row per AI API call, written by the Ask service with the creator's session AND its
-    // X-Service-Key (docs/API.md "Agent usage"); the admin overview is GET /api/admin/agent-usage
-    $app->post('/api/agent-usage', [AgentUsageController::class, 'record']);
-
     // Asset manager (agents/ASSETS.md): the creator's asset picker – browse, look up, upload new files (content editors)
     $asset = '{id:[0-9a-f-]{36}}';
     $app->get('/api/assets', [AssetsController::class, 'list']);
@@ -236,6 +225,11 @@ return static function (App $app): void {
         $embassy->post("/orgs/$id/activities", [EmbassyController::class, 'log']);
         // mail from the shared mailbox (SMTP) and the replies read back (IMAP) – agents/EMBASSY.md "Automation"
         $embassy->post("/orgs/$id/mail", [EmbassyController::class, 'mail']);
+        // mail drafts (agents/MCP.md "Draft → link"): saved by the member's AI, sent by the member from the org page
+        $embassy->post("/orgs/$id/drafts", [EmbassyController::class, 'createDraft']);
+        $embassy->get('/drafts', [EmbassyController::class, 'listDrafts']);
+        $embassy->get("/drafts/$id", [EmbassyController::class, 'getDraft']);
+        $embassy->delete("/drafts/$id", [EmbassyController::class, 'deleteDraft']);
         $embassy->get('/inbox', [EmbassyController::class, 'inbox']);
         $embassy->post('/inbox/sync', [EmbassyController::class, 'syncInbox']);
         $embassy->put("/people/$id", [EmbassyController::class, 'updatePerson']);
@@ -253,8 +247,11 @@ return static function (App $app): void {
     $app->group('/api/admin', function (RouteCollectorProxy $admin): void {
         $admin->get('/dashboard', [SystemController::class, 'dashboard']);
         $admin->get('/events', [SystemController::class, 'events']);
-        // the Ask panel's AI usage per day / month, creator, service, model (docs/API.md "Agent usage")
-        $admin->get('/agent-usage', [AgentUsageController::class, 'overview']);
+        // proposals of an admin's own AI (agents/MCP.md "Draft → link"): stored, applied in the admin app
+        $admin->get('/proposals', [ProposalsController::class, 'list']);
+        $admin->post('/proposals', [ProposalsController::class, 'create']);
+        $admin->get('/proposals/{id:[0-9a-f-]{36}}', [ProposalsController::class, 'get']);
+        $admin->put('/proposals/{id:[0-9a-f-]{36}}', [ProposalsController::class, 'decide']);
         $admin->get('/catalog', [SystemController::class, 'catalog']);
         // when picked-up placed items reappear, per item (an update of the item's `respawn` in catalog_items)
         // the catalog tables (agents/CATALOG.md): per kind list / get / put / delete / reorder, history + undo

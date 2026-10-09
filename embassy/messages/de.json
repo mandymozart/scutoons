@@ -10,7 +10,11 @@
 		"navigation": "Bereiche",
 		"dismiss": "Schließen",
 		"liaison": "Liaison",
-		"ambassador": "Ambassador"
+		"ambassador": "Ambassador",
+		"close": "Schließen",
+		"fold_panel": "Panel einklappen",
+		"maximize_panel": "Panel maximieren",
+		"restore_panel": "Wiederherstellen"
 	},
 	"nav": {
 		"today": "Heute",
@@ -225,26 +229,6 @@
 		"new_org": "Neue Organisation",
 		"quiet": "Früher geantwortet, jetzt still"
 	},
-	"ask": {
-		"title": "Ask",
-		"open": "Den Agenten fragen",
-		"new": "Neuer Chat",
-		"close": "Schließen",
-		"you": "Du",
-		"agent": "Agent",
-		"placeholder": "Kontakte finden, einen Anruf eintragen, eine Mail entwerfen …",
-		"send": "Senden",
-		"stop": "Stopp",
-		"working": "Arbeitet …",
-		"context": "{page} · nur Entwürfe – du sendest",
-		"empty": "Frag nach deinen Kontakten und Leads, trag ein, was passiert ist, oder lass den Agenten eine Mail entwerfen – zu einem neuen Release, zum Nachfassen, als Dankeschön. Er sendet nie: du liest den Entwurf und sendest ihn.",
-		"unavailable": "Der Agent ist gerade nicht erreichbar.",
-		"signed_out": "Deine Sitzung ist abgelaufen – melde dich neu an.",
-		"history": "Frühere Chats",
-		"history_unavailable": "Der Chat-Verlauf ist noch nicht verfügbar.",
-		"resize": "Ziehen, um die Breite zu ändern",
-		"draft": "Entwurf #{id}"
-	},
 	"mail": {
 		"to": "An",
 		"subject": "Betreff",
@@ -258,7 +242,17 @@
 		"reply": "Antwort",
 		"blocked": "Abgemeldet – keine Mail.",
 		"empty": "Erst Betreff und Text.",
-		"no_recipient": "Keine Adresse – oder alle hier haben sich abgemeldet."
+		"no_recipient": "Keine Adresse – oder alle hier haben sich abgemeldet.",
+		"drafts": "Entwürfe",
+		"draft_by_ai": "Entwurf von {author}s KI · {when}",
+		"draft_by": "Entwurf von {author} · {when}",
+		"discard": "Verwerfen",
+		"discard_title": "Diesen Entwurf verwerfen?",
+		"discard_message": "Nichts wird gesendet. Der Entwurf wird gelöscht.",
+		"discarded": "Entwurf verworfen.",
+		"not_yours": "Nur {author} sendet diesen Entwurf – er geht in deren Namen raus.",
+		"draft_gone": "Dieser Entwurf wurde schon gesendet oder verworfen.",
+		"open_draft": "Öffnen"
 	},
 	"welcome": {
 		"title": "Willkommen in der Embassy",
@@ -305,11 +299,7 @@
 		"done_week": "Deine Portion für diese Woche ist erledigt. Danke!",
 		"none_owned": "Noch keine eigenen Kontakte – leg einen an oder übernimm freie.",
 		"add": "Kontakt anlegen",
-		"unowned": "Freie Leads",
-		"ask": "Meine Woche durchgehen",
-		"ask_text": "Geh meine Portion dieser Woche durch ({count} Kontakte) und schlag zu jedem vor, was ich sagen oder schreiben kann – kurz, eine Zeile pro Kontakt. Heute ist {date}.",
-		"prepare": "Ask: vorbereiten",
-		"prepare_text": "Hilf mir mit {org} ({track}): {hint}. Lies zuerst den Verlauf und schlag vor, was ich am Telefon sage, oder entwirf eine Mail."
+		"unowned": "Freie Leads"
 	},
 	"hint": {
 		"mail_no_answer": "Mail vor {days} Tagen, keine Antwort – auf „{subject}“ beziehen",
