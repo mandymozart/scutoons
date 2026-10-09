@@ -4,8 +4,54 @@ One list for the open work (owner 2026-10-06: "we need to merge cutover post ite
 CUTOVER.md Phase 10 ("after the beta", items keep their numbers 10.x so commits and docs that cite "CUTOVER 10.x" still
 find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the runbook of the cutover itself.
 
-New entries: the next free number (10.59, …), owner + date, then **O –** for steps the owner runs on production. Tick
+New entries: the next free number (10.60, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
+
+## Storyboard run 2026-10-09 evening (owner away: "work the plan now") – result, read this first
+
+Branch **`storyboard`** in the worktree **`C:\Development\scutoons-storyboard`** (owner asked for it); `main` merged in
+(the MCP refactor commits up to dc7d1d36). **Not merged into `main`, not pushed** – the main checkout has the MCP
+session's uncommitted work, so the merge is yours (or the next session's): `git merge storyboard` on `main`. No Figma
+call, no production, the dev DB only read. Item **10.59**.
+
+**Result**
+- **Chapter 3 first throw:** 10 storyboards (scenes 25–34), **62 shots, 72.3 screens, ~20 min** careful reading
+  (target 60–80 / 15–20; at the upper edge – scene 30 and 32 have the most room to trim). No text walls (≤ 35 words a
+  screen). Shots want: 22 photo · 21 direct · 9 generated · 10 art.
+  Look: `node scripts/storyboard/render.mjs storyboards/catpope/s1c3` → `storyboards/_out/s1c3/index.html`.
+- **Rhythm report ch1 + ch2** (phase 1a): ch1 70.6 screens / 17.5 min (calibration: your 15–20 min → ~9.7 s of
+  looking per screen), ch2 81.7 screens / 16.5 min (+ 4.1 min in its VN side groups) – the two match, as you said.
+  Ch2's text is mostly in the images, so its word count is low. `node scripts/storyboard/rhythm-report.mjs`.
+- **Chapter 3 draft** (phase 2): `compile.mjs` → `storyboards/_out/s1c3/chapter.draft.json` (13 groups, 72 slices +
+  mama-forest / mama-biker kept) + 72 schematic PNGs with their CDN paths. The creator's own validator: **0 errors**
+  (warnings: en texts missing, event ids the creator assigns on save). **Not saved, not uploaded.**
+- **Shot list** for matching your Figma selection / planning shootings: `storyboards/_out/s1c3-shotlist.md`.
+- **Prompts for the 9 gap shots** (Luma, manual): `storyboards/_out/s1c3-prompts.md` – English prompt, aspect, what to
+  attach. The style block is my first version from ch1/ch2 – please confirm.
+- **Figma bridge** (`tools/figma-bridge/`): dev plugin + local relay + CLI, self-test passes without Figma. **Not tried
+  in Figma yet.** Setup: its README (3 steps). The same draft code also exists as `use_figma` scripts
+  (`storyboards/_out/s1c3/figma/`).
+
+**Look at (in this order)**
+1. `storyboards/_out/s1c3/index.html` – the flow of chapter 3, shot by shot (schematics + rail + notes).
+2. The open questions below – most change a shot or two.
+3. Then together: the bridge's first run on a test page (`S1C3 · storyboard (test)`), then matching against `S1C3`.
+
+**Decisions waiting (from the storyboards' notes)**
+- 25: PLF gets off a train (end of ch2) or a bus?
+- 26: what is the sphere (chrome mirror ball assumed; a hint at the server farm?); PLF's lines – speech or thought?
+- 27: the script switches to plural ("Sie atmeten") – intended?
+- 28: TIGER = catpope / mountaintiger (the registry) or its own character ("Anger Stage Character")? Gone after the
+  fall? Added SFX AAAAAHHH! / WUMMS ok?
+- 29: the Aquinas quote ("man of one book"?), English or German; PAH as lettering? Who plays YPLF (new, Wanted)?
+- 30: book subtitles readable (tap → text)? The CHOR (text, audio, both)? PLF's eyes already cat eyes?
+- 31: the riddle (four words in order) – wanted, which mechanic? The "digital paw" – first transformation?
+- 32: KRÄHENWESEN = crows? (not in 25–30); "Trans" = Trance? CATS.MANIFEST as a tappable full text?
+- 33: who streams (Cat Pope or PLF)? A real video? The studio's place (not on the map)? "Apple Store" ok? A reader
+  poll for the comments line?
+- 34: Kamehameha (name, how close to the original); end on the cemetery or at the door (overlap with 35)? "NO HE SAID"
+  – end of ch3, start of ch4, or not in the toon?
+- All: PLF's pronoun switches in the script (sie / er) – the storyboards use "sie" throughout.
 
 ## Day run 2026-10-07 (owner away: "go automatically") – the plan, all decided with the owner
 
@@ -745,6 +791,15 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
       typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
       sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
+- [ ] 10.59 **Storyboard: script scene → stacked shots → first throw in Figma → chapter draft, prompts for the gaps**
+      (owner 2026-10-09; plan + milestones: agents/STORYBOARD.md §9; rules: workflows/scenes/storyboard.md). Timeline:
+      ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout from the week of 2026-10-12. Built on branch
+      `storyboard` (worktree `C:\Development\scutoons-storyboard`, owner's request 2026-10-09): `scripts/storyboard/`
+      (rhythm report, validate, render, shot list, compile → chapter draft + PNGs, check-draft, prompts, figma-draft),
+      the ch3 first throw `storyboards/catpope/s1c3/scene-25…34.json`, `tools/figma-bridge/` (plugin + relay + CLI).
+      Open: the owner's answers (the run result at the top), the first Figma run (bridge or use_figma, on a test page),
+      MCP tools for the bridge after the MCP refactor, save_draft + upload of the ch3 draft (owner's go), the
+      matching against the S1C3 selection.
 
 ## Done
 

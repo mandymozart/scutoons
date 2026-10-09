@@ -674,6 +674,12 @@ layout (owner 2026-10-09), so **M1/M2 keep their dates**; M1 starts once both ar
 
 ### Milestones
 
+**Status 2026-10-09 evening** (branch `storyboard`, BACKLOG 10.59 + the run result at its top): M1 built – 1a rhythm
+report, phase 1 (rules, validate, render, shot list), the **ch3 first throw** (scenes 25–34: 62 shots, 72.3 screens,
+~20 min) –, M2's compile (chapter draft + PNGs, 0 errors in the creator's validator; not saved), M3's prompt sheet
+(9 gap shots), and the **SCUTOONS Figma bridge** (plugin + relay + CLI, self-tested; not run in Figma yet). Waiting:
+the owner's answers, the first Figma run, the bridge's MCP tools after the refactor.
+
 | # | Ready by | Build (phases below) | Used for |
 |---|---|---|---|
 | M1 | **Mon–Tue 2026-10-12/13** | **0b** read ch3's preselection from Figma (thumbnails + node ids per scene / place) · **1 slim** (`workflows/scenes/storyboard.md`, `scripts/storyboard/`: types, validate, storyboard page with the matched images + rhythm rail) · **1a** rhythm report ch1 (+ ch2) for the targets | **ch3 first throw**: storyboards for scenes 25–34 with matched images, owner gate G1 |
