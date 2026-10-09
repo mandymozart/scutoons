@@ -25,7 +25,6 @@ return [
     // Long random string (>= 32 chars): login codes, IP/device hashes, access tokens. openssl rand -hex 32
     'AUTH_SECRET' => '',
     // Password of the legacy generate/ SPA (static admin token, until the admin app replaces it)
-    'GENERATE_PASSWORD' => '',
     // Shared secret of the qr app (qr.scutoons.com, calls the API server-side): only requests carrying it in
     // X-Scutoons-Proxy-Secret may forward the client IP / device id (Http\Middleware\DeviceId). Empty = trust nobody.
     // Same value as QR_PROXY_SECRET in the qr app's config. openssl rand -hex 32

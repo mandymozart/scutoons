@@ -59,20 +59,6 @@ final class CodeAdmin
     }
 
     /**
-     * Scans and accesses per UTC day for the last $days days (only days with events)
-     * @return list<array{day: string, scans: int, accesses: int}>
-     */
-    public function daily(int $days): array
-    {
-        return array_map(fn(array $r) => ['day' => (string) $r['day'], 'scans' => (int) $r['scans'], 'accesses' => (int) $r['accesses']],
-            $this->db->all("SELECT SUBSTR(created_at, 1, 10) AS day,
-                    SUM(CASE WHEN event = 'scan' THEN 1 ELSE 0 END) AS scans,
-                    SUM(CASE WHEN event = 'access' THEN 1 ELSE 0 END) AS accesses
-                 FROM code_events WHERE created_at >= ? GROUP BY SUBSTR(created_at, 1, 10) ORDER BY day",
-                [gmdate('Y-m-d', $this->clock->time() - ($days - 1) * 86400) . ' 00:00:00']));
-    }
-
-    /**
      * Admin list: codes + statistics, filters edition_id, type, status (claimed|unclaimed|revoked|expired|active|
      * signed|unsigned), q = part of the code. Sortable by every statistic.
      * @return array{items: list<mixed>, pagination: array{total: int, page: int, pageSize: int}}

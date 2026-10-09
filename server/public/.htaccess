@@ -1,5 +1,5 @@
 # Web root of the SCUTOONS API (document root of api.scutoons.com; the public pages of qr.scutoons.com are the qr app).
-# Static files here are served as they are (assets/, the legacy generate/ SPA); everything else goes to the front
+# Static files here are served as they are (assets/); everything else goes to the front
 # controller index.php (Slim, routes in ../config/routes.php). No other PHP file is ever run.
 Options -Indexes
 DirectoryIndex index.html

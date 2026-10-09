@@ -141,12 +141,6 @@ final class UserAdmin
         return ['changed' => $changed, 'characters' => $this->characters((string) $user['id'])];
     }
 
-    public function idByEmail(string $email): ?string
-    {
-        $user = $this->users->byEmail($email);
-        return $user !== null ? (string) $user['id'] : null;
-    }
-
     /**
      * Grant or revoke a role. 400 unknown_role, 404 not_found.
      * @return array{changed: bool, user: array<string, mixed>}

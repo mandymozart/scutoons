@@ -31,7 +31,6 @@ composer serve                                    # http://localhost:9000  (bin/
   `bin/dev-serve.mjs` (Node): `php -S` answers one request at a time and cannot fork on Windows, so it starts 4 workers
   (`[::1]:9200-9203`, OPcache on) behind a small proxy on :9000 (::1 + 127.0.0.1). `composer serve:php` = the plain
   single-process `php -S` on the same port. Numbers: agents/PERFORMANCE.md.
-- Legacy admin SPA: http://localhost:9000/generate/ (password = `GENERATE_PASSWORD`)
 - Login mails land in `logs/mail.log` (`MAIL_TRANSPORT = log`).
 - Database: MariaDB only – the Docker container from `npm run dev:db` (root; 127.0.0.1:13306, scutoons/scutoons, as in
   `config.local.php.example`). Content + catalog come from production: `db/prod-seed.sql` (phpMyAdmin export) loaded by

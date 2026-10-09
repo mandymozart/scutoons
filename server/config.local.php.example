@@ -7,7 +7,6 @@
 // At least 32 random characters: php -r "echo bin2hex(random_bytes(32));"
 define('AUTH_SECRET', '');
 // Password of the legacy generate/ SPA (until the admin app replaces generate/)
-define('GENERATE_PASSWORD', 'your-password-here');
 // Shared with the qr app (qr/config.local.php, same value): it forwards the visitor's IP / device id and logs scans
 define('QR_PROXY_SECRET', '');
 // Shared with the creator's Ask service (tools/mcp, same value there): it writes the AI usage log (POST /api/agent-usage

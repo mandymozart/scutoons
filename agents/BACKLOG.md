@@ -285,7 +285,11 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
       then prune (ASSETS.md "Migration plan").
 - [ ] 10.5 _(test hosts + T1's origin removed 2026-10-05)_ Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
-      no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
+      no `/api/*` traffic; ~~remove `generate/` + `GENERATE_PASSWORD` after admin parity~~ **done 2026-10-09** (owner:
+      "alter Generator kann entfernt werden"): the SPA, its 13 static-token endpoints (incl. `keys.php` with the private
+      key), `GenerateToken`, `GENERATE_PASSWORD` and qr's `/generate/` redirect are gone; `get-signature.php` + the
+      signature files stay public (`Legacy/SignatureController`). **Owner:** delete the GitHub secret `GENERATE_PASSWORD`
+      and `api/public/generate/` on the host if it is still there.
       _`PROXY_FULL_API=0` (branch `10.5-qr-proxy-off`, 2026-10-05):_ `deploy/targets.json` qr "0" and the default in
       `qr/src/Config.php` ("1" = rollback, then deploy qr). Still proxied: `/api/validate/`, `/api/keys/keys.php`,
       `/api/certificates/*`, `generate/get-signature.php` + signature files; the rest of `/api/*` → 404 JSON. Evidence: the

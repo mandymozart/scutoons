@@ -47,7 +47,7 @@ use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
 use Scutoons\Http\Controllers\KeysController;
 use Scutoons\Http\Controllers\LibraryController;
-use Scutoons\Http\Controllers\Legacy\GenerateController;
+use Scutoons\Http\Controllers\Legacy\SignatureController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NewsletterController;
 use Scutoons\Http\Controllers\NotFoundController;
@@ -56,7 +56,6 @@ use Scutoons\Http\Controllers\ProductsController;
 use Scutoons\Http\Controllers\ProgressController;
 use Scutoons\Http\Controllers\StockistsController;
 use Scutoons\Http\Controllers\ValidateController;
-use Scutoons\Http\Middleware\GenerateToken;
 use Scutoons\Http\Middleware\RateLimit;
 use Scutoons\Http\Middleware\RequireRole;
 use Scutoons\Infrastructure\Config\Settings;
@@ -355,26 +354,10 @@ return static function (App $app): void {
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")
     $app->any('/api[/{rest:.*}]', NotFoundController::class);
 
-    // ── LEGACY generate/ SPA endpoints (static token; removed once the admin app has parity) ────────────
-    $token = $c->get(GenerateToken::class);
-    $app->post('/generate/auth.php', [GenerateController::class, 'auth']);
-    // PUBLIC: the verify page (qr app, proxied) – these two stay in the API when generate/ retires
-    $app->any('/generate/get-signature.php', [GenerateController::class, 'signature']);
-    $app->get('/generate/files/signatures/{name:SIGNATURE-[A-Za-z0-9_-]{1,32}\.json}', [GenerateController::class, 'signatureFile']); // verify page fallback
-    $app->group('/generate', function (RouteCollectorProxy $generate): void {
-        $generate->any('/generate.php', [GenerateController::class, 'generate']);
-        $generate->get('/get-batches.php', [GenerateController::class, 'batches']);
-        $generate->get('/get-batch.php', [GenerateController::class, 'batch']);
-        $generate->get('/download-batch.php', [GenerateController::class, 'download']);
-        $generate->post('/files.php', [GenerateController::class, 'files']);
-        $generate->any('/save-signature.php', [GenerateController::class, 'saveSignature']);
-        $generate->get('/keys.php', [GenerateController::class, 'keys']);
-        $generate->get('/stats.php', [GenerateController::class, 'stats']);
-        $generate->get('/code-events.php', [GenerateController::class, 'codeEvents']);
-        $generate->any('/revoke.php', [GenerateController::class, 'revoke']);
-        $generate->get('/users.php', [GenerateController::class, 'users']);
-        $generate->any('/user-roles.php', [GenerateController::class, 'userRoles']);
-    })->add($token);
+    // ── LEGACY URLs, PUBLIC: the verify page (qr app, proxied) and printed certificate links – what is left of the
+    //    retired generate/ SPA (removed 2026-10-09; the admin app does the rest) ───────────────────────────────────────
+    $app->any('/generate/get-signature.php', [SignatureController::class, 'signature']);
+    $app->get('/generate/files/signatures/{name:SIGNATURE-[A-Za-z0-9_-]{1,32}\.json}', [SignatureController::class, 'signatureFile']); // verify page fallback
 
     // Every other path: 404 (plain text). The QR landing page /?c= and /verify.html live in the qr app (qr/), which
     // proxies /api/validate/, /api/keys/keys.php, the verify page's get-signature.php / signature files (+ /api/*) here.

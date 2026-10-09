@@ -1,6 +1,6 @@
 # Only used when the document root of api.scutoons.com is this folder (api/ on the host) instead of api/public/
 # (recommended). Every request is forwarded into public/ (the web root; its .htaccess sends dynamic requests to
-# public/index.php), so /api/* and the legacy /generate/ answer the same either way (docs/DEPLOY.md).
+# public/index.php), so /api/* and the two legacy /generate/ signature URLs answer the same either way (docs/DEPLOY.md).
 # The private folders are denied in any case, also should the forwarding below be switched off.
 Options -Indexes
 

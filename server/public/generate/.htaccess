@@ -1,4 +1,0 @@
-AuthUserFile .htpasswd
-AuthType Basic
-AuthName "SCUTOON Admin"
-Require valid-user

@@ -42,7 +42,7 @@ final class Kernel
         $settings = $container->get(Settings::class);
 
         // Middleware runs outside-in in the reverse order of adding: NormalizePath → Cors → ErrorHandler → routing →
-        // DeviceId → JsonBody → Session → route middleware (RequireRole, RateLimit, GenerateToken) → controller.
+        // DeviceId → JsonBody → Session → route middleware (RequireRole, RateLimit) → controller.
         // No host routing: this is the API only; the public pages (qr.scutoons.com) are the qr app, which proxies here.
         $app->add(Session::class);
         $app->add(JsonBody::class);

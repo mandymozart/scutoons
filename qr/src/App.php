@@ -47,9 +47,6 @@ final class App
         if ($path === '/api' || str_starts_with($path, '/api/')) {
             return Response::json(404, '{"status":"error","error":"not_found","message":"Unknown endpoint."}');
         }
-        if ($path === '/generate' || str_starts_with($path, '/generate/')) {
-            return Response::redirect($this->config->apiUrl() . $path . ($query !== '' ? '?' . $query : ''));
-        }
         if ($path === '/version.json') {
             return Response::json(200, (string) json_encode(self::version($this->config->root()), JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
         }

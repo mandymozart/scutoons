@@ -145,8 +145,10 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET/PUT | `/emails/recipients` | admin notification addresses (setting `mail_admin_recipients`, default `MAIL_ADMIN_TO`): `GET` → `{ status, items, default, stored, updated_at, updated_by, max: 10 }`; `PUT { items: [email] \| null }` → `{ status, changed, …same }` (lower-cased, deduplicated; `[]` = nobody; `null` = back to the default) · `400 invalid_recipients` |
 | GET | `/versions` | the deployed version of every app: `{ status, checked_at, api: { app, version, git_sha, built_at }, apps: [{ app, url, ok, http_status, version?, git_sha?, built_at?, shared?, error? }] }` – each app's `version.json` (`VERSION_URLS`) fetched in parallel, 4 s timeout (platform P3) |
 
-The legacy `generate/*.php` endpoints (static token `X-Generate-Token`) stay for the `generate/` SPA until the admin
-app has parity; they call the same services.
+The legacy `generate/` SPA and its static-token endpoints were removed 2026-10-09 (the admin app does all of it). Two
+of its URLs stay, public and unchanged, because the verify page and printed certificates use them:
+`GET /generate/get-signature.php?code=` and `GET /generate/files/signatures/SIGNATURE-<code>.json`
+(`Legacy/SignatureController`).
 
 ### Catalog (2026-10-04, migration `2026-10-04-catalog` – agents/CATALOG.md)
 
@@ -793,4 +795,3 @@ restore re-indexes the entity's uses.
 - A code is bound to one account (`qr.claimed_by`); codes claimed with the old email-only form can be taken over only
   by an account with that email.
 - Grants are limited to the item's `grantable` sources; scan grants need a detecting tool and respect its cooldown.
-- The legacy `GENERATE_PASSWORD` token only unlocks the `generate/*.php` endpoints; an empty password locks them.

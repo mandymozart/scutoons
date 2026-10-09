@@ -102,7 +102,6 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `EMBASSY_SMTP_USER`, `EMBASSY_SMTP_PASS` | secret | api – the login of the hello@scutoons.com mailbox (KAS): Embassy mails go out from it (SMTP) and replies are read from its inbox (IMAP) on the same server, `SMTP_HOST` (agents/EMBASSY.md "Ask + mail") |
 | `EMBASSY_CRON_KEY` | secret | api – key of the Embassy cron URL (inbox sync + the team's reminder mails). Unset = the URL answers 404. All-inkl: KAS → Tools → Cronjobs → URL `https://api.scutoons.com/api/embassy/cron?key=<the key>`, daily at 07:00 (server/docs/API.md "Embassy" → "Pace") |
 | `NEWSLETTER_CRON_KEY` | secret | api – key of the newsletter cron URL (one batch of a newsletter that is sending, agents/NEWSLETTER.md). Unset = the URL answers 404 and mails only go out while the admin's Newsletters page sends. All-inkl: KAS → Tools → Cronjobs → URL `https://api.scutoons.com/api/newsletter/cron?key=<the key>`, every 5 minutes |
-| `GENERATE_PASSWORD` | secret | api – only until the admin app replaces `generate/` |
 | `DB_HOST`, `DB_NAME` | variable | api |
 | `MAIL_FROM` (a plain address), `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | variable | api |
 | `EMBASSY_MAIL_FROM`, `EMBASSY_MAIL_FROM_NAME` | variable | api – optional, defaults hello@scutoons.com and "Top Toy · SCUTOONS". (Overrides for an unusual mailbox – `EMBASSY_IMAP_HOST` / `_PORT` / `_USER` / `_PASS` / `_FOLDER` / `_SENT` – exist in server/config/settings.php but are not deployed.) |
