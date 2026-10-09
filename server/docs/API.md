@@ -591,12 +591,17 @@ signs in with a personal token from the account page ("AI connections"). Code: `
   `POST /reviews/publish|return`, `POST /embassy/orgs/{id}/mail`, `DELETE /embassy/orgs/{id}`, `POST /embassy/import`,
   every `/admin/*` call but GET / HEAD and `POST /admin/proposals`, `POST /auth/session|logout`, `/me/tokens*`.
 - A save through a token is signed "(AI: <connection name>)" in the version message.
+- **Six months** (owner 2026-10-09, migration `2026-10-09-tokens-expire`): `expires_at` = made / last renewed + 182 days;
+  expired → 401. Renewing (`POST /me/tokens/{id}/renew`, a real sign-in) moves the SAME token six months on – nothing to
+  set up again. Used within its last 14 days, its member gets ONE mail per period (`ai_token_expiring`, `reminded_at`) –
+  no cron: a token nobody uses needs no reminder.
 - Before the migration the endpoints answer `503 not_available`.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/me/tokens` | `{ status, member, items: [{ id, name, created_at, last_used_at, expires_at }] }` – `member`: the account may have tokens (readers can't; `items` empty then) |
+| GET | `/me/tokens` | `{ status, member, items: [{ id, name, created_at, last_used_at, expires_at, expired }] }` – `member`: the account may have tokens (readers can't; `items` empty then) |
 | POST | `/me/tokens` | `{ name }` → `201 { status, token, item }` – `token` only here · `400 name_required` · `403 no_member_role` · `409 too_many` |
+| POST | `/me/tokens/{id}/renew` | → `{ status, item }` – six more months from now (also an expired one) |
 | DELETE | `/me/tokens/{id}` | → `{ status }` – revoked: the next call with it answers 401 |
 
 A real session only (cookie or a session Bearer); CORS allows DELETE there.

@@ -101,6 +101,33 @@ final class ApiTokensApiTest extends TestCase
         self::assertSame(401, $this->request('GET', '/api/me', $ai)->getStatusCode());
     }
 
+    public function testSixMonthsOneReminderRenew(): void
+    {
+        [$creator] = $this->session(['creator'], 'creator@scutoons.test');
+        $r = self::json($this->request('POST', '/api/me/tokens', $creator, ['name' => 'Claude Code']));
+        $ai = ['Authorization' => 'Bearer ' . $r['token']];
+        $id = $r['item']['id'];
+        self::assertSame([$this->clock->utc(182 * 86400), false], [$r['item']['expires_at'], $r['item']['expired']]);
+
+        // used in its last two weeks: ONE reminder mail to the member
+        $this->db->run('UPDATE api_tokens SET expires_at = ? WHERE id = ?', [$this->clock->utc(10 * 86400), $id]);
+        // twice: the second call sends nothing
+        self::assertSame([200, 200], [$this->request('GET', '/api/me', $ai)->getStatusCode(), $this->request('GET', '/api/me', $ai)->getStatusCode()]);
+        $log = is_file($this->dir . '/mail.log') ? (string) file_get_contents($this->dir . '/mail.log') : '';
+        self::assertSame(1, substr_count($log, 'Subject: Your AI connection'), $log);
+        self::assertStringContainsString('creator@scutoons.test', $log);
+
+        // expired → 401; renewing (a real sign-in) brings the SAME token back for six months, the reminder may come again
+        $this->db->run('UPDATE api_tokens SET expires_at = ? WHERE id = ?', [$this->clock->utc(-60), $id]);
+        self::assertSame(401, $this->request('GET', '/api/me', $ai)->getStatusCode());
+        self::assertTrue(self::json($this->request('GET', '/api/me/tokens', $creator))['items'][0]['expired']);
+        self::assertSame(403, $this->request('POST', "/api/me/tokens/$id/renew", $ai)->getStatusCode());
+        $renewed = self::json($this->request('POST', "/api/me/tokens/$id/renew", $creator))['item'];
+        self::assertSame([$this->clock->utc(182 * 86400), false], [$renewed['expires_at'], $renewed['expired']]);
+        self::assertNull($this->db->value('SELECT reminded_at FROM api_tokens WHERE id = ?', [$id]));
+        self::assertSame(200, $this->request('GET', '/api/me', $ai)->getStatusCode());
+    }
+
     public function testWhatOnlyTheMemberDoesIsRefused(): void
     {
         [$admin] = $this->session([Roles::ADMIN, 'creator'], 'admin@scutoons.test');

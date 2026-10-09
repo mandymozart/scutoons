@@ -141,6 +141,7 @@ return static function (App $app): void {
     // AI connections: personal access tokens for the member's own AI (agents/MCP.md §3; a real session only)
     $app->get('/api/me/tokens', [ApiTokensController::class, 'list']);
     $app->post('/api/me/tokens', [ApiTokensController::class, 'create']);
+    $app->post('/api/me/tokens/{id:[0-9a-f-]{36}}/renew', [ApiTokensController::class, 'renew']);
     $app->delete('/api/me/tokens/{id:[0-9a-f-]{36}}', [ApiTokensController::class, 'revoke']);
 
     $app->map(['GET', 'POST'], '/api/access', [AccessController::class, 'access'])->add($lookupLimit);

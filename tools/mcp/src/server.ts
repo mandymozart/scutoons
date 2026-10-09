@@ -56,7 +56,7 @@ export function apiMessage(error: unknown): string {
 	if (!(error instanceof ApiError)) return error instanceof Error ? error.message : String(error);
 	if (error.status === 409)
 		return `409 conflict: ${error.message} – a newer version was saved since your base. Read the draft again (read_entity), reapply your change and save with the new version id as base.`;
-	if (error.status === 401) return '401: the token is not (or no longer) signed in – get a fresh creator session token';
+	if (error.status === 401) return '401: the token does not work any more – expired (six months) or revoked. The member renews it on scutoons.com/account → AI connections (nothing to set up again).';
 	if (error.status === 403) return `403: this account may not do that (${error.message}) – the API's role checks decide`;
 	if (error.status === 0) return `network error: the API is not reachable (${error.message})`;
 	return `${error.status} ${error.code}: ${error.message}`;

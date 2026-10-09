@@ -93,6 +93,8 @@ variable to the local server (`SCUTOONS_TOKEN`), as today with the copied cookie
 
 - Table `api_tokens`: id, user_id, name ("Claude on my laptop"), `token_hash` (SHA-256, like sessions), prefix `sct_`
   (never confused with a session), `created_at`, `last_used_at`, `expires_at` (optional), `revoked_at`.
+- **Six months** (owner 2026-10-09, built): a token expires 182 days after it was made / renewed; "Renew" on the
+  account page (a real sign-in) moves the same token on; used in its last 14 days → one reminder mail (no cron).
 - `Session.php`: a `Bearer sct_…` → that user with their current roles (a role change applies at once); `last_used_at`
   updated at most once a minute.
 - **Limits:** a token can't become a cookie (`POST /api/auth/session/` refuses it) and can't create tokens, change the

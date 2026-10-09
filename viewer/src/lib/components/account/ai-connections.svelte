@@ -18,6 +18,8 @@
 		name: string;
 		created_at: string;
 		last_used_at: string | null;
+		expires_at: string | null;
+		expired: boolean;
 	}
 
 	let member = $state(false);
@@ -31,6 +33,8 @@
 	let fresh = $state<{ id: string; token: string; name: string } | null>(null);
 	let app = $state<'desktop' | 'code'>('desktop');
 	let copied = $state(false);
+	/** the line after a renew */
+	let renewed = $state<string | null>(null);
 
 	const when = (utc: string) => formatDate(new Date(`${utc.replace(' ', 'T')}Z`));
 	const command = $derived(
@@ -59,6 +63,20 @@
 			adding = false;
 			name = '';
 			copied = false;
+		} catch {
+			error = m['account.ai_failed']();
+		} finally {
+			working = false;
+		}
+	}
+
+	async function renew(id: string) {
+		working = true;
+		error = null;
+		try {
+			const r = await api.post<{ item: Connection }>(`/me/tokens/${id}/renew`, {});
+			items = items.map((c) => (c.id === id ? r.item : c));
+			renewed = r.item.expires_at ? m['account.ai_renewed']({ date: when(r.item.expires_at) }) : null;
 		} catch {
 			error = m['account.ai_failed']();
 		} finally {
@@ -102,7 +120,7 @@
 			<ul class="list">
 				{#each items as c (c.id)}
 					<li>
-						<span class="what">{c.name}<small>{m['account.ai_created']({ date: when(c.created_at) })} · {c.last_used_at ? m['account.ai_last_used']({ date: when(c.last_used_at) }) : m['account.ai_never_used']()}</small></span>
+						<span class="what">{c.name}<small>{m['account.ai_created']({ date: when(c.created_at) })} · {c.last_used_at ? m['account.ai_last_used']({ date: when(c.last_used_at) }) : m['account.ai_never_used']()}{#if c.expires_at}{' · '}<span class:ended={c.expired}>{c.expired ? m['account.ai_expired']({ date: when(c.expires_at) }) : m['account.ai_expires']({ date: when(c.expires_at) })}</span>{/if}</small></span>
 						{#if confirming === c.id}
 							<span class="confirm">
 								<small>{m['account.ai_revoke_confirm']()}</small>
@@ -110,12 +128,17 @@
 								<Button size="sm" onclick={() => revoke(c.id)} disabled={working} data-testid="ai-revoke-yes">{m['account.ai_revoke_yes']()}</Button>
 							</span>
 						{:else}
-							<Button size="sm" variant="clear" onclick={() => (confirming = c.id)} data-testid="ai-revoke">{m['account.ai_revoke']()}</Button>
+							<span class="actions">
+								<Button size="sm" variant="clear" onclick={() => renew(c.id)} disabled={working} data-testid="ai-renew">{m['account.ai_renew']()}</Button>
+								<Button size="sm" variant="clear" onclick={() => (confirming = c.id)} data-testid="ai-revoke">{m['account.ai_revoke']()}</Button>
+							</span>
 						{/if}
 					</li>
 				{/each}
 			</ul>
 		{/if}
+
+		{#if renewed}<p class="hint" role="status">{renewed}</p>{/if}
 
 		{#if fresh}
 			<div class="fresh" data-testid="ai-fresh">
@@ -127,7 +150,7 @@
 					<input id="ai-token" readonly value={fresh.token} onfocus={(e) => e.currentTarget.select()} />
 					<Button size="sm" onclick={() => fresh && copy(fresh.token)}>{copied ? m['account.ai_copied']() : m['account.ai_copy']()}</Button>
 				</div>
-				<p class="hint">{m['account.ai_copy_hint']()}</p>
+				<p class="hint">{m['account.ai_copy_hint']()} {m['account.ai_lifetime']()}</p>
 				<div class="seg" role="group" aria-label={m['account.ai_app']()}>
 					<button type="button" aria-pressed={app === 'desktop'} onclick={() => (app = 'desktop')}>{m['account.ai_desktop']()}</button>
 					<button type="button" aria-pressed={app === 'code'} onclick={() => (app = 'code')}>{m['account.ai_code']()}</button>
@@ -210,6 +233,13 @@
 	small {
 		font-size: 0.75rem;
 		color: var(--text-muted);
+	}
+	.actions {
+		display: flex;
+		gap: 0.25rem;
+	}
+	.ended {
+		color: var(--state-error);
 	}
 	.confirm {
 		display: flex;
