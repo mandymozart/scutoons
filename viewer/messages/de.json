@@ -138,7 +138,12 @@
 		"ai_desktop_2": "Doppelklick darauf. Claude Desktop installiert sie und fragt nach deinem Token: einfügen.",
 		"ai_desktop_3": "In einem neuen Chat + → SCUTOONS wählen und fragen.",
 		"ai_code_1": "Lade den SCUTOONS-Server (scutoons-mcp.mjs, braucht Node 22) und füg ihn hinzu:",
-		"ai_code_2": "Dann Claude Code fragen, z. B. „whoami“ oder „zeig mir den Flow von Kapitel 2“."
+		"ai_code_2": "Dann Claude Code fragen, z. B. „whoami“ oder „zeig mir den Flow von Kapitel 2“.",
+		"ai_expires": "endet {date}",
+		"ai_expired": "abgelaufen {date} – verlängern, um sie wieder zu nutzen",
+		"ai_renew": "Verlängern",
+		"ai_renewed": "Verlängert – läuft bis {date}.",
+		"ai_lifetime": "Jede Verbindung läuft 6 Monate; hier verlängern (zwei Wochen vorher kommt eine Mail, wenn deine KI sie noch nutzt)."
 	},
 	"inventory": {
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"

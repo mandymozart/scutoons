@@ -17,7 +17,9 @@ use Scutoons\Http\Middleware\JsonBody;
  *                              (member: the account may have tokens – readers can't)
  *   POST   /me/tokens        { name } → { status, token, item } (201; `token` is shown this once)
  *                              · 403 no_member_role · 400 name_required · 409 too_many
+ *   POST   /me/tokens/{id}/renew → { status, item } (six more months from now – the same token; also an expired one)
  *   DELETE /me/tokens/{id}   → { status } (revoked: the next call with it answers 401)
+ * Tokens expire after six months (ApiTokens::LIFETIME_DAYS); `expires_at`, `expired` in every item.
  */
 final class ApiTokensController
 {
@@ -37,6 +39,13 @@ final class ApiTokensController
         $user = CurrentSession::of($request)->requireUser();
         $result = $this->tokens->create($user, (string) (JsonBody::of($request)['name'] ?? ''));
         return Json::response($response, 201, ['status' => 'success'] + $result);
+    }
+
+    /** @param array{id: string} $args */
+    public function renew(Request $request, Response $response, array $args): Response
+    {
+        $item = $this->tokens->renew(CurrentSession::of($request)->requireUser(), $args['id']);
+        return Json::response($response, 200, ['status' => 'success', 'item' => $item]);
     }
 
     /** @param array{id: string} $args */

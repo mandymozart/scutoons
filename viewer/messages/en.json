@@ -138,7 +138,12 @@
 		"ai_desktop_2": "Double-click it. Claude Desktop installs it and asks for your token: paste it.",
 		"ai_desktop_3": "In a new chat, pick + → SCUTOONS and ask.",
 		"ai_code_1": "Download the SCUTOONS server (scutoons-mcp.mjs, needs Node 22) and add it:",
-		"ai_code_2": "Then ask Claude Code, e.g. \"whoami\" or \"show me the flow of chapter 2\"."
+		"ai_code_2": "Then ask Claude Code, e.g. \"whoami\" or \"show me the flow of chapter 2\".",
+		"ai_expires": "ends {date}",
+		"ai_expired": "ended {date} – renew it to use it again",
+		"ai_renew": "Renew",
+		"ai_renewed": "Renewed – works until {date}.",
+		"ai_lifetime": "Each connection works for 6 months; renew it here (you get a mail two weeks before, if your AI still uses it)."
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"

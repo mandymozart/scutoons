@@ -48,7 +48,8 @@ On scutoons.com/account → **AI connections** → New connection: the token is 
   `claude mcp add scutoons --scope user -e SCUTOONS_API=https://api.scutoons.com/api -e SCUTOONS_TOKEN=sct_… -- node <folder>/scutoons-mcp.mjs`.
   Claude Code's Remote Control (driving the session from claude.ai or the phone) works: the server runs where the session runs.
 
-Revoking the token on the account page ends the access at once.
+A token works for six months; renewing it on the account page keeps the same token (nothing to set up again), and a
+mail comes two weeks before the end if the AI still uses it. Revoking it there ends the access at once.
 
 ## Build (the member's copy)
 

@@ -8,7 +8,7 @@ import { fetchMember, hasAny, servicesOf } from './services.ts';
 try {
 	const config = loadConfig();
 	const member = await fetchMember(config);
-	if (!member) throw new Error(`the token is not (or no longer) signed in at ${config.api} – create a new one (scutoons.com/account → AI connections)`);
+	if (!member) throw new Error(`the token doesn't work at ${config.api} – expired (six months) or revoked: renew it or create a new one on scutoons.com/account → AI connections`);
 	const services = servicesOf(member.roles);
 	if (!hasAny(services)) throw new Error(`${member.email} has no member role (creator, liaison, ambassador, admin) – SCUTOONS AI connections are for members only`);
 	const server = createMemberServer(config, member, services);

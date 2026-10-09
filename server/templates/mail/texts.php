@@ -118,6 +118,13 @@ return [
             'ago_n' => '{days} days ago',
             'date_format' => 'M j',
         ],
+        'ai_token_expiring' => [
+            'subject' => 'Your AI connection "{name}" ends on {date}',
+            'intro' => 'Your AI connection "{name}" stops working on {date}.',
+            'how' => 'Still using it? Renew it on your account page (AI connections → Renew) – it keeps working for 6 more months, nothing to set up again.',
+            'button' => 'Open my account',
+            'why' => 'You get this because your AI used this connection in its last two weeks. Not yours any more? Revoke it there.',
+        ],
     ],
     'de' => [
         '_layout' => [
@@ -230,6 +237,13 @@ return [
             'ago_1' => 'gestern',
             'ago_n' => 'vor {days} Tagen',
             'date_format' => 'j.n.',
+        ],
+        'ai_token_expiring' => [
+            'subject' => 'Deine KI-Verbindung „{name}“ endet am {date}',
+            'intro' => 'Deine KI-Verbindung „{name}“ funktioniert ab {date} nicht mehr.',
+            'how' => 'Nutzt du sie noch? Verlängere sie auf deiner Kontoseite (KI-Verbindungen → Verlängern) – sie läuft dann 6 Monate weiter, nichts neu einzurichten.',
+            'button' => 'Mein Konto öffnen',
+            'why' => 'Du bekommst das, weil deine KI diese Verbindung in ihren letzten zwei Wochen genutzt hat. Gehört sie nicht mehr zu dir? Dort widerrufen.',
         ],
     ],
 ];
