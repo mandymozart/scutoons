@@ -515,7 +515,8 @@ export interface NewsletterSource {
 /** members_opted_in | members_all | contacts | contacts:<source> */
 export interface NewsletterAudience {
 	id: string;
-	kind: 'members' | 'contacts';
+	/** internal = our own addresses (@scutoons.com): left out unless picked too */
+	kind: 'members' | 'contacts' | 'internal';
 	source: string | null;
 	count: number;
 	missing_locale: number;

@@ -20,6 +20,7 @@ export function audienceLabel(audience: Pick<NewsletterAudience, 'id' | 'source'
 	if (audience.id === 'members_opted_in') return m['newsletter.audience_members_opted_in']();
 	if (audience.id === 'members_all') return m['newsletter.audience_members_all']();
 	if (audience.id === 'contacts') return m['newsletter.audience_contacts']();
+	if (audience.id === 'internal') return m['newsletter.audience_internal']();
 	return m['newsletter.audience_source']({ source: audience.source ?? audience.id.replace(/^contacts:/, '') });
 }
 

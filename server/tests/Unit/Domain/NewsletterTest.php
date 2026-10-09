@@ -139,6 +139,31 @@ final class NewsletterTest extends TestCase
         self::assertSame(1, $byId['members_opted_in']['count']);
     }
 
+    public function testOwnAddressesOnlyWhenInternalIsPicked(): void
+    {
+        $users = $this->get(Users::class);
+        $admin = $this->user('admin@scutoons.com');
+        $users->setMarketingOptIn((string) $admin['id'], true);
+        $this->get(Contacts::class)->import("no-reply@scutoons.com, en
+hello@mail.scutoons.com, de
+reader@example.com, de
+fan@notscutoons.com, en", 'qr-claim', null, null, false, 'admin:x');
+        $audiences = $this->get(Audiences::class);
+
+        self::assertSame([], array_column($audiences->recipients([Audiences::MEMBERS_OPTED_IN]), 'email'), 'an admin account is left out by default');
+        self::assertSame(['reader@example.com', 'fan@notscutoons.com'], array_column($audiences->recipients(['contacts:qr-claim']), 'email'), 'subdomains too, a look-alike domain not');
+        self::assertSame(
+            ['admin@scutoons.com', 'no-reply@scutoons.com', 'hello@mail.scutoons.com', 'reader@example.com', 'fan@notscutoons.com'],
+            array_column($audiences->recipients([Audiences::MEMBERS_OPTED_IN, 'contacts', Audiences::INTERNAL]), 'email')
+        );
+        self::assertSame([], $audiences->recipients([Audiences::INTERNAL]), 'internal alone reaches nobody');
+        self::assertSame(['members_opted_in', 'internal'], Audiences::check(['members_opted_in', 'internal', 'internal']));
+
+        $byId = array_column($audiences->all(), null, 'id');
+        self::assertSame(['internal', 3], [$byId['internal']['kind'], $byId['internal']['count']]);
+        self::assertSame(2, $byId['contacts']['count'], 'audience counts leave our own addresses out');
+    }
+
     public function testStartChecksLanguagesAndTextsThenFixesTheRecipients(): void
     {
         $campaigns = $this->get(Campaigns::class);
