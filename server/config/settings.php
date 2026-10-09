@@ -63,6 +63,8 @@ return [
     'MAIL_FROM_NAME' => 'SCUTOONS',
     // where replies go (Reply-To; the texts say "reply to this email") – empty = no Reply-To header
     'MAIL_REPLY_TO' => 'hello@scutoons.com',
+    // the contact form's mailbox (Domain\Contact\ContactForm); empty = MAIL_REPLY_TO
+    'CONTACT_TO' => '',
     'MAIL_LOG_PATH' => 'logs/mail.log',
     // The email module (agents/PLATFORM.md "Emails"): admin notification recipients (comma separated; the default of
     // the runtime setting mail_admin_recipients, admin app → Emails), their language, and how long the sent-mail log

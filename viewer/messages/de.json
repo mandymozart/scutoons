@@ -468,5 +468,29 @@
 		"try": "Anhören",
 		"haptics": "Vibration",
 		"haptics_hint": "Ein kurzes Brummen beim Antippen und Aufheben (Handys)."
+	},
+	"contact": {
+		"title": "Kontakt",
+		"intro": "Fragen, ein QR-Code, der nicht geht, etwas zu deinem Konto oder deinen Daten? Schreib uns – wir antworten per E-Mail.",
+		"topic": "Worum geht's?",
+		"topic_general": "Allgemein",
+		"topic_code": "QR-Code / Code geht nicht",
+		"topic_account": "Konto & Mitgliedschaft",
+		"topic_privacy": "Datenschutz (Auskunft, Löschung)",
+		"topic_press": "Presse & Booking",
+		"code": "Der Code",
+		"code_placeholder": "steht unter dem QR-Code oder auf dem Zertifikat",
+		"email": "Deine E-Mail-Adresse",
+		"name": "Name (optional)",
+		"message": "Nachricht",
+		"note": "Wir verwenden deine Angaben nur, um dir zu antworten. Die Nachricht geht als E-Mail an hello@scutoons.com und wird nicht gespeichert.",
+		"send": "Senden",
+		"sending": "Wird gesendet …",
+		"sent": "Danke! Deine Nachricht ist angekommen. Wir antworten an die angegebene Adresse.",
+		"or_mail": "Oder direkt per E-Mail:",
+		"error_email": "Bitte gib eine gültige E-Mail-Adresse an.",
+		"error_message": "Bitte schreib eine Nachricht.",
+		"error_limit": "Zu viele Nachrichten in kurzer Zeit – bitte später noch einmal oder per E-Mail.",
+		"error_failed": "Das hat nicht geklappt – bitte schreib uns direkt an hello@scutoons.com."
 	}
 }

@@ -38,6 +38,7 @@ use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
 use Scutoons\Http\Controllers\AvatarController;
 use Scutoons\Http\Controllers\CatalogController;
+use Scutoons\Http\Controllers\ContactController;
 use Scutoons\Http\Controllers\CertificatesController;
 use Scutoons\Http\Controllers\ClaimsController;
 use Scutoons\Http\Controllers\EmbassyController;
@@ -98,6 +99,15 @@ return static function (App $app): void {
         'Too many requests – try again later.',
     );
 
+    // The contact form (Domain\Contact\ContactForm): a few messages per client IP and hour – stops bots, not people
+    $contactLimit = new RateLimit(
+        $c->get(RateLimiter::class),
+        static fn(Request $request): string => 'contact:' . $ipHash(),
+        5,
+        3600,
+        'Too many messages – try again later or write to hello@scutoons.com.',
+    );
+
     // ── Public API (agents/ITEMS.md) ───────────────────────────────────────────────────────────────────
     $app->get('/api/health', HealthController::class);
 
@@ -111,6 +121,7 @@ return static function (App $app): void {
     $app->any('/api/products/featured', [ProductsController::class, 'featured']);
     // Stores that carry SCUTOONS products (the Embassy's listed stores, public fields only – agents/EMBASSY.md "Stores")
     $app->get('/api/stockists', [StockistsController::class, 'list'])->add($stockistsLimit);
+    $app->post('/api/contact', [ContactController::class, 'send'])->add($contactLimit);
 
     $app->post('/api/auth/request', [AuthController::class, 'request']);
     $app->post('/api/auth/verify', [AuthController::class, 'verify']);

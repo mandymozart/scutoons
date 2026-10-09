@@ -9,7 +9,8 @@ export {
 	type AccessResult,
 	type InventoryResult,
 	type ProgressResult,
-	type GiftResult
+	type GiftResult,
+	type ContactMessage
 } from './qr.ts';
 export {
 	createContentApi,

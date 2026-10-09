@@ -163,6 +163,8 @@
 			{/if}
 			<a href={localizeHref('/events')}>{m['home.events']()}</a>
 			·
+			<a href={localizeHref('/contact')}>{m['contact.title']()}</a>
+			·
 			<a href={localizeHref('/attributions')}>{m['home.attributions']()}</a>
 		</nav>
 	</footer>

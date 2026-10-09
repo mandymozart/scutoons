@@ -48,7 +48,9 @@ export const {
 	fileClaim,
 	addClaimFile,
 	myClaims,
-	withdrawClaim
+	withdrawClaim,
+	// the contact form (routes/(about)/contact)
+	sendContact
 } = createQrApi(api);
 
 /** Public data: a client without session / device id headers, so the browser sends a simple request (no CORS preflight). */

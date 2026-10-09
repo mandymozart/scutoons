@@ -468,5 +468,29 @@
 		"try": "Try",
 		"haptics": "Vibration",
 		"haptics_hint": "A short buzz with taps and pickups (phones)."
+	},
+	"contact": {
+		"title": "Contact",
+		"intro": "Questions, a QR code that doesn't work, something about your account or your data? Write to us – we answer by email.",
+		"topic": "What is it about?",
+		"topic_general": "General",
+		"topic_code": "QR code / code problem",
+		"topic_account": "Account & membership",
+		"topic_privacy": "Privacy (access, deletion)",
+		"topic_press": "Press & booking",
+		"code": "The code",
+		"code_placeholder": "printed under the QR code or on the certificate",
+		"email": "Your email address",
+		"name": "Name (optional)",
+		"message": "Message",
+		"note": "We only use your details to answer you. The message goes as an email to hello@scutoons.com and is not stored.",
+		"send": "Send",
+		"sending": "Sending …",
+		"sent": "Thanks! Your message arrived. We answer to the address you gave.",
+		"or_mail": "Or by email:",
+		"error_email": "Please enter a valid email address.",
+		"error_message": "Please write a message.",
+		"error_limit": "Too many messages in a short time – please try later or write an email.",
+		"error_failed": "That didn't work – please write to hello@scutoons.com directly."
 	}
 }

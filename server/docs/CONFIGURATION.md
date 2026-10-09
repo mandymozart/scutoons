@@ -39,6 +39,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `MAIL_TRANSPORT` | `smtp` | `smtp` \| `log` (dev: `MAIL_LOG_PATH`) \| `mail` (PHP `mail()`) |
 | `MAIL_FROM`, `MAIL_FROM_NAME` | `no-reply@scutoons.com`, `SCUTOONS` | |
 | `MAIL_REPLY_TO` | `hello@scutoons.com` | Reply-To of every mail (the texts say "reply to this email"); empty = none |
+| `CONTACT_TO` | – | mailbox of the contact form (`POST /api/contact`, scutoons.com/kontakt); empty = `MAIL_REPLY_TO` |
 | `MAIL_LOG_PATH` | `logs/mail.log` | for `log` |
 | `MAIL_ADMIN_TO` | – | admin notification recipients (comma separated) – the default of the runtime setting `mail_admin_recipients` (admin app → Emails); empty = nobody |
 | `MAIL_ADMIN_LOCALE` | `de` | language of the admin notification mails |

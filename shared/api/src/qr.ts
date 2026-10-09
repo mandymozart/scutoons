@@ -56,6 +56,19 @@ export interface GiftResult extends InventoryResult {
 	gift: { item_id: string; variant: string | null; qty: number; code: string | null; to: string; transfer_id: number };
 }
 
+/** One message of the contact form (POST /api/contact/, server Domain\Contact\ContactForm) */
+export interface ContactMessage {
+	topic: 'general' | 'code' | 'account' | 'privacy' | 'press';
+	email: string;
+	name?: string;
+	code?: string;
+	message: string;
+	locale?: string;
+	page?: string;
+	website: string;
+	elapsed: number;
+}
+
 export type QrApi = ReturnType<typeof createQrApi>;
 
 export function createQrApi(api: ApiClient) {
@@ -154,6 +167,12 @@ export function createQrApi(api: ApiClient) {
 		 */
 		giftItem: (gift: { entry_id?: string | number; item_id?: string; variant?: string | null; qty?: number; to: string }) =>
 			api.post<GiftResult>('/inventory/gift/', gift),
+		/**
+		 * The contact form (POST /api/contact/): one mail to hello@ with the sender as Reply-To. `website` = the honeypot
+		 * (empty), `elapsed` = ms since the form opened. 400 invalid_email / message_required / message_too_long ·
+		 * 429 too many · 503 mail_failed
+		 */
+		sendContact: (message: ContactMessage) => api.post<{ status: string }>('/contact/', message),
 		/** marks the `received` notices of `/me/` as seen (all when no ids) */
 		markReceivedSeen: (ids?: number[]) => api.post<{ status: string; seen: number }>('/inventory/received/seen/', ids ? { ids } : {}),
 
