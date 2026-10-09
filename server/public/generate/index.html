@@ -8,10 +8,10 @@
 	<script type="module">
 		import {
 			nanoid
-		} from 'https://cdn.jsdelivr.net/npm/nanoid/nanoid.js';
+		} from './app/lib/nanoid/nanoid.js'; // vendored nanoid 3.3.11 (no third-party CDN, owner 2026-10-09)
 		window.nanoid = nanoid;
 	</script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js"></script>
+	<script src="app/lib/jspdf/jspdf.umd.min.js"></script><!-- vendored jsPDF 3.0.3 -->
 	<script src="app/lib/qrcode/qrcode.min.js"></script>
 	<script src="../assets/js/noble-post-quantum.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="https://www.scutoons.com/css/styles.css">

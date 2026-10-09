@@ -1,3 +1,4 @@
+import { Howl } from 'howler';
 import { TriggerMode } from '@scutoons/content';
 import type { SampleTrigger, Sample, AudioTrack } from '@scutoons/content';
 /**
