@@ -1,13 +1,22 @@
 <!doctype html>
 <!-- One storyboard shot → one image (render.js). Opened by render-shots.mjs in headless Edge / Chrome:
-     render.html?spec=<file url of the shots module>&id=<shot id> -->
+     render.html?spec=<file url of the shots module>&id=<shot id>&three=<file url of three's package folder> -->
 <html>
 <head>
 <meta charset="utf-8">
 <style>html, body { margin: 0; background: #000; overflow: hidden; }</style>
-<script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js" } }</script>
+<script>
+	// three is found where npm put it (the tool's own node_modules or the workspace root) – render-shots.mjs passes it
+	const three = new URLSearchParams(location.search).get('three') ?? './node_modules/three/';
+	const map = document.createElement('script');
+	map.type = 'importmap';
+	map.textContent = JSON.stringify({ imports: { three: three + 'build/three.module.js', 'three/addons/': three + 'examples/jsm/' } });
+	document.currentScript.after(map);
+	const main = document.createElement('script');
+	main.type = 'module';
+	main.src = './render.js';
+	map.after(main);
+</script>
 </head>
-<body>
-<script type="module" src="./render.js"></script>
-</body>
+<body></body>
 </html>

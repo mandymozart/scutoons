@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import {
-	ANGLES, FACING, FORMATS, LIGHT, MOVES, POSES, PROJECTIONS, RHYTHM, S, SAFE, SIZES, SOURCES, STATUS, W, parseAspect, readSeconds, shotHeight, words
+	ANGLES, FACING, FORMATS, LIGHT, MOVES, POSES, VIEWS, PROJECTIONS, RHYTHM, S, SAFE, SIZES, SOURCES, STATUS, W, parseAspect, readSeconds, shotHeight, words
 } from './lib.mjs';
 
 /** a file or a folder of scene-*.json → [{ file, sb }] in scene order */
@@ -93,6 +93,8 @@ export function validate(sb, file = '') {
 			if (shot.source?.want && !SOURCES.includes(shot.source.want)) err(id, `source.want "${shot.source.want}"`);
 			if (!shot.source?.want) warn(id, 'source.want missing (photo / unreal / direct / generated / art)');
 			if (shot.status && !STATUS.includes(shot.status)) err(id, `status "${shot.status}"`);
+			if (!shot.view) warn(id, 'no view (real / belief / narration / memory) – whose perspective is this shot?');
+			else if (!VIEWS.includes(shot.view)) err(id, `view "${shot.view}" – ${VIEWS.join(' | ')}`);
 			const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
 			if (!light.key && !light.source) warn(id, 'no light (key / source) – decide the light here (workflow "light"), here or as the scene default');
 			for (const k of ['key', 'height', 'source', 'shadow']) if (light[k] && !LIGHT[k].includes(light[k])) err(id, `light.${k} "${light[k]}" – ${LIGHT[k].join(' | ')}`);
@@ -115,6 +117,8 @@ export function validate(sb, file = '') {
 			for (const [f, t] of shot.air ?? []) if (!(f >= 0 && t <= 100 && f < t)) err(id, `air [${f}, ${t}] – % from < to within 0…100`);
 			for (const fig of shot.figures ?? []) {
 				if (!castRefs.has(fig.cast)) err(id, `figure cast "${fig.cast}" not in cast`);
+				const ce = (sb.cast ?? []).find((c) => c.ref === fig.cast);
+				if (ce && ce.character && !(fig.persona ?? ce.persona)) warn(id, `figure ${fig.cast}: no persona – say which state (workflow "Personas, looks and perspective")`);
 				if (fig.pose && !POSES.includes(fig.pose)) warn(id, `figure pose "${fig.pose}" – the mannequin knows ${POSES.join(' ')}`);
 				if (fig.facing && !FACING.includes(fig.facing)) warn(id, `figure facing "${fig.facing}" – ${FACING.join(' | ')}`);
 				for (const k of ['x', 'y']) if (fig[k] != null && !(fig[k] >= 0 && fig[k] <= 1)) err(id, `figure ${k} = ${fig[k]} – 0…1`);

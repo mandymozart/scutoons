@@ -19,8 +19,9 @@ const only = take('--only', null)?.split(',');
 const outRoot = resolve(ROOT, take('--out', 'storyboards/_out'));
 const src = args[0];
 if (!src) { console.error('usage: render-shots.mjs <storyboard folder or file> [--only ids]'); process.exit(2); }
-if (!existsSync(resolve(HERE, 'node_modules/three/build/three.module.js')) && !existsSync(resolve(ROOT, 'node_modules/three/build/three.module.js')))
-	throw new Error('three is not installed – npm install (the workspace tools/storyboard-render)');
+const threeDir = [resolve(HERE, 'node_modules/three'), resolve(ROOT, 'node_modules/three')].find((d) => existsSync(resolve(d, 'build/three.module.js')));
+if (!threeDir) throw new Error('three is not installed – npm install (the workspace tools/storyboard-render)');
+const threeUrl = pathToFileURL(threeDir).href + '/';
 
 const browser = [process.env.CHROME, 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/chromium', '/usr/bin/google-chrome'].filter(Boolean).find((b) => existsSync(b));
 if (!browser) throw new Error('no Edge / Chrome found (CHROME=<path>)');
@@ -46,7 +47,8 @@ for (const { sb } of loadStoryboards(src)) {
 			size: shot.shot?.size, angle: shot.shot?.angle, action: shot.action?.de ?? '', want: shot.source?.want,
 			location: places[shot.location] ?? null, light, accent: light.accent?.color ? ({ red: '#c40000', green: '#00b04a', amber: '#e08a00', blue: '#2060ff', yellow: '#e8c800' }[light.accent.color] ?? light.accent.color) : null,
 			air: shot.air ?? [],
-			figures: (shot.figures ?? []).map((f) => ({ ...f, cast: cast[f.cast] ?? { ref: f.cast } }))
+			view: shot.view,
+			figures: (shot.figures ?? []).map((f) => ({ ...f, cast: { ...(cast[f.cast] ?? { ref: f.cast }), ...(f.persona ? { persona: f.persona } : {}), ...(f.look ? { look: f.look } : {}) } }))
 		});
 	}
 }
@@ -57,7 +59,7 @@ const page = pathToFileURL(resolve(HERE, 'render.html')).href;
 let n = 0;
 for (const s of specs) {
 	const file = resolve(out, `${s.id}.png`);
-	const url = `${page}?spec=${encodeURIComponent(pathToFileURL(specFile).href)}&id=${encodeURIComponent(s.id)}`;
+	const url = `${page}?spec=${encodeURIComponent(pathToFileURL(specFile).href)}&id=${encodeURIComponent(s.id)}&three=${encodeURIComponent(threeUrl)}`;
 	execFileSync(browser, ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files', '--hide-scrollbars', `--force-device-scale-factor=${1 / SS}`, `--window-size=${s.w},${s.h}`, '--virtual-time-budget=20000', `--screenshot=${file}`, url], { stdio: 'ignore', timeout: 120000 });
 	n++;
 	process.stdout.write(`\r${n}/${specs.length} ${s.id}        `);

@@ -57,6 +57,7 @@ export const LIGHT = {
 };
 export const POSES = ['stand', 'walk', 'run', 'jump', 'fall', 'slip', 'crouch', 'kneel', 'crawl', 'sit', 'lie', 'reach', 'point', 'throw', 'cast', 'arms-up', 'hug-self', 'stamp', 'push', 'look-back', 'pray'];
 export const FACING = ['front', 'away', 'left', 'right', 'three-quarter-left', 'three-quarter-right'];
+export const VIEWS = ['real', 'belief', 'narration', 'memory'];
 export const SOURCES = ['schematic', 'photo', 'unreal', 'direct', 'generated', 'art'];
 export const STATUS = ['draft', 'layout-ok', 'refs-locked', 'generating', 'still-ok', 'in-chapter'];
 

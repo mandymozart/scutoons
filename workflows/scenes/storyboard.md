@@ -123,6 +123,27 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
   `horizontal` group with `loop: true, freeMode: true` for a loop360; a VN group (one plate shot + `events`) only where
   the script has a real dialogue with a choice.
 
+## Personas, looks and perspective (owner 2026-10-09)
+
+A character changes **state** from shot to shot, and the script doesn't always say so – the storyboard must. Every
+figure states its **persona** and **look** (the registry's: `catpope` = `regular` · `human` · `cat` · `mountaintiger` ·
+`biker` (looks `default` / `helmet`); others `regular`), either through its cast ref (one cast entry per persona, e.g.
+`plf` = catpope / human, `tiger` = catpope / mountaintiger, `catpope` = catpope / regular) or as `figures[].persona` /
+`figures[].look` on the figure. The image source and the prompt follow it (the persona's base views and moods).
+
+Every shot states its **perspective** – `view`:
+- `real` – what happens, seen from outside;
+- `belief` – what the character believes / sees (PLF sees a tiger);
+- `narration` – the story told: Cat Pope in his `regular` form, outside the scene, speaking to the reader;
+- `memory` – the past (YPLF, the training years).
+
+**Catpope, chapter 3 (owner 2026-10-09):** in the forest PLF is `human`, and the tiger is **PLF himself**
+(`mountaintiger` – "Großes Tier, PLF kämpft mit sich selbst"): he battles himself – and nature – but believes he is
+fighting a tiger. The storyboard plays that double reading: `belief` shots show the tiger as PLF sees it; `real`
+shots may let the reader suspect the truth (the same stance, the same mark, a mirrored pose, one shadow for two); when
+the story is told, Cat Pope appears `regular` (`narration`). Nature is the other opponent: the cold, the storm, the
+avalanche, the spirits of waters / trees / stones – give it shots of its own, not only background.
+
 ## Rhythm rules (calibrated 2026-10-09 on chapters 1 + 2)
 
 - A chapter ≈ **60–80 screens, 15–20 minutes** careful reading (ch1 70.6 screens / 17.5 min, ch2 81.7). The images

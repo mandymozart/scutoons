@@ -66,7 +66,8 @@ for (const { sb } of list) {
 		const loc = places[shot.location];
 		const who = (shot.figures ?? []).map((f) => {
 			const c = cast[f.cast];
-			const desc = c?.new ? c.new : PERSONA[`${c?.character}/${c?.persona}`] ?? c?.character ?? f.cast;
+			const persona = f.persona ?? c?.persona;
+			const desc = c?.new ? c.new : PERSONA[`${c?.character}/${persona}`] ?? c?.character ?? f.cast;
 			const where = `${f.x < 0.4 ? 'left' : f.x > 0.6 ? 'right' : 'centre'}, ${f.y < 0.35 ? 'upper' : f.y > 0.65 ? 'lower' : 'middle'} part of the frame`;
 			return `${desc}${f.mood ? `, ${f.mood}` : ''}${f.pose ? `, ${f.pose}` : ''}${f.facing ? `, facing ${f.facing}` : ''}, ${where}, about ${Math.round((f.h ?? 0.3) * 100)} % of the frame height`;
 		});
@@ -86,6 +87,7 @@ for (const { sb } of list) {
 		const prompt = [
 			format,
 			shot.prompt?.en ?? '',
+			{ belief: 'Shown as the character perceives it (subjective, slightly unreal).', memory: 'A memory: the past, more distant and grainier.', narration: 'Narration: the narrator addresses the reader, outside the scene.' }[shot.view] ?? '',
 			((t) => (t ? t[0].toUpperCase() + t.slice(1) + '.' : ''))([SIZE[shot.shot?.size], ANGLE[shot.shot?.angle], PROJ[shot.projection]].filter(Boolean).join(', ')),
 			loc ? `Location: ${loc.place ?? loc.new ?? loc.ref}${loc.time && loc.time !== 'interior' ? `, ${loc.time}` : ''}.` : '',
 			who.length ? `Figures: ${who.join('; ')}.` : 'No people.',
@@ -94,7 +96,7 @@ for (const { sb } of list) {
 			STYLE[sb.toon] ?? ''
 		].filter(Boolean).join(' ');
 		const refs = [
-			...(shot.figures ?? []).map((f) => cast[f.cast]).filter(Boolean).map((c) => c.new ? `${c.new} (no reference yet – Wanted)` : `${c.character} / ${c.persona}: the base views + a mood portrait`),
+			...(shot.figures ?? []).map((f) => cast[f.cast] && { ...cast[f.cast], persona: f.persona ?? cast[f.cast].persona, look: f.look ?? cast[f.cast].look }).filter(Boolean).map((c) => c.new ? `${c.new} (no reference yet – Wanted)` : `${c.character} / ${c.persona}${c.look && c.look !== 'default' ? ` (${c.look})` : ''}: the base views + a mood portrait`),
 			loc ? `${loc.place ?? loc.ref}: the Figma selection on the chapter page (closest photo of the place)` : null,
 			'the schematic as "layout only" (storyboards/_out/' + name + '/png/' + shot.id + '.png)'
 		].filter(Boolean);

@@ -8,7 +8,9 @@
 // white), the accent colour where the mask is. A loop360 is rendered as N yaw slices into a seamless panorama; a polar
 // shot warps that panorama into a little planet.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { figurine, look, pose } from './figures.js';
+import { gltfTiger } from './tiger-gltf.js';
 import { buildSet } from './sets.js';
 
 const D = Math.PI / 180;
@@ -33,7 +35,7 @@ renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 look.mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 const accentMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 const blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-const normalMat = new THREE.MeshNormalMaterial();
+const maskMats = {};
 const emissive = new THREE.MeshBasicMaterial({ color: 0xffffff }); // screens, candles, the energy ball: always white
 
 // --- scene -------------------------------------------------------------------------------------------------------
@@ -70,33 +72,57 @@ camera.updateMatrixWorld();
 
 // figurines, placed by the storyboard's screen position (x across, y along the shot, h = height in screens)
 const figs = [];
+const assets = { gltfTiger };
+if ((shot.figures ?? []).some((f) => f.cast?.persona === 'mountaintiger')) assets.tiger = await new GLTFLoader().loadAsync(new URL('./models/mountain-tiger.glb', import.meta.url).href);
 const f = (H / 2) / Math.tan((camera.fov ?? 50) * D / 2); // px per unit at distance 1
 for (const fig of shot.figures ?? []) {
-	const model = figurine(fig.cast);
+	const model = figurine(fig.cast, assets);
 	const { airborne } = pose(model, fig.pose ?? 'stand');
+	// measure the posed figurine: its height and its lowest point (feet, a paw, a knee) at its own scale
+	model.root.updateMatrixWorld(true);
+	const whole = new THREE.Box3().setFromObject(model.root);
+	// framing: full / wide = the whole figure fits h; mcu = from the chest up; cu = the head; ecu = the eyes
+	const framing = fig.framing ?? 'full';
+	// the head: its geometry, or – a rigged model has bones, not parts – the front-top of the whole body
+	let head = model.joints.head && !model.joints.rigged ? new THREE.Box3().setFromObject(model.joints.head) : whole;
+	if (model.joints.rigged) {
+		const zl = whole.max.z - whole.min.z, yl = whole.max.y - whole.min.y;
+		head = new THREE.Box3(new THREE.Vector3(whole.min.x, whole.min.y + yl * 0.45, whole.max.z - zl * 0.24), whole.max.clone());
+	}
+	let box = whole;
+	if (['cu', 'ecu'].includes(framing)) box = head.clone();
+	if (framing === 'ecu') { const c = head.getCenter(new THREE.Vector3()); box = new THREE.Box3(c.clone().add(new THREE.Vector3(0, -0.02, 0)), c.clone().add(new THREE.Vector3(0, 0.09, 0))); }
+	if (framing === 'mcu') box = new THREE.Box3(new THREE.Vector3(whole.min.x, head.max.y - (head.max.y - whole.min.y) * 0.42, whole.min.z), whole.max.clone());
+	const size = Math.max(0.03, box.max.y - box.min.y);
+	const closeUp = box !== whole;
 	const hPx = Math.max(12 * K, (fig.h ?? 0.3) * 844 * K);
 	const cx = (fig.x ?? 0.5) * W, cy = (fig.y ?? 0.5) * H;
 	const feetPx = cy + hPx / 2;
-	// ray through the feet; on the ground (y = 0) unless airborne or the ray misses
-	const ndc = new THREE.Vector3((cx / W) * 2 - 1, -(feetPx / H) * 2 + 1, 0.5).unproject(camera);
-	const dir = ndc.sub(camera.position).normalize();
-	let pos, depth;
-	if (!airborne && dir.y < -0.01 && camera.isPerspectiveCamera) {
-		const t = -camera.position.y / dir.y;
-		pos = camera.position.clone().addScaledVector(dir, t);
-		depth = pos.clone().applyMatrix4(camera.matrixWorldInverse).z * -1;
+	const ray = (px, py) => new THREE.Vector3((px / W) * 2 - 1, -(py / H) * 2 + 1, 0.5).unproject(camera).sub(camera.position).normalize();
+	const dir = ray(cx, feetPx);
+	let pos, depth, grounded = false;
+	if (!airborne && !closeUp && dir.y < -0.01 && camera.isPerspectiveCamera) {
+		pos = camera.position.clone().addScaledVector(dir, -camera.position.y / dir.y);
+		depth = -pos.clone().applyMatrix4(camera.matrixWorldInverse).z;
+		grounded = true;
 	} else {
-		depth = Math.max(1, (model.height * f) / hPx);
-		const c = new THREE.Vector3((cx / W) * 2 - 1, -(cy / H) * 2 + 1, 0.5).unproject(camera).sub(camera.position).normalize();
-		pos = camera.position.clone().addScaledVector(c, depth).add(new THREE.Vector3(0, -model.height / 2, 0));
+		depth = Math.max(0.8, (size * f) / hPx);
+		pos = camera.position.clone().addScaledVector(ray(cx, cy), depth);
 	}
-	const scale = camera.isPerspectiveCamera ? (hPx * depth) / (model.height * f) : 1;
+	const scale = camera.isPerspectiveCamera ? (hPx * depth) / (size * f) : hPx / (H / (camera.top - camera.bottom));
 	model.root.scale.multiplyScalar(scale);
-	model.root.position.copy(pos);
 	// facing, relative to the camera: front = towards it
 	const toCam = Math.atan2(camera.position.x - pos.x, camera.position.z - pos.z);
 	const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 };
 	model.root.rotation.y = toCam + (FACE[fig.facing] ?? 0) * D;
+	// grounded: the lowest point on the ground (under its own centre); else the fitted box's centre on the screen point
+	const centre = box.getCenter(new THREE.Vector3());
+	if (grounded) centre.set(centre.x, box.min.y, centre.z);
+	const offset = centre.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), model.root.rotation.y);
+	if (grounded) offset.set(offset.x, box.min.y * scale, offset.z);
+	model.root.position.copy(pos).sub(offset);
+	model.height = size * scale;
+	model.root.traverse((o) => { if (o.isMesh) o.userData.fig = figs.length + 1; });
 	scene.add(model.root);
 	figs.push(model);
 }
@@ -158,35 +184,51 @@ function targetRT(w, h) {
 }
 const SIN = new THREE.ShaderMaterial({
 	uniforms: {
-		tLit: { value: null }, tNorm: { value: null }, tDepth: { value: null }, tAccent: { value: null },
-		texel: { value: new THREE.Vector2() }, threshold: { value: 0.32 }, sky: { value: skyWhite ? 1 : 0 },
+		tLit: { value: null }, tMask: { value: null }, tDepth: { value: null },
+		texel: { value: new THREE.Vector2() }, res: { value: new THREE.Vector2() }, threshold: { value: 0.32 }, sky: { value: skyWhite ? 1 : 0 },
+		ink: { value: 1.6 * K }, inkVar: { value: 2.2 * K }, seed: { value: [...shot.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 97 },
 		accent: { value: new THREE.Color(shot.accent ?? '#c00000') }, near: { value: camera.near }, far: { value: camera.far }, ortho: { value: camera.isOrthographicCamera ? 1 : 0 }
 	},
 	vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+	// THE SIN CITY PASS. v = pure black / white from a hard luminance threshold (the key light did the work). Ink only
+	// where one THING ends: a figurine against anything else (object ids - no lines at joints or inside a body, owner
+	// 2026-10-09), set pieces against each other by a depth jump. The stroke is organic: its width wanders along the
+	// line (value noise in screen space) between ink and ink + inkVar px. Ink is drawn inverted against what is behind
+	// it: white on black, black on white. The one accent colour where the mask says so.
 	fragmentShader: `
-		uniform sampler2D tLit, tNorm, tDepth, tAccent; uniform vec2 texel; uniform float threshold, sky, near, far, ortho; uniform vec3 accent;
+		uniform sampler2D tLit, tMask, tDepth; uniform vec2 texel, res; uniform float threshold, sky, near, far, ortho, ink, inkVar, seed; uniform vec3 accent;
 		varying vec2 vUv;
 		float lin(float d){ if (ortho > .5) return near + d * (far - near); float z = d * 2. - 1.; return 2. * near * far / (far + near - z * (far - near)); }
 		float dep(vec2 uv){ return lin(texture2D(tDepth, uv).r); }
-		vec3 nor(vec2 uv){ return texture2D(tNorm, uv).rgb * 2. - 1.; }
+		float oid(vec2 uv){ return floor(texture2D(tMask, uv).g * 255. + .5); }
+		float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)) + seed) * 43758.5453); }
+		float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+			return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y); }
 		void main(){
-			float d0 = texture2D(tDepth, vUv).r;
-			bool empty = d0 > 0.99999;
+			bool empty = texture2D(tDepth, vUv).r > 0.99999;
 			float l = dot(texture2D(tLit, vUv).rgb, vec3(.299, .587, .114));
 			float v = empty ? sky : step(threshold, l);
-			// ink: depth jumps (silhouettes) + normal creases, 1.5 px wide
-			float dc = dep(vUv), e = 0.;
-			vec3 nc = nor(vUv);
-			for (int i = 0; i < 4; i++) {
-				vec2 o = (i == 0 ? vec2(1.,0.) : i == 1 ? vec2(-1.,0.) : i == 2 ? vec2(0.,1.) : vec2(0.,-1.)) * texel * 2.2;
-				float dn = dep(vUv + o);
-				e = max(e, step(0.06 * dc, abs(dn - dc)));
-				if (!empty) e = max(e, step(0.55, 1. - dot(nc, nor(vUv + o))));
+			vec2 px = vUv * res;
+			float n = vnoise(px / 46.) * .65 + vnoise(px / 13.) * .35;
+			float width = ink + inkVar * n * n;
+			float dc = dep(vUv), ic = oid(vUv), e = 0.;
+			for (int r = 1; r <= 6; r++) {
+				float rr = float(r);
+				if (rr > width) break;
+				for (int k = 0; k < 8; k++) {
+					float a = float(k) * .7853982;
+					vec2 uv = vUv + vec2(cos(a), sin(a)) * texel * rr;
+					float id = oid(uv);
+					if (id != ic) { e = 1.; break; }
+					float dn = dep(uv);
+					if (ic < .5 && abs(dn - dc) > .06 * min(dc, dn)) { e = 1.; break; }
+				}
+				if (e > .5) break;
 			}
 			float c = e > .5 ? 1. - v : v;
 			vec3 col = vec3(c);
-			float a = texture2D(tAccent, vUv).r;
-			if (a > .5 && e < .5) col = v > .5 ? accent : accent * .55;
+			float acc = texture2D(tMask, vUv).r;
+			if (acc > .5 && e < .5) col = v > .5 ? accent : accent * .55;
 			gl_FragColor = vec4(col, 1.);
 		}`,
 	depthTest: false, depthWrite: false
@@ -197,23 +239,26 @@ const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
 function renderView(cam, w, h) {
 	renderer.setSize(w, h, false);
-	const lit = targetRT(w, h), nrm = targetRT(w, h), acc = targetRT(w, h);
+	const lit = targetRT(w, h), mask = targetRT(w, h);
 	scene.background = null;
 	renderer.setClearColor(0x000000, 1);
 	renderer.setRenderTarget(lit); renderer.render(scene, cam);
-	scene.overrideMaterial = normalMat; renderer.setRenderTarget(nrm); renderer.render(scene, cam);
-	// accent mask: accent objects white, all else black
-	scene.overrideMaterial = null;
+	// the mask: R = accent, G = object id (each figurine its own, the set 0)
 	const swap = [];
-	scene.traverse((o) => { if (o.isMesh) { swap.push([o, o.material]); o.material = o.userData.accent ? accentMat : blackMat; } });
-	renderer.setRenderTarget(acc); renderer.render(scene, cam);
+	scene.traverse((o) => {
+		if (!o.isMesh) return;
+		swap.push([o, o.material]);
+		const key = `${o.userData.accent ? 1 : 0}/${o.userData.fig ?? 0}`;
+		o.material = (maskMats[key] ??= new THREE.MeshBasicMaterial({ color: new THREE.Color(o.userData.accent ? 1 : 0, (o.userData.fig ?? 0) / 255, 0) }));
+	});
+	renderer.setRenderTarget(mask); renderer.render(scene, cam);
 	for (const [o, m] of swap) o.material = m;
-	Object.assign(SIN.uniforms, {});
-	SIN.uniforms.tLit.value = lit.texture; SIN.uniforms.tNorm.value = nrm.texture; SIN.uniforms.tDepth.value = lit.depthTexture; SIN.uniforms.tAccent.value = acc.texture;
+	SIN.uniforms.tLit.value = lit.texture; SIN.uniforms.tMask.value = mask.texture; SIN.uniforms.tDepth.value = lit.depthTexture;
 	SIN.uniforms.texel.value.set(1 / w, 1 / h);
+	SIN.uniforms.res.value.set(w, h);
 	SIN.uniforms.near.value = cam.near; SIN.uniforms.far.value = cam.far;
 	renderer.setRenderTarget(null); renderer.render(post, postCam);
-	lit.dispose(); nrm.dispose(); acc.dispose();
+	lit.dispose(); mask.dispose();
 	return renderer.domElement;
 }
 
