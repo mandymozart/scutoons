@@ -9,7 +9,8 @@
 	 * A coming-soon chapter's teaser (owner 2026-10-03: the key visual / key visual video "as a trailer for the episode";
 	 * 2026-10-05: "fullscreen player … the text is overlayed. autoplay"; 2026-10-08: with sound from the start, plays once,
 	 * a replay button in the centre): the video fills the window and starts with sound, the key visual as poster, the
-	 * chapter text (`children`) on top; a white speaker / muted speaker bottom right toggles the sound (owner 2026-10-08). When the browser refuses autoplay with
+	 * chapter text (`children`) on top; a white speaker / muted speaker bottom right toggles the sound (owner 2026-10-08), so does a tap
+	 * anywhere on the playing video (2026-10-09, like Instagram / TikTok). When the browser refuses autoplay with
 	 * sound (no recent click) it plays muted and the speaker brings the sound. At the end (and with reduced motion before
 	 * it starts) a play / "Nochmal ansehen" button sits in the centre. Only the image when there is no video.
 	 * Portrait windows crop to fill, landscape windows show the whole (portrait) key visual on black.
@@ -89,6 +90,11 @@
 		<img class="teaser-media" src={poster} alt="" />
 	{/if}
 	{#if src}
+		<!-- a tap anywhere on the playing video toggles the sound, like Instagram / TikTok (owner 2026-10-09); keyboard
+		     and screen readers use the speaker button -->
+		{#if !stopped}
+			<button type="button" class="teaser-tap" tabindex="-1" aria-hidden="true" onclick={toggleSound} data-testid="chapter-teaser-tap"></button>
+		{/if}
 		<button
 			type="button"
 			class="teaser-sound"
@@ -116,6 +122,16 @@
 		background: #000;
 		color: var(--paper);
 	}
+	/* the whole picture: a tap toggles the sound (under the text, which lets taps through, and the buttons) */
+	.teaser-tap {
+		position: absolute;
+		inset: 0;
+		padding: 0;
+		border: none;
+		background: none;
+		cursor: pointer;
+		-webkit-tap-highlight-color: transparent;
+	}
 	.teaser-media {
 		display: block;
 		width: 100%;
@@ -136,6 +152,7 @@
 		padding: 4rem 1rem calc(4.5rem + env(safe-area-inset-bottom, 0px));
 		background: linear-gradient(to top, rgb(0 0 0 / 0.7), rgb(0 0 0 / 0));
 		text-align: center;
+		pointer-events: none; /* a tap on the text toggles the sound too */
 	}
 	/* like the toon hero's "Ton an" (hero.svelte) */
 	.teaser-sound {
