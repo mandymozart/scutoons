@@ -1,0 +1,14 @@
+{
+  "name": "SCUTOONS Bridge",
+  "id": "scutoons-bridge-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["ws://127.0.0.1:3056", "ws://localhost:3056"],
+    "reasoning": "Talks only to the SCUTOONS relay on the owner's own computer (tools/figma-bridge/relay.mjs)."
+  }
+}
