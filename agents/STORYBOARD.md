@@ -665,6 +665,13 @@ Effort ~1–2 agent days for read + place; the export after. **When:** `use_figm
 as its reads count against the cap or the first draft frames need more than it gives – at the latest for the way back
 into the creator (M2).
 
+**Order (owner 2026-10-09): MCP refactor first, then the bridge, then Figma work.** Trying the concept against the
+real Figma file and live data is risky, so nothing touches Figma before (1) the MCP refactor (agents/MCP.md, phase 1+:
+full access to the service with live data through the SCUTOONS MCP) and (2) the SCUTOONS Figma bridge on that MCP
+(saves the Figma MCP's usage). The Figma file: `Cat-Pope`, key `Dtzkm9e8EEAjaNdvjmzQxq` (current state:
+node `555:2354`) – in the owner's drafts in "My Designs". Not read yet. **This moves M1/M2** – see the open
+question below the table.
+
 ### Milestones
 
 | # | Ready by | Build (phases below) | Used for |
@@ -691,6 +698,10 @@ into the creator (M2).
   seed (`npm run dev:db`). For M2: the SCUTOONS MCP running locally (`upload_asset`, `save_draft`).
 
 **Open for M1 (owner):**
+- **Chapter 3 vs. the new order:** ch3's layout starts the week of 2026-10-12, before the MCP refactor and the bridge
+  can be ready. Either ch3 is layouted the chapter-2 way and the tool starts with ch4 (first throw Nov 16–20), or a
+  storyboard for ch3 is drafted **offline** from the script (local DB, JSON + the static page, no Figma, no live data)
+  as a paper plan for the layout. Owner to decide.
 - **Figma access:** a personal access token (read-only, kept outside the repo, e.g. a local `.env`) + the file key, or
   the Figma connector – or Figma's remote MCP server, which also writes (above). **Answered (owner 2026-10-09):** the
 material sits on **pages by shooting** (a photo session at one location); what a chapter needs is copied as a **second selection onto the chapter's page**
