@@ -34,6 +34,14 @@ call, no production, the dev DB only read. Item **10.59**.
 - **SCUTOONS MCP tools for Figma** (after the refactor was done): `figma_status`, `figma_read`, `figma_view` (a node as a
   picture), `figma_place_draft` – creators who write, through the bridge. Type check 0 errors, tested through the relay.
 
+**Later the same night (studio):** the **Storyboard Studio** (`npm run dev:studio` → localhost:14000, workflows/storyboard-studio):
+script · shots · live render (drag figures, wheel = size) · the shot's fields incl. a hand camera and a free light direction ·
+variants (keep / pick) · generated images dropped in + approved into the dataset · **'Prompt für Luma'**: the full prompt from
+the shot as edited (copy + render download + reference links). The figurines: detailed humans, the real mountain tiger
+(CC BY model, rigged at load, the rune glyph), outlines only outside, organic width. Taste: line art with intense black and
+white. Open: the studio on @scutoons/ui (owner: "use our scutoons ui and design dogmas") with a free 3D camera; the
+generated pass (decisions below in the chat).
+
 **Look at (in this order)**
 1. `storyboards/_out/s1c3/index.html` – the flow of chapter 3, shot by shot (schematics + rail + notes).
 2. The open questions below – most change a shot or two.
