@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storyboard Beispiel</title>
+<!--
+  agents/STORYBOARD.md (revision 2: shots = stacked images, no panels) – illustration only, hand-written SVG, no data.
+  The column is 390 SVG units wide = the reader's width. Every shot at its aspect's height, stacked edge to edge:
+  viewport 9:16 (390 × 693) · vertical 1:4 perspective "fall" (390 × 1560, 3 generation segments) · vertical 1:7 polar
+  "descend" (390 × 2730). Then a 360° loop (4:1 panorama, drag sideways, wraps) and the VN beats.
+  The rail = estimated time per shot (STORYBOARD.md §6): 1.2 s per screen scrolled + reading time.
+-->
+<style>
+:root {
+	--bg: #f4f2ee; --paper: #ffffff; --ink: #1d1b19; --muted: #77716a; --line: #cfc9c0; --air: #e8eef6;
+	--c-catpope: #7a4bd1; --c-boy: #128a7a; --accent: #d1462f; --bubble: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #161514; --paper: #23211f; --ink: #ece8e2; --muted: #a39d95; --line: #4a4641; --air: #1f2a36;
+		--c-catpope: #b18cff; --c-boy: #4cc9b5; --accent: #ff7a63; --bubble: #2e2b28;
+	}
+}
+:root[data-theme="dark"] {
+	--bg: #161514; --paper: #23211f; --ink: #ece8e2; --muted: #a39d95; --line: #4a4641; --air: #1f2a36;
+	--c-catpope: #b18cff; --c-boy: #4cc9b5; --accent: #ff7a63; --bubble: #2e2b28;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 1rem/1.45 system-ui, sans-serif; }
+header { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1rem 0.5rem; }
+h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+h2 { font-size: 1rem; margin: 2rem auto 0.5rem; max-width: 40rem; padding: 0 1rem; color: var(--muted); font-weight: 600; }
+p { margin: 0.25rem 0; color: var(--muted); }
+.sub { max-width: 40rem; margin: 0 auto 0.75rem; padding: 0 1rem; font-size: 0.9rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; }
+.legend span::before { content: ""; display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: -0.1rem; background: var(--sw); }
+
+/* the stacked column + the timing rail (1 SVG unit = 0.0625rem at full width) */
+.board { display: grid; grid-template-columns: minmax(0, 24.375rem) 5rem; justify-content: center; gap: 0.5rem; padding: 0 1rem; }
+.col svg { display: block; width: 100%; height: auto; }
+.rail { display: flex; flex-direction: column; font-size: 0.7rem; color: var(--muted); }
+.rail div { border-left: 0.25rem solid var(--line); padding-left: 0.35rem; }
+.rail div.dense { border-left-color: var(--accent); }
+
+/* SVG vocabulary */
+.shot { fill: var(--paper); }
+.edge { fill: none; stroke: var(--ink); stroke-width: 1; }
+.air { fill: var(--air); }
+.set { fill: none; stroke: var(--line); stroke-width: 1.5; }
+.guide { fill: none; stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 5; }
+.seam { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 6 4; }
+.lbl { font: 600 11px system-ui, sans-serif; fill: var(--muted); }
+.cam { font: 700 11px ui-monospace, monospace; fill: var(--accent); }
+.move { stroke: var(--accent); stroke-width: 3; fill: none; marker-end: url(#arrow); }
+.fig-catpope { fill: var(--c-catpope); fill-opacity: 0.18; stroke: var(--c-catpope); stroke-width: 2; }
+.fig-boy { fill: var(--c-boy); fill-opacity: 0.18; stroke: var(--c-boy); stroke-width: 2; }
+.tag-catpope { font: 600 10px system-ui; fill: var(--c-catpope); }
+.tag-boy { font: 600 10px system-ui; fill: var(--c-boy); }
+.gaze { stroke: var(--accent); stroke-width: 2; fill: none; marker-end: url(#arrow); }
+.bub { fill: var(--bubble); stroke: var(--ink); stroke-width: 1.5; }
+.btxt { font: 13px "Comic Sans MS", system-ui; fill: var(--ink); }
+.cap { fill: var(--ink); }
+.captxt { font: 12px system-ui; fill: var(--paper); }
+.sfx { font: 900 34px system-ui; fill: var(--accent); stroke: var(--paper); stroke-width: 1; paint-order: stroke; }
+.item { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; }
+
+/* the 360° loop: a phone-wide window, drag / scroll sideways, wraps */
+.loop { max-width: 24.375rem; margin: 0 auto; overflow-x: auto; scrollbar-width: none; cursor: grab; }
+.loop::-webkit-scrollbar { display: none; }
+.loop .track { display: flex; width: max-content; }
+.loop svg { display: block; height: 24.375rem; width: auto; flex: none; }
+
+.vn { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem; max-width: 40rem; margin: 0 auto; padding: 0 1rem 3rem; }
+.vn figure { margin: 0; }
+.vn svg { width: 100%; height: auto; display: block; }
+.vn figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+</style>
+</head>
+<body>
+<header>
+	<h1>Storyboard – „Der Katzenpabst erwacht“ (Beispielszene)</h1>
+	<p>Keine Panels: Bilder in voller Breite, gestapelt wie im Reader (390). Jedes Bild hat Format, Seitenverhältnis, Projektion und Scroll-Bewegung. Schraffiert blau = Luft (Pause). Rechts: geschätzte Zeit pro Bild.</p>
+	<div class="legend">
+		<span style="--sw: var(--c-catpope)">catpope · regular</span>
+		<span style="--sw: var(--c-boy)">boy · regular (Beispiel-ID)</span>
+		<span style="--sw: var(--accent)">Scroll-Bewegung / Blick / Event / Segment-Naht</span>
+	</div>
+</header>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+	<defs>
+		<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+			<path d="M0 0 L10 5 L0 10 z" style="fill: var(--accent)"/>
+		</marker>
+		<pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+			<rect width="8" height="8" class="air"/><line x1="0" y1="0" x2="0" y2="8" style="stroke: var(--line); stroke-width: 1"/>
+		</pattern>
+		<symbol id="full" viewBox="0 0 60 140">
+			<circle cx="30" cy="16" r="14"/>
+			<path d="M12 36 Q30 28 48 36 L52 92 L42 92 L40 136 L32 136 L30 98 L28 136 L20 136 L18 92 L8 92 Z"/>
+		</symbol>
+		<symbol id="fall" viewBox="0 0 140 90"> <!-- falling: the full figure on its side, limbs out -->
+			<circle cx="20" cy="30" r="14"/>
+			<path d="M36 22 L100 18 L136 4 L138 14 L104 30 L136 52 L130 60 L98 40 L40 46 L44 80 L34 82 L30 46 Z"/>
+		</symbol>
+		<symbol id="bust" viewBox="0 0 100 100">
+			<circle cx="50" cy="32" r="22"/>
+			<path d="M10 100 Q14 58 50 58 Q86 58 90 100 Z"/>
+		</symbol>
+		<symbol id="head" viewBox="0 0 100 100">
+			<ellipse cx="50" cy="50" rx="40" ry="46"/>
+			<path d="M22 14 L30 0 L40 10 M60 10 L70 0 L78 14"/>
+		</symbol>
+	</defs>
+</svg>
+
+<h2>Gruppe 1 · vertical · „s1-wake“ · drei Bilder gestapelt</h2>
+<div class="board">
+	<div class="col">
+		<svg viewBox="0 0 390 4983" role="img" aria-label="Drei gestapelte Bilder: Viewport 9:16, vertikal 1:4, polar 1:7">
+			<!-- ===== shot 1: viewport 9:16 (0 … 693), perspective, hold ===== -->
+			<rect class="shot" x="0" y="0" width="390" height="693"/>
+			<rect x="0" y="0" width="390" height="208" fill="url(#hatch)"/>
+			<text class="lbl" x="250" y="196">Luft 0–30 %</text>
+			<circle class="set" cx="320" cy="120" r="34"/>
+			<path class="set" d="M0 520 L80 470 L80 380 L120 380 L120 330 L160 305 L200 330 L200 410 L260 410 L260 360 L300 360 L300 440 L390 490"/>
+			<use href="#full" class="fig-catpope" x="182" y="250" width="24" height="56"/>
+			<text class="tag-catpope" x="212" y="272">catpope · full · neutral</text>
+			<rect class="cap" x="20" y="580" width="170" height="30" rx="2"/>
+			<text class="captxt" x="30" y="600">Rom. 3 Uhr nachts.</text>
+			<text class="cam" x="12" y="22">sb-3-1-1 · VIEWPORT 9:16 · PERSPECTIVE · HOLD</text>
+			<text class="lbl" x="12" y="680">EXT. VATIKAN – DACH – NACHT</text>
+			<line class="edge" x1="0" y1="693" x2="390" y2="693"/>
+
+			<!-- ===== shot 2: vertical 1:4 (693 … 2253), perspective, fall; 3 segments of 9:16 with 25 % overlap ===== -->
+			<rect class="shot" x="0" y="693" width="390" height="1560"/>
+			<rect x="0" y="693" width="390" height="234" fill="url(#hatch)"/>
+			<text class="cam" x="12" y="716">sb-3-1-2 · VERTICAL 1:4 · PERSPECTIVE · FALL</text>
+			<!-- the bell tower he falls past: perspective from above, lines converge downwards -->
+			<path class="set" d="M250 693 L230 2253 M370 693 L300 2253 M250 900 L370 900 M246 1200 L352 1200 M242 1500 L338 1500 M238 1800 L322 1800"/>
+			<use href="#fall" class="fig-catpope" x="60" y="1180" width="160" height="104" transform="rotate(25 140 1232)"/>
+			<text class="tag-catpope" x="40" y="1340">catpope · full · scared · falling</text>
+			<path class="move" d="M378 760 L378 2200"/>
+			<text class="sfx" x="200" y="1180" transform="rotate(8 200 1180)">AAAH</text>
+			<text class="lbl" x="200" y="1210">showTextBox · shiver · whoosh</text>
+			<rect x="0" y="1941" width="390" height="312" fill="url(#hatch)"/>
+			<text class="lbl" x="12" y="2240">Luft 80–100 % · Tiefe</text>
+			<!-- generation seams: segments of 693 high, each starting 25 % into the previous one -->
+			<line class="seam" x1="0" y1="1213" x2="390" y2="1213"/>
+			<line class="seam" x1="0" y1="1733" x2="390" y2="1733"/>
+			<text class="lbl" x="250" y="1206">Naht Segment 1|2</text>
+			<text class="lbl" x="250" y="1726">Naht Segment 2|3</text>
+			<line class="edge" x1="0" y1="2253" x2="390" y2="2253"/>
+
+			<!-- ===== shot 3: vertical 1:7 (2253 … 4983), polar, descend: the city bends into circles around a tiny planet ===== -->
+			<rect class="shot" x="0" y="2253" width="390" height="2730"/>
+			<rect x="0" y="2253" width="390" height="273" fill="url(#hatch)"/>
+			<text class="cam" x="12" y="2276">sb-3-1-3 · VERTICAL 1:7 · POLAR · DESCEND</text>
+			<g>
+				<!-- polar guides: centre near the bottom; horizon rings get tighter towards the planet -->
+				<circle class="guide" cx="195" cy="4700" r="1900"/>
+				<circle class="guide" cx="195" cy="4700" r="1350"/>
+				<circle class="guide" cx="195" cy="4700" r="900"/>
+				<circle class="guide" cx="195" cy="4700" r="520"/>
+				<path class="guide" d="M195 4700 L-300 2253 M195 4700 L60 2253 M195 4700 L330 2253 M195 4700 L690 2253"/>
+				<!-- the skyline bent along a ring -->
+				<path class="set" d="M-20 3480 Q195 3300 410 3480 M40 3420 l0 -60 l30 0 l0 40 M120 3370 l0 -90 l25 -20 l25 20 l0 80 M250 3370 l0 -70 l40 0 l0 85 M320 3410 l0 -50 l30 0 l0 70"/>
+				<circle class="set" cx="195" cy="4700" r="200"/>
+				<text class="lbl" x="150" y="4600">kleiner Planet: der Hof</text>
+			</g>
+			<use href="#fall" class="fig-catpope" x="150" y="3740" width="80" height="52" transform="rotate(70 190 3766)"/>
+			<text class="tag-catpope" x="230" y="3760">catpope · klein · Spirale</text>
+			<path class="move" d="M120 2600 C 40 3200, 340 3500, 200 4300"/>
+			<rect class="item" x="242" y="4655" width="39" height="30" rx="4"/>
+			<text class="lbl" x="228" y="4705">item: cucumber · pickup</text>
+			<text class="lbl" x="12" y="4970">gen: Panorama „pano-roof“ → polar transformiert (Code)</text>
+		</svg>
+	</div>
+	<!-- rail heights = shot heights (693 / 1560 / 2730 units × 0.0625rem) -->
+	<div class="rail">
+		<div style="height:43.3rem">sb-3-1-1<br>≈ 3 s<br>Stopp<br>1 Screen</div>
+		<div style="height:97.5rem">sb-3-1-2<br>≈ 3,5 s<br>Fall<br>1,8 Screens</div>
+		<div class="dense" style="height:170.6rem">sb-3-1-3<br>≈ 5,5 s<br>Abstieg<br>3,2 Screens<br><br>längstes Bild: braucht einen Stopp danach</div>
+	</div>
+</div>
+
+<h2>Gruppe 2 · horizontal loop 360° · „s1-courtyard“</h2>
+<p class="sub">Ziehen oder seitwärts scrollen. Das Panorama (4:1) läuft endlos; gestrichelt = Schnitte in 4 Slides. Dieselben Pixel ergeben polar transformiert den „kleinen Planeten“ oben.</p>
+<div class="loop" id="loop">
+	<div class="track" id="loopTrack">
+		<!-- one 360° panorama, 1560 × 390; the JS clones it once for the wrap -->
+		<svg viewBox="0 0 1560 390" role="img" aria-label="360-Grad-Panorama des Hofs">
+			<rect class="shot" x="0" y="0" width="1560" height="390"/>
+			<path class="set" d="M0 300 L1560 300"/>
+			<text class="cam" x="12" y="22">sb-3-2-1 · LOOP360 4:1 · LOOK-AROUND · 0°</text>
+			<!-- 0°: the gate -->
+			<path class="set" d="M120 300 L120 140 Q190 80 260 140 L260 300"/>
+			<text class="lbl" x="160" y="320">Tor 0°</text>
+			<!-- 90°: the fountain -->
+			<path class="set" d="M500 300 L520 250 L640 250 L660 300 M580 250 L580 190 M560 190 L600 190"/>
+			<text class="lbl" x="540" y="320">Brunnen 90°</text>
+			<!-- 180°: the lit window + the boy -->
+			<rect class="set" x="900" y="120" width="90" height="110"/>
+			<use href="#full" class="fig-boy" x="940" y="160" width="40" height="94"/>
+			<text class="tag-boy" x="900" y="275">boy · full · neutral</text>
+			<text class="lbl" x="880" y="320">Fenster 180°</text>
+			<!-- 270°: bins, the hidden cucumber -->
+			<path class="set" d="M1340 300 L1340 240 L1390 240 L1390 300 M1400 300 L1400 230 L1450 230 L1450 300"/>
+			<rect class="item" x="1415" y="270" width="40" height="26" rx="4"/>
+			<text class="lbl" x="1330" y="320">Tonnen 270° · cucumber</text>
+			<text class="lbl" x="1300" y="360">sample: fountain · loop</text>
+			<!-- slide cuts every 390 (4 slides of 1:1) -->
+			<line class="seam" x1="390" y1="0" x2="390" y2="390"/><line class="seam" x1="780" y1="0" x2="780" y2="390"/><line class="seam" x1="1170" y1="0" x2="1170" y2="390"/>
+			<line class="edge" x1="1559" y1="0" x2="1559" y2="390" style="stroke: var(--accent); stroke-width: 3"/>
+			<text class="lbl" x="1470" y="40">Wrap 360°</text>
+		</svg>
+	</div>
+</div>
+
+<h2>Gruppe 3 · VN · „s1-meet“ (Takte des Event-Skripts über einer Viewport-Platte)</h2>
+<div class="vn">
+	<figure>
+		<svg viewBox="0 0 390 693" role="img" aria-label="VN Takt 1">
+			<rect class="shot" x="0" y="0" width="390" height="693"/>
+			<rect class="set" x="150" y="80" width="90" height="120"/><text class="lbl" x="12" y="22">Platte · keine Figuren</text>
+			<use href="#bust" class="fig-boy" x="210" y="400" width="150" height="150"/>
+			<text class="tag-boy" x="232" y="396">boy · portrait · neutral</text>
+			<rect class="bub" x="16" y="550" width="358" height="125" rx="6"/>
+			<text class="lbl" x="28" y="574">Erzählung</text>
+			<text class="btxt" x="28" y="602">Ein Junge steht im Dachfenster.</text>
+		</svg>
+		<figcaption>1 · joinScene boy (portrait) · showMessage</figcaption>
+	</figure>
+	<figure>
+		<svg viewBox="0 0 390 693" role="img" aria-label="VN Takt 2">
+			<rect class="shot" x="0" y="0" width="390" height="693"/>
+			<rect class="set" x="150" y="80" width="90" height="120"/>
+			<use href="#bust" class="fig-boy" x="210" y="400" width="150" height="150"/>
+			<rect class="fig-catpope" x="16" y="470" width="64" height="64" rx="4"/>
+			<use href="#head" class="fig-catpope" x="22" y="476" width="52" height="52"/>
+			<text class="tag-catpope" x="16" y="462">avatar · confused</text>
+			<rect class="bub" x="16" y="550" width="358" height="125" rx="6"/>
+			<text class="tag-catpope" x="28" y="574">catpope</text>
+			<text class="btxt" x="28" y="602">Du … kannst mich sehen?</text>
+		</svg>
+		<figcaption>2 · joinScene catpope (avatar) · showMessage mood confused</figcaption>
+	</figure>
+	<figure>
+		<svg viewBox="0 0 390 693" role="img" aria-label="VN Takt 3">
+			<rect class="shot" x="0" y="0" width="390" height="693"/>
+			<rect class="set" x="150" y="80" width="90" height="120"/>
+			<use href="#bust" class="fig-boy" x="210" y="400" width="150" height="150"/>
+			<text class="tag-boy" x="232" y="396">boy · portrait · happy</text>
+			<rect class="bub" x="40" y="420" width="160" height="40" rx="20"/>
+			<text class="btxt" x="70" y="445">Ihm folgen</text>
+			<rect class="bub" x="40" y="470" width="160" height="40" rx="20"/>
+			<text class="btxt" x="70" y="495">Gurke geben</text>
+			<rect class="bub" x="16" y="550" width="358" height="125" rx="6"/>
+			<text class="tag-boy" x="28" y="574">boy</text>
+			<text class="btxt" x="28" y="602">Komm mit!</text>
+		</svg>
+		<figcaption>3 · addChoice ×2 · showChoices (2. Choice: take cucumber)</figcaption>
+	</figure>
+</div>
+
+<script>
+// the 360° loop: clone the panorama once; when the window scrolls past one full turn, jump back by one turn
+const loop = document.getElementById('loop'), track = document.getElementById('loopTrack');
+track.appendChild(track.firstElementChild.cloneNode(true));
+loop.addEventListener('scroll', () => {
+	const turn = track.scrollWidth / 2;
+	if (loop.scrollLeft >= turn) loop.scrollLeft -= turn;
+	else if (loop.scrollLeft <= 0) loop.scrollLeft += turn;
+}, { passive: true });
+addEventListener('load', () => { loop.scrollLeft = 1; });
+// drag with the mouse (touch scrolls natively)
+let dragX = null;
+loop.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') { dragX = e.clientX; loop.setPointerCapture(e.pointerId); } });
+loop.addEventListener('pointermove', (e) => { if (dragX !== null) { loop.scrollLeft -= e.clientX - dragX; dragX = e.clientX; } });
+loop.addEventListener('pointerup', () => { dragX = null; });
+</script>
+</body>
+</html>
