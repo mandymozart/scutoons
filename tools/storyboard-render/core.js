@@ -1,16 +1,14 @@
-// One storyboard shot → one image, as a function (owner 2026-10-09: images, not SVG; Sin City black and white;
-// extreme hard light, never diffuse; posable figurines; our own shader). Used by render.js (headless, one shot per page
-// load) and by the storyboard studio (live, many renders per page). The spec comes from spec.js.
+// One storyboard shot → one image (owner 2026-10-09: images, not SVG; Sin City black and white; extreme hard light,
+// never diffuse; posable figurines; our own shader; "more line art, but keep intense bw to see lighting clearly").
+// Split in three so the studio can move a camera live: buildScene (set + figurines + the one hard light), sinPass
+// (the look: lit + mask → black / white, ink only where a thing ends, organic width, the accent), renderShot (both,
+// plus panoramas, the little planet, the storyboard marks). render.js (headless) and the studio use the same code.
 //
-// Pipeline: the set + the figurines + one hard key light (shadows) → 2 passes into render targets: lit (Lambert, hard
-// shadow map, depth) and a mask (R = accent, G = object id) → the SIN CITY pass: luminance → pure black / white at a
-// hard threshold; ink only where one thing ends (object ids; depth jumps between set pieces), with an organic width,
-// drawn inverted against what is behind it; the one accent colour where the mask is. A loop360 = N yaw slices into a
-// seamless panorama; a polar shot warps that panorama into a little planet.
-//
-// Overrides for the studio (optional, written into the storyboard when the owner changes them by hand):
-//   shot.camera = { dist, height, pitch, yaw, roll, fov }      (m, m, °, °, °, ° vertical)
-//   light.azimuth / light.elevation (°): 0 = from the camera's side, 90 = from the right, −90 left, 180 behind the subject
+// Hand overrides (the studio writes them):
+//   shot.camera = { pos: [x, y, z], target: [x, y, z], fov, roll }   – a free camera (the 3D view)
+//              or { dist, height, pitch, yaw, roll, fov }             – adjustments of the preset camera
+//   light.azimuth / light.elevation (°): 0 = from the camera's side, 90 = from the right, −90 left, 180 behind
+//   figure.turn (°) beside facing
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { figurine, look, pose } from './figures.js';
@@ -21,7 +19,7 @@ const D = Math.PI / 180;
 const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 };
 let tigerGltf = null;
 
-/** the shot's camera (also used by the studio to map drags back to the storyboard) */
+/** the shot's camera */
 export function shotCamera(shot) {
 	const W = shot.w, H = shot.h;
 	const aspect = W / H;
@@ -45,35 +43,31 @@ export function shotCamera(shot) {
 		camera.lookAt(0, 0.8, 0);
 	} else {
 		camera = new THREE.PerspectiveCamera(vfov, aspect, 0.05, 600);
-		const yaw = (c.yaw ?? 0) * D;
-		camera.position.set(Math.sin(yaw) * dist, camY, Math.cos(yaw) * dist);
-		camera.rotation.order = 'YXZ';
-		camera.rotation.set(pitch * D, yaw, (c.roll ?? (shot.angle === 'dutch' ? 18 : 0)) * D);
+		if (c.pos && c.target) {
+			camera.position.fromArray(c.pos);
+			camera.lookAt(new THREE.Vector3().fromArray(c.target));
+			if (c.roll) camera.rotateZ(c.roll * D);
+		} else {
+			const yaw = (c.yaw ?? 0) * D;
+			camera.position.set(Math.sin(yaw) * dist, camY, Math.cos(yaw) * dist);
+			camera.rotation.order = 'YXZ';
+			camera.rotation.set(pitch * D, yaw, (c.roll ?? (shot.angle === 'dutch' ? 18 : 0)) * D);
+		}
 	}
 	camera.updateMatrixWorld();
-	return { camera, camY, dist };
+	return { camera, camY: camera.position.y, dist };
 }
 
 /**
- * Renders a spec (spec.js) → { canvas, figures: [{ index, box: {x0,y0,x1,y1} in output px }] }.
- * opts: renderer (reuse one WebGLRenderer), tigerUrl, marks (draw the id label + air marks, default true).
+ * The scene of a shot: the set, the figurines at the storyboard's screen positions (seen through the shot's camera),
+ * the one hard key light (+ rim). → { scene, camera, figs, camY, dist, skyWhite, K, light, dispose }
  */
-export async function renderShot(shot, opts = {}) {
+export async function buildScene(shot, opts = {}) {
 	const W = shot.w, H = shot.h;
 	const K = W / (shot.outW ?? W);
-	const canvas = opts.canvas ?? document.createElement('canvas');
-	canvas.width = W; canvas.height = H;
-	const out2d = canvas.getContext('2d');
-	const renderer = opts.renderer ?? new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
-	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = THREE.BasicShadowMap;
-	renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-
 	look.mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 	const accentMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-	const maskMats = {};
 	const emissive = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
 	const scene = new THREE.Scene();
 	const L = shot.light ?? {};
 	const interior = shot.location?.time === 'interior' || /library|monastery|studio|server/.test(shot.location?.place ?? '') || L.source === 'none';
@@ -81,7 +75,6 @@ export async function renderShot(shot, opts = {}) {
 	const set = buildSet(scene, shot, { emissive, accentMat, interior });
 	const { camera, camY, dist } = shotCamera(shot);
 
-	// figurines, placed by the storyboard's screen position (x across, y along the shot, h = height in screens)
 	const figs = [];
 	const assets = { gltfTiger };
 	if ((shot.figures ?? []).some((f) => f.cast?.persona === 'mountaintiger')) {
@@ -122,18 +115,27 @@ export async function renderShot(shot, opts = {}) {
 		const scale = camera.isPerspectiveCamera ? (hPx * depth) / (size * fpx) : hPx / (H / (camera.top - camera.bottom));
 		model.root.scale.multiplyScalar(scale);
 		const toCam = Math.atan2(camera.position.x - pos.x, camera.position.z - pos.z);
-		model.root.rotation.y = toCam + ((fig.turn ?? FACE[fig.facing] ?? 0)) * D;
+		model.root.rotation.y = toCam + (fig.turn ?? FACE[fig.facing] ?? 0) * D;
 		const centre = box.getCenter(new THREE.Vector3());
 		if (grounded) centre.set(centre.x, box.min.y, centre.z);
 		const offset = centre.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), model.root.rotation.y);
 		if (grounded) offset.set(offset.x, box.min.y * scale, offset.z);
 		model.root.position.copy(pos).sub(offset);
+		model.root.userData.figIndex = figs.length;
 		model.root.traverse((o) => { if (o.isMesh) o.userData.fig = figs.length + 1; });
 		scene.add(model.root);
 		figs.push(model);
 	}
 
-	// light: one extremely hard key (+ an optional rim), no ambient, no fill
+	const light = placeLight(scene, camera, figs, L, dist, set, opts);
+	return {
+		scene, camera, figs, camY, dist, skyWhite, K, light,
+		dispose() { scene.traverse((o) => { if (o.isMesh) o.geometry?.dispose(); }); if (light.key?.shadow?.map) light.key.shadow.map.dispose(); }
+	};
+}
+
+/** one extremely hard key (directional, or a practical point light) + an optional rim; no ambient, no fill */
+function placeLight(scene, camera, figs, L, dist, set, opts) {
 	const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).setY(0).normalize();
 	const camBack = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion).setY(0).normalize();
 	const KEYDIR = {
@@ -168,7 +170,7 @@ export async function renderShot(shot, opts = {}) {
 			key.position.copy(target).addScaledVector(keyDir, Math.max(1.6, dist * 0.35));
 			set.practical?.(key.position);
 		} else {
-			key = new THREE.DirectionalLight(0xffffff, 14);
+			key = new THREE.DirectionalLight(0xffffff, 14); // over-driven: anything facing the key is white
 			key.position.copy(target).addScaledVector(keyDir, 60);
 			key.target.position.copy(target);
 			scene.add(key.target);
@@ -180,21 +182,32 @@ export async function renderShot(shot, opts = {}) {
 		key.shadow.bias = -0.0004;
 		scene.add(key);
 	}
+	let rim = null;
 	if (L.rim || L.key === 'back' || L.source === 'none') {
-		const rim = new THREE.DirectionalLight(0xffffff, L.source === 'none' ? 9 : 7);
+		rim = new THREE.DirectionalLight(0xffffff, L.source === 'none' ? 9 : 7);
 		rim.position.copy(target).add(camBack.clone().negate().multiplyScalar(30)).add(new THREE.Vector3(0, 10, 0));
 		rim.target.position.copy(target);
 		scene.add(rim, rim.target);
 	}
+	return { key, rim, target };
+}
 
-	// passes
-	const targetRT = (w, h) => { const rt = new THREE.WebGLRenderTarget(w, h, { depthBuffer: true }); rt.depthTexture = new THREE.DepthTexture(w, h); return rt; };
+/**
+ * The look as a reusable pass on one renderer: render(scene, camera, w, h, { sky, accent, K, seed }) → the renderer's
+ * canvas. Lit + a mask (R = accent, G = object id) → pure black / white at a hard threshold; ink only where one thing
+ * ends (object ids; depth jumps between set pieces), organic width, drawn inverted against what is behind it.
+ */
+export function sinPass(renderer) {
+	renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.BasicShadowMap;
+	renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+	const maskMats = {};
 	const SIN = new THREE.ShaderMaterial({
 		uniforms: {
 			tLit: { value: null }, tMask: { value: null }, tDepth: { value: null },
-			texel: { value: new THREE.Vector2() }, res: { value: new THREE.Vector2() }, threshold: { value: 0.32 }, sky: { value: skyWhite ? 1 : 0 },
-			ink: { value: 1.6 * K }, inkVar: { value: 2.2 * K }, seed: { value: [...shot.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 97 },
-			accent: { value: new THREE.Color(shot.accent ?? '#c00000') }, near: { value: camera.near }, far: { value: camera.far }, ortho: { value: camera.isOrthographicCamera ? 1 : 0 }
+			texel: { value: new THREE.Vector2() }, res: { value: new THREE.Vector2() }, threshold: { value: 0.32 }, sky: { value: 1 },
+			ink: { value: 1.6 }, inkVar: { value: 2.2 }, seed: { value: 0 },
+			accent: { value: new THREE.Color('#c00000') }, near: { value: 0.05 }, far: { value: 600 }, ortho: { value: 0 }
 		},
 		vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
 		fragmentShader: `
@@ -238,29 +251,70 @@ export async function renderShot(shot, opts = {}) {
 	const post = new THREE.Scene();
 	post.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), SIN));
 	const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-	function renderView(cam, w, h) {
-		renderer.setSize(w, h, false);
-		const lit = targetRT(w, h), mask = targetRT(w, h);
-		renderer.setClearColor(0x000000, 1);
-		renderer.setRenderTarget(lit); renderer.render(scene, cam);
-		const swap = [];
-		scene.traverse((o) => {
-			if (!o.isMesh) return;
-			swap.push([o, o.material]);
-			const k = `${o.userData.accent ? 1 : 0}/${o.userData.fig ?? 0}`;
-			o.material = (maskMats[k] ??= new THREE.MeshBasicMaterial({ color: new THREE.Color(o.userData.accent ? 1 : 0, (o.userData.fig ?? 0) / 255, 0) }));
-		});
-		renderer.setRenderTarget(mask); renderer.render(scene, cam);
-		for (const [o, m] of swap) o.material = m;
-		SIN.uniforms.tLit.value = lit.texture; SIN.uniforms.tMask.value = mask.texture; SIN.uniforms.tDepth.value = lit.depthTexture;
-		SIN.uniforms.texel.value.set(1 / w, 1 / h);
-		SIN.uniforms.res.value.set(w, h);
-		SIN.uniforms.near.value = cam.near; SIN.uniforms.far.value = cam.far;
-		renderer.setRenderTarget(null); renderer.render(post, postCam);
-		lit.dispose(); mask.dispose();
-		return renderer.domElement;
-	}
-	function panorama(pw, ph) {
+	let rt = null;
+	const targets = (w, h) => {
+		if (rt && rt.w === w && rt.h === h) return rt;
+		rt?.lit.dispose(); rt?.mask.dispose();
+		const make = () => { const t = new THREE.WebGLRenderTarget(w, h, { depthBuffer: true }); t.depthTexture = new THREE.DepthTexture(w, h); return t; };
+		return (rt = { w, h, lit: make(), mask: make() });
+	};
+	return {
+		render(scene, cam, w, h, p = {}) {
+			renderer.setSize(w, h, false);
+			const { lit, mask } = targets(w, h);
+			renderer.setClearColor(0x000000, 1);
+			renderer.setRenderTarget(lit); renderer.render(scene, cam);
+			const swap = [];
+			scene.traverse((o) => {
+				if (!o.isMesh || o.userData.helper) return;
+				swap.push([o, o.material]);
+				const k = `${o.userData.accent ? 1 : 0}/${o.userData.fig ?? 0}`;
+				o.material = (maskMats[k] ??= new THREE.MeshBasicMaterial({ color: new THREE.Color(o.userData.accent ? 1 : 0, (o.userData.fig ?? 0) / 255, 0) }));
+			});
+			renderer.setRenderTarget(mask); renderer.render(scene, cam);
+			for (const [o, m] of swap) o.material = m;
+			const u = SIN.uniforms;
+			u.tLit.value = lit.texture; u.tMask.value = mask.texture; u.tDepth.value = lit.depthTexture;
+			u.texel.value.set(1 / w, 1 / h); u.res.value.set(w, h);
+			u.near.value = cam.near; u.far.value = cam.far; u.ortho.value = cam.isOrthographicCamera ? 1 : 0;
+			u.sky.value = p.sky ?? 1; u.ink.value = 1.6 * (p.K ?? 1); u.inkVar.value = 2.2 * (p.K ?? 1); u.seed.value = p.seed ?? 0;
+			u.accent.value.set(p.accent ?? '#c00000');
+			renderer.setRenderTarget(null); renderer.render(post, postCam);
+			return renderer.domElement;
+		},
+		dispose() { rt?.lit.dispose(); rt?.mask.dispose(); SIN.dispose(); for (const m of Object.values(maskMats)) m.dispose(); }
+	};
+}
+
+/** where each figure landed on the image: its projected box in output px */
+export function figureBoxes(figs, camera, W, H, K = 1) {
+	return figs.map((m, index) => {
+		const b = new THREE.Box3().setFromObject(m.root);
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+		for (const cx of [b.min.x, b.max.x]) for (const cy of [b.min.y, b.max.y]) for (const cz of [b.min.z, b.max.z]) {
+			const p = new THREE.Vector3(cx, cy, cz).project(camera);
+			const px = ((p.x + 1) / 2) * W, py = ((1 - p.y) / 2) * H;
+			x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
+		}
+		return { index, box: { x0: x0 / K, y0: y0 / K, x1: x1 / K, y1: y1 / K } };
+	});
+}
+
+export const seedOf = (id) => [...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % 97;
+
+/** one shot → { canvas, figures } (opts: renderer, canvas, tigerUrl, marks, shadowSize) */
+export async function renderShot(shot, opts = {}) {
+	const W = shot.w, H = shot.h;
+	const canvas = opts.canvas ?? document.createElement('canvas');
+	canvas.width = W; canvas.height = H;
+	const out2d = canvas.getContext('2d');
+	const renderer = opts.renderer ?? new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+	const pass = sinPass(renderer);
+	const built = await buildScene(shot, opts);
+	const { scene, camera, figs, camY, K, skyWhite } = built;
+	const look = { sky: skyWhite ? 1 : 0, accent: shot.accent ?? '#c00000', K, seed: seedOf(shot.id) };
+
+	const panorama = (pw, ph) => {
 		const n = Math.max(4, Math.round(pw / (390 * K)));
 		const sliceW = Math.round(pw / n);
 		const pano = document.createElement('canvas');
@@ -275,10 +329,10 @@ export async function renderShot(shot, opts = {}) {
 		for (let i = 0; i < n; i++) {
 			cam.rotation.set(0, -i * hfov * D, 0);
 			cam.updateMatrixWorld();
-			g.drawImage(renderView(cam, sliceW, ph), i * sliceW, 0);
+			g.drawImage(pass.render(scene, cam, sliceW, ph, look), i * sliceW, 0);
 		}
 		return pano;
-	}
+	};
 
 	let image;
 	if (shot.format === 'loop360') {
@@ -307,39 +361,26 @@ export async function renderShot(shot, opts = {}) {
 		}
 		out2d.putImageData(out, 0, 0);
 	} else {
-		image = renderView(camera, W, H);
+		image = pass.render(scene, camera, W, H, look);
 	}
 	if (image) out2d.drawImage(image, 0, 0, W, H);
-
-	// where each figure landed on the image (for dragging in the studio): its projected box
-	const figures = figs.map((m, index) => {
-		const b = new THREE.Box3().setFromObject(m.root);
-		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-		for (const cx of [b.min.x, b.max.x]) for (const cy of [b.min.y, b.max.y]) for (const cz of [b.min.z, b.max.z]) {
-			const p = new THREE.Vector3(cx, cy, cz).project(camera);
-			const px = ((p.x + 1) / 2) * W, py = ((1 - p.y) / 2) * H;
-			x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
-		}
-		return { index, box: { x0: x0 / K, y0: y0 / K, x1: x1 / K, y1: y1 / K } };
-	});
-
-	if (opts.marks !== false) {
-		out2d.font = `600 ${11 * K}px ui-monospace, Consolas, monospace`;
-		const label = `${shot.id} · ${shot.format} ${shot.aspect}${shot.move ? ` · ${shot.move}` : ''}${shot.want ? ` [${shot.want}]` : ''}`;
-		const tw = out2d.measureText(label).width;
-		out2d.fillStyle = '#000'; out2d.fillRect(0, 0, tw + 12 * K, 18 * K);
-		out2d.fillStyle = '#fff'; out2d.fillText(label, 6 * K, 13 * K);
-		for (const [a, b] of shot.air ?? []) {
-			const y0 = (a / 100) * H, y1 = (b / 100) * H;
-			out2d.fillStyle = '#888';
-			out2d.fillRect(K, y0 + 2 * K, 3 * K, Math.max(2 * K, y1 - y0 - 4 * K));
-		}
-	}
-
-	// free the GPU memory of this shot (the studio renders many)
-	scene.traverse((o) => { if (o.isMesh) { o.geometry?.dispose(); } });
-	for (const m of Object.values(maskMats)) m.dispose();
-	SIN.dispose();
-	if (key?.shadow?.map) key.shadow.map.dispose();
+	const figures = figureBoxes(figs, camera, W, H, K);
+	if (opts.marks !== false) drawMarks(out2d, shot, W, H, K);
+	built.dispose();
+	pass.dispose();
 	return { canvas, figures };
+}
+
+/** the storyboard marks: id + format top left, air zones as a bar on the left edge */
+export function drawMarks(g, shot, W, H, K = 1) {
+	g.font = `600 ${11 * K}px ui-monospace, Consolas, monospace`;
+	const label = `${shot.id} · ${shot.format} ${shot.aspect}${shot.move ? ` · ${shot.move}` : ''}${shot.want ? ` [${shot.want}]` : ''}`;
+	const tw = g.measureText(label).width;
+	g.fillStyle = '#000'; g.fillRect(0, 0, tw + 12 * K, 18 * K);
+	g.fillStyle = '#fff'; g.fillText(label, 6 * K, 13 * K);
+	for (const [a, b] of shot.air ?? []) {
+		const y0 = (a / 100) * H, y1 = (b / 100) * H;
+		g.fillStyle = '#888';
+		g.fillRect(K, y0 + 2 * K, 3 * K, Math.max(2 * K, y1 - y0 - 4 * K));
+	}
 }
