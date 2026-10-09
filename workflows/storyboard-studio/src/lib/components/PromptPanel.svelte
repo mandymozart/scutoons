@@ -53,10 +53,14 @@
 {/if}
 
 <style>
+	/* the dock gives the panel its height: it scrolls on its own, its rows keep their own height */
 	.panel {
 		padding: var(--space-1);
 		display: grid;
 		gap: var(--space-1);
+		align-content: start;
+		overflow-y: auto;
+		box-sizing: border-box;
 	}
 	.row {
 		display: flex;

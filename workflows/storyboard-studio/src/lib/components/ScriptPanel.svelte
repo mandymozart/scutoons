@@ -25,6 +25,8 @@
 <style>
 	.panel {
 		padding: var(--space-1);
+		overflow-y: auto;
+		box-sizing: border-box;
 	}
 	h3,
 	h4 {

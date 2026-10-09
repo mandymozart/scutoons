@@ -80,10 +80,14 @@
 {/if}
 
 <style>
+	/* the dock gives the panel its height: it scrolls on its own, its rows keep their own height */
 	.panel {
 		padding: var(--space-1);
 		display: grid;
 		gap: var(--space-1);
+		align-content: start;
+		overflow-y: auto;
+		box-sizing: border-box;
 	}
 	h3 {
 		margin: var(--space-05) 0 0;
@@ -99,6 +103,8 @@
 	}
 	img {
 		width: 100%;
+		max-height: 40dvh; /* a tall frame never pushes the variants and the drop zone out of view */
+		object-fit: contain;
 		display: block;
 		background: var(--ink);
 	}
