@@ -154,7 +154,7 @@ tables with today's data, history; folds and removes the settings `item_respawn`
 "Status"; ran 2026-10-05 – the API needs the tables since 10.30),
 `2026-10-04-agent-chats.mysql.sql`, `2026-10-04-agent-usage.mysql.sql`, `2026-10-06-agent-web-search.mysql.sql` (the
 Ask panel's chat history and usage log – ran; Ask is gone since 2026-10-09, nothing reads `agent_chats` / `agent_usage`
-any more; `server/migrations/later/2026-10-09-drop-ask.mysql.sql` drops them once the move to the MCP is done),
+any more; `2026-10-09-drop-ask.mysql.sql` drops them – handed to the owner for production 2026-10-09),
 `2026-10-04-ask-embassy-mail.mysql.sql` (after the Embassy ones: the mail fields of `embassy_activities`,
 `embassy_mail_state` for the inbox sync; without it Embassy mails are sent and logged without subject / addresses, the
 inbox sync answers 503), `2026-10-09-mcp-drafts.mysql.sql` (`embassy_mail_drafts`, `admin_proposals`: what the

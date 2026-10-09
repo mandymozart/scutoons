@@ -195,13 +195,13 @@ liaisons lose their tool in between.
 Deviations from the plan above: the token page is on the viewer's account page with an inline revoke confirm (the
 viewer has no DialogHost); `delete_person` stays allowed for a token (internal data, on an explicit request – the prompt
 says so); `asset_usages` moved to the story tools (every content editor); the drop of the Ask tables is parked in
-`server/migrations/later/2026-10-09-drop-ask.mysql.sql` (the migrator only reads migrations/mysql/).
+`server/migrations/mysql/2026-10-09-drop-ask.mysql.sql` (the owner runs it on production, 2026-10-09).
 
 Open:
 - **Owner, production:** run `2026-10-09-mcp-drafts` + `2026-10-09-api-tokens` with the deploy (the SELECTs first);
   then delete the bunny app, the `ask.` DNS, the ghcr image, the GitHub vars `VITE_ASK_URL` / `BUNNY_ASK_*` and the
-  secret `AGENT_SERVICE_KEY`, revoke the Anthropic API key. Once the move is done: move the drop migration to
-  migrations/mysql/ and run it.
+  secret `AGENT_SERVICE_KEY`, revoke the Anthropic API key. Then `2026-10-09-drop-ask.mysql.sql`
+  (handed over 2026-10-09).
 - **Owner:** install the extension once in Claude Desktop (account page → AI connections) – not tried (no Claude Desktop
   in the agent's reach).
 - Not built: the version check (`/api/meta` → `mcp_min_version`, §3a) – a member with an old copy simply downloads again.

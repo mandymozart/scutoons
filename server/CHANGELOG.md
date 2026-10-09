@@ -7,7 +7,7 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 - Ask removed, the member's own AI through the MCP (agents/MCP.md, owner 2026-10-09). Gone: `/api/agent-chats`,
   `POST /api/agent-usage`, `GET /api/admin/agent-usage`, `Domain\Agent`, `AgentChatsController` /
   `AgentUsageController` + their tests, the setting `AGENT_SERVICE_KEY`, the agent-chats CORS rule (the tables stay
-  until the owner drops them: `migrations/later/2026-10-09-drop-ask.mysql.sql`). New: **AI connections** – personal
+  dropped by `2026-10-09-drop-ask.mysql.sql`). New: **AI connections** – personal
   tokens `sct_…` (`Domain\Auth\ApiTokens`, `GET|POST /api/me/tokens`, `DELETE /api/me/tokens/{id}`, a real session
   only; members only – `403 no_member_role`, a token ends with the account's last member role), taken as Bearer like a
   session; `Http\ApiTokenScope` refuses a token (`403 not_for_ai`) on publish / unpublish, review decisions, an Embassy

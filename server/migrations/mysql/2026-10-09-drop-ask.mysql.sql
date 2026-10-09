@@ -3,8 +3,7 @@
 -- move is done") – the code no longer reads them since commit 560104a1. MariaDB 10.11, idempotent – phpMyAdmin
 -- (database d0487143 selected).
 --
--- Parked in migrations/later/ (the migrator only reads migrations/mysql/): move it to migrations/mysql/ when the move is
--- done, so the dev databases drop the tables too.
+-- Handed to the owner for production on 2026-10-09 (the move is done); in migrations/mysql/ since, so the dev databases follow.
 --
 -- Look first (what goes):
 --   SELECT 'agent_chats' AS t, COUNT(*) FROM agent_chats UNION ALL SELECT 'agent_usage', COUNT(*) FROM agent_usage;
