@@ -131,6 +131,27 @@ const api = {
 		writePng(file, png);
 		return { file: file.slice(ROOT.length + 1) };
 	},
+	// generated images (Luma results, a photo, a drawing) dropped onto a shot: kept next to its frame
+	'GET /api/generated': ({ ch, id }) => {
+		const d = resolve(OUT, ch, 'generated');
+		return existsSync(d) ? readdirSync(d).filter((f) => f.startsWith(`${id}--`)).sort() : [];
+	},
+	'POST /api/generated': ({ ch, id, name, data }) => {
+		if (!/^[\w-]+$/.test(id)) throw new Error('bad id');
+		const m = /^data:image\/(png|jpeg|webp);base64,/.exec(data ?? '');
+		if (!m) throw new Error('png / jpeg / webp only');
+		const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+		const d = resolve(OUT, ch, 'generated');
+		mkdirSync(d, { recursive: true });
+		const n = readdirSync(d).filter((f) => f.startsWith(`${id}--`)).length + 1;
+		const file = `${id}--g${n}.${ext}`;
+		writeFileSync(resolve(d, file), Buffer.from(data.slice(m[0].length), 'base64'));
+		return { file, from: name ?? '' };
+	},
+	'POST /api/generated/approve': ({ toon, ch, id, file, note }) => {
+		if (!/^[\w.-]+$/.test(file)) throw new Error('bad file');
+		return run('scripts/storyboard/approve.mjs', [`storyboards/${toon}/${ch}`, id, '--image', resolve(OUT, ch, 'generated', file), ...(note ? ['--note', note] : [])]);
+	},
 	'GET /api/variants': ({ toon, ch, id }) => readVariants(toon, ch, id),
 	'POST /api/variants': ({ toon, ch, id, shot, note }) => {
 		const list = readVariants(toon, ch, id);

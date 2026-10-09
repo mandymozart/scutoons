@@ -313,9 +313,34 @@ async function drawVariants() {
 			el('div', { class: 'actions' },
 				el('button', { on: { click: async () => { await api('POST', '/api/variants/pick', { toon: state.toon, ch: state.ch, id: state.sel.id, vid: v.id }); await rerenderFrame(); } } }, 'Diese nehmen'),
 				el('button', { on: { click: () => { state.sel.shot = { ...clone(v.shot), id: state.sel.id }; drawEditor(); changed(); } } }, 'Laden')))),
-		list.length ? null : el('p', { class: 'muted' }, 'Noch keine Varianten. Ändern → „Als Variante“.')
+		list.length ? null : el('p', { class: 'muted' }, 'Noch keine Varianten. Ändern → „Als Variante“.'),
+		await generatedBlock()
 	);
 }
+// generated images: drop a file onto the column (or pick one) → kept beside the shot; approve one = the chosen image
+async function generatedBlock() {
+	const files = await api('GET', `/api/generated?ch=${state.ch}&id=${state.sel.id}`);
+	const input = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', multiple: true, on: { change: (e) => addGenerated([...e.target.files]) } });
+	return el('div', { class: 'generated' },
+		el('h3', {}, 'Generiert'),
+		el('div', { class: 'drop', on: {
+			dragover: (e) => { e.preventDefault(); e.currentTarget.classList.add('over'); },
+			dragleave: (e) => e.currentTarget.classList.remove('over'),
+			drop: (e) => { e.preventDefault(); e.currentTarget.classList.remove('over'); addGenerated([...e.dataTransfer.files]); }
+		} }, 'Bild hierher ziehen (Luma, Foto, Zeichnung) ', input),
+		...files.map((f) => el('div', { class: 'variant' },
+			el('img', { src: `/out/${state.ch}/generated/${f}${bust()}`, alt: '' }),
+			el('div', { class: 'note' }, f),
+			el('div', { class: 'actions' }, el('button', { on: { click: async () => { const r = await api('POST', '/api/generated/approve', { toon: state.toon, ch: state.ch, id: state.sel.id, file: f, note: state.reviewNote ?? '' }); log(r.out); await loadChapter(true); } } }, '✓ als gewählt (→ Datensatz)')))));
+}
+async function addGenerated(files) {
+	for (const file of files) {
+		const data = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(file); });
+		await api('POST', '/api/generated', { ch: state.ch, id: state.sel.id, name: file.name, data });
+	}
+	drawVariants();
+}
+
 async function rerenderFrame() {
 	await loadChapter(true);
 	const hit = findShot(state.sel.id);
