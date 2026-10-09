@@ -19,7 +19,9 @@ if (!src) { console.error('usage: prompts.mjs <storyboard folder> [--all]'); pro
 
 /** The toon's style block (TREATMENTS.md open decision – a first version from chapters 1 + 2, to be confirmed). */
 const STYLE = {
-	catpope: 'Photographic, real location, natural light, high detail, cinematic still from a European art film; muted, slightly desaturated colours; no illustration, no comic or anime style, no text, no lettering, no watermark.'
+	catpope: 'Storyboard frame: clean line art, crisp contour lines on white, solid black shadow shapes from one extremely hard light so the lighting reads clearly; black and white only (one accent colour if named); no hatching, no grey shading, no sketchy or hand-drawn strokes, no text, no lettering, no watermark.',
+	// the final images (photo collage look of chapters 1 + 2) get their own style block when the storyboard is approved
+	catpopeFinal: 'Photographic, real location, cinematic still from a European art film; muted, slightly desaturated colours; no illustration, no comic or anime style, no text, no lettering, no watermark.'
 };
 const SIZE = { ecu: 'extreme close-up', cu: 'close-up', mcu: 'medium close-up', medium: 'medium shot', full: 'full shot', wide: 'wide shot', ews: 'extreme wide establishing shot' };
 const ANGLE = { eye: 'eye level', high: 'high angle', low: 'low angle', bird: "bird's-eye view", worm: "worm's-eye view", dutch: 'dutch angle' };

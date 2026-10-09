@@ -8,6 +8,7 @@
 	"admin": 11000,
 	"shop": 12000,
 	"embassy": 13000,
+	"studio": 14000,
 	"mariadb": 13306,
 	"adminer": 13380
 }

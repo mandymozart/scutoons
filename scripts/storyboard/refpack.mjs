@@ -53,7 +53,7 @@ function characterImage(c, framing, mood) {
 
 const PERSONA = {
 	'catpope/human': 'Cat Pope in human form (PLF): the long white papal robe with the cape, a sphynx cat head',
-	'catpope/mountaintiger': 'the white mountain tiger with glowing blue rune markings and blue eyes (Cat Pope himself, as PLF fights himself)',
+	'catpope/mountaintiger': 'the white mountain tiger: muscular, half upright, big claws, a rune glyph on the forehead and body (Cat Pope himself, as PLF fights himself)',
 	'catpope/regular': 'Cat Pope (the narrator): sphynx cat head, papal robe',
 	'catpope/cat': 'a hairless sphynx cat',
 	'crows/regular': 'crow creatures, black, big beaks'
@@ -83,7 +83,7 @@ for (const { sb } of loadStoryboards(src)) {
 		const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
 		const prompt = [
 			'Keep the exact composition, camera, poses and the hard light of the structure image (image reference).',
-			`Render it in the look of the style reference: high-contrast black and white ink, deep solid black shadows, white highlights, no grey gradients, posterised${light.accent?.color ? `, the only colour: ${light.accent.color}${light.accent.on ? ` on ${light.accent.on}` : ''}` : ', no colour'}.`,
+			`Render it as clean line art in the look of the style reference: crisp even contour lines on white, solid black shadow shapes from the one hard light so the lighting reads clearly, no hatching, no grey shading, no sketchy or hand-drawn strokes${light.accent?.color ? `, the only colour: ${light.accent.color}${light.accent.on ? ` on ${light.accent.on}` : ''}` : ', no colour'}.`,
 			who.length ? `Characters (character references): ${who.join('; ')}.` : 'No characters.',
 			shot.prompt?.en ? `The scene: ${shot.prompt.en}` : `The scene (German storyboard – translate the key details): ${textOf(shot.action)}`,
 			shot.view && VIEW[shot.view] ? `Perspective: ${VIEW[shot.view]}.` : '',

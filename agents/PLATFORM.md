@@ -518,6 +518,7 @@ The docker services (`docker/compose.yml`: mariadb, adminer) take the port from 
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
 | embassy (embassy.scutoons.com) | **13000** | `npm run dev:embassy` (agents/EMBASSY.md) |
+| studio (the storyboard studio, a local workflow tool) | **14000** | `npm run dev:studio` (workflows/storyboard-studio, agents/STORYBOARD.md) |
 | mariadb (Docker, the production engine; the only local database) | **13306** | `npm run dev:db` (server/docs/DATABASE.md "Local MariaDB"); `npm run dev` starts it too |
 | adminer (Docker, web UI of the MariaDB; optional) | **13380** | `npm run dev:db adminer` |
 

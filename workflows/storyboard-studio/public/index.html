@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storyboard Studio</title>
+<link rel="stylesheet" href="./studio.css">
+<script type="importmap">{ "imports": { "three": "/three/build/three.module.js", "three/addons/": "/three/examples/jsm/" } }</script>
+</head>
+<body>
+<header class="bar">
+	<strong>Storyboard Studio</strong>
+	<select id="chapter" aria-label="Kapitel"></select>
+	<span id="summary" class="muted"></span>
+	<span class="grow"></span>
+	<button data-run="validate">Prüfen</button>
+	<button data-run="page">Storyboard-Seite</button>
+	<button data-run="frames">Alle Frames rendern</button>
+	<button data-run="refpacks">Referenzpakete</button>
+	<button data-run="compile">Kapitel-Entwurf</button>
+	<button id="problems-btn">Hinweise</button>
+</header>
+<main class="layers">
+	<section class="col script" aria-label="Skript">
+		<h2>1 · Skript</h2>
+		<div id="script" class="scroll"></div>
+	</section>
+	<section class="col shots" aria-label="Szenen und Shots">
+		<h2>2 · Szenen → 3 · Shots</h2>
+		<div id="strip" class="scroll"></div>
+	</section>
+	<section class="col shot" aria-label="Shot">
+		<h2>4 · Render <span id="shot-title" class="muted"></span></h2>
+		<div id="stage" class="stage"><p class="muted">Einen Shot links wählen.</p></div>
+		<p class="hint muted">Figur ziehen = Position · Mausrad = Größe · Alt + Mausrad = drehen</p>
+	</section>
+	<section class="col edit" aria-label="Beschreibung">
+		<h2>Beschreibung</h2>
+		<div id="editor" class="scroll"></div>
+	</section>
+	<section class="col variants" aria-label="Varianten">
+		<h2>5 · Varianten</h2>
+		<div id="variants" class="scroll"></div>
+	</section>
+</main>
+<dialog id="log"><form method="dialog"><pre id="log-text"></pre><button>Schließen</button></form></dialog>
+<script type="module" src="./studio.js"></script>
+</body>
+</html>

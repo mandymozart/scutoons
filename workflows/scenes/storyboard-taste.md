@@ -13,6 +13,13 @@ shot. Rules the checker can enforce go into `scripts/storyboard/validate.mjs` to
 - **Outlines only around the outside of a figure** – no lines at joints or inside a body – and **organic**, varying
   in width. "outlines better on the outside of figurines only. The joints look weird with outlines" · "make outlines
   vary in stroke width. So its a bit more organic" (2026-10-09)
+- **Line art, not hand-drawn – with intense black and white so the light reads.** Clean, crisp contour lines on white,
+  solid black shadow shapes from the one hard light; no hatching, no grey marker shading, no sketchy strokes. "the
+  prompt was also not handdrawn, more line art, but keep intense bw to see lighting clearly" (2026-10-09, with storyboard
+  references: line-art tigers, inked tigers, a film storyboard sheet)
+- **The mountain tiger** (the owner's design 2026-10-09): white, muscular, half upright, big claws, the rune glyph on the
+  forehead and on the body (glowing blue in colour; in black and white a solid black glyph). The figurine follows it as we
+  refine. (media/characters/catpope-mountaintiger)
 - **Images, not schematics.** "skip the svg and just go into images" (2026-10-09)
 - **Detailed figurines** that match our characters, with a simple skeleton to pose; refine as we go. "more detailed
   figurines", "We can refine mannequins as we go" (2026-10-09)

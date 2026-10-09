@@ -46,6 +46,7 @@
 		"dev:admin": "npm run dev -w admin",
 		"dev:shop": "npm run dev -w shop",
 		"dev:embassy": "npm run dev -w embassy",
+		"dev:studio": "node workflows/storyboard-studio/server.mjs",
 		"dev:api": "node server/bin/dev-serve.mjs",
 		"dev:qr": "php scripts/dev/php-serve.php qr qr/public qr/public/router.php",
 		"check": "npm run check:ports && npm run check:tools-css && npm run check --workspaces --if-present",
