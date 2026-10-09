@@ -388,9 +388,9 @@ try {
 		// rails at one height (the panels' header buttons): the sidebar's (Ctrl+\), a folded panel's, the main's (Ctrl+Shift+\)
 		await js(`${q('dock-fold')}?.click(), true`);
 		await sleep(200);
-		if (!(await js(`!!${q('shell-rail')}`))) await press('\\', 'Backslash', 220, 2);
-		// the Reader's frame may hold the focus (keys go to the viewer then): the creator's page first
+		// the Reader's frame may hold the focus (keys go to the viewer then): the creator's page first – before Ctrl+\
 		await js(`document.activeElement?.blur(), true`);
+		if (!(await js(`!!${q('shell-rail')}`))) await press('\\', 'Backslash', 220, 2);
 		await press('|', 'Backslash', 220, 2 + 8);
 		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button, [data-testid="dock-rail-squeezed"] button') }; })()`);
 		check(tops.sidebar !== null && tops.main !== null && tops.dock !== null && [tops.main, tops.dock].every((t) => Math.abs(t - tops.sidebar) <= 1), `${w}: every rail's button at one height (sidebar ${tops.sidebar}, main ${tops.main}, panel ${tops.dock})`, JSON.stringify(tops));
