@@ -20,6 +20,7 @@ const COMMANDS = {
 	shop: ['npm', ['run', 'dev', '-w', 'shop']],
 	embassy: ['npm', ['run', 'dev', '-w', 'embassy']],
 	studio: ['node', ['workflows/storyboard-studio/server.mjs']], // the storyboard studio (a local workflow tool)
+	sketch3d: ['node', ['tools/sketch3d/server.mjs']], // sketch → 3D low-poly models + the A-pose auto-rig (a local tool)
 	// docker/compose.yml (foreground `up`, so the preview server owns it); mariadb is no web page – not listed
 	adminer: ['docker', ['compose', '-f', 'docker/compose.yml', '--profile', 'tools', 'up', 'adminer']]
 };

@@ -9,6 +9,7 @@
 	"shop": 12000,
 	"embassy": 13000,
 	"studio": 14000,
+	"sketch3d": 14001,
 	"mariadb": 13306,
 	"adminer": 13380
 }
