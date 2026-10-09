@@ -161,7 +161,8 @@ export function buildMesh(grid, { height = 1.8, depth = 0.8, mode = 'inflate', s
 	let sideSd = null, sw = 0, scx = 0;
 	if (side) {
 		sw = side.w;
-		sideSd = signedDist(side.mask, side.w, side.h);
+		// blurred: the distance to a pixelated slanted outline is a staircase – it showed as terraces on a dress
+		sideSd = blur(signedDist(side.mask, side.w, side.h), side.w, side.h, 3);
 		let a = side.w, b = -1;
 		for (let y = 0; y < side.h; y++) for (let x = 0; x < side.w; x++) if (side.mask[y * side.w + x]) { a = Math.min(a, x); b = Math.max(b, x); }
 		scx = (a + b) / 2;
@@ -210,7 +211,15 @@ export function buildMesh(grid, { height = 1.8, depth = 0.8, mode = 'inflate', s
 	geo = orientOutward(geo);
 	geo.computeBoundingBox();
 	const toGrid = (X, Y) => [X / s + cx, soleY - Y / s];
-	return { geometry: geo, toGrid, scale: s, cx, info: { cells: `${nx}×${ny}×${nz}`, rawTris: before, tris: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3 } };
+	// the side profile's middle at a height (world z; 0 without a side view): where the trunk's joints sit in depth
+	const sideMid = (Y) => {
+		if (!side) return 0;
+		const gy = Math.max(0, Math.min(side.h - 1, Math.round(soleY - Y / s)));
+		let a = Infinity, b = -Infinity;
+		for (let x = 0; x < side.w; x++) if (side.mask[gy * side.w + x]) { a = Math.min(a, x); b = Math.max(b, x); }
+		return a <= b ? ((a + b) / 2 - scx) * s : 0;
+	};
+	return { geometry: geo, toGrid, sideMid, scale: s, cx, info: { cells: `${nx}×${ny}×${nz}`, rawTris: before, tris: geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3 } };
 }
 
 /** flips every face if the mesh's signed volume is negative (inside out) */
@@ -263,3 +272,20 @@ export function flatColored(geo, grid, toGrid, { colors = 0, mono = null } = {})
 }
 
 const srgbToLinear = (c) => (c < 0.04045 ? c * 0.0773993808 : Math.pow(c * 0.9478672986 + 0.0521327014, 2.4));
+
+/** a few rounds of a 3×3 box blur */
+function blur(a, w, h, rounds) {
+	let src = a, dst = new Float32Array(a.length);
+	for (let r = 0; r < rounds; r++) {
+		for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+			let s = 0, n = 0;
+			for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+				const xx = x + dx, yy = y + dy;
+				if (xx >= 0 && yy >= 0 && xx < w && yy < h) { s += src[yy * w + xx]; n++; }
+			}
+			dst[y * w + x] = s / n;
+		}
+		[src, dst] = [dst, src];
+	}
+	return src;
+}

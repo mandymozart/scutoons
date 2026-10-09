@@ -17,8 +17,10 @@ node tools/sketch3d/test/synthetic.mjs       # the pipeline in Node on a synthet
 
 1. **Cut-out** (`core/mask.js`): transparency (the A-pose PNG / WebP), a plain background (flood fill from the border
    that stops at edges, so a white dress on white stays; "Toleranz"), or a line sketch (dark lines, gaps closed).
-2. **Sheet** (`sheet()`): a sheet with several views side by side is split at empty columns; each figure gets a role:
-   *Vorne* (inflated + rigged), *Seite* (a true 90° profile: cuts the depth, optional), *–* (ignored: ¾, back).
+2. **Images / sheet** (`sheet()`): drop one or more images ("+ Bild" adds one, e.g. the side view); a sheet with several
+   views side by side is split at empty columns. Each figure gets a role: *Vorne* (inflated + rigged), *Seite* (a true
+   90° profile: cuts the depth and gives the trunk joints their depth; facing left is mirrored by itself – the toes
+   tell), *–* (ignored: ¾, back). Two figures → the second is the side.
 3. **Inflate** (`core/mesh.js`): every inside cell carries a ball as big as its distance to the outline; the surface is
    the hull of those balls, squashed in depth ("Tiefe") → round limbs and head, a flatter torso. *Drehen* turns the
    silhouette instead (bottle, vase, trunk). Meshed with surface nets, Taubin-smoothed, then reduced to the wanted
@@ -28,7 +30,10 @@ node tools/sketch3d/test/synthetic.mjs       # the pipeline in Node on a synthet
    tail between the legs is fine), the soles. No gap at the knees → a **robe**: one `robe` bone (figures.js swings
    it with the legs), the legs only below the hem. Every vertex is skinned to its own region's bones (arm / leg /
    trunk / robe). Bind pose = the A-pose; rest = limbs straight down, so figures.js's poses apply as they are.
-5. **GLB**: flat-shaded, colourless by default ("Ohne Farbe" – the storyboard renders its own black and white;
+5. **Joints by hand**: drag the dots in the silhouette panel (red = found, blue = set by hand; "Symmetrisch" moves
+   the other side along, "Zurücksetzen" drops them). Only the rig reruns. Kept per model name in
+   `out/<name>-joints.json` (relative to the figure, so a new resolution keeps them); the batch uses them too.
+6. **GLB**: flat-shaded, colourless by default ("Ohne Farbe" – the storyboard renders its own black and white;
    colours per face from the image are optional), `tools/sketch3d/out/<name>.glb` (gitignored).
 
 ## Best input (e.g. generated in Luma)
@@ -42,5 +47,4 @@ the same sheet is fine). ¾ and back views are not used.
 - the storyboard renderer loading these GLBs instead of the procedural figurines (`core.js`: like the mountain tiger);
 - hands / fingers, a tail bone (a tail beside a leg moves with that leg), feet pointing forward (feet are flat
   silhouettes inflated in depth);
-- a side profile's own joints (the rig reads the front only);
 - a duo in one image (toptoy) is one panel per figure – rig each separately.

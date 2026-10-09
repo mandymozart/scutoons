@@ -14,9 +14,10 @@
 		<fieldset>
 			<legend>Bild</legend>
 			<label class="drop" id="drop" title="Ein Bild oder ein Charakterblatt (Vorne, ¾, Hinten nebeneinander) hierher ziehen oder klicken">
-				<img id="thumb" alt=""><span>Bild / Blatt ziehen oder wählen</span>
-				<input type="file" id="file" accept="image/*" hidden>
+				<img id="thumb" alt=""><span>Bild(er) / Blatt ziehen oder wählen – z. B. Vorne + Seite</span>
+				<input type="file" id="file" accept="image/*" multiple hidden>
 			</label>
+			<label class="addbtn" title="Ein weiteres Bild dazu, z. B. die Seitenansicht">+ Bild<input type="file" id="addFile" accept="image/*" multiple hidden></label>
 			<select id="character" title="Die A-Pose einer Figur aus media/characters"><option value="">– Figur (A-Pose) –</option></select>
 			<div id="panels" class="panels" title="Die Figuren des Bildes: welche ist vorne, welche (falls vorhanden) die reine Seitenansicht"></div>
 		</fieldset>
@@ -68,7 +69,12 @@
 
 	<aside class="debug">
 		<h2>Silhouette + Gelenke</h2>
-		<canvas id="maskCanvas"></canvas>
+		<p class="hint">Punkte ziehen, um Gelenke zu korrigieren.</p>
+		<canvas id="maskCanvas" title="Gelenke ziehen: rot = erkannt, blau = von Hand gesetzt"></canvas>
+		<div class="jointbar">
+			<label class="check"><input type="checkbox" id="symmetric" checked> Symmetrisch</label>
+			<button type="button" id="jointsReset" title="Alle von Hand gesetzten Gelenke verwerfen">Zurücksetzen</button>
+		</div>
 		<ul id="warn" class="warn"></ul>
 	</aside>
 

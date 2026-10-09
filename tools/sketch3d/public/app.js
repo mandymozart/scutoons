@@ -3,7 +3,8 @@
 // GLBs (server.mjs --batch).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { DEFAULTS, analyse, build, loadImageData, toGLB } from '/core/pipeline.js';
+import { DEFAULTS, analyse, buildBase, finish, loadImageData, toGLB } from '/core/pipeline.js';
+import { jointList } from '/core/rig.js';
 import { humanPoses, pose } from '/render/figures.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +19,12 @@ if (params.has('batch')) {
 		try {
 			const im = await loadImageData(c.url);
 			const sh = analyse(im, DEFAULTS);
-			const r = build({ img: im, sheet: sh, box: sh.boxes[0] }, null, DEFAULTS);
+			const b = buildBase({ img: im, sheet: sh, box: sh.boxes[0] }, null, DEFAULTS);
+			// joints set by hand for this character (the page saves them as out/<name>-joints.json)
+			const jr = await fetch(`/out/${c.name}-joints.json`);
+			const rel = jr.ok ? await jr.json() : {};
+			const H = b.grid.sole - b.grid.top + 1;
+			const r = finish(b, DEFAULTS, Object.fromEntries(Object.entries(rel).map(([k, [x, y]]) => [k, [b.mesh.cx + x * H, b.grid.top + y * H]])));
 			const buf = await toGLB(r.object, c.name);
 			await fetch(`/api/save?name=${encodeURIComponent(c.name)}`, { method: 'POST', body: buf });
 			await log(`${c.name}: ${c.file} → ${r.info.tris} tris, ${(buf.byteLength / 1024).toFixed(0)} KB${r.info.warn.length ? ' – ' + r.info.warn.join('; ') : ''}`);
@@ -61,47 +67,49 @@ seg('input', 'input', (v) => { S.input = v; remember(); reanalyseSoon(); });
 let atimer = 0;
 function reanalyseSoon() { clearTimeout(atimer); atimer = setTimeout(reanalyse, 250); }
 
-// ---------------------------------------------------------------- inputs: one image or a character sheet
-// The image is split into its figures (panels); each gets a role: Vorne (the silhouette that is inflated + rigged),
-// Seite (a true side profile, optional: cuts the depth) or – (ignored, e.g. the ¾ and back views of a sheet).
-let img = null, sh = null, roles = [];
+// ---------------------------------------------------------------- inputs: images and character sheets
+// Every image is split into its figures (panels); each panel gets a role: Vorne (the silhouette that is inflated +
+// rigged), Seite (a true side profile, optional: cuts the depth, gives the joints their depth) or – (ignored, e.g. the
+// ¾ and back views of a sheet). Two figures (front + side image, or a front + side sheet) → the second is the side.
+let images = [], panels = [], roles = [];
+let joints = {}, jointsFor = null; // images: [{ img, sh, url }], panels: [{ i (image), box }]
 const status = (t) => { $('status').textContent = t; };
 const cleanName = (n) => n.replace(/\.[^.]+$/, '').replace(/_apose.*$/, '').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
-async function setImage(src, label) {
-	img = await loadImageData(src);
-	$('thumb').src = typeof src === 'string' ? src : URL.createObjectURL(src);
+async function setImages(srcs, label, add = false) {
+	const loaded = await Promise.all(srcs.map(async (src) => ({ img: await loadImageData(src), url: typeof src === 'string' ? src : URL.createObjectURL(src) })));
+	images = add ? images.concat(loaded) : loaded;
+	$('thumb').src = images[0].url;
 	$('thumb').parentElement.classList.add('has');
-	if (label) $('name').value = label;
+	if (label && !add) { $('name').value = label; jointsFor = null; }
 	reanalyse();
 }
 function reanalyse() {
-	if (!img) return;
-	sh = analyse(img, S);
-	roles = sh.boxes.map((_, i) => (i === 0 ? 'front' : '-'));
+	if (!images.length) return;
+	for (const im of images) im.sh = analyse(im.img, S);
+	panels = images.flatMap((im, i) => im.sh.boxes.map((box) => ({ i, box })));
+	roles = panels.map((_, k) => (k === 0 ? 'front' : k === 1 && panels.length === 2 ? 'side' : '-'));
 	drawPanels();
 	rebuildSoon(0);
 }
 function drawPanels() {
 	const wrap = $('panels');
 	wrap.replaceChildren();
-	if (sh.boxes.length < 2) return; // a single figure needs no choice
-	const c0 = new OffscreenCanvas(img.width, img.height);
-	c0.getContext('2d').putImageData(img, 0, 0);
-	sh.boxes.forEach((b, i) => {
+	if (panels.length < 2) return; // a single figure needs no choice
+	const canvases = images.map(({ img }) => { const c0 = new OffscreenCanvas(img.width, img.height); c0.getContext('2d').putImageData(img, 0, 0); return c0; });
+	panels.forEach(({ i, box: b }, k) => {
 		const div = document.createElement('div');
 		div.className = 'panel';
 		const c = document.createElement('canvas');
 		c.width = b.x1 - b.x0 + 1; c.height = b.y1 - b.y0 + 1;
-		c.getContext('2d').drawImage(c0, b.x0, b.y0, c.width, c.height, 0, 0, c.width, c.height);
+		c.getContext('2d').drawImage(canvases[i], b.x0, b.y0, c.width, c.height, 0, 0, c.width, c.height);
 		const s = document.createElement('div');
 		s.className = 'seg';
 		for (const [v, t] of [['front', 'Vorne'], ['side', 'Seite'], ['-', '–']]) {
 			const btn = Object.assign(document.createElement('button'), { type: 'button', textContent: t });
-			btn.classList.toggle('on', roles[i] === v);
+			btn.classList.toggle('on', roles[k] === v);
 			btn.addEventListener('click', () => {
-				// one front, one side
-				if (v !== '-') roles = roles.map((r) => (r === v ? '-' : r));
-				roles[i] = v;
+				if (v !== '-') roles = roles.map((r) => (r === v ? '-' : r)); // one front, one side
+				roles[k] = v;
 				drawPanels();
 				rebuildSoon(0);
 			});
@@ -111,24 +119,32 @@ function drawPanels() {
 		wrap.append(div);
 	});
 }
-const source = (role) => { const i = roles.indexOf(role); return i < 0 ? null : { img, sheet: sh, box: sh.boxes[i] }; };
+const source = (role) => {
+	const k = roles.indexOf(role);
+	if (k < 0) return null;
+	const { i, box } = panels[k];
+	return { img: images[i].img, sheet: images[i].sh, box };
+};
 
+// drop / pick: one or more images replace the current ones; "+ Bild" adds (e.g. the side view to a front view)
+const files = (list) => [...list].filter((f) => f.type.startsWith('image/'));
 const zone = $('drop'), input = $('file');
-input.addEventListener('change', () => input.files[0] && setImage(input.files[0], cleanName(input.files[0].name)));
+input.addEventListener('change', () => { const f = files(input.files); if (f.length) setImages(f, cleanName(f[0].name)); input.value = ''; });
+$('addFile').addEventListener('change', (e) => { const f = files(e.target.files); if (f.length) setImages(f, null, true); e.target.value = ''; });
 zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
 zone.addEventListener('dragleave', () => zone.classList.remove('over'));
 zone.addEventListener('drop', (e) => {
 	e.preventDefault();
 	zone.classList.remove('over');
-	const f = e.dataTransfer.files[0];
-	if (f) setImage(f, cleanName(f.name));
+	const f = files(e.dataTransfer.files);
+	if (f.length) setImages(f, cleanName(f[0].name));
 });
 
 const chars = await (await fetch('/api/characters')).json();
 for (const c of chars) $('character').append(new Option(`${c.name} (${c.file})`, c.name));
 $('character').addEventListener('change', () => {
 	const c = chars.find((x) => x.name === $('character').value);
-	if (c) setImage(c.url, c.name);
+	if (c) setImages([c.url], c.name);
 });
 
 // ---------------------------------------------------------------- the viewer
@@ -203,48 +219,75 @@ function applyPose() {
 $('pose').addEventListener('change', applyPose);
 
 // ---------------------------------------------------------------- build
-let timer = 0;
+// Two stages: the mesh (slow, on image / form changes) and the rig (fast, also when a joint is dragged by hand).
+// Joints moved by hand are kept per model name in tools/sketch3d/out/<name>-joints.json, relative to the figure
+// (x from the centre line, y from the top, in figure heights) – so they survive a change of the resolution.
+let timer = 0, base = null;
 function rebuildSoon(ms = 250) { clearTimeout(timer); timer = setTimeout(rebuild, ms); }
+const modelName = () => $('name').value.trim() || 'figure';
+async function loadJoints() {
+	const n = modelName();
+	if (jointsFor === n) return;
+	jointsFor = n;
+	joints = {};
+	try { const r = await fetch(`/out/${encodeURIComponent(n)}-joints.json`); if (r.ok) joints = await r.json(); } catch { /* none */ }
+}
+const saveJoints = () => fetch(`/api/save?name=${encodeURIComponent(modelName() + '-joints')}&kind=json`, { method: 'POST', body: JSON.stringify(joints) });
+// relative ↔ grid
+const frame = () => { const g = base.grid; return { cx: base.mesh.cx, top: g.top, H: g.sole - g.top + 1 }; };
+const toRel = ([gx, gy]) => { const f = frame(); return [(gx - f.cx) / f.H, (gy - f.top) / f.H]; };
+const toGridP = ([rx, ry]) => { const f = frame(); return [f.cx + rx * f.H, f.top + ry * f.H]; };
+const gridJoints = () => Object.fromEntries(Object.entries(joints).map(([k, p]) => [k, toGridP(p)]));
+
 function rebuild() {
 	const front = source('front'), side = source('side');
 	if (!front) return;
 	status('baue …');
 	setTimeout(async () => { // (not requestAnimationFrame: it never fires in a hidden tab)
-		let r;
-		try { r = build(front, side, S); } catch (e) { status('Fehler: ' + e.message); console.error(e); return; }
-		if (current) { scene.remove(current.object); current.object.geometry.dispose(); }
-		if (helper) { scene.remove(helper); helper = null; }
-		current = r;
-		shaded = r.object.material;
-		r.object.castShadow = true;
-		scene.add(r.object);
-		if (r.figure) {
-			helper = new THREE.SkeletonHelper(r.object);
-			helper.visible = $('bones').checked;
-			scene.add(helper);
-		}
-		$('pose').disabled = !r.figure;
-		applyView();
-		applyPose();
-		const bb = new THREE.Box3().setFromObject(r.object);
-		controls.target.set(0, (bb.max.y + bb.min.y) / 2, 0);
-		const i = r.info;
-		$('info').textContent = `${i.tris} Dreiecke (roh ${i.rawTris}) · Gitter ${i.cells} · ${i.input} · ${i.ms.mask + i.ms.mesh + i.ms.rig} ms`;
-		$('warn').replaceChildren(...i.warn.map((w) => Object.assign(document.createElement('li'), { textContent: w })));
-		drawDebug(r);
+		try { base = buildBase(front, side, S); } catch (e) { status('Fehler: ' + e.message); console.error(e); return; }
+		await loadJoints();
+		refinish(true);
 		status('');
 	}, 30);
 }
+function refinish(frameIt = false) {
+	let r;
+	try { r = finish(base, S, gridJoints()); } catch (e) { status('Fehler: ' + e.message); console.error(e); return; }
+	if (current) scene.remove(current.object);
+	if (helper) { scene.remove(helper); helper = null; }
+	current = r;
+	shaded = r.object.material;
+	r.object.castShadow = true;
+	scene.add(r.object);
+	if (r.figure) {
+		helper = new THREE.SkeletonHelper(r.object);
+		helper.visible = $('bones').checked;
+		scene.add(helper);
+	}
+	$('pose').disabled = !r.figure;
+	applyView();
+	applyPose();
+	if (frameIt) {
+		const bb = new THREE.Box3().setFromObject(r.object);
+		controls.target.set(0, (bb.max.y + bb.min.y) / 2, 0);
+	}
+	const i = r.info;
+	$('info').textContent = `${i.tris} Dreiecke (roh ${i.rawTris}) · Gitter ${i.cells} · ${i.input} · ${i.ms.mask + i.ms.mesh + i.ms.rig} ms`;
+	$('warn').replaceChildren(...i.warn.map((w) => Object.assign(document.createElement('li'), { textContent: w })));
+	$('jointsReset').disabled = !Object.keys(joints).length;
+	drawDebug(r);
+}
 
-// the silhouette on the grid, the regions, the joints
+// the silhouette on the grid, the regions, the joints (draggable)
+const K = 4; // canvas px per grid cell
+let drag = null; // { key, mirror, p }
 function drawDebug(r) {
 	const { grid } = r;
 	const c = $('maskCanvas');
-	const k = 4;
-	c.width = grid.w * k; c.height = grid.h * k;
+	c.width = grid.w * K; c.height = grid.h * K;
 	const g = c.getContext('2d');
 	const lab = r.rig?.lm.label;
-	const tint = [null, null, [255, 120, 80], [80, 160, 255], [255, 200, 60], [80, 220, 140]];
+	const tint = [null, null, [255, 120, 80], [80, 160, 255], [255, 200, 60], [80, 220, 140], [190, 140, 255]];
 	for (let y = 0; y < grid.h; y++) for (let x = 0; x < grid.w; x++) {
 		const i = y * grid.w + x;
 		if (!grid.mask[i]) continue;
@@ -252,22 +295,58 @@ function drawDebug(r) {
 		const t = lab && tint[lab[i]];
 		if (t) col = col.map((v, j) => v * 0.55 + t[j] * 0.45);
 		g.fillStyle = `rgb(${col.map(Math.round).join(',')})`;
-		g.fillRect(x * k, y * k, k, k);
+		g.fillRect(x * K, y * K, K, K);
 	}
 	if (!r.rig) return;
-	const { T, arm, leg } = r.rig.lm;
-	const line = (a, b) => { g.beginPath(); g.moveTo(a[0] * k, a[1] * k); g.lineTo(b[0] * k, b[1] * k); g.stroke(); };
-	const dot = (p) => { g.beginPath(); g.arc(p[0] * k, p[1] * k, 4, 0, Math.PI * 2); g.fill(); };
-	g.strokeStyle = '#111'; g.fillStyle = '#e53e3e'; g.lineWidth = 2;
-	line(T.pelvis, T.spine); line(T.spine, T.chest); line(T.chest, T.neck); line(T.neck, T.head); line(T.head, T.top);
+	// the joints as drawn: the rig's, with the one being dragged (and its mirror) at the pointer
+	const P = Object.fromEntries(jointList(r.rig.lm).map(({ key, p }) => [key, p]));
+	if (drag) { P[drag.key] = drag.p; if (drag.mirror) P[drag.mirror] = [2 * base.mesh.cx - drag.p[0], drag.p[1]]; }
+	const line = (a, b) => { g.beginPath(); g.moveTo(P[a][0] * K, P[a][1] * K); g.lineTo(P[b][0] * K, P[b][1] * K); g.stroke(); };
+	g.strokeStyle = '#111'; g.lineWidth = 2;
+	line('T.pelvis', 'T.spine'); line('T.spine', 'T.chest'); line('T.chest', 'T.neck'); line('T.neck', 'T.head'); line('T.head', 'T.top');
 	for (const s of ['L', 'R']) {
-		const a = arm[s], l = leg[s];
-		line(T.chest, a.sh); line(a.sh, a.el); line(a.el, a.wr); line(a.wr, a.tip);
-		line(T.pelvis, l.hip); line(l.hip, l.kn); line(l.kn, l.an); line(l.an, l.toe);
-		[a.sh, a.el, a.wr, l.hip, l.kn, l.an].forEach(dot);
+		line('T.chest', `arm.${s}.sh`); line(`arm.${s}.sh`, `arm.${s}.el`); line(`arm.${s}.el`, `arm.${s}.wr`); line(`arm.${s}.wr`, `arm.${s}.tip`);
+		line('T.pelvis', `leg.${s}.hip`); line(`leg.${s}.hip`, `leg.${s}.kn`); line(`leg.${s}.kn`, `leg.${s}.an`); line(`leg.${s}.an`, `leg.${s}.toe`);
 	}
-	[T.pelvis, T.spine, T.chest, T.neck, T.head].forEach(dot);
+	for (const [key, p] of Object.entries(P)) {
+		if (key === 'T.robe') continue;
+		g.beginPath();
+		g.arc(p[0] * K, p[1] * K, key.endsWith('tip') || key.endsWith('toe') || key === 'T.top' ? 3 : 5, 0, Math.PI * 2);
+		g.fillStyle = joints[key] ? '#2b6cb0' : '#e53e3e'; // blue = set by hand
+		g.fill();
+	}
 }
+const mirrorOf = (key) => (/\.(L|R)\./.test(key) ? key.replace(/\.(L|R)\./, (_, s) => (s === 'L' ? '.R.' : '.L.')) : null);
+function canvasPoint(e) {
+	const c = $('maskCanvas'), b = c.getBoundingClientRect();
+	return [((e.clientX - b.left) * (c.width / b.width)) / K, ((e.clientY - b.top) * (c.height / b.height)) / K];
+}
+$('maskCanvas').addEventListener('pointerdown', (e) => {
+	if (!current?.rig) return;
+	const p = canvasPoint(e);
+	const c = $('maskCanvas'), scale = c.width / c.getBoundingClientRect().width;
+	let best = null, bd = (10 * scale) / K; // within 10 css px
+	for (const { key, p: q } of jointList(current.rig.lm)) {
+		if (key === 'T.robe') continue;
+		const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+		if (d < bd) { bd = d; best = key; }
+	}
+	if (!best) return;
+	c.setPointerCapture(e.pointerId);
+	drag = { key: best, mirror: $('symmetric').checked ? mirrorOf(best) : null, p };
+	drawDebug(current);
+});
+$('maskCanvas').addEventListener('pointermove', (e) => { if (!drag) return; drag.p = canvasPoint(e); drawDebug(current); });
+$('maskCanvas').addEventListener('pointerup', () => {
+	if (!drag) return;
+	joints[drag.key] = toRel(drag.p);
+	if (drag.mirror) joints[drag.mirror] = toRel([2 * base.mesh.cx - drag.p[0], drag.p[1]]);
+	drag = null;
+	refinish();
+	saveJoints();
+});
+$('jointsReset').addEventListener('click', () => { joints = {}; refinish(); saveJoints(); });
+$('name').addEventListener('change', () => { jointsFor = null; rebuildSoon(0); });
 
 // ---------------------------------------------------------------- save
 async function listModels() {
@@ -280,7 +359,7 @@ async function listModels() {
 }
 $('save').addEventListener('click', async () => {
 	if (!current) return;
-	const name = $('name').value.trim() || 'figure';
+	const name = modelName();
 	// save the rest (bind) pose, with the colours, whatever the view shows
 	const obj = current.object;
 	const mat = obj.material;
@@ -296,4 +375,4 @@ $('save').addEventListener('click', async () => {
 listModels();
 
 // start with the first character's A-pose
-if (chars.length && !img) { $('character').value = chars[0].name; setImage(chars[0].url, chars[0].name); }
+if (chars.length && !images.length) { $('character').value = chars[0].name; setImages([chars[0].url], chars[0].name); }

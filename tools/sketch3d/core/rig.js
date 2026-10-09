@@ -20,11 +20,26 @@ function runs(grid, y) {
 	return out;
 }
 
+/** 'T.neck' | 'arm.L.el' | 'leg.R.kn' … → where that joint lives in a landmarks object */
+function jointRef(lm, key) {
+	const [g, a, b] = key.split('.');
+	if (g === 'T' && lm.T[a]) return { obj: lm.T, k: a };
+	if ((g === 'arm' || g === 'leg') && lm[g][a]?.[b]) return { obj: lm[g][a], k: b };
+	return null;
+}
+
+/** every movable joint of a landmarks object: [{ key, p: [gx, gy] }] (the mirror of 'arm.L.el' is 'arm.R.el') */
+export function jointList(lm) {
+	const out = Object.entries(lm.T).map(([k, p]) => ({ key: 'T.' + k, p }));
+	for (const g of ['arm', 'leg']) for (const s of ['L', 'R']) for (const [k, p] of Object.entries(lm[g][s])) if (Array.isArray(p)) out.push({ key: g + '.' + s + '.' + k, p });
+	return out;
+}
+
 /**
  * Landmarks in grid coordinates (x right in the image, y down) + a region label per cell.
  * Image left = the figure's RIGHT (it faces us): side 'R' looks at x < cx, 'L' at x > cx.
  */
-export function landmarks(grid, cx) {
+export function landmarks(grid, cx, joints = null) {
 	const { w, h, mask, top, sole } = grid;
 	const H = sole - top + 1;
 	const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && mask[y * w + Math.round(x)];
@@ -183,6 +198,9 @@ export function landmarks(grid, cx) {
 		top: [cx, top - 0.5]
 	};
 	if (robe) T.robe = [cx, pelvisY - H * 0.02];
+	const lm = { T, arm, leg };
+	// joints moved by hand win (grid coordinates)
+	for (const [key, p] of Object.entries(joints ?? {})) { const at = jointRef(lm, key); if (at) at.obj[at.k] = p.slice(); }
 	return { T, arm, leg, label, crotch, neck, armpit, robe, warn };
 }
 
@@ -190,8 +208,8 @@ export function landmarks(grid, cx) {
  * geometry (indexed, world metres) + the mesh's grid mapping → a SkinnedMesh-ready rig:
  * { bones (by name), root, skeleton, geometry (with skinIndex / skinWeight), lm (landmarks), restPelvisY }
  */
-export function autoRig(geometry, grid, { cx, scale, toGrid }) {
-	const lm = landmarks(grid, cx);
+export function autoRig(geometry, grid, { cx, scale, toGrid, sideMid = () => 0 }, joints = null) {
+	const lm = landmarks(grid, cx, joints);
 	const soleY = grid.sole + 0.5;
 	const W = ([gx, gy]) => new THREE.Vector3((gx - cx) * scale, (soleY - gy) * scale, 0);
 
@@ -202,6 +220,14 @@ export function autoRig(geometry, grid, { cx, scale, toGrid }) {
 	for (const s of ['L', 'R']) {
 		P['sh' + s] = W(lm.arm[s].sh); P['el' + s] = W(lm.arm[s].el); P['wr' + s] = W(lm.arm[s].wr); P['tip' + s] = W(lm.arm[s].tip);
 		P['hip' + s] = W(lm.leg[s].hip); P['kn' + s] = W(lm.leg[s].kn); P['an' + s] = W(lm.leg[s].an); P['toe' + s] = W(lm.leg[s].toe);
+	}
+
+	// depth from the side profile: the trunk joints at its middle, each limb chain at its root's depth
+	for (const k of ['pelvis', 'spine', 'chest', 'neck', 'head', 'top']) P[k].z = sideMid(P[k].y);
+	for (const s of ['L', 'R']) {
+		const za = sideMid(P['sh' + s].y), zl = sideMid(P['hip' + s].y);
+		for (const k of ['sh', 'el', 'wr', 'tip']) P[k + s].z = za;
+		for (const k of ['hip', 'kn', 'an', 'toe']) P[k + s].z = zl;
 	}
 
 	// bones: the trunk straight up; limbs as chains whose rest rotation (about z) is the A angle, children straight down
@@ -221,7 +247,7 @@ export function autoRig(geometry, grid, { cx, scale, toGrid }) {
 	mk('chest', 'spine', P.chest.clone().sub(P.spine));
 	mk('neck', 'chest', P.neck.clone().sub(P.chest));
 	mk('head', 'neck', P.head.clone().sub(P.neck));
-	if (lm.robe) { P.robe = W(lm.T.robe); P.hem = W([cx, lm.crotch]); mk('robe', 'pelvis', P.robe.clone().sub(P.pelvis)); }
+	if (lm.robe) { P.robe = W(lm.T.robe); P.hem = W([cx, lm.crotch]); P.robe.z = sideMid(P.robe.y); P.hem.z = sideMid(P.hem.y); mk('robe', 'pelvis', P.robe.clone().sub(P.pelvis)); }
 	const limb = (names, parent, pts) => {
 		// pts: the chain's joint positions + its end; the first bone turns by the angle of the whole chain
 		const dir = pts[pts.length - 1].clone().sub(pts[0]);
