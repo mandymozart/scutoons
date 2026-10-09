@@ -632,7 +632,9 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const checked = await validateDoc(key, doc);
 			const s = summary(checked.problems);
 			if (s.errors && !allow_errors) return { ...text({ saved: false, reason: 'validation errors – fix them (or allow_errors: true)', ...s }), isError: true };
-			const r = await content.putDraft(key, doc, base, message ? `${message} (agent)` : 'agent edit');
+			// a personal token: the API signs the save "(AI: <connection name>)"; a copied session (local dev) gets "(agent)"
+			const note = message || 'AI edit';
+			const r = await content.putDraft(key, doc, base, config.token.startsWith('sct_') ? note : `${note} (agent)`);
 			return text({ saved: !r.unchanged, unchanged: r.unchanged, version: r.version.id, status: r.version.status, open: creatorHref(options.links, key), ...s });
 		})
 	);

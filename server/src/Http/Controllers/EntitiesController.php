@@ -78,6 +78,9 @@ final class EntitiesController
             // an item placed more often than its catalog limit allows, counted over every toon (BACKLOG 10.39)
             $this->placements->guard($key, $body->content);
         }
+        // an AI connection signs its saves with its name (the History shows who – and through what – saved)
+        $ai = CurrentSession::of($request)->apiToken();
+        if ($ai !== null) $body->message = mb_substr(trim((is_string($body->message ?? null) ? $body->message : '') . " (AI: {$ai['name']})"), 0, 255);
         $result = $this->store->save($user, $key, $body);
         $this->usages->reindexEntity((string) $key); // the asset usage index (agents/ASSETS.md); never fails the save
         return Json::response($response, 200, $result);

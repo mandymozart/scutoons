@@ -18,6 +18,7 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Domain\Secrets;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
+use Scutoons\Http\Controllers\ApiTokensController;
 use Scutoons\Http\Controllers\ReviewsController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
@@ -137,6 +138,10 @@ return static function (App $app): void {
 
     $app->get('/api/me', [MeController::class, 'get']);
     $app->put('/api/me', [MeController::class, 'put']);
+    // AI connections: personal access tokens for the member's own AI (agents/MCP.md §3; a real session only)
+    $app->get('/api/me/tokens', [ApiTokensController::class, 'list']);
+    $app->post('/api/me/tokens', [ApiTokensController::class, 'create']);
+    $app->delete('/api/me/tokens/{id:[0-9a-f-]{36}}', [ApiTokensController::class, 'revoke']);
 
     $app->map(['GET', 'POST'], '/api/access', [AccessController::class, 'access'])->add($lookupLimit);
     $app->get('/api/code', [AccessController::class, 'code'])->add($codeLimit);

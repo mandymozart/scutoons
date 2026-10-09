@@ -7,8 +7,10 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
+use Scutoons\Domain\Auth\ApiTokens;
 use Scutoons\Domain\Auth\Sessions;
 use Scutoons\Http\AllowedOrigins;
+use Scutoons\Http\ApiTokenScope;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\SessionCookie;
 use Scutoons\Infrastructure\Config\Settings;
@@ -20,12 +22,15 @@ use Scutoons\Infrastructure\Config\Settings;
  * REDIRECT_HTTP_AUTHORIZATION, read here as a fallback.
  *
  * CSRF: a cookie on POST/PUT/DELETE/PATCH counts only with an `Origin` from ALLOWED_ORIGINS (CurrentSession).
+ *
+ * A personal access token (`Bearer sct_…`, an AI connection) is refused on what only the member does in the app
+ * (ApiTokenScope: publish, send, apply, manage tokens, admin changes) – 403 not_for_ai.
  */
 final class Session implements MiddlewareInterface
 {
     private const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
-    public function __construct(private readonly Sessions $sessions, private readonly Settings $settings)
+    public function __construct(private readonly Sessions $sessions, private readonly Settings $settings, private readonly ApiTokens $apiTokens)
     {
     }
 
@@ -47,7 +52,8 @@ final class Session implements MiddlewareInterface
                     && !AllowedOrigins::allows($this->settings, $request->getHeaderLine('Origin'));
             }
         }
-        $session = new CurrentSession($this->sessions, $token, $via, $csrfBlocked);
+        $session = new CurrentSession($this->sessions, $token, $via, $csrfBlocked, $this->apiTokens);
+        if ($session->isApiToken()) ApiTokenScope::guard($request->getMethod(), $request->getUri()->getPath());
         return $handler->handle($request->withAttribute(CurrentSession::ATTRIBUTE, $session));
     }
 }

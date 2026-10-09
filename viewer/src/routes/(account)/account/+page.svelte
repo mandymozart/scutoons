@@ -17,6 +17,7 @@
 	import FxSetting from '$lib/components/account/fx-setting.svelte';
 	import ReaderNameSetting from '$lib/components/account/reader-name-setting.svelte';
 	import MyClaims from '$lib/components/account/my-claims.svelte';
+	import AiConnections from '$lib/components/account/ai-connections.svelte';
 	import { page } from '$app/state';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { locales } from '$lib/paraglide/runtime.js';
@@ -256,6 +257,8 @@
 		</section>
 
 		<MyClaims />
+		<!-- members only (the section hides itself for readers): tokens for their own AI – agents/MCP.md -->
+		<AiConnections />
 	{:else}
 		<section>
 			<h2>{m['account.login_title']()}</h2>

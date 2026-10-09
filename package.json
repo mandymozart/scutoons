@@ -39,6 +39,7 @@
 		"check:creator-reader": "node scripts/dev/creator-reader-check.mjs",
 		"check:tools-dock": "node scripts/dev/tools-dock-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",
+		"build:mcp": "node tools/mcp/scripts/build.mjs",
 		"check:creator-cover": "node --experimental-transform-types --no-warnings scripts/dev/creator-cover-check.mjs",
 		"dev:viewer": "npm run dev -w viewer",
 		"dev:creator": "npm run dev -w creator",

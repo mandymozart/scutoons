@@ -28,3 +28,5 @@ vite.config.ts.timestamp-*
 # Paraglide
 src/lib/paraglide
 .claude
+# the member's SCUTOONS MCP server + Claude Desktop extension (npm run build:mcp; built with the viewer)
+/static/ai/
