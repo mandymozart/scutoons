@@ -17,7 +17,7 @@ async function applyDraft(spec) {
 	if (!frame) {
 		frame = figma.createFrame();
 		frame.name = spec.frame.name;
-		frame.x = spec.frame.x; frame.y = 0;
+		frame.x = spec.frame.x; frame.y = spec.frame.y ?? 0;
 		frame.clipsContent = true;
 		frame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
 	}
@@ -58,9 +58,17 @@ async function applyDraft(spec) {
 	}
 	for (const s of spec.shots ?? []) {
 		for (const n of [...storyboard.children, ...text.children]) if (n.name === s.id || n.name.startsWith(`${s.id} ·`)) n.remove();
-		const node = figma.createNodeFromSvg(s.svg);
+		let node;
+		if (s.image) {
+			// a picture (the render, or a Luma result): a rectangle with the image as its fill, at its size in the frame
+			node = figma.createRectangle();
+			node.resize(s.w, s.h);
+			node.fills = [{ type: 'IMAGE', scaleMode: 'FILL', imageHash: figma.createImage(figma.base64Decode(s.image)).hash }];
+		} else {
+			node = figma.createNodeFromSvg(s.svg);
+			if (s.scale && s.scale !== 1) node.rescale(s.scale);
+		}
 		node.name = s.id;
-		if (s.scale && s.scale !== 1) node.rescale(s.scale);
 		node.x = s.x ?? 0; node.y = s.y;
 		storyboard.appendChild(node);
 		for (const d of s.texts ?? []) {
