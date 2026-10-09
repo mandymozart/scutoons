@@ -4,10 +4,11 @@
 // a draft comes back to the panel as a card, the person reviews it and sends it from the app (owner 2026-10-04: "the
 // agent only drafts – a person reviews and sends", one-to-one, no mass mail).
 import { randomUUID } from 'node:crypto';
-import { McpServer } from '@modelcontextprotocol/server';
+import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { ApiError, createApiClient, createEmbassyApi, createProductsApi, isStockist, ORG_TYPES, STAGES, TRACKS, type Activity, type OrgDetail } from '@scutoons/api';
 import type { Config } from './config.ts';
+import type { AppLinks, Member } from './services.ts';
 import { apiMessage } from './server.ts';
 
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
@@ -93,15 +94,11 @@ function recipients(detail: OrgDetail) {
 	return out;
 }
 
-export function createEmbassyServer(config: Config): McpServer {
+export function registerEmbassyTools(server: McpServer, config: Config, options: { member: Member; links: AppLinks }): void {
 	const client = createApiClient({ baseUrl: config.api, getToken: () => config.token });
 	const embassy = createEmbassyApi(client);
 	const catalog = createProductsApi(client);
 
-	const server = new McpServer(
-		{ name: 'scutoons-embassy', version: '0.1.0' },
-		{ instructions: 'SCUTOONS Embassy: the partner network (stages, vinyl outlets, bookers, press). You have the rights of the signed-in liaison / ambassador. You draft mails; people send them.' }
-	);
 	const read = { readOnlyHint: true, openWorldHint: false };
 	const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
 
@@ -460,5 +457,4 @@ export function createEmbassyServer(config: Config): McpServer {
 		})
 	);
 
-	return server;
 }

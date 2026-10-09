@@ -5,8 +5,8 @@
 // again with the admin API) → list_chapters → read_entity (a scene = its one language-neutral document, agents/NEUTRAL.md)
 // → validate (a broken divert is an error) → save_draft (a per-locale scene key is refused; refused with errors; saved
 // with a new script point; 409 on an outdated base) → list_versions →
-// restore_version (the original content is back as a new draft). Publish is off (no tool); with SCUTOONS_MCP_PUBLISH=1
-// the tool exists and refuses a call without confirm: true. Never runs against anything but localhost; whatever it
+// restore_version (the original content is back as a new draft). No publish tool (agents/MCP.md: the member publishes in
+// the creator); the tools follow the member's roles (the test user: creator + admin → content, Embassy, admin). Never runs against anything but localhost; whatever it
 // changed is restored, also on failure.
 //
 //   npm run check:mcp
@@ -44,7 +44,7 @@ async function connect(env = {}) {
 	const transport = new StdioClientTransport({
 		command: process.execPath,
 		args: [resolve(ROOT, 'tools/mcp/bin/scutoons-mcp.mjs')],
-		env: { ...process.env, SCUTOONS_API: API, SCUTOONS_TOKEN: TOKEN, SCUTOONS_MCP_PUBLISH: '', ...env },
+		env: { ...process.env, SCUTOONS_API: API, SCUTOONS_TOKEN: TOKEN, ...env },
 		stderr: 'ignore'
 	});
 	const client = new Client({ name: 'mcp-check', version: '1.0.0' });
@@ -75,7 +75,8 @@ try {
 	const tools = (await client.listTools()).tools.map((t) => t.name);
 	const expected = ['list_toons', 'list_chapters', 'read_entity', 'read_characters', 'read_map_places', 'search_assets', 'upload_asset', 'list_entities', 'search_content', 'submit_for_review', 'list_versions', 'validate', 'save_draft', 'restore_version'];
 	check(expected.every((t) => tools.includes(t)), 'every tool is there', `missing: ${expected.filter((t) => !tools.includes(t))}`);
-	check(!tools.includes('publish_entity'), 'no publish tool without SCUTOONS_MCP_PUBLISH=1');
+	check(!tools.includes('publish_entity'), 'no publish tool');
+	check(['whoami', 'read_flow', 'story_variables', 'compare_versions', 'today', 'propose_changes'].every((t) => tools.includes(t)), 'tools by role: content + story + Embassy + admin');
 
 	const resources = (await client.listResources()).resources.map((r) => r.uri);
 	check(resources.length >= 6, `${resources.length} rule resources`, resources.join(', '));
@@ -191,23 +192,6 @@ try {
 		if (now?.version?.id !== original.id) await api('POST', `/entities/${KEY}/restore`, { id: original.id, message: 'mcp-check restore (after failure)' });
 		console.log(`restored ${KEY} to version ${original.id}`);
 	}
-}
-
-// publish switch: the tool exists only with SCUTOONS_MCP_PUBLISH=1 and refuses a call without confirm: true
-const publisher = await connect({ SCUTOONS_MCP_PUBLISH: '1' });
-try {
-	const tools = (await publisher.listTools()).tools.map((t) => t.name);
-	check(tools.includes('publish_entity'), 'SCUTOONS_MCP_PUBLISH=1: publish_entity is there');
-	let refusedPublish = false;
-	try {
-		const r = await publisher.callTool({ name: 'publish_entity', arguments: { key: SCENE.replace('scene-14', 'mcp-check-none'), confirm: false } });
-		refusedPublish = !!r.isError;
-	} catch {
-		refusedPublish = true;
-	}
-	check(refusedPublish, 'publish_entity without confirm: true is refused');
-} finally {
-	await publisher.close();
 }
 
 const bad = results.filter((r) => !r).length;

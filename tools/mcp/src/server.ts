@@ -1,8 +1,9 @@
-// The SCUTOONS MCP server (CUTOVER 10.28): tools over the existing content API with the creator's token – the API's role
-// checks are the only authority, this server adds the creator's validator in front of every save. Saves only ever add
-// draft versions (append-only, restorable); publishing is a separate tool that exists only with SCUTOONS_MCP_PUBLISH=1.
+// The content tools of the SCUTOONS MCP server (CUTOVER 10.28, agents/MCP.md): tools over the existing content API with
+// the member's token – the API's role checks are the only authority, this server adds the creator's validator in front
+// of every save. Saves only ever add draft versions (append-only, restorable); publishing is the creator's button
+// (agents/MCP.md "Draft → link": no publish tool). `write: false` (an admin who isn't a creator) = the reading tools only.
 import { readFile } from 'node:fs/promises';
-import { McpServer } from '@modelcontextprotocol/server';
+import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { ApiError, createApiClient, createAssetsApi, createContentApi, toonRelativePath, type ContentIndexEntity, type WrappedContent } from '@scutoons/api';
 import {
@@ -37,6 +38,7 @@ import {
 } from '@scutoons/content';
 import type { Config } from './config.ts';
 import { RULES } from './resources.ts';
+import { creatorHref, type AppLinks } from './services.ts';
 
 type Json = any;
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
@@ -113,22 +115,10 @@ export function applyOps(doc: Json, ops: Op[]): Json {
 
 // ── server ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export function createScutoonsServer(config: Config): McpServer {
+export function registerContentTools(server: McpServer, config: Config, options: { write: boolean; links: AppLinks }): void {
 	const client = createApiClient({ baseUrl: config.api, getToken: () => config.token });
 	const content = createContentApi(client);
 	const assets = createAssetsApi(client);
-
-	const server = new McpServer(
-		{ name: 'scutoons', version: '0.1.0' },
-		{
-			instructions: [
-				`SCUTOONS content (${config.local ? 'LOCAL dev API' : config.api}). You have the rights of the signed-in creator.`,
-				'Read scutoons://rules/workflow first, then the rules for what you touch.',
-				'Saves create new DRAFT versions only (append-only, restorable with restore_version); readers see published versions.',
-				config.publish ? 'publish_entity is enabled: publish only when the owner asked for it, with confirm: true.' : 'Publishing is disabled on this server.'
-			].join(' ')
-		}
-	);
 
 	// ── helpers ──
 
@@ -524,37 +514,6 @@ export function createScutoonsServer(config: Config): McpServer {
 	);
 
 	server.registerTool(
-		'upload_asset',
-		{
-			description:
-				'Puts a NEW file into the asset manager (CDN) so content can use it – e.g. an image another AI service made. Source: an http(s) `url` or a local `file`. `path` = CDN-root path incl. the toon folder (e.g. "catpope/s1/c2/s1c2-slice-31.webp"; see scutoons://rules/slices for sizes). Never overwrites: a taken path → 409. Returns the path to store in the toon\'s documents (relative to the toon folder).',
-			inputSchema: z.object({
-				url: z.string().url().optional(),
-				file: z.string().optional().describe('local file path (stdio server only)'),
-				path: z.string().describe('CDN-root target path'),
-				title: z.string().optional(),
-				tags: z.array(z.string()).optional()
-			}),
-			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
-		},
-		guard(async ({ url, file, path, title, tags }) => {
-			if (!url === !file) return fail('give either url or file');
-			let blob: Blob;
-			if (url) {
-				if (!/^https?:\/\//i.test(url)) return fail('url must be http(s)');
-				const res = await fetch(url);
-				if (!res.ok) return fail(`download failed: ${res.status} ${res.statusText}`);
-				blob = new Blob([await res.arrayBuffer()], { type: res.headers.get('content-type')?.split(';')[0] || mimeOf(path) });
-			} else {
-				blob = new Blob([await readFile(file!)], { type: mimeOf(file!) });
-			}
-			const r = await assets.upload(blob, path, { title, tags });
-			const toon = path.split('/')[0];
-			return text({ uploaded: r.uploaded, asset: r.asset.id, kind: r.asset.kind, contentPath: toonRelativePath(r.uploaded, toon), size: blob.size });
-		})
-	);
-
-	server.registerTool(
 		'list_versions',
 		{
 			description: 'The version history of a stored key (newest first): id, draft / published, author, message. Every save is its own version.',
@@ -567,7 +526,7 @@ export function createScutoonsServer(config: Config): McpServer {
 		})
 	);
 
-	// ── tools: checking and writing ──
+	// ── tools: checking ──
 
 	server.registerTool(
 		'validate',
@@ -605,6 +564,41 @@ export function createScutoonsServer(config: Config): McpServer {
 		})
 	);
 
+	// ── tools: writing (creators; an admin who isn't one reads only) ──
+
+	if (!options.write) return;
+
+	server.registerTool(
+		'upload_asset',
+		{
+			description:
+				'Puts a NEW file into the asset manager (CDN) so content can use it – e.g. an image another AI service made. Source: an http(s) `url` or a local `file`. `path` = CDN-root path incl. the toon folder (e.g. "catpope/s1/c2/s1c2-slice-31.webp"; see scutoons://rules/slices for sizes). Never overwrites: a taken path → 409. Returns the path to store in the toon\'s documents (relative to the toon folder).',
+			inputSchema: z.object({
+				url: z.string().url().optional(),
+				file: z.string().optional().describe('local file path (stdio server only)'),
+				path: z.string().describe('CDN-root target path'),
+				title: z.string().optional(),
+				tags: z.array(z.string()).optional()
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+		},
+		guard(async ({ url, file, path, title, tags }) => {
+			if (!url === !file) return fail('give either url or file');
+			let blob: Blob;
+			if (url) {
+				if (!/^https?:\/\//i.test(url)) return fail('url must be http(s)');
+				const res = await fetch(url);
+				if (!res.ok) return fail(`download failed: ${res.status} ${res.statusText}`);
+				blob = new Blob([await res.arrayBuffer()], { type: res.headers.get('content-type')?.split(';')[0] || mimeOf(path) });
+			} else {
+				blob = new Blob([await readFile(file!)], { type: mimeOf(file!) });
+			}
+			const r = await assets.upload(blob, path, { title, tags });
+			const toon = path.split('/')[0];
+			return text({ uploaded: r.uploaded, asset: r.asset.id, kind: r.asset.kind, contentPath: toonRelativePath(r.uploaded, toon), size: blob.size });
+		})
+	);
+
 	server.registerTool(
 		'save_draft',
 		{
@@ -639,7 +633,7 @@ export function createScutoonsServer(config: Config): McpServer {
 			const s = summary(checked.problems);
 			if (s.errors && !allow_errors) return { ...text({ saved: false, reason: 'validation errors – fix them (or allow_errors: true)', ...s }), isError: true };
 			const r = await content.putDraft(key, doc, base, message ? `${message} (agent)` : 'agent edit');
-			return text({ saved: !r.unchanged, unchanged: r.unchanged, version: r.version.id, status: r.version.status, ...s });
+			return text({ saved: !r.unchanged, unchanged: r.unchanged, version: r.version.id, status: r.version.status, open: creatorHref(options.links, key), ...s });
 		})
 	);
 
@@ -652,7 +646,7 @@ export function createScutoonsServer(config: Config): McpServer {
 		},
 		guard(async ({ key, version, message }) => {
 			const r = await content.restoreVersion(key, version, message);
-			return text({ restored: version, version: r.version.id, status: r.version.status });
+			return text({ restored: version, version: r.version.id, status: r.version.status, open: creatorHref(options.links, key) });
 		})
 	);
 
@@ -672,27 +666,4 @@ export function createScutoonsServer(config: Config): McpServer {
 			return text({ submitted: r.reviews?.length ?? items.length, reviewers: r.reviewers });
 		})
 	);
-
-	if (config.publish) {
-		server.registerTool(
-			'publish_entity',
-			{
-				description:
-					'PUBLISHES a version: readers see it right away. Only when the owner explicitly asked for this publish; every call needs confirm: true. Default: the newest version.',
-				inputSchema: z.object({
-					key: z.string().describe('stored key'),
-					version: z.number().int().optional(),
-					confirm: z.literal(true).describe('must be true – the owner asked for this publish')
-				}),
-				annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }
-			},
-			guard(async ({ key, version, confirm }) => {
-				if (confirm !== true) return fail('publishing needs confirm: true');
-				const r = await content.publishVersion(key, version);
-				return text({ published: r.version.id, key });
-			})
-		);
-	}
-
-	return server;
 }

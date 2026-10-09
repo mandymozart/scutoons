@@ -15,7 +15,6 @@ const COMMANDS = {
 	cdn: ['node', ['scripts/dev/media-serve.mjs']],
 	api: ['node', ['server/bin/dev-serve.mjs']],
 	qr: ['php', ['scripts/dev/php-serve.php', 'qr', 'qr/public', 'qr/public/router.php']],
-	ask: ['node', ['tools/mcp/bin/scutoons-ask.mjs']],
 	creator: ['npm', ['run', 'dev', '-w', 'creator']],
 	admin: ['npm', ['run', 'dev', '-w', 'admin']],
 	shop: ['npm', ['run', 'dev', '-w', 'shop']],

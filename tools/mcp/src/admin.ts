@@ -6,7 +6,7 @@
 // replaced in place). Deliberately not offered (hard to undo, stay manual): revoking / transferring codes, deletes,
 // role grants, asset cleanup (owner 2026-10-05, CUTOVER 10.28).
 import { randomUUID } from 'node:crypto';
-import { McpServer } from '@modelcontextprotocol/server';
+import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import {
 	ApiError,
@@ -21,6 +21,7 @@ import {
 	type ListParams
 } from '@scutoons/api';
 import type { Config } from './config.ts';
+import type { AppLinks } from './services.ts';
 import { apiMessage } from './server.ts';
 
 type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
@@ -86,15 +87,11 @@ export function setPath<T>(data: T, path: string, value: unknown): T | string {
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const name = (data: any) => (typeof data?.name === 'string' ? data.name : (data?.name?.en ?? data?.name?.de ?? data?.title?.en ?? data?.title ?? ''));
 
-export function createAdminServer(config: Config): McpServer {
+export function registerAdminTools(server: McpServer, config: Config, options: { links: AppLinks }): void {
 	const client = createApiClient({ baseUrl: config.api, getToken: () => config.token });
 	const admin = createAdminApi(client);
 	const assets = createAssetsApi(client);
 	const content = createContentApi(client);
-	const server = new McpServer(
-		{ name: 'scutoons-admin', version: '0.2.0' },
-		{ instructions: 'SCUTOONS admin: read the admin data; changes only as a proposal (propose_changes) the admin applies.' }
-	);
 
 	// ── overview ────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -307,27 +304,6 @@ export function createAdminServer(config: Config): McpServer {
 	);
 
 	server.registerTool(
-		'asset_usages',
-		{
-			description:
-				'One media file by its CDN path (e.g. "catpope/items/camera.webp"): the asset (id, versions, renditions) and every place that uses it – content documents (draft / published) and catalog entries (`item:camera` …). Replacing the file in place (propose_changes asset) changes the picture in all of them at once.',
-			inputSchema: z.object({ path: z.string().min(1) }),
-			annotations: read
-		},
-		guard(async ({ path }) => {
-			const found = await assets.lookup(path);
-			if (!found.asset) return fail(`No asset has the file ${path} (search_assets finds files).`);
-			const a = found.asset;
-			return text({
-				asset: a.asset,
-				current: a.versions.at(-1) ?? null,
-				versions: a.versions.length,
-				usages: a.usages.map((u) => ({ ref: u.ref, source: u.source, field: u.field, state: u.state, path: u.path }))
-			});
-		})
-	);
-
-	server.registerTool(
 		'read_settings',
 		{
 			description: 'Runtime settings (the Settings page): each key with its value, default, min / max, who changed it when (rate limits of QR scans and code lookups per hour), and the admin mail recipients.',
@@ -338,16 +314,6 @@ export function createAdminServer(config: Config): McpServer {
 			const [settings, recipients] = await Promise.all([admin.settings(), admin.emailRecipients().catch(() => null)]);
 			return text({ settings: settings.items, mail_admin_recipients: recipients?.items ?? null });
 		})
-	);
-
-	server.registerTool(
-		'agent_usage',
-		{
-			description: 'What the AI agents cost: calls, tokens and USD per user, app (creator / embassy / admin), service and model, per day or month. Dates YYYY-MM-DD (default: the last 30 days). The Dashboard shows the same.',
-			inputSchema: z.object({ from: day.optional(), to: day.optional(), group: z.enum(['day', 'month']).optional() }),
-			annotations: read
-		},
-		guard(async (args) => text(await admin.agentUsage(args)))
 	);
 
 	// ── changes: a card the admin applies ───────────────────────────────────────────────────────────────────────────
@@ -485,5 +451,4 @@ export function createAdminServer(config: Config): McpServer {
 		})
 	);
 
-	return server;
 }

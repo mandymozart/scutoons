@@ -16,8 +16,6 @@ import { compose, MARIADB } from './db-env.mjs';
 import { PORTS } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-// the Ask service (tools/mcp, CUTOVER 10.28) needs the Anthropic key – without one it is not started
-const askKey = !!process.env.ANTHROPIC_API_KEY || (existsSync(resolve(ROOT, '.env')) && /^ANTHROPIC_API_KEY=\S/m.test(readFileSync(resolve(ROOT, '.env'), 'utf8')));
 const SERVICES = [
 	// docker services (docker/compose.yml): mariadb always (the only database), adminer only on request
 	{ name: 'mariadb', docker: true, tcp: true },
@@ -26,7 +24,6 @@ const SERVICES = [
 	{ name: 'cdn', path: '/', cmd: 'node scripts/dev/media-serve.mjs' },
 	{ name: 'api', path: '/api/health/', cmd: 'node server/bin/dev-serve.mjs' },
 	{ name: 'qr', path: '/version.json', cmd: `php -S localhost:${PORTS.qr} -t qr/public qr/public/router.php` },
-	{ name: 'ask', path: '/api/ask/health', cmd: 'node tools/mcp/bin/scutoons-ask.mjs', skip: !askKey && 'off (no ANTHROPIC_API_KEY in the repo-root .env)' },
 	{ name: 'creator', path: '/', cmd: 'npm run dev -w creator' },
 	{ name: 'admin', path: '/', cmd: 'npm run dev -w admin' },
 	{ name: 'shop', path: '/', cmd: 'npm run dev -w shop' },

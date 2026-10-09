@@ -1,27 +1,24 @@
 {
 	"name": "@scutoons/mcp",
-	"version": "0.1.0",
+	"version": "0.3.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS MCP server (stdio): an agent with the signed-in creator's rights over the content API – drafts only, publish off by default",
+	"description": "SCUTOONS MCP server (stdio): the member's own AI with their rights over the API – tools by role, drafts only, the member confirms in the browser",
 	"bin": {
-		"scutoons-mcp": "./bin/scutoons-mcp.mjs",
-		"scutoons-ask": "./bin/scutoons-ask.mjs"
+		"scutoons-mcp": "./bin/scutoons-mcp.mjs"
 	},
 	"scripts": {
 		"start": "node bin/scutoons-mcp.mjs",
-		"check": "tsc --noEmit -p tsconfig.json",
-		"ask": "node bin/scutoons-ask.mjs"
+		"check": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.131.0",
-		"@modelcontextprotocol/client": "^2.3.0",
 		"@modelcontextprotocol/server": "^2.3.0",
 		"@scutoons/api": "*",
 		"@scutoons/content": "*",
 		"zod": "^4.2.0"
 	},
 	"devDependencies": {
+		"@modelcontextprotocol/client": "^2.3.0",
 		"@types/node": "^22",
 		"typescript": "^5.9.3"
 	}

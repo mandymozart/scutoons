@@ -30,7 +30,7 @@ can show. An outside client shows it as JSON, and nobody can press Send or Apply
 ```
 the member's own computer                                   SCUTOONS
 ┌──────────────────────────────────────────────┐
-│ Claude Code / Claude Desktop / Cursor …       │
+│ Claude Code / Claude Desktop                  │
 │   └─ starts scutoons-mcp (stdio, Node) ───────┼─ HTTPS, Bearer sct_… ──► api.scutoons.com (PHP: role checks, tokens)
 └──────────────────────────────────────────────┘
 ```
@@ -41,7 +41,7 @@ nothing for AI: no Anthropic API key (platform.claude.com) any more – the memb
 runs the model.
 
 What reaches it (owner 2026-10-09):
-- **Claude Code, Claude Desktop, Cursor:** yes – they start local MCP servers.
+- **Claude Code, Claude Desktop:** yes – they start local MCP servers. (Cursor could too; not offered for now, owner 2026-10-09.)
 - **Claude Code Remote Control** (the session runs on the owner's computer, driven from claude.ai / the phone): yes –
   the MCP server runs where the session runs, so no OAuth is needed. A Claude Code *cloud* session (claude.ai/code
   without a linked computer) would need the server started in that cloud checkout with the token as a secret – not
@@ -89,7 +89,7 @@ checks it and confirms in the app.** The AI never sends, applies or publishes.
 
 ## 3. Auth: personal access tokens (decided 2026-10-04, never built)
 
-The API takes them like a session (`Authorization: Bearer`). Claude Code, Claude Desktop and Cursor pass them as an env
+The API takes them like a session (`Authorization: Bearer`). Claude Code and Claude Desktop pass them as an env
 variable to the local server (`SCUTOONS_TOKEN`), as today with the copied cookie.
 
 - Table `api_tokens`: id, user_id, name ("Claude on my laptop"), `token_hash` (SHA-256, like sessions), prefix `sct_`
@@ -100,9 +100,13 @@ variable to the local server (`SCUTOONS_TOKEN`), as today with the copied cookie
   password or email, or delete the account – those routes are marked "session only". The draft links (§2) are opened
   in the browser with the member's normal sign-in, never with the token.
 - UI: the account page (scutoons.com/account), section **"AI connections"**: create (name → the token shown once with a
-  copy button and the setup snippet for Claude Code / Claude Desktop / Cursor), list (name, created, last used),
+  copy button and the setup steps for Claude Desktop / Claude Code), list (name, created, last used),
   revoke. One page for every role; only members with a role that has tools (creator, liaison, ambassador, admin) see it
   (D2).
+- **Readers can't connect** (owner 2026-10-09): only members with a role that has tools (creator, liaison, ambassador,
+  admin). The API refuses to create a token for anyone else (403), and a token stops working once its account has
+  none of those roles left (401 "no member role" – checked on every request, like the role checks themselves). The MCP
+  server says so at start and exits. Readers don't see "AI connections" on the account page.
 - PHPUnit: token auth = the user's rights; revoked / expired → 401; session-only routes → 403 with a token; no cookie
   from a token.
 - The MCP README stops saying "copy the cookie".
@@ -120,7 +124,7 @@ the format rules from creator / viewer source files at start). Fine for the owne
 - **Served from our own host** (no third party, owner 2026-10-09 "alles bei uns"): the account page's "AI connections"
   links both files (the CDN or the viewer's static files), versioned; the server tells the AI when it is older than
   the API expects (`/api/meta` → `mcp_min_version`), so the member is told to download it again.
-- Claude Code / Cursor: `claude mcp add scutoons --scope user -e SCUTOONS_TOKEN=sct_… -- node <path>/scutoons-mcp.mjs`
+- Claude Code: `claude mcp add scutoons --scope user -e SCUTOONS_TOKEN=sct_… -- node <path>/scutoons-mcp.mjs`
   (the snippet on the token page fills in the token).
 - `upload_asset` from a local file works (it's their computer) – as today.
 
@@ -168,7 +172,7 @@ liaisons lose their tool in between.
 | 2 | personal access tokens + "AI connections" on the account page | no more cookie copying; revocable |
 | 3 | **remove Ask** (§4), the bunny app deleted | the cost is gone |
 | 4 | one-file build + Claude Desktop extension, served from our host, version check (§3a) | members without a checkout can connect |
-| 5 | a short "Connect your AI" help (on the token page: Claude Desktop = install the extension, paste the token; Claude Code / Cursor = the snippet) | people can do it alone |
+| 5 | a short "Connect your AI" help (on the token page: Claude Desktop = install the extension, paste the token; Claude Code = the snippet) | people can do it alone |
 
 ## 6. Owner decisions
 
@@ -178,5 +182,4 @@ liaisons lose their tool in between.
 - ~~D3~~ decided 2026-10-09: no server on the internet – the bunny container goes, no OAuth; local clients with a
   personal token only (§2, §3, §3a).
 - ~~D5~~ decided 2026-10-09: no export – the chat and usage tables are dropped.
-- **D6** Liaisons without their own AI plan (or without a computer with Claude Desktop): is the Embassy UI (manual mail,
-  my week) enough for them?
+- ~~D6~~ decided 2026-10-09: every member gets an AI plan – no fallback needed beyond the normal apps.

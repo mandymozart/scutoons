@@ -1,7 +1,7 @@
 // Where the server talks to and as whom: `SCUTOONS_API` (default: the local dev API) + `SCUTOONS_TOKEN` (a creator's
 // session token, sent as `Authorization: Bearer`). Locally the token falls back to the test user's session
-// (`npm run dev:test-user` → logs/dev/test-user.json) – never for a remote API. Publishing is off unless
-// `SCUTOONS_MCP_PUBLISH=1`.
+// (`npm run dev:test-user` → logs/dev/test-user.json) – never for a remote API. No publishing (agents/MCP.md: the
+// member publishes in the creator).
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,6 @@ export interface Config {
 	/** where the token came from (shown in the server's instructions, never the token) */
 	tokenSource: 'env' | 'test-user';
 	local: boolean;
-	publish: boolean;
 }
 
 function localApi(): string {
@@ -49,8 +48,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 		throw new Error(
 			local
 				? 'no token: set SCUTOONS_TOKEN or run `npm run dev:test-user` (writes logs/dev/test-user.json)'
-				: `no token for ${api}: set SCUTOONS_TOKEN to your creator session token`
+				: `no token for ${api}: set SCUTOONS_TOKEN to your personal token (scutoons.com/account → AI connections)`
 		);
 	}
-	return { api, token, tokenSource, local, publish: env.SCUTOONS_MCP_PUBLISH === '1' };
+	return { api, token, tokenSource, local };
 }
