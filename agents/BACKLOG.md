@@ -31,6 +31,8 @@ call, no production, the dev DB only read. Item **10.59**.
 - **Figma bridge** (`tools/figma-bridge/`): dev plugin + local relay + CLI, self-test passes without Figma. **Not tried
   in Figma yet.** Setup: its README (3 steps). The same draft code also exists as `use_figma` scripts
   (`storyboards/_out/s1c3/figma/`).
+- **SCUTOONS MCP tools for Figma** (after the refactor was done): `figma_status`, `figma_read`, `figma_view` (a node as a
+  picture), `figma_place_draft` – creators who write, through the bridge. Type check 0 errors, tested through the relay.
 
 **Look at (in this order)**
 1. `storyboards/_out/s1c3/index.html` – the flow of chapter 3, shot by shot (schematics + rail + notes).
@@ -815,9 +817,10 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout from the week of 2026-10-12. Built on branch
       `storyboard` (worktree `C:\Development\scutoons-storyboard`, owner's request 2026-10-09): `scripts/storyboard/`
       (rhythm report, validate, render, shot list, compile → chapter draft + PNGs, check-draft, prompts, figma-draft),
-      the ch3 first throw `storyboards/catpope/s1c3/scene-25…34.json`, `tools/figma-bridge/` (plugin + relay + CLI).
+      the ch3 first throw `storyboards/catpope/s1c3/scene-25…34.json`, `tools/figma-bridge/` (plugin + relay + CLI),
+      the MCP's figma_* tools for creators (`tools/mcp/src/figma.ts`, after the refactor).
       Open: the owner's answers (the run result at the top), the first Figma run (bridge or use_figma, on a test page),
-      MCP tools for the bridge after the MCP refactor, save_draft + upload of the ch3 draft (owner's go), the
+      save_draft + upload of the ch3 draft (owner's go), the
       matching against the S1C3 selection.
 
 ## Done
