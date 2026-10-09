@@ -14,6 +14,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { figurine, look, pose } from './figures.js';
 import { gltfTiger } from './tiger-gltf.js';
 import { buildSet } from './sets.js';
+import { presetOf, presetStyle } from './text-presets.js';
 
 const D = Math.PI / 180;
 const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 };
@@ -302,7 +303,7 @@ export function figureBoxes(figs, camera, W, H, K = 1) {
 
 export const seedOf = (id) => [...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % 97;
 
-/** one shot → { canvas, figures } (opts: renderer, canvas, tigerUrl, marks, shadowSize) */
+/** one shot → { canvas, figures } (opts: renderer, canvas, tigerUrl, marks, bubbles, shadowSize) */
 export async function renderShot(shot, opts = {}) {
 	const W = shot.w, H = shot.h;
 	const canvas = opts.canvas ?? document.createElement('canvas');
@@ -365,10 +366,14 @@ export async function renderShot(shot, opts = {}) {
 	}
 	if (image) out2d.drawImage(image, 0, 0, W, H);
 	const figures = figureBoxes(figs, camera, W, H, K);
+	let clean = null;
+	if (opts.clean) { clean = document.createElement('canvas'); clean.width = W; clean.height = H; clean.getContext('2d').drawImage(canvas, 0, 0); }
+	if (opts.bubbles !== false && (shot.dialog ?? []).length) await loadFonts();
+	if (opts.bubbles !== false) drawDialog(out2d, shot, figures.map((f) => ({ ...f, box: { x0: f.box.x0 * K, y0: f.box.y0 * K, x1: f.box.x1 * K, y1: f.box.y1 * K } })), W, H, K);
 	if (opts.marks !== false) drawMarks(out2d, shot, W, H, K);
 	built.dispose();
 	pass.dispose();
-	return { canvas, figures };
+	return { canvas, clean, figures };
 }
 
 /** the storyboard marks: id + format top left, air zones as a bar on the left edge */
@@ -383,4 +388,101 @@ export function drawMarks(g, shot, W, H, K = 1) {
 		g.fillStyle = '#888';
 		g.fillRect(K, y0 + 2 * K, 3 * K, Math.max(2 * K, y1 - y0 - 4 * K));
 	}
+}
+
+/**
+ * The texts in the SCUTOONS text presets (text-presets.js, agents/DESIGN.md Part 2 – owner 2026-10-09: the first
+ * throw follows the design dogma): Narration (paper box, 2px ink rule, italic IBM Plex Mono), Scene (the same in
+ * capitals), Speech bubble (paper ellipse, 2px ink outline, a tail – towards the nearest figure's head unless the text
+ * sets `tail`), Onomatopoeia (Bangers, white with an ink outline, −7°), Story (bare mono). Font size = % of the shot's
+ * width like the reader's cqw; the box at the storyboard's rect; the real words – the room for the text is judged in
+ * the frame. figures: [{ box: {x0,y0,x1,y1} }] in canvas px.
+ */
+export function drawDialog(g, shot, figures, W, H, K = 1) {
+	const wrap = (text, maxW) => {
+		const out = [];
+		for (const para of String(text).split('\n')) {
+			let line = '';
+			for (const w of para.split(/\s+/)) {
+				const t = line ? `${line} ${w}` : w;
+				if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t;
+			}
+			out.push(line);
+		}
+		return out;
+	};
+	const INK = '#000', PAPER = '#fff';
+	for (const d of shot.dialog ?? []) {
+		if (!d.text) continue;
+		const preset = presetOf(d);
+		const st = presetStyle(preset, d);
+		const r = d.rect ?? { x: 5, y: 5, width: 60 };
+		const x = (r.x / 100) * W, y = (r.y / 100) * H, w = ((r.width ?? 60) / 100) * W;
+		const size = ((d.size ?? st.size) / 100) * W;
+		const text = st.uppercase ? String(d.text).toUpperCase() : String(d.text);
+		g.save();
+		if (preset === 'onomatopoeia') {
+			g.font = `${size}px Bangers, Impact, sans-serif`;
+			const lines = wrap(text, w);
+			const lh = size * 1.05;
+			g.translate(x + w / 2, y + (lines.length * lh) / 2);
+			g.rotate((st.rotation * Math.PI) / 180);
+			g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+			lines.forEach((l, i) => {
+				const ly = (i - (lines.length - 1) / 2) * lh;
+				g.lineWidth = size * st.strokeWidth * 2; g.strokeStyle = INK; g.strokeText(l, 0, ly);
+				g.fillStyle = st.color; g.fillText(l, 0, ly);
+			});
+			g.restore();
+			continue;
+		}
+		const italic = preset === 'narration' || preset === 'scene';
+		g.font = `${italic ? 'italic ' : ''}400 ${size}px 'IBM Plex Mono', ui-monospace, monospace`;
+		const pad = size * 0.5;
+		const lines = wrap(text, w - pad * 2);
+		const lh = size * 1.15;
+		const th = Math.max(((r.height ?? 0) / 100) * H, lines.length * lh + pad * 2);
+		const rule = 2 * K;
+		g.lineWidth = rule; g.strokeStyle = INK; g.fillStyle = PAPER;
+		if (preset === 'speech-bubble') {
+			const cx = x + w / 2, cy = y + th / 2, rx = w / 2 + pad * 0.6, ry = th / 2 + pad * 0.8;
+			// the tail: the text's `tail`, else towards the nearest figure's head
+			let tx, ty;
+			const heads = figures.map((f) => ({ x: (f.box.x0 + f.box.x1) / 2, y: f.box.y0 + (f.box.y1 - f.box.y0) * 0.12 }));
+			if (d.tail && d.tail !== 'none') {
+				ty = d.tail.startsWith('top') ? y - size * 1.8 : y + th + size * 1.8;
+				tx = d.tail.endsWith('left') ? x + w * 0.22 : d.tail.endsWith('right') ? x + w * 0.78 : cx;
+			} else if (heads.length) {
+				const h = heads.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy))[0];
+				const dx = h.x - cx, dy = h.y - cy, l = Math.hypot(dx, dy) || 1;
+				const reach = Math.min(l * 0.7, Math.max(rx, ry) + size * 2.2);
+				tx = cx + (dx / l) * reach; ty = cy + (dy / l) * reach;
+			} else { tx = x + w * 0.22; ty = y + th + size * 1.8; }
+			const a0 = Math.atan2((ty - cy) / ry, (tx - cx) / rx);
+			g.beginPath();
+			g.ellipse(cx, cy, rx, ry, 0, a0 + 0.16, a0 - 0.16 + Math.PI * 2);
+			g.lineTo(tx, ty);
+			g.closePath();
+			g.fill(); g.stroke();
+			g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'middle';
+			lines.forEach((l, i) => g.fillText(l, cx, cy + (i - (lines.length - 1) / 2) * lh));
+		} else {
+			const boxed = preset !== 'story';
+			const tw = Math.min(w, Math.max(...lines.map((l) => g.measureText(l).width)) + pad * 2);
+			if (boxed) { g.fillRect(x, y, w, th); g.strokeRect(x + rule / 2, y + rule / 2, w - rule, th - rule); }
+			g.fillStyle = INK; g.textAlign = 'left'; g.textBaseline = 'middle';
+			const top = preset === 'story' ? y + pad + lh / 2 : y + th / 2 - ((lines.length - 1) * lh) / 2;
+			lines.forEach((l, i) => g.fillText(l, x + pad, top + i * lh));
+			void tw;
+		}
+		g.restore();
+	}
+}
+
+/** the reader's fonts (self-hosted in @scutoons/tokens) – a canvas draws text only with fonts already loaded */
+export async function loadFonts() {
+	if (typeof document === 'undefined' || !document.fonts) return;
+	// never wait forever (a headless page can stall on a font while a model loads): at most 3 s, then draw with what is there
+	const all = Promise.all(["400 16px 'IBM Plex Mono'", "italic 400 16px 'IBM Plex Mono'", '16px Bangers'].map((f) => document.fonts.load(f).catch(() => null)));
+	await Promise.race([all, new Promise((ok) => setTimeout(ok, 3000))]);
 }

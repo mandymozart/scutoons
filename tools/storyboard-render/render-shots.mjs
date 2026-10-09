@@ -47,7 +47,11 @@ let n = 0;
 for (const s of specs) {
 	const file = resolve(out, `${s.id}.png`);
 	const url = `${page}?spec=${encodeURIComponent(pathToFileURL(specFile).href)}&id=${encodeURIComponent(s.id)}&three=${encodeURIComponent(threeUrl)}`;
-	execFileSync(browser, ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files', '--hide-scrollbars', `--force-device-scale-factor=${1 / SS}`, `--window-size=${s.w},${s.h}`, '--virtual-time-budget=20000', `--screenshot=${file}`, url], { stdio: 'ignore', timeout: 120000 });
+	execFileSync(browser, ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--allow-file-access-from-files', '--hide-scrollbars', `--force-device-scale-factor=${1 / SS}`, `--window-size=${s.w},${s.h * 2}`, '--virtual-time-budget=60000', `--screenshot=${file}`, url], { stdio: 'ignore', timeout: 120000 });
+	// the page shows the frame and below it the clean image: split them (Pillow, as the cdn/ tools)
+	const cleanFile = resolve(out, '..', 'clean', `${s.id}.png`);
+	mkdirSync(dirname(cleanFile), { recursive: true });
+	execFileSync('python', ['-c', 'import sys; from PIL import Image; im = Image.open(sys.argv[1]); w, h = im.size; im.crop((0, h // 2, w, h)).save(sys.argv[2]); im.crop((0, 0, w, h // 2)).save(sys.argv[1])', file, cleanFile]);
 	n++;
 	process.stdout.write(`\r${n}/${specs.length} ${s.id}        `);
 }

@@ -17,6 +17,7 @@ import { pathToFileURL } from 'node:url';
 import { ROOT, S, W, readEntity } from './lib.mjs';
 import { shotSvg } from './schematic.mjs';
 import { loadStoryboards } from './storyboard.mjs';
+import { presetOf, presetStyle } from '../../tools/storyboard-render/text-presets.js';
 
 const args = process.argv.slice(2);
 const flag = (f) => { const i = args.indexOf(f); if (i < 0) return false; args.splice(i, 1); return true; };
@@ -90,10 +91,12 @@ for (const { sb } of list) {
 }
 
 function dialogOf(d, id) {
-	const o = { id: `${name}-${id}`, rect: { x: d.rect?.x ?? 5, y: d.rect?.y ?? 5, width: d.rect?.width ?? 60, ...(d.rect?.height ? { height: d.rect.height } : {}) }, text: d.text, variant: d.variant ?? 'narration' };
-	if (d.font) o.font = d.font;
-	if (d.variant === 'narration' && !d.font) o.font = 'mono';
-	for (const k of ['size', 'align', 'valign', 'tail', 'uppercase', 'weight']) if (d[k] != null) o[k] = d[k];
+	// the SCUTOONS text presets (tools/storyboard-render/text-presets.js, agents/DESIGN.md Part 2): the draft's texts open
+	// in the creator as Narration / Scene / Speech bubble / Onomatopoeia / Story – the same look as the frames
+	const plain = { ...d, text: typeof d.text === 'string' ? d.text : d.text?.de ?? '' };
+	const o = { id: `${name}-${id}`, rect: { x: d.rect?.x ?? 5, y: d.rect?.y ?? 5, width: d.rect?.width ?? 60, ...(d.rect?.height ? { height: d.rect.height } : {}) }, text: d.text, ...presetStyle(presetOf(plain), d) };
+	for (const k of ['size', 'align', 'valign', 'tail', 'uppercase', 'weight', 'rotation']) if (d[k] != null) o[k] = d[k];
+	if (!o.rect.height) delete o.valign; // valign needs a height (the creator's check)
 	return o;
 }
 

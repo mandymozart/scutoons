@@ -46,7 +46,9 @@ for (const { sb } of loadStoryboards(src)) {
 		if (only && !only.includes(shot.id)) continue;
 		const dir = resolve(outRoot, name, 'refpacks', shot.id);
 		mkdirSync(dir, { recursive: true });
-		const frame = resolve(frames, `${shot.id}.png`);
+		// the structure: the clean render (no texts, no marks – Luma must not copy them); the frame as a fallback
+		const clean = resolve(frames, '..', 'clean', `${shot.id}.png`);
+		const frame = existsSync(clean) ? clean : resolve(frames, `${shot.id}.png`);
 		if (existsSync(frame)) copyFileSync(frame, resolve(dir, '1-structure.png'));
 		else missing.push(shot.id);
 		styles.forEach((f, i) => copyFileSync(resolve(STYLE_DIR, f), resolve(dir, `2-style-${i + 1}${extname(f)}`)));

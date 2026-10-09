@@ -29,6 +29,7 @@ export function shotSpec(sb, shot, ss = 1) {
 		location: places[shot.location] ?? null, light,
 		accent: light.accent?.color ? ACCENT[light.accent.color] ?? light.accent.color : null,
 		air: shot.air ?? [],
+		dialog: (shot.dialog ?? []).map((d) => ({ variant: d.variant ?? 'narration', font: d.font, tail: d.tail, rect: d.rect ?? { x: 5, y: 5, width: 60 }, text: typeof d.text === 'string' ? d.text : d.text?.de ?? Object.values(d.text ?? {})[0] ?? '' })),
 		figures: (shot.figures ?? []).map((f) => ({ ...f, cast: { ...(cast[f.cast] ?? { ref: f.cast }), ...(f.persona ? { persona: f.persona } : {}), ...(f.look ? { look: f.look } : {}) } }))
 	};
 }
