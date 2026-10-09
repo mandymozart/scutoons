@@ -248,6 +248,7 @@ const HUMAN = {
 };
 
 function applyHuman(f, name) {
+	if (f.joints.humanRig) return applyHumanRig(f, name);
 	const p = HUMAN[name] ?? HUMAN.stand;
 	const J = f.joints;
 	for (const k of ['shL', 'shR', 'elL', 'elR', 'wrL', 'wrR', 'hipL', 'hipR', 'knL', 'knR', 'anL', 'anR', 'spine', 'chest', 'head']) J[k].rotation.set(0, 0, 0);
@@ -262,7 +263,7 @@ function applyHuman(f, name) {
 		J['el' + s].rotation.x = -(p['el' + s] ?? 0) * D;
 		J['kn' + s].rotation.x = (p['kn' + s] ?? 0) * D;
 		J['an' + s].rotation.x = -((p['kn' + s] ?? 0) - (p['hip' + s]?.[0] ?? 0)) * 0.25 * D; // the foot stays roughly flat
-		for (const fg of J['hand' + s].fingers.slice(0, 4)) fg.rotation.x = -(p.fist ?? 0.15) * 95 * D;
+		for (const fg of (J['hand' + s]?.fingers ?? []).slice(0, 4)) fg.rotation.x = -(p.fist ?? 0.15) * 95 * D;
 	}
 	J.spine.rotation.x = (p.spine ?? 0) * D;
 	J.chest.rotation.y = (p.twist ?? 0) * D;
@@ -278,6 +279,36 @@ function applyHuman(f, name) {
 		J.robe.scale.set(1 + stride * 0.35, 1 - fold * 0.45, 1 + stride * 0.6);
 	}
 	return { airborne: ['jump', 'fall'].includes(name) };
+}
+
+/**
+ * A rigged human (the owner's catpope.glb, human-gltf.js): the pose is computed on stand-in joints with the
+ * procedural figurine's conventions, then applied ON TOP of each bone's rest rotation; the arms' A-pose rest (≈ 22°
+ * out) is taken off the table's "out" angle, so 'stand' hangs the arms like the figurine's.
+ */
+const PROXY_KEYS = ['pelvis', 'spine', 'chest', 'neck', 'head', 'robe', 'shL', 'elL', 'wrL', 'shR', 'elR', 'wrR', 'hipL', 'knL', 'anL', 'hipR', 'knR', 'anR'];
+function applyHumanRig(f, name) {
+	const J = f.joints;
+	const proxy = {};
+	for (const k of PROXY_KEYS) proxy[k] = new THREE.Group();
+	proxy.pelvis.position.y = 0.98;
+	const r = applyHuman({ kind: 'human', joints: proxy }, name);
+	for (const k of PROXY_KEYS) {
+		const bone = J[k];
+		if (!bone) continue;
+		const rest = bone.userData.rest;
+		const e = proxy[k].rotation.clone();
+		if (k === 'shL' || k === 'shR') {
+			// the bind pose holds the arm out already: take that off the table's out-angle
+			const restOut = new THREE.Euler().setFromQuaternion(rest.quaternion, 'XYZ').z;
+			e.z -= restOut;
+		}
+		bone.quaternion.copy(rest.quaternion).multiply(new THREE.Quaternion().setFromEuler(e));
+		bone.position.copy(rest.position);
+		if (k === 'pelvis') bone.position.y += proxy.pelvis.position.y - 0.98;
+		if (k === 'robe') bone.scale.copy(proxy.robe.scale);
+	}
+	return r;
 }
 
 // Tiger: each leg [shoulder / hip swing°, knee°, ankle°] (forward +); spine [hips°, waist°, chest°] (arch +); neck°,
@@ -361,6 +392,7 @@ export function figurine(c, assets = {}) {
 	if (id === 'catpope/mountaintiger') return assets.tiger ? assets.gltfTiger(assets.tiger) : tiger();
 	if (c?.character === 'crows') return crow();
 	if (c?.character === 'catpope' && c?.persona === 'cat') return tiger({ scale: 0.32 }); // the cat: the same quadruped, small
+	if (c?.character === 'catpope' && assets.catpope && ['regular', 'human', undefined].includes(c?.persona)) return assets.gltfHuman(assets.catpope);
 	if (c?.character === 'catpope') return human({ robe: true, cat: true });
 	if (c?.character === 'boy') return human({ height: 1.35, build: 0.9 });
 	if (/YPLF|junge PLF/i.test(c?.new ?? '')) return human({ robe: true, cat: true, height: 1.68, build: 0.9 });

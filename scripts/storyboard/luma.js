@@ -76,7 +76,7 @@ export function lumaPrompt(sb, shot, ctx = {}) {
 		: `${KEY[light.key] ?? 'from the upper left'}${light.height ? `, ${HEIGHT[light.height] ?? light.height}` : ''}`;
 	add(light.source === 'none'
 		? 'Almost no light: a black frame, only a rim of light on the edges.'
-		: `ONE extremely hard ${light.source && light.source !== 'none' ? `${light.source} ` : ''}key light ${keyText}. ${light.shadow === 'long' ? 'Long hard cast shadows. ' : light.shadow === 'short' ? 'Short hard shadows. ' : ''}${light.rim ? 'A bright rim of light on the figures against the dark. ' : ''}No fill light, no soft or diffuse light: what faces the light is pure white, everything else solid black.`);
+		: `ONE extremely hard ${light.source && light.source !== 'none' ? `${light.source} ` : ''}key light ${keyText}. ${light.shadow === 'long' ? 'Long hard cast shadows. ' : light.shadow === 'short' ? 'Short hard shadows. ' : ''}${light.rim ? 'A bright rim of light on the figures against the dark. ' : ''}${(light.soft ?? 0.5) < 0.3 ? 'No fill light, no soft or diffuse light: what faces the light is pure white, everything else solid black.' : `A little fill light (softness ${light.soft ?? 0.5} of 1): what faces the key is white, the shadow side dark but readable, solid black only in the deepest shadows. Still one clear light direction, never flat or diffuse.`}`);
 	if (light.note?.de) add(`What the light does (storyboard): ${light.note.de}`);
 	add(light.accent?.color ? `The only colour in the frame: ${light.accent.color}${light.accent.on ? `, on ${light.accent.on}` : ''}. Everything else black and white.` : 'No colour at all: black and white only.');
 	add('');

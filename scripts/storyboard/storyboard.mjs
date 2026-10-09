@@ -100,6 +100,7 @@ export function validate(sb, file = '') {
 			const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
 			if (!light.key && !light.source) warn(id, 'no light (key / source) – decide the light here (workflow "light"), here or as the scene default');
 			for (const k of ['key', 'height', 'source', 'shadow']) if (light[k] && !LIGHT[k].includes(light[k])) err(id, `light.${k} "${light[k]}" – ${LIGHT[k].join(' | ')}`);
+			if (light.soft != null && !(light.soft >= 0 && light.soft <= 1)) err(id, `light.soft ${light.soft} – 0 (hard) … 1 (soft)`);
 			if (light.quality && light.quality !== 'hard') err(id, 'light.quality – the storyboard light is always hard (owner 2026-10-09)');
 			// safe formats (warnings: "beyond what we can generate today")
 			if (a && shot.format === 'vertical') {
@@ -123,7 +124,7 @@ export function validate(sb, file = '') {
 				if (ce && ce.character && !(fig.persona ?? ce.persona)) warn(id, `figure ${fig.cast}: no persona – say which state (workflow "Personas, looks and perspective")`);
 				if (fig.pose && !POSES.includes(fig.pose)) warn(id, `figure pose "${fig.pose}" – the mannequin knows ${POSES.join(' ')}`);
 				if (fig.facing && !FACING.includes(fig.facing)) warn(id, `figure facing "${fig.facing}" – ${FACING.join(' | ')}`);
-				for (const k of ['x', 'y']) if (fig[k] != null && !(fig[k] >= 0 && fig[k] <= 1)) err(id, `figure ${k} = ${fig[k]} – 0…1`);
+				for (const k of ['x', 'y']) if (fig[k] != null) { if (!(fig[k] >= -1 && fig[k] <= 2)) err(id, `figure ${k} = ${fig[k]} – 0…1 (in frame), -1…2 (cropped)`); else if (!(fig[k] >= 0 && fig[k] <= 1)) warn(id, `figure ${k} = ${fig[k]} – its centre is outside the frame (cropped by a hand camera?)`); }
 			}
 			for (const d of shot.dialog ?? []) {
 				if (!d.text?.de) err(id, 'dialog without text.de');

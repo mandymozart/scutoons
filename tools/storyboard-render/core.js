@@ -13,12 +13,14 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { figurine, look, pose } from './figures.js';
 import { gltfTiger } from './tiger-gltf.js';
+import { gltfHuman } from './human-gltf.js';
 import { buildSet } from './sets.js';
 import { presetOf, presetStyle } from './text-presets.js';
 
 const D = Math.PI / 180;
 const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 };
 let tigerGltf = null;
+let catpopeGltf = null;
 
 /** the shot's camera */
 export function shotCamera(shot) {
@@ -77,7 +79,12 @@ export async function buildScene(shot, opts = {}) {
 	const { camera, camY, dist } = shotCamera(shot);
 
 	const figs = [];
-	const assets = { gltfTiger };
+	const assets = { gltfTiger, gltfHuman };
+	// the owner's Cat Pope model (regular / human) – figures.js figurine() takes it when it is there
+	if ((shot.figures ?? []).some((f) => f.cast?.character === 'catpope' && ['regular', 'human', undefined].includes(f.cast?.persona))) {
+		catpopeGltf ??= await new GLTFLoader().loadAsync(opts.catpopeUrl ?? new URL('./models/catpope.glb', import.meta.url).href);
+		assets.catpope = catpopeGltf;
+	}
 	if ((shot.figures ?? []).some((f) => f.cast?.persona === 'mountaintiger')) {
 		tigerGltf ??= await new GLTFLoader().loadAsync(opts.tigerUrl ?? new URL('./models/mountain-tiger.glb', import.meta.url).href);
 		assets.tiger = tigerGltf;
@@ -85,12 +92,20 @@ export async function buildScene(shot, opts = {}) {
 	const fpx = (H / 2) / Math.tan((camera.fov ?? 50) * D / 2);
 	for (const fig of shot.figures ?? []) {
 		const model = figurine(fig.cast, assets);
+		model.root.updateMatrixWorld(true);
+		const rest = new THREE.Box3().setFromObject(model.root, true); // h = the figure standing: a lying pose is not blown up
+		const restH = rest.max.y - rest.min.y;
 		const { airborne } = pose(model, fig.pose ?? 'stand');
 		model.root.updateMatrixWorld(true);
-		const whole = new THREE.Box3().setFromObject(model.root);
+		const whole = new THREE.Box3().setFromObject(model.root, true); // precise: a skinned mesh measured as posed
 		const framing = fig.framing ?? 'full';
 		let head = model.joints.head && !model.joints.rigged ? new THREE.Box3().setFromObject(model.joints.head) : whole;
-		if (model.joints.rigged) {
+		if (model.joints.humanRig) {
+			// a rigged human: the head = around its head bone, by the body's height
+			const hp = model.joints.head.getWorldPosition(new THREE.Vector3());
+			const yl = restH;
+			head = new THREE.Box3(new THREE.Vector3(hp.x - yl * 0.08, hp.y - yl * 0.03, hp.z - yl * 0.08), new THREE.Vector3(hp.x + yl * 0.08, Math.max(hp.y + yl * 0.14, whole.max.y), hp.z + yl * 0.08));
+		} else if (model.joints.rigged) {
 			const zl = whole.max.z - whole.min.z, yl = whole.max.y - whole.min.y;
 			head = new THREE.Box3(new THREE.Vector3(whole.min.x, whole.min.y + yl * 0.45, whole.max.z - zl * 0.24), whole.max.clone());
 		}
@@ -98,7 +113,7 @@ export async function buildScene(shot, opts = {}) {
 		if (['cu', 'ecu'].includes(framing)) box = head.clone();
 		if (framing === 'ecu') { const c = head.getCenter(new THREE.Vector3()); box = new THREE.Box3(c.clone().add(new THREE.Vector3(0, -0.02, 0)), c.clone().add(new THREE.Vector3(0, 0.09, 0))); }
 		if (framing === 'mcu') box = new THREE.Box3(new THREE.Vector3(whole.min.x, head.max.y - (head.max.y - whole.min.y) * 0.42, whole.min.z), whole.max.clone());
-		const size = Math.max(0.03, box.max.y - box.min.y);
+		const size = Math.max(0.03, framing === 'full' || !framing ? Math.max(box.max.y - box.min.y, restH) : box.max.y - box.min.y);
 		const closeUp = box !== whole;
 		const hPx = Math.max(12 * K, (fig.h ?? 0.3) * 844 * K);
 		const cx = (fig.x ?? 0.5) * W, cy = (fig.y ?? 0.5) * H;
@@ -135,7 +150,11 @@ export async function buildScene(shot, opts = {}) {
 	};
 }
 
-/** one extremely hard key (directional, or a practical point light) + an optional rim; no ambient, no fill */
+/**
+ * one hard key (directional, or a practical point light) + a low fill + an optional rim. Softened (owner 2026-10-10:
+ * "light can be softer. its a bit too hard now"): the key no longer over-driven (faces turning away grade through the
+ * hatch layers), a fill so cast shadows are hatched rather than solid black, soft shadow edges. opts.soft 0…1 (0.5).
+ */
 function placeLight(scene, camera, figs, L, dist, set, opts) {
 	const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).setY(0).normalize();
 	const camBack = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion).setY(0).normalize();
@@ -164,14 +183,16 @@ function placeLight(scene, camera, figs, L, dist, set, opts) {
 	else target.copy(camera.position).addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), dist);
 	const practical = ['candle', 'screen', 'neon', 'fire', 'energy'].includes(L.source);
 	const reach = Math.max(8, dist * 2.5);
+	const soft = Math.min(1, Math.max(0, L.soft ?? opts.soft ?? 0.5)); // the shot's light.soft (0 = Sin City hard … 1 = soft)
 	let key = null;
+	if (soft > 0) scene.add(new THREE.HemisphereLight(0xffffff, 0x808080, 1.2 * soft)); // the fill: shadows hatched, not black
 	if (L.source !== 'none') {
 		if (practical) {
 			key = new THREE.PointLight(0xffffff, 260 * (reach / 8) ** 2, reach, 1.6);
 			key.position.copy(target).addScaledVector(keyDir, Math.max(1.6, dist * 0.35));
 			set.practical?.(key.position);
 		} else {
-			key = new THREE.DirectionalLight(0xffffff, 14); // over-driven: anything facing the key is white
+			key = new THREE.DirectionalLight(0xffffff, 14 - 10 * soft); // facing the key = white, turning away = hatch
 			key.position.copy(target).addScaledVector(keyDir, 60);
 			key.target.position.copy(target);
 			scene.add(key.target);
@@ -181,6 +202,7 @@ function placeLight(scene, camera, figs, L, dist, set, opts) {
 		key.castShadow = true;
 		key.shadow.mapSize.set(opts.shadowSize ?? 4096, opts.shadowSize ?? 4096);
 		key.shadow.bias = -0.0004;
+		key.shadow.radius = 1 + 5 * soft; // soft edges grade through the hatch layers
 		scene.add(key);
 	}
 	let rim = null;
@@ -200,7 +222,7 @@ function placeLight(scene, camera, figs, L, dist, set, opts) {
  */
 export function sinPass(renderer) {
 	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = THREE.BasicShadowMap;
+	renderer.shadowMap.type = THREE.PCFShadowMap; // PCF honours shadow.radius
 	renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 	const maskMats = {};
 	const normalMat = new THREE.MeshNormalMaterial();
@@ -325,7 +347,7 @@ export function sinPass(renderer) {
 /** where each figure landed on the image: its projected box in output px */
 export function figureBoxes(figs, camera, W, H, K = 1) {
 	return figs.map((m, index) => {
-		const b = new THREE.Box3().setFromObject(m.root);
+		const b = new THREE.Box3().setFromObject(m.root, true);
 		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
 		for (const cx of [b.min.x, b.max.x]) for (const cy of [b.min.y, b.max.y]) for (const cz of [b.min.z, b.max.z]) {
 			const p = new THREE.Vector3(cx, cy, cz).project(camera);

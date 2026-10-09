@@ -6,7 +6,8 @@ and the full concept: `agents/STORYBOARD.md` (§1 formats, §2 the JSON, §6 rhy
 
 **Terms (owner 2026-10-09).** A **shot** is one image used for layouting the toon. A **shooting** is a photo session at
 one location (the Figma library is sorted by shooting). Never mix the two.
-
+
+
 **Read `storyboard-taste.md` first** – the owner's feedback as rules, in the owner's words.
 
 ## Where things go
@@ -77,6 +78,9 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
   - `source`: what makes it in the story – `sun` · `moon` · `snow` (bounce off snow) · `window` · `door` · `candle` ·
     `screen` · `neon` · `fire` · `lightning` · `flash` · `energy` (the ice ball) · `none` (a black frame).
   - `shadow`: `long` · `short` · `none`; `rim`: a white edge on the figures against black (backlight from behind).
+  - `soft` (owner 2026-10-10: "light can be softer. its a bit too hard now"): 0 … 1, default 0.5 – how much fill the
+    one hard key gets. 0 = pure Sin City (solid black shadows); 0.5 = shadows hatched, solid black only in the deepest;
+    1 = soft. Still one clear direction – never flat.
   - `accent`: the one colour allowed in the frame and on what (sparingly – a scene has at most one).
   - `note`: what the light does dramatically, in a sentence ("Gegenlicht: PLF nur Umriss vor dem Schneesturm").
   A storyboard can set a scene default in `light` (top level); a shot only lists what differs. Light continuity: the

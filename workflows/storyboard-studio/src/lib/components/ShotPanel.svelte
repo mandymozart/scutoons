@@ -86,6 +86,7 @@
 				{/each}
 				<Field label="Rim light">{#snippet children({ id })}<input {id} type="checkbox" checked={!!s.light?.rim} onchange={(e) => set(ensure('light', {}), 'rim', e.currentTarget.checked || null)} />{/snippet}</Field>
 				<Field label="Azimuth °" hint="free direction: 0 = from the camera, 90 = right, 180 = behind">{#snippet children({ id })}<input {id} type="range" min="-180" max="180" value={s.light?.azimuth ?? -45} oninput={(e) => set(ensure('light', {}), 'azimuth', Number(e.currentTarget.value))} />{/snippet}</Field>
+				<Field label="Softness" hint="0 = Sin City hard (solid black shadows) … 1 = soft (hatched shadows, a fill)">{#snippet children({ id })}<input {id} type="range" min="0" max="1" step="0.05" value={s.light?.soft ?? 0.5} oninput={(e) => set(ensure('light', {}), 'soft', Number(e.currentTarget.value))} />{/snippet}</Field>
 				<Field label="Elevation °">{#snippet children({ id })}<input {id} type="range" min="-40" max="90" value={s.light?.elevation ?? 30} oninput={(e) => set(ensure('light', {}), 'elevation', Number(e.currentTarget.value))} />{/snippet}</Field>
 			</div>
 			{#if s.light?.azimuth != null || s.light?.elevation != null}<button type="button" class="secondary" onclick={() => { delete s.light.azimuth; delete s.light.elevation; touched(); }}>Free direction off</button>{/if}
