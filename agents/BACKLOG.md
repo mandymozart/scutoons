@@ -42,6 +42,13 @@ the shot as edited (copy + render download + reference links). The figurines: de
 white. Open: the studio on @scutoons/ui (owner: "use our scutoons ui and design dogmas") with a free 3D camera; the
 generated pass (decisions below in the chat).
 
+**After midnight (2026-10-10):** the studio rebuilt on @scutoons/ui (AppShell, dock panels, rails, tools.css) with a
+**free 3D camera** (orbit / pan / dolly → the shot's hand camera; figures picked and moved / turned with a gizmo → x / y / h
+/ turn) and **look switches** after the Moebius post-processing (shadows solid · hatch · tone, inner lines, colour, wobble;
+black and white by default). The texts in every frame are the **SCUTOONS text presets** (narration, scene, speech bubble,
+onomatopoeia – DESIGN.md Part 2), also in the chapter draft; every render has a **clean** twin without texts (the Luma
+structure reference). `npm run dev:studio` → localhost:14000.
+
 **Look at (in this order)**
 1. `storyboards/_out/s1c3/index.html` – the flow of chapter 3, shot by shot (schematics + rail + notes).
 2. The open questions below – most change a shot or two.
