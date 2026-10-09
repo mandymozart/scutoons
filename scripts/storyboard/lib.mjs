@@ -48,6 +48,15 @@ export const PROJECTIONS = ['perspective', 'top-down', 'isometric', 'polar'];
 export const MOVES = ['hold', 'tilt-down', 'tilt-up', 'fall', 'climb', 'travel', 'descend', 'reveal', 'look-around', 'pass'];
 export const SIZES = ['ecu', 'cu', 'mcu', 'medium', 'full', 'wide', 'ews'];
 export const ANGLES = ['eye', 'high', 'low', 'bird', 'worm', 'dutch'];
+/** light (workflows/scenes/storyboard.md "light"): extremely hard, one key, never diffuse (owner 2026-10-09) */
+export const LIGHT = {
+	key: ['left', 'right', 'top', 'bottom', 'front', 'back', 'top-left', 'top-right', 'bottom-left', 'bottom-right'],
+	height: ['below', 'low', 'eye', 'high', 'overhead'],
+	source: ['sun', 'moon', 'snow', 'window', 'door', 'candle', 'screen', 'neon', 'fire', 'lightning', 'flash', 'energy', 'none'],
+	shadow: ['long', 'short', 'none']
+};
+export const POSES = ['stand', 'walk', 'run', 'jump', 'fall', 'slip', 'crouch', 'kneel', 'crawl', 'sit', 'lie', 'reach', 'point', 'throw', 'cast', 'arms-up', 'hug-self', 'stamp', 'push', 'look-back', 'pray'];
+export const FACING = ['front', 'away', 'left', 'right', 'three-quarter-left', 'three-quarter-right'];
 export const SOURCES = ['schematic', 'photo', 'unreal', 'direct', 'generated', 'art'];
 export const STATUS = ['draft', 'layout-ok', 'refs-locked', 'generating', 'still-ok', 'in-chapter'];
 

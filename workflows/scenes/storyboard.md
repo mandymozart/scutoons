@@ -64,10 +64,29 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 - `projection`: perspective · top-down · isometric · polar. `move`: hold · tilt-down · tilt-up · fall · climb ·
   travel · descend · reveal · look-around · pass. `shot.size`: ecu cu mcu medium full wide ews; `shot.angle`: eye high
   low bird worm dutch.
+- `light` (owner 2026-10-09: light is decided here, in the script → shot step, not later): **extremely hard light,
+  never diffuse** – one key light, pure black and white, hard cast shadows (the storyboard's Sin City look, and the
+  instruction for the photo / the shooting / the prompt). Fields:
+  `{ "key": "top-left", "height": "low", "source": "sun", "shadow": "long", "rim": true, "accent": { "color": "red", "on": "die Beeren" }, "note": { "de": "…" } }`
+  - `key`: where the light comes from, seen from the camera – `left` · `right` · `top` · `bottom` · `front` · `back`
+    (backlight, silhouette) · `top-left` · `top-right` · `bottom-left` · `bottom-right`.
+  - `height`: `below` (from under the face – menace) · `low` (grazing, long shadows) · `eye` · `high` · `overhead`
+    (noon, eyes in shadow).
+  - `source`: what makes it in the story – `sun` · `moon` · `snow` (bounce off snow) · `window` · `door` · `candle` ·
+    `screen` · `neon` · `fire` · `lightning` · `flash` · `energy` (the ice ball) · `none` (a black frame).
+  - `shadow`: `long` · `short` · `none`; `rim`: a white edge on the figures against black (backlight from behind).
+  - `accent`: the one colour allowed in the frame and on what (sparingly – a scene has at most one).
+  - `note`: what the light does dramatically, in a sentence ("Gegenlicht: PLF nur Umriss vor dem Schneesturm").
+  A storyboard can set a scene default in `light` (top level); a shot only lists what differs. Light continuity: the
+  key stays on the same side within a scene unless the story turns it (a door opens, the screens go dark).
 - `air`: `[[from %, to %], …]` along the shot – zones with nothing to read (sky, snow, darkness, a colour field). A pure
   transition shot is `[[0, 100]]`.
 - `figures`: `cast` = a ref from the storyboard's `cast`; x across, y along the shot (0…1), h = figure height as a
   fraction of the **screen**.
+- `figures[].pose` (the 3D mannequin of the schematics takes it): `stand` · `walk` · `run` · `jump` · `fall` · `slip` ·
+  `crouch` · `kneel` · `crawl` · `sit` · `lie` · `reach` · `point` · `throw` · `cast` (both hands forward – the energy
+  ball) · `arms-up` (scared / surrender) · `hug-self` (cold) · `stamp` · `push` · `look-back` · `pray`.
+  `facing`: `front` · `away` (back to the camera) · `left` · `right` · `three-quarter-left` · `three-quarter-right`.
 - `dialog`: the chapter's own text boxes (`Dialog`, shared/content/src/content.ts). `variant`: `narration` (the white
   typewriter box, `font: "mono"`), `bubble` (speech; `tail` where it points), `caption` (a free line); **SFX** =
   `caption` + `font: "lettering"` ("ROARRR"). `rect` in % of the shot. The script's

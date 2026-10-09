@@ -38,6 +38,19 @@ function airPhrase(air) {
 	}).join('; ');
 }
 
+const KEY = { left: 'from the left', right: 'from the right', top: 'from above', bottom: 'from below', front: 'from the front, behind the camera', back: 'from behind the subject (backlight)', 'top-left': 'from the upper left', 'top-right': 'from the upper right', 'bottom-left': 'from the lower left', 'bottom-right': 'from the lower right' };
+const HEIGHT = { below: 'from below the face', low: 'low and grazing', eye: 'at eye level', high: 'high', overhead: 'straight overhead' };
+function lightPhrase(l) {
+	if (!l.key && !l.source) return 'Light: one extremely hard key light, deep black shadows, no fill.';
+	const parts = [`Light: one extremely hard ${l.source && l.source !== 'none' ? `${l.source} ` : ''}key light ${KEY[l.key] ?? ''}${l.height ? `, ${HEIGHT[l.height]}` : ''}`.replace(/\s+/g, ' ').trim()];
+	if (l.shadow === 'long') parts.push('long hard cast shadows');
+	if (l.shadow === 'short') parts.push('short hard shadows');
+	if (l.rim) parts.push('a bright rim of light around the figures against darkness');
+	parts.push('crushed blacks, no fill light, no soft or diffuse light, high contrast');
+	if (l.accent?.color) parts.push(`the only colour accent: ${l.accent.color}${l.accent.on ? ` (${l.accent.on})` : ''}`);
+	return parts.join(', ') + '.';
+}
+
 const list = loadStoryboards(src);
 const name = basename(resolve(src));
 const md = [`# Prompts ${name} – ${all ? 'all shots' : 'the gaps (source.want = generated)'}`, '',
@@ -76,6 +89,7 @@ for (const { sb } of list) {
 			((t) => (t ? t[0].toUpperCase() + t.slice(1) + '.' : ''))([SIZE[shot.shot?.size], ANGLE[shot.shot?.angle], PROJ[shot.projection]].filter(Boolean).join(', ')),
 			loc ? `Location: ${loc.place ?? loc.new ?? loc.ref}${loc.time && loc.time !== 'interior' ? `, ${loc.time}` : ''}.` : '',
 			who.length ? `Figures: ${who.join('; ')}.` : 'No people.',
+			lightPhrase({ ...(sb.light ?? {}), ...(shot.light ?? {}) }),
 			airPhrase(shot.air) ? `Composition: ${airPhrase(shot.air)}.` : '',
 			STYLE[sb.toon] ?? ''
 		].filter(Boolean).join(' ');
