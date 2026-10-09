@@ -22,7 +22,7 @@
 	let info = $state('');
 	let renderer, pass, built, controls, gizmo, helperScene, spec, look;
 	let pivots = [];
-	const lookOf = () => ({ sky: built?.skyWhite ? 1 : 0, accent: spec?.accent ?? '#c00000', K: 1, seed: seedOf(spec?.id ?? ''), ...$state.snapshot(studio.look) });
+	const lookOf = () => ({ sky: built?.skyWhite ? 1 : 0, accent: spec?.accent ?? '#c00000', K: 1, seed: seedOf(spec?.id ?? '') });
 	let size = { w: 0, h: 0, scale: 1 };
 	let lastKey = '';
 	let selfKey = '';
@@ -55,8 +55,6 @@
 		rebuild();
 	});
 	$effect(() => { void texts; draw(); });
-	// the look switches re-draw (no rebuild: the scene stays)
-	$effect(() => { void studio.look.shade; void studio.look.color; void studio.look.inner; void studio.look.wobble; if (built) { look = lookOf(); draw(); } });
 	$effect(() => { if (gizmo) { gizmo.setMode(tool === 'turn' ? 'rotate' : 'translate'); gizmo.showX = tool !== 'turn'; gizmo.showZ = tool !== 'turn'; gizmo.showY = tool === 'turn'; } });
 
 	function fit() {
@@ -73,14 +71,17 @@
 		if (built?.camera.isPerspectiveCamera) { built.camera.aspect = size.w / size.h; built.camera.updateProjectionMatrix(); }
 	}
 
+	let busy = $state(false);
 	async function rebuild() {
 		if (building) { again = true; return; }
 		building = true;
+		busy = true;
 		try {
 			spec = specOf(1);
 			const keepTarget = controls?.target.clone();
 			controls?.dispose(); gizmo?.dispose(); helperScene.clear(); built?.dispose();
-			built = await buildScene(spec, { shadowSize: 2048 });
+			// a build never blocks the next change: after 15 s it is given up (the latest state is built next)
+			built = await Promise.race([buildScene(spec, { shadowSize: 2048 }), new Promise((_, no) => setTimeout(() => no(new Error('the scene took longer than 15 s – try again')), 15000))]);
 			look = lookOf();
 			// a pivot per figure at the centre of what the frame shows of it (a close-up's feet are below the frame): the gizmo
 			// moves / turns the pivot, the figure hangs in it
@@ -139,6 +140,7 @@
 			info = `Render: ${e.message}`;
 		}
 		building = false;
+		busy = false;
 		if (again) { again = false; rebuild(); }
 	}
 
@@ -226,11 +228,9 @@
 	<div class="tools">
 		<Segmented label="Figure tool" options={[{ value: 'move', label: 'Move', icon: 'move' }, { value: 'turn', label: 'Turn', icon: 'rotate-cw' }]} value={tool} onchange={(v) => (tool = v)} />
 		<label class="check"><input type="checkbox" bind:checked={texts} /> Texts</label>
-		<Segmented label="Shadows" options={[{ value: 'solid', label: 'Solid' }, { value: 'hatch', label: 'Hatch' }, { value: 'tone', label: 'Tone' }]} value={studio.look.shade} onchange={(v) => (studio.look.shade = v)} />
-		<label class="check" title="Lines inside things too (Sobel over depth + normals)"><input type="checkbox" bind:checked={studio.look.inner} /> Inner lines</label>
-		<label class="check" title="Keep the lit colour (the tiger's texture, accents) – black and white is the default"><input type="checkbox" bind:checked={studio.look.color} /> Colour</label>
-		<label class="check" title="A hand-drawn wobble on the lines (0 = clean line art)">Wobble <input type="range" min="0" max="3" step="0.5" bind:value={studio.look.wobble} /></label>
 		<button type="button" class="secondary" onclick={resetCamera} title="Back to the camera the shot's size / angle give (removes the hand camera)">Shot camera</button>
+		{#if busy}<span class="state" role="status">rendering …</span>{/if}
+		{#if studio.sel?.shot.camera}<span class="state" title="The shot has its own camera from the 3D view – 'Shot camera' goes back to size + angle">hand camera</span>{/if}
 		<span class="hint">Drag = orbit · right-drag = pan · wheel = dolly · click a figure, then drag its gizmo</span>
 	</div>
 	<div class="stage" bind:this={host}>
@@ -268,6 +268,12 @@
 	.hint {
 		font-size: var(--type-caption-size);
 		opacity: 0.7;
+	}
+	.state {
+		font-size: var(--type-caption-size);
+		padding: 0 var(--space-05);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.stage {
 		flex: 1;

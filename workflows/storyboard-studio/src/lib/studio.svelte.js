@@ -45,8 +45,6 @@ export const studio = $state({
 	figure: null,
 	/** a counter the panels watch to reload (variants, generated) */
 	version: 0,
-	/** the look of the renders (core.js sinPass): solid black and white by default; hatch / tone, colour, inner lines, wobble */
-	look: { shade: 'solid', color: false, inner: false, wobble: 0 },
 	/** the last message (a status line) */
 	message: ''
 });
@@ -95,7 +93,7 @@ export function touched() {
 }
 
 /** the render spec of the edited shot (ss = supersampling) */
-export const specOf = (ss = 1) => shotSpec(studio.sel.scene, $state.snapshot(studio.sel.shot), ss, $state.snapshot(studio.look));
+export const specOf = (ss = 1) => shotSpec(studio.sel.scene, $state.snapshot(studio.sel.shot), ss);
 
 export async function save(png) {
 	const shot = $state.snapshot(studio.sel.shot);
