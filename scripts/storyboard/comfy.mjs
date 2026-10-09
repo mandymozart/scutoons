@@ -8,8 +8,9 @@
 // figma-chapter.mjs), logged in _out/<ch>/generated.jsonl.
 //
 //   node scripts/storyboard/comfy.mjs storyboards/catpope/s1c3 --only sb-25-4,sb-28-3 [--steps 4] [--seed n] [--mp 1] [--dry]
-//   COMFY_URL=http://127.0.0.1:8000 (default)
+//   COMFY_URL=http://127.0.0.1:8188 (default – the ComfyUI app, moved off the viewer's 8000)
 
+import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { ROOT } from './lib.mjs';
@@ -24,7 +25,7 @@ const steps = Number(take('--steps', 4));
 const mp = Number(take('--mp', 1));
 const seedArg = take('--seed', null);
 const dry = flag('--dry');
-const COMFY = process.env.COMFY_URL ?? 'http://127.0.0.1:8000';
+const COMFY = process.env.COMFY_URL ?? 'http://127.0.0.1:8188';
 const M = {
 	unet: process.env.COMFY_UNET ?? 'qwen_image_edit_2509_fp8_e4m3fn.safetensors',
 	clip: process.env.COMFY_CLIP ?? 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
@@ -124,6 +125,9 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 		const n = readdirSync(gen).filter((f) => f.startsWith(`${shot.id}--`)).length + 1;
 		const file = `${shot.id}--g${n}.png`;
 		writeFileSync(resolve(gen, file), Buffer.from(await r.arrayBuffer()));
+		// black and white (the model tints despite the prompt) – unless the shot has its one colour accent
+		const accent = { ...(sb.light ?? {}), ...(shot.light ?? {}) }.accent?.color;
+		if (!accent) execFileSync('python', ['-I', '-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("L").save(sys.argv[1])', resolve(gen, file)]);
 		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, engine: 'comfy', model: M.unet, lora: M.lora, steps, seed, images: files.map((f) => basename(f)), prompt }) + '\n');
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
