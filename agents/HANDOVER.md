@@ -54,20 +54,20 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   **grouped controls are square** – segmented groups (`sc-seg`), toolbars, tab rows and the language switchers of every
   app (creator, admin, embassy, viewer, shop); a control with text is square too (DESIGN.md "Round vs square").
 - Spacing on a 1rem line: sidebars, outline, fold button all start at 1rem; dividers run edge to edge.
-- ONE layout model for every area (agents/DOCKING.md, approved 2026-10-06): regions tile (sidebar | page | right dock |
-  Ask – AppShell in creator, admin, embassy), one `Divider` for every drag edge (up to half the window), one fold to a
+- ONE layout model for every area (agents/DOCKING.md, approved 2026-10-06): regions tile (sidebar | page | right dock –
+  AppShell in creator, admin, embassy), one `Divider` for every drag edge (up to half the window), one fold to a
   `Rail` as wide as its round button + 0.5rem either side (sidebar: chevrons at its top right / drag / Ctrl+\; script outline: rail "Outline"; right dock: the panel's
   `DockFold`, rail with its icon + title, not remembered); every rail's button at the height of the region headers'
-  buttons (Ask's); sizes remembered per panel kind. The main folds to a rail only BY HAND (the leftmost panel's "Fold
+  buttons (the dock panels'); sizes remembered per panel kind. The main folds to a rail only BY HAND (the leftmost panel's "Fold
   the page", Ctrl+Shift+\ – never by itself; owner 2026-10-07). Dock panels and the slice inspector MAXIMIZE = fold
   everything else to its rail (button / Ctrl+Space / Esc; railed regions stay mounted; the ActionBar stays – DOCKING.md).
   The script is read-only until "Edit script" is confirmed.
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()` – the primary action last, one
   primary only: the save-draft note's button says "Save without note" while empty, "Save" once typed (owner 2026-10-06).
 - Page panels (Problems, History, Flow, Reader, Info, the admin's list detail) open SIDE BY SIDE in the shell's right
-  dock (`useDock`, one per kind, fixed places detail · History · Problems · Flow · Reader · Info), left of Ask; out of
+  dock (`useDock`, one per kind, fixed places detail · History · Problems · Flow · Reader · Info); out of
   room → narrower together, then the least recently used folds to its rail (BACKLOG 10.57, DOCKING.md "Several
-  panels"); with an unfolded panel and Ask open the sidebar folds to its rail (never without Ask). Pickers stay modal
+  panels"); the sidebar folds by itself only for the page's `foldWhen` or a maximized region. Pickers stay modal
   drawers (`Sheet`). Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
   can't. The admin catalog has the same panel (items / recipes / albums; stored in the entry, DATA.md §5).
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
@@ -79,6 +79,12 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   flow (`.sc-empty`, tools.css). DESIGN.md "Empty states".
 
 ## Open owner decisions / loose ends
+- AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md, owner 2026-10-09; the Ask panel and service are
+  gone). Production: run `2026-10-09-mcp-drafts.mysql.sql` + `2026-10-09-api-tokens.mysql.sql` (the SELECTs first) with
+  the deploy; after it delete the bunny Magic Containers app, the `ask.` DNS, the ghcr image `scutoons-ask`, GitHub vars
+  `VITE_ASK_URL` / `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER`, secret `AGENT_SERVICE_KEY`; revoke the Anthropic API key;
+  try the Claude Desktop extension once (scutoons.com/account → AI connections). Later, once the move is done: the Ask
+  tables go with `server/migrations/later/2026-10-09-drop-ask.mysql.sql` (moved into `migrations/mysql/` then).
 - Newsletter (BACKLOG 10.58, agents/NEWSLETTER.md, branch `newsletter`): production – run
   `2026-10-07-newsletter.mysql.sql` (the SELECTs first), secret `NEWSLETTER_CRON_KEY`, KAS cron every 5 minutes; then
   set the `qr-claim` contacts' languages, import the event lists, write + test + start (the steps: NEWSLETTER.md "Going live").

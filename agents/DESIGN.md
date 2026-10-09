@@ -286,9 +286,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   chip ("unerreichbar", "nie wahr", "Endlosschleife").
 - **Flow panel** (owner 2026-10-06; `components/flow/`, @scutoons/content flow.ts): a read-only, zoomable graph of the
   story flow ("Ablauf" / "Flow") on every level, one look (boxes, edges, buttons, minimap). Opened by a round Feather
-  `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`; its `title` says what it
+  `git-merge` button in the top bar (a page's `usePageNav({ actions })`; its `title` says what it
   shows and how to use it – no intro line in the panel); docked on the right like Problems / History on EVERY level
-  (in the AppShell's right dock, left of Ask, the page makes room – never an overlay; drags wider up to half the window,
+  (in the AppShell's right dock, the page makes room – never an overlay; drags wider up to half the window,
   one stored width, 28rem by default; `?flow=1` opens it (a deep link); the Flow sits next to Problems / History, the Reader
   and Info – several panels side by side, one per kind, each in its place (10.57); every page hands its panel to the
   shell with `useDock` – agents/DOCKING.md "Several panels"; it folds to a rail like every dock panel; a click on a box
@@ -296,7 +296,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   season → chapter (a box, the sidebar, a crumb – the next page's Flow takes it over), a new level is rebuilt at the
   kept zoom; the Flow only reads the current place and navigates only on a click on a box. Svelte Flow + dagre are loaded only when it
   opens; zoom / fit are one square segmented group (a toolbar: "Round vs square"), a minimap bottom right. A box navigates (read-only otherwise).
-  The panel is edge to edge (owner 2026-10-06): its header is the Ask panel's (one control row, title, round close
+  The panel is edge to edge (owner 2026-10-06): its header is every dock panel's (one control row, title, round close
   button, the divider across), the canvas has no frame of its own; the toon's dead-things line sits under a divider.
   - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
     group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the
@@ -651,7 +651,7 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   the status is changed only on the chapter page (Meta).
 - **Help lives in Info** (`@scutoons/ui` InfoPanel via the ActionBar's "Info" toggle, closed by default, remembered),
   not above the fields. Info is a panel of the shell's right dock (agents/DOCKING.md): it sits next to Problems /
-  History / Flow / Reader / a list's detail (outermost, beside Ask – 10.57), drags wider and folds to a rail like them. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
+  History / Flow / Reader / a list's detail (outermost – 10.57), drags wider and folds to a rail like them. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
   slice) have an accessible label.
 
 Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route crumbs from the root layout, `extra`
@@ -706,8 +706,8 @@ default in brackets ("(nein)"); a select's default likewise ("(Links)").
 - Kept (2026-10-06 sweep): creator – "Select a slice on the left." (chapter main area), "Pick a character on the left, or
   create a new one." (characters main area), the script's "No {locale} script yet …" (+ its start buttons), the cover's
   "No square image yet – choose it under Art." and "This season doesn't exist yet – create it on the toon page", the
-  convert page's "nothing to convert", the Ask panel's intro (its only content, says what to ask); admin – the asset
-  library's "No assets – run Rescan …", the Ask intro.
+  convert page's "nothing to convert"; admin – the asset library's "No assets – run Rescan …". (The Ask panel's
+  intro went with Ask, 2026-10-09.)
 - The reader is another audience: there a text is justified more often (an empty inventory, "No places discovered
   yet – keep reading …", "No shop carries … yet" + buy online, nothing to wear for a slot) – the same test, read with a
   reader in mind; the reader keeps its own look (no tools.css).
@@ -843,7 +843,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
   the row's tooltip. Right-aligned filled badges with a word only when something is up (`chapter-badges.svelte`):
   visibility draft / coming soon (season sequence), "Not published" (info), "not saved" (warning), "Missing" (error),
   "· ko" when only some languages are concerned. Everything published: nothing.
-- **Header on phones** (< 768px, where the sidebar is the ☰ drawer; owner-approved draft 2026-10-07): ☰ · logo · Ask ·
+- **Header on phones** (< 768px, where the sidebar is the ☰ drawer; owner-approved draft 2026-10-07): ☰ · logo ·
   search (round); the crumbs in their OWN row under the header (`… › Chapter 1 › blotter-deal › Slice 1`, every part
   tappable, no root – the logo is above); the text-language switch and the page's Flow button at the top of the drawer.
 - Language-neutral fields (`PropField`, media slots: the same in every language) don't follow the switch.
@@ -1097,7 +1097,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   `Field`). Inspector forms use **two fields per row**.
 - The tool frame (tokens): top bar = ActionBar height `--tool-bar-height` max(48px, 3rem) (48 · 48 · 72px), sidebar
   `--tool-sidebar-width` 12rem (admin 14rem with descriptions), Info / side panels `--tool-panel-width` 16rem. Every
-  region (sidebar, the main, the dock panels, Ask, the outline, the inspector) follows ONE model – tiles, one Divider,
+  region (sidebar, the main, the dock panels, the outline, the inspector) follows ONE model – tiles, one Divider,
   one fold to a rail (every rail's button at the height of the region headers' buttons), remembered sizes; several page
   panels side by side; maximize = fold everything else: agents/DOCKING.md.
 - The ActionBar is the page's chrome, not a region: it stays while a panel / the inspector is maximized or the main is

@@ -104,7 +104,7 @@ at the kept zoom, group → group on one level keeps the graph and its view; the
 `?flow=1` (a deep link still opens it). Also kept: Problems (`ProblemsDock`) and the ActionBar's Info (every app);
 History and the admin's list detail stay page-bound. **(c) built**: Ask already took its context from `nav.crumbs`
 (the Breadcrumbs' source, the real season since E.2); it now also sends the deepest crumb's address as the agent's
-`ref` (`/catpope/chapter/2?group=…`). Check: `npm run check:creator-flow-dock` (19). agents/DOCKING.md "Panels across
+`ref` (`/catpope/chapter/2?group=…`) – gone with Ask (2026-10-09, agents/MCP.md). Check: `npm run check:creator-flow-dock` (19). agents/DOCKING.md "Panels across
 pages".
 
 ---
@@ -373,7 +373,7 @@ edge, touch targets under 2.75rem, an ActionBar whose start / end overflows; plu
 Shots: the session scratchpad `shots/mobile/` (`before-*`, `final-*` per app / page / width; the chapter editor's
 before / after `m-*`). Not reachable with the dev data: an admin claim's detail (no claims).
 
-The phone draft (BACKLOG 10.50, owner-approved) is built: header ☰ · logo · Ask · search, crumbs in their own row, the
+The phone draft (BACKLOG 10.50, owner-approved) is built: header ☰ · logo · search (Ask's button gone with Ask, 2026-10-09), crumbs in their own row, the
 language switch + Flow in the drawer (10.45), the square tool strip left of the canvas (10.47), the slice bar above the
 ActionBar, the inspector as a sheet with icon + count tabs, More · Save · `de ▾` · Publish (10.44), copy / paste in More
 (10.39).

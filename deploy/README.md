@@ -99,7 +99,7 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `QR_PROXY_SECRET` | secret | api **and** qr `config.php` (same value: the API trusts the client IP / device id the qr app forwards) |
 | `AGENT_SERVICE_KEY` | secret | api `config.php` – the same value as the Ask service's `SCUTOONS_SERVICE_KEY` on bunny (lets it write the AI usage log; unset = the service keeps its own file; tools/mcp/README.md) |
 | `SMTP_USER`, `SMTP_PASS` | secret | api |
-| `EMBASSY_SMTP_USER`, `EMBASSY_SMTP_PASS` | secret | api – the login of the hello@scutoons.com mailbox (KAS): Embassy mails go out from it (SMTP) and replies are read from its inbox (IMAP) on the same server, `SMTP_HOST` (agents/EMBASSY.md "Ask + mail") |
+| `EMBASSY_SMTP_USER`, `EMBASSY_SMTP_PASS` | secret | api – the login of the hello@scutoons.com mailbox (KAS): Embassy mails go out from it (SMTP) and replies are read from its inbox (IMAP) on the same server, `SMTP_HOST` (agents/EMBASSY.md "AI + mail") |
 | `EMBASSY_CRON_KEY` | secret | api – key of the Embassy cron URL (inbox sync + the team's reminder mails). Unset = the URL answers 404. All-inkl: KAS → Tools → Cronjobs → URL `https://api.scutoons.com/api/embassy/cron?key=<the key>`, daily at 07:00 (server/docs/API.md "Embassy" → "Pace") |
 | `NEWSLETTER_CRON_KEY` | secret | api – key of the newsletter cron URL (one batch of a newsletter that is sending, agents/NEWSLETTER.md). Unset = the URL answers 404 and mails only go out while the admin's Newsletters page sends. All-inkl: KAS → Tools → Cronjobs → URL `https://api.scutoons.com/api/newsletter/cron?key=<the key>`, every 5 minutes |
 | `DB_HOST`, `DB_NAME` | variable | api |

@@ -31,7 +31,7 @@ Consistency is the hard part, so it is built in, not hoped for:
 1. **Extract (code, free).** `scriptOutline(text)` gives scenes and line ranges → scene text. Speaker names and
    all-caps mentions → character registry ids via names/aliases (KATZENPABST, KATZE, PLF → one character); unmatched
    names → "wanted". The scene heading → map place (MAP.md §8.3 already maps every screenplay location to a place).
-2. **Propose shots (AI, via the Ask panel).** The agent reads the scene with the existing MCP tools (`read_entity` /
+2. **Propose shots (AI, the member's own Claude through the MCP – the Ask panel is gone, 2026-10-09).** The agent reads the scene with the existing MCP tools (`read_entity` /
    `search_content` / `read_characters` / `read_map_places`) and returns structured shots (schema-validated), plus
    **interpretation notes** where the script is open ("VERSCHIEDENE ORTE" montage). Saved as a normal draft.
    Gate: the author edits / accepts the shot list (per scene).
@@ -63,7 +63,7 @@ before slices do, and are not reader content).
 
 1. **No AI:** scene extraction, character + place matching, wanted list, prompt assembly from hand-entered shots,
    copy / export. This alone replaces the manual copy-paste of briefs.
-2. **AI proposals:** the Ask panel proposes the shot list into the draft; the same schema.
+2. **AI proposals:** the member's Claude (MCP) proposes the shot list into the draft; the same schema.
 3. **Stills return:** upload, link by shot id, status; optionally a free consistency check against the references.
 
 Test fixture: catpope de, Scene 1 (10 hand-made shots, see `workflows/scenes/generate-shots.md`) — the proposal can be
@@ -73,7 +73,7 @@ compared against it.
 
 - The **style block**: who writes it, and per toon or per season?
 - Storage: the creator-only `treatment:` entity as above, or elsewhere?
-- Should the Ask agent be allowed to `save_draft` treatments directly (reviewable like any draft), or only propose in
+- Should the AI (MCP) be allowed to `save_draft` treatments directly (reviewable like any draft), or only propose in
   chat?
 - Prompts English only, or also a German version for artists?
 - Export formats beyond Markdown / JSON (a Figma-friendly one)?

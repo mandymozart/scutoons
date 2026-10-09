@@ -478,7 +478,7 @@ style once it is a creator feature. Calibration needs time per slice from reader
 - **Creator later, only if used:** (a) the rhythm rail + screen ruler in the Reader dock / chapter editor (useful for
   every chapter, also hand-made ones); (b) a creator-only `storyboard:<toon>:<scene>` entity (like `script`), merging
   the `treatment:` idea; (c) "Storyboard → draft" as an MCP action for the owner's local Claude (owner 2026-10-09: the in-app Ask panel is too
-  expensive to run and will be removed from all services; production work goes through local Claude Code + the
+  expensive to run – removed from all services the same day, agents/MCP.md; production work goes through local Claude Code + the
   SCUTOONS MCP); (d) small tools in the asset manager: stitch
   segments, wrap-check a panorama, polar transform. No separate storyboard editor.
 - Art always wins (AUTOMATION.md): a still or an artist's image replaces a schematic one, never the other way round.

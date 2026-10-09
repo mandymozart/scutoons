@@ -290,7 +290,7 @@ Done (branch `components`):
   inspector edge). `ResizeEdge.svelte` not made: the four edges differ in markup / position; one function is the
   shared part.
 - Docking (2026-10-06, agents/DOCKING.md) – the edges and folds became components after all: `Divider` (the one drag
-  edge: sidebar, dock, Ask, outline, inspector, Sheet), `dockRegion` (resize + fold to a rail; `panelWidth` is built on
+  edge: sidebar, dock, outline, inspector, Sheet), `dockRegion` (resize + fold to a rail; `panelWidth` is built on
   it), `FoldButton` / `Rail` / `DockFold`, and `useDock` (dock.svelte.ts: one page panel in the AppShell's right dock –
   the creator's panels, Info, SplitView's detail). The script outline's own fold / resize and the Sheet's own edge
   markup are gone.
