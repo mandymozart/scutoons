@@ -42,7 +42,7 @@
           "figures": [ { "cast": "plf", "framing": "cu", "mood": "knowing", "facing": "right", "x": 0.35, "y": 0.5, "h": 0.6 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 60 }, "text": { "de": "Sie sprach die Worte, die den Code knacken sollten:" } },
-            { "variant": "bubble", "rect": { "x": 44, "y": 56, "width": 50 }, "tail": "left", "text": { "de": "Daten sind. Geschäft ist. Geld ist. Gott." } }
+            { "variant": "bubble", "rect": { "x": 44, "y": 56, "width": 50 }, "tail": "bottom-left", "text": { "de": "Daten sind. Geschäft ist. Geld ist. Gott." } }
           ],
           "source": { "type": "schematic", "want": "direct" },
           "status": "draft",

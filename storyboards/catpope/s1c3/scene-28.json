@@ -2,75 +2,247 @@
   "storyboard": 2,
   "toon": "catpope",
   "chapter": 3,
-  "source": { "script": "script:catpope:de", "scene": 28, "heading": "EXT. WALDLICHTUNG - TAG" },
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 28,
+    "heading": "EXT. WALDLICHTUNG - TAG"
+  },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" },
-    { "ref": "tiger", "character": "catpope", "persona": "mountaintiger" }
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human"
+    },
+    {
+      "ref": "tiger",
+      "character": "catpope",
+      "persona": "mountaintiger"
+    }
   ],
   "locations": [
-    { "ref": "forest", "place": "forest-clearing", "time": "snow" },
-    { "ref": "clearing", "place": "forest-clearing", "time": "day" },
-    { "ref": "monastery", "place": "monastery", "time": "snow" }
+    {
+      "ref": "forest",
+      "place": "forest-clearing",
+      "time": "snow"
+    },
+    {
+      "ref": "clearing",
+      "place": "forest-clearing",
+      "time": "day"
+    },
+    {
+      "ref": "monastery",
+      "place": "monastery",
+      "time": "snow"
+    }
   ],
   "groups": [
     {
       "label": "scene-28",
-      "renderer": { "type": "vertical" },
+      "renderer": {
+        "type": "vertical"
+      },
       "continues": true,
       "shots": [
         {
           "id": "sb-28-1",
-          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "wide", "angle": "eye" },
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
           "location": "forest",
-          "action": { "de": "Oben dichtes, verschneites Geäst; im Augenwinkel, zwischen den Zweigen, ein großer weißer Schemen mit zwei Augen. Der Blick sinkt zu PLF, die bergauf hastet und über die Schulter schaut; der Schemen bleibt im Hintergrund dicht hinter ihr." },
-          "air": [[0, 22]],
+          "action": {
+            "de": "Oben dichtes, verschneites Geäst; im Augenwinkel, zwischen den Zweigen, ein großer weißer Schemen mit zwei Augen. Der Blick sinkt zu PLF, die bergauf hastet und über die Schulter schaut; der Schemen bleibt im Hintergrund dicht hinter ihr."
+          },
+          "air": [
+            [
+              0,
+              22
+            ]
+          ],
           "figures": [
-            { "cast": "tiger", "framing": "cu", "mood": "hunting", "facing": "right", "x": 0.75, "y": 0.32, "h": 0.2 },
-            { "cast": "plf", "framing": "full", "mood": "scared", "facing": "left", "x": 0.4, "y": 0.82, "h": 0.3 }
+            {
+              "cast": "tiger",
+              "framing": "cu",
+              "mood": "hunting",
+              "facing": "right",
+              "x": 0.75,
+              "y": 0.32,
+              "h": 0.2
+            },
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "facing": "left",
+              "x": 0.4,
+              "y": 0.82,
+              "h": 0.3
+            }
           ],
           "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 3, "width": 60 }, "text": { "de": "28 EXT. WALDLICHTUNG – TAG" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 44, "width": 58 }, "text": { "de": "Im Geäst tauchte im Augenwinkel ein bedrohliches Wesen auf." } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 40, "y": 62, "width": 54 }, "text": { "de": "PLF lief schneller. Es half nichts." } }
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 3,
+                "width": 60
+              },
+              "text": {
+                "de": "28 EXT. WALDLICHTUNG – TAG"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 44,
+                "width": 58
+              },
+              "text": {
+                "de": "Im Geäst tauchte im Augenwinkel ein bedrohliches Wesen auf."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 62,
+                "width": 54
+              },
+              "text": {
+                "de": "PLF lief schneller. Es half nichts."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Der Tiger bleibt hier Andeutung (Fell, Augen im Geäst) – der volle Auftritt kommt im nächsten Bild."
         },
         {
           "id": "sb-28-2",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "cu", "angle": "low" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "low"
+          },
           "location": "forest",
-          "action": { "de": "PLF hat sich umgedreht, klein im unteren Eck, zurückweichend. Den Rest füllt der Kopf eines riesigen weißen Tigers: aufgerissenes Maul, riesige Zähne, warmer Atem dampft in die kalte Luft." },
+          "action": {
+            "de": "PLF hat sich umgedreht, klein im unteren Eck, zurückweichend. Den Rest füllt der Kopf eines riesigen weißen Tigers: aufgerissenes Maul, riesige Zähne, warmer Atem dampft in die kalte Luft."
+          },
           "air": [],
           "figures": [
-            { "cast": "tiger", "framing": "cu", "mood": "angry", "facing": "front", "x": 0.55, "y": 0.42, "h": 0.8 },
-            { "cast": "plf", "framing": "medium", "mood": "terrified", "facing": "away", "x": 0.15, "y": 0.88, "h": 0.3 }
+            {
+              "cast": "tiger",
+              "framing": "cu",
+              "mood": "angry",
+              "facing": "front",
+              "x": 0.55,
+              "y": 0.42,
+              "h": 0.8
+            },
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "terrified",
+              "facing": "away",
+              "x": 0.15,
+              "y": 0.88,
+              "h": 0.3
+            }
           ],
           "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 4, "y": 6, "width": 92 }, "text": { "de": "ROARRRRRRRRRRR" } }
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 4,
+                "y": 6,
+                "width": 92
+              },
+              "text": {
+                "de": "ROARRRRRRRRRRR"
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "generated" },
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
           "status": "draft",
           "note": "Skript: „TIGER ist weiß mit riesen Zähnen. Anger Stage Character.“ Bewusst ohne Luft – der Schock füllt den Screen. Wie das ROARRR aus Kapitel 1/2 gesetzt."
         },
         {
           "id": "sb-28-3",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "wide", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
           "location": "forest",
-          "action": { "de": "Profil, seitlich: PLF und der weiße Tiger rennen gleichauf nebeneinander den verschneiten Hang hinauf, im selben Schritt, das Gewand und das Fell wehen gleich. Schneestaub hinter beiden, Bäume als verwischte Streifen." },
-          "air": [[0, 18]],
+          "action": {
+            "de": "Profil, seitlich: PLF und der weiße Tiger rennen gleichauf nebeneinander den verschneiten Hang hinauf, im selben Schritt, das Gewand und das Fell wehen gleich. Schneestaub hinter beiden, Bäume als verwischte Streifen."
+          },
+          "air": [
+            [
+              0,
+              18
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "full", "mood": "panicked", "facing": "left", "x": 0.35, "y": 0.55, "h": 0.32 },
-            { "cast": "tiger", "framing": "full", "mood": "hunting", "facing": "left", "x": 0.65, "y": 0.6, "h": 0.3 }
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "panicked",
+              "facing": "left",
+              "x": 0.35,
+              "y": 0.55,
+              "h": 0.32
+            },
+            {
+              "cast": "tiger",
+              "framing": "full",
+              "mood": "hunting",
+              "facing": "left",
+              "x": 0.65,
+              "y": 0.6,
+              "h": 0.3
+            }
           ],
           "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 70 }, "text": { "de": "Ein weißer Tiger. Gleichauf eilten beide synchron den Berg hinauf." } }
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 70
+              },
+              "text": {
+                "de": "Ein weißer Tiger. Gleichauf eilten beide synchron den Berg hinauf."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "generated" },
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
           "status": "draft",
           "note": "Ein Stop statt eines vertikalen Moves: die Bewegung ist seitlich, und der Witz ist der Gleichschritt. PLF rennend als Direktaufnahme möglich, der Tiger generiert dazu."
         }
@@ -78,24 +250,73 @@
     },
     {
       "label": "scene-28-duel",
-      "renderer": { "type": "horizontal", "params": { "loop": true, "freeMode": true } },
+      "renderer": {
+        "type": "horizontal",
+        "params": {
+          "loop": true,
+          "freeMode": true
+        }
+      },
       "continues": true,
       "shots": [
         {
           "id": "sb-28-4",
-          "format": "loop360", "aspect": "3:1", "projection": "perspective", "move": "look-around",
-          "shot": { "size": "wide", "angle": "eye" },
+          "format": "loop360",
+          "aspect": "3:1",
+          "projection": "perspective",
+          "move": "look-around",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
           "location": "clearing",
-          "action": { "de": "360°-Panorama der Lichtung, High Noon: Sonne im Zenit, kaum Schatten, ein Ring verschneiter Bäume. Auf der einen Seite PLF breitbeinig, auf der gegenüberliegenden der Tiger, der ihr den Weg versperrt. Dazwischen nur glatter Schnee. Wer zieht, sieht immer nur einen von beiden scharf." },
-          "air": [[40, 60]],
+          "action": {
+            "de": "360°-Panorama der Lichtung, High Noon: Sonne im Zenit, kaum Schatten, ein Ring verschneiter Bäume. Auf der einen Seite PLF breitbeinig, auf der gegenüberliegenden der Tiger, der ihr den Weg versperrt. Dazwischen nur glatter Schnee. Wer zieht, sieht immer nur einen von beiden scharf."
+          },
+          "air": [
+            [
+              40,
+              60
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "full", "mood": "determined", "facing": "right", "x": 0.25, "y": 0.6, "h": 0.4 },
-            { "cast": "tiger", "framing": "full", "mood": "angry", "facing": "left", "x": 0.75, "y": 0.62, "h": 0.35 }
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "determined",
+              "facing": "right",
+              "x": 0.25,
+              "y": 0.6,
+              "h": 0.4
+            },
+            {
+              "cast": "tiger",
+              "framing": "full",
+              "mood": "angry",
+              "facing": "left",
+              "x": 0.75,
+              "y": 0.62,
+              "h": 0.35
+            }
           ],
           "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 42, "y": 10, "width": 16 }, "text": { "de": "High Noon. Die Duellant:innen starrten sich an." } }
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 34.5,
+                "y": 10,
+                "width": 14.5
+              },
+              "text": {
+                "de": "High Noon. Die Duellant:innen starrten sich an."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "generated" },
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
           "status": "draft",
           "note": "Der breite Stop der Szene: die Flucht ist zu Ende, der Leser muss selbst zwischen den beiden hin- und herdrehen (Western-Duell). 3:1 = 6,5 Screens breit, unter der Planungsbreite 8. Leere Mitte (40–60 %) = die Strecke zwischen ihnen."
         }
@@ -103,131 +324,500 @@
     },
     {
       "label": "scene-28-fight",
-      "renderer": { "type": "vertical" },
+      "renderer": {
+        "type": "vertical"
+      },
       "continues": true,
       "shots": [
         {
           "id": "sb-28-5",
-          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "mcu", "angle": "eye" },
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "mcu",
+            "angle": "eye"
+          },
           "location": "clearing",
-          "action": { "de": "Das Anschreien als Soundsystem-Duell: oben PLF schreiend vor einem gezeichneten Turm aus Lautsprecherboxen, unten der brüllende Tiger vor seinem eigenen Boxenturm. Dazwischen prallen weiße Schallwellen-Linien aufeinander." },
-          "air": [[45, 55]],
+          "action": {
+            "de": "Das Anschreien als Soundsystem-Duell: oben PLF schreiend vor einem gezeichneten Turm aus Lautsprecherboxen, unten der brüllende Tiger vor seinem eigenen Boxenturm. Dazwischen prallen weiße Schallwellen-Linien aufeinander."
+          },
+          "air": [
+            [
+              45,
+              55
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "mcu", "mood": "furious", "facing": "right", "x": 0.4, "y": 0.22, "h": 0.5 },
-            { "cast": "tiger", "framing": "mcu", "mood": "furious", "facing": "left", "x": 0.6, "y": 0.78, "h": 0.5 }
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "furious",
+              "facing": "right",
+              "x": 0.4,
+              "y": 0.22,
+              "h": 0.5
+            },
+            {
+              "cast": "tiger",
+              "framing": "mcu",
+              "mood": "furious",
+              "facing": "left",
+              "x": 0.6,
+              "y": 0.78,
+              "h": 0.5
+            }
           ],
           "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 8, "width": 46 }, "text": { "de": "AAAAAHHH!" } },
-            { "variant": "caption", "font": "lettering", "rect": { "x": 4, "y": 62, "width": 50 }, "text": { "de": "ROARRRR!" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 36, "y": 46, "width": 58 }, "text": { "de": "Beide schrien sich an wie zwei Dub-Soundsysteme beim Soundoff." } }
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 50,
+                "y": 8,
+                "width": 46
+              },
+              "text": {
+                "de": "AAAAAHHH!"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 4,
+                "y": 62,
+                "width": 50
+              },
+              "text": {
+                "de": "ROARRRR!"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 36,
+                "y": 46,
+                "width": 58
+              },
+              "text": {
+                "de": "Beide schrien sich an wie zwei Dub-Soundsysteme beim Soundoff."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "art" },
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
           "status": "draft",
           "note": "Foto-Ausschnitte (PLF direkt, Tiger generiert) + schwarz-weiße Tusche-Grafik der Boxen. „AAAAAHHH!“ ist neu gesetzt – das Skript nennt PLFs Schrei nicht wörtlich."
         },
         {
           "id": "sb-28-6",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "medium", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
           "location": "clearing",
-          "action": { "de": "Collage auf weißem Grund, vier gerahmte Bilder: Schnee stürzt von gerüttelten Ästen; kleine Vögel und weiße Linien-Geister steigen in den Himmel; ein Reh flieht; Hasen graben sich in den Schnee ein. Unten ein schmaler, stiller Streifen der Lichtung." },
-          "air": [[0, 6], [80, 100]],
+          "action": {
+            "de": "Collage auf weißem Grund, vier gerahmte Bilder: Schnee stürzt von gerüttelten Ästen; kleine Vögel und weiße Linien-Geister steigen in den Himmel; ein Reh flieht; Hasen graben sich in den Schnee ein. Unten ein schmaler, stiller Streifen der Lichtung."
+          },
+          "air": [
+            [
+              0,
+              6
+            ],
+            [
+              80,
+              100
+            ]
+          ],
           "figures": [],
           "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 84, "width": 70 }, "text": { "de": "Dann kehrte Ruhe ein. Die Luft war zum Schneiden." } }
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 84,
+                "width": 70
+              },
+              "text": {
+                "de": "Dann kehrte Ruhe ein. Die Luft war zum Schneiden."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Tierfotos (Archiv / Shooting) + die Linien-Geister aus sb-25-6. Die Stille unten ist der Atemzug vor dem Kamehameha."
         },
         {
           "id": "sb-28-7",
-          "format": "vertical", "aspect": "1:4", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "medium", "angle": "high" },
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "medium",
+            "angle": "high"
+          },
           "location": "clearing",
-          "action": { "de": "Oben PLF mit geschlossenen Augen, die Hände geformt, dazwischen wächst ein blau-weiß leuchtender Eisenergieball. Mitte: der Ball schießt den Screen hinab, eine Eis-Blitz-Spur. Unten trifft er den heranstürmenden Tiger, Funken und Eissplitter; am Rand rennt PLF schon zu einem großen Felsen." },
-          "air": [[0, 8]],
+          "action": {
+            "de": "Oben PLF mit geschlossenen Augen, die Hände geformt, dazwischen wächst ein blau-weiß leuchtender Eisenergieball. Mitte: der Ball schießt den Screen hinab, eine Eis-Blitz-Spur. Unten trifft er den heranstürmenden Tiger, Funken und Eissplitter; am Rand rennt PLF schon zu einem großen Felsen."
+          },
+          "air": [
+            [
+              0,
+              8
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "medium", "mood": "focused", "facing": "front", "x": 0.5, "y": 0.15, "h": 0.5 },
-            { "cast": "tiger", "framing": "full", "mood": "charging", "facing": "front", "x": 0.55, "y": 0.84, "h": 0.4 },
-            { "cast": "plf", "framing": "full", "mood": "panicked", "facing": "right", "x": 0.88, "y": 0.92, "h": 0.15 }
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "focused",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.15,
+              "h": 0.5
+            },
+            {
+              "cast": "tiger",
+              "framing": "full",
+              "mood": "charging",
+              "facing": "front",
+              "x": 0.55,
+              "y": 0.84,
+              "h": 0.4
+            },
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "panicked",
+              "facing": "right",
+              "x": 0.88,
+              "y": 0.92,
+              "h": 0.15
+            }
           ],
           "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 6, "y": 34, "width": 88 }, "text": { "de": "KAMEHAMEHA!" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 70, "width": 56 }, "text": { "de": "Der Tiger wurde getroffen – und nahm die Verfolgung wieder auf." } }
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 34,
+                "width": 88
+              },
+              "text": {
+                "de": "KAMEHAMEHA!"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 70,
+                "width": 56
+              },
+              "text": {
+                "de": "Der Tiger wurde getroffen – und nahm die Verfolgung wieder auf."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "generated" },
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
           "status": "draft",
           "note": "Der Ball IST die Bewegung: der Leser scrollt ihm hinterher. Energie-Effekt eher als Grafik (art) über Fotos, falls generiert zu sehr nach Anime aussieht. Gekürzt: „PLF ging in sich, sammelte alle Energien“ – steckt im Bild."
         },
         {
           "id": "sb-28-8",
-          "format": "vertical", "aspect": "1:4", "projection": "perspective", "move": "fall",
-          "shot": { "size": "ews", "angle": "high" },
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "fall",
+          "shot": {
+            "size": "ews",
+            "angle": "high"
+          },
           "location": "clearing",
-          "action": { "de": "Oben: PLF wirft sich hinter einen großen Felsen an der Kante, zusammengekauert. Über den Felsen hinweg fliegt der benommene Tiger, verschätzt den Bremsweg. Darunter der Abgrund: der Tiger stürzt die Felswand hinab, immer kleiner, bis er im Nebel verschwindet." },
-          "air": [[70, 100]],
+          "action": {
+            "de": "Oben: PLF wirft sich hinter einen großen Felsen an der Kante, zusammengekauert. Über den Felsen hinweg fliegt der benommene Tiger, verschätzt den Bremsweg. Darunter der Abgrund: der Tiger stürzt die Felswand hinab, immer kleiner, bis er im Nebel verschwindet."
+          },
+          "air": [
+            [
+              70,
+              100
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "full", "mood": "terrified", "facing": "left", "x": 0.3, "y": 0.12, "h": 0.2 },
-            { "cast": "tiger", "framing": "full", "mood": "dazed", "facing": "right", "x": 0.55, "y": 0.25, "h": 0.35 },
-            { "cast": "tiger", "framing": "full", "mood": "falling", "facing": "away", "x": 0.6, "y": 0.6, "h": 0.12 }
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "terrified",
+              "facing": "left",
+              "x": 0.3,
+              "y": 0.12,
+              "h": 0.2
+            },
+            {
+              "cast": "tiger",
+              "framing": "full",
+              "mood": "dazed",
+              "facing": "right",
+              "x": 0.55,
+              "y": 0.25,
+              "h": 0.35
+            },
+            {
+              "cast": "tiger",
+              "framing": "full",
+              "mood": "falling",
+              "facing": "away",
+              "x": 0.6,
+              "y": 0.6,
+              "h": 0.12
+            }
           ],
           "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 10, "y": 40, "width": 80 }, "text": { "de": "ROAAAAARrrr …" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 86, "width": 64 }, "text": { "de": "Ein lauter Schrei erfüllte das Tal." } }
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 10,
+                "y": 40,
+                "width": 80
+              },
+              "text": {
+                "de": "ROAAAAARrrr …"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 86,
+                "width": 64
+              },
+              "text": {
+                "de": "Ein lauter Schrei erfüllte das Tal."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Felswand-Foto (Stitch) + ausgeschnittener Tiger; der Fall ist der Scroll. Der Schrei wird nach unten leiser (Lettering kleiner). Frage an den Owner: der Tiger stürzt hier nur aus dem Bild – kommt er (als Anger Stage) später wieder?"
         },
         {
           "id": "sb-28-9",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "mcu", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "mcu",
+            "angle": "eye"
+          },
           "location": "clearing",
-          "action": { "de": "PLF hinter dem Felsen, Hände gefaltet zum Stoßgebet, dann der prüfende Blick über die Kante in die Tiefe. Hinter ihr verdunkelt sich der Himmel, erste Schneeschleier wehen heran." },
-          "air": [[0, 15]],
-          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "relieved", "facing": "right", "x": 0.45, "y": 0.6, "h": 0.6 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 70 }, "text": { "de": "PLF war fürs Erste sicher. Ein kurzes Stoßgebet, ein prüfender Blick." } }
+          "action": {
+            "de": "PLF hinter dem Felsen, Hände gefaltet zum Stoßgebet, dann der prüfende Blick über die Kante in die Tiefe. Hinter ihr verdunkelt sich der Himmel, erste Schneeschleier wehen heran."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "relieved",
+              "facing": "right",
+              "x": 0.45,
+              "y": 0.6,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 70
+              },
+              "text": {
+                "de": "PLF war fürs Erste sicher. Ein kurzes Stoßgebet, ein prüfender Blick."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft"
         },
         {
           "id": "sb-28-10",
-          "format": "vertical", "aspect": "1:4", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "wide", "angle": "high" },
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "high"
+          },
           "location": "forest",
-          "action": { "de": "Weißer Schneesturm, fast nur Weiß und waagrechte Schneestreifen. In der Mitte PLF kaum sichtbar, auf allen Vieren kriechend, halb verschluckt. Ganz unten taucht aus dem Weiß ein Stück graue Mauer auf und ein Strauch mit kleinen roten Beeren – die einzige Farbe im Bild." },
-          "air": [[0, 40]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "exhausted", "facing": "right", "x": 0.4, "y": 0.6, "h": 0.15 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 6, "width": 64 }, "text": { "de": "Es war überstanden. Doch ein weißer Schneesturm zog auf." } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 36, "y": 78, "width": 58 }, "text": { "de": "Ein Stück Mauer. Rote Beeren. Es musste das Kloster sein." } }
+          "action": {
+            "de": "Weißer Schneesturm, fast nur Weiß und waagrechte Schneestreifen. In der Mitte PLF kaum sichtbar, auf allen Vieren kriechend, halb verschluckt. Ganz unten taucht aus dem Weiß ein Stück graue Mauer auf und ein Strauch mit kleinen roten Beeren – die einzige Farbe im Bild."
+          },
+          "air": [
+            [
+              0,
+              40
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "exhausted",
+              "facing": "right",
+              "x": 0.4,
+              "y": 0.6,
+              "h": 0.15
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 64
+              },
+              "text": {
+                "de": "Es war überstanden. Doch ein weißer Schneesturm zog auf."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 36,
+                "y": 78,
+                "width": 58
+              },
+              "text": {
+                "de": "Ein Stück Mauer. Rote Beeren. Es musste das Kloster sein."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Geplante Stille: die obere Hälfte ist fast nur Sturm-Weiß (Luft), damit das Verirren Zeit kostet. Rote Beeren als einziger Farbpunkt (monochrom getönt wie Kapitel 2 sonst)."
         },
         {
           "id": "sb-28-11",
-          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "climb",
-          "shot": { "size": "full", "angle": "low" },
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "climb",
+          "shot": {
+            "size": "full",
+            "angle": "low"
+          },
           "location": "monastery",
-          "action": { "de": "Vereiste Steintreppe zum Kloster hinauf: unten PLF, die losspurtet, in der Mitte rutscht sie tollpatschig aus, Beine in der Luft. Oben, im nachlassenden Sturm, die schwere hölzerne Klosterpforte, PLF tritt ein – dahinter warmes Kerzenlicht." },
-          "air": [[90, 100]],
+          "action": {
+            "de": "Vereiste Steintreppe zum Kloster hinauf: unten PLF, die losspurtet, in der Mitte rutscht sie tollpatschig aus, Beine in der Luft. Oben, im nachlassenden Sturm, die schwere hölzerne Klosterpforte, PLF tritt ein – dahinter warmes Kerzenlicht."
+          },
+          "air": [
+            [
+              90,
+              100
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "full", "mood": "hopeful", "facing": "away", "x": 0.4, "y": 0.86, "h": 0.25 },
-            { "cast": "plf", "framing": "full", "mood": "clumsy", "facing": "left", "x": 0.6, "y": 0.5, "h": 0.25 },
-            { "cast": "plf", "framing": "full", "mood": "relieved", "facing": "away", "x": 0.5, "y": 0.12, "h": 0.18 }
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "hopeful",
+              "facing": "away",
+              "x": 0.4,
+              "y": 0.86,
+              "h": 0.25
+            },
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "clumsy",
+              "facing": "left",
+              "x": 0.6,
+              "y": 0.5,
+              "h": 0.25
+            },
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "relieved",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.12,
+              "h": 0.18
+            }
           ],
           "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 8, "y": 40, "width": 40 }, "text": { "de": "WUMMS" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 40, "y": 24, "width": 54 }, "text": { "de": "Schließlich fand PLF die Pforte und trat ein." } }
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 8,
+                "y": 40,
+                "width": 40
+              },
+              "text": {
+                "de": "WUMMS"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 24,
+                "width": 54
+              },
+              "text": {
+                "de": "Schließlich fand PLF die Pforte und trat ein."
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Climb: PLF steigt im Bild nach oben, der Leser scrollt dagegen – drei Phasen derselben Figur (Spurt, Ausrutscher, Pforte). „WUMMS“ ist neu gesetzt (Skript: „rutschte tolpatschig aus“). Warmes Licht hinter der Pforte = Übergang zur Bibliothek."
         }

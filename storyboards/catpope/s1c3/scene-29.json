@@ -41,7 +41,7 @@
           "air": [[0, 20]],
           "figures": [ { "cast": "plf", "framing": "mcu", "mood": "ecstatic", "facing": "right", "x": 0.45, "y": 0.6, "h": 0.6 } ],
           "dialog": [
-            { "variant": "bubble", "rect": { "x": 40, "y": 6, "width": 54 }, "tail": "left", "text": { "de": "Beware the man with the one book!" } },
+            { "variant": "bubble", "rect": { "x": 40, "y": 6, "width": 54 }, "tail": "bottom-left", "text": { "de": "Beware the man with the one book!" } },
             { "variant": "caption", "font": "lettering", "rect": { "x": 8, "y": 78, "width": 40 }, "text": { "de": "PAH …" } }
           ],
           "source": { "type": "schematic", "want": "direct" },
@@ -61,7 +61,7 @@
           ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 64 }, "text": { "de": "Augenblicklich fühlte sich PLF zurückversetzt, in die Zeit, als sie noch YPLF war." } },
-            { "variant": "bubble", "rect": { "x": 46, "y": 78, "width": 48 }, "tail": "up", "text": { "de": "… Fear the man who owns all the books!" } }
+            { "variant": "bubble", "rect": { "x": 46, "y": 78, "width": 48 }, "tail": "top", "text": { "de": "… Fear the man who owns all the books!" } }
           ],
           "source": { "type": "schematic", "want": "direct" },
           "status": "draft",

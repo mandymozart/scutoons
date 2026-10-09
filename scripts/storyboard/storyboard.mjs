@@ -17,6 +17,9 @@ export function loadStoryboards(path) {
 		.sort((a, b) => (a.sb.source?.scene ?? 0) - (b.sb.source?.scene ?? 0) || basename(a.file).localeCompare(basename(b.file)));
 }
 
+/** Dialog.tail (shared/content/src/content.ts DIALOG_TAILS) */
+const TAILS = ['bottom-left', 'bottom', 'bottom-right', 'top-left', 'top', 'top-right', 'none'];
+
 export const shotsOf = (sb) => (sb.groups ?? []).flatMap((g) => (g.shots ?? []).map((shot) => ({ group: g, shot })));
 
 /** reading measures of one shot: height on the canvas, screens, words, boxes, seconds (careful) */
@@ -113,6 +116,13 @@ export function validate(sb, file = '') {
 			for (const d of shot.dialog ?? []) {
 				if (!d.text?.de) err(id, 'dialog without text.de');
 				if (d.variant && !['narration', 'bubble', 'caption'].includes(d.variant)) err(id, `dialog variant "${d.variant}" – narration | bubble | caption`);
+				if (d.tail && !TAILS.includes(d.tail)) err(id, `dialog tail "${d.tail}" – ${TAILS.join(' | ')}`);
+				if (d.font && !['mono', 'lettering'].includes(d.font)) err(id, `dialog font "${d.font}" – mono | lettering`);
+				if (shot.format === 'loop360' && d.rect) {
+					const slides = Math.max(1, Math.round(((parseAspect(shot.aspect)?.w ?? 1) / (parseAspect(shot.aspect)?.h ?? 1)) * S / W));
+					const a0 = Math.floor((d.rect.x / 100) * slides), a1 = Math.floor((((d.rect.x + (d.rect.width ?? 0)) / 100) * slides) - 1e-6);
+					if (a0 !== a1) warn(id, `text box at x ${d.rect.x} % crosses a slide edge of the panorama (${slides} slides) – it gets moved into slide ${a0 + 1}`);
+				}
 				const r = d.rect;
 				if (!r || !(r.x >= 0 && r.x <= 100 && r.y >= 0 && r.y <= 100)) err(id, 'dialog rect x / y in % of the shot');
 				const n = words(d.text);

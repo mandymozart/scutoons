@@ -55,8 +55,8 @@
           "air": [[85, 100]],
           "figures": [ { "cast": "plf", "framing": "mcu", "mood": "curious", "facing": "right", "x": 0.42, "y": 0.55, "h": 0.6 } ],
           "dialog": [
-            { "variant": "bubble", "rect": { "x": 46, "y": 6, "width": 48 }, "tail": "left", "text": { "de": "Eine Vision? Ein Zeichen? Vielleicht die erste Antwort?" } },
-            { "variant": "bubble", "rect": { "x": 8, "y": 74, "width": 50 }, "tail": "up", "text": { "de": "So kalt … vielleicht nur eine Luftspiegelung. Was soll's!" } }
+            { "variant": "bubble", "rect": { "x": 46, "y": 6, "width": 48 }, "tail": "bottom-left", "text": { "de": "Eine Vision? Ein Zeichen? Vielleicht die erste Antwort?" } },
+            { "variant": "bubble", "rect": { "x": 8, "y": 74, "width": 50 }, "tail": "top", "text": { "de": "So kalt … vielleicht nur eine Luftspiegelung. Was soll's!" } }
           ],
           "source": { "type": "schematic", "want": "direct" },
           "status": "draft",

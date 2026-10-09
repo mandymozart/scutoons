@@ -31,7 +31,7 @@
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 22, "width": 66 }, "text": { "de": "34 INT. SERVERRAUM – KURZE ZEIT SPÄTER" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 34, "width": 64 }, "text": { "de": "PLF wich in die Ecke aus. Ihr blieb nur eins: das Kamehameha." } },
-            { "variant": "bubble", "rect": { "x": 6, "y": 84, "width": 46 }, "tail": "right", "text": { "de": "Aufgeben? Niemals!" } }
+            { "variant": "bubble", "rect": { "x": 6, "y": 84, "width": 46 }, "tail": "bottom-right", "text": { "de": "Aufgeben? Niemals!" } }
           ],
           "source": { "type": "schematic", "want": "direct" },
           "status": "draft",

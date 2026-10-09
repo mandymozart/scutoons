@@ -74,11 +74,11 @@
           "air": [[0, 5]],
           "figures": [ { "cast": "plf", "framing": "medium", "mood": "frustrated", "facing": "front", "x": 0.75, "y": 0.6, "h": 0.3 } ],
           "dialog": [
-            { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 56 }, "tail": "down", "text": { "de": "Gut, Katze! Was ist dein Geheimnis?" } },
+            { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 56 }, "tail": "bottom", "text": { "de": "Gut, Katze! Was ist dein Geheimnis?" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 36, "y": 22, "width": 58 }, "text": { "de": "Die Bibel: keine Antwort. Keine Mäuse – die Sintflut muss sie dahingerafft haben." } },
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 46, "width": 58 }, "text": { "de": "Artemis? Eher ein Luchs. Hekates Begleiter? Schwarze Katzen. Hexerei?" } },
             { "variant": "caption", "font": "lettering", "rect": { "x": 56, "y": 64, "width": 38 }, "text": { "de": "SHRUG" } },
-            { "variant": "bubble", "rect": { "x": 6, "y": 84, "width": 60 }, "tail": "up", "text": { "de": "Party-Katze? Fruchtbarkeitsgottheit? Furchtbarkeitsgottheit eher." } }
+            { "variant": "bubble", "rect": { "x": 6, "y": 84, "width": 60 }, "tail": "top", "text": { "de": "Party-Katze? Fruchtbarkeitsgottheit? Furchtbarkeitsgottheit eher." } }
           ],
           "source": { "type": "schematic", "want": "direct" },
           "status": "draft",
@@ -93,7 +93,7 @@
           "air": [[0, 10]],
           "figures": [ { "cast": "plf", "framing": "mcu", "mood": "impatient", "facing": "front", "x": 0.5, "y": 0.55, "h": 0.6 } ],
           "dialog": [
-            { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 60 }, "tail": "down", "text": { "de": "Nichts! So komm ich nicht weiter. Jetzt muss ich ernst machen." } },
+            { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 60 }, "tail": "bottom", "text": { "de": "Nichts! So komm ich nicht weiter. Jetzt muss ich ernst machen." } },
             { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 50, "width": 44 }, "text": { "de": "KLAPP!" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 84, "width": 50 }, "text": { "de": "Reiss dich zusammen!" } }
           ],

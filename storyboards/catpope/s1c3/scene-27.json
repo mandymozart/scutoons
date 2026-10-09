@@ -72,7 +72,7 @@
           "air": [[0, 8], [92, 100]],
           "figures": [],
           "dialog": [
-            { "variant": "bubble", "rect": { "x": 50, "y": 40, "width": 44 }, "tail": "down", "text": { "de": "Der Glaube. Der Wille. Die Aufgabe. Der Glaube …" } },
+            { "variant": "bubble", "rect": { "x": 50, "y": 40, "width": 44 }, "tail": "bottom", "text": { "de": "Der Glaube. Der Wille. Die Aufgabe. Der Glaube …" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 78, "width": 64 }, "text": { "de": "Der Puls stieg, die Kälte wich aus den Gliedern." } }
           ],
           "source": { "type": "schematic", "want": "direct" },
