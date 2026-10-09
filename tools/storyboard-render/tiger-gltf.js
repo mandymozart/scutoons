@@ -102,5 +102,33 @@ export function gltfTiger(gltf, { length = 2.8 } = {}) {
 	root.updateMatrixWorld(true);
 	mesh.bind(new THREE.Skeleton(order.map((n) => bones[n])));
 	for (const n of order) bones[n].userData.restPos = bones[n].position.clone();
+	// the rune glyph on the forehead (the owner's mountain tiger, 2026-10-09): a vertical stroke, a crescent on top,
+	// two cross bars – black, so it reads under the hard light; it rides on the head bone
+	const glyph = new THREE.Group();
+	const ink = new THREE.MeshBasicMaterial({ color: 0x000000 });
+	const u = Hy * 0.018;
+	const part = (geo, x, y, rz = 0) => { const m = new THREE.Mesh(geo, ink); m.position.set(x, y, 0); m.rotation.z = rz; glyph.add(m); };
+	part(new THREE.BoxGeometry(u * 0.9, u * 9, u * 0.3), 0, 0);
+	part(new THREE.BoxGeometry(u * 4.2, u * 0.9, u * 0.3), 0, u * 1.2);
+	part(new THREE.BoxGeometry(u * 4.2, u * 0.9, u * 0.3), 0, -u * 1.2);
+	part(new THREE.TorusGeometry(u * 1.8, u * 0.45, 6, 16, Math.PI), 0, u * 4.2, Math.PI);
+	part(new THREE.TorusGeometry(u * 1.4, u * 0.4, 6, 16, Math.PI), 0, -u * 4.4);
+	// on the brow: the frontmost surface point of the head's middle at brow height (from the vertices), the glyph laid
+	// on the surface there (tipped back by the local slope), a hair in front of it
+	const half = (b.max.x - b.min.x) * 0.06;
+	let top = null, low = null;
+	for (let i = 0; i < pos.count; i++) {
+		v.fromBufferAttribute(pos, i);
+		if (Math.abs(v.x) > half || (v.z - b.min.z) / Lz < 0.8) continue;
+		const y = v.y / Hy;
+		if (y > 0.8 && y < 0.95 && (!top || v.z > top.z)) top = v.clone();
+		if (y > 0.68 && y < 0.8 && (!low || v.z > low.z)) low = v.clone();
+	}
+	const brow = top ?? new THREE.Vector3(0, Hy * 0.86, zAt(0.955));
+	const slope = top && low ? Math.atan2(top.z - low.z, top.y - low.y) : 0.55; // how far the forehead leans back
+	glyph.position.copy(brow.clone().add(new THREE.Vector3(0, 0, u * 0.25)).sub(bones.head.userData.world));
+	glyph.rotation.x = -slope;
+	glyph.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.userData.glyph = true; } });
+	bones.head.add(glyph);
 	return { kind: 'tiger', root, joints: { ...bones, tailSegs: [bones.tail, bones.tail2], rigged: true }, mesh };
 }
