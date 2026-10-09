@@ -84,7 +84,7 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   the deploy; after it delete the bunny Magic Containers app, the `ask.` DNS, the ghcr image `scutoons-ask`, GitHub vars
   `VITE_ASK_URL` / `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER`, secret `AGENT_SERVICE_KEY`; revoke the Anthropic API key;
   try the Claude Desktop extension once (scutoons.com/account → AI connections). mcp-drafts + api-tokens ran on production
-  2026-10-09, deployed a5f3d18; drop-ask (the Ask tables) handed to the owner the same day.
+  2026-10-09, deployed a5f3d18; drop-ask (the Ask tables are gone) too.
 - Newsletter (BACKLOG 10.58, agents/NEWSLETTER.md, branch `newsletter`): production – run
   `2026-10-07-newsletter.mysql.sql` (the SELECTs first), secret `NEWSLETTER_CRON_KEY`, KAS cron every 5 minutes; then
   set the `qr-claim` contacts' languages, import the event lists, write + test + start (the steps: NEWSLETTER.md "Going live").

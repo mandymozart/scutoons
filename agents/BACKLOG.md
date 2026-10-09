@@ -524,7 +524,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
     the browser. **O –** run `2026-10-09-mcp-drafts.mysql.sql` + `2026-10-09-api-tokens.mysql.sql` (SELECTs first) with
     the deploy; then delete the bunny Magic Containers app, the `ask.` DNS, the ghcr image, vars `VITE_ASK_URL` /
     `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER`, secret `AGENT_SERVICE_KEY`, revoke the Anthropic key; install the
-    Claude Desktop extension once; `2026-10-09-drop-ask.mysql.sql` drops the Ask tables (handed to the owner 2026-10-09).
+    Claude Desktop extension once; `2026-10-09-drop-ask.mysql.sql` dropped the Ask tables (production, 2026-10-09).
 - [ ] 10.31 **Naked A-pose removed** (owner 2026-10-05: "Remove the naked A-pose variant. Keep the safe-for-work switch in
       the account.") _(branch `apose/no-naked`)_: the only standard A-pose look is `swim`; the API and the reader ignore a
       leftover `naked` look (or one still marked `sensitive: true`), the creator's validation warns about it; no cover rule
