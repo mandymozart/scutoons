@@ -94,7 +94,7 @@ final class AuthController
     public function exchange(Request $request, Response $response): Response
     {
         $session = CurrentSession::of($request);
-        if ($session->via() !== CurrentSession::VIA_BEARER) {
+        if ($session->via() !== CurrentSession::VIA_BEARER || $session->isApiToken()) {
             throw new ApiError(400, 'bearer_required', 'Send the stored session token as Bearer.');
         }
         if (!$this->fromApp($request)) {

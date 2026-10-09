@@ -29,11 +29,10 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `QR_PROXY_SECRET` | – | shared with the qr app (qr.scutoons.com): only requests carrying it in `X-Scutoons-Proxy-Secret` may forward the client IP (`X-Scutoons-Client-Ip`) and device id (`X-Scutoons-Device-Id`), and only they can log landing-page scans (`/api/code/?scan=1`). Empty = trust nobody |
 | `EMBASSY_CRON_KEY` | – | key of the Embassy cron URL `GET\|POST /api/embassy/cron?key=…` (inbox sync + the team's reminder mails; also accepted as the HTTP Basic password – docs/API.md "Embassy" → "Pace"). Empty = the URL answers 404 (off). `openssl rand -hex 32` |
 | `NEWSLETTER_CRON_KEY` | – | key of the newsletter cron URL `GET\|POST /api/newsletter/cron?key=…` (one batch, agents/NEWSLETTER.md; also the HTTP Basic password). Empty = 404 (off). `openssl rand -hex 32` |
-| `AGENT_SERVICE_KEY` | – | shared with the creator's Ask service (tools/mcp): only requests carrying it in `X-Service-Key` (plus a creator's session) may write the AI usage log `POST /api/agent-usage` (docs/API.md "Agent usage"). Empty = not configured (`503 not_configured`) |
 | `QR_URL` | `https://qr.scutoons.com` | the qr app: magic links of login requests without an Origin (it forwards `/?login=` to the viewer) |
 | `APP_URL` | `https://scutoons.com` | the viewer: old magic links are forwarded there; "Open SCUTOONS" in mails |
-| `ADMIN_URL` | `https://admin.scutoons.com` | the admin app: links in admin notification mails (a new ownership claim) |
-| `EMBASSY_URL` | `https://embassy.scutoons.com` | the Embassy app: the Today link in the team's reminder mails (`embassy_portion`). Local: `http://localhost:13000` in config.local.php |
+| `ADMIN_URL` | `https://admin.scutoons.com` | the admin app: links in admin notification mails (a new ownership claim); the link of an AI proposal (`/proposals/<id>`) |
+| `EMBASSY_URL` | `https://embassy.scutoons.com` | the Embassy app: the Today link in the team's reminder mails (`embassy_portion`); the link of a mail draft (`/orgs/<id>?draft=<id>`). Local: `http://localhost:13000` in config.local.php |
 | `CDN_URL` | `https://cdn.scutoons.com/` | item icons `<CDN_URL><icon>`; local `http://localhost:8001/` |
 | `ALLOWED_ORIGINS` | scutoons.com, www, creator, admin, shop, embassy + dev ports | comma separated; production sets it in the workflow (without localhost). On a local dev server (`php -S`) every port of `shared/dev-ports.json` is added automatically (`Settings::allowedOrigins`). Also the CSRF list of the session cookie: only these origins may change things with it |
 | `MAIL_TRANSPORT` | `smtp` | `smtp` \| `log` (dev: `MAIL_LOG_PATH`) \| `mail` (PHP `mail()`) |

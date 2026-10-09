@@ -4,6 +4,21 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Ask removed, the member's own AI through the MCP (agents/MCP.md, owner 2026-10-09). Gone: `/api/agent-chats`,
+  `POST /api/agent-usage`, `GET /api/admin/agent-usage`, `Domain\Agent`, `AgentChatsController` /
+  `AgentUsageController` + their tests, the setting `AGENT_SERVICE_KEY`, the agent-chats CORS rule (the tables stay
+  dropped by `2026-10-09-drop-ask.mysql.sql`). New: **AI connections** – personal
+  tokens `sct_…` (`Domain\Auth\ApiTokens`, `GET|POST /api/me/tokens`, `DELETE /api/me/tokens/{id}`, a real session
+  only; members only – `403 no_member_role`, a token ends with the account's last member role), taken as Bearer like a
+  session; `Http\ApiTokenScope` refuses a token (`403 not_for_ai`) on publish / unpublish, review decisions, an Embassy
+  send / org delete / import, every admin change but `POST /api/admin/proposals`, sign-in / sign-out and tokens; a save
+  through one is signed "(AI: <name>)". **Embassy mail drafts** (`Domain\Embassy\EmbassyDrafts`;
+  `POST /api/embassy/orgs/{id}/drafts` checked like a send – `EmbassyMail::prepare` – and never sent,
+  `GET /api/embassy/drafts[/{id}]`, `DELETE /api/embassy/drafts/{id}`, `drafts` in `GET /api/embassy/orgs/{id}`,
+  `draft_id` on `POST /api/embassy/orgs/{id}/mail`: only its author, deleted once sent). **Admin proposals**
+  (`Domain\Admin\Proposals`; `GET|POST /api/admin/proposals`, `GET|PUT /api/admin/proposals/{id}` – applied / dismissed,
+  once). Migrations `2026-10-09-mcp-drafts` (`embassy_mail_drafts`, `admin_proposals`) and `2026-10-09-api-tokens`
+  (both additive; without them those endpoints answer 503). PHPUnit `McpDraftsApiTest`, `ApiTokensApiTest` (315/315).
 - Web search in the Ask panels (owner 2026-10-06): `agent_usage.web_searches` (migration
   `2026-10-06-agent-web-search`, additive; without it the count is dropped). `POST /api/agent-usage` takes
   `web_searches?` (`422 invalid_web_searches`), `GET /api/admin/agent-usage` sums it per row and in `totals`;

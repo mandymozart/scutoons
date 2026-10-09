@@ -194,7 +194,7 @@ don't fit the group schema (an `addChoice` jumpTo `value` is a number; an `end` 
 - ~~After a conversion the creator still edits the per-locale documents~~ – phase 2A: the creator edits only neutral
   documents.
 - MCP tools (`tools/mcp/src/server.ts`) read / write per-locale keys (`entityKeyFor`): switch with the creator (2B).
-  Until then an Ask-panel edit of a converted chapter writes a shadowed per-locale version.
+  Until then an MCP edit of a converted chapter writes a shadowed per-locale version.
 - Sandbox generator (`make-sandbox.ts`) and `server/tests/fixtures/content` → neutral documents (2B).
 - Once production is converted: remove the legacy per-locale path (library fallback, per-locale schemas of these kinds,
   the write path) – a CUTOVER follow-up.
@@ -290,8 +290,8 @@ don't fit the group schema (an `addChoice` jumpTo `value` is a number; an `end` 
   languages from the toon entry, a scene's chapter audio from the neutral chapter); `list_chapters` reads the neutral
   chapter / scenes (falls back per locale), title in `locale` (fallback chain), status from the season's locale map;
   `search_content` skips per-locale documents shadowed by a neutral one and, with `locale`, the other languages' entries
-  of a locale map. Guidance (`scutoons://rules/workflow` "Languages", entity-keys, text presets, the Ask panel's system
-  prompt): texts are locale maps, structure once, set one language at `[…, "text", "en"]`.
+  of a locale map. Guidance (`scutoons://rules/workflow` "Languages", entity-keys, text presets, the MCP prompts,
+  `tools/mcp/src/prompts.ts`): texts are locale maps, structure once, set one language at `[…, "text", "en"]`.
 - **Sandbox** (`make-sandbox.ts`): writes `_/chapter<N>.json`, `_/chapter<N>/<scene>.json`, `_/season1.json` (texts
   de + en from the generator's `Text` maps, ko titles / descriptions; the dialogue has no ko – readers get German, the
   creator warns). **Decision**: before the import it deletes the sandbox's per-locale chapter / scene / season versions
@@ -379,7 +379,7 @@ toon entry `toon:<toon>` as locale maps. After this the only per-locale kind lef
   (no per-language document; CatalogTest).
 - **MCP**: `toon:<toon>` validated with `validateNeutral('index')`; `save_draft` refuses a `toon-settings` key ("save
   toon:<toon>"); `read_entity` marks them legacy / read only; `list_toons` shows `title` + `languageStatus`; guidance and
-  the Ask prompt say the toon settings are locale maps in the entry. **Sandbox**: `make-sandbox` writes the texts /
+  the MCP prompt say the toon settings are locale maps in the entry. **Sandbox**: `make-sandbox` writes the texts /
   release / status per language into the sandbox entry, no `toon.json`, and deletes earlier runs' per-locale toon
   settings (3 removed on the dev DB). Server test fixtures: none hold toon settings (LibraryTest's `seedToon()` now puts
   them in the entry; `seedLegacy()` keeps per-language ones for the fallback tests).

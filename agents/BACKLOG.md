@@ -426,7 +426,8 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   - **Transport**: stdio first (local: Claude Code / Desktop against local or production API, token from `.env` /
     `npm run dev:test-user` locally). Remote (Streamable HTTP + sign-in, claude.ai connector, the creator's "Ask" panel via
     the API's MCP connector) is step 2 – the shared hosting (FTP deploy) can't run a long-lived Node server: a small Node
-    host or a PHP implementation, owner decision then.
+    host or a PHP implementation, owner decision then. _(Dropped 2026-10-09: local stdio only, no remote MCP, no OAuth –
+    agents/MCP.md.)_
   - **Checks**: a script like `check:stroll` that drives the tools against the local stack (read → patch → validate → save
     draft → restore), never against production.
   - **Example task**: "set up the chapter 2 stroll" (today `scripts/dev/stroll-chapter2.mjs`) as one request.
@@ -447,7 +448,9 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
     `npm run check:mcp` (`scripts/dev/mcp-check.mjs`, 31 checks, local only, restores what it changes). README: Claude
     Code / Desktop, local + production. Not validated yet: season status of a chapter and placed items against the
     catalog (the creator passes both).
-  - **Step 2 decisions (owner 2026-10-04)**:
+  - **Step 2 decisions (owner 2026-10-04)** _(superseded 2026-10-09 by agents/MCP.md: the Ask panel, the bunny host, the
+    chat history, the usage log and the publish tool are gone – members use their own Claude plan through the local MCP
+    with a personal token; what follows is history)_:
     - **Order:** the creator's "Ask" panel is the way for creators; the API token (step 1, stdio) stays for Claude Code /
       Desktop; no claude.ai connector for now (no OAuth needed – revisit only if creators want claude.ai).
     - **Host: bunny.net Magic Containers** (EU, the same bunny account as the CDN): the Ask service in a Docker container.
@@ -501,14 +504,14 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       `ask-image.yml` → bunny's action `BunnyWay/actions/container-update-image` with the environment variables
       `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER` and the secret `BUNNY_API_KEY` (verified: bunny switched to the pushed
       commit's image, rolling update, health 200 throughout).
-    - **Open:** ~~an admin page for the usage overview~~ (Dashboard, 2026-10-05); the build's commit in `/api/ask/health` (to see
-      which image runs); personal access tokens.
+    - **Open:** ~~an admin page for the usage overview~~ (Dashboard, 2026-10-05); ~~the build's commit in `/api/ask/health`~~
+      (obsolete: Ask removed 2026-10-09); ~~personal access tokens~~ (built 2026-10-09, below).
     - **Shared in three apps (2026-10-04, branch `ask-shared`; owner: "make Ask a shared integration in embassy,
       creator, admin")**: the panel is `@scutoons/ask` (shared/ask: `AskPanel` + `ask` / `askAbout` / `pagePanel`; the
       app passes its name, chats API, labels, context, links and an optional result snippet; `panelWidth` moved to
       `@scutoons/ui`). The request names its app; the service picks role, prompt and tools per app (`APPS` in ask.ts):
       creator → role creator, content tools (unchanged); embassy → liaison / ambassador / admin, `src/embassy.ts`
-      (agents/EMBASSY.md "Ask + mail"); admin → role admin, the content tools that only read + `agent_usage`. Chats
+      (agents/EMBASSY.md "AI + mail"); admin → role admin, the content tools that only read + `agent_usage`. Chats
       and usage rows carry `app` (migration `2026-10-04-ask-embassy-mail`); every message carries today's date.
       `ASK_ORIGINS` (bunny env) must list creator, embassy and admin (the code default does, the env wins); `VITE_ASK_URL` goes into the embassy and admin builds too.
     - **Admin agent (2026-10-05, branch `ask-admin`; owner: the admin's Ask could not answer "signed codes for Cat Pope –
@@ -552,6 +555,22 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       ("Cat Pope", not the id) and link to the dashboard (owner: no further action needed than the list).
     - **Agents (2026-10-04, branch `ask-deploy`):** the MCP tool `submit_for_review` (`POST /api/reviews`, items pinned to a
       version + note); `publish_entity` answers `403 review_required` for `needs_review` accounts – the agent submits instead.
+  - **Ask removed, the member's own Claude through the MCP (owner 2026-10-09, agents/MCP.md; commits 2dac9209, 560104a1,
+    dc7d1d36, e966f508):** tools/mcp lists tools and prompts by the member's roles (`/me/`: content, Embassy, admin; readers
+    refused; `whoami`; Ask's system prompts → MCP prompts in `prompts.ts`; new story read tools `read_flow`,
+    `story_variables`, `dead_things`, `item_placements`, `missing_assets`, `list_reviews`, `compare_versions`); no publish
+    tool – `save_draft` returns the creator link. Ask gone everywhere: `shared/ask`, `ask.ts`, the Dockerfile + image
+    workflow, the AppShell's Ask region, the admin's AI usage card, `/api/agent-chats`, `/api/agent-usage`,
+    `AGENT_SERVICE_KEY`, `VITE_ASK_URL`. Draft → link → the member confirms: `draft_mail` stores an Embassy mail draft
+    (`embassy_mail_drafts`, `?draft=<id>` opens it in the org page's dock, only its author sends), `propose_changes` an
+    admin proposal (`admin_proposals`, the admin's Proposals page, Apply / Dismiss once); personal tokens `sct_…`
+    (`api_tokens`, scutoons.com/account → "AI connections"; `ApiTokenScope`: 403 `not_for_ai` on publish, send, apply,
+    admin changes, tokens); `npm run build:mcp` → one-file server + Claude Desktop extension served from
+    scutoons.com/ai. Checks: PHPUnit 315/315, check:mcp 38/38, svelte-check 0, the account page + drafts + proposals in
+    the browser. **O –** run `2026-10-09-mcp-drafts.mysql.sql` + `2026-10-09-api-tokens.mysql.sql` (SELECTs first) with
+    the deploy; then delete the bunny Magic Containers app, the `ask.` DNS, the ghcr image, vars `VITE_ASK_URL` /
+    `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER`, secret `AGENT_SERVICE_KEY`, revoke the Anthropic key; install the
+    Claude Desktop extension once; `2026-10-09-drop-ask.mysql.sql` dropped the Ask tables (production, 2026-10-09).
 - [ ] 10.31 **Naked A-pose removed** (owner 2026-10-05: "Remove the naked A-pose variant. Keep the safe-for-work switch in
       the account.") _(branch `apose/no-naked`)_: the only standard A-pose look is `swim`; the API and the reader ignore a
       leftover `naked` look (or one still marked `sensitive: true`), the creator's validation warns about it; no cover rule

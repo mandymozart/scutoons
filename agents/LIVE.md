@@ -49,9 +49,10 @@ client-side filtering, a raw cache of 100 messages) is not taken over. New, in t
 - **`live/` workspace** (Node 22 + `ws`, TypeScript): `live/relay` (sessions, roles, groups routed on the server,
   snapshot + replay, vote tally, clock), `live/devices` (MIDI / DMX / OSC drivers), `live/app` (the Electron shell, B.7),
   `shared/live` (`@scutoons/live`: the protocol types + the client used by viewer and creator, the show schema helpers).
-- **Hosted: its own bunny Magic Containers app `scutoons-live`** (`live.scutoons.com`; owner 2026-10-07) – the Ask
-  pattern (`tools/mcp/Dockerfile` → ghcr.io → `.github/workflows/ask-image.yml` → `BunnyWay/actions/container-update-image`)
-  copied to `live-image.yml`. Redeploying Ask never touches a show; the app can be stopped between shows.
+- **Hosted: its own bunny Magic Containers app `scutoons-live`** (`live.scutoons.com`; owner 2026-10-07) – the
+  pattern the Ask service used until 2026-10-09 (a Dockerfile → ghcr.io → an image workflow →
+  `BunnyWay/actions/container-update-image`; Ask's own files are deleted, see git history `ask-image.yml`) as
+  `live-image.yml`. The app can be stopped between shows.
   **Exactly one instance in one region** (state in memory). Deploy freeze while a session is live: the relay exposes
   `GET /status` (`{ sessions, live }`) and the workflow refuses to update while `live > 0` unless forced.
 - **Local: the same relay inside the Scutoons Live app** on the conductor laptop (venue LAN; outputs, performers and

@@ -153,11 +153,11 @@ Fits the existing structure (PLATFORM.md): new SvelteKit static app + API module
   the catalog / content store, so "new item on scutoons" can trigger a draft update.
 - `server/`: `Domain/Embassy` (organisations, persons, leads, activities; later pitches, templates), `/api/embassy/*`
   behind the roles liaison / ambassador; admin gets the role toggle. Mail: SMTP send + IMAP poll (cron) per shared mailbox.
-- AI: Claude API on the server (drafts, reply classification, enrichment with web search), every result is a
-  suggestion stored with its sources, never written straight into the data.
+- AI: the member's own Claude through the SCUTOONS MCP (since 2026-10-09, agents/MCP.md – no AI on our server any more);
+  it only drafts and suggests, a person confirms in the app.
 - Two roles, and they differ only where the rights differ:
   - `liaison` (part time): sees all leads, works the leads assigned to them (calls, mails, notes); ~~their first-contact
-    mails wait for approval~~ – changed 2026-10-04 (owner): anyone with the role sends, no approval step ("Ask + mail").
+    mails wait for approval~~ – changed 2026-10-04 (owner): anyone with the role sends, no approval step ("AI + mail").
   - `ambassador` (full time): everything a liaison does, plus sending without approval, approving liaisons' first
     mails, assigning leads, owning territories/tracks, starting research runs, member updates and reporting.
   - owner/admin: everything, plus role toggles in the admin app.
@@ -279,25 +279,27 @@ expects the new footer link; check-toon-hero still green (the related row's butt
 6. Per-store stock (sizes, variants, sold out) and a deep link per product in the store's web shop – today only "carries".
 7. Opening info is free text in the store's own words (not translated) – fine, or structured hours?
 
-## Ask + mail (2026-10-04, owner — built on branch `ask-shared`)
+## AI + mail (2026-10-04, owner; the AI part since 2026-10-09 through the MCP)
 
-Owner: the Ask agent in Embassy helps communicate with the clientele (send out new releases, track communication);
-start with basics, and make Ask a shared integration of embassy, creator and admin. Decisions (2026-10-04): mails are
+Owner: the AI in Embassy helps communicate with the clientele (send out new releases, track communication); start with
+basics. Until 2026-10-09 that was the Ask panel; it is gone (too expensive) – the member's own Claude connects through
+the SCUTOONS MCP (agents/MCP.md, tools/mcp/README.md). Decisions (2026-10-04): mails are
 **sent over SMTP from the app**, from **hello@scutoons.com**; **anyone with the role** (liaison / ambassador / admin)
 sends – no approval step; replies are **read back by IMAP** in this slice; what gets pitched are the **catalog's albums
 and products** (no new "pitch" record yet). The agent only **drafts**: a person reads the draft and presses Send.
 
-- **Ask panel** (`@scutoons/ask`, shared/ask): round message button in the top bar, the outermost region of the
-  embassy's AppShell (agents/DOCKING.md: the page makes room and stays centred, its edge drags it wider), full screen on
-  phones. On an organisation page the agent knows which one (name shown,
-  id sent). Tools (tools/mcp `src/embassy.ts`): `today`, `search_orgs`, `read_org` (incl. the log and `recipients` =
+- **The member's Claude** (tools/mcp, a personal token from scutoons.com/account → "AI connections"; the Embassy tools
+  are listed for liaison / ambassador / admin). Tools (tools/mcp `src/embassy.ts`): `today`, `search_orgs`, `read_org` (incl. the log and `recipients` =
   addresses that may get mail), `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org` (a new organisation + its people and leads; duplicate → the existing id), `update_org` (only the fields named: contact details, social `links`, do-not-contact, store fields), `add_person`, `update_person`, `delete_person` (ambassadors), `draft_mail`, `check_inbox`. Social media is a valid channel (owner 2026-10-07), above all without a mail address: the agent writes the DM in its answer, the person sends it from our account, then `log_activity` kind `dm` (→ contacted, check in 6 days).
-  The system prompt carries the "Communication strategy" above (individual first contact, their language, signed with
-  their own first name, one ask, one link, never invent facts, calls for follow-ups).
-- **Draft card** (`embassy/src/lib/components/mail-draft.svelte`): `draft_mail` comes back as a card (to, subject,
-  text – editable); Send → `POST /api/embassy/orgs/{id}/mail`. The same card on the organisation page: "mail sent" in
-  the log form = write the mail there and send it ("only log it" for a mail sent elsewhere). A sent card stays "Sent and
-  logged" (remembered per browser), and the open organisation page reloads on every change the agent makes.
+  The writing rules – the "Communication strategy" above (individual first contact, their language, signed with
+  their own first name, one ask, one link, never invent facts, calls for follow-ups) – live in `tools/mcp/src/prompts.ts`
+  (prompt `embassy`; also `embassy-my-week`, `embassy-first-contact`).
+- **Stored drafts** (2026-10-09, migration `2026-10-09-mcp-drafts`): `draft_mail` saves a draft on the organisation
+  (`embassy_mail_drafts`; checked like a send, never sent) and returns the link `…/orgs/<id>?draft=<id>`. The org page
+  lists "Drafts (n)", the start page my own; the link opens the draft in the right dock (`mail-draft.svelte`,
+  editable): Send (only its author – `POST /api/embassy/orgs/{id}/mail` with `draft_id`, the draft is deleted once sent)
+  or Discard (author or ambassador). The same card on the organisation page: "mail sent" in the log form = write the
+  mail there and send it ("only log it" for a mail sent elsewhere).
 - **Sending** (API): one-to-one, plain text, our own Message-ID (threads), the opt-out line appended by the server,
   do-not-contact checked (409), logged as `mail_out` (subject, text, to) → contacted, call in 6 days.
 - **Replies** (API, IMAP): `POST /api/embassy/inbox/sync` when Today or an organisation page opens (at most every
@@ -313,12 +315,12 @@ and products** (no new "pitch" record yet). The agent only **drafts**: a person 
   contacts per week (preset 10; 5/10/15/20 or any 1–100) and a reminder (Mondays – preset, every working day, none) in
   an **onboarding** on their first visit, changeable on Today any time. The onboarding also asks their **first name**
   (required; owner 2026-10-07: mails are signed with the writer's first name) – the account's `display_name`
-  (`PUT /me/`, the same name readers see); Today asks for it when it is missing and edits it with the pace. Ask gets it
-  as "Writing: …" in every Embassy message and signs with its first word. **Today (mine)** = this week's portion: "X of Y"
+  (`PUT /me/`, the same name readers see); Today asks for it when it is missing and edits it with the pace. The AI reads it
+  (`whoami`) and signs with its first word. **Today (mine)** = this week's portion: "X of Y"
   bar, today's slice first (what was left this morning spread over the working days left), then later this week, what
   doesn't fit waits for next week. Order: due calls → answered before, quiet now → first contacts (research/ready,
-  never contacted). Each card says why it's there (`hint`) and has an Ask button (prepare the call / draft a mail);
-  "Go through my week" asks the agent for one line per contact (AI only on request). Every **4 weeks** one question "is
+  never contacted). Each card says why it's there (`hint`); the AI help (prepare the call, draft a mail, "go through my
+  week" – prompt `embassy-my-week`) is in the member's own Claude (AI only on request). Every **4 weeks** one question "is
   your pace right? less · fine · more" (−5 / 0 / +5). Ambassadors / admins see a **team table** on Today → everyone
   (pace, done per week over 4 weeks, contacts, last check-in). Leads a liaison adds are theirs. **Reminder mail** (to
   the team member only, from no-reply@): the week's portion (daily: today's slice), sent by the **cron URL**

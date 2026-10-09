@@ -152,13 +152,14 @@ to file a claim), `2026-10-03-code-case.mysql.sql` (codes case-sensitive: the co
 or after the deploy of the matching API), `2026-10-04-catalog.mysql.sql` (the catalog moves from server/config/*.json into
 tables with today's data, history; folds and removes the settings `item_respawn` / `featured_products` – agents/CATALOG.md
 "Status"; ran 2026-10-05 – the API needs the tables since 10.30),
-`2026-10-04-agent-chats.mysql.sql` (the creator's Ask panel chat history; without it the panel works but keeps no history –
-`/api/agent-chats` answers 503), `2026-10-04-agent-usage.mysql.sql` (the Ask panel's usage log – one row per AI call,
-the admin's overview per creator and service; without it the Ask service keeps logging to its own file),
-`2026-10-04-ask-embassy-mail.mysql.sql` (after those two and the Embassy ones: `app` on agent chats / usage, the mail
-fields of `embassy_activities`, `embassy_mail_state` for the inbox sync; without it chats and usage are the creator's
-only, Embassy mails are sent and logged without subject / addresses, the inbox sync answers 503),
-`2026-10-06-agent-web-search.mysql.sql` (`agent_usage.web_searches`: the web searches of the Ask panels, billed per
-search and already in `cost_usd`; without it the count is dropped); then the edition-number backfill
+`2026-10-04-agent-chats.mysql.sql`, `2026-10-04-agent-usage.mysql.sql`, `2026-10-06-agent-web-search.mysql.sql` (the
+Ask panel's chat history and usage log – ran; Ask is gone since 2026-10-09, nothing reads `agent_chats` / `agent_usage`
+any more; `2026-10-09-drop-ask.mysql.sql` dropped them – production 2026-10-09),
+`2026-10-04-ask-embassy-mail.mysql.sql` (after the Embassy ones: the mail fields of `embassy_activities`,
+`embassy_mail_state` for the inbox sync; without it Embassy mails are sent and logged without subject / addresses, the
+inbox sync answers 503), `2026-10-09-mcp-drafts.mysql.sql` (`embassy_mail_drafts`, `admin_proposals`: what the
+member's own AI saves for the member to send / apply – agents/MCP.md; without it those endpoints answer 503),
+`2026-10-09-api-tokens.mysql.sql` (`api_tokens`: the AI connections, personal tokens `sct_…`; without it
+`/api/me/tokens` answers 503); then the edition-number backfill
 above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

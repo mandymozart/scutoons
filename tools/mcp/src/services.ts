@@ -56,8 +56,14 @@ export interface AppLinks {
 
 /** the apps' origins: the local dev ports against a local API, else production (server config/settings.php *_URL) */
 export function appLinks(config: Config): AppLinks {
-	if (!config.local) return { creator: 'https://creator.scutoons.com', admin: 'https://admin.scutoons.com', embassy: 'https://embassy.scutoons.com', viewer: 'https://scutoons.com' };
-	const ports = JSON.parse(readFileSync(resolve(ROOT, 'shared/dev-ports.json'), 'utf8'));
+	const production = { creator: 'https://creator.scutoons.com', admin: 'https://admin.scutoons.com', embassy: 'https://embassy.scutoons.com', viewer: 'https://scutoons.com' };
+	if (!config.local) return production;
+	let ports: Record<string, number>;
+	try {
+		ports = JSON.parse(readFileSync(resolve(ROOT, 'shared/dev-ports.json'), 'utf8'));
+	} catch {
+		return production; // the one-file build outside a checkout
+	}
 	const at = (app: string) => `http://localhost:${ports[app]}`;
 	return { creator: at('creator'), admin: at('admin'), embassy: at('embassy'), viewer: at('viewer') };
 }

@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build && npm run prepack && node ../deploy/version.mjs build",
+		"build": "node ../tools/mcp/scripts/build.mjs static/ai && vite build && npm run prepack && node ../deploy/version.mjs build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"prepack": "svelte-kit sync && svelte-package && publint",

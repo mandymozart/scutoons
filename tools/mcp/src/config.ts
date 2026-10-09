@@ -11,6 +11,11 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
+/** set by the one-file build (scripts/build.mjs): a member's copy, no checkout – the API defaults to production */
+declare const __SCUTOONS_BUNDLE__: boolean | undefined;
+const BUNDLED = typeof __SCUTOONS_BUNDLE__ !== 'undefined' && __SCUTOONS_BUNDLE__;
+const PRODUCTION_API = 'https://api.scutoons.com/api';
+
 export interface Config {
 	api: string;
 	token: string;
@@ -33,11 +38,11 @@ export function isLocalUrl(url: string): boolean {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-	const api = (env.SCUTOONS_API || localApi()).replace(/\/+$/, '');
+	const api = (env.SCUTOONS_API || (BUNDLED ? PRODUCTION_API : localApi())).replace(/\/+$/, '');
 	const local = isLocalUrl(api);
 	let token = env.SCUTOONS_TOKEN?.trim() || '';
 	let tokenSource: Config['tokenSource'] = 'env';
-	if (!token && local) {
+	if (!token && local && !BUNDLED) {
 		const file = resolve(ROOT, 'logs/dev/test-user.json');
 		if (existsSync(file)) {
 			token = String(JSON.parse(readFileSync(file, 'utf8')).token ?? '');

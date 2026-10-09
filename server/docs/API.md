@@ -56,8 +56,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft · publish / unpublish `403 review_required` when the account needs a review for the toon – see "Reviews" |
 | GET/POST | `/reviews`, `/reviews/publish`, `/reviews/return` | creator | review before publish – see "Reviews" |
-| GET/PUT/DELETE | `/agent-chats[?app=&limit=]`, `/agent-chats/<id>[?messages=1&app=]` | the app's role | the Ask panel chat history per app (`creator`, `embassy`, `admin`), own chats only – see "Agent chats" |
-| POST | `/agent-usage` | the app's role + `X-Service-Key` | the Ask service logs one AI API call of a user in an app's panel – see "Agent usage" |
+| GET/POST/DELETE | `/me/tokens`, `/me/tokens/{id}` | session (members) | the member's AI connections (personal tokens `sct_…`) – see "AI connections" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -133,7 +132,7 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | PUT | `/users/{id}/characters/{character}` | unlock an avatar-body character `{ looks?, source?: default\|code\|item\|story\|admin (admin), ref? (admin:<email>) }` → `{ changed, characters }` · `400 unknown_character\|invalid_look\|invalid_source\|invalid_body` · 404 |
 | DELETE | `/users/{id}/characters/{character}[/looks/{look}]` | revoke the character (with its looks) or one look → `{ changed, characters }`; a worn body that is no longer unlocked is reset; defaults can't be revoked per account |
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
-| GET | `/agent-usage?from=&to=&group=day\|month` | the Ask panel's AI usage per period, creator, service, model – see "Agent usage" |
+| GET | `/proposals?status=open\|applied\|dismissed` | changes an admin's own AI proposed – see "Proposals" below |
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map in one answer (read-only; editing: "Catalog" below) · the ML-DSA-65 keypair for client-side signing |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
 | GET/PUT | `/settings` | runtime settings (table `settings`): `GET` → `{ status, items: [{ key, value, default, min, max, stored, updated_at, updated_by }] }`; `PUT { key: int\|null, … }` (or `{ settings: {…} }`) → `{ status, changed, items }` – integer `min…max` (0…1000000), `null` = back to the config default; only changed values are written, `updated_by` = `admin:<email>` · `400 invalid_setting { key, min, max }\|unknown_setting { settings }\|invalid_settings`. Keys: `scan_limit_per_hour`, `lookup_limit_per_hour` (see "Rate limits") |
@@ -149,6 +148,22 @@ The legacy `generate/` SPA and its static-token endpoints were removed 2026-10-0
 of its URLs stay, public and unchanged, because the verify page and printed certificates use them:
 `GET /generate/get-signature.php?code=` and `GET /generate/files/signatures/SIGNATURE-<code>.json`
 (`Legacy/SignatureController`).
+
+### Proposals (2026-10-09, migration `2026-10-09-mcp-drafts`)
+
+Changes an admin's own AI proposes (MCP `propose_changes`: catalog fields, calendar entries, an asset swapped in place);
+the admin opens `/proposals/<id>` in the admin app, reads before → after and applies them there through the normal admin
+API (catalog history + undo, the calendar as a draft) – or dismisses. Nothing changes here but the proposal's status.
+Code: `Domain\Admin\Proposals` (table `admin_proposals`). The only admin write a token may do is `POST /proposals`.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/proposals?status=open\|applied\|dismissed` | `{ status, items: [{ id, title, count, status, author, created_at, … }] }` · `400 invalid_status` |
+| POST | `/proposals` | `{ title, changes, calendar_base?, source? }` → `201 { status, proposal, url }` · `400 title_required\|title_too_long\|changes_required\|invalid_change` · `413 too_large` |
+| GET | `/proposals/{id}` | `{ status, proposal, url }` · 404 |
+| PUT | `/proposals/{id}` | `{ status: applied \| dismissed }` → `{ status, proposal }` · `409 decided` (not open any more) · `400 invalid_status` |
+
+Before the migration the endpoints answer `503 not_available`.
 
 ### Catalog (2026-10-04, migration `2026-10-04-catalog` – agents/CATALOG.md)
 
@@ -323,10 +338,11 @@ endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-
 People send one-to-one mails from the app (owner 2026-10-04): from the shared mailbox `EMBASSY_MAIL_FROM`
 (hello@scutoons.com, name `EMBASSY_MAIL_FROM_NAME`), its own SMTP account (`EMBASSY_SMTP_USER` / `_PASS`, else
 `SMTP_USER` / `_PASS`; server and `MAIL_TRANSPORT` as for every mail – `log` locally). Every Embassy role may send (no
-approval step). The AI agent only drafts – it has no send endpoint; the browser calls this when the person clicks Send.
+approval step). The member's AI only drafts ("Mail drafts" below) – a token is refused here (`403 not_for_ai`); the
+browser calls this when the person clicks Send.
 Code: `Domain\Embassy\EmbassyMail`.
 
-**`POST /embassy/orgs/{id}/mail`** `{ to, person_id?, track?, subject, text, reply_to_activity_id?, language? }` →
+**`POST /embassy/orgs/{id}/mail`** `{ to, person_id?, track?, subject, text, reply_to_activity_id?, language?, draft_id? }` →
 `201 { status, activity, lead }` (like `POST /orgs/{id}/activities`; `lead` null without a `track`)
 
 - `to` = the organisation's address or one of its people's (case-insensitive) – else `400 invalid_recipient`.
@@ -347,6 +363,23 @@ Code: `Domain\Embassy\EmbassyMail`.
   `EMBASSY_IMAP_SENT` is set – a copy in that IMAP folder (best effort; a failure there never fails the send).
 - The transport refused it → `502 mail_failed` (message = the short reason), logged as `failed` in `mail_log`, nothing on
   the organisation. Before the migration the mail is sent and logged without the mail fields.
+
+### Mail drafts (2026-10-09, migration `2026-10-09-mcp-drafts`)
+
+The member's own AI (MCP `draft_mail`) saves a draft; the member opens its link, edits and sends it (agents/MCP.md
+"Draft → link"). Code: `Domain\Embassy\EmbassyDrafts` (table `embassy_mail_drafts`). Every Embassy member sees an
+organisation's drafts; only the author sends one; the author or an ambassador discards it. Nothing is sent from here.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/embassy/orgs/{id}/drafts` | `{ to, person_id?, track?, subject, text, reply_to_activity_id?, source? }` → `201 { status, draft, url }` – checked like a send (recipient of the organisation, do-not-contact, subject, text, track, reply-to: the same errors as "Mail"), never sent; `url` = `<EMBASSY_URL>/orgs/<org>?draft=<id>`; `source` `agent` \| `person` |
+| GET | `/embassy/drafts` | `{ status, items }` – every open draft |
+| GET | `/embassy/drafts/{id}` | `{ status, draft, url }` · 404 |
+| DELETE | `/embassy/drafts/{id}` | `{ status }` – its author or an ambassador (`403 forbidden`) · 404 |
+| GET | `/embassy/orgs/{id}` | also returns `drafts` (the organisation's open drafts) |
+| POST | `/embassy/orgs/{id}/mail` | with `draft_id`: only the draft's author (`403 forbidden`; `400 invalid_draft` for another organisation's draft); the draft is deleted once the mail went out |
+
+Before the migration the draft endpoints answer `503 not_available`.
 
 ### Inbox (2026-10-04, migration `2026-10-04-ask-embassy-mail`)
 
@@ -544,69 +577,29 @@ scripts, slice triggers, item taps); `dead` = @scutoons/content `deadThings`' ru
 but never set, script points and group labels nothing jumps to). Cached under the version ids it was built from (the
 library's cache, nothing to invalidate).
 
-## Agent chats (the Ask panel history, per app)
+## AI connections (personal access tokens, 2026-10-09 – migration `2026-10-09-api-tokens`)
 
-The chats of the Ask panels (agents/CUTOVER.md 10.28 step 2), saved by the Ask service (tools/mcp) so a user can look
-at earlier agent chats when something stopped or broke. Table `agent_chats` (migration `2026-10-04-agent-chats`; without
-it every endpoint answers `503 not_available`). Code: `Domain\Agent\AgentChats`, `AgentApps`, `AgentChatsController`.
+A member's own AI (Claude Desktop / Claude Code running the SCUTOONS MCP server, tools/mcp/README.md, agents/MCP.md §3)
+signs in with a personal token from the account page ("AI connections"). Code: `Domain\Auth\ApiTokens`,
+`ApiTokensController`, `Http\ApiTokenScope`.
 
-Every chat belongs to one app's panel, `app` = `creator` (default), `embassy` or `admin` (column `app`, migration
-`2026-10-04-ask-embassy-mail`; before it every chat is the creator's and the other apps answer `503 not_available`;
-unknown → `422 invalid_app { allowed }`). Who may use a panel follows that app: `creator` = a content editor (`creator`,
-for now also `admin`), `embassy` = the Embassy access (`liaison`, `ambassador`, `admin`), `admin` = `admin`; `401` /
-`403 forbidden { role }` otherwise (`role` = `creator` / `liaison` / `admin`). By id the check follows the stored chat's
-app. A user only ever sees and changes **their own** chats of that app: another user's chat id – or one of another app –
-answers `404 not_found` like an unknown one and is never overwritten. `<id>` = a UUID chosen by the client (lower-cased;
-malformed → `422 invalid_id`).
+- `Authorization: Bearer sct_…` – taken like a session (`CurrentSession`): the account's CURRENT roles, so every role
+  check applies unchanged. Only the SHA-256 is stored; the token is shown once. `last_used_at` at most once a minute.
+- **Members only** (owner 2026-10-09): creating one needs creator / liaison / ambassador / admin (`403 no_member_role`);
+  a token stops working (401) once its account has none of those roles left. At most 20 per account (`409 too_many`).
+- **Refused for a token** (`403 not_for_ai` – the member does it in the app): `POST /entities/<key>/publish|unpublish`,
+  `POST /reviews/publish|return`, `POST /embassy/orgs/{id}/mail`, `DELETE /embassy/orgs/{id}`, `POST /embassy/import`,
+  every `/admin/*` call but GET / HEAD and `POST /admin/proposals`, `POST /auth/session|logout`, `/me/tokens*`.
+- A save through a token is signed "(AI: <connection name>)" in the version message.
+- Before the migration the endpoints answer `503 not_available`.
 
-| Method | Path | Body / query → answer |
-|---|---|---|
-| GET | `/agent-chats?app=&limit=` | `{ status, chats: [{ id, title, page, app, created_at, updated_at, turns }] }` – the app's chats (default `creator`), newest updated first, `turns` = the number of turns, `limit` 1..200 (default 50) |
-| GET | `/agent-chats/<id>[?messages=1&app=]` | `{ status, chat: { id, title, page, app, created_at, updated_at, turns: [...] (+ messages: [...]) } }` · 404 (also when `app` is given and the chat is another app's) |
-| PUT | `/agent-chats/<id>` | `{ app?, title?, page?, turns: [...], messages: [...] }` → `{ status, chat: { id, updated_at } }` – creates or replaces; `app` default `creator`, stored on create (a chat of another app → 404); `title` trimmed, cut to 200 characters; `page` (where in the app the chat started) trimmed, cut to 300, `''` → null; `title` / `page` left out keep the stored values (a new chat: `''` / null); `created_at` stays |
-| DELETE | `/agent-chats/<id>[?app=]` | `{ status }` · 404 |
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/me/tokens` | `{ status, member, items: [{ id, name, created_at, last_used_at, expires_at }] }` – `member`: the account may have tokens (readers can't; `items` empty then) |
+| POST | `/me/tokens` | `{ name }` → `201 { status, token, item }` – `token` only here · `400 name_required` · `403 no_member_role` · `409 too_many` |
+| DELETE | `/me/tokens/{id}` | → `{ status }` – revoked: the next call with it answers 401 |
 
-`turns` (what the panel shows) and `messages` (the model conversation) are stored as sent (decoded with objects, so `{}`
-stays `{}`). Errors: `422 invalid_id|invalid_body|invalid_app|invalid_turns|invalid_messages|invalid_title|invalid_page`
-(body not a JSON object, `turns` / `messages` not arrays, title not a string, page not a string or null), `413
-too_large` (body over 8 MB), `404 not_found`, `503 not_available`.
-
-## Agent usage (the Ask panel's AI usage log)
-
-Every AI API call of an Ask panel is logged (agents/CUTOVER.md 10.28; no limits are enforced from it). Table
-`agent_usage` (migration `2026-10-04-agent-usage`; without it both endpoints answer `503 not_available` and the Ask
-service only logs to its own file). Code: `Domain\Agent\AgentUsage`, `AgentUsageController`.
-
-**`POST /agent-usage`** – server to server, called by the Ask service (tools/mcp) with **both** the user's session
-(`Authorization: Bearer`, the token the user's browser gave the service; no `Origin` needed – the CSRF check only
-concerns the cookie) **and** `X-Service-Key: <AGENT_SERVICE_KEY>` (compared with `hash_equals`). The row's user is
-always the session's user, never a body field. Body:
-
-`{ app?, service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, web_searches?,
-cost_usd }` →
-`201 { status: "success" }`. `app`: whose panel asked – `creator` (default), `embassy`, `admin`; the user must be allowed
-to use that app's panel (same rule as "Agent chats"; column `app` from migration `2026-10-04-ask-embassy-mail`, before
-it only `creator` works, the others answer `503 not_available`). `service` / `model`: non-empty strings, trimmed, cut to 40 / 100 characters; `chat_id`: a
-UUID (lower-cased) or null / left out (no foreign key – the chat may be deleted later); the four token counts: JSON
-integers 0..2147483647; `web_searches`: the call's web search requests (JSON integer ≥ 0, default 0; column from
-migration `2026-10-06-agent-web-search`, dropped before it); `cost_usd`: the whole cost of the call (tokens + web
-searches), a JSON number (USD) from 0 to below 1000, stored with 6 decimals. `created_at` = the server's UTC time.
-
-Errors, in this order: `503 not_configured` (`AGENT_SERVICE_KEY` empty), `403 forbidden` (key missing or wrong),
-`401 unauthorized` (no session), `422 invalid_body|invalid_app`, `403 forbidden { role }` (may not use the app's
-panel: `creator` for the creator, `liaison` for the Embassy, `admin` for the admin app), `422
-invalid_service|invalid_model|invalid_chat_id|invalid_input_tokens|invalid_output_tokens|invalid_cache_read_tokens|
-invalid_cache_write_tokens|invalid_web_searches|invalid_cost_usd`, `503 not_available`.
-
-**`GET /admin/agent-usage?from=YYYY-MM-DD&to=YYYY-MM-DD&group=day|month`** (admin) – sums per period (UTC day
-`2026-10-04` or month `2026-10`), app, user, service and model:
-
-`{ status, from, to, group, rows: [{ period, app, user_id, email, service, model, calls, input_tokens, output_tokens,
-cache_read_tokens, cache_write_tokens, web_searches, cost_usd }], totals: { calls, input_tokens, output_tokens,
-cache_read_tokens, cache_write_tokens, web_searches, cost_usd } }` – newest period first, then the highest cost. `from` / `to` are UTC days, both
-included; default `to` = today, `from` = `to` − 29 days (the last 30 days), `group` = `day`. `cost_usd` is a number with
-up to 6 decimals; `email` = the creator's current email (deleting a user deletes their rows – `ON DELETE CASCADE`). Errors:
-`422 invalid_from|invalid_to|invalid_group|invalid_range` (from after to, or more than 400 days), `503 not_available`.
+A real session only (cookie or a session Bearer); CORS allows DELETE there.
 
 ## Reviews (review before publish, 2026-10-04 – migration `2026-10-04-reviews`)
 

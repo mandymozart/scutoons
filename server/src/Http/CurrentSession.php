@@ -6,6 +6,7 @@ namespace Scutoons\Http;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use RuntimeException;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Auth\ApiTokens;
 use Scutoons\Domain\Auth\Sessions;
 
 /**
@@ -16,6 +17,9 @@ use Scutoons\Domain\Auth\Sessions;
  * request's Origin is one of ALLOWED_ORIGINS. Otherwise the request is anonymous (`user()` = null) and endpoints that need
  * a user answer `403 csrf_rejected` – public endpoints that only optionally look at the user (e.g. /access/, /validate/)
  * keep working for everybody.
+ *
+ * A personal access token (`Bearer sct_…`, ApiTokens – "AI connections", agents/MCP.md) is a Bearer like a session: the
+ * member's account while it has a member role; what it may not do, ApiTokenScope refuses.
  */
 final class CurrentSession
 {
@@ -36,6 +40,7 @@ final class CurrentSession
         private readonly ?string $token,
         private readonly ?string $via = null,
         private readonly bool $csrfBlocked = false,
+        private readonly ?ApiTokens $apiTokens = null,
     ) {
     }
 
@@ -58,6 +63,18 @@ final class CurrentSession
         return $this->csrfBlocked ? null : $this->via;
     }
 
+    /** The request came with a personal access token (an AI connection), not a session */
+    public function isApiToken(): bool
+    {
+        return $this->via() === self::VIA_BEARER && ApiTokens::isApiToken($this->token);
+    }
+
+    /** @return array{id: string, name: string}|null the AI connection's id and name */
+    public function apiToken(): ?array
+    {
+        return $this->isApiToken() && $this->token !== null ? $this->apiTokens?->token($this->token) : null;
+    }
+
     public function csrfBlocked(): bool
     {
         return $this->csrfBlocked;
@@ -68,7 +85,7 @@ final class CurrentSession
     {
         if (!$this->resolved) {
             $token = $this->token();
-            $this->user = $token !== null ? $this->sessions->user($token) : null;
+            $this->user = $token === null ? null : ($this->isApiToken() ? $this->apiTokens?->user($token) : $this->sessions->user($token));
             $this->resolved = true;
         }
         return $this->user;

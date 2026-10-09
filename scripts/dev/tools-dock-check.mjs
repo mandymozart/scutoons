@@ -218,7 +218,9 @@ try {
 		await size(w);
 		check(await go(`${EMBASSY}/`, `!!document.querySelector('.sc-app-shell main')`), `embassy ${w}: Today in the AppShell`);
 		g = await layout();
-		check(g.content.r >= w - 1, `embassy ${w}: the page takes the full width`, JSON.stringify(g));
+		// the full width = the viewport without a page scrollbar (a long Today – the pace check-in – scrolls the page)
+		const full = await js(`document.documentElement.clientWidth`);
+		check(g.content.r >= full - 1, `embassy ${w}: the page takes the full width`, JSON.stringify({ ...g, full }));
 		await shot(`embassy-${w}-today`);
 	}
 	// the selection model: at most one live region (the embassy has none of its own – its nav is "you are here")

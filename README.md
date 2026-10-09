@@ -13,6 +13,7 @@ scutoons/
 ├── embassy/            SvelteKit (static) → embassy.scutoons.com   partner network: leads, calls, mails (roles liaison / ambassador)
 ├── server/             PHP, Slim 4 (Composer) → api.scutoons.com    the API of every app (+ legacy generate/ until admin parity)
 ├── qr/                 plain PHP → qr.scutoons.com                 printed URLs: QR landing ?c=, verify page; proxies the API
+├── tools/mcp/          AI: members connect their own Claude through the SCUTOONS MCP server – tools/mcp/README.md
 ├── deploy/             targets.json (where each app goes), deploy.mjs, version.mjs – see deploy/README.md
 ├── shared/
 │   ├── tokens/         @scutoons/tokens    design tokens (CSS custom properties), fonts, base CSS
