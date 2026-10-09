@@ -11,7 +11,7 @@
 // Nothing is saved or uploaded from here.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, S, W, readEntity } from './lib.mjs';
@@ -37,10 +37,12 @@ const folder = m ? `s${m[1]}/c${m[2]}/storyboard` : `${name}/storyboard`; // rel
 const out = resolve(outRoot, name);
 mkdirSync(resolve(out, 'png'), { recursive: true });
 
-const assets = []; // { svg, file, w, h, path }
-function asset(svg, w, h, id) {
+const assets = []; // { svg, file, w, h, path, frame?, crop? }
+const frames = resolve(out, 'frames'); // tools/storyboard-render/render-shots.mjs output – the images win over the SVG schematics
+function asset(svg, w, h, id, frameOf = id, crop = null) {
 	const file = `${id}.png`;
-	assets.push({ svg, file, w, h, path: `${folder}/${file}` });
+	const frame = resolve(frames, `${frameOf}.png`);
+	assets.push({ svg, file, w, h, path: `${folder}/${file}`, frame: existsSync(frame) ? frame : null, crop });
 	return `${folder}/${file}`;
 }
 
@@ -58,7 +60,7 @@ for (const { sb } of list) {
 				const n = Math.max(1, Math.round(w / W));
 				for (let k = 0; k < n; k++) {
 					const part = svg.replace(/<svg ([^>]*?)width="\d+" height="\d+" viewBox="[^"]*"/, `<svg $1width="${W}" height="${S}" viewBox="${k * W} 0 ${W} ${S}"`);
-					const slice = { image: asset(part, W, S, `${shot.id}-${k + 1}`), width: W, height: S };
+					const slice = { image: asset(part, W, S, `${shot.id}-${k + 1}`, shot.id, [k * W, 0, (k + 1) * W, S]), width: W, height: S };
 					const inSlide = (pct) => pct * n - k * 100;
 					const dialog = (shot.dialog ?? []).filter((d) => Math.floor(((d.rect?.x ?? 0) / 100) * n) === k)
 						.map((d, j) => {
@@ -117,6 +119,14 @@ if (!noPng) {
 	else {
 		mkdirSync(resolve(out, 'svg-slices'), { recursive: true });
 		for (const a of assets) {
+			if (a.frame) {
+				// the rendered frame: copied, a panorama's slide cropped out of it (Pillow, as the cdn/ tools)
+				const dst = resolve(out, 'png', a.file);
+				if (!a.crop) copyFileSync(a.frame, dst);
+				else execFileSync('python', ['-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).crop(tuple(map(int, sys.argv[3:7]))).save(sys.argv[2])', a.frame, dst, ...a.crop.map(String)]);
+				png++;
+				continue;
+			}
 			const svgFile = resolve(out, 'svg-slices', a.file.replace(/\.png$/, '.svg'));
 			writeFileSync(svgFile, a.svg);
 			execFileSync(browser, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1', `--window-size=${a.w},${a.h}`, `--screenshot=${resolve(out, 'png', a.file)}`, pathToFileURL(svgFile).href], { stdio: 'ignore' });

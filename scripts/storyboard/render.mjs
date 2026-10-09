@@ -1,10 +1,11 @@
 // The storyboard page: all scenes stacked as one column of schematic shots (what the phone shows, scaled), the rhythm
 // rail beside it (seconds per shot: look / text / scroll), a screen ruler, the summary and the validator's findings.
-// Also writes one SVG per shot (_out/<chapter>/svg/<id>.svg) – the input for the Figma draft frame.
+// Shows the rendered frames (tools/storyboard-render: frames/<id>.png – Sin City figurines) where they exist, else the
+// SVG schematic. Also writes one SVG per shot (_out/<chapter>/svg/<id>.svg) – the input for the Figma draft frame.
 //
 //   node scripts/storyboard/render.mjs storyboards/catpope/s1c3 [--out storyboards/_out]
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { ROOT, S, TARGET, W, esc, fmtMin, textOf } from './lib.mjs';
 import { shotSvg } from './schematic.mjs';
@@ -40,7 +41,7 @@ for (const { file, sb } of list) {
 			const dispW = W * SCALE, dispH = pano ? (h * dispW) / w : h * SCALE;
 			const max = 60;
 			blocks.push(`<div class="shot" id="${esc(shot.id)}">
-  <div class="img${pano ? ' pano' : ''}" style="width:${rem(dispW)};height:${rem(Math.max(dispH, 40))}">${pano ? `<div class="scroller">` : ''}<img src="svg/${esc(shot.id)}.svg" alt="${esc(textOf(shot.action))}" style="${pano ? `height:${rem(S * SCALE * 0.5)}` : 'width:100%'}">${pano ? '</div>' : ''}</div>
+  <div class="img${pano ? ' pano' : ''}" style="width:${rem(dispW)};height:${rem(Math.max(dispH, 40))}">${pano ? `<div class="scroller">` : ''}<img src="${existsSync(resolve(out, 'frames', `${shot.id}.png`)) ? `frames/${esc(shot.id)}.png` : `svg/${esc(shot.id)}.svg`}" alt="${esc(textOf(shot.action))}" style="${pano ? `height:${rem(S * SCALE * 0.5)}` : 'width:100%'}">${pano ? '</div>' : ''}</div>
   <div class="rail"><div class="bar"><span class="look" style="width:${((m.lookS / max) * 100).toFixed(1)}%"></span><span class="text" style="width:${((m.textS / max) * 100).toFixed(1)}%"></span><span class="scroll" style="width:${((m.scrollS / max) * 100).toFixed(1)}%"></span></div>
   <div class="meta"><b>${esc(shot.id)}</b> ${m.seconds.toFixed(0)} s · ${pano ? `${m.panoScreens.toFixed(1)} screens wide` : `${m.screens.toFixed(1)} screens`} · ${m.words} w${shot.source?.want ? ` · ${esc(shot.source.want)}` : ''}${shot.status ? ` · ${esc(shot.status)}` : ''}</div>
   <div class="action">${esc(textOf(shot.action))}</div>${shot.note ? `<div class="note">${esc(shot.note)}</div>` : ''}</div>
