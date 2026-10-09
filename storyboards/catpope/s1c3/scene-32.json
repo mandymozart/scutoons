@@ -30,6 +30,15 @@
       "time": "night"
     }
   ],
+  "light": {
+    "key": "top",
+    "height": "overhead",
+    "source": "neon",
+    "shadow": "short",
+    "note": {
+      "de": "Beißende Neonröhren über den Racks: hartes Oberlicht, schwarze Augenhöhlen, Säulen und Racks als schwarze Kolonnen."
+    }
+  },
   "groups": [
     {
       "label": "scene-32-hall",
@@ -53,6 +62,11 @@
             "angle": "eye"
           },
           "location": "serverfarm",
+          "light": {
+            "note": {
+              "de": "Die Röhren springen nacheinander an: das Panorama wird Bahn für Bahn aus dem Schwarz gerissen, PLF reglos in einem Lichtkegel."
+            }
+          },
           "action": {
             "de": "360°-Panorama des verborgenen Kontrollzentrums: romanische Bögen und Säulen, halb verdeckte Fresken hinter Reihen schwarzer Server-Racks, Kabelstränge über Chorgestühl, Terminals auf alten Lesepulten. Neonröhren springen eine nach der anderen an, beißend hell, im Takt. PLF klein und reglos in der Mitte einer Seite."
           },
@@ -67,6 +81,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "awe",
+              "pose": "stand",
               "facing": "front",
               "x": 0.2,
               "y": 0.62,
@@ -141,6 +156,14 @@
             "angle": "eye"
           },
           "location": "serverfarm",
+          "light": {
+            "key": "front",
+            "height": "eye",
+            "source": "screen",
+            "note": {
+              "de": "Das Terminal strahlt frontal in die Augen: Textzeilen spiegeln sich weiß in den Pupillen, der Rest des Gesichts fällt ins Schwarz."
+            }
+          },
           "action": {
             "de": "PLFs Augen extrem nah, vom Terminal angestrahlt: in den Pupillen spiegeln sich Zeilen aus grünem und blauem Text. Dahinter unscharf die Neonreihen. Groß darüber, wie ein Echo im Kopf, drei Wörter."
           },
@@ -155,6 +178,7 @@
               "cast": "plf",
               "framing": "ecu",
               "mood": "driven",
+              "pose": "stand",
               "facing": "front",
               "x": 0.5,
               "y": 0.5,
@@ -205,6 +229,15 @@
             "angle": "high"
           },
           "location": "serverfarm",
+          "light": {
+            "key": "back",
+            "height": "eye",
+            "source": "screen",
+            "rim": true,
+            "note": {
+              "de": "Gegenlicht vom Bildschirm: PLF über der Schulter als schwarzer Umriss mit weißer Kante, nur CATS.MANIFEST leuchtet heraus."
+            }
+          },
           "action": {
             "de": "Über die Schulter: PLF beugt sich an ein Terminal auf einem alten Lesepult, die Finger verwischt über der Tastatur. Auf dem Bildschirm ein Raster verschlossener Ordner mit Vorhängeschlössern; eine Datei leuchtet heraus: CATS.MANIFEST. Feine weiße Statik-Linien in der Luft."
           },
@@ -219,6 +252,7 @@
               "cast": "plf",
               "framing": "medium",
               "mood": "urgent",
+              "pose": "stand",
               "facing": "away",
               "x": 0.3,
               "y": 0.6,
@@ -281,6 +315,15 @@
             "angle": "eye"
           },
           "location": "serverfarm",
+          "light": {
+            "key": "front",
+            "height": "eye",
+            "source": "screen",
+            "shadow": "none",
+            "note": {
+              "de": "Der Bildschirm ist selbst das Licht: weißer Text auf Schwarz, PLFs Gesicht nur ein schwacher Spiegel im Glas."
+            }
+          },
           "action": {
             "de": "Der Bildschirm füllt das Bild, der Scroll liest das Dokument: oben groß der Titel C.A.T.S., darunter Absätze, Phase 1, Kommissions-Text. Nach unten werden die Zeilen immer verrauschter, Buchstaben verrutschen. Schwach im Glas gespiegelt PLFs Gesicht."
           },
@@ -359,6 +402,15 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "key": "bottom",
+            "height": "below",
+            "source": "neon",
+            "shadow": "long",
+            "note": {
+              "de": "Blackout: das Terminal flackert, dann Schwarz – die Notlichter springen von unten an, Schweißtropfen glänzen als harte Lichtpunkte."
+            }
+          },
           "action": {
             "de": "Oben: das Terminal flackert wild, Codezeilen rasen mit Bewegungsunschärfe, ein rotes Warnfenster. Mitte: schlagartig schwarz. Unten: Notlichter springen an, sauer-grünes Licht; PLFs Stirn nah, Schweißtropfen spiegeln das Grün."
           },
@@ -373,6 +425,7 @@
               "cast": "plf",
               "framing": "cu",
               "mood": "scared",
+              "pose": "stand",
               "facing": "front",
               "x": 0.5,
               "y": 0.82,
@@ -435,6 +488,18 @@
             "angle": "low"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "key": "bottom",
+            "height": "low",
+            "shadow": "long",
+            "accent": {
+              "color": "green",
+              "on": "die Augenpunkte der Krähenwesen"
+            },
+            "note": {
+              "de": "Notlicht vom Boden wirft die Schatten der Krähenwesen lang und spitz über den Gang – die Schatten kommen vor den Körpern, nur ihre Augen glühen grün."
+            }
+          },
           "action": {
             "de": "Gang zwischen den Racks im grünen Notlicht, PLF oben klein, den Rücken an einem Rack. In der Luft schweben weiße Linien-Zeichen, Fragmente eines Rituals. Nach unten werden die Laute größer; unten fallen lange Schatten dürrer Leiber mit langen Schnäbeln wie Samuraischwerter über den Boden, pechschwarze Augen mit kleinen grünen Punkten."
           },
@@ -449,6 +514,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "scared",
+              "pose": "stand",
               "facing": "front",
               "x": 0.5,
               "y": 0.16,
@@ -458,6 +524,7 @@
               "cast": "crows",
               "framing": "full",
               "mood": "menacing",
+              "pose": "walk",
               "facing": "left",
               "x": 0.6,
               "y": 0.86,
@@ -520,6 +587,14 @@
             "angle": "dutch"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "key": "right",
+            "height": "eye",
+            "shadow": "long",
+            "note": {
+              "de": "Die Laserlinien aus den Augen werden das Licht: harte weiße Striche von rechts, die Krähen ausgeschnittene schwarze Silhouetten auf der Schrägachse."
+            }
+          },
           "action": {
             "de": "Der Angriff, schräg: schwarze Krähenwesen als ausgeschnittene Silhouetten mitten im Sprung, aus ihren grünen Augenpunkten werden Laserlinien, die auf PLF zuschießen. PLF reißt den Arm zurück, Luftsog-Linien um die Haut. Im Hintergrund weitere Krähen, lachend."
           },
@@ -534,6 +609,7 @@
               "cast": "plf",
               "framing": "medium",
               "mood": "scared",
+              "pose": "arms-up",
               "facing": "right",
               "x": 0.3,
               "y": 0.55,
@@ -543,6 +619,7 @@
               "cast": "crows",
               "framing": "full",
               "mood": "mocking",
+              "pose": "jump",
               "facing": "left",
               "x": 0.72,
               "y": 0.4,

@@ -9,6 +9,7 @@
   "locations": [
     { "ref": "path", "place": "mountain-path", "time": "snow" }
   ],
+  "light": { "key": "top-left", "height": "low", "source": "sun", "shadow": "long", "note": { "de": "Tiefe Sonne quer über den Hang: Spuren und Schneewälle werfen schwarze Schatten, PLF ein harter Schnitt im Weiß." } },
   "groups": [
     {
       "label": "scene-27",
@@ -20,9 +21,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "high" },
           "location": "path",
+          "light": { "note": { "de": "Die Kugel oben ein weißer Glanzpunkt; die Spur hinter PLF ein schwarzer Graben im gleißenden Schnee." } },
           "action": { "de": "Oben, weit weg zwischen den Hängen, glänzt die Kugel. Der Blick sinkt den verschneiten Waldpfad hinab zu PLF, die hüfttief durch die Schneemassen watet und sich vorwärts schleppt, die Hände blau, eine tiefe Spur hinter sich." },
           "air": [[0, 25]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "exhausted", "facing": "left", "x": 0.55, "y": 0.8, "h": 0.28 } ],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "exhausted", "pose": "walk", "facing": "left", "x": 0.55, "y": 0.8, "h": 0.28 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 3, "width": 60 }, "text": { "de": "27 EXT. WALDPFAD – TAG" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 36, "y": 44, "width": 58 }, "text": { "de": "PLF packte allen Mut zusammen und schleppte sich durch den Schnee dem mystischen Meilenstein entgegen." } }
@@ -36,9 +38,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "full", "angle": "low" },
           "location": "path",
+          "light": { "key": "left", "note": { "de": "Harte Seitensonne friert jede Bewegungsphase als scharfe Silhouette mit eigenem Schatten ein – der Schnee spritzt weiß aus dem Schwarz." } },
           "action": { "de": "Die Choreografie: PLF frontal, Arme fest um den Körper geschlungen, ein Knie hochgerissen, der Fuß stampft auf den gefrorenen Boden, Schnee spritzt. Dahinter zwei, drei blasse Wiederholungen derselben Pose (Bewegungsphasen, wie Mehrfachbelichtung)." },
           "air": [[0, 10]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "determined", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.6 } ],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "determined", "pose": "stamp", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.6 } ],
           "dialog": [
             { "variant": "caption", "font": "lettering", "rect": { "x": 6, "y": 76, "width": 88 }, "text": { "de": "STAMPF STAMPF" } }
           ],
@@ -51,9 +54,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "travel",
           "shot": { "size": "ews", "angle": "high" },
           "location": "path",
+          "light": { "note": { "de": "Von oben wird die Stampf-Spur ein Muster aus schwarzen Schattenlöchern; die weißen Schallringe laufen über die schattigen Gegenhänge." } },
           "action": { "de": "Das Tal von oben: PLF winzig am Hang, ihre Stampf-Spur im Schnee als regelmäßiges Muster. Vom Punkt aus laufen weiße, gezeichnete Schallringe über das ganze Tal wie Trommelschläge, an den gegenüberliegenden Hängen hallen sie wider." },
           "air": [[0, 15], [88, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "determined", "facing": "left", "x": 0.35, "y": 0.4, "h": 0.06 } ],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "determined", "pose": "stamp", "facing": "left", "x": 0.35, "y": 0.4, "h": 0.06 } ],
           "dialog": [
             { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 20, "width": 44 }, "text": { "de": "STAMPF" } },
             { "variant": "caption", "font": "lettering", "rect": { "x": 8, "y": 62, "width": 44 }, "text": { "de": "STAMPF" } },
@@ -68,6 +72,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "cu", "angle": "eye" },
           "location": "path",
+          "light": { "key": "left", "height": "eye", "shadow": "short", "note": { "de": "Hartes Seitenlicht modelliert Hände, Atemwolke und Lippen mit schwarzen Kanten – das Blut kommt zurück." } },
           "action": { "de": "Collage aus drei gerahmten Nahaufnahmen auf weißem Schneegrund: Hände reiben sich, Dampf steigt auf; tiefer Atemzug, Atemwolke; PLFs Lippen murmeln, die Wangen werden wieder rot." },
           "air": [[0, 8], [92, 100]],
           "figures": [],
@@ -84,9 +89,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-up",
           "shot": { "size": "wide", "angle": "low" },
           "location": "path",
+          "light": { "key": "back", "rim": true, "note": { "de": "Das Licht dreht ins Gegenlicht vom Grat: das Schneebrett ein schwarzer Überhang mit weißer Risskante, PLF rennt als Umriss darauf zu." } },
           "action": { "de": "Von PLF, die jetzt fast mühelos bergauf eilt, hinauf zu einem überhängenden Schneebrett am Grat: ein feiner Riss läuft hindurch, erste Schneebröckchen rieseln. Ganz oben wieder der Glanz der Kugel." },
           "air": [[0, 10]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "thrilled", "facing": "left", "x": 0.5, "y": 0.86, "h": 0.22 } ],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "thrilled", "pose": "run", "facing": "left", "x": 0.5, "y": 0.86, "h": 0.22 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 18, "width": 60 }, "text": { "de": "Ein Kampf gegen die Urgewalten. Das befreite!" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 56, "width": 60 }, "text": { "de": "Die Lawinengefahr schoss Adrenalin in die Adern. Fast mühelos eilte PLF der Fata Morgana entgegen." } }

@@ -10,6 +10,7 @@
   "locations": [
     { "ref": "library", "place": "library", "time": "interior" }
   ],
+  "light": { "key": "top-right", "height": "high", "source": "window", "shadow": "long", "note": { "de": "Staubige Lichtschächte aus hohen Fenstern fallen von rechts oben in die schwarze Bibliothek: harte Lichtbalken, Säulen mit langen Schatten." } },
   "groups": [
     {
       "label": "scene-29",
@@ -21,9 +22,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-up",
           "shot": { "size": "ews", "angle": "worm" },
           "location": "library",
+          "light": { "note": { "de": "Die Lichtschächte stehen wie weiße Säulen im Dunkel; PLF klein in einem Lichtfleck an der Tür, der Schnee glitzert auf dem Gewand." } },
           "action": { "de": "Die Klosterbibliothek von unten: PLF klein in der Tür, Schnee noch auf dem Gewand, Augen weit aufgerissen. Der Blick steigt an Säulen mit Lesepulten hinauf, die im Dämmer wie in den Himmel ragen; Kerzenlicht, Staub in den Lichtstrahlen, Bücherwände ohne Ende." },
           "air": [[0, 15]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "delighted", "facing": "front", "x": 0.5, "y": 0.9, "h": 0.2 } ],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "delighted", "pose": "stand", "facing": "front", "x": 0.5, "y": 0.9, "h": 0.2 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 18, "width": 62 }, "text": { "de": "29 INT. KLOSTERBIBLIOTHEK" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 66, "width": 60 }, "text": { "de": "Mit weit aufgerissenen Augen, voll Freude wie ein Kind, betrat PLF die vertrauten Räume." } }
@@ -37,9 +39,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "mcu", "angle": "low" },
           "location": "library",
+          "light": { "key": "bottom", "height": "below", "source": "candle", "note": { "de": "Kerze von unten: die Predigerpose wirft einen riesigen Schatten über die Regale – das Entzücken kippt ins Fanatische." } },
           "action": { "de": "PLF entzückt, Arme ausgebreitet, ein dickes Buch in der Hand erhoben wie ein Prediger. Kerzenlicht von unten, hinter ihr Regale." },
           "air": [[0, 20]],
-          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "ecstatic", "facing": "right", "x": 0.45, "y": 0.6, "h": 0.6 } ],
+          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "ecstatic", "pose": "arms-up", "facing": "right", "x": 0.45, "y": 0.6, "h": 0.6 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 40, "y": 6, "width": 54 }, "tail": "bottom-left", "text": { "de": "Beware the man with the one book!" } },
             { "variant": "caption", "font": "lettering", "rect": { "x": 8, "y": 78, "width": 40 }, "text": { "de": "PAH …" } }
@@ -53,11 +56,12 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "medium", "angle": "eye" },
           "location": "library",
+          "light": { "key": "top", "note": { "de": "Ein einziger Lichtschacht fällt genau auf die Mittelachse und trennt Gegenwart und Erinnerung mit einer harten Kante." } },
           "action": { "de": "Gespiegelt: links PLF in Farbe, rechts an derselben Stelle YPLF – die junge PLF in der Ausbildung, schlichtes Novizengewand, Bücherstapel im Arm, sepia / monochrom getönt wie eine alte Fotografie. Beide in derselben Pose." },
           "air": [[0, 10]],
           "figures": [
-            { "cast": "plf", "framing": "medium", "mood": "nostalgic", "facing": "right", "x": 0.28, "y": 0.6, "h": 0.5 },
-            { "cast": "yplf", "framing": "medium", "mood": "eager", "facing": "left", "x": 0.72, "y": 0.6, "h": 0.45 }
+            { "cast": "plf", "framing": "medium", "mood": "nostalgic", "pose": "stand", "facing": "right", "x": 0.28, "y": 0.6, "h": 0.5 },
+            { "cast": "yplf", "framing": "medium", "mood": "eager", "pose": "stand", "facing": "left", "x": 0.72, "y": 0.6, "h": 0.45 }
           ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 64 }, "text": { "de": "Augenblicklich fühlte sich PLF zurückversetzt, in die Zeit, als sie noch YPLF war." } },
@@ -72,6 +76,7 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "ecu", "angle": "high" },
           "location": "library",
+          "light": { "key": "left", "height": "low", "source": "candle", "note": { "de": "Die flackernde Kerze als einziges Licht: Streiflicht holt Staub, Risse im Leder und die Fingerspur als harte Reliefs aus dem Schwarz." } },
           "action": { "de": "Sinnes-Collage auf dunklem Grund, drei gerahmte Nahaufnahmen: vergilbte, verstaubte Seiten; rissiger, modriger Ledereinband; flackernde Kerzenflamme. Darunter groß PLFs Hand, die eine Spur durch den Staub eines Lesepults zieht." },
           "air": [[0, 6]],
           "figures": [],
@@ -87,9 +92,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "high" },
           "location": "library",
+          "light": { "note": { "de": "Lichtstrahlen fallen zwischen den Säulen auf YPLF; das eine Buch leuchtet selbst weiß aus den schwarzen Stapeln – Erkenntnis als Licht." } },
           "action": { "de": "Erinnerung, monochrom: von hohen Säulen und Lichtstrahlen hinab zu YPLF, allein an einem Pult über ein aufgeschlagenes Buch gebeugt, umgeben von Stapeln lateinischer Folianten. Ein Buch leuchtet hell aus dem Stapel heraus." },
           "air": [[0, 25], [90, 100]],
-          "figures": [ { "cast": "yplf", "framing": "full", "mood": "absorbed", "facing": "left", "x": 0.5, "y": 0.75, "h": 0.25 } ],
+          "figures": [ { "cast": "yplf", "framing": "full", "mood": "absorbed", "pose": "sit", "facing": "left", "x": 0.5, "y": 0.75, "h": 0.25 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 30, "width": 62 }, "text": { "de": "Genau erinnerte sich PLF, wie sie hier zwischen all dem Kirchenlatein die Bücher fand, die ihr Weltbild prägen sollten." } }
           ],

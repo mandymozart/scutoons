@@ -36,6 +36,15 @@
       "time": "snow"
     }
   ],
+  "light": {
+    "key": "top-left",
+    "height": "low",
+    "source": "sun",
+    "shadow": "long",
+    "note": {
+      "de": "Harte Wintersonne durchs Geäst: Flucht in Schwarz-Weiß, der weiße Tiger verschmilzt mit dem Schnee – nur Schatten und Augen verraten ihn."
+    }
+  },
   "groups": [
     {
       "label": "scene-28",
@@ -55,6 +64,11 @@
             "angle": "eye"
           },
           "location": "forest",
+          "light": {
+            "note": {
+              "de": "Gesprenkeltes Sonnenlicht durchs Geäst: der Schemen bleibt weiß im Weiß, nur zwei Augen und sein Schatten schneiden durch."
+            }
+          },
           "action": {
             "de": "Oben dichtes, verschneites Geäst; im Augenwinkel, zwischen den Zweigen, ein großer weißer Schemen mit zwei Augen. Der Blick sinkt zu PLF, die bergauf hastet und über die Schulter schaut; der Schemen bleibt im Hintergrund dicht hinter ihr."
           },
@@ -69,6 +83,7 @@
               "cast": "tiger",
               "framing": "cu",
               "mood": "hunting",
+              "pose": "crouch",
               "facing": "right",
               "x": 0.75,
               "y": 0.32,
@@ -78,6 +93,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "scared",
+              "pose": "look-back",
               "facing": "left",
               "x": 0.4,
               "y": 0.82,
@@ -140,6 +156,14 @@
             "angle": "low"
           },
           "location": "forest",
+          "light": {
+            "key": "bottom",
+            "height": "below",
+            "source": "snow",
+            "note": {
+              "de": "Schneereflex von unten macht das Maul zur Fratze: Zähne weiß, Schlund schwarz, PLF klein im Schatten des Kopfes."
+            }
+          },
           "action": {
             "de": "PLF hat sich umgedreht, klein im unteren Eck, zurückweichend. Den Rest füllt der Kopf eines riesigen weißen Tigers: aufgerissenes Maul, riesige Zähne, warmer Atem dampft in die kalte Luft."
           },
@@ -149,6 +173,7 @@
               "cast": "tiger",
               "framing": "cu",
               "mood": "angry",
+              "pose": "stand",
               "facing": "front",
               "x": 0.55,
               "y": 0.42,
@@ -158,6 +183,7 @@
               "cast": "plf",
               "framing": "medium",
               "mood": "terrified",
+              "pose": "arms-up",
               "facing": "away",
               "x": 0.15,
               "y": 0.88,
@@ -199,6 +225,14 @@
             "angle": "eye"
           },
           "location": "forest",
+          "light": {
+            "key": "top",
+            "height": "high",
+            "shadow": "short",
+            "note": {
+              "de": "Hartes Oberlicht, reine Bewegung: zwei gleiche weiße Silhouetten mit schwarzen Schattenklecksen, die Bäume schwarze Streifen."
+            }
+          },
           "action": {
             "de": "Profil, seitlich: PLF und der weiße Tiger rennen gleichauf nebeneinander den verschneiten Hang hinauf, im selben Schritt, das Gewand und das Fell wehen gleich. Schneestaub hinter beiden, Bäume als verwischte Streifen."
           },
@@ -213,6 +247,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "panicked",
+              "pose": "run",
               "facing": "left",
               "x": 0.35,
               "y": 0.55,
@@ -222,6 +257,7 @@
               "cast": "tiger",
               "framing": "full",
               "mood": "hunting",
+              "pose": "run",
               "facing": "left",
               "x": 0.65,
               "y": 0.6,
@@ -276,6 +312,14 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "light": {
+            "key": "top",
+            "height": "overhead",
+            "shadow": "short",
+            "note": {
+              "de": "High Noon: Sonne im Zenit, Augen in schwarzen Höhlen, die Schatten kauern unter den Duellanten – Western-Stillstand."
+            }
+          },
           "action": {
             "de": "360°-Panorama der Lichtung, High Noon: Sonne im Zenit, kaum Schatten, ein Ring verschneiter Bäume. Auf der einen Seite PLF breitbeinig, auf der gegenüberliegenden der Tiger, der ihr den Weg versperrt. Dazwischen nur glatter Schnee. Wer zieht, sieht immer nur einen von beiden scharf."
           },
@@ -290,6 +334,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "determined",
+              "pose": "stand",
               "facing": "right",
               "x": 0.25,
               "y": 0.6,
@@ -299,6 +344,7 @@
               "cast": "tiger",
               "framing": "full",
               "mood": "angry",
+              "pose": "stand",
               "facing": "left",
               "x": 0.75,
               "y": 0.62,
@@ -349,6 +395,14 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "light": {
+            "key": "top",
+            "height": "overhead",
+            "shadow": "short",
+            "note": {
+              "de": "Weiter Mittagslicht von oben: schwarze Augenhöhlen, die weißen Schallwellen prallen zwischen zwei schwarzen Boxentürmen aufeinander."
+            }
+          },
           "action": {
             "de": "Das Anschreien als Soundsystem-Duell: oben PLF schreiend vor einem gezeichneten Turm aus Lautsprecherboxen, unten der brüllende Tiger vor seinem eigenen Boxenturm. Dazwischen prallen weiße Schallwellen-Linien aufeinander."
           },
@@ -363,6 +417,7 @@
               "cast": "plf",
               "framing": "mcu",
               "mood": "furious",
+              "pose": "stand",
               "facing": "right",
               "x": 0.4,
               "y": 0.22,
@@ -372,6 +427,7 @@
               "cast": "tiger",
               "framing": "mcu",
               "mood": "furious",
+              "pose": "stand",
               "facing": "left",
               "x": 0.6,
               "y": 0.78,
@@ -434,6 +490,14 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "light": {
+            "key": "top",
+            "height": "overhead",
+            "shadow": "short",
+            "note": {
+              "de": "Mittagslicht über der Stille: stürzender Schnee und fliehende Tiere als harte Schattenrisse."
+            }
+          },
           "action": {
             "de": "Collage auf weißem Grund, vier gerahmte Bilder: Schnee stürzt von gerüttelten Ästen; kleine Vögel und weiße Linien-Geister steigen in den Himmel; ein Reh flieht; Hasen graben sich in den Schnee ein. Unten ein schmaler, stiller Streifen der Lichtung."
           },
@@ -480,6 +544,14 @@
             "angle": "high"
           },
           "location": "clearing",
+          "light": {
+            "key": "front",
+            "height": "eye",
+            "source": "energy",
+            "note": {
+              "de": "Der Eisenergieball schlägt die Sonne: er wirft PLFs und des Tigers Schatten lang nach hinten und brennt seine Spur weiß in den Screen."
+            }
+          },
           "action": {
             "de": "Oben PLF mit geschlossenen Augen, die Hände geformt, dazwischen wächst ein blau-weiß leuchtender Eisenergieball. Mitte: der Ball schießt den Screen hinab, eine Eis-Blitz-Spur. Unten trifft er den heranstürmenden Tiger, Funken und Eissplitter; am Rand rennt PLF schon zu einem großen Felsen."
           },
@@ -494,6 +566,7 @@
               "cast": "plf",
               "framing": "medium",
               "mood": "focused",
+              "pose": "cast",
               "facing": "front",
               "x": 0.5,
               "y": 0.15,
@@ -503,6 +576,7 @@
               "cast": "tiger",
               "framing": "full",
               "mood": "charging",
+              "pose": "run",
               "facing": "front",
               "x": 0.55,
               "y": 0.84,
@@ -512,6 +586,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "panicked",
+              "pose": "run",
               "facing": "right",
               "x": 0.88,
               "y": 0.92,
@@ -565,6 +640,14 @@
             "angle": "high"
           },
           "location": "clearing",
+          "light": {
+            "key": "top",
+            "height": "overhead",
+            "shadow": "short",
+            "note": {
+              "de": "Die Sonne wieder von oben: der Fels ein schwarzer Block, der Tiger stürzt als weiße Form in den schwarzen Abgrund."
+            }
+          },
           "action": {
             "de": "Oben: PLF wirft sich hinter einen großen Felsen an der Kante, zusammengekauert. Über den Felsen hinweg fliegt der benommene Tiger, verschätzt den Bremsweg. Darunter der Abgrund: der Tiger stürzt die Felswand hinab, immer kleiner, bis er im Nebel verschwindet."
           },
@@ -579,6 +662,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "terrified",
+              "pose": "crouch",
               "facing": "left",
               "x": 0.3,
               "y": 0.12,
@@ -588,6 +672,7 @@
               "cast": "tiger",
               "framing": "full",
               "mood": "dazed",
+              "pose": "jump",
               "facing": "right",
               "x": 0.55,
               "y": 0.25,
@@ -597,6 +682,7 @@
               "cast": "tiger",
               "framing": "full",
               "mood": "falling",
+              "pose": "fall",
               "facing": "away",
               "x": 0.6,
               "y": 0.6,
@@ -647,6 +733,12 @@
             "angle": "eye"
           },
           "location": "clearing",
+          "light": {
+            "key": "left",
+            "note": {
+              "de": "Die Sonne sinkt hinter die aufziehende Wolkenwand: Streiflicht auf die gefalteten Hände, dahinter wird der Himmel schwarz."
+            }
+          },
           "action": {
             "de": "PLF hinter dem Felsen, Hände gefaltet zum Stoßgebet, dann der prüfende Blick über die Kante in die Tiefe. Hinter ihr verdunkelt sich der Himmel, erste Schneeschleier wehen heran."
           },
@@ -661,6 +753,7 @@
               "cast": "plf",
               "framing": "mcu",
               "mood": "relieved",
+              "pose": "pray",
               "facing": "right",
               "x": 0.45,
               "y": 0.6,
@@ -698,6 +791,19 @@
             "angle": "high"
           },
           "location": "forest",
+          "light": {
+            "key": "front",
+            "height": "eye",
+            "source": "snow",
+            "shadow": "none",
+            "accent": {
+              "color": "red",
+              "on": "die Beeren am Strauch"
+            },
+            "note": {
+              "de": "Whiteout ohne Schatten, PLF fast verschluckt – bis die Mauer schwarz auftaucht und die roten Beeren als einzige Farbe das Ziel markieren."
+            }
+          },
           "action": {
             "de": "Weißer Schneesturm, fast nur Weiß und waagrechte Schneestreifen. In der Mitte PLF kaum sichtbar, auf allen Vieren kriechend, halb verschluckt. Ganz unten taucht aus dem Weiß ein Stück graue Mauer auf und ein Strauch mit kleinen roten Beeren – die einzige Farbe im Bild."
           },
@@ -712,6 +818,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "exhausted",
+              "pose": "crawl",
               "facing": "right",
               "x": 0.4,
               "y": 0.6,
@@ -762,6 +869,15 @@
             "angle": "low"
           },
           "location": "monastery",
+          "light": {
+            "key": "back",
+            "height": "eye",
+            "source": "candle",
+            "rim": true,
+            "note": {
+              "de": "Der Sturm lässt nach, die Pforte geht auf: Kerzenlicht von hinten macht PLF zum schwarzen Umriss mit weißem Rand – Übergang in die Bibliothek."
+            }
+          },
           "action": {
             "de": "Vereiste Steintreppe zum Kloster hinauf: unten PLF, die losspurtet, in der Mitte rutscht sie tollpatschig aus, Beine in der Luft. Oben, im nachlassenden Sturm, die schwere hölzerne Klosterpforte, PLF tritt ein – dahinter warmes Kerzenlicht."
           },
@@ -776,6 +892,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "hopeful",
+              "pose": "run",
               "facing": "away",
               "x": 0.4,
               "y": 0.86,
@@ -785,6 +902,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "clumsy",
+              "pose": "slip",
               "facing": "left",
               "x": 0.6,
               "y": 0.5,
@@ -794,6 +912,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "relieved",
+              "pose": "walk",
               "facing": "away",
               "x": 0.5,
               "y": 0.12,

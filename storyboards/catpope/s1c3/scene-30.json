@@ -10,6 +10,7 @@
   "locations": [
     { "ref": "library", "place": "library", "time": "interior" }
   ],
+  "light": { "key": "left", "height": "eye", "source": "candle", "shadow": "long", "note": { "de": "Kerzenlicht von der Seite: die Regale schwarze Fächer, Buchrücken mit harten weißen Kanten, alles andere versinkt." } },
   "groups": [
     {
       "label": "scene-30",
@@ -21,6 +22,7 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "medium", "angle": "eye" },
           "location": "library",
+          "light": { "note": { "de": "Seitliches Kerzenlicht kratzt die Titel aus den Buchrücken, das leere obere Fach ist ein schwarzes Loch." } },
           "action": { "de": "Das Regal frontal, nach der Skizze im Skript: oberstes Fach leer bis auf EIN Buch ganz links; darunter zwei volle Fächer mit je vier Büchern. Auf den Rücken in Lettering die Titel (siehe note). Dunkles Holz, Kerzenlicht von der Seite." },
           "air": [[0, 18]],
           "figures": [],
@@ -37,9 +39,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "medium", "angle": "low" },
           "location": "library",
+          "light": { "key": "bottom", "height": "below", "note": { "de": "Die Kerzen flackern im Takt, der polierte Boden wirft das Licht von unten auf PLFs geschlossene Augen – die Wellenlinien weiß über schwarzem Holz." } },
           "action": { "de": "PLF, eine Hand flach am Regal, Augen geschlossen. Der polierte Boden flackert, die Regale vibrieren: weiße Wellenlinien laufen durch Holz und Buchrücken, die Kerzenflammen zittern im Takt." },
           "air": [[0, 12]],
-          "figures": [ { "cast": "plf", "framing": "medium", "mood": "entranced", "facing": "left", "x": 0.6, "y": 0.6, "h": 0.55 } ],
+          "figures": [ { "cast": "plf", "framing": "medium", "mood": "entranced", "pose": "reach", "facing": "left", "x": 0.6, "y": 0.6, "h": 0.55 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 66 }, "text": { "de": "Eine pulsierende Energie. Die alten Regale vibrierten in kosmischen Frequenzen." } },
             { "variant": "caption", "font": "lettering", "rect": { "x": 8, "y": 80, "width": 50 }, "text": { "de": "432 HERTZ" } }
@@ -53,9 +56,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "high" },
           "location": "library",
+          "light": { "key": "top-right", "height": "high", "source": "window", "note": { "de": "Erinnerung: ein Fensterschacht von oben ins Skriptorium, YPLF im einzigen Lichtfleck, das Buchstabenraster weiß im Dunkel." } },
           "action": { "de": "Erinnerung, monochrom: oben Mönche im Skriptorium über lateinischen Handschriften; ein verborgenes Fach mit den Büchern der Feinde der Kirche. Unten YPLF am Pult, kopiert Zeile um Zeile, über allem ein feines Raster aus Buchstaben wie ein Code (Matrix)." },
           "air": [[0, 8]],
-          "figures": [ { "cast": "yplf", "framing": "full", "mood": "driven", "facing": "left", "x": 0.5, "y": 0.78, "h": 0.28 } ],
+          "figures": [ { "cast": "yplf", "framing": "full", "mood": "driven", "pose": "sit", "facing": "left", "x": 0.5, "y": 0.78, "h": 0.28 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 62 }, "text": { "de": "Hier suchte YPLF die Werkzeuge, die Sprache der Welt zu verstehen – und die Menschen mit ihr zu lenken." } },
             { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 40, "width": 60 }, "text": { "de": "Sie fühlte sich auserwählt. Elite, wie die Mönche, die Latein beherrschten." } },
@@ -70,9 +74,10 @@
           "format": "vertical", "aspect": "1:4", "projection": "top-down", "move": "tilt-down",
           "shot": { "size": "medium", "angle": "bird" },
           "location": "library",
+          "light": { "height": "low", "note": { "de": "Die Kerze links neben den Büchern: aufgeschlagene Seiten weiß, PLFs Hände werfen lange schwarze Schatten übers Papier." } },
           "action": { "de": "Von oben auf einen Tisch voller aufgeschlagener Bücher, PLFs Hände blättern: oben die Bibel (Arche Noah, keine Mäuse); dann griechische Texte – Artemis mit einem Luchs, Hekate mit schwarzen Katzen; PLF zuckt die Schultern; unten ein Buch mit dem Bild eines Bastet-Sistrums." },
           "air": [[0, 5]],
-          "figures": [ { "cast": "plf", "framing": "medium", "mood": "frustrated", "facing": "front", "x": 0.75, "y": 0.6, "h": 0.3 } ],
+          "figures": [ { "cast": "plf", "framing": "medium", "mood": "frustrated", "pose": "stand", "facing": "front", "x": 0.75, "y": 0.6, "h": 0.3 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 56 }, "tail": "bottom", "text": { "de": "Gut, Katze! Was ist dein Geheimnis?" } },
             { "variant": "narration", "font": "mono", "rect": { "x": 36, "y": 22, "width": 58 }, "text": { "de": "Die Bibel: keine Antwort. Keine Mäuse – die Sintflut muss sie dahingerafft haben." } },
@@ -89,9 +94,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "mcu", "angle": "eye" },
           "location": "library",
+          "light": { "key": "front", "note": { "de": "Die Staubwolke fängt das Kerzenlicht als weiße Explosion, das Gesicht hart von vorn – kein Versteck für den Ärger." } },
           "action": { "de": "PLF schlägt mit beiden Händen ein dickes Buch zu, Staubwolke explodiert, Kerzen flackern. Gesicht genervt, Kiefer angespannt." },
           "air": [[0, 10]],
-          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "impatient", "facing": "front", "x": 0.5, "y": 0.55, "h": 0.6 } ],
+          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "impatient", "pose": "push", "facing": "front", "x": 0.5, "y": 0.55, "h": 0.6 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 60 }, "tail": "bottom", "text": { "de": "Nichts! So komm ich nicht weiter. Jetzt muss ich ernst machen." } },
             { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 50, "width": 44 }, "text": { "de": "KLAPP!" } },
@@ -106,9 +112,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "ews", "angle": "high" },
           "location": "library",
+          "light": { "key": "top", "height": "overhead", "source": "window", "shadow": "short", "note": { "de": "Ausgeblichenes Oberlicht wie ein überbelichteter Schnappschuss: PLF winzig in einem weißen Fleck, die Regale schwarze Schluchten." } },
           "action": { "de": "Ein Schnappschuss: PLF winzig und reglos zwischen endlosen Regalen, das Bild wie ein eingefrorenes, ausgebleichtes Polaroid mit weißem Rand auf dunklem Grund. Ein Luftstoß (Linien) reißt durch das Bild." },
           "air": [[0, 8], [92, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "despairing", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.12 } ],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "despairing", "pose": "stand", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.12 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 6, "width": 66 }, "text": { "de": "Die Sprache war alt. Sie war alt. Sie fühlte sich alt." } },
             { "variant": "narration", "font": "mono", "rect": { "x": 28, "y": 72, "width": 66 }, "text": { "de": "Ein Standpunkt ist nur alt, weil man gerade auf ihm steht. Ein anderer öffnet neue Türen." } },
@@ -123,9 +130,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "ecu", "angle": "eye" },
           "location": "library",
+          "light": { "shadow": "none", "note": { "de": "Nur ein schmaler Lichtstreif über den Augen, der Rest Schwarz – der Augenbalken: sie sieht alles." } },
           "action": { "de": "Im Schatten des Gewölbes PLFs Augen, extrem nah, glänzend, ein flüchtiger Lichtstreif darüber. In den Pupillen spiegelt sich der lange, kalte Gang mit dem schiefen Regal. Sonst Dunkel." },
           "air": [[0, 15], [85, 100]],
-          "figures": [ { "cast": "plf", "framing": "ecu", "mood": "knowing", "facing": "front", "x": 0.5, "y": 0.5, "h": 1 } ],
+          "figures": [ { "cast": "plf", "framing": "ecu", "mood": "knowing", "pose": "stand", "facing": "front", "x": 0.5, "y": 0.5, "h": 1 } ],
           "dialog": [
             { "variant": "caption", "rect": { "x": 8, "y": 4, "width": 70 }, "text": { "de": "Ich musste es tun. Ich wollte ihn töten. Ich fing an zu wein'n. Ich sah' zu ihn." } },
             { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 86, "width": 64 }, "text": { "de": "Ihre glänzenden Augen sahen alles. Kein Raum war vor ihr verborgen." } }
@@ -139,9 +147,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "top-down", "move": "travel",
           "shot": { "size": "wide", "angle": "bird" },
           "location": "library",
+          "light": { "key": "top", "height": "overhead", "source": "window", "note": { "de": "Fensterbänder zerschneiden den Gang in Licht und Schwarz; PLF geht durch die Streifen auf das schiefe Regal im letzten Lichtfleck zu." } },
           "action": { "de": "Von oben auf einen langen, kalten, steinernen Gang: PLF oben im Bild, geht nach unten. Der Scroll ist ihr Weg. Ganz unten am Ende des Ganges ein einzelnes, verstaubtes, schiefes Regal mit wenigen, belanglosen Büchern." },
           "air": [[20, 55], [92, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "cold", "facing": "front", "x": 0.5, "y": 0.12, "h": 0.15 } ],
+          "figures": [ { "cast": "plf", "framing": "full", "mood": "cold", "pose": "walk", "facing": "front", "x": 0.5, "y": 0.12, "h": 0.15 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 58 }, "text": { "de": "Am Ende des langen, kalten Ganges: ein Regal. Verstaubt. Schief. Eine Täuschung." } },
             { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 60, "width": 60 }, "text": { "de": "Keine Magie. Keine Geheimnisse. Nur Code. Ein Spiel, das darauf wartete, entschlüsselt zu werden." } }

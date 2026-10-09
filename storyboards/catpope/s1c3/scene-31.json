@@ -26,6 +26,15 @@
       "time": "interior"
     }
   ],
+  "light": {
+    "key": "left",
+    "height": "eye",
+    "source": "candle",
+    "shadow": "long",
+    "note": {
+      "de": "Letztes Kerzenlicht von links am Ende des Ganges: die Steinwand eine harte Struktur aus Licht und Fugenschatten – bis der Sensor die Quelle wechselt."
+    }
+  },
   "groups": [
     {
       "label": "scene-31",
@@ -45,6 +54,12 @@
             "angle": "eye"
           },
           "location": "library",
+          "light": {
+            "height": "low",
+            "note": {
+              "de": "Streiflicht über die Mauer: der matte Sensor kaum sichtbar, die Pixelpranke zeichnet sich weiß um die schwarze Hand."
+            }
+          },
           "action": {
             "de": "Die Steinwand neben dem schiefen Regal, ganz nah: zwischen zwei Mauerfugen ein unscheinbarer, matter Sensor, kaum größer als eine Handfläche. PLFs Hand legt sich darauf; um die Finger ein weißer Linien-Umriss einer Katzenpranke, aus Pixeln gezeichnet."
           },
@@ -59,6 +74,7 @@
               "cast": "plf",
               "framing": "ecu",
               "mood": "cold",
+              "pose": "reach",
               "facing": "left",
               "x": 0.6,
               "y": 0.55,
@@ -109,6 +125,14 @@
             "angle": "low"
           },
           "location": "library",
+          "light": {
+            "key": "bottom",
+            "height": "below",
+            "source": "screen",
+            "note": {
+              "de": "Das Licht dreht: kalt von unten aus den Fugen, die Wörter glühen weiß auf und machen PLFs Profil zur Maske."
+            }
+          },
           "action": {
             "de": "PLF im Profil dicht an der Wand, die Lippen fast am Stein, sie spricht. In den Mauerfugen leuchten nacheinander vier weiße Wörter auf, treppenartig versetzt wie im Skript. Kaltes Licht von unten."
           },
@@ -123,6 +147,7 @@
               "cast": "plf",
               "framing": "cu",
               "mood": "knowing",
+              "pose": "stand",
               "facing": "right",
               "x": 0.35,
               "y": 0.5,
@@ -173,6 +198,15 @@
             "angle": "high"
           },
           "location": "serverfarm",
+          "light": {
+            "key": "back",
+            "height": "low",
+            "source": "screen",
+            "rim": true,
+            "note": {
+              "de": "Gegenlicht aus der Tiefe: die Bildschirme der Serverfarm leuchten herauf, PLF steht als schwarze Silhouette mit weißem Rand in der Öffnung."
+            }
+          },
           "action": {
             "de": "Die Regale gleiten zischend zur Seite (Bewegungslinien, Staubfahnen). Dahinter, tiefer gelegen, die wahre Kammer: eine Serverfarm unter dem Gewölbe der Klosterbibliothek. Reihen schwarzer Racks zwischen alten Säulen, Bildschirme flackern sanft, blassblaues Licht wie Atem. PLF als Silhouette oben in der Öffnung."
           },
@@ -187,6 +221,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "awe",
+              "pose": "stand",
               "facing": "away",
               "x": 0.5,
               "y": 0.18,

@@ -9,6 +9,7 @@
   "locations": [
     { "ref": "studio", "place": null, "new": "Streamer-Studio (kein MAP-Ort)", "time": "interior" }
   ],
+  "light": { "key": "front", "height": "eye", "source": "screen", "shadow": "short", "note": { "de": "Harter Schnitt ins Helle: das Ringlicht knallt frontal, ein Ring in den Augen, ein enger schwarzer Schatten hinter Cat Pope – Stream-Licht ohne Geheimnis." } },
   "groups": [
     {
       "label": "scene-33",
@@ -20,9 +21,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "medium", "angle": "eye" },
           "location": "studio",
+          "light": { "note": { "de": "Volles Ringlicht von vorn: Cat Pope weiß vor schwarzem Studio, nur Mikro und Kopfhörer zeichnen harte Schatten." } },
           "action": { "de": "Harter Schnitt ins Helle: Cat Pope frontal vor der Kamera im Podcast-Setup – Ringlicht, großes Mikro am Schwenkarm, Kopfhörer, LED-Leiste in Pink/Cyan. Das Bild als Livestream-Screen: LIVE-Badge, Zuschauerzahl, aufsteigende Herzen, Chat-Spalte am Rand." },
           "air": [[0, 18]],
-          "figures": [ { "cast": "catpope", "framing": "medium", "mood": "excited", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.6 } ],
+          "figures": [ { "cast": "catpope", "framing": "medium", "mood": "excited", "pose": "sit", "facing": "front", "x": 0.5, "y": 0.6, "h": 0.6 } ],
           "dialog": [
             { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 20, "width": 56 }, "text": { "de": "33 INT. STREAMER-STUDIO" } },
             { "variant": "bubble", "rect": { "x": 40, "y": 30, "width": 54 }, "tail": "bottom", "text": { "de": "Okay, Leute: stellt euch die Welt mal als Geruch vor! Heute: Vibes – olfaktorisch!" } }
@@ -36,9 +38,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "eye" },
           "location": "studio",
+          "light": { "key": "top-left", "height": "high", "source": "window", "shadow": "long", "note": { "de": "Im Kirchenbild ein harter Lichtstrahl durch Weihrauch, im Protestantismus-Bild Streiflicht über rauen Kalk – Cat Pope im Eck bleibt im Ringlicht." } },
           "action": { "de": "Zwei gerahmte Bilder im Stream-Layout, je mit einem Titel-Banner. Oben KATHOLIZISMUS: altes Kirchenschiff, Holz, staubiger Stein, Weihrauchschwaden im Lichtstrahl. Unten PROTESTANTISMUS: schlichte, weiß gekalkte Wand, raues altes Mauerwerk, eine schwielige Hand. Cat Pope klein als Bild-im-Bild in der Ecke, gestikulierend." },
           "air": [[46, 54]],
-          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "excited", "facing": "front", "x": 0.82, "y": 0.5, "h": 0.15 } ],
+          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "excited", "pose": "sit", "facing": "front", "x": 0.82, "y": 0.5, "h": 0.15 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 6, "y": 6, "width": 70 }, "tail": "bottom-right", "text": { "de": "Katholizismus: Holz, dusty Stein und – boom – Weihrauch. Pure Nostalgie, voll Mystery-Vibe." } },
             { "variant": "bubble", "rect": { "x": 6, "y": 60, "width": 70 }, "tail": "bottom-right", "text": { "de": "Protestantismus: rougher. OG altes Gemäuer und – I kid you not – Menschsein. Ehrlich, roh." } }
@@ -52,9 +55,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "wide", "angle": "eye" },
           "location": "studio",
+          "light": { "key": "back", "source": "screen", "rim": true, "note": { "de": "Kaltes Gegenlicht von Monitoren und Servern: das Büro aus schwarzen Silhouetten mit weißen Rändern – dieselben Racks wie in der Serverfarm." } },
           "action": { "de": "NEOLIBERALISMUS: ein klimatisiertes Großraumbüro, Plastik, Monitore überall, hinten surrende Server-Racks im kalten blauen Licht – dieselben Racks wie in der Serverfarm. Cat Pope als Bild-im-Bild, rümpft die Nase." },
           "air": [[0, 8]],
-          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "disgusted", "facing": "front", "x": 0.8, "y": 0.2, "h": 0.2 } ],
+          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "disgusted", "pose": "sit", "facing": "front", "x": 0.8, "y": 0.2, "h": 0.2 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 6, "y": 66, "width": 76 }, "tail": "top", "text": { "de": "Neoliberalismus: klimatisiertes Büro, Plastik, surrende Server. Kalt, steril, leicht elektrisch – wie die Luft im Apple Store." } }
           ],
@@ -67,9 +71,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "wide", "angle": "eye" },
           "location": "studio",
+          "light": { "key": "right", "height": "low", "source": "sun", "shadow": "long", "note": { "de": "Oben Morgensonne von der Seite über die Yogamatte, unten wieder ein Ringlicht frontal – Selbstoptimierung und Selbstdarstellung im selben harten Licht." } },
           "action": { "de": "Zwei gerahmte Bilder im Stream-Layout. Oben YOGA / SELBSTOPTIMIERUNG: Yogamatte vor Bergpanorama, Räucherstäbchen, Sandelholz, ein „Nicht stören“-Mond-Symbol. Unten TIKTOK-STREAMER: Ringlichter, Make-up, Parfümflakon, Fast-Food-Tüte, Chips, ein Schwarm Like-Herzen. Cat Pope als Bild-im-Bild." },
           "air": [[46, 54]],
-          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "excited", "facing": "front", "x": 0.82, "y": 0.5, "h": 0.15 } ],
+          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "excited", "pose": "sit", "facing": "front", "x": 0.82, "y": 0.5, "h": 0.15 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 6, "y": 6, "width": 70 }, "tail": "bottom-right", "text": { "de": "Buddhismus, Yoga, Selbstoptimierer: Sandelholz, Räucherstäbchen, frische Luft. Kopf auf „Do Not Disturb“." } },
             { "variant": "bubble", "rect": { "x": 6, "y": 60, "width": 70 }, "tail": "bottom-right", "text": { "de": "TikTok-Streamer: Plastik, Make-up, süßes Parfüm, Fast Food. Leben zwischen Likes und Chips – kinda awesome." } }
@@ -83,9 +88,10 @@
           "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
           "shot": { "size": "cu", "angle": "eye" },
           "location": "studio",
+          "light": { "key": "left", "source": "candle", "shadow": "long", "note": { "de": "Ernstes Seitenlicht von links, eine Gesichtshälfte im Schwarz – der einzige ruhige Moment im Stream." } },
           "action": { "de": "ISLAM: ruhiger, warmer Grund in Bernstein und Rosé. Ein kleines Flakon Oud-Öl, Rosenblätter, eine Schale Rosenwasser, warmes Seitenlicht. Cat Pope als Bild-im-Bild, ausnahmsweise ernst, Hand auf dem Herzen." },
           "air": [[0, 10]],
-          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "reverent", "facing": "front", "x": 0.8, "y": 0.2, "h": 0.2 } ],
+          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "reverent", "pose": "sit", "facing": "front", "x": 0.8, "y": 0.2, "h": 0.2 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 6, "y": 68, "width": 76 }, "tail": "top", "text": { "de": "Jetzt wird's deep: Moschus und Oud, warm und erdig, ein Hauch Rosenwasser. Clean und echt. Pure Ehrfurcht." } }
           ],
@@ -98,9 +104,10 @@
           "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
           "shot": { "size": "mcu", "angle": "eye" },
           "location": "studio",
+          "light": { "note": { "de": "Das Ringlicht noch im Zwinkern, dann zerfällt das Bild und das Licht geht aus – Schwarz als Schnitt zurück in die Serverfarm." } },
           "action": { "de": "Cat Pope beugt sich zur Kamera, zwinkert. Kommentar-Blasen fluten das Bild nach oben (unleserlich, nur Emojis). Weiter unten friert das Stream-Bild ein, zerfällt in Pixelblöcke und RGB-Streifen, dann Schwarz." },
           "air": [[66, 100]],
-          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "playful", "facing": "front", "x": 0.5, "y": 0.25, "h": 0.5 } ],
+          "figures": [ { "cast": "catpope", "framing": "mcu", "mood": "playful", "pose": "sit", "facing": "front", "x": 0.5, "y": 0.25, "h": 0.5 } ],
           "dialog": [
             { "variant": "bubble", "rect": { "x": 6, "y": 4, "width": 70 }, "tail": "bottom", "text": { "de": "Das war's erstmal! Nach was riecht euer Vibe? Schreibt's mir in die Kommentare!" } }
           ],

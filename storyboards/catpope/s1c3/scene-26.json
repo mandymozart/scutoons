@@ -21,6 +21,15 @@
       "time": "snow"
     }
   ],
+  "light": {
+    "key": "top-left",
+    "height": "low",
+    "source": "sun",
+    "shadow": "long",
+    "note": {
+      "de": "Flache Wintersonne zwischen den Fichten: schwarze Stämme, weißer Schnee, ein hartes Schattengitter über dem Weg."
+    }
+  },
   "groups": [
     {
       "label": "scene-26",
@@ -40,6 +49,13 @@
             "angle": "eye"
           },
           "location": "crossroads",
+          "light": {
+            "key": "back",
+            "rim": true,
+            "note": {
+              "de": "Der Lichtreflex über den Wipfeln wird Gegenlicht: PLF ein dunkler Umriss mit weißem Rand – das Licht ruft sie."
+            }
+          },
           "action": {
             "de": "Verschneiter Waldweg, der hinter einer Kurve zwischen dunklen Fichten verschwindet. PLF klein im weißen Gewand von hinten, mitten in der Kurve, die Arme um den Körper geschlungen. Über den Baumwipfeln ein heller Lichtreflex, noch ohne Form."
           },
@@ -54,6 +70,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "cold",
+              "pose": "hug-self",
               "facing": "away",
               "x": 0.4,
               "y": 0.78,
@@ -104,6 +121,14 @@
             "angle": "worm"
           },
           "location": "crossroads",
+          "light": {
+            "key": "top",
+            "height": "overhead",
+            "shadow": "short",
+            "note": {
+              "de": "Die Sonne knallt auf die Kugel: ein weißer Glanz über schwarzem Wald, die Kugel blendet und überragt alles."
+            }
+          },
           "action": {
             "de": "Von PLFs Kopf am unteren Rand die Fichtenstämme hinauf, bis über die Wipfel: eine riesige, spiegelnde Kugel ragt mitten aus dem Wald, höher als alles. In ihrer Oberfläche gekrümmt der verschneite Wald und winzig PLF. Kalter, flimmernder Himmel."
           },
@@ -118,6 +143,7 @@
               "cast": "plf",
               "framing": "medium",
               "mood": "awe",
+              "pose": "stand",
               "facing": "away",
               "x": 0.5,
               "y": 0.94,
@@ -159,6 +185,13 @@
             "angle": "low"
           },
           "location": "crossroads",
+          "light": {
+            "key": "top-right",
+            "height": "high",
+            "note": {
+              "de": "Das Licht kommt jetzt von der Kugel, rechts oben: weiße Frostwimpern, die andere Gesichtshälfte schwarz – die Seite dreht mit dem Zeichen."
+            }
+          },
           "action": {
             "de": "PLF im Halbprofil, blinzelt hoch, Frost an den Wimpern, Atemwolke. Im Hintergrund unscharf die glänzende Kugelfläche, darin gespiegelt PLFs eigenes Gesicht. Die Luft flimmert wie eine Fata Morgana."
           },
@@ -173,7 +206,8 @@
               "cast": "plf",
               "framing": "mcu",
               "mood": "curious",
-              "facing": "right",
+              "pose": "stand",
+              "facing": "three-quarter-right",
               "x": 0.42,
               "y": 0.55,
               "h": 0.6

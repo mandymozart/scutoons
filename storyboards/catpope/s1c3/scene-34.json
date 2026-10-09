@@ -30,6 +30,15 @@
       "time": "day"
     }
   ],
+  "light": {
+    "key": "bottom",
+    "height": "below",
+    "source": "neon",
+    "shadow": "long",
+    "note": {
+      "de": "Grünes Notlicht von unten: PLF und die Racks mit langen, nach oben kippenden Schatten, die Krähen nur Augenpunkte im Schwarz."
+    }
+  },
   "groups": [
     {
       "label": "scene-34",
@@ -49,6 +58,11 @@
             "angle": "high"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "note": {
+              "de": "Notlicht von unten auf die zitternden Hände, ringsum Schwarz mit einem Dutzend Augenpunkten – eingekesselt."
+            }
+          },
           "action": {
             "de": "PLF in eine Ecke zwischen zwei Racks gedrängt, grünes Notlicht. Im Dunkel ringsum ein Dutzend grüner Augenpunkte. Im Vordergrund groß ihre zitternden Hände (Zitter-Linien)."
           },
@@ -63,6 +77,7 @@
               "cast": "plf",
               "framing": "medium",
               "mood": "desperate",
+              "pose": "crouch",
               "facing": "front",
               "x": 0.45,
               "y": 0.6,
@@ -72,6 +87,7 @@
               "cast": "crows",
               "framing": "full",
               "mood": "menacing",
+              "pose": "stand",
               "facing": "front",
               "x": 0.8,
               "y": 0.35,
@@ -134,6 +150,18 @@
             "angle": "low"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "key": "front",
+            "height": "eye",
+            "source": "energy",
+            "accent": {
+              "color": "amber",
+              "on": "der warme Schimmer der Energiekugel zwischen PLFs Händen"
+            },
+            "note": {
+              "de": "Die Energiekugel wird das Licht: ihr warmer Schimmer verdrängt das Grün, der Strahl brennt eine weiße Bahn durch die schwarzen Rack-Reihen."
+            }
+          },
           "action": {
             "de": "Oben: PLF, Hände an der Hüfte zur Kugel gewölbt, warmer Schimmer verdrängt das kalte Grün. Mitte: sie stößt die Hände nach vorn, ein Energiestrahl schießt den Scroll hinab durch die Rack-Reihen. Unten: Transistoren und LEDs glühen in grellen Farben auf, pulsieren, tanzen."
           },
@@ -148,6 +176,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "fierce",
+              "pose": "cast",
               "facing": "front",
               "x": 0.5,
               "y": 0.2,
@@ -210,6 +239,15 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "key": "front",
+            "height": "eye",
+            "source": "energy",
+            "shadow": "none",
+            "note": {
+              "de": "Überbelichtung: das Licht frisst alles, nur dünne schwarze Linien bleiben – Sin City invertiert, die Zeit steht still."
+            }
+          },
           "action": {
             "de": "Der Höhepunkt: fast reines Weiß, unermesslich grell. Nur als dünne schwarze Linien eingebrannt: die Umrisse der Racks, PLF mit ausgestreckten Armen, ein paar Krähen mitten im Flug – wie ein überbelichtetes Foto. Die Zeit steht still."
           },
@@ -224,6 +262,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "fierce",
+              "pose": "cast",
               "facing": "right",
               "x": 0.35,
               "y": 0.6,
@@ -233,6 +272,7 @@
               "cast": "crows",
               "framing": "full",
               "mood": "scared",
+              "pose": "jump",
               "facing": "left",
               "x": 0.75,
               "y": 0.4,
@@ -258,6 +298,13 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "source": "none",
+            "shadow": "none",
+            "note": {
+              "de": "Blackout von oben nach unten: Reihe für Reihe erlischt, die Krähen die letzten schwarzen Fetzen vor dem Glimmen, dann nur Schwarz."
+            }
+          },
           "action": {
             "de": "Oben letzte Nachglut, dann frisst sich Schwarz nach unten: Bildschirme erlöschen Reihe für Reihe. In der Mitte flattern die Krähenwesen panisch auseinander, schwarze Federn, aufgerissene Schnäbel, und verschwinden ins Dunkel. Unten nur noch Schwärze."
           },
@@ -272,6 +319,7 @@
               "cast": "crows",
               "framing": "full",
               "mood": "scared",
+              "pose": "jump",
               "facing": "away",
               "x": 0.5,
               "y": 0.4,
@@ -325,6 +373,15 @@
             "angle": "high"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "key": "back",
+            "height": "low",
+            "source": "door",
+            "rim": true,
+            "note": {
+              "de": "Das Licht dreht: nur der Spalt unter der Gruft-Tür, ein Strich Tageslicht, schneidet Kabel und PLF als schwarze Umrisse heraus."
+            }
+          },
           "action": {
             "de": "Der finstere Serverraum, nur ein paar Bildschirme flackern tot. PLF schleppt sich durch Kabelsalat, der wie Wurzeln über den Boden kriecht – ein kaltes, technisches Grab. Unten am Ende des Raumes eine schwere alte Tür in einem Steinbogen, wie der Eingang zu einer Gruft, ein Lichtspalt darunter."
           },
@@ -339,6 +396,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "exhausted",
+              "pose": "walk",
               "facing": "away",
               "x": 0.45,
               "y": 0.3,
@@ -389,6 +447,14 @@
             "angle": "eye"
           },
           "location": "serverfarm-dark",
+          "light": {
+            "key": "right",
+            "height": "eye",
+            "source": "door",
+            "note": {
+              "de": "Die Tür bricht auf: grelles Tageslicht von rechts flutet die eine Bildhälfte, die andere bleibt schwarz – PLF genau auf der Kante."
+            }
+          },
           "action": {
             "de": "PLF stemmt sich keuchend mit der Schulter gegen die Tür, sie gibt knirschend nach; grelles Tageslicht bricht durch den Spalt und flutet die eine Bildhälfte, die andere bleibt Dunkel."
           },
@@ -403,6 +469,7 @@
               "cast": "plf",
               "framing": "medium",
               "mood": "exhausted",
+              "pose": "push",
               "facing": "right",
               "x": 0.4,
               "y": 0.55,
@@ -452,6 +519,14 @@
             "angle": "high"
           },
           "location": "graveyard",
+          "light": {
+            "key": "top-left",
+            "height": "high",
+            "source": "sun",
+            "note": {
+              "de": "Draußen kaltes, hartes Tageslicht: Grabsteine mit schwarzen Schatten, PLF ein winziger kniender Umriss am Fuß der Gruft."
+            }
+          },
           "action": {
             "de": "Der Schluss-Stop: von oben ein alter Friedhof unter klarem, blassem Himmel. Feuchte Erde, verwesendes Laub, schiefe Grabsteine. Ganz klein am Fuß einer Gruft PLF auf den Knien. Ein einziger Grabstein ist kaum merklich verschoben, wie ein Bildfehler."
           },
@@ -470,6 +545,7 @@
               "cast": "plf",
               "framing": "full",
               "mood": "exhausted",
+              "pose": "kneel",
               "facing": "away",
               "x": 0.4,
               "y": 0.5,
