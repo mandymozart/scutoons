@@ -4,7 +4,7 @@ import type { PanelWidth } from './panel-width.svelte.ts';
 /**
  * The AppShell's right dock (agents/DOCKING.md): the page panels – the creator's Problems / History / Flow / Reader, the
  * Info (help) panel of every ActionBar, the admin's list detail (SplitView). Several can be open at once (BACKLOG 10.57,
- * owner 2026-10-07): they tile side by side between the main area and Ask, ONE per kind, each in its fixed place
+ * owner 2026-10-07): they tile side by side right of the main area, ONE per kind, each in its fixed place
  * (`DOCK_ORDER`), each with its own header, fold, maximize and ✕. A panel opens with `useDock`; a panel of the same kind
  * from another owner replaces the shown one (its `close`, so its page's toggle follows). The shell shows
  * `shellDock.panels`, sizes them (`size`, a foldable `panelWidth`) and folds them to rails labelled `title` / `icon` –
@@ -48,7 +48,7 @@ export interface DockPanel {
 /**
  * The panels' places from the main area outwards (owner 2026-10-07, agents/DOCKING.md "Several panels"): what belongs
  * to the page's document next to it (a list's detail, History, Problems), then the Flow (it drives the main area), the
- * Reader (the result), Info (help) outermost next to Ask. Unknown kinds before Info; equal places: opening order.
+ * Reader (the result), Info (help) outermost on the right. Unknown kinds before Info; equal places: opening order.
  */
 export const DOCK_ORDER = ['detail', 'history', 'problems', 'flow', 'reader', 'info'];
 const place = (kind: string | undefined) => {
@@ -85,7 +85,7 @@ class ShellDock {
 	#ids = 0;
 	#clock = 0;
 
-	/** the docked panels in their places, main area → Ask */
+	/** the docked panels in their places, main area → right edge */
 	get panels(): DockEntry[] {
 		return this.#entries;
 	}
@@ -108,7 +108,7 @@ class ShellDock {
 
 	/**
 	 * The maximized region (owner 2026-10-06, agents/DOCKING.md "Maximize"): `dock:<id>` – that dock panel fills
-	 * everything between the sidebar's rail and Ask; another id – that region of the main area does (the page hides the
+	 * everything right of the sidebar's rail; another id – that region of the main area does (the page hides the
 	 * rest of its main area). The other regions are only hidden (their widths, folds, scroll positions and edits stay).
 	 * One at a time; not remembered.
 	 */
@@ -262,8 +262,7 @@ export const shellDock: ShellDock = ((globalThis as unknown as Record<symbol, Sh
 /**
  * Docks the component's open panel on the right while it is mounted (call during component init; once per panel – a
  * page with a Flow and Problems calls it twice): `current()` says whether it is open (the panel) or null. The shell
- * makes room for it – left of Ask, never under it, next to the other open panels; with Ask open too the sidebar folds
- * to its rail. Pages never position panels themselves. A panel with `kind` + `content` outlives the component until
+ * makes room for it – never under the page, next to the other open panels. Pages never position panels themselves. A panel with `kind` + `content` outlives the component until
  * the next page takes it over (E.3 b).
  */
 export function useDock(current: () => DockPanel | null) {

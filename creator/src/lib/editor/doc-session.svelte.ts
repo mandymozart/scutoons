@@ -3,14 +3,12 @@
 // session saves the dirty ones (asking for a note first), publishes after one confirm dialog that names exactly what
 // is published and in which language (owner 2026-10-03, 4.4.3), says what happened as a toast (UI-CONCEPTS E.1:
 // Saved, Published, Nothing to save, errors – lib/toasts.ts) and keeps the conflict the page shows as a bar (DocNotices).
-import { untrack } from 'svelte';
 import { askDialog, confirmDialog } from '@scutoons/ui';
 import { NEUTRAL_LOCALE } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { docLabel, fileLabels } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { confirmSubmit, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
-import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
 import { toast, toaster } from '$lib/toasts.ts';
 import { markedLanguage } from '$lib/editor/text-language.svelte.ts';
 
@@ -56,23 +54,7 @@ export class DocSession {
 	/** this page's last toast: a new save / publish replaces it (an old error must not outlive a good save) */
 	private lastToast: number | null = null;
 
-	constructor(private readonly options: DocSessionOptions) {
-		// the Ask panel saved one of this page's files: load it when nothing is unsaved here, else the conflict bar now
-		// (owner 2026-10-04 – not only when the next save fails)
-		$effect(() => {
-			const saved = agentSaves.last;
-			if (saved) untrack(() => this.agentSaved(saved.key, saved.version));
-		});
-	}
-
-	private agentSaved(key: string, version: number) {
-		for (const doc of [...this.docs, ...this.companions]) {
-			const locale = doc.locales.find((l) => doc.key(l) === key);
-			if (locale === undefined || doc.base[locale] === version) continue;
-			if (doc.dirty) this.conflict = { doc, error: new SaveConflict(locale, null) };
-			else void doc.load();
-		}
-	}
+	constructor(private readonly options: DocSessionOptions) {}
 
 	private get docs() {
 		return this.options.docs();

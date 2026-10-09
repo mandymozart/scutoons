@@ -16,9 +16,3 @@ export const VIEWER_URL: string = trim(
 export const CDN_URL: string = trim(
 	import.meta.env.VITE_CDN_URL || (import.meta.env.PROD ? 'https://cdn.scutoons.com' : `http://localhost:${ports.cdn}`)
 );
-
-/**
- * The Ask service (tools/mcp, CUTOVER 10.28): the agent chat (`VITE_ASK_URL`; dev: shared/dev-ports.json "ask").
- * Production host: bunny Magic Containers (owner 2026-10-04) – set VITE_ASK_URL when it is deployed.
- */
-export const ASK_URL: string = trim(import.meta.env.VITE_ASK_URL || (import.meta.env.PROD ? '' : `http://localhost:${ports.ask}/api/ask`));

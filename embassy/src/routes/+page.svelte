@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { Button, Icon } from '@scutoons/ui';
-	import { askAbout } from '@scutoons/ask';
 	import type { CallOutcome, CheckinAnswer, DueItem, PaceReminder, Portion, PortionItem, TeamMember, TeamPaceRow } from '@scutoons/api';
 	import { ApiError, embassy } from '$lib/api.ts';
 	import { getEmbassySession } from '$lib/session.svelte.ts';
 	import { getToaster } from '$lib/toasts.ts';
-	import { hintText, label, relativeDay, shortDate } from '$lib/labels.ts';
+	import { hintText, relativeDay, shortDate } from '$lib/labels.ts';
 	import { pace, saveName, setPace } from '$lib/pace.svelte.ts';
-	import { changed } from '$lib/ask-page.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import DueCard from '$lib/components/due-card.svelte';
 	import PaceChoice from '$lib/components/pace-choice.svelte';
@@ -57,7 +55,6 @@
 	$effect(() => {
 		void owner;
 		void portionMode;
-		void changed.count;
 		load();
 	});
 
@@ -110,9 +107,6 @@
 	const later = $derived(portion ? portion.items.slice(portion.today_count) : []);
 	const waiting = $derived(portion ? portion.more.due + portion.more.quiet + portion.more.first : 0);
 	const hintOf = (item: PortionItem) => `${GROUPS[item.group]()} · ${hintText(item.hint)}`;
-	function prepare(item: PortionItem) {
-		askAbout(m['portion.prepare_text']({ org: item.org.name, track: label('track', item.lead.track), hint: hintText(item.hint) }));
-	}
 	// replies in the shared mailbox land in the log (IMAP; the API reads at most every 2 minutes) and take their leads
 	// off the due list – look when the list opens
 	$effect(() => {
@@ -191,9 +185,6 @@
 			</span>
 			<span>{m['pace.done']({ done: portion.week.done, pace: portion.week.pace })}</span>
 			<button type="button" class="sc-round" class:is-active={editing} title={m['pace.label']()} aria-label={m['pace.label']()} aria-pressed={editing} onclick={editPace}><Icon name="sliders" /></button>
-			{#if portion.items.length}
-				<button type="button" class="sc-round" title={m['portion.ask']()} aria-label={m['portion.ask']()} onclick={() => askAbout(m['portion.ask_text']({ count: portion?.items.length ?? 0, date: portion?.today ?? '' }))}><Icon name="message-square" /></button>
-			{/if}
 		</div>
 		{#if editing}
 			<div class="card edit">
@@ -219,7 +210,7 @@
 		<h2>{m['portion.today']()}</h2>
 		<ul class="due" data-testid="portion-today">
 			{#each todays as item (item.lead.id)}
-				<DueCard {item} hint={hintOf(item)} showDue={item.group === 'due'} busy={busy === item.lead.id} onlog={(outcome, nextAt) => logCall(item, outcome, nextAt)} onask={() => prepare(item)} askLabel={m['portion.prepare']()} />
+				<DueCard {item} hint={hintOf(item)} showDue={item.group === 'due'} busy={busy === item.lead.id} onlog={(outcome, nextAt) => logCall(item, outcome, nextAt)} />
 			{/each}
 		</ul>
 	{/if}
@@ -227,7 +218,7 @@
 		<h2>{m['portion.later']()}</h2>
 		<ul class="due" data-testid="portion-later">
 			{#each later as item (item.lead.id)}
-				<DueCard {item} hint={hintOf(item)} showDue={item.group === 'due'} busy={busy === item.lead.id} onlog={(outcome, nextAt) => logCall(item, outcome, nextAt)} onask={() => prepare(item)} askLabel={m['portion.prepare']()} />
+				<DueCard {item} hint={hintOf(item)} showDue={item.group === 'due'} busy={busy === item.lead.id} onlog={(outcome, nextAt) => logCall(item, outcome, nextAt)} />
 			{/each}
 		</ul>
 	{/if}

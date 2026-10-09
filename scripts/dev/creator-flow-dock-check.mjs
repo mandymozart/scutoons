@@ -4,7 +4,7 @@
 // element + its mount counter) toon → season → chapter (client-side navigation, as a crumb / sidebar / box does), each
 // new level rebuilt at the kept zoom; in the chapter group → group keeps even the graph and its viewport; a box click
 // navigates and the panel follows; Problems stay the same panel chapter → season; a page without a Flow (cast) closes
-// the held one; the admin's Info stays the same panel codes → assets; Ask gets the crumb trail's place (context + the deepest crumb's address).
+// the held one; the admin's Info stays the same panel codes → assets.
 //   node scripts/dev/creator-flow-dock-check.mjs        (creator :10000, API :9000)
 //   SCUTOONS_FLOW_TOON (default catpope)
 import { spawn } from 'node:child_process';
@@ -163,18 +163,6 @@ try {
 	await until(`location.pathname.includes('/season/') && document.querySelector('[data-testid="season-meta"]') ? true : null`, 20000);
 	await sleep(500);
 	check(await js(`!!document.querySelector('.problems-dock') && document.querySelector('.problems-dock') === window.__problems`), 'chapter → season: Problems stay the same panel (the season\'s list)');
-
-	// ── Ask reads the crumbs: context = the trail's names, ref = the deepest crumb's address ──
-	check(await go(`/${TOON}/chapter/${chapter}`, `!!${q('group-1')}`), 'chapter editor for Ask');
-	await js(`${q('group-1')}.click(), true`);
-	await sleep(500);
-	await js(`window.__askBody = null; const f = window.fetch; window.fetch = (u, o) => { if (o?.body && String(o.body).includes('"context"')) { window.__askBody = JSON.parse(o.body); return Promise.resolve(new Response('{}', { status: 500 })); } return f(u, o); }; true`);
-	await js(`${q('ask-toggle')}.click(), true`);
-	await until(`!!document.querySelector('[data-testid="ask-panel"] textarea')`);
-	const crumbs = await js(`[...document.querySelectorAll('nav [href]')].filter((a) => a.closest('nav')?.getAttribute('aria-label')).map((a) => a.textContent.trim())`);
-	await js(`(() => { const t = document.querySelector('[data-testid="ask-panel"] textarea'); t.value = 'where am I'; t.dispatchEvent(new Event('input', { bubbles: true })); t.form ? t.form.requestSubmit() : t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);
-	const body = await until('window.__askBody', 5000);
-	check(body && /Season|Staffel/.test(body.context) && body.context.split(' · ').length >= 4 && new RegExp(`/chapter/${chapter}[?]group=`).test(body.ref ?? ''), `Ask: context "${body?.context}" (the trail with the season), ref ${body?.ref}`, JSON.stringify({ body, crumbs }));
 
 	// ── the admin's Info (the ActionBar's, kind 'info'): codes → assets the same panel, the next page's help ──
 	const ADMIN = (process.env.SCUTOONS_ADMIN ?? local('admin')).replace(/\/$/, '');

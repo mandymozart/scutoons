@@ -1,19 +1,17 @@
 #!/usr/bin/env node
 // The creator's docked regions (agents/DOCKING.md) in headless Chrome (own profile) as the local test user – nothing is
 // saved: at 1280 / 1600 / 1920 the chapter editor's Flow and the season's Problems sit in the AppShell's right dock and
-// the content ends where the dock starts; with Ask open too the dock is left of Ask and the sidebar folds to its rail
-// (not remembered); the sidebar folds by Ctrl+\, by its chevrons and by dragging its edge narrow, a drag out of the rail
+// the content ends where the dock starts; the sidebar folds by Ctrl+\, by its chevrons and by dragging its edge narrow, a drag out of the rail
 // opens it, a double-click resets it; the dock's Divider drags wider (remembered, ← = 16 px, double-click resets) and
 // stops where the content would get narrower than 24rem; the dock folds to a rail (its fold button, Enter, dragging it
-// narrow; the rail shows the panel's icon + title, a click / a drag opens it; next to a folded dock + Ask the sidebar
-// stays open; a panel opens unfolded); the script outline folds to its rail and drags on its Divider (remembered); the
-// slice inspector is a region beside the canvas (at most half the area, below it under 1280px); Ask's Divider drags it
-// wider; maximize (owner 2026-10-06): the Flow / the slice inspector fill the space between the sidebar's rail and Ask by
-// their button, Esc, Ctrl+Space (the main stays mounted: its unsaved edit, scroll and widths survive), a Flow box click
+// narrow; the rail shows the panel's icon + title, a click / a drag opens it; a panel opens
+// unfolded); the script outline folds to its rail and drags on its Divider (remembered); the
+// slice inspector is a region beside the canvas (at most half the area, below it under 1280px); maximize
+// (owner 2026-10-06): the Flow / the slice inspector fill the space right of the sidebar's rail by their button, Esc, Ctrl+Space (the main stays mounted: its unsaved edit, scroll and widths survive), a Flow box click
 // restores and navigates, another panel takes the maximize over, closing ends it; on a phone the dock covers the page.
-// 10.57 (owner 2026-10-07): maximize = fold everything else to its rail (main, other panels, Ask; the ActionBar stays);
+// 10.57 (owner 2026-10-07): maximize = fold everything else to its rail (main, other panels; the ActionBar stays);
 // several panels: the room running out folds the least recently used first (a squeezed rail's click brings it back,
-// the next folds), Ctrl+Shift+\ folds the main; every rail's button at the height of Ask's header buttons (±1 px). Admin + embassy (Info, SplitView, Ask): check:tools-dock.
+// the next folds), Ctrl+Shift+\ folds the main; every rail's button at one height (±1 px). Admin + embassy (Info, SplitView): check:tools-dock.
 //   node scripts/dev/creator-dock-check.mjs        (creator :10000, API :9000)
 //   DOCK_SHOTS=<dir>: screenshots <DOCK_PREFIX, default dock->*.png into <dir>
 import { spawn } from 'node:child_process';
@@ -86,12 +84,7 @@ const go = async (url, ready) => {
 	return until(ready, 30000);
 };
 /** rects of the regions (px, rounded) */
-const layout = () => js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), dock: r('.sc-shell-dock'), ask: r('[data-testid="ask-panel"]'), folded: !!document.querySelector('.sc-app-shell.folded'), rail: !!document.querySelector('[data-testid="shell-rail"]'), dockRail: !!document.querySelector('[data-testid="dock-rail"]') }; })()`);
-const setAsk = async (open) => {
-	const now = await js(`${q('ask-toggle')}?.getAttribute('aria-pressed') === 'true'`);
-	if (now !== open) await js(`${q('ask-toggle')}.click(), true`);
-	await sleep(400);
-};
+const layout = () => js(`(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), w: Math.round(b.width), h: Math.round(b.height) }; }; return { sidebar: r('.sc-shell-sidebar'), content: r('.sc-shell-content'), dock: r('.sc-shell-dock'), folded: !!document.querySelector('.sc-app-shell.folded'), rail: !!document.querySelector('[data-testid="shell-rail"]'), dockRail: !!document.querySelector('[data-testid="dock-rail"]') }; })()`);
 async function drag(selector, dx) {
 	const p = await js(`(() => { const b = document.querySelector('${selector}').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
 	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
@@ -112,8 +105,7 @@ try {
 
 	for (const w of [1280, 1600, 1920]) {
 		await size(w);
-		// ── chapter editor: Flow + Ask ──
-		await setAsk(false);
+		// ── chapter editor: Flow ──
 		check(await go('/catpope/chapter/1?flow=1', `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node')`), `${w}: chapter editor with its Flow open`);
 		await sleep(600);
 		let g = await layout();
@@ -121,15 +113,6 @@ try {
 		const crowded = false;
 		check(g.dock && g.content.r <= g.dock.l + 1 && g.folded === crowded, `${w}: Flow in the shell's dock, the content ends where it starts, sidebar ${crowded ? 'folded (no room)' : 'open'}`, JSON.stringify(g));
 		await shot(`${w}-chapter-flow`);
-		await setAsk(true);
-		await sleep(500);
-		g = await layout();
-		check(g.ask && g.dock.r <= g.ask.l + 1 && g.folded && g.rail, `${w}: + Ask – Flow left of Ask, the sidebar folds to its rail`, JSON.stringify(g));
-		await shot(`${w}-chapter-flow-ask`);
-		await setAsk(false);
-		await sleep(400);
-		g = await layout();
-		check(g.folded === crowded, `${w}: Ask closed – the sidebar as before (folded for the page's sake, not remembered)`, JSON.stringify(g));
 
 		// ── a meta page: Problems ──
 		check(await go('/catpope/season/1', `!!${q('problems-toggle')}`), `${w}: season page`);
@@ -142,7 +125,6 @@ try {
 
 	// ── sidebar fold / unfold, the dock divider (1600) ──
 	await size(1600);
-	await setAsk(false);
 	await go('/catpope', `!!document.querySelector('.sc-shell-sidebar')`);
 	await sleep(400);
 	await shot('1600-toon-sidebar-open');
@@ -219,11 +201,6 @@ try {
 	check(g.dockRail && Math.abs(g.dock.w - railPx) <= 2 && g.content.r <= g.dock.l + 1 && g.content.w > open0.content.w + 200 && !!railText, `the dock's fold button folds it to a rail labelled "${railText}" (${g.dock.w} px), the content takes the room`, JSON.stringify(g));
 	check(await js(`!!document.querySelector('[data-testid="dock-rail"] .sc-rail-icon svg')`), "the rail shows the panel's icon");
 	await shot('1600-dock-rail');
-	await setAsk(true);
-	g = await layout();
-	check(g.dockRail && !g.folded && g.dock.r <= g.ask.l + 1, '+ Ask: the folded dock left of Ask, the sidebar stays open (a rail needs no room)', JSON.stringify(g));
-	await shot('1600-dock-rail-ask');
-	await setAsk(false);
 	await js(`document.querySelector('[data-testid="dock-rail"] .sc-rail-label').click(), true`);
 	await sleep(300);
 	g = await layout();
@@ -253,7 +230,7 @@ try {
 	await sleep(400);
 	check(!(await layout()).dockRail && (await js(`!!${q('flow-panel')}`)), 'closed and opened again, the panel opens unfolded (the fold is not remembered)');
 
-	// ── maximize (owner 2026-10-06): a dock panel / the slice inspector fills the space between the sidebar's rail and Ask;
+	// ── maximize (owner 2026-10-06): a dock panel / the slice inspector fills the space right of the sidebar's rail;
 	//    the rest is only hidden (widths, folds, scroll positions, unsaved edits stay); button, Esc, Ctrl+Space, a Flow box ──
 	const press = async (key, code, vk, modifiers = 0) => {
 		await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, windowsVirtualKeyCode: vk });
@@ -263,7 +240,7 @@ try {
 	const ctrlSpace = () => press(' ', 'Space', 32, 2);
 	const escape = () => press('Escape', 'Escape', 27);
 	const maxState = () =>
-		js(`(() => { const b = ${q('dock-maximize')}; const c = document.querySelector('.sc-shell-content'); const bar = document.querySelector('.sc-action-bar'); const br = bar?.getBoundingClientRect(); return { dock: !!document.querySelector('.sc-app-shell.max-dock'), main: !!document.querySelector('.sc-app-shell.max-main'), contentHidden: c ? getComputedStyle(c).visibility === 'hidden' : null, mainRail: !!${q('main-rail')}, askRail: !!${q('ask-rail')}, bar: !!bar && getComputedStyle(bar).visibility === 'visible' && br.bottom <= innerHeight + 1 && br.height > 10, icon: b?.querySelector('svg')?.dataset.icon ?? null, title: b?.title ?? null, label: b?.getAttribute('aria-label') ?? null }; })()`);
+		js(`(() => { const b = ${q('dock-maximize')}; const c = document.querySelector('.sc-shell-content'); const bar = document.querySelector('.sc-action-bar'); const br = bar?.getBoundingClientRect(); return { dock: !!document.querySelector('.sc-app-shell.max-dock'), main: !!document.querySelector('.sc-app-shell.max-main'), contentHidden: c ? getComputedStyle(c).visibility === 'hidden' : null, mainRail: !!${q('main-rail')}, bar: !!bar && getComputedStyle(bar).visibility === 'visible' && br.bottom <= innerHeight + 1 && br.height > 10, icon: b?.querySelector('svg')?.dataset.icon ?? null, title: b?.title ?? null, label: b?.getAttribute('aria-label') ?? null }; })()`);
 	const field = `document.querySelector('.columns > .main input[type="text"], .columns > .main textarea')`;
 	check(await go('/catpope/chapter/1?flow=1', `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node') && !!${field}`), '1600: chapter Flow + an editable main for maximize');
 	await sleep(500);
@@ -287,12 +264,6 @@ try {
 	check(mx.icon === 'minimize-2' && mx.label === 'Restore' && mx.title?.startsWith('Restore'), `maximized: the button says "${mx.title}" (minimize-2)`, JSON.stringify(mx));
 	check((await js(`${field}.value`)) === edited && (await js(`!!${q('flow-panel')}`)), 'maximized: the hidden main keeps its edit (nothing unmounted)');
 	await shot('1600-flow-max');
-	await setAsk(true);
-	g = await layout();
-	mx = await maxState();
-	const askRailAt = await js(`(() => { const b = ${q('ask-rail')}?.getBoundingClientRect(); return b ? Math.round(b.left) : null; })()`);
-	check(mx.dock && mx.askRail && askRailAt !== null && Math.abs(g.dock.r - askRailAt) <= 2, `maximized + Ask: Ask folds to its rail, the Flow ends where it starts (${g.dock.r} / ${askRailAt})`, JSON.stringify({ mx, g, askRailAt }));
-	await setAsk(false);
 	await js(`${q('dock-maximize')}.click(), true`);
 	await sleep(400);
 	mx = await maxState();
@@ -379,15 +350,20 @@ try {
 	await ctrlSpace();
 	check(await js(`!document.querySelector('.sc-app-shell.max-main, .sc-app-shell.max-dock')`), 'Ctrl+Space restores');
 
-	// ── several panels (10.57): the room running out folds the least recently used first; every rail's button at the
-	//    height of Ask's header buttons ──
+	// ── several panels (10.57): the room running out folds the least recently used first; every rail's button at one
+	//    height (the panels' header buttons) ──
 	const docks = () => js(`[...document.querySelectorAll('.sc-shell-dock')].map((e) => ({ kind: e.dataset.kind, rail: e.classList.contains('railed'), squeezed: !!e.querySelector('[data-testid="dock-rail-squeezed"]'), w: Math.round(e.getBoundingClientRect().width) }))`);
 	const squeezedKinds = async () => (await docks()).filter((d) => d.squeezed).map((d) => d.kind).sort().join();
-	for (const [w, first, after] of [[1440, 'flow,reader', 'problems,reader'], [1920, 'flow', 'reader']]) {
+	// squeezed rails are always the least recently used ones: a prefix of `order` (any order within it)
+	const lruPrefix = (kinds, order) => {
+		const list = kinds ? kinds.split(',') : [];
+		return list.length <= order.length && order.slice(0, list.length).sort().join() === list.slice().sort().join();
+	};
+	// 1024 squeezes (sidebar + 24rem content + three 12rem floors do not fit), 1440 may or may not
+	for (const w of [1024, 1440]) {
 		await size(w);
-		await setAsk(false);
 		check(await go('/catpope/chapter/1?flow=1', `!!${q('flow-panel')} && !!document.querySelector('.svelte-flow__node')`), `${w}: chapter with its Flow`);
-		await js(`['flow', 'reader', 'chapter', 'ask'].forEach((k) => localStorage.removeItem('sc-panel-width:' + k)), true`);
+		await js(`['flow', 'reader', 'chapter'].forEach((k) => localStorage.removeItem('sc-panel-width:' + k)), true`);
 		await js(`${q('reader-toggle')}.click(), true`);
 		await sleep(400);
 		if (!(await js(`!!${q('problems-toggle')}`))) {
@@ -395,33 +371,33 @@ try {
 			await until(`!!${q('problems-toggle')}`, 3000);
 		}
 		await js(`${q('problems-toggle')}.click(), true`);
-		await setAsk(true);
 		await sleep(700);
 		const order = (await docks()).map((d) => d.kind).join();
 		check(order === 'problems,flow,reader', `${w}: three panels in their places: ${order}`);
 		const sq = await squeezedKinds();
 		g = await layout();
-		check(sq === first && g.content.w >= 24 * (await js('parseFloat(getComputedStyle(document.documentElement).fontSize)')) / 2 - 2, `${w}: Flow, Reader, Problems opened in that order + Ask: the least recently used fold to their rails first (${sq || 'none'})`, JSON.stringify(await docks()));
-		await shot(`${w}-three-panels-ask`);
-		// the Flow's rail: it comes back (now the most recently used), the next least recently used folds instead
-		await js(`document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-rail-squeezed"] button').click(), true`);
-		await sleep(500);
-		const sq2 = await squeezedKinds();
-		check(sq2 === after && !(await docks()).find((d) => d.kind === 'flow').rail, `${w}: a click on the Flow's rail brings it back, ${sq2} on rails now`, JSON.stringify(await docks()));
-		// rails at the height of Ask's header buttons: the sidebar's (Ctrl+\), a folded panel's, the main's (Ctrl+Shift+\)
+		check(lruPrefix(sq, ['flow', 'reader']) && (w > 1024 || sq) && g.content.w >= 24 * (await js('parseFloat(getComputedStyle(document.documentElement).fontSize)')) / 2 - 2, `${w}: Flow, Reader, Problems opened in that order: the least recently used fold to their rails first (${sq || 'none'})`, JSON.stringify(await docks()));
+		await shot(`${w}-three-panels`);
+		if (sq.includes('flow')) {
+			// the Flow's rail: it comes back (now the most recently used), the next least recently used folds instead
+			await js(`document.querySelector('.sc-shell-dock[data-kind="flow"] [data-testid="dock-rail-squeezed"] button').click(), true`);
+			await sleep(500);
+			const sq2 = await squeezedKinds();
+			check(lruPrefix(sq2, ['reader', 'problems']) && sq2.split(',').length === sq.split(',').length && !(await docks()).find((d) => d.kind === 'flow').rail, `${w}: a click on the Flow's rail brings it back, ${sq2} on rails now`, JSON.stringify(await docks()));
+		}
+		// rails at one height (the panels' header buttons): the sidebar's (Ctrl+\), a folded panel's, the main's (Ctrl+Shift+\)
 		await js(`${q('dock-fold')}?.click(), true`);
 		await sleep(200);
 		if (!(await js(`!!${q('shell-rail')}`))) await press('\\', 'Backslash', 220, 2);
 		// the Reader's frame may hold the focus (keys go to the viewer then): the creator's page first
 		await js(`document.activeElement?.blur(), true`);
 		await press('|', 'Backslash', 220, 2 + 8);
-		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { ask: t('.sc-shell-ask header .sc-round'), sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button, [data-testid="dock-rail-squeezed"] button') }; })()`);
-		check(tops.ask !== null && tops.sidebar !== null && tops.main !== null && tops.dock !== null && [tops.sidebar, tops.main, tops.dock].every((t) => Math.abs(t - tops.ask) <= 1), `${w}: every rail's button at the height of Ask's header buttons (Ask ${tops.ask}, sidebar ${tops.sidebar}, main ${tops.main}, panel ${tops.dock})`, JSON.stringify(tops));
+		const tops = await js(`(() => { const t = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().top * 10) / 10 : null; }; return { sidebar: t('[data-testid="shell-rail"] button'), main: t('[data-testid="main-rail"] button'), dock: t('[data-testid="dock-rail"] button, [data-testid="dock-rail-squeezed"] button') }; })()`);
+		check(tops.sidebar !== null && tops.main !== null && tops.dock !== null && [tops.main, tops.dock].every((t) => Math.abs(t - tops.sidebar) <= 1), `${w}: every rail's button at one height (sidebar ${tops.sidebar}, main ${tops.main}, panel ${tops.dock})`, JSON.stringify(tops));
 		await shot(`${w}-rails`);
 		await press('|', 'Backslash', 220, 2 + 8);
 		check(!(await js(`!!${q('main-rail')}`)), `${w}: Ctrl+Shift+\\ again unfolds the main`);
 		if (await js(`!!${q('shell-rail')}`)) await js(`${q('shell-rail')}.querySelector('button').click(), true`);
-		await setAsk(false);
 	}
 	await size(1600);
 
@@ -492,16 +468,6 @@ try {
 	check(g.regionTop >= g.mainBottom - 1 && g.divider === 'none', '1200: the inspector below the canvas (no Divider)', JSON.stringify(g));
 	await shot('1200-slice-inspector');
 	await size(1920);
-
-	// Ask's own divider
-	await setAsk(true);
-	const a0 = (await layout()).ask.w;
-	d = await drag('.sc-shell-ask .sc-divider', -120);
-	await d.release();
-	const a1 = (await layout()).ask.w;
-	check(a1 > a0 + 100, `Ask's divider drags it wider (${a0} → ${a1})`);
-	await js(`document.querySelector('.sc-shell-ask .sc-divider').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })), true`);
-	await setAsk(false);
 
 	// phones: the dock covers the page
 	await size(390, 844);

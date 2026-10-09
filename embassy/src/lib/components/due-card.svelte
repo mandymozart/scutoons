@@ -1,7 +1,6 @@
 <script lang="ts">
 	// One lead to work on: organisation, track / stage, why it is here (`hint`), the last log entry, every phone number
-	// and address, the call outcome buttons – on Today's due list and in the weekly portion. `onask` adds the Ask button
-	// (the agent prepares the call or drafts a mail).
+	// and address, the call outcome buttons – on Today's due list and in the weekly portion.
 	import { Badge, Icon } from '@scutoons/ui';
 	import type { CallOutcome, DueItem } from '@scutoons/api';
 	import { label, relativeDay, telHref } from '$lib/labels.ts';
@@ -13,16 +12,12 @@
 		hint = '',
 		busy = false,
 		onlog,
-		onask,
-		askLabel = '',
 		showDue = true
 	}: {
 		item: DueItem;
 		hint?: string;
 		busy?: boolean;
 		onlog: (outcome: CallOutcome, nextAt?: string) => void;
-		onask?: () => void;
-		askLabel?: string;
 		/** the "due today / N days late" note (not for a quiet contact or a first contact) */
 		showDue?: boolean;
 	} = $props();
@@ -76,7 +71,6 @@
 	</ul>
 	<div class="actions">
 		<CallOutcomes disabled={busy} onlog={(outcome, nextAt) => onlog(outcome, nextAt)} />
-		{#if onask}<button type="button" class="sc-round" title={askLabel} aria-label={askLabel} onclick={onask}><Icon name="message-square" /></button>{/if}
 	</div>
 </li>
 

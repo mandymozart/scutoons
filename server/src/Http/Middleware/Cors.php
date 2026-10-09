@@ -20,7 +20,7 @@ use Scutoons\Infrastructure\Config\Settings;
  * Kept exactly as the plain-PHP server answered (contract): /api/toons/ and /api/keys/keys.php send no CORS headers;
  * /api/validate/ is open to every origin (`*`, legacy viewer builds), so is /api/certificates/* (anyone may verify a
  * certificate); /api/items/ and /api/editions/ add `*` for
- * other origins in their controller. /api/admin/*, /api/embassy/* and /api/agent-chats/* also allow DELETE.
+ * other origins in their controller. /api/admin/* and /api/embassy/* also allow DELETE.
  */
 final class Cors implements MiddlewareInterface
 {
@@ -48,7 +48,7 @@ final class Cors implements MiddlewareInterface
         if ($origin !== '' && $this->isAllowed($origin)) {
             $response = $response->withHeader('Access-Control-Allow-Origin', $origin)
                 ->withHeader('Vary', 'Origin')
-                ->withHeader('Access-Control-Allow-Methods', str_starts_with($path, '/api/admin') || str_starts_with($path, '/api/embassy') || str_starts_with($path, '/api/agent-chats') ? self::ADMIN_METHODS : self::METHODS)
+                ->withHeader('Access-Control-Allow-Methods', str_starts_with($path, '/api/admin') || str_starts_with($path, '/api/embassy') ? self::ADMIN_METHODS : self::METHODS)
                 ->withHeader('Access-Control-Allow-Headers', self::HEADERS)
                 ->withHeader('Access-Control-Allow-Credentials', 'true')
                 ->withHeader('Access-Control-Max-Age', '86400');

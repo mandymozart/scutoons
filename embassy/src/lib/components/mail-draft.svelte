@@ -1,9 +1,8 @@
 <script module lang="ts">
 	import type { Track } from '@scutoons/api';
 
-	/** a mail to send: from the Ask agent's draft_mail (tools/mcp embassy.ts) or written on the organisation page */
+	/** a mail to send, written on the organisation page */
 	export interface Draft {
-		id?: string;
 		org_id: string;
 		org?: string;
 		to: string;
@@ -17,14 +16,11 @@
 </script>
 
 <script lang="ts">
-	// One mail, written by a person or drafted by the Ask agent, sent by the person (owner 2026-10-04: the agent only
-	// drafts; any liaison / ambassador sends): one-to-one from the shared mailbox (hello@scutoons.com) through the API,
-	// which adds the opt-out line and logs it (mail sent → contacted, call in 6 days). The same card in the Ask panel
-	// and on the organisation page. A sent draft is remembered per browser (`id`), so a reopened chat doesn't offer to
-	// send it again.
+	// One mail, written and sent by a person (any liaison / ambassador): one-to-one from the shared mailbox
+	// (hello@scutoons.com) through the API, which adds the opt-out line and logs it (mail sent → contacted, call in 6
+	// days). On the organisation page.
 	import { Button, Icon } from '@scutoons/ui';
 	import { ApiError, embassy } from '$lib/api.ts';
-	import { changed } from '$lib/ask-page.svelte.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { label } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -35,30 +31,20 @@
 		onsent
 	}: {
 		draft: Draft;
-		/** the organisation page: who may get mail (a choice); the Ask card keeps the agent's recipient */
+		/** who may get mail (a choice); without, the draft's recipient */
 		recipients?: { email: string; person_id: string | null; label: string }[];
 		onsent?: () => void;
 	} = $props();
 
 	const toaster = getToaster();
-	const SENT = 'scutoons_embassy_sent_drafts';
-	const sentIds = (): string[] => {
-		try {
-			return JSON.parse(localStorage.getItem(SENT) ?? '[]');
-		} catch {
-			return [];
-		}
-	};
-
-	// the card edits its own copy; the draft it came from stays as the agent wrote it
+	// the card edits its own copy of the draft
 	// svelte-ignore state_referenced_locally
 	let to = $state(draft.to);
 	// svelte-ignore state_referenced_locally
 	let subject = $state(draft.subject);
 	// svelte-ignore state_referenced_locally
 	let text = $state(draft.text);
-	// svelte-ignore state_referenced_locally
-	let done = $state(!!draft.id && sentIds().includes(draft.id));
+	let done = $state(false);
 	let sending = $state(false);
 	let error = $state('');
 
@@ -78,14 +64,6 @@
 				reply_to_activity_id: draft.reply_to_activity_id ?? null
 			});
 			done = true;
-			if (draft.id) {
-				try {
-					localStorage.setItem(SENT, JSON.stringify([...sentIds(), draft.id].slice(-200)));
-				} catch {
-					/* storage blocked: the log shows it was sent */
-				}
-			}
-			changed.count++;
 			toaster.addToast({ type: 'success', message: m['mail.sent']() });
 			onsent?.();
 		} catch (e) {

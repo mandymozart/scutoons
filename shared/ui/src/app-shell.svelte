@@ -9,12 +9,12 @@
 	import { untrack, type Snippet } from 'svelte';
 
 	/**
-	 * Page frame of the tools (admin, creator, embassy): top bar + optional sidebar (left) + content + the right dock +
-	 * Ask (outermost right), above the fixed bottom `ActionBar` (PLATFORM.md "Bottom action bar"). From 768px the regions
+	 * Page frame of the tools (admin, creator, embassy): top bar + optional sidebar (left) + content + the right dock,
+	 * above the fixed bottom `ActionBar` (PLATFORM.md "Bottom action bar"). From 768px the regions
 	 * tile and never overlap (agents/DOCKING.md); their borders always reach the ActionBar (or the viewport bottom without
 	 * one), at any scroll position and content length:
 	 *
-	 * - `mode="page"` (default): the document scrolls. The top bar is sticky; sidebar, dock and Ask are sticky and exactly
+	 * - `mode="page"` (default): the document scrolls. The top bar is sticky; sidebar and dock are sticky and exactly
 	 *   as tall as the space between the top bar and the ActionBar, and scroll on their own when taller. A short page
 	 *   does not scroll at all.
 	 * - `mode="fill"`: the shell is exactly the viewport minus the ActionBar and the document never scrolls; every region
@@ -31,28 +31,26 @@
 	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a `Rail` –
 	 * the `FoldButton` (chevrons-left) at its top right, dragging the edge narrower than the normal width, or Ctrl + \;
 	 * the rail shows `railLabel` (the current place) written vertically. Remembered per key (`sc-sidebar-folded:<key>`).
-	 * It folds by itself (not remembered) while an unfolded dock AND Ask are open, or while `foldWhen` holds (who gives way first:
+	 * It folds by itself (not remembered) while `foldWhen` holds or a region is maximized (who gives way first:
 	 * agents/DOCKING.md "Running out of room").
 	 * The right dock: the page panels opened with `useDock` (dock.svelte.ts – Problems / History / Flow / Reader, Info, a
 	 * list's detail), several at once side by side in their fixed places (10.57, agents/DOCKING.md "Several panels") –
 	 * each a column of the frame, so the content makes room; each one's left edge is a `Divider`; dragged wider, a panel
-	 * stops where the content would get narrower than `minContent` (default 20rem) next to the sidebar, the other panels
-	 * and Ask. When the room runs out the panels get narrower together (down to 12rem each), then the least recently
+	 * stops where the content would get narrower than `minContent` (default 20rem) next to the sidebar and the other panels.
+	 * When the room runs out the panels get narrower together (down to 12rem each), then the least recently
 	 * used folds to its rail, then the next; alone, a panel gets narrower than 12rem only while the content keeps half
 	 * its minimum. Each folds to a rail (owner 2026-10-06: the panel's `DockFold` button or dragging it narrow; the rail
 	 * shows the panel's icon and title, a click unfolds it). Below 768px the most recently used covers the page.
 	 * Maximize (owner 2026-10-06, `shellDock.maximized`, agents/DOCKING.md "Maximize"): a docked panel (`dock:<id>`) or a
 	 * region of the main area (its id, e.g. the slice inspector – the page hides the rest of its main area) fills
-	 * everything between the sidebar (folded to its rail) and Ask. The other regions are only hidden (`visibility`, laid out
+	 * everything right of the sidebar (folded to its rail). The other regions are only hidden (`visibility`, laid out
 	 * as before – nothing unmounts: their widths, folds, scroll positions and unsaved edits stay); the page's ActionBar
 	 * stays (10.57). The panel's `MaximizeButton`, Ctrl + Space (the focused region's, else the most recently used open
 	 * panel's) and Esc restore. Not on phones.
-	 * `ask`: the app-wide Ask panel (@scutoons/ask) – the outermost region on the right; it sizes itself.
 	 */
 	let {
 		topbar,
 		sidebar,
-		ask,
 		children,
 		mode = 'page',
 		sidebarWidth = 'var(--tool-sidebar-width)',
@@ -77,13 +75,10 @@
 		pageLabel,
 		pageFoldLabel,
 		pageUnfoldLabel,
-		askLabel = 'Ask',
 		class: className = ''
 	}: {
 		topbar?: Snippet;
 		sidebar?: Snippet;
-		/** the Ask panel (outermost right) while it is open */
-		ask?: Snippet;
 		children: Snippet;
 		mode?: 'page' | 'fill';
 		/** CSS length; may use `var(…)` so an app can change it per breakpoint */
@@ -106,7 +101,7 @@
 		foldLabel?: string;
 		unfoldLabel?: string;
 		/** fold to the rail while true (the page needs the room); not remembered – unfolding by hand wins until it turns
-		 * false again. A dock and Ask open together always fold it. */
+		 * false again. */
 		foldWhen?: boolean;
 		/** rem: the content's minimum width – a dock dragged wider stops there */
 		minContent?: number;
@@ -119,13 +114,11 @@
 		pageLabel?: string;
 		pageFoldLabel?: string;
 		pageUnfoldLabel?: string;
-		/** Ask's rail while a region is maximized */
-		askLabel?: string;
 		class?: string;
 	} = $props();
 
 	let topHeight = $state(0);
-	/** the docked panels in their places, main area → Ask */
+	/** the docked panels in their places, main area → right edge */
 	const panels = $derived(shellDock.panels);
 	const maxPanel = $derived(shellDock.maximizedPanel);
 	/** the maximized region: `'dock'` (a docked panel – `maxPanel`, unfolded) or a main region's id */
@@ -150,13 +143,12 @@
 		anchor: () => sidebarEl?.getBoundingClientRect().left ?? 0,
 		normal: measureBase,
 		max: () => window.innerWidth / 3,
-		// who gives way first (agents/DOCKING.md "Running out of room"): a dock and Ask both open fold the sidebar (a
-		// dock folded to its rail needs no room)
-		foldWhen: () => foldWhen || (!!ask && panels.some((e) => !e.panel.size.folded)) || !!maximized
+		// who gives way first (agents/DOCKING.md "Running out of room"); maximized = fold everything else
+		foldWhen: () => foldWhen || !!maximized
 	});
 	const folded = $derived(region.folded);
 	/** phones (< 768px): a collapsible sidebar is the drawer – it never shows the rail (a fold remembered on a desktop, or
-	 * one forced by dock + Ask, would leave an empty rail as wide as the drawer); its fold button closes the drawer */
+	 * one forced by `foldWhen`, would leave an empty rail as wide as the drawer); its fold button closes the drawer */
 	let phone = $state(false);
 	$effect(() => {
 		const query = window.matchMedia('(max-width: 767px)');
@@ -241,7 +233,6 @@
 				}
 				if (overlayOpen()) return;
 				const active = document.activeElement;
-				if (active?.closest('.sc-shell-ask')) return;
 				// the focused region (a panel: `dock:<id>`); from anywhere else the most recently used open panel
 				const target = active?.closest('[data-sc-maximize]')?.getAttribute('data-sc-maximize') || (latestShown ? `dock:${latestShown.id}` : null);
 				if (!target) return;
@@ -262,12 +253,10 @@
 		};
 	});
 
-	// ---------- the right dock (several panels, 10.57) + Ask ----------
+	// ---------- the right dock (several panels, 10.57) ----------
 	let frameEl = $state<HTMLElement>();
 	/** px: the frame's width (measured) */
 	let frameWidth = $state(0);
-	/** px: Ask's width (it sizes itself) */
-	let askWidth = $state(0);
 	/** px: the sidebar as it shows (its width or its rail) */
 	let sidebarPx = $state(0);
 	/** px: a rail's width (`--sc-shell-rail-width`, measured by a probe) and the root's rem */
@@ -288,8 +277,6 @@
 	/** the main area folded to its rail – by the author (`shellDock.foldMain`) or because a panel is maximized */
 	const mainFolded = $derived(shellDock.mainFolded && !phone);
 	const mainRailed = $derived(mainFolded || maximized === 'dock');
-	/** Ask folds to its rail while anything is maximized (owner 2026-10-07: maximize = fold everything else) */
-	const askRailed = $derived(!!ask && !!maximized && !phone);
 	/** rem: the panels get narrower together down to this (or a panel's normal width, if smaller) */
 	const FLOOR = 12;
 	/**
@@ -301,7 +288,7 @@
 	 */
 	const layout = $derived.by(() => {
 		const min = mainFolded ? railPx : (minContent ?? 20) * remPx;
-		const avail = frameWidth > 0 ? frameWidth - sidebarPx - (ask ? askWidth : 0) - min : Infinity;
+		const avail = frameWidth > 0 ? frameWidth - sidebarPx - min : Infinity;
 		const want = (e: DockEntry) => e.panel.size.width ?? e.panel.size.normalPx;
 		const floor = (e: DockEntry) => Math.min(FLOOR * remPx, e.panel.size.normalPx);
 		const kept = new Set<number>();
@@ -351,7 +338,7 @@
 		if (!mainRailed && contentWidth) keptMain = contentWidth;
 	});
 	// a drag stops where the content would get narrower than its minimum next to the other panels; the drag measures from
-	// the panel's own right edge (another panel or Ask may sit right of it)
+	// the panel's own right edge (another panel may sit right of it)
 	$effect(() => {
 		const list = panels;
 		for (const e of list) {
@@ -366,8 +353,8 @@
 			}
 		};
 	});
-	/** where each panel's Divider sits: its own width + everything right of it (the other panels, Ask) – measured */
-	const dividerAt = (i: number) => panels.slice(i).reduce((a, e) => a + (shownWidth[e.id] ?? railPx), 0) + (ask ? askWidth : 0);
+	/** where each panel's Divider sits: its own width + everything right of it (the other panels) – measured */
+	const dividerAt = (i: number) => panels.slice(i).reduce((a, e) => a + (shownWidth[e.id] ?? railPx), 0);
 	/** a rail while something is maximized restores; a folded panel's rail unfolds it; a squeezed one's makes it the
 	 * most recently used (another one folds instead) */
 	function unfold(e: DockEntry) {
@@ -400,7 +387,7 @@
 		shellDock.pageFoldLabel = pageFoldLabel ?? (german ? 'Seite einklappen' : 'Fold the page');
 	});
 	const contentCol = $derived(sidebar ? 2 : 1);
-	/** the frame's columns: sidebar | content | the panels | Ask – a railed region is a rail; maximized, the region takes
+	/** the frame's columns: sidebar | content | the panels – a railed region is a rail; maximized, the region takes
 	 * the rest; with the main folded the most recently used panel does */
 	const columns = $derived.by(() => {
 		const rail = 'var(--sc-shell-rail-width)';
@@ -410,11 +397,11 @@
 			const w = layout.widths.get(e.id) ?? 0;
 			return mainFolded && latestShown?.id === e.id ? `minmax(${w}px, 1fr)` : `${w}px`;
 		};
-		return [sidebar && 'var(--sc-shell-sidebar-width)', mainRailed ? rail : 'minmax(0, 1fr)', ...panels.map(panelCol), ask && (askRailed ? rail : 'auto')]
+		return [sidebar && 'var(--sc-shell-sidebar-width)', mainRailed ? rail : 'minmax(0, 1fr)', ...panels.map(panelCol)]
 			.filter(Boolean)
 			.join(' ');
 	});
-	/** phones: the sidebar is a drawer (collapsible), the dock and Ask cover the page */
+	/** phones: the sidebar is a drawer (collapsible), the dock covers the page */
 	const phoneColumns = $derived([sidebar && !collapsible && 'var(--sc-shell-sidebar-width)', 'minmax(0, 1fr)'].filter(Boolean).join(' '));
 </script>
 
@@ -422,20 +409,16 @@
 	class="sc-app-shell {mode} {className}"
 	class:has-sidebar={!!sidebar}
 	class:has-dock={panels.length > 0}
-	class:has-ask={!!ask}
-	class:collapsible
+class:collapsible
 	class:folded={folded && !!foldKey}
 	class:max-dock={maximized === 'dock'}
 	class:max-main={!!maximized && maximized !== 'dock'}
 	class:main-railed={mainRailed}
-	class:ask-railed={askRailed}
-	style:--sc-shell-content-col={contentCol}
-	style:--sc-shell-ask-col={contentCol + 1 + panels.length}
-	style:--sc-shell-main-kept={mainRailed && keptMain ? `${keptMain}px` : null}
+style:--sc-shell-content-col={contentCol}
+style:--sc-shell-main-kept={mainRailed && keptMain ? `${keptMain}px` : null}
 	style:--sc-shell-top="{topHeight}px"
 	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : region.width !== null ? `max(${region.width}px, ${sidebarWidth})` : sidebarWidth}
-	style:--sc-shell-ask-width="{ask ? askWidth : 0}px"
-	style:--sc-shell-columns={columns}
+style:--sc-shell-columns={columns}
 	style:--sc-shell-columns-phone={phoneColumns}
 >
 	{#if topbar}
@@ -518,14 +501,6 @@
 			</aside>
 			<Divider size={e.panel.size} edge="left" at="{dividerAt(i)}px" label={dockResizeLabel} controls="sc-shell-dock-{e.id}" class="sc-shell-dock-resize" />
 		{/each}
-		{#if ask}
-			<div class="sc-shell-ask" class:railed={askRailed} bind:offsetWidth={askWidth}>
-				{#if askRailed}
-					<Rail side="right" label={askLabel} icon="message-circle" unfoldLabel={askLabel} onunfold={() => shellDock.restore()} testid="ask-rail" />
-				{/if}
-				<div class="sc-shell-ask-body" class:kept={askRailed}>{@render ask()}</div>
-			</div>
-		{/if}
 	</div>
 </div>
 
@@ -568,8 +543,7 @@
 		min-width: 0;
 	}
 	.sc-shell-sidebar,
-	.sc-shell-dock,
-	.sc-shell-ask {
+	.sc-shell-dock {
 		position: sticky;
 		top: var(--sc-shell-top);
 		align-self: start;
@@ -615,24 +589,12 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.sc-shell-panel.kept,
-	.sc-shell-ask-body.kept {
+	.sc-shell-panel.kept {
 		position: absolute;
 		top: 0;
 		bottom: 0;
 		left: 0;
 		visibility: hidden;
-	}
-	.sc-shell-ask-body {
-		height: 100%;
-	}
-	.sc-shell-ask.railed {
-		overflow: hidden;
-		border-left: var(--border-width-regular) solid var(--ink);
-	}
-	/* Ask: the panel sizes itself (its own Divider on its left edge) */
-	.sc-shell-ask {
-		overflow: visible;
 	}
 
 	/* fill: exactly the viewport minus the ActionBar; every column scrolls on its own */
@@ -649,17 +611,11 @@
 		grid-template-rows: minmax(0, 1fr);
 	}
 	.fill .sc-shell-sidebar,
-	.fill .sc-shell-dock,
-	.fill .sc-shell-ask {
+	.fill .sc-shell-dock {
 		position: static;
 		align-self: stretch;
 		height: auto;
 		min-height: 0;
-	}
-	/* Ask's divider is placed in its region */
-	.fill .sc-shell-ask {
-		position: relative;
-		top: 0;
 	}
 	.fill .sc-shell-content {
 		min-height: 0;
@@ -687,7 +643,7 @@
 	}
 
 	@media (min-width: 768px) {
-		/* every region in its own column of one row: sidebar | content | the panels | Ask */
+		/* every region in its own column of one row: sidebar | content | the panels */
 		.sc-shell-frame > :global(.sc-shell-sidebar) {
 			grid-area: 1 / 1;
 		}
@@ -696,9 +652,6 @@
 		}
 		.sc-shell-dock {
 			grid-area: 1 / var(--sc-dock-col);
-		}
-		.sc-shell-ask {
-			grid-area: 1 / var(--sc-shell-ask-col);
 		}
 		/* the main area folded (by hand, or a panel is maximized): its rail in its column; the page stays laid out at its
 		   last width, hidden (nothing unmounts: scroll positions, a canvas, unsaved edits stay) */
@@ -742,7 +695,7 @@
 		.sc-shell-main-rail {
 			display: none;
 		}
-		/* phones: the most recently used panel and Ask cover the page (closed by their own buttons); the other panels stay
+		/* phones: the most recently used panel covers the page (closed by their own buttons); the other panels stay
 		   open behind it */
 		.sc-shell-dock:not(.front) {
 			display: none;
@@ -757,18 +710,6 @@
 			width: min(var(--sc-shell-dock-own, 100vw), 100vw);
 			height: auto;
 			/* `start` would shrink a fixed box with both insets to its content */
-			align-self: stretch;
-		}
-		/* full screen: above an app's bottom navigation */
-		.sc-shell-ask,
-		.fill .sc-shell-ask {
-			position: fixed;
-			z-index: 40;
-			top: var(--sc-shell-top);
-			left: 0;
-			right: 0;
-			bottom: var(--sc-shell-bottom);
-			height: auto;
 			align-self: stretch;
 		}
 		.collapsible .sc-shell-sidebar {

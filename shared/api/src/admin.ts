@@ -670,38 +670,11 @@ export interface CatalogProblem {
 	[key: string]: unknown;
 }
 
-/** One row of the AI usage overview (`GET /admin/agent-usage`): the sums of a period (UTC day or month), app, person, service, model */
-export interface AgentUsageRow {
-	period: string;
-	app: 'creator' | 'embassy' | 'admin';
-	user_id: string;
-	email: string | null;
-	service: string;
-	model: string;
-	calls: number;
-	input_tokens: number;
-	output_tokens: number;
-	cache_read_tokens: number;
-	cache_write_tokens: number;
-	/** web search requests (billed per search; already in cost_usd) */
-	web_searches: number;
-	/** the whole cost: tokens + web searches */
-	cost_usd: number;
-}
-
-export interface AgentUsageOverview {
-	status: 'success';
-	from: string;
-	to: string;
-	group: 'day' | 'month';
-	rows: AgentUsageRow[];
-	totals: Omit<AgentUsageRow, 'period' | 'app' | 'user_id' | 'email' | 'service' | 'model'>;
-}
-
 /**
- * Changes the admin's Ask agent proposes (tools/mcp admin.ts `propose_changes`): a card in the Ask panel, applied only when
- * the admin presses Apply – by the admin app, with the admin's session. `before` values are what the agent read; Apply
- * refuses a catalog entry / the calendar when it changed since (`base`).
+ * Changes an admin's own AI proposes (tools/mcp admin.ts `propose_changes`, agents/MCP.md "Draft → link"): a stored
+ * proposal (`/admin/proposals`), applied only when the admin presses Apply on its page – by the admin app, with the
+ * admin's session. `before` values are what the AI read; Apply refuses a catalog entry / the calendar when it changed
+ * since (`base`).
  */
 export interface AdminChangeField {
 	/** dot path in the entry's data, e.g. `icon`, `name.en`, `variants.0.icon` */
@@ -716,15 +689,30 @@ export type AdminChange =
 	| { type: 'calendar'; action: 'update'; index: number; label: string; fields: AdminChangeField[] }
 	| { type: 'asset'; path: string; source: string | null; usages: number };
 
-export interface AdminChangesCard {
-	kind: 'admin_changes';
+export type ProposalStatus = 'open' | 'applied' | 'dismissed';
+
+/** A stored proposal (server Domain\Admin\Proposals) */
+export interface AdminProposal {
 	id: string;
 	/** one line: what the changes do */
 	title: string;
 	changes: AdminChange[];
 	/** the calendar's draft version the calendar changes were made on (null = no calendar yet / no calendar change) */
 	calendar_base: number | null;
+	/** agent = an admin's AI, person = by hand */
+	source: 'agent' | 'person';
+	status: ProposalStatus;
+	created_by: string;
+	/** the author's email */
+	author: string;
+	created_at: string;
+	/** who applied / dismissed it (email), '' while open */
+	decided_by: string;
+	decided_at: string | null;
 }
+
+/** A proposal in the list: without its changes, `count` = how many */
+export type AdminProposalRow = Omit<AdminProposal, 'changes'> & { count: number };
 
 export function createAdminApi(api: ApiClient) {
 	return {
@@ -823,7 +811,13 @@ export function createAdminApi(api: ApiClient) {
 			),
 
 		/** the Ask panels' AI usage (from / to: UTC days YYYY-MM-DD, default the last 30 days) */
-		agentUsage: (params: { from?: string; to?: string; group?: 'day' | 'month' } = {}) => api.get<AgentUsageOverview>(`/admin/agent-usage${toQuery(params)}`),
+		// proposals of an admin's own AI (agents/MCP.md "Draft → link")
+		proposals: (status?: ProposalStatus) => api.get<{ status: 'success'; items: AdminProposalRow[] }>(`/admin/proposals${toQuery({ status })}`),
+		proposal: (id: string) => api.get<{ status: 'success'; proposal: AdminProposal; url: string }>(`/admin/proposals/${seg(id)}`),
+		createProposal: (input: { title: string; changes: AdminChange[]; calendar_base?: number | null; source?: 'agent' | 'person' }) =>
+			api.post<{ status: 'success'; proposal: AdminProposal; url: string }>('/admin/proposals', input),
+		decideProposal: (id: string, status: Exclude<ProposalStatus, 'open'>) =>
+			api.put<{ status: 'success'; proposal: AdminProposal }>(`/admin/proposals/${seg(id)}`, { status }),
 
 		featured: () => api.get<AdminFeatured>('/admin/featured'),
 		/** the new ordered list, or null = back to the default */

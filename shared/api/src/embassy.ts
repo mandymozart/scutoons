@@ -112,6 +112,8 @@ export interface OrgDetail {
 	people: Person[];
 	leads: Lead[];
 	activities: Activity[];
+	/** the organisation's open mail drafts (none before migration 2026-10-09-mcp-drafts) */
+	drafts?: MailDraft[];
 }
 
 export interface DueItem {
@@ -217,6 +219,32 @@ export interface MailInput {
 	text: string;
 	/** a mail activity of this organisation to answer (threading) */
 	reply_to_activity_id?: string | null;
+	/** de | en: the opt-out line's language (default: the person's, else by the country) */
+	language?: string | null;
+	/** sending a stored draft (its author only): the draft is deleted once the mail went out */
+	draft_id?: string | null;
+}
+
+/**
+ * A mail draft on an organisation (agents/MCP.md "Draft → link"): saved by the member's AI (or a person), checked like a
+ * send, never sent by saving – its author opens it on the organisation page (`?draft=<id>`) and sends it
+ */
+export interface MailDraft {
+	id: string;
+	org_id: string;
+	org: string;
+	person_id: string | null;
+	to: string;
+	track: Track | null;
+	subject: string;
+	text: string;
+	reply_to_activity_id: string | null;
+	language: string | null;
+	/** agent = the member's AI, person = written by hand */
+	source: 'agent' | 'person';
+	created_by: string;
+	author: string;
+	created_at: string;
 }
 
 /** The shared mailbox's inbox sync (IMAP): replies land in the log */
@@ -254,6 +282,11 @@ export function createEmbassyApi(api: ApiClient) {
 			api.put<{ lead: Lead }>(`/embassy/orgs/${seg(orgId)}/leads/${seg(track)}`, input),
 		log: (orgId: string, input: LogInput) => api.post<{ activity: Activity; lead: Lead | null }>(`/embassy/orgs/${seg(orgId)}/activities`, input),
 		sendMail: (orgId: string, input: MailInput) => api.post<{ activity: Activity; lead: Lead | null }>(`/embassy/orgs/${seg(orgId)}/mail`, input),
+		createDraft: (orgId: string, input: Omit<MailInput, 'draft_id'> & { source?: 'agent' | 'person' }) =>
+			api.post<{ draft: MailDraft; url: string }>(`/embassy/orgs/${seg(orgId)}/drafts`, input),
+		drafts: () => api.get<{ items: MailDraft[] }>('/embassy/drafts'),
+		draft: (id: string) => api.get<{ draft: MailDraft; url: string }>(`/embassy/drafts/${seg(id)}`),
+		deleteDraft: (id: string) => api.delete<Record<string, never>>(`/embassy/drafts/${seg(id)}`),
 		inbox: () => api.get<InboxState>('/embassy/inbox'),
 		syncInbox: (force = false) => api.post<InboxState>('/embassy/inbox/sync', force ? { force } : {}),
 		import: (organisations: OrgInput[], dryRun: boolean) =>

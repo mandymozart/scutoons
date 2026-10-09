@@ -62,7 +62,9 @@
 		"assets": "Assets",
 		"assets_hint": "Media on the CDN: files, versions, uses, storage",
 		"calendar": "Events",
-		"calendar_hint": "Dates on scutoons.com/events"
+		"calendar_hint": "Dates on scutoons.com/events",
+		"proposals": "Proposals",
+		"proposals_hint": "Changes an admin's own AI proposed – check and apply"
 	},
 	"palette": {
 		"label": "Command palette",
@@ -134,20 +136,7 @@
 		"editions_hint": "Claimed of all codes (all time); scans and claims in the period.",
 		"claimed_total": "Claimed / codes",
 		"of_edition": "edition of {count}",
-		"signed": "Signed",
-		"ai_title": "AI usage",
-		"ai_hint": "What the Ask agents cost (Anthropic API, USD): this month per app and person, per day in the period.",
-		"ai_month": "This month",
-		"ai_calls": "{count} calls",
-		"ai_searches": "{count} web searches",
-		"ai_chart": "AI cost per day (USD)",
-		"ai_people": "Per person, this month",
-		"ai_person": "Person",
-		"ai_total": "Total",
-		"ai_unavailable": "The AI usage log is not available yet.",
-		"app_creator": "Creator",
-		"app_embassy": "Embassy",
-		"app_admin": "Admin"
+		"signed": "Signed"
 	},
 	"events": {
 		"scan": "Scan",
@@ -971,26 +960,6 @@
 		"conflict": "Someone saved the events meanwhile – reloaded, please redo your change.",
 		"publish": "Publish"
 	},
-	"ask": {
-		"title": "Ask",
-		"open": "Ask the agent",
-		"new": "New chat",
-		"close": "Close",
-		"you": "You",
-		"agent": "Agent",
-		"placeholder": "What do you want to know?",
-		"send": "Send",
-		"stop": "Stop",
-		"working": "Working …",
-		"context": "{page}",
-		"empty": "Ask about codes, accounts, claims, the catalog, assets, the calendar or what the AI costs. Changes come as a card – nothing changes until you apply it.",
-		"unavailable": "The agent is not available right now.",
-		"signed_out": "Your session ended – sign in again.",
-		"history": "Earlier chats",
-		"history_unavailable": "The chat history is not available yet.",
-		"resize": "Drag to resize",
-		"draft": "Draft #{id}"
-	},
 	"changes": {
 		"title": "Proposed changes",
 		"apply": "Apply",
@@ -1007,8 +976,15 @@
 		"asset_from": "with {path}",
 		"asset_pick": "Choose the new file",
 		"asset_missing": "Choose the new file first.",
-		"changed_since": "Changed since the agent read it – ask again.",
-		"empty": "(empty)"
+		"changed_since": "Changed since the AI read it – ask again.",
+		"empty": "(empty)",
+		"dismiss": "Dismiss",
+		"dismiss_title": "Dismiss this proposal?",
+		"dismiss_message": "Nothing is changed. It stays in the list under Dismissed.",
+		"dismissed": "Dismissed",
+		"by": "Proposed by {who} · {when}",
+		"decided": "{status} by {who} · {when}",
+		"by_ai": "their AI"
 	},
 	"server_errors": {
 		"title": "Server errors",
@@ -1168,5 +1144,16 @@
 		"unblock_title": "Mail {email} again?",
 		"unblock_message": "Only when the person asked for it again.",
 		"unblocked": "{email} gets newsletters again."
+	},
+	"proposals": {
+		"title": "Proposals",
+		"type": "AI",
+		"count": "{count} proposals",
+		"status_open": "Open",
+		"status_applied": "Applied",
+		"status_dismissed": "Dismissed",
+		"changes": "{count} changes",
+		"status": "Status",
+		"not_found": "This proposal does not exist (any more)."
 	}
 }

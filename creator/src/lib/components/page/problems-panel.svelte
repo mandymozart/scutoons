@@ -1,11 +1,10 @@
 <script lang="ts">
 	// The Problems panel (chapter editor, meta pages): errors and warnings of the open page, notes on request. A row
-	// jumps to its place; "Looks fine" accepts a warning (it moves behind "accepted"), "Ask" hands it to the Ask panel.
+	// jumps to its place; "Looks fine" accepts a warning (it moves behind "accepted").
 	// An acceptance is an edit of the document the warning is about (`accepted_warnings` in that locale's file,
 	// @scutoons/content accepted.ts): the page turns unsaved, Save keeps it, undo takes it back.
 	import { CloseButton, DockFold, Icon, shellDock } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
-	import { askAbout } from '$lib/ask.svelte.ts';
 	import type { Problem } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { acceptStore, isAccepted as accepted, toggleAccepted } from '$lib/editor/accepted.ts';
@@ -94,9 +93,6 @@
 				<span class="actions">
 					{#if storeOf(p)}
 						<button type="button" class="sc-round" class:is-active={done} aria-pressed={done} title={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} aria-label={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} onclick={() => toggleAccepted(docs, p)}><Icon name="check" /></button>
-					{/if}
-					{#if p.level !== 'info' && !done}
-						<button type="button" class="sc-round" title={m['creator.problems_ask']()} aria-label={m['creator.problems_ask']()} onclick={() => askAbout(m['creator.problems_ask_text']({ place, message: p.message }))}><Icon name="message-square" /></button>
 					{/if}
 				</span>
 			</li>

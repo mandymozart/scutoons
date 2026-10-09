@@ -24,7 +24,6 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import OrgForm from '$lib/components/org-form.svelte';
 	import MailDraft from '$lib/components/mail-draft.svelte';
-	import { askAboutPage, changed } from '$lib/ask-page.svelte.ts';
 	import { isStockist } from '@scutoons/api';
 	import type { Product } from '@scutoons/content';
 	import { loadProducts, productIcon } from '$lib/products.ts';
@@ -83,14 +82,6 @@
 	$effect(() => {
 		void id;
 		embassy.syncInbox().then((r) => void (r.new_activities && load()), () => {});
-	});
-	// the Ask panel knows which organisation is open; what it changes (a mail sent from its card, a logged call, a lead)
-	// shows right away
-	$effect(() => {
-		if (detail) return askAboutPage(detail.org.name, `organisation ${detail.org.id}`);
-	});
-	$effect(() => {
-		if (changed.count) load();
 	});
 
 	// "mail sent" in the log form = write it here and send it (MailDraft); `onlyLog` = it went out elsewhere, log it
@@ -361,7 +352,7 @@
 	{#if writing}
 		{#if recipients.length}
 			{#key mails}
-				<MailDraft draft={{ org_id: id, to: recipients[0].email, track: track || null, subject: '', text: '' }} {recipients} onsent={() => (mails++, (kind = 'call'))} />
+				<MailDraft draft={{ org_id: id, to: recipients[0].email, track: track || null, subject: '', text: '' }} {recipients} onsent={() => (mails++, (kind = 'call'), load())} />
 			{/key}
 		{:else}
 			<p class="caption muted">{m['mail.no_recipient']()}</p>

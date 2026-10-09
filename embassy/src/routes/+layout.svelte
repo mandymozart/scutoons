@@ -17,18 +17,15 @@
 		type Command,
 		installTooltips,
 	} from '@scutoons/ui';
-	import { TRACKS, type AgentStep, type OrgSummary } from '@scutoons/api';
+	import { TRACKS, type OrgSummary } from '@scutoons/api';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
-	import { AskPanel, ask, type AskLabels } from '@scutoons/ask';
 	import { setEmbassySession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
-	import { agentChats, embassy } from '$lib/api.ts';
-	import { askPage, changed } from '$lib/ask-page.svelte.ts';
+	import { embassy } from '$lib/api.ts';
 	import { loadPace, pace } from '$lib/pace.svelte.ts';
 	import Onboarding from '$lib/components/onboarding.svelte';
 	import { label } from '$lib/labels.ts';
-	import { ASK_URL, VIEWER_URL } from '$lib/config.ts';
-	import MailDraft, { type Draft } from '$lib/components/mail-draft.svelte';
+	import { VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -113,30 +110,6 @@
 		return [{ id: 'search-leads', label: m['palette.search_leads']({ q: query }), group: m['palette.find'](), run: () => goto(`/leads?q=${encodeURIComponent(query)}`) }];
 	}
 
-	// ── Ask (@scutoons/ask, the agent with this person's Embassy rights; tools/mcp embassy.ts): it reads, logs and
-	// drafts – a drafted mail is a card the person sends (MailDraft) ──
-	const askLabels: AskLabels = {
-		title: m['ask.title'](),
-		history: m['ask.history'](),
-		historyUnavailable: m['ask.history_unavailable'](),
-		newChat: m['ask.new'](),
-		close: m['ask.close'](),
-		empty: m['ask.empty'](),
-		you: m['ask.you'](),
-		agent: m['ask.agent'](),
-		working: m['ask.working'](),
-		context: (page) => m['ask.context']({ page }),
-		placeholder: m['ask.placeholder'](),
-		send: m['ask.send'](),
-		stop: m['ask.stop'](),
-		resize: m['ask.resize'](),
-		unavailable: m['ask.unavailable'](),
-		signedOut: m['ask.signed_out'](),
-		draft: (id) => m['ask.draft']({ id })
-	};
-	const askContext = $derived(askPage.label || nav.find((item) => isCurrent(item.href))?.label || m['shell.embassy']());
-	const isDraft = (step: AgentStep): step is AgentStep & { data: Draft } => step.data?.kind === 'mail_draft';
-
 	const isCurrent = (href: string) =>
 		href === '/' ? page.url.pathname === '/' : page.url.pathname === href || (href === '/leads' && page.url.pathname.startsWith('/orgs/') && page.url.pathname !== '/orgs/new');
 </script>
@@ -145,19 +118,10 @@
 	<title>{m['shell.title']()}</title>
 </svelte:head>
 
-<!-- Ask (@scutoons/ask): the outermost region of the shell -->
-{#snippet askRegion()}
-	<AskPanel app="embassy" url={ASK_URL} chats={agentChats} context={askContext} appLanguage={getLocale()} labels={askLabels} extra={() => ({ ref: askPage.ref })} onstep={(step) => void (step.changed && changed.count++)} onclose={() => (ask.open = false)}>
-		{#snippet result(step)}
-			{#if isDraft(step)}<MailDraft draft={step.data} />{/if}
-		{/snippet}
-	</AskPanel>
-{/snippet}
-
 <div class="embassy sc-tool">
 	<AuthGate {session} app="embassy" appName="Embassy" locale={getLocale()} readerHref={VIEWER_URL}>
-		<!-- the tools' frame (@scutoons/ui AppShell, agents/DOCKING.md): top bar, the page, Ask as the outermost region -->
-		<AppShell ask={ask.open ? askRegion : undefined}>
+		<!-- the tools' frame (@scutoons/ui AppShell, agents/DOCKING.md): top bar and the page -->
+		<AppShell>
 			{#snippet topbar()}
 				<header class="topbar">
 					<a class="brand" href="/">
@@ -172,7 +136,6 @@
 						{/each}
 					</nav>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
-					<button type="button" class="sc-round" class:is-active={ask.open} title={m['ask.open']()} aria-label={m['ask.open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 				</header>
 			{/snippet}
 			<main>

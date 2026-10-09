@@ -5,7 +5,6 @@
 // them with the admin's session (catalog entries with history + undo, calendar entries as a draft, an asset file
 // replaced in place). Deliberately not offered (hard to undo, stay manual): revoking / transferring codes, deletes,
 // role grants, asset cleanup (owner 2026-10-05, CUTOVER 10.28).
-import { randomUUID } from 'node:crypto';
 import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import {
@@ -16,7 +15,6 @@ import {
 	createContentApi,
 	type AdminChange,
 	type AdminChangeField,
-	type AdminChangesCard,
 	type CatalogKind,
 	type ListParams
 } from '@scutoons/api';
@@ -316,7 +314,7 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 		})
 	);
 
-	// ── changes: a card the admin applies ───────────────────────────────────────────────────────────────────────────
+	// ── changes: a proposal the admin applies (agents/MCP.md "Draft → link") ───────────────────────────────────────────────────────────────────────────
 
 	const fieldsOf = (data: unknown, set: Record<string, unknown>, where: string): AdminChangeField[] | string => {
 		let next = data;
@@ -366,12 +364,12 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 		'propose_changes',
 		{
 			description:
-				'Proposes changes as a card in the panel – nothing is changed by you: the admin reads the card and presses Apply, then the admin app makes the changes. Kinds: `catalog` (fields of an existing entry of items / recipes / albums / products / editions / toons – one card can change many entries; every applied change lands in the catalog history with undo), `calendar_add` / `calendar_update` (the calendar, saved as a DRAFT – a person publishes it on the Calendar page), `asset` (a file replaced under its old path: every use shows the new picture – the fast way to swap the same image in many places). Read first (read_catalog / read_calendar / asset_usages); the card shows before → after. Not possible here: deleting, revoking / transferring codes, roles, asset cleanup.',
+				'Saves the changes as a PROPOSAL and returns its link – nothing is changed by you: the admin opens the link, reads before → after and presses Apply, then the admin app makes the changes. Kinds: `catalog` (fields of an existing entry of items / recipes / albums / products / editions / toons – one card can change many entries; every applied change lands in the catalog history with undo), `calendar_add` / `calendar_update` (the calendar, saved as a DRAFT – a person publishes it on the Calendar page), `asset` (a file replaced under its old path: every use shows the new picture – the fast way to swap the same image in many places). Read first (read_catalog / read_calendar / asset_usages); the proposal page shows before → after. Not possible here: deleting, revoking / transferring codes, roles, asset cleanup.',
 			inputSchema: z.object({
 				title: z.string().min(1).max(200).describe('one line: what the changes do, in the admin\'s language'),
 				changes: z.array(change).min(1).max(100)
 			}),
-			annotations: read
+			annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
 		},
 		guard(async ({ title, changes: wanted }) => {
 			const changes: AdminChange[] = [];
@@ -440,14 +438,13 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 			}
 			if (problems.length) return fail(`Nothing proposed – fix these first:\n- ${problems.join('\n- ')}`);
 			if (!changes.length) return fail('Nothing to change: every value is already what you proposed.');
-			const card: AdminChangesCard = {
-				kind: 'admin_changes',
-				id: randomUUID(),
-				title,
-				changes,
-				calendar_base: (calendar as { version: number | null } | null)?.version ?? null
-			};
-			return text({ card, shown: 'The admin sees the changes as a card (before → after) and applies them with Apply – nothing is changed yet. Do not repeat the list in your answer; say in one line what the card does and where to check it afterwards.' });
+			const r = await admin.createProposal({ title, changes, calendar_base: (calendar as { version: number | null } | null)?.version ?? null, source: 'agent' });
+			return text({
+				proposal: r.proposal.id,
+				changes: changes.length,
+				open: `${options.links.admin}/proposals/${r.proposal.id}`,
+				shown: 'Saved as a proposal – nothing is changed yet. Give the admin the link: they read before → after and press Apply there. Do not repeat the list; say in one line what it does.'
+			});
 		})
 	);
 
