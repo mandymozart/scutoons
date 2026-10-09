@@ -1,0 +1,345 @@
+// One storyboard shot → one image, as a function (owner 2026-10-09: images, not SVG; Sin City black and white;
+// extreme hard light, never diffuse; posable figurines; our own shader). Used by render.js (headless, one shot per page
+// load) and by the storyboard studio (live, many renders per page). The spec comes from spec.js.
+//
+// Pipeline: the set + the figurines + one hard key light (shadows) → 2 passes into render targets: lit (Lambert, hard
+// shadow map, depth) and a mask (R = accent, G = object id) → the SIN CITY pass: luminance → pure black / white at a
+// hard threshold; ink only where one thing ends (object ids; depth jumps between set pieces), with an organic width,
+// drawn inverted against what is behind it; the one accent colour where the mask is. A loop360 = N yaw slices into a
+// seamless panorama; a polar shot warps that panorama into a little planet.
+//
+// Overrides for the studio (optional, written into the storyboard when the owner changes them by hand):
+//   shot.camera = { dist, height, pitch, yaw, roll, fov }      (m, m, °, °, °, ° vertical)
+//   light.azimuth / light.elevation (°): 0 = from the camera's side, 90 = from the right, −90 left, 180 behind the subject
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { figurine, look, pose } from './figures.js';
+import { gltfTiger } from './tiger-gltf.js';
+import { buildSet } from './sets.js';
+
+const D = Math.PI / 180;
+const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 };
+let tigerGltf = null;
+
+/** the shot's camera (also used by the studio to map drags back to the storyboard) */
+export function shotCamera(shot) {
+	const W = shot.w, H = shot.h;
+	const aspect = W / H;
+	const tall = shot.format === 'loop360' || shot.projection === 'polar' ? 16 / 9 : Math.max(16 / 9, H / W);
+	const ANG = { eye: [1.55, 0], high: [5, -24], low: [0.45, 12], bird: [22, -78], worm: [0.12, 30], dutch: [1.55, 0] };
+	let [camY, pitch] = ANG[shot.angle] ?? ANG.eye;
+	if (shot.projection === 'top-down') { camY = 24; pitch = -89.9; }
+	if (shot.format === 'vertical' && ['tilt-down', 'fall', 'descend', 'reveal'].includes(shot.move) && shot.angle !== 'bird') pitch -= 8;
+	if (shot.format === 'vertical' && ['tilt-up', 'climb'].includes(shot.move)) pitch += 10;
+	const DIST = { ecu: 0.9, cu: 1.6, mcu: 2.4, medium: 3.5, full: 6, wide: 11, ews: 24 };
+	const c = shot.camera ?? {};
+	const dist = c.dist ?? DIST[shot.size] ?? 7;
+	camY = c.height ?? camY;
+	pitch = c.pitch ?? pitch;
+	const vfov = c.fov ?? Math.min(150, 2 * Math.atan(Math.tan(25 * D) * (tall / (16 / 9))) / D);
+	let camera;
+	if (shot.projection === 'isometric') {
+		const hh = dist * 0.7;
+		camera = new THREE.OrthographicCamera(-hh * aspect, hh * aspect, hh, -hh, 0.1, 400);
+		camera.position.set(dist * 1.2, dist * 1.2, dist * 1.2);
+		camera.lookAt(0, 0.8, 0);
+	} else {
+		camera = new THREE.PerspectiveCamera(vfov, aspect, 0.05, 600);
+		const yaw = (c.yaw ?? 0) * D;
+		camera.position.set(Math.sin(yaw) * dist, camY, Math.cos(yaw) * dist);
+		camera.rotation.order = 'YXZ';
+		camera.rotation.set(pitch * D, yaw, (c.roll ?? (shot.angle === 'dutch' ? 18 : 0)) * D);
+	}
+	camera.updateMatrixWorld();
+	return { camera, camY, dist };
+}
+
+/**
+ * Renders a spec (spec.js) → { canvas, figures: [{ index, box: {x0,y0,x1,y1} in output px }] }.
+ * opts: renderer (reuse one WebGLRenderer), tigerUrl, marks (draw the id label + air marks, default true).
+ */
+export async function renderShot(shot, opts = {}) {
+	const W = shot.w, H = shot.h;
+	const K = W / (shot.outW ?? W);
+	const canvas = opts.canvas ?? document.createElement('canvas');
+	canvas.width = W; canvas.height = H;
+	const out2d = canvas.getContext('2d');
+	const renderer = opts.renderer ?? new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+	renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.BasicShadowMap;
+	renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+
+	look.mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+	const accentMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+	const maskMats = {};
+	const emissive = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+	const scene = new THREE.Scene();
+	const L = shot.light ?? {};
+	const interior = shot.location?.time === 'interior' || /library|monastery|studio|server/.test(shot.location?.place ?? '') || L.source === 'none';
+	const skyWhite = !interior && !['moon', 'none', 'lightning'].includes(L.source) && shot.location?.time !== 'night';
+	const set = buildSet(scene, shot, { emissive, accentMat, interior });
+	const { camera, camY, dist } = shotCamera(shot);
+
+	// figurines, placed by the storyboard's screen position (x across, y along the shot, h = height in screens)
+	const figs = [];
+	const assets = { gltfTiger };
+	if ((shot.figures ?? []).some((f) => f.cast?.persona === 'mountaintiger')) {
+		tigerGltf ??= await new GLTFLoader().loadAsync(opts.tigerUrl ?? new URL('./models/mountain-tiger.glb', import.meta.url).href);
+		assets.tiger = tigerGltf;
+	}
+	const fpx = (H / 2) / Math.tan((camera.fov ?? 50) * D / 2);
+	for (const fig of shot.figures ?? []) {
+		const model = figurine(fig.cast, assets);
+		const { airborne } = pose(model, fig.pose ?? 'stand');
+		model.root.updateMatrixWorld(true);
+		const whole = new THREE.Box3().setFromObject(model.root);
+		const framing = fig.framing ?? 'full';
+		let head = model.joints.head && !model.joints.rigged ? new THREE.Box3().setFromObject(model.joints.head) : whole;
+		if (model.joints.rigged) {
+			const zl = whole.max.z - whole.min.z, yl = whole.max.y - whole.min.y;
+			head = new THREE.Box3(new THREE.Vector3(whole.min.x, whole.min.y + yl * 0.45, whole.max.z - zl * 0.24), whole.max.clone());
+		}
+		let box = whole;
+		if (['cu', 'ecu'].includes(framing)) box = head.clone();
+		if (framing === 'ecu') { const c = head.getCenter(new THREE.Vector3()); box = new THREE.Box3(c.clone().add(new THREE.Vector3(0, -0.02, 0)), c.clone().add(new THREE.Vector3(0, 0.09, 0))); }
+		if (framing === 'mcu') box = new THREE.Box3(new THREE.Vector3(whole.min.x, head.max.y - (head.max.y - whole.min.y) * 0.42, whole.min.z), whole.max.clone());
+		const size = Math.max(0.03, box.max.y - box.min.y);
+		const closeUp = box !== whole;
+		const hPx = Math.max(12 * K, (fig.h ?? 0.3) * 844 * K);
+		const cx = (fig.x ?? 0.5) * W, cy = (fig.y ?? 0.5) * H;
+		const ray = (px, py) => new THREE.Vector3((px / W) * 2 - 1, -(py / H) * 2 + 1, 0.5).unproject(camera).sub(camera.position).normalize();
+		const dir = ray(cx, cy + hPx / 2);
+		let pos, depth, grounded = false;
+		if (!airborne && !closeUp && dir.y < -0.01 && camera.isPerspectiveCamera) {
+			pos = camera.position.clone().addScaledVector(dir, -camera.position.y / dir.y);
+			depth = -pos.clone().applyMatrix4(camera.matrixWorldInverse).z;
+			grounded = true;
+		} else {
+			depth = Math.max(0.8, (size * fpx) / hPx);
+			pos = camera.position.clone().addScaledVector(ray(cx, cy), depth);
+		}
+		const scale = camera.isPerspectiveCamera ? (hPx * depth) / (size * fpx) : hPx / (H / (camera.top - camera.bottom));
+		model.root.scale.multiplyScalar(scale);
+		const toCam = Math.atan2(camera.position.x - pos.x, camera.position.z - pos.z);
+		model.root.rotation.y = toCam + ((fig.turn ?? FACE[fig.facing] ?? 0)) * D;
+		const centre = box.getCenter(new THREE.Vector3());
+		if (grounded) centre.set(centre.x, box.min.y, centre.z);
+		const offset = centre.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), model.root.rotation.y);
+		if (grounded) offset.set(offset.x, box.min.y * scale, offset.z);
+		model.root.position.copy(pos).sub(offset);
+		model.root.traverse((o) => { if (o.isMesh) o.userData.fig = figs.length + 1; });
+		scene.add(model.root);
+		figs.push(model);
+	}
+
+	// light: one extremely hard key (+ an optional rim), no ambient, no fill
+	const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).setY(0).normalize();
+	const camBack = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion).setY(0).normalize();
+	const KEYDIR = {
+		left: camRight.clone().negate(), right: camRight.clone(), front: camBack.clone(), back: camBack.clone().negate(),
+		top: new THREE.Vector3(0, 1, 0), bottom: new THREE.Vector3(0, -1, 0),
+		'top-left': camRight.clone().negate().add(new THREE.Vector3(0, 0.8, 0)), 'top-right': camRight.clone().add(new THREE.Vector3(0, 0.8, 0)),
+		'bottom-left': camRight.clone().negate().add(new THREE.Vector3(0, -0.6, 0)), 'bottom-right': camRight.clone().add(new THREE.Vector3(0, -0.6, 0))
+	};
+	const ELEV = { below: -25, low: 9, eye: 22, high: 50, overhead: 84 };
+	let keyDir;
+	if (L.azimuth != null || L.elevation != null) {
+		const az = (L.azimuth ?? -45) * D, el = (L.elevation ?? 30) * D;
+		const flat = camBack.clone().multiplyScalar(Math.cos(az)).add(camRight.clone().multiplyScalar(Math.sin(az))).normalize();
+		keyDir = flat.multiplyScalar(Math.cos(el)).add(new THREE.Vector3(0, Math.sin(el), 0));
+	} else {
+		keyDir = (KEYDIR[L.key] ?? KEYDIR['top-left']).clone().normalize();
+		if (!['top', 'bottom'].includes(L.key)) {
+			const e = (ELEV[L.height] ?? 30) * D;
+			const flat = keyDir.clone().setY(0).normalize();
+			keyDir.copy(flat.multiplyScalar(Math.cos(e)).add(new THREE.Vector3(0, Math.sin(e), 0)));
+		}
+	}
+	const target = new THREE.Vector3();
+	if (figs.length) { for (const m of figs) target.add(m.root.position); target.divideScalar(figs.length); }
+	else target.copy(camera.position).addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), dist);
+	const practical = ['candle', 'screen', 'neon', 'fire', 'energy'].includes(L.source);
+	const reach = Math.max(8, dist * 2.5);
+	let key = null;
+	if (L.source !== 'none') {
+		if (practical) {
+			key = new THREE.PointLight(0xffffff, 260 * (reach / 8) ** 2, reach, 1.6);
+			key.position.copy(target).addScaledVector(keyDir, Math.max(1.6, dist * 0.35));
+			set.practical?.(key.position);
+		} else {
+			key = new THREE.DirectionalLight(0xffffff, 14);
+			key.position.copy(target).addScaledVector(keyDir, 60);
+			key.target.position.copy(target);
+			scene.add(key.target);
+			const span = Math.max(14, dist * 2.2);
+			Object.assign(key.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 1, far: 200 });
+		}
+		key.castShadow = true;
+		key.shadow.mapSize.set(opts.shadowSize ?? 4096, opts.shadowSize ?? 4096);
+		key.shadow.bias = -0.0004;
+		scene.add(key);
+	}
+	if (L.rim || L.key === 'back' || L.source === 'none') {
+		const rim = new THREE.DirectionalLight(0xffffff, L.source === 'none' ? 9 : 7);
+		rim.position.copy(target).add(camBack.clone().negate().multiplyScalar(30)).add(new THREE.Vector3(0, 10, 0));
+		rim.target.position.copy(target);
+		scene.add(rim, rim.target);
+	}
+
+	// passes
+	const targetRT = (w, h) => { const rt = new THREE.WebGLRenderTarget(w, h, { depthBuffer: true }); rt.depthTexture = new THREE.DepthTexture(w, h); return rt; };
+	const SIN = new THREE.ShaderMaterial({
+		uniforms: {
+			tLit: { value: null }, tMask: { value: null }, tDepth: { value: null },
+			texel: { value: new THREE.Vector2() }, res: { value: new THREE.Vector2() }, threshold: { value: 0.32 }, sky: { value: skyWhite ? 1 : 0 },
+			ink: { value: 1.6 * K }, inkVar: { value: 2.2 * K }, seed: { value: [...shot.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 97 },
+			accent: { value: new THREE.Color(shot.accent ?? '#c00000') }, near: { value: camera.near }, far: { value: camera.far }, ortho: { value: camera.isOrthographicCamera ? 1 : 0 }
+		},
+		vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }',
+		fragmentShader: `
+			uniform sampler2D tLit, tMask, tDepth; uniform vec2 texel, res; uniform float threshold, sky, near, far, ortho, ink, inkVar, seed; uniform vec3 accent;
+			varying vec2 vUv;
+			float lin(float d){ if (ortho > .5) return near + d * (far - near); float z = d * 2. - 1.; return 2. * near * far / (far + near - z * (far - near)); }
+			float dep(vec2 uv){ return lin(texture2D(tDepth, uv).r); }
+			float oid(vec2 uv){ return floor(texture2D(tMask, uv).g * 255. + .5); }
+			float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7)) + seed) * 43758.5453); }
+			float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+				return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y); }
+			void main(){
+				bool empty = texture2D(tDepth, vUv).r > 0.99999;
+				float l = dot(texture2D(tLit, vUv).rgb, vec3(.299, .587, .114));
+				float v = empty ? sky : step(threshold, l);
+				vec2 px = vUv * res;
+				float n = vnoise(px / 46.) * .65 + vnoise(px / 13.) * .35;
+				float width = ink + inkVar * n * n;
+				float dc = dep(vUv), ic = oid(vUv), e = 0.;
+				for (int r = 1; r <= 6; r++) {
+					float rr = float(r);
+					if (rr > width) break;
+					for (int k = 0; k < 8; k++) {
+						float a = float(k) * .7853982;
+						vec2 uv = vUv + vec2(cos(a), sin(a)) * texel * rr;
+						float id = oid(uv);
+						if (id != ic) { e = 1.; break; }
+						float dn = dep(uv);
+						if (ic < .5 && abs(dn - dc) > .06 * min(dc, dn)) { e = 1.; break; }
+					}
+					if (e > .5) break;
+				}
+				float c = e > .5 ? 1. - v : v;
+				vec3 col = vec3(c);
+				float acc = texture2D(tMask, vUv).r;
+				if (acc > .5 && e < .5) col = v > .5 ? accent : accent * .55;
+				gl_FragColor = vec4(col, 1.);
+			}`,
+		depthTest: false, depthWrite: false
+	});
+	const post = new THREE.Scene();
+	post.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), SIN));
+	const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+	function renderView(cam, w, h) {
+		renderer.setSize(w, h, false);
+		const lit = targetRT(w, h), mask = targetRT(w, h);
+		renderer.setClearColor(0x000000, 1);
+		renderer.setRenderTarget(lit); renderer.render(scene, cam);
+		const swap = [];
+		scene.traverse((o) => {
+			if (!o.isMesh) return;
+			swap.push([o, o.material]);
+			const k = `${o.userData.accent ? 1 : 0}/${o.userData.fig ?? 0}`;
+			o.material = (maskMats[k] ??= new THREE.MeshBasicMaterial({ color: new THREE.Color(o.userData.accent ? 1 : 0, (o.userData.fig ?? 0) / 255, 0) }));
+		});
+		renderer.setRenderTarget(mask); renderer.render(scene, cam);
+		for (const [o, m] of swap) o.material = m;
+		SIN.uniforms.tLit.value = lit.texture; SIN.uniforms.tMask.value = mask.texture; SIN.uniforms.tDepth.value = lit.depthTexture;
+		SIN.uniforms.texel.value.set(1 / w, 1 / h);
+		SIN.uniforms.res.value.set(w, h);
+		SIN.uniforms.near.value = cam.near; SIN.uniforms.far.value = cam.far;
+		renderer.setRenderTarget(null); renderer.render(post, postCam);
+		lit.dispose(); mask.dispose();
+		return renderer.domElement;
+	}
+	function panorama(pw, ph) {
+		const n = Math.max(4, Math.round(pw / (390 * K)));
+		const sliceW = Math.round(pw / n);
+		const pano = document.createElement('canvas');
+		pano.width = sliceW * n; pano.height = ph;
+		const g = pano.getContext('2d');
+		const cam = new THREE.PerspectiveCamera(1, sliceW / ph, 0.05, 600);
+		const hfov = 360 / n;
+		cam.fov = 2 * Math.atan(Math.tan(hfov * D / 2) / cam.aspect) / D;
+		cam.updateProjectionMatrix();
+		cam.position.set(0, camY, 0);
+		cam.rotation.order = 'YXZ';
+		for (let i = 0; i < n; i++) {
+			cam.rotation.set(0, -i * hfov * D, 0);
+			cam.updateMatrixWorld();
+			g.drawImage(renderView(cam, sliceW, ph), i * sliceW, 0);
+		}
+		return pano;
+	}
+
+	let image;
+	if (shot.format === 'loop360') {
+		for (const [i, m] of figs.entries()) {
+			const fig = shot.figures[i];
+			const bearing = -(fig.x ?? 0.5) * 2 * Math.PI;
+			const r = 4 + (1 - (fig.h ?? 0.3)) * 8;
+			m.root.position.set(Math.sin(-bearing) * -r, 0, -Math.cos(bearing) * r);
+			m.root.rotation.y = Math.atan2(-m.root.position.x, -m.root.position.z) + Math.PI + (fig.turn ?? 0) * D;
+			m.root.scale.setScalar((fig.h ?? 0.3) * 2.2 * r / 4);
+			pose(m, fig.pose ?? 'stand');
+		}
+		image = panorama(W, H);
+	} else if (shot.projection === 'polar') {
+		const pano = panorama(1560 * K, 520 * K);
+		const src = pano.getContext('2d').getImageData(0, 0, pano.width, pano.height).data;
+		const out = out2d.createImageData(W, H);
+		const cx = W / 2, cy = H * 0.62, R = Math.min(W, H) * 0.62;
+		for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+			const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy) / R;
+			const a = (Math.atan2(dx, dy) / (2 * Math.PI) + 1) % 1;
+			const sy = Math.min(pano.height - 1, Math.max(0, Math.round((1 - Math.min(1, r)) * (pano.height - 1))));
+			const sx = Math.min(pano.width - 1, Math.round(a * (pano.width - 1)));
+			const si = (sy * pano.width + sx) * 4, oi = (y * W + x) * 4;
+			out.data[oi] = src[si]; out.data[oi + 1] = src[si + 1]; out.data[oi + 2] = src[si + 2]; out.data[oi + 3] = 255;
+		}
+		out2d.putImageData(out, 0, 0);
+	} else {
+		image = renderView(camera, W, H);
+	}
+	if (image) out2d.drawImage(image, 0, 0, W, H);
+
+	// where each figure landed on the image (for dragging in the studio): its projected box
+	const figures = figs.map((m, index) => {
+		const b = new THREE.Box3().setFromObject(m.root);
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+		for (const cx of [b.min.x, b.max.x]) for (const cy of [b.min.y, b.max.y]) for (const cz of [b.min.z, b.max.z]) {
+			const p = new THREE.Vector3(cx, cy, cz).project(camera);
+			const px = ((p.x + 1) / 2) * W, py = ((1 - p.y) / 2) * H;
+			x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
+		}
+		return { index, box: { x0: x0 / K, y0: y0 / K, x1: x1 / K, y1: y1 / K } };
+	});
+
+	if (opts.marks !== false) {
+		out2d.font = `600 ${11 * K}px ui-monospace, Consolas, monospace`;
+		const label = `${shot.id} · ${shot.format} ${shot.aspect}${shot.move ? ` · ${shot.move}` : ''}${shot.want ? ` [${shot.want}]` : ''}`;
+		const tw = out2d.measureText(label).width;
+		out2d.fillStyle = '#000'; out2d.fillRect(0, 0, tw + 12 * K, 18 * K);
+		out2d.fillStyle = '#fff'; out2d.fillText(label, 6 * K, 13 * K);
+		for (const [a, b] of shot.air ?? []) {
+			const y0 = (a / 100) * H, y1 = (b / 100) * H;
+			out2d.fillStyle = '#888';
+			out2d.fillRect(K, y0 + 2 * K, 3 * K, Math.max(2 * K, y1 - y0 - 4 * K));
+		}
+	}
+
+	// free the GPU memory of this shot (the studio renders many)
+	scene.traverse((o) => { if (o.isMesh) { o.geometry?.dispose(); } });
+	for (const m of Object.values(maskMats)) m.dispose();
+	SIN.dispose();
+	if (key?.shadow?.map) key.shadow.map.dispose();
+	return { canvas, figures };
+}

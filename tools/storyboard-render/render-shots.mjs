@@ -9,7 +9,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ROOT, S, W, parseAspect, shotHeight } from '../../scripts/storyboard/lib.mjs';
+import { ROOT } from '../../scripts/storyboard/lib.mjs';
+import { shotSpec } from './spec.js';
 import { loadStoryboards } from '../../scripts/storyboard/storyboard.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -33,23 +34,9 @@ const SS = 2; // supersampling: render at 2×, the screenshot is scaled down →
 
 const specs = [];
 for (const { sb } of loadStoryboards(src)) {
-	const cast = Object.fromEntries((sb.cast ?? []).map((c) => [c.ref, c]));
-	const places = Object.fromEntries((sb.locations ?? []).map((l) => [l.ref, l]));
 	for (const g of sb.groups ?? []) for (const shot of g.shots ?? []) {
 		if (only && !only.includes(shot.id)) continue;
-		const a = parseAspect(shot.aspect) ?? { w: 9, h: 16 };
-		const pano = shot.format === 'loop360';
-		const h = pano ? S : shotHeight(shot.aspect, shot.format);
-		const w = pano ? Math.round((S * a.w) / a.h) : W;
-		const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
-		specs.push({
-			id: shot.id, w: w * SS, h: h * SS, outW: w, outH: h, format: shot.format, aspect: shot.aspect, projection: shot.projection, move: shot.move,
-			size: shot.shot?.size, angle: shot.shot?.angle, action: shot.action?.de ?? '', want: shot.source?.want,
-			location: places[shot.location] ?? null, light, accent: light.accent?.color ? ({ red: '#c40000', green: '#00b04a', amber: '#e08a00', blue: '#2060ff', yellow: '#e8c800' }[light.accent.color] ?? light.accent.color) : null,
-			air: shot.air ?? [],
-			view: shot.view,
-			figures: (shot.figures ?? []).map((f) => ({ ...f, cast: { ...(cast[f.cast] ?? { ref: f.cast }), ...(f.persona ? { persona: f.persona } : {}), ...(f.look ? { look: f.look } : {}) } }))
-		});
+		specs.push(shotSpec(sb, shot, SS)); // the same spec the studio builds (spec.js)
 	}
 }
 const specFile = resolve(out, '_shots.mjs');
