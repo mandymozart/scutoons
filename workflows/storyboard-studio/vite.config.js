@@ -24,7 +24,6 @@ export default defineConfig({
 	server: {
 		port: ports.studio,
 		strictPort: true,
-		host: '127.0.0.1',
 		// the shared packages and the renderer are source folders outside the app
 		// (and wherever node_modules really points: a second checkout may share the first one's – a junction)
 		fs: { allow: [resolve(here, '../..'), resolve(realpathSync(resolve(here, '../../node_modules')), '..')] }
