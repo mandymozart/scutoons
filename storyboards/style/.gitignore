@@ -1,0 +1,3 @@
+# style references for the generator. Committed: our own pictures only.
+# exploration pictures by others (e.g. a Sin City poster) stay local – not for the toon's pipeline.
+exploration-*

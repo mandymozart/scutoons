@@ -6,6 +6,8 @@ and the full concept: `agents/STORYBOARD.md` (§1 formats, §2 the JSON, §6 rhy
 
 **Terms (owner 2026-10-09).** A **shot** is one image used for layouting the toon. A **shooting** is a photo session at
 one location (the Figma library is sorted by shooting). Never mix the two.
+
+**Read `storyboard-taste.md` first** – the owner's feedback as rules, in the owner's words.
 
 ## Where things go
 
@@ -98,6 +100,8 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 - `prompt`: `{ "en": "…" }` – only for shots that want `generated`: the image in English, concrete (what, where, who,
   light), without text or lettering; `prompts.mjs` builds the full prompt around it (format, framing, figures, air,
   the toon's style block).
+- `review`: the owner's verdict – `{ "status": "ok" | "change", "note": "…", "date": "…" }` (`approve.mjs`); an open
+  `change` shows as a warning until it is done. An approved shot goes into `storyboards/dataset/` (for training later).
 - `items`, `events`, `audio`: the chapter's own types (SliceItem, VNEvent, audio) – only where the script asks.
 
 ## The storyboard file

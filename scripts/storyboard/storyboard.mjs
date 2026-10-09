@@ -93,6 +93,8 @@ export function validate(sb, file = '') {
 			if (shot.source?.want && !SOURCES.includes(shot.source.want)) err(id, `source.want "${shot.source.want}"`);
 			if (!shot.source?.want) warn(id, 'source.want missing (photo / unreal / direct / generated / art)');
 			if (shot.status && !STATUS.includes(shot.status)) err(id, `status "${shot.status}"`);
+			if (shot.review && !['ok', 'change'].includes(shot.review.status)) err(id, 'review.status – ok | change');
+			if (shot.review?.status === 'change') warn(id, `owner asked for a change (${shot.review.date ?? ''}): ${shot.review.note ?? ''}`);
 			if (!shot.view) warn(id, 'no view (real / belief / narration / memory) – whose perspective is this shot?');
 			else if (!VIEWS.includes(shot.view)) err(id, `view "${shot.view}" – ${VIEWS.join(' | ')}`);
 			const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
