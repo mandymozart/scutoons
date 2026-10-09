@@ -1,5 +1,5 @@
-// SCUTOONS Figma bridge – the local relay (no dependencies). Listens on 127.0.0.1 only:
-//   ws://127.0.0.1:3056/plugin   the Figma plugin's UI connects here (one plugin at a time; a new one replaces it)
+// SCUTOONS Figma bridge – the local relay (no dependencies). Listens on localhost only (127.0.0.1 and ::1):
+//   ws://localhost:3056/plugin    the Figma plugin's UI connects here (one plugin at a time; a new one replaces it)
 //   POST http://127.0.0.1:3056/cmd   { "cmd": "read", "args": { … } } → the plugin's answer as JSON (cli.mjs, the MCP)
 //   GET  http://127.0.0.1:3056/status
 // Nothing leaves the computer. Stop with Ctrl+C.
@@ -12,7 +12,7 @@ import { createServer } from 'node:http';
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const TIMEOUT = 120_000;
 
-export function startRelay({ port = 3056, log = console.log } = {}) {
+export async function startRelay({ port = 3056, log = console.log } = {}) {
 	let plugin = null; // { socket, send }
 	const pending = new Map(); // id → { resolve, timer }
 
@@ -72,7 +72,7 @@ export function startRelay({ port = 3056, log = console.log } = {}) {
 		});
 	}
 
-	const server = createServer((req, res) => {
+	const onRequest = (req, res) => {
 		const json = (code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
 		if (req.method === 'GET' && req.url === '/status') return json(200, { plugin: !!plugin, pending: pending.size });
 		if (req.method === 'POST' && req.url === '/cmd') {
@@ -89,18 +89,23 @@ export function startRelay({ port = 3056, log = console.log } = {}) {
 			return;
 		}
 		json(404, { ok: false, error: 'GET /status · POST /cmd' });
-	});
-	server.on('upgrade', (req, socket) => {
+	};
+	const onUpgrade = (req, socket) => {
 		const key = req.headers['sec-websocket-key'];
 		if (req.url !== '/plugin' || !key) return socket.destroy();
 		const accept = createHash('sha1').update(key + GUID).digest('base64');
 		socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
 		attach(socket);
+	};
+	// the plugin connects to ws://localhost (Figma's manifest takes no IPs) – localhost is 127.0.0.1 or ::1, so both
+	const listen = (host) => new Promise((ok) => {
+		const s = createServer(onRequest).on('upgrade', onUpgrade);
+		s.on('error', () => ok(null)); // no IPv6 on this machine: fine
+		s.listen(port, host, () => ok(s));
 	});
-	return new Promise((resolve) => server.listen(port, '127.0.0.1', () => {
-		log(`SCUTOONS Figma relay on 127.0.0.1:${port} – waiting for the plugin`);
-		resolve({ server, close: () => new Promise((r) => { plugin?.socket.destroy(); server.close(r); }) });
-	}));
+	const servers = (await Promise.all(['127.0.0.1', '::1'].map(listen))).filter(Boolean);
+	log(`SCUTOONS Figma relay on localhost:${port} – waiting for the plugin`);
+	return { server: servers[0], close: () => Promise.all(servers.map((s) => new Promise((r) => { plugin?.socket.destroy(); s.close(r); }))) };
 }
 
 if (process.argv[1]?.endsWith('relay.mjs')) {

@@ -8,9 +8,9 @@
 	#log { color: var(--figma-color-text-secondary, #777); margin-top: 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 <div><span id="dot"></span><b>SCUTOONS bridge</b> <span id="state">connecting …</span></div>
-<div id="log">relay ws://127.0.0.1:3056 – start it with<br>node tools/figma-bridge/relay.mjs</div>
+<div id="log">relay ws://localhost:3056 – start it with<br>node tools/figma-bridge/relay.mjs</div>
 <script>
-	const URL = 'ws://127.0.0.1:3056/plugin';
+	const URL = 'ws://localhost:3056/plugin'; // Figma's manifest takes host names only, no IPs
 	const dot = document.getElementById('dot'), state = document.getElementById('state'), log = document.getElementById('log');
 	let ws = null, count = 0;
 	function connect() {

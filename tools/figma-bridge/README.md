@@ -6,7 +6,7 @@ published, no cost – talks to a relay on the owner's own computer; tools (the 
 the relay. Nothing leaves the computer. Concept: `agents/STORYBOARD.md` §9.
 
 ```
-cli.mjs / SCUTOONS MCP ──HTTP──► relay.mjs (127.0.0.1:3056) ◄──WebSocket── plugin ui.html ──► code.js (Plugin API, the open file)
+cli.mjs / SCUTOONS MCP ──HTTP──► relay.mjs (localhost:3056) ◄──WebSocket── plugin ui.html ──► code.js (Plugin API, the open file)
 ```
 
 ## Setup (once)
