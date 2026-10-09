@@ -183,7 +183,10 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Skript: „TIGER ist weiß mit riesen Zähnen. Anger Stage Character.“ Bewusst ohne Luft – der Schock füllt den Screen. Wie das ROARRR aus Kapitel 1/2 gesetzt."
+          "note": "Skript: „TIGER ist weiß mit riesen Zähnen. Anger Stage Character.“ Bewusst ohne Luft – der Schock füllt den Screen. Wie das ROARRR aus Kapitel 1/2 gesetzt.",
+          "prompt": {
+            "en": "The person in the white robe has turned around, small in the lower corner, backing away. The rest of the frame is filled by the head of a huge white tiger: jaws wide open, enormous teeth, warm breath steaming into the freezing air."
+          }
         },
         {
           "id": "sb-28-3",
@@ -244,7 +247,10 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Ein Stop statt eines vertikalen Moves: die Bewegung ist seitlich, und der Witz ist der Gleichschritt. PLF rennend als Direktaufnahme möglich, der Tiger generiert dazu."
+          "note": "Ein Stop statt eines vertikalen Moves: die Bewegung ist seitlich, und der Witz ist der Gleichschritt. PLF rennend als Direktaufnahme möglich, der Tiger generiert dazu.",
+          "prompt": {
+            "en": "Side view, profile: the person in the long white robe and a huge white tiger run side by side up a snowy slope in the same stride, robe and fur flowing the same way. Powder snow kicked up behind them, trees as motion-blurred streaks."
+          }
         }
       ]
     },
@@ -318,7 +324,10 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Der breite Stop der Szene: die Flucht ist zu Ende, der Leser muss selbst zwischen den beiden hin- und herdrehen (Western-Duell). 3:1 = 6,5 Screens breit, unter der Planungsbreite 8. Leere Mitte (40–60 %) = die Strecke zwischen ihnen."
+          "note": "Der breite Stop der Szene: die Flucht ist zu Ende, der Leser muss selbst zwischen den beiden hin- und herdrehen (Western-Duell). 3:1 = 6,5 Screens breit, unter der Planungsbreite 8. Leere Mitte (40–60 %) = die Strecke zwischen ihnen.",
+          "prompt": {
+            "en": "Seamless 360° panorama of a snowy forest clearing at high noon: the sun at its zenith, almost no shadows, a ring of snow-laden trees. On one side the person in the white robe stands with legs apart; on the opposite side a huge white tiger blocks the way. Between them only smooth untouched snow."
+          }
         }
       ]
     },
@@ -540,7 +549,10 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Der Ball IST die Bewegung: der Leser scrollt ihm hinterher. Energie-Effekt eher als Grafik (art) über Fotos, falls generiert zu sehr nach Anime aussieht. Gekürzt: „PLF ging in sich, sammelte alle Energien“ – steckt im Bild."
+          "note": "Der Ball IST die Bewegung: der Leser scrollt ihm hinterher. Energie-Effekt eher als Grafik (art) über Fotos, falls generiert zu sehr nach Anime aussieht. Gekürzt: „PLF ging in sich, sammelte alle Energien“ – steckt im Bild.",
+          "prompt": {
+            "en": "Top: the person in the white robe, eyes closed, cupped hands, a glowing blue-white ball of ice energy growing between them. Middle: the ball shoots downwards, a trail of ice and lightning. Bottom: it hits a charging white tiger, sparks and ice shards; at the edge the person already runs toward a large boulder."
+          }
         },
         {
           "id": "sb-28-8",

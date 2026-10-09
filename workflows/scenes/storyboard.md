@@ -76,6 +76,9 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 - `source`: `type` = where the image comes from now (`schematic` until matched); `want` = what it should come from:
   `photo` (a shooting exists or is likely), `unreal`, `direct` (to be photographed), `generated` (prompt it),
   `art` (drawn / graphic). Later the match adds `figma` (the node id).
+- `prompt`: `{ "en": "…" }` – only for shots that want `generated`: the image in English, concrete (what, where, who,
+  light), without text or lettering; `prompts.mjs` builds the full prompt around it (format, framing, figures, air,
+  the toon's style block).
 - `items`, `events`, `audio`: the chapter's own types (SliceItem, VNEvent, audio) – only where the script asks.
 
 ## The storyboard file

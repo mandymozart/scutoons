@@ -2,68 +2,244 @@
   "storyboard": 2,
   "toon": "catpope",
   "chapter": 3,
-  "source": { "script": "script:catpope:de", "scene": 31, "heading": "INT. WANDSENSOR" },
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 31,
+    "heading": "INT. WANDSENSOR"
+  },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" }
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human"
+    }
   ],
   "locations": [
-    { "ref": "library", "place": "library", "time": "interior" },
-    { "ref": "serverfarm", "place": "monastery", "time": "interior" }
+    {
+      "ref": "library",
+      "place": "library",
+      "time": "interior"
+    },
+    {
+      "ref": "serverfarm",
+      "place": "monastery",
+      "time": "interior"
+    }
   ],
   "groups": [
     {
       "label": "scene-31",
-      "renderer": { "type": "vertical" },
+      "renderer": {
+        "type": "vertical"
+      },
       "continues": true,
       "shots": [
         {
           "id": "sb-31-1",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "ecu", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
           "location": "library",
-          "action": { "de": "Die Steinwand neben dem schiefen Regal, ganz nah: zwischen zwei Mauerfugen ein unscheinbarer, matter Sensor, kaum größer als eine Handfläche. PLFs Hand legt sich darauf; um die Finger ein weißer Linien-Umriss einer Katzenpranke, aus Pixeln gezeichnet." },
-          "air": [[0, 22]],
-          "figures": [ { "cast": "plf", "framing": "ecu", "mood": "cold", "facing": "left", "x": 0.6, "y": 0.55, "h": 0.4 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 24, "width": 56 }, "text": { "de": "31 INT. WANDSENSOR" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 82, "width": 64 }, "text": { "de": "Eine leise Berührung. Ihre digitale Pranke legte sich auf den Sensor." } }
+          "action": {
+            "de": "Die Steinwand neben dem schiefen Regal, ganz nah: zwischen zwei Mauerfugen ein unscheinbarer, matter Sensor, kaum größer als eine Handfläche. PLFs Hand legt sich darauf; um die Finger ein weißer Linien-Umriss einer Katzenpranke, aus Pixeln gezeichnet."
+          },
+          "air": [
+            [
+              0,
+              22
+            ]
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "ecu",
+              "mood": "cold",
+              "facing": "left",
+              "x": 0.6,
+              "y": 0.55,
+              "h": 0.4
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 24,
+                "width": 56
+              },
+              "text": {
+                "de": "31 INT. WANDSENSOR"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 82,
+                "width": 64
+              },
+              "text": {
+                "de": "Eine leise Berührung. Ihre digitale Pranke legte sich auf den Sensor."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft",
           "note": "Luft oben = Szenenwechsel aus dem Gang (sb-30-8). Hand an Steinwand als Direktaufnahme, die Pranke als Linien-Grafik darüber (die „digitale Pranke“ des Skripts)."
         },
         {
           "id": "sb-31-2",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "cu", "angle": "low" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "low"
+          },
           "location": "library",
-          "action": { "de": "PLF im Profil dicht an der Wand, die Lippen fast am Stein, sie spricht. In den Mauerfugen leuchten nacheinander vier weiße Wörter auf, treppenartig versetzt wie im Skript. Kaltes Licht von unten." },
-          "air": [[0, 10]],
-          "figures": [ { "cast": "plf", "framing": "cu", "mood": "knowing", "facing": "right", "x": 0.35, "y": 0.5, "h": 0.6 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 60 }, "text": { "de": "Sie sprach die Worte, die den Code knacken sollten:" } },
-            { "variant": "bubble", "rect": { "x": 44, "y": 56, "width": 50 }, "tail": "bottom-left", "text": { "de": "Daten sind. Geschäft ist. Geld ist. Gott." } }
+          "action": {
+            "de": "PLF im Profil dicht an der Wand, die Lippen fast am Stein, sie spricht. In den Mauerfugen leuchten nacheinander vier weiße Wörter auf, treppenartig versetzt wie im Skript. Kaltes Licht von unten."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "knowing",
+              "facing": "right",
+              "x": 0.35,
+              "y": 0.5,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "Sie sprach die Worte, die den Code knacken sollten:"
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 44,
+                "y": 56,
+                "width": 50
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "Daten sind. Geschäft ist. Geld ist. Gott."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft",
           "note": "Die Treppenstellung der vier Zeilen („Daten sind. / Geschäft ist. / Geld ist. / Gott.“) gehört ins Layout: in der Blase gestaffelt, oder die Wörter zusätzlich als leuchtende Schrift in den Fugen (Bild, keine Textbox)."
         },
         {
           "id": "sb-31-3",
-          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "reveal",
-          "shot": { "size": "wide", "angle": "high" },
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "reveal",
+          "shot": {
+            "size": "wide",
+            "angle": "high"
+          },
           "location": "serverfarm",
-          "action": { "de": "Die Regale gleiten zischend zur Seite (Bewegungslinien, Staubfahnen). Dahinter, tiefer gelegen, die wahre Kammer: eine Serverfarm unter dem Gewölbe der Klosterbibliothek. Reihen schwarzer Racks zwischen alten Säulen, Bildschirme flackern sanft, blassblaues Licht wie Atem. PLF als Silhouette oben in der Öffnung." },
-          "air": [[84, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "awe", "facing": "away", "x": 0.5, "y": 0.18, "h": 0.25 } ],
-          "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 4, "width": 44 }, "text": { "de": "ZSCHHH" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 42, "width": 62 }, "text": { "de": "Eine Serverfarm, verborgen unter der Klosterbibliothek. Wach und allwissend." } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 72, "width": 64 }, "text": { "de": "Kein Zufall. Ein digitales Artefakt – platziert, um gefunden zu werden." } }
+          "action": {
+            "de": "Die Regale gleiten zischend zur Seite (Bewegungslinien, Staubfahnen). Dahinter, tiefer gelegen, die wahre Kammer: eine Serverfarm unter dem Gewölbe der Klosterbibliothek. Reihen schwarzer Racks zwischen alten Säulen, Bildschirme flackern sanft, blassblaues Licht wie Atem. PLF als Silhouette oben in der Öffnung."
+          },
+          "air": [
+            [
+              84,
+              100
+            ]
           ],
-          "source": { "type": "schematic", "want": "generated" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "awe",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.18,
+              "h": 0.25
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 50,
+                "y": 4,
+                "width": 44
+              },
+              "text": {
+                "de": "ZSCHHH"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 42,
+                "width": 62
+              },
+              "text": {
+                "de": "Eine Serverfarm, verborgen unter der Klosterbibliothek. Wach und allwissend."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 72,
+                "width": 64
+              },
+              "text": {
+                "de": "Kein Zufall. Ein digitales Artefakt – platziert, um gefunden zu werden."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
           "status": "draft",
-          "note": "Referenz für den Prompt / die Fotosuche: der Supercomputer MareNostrum in der Kapelle Torre Girona (Barcelona) – Racks in einem Kirchenraum. Luft unten = Szenenwechsel."
+          "note": "Referenz für den Prompt / die Fotosuche: der Supercomputer MareNostrum in der Kapelle Torre Girona (Barcelona) – Racks in einem Kirchenraum. Luft unten = Szenenwechsel.",
+          "prompt": {
+            "en": "Old wooden bookshelves slide apart in a monastery library, dust streaming. Behind and below them the hidden chamber: a server farm under the vaulted ceiling of the library, rows of black server racks between ancient stone columns, screens flickering softly, pale blue light. A small silhouette of the person in the white robe stands in the opening above."
+          }
         }
       ]
     }

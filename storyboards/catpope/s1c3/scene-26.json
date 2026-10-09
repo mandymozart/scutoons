@@ -2,63 +2,213 @@
   "storyboard": 2,
   "toon": "catpope",
   "chapter": 3,
-  "source": { "script": "script:catpope:de", "scene": 26, "heading": "EXT. HINTER DER WEGKREUZUNG - TAG" },
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 26,
+    "heading": "EXT. HINTER DER WEGKREUZUNG - TAG"
+  },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" }
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human"
+    }
   ],
   "locations": [
-    { "ref": "crossroads", "place": "beyond-the-crossroads", "time": "snow" }
+    {
+      "ref": "crossroads",
+      "place": "beyond-the-crossroads",
+      "time": "snow"
+    }
   ],
   "groups": [
     {
       "label": "scene-26",
-      "renderer": { "type": "vertical" },
+      "renderer": {
+        "type": "vertical"
+      },
       "continues": true,
       "shots": [
         {
           "id": "sb-26-1",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "wide", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
           "location": "crossroads",
-          "action": { "de": "Verschneiter Waldweg, der hinter einer Kurve zwischen dunklen Fichten verschwindet. PLF klein im weißen Gewand von hinten, mitten in der Kurve, die Arme um den Körper geschlungen. Über den Baumwipfeln ein heller Lichtreflex, noch ohne Form." },
-          "air": [[0, 28]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "cold", "facing": "away", "x": 0.4, "y": 0.78, "h": 0.2 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 76 }, "text": { "de": "26 EXT. HINTER DER WEGKREUZUNG – TAG" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 36, "y": 36, "width": 58 }, "text": { "de": "Nach einer Weile, hinter einer Kurve …" } }
+          "action": {
+            "de": "Verschneiter Waldweg, der hinter einer Kurve zwischen dunklen Fichten verschwindet. PLF klein im weißen Gewand von hinten, mitten in der Kurve, die Arme um den Körper geschlungen. Über den Baumwipfeln ein heller Lichtreflex, noch ohne Form."
+          },
+          "air": [
+            [
+              0,
+              28
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "cold",
+              "facing": "away",
+              "x": 0.4,
+              "y": 0.78,
+              "h": 0.2
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 76
+              },
+              "text": {
+                "de": "26 EXT. HINTER DER WEGKREUZUNG – TAG"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 36,
+                "y": 36,
+                "width": 58
+              },
+              "text": {
+                "de": "Nach einer Weile, hinter einer Kurve …"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Luft oben = Szenenwechsel nach dem weißen Ende von sb-25-7. Der Reflex über den Wipfeln kündigt die Kugel an, ohne sie zu zeigen."
         },
         {
           "id": "sb-26-2",
-          "format": "vertical", "aspect": "1:4", "projection": "perspective", "move": "tilt-up",
-          "shot": { "size": "ews", "angle": "worm" },
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-up",
+          "shot": {
+            "size": "ews",
+            "angle": "worm"
+          },
           "location": "crossroads",
-          "action": { "de": "Von PLFs Kopf am unteren Rand die Fichtenstämme hinauf, bis über die Wipfel: eine riesige, spiegelnde Kugel ragt mitten aus dem Wald, höher als alles. In ihrer Oberfläche gekrümmt der verschneite Wald und winzig PLF. Kalter, flimmernder Himmel." },
-          "air": [[0, 12]],
-          "figures": [ { "cast": "plf", "framing": "medium", "mood": "awe", "facing": "away", "x": 0.5, "y": 0.94, "h": 0.25 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 8, "y": 62, "width": 62 }, "text": { "de": "… tauchte eine riesige spiegelnde Kugel inmitten des Waldes auf. Hoch ragte sie über allem." } }
+          "action": {
+            "de": "Von PLFs Kopf am unteren Rand die Fichtenstämme hinauf, bis über die Wipfel: eine riesige, spiegelnde Kugel ragt mitten aus dem Wald, höher als alles. In ihrer Oberfläche gekrümmt der verschneite Wald und winzig PLF. Kalter, flimmernder Himmel."
+          },
+          "air": [
+            [
+              0,
+              12
+            ]
           ],
-          "source": { "type": "schematic", "want": "generated" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "awe",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.94,
+              "h": 0.25
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 8,
+                "y": 62,
+                "width": 62
+              },
+              "text": {
+                "de": "… tauchte eine riesige spiegelnde Kugel inmitten des Waldes auf. Hoch ragte sie über allem."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
           "status": "draft",
-          "note": "Die Bewegung ist das Staunen: der Blick klettert mit PLF nach oben. Wald-Foto + generierte Chrom-Kugel (Spiegelung von Wald und PLF muss stimmen – evtl. Unreal, wenn Luma die Spiegelung nicht hält)."
+          "note": "Die Bewegung ist das Staunen: der Blick klettert mit PLF nach oben. Wald-Foto + generierte Chrom-Kugel (Spiegelung von Wald und PLF muss stimmen – evtl. Unreal, wenn Luma die Spiegelung nicht hält).",
+          "prompt": {
+            "en": "Looking up from a person's head at the bottom edge along tall spruce trunks to above the treetops: a gigantic mirror-polished chrome sphere rises out of a snowy mountain forest, taller than everything around it. Its curved surface reflects the snowy forest and, tiny, the person in the white robe. Cold, shimmering winter sky."
+          }
         },
         {
           "id": "sb-26-3",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "mcu", "angle": "low" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "mcu",
+            "angle": "low"
+          },
           "location": "crossroads",
-          "action": { "de": "PLF im Halbprofil, blinzelt hoch, Frost an den Wimpern, Atemwolke. Im Hintergrund unscharf die glänzende Kugelfläche, darin gespiegelt PLFs eigenes Gesicht. Die Luft flimmert wie eine Fata Morgana." },
-          "air": [[85, 100]],
-          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "curious", "facing": "right", "x": 0.42, "y": 0.55, "h": 0.6 } ],
-          "dialog": [
-            { "variant": "bubble", "rect": { "x": 46, "y": 6, "width": 48 }, "tail": "bottom-left", "text": { "de": "Eine Vision? Ein Zeichen? Vielleicht die erste Antwort?" } },
-            { "variant": "bubble", "rect": { "x": 8, "y": 74, "width": 50 }, "tail": "top", "text": { "de": "So kalt … vielleicht nur eine Luftspiegelung. Was soll's!" } }
+          "action": {
+            "de": "PLF im Halbprofil, blinzelt hoch, Frost an den Wimpern, Atemwolke. Im Hintergrund unscharf die glänzende Kugelfläche, darin gespiegelt PLFs eigenes Gesicht. Die Luft flimmert wie eine Fata Morgana."
+          },
+          "air": [
+            [
+              85,
+              100
+            ]
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "curious",
+              "facing": "right",
+              "x": 0.42,
+              "y": 0.55,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 46,
+                "y": 6,
+                "width": 48
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "Eine Vision? Ein Zeichen? Vielleicht die erste Antwort?"
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 8,
+                "y": 74,
+                "width": 50
+              },
+              "tail": "top",
+              "text": {
+                "de": "So kalt … vielleicht nur eine Luftspiegelung. Was soll's!"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft",
           "note": "Weiß unten = Luft vor Szene 27."
         }

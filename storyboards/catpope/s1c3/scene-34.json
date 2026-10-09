@@ -2,135 +2,522 @@
   "storyboard": 2,
   "toon": "catpope",
   "chapter": 3,
-  "source": { "script": "script:catpope:de", "scene": 34, "heading": "INT. SERVERRAUM - KURZE ZEIT SPÄTER" },
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 34,
+    "heading": "INT. SERVERRAUM - KURZE ZEIT SPÄTER"
+  },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human" },
-    { "ref": "crows", "character": "crows" }
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human"
+    },
+    {
+      "ref": "crows",
+      "character": "crows"
+    }
   ],
   "locations": [
-    { "ref": "serverfarm-dark", "place": "monastery", "time": "night" },
-    { "ref": "graveyard", "place": "graveyard", "time": "day" }
+    {
+      "ref": "serverfarm-dark",
+      "place": "monastery",
+      "time": "night"
+    },
+    {
+      "ref": "graveyard",
+      "place": "graveyard",
+      "time": "day"
+    }
   ],
   "groups": [
     {
       "label": "scene-34",
-      "renderer": { "type": "vertical" },
+      "renderer": {
+        "type": "vertical"
+      },
       "continues": true,
       "shots": [
         {
           "id": "sb-34-1",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "medium", "angle": "high" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "high"
+          },
           "location": "serverfarm-dark",
-          "action": { "de": "PLF in eine Ecke zwischen zwei Racks gedrängt, grünes Notlicht. Im Dunkel ringsum ein Dutzend grüner Augenpunkte. Im Vordergrund groß ihre zitternden Hände (Zitter-Linien)." },
-          "air": [[0, 20]],
+          "action": {
+            "de": "PLF in eine Ecke zwischen zwei Racks gedrängt, grünes Notlicht. Im Dunkel ringsum ein Dutzend grüner Augenpunkte. Im Vordergrund groß ihre zitternden Hände (Zitter-Linien)."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "medium", "mood": "desperate", "facing": "front", "x": 0.45, "y": 0.6, "h": 0.5 },
-            { "cast": "crows", "framing": "full", "mood": "menacing", "facing": "front", "x": 0.8, "y": 0.35, "h": 0.2 }
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "desperate",
+              "facing": "front",
+              "x": 0.45,
+              "y": 0.6,
+              "h": 0.5
+            },
+            {
+              "cast": "crows",
+              "framing": "full",
+              "mood": "menacing",
+              "facing": "front",
+              "x": 0.8,
+              "y": 0.35,
+              "h": 0.2
+            }
           ],
           "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 22, "width": 66 }, "text": { "de": "34 INT. SERVERRAUM – KURZE ZEIT SPÄTER" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 34, "width": 64 }, "text": { "de": "PLF wich in die Ecke aus. Ihr blieb nur eins: das Kamehameha." } },
-            { "variant": "bubble", "rect": { "x": 6, "y": 84, "width": 46 }, "tail": "bottom-right", "text": { "de": "Aufgeben? Niemals!" } }
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 22,
+                "width": 66
+              },
+              "text": {
+                "de": "34 INT. SERVERRAUM – KURZE ZEIT SPÄTER"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 34,
+                "width": 64
+              },
+              "text": {
+                "de": "PLF wich in die Ecke aus. Ihr blieb nur eins: das Kamehameha."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 6,
+                "y": 84,
+                "width": 46
+              },
+              "tail": "bottom-right",
+              "text": {
+                "de": "Aufgeben? Niemals!"
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft",
           "note": "„Aufgeben? Niemals!“ ist im Skript ein Gedanke – als Blase gesetzt; eine Gedankenblase wäre die Alternative. Luft oben = Szenenwechsel aus dem Stream-Schwarz."
         },
         {
           "id": "sb-34-2",
-          "format": "vertical", "aspect": "1:4", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "full", "angle": "low" },
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "full",
+            "angle": "low"
+          },
           "location": "serverfarm-dark",
-          "action": { "de": "Oben: PLF, Hände an der Hüfte zur Kugel gewölbt, warmer Schimmer verdrängt das kalte Grün. Mitte: sie stößt die Hände nach vorn, ein Energiestrahl schießt den Scroll hinab durch die Rack-Reihen. Unten: Transistoren und LEDs glühen in grellen Farben auf, pulsieren, tanzen." },
-          "air": [[0, 4]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "fierce", "facing": "front", "x": 0.5, "y": 0.2, "h": 0.5 } ],
-          "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 6, "width": 46 }, "text": { "de": "KAME … HAME …" } },
-            { "variant": "caption", "font": "lettering", "rect": { "x": 6, "y": 36, "width": 88 }, "text": { "de": "HAAAAAA!" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 80, "width": 64 }, "text": { "de": "Die Geräte schienen zu leben – als feierten sie die Kraft in einem letzten, elektrisierenden Tanz." } }
+          "action": {
+            "de": "Oben: PLF, Hände an der Hüfte zur Kugel gewölbt, warmer Schimmer verdrängt das kalte Grün. Mitte: sie stößt die Hände nach vorn, ein Energiestrahl schießt den Scroll hinab durch die Rack-Reihen. Unten: Transistoren und LEDs glühen in grellen Farben auf, pulsieren, tanzen."
+          },
+          "air": [
+            [
+              0,
+              4
+            ]
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "fierce",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.2,
+              "h": 0.5
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 50,
+                "y": 6,
+                "width": 46
+              },
+              "text": {
+                "de": "KAME … HAME …"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 36,
+                "width": 88
+              },
+              "text": {
+                "de": "HAAAAAA!"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 80,
+                "width": 64
+              },
+              "text": {
+                "de": "Die Geräte schienen zu leben – als feierten sie die Kraft in einem letzten, elektrisierenden Tanz."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft",
           "note": "Der Schlag als Move: der Scroll folgt dem Strahl. PLF-Pose als Direktaufnahme, Strahl und Lichter als Grafik / Lichtmalerei. Der Schrei als Lettering („mit einem lauten Schrei“)."
         },
         {
           "id": "sb-34-3",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "wide", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
           "location": "serverfarm-dark",
-          "action": { "de": "Der Höhepunkt: fast reines Weiß, unermesslich grell. Nur als dünne schwarze Linien eingebrannt: die Umrisse der Racks, PLF mit ausgestreckten Armen, ein paar Krähen mitten im Flug – wie ein überbelichtetes Foto. Die Zeit steht still." },
-          "air": [[0, 100]],
+          "action": {
+            "de": "Der Höhepunkt: fast reines Weiß, unermesslich grell. Nur als dünne schwarze Linien eingebrannt: die Umrisse der Racks, PLF mit ausgestreckten Armen, ein paar Krähen mitten im Flug – wie ein überbelichtetes Foto. Die Zeit steht still."
+          },
+          "air": [
+            [
+              0,
+              100
+            ]
+          ],
           "figures": [
-            { "cast": "plf", "framing": "full", "mood": "fierce", "facing": "right", "x": 0.35, "y": 0.6, "h": 0.3 },
-            { "cast": "crows", "framing": "full", "mood": "scared", "facing": "left", "x": 0.75, "y": 0.4, "h": 0.15 }
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "fierce",
+              "facing": "right",
+              "x": 0.35,
+              "y": 0.6,
+              "h": 0.3
+            },
+            {
+              "cast": "crows",
+              "framing": "full",
+              "mood": "scared",
+              "facing": "left",
+              "x": 0.75,
+              "y": 0.4,
+              "h": 0.15
+            }
           ],
           "dialog": [],
-          "source": { "type": "schematic", "want": "art" },
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
           "status": "draft",
           "note": "Geplante Stille: ein textloser weißer Stop, der Atemzug vor dem Zusammenbruch. Ganz Luft (nichts zu lesen). Überbelichtete Direktaufnahme oder Linien-Grafik."
         },
         {
           "id": "sb-34-4",
-          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "wide", "angle": "eye" },
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
           "location": "serverfarm-dark",
-          "action": { "de": "Oben letzte Nachglut, dann frisst sich Schwarz nach unten: Bildschirme erlöschen Reihe für Reihe. In der Mitte flattern die Krähenwesen panisch auseinander, schwarze Federn, aufgerissene Schnäbel, und verschwinden ins Dunkel. Unten nur noch Schwärze." },
-          "air": [[68, 100]],
-          "figures": [ { "cast": "crows", "framing": "full", "mood": "scared", "facing": "away", "x": 0.5, "y": 0.4, "h": 0.35 } ],
-          "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 30, "y": 30, "width": 64 }, "text": { "de": "KRAAAAH!" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 58, "width": 62 }, "text": { "de": "Dann erlosch alles. Die Maschinen verstummten. Unheimliche Stille." } }
+          "action": {
+            "de": "Oben letzte Nachglut, dann frisst sich Schwarz nach unten: Bildschirme erlöschen Reihe für Reihe. In der Mitte flattern die Krähenwesen panisch auseinander, schwarze Federn, aufgerissene Schnäbel, und verschwinden ins Dunkel. Unten nur noch Schwärze."
+          },
+          "air": [
+            [
+              68,
+              100
+            ]
           ],
-          "source": { "type": "schematic", "want": "generated" },
+          "figures": [
+            {
+              "cast": "crows",
+              "framing": "full",
+              "mood": "scared",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.4,
+              "h": 0.35
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 30,
+                "y": 30,
+                "width": 64
+              },
+              "text": {
+                "de": "KRAAAAH!"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 58,
+                "width": 62
+              },
+              "text": {
+                "de": "Dann erlosch alles. Die Maschinen verstummten. Unheimliche Stille."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
           "status": "draft",
-          "note": "Die Stille als Schwarz unten (geplante Luft). KRAAAAH ist neu gesetzt (Skript: „schrien laut auf“)."
+          "note": "Die Stille als Schwarz unten (geplante Luft). KRAAAAH ist neu gesetzt (Skript: „schrien laut auf“).",
+          "prompt": {
+            "en": "Top: the last afterglow, then blackness eats its way downwards as rows of screens in a server hall go dark one after another. Middle: crow-like creatures scatter in panic, black feathers, beaks wide open, vanishing into the dark. Bottom: only black."
+          }
         },
         {
           "id": "sb-34-5",
-          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "travel",
-          "shot": { "size": "wide", "angle": "high" },
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "travel",
+          "shot": {
+            "size": "wide",
+            "angle": "high"
+          },
           "location": "serverfarm-dark",
-          "action": { "de": "Der finstere Serverraum, nur ein paar Bildschirme flackern tot. PLF schleppt sich durch Kabelsalat, der wie Wurzeln über den Boden kriecht – ein kaltes, technisches Grab. Unten am Ende des Raumes eine schwere alte Tür in einem Steinbogen, wie der Eingang zu einer Gruft, ein Lichtspalt darunter." },
-          "air": [[0, 6]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "exhausted", "facing": "away", "x": 0.45, "y": 0.3, "h": 0.25 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 34, "y": 6, "width": 60 }, "text": { "de": "Dieser Kampf war gewonnen. Doch sie wusste: es war noch nicht vorbei." } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 62, "width": 60 }, "text": { "de": "Am Ende des Raumes: eine Tür wie der Eingang einer Gruft." } }
+          "action": {
+            "de": "Der finstere Serverraum, nur ein paar Bildschirme flackern tot. PLF schleppt sich durch Kabelsalat, der wie Wurzeln über den Boden kriecht – ein kaltes, technisches Grab. Unten am Ende des Raumes eine schwere alte Tür in einem Steinbogen, wie der Eingang zu einer Gruft, ein Lichtspalt darunter."
+          },
+          "air": [
+            [
+              0,
+              6
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "exhausted",
+              "facing": "away",
+              "x": 0.45,
+              "y": 0.3,
+              "h": 0.25
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 34,
+                "y": 6,
+                "width": 60
+              },
+              "text": {
+                "de": "Dieser Kampf war gewonnen. Doch sie wusste: es war noch nicht vorbei."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 62,
+                "width": 60
+              },
+              "text": {
+                "de": "Am Ende des Raumes: eine Tür wie der Eingang einer Gruft."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Der Weg zur Tür als Scroll (wie der Gang in sb-30-8). Der Lichtspalt unter der Tür kündigt das Draußen an."
         },
         {
           "id": "sb-34-6",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "medium", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
           "location": "serverfarm-dark",
-          "action": { "de": "PLF stemmt sich keuchend mit der Schulter gegen die Tür, sie gibt knirschend nach; grelles Tageslicht bricht durch den Spalt und flutet die eine Bildhälfte, die andere bleibt Dunkel." },
-          "air": [[0, 8]],
-          "figures": [ { "cast": "plf", "framing": "medium", "mood": "exhausted", "facing": "right", "x": 0.4, "y": 0.55, "h": 0.55 } ],
-          "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 50, "y": 10, "width": 46 }, "text": { "de": "KNIRRRSCH" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 82, "width": 64 }, "text": { "de": "Mit letzter Kraft – bis die Tür nachgab und PLF ins Freie stolperte." } }
+          "action": {
+            "de": "PLF stemmt sich keuchend mit der Schulter gegen die Tür, sie gibt knirschend nach; grelles Tageslicht bricht durch den Spalt und flutet die eine Bildhälfte, die andere bleibt Dunkel."
+          },
+          "air": [
+            [
+              0,
+              8
+            ]
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "exhausted",
+              "facing": "right",
+              "x": 0.4,
+              "y": 0.55,
+              "h": 0.55
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 50,
+                "y": 10,
+                "width": 46
+              },
+              "text": {
+                "de": "KNIRRRSCH"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 82,
+                "width": 64
+              },
+              "text": {
+                "de": "Mit letzter Kraft – bis die Tür nachgab und PLF ins Freie stolperte."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft"
         },
         {
           "id": "sb-34-7",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "ews", "angle": "high" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ews",
+            "angle": "high"
+          },
           "location": "graveyard",
-          "action": { "de": "Der Schluss-Stop: von oben ein alter Friedhof unter klarem, blassem Himmel. Feuchte Erde, verwesendes Laub, schiefe Grabsteine. Ganz klein am Fuß einer Gruft PLF auf den Knien. Ein einziger Grabstein ist kaum merklich verschoben, wie ein Bildfehler." },
-          "air": [[0, 8], [74, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "exhausted", "facing": "away", "x": 0.4, "y": 0.5, "h": 0.08 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 10, "width": 70 }, "text": { "de": "Ein stiller, bitterer Sieg – doch ich wusste, Triumph kam nicht ohne einen Preis." } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 52, "width": 64 }, "text": { "de": "Was steckte hinter den geheimen Repositories? Ein neues Testament?" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 66, "width": 56 }, "text": { "de": "Was war Projekt Elysium?" } }
+          "action": {
+            "de": "Der Schluss-Stop: von oben ein alter Friedhof unter klarem, blassem Himmel. Feuchte Erde, verwesendes Laub, schiefe Grabsteine. Ganz klein am Fuß einer Gruft PLF auf den Knien. Ein einziger Grabstein ist kaum merklich verschoben, wie ein Bildfehler."
+          },
+          "air": [
+            [
+              0,
+              8
+            ],
+            [
+              74,
+              100
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "exhausted",
+              "facing": "away",
+              "x": 0.4,
+              "y": 0.5,
+              "h": 0.08
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 10,
+                "width": 70
+              },
+              "text": {
+                "de": "Ein stiller, bitterer Sieg – doch ich wusste, Triumph kam nicht ohne einen Preis."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 52,
+                "width": 64
+              },
+              "text": {
+                "de": "Was steckte hinter den geheimen Repositories? Ein neues Testament?"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 66,
+                "width": 56
+              },
+              "text": {
+                "de": "Was war Projekt Elysium?"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Das Kapitelende: ein weiter, ruhiger Stop nach dem Lärm, die Fragen der ERZÄHLER:IN (Ich-Stimme) als Cliffhanger, darunter viel leerer Himmel / Weiß als Luft bis zum Kapitelende. Der verschobene Grabstein ist neu – ein leiser Vorgriff auf die Glitches in Kapitel 4 (Szene 35/36)."
         }

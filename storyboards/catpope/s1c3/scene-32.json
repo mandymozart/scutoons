@@ -116,7 +116,10 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Der eine Rundumblick des Kapitelendes: PLF „verharrt für einen Moment“, der Leser schaut sich selbst um. 3:1 = 6,5 Screens breit (unter der Planungsbreite 8), eigene horizontale Gruppe wie sb-28-4. Die Relais als KLACK, die Neonröhren in Reihe. Terminals auf Lesepulten = Echo der Bibliothek (sb-29-1). Referenz wie sb-31-3 (MareNostrum / Torre Girona). Luft = eine dunkle Ecke ohne Text."
+          "note": "Der eine Rundumblick des Kapitelendes: PLF „verharrt für einen Moment“, der Leser schaut sich selbst um. 3:1 = 6,5 Screens breit (unter der Planungsbreite 8), eigene horizontale Gruppe wie sb-28-4. Die Relais als KLACK, die Neonröhren in Reihe. Terminals auf Lesepulten = Echo der Bibliothek (sb-29-1). Referenz wie sb-31-3 (MareNostrum / Torre Girona). Luft = eine dunkle Ecke ohne Text.",
+          "prompt": {
+            "en": "Seamless 360° panorama of a hidden control centre inside a romanesque monastery: round arches and columns, half-covered frescoes behind rows of black server racks, cable bundles draped over carved choir stalls, computer terminals standing on old wooden lecterns. Fluorescent tubes switch on one after another, harsh and bright. The person in the white robe stands small and motionless in the middle of one side."
+          }
         }
       ]
     },
@@ -589,7 +592,10 @@
             "want": "generated"
           },
           "status": "draft",
-          "note": "Der Geruchs-Satz schließt die Szene und ist die Brücke zu Szene 33 (der Stream über Gerüche). „Krah-ha-ha!“ ist neu gesetzt (Skript: „lachten spöttisch, krächzten rau“). Luft unten = Schnitt in das helle Studio."
+          "note": "Der Geruchs-Satz schließt die Szene und ist die Brücke zu Szene 33 (der Stream über Gerüche). „Krah-ha-ha!“ ist neu gesetzt (Skript: „lachten spöttisch, krächzten rau“). Luft unten = Schnitt in das helle Studio.",
+          "prompt": {
+            "en": "Diagonal action frame: black crow-like creatures as cut-out silhouettes mid-leap, thin green laser lines shooting from their glowing eyes toward the person in the white robe, who pulls an arm back. More crow creatures in the background, beaks open as if laughing. Dark server room behind."
+          }
         }
       ]
     }
