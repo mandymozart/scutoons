@@ -31,6 +31,16 @@ const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(
 const flag = (f) => { const i = args.indexOf(f); return i >= 0 ? (args.splice(i, 1), true) : false; };
 const only = take('--only', null)?.split(',');
 const steps = Number(take('--steps', 4));
+// full quality on a big cloud GPU (2026-10-10, Runpod): COMFY_LORA=none --steps 40 --cfg 4 – no Lightning shortcut
+const cfg = Number(take('--cfg', 1));
+// how the reference images enter the model – 2511 wants 'index_timestep_zero' (ComfyUI's 2511 template); off = the node's default
+const refMethod = take('--ref-method', null);
+// the same shots, prompt and images through Luma's Agents API (owner 2026-10-10: 'can we also try the luma api in
+// comparison?'): --engine luma [--luma-model uni-1|uni-1-max] [--luma-style manga], key in LUMA_AGENTS_API_KEY
+// (platform.lumalabs.ai – billed per image, separate from the Luma subscription)
+const engine = take('--engine', 'comfy');
+const lumaModel = take('--luma-model', 'uni-1');
+const lumaStyle = take('--luma-style', 'auto');
 const mp = Number(take('--mp', 1));
 const seedArg = take('--seed', null);
 const missing = flag('--missing');
@@ -114,13 +124,13 @@ function graph(prompt, names, seed) {
 		2: { class_type: 'CLIPLoader', inputs: { clip_name: M.clip, type: 'qwen_image', device: 'default' } },
 		3: { class_type: 'VAELoader', inputs: { vae_name: M.vae } },
 		4: { class_type: 'LoraLoaderModelOnly', inputs: { model: ['1', 0], lora_name: M.lora, strength_model: 1 } },
-		5: { class_type: 'ModelSamplingAuraFlow', inputs: { model: ['4', 0], shift: 3 } },
+		5: { class_type: 'ModelSamplingAuraFlow', inputs: { model: M.lora === 'none' ? ['1', 0] : ['4', 0], shift: 3 } },
 		6: { class_type: 'CFGNorm', inputs: { model: ['5', 0], strength: 1 } },
 		20: { class_type: 'ImageScaleToTotalPixels', inputs: { image: ['10', 0], upscale_method: 'lanczos', megapixels: mp, resolution_steps: 16 } },
 		21: { class_type: 'VAEEncode', inputs: { pixels: ['20', 0], vae: ['3', 0] } },
 		30: { class_type: 'TextEncodeQwenImageEditPlus', inputs: { clip: ['2', 0], vae: ['3', 0], prompt, image1: ['20', 0] } },
 		31: { class_type: 'TextEncodeQwenImageEditPlus', inputs: { clip: ['2', 0], vae: ['3', 0], prompt: '', image1: ['20', 0] } },
-		40: { class_type: 'KSampler', inputs: { model: ['6', 0], positive: ['30', 0], negative: ['31', 0], latent_image: ['21', 0], seed, steps, cfg: 1, sampler_name: 'euler', scheduler: 'simple', denoise: 1 } },
+		40: { class_type: 'KSampler', inputs: { model: ['6', 0], positive: ['30', 0], negative: ['31', 0], latent_image: ['21', 0], seed, steps, cfg, sampler_name: 'euler', scheduler: 'simple', denoise: 1 } },
 		41: { class_type: 'VAEDecode', inputs: { samples: ['40', 0], vae: ['3', 0] } },
 		42: { class_type: 'SaveImage', inputs: { images: ['41', 0], filename_prefix: 'scutoons/storyboard' } }
 	};
@@ -128,6 +138,13 @@ function graph(prompt, names, seed) {
 		g[10 + i] = { class_type: 'LoadImage', inputs: { image: n } };
 		if (i > 0) { g[30].inputs[`image${i + 1}`] = [String(10 + i), 0]; g[31].inputs[`image${i + 1}`] = [String(10 + i), 0]; }
 	});
+	if (M.lora === 'none') delete g[4];
+	if (refMethod) {
+		g[32] = { class_type: 'FluxKontextMultiReferenceLatentMethod', inputs: { conditioning: ['30', 0], reference_latents_method: refMethod } };
+		g[33] = { class_type: 'FluxKontextMultiReferenceLatentMethod', inputs: { conditioning: ['31', 0], reference_latents_method: refMethod } };
+		g[40].inputs.positive = ['32', 0];
+		g[40].inputs.negative = ['33', 0];
+	}
 	return g;
 }
 
@@ -176,7 +193,28 @@ function stopServer(child) {
 }
 const late = () => { if (!until) return false; const [h, m] = until.split(':').map(Number); const d = new Date(); return d.getHours() * 60 + d.getMinutes() >= h * 60 + m && d.getHours() < 20; };
 
-if (!dry && !fresh) await fetch(`${COMFY}/system_stats`).catch(() => { console.error(`No ComfyUI at ${COMFY} – start the ComfyUI app.`); process.exit(2); });
+/** Luma Agents API: the images inline (base64), the shot's aspect snapped to Luma's ratios; returns the PNG bytes */
+const LUMA_RATIOS = ['3:1', '2:1', '16:9', '3:2', '1:1', '2:3', '9:16', '1:2', '1:3'];
+const ratio = (s) => { const [a, b] = s.split(':').map(Number); return a / b; };
+async function luma(prompt, files, aspect) {
+	const key = process.env.LUMA_AGENTS_API_KEY;
+	const h = { authorization: `Bearer ${key}`, 'content-type': 'application/json' };
+	const want = ratio(aspect ?? '9:16');
+	const aspect_ratio = LUMA_RATIOS.reduce((a, b) => (Math.abs(Math.log(ratio(b) / want)) < Math.abs(Math.log(ratio(a) / want)) ? b : a));
+	const image_ref = files.map((f) => ({ data: readFileSync(f).toString('base64'), media_type: /\.webp$/i.test(f) ? 'image/webp' : /\.jpe?g$/i.test(f) ? 'image/jpeg' : 'image/png' }));
+	const r = await fetch('https://agents.lumalabs.ai/v1/generations', { method: 'POST', headers: h, body: JSON.stringify({ prompt, model: lumaModel, type: 'image', aspect_ratio, style: lumaStyle, output_format: 'png', image_ref }) });
+	let j = await r.json();
+	if (!r.ok) throw new Error(`luma ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
+	while (!['completed', 'failed'].includes(j.state)) {
+		await new Promise((ok) => setTimeout(ok, 3000));
+		j = await (await fetch(`https://agents.lumalabs.ai/v1/generations/${j.id}`, { headers: h })).json();
+	}
+	if (j.state === 'failed') throw new Error(`luma: ${j.failure_code ?? ''} ${j.failure_reason ?? ''}`);
+	return { bytes: Buffer.from(await (await fetch(j.output.find((o) => o.type === 'image').url)).arrayBuffer()), id: j.id, aspect_ratio };
+}
+
+if (engine === 'luma' && !dry && !process.env.LUMA_AGENTS_API_KEY) { console.error('LUMA_AGENTS_API_KEY is not set (platform.lumalabs.ai → API keys).'); process.exit(2); }
+if (engine === 'comfy' && !dry && !fresh) await fetch(`${COMFY}/system_stats`).catch(() => { console.error(`No ComfyUI at ${COMFY} – start the ComfyUI app.`); process.exit(2); });
 mkdirSync(gen, { recursive: true });
 let stopped = false;
 const styles = styleFiles().map((f) => resolve(STYLE_DIR, f));
@@ -198,21 +236,29 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 	const t0 = Date.now();
 	let server = null;
 	try {
-		if (fresh) server = await startServer();
-		const names = [];
-		for (const f of files) names.push(await upload(f));
-		const img = await run(graph(prompt, names, seed));
-		const r = await fetch(`${COMFY}/view?${new URLSearchParams({ filename: img.filename, subfolder: img.subfolder ?? '', type: img.type ?? 'output' })}`);
+		let bytes, lumaJob;
+		if (engine === 'luma') {
+			lumaJob = await luma(prompt, files, shot.aspect);
+			bytes = lumaJob.bytes;
+		} else {
+			if (fresh) server = await startServer();
+			const names = [];
+			for (const f of files) names.push(await upload(f));
+			const img = await run(graph(prompt, names, seed));
+			const r = await fetch(`${COMFY}/view?${new URLSearchParams({ filename: img.filename, subfolder: img.subfolder ?? '', type: img.type ?? 'output' })}`);
+			bytes = Buffer.from(await r.arrayBuffer());
+		}
 		const n = readdirSync(gen).filter((f) => f.startsWith(`${shot.id}--`)).length + 1;
 		const file = `${shot.id}--g${n}.png`;
-		writeFileSync(resolve(gen, file), Buffer.from(await r.arrayBuffer()));
+		writeFileSync(resolve(gen, file), bytes);
 		// black and white (the model tints despite the prompt) – unless the shot has its one colour accent
 		const accent = { ...(sb.light ?? {}), ...(shot.light ?? {}) }.accent?.color;
 		if (!accent) execFileSync('python', ['-I', '-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("L").save(sys.argv[1])', resolve(gen, file)]);
 		// let ComfyUI drop its models and caches: kept between jobs, its RAM grew until Windows paged the offloaded
 		// weights and a step took 350 s instead of 90 (2026-10-10, 64 GB machine, 18 GB of Qwen offloaded)
-		await fetch(`${COMFY}/free`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
-		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, engine: 'comfy', model: M.unet, lora: M.lora, steps, seed, images: files.map((f) => basename(f)), prompt }) + '\n');
+		// only on the local 8 GB card – a cloud GPU keeps the model loaded for the whole session
+		if (engine === 'comfy' && /127\.0\.0\.1|localhost/.test(COMFY)) await fetch(`${COMFY}/free`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
+		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, ...(engine === 'luma' ? { engine: 'luma', model: lumaModel, style: lumaStyle, aspect: lumaJob.aspect_ratio, job: lumaJob.id } : { engine: 'comfy', model: M.unet, lora: M.lora, steps, cfg, refMethod, seed, host: new URL(COMFY).host }), images: files.map((f) => basename(f)), prompt }) + '\n');
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
 		console.log(`failed: ${e.message}`);
