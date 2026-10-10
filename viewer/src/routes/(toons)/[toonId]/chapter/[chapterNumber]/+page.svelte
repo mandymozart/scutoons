@@ -6,6 +6,7 @@
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
+	import { stripScroll } from '$lib/components/toon/renderer/strip-scroll.ts';
 	import VnPage from '$lib/components/toon/interactions/vn-page.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audio } from '$lib/actions/audio/index.ts';
@@ -91,7 +92,7 @@
 			const el = target();
 			if (!el) return;
 			// a strip's slice sits in its pinned track: its section's top is the group's top, the page scroll below it moves
-			// the track sideways 1:1 (strip.svelte) – a later slice is that far further down (at most the strip's travel)
+			// the track sideways (strip.svelte: the pinned range mapped onto the travel) – a later slice is further down
 			const strip = el.closest('.strip');
 			const frame = el.closest('.frame');
 			const track = frame?.parentElement;
@@ -99,7 +100,8 @@
 			if (strip && frame && track) {
 				const pin = track.parentElement ?? strip;
 				const x = frame.getBoundingClientRect().left - track.getBoundingClientRect().left;
-				top += Math.min(Math.max(x, 0), Math.max(0, track.scrollWidth - pin.clientWidth));
+				const travel = Math.max(0, track.scrollWidth - pin.clientWidth);
+				top += stripScroll(x, (strip as HTMLElement).offsetHeight - (pin as HTMLElement).offsetHeight, travel);
 			}
 			if (Math.abs(top) >= 1) window.scrollTo({ top: window.scrollY + top, behavior: 'instant' });
 		};

@@ -6,6 +6,7 @@
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import Slice from '../slice.svelte';
+	import { ratioSum, stripOffset, stripScroll } from './strip-scroll.ts';
 
 	/**
 	 * A horizontal group with `renderer.params.fullWidth` (owner 2026-10-06): the slices side by side as one strip, each
@@ -24,6 +25,13 @@
 	let track = $state<HTMLElement>();
 	/** how far the strip can move sideways (track width − visible width), px */
 	let travel = $state(0);
+	/**
+	 * how far the page scrolls while the strip is pinned (section − pin), px. The section's height comes from CSS (the
+	 * frames' ratios × the large viewport height), never from `travel`: the track is drawn at the visible height (dvh),
+	 * which changes when the mobile toolbar slides in or out – a section height following it made the page above the
+	 * reader grow / shrink by hundreds of px per strip and the scroll jumped (owner 2026-10-10, Firefox Android)
+	 */
+	let range = 0;
 	/** how far it has moved, px */
 	let offset = $state(0);
 	let fullscreen = $state(false);
@@ -37,10 +45,14 @@
 		}))
 	);
 
+	/** the frames' width / height ratios summed (the section's height in CSS) */
+	const ratios = $derived(ratioSum(frames));
+
 	function measure() {
-		if (!pin || !track) return;
+		if (!pin || !track || !section) return;
 		const fraction = travel > 0 ? offset / travel : 0;
 		travel = Math.max(0, track.scrollWidth - pin.clientWidth);
+		range = Math.max(0, section.offsetHeight - pin.offsetHeight);
 		offset = fraction * travel;
 		if (!fullscreen) follow();
 	}
@@ -48,7 +60,7 @@
 	/** on the page: the scroll position decides the offset */
 	function follow() {
 		if (!section || fullscreen) return;
-		offset = Math.min(Math.max(-section.getBoundingClientRect().top, 0), travel);
+		offset = stripOffset(-section.getBoundingClientRect().top, range, travel);
 	}
 
 	$effect(() => {
@@ -56,6 +68,7 @@
 		const observer = new ResizeObserver(measure);
 		observer.observe(pin);
 		observer.observe(track);
+		if (section) observer.observe(section);
 		let frame = 0;
 		const onScroll = () => {
 			if (frame) return;
@@ -103,8 +116,7 @@
 				// back on the page: scroll to where the strip was
 				requestAnimationFrame(() => {
 					measure();
-					const fraction = travel > 0 ? offset / travel : 0;
-					if (section) window.scrollTo({ top: window.scrollY + section.getBoundingClientRect().top + fraction * travel, behavior: 'instant' });
+					if (section) window.scrollTo({ top: window.scrollY + section.getBoundingClientRect().top + stripScroll(offset, range, travel), behavior: 'instant' });
 				});
 			}
 		};
@@ -122,7 +134,8 @@
 		// (or Shift + wheel) moves it too – by scrolling the page the same distance (owner 2026-10-06, BACKLOG M.8)
 		if (travel === 0 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
 		event.preventDefault();
-		window.scrollBy({ top: event.deltaX * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1), behavior: 'instant' });
+		const px = event.deltaX * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
+		window.scrollBy({ top: (px * range) / travel, behavior: 'instant' });
 	}
 
 	/** the strip fills the window (pinned) – the page's scroll is the strip's */
@@ -137,12 +150,12 @@
 			// pinned on the page: ← / → step frame by frame (the page scrolls to the frame's edge; ↑ / ↓ stay the page's)
 			if ((event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') || event.altKey || event.ctrlKey || event.metaKey || editable(event.target) || !pinned()) return;
 			// where the strip is now (the scroll position itself – `offset` follows it a frame later)
-			const now = Math.min(Math.max(-(section?.getBoundingClientRect().top ?? 0), 0), travel);
+			const now = stripOffset(-(section?.getBoundingClientRect().top ?? 0), range, travel);
 			const at = edges();
 			const next = event.key === 'ArrowRight' ? at.find((x) => x > now + 1) : [...at].reverse().find((x) => x < now - 1);
 			const to = Math.min(Math.max(next ?? (event.key === 'ArrowRight' ? travel : 0), 0), travel);
 			const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-			window.scrollBy({ top: to - now, behavior: smooth ? 'smooth' : 'instant' });
+			window.scrollBy({ top: stripScroll(to, range, travel) - stripScroll(now, range, travel), behavior: smooth ? 'smooth' : 'instant' });
 			event.preventDefault();
 			return;
 		}
@@ -157,7 +170,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<section class="strip" data-group-label={group.label} bind:this={section} style:--travel="{travel}px">
+<section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="pin" class:fits={travel === 0} class:fullscreen bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>
 		<div class="track" bind:this={track} style:transform="translate3d({-offset}px, 0, 0)">
@@ -193,13 +206,18 @@
 
 <style>
 	/* the whole width of the viewport, out of the reading column (like a full-viewport video slice); as tall as the
-	   screen plus the sideways travel, so scrolling through it moves the pinned strip 1:1. dvh, not svh: once the mobile
-	   toolbar slides away (Firefox Android) the visible area grows – an svh pin left a black bar under it (owner 2026-10-08) */
+	   screen plus the sideways travel, so scrolling through it moves the pinned strip (about 1:1).
+	   The height is the LARGE viewport's (lvh; vh is the same on phones) and the travel at that height, from the frames'
+	   ratios – stable from the first paint (no measuring) and never following the mobile toolbar: a dvh height here
+	   changed every strip above by ≈ (1 + ratios) × the toolbar's height whenever it slid in, the page jumped while
+	   scrolling back up (owner 2026-10-10; it came with the svh → dvh change of 2026-10-08). Only the pin follows the
+	   visible area (dvh): once the toolbar slides away the visible area grows – an svh pin left a black bar under it
+	   (owner 2026-10-08). The track's travel at the visible height is mapped onto this range (strip-scroll.ts). */
 	.strip {
 		width: var(--viewport-width, 100vw);
 		margin-left: calc(50% - var(--viewport-width, 100vw) / 2);
-		height: calc(100vh + var(--travel, 0px));
-		height: calc(100dvh + var(--travel, 0px));
+		height: calc(100vh + max(0px, var(--ratios, 0) * 100vh - var(--viewport-width, 100vw)));
+		height: calc(100lvh + max(0px, var(--ratios, 0) * 100lvh - var(--viewport-width, 100vw)));
 		background: var(--ink, #000);
 	}
 	.pin {
