@@ -1334,7 +1334,7 @@
             }
           },
           "action": {
-            "de": "Die nackte Sphynx-Katze sitzt auf der Friedhofsmauer, den Rücken zum Friedhof, und schaut direkt den Leser an, während die Erzählstimme spricht. Hinter ihr der Friedhof als flacher schwarzer Scherenschnitt, die Grabsteine wie Säulen eines Archivregals."
+            "de": "Cat Pope – die Erzählstimme aus der Zukunft, als Cat Pope oder mit Katzenmaske – sitzt auf der Friedhofsmauer, den Rücken zum Friedhof, und spricht direkt zum Leser. Dahinter der Friedhof als flacher schwarzer Scherenschnitt, die Grabsteine wie Säulen eines Archivregals."
           },
           "air": [
             [
@@ -1344,7 +1344,7 @@
           ],
           "figures": [
             {
-              "cast": "sphynx",
+              "cast": "catpope",
               "framing": "medium",
               "mood": "thinking",
               "pose": "sit",

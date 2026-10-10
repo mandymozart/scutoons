@@ -37,11 +37,16 @@ shot. Rules the checker can enforce go into `scripts/storyboard/validate.mjs` to
   recognises himself as Cat Pope and understands he was the cat all along. "Plf in den capitals is immer etweder mensch
   als priester ohne katzen gestalt und spynx katze. Die schizophrenia is important. Erst am ende beim spiegeln im
   wasser erkennt sich plf selbst als cat pope und bemerkt das er die katze war die ganze zeit." (2026-10-10) – this
-  replaces "narrating as cat pope regular" for narration shots: they show the cat (or no figure). 3D: the human is the
+  is the story; the NARRATOR is Cat Pope from the future, as Cat Pope or with a cat mask – "erzaehler sind cat pope
+  from the future. so with cat mask or as catpope" (2026-10-10). 3D: the human is the
   Cat Pope model without ears – "Als 3d reicht einfach cat pope ohne ohren"; the photo references are in Figma.
 - **Every chapter opens with its title, as in chapter 2: the five stages of grief** (Leugnen · Ärger · Verhandeln ·
   Depression · Akzeptanz), "N. KAPITEL" small over the stage in quotes, Bangers white with an ink outline, straight.
   "Kapitel 2 hat einen titel. Es sind die 5 stages of grief." (2026-10-10)
+- **PLF is "sie" throughout** – the gender-neutral choice; "sie gender neutral in deutschen gibt es aber kein gutes"
+  (2026-10-10).
+- **The streamer studio (ch3) is a simple intermezzo, already shot as a video**: Cat Pope invited and interviewed by a
+  streamer, back and forth – "he is basically interviewing himself" (2026-10-10).
 - **The songs are not storyboarded** – they belong to the app, not to the toon. "Die songs koennen ausgelassen werden
   da die nicht direkt teil des toons sind sonder der app." (2026-10-10)
 - **Moods are the registry's moods** (acceptance, angry, bargaining, confused, crying, denial, disgusted, dizzy,

@@ -501,7 +501,7 @@
             }
           },
           "action": {
-            "de": "Die nackte Sphynx-Katze sitzt auf einem Yves-Klein-blauen Wasserspeicher und schaut den Leser an, während die Erzählstimme erklärt – ruhig wie eine Therapeutin. Neben ihr läuft eine umgekippte Gießkanne aus – eine kleine Sintflut im Beet."
+            "de": "Cat Pope – die Erzählstimme aus der Zukunft, als Cat Pope oder mit Katzenmaske – sitzt auf einem Yves-Klein-blauen Wasserspeicher, die Beine übereinander, wie in einer Therapiestunde, und erklärt dem Leser. Daneben läuft eine umgekippte Gießkanne aus – eine kleine Sintflut im Beet."
           },
           "air": [
             [
@@ -511,7 +511,7 @@
           ],
           "figures": [
             {
-              "cast": "sphynx",
+              "cast": "catpope",
               "framing": "medium",
               "mood": "smug",
               "pose": "sit",
@@ -1930,7 +1930,7 @@
             }
           },
           "action": {
-            "de": "Oben PLF, der Mensch im weißen Gewand, über die Pfütze gebeugt. Nach unten die Wasseroberfläche – darin, wo sein Spiegelbild sein müsste, Cat Pope: der Papst mit dem Kopf der Sphynx-Katze, der in derselben Haltung zurückschaut. Hier erkennt PLF sich selbst."
+            "de": "Oben PLF, der Mensch im weißen Gewand, über die Pfütze gebeugt. Nach unten die Wasseroberfläche – darin, wo ihr Spiegelbild sein müsste, Cat Pope: die Papstgestalt mit dem Kopf der Sphynx-Katze, die in derselben Haltung zurückschaut. Hier erkennt PLF sich selbst."
           },
           "air": [
             [
@@ -2006,7 +2006,7 @@
           "status": "draft",
           "note": "Die Auflösung: die Katze (catpope / cat) ist PLF. view real – das Spiegelbild zeigt die Wahrheit, nicht PLFs Glauben.",
           "prompt": {
-            "en": "Top: a human priest in a white papal robe crouches and leans over a puddle on a garden path at sunset. Below, in the water where his reflection should be, Cat Pope looks back up – the same priest in the same robe and pose, but with the head of a hairless sphynx cat. Low hard sun from the right, the puddle bright with the evening sky, black ground."
+            "en": "Top: a human priest in a white papal robe crouches and leans over a puddle on a garden path at sunset. Below, in the water where the reflection should be, Cat Pope looks back up – the same person in the same robe and pose, but with the head of a hairless sphynx cat. Low hard sun from the right, the puddle bright with the evening sky, black ground."
           }
         },
         {
@@ -2063,7 +2063,7 @@
           "status": "draft",
           "note": "Stiller Beat in der Mitte (Owner 2026-10-10): das Erkennen, ohne Text. Frage: die Katzenaugen hier golden wie in Kapitel 4 (dann wäre es eine zweite Akzentfarbe neben dem Blau)?",
           "prompt": {
-            "en": "Extreme close-up split horizontally by a water line: above, a man's eyes; below, mirrored in a puddle, the eyes of Cat Pope – a sphynx cat's face under the papal collar – exactly the same gaze. Low hard sun, pure black and white."
+            "en": "Extreme close-up split horizontally by a water line: above, a person's eyes; below, mirrored in a puddle, the eyes of Cat Pope – a sphynx cat's face under the papal collar – exactly the same gaze. Low hard sun, pure black and white."
           }
         },
         {
@@ -2149,7 +2149,7 @@
             }
           },
           "action": {
-            "de": "PLF sitzt mit einem Seufzen am Rand der Pfütze, schwarze Silhouette vor dem letzten Licht. In der Pfütze sein Spiegelbild: Cat Pope, in derselben Haltung – er war die Katze, die ganze Zeit. Nach unten Dämmerung bis ins Schwarz."
+            "de": "PLF sitzt mit einem Seufzen am Rand der Pfütze, schwarze Silhouette vor dem letzten Licht. In der Pfütze ihr Spiegelbild: Cat Pope, in derselben Haltung – sie war die Katze, die ganze Zeit. Nach unten Dämmerung bis ins Schwarz."
           },
           "air": [
             [
