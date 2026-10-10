@@ -138,6 +138,15 @@
 			x0 = e.touches[0]?.clientX ?? 0;
 			y0 = e.touches[0]?.clientY ?? 0;
 		};
+		// scrolled to the top where the finger is: the content and every scroll box between the finger and it
+		// (owner 2026-10-10: "wenn man ganz oben gescrollt im panel zieht soll es weggehen, nicht nur an der drag bar")
+		const atTop = (target: EventTarget | null) => {
+			for (let n = target instanceof Element ? target : null; n && n !== el.parentElement; n = n.parentElement) {
+				if (n.scrollTop > 0) return false;
+				if (n === el) break;
+			}
+			return true;
+		};
 		const move = (e: TouchEvent) => {
 			if (!tracking) return;
 			const t = e.touches[0];
@@ -150,14 +159,22 @@
 				const dy = t.clientY - y0;
 				const dx = t.clientX - x0;
 				if (dy === 0 && dx === 0) return;
-				// the content scrolls (or scrolled already – the browser owns the gesture) / sideways: not a pull
-				if (dy < 0 || el.scrollTop > 0 || Math.abs(dx) > dy || !e.cancelable) {
+				// sideways first (a tab row, a carousel): not a pull for this touch
+				if (Math.abs(dx) > Math.abs(dy)) {
 					tracking = false;
+					return;
+				}
+				// the content still scrolls (up, or down while not at its top): the browser's – follow from here on,
+				// so a list scrolled back to its top turns into a pull in the same gesture
+				if (dy <= 0 || !atTop(e.target)) {
+					x0 = t.clientX;
+					y0 = t.clientY;
 					return;
 				}
 				begin(t.clientY);
 			}
-			e.preventDefault();
+			// at the top a downward pull has nothing to scroll – drag even when the browser marked the move uncancelable
+			if (e.cancelable) e.preventDefault();
 			follow(t.clientY);
 		};
 		const end = () => {

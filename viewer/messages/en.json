@@ -24,6 +24,8 @@
 	"past_events": "Past Events",
 	"sequence_navigation": {
 		"chapters": "Chapters",
+		"read_next": "Read {label}",
+		"watch_next": "Watch {label}",
 		"overview": "Overview",
 		"alt_season_start": "Start of season",
 		"start": "Beginning",

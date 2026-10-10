@@ -24,6 +24,8 @@
 	"past_events": "Vergangene Veranstaltungen",
 	"sequence_navigation": {
 		"chapters": "Kapitel",
+		"read_next": "{label} lesen",
+		"watch_next": "{label} ansehen",
 		"overview": "Übersicht",
 		"alt_season_start": "Beginn der Staffel",
 		"start": "Anfang",

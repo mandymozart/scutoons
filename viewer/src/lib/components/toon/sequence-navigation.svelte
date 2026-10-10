@@ -2,14 +2,13 @@
 	import { type LoadedSequenceItem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
-	import { toonUrl } from '$lib/utils/cdn.js';
 	import { goto } from '$app/navigation';
 	import ChaptersList from './chapters-list.svelte';
 	import { setContext } from 'svelte';
 	import PullPanel from '$lib/components/panel/pull-panel.svelte';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 	import listIcon from '$lib/icons/list.svg';
-	import { chapterName } from '$lib/utils/chapter-name.ts';
+	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	let {
@@ -40,6 +39,14 @@
 	const nextItem = $derived(
 		currentPosition < readable.length - 1 ? readable[currentPosition + 1] : null
 	);
+
+	// the next chapter's button says what happens (owner 2026-10-10: "ansehen oder lesen … number plus name of chapter
+	// and then lesen"): the prologue is the music video – watched; every other chapter is read
+	const nextLabel = $derived.by(() => {
+		if (!nextItem) return '';
+		const label = `${chapterName(nextItem.number)} ${nextItem.title ?? ''}`.trim();
+		return chapterShownNumber(nextItem.number) === null ? m['sequence_navigation.watch_next']({ label }) : m['sequence_navigation.read_next']({ label });
+	});
 
 	const nav = getNavigationContext();
 	const active = $derived(nav.isOpen('sequence'));
@@ -114,23 +121,17 @@
 
 		<!-- Next Button -->
 		{#if nextItem}
+			<!-- one big standard button, inverted on the dark panel (owner 2026-10-10) -->
 			<button
+				type="button"
 				onclick={() =>
 					navigate(localizeHref(`/${params.toonId}/chapter/${nextItem.number}`))}
-				class=" btn-clear btn-next"
-				data-control-exempt="chapter navigation card (two lines + image)"
-				title={`${chapterName(nextItem.number)}: ${nextItem.title}`}
+				class="next-chapter"
+				data-control-exempt="the panel's main action (may wrap to two lines)"
+				data-testid="chapters-next"
 			>
-				<div class="nav-image">
-					{#if nextItem.thumbnail}
-						<img src={toonUrl(params.toonId ?? '', nextItem.thumbnail)} alt={`Next: ${nextItem.title || ''}`} />
-					{/if}
-				</div>
-				<div class="nav-meta">
-					<span class="nav-type">{chapterName(nextItem.number)}</span>
-					<span class="nav-title">{nextItem.title || ''}</span>
-				</div>
-				<span class="nav-icon">→</span>
+				<span class="next-label">{nextLabel}</span>
+				<span class="next-arrow" aria-hidden="true">→</span>
 			</button>
 		{:else}
 			<div class="btn-clear btn-next btn-disabled" title={m['sequence_navigation.alt_end']()}>
@@ -216,15 +217,42 @@
 		}
 	}
 
+	/* the next chapter: a big standard button, inverted on the dark panel – paper on ink */
+	.next-chapter {
+		flex: 1 1 auto;
+		min-width: 0;
+		min-height: calc(var(--control-height) + 1rem);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.5rem 1rem;
+		margin-right: 1rem;
+		background: var(--paper);
+		color: var(--ink);
+		border: var(--border-width-regular) solid var(--paper);
+		font: inherit;
+		font-weight: 700;
+		text-align: left;
+		cursor: pointer;
+		touch-action: manipulation;
+		&:hover,
+		&:focus-visible {
+			background: var(--primary-color);
+			border-color: var(--primary-color);
+		}
+	}
+	.next-arrow {
+		flex: 0 0 auto;
+		font-size: 1.25rem;
+	}
+
 	.btn-next {
 		justify-self: end;
 		display: flex;
 		flex-direction: row;
 		align-items: center;
 		padding-right: 1rem;
-		img {
-			height: 4rem;
-		}
 		& > div:nth-child(2) {
 			display: flex;
 			flex-direction: column;
