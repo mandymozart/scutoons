@@ -1,8 +1,14 @@
 // The generated pass on the owner's own GPU (owner 2026-10-10: "is there not free generator available?", "can we run
-// something on my rtx2070 locally", "comfy ui is installed"): the local ComfyUI (desktop app, port 8000) with
-// Qwen-Image-Edit 2509 + the Lightning 4-step LoRA – up to three input images: 1 = our render without texts (the
-// layout: composition, camera, poses, the hard light), 2–3 = the figures' character images (or a style picture when
-// there is no figure). Free; the rehearsal of the cloud-GPU chain (agents/STORYBOARD.md §9).
+// something on my rtx2070 locally", "comfy ui is installed"): the local ComfyUI with Qwen-Image-Edit 2509 + the
+// Lightning 4-step LoRA – up to three input images: 1 = our render without texts (the layout: composition, camera,
+// poses, the hard light), 2–3 = the figures' character images (a style picture only with --style: Qwen copies its
+// content). Free; the rehearsal of the cloud-GPU chain (agents/STORYBOARD.md §9).
+//
+// On the RTX 2070 (8 GB) + 64 GB RAM (night 2026-10-10): Qwen is ~20 GB + a 9 GB text encoder, so ~16 GB stay in RAM
+// and stream to the card each step; fp8 is cast to fp32 (no fp8 on Turing). Fast enough only on a FRESH server per
+// image started with --disable-pinned-memory --disable-mmap --cache-none --disable-smart-memory (~105 s a step,
+// ~10 min a shot): a long-running server (the desktop app) grows to 53 GB, Windows pages, and a step takes 350 s.
+// The per-shot server loop: agents/STORYBOARD.md §9 / BACKLOG (the night run).
 //
 // The result lands where the studio's uploads go: _out/<ch>/generated/<id>--g<n>.png (Variants, Approve as chosen,
 // figma-chapter.mjs), logged in _out/<ch>/generated.jsonl.
