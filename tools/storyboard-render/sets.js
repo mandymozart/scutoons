@@ -28,6 +28,14 @@ const house = (scene, x, z, r) => {
 	const roof = mesh(new THREE.CylinderGeometry(0.01, w * 0.72, 2.4, 4, 1), scene, { x, y: h + 1.2, z, ry: Math.PI / 4 });
 	roof.scale.set(1, 1, d / w);
 };
+const bareTree = (scene, x, z, h, r) => {
+	mesh(new THREE.CylinderGeometry(0.12, 0.22, h * 0.6, 6), scene, { x, y: h * 0.3, z });
+	for (let i = 0; i < 5; i++) mesh(new THREE.CylinderGeometry(0.03, 0.08, h * 0.45, 5), scene, { x: x + (r() - 0.5) * 0.6, y: h * (0.6 + r() * 0.2), z, rz: (r() - 0.5) * 1.6, rx: (r() - 0.5) * 0.8 });
+};
+const leafyTree = (scene, x, z, h) => {
+	mesh(new THREE.CylinderGeometry(0.15, 0.25, h * 0.5, 7), scene, { x, y: h * 0.25, z });
+	mesh(new THREE.IcosahedronGeometry(h * 0.38, 1), scene, { x, y: h * 0.72, z });
+};
 const column = (scene, x, z, h) => mesh(new THREE.CylinderGeometry(0.35, 0.42, h, 14), scene, { x, y: h / 2, z });
 const shelf = (scene, x, z, ry, r) => {
 	mesh(new THREE.BoxGeometry(3, 4.2, 0.5), scene, { x, y: 2.1, z, ry });
@@ -72,7 +80,35 @@ export function buildSet(scene, shot, { emissive, accentMat, interior }) {
 	if (has('mauer')) mesh(new THREE.BoxGeometry(14, 3, 0.8), scene, { x: 0, y: 1.5, z: -9 });
 	if (has('treppe', 'stufen')) for (let i = 0; i < 7; i++) mesh(new THREE.BoxGeometry(5, 0.3, 0.6), scene, { y: 0.15 + i * 0.3, z: -5 - i * 0.6 });
 	if (has('pforte', ' tür', 'eingang')) { mesh(new THREE.BoxGeometry(0.5, 4, 0.6), scene, { x: -1.4, y: 2, z: -7 }); mesh(new THREE.BoxGeometry(0.5, 4, 0.6), scene, { x: 1.4, y: 2, z: -7 }); mesh(new THREE.BoxGeometry(3.3, 0.5, 0.6), scene, { y: 4.2, z: -7 }); }
-	if (has('grab', 'friedhof', 'grabstein')) for (let i = 0; i < 14; i++) mesh(new THREE.BoxGeometry(0.8, 1.2 + r() * 0.5, 0.2), scene, { x: -8 + (i % 7) * 2.6, y: 0.65, z: -6 - Math.floor(i / 7) * 4, ry: (r() - 0.5) * 0.3 });
+	// chapter 4 / 5 places (2026-10-10): crypt, cemetery, fountain, the garden of Eden
+	if (/crypt|tomb|vault/.test(place) || has('gruft', 'sarg', 'sarkophag')) {
+		for (let i = 0; i < 4; i++) { column(scene, -4, -3 - i * 5, 5); column(scene, 4, -3 - i * 5, 5); }
+		for (let i = 0; i < 4; i++) mesh(new THREE.TorusGeometry(4, 0.35, 8, 24, Math.PI), scene, { y: 5, z: -3 - i * 5 });
+		if (has('sarg', 'sarkophag', 'gruft')) mesh(new THREE.BoxGeometry(1.1, 0.9, 2.3), scene, { x: -2, y: 0.45, z: -6 });
+	}
+	if (/cemetery|graveyard/.test(place) || has('friedhof', 'grab', 'grabstein', 'kreuz')) {
+		for (let i = 0; i < 18; i++) {
+			const x = -12 + (i % 6) * 4.6 + r(), z = -5 - Math.floor(i / 6) * 5 - r() * 2;
+			if (Math.abs(x) < 2 && z > -6) continue;
+			if (r() > 0.5) { mesh(new THREE.BoxGeometry(0.18, 1.8, 0.18), scene, { x, y: 0.9, z }); mesh(new THREE.BoxGeometry(0.9, 0.18, 0.18), scene, { x, y: 1.35, z }); }
+			else mesh(new THREE.BoxGeometry(0.9, 1.1 + r() * 0.6, 0.22), scene, { x, y: 0.6, z, ry: (r() - 0.5) * 0.4, rz: (r() - 0.5) * 0.15 });
+		}
+		for (let i = 0; i < 5; i++) bareTree(scene, -20 + i * 10 + r() * 3, -22 - r() * 6, 6 + r() * 4, r);
+	}
+	if (/fountain|well/.test(place) || has('brunnen')) {
+		mesh(new THREE.CylinderGeometry(2.4, 2.6, 0.8, 28), scene, { x: 0, y: 0.4, z: -4 });
+		mesh(new THREE.CylinderGeometry(0.35, 0.45, 2.4, 14), scene, { x: 0, y: 1.2, z: -4 });
+		mesh(new THREE.CylinderGeometry(1.1, 0.4, 0.4, 20), scene, { x: 0, y: 2.4, z: -4 });
+	}
+	if (/garden|eden|paradise/.test(place) || has('garten', 'eden', 'paradies')) {
+		for (let i = 0; i < 22; i++) {
+			const a = r() * Math.PI * 2, d = 8 + r() * 30, x = Math.cos(a) * d, z = Math.sin(a) * d - 10;
+			if (Math.abs(x) < 3 && z > -6) continue;
+			leafyTree(scene, x, z, 4 + r() * 5);
+		}
+		if (has('sonne', 'sonnenuntergang')) mesh(new THREE.CircleGeometry(18, 40), scene, { y: 8, z: -180, mat: emissive });
+		if (has('apfel', 'äpfel', 'frucht')) for (let i = 0; i < 6; i++) { const a = mesh(new THREE.SphereGeometry(0.12, 8, 6), scene, { x: 1.5 + r() * 0.8, y: 2.6 + r() * 0.6, z: -2.5 + r() * 0.5 }); a.userData.accent = true; }
+	}
 	if (has('beere', 'beeren')) for (let i = 0; i < 9; i++) {
 		const b = mesh(new THREE.SphereGeometry(0.09, 8, 6), scene, { x: 1.6 + r() * 0.6, y: 0.9 + r() * 0.5, z: -1.8 + r() * 0.4 });
 		b.userData.accent = true;

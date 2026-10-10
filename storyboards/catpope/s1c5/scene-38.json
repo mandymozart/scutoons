@@ -1,0 +1,2176 @@
+{
+  "storyboard": 2,
+  "toon": "catpope",
+  "chapter": 5,
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 38,
+    "heading": "EXT. GARDEN EDEN IM SONNEN UNTERGANG",
+    "lines": [
+      1641,
+      1753
+    ]
+  },
+  "cast": [
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human",
+      "look": "default"
+    },
+    {
+      "ref": "sphynx",
+      "character": "catpope",
+      "persona": "cat",
+      "look": "default"
+    },
+    {
+      "ref": "catpope",
+      "character": "catpope",
+      "persona": "regular",
+      "look": "default"
+    },
+    {
+      "ref": "tit",
+      "character": null,
+      "new": "Meise mit Wurm im Schnabel (Tier, Statist)",
+      "look": "default"
+    }
+  ],
+  "locations": [
+    {
+      "ref": "garden",
+      "place": "garden",
+      "time": "sunset"
+    }
+  ],
+  "light": {
+    "key": "right",
+    "height": "low",
+    "source": "sun",
+    "shadow": "long",
+    "soft": 0.6,
+    "accent": {
+      "color": "blue",
+      "on": "die Yves-Klein-blauen Wasserspeicher"
+    },
+    "note": {
+      "de": "Die Abendsonne flach von rechts: jede Staude, jede Gießkanne wirft einen endlos langen schwarzen Schatten; nach der Kälte von Kapitel 3 und dem Flackern von Kapitel 4 das erste ruhige, warme Licht (etwas weicher: soft 0.6). Einzige Farbe: das Yves-Klein-Blau der Wasserspeicher."
+    }
+  },
+  "groups": [
+    {
+      "label": "scene-38",
+      "renderer": {
+        "type": "vertical"
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-38-1",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "ews",
+            "angle": "high"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Von der tiefen Sonne über die Beete hinab: ein Raster langer Schatten, PLF ein schwarzer Knoten darin."
+            }
+          },
+          "action": {
+            "de": "Vom Abendhimmel mit tiefer Sonne hinab in einen üppigen, ordentlichen Gemüsegarten: Beetreihen, Tomatenstauden, Rankstäbe, ein paar blaue Wasserspeicher. Ganz unten PLF auf allen vieren in der Erde, wie gerade gelandet, Gesicht nah am Boden."
+          },
+          "air": [
+            [
+              0,
+              30
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "confused",
+              "pose": "crawl",
+              "facing": "three-quarter-left",
+              "x": 0.45,
+              "y": 0.88,
+              "h": 0.2
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 70
+              },
+              "text": {
+                "de": "38 EXT. GARTEN EDEN IM SONNENUNTERGANG"
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 40,
+                "y": 62,
+                "width": 54
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "Wie konnte es sein, dass alles gerade noch so desolat, so fatalistisch, so überwältigend war?"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Kapitelanfang: viel Himmel als Luft. Anschluss an sb-37-16 (PLF zieht sich durchs Gartentor, auf allen vieren)."
+        },
+        {
+          "id": "sb-38-2",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "mcu",
+            "angle": "high"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "rim": true,
+            "note": {
+              "de": "Streiflicht über die Erde: jeder Krümel ein Schattenpunkt, die Hände mit hellem Rand."
+            }
+          },
+          "action": {
+            "de": "Von oben: PLFs Hände tief in dunkler, krümeliger Gartenerde, die Finger gespreizt wie Pfoten. Am oberen Rand ihr gesenkter Kopf."
+          },
+          "air": [
+            [
+              0,
+              12
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "confused",
+              "pose": "crawl",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.35,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 6,
+                "y": 14,
+                "width": 50
+              },
+              "tail": "top-right",
+              "text": {
+                "de": "Ich schien zu fallen. Und nun steck ich fest."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 42,
+                "y": 82,
+                "width": 52
+              },
+              "tail": "top",
+              "text": {
+                "de": "Ich auf sanftem, festem Boden? Wie mit sanften Pfoten."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-3",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "dutch"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Die Sonne steht im Bild „unten“: der Himmel liegt am Boden, die Schatten fallen nach oben."
+            }
+          },
+          "action": {
+            "de": "Kopfüber: PLF blickt zwischen ihren Beinen hindurch nach hinten, das Bild steht auf dem Kopf – der Abendhimmel unten, die Beete oben, die Sonne am unteren Rand."
+          },
+          "air": [
+            [
+              70,
+              100
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "confused",
+              "pose": "crawl",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.35,
+              "h": 0.45
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 50,
+                "y": 56,
+                "width": 40
+              },
+              "tail": "top-left",
+              "text": {
+                "de": "Oben ist wieder unten?"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Neuer Beat in der Mitte (Owner 2026-10-10): die Zeile bekommt ein eigenes, auf den Kopf gestelltes Bild."
+        },
+        {
+          "id": "sb-38-4",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "full",
+            "angle": "low"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "shadow": "long",
+            "note": {
+              "de": "Die flache Sonne zieht PLFs Schatten lang über das Beet – und der Schatten hat Katzenohren und einen Schwanz."
+            }
+          },
+          "action": {
+            "de": "PLF auf allen vieren im Beet, von der Seite, im Gewand. Nach unten ihr langer Schatten über die Erde und die Staudenreihe: er ist der Schatten einer Katze – Ohren, gebogener Rücken, Schwanz."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "thinking",
+              "pose": "crawl",
+              "facing": "left",
+              "x": 0.55,
+              "y": 0.25,
+              "h": 0.3
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 6,
+                "y": 50,
+                "width": 64
+              },
+              "tail": "top-right",
+              "text": {
+                "de": "Nun ja, die Hände im Dreck haben mich für einen Moment – wie nannten sie es in Russland nochmal? – zum Quadrobing gebracht."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Der Schatten verrät dem Leser, was PLF am Ende begreift („Ich war die Katze!“) – wie beim Tiger in Kapitel 3, ein Schatten für zwei."
+        },
+        {
+          "id": "sb-38-5",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "front",
+            "height": "eye",
+            "source": "flash",
+            "shadow": "short",
+            "soft": 0.3,
+            "note": {
+              "de": "Ein Blitz von vorn wie ein Set-Licht: harte weiße Kante um PLF, dahinter fällt der Garten ins Schwarz."
+            }
+          },
+          "action": {
+            "de": "PLF fährt erschrocken hoch und plumpst auf den Hintern in die Erde. Über ihr als weiße Liniengrafik eine Filmklappe, die zuschlägt. Die Stimme kommt von überall – ihr eigenes Unterbewusstsein."
+          },
+          "air": [
+            [
+              0,
+              8
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "surprised",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.72,
+              "h": 0.45
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 70
+              },
+              "text": {
+                "de": "Neuverordnen! Zeit für einen Bodyscan!"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 20,
+                "width": 60
+              },
+              "text": {
+                "de": "5-4-3-3-2! Action!"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 64,
+                "y": 58,
+                "width": 30
+              },
+              "text": {
+                "de": "UFF"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "PLF (O.S., unterbewusst) als freie Zeile ohne Sprechblase (caption, mono) – die Stimme hat keinen Ort."
+        },
+        {
+          "id": "sb-38-6",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "narration",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Cat Pope außerhalb der Szene, im selben Abendlicht: halbes Gesicht im Licht, ein langer Schatten über die Beete."
+            }
+          },
+          "action": {
+            "de": "Cat Pope (regulär) sitzt auf einem Yves-Klein-blauen Wasserspeicher, die Beine übereinander, wie ein Therapeut, und erklärt dem Leser. Neben ihm läuft eine umgekippte Gießkanne aus – eine kleine Sintflut im Beet."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "catpope",
+              "framing": "medium",
+              "mood": "smug",
+              "pose": "sit",
+              "facing": "three-quarter-left",
+              "x": 0.55,
+              "y": 0.6,
+              "h": 0.55
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 62
+              },
+              "text": {
+                "de": "Dies war einer der von der Therapeutin empfohlenen Bewältigungsmechanismen im Falle einer Sinnflut."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 36,
+                "y": 86,
+                "width": 56
+              },
+              "text": {
+                "de": "Nicht austrocknen, sondern lernen, sich selbst im Chaos zu fühlen."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Erklärung an den Leser = narration, Cat Pope regulär (Owner-Richtung aus Kapitel 3). „Sinnflut“ (Wortspiel Sinn / Sintflut) aus dem Skript übernommen."
+        },
+        {
+          "id": "sb-38-7",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "memory",
+          "light": {
+            "soft": 0.4,
+            "note": {
+              "de": "Jedes Bild im Bild mit seinem Licht von damals: Schnee-Gleißen, Tigermaul von unten, grünes Notlicht – dazwischen schwarzer Grund."
+            }
+          },
+          "action": {
+            "de": "Collage auf schwarzem Grund, die Rennerei im Kopf: gerahmte Bilder des Tages schräg übereinander – das verschneite Bergdorf, das Tigermaul, die Krähenwesen im Serverraum, das Bücherregal, die Glitches am Friedhof. Ganz unten PLF im Garten, die Hände an den Schläfen."
+          },
+          "air": [
+            [
+              0,
+              6
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "dizzy",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.9,
+              "h": 0.35
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 26
+              },
+              "text": {
+                "de": "PAH"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 8,
+                "width": 54
+              },
+              "text": {
+                "de": "Heut Morgen schien alles noch so in Ord-Nung, dachte sich PLF."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 8,
+                "y": 62,
+                "width": 58
+              },
+              "tail": "bottom-right",
+              "text": {
+                "de": "Dann die ganze Tortur, wilde Wesen, Angriffe, Bücher, die ich noch nie gesehen habe?"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Bilder im Bild wie in Kapitel 2, aus den Shots von Kapitel 3/4 (sb-25-1, sb-28-2, sb-34-1, sb-30-x, sb-36-x)."
+        },
+        {
+          "id": "sb-38-8",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "high"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Weiter Garten im Abendlicht, kein Schnee – nur lange Schatten, wo in Kapitel 3 Schneewehen lagen."
+            }
+          },
+          "action": {
+            "de": "Von schräg oben: PLF sitzt klein mitten im warmen Garten, ratlos die Arme ausgebreitet, Erde an den Händen. Ringsum grünes Gemüse, trockene Erde, warme Luft – nirgends Schnee."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "confused",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.6,
+              "h": 0.25
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 36,
+                "y": 80,
+                "width": 56
+              },
+              "tail": "top-left",
+              "text": {
+                "de": "Erklär mir bitte mal wer, wieso hier kein Schnee mehr liegt?"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Reaktion in der Mitte (Owner 2026-10-10): der Wechsel vom Winter in den Sommer bekommt ein eigenes Bild."
+        },
+        {
+          "id": "sb-38-9",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "eye",
+            "soft": 0.4,
+            "note": {
+              "de": "Die tiefe Sonne direkt in die aufgerissenen Augen: Pupillen klein, eine Gesichtshälfte schwarz."
+            }
+          },
+          "action": {
+            "de": "Extremes Close-up: PLFs Augen reißen auf. Ringsum, von allen Seiten, dieselben Worte in Lettering, verschieden groß – ein Chor."
+          },
+          "air": [],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "ecu",
+              "mood": "surprised",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.5,
+              "h": 1.2
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 10,
+                "y": 6,
+                "width": 80
+              },
+              "text": {
+                "de": "AUGEN AUF!"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 4,
+                "y": 84,
+                "width": 40
+              },
+              "text": {
+                "de": "AUGEN AUF!"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 56,
+                "y": 88,
+                "width": 40
+              },
+              "text": {
+                "de": "AUGEN AUF!"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "PLF (O.S.), „von allen Seiten vom Chor verstärkt“: einmal groß, zweimal als Echo. Keine Luft – der Ruf füllt den Screen."
+        },
+        {
+          "id": "sb-38-10",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "full",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "rim": true,
+            "note": {
+              "de": "Gegenlicht-nah: PLF steht auf, die Sonne rechts hinter den Stauden, ein heller Rand um das Gewand."
+            }
+          },
+          "action": {
+            "de": "PLF steht entschlossen auf, klopft sich die Erde vom Gewand und tritt in den Gang zwischen zwei Beetreihen, die in die Abendsonne führen."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "stand",
+              "facing": "three-quarter-right",
+              "x": 0.45,
+              "y": 0.6,
+              "h": 0.4
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 18,
+                "width": 40
+              },
+              "text": {
+                "de": "PLF begann mit der Übung."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 50,
+                "y": 44,
+                "width": 42
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "5 Dinge, die ich sehe!"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        }
+      ]
+    },
+    {
+      "label": "scene-38-garden",
+      "renderer": {
+        "type": "horizontal",
+        "params": {
+          "loop": true,
+          "freeMode": true
+        }
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-38-11",
+          "format": "loop360",
+          "aspect": "3:1",
+          "projection": "perspective",
+          "move": "look-around",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "accent": {
+              "color": "blue",
+              "on": "die Yves-Klein-blauen Wasserspeicher"
+            },
+            "note": {
+              "de": "Rundum dieselbe tiefe Sonne: auf der Sonnenseite Gegenlicht und Silhouetten, auf der anderen Seite alles hart angestrahlt mit langen Schatten. Das Blau der Wasserspeicher als einzige Farbe."
+            }
+          },
+          "action": {
+            "de": "360°-Panorama des Gartens im Abendlicht, Beetreihen ringsum. Reihum die fünf Dinge: Tomatenstauden an Stäben; ein Polster Thymian; Baby-Chili-Paprika; Gießkannen, die wie Krokodile aussehen (langer Ausguss, Zahnrand); aufgebockte Wasserspeicher aus Yves-Klein-blauem Plastik. PLF streift durch die Reihen."
+          },
+          "air": [],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "walk",
+              "facing": "right",
+              "x": 0.1,
+              "y": 0.6,
+              "h": 0.3
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 1,
+                "y": 8,
+                "width": 14
+              },
+              "text": {
+                "de": "Während PLF durch die Beetreihen streifte, zählte sie mechanisch auf:"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 18,
+                "y": 70,
+                "width": 13
+              },
+              "text": {
+                "de": "Tomatenstauden."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 35,
+                "y": 70,
+                "width": 13
+              },
+              "text": {
+                "de": "Thymian."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 51,
+                "y": 70,
+                "width": 14
+              },
+              "text": {
+                "de": "Baby-Chili-Paprika."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 68,
+                "y": 70,
+                "width": 14
+              },
+              "text": {
+                "de": "Krokodilartige OBI-Gießkannen."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 84,
+                "y": 70,
+                "width": 14
+              },
+              "text": {
+                "de": "Wasserspeicher aus – nun ja, beinahe Yves-Klein-blauem – Plastik."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Der Loop passt: das Aufzählen ist ein Umsehen – der Leser findet die fünf Dinge beim Ziehen wie PLF. Eine Box pro Slide (6 Slides) – deshalb die Warnung „Boxen pro Screen“ (falscher Alarm: verteilt auf 6,5 Screens Breite).",
+          "prompt": {
+            "en": "Seamless 360-degree panorama of a lush, orderly vegetable garden at sunset, rows of raised beds all around: tomato plants on stakes, a cushion of thyme, small chili pepper plants, green watering cans shaped like crocodiles, and raised plastic water tanks in vivid Yves Klein blue. A person in a white robe walks between the rows. Low sun, very long black shadows; black and white except the blue tanks."
+          }
+        }
+      ]
+    },
+    {
+      "label": "scene-38-b",
+      "renderer": {
+        "type": "vertical"
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-38-12",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "low"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "rim": true,
+            "note": {
+              "de": "Untersicht gegen den Abendhimmel: PLF als Sieger-Silhouette mit hellem Rand."
+            }
+          },
+          "action": {
+            "de": "Untersicht: PLF reckt triumphierend die Faust, hinter ihr der blaue Wasserspeicher und der Abendhimmel."
+          },
+          "air": [
+            [
+              0,
+              25
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "happy",
+              "pose": "point",
+              "facing": "three-quarter-left",
+              "x": 0.45,
+              "y": 0.62,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 50,
+                "y": 30,
+                "width": 42
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "Check. 4 Dinge hören."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-13",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "full",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Ruhiges, waagrechtes Licht, nichts bewegt sich – die Stille als lange, unbewegte Schatten."
+            }
+          },
+          "action": {
+            "de": "PLF streift langsam zwischen den Stauden umher, den Kopf schief, eine Hand hinter dem Ohr. Viel leerer, stiller Abendhimmel über ihr."
+          },
+          "air": [
+            [
+              0,
+              35
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "thinking",
+              "pose": "walk",
+              "facing": "left",
+              "x": 0.5,
+              "y": 0.8,
+              "h": 0.35
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 8,
+                "y": 40,
+                "width": 46
+              },
+              "tail": "bottom-right",
+              "text": {
+                "de": "Ruhe. Endlich wurde es ruhig."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 46,
+                "y": 58,
+                "width": 46
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "Okay, das kann gezählt werden."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Die Stille ist das erste Geräusch – darum viel Luft oben."
+        },
+        {
+          "id": "sb-38-14",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "low",
+            "rim": true,
+            "note": {
+              "de": "Das Windspiel im Gegenlicht: schwarze Stäbe, jeder mit einem hellen Rand, lange Schatten auf dem Weg."
+            }
+          },
+          "action": {
+            "de": "In einiger Entfernung, an einem Ast am Gartenzaun: ein Windspiel aus hohlen Holzstäben, die im leichten Wind aneinanderschlagen. Vorne unscharf PLFs Ohr und Schulter."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "thinking",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.15,
+              "y": 0.75,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 36,
+                "y": 4,
+                "width": 58
+              },
+              "text": {
+                "de": "Zweitens: ein Windspiel aus leichten, hohlen Holzstäben, in einiger Entfernung."
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 30,
+                "y": 46,
+                "width": 64
+              },
+              "text": {
+                "de": "BLOCK BLOCK BLOCK"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Erstens = die Ruhe (sb-38-13)."
+        },
+        {
+          "id": "sb-38-15",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-up",
+          "shot": {
+            "size": "wide",
+            "angle": "worm"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Die Leitungen schwarz gegen den glühenden Himmel; unten PLFs Gesicht mit geschlossenen Augen im letzten Licht."
+            }
+          },
+          "action": {
+            "de": "Von PLFs Gesicht mit geschlossenen Augen am unteren Rand hinauf: über dem Garten spannt sich eine Hochspannungsleitung, ein Mast schwarz gegen den Abendhimmel, die Drähte summen sichtbar (Vibrationslinien)."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "acceptance",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.9,
+              "h": 0.5
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 62,
+                "width": 58
+              },
+              "text": {
+                "de": "Drittens … PLF konzentrierte sich, schloss die Augen. Atmete tief ein."
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 24,
+                "width": 88
+              },
+              "text": {
+                "de": "BRIZZZZZZZZZZ"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 40,
+                "width": 54
+              },
+              "text": {
+                "de": "Das satte Brummen einer Hochspannungsleitung!"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-16",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "rim": true,
+            "note": {
+              "de": "Die Fliege als schwarzer Punkt im Gegenlicht vor dem hellen Ohr; die Flugbahn ein weißer Strich."
+            }
+          },
+          "action": {
+            "de": "Ganz nah PLFs Ohr. Eine Fliege saust daran vorbei – die Flugbahn als Linie, dahinter Schallwellen, die beim Wegfliegen breiter werden (Dopplereffekt)."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "ecu",
+              "mood": "happy",
+              "pose": "stand",
+              "facing": "left",
+              "x": 0.6,
+              "y": 0.55,
+              "h": 1.1
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 4,
+                "y": 24,
+                "width": 50
+              },
+              "text": {
+                "de": "BSSSSS"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "Eine Fliege sauste an PLFs Ohr vorbei. Das Summen wurde langsam tiefer."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 40,
+                "y": 82,
+                "width": 54
+              },
+              "tail": "top-right",
+              "text": {
+                "de": "Was für ein Dopplereffekt und tolles Stereo! Viertens. Check!"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "prompt": {
+            "en": "Extreme close-up of a person's ear at sunset; a fly zips past it, its path drawn as a fine line with sound waves widening behind it. Low hard sun from the right, the fly a black dot in the backlight."
+          }
+        },
+        {
+          "id": "sb-38-17",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "rim": true,
+            "note": {
+              "de": "Die Meise auf dem Ast als scharfe Silhouette, ein heller Rand, ein Wurm im Schnabel."
+            }
+          },
+          "action": {
+            "de": "Auf einem Ast über dem Beet sitzt eine Meise mit einem Wurm im Schnabel und schaut dem Treiben lautlos und verwundert zu. Unten klein PLF mit geschlossenen Augen."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "tit",
+              "framing": "full",
+              "mood": "confused",
+              "pose": "sit",
+              "facing": "left",
+              "x": 0.62,
+              "y": 0.35,
+              "h": 0.12
+            },
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "acceptance",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.3,
+              "y": 0.85,
+              "h": 0.2
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 40,
+                "y": 18,
+                "width": 22
+              },
+              "text": {
+                "de": "???"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Kleiner Witz in der Mitte – die Meise als stiller Zuschauer."
+        },
+        {
+          "id": "sb-38-18",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "full",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "soft": 0.6,
+            "note": {
+              "de": "Die Sonne steht schon halb unter dem Horizont: ein letzter, warmer Strahl quer über PLF, alles darunter Schatten."
+            }
+          },
+          "action": {
+            "de": "Oben die Sonne, halb versunken hinter dem Gartenzaun. Darunter PLF mit weit ausgebreiteten Armen, Augen geschlossen, im letzten Strahl. Unten ihre Hände in hohem Gras, das ihr um Unterarme und Ellenbogen streicht."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "acceptance",
+              "pose": "reach",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.55,
+              "h": 0.55,
+              "note": "Arme weit ausgebreitet (die Pose kennt kein „arms wide“)"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "3 Dinge spüren. PLF streckte beide Arme weit aus, die Augen noch geschlossen."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 24,
+                "width": 56
+              },
+              "text": {
+                "de": "Die Sonne stand schon mit einem Bein im Grab, doch PLF spürte ihre radioaktiven Strahlen genau. Erstens, check."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 84,
+                "width": 60
+              },
+              "text": {
+                "de": "Hochgewachsene Gräser glitten ihr durch die Finger, kitzelten Unterarm und Ellenbogen. Check."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-19",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Streiflicht über den Stoff: jeder Faden ein heller Grat, dazwischen schwarze Rillen."
+            }
+          },
+          "action": {
+            "de": "Extremes Close-up: PLFs Fingerkuppen auf dem Stoff des Gewands, edle Gabardine – das Webmuster riesig, jeder Faden und seine Richtung sichtbar."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "ecu",
+              "mood": "happy",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.55,
+              "h": 0.6,
+              "note": "nur Fingerkuppen und Stoff"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "Mit den Fingerkuppen ertastete sie jeden Faden der edlen Gabardine und seine Richtung."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 40,
+                "y": 62,
+                "width": 50
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "Welch Ordnung! Welch Perfektion!"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 50,
+                "y": 88,
+                "width": 44
+              },
+              "text": {
+                "de": "CHECK, das waren die drei."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-20",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "low",
+            "rim": true,
+            "note": {
+              "de": "Die Sonne berührt den Horizont direkt hinter PLF: eine schwarze Silhouette mit Lichtkranz, die Schatten der Stauden laufen zur Kamera."
+            }
+          },
+          "action": {
+            "de": "Stille: PLF steht reglos zwischen den Beeten, Augen geschlossen, die Arme locker; die Sonne berührt hinter ihr den Horizont. Die Gräser neigen sich im Wind."
+          },
+          "air": [
+            [
+              0,
+              40
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "acceptance",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.72,
+              "h": 0.35
+            }
+          ],
+          "dialog": [],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Geplante Stille in der Mitte (Owner 2026-10-10): ein Atemzug zwischen Spüren und Riechen."
+        },
+        {
+          "id": "sb-38-21",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "cu",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Streiflicht durch das Bohnenlaub: Blätter als schwarze Scherenschnitte, die Nase im Licht."
+            }
+          },
+          "action": {
+            "de": "Oben PLFs Nase tief in einer Bohnenranke, Augen geschlossen. In der Mitte die Brechbohnen nah. Unten ihre Hand, die eine Handvoll dunkler, feuchter Komposterde zur Nase hebt."
+          },
+          "air": [
+            [
+              0,
+              6
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "happy",
+              "pose": "crouch",
+              "facing": "three-quarter-left",
+              "x": 0.45,
+              "y": 0.2,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 30,
+                "y": 3,
+                "width": 64
+              },
+              "text": {
+                "de": "SCHNUFF SCHNUFF"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 30,
+                "width": 58
+              },
+              "text": {
+                "de": "Riechen. Grün. Grasig, erfrischend. Ein Gemüse, das nach einer Farbe riecht?"
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 50,
+                "y": 46,
+                "width": 40
+              },
+              "tail": "top-left",
+              "text": {
+                "de": "Ha, Brechbohne!"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 86,
+                "width": 64
+              },
+              "text": {
+                "de": "Zweitens: hier riecht es nach Humus. Saftige kompostierte Erde. Check."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-22",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Hartes Seitenlicht ins verzogene Gesicht: jede Falte ein schwarzer Strich."
+            }
+          },
+          "action": {
+            "de": "PLF, Augen noch geschlossen, verzieht das Gesicht: die Zunge halb heraus, Erde an den Lippen – sie hat etwas Bitteres geschmeckt."
+          },
+          "air": [
+            [
+              0,
+              12
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "disgusted",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.55,
+              "h": 0.85
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 56
+              },
+              "text": {
+                "de": "Nun fehlte nur noch der letzte Sinn. Das Schmecken."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 76,
+                "width": 54
+              },
+              "text": {
+                "de": "Es war bitter. Glutamatartig, ein wenig wie altes Fleisch."
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 64,
+                "width": 30
+              },
+              "text": {
+                "de": "BÄH"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-23",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "high"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Die Pfütze fängt den letzten hellen Himmel: ein weißer Spiegel im schwarzen Boden."
+            }
+          },
+          "action": {
+            "de": "PLF spuckt aus und reißt die Augen auf. Von oben: vor ihr auf dem Weg zwischen den Beeten eine Pfütze, die den hellen Abendhimmel spiegelt."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "surprised",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.4,
+              "y": 0.45,
+              "h": 0.35
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 84,
+                "width": 54
+              },
+              "text": {
+                "de": "PLF spuckt und reißt die Augen auf. Vor ihr eine Pfütze."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-24",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "medium",
+            "angle": "high"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Oben PLF dunkel über der Pfütze; im Spiegelbild die Katze hell, vom Himmel angestrahlt."
+            }
+          },
+          "action": {
+            "de": "Oben PLF, über die Pfütze gebeugt. Nach unten die Wasseroberfläche – darin, wo ihr Spiegelbild sein müsste, die nackte Sphynx-Katze, die zurückschaut, in derselben Haltung."
+          },
+          "air": [
+            [
+              0,
+              8
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "surprised",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.18,
+              "h": 0.45
+            },
+            {
+              "cast": "sphynx",
+              "framing": "medium",
+              "mood": "neutral",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.72,
+              "h": 0.45,
+              "note": "nur als Spiegelbild in der Pfütze"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 34,
+                "width": 52
+              },
+              "text": {
+                "de": "In der Reflexion erkannte PLF die Katze wieder."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 40,
+                "y": 46,
+                "width": 52
+              },
+              "tail": "top",
+              "text": {
+                "de": "Du bist es? Aber wie kann das sein? …"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 92,
+                "width": 70
+              },
+              "text": {
+                "de": "PLF starrte regungslos in die Pfütze, und langsam begann der geerdete Geist zu verstehen. Jetzt ergab alles Sinn."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Die Auflösung: die Katze (catpope / cat) ist PLF. view real – das Spiegelbild zeigt die Wahrheit, nicht PLFs Glauben.",
+          "prompt": {
+            "en": "Top: a person in a white robe crouches and leans over a puddle on a garden path at sunset. Below, in the water surface where the person's reflection should be, a hairless sphynx cat looks back up in exactly the same pose. Low hard sun from the right, the puddle bright with the evening sky, black ground."
+          }
+        },
+        {
+          "id": "sb-38-25",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "note": {
+              "de": "Zwei Augenpaare übereinander, oben im Schatten, unten im Spiegel hell."
+            }
+          },
+          "action": {
+            "de": "Extrem nah, horizontal geteilt durch die Wasserlinie: oben PLFs Augen, unten in der Pfütze die Katzenaugen – exakt gespiegelt, dieselbe Form, derselbe Blick."
+          },
+          "air": [],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "ecu",
+              "mood": "surprised",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.3,
+              "h": 0.5
+            },
+            {
+              "cast": "sphynx",
+              "framing": "ecu",
+              "mood": "neutral",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.72,
+              "h": 0.5
+            }
+          ],
+          "dialog": [],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Stiller Beat in der Mitte (Owner 2026-10-10): das Erkennen, ohne Text. Frage: die Katzenaugen hier golden wie in Kapitel 4 (dann wäre es eine zweite Akzentfarbe neben dem Blau)?",
+          "prompt": {
+            "en": "Extreme close-up split horizontally by a water line: above, a person's eyes; below, mirrored in a puddle, the eyes of a hairless sphynx cat with exactly the same shape and gaze. Low hard sun, pure black and white."
+          }
+        },
+        {
+          "id": "sb-38-26",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "high"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "soft": 0.4,
+            "note": {
+              "de": "Die Sonne ist weg bis auf einen Rand: PLF fast nur noch Silhouette, ihr Schatten verschmilzt mit dem Boden."
+            }
+          },
+          "action": {
+            "de": "PLF sackt neben der Pfütze in sich zusammen, sitzt in der Erde, die Arme hängen kraftlos. Ein langer Seufzer (Atemlinie)."
+          },
+          "air": [
+            [
+              0,
+              25
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "acceptance",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.45,
+              "y": 0.62,
+              "h": 0.35
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 62
+              },
+              "text": {
+                "de": "PLF fehlte die Kraft, sich weiter zu wehren. Es sollte ja doch nichts mehr helfen."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-38-27",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "low",
+            "rim": true,
+            "soft": 0.3,
+            "note": {
+              "de": "Die Sonne ist untergegangen: nur ein heller Horizontstreifen, PLF und ihr Spiegelbild als zwei Silhouetten."
+            }
+          },
+          "action": {
+            "de": "PLF sitzt mit einem Seufzen am Rand der Pfütze, schwarze Silhouette vor dem letzten Licht. In der Pfütze ihr Spiegelbild: die Katze, in derselben Haltung. Nach unten Dämmerung bis ins Schwarz."
+          },
+          "air": [
+            [
+              80,
+              100
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "acceptance",
+              "pose": "sit",
+              "facing": "three-quarter-right",
+              "x": 0.4,
+              "y": 0.42,
+              "h": 0.3
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "acceptance",
+              "pose": "sit",
+              "facing": "three-quarter-right",
+              "x": 0.4,
+              "y": 0.62,
+              "h": 0.2,
+              "note": "Spiegelbild in der Pfütze"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 40,
+                "y": 6,
+                "width": 52
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "??????????????? !!!!!!!!!!!!!!!"
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 46,
+                "y": 24,
+                "width": 44
+              },
+              "tail": "bottom-left",
+              "text": {
+                "de": "Ich war die Katze!"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Kapitelende: das Schwarz unten = Luft (und Platz für das 6. Lied, siehe notes)."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Zeilen im Skript (1-basiert) in source.lines: 1641–1753.",
+    "Frage an den Owner: Kapiteltitel „5. Kapitel – ACCEPTANCE“ – wie in Kapitel 3/4 kein eigener Titel-Shot.",
+    "Szenen-Box: „38 EXT. GARTEN EDEN IM SONNENUNTERGANG“ statt „GARDEN EDEN IM SONNEN UNTERGANG“ (Skript) – bitte bestätigen.",
+    "Frage an den Owner: PLFs Grübeln (Zeilen 1643–1658) und die Aufzählung lesen sich wie Gedanken. Wie in Kapitel 3 als Sprechblasen gesetzt – oder Gedankenblasen / Erzählboxen?",
+    "Frage an den Owner: „Quadrobiing, also zu einem Quadrant gemacht“ – gesetzt als „zum Quadrobing gebracht“ (die russische Quadrobics-Welle: auf allen vieren wie ein Tier). Ist „Quadrant“ gewollt (Wortspiel) oder ein Tippfehler?",
+    "Frage an den Owner: „5-4-3-3-2! Action!“ – die übliche Übung ist 5-4-3-2-1 (sehen, hören, spüren, riechen, schmecken). Absicht (PLF zählt falsch) oder Tippfehler? So aus dem Skript übernommen.",
+    "Frage an den Owner: was schmeckt PLF (bitter, wie altes Fleisch)? Das Skript sagt es nicht – im Bild nur Erde an den Lippen (sb-38-22).",
+    "Frage an den Owner: „OBI Gießkannen“ und „Yves Klein-blau“ – Marken- / Künstlername so lassen (vgl. „Apple Store“ in Kapitel 3)?",
+    "Frage an den Owner: das Lied „LIKE A BABY“ (6. Lied), „ENDE“ und die ASCII-Grafik nach Szene 38 sind nicht gestoryboardet. Läuft das Lied unter dem Kapitelende (sb-38-27), als Abspann, oder gar nicht?",
+    "Akzent: das Yves-Klein-Blau der Wasserspeicher (vom Skript ausdrücklich benannt) – die einzige Farbe der Szene. Das Licht ist hier bewusst etwas weicher (soft 0.6) als in Kapitel 3/4: Akzeptanz.",
+    "Korrigiert (Tippfehler im Skript): überwältigend, Gabardine, geschlossen, wehren, „Endlich wurde es ruhig“ (Skript: „würde es Ruhe“), „das Summen wurde tiefer“, „ergab alles Sinn“, Reflexion, „Ord-Nung“ (Skript: „In Ord Nung“ – als Stocken gelesen).",
+    "Gekürzt: „Bewältigungsmechanismen“-Absatz in zwei Boxen; „Durch ihre Finger glitten hochgewachsene Gräser“ zusammengezogen; „PLF zog die Arme zurück zum Körper“ im Bild.",
+    "Owner 2026-10-10 („ungefähr 30 % länger“): zusätzliche Beats in der Mitte – sb-38-3 (oben ist unten), sb-38-8 (kein Schnee), sb-38-20 (Stille), sb-38-25 (die Augen); sb-38-4 trägt den Katzenschatten als Vorahnung.",
+    "Perspektive Szene 38: real – PLF (human) im Garten; sb-38-6 narration (Cat Pope regular erklärt die Übung); sb-38-7 memory (der Tag als Collage). Die Katze (catpope / cat) erscheint nur als Schatten und Spiegelbild – sie ist PLF."
+  ]
+}

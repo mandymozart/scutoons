@@ -1,0 +1,683 @@
+{
+  "storyboard": 2,
+  "toon": "catpope",
+  "chapter": 4,
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 35,
+    "heading": "INT./EXT. GRUFT",
+    "lines": [
+      1478,
+      1505
+    ]
+  },
+  "cast": [
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human",
+      "look": "default"
+    },
+    {
+      "ref": "crows",
+      "character": "crows",
+      "persona": "regular",
+      "look": "default"
+    }
+  ],
+  "locations": [
+    {
+      "ref": "crypt",
+      "place": "crypt",
+      "time": "day"
+    },
+    {
+      "ref": "graveyard",
+      "place": "graveyard",
+      "time": "day"
+    }
+  ],
+  "light": {
+    "key": "top-left",
+    "height": "high",
+    "source": "sun",
+    "shadow": "short",
+    "soft": 0.5,
+    "note": {
+      "de": "Klarer Himmel, harte Sonne von links oben: weiße Grabsteine, schwarze Schlagschatten wie ausgeschnitten – zu sauber, um echt zu sein."
+    }
+  },
+  "groups": [
+    {
+      "label": "scene-35",
+      "renderer": {
+        "type": "vertical"
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-35-1",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "low"
+          },
+          "location": "crypt",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "eye",
+            "source": "sun",
+            "shadow": "long",
+            "rim": true,
+            "soft": 0.3,
+            "note": {
+              "de": "Gegenlicht durch die Gruftöffnung: PLF ein schwarzer Umriss mit weißem Rand, hinter ihr das ausgebrannte Weiß des Tages, vorne pechschwarze Gruft."
+            }
+          },
+          "action": {
+            "de": "Aus dem Inneren der Gruft gesehen: Stufen hinauf zur offenen, schiefen Gruftpforte. PLF im zerrissenen weißen Gewand tritt hinaus ins Licht, von hinten, ein Fuß schon auf der obersten Stufe. Ihr Schatten fällt lang die Stufen herunter, zurück ins Dunkel."
+          },
+          "air": [
+            [
+              0,
+              22
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "sad",
+              "pose": "walk",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.5,
+              "h": 0.45
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "35 INT./EXT. GRUFT"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 8,
+                "y": 78,
+                "width": 70
+              },
+              "text": {
+                "de": "PLF trat aus der Gruft hinaus, die Dunkelheit noch in ihren Gedanken nachhallend."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Kapitelanfang: oben Schwarz der Gruft als Luft. Anschluss an sb-34-7 (PLF am Fuß der Gruft) – hier der Austritt noch einmal von innen, damit Kapitel 4 mit der Dunkelheit beginnt."
+        },
+        {
+          "id": "sb-35-2",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "ews",
+            "angle": "high"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Steile Mittagssonne: jeder Grabstein wirft einen kurzen, scharfen Schatten – ein Muster wie gestanzt."
+            }
+          },
+          "action": {
+            "de": "Vom leeren, klaren Himmel hinab über eine Zypresse auf einen kleinen ummauerten Friedhof: schiefe Grabsteine in Reihen, ein schmiedeeisernes Tor in der Ferne, kein Vogel, kein Wind. Ganz unten winzig PLF vor der Gruft."
+          },
+          "air": [
+            [
+              0,
+              40
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.42,
+              "y": 0.9,
+              "h": 0.08
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 52,
+                "width": 54
+              },
+              "text": {
+                "de": "… und stand nun inmitten der gespenstischen Stille des Friedhofs."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Die Stille ist das Bild: viel leerer Himmel, der Friedhof wie eingefroren."
+        },
+        {
+          "id": "sb-35-3",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "mcu",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "left",
+            "height": "low",
+            "note": {
+              "de": "Streiflicht von links reißt die Kratzer im Gesicht heraus; die rechte Gesichtshälfte versinkt in Schwarz, dort hängen die Krähen."
+            }
+          },
+          "action": {
+            "de": "PLF im Halbprofil, Kratzer an Wange und Hals, verklebte Haare, der Blick nach innen. Hinter ihr in den schwarzen Schatten als weiße Liniengrafik die Krähenwesen, die sich lachend zurückziehen: aufgerissene Schnäbel, Lach-Linien, die sich um PLFs Kopf winden."
+          },
+          "air": [
+            [
+              0,
+              12
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "sad",
+              "pose": "stand",
+              "facing": "three-quarter-left",
+              "x": 0.38,
+              "y": 0.6,
+              "h": 0.7
+            },
+            {
+              "cast": "crows",
+              "framing": "full",
+              "mood": "laughing",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.78,
+              "y": 0.25,
+              "h": 0.2,
+              "note": "nur als weiße Linien-Erinnerung im Schatten"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 14,
+                "width": 62
+              },
+              "text": {
+                "de": "Der Kampf mit den Krähenwesen hatte sie schwer gezeichnet, nicht nur äußerlich."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 34,
+                "y": 80,
+                "width": 60
+              },
+              "text": {
+                "de": "Ihr boshaftes Lachen hallte noch immer in ihren Ohren. Sie wussten etwas, das ihr verborgen blieb."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Die Krähen als Liniengrafik im Stil der Wolken aus Kapitel 1/2 – Nachhall, nicht anwesend. Das Lachen steht im Skript ohne {…}, daher Erzählung statt SFX."
+        },
+        {
+          "id": "sb-35-4",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "cu",
+            "angle": "high"
+          },
+          "location": "crypt",
+          "view": "real",
+          "light": {
+            "key": "top-left",
+            "height": "high",
+            "shadow": "short",
+            "note": {
+              "de": "Harte Sonne auf Stoff und Stein: der Riss im Saum als schwarze Kerbe, die Feder ein tiefschwarzer Schnitt auf weißem Stein."
+            }
+          },
+          "action": {
+            "de": "Detail, von oben nach unten: der zerrissene Saum des weißen Gewands, Brandspuren vom Kampf; darunter PLFs nackter Fuß auf der Gruftstufe; daneben eine einzelne schwarze Krähenfeder, die leicht zittert, obwohl kein Wind geht."
+          },
+          "air": [
+            [
+              0,
+              18
+            ],
+            [
+              85,
+              100
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "sad",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.45,
+              "y": 0.35,
+              "h": 0.9
+            }
+          ],
+          "dialog": [],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Stilles Detail (geplante Stille): die Spuren des Kampfs, bevor die Erzählung weitergeht. Die zitternde Feder ohne Wind ist der erste, kaum merkliche Glitch."
+        },
+        {
+          "id": "sb-35-5",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ews",
+            "angle": "bird"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "top-left",
+            "height": "high",
+            "note": {
+              "de": "Von oben: die Wege des Friedhofs als weiße Linien zwischen schwarzen Schattenblöcken – ein Schaltplan."
+            }
+          },
+          "action": {
+            "de": "Senkrecht von oben: der Friedhof als Muster. Die Kieswege zwischen den Gräbern bilden ein riesiges, unvollständiges Ornament (wie eine Leiterplatte), PLF ein winziger weißer Punkt auf einem Teilstück davon. Das Muster läuft über den Bildrand hinaus."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "thinking",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.36,
+              "y": 0.62,
+              "h": 0.03
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 8,
+                "y": 76,
+                "width": 72
+              },
+              "text": {
+                "de": "Der Sieg fühlte sich hohl an – als hätte sie nur einen kleinen Teil eines viel größeren, ungreifbaren Ganzen errungen."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Vorahnung des Systems (Leiterplatte, Serverfarm aus Kapitel 3) ohne es zu sagen.",
+          "prompt": {
+            "en": "Top-down bird's-eye view of a small walled graveyard at noon: the gravel paths between rows of headstones form a huge, unfinished geometric pattern like a circuit board that runs off the edges of the frame. A tiny person in a white robe stands on one short piece of the pattern. Hard sun, crisp short black shadows."
+          }
+        },
+        {
+          "id": "sb-35-6",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "low"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "top-left",
+            "height": "high",
+            "note": {
+              "de": "Der klare Himmel als weiße Fläche, durch die schwarze Störstreifen laufen; unten PLF scharf gegen das Licht."
+            }
+          },
+          "action": {
+            "de": "Klarer, wolkenloser Himmel, durch den waagrechte Störbänder laufen: Streifen des Himmels um ein paar Pixel versetzt, eine Zeile Sonne doppelt, Treppenstufen-Kanten an der Zypressenspitze. Nach unten wird das Bild ruhig – PLF blickt hoch, die Hand über den Augen."
+          },
+          "air": [
+            [
+              0,
+              30
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "confused",
+              "pose": "stand",
+              "facing": "three-quarter-right",
+              "x": 0.5,
+              "y": 0.88,
+              "h": 0.45
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 34,
+                "width": 64
+              },
+              "text": {
+                "de": "Der Himmel war klar, doch die Realität um sie herum flackerte wie ein gestörter Bildschirm."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 58,
+                "width": 54
+              },
+              "text": {
+                "de": "Ein Glitch, ein Fehler im Gewebe der Wirklichkeit."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Glitch-Sprache für Schwarzweiß: versetzte Bildstreifen, Pixelblöcke, Treppenkanten, Zeilensprünge – kein RGB-Versatz (nur Schwarz/Weiß). Grafik über ein Friedhofsfoto."
+        },
+        {
+          "id": "sb-35-7",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Gleiche Sonne, aber die Schatten der doppelten Bäume zeigen in zwei Richtungen – ein Fehler, den man erst beim zweiten Blick sieht."
+            }
+          },
+          "action": {
+            "de": "PLF reibt sich mit beiden Händen die Augen. Hinter ihr die Baumreihe an der Friedhofsmauer zweimal, leicht versetzt übereinander wie ein verrutschter Druck; die Schatten der zweiten Reihe fallen in die falsche Richtung."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "dizzy",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.62,
+              "h": 0.55
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 66
+              },
+              "text": {
+                "de": "Kleine, fast unmerkliche Verzerrungen. Als wäre sie gefangen in einer Welt, die nicht ganz real war."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Reaktions-Beat in der Mitte (Owner 2026-10-10: mehr Shots in die Mitte). „… nicht mehr zu wissen, was wahr war und was nicht“ steckt im Bild (die falschen Schatten)."
+        },
+        {
+          "id": "sb-35-8",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "low"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "top-right",
+            "height": "high",
+            "soft": 0.6,
+            "note": {
+              "de": "Die Sonne direkt aufs Gesicht, Augen geschlossen: eine weiße, warme Hälfte – die andere Hälfte zerfällt in versetzte Streifen."
+            }
+          },
+          "action": {
+            "de": "PLF hebt das Gesicht in die Sonne, Augen geschlossen, ein kurzer Moment Ruhe. Die eine Gesichtshälfte ist klar, die andere in waagrechte Streifen zerschnitten und um einige Pixel verschoben."
+          },
+          "air": [
+            [
+              0,
+              25
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "acceptance",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.6,
+              "h": 0.85
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 64
+              },
+              "text": {
+                "de": "Das Sonnenlicht wärmte ihre Haut und beruhigte die Nerven – für einen kurzen Moment."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 56,
+                "y": 88,
+                "width": 38
+              },
+              "text": {
+                "de": "Doch die Störungen blieben."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-35-9",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "high"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Harte Sonne; wo Teile fehlen, ist reines Weiß – keine Schatten, kein Boden."
+            }
+          },
+          "action": {
+            "de": "Der Friedhof springt: ein Grabstein steht doppelt, sein Zwilling zwei Reihen weiter; eine Grabvase hängt halb in der Luft; ein Stück Mauer fehlt, dahinter reines Weiß. Nach unten zerfällt der Boden in grobe Pixelblöcke und dann in leeres Weiß."
+          },
+          "air": [
+            [
+              78,
+              100
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.3,
+              "y": 0.5,
+              "h": 0.15
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 62
+              },
+              "text": {
+                "de": "Teile der Umgebung verschwanden plötzlich und tauchten an anderer Stelle wieder auf."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 34,
+                "y": 58,
+                "width": 60
+              },
+              "text": {
+                "de": "Der Friedhof wirkte wie eine digitale Illusion, die in der nächsten Sekunde zusammenbrechen könnte."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Weißes Ende = Luft vor Szene 36."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Zeilen im Skript (1-basiert) in source.lines: 1478–1505.",
+    "Frage an den Owner: Kapiteltitel „4. Kapitel – DEPRESSION“ steht im Skript vor Szene 35. Wie in Kapitel 3 kein eigener Titel-Shot gesetzt – soll das Kapitel eine Titelkarte bekommen (z. B. als Text im Schwarz von sb-35-1)?",
+    "Frage an den Owner: das Skript wechselt bei PLF zwischen „er/ihn“ und „sie/ihr“ (auch innerhalb eines Absatzes). Wie in Kapitel 3 durchgehend „sie/ihr“ gesetzt – bestätigen.",
+    "Frage an den Owner: Tageszeit. Kapitel 3 endet (sb-34-7) bei „day“; „klarer Himmel“ und „Sonnenlicht“ passen. Hier harte, hohe Sonne gesetzt.",
+    "Gekürzt: „ein Ort, der in der nächsten Sekunde zusammenbrechen könnte“ wörtlich behalten; „Ein Glitch … der ihm immer wieder das Gefühl gab, nicht mehr zu wissen, was wahr war“ steckt im Bild (sb-35-7, falsche Schatten).",
+    "Glitches in Schwarzweiß: versetzte Bildstreifen, Pixelblöcke, Treppenkanten, doppelte Objekte, weiße Löcher – kein RGB-Versatz (Sin-City-Regel).",
+    "Perspektive Szene 35: durchgehend real – PLF (human) nach dem Kampf; die Krähen nur als Nachhall (Liniengrafik)."
+  ]
+}

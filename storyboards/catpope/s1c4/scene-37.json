@@ -1,0 +1,1232 @@
+{
+  "storyboard": 2,
+  "toon": "catpope",
+  "chapter": 4,
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 37,
+    "heading": "EXT. AM BRUNNEN",
+    "lines": [
+      1568,
+      1627
+    ]
+  },
+  "cast": [
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human",
+      "look": "default"
+    },
+    {
+      "ref": "sphynx",
+      "character": "catpope",
+      "persona": "cat",
+      "look": "default"
+    }
+  ],
+  "locations": [
+    {
+      "ref": "well",
+      "place": "well",
+      "time": "day"
+    },
+    {
+      "ref": "graveyard",
+      "place": "graveyard",
+      "time": "day"
+    }
+  ],
+  "light": {
+    "key": "top-left",
+    "height": "high",
+    "source": "sun",
+    "shadow": "short",
+    "soft": 0.5,
+    "accent": {
+      "color": "gold",
+      "on": "die Augen der Sphynx-Katze"
+    },
+    "note": {
+      "de": "Die Sonne verliert die Ordnung: Schatten zeigen in verschiedene Richtungen, bis die Welt reißt. Die Katze hat ihr eigenes Licht (Aura) – die einzige feste Quelle; ihre goldenen Augen sind die einzige Farbe."
+    }
+  },
+  "groups": [
+    {
+      "label": "scene-37",
+      "renderer": {
+        "type": "vertical"
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-37-1",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "eye"
+          },
+          "location": "well",
+          "view": "real",
+          "action": {
+            "de": "Ein alter steinerner Brunnen mit rundem Becken am Rand des Friedhofs. PLF eilt darauf zu, schon vornübergebeugt, die Hand nach dem Wasser ausgestreckt."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "run",
+              "facing": "three-quarter-right",
+              "x": 0.35,
+              "y": 0.6,
+              "h": 0.4
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 52
+              },
+              "text": {
+                "de": "37 EXT. AM BRUNNEN"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 84,
+                "width": 56
+              },
+              "text": {
+                "de": "PLFs Atem ging schneller. Sie eilte zu einem Brunnen, um Wasser zu trinken."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Luft oben = Szenenwechsel."
+        },
+        {
+          "id": "sb-37-2",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "well",
+          "view": "real",
+          "light": {
+            "soft": 0.4,
+            "note": {
+              "de": "Durch die Risse fällt ein anderes Licht – von der anderen Seite, als würde dort eine zweite Sonne stehen."
+            }
+          },
+          "action": {
+            "de": "Die Welt um den Brunnen bekommt Risse wie gesprungenes Glas; durch die Spalten schimmert eine zweite Wirklichkeit, anders beleuchtet, nicht ganz erkennbar. PLF am Beckenrand, mitten in den Rissen."
+          },
+          "air": [
+            [
+              0,
+              12
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.75,
+              "h": 0.3
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 14,
+                "width": 50
+              },
+              "text": {
+                "de": "Doch alles begann immer heftiger zu ruckeln."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 44,
+                "width": 56
+              },
+              "text": {
+                "de": "Die Glitches wurden zu Rissen in ihrer Wahrnehmung, durch die eine zweite durchschimmerte."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Was die zweite Wirklichkeit zeigt, lässt das Skript offen (siehe notes) – hier bewusst unscharf."
+        },
+        {
+          "id": "sb-37-3",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "low"
+          },
+          "location": "well",
+          "view": "real",
+          "light": {
+            "key": "top-left",
+            "height": "high",
+            "soft": 0.4,
+            "note": {
+              "de": "Ein einzelner Glanzpunkt auf dem Tropfen, schwarzer Schatten darunter auf dem Wasser – das einzige Ding, das sauber beleuchtet ist."
+            }
+          },
+          "action": {
+            "de": "Ein Wassertropfen löst sich aus dem Becken und steigt langsam auf, eine vollkommene Kugel, unter ihr kräuselt sich das Wasser. Im Hintergrund unscharf PLFs Gesicht."
+          },
+          "air": [
+            [
+              0,
+              30
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "surprised",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.6,
+              "y": 0.85,
+              "h": 0.45
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 50
+              },
+              "text": {
+                "de": "Ein Wassertropfen erhob sich aus dem Becken."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "prompt": {
+            "en": "Close-up at a stone fountain basin: a single drop of water lifts off the surface and slowly rises as a perfect floating sphere, the water rippling below it. Out of focus behind it the face of a person. One hard sun from the top left, a single bright highlight on the sphere, a black shadow on the water."
+          }
+        },
+        {
+          "id": "sb-37-4",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
+          "location": "well",
+          "view": "real",
+          "light": {
+            "key": "top-left",
+            "height": "high",
+            "note": {
+              "de": "In der Kugel: das gespiegelte Licht der großen Kugel aus Kapitel 3 – derselbe weiße Glanz."
+            }
+          },
+          "action": {
+            "de": "Ganz nah die schwebende Wasserkugel: in ihr gekrümmt PLFs Gesicht und dahinter, wie eine Erinnerung, die riesige spiegelnde Kugel über dem Bergwald (sb-26-2)."
+          },
+          "air": [
+            [
+              0,
+              15
+            ],
+            [
+              85,
+              100
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "thinking",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.5,
+              "h": 0.3,
+              "note": "nur als Spiegelung in der Kugel"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 8,
+                "y": 72,
+                "width": 60
+              },
+              "text": {
+                "de": "Er erinnerte an die Kugel, die PLF in den Bergen gesehen hatte."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Neuer Beat (Owner 2026-10-10): die Erinnerung an Kapitel 3 als Bild, nicht nur als Satz.",
+          "prompt": {
+            "en": "Extreme close-up of a floating sphere of water: in its curved surface the reflected face of a person in a white robe and, behind it like a memory, a gigantic chrome sphere rising above a snowy mountain forest. Hard light, one bright highlight, pure black and white."
+          }
+        },
+        {
+          "id": "sb-37-5",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "high"
+          },
+          "location": "well",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Die Kugel bleibt im festen Licht; ringsum springen Schatten und Flächen hin und her."
+            }
+          },
+          "action": {
+            "de": "Oben die Wasserkugel, ruhig und intakt. Nach unten verschiebt sich der Friedhof um sie herum: Grabreihen rutschen seitlich, die Mauer knickt ab, der Boden flackert zwischen Kies und Pixelrauschen. Unten PLF, die das Gleichgewicht sucht."
+          },
+          "air": [
+            [
+              0,
+              8
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "dizzy",
+              "pose": "slip",
+              "facing": "front",
+              "x": 0.45,
+              "y": 0.85,
+              "h": 0.25
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 24,
+                "width": 56
+              },
+              "text": {
+                "de": "Während die Wasserkugel intakt blieb, verschob sich die Struktur des Friedhofs. Die gesamte Szene wurde instabil."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 58,
+                "width": 60
+              },
+              "text": {
+                "de": "Ein unheimliches, verzerrtes Rascheln – wie ein beschädigter Ton in einem gestörten Video."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Das Rascheln steht im Skript ohne {…} – Erzählung, kein SFX; als Grafik vielleicht Störstreifen-Wellen."
+        },
+        {
+          "id": "sb-37-6",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "mcu",
+            "angle": "low"
+          },
+          "location": "well",
+          "view": "real",
+          "light": {
+            "key": "bottom",
+            "height": "below",
+            "source": "sun",
+            "note": {
+              "de": "Licht von unten aus dem Becken: das Gesicht von unten angeleuchtet, die Augen weit – die Erkenntnis als Bedrohung."
+            }
+          },
+          "action": {
+            "de": "PLF über das Becken gebeugt, von unten aus dem Wasser gesehen, die Wasserkugel zwischen ihr und der Kamera. Ihr Gesicht erstarrt: sie begreift, dass sie selbst es ausgelöst hat."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "scared",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.45,
+              "h": 0.7
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 8,
+                "y": 82,
+                "width": 60
+              },
+              "text": {
+                "de": "PLF wusste, dass etwas Schreckliches angestoßen wurde. Sie war der Auslöser."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-37-7",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "polar",
+          "move": "descend",
+          "shot": {
+            "size": "ews",
+            "angle": "bird"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "top",
+            "height": "overhead",
+            "shadow": "none",
+            "soft": 0.3,
+            "note": {
+              "de": "Keine Richtung mehr: die Schatten drehen sich mit dem Strudel, Weiß und Schwarz in Spiralarmen."
+            }
+          },
+          "action": {
+            "de": "Der Friedhof krümmt sich zu einem Strudel: Bäume und Grabsteine wirbeln in Spiralen, verschwinden, tauchen verzerrt wieder auf, wild rotierend. Ganz innen, winzig, PLF."
+          },
+          "air": [
+            [
+              0,
+              8
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "fall",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.82,
+              "h": 0.06
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 10,
+                "width": 62
+              },
+              "text": {
+                "de": "Doch bevor PLF einen klaren Gedanken fassen konnte, verzog sich die Welt erneut. Die Zeit selbst stand nun gegen sie."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 50,
+                "y": 40,
+                "width": 44
+              },
+              "text": {
+                "de": "Die Welt löschte sich aus."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 62,
+                "width": 58
+              },
+              "text": {
+                "de": "Bäume und Grabsteine verschwanden, tauchten wieder auf. Verzerrt. Wild rotierend."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Polar aus dem Friedhofs-Panorama von sb-36-4 (gleiche Quelle, Transformation per Code).",
+          "prompt": {
+            "en": "A graveyard panorama transformed into a polar vortex seen from above: cypress trees and headstones swirl in spiral arms toward the centre, distorted, some dissolving into pixel blocks. A tiny person in a white robe at the centre. Pure black and white, no clear light direction."
+          }
+        },
+        {
+          "id": "sb-37-8",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "source": "none",
+            "soft": 0.2,
+            "note": {
+              "de": "Hinter den Rissen nur Schwarz – kein Licht, keine Quelle."
+            }
+          },
+          "action": {
+            "de": "Das Bild des Friedhofs reißt wie Papier: breite Risse, dahinter Schwarz. Die Fetzen biegen sich nach außen, an ihren Rändern Pixelfransen. PLF klein auf einem der Fetzen."
+          },
+          "air": [
+            [
+              40,
+              70
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "arms-up",
+              "facing": "front",
+              "x": 0.3,
+              "y": 0.82,
+              "h": 0.18
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 50,
+                "y": 6,
+                "width": 44
+              },
+              "text": {
+                "de": "Das Gewebe der Realität selbst zerriss."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-37-9",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ews",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "source": "none",
+            "soft": 0.1,
+            "note": {
+              "de": "Fast nur Schwarz; der Schrei der Katze ist das Licht – weiße Lettern im Nichts."
+            }
+          },
+          "action": {
+            "de": "Schwarzes Nichts mit ein paar treibenden Fetzen des Friedhofs. Quer durch das Bild schneidet das lange Miauen als riesige weiße Lettern."
+          },
+          "air": [
+            [
+              0,
+              25
+            ],
+            [
+              80,
+              100
+            ]
+          ],
+          "figures": [],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 4,
+                "y": 42,
+                "width": 92
+              },
+              "text": {
+                "de": "MIAAAAAAAAUUUUU"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Neuer Beat (Owner 2026-10-10): das Miauen bekommt einen Screen für sich – die Stille des Nichts vor dem Klang."
+        },
+        {
+          "id": "sb-37-10",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "eye",
+            "source": "energy",
+            "rim": true,
+            "accent": {
+              "color": "gold",
+              "on": "die Augen der Sphynx-Katze"
+            },
+            "note": {
+              "de": "Die Katze leuchtet von sich aus: eine Aura als weißer Kranz um eine schwarze Silhouette; die goldenen Augen die einzige Farbe."
+            }
+          },
+          "action": {
+            "de": "Oben PLF, erstarrt, der Kopf ruckt zur Seite (Bewegungslinien). Nach unten der Blick am Rand des Sichtfelds entlang: dort steht die Sphynx-Katze, schlank, von einer Aura umgeben, scharf und fest, während alles um sie flackert. Goldene Augen."
+          },
+          "air": [
+            [
+              40,
+              50
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "surprised",
+              "pose": "look-back",
+              "facing": "three-quarter-right",
+              "x": 0.35,
+              "y": 0.18,
+              "h": 0.45
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.7,
+              "y": 0.8,
+              "h": 0.2
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 50,
+                "y": 3,
+                "width": 46
+              },
+              "text": {
+                "de": "Ein langgezogenes Miauen – ein vertrauter Klang inmitten des Wahnsinns. PLF erstarrte."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 56,
+                "width": 54
+              },
+              "text": {
+                "de": "Dort, am Rande des Sichtfeldes, stand die Sphynx-Katze. Ihre goldenen Augen blitzten im flackernden Licht."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "prompt": {
+            "en": "Top: a person in a white robe freezes and snaps the head to the side. Below, at the edge of a flickering, distorted graveyard: a slender hairless sphynx cat stands perfectly sharp and solid, surrounded by a glowing aura, golden eyes. Everything around it blurs and glitches. Black and white except the golden eyes."
+          }
+        },
+        {
+          "id": "sb-37-11",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "eye",
+            "source": "energy",
+            "rim": true,
+            "note": {
+              "de": "Die Aura als weißer Kranz, die Katze dunkel davor, die goldenen Augen leuchten."
+            }
+          },
+          "action": {
+            "de": "Die Sphynx-Katze nah: sie sitzt mit geschlossenen Pfoten, als meditiere sie, eine Handbreit über dem Boden schwebend. Um sie die Aura; dahinter flackert und bricht der Friedhof."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "sphynx",
+              "framing": "cu",
+              "mood": "neutral",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.55,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "Sie wirkte fest und real, während alles andere flüchtig und brüchig war."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 52,
+                "y": 88,
+                "width": 42
+              },
+              "text": {
+                "de": "Meditierte sie? Schwebte sie?"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "prompt": {
+            "en": "Close-up of a hairless sphynx cat sitting upright with paws together as if meditating, floating a hand's width above the ground, a white glowing aura around it, golden eyes. Behind it a graveyard flickering and breaking into glitch bands. Strong backlight, black and white except the golden eyes."
+          }
+        },
+        {
+          "id": "sb-37-12",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "right",
+            "height": "eye",
+            "source": "energy",
+            "note": {
+              "de": "Licht von der Katze (rechts): PLFs ausgestreckte Hand ist hell – und zerfällt, wo sie ins Licht greift."
+            }
+          },
+          "action": {
+            "de": "PLF streckt zögernd die Hand nach der Katze aus. Ihre Finger zerfallen in Pixelblöcke, wo sie in die Störung greifen; die Katze rechts im Bild bleibt vollkommen scharf."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "confused",
+              "pose": "reach",
+              "facing": "right",
+              "x": 0.3,
+              "y": 0.6,
+              "h": 0.55
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "sit",
+              "facing": "left",
+              "x": 0.82,
+              "y": 0.62,
+              "h": 0.15
+            }
+          ],
+          "dialog": [],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Stille Reaktion in der Mitte (Owner 2026-10-10): PLF zerfällt mit der Welt, die Katze nicht."
+        },
+        {
+          "id": "sb-37-13",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "low",
+            "rim": true,
+            "shadow": "long",
+            "note": {
+              "de": "Hinter dem Tor ein warmes, ruhiges Gegenlicht – der Garten ist die einzige Gegend mit einer festen Sonne."
+            }
+          },
+          "action": {
+            "de": "Die Katze dreht den Kopf zu einem verwitterten, rostigen Tor am Rand des Friedhofs, halb von Efeu überwachsen. Durch die Gitterstäbe ein Garten in ruhigem Licht – ungestört, scharf, während der Friedhof davor zerfällt."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "stand",
+              "facing": "right",
+              "x": 0.3,
+              "y": 0.35,
+              "h": 0.15
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 10,
+                "width": 50
+              },
+              "text": {
+                "de": "MIAAAUUU"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 50,
+                "y": 26,
+                "width": 46
+              },
+              "text": {
+                "de": "Ein weiteres, tieferes Miauen, dieses Mal dringlich. Einladend."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 64,
+                "width": 60
+              },
+              "text": {
+                "de": "Es kam aus Richtung eines verwitterten Tors, das PLF zuvor kaum beachtet hatte. Es schien in einen Garten zu führen."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-37-14",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "front",
+            "height": "low",
+            "shadow": "long",
+            "note": {
+              "de": "Vorne das ruhige Licht aus dem Garten auf PLFs Gesicht; hinter ihr Schwarz und Pixelrauschen ohne Licht."
+            }
+          },
+          "action": {
+            "de": "PLF von vorn, zwischen zwei Welten: hinter ihr verschlingen die Glitches den Friedhof (schwarzes Nichts, Pixelränder), vor ihr fällt das ruhige Licht des Gartens durch das Tor auf ihr Gesicht."
+          },
+          "air": [
+            [
+              0,
+              18
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "acceptance",
+              "pose": "stand",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.6,
+              "h": 0.45
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 62
+              },
+              "text": {
+                "de": "PLF spürte: Dies war der einzige Ausweg. Überall sonst hatten die Glitches fast alles verschlungen."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 36,
+                "y": 84,
+                "width": 58
+              },
+              "text": {
+                "de": "Der Garten jenseits des Tors wirkte seltsam unberührt. Dort schien die Realität intakt."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-37-15",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "front",
+            "height": "low",
+            "shadow": "long",
+            "rim": true,
+            "note": {
+              "de": "Das Gartenlicht in PLFs Rücken, ihr Schatten fällt lang in den zerfallenden Friedhof."
+            }
+          },
+          "action": {
+            "de": "Über PLFs Schulter: ein letzter Blick zurück auf den zerfallenden Friedhof – Gruft, Zypressen, Patriarchen-Grabmäler, halb schon Pixelstaub, der in Schwarz treibt."
+          },
+          "air": [
+            [
+              0,
+              25
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "sad",
+              "pose": "look-back",
+              "facing": "away",
+              "x": 0.2,
+              "y": 0.75,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 46,
+                "y": 6,
+                "width": 48
+              },
+              "text": {
+                "de": "Ein letzter Blick auf den zerfallenden Friedhof."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-37-16",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "high"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "bottom",
+            "height": "low",
+            "shadow": "long",
+            "rim": true,
+            "note": {
+              "de": "Das Licht kommt jetzt von unten, aus dem Garten hinter dem Tor: die Buchstaben-Brücke wirft lange Schatten nach oben ins Schwarz."
+            }
+          },
+          "action": {
+            "de": "Über schwarzem Nichts spannt sich eine Brücke aus riesigen weißen Buchstaben – das Schnurren –, die nach unten in einem Gartentor endet. PLF zieht sich auf allen vieren daran entlang, Buchstabe für Buchstabe, die Katze schon am Tor."
+          },
+          "air": [
+            [
+              0,
+              10
+            ],
+            [
+              90,
+              100
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "sad",
+              "pose": "crawl",
+              "facing": "away",
+              "x": 0.45,
+              "y": 0.45,
+              "h": 0.15
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.6,
+              "y": 0.86,
+              "h": 0.08
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 22,
+                "width": 88
+              },
+              "text": {
+                "de": "SCHNURR"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 56
+              },
+              "text": {
+                "de": "Das Schnurren bildete eine Brücke, die in einem Gartentor endete."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 70,
+                "width": 54
+              },
+              "text": {
+                "de": "Mit letzter Kraft. Buchstabe für Buchstabe zerrt sich PLF hinein."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Die SFX ist die Brücke selbst (Lettering als Bild-Element; die Box trägt den übersetzbaren Text). Weißes Ende = Kapitelende."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Zeilen im Skript (1-basiert) in source.lines: 1568–1627.",
+    "Frage an den Owner: „Risse in ihrer Wahrnehmung, durch die eine zweite durchschimmerte“ – was ist die zweite Wirklichkeit? (Die Serverfarm aus Kapitel 3, der Garten, die Welt von Kapitel 1?) Hier bewusst unscharf (sb-37-2).",
+    "Frage an den Owner: „Sie war der Auslößer“ – PLF löst das Zerfallen aus. Wodurch – durch das Trinken / Berühren des Wassers? Im Storyboard zeitlich nach dem aufsteigenden Tropfen gesetzt, ohne Ursache zu zeigen.",
+    "Frage an den Owner: die Brücke aus dem Schnurren, „Buchstabe für Buchstabe“ – wörtlich als Lettering-Brücke gesetzt (sb-37-16). Passt das, oder ist es bildlich gemeint?",
+    "Frage an den Owner: das Lied „ONCE TWICE THRICE“ (5. Lied) steht zwischen Szene 37 und Kapitel 5. Wie das 4. Lied in Kapitel 3: nicht gestoryboardet – Audio unter dem Kapitelende, Anfang von Kapitel 5, oder gar nicht?",
+    "Akzent: die goldenen Augen der Sphynx-Katze – die einzige Farbe der Szene.",
+    "Gekürzt: „wieso auch, dachte sie doch noch Antworten zu finden“ weggelassen; „Unwirklichkeiten“ und „Mit letzter Kraft“ als Bild / kurzer Satz.",
+    "Owner 2026-10-10 („ungefähr 30 % länger“): zusätzliche Beats in der Mitte – sb-37-4 (die Erinnerung an die Kugel), sb-37-9 (das Miauen im Nichts), sb-37-12 (PLF greift nach der Katze).",
+    "Perspektive Szene 37: real – die Welt zerfällt, die Katze (catpope / cat, PLF selbst) bleibt fest."
+  ]
+}

@@ -1,0 +1,1415 @@
+{
+  "storyboard": 2,
+  "toon": "catpope",
+  "chapter": 4,
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 36,
+    "heading": "EXT. FRIEDHOF",
+    "lines": [
+      1506,
+      1567
+    ]
+  },
+  "cast": [
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human",
+      "look": "default"
+    },
+    {
+      "ref": "sphynx",
+      "character": "catpope",
+      "persona": "cat",
+      "look": "default"
+    },
+    {
+      "ref": "catpope",
+      "character": "catpope",
+      "persona": "regular",
+      "look": "default"
+    }
+  ],
+  "locations": [
+    {
+      "ref": "graveyard",
+      "place": "graveyard",
+      "time": "day"
+    }
+  ],
+  "light": {
+    "key": "top-left",
+    "height": "high",
+    "source": "sun",
+    "shadow": "short",
+    "soft": 0.5,
+    "note": {
+      "de": "Dieselbe harte Sonne wie in Szene 35; die Glitches schneiden Licht und Schatten in versetzte Streifen."
+    }
+  },
+  "groups": [
+    {
+      "label": "scene-36",
+      "renderer": {
+        "type": "vertical"
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-36-1",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "action": {
+            "de": "Zwischen zwei Reihen schiefer Grabsteine: PLF geht suchend den Kiesweg entlang, beugt sich zu einem Stein. Ein Grabstein links ist nur noch ein gestrichelter Umriss, durch den man die Mauer sieht."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "thinking",
+              "pose": "walk",
+              "facing": "three-quarter-left",
+              "x": 0.55,
+              "y": 0.62,
+              "h": 0.35
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 50
+              },
+              "text": {
+                "de": "36 EXT. FRIEDHOF"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 80,
+                "width": 64
+              },
+              "text": {
+                "de": "PLF begann ihre Erkundung, aber die Glitches erschwerten die Suche. Die Realität schien sich willkürlich zu verschieben."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Luft oben = Szenenwechsel (anschließend an das Weiß von sb-35-9)."
+        },
+        {
+          "id": "sb-36-2",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Oben: Grabstein mit hartem Schatten. Unten: derselbe Fleck, Schatten ohne Stein – der Schatten bleibt einen Moment länger."
+            }
+          },
+          "action": {
+            "de": "Zweimal derselbe Bildausschnitt übereinander: oben ein verwitterter Grabstein, PLF streckt die Hand danach aus. Unten dieselbe Stelle – der Stein ist weg, nur sein Schatten liegt noch im Gras und eine Wolke Pixelstaub, PLFs Hand greift ins Leere."
+          },
+          "air": [
+            [
+              44,
+              56
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "neutral",
+              "pose": "reach",
+              "facing": "right",
+              "x": 0.25,
+              "y": 0.25,
+              "h": 0.4
+            },
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "surprised",
+              "pose": "reach",
+              "facing": "right",
+              "x": 0.25,
+              "y": 0.8,
+              "h": 0.4
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 46,
+                "y": 8,
+                "width": 46
+              },
+              "text": {
+                "de": "Ein Grabstein, gerade noch da."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 56,
+                "y": 62,
+                "width": 34
+              },
+              "text": {
+                "de": "Verschwunden."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Zwei Bilder im Bild (wie in Kapitel 2), dazwischen ein weißer Streifen als Luft. Der zurückbleibende Schatten ist der Witz des Glitchs."
+        },
+        {
+          "id": "sb-36-3",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "low"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "high",
+            "rim": true,
+            "note": {
+              "de": "Gegenlicht durch die Zypressen: drei versetzte schwarze Silhouetten derselben Bäume, jede mit eigenem Lichtrand."
+            }
+          },
+          "action": {
+            "de": "Untersicht auf eine Gruppe Zypressen: ihre Umrisse flackern in drei leicht versetzten Kopien, wie in verschiedene Dimensionen gezogen. PLF klein am unteren Rand, den Kopf im Nacken."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "confused",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.9,
+              "h": 0.18
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 8,
+                "y": 6,
+                "width": 64
+              },
+              "text": {
+                "de": "Die Umrisse der Bäume flackerten, als würden sie in verschiedene Dimensionen versetzt."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Neuer Beat in der Mitte (Owner 2026-10-10): das Skript nennt die Bäume eigens."
+        }
+      ]
+    },
+    {
+      "label": "scene-36-cat",
+      "renderer": {
+        "type": "horizontal",
+        "params": {
+          "loop": true,
+          "freeMode": true
+        }
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-36-4",
+          "format": "loop360",
+          "aspect": "3:1",
+          "projection": "perspective",
+          "move": "look-around",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Harte Sonne rundum; wo die Katze aufblitzt, reißt ein weißer Störstreifen durchs Bild."
+            }
+          },
+          "action": {
+            "de": "360°-Panorama des Friedhofs: Grabreihen, Zypressen, die Mauer, die Gruft, ein verwittertes Tor am Rand (für Szene 37). Die nackte Sphynx-Katze taucht an drei Stellen gleichzeitig auf – auf einem Grabstein, halb in einem Störstreifen, als Umriss im Tor –, jedes Mal leicht verpixelt. PLF auf einer Seite, sich umdrehend."
+          },
+          "air": [],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "confused",
+              "pose": "look-back",
+              "facing": "three-quarter-right",
+              "x": 0.12,
+              "y": 0.62,
+              "h": 0.3
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.38,
+              "y": 0.45,
+              "h": 0.12
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "stand",
+              "facing": "left",
+              "x": 0.62,
+              "y": 0.7,
+              "h": 0.12
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.88,
+              "y": 0.55,
+              "h": 0.1
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 1,
+                "y": 10,
+                "width": 14
+              },
+              "text": {
+                "de": "Zwischen den flimmernden Szenen tauchte immer wieder die Sphynx-Katze auf – wie eine lebende Anomalie."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 51,
+                "y": 10,
+                "width": 14
+              },
+              "text": {
+                "de": "Sie schien durch die Fehler im System hindurchzugleiten."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Der Loop passt hier wirklich: „wo ist die Katze?“ – der Leser sucht sie beim Ziehen wie PLF. Die Sphynx-Katze = catpope / cat, also PLF selbst (Kapitel 5: „Ich war die Katze!“) – wie der Tiger in Kapitel 3; hier noch nicht verraten, nur dieselbe Haltung (sb-36-7). Das Tor hier schon zeigen (Szene 37: „ein Tor, das PLF zuvor kaum beachtet hatte“).",
+          "prompt": {
+            "en": "Seamless 360-degree panorama of a small walled graveyard at noon: rows of crooked headstones, cypress trees, a stone crypt, the wall, a weathered wrought-iron gate at the edge. A hairless sphynx cat appears at three places at once: on a headstone, half inside a horizontal glitch band, as an outline in the gate. A person in a white robe turns around on one side. Hard sun, crisp black shadows."
+          }
+        }
+      ]
+    },
+    {
+      "label": "scene-36-b",
+      "renderer": {
+        "type": "vertical"
+      },
+      "continues": true,
+      "shots": [
+        {
+          "id": "sb-36-5",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "top-down",
+          "move": "travel",
+          "shot": {
+            "size": "wide",
+            "angle": "bird"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "left",
+            "height": "high",
+            "shadow": "long",
+            "note": {
+              "de": "Von oben: die Schatten der Grabsteine als schwarze Balken quer über den Weg – PLF springt über sie hinweg."
+            }
+          },
+          "action": {
+            "de": "Von oben, den Kiesweg entlang tief in den Friedhof: oben die Katze, die vorausläuft, darunter PLF im Lauf. In der Mitte ist ein Streifen des Wegs samt Gräbern seitlich versetzt wie ein verrutschter Bildstreifen; PLF erscheint davor und dahinter, als Bewegungsspur."
+          },
+          "air": [
+            [
+              0,
+              8
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "run",
+              "facing": "away",
+              "x": 0.6,
+              "y": 0.12,
+              "h": 0.08
+            },
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "confused",
+              "pose": "run",
+              "facing": "away",
+              "x": 0.45,
+              "y": 0.72,
+              "h": 0.15
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 32,
+                "width": 56
+              },
+              "text": {
+                "de": "Verwirrt und zunehmend verunsichert versuchte PLF, der Katze zu folgen."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 50,
+                "y": 88,
+                "width": 44
+              },
+              "text": {
+                "de": "Tief in den Friedhof führte die Jagd."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "note": "Die Jagd: der Scroll ist der Lauf.",
+          "prompt": {
+            "en": "Top-down view along a gravel path deep into a walled graveyard, rows of headstones on both sides casting long black shadow bars across the path. A hairless sphynx cat runs ahead near the top, a person in a white robe runs after it lower down. In the middle a horizontal strip of the path and graves is shifted sideways like a misaligned image slice. Hard sun."
+          }
+        },
+        {
+          "id": "sb-36-6",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "dutch"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Zwei PLFs, zwei Schatten in verschiedene Richtungen – das Licht widerspricht sich selbst."
+            }
+          },
+          "action": {
+            "de": "Gekipptes Bild: PLF mitten im Schritt zweimal – einmal am Weg, einmal halb durchsichtig zwei Reihen weiter am Tor, als wäre sie für einen Sekundenbruchteil dorthin versetzt worden. Der Boden in waagrechten Rucken versetzt."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "run",
+              "facing": "right",
+              "x": 0.35,
+              "y": 0.6,
+              "h": 0.35
+            },
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "run",
+              "facing": "right",
+              "x": 0.75,
+              "y": 0.42,
+              "h": 0.22,
+              "note": "halb durchsichtig, versetzt"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 70
+              },
+              "text": {
+                "de": "Der Boden schien zu ruckeln, sie an einen anderen Ort zu versetzen – und Sekundenbruchteile später zurück."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-36-7",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Die Katze im Hintergrund scharf und ruhig im Licht, PLF vorne außer Atem, ihr Schatten unter ihr gestaucht."
+            }
+          },
+          "action": {
+            "de": "PLF bleibt keuchend stehen, Hände auf den Knien. Im Hintergrund, auf einem flachen Grabstein, sitzt die Sphynx-Katze ruhig und schaut ihr zu – in genau derselben vorgebeugten Haltung wie PLF."
+          },
+          "air": [
+            [
+              0,
+              18
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "medium",
+              "mood": "dizzy",
+              "pose": "crouch",
+              "facing": "front",
+              "x": 0.35,
+              "y": 0.65,
+              "h": 0.55
+            },
+            {
+              "cast": "sphynx",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.75,
+              "y": 0.42,
+              "h": 0.12
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 84,
+                "width": 54
+              },
+              "text": {
+                "de": "Nichts hier folgte den Regeln der normalen Welt."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Reaktion in der Mitte (Owner 2026-10-10). Die gespiegelte Haltung lässt den Leser ahnen, dass die Katze PLF ist (wie beim Tiger in Kapitel 3) – ohne es zu sagen."
+        },
+        {
+          "id": "sb-36-8",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "low"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "left",
+            "height": "low",
+            "shadow": "long",
+            "note": {
+              "de": "Streiflicht über die Gravur: jede Kerbe ein schwarzer Strich, PLFs Augen im Schatten des Steins."
+            }
+          },
+          "action": {
+            "de": "PLF kniet vor einem Grabstein, das Gesicht nah am Stein. Die eingemeißelten Lettern verschwimmen und zittern, die Kanten zerfasern in Pixelstufen. In ihren Augen Furcht."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "scared",
+              "pose": "kneel",
+              "facing": "three-quarter-right",
+              "x": 0.35,
+              "y": 0.6,
+              "h": 0.75
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 44,
+                "y": 6,
+                "width": 52
+              },
+              "text": {
+                "de": "Dann, inmitten dieser Störsignale, machte PLF eine Entdeckung. Furcht überkam sie."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 50,
+                "y": 86,
+                "width": 44
+              },
+              "text": {
+                "de": "Die Lettern verschwammen vor ihren Augen."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-36-9",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "left",
+            "height": "low",
+            "shadow": "long",
+            "note": {
+              "de": "Streiflicht von links über eine Reihe Grabsteine: jede Inschrift scharf ausgeschnitten, die Schatten fallen nach rechts ins Leere."
+            }
+          },
+          "action": {
+            "de": "Eine Reihe gleicher Grabsteine untereinander, einer pro Abschnitt. Auf jedem statt eines Namens nur eine Funktion, eingemeißelt (siehe Texte). Keine Daten, keine Bilder, keine Blumen."
+          },
+          "air": [
+            [
+              0,
+              6
+            ]
+          ],
+          "figures": [],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 3,
+                "width": 60
+              },
+              "text": {
+                "de": "Da standen keine Namen – nur Funktionen!"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 20,
+                "y": 18,
+                "width": 60
+              },
+              "text": {
+                "de": "WÄCHTER:IN"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 20,
+                "y": 40,
+                "width": 60
+              },
+              "text": {
+                "de": "KRIEGER:IN"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 20,
+                "y": 62,
+                "width": 60
+              },
+              "text": {
+                "de": "BERATER:IN"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 20,
+                "y": 84,
+                "width": 60
+              },
+              "text": {
+                "de": "INFLUENCER"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Die Inschriften als Lettering auf den Steinen (in den Text-Boxen, damit sie übersetzbar bleiben – das Bild selbst ohne Schrift). „AI Ethiker:in“ bekommt den nächsten Shot für sich."
+        },
+        {
+          "id": "sb-36-10",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "left",
+            "height": "low",
+            "shadow": "long",
+            "note": {
+              "de": "Streiflicht: der Finger wirft einen langen Schatten in die Kerbe; wo er hinkommt, zerfällt die Schrift."
+            }
+          },
+          "action": {
+            "de": "Ganz nah: PLFs Fingerkuppe fährt die eingemeißelte Inschrift nach. Unter dem Finger zerfallen die Buchstaben in Pixelstufen und setzen sich versetzt wieder zusammen."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "ecu",
+              "mood": "scared",
+              "pose": "reach",
+              "facing": "right",
+              "x": 0.3,
+              "y": 0.6,
+              "h": 0.5,
+              "note": "nur Hand und Unterarm"
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 18,
+                "y": 44,
+                "width": 66
+              },
+              "text": {
+                "de": "AI ETHIKER:IN"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft",
+          "note": "Detail in der Mitte (Owner 2026-10-10). Die letzte und modernste Funktion bekommt das Gewicht."
+        },
+        {
+          "id": "sb-36-11",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "ews",
+            "angle": "high"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "top-left",
+            "height": "high",
+            "note": {
+              "de": "Von schräg oben: endlose Reihen gleicher Steine, gleiche Schatten – ein Raster wie Server-Racks."
+            }
+          },
+          "action": {
+            "de": "Hohe Totale: der Friedhof dehnt sich unmöglich weit, Reihe um Reihe identischer Grabsteine bis zum Horizont, streng im Raster (Anklang an die Server-Racks aus Kapitel 3). PLF ein einzelner weißer Punkt in einer Gasse."
+          },
+          "air": [
+            [
+              0,
+              20
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "sad",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.78,
+              "h": 0.05
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 24,
+                "width": 50
+              },
+              "text": {
+                "de": "Rollen in einer grotesken Hierarchie."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 36,
+                "y": 86,
+                "width": 58
+              },
+              "text": {
+                "de": "Kein einziger Name, keine Identität. Nur Positionen, wie in einem undurchdringlichen System."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "generated"
+          },
+          "status": "draft",
+          "prompt": {
+            "en": "High wide view over an impossibly vast graveyard: row after row of identical headstones in a strict grid all the way to the horizon, like rows of server racks. A single tiny person in a white robe stands in one aisle. Hard noon sun, identical short black shadows."
+          }
+        },
+        {
+          "id": "sb-36-12",
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "full",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "note": {
+              "de": "Das Bild reißt in Streifen: Licht und Schatten springen von Streifen zu Streifen."
+            }
+          },
+          "action": {
+            "de": "PLF hastet weiter zwischen den Gräbern, das Gewand flattert. Das Bild ist in grobe waagrechte Streifen zerrissen, jeder zeigt sie einen Schritt versetzt; nach unten werden die Risse breiter."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "run",
+              "facing": "right",
+              "x": 0.5,
+              "y": 0.5,
+              "h": 0.4
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 62
+              },
+              "text": {
+                "de": "Angsterfüllt lief sie hastig weiter, in der Hoffnung auf Gräber, die mehr verraten würden."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 82,
+                "width": 54
+              },
+              "text": {
+                "de": "Die Glitches wurden intensiver. Die Realität selbst reagierte."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-36-13",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "reveal",
+          "shot": {
+            "size": "wide",
+            "angle": "low"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "high",
+            "rim": true,
+            "shadow": "long",
+            "note": {
+              "de": "Die Grabmäler der Patriarchen ragen schwarz gegen die Sonne, die Inschriften nur als weiße Kerben im Gegenlicht."
+            }
+          },
+          "action": {
+            "de": "Von unten nach oben auftauchend: monumentale Grabmäler der Kirchenpatriarchen, Obelisken und Sarkophage mit Mitren und Kreuzstäben. Auf jedem nur ein einziges Wort, immer wieder (siehe Texte). PLF klein davor."
+          },
+          "air": [
+            [
+              0,
+              14
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.92,
+              "h": 0.18
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 16,
+                "width": 62
+              },
+              "text": {
+                "de": "Schließlich die Gräber der Kirchenpatriarchen. Wieder keine Namen – nur ein einziges Wort. Immer und immer wieder."
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 10,
+                "y": 40,
+                "width": 30
+              },
+              "text": {
+                "de": "POPE"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 58,
+                "y": 50,
+                "width": 30
+              },
+              "text": {
+                "de": "POPE"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 30,
+                "y": 66,
+                "width": 30
+              },
+              "text": {
+                "de": "POPE"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
+          "status": "draft",
+          "note": "Reveal: die Monumente wachsen beim Scrollen aus dem Licht."
+        },
+        {
+          "id": "sb-36-14",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "cu",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "eye",
+            "rim": true,
+            "soft": 0.35,
+            "note": {
+              "de": "PLF vor den Grabmälern im Gegenlicht: ein heller Rand um das Profil, das Gesicht fast schwarz."
+            }
+          },
+          "action": {
+            "de": "PLF im Profil, Hand vor dem Mund, die Befürchtung bestätigt. Hinter ihr unscharf die Grabmäler mit den vervielfachten POPE-Inschriften."
+          },
+          "air": [
+            [
+              0,
+              12
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "cu",
+              "mood": "scared",
+              "pose": "stand",
+              "facing": "left",
+              "x": 0.55,
+              "y": 0.55,
+              "h": 0.8
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "PLFs Befürchtung wurde bestätigt. Keine Unterscheidung, keine Geschichte. Nur Titel."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 84,
+                "width": 54
+              },
+              "text": {
+                "de": "Als hätten diese Menschen nie existiert. Als Individuen ausgelöscht."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
+          "status": "draft"
+        },
+        {
+          "id": "sb-36-15",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "back",
+            "height": "high",
+            "soft": 0.3,
+            "note": {
+              "de": "Eine Welle aus weißem Rauschen läuft durch das Gegenlicht und frisst die Schatten."
+            }
+          },
+          "action": {
+            "de": "Stille Überleitung: eine Glitch-Welle läuft von links über die Reihe der Patriarchen-Grabmäler, ein Band aus Pixelrauschen; wo sie war, wackeln die Inschriften und beginnen sich umzuschreiben."
+          },
+          "air": [
+            [
+              0,
+              30
+            ]
+          ],
+          "figures": [],
+          "dialog": [],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Geplante Stille (Owner 2026-10-10: mehr Luft in der Mitte): der Atemzug vor dem Umschreiben der Titel."
+        },
+        {
+          "id": "sb-36-16",
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "real",
+          "light": {
+            "key": "left",
+            "height": "low",
+            "shadow": "long",
+            "note": {
+              "de": "Streiflicht auf den Inschriften; die neuen Titel flackern hell aus den Kerben, als wären sie Bildschirmschrift."
+            }
+          },
+          "action": {
+            "de": "Die POPE-Inschriften auf den Grabmälern verwandeln sich im Glitch, Stein für Stein, in moderne Titel (siehe Texte) – die Buchstaben halb gemeißelt, halb Bildschirmschrift."
+          },
+          "air": [
+            [
+              0,
+              6
+            ]
+          ],
+          "figures": [],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 3,
+                "width": 56
+              },
+              "text": {
+                "de": "Selbst die Titel veränderten sich inmitten der Glitches."
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 12,
+                "y": 18,
+                "width": 30
+              },
+              "text": {
+                "de": "CEO"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 54,
+                "y": 32,
+                "width": 34
+              },
+              "text": {
+                "de": "GURU"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 8,
+                "y": 48,
+                "width": 66
+              },
+              "text": {
+                "de": "MODERATOR:IN"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 20,
+                "y": 64,
+                "width": 74
+              },
+              "text": {
+                "de": "THOUGHT LEADER:IN"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 82,
+                "width": 80
+              },
+              "text": {
+                "de": "STARTUP-GRÜNDER:IN"
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Das Skript: Titel „nicht nur alt, sondern auch modern und aus der digitalen Welt“ – im Bild der Übergang Stein → Bildschirm."
+        },
+        {
+          "id": "sb-36-17",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "medium",
+            "angle": "eye"
+          },
+          "location": "graveyard",
+          "view": "narration",
+          "light": {
+            "key": "right",
+            "height": "low",
+            "shadow": "long",
+            "note": {
+              "de": "Cat Pope außerhalb der Szene: Streiflicht von rechts, hinter ihm der Friedhof als schwarzer Scherenschnitt."
+            }
+          },
+          "action": {
+            "de": "Cat Pope (regulär) sitzt auf der Friedhofsmauer, den Rücken zum Friedhof, und spricht direkt zum Leser. Hinter ihm der Friedhof als flacher schwarzer Scherenschnitt, die Grabsteine wie Säulen eines Archivregals."
+          },
+          "air": [
+            [
+              0,
+              15
+            ]
+          ],
+          "figures": [
+            {
+              "cast": "catpope",
+              "framing": "medium",
+              "mood": "thinking",
+              "pose": "sit",
+              "facing": "front",
+              "x": 0.5,
+              "y": 0.62,
+              "h": 0.55
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 60
+              },
+              "text": {
+                "de": "Der Friedhof war keine Ruhestätte – er war ein lebendiges Archiv."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 18,
+                "width": 60
+              },
+              "text": {
+                "de": "Als hätte sich die Hierarchie des Systems über die Jahrhunderte einfach nur angepasst."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 38,
+                "y": 86,
+                "width": 56
+              },
+              "text": {
+                "de": "Individualität war längst durch Funktionen und Rollen ersetzt."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Die Deutung der Szene erzählt Cat Pope selbst (narration, regular) – wie in Kapitel 3 (sb-25-7). Weißer Grund unten = Luft vor Szene 37."
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Zeilen im Skript (1-basiert) in source.lines: 1506–1567.",
+    "Die Sphynx-Katze ist im Register catpope / cat gesetzt: Kapitel 5 endet mit „Ich war die Katze!“ – die Katze ist PLF selbst (wie der Tiger in Kapitel 3). Die Shots verraten es nicht, lassen es nur ahnen (gespiegelte Haltung sb-36-7). Frage an den Owner: bestätigen.",
+    "Frage an den Owner: Schreibweise „Spynx“ (Skript Szene 36) vs. „Sphynx“ (Szene 37) – „Sphynx“ gesetzt.",
+    "Frage an den Owner: die Inschriften stehen in Text-Boxen (Lettering), damit sie übersetzbar bleiben; das Bild selbst bleibt ohne Schrift. Oder sollen sie in den Stein (Bild) und pro Sprache neu gerendert werden?",
+    "Frage an den Owner: „Influencer“ ohne „:in“ (anders als die anderen Funktionen) – so aus dem Skript übernommen; Absicht?",
+    "Gekürzt: „Die Hoffnung, Gräber zu finden, die mehr verraten würden“ zu einem Satz mit „angsterfüllt“ (Skript: „Angsterfühlt“); „Die Realität selbst reagierte in diesem Moment reagierte“ zu „Die Realität selbst reagierte.“; „eine gespenstige Vision der Welt“ weggelassen (sb-36-17).",
+    "Owner 2026-10-10 („ungefähr 30 % länger“): zusätzliche Beats in der Mitte – sb-36-3 (Bäume), sb-36-7 (Reaktion, Katze schaut zu), sb-36-10 (Detail AI Ethiker:in), sb-36-15 (stille Überleitung).",
+    "Perspektive Szene 36: real – PLF (human) zwischen den Glitches; sb-36-17 narration – Cat Pope (regular) deutet den Friedhof."
+  ]
+}

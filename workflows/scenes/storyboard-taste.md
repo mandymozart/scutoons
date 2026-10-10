@@ -41,6 +41,10 @@ shot. Rules the checker can enforce go into `scripts/storyboard/validate.mjs` to
   screens (plan ≤ 8; Luma's proven maximum). "I use it as a restriction for what we should prompt" (2026-10-09)
 - **A chapter ≈ chapters 1 + 2:** ~70 screens, 15–20 minutes careful reading; the images carry the time.
   "chapters are almost same in length" (2026-10-09)
+- **Pace ~30 % longer than chapter 3's first throw – the extra shots go into the middle of the scenes** (more beats,
+  reactions, details, transitions, planned silence), not padding at the start or end of a scene. "wir können die
+  Lesezeit ein bisschen verlängern … es können noch ein paar mehr Shots in die Mitte rein, sagen wir ungefähr 30%
+  länger" (2026-10-10)
 
 ## Material
 - **Existing material first** (the Figma selection on the chapter page, shootings, Unreal), prompting only the gaps.
