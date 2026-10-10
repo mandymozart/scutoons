@@ -155,6 +155,8 @@ for (const G of groups) {
 		...(s.dialog?.length ? { dialog: s.dialog } : {})
 	})) });
 }
+// the last group can't continue – nothing follows it on the page (the creator's check)
+if (chapter.groups.length) delete chapter.groups.at(-1).continues;
 chapter.meta = { ...(draft.meta ?? {}), production: { from: `Figma "${page}" / "${frameName}"`, date: new Date().toLocaleDateString('sv'), suggested: languages.filter((l) => l !== 'de') } };
 writeFileSync(resolve(PROD, 'chapter.json'), JSON.stringify(chapter, null, '\t'));
 const uploads = slices.flatMap((s) => ['', '.2x', '.3x'].map((suf) => ({ file: `slices/${s.name}${suf}.webp`, path: `${toon}/${dir}/${s.name}${suf}.webp` })));
