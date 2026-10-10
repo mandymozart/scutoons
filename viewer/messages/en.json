@@ -23,6 +23,7 @@
 	"upcoming_events": "Upcoming Events",
 	"past_events": "Past Events",
 	"sequence_navigation": {
+		"chapters": "Chapters",
 		"overview": "Overview",
 		"alt_season_start": "Start of season",
 		"start": "Beginning",
@@ -36,7 +37,7 @@
 		"owners_only": "This download is only for owners of the record."
 	},
 	"account": {
-		"my_account": "My Account",
+		"my_account": "Account",
 		"back": "Back",
 		"back_to": "Back to {name}",
 		"membership": "Full Membership",
