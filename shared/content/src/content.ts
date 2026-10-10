@@ -25,8 +25,12 @@ export type DialogVariant = 'bubble' | 'caption' | 'narration';
 
 /** Where a drawn speech bubble's tail points (`Dialog.tail`). */
 export const DIALOG_TAILS = ['bottom-left', 'bottom', 'bottom-right', 'top-left', 'top', 'top-right', 'none'] as const;
-/** A drawn bubble's outline (`Dialog.shape`): `oval` = speech, `wobbly` = shouting / singing (a trembling, hand-cut edge). */
-export const DIALOG_SHAPES = ['oval', 'wobbly'] as const;
+/**
+ * A drawn bubble's outline (`Dialog.shape`): `box` = speech (a rectangle with a tail – owner 2026-10-10: "alle sprechblasen
+ * in rechteckige mit einem pfeil … ich brauche keine runden", "oval is redundant": an oval cut its text), `wobbly` =
+ * shouting / singing (a trembling, hand-cut edge). `oval` is still read (older data) and drawn as a box.
+ */
+export const DIALOG_SHAPES = ['box', 'wobbly', 'oval'] as const;
 export type DialogShape = (typeof DIALOG_SHAPES)[number];
 export type DialogTail = (typeof DIALOG_TAILS)[number];
 
@@ -53,9 +57,9 @@ export interface Dialog {
 	 * the image; the creator sets `true` for new bubbles on text-free art.
 	 */
 	frame?: boolean;
-	/** a drawn bubble's outline (bubble with `frame: true`), default 'oval' */
+	/** a drawn bubble's outline (bubble with `frame: true`), default 'box' ('oval' = older data, drawn as a box) */
 	shape?: DialogShape;
-	/** a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for an oval, 'none' for a wobbly one */
+	/** a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for a box, 'none' for a wobbly one */
 	tail?: DialogTail;
 	/** Font size in % of the slice width (rendered as cqw). Default 4. */
 	size?: number;

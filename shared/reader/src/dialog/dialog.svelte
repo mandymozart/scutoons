@@ -50,8 +50,8 @@
 	const framed = $derived(boxed && dialog.frame !== false);
 	/** a drawn speech bubble: only with `frame: true` (the bubbles of chapter 1/2 are in the art) */
 	const bubble = $derived(variant === 'bubble' && dialog.frame === true);
-	/** the drawn bubble's outline: an oval (speech) or a wobbly edge (shouting, singing) */
-	const shape = $derived(bubble ? (dialog.shape ?? 'oval') : null);
+	/** the drawn bubble's outline: a box with a tail (speech – an older 'oval' is drawn as a box too) or a wobbly edge (shouting, singing) */
+	const shape = $derived(bubble ? (dialog.shape === 'wobbly' ? 'wobbly' : 'box') : null);
 	const tail = $derived(bubble ? (dialog.tail ?? (shape === 'wobbly' ? 'none' : 'bottom-left')) : 'none');
 	const stroked = $derived(!!dialog.stroke);
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
@@ -305,20 +305,20 @@
 		font-style: italic;
 	}
 
-	/* bubble + frame: a drawn speech bubble (paper ellipse, ink outline, a tail) for text-free art */
+	/* bubble + frame: a drawn speech bubble for text-free art – a paper box with an ink outline and a tail, like the
+	   narration box (owner 2026-10-10: no ovals – an ellipse cut its text at the sides) */
 	.bubble .box {
 		position: relative;
 		background: var(--paper);
 		border: 2px solid var(--ink);
-		border-radius: 50%;
-		padding: 0.9em 1.3em;
+		padding: 0.8em 1em;
 	}
 
 	.has-height.bubble .box {
 		height: 100%;
 	}
 
-	/* wobbly (shout / song): no oval – the trembling outline is an SVG drawn for the box's size */
+	/* wobbly (shout / song): no box – the trembling outline is an SVG drawn for the box's size */
 	.bubble.wobbly .box {
 		border: 0;
 		border-radius: 0;

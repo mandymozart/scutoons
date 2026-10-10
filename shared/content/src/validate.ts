@@ -215,6 +215,7 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.letterSpacing !== undefined && (!isNum(d.letterSpacing) || d.letterSpacing < -0.5 || d.letterSpacing > 2)) c.error([...path, 'letterSpacing'], 'letterSpacing must be a number of em between -0.5 and 2');
 	if (d.tail !== undefined && !(DIALOG_TAILS as readonly string[]).includes(d.tail)) c.error([...path, 'tail'], `tail must be one of ${DIALOG_TAILS.join(', ')}`);
 	if (d.shape !== undefined && !(DIALOG_SHAPES as readonly string[]).includes(d.shape)) c.error([...path, 'shape'], `shape must be one of ${DIALOG_SHAPES.join(', ')}`);
+	if (d.shape === 'oval') c.info([...path, 'shape'], 'oval is drawn as a box now (speech bubbles are rectangles with a tail) – set box or leave it out');
 	if (d.shape !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'shape'], 'shape only shows on a drawn bubble (variant bubble, frame true)');
 	if (d.rotation !== undefined && !isNum(d.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
 	checkScale(c, d.scale, [...path, 'scale']);

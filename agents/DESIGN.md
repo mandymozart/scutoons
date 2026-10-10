@@ -561,7 +561,9 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   new default box is a caption. Now `bubble` + `frame: true` draws a speech bubble: paper ellipse, 2px ink outline, a
   tail (`tail`: bottom-left (default) · bottom · bottom-right · top-left · top · top-right · none). `frame` stays off by
   default for bubbles, so published chapters render exactly as before; the creator sets it when a box becomes a bubble.
-  `shape` (round 3, owner: "loud and intense stuff such as screaming and singing"): `oval` (default, speech) or `wobbly`
+  `shape` (round 3, owner: "loud and intense stuff such as screaming and singing"): `box` (default, speech – a paper
+  rectangle with an ink outline and a tail; owner 2026-10-10: "alle sprechblasen in rechteckige mit einem pfeil … ich
+  brauche keine runden", "oval is redundant" – an oval cut its text; an older `oval` is drawn as a box) or `wobbly`
   ("Schrei / Shout") – a roughly rectangular box whose ink outline trembles on all four sides, drawn as an SVG for the
   box's laid-out size (`dialog/wobbly.ts`, deterministic per box id: the same bumps on every render); its tail defaults
   to none.

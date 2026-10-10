@@ -454,7 +454,7 @@ export function drawMarks(g, shot, W, H, K = 1) {
 /**
  * The texts in the SCUTOONS text presets (text-presets.js, agents/DESIGN.md Part 2 – owner 2026-10-09: the first
  * throw follows the design dogma): Narration (paper box, 2px ink rule, italic IBM Plex Mono), Scene (the same in
- * capitals), Speech bubble (paper ellipse, 2px ink outline, a tail – towards the nearest figure's head unless the text
+ * capitals), Speech bubble (a paper box, 2px ink outline, a tail – towards the nearest figure's head unless the text
  * sets `tail`), Onomatopoeia (Bangers, white with an ink outline, −7°), Story (bare mono). Font size = % of the shot's
  * width like the reader's cqw; the box at the storyboard's rect; the real words – the room for the text is judged in
  * the frame. figures: [{ box: {x0,y0,x1,y1} }] in canvas px.
@@ -519,12 +519,17 @@ export function drawDialog(g, shot, figures, W, H, K = 1) {
 				const reach = Math.min(l * 0.7, Math.max(rx, ry) + size * 2.2);
 				tx = cx + (dx / l) * reach; ty = cy + (dy / l) * reach;
 			} else { tx = x + w * 0.22; ty = y + th + size * 1.8; }
-			const a0 = Math.atan2((ty - cy) / ry, (tx - cx) / rx);
-			g.beginPath();
-			g.ellipse(cx, cy, rx, ry, 0, a0 + 0.16, a0 - 0.16 + Math.PI * 2);
-			g.lineTo(tx, ty);
-			g.closePath();
-			g.fill(); g.stroke();
+			// a box with a tail, like the reader's bubble (owner 2026-10-10: "alle sprechblasen in rechteckige mit einem
+			// pfeil", "oval is redundant") – the tail leaves the top or the bottom edge towards its target
+			void rx; void ry;
+			const bx0 = x - pad * 0.4, by0 = y - pad * 0.4, bw = w + pad * 0.8, bh = th + pad * 0.8;
+			const down = ty >= cy;
+			const edge = down ? by0 + bh : by0;
+			const base = Math.min(Math.max(tx, bx0 + bw * 0.15 + size * 0.6), bx0 + bw * 0.85 - size * 0.6);
+			const tipY = down ? Math.max(ty, edge + size * 1.2) : Math.min(ty, edge - size * 1.2);
+			g.beginPath(); g.rect(bx0, by0, bw, bh); g.fill(); g.stroke();
+			g.beginPath(); g.moveTo(base - size * 0.6, edge); g.lineTo(tx, tipY); g.lineTo(base + size * 0.6, edge); g.closePath(); g.fill();
+			g.beginPath(); g.moveTo(base - size * 0.6, edge); g.lineTo(tx, tipY); g.lineTo(base + size * 0.6, edge); g.stroke();
 			g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'middle';
 			lines.forEach((l, i) => g.fillText(l, cx, cy + (i - (lines.length - 1) / 2) * lh));
 		} else {
