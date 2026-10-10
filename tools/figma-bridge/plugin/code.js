@@ -131,7 +131,9 @@ async function nodeOrPage(args) {
 
 const commands = {
 	async ping() {
-		return { file: figma.root.name, page: figma.currentPage.name, user: figma.currentUser ? figma.currentUser.name : null, editor: figma.editorType };
+		let user = null;
+		try { user = figma.currentUser ? figma.currentUser.name : null; } catch {} // needs the 'currentuser' permission – not asked for
+		return { file: figma.root.name, page: figma.currentPage.name, user, editor: figma.editorType };
 	},
 	async pages() {
 		return figma.root.children.map((p) => ({ id: p.id, name: p.name }));
@@ -150,6 +152,82 @@ const commands = {
 	},
 	async draft(args) {
 		return applyDraft(args.spec);
+	},
+	/**
+	 * a region of a frame as PNGs at several scales, some of its layers hidden – the production slices (figma-production.mjs):
+	 * { frame, x, y, w, h, hide: ['text', 'guides'], scales: [1, 2, 3] } → [{ scale, base64 }]. Works on a clone inside a
+	 * clipping frame far off the canvas, removed afterwards – the draft itself is never touched.
+	 */
+	async region(args) {
+		const f = await figma.getNodeByIdAsync(args.frame);
+		if (!f || !('clone' in f)) throw new Error(`no frame ${args.frame}`);
+		const page = f.parent;
+		const box = figma.createFrame();
+		box.name = 'scutoons-export (temporary)';
+		box.resize(args.w, args.h);
+		box.clipsContent = true;
+		box.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+		page.appendChild(box);
+		box.x = -200000; box.y = -200000;
+		try {
+			const c = f.clone();
+			box.appendChild(c);
+			c.x = -args.x; c.y = -args.y;
+			if (args.unclip && 'clipsContent' in c) c.clipsContent = false; // a panorama strip reaches past the frame's width
+			if ('children' in c) for (const l of c.children) if ((args.hide ?? []).includes(l.name)) l.visible = false;
+			const out = [];
+			for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await box.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
+			return out;
+		} finally { box.remove(); }
+	},
+	/**
+	 * production slice frames from a draft – the owner's way ("ich ziehe immer die ebenen auf einen slice die auf der
+	 * selben hoehe im slice active werden … dannach loesche ich die textebenen"): per slice a frame (name, w × h,
+	 * clipping) at { px, py } on the page, holding copies of every node of the draft's layers (minus `skip`) that reaches
+	 * into the slice, placed as in the draft, unlocked (owner: locked layers must be unlocked before copying); hidden
+	 * nodes stay hidden. { frame, skip: ['text', 'guides'], slices: [{ name, x, y, w, h, px, py }] } – frames of the same
+	 * name are replaced.
+	 */
+	async sliceFrames(args) {
+		const f = await figma.getNodeByIdAsync(args.frame);
+		if (!f || !('children' in f)) throw new Error(`no frame ${args.frame}`);
+		const page = f.parent;
+		const nodes = [];
+		for (const layer of f.children) {
+			if ((args.skip ?? []).includes(layer.name)) continue;
+			const kids = 'children' in layer && layer.type !== 'INSTANCE' ? layer.children : [layer];
+			for (const n of kids) nodes.push({ n, x: (layer === n ? 0 : layer.x) + n.x, y: (layer === n ? 0 : layer.y) + n.y, w: n.width, h: n.height });
+		}
+		const out = [];
+		for (const s of args.slices ?? []) {
+			for (const old of page.children.filter((c) => c.name === s.name)) old.remove();
+			const fr = figma.createFrame();
+			fr.name = s.name;
+			fr.resize(s.w, s.h);
+			fr.clipsContent = true;
+			fr.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+			page.appendChild(fr);
+			fr.x = s.px; fr.y = s.py;
+			let count = 0;
+			for (const it of nodes) {
+				if (it.x >= s.x + s.w || it.x + it.w <= s.x || it.y >= s.y + s.h || it.y + it.h <= s.y) continue;
+				const c = it.n.clone();
+				fr.appendChild(c);
+				c.x = it.x - s.x; c.y = it.y - s.y;
+				if ('locked' in c) c.locked = false;
+				count++;
+			}
+			out.push({ name: s.name, id: fr.id, layers: count });
+		}
+		return out;
+	},
+	/** a node (a slice frame) as PNGs at several scales: { node, scales } → [{ scale, base64 }] */
+	async exportScales(args) {
+		const n = await figma.getNodeByIdAsync(args.node);
+		if (!n || !('exportAsync' in n)) throw new Error(`no node ${args.node}`);
+		const out = [];
+		for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await n.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
+		return out;
 	},
 	/** many nodes as small JPGs at one width – for matching pictures to shots: { ids, width } → [{ id, base64 } | { id, error }] */
 	async thumbs(args) {
