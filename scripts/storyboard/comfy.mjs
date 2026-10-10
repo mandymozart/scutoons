@@ -28,6 +28,7 @@ import { loadStoryboards } from './storyboard.mjs';
 
 // keys from the repo's .env (LUMA_AGENTS_API_KEY) – a variable already set in the shell wins
 try { process.loadEnvFile(resolve(ROOT, '.env')); } catch {}
+process.env.LUMA_AGENTS_API_KEY ??= process.env.LUMA_AGENT_API_KEY; // the owner's .env spells it singular
 
 const args = process.argv.slice(2);
 const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(i, 2)[1] : d; };
