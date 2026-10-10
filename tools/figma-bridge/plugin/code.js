@@ -170,6 +170,20 @@ const commands = {
 		page.appendChild(box);
 		box.x = -200000; box.y = -200000;
 		try {
+			if (args.partial && 'children' in f) {
+				// a huge hand-made draft: clone only the frame's direct children that reach into the region (their
+				// own positions stay – a child's x / y are relative to the frame), not the whole frame each time
+				for (const n of f.children) {
+					if ((args.hide ?? []).includes(n.name) || n.visible === false) continue;
+					if (n.x >= args.x + args.w || n.x + n.width <= args.x || n.y >= args.y + args.h || n.y + n.height <= args.y) continue;
+					const c = n.clone();
+					box.appendChild(c);
+					c.x = n.x - args.x; c.y = n.y - args.y;
+				}
+				const out = [];
+				for (const s of args.scales ?? [1]) out.push({ scale: s, base64: figma.base64Encode(await box.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: s } })) });
+				return out;
+			}
 			const c = f.clone();
 			box.appendChild(c);
 			c.x = -args.x; c.y = -args.y;

@@ -62,11 +62,11 @@ export async function startRelay({ port = 3056, log = console.log } = {}) {
 		log('plugin connected');
 	}
 
-	function call(cmd, args) {
+	function call(cmd, args, timeout = TIMEOUT) {
 		return new Promise((resolve) => {
 			if (!plugin) return resolve({ ok: false, error: 'no plugin connected – open Plugins → Development → SCUTOONS Bridge in Figma desktop' });
 			const id = randomUUID();
-			const timer = setTimeout(() => { pending.delete(id); resolve({ ok: false, error: `timeout after ${TIMEOUT / 1000} s` }); }, TIMEOUT);
+			const timer = setTimeout(() => { pending.delete(id); resolve({ ok: false, error: `timeout after ${timeout / 1000} s` }); }, timeout);
 			pending.set(id, { resolve, timer });
 			plugin.send({ id, cmd, args });
 		});
@@ -82,7 +82,7 @@ export async function startRelay({ port = 3056, log = console.log } = {}) {
 				let msg;
 				try { msg = JSON.parse(body); } catch { return json(400, { ok: false, error: 'JSON body { cmd, args }' }); }
 				const t0 = Date.now();
-				const r = await call(msg.cmd, msg.args ?? {});
+				const r = await call(msg.cmd, msg.args ?? {}, Math.min(Number(msg.timeout) || TIMEOUT, 900_000)); // a caller may wait longer (a huge draft: up to 15 min)
 				log(`${msg.cmd} → ${r.ok ? 'ok' : r.error} (${Date.now() - t0} ms)`);
 				json(r.ok ? 200 : 502, r);
 			});
