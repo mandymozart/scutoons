@@ -216,6 +216,10 @@
           "note": "Skript: „TIGER ist weiß mit riesen Zähnen. Anger Stage Character.“ Bewusst ohne Luft – der Schock füllt den Screen. Wie das ROARRR aus Kapitel 1/2 gesetzt. Perspektive: belief – der Tiger, wie PLF ihn sieht: die volle Bedrohung.",
           "prompt": {
             "en": "The person in the white robe has turned around, small in the lower corner, backing away. The rest of the frame is filled by the head of a huge white tiger: jaws wide open, enormous teeth, warm breath steaming into the freezing air."
+          },
+          "review": {
+            "status": "ok",
+            "date": "2026-10-09"
           }
         },
         {
@@ -251,12 +255,13 @@
             {
               "cast": "plf",
               "framing": "full",
-              "mood": "panicked",
+              "mood": "disgusted",
               "pose": "run",
               "facing": "left",
-              "x": 0.35,
-              "y": 0.55,
-              "h": 0.32
+              "x": 0.589,
+              "y": 0.539,
+              "h": 0.154,
+              "persona": "human"
             },
             {
               "cast": "tiger",
@@ -264,9 +269,10 @@
               "mood": "hunting",
               "pose": "run",
               "facing": "left",
-              "x": 0.65,
-              "y": 0.6,
-              "h": 0.3
+              "x": 0.316,
+              "y": 0.458,
+              "h": 0.457,
+              "persona": "mountaintiger"
             }
           ],
           "dialog": [
@@ -291,6 +297,19 @@
           "note": "Ein Stop statt eines vertikalen Moves: die Bewegung ist seitlich, und der Witz ist der Gleichschritt. PLF rennend als Direktaufnahme möglich, der Tiger generiert dazu. Perspektive: real (Owner 2026-10-09: der Tiger ist PLF selbst) – die spiegelbildlich gleiche Haltung lässt ahnen, dass hier ein Wesen in zwei Gestalten läuft.",
           "prompt": {
             "en": "Side view, profile: the person in the long white robe and a huge white tiger run side by side up a snowy slope in the same stride, robe and fur flowing the same way. Powder snow kicked up behind them, trees as motion-blurred streaks."
+          },
+          "camera": {
+            "pos": [
+              12.62,
+              11.225,
+              -19.761
+            ],
+            "target": [
+              0.863,
+              2.745,
+              4.49
+            ],
+            "fov": 50
           }
         }
       ]
@@ -674,9 +693,9 @@
               "mood": "terrified",
               "pose": "crouch",
               "facing": "left",
-              "x": 0.3,
-              "y": 0.12,
-              "h": 0.2
+              "x": 0.5,
+              "y": 0.213,
+              "h": 0.246
             },
             {
               "cast": "tiger",
@@ -684,9 +703,9 @@
               "mood": "dazed",
               "pose": "jump",
               "facing": "right",
-              "x": 0.55,
-              "y": 0.25,
-              "h": 0.35
+              "x": 0.192,
+              "y": 0.503,
+              "h": 0.345
             },
             {
               "cast": "tiger",
@@ -694,9 +713,9 @@
               "mood": "falling",
               "pose": "fall",
               "facing": "away",
-              "x": 0.6,
-              "y": 0.6,
-              "h": 0.12
+              "x": 0.661,
+              "y": 0.529,
+              "h": 0.224
             }
           ],
           "dialog": [
@@ -730,7 +749,20 @@
             "want": "photo"
           },
           "status": "draft",
-          "note": "Felswand-Foto (Stitch) + ausgeschnittener Tiger; der Fall ist der Scroll. Der Schrei wird nach unten leiser (Lettering kleiner). Frage an den Owner: der Tiger stürzt hier nur aus dem Bild – kommt er (als Anger Stage) später wieder? Perspektive: belief – der Sturz des Tigers aus PLFs Sicht."
+          "note": "Felswand-Foto (Stitch) + ausgeschnittener Tiger; der Fall ist der Scroll. Der Schrei wird nach unten leiser (Lettering kleiner). Frage an den Owner: der Tiger stürzt hier nur aus dem Bild – kommt er (als Anger Stage) später wieder? Perspektive: belief – der Sturz des Tigers aus PLFs Sicht.",
+          "camera": {
+            "pos": [
+              1.962,
+              9.488,
+              22.575
+            ],
+            "target": [
+              0,
+              1.122,
+              17.793
+            ],
+            "fov": 92.8
+          }
         },
         {
           "id": "sb-28-9",
@@ -766,8 +798,8 @@
               "mood": "relieved",
               "pose": "pray",
               "facing": "right",
-              "x": 0.45,
-              "y": 0.6,
+              "x": 0.299,
+              "y": 1.128,
               "h": 0.6
             }
           ],
@@ -790,7 +822,20 @@
             "want": "direct"
           },
           "status": "draft",
-          "note": "Perspektive: real (Owner 2026-10-09: der Tiger ist PLF selbst) – der Blick in die Tiefe findet keinen Tiger, nur PLFs eigene Spur: der Leser kann die Wahrheit ahnen. Die Spur im Schnee ist neu gegenüber dem Skript."
+          "note": "Perspektive: real (Owner 2026-10-09: der Tiger ist PLF selbst) – der Blick in die Tiefe findet keinen Tiger, nur PLFs eigene Spur: der Leser kann die Wahrheit ahnen. Die Spur im Schnee ist neu gegenüber dem Skript.",
+          "camera": {
+            "pos": [
+              0.172,
+              1.835,
+              2.348
+            ],
+            "target": [
+              0,
+              1.55,
+              1.303
+            ],
+            "fov": 50
+          }
         },
         {
           "id": "sb-28-10",

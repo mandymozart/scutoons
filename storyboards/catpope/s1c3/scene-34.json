@@ -141,7 +141,11 @@
             "want": "direct"
           },
           "status": "draft",
-          "note": "„Aufgeben? Niemals!“ ist im Skript ein Gedanke – als Blase gesetzt; eine Gedankenblase wäre die Alternative. Luft oben = Szenenwechsel aus dem Stream-Schwarz."
+          "note": "„Aufgeben? Niemals!“ ist im Skript ein Gedanke – als Blase gesetzt; eine Gedankenblase wäre die Alternative. Luft oben = Szenenwechsel aus dem Stream-Schwarz.",
+          "review": {
+            "status": "ok",
+            "date": "2026-10-09"
+          }
         },
         {
           "id": "sb-34-2",

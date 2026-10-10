@@ -2,140 +2,532 @@
   "storyboard": 2,
   "toon": "catpope",
   "chapter": 3,
-  "source": { "script": "script:catpope:de", "scene": 25, "heading": "EXT. WINTERLICHES BERGDORF - TAG" },
+  "source": {
+    "script": "script:catpope:de",
+    "scene": 25,
+    "heading": "EXT. WINTERLICHES BERGDORF - TAG"
+  },
   "cast": [
-    { "ref": "plf", "character": "catpope", "persona": "human", "look": "default" },
-    { "ref": "catpope", "character": "catpope", "persona": "regular", "look": "default" }
+    {
+      "ref": "plf",
+      "character": "catpope",
+      "persona": "human",
+      "look": "default"
+    },
+    {
+      "ref": "catpope",
+      "character": "catpope",
+      "persona": "regular",
+      "look": "default"
+    }
   ],
   "locations": [
-    { "ref": "village", "place": "mountain-village", "time": "snow" },
-    { "ref": "undergrowth", "place": "mountain-path", "time": "snow" }
+    {
+      "ref": "village",
+      "place": "mountain-village",
+      "time": "snow"
+    },
+    {
+      "ref": "undergrowth",
+      "place": "mountain-path",
+      "time": "snow"
+    }
   ],
-  "light": { "key": "top-left", "height": "low", "source": "sun", "shadow": "long", "note": { "de": "Tiefe Wintersonne von links oben: der Schnee brennt weiß aus, PLF bleibt ein harter dunkler Schnitt mit langem Schatten." } },
+  "light": {
+    "key": "top-left",
+    "height": "low",
+    "source": "sun",
+    "shadow": "long",
+    "note": {
+      "de": "Tiefe Wintersonne von links oben: der Schnee brennt weiß aus, PLF bleibt ein harter dunkler Schnitt mit langem Schatten."
+    }
+  },
   "groups": [
     {
       "label": "scene-25",
-      "renderer": { "type": "vertical" },
+      "renderer": {
+        "type": "vertical"
+      },
       "continues": true,
       "shots": [
         {
           "id": "sb-25-1",
-          "format": "vertical", "aspect": "1:3", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "ews", "angle": "high" },
+          "format": "vertical",
+          "aspect": "1:3",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "ews",
+            "angle": "high"
+          },
           "location": "village",
           "view": "real",
-          "light": { "note": { "de": "Gleißender Schnee frisst das Dorf weg; nur PLF und ihr langer schwarzer Schatten halten das Bild." } },
-          "action": { "de": "Von weißem Himmel und verschneiten Gipfeln hinab ins Bergdorf: eine kleine Haltestelle, der Zug / Bus fährt ab. PLF steht klein im weißen Gewand im Schnee, der Atem dampft." },
-          "air": [[0, 35]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "cold", "pose": "hug-self", "facing": "right", "x": 0.42, "y": 0.86, "h": 0.12 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 4, "width": 70 }, "text": { "de": "25 EXT. WINTERLICHES BERGDORF – TAG" } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 40, "y": 60, "width": 54 }, "text": { "de": "PLF stieg aus. Es war bitterkalt." } }
+          "light": {
+            "note": {
+              "de": "Gleißender Schnee frisst das Dorf weg; nur PLF und ihr langer schwarzer Schatten halten das Bild."
+            }
+          },
+          "action": {
+            "de": "Von weißem Himmel und verschneiten Gipfeln hinab ins Bergdorf: eine kleine Haltestelle, der Zug / Bus fährt ab. PLF steht klein im weißen Gewand im Schnee, der Atem dampft."
+          },
+          "air": [
+            [
+              0,
+              35
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "cold",
+              "pose": "hug-self",
+              "facing": "right",
+              "x": 0.426,
+              "y": 0.827,
+              "h": 0.104
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 4,
+                "width": 70
+              },
+              "text": {
+                "de": "25 EXT. WINTERLICHES BERGDORF – TAG"
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 40,
+                "y": 60,
+                "width": 54
+              },
+              "text": {
+                "de": "PLF stieg aus. Es war bitterkalt."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
-          "note": "Anschluss an das Ende von Kapitel 2 (Zug durch die Berge). Gipfel oben = Luft vor der Szene."
+          "note": "Anschluss an das Ende von Kapitel 2 (Zug durch die Berge). Gipfel oben = Luft vor der Szene.",
+          "camera": {
+            "pos": [
+              0,
+              5.395,
+              24.632
+            ],
+            "target": [
+              0,
+              2.52,
+              20.032
+            ],
+            "fov": 76.4
+          }
         },
         {
           "id": "sb-25-2",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "ecu", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "ecu",
+            "angle": "eye"
+          },
           "location": "village",
           "view": "real",
-          "light": { "key": "bottom", "height": "below", "source": "snow", "shadow": "short", "note": { "de": "Schneereflex von unten: harte Kanten an Sandalen, Fingern und Lippen – die Kälte als grelles Weiß gegen schwarze Schatten." } },
-          "action": { "de": "Kälte-Collage auf weißem Schneegrund, vier gerahmte Nahaufnahmen: Sandalen im Schnee, rote Finger, blaue Lippen mit gefrorener Rotze, Hände unter die Achseln geklemmt. Wind pfeift durch die Schlitze der Robe." },
-          "air": [[0, 8], [92, 100]],
+          "light": {
+            "key": "bottom",
+            "height": "below",
+            "source": "snow",
+            "shadow": "short",
+            "note": {
+              "de": "Schneereflex von unten: harte Kanten an Sandalen, Fingern und Lippen – die Kälte als grelles Weiß gegen schwarze Schatten."
+            }
+          },
+          "action": {
+            "de": "Kälte-Collage auf weißem Schneegrund, vier gerahmte Nahaufnahmen: Sandalen im Schnee, rote Finger, blaue Lippen mit gefrorener Rotze, Hände unter die Achseln geklemmt. Wind pfeift durch die Schlitze der Robe."
+          },
+          "air": [
+            [
+              0,
+              8
+            ],
+            [
+              92,
+              100
+            ]
+          ],
           "figures": [],
           "dialog": [
-            { "variant": "caption", "font": "lettering", "rect": { "x": 58, "y": 40, "width": 38 }, "text": { "de": "HUST HUST" } },
-            { "variant": "caption", "font": "lettering", "rect": { "x": 6, "y": 72, "width": 40 }, "text": { "de": "BRRR" } }
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 58,
+                "y": 40,
+                "width": 38
+              },
+              "text": {
+                "de": "HUST HUST"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "rect": {
+                "x": 6,
+                "y": 72,
+                "width": 40
+              },
+              "text": {
+                "de": "BRRR"
+              }
+            }
           ],
-          "source": { "type": "schematic", "want": "direct" },
+          "source": {
+            "type": "schematic",
+            "want": "direct"
+          },
           "status": "draft",
           "note": "Owner-Anmerkung im Skript: mehr Kälte-Details (Schuhe, zu wenig Kleidung, rote Finger, Wind, blaue Lippen, Husten, Kribbeln, gefrorene Rotze). Panels im Bild wie in Kapitel 2 – wohl eigene Direktaufnahmen."
         },
         {
           "id": "sb-25-3",
-          "format": "vertical", "aspect": "1:4", "projection": "perspective", "move": "tilt-up",
-          "shot": { "size": "ews", "angle": "low" },
+          "format": "vertical",
+          "aspect": "1:4",
+          "projection": "perspective",
+          "move": "tilt-up",
+          "shot": {
+            "size": "ews",
+            "angle": "low"
+          },
           "location": "village",
           "view": "real",
-          "light": { "key": "back", "rim": true, "note": { "de": "Das Licht dreht ins Gegenlicht vom Hang: PLF nur schwarzer Umriss mit weißem Rand, der Weg ein gleißendes Band nach oben." } },
-          "action": { "de": "Der Weg: von PLFs Füßen im Schnee führt ein vereister Pfad den Hang hinauf und verschwindet zwischen weißen Bergen im Dunst. PLF klein von hinten am unteren Rand." },
-          "air": [[0, 30]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "awe", "pose": "stand", "facing": "away", "x": 0.5, "y": 0.9, "h": 0.22 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 8, "y": 40, "width": 60 }, "text": { "de": "Vor ihr lag ein Weg aus Schnee und Eis, der in den weißen Bergen verschwand." } }
+          "light": {
+            "key": "back",
+            "rim": true,
+            "note": {
+              "de": "Das Licht dreht ins Gegenlicht vom Hang: PLF nur schwarzer Umriss mit weißem Rand, der Weg ein gleißendes Band nach oben."
+            }
+          },
+          "action": {
+            "de": "Der Weg: von PLFs Füßen im Schnee führt ein vereister Pfad den Hang hinauf und verschwindet zwischen weißen Bergen im Dunst. PLF klein von hinten am unteren Rand."
+          },
+          "air": [
+            [
+              0,
+              30
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "awe",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.9,
+              "h": 0.22
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 8,
+                "y": 40,
+                "width": 60
+              },
+              "text": {
+                "de": "Vor ihr lag ein Weg aus Schnee und Eis, der in den weißen Bergen verschwand."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft"
         },
         {
           "id": "sb-25-4",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "mcu", "angle": "low" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "mcu",
+            "angle": "low"
+          },
           "location": "village",
           "view": "real",
-          "light": { "key": "left", "shadow": "short", "note": { "de": "Zurück zur Sonne von links: hartes Streiflicht teilt das Gesicht in Weiß und Schwarz – Entschlossenheit gegen die Kälte." } },
-          "action": { "de": "PLF entschlossen, Kinn hoch, Atemwolke, Schneeflocken. Hinter ihr nur Weiß." },
-          "air": [[0, 25]],
-          "figures": [ { "cast": "plf", "framing": "mcu", "mood": "determined", "pose": "stand", "facing": "left", "x": 0.55, "y": 0.6, "h": 0.6 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 6, "width": 62 }, "text": { "de": "Eine Pilgerfahrt. Ein Sinn. Das würde Antworten bringen." } },
-            { "variant": "bubble", "rect": { "x": 8, "y": 74, "width": 44 }, "text": { "de": "Erfrieren? Nein. Der Glaube hält warm." } }
+          "light": {
+            "key": "left",
+            "shadow": "short",
+            "note": {
+              "de": "Zurück zur Sonne von links: hartes Streiflicht teilt das Gesicht in Weiß und Schwarz – Entschlossenheit gegen die Kälte."
+            }
+          },
+          "action": {
+            "de": "PLF entschlossen, Kinn hoch, Atemwolke, Schneeflocken. Hinter ihr nur Weiß."
+          },
+          "air": [
+            [
+              0,
+              25
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "mcu",
+              "mood": "determined",
+              "pose": "stand",
+              "facing": "left",
+              "x": 0.55,
+              "y": 0.6,
+              "h": 0.6
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 62
+              },
+              "text": {
+                "de": "Eine Pilgerfahrt. Ein Sinn. Das würde Antworten bringen."
+              }
+            },
+            {
+              "variant": "bubble",
+              "rect": {
+                "x": 8,
+                "y": 74,
+                "width": 44
+              },
+              "text": {
+                "de": "Erfrieren? Nein. Der Glaube hält warm."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft"
         },
         {
           "id": "sb-25-5",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "wide", "angle": "low" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "low"
+          },
           "location": "village",
           "view": "memory",
-          "light": { "key": "top", "height": "high", "note": { "de": "Erinnerung: das Kloster oben im Licht, alles darunter versinkt im Schwarz – ein ausgeschnittenes altes Foto im Dunkel." } },
-          "action": { "de": "Erinnerung, monochrom getönt: das Kloster hoch oben auf dem Berg, darunter klein die junge PLF in der Ausbildung mit Büchern. Wie eine alte Fotografie im Rahmen auf dunklem Grund." },
-          "air": [[0, 15], [85, 100]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "neutral", "pose": "stand", "facing": "away", "x": 0.5, "y": 0.75, "h": 0.12 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 86, "width": 80 }, "text": { "de": "Vor Jahren, in der Ausbildung, war PLF schon einmal oben im Kloster gewesen." } }
+          "light": {
+            "key": "top",
+            "height": "high",
+            "note": {
+              "de": "Erinnerung: das Kloster oben im Licht, alles darunter versinkt im Schwarz – ein ausgeschnittenes altes Foto im Dunkel."
+            }
+          },
+          "action": {
+            "de": "Erinnerung, monochrom getönt: das Kloster hoch oben auf dem Berg, darunter klein die junge PLF in der Ausbildung mit Büchern. Wie eine alte Fotografie im Rahmen auf dunklem Grund."
+          },
+          "air": [
+            [
+              0,
+              15
+            ],
+            [
+              85,
+              100
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "neutral",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.75,
+              "h": 0.12
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 86,
+                "width": 80
+              },
+              "text": {
+                "de": "Vor Jahren, in der Ausbildung, war PLF schon einmal oben im Kloster gewesen."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Junge PLF hier nur als kleine Figur – der Auftritt von YPLF ist in Szene 29."
         },
         {
           "id": "sb-25-6",
-          "format": "vertical", "aspect": "1:5", "projection": "perspective", "move": "tilt-down",
-          "shot": { "size": "wide", "angle": "high" },
+          "format": "vertical",
+          "aspect": "1:5",
+          "projection": "perspective",
+          "move": "tilt-down",
+          "shot": {
+            "size": "wide",
+            "angle": "high"
+          },
           "location": "undergrowth",
           "view": "belief",
-          "light": { "source": "none", "shadow": "none", "note": { "de": "Pechschwarzes Unterholz ohne Licht: nur die weißen Linien-Geister und PLFs weißes Gewand stehen im Schwarz." } },
-          "action": { "de": "Der beschwerliche Weg: pechschwarzes Unterholz, flimmernde kalte Luft. Links, rechts, oben, unten weiße Linien-Geister (wie die Wolken in Kapitel 1/2) – Seelen der Gewässer, Bäume, Steine, Lüfte – sie greifen nach PLF und drängen sich ihr in den Weg. PLF klein mittendrin." },
-          "air": [[0, 10]],
-          "figures": [ { "cast": "plf", "framing": "full", "mood": "scared", "pose": "walk", "facing": "right", "x": 0.45, "y": 0.62, "h": 0.14 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 14, "width": 64 }, "text": { "de": "Im Unterholz lauerten täuschende Visionen." } },
-            { "variant": "narration", "font": "mono", "rect": { "x": 30, "y": 80, "width": 64 }, "text": { "de": "Keine Götter – Geister. Seelen der Gewässer, der Bäume, der Steine, der Lüfte." } }
+          "light": {
+            "source": "none",
+            "shadow": "none",
+            "note": {
+              "de": "Pechschwarzes Unterholz ohne Licht: nur die weißen Linien-Geister und PLFs weißes Gewand stehen im Schwarz."
+            }
+          },
+          "action": {
+            "de": "Der beschwerliche Weg: pechschwarzes Unterholz, flimmernde kalte Luft. Links, rechts, oben, unten weiße Linien-Geister (wie die Wolken in Kapitel 1/2) – Seelen der Gewässer, Bäume, Steine, Lüfte – sie greifen nach PLF und drängen sich ihr in den Weg. PLF klein mittendrin."
+          },
+          "air": [
+            [
+              0,
+              10
+            ]
           ],
-          "source": { "type": "schematic", "want": "art" },
+          "figures": [
+            {
+              "cast": "plf",
+              "framing": "full",
+              "mood": "scared",
+              "pose": "walk",
+              "facing": "right",
+              "x": 0.45,
+              "y": 0.62,
+              "h": 0.14
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 14,
+                "width": 64
+              },
+              "text": {
+                "de": "Im Unterholz lauerten täuschende Visionen."
+              }
+            },
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 30,
+                "y": 80,
+                "width": 64
+              },
+              "text": {
+                "de": "Keine Götter – Geister. Seelen der Gewässer, der Bäume, der Steine, der Lüfte."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "art"
+          },
           "status": "draft",
           "note": "Foto (dunkler Wald) + gezeichnete Geister darüber. 1:5 liegt über der Planungsgröße 1:4, darf aber, da Foto + Grafik statt generiert. Perspektive: belief – die „täuschenden Visionen“, wie PLF sie sieht. Natur aktiv (Owner 2026-10-09): die Geister greifen nach ihr und versperren den Weg, nicht nur Kulisse."
         },
         {
           "id": "sb-25-7",
-          "format": "viewport", "aspect": "9:16", "projection": "perspective", "move": "hold",
-          "shot": { "size": "full", "angle": "eye" },
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "full",
+            "angle": "eye"
+          },
           "location": "undergrowth",
           "view": "narration",
-          "light": { "key": "front", "note": { "de": "Die Sonne im Rücken der Kamera wirft PLFs Schatten lang in den schwarzen Wald – sie steht vor einer Wand aus Dunkel." } },
-          "action": { "de": "Cat Pope (regular, der Erzähler) von hinten am Waldrand, in den PLF gleich hineingeht, die Natur als dunkle Wand davor. Viel Weiß nach unten – Übergang zur nächsten Szene." },
-          "air": [[70, 100]],
-          "figures": [ { "cast": "catpope", "framing": "full", "mood": "uneasy", "pose": "stand", "facing": "away", "x": 0.5, "y": 0.45, "h": 0.3 } ],
-          "dialog": [
-            { "variant": "narration", "font": "mono", "rect": { "x": 6, "y": 6, "width": 70 }, "text": { "de": "Die Natur war ihr immer das Monster, das sie mied. Menschen waren schon anstrengend genug." } }
+          "light": {
+            "key": "front",
+            "note": {
+              "de": "Die Sonne im Rücken der Kamera wirft PLFs Schatten lang in den schwarzen Wald – sie steht vor einer Wand aus Dunkel."
+            }
+          },
+          "action": {
+            "de": "Cat Pope (regular, der Erzähler) von hinten am Waldrand, in den PLF gleich hineingeht, die Natur als dunkle Wand davor. Viel Weiß nach unten – Übergang zur nächsten Szene."
+          },
+          "air": [
+            [
+              70,
+              100
+            ]
           ],
-          "source": { "type": "schematic", "want": "photo" },
+          "figures": [
+            {
+              "cast": "catpope",
+              "framing": "full",
+              "mood": "uneasy",
+              "pose": "stand",
+              "facing": "away",
+              "x": 0.5,
+              "y": 0.45,
+              "h": 0.3
+            }
+          ],
+          "dialog": [
+            {
+              "variant": "narration",
+              "font": "mono",
+              "rect": {
+                "x": 6,
+                "y": 6,
+                "width": 70
+              },
+              "text": {
+                "de": "Die Natur war ihr immer das Monster, das sie mied. Menschen waren schon anstrengend genug."
+              }
+            }
+          ],
+          "source": {
+            "type": "schematic",
+            "want": "photo"
+          },
           "status": "draft",
           "note": "Perspektive: narration – keine Handlung, nur der reflektierende Satz der Erzählstimme über die Natur; daher steht hier Cat Pope (regular) statt PLF am Waldrand (Owner 2026-10-09: beim Erzählen erscheint Cat Pope in seiner regulären Form)."
         }

@@ -212,8 +212,8 @@
               "mood": "curious",
               "pose": "stand",
               "facing": "three-quarter-right",
-              "x": 0.42,
-              "y": 0.55,
+              "x": 0.3,
+              "y": 1.878,
               "h": 0.6
             }
           ],
@@ -248,7 +248,20 @@
             "want": "direct"
           },
           "status": "draft",
-          "note": "Weiß unten = Luft vor Szene 27."
+          "note": "Weiß unten = Luft vor Szene 27.",
+          "camera": {
+            "pos": [
+              0,
+              0.494,
+              2.408
+            ],
+            "target": [
+              0,
+              0.658,
+              1.422
+            ],
+            "fov": 50
+          }
         }
       ]
     }
