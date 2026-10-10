@@ -25,6 +25,8 @@ const steps = Number(take('--steps', 4));
 const mp = Number(take('--mp', 1));
 const seedArg = take('--seed', null);
 const dry = flag('--dry');
+// a style picture as an input image: off by default – Qwen copies its CONTENT (sb-25-1/2 became Cat Pope with books)
+const useStyle = flag('--style');
 const COMFY = process.env.COMFY_URL ?? 'http://127.0.0.1:8188';
 const M = {
 	unet: process.env.COMFY_UNET ?? 'qwen_image_edit_2509_fp8_e4m3fn.safetensors',
@@ -64,7 +66,7 @@ function instruction(sb, shot, chars) {
 		'Redraw image 1 as a finished black-and-white webtoon storyboard frame: clean, crisp ink line art on white paper, solid black shadows, high contrast like a noir comic.',
 		'Keep the exact composition, camera angle, framing, figure positions, figure sizes, poses and the light direction of image 1 – do not enlarge or move anything. Replace the plain mannequins with real characters and the simple blocks with real detailed places and things.',
 		...who.map((w) => `In image 1, ${w}.`),
-		n < 3 ? `Image ${n + 1} is only a style reference for the drawing technique – do not copy its content.` : '',
+		useStyle && n < 3 ? `Image ${n + 1} is only a style reference for the drawing technique – do not copy its content.` : '',
 		shot.prompt?.en ? `The moment: ${shot.prompt.en}` : '',
 		`Light: one hard ${light.source && light.source !== 'scene' ? light.source : ''} light${light.key ? ` from the ${light.key}` : ''}${(light.soft ?? 0.5) < 0.3 ? ', no fill' : ', a little fill'}.`,
 		'No text, no letters, no speech bubbles, no panel borders, no colour' + (light.accent?.color ? ` except ${light.accent.color} on ${light.accent.on ?? 'the accent'}` : '') + '.'
@@ -129,7 +131,7 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 	const chars = shotCharacters(sb, shot).map((c) => ({ ...c, place: placeOf(shot, c.fig) }));
 	for (const c of chars) c.withImage = !!c.image && !c.place.small && chars.filter((d) => d.withImage).length < 2;
 	const files = [structure, ...chars.filter((c) => c.withImage).map((c) => c.image.file)];
-	if (files.length < 3 && styles[0]) files.push(styles[0]);
+	if (useStyle && files.length < 3 && styles[0]) files.push(styles[0]);
 	const prompt = instruction(sb, shot, chars);
 	const seed = seedArg != null ? Number(seedArg) : Math.floor(Math.random() * 2 ** 31);
 	if (dry) { console.log(`--- ${shot.id}: ${files.map((f) => basename(f)).join(', ')}\n${prompt}\n`); continue; }
