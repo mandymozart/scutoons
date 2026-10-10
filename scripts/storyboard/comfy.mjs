@@ -14,9 +14,12 @@
 // figma-chapter.mjs), logged in _out/<ch>/generated.jsonl.
 //
 //   node scripts/storyboard/comfy.mjs storyboards/catpope/s1c3 --only sb-25-4,sb-28-3 [--steps 4] [--seed n] [--mp 1] [--dry]
+//   node scripts/storyboard/comfy.mjs storyboards/catpope/s1c3 --missing --fresh [--until 08:30]   the night run: every
+//        shot without an image yet, each on its own fresh headless ComfyUI (port 8190), no new shot after --until
 //   COMFY_URL=http://127.0.0.1:8188 (default – the ComfyUI app, moved off the viewer's 8000)
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { openSync } from 'node:fs';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { ROOT } from './lib.mjs';
@@ -30,10 +33,13 @@ const only = take('--only', null)?.split(',');
 const steps = Number(take('--steps', 4));
 const mp = Number(take('--mp', 1));
 const seedArg = take('--seed', null);
+const missing = flag('--missing');
+const fresh = flag('--fresh');
+const until = take('--until', null);
 const dry = flag('--dry');
 // a style picture as an input image: off by default – Qwen copies its CONTENT (sb-25-1/2 became Cat Pope with books)
 const useStyle = flag('--style');
-const COMFY = process.env.COMFY_URL ?? 'http://127.0.0.1:8188';
+let COMFY = process.env.COMFY_URL ?? 'http://127.0.0.1:8188';
 const M = {
 	unet: process.env.COMFY_UNET ?? 'qwen_image_edit_2509_fp8_e4m3fn.safetensors',
 	clip: process.env.COMFY_CLIP ?? 'qwen_2.5_vl_7b_fp8_scaled.safetensors',
@@ -137,11 +143,45 @@ async function run(g) {
 	}
 }
 
-if (!dry) await fetch(`${COMFY}/system_stats`).catch(() => { console.error(`No ComfyUI at ${COMFY} – start the ComfyUI app.`); process.exit(2); });
+// --fresh: a headless ComfyUI from the desktop install for ONE image, then stopped (its memory never grows into the
+// pagefile – see the header). Paths: the ComfyUI desktop app's defaults, or COMFY_PYTHON / COMFY_MAIN / COMFY_BASE /
+// COMFY_FRONT / COMFY_MODELS.
+const home = process.env.USERPROFILE ?? '', local = process.env.LOCALAPPDATA ?? '', roaming = process.env.APPDATA ?? '';
+const app = resolve(local, 'Programs/ComfyUI/resources/ComfyUI');
+const P = {
+	python: process.env.COMFY_PYTHON ?? resolve(home, 'Documents/ComfyUI/.venv/Scripts/python.exe'),
+	main: process.env.COMFY_MAIN ?? resolve(app, 'main.py'),
+	base: process.env.COMFY_BASE ?? resolve(home, 'Documents/ComfyUI'),
+	front: process.env.COMFY_FRONT ?? resolve(app, 'web_custom_versions/desktop_app'),
+	models: process.env.COMFY_MODELS ?? resolve(roaming, 'ComfyUI/extra_models_config.yaml')
+};
+async function startServer() {
+	const port = 8190;
+	const log = openSync(resolve(OUT, 'comfy-server.log'), 'a');
+	const child = spawn(P.python, [P.main, '--base-directory', P.base, '--user-directory', resolve(P.base, 'user'), '--input-directory', resolve(P.base, 'input'), '--output-directory', resolve(P.base, 'output'),
+		'--extra-model-paths-config', P.models, '--front-end-root', P.front, '--listen', '127.0.0.1', '--port', String(port),
+		'--disable-smart-memory', '--disable-pinned-memory', '--disable-mmap', '--cache-none', '--disable-auto-launch'], { stdio: ['ignore', log, log], windowsHide: true });
+	COMFY = `http://127.0.0.1:${port}`;
+	for (let i = 0; i < 120; i++) {
+		if (await fetch(`${COMFY}/system_stats`).then((r) => r.ok).catch(() => false)) return child;
+		await new Promise((ok) => setTimeout(ok, 2000));
+	}
+	stopServer(child);
+	throw new Error(`the fresh ComfyUI did not start – ${resolve(OUT, 'comfy-server.log')}`);
+}
+function stopServer(child) {
+	try { process.platform === 'win32' ? execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' }) : child.kill('SIGKILL'); } catch {}
+}
+const late = () => { if (!until) return false; const [h, m] = until.split(':').map(Number); const d = new Date(); return d.getHours() * 60 + d.getMinutes() >= h * 60 + m && d.getHours() < 20; };
+
+if (!dry && !fresh) await fetch(`${COMFY}/system_stats`).catch(() => { console.error(`No ComfyUI at ${COMFY} – start the ComfyUI app.`); process.exit(2); });
 mkdirSync(gen, { recursive: true });
+let stopped = false;
 const styles = styleFiles().map((f) => resolve(STYLE_DIR, f));
 for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for (const shot of g.shots ?? []) {
-	if (!only?.includes(shot.id)) continue;
+	if (only ? !only.includes(shot.id) : !missing) continue;
+	if (missing && existsSync(gen) && readdirSync(gen).some((f) => f.startsWith(`${shot.id}--`))) continue;
+	if (late()) { if (!stopped) console.log(`${until} – no new shot`); stopped = true; continue; }
 	if (shot.format === 'loop360') { console.log(`${shot.id}: a panorama – not yet`); continue; }
 	const structure = resolve(OUT, 'clean', `${shot.id}.png`);
 	if (!existsSync(structure)) { console.log(`${shot.id}: no render yet (render-shots.mjs)`); continue; }
@@ -154,7 +194,9 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 	if (dry) { console.log(`--- ${shot.id}: ${files.map((f) => basename(f)).join(', ')}\n${prompt}\n`); continue; }
 	process.stdout.write(`${shot.id} … `);
 	const t0 = Date.now();
+	let server = null;
 	try {
+		if (fresh) server = await startServer();
 		const names = [];
 		for (const f of files) names.push(await upload(f));
 		const img = await run(graph(prompt, names, seed));
@@ -172,5 +214,7 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
 		console.log(`failed: ${e.message}`);
+	} finally {
+		if (server) { stopServer(server); await new Promise((ok) => setTimeout(ok, 8000)); }
 	}
 }
