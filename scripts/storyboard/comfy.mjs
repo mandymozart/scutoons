@@ -26,6 +26,9 @@ import { ROOT } from './lib.mjs';
 import { STYLE_DIR, shotCharacters, styleFiles } from './refs.mjs';
 import { loadStoryboards } from './storyboard.mjs';
 
+// keys from the repo's .env (LUMA_AGENTS_API_KEY) – a variable already set in the shell wins
+try { process.loadEnvFile(resolve(ROOT, '.env')); } catch {}
+
 const args = process.argv.slice(2);
 const take = (f, d) => { const i = args.indexOf(f); return i >= 0 ? args.splice(i, 2)[1] : d; };
 const flag = (f) => { const i = args.indexOf(f); return i >= 0 ? (args.splice(i, 1), true) : false; };
@@ -213,7 +216,7 @@ async function luma(prompt, files, aspect) {
 	return { bytes: Buffer.from(await (await fetch(j.output.find((o) => o.type === 'image').url)).arrayBuffer()), id: j.id, aspect_ratio };
 }
 
-if (engine === 'luma' && !dry && !process.env.LUMA_AGENTS_API_KEY) { console.error('LUMA_AGENTS_API_KEY is not set (platform.lumalabs.ai → API keys).'); process.exit(2); }
+if (engine === 'luma' && !dry && !process.env.LUMA_AGENTS_API_KEY) { console.error('LUMA_AGENTS_API_KEY is not set – add it to .env (platform.lumalabs.ai → API keys).'); process.exit(2); }
 if (engine === 'comfy' && !dry && !fresh) await fetch(`${COMFY}/system_stats`).catch(() => { console.error(`No ComfyUI at ${COMFY} – start the ComfyUI app.`); process.exit(2); });
 mkdirSync(gen, { recursive: true });
 let stopped = false;
