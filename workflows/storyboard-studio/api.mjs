@@ -132,8 +132,17 @@ const api = {
 		const d = resolve(OUT, ch, 'generated');
 		return existsSync(d) ? readdirSync(d).filter((f) => f.startsWith(`${id}--`)).sort() : [];
 	},
-	'POST /api/generated': ({ ch, id, name, data }) => {
+	// data = a data URL, or url = an image dragged in from a web page (Luma's site): fetched here
+	'POST /api/generated': async ({ ch, id, name, data, url }) => {
 		if (!/^[\w-]+$/.test(id)) throw new Error('bad id');
+		if (!data && url) {
+			if (!/^https?:\/\//.test(url)) throw new Error('not an image link');
+			const r = await fetch(url);
+			const type = (r.headers.get('content-type') ?? '').split(';')[0];
+			if (!r.ok || !/^image\/(png|jpeg|webp)$/.test(type)) throw new Error(`the link gave ${r.ok ? type || 'no image' : r.status} – save the image and drop the file`);
+			data = `data:${type};base64,${Buffer.from(await r.arrayBuffer()).toString('base64')}`;
+			name ??= url.split('/').pop().split('?')[0];
+		}
 		const m = /^data:image\/(png|jpeg|webp);base64,/.exec(data ?? '');
 		if (!m) throw new Error('png / jpeg / webp only');
 		const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
