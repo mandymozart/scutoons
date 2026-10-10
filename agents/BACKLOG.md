@@ -7,6 +7,34 @@ find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the 
 New entries: the next free number (10.60, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
+## Storyboard night 2026-10-10 (owner asleep: "run all night and than create a second version of the draft in figma") – result, read this first
+
+All on `main`, not pushed. Item **10.59**.
+
+- **Generated pass on the owner's GPU** (`scripts/storyboard/comfy.mjs`, the ComfyUI install, Qwen-Image-Edit 2509 fp8 +
+  Lightning 4-step): per shot the render without texts (layout) + up to two character images (mood) → a finished
+  black-and-white frame into `storyboards/_out/s1c3/generated/` (like a studio upload). Results: **14 shots**
+  (sb-25-1 … sb-27-4) before the owner stopped it in the morning ("viel zu langsam auf der lokalen Maschine … aber gar
+  nicht so schlecht, natürlich sehr weit interpretativ – das können wir so festhalten"). Strong: sb-25-4, 25-7, 26-2,
+  26-3, 27-2; weak: 25-1, 25-2, 25-6 (style copy), 27-1, 27-3 (forest → church). Sheet: `_out/s1c3/night-interim.png`.
+- **What the night taught** (in comfy.mjs's header and commits):
+  - RTX 2070 8 GB + 64 GB RAM: usable only with a **fresh server per image** (`--disable-pinned-memory --disable-mmap
+    --cache-none --disable-smart-memory`); the long-running desktop app grew to 53 GB, paged, and a step took 350 s.
+    Per step: ~105 s with one input image, ~250 s with a character image (each reference enlarges the context).
+    10–30 min a shot → a chapter is ~2–3 nights here; on a 24 GB cloud GPU seconds.
+  - A **style picture as an input image** gets its content copied (Cat Pope with books in a village) → off (`--style`).
+  - A **small figure** + its character image → the character comes out big → small figures get no image, only words.
+  - **Where we are** must be said: the render's grey hatching reads as stone floors (forest → church) → the setting line.
+  - Results come out tinted → saved in black and white unless the shot has its colour accent.
+- **Owner's own**: the dev stack's Vite servers (admin 29 GB, creator 27 GB, viewer 9 GB) had leaked 65 GB before
+  ComfyUI could run; the viewer's port 8000 is the ComfyUI app's default (the app moved to 8188). The desktop app's
+  ComfyUI server was stopped at 03:44 for the per-shot servers – reopen the app.
+- **Figma**: draft v2 (the generated pass) not built – the run was stopped first; `figma-chapter.mjs` takes the images
+  whenever wanted. Owner's next ask instead: the first throw for ch4 + ch5 into their Figma pages.
+- **Open**: the remaining shots (the loop skips shots that have an image – run it again); panoramas (sb-28-4, sb-32-1)
+  not generated; the per-shot-server run is built in now (`comfy.mjs --missing --fresh --until 08:30`); weak
+  shots to redo or drop (the owner judges in the studio's Variants).
+
 ## Storyboard run 2026-10-09 evening (owner away: "work the plan now") – result, read this first
 
 Branch **`storyboard`** in the worktree **`C:\Development\scutoons-storyboard`** (owner asked for it); `main` merged in
