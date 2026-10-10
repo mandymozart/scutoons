@@ -90,6 +90,8 @@ interface MapPlace {
 	hidden?: true;
 	/** the chapter the place's card links to (migrated from `chapterNumber`) */
 	chapter?: { toon: string; number: number };
+	/** how the reader's map frames it (§8.4): zoom 2–8 (default 2), the centre's shift from (x, y) (default none) */
+	view?: { zoom?: number; offset?: { x: number; y: number } };
 }
 
 interface MapImage {
@@ -126,6 +128,7 @@ Why these fields, and nothing else (PLAN.md "keep the configuration small" – w
 | `toons` | builder → "Toons" chips | library (per-toon view, visibility of draft toons), reader (labels), validation |
 | `hidden` | builder → "versteckt bis freigeschaltet" | reader state (§2.4) |
 | `chapter` | builder → place | reader card ("Kapitel 1 lesen →") |
+| `view` | builder → place ("Reader map view") | reader camera (here, ◎, focus – §8.4) |
 | route `waypoints`, `style`, `hidden` | builder → route | reader lines, travel animation, events |
 
 Not modelled (on purpose): region/continent hierarchy, travel times, opening hours, per-location music, place
@@ -750,11 +753,16 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
   gesendet … und beim Erreichen eines neuen Checkpoints"), decided on every opening (viewer `map/map-view.ts`):
   1. a pending explicit focus (`focusMap(toon, center, zoom?)` – the hook for the map-focus event, not built yet) shows
      its frame once and becomes the remembered view;
-  2. a new "here" (the story position, else this toon's most recently unlocked place) or nothing stored yet: centred on
-     here at the start view's zoom (2 without one) – once; after that the reader's own view is kept;
+  2. a new "here" (the story position, else this toon's most recently unlocked place) or nothing stored yet: here's
+     **place view** – once; after that the reader's own view is kept. The place view (`placeView`, owner 2026-10-10: "pro
+     Location einen Zoom … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset"; "Orte ohne diese
+     Angaben: Mindeststufe 2 und Zoomstufe 2 und der Punkt"): centre = the place + its optional `view.offset`, zoom = its
+     optional `view.zoom`, never below `PLACE_ZOOM` 2 (default 2) – the same for ◎ and for `focusMap` aimed at a place
+     without an explicit zoom;
   3. else the remembered centre + zoom (localStorage `scutoons_map_view`, per toon, per device);
-  4. no here and nothing stored: the start view, fitted to the discovered places when it shows none (max 3×).
-  ◎ goes back to here.
+  4. no here and nothing stored: the start view (its zoom = the toon-wide default), fitted to the discovered places when it
+     shows none (max 3×).
+  ◎ goes back to here (its place view); "Orte" centres on a place's view, zoomed in to at least its zoom.
 
 ### 8.5 Builder (M2), start view, wanted images, the bidirectional unlock
 
@@ -774,6 +782,11 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
 - **Start view** (owner): with a toon filtered, "Set start view" stores the current view's centre and zoom in the toon entry
   `toon:<toon>` (`map: { center, zoom }`, language-neutral; saved / published with the map page); the phone frame then shows
   the reader's first screen there; "Go to the start view".
+- **Place view** (owner 2026-10-10): the place form's "Reader map view" – zoom in % (200–800, empty = 200), shift x / y
+  (world units, empty = 0), "Use the current view" (the canvas's zoom, at least 200 %, and its centre as the shift), "Show",
+  "Reset" (removes `view`). Stored as the place's optional `view: { zoom?, offset?: { x, y } }` (validation: zoom
+  `PLACE_ZOOM`–`MAP_MAX_ZOOM`, offset numbers, a centre outside the map warns); the phone frame shows the selected
+  place's view.
 - **Wanted images → Map places** (owner): `mapImageRequests(map)` derives the list (every place without `image`: name,
   `<toon>/images/map/places/<id>.webp` – `scutoons/…` for a place of several toons –, 256 × 256 + spec, the §5.2 brief (for an image generator or a designer) with
   the §5.4 description or the place's names). In the creator's Wanted images they are toon-media requests (`mapMediaRequests`:

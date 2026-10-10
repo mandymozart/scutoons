@@ -133,6 +133,10 @@
 						"number"
 					],
 					"description": "the chapter the place's card links to"
+				},
+				"view": {
+					"$ref": "#/definitions/PlaceView",
+					"description": "how the reader's map frames the place when it centres on it (owner 2026-10-10: \"pro Location einen Zoom festlegen … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset\"; set in the map builder). Without it: the place's point at `PLACE_ZOOM` (`placeView`)."
 				}
 			},
 			"required": [
@@ -209,6 +213,32 @@
 				"chapter"
 			],
 			"description": "When a hidden place unlocks by reading progress: a chapter of a toon, from a reading position on (0..1 of the chapter, the reader's chapter checkpoint – 0 = when the chapter is opened, 1 = its end). `scene` = the screenplay scene that introduces the place (the reference for the event that replaces this rule in the editor, M3/M4)."
+		},
+		"PlaceView": {
+			"type": "object",
+			"properties": {
+				"zoom": {
+					"type": "number",
+					"description": "the zoom when the map centres on the place, `PLACE_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM`)"
+				},
+				"offset": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y"
+					],
+					"description": "the view centre's shift from the place's point, world units (default none: the place itself is the centre)"
+				}
+			},
+			"description": "A place's own framing on the reader's map (agents/MAP.md §8.4)"
 		},
 		"MapPath": {
 			"type": "object",

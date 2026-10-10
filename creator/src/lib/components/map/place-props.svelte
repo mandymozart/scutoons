@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
-	import { MAP_SOURCE_LANGUAGE, chapterSlices, mapName, sliceUnlockPoint, slugId, type ChapterSliceRef, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_ZOOM, chapterSlices, placeView, mapName, sliceUnlockPoint, slugId, type ChapterSliceRef, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { library } from '$lib/api.ts';
@@ -10,11 +10,13 @@
 	import MapToonsChips from '$lib/components/map/map-toons-chips.svelte';
 	import PlaceImage from '$lib/components/map/place-image.svelte';
 	import type { MapSelection } from '$lib/components/map/map-canvas.svelte';
+	import type { MapViewport } from '@scutoons/reader';
 
 	/**
 	 * The selected place (agents/MAP.md §4.3–4.5): id (editable until the first publish), names, position, toons, hidden +
 	 * its unlock point (toon, chapter, the unlocking slice – the same storage the chapter editor's slice edits), the
-	 * card's chapter link, the image (PlaceImage), where it is used, delete.
+	 * card's chapter link, the reader map's view of it (zoom ≥ 200 % + a centre shift; "Use the current view" takes the
+	 * canvas's), the image (PlaceImage), where it is used, delete.
 	 */
 	let {
 		doc,
@@ -24,6 +26,7 @@
 		languages,
 		locked,
 		onselect,
+		view,
 		bust = 0
 	}: {
 		doc: ContentDoc;
@@ -34,6 +37,8 @@
 		/** the id is in the published map (fixed: events reference it) */
 		locked: boolean;
 		onselect: (selection: MapSelection) => void;
+		/** the builder's canvas view ("Use the current view", "Show") */
+		view: MapViewport;
 		/** set after an import: the image's preview loads again */
 		bust?: number;
 	} = $props();
@@ -99,6 +104,46 @@
 				if (at !== null) p.unlock.at = at;
 			}
 		});
+	}
+
+	// ── the reader map's view of the place (owner 2026-10-10): zoom PLACE_ZOOM..MAP_MAX_ZOOM, offset in world units ──
+	const MIN_PCT = PLACE_ZOOM * 100;
+	const MAX_PCT = MAP_MAX_ZOOM * 100;
+	/** edit the place's view; an empty one leaves the place */
+	function editView(change: (v: NonNullable<MapPlace['view']>) => void) {
+		editPlace(doc, place.id, (p) => {
+			const v = { ...(p.view ?? {}) };
+			change(v);
+			if (v.offset && !v.offset.x && !v.offset.y) delete v.offset;
+			if (v.zoom === undefined && !v.offset) delete p.view;
+			else p.view = v;
+		});
+	}
+	function setViewZoom(value: string) {
+		const pct = numberOrUnset(value);
+		editView((v) => {
+			if (pct === undefined || !Number.isFinite(pct)) delete v.zoom;
+			else v.zoom = Math.round(Math.min(MAX_PCT, Math.max(MIN_PCT, pct))) / 100;
+		});
+	}
+	function setViewOffset(axis: 'x' | 'y', value: string) {
+		const n = numberOrUnset(value);
+		editView((v) => {
+			v.offset = { x: v.offset?.x ?? 0, y: v.offset?.y ?? 0, [axis]: n === undefined || !Number.isFinite(n) ? 0 : Math.round(n) };
+		});
+	}
+	function useCurrentView() {
+		const c = view.toWorld({ x: view.width / 2, y: view.height / 2 });
+		const zoom = Math.round(Math.min(MAP_MAX_ZOOM, Math.max(PLACE_ZOOM, view.zoom)) * 100) / 100;
+		editView((v) => {
+			v.zoom = zoom;
+			v.offset = { x: Math.round(c.x - place.x), y: Math.round(c.y - place.y) };
+		});
+		showView();
+	}
+	function showView() {
+		const { center, zoom } = placeView(place);
+		view.centerOn(center, zoom);
 	}
 
 	const usedBy = $derived(routesThrough(map, place.id));
@@ -178,6 +223,21 @@
 		{#if place.chapter}
 			<label class="field small"><span>{m['creator.map_chapter']()}</span><input type="number" min="0" value={place.chapter.number} onchange={(e) => editPlace(doc, place.id, (p) => p.chapter && (p.chapter.number = Math.max(0, Math.round(Number(e.currentTarget.value)))))} /></label>
 		{/if}
+	</div>
+</fieldset>
+
+<fieldset data-testid="place-view">
+	<legend>{m['creator.map_place_view']()}</legend>
+	<p class="hint">{m['creator.map_place_view_hint']()}</p>
+	<div class="row">
+		<label class="field small"><span>{m['creator.map_place_view_zoom']()}</span><input type="number" min={MIN_PCT} max={MAX_PCT} step="10" placeholder={String(MIN_PCT)} value={place.view?.zoom !== undefined ? Math.round(place.view.zoom * 100) : ''} onchange={(e) => setViewZoom(e.currentTarget.value)} data-testid="place-view-zoom" /></label>
+		<label class="field small"><span>{m['creator.map_place_view_dx']()}</span><input type="number" placeholder="0" value={place.view?.offset?.x ?? ''} onchange={(e) => setViewOffset('x', e.currentTarget.value)} data-testid="place-view-dx" /></label>
+		<label class="field small"><span>{m['creator.map_place_view_dy']()}</span><input type="number" placeholder="0" value={place.view?.offset?.y ?? ''} onchange={(e) => setViewOffset('y', e.currentTarget.value)} data-testid="place-view-dy" /></label>
+	</div>
+	<div class="row">
+		<button type="button" class="ghost" onclick={useCurrentView} title={m['creator.map_place_view_use_hint']()} data-testid="place-view-use">{m['creator.map_place_view_use']()}</button>
+		<button type="button" class="ghost" onclick={showView} data-testid="place-view-go">{m['creator.map_place_view_go']()}</button>
+		{#if place.view}<button type="button" class="ghost" onclick={() => editView((v) => { delete v.zoom; delete v.offset; })} data-testid="place-view-clear">{m['creator.map_place_view_clear']()}</button>{/if}
 	</div>
 </fieldset>
 

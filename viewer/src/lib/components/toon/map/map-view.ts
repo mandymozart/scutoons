@@ -2,24 +2,26 @@
 // Immer beim ersten Öffnen da, wo man gerade ist. Danach merkt sie sich den State der letzten Interaction. Außer es wird
 // explicit ein neuer Focus und Frame gesendet als Event. Erst einmal aber auch beim Erreichen eines neuen Checkpoints."):
 //
-// - first opening of a toon's map (on this device): centred on where the reader is (`readerHere`) at the zoom level –
-//   the toon's start-view zoom (set in the creator's map builder, "Set start view"), else `HERE_ZOOM`;
+// - first opening of a toon's map (on this device): centred on where the reader is (`readerHere`) – the place's own view
+//   (owner 2026-10-10: "pro Location einen Zoom … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem
+//   Offset"; set in the creator's map builder), without one its point at zoom 2 ("Orte ohne diese Angaben: Mindeststufe 2
+//   und Zoomstufe 2 und der Punkt" – `placeView`, never below 2); nothing reached yet: the toon's start view;
 // - after that: the view the reader left it at (centre + zoom, stored per toon in localStorage `scutoons_map_view`);
 // - except (a) an explicit focus (`focusMap` – for the story's focusMap event, agents/MAP.md §3): its frame wins on the
 //   next opening and becomes the remembered view; (b) the reader reached a new place (a new "here"): the next opening
-//   centres on it at the zoom level – once; moving the map again is remembered.
+//   centres on it (its view) – once; moving the map again is remembered.
 // Pure decisions (`readerHere`, `openingView`) + small storage helpers (try/catch: a blocked storage just forgets).
-import type { MapState, Point, ReaderMap, ReaderPlace } from '@scutoons/content';
+import { PLACE_ZOOM, placeView, type MapPlace, type MapState, type Point, type ReaderPlace } from '@scutoons/content';
 
-/** the zoom level when the toon sets none (the northern catpope cluster needs ≈ 2–3× to separate its labels on a phone) */
-export const HERE_ZOOM = 2;
 export const MAP_VIEW_KEY = 'scutoons_map_view';
 
-/** where the reader is on a toon's map: a place id and its point */
+/** where the reader is on a toon's map: a place id and how the map frames it (`placeView`: point + offset, zoom ≥ 2) */
 export interface MapHere {
 	id: string;
+	/** the view centre (the place's point + its view offset) */
 	x: number;
 	y: number;
+	zoom: number;
 }
 
 /** what is remembered per toon */
@@ -41,7 +43,11 @@ export interface StoredMapView {
  * reached yet.
  */
 export function readerHere(places: readonly ReaderPlace[], toon: string, state: MapState): MapHere | null {
-	const at = (p: ReaderPlace | undefined) => (p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { id: p.id, x: p.x, y: p.y } : null);
+	const at = (p: ReaderPlace | undefined): MapHere | null => {
+		if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
+		const { center, zoom } = placeView(p);
+		return { id: p.id, ...center, zoom };
+	};
 	const position = state.positions?.[toon];
 	if (position) {
 		const id = 'location' in position ? position.location : position.waypoint;
@@ -63,25 +69,19 @@ export function readerHere(places: readonly ReaderPlace[], toon: string, state: 
 	return at(best);
 }
 
-/** the zoom level of "here": the toon's start-view zoom (the author's), else `HERE_ZOOM` */
-export function hereZoom(view: ReaderMap['view'] | undefined): number {
-	const z = view?.zoom;
-	return typeof z === 'number' && Number.isFinite(z) && z > 0 ? z : HERE_ZOOM;
-}
-
 export type OpeningView =
 	| { kind: 'focus' | 'here' | 'stored'; center: Point; zoom: number; /** what to remember now */ store: StoredMapView }
 	/** nothing known: the toon's start view (map-overlay.svelte `startView`) */
 	| { kind: 'start'; store: null };
 
 /**
- * The view a toon's map opens with: an explicit focus waiting → it; a new "here" (or the first opening with one) → centred
- * on it at `zoom`; else the remembered view; else the start view. `store` = the record to keep (the "here" it knows).
+ * The view a toon's map opens with: an explicit focus waiting → it; a new "here" (or the first opening with one) → its
+ * view (centre + zoom); else the remembered view; else the start view. `store` = the record to keep (the "here" it knows).
  */
-export function openingView(stored: StoredMapView | null, here: MapHere | null, zoom: number): OpeningView {
+export function openingView(stored: StoredMapView | null, here: MapHere | null): OpeningView {
 	const hereId = here?.id ?? null;
 	if (stored?.focus) return { kind: 'focus', center: { x: stored.x, y: stored.y }, zoom: stored.zoom, store: { x: stored.x, y: stored.y, zoom: stored.zoom, here: hereId } };
-	if (here && (!stored || stored.here !== here.id)) return { kind: 'here', center: { x: here.x, y: here.y }, zoom, store: { x: here.x, y: here.y, zoom, here: here.id } };
+	if (here && (!stored || stored.here !== here.id)) return { kind: 'here', center: { x: here.x, y: here.y }, zoom: here.zoom, store: { x: here.x, y: here.y, zoom: here.zoom, here: here.id } };
 	if (stored) return { kind: 'stored', center: { x: stored.x, y: stored.y }, zoom: stored.zoom, store: { ...stored, here: hereId } };
 	return { kind: 'start', store: null };
 }
@@ -121,12 +121,15 @@ export function saveMapView(toon: string, view: StoredMapView): void {
 
 /**
  * An explicit focus for a toon's map (the story's focusMap event, agents/MAP.md §3 – M3 calls this, then opens the map):
- * the next opening shows this frame and remembers it. `zoom` default: the remembered zoom, else the zoom level.
- * Listeners (an open map) apply it at once.
+ * the next opening shows this frame and remembers it. `target`: a world point, or a place (`{ id, x, y, view? }` – framed by
+ * its view: point + offset, its zoom ≥ 2). `zoom` (explicit) wins; else a place's zoom; else the remembered zoom, else
+ * `PLACE_ZOOM`. Listeners (an open map) apply it at once.
  */
-export function focusMap(toon: string, center: Point, zoom?: number): void {
+export function focusMap(toon: string, target: Point | Pick<MapPlace, 'id' | 'x' | 'y' | 'view'>, zoom?: number): void {
 	const before = loadMapView(toon);
-	const z = typeof zoom === 'number' && Number.isFinite(zoom) && zoom > 0 ? zoom : (before?.zoom ?? HERE_ZOOM);
+	const place = 'id' in target ? placeView(target) : null;
+	const center = place?.center ?? target;
+	const z = typeof zoom === 'number' && Number.isFinite(zoom) && zoom > 0 ? zoom : (place?.zoom ?? before?.zoom ?? PLACE_ZOOM);
 	saveMapView(toon, { x: center.x, y: center.y, zoom: z, here: before?.here ?? null, focus: true });
 	globalThis.dispatchEvent?.(new CustomEvent(MAP_FOCUS_EVENT, { detail: { toon } }));
 }

@@ -9,6 +9,7 @@
 		isPlaceWaypoint,
 		mapName,
 		placeImagePath,
+		placeView,
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
@@ -152,6 +153,13 @@
 		if (!touchedEntries.includes(toonFilter)) touchedEntries = [...touchedEntries, toonFilter];
 		phoneFrame = true;
 	}
+	/** the selected place's reader view (zoom ≥ 200 %, centre + shift): the phone frame shows it */
+	const placeFrame = $derived.by(() => {
+		if (selection?.kind !== 'place' || !map) return null;
+		const id = selection.id;
+		const p = map.locations.find((l) => l.id === id);
+		return p ? placeView(p) : null;
+	});
 	function gotoStartView() {
 		if (startView) view.centerOn(startView.center, startView.zoom);
 	}
@@ -502,6 +510,7 @@
 					{readerView}
 					{phoneFrame}
 					{startView}
+					{placeFrame}
 					{hiddenLayers}
 					{sea}
 					onselect={(s) => select(s)}
@@ -514,9 +523,9 @@
 			</div>
 			<aside class="side">
 				{#if selection}
-					<MapProps {doc} {map} {selection} {bust} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
+					<MapProps {doc} {map} {selection} {view} {bust} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
 				{:else}
-					<MapProps {doc} {map} selection={null} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
+					<MapProps {doc} {map} selection={null} {view} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
 					<section class="validation" data-testid="map-validation">
 						<h3>{m['creator.map_validation']()} ({problems.length})</h3>
 						{#if problems.length}

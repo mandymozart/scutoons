@@ -52,6 +52,20 @@ export interface MapPlace {
 	unlock?: PlaceUnlock | null;
 	/** the chapter the place's card links to */
 	chapter?: { toon: string; number: number };
+	/**
+	 * how the reader's map frames the place when it centres on it (owner 2026-10-10: "pro Location einen Zoom festlegen …
+	 * als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset"; set in the map builder). Without it: the
+	 * place's point at `PLACE_ZOOM` (`placeView`).
+	 */
+	view?: PlaceView;
+}
+
+/** A place's own framing on the reader's map (agents/MAP.md §8.4) */
+export interface PlaceView {
+	/** the zoom when the map centres on the place, `PLACE_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM`) */
+	zoom?: number;
+	/** the view centre's shift from the place's point, world units (default none: the place itself is the centre) */
+	offset?: { x: number; y: number };
 }
 
 /**
@@ -167,6 +181,8 @@ export const DEFAULT_PLACE_IMAGE_SIZE = 48;
 export const DEFAULT_PLACE_ANCHOR = { x: 50, y: 90 } as const;
 export const MAP_MIN_ZOOM = 0.25;
 export const MAP_MAX_ZOOM = 8;
+/** the zoom when the map centres on a place – its default and its minimum (owner 2026-10-10: "Mindeststufe 2 und Zoomstufe 2") */
+export const PLACE_ZOOM = 2;
 /** The reserved game-state id of the world (unlocks are universe-wide; no toon may be called `scutoons`) */
 export const WORLD_STATE_ID = 'scutoons';
 
@@ -227,6 +243,19 @@ export function resolveWorldMap(map: WorldMap, locale: string): ReaderMap {
 export interface Point {
 	x: number;
 	y: number;
+}
+
+/**
+ * Where the reader's map centres on a place, and at which zoom: the place's point + its `view.offset`, at its `view.zoom`
+ * clamped to `PLACE_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM`). Junk values count as unset.
+ */
+export function placeView(place: Pick<MapPlace, 'x' | 'y' | 'view'>): { center: Point; zoom: number } {
+	const v = place.view;
+	const o = v?.offset;
+	const shift = o && Number.isFinite(o.x) && Number.isFinite(o.y) ? o : { x: 0, y: 0 };
+	const z = v?.zoom;
+	const zoom = typeof z === 'number' && Number.isFinite(z) ? Math.min(MAP_MAX_ZOOM, Math.max(PLACE_ZOOM, z)) : PLACE_ZOOM;
+	return { center: { x: place.x + shift.x, y: place.y + shift.y }, zoom };
 }
 
 /** The point of a waypoint (a place waypoint: the place's point), null for an unknown place (e.g. catpope's `garden`) */
@@ -745,6 +774,18 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 			if (!isObj(p.chapter) || typeof p.chapter.toon !== 'string' || !Number.isInteger(p.chapter.number) || p.chapter.number < 0)
 				add('error', [...path, 'chapter'], `${what}: the chapter link must be { toon, number }`);
 			else if (Array.isArray(p.toons) && !p.toons.includes(p.chapter.toon)) add('warning', [...path, 'chapter'], `${what}: links a chapter of ${p.chapter.toon}, which is not in its toons`);
+		}
+		if (p.view !== undefined) {
+			const v = p.view;
+			if (!isObj(v)) add('error', [...path, 'view'], `${what}: the view must be { zoom?, offset? }`);
+			else {
+				if (v.zoom !== undefined && (!isNum(v.zoom) || v.zoom < PLACE_ZOOM || v.zoom > MAP_MAX_ZOOM))
+					add('error', [...path, 'view', 'zoom'], `${what}: the zoom must be a number from ${PLACE_ZOOM * 100} % to ${MAP_MAX_ZOOM * 100} % (${PLACE_ZOOM}–${MAP_MAX_ZOOM})`);
+				const o = v.offset;
+				if (o !== undefined && (!isObj(o) || !isNum(o.x) || !isNum(o.y))) add('error', [...path, 'view', 'offset'], `${what}: the view offset must be { x, y } in world units`);
+				else if (o !== undefined && isNum(p.x) && isNum(p.y) && !inside(p.x + o.x, p.y + o.y))
+					add('warning', [...path, 'view', 'offset'], `${what}: the view centre (${p.x + o.x}, ${p.y + o.y}) is outside the map`);
+			}
 		}
 		if (p.image !== undefined) {
 			if (!isObj(p.image) || typeof p.image.src !== 'string' || !p.image.src) add('error', [...path, 'image'], `${what}: the image needs a path`);

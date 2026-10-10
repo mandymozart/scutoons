@@ -6,6 +6,7 @@
 	import RouteProps from '$lib/components/map/route-props.svelte';
 	import LayerProps from '$lib/components/map/layer-props.svelte';
 	import type { MapSelection } from '$lib/components/map/map-canvas.svelte';
+	import type { MapViewport } from '@scutoons/reader';
 
 	/**
 	 * The builder's properties panel (agents/MAP.md §4.3–4.5): the form of what is selected – a place, a route or a
@@ -19,6 +20,7 @@
 		languages,
 		publishedIds,
 		onselect,
+		view,
 		bust = 0
 	}: {
 		doc: ContentDoc;
@@ -29,6 +31,8 @@
 		/** ids in the published map (fixed: events reference them) */
 		publishedIds: { places: Set<string>; routes: Set<string> };
 		onselect: (selection: MapSelection) => void;
+		/** the builder's canvas view (a place's "Use the current view") */
+		view: MapViewport;
 		/** set after an import (a timestamp): the place image's preview loads again */
 		bust?: number;
 	} = $props();
@@ -41,7 +45,7 @@
 
 <div class="props" data-testid="map-props">
 	{#if place}
-		<PlaceProps {doc} {map} {place} {toons} {languages} locked={publishedIds.places.has(place.id)} {onselect} {bust} />
+		<PlaceProps {doc} {map} {place} {toons} {languages} locked={publishedIds.places.has(place.id)} {onselect} {view} {bust} />
 	{:else if route}
 		<RouteProps {doc} {map} {route} {toons} {languages} locked={publishedIds.routes.has(route.id)} {onselect} />
 	{:else if layer}

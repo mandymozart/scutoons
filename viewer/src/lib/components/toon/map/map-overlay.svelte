@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { isPlaceNew, isPlaceVisible, placeImageBox, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { isPlaceNew, isPlaceVisible, placeImageBox, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -10,7 +10,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 	import { untrack } from 'svelte';
-	import { MAP_FOCUS_EVENT, hereZoom, loadMapView, openingView, readerHere, saveMapView } from './map-view.ts';
+	import { MAP_FOCUS_EVENT, loadMapView, openingView, readerHere, saveMapView } from './map-view.ts';
 
 	/**
 	 * The map overlay (agents/MAP.md M1, DESIGN.md): the SCUTOONS world with pan / pinch / wheel zoom (one transform for
@@ -63,7 +63,7 @@
 	const whereNow = () => readerHere(places, toon, mapState);
 	function applyOpening() {
 		if (!data) return;
-		const decision = openingView(loadMapView(toon), whereNow(), hereZoom(data.view));
+		const decision = openingView(loadMapView(toon), whereNow());
 		if (decision.kind === 'start') startView();
 		else {
 			view.centerOn(decision.center, decision.zoom);
@@ -78,11 +78,16 @@
 		const mine = places.filter(own);
 		if (mine.length && !mine.some((p) => view.onScreen(p, -24))) view.fit(mine, 56, 3);
 	}
-	/** ◎: back to where the reader is (at the zoom level), else the start view */
+	/** ◎: back to where the reader is (the place's view: point + offset, its zoom ≥ 2), else the start view */
 	function recenter() {
 		const at = whereNow();
-		if (at && data) view.centerOn(at, hereZoom(data.view));
+		if (at && data) view.centerOn(at, at.zoom);
 		else startView();
+	}
+	/** "Orte": centre on a place (its view), zoomed in to at least its zoom */
+	function showPlace(p: ReaderPlace) {
+		const { center, zoom } = placeView(p);
+		view.centerOn(center, Math.max(view.zoom, zoom));
 	}
 	// remember the reader's last view (centre + zoom) while the map is open – saved shortly after a move, and on close
 	let unsaved: { toon: string; x: number; y: number; zoom: number } | null = null;
@@ -257,7 +262,7 @@
 		<button class="tool" onclick={() => (listOpen = !listOpen)} aria-expanded={listOpen} data-testid="map-list-toggle">{m['map.places']({ count: places.length })}</button>
 		<button class="tool round" onclick={() => view.zoomAt(1.5)} aria-label={m['map.zoom_in']()} data-testid="map-zoom-in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button>
 		<button class="tool round" onclick={() => view.zoomAt(1 / 1.5)} aria-label={m['map.zoom_out']()} data-testid="map-zoom-out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg></button>
-		<button class="tool round" onclick={recenter} aria-label={m['map.recenter']()} title={m['map.recenter']()}>◎</button>
+		<button class="tool round" onclick={recenter} aria-label={m['map.recenter']()} title={m['map.recenter']()} data-testid="map-recenter"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><circle class="dot" cx="8" cy="8" r="1.75" /></svg></button>
 		<button class="tool round" onclick={onclose} aria-label={m['map.close']()} data-testid="map-close"><CloseIcon size="1rem" /></button>
 	</div>
 
@@ -268,7 +273,7 @@
 				<ul>
 					{#each listed as p (p.id)}
 						<li>
-							<button onclick={() => { select(p); listOpen = false; view.centerOn(p, Math.max(view.zoom, 2)); }}>
+							<button onclick={() => { select(p); listOpen = false; showPlace(p); }}>
 								{p.name}{#if isPlaceNew(p.id, mapState)}<span class="new-tag">{m['map.new_place']()}</span>{/if}
 							</button>
 						</li>
@@ -515,6 +520,7 @@
 		place-items: center;
 		width: var(--control-height);
 		padding: 0;
+		flex: none;
 		border-radius: 50%;
 		font-size: 1rem;
 		line-height: 1;
@@ -528,6 +534,11 @@
 		stroke: currentColor;
 		stroke-width: 2;
 		stroke-linecap: square;
+	}
+	/* ◎ recenter: drawn too (owner 2026-10-10: the font's ◎ shrank to a tiny dot on phones) */
+	.tool svg .dot {
+		fill: currentColor;
+		stroke: none;
 	}
 	.tool:hover {
 		background: var(--primary-cyan, #00d1ff);

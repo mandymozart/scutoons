@@ -38,6 +38,7 @@
 		readerView,
 		phoneFrame,
 		startView = null,
+		placeFrame = null,
 		hiddenLayers,
 		sea,
 		onselect,
@@ -56,6 +57,8 @@
 		phoneFrame: boolean;
 		/** the filtered toon's start view (the phone frame shows the reader's first screen there) */
 		startView?: { center: Point; zoom: number } | null;
+		/** the selected place's reader view (`placeView`): the phone frame shows it instead of the start view */
+		placeFrame?: { center: Point; zoom: number } | null;
 		hiddenLayers: Set<string>;
 		/** the sea's colour (the reader view: the filtered toon's colour) */
 		sea: string;
@@ -194,10 +197,12 @@
 	const layerVisible = (id: string) => !hiddenLayers.has(id);
 
 	/** the phone frame: a 375 × 812 reader screen at the reader's zoom (the toon's start zoom, 1) around the canvas centre */
-	/** the reader's zoom in the frame: the toon's start zoom, else 1 */
-	const frameZoom = $derived(startView?.zoom ?? 1);
+	/** what the frame shows: the selected place's reader view, else the toon's start view */
+	const framed = $derived(placeFrame ?? startView);
+	/** the reader's zoom in the frame: the place's / the toon's start zoom, else 1 */
+	const frameZoom = $derived(framed?.zoom ?? 1);
 	const frame = $derived.by(() => {
-		const at = startView ? view.toScreen(startView.center) : { x: view.width / 2, y: view.height / 2 };
+		const at = framed ? view.toScreen(framed.center) : { x: view.width / 2, y: view.height / 2 };
 		return { w: (375 * view.zoom) / frameZoom, h: (812 * view.zoom) / frameZoom, x: at.x, y: at.y };
 	});
 	/** labels that would overlap at zoom 1 on a phone (only with the frame on): outlined red */
@@ -334,7 +339,7 @@
 	{/if}
 
 	{#if phoneFrame}
-		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {Math.round(frameZoom * 100)} %{startView ? ' · start' : ''}</span></div>
+		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {Math.round(frameZoom * 100)} %{placeFrame ? ' · place' : startView ? ' · start' : ''}</span></div>
 	{/if}
 
 	{#if tool === 'route' || tool === 'place'}
