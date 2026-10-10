@@ -23,25 +23,26 @@ export const STYLE_DIR = resolve(ROOT, 'storyboards/style');
 export const styleFiles = () => (existsSync(STYLE_DIR) ? readdirSync(STYLE_DIR).filter((f) => /\.(png|jpe?g|webp)$/i.test(f)) : []);
 
 /** a persona's generation references (owner 2026-10-10: the human PLF from the photo shootings, Figma SCENE 1–8 –
- *  the media images of catpope-human are the silicone-mask look 'silicon'): storyboards/style/refs/<folder>/
- *  face-* / half-* / full-*.jpg, the set by framing, one picked per mood so shots vary */
+ *  the media images of catpope-human are the silicone-mask look 'silicon'): storyboards/style/refs/<character>/
+ *  <persona>/<look>/ (the creator's ids) face-* / half-* / full-*.jpg, the set by framing, one per mood so shots vary */
 const REFS_DIR = resolve(ROOT, 'storyboards/style/refs');
-function referenceImage(folder, framing, mood) {
-	const dir = resolve(REFS_DIR, folder);
+function referenceImage(c, framing, mood) {
+	const id = `${c.character}/${c.persona ?? 'regular'}/${c.look ?? 'default'}`;
+	const dir = resolve(REFS_DIR, id);
 	if (!existsSync(dir)) return null;
 	const set = ['cu', 'ecu'].includes(framing) ? 'face' : ['mcu', 'ms', 'mws'].includes(framing) ? 'half' : 'full';
 	const files = readdirSync(dir).filter((f) => f.startsWith(`${set}-`) && /\.(jpe?g|png|webp)$/i.test(f)).sort();
 	if (!files.length) return null;
 	const m = moodOf(mood);
 	const f = files[[...m].reduce((h, ch) => h + ch.charCodeAt(0), 0) % files.length];
-	return { file: resolve(dir, f), rel: `refs/${folder}/${f}`, mood: m };
+	return { file: resolve(dir, f), rel: `refs/${id}/${f}`, mood: m };
 }
 
 /** { file (absolute), rel (relative to media/), mood } or null */
 export function characterImage(c, framing, mood) {
 	if (!c?.character) return null;
 	const folder = !c.persona || c.persona === 'regular' ? c.character : `${c.character}-${c.persona}`;
-	const ref = c.look === 'silicon' ? null : referenceImage(folder, framing, mood);
+	const ref = referenceImage(c, framing, mood);
 	if (ref) return ref;
 	const media = mediaRoot();
 	if (!media) return null;

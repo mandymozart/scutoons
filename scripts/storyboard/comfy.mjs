@@ -69,7 +69,16 @@ const gen = resolve(OUT, 'generated');
 
 // PLF in the chapters is the human priest OR the sphynx cat – Cat Pope (the cat-headed pope) only where the story shows
 // him, the mirror at the end of chapter 5 (owner 2026-10-10)
-const WHO = { 'catpope/human': 'PLF, a human priest – a real human man with shoulder-length wavy blond hair with pink tips, clean-shaven, in a plain white cassock with a short white shoulder cape (mozzetta), no patterns on the robe – no cat features at all', 'catpope/human/silicon': 'PLF, a human priest in a white papal cassock and short cape wearing a hairless sphynx-cat silicone mask with very large upright ears', 'catpope/regular': 'Cat Pope: a priest in a white papal robe with the head of a hairless sphynx cat', 'catpope/cat': 'a hairless sphynx cat – an animal on four legs', 'catpope/mountaintiger': 'a huge white tiger with blue runes' };
+// keyed by the creator's ids (character / persona / look – the characters registry), owner 2026-10-10
+const WHO = {
+	'catpope/human/default': 'PLF, a human priest – a real human man with shoulder-length wavy blond hair with pink tips, clean-shaven, in a plain white cassock with a short white shoulder cape (mozzetta), no patterns on the robe – no cat features at all',
+	'catpope/human/silicon': 'PLF, a human priest in a white papal cassock and short cape wearing a hairless sphynx-cat silicone mask with very large upright ears',
+	'catpope/regular/default': 'Cat Pope: a priest in a white papal robe with the head of a hairless sphynx cat',
+	'catpope/cat/default': 'a hairless sphynx cat – an animal on four legs',
+	'catpope/mountaintiger/default': 'a HUGE white mountain tiger with a glowing rune sigil on the forehead and body'
+};
+const idOf = (c) => `${c.character}/${c.persona ?? 'regular'}/${c.look ?? 'default'}`;
+const whoOf = (c) => WHO[idOf(c)] ?? WHO[`${c.character}/${c.persona ?? 'regular'}/default`] ?? c.character;
 /** how much of the picture a figure fills (% of its height) and where – from the storyboard's x / y / h */
 function placeOf(shot, fig) {
 	const [a, b] = (shot.aspect ?? '9:16').split(':').map(Number);
@@ -94,7 +103,7 @@ function instruction(sb, shot, chars) {
 	const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
 	let n = 1;
 	const who = chars.map((c) => {
-		const name = WHO[`${c.cast.character}/${c.cast.persona ?? 'regular'}/${c.cast.look}`] ?? WHO[`${c.cast.character}/${c.cast.persona ?? 'regular'}`] ?? c.cast.character;
+		const name = whoOf(c.cast);
 		const size = c.place.small ? `a SMALL figure, only about ${c.place.pct}% of the picture's height, at the ${c.place.where} – keep it that small` : `about ${c.place.pct}% of the picture's height, at the ${c.place.where}`;
 		const ref = c.withImage ? ` – looks exactly like the character in image ${++n}${c.image?.mood ? `, ${c.image.mood} expression` : ''}` : '';
 		return `the ${c.fig.pose ?? 'standing'} figure is ${name}: ${size}${ref}`;
@@ -111,6 +120,47 @@ function instruction(sb, shot, chars) {
 		'No text, no letters, no speech bubbles, no panel borders, no colour' + (light.accent?.color ? ` except ${light.accent.color} on ${light.accent.on ?? 'the accent'}` : '') + '.'
 	].filter(Boolean).join(' ');
 }
+
+/** the brief the owner's Luma agent writes for a frame (storyboards/style/luma-skills/storyboard-frame-briefs.md, owner
+ *  2026-10-10): fixed sections, a named role per image, identity in words, placement in numbers, light first, the fixed
+ *  look and negatives – built from the storyboard's own data. --prompt short = the old paragraph above. */
+const SIZE = { ecu: 'extreme close-up', cu: 'close-up', mcu: 'medium close-up', ms: 'medium shot', medium: 'medium shot', mws: 'medium wide shot', ws: 'wide shot', ews: 'extreme wide shot' };
+const ANGLE = { low: 'low angle looking up', high: 'high angle looking down', eye: 'eye level', top: 'straight down from above', worm: "worm's-eye view" };
+const FACING = { front: 'facing camera', away: 'BACK TO CAMERA', left: 'in PROFILE facing LEFT', right: 'in PROFILE facing RIGHT' };
+const LOOK = 'clean crisp contour lines + solid black shadow shapes, intense noir black-and-white — NO hatching, grey, sketch, or gradients';
+function brief(sb, shot, chars) {
+	const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
+	const aspect = shot.aspect ?? '9:16';
+	const where = (p) => p.where.toUpperCase().replace(/^(TOP|MIDDLE|BOTTOM)$/, 'CENTRE-$1').replace(/^(\w+) (\w+)$/, '$2-$1');
+	let n = 1;
+	const figs = chars.map((c) => {
+		const name = whoOf(c.cast);
+		const img = c.withImage ? ++n : null;
+		const mood = c.fig.mood ? `${c.fig.mood}, ` : '';
+		const pose = c.fig.pose ? `${c.fig.pose.replace(/-/g, ' ')}, ` : '';
+		const facing = FACING[c.fig.facing] ? `${FACING[c.fig.facing]}, ` : '';
+		return { name, img, text: `${name}${img ? ` (identity: image ${img})` : ''} — ${mood}${pose}${facing}${c.place.small ? 'SMALL, ' : ''}in the ${where(c.place)} at ~${c.place.pct}% of the height` };
+	});
+	const src = light.source && light.source !== 'scene' ? `${light.source} ` : '';
+	const dir = light.height === 'below' || light.key === 'bottom' ? 'from BELOW (menacing)' : light.key ? `from the ${light.key.toUpperCase()}` : '';
+	const fill = (light.soft ?? 0.5) < 0.3 ? 'NO fill — surfaces facing the light pure white, everything else solid black' : `PLUS a little fill (softness ~${light.soft ?? 0.5}) — shadow side dark but READABLE, solid black only in the deepest shadows`;
+	const lightLine = `ONE extremely hard ${src}key light ${dir}${light.shadow === 'long' ? ', long hard cast shadows' : ''}, ${fill}; one clear direction, never flat`;
+	const camera = `${SIZE[shot.shot?.size] ?? 'medium shot'}, ${ANGLE[shot.shot?.angle] ?? 'eye level'}, ${shot.projection === 'perspective' || !shot.projection ? 'normal perspective' : shot.projection}`;
+	const accent = light.accent?.color ? ` except ${light.accent.color} on ${light.accent.on ?? 'the accent'}` : '';
+	const roles = [`image 1 is the STRONG LAYOUT reference (our 3D render) — keep its EXACT composition, camera, poses, figure sizes and light placement; it IS the layout. Its plain mannequins and grey blocks are placeholders: replace them with the real characters and real, detailed places and things.`,
+		...figs.filter((f) => f.img).map((f) => `image ${f.img} = ${f.name} — identity only (face, hair, costume); draw them in this frame's ink style, never copy the photo's framing, background or light.`),
+		useStyle && n < 3 ? `image ${n + 1} = a style reference for the drawing technique only — never copy its content.` : ''].filter(Boolean);
+	return [
+		`THIS JOB'S DELIVERABLE: One ${aspect} vertical-scroll webtoon storyboard frame, clean black-and-white LINE ART, matching the layout of image 1. ${figs.map((f) => f.text).join('. ')}. CAMERA: ${camera} (per the layout). LIGHT (most important): ${lightLine}. LOOK: ${LOOK}. No text, lettering, numbers, speech bubbles, panel borders, watermark, or colour${accent}.`,
+		`EXPECTED OUTPUT: 1 image — ${aspect}. ${LOOK.split(' — ')[0]}. Keep composition/camera/light of image 1. ${figs.map((f) => f.text.split(' — ')[1]).join('; ')}.`,
+		`WORKFLOW STEPS: 1. Follow image 1 exactly for composition, camera, poses and light. ${figs.map((f, i) => `${i + 2}. ${f.text}.`).join(' ')} ${figs.length + 2}. ${lightLine}. ${figs.length + 3}. ${LOOK}; no text, borders, watermark or colour.`,
+		`REFERENCES: ${roles.join(' ')}`,
+		`CONTEXT: shot ${shot.id}, ${aspect}. ${setting(sb, shot)}${shot.view === 'belief' ? ' Subjective view: the frame shows the threat as PLF believes it.' : ''}${shot.prompt?.en ? ` The moment: ${shot.prompt.en}` : ''}`
+	].join('\n');
+}
+// Luma's content filter refuses some horror words (sb-28-2: 422 content_moderated twice) – softer synonyms for Luma only
+const soften = (t) => t.replace(/jaws (wide )?open/gi, 'mouth open in a mighty roar').replace(/enormous teeth|huge teeth/gi, 'big white fangs').replace(/terrified/gi, 'startled').replace(/menacing/gi, 'dramatic').replace(/grotesque/gi, 'dramatic').replace(/nightmare/gi, 'vision');
+const promptStyle = take('--prompt', 'brief');
 
 async function upload(file) {
 	const fd = new FormData();
@@ -233,7 +283,7 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 	for (const c of chars) c.withImage = !!c.image && !c.place.small && chars.filter((d) => d.withImage).length < 2;
 	const files = [structure, ...chars.filter((c) => c.withImage).map((c) => c.image.file)];
 	if (useStyle && files.length < 3 && styles[0]) files.push(styles[0]);
-	const prompt = instruction(sb, shot, chars);
+	const prompt = promptStyle === 'short' ? instruction(sb, shot, chars) : brief(sb, shot, chars);
 	const seed = seedArg != null ? Number(seedArg) : Math.floor(Math.random() * 2 ** 31);
 	if (dry) { console.log(`--- ${shot.id}: ${files.map((f) => basename(f)).join(', ')}\n${prompt}\n`); continue; }
 	process.stdout.write(`${shot.id} … `);
@@ -242,7 +292,7 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 	try {
 		let bytes, lumaJob;
 		if (engine === 'luma') {
-			lumaJob = await luma(prompt, files, shot.aspect);
+			lumaJob = await luma(soften(prompt), files, shot.aspect);
 			bytes = lumaJob.bytes;
 		} else {
 			if (fresh) server = await startServer();
@@ -262,7 +312,7 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 		// weights and a step took 350 s instead of 90 (2026-10-10, 64 GB machine, 18 GB of Qwen offloaded)
 		// only on the local 8 GB card – a cloud GPU keeps the model loaded for the whole session
 		if (engine === 'comfy' && /127\.0\.0\.1|localhost/.test(COMFY)) await fetch(`${COMFY}/free`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
-		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, ...(engine === 'luma' ? { engine: 'luma', model: lumaModel, style: lumaStyle, aspect: lumaJob.aspect_ratio, job: lumaJob.id } : { engine: 'comfy', model: M.unet, lora: M.lora, steps, cfg, refMethod, seed, host: new URL(COMFY).host }), images: files.map((f) => basename(f)), prompt }) + '\n');
+		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, ...(engine === 'luma' ? { engine: 'luma', model: lumaModel, style: lumaStyle, aspect: lumaJob.aspect_ratio, job: lumaJob.id } : { engine: 'comfy', model: M.unet, lora: M.lora, steps, cfg, refMethod, prompt: promptStyle, seed, host: new URL(COMFY).host }), images: files.map((f) => basename(f)), prompt }) + '\n');
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
 		console.log(`failed: ${e.message}`);
