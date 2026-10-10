@@ -38,7 +38,10 @@ async function bridge(c, a) {
 if (cmd === 'collect') {
 	mkdirSync(resolve(DIR, 'thumbs'), { recursive: true });
 	mkdirSync(resolve(DIR, 'sheets'), { recursive: true });
-	const tree = await bridge('read', { page, depth: 3 });
+	// a list from an earlier (interrupted) run is kept, so the numbers stay the same; --fresh reads the page again
+	const listFile = resolve(DIR, 'pictures.json');
+	const fresh = args.includes('--fresh') || !existsSync(listFile);
+	const tree = fresh ? await bridge('read', { page, depth: 3 }) : { children: [] };
 	const seen = new Map();
 	const walk = (n, top, ox, oy) => {
 		const x = (n.x ?? 0) + ox, y = (n.y ?? 0) + oy;
@@ -46,14 +49,22 @@ if (cmd === 'collect') {
 		for (const c of n.children ?? []) walk(c, top ?? n.name, n.type === 'PAGE' ? 0 : x, n.type === 'PAGE' ? 0 : y);
 	};
 	for (const c of tree.children ?? []) walk(c, null, 0, 0);
-	const pictures = [...seen.values()].map((p, i) => ({ n: i + 1, ...p }));
-	writeFileSync(resolve(DIR, 'pictures.json'), JSON.stringify(pictures, null, 1));
+	const pictures = fresh ? [...seen.values()].map((p, i) => ({ n: i + 1, ...p })) : JSON.parse(readFileSync(listFile, 'utf8'));
+	if (fresh) writeFileSync(listFile, JSON.stringify(pictures, null, 1));
 	console.log(`${pictures.length} distinct pictures on "${page}"`);
-	for (let i = 0; i < pictures.length; i += 40) {
-		const batch = pictures.slice(i, i + 40);
-		const res = await bridge('thumbs', { ids: batch.map((p) => p.id), width: 200 });
-		res.forEach((r, k) => { if (r.base64) writeFileSync(resolve(DIR, 'thumbs', `${batch[k].n}.jpg`), Buffer.from(r.base64, 'base64')); });
-		process.stdout.write(`\rthumbnails ${Math.min(i + 40, pictures.length)}/${pictures.length}`);
+	// resumable: thumbnails already there are kept; small batches, one retry (a few huge photos can take the relay's 120 s)
+	const todo = pictures.filter((p) => !existsSync(resolve(DIR, 'thumbs', `${p.n}.jpg`)));
+	for (let i = 0; i < todo.length; i += 15) {
+		const batch = todo.slice(i, i + 15);
+		let res;
+		try { res = await bridge('thumbs', { ids: batch.map((p) => p.id), width: 200 }); }
+		catch (e) {
+			if (/no plugin|no relay/.test(e.message)) throw e; // the bridge is gone – stop loudly, a re-run resumes
+			res = [];
+			for (const p of batch) res.push(...(await bridge('thumbs', { ids: [p.id], width: 200 }).catch((e2) => { if (/no plugin|no relay/.test(e2.message)) throw e2; return [{}]; })));
+		}
+		res.forEach((r, k) => { if (r?.base64) writeFileSync(resolve(DIR, 'thumbs', `${batch[k].n}.jpg`), Buffer.from(r.base64, 'base64')); });
+		process.stdout.write(`\rthumbnails ${pictures.length - todo.length + Math.min(i + 15, todo.length)}/${pictures.length}`);
 	}
 	console.log();
 	// contact sheets (48 numbered thumbnails) and the shots' renders
