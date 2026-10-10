@@ -57,6 +57,15 @@ function placeOf(shot, fig) {
 	const where = `${y < 0.34 ? 'top' : y > 0.66 ? 'bottom' : 'middle'}${x < 0.34 ? ' left' : x > 0.66 ? ' right' : ''}`;
 	return { pct, where, small: !close && pct < 25 };
 }
+/** the scene heading + place: outdoors in the snow or inside */
+function setting(sb, shot) {
+	const heading = sb.source?.heading ?? '';
+	const place = (sb.locations ?? []).find((l) => l.ref === shot.location);
+	const name = place ? place.place ?? place.new ?? place.ref : '';
+	const ext = /\bEXT\b/.test(heading);
+	const snow = ext && /winter|schnee|snow|berg|wald|lichtung|pfad|weg/i.test(`${heading} ${name}`);
+	return `Setting: ${name || heading}${place?.time ? `, ${place.time}` : ''}. ${ext ? `Outdoors${snow ? ' in winter – the ground is deep snow, not floor tiles or stone' : ''}.` : 'Indoors.'}`;
+}
 /** Qwen-Edit wants a short, direct instruction – not the long Luma brief. A small figure gets no character image
  *  (the model then copies the reference big into the frame – sb-25-1, 2026-10-10) – it is described instead. */
 function instruction(sb, shot, chars) {
@@ -72,6 +81,8 @@ function instruction(sb, shot, chars) {
 		'Redraw image 1 as a finished black-and-white webtoon storyboard frame: clean, crisp ink line art on white paper, solid black shadows, high contrast like a noir comic.',
 		'Keep the exact composition, camera angle, framing, figure positions, figure sizes, poses and the light direction of image 1 – do not enlarge or move anything. Replace the plain mannequins with real characters and the simple blocks with real detailed places and things.',
 		...who.map((w) => `In image 1, ${w}.`),
+		// where we are – the render's grey hatching alone reads as stone tiles (sb-27-1/3 became a church inside)
+		setting(sb, shot),
 		useStyle && n < 3 ? `Image ${n + 1} is only a style reference for the drawing technique – do not copy its content.` : '',
 		shot.prompt?.en ? `The moment: ${shot.prompt.en}` : '',
 		`Light: one hard ${light.source && light.source !== 'scene' ? light.source : ''} light${light.key ? ` from the ${light.key}` : ''}${(light.soft ?? 0.5) < 0.3 ? ', no fill' : ', a little fill'}.`,
