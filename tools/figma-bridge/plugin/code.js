@@ -150,6 +150,45 @@ const commands = {
 	},
 	async draft(args) {
 		return applyDraft(args.spec);
+	},
+	/** many nodes as small JPGs at one width – for matching pictures to shots: { ids, width } → [{ id, base64 } | { id, error }] */
+	async thumbs(args) {
+		const out = [];
+		for (const id of args.ids ?? []) {
+			try {
+				const n = await figma.getNodeByIdAsync(id);
+				if (!n || !('exportAsync' in n)) throw new Error('not exportable');
+				const bytes = await n.exportAsync({ format: 'JPG', constraint: { type: 'WIDTH', value: args.width ?? 160 } });
+				out.push({ id, base64: figma.base64Encode(bytes) });
+			} catch (e) { out.push({ id, error: String(e && e.message ? e.message : e) }); }
+		}
+		return out;
+	},
+	/**
+	 * copies of pictures beside a frame, at the height of the shot they belong to (the originals stay where they are):
+	 * { page, group, items: [{ id, x, y, w }] } – x / y absolute on the page, w the copy's width (height keeps the
+	 * aspect). The group (by name) is replaced on a re-run.
+	 */
+	async place(args) {
+		const page = figma.root.children.find((p) => p.name === args.page);
+		if (!page) throw new Error(`no page "${args.page}"`);
+		await page.loadAsync();
+		const old = page.children.find((n) => n.name === args.group);
+		if (old) old.remove();
+		const copies = [];
+		for (const it of args.items ?? []) {
+			const n = await figma.getNodeByIdAsync(it.id);
+			if (!n || !('clone' in n)) continue;
+			const c = n.clone();
+			page.appendChild(c);
+			const s = it.w / c.width;
+			if ('rescale' in c) c.rescale(s); else c.resize(it.w, c.height * s);
+			c.x = it.x; c.y = it.y;
+			c.name = `${it.shot ?? ''} · ${n.name}`;
+			copies.push(c);
+		}
+		if (copies.length) { const g = figma.group(copies, page); g.name = args.group; }
+		return { placed: copies.length };
 	}
 };
 
