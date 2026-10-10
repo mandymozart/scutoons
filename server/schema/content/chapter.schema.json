@@ -652,11 +652,11 @@
 				},
 				"shape": {
 					"$ref": "#/definitions/DialogShape",
-					"description": "a drawn bubble's outline (bubble with `frame: true`), default 'oval'"
+					"description": "a drawn bubble's outline (bubble with `frame: true`), default 'box' ('oval' = older data, drawn as a box)"
 				},
 				"tail": {
 					"$ref": "#/definitions/DialogTail",
-					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for an oval, 'none' for a wobbly one"
+					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for a box, 'none' for a wobbly one"
 				},
 				"size": {
 					"type": "number",
@@ -768,8 +768,9 @@
 		"DialogShape": {
 			"type": "string",
 			"enum": [
-				"oval",
-				"wobbly"
+				"box",
+				"wobbly",
+				"oval"
 			]
 		},
 		"DialogTail": {
