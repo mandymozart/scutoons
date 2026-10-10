@@ -8,8 +8,7 @@
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import type { Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { asset } from '$lib/utils/cdn.ts';
-	import { onClickOutside } from 'runed';
+	import PullPanel from '$lib/components/panel/pull-panel.svelte';
 	import inventoryIcon from '$lib/icons/inventory.svg';
 	import avatarIcon from '$lib/icons/avatar.svg';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
@@ -25,7 +24,6 @@
 	const inventoryVisible = $derived(nav.isOpen('inventory') || nav.isOpen('avatar'));
 	const tab = $derived<'items' | 'avatar'>(nav.isOpen('avatar') ? 'avatar' : 'items');
 
-	let inventoryElement = $state<HTMLDivElement>();
 	let selected = $state<Entry | null>(null);
 	let combineWith = $state<Entry | null>(null);
 	let combineSecond = $state<Entry | null>(null);
@@ -65,24 +63,16 @@
 		selected = entry;
 	}
 
-	onClickOutside(
-		() => inventoryElement,
-		() => {
-			// overlays opened from the inventory (camera, claim) live outside of it
-			if (inventoryVisible && !ui.camera && !ui.claimCode && !ui.minigame) nav.closeOverlay();
-		}
-	);
+	// overlays opened from the inventory (camera, claim, a minigame) live outside of it: their taps / Escape are theirs
+	const keepOpen = () => !!(ui.camera || ui.claimCode || ui.minigame);
 
+	// the panel closes itself on Escape; "i" toggles it
 	$effect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
 			const target = e.target as HTMLElement | null;
 			if (target?.closest('input, textarea, select, [contenteditable]')) return;
 			if (ui.camera || ui.claimCode) return;
-			if (e.key === 'Escape' && inventoryVisible) {
-				nav.closeOverlay();
-			} else if (e.key === 'i' || e.key === 'I') {
-				nav.toggleOverlay('inventory');
-			}
+			if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) nav.toggleOverlay('inventory');
 		}
 
 		window.addEventListener('keydown', handleKeyDown);
@@ -119,87 +109,93 @@
 	}
 </script>
 
-<button class="top-toggle inventory-toggle" onclick={(e) => toggle(e, 'inventory')} aria-label={m['items.tab_items']()} aria-pressed={nav.isOpen('inventory')}>
+<button class="top-toggle inventory-toggle" onclick={(e) => toggle(e, 'inventory')} aria-label={m['items.tab_items']()} aria-pressed={nav.isOpen('inventory')} aria-controls="inventory-panel">
 	<img src={inventoryIcon} alt="" />
 </button>
-<button class="top-toggle avatar-toggle" onclick={(e) => toggle(e, 'avatar')} aria-label={m['items.tab_avatar']()} aria-pressed={nav.isOpen('avatar')} data-testid="avatar-toggle">
+<button class="top-toggle avatar-toggle" onclick={(e) => toggle(e, 'avatar')} aria-label={m['items.tab_avatar']()} aria-pressed={nav.isOpen('avatar')} aria-controls="inventory-panel" data-testid="avatar-toggle">
 	<img src={avatarIcon} alt="" />
 </button>
 
-<div class="inventory {inventoryVisible ? 'visible' : 'hidden'}" bind:this={inventoryElement}>
-	<img class="frame" src={asset(`catpope/vectors/vector-demon-saw-1.svg`)} alt="" />
-
+<PullPanel
+	open={inventoryVisible}
+	onclose={() => nav.closeOverlay()}
+	label={tab === 'avatar' ? m['items.tab_avatar']() : m['items.tab_items']()}
+	id="inventory-panel"
+	{keepOpen}
+	testid="inventory"
+>
+	{#snippet header()}
 	<div class="tabs" role="tablist">
-		<button
-			role="tab"
-			aria-selected={tab === 'items'}
-			class:active={tab === 'items'}
-			onclick={() => showTab('inventory')}><img src={inventoryIcon} alt="" /><span class="tab-label">{m['items.tab_items']()}</span></button
-		>
+		<!-- in the top row's order (avatar left of the bag, owner 2026-10-10: the tabs were "verdreht" – the other way round) -->
 		<button
 			role="tab"
 			aria-selected={tab === 'avatar'}
 			class:active={tab === 'avatar'}
 			onclick={() => showTab('avatar')}><img src={avatarIcon} alt="" /><span class="tab-label">{m['items.tab_avatar']()}</span></button
 		>
+		<button
+			role="tab"
+			aria-selected={tab === 'items'}
+			class:active={tab === 'items'}
+			onclick={() => showTab('inventory')}><img src={inventoryIcon} alt="" /><span class="tab-label">{m['items.tab_items']()}</span></button
+		>
 		<!-- the reader's stats (appetite, testo) small at the right of the tab row, seen on both tabs (owner 2026-10-03) -->
 		<div class="tab-stats"><ReaderStats compact /></div>
 	</div>
+	{/snippet}
 
-	<div class="sheet">
-		{#if !inventory.isAccount}
-			<p class="guest">
-				{m['items.guest_hint']()}
-				<a href={localizeHref('/account')}>{m['items.sign_in']()}</a>
-			</p>
-		{/if}
+	{#if !inventory.isAccount}
+		<p class="guest">
+			{m['items.guest_hint']()}
+			<a href={localizeHref('/account')}>{m['items.sign_in']()}</a>
+		</p>
+	{/if}
 
-		{#if tab === 'avatar'}
-			<Avatar />
-		{:else if combineWith && combineSecond}
-			<RecipePreview
-				first={combineWith}
-				second={combineSecond}
-				oncancel={() => (combineSecond = null)}
-				ondone={() => reset()}
-			/>
-		{:else if selected && !combineWith}
-			<ItemDetail entry={selected} onback={() => (selected = null)} oncombine={(e) => (combineWith = e)} />
-		{:else if !inventory.catalog && inventory.entries.length === 0}
-			<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
-		{:else}
-			{#if listed.length === 0}
-				<p class="empty">{m['inventory.empty']()}</p>
-			{/if}
-			{#if combineWith}
-				<div class="combine-bar">
-					<span>{m['items.combine_hint']({ name: inventory.nameOf(combineWith) })}</span>
-					<button class="btn-secondary" onclick={() => (combineWith = null)}>{m['common.cancel']()}</button>
-				</div>
-			{/if}
-			{#if listed.length}
-				<section class="items" data-testid="inventory-items">
-					{#each listed as { entry, qty } (entry.id)}
-						<button
-							class="item"
-							data-control-exempt="inventory item card (picture + name)"
-							class:source={combineWith && String(combineWith.id) === String(entry.id)}
-							onclick={() => pick(entry)}
-							title={inventory.nameOf(entry)}
-							data-item={entry.item_id}
-						>
-							<ItemIcon srcs={iconsFor(entry)} name={inventory.nameOf(entry)} />
-							{#if qty > 1}
-								<div class="count">{qty}</div>
-							{/if}
-							<span class="name">{inventory.nameOf(entry)}</span>
-						</button>
-					{/each}
-				</section>
-			{/if}
+	{#if tab === 'avatar'}
+		<Avatar />
+	{:else if combineWith && combineSecond}
+		<RecipePreview
+			first={combineWith}
+			second={combineSecond}
+			oncancel={() => (combineSecond = null)}
+			ondone={() => reset()}
+		/>
+	{:else if selected && !combineWith}
+		<ItemDetail entry={selected} onback={() => (selected = null)} oncombine={(e) => (combineWith = e)} />
+	{:else if !inventory.catalog && inventory.entries.length === 0}
+		<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
+	{:else}
+		{#if listed.length === 0}
+			<p class="empty">{m['inventory.empty']()}</p>
 		{/if}
-	</div>
-</div>
+		{#if combineWith}
+			<div class="combine-bar">
+				<span>{m['items.combine_hint']({ name: inventory.nameOf(combineWith) })}</span>
+				<button class="btn-secondary" onclick={() => (combineWith = null)}>{m['common.cancel']()}</button>
+			</div>
+		{/if}
+		{#if listed.length}
+			<section class="items" data-testid="inventory-items">
+				{#each listed as { entry, qty } (entry.id)}
+					<button
+						class="item"
+						data-control-exempt="inventory item card (picture + name)"
+						class:source={combineWith && String(combineWith.id) === String(entry.id)}
+						onclick={() => pick(entry)}
+						title={inventory.nameOf(entry)}
+						data-item={entry.item_id}
+					>
+						<ItemIcon srcs={iconsFor(entry)} name={inventory.nameOf(entry)} />
+						{#if qty > 1}
+							<div class="count">{qty}</div>
+						{/if}
+						<span class="name">{inventory.nameOf(entry)}</span>
+					</button>
+				{/each}
+			</section>
+		{/if}
+	{/if}
+</PullPanel>
 
 <style>
 	/* the menu button is right-most (main-menu.svelte), then inventory, avatar, map, chapters; one control height
@@ -233,55 +229,12 @@
 		background: var(--primary-color);
 	}
 
-	/* the whole inventory is dark (owner 2026-09-30): the tokens are inverted here, so the switch, items, avatar and
-	   detail views follow */
-	.inventory {
-		--ink: #ffffff;
-		--paper: #000000;
-		--text-muted: #a6a6a6;
-		--border-muted: #555555;
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		z-index: 1000;
-		background: black;
-		border-top: 2px solid black;
-		max-height: 85dvh;
-		display: flex;
-		flex-direction: column;
-		transform: translate(0, 140%);
-		transition: transform 0.3s
-			linear(0, 0.996 33.2%, 0.875 39.4%, 0.84 44.4%, 0.999 57.8%, 0.946 65%, 1 74.6%, 1);
-		.frame {
-			position: absolute;
-			pointer-events: none;
-			top: -15px;
-			right: -10px;
-			height: 100vw;
-			transform: rotate(90deg);
-			transform-origin: top;
-			transition: transform 1s
-				linear(0, 0.996 33.2%, 0.875 39.4%, 0.84 44.4%, 0.999 57.8%, 0.946 65%, 1 74.6%, 1);
-			filter: drop-shadow(0px 0px 13px var(--primary-color));
-		}
-	}
-	.inventory.visible {
-		transform: translate(0, 0);
-		.frame {
-			transform: rotate(90deg) translateY(-5px);
-			transform-origin: top;
-		}
-	}
-
+	/* the panel's header: the grip above, the tabs and the stats */
 	.tabs {
-		position: relative;
-		z-index: 1;
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
-		padding: 1rem;
-		background: black;
+		padding: 0 1rem 1rem;
 	}
 	/* the stats wrap below the tabs (still right) only where they don't fit beside them (≈ 320 px phones) */
 	.tab-stats {
@@ -327,17 +280,6 @@
 			clip-path: inset(50%);
 			white-space: nowrap;
 		}
-	}
-
-	.sheet {
-		position: relative;
-		z-index: 1;
-		background: var(--paper);
-		color: var(--ink);
-		padding: 1rem;
-		overflow-y: auto;
-		overscroll-behavior: contain;
-		min-height: 8rem;
 	}
 
 	.guest {

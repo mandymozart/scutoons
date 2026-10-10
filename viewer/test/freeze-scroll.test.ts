@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { scrollKey } from '../src/lib/visual-novel/freeze-scroll.ts';
+import { freezeScroll, scrollKey } from '../src/lib/visual-novel/freeze-scroll.ts';
 
 const el = (tagName: string, inside = '') => ({ tagName, isContentEditable: false, closest: (s: string) => (inside && s.includes(inside) ? {} : null) });
 
@@ -32,4 +32,27 @@ test('the freeze never changes the root\'s overflow (a pinned strip would leave 
 		assert.doesNotMatch(src, /style\.(position|top|height)\s*=/);
 	}
 	assert.match(sources[1], /freezeScroll\(\)/);
+});
+
+test('freezes nest: the story\'s and an open pull panel\'s – the root is let go by the last one only', () => {
+	const html = { style: { overscrollBehavior: 'auto' }, dataset: {} as Record<string, string> };
+	const g = globalThis as Record<string, unknown>;
+	const before = { document: g.document, window: g.window };
+	g.document = { documentElement: html };
+	g.window = { scrollX: 0, scrollY: 0, addEventListener() {}, removeEventListener() {} };
+	try {
+		const story = freezeScroll();
+		const panel = freezeScroll();
+		assert.equal(html.style.overscrollBehavior, 'none');
+		story();
+		story(); // undoing twice changes nothing
+		assert.equal(html.style.overscrollBehavior, 'none');
+		assert.ok('vnBlocking' in html.dataset);
+		panel();
+		assert.equal(html.style.overscrollBehavior, 'auto');
+		assert.ok(!('vnBlocking' in html.dataset));
+	} finally {
+		g.document = before.document;
+		g.window = before.window;
+	}
 });

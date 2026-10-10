@@ -134,7 +134,7 @@
 
 	.chapter-item .chapter-release,
 	.chapter-item .chapter-number {
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 
 	.chapter-item .chapter-number {
@@ -149,8 +149,9 @@
 		font-size: 0.75rem;
 	}
 
+	/* 6 % ink: #f0f0f0 on paper, a dark grey in the dark chapter panel */
 	.chapter-item:hover {
-		background-color: #f0f0f0;
+		background-color: color-mix(in srgb, var(--ink) 6%, transparent);
 	}
 
 	.chapter-item .chapter-release span {

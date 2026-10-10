@@ -35,12 +35,18 @@ function scrollsInside(target: EventTarget | null, vertical: boolean): boolean {
 	return false;
 }
 
-/** stop the page's scroll; returns the undo */
+/** how many freezes hold the root (the story's and an open pull panel's can overlap) and its overscroll before the first */
+let holders = 0;
+let overscrollBefore = '';
+
+/** stop the page's scroll; returns the undo. Freezes nest: the root's attributes go back when the last one is undone */
 export function freezeScroll(): () => void {
 	const html = document.documentElement;
-	const before = { overscroll: html.style.overscrollBehavior };
-	html.style.overscrollBehavior = 'none';
-	html.dataset.vnBlocking = '';
+	if (holders++ === 0) {
+		overscrollBefore = html.style.overscrollBehavior;
+		html.style.overscrollBehavior = 'none';
+		html.dataset.vnBlocking = '';
+	}
 
 	let x = window.scrollX;
 	let y = window.scrollY;
@@ -106,7 +112,10 @@ export function freezeScroll(): () => void {
 	window.addEventListener('pointercancel', onUp, passive);
 	window.addEventListener('scroll', onScroll, passive);
 
+	let undone = false;
 	return () => {
+		if (undone) return;
+		undone = true;
 		window.removeEventListener('wheel', onWheel, active);
 		window.removeEventListener('touchstart', onTouchStart, passive);
 		window.removeEventListener('touchmove', onTouchMove, active);
@@ -115,7 +124,9 @@ export function freezeScroll(): () => void {
 		window.removeEventListener('pointerup', onUp, passive);
 		window.removeEventListener('pointercancel', onUp, passive);
 		window.removeEventListener('scroll', onScroll, passive);
-		html.style.overscrollBehavior = before.overscroll;
-		delete html.dataset.vnBlocking;
+		if (--holders === 0) {
+			html.style.overscrollBehavior = overscrollBefore;
+			delete html.dataset.vnBlocking;
+		}
 	};
 }

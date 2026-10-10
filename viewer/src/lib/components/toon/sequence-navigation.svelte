@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import ChaptersList from './chapters-list.svelte';
 	import { setContext } from 'svelte';
-	import { onClickOutside } from 'runed';
+	import PullPanel from '$lib/components/panel/pull-panel.svelte';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 	import listIcon from '$lib/icons/list.svg';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
@@ -41,16 +41,11 @@
 		currentPosition < readable.length - 1 ? readable[currentPosition + 1] : null
 	);
 
-	let active = $state(false);
 	const nav = getNavigationContext();
-	$effect(()=>{
-		active = nav.isOpen('sequence')
-	})
+	const active = $derived(nav.isOpen('sequence'));
 
-	let navElement = $state<HTMLElement>();
-
-	const toggleActive = (e?: MouseEvent | KeyboardEvent) => {
-		e?.stopPropagation();
+	const toggleActive = (e: MouseEvent) => {
+		e.stopPropagation();
 		nav.toggleOverlay('sequence');
 	};
 
@@ -59,26 +54,37 @@
 		goto(url, opts);
 	}
 
-	onClickOutside(
-		() => navElement,
-		() => {
-			if (active) nav.closeOverlay();
-		}
-	);
-
-	// no keyboard shortcuts (owner 2026-10-02: "c" fired on Ctrl+C and while typing in fields; Escape not wanted either)
+	// no keyboard shortcuts (owner 2026-10-02: "c" fired on Ctrl+C and while typing in fields; Escape not wanted either –
+	// the pull panel's Escape is off here)
 
 	// Override parent navigation context to close menu when navigating
 	setContext('navigation', navigate);
 </script>
 
-<button class="sequence-navigation-toggle" onclick={toggleActive} onkeydown={toggleActive}>
-	<img src={listIcon} alt="Navigation" />
+<button
+	class="sequence-navigation-toggle"
+	onclick={toggleActive}
+	aria-label={m['sequence_navigation.chapters']()}
+	aria-expanded={active}
+	aria-controls="chapters-panel"
+>
+	<img src={listIcon} alt="" />
 </button>
 
-<nav class={`sequence-navigation ${active ? 'active' : ''}`} bind:this={navElement}>
-	<ChaptersList items={sequence} toonId={params.toonId} />
+<!-- the inventory's panel (owner 2026-10-10): dark, the vector behind its top edge, pulled down to close -->
+<PullPanel
+	open={active}
+	onclose={() => nav.closeOverlay()}
+	label={m['sequence_navigation.chapters']()}
+	id="chapters-panel"
+	escape={false}
+	testid="chapters-panel"
+>
+	<nav class="sequence-navigation" aria-label={m['sequence_navigation.chapters']()}>
+		<ChaptersList items={sequence} toonId={params.toonId} />
+	</nav>
 
+	{#snippet footer()}
 	<footer>
 		<!-- Previous Button -->
 		{#if prevItem}
@@ -134,7 +140,8 @@
 			</div>
 		{/if}
 	</footer>
-</nav>
+	{/snippet}
+</PullPanel>
 
 <style>
 	.sequence-navigation-toggle {
@@ -149,7 +156,7 @@
 		display: flex;
 		align-items: center;
 		border: 2px solid black;
-		background: white;
+		background: var(--paper);
 		border-radius: 50%;
 		justify-content: center;
 		z-index: 1001;
@@ -162,34 +169,14 @@
 			width: 1rem;
 		}
 	}
-	.sequence-navigation {
-		transform: translateY(100vh);
-		padding: 0;
+	/* the rows a little apart on the dark panel */
+	.sequence-navigation :global(.chapters-list) {
 		display: grid;
-		grid-template-rows: auto 4rem;
-		/* overflow-y: scroll; */
-		position: fixed;
-		top: 0;
-		bottom: 0;
-		right: 0;
-		height: calc(100vh - 4rem);
-		transition: transform 0.15s ease-in;
-		width: 100%;
-		border-top: 2px solid;
-		background: white;
-		/* background: rgba(255, 255, 255, 0.5);
-		backdrop-filter: blur(20px); */
-		z-index: 1000;
-	}
-	.sequence-navigation.active {
-		transform: translateY(4rem);
+		gap: 0.5rem;
 	}
 	footer {
 		display: flex;
-		/* position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0; */
+		min-height: 4rem;
 		gap: 1rem;
 		align-items: center;
 		justify-content: space-between;
@@ -198,7 +185,8 @@
 
 	.btn-next,
 	.btn-prev {
-		color: black;
+		color: var(--ink);
+		background: transparent;
 		.nav-meta {
 			padding-left: .5rem;
 			.nav-type {
@@ -207,8 +195,8 @@
 		}
 			.nav-icon {
 				width: 2rem;
-				background: black;
-				color: white;
+				background: var(--ink);
+				color: var(--paper);
 				height: 2rem;
 				display: flex;
 			align-items: center;
@@ -216,7 +204,7 @@
 			border-radius: 50%;
 		}
 		&:hover {
-			background-color: #f0f0f0;
+			background-color: color-mix(in srgb, var(--ink) 12%, transparent);
 		}
 	}
 
