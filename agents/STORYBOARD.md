@@ -340,6 +340,30 @@ ComfyUI as a container or a ready "ComfyUI API" endpoint (e.g. RunPod Serverless
 cloud API). Requirements: scale to zero, per-second billing, an idle timeout, the model weights on one volume (the only
 standing cost: GB-months), an HTTPS endpoint + key, the job's cost readable afterwards (for the budget booking).
 
+**What we learned on 2026-10-10 (the first day on Runpod, owner: "I want to learn how these models behave"):** same
+four ch3 shots (sb-25-4 / 27-1 / 28-2 / 30-2) through every engine, one lever changed per run; results in
+`storyboards/_out/s1c3/generated.jsonl` (engine, model, cfg, ref method, prompt style, LoRA per image).
+- **References matter most.** PLF came out as a cat / mask mix until the reference matched the words: the media
+  `catpope-human_*` images are the silicone mask (now the look `silicon`, registry draft v239), the real human is the
+  33 photos from the Figma shootings (`storyboards/style/refs/catpope/human/default/`). With them both Luma and Qwen draw
+  the person.
+- **The brief beats the paragraph.** The structure the owner's Luma agent writes (named role per image – "image 1 IS
+  the layout", placement in numbers, light first, fixed look words) gave crisp noir ink on Luma and Qwen
+  (`storyboards/style/luma-skills/storyboard-frame-briefs.md`, `comfy.mjs` default). "Keep the top N % empty" makes Luma
+  draw a white band with a border – left out. Luma's filter refuses horror words (jaws, enormous teeth) – softened.
+- **Qwen-Image-Edit 2511:** cfg 4 follows the text and drifts from the layout; cfg 2.5 + `index_timestep_zero` keeps
+  the layout better. fp8 on an RTX 5090 (32 GB) is good enough; bf16 needs 96 GB. Layout fidelity: Luma ≈ Qwen,
+  neither holds a small figure's exact size; GPT Image 2.5 (owner, in the Luma app) still best.
+- **Character LoRA v1** (Qwen-Image t2i, 33 photos, rank 16, 1500 steps, ~75 min on the 5090 ≈ $1.50): learns the
+  person from step ~1000, but also "photo"; in the edit model at 0.8 it made sb-27-1 the best version yet, sb-28-2 a
+  photo-real PLF, sb-30-2 broken (cat head); at **0.5** identity without forcing the photo look (sb-25-4 the best
+  frame of the day, the tiger finally roars).
+- **Decision (owner 2026-10-10): "lets give up on the line art … the photo noir is better"** – the frames are
+  black-and-white film-noir photographs (`comfy.mjs --look photo`, the default; `--look ink` kept). The photo LoRA fits
+  that; the ink training data was dropped.
+- **Runpod:** pods on a new machine can hang pulling the ComfyUI image (twice on 188 GB-RAM RTX PRO 6000 hosts in
+  EU-RO-1); a 5090 booted in 30 s. ComfyUI + models live on the network volume `scutoons-models`, so any pod has them.
+
 Integration: the cloud worker session submits the ComfyUI workflow per `gen.plan` to the endpoint, waits for the
 result, uploads it into the asset manager (MCP `upload_asset`) under the shot id, and books the cost (§7 "Budget").
 FLORA stays for quick tries and the closed models (Nano Banana Pro, GPT Image).

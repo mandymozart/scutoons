@@ -39,6 +39,10 @@ const steps = Number(take('--steps', 4));
 const cfg = Number(take('--cfg', 1));
 // how the reference images enter the model – 2511 wants 'index_timestep_zero' (ComfyUI's 2511 template); off = the node's default
 const refMethod = take('--ref-method', null);
+// a character LoRA on top (owner 2026-10-10: the PLF human LoRA from the 33 photos, trigger plf_human – Runpod / ai-toolkit):
+// --char-lora plf_human_qwen_v1.safetensors[:0.8] (in ComfyUI's models/loras), the trigger goes in front of PLF's words
+const [charLora, charStrength] = (take('--char-lora', '') || '').split(':');
+const TRIGGERS = { 'catpope/human/default': 'plf_human' };
 // the same shots, prompt and images through Luma's Agents API (owner 2026-10-10: 'can we also try the luma api in
 // comparison?'): --engine luma [--luma-model uni-1|uni-1-max] [--luma-style manga], key in LUMA_AGENTS_API_KEY
 // (platform.lumalabs.ai – billed per image, separate from the Luma subscription)
@@ -78,7 +82,7 @@ const WHO = {
 	'catpope/mountaintiger/default': 'a HUGE white mountain tiger with a glowing rune sigil on the forehead and body'
 };
 const idOf = (c) => `${c.character}/${c.persona ?? 'regular'}/${c.look ?? 'default'}`;
-const whoOf = (c) => WHO[idOf(c)] ?? WHO[`${c.character}/${c.persona ?? 'regular'}/default`] ?? c.character;
+const whoOf = (c) => `${charLora && TRIGGERS[idOf(c)] ? `${TRIGGERS[idOf(c)]}, ` : ''}${WHO[idOf(c)] ?? WHO[`${c.character}/${c.persona ?? 'regular'}/default`] ?? c.character}`;
 /** how much of the picture a figure fills (% of its height) and where – from the storyboard's x / y / h */
 function placeOf(shot, fig) {
 	const [a, b] = (shot.aspect ?? '9:16').split(':').map(Number);
@@ -127,7 +131,14 @@ function instruction(sb, shot, chars) {
 const SIZE = { ecu: 'extreme close-up', cu: 'close-up', mcu: 'medium close-up', ms: 'medium shot', medium: 'medium shot', mws: 'medium wide shot', ws: 'wide shot', ews: 'extreme wide shot' };
 const ANGLE = { low: 'low angle looking up', high: 'high angle looking down', eye: 'eye level', top: 'straight down from above', worm: "worm's-eye view" };
 const FACING = { front: 'facing camera', away: 'BACK TO CAMERA', left: 'in PROFILE facing LEFT', right: 'in PROFILE facing RIGHT' };
-const LOOK = 'clean crisp contour lines + solid black shadow shapes, intense noir black-and-white — NO hatching, grey, sketch, or gradients';
+// the look (owner 2026-10-10: 'lets give up on the line art … the photo noir is better'): photo noir by default, --look ink
+const LOOKS = {
+	photo: { kind: 'black-and-white PHOTO NOIR still', look: 'a black-and-white cinematic photograph, film noir — real people, real textures, deep solid blacks, crisp highlights, subtle film grain; a still from a live-action film, NOT a drawing, NOT line art' },
+	ink: { kind: 'clean black-and-white LINE ART', look: 'clean crisp contour lines + solid black shadow shapes, intense noir black-and-white — NO hatching, grey, sketch, or gradients' }
+};
+const lookStyle = take('--look', 'photo');
+const LOOK = LOOKS[lookStyle]?.look ?? LOOKS.photo.look;
+const KIND = LOOKS[lookStyle]?.kind ?? LOOKS.photo.kind;
 function brief(sb, shot, chars) {
 	const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
 	const aspect = shot.aspect ?? '9:16';
@@ -148,10 +159,10 @@ function brief(sb, shot, chars) {
 	const camera = `${SIZE[shot.shot?.size] ?? 'medium shot'}, ${ANGLE[shot.shot?.angle] ?? 'eye level'}, ${shot.projection === 'perspective' || !shot.projection ? 'normal perspective' : shot.projection}`;
 	const accent = light.accent?.color ? ` except ${light.accent.color} on ${light.accent.on ?? 'the accent'}` : '';
 	const roles = [`image 1 is the STRONG LAYOUT reference (our 3D render) — keep its EXACT composition, camera, poses, figure sizes and light placement; it IS the layout. Its plain mannequins and grey blocks are placeholders: replace them with the real characters and real, detailed places and things.`,
-		...figs.filter((f) => f.img).map((f) => `image ${f.img} = ${f.name} — identity only (face, hair, costume); draw them in this frame's ink style, never copy the photo's framing, background or light.`),
+		...figs.filter((f) => f.img).map((f) => `image ${f.img} = ${f.name} — identity only (face, hair, costume); show them in this frame's look, never copy the reference's framing, background or light.`),
 		useStyle && n < 3 ? `image ${n + 1} = a style reference for the drawing technique only — never copy its content.` : ''].filter(Boolean);
 	return [
-		`THIS JOB'S DELIVERABLE: One ${aspect} vertical-scroll webtoon storyboard frame, clean black-and-white LINE ART, matching the layout of image 1. ${figs.map((f) => f.text).join('. ')}. CAMERA: ${camera} (per the layout). LIGHT (most important): ${lightLine}. LOOK: ${LOOK}. No text, lettering, numbers, speech bubbles, panel borders, watermark, or colour${accent}.`,
+		`THIS JOB'S DELIVERABLE: One ${aspect} vertical-scroll webtoon storyboard frame, ${KIND}, matching the layout of image 1. ${figs.map((f) => f.text).join('. ')}. CAMERA: ${camera} (per the layout). LIGHT (most important): ${lightLine}. LOOK: ${LOOK}. No text, lettering, numbers, speech bubbles, panel borders, watermark, or colour${accent}.`,
 		`EXPECTED OUTPUT: 1 image — ${aspect}. ${LOOK.split(' — ')[0]}. Keep composition/camera/light of image 1. ${figs.map((f) => f.text.split(' — ')[1]).join('; ')}.`,
 		`WORKFLOW STEPS: 1. Follow image 1 exactly for composition, camera, poses and light. ${figs.map((f, i) => `${i + 2}. ${f.text}.`).join(' ')} ${figs.length + 2}. ${lightLine}. ${figs.length + 3}. ${LOOK}; no text, borders, watermark or colour.`,
 		`REFERENCES: ${roles.join(' ')}`,
@@ -193,6 +204,10 @@ function graph(prompt, names, seed) {
 		if (i > 0) { g[30].inputs[`image${i + 1}`] = [String(10 + i), 0]; g[31].inputs[`image${i + 1}`] = [String(10 + i), 0]; }
 	});
 	if (M.lora === 'none') delete g[4];
+	if (charLora) {
+		g[7] = { class_type: 'LoraLoaderModelOnly', inputs: { model: g[5].inputs.model, lora_name: charLora, strength_model: Number(charStrength ?? 0.8) } };
+		g[5].inputs.model = ['7', 0];
+	}
 	if (refMethod) {
 		g[32] = { class_type: 'FluxKontextMultiReferenceLatentMethod', inputs: { conditioning: ['30', 0], reference_latents_method: refMethod } };
 		g[33] = { class_type: 'FluxKontextMultiReferenceLatentMethod', inputs: { conditioning: ['31', 0], reference_latents_method: refMethod } };
@@ -312,7 +327,7 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 		// weights and a step took 350 s instead of 90 (2026-10-10, 64 GB machine, 18 GB of Qwen offloaded)
 		// only on the local 8 GB card – a cloud GPU keeps the model loaded for the whole session
 		if (engine === 'comfy' && /127\.0\.0\.1|localhost/.test(COMFY)) await fetch(`${COMFY}/free`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
-		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, ...(engine === 'luma' ? { engine: 'luma', model: lumaModel, style: lumaStyle, aspect: lumaJob.aspect_ratio, job: lumaJob.id } : { engine: 'comfy', model: M.unet, lora: M.lora, steps, cfg, refMethod, prompt: promptStyle, seed, host: new URL(COMFY).host }), images: files.map((f) => basename(f)), prompt }) + '\n');
+		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, ...(engine === 'luma' ? { engine: 'luma', model: lumaModel, style: lumaStyle, aspect: lumaJob.aspect_ratio, job: lumaJob.id } : { engine: 'comfy', model: M.unet, lora: M.lora, steps, cfg, refMethod, charLora: charLora || undefined, prompt: promptStyle, look: lookStyle, seed, host: new URL(COMFY).host }), images: files.map((f) => basename(f)), prompt }) + '\n');
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
 		console.log(`failed: ${e.message}`);
