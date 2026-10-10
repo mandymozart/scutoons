@@ -19,8 +19,11 @@ npm run dev:studio
   Resizable, folds to a rail.
 - **Page – the 3D view**: the shot's scene with the frames' own renderer (`tools/storyboard-render/core.js`), live.
   Drag = orbit, right-drag = pan, wheel = dolly – the camera is written into the shot as a hand camera
-  (`camera: { pos, target, fov }`); "Shot camera" goes back to the camera of size + angle. Click a figure → the gizmo
-  moves it on the ground (Move) or turns it (Turn); its place goes back as the storyboard's x / y / h / turn. The texts
+  (`camera: { pos, target, fov }`); "Shot camera" goes back to the camera of size + angle. A figure is handled
+  directly: drag it = move on the ground (Turn tool: drag sideways = turn), wheel on it = size, Alt + wheel = turn (about
+  its feet); the picked figure's gizmo works too. Its place goes back once per gesture as the storyboard's x / y / h /
+  turn – the exact inverse of the renderer's placing, so a rebuild (any field changed) leaves every figure where it was
+  (a figure floating under a hand camera gets `ground: false`). The studio's text is 60 % of the tools' root. The texts
   in the SCUTOONS presets on top (switchable). **Look switches**: shadows Solid (Sin City, the default) · Hatch
   (crosshatching) · Tone, inner lines, colour, wobble (after Maxime Heckel's "Moebius-style post-processing"; black
   and white unless colour is on).

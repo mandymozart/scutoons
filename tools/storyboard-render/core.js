@@ -9,6 +9,8 @@
 //              or { dist, height, pitch, yaw, roll, fov }             – adjustments of the preset camera
 //   light.azimuth / light.elevation (°): 0 = from the camera's side, 90 = from the right, −90 left, 180 behind
 //   figure.turn (°) beside facing
+//   figure.ground = false – a figure that floats (placed along its ray, not on the ground) stays floating under another
+//              camera (the studio writes it when a hand camera would otherwise put it on the ground)
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { figurine, look, pose } from './figures.js';
@@ -120,7 +122,7 @@ export async function buildScene(shot, opts = {}) {
 		const ray = (px, py) => new THREE.Vector3((px / W) * 2 - 1, -(py / H) * 2 + 1, 0.5).unproject(camera).sub(camera.position).normalize();
 		const dir = ray(cx, cy + hPx / 2);
 		let pos, depth, grounded = false;
-		if (!airborne && !closeUp && dir.y < -0.01 && camera.isPerspectiveCamera) {
+		if (fig.ground !== false && !airborne && !closeUp && dir.y < -0.01 && camera.isPerspectiveCamera) {
 			pos = camera.position.clone().addScaledVector(dir, -camera.position.y / dir.y);
 			depth = -pos.clone().applyMatrix4(camera.matrixWorldInverse).z;
 			grounded = true;
@@ -137,6 +139,8 @@ export async function buildScene(shot, opts = {}) {
 		const offset = centre.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0, 1, 0), model.root.rotation.y);
 		if (grounded) offset.set(offset.x, box.min.y * scale, offset.z);
 		model.root.position.copy(pos).sub(offset);
+		// how it was placed – the studio inverts this exactly when it writes a moved figure back as x / y / h / turn
+		model.place = { pos: pos.clone(), size, scale, grounded, free: airborne || closeUp };
 		model.root.userData.figIndex = figs.length;
 		model.root.traverse((o) => { if (o.isMesh) o.userData.fig = figs.length + 1; });
 		scene.add(model.root);

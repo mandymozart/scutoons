@@ -85,13 +85,31 @@
 </div>
 
 <style>
+	/* The studio's text size (owner 2026-10-10: "can we reduce the default font size to 60 % … better real estate for
+	   this complex editor"): 60 % of the tools' fluid root (base.css: 16px, 24px from 768px) – everything is rem, so the
+	   whole editor scales with it. Percent of the browser's default (16px): 60 % = 9.6px, 90 % = 14.4px. */
+	:global(html:root) {
+		font-size: 60%;
+	}
+	@media (min-width: 768px) {
+		:global(html:root) {
+			font-size: 90%;
+		}
+	}
 	.studio {
 		height: 100dvh;
+		/* the smaller root: captions and micro labels a step up so they stay readable (≈ 11.7px / 10.8px at 14.4px) */
+		--type-caption-size: 0.8125rem;
+		--type-nav-micro-size: 0.75rem;
+		/* the bar as tall as a control plus a little air (the tools' 48px floor is for the 16px root) */
+		--tool-bar-height: calc(var(--control-height) + var(--space-05));
+		/* the shots: wide enough for an id and its format on one line beside the frame (still narrower than before) */
+		--tool-sidebar-width: 15rem;
 	}
 	.topbar {
 		display: flex;
 		align-items: center;
-		gap: var(--space-1);
+		gap: var(--space-05);
 		height: var(--tool-bar-height);
 		padding: 0 var(--space-1);
 		box-sizing: border-box;

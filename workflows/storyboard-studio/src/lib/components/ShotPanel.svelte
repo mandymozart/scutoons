@@ -130,7 +130,7 @@
 	.panel {
 		padding: var(--space-1);
 		display: grid;
-		gap: var(--space-1);
+		gap: var(--space-075);
 		align-content: start;
 		overflow-y: auto;
 		box-sizing: border-box;
@@ -183,5 +183,9 @@
 		padding: var(--space-05) 0;
 		background: var(--paper);
 		border-top: var(--border-width-regular) solid var(--ink);
+	}
+	/* the buttons share each row: fewer rows of the sticky bar over the fields */
+	.actions button {
+		flex: 1 1 auto;
 	}
 </style>

@@ -57,7 +57,7 @@
 	.panel {
 		padding: var(--space-1);
 		display: grid;
-		gap: var(--space-1);
+		gap: var(--space-075);
 		align-content: start;
 		overflow-y: auto;
 		box-sizing: border-box;

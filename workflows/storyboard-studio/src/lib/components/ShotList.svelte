@@ -62,7 +62,7 @@
 	}
 	.shot {
 		display: grid;
-		grid-template-columns: 3.5rem minmax(0, 1fr);
+		grid-template-columns: 3rem minmax(0, 1fr);
 		gap: var(--space-05);
 		width: 100%;
 		padding: var(--space-025);
@@ -77,8 +77,8 @@
 		border-color: var(--ink);
 	}
 	img {
-		width: 3.5rem;
-		max-height: 7rem;
+		width: 3rem;
+		max-height: 5.5rem;
 		object-fit: cover;
 		object-position: top;
 		background: var(--ink);
@@ -94,6 +94,13 @@
 	.action {
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
+	}
+	/* id and meta on one line each (the full text in the card's tooltip / the panel) */
+	.id,
+	.meta {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.action {
 		display: -webkit-box;

@@ -2,8 +2,11 @@
 	// The 3D view (owner 2026-10-09: "can this be just a free moving camera in a 3d view since we already use threejs?"):
 	// the shot's scene (the frames' own renderer, tools/storyboard-render/core.js) with the Sin City pass live. Drag =
 	// orbit, right-drag / Shift = pan, wheel = dolly; the camera is the shot's camera – every move is written back as
-	// shot.camera { pos, target, fov }. Click a figure → a gizmo moves it on the ground (or turns it); its place is
-	// written back as the storyboard's screen position (x, y, h, turn), so frames, prompts and the draft follow.
+	// shot.camera { pos, target, fov }. A figure is handled directly (like the first studio, owner 2026-10-10: "i was able
+	// to move things before for corrections, that was nicer"): drag it = move on the ground (Turn tool: drag sideways =
+	// turn), wheel on it = size, Alt + wheel = turn; the gizmo of the picked figure works too. Its place is written back
+	// once per gesture as the storyboard's screen position (x, y, h, turn) – the exact inverse of buildScene's placing,
+	// so a rebuild (any field changed) puts every figure exactly where it was.
 	// The texts (the SCUTOONS presets) on top, switchable.
 	import * as THREE from 'three';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -14,12 +17,14 @@
 	import { specOf, studio, touched } from '../studio.svelte.js';
 
 	const D = Math.PI / 180;
+	const FACE = { front: 0, away: 180, left: -90, right: 90, 'three-quarter-left': -40, 'three-quarter-right': 40 }; // as core.js
 	let host = $state();
 	let glHost = $state();
 	let overlay = $state();
 	let tool = $state('move');
 	let texts = $state(true);
 	let info = $state('');
+	const how = $derived(`Drag = orbit · right-drag = pan · wheel = dolly · on a figure: drag = ${tool === 'turn' ? 'turn' : 'move'} · wheel = size · Alt + wheel = turn`);
 	let renderer, pass, built, controls, gizmo, helperScene, spec, look;
 	let pivots = [];
 	const lookOf = () => ({ sky: built?.skyWhite ? 1 : 0, accent: spec?.accent ?? '#c00000', K: 1, seed: seedOf(spec?.id ?? '') });
@@ -29,7 +34,7 @@
 	let building = false, again = false;
 
 	// for checks in the browser (dev only): the scene, the camera, the orbit
-	if (import.meta.env.DEV) window.__studioView = { get built() { return built; }, get controls() { return controls; }, get spec() { return spec; }, get size() { return size; }, get gizmo() { return gizmo; }, get pivots() { return pivots; } };
+	if (import.meta.env.DEV) window.__studioView = { get built() { return built; }, get controls() { return controls; }, get spec() { return spec; }, get size() { return size; }, get gizmo() { return gizmo; }, get pivots() { return pivots; }, place: (i) => screenPlace(i) };
 	onMount(() => {
 		renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
 		renderer.domElement.classList.add('gl');
@@ -37,6 +42,10 @@
 		pass = sinPass(renderer);
 		helperScene = new THREE.Scene();
 		renderer.domElement.addEventListener('pointerdown', onPick);
+		// the figure gestures go first (capture on the frame): OrbitControls and the gizmo never see them
+		glHost.addEventListener('pointerdown', onGrab, { capture: true });
+		glHost.addEventListener('wheel', onWheel, { capture: true, passive: false });
+		renderer.domElement.addEventListener('pointermove', onHover);
 		const ro = new ResizeObserver(() => { fit(); draw(); });
 		ro.observe(host);
 		loadFonts();
@@ -59,7 +68,7 @@
 
 	function fit() {
 		if (!spec || !host) return;
-		const bw = host.clientWidth - 24, bh = host.clientHeight - 24;
+		const bw = host.clientWidth - 8, bh = host.clientHeight - 8; // a hair of the stage around the frame
 		const scale = Math.min(bw / spec.outW, bh / spec.outH, 2.5);
 		size = { w: Math.max(32, Math.round(spec.outW * scale)), h: Math.max(32, Math.round(spec.outH * scale)), scale };
 		// rem of the tools' fluid root (tools.css) – never px in CSS (owner's dogma)
@@ -68,7 +77,6 @@
 		renderer.domElement.style.width = rem(size.w);
 		renderer.domElement.style.height = rem(size.h);
 		if (overlay) { overlay.width = size.w; overlay.height = size.h; overlay.style.width = rem(size.w); overlay.style.height = rem(size.h); }
-		if (built?.camera.isPerspectiveCamera) { built.camera.aspect = size.w / size.h; built.camera.updateProjectionMatrix(); }
 	}
 
 	let busy = $state(false);
@@ -78,7 +86,6 @@
 		busy = true;
 		try {
 			spec = specOf(1);
-			const keepTarget = controls?.target.clone();
 			controls?.dispose(); gizmo?.dispose(); helperScene.clear(); built?.dispose();
 			// a build never blocks the next change: after 15 s it is given up (the latest state is built next)
 			built = await Promise.race([buildScene(spec, { shadowSize: 2048 }), new Promise((_, no) => setTimeout(() => no(new Error('the scene took longer than 15 s – try again')), 15000))]);
@@ -95,10 +102,13 @@
 				p.copy(c).project(built.camera);
 				if (Math.abs(p.y) > 1) { p.y = Math.max(-0.8, Math.min(0.8, p.y)); p.unproject(built.camera); c.lerp(p, 1); }
 				void visible;
+				// the yaw buildScene gave it (read BEFORE attach: attach re-derives the Euler and flips a yaw past 90° into x = z = 180°)
+				m.yaw = m.root.rotation.y;
 				const pivot = new THREE.Group();
 				pivot.position.copy(c);
 				built.scene.add(pivot);
 				pivot.attach(m.root);
+				m.anchor = pivot.worldToLocal(m.place.pos.clone()); // buildScene's anchor (the feet on the ground), in the pivot
 				return pivot;
 			});
 			fit();
@@ -119,7 +129,6 @@
 			controls = new OrbitControls(cam, renderer.domElement);
 			controls.enableDamping = false;
 			controls.target.copy(centre);
-			void keepTarget;
 			controls.update();
 			lastCam = [...cam.position.toArray(), ...controls.target.toArray()].map((n) => n.toFixed(3)).join();
 			if (!t && Math.abs(roll) > 1e-3 && cam.isPerspectiveCamera) cam.rotateZ(roll); // a dutch angle survives
@@ -165,55 +174,191 @@
 		const now = [...cam.position.toArray(), ...controls.target.toArray()].map((n) => n.toFixed(3)).join();
 		if (now === lastCam) return;
 		lastCam = now;
-		shot.camera = { pos: cam.position.toArray().map((n) => +n.toFixed(3)), target: controls.target.toArray().map((n) => +n.toFixed(3)), fov: +cam.fov.toFixed(1) };
+		const pos = cam.position.toArray().map((n) => +n.toFixed(3));
+		const target = controls.target.toArray().map((n) => +n.toFixed(3));
+		// the camera as it will be rebuilt (rounded) – the figures are measured through exactly that one
+		cam.position.fromArray(pos);
+		controls.target.fromArray(target);
+		cam.lookAt(controls.target);
+		cam.updateMatrixWorld();
+		shot.camera = { pos, target, fov: +cam.fov.toFixed(1) };
 		writeFigures(); // the figures stay where they are in the world: their screen places follow the camera
 		selfKey = JSON.stringify($state.snapshot(shot));
 		touched();
+		draw();
 	}
-	// the figures' world places → the storyboard's screen places (x, y across / along the shot, h in screens, turn)
+	// a figure's world place → the storyboard's screen place: the exact inverse of buildScene (core.js) – its anchor
+	// (feet on the ground, else the centre of what the frame shows) seen through the camera, the height in screens from
+	// its scale and depth, the turn against the camera. A rebuild from these numbers puts it back where it is.
+	function screenPlace(i) {
+		const m = built.figs[i];
+		const cam = built.camera;
+		cam.updateMatrixWorld();
+		const W = spec.w, H = spec.h, K = built.K ?? 1;
+		const pos = pivots[i].localToWorld(m.anchor.clone());
+		const ndc = pos.clone().project(cam);
+		const px = ((ndc.x + 1) / 2) * W, py = ((1 - ndc.y) / 2) * H;
+		const { size, scale, grounded } = m.place;
+		let hPx;
+		if (cam.isPerspectiveCamera) {
+			const fpx = H / 2 / Math.tan((cam.fov * D) / 2);
+			const depth = grounded ? -pos.clone().applyMatrix4(cam.matrixWorldInverse).z : pos.distanceTo(cam.position);
+			hPx = (scale * size * fpx) / depth;
+		} else hPx = scale * (H / (cam.top - cam.bottom));
+		const cy = grounded ? py - hPx / 2 : py;
+		const yaw = m.yaw + yawOf(pivots[i]);
+		const toCam = Math.atan2(cam.position.x - pos.x, cam.position.z - pos.z);
+		const turn = ((((yaw - toCam) / D) % 360) + 540) % 360 - 180;
+		// a figure floating (placed along its ray) that this camera would put on the ground: it says so (core.js ground)
+		let float = false;
+		if (!grounded && !m.place.free && cam.isPerspectiveCamera) {
+			const foot = new THREE.Vector3((px / W) * 2 - 1, -((cy + hPx / 2) / H) * 2 + 1, 0.5).unproject(cam).sub(cam.position).normalize();
+			float = foot.y < -0.01;
+		}
+		return { x: px / W, y: cy / H, h: hPx / (844 * K), turn, float };
+	}
+	const UP = new THREE.Vector3(0, 1, 0);
+	const yawOf = (o) => new THREE.Euler().setFromQuaternion(o.quaternion, 'YXZ').y;
+	// turn a figure to a yaw about its own feet (its anchor stays put, so a turn never shifts it)
+	function turnTo(i, yaw) {
+		const pv = pivots[i];
+		const anchor = pv.localToWorld(built.figs[i].anchor.clone());
+		pv.quaternion.setFromAxisAngle(UP, yaw);
+		pv.updateMatrixWorld();
+		pv.position.add(anchor.sub(pv.localToWorld(built.figs[i].anchor.clone())));
+	}
+	const r4 = (n) => +n.toFixed(4);
 	function writeFigures(only = null) {
 		const shot = studio.sel.shot;
-		built.scene.updateMatrixWorld(true); // the pivots moved: the figures' world boxes follow
-		const boxes = figureBoxes(built.figs, built.camera, spec.w, spec.h, 1);
-		for (const { index, box } of boxes) {
-			if (only != null && index !== only) continue; // a figure moved by hand: only it is written
-			const f = shot.figures[index];
-			const m = built.figs[index];
-			f.x = +(((box.x0 + box.x1) / 2) / spec.w).toFixed(3);
-			f.y = +(((box.y0 + box.y1) / 2) / spec.h).toFixed(3);
-			if (!f.framing || f.framing === 'full') f.h = +((box.y1 - box.y0) / 844).toFixed(3);
-			const wp = m.root.getWorldPosition(new THREE.Vector3());
-			const yaw = new THREE.Euler().setFromQuaternion(m.root.getWorldQuaternion(new THREE.Quaternion()), 'YXZ').y;
-			const toCam = Math.atan2(built.camera.position.x - wp.x, built.camera.position.z - wp.z);
-			const turn = Math.round((((yaw - toCam) / D) % 360 + 540) % 360 - 180);
-			if (f.turn != null || tool === 'turn') { f.turn = turn; }
-		}
+		built.scene.updateMatrixWorld(true);
+		built.figs.forEach((m, i) => {
+			if (only != null && i !== only) return; // a figure moved by hand: only it is written
+			const f = shot.figures?.[i];
+			if (!f || !m.place) return;
+			const p = screenPlace(i);
+			f.x = r4(p.x);
+			f.y = r4(p.y);
+			f.h = r4(p.h);
+			if (p.float) f.ground = false;
+			else delete f.ground;
+			// the turn only when facing (or the turn it has) doesn't already give it
+			const was = f.turn ?? FACE[f.facing] ?? 0;
+			const off = Math.abs(((((p.turn - was) % 360) + 540) % 360) - 180);
+			if (off > 0.05) f.turn = +p.turn.toFixed(1);
+		});
 	}
-	function commitFigures() {
-		writeFigures(studio.figure);
+	function commitFigures(i = studio.figure) {
+		if (i == null || !built) return;
+		writeFigures(i);
 		selfKey = JSON.stringify($state.snapshot(studio.sel.shot));
 		touched();
 		draw();
 	}
 
-	// pick a figure (a click without a drag)
+	const ndcOf = (e) => {
+		const r = renderer.domElement.getBoundingClientRect();
+		return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+	};
+	// the figure under the pointer (index) or -1
+	function figureAt(e) {
+		if (!built) return -1;
+		// a skinned figure keeps the bounds it was first measured with (posed elsewhere, before it was placed / moved): a
+		// ray then misses it everywhere – measured fresh for each pick
+		for (const m of built.figs) m.root.traverse((o) => { if (o.isSkinnedMesh) { o.boundingBox = null; o.boundingSphere = null; } });
+		const ray = new THREE.Raycaster();
+		ray.setFromCamera(ndcOf(e), built.camera);
+		const hit = ray.intersectObjects(built.figs.map((m) => m.root), true).find((h) => h.object.userData.fig);
+		return hit ? hit.object.userData.fig - 1 : -1;
+	}
+	function pickFigure(i) {
+		studio.figure = i;
+		if (gizmo && pivots[i]) gizmo.attach(pivots[i]);
+	}
+	// where the pointer meets a horizontal plane (the figure's ground)
+	function onPlane(e, plane) {
+		const ray = new THREE.Raycaster();
+		ray.setFromCamera(ndcOf(e), built.camera);
+		const p = ray.ray.intersectPlane(plane, new THREE.Vector3());
+		return p && p.distanceTo(built.camera.position) < 300 ? p : null;
+	}
+
+	// drag a figure itself: Move = along its ground under the pointer, Turn = sideways turns it; written once on release
+	let grab = null;
+	function onGrab(e) {
+		if (!built || building || e.button !== 0 || gizmo?.axis) return; // a gizmo handle under the pointer: the gizmo's
+		const i = figureAt(e);
+		if (i < 0) return;
+		e.stopPropagation();
+		e.preventDefault();
+		pickFigure(i);
+		const pv = pivots[i];
+		const anchor = pv.localToWorld(built.figs[i].anchor.clone());
+		const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -anchor.y);
+		grab = { i, plane, start: onPlane(e, plane), from: pv.position.clone(), yaw: yawOf(pv), x: e.clientX, y: e.clientY, moved: false };
+		host.style.cursor = 'grabbing';
+		window.addEventListener('pointermove', onDrag);
+		window.addEventListener('pointerup', onDrop, { once: true });
+		draw();
+	}
+	function onDrag(e) {
+		if (!grab) return;
+		if (!grab.moved && Math.hypot(e.clientX - grab.x, e.clientY - grab.y) < 3) return;
+		grab.moved = true;
+		const pv = pivots[grab.i];
+		if (tool === 'turn') turnTo(grab.i, grab.yaw + (e.clientX - grab.x) * 0.01);
+		else {
+			const p = grab.start && onPlane(e, grab.plane);
+			if (!p) return;
+			pv.position.set(grab.from.x + p.x - grab.start.x, grab.from.y, grab.from.z + p.z - grab.start.z);
+		}
+		draw();
+	}
+	function onDrop() {
+		window.removeEventListener('pointermove', onDrag);
+		host.style.cursor = '';
+		const g = grab;
+		grab = null;
+		if (g?.moved) commitFigures(g.i);
+	}
+	// wheel on a figure = its size (around its feet), Alt + wheel = turn by 15°; written once the wheel rests
+	let wheelTimer;
+	function onWheel(e) {
+		if (!built || building) return;
+		const i = figureAt(e);
+		if (i < 0) return;
+		e.preventDefault();
+		e.stopPropagation();
+		if (studio.figure !== i) pickFigure(i);
+		const m = built.figs[i];
+		if (e.altKey) turnTo(i, yawOf(pivots[i]) + Math.sign(e.deltaY || e.deltaX) * 15 * D);
+		else {
+			const k = e.deltaY < 0 ? 1.05 : 1 / 1.05;
+			m.root.position.sub(m.anchor).multiplyScalar(k).add(m.anchor);
+			m.root.scale.multiplyScalar(k);
+			m.place.scale *= k;
+		}
+		draw();
+		clearTimeout(wheelTimer);
+		wheelTimer = setTimeout(() => commitFigures(i), 250);
+	}
+	// a grab hand over a figure
+	let hoverFrame = 0;
+	function onHover(e) {
+		if (grab || hoverFrame) return;
+		hoverFrame = requestAnimationFrame(() => {
+			hoverFrame = 0;
+			if (!grab && host) host.style.cursor = !gizmo?.axis && figureAt(e) >= 0 ? 'grab' : '';
+		});
+	}
+
+	// a click on the empty view (no drag, not on the gizmo) drops the picked figure – figures themselves are onGrab's
 	let down = null;
 	function onPick(e) {
-		down = { x: e.clientX, y: e.clientY };
+		down = gizmo?.axis ? null : { x: e.clientX, y: e.clientY };
 		renderer.domElement.addEventListener('pointerup', (u) => {
 			if (!down || Math.hypot(u.clientX - down.x, u.clientY - down.y) > 4 || gizmo?.dragging) return;
-			const r = renderer.domElement.getBoundingClientRect();
-			const ndc = new THREE.Vector2(((u.clientX - r.left) / r.width) * 2 - 1, -((u.clientY - r.top) / r.height) * 2 + 1);
-			const ray = new THREE.Raycaster();
-			ray.setFromCamera(ndc, built.camera);
-			const hit = ray.intersectObjects(built.figs.map((m) => m.root), true).find((h) => h.object.userData.fig);
-			if (hit) {
-				studio.figure = hit.object.userData.fig - 1;
-				gizmo.attach(pivots[studio.figure]);
-			} else {
-				studio.figure = null;
-				gizmo.detach();
-			}
+			studio.figure = null;
+			gizmo?.detach();
 			draw();
 		}, { once: true });
 	}
@@ -231,7 +376,7 @@
 		<button type="button" class="secondary" onclick={resetCamera} title="Back to the camera the shot's size / angle give (removes the hand camera)">Shot camera</button>
 		{#if busy}<span class="state" role="status">rendering …</span>{/if}
 		{#if studio.sel?.shot.camera}<span class="state" title="The shot has its own camera from the 3D view – 'Shot camera' goes back to size + angle">hand camera</span>{/if}
-		<span class="hint">Drag = orbit · right-drag = pan · wheel = dolly · click a figure, then drag its gizmo</span>
+		<span class="hint" title={how}>{how}</span>
 	</div>
 	<div class="stage" bind:this={host}>
 		{#if !studio.sel}
@@ -255,8 +400,8 @@
 	.tools {
 		display: flex;
 		align-items: center;
-		gap: var(--space-1);
-		padding: var(--space-05) var(--space-1);
+		gap: var(--space-05);
+		padding: var(--space-025) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		flex-wrap: wrap;
 	}
@@ -265,7 +410,13 @@
 		align-items: center;
 		gap: var(--space-025);
 	}
+	/* one line: the full text in its tooltip – the view keeps its height */
 	.hint {
+		flex: 1 1 0;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: var(--type-caption-size);
 		opacity: 0.7;
 	}

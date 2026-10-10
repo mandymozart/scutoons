@@ -88,7 +88,8 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 - `air`: `[[from %, to %], …]` along the shot – zones with nothing to read (sky, snow, darkness, a colour field). A pure
   transition shot is `[[0, 100]]`.
 - `figures`: `cast` = a ref from the storyboard's `cast`; x across, y along the shot (0…1), h = figure height as a
-  fraction of the **screen**.
+  fraction of the **screen**. `ground: false` keeps a figure in the air where it is drawn (the studio sets it when a
+  hand camera would otherwise put a floating figure on the ground).
 - `figures[].pose` (the 3D mannequin of the schematics takes it): `stand` · `walk` · `run` · `jump` · `fall` · `slip` ·
   `crouch` · `kneel` · `crawl` · `sit` · `lie` · `reach` · `point` · `throw` · `cast` (both hands forward – the energy
   ball) · `arms-up` (scared / surrender) · `hug-self` (cold) · `stamp` · `push` · `look-back` · `pray`.
