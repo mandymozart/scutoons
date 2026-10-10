@@ -148,6 +148,9 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 		// black and white (the model tints despite the prompt) – unless the shot has its one colour accent
 		const accent = { ...(sb.light ?? {}), ...(shot.light ?? {}) }.accent?.color;
 		if (!accent) execFileSync('python', ['-I', '-c', 'import sys; from PIL import Image; Image.open(sys.argv[1]).convert("L").save(sys.argv[1])', resolve(gen, file)]);
+		// let ComfyUI drop its models and caches: kept between jobs, its RAM grew until Windows paged the offloaded
+		// weights and a step took 350 s instead of 90 (2026-10-10, 64 GB machine, 18 GB of Qwen offloaded)
+		await fetch(`${COMFY}/free`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
 		appendFileSync(resolve(OUT, 'generated.jsonl'), JSON.stringify({ date: new Date().toISOString(), shot: shot.id, file, engine: 'comfy', model: M.unet, lora: M.lora, steps, seed, images: files.map((f) => basename(f)), prompt }) + '\n');
 		console.log(`${file} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 	} catch (e) {
