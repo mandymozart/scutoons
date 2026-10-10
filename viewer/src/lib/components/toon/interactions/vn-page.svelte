@@ -15,6 +15,7 @@
 	import { Icon } from '@scutoons/ui';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { createScriptQueue } from '$lib/visual-novel/script-queue.ts';
+	import { freezeScroll } from '$lib/visual-novel/freeze-scroll.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import Characters from '../vn/characters.svelte';
 	import TextBoxWait from '../vn/text-box-wait.svelte';
@@ -47,21 +48,11 @@
 
 	const frozen = $derived(hasVn && vn.state.frozen);
 	// the page doesn't scroll while the story waits (owner 2026-10-03: "freeze the ability to scroll once a message or
-	// choice depends on it"; 2026-10-06: until every script / trigger of the page is through)
+	// choice depends on it"; 2026-10-06: until every script / trigger of the page is through) – without touching the
+	// layout: `overflow: hidden` on <html> unstuck a pinned strip, a black page behind the message (freeze-scroll.ts)
 	$effect(() => {
 		if (!frozen) return;
-		const html = document.documentElement;
-		const before = { overflow: html.style.overflow, overscroll: html.style.overscrollBehavior, touch: html.style.touchAction };
-		html.style.overflow = 'hidden';
-		html.style.overscrollBehavior = 'none';
-		html.style.touchAction = 'none';
-		html.dataset.vnBlocking = '';
-		return () => {
-			html.style.overflow = before.overflow;
-			html.style.overscrollBehavior = before.overscroll;
-			html.style.touchAction = before.touch;
-			delete html.dataset.vnBlocking;
-		};
+		return freezeScroll();
 	});
 </script>
 

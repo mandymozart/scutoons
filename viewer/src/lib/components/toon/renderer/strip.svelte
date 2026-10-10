@@ -125,6 +125,8 @@
 	});
 
 	function onWheel(event: WheelEvent) {
+		// the page's scroll is stopped (a VN message waits: freeze-scroll.ts)
+		if (event.defaultPrevented && !fullscreen) return;
 		if (fullscreen) {
 			event.preventDefault();
 			move(offset + event.deltaY + event.deltaX);
@@ -147,6 +149,7 @@
 
 	function onKey(event: KeyboardEvent) {
 		if (!fullscreen) {
+			if (event.defaultPrevented) return;
 			// pinned on the page: ← / → step frame by frame (the page scrolls to the frame's edge; ↑ / ↓ stay the page's)
 			if ((event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') || event.altKey || event.ctrlKey || event.metaKey || editable(event.target) || !pinned()) return;
 			// where the strip is now (the scroll position itself – `offset` follows it a frame later)
