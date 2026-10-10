@@ -1006,7 +1006,7 @@
 		"map_place_view_dx": "Shift x",
 		"map_place_view_dy": "Shift y",
 		"map_place_view_use": "Use the current view",
-		"map_place_view_use_hint": "Stores the canvas's zoom (at least 200 %) and its centre as the shift from the place",
+		"map_place_view_use_hint": "Stores the canvas's zoom and its centre as the shift from the place",
 		"map_place_view_go": "Show",
 		"map_place_view_clear": "Reset",
 		"slice_unlocks": "Unlocks place",

@@ -90,7 +90,7 @@ interface MapPlace {
 	hidden?: true;
 	/** the chapter the place's card links to (migrated from `chapterNumber`) */
 	chapter?: { toon: string; number: number };
-	/** how the reader's map frames it (§8.4): zoom 2–8 (default 2), the centre's shift from (x, y) (default none) */
+	/** how the reader's map frames it (§8.4): zoom 0.25–8 (default 2), the centre's shift from (x, y) (default none) */
 	view?: { zoom?: number; offset?: { x: number; y: number } };
 }
 
@@ -757,7 +757,7 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
      **place view** – once; after that the reader's own view is kept. The place view (`placeView`, owner 2026-10-10: "pro
      Location einen Zoom … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset"; "Orte ohne diese
      Angaben: Mindeststufe 2 und Zoomstufe 2 und der Punkt"): centre = the place + its optional `view.offset`, zoom = its
-     optional `view.zoom`, never below `PLACE_ZOOM` 2 (default 2) – the same for ◎ and for `focusMap` aimed at a place
+     optional `view.zoom` (0.25–8; default `PLACE_ZOOM` 2 – "kleiner geht schon", 2026-10-11) – the same for ◎ and for `focusMap` aimed at a place
      without an explicit zoom;
   3. else the remembered centre + zoom (localStorage `scutoons_map_view`, per toon, per device);
   4. no here and nothing stored: the start view (its zoom = the toon-wide default), fitted to the discovered places when it
@@ -783,7 +783,7 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
   `toon:<toon>` (`map: { center, zoom }`, language-neutral; saved / published with the map page); the phone frame then shows
   the reader's first screen there; "Go to the start view".
 - **Place view** (owner 2026-10-10): the place form's "Reader map view" – zoom in % (200–800, empty = 200), shift x / y
-  (world units, empty = 0), "Use the current view" (the canvas's zoom, at least 200 %, and its centre as the shift), "Show",
+  (world units, empty = 0), "Use the current view" (the canvas's zoom, 25–800 %, and its centre as the shift), "Show",
   "Reset" (removes `view`). Stored as the place's optional `view: { zoom?, offset?: { x, y } }` (validation: zoom
   `PLACE_ZOOM`–`MAP_MAX_ZOOM`, offset numbers, a centre outside the map warns); the phone frame shows the selected
   place's view.

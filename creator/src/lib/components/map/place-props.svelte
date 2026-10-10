@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
-	import { MAP_MAX_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_ZOOM, chapterSlices, placeView, mapName, sliceUnlockPoint, slugId, type ChapterSliceRef, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_ZOOM, chapterSlices, placeView, mapName, sliceUnlockPoint, slugId, type ChapterSliceRef, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { library } from '$lib/api.ts';
@@ -106,8 +106,8 @@
 		});
 	}
 
-	// ── the reader map's view of the place (owner 2026-10-10): zoom PLACE_ZOOM..MAP_MAX_ZOOM, offset in world units ──
-	const MIN_PCT = PLACE_ZOOM * 100;
+	// ── the reader map's view of the place (owner 2026-10-10/11): zoom MAP_MIN_ZOOM..MAP_MAX_ZOOM (empty = PLACE_ZOOM), offset in world units ──
+	const MIN_PCT = MAP_MIN_ZOOM * 100;
 	const MAX_PCT = MAP_MAX_ZOOM * 100;
 	/** edit the place's view; an empty one leaves the place */
 	function editView(change: (v: NonNullable<MapPlace['view']>) => void) {
@@ -134,7 +134,7 @@
 	}
 	function useCurrentView() {
 		const c = view.toWorld({ x: view.width / 2, y: view.height / 2 });
-		const zoom = Math.round(Math.min(MAP_MAX_ZOOM, Math.max(PLACE_ZOOM, view.zoom)) * 100) / 100;
+		const zoom = Math.round(Math.min(MAP_MAX_ZOOM, Math.max(MAP_MIN_ZOOM, view.zoom)) * 100) / 100;
 		editView((v) => {
 			v.zoom = zoom;
 			v.offset = { x: Math.round(c.x - place.x), y: Math.round(c.y - place.y) };
@@ -230,7 +230,7 @@
 	<legend>{m['creator.map_place_view']()}</legend>
 	<p class="hint">{m['creator.map_place_view_hint']()}</p>
 	<div class="row">
-		<label class="field small"><span>{m['creator.map_place_view_zoom']()}</span><input type="number" min={MIN_PCT} max={MAX_PCT} step="10" placeholder={String(MIN_PCT)} value={place.view?.zoom !== undefined ? Math.round(place.view.zoom * 100) : ''} onchange={(e) => setViewZoom(e.currentTarget.value)} data-testid="place-view-zoom" /></label>
+		<label class="field small"><span>{m['creator.map_place_view_zoom']()}</span><input type="number" min={MIN_PCT} max={MAX_PCT} step="10" placeholder={String(PLACE_ZOOM * 100)} value={place.view?.zoom !== undefined ? Math.round(place.view.zoom * 100) : ''} onchange={(e) => setViewZoom(e.currentTarget.value)} data-testid="place-view-zoom" /></label>
 		<label class="field small"><span>{m['creator.map_place_view_dx']()}</span><input type="number" placeholder="0" value={place.view?.offset?.x ?? ''} onchange={(e) => setViewOffset('x', e.currentTarget.value)} data-testid="place-view-dx" /></label>
 		<label class="field small"><span>{m['creator.map_place_view_dy']()}</span><input type="number" placeholder="0" value={place.view?.offset?.y ?? ''} onchange={(e) => setViewOffset('y', e.currentTarget.value)} data-testid="place-view-dy" /></label>
 	</div>

@@ -78,7 +78,7 @@
 		const mine = places.filter(own);
 		if (mine.length && !mine.some((p) => view.onScreen(p, -24))) view.fit(mine, 56, 3);
 	}
-	/** ◎: back to where the reader is (the place's view: point + offset, its zoom ≥ 2), else the start view */
+	/** ◎: back to where the reader is (the place's view: point + offset at its zoom, default 2), else the start view */
 	function recenter() {
 		const at = whereNow();
 		if (at && data) view.centerOn(at, at.zoom);

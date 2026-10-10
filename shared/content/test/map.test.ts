@@ -162,21 +162,23 @@ test('checkWorldMap: ids, positions, waypoints, unlock points', () => {
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
 });
 
-test('a place’s view: its own zoom (≥ 2) and offset; validation', () => {
+test('a place’s view: its own zoom (0.25–8, default 2) and offset; validation', () => {
 	const problems = (view: unknown) =>
 		checkWorldMap({ width: 100, height: 50, layers: [], locations: [{ id: 'a', name: { de: 'A' }, x: 10, y: 10, toons: ['t'], view }], routes: [] }, { toons: ['t'] }).map((p) => `${p.level} ${p.path.join('.')}`);
 	assert.deepEqual(problems(undefined), []);
 	assert.deepEqual(problems({ zoom: 3, offset: { x: 5, y: -5 } }), []);
-	assert.deepEqual(problems({ zoom: 1.5 }), ['error locations.0.view.zoom'], 'below the place minimum 2');
+	assert.deepEqual(problems({ zoom: 1.5 }), [], 'below the default 2 is fine (owner 2026-10-11: "kleiner geht schon")');
+	assert.deepEqual(problems({ zoom: 0.1 }), ['error locations.0.view.zoom'], 'below the map minimum');
 	assert.deepEqual(problems({ zoom: 9 }), ['error locations.0.view.zoom']);
 	assert.deepEqual(problems({ offset: { x: 'a', y: 0 } }), ['error locations.0.view.offset']);
 	assert.deepEqual(problems({ offset: { x: 200, y: 0 } }), ['warning locations.0.view.offset']);
 	assert.deepEqual(problems(7), ['error locations.0.view']);
-	// the reader: the point + offset at the place zoom; without a view: the point at 2; junk / too low → clamped / ignored
+	// the reader: the point + offset at the place zoom; without a view: the point at 2; junk → ignored, out of range → clamped
 	assert.equal(PLACE_ZOOM, 2);
 	assert.deepEqual(placeView({ x: 10, y: 20 }), { center: { x: 10, y: 20 }, zoom: 2 });
 	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: 4, offset: { x: 5, y: -3 } } }), { center: { x: 15, y: 17 }, zoom: 4 });
-	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: 1 } }), { center: { x: 10, y: 20 }, zoom: 2 });
+	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: 1 } }), { center: { x: 10, y: 20 }, zoom: 1 });
+	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: 0.1 } }), { center: { x: 10, y: 20 }, zoom: 0.25 });
 	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: NaN, offset: { x: NaN, y: 1 } } as any }), { center: { x: 10, y: 20 }, zoom: 2 });
 });
 

@@ -1,6 +1,6 @@
 // Where the reader's world map opens (src/lib/components/toon/map/map-view.ts, owner 2026-10-10):
 //   npm test -w viewer
-// first opening: centred on where the reader is (the place's view: point + offset, zoom ≥ 2, default 2); then the remembered view; an explicit focus or a new
+// first opening: centred on where the reader is (the place's view: point + offset at its zoom, default 2); then the remembered view; an explicit focus or a new
 // place reached overrides it once.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,13 +38,13 @@ test('here: the story position wins when it is a place on the map', () => {
 	assert.equal(readerHere(places, 'catpope', onRoute)?.id, 'apartment-blocks');
 });
 
-test('here is framed by the place’s view: point + offset at its zoom; without one the point at 2; never below 2', () => {
+test('here is framed by the place’s view: point + offset at its zoom (smaller than 2 too); without one the point at 2', () => {
 	const framed = [place('apartment', 1206, 304, { view: { zoom: 3.5, offset: { x: 20, y: -10 } } })];
 	assert.deepEqual(readerHere(framed, 'catpope', state({ apartment: 1 })), { id: 'apartment', x: 1226, y: 294, zoom: 3.5 });
 	const zoomOnly = [place('apartment', 1206, 304, { view: { zoom: 5 } })];
 	assert.deepEqual(readerHere(zoomOnly, 'catpope', state({ apartment: 1 })), { id: 'apartment', x: 1206, y: 304, zoom: 5 });
-	const tooLow = [place('apartment', 1206, 304, { view: { zoom: 0.5 } })];
-	assert.equal(readerHere(tooLow, 'catpope', state({ apartment: 1 }))?.zoom, 2);
+	const wide = [place('apartment', 1206, 304, { view: { zoom: 0.5 } })];
+	assert.equal(readerHere(wide, 'catpope', state({ apartment: 1 }))?.zoom, 0.5);
 	// the story position is framed the same way
 	const s = state({}, { catpope: { location: 'apartment', at: 1 } });
 	assert.deepEqual(readerHere(framed, 'catpope', s), { id: 'apartment', x: 1226, y: 294, zoom: 3.5 });

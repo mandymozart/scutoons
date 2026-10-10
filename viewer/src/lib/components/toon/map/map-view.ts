@@ -5,7 +5,7 @@
 // - first opening of a toon's map (on this device): centred on where the reader is (`readerHere`) – the place's own view
 //   (owner 2026-10-10: "pro Location einen Zoom … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem
 //   Offset"; set in the creator's map builder), without one its point at zoom 2 ("Orte ohne diese Angaben: Mindeststufe 2
-//   und Zoomstufe 2 und der Punkt" – `placeView`, never below 2); nothing reached yet: the toon's start view;
+//   und Zoomstufe 2 und der Punkt" – `placeView`; an own zoom may be smaller – "kleiner geht schon", 2026-10-11); nothing reached yet: the toon's start view;
 // - after that: the view the reader left it at (centre + zoom, stored per toon in localStorage `scutoons_map_view`);
 // - except (a) an explicit focus (`focusMap` – for the story's focusMap event, agents/MAP.md §3): its frame wins on the
 //   next opening and becomes the remembered view; (b) the reader reached a new place (a new "here"): the next opening
@@ -15,7 +15,7 @@ import { PLACE_ZOOM, placeView, type MapPlace, type MapState, type Point, type R
 
 export const MAP_VIEW_KEY = 'scutoons_map_view';
 
-/** where the reader is on a toon's map: a place id and how the map frames it (`placeView`: point + offset, zoom ≥ 2) */
+/** where the reader is on a toon's map: a place id and how the map frames it (`placeView`: point + offset at its zoom, default 2) */
 export interface MapHere {
 	id: string;
 	/** the view centre (the place's point + its view offset) */
@@ -122,7 +122,7 @@ export function saveMapView(toon: string, view: StoredMapView): void {
 /**
  * An explicit focus for a toon's map (the story's focusMap event, agents/MAP.md §3 – M3 calls this, then opens the map):
  * the next opening shows this frame and remembers it. `target`: a world point, or a place (`{ id, x, y, view? }` – framed by
- * its view: point + offset, its zoom ≥ 2). `zoom` (explicit) wins; else a place's zoom; else the remembered zoom, else
+ * its view: point + offset at its zoom, default 2). `zoom` (explicit) wins; else a place's zoom; else the remembered zoom, else
  * `PLACE_ZOOM`. Listeners (an open map) apply it at once.
  */
 export function focusMap(toon: string, target: Point | Pick<MapPlace, 'id' | 'x' | 'y' | 'view'>, zoom?: number): void {

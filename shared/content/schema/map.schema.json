@@ -219,7 +219,7 @@
 			"properties": {
 				"zoom": {
 					"type": "number",
-					"description": "the zoom when the map centres on the place, `PLACE_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM`)"
+					"description": "the zoom when the map centres on the place, `MAP_MIN_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM` – owner 2026-10-11: \"kleiner geht schon\")"
 				},
 				"offset": {
 					"type": "object",

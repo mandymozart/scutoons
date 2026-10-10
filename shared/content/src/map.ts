@@ -62,7 +62,7 @@ export interface MapPlace {
 
 /** A place's own framing on the reader's map (agents/MAP.md §8.4) */
 export interface PlaceView {
-	/** the zoom when the map centres on the place, `PLACE_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM`) */
+	/** the zoom when the map centres on the place, `MAP_MIN_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM` – owner 2026-10-11: "kleiner geht schon") */
 	zoom?: number;
 	/** the view centre's shift from the place's point, world units (default none: the place itself is the centre) */
 	offset?: { x: number; y: number };
@@ -247,14 +247,14 @@ export interface Point {
 
 /**
  * Where the reader's map centres on a place, and at which zoom: the place's point + its `view.offset`, at its `view.zoom`
- * clamped to `PLACE_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM`). Junk values count as unset.
+ * clamped to `MAP_MIN_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM` = 2; a smaller own zoom is fine). Junk values count as unset.
  */
 export function placeView(place: Pick<MapPlace, 'x' | 'y' | 'view'>): { center: Point; zoom: number } {
 	const v = place.view;
 	const o = v?.offset;
 	const shift = o && Number.isFinite(o.x) && Number.isFinite(o.y) ? o : { x: 0, y: 0 };
 	const z = v?.zoom;
-	const zoom = typeof z === 'number' && Number.isFinite(z) ? Math.min(MAP_MAX_ZOOM, Math.max(PLACE_ZOOM, z)) : PLACE_ZOOM;
+	const zoom = typeof z === 'number' && Number.isFinite(z) ? Math.min(MAP_MAX_ZOOM, Math.max(MAP_MIN_ZOOM, z)) : PLACE_ZOOM;
 	return { center: { x: place.x + shift.x, y: place.y + shift.y }, zoom };
 }
 
@@ -779,8 +779,8 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 			const v = p.view;
 			if (!isObj(v)) add('error', [...path, 'view'], `${what}: the view must be { zoom?, offset? }`);
 			else {
-				if (v.zoom !== undefined && (!isNum(v.zoom) || v.zoom < PLACE_ZOOM || v.zoom > MAP_MAX_ZOOM))
-					add('error', [...path, 'view', 'zoom'], `${what}: the zoom must be a number from ${PLACE_ZOOM * 100} % to ${MAP_MAX_ZOOM * 100} % (${PLACE_ZOOM}–${MAP_MAX_ZOOM})`);
+				if (v.zoom !== undefined && (!isNum(v.zoom) || v.zoom < MAP_MIN_ZOOM || v.zoom > MAP_MAX_ZOOM))
+					add('error', [...path, 'view', 'zoom'], `${what}: the zoom must be a number from ${MAP_MIN_ZOOM * 100} % to ${MAP_MAX_ZOOM * 100} % (${MAP_MIN_ZOOM}–${MAP_MAX_ZOOM})`);
 				const o = v.offset;
 				if (o !== undefined && (!isObj(o) || !isNum(o.x) || !isNum(o.y))) add('error', [...path, 'view', 'offset'], `${what}: the view offset must be { x, y } in world units`);
 				else if (o !== undefined && isNum(p.x) && isNum(p.y) && !inside(p.x + o.x, p.y + o.y))
