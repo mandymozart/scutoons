@@ -745,8 +745,16 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
   `seen`, `reveal`, `position` are set operations – M3's events call the same.
 - Before the events: `unlocksFromProgress(places, toon, checkpoints)` → the world state (so they count everywhere). Routes
   are drawn through the visible places only (`routeDrawnTo`): the season-1 line grows with the reading.
-- The camera opens at the toon's start view (`view.center` / `zoom`); when that shows none of the places this reader
-  discovered in this toon, it fits those instead (max 3×).
+- The camera (owner 2026-10-10: "auf der Zoom-Stufe starten, an der Position … beim ersten Öffnen da, wo man gerade
+  ist; danach merkt sie sich den State der letzten Interaction, außer es wird explizit ein neuer Focus und Frame
+  gesendet … und beim Erreichen eines neuen Checkpoints"), decided on every opening (viewer `map/map-view.ts`):
+  1. a pending explicit focus (`focusMap(toon, center, zoom?)` – the hook for the map-focus event, not built yet) shows
+     its frame once and becomes the remembered view;
+  2. a new "here" (the story position, else this toon's most recently unlocked place) or nothing stored yet: centred on
+     here at the start view's zoom (2 without one) – once; after that the reader's own view is kept;
+  3. else the remembered centre + zoom (localStorage `scutoons_map_view`, per toon, per device);
+  4. no here and nothing stored: the start view, fitted to the discovered places when it shows none (max 3×).
+  ◎ goes back to here.
 
 ### 8.5 Builder (M2), start view, wanted images, the bidirectional unlock
 

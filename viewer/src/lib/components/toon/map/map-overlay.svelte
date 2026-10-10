@@ -9,6 +9,8 @@
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
+	import { untrack } from 'svelte';
+	import { MAP_FOCUS_EVENT, hereZoom, loadMapView, openingView, readerHere, saveMapView } from './map-view.ts';
 
 	/**
 	 * The map overlay (agents/MAP.md M1, DESIGN.md): the SCUTOONS world with pan / pinch / wheel zoom (one transform for
@@ -40,27 +42,76 @@
 	);
 
 	// ── the camera ───────────────────────────────────────────────────────────────────────────────────────────
+	// Every opening decides where the map opens (map-view.ts, owner 2026-10-10): the first time centred on where the reader
+	// is at the zoom level, then the view the reader left it at – unless a focus was sent or a new place was reached since.
+	/** the toon whose opening view is applied (cleared on close: the next opening decides again) */
 	let placed = '';
 	$effect(() => {
 		if (!data || !view.width) return;
 		view.worldWidth = data.width;
 		view.worldHeight = data.height;
-		const key = `${toon}:${data.view?.center.x}:${data.view?.center.y}`;
-		if (placed === key) return;
-		placed = key;
-		recenter();
-	});
-	function recenter() {
-		if (!data) return;
-		// the toon's start view; a phone sees less of the world: never further out than the whole width
-		const center = data.view?.center ?? { x: data.width / 2, y: data.height / 2 };
+		// a phone sees less of the world: never further out than the whole width
 		view.minZoom = Math.min(1, Math.max(0.15, view.width / data.width));
-		view.centerOn(center, data.view?.zoom ?? 1);
-		// the start view is set per toon in the creator (owner 2026-10-01); only when it would show none of the places this
-		// reader discovered in this toon, the map fits those instead (never zoomed in further than 3×)
+		if (!open) {
+			placed = '';
+			return;
+		}
+		if (placed === toon) return;
+		placed = toon;
+		untrack(applyOpening);
+	});
+	const whereNow = () => readerHere(places, toon, mapState);
+	function applyOpening() {
+		if (!data) return;
+		const decision = openingView(loadMapView(toon), whereNow(), hereZoom(data.view));
+		if (decision.kind === 'start') startView();
+		else {
+			view.centerOn(decision.center, decision.zoom);
+			saveMapView(toon, decision.store);
+		}
+	}
+	function startView() {
+		if (!data) return;
+		// the toon's start view (set in the creator, owner 2026-10-01); only when it would show none of the places this reader
+		// discovered in this toon, the map fits those instead (never zoomed in further than 3×)
+		view.centerOn(data.view?.center ?? { x: data.width / 2, y: data.height / 2 }, data.view?.zoom ?? 1);
 		const mine = places.filter(own);
 		if (mine.length && !mine.some((p) => view.onScreen(p, -24))) view.fit(mine, 56, 3);
 	}
+	/** ◎: back to where the reader is (at the zoom level), else the start view */
+	function recenter() {
+		const at = whereNow();
+		if (at && data) view.centerOn(at, hereZoom(data.view));
+		else startView();
+	}
+	// remember the reader's last view (centre + zoom) while the map is open – saved shortly after a move, and on close
+	let unsaved: { toon: string; x: number; y: number; zoom: number } | null = null;
+	let saveTimer: ReturnType<typeof setTimeout> | undefined;
+	function flush() {
+		clearTimeout(saveTimer);
+		if (!unsaved) return;
+		const { toon: forToon, ...at } = unsaved;
+		unsaved = null;
+		saveMapView(forToon, { ...at, here: forToon === toon ? (whereNow()?.id ?? null) : (loadMapView(forToon)?.here ?? null) });
+	}
+	$effect(() => {
+		if (!open || !data || !view.width || placed !== toon) return;
+		unsaved = { toon, ...view.toWorld({ x: view.width / 2, y: view.height / 2 }), zoom: view.zoom };
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(() => untrack(flush), 300);
+	});
+	$effect(() => {
+		if (!open) untrack(flush);
+	});
+	$effect(() => () => untrack(flush));
+	// an explicit focus (map-view.ts `focusMap`) while the map is open: show it now
+	$effect(() => {
+		const onFocus = (e: Event) => {
+			if ((e as CustomEvent<{ toon: string }>).detail?.toon === toon && open && view.width) applyOpening();
+		};
+		window.addEventListener(MAP_FOCUS_EVENT, onFocus);
+		return () => window.removeEventListener(MAP_FOCUS_EVENT, onFocus);
+	});
 
 	// ── labels: priority new → this toon's → others; hidden where they'd overlap ───────────────────────────────────
 	/** the root font size (0.75rem labels, 1rem markers: 14 / 16 / 24 px by the viewport, DESIGN.md "Type") */
