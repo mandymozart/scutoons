@@ -40,14 +40,31 @@ const OUT = resolve(ROOT, 'storyboards/_out', ch);
 const gen = resolve(OUT, 'generated');
 
 const WHO = { 'catpope/human': 'Cat Pope as a human woman (PLF) in a long white papal robe', 'catpope/regular': 'Cat Pope, a hairless sphynx cat pope in a white papal robe', 'catpope/mountaintiger': 'a huge white tiger with blue runes' };
-/** Qwen-Edit wants a short, direct instruction – not the long Luma brief */
+/** how much of the picture a figure fills (% of its height) and where – from the storyboard's x / y / h */
+function placeOf(shot, fig) {
+	const [a, b] = (shot.aspect ?? '9:16').split(':').map(Number);
+	const close = ['cu', 'ecu', 'mcu'].includes(fig.framing);
+	const pct = close ? 80 : Math.round(((fig.h ?? 0.3) * 844 * 100) / ((390 * b) / a));
+	const x = fig.x ?? 0.5, y = fig.y ?? 0.5;
+	const where = `${y < 0.34 ? 'top' : y > 0.66 ? 'bottom' : 'middle'}${x < 0.34 ? ' left' : x > 0.66 ? ' right' : ''}`;
+	return { pct, where, small: !close && pct < 25 };
+}
+/** Qwen-Edit wants a short, direct instruction – not the long Luma brief. A small figure gets no character image
+ *  (the model then copies the reference big into the frame – sb-25-1, 2026-10-10) – it is described instead. */
 function instruction(sb, shot, chars) {
 	const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
-	const who = chars.map((c, i) => `the ${c.fig.pose ?? 'standing'} figure${chars.length > 1 ? ` ${i + 1}` : ''} is ${WHO[`${c.cast.character}/${c.cast.persona ?? 'regular'}`] ?? c.cast.character} – look exactly like the character in image ${i + 2}${c.image?.mood ? `, ${c.image.mood} expression` : ''}`);
+	let n = 1;
+	const who = chars.map((c) => {
+		const name = WHO[`${c.cast.character}/${c.cast.persona ?? 'regular'}`] ?? c.cast.character;
+		const size = c.place.small ? `a SMALL figure, only about ${c.place.pct}% of the picture's height, at the ${c.place.where} – keep it that small` : `about ${c.place.pct}% of the picture's height, at the ${c.place.where}`;
+		const ref = c.withImage ? ` – looks exactly like the character in image ${++n}${c.image?.mood ? `, ${c.image.mood} expression` : ''}` : '';
+		return `the ${c.fig.pose ?? 'standing'} figure is ${name}: ${size}${ref}`;
+	});
 	return [
 		'Redraw image 1 as a finished black-and-white webtoon storyboard frame: clean, crisp ink line art on white paper, solid black shadows, high contrast like a noir comic.',
-		'Keep the exact composition, camera angle, framing, figure positions, poses and the light direction of image 1. Replace the plain mannequins with real characters and the simple blocks with real detailed places and things.',
+		'Keep the exact composition, camera angle, framing, figure positions, figure sizes, poses and the light direction of image 1 – do not enlarge or move anything. Replace the plain mannequins with real characters and the simple blocks with real detailed places and things.',
 		...who.map((w) => `In image 1, ${w}.`),
+		n < 3 ? `Image ${n + 1} is only a style reference for the drawing technique – do not copy its content.` : '',
 		shot.prompt?.en ? `The moment: ${shot.prompt.en}` : '',
 		`Light: one hard ${light.source && light.source !== 'scene' ? light.source : ''} light${light.key ? ` from the ${light.key}` : ''}${(light.soft ?? 0.5) < 0.3 ? ', no fill' : ', a little fill'}.`,
 		'No text, no letters, no speech bubbles, no panel borders, no colour' + (light.accent?.color ? ` except ${light.accent.color} on ${light.accent.on ?? 'the accent'}` : '') + '.'
@@ -109,8 +126,9 @@ for (const { sb } of loadStoryboards(src)) for (const g of sb.groups ?? []) for 
 	if (shot.format === 'loop360') { console.log(`${shot.id}: a panorama – not yet`); continue; }
 	const structure = resolve(OUT, 'clean', `${shot.id}.png`);
 	if (!existsSync(structure)) { console.log(`${shot.id}: no render yet (render-shots.mjs)`); continue; }
-	const chars = shotCharacters(sb, shot).filter((c) => c.image).slice(0, 2);
-	const files = [structure, ...chars.map((c) => c.image.file)];
+	const chars = shotCharacters(sb, shot).map((c) => ({ ...c, place: placeOf(shot, c.fig) }));
+	for (const c of chars) c.withImage = !!c.image && !c.place.small && chars.filter((d) => d.withImage).length < 2;
+	const files = [structure, ...chars.filter((c) => c.withImage).map((c) => c.image.file)];
 	if (files.length < 3 && styles[0]) files.push(styles[0]);
 	const prompt = instruction(sb, shot, chars);
 	const seed = seedArg != null ? Number(seedArg) : Math.floor(Math.random() * 2 ** 31);
