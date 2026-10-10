@@ -69,7 +69,7 @@ const gen = resolve(OUT, 'generated');
 
 // PLF in the chapters is the human priest OR the sphynx cat – Cat Pope (the cat-headed pope) only where the story shows
 // him, the mirror at the end of chapter 5 (owner 2026-10-10)
-const WHO = { 'catpope/human': 'PLF, a human priest in a long white papal robe – a human face, no cat features at all', 'catpope/regular': 'Cat Pope: a priest in a white papal robe with the head of a hairless sphynx cat', 'catpope/cat': 'a hairless sphynx cat – an animal on four legs', 'catpope/mountaintiger': 'a huge white tiger with blue runes' };
+const WHO = { 'catpope/human': 'PLF, a human priest – a real human man with shoulder-length wavy blond hair with pink tips, clean-shaven, in a plain white cassock with a short white shoulder cape (mozzetta), no patterns on the robe – no cat features at all', 'catpope/human/silicon': 'PLF, a human priest in a white papal cassock and short cape wearing a hairless sphynx-cat silicone mask with very large upright ears', 'catpope/regular': 'Cat Pope: a priest in a white papal robe with the head of a hairless sphynx cat', 'catpope/cat': 'a hairless sphynx cat – an animal on four legs', 'catpope/mountaintiger': 'a huge white tiger with blue runes' };
 /** how much of the picture a figure fills (% of its height) and where – from the storyboard's x / y / h */
 function placeOf(shot, fig) {
 	const [a, b] = (shot.aspect ?? '9:16').split(':').map(Number);
@@ -94,7 +94,7 @@ function instruction(sb, shot, chars) {
 	const light = { ...(sb.light ?? {}), ...(shot.light ?? {}) };
 	let n = 1;
 	const who = chars.map((c) => {
-		const name = WHO[`${c.cast.character}/${c.cast.persona ?? 'regular'}`] ?? c.cast.character;
+		const name = WHO[`${c.cast.character}/${c.cast.persona ?? 'regular'}/${c.cast.look}`] ?? WHO[`${c.cast.character}/${c.cast.persona ?? 'regular'}`] ?? c.cast.character;
 		const size = c.place.small ? `a SMALL figure, only about ${c.place.pct}% of the picture's height, at the ${c.place.where} – keep it that small` : `about ${c.place.pct}% of the picture's height, at the ${c.place.where}`;
 		const ref = c.withImage ? ` – looks exactly like the character in image ${++n}${c.image?.mood ? `, ${c.image.mood} expression` : ''}` : '';
 		return `the ${c.fig.pose ?? 'standing'} figure is ${name}: ${size}${ref}`;
