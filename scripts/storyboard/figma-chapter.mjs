@@ -50,7 +50,7 @@ function bytesOf(file) {
 }
 const texts = (dialog, x0, top, h) => (dialog ?? []).map((d) => ({
 	x: +(x0 + ((d.rect?.x ?? 5) / 100) * W).toFixed(1), y: +(top + ((d.rect?.y ?? 5) / 100) * h).toFixed(1), w: +(((d.rect?.width ?? 60) / 100) * W).toFixed(1),
-	text: textOf(d.text), lettering: d.font === 'lettering', variant: d.variant ?? 'narration'
+	text: textOf(d.text), lettering: d.font === 'lettering', variant: d.variant ?? 'narration', size: d.font === 'lettering' ? +((((d.size ?? 15) / 100) * W)).toFixed(1) : undefined, title: !!d.title
 }));
 
 // the layout: every group's slices stacked; a horizontal group (panorama) = one screen high

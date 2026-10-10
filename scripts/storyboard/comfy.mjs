@@ -53,7 +53,9 @@ const ch = basename(resolve(src));
 const OUT = resolve(ROOT, 'storyboards/_out', ch);
 const gen = resolve(OUT, 'generated');
 
-const WHO = { 'catpope/human': 'Cat Pope as a human woman (PLF) in a long white papal robe', 'catpope/regular': 'Cat Pope, a hairless sphynx cat pope in a white papal robe', 'catpope/mountaintiger': 'a huge white tiger with blue runes' };
+// PLF in the chapters is the human priest OR the sphynx cat – Cat Pope (the cat-headed pope) only where the story shows
+// him, the mirror at the end of chapter 5 (owner 2026-10-10)
+const WHO = { 'catpope/human': 'PLF, a human priest in a long white papal robe – a human face, no cat features at all', 'catpope/regular': 'Cat Pope: a priest in a white papal robe with the head of a hairless sphynx cat', 'catpope/cat': 'a hairless sphynx cat – an animal on four legs', 'catpope/mountaintiger': 'a huge white tiger with blue runes' };
 /** how much of the picture a figure fills (% of its height) and where – from the storyboard's x / y / h */
 function placeOf(shot, fig) {
 	const [a, b] = (shot.aspect ?? '9:16').split(':').map(Number);

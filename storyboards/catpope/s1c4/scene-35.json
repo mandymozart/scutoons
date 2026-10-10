@@ -56,6 +56,64 @@
       "continues": true,
       "shots": [
         {
+          "id": "sb-35-0",
+          "title": true,
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "crypt",
+          "view": "narration",
+          "light": {
+            "source": "none",
+            "note": {
+              "de": "Schwarz – nur der Titel."
+            }
+          },
+          "action": {
+            "de": "Der Kapiteltitel auf Schwarz, wie in Kapitel 2: oben klein „4. KAPITEL“, darunter groß „DEPRESSION“ – die 4. Phase der Trauer."
+          },
+          "figures": [],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "title": true,
+              "size": 9,
+              "rect": {
+                "x": 10,
+                "y": 36,
+                "width": 80
+              },
+              "text": {
+                "de": "4. KAPITEL"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "title": true,
+              "size": 18,
+              "rect": {
+                "x": 4,
+                "y": 44,
+                "width": 92
+              },
+              "text": {
+                "de": "“DEPRESSION”"
+              }
+            }
+          ],
+          "source": {
+            "want": "art"
+          },
+          "status": "draft"
+        },
+        {
           "id": "sb-35-1",
           "format": "viewport",
           "aspect": "9:16",
@@ -673,7 +731,7 @@
   ],
   "notes": [
     "Zeilen im Skript (1-basiert) in source.lines: 1478–1505.",
-    "Frage an den Owner: Kapiteltitel „4. Kapitel – DEPRESSION“ steht im Skript vor Szene 35. Wie in Kapitel 3 kein eigener Titel-Shot gesetzt – soll das Kapitel eine Titelkarte bekommen (z. B. als Text im Schwarz von sb-35-1)?",
+    "Kapiteltitel wie in Kapitel 2 (die fünf Trauerphasen): Titel-Shot am Anfang (Owner 2026-10-10).",
     "Frage an den Owner: das Skript wechselt bei PLF zwischen „er/ihn“ und „sie/ihr“ (auch innerhalb eines Absatzes). Wie in Kapitel 3 durchgehend „sie/ihr“ gesetzt – bestätigen.",
     "Frage an den Owner: Tageszeit. Kapitel 3 endet (sb-34-7) bei „day“; „klarer Himmel“ und „Sonnenlicht“ passen. Hier harte, hohe Sonne gesetzt.",
     "Gekürzt: „ein Ort, der in der nächsten Sekunde zusammenbrechen könnte“ wörtlich behalten; „Ein Glitch … der ihm immer wieder das Gefühl gab, nicht mehr zu wissen, was wahr war“ steckt im Bild (sb-35-7, falsche Schatten).",

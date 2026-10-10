@@ -67,6 +67,64 @@
       "continues": true,
       "shots": [
         {
+          "id": "sb-38-0",
+          "title": true,
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "narration",
+          "light": {
+            "source": "none",
+            "note": {
+              "de": "Schwarz – nur der Titel."
+            }
+          },
+          "action": {
+            "de": "Der Kapiteltitel auf Schwarz, wie in Kapitel 2: oben klein „5. KAPITEL“, darunter groß „AKZEPTANZ“ – die 5. Phase der Trauer."
+          },
+          "figures": [],
+          "dialog": [
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "title": true,
+              "size": 9,
+              "rect": {
+                "x": 10,
+                "y": 36,
+                "width": 80
+              },
+              "text": {
+                "de": "5. KAPITEL"
+              }
+            },
+            {
+              "variant": "caption",
+              "font": "lettering",
+              "title": true,
+              "size": 18,
+              "rect": {
+                "x": 4,
+                "y": 44,
+                "width": 92
+              },
+              "text": {
+                "de": "“AKZEPTANZ”"
+              }
+            }
+          ],
+          "source": {
+            "want": "art"
+          },
+          "status": "draft"
+        },
+        {
           "id": "sb-38-1",
           "format": "vertical",
           "aspect": "1:4",
@@ -443,7 +501,7 @@
             }
           },
           "action": {
-            "de": "Cat Pope (regulär) sitzt auf einem Yves-Klein-blauen Wasserspeicher, die Beine übereinander, wie ein Therapeut, und erklärt dem Leser. Neben ihm läuft eine umgekippte Gießkanne aus – eine kleine Sintflut im Beet."
+            "de": "Die nackte Sphynx-Katze sitzt auf einem Yves-Klein-blauen Wasserspeicher und schaut den Leser an, während die Erzählstimme erklärt – ruhig wie eine Therapeutin. Neben ihr läuft eine umgekippte Gießkanne aus – eine kleine Sintflut im Beet."
           },
           "air": [
             [
@@ -453,7 +511,7 @@
           ],
           "figures": [
             {
-              "cast": "catpope",
+              "cast": "sphynx",
               "framing": "medium",
               "mood": "smug",
               "pose": "sit",
@@ -1872,7 +1930,7 @@
             }
           },
           "action": {
-            "de": "Oben PLF, über die Pfütze gebeugt. Nach unten die Wasseroberfläche – darin, wo ihr Spiegelbild sein müsste, die nackte Sphynx-Katze, die zurückschaut, in derselben Haltung."
+            "de": "Oben PLF, der Mensch im weißen Gewand, über die Pfütze gebeugt. Nach unten die Wasseroberfläche – darin, wo sein Spiegelbild sein müsste, Cat Pope: der Papst mit dem Kopf der Sphynx-Katze, der in derselben Haltung zurückschaut. Hier erkennt PLF sich selbst."
           },
           "air": [
             [
@@ -1892,7 +1950,7 @@
               "h": 0.45
             },
             {
-              "cast": "sphynx",
+              "cast": "catpope",
               "framing": "medium",
               "mood": "neutral",
               "pose": "crouch",
@@ -1900,7 +1958,7 @@
               "x": 0.5,
               "y": 0.72,
               "h": 0.45,
-              "note": "nur als Spiegelbild in der Pfütze"
+              "note": "nur als Spiegelbild in der Pfütze – das einzige Mal, dass Cat Pope selbst im Kapitel erscheint"
             }
           ],
           "dialog": [
@@ -1948,7 +2006,7 @@
           "status": "draft",
           "note": "Die Auflösung: die Katze (catpope / cat) ist PLF. view real – das Spiegelbild zeigt die Wahrheit, nicht PLFs Glauben.",
           "prompt": {
-            "en": "Top: a person in a white robe crouches and leans over a puddle on a garden path at sunset. Below, in the water surface where the person's reflection should be, a hairless sphynx cat looks back up in exactly the same pose. Low hard sun from the right, the puddle bright with the evening sky, black ground."
+            "en": "Top: a human priest in a white papal robe crouches and leans over a puddle on a garden path at sunset. Below, in the water where his reflection should be, Cat Pope looks back up – the same priest in the same robe and pose, but with the head of a hairless sphynx cat. Low hard sun from the right, the puddle bright with the evening sky, black ground."
           }
         },
         {
@@ -1971,7 +2029,7 @@
             }
           },
           "action": {
-            "de": "Extrem nah, horizontal geteilt durch die Wasserlinie: oben PLFs Augen, unten in der Pfütze die Katzenaugen – exakt gespiegelt, dieselbe Form, derselbe Blick."
+            "de": "Extrem nah, horizontal geteilt durch die Wasserlinie: oben die Augen des Menschen PLF, unten in der Pfütze die Augen von Cat Pope – Katzenaugen im Sphynx-Gesicht, exakt gespiegelt, derselbe Blick."
           },
           "air": [],
           "figures": [
@@ -1986,14 +2044,15 @@
               "h": 0.5
             },
             {
-              "cast": "sphynx",
+              "cast": "catpope",
               "framing": "ecu",
               "mood": "neutral",
               "pose": "crouch",
               "facing": "front",
               "x": 0.5,
               "y": 0.72,
-              "h": 0.5
+              "h": 0.5,
+              "note": "nur als Spiegelbild in der Pfütze – das einzige Mal, dass Cat Pope selbst im Kapitel erscheint"
             }
           ],
           "dialog": [],
@@ -2004,7 +2063,7 @@
           "status": "draft",
           "note": "Stiller Beat in der Mitte (Owner 2026-10-10): das Erkennen, ohne Text. Frage: die Katzenaugen hier golden wie in Kapitel 4 (dann wäre es eine zweite Akzentfarbe neben dem Blau)?",
           "prompt": {
-            "en": "Extreme close-up split horizontally by a water line: above, a person's eyes; below, mirrored in a puddle, the eyes of a hairless sphynx cat with exactly the same shape and gaze. Low hard sun, pure black and white."
+            "en": "Extreme close-up split horizontally by a water line: above, a man's eyes; below, mirrored in a puddle, the eyes of Cat Pope – a sphynx cat's face under the papal collar – exactly the same gaze. Low hard sun, pure black and white."
           }
         },
         {
@@ -2090,7 +2149,7 @@
             }
           },
           "action": {
-            "de": "PLF sitzt mit einem Seufzen am Rand der Pfütze, schwarze Silhouette vor dem letzten Licht. In der Pfütze ihr Spiegelbild: die Katze, in derselben Haltung. Nach unten Dämmerung bis ins Schwarz."
+            "de": "PLF sitzt mit einem Seufzen am Rand der Pfütze, schwarze Silhouette vor dem letzten Licht. In der Pfütze sein Spiegelbild: Cat Pope, in derselben Haltung – er war die Katze, die ganze Zeit. Nach unten Dämmerung bis ins Schwarz."
           },
           "air": [
             [
@@ -2110,7 +2169,7 @@
               "h": 0.3
             },
             {
-              "cast": "sphynx",
+              "cast": "catpope",
               "framing": "full",
               "mood": "acceptance",
               "pose": "sit",
@@ -2118,7 +2177,7 @@
               "x": 0.4,
               "y": 0.62,
               "h": 0.2,
-              "note": "Spiegelbild in der Pfütze"
+              "note": "nur als Spiegelbild in der Pfütze – das einzige Mal, dass Cat Pope selbst im Kapitel erscheint"
             }
           ],
           "dialog": [
@@ -2153,20 +2212,49 @@
           },
           "status": "draft",
           "note": "Kapitelende: das Schwarz unten = Luft (und Platz für das 6. Lied, siehe notes)."
+        },
+        {
+          "id": "sb-38-28",
+          "format": "viewport",
+          "aspect": "9:16",
+          "projection": "perspective",
+          "move": "hold",
+          "shot": {
+            "size": "wide",
+            "angle": "eye"
+          },
+          "location": "garden",
+          "view": "narration",
+          "light": {
+            "source": "none",
+            "note": {
+              "de": "Schwarz – nur das Bild aus Zeichen."
+            }
+          },
+          "action": {
+            "de": "Das Schlussbild: die ASCII-Grafik vom Ende des Skripts, weiß auf Schwarz, als Bild gesetzt – einfach, mit Spaß."
+          },
+          "figures": [],
+          "dialog": [],
+          "source": {
+            "want": "art"
+          },
+          "status": "draft",
+          "note": "Owner 2026-10-10: „Die ascii graphik is spass. Das ist ein schluss bild. Einfach“ – das Bild liegt als generated/sb-38-28--g1.png bei."
         }
       ]
     }
   ],
   "notes": [
     "Zeilen im Skript (1-basiert) in source.lines: 1641–1753.",
-    "Frage an den Owner: Kapiteltitel „5. Kapitel – ACCEPTANCE“ – wie in Kapitel 3/4 kein eigener Titel-Shot.",
+    "Kapiteltitel wie in Kapitel 2 (die fünf Trauerphasen): Titel-Shot am Anfang (Owner 2026-10-10).",
     "Szenen-Box: „38 EXT. GARTEN EDEN IM SONNENUNTERGANG“ statt „GARDEN EDEN IM SONNEN UNTERGANG“ (Skript) – bitte bestätigen.",
     "Frage an den Owner: PLFs Grübeln (Zeilen 1643–1658) und die Aufzählung lesen sich wie Gedanken. Wie in Kapitel 3 als Sprechblasen gesetzt – oder Gedankenblasen / Erzählboxen?",
     "Frage an den Owner: „Quadrobiing, also zu einem Quadrant gemacht“ – gesetzt als „zum Quadrobing gebracht“ (die russische Quadrobics-Welle: auf allen vieren wie ein Tier). Ist „Quadrant“ gewollt (Wortspiel) oder ein Tippfehler?",
-    "Frage an den Owner: „5-4-3-3-2! Action!“ – die übliche Übung ist 5-4-3-2-1 (sehen, hören, spüren, riechen, schmecken). Absicht (PLF zählt falsch) oder Tippfehler? So aus dem Skript übernommen.",
+    "„5-4-3-3-2“ bleibt so (Owner 2026-10-10: ggf. Tippfehler, kann aber benutzt werden).",
     "Frage an den Owner: was schmeckt PLF (bitter, wie altes Fleisch)? Das Skript sagt es nicht – im Bild nur Erde an den Lippen (sb-38-22).",
     "Frage an den Owner: „OBI Gießkannen“ und „Yves Klein-blau“ – Marken- / Künstlername so lassen (vgl. „Apple Store“ in Kapitel 3)?",
-    "Frage an den Owner: das Lied „LIKE A BABY“ (6. Lied), „ENDE“ und die ASCII-Grafik nach Szene 38 sind nicht gestoryboardet. Läuft das Lied unter dem Kapitelende (sb-38-27), als Abspann, oder gar nicht?",
+    "Die Lieder werden nicht gestoryboardet – sie gehören zur App, nicht zum Toon, wahrscheinlich als Musikvideo (Owner 2026-10-10). Die ASCII-Grafik ist das Schlussbild (sb-38-28).",
     "Akzent: das Yves-Klein-Blau der Wasserspeicher (vom Skript ausdrücklich benannt) – die einzige Farbe der Szene. Das Licht ist hier bewusst etwas weicher (soft 0.6) als in Kapitel 3/4: Akzeptanz.",
     "Korrigiert (Tippfehler im Skript): überwältigend, Gabardine, geschlossen, wehren, „Endlich wurde es ruhig“ (Skript: „würde es Ruhe“), „das Summen wurde tiefer“, „ergab alles Sinn“, Reflexion, „Ord-Nung“ (Skript: „In Ord Nung“ – als Stocken gelesen).",
     "Gekürzt: „Bewältigungsmechanismen“-Absatz in zwei Boxen; „Durch ihre Finger glitten hochgewachsene Gräser“ zusammengezogen; „PLF zog die Arme zurück zum Körper“ im Bild.",

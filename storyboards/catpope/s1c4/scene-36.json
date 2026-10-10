@@ -1334,7 +1334,7 @@
             }
           },
           "action": {
-            "de": "Cat Pope (regulär) sitzt auf der Friedhofsmauer, den Rücken zum Friedhof, und spricht direkt zum Leser. Hinter ihm der Friedhof als flacher schwarzer Scherenschnitt, die Grabsteine wie Säulen eines Archivregals."
+            "de": "Die nackte Sphynx-Katze sitzt auf der Friedhofsmauer, den Rücken zum Friedhof, und schaut direkt den Leser an, während die Erzählstimme spricht. Hinter ihr der Friedhof als flacher schwarzer Scherenschnitt, die Grabsteine wie Säulen eines Archivregals."
           },
           "air": [
             [
@@ -1344,7 +1344,7 @@
           ],
           "figures": [
             {
-              "cast": "catpope",
+              "cast": "sphynx",
               "framing": "medium",
               "mood": "thinking",
               "pose": "sit",
@@ -1404,7 +1404,7 @@
   ],
   "notes": [
     "Zeilen im Skript (1-basiert) in source.lines: 1506–1567.",
-    "Die Sphynx-Katze ist im Register catpope / cat gesetzt: Kapitel 5 endet mit „Ich war die Katze!“ – die Katze ist PLF selbst (wie der Tiger in Kapitel 3). Die Shots verraten es nicht, lassen es nur ahnen (gespiegelte Haltung sb-36-7). Frage an den Owner: bestätigen.",
+    "PLF ist im Kapitel nur Mensch (Priester, ohne Katzenmerkmale) oder Sphynx-Katze; Cat Pope selbst erst im Spiegel am Ende von Kapitel 5 (Owner 2026-10-10).",
     "Frage an den Owner: Schreibweise „Spynx“ (Skript Szene 36) vs. „Sphynx“ (Szene 37) – „Sphynx“ gesetzt.",
     "Frage an den Owner: die Inschriften stehen in Text-Boxen (Lettering), damit sie übersetzbar bleiben; das Bild selbst bleibt ohne Schrift. Oder sollen sie in den Stein (Bild) und pro Sprache neu gerendert werden?",
     "Frage an den Owner: „Influencer“ ohne „:in“ (anders als die anderen Funktionen) – so aus dem Skript übernommen; Absicht?",

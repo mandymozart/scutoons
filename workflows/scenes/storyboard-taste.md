@@ -32,6 +32,18 @@ shot. Rules the checker can enforce go into `scripts/storyboard/validate.mjs` to
   pope regular. So it jumps between these states and perspectives" (2026-10-09)
 - **Catpope ch3: the tiger is PLF himself; he fights himself – and nature – but believes it is a tiger.** "He is
   battling themelf basically. But believe to be fighting a tiger." · "And nature." (2026-10-09)
+- **PLF in the chapters is either the human priest (no cat features) or the sphynx cat – the split is the point.**
+  Cat Pope himself (the cat-headed pope) appears only at the end of chapter 5: PLF sees his reflection in the water,
+  recognises himself as Cat Pope and understands he was the cat all along. "Plf in den capitals is immer etweder mensch
+  als priester ohne katzen gestalt und spynx katze. Die schizophrenia is important. Erst am ende beim spiegeln im
+  wasser erkennt sich plf selbst als cat pope und bemerkt das er die katze war die ganze zeit." (2026-10-10) – this
+  replaces "narrating as cat pope regular" for narration shots: they show the cat (or no figure). 3D: the human is the
+  Cat Pope model without ears – "Als 3d reicht einfach cat pope ohne ohren"; the photo references are in Figma.
+- **Every chapter opens with its title, as in chapter 2: the five stages of grief** (Leugnen · Ärger · Verhandeln ·
+  Depression · Akzeptanz), "N. KAPITEL" small over the stage in quotes, Bangers white with an ink outline, straight.
+  "Kapitel 2 hat einen titel. Es sind die 5 stages of grief." (2026-10-10)
+- **The songs are not storyboarded** – they belong to the app, not to the toon. "Die songs koennen ausgelassen werden
+  da die nicht direkt teil des toons sind sonder der app." (2026-10-10)
 - **Moods are the registry's moods** (acceptance, angry, bargaining, confused, crying, denial, disgusted, dizzy,
   embarrassed, furious, happy, laughing, neutral, sad, scared, smug, surprised, thinking) – the character images
   exist for those; nuance goes into the note. (from the reference packs, 2026-10-09)

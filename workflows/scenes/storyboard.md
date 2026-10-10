@@ -142,7 +142,9 @@ figure states its **persona** and **look** (the registry's: `catpope` = `regular
 Every shot states its **perspective** – `view`:
 - `real` – what happens, seen from outside;
 - `belief` – what the character believes / sees (PLF sees a tiger);
-- `narration` – the story told: Cat Pope in his `regular` form, outside the scene, speaking to the reader;
+- `narration` – the story told, outside the scene, speaking to the reader: the sphynx cat or no figure – **not** Cat
+  Pope `regular` (owner 2026-10-10: PLF in the chapters is only the human priest or the sphynx cat; Cat Pope himself
+  only where PLF recognises himself in the mirror at the end of chapter 5 – storyboard-taste.md);
 - `memory` – the past (YPLF, the training years).
 
 **Catpope, chapter 3 (owner 2026-10-09):** in the forest PLF is `human`, and the tiger is **PLF himself**

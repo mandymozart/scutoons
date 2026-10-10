@@ -6,7 +6,27 @@
 // the arms are bound in an A-pose (≈ 22° out), which the table's "out" angles take into account.
 import * as THREE from 'three';
 
-export function gltfHuman(gltf) {
+/**
+ * The model without the cat ears (owner 2026-10-10: PLF in the chapters is either the human priest – no cat features –
+ * or the sphynx cat; "als 3d reicht einfach cat pope ohne ohren"): every point of the upper head that lies outside a
+ * round skull (bind pose: centre 1.65 m up, radius 10.5 cm) is pulled onto it – the ears fold into the skull and the
+ * surface stays closed (deleting their triangles left holes to look through).
+ */
+function withoutEars(geo) {
+	const p = geo.attributes.position;
+	const c = new THREE.Vector3(0, 1.65, 0.02), r = 0.105, v = new THREE.Vector3();
+	for (let i = 0; i < p.count; i++) {
+		v.fromBufferAttribute(p, i);
+		if (v.y < 1.62) continue; // the face and the neck stay
+		const d = v.distanceTo(c);
+		if (d > r) { v.sub(c).multiplyScalar(r / d).add(c); p.setXYZ(i, v.x, v.y, v.z); }
+	}
+	p.needsUpdate = true;
+	geo.computeVertexNormals();
+	return geo;
+}
+
+export function gltfHuman(gltf, { ears = true } = {}) {
 	let mesh = null;
 	gltf.scene.traverse((o) => { if (o.isSkinnedMesh && !mesh) mesh = o; });
 	if (!mesh) throw new Error('catpope.glb: no skinned mesh');
@@ -33,6 +53,7 @@ export function gltfHuman(gltf) {
 	}
 	const bones = skel.bones.map((b) => fresh.get(b));
 	const geo = mesh.geometry.clone();
+	if (!ears) withoutEars(geo);
 	geo.deleteAttribute?.('color'); // the look is lit white: the hard light, not the paint, makes black and white
 	const skinned = new THREE.SkinnedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }));
 	skinned.castShadow = skinned.receiveShadow = true;

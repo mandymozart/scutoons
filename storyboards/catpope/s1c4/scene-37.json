@@ -144,7 +144,7 @@
             }
           },
           "action": {
-            "de": "Die Welt um den Brunnen bekommt Risse wie gesprungenes Glas; durch die Spalten schimmert eine zweite Wirklichkeit, anders beleuchtet, nicht ganz erkennbar. PLF am Beckenrand, mitten in den Rissen."
+            "de": "Die Welt um den Brunnen bricht auf wie Kontinentalplatten oder Eis auf dem Ozean: breite Schollen, die auseinanderdriften. Durch die Spalten scheint die andere Wirklichkeit – ein Lichtkegel, eine Spirale, Mikrochips und Maschinen, und Menschen, die Katzen sind. PLF am Beckenrand, mitten zwischen den Schollen."
           },
           "air": [
             [
@@ -195,7 +195,10 @@
             "want": "art"
           },
           "status": "draft",
-          "note": "Was die zweite Wirklichkeit zeigt, lässt das Skript offen (siehe notes) – hier bewusst unscharf."
+          "note": "Was die zweite Wirklichkeit zeigt, lässt das Skript offen (siehe notes) – hier bewusst unscharf.",
+          "prompt": {
+            "en": "The ground around a stone fountain breaks apart like tectonic plates or sea ice into drifting floes. Through the cracks another world shines up: a cone of light, a spiral, microchips and machines, and people who are cats. A person in a white robe stands at the basin edge between the floes. Hard light from the cracks, pure black and white."
+          }
         },
         {
           "id": "sb-37-3",
@@ -422,7 +425,7 @@
             }
           },
           "action": {
-            "de": "PLF über das Becken gebeugt, von unten aus dem Wasser gesehen, die Wasserkugel zwischen ihr und der Kamera. Ihr Gesicht erstarrt: sie begreift, dass sie selbst es ausgelöst hat."
+            "de": "PLF über das Becken gebeugt, von unten aus dem Wasser gesehen, die Wasserkugel zwischen ihr und der Kamera. Ihr Gesicht erstarrt: sie begreift, dass ihr eigener Zweifel es ausgelöst hat."
           },
           "air": [
             [
@@ -572,7 +575,7 @@
             }
           },
           "action": {
-            "de": "Das Bild des Friedhofs reißt wie Papier: breite Risse, dahinter Schwarz. Die Fetzen biegen sich nach außen, an ihren Rändern Pixelfransen. PLF klein auf einem der Fetzen."
+            "de": "Das Bild des Friedhofs bricht wie Eis auf dem Ozean: Schollen mit Gräbern und Zypressen driften auseinander, dazwischen Schwarz, an den Bruchkanten die andere Welt (Lichtkegel, Spirale, Schaltkreise). PLF klein auf einer der Schollen."
           },
           "air": [
             [
@@ -1220,10 +1223,10 @@
   ],
   "notes": [
     "Zeilen im Skript (1-basiert) in source.lines: 1568–1627.",
-    "Frage an den Owner: „Risse in ihrer Wahrnehmung, durch die eine zweite durchschimmerte“ – was ist die zweite Wirklichkeit? (Die Serverfarm aus Kapitel 3, der Garten, die Welt von Kapitel 1?) Hier bewusst unscharf (sb-37-2).",
-    "Frage an den Owner: „Sie war der Auslößer“ – PLF löst das Zerfallen aus. Wodurch – durch das Trinken / Berühren des Wassers? Im Storyboard zeitlich nach dem aufsteigenden Tropfen gesetzt, ohne Ursache zu zeigen.",
+    "Die andere Wirklichkeit (Owner 2026-10-10): Menschen sind Katzen, ein Lichtkegel, eine Spirale, Mikrochips und Maschinen scheinen durch; die Umgebung zerreißt wie Kontinentalplatten oder Eis auf dem Ozean.",
+    "Ihr Zweifel macht PLF zum Auslöser (Owner 2026-10-10).",
     "Frage an den Owner: die Brücke aus dem Schnurren, „Buchstabe für Buchstabe“ – wörtlich als Lettering-Brücke gesetzt (sb-37-16). Passt das, oder ist es bildlich gemeint?",
-    "Frage an den Owner: das Lied „ONCE TWICE THRICE“ (5. Lied) steht zwischen Szene 37 und Kapitel 5. Wie das 4. Lied in Kapitel 3: nicht gestoryboardet – Audio unter dem Kapitelende, Anfang von Kapitel 5, oder gar nicht?",
+    "Die Lieder werden nicht gestoryboardet – sie gehören zur App, nicht zum Toon (Owner 2026-10-10).",
     "Akzent: die goldenen Augen der Sphynx-Katze – die einzige Farbe der Szene.",
     "Gekürzt: „wieso auch, dachte sie doch noch Antworten zu finden“ weggelassen; „Unwirklichkeiten“ und „Mit letzter Kraft“ als Bild / kurzer Satz.",
     "Owner 2026-10-10 („ungefähr 30 % länger“): zusätzliche Beats in der Mitte – sb-37-4 (die Erinnerung an die Kugel), sb-37-9 (das Miauen im Nichts), sb-37-12 (PLF greift nach der Katze).",

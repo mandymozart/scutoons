@@ -75,7 +75,7 @@ export async function buildScene(shot, opts = {}) {
 	const L = shot.light ?? {};
 	const interior = shot.location?.time === 'interior' || /library|monastery|studio|server/.test(shot.location?.place ?? '') || L.source === 'none';
 	const skyWhite = !interior && !['moon', 'none', 'lightning'].includes(L.source) && shot.location?.time !== 'night';
-	const set = buildSet(scene, shot, { emissive, accentMat, interior });
+	const set = shot.title ? { practical() {} } : buildSet(scene, shot, { emissive, accentMat, interior }); // a title shot: black, only the title
 	const { camera, camY, dist } = shotCamera(shot);
 
 	const figs = [];
@@ -478,7 +478,7 @@ export function drawDialog(g, shot, figures, W, H, K = 1) {
 		const size = ((d.size ?? st.size) / 100) * W;
 		const text = st.uppercase ? String(d.text).toUpperCase() : String(d.text);
 		g.save();
-		if (preset === 'onomatopoeia') {
+		if (preset === 'onomatopoeia' || preset === 'title') {
 			g.font = `${size}px Bangers, Impact, sans-serif`;
 			const lines = wrap(text, w);
 			const lh = size * 1.05;

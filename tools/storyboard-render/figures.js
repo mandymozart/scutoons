@@ -392,9 +392,11 @@ export function figurine(c, assets = {}) {
 	if (id === 'catpope/mountaintiger') return assets.tiger ? assets.gltfTiger(assets.tiger) : tiger();
 	if (c?.character === 'crows') return crow();
 	if (c?.character === 'catpope' && c?.persona === 'cat') return tiger({ scale: 0.32 }); // the cat: the same quadruped, small
-	if (c?.character === 'catpope' && assets.catpope && ['regular', 'human', undefined].includes(c?.persona)) return assets.gltfHuman(assets.catpope);
-	if (c?.character === 'catpope') return human({ robe: true, cat: true });
+	// PLF in the chapters is the human priest (no cat features) or the sphynx cat; Cat Pope himself (regular, with the
+	// ears) only where the story shows him – the mirror at the end of chapter 5 (owner 2026-10-10)
+	if (c?.character === 'catpope' && assets.catpope && ['regular', 'human', undefined].includes(c?.persona)) return assets.gltfHuman(assets.catpope, { ears: c?.persona === 'regular' });
+	if (c?.character === 'catpope') return human({ robe: true, cat: c?.persona === 'regular' });
 	if (c?.character === 'boy') return human({ height: 1.35, build: 0.9 });
-	if (/YPLF|junge PLF/i.test(c?.new ?? '')) return human({ robe: true, cat: true, height: 1.68, build: 0.9 });
+	if (/YPLF|junge PLF/i.test(c?.new ?? '')) return human({ robe: true, height: 1.68, build: 0.9 }); // the young PLF: human, no cat
 	return human({});
 }

@@ -13,6 +13,9 @@ async function applyDraft(spec) {
 	await figma.setCurrentPageAsync(page);
 	await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
 	await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+	// the lettering font of the presets (Bangers) if Figma has it, else a heavy Inter
+	let lettering = { family: 'Bangers', style: 'Regular' };
+	try { await figma.loadFontAsync(lettering); } catch { lettering = { family: 'Inter', style: 'Bold' }; }
 	let frame = page.children.find((n) => n.name === spec.frame.name);
 	if (!frame) {
 		frame = figma.createFrame();
@@ -73,8 +76,16 @@ async function applyDraft(spec) {
 		storyboard.appendChild(node);
 		for (const d of s.texts ?? []) {
 			const t = figma.createText();
-			t.fontName = { family: 'Inter', style: d.lettering ? 'Bold' : 'Regular' };
-			t.fontSize = d.lettering ? 28 : 13;
+			t.fontName = d.lettering ? lettering : { family: 'Inter', style: 'Regular' };
+			t.fontSize = d.lettering ? d.size ?? 28 : 13;
+			if (d.lettering) {
+				// the Onomatopoeia / title preset: white letters, an ink outline
+				t.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+				t.strokes = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }];
+				t.strokeWeight = Math.max(1.5, (d.size ?? 28) * 0.1);
+				t.strokeAlign = 'OUTSIDE';
+				t.textAlignHorizontal = 'CENTER';
+			}
 			t.characters = d.text;
 			t.textAutoResize = 'HEIGHT';
 			t.resize(Math.max(40, d.w), t.height);
