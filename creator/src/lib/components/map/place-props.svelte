@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
+	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_ZOOM, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -98,7 +99,10 @@
 	const usedBy = $derived(routesThrough(map, place.id));
 	async function remove() {
 		if (usedBy.length) return;
-		if (!(await confirmDelete(m['creator.map_delete_confirm']({ name: mapName(place.name, locale) || place.id })))) return;
+		// events that unlock the place do nothing once it is gone (owner 2026-10-11) – said before it goes
+		const events = (await loadPlaceUnlocks())?.[place.id]?.length ?? 0;
+		const name = mapName(place.name, locale) || place.id;
+		if (!(await confirmDelete(events ? m['creator.map_delete_confirm_events']({ name, count: events }) : m['creator.map_delete_confirm']({ name })))) return;
 		removePlace(doc, place.id);
 		onselect(null);
 	}

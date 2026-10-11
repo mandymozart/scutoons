@@ -26,6 +26,19 @@ export async function loadToonDocs(toon: string, skip: ReadonlySet<string> = new
  * game for every toon: `toonFacts(…, { elsewhere })`). Nothing when it doesn't load (a label may then look unreached, a
  * variable set only in another toon unknown).
  */
+/**
+ * Which documents unlock which map place (unlockLocation events in every toon – the server's flow index): the map
+ * builder warns about a hidden place nothing unlocks and before a place with events is deleted. null when it doesn't load.
+ */
+export async function loadPlaceUnlocks(): Promise<Record<string, string[]> | null> {
+	try {
+		const index = await api.get<FlowIndex>('/creator/flow-index');
+		return index.placeUnlocks ?? {};
+	} catch {
+		return null;
+	}
+}
+
 export async function loadIncoming(toon: string): Promise<{ chapters: number[]; labels: string[]; elsewhere: { sets: string[]; reads: string[] } }> {
 	try {
 		const index = await api.get<FlowIndex>('/creator/flow-index');

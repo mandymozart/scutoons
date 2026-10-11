@@ -114,6 +114,8 @@ export interface ValidateContext {
 	seasonStatus?: string | null;
 	/** the item catalog's ids (`related_items` of seasons / chapters are checked against them; none = no check) */
 	items?: string[];
+	/** the world map's place ids (unlockLocation events are checked against them; none = no check) */
+	places?: string[];
 	/** the catalog items' variant ids (gives / pickups may name one) */
 	itemVariants?: Record<string, string[]>;
 	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
@@ -509,9 +511,13 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			checkTake(c, p, pp, ctx, 'takeItem');
 			break;
 		case 'unlockLocation':
-			// a place of the world map (agents/MAP.md §3.1); whether it exists is the map's business (the editors pick from it)
+			// a place of the world map (agents/MAP.md §3.1); one that is not on it (deleted, mistyped): the reader does nothing
+			// at all – the creator warns (owner 2026-10-11: "der Event verpufft – mit Warnung, dass was faul ist, nur im Creator")
 			if (!isObj(p) || typeof p.location !== 'string' || !p.location.trim()) c.error([...pp, 'location'], 'unlockLocation needs params.location: a place id of the world map');
-			else if (p.silent !== undefined && typeof p.silent !== 'boolean') c.error([...pp, 'silent'], 'silent must be true/false');
+			else {
+				if (ctx.places && !ctx.places.includes(p.location)) c.warn([...pp, 'location'], `the place "${p.location}" is not on the world map – this event does nothing for the readers`);
+				if (p.silent !== undefined && typeof p.silent !== 'boolean') c.error([...pp, 'silent'], 'silent must be true/false');
+			}
 			break;
 		case 'jumpTo':
 			if (!isObj(p)) c.error(pp, 'jumpTo needs params.target');

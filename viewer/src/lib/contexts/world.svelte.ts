@@ -311,16 +311,8 @@ export function createWorldContext(session: SessionContext | null) {
 	};
 }
 
-let _current: WorldContext | undefined;
-
-/** the page's world (the story runner's unlockLocation – no component context there) */
-export function getCurrentWorld(): WorldContext | undefined {
-	return _current;
-}
-
 export function setWorldContext(session: SessionContext | null) {
 	const context = createWorldContext(session);
-	_current = context;
 	setContext(KEY, context);
 	context.sync();
 	return context;

@@ -1086,6 +1086,8 @@ export interface FlowIndex {
 	/** every story variable of SCUTOONS by storage key (`catpope/x`, `x` = global – variables.ts): the toons that set it,
 	 *  the toons that read it (one save game for all toons) */
 	variables?: Record<string, { set: string[]; read: string[] }>;
+	/** place id → the documents whose unlockLocation events unlock it (agents/MAP.md §8.5b) */
+	placeUnlocks?: Record<string, string[]>;
 }
 
 /**

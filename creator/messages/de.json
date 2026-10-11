@@ -969,6 +969,8 @@
 		"map_image_plaster": "Gipsmodell",
 		"map_image_plaster_hint": "Dasselbe Diorama unbemalt, gleich gerahmt wie das bemalte Bild (gleiche Größe und Bodenpunkt). Schaltet die Story den Ort frei, blendet die Karte der Leser:innen vom Gipsmodell ins bemalte über.",
 		"map_hidden_by_event": "Versteckt, bis die Story den Ort freischaltet: ein unlockLocation-Event (im VN-Skript, auf einem Slice oder Item) – in jedem Toon.",
+		"map_hidden_never_unlocked": "„{name}“ ist versteckt, und kein unlockLocation-Event schaltet den Ort frei – Leser:innen sehen ihn nie.",
+		"map_delete_confirm_events": "„{name}“ löschen? {count} Dokument(e) haben unlockLocation-Events für diesen Ort – die laufen dann ins Leere.",
 		"map_used_in": "Verwendet in",
 		"map_used_in_routes": "Wege: {routes}",
 		"map_used_in_events": "Story-Events kommen mit den Karten-Events.",

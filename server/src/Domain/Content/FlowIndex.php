@@ -24,7 +24,7 @@ use Scutoons\Infrastructure\Database\Database;
 final class FlowIndex
 {
     private const CACHE_TTL = 3600;
-    private const VERSION = 'v5';
+    private const VERSION = 'v6';
     private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
@@ -190,7 +190,32 @@ final class FlowIndex
             foreach ($entry['chapters'] as $n => $p) $pictures[(string) $n] = (object) $p;
             $list[] = ['id' => $entry['id'], 'title' => $entry['title'], 'status' => $entry['status'], 'seasons' => $seasons, 'avatar' => $entry['avatar'], 'chapters' => (object) $pictures];
         }
-        return ['status' => 'success', 'toons' => $list, 'edges' => $edges, 'dead' => $dead, 'variables' => (object) $variableList];
+        return ['status' => 'success', 'toons' => $list, 'edges' => $edges, 'dead' => $dead, 'variables' => (object) $variableList, 'placeUnlocks' => (object) $this->placeUnlocks($docs)];
+    }
+
+    /**
+     * place id → the documents (entity keys) whose events unlock it – unlockLocation in a script, a slice trigger or a
+     * placed item's tap (agents/MAP.md §8.5b): the map builder warns about a hidden place nothing unlocks
+     * @param array<string, array<mixed>> $docs
+     * @return array<string, list<string>>
+     */
+    private function placeUnlocks(array $docs): array
+    {
+        $out = [];
+        foreach ($docs as $entity => $doc) {
+            $stack = [$doc];
+            while ($stack) {
+                $v = array_pop($stack);
+                if (!is_array($v)) continue;
+                $params = $v['params'] ?? null;
+                if (($v['type'] ?? null) === 'unlockLocation' && is_array($params) && is_string($params['location'] ?? null) && $params['location'] !== '') {
+                    $out[$params['location']][(string) $entity] = true;
+                }
+                foreach ($v as $child) if (is_array($child)) $stack[] = $child;
+            }
+        }
+        ksort($out);
+        return array_map(fn(array $where) => array_keys($where), $out);
     }
 
     /**

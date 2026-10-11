@@ -91,8 +91,14 @@
 		const request = queue.shift()!;
 		await load();
 		const place = data?.locations.find((p) => p.id === request.id);
-		getCurrentInventory()?.notifyPlace(place?.name ?? request.id, place?.image?.src);
-		if (!request.reveal || !place) {
+		// not on the map (deleted, mistyped – or the map could not load): the event fizzles, nothing happens
+		const added = place && world ? world.unlock([place.id]) : [];
+		if (!added.length || request.silent) {
+			request.done();
+			return void next();
+		}
+		getCurrentInventory()?.notifyPlace(place!.name, place!.image?.src);
+		if (!request.reveal) {
 			request.done();
 			return void next();
 		}

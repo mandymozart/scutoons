@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import { toast } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import { NEUTRAL_LOCALE, visibleDifferences } from '@scutoons/content';
@@ -13,26 +11,15 @@
 	 * meta pages and the chapter editor share it): an autosave to recover, a document converted from its per-language
 	 * versions on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded), a
 	 * save conflict (Reload / Overwrite). Unsaved changes = the Save button's dot, the not-live languages = the ActionBar's
-	 * file-status chip, Saved / Published / errors = toasts (DocSession); events that got their hidden id on load
-	 * (saving keeps them) = one toast per file here.
+	 * file-status chip, Saved / Published / errors = toasts (DocSession). Events' hidden ids: nothing shown.
 	 */
 	let { session, docs }: { session: DocSession; docs: ContentDoc[] } = $props();
 
 	const recoverables = $derived(docs.filter((d) => d.recoverable));
 	/** documents converted in memory that are not stored yet – one bar for all of them */
 	const conversions = $derived(docs.filter((d) => d.unconverted));
-	/** events that got their hidden id on load (agents/EXPRESSIONS.md §5): the next save stores them */
-	const withNewIds = $derived(docs.filter((d) => d.idsAssigned > 0));
-	/** the files already announced (a toast once per file and count, not on every change) */
-	const announced = new Set<string>();
-	$effect(() => {
-		const fresh = withNewIds.filter((d) => !announced.has(`${d.entity}:${d.idsAssigned}`));
-		if (!fresh.length) return;
-		untrack(() => {
-			for (const d of fresh) announced.add(`${d.entity}:${d.idsAssigned}`);
-			toast(m['creator.event_ids_assigned']({ count: fresh.reduce((n, d) => n + d.idsAssigned, 0), files: fileLabels(fresh.map((d) => d.entity)) }), { timeout: 8000 });
-		});
-	});
+	// events that got their hidden id on load (agents/EXPRESSIONS.md §5) are stored by the next save – silently
+	// (owner 2026-10-11: "ich muss nichts mit IDs zu tun haben")
 	const differences = $derived(conversions.flatMap((d) => visibleDifferences(d.converted!.report).map((r) => ({ file: fileLabel(d.entity), line: differenceLine(r) }))));
 	/** "Chapter 2", "Script (en)": a language only for a document stored per language (not the neutral `_`) */
 	const conflictLabel = (locale: string | undefined, entity: string) => (locale && locale !== NEUTRAL_LOCALE ? `${fileLabel(entity)} (${locale})` : fileLabel(entity));

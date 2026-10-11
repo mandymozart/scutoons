@@ -6,6 +6,7 @@ import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
 import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
 import { toonAsset } from './paths.ts';
+import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type QualityVariants } from './media-quality.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
 // ── The entity `map` ────────────────────────────────────────────────────────────────────────────────────────────
@@ -97,6 +98,20 @@ export interface MapImage {
 	 * same framing as `src` (size and ground point are shared)
 	 */
 	plaster?: string;
+	/**
+	 * the sizes of `src` for the screen's density (owner 2026-10-11: "Locations in 1x 2x 3x – 256 512 1024"): `low` 1x,
+	 * `medium` 2x, `high` 3x – the same shape as a slice's `imageVariants`; none = `src` alone
+	 */
+	variants?: QualityVariants;
+	/** the same for the plaster model */
+	plasterVariants?: QualityVariants;
+}
+
+/** A place image's `srcset` from its 1x / 2x / 3x files (`url` makes a file a URL); undefined without variants */
+export function placeImageSrcset(variants: QualityVariants | null | undefined, url: (path: string) => string): string | undefined {
+	if (!variants) return undefined;
+	const parts = MEDIA_QUALITIES.filter((q) => typeof variants[q] === 'string' && variants[q]).map((q) => `${url(variants[q]!)} ${IMAGE_QUALITY_DENSITIES[q]}x`);
+	return parts.length ? parts.join(', ') : undefined;
 }
 
 export type MapPathStyle = 'road' | 'trail' | 'flight' | 'sea';
@@ -714,6 +729,12 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				if (!/\.(webp|png|svg)$/i.test(p.image.src)) add('warning', [...path, 'image', 'src'], `${what}: the image should be a transparent WebP`);
 				if (p.image.plaster !== undefined && (typeof p.image.plaster !== 'string' || !p.image.plaster)) add('error', [...path, 'image', 'plaster'], `${what}: the plaster model needs a path (or none)`);
 				else if (typeof p.image.plaster === 'string' && !/\.(webp|png|svg)$/i.test(p.image.plaster)) add('warning', [...path, 'image', 'plaster'], `${what}: the plaster model should be a transparent WebP`);
+				for (const key of ['variants', 'plasterVariants'] as const) {
+					const v = p.image[key];
+					if (v === undefined) continue;
+					if (!isObj(v) || Object.entries(v).some(([q, f]) => !(MEDIA_QUALITIES as readonly string[]).includes(q) || typeof f !== 'string' || !f))
+						add('error', [...path, 'image', key], `${what}: ${key} must be { low, medium, high } (1x / 2x / 3x paths)`);
+				}
 				if (p.image.size !== undefined && (!isNum(p.image.size) || p.image.size <= 0)) add('error', [...path, 'image', 'size'], `${what}: the image size must be a positive number (px at zoom 1)`);
 				const a = p.image.anchor;
 				if (a !== undefined && (!isObj(a) || !isNum(a.x) || !isNum(a.y) || a.x < 0 || a.x > 100 || a.y < 0 || a.y > 100))

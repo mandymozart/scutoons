@@ -154,6 +154,11 @@
 	const moods = moodsDoc();
 	// the world map: read for the expressions' map facts (places are unlocked by unlockLocation events – owner 2026-10-11)
 	const worldMap = worldMapDoc();
+	/** the world map's place ids (unlockLocation events point at them); undefined until it is loaded = no check */
+	const worldMapPlaces = $derived.by(() => {
+		const map = worldMap.loading ? null : (worldMap.data?.[worldMap.primary] as { locations?: { id: string }[] } | undefined);
+		return map?.locations ? map.locations.map((l) => l.id) : undefined;
+	});
 	let toonInfos = $state<ToonInfo[]>([]);
 	let castTouched = $state(false);
 	const registryIndex = $derived(characterIndex(registryOf(registry)));
@@ -583,7 +588,9 @@
 				targets: jumpPlaces.targets(),
 				// placed items (and related items) are checked against the catalog once it is loaded
 				items: catalogItems,
-				itemRespawn
+				itemRespawn,
+				// unlockLocation: the world map's places (once loaded)
+				places: worldMapPlaces
 			};
 			if (data == null) {
 				if (doc.source[doc.primary] === 'missing') out.push({ level: 'error', file: doc.entity, locale: null, path: [], message: m['creator.missing']() });

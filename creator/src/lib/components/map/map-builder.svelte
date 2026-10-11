@@ -23,6 +23,7 @@
 	import { MapViewport } from '@scutoons/reader';
 	import { BarTabs, Icon, clickOutside, confirmDialog, liveRegion, region, type PhoneBarItem } from '@scutoons/ui';
 	import { confirmDelete } from '$lib/editor/ask.ts';
+	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import scutoonsAvatar from '$lib/icons/scutoons-avatar.svg';
@@ -179,7 +180,10 @@
 	}
 	const pageDocs = $derived<ContentDoc[]>([doc, ...touchedEntries.map((t) => entryDocs[t]).filter((d): d is ContentDoc => !!d)]);
 
+	/** place id → the documents whose unlockLocation events unlock it (all toons; null until / unless loaded) */
+	let placeUnlocks = $state<Record<string, string[]> | null>(null);
 	onMount(async () => {
+		loadPlaceUnlocks().then((u) => (placeUnlocks = u));
 		library.fetchRegistry({ draft: true }).then((r) => (registry = r)).catch(() => {});
 		await doc.load();
 		ensureMap(doc);
@@ -392,6 +396,9 @@
 			locale: null
 		}));
 		map.locations.forEach((p, i) => {
+			// a hidden place no unlockLocation event unlocks stays hidden for every reader (owner 2026-10-11)
+			if (p.hidden && placeUnlocks && !placeUnlocks[p.id]?.length)
+				out.push({ level: 'warning', file: entities.map, locale: null, path: ['locations', i, 'hidden'], message: m['creator.map_hidden_never_unlocked']({ name: mapName(p.name, locale) || p.id }) });
 			if (p.image?.src && missingImages.has(p.image.src)) out.push({ level: 'warning', file: entities.map, locale: null, path: ['locations', i, 'image', 'src'], message: `place "${p.id}": the image is not on the CDN (${p.image.src})` });
 		});
 		const order = { error: 0, warning: 1, info: 2 };
@@ -531,7 +538,9 @@
 	async function deletePlace(id: string) {
 		const place = map?.locations.find((p) => p.id === id);
 		if (!place || routesThrough(map, id).length) return;
-		if (!(await confirmDelete(m['creator.map_delete_confirm']({ name: mapName(place.name, locale) || id })))) return;
+		const events = placeUnlocks?.[id]?.length ?? 0;
+		const name = mapName(place.name, locale) || id;
+		if (!(await confirmDelete(events ? m['creator.map_delete_confirm_events']({ name, count: events }) : m['creator.map_delete_confirm']({ name })))) return;
 		removePlace(doc, id);
 		selection = null;
 	}
@@ -572,7 +581,7 @@
 		return {
 			label: selectionName,
 			onback,
-			items: [edit('place'), { id: 'visible', icon: hiddenLayers.has(s.id) ? 'eye-off' : 'eye', label: m['creator.map_layer_show'](), active: !hiddenLayers.has(s.id), run: () => toggleLayer(s.id) }]
+			items: [edit('place')]
 		};
 	});
 </script>
@@ -590,8 +599,9 @@
 		<ul>
 			{#each map?.layers ?? [] as l (l.id)}
 				<li class="item-row">
-					<input type="checkbox" checked={!hiddenLayers.has(l.id)} onchange={() => toggleLayer(l.id)} aria-label={m['creator.map_layer_show']()} title={m['creator.map_layer_show']()} />
 					<button type="button" class="item" class:sc-selected={selection?.kind === 'layer' && selection.id === l.id} onclick={() => select({ kind: 'layer', id: l.id })}>{l.id}{@render mark(`layer:${l.id}`)}</button>
+					<!-- shown on the canvas: an eye, on / off (owner 2026-10-11), right of the name – only here, not in the layer's own view -->
+					<button type="button" class="eye" aria-pressed={!hiddenLayers.has(l.id)} onclick={() => toggleLayer(l.id)} aria-label={m['creator.map_layer_show']()} title={m['creator.map_layer_show']()} data-testid="layer-eye-{l.id}"><Icon name={hiddenLayers.has(l.id) ? 'eye-off' : 'eye'} size="1.1em" /></button>
 				</li>
 			{/each}
 			<li><button type="button" class="item add" onclick={addLayer}>{m['creator.map_add_layer']()}</button></li>
@@ -1103,10 +1113,29 @@
 		margin: 0;
 		padding: 0;
 	}
+	.map-nav .eye {
+		all: unset;
+		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--control-height);
+		height: var(--control-height);
+		flex: none;
+		cursor: pointer;
+	}
+	.map-nav .eye[aria-pressed='false'] {
+		color: var(--muted);
+	}
+	.map-nav .eye:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-focus));
+	}
 	.map-nav .item-row {
 		display: flex;
 		align-items: center;
-		padding-left: 0.6rem;
+		justify-content: space-between;
+		padding-right: 0.25rem;
 	}
 	.map-nav .item {
 		all: unset;

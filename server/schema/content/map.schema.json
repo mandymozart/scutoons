@@ -173,11 +173,34 @@
 				"plaster": {
 					"type": "string",
 					"description": "the same diorama as the unpainted plaster model (owner 2026-10-11: \"zwei Zustände – als Gipsmodell und als bemaltes fertiges Diorama\"): the unlock reveal fades from it to the painted `src` (agents/MAP.md §8.5a). CDN-root path, the same framing as `src` (size and ground point are shared)"
+				},
+				"variants": {
+					"$ref": "#/definitions/QualityVariants",
+					"description": "the sizes of `src` for the screen's density (owner 2026-10-11: \"Locations in 1x 2x 3x – 256 512 1024\"): `low` 1x, `medium` 2x, `high` 3x – the same shape as a slice's `imageVariants`; none = `src` alone"
+				},
+				"plasterVariants": {
+					"$ref": "#/definitions/QualityVariants",
+					"description": "the same for the plaster model"
 				}
 			},
 			"required": [
 				"src"
 			]
+		},
+		"QualityVariants": {
+			"type": "object",
+			"properties": {
+				"low": {
+					"type": "string"
+				},
+				"medium": {
+					"type": "string"
+				},
+				"high": {
+					"type": "string"
+				}
+			},
+			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		},
 		"PlaceView": {
 			"type": "object",
