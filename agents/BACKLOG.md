@@ -855,6 +855,34 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
       typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
       sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
+- [ ] 10.61 **Migrations through a protected interface, a developer role** (owner 2026-10-11: "eine Schnittstelle über
+  MCP, die Migrationen laufen lässt … mit einer neuen Rolle absichern – nicht Admin, darüber hinaus: eine Developer-Rolle,
+  die mein Account hat, andere erst freigeschaltet"). Today: SQL pasted into phpMyAdmin (2026-10-11: #1267 collation
+  mismatch, a cache flush by hand). Plan: a `developer` role above admin (the owner's account only); the server's
+  migrator (`console migrate`) behind an endpoint that only a developer token reaches – MCP tools `migration_status`
+  (read) and `run_migrations` (pending ones, dry run first, then run + empty the library cache); every migration
+  idempotent and tested on a production-like copy first. Alternative / addition: the deploy runs pending migrations
+  itself (GitHub secret). Local DB in production's collation (utf8mb4_unicode_ci, owner: "nicht auf einer anderen
+  Umgebung entwickeln").
+- [ ] 10.62 **A derived reference index for the content documents** (research 2026-10-11: JSON documents stay the source –
+  the right model for a versioned authoring tool; what is missing is what MediaWiki / Sanity / Payload have): a table
+  `entity_refs(version_id, entity_key, status, ref_kind, ref_id, path)` filled on save / publish by one extractor
+  (TS + PHP, like the validators; `asset_usages` is the template) + a rebuild command → "used by", guards on delete /
+  rename (a place with unlockLocation events, a group label something jumps to), migrations that find their targets by
+  SQL, FlowIndex / ItemPlacements as queries. With it: stable ids for everything referenced (slices have none – the
+  2026-10-11 migration had to find slices by image path), `CHECK (JSON_VALID(json))`, one collation everywhere,
+  data migrations as new versions where possible (else a cache flush in the template), a `schemaVersion` per document.
+  Triggers for more (an entity in relational rows, like the catalog): its own writers outside the creator, frequent
+  409s on big documents, per-request queries across documents, the index rebuild > ~1 s.
+- [ ] 10.63 **Map rendering: culling, a spatial index, tiles** (owner 2026-10-11, research the same day): today one
+  terrain SVG (337 KB, 506 paths) + DOM markers with a simple cull (`onScreen(p, 160)`); done: camera input once per
+  frame, `moving` while zooming (wheel / pinch / keys / flight), labels at rest, place images scaled by transform and
+  picked by drawn size. Next, when needed: viewport culling with a spatial index (quadtree / rbush) for hundreds of
+  places; the terrain as WebP for the usual zooms (SVG or tiles for deep zoom); a tile pyramid with level of detail
+  (deep zoom) if the world grows past ~4096 units or zoom 8; one shared `MapTerrain` for viewer + builder so the
+  renderer can switch (Canvas / WebGL hybrid – markers and labels stay DOM for accessibility). Measure first on a
+  mid-range Android (chrome://inspect: pinch, pan, the reveal flight; ×5 / ×10 / ×25 places).
+
 - [ ] 10.60 **Publish down the tree, with a list to tick** (owner 2026-10-11): "was *eine* Datei ist, ist manchmal unklar.
   Wenn ich weiter oben in der Gruppe oder im Kapitel publishe, sollten alle darunterliegenden Drafts mitgehen – als Liste
   bestätigen, ob die mitgehen sollen oder nicht. So bleibt es granular, und ich habe eine Summary, wenn ich doch alle
