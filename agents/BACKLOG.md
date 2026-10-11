@@ -308,16 +308,363 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
 
 ## Open
 
-- [ ] 10.1 Fix the beta's issues on `platform` → `main` (deploys automatically).
-- [ ] 10.1c Fonts (IBM Plex Mono, Bangers + OFL licences) to `scutoons/fonts/` on the CDN. Branch `10.1c-cdn-fonts`
+- [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
+      then prune (ASSETS.md "Migration plan").
+- [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
+      **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
+      image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
+- [ ] 10.14 Admin claim page rework (owner 2026-10-02, during 6.8: "the ui in admin for claim needs rework") – details
+      from the owner; first guess: the two side-by-side note fields + the decision buttons hidden in the bottom bar.
+      Also: the viewer's claim form promises the current owner never reads the statement – true for owners, but an owner who
+      is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
+- [ ] 10.16b Admin claim page: no raw data (owner 2026-10-02) – part of 10.14.
+- [ ] 10.17 Deploys are not atomic: FTP replaces files one by one, so for a few seconds the API runs half old / half new
+      code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
+      (rename / symlink), or a maintenance flag during the upload.
+- [ ] 10.21 Asset picker rework (owner 2026-10-03: "we do have to fix the ui of the picker and its relation to the page
+      where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
+      opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
+      includes 10.20.
+- [ ] 10.23 Asset jobs on production (owner 2026-10-03: "Optimize" stays queued): `assets:jobs` reads the queue from its
+      own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
+      (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
+      upload → mark done. Job #1 (video-renditions, 2026-10-02 22:45) can be dropped.
+- [ ] 10.25 Map places ↔ story: where a place lives (owner 2026-10-03, "lets investigate … isn't group the better place?" –
+      **decide first, after the open UI fixes**). Findings 2026-10-03:
+  - **Unlock today:** on the place (world map `place.unlock` = toon, chapter, `slice` = the slice's image path, `at`).
+    The viewer unlocks it when the reader _sees_ that slice (`world.svelte.ts` `sliceSeen` → `placesForSlice`); a place
+    whose chapter has no slices yet unlocks from the chapter position `at` / a finished chapter (`unlocksFromProgress`).
+    The position never unlocks a slice place (VN choices skip groups). The slice inspector's "Unlocks place" box is the same
+    setting from the slice's side – its wording confuses ("the slice represents the place").
+  - **Jump today:** VN `jumpTo` = chapter + optional group label (`/catpope/chapter/2?label=scene-15`), the next bar too –
+    groups are the jump unit. The map card links only `place.chapter` (opens the chapter at its start, not at the place).
+  - **Idea:** the place on the **group** ("this scene is: Cathedral"): unlocks when the reader enters the group, the card
+    jumps to `chapter/N?label=<group>`, one setting shown from both sides (map builder: "Chapter 2 · scene-15"); chapter +
+    position stays the fallback for chapters without groups (3–5).
+  - **Doesn't line up yet:** chapter 1 is one group of 95 slices with two places (apartment slice 2, apartment-blocks
+    slice 72); chapter 2 `scene-20` holds church-square (slice 20) + cathedral (21); `scene-17` has none. Group labels are
+    not the screenplay scene numbers (places say scene 13–17, groups are scene-14 … scene-20).
+  - **Blocker:** splitting groups breaks the reader's infinite scroll (owner 2026-10-03) – fix that first, or keep groups
+    as they are and let a place point at a group + an optional slice (unlock precision) instead of splitting.
+  - **Open decisions:** split vs. group + slice; rename groups to their places (labels are in jump links – only with OK).
+- [ ] 10.26 Delete a chapter safely (owner 2026-10-03: "how could i delete a chapter? … super dangerous"). Today nothing
+      can be deleted: the API has no delete for entities (versions are append-only), so no chapter is lost. Numbers are given
+      automatically (next free, never reused) and are the chapter's identity (entity `chapter:<toon>:<n>`, URL, release order;
+      shown big in the chapter's Meta since f345743). Proposed rules, enforced by the **server**, the creator only mirrors them:
+      only a chapter that was **never published** in any language (status draft) and is the **last of its season**; a typed
+      confirmation (the chapter number, in-page dialog); delete = removed from the season's sequence + the entity marked deleted,
+      its versions kept (admin can restore; purging is a separate admin step). A published chapter is never deleted – at most
+      hidden (draft / coming soon), so links and reading progress keep working.
+- [ ] 10.35 **Jump targets: string values + jumps into another toon at a label** (owner 2026-10-06, branch _(owner 2026-10-11: the production steps are done; open: only the scene-14 decision, step 3)_
+      `chapter-neutral`, DATA.md "Jumps into another toon at a label"): `JumpToTarget.toon` is a new optional field (no
+      migration; old code ignores it – such a jump would land in the CURRENT toon's chapter of that number – so deploy
+      viewer + creator + API together before saving such jumps). `content:check` found the old chapter 2 stroll's targets with a NUMBER value (`"value":2`
+      – the type says string): 11 versions, all `scene:catpope:2:scene-14` (+ de / en), 3 targets each.
+      **O – production steps:**
+  1. phpMyAdmin → d0487143 → SQL, check first:
+     `SELECT COUNT(*) FROM entity_versions WHERE json REGEXP '"type":"(chapter|season|toon|product|xr)","value":-?[0-9]';`
+     (and the same on `content_versions`).
+  2. Run `server/migrations/mysql/2026-10-06-target-value.mysql.sql` (idempotent, `"value":2` → `"value":"2"`, any
+     time – old and new code read both); the SELECTs answer 0 afterwards.
+  3. **Owner decision**: the published `scene:catpope:2:scene-14` (201, + de 127 / en 128) still has an event of the
+     unknown type `end` (`{"type":"end","params":{"jumpTo":…scene-20}}` – the reader skips it, `content:check` reports
+     it). Publishing the scene's newest version (no `end`) or deleting the event clears it; which one is yours.
+- [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
+- [ ] 10.38 **Items are not variables** (owner 2026-10-06: "it is just a naming conflict"; "with script we can not
+      create items"): an item exists only in the catalog (admin) and lives in the reader's inventory (global, per
+      account); a story variable is the script's own number / text (`x` = this toon's, `global.x`, `<toon>.x` –
+      variables.ts). Today they mix: `set` / `add` of a variable named like a catalog item also grants the item (the VN
+      item bridge, `grantStoryItem` in viewer variable-actions.ts; a slice pickup grants and then `add`s the variable),
+      so `catpope/cucumber` is a story count that drifts from the real inventory (eating, crafting). Steps:
+  1. ✅ _(2026-10-06, 6b7a46f0)_ Read: `inventory.<item>` = how many the reader has (shorthand for
+     `inventory.count("<item>")`; the analyser checks it against the catalog – `unknown-item`; viewer, creator sample
+     readers, the PHP analyser). A namespace is never a variable's domain (`inventory.x = 1` is refused).
+  2. ✅ _(dadb1e2d)_ Warn: a story variable named like a catalog item – setVariable / choice set + add / askText ("give
+     it with giveItem"), a condition ("what the reader has is inventory.<item>"), a bare item name in an expression
+     (`item-as-variable` → `inventory.<item>`).
+  3. ✅ _(dadb1e2d)_ Give: VN event `giveItem` { item, qty 1 … 10 } and a choice's action `give` { item, qty } – types,
+     validation, schemas, the Flow box ("gives cucumber ×2"), the viewer (`giveStoryItem`: source story, once per place),
+     the creator (+ giveItem, "give an item", the GiveItemField with the catalog picker).
+  4. **Take – decided (owner 2026-10-07):** VN event `takeItem` { item, qty, repeat } and a choice's `take`.
+     - What: an item with the catalog flag **"a story may take it"** (admin, off by default) – also another toon's items;
+       **physical items never** (only claims move those).
+     - Repeats: the trigger / pickup intervals (`repeat`: every time – the default –, once, per page view, every N
+       minutes / hours / days), per event.
+     - Too few: all or nothing – nothing is taken; the script guards it (`if inventory.x >= n`). In a choice's action
+       list a failed take stops the rest (a trade never gives for free); the story goes on. A take can lead into a
+       detour (`divert`).
+     - Test content: toptoy ch1 (the mama story) – 5 cucumbers to pick up on one slice, Top Toy trades a blotter (`lsd`)
+       for 5 cucumbers, swallowing it diverts into a short psychedelic detour.
+     - ✅ _(2026-10-07, 53859498 + this commit)_ built: the engine (see the commit), the catalog flag set for `cucumber` /
+       `lsd` in the dev DB, toptoy ch1 draft 819 (dev DB): group `blotter-deal` (s1c2-slice-53: 5 cucumber pickups, a tap on
+       Top Toy offers "Trade (5 cucumbers)" if `inventory.cucumber >= 5` → take 5 + give a blotter, "Swallow the blotter"
+       if `inventory.lsd >= 1` → take it + jump to `lsd-trip`, "No thanks"), `mama-hypercity`, `lsd-trip` (a short
+       psychedelic talk, then back to mama-hypercity). End to end headless as the test user: all 7 steps pass. Found on
+       the way: the follow-up bar's 5 s countdown went on while the reader picked things up – a tap on the page stops it now.
+       **O – production:** set "a story may take it" on the items in admin, and the content via the creator (the dev
+       draft isn't on production).
+  5. ✅ _(this commit)_ Data: the dev DB analysed (latest versions: 4 choice adds in scene:sandbox:1/2/5 – cucumber ×3,
+     testo; older versions catpope's repair_coupon / broken_record_player; no setVariable / condition on an item) →
+     `server/migrations/mysql/2026-10-07-give-item.mysql.sql` (choice `add` / setVariable `add` of an item-named
+     variable → `give` / `giveItem`, history included; PHPUnit `testTheGiveItemMigration`) – run on the dev DB: 52
+     versions. The bridge is gone (`set` / `add` never grant; a slice pickup only grants – no story variable, and it no
+     longer counts as a set variable in the facts / FlowIndex). make-sandbox.ts writes `give`. Checked in the browser:
+     sandbox chapter 2's testo ("Einsammeln") lands in the inventory, source story, no `sandbox/testo` variable.
+      **O – production:** run `2026-10-07-give-item.mysql.sql` in phpMyAdmin **together with** the viewer + creator
+      + API deploy (an old viewer doesn't know `give` – a choice would give nothing; the new one doesn't grant on
+      `add`). Check first: the header's SELECT; afterwards it answers nothing.
+- [x] 10.39 **Creator: copy / cut / paste** (owner 2026-10-07: "as granular as possible", to save editing time; the main
+      case: from one toon or hidden draft to another, inside the same system). Concept: UI-CONCEPTS.md E.7. Decided:
+      - **One system only.** No sandbox → production transfer (owner: "too much overhead") – no media in the clipboard,
+        no upload on paste.
+      - **System clipboard, no API change:** the DOM copy / cut / paste events (no permission prompt), JSON with a
+        marker; a paste goes into the open document (`doc.edit` = one undo step) and is saved by the normal PUT.
+        Cmd/Ctrl+C / X / V; Shift+V = the settings only onto the selection (a text box's look, an event's params …).
+        Ctrl+X today only deletes (chapter-editor.svelte onKeydown) – it becomes copy + delete.
+      - **The live region shows (10.40, UI-CONCEPTS E.8):** the region clicked / focused last is live; its selection is
+        light cyan with a primary-colour border and dark blue text, selections elsewhere stay inverted; the shortcuts
+        act on the live selection only.
+      - **Ids:** fresh on paste (events via assignEventIds, text boxes via `taken`, `showTextBox` follows its box).
+        Placement ids become **random** (`<item>-<7 random>`, like event ids) for new placements and pastes – today
+        `<item>-<n>` is unique per slice only, so the same image reused on another slice of the toon with the same
+        item shares the pickup memory (`picked:<slice image>#<id>`, slice-items.ts). Existing ids stay (readers'
+        keys); a one-off SELECT for collisions that already exist.
+      - **Media: cross-toon references, no copies** (owner: duplicates "create a mess"). A paste into another toon
+        writes `../<source toon>/…` (owner 2026-10-07: keep `../`); one helper `toonAsset(toon, path)` in reader + creator replaces every
+        `` `${toon}/${path}` `` (slice image, variants, video, audio, key visual) – today only the VN character views
+        read a leading `/`, so a picked slice image from another toon is broken (an existing bug, fixed by this).
+        Stored `slice.image` values are never rewritten (the pickup key contains them) – a SELECT first for `/` / `../`.
+      - **Sounds:** the clipboard carries the used `audio` library entries; a paste adds the missing ones.
+      - **Item limits, combined (owner):** placements across all toons (`placements: n`) AND owners in the world
+        (the planned `unique` / `max_world`, ITEMS.md). **API extension:** the catalog fields (admin), a count on save
+        (PUT /api/entities → 422 over the limit), `GET /api/catalog/items/<id>/placements` (where else it is placed),
+        the grant check across all accounts. The creator: a Problems error + a paste refuses with a toast.
+      Steps: 1. the live region = 10.40 (first) · 2. clipboard + text boxes (+ Shift+V) · 3. items, sound + event areas · 4. VN
+      events · 5. slices + groups, `toonAsset` + the path SELECT · 6. random placement ids · 7. item limits (API) ·
+      8. optional: a right-click menu.
+      _(Built 2026-10-07, all steps – Day run result. Decided on the way: a paste into another toon writes `../<toon>/…`
+      (the asset picker's form; all 272 out-of-folder values in the dev data are `../`, none `/`) – `toonAsset` reads
+      both. SELECTs: 0 pickup-key collisions (6 placements). No migration: the limits are catalog JSON fields.
+      **Owed:** PHPUnit ItemLimitsTest + browser checks of steps 6–8 (Docker hung).)_
+- [x] 10.40 **One selection model, app-wide** (owner 2026-10-07: "we need an all app wide concept, done thoroughly";
+      concept + inventory + drafts: UI-CONCEPTS.md E.8). Inverted today means six things (nav, selection, listbox
+      highlight, toggle on, hover, progress) and "selected" is drawn four ways. Decided (owner 2026-10-07, drafts on the
+      chapter page): selected = inverted (brutalist, unchanged); **live selection** (selected AND in the live region –
+      what keys act on) = `--surface-tint-cyan` background, 2px inset border in `--primary-color`, text #005a70 (new
+      tokens `--select-live-*`); nav "you are here" stays inverted (live look only when it is also the live
+      selection); toggles / tabs / segmented stay inverted; hover never inverted; focus = 3px ink everywhere (fix the
+      `all: unset` gaps, toggle 2px, menu). One `region` action + `liveRegion` store in @scutoons/ui, one class
+      `sc-selected`, the only selection CSS in tools.css; keys (Delete, arrows, Esc, copy / paste) act on the live
+      region only – fixes Delete in the slice list deleting the canvas box. Steps 1–6 in E.8 (tokens + tools.css →
+      @scutoons/ui → creator chapter editor → other creator pages → admin / embassy → checks). Picked = the selected
+      look, all cyan when live (owner confirmed 2026-10-07). Built 2026-10-07 (UI-CONCEPTS E.8 status).
+- [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
+      anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
+      portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
+      anything the reader does), one consistent style that gets readers used to the VN style. _(concept first – E.5)_
+      _(2026-10-07, part 1 built – the ground: the box reports its height only while it shows, the follow-up bar reports
+      its own; the characters stand on the shown box, else on the bar, else 1 rem above the page bottom (vn/characters.svelte,
+      message.svelte, next-bar.svelte). chain-vn 24/24; not watched with the box gone (the pane was hidden at night) –
+      **owner: a look on the phone**. Part 2 (the end actions inside the box) = UI-CONCEPTS.md E.5, drafts first.)_
+- [x] M.4 **Creator: the slice editor needs more room** (owner screenshot 2) – a bigger canvas by default, zoom like
+      the Flow graph, the tool icons (text, item, sound, effect) as a vertical strip on the left, Snap + its "30 px"
+      as one small button (options on click), the slice takes the freed space. _(concept first – E.4)_
+- [x] M.5 **Top messages need a new concept** (screenshot 2, the "Published ×" banner) – they take a lot of room,
+      appear often and make the layout jump; informative ones ("Published") fade by themselves; they show without
+      pushing the layout. _(with M.13 – E.1)_
+- [x] M.6 **Navigation hierarchy (concept)** – bug: the Flow view jumps at slice / group / chapter / season / toon
+      level. Problem: two navigations compete (left of the edit view, and the Flow on the right; either jumps to the
+      other), so it's never clear how the edit view relates to the Flow's level. Idea: the left menu and the main
+      panel are linked and ARE the hierarchy; Ask and Flow only take their context from it and otherwise stay
+      independent – entry points, not a second navigation. _(with M.14 – E.3)_
+      _(2026-10-07, the jump fixed (UI-CONCEPTS.md E.3 a): the chapter Flow was rebuilt on every selection
+      ({#key level:current:slice} → SvelteFlow + dagre + the first view at zoom 1 again). Now only a level change rebuilds
+      it; a new group / slice on the same level updates the graph in place, the zoom stays and the view pans only when
+      the current box is out of sight (flow-panel.svelte, flow-controls.svelte). creator-dock 82, creator-reach 21; the
+      feel not watched (the pane was hidden) – **owner: try group → group, slice → slice**. The concept (sidebar + main =
+      the hierarchy, the dock keeps the panel across pages) = E.3 b/c.)_
+      _(2026-10-07, E.3 b/c built (BACKLOG 10.46): the Flow is one dock panel toon → season → chapter (zoom kept), Ask
+      reads the crumbs. **Owner: try toon → season → chapter with the Flow open, and group → group.**)_
+- [x] M.9 **Creator: strip preview for vertical groups** – the same strip preview horizontal groups have. _(after M.4)_
+- [x] M.10 **Explore: the viewer as a dock panel** (like Flow and Ask) – up to date with every saved draft; selecting
+      an element in the other views jumps the viewer there. Exploration first, not a fix. _(after M.6)_
+- [x] M.13 **Creator: the published / unpublished status bar takes room** (e.g. from the slice editor). _(with M.5 –
+      E.1)_
+- [x] M.14 **Header + breadcrumbs take too much room** (the creator title next to the SCUTOONS logo, plus the crumbs).
+      Too many crumbs → the left ones collapse into a clickable "…". The crumbs are the main way back up – they must
+      stay usable (a problem today). The hierarchy: SCUTOONS > Toon > Season > Chapter > Group > Slice (owner: the
+      season level too). The creator title is what gives way (owner: "the creator title can go"). _(with M.6 – E.2)_
+- [ ] M.15 **Investigate: some slices look poor even at 2x and high quality** – where is it lost: the upload /
+      resize pipeline, compression settings, which size variant the reader serves, or CSS scaling.
+      **Findings 2026-10-07** (the dev DB = the production seed, its asset registry, the code):
+      1. **The files aren't there (the main loss).** No slice has a 3x file; catpope ch1 (95 slices) has no 2x either
+         (only ch2's scenes 14 / 17 / 18 have 2x). The registry has one 390 px "original" per ch1 slice (s1c1-slice-1:
+         9.5 KB) – nothing larger exists anywhere. The reader falls back down (pickQualityVariant): "High" on a 3x phone
+         gets the 390 px file, upscaled 3×. **Fix = content:** re-export from the masters at 1170 px (3x) and drop them
+         on "Import slices" (it makes 1x / 2x / 3x from a 3x file, replacing the slice's image, texts stay).
+      2. **The level ignores the screen.** low / medium / high = 1x / 2x / 3x by bandwidth only; a 2x laptop showing
+         the 500 px reading column needs ~1000 px – the 2x file (780 px) is upscaled 1.28× even on "Medium". Proposal:
+         Automatic picks at least the screen's density (devicePixelRatio × the column's width) when the bandwidth allows.
+      3. **The encoder.** The browser's WebP (canvas.toBlob, quality 0.88, media-upload.ts) always subsamples colour
+         4:2:0 – crisp coloured line art (red / cyan on black) smears a little. Proposal: quality 0.92, or the server
+         encodes with libwebp `-sharp_yuv` (the asset jobs) – compare on one slice first.
+      4. CSS: `.slice img { width: 100% }` in a ≤ 500 px column – no extra scaling beyond 1. / 2.
+      **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
+- [ ] 10.58 **Newsletter** (owner 2026-10-07: mails to every member and to the old QR form's addresses, bundled so the
+      SMTP isn't overloaded; first one: the invitation to the next chapter release, week of 2026-10-12) – built on branch
+      `newsletter` (agents/NEWSLETTER.md): contacts (old QR form + event lists, language per contact), audiences,
+      batches through the SMTP account with an hourly limit (runtime setting, 200), bounces / unsubscribe (link +
+      one-click), admin Emails → Newsletters / Contacts / Unsubscribed. **O –** the going-live steps in NEWSLETTER.md
+      (migration `2026-10-07-newsletter.mysql.sql`, secret `NEWSLETTER_CRON_KEY`, KAS cron every 5 min, SPF / DKIM /
+      DMARC check, contact languages, event lists).
+- [ ] 10.56 **Reader FX: feedback cues** (owner 2026-10-07; started the same day: "free to go") – hints, pickups,
+      reveals and impacts as one set of cues (motion + sound + haptic) inside the visible viewport; no external MIDI /
+      devices. Plan, rules, phases and open decisions: agents/FX.md. The live performance mode that builds on it:
+      agents/LIVE.md (target February 2027, explored in its own session). Phases 1 + 2 built (pickup collect / refuse,
+      nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
+      typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
+      sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
+
+- [ ] 10.66 **Place dioramas on the map: world-fixed size, clickable, outlines, routes behind them** (owner 2026-10-11,
+  the builder on a phone: "die Dioramen müssen wesentlich kleiner sein, sie dürfen nicht so überlappen – man sieht die
+  Tasse erst, wenn man weiter reinzoomt"; "die Icons müssen in der Größe fixiert sein mit der Karte – deshalb die drei
+  Auflösungen"). Today a place image is drawn at `size` × min(zoom, 3) px – it stops growing at zoom 3 and is far too big
+  for the dense city cluster (places ~10–40 world units apart). Wanted: (1) the image sized in WORLD units and scaled with
+  the map at every zoom (no cap) – a much smaller default `size`, so far out it is tiny and close in it is big; the
+  1x / 2x / 3x files are picked by the drawn size (already built: srcset `256w / 512w / 1024w` + sizes); the same in the
+  viewer and the builder (one shared place-image component, like MapTerrain). (2) The image is clickable: it selects /
+  activates the place (today only the small marker is). (3) A place without an image shows an abstract diorama
+  outline (one SVG, dashed) as its selectable element instead of the dot. (4) Routes go behind a place's diorama /
+  outline – entering and leaving it (an entry and an exit point) for an interesting path. Route animation (a path that
+  grows with the progress) is separate – not part of this. (5) Against overlaps (owner: "ein Grid auf die Karte – oktagonal oder
+  quadratisch – Orte nur innerhalb dieses Grids setzen"): octagons don't tile on their own (squares fill the gaps) – the
+  real choice is square or hexagonal; recommended a HEX grid (every neighbour the same distance, organic, an isometric
+  diorama's oval base fits a hex cell): cell size = the diorama's world size, at most one place per cell, the builder
+  snaps a placed / dragged place to the nearest free cell and refuses an occupied one; the existing places are moved
+  to their nearest free cells once (a map draft). A milder option without a grid: a builder warning "overlaps with …"
+  when two places' dioramas overlap.
+
+- [ ] 10.64 **A media optimisation tool on the media standard** (owner 2026-10-11: "wir haben einen Standard definiert …
+  die Leute können andere benutzen, aber wir empfehlen das Umkonvertieren – im Admin oder im Creator ein
+  Optimierungstool"). Built: `@scutoons/media` media-standard.ts (`checkMedia`, `toStandard`, `standardName`: PNG / JPEG →
+  WebP) – the asset picker's `webp` option uses it (the map's layers). Next: the importers (slice, character, map,
+  catalog) through `toStandard` instead of their own `toWebp` calls; a tool that lists assets off the standard and
+  converts them (a new version at the same path, `uploadOrReplace`); video (MP4 H.264 / WebM, 480p / 720p / 1080p) once
+  there is a way to run ffmpeg (not on the server: ffmpeg.wasm in the browser or a worker).
+- [ ] 10.65 **Open after the session 2026-10-11 (map, phone editors, unlock events)**: publish the map draft (v256:
+  the dioramas with plaster + 1x / 2x / 3x, new places ore-pit / ore-mountain / vienna-subway, waterfall-tower back –
+  production had deleted it; place them and give them unlockLocation events, else they stay hidden); the migrated
+  unlock events sit on slices or a chapter's first slice – move them where the story reaches the place; empty the
+  API's library cache after the migration (or wait 7 days); the bulk "Import images" should understand `-plaster`,
+  `.2x`, `.3x` names; the creator selection bar's Duplicate / Copy and the place actions View / Hidden were not clicked
+  through in a browser; scripts/check-map.mjs still checks the old progress unlocks; the Ausschnitt mode (framing a
+  place's reader view with the phone frame) was proposed and parked. Owner on the phone (2026-10-11): the place form's "Chapter link (card)" reads like an unlock – it is only where
+  the viewer card's "Read chapter N" button goes; rename it (e.g. "Button on the place card: read chapter …"); the size
+  slider shows no label / value on the phone (the `field` span is missing above it). The resolution slot (`MediaVariantsSlot`,
+  owner on the phone, the plaster model): a big square preview; beside it, on the right, the three level chips 1x / 2x /
+  3x stacked, each a third of the preview's height (together exactly as tall as the preview) – much smaller than now,
+  with a tighter gap; each chip keeps its × (clears that level); the round × that clears the whole medium goes BELOW
+  (under preview + chips), not beside them – today it takes too much room.
+
+- [x] 10.61 **Migrations through a protected interface, a developer role** (owner 2026-10-11: "eine Schnittstelle über
+  MCP, die Migrationen laufen lässt … mit einer neuen Rolle absichern – nicht Admin, darüber hinaus: eine Developer-Rolle,
+  die mein Account hat, andere erst freigeschaltet"). Today: SQL pasted into phpMyAdmin (2026-10-11: #1267 collation
+  mismatch, a cache flush by hand). Plan: a `developer` role above admin (the owner's account only); the server's
+  migrator (`console migrate`) behind an endpoint that only a developer token reaches – MCP tools `migration_status`
+  (read) and `run_migrations` (pending ones, dry run first, then run + empty the library cache); every migration
+  idempotent and tested on a production-like copy first. Alternative / addition: the deploy runs pending migrations
+  itself (GitHub secret). Collation: production's tables are utf8mb4_general_ci like local (the catalog utf8mb4_bin) –
+  the #1267 came from phpMyAdmin's connection (utf8mb4_unicode_ci) through user variables; migrations compare with
+  literals. Research (2026-10-11) – the plan: (1) Database.php `SET NAMES … COLLATE` from a setting `DB_COLLATION`;
+  (2) migration `developer-role`: the role, the owner's grant (granted_by 'migration'), `api_tokens.scopes`, a table
+  `dev_migration_runs`; (3) once in phpMyAdmin: complete `schema_migrations` (hand-run files are not recorded – else a
+  first automatic run repeats them); (4) Roles::DEVELOPER, only a developer grants it, the last one can't be revoked;
+  (5) a token scope `migrate` minted only in a session after a fresh sign-in code, 24 h – 7 d, no renew; ApiTokenScope
+  blocks `/api/dev/*` without it; (6) MigrationRunner: file hashes, `plan()` = run in a transaction and roll back to
+  count rows (DDL causes an implicit commit: listed, not run – never DDL and data in one file), GET_LOCK, a backup of the
+  affected rows, an audit callback; (7) Cache::clear() (APCu / files) after data migrations; (8) `/api/dev/migrations`
+  (status), `…/plan` (MCP, returns a link), `…/{run}/apply` (session + developer only: the click in the admin app);
+  (9) deploy uploads `migrations/**` (outside public/); (10) MCP tools `migration_status`, `plan_migrations` for
+  developers only; (11) PHPUnit; (12) MCP.md, DATABASE.md. Only files that came with the deploy run – never SQL from a
+  request (a leaked token or a prompt injection can at most plan).
+  **Built 2026-10-11, simplified by the owner the same day** ("das war sehr einfach gedacht"): no admin UI, no extra
+  token – the role is enough: a developer's normal AI connection gets the MCP tools `migration_status`,
+  `plan_migrations`, `apply_migrations`; the deploy runs pending migrations after the API upload (`POST
+  /api/deploy/migrate`, header `X-Migrate-Key`, GitHub secret `MIGRATE_KEY`). Kept from the plan: only deployed files,
+  dry run, plan hashes + 1-day TTL, GET_LOCK, row backups (storage/migration-backups), `Cache::clear()`, the run log
+  (`dev_migration_runs`), `DB_COLLATION`, only a developer grants the role. Docs: server/docs/DATABASE.md "Migrations",
+  docs/API.md "Developer API". **Owner, production, in this order:** (1) phpMyAdmin once:
+  `2026-10-11-developer-role.mysql.sql` (the two SELECTs in its header first – it records every earlier file in
+  `schema_migrations` as run); (2) GitHub → Settings → Environments → production: secret `MIGRATE_KEY` (e.g.
+  `openssl rand -hex 32`); (3) push – the deploy uploads the files and runs what is pending (none right now).
+- [ ] 10.62 **A derived reference index for the content documents** (research 2026-10-11: JSON documents stay the source –
+  the right model for a versioned authoring tool; what is missing is what MediaWiki / Sanity / Payload have): a table
+  `entity_refs(version_id, entity_key, status, ref_kind, ref_id, path)` filled on save / publish by one extractor
+  (TS + PHP, like the validators; `asset_usages` is the template) + a rebuild command → "used by", guards on delete /
+  rename (a place with unlockLocation events, a group label something jumps to), migrations that find their targets by
+  SQL, FlowIndex / ItemPlacements as queries. With it: stable ids for everything referenced (slices have none – the
+  2026-10-11 migration had to find slices by image path), `CHECK (JSON_VALID(json))`, one collation everywhere,
+  data migrations as new versions where possible (else a cache flush in the template), a `schemaVersion` per document.
+  Triggers for more (an entity in relational rows, like the catalog): its own writers outside the creator, frequent
+  409s on big documents, per-request queries across documents, the index rebuild > ~1 s.
+- [ ] 10.63 **Map rendering: culling, a spatial index, tiles** (owner 2026-10-11, research the same day): today one
+  terrain SVG (337 KB, 506 paths) + DOM markers with a simple cull (`onScreen(p, 160)`); done: camera input once per
+  frame, `moving` while zooming (wheel / pinch / keys / flight), labels at rest, place images scaled by transform and
+  picked by drawn size. Next, when needed: viewport culling with a spatial index (quadtree / rbush) for hundreds of
+  places; the terrain as WebP for the usual zooms (SVG or tiles for deep zoom); a tile pyramid with level of detail
+  (deep zoom) if the world grows past ~4096 units or zoom 8; one shared `MapTerrain` for viewer + builder so the
+  renderer can switch (Canvas / WebGL hybrid – markers and labels stay DOM for accessibility). Measure first on a
+  mid-range Android (chrome://inspect: pinch, pan, the reveal flight; ×5 / ×10 / ×25 places).
+
+- [ ] 10.60 **Publish down the tree, with a list to tick** (owner 2026-10-11): "was *eine* Datei ist, ist manchmal unklar.
+  Wenn ich weiter oben in der Gruppe oder im Kapitel publishe, sollten alle darunterliegenden Drafts mitgehen – als Liste
+  bestätigen, ob die mitgehen sollen oder nicht. So bleibt es granular, und ich habe eine Summary, wenn ich doch alle
+  Drafts absegnen möchte." Today Publish takes the page's own files (DocSession.publishAll: `docs` + saved companions)
+  and the confirm dialog lists them. Wanted: Publish on a chapter (or a group / season) collects every file below it
+  with an unpublished draft (the chapter, its scene files, …), shows them as a checklist (all ticked, each with its
+  label and last note), publishes the ticked ones. Same for reviews (submit the ticked ones). Open: which levels (toon →
+  season → chapter → group), and whether the map / characters / items count as "below" a toon.
+
+- [ ] 10.59 **Storyboard: script scene → stacked shots → first throw in Figma → chapter draft, prompts for the gaps**
+      (owner 2026-10-09; plan + milestones: agents/STORYBOARD.md §9; rules: workflows/scenes/storyboard.md). Timeline:
+      ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout from the week of 2026-10-12. Built on branch
+      `storyboard` (worktree `C:\Development\scutoons-storyboard`, owner's request 2026-10-09): `scripts/storyboard/`
+      (rhythm report, validate, render, shot list, compile → chapter draft + PNGs, check-draft, prompts, figma-draft),
+      the ch3 first throw `storyboards/catpope/s1c3/scene-25…34.json`, `tools/figma-bridge/` (plugin + relay + CLI),
+      the MCP's figma_* tools for creators (`tools/mcp/src/figma.ts`, after the refactor).
+      Open: the owner's answers (the run result at the top), the first Figma run (bridge or use_figma, on a test page),
+      save_draft + upload of the ch3 draft (owner's go), the
+      matching against the S1C3 selection.
+
+## Done
+
+- [x] 10.67 **The map's scale: places ~16× smaller, deep zoom, a finer grid** (owner 2026-10-11, after the hex grid went
+  live: "die Grundverhältnisse sind noch viel zu groß – die Inseln sind eine Landmasse, die meisten Orte liegen in einer
+  Stadt auf einer Insel; man muss wirklich reinzoomen, um sie zu erkennen – so groß wie jetzt das Größte ist das
+  Kleinste"; "die Raster-Frage wird dann nochmal anders evaluiert"). Built so far (f6b0b288): sizes well 6 … ore 96,
+  HEX_CELL 8, MAP_MAX_ZOOM 8, scripts/places-sizes.mjs (production draft v257). Wanted: the biggest about the old smallest
+  (÷16: well ~0.4, cathedral 2, ore 6 world units); then MAP_MAX_ZOOM ~64 (the well ~24 px), the terrain as tiles with
+  levels of detail (BACKLOG 10.63 – an SVG at zoom 64 is >130 000 px wide), HEX_CELL ~0.5 (re-evaluate: maybe a grid
+  per district instead of one world grid), the places' reader views (zoom per place, PLACE_ZOOM) and the builder's
+  defaults follow; check the reveal flight and labels at the new zooms. Calibration (owner, the published viewer with
+  every place at the default 12: "da waren sie alle gleich groß, aber fast klein genug"): the BIGGEST ≈ 12 → ÷8: ore 12,
+  apartment blocks / graveyard / Alt Erlaa 6, station 4.5, cathedral / monastery / library / mountain path 4, pool /
+  subway 3, small church 2, crypt 1.5, well 0.75 – so MAP_MAX_ZOOM ~32 (the well ~24 px), HEX_CELL ~1, PLACE_SIZE_MIN
+  ~0.5.
+  **Built 2026-10-11** (e29d0026, f919c016, 388d50c6, 73f6063b): sizes ÷8, MAP_MAX_ZOOM 32, PLACE_ZOOM 8, HEX_CELL 1; a place's cells
+  highlighted (drag / selection / place-tool preview) and its hit area (click-through outside); dioramas centred on their
+  cells (anchor 50 / 50); percentages with the place zoom as 100 % (3–400 %). Production draft **map v258** (from v256's
+  placement) – publish it after the code deploy. Terrain tiles: 10.63.
+- [x] 10.1 Fix the beta's issues on `platform` → `main` (deploys automatically). _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
+- [x] 10.1c Fonts (IBM Plex Mono, Bangers + OFL licences) to `scutoons/fonts/` on the CDN. Branch `10.1c-cdn-fonts` _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       (2026-10-05): staged in `media/scutoons/fonts/` (18 files); the apps and qr's landing page load `@font-face` from
       `<CDN>/scutoons/fonts/` with their local copy as fallback (ASSETS.md "Fonts").
       Merged into platform 2026-10-05 (owner: "merge it now", after 10.3). Uploaded by hand to
       `scutoons/fonts/` and registered (admin Rescan: 18 new assets) 2026-10-05; cdn.scutoons.com answers 200 + ACAO \*.
       Tick after `check:fonts` on production shows 200s from the CDN.
-- [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
+- [x] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*` _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       into `production`/targets, `assets:scan`) – ASSETS.md.
-- [ ] 10.3 cdn.scutoons.com → bunny _(code ready on branch `10.3-cdn-domain`, 2026-10-05; steps 1–5 done + verified 2026-10-05, GitHub `CDN_PUBLIC_URL` changed; open: 6 deploy, 7 optional, 8 verify, local `.env`)_:
+- [x] 10.3 cdn.scutoons.com → bunny _(code ready on branch `10.3-cdn-domain`, 2026-10-05; steps 1–5 done + verified 2026-10-05, GitHub `CDN_PUBLIC_URL` changed; open: 6 deploy, 7 optional, 8 verify, local `.env`)_: _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL; then every CDN URL in `deploy/targets.json`
       (api `CDN_URL` + `CDN_PUBLIC_URL`, qr `CDN_URL`, every app's `VITE_CDN_URL`) = `https://cdn.scutoons.com` + redeploy.
       The legacy system is gone, so nothing live uses cdn.scutoons.com: the apps stay on `scutoons.b-cdn.net` until the
@@ -373,9 +720,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
     http → 301 https; the three samples through cdn.scutoons.com (bunny edge) → 206, ACAO `*`, sizes = the files.
   - Afterwards: **10.9 is unblocked** (nothing uses the old FTP CDN any more); the folder `/cdn.scutoons.com/` stays as a
     backup until 10.7 and is the later backup target (ASSETS.md "Backup", `FtpStorage`).
-- [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
-      then prune (ASSETS.md "Migration plan").
-- [ ] 10.5 _(test hosts + T1's origin removed 2026-10-05)_ Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
+- [x] 10.5 _(test hosts + T1's origin removed 2026-10-05)_ Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       no `/api/*` traffic; ~~remove `generate/` + `GENERATE_PASSWORD` after admin parity~~ **done 2026-10-09** (owner:
       "alter Generator kann entfernt werden"): the SPA, its 13 static-token endpoints (incl. `keys.php` with the private
       key), `GenerateToken`, `GENERATE_PASSWORD` and qr's `/generate/` redirect are gone; `get-signature.php` + the
@@ -391,68 +736,23 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       `qr.scutoons.com/api`; their prod fallbacks now point there too. Mails link only `?login=` / `/account`; the Ask
       service needs `SCUTOONS_API`. Neither the qr app nor the API logs proxied requests – traffic only in all-inkl's
       stats (owner check before the deploy). `generate/` + `GENERATE_PASSWORD` stay (after admin parity, 10.18).
-- [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
-- [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move – unblocked once 10.3 is live): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions
+- [x] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive. _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
+- [x] 10.9 KAS FTP cleanup (after the switch + the CDN move – unblocked once 10.3 is live): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
       workflow). The main user stays, used only by hand.
-- [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
-      **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
-      image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
-- [ ] 10.14 Admin claim page rework (owner 2026-10-02, during 6.8: "the ui in admin for claim needs rework") – details
-      from the owner; first guess: the two side-by-side note fields + the decision buttons hidden in the bottom bar.
-      Also: the viewer's claim form promises the current owner never reads the statement – true for owners, but an owner who
-      is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
-- [ ] 10.16b Admin claim page: no raw data (owner 2026-10-02) – part of 10.14.
-- [ ] 10.17 Deploys are not atomic: FTP replaces files one by one, so for a few seconds the API runs half old / half new
-      code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
-      (rename / symlink), or a maintenance flag during the upload.
-- [ ] 10.21 Asset picker rework (owner 2026-10-03: "we do have to fix the ui of the picker and its relation to the page
-      where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
-      opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
-      includes 10.20.
-- [ ] 10.23 Asset jobs on production (owner 2026-10-03: "Optimize" stays queued): `assets:jobs` reads the queue from its
-      own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
-      (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
-      upload → mark done. Job #1 (video-renditions, 2026-10-02 22:45) can be dropped.
-- [ ] 10.24 Codes case-sensitive + strict session sql_mode (owner 2026-10-03, branch `db-case`): **O – run
+- [x] 10.24 Codes case-sensitive + strict session sql_mode (owner 2026-10-03, branch `db-case`): **O – run _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       `server/migrations/mysql/2026-10-03-code-case.mysql.sql` in phpMyAdmin** (whole file at once; before or after the API
       deploy, both orders are safe; idempotent). Every code lookup is exact, also `/api/certificates/` + the verify page
       (no case-insensitive fallback; certificates printed before show UPPER CASE – typed that way they are unknown now, the
       QR / signature file still verify); new certificates print the exact code. The API sets a strict session `sql_mode`
       (`DB_SQL_MODE`, production's server mode is not strict). Optional check afterwards: the information_schema SQL in
       server/docs/DATABASE.md "Matching production" (all utf8mb4; the code columns utf8mb4_bin).
-- [ ] 10.25 Map places ↔ story: where a place lives (owner 2026-10-03, "lets investigate … isn't group the better place?" –
-      **decide first, after the open UI fixes**). Findings 2026-10-03:
-  - **Unlock today:** on the place (world map `place.unlock` = toon, chapter, `slice` = the slice's image path, `at`).
-    The viewer unlocks it when the reader _sees_ that slice (`world.svelte.ts` `sliceSeen` → `placesForSlice`); a place
-    whose chapter has no slices yet unlocks from the chapter position `at` / a finished chapter (`unlocksFromProgress`).
-    The position never unlocks a slice place (VN choices skip groups). The slice inspector's "Unlocks place" box is the same
-    setting from the slice's side – its wording confuses ("the slice represents the place").
-  - **Jump today:** VN `jumpTo` = chapter + optional group label (`/catpope/chapter/2?label=scene-15`), the next bar too –
-    groups are the jump unit. The map card links only `place.chapter` (opens the chapter at its start, not at the place).
-  - **Idea:** the place on the **group** ("this scene is: Cathedral"): unlocks when the reader enters the group, the card
-    jumps to `chapter/N?label=<group>`, one setting shown from both sides (map builder: "Chapter 2 · scene-15"); chapter +
-    position stays the fallback for chapters without groups (3–5).
-  - **Doesn't line up yet:** chapter 1 is one group of 95 slices with two places (apartment slice 2, apartment-blocks
-    slice 72); chapter 2 `scene-20` holds church-square (slice 20) + cathedral (21); `scene-17` has none. Group labels are
-    not the screenplay scene numbers (places say scene 13–17, groups are scene-14 … scene-20).
-  - **Blocker:** splitting groups breaks the reader's infinite scroll (owner 2026-10-03) – fix that first, or keep groups
-    as they are and let a place point at a group + an optional slice (unlock precision) instead of splitting.
-  - **Open decisions:** split vs. group + slice; rename groups to their places (labels are in jump links – only with OK).
-- [ ] 10.26 Delete a chapter safely (owner 2026-10-03: "how could i delete a chapter? … super dangerous"). Today nothing
-      can be deleted: the API has no delete for entities (versions are append-only), so no chapter is lost. Numbers are given
-      automatically (next free, never reused) and are the chapter's identity (entity `chapter:<toon>:<n>`, URL, release order;
-      shown big in the chapter's Meta since f345743). Proposed rules, enforced by the **server**, the creator only mirrors them:
-      only a chapter that was **never published** in any language (status draft) and is the **last of its season**; a typed
-      confirmation (the chapter number, in-page dialog); delete = removed from the season's sequence + the entity marked deleted,
-      its versions kept (admin can restore; purging is a separate admin step). A published chapter is never deleted – at most
-      hidden (draft / coming soon), so links and reading progress keep working.
-- [ ] 10.29 **Catalog into the database** (owner 2026-10-04: "lets just do it properly … we have to do them all now"): items, recipes,
+- [x] 10.29 **Catalog into the database** (owner 2026-10-04: "lets just do it properly … we have to do them all now"): items, recipes, _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       albums, products, editions, featured, permissions / code types, toons (admin-created) → tables + history; slots / stats → code;
       basic admin UI with the asset picker and bulk imports. Plan and status: agents/CATALOG.md. Part 1 (tables, loaders,
       admin API) built 2026-10-04 on branch `catalog/db` _(production migration has run – owner check 2026-10-05: 11 tables, old settings folded)_: **O – run `server/migrations/mysql/2026-10-04-catalog.mysql.sql` in
       phpMyAdmin** (whole file at once; before or after the deploy; idempotent) – steps + check query in CATALOG.md "Status".
-- [ ] 10.28 **SCUTOONS MCP server** – an agent with the rights of the signed-in creator (owner 2026-10-03: "very important
+- [x] 10.28 **SCUTOONS MCP server** – an agent with the rights of the signed-in creator (owner 2026-10-03: "very important _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       … i want to also connect other services that help me create more sophisticated assets"; first step right after the
       release, branch `mcp`). Why MCP and not only an "Ask" panel: the API can do much more than the UI, any MCP client can use
       it (Claude Code / Desktop today, claude.ai connector + the creator's own panel later), and other MCP servers (asset
@@ -616,7 +916,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
     the deploy; then delete the bunny Magic Containers app, the `ask.` DNS, the ghcr image, vars `VITE_ASK_URL` /
     `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER`, secret `AGENT_SERVICE_KEY`, revoke the Anthropic key; install the
     Claude Desktop extension once; `2026-10-09-drop-ask.mysql.sql` dropped the Ask tables (production, 2026-10-09).
-- [ ] 10.31 **Naked A-pose removed** (owner 2026-10-05: "Remove the naked A-pose variant. Keep the safe-for-work switch in
+- [x] 10.31 **Naked A-pose removed** (owner 2026-10-05: "Remove the naked A-pose variant. Keep the safe-for-work switch in _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       the account.") _(branch `apose/no-naked`)_: the only standard A-pose look is `swim`; the API and the reader ignore a
       leftover `naked` look (or one still marked `sensitive: true`), the creator's validation warns about it; no cover rule
       any more (legs may be empty – the swim body has the pants painted in); `AVATAR_DEFAULT_UNLOCKS` = `{"catpope":["swim"]}`.
@@ -628,7 +928,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      otherwise: the API ignores it).
   3. Delete the naked A-pose looks in the creator (registry: each character → A-pose → × on "naked"; the Problems panel
      lists them as "no longer used"), publish the registry, then delete the CDN files `characters/*/…_apose-naked.webp`.
-- [ ] 10.32 **VN event `showOnomatopeia` → `showTextBox`** (owner 2026-10-06, branch `chapter-neutral`): the event
+- [x] 10.32 **VN event `showOnomatopeia` → `showTextBox`** (owner 2026-10-06, branch `chapter-neutral`): the event _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       reveals any text box; the misspelt old name is gone without an alias (types, validation, schemas, viewer, creator).
       The creator's picker is one select "choose or create new" (DESIGN.md "Onomatopoeia = a text box"). Dev DB done
       2026-10-06 (31 rows in entity_versions, all compact `"type":"showOnomatopeia"` in old catpope chapter 2 / scene-14
@@ -636,7 +936,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   1. phpMyAdmin → d0487143 → SQL, check first: `SELECT COUNT(*) FROM entity_versions WHERE json LIKE '%"showOnomatopeia"%';`
   2. Deploy (API + viewer + creator), then right away run `server/migrations/mysql/2026-10-06-show-text-box.mysql.sql`
      (idempotent; entity_versions + content_versions); the SELECT of step 1 answers 0 afterwards.
-- [ ] 10.33 **Expressions in texts + the clock syntax** (owner 2026-10-06, branch `chapter-neutral`, EXPRESSIONS.md step 2):
+- [x] 10.33 **Expressions in texts + the clock syntax** (owner 2026-10-06, branch `chapter-neutral`, EXPRESSIONS.md step 2): _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       texts use ink's inline syntax; the old `{name:clock}` is gone (no alias) – it is `{clock(name)}` now, validation
       calls the old form an error and the API refuses to save it (422). Dev DB (= the production dump) checked 2026-10-06:
       0 occurrences in entity_versions / content_versions; the migration is for production's newer test content.
@@ -646,7 +946,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      `content_versions`).
   2. Deploy (API + viewer + creator), then run `server/migrations/mysql/2026-10-06-clock-syntax.mysql.sql` (idempotent,
      `REGEXP_REPLACE` → `{clock(name)}`; tested on MariaDB 10.11.14); the SELECTs of step 1 answer 0 afterwards.
-- [ ] 10.34 **Events: repeat rules, ids, askText, the reader's name** (owner 2026-10-06, branch `chapter-neutral`,
+- [x] 10.34 **Events: repeat rules, ids, askText, the reader's name** (owner 2026-10-06, branch `chapter-neutral`, _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       EXPRESSIONS.md step 3): a trigger's / placed item's boolean `once` is the repeat rule `repeat` now (no alias;
       every time = none – the new default; what `once` meant = `{"mode":"view"}`); events get hidden ids (the creator
       assigns them – stored ones get theirs with the next save, a bar says so); `users.display_name` for the reader's
@@ -660,21 +960,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      EXISTS`); the SELECTs of step 1 answer 0 afterwards.
   3. Event ids: nothing to run – a chapter / scene opened and saved in the creator stores them; until then validation
      warns ("N events have no id yet") and the reader keeps such events' "once per page view" in memory.
-- [ ] 10.35 **Jump targets: string values + jumps into another toon at a label** (owner 2026-10-06, branch
-      `chapter-neutral`, DATA.md "Jumps into another toon at a label"): `JumpToTarget.toon` is a new optional field (no
-      migration; old code ignores it – such a jump would land in the CURRENT toon's chapter of that number – so deploy
-      viewer + creator + API together before saving such jumps). `content:check` found the old chapter 2 stroll's targets with a NUMBER value (`"value":2`
-      – the type says string): 11 versions, all `scene:catpope:2:scene-14` (+ de / en), 3 targets each.
-      **O – production steps:**
-  1. phpMyAdmin → d0487143 → SQL, check first:
-     `SELECT COUNT(*) FROM entity_versions WHERE json REGEXP '"type":"(chapter|season|toon|product|xr)","value":-?[0-9]';`
-     (and the same on `content_versions`).
-  2. Run `server/migrations/mysql/2026-10-06-target-value.mysql.sql` (idempotent, `"value":2` → `"value":"2"`, any
-     time – old and new code read both); the SELECTs answer 0 afterwards.
-  3. **Owner decision**: the published `scene:catpope:2:scene-14` (201, + de 127 / en 128) still has an event of the
-     unknown type `end` (`{"type":"end","params":{"jumpTo":…scene-20}}` – the reader skips it, `content:check` reports
-     it). Publishing the scene's newest version (no `end`) or deleting the event clears it; which one is yours.
-- [ ] 10.36 **One save game across all toons** (owner 2026-10-06, branch `chapter-neutral`, DATA.md "The save game"):
+- [x] 10.36 **One save game across all toons** (owner 2026-10-06, branch `chapter-neutral`, DATA.md "The save game"): _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       story variables, the history and every toon's checkpoints move from the per-toon game states (`progress` rows
       `toon_id = <toon>`) into the member's save game (`toon_id = 'scutoons'`, which holds the map). The new viewer reads
       and writes only `/api/progress/scutoons/` (PUT merges: map / checkpoints / history as sets, variables the newer
@@ -694,294 +980,12 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       _(2026-10-06: the migration ran on production in its final form – the save games hold `catpope/…` keys (3 members
       with a catpope state: one empty, two with item-named story variables `cucumber`, `broken_record_player`,
       `repair_coupon` → `catpope/…`, correct: the items themselves are in the inventory). main pushed 908b97c1.)_
-- [ ] 10.37 **No dead ends: the save guard** (owner 2026-10-06, EXPRESSIONS.md "Dead-end safety"): no data change, no
+- [x] 10.37 **No dead ends: the save guard** (owner 2026-10-06, EXPRESSIONS.md "Dead-end safety"): no data change, no _(owner 2026-10-11: the go-live / production steps – phpMyAdmin, FTP, DNS, hosting – are all done)_
       migration. With the API deploy, `PUT /api/entities` refuses (422) chapters / scenes that can get a reader stuck – a
       question whose choices can all be hidden, a divert / jump into nothing (`FlowCheck`); `content:check` reports the
       same. **O:** after the deploy run `php bin/console content:check` on production: a document it lists can't be saved
       unchanged any more – fix it in the creator (the Problems panel names the place). Known from the dump: only the old
       `scene:catpope:2:scene-14` versions (its `scene-20` jump – the 10.35 decision).
-- [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
-- [ ] 10.38 **Items are not variables** (owner 2026-10-06: "it is just a naming conflict"; "with script we can not
-      create items"): an item exists only in the catalog (admin) and lives in the reader's inventory (global, per
-      account); a story variable is the script's own number / text (`x` = this toon's, `global.x`, `<toon>.x` –
-      variables.ts). Today they mix: `set` / `add` of a variable named like a catalog item also grants the item (the VN
-      item bridge, `grantStoryItem` in viewer variable-actions.ts; a slice pickup grants and then `add`s the variable),
-      so `catpope/cucumber` is a story count that drifts from the real inventory (eating, crafting). Steps:
-  1. ✅ _(2026-10-06, 6b7a46f0)_ Read: `inventory.<item>` = how many the reader has (shorthand for
-     `inventory.count("<item>")`; the analyser checks it against the catalog – `unknown-item`; viewer, creator sample
-     readers, the PHP analyser). A namespace is never a variable's domain (`inventory.x = 1` is refused).
-  2. ✅ _(dadb1e2d)_ Warn: a story variable named like a catalog item – setVariable / choice set + add / askText ("give
-     it with giveItem"), a condition ("what the reader has is inventory.<item>"), a bare item name in an expression
-     (`item-as-variable` → `inventory.<item>`).
-  3. ✅ _(dadb1e2d)_ Give: VN event `giveItem` { item, qty 1 … 10 } and a choice's action `give` { item, qty } – types,
-     validation, schemas, the Flow box ("gives cucumber ×2"), the viewer (`giveStoryItem`: source story, once per place),
-     the creator (+ giveItem, "give an item", the GiveItemField with the catalog picker).
-  4. **Take – decided (owner 2026-10-07):** VN event `takeItem` { item, qty, repeat } and a choice's `take`.
-     - What: an item with the catalog flag **"a story may take it"** (admin, off by default) – also another toon's items;
-       **physical items never** (only claims move those).
-     - Repeats: the trigger / pickup intervals (`repeat`: every time – the default –, once, per page view, every N
-       minutes / hours / days), per event.
-     - Too few: all or nothing – nothing is taken; the script guards it (`if inventory.x >= n`). In a choice's action
-       list a failed take stops the rest (a trade never gives for free); the story goes on. A take can lead into a
-       detour (`divert`).
-     - Test content: toptoy ch1 (the mama story) – 5 cucumbers to pick up on one slice, Top Toy trades a blotter (`lsd`)
-       for 5 cucumbers, swallowing it diverts into a short psychedelic detour.
-     - ✅ _(2026-10-07, 53859498 + this commit)_ built: the engine (see the commit), the catalog flag set for `cucumber` /
-       `lsd` in the dev DB, toptoy ch1 draft 819 (dev DB): group `blotter-deal` (s1c2-slice-53: 5 cucumber pickups, a tap on
-       Top Toy offers "Trade (5 cucumbers)" if `inventory.cucumber >= 5` → take 5 + give a blotter, "Swallow the blotter"
-       if `inventory.lsd >= 1` → take it + jump to `lsd-trip`, "No thanks"), `mama-hypercity`, `lsd-trip` (a short
-       psychedelic talk, then back to mama-hypercity). End to end headless as the test user: all 7 steps pass. Found on
-       the way: the follow-up bar's 5 s countdown went on while the reader picked things up – a tap on the page stops it now.
-       **O – production:** set "a story may take it" on the items in admin, and the content via the creator (the dev
-       draft isn't on production).
-  5. ✅ _(this commit)_ Data: the dev DB analysed (latest versions: 4 choice adds in scene:sandbox:1/2/5 – cucumber ×3,
-     testo; older versions catpope's repair_coupon / broken_record_player; no setVariable / condition on an item) →
-     `server/migrations/mysql/2026-10-07-give-item.mysql.sql` (choice `add` / setVariable `add` of an item-named
-     variable → `give` / `giveItem`, history included; PHPUnit `testTheGiveItemMigration`) – run on the dev DB: 52
-     versions. The bridge is gone (`set` / `add` never grant; a slice pickup only grants – no story variable, and it no
-     longer counts as a set variable in the facts / FlowIndex). make-sandbox.ts writes `give`. Checked in the browser:
-     sandbox chapter 2's testo ("Einsammeln") lands in the inventory, source story, no `sandbox/testo` variable.
-      **O – production:** run `2026-10-07-give-item.mysql.sql` in phpMyAdmin **together with** the viewer + creator
-      + API deploy (an old viewer doesn't know `give` – a choice would give nothing; the new one doesn't grant on
-      `add`). Check first: the header's SELECT; afterwards it answers nothing.
-- [x] 10.39 **Creator: copy / cut / paste** (owner 2026-10-07: "as granular as possible", to save editing time; the main
-      case: from one toon or hidden draft to another, inside the same system). Concept: UI-CONCEPTS.md E.7. Decided:
-      - **One system only.** No sandbox → production transfer (owner: "too much overhead") – no media in the clipboard,
-        no upload on paste.
-      - **System clipboard, no API change:** the DOM copy / cut / paste events (no permission prompt), JSON with a
-        marker; a paste goes into the open document (`doc.edit` = one undo step) and is saved by the normal PUT.
-        Cmd/Ctrl+C / X / V; Shift+V = the settings only onto the selection (a text box's look, an event's params …).
-        Ctrl+X today only deletes (chapter-editor.svelte onKeydown) – it becomes copy + delete.
-      - **The live region shows (10.40, UI-CONCEPTS E.8):** the region clicked / focused last is live; its selection is
-        light cyan with a primary-colour border and dark blue text, selections elsewhere stay inverted; the shortcuts
-        act on the live selection only.
-      - **Ids:** fresh on paste (events via assignEventIds, text boxes via `taken`, `showTextBox` follows its box).
-        Placement ids become **random** (`<item>-<7 random>`, like event ids) for new placements and pastes – today
-        `<item>-<n>` is unique per slice only, so the same image reused on another slice of the toon with the same
-        item shares the pickup memory (`picked:<slice image>#<id>`, slice-items.ts). Existing ids stay (readers'
-        keys); a one-off SELECT for collisions that already exist.
-      - **Media: cross-toon references, no copies** (owner: duplicates "create a mess"). A paste into another toon
-        writes `../<source toon>/…` (owner 2026-10-07: keep `../`); one helper `toonAsset(toon, path)` in reader + creator replaces every
-        `` `${toon}/${path}` `` (slice image, variants, video, audio, key visual) – today only the VN character views
-        read a leading `/`, so a picked slice image from another toon is broken (an existing bug, fixed by this).
-        Stored `slice.image` values are never rewritten (the pickup key contains them) – a SELECT first for `/` / `../`.
-      - **Sounds:** the clipboard carries the used `audio` library entries; a paste adds the missing ones.
-      - **Item limits, combined (owner):** placements across all toons (`placements: n`) AND owners in the world
-        (the planned `unique` / `max_world`, ITEMS.md). **API extension:** the catalog fields (admin), a count on save
-        (PUT /api/entities → 422 over the limit), `GET /api/catalog/items/<id>/placements` (where else it is placed),
-        the grant check across all accounts. The creator: a Problems error + a paste refuses with a toast.
-      Steps: 1. the live region = 10.40 (first) · 2. clipboard + text boxes (+ Shift+V) · 3. items, sound + event areas · 4. VN
-      events · 5. slices + groups, `toonAsset` + the path SELECT · 6. random placement ids · 7. item limits (API) ·
-      8. optional: a right-click menu.
-      _(Built 2026-10-07, all steps – Day run result. Decided on the way: a paste into another toon writes `../<toon>/…`
-      (the asset picker's form; all 272 out-of-folder values in the dev data are `../`, none `/`) – `toonAsset` reads
-      both. SELECTs: 0 pickup-key collisions (6 placements). No migration: the limits are catalog JSON fields.
-      **Owed:** PHPUnit ItemLimitsTest + browser checks of steps 6–8 (Docker hung).)_
-- [x] 10.40 **One selection model, app-wide** (owner 2026-10-07: "we need an all app wide concept, done thoroughly";
-      concept + inventory + drafts: UI-CONCEPTS.md E.8). Inverted today means six things (nav, selection, listbox
-      highlight, toggle on, hover, progress) and "selected" is drawn four ways. Decided (owner 2026-10-07, drafts on the
-      chapter page): selected = inverted (brutalist, unchanged); **live selection** (selected AND in the live region –
-      what keys act on) = `--surface-tint-cyan` background, 2px inset border in `--primary-color`, text #005a70 (new
-      tokens `--select-live-*`); nav "you are here" stays inverted (live look only when it is also the live
-      selection); toggles / tabs / segmented stay inverted; hover never inverted; focus = 3px ink everywhere (fix the
-      `all: unset` gaps, toggle 2px, menu). One `region` action + `liveRegion` store in @scutoons/ui, one class
-      `sc-selected`, the only selection CSS in tools.css; keys (Delete, arrows, Esc, copy / paste) act on the live
-      region only – fixes Delete in the slice list deleting the canvas box. Steps 1–6 in E.8 (tokens + tools.css →
-      @scutoons/ui → creator chapter editor → other creator pages → admin / embassy → checks). Picked = the selected
-      look, all cyan when live (owner confirmed 2026-10-07). Built 2026-10-07 (UI-CONCEPTS E.8 status).
-- [ ] M.3 **Reader: avatar / portrait without a message box** – with no box of any kind showing they sit lower,
-      anchored to the page bottom (not to the top of the box); when the end actions slide in they push avatar and
-      portrait up like a box does. Rethink: the end actions INSIDE the message box (it is already the place for
-      anything the reader does), one consistent style that gets readers used to the VN style. _(concept first – E.5)_
-      _(2026-10-07, part 1 built – the ground: the box reports its height only while it shows, the follow-up bar reports
-      its own; the characters stand on the shown box, else on the bar, else 1 rem above the page bottom (vn/characters.svelte,
-      message.svelte, next-bar.svelte). chain-vn 24/24; not watched with the box gone (the pane was hidden at night) –
-      **owner: a look on the phone**. Part 2 (the end actions inside the box) = UI-CONCEPTS.md E.5, drafts first.)_
-- [x] M.4 **Creator: the slice editor needs more room** (owner screenshot 2) – a bigger canvas by default, zoom like
-      the Flow graph, the tool icons (text, item, sound, effect) as a vertical strip on the left, Snap + its "30 px"
-      as one small button (options on click), the slice takes the freed space. _(concept first – E.4)_
-- [x] M.5 **Top messages need a new concept** (screenshot 2, the "Published ×" banner) – they take a lot of room,
-      appear often and make the layout jump; informative ones ("Published") fade by themselves; they show without
-      pushing the layout. _(with M.13 – E.1)_
-- [x] M.6 **Navigation hierarchy (concept)** – bug: the Flow view jumps at slice / group / chapter / season / toon
-      level. Problem: two navigations compete (left of the edit view, and the Flow on the right; either jumps to the
-      other), so it's never clear how the edit view relates to the Flow's level. Idea: the left menu and the main
-      panel are linked and ARE the hierarchy; Ask and Flow only take their context from it and otherwise stay
-      independent – entry points, not a second navigation. _(with M.14 – E.3)_
-      _(2026-10-07, the jump fixed (UI-CONCEPTS.md E.3 a): the chapter Flow was rebuilt on every selection
-      ({#key level:current:slice} → SvelteFlow + dagre + the first view at zoom 1 again). Now only a level change rebuilds
-      it; a new group / slice on the same level updates the graph in place, the zoom stays and the view pans only when
-      the current box is out of sight (flow-panel.svelte, flow-controls.svelte). creator-dock 82, creator-reach 21; the
-      feel not watched (the pane was hidden) – **owner: try group → group, slice → slice**. The concept (sidebar + main =
-      the hierarchy, the dock keeps the panel across pages) = E.3 b/c.)_
-      _(2026-10-07, E.3 b/c built (BACKLOG 10.46): the Flow is one dock panel toon → season → chapter (zoom kept), Ask
-      reads the crumbs. **Owner: try toon → season → chapter with the Flow open, and group → group.**)_
-- [x] M.9 **Creator: strip preview for vertical groups** – the same strip preview horizontal groups have. _(after M.4)_
-- [x] M.10 **Explore: the viewer as a dock panel** (like Flow and Ask) – up to date with every saved draft; selecting
-      an element in the other views jumps the viewer there. Exploration first, not a fix. _(after M.6)_
-- [x] M.13 **Creator: the published / unpublished status bar takes room** (e.g. from the slice editor). _(with M.5 –
-      E.1)_
-- [x] M.14 **Header + breadcrumbs take too much room** (the creator title next to the SCUTOONS logo, plus the crumbs).
-      Too many crumbs → the left ones collapse into a clickable "…". The crumbs are the main way back up – they must
-      stay usable (a problem today). The hierarchy: SCUTOONS > Toon > Season > Chapter > Group > Slice (owner: the
-      season level too). The creator title is what gives way (owner: "the creator title can go"). _(with M.6 – E.2)_
-- [ ] M.15 **Investigate: some slices look poor even at 2x and high quality** – where is it lost: the upload /
-      resize pipeline, compression settings, which size variant the reader serves, or CSS scaling.
-      **Findings 2026-10-07** (the dev DB = the production seed, its asset registry, the code):
-      1. **The files aren't there (the main loss).** No slice has a 3x file; catpope ch1 (95 slices) has no 2x either
-         (only ch2's scenes 14 / 17 / 18 have 2x). The registry has one 390 px "original" per ch1 slice (s1c1-slice-1:
-         9.5 KB) – nothing larger exists anywhere. The reader falls back down (pickQualityVariant): "High" on a 3x phone
-         gets the 390 px file, upscaled 3×. **Fix = content:** re-export from the masters at 1170 px (3x) and drop them
-         on "Import slices" (it makes 1x / 2x / 3x from a 3x file, replacing the slice's image, texts stay).
-      2. **The level ignores the screen.** low / medium / high = 1x / 2x / 3x by bandwidth only; a 2x laptop showing
-         the 500 px reading column needs ~1000 px – the 2x file (780 px) is upscaled 1.28× even on "Medium". Proposal:
-         Automatic picks at least the screen's density (devicePixelRatio × the column's width) when the bandwidth allows.
-      3. **The encoder.** The browser's WebP (canvas.toBlob, quality 0.88, media-upload.ts) always subsamples colour
-         4:2:0 – crisp coloured line art (red / cyan on black) smears a little. Proposal: quality 0.92, or the server
-         encodes with libwebp `-sharp_yuv` (the asset jobs) – compare on one slice first.
-      4. CSS: `.slice img { width: 100% }` in a ≤ 500 px column – no extra scaling beyond 1. / 2.
-      **Owner:** do 1. for ch1 (and ch2's 1x-only scenes 15 / 16); decide 2. and 3. (small code changes).
-- [ ] 10.58 **Newsletter** (owner 2026-10-07: mails to every member and to the old QR form's addresses, bundled so the
-      SMTP isn't overloaded; first one: the invitation to the next chapter release, week of 2026-10-12) – built on branch
-      `newsletter` (agents/NEWSLETTER.md): contacts (old QR form + event lists, language per contact), audiences,
-      batches through the SMTP account with an hourly limit (runtime setting, 200), bounces / unsubscribe (link +
-      one-click), admin Emails → Newsletters / Contacts / Unsubscribed. **O –** the going-live steps in NEWSLETTER.md
-      (migration `2026-10-07-newsletter.mysql.sql`, secret `NEWSLETTER_CRON_KEY`, KAS cron every 5 min, SPF / DKIM /
-      DMARC check, contact languages, event lists).
-- [ ] 10.56 **Reader FX: feedback cues** (owner 2026-10-07; started the same day: "free to go") – hints, pickups,
-      reveals and impacts as one set of cues (motion + sound + haptic) inside the visible viewport; no external MIDI /
-      devices. Plan, rules, phases and open decisions: agents/FX.md. The live performance mode that builds on it:
-      agents/LIVE.md (target February 2027, explored in its own session). Phases 1 + 2 built (pickup collect / refuse,
-      nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
-      typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
-      sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
-- [ ] 10.67 **The map's scale: places ~16× smaller, deep zoom, a finer grid** (owner 2026-10-11, after the hex grid went
-  live: "die Grundverhältnisse sind noch viel zu groß – die Inseln sind eine Landmasse, die meisten Orte liegen in einer
-  Stadt auf einer Insel; man muss wirklich reinzoomen, um sie zu erkennen – so groß wie jetzt das Größte ist das
-  Kleinste"; "die Raster-Frage wird dann nochmal anders evaluiert"). Built so far (f6b0b288): sizes well 6 … ore 96,
-  HEX_CELL 8, MAP_MAX_ZOOM 8, scripts/places-sizes.mjs (production draft v257). Wanted: the biggest about the old smallest
-  (÷16: well ~0.4, cathedral 2, ore 6 world units); then MAP_MAX_ZOOM ~64 (the well ~24 px), the terrain as tiles with
-  levels of detail (BACKLOG 10.63 – an SVG at zoom 64 is >130 000 px wide), HEX_CELL ~0.5 (re-evaluate: maybe a grid
-  per district instead of one world grid), the places' reader views (zoom per place, PLACE_ZOOM) and the builder's
-  defaults follow; check the reveal flight and labels at the new zooms. Calibration (owner, the published viewer with
-  every place at the default 12: "da waren sie alle gleich groß, aber fast klein genug"): the BIGGEST ≈ 12 → ÷8: ore 12,
-  apartment blocks / graveyard / Alt Erlaa 6, station 4.5, cathedral / monastery / library / mountain path 4, pool /
-  subway 3, small church 2, crypt 1.5, well 0.75 – so MAP_MAX_ZOOM ~32 (the well ~24 px), HEX_CELL ~1, PLACE_SIZE_MIN
-  ~0.5.
-
-- [ ] 10.66 **Place dioramas on the map: world-fixed size, clickable, outlines, routes behind them** (owner 2026-10-11,
-  the builder on a phone: "die Dioramen müssen wesentlich kleiner sein, sie dürfen nicht so überlappen – man sieht die
-  Tasse erst, wenn man weiter reinzoomt"; "die Icons müssen in der Größe fixiert sein mit der Karte – deshalb die drei
-  Auflösungen"). Today a place image is drawn at `size` × min(zoom, 3) px – it stops growing at zoom 3 and is far too big
-  for the dense city cluster (places ~10–40 world units apart). Wanted: (1) the image sized in WORLD units and scaled with
-  the map at every zoom (no cap) – a much smaller default `size`, so far out it is tiny and close in it is big; the
-  1x / 2x / 3x files are picked by the drawn size (already built: srcset `256w / 512w / 1024w` + sizes); the same in the
-  viewer and the builder (one shared place-image component, like MapTerrain). (2) The image is clickable: it selects /
-  activates the place (today only the small marker is). (3) A place without an image shows an abstract diorama
-  outline (one SVG, dashed) as its selectable element instead of the dot. (4) Routes go behind a place's diorama /
-  outline – entering and leaving it (an entry and an exit point) for an interesting path. Route animation (a path that
-  grows with the progress) is separate – not part of this. (5) Against overlaps (owner: "ein Grid auf die Karte – oktagonal oder
-  quadratisch – Orte nur innerhalb dieses Grids setzen"): octagons don't tile on their own (squares fill the gaps) – the
-  real choice is square or hexagonal; recommended a HEX grid (every neighbour the same distance, organic, an isometric
-  diorama's oval base fits a hex cell): cell size = the diorama's world size, at most one place per cell, the builder
-  snaps a placed / dragged place to the nearest free cell and refuses an occupied one; the existing places are moved
-  to their nearest free cells once (a map draft). A milder option without a grid: a builder warning "overlaps with …"
-  when two places' dioramas overlap.
-
-- [ ] 10.64 **A media optimisation tool on the media standard** (owner 2026-10-11: "wir haben einen Standard definiert …
-  die Leute können andere benutzen, aber wir empfehlen das Umkonvertieren – im Admin oder im Creator ein
-  Optimierungstool"). Built: `@scutoons/media` media-standard.ts (`checkMedia`, `toStandard`, `standardName`: PNG / JPEG →
-  WebP) – the asset picker's `webp` option uses it (the map's layers). Next: the importers (slice, character, map,
-  catalog) through `toStandard` instead of their own `toWebp` calls; a tool that lists assets off the standard and
-  converts them (a new version at the same path, `uploadOrReplace`); video (MP4 H.264 / WebM, 480p / 720p / 1080p) once
-  there is a way to run ffmpeg (not on the server: ffmpeg.wasm in the browser or a worker).
-- [ ] 10.65 **Open after the session 2026-10-11 (map, phone editors, unlock events)**: publish the map draft (v256:
-  the dioramas with plaster + 1x / 2x / 3x, new places ore-pit / ore-mountain / vienna-subway, waterfall-tower back –
-  production had deleted it; place them and give them unlockLocation events, else they stay hidden); the migrated
-  unlock events sit on slices or a chapter's first slice – move them where the story reaches the place; empty the
-  API's library cache after the migration (or wait 7 days); the bulk "Import images" should understand `-plaster`,
-  `.2x`, `.3x` names; the creator selection bar's Duplicate / Copy and the place actions View / Hidden were not clicked
-  through in a browser; scripts/check-map.mjs still checks the old progress unlocks; the Ausschnitt mode (framing a
-  place's reader view with the phone frame) was proposed and parked. Owner on the phone (2026-10-11): the place form's "Chapter link (card)" reads like an unlock – it is only where
-  the viewer card's "Read chapter N" button goes; rename it (e.g. "Button on the place card: read chapter …"); the size
-  slider shows no label / value on the phone (the `field` span is missing above it). The resolution slot (`MediaVariantsSlot`,
-  owner on the phone, the plaster model): a big square preview; beside it, on the right, the three level chips 1x / 2x /
-  3x stacked, each a third of the preview's height (together exactly as tall as the preview) – much smaller than now,
-  with a tighter gap; each chip keeps its × (clears that level); the round × that clears the whole medium goes BELOW
-  (under preview + chips), not beside them – today it takes too much room.
-
-- [x] 10.61 **Migrations through a protected interface, a developer role** (owner 2026-10-11: "eine Schnittstelle über
-  MCP, die Migrationen laufen lässt … mit einer neuen Rolle absichern – nicht Admin, darüber hinaus: eine Developer-Rolle,
-  die mein Account hat, andere erst freigeschaltet"). Today: SQL pasted into phpMyAdmin (2026-10-11: #1267 collation
-  mismatch, a cache flush by hand). Plan: a `developer` role above admin (the owner's account only); the server's
-  migrator (`console migrate`) behind an endpoint that only a developer token reaches – MCP tools `migration_status`
-  (read) and `run_migrations` (pending ones, dry run first, then run + empty the library cache); every migration
-  idempotent and tested on a production-like copy first. Alternative / addition: the deploy runs pending migrations
-  itself (GitHub secret). Collation: production's tables are utf8mb4_general_ci like local (the catalog utf8mb4_bin) –
-  the #1267 came from phpMyAdmin's connection (utf8mb4_unicode_ci) through user variables; migrations compare with
-  literals. Research (2026-10-11) – the plan: (1) Database.php `SET NAMES … COLLATE` from a setting `DB_COLLATION`;
-  (2) migration `developer-role`: the role, the owner's grant (granted_by 'migration'), `api_tokens.scopes`, a table
-  `dev_migration_runs`; (3) once in phpMyAdmin: complete `schema_migrations` (hand-run files are not recorded – else a
-  first automatic run repeats them); (4) Roles::DEVELOPER, only a developer grants it, the last one can't be revoked;
-  (5) a token scope `migrate` minted only in a session after a fresh sign-in code, 24 h – 7 d, no renew; ApiTokenScope
-  blocks `/api/dev/*` without it; (6) MigrationRunner: file hashes, `plan()` = run in a transaction and roll back to
-  count rows (DDL causes an implicit commit: listed, not run – never DDL and data in one file), GET_LOCK, a backup of the
-  affected rows, an audit callback; (7) Cache::clear() (APCu / files) after data migrations; (8) `/api/dev/migrations`
-  (status), `…/plan` (MCP, returns a link), `…/{run}/apply` (session + developer only: the click in the admin app);
-  (9) deploy uploads `migrations/**` (outside public/); (10) MCP tools `migration_status`, `plan_migrations` for
-  developers only; (11) PHPUnit; (12) MCP.md, DATABASE.md. Only files that came with the deploy run – never SQL from a
-  request (a leaked token or a prompt injection can at most plan).
-  **Built 2026-10-11, simplified by the owner the same day** ("das war sehr einfach gedacht"): no admin UI, no extra
-  token – the role is enough: a developer's normal AI connection gets the MCP tools `migration_status`,
-  `plan_migrations`, `apply_migrations`; the deploy runs pending migrations after the API upload (`POST
-  /api/deploy/migrate`, header `X-Migrate-Key`, GitHub secret `MIGRATE_KEY`). Kept from the plan: only deployed files,
-  dry run, plan hashes + 1-day TTL, GET_LOCK, row backups (storage/migration-backups), `Cache::clear()`, the run log
-  (`dev_migration_runs`), `DB_COLLATION`, only a developer grants the role. Docs: server/docs/DATABASE.md "Migrations",
-  docs/API.md "Developer API". **Owner, production, in this order:** (1) phpMyAdmin once:
-  `2026-10-11-developer-role.mysql.sql` (the two SELECTs in its header first – it records every earlier file in
-  `schema_migrations` as run); (2) GitHub → Settings → Environments → production: secret `MIGRATE_KEY` (e.g.
-  `openssl rand -hex 32`); (3) push – the deploy uploads the files and runs what is pending (none right now).
-- [ ] 10.62 **A derived reference index for the content documents** (research 2026-10-11: JSON documents stay the source –
-  the right model for a versioned authoring tool; what is missing is what MediaWiki / Sanity / Payload have): a table
-  `entity_refs(version_id, entity_key, status, ref_kind, ref_id, path)` filled on save / publish by one extractor
-  (TS + PHP, like the validators; `asset_usages` is the template) + a rebuild command → "used by", guards on delete /
-  rename (a place with unlockLocation events, a group label something jumps to), migrations that find their targets by
-  SQL, FlowIndex / ItemPlacements as queries. With it: stable ids for everything referenced (slices have none – the
-  2026-10-11 migration had to find slices by image path), `CHECK (JSON_VALID(json))`, one collation everywhere,
-  data migrations as new versions where possible (else a cache flush in the template), a `schemaVersion` per document.
-  Triggers for more (an entity in relational rows, like the catalog): its own writers outside the creator, frequent
-  409s on big documents, per-request queries across documents, the index rebuild > ~1 s.
-- [ ] 10.63 **Map rendering: culling, a spatial index, tiles** (owner 2026-10-11, research the same day): today one
-  terrain SVG (337 KB, 506 paths) + DOM markers with a simple cull (`onScreen(p, 160)`); done: camera input once per
-  frame, `moving` while zooming (wheel / pinch / keys / flight), labels at rest, place images scaled by transform and
-  picked by drawn size. Next, when needed: viewport culling with a spatial index (quadtree / rbush) for hundreds of
-  places; the terrain as WebP for the usual zooms (SVG or tiles for deep zoom); a tile pyramid with level of detail
-  (deep zoom) if the world grows past ~4096 units or zoom 8; one shared `MapTerrain` for viewer + builder so the
-  renderer can switch (Canvas / WebGL hybrid – markers and labels stay DOM for accessibility). Measure first on a
-  mid-range Android (chrome://inspect: pinch, pan, the reveal flight; ×5 / ×10 / ×25 places).
-
-- [ ] 10.60 **Publish down the tree, with a list to tick** (owner 2026-10-11): "was *eine* Datei ist, ist manchmal unklar.
-  Wenn ich weiter oben in der Gruppe oder im Kapitel publishe, sollten alle darunterliegenden Drafts mitgehen – als Liste
-  bestätigen, ob die mitgehen sollen oder nicht. So bleibt es granular, und ich habe eine Summary, wenn ich doch alle
-  Drafts absegnen möchte." Today Publish takes the page's own files (DocSession.publishAll: `docs` + saved companions)
-  and the confirm dialog lists them. Wanted: Publish on a chapter (or a group / season) collects every file below it
-  with an unpublished draft (the chapter, its scene files, …), shows them as a checklist (all ticked, each with its
-  label and last note), publishes the ticked ones. Same for reviews (submit the ticked ones). Open: which levels (toon →
-  season → chapter → group), and whether the map / characters / items count as "below" a toon.
-
-- [ ] 10.59 **Storyboard: script scene → stacked shots → first throw in Figma → chapter draft, prompts for the gaps**
-      (owner 2026-10-09; plan + milestones: agents/STORYBOARD.md §9; rules: workflows/scenes/storyboard.md). Timeline:
-      ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout from the week of 2026-10-12. Built on branch
-      `storyboard` (worktree `C:\Development\scutoons-storyboard`, owner's request 2026-10-09): `scripts/storyboard/`
-      (rhythm report, validate, render, shot list, compile → chapter draft + PNGs, check-draft, prompts, figma-draft),
-      the ch3 first throw `storyboards/catpope/s1c3/scene-25…34.json`, `tools/figma-bridge/` (plugin + relay + CLI),
-      the MCP's figma_* tools for creators (`tools/mcp/src/figma.ts`, after the refactor).
-      Open: the owner's answers (the run result at the top), the first Figma run (bridge or use_figma, on a test page),
-      save_draft + upload of the ch3 draft (owner's go), the
-      matching against the S1C3 selection.
-
-## Done
-
 - [x] B.2 Scene files use `{"type":"end"}` → "Unknown event type" _(MEMORY.md, 2026-09-30)_.
       _(2026-10-07, re-checked: still in the PUBLISHED versions of scene:catpope:2:scene-14 (neutral 201, de 127, en 128)
       and older drafts – stored with spaces (`"type": "end"`, an end with a jump to scene-20), so a first search for the
