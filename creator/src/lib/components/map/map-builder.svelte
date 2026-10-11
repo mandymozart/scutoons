@@ -644,10 +644,8 @@
 						{#if startView}<button type="button" class="ghost" onclick={gotoStartView} data-testid="start-view-go">{m['creator.map_start_view_go']()}</button>{/if}
 					</div>
 				{/if}
-				<!-- a toolbar = grouped = square (DESIGN.md "Round vs square", E.9): one segmented frame like the Flow's zoom -->
+				<!-- show everything; zooming itself is the wheel / two fingers (owner 2026-10-11: no zoom in / out buttons) -->
 				<div class="zoom sc-seg" role="group" aria-label={m['creator.field_map_zoom']()}>
-					<button type="button" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()} title={m['creator.map_zoom_out']()}><Icon name="zoom-out" /></button>
-					<button type="button" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()} title={m['creator.map_zoom_in']()}><Icon name="zoom-in" /></button>
 					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 				</div>
 			</div>
@@ -673,7 +671,7 @@
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
 				/>
-				<!-- phones (UI-CONCEPTS E.10): the canvas gets the screen; tools left, zoom right, the toon filter as one chip -->
+				<!-- phones (UI-CONCEPTS E.10): the canvas gets the screen; tools left, fit + go to the view right (zoom: two fingers) -->
 				<div class="phone-only strip tools" role="toolbar" aria-label={m['creator.map']()}>
 					{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer'], ['place', m['creator.map_tool_place'](), 'map-pin'], ['route', m['creator.map_tool_route'](), 'share-2']] as [id, label, icon] (id)}
 						<button type="button" class:on={tool === id} aria-pressed={tool === id} aria-label={label} title={label} onclick={() => (tool = id as MapTool)} data-testid="phone-tool-{id}"><Icon name={icon} /></button>
@@ -683,8 +681,6 @@
 					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)}><Icon name="smartphone" /></button>
 				</div>
 				<div class="phone-only strip zooms" role="group" aria-label={m['creator.field_map_zoom']()}>
-					<button type="button" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()} title={m['creator.map_zoom_in']()}><Icon name="zoom-in" /></button>
-					<button type="button" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()} title={m['creator.map_zoom_out']()}><Icon name="zoom-out" /></button>
 					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 					<button type="button" onclick={gotoView} disabled={!placeFrame && !startView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()}><Icon name="crosshair" /></button>
 				</div>
