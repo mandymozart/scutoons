@@ -17,6 +17,8 @@ import { getLocale } from '$lib/paraglide/runtime.js';
 
 export type PublishScope =
 	| { kind: 'all'; toons: { id: string; name: string }[] }
+	/** a page without levels below (the map, characters, cast, credits, the script …): its own files – the same list */
+	| { kind: 'files'; toon: string; keys: string[] }
 	| { kind: 'toon'; toon: string }
 	| { kind: 'season'; toon: string; number: number; chapters: number[] }
 	| { kind: 'chapter'; toon: string; number: number };
@@ -41,6 +43,8 @@ export function inScope(key: string, scope: PublishScope): boolean {
 	switch (scope.kind) {
 		case 'all':
 			return true;
+		case 'files':
+			return scope.keys.includes(key);
 		case 'toon':
 			return key.split(':')[1] === scope.toon || key === `toon:${scope.toon}`;
 		case 'season':

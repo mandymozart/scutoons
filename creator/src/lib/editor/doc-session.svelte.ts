@@ -1,37 +1,14 @@
 // One editor page's save / publish / conflict state (COMPONENTS.md step 11): the meta pages (meta-page.svelte) and the
 // chapter editor share it – before, the chapter editor had a copy that had drifted. The page passes its files; the
-// session saves the dirty ones (asking for a note first), publishes after one confirm dialog that names exactly what
-// is published and in which language (owner 2026-10-03, 4.4.3), says what happened as a toast (UI-CONCEPTS E.1:
+// session saves the dirty ones (asking for a note first), publishes through the one checklist of every file with a
+// draft at the page's level (publish-tree.ts, BACKLOG 10.60 – owner 2026-10-11), says what happened as a toast (UI-CONCEPTS E.1:
 // Saved, Published, Nothing to save, errors – lib/toasts.ts) and keeps the conflict the page shows as a bar (DocNotices).
 import { askDialog, confirmDialog } from '@scutoons/ui';
 import { publishTree, type PublishScope } from '$lib/editor/publish-tree.ts';
-import { NEUTRAL_LOCALE } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
-import { docLabel, fileLabels } from '$lib/labels.ts';
+import { docLabel } from '$lib/labels.ts';
 import { SaveConflict, SaveError, type ContentDoc } from '$lib/editor/doc.svelte.ts';
-import { confirmSubmit, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 import { toast, toaster } from '$lib/toasts.ts';
-import { markedLanguage } from '$lib/editor/text-language.svelte.ts';
-
-/**
- * The confirm dialog before publishing (one structure everywhere): the files and their languages (none for the
- * language-neutral entities), after a first one when the problem list has errors. False = cancelled.
- */
-export async function confirmPublish(files: ContentDoc[], errorCount = 0): Promise<boolean> {
-	if (errorCount && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: errorCount }), confirmLabel: m['creator.publish']() }))) return false;
-	// a language-neutral chapter / scene / season publishes every language of its texts at once; the source marked ★
-	const source = files.find((d) => d.texts)?.texts?.source;
-	const locales = [...new Set(files.flatMap((d) => (d.texts ? (d.dirty || d.unpublished.length ? d.texts.languages : []) : [...d.dirtyLocales, ...d.unpublished])))]
-		.filter((l) => l !== NEUTRAL_LOCALE)
-		.map((l) => markedLanguage(l, source))
-		.join(', ');
-	const file = fileLabels(files.map((d) => d.entity));
-	return confirmDialog({
-		title: m['creator.publish_title'](),
-		message: locales ? m['creator.publish_confirm']({ file, locales }) : m['creator.publish_confirm_neutral']({ file }),
-		confirmLabel: m['creator.publish']()
-	});
-}
 
 export interface DocSessionOptions {
 	/** the page's files (validated, saved, published) */
@@ -130,48 +107,23 @@ export class DocSession {
 	}
 
 	/**
-	 * "Publish": saves first, then publishes every file with an unpublished version (after the confirm dialog). Accounts
-	 * that need a review for the toon submit the same files for review instead (reviews.svelte.ts).
+	 * "Publish" – one dialog everywhere (owner 2026-10-11: "kein eigenes Publishing-Interface für alles, sondern für alles
+	 * gleich"): the page saved first, then the checklist (publish-tree.ts) of every file with a draft at the page's level –
+	 * below it (`tree`: a chapter, a season, a toon) or the page's own files.
 	 */
 	async publishAll(): Promise<void> {
 		const tree = this.options.tree?.();
-		if (tree) return this.publishTree(tree.scope, tree.title);
-		this.options.beforeSave?.();
-		const follow = [...new Set([...this.companions.filter((d) => d.dirty), ...this.savedCompanions])];
-		const files = [...this.docs.filter((d) => d.dirty || d.unpublished.length), ...follow];
-		if (!files.length) {
-			this.notify(m['creator.nothing_to_publish']());
-			return;
-		}
-		if (reviews.needsReview(files[0].toon)) {
-			const note = await confirmSubmit(files, this.options.errorCount?.() ?? 0);
-			if (note === null || !(await this.saveAll())) return;
-			try {
-				this.notify(await submitForReview([...this.docs, ...this.savedCompanions].filter((d) => d.stored.length && d.unpublished.length), note), 'success');
-				this.savedCompanions = [];
-			} catch (e) {
-				this.notify(e instanceof Error ? e.message : String(e), 'error');
-			}
-			return;
-		}
-		if (!(await confirmPublish(files, this.options.errorCount?.() ?? 0))) return;
-		if (!(await this.saveAll())) return;
-		try {
-			for (const doc of [...this.docs, ...this.savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
-			this.savedCompanions = [];
-			this.notify(m['creator.published'](), 'success');
-		} catch (e) {
-			this.notify(e instanceof Error ? e.message : String(e), 'error');
-		}
+		await this.publishTree(tree?.scope ?? null, tree?.title ?? m['creator.publish_tree_title']({ name: this.docs[0] ? docLabel(this.docs[0]) : '' }));
 	}
 
-	/** Publish down the tree: the page saved first, then the checklist of every draft below it; the page reloads what went live */
-	async publishTree(scope: PublishScope, title: string): Promise<void> {
+	/** The page saved first, then the checklist (`scope` null = the page's own files); the page reloads what went live */
+	async publishTree(scope: PublishScope | null, title: string): Promise<void> {
 		this.options.beforeSave?.();
 		if (this.options.errorCount?.() && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: this.options.errorCount?.() ?? 0 }), confirmLabel: m['creator.publish']() }))) return;
 		if ([...this.docs, ...this.companions].some((d) => d.dirty) && !(await this.saveAll())) return;
 		try {
-			const result = await publishTree(scope, title);
+			const own = [...this.docs, ...this.companions];
+			const result = await publishTree(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.stored.map((l) => d.key(l))) }, title);
 			if (!result) return;
 			const live = new Set(result.published);
 			for (const doc of [...this.docs, ...this.companions]) if (doc.stored.some((l) => live.has(doc.key(l)))) await doc.load();
