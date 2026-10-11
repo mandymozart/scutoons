@@ -19,6 +19,16 @@ export class MapViewport {
 	maxZoom = $state(MAP_MAX_ZOOM);
 	/** a gesture is running (the apps raise `will-change` while it does) */
 	moving = $state(false);
+	#settle: ReturnType<typeof setTimeout> | undefined;
+	/**
+	 * the camera moves by something without a clear end (the wheel, a pinch, a flight's frames): `moving` until it has been
+	 * still for a moment – so the terrain stays one composited layer while it zooms instead of being re-rastered per frame
+	 */
+	stir(ms = 160) {
+		this.moving = true;
+		clearTimeout(this.#settle);
+		this.#settle = setTimeout(() => (this.moving = false), ms);
+	}
 
 	readonly transform = $derived(`translate(${this.x}px, ${this.y}px) scale(${this.zoom})`);
 
@@ -113,6 +123,22 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 		/** the first pointer may pan (else it is only a tap: the builder's place / route tools) */
 		let panning = true;
 		let pinch: { distance: number; zoom: number } | null = null;
+		// pointer and wheel events can come several times per frame: collected here, applied once per animation frame
+		let frame = 0;
+		let pan = { dx: 0, dy: 0 };
+		let zoomBy: { factor: number; at: Point } | null = null;
+		let zoomTo: { zoom: number; at: Point } | null = null;
+		const flush = () => {
+			frame = 0;
+			if (pan.dx || pan.dy) view.panBy(pan.dx, pan.dy);
+			pan = { dx: 0, dy: 0 };
+			if (zoomTo) view.zoomAt(zoomTo.zoom / view.zoom, zoomTo.at);
+			else if (zoomBy) view.zoomAt(zoomBy.factor, zoomBy.at);
+			zoomTo = zoomBy = null;
+		};
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(flush);
+		};
 		const local = (e: { clientX: number; clientY: number }): Point => {
 			const r = node.getBoundingClientRect();
 			return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -155,7 +181,10 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 				const [a, b] = [...pointers.values()];
 				const distance = Math.hypot(a.x - b.x, a.y - b.y);
 				const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-				view.zoomAt((pinch.zoom * distance) / pinch.distance / view.zoom, mid);
+				zoomTo = { zoom: (pinch.zoom * distance) / pinch.distance, at: mid };
+				zoomBy = null;
+				view.stir();
+				schedule();
 				dragged = true;
 				return;
 			}
@@ -173,13 +202,15 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 					/* the pointer is gone already */
 				}
 			}
-			view.panBy(p.x - previous.x, p.y - previous.y);
+			pan = { dx: pan.dx + p.x - previous.x, dy: pan.dy + p.y - previous.y };
+			schedule();
 		}
 		function up(e: PointerEvent) {
 			if (!pointers.has(e.pointerId)) return;
 			pointers.delete(e.pointerId);
 			if (pointers.size < 2) pinch = null;
 			if (pointers.size === 0) {
+				flush();
 				view.moving = false;
 				if (!dragged && options.onTap) options.onTap(e, local(e));
 				start = null;
@@ -190,7 +221,10 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 			e.preventDefault();
 			// trackpads send many small deltas (ctrlKey = pinch); a mouse wheel sends ±100
 			const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-			view.zoomAt(Math.exp(-delta * (e.ctrlKey ? 0.01 : 0.0015)), local(e));
+			const factor = Math.exp(-delta * (e.ctrlKey ? 0.01 : 0.0015));
+			zoomBy = { factor: (zoomBy?.factor ?? 1) * factor, at: local(e) };
+			view.stir();
+			schedule();
 		}
 		function dblclick(e: MouseEvent) {
 			if (options.onDoubleClick?.(e, local(e))) return;
@@ -205,6 +239,7 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 		node.addEventListener('wheel', wheel, { passive: false });
 		node.addEventListener('dblclick', dblclick);
 		return () => {
+			cancelAnimationFrame(frame);
 			resize.disconnect();
 			node.removeEventListener('pointerdown', down);
 			node.removeEventListener('pointermove', move);

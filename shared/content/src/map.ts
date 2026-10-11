@@ -6,7 +6,7 @@ import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
 import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
 import { toonAsset } from './paths.ts';
-import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type QualityVariants } from './media-quality.ts';
+import { MEDIA_QUALITIES, type QualityVariants } from './media-quality.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
 // ── The entity `map` ────────────────────────────────────────────────────────────────────────────────────────────
@@ -107,10 +107,17 @@ export interface MapImage {
 	plasterVariants?: QualityVariants;
 }
 
-/** A place image's `srcset` from its 1x / 2x / 3x files (`url` makes a file a URL); undefined without variants */
+/** the widths of a place image's files (owner 2026-10-11: "256 512 1024") – 1x / 2x / 3x */
+export const PLACE_IMAGE_WIDTHS: Record<(typeof MEDIA_QUALITIES)[number], number> = { low: 256, medium: 512, high: 1024 };
+
+/**
+ * A place image's `srcset` from its 1x / 2x / 3x files by their widths (`256w, 512w, 1024w`; `url` makes a file a URL):
+ * with `sizes` = the width it is drawn at, the browser takes the smallest file that is sharp at this zoom and screen
+ * density (owner 2026-10-11: "bei verschiedenen Zoomstufen andere – ganz nah die größte"). Undefined without variants.
+ */
 export function placeImageSrcset(variants: QualityVariants | null | undefined, url: (path: string) => string): string | undefined {
 	if (!variants) return undefined;
-	const parts = MEDIA_QUALITIES.filter((q) => typeof variants[q] === 'string' && variants[q]).map((q) => `${url(variants[q]!)} ${IMAGE_QUALITY_DENSITIES[q]}x`);
+	const parts = MEDIA_QUALITIES.filter((q) => typeof variants[q] === 'string' && variants[q]).map((q) => `${url(variants[q]!)} ${PLACE_IMAGE_WIDTHS[q]}w`);
 	return parts.length ? parts.join(', ') : undefined;
 }
 

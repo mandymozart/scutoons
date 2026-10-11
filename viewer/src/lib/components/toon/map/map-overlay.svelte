@@ -159,6 +159,7 @@
 			const step = () => {
 				const t = skip ? 1 : (performance.now() - start) / ms;
 				const at = flightAt(from, to, t);
+				view.stir(250);
 				view.centerOn({ x: at.x, y: at.y }, at.zoom);
 				if (t >= 1) resolve();
 				else requestAnimationFrame(step);
@@ -209,7 +210,14 @@
 		window.addEventListener('resize', read);
 		return () => window.removeEventListener('resize', read);
 	});
-	const labelled = $derived.by(() => {
+	// which labels show: worked out at rest only – during a pan / pinch / flight the set stays, only the positions move
+	// (the overlap test is O(n·m); agents/MAP.md §8.5c)
+	let labelled = $state<Set<string>>(new Set());
+	$effect(() => {
+		if (view.moving) return;
+		labelled = new Set(labelsNow());
+	});
+	const labelsNow = () => {
 		const onScreen = places.map((p) => ({ p, s: view.toScreen(p), isNew: isPlaceNew(p.id, mapState) })).filter(({ s }) => s.x > -100 && s.y > -40 && s.x < view.width + 100 && s.y < view.height + 40);
 		const items = onScreen.filter(({ p }) => own(p)).sort((a, b) => Number(b.isNew) - Number(a.isNew));
 		const char = 0.75 * rem * 0.6;
@@ -217,7 +225,7 @@
 			items.map(({ p, s }) => ({ id: p.id, x: s.x, y: s.y - 0.6 * rem, width: p.name.length * char + 6, height: 0.75 * rem + 4 })),
 			onScreen.map(({ s }) => ({ x: s.x, y: s.y, size: rem }))
 		);
-	});
+	};
 
 	// ── seen: new places that were on screen while the map was open lose their halo (and the badge goes) ─────────
 	$effect(() => {
@@ -274,8 +282,8 @@
 		}
 		const target = e.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select')) return;
-		if (e.key === '+' || e.key === '=') view.zoomAt(1.5);
-		else if (e.key === '-') view.zoomAt(1 / 1.5);
+		if (e.key === '+' || e.key === '=') (view.stir(), view.zoomAt(1.5));
+		else if (e.key === '-') (view.stir(), view.zoomAt(1 / 1.5));
 		else if (e.key.startsWith('Arrow') && !target?.closest('button, a')) {
 			const step = 80;
 			view.panBy(e.key === 'ArrowLeft' ? step : e.key === 'ArrowRight' ? -step : 0, e.key === 'ArrowUp' ? step : e.key === 'ArrowDown' ? -step : 0);
@@ -283,7 +291,18 @@
 	}
 
 	const layerVisible = (l: { minZoom?: number; maxZoom?: number }) => (l.minZoom === undefined || view.zoom >= l.minZoom) && (l.maxZoom === undefined || view.zoom <= l.maxZoom);
-	const imageBox = (p: ReaderPlace) => placeImageBox(p.image!, Math.min(view.zoom, 3));
+	// a place image is laid out once at its largest drawn size (zoom 3) and scaled down by a transform – zooming then never
+	// lays out or resamples it per frame (agents/MAP.md §8.5c)
+	const IMAGE_ZOOM = 3;
+	const imageBox = (p: ReaderPlace) => placeImageBox(p.image!, IMAGE_ZOOM);
+	const imageScale = $derived(Math.min(view.zoom, IMAGE_ZOOM) / IMAGE_ZOOM);
+	/** the zoom the files are picked for: updated at rest only (no new downloads mid-gesture) */
+	let restZoom = $state(1);
+	$effect(() => {
+		if (!view.moving) restZoom = Math.min(view.zoom, IMAGE_ZOOM);
+	});
+	/** `sizes`: the width the image is drawn at – the browser picks 1x / 2x / 3x from it and the screen's density */
+	const drawnSize = (p: ReaderPlace) => `${Math.ceil(placeImageBox(p.image!, restZoom).width)}px`;
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -318,11 +337,13 @@
 							{#if revealShow && revealing === p.id}<span class="halo" aria-hidden="true"></span>{/if}
 							{#if p.image && own(p)}
 								{@const box = imageBox(p)}
+								<span class="image-scale" style:transform="scale({imageScale})">
 								<!-- the reveal (§8.5a): the plaster model first, the painted diorama fades in over it -->
 								{#if p.image.plaster && revealing === p.id}
-									<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+									<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} sizes={drawnSize(p)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 								{/if}
-								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								</span>
 							{/if}
 							<button
 								class="marker"
@@ -377,7 +398,7 @@
 	{#if card}
 		<section class="card" aria-label={card.name} data-testid="map-card">
 			<button class="card-close" onclick={() => (selected = null)} aria-label={m['map.close_card']()}><CloseIcon size="1rem" /></button>
-			{#if card.image}<img class="card-image" src={asset(card.image.src)} srcset={placeImageSrcset(card.image.variants, asset)} alt="" />{/if}
+			{#if card.image}<img class="card-image" src={asset(card.image.src)} srcset={placeImageSrcset(card.image.variants, asset)} sizes="6rem" alt="" />{/if}
 			<h2>{card.name}</h2>
 			{#if !own(card)}<p class="muted">{m['map.other_toon']()}</p>{/if}
 			{#if here}<p>{m['map.you_are_here']({ name: toonTitle })}</p>{/if}
@@ -502,6 +523,13 @@
 		position: absolute;
 		pointer-events: none;
 		height: auto;
+	}
+	/* scales the place's images around its point (the .place origin) */
+	.image-scale {
+		position: absolute;
+		left: 0;
+		top: 0;
+		transform-origin: 0 0;
 	}
 	.marker {
 		position: absolute;
