@@ -22,20 +22,22 @@
 	// (owner 2026-10-11: "ich muss nichts mit IDs zu tun haben")
 	const differences = $derived(conversions.flatMap((d) => visibleDifferences(d.converted!.report).map((r) => ({ file: fileLabel(d.entity), line: differenceLine(r) }))));
 	/** "Chapter 2", "Script (en)": a language only for a document stored per language (not the neutral `_`) */
+	/** "10/11/26, 7:24 PM" – short, so the notice stays on one line (owner 2026-10-11) */
+	const shortTime = (at: string | number) => new Date(at).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 	const conflictLabel = (locale: string | undefined, entity: string) => (locale && locale !== NEUTRAL_LOCALE ? `${fileLabel(entity)} (${locale})` : fileLabel(entity));
 </script>
 
 {#each recoverables as d (d.entity)}
-	<div class="sc-bar is-warning" data-testid="recover">
-		{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
-		{#if d.recoverableIsStale}<strong class="sc-emphasis">{m['creator.recover_stale']()}</strong>{/if}
+	{@const text = `${fileLabel(d.entity)}: ${m['creator.recover_title']({ time: shortTime(d.recoverable!.at) })}${d.recoverableIsStale ? ` (${m['creator.recover_stale']()})` : ''}`}
+	<div class="sc-bar is-warning line" data-testid="recover">
+		<span class="text" title={text}>{text}</span>
 		<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
 		<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
 	</div>
 {/each}
 {#if conversions.length}
-	<div class="sc-bar is-note conversion" data-testid="converted">
-		<span>{m['creator.converted_notice']({ files: fileLabels(conversions.map((d) => d.entity)) })}</span>
+	<div class="sc-bar is-note line conversion" data-testid="converted">
+		<span class="text">{m['creator.converted_notice']({ files: fileLabels(conversions.map((d) => d.entity)) })}</span>
 		{#if differences.length}
 			<details>
 				<summary>{m['creator.converted_differences']({ count: differences.length })}</summary>
@@ -44,20 +46,38 @@
 				</ul>
 			</details>
 		{:else}
-			<span>{m['creator.converted_no_differences']()}</span>
+			<span class="text">{m['creator.converted_no_differences']()}</span>
 		{/if}
 	</div>
 {/if}
 {#if session.conflict}
-	<div class="sc-bar is-error" data-testid="conflict">
-		{m['creator.conflict']({ file: conflictLabel(session.conflict.error.locale, session.conflict.doc.entity) })}
+	{@const text = m['creator.conflict']({ file: conflictLabel(session.conflict.error.locale, session.conflict.doc.entity) })}
+	<div class="sc-bar is-error line" data-testid="conflict">
+		<span class="text" title={text}>{text}</span>
 		<button class="secondary" onclick={() => session.resolveConflict('reload')}>{m['creator.reload']()}</button>
 		<button class="secondary" onclick={() => session.resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 	</div>
 {/if}
 
 <style>
-	.conversion {
+	/* one line at most (owner 2026-10-11: "these messages use too much real estate"): the text shortens with an
+	   ellipsis (full text in the tooltip), the actions stay; only an opened list of differences takes more room */
+	.line {
+		flex-wrap: nowrap;
+		padding-block: var(--space-025);
+	}
+	.line .text {
+		flex: 0 1 auto;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.line > button,
+	.line > details {
+		flex-shrink: 0;
+	}
+	.conversion:has(details[open]) {
 		flex-wrap: wrap;
 	}
 	.conversion details {

@@ -7,6 +7,18 @@ find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the 
 New entries: the next free number (10.60, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
+## Desktop UI fixes (owner 2026-10-11: "i like some fixes. we collect them here … can do it over night") – collecting
+
+Collected with the owner, then worked through in a night run (rules: memory night-runs – commit on `main`, never
+push, small owner-described fixes are built, bigger UI gets a concept in UI-CONCEPTS.md first; stop at decisions).
+
+- [x] **D1 – notices on one line.** Done 2026-10-11 (built right away, not in the night run): `.line` in
+  doc-notices – nowrap, text with ellipsis + `title`, short date/time, "(older version)", "Restore". Was: The creator's doc notices (e.g. "Map: Unsaved local changes from … They were made
+  on an older version. [Restore them] [Discard]", `creator/src/lib/components/page/doc-notices.svelte`) take two lines
+  plus padding. Max ONE line: message + actions in a row, compact padding, no bold second sentence (fold "older version"
+  into the line or into the `title` tooltip); ellipsis if the line is too long, full text in `title`. Same treatment
+  for the other notices that use this component.
+
 ## Storyboard night 2026-10-10 (owner asleep: "run all night and than create a second version of the draft in figma") – result, read this first
 
 All on `main`, not pushed. Item **10.59**.
