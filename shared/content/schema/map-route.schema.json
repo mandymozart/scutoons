@@ -1,0 +1,115 @@
+{
+	"$id": "https://scutoons.com/schema/map-route.schema.json",
+	"title": "RouteDoc",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/RouteDoc",
+	"definitions": {
+		"RouteDoc": {
+			"type": "object",
+			"properties": {
+				"removed": {
+					"type": "boolean",
+					"description": "taken off the map (a tombstone)"
+				},
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"toons": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"waypoints": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Waypoint"
+					},
+					"description": "ordered, ≥ 2; a waypoint is a place or a free point"
+				},
+				"style": {
+					"$ref": "#/definitions/MapPathStyle",
+					"description": "how the line is drawn (default `road`)"
+				},
+				"hidden": {
+					"type": "boolean",
+					"description": "hidden until an event reveals it (default visible)"
+				}
+			},
+			"required": [
+				"name",
+				"toons",
+				"waypoints"
+			],
+			"description": "The document `route:<id>`"
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		},
+		"Waypoint": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/PlaceWaypoint"
+				},
+				{
+					"$ref": "#/definitions/FreeWaypoint"
+				}
+			]
+		},
+		"PlaceWaypoint": {
+			"type": "object",
+			"properties": {
+				"location": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"location"
+			],
+			"description": "A place of the map (`location` = the place id; its waypoint id is the place id)"
+		},
+		"FreeWaypoint": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"id",
+				"x",
+				"y"
+			],
+			"description": "A free point on a route (a bridge, a pass); `id` unique within the route"
+		},
+		"MapPathStyle": {
+			"type": "string",
+			"enum": [
+				"road",
+				"trail",
+				"flight",
+				"sea"
+			]
+		}
+	}
+}
