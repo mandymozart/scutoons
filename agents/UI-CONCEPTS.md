@@ -415,3 +415,61 @@ ActionBar, the inspector as a sheet with icon + count tabs, More · Save · `de 
 text-link question); embassy 4 – 2 fixed, 2 owner decides. After the fixes no page scrolls sideways at 375 or 768 and
 no ActionBar overflows (the audit's measure). **Owner 2026-10-07:** the 9 "owner decides" findings are deferred –
 "ignore for now"; nothing to build until the owner brings them up again.
+
+## E.10 The map builder on a phone (owner 2026-10-11, draft – for the owner to pick)
+
+Owner: "einen Entwurf … wie man den Karten-Editor in der Mobile View so machen kann, dass man ihn am Handy bedienen kann
+und die Funktionen, die wir gerade eingebaut haben (z. B. Ausschnitt feststellen) … was verschwinden kann, was in Menüs
+kommt, die rausfahren, und was auf dem Screen ist, wo man Texte mit Icons vereinfachen kann."
+
+**Today at 375 px** (screenshot 2026-10-11): page title "Map" in its own row, then a toolbar that wraps into several rows
+– the tool radios, the toon chips (All · catpope …), Import, two labelled checkboxes "Reader view" / "Phone frame", the
+start-view line with Set / Go, the zoom group – the canvas starts in the lower half; the validation table and the
+props panel come below the canvas (`max-width: 1100px` stacks them); the ActionBar "More · Save · draft ▾ · Publish"
+and the status toast cover the canvas' bottom. Little map, much chrome.
+
+**Principle** – the same phone pattern as the chapter editor (E.9 / BACKLOG 10.50): the canvas gets the screen; tools on
+a square strip at the side; everything about *one thing* in a sheet from the bottom; the lists in the drawer; the bar
+keeps More · Save · language · Publish. Text → icons with the label as name + tooltip (DESIGN.md "Icons": Feather).
+
+**On the screen (always)**
+
+| Where | What | Was |
+|---|---|---|
+| header | ☰ (drawer) · logo · search – as on every creator page; the page title "Map" goes into the crumbs | title row |
+| left strip (square group, top to bottom) | `mouse-pointer` select · `map-pin` place · `share-2` route · — · `eye` reader view · `smartphone` phone frame | tool radios + two labelled checkboxes |
+| right strip (bottom, square group) | `zoom-in` · `zoom-out` · `maximize` fit · `crosshair` go to the start / place view; the % only as the strip's tooltip / a small caption on tap | the zoom group with "109 %" |
+| top of the canvas, one chip | the toon filter as ONE chip "catpope ▾" (a menu: All · each toon) | the chip row |
+| bottom | the ActionBar: More · Save · draft ▾ · Publish (status toast moves above the sheet, not over the bar) | unchanged, but the toast covered the map |
+
+**In sheets that slide up (the inspector, like the chapter editor's – icon + count tabs in one row, peek 45 % / full)**
+
+- *Nothing selected* → tabs `map` **Map** (size, background, sea, layers' order), `flag` **Start view** (per toon:
+  "Set from this view" `crosshair` · "Go" `navigation` – the value as one caption "catpope · 1320 / 440 · 100 %"),
+  `alert-triangle` **Problems** (count badge; a row tap selects + closes the sheet to peek).
+- *A place selected* → tabs `info` **Place** (names per language, toons, hidden), `image` **Image**, `unlock` **Unlock**
+  (chapter slice), `maximize-2` **Reader view** – the new place view: zoom stepper (− 200 % +), shift x / y as two
+  number fields, and three icon buttons: `crosshair` "Use this view", `eye` "Show", `rotate-ccw` "Reset" (labels in
+  the tooltip, words only in the full sheet).
+- *A route selected* → `info` **Route**, `git-commit` **Waypoints**.
+- Moving a marker / waypoint drags the sheet down to peek automatically (the map stays visible while editing).
+
+**In the drawer (☰, slides in from the left – navigation, closes on a pick)**
+
+Layers (show / hide checkbox, select), Places (with the problem mark), Routes, "+ Place" / "+ Route" / "+ Layer"
+(each sets the tool and closes the drawer), and **Import images** (rare – out of the toolbar).
+
+**What disappears on phones**
+
+- The page title row (crumbs carry it). The validation *table* (→ Problems tab with a count badge on the strip / bar).
+- The words "Reader view", "Phone frame", "Set start view", "Go to start view", "All toons", the "109 %" readout → icons /
+  one chip; the full words stay in tooltips, aria-labels and the full sheet.
+- The start-view line in the toolbar (→ Start view tab).
+
+**Gestures:** one finger on empty map = pan; pinch = zoom; tap a marker = select + sheet to peek; long-press on empty map
+with the place tool = new place there; a waypoint drag as today (the 2.75rem target). The phone frame shows the place
+view of the selected place (as on desktop since 2026-10-10) – on the phone it is the screen's own size, so "Show" can
+also simply *set the canvas* to that view.
+
+**Open for the owner:** (1) start view + problems as inspector tabs (above) or in More? (2) the toon filter as a chip on
+the canvas or in the drawer? (3) keep a % readout at all on phones?
