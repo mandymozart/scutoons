@@ -116,6 +116,8 @@ export interface ValidateContext {
 	items?: string[];
 	/** the world map's place ids (unlockLocation events are checked against them; none = no check) */
 	places?: string[];
+	/** of those, the places that list this toon in their `toons` (the others show as plain markers here) */
+	toonPlaces?: string[];
 	/** the catalog items' variant ids (gives / pickups may name one) */
 	itemVariants?: Record<string, string[]>;
 	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
@@ -516,6 +518,8 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			if (!isObj(p) || typeof p.location !== 'string' || !p.location.trim()) c.error([...pp, 'location'], 'unlockLocation needs params.location: a place id of the world map');
 			else {
 				if (ctx.places && !ctx.places.includes(p.location)) c.warn([...pp, 'location'], `the place "${p.location}" is not on the world map – this event does nothing for the readers`);
+				// another toon's place: allowed (owner 2026-10-11) – but this toon's map shows it as a plain marker, no name or picture
+				else if (ctx.toonPlaces && !ctx.toonPlaces.includes(p.location)) c.info([...pp, 'location'], `the place "${p.location}" doesn't list this toon – its map shows it as a plain marker (no name, no picture); add the toon to the place's toons`);
 				if (p.silent !== undefined && typeof p.silent !== 'boolean') c.error([...pp, 'silent'], 'silent must be true/false');
 			}
 			break;

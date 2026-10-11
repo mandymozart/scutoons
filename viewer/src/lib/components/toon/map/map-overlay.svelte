@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { isPlaceNew, isPlaceVisible, placeImageBox, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -320,9 +320,9 @@
 								{@const box = imageBox(p)}
 								<!-- the reveal (§8.5a): the plaster model first, the painted diorama fades in over it -->
 								{#if p.image.plaster && revealing === p.id}
-									<img class="place-image plaster" src={asset(p.image.plaster)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+									<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 								{/if}
-								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 							{/if}
 							<button
 								class="marker"
@@ -377,7 +377,7 @@
 	{#if card}
 		<section class="card" aria-label={card.name} data-testid="map-card">
 			<button class="card-close" onclick={() => (selected = null)} aria-label={m['map.close_card']()}><CloseIcon size="1rem" /></button>
-			{#if card.image}<img class="card-image" src={asset(card.image.src)} alt="" />{/if}
+			{#if card.image}<img class="card-image" src={asset(card.image.src)} srcset={placeImageSrcset(card.image.variants, asset)} alt="" />{/if}
 			<h2>{card.name}</h2>
 			{#if !own(card)}<p class="muted">{m['map.other_toon']()}</p>{/if}
 			{#if here}<p>{m['map.you_are_here']({ name: toonTitle })}</p>{/if}

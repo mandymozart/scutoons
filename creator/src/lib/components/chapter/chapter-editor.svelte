@@ -156,8 +156,8 @@
 	const worldMap = worldMapDoc();
 	/** the world map's place ids (unlockLocation events point at them); undefined until it is loaded = no check */
 	const worldMapPlaces = $derived.by(() => {
-		const map = worldMap.loading ? null : (worldMap.data?.[worldMap.primary] as { locations?: { id: string }[] } | undefined);
-		return map?.locations ? map.locations.map((l) => l.id) : undefined;
+		const map = worldMap.loading ? null : (worldMap.data?.[worldMap.primary] as { locations?: { id: string; toons?: string[] }[] } | undefined);
+		return map?.locations ? map.locations : undefined;
 	});
 	let toonInfos = $state<ToonInfo[]>([]);
 	let castTouched = $state(false);
@@ -590,7 +590,8 @@
 				items: catalogItems,
 				itemRespawn,
 				// unlockLocation: the world map's places (once loaded)
-				places: worldMapPlaces
+				places: worldMapPlaces?.map((l) => l.id),
+				toonPlaces: worldMapPlaces?.filter((l) => l.toons?.includes(toon)).map((l) => l.id)
 			};
 			if (data == null) {
 				if (doc.source[doc.primary] === 'missing') out.push({ level: 'error', file: doc.entity, locale: null, path: [], message: m['creator.missing']() });
@@ -843,7 +844,8 @@
 				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history') }
 			]
 		},
-		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, run: () => session.publishAll(), testid: 'phone-publish' },
+		// a dot while saved drafts are not live yet (owner 2026-10-11: the state on Save / Publish, no status chip in More)
+		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: liveFiles.some((f) => f.doc.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'phone-publish' },
 		{
 			id: 'more',
 			icon: 'more-horizontal',
@@ -859,7 +861,6 @@
 							{ id: 'next-slice', icon: 'chevron-right', label: m['creator.bar_next_slice'](), disabled: view.sliceIndex >= activeGroup.slices.length - 1, run: () => view.selectSlice(view.sliceIndex + 1), stay: true }
 						]
 					: []),
-				{ id: 'status', label: m['creator.status'](), content: phoneStatus },
 				{ id: 'note', label: m['creator.note_label'](), content: phoneNote }
 			]
 		}
@@ -1257,7 +1258,6 @@
 {#snippet phonePreview()}
 	<span class="phone-preview"><Icon name="eye" />{#each readerLocales as l}<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })}>{l}</a>{/each}</span>
 {/snippet}
-{#snippet phoneStatus()}<LiveChip files={liveFiles} />{/snippet}
 {#snippet phoneNote()}<input class="phone-note" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />{/snippet}
 
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->

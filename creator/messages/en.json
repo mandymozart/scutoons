@@ -1052,6 +1052,7 @@
 		"unlock_location_pick": "pick a place",
 		"unlock_location_silent": "Silent",
 		"unlock_location_hint": "The reader gets a toast “<place> unlocked”. In a VN script, a click trigger or an item tap the map opens, flies to the place, shows it and closes again – on a scroll (intersect) trigger only the toast. Silent: the state only.",
+		"unlock_location_other_toon": "other toon ({toons})",
 		"map_start_view_value": "Start {toon}: {x}, {y} · {zoom} %",
 		"map_start_view_none": "{toon}: no start view (centre of the places)",
 		"wanted_map_places": "Map places",

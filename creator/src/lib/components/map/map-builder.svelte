@@ -434,7 +434,7 @@
 	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11, variant C): the properties slide up from below, one tab at a
 	//    time; closed it is its tab row only – a tap on a tab opens it there, on the open tab closes it; it closes
 	//    while the map is being dragged ─────────────────────────────────────────────────────────────────────────
-	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start' | 'problems';
+	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start';
 	let sheetOpen = $state(false);
 	let sheetTab = $state<SheetTab>('map');
 	let mapDragging = $state(false);
@@ -448,8 +448,8 @@
 		if (selection) return [];
 		return [
 			{ id: 'map', icon: 'map', label: m['creator.map']() },
-			...(toonFilter ? [{ id: 'start' as const, icon: 'flag', label: m['creator.map_sheet_start']() }] : []),
-			{ id: 'problems', icon: 'alert-triangle', label: `${m['creator.map_problems']()} (${problems.length})` }
+			// Problems: once, in the bar's More (the page's Problems panel) – not a sheet tab too (owner 2026-10-11)
+			...(toonFilter ? [{ id: 'start' as const, icon: 'flag', label: m['creator.map_sheet_start']() }] : [])
 		];
 	});
 	$effect(() => {
@@ -1021,8 +1021,7 @@
 		.side[data-sheet-tab='image'] :global([data-tab]:not([data-tab='image'])),
 		.side[data-sheet-tab='view'] :global([data-tab]:not([data-tab='view'])),
 		.side[data-sheet-tab='map'] :global([data-tab]:not([data-tab='map'])),
-		.side[data-sheet-tab='start'] :global([data-tab]:not([data-tab='start'])),
-		.side[data-sheet-tab='problems'] :global([data-tab]:not([data-tab='problems'])) {
+		.side[data-sheet-tab='start'] :global([data-tab]:not([data-tab='start'])) {
 			display: none;
 		}
 		.start-tab {

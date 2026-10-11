@@ -4,7 +4,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { cdnHas, cdnSize, editPlace, numberOrUnset } from '$lib/editor/map.ts';
-	import { MediaSlot } from '@scutoons/media';
+	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 
 	/**
 	 * A place's illustration (agents/MAP.md §4.3): a slot with the asset picker (owner 2026-10-03; uploads go to the place
@@ -27,18 +27,35 @@
 			if (place.image?.src === src) imageState = { ...imageState, kb: bytes === null ? null : Math.round(bytes / 1024) };
 		});
 	});
-	function setImage(src: string | undefined) {
+	// ── the painted image and the plaster model, each with its 1x / 2x / 3x files (owner 2026-10-11: 256 / 512 / 1024) –
+	//    one resolution slot each, like a slice's background: 1x = `src` / `plaster`, the rest in `variants` ──────────
+	const media = (src: string | undefined, variants: Record<string, string> | undefined): VariantMedia => ({ src: src || undefined, variants: variants ?? (src ? { low: src } : undefined) });
+	const paintedMedia = $derived(media(place.image?.src, place.image?.variants));
+	const plasterMedia = $derived(media(place.image?.plaster, place.image?.plasterVariants));
+	function setPainted(next: VariantMedia) {
+		const src = next.variants?.low ?? next.src;
+		const extra = next.variants?.medium || next.variants?.high ? next.variants : undefined;
 		editPlace(doc, place.id, (p) => {
-			if (!src) delete p.image;
-			else p.image = { ...(p.image ?? {}), src };
+			if (!src) return void delete p.image;
+			p.image = { ...(p.image ?? {}), src };
+			if (extra) p.image.variants = extra;
+			else delete p.image.variants;
 		});
 	}
 	/** the plaster model (owner 2026-10-11): the unlock reveal fades from it to the painted image – same framing */
-	function setPlaster(src: string | undefined) {
+	function setPlaster(next: VariantMedia) {
+		const src = next.variants?.low ?? next.src;
+		const extra = next.variants?.medium || next.variants?.high ? next.variants : undefined;
 		editPlace(doc, place.id, (p) => {
 			if (!p.image) return;
-			if (!src) delete p.image.plaster;
-			else p.image.plaster = src;
+			if (!src) {
+				delete p.image.plaster;
+				delete p.image.plasterVariants;
+				return;
+			}
+			p.image.plaster = src;
+			if (extra) p.image.plasterVariants = extra;
+			else delete p.image.plasterVariants;
 		});
 	}
 	function setImageField(field: 'size', value: number | undefined) {
@@ -71,17 +88,14 @@
 <fieldset data-testid="place-image">
 	<legend>{m['creator.map_image']()}</legend>
 	<!-- a slot with the asset picker (owner 2026-10-03); uploads go to the place illustrations' folder (`<toon>/map/places/`) -->
-	<span title={place.image?.src || placeImagePath(place)}>
-		<MediaSlot toon="" value={place.image?.src || undefined} label={place.image?.src ? (place.image.src.split('/').pop() ?? '') : placeImagePath(place).split('/').pop() ?? ''} place={placeImagePath(place).replace(/[^/]+$/, '')} {bust} onchange={setImage} testid="place-image-slot" />
-	</span>
-	{#if place.image?.src}
-		<!-- the plaster model: the same diorama unpainted – the reader's unlock reveal fades from it to the painted one -->
-		<span class="sc-label">{m['creator.map_image_plaster']()}</span>
-		<span title={place.image.plaster || placeImagePath(place).replace(/\.webp$/, '-plaster.webp')}>
-			<MediaSlot toon="" value={place.image.plaster || undefined} label={place.image.plaster ? (place.image.plaster.split('/').pop() ?? '') : (placeImagePath(place).split('/').pop() ?? '').replace(/\.webp$/, '-plaster.webp')} place={placeImagePath(place).replace(/[^/]+$/, '')} {bust} onchange={setPlaster} testid="place-plaster-slot" />
-		</span>
-		<p class="hint">{m['creator.map_image_plaster_hint']()}</p>
-	{/if}
+	<div class="slots">
+		<MediaVariantsSlot toon="" kind="image" label={m['creator.map_image']()} value={paintedMedia} place={placeImagePath(place).replace(/[^/]+$/, '')} onchange={setPainted} testid="place-image-slot" />
+		{#if place.image?.src}
+			<!-- the plaster model: the same diorama unpainted – the reader's unlock reveal fades from it to the painted one -->
+			<MediaVariantsSlot toon="" kind="image" label={m['creator.map_image_plaster']()} value={plasterMedia} place={placeImagePath(place).replace(/[^/]+$/, '')} onchange={setPlaster} testid="place-plaster-slot" />
+		{/if}
+	</div>
+	{#if place.image?.src}<p class="hint">{m['creator.map_image_plaster_hint']()}</p>{/if}
 	{#if place.image?.src}
 		<p class="hint">
 			{#if imageState.missing}<span class="bad">{m['creator.map_image_missing']()}</span>{/if}
@@ -121,6 +135,11 @@
 </fieldset>
 
 <style>
+	.slots {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
 	.checker {
 		background-color: #fff;
 		background-image: linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%),

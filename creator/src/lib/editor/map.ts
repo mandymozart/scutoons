@@ -24,11 +24,11 @@ const N = '_';
 
 export const mapDoc = () => neutralDoc(entities.map);
 
-/** the world map's places (id + name) for the event forms – the newest draft, loaded once per page visit */
-let placesOnce: Promise<{ id: string; name: unknown }[]> | null = null;
-export function mapPlaces(): Promise<{ id: string; name: unknown }[]> {
+/** the world map's places (id, name, toons) for the event forms – the newest draft, loaded once per page visit */
+let placesOnce: Promise<{ id: string; name: unknown; toons: string[] }[]> | null = null;
+export function mapPlaces(): Promise<{ id: string; name: unknown; toons: string[] }[]> {
 	placesOnce ??= getDraft('map')
-		.then((r) => ((r.content as WorldMap | null)?.locations ?? []).map((p) => ({ id: p.id, name: p.name })))
+		.then((r) => ((r.content as WorldMap | null)?.locations ?? []).map((p) => ({ id: p.id, name: p.name, toons: p.toons ?? [] })))
 		.catch(() => {
 			placesOnce = null;
 			return [];

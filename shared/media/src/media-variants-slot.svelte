@@ -95,7 +95,7 @@
 			class:audio={kind === 'audio'}
 			class:empty={!value.src}
 			onclick={() => choose(null)}
-			title={value.src ? `${value.src}\n${kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}` : kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}
+			title={value.src ? `${value.src}${size ? ` · ${size.w} × ${size.h} px` : ''}\n${kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}` : kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}
 			aria-label="{label}: {value.src ?? t.choose}"
 			data-testid={testid ? `${testid}-choose` : undefined}
 		>
@@ -112,38 +112,40 @@
 				<img src={url(value.src)} alt="" onload={(e) => { const img = e.currentTarget as HTMLImageElement; size = { w: img.naturalWidth, h: img.naturalHeight }; onmeta?.(size); }} onerror={() => { failed = true; onmeta?.(null); }} />
 			{/if}
 		</button>
+		{#if value.src}
+			<!-- the levels beside the preview (owner 2026-10-11: "weniger Platz"): which files exist – the main file filled
+			     (no "(default)" word); each one replaceable / clearable on its own -->
+			<ul class="levels" class:side={kind !== 'audio'} aria-label={t.files} title={t.filesHint}>
+				{#each MEDIA_QUALITIES as level (level)}
+					{@const file = value.variants?.[level]}
+					<li class="level sc-chip-control" class:missing={!file} class:main={main === level} data-file={file ?? ''} data-default={main === level ? 'true' : undefined} data-testid={testid ? `${testid}-${level}` : undefined}>
+						<button
+							type="button"
+							onclick={() => choose(level)}
+							title={file ? `${file}${main === level ? `\n${t.defaultLevel}` : ''}\n${t.levelReplace}` : t.levelMissing}
+							aria-label="{levelLabel(level)}: {file ?? t.levelMissing}"
+						>
+							{levelLabel(level)}
+						</button>
+						{#if file}
+							<button type="button" onclick={() => onchange(withVariant(value, level, undefined))} data-testid={testid ? `${testid}-${level}-clear` : undefined} aria-label={t.levelClear(levelLabel(level))} title={t.levelClear(levelLabel(level))}><CloseIcon /></button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
 		{#if value.src && clearable}
 			<!-- icon only → round (owner 2026-10-03) -->
 			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange({})} data-testid={testid ? `${testid}-clear` : undefined}><CloseIcon /></button>
 		{/if}
 	</div>
 	{#if value.src}
-		<!-- the levels: which files exist; the default marked; each one replaceable / clearable on its own -->
-		<ul class="levels" aria-label={t.files} title={t.filesHint}>
-			{#each MEDIA_QUALITIES as level (level)}
-				{@const file = value.variants?.[level]}
-				<li class="level sc-chip-control" class:missing={!file} data-file={file ?? ''} data-default={main === level ? 'true' : undefined} data-testid={testid ? `${testid}-${level}` : undefined}>
-					<button
-						type="button"
-						onclick={() => choose(level)}
-						title={file ? `${file}\n${t.levelReplace}` : t.levelMissing}
-						aria-label="{levelLabel(level)}: {file ?? t.levelMissing}"
-					>
-						{levelLabel(level)}{#if main === level}&nbsp;<span class="default">({t.defaultLevel.toLowerCase()})</span>{/if}
-					</button>
-					{#if file}
-						<button type="button" onclick={() => onchange(withVariant(value, level, undefined))} data-testid={testid ? `${testid}-${level}-clear` : undefined} aria-label={t.levelClear(levelLabel(level))} title={t.levelClear(levelLabel(level))}><CloseIcon /></button>
-					{/if}
-				</li>
-			{/each}
-		</ul>
 		{#if main === null}
 			<span class="sc-caption" title={value.src}>{t.single}</span>
 		{/if}
 		{#if kind === 'audio' && player}
 			<audio controls preload="none" src={url(value.src)}></audio>
 		{/if}
-		{#if size}<span class="sc-caption">{size.w} × {size.h} px</span>{/if}
 	{/if}
 	<AssetPickerSheet
 		bind:open
@@ -254,7 +256,22 @@
 	.level.missing button {
 		color: var(--text-muted);
 	}
-	.default {
-		color: var(--text-muted);
+	/* beside the preview: a narrow column of small chips */
+	.levels.side {
+		flex-direction: column;
+		flex-wrap: nowrap;
+		gap: 0.2rem;
+	}
+	.levels.side .level {
+		min-height: 0;
+		font-size: var(--type-caption-size);
+	}
+	/* the main file (the one used when nothing else fits): filled */
+	.level.main {
+		background: var(--ink);
+		border-color: var(--ink);
+	}
+	.level.main button {
+		color: var(--paper);
 	}
 </style>

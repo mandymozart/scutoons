@@ -153,7 +153,8 @@
 				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history') }
 			]
 		},
-		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, run: () => session.publishAll(), testid: 'phone-publish' },
+		// a dot while saved drafts are not live yet (owner 2026-10-11: the state on Save / Publish, no status chip in More)
+		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: docs.some((d) => d.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'phone-publish' },
 		{
 			id: 'more',
 			icon: 'more-horizontal',
@@ -162,7 +163,6 @@
 			items: [
 				{ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems') },
 				...phoneMore,
-				{ id: 'status', label: m['creator.status'](), content: phoneStatus },
 				{ id: 'note', label: m['creator.note_label'](), content: phoneNote },
 				...(actions ? [{ id: 'actions', label: m['creator.page_actions'](), content: actions }] : [])
 			]
@@ -226,7 +226,6 @@
 </div>
 
 
-{#snippet phoneStatus()}<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />{/snippet}
 {#snippet phoneNote()}<input class="phone-note" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />{/snippet}
 
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
