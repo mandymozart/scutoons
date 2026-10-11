@@ -8,7 +8,7 @@
 				"x": 654,
 				"y": 355
 			},
-			"look": "an African desert like an alien DOOM planet: rust-red and ochre dunes, cracked salt pans, scorched strange rock formations, an unearthly hostile glow"
+			"look": "an alien DOOM-planet desert (African dunes on another world): one continuous sea of glowing dunes drifting from tangerine into hot magenta, violet and turquoise sands, cracked salt pans in neon pink, scorched black rock ridges with glowing veins"
 		},
 		{
 			"name": "altiplano",
@@ -17,7 +17,7 @@
 				"x": 528,
 				"y": 913
 			},
-			"look": "a high steppe like the Peruvian altiplano: golden-olive grass textures, wide plains with low, rounded mountain ranges, lichen and pale stone"
+			"look": "a high steppe like the Peruvian altiplano: waves of golden grass shading into lime, coral and lavender, low rounded mountain ranges in banded rainbow strata (like Vinicunca, the Rainbow Mountain), turquoise mineral lagoons"
 		},
 		{
 			"name": "alps",
@@ -26,7 +26,7 @@
 				"x": 1577,
 				"y": 902
 			},
-			"look": "the Alps in deep WINTER (always winter here): snow and ice textures, sharp rocky ridges, glaciers, frozen blue shadows"
+			"look": "the Alps in deep WINTER (always winter here): snow and ice in electric cyan, lilac, mint and pearl, sharp glittering ridges, glacier swirls, frosted crystal fields glowing from within"
 		},
 		{
 			"name": "jungle",
@@ -35,7 +35,7 @@
 				"x": 1782,
 				"y": 124
 			},
-			"look": "a REPTILE world of dense primeval JUNGLE: scaly and leathery textures, tangled vines and giant leaves, steaming swamp greens, iridescent lizard-skin patterns"
+			"look": "a REPTILE world of dense primeval JUNGLE: canopy textures in emerald, acid green and teal, iridescent lizard-scale patterns in gold and violet, steaming swamp pools in electric blue"
 		},
 		{
 			"name": "wasteland",
@@ -44,7 +44,7 @@
 				"x": 793,
 				"y": 633
 			},
-			"look": "a WASTELAND: a post-industrial nuclear disaster zone scarred by fracking – cracked toxic crusts, oily black and sulphur-yellow pools, rusted metal textures, ash and slag, a sickly radioactive green glow"
+			"look": "a toxic WASTELAND – a post-industrial nuclear disaster zone scarred by fracking: cracked crusts in sulphur yellow, radioactive green glow, rust orange, oily black pools with rainbow sheen, slag in hot pink"
 		},
 		{
 			"name": "archipelago",
@@ -54,13 +54,13 @@
 				"width": 500,
 				"height": 670
 			},
-			"look": "an island world – NOT a city: every small island its own crazy jewel-like texture, like the style reference"
+			"look": "an island world – NOT a city: every small island its own jewel-like crazy texture in candy and jewel colours (opal, malachite, rose quartz, lapis, glowing lava, iridescent shell)"
 		}
 	],
 	"seasons": [
-		"in SPRING: fresh greens, blossoming colour fields, wet earth",
-		"in SUMMER: saturated warm colours, dry grass, sun-baked stone",
-		"in AUTUMN: rust, amber and crimson, fallen-leaf textures",
-		"in WINTER: frost, snow crust and ice, cold blue light"
+		"in SPRING: blossom pinks, fresh lime and mint, wet glossy earth in violet",
+		"in SUMMER: blazing gold, coral and turquoise, sun-baked glowing stone",
+		"in AUTUMN: flaming crimson, amber and plum, glowing leaf-litter textures",
+		"in WINTER: frost in electric cyan, lilac and silver, glittering snow crust"
 	]
 }
