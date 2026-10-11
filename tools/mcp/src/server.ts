@@ -8,6 +8,7 @@ import * as z from 'zod';
 import { ApiError, createApiClient, createAssetsApi, createContentApi, toonRelativePath, type ContentIndexEntity, type WrappedContent } from '@scutoons/api';
 import {
 	castIndex,
+	checkMapDocs,
 	clone,
 	defaultMoodVocabulary,
 	entityKeyFor,
@@ -17,6 +18,7 @@ import {
 	hasToonTexts,
 	isLocalizedEntity,
 	isNeutralDocKey,
+	mapDocsFromEntities,
 	NEUTRAL_DOC_KINDS,
 	parseEntityKey,
 	resolveText,
@@ -33,8 +35,7 @@ import {
 	type Path,
 	type Problem,
 	type ToonCast,
-	type ToonIndex,
-	type WorldMap
+	type ToonIndex
 } from '@scutoons/content';
 import type { Config } from './config.ts';
 import { RULES } from './resources.ts';
@@ -133,6 +134,15 @@ export function registerContentTools(server: McpServer, config: Config, options:
 	}
 	const data = async <T>(key: string): Promise<T | null> => ((await load(key)) as WrappedContent<T> | null)?.content ?? null;
 
+	/**
+	 * The world map's documents (map, place:<id>, route:<id> – agents/MAP-DOCUMENTS.md), newest or published versions,
+	 * in creation order; `replace` checks one document before it is saved
+	 */
+	async function mapDocs(source: 'draft' | 'published' = 'draft', replace?: { key: string; doc: unknown }) {
+		const { entities } = await content.withContent(['map', 'place', 'route'], source);
+		return { docs: mapDocsFromEntities(entities, replace), entities };
+	}
+
 	async function toonIndex(toon: string): Promise<{ languages: string[]; sourceLanguage: string; [field: string]: Json }> {
 		const index = await data<Json>(`toon:${toon}`);
 		if (!index) throw new Error(`unknown toon "${toon}" (list_toons)`);
@@ -189,7 +199,13 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const [registry, index] = await Promise.all([data<CharacterRegistry>('characters'), toonIndex(ref.toon!)]);
 			return { problems: validateCast(doc, { registry, languages: index.languages, file }), validated: true };
 		}
-		const kind = ({ chapter: 'chapter', scene: 'group', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', map: 'map' } as Record<string, string>)[ref.kind];
+		// the world map's documents: the composition with this one in it (references between places and routes), its own problems
+		if (ref.kind === 'map' || ref.kind === 'place' || ref.kind === 'route') {
+			const { docs } = await mapDocs('draft', { key, doc });
+			const problems = checkMapDocs(docs).filter((p) => p.key === key);
+			return { problems: problems.map(({ level, docPath, message }) => ({ level, file: key, locale: null, path: docPath, message })), validated: true };
+		}
+		const kind = ({ chapter: 'chapter', scene: 'group', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script' } as Record<string, string>)[ref.kind];
 		// the toon entry: its language-neutral settings + its texts per language (agents/NEUTRAL.md step 4)
 		if (kind === 'index') {
 			const { source, languages } = toonLanguages(doc as ToonIndex);
@@ -466,15 +482,27 @@ export function registerContentTools(server: McpServer, config: Config, options:
 	server.registerTool(
 		'read_map_places',
 		{
-			description: 'Places of the SCUTOONS world map (entity `map`): id, name, position, which toons use it, hidden / unlock rule, linked chapter.',
-			inputSchema: z.object({ toon: z.string().optional().describe('only places this toon uses') }),
+			description:
+				'Places of the SCUTOONS world map – each place is its own document `place:<id>` (routes `route:<id>`, the size / layers of the map are `map`; read_entity / save_draft / validate work on those keys, the document of a place is the place without its id). Here: id, key, name, position, which toons use it, hidden, linked chapter, whether a newer draft waits or it is removed (a tombstone: `removed: true` – the id stays taken).',
+			inputSchema: z.object({
+				toon: z.string().optional().describe('only places this toon uses'),
+				published: z.boolean().optional().describe('what readers see (default: the newest drafts)')
+			}),
 			annotations: read
 		},
-		guard(async ({ toon }) => {
-			const map = await data<WorldMap>('map');
-			if (!map) return text('no world map stored');
-			const places = (map.locations ?? []).filter((p) => !toon || p.toons?.includes(toon));
-			return text(places.map(({ id, name, x, y, toons, hidden, unlock, chapter }) => ({ id, name, x, y, toons, hidden, unlock, chapter })));
+		guard(async ({ toon, published }) => {
+			const { docs, entities } = await mapDocs(published ? 'published' : 'draft');
+			if (!docs.settings) return text('no world map stored');
+			const meta = new Map(entities.map((e) => [e.key, e]));
+			return text(
+				docs.places
+					.filter((p) => !toon || p.doc.toons?.includes(toon))
+					.map(({ id, doc }) => {
+						const e = meta.get(`place:${id}`);
+						const { name, x, y, toons, hidden, chapter, removed } = doc;
+						return { id, key: `place:${id}`, name, x, y, toons, hidden, chapter, ...(removed ? { removed } : {}), draft: !!e && e.latest !== e.published };
+					})
+			);
 		})
 	);
 

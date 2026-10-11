@@ -142,6 +142,25 @@ export function splitWorldMap(map: WorldMap): { settings: MapSettings; places: M
 	};
 }
 
+/**
+ * The documents of a list of stored entities in creation order (GET /entities?kinds=map,place,route – the creator, the
+ * MCP server); other keys and entities without a document are left out. `replace` swaps one key's document (a draft
+ * to check before it is saved; null takes it out).
+ */
+export function mapDocsFromEntities(list: readonly { key: string; content: unknown }[], replace?: { key: string; doc: unknown }): MapDocs {
+	const docs: MapDocs = { settings: null, places: [], routes: [] };
+	const entries = list.map((e) => ({ key: e.key, content: replace && e.key === replace.key ? replace.doc : e.content }));
+	if (replace && !list.some((e) => e.key === replace.key)) entries.push({ key: replace.key, content: replace.doc });
+	for (const e of entries) {
+		if (!isObj(e.content)) continue;
+		const ref = parseEntityKey(e.key);
+		if (ref?.kind === 'map') docs.settings = e.content as unknown as MapSettings;
+		else if (ref?.kind === 'place') docs.places.push({ id: ref.id!, doc: e.content as PlaceDoc });
+		else if (ref?.kind === 'route') docs.routes.push({ id: ref.id!, doc: e.content as RouteDoc });
+	}
+	return docs;
+}
+
 /** A key → document record of a WorldMap (the documents to store) */
 export function worldMapDocs(map: WorldMap): Record<string, MapSettings | PlaceDoc | RouteDoc> {
 	const { settings, places, routes } = splitWorldMap(map);

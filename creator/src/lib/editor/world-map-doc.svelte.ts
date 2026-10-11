@@ -10,13 +10,10 @@ import {
 	composeWorldMap,
 	entities,
 	mapDocChanges,
-	parseEntityKey,
+	mapDocsFromEntities,
 	takenMapIds,
 	type MapDocs,
 	type MapPartKind,
-	type MapSettings,
-	type PlaceDoc,
-	type RouteDoc,
 	type WorldMap
 } from '@scutoons/content';
 import { ContentDoc, SaveConflict, SaveError } from '$lib/editor/doc.svelte.ts';
@@ -35,16 +32,8 @@ export interface StoredMapDocs {
 /** Loads every document of the world map (newest or published versions), in creation order */
 export async function loadMapDocs(content: 'draft' | 'published' = 'draft'): Promise<StoredMapDocs> {
 	const { entities: list } = await withContent(MAP_DOC_KINDS, content);
-	const docs: MapDocs = { settings: null, places: [], routes: [] };
-	const versions: StoredMapDocs['versions'] = {};
-	for (const e of list) {
-		versions[e.key] = { latest: e.latest, published: e.published };
-		if (e.content === null) continue;
-		const ref = parseEntityKey(e.key);
-		if (ref?.kind === 'map') docs.settings = e.content as MapSettings;
-		else if (ref?.kind === 'place') docs.places.push({ id: ref.id!, doc: e.content as PlaceDoc });
-		else if (ref?.kind === 'route') docs.routes.push({ id: ref.id!, doc: e.content as RouteDoc });
-	}
+	const versions: StoredMapDocs['versions'] = Object.fromEntries(list.map((e) => [e.key, { latest: e.latest, published: e.published }]));
+	const docs = mapDocsFromEntities(list);
 	return { docs, versions };
 }
 

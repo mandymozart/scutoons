@@ -20,7 +20,9 @@ import {
 	variablesElsewhere,
 	type FlowEdge,
 	type FlowIndex,
-	type FlowNode
+	type FlowNode,
+	composeWorldMap,
+	mapDocsFromEntities
 } from '@scutoons/content';
 import type { Config } from './config.ts';
 import { apiMessage } from './server.ts';
@@ -89,7 +91,8 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 		const chosen = toonFlowKeys(index);
 		const [docs, map, fi] = await Promise.all([
 			Promise.all([...chosen].map(([entity, key]) => content.getDraft(key).then((r) => [entity, r.content] as const))),
-			content.getDraft('map').then((r) => r.content as any).catch(() => null),
+			// the world map composed from its documents (map, place:<id>, route:<id> – agents/MAP-DOCUMENTS.md)
+			content.withContent(['map', 'place', 'route'], 'draft').then((r) => { const d = mapDocsFromEntities(r.entities); return d.settings ? composeWorldMap(d) : null; }).catch(() => null),
 			flowIndex().catch(() => null)
 		]);
 		const byEntity = new Map<string, any>(docs);
