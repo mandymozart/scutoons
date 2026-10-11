@@ -3,7 +3,8 @@
 // `place:<id>`, `route:<id>`. Loading reads them all in one request (GET /entities?kinds=…) and composes them; saving
 // stores only the documents that changed, in one transaction (POST /entities/batch – all or none), each against the
 // version it was loaded at: someone else's newer save of THAT place is a conflict, a save of another place is not.
-// A place / route that left the map gets a tombstone (`removed: true`): its id stays taken (events reference it).
+// A place / route that left the map: deleted when it was never published (owner D3), else a tombstone (`removed: true`) –
+// its id stays taken (events and readers' save games reference it).
 import { ApiError, saveBatch, withContent, type ContentVersion } from '$lib/api.ts';
 import {
 	applyMapDocChanges,
@@ -102,13 +103,19 @@ export class WorldMapDoc extends ContentDoc {
 		this.saving = true;
 		try {
 			const snapshot = $state.snapshot(map) as WorldMap;
-			const changes = mapDocChanges($state.snapshot(this.storedDocs) as MapDocs, snapshot);
-			if (changes.length) {
+			const all = mapDocChanges($state.snapshot(this.storedDocs) as MapDocs, snapshot);
+			// a place / route that leaves the map and was never published is deleted outright (owner D3) – its id is free
+			// again; a published one gets its `removed: true` version (a tombstone: readers' save games know the id)
+			const neverPublished = (key: string) => (this.versions[key]?.published ?? null) === null;
+			const deletes = all.filter((c) => c.kind === 'removed' && neverPublished(c.key)).map((c) => c.key);
+			const changes = all.filter((c) => !deletes.includes(c.key));
+			if (all.length) {
 				let result;
 				try {
 					result = await saveBatch(
 						changes.map((c) => ({ key: c.key, content: c.doc, ...(force ? {} : { base: this.versions[c.key]?.latest ?? null }) })),
-						message
+						message,
+						deletes
 					);
 				} catch (e) {
 					if (e instanceof ApiError && e.status === 409) throw new SaveConflict(String(e.body?.key ?? N), (e.body?.latest as ContentVersion | undefined) ?? null);
@@ -116,8 +123,15 @@ export class WorldMapDoc extends ContentDoc {
 				}
 				const versions = { ...this.versions };
 				for (const s of result.saved) versions[s.key] = { latest: s.version.id, published: versions[s.key]?.published ?? null };
+				for (const key of result.deleted ?? []) delete versions[key];
 				this.versions = versions;
-				this.storedDocs = applyMapDocChanges(this.storedDocs, changes);
+				const kept = applyMapDocChanges(this.storedDocs, changes);
+				const gone = new Set(result.deleted ?? []);
+				this.storedDocs = {
+					settings: kept.settings,
+					places: kept.places.filter((p) => !gone.has(entities.place(p.id))),
+					routes: kept.routes.filter((r) => !gone.has(entities.route(r.id)))
+				};
 			}
 			this.base[N] = this.versions[entities.map]?.latest ?? null;
 			this.source[N] = 'store';

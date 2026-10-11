@@ -141,10 +141,14 @@ export function createContentApi(client: ApiClient) {
 		withContent: <T = unknown>(kinds: string[], content: 'draft' | 'published' = 'draft') =>
 			client.get<{ status: string; entities: ContentEntityWithContent<T>[] }>(`/entities?kinds=${encodeURIComponent(kinds.join(','))}&content=${content}`),
 
-		/** Several draft versions in one transaction: all or none (409 conflict / 422 invalid name the `key`) */
-		saveBatch: (saves: BatchSave[], message?: string) =>
-			client.post<{ status: string; saved: { key: string; unchanged: boolean; version: ContentVersion }[] }>('/entities/batch', {
+		/**
+		 * Several draft versions in one transaction: all or none (409 conflict / 422 invalid name the `key`); `deletes` =
+		 * never-published place / route keys removed with it (409 `published` for one that is published)
+		 */
+		saveBatch: (saves: BatchSave[], message?: string, deletes: string[] = []) =>
+			client.post<{ status: string; saved: { key: string; unchanged: boolean; version: ContentVersion }[]; deleted: string[] }>('/entities/batch', {
 				saves: saves.map((s) => ({ ...s, message: s.message || undefined })),
+				...(deletes.length ? { deletes } : {}),
 				message: message || undefined
 			}),
 

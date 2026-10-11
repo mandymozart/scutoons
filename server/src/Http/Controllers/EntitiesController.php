@@ -25,8 +25,9 @@ use stdClass;
  *   GET  /api/entities?toon=                     every stored entity of a toon (`toon=` empty: platform-wide ones)
  *   GET  /api/entities?kinds=place,route,map&content=draft|published   every entity of these kinds WITH its document +
  *                                                `first` (creation order) – a page that edits many documents (the world map)
- *   POST /api/entities/batch { saves: [{ key, content, base?, message? }], message? }   several new draft versions in
- *                                                one transaction (all or none; 409 / 422 name the `key`)
+ *   POST /api/entities/batch { saves: [{ key, content, base?, message? }], deletes?: [key], message? }   several new
+ *                                                draft versions in one transaction (all or none; 409 / 422 name the `key`);
+ *                                                `deletes`: never-published place / route keys (409 published otherwise)
  *   POST /api/entities/publish { versions: [{ key, version? }] }   several documents live at once (one transaction)
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
@@ -100,8 +101,9 @@ final class EntitiesController
     {
         $user = $this->creator($request);
         $body = $this->body($request);
-        $list = is_array($body->saves ?? null) ? $body->saves : throw new ApiError(400, 'missing_saves', 'saves is required.');
-        if ($list === [] || count($list) > 500) throw new ApiError(400, 'invalid_saves', 'saves must hold 1–500 documents.');
+        $list = is_array($body->saves ?? null) ? $body->saves : [];
+        $deletes = array_values(array_map(fn(mixed $k) => EntityKey::parse($k), is_array($body->deletes ?? null) ? $body->deletes : []));
+        if (($list === [] && $deletes === []) || count($list) + count($deletes) > 500) throw new ApiError(400, 'invalid_saves', 'saves / deletes must hold 1–500 documents.');
         $ai = CurrentSession::of($request)->apiToken();
         $saves = [];
         foreach ($list as $save) {
@@ -122,8 +124,8 @@ final class EntitiesController
             if (property_exists($save, 'base')) $one->base = $save->base;
             $saves[] = ['key' => $key, 'body' => $one];
         }
-        $result = $this->store->saveMany($user, $saves);
-        foreach ($saves as $save) $this->usages->reindexEntity((string) $save['key']);
+        $result = $this->store->saveMany($user, $saves, $deletes);
+        foreach ([...array_column($saves, 'key'), ...$deletes] as $key) $this->usages->reindexEntity((string) $key);
         return Json::response($response, 200, $result);
     }
 

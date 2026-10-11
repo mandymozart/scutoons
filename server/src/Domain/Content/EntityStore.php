@@ -190,15 +190,16 @@ final class EntityStore
     }
 
     /**
-     * POST /entities/batch { saves: [{ key, content, base?, message? }], message? } → { status, saved: [{ key, unchanged,
-     * version }] } – several documents in ONE transaction (the world map's places / routes, agents/MAP-DOCUMENTS.md): all
+     * POST /entities/batch { saves: [{ key, content, base?, message? }], deletes?: [key], message? } → { status, saved:
+     * [{ key, unchanged, version }], deleted: [key] } – several documents in ONE transaction (the world map's places / routes, agents/MAP-DOCUMENTS.md): all
      * are stored or none; a `base` that is not the newest → 409 conflict naming the key (`key`, `latest`). Each key at most
      * once. The documents are checked by the caller (EntitiesController) before.
      * @param array<string, mixed> $user
      * @param list<array{key: EntityKey, body: stdClass}> $saves
+     * @param list<EntityKey> $deletes never-published keys to delete in the same transaction (deleteUnpublished)
      * @return array<string, mixed>
      */
-    public function saveMany(array $user, array $saves): array
+    public function saveMany(array $user, array $saves, array $deletes = []): array
     {
         $seen = [];
         foreach ($saves as $save) {
@@ -206,7 +207,16 @@ final class EntityStore
             if (isset($seen[$k])) throw new ApiError(400, 'duplicate_key', "$k is in the batch twice.");
             $seen[$k] = true;
         }
-        $saved = $this->db->transaction(function () use ($user, $saves) {
+        foreach ($deletes as $key) {
+            if (isset($seen[(string) $key])) throw new ApiError(400, 'duplicate_key', "$key is in the batch twice.");
+            $seen[(string) $key] = true;
+        }
+        $deleted = [];
+        $saved = $this->db->transaction(function () use ($user, $saves, $deletes, &$deleted) {
+            foreach ($deletes as $key) {
+                $this->deleteUnpublished($key);
+                $deleted[] = (string) $key;
+            }
             $out = [];
             foreach ($saves as ['key' => $key, 'body' => $body]) {
                 try {
@@ -219,7 +229,27 @@ final class EntityStore
             }
             return $out;
         });
-        return ['status' => 'success', 'saved' => $saved];
+        return ['status' => 'success', 'saved' => $saved, 'deleted' => $deleted];
+    }
+
+    /**
+     * Deletes every version of a key that was never published (owner 2026-10-12, D3: "delete when never published" –
+     * a place / route made and dropped again, or renamed before its first publish): nothing references it yet, so its id
+     * is free again. Only the kinds with ids of their own (EntityKey::ID_KINDS); a key with a published version → 409
+     * published (remove it with a `removed: true` version instead – a tombstone). Pending reviews of it are annulled.
+     * Inside saveMany's transaction when called from a batch.
+     */
+    public function deleteUnpublished(EntityKey $key): int
+    {
+        if (!in_array($key->kind, EntityKey::ID_KINDS, true)) throw new ApiError(400, 'not_deletable', "$key->kind documents are never deleted.", ['key' => (string) $key]);
+        return $this->db->transaction(function () use ($key) {
+            $published = $this->db->value("SELECT id FROM entity_versions WHERE entity_key = ? AND status = 'published' LIMIT 1 FOR UPDATE", [(string) $key]);
+            if ($published !== null) {
+                throw new ApiError(409, 'published', "$key is published – remove it with a version that has \"removed\": true.", ['key' => (string) $key]);
+            }
+            $this->db->run("UPDATE content_reviews SET state = 'annulled' WHERE entity_key = ? AND state = 'pending'", [(string) $key]);
+            return $this->db->run('DELETE FROM entity_versions WHERE entity_key = ?', [(string) $key])->rowCount();
+        });
     }
 
     /**
