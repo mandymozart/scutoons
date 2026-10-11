@@ -2,7 +2,7 @@
 	import { publishTree } from '$lib/editor/publish-tree.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, ToonAvatar, shellDock, useDock } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, PhoneBar, ToonAvatar, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -34,7 +34,9 @@
 	useDock(() =>
 		flowOpen ? { kind: 'flow', content: { component: FlowDock, props: flowProps }, size: flowSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (flowOpen = false) } : null
 	);
-	usePageNav({ actions: flowToggle });
+	// draft 2026-10-12 (owner: "mehr Konzepte aus der Mobile in die Desktop-Variante"): the toon's settings as a pill with its
+	// avatar at the end of the crumbs (like the map's toon pill) – the big title row goes
+	usePageNav({ actions: flowToggle, crumbEnd: settingsPill });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
 
@@ -293,14 +295,17 @@
 			busy = false;
 		}
 	}
+
+	// phones (UI-CONCEPTS E.10, the editors' one bar): Save · Publish; New chapter is the list's last row
+	const phoneItems = $derived<PhoneBarItem[]>([
+		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, disabled: busy || !anyDirty, run: saveAll, testid: 'phone-save' },
+		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: busy, run: publishAll, testid: 'phone-publish' }
+	]);
 </script>
 
 <div class="creator-page">
 	<main class="browser">
 		<section>
-			<h1 class="toon-title">
-				<a href="/{toonId}/toon" title={m['creator.open_toon_settings']({ name: toonName })} data-testid="toon-title"><ToonAvatar src={avatarSrc} name={toonName} /> <span>{toonName}</span></a>
-			</h1>
 			{#if !season || season.loading}
 				<p>{m['creator.loading']()}</p>
 			{:else if season.error}
@@ -326,8 +331,7 @@
 					<FileStatus doc={season} />
 				</div>
 
-				<h3>{m['creator.chapters']()}</h3>
-				<ol class="chapter-list" data-testid="chapter-list">
+				<ol class="chapter-list" aria-label={m['creator.chapters']()} data-testid="chapter-list">
 					{#each sequence as item (item.number)}
 						{@const doc = chapters[item.number]}
 						{@const own = doc?.hasText(['title'], titleLocale) ? doc.text(['title'], titleLocale) : ''}
@@ -344,6 +348,10 @@
 							<ChapterBadges {season} number={item.number} {doc} />
 						</li>
 					{/each}
+					<!-- the list's add row (like the map's "+ Layer"): the bar keeps Save · Publish -->
+					<li class="chapter-row add-row">
+						<button type="button" class="ghost add" onclick={createChapter} disabled={busy || !season || season.loading || languagesChanged} data-testid="new-chapter"><Icon name="plus" /> {m['creator.new_chapter']()}</button>
+					</li>
 				</ol>
 			{/if}
 			{#if season && !season.loading && !seasonMissing && orphans.length}
@@ -351,40 +359,29 @@
 			{/if}
 			<!-- the content first (BACKLOG 10.50 h): the chapters, then the toon's languages (set up once, rarely changed) -->
 			{#if index && !index.loading && edited}
+				<!-- draft 2026-10-12: the languages in one row of chips (set up once, rarely changed): the source filled, the
+				     translations with ★ (make it the source) and ×, an "add" select at the end -->
 				<section class="languages" data-testid="languages">
-					<div class="season-head">
-						<h2>{m['creator.languages']()}</h2>
-						<FileStatus doc={index} />
-					</div>
-					<div class="language-grid">
-						<label class="field">
-							<span>{m['creator.source_language']()}<SourceMark /></span>
-							<select value={edited.source} onchange={(e) => setSource(e.currentTarget.value as Language)} data-testid="source-language">
-								{#each ALL_LANGUAGES as l}<option value={l}>{languageLabel(l)}</option>{/each}
-							</select>
-						</label>
-						<div class="field">
-							<span>{m['creator.target_languages']()}</span>
-							<ul class="chips">
-								{#each targets as l (l)}
-									<li class="sc-chip-control" data-testid="language-{l}">
-										{languageLabel(l)}
-										<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
-										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
-									</li>
-								{/each}
-							</ul>
-							{#if addable.length}
-								<span class="add-language">
-									<select bind:value={addLanguage} aria-label={m['creator.add_language_label']()} data-testid="add-language-select">
-										<option value="">{m['creator.add_language_label']()} …</option>
-										{#each addable as l}<option value={l}>{languageLabel(l)}</option>{/each}
-									</select>
-									<button class="secondary" disabled={!addLanguage} onclick={addTarget} data-testid="add-language"><Icon name="plus" /> {m['creator.add_language']()}</button>
-								</span>
-							{/if}
-						</div>
-					</div>
+					<span class="sc-label">{m['creator.languages']()}</span>
+					<ul class="chips">
+						<li class="sc-chip-control is-filled source" title={m['creator.source_language']()} data-testid="source-language">{languageLabel(edited.source)}<SourceMark /></li>
+						{#each targets as l (l)}
+							<li class="sc-chip-control" data-testid="language-{l}">
+								{languageLabel(l)}
+								<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
+								<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
+							</li>
+						{/each}
+						{#if addable.length}
+							<li>
+								<select value="" onchange={(e) => { addLanguage = e.currentTarget.value; addTarget(); e.currentTarget.value = ''; }} aria-label={m['creator.add_language_label']()} data-testid="add-language-select">
+									<option value="">+ {m['creator.add_language']()}</option>
+									{#each addable as l}<option value={l}>{languageLabel(l)}</option>{/each}
+								</select>
+							</li>
+						{/if}
+					</ul>
+					<FileStatus doc={index} />
 					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()}</p>{/if}
 				</section>
 			{/if}
@@ -394,12 +391,12 @@
 	</main>
 	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+		{#snippet phone()}
+			<PhoneBar items={phoneItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
+		{/snippet}
 		{#snippet start()}
 			{#if anyDirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}
 			{#if error}<span class="error" data-testid="page-error">{error}</span>{:else if message}<span class="hint">{message}</span>{/if}
-		{/snippet}
-		{#snippet secondary()}
-			<button onclick={createChapter} disabled={busy || !season || season.loading || languagesChanged} data-testid="new-chapter"><Icon name="plus" /> {m['creator.new_chapter']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<button class="secondary" disabled={busy || !anyDirty} onclick={saveAll} data-testid="save-draft">{m['creator.save_draft']()}{anyDirty ? ' •' : ''}</button>
@@ -407,32 +404,17 @@
 		{/snippet}
 	</ActionBar>
 </div>
+{#snippet settingsPill()}
+	<a class="settings-pill" href="/{toonId}/toon" title={m['creator.open_toon_settings']({ name: toonName })} aria-label={m['creator.open_toon_settings']({ name: toonName })} data-testid="toon-title"><ToonAvatar src={avatarSrc} name={toonName} size="1.75rem" /><Icon name="settings" size="1rem" /></a>
+{/snippet}
 {#snippet flowToggle()}
 	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_toon_open']()} aria-label={m['creator.flow_toon_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
 {/snippet}
 
 <style>
-	.toon-title {
-		font-size: var(--type-title-size);
-		line-height: var(--type-title-line);
-	}
-	.toon-title a,
-	.season-title a {
-		color: var(--ink);
-		text-decoration: none;
-	}
-	.toon-title a {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.6rem;
-	}
-	.toon-title a:hover span,
-	.season-title a:hover {
-		text-decoration: underline;
-	}
 	.browser {
 		padding: 1.5rem 1rem;
-		max-width: 1300px;
+		max-width: 81rem;
 	}
 	.season-missing {
 		border: 2px dashed var(--border-muted);
@@ -492,28 +474,48 @@
 	.error {
 		color: var(--error);
 	}
-	/* after the chapters: a rule above it */
-	.languages {
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 2px solid var(--ink);
+	.season-title a {
+		color: var(--ink);
+		text-decoration: none;
 	}
-	.language-grid {
+	.season-title a:hover {
+		text-decoration: underline;
+	}
+	/* the list's add row: a text button on the row's line */
+	.add-row .add {
+		padding-left: 0;
+	}
+	/* after the chapters: one row of chips (draft 2026-10-12) */
+	.languages {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem 2rem;
-		align-items: flex-start;
+		align-items: center;
+		gap: var(--space-05) var(--space-1);
+		margin-top: 1.5rem;
 	}
-	.field {
-		display: flex;
-		flex: 1 1 12rem;
-		min-width: 0;
-		flex-direction: column;
-		gap: 0.35rem;
+	.languages select {
+		width: auto;
 	}
-	.field > span {
-		font-size: var(--type-caption-size);
-		font-weight: var(--font-weight-regular);
+	.source {
+		gap: var(--space-025);
+		padding-right: var(--space-05);
+	}
+	/* the toon's settings at the end of the crumbs (like the map's toon pill) */
+	.settings-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		min-height: 2.25rem;
+		padding: 0 0.45rem 0 0.15rem;
+		border: var(--border-width-regular) solid var(--ink);
+		border-radius: 999rem;
+		background: var(--paper);
+		color: var(--ink);
+	}
+	.settings-pill:hover,
+	.settings-pill:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: 2px;
 	}
 	.chips {
 		display: flex;
@@ -522,15 +524,6 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-	.add-language {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		align-items: center;
-	}
-	.add-language select {
-		width: auto;
 	}
 	.warn {
 		color: var(--ink);

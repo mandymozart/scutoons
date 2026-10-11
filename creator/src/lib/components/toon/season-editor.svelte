@@ -124,8 +124,10 @@
 	{#if season.present.length === 0}
 		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
-		<section class="block" data-testid="season-meta">
-			<h2>{m['creator.meta']()}</h2>
+		<!-- draft 2026-10-12 (owner: "mehr Konzepte aus der Mobile in die Desktop-Variante", "Platz sparen"): the texts and the
+		     media side by side when the page is wide enough (one column on a phone); no "Meta" heading – the fields say it -->
+		<div class="columns"><div class="grid">
+		<section class="block" data-testid="season-meta" aria-label={m['creator.meta']()}>
 			<LocaleText doc={season} path={['title']} label={m['creator.field_title']()} multiline={false} />
 			<LocaleText doc={season} path={['description']} label={m['creator.field_description']()} rows={6} />
 			<div class="sc-fields" data-cols="2" data-align="start">
@@ -176,6 +178,8 @@
 			{/if}
 		</section>
 
+		</div></div>
+
 		<!-- the season's related items (catalog ids, the same in every language): the toon page's "related" block -->
 		<section class="block" data-testid="season-related">
 			<h2>{m['creator.related_items']()}</h2>
@@ -194,6 +198,17 @@
 </MetaPage>
 
 <style>
+	/* the texts | the media, side by side from a 60rem wide page (a container query: the sidebar / docks narrow it) */
+	.columns {
+		container-type: inline-size;
+	}
+	@container (min-width: 60rem) {
+		.grid {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			gap: 0 2rem;
+		}
+	}
 	.block {
 		display: flex;
 		flex-direction: column;
