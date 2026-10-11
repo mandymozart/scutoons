@@ -123,7 +123,7 @@ final class Snapshot
 
     /**
      * The keys starting with a prefix in creation order (the id of each key's first version – the world map's places and
-     * routes, WorldMapDocs); one query per prefix
+     * routes, WorldMapDocs); their documents are loaded with it (two queries per prefix)
      * @return list<string>
      */
     public function createdOrder(string $prefix): array
@@ -133,6 +133,13 @@ final class Snapshot
         $marks = implode(', ', array_fill(0, count($keys), '?'));
         $first = self::index($this->db->all("SELECT entity_key, MIN(id) AS id FROM entity_versions WHERE entity_key IN ($marks) GROUP BY entity_key", $keys));
         usort($keys, fn(string $a, string $b) => ($first[$a] ?? PHP_INT_MAX) <=> ($first[$b] ?? PHP_INT_MAX) ?: strcmp($a, $b));
+        // their documents in one query (the composed world map reads them all)
+        $ids = array_values(array_filter(array_map(fn(string $k) => $this->ids[$k] ?? null, $keys), fn(?int $id) => $id !== null && !array_key_exists($id, $this->docs)));
+        if ($ids !== []) {
+            foreach ($this->db->all('SELECT id, json FROM entity_versions WHERE id IN (' . implode(', ', array_fill(0, count($ids), '?')) . ')', $ids) as $row) {
+                $this->docs[(int) $row['id']] = is_string($row['json']) ? json_decode($row['json']) : null;
+            }
+        }
         return $keys;
     }
 
