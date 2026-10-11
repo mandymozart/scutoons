@@ -155,7 +155,7 @@ test('wanted images: every place without an image, derived from the map (all 20 
 	assert.equal(garden.path, 'catpope/map/places/garden.webp');
 	assert.equal(garden.size, '256 × 256');
 	assert.match(garden.brief, /Garden of Eden/);
-	assert.match(wanted.find((r) => r.place === 'cathedral')!.brief, /baroque cathedral/);
+	assert.match(wanted.find((r) => r.place === 'cathedral')!.brief, /St. Stephen's cathedral/);
 	assert.equal(placeImagePath({ id: 'x', toons: ['a', 'b'] }), 'scutoons/map/places/x.webp', 'a shared place goes to scutoons/');
 	assert.equal(mapImageRequests({ locations: [{ ...world.locations[0], image: { src: 'a.webp' } }] }).length, 0);
 	assert.match(mapImageRequestsText(wanted.slice(0, 1)), /catpope\/map\/places/);

@@ -710,31 +710,67 @@ export function migrateLegacyMap(input: {
 
 const NL = String.fromCharCode(10);
 
-/** The place illustration spec (MAP.md §5.1) */
-export const PLACE_IMAGE_SPEC = '256 × 256 px transparent WebP, ≤ 40 KB (60 KB at most), ground point 50 % / 90 % (bottom centre), no text, no characters';
+/**
+ * The place illustration spec (workflows/map/location-images.md; owner 2026-10-11): a diorama CENTRED on its honeycomb
+ * patch – the image centre sits on the centre of the place's hex cells (`DEFAULT_PLACE_ANCHOR` 50 / 50) – painted + plaster
+ */
+export const PLACE_IMAGE_SPEC = '1024 × 1024 master → 256 / 512 / 1024 px WebP (1x / 2x / 3x), transparent, the ground patch centred on the image centre (50 % / 50 %), painted + plaster, no text, no characters';
 export const PLACE_IMAGE_SIZE = '256 × 256';
 
-/** Descriptions of catpope's first places for the brief (MAP.md §5.4); others use their names */
+/** What each place looks like, for the brief (workflows/map/location-images.md); others use their names */
 const PLACE_DESCRIPTIONS: Record<string, string> = {
-	cathedral: 'a white baroque cathedral with two towers and cobalt-blue ornaments on the roofs, a small stone square in front',
-	apartment: 'a narrow five-storey old-town apartment house, pale plaster, one lit window, a tiny balcony with plants',
-	airport: 'a small modern airport terminal with a control tower and a short runway strip with one parked white jet',
-	'medival-street': 'a short medieval cobblestone alley with half-timbered houses and two hanging lanterns',
+	cathedral: "Vienna's gothic St. Stephen's cathedral: one very tall openwork spire, a steep roof of green, yellow and white glazed tiles in zigzags, pale limestone, a small paved square around it",
+	apartment: 'a narrow five-storey old-town apartment house in Vienna, pale plaster, one lit window, a tiny balcony with plants, a sliver of pavement in front',
+	airport: 'a small modern airport: a glass terminal with a control tower and a short runway strip with one parked white jet',
+	'medival-street': 'a short medieval cobblestone alley with half-timbered houses on both sides and two hanging lanterns',
+	crossroads: 'a lonely crossroads of two dirt roads in open meadow, an old wooden wayside cross and a bare signpost without text at the crossing',
+	'beyond-the-crossroads': 'a narrow forest track leading away from a crossing into dark fir trees, a fallen trunk and a few stones beside it',
+	'mountain-village': 'a small wintry alpine village: four wooden chalets with snow-covered roofs, smoke from one chimney, a tiny chapel, snowy firs',
+	'forest-clearing': 'a round clearing in a snowy fir forest, untouched snow in the middle, tall dark firs around it, a few rocks',
+	garden: 'the Garden of Eden: a lush walled garden with one big tree in the middle bearing red apples, a small spring, flowers and fruit trees',
 	station: 'a 19th-century railway station hall with an arched glass roof and a clock above the entrance',
 	'mountain-path': 'a winding stony path up a steep green mountain slope with a wooden signpost without text',
 	monastery: 'a remote mountain monastery with a bell tower and terraced gardens on a rocky ledge',
 	library: 'an old monastery library building with tall arched windows and stacks of books visible inside',
 	graveyard: 'a small walled graveyard with crooked headstones, a cypress tree and a wrought-iron gate'
 };
+/** a place's description for the brief */
+export const placeDescription = (place: Pick<MapPlace, 'id' | 'name'>): string => PLACE_DESCRIPTIONS[place.id] ?? `${mapName(place.name, 'en')} (${mapName(place.name, MAP_SOURCE_LANGUAGE)})`;
 
-/** The brief of a place illustration, for an image generator or a designer (MAP.md §5.2; attach the style references listed there) */
-export function placeImageBrief(place: Pick<MapPlace, 'id' | 'name'>): string {
-	const description = PLACE_DESCRIPTIONS[place.id] ?? `${mapName(place.name, 'en')} (${mapName(place.name, MAP_SOURCE_LANGUAGE)})`;
+/** the flat background the generator paints (keyed out afterwards – Luma has no transparent output) */
+export const PLACE_IMAGE_KEY_COLOR = '#ff00ff';
+
+/**
+ * The brief of a place's painted diorama for an image generator (Luma's brief structure –
+ * storyboards/style/luma-skills/storyboard-frame-briefs.md; workflows/map/location-images.md). Attach two or three
+ * finished dioramas as the STYLE references (image 1 … n).
+ */
+export function placeImageBrief(place: Pick<MapPlace, 'id' | 'name'>, refs = 2): string {
+	const description = placeDescription(place);
+	const styleRefs = Array.from({ length: refs }, (_, i) => `image ${i + 1}`).join(' and ');
 	return [
-		'Attached are images from the SCUTOONS universe as STYLE references only (rendering, lighting, materials, colour palette). Do not include the characters.',
-		`Create a single small map illustration of a place in exactly that rendering style: ${description}.`,
-		'It is a tiny self-contained diorama for a world map: three-quarter view from above (about 30 degrees), the place sits on a small irregular patch of its own ground, nothing else around it.',
-		'Soft realistic 3D render, same light direction and softness as the references, slightly simplified shapes so it reads at 48 px. Centred horizontally, the point where the place meets the ground at 90 % of the image height, ~6 % padding left and right, 1024 x 1024 px, transparent background, no text, no letters on signs, no logo, no people or animals, no shadow outside the ground patch.'
+		`THIS JOB'S DELIVERABLE: One square 1:1 image of a tiny self-contained DIORAMA for a world map: ${description}. The place stands on its own small ground patch – an organic island of earth with a visible soil edge, grass and a few bushes – and nothing else around it.`,
+		`INPUT ASSETS: ${refs ? `${styleRefs} = finished dioramas of the same world map – the STYLE reference only (rendering, materials, light, scale of detail, the soil edge of the ground patch); do NOT copy their buildings.` : 'none – follow the look below.'}`,
+		`EXPECTED OUTPUT: 1 image, 1:1. Isometric three-quarter view from above (about 30 degrees, camera from the front-left). The CENTRE of the ground patch exactly at the CENTRE of the image (50 % / 50 %); the patch is about 90 % of the image width; tall parts may rise into the upper half; nothing touches the edges. Flat plain ${PLACE_IMAGE_KEY_COLOR} magenta background, no gradient, no floor, no cast shadow outside the patch.`,
+		'TECHNICAL REQUIREMENTS: 1:1, the highest resolution. One single object. Uniform magenta background so it can be keyed out.',
+		'WORKFLOW STEPS: 1. Model the place as a miniature on its ground patch. 2. Centre the patch on the image centre, ~90 % of the width. 3. Match the references\' rendering and light. 4. Background flat magenta. 5. No text, letters, numbers, signs with writing, logos, people, animals or vehicles in motion.',
+		'LIGHT: soft daylight from the upper left, gentle contact shadows on the patch only, slightly warm; same softness as the references.',
+		'LOOK: a miniature tilt-shift 3D render – realistic materials, slightly simplified shapes so it still reads when small, crisp silhouette, rich but natural colours.',
+		'CREATIVE DIRECTION: a collectible little world – like a hand-built model on a table, inviting and readable from far away.',
+		`CONTEXT: SCUTOONS world map, place "${mapName(place.name, 'en') || place.id}" (${place.id}). The map shows it on a honeycomb of hex cells; the image is centred on the cells' centre.`
+	].join(NL);
+}
+
+/**
+ * The brief of the same diorama as the unpainted plaster model (the unlock reveal fades from it to the painted one):
+ * an image EDIT of the painted picture – the geometry must overlay exactly.
+ */
+export function placePlasterBrief(place: Pick<MapPlace, 'id' | 'name'>): string {
+	return [
+		`THIS JOB'S DELIVERABLE: The SAME diorama as the source image, as an unpainted white PLASTER model: every shape, outline, position and the framing stay EXACTLY the same – only the surfaces change.`,
+		'EXPECTED OUTPUT: 1 image, 1:1, identical composition (it is overlaid on the source and cross-faded). All surfaces matte white plaster / gypsum, no colour, no texture print, soft grey ambient-occlusion shading; the soil edge of the patch plaster too. Background stays flat magenta.',
+		'WORKFLOW STEPS: 1. Keep the geometry pixel for pixel. 2. Replace every material with matte white plaster. 3. Keep the light direction. 4. No colour anywhere except the magenta background.',
+		`CONTEXT: SCUTOONS world map, place "${mapName(place.name, 'en') || place.id}" (${place.id}) – the reveal fades from this plaster model to the painted diorama.`
 	].join(NL);
 }
 
