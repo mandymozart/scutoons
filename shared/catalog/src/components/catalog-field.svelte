@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Field } from '@scutoons/ui';
-	import { m } from '$lib/paraglide/messages.js';
+	import { m } from '../messages.ts';
 
 	/**
 	 * One plain catalog field (@scutoons/ui Field: label, hint, the problem of the last save): a text, number, URL,

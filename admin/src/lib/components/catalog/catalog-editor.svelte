@@ -8,7 +8,7 @@
 	import { ApiError, type CatalogEntry } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { invalidateCatalog } from '$lib/catalog.ts';
-	import { restOf, withRest, type CatalogFormProps, type CatalogLists, type Data, type KindDef } from '$lib/catalog/kinds.ts';
+	import { restOf, withRest, type CatalogFormProps, type CatalogLists, type Data, type KindDef } from '@scutoons/catalog';
 	import { toonAvatarUrl } from '$lib/config.ts';
 	import { errorText } from '$lib/format.ts';
 	import { infoBar } from '$lib/info.ts';
@@ -17,10 +17,9 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import CatalogHistory from '$lib/components/catalog/catalog-history.svelte';
-	import JsonField from '$lib/components/catalog/json-field.svelte';
-	import CatalogProblems from '$lib/components/catalog/catalog-problems.svelte';
+	import { CatalogProblems, JsonField } from '@scutoons/catalog';
 	import { ACCEPTED_WARNINGS_FIELD, type CharacterRegistry } from '@scutoons/content';
-	import { canAccept, catalogProblems, entryOf, isAccepted, withAccepted, type CatalogProblem } from '$lib/catalog/problems.ts';
+	import { canAccept, catalogProblems, entryOf, isAccepted, withAccepted, type CatalogProblem } from '@scutoons/catalog';
 
 
 	/**

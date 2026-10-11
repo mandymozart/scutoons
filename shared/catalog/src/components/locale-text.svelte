@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { locales } from '$lib/paraglide/runtime.js';
+	import { catalogLocales } from '../setup.ts';
+	const locales = catalogLocales();
 
 	/**
 	 * A catalog text in every language ({ de, en }): one field group (legend = the label, no frame – tools.css), one

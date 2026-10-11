@@ -1,7 +1,7 @@
 <script lang="ts" generics="T">
 	import type { Snippet } from 'svelte';
 	import { Button, CloseIcon, SortGrip, sortable } from '@scutoons/ui';
-	import { m } from '$lib/paraglide/messages.js';
+	import { m } from '../messages.ts';
 
 	/**
 	 * A list inside a catalog form (an item's / product's variants, an album's tracks): one fieldset, a row per entry

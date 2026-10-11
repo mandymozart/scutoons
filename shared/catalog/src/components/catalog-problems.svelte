@@ -3,10 +3,10 @@
 	// errors and warnings, a row opens the entry it is about, ✓ "Looks fine" accepts a warning (it moves behind
 	// "accepted"; stored in the entry, lib/catalog/problems.ts). Errors can't be accepted.
 	import { Icon } from '@scutoons/ui';
-	import { KINDS } from '$lib/catalog/kinds.ts';
-	import { canAccept, entryOf, type CatalogProblem } from '$lib/catalog/problems.ts';
-	import type { CatalogLists } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
+	import { KINDS } from '../kinds.ts';
+	import { canAccept, entryOf, type CatalogProblem } from '../problems.ts';
+	import type { CatalogLists } from '../kinds.ts';
+	import { m } from '../messages.ts';
 
 	let {
 		problems,

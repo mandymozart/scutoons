@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { MediaSlot } from '@scutoons/media';
 	import { Button, CloseIcon } from '@scutoons/ui';
-	import { problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
+	import { problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
+	import { m } from '../messages.ts';
 
 	/**
 	 * A recipe (agents/ITEMS.md): the items it takes (all consumed) and the item it makes, each with a quantity, and its own

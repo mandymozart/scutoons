@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { problemFor, type CatalogFormProps } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import CheckField from '$lib/components/catalog/check-field.svelte';
+	import { problemFor, type CatalogFormProps } from '../kinds.ts';
+	import { m } from '../messages.ts';
+	import CheckField from './check-field.svelte';
 
 	/**
 	 * A code type (security-relevant: the editor asks before saving): may a code of this type be claimed, does it allow
