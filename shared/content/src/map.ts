@@ -6,7 +6,7 @@ import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
 import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
 import { toonAsset } from './paths.ts';
-import { MEDIA_QUALITIES, type QualityVariants } from './media-quality.ts';
+import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type MediaQuality, type QualityVariants } from './media-quality.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
 // ── The entity `map` ────────────────────────────────────────────────────────────────────────────────────────────
@@ -798,6 +798,34 @@ export function placePlasterBrief(place: Pick<MapPlace, 'id' | 'name'>): string 
 export function placeImagePath(place: Pick<MapPlace, 'id' | 'toons'>): string {
 	const folder = place.toons?.length === 1 ? place.toons[0] : 'scutoons';
 	return `${folder}/map/places/${place.id}.webp`;
+}
+
+/**
+ * A place illustration's file name read the way the place files are named (owner 2026-10-11, BACKLOG 10.65):
+ * `<id>[-plaster][.2x|.3x].<ext>` – `old-church.png` the painted 1x, `old-church.2x.png` its 2x, `old-church-plaster.3x.webp`
+ * the plaster model's 3x (`.1x` is the 1x too). Case and extension don't matter; null for a name without a stem.
+ */
+export function parsePlaceImageName(name: string): { id: string; plaster: boolean; level: MediaQuality } | null {
+	let stem = name.toLowerCase().replace(/\.[a-z0-9]+$/, '');
+	let level: MediaQuality = 'low';
+	const density = /\.([123])x$/.exec(stem);
+	if (density) {
+		level = MEDIA_QUALITIES[Number(density[1]) - 1];
+		stem = stem.slice(0, -density[0].length);
+	}
+	const plaster = stem.endsWith('-plaster');
+	if (plaster) stem = stem.slice(0, -'-plaster'.length);
+	return stem ? { id: stem, plaster, level } : null;
+}
+
+/**
+ * The path of one of a place's image files next to its painted 1x (`base`, a `.webp` path): the plaster model gets
+ * `-plaster`, a 2x / 3x `.2x` / `.3x` before the extension – `catpope/map/places/airport-plaster.2x.webp`
+ */
+export function placeImageFile(base: string, plaster: boolean, level: MediaQuality): string {
+	const stem = base.replace(/\.webp$/i, '');
+	const density = IMAGE_QUALITY_DENSITIES[level];
+	return `${stem}${plaster ? '-plaster' : ''}${density > 1 ? `.${density}x` : ''}.webp`;
 }
 
 export interface MapImageRequest {

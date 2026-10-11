@@ -254,3 +254,15 @@ test('unlockLocation: map open / toast or unset (owner 2026-10-11: chosen in the
 	assert.deepEqual(errs({ location: 'apartment', map: 'toast' }), []);
 	assert.deepEqual(errs({ location: 'apartment', map: 'always' }), ['map']);
 });
+
+test('place image names: -plaster and .2x / .3x (BACKLOG 10.65)', async () => {
+	const { parsePlaceImageName, placeImageFile } = await import('../src/map.ts');
+	assert.deepEqual(parsePlaceImageName('Old-Church.PNG'), { id: 'old-church', plaster: false, level: 'low' });
+	assert.deepEqual(parsePlaceImageName('old-church.2x.png'), { id: 'old-church', plaster: false, level: 'medium' });
+	assert.deepEqual(parsePlaceImageName('old-church-plaster.3x.webp'), { id: 'old-church', plaster: true, level: 'high' });
+	assert.deepEqual(parsePlaceImageName('old-church-plaster.1x.jpg'), { id: 'old-church', plaster: true, level: 'low' });
+	assert.equal(parsePlaceImageName('.png'), null);
+	assert.equal(placeImageFile('catpope/map/places/airport.webp', false, 'low'), 'catpope/map/places/airport.webp');
+	assert.equal(placeImageFile('catpope/map/places/airport.webp', true, 'medium'), 'catpope/map/places/airport-plaster.2x.webp');
+	assert.equal(placeImageFile('scutoons/map/places/x.webp', false, 'high'), 'scutoons/map/places/x.3x.webp');
+});

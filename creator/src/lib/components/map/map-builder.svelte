@@ -12,13 +12,17 @@
 		entities,
 		isPlaceWaypoint,
 		mapName,
+		placeImageFile,
 		placeImagePath,
+		parsePlaceImageName,
+		PLACE_IMAGE_WIDTHS,
 		placeView,
 		snapPlace,
 		placeSize,
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
+		type MediaQuality,
 		type ToonMapView,
 		type Point,
 		type Problem,
@@ -63,14 +67,14 @@
 	let importProblems = $state<string[]>([]);
 	/** set after an import: previews of files with new bytes at the same path load again */
 	let bust = $state(0);
-	/** the longest side of a place illustration (PLACE_IMAGE_SPEC: 256 × 256) */
-	const PLACE_IMAGE_PX = 256;
-
 	/**
-	 * "Import images …": each file named after a place id (`old-church.png`, case and extension don't matter) becomes
-	 * that place's illustration – WebP, at most 256 px on the longest side, at the place's current WebP path or its
-	 * convention path (`<toon>/map/places/<id>.webp`); a file already there gets the new bytes (a new version, the CDN
-	 * purged). One undo step; names that are no place are reported.
+	 * "Import images …": each file named after a place id becomes that place's image, read like the place files are named
+	 * (`parsePlaceImageName`, BACKLOG 10.65): `old-church.png` the painted 1x, `old-church.2x.png` / `.3x` its 2x / 3x,
+	 * `old-church-plaster.png` (+ `.2x` / `.3x`) the plaster model – case and extension don't matter. Each one WebP at its
+	 * level's width (256 / 512 / 1024, PLACE_IMAGE_WIDTHS), at the place's current WebP path for that file or the
+	 * convention path next to its painted 1x (`<toon>/map/places/<id>[-plaster][.2x].webp`); a file already there gets the
+	 * new bytes (a new version, the CDN purged). One undo step; names that are no place, and a 2x / 3x / plaster model of
+	 * a place without a painted 1x, are reported.
 	 */
 	async function importImages(event: Event) {
 		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
@@ -79,24 +83,34 @@
 		importProblems = [];
 		importSummary = '';
 		const counts = { uploaded: 0, replaced: 0, unchanged: 0 };
-		const placed: { id: string; src: string }[] = [];
+		const placed: { id: string; plaster: boolean; level: MediaQuality; src: string }[] = [];
+		// the painted 1x first: the other files sit next to it, and a place needs it before anything else
+		const named = files
+			.map((file) => ({ file, name: parsePlaceImageName(file.name) }))
+			.sort((a, b) => Number(!!b.name && !b.name.plaster && b.name.level === 'low') - Number(!!a.name && !a.name.plaster && a.name.level === 'low'));
+		const painted = new Map(map.locations.filter((p) => p.image?.src).map((p) => [p.id, p.image!.src]));
 		importing = { done: 0, total: files.length };
-		for (const file of files) {
-			const stem = file.name.toLowerCase().replace(/\.[a-z0-9]+$/, '');
-			const place = map.locations.find((p) => p.id.toLowerCase() === stem);
+		for (const { file, name } of named) {
+			const place = name ? map.locations.find((p) => p.id.toLowerCase() === name.id) : undefined;
 			try {
-				if (!place) throw new Error(m['creator.map_import_no_place']({ name: stem }));
+				if (!name || !place) throw new Error(m['creator.map_import_no_place']({ name: name?.id ?? file.name }));
+				const first = name.level === 'low' && !name.plaster;
+				const base = painted.get(place.id);
+				if (!first && !base) throw new Error(m['creator.map_import_needs_painted']({ name: place.id }));
+				const own = name.plaster ? (name.level === 'low' ? place.image?.plaster : place.image?.plasterVariants?.[name.level]) : first ? place.image?.src : place.image?.variants?.[name.level];
+				const home = base?.endsWith('.webp') ? base : placeImagePath(place);
+				const src = own?.endsWith('.webp') ? own : first ? home : placeImageFile(home, name.plaster, name.level);
 				const bitmap = await createImageBitmap(file);
 				let blob: Blob;
 				try {
-					const scale = Math.min(1, PLACE_IMAGE_PX / Math.max(bitmap.width, bitmap.height));
+					const scale = Math.min(1, PLACE_IMAGE_WIDTHS[name.level] / Math.max(bitmap.width, bitmap.height));
 					blob = (await toWebp(bitmap, Math.round(bitmap.width * scale))).blob;
 				} finally {
 					bitmap.close();
 				}
-				const src = place.image?.src?.endsWith('.webp') ? place.image.src : placeImagePath(place);
 				counts[await uploadOrReplace(blob, src, 'map import')]++;
-				placed.push({ id: place.id, src });
+				if (first) painted.set(place.id, src);
+				placed.push({ id: place.id, plaster: name.plaster, level: name.level, src });
 			} catch (e) {
 				importProblems = [...importProblems, `${file.name}: ${e instanceof Error ? e.message : String(e)}`];
 			}
@@ -104,9 +118,14 @@
 		}
 		if (placed.length)
 			editMap(doc, (next) => {
-				for (const { id, src } of placed) {
+				for (const { id, plaster, level, src } of placed) {
 					const place = next.locations.find((p) => p.id === id);
-					if (place) place.image = { ...(place.image ?? {}), src };
+					if (!place) continue;
+					const image = (place.image ??= { src });
+					if (!plaster && level === 'low') image.src = src;
+					else if (!plaster) image.variants = { ...(image.variants ?? {}), low: image.src, [level]: src };
+					else if (level === 'low') image.plaster = src;
+					else image.plasterVariants = { ...(image.plasterVariants ?? {}), ...(image.plaster ? { low: image.plaster } : {}), [level]: src };
 				}
 			});
 		importing = null;
