@@ -14,7 +14,24 @@ export interface DialogRequest {
 	cancelLabel?: string;
 	/** a text field (askDialog) */
 	input?: { label: string; placeholder?: string; skipLabel?: string };
-	resolve: (value: string | boolean | null) => void;
+	/** a list to tick (checklistDialog): the primary button says `countLabel(n)` and is off at 0 */
+	checklist?: { groups: ChecklistGroup[]; countLabel: (n: number) => string; allLabel: string; noneLabel: string };
+	resolve: (value: string | boolean | null | string[]) => void;
+}
+
+/** one line of a checklist dialog */
+export interface ChecklistItem {
+	id: string;
+	label: string;
+	/** a second, quieter line (when, who, the note) */
+	detail?: string;
+	/** ticked at the start (default true) */
+	checked?: boolean;
+}
+export interface ChecklistGroup {
+	/** a heading above the group's lines (none = no heading) */
+	label?: string;
+	items: ChecklistItem[];
 }
 
 let current = $state<DialogRequest | null>(null);
@@ -23,14 +40,14 @@ export const dialogState = {
 	get current() {
 		return current;
 	},
-	close(value: string | boolean | null) {
+	close(value: string | boolean | null | string[]) {
 		const request = current;
 		current = null;
 		request?.resolve(value);
 	}
 };
 
-function open(request: Omit<DialogRequest, 'resolve'>): Promise<string | boolean | null> {
+function open(request: Omit<DialogRequest, 'resolve'>): Promise<string | boolean | null | string[]> {
 	// a dialog still open is answered with "cancel" first
 	dialogState.close(request.input ? null : false);
 	return new Promise((resolve) => (current = { ...request, resolve }));
@@ -39,6 +56,24 @@ function open(request: Omit<DialogRequest, 'resolve'>): Promise<string | boolean
 /** true = confirmed, false = cancelled */
 export async function confirmDialog(options: { title: string; message?: string; confirmLabel: string; cancelLabel?: string }): Promise<boolean> {
 	return (await open(options)) === true;
+}
+
+/**
+ * A list to tick (owner 2026-10-11, BACKLOG 10.60 – "eine Liste mit Checkboxen an- und abwählen"): the ids of the ticked
+ * lines, or null when cancelled. Every line starts ticked unless `checked: false`.
+ */
+export async function checklistDialog(options: {
+	title: string;
+	message?: string;
+	groups: ChecklistGroup[];
+	countLabel: (n: number) => string;
+	allLabel: string;
+	noneLabel: string;
+	cancelLabel?: string;
+}): Promise<string[] | null> {
+	const { groups, countLabel, allLabel, noneLabel, ...rest } = options;
+	const value = await open({ ...rest, confirmLabel: '', checklist: { groups, countLabel, allLabel, noneLabel } });
+	return Array.isArray(value) ? value : null;
 }
 
 /** the entered text; '' when skipped (submitted empty – the button then says skipLabel); null when cancelled */

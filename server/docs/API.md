@@ -547,7 +547,7 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 
 | Method | Path | Body / query → answer |
 |---|---|---|
-| GET | `/entities?toon=<toon>` | `{ entities: [{ key, kind, toon, locale, latest, published, versions }] }` (`toon=` empty: the platform-wide ones; no `toon`: all) |
+| GET | `/entities?toon=<toon>` | `{ entities: [{ key, kind, toon, locale, latest, published, versions, latest_at?, latest_message?, latest_author? }] }` (`toon=` empty: the platform-wide ones; no `toon`: all; `latest_*` only for a key whose newest version is not published – the creator's "publish down the tree", BACKLOG 10.60) |
 | GET | `/entities/<key>` | the published version as raw JSON (`no-store`, `X-Content-Version`/`X-Content-Status`) · 404 when nothing is published |
 | GET | same `?draft=1` / `?version=<id>` | the newest version / that version · 404 |
 | GET | same `…&wrap=1` | `{ status, version: meta, published: { id, created_at } \| null, content }` |

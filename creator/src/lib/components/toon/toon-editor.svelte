@@ -44,7 +44,7 @@
 	});
 </script>
 
-<MetaPage {toon} title={fileLabel(entities.toonSettings(toon))} docs={[entry]} help="toon-file">
+<MetaPage {toon} title={fileLabel(entities.toonSettings(toon))} docs={[entry]} help="toon-file" tree={() => ({ scope: { kind: 'toon', toon }, title: m['creator.publish_tree_title']({ name: toon }) })}>
 	{#if entry.loading}
 		<p>{m['creator.loading']()}</p>
 	{:else if entry.present.length === 0}

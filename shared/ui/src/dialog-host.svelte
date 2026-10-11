@@ -6,12 +6,16 @@
 
 	let element = $state<HTMLDialogElement>();
 	let text = $state('');
+	/** the ticked lines of a checklist */
+	let picked = $state<Set<string>>(new Set());
 	const request = $derived(dialogState.current);
+	const allIds = $derived(request?.checklist ? request.checklist.groups.flatMap((g) => g.items.map((i) => i.id)) : []);
 
 	$effect(() => {
 		if (!element) return;
 		if (request && !element.open) {
 			text = '';
+			picked = new Set(request.checklist ? request.checklist.groups.flatMap((g) => g.items.filter((i) => i.checked !== false).map((i) => i.id)) : []);
 			element.showModal();
 		} else if (!request && element.open) {
 			element.close();
@@ -20,7 +24,14 @@
 
 	function confirm(event: SubmitEvent) {
 		event.preventDefault();
+		if (request?.checklist) return dialogState.close(allIds.filter((id) => picked.has(id)));
 		dialogState.close(request?.input ? text.trim() : true);
+	}
+	function toggle(id: string, on: boolean) {
+		const next = new Set(picked);
+		if (on) next.add(id);
+		else next.delete(id);
+		picked = next;
 	}
 </script>
 
@@ -29,6 +40,23 @@
 		<form method="dialog" onsubmit={confirm}>
 			<h2 id="sc-dialog-title">{request.title}</h2>
 			{#if request.message}<p class="message">{request.message}</p>{/if}
+			{#if request.checklist}
+				<div class="checklist">
+					{#each request.checklist.groups as group, g (g)}
+						{#if group.label}<p class="group">{group.label}</p>{/if}
+						{#each group.items as item (item.id)}
+							<label class="line">
+								<input type="checkbox" checked={picked.has(item.id)} onchange={(e) => toggle(item.id, e.currentTarget.checked)} />
+								<span class="text"><span>{item.label}</span>{#if item.detail}<small>{item.detail}</small>{/if}</span>
+							</label>
+						{/each}
+					{/each}
+				</div>
+				<div class="all-none sc-seg" role="group">
+					<button type="button" onclick={() => (picked = new Set(allIds))}>{request.checklist.allLabel}</button>
+					<button type="button" onclick={() => (picked = new Set())}>{request.checklist.noneLabel}</button>
+				</div>
+			{/if}
 			{#if request.input}
 				<label class="sc-label" for="sc-dialog-input">{request.input.label}</label>
 				<!-- svelte-ignore a11y_autofocus -->
@@ -39,7 +67,7 @@
 				<!-- one primary action, last (owner 2026-10-06): with a skip label it says "save without note" while the field
 				     is empty and "save" once something is typed – submitting empty is the skip -->
 				<!-- svelte-ignore a11y_autofocus -->
-				<button type="submit" class="primary" autofocus={!request.input}>{request.input?.skipLabel && !text.trim() ? request.input.skipLabel : request.confirmLabel}</button>
+				<button type="submit" class="primary" autofocus={!request.input && !request.checklist} disabled={!!request.checklist && picked.size === 0}>{request.checklist ? request.checklist.countLabel(picked.size) : request.input?.skipLabel && !text.trim() ? request.input.skipLabel : request.confirmLabel}</button>
 			</div>
 		</form>
 	{/if}
@@ -75,15 +103,53 @@
 		margin: 0;
 		white-space: pre-line;
 	}
-	input {
+	/* the text field only (askDialog) – a checklist's boxes keep their own size */
+	#sc-dialog-input {
 		box-sizing: border-box;
 		width: 100%;
+	}
+	.line input {
+		flex: none;
 	}
 	.buttons {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: flex-end;
 		gap: 0.5rem;
+	}
+	/* a checklist: scrolls when long; one line per file, its detail quieter below */
+	.checklist {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		max-height: min(50vh, 24rem);
+		overflow: auto;
+	}
+	.group {
+		margin: 0.4rem 0 0;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--muted);
+	}
+	.line {
+		display: flex;
+		gap: 0.5rem;
+		align-items: flex-start;
+		cursor: pointer;
+	}
+	.line .text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	.line small {
+		color: var(--muted);
+		font-size: var(--type-caption-size);
+		overflow-wrap: anywhere;
+	}
+	.all-none {
+		align-self: flex-start;
 	}
 	/* cancel on the left, the primary action on the right (owner 2026-10-06) */
 	.cancel {

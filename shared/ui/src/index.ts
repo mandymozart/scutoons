@@ -51,4 +51,4 @@ export { default as MaximizeButton } from './maximize-button.svelte';
 export { shellDock, useDock, type DockContent, type DockPanel, type MaximizeTarget } from './dock.svelte.ts';
 export { default as DockHold } from './dock-hold.svelte';
 export { default as DialogHost } from './dialog-host.svelte';
-export { confirmDialog, askDialog } from './dialogs.svelte.ts';
+export { confirmDialog, askDialog, checklistDialog, type ChecklistGroup, type ChecklistItem } from './dialogs.svelte.ts';

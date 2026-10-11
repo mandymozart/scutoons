@@ -117,6 +117,7 @@
 	docs={[season]}
 	companions={() => Object.values(chapters).filter((d) => !d.unconverted)}
 	beforeSave={() => syncChapters(chapters)}
+	tree={() => ({ scope: { kind: 'season', toon, number, chapters: numbers }, title: m['creator.publish_tree_title']({ name: m['creator.season']({ number }) }) })}
 	bind:dockOpen={flowOpen}
 	dock={flowDock}
 >

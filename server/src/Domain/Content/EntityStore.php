@@ -230,6 +230,16 @@ final class EntityStore
         $rows = $this->db->all("SELECT entity_key, MIN(kind) AS kind, MIN(toon) AS toon, MIN(locale) AS locale, MAX(id) AS latest,
             MAX(CASE WHEN status = 'published' THEN id END) AS published, COUNT(*) AS versions
             FROM entity_versions $where GROUP BY entity_key ORDER BY entity_key", $params);
+        // the newest version's when / note / who for the keys with an unpublished draft (the creator's "publish down the
+        // tree" list, BACKLOG 10.60) – one query for all of them
+        $open = array_values(array_filter(array_map(fn(array $r) => $r['published'] === null || (int) $r['latest'] > (int) $r['published'] ? (int) $r['latest'] : null, $rows)));
+        $latest = [];
+        if ($open) {
+            $marks = implode(',', array_fill(0, count($open), '?'));
+            foreach ($this->db->all("SELECT v.id, v.created_at, v.message, u.email FROM entity_versions v LEFT JOIN users u ON u.id = v.author WHERE v.id IN ($marks)", $open) as $l) {
+                $latest[(int) $l['id']] = ['latest_at' => Time::iso($l['created_at']), 'latest_message' => $l['message'], 'latest_author' => $l['email']];
+            }
+        }
         return ['status' => 'success', 'entities' => array_map(fn(array $r) => [
             'key' => $r['entity_key'],
             'kind' => $r['kind'],
@@ -238,7 +248,7 @@ final class EntityStore
             'latest' => (int) $r['latest'],
             'published' => $r['published'] !== null ? (int) $r['published'] : null,
             'versions' => (int) $r['versions'],
-        ], $rows)];
+        ] + ($latest[(int) $r['latest']] ?? []), $rows)];
     }
 
     /**

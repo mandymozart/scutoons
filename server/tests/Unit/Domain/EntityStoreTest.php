@@ -46,7 +46,13 @@ final class EntityStoreTest extends TestCase
             self::assertSame(404, $error->status);
         }
         $index = $store->index('smoke')['entities'];
-        self::assertSame([['key' => 'chapter:smoke:1:de', 'kind' => 'chapter', 'toon' => 'smoke', 'locale' => 'de', 'latest' => $restored['version']['id'], 'published' => $id1, 'versions' => 3]], $index);
+        self::assertCount(1, $index);
+        $core = ['key', 'kind', 'toon', 'locale', 'latest', 'published', 'versions'];
+        self::assertSame(['key' => 'chapter:smoke:1:de', 'kind' => 'chapter', 'toon' => 'smoke', 'locale' => 'de', 'latest' => $restored['version']['id'], 'published' => $id1, 'versions' => 3], array_intersect_key($index[0], array_flip($core)));
+        // a draft newer than the published version: its time, note and author (the creator's "publish down the tree", BACKLOG 10.60)
+        self::assertArrayHasKey('latest_at', $index[0]);
+        self::assertArrayHasKey('latest_message', $index[0]);
+        self::assertSame($user['email'] ?? null, $index[0]['latest_author']);
         self::assertSame([$restored['version']['id'], $v2['version']['id'], $id1], array_column($store->versions('chapter:smoke:1:de')['versions'], 'id'));
         self::assertSame(1, $store->unpublish('chapter:smoke:1:de')['unpublished']);
         $store->save($user, EntityKey::parse('characters'), (object) ['content' => ['characters' => []]]);

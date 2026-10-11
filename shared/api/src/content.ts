@@ -33,6 +33,10 @@ export interface ContentIndexEntity {
 	latest: number;
 	published: number | null;
 	versions: number;
+	/** with an unpublished draft (latest > published): the newest version's time, note and author (BACKLOG 10.60) */
+	latest_at?: string;
+	latest_message?: string | null;
+	latest_author?: string | null;
 }
 
 /** A submit for review (server `/api/reviews`, docs/API.md "Reviews"), pinned to one version */

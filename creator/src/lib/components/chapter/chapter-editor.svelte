@@ -438,6 +438,8 @@
 	/** save / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
 	const session = new DocSession({
 		docs: () => allDocs,
+		// Publish lists the chapter and its scene files with drafts (BACKLOG 10.60)
+		tree: () => ({ scope: { kind: 'chapter', toon, number: chapterNumber }, title: m['creator.publish_tree_title']({ name: fileLabel(`chapter:${toon}:${chapterNumber}`) }) }),
 		beforeSave: () => {
 			// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
 			syncChapter(chapter);

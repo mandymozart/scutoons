@@ -646,7 +646,7 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   renderer can switch (Canvas / WebGL hybrid – markers and labels stay DOM for accessibility). Measure first on a
   mid-range Android (chrome://inspect: pinch, pan, the reveal flight; ×5 / ×10 / ×25 places).
 
-- [ ] 10.60 **Publish down the tree, with a list to tick** (owner 2026-10-11): "was *eine* Datei ist, ist manchmal unklar.
+- [x] 10.60 **Publish down the tree, with a list to tick** (owner 2026-10-11): "was *eine* Datei ist, ist manchmal unklar.
   Wenn ich weiter oben in der Gruppe oder im Kapitel publishe, sollten alle darunterliegenden Drafts mitgehen – als Liste
   bestätigen, ob die mitgehen sollen oder nicht. So bleibt es granular, und ich habe eine Summary, wenn ich doch alle
   Drafts absegnen möchte." Today Publish takes the page's own files (DocSession.publishAll: `docs` + saved companions)
@@ -654,6 +654,12 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   with an unpublished draft (the chapter, its scene files, …), shows them as a checklist (all ticked, each with its
   label and last note), publishes the ticked ones. Same for reviews (submit the ticked ones). Open: which levels (toon →
   season → chapter → group), and whether the map / characters / items count as "below" a toon.
+  **Built 2026-10-11** (owner: levels toon · season · chapter + a platform level "everything"): `creator/src/lib/editor/
+  publish-tree.ts` + `checklistDialog` (@scutoons/ui): the chapter editor, the season editor, the toon settings and the toon
+  page publish through the list (the page saved first; what went live reloads); the creator's start page has "Publish
+  everything …" (every toon + the world: map, characters, settings). Each line: label, version, time, author, note;
+  All / None; files that need a review are submitted (one note). Old per-language copies of the neutral documents are
+  left out. The API index gives the newest draft's time / note / author.
 
 - [ ] 10.59 **Storyboard: script scene → stacked shots → first throw in Figma → chapter draft, prompts for the gaps**
       (owner 2026-10-09; plan + milestones: agents/STORYBOARD.md §9; rules: workflows/scenes/storyboard.md). Timeline:

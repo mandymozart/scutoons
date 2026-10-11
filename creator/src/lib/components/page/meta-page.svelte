@@ -7,6 +7,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
+	import type { PublishScope } from '$lib/editor/publish-tree.ts';
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
 	import { validateFile, validateLocales, validateNeutral, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
@@ -41,8 +42,11 @@
 		dock,
 		dockOpen = $bindable(false),
 		phoneMore = [],
-		phoneSelection = null
+		phoneSelection = null,
+		tree
 	}: {
+		/** the page's level in the tree: Publish lists every file below it with a draft (BACKLOG 10.60, publish-tree.ts) */
+		tree?: () => { scope: PublishScope; title: string } | null;
 		/** phones: the page's own entries in the bar's "More" group (the map builder's Import) */
 		phoneMore?: PhoneBarItem[];
 		/** phones: the selected object's own row in the bar (UI-CONCEPTS E.10, like CapCut's clip toolbar) */
@@ -85,7 +89,7 @@
 	let historyPath = $state<string | null>(null);
 	const historyDoc = $derived(docs.find((d) => d.entity === historyPath) ?? main);
 	const loaded = $derived(docs.every((d) => !d.loading));
-	const session = new DocSession({ docs: () => docs, companions: () => companions(), beforeSave: () => beforeSave(), errorCount: () => errorCount });
+	const session = new DocSession({ docs: () => docs, companions: () => companions(), beforeSave: () => beforeSave(), errorCount: () => errorCount, tree: () => tree?.() ?? null });
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
 	// Problems the last page docked stay open here (taken over, not remounted – UI-CONCEPTS E.3 b); Problems, History

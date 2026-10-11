@@ -4,6 +4,7 @@
 // is published and in which language (owner 2026-10-03, 4.4.3), says what happened as a toast (UI-CONCEPTS E.1:
 // Saved, Published, Nothing to save, errors – lib/toasts.ts) and keeps the conflict the page shows as a bar (DocNotices).
 import { askDialog, confirmDialog } from '@scutoons/ui';
+import { publishTree, type PublishScope } from '$lib/editor/publish-tree.ts';
 import { NEUTRAL_LOCALE } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { docLabel, fileLabels } from '$lib/labels.ts';
@@ -43,6 +44,11 @@ export interface DocSessionOptions {
 	afterSave?: () => void;
 	/** errors in the problem list: publishing asks once more */
 	errorCount?: () => number;
+	/**
+	 * the page's level in the tree (BACKLOG 10.60): Publish saves the page, then lists every file below it with a draft
+	 * to tick (publish-tree.ts) instead of only the page's own files; `title` = the dialog's title
+	 */
+	tree?: () => { scope: PublishScope; title: string } | null;
 }
 
 export class DocSession {
@@ -128,6 +134,8 @@ export class DocSession {
 	 * that need a review for the toon submit the same files for review instead (reviews.svelte.ts).
 	 */
 	async publishAll(): Promise<void> {
+		const tree = this.options.tree?.();
+		if (tree) return this.publishTree(tree.scope, tree.title);
 		this.options.beforeSave?.();
 		const follow = [...new Set([...this.companions.filter((d) => d.dirty), ...this.savedCompanions])];
 		const files = [...this.docs.filter((d) => d.dirty || d.unpublished.length), ...follow];
@@ -152,6 +160,23 @@ export class DocSession {
 			for (const doc of [...this.docs, ...this.savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
 			this.savedCompanions = [];
 			this.notify(m['creator.published'](), 'success');
+		} catch (e) {
+			this.notify(e instanceof Error ? e.message : String(e), 'error');
+		}
+	}
+
+	/** Publish down the tree: the page saved first, then the checklist of every draft below it; the page reloads what went live */
+	async publishTree(scope: PublishScope, title: string): Promise<void> {
+		this.options.beforeSave?.();
+		if (this.options.errorCount?.() && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: this.options.errorCount?.() ?? 0 }), confirmLabel: m['creator.publish']() }))) return;
+		if ([...this.docs, ...this.companions].some((d) => d.dirty) && !(await this.saveAll())) return;
+		try {
+			const result = await publishTree(scope, title);
+			if (!result) return;
+			const live = new Set(result.published);
+			for (const doc of [...this.docs, ...this.companions]) if (doc.stored.some((l) => live.has(doc.key(l)))) await doc.load();
+			this.savedCompanions = [];
+			this.notify(result.message, result.published.length ? 'success' : undefined);
 		} catch (e) {
 			this.notify(e instanceof Error ? e.message : String(e), 'error');
 		}

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { confirmPublish } from '$lib/editor/doc-session.svelte.ts';
-	import { confirmSubmit, publishLabel, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
+	import { publishTree } from '$lib/editor/publish-tree.ts';
+	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
 	import { ActionBar, CloseIcon, Icon, ToonAvatar, shellDock, useDock } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
@@ -287,34 +287,18 @@
 		}
 	}
 
+	// Publish on the toon page: everything of the toon with a draft as a list to tick (BACKLOG 10.60, publish-tree.ts) –
+	// the page's own files saved first; what went live reloads
 	async function publishAll() {
-		// chapter files whose status follows the season (changed now or saved so on this page) are published with it
-		const follow = [...new Set([...followers, ...followersSaved])];
-		const docs = [...pageDocs.filter((d) => d.dirty || d.unpublished.length), ...follow];
-		if (!docs.length) return;
-		if (reviews.needsReview(toonId)) {
-			// needs a review in this toon: the same files go to the reviewers (lib/editor/reviews.svelte.ts)
-			const note = await confirmSubmit(docs);
-			if (note === null || !(await saveAll())) return;
-			busy = true;
-			try {
-				message = await submitForReview([...pageDocs, ...followersSaved].filter((d) => d.stored.length && d.unpublished.length), note);
-				followersSaved = [];
-			} catch (e) {
-				error = e instanceof Error ? e.message : String(e);
-			} finally {
-				busy = false;
-			}
-			return;
-		}
-		// the one publish dialog (lib/editor/doc-session.svelte.ts): the files and their languages
-		if (!(await confirmPublish(docs))) return;
-		if (!(await saveAll())) return;
+		if (anyDirty && !(await saveAll())) return;
 		busy = true;
 		try {
-			for (const doc of [...pageDocs, ...followersSaved]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
+			const result = await publishTree({ kind: 'toon', toon: toonId }, m['creator.publish_tree_title']({ name: toonName }));
+			if (!result) return;
+			const live = new Set(result.published);
+			for (const doc of [...pageDocs, ...followersSaved]) if (doc.stored.some((l) => live.has(doc.key(l)))) await doc.load();
 			followersSaved = [];
-			message = m['creator.published']();
+			message = result.message;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -435,7 +419,7 @@
 		{/snippet}
 		{#snippet end()}
 			<button class="secondary" disabled={busy || !anyDirty} onclick={saveAll} data-testid="save-draft">{m['creator.save_draft']()}{anyDirty ? ' •' : ''}</button>
-			<button class="secondary" disabled={busy || !pageDocs.some((d) => d.dirty || d.unpublished.length)} onclick={publishAll} data-testid="publish">{publishLabel(toonId)}</button>
+			<button class="secondary" disabled={busy} onclick={publishAll} data-testid="publish">{publishLabel(toonId)}</button>
 		{/snippet}
 	</ActionBar>
 </div>

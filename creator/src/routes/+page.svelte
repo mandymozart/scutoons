@@ -10,6 +10,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import ReviewList from '$lib/components/page/review-list.svelte';
+	import { publishTree } from '$lib/editor/publish-tree.ts';
+	import { toast } from '$lib/toasts.ts';
 
 	const session = getCreatorSession();
 	let toons = $state<ToonIndex[]>([]);
@@ -25,6 +27,20 @@
 	});
 
 	const name = (toon: ToonIndex) => toonName(toon, getLocale());
+
+	// the top of the tree (BACKLOG 10.60, owner 2026-10-11): every draft of every toon and of the world as one list to tick
+	let publishing = $state(false);
+	async function publishEverything() {
+		publishing = true;
+		try {
+			const result = await publishTree({ kind: 'all', toons: toons.map((t) => ({ id: t.id, name: name(t) })) }, m['creator.publish_tree_title_all']());
+			if (result) toast(result.message, { type: result.published.length ? 'success' : 'info' });
+		} catch (e) {
+			toast(e instanceof Error ? e.message : String(e), { type: 'error' });
+		} finally {
+			publishing = false;
+		}
+	}
 </script>
 
 <div class="creator-page">
@@ -50,6 +66,7 @@
 	<!-- Bottom action bar: open the reader (no toon count, owner 2026-10-02; sign out: the search palette) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet end()}
+			<button type="button" class="secondary" disabled={publishing || !toons.length} onclick={publishEverything} data-testid="publish-everything">{m['creator.publish_tree_button']()}</button>
 			<a class="btn" href={VIEWER_URL}>{m['creator.open_reader']()}</a>
 		{/snippet}
 	</ActionBar>
