@@ -80,6 +80,27 @@ final class Reviews
         return ['review' => $review, 'physical' => $physical, 'toons' => $toons];
     }
 
+    /**
+     * The admin's direct catalog writes (/api/admin/catalog – the page the creator's catalog replaces) answer to the same
+     * rule: a physical change of an entry (CatalogDocs::isPhysical, $data = what is written, null = a delete) needs the
+     * `physical` rule for its toons, admins included (owner 2026-10-12: "nach denselben Regeln"). 403 review_required.
+     * @param array<string, mixed>|null $data
+     */
+    public function guardPhysical(string $userId, string $catalogKind, string $id, ?array $data): void
+    {
+        $docKind = array_search($catalogKind, EntityKey::CATALOG_KINDS, true);
+        if ($docKind === false || !EntityKey::isValid("$docKind:$id")) return;
+        $key = EntityKey::parse("$docKind:$id");
+        if (!$this->docs->isPhysical($key, $data)) return;
+        $toons = $this->docs->toons($key, $data);
+        foreach ($toons as $toon) {
+            if (!$this->hasRule($userId, $toon, self::PHYSICAL)) {
+                throw new ApiError(403, 'review_required', 'A physical catalog change needs the physical rule for ' . ($toon === self::ALL_TOONS ? 'every toon' : $toon)
+                    . ' – or edit it in the creator and submit it for review.', ['toons' => $toons, 'physical' => true]);
+            }
+        }
+    }
+
     /** May this account decide (publish / return) a submit of $key's version? */
     private function mayDecide(string $userId, EntityKey $key, int $version, string $toon): bool
     {

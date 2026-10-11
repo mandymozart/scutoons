@@ -71,6 +71,15 @@ final class CatalogAdmin
         return array_map(fn(array $r) => self::historyOf($r), $rows);
     }
 
+    /**
+     * One recorded change as stored (kind, entry_id, action, before_json …), null when unknown
+     * @return array<string, mixed>|null
+     */
+    public function historyRow(int $id): ?array
+    {
+        return $this->db->one('SELECT * FROM catalog_history WHERE id = ?', [$id]);
+    }
+
     // ── Writes ────────────────────────────────────────────────────────────────────────────────────────────
 
     /**

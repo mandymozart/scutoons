@@ -148,6 +148,22 @@ final class CatalogDocsTest extends TestCase
         self::assertSame('item spoon, item dago_hoodie', Reviews::files(['item:spoon', 'item:dago_hoodie']));
     }
 
+    /** the admin's old catalog page answers to the same rule: an admin without the physical rule can't make an item claimable */
+    public function testTheAdminPathNeedsThePhysicalRuleToo(): void
+    {
+        $boss = $this->creator('boss@example.com');
+        $this->get(Roles::class)->grant((string) $boss['id'], Roles::ADMIN);
+        $camera = $this->data('items', 'camera');
+        $put = fn(array $data) => $this->request('PUT', '/api/admin/catalog/items/camera', $this->bearer($boss), (string) json_encode(['data' => $data]));
+        self::assertSame(200, $put(array_merge($camera, ['name' => ['de' => 'Kamera', 'en' => 'Cam']]))->getStatusCode(), 'a virtual change: as before');
+        $denied = $put(array_merge($camera, ['edition_id' => '1_catpope_dago']));
+        self::assertSame([403, 'review_required'], [$denied->getStatusCode(), self::json($denied)['error'] ?? null]);
+        self::assertNull($this->data('items', 'camera')['edition_id']);
+        self::assertSame(403, $this->request('DELETE', '/api/admin/catalog/editions/1_catpope_dago', $this->bearer($boss))->getStatusCode());
+        $this->get(Reviews::class)->setRule((string) $boss['id'], 'catpope', Reviews::PHYSICAL, true);
+        self::assertSame(200, $put(array_merge($camera, ['edition_id' => '1_catpope_dago']))->getStatusCode());
+    }
+
     public function testNeedsReviewAppliesToTheCatalogOfThatToon(): void
     {
         $writer = $this->creator('writer@example.com');

@@ -86,7 +86,16 @@ final class CatalogDocs
      */
     public function isPhysical(EntityKey $key, ?array $data): bool
     {
-        return $this->physicalEntry($key, $data) || $this->physicalEntry($key, $this->publishedData($key));
+        $published = $this->publishedData($key);
+        // what readers get stays the same (an accepted warning, a version restored as it is live): nothing goes out
+        if ($data !== null && $published !== null && self::readerJson($data) === self::readerJson($published)) return false;
+        return $this->physicalEntry($key, $data) || $this->physicalEntry($key, $published);
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function readerJson(array $data): string
+    {
+        return json_encode(CatalogStore::reader(CatalogStore::encode($data)), CatalogStore::JSON_FLAGS) ?: '';
     }
 
     /** @param array<string, mixed>|null $d */
@@ -246,7 +255,8 @@ final class CatalogDocs
             'latest_at' => $latest !== null ? Time::iso($latest['created_at']) : null,
             'latest_author' => $latest['email'] ?? null,
             'latest_message' => $latest['message'] ?? null,
-            'physical' => $this->isPhysical($key, is_array($data) ? $data : null),
+            // the entry is physical (its newest version or what readers have) – publishing a change of it needs the rule
+            'physical' => $this->physicalEntry($key, is_array($data) ? $data : null) || $this->physicalEntry($key, $this->publishedData($key)),
             'toons' => $this->toons($key, is_array($data) ? $data : null),
             'content' => json_decode($json),
         ];
