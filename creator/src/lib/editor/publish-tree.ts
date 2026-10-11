@@ -4,12 +4,16 @@
  * every stored file below a level that has an unpublished draft, as a checklist (all ticked); the ticked ones are
  * published – or submitted for review where the account's review rules ask for it.
  *
+ * Documents with parts (the map's places / routes / layers, the characters – DOCUMENT_PARTS) list one line per change
+ * and can be published in part (owner 2026-10-12).
+ *
  * Levels: everything (the platform: every toon + the world – map, characters, settings …) → a toon (all its files) → a
  * season (itself, its chapters and their scene files) → a chapter (itself and its scene files).
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
 import type { ContentIndexEntity } from '@scutoons/api';
-import { contentApi, contentIndex, publishVersion } from '$lib/api.ts';
+import { contentApi, contentIndex, getPublished, getVersion, publishVersion, putDraft } from '$lib/api.ts';
+import { DOCUMENT_PARTS, applyParts, diffParts, type PartChange } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
@@ -83,18 +87,82 @@ export async function pendingFiles(scope: PublishScope): Promise<ContentIndexEnt
 	return lists.flat().filter(hasDraft).filter((e) => !isLegacy(e.key) && inScope(e.key, scope)).sort(byTree);
 }
 
+/** one line of the checklist: a whole file, or one change inside a document with parts (the map's places …) */
+interface Line {
+	id: string;
+	file: ContentIndexEntity;
+	change?: PartChange;
+}
+
+/** an entry's name in the creator's language (a locale map or a string), else its id */
+function nameOf(name: unknown, id: string | null): string {
+	if (typeof name === 'string' && name) return name;
+	if (name && typeof name === 'object') {
+		const map = name as Record<string, unknown>;
+		const v = map[getLocale()] ?? map.de ?? Object.values(map)[0];
+		if (typeof v === 'string' && v) return v;
+	}
+	return id ?? '';
+}
+const PART_WORD: Record<string, () => string> = {
+	locations: () => m['creator.publish_part_place'](),
+	routes: () => m['creator.publish_part_route'](),
+	layers: () => m['creator.publish_part_layer'](),
+	characters: () => m['creator.publish_part_character']()
+};
+const KIND_WORD: Record<PartChange['kind'], () => string> = {
+	added: () => m['creator.publish_part_added'](),
+	changed: () => m['creator.publish_part_changed'](),
+	removed: () => m['creator.publish_part_removed'](),
+	settings: () => m['creator.publish_part_settings']()
+};
+const lineLabel = (l: Line) =>
+	!l.change
+		? label(l.file.key)
+		: l.change.kind === 'settings'
+			? `${label(l.file.key)} · ${KIND_WORD.settings()}`
+			: `${label(l.file.key)} · ${PART_WORD[l.change.field ?? '']?.() ?? l.change.field}: ${nameOf(l.change.name, l.change.id)}`;
+const lineDetail = (l: Line) => (l.change && l.change.kind !== 'settings' ? `${KIND_WORD[l.change.kind]()} · ${detail(l.file)}` : detail(l.file));
+
+type Parts = Map<string, { published: unknown; draft: unknown; fields: readonly string[] }>;
+
 /**
- * The checklist for a level, then publish / submit the ticked files. Returns the message for the page (or null when
- * cancelled) and the keys that went live.
+ * The lines for the files: a document with parts (DOCUMENT_PARTS – the map, the characters) that is published already
+ * gives one line per change against its published version; every other file is one line.
+ */
+async function linesOf(files: ContentIndexEntity[]): Promise<{ lines: Line[]; parts: Parts }> {
+	const lines: Line[] = [];
+	const parts: Parts = new Map();
+	for (const file of files) {
+		const fields = DOCUMENT_PARTS[file.key];
+		if (fields && file.published !== null) {
+			const [pub, draft] = await Promise.all([getPublished(file.key), getVersion(file.key, file.latest)]);
+			const changes = diffParts(pub.content, draft.content, fields);
+			if (changes.length) {
+				parts.set(file.key, { published: pub.content, draft: draft.content, fields });
+				for (const change of changes) lines.push({ id: `${file.key}#${change.line}`, file, change });
+				continue;
+			}
+		}
+		lines.push({ id: file.key, file });
+	}
+	return { lines, parts };
+}
+
+/**
+ * The checklist for a level, then publish / submit the ticked lines. Returns the message for the page (or null when
+ * cancelled) and the keys that went live (whole or in part).
  */
 export async function publishTree(scope: PublishScope, title: string): Promise<{ message: string; published: string[] } | null> {
 	const files = await pendingFiles(scope);
 	if (!files.length) return { message: m['creator.nothing_to_publish'](), published: [] };
+	const { lines, parts } = await linesOf(files);
 	const toonName = (id: string | null) => (id ? (scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id : m['creator.publish_tree_world']());
+	const item = (l: Line) => ({ id: l.id, label: lineLabel(l), detail: lineDetail(l) });
 	const groups: ChecklistGroup[] =
 		scope.kind === 'all'
-			? [...new Set(files.map((f) => f.toon ?? ''))].map((t) => ({ label: toonName(t || null), items: files.filter((f) => (f.toon ?? '') === t).map((f) => ({ id: f.key, label: label(f.key), detail: detail(f) })) }))
-			: [{ items: files.map((f) => ({ id: f.key, label: label(f.key), detail: detail(f) })) }];
+			? [...new Set(lines.map((l) => l.file.toon ?? ''))].map((t) => ({ label: toonName(t || null), items: lines.filter((l) => (l.file.toon ?? '') === t).map(item) }))
+			: [{ items: lines.map(item) }];
 	const review = files.some((f) => reviews.needsReview(f.toon));
 	const picked = await checklistDialog({
 		title,
@@ -106,20 +174,36 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 		cancelLabel: m['creator.cancel']()
 	});
 	if (!picked?.length) return null;
-	const chosen = files.filter((f) => picked.includes(f.key));
-	const toReview = chosen.filter((f) => reviews.needsReview(f.toon));
-	const toPublish = chosen.filter((f) => !reviews.needsReview(f.toon));
+	const chosen = new Set(picked);
 	const done: string[] = [];
-	for (const f of toPublish) {
+	const forReview: { key: string; version: number }[] = [];
+	const names = (ls: Line[]) => ls.map((l) => (l.change!.kind === 'settings' ? 'settings' : nameOf(l.change!.name, l.change!.id))).join(', ').slice(0, 180);
+	for (const file of files) {
+		const mine = lines.filter((l) => l.file === file);
+		const ticked = mine.filter((l) => chosen.has(l.id));
+		if (!ticked.length) continue;
 		// the version the list showed – a newer save in between is not published unseen
-		await publishVersion(f.key, f.latest);
-		done.push(f.key);
+		let version = file.latest;
+		const p = parts.get(file.key);
+		const inPart = !!p && ticked.length < mine.length;
+		if (p && inPart) {
+			// one document stays one document: save published + the ticked changes and put that live; the whole draft is
+			// saved again on top, so what was not ticked stays a draft (owner 2026-10-12: "die Karte nicht mit ganz vielen Dokumenten")
+			const merged = applyParts(p.published, p.draft, p.fields, new Set(ticked.map((l) => l.change!.line)));
+			version = (await putDraft(file.key, merged, file.latest, `Published in part: ${names(ticked)}`)).version.id;
+		}
+		if (reviews.needsReview(file.toon)) forReview.push({ key: file.key, version });
+		else {
+			await publishVersion(file.key, version);
+			done.push(file.key);
+		}
+		if (p && inPart) await putDraft(file.key, p.draft, version, `The draft goes on (not published yet: ${names(mine.filter((l) => !chosen.has(l.id)))})`);
 	}
 	let submitted = '';
-	if (toReview.length) {
+	if (forReview.length) {
 		const note = await askDialog({ title: m['creator.submit_title'](), label: m['creator.submit_note_label'](), placeholder: m['creator.submit_note_placeholder'](), confirmLabel: m['creator.submit_send'](), skipLabel: m['creator.submit_send']() });
 		if (note !== null) {
-			const result = await contentApi.submitReview(toReview.map((f) => ({ key: f.key, version: f.latest })), note.trim());
+			const result = await contentApi.submitReview(forReview, note.trim());
 			void reviews.load();
 			submitted = m['creator.submitted']({ reviewers: result.reviewers.join(', ') });
 		}
