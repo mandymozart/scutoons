@@ -827,6 +827,10 @@ The first piece of M3: the one event `unlockLocation` (§3.1), nothing else of M
 3. **Viewer runner** – `case 'unlockLocation'` → `env.unlockPlace(location, { silent, reveal })`, awaited. `reveal` =
    the run may open the map: a VN script, a click trigger (and what follows it in that run), an item tap – never an
    intersect / hover trigger (scrolling is never hijacked, §3.2: there the toast + badge only).
+   **The event's own choice (owner 2026-10-11, "im Creator auswählen können, wie die Karte aufgeht"):** `params.map` =
+   `open` (the map opens and plays the reveal, also when scrolled into) · `toast` (the toast only) · unset (by the
+   trigger, as above). **And any time on request:** a tap on the place's toast, or on the new place (its dot) in the
+   open map, plays its reveal (`replayPlaceReveal` – no unlock, no toast; an open map stays open).
 4. **World** – `unlock([id])`; nothing new or `silent` → nothing shown (set operation, §3.3).
 5. **Toast** – "<name> freigeschaltet" / "<name> unlocked" with the place image as the icon (the items' notice host gets
    a `place` kind).

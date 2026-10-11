@@ -9,7 +9,8 @@
 
 	/**
 	 * unlockLocation (agents/MAP.md §3.1, §8.5a): a place of the world map is discovered – the reader gets a toast; in a VN
-	 * script, a click trigger or an item tap the map opens, flies to the place and closes again. `silent`: the state only.
+	 * script, a click trigger or an item tap the map opens, flies to the place and closes again. `silent`: the state only;
+	 * `map`: open (also when scrolled into) / toast only / empty = by the trigger (owner 2026-10-11).
 	 */
 	let { doc, path, event }: { doc: ContentDoc; path: Path; event: any } = $props();
 
@@ -34,5 +35,7 @@
 <div class="sc-fields" data-cols="2" data-density="dense" data-align="end">
 	<PropField {doc} path={[...path, 'params', 'location']} label={m['creator.unlock_location_place']()} type="select" {options} placeholder={m['creator.unlock_location_pick']()} />
 	<PropField {doc} path={[...path, 'params', 'silent']} label={m['creator.unlock_location_silent']()} type="bool" placeholder="false" />
+	<!-- how the map shows it (owner 2026-10-11): empty = by the trigger -->
+	<PropField {doc} path={[...path, 'params', 'map']} label={m['creator.unlock_location_map']()} type="select" options={[{ value: 'open', label: m['creator.unlock_location_map_open']() }, { value: 'toast', label: m['creator.unlock_location_map_toast']() }]} placeholder={m['creator.unlock_location_map_auto']()} />
 </div>
 <p class="hint">{m['creator.unlock_location_hint']()}</p>

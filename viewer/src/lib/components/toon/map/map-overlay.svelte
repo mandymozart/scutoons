@@ -26,7 +26,9 @@
 		toon,
 		onclose,
 		reveal = null,
-		onrevealed = () => {}
+		revealStays = false,
+		onrevealed = () => {},
+		onreplay
 	}: {
 		data: ReaderMap | null;
 		failed: boolean;
@@ -35,7 +37,11 @@
 		onclose: () => void;
 		/** a place just unlocked by the story (map-reveal.ts): fly to it, show it, then `onrevealed` (agents/MAP.md §8.5a) */
 		reveal?: string | null;
+		/** the map stays open after this reveal (it was open – a new place tapped in it): the camera stays at the place */
+		revealStays?: boolean;
 		onrevealed?: () => void;
+		/** a new (unseen) place tapped: play its reveal (owner 2026-10-11 – "der kleine Punkt") */
+		onreplay?: (id: string) => void;
 	} = $props();
 
 	const world = getWorldContext();
@@ -192,7 +198,8 @@
 		revealFrom = null;
 		revealShow = false;
 		revealing = null;
-		placed = '';
+		// a map that stays open keeps its camera at the place; one that closes opens fresh next time
+		if (!revealStays) placed = '';
 		onrevealed();
 	}
 	// closed by the reader meanwhile (✕): the reveal ends at once – the story never waits for a map that is gone
@@ -256,6 +263,8 @@
 	});
 
 	function select(p: ReaderPlace) {
+		// a new place (its dot / halo): its reveal first – the card comes with the next tap
+		if (onreplay && !revealing && isPlaceNew(p.id, mapState) && own(p)) return onreplay(p.id);
 		selected = p.id;
 		if (!view.onScreen(p, -40)) view.centerOn(p);
 	}

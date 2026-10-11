@@ -11,6 +11,11 @@ export interface RevealRequest {
 	silent: boolean;
 	/** open the map and fly there (else the toast only) */
 	reveal: boolean;
+	/**
+	 * show an already unlocked place's reveal again – the reader asked for it (a tap on its toast or on the new place in
+	 * the map; owner 2026-10-11): no unlock, no toast; an open map stays open afterwards
+	 */
+	replay?: boolean;
 	done: () => void;
 }
 
@@ -28,6 +33,15 @@ export function onPlaceUnlocked(next: Handler): () => void {
 	return () => {
 		if (handler === next) handler = null;
 	};
+}
+
+/**
+ * The reader asked to see a place's reveal (its toast tapped, or the new place in the map): the map opens (when it is
+ * not open), flies there and plays the reveal. Nothing when no map is mounted.
+ */
+export function replayPlaceReveal(id: string): void {
+	if (!id || !handler) return;
+	handler({ id, silent: false, reveal: true, replay: true, done: () => {} });
 }
 
 /**

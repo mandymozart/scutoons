@@ -307,13 +307,20 @@ export interface VNFxEvent {
 /**
  * A place of the world map is discovered (agents/MAP.md §3.1, §8.5a): `places[id].unlocked` in the reader's save game – a
  * set operation (again = nothing). The reader sees a toast "<place> unlocked"; in a VN script, a click trigger or an item
- * tap the map opens, flies to the place, shows it and closes again (never on an intersect / hover trigger – scrolling is
- * not hijacked). `silent`: the state only (no toast, no map).
+ * tap the map opens, flies to the place, shows it and closes again (not on an intersect / hover trigger – scrolling is
+ * not hijacked – unless `map` says `open`). `silent`: the state only (no toast, no map). A tap on the toast, or on the
+ * new place in the map, plays the reveal any time.
  */
 export interface UnlockLocationParams {
 	/** the place's id (world map `locations[].id`) */
 	location: string;
 	silent?: boolean;
+	/**
+	 * how the map shows it (owner 2026-10-11: "im Creator auswählen können, wie die Karte aufgeht"): `open` = the map
+	 * opens and plays the reveal, also when scrolled into; `toast` = the toast only (a tap on it shows the reveal);
+	 * unset = by the trigger (a script / a tap opens it, scrolling and hovering show the toast)
+	 */
+	map?: 'open' | 'toast';
 }
 
 export interface VNUnlockLocationEvent {

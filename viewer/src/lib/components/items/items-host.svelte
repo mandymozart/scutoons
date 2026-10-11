@@ -14,6 +14,7 @@
 	import { loadMinigame } from './minigames/registry.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import mapIcon from '$lib/icons/map.svg';
+	import { replayPlaceReveal } from '$lib/components/toon/map/map-reveal.ts';
 
 	/** Global item overlays (mounted once in the root layout). */
 	const inventory = getInventoryContext();
@@ -131,6 +132,13 @@
 
 <div class="notices" aria-live="polite">
 	{#each inventory.notices as notice (notice.id)}
+		{#if notice.kind === 'place' && notice.place?.id}
+			<!-- a place's toast: a tap opens the map and plays its reveal (owner 2026-10-11) -->
+			<button type="button" class="notice tap" onclick={() => replayPlaceReveal(notice.place!.id!)} data-testid="notice-place">
+				<div class="thumb"><img class="place-thumb" src={notice.place.image ? asset(notice.place.image) : mapIcon} alt="" /></div>
+				<span>{noticeText(notice)}</span>
+			</button>
+		{:else}
 		<div class="notice">
 			<div class="thumb">
 				{#if notice.kind === 'place'}
@@ -142,6 +150,7 @@
 			<span>{noticeText(notice)}</span>
 			{#if (notice.repeat ?? 1) > 1}<span class="repeat" data-testid="notice-repeat">× {notice.repeat}</span>{/if}
 		</div>
+		{/if}
 	{/each}
 </div>
 

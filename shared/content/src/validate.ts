@@ -521,6 +521,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				// another toon's place: allowed (owner 2026-10-11) – but this toon's map shows it as a plain marker, no name or picture
 				else if (ctx.toonPlaces && !ctx.toonPlaces.includes(p.location)) c.info([...pp, 'location'], `the place "${p.location}" doesn't list this toon – its map shows it as a plain marker (no name, no picture); add the toon to the place's toons`);
 				if (p.silent !== undefined && typeof p.silent !== 'boolean') c.error([...pp, 'silent'], 'silent must be true/false');
+				if (p.map !== undefined && p.map !== 'open' && p.map !== 'toast') c.error([...pp, 'map'], 'map must be "open" or "toast" (or unset: by the trigger)');
 			}
 			break;
 		case 'jumpTo':

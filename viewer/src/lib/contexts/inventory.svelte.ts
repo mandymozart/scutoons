@@ -109,7 +109,7 @@ export interface Notice {
 	/** returned = a worn item came off by a swap (back in the inventory) */
 	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place';
 	/** place: a map place was unlocked (agents/MAP.md §3.4, §8.5a) – its name and image (the toast's icon) */
-	place?: { name: string; image?: string };
+	place?: { name: string; image?: string; id?: string };
 	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
 	reason?: string;
 	/** the inventory entry (returned) */
@@ -383,9 +383,10 @@ export function createInventoryContext(session: SessionContext) {
 
 	const noticeTimers = new Map<number, ReturnType<typeof setTimeout>>();
 	/** "<place> unlocked" (agents/MAP.md §8.5a): the place's image as the icon, 4 s */
-	function notifyPlace(name: string, image?: string) {
+	/** a place was unlocked (its toast); `place` = its id – a tap on the toast plays its reveal (map-reveal.ts) */
+	function notifyPlace(name: string, image?: string, place?: string) {
 		const id = ++noticeSeq;
-		notices = [...notices, { id, item_id: '', qty: 1, kind: 'place', place: { name, image } }];
+		notices = [...notices, { id, item_id: '', qty: 1, kind: 'place', place: { name, image, id: place } }];
 		noticeTimers.set(id, setTimeout(() => ((notices = notices.filter((n) => n.id !== id)), noticeTimers.delete(id)), 4000));
 	}
 	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId, email?: string | null, reason?: string) {

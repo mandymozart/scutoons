@@ -9,7 +9,7 @@
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import mapIcon from '$lib/icons/map.svg';
 	import MapOverlay from './map-overlay.svelte';
-	import { onPlaceUnlocked, type RevealRequest } from './map-reveal.ts';
+	import { onPlaceUnlocked, replayPlaceReveal, type RevealRequest } from './map-reveal.ts';
 	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 
 	/**
@@ -79,6 +79,8 @@
 	// ── the story unlocked a place (map-reveal.ts, agents/MAP.md §8.5a): the toast, and – when the run may open the map –
 	//    the reveal; one after another, the story waits for each ─────────────────────────────────────────────────
 	let reveal = $state<RevealRequest | null>(null);
+	/** the map was open when a replay started (a new place tapped in it): it stays open afterwards */
+	let stayOpen = $state(false);
 	const queue: RevealRequest[] = [];
 	$effect(() =>
 		onPlaceUnlocked((request) => {
@@ -91,13 +93,25 @@
 		const request = queue.shift()!;
 		await load();
 		const place = data?.locations.find((p) => p.id === request.id);
+		// the reader asked to see an unlocked place again (its toast, the new place in the map): no unlock, no toast
+		if (request.replay) {
+			if (!place || !world?.map.places[place.id]) {
+				request.done();
+				return void next();
+			}
+			stayOpen = open;
+			reveal = request;
+			mounted = true;
+			nav.openOverlay('map');
+			return;
+		}
 		// not on the map (deleted, mistyped – or the map could not load): the event fizzles, nothing happens
 		const added = place && world ? world.unlock([place.id]) : [];
 		if (!added.length || request.silent) {
 			request.done();
 			return void next();
 		}
-		getCurrentInventory()?.notifyPlace(place!.name, place!.image?.src);
+		getCurrentInventory()?.notifyPlace(place!.name, place!.image?.src, place!.id);
 		if (!request.reveal) {
 			request.done();
 			return void next();
@@ -109,7 +123,8 @@
 	function revealed() {
 		const request = reveal;
 		reveal = null;
-		nav.closeOverlay();
+		if (!stayOpen) nav.closeOverlay();
+		stayOpen = false;
 		request?.done();
 		void next();
 	}
@@ -133,7 +148,7 @@
 </button>
 
 {#if mounted}
-	<MapOverlay {data} {failed} {open} {toon} onclose={() => nav.closeOverlay()} reveal={reveal?.id ?? null} onrevealed={revealed} />
+	<MapOverlay {data} {failed} {open} {toon} onclose={() => nav.closeOverlay()} reveal={reveal?.id ?? null} revealStays={stayOpen} onrevealed={revealed} onreplay={(id) => replayPlaceReveal(id)} />
 {/if}
 
 <style>

@@ -164,9 +164,11 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 
 				case 'unlockLocation': {
 					// a place of the world map (agents/MAP.md §8.5a): the story waits while the map shows it
-					const { location, silent } = event.params ?? {};
+					const { location, silent, map } = event.params ?? {};
 					if (typeof location !== 'string' || !location) break;
-					await env.unlockPlace?.(location, { silent: silent === true, reveal: deps.mapReveal !== false });
+					// the event's own choice (`map`: open / toast) wins over the trigger's default (owner 2026-10-11)
+					const reveal = map === 'open' ? true : map === 'toast' ? false : deps.mapReveal !== false;
+					await env.unlockPlace?.(location, { silent: silent === true, reveal });
 					if (cancelled()) return 'cancelled';
 					break;
 				}
