@@ -36,6 +36,18 @@ export interface MapLayer {
 	 * base (and the fallback while tiles load); the tiles on screen draw over it from level 1.
 	 */
 	tiles?: MapTiles;
+	/**
+	 * fog of war (owner 2026-10-12: "am Anfang ist erstmal nichts drauf, und dann, wie ein Fog of War, gewinnt die Karte da,
+	 * wo man war, in einem gewissen Umkreis an Farbe"): the reader draws this layer only within `radius` world units of the
+	 * places the reader has unlocked (the save game's `map.places`), soft at the edge – over a plain layer of the same shapes
+	 * (the plaster model). The builder shows it whole.
+	 */
+	fog?: MapFog;
+}
+
+export interface MapFog {
+	/** world units around an unlocked place where the layer shows fully (it fades out over `FOG_FEATHER` × radius beyond) */
+	radius: number;
 }
 
 export interface MapTiles {
@@ -415,6 +427,15 @@ export function centerOf(points: readonly Point[]): Point | null {
 export const TILE_PX = 256;
 /** the deepest tile level a layer may have (2^8 = 256 px per world unit) */
 export const TILE_LEVELS_MAX = 8;
+/** a fog layer's soft edge: it fades from the radius to radius × (1 + FOG_FEATHER) */
+export const FOG_FEATHER = 0.6;
+/** a fog radius's limits in world units */
+export const FOG_RADIUS_MIN = 1;
+export const FOG_RADIUS_MAX = 1024;
+/** the places whose surroundings a fog layer shows: the unlocked ones (the save game), with their point */
+export function fogPlaces<T extends { id: string; x: number; y: number }>(places: readonly T[], state: Pick<MapState, 'places'>): T[] {
+	return places.filter((p) => !!state.places[p.id]);
+}
 /** a world rectangle */
 export interface Rect {
 	x: number;
@@ -910,6 +931,8 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		for (const z of ['minZoom', 'maxZoom'] as const) if (l[z] !== undefined && (!isNum(l[z]) || l[z] <= 0)) add('error', ['layers', i, z], `layer ${l.id}: ${z} must be a positive number`);
 		if (l.tiles !== undefined && (!isObj(l.tiles) || typeof l.tiles.path !== 'string' || !l.tiles.path || !Number.isInteger(l.tiles.levels) || l.tiles.levels < 0 || l.tiles.levels > TILE_LEVELS_MAX))
 			add('error', ['layers', i, 'tiles'], `layer ${l.id}: tiles must be { path, levels } (levels 0–${TILE_LEVELS_MAX})`);
+		if (l.fog !== undefined && (!isObj(l.fog) || !isNum(l.fog.radius) || l.fog.radius < FOG_RADIUS_MIN || l.fog.radius > FOG_RADIUS_MAX))
+			add('error', ['layers', i, 'fog'], `layer ${l.id}: fog must be { radius } (${FOG_RADIUS_MIN}–${FOG_RADIUS_MAX} world units)`);
 	});
 
 	const places = Array.isArray(map.locations) ? map.locations : [];

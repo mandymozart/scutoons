@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, fogPlaces, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -259,6 +259,14 @@
 
 	// ── locked places (owner 2026-10-11: "die Gips-Varianten schon vorher auf der Karte"): every place of this toon that is
 	//    not unlocked yet stands as its plaster model – no name, no marker, no tap; unlocking paints it ──────────────────
+	// ── fog of war (owner 2026-10-12, agents/MAP.md §8.9): a fog layer (the painted terrain) shows only around the places the
+	//    reader unlocked – a new place's surroundings get their colour with its reveal or its painting in place ─────────
+	const fogPoints = $derived(
+		fogPlaces(data?.locations ?? [], mapState)
+			.filter((p) => !isPlaceNew(p.id, mapState) || (revealing === p.id && revealShow) || painting.has(p.id))
+			.map((p) => ({ id: p.id, x: p.x, y: p.y }))
+	);
+
 	const lockedPlaces = $derived((data?.locations ?? []).filter((p) => !isPlaceVisible(p, mapState) && own(p) && !!p.image?.plaster));
 	const lockedIndex = $derived(pointIndex(lockedPlaces));
 	const shownLocked = $derived(lockedIndex.query(growRect(view.worldRect(160), PLACE_SIZE_MAX / 2)));
@@ -358,7 +366,7 @@
 		data-testid="map-viewport"
 	>
 		{#if data}
-			<MapTerrain {view} width={data.width} height={data.height} layers={data.layers} url={asset} testid="map-world" />
+			<MapTerrain {view} width={data.width} height={data.height} layers={data.layers} url={asset} fog={fogPoints} testid="map-world" />
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} />
 			<div class="places locked" aria-hidden="true">
 				{#each shownLocked as p (p.id)}

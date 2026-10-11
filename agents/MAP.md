@@ -867,6 +867,37 @@ order. Lost on purpose: the silent catch-up for readers who start in the middle 
 **Order on production:** run the SQL first (the published viewer already runs unlockLocation), empty the API's library
 cache, then deploy.
 
+### 8.9 The painted map, the plaster layer, fog of war (owner 2026-10-12)
+
+Owner: "Ich brauche die Kacheln in demselben Stil, wie wir ihn definiert haben, und auf jeden Fall auch in derselben Form
+im Gipsmodell-Style – am Anfang ist erstmal nichts drauf, und dann, wie ein Fog of War, gewinnt die Karte da, wo man war,
+in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
+
+- **Painted layer** – `scripts/map-paint.mjs` (Luma `image_edit`, uni-1-max, the `abstract` look, the zones of
+  `scripts/map-zones.json`): the terrain SVG is the layout (white, no sea – the SVG's land mask cuts the real coast
+  afterwards), one region of 256 world units every 192 (neighbours share 64; the painted strips of the neighbours above /
+  left go into the source so the seams continue), 8 px per unit. Lessons (2026-10-11): no reference image (Luma copies its
+  layout), ONE continuous landscape, colour first, the SCUTOONS look in words. Mostly-empty regions: Luma invents
+  outlines in the white – harmless, the land mask removes them.
+- **Plaster layer** – the SAME shapes unpainted, derived from the painted mosaic (`--plaster`, free and exactly
+  aligned): per pixel the fine relief (luminance minus its blur) over a warm plaster white, a little broad tone, the
+  alpha unchanged. A Luma plaster pass (~$6) only if this looks poor (owner decision).
+- **Tiles** – `--assemble --plaster --levels 3`: `media/<out>[-plaster].webp` (1 px / unit, the base and fallback) +
+  `media/<tiles>[-plaster]/<z>/<x>_<y>.webp` (levels 1–3, 256 px; level 3 = the mosaic's 8 px / unit).
+- **Data** – `MapLayer.fog?: { radius }` (world units): the reader draws such a layer only within `radius` of the places
+  the reader has unlocked (`fogPlaces` = the save game's `map.places`, every toon – one universe), soft beyond (fades
+  out over `FOG_FEATHER` × radius). Layer order in the map: terrain (lines) · plaster · painted (`fog`). Validation:
+  `fog` must be `{ radius }` (1–1024).
+- **Reader** – shared `MapTerrain` (`fog` prop = the unlocked places' points; null in the builder = whole): a fog layer
+  gets ONE CSS mask (`shared/reader/src/map/fog-mask.ts`): a small alpha image in world proportions (½ px per unit, max
+  2048 px) of soft discs – one disc + 5 lobes per place, so the edge looks like a cloud, not a compass circle – inside
+  the camera transform, so it scales with the map and is drawn again only when the places change (never per frame, never
+  per tile). A place that joins the list later grows its disc (~1.6 s, CSS radial-gradient mask layers over the image,
+  then folded into the image); reduced motion: no growing. The viewer (`map-overlay.svelte`) passes the unlocked places
+  except the new (unseen) ones – a new place's surroundings get their colour with its reveal (`revealShow`) or its
+  painting in place, together with its diorama.
+- **Builder** – both layers with the eyes (the plaster under the painted one); the layer form has the fog radius.
+
 ### 8.6 Not built yet
 
 M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the

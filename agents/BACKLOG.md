@@ -646,6 +646,10 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   (deep zoom) if the world grows past ~4096 units or zoom 8; one shared `MapTerrain` for viewer + builder so the
   renderer can switch (Canvas / WebGL hybrid – markers and labels stay DOM for accessibility). Measure first on a
   mid-range Android (chrome://inspect: pinch, pan, the reveal flight; ×5 / ×10 / ×25 places).
+  **2026-10-12 (branch claude/cool-galileo-5d33f7, MAP.md §8.9):** the painted terrain (map-paint.mjs, Luma) + a plaster
+  layer derived from it (`--plaster`), tiles levels 1–3 for both, and fog of war: `MapLayer.fog: { radius }` – the reader
+  draws the painted layer only around the unlocked places (one CSS mask image per layer, a new place's disc grows with
+  its reveal); the builder shows both layers (eyes) and has the radius in the layer form.
 
 - [x] 10.60 **Publish down the tree, with a list to tick** (owner 2026-10-11): "was *eine* Datei ist, ist manchmal unklar.
   Wenn ich weiter oben in der Gruppe oder im Kapitel publishe, sollten alle darunterliegenden Drafts mitgehen – als Liste

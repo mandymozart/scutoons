@@ -13,7 +13,9 @@
 // Costs money: one Luma image per land region (uni-1-max ≈ $0.10) – --dry prints the count and the prompt and renders the
 // layouts only; --only x_y paints one region (a test); --assemble skips painting. Key: LUMA_AGENT(S)_API_KEY in .env.
 // --look abstract (default: fields of crazy textures, no objects – owner 2026-10-11) | model (a model town, the first try).
-//   node --experimental-transform-types scripts/map-paint.mjs [--look abstract] [--dry] [--only 6_1] [--assemble] [--model uni-1-max] [--levels 3]
+// --plaster: also the plaster layer (the same shapes unpainted – derived from the painted world, free and aligned):
+//   media/<out>-plaster.webp + media/<tiles>-plaster/… – the reader draws it everywhere, the painted one (fog) over it.
+//   node --experimental-transform-types scripts/map-paint.mjs [--look abstract] [--dry] [--only 6_1] [--assemble] [--plaster] [--model uni-1-max] [--levels 3]
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -263,6 +265,68 @@ async function luma(source, refs, prompt) {
 	return Buffer.from(await (await fetch(j.output.find((o) => o.type === 'image').url)).arrayBuffer());
 }
 
+/** the world canvas → the base image `media/<base>.webp` (1 px per unit) + its tiles `media/<tiles>/<z>/<x>_<y>.webp` */
+async function writeLayer(base, tiles) {
+	const W = Math.ceil(world.width * PPU), H = Math.ceil(world.height * PPU);
+	const b64 = await evaluate(`(async () => { const c = new OffscreenCanvas(${world.width}, ${world.height}); c.getContext('2d').drawImage(window.__world, 0, 0, ${W}, ${H}, 0, 0, ${world.width}, ${world.height}); return window.__toB64(c, 'image/webp', 0.85); })()`);
+	mkdirSync(dirname(join(ROOT, 'media', base)), { recursive: true });
+	writeFileSync(join(ROOT, 'media', `${base}.webp`), Buffer.from(b64, 'base64'));
+	// level z: 2^z px per unit; the deepest one PPU
+	for (let z = 1; z <= levels; z++) {
+		const size = TILE_PX / 2 ** z, cols = Math.ceil(world.width / size), rows = Math.ceil(world.height / size);
+		let written = 0;
+		for (let y = 0; y < rows; y++) {
+			const row = await evaluate(`Promise.all(Array.from({ length: ${cols} }, async (_, x) => {
+				const c = new OffscreenCanvas(${TILE_PX}, ${TILE_PX}), g = c.getContext('2d');
+				const s = ${size * PPU};
+				g.drawImage(window.__world, x * s, ${y} * s, s, s, 0, 0, ${TILE_PX}, ${TILE_PX});
+				const a = g.getImageData(0, 0, ${TILE_PX}, ${TILE_PX}).data;
+				let ink = false;
+				for (let i = 3; i < a.length; i += 4) if (a[i]) { ink = true; break; }
+				return ink ? window.__toB64(c, 'image/webp', 0.85) : null;
+			}))`);
+			row.forEach((t, x) => {
+				if (!t) return;
+				const file = join(ROOT, 'media', tiles, String(z), `${x}_${y}.webp`);
+				mkdirSync(dirname(file), { recursive: true });
+				writeFileSync(file, Buffer.from(t, 'base64'));
+				written++;
+			});
+		}
+		console.log(`${tiles} level ${z}: ${written} tiles`);
+	}
+}
+
+/**
+ * The plaster model of the painted world (owner 2026-10-12: "in derselben Form im Gipsmodell-Style"), in place on the
+ * world canvas, strip by strip: the colour goes, the relief stays – the fine shading (the luminance minus its blur) over a
+ * warm plaster white, a little of the broad light and dark, the seams as soft grooves; the alpha (the coast) unchanged.
+ */
+async function plasterInPlace() {
+	const W = Math.ceil(world.width * PPU), H = Math.ceil(world.height * PPU);
+	const STRIP = 512, M = 32; // rows per strip, the blur's margin
+	for (let y0 = 0; y0 < H; y0 += STRIP)
+		await evaluate(`(() => {
+			const W = ${W}, H = ${H}, y0 = ${y0}, top = Math.max(0, y0 - ${M}), bottom = Math.min(H, y0 + ${STRIP} + ${M}), h = bottom - top;
+			const a = new OffscreenCanvas(W, h), ag = a.getContext('2d', { willReadFrequently: true });
+			ag.drawImage(window.__world, 0, top, W, h, 0, 0, W, h);
+			const b = new OffscreenCanvas(W, h), bg = b.getContext('2d', { willReadFrequently: true });
+			bg.filter = 'grayscale(1) blur(${PPU * 1.5}px)';
+			bg.drawImage(a, 0, 0);
+			const rows = Math.min(${STRIP}, H - y0), off = y0 - top;
+			const src = ag.getImageData(0, off, W, rows), blur = bg.getImageData(0, off, W, rows).data, d = src.data;
+			for (let i = 0; i < d.length; i += 4) {
+				if (!d[i + 3]) continue;
+				const l = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255, lb = blur[i] / 255;
+				// fine relief strong, broad tone weak, around a light plaster value
+				const v = Math.min(1, Math.max(0.35, 0.85 + 1.3 * (l - lb) + 0.22 * (lb - 0.5)));
+				d[i] = 255 * v; d[i + 1] = 252 * v; d[i + 2] = 244 * v;
+			}
+			window.__world.getContext('2d').putImageData(src, 0, y0);
+			return true;
+		})()`);
+}
+
 try {
 	if (dry) {
 		for (const r of todo.slice(0, 3)) writeFileSync(join(work, `layout_${r.gx}_${r.gy}.png`), Buffer.from(layouts.get(r), 'base64'));
@@ -317,35 +381,14 @@ try {
 			g.globalCompositeOperation = 'source-over';
 			return true;
 		})()`);
-		// the base image: the world at 1 px per unit
-		const base = await evaluate(`(async () => { const c = new OffscreenCanvas(${world.width}, ${world.height}); c.getContext('2d').drawImage(window.__world, 0, 0, ${world.width}, ${world.height}); return window.__toB64(c, 'image/webp', 0.85); })()`);
-		mkdirSync(dirname(join(ROOT, 'media', out)), { recursive: true });
-		writeFileSync(join(ROOT, 'media', `${out}.webp`), Buffer.from(base, 'base64'));
-		// tiles, level 1 … levels (level z: 2^z px per unit; the deepest one PPU)
-		for (let z = 1; z <= levels; z++) {
-			const size = TILE_PX / 2 ** z, cols = Math.ceil(world.width / size), rows = Math.ceil(world.height / size);
-			let written = 0;
-			for (let y = 0; y < rows; y++) {
-				const row = await evaluate(`Promise.all(Array.from({ length: ${cols} }, async (_, x) => {
-					const c = new OffscreenCanvas(${TILE_PX}, ${TILE_PX}), g = c.getContext('2d');
-					const s = ${size * PPU};
-					g.drawImage(window.__world, x * s, ${y} * s, s, s, 0, 0, ${TILE_PX}, ${TILE_PX});
-					const a = g.getImageData(0, 0, ${TILE_PX}, ${TILE_PX}).data;
-					let ink = false;
-					for (let i = 3; i < a.length; i += 4) if (a[i]) { ink = true; break; }
-					return ink ? window.__toB64(c, 'image/webp', 0.85) : null;
-				}))`);
-				row.forEach((b64, x) => {
-					if (!b64) return;
-					const file = join(ROOT, 'media', tilesOut, String(z), `${x}_${y}.webp`);
-					mkdirSync(dirname(file), { recursive: true });
-					writeFileSync(file, Buffer.from(b64, 'base64'));
-					written++;
-				});
-			}
-			console.log(`tiles level ${z}: ${written}`);
+		// the painted layer, then (--plaster) the plaster layer derived from it in place: the same shapes, unpainted
+		await writeLayer(out, tilesOut);
+		console.log(`layer: { id: "${name}", image: "${out}.webp", tiles: { path: "${tilesOut}", levels: ${levels} }, fog: { radius: 40 } }`);
+		if (has('plaster')) {
+			await plasterInPlace();
+			await writeLayer(`${out}-plaster`, `${tilesOut}-plaster`);
+			console.log(`layer: { id: "${name}-plaster", image: "${out}-plaster.webp", tiles: { path: "${tilesOut}-plaster", levels: ${levels} } }  (under the painted one)`);
 		}
-		console.log(`layer: { id: "${name}", image: "${out}.webp", tiles: { path: "${tilesOut}", levels: ${levels} } }`);
 	}
 } finally {
 	chrome.kill();

@@ -71,6 +71,10 @@
 				"tiles": {
 					"$ref": "#/definitions/MapTiles",
 					"description": "the same layer as a tile pyramid for deep zoom (BACKLOG 10.63; `scripts/map-tiles.mjs` renders it from `image`): `{path}/{z}/{x}_{y}.webp`, `TILE_PX` square; level z draws 2^z px per world unit (0 … `levels`). The image stays the base (and the fallback while tiles load); the tiles on screen draw over it from level 1."
+				},
+				"fog": {
+					"$ref": "#/definitions/MapFog",
+					"description": "fog of war (owner 2026-10-12: \"am Anfang ist erstmal nichts drauf, und dann, wie ein Fog of War, gewinnt die Karte da, wo man war, in einem gewissen Umkreis an Farbe\"): the reader draws this layer only within `radius` world units of the places the reader has unlocked (the save game's `map.places`), soft at the edge – over a plain layer of the same shapes (the plaster model). The builder shows it whole."
 				}
 			},
 			"required": [
@@ -93,6 +97,18 @@
 			"required": [
 				"path",
 				"levels"
+			]
+		},
+		"MapFog": {
+			"type": "object",
+			"properties": {
+				"radius": {
+					"type": "number",
+					"description": "world units around an unlocked place where the layer shows fully (it fades out over `FOG_FEATHER` × radius beyond)"
+				}
+			},
+			"required": [
+				"radius"
 			]
 		},
 		"MapPlace": {

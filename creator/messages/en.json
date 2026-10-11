@@ -1003,6 +1003,8 @@
 		"map_insert_hint": "Click the selected route's line to insert a free point; points can be dragged.",
 		"map_move_shared_place": "“{name}” is a place (maybe on other routes too) – move it?",
 		"map_layer_image": "Image (CDN path)",
+		"map_layer_fog": "Fog of war: only around unlocked places (world units, empty = everywhere)",
+		"map_layer_fog_hint": "For the painted layer over the plaster model – the reader shows it only where the reader has been; here in the builder whole.",
 		"map_layer_zoom": "visible from / up to zoom",
 		"map_layer_show": "show in the builder",
 		"map_delete_layer": "Delete layer",
