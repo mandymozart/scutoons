@@ -58,6 +58,10 @@ Edge to check before building: `InventoryService::remove` consumes virtual piece
 code-bound pieces (`ORDER BY (code IS NOT NULL)`) – a recipe whose input is a physical item would delete a physical
 twin's row while `qr.claimed_by` still points at the account. Today probably no recipe does that; a restart must not
 "restore" it either. Worth a guard (recipes never consume a coded piece).
+**Fixed on branch `claude/quizzical-goldstine-44c6a4` (2026-10-12, owner: "physische Items, kombiniert, verschwinden
+nicht"):** `remove` never touches a code-bound row; `craft` skips `kind: physical` inputs and code-bound pieces (they
+only have to be there), the output comes in addition; `use` / `take` count only consumable pieces
+(`InventoryService::consumable`). Test: `InventoryServiceTest::testCraftingNeverConsumesAPhysicalPiece`.
 
 ## 3. Reset vs keep (a "new identity")
 
