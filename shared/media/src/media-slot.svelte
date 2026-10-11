@@ -19,7 +19,8 @@
 		onchange,
 		testid,
 		bust = 0,
-		hideLabel = false
+		hideLabel = false,
+		webp = false
 	}: {
 		/** the toon folder ('' = paths from the CDN root, e.g. the character registry's) */
 		toon: string;
@@ -34,6 +35,8 @@
 		bust?: number;
 		/** no visible label – the surrounding field shows it (the slot button keeps it as its accessible name) */
 		hideLabel?: boolean;
+		/** an uploaded PNG / JPEG becomes a WebP (the asset picker's `webp`) */
+		webp?: boolean;
 	} = $props();
 
 	const t = $derived(mediaText());
@@ -76,6 +79,7 @@
 		{kind}
 		value={value ? rootPath(value, toon) : ''}
 		{place}
+		{webp}
 		title={label}
 		onpick={(picked) => onchange(toonRelativePath(picked.path, toon))}
 	/>

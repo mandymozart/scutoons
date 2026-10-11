@@ -31,7 +31,7 @@
 	import { mediaAssets, mediaText, mediaUrl as cdnAsset } from './setup.ts';
 	import { AUDIO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { bestAudioSource, decodeAudio, encodeMp3, nearestKbps, planAudioUpload, type AudioUploadPlan } from './audio-levels.ts';
-	import { uploadOrReplace } from './media-upload.ts';
+	import { toWebp, uploadOrReplace } from './media-upload.ts';
 
 	/**
 	 * The asset picker (agents/ASSETS.md "Asset selector") – like the character picker: a searchable grid of the media
@@ -47,7 +47,8 @@
 		value = '',
 		place = '',
 		title,
-		onpick
+		onpick,
+		webp = false
 	}: {
 		open?: boolean;
 		/** the toon folder shown first ('' = every folder) */
@@ -60,6 +61,11 @@
 		place?: string;
 		title?: string;
 		onpick: (picked: PickedAsset) => void;
+		/**
+		 * an uploaded PNG / JPEG becomes a WebP (the same name with .webp, transparency kept) – SVG and WebP go as they are
+		 * (owner 2026-10-11, the map's layers: "SVG oder WebP; PNG natürlich wieder konvertieren")
+		 */
+		webp?: boolean;
 	} = $props();
 
 	let query = $state('');
@@ -261,6 +267,18 @@
 		}
 	}
 
+	/** with `webp`: a PNG / JPEG as WebP (full size), else the file itself */
+	async function asWebp(file: File): Promise<File> {
+		if (!webp || !/^image\/(png|jpeg)$/.test(file.type)) return file;
+		const bitmap = await createImageBitmap(file);
+		try {
+			const { blob } = await toWebp(bitmap);
+			return new File([blob], file.name.replace(/\.(png|jpe?g)$/i, '.webp'), { type: 'image/webp' });
+		} finally {
+			bitmap.close();
+		}
+	}
+
 	function chooseFile(event: Event) {
 		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
 		uploadFile = file;
@@ -277,7 +295,8 @@
 				});
 		}
 		if (file) {
-			const clean = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
+			let clean = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
+			if (webp && /\.(png|jpe?g)$/.test(clean)) clean = clean.replace(/\.(png|jpe?g)$/, '.webp');
 			// the field's place first (owner 2026-10-03: uploads go next to where they are used, by the content rules)
 			uploadPath = place ? `${place.replace(/\/?$/, '/')}${clean}` : `${folder || toon || 'scutoons'}/${placeOf(clean)}${clean}`;
 		}
@@ -294,13 +313,13 @@
 			let uploaded = '';
 			if (path) {
 				try {
-					uploaded = (await assetsApi.upload(uploadFile, path)).uploaded;
+					uploaded = (await assetsApi.upload(await asWebp(uploadFile), path)).uploaded;
 				} catch (e) {
 					if (!(e instanceof ApiError && e.code === 'exists')) throw e;
 					// a new version at the same path (owner 2026-10-03: updating media meant renaming): replace in place, the old
 					// bytes stay as the asset's previous version
 					if (!(await confirmDialog({ title: t.replaceTitle, message: t.replaceMessage(path), confirmLabel: t.replace }))) return;
-					uploaded = (await assetsApi.replaceAt(uploadFile, path)).replaced;
+					uploaded = (await assetsApi.replaceAt(await asWebp(uploadFile), path)).replaced;
 				}
 			}
 			if (plan && audio && plan.levels.length) {

@@ -2,7 +2,7 @@
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import type { MapLayer, WorldMap } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { MediaSlot } from '@scutoons/media';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { editMap, numberOrUnset } from '$lib/editor/map.ts';
 	import type { MapSelection } from '$lib/components/map/map-canvas.svelte';
@@ -15,6 +15,9 @@
 		index,
 		onselect
 	}: { doc: ContentDoc; map: WorldMap; layer: MapLayer; index: number; onselect: (selection: MapSelection) => void } = $props();
+
+	/** where an uploaded layer goes: the folder of the first layer's image, else the map's folder */
+	const layerFolder = $derived((map.layers.find((l) => l.image)?.image ?? 'catpope/map/x').replace(/[^/]+$/, ''));
 
 	function edit(change: (l: MapLayer) => void, key?: string) {
 		const i = index;
@@ -32,8 +35,8 @@
 
 <h2>{layer.id}</h2>
 <label class="field"><span>{m['creator.map_layer_id']()}</span><input type="text" value={layer.id} onchange={(e) => { const id = e.currentTarget.value.trim(); if (!id) return; edit((l) => (l.id = id)); onselect({ kind: 'layer', id }); }} /></label>
-<label class="field"><span>{m['creator.map_layer_image']()}</span><input type="text" value={layer.image} onchange={(e) => edit((l) => (l.image = e.currentTarget.value.trim()))} data-testid="layer-image" /></label>
-{#if layer.image}<img class="layer-preview" src={asset(layer.image)} alt="" />{/if}
+<!-- the asset picker (owner 2026-10-11: no bare URL field): an SVG or a WebP; an uploaded PNG / JPEG becomes a WebP -->
+<MediaSlot toon="" value={layer.image || undefined} label={m['creator.map_layer_image']()} place={layerFolder} webp onchange={(path) => edit((l) => (l.image = path ?? ''))} testid="layer-image" />
 <span class="lbl">{m['creator.map_layer_zoom']()}</span>
 <div class="row">
 	<input type="number" step="0.25" min="0" value={layer.minZoom ?? ''} aria-label={m['creator.map_min_zoom']()} onchange={(e) => edit((l) => { const v = numberOrUnset(e.currentTarget.value); if (v === undefined) delete l.minZoom; else l.minZoom = v; })} />
@@ -46,11 +49,4 @@
 </div>
 <button type="button" class="danger" onclick={remove}>{m['creator.map_delete_layer']()}</button>
 
-<style>
-	.layer-preview {
-		width: 100%;
-		max-height: 8rem;
-		object-fit: contain;
-		background: var(--primary-cyan, #00d1ff);
-	}
-</style>
+

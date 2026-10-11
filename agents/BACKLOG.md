@@ -862,8 +862,20 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   migrator (`console migrate`) behind an endpoint that only a developer token reaches – MCP tools `migration_status`
   (read) and `run_migrations` (pending ones, dry run first, then run + empty the library cache); every migration
   idempotent and tested on a production-like copy first. Alternative / addition: the deploy runs pending migrations
-  itself (GitHub secret). Local DB in production's collation (utf8mb4_unicode_ci, owner: "nicht auf einer anderen
-  Umgebung entwickeln").
+  itself (GitHub secret). Collation: production's tables are utf8mb4_general_ci like local (the catalog utf8mb4_bin) –
+  the #1267 came from phpMyAdmin's connection (utf8mb4_unicode_ci) through user variables; migrations compare with
+  literals. Research (2026-10-11) – the plan: (1) Database.php `SET NAMES … COLLATE` from a setting `DB_COLLATION`;
+  (2) migration `developer-role`: the role, the owner's grant (granted_by 'migration'), `api_tokens.scopes`, a table
+  `dev_migration_runs`; (3) once in phpMyAdmin: complete `schema_migrations` (hand-run files are not recorded – else a
+  first automatic run repeats them); (4) Roles::DEVELOPER, only a developer grants it, the last one can't be revoked;
+  (5) a token scope `migrate` minted only in a session after a fresh sign-in code, 24 h – 7 d, no renew; ApiTokenScope
+  blocks `/api/dev/*` without it; (6) MigrationRunner: file hashes, `plan()` = run in a transaction and roll back to
+  count rows (DDL causes an implicit commit: listed, not run – never DDL and data in one file), GET_LOCK, a backup of the
+  affected rows, an audit callback; (7) Cache::clear() (APCu / files) after data migrations; (8) `/api/dev/migrations`
+  (status), `…/plan` (MCP, returns a link), `…/{run}/apply` (session + developer only: the click in the admin app);
+  (9) deploy uploads `migrations/**` (outside public/); (10) MCP tools `migration_status`, `plan_migrations` for
+  developers only; (11) PHPUnit; (12) MCP.md, DATABASE.md. Only files that came with the deploy run – never SQL from a
+  request (a leaked token or a prompt injection can at most plan).
 - [ ] 10.62 **A derived reference index for the content documents** (research 2026-10-11: JSON documents stay the source –
   the right model for a versioned authoring tool; what is missing is what MediaWiki / Sanity / Payload have): a table
   `entity_refs(version_id, entity_key, status, ref_kind, ref_id, path)` filled on save / publish by one extractor
