@@ -855,6 +855,16 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
       typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
       sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
+- [ ] 10.67 **The map's scale: places ~16× smaller, deep zoom, a finer grid** (owner 2026-10-11, after the hex grid went
+  live: "die Grundverhältnisse sind noch viel zu groß – die Inseln sind eine Landmasse, die meisten Orte liegen in einer
+  Stadt auf einer Insel; man muss wirklich reinzoomen, um sie zu erkennen – so groß wie jetzt das Größte ist das
+  Kleinste"; "die Raster-Frage wird dann nochmal anders evaluiert"). Built so far (f6b0b288): sizes well 6 … ore 96,
+  HEX_CELL 8, MAP_MAX_ZOOM 8, scripts/places-sizes.mjs (production draft v257). Wanted: the biggest about the old smallest
+  (÷16: well ~0.4, cathedral 2, ore 6 world units); then MAP_MAX_ZOOM ~64 (the well ~24 px), the terrain as tiles with
+  levels of detail (BACKLOG 10.63 – an SVG at zoom 64 is >130 000 px wide), HEX_CELL ~0.5 (re-evaluate: maybe a grid
+  per district instead of one world grid), the places' reader views (zoom per place, PLACE_ZOOM) and the builder's
+  defaults follow; check the reveal flight and labels at the new zooms. Confirm the factor with the owner first.
+
 - [ ] 10.66 **Place dioramas on the map: world-fixed size, clickable, outlines, routes behind them** (owner 2026-10-11,
   the builder on a phone: "die Dioramen müssen wesentlich kleiner sein, sie dürfen nicht so überlappen – man sieht die
   Tasse erst, wenn man weiter reinzoomt"; "die Icons müssen in der Größe fixiert sein mit der Karte – deshalb die drei
