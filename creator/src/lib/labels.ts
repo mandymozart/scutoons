@@ -24,7 +24,8 @@ export function fileLabel(key: string): string {
 		roles: m['creator.credits_tab_roles'](),
 		script: m['creator.script'](),
 		place: (id) => `${m['creator.publish_part_place']()}: ${id}`,
-		route: (id) => `${m['creator.publish_part_route']()}: ${id}`
+		route: (id) => `${m['creator.publish_part_route']()}: ${id}`,
+		character: (id) => `${m['creator.publish_part_character']()}: ${id}`
 	});
 }
 

@@ -95,6 +95,8 @@ export const RULES: RuleResource[] = [
 				'  `route:<id>` per route (the entry without its id). Change a place by saving its `place:<id>` only;',
 				'  removing one = saving it with `removed: true` (its id stays taken – events reference it). read_map_places',
 				'  lists them; validate on a place checks it against the others (routes through it, positions).',
+				'- The character registry the same way: `characters` (the registry\'s own fields) and one `character:<id>`',
+				'  per character (the character without its id). read_characters shows them composed.',
 				'- `search_content`: full-text search in a toon\'s documents – story, song titles, lyrics, names, dialog.',
 				'  When the creator mentions something ("the song X in the script", "the scene where …"), SEARCH before',
 				'  saying it does not exist; search without a locale filter.',

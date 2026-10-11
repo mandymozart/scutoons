@@ -3,7 +3,8 @@
 // API (default the dev port; SCUTOONS_API=http://localhost:<port>/api for a worktree's own) as the local test user:
 // read_map_places (each place with its key) → read_entity place:<id> (the place without its id) → validate a place
 // moved off the map (an error on that place) → save_draft place:<id> (a new version of that place only, no other
-// document touched) → restore_version (the original back as a new draft). Restores what it changed, also on failure.
+// document touched) → read_characters (composed from character:<id>) → validate a character:<id> → restore_version
+// (the original back as a new draft). Restores what it changed, also on failure.
 //
 //   node scripts/dev/map-docs-check.mjs
 import { existsSync, readFileSync } from 'node:fs';
@@ -73,6 +74,15 @@ try {
 	const after = (await api('GET', '/entities?kinds=map,place,route&content=draft')).entities;
 	const changed = after.filter((e) => before.find((b) => b.key === e.key)?.latest !== e.latest).map((e) => e.key);
 	check(!saved.error && changed.length === 1 && changed[0] === key, `save_draft ${key}: only that document has a new version`, `${saved.raw.slice(0, 200)} changed=${changed.join(',')}`);
+
+	// the character registry: the same shape (characters + character:<id>)
+	const chars = await call('read_characters', { toon: 'catpope' });
+	const ids = (chars.json?.characters ?? []).map((c) => c.id);
+	const entities = (await api('GET', '/entities?kinds=character&content=draft')).entities.filter((e) => e.content && !e.content.removed).map((e) => e.key.slice('character:'.length));
+	check(!chars.error && ids.length > 0 && ids.every((id) => entities.includes(id)), `read_characters: ${ids.length} characters, composed from character:<id>`, chars.raw.slice(0, 200));
+	const one = await api('GET', `/entities/character:${ids[0]}?draft=1&wrap=1`);
+	const badChar = await call('validate', { key: `character:${ids[0]}`, content: { ...one.content, testo: 500 } });
+	check(!badChar.error && /testo/.test(badChar.raw), `validate character:${ids[0]}: a broken testo → its error`, badChar.raw.slice(0, 300));
 } catch (e) {
 	check(false, 'run', e instanceof Error ? e.stack : String(e));
 } finally {

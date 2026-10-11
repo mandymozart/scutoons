@@ -43,7 +43,7 @@ export const editMap = (doc: ContentDoc, change: (map: WorldMap) => void, key?: 
  * every id of the map's places, routes, layers (new ids must be unique among their kind) – for places and routes also
  * every id ever stored (a removed one's tombstone keeps it: ids are stable forever, agents/MAP-DOCUMENTS.md)
  */
-const ids = (list: { id: string }[] | undefined, doc?: ContentDoc, kind?: 'place' | 'route') => [
+const ids = (list: { id: string }[] | undefined, doc?: ContentDoc, kind?: 'place' | 'route'): string[] => [
 	...(list ?? []).map((x) => x.id),
 	...(doc instanceof WorldMapDoc && kind ? doc.takenIds(kind) : [])
 ];

@@ -4,7 +4,6 @@ export * from './fx.ts';
 export * from './content.ts';
 export * from './audio.ts';
 export * from './visual-novel.ts';
-export * from './partial-publish.ts';
 export * from './vn-script.ts';
 export * from './items.ts';
 export * from './recurrence.ts';
