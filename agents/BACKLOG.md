@@ -10,10 +10,36 @@ an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Reading position night 2026-10-12 (owner: "diesen Plan mit in den Backlog und anfangen, das zu implementieren über die Nacht hinweg … eigenen Branch / eigenen Worktree") – item 10.69
 
-Branch `claude/silly-mestorf-173e6e` in its own worktree (owner asked for it) – **not merged into `main`, not pushed**;
-the owner reviews and merges. Result summary goes here in the morning.
+Branch `claude/silly-mestorf-173e6e` in its own worktree `.claude/worktrees/silly-mestorf-173e6e` (owner asked for it)
+– **not merged into `main`, not pushed**; the owner reviews and merges (`git merge claude/silly-mestorf-173e6e` on `main`).
 
-- [ ] 10.69 **Where is a reader in a chapter** (owner 2026-10-11: "Wir haben ein Progress-Tracking irgendwie gehabt. Das
+**Result (all three steps built, checks green):**
+- **Admin → Menschen → Lesestand** (`/reading`, new): per chapter started / finished (with %) / still reading / "Wo sie
+  stehen" (10 small bars, 0–100 %) / last read; filter by toon. **Admin user page:** a "Lesestand" section (per
+  chapter: bar or "zu Ende gelesen", the spot "Gruppe 4, Slice 5", last read; story variables / places / last saved).
+  **MCP:** `read_user` now includes `reading`; new tool `reading_stats` (needs the MCP server rebuilt / restarted).
+  API: `GET /api/admin/reading?toon=`, the user detail's `reading` (server/docs/API.md). No migration.
+- **"Weiterlesen" opens the spot:** checkpoints keep the furthest group / slice (optional fields; older checkpoints
+  open at the top as before – they get a spot the next time the chapter is read). Start button → `…/chapter/<n>?resume`
+  → the chapter page scrolls to that slice and drops `?resume`.
+- Checks: PHPUnit 341 ok (+ `ReadingApiTest`), PHPStan ok, content tests 237 ok, viewer tests ok, svelte-check 0 errors
+  in every app; new browser check `node scripts/check-resume.mjs` (390 + 1440: spot stored → "continue" with ?resume →
+  lands on the slice) 6/6 ok. Screenshots checked: the Reading page and the user section in the admin.
+
+**Look at / decide:**
+- The resumed slice is aligned to the top of the screen: it is the furthest slice seen (≥ half on screen), so the reader
+  sees it again first. One slice earlier would give more context – say if you want that.
+- The chapter list (the bars) still opens a chapter at its top; only the start button resumes. Should a click on a
+  half-read chapter in the list resume too?
+- Members only: guests' progress is only in their browser (not counted). Counting guests would need an anonymous
+  server write – a privacy decision.
+- Statistics read every member's save game per request (fine now; a summary table later if the numbers grow).
+- Not mine, seen on the way: `tools/mcp` typecheck fails on `main` (`src/server.ts:477` – `MapPlace.unlock` no longer
+  exists); `npm run check:tools-css` reports older findings (phone-bar font sizes, hand-built tabs in place-props …).
+- Dev: this worktree has its own DB `scutoons_reading` (prod seed + 5 sample readers `reader1…5@reading.test`); drop
+  it when done (`SCUTOONS_DB_NAME=scutoons_reading npm run dev:db reset` or just leave it).
+
+- [x] 10.69 **Where is a reader in a chapter** (owner 2026-10-11: "Wir haben ein Progress-Tracking irgendwie gehabt. Das
   ist aber für Story-Points, nicht für wie weit gelesen wurde in einem Chapter – das ist ja auch sehr aussagekräftig, wo
   eine Person ist"). **What exists:** the save game (DATA.md "The save game", 10.36) – one state per reader, members in
   `progress` row `toon_id = 'scutoons'`, guests only in localStorage – holds `variables`, `history`, `map` and the
