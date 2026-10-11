@@ -79,6 +79,33 @@ final class ProgressSaveGameTest extends TestCase
         self::assertSame(['tips' => 2], $this->stored($id)['variables']);
     }
 
+    /** "Reset the map" (owner 2026-10-11): what came before the reset drops out – also from a device that missed it */
+    public function testAMapResetDropsWhatCameBeforeItAlsoFromAStaleDevice(): void
+    {
+        $id = (string) $this->user()['id'];
+        $progress = $this->get(ProgressService::class);
+        $old = ['places' => ['harbour' => ['unlocked' => 100, 'seen' => 110]], 'routes' => ['season1' => ['revealed' => 2]], 'positions' => ['catpope' => ['location' => 'harbour', 'at' => 120]]];
+        $progress->put($id, 'scutoons', self::obj(['variables' => ['tips' => 1], 'map' => $old]), 2000);
+        // the reset (this device), then a stale phone that still has the old map and found the well after the reset
+        $progress->put($id, 'scutoons', self::obj(['variables' => ['tips' => 1], 'map' => ['places' => (object) [], 'routes' => (object) [], 'positions' => (object) [], 'resetAt' => 1000]]), 3000);
+        $s = $this->stored($id);
+        self::assertSame([], $s['map']['places']);
+        self::assertSame([], $s['map']['routes']);
+        self::assertSame(1000, $s['map']['resetAt']);
+        $phone = $old;
+        $phone['places']['well'] = ['unlocked' => 1500];
+        $progress->put($id, 'scutoons', self::obj(['variables' => ['tips' => 1], 'map' => $phone]), 2500);
+        $s = $this->stored($id);
+        self::assertSame(['well'], array_keys($s['map']['places']), 'the old place stays gone, the new one counts');
+        self::assertSame([], $s['map']['routes'], 'the phone\'s routes are from before the reset');
+        self::assertSame([], $s['map']['positions']);
+        self::assertSame(['tips' => 1], $s['variables'], 'only the map');
+        // without a reset nothing changes
+        $plain = ProgressService::mergeMapState(self::obj($old), self::obj($old));
+        self::assertObjectNotHasProperty('resetAt', $plain);
+        self::assertSame(['catpope'], array_keys(get_object_vars($plain->positions)));
+    }
+
     /** the API: the save game under /api/progress/scutoons/, the per-toon calls of older viewer builds still answer */
     public function testTheApi(): void
     {

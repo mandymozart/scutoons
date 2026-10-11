@@ -224,3 +224,23 @@ test('tiles and culling: the level for a zoom, the tiles on screen, the point in
 	assert.deepEqual(bad({ path: 'm/tiles', levels: 5 }), []);
 	assert.deepEqual(bad({ path: 'm/tiles', levels: 12 }), ['layers.0.tiles']);
 });
+
+test('resetting the map: the merge drops what came before the reset – also from a device that missed it (owner 2026-10-11)', async () => {
+	const { mergeMapState, resetMapState } = await import('../src/map.ts');
+	const old = { places: { apartment: { unlocked: 100, seen: 110 }, cathedral: { unlocked: 200 } }, routes: { season1: { revealed: 3 } }, positions: { catpope: { location: 'apartment', at: 120 } } };
+	const reset = resetMapState(1000);
+	// the phone still has the old map; the reset is newer
+	const merged = mergeMapState(old as any, reset);
+	assert.deepEqual(merged, { places: {}, routes: {}, positions: {}, resetAt: 1000 }, 'nothing from before the reset');
+	assert.deepEqual(mergeMapState(reset, old as any), merged, 'either order');
+	// read on after the reset: new unlocks stay – also one the phone made after the reset without knowing of it
+	const phone = { ...old, places: { ...old.places, well: { unlocked: 1500 } } };
+	const later = { ...reset, places: { apartment: { unlocked: 1200 } } };
+	const m2 = mergeMapState(phone as any, later);
+	assert.deepEqual(Object.keys(m2.places).sort(), ['apartment', 'well']);
+	assert.equal(m2.places.apartment.unlocked, 1200, 'the new unlock, not the old one');
+	assert.deepEqual(m2.routes, {}, 'the phone’s routes are from before the reset');
+	assert.equal(m2.resetAt, 1000);
+	// without any reset nothing changes (no resetAt key)
+	assert.equal('resetAt' in mergeMapState(old as any, old as any), false);
+});

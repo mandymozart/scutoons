@@ -499,9 +499,17 @@ export interface MapState {
 	routes: Record<string, { revealed: number; travelled?: number; seen?: number }>;
 	/** toon → where its hero is */
 	positions: Record<string, MapPosition>;
+	/**
+	 * when the reader reset their map (ms; the account's "Reset the map" – owner 2026-10-11, to see the unlock
+	 * animations again): the merge drops every place / position from before it and the routes of a state that has not
+	 * seen this reset – so another device's older copy never brings them back
+	 */
+	resetAt?: number;
 }
 
 export const emptyMapState = (): MapState => ({ places: {}, routes: {}, positions: {} });
+/** a map state that starts over now (`resetAt`) */
+export const resetMapState = (at: number): MapState => ({ ...emptyMapState(), resetAt: at });
 
 /** A stored value as a map state (missing parts filled, junk dropped) */
 export function normalizeMapState(value: unknown): MapState {
@@ -514,6 +522,7 @@ export function normalizeMapState(value: unknown): MapState {
 			state.routes[id] = { revealed: r.revealed, ...(Number.isInteger(r.travelled) ? { travelled: r.travelled } : {}), ...(Number.isInteger(r.seen) ? { seen: r.seen } : {}) };
 	for (const [toon, p] of Object.entries(obj(v.positions)))
 		if (p && Number.isFinite(p.at) && (typeof p.location === 'string' || (typeof p.route === 'string' && typeof p.waypoint === 'string'))) state.positions[toon] = { ...p } as MapPosition;
+	if (Number.isFinite(v.resetAt) && (v.resetAt as number) > 0) state.resetAt = v.resetAt;
 	return state;
 }
 
@@ -530,22 +539,33 @@ export function mergeMapState(a: MapState | null | undefined, b: MapState | null
 	const x = normalizeMapState(a);
 	const y = normalizeMapState(b);
 	const out = emptyMapState();
-	for (const id of new Set([...Object.keys(x.places), ...Object.keys(y.places)])) {
-		const p = x.places[id];
-		const q = y.places[id];
+	// a reset (the later one wins): what came before it is gone – places and positions by their time, routes (no time)
+	// from a state that has not seen the reset
+	const resetAt = Math.max(x.resetAt ?? 0, y.resetAt ?? 0);
+	if (resetAt) out.resetAt = resetAt;
+	const after = (s: MapState) => ({
+		places: Object.fromEntries(Object.entries(s.places).filter(([, p]) => p.unlocked >= resetAt)),
+		routes: (s.resetAt ?? 0) >= resetAt ? s.routes : {},
+		positions: Object.fromEntries(Object.entries(s.positions).filter(([, p]) => p.at >= resetAt))
+	});
+	const xa = after(x);
+	const ya = after(y);
+	for (const id of new Set([...Object.keys(xa.places), ...Object.keys(ya.places)])) {
+		const p = xa.places[id];
+		const q = ya.places[id];
 		const seen = minDefined(p?.seen, q?.seen);
 		out.places[id] = { unlocked: minDefined(p?.unlocked, q?.unlocked)!, ...(seen !== undefined ? { seen } : {}) };
 	}
-	for (const id of new Set([...Object.keys(x.routes), ...Object.keys(y.routes)])) {
-		const p = x.routes[id];
-		const q = y.routes[id];
+	for (const id of new Set([...Object.keys(xa.routes), ...Object.keys(ya.routes)])) {
+		const p = xa.routes[id];
+		const q = ya.routes[id];
 		const travelled = maxDefined(p?.travelled, q?.travelled);
 		const seen = maxDefined(p?.seen, q?.seen);
 		out.routes[id] = { revealed: maxDefined(p?.revealed, q?.revealed)!, ...(travelled !== undefined ? { travelled } : {}), ...(seen !== undefined ? { seen } : {}) };
 	}
-	for (const toon of new Set([...Object.keys(x.positions), ...Object.keys(y.positions)])) {
-		const p = x.positions[toon];
-		const q = y.positions[toon];
+	for (const toon of new Set([...Object.keys(xa.positions), ...Object.keys(ya.positions)])) {
+		const p = xa.positions[toon];
+		const q = ya.positions[toon];
 		out.positions[toon] = !p ? q : !q ? p : q.at > p.at ? q : p;
 	}
 	return out;

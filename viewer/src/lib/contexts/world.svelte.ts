@@ -23,6 +23,7 @@ import {
 	mergeSaveGame,
 	normalizeSaveGame,
 	recordHistory,
+	resetMapState,
 	type OldToonState,
 	type SaveGame,
 	markPlacesSeen,
@@ -32,6 +33,7 @@ import {
 	type MapPosition
 } from '@scutoons/content';
 import { fetchProgress, putProgress } from '$lib/api.ts';
+import { MAP_VIEW_KEY } from '$lib/components/toon/map/map-view.ts';
 import type { SessionContext } from './session.svelte.ts';
 
 const KEY = Symbol('world');
@@ -258,6 +260,21 @@ export function createWorldContext(session: SessionContext | null) {
 		return changed;
 	}
 
+	/**
+	 * Starts the map over – no place unlocked, as if read anew (the account's "Reset the map" next to the draft preview,
+	 * owner 2026-10-11: to see the unlock animations again). Only the map: checkpoints, variables, history and the
+	 * inventory stay. `resetAt` makes every device drop its older copy on the next sync (mergeMapState).
+	 */
+	function resetMap(): void {
+		state.map = resetMapState(Date.now());
+		try {
+			localStorage.removeItem(MAP_VIEW_KEY); // the remembered map view: the map opens on its start view again
+		} catch {
+			/* storage blocked */
+		}
+		save();
+	}
+
 	function position(toon: string, where: Omit<MapPosition, 'at'>) {
 		setPosition(state.map, toon, where, Date.now());
 		save();
@@ -302,6 +319,7 @@ export function createWorldContext(session: SessionContext | null) {
 		setPlaces,
 		seen,
 		reveal,
+		resetMap,
 		position,
 		sync,
 		destroy() {

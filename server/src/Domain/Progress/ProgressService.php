@@ -168,7 +168,9 @@ final class ProgressService
     /**
      * Two map states as one (@scutoons/content `mergeMapState`, agents/MAP.md §2.4): union of places and routes, the
      * earlier `unlocked` and first `seen` of a place, the larger `revealed` / `travelled` / `seen` index of a route, the
-     * newer (`at`) position per toon. Commutative and idempotent.
+     * newer (`at`) position per toon. A reset (`resetAt`, ms – the account's "Reset the map", owner 2026-10-11): the
+     * later one wins; places and positions from before it drop out, and the routes of a state that has not seen it.
+     * Commutative and idempotent.
      */
     public static function mergeMapState(mixed $a, mixed $b): stdClass
     {
@@ -177,9 +179,15 @@ final class ProgressService
         $min = fn(int|float|null $x, int|float|null $y): int|float|null => $x === null ? $y : ($y === null ? $x : min($x, $y));
         $max = fn(int|float|null $x, int|float|null $y): int|float|null => $x === null ? $y : ($y === null ? $x : max($x, $y));
 
+        // the reset: drop what came before it (places / positions by time, routes of a state that has not seen it)
+        $resetOf = fn(mixed $state): int|float => $state instanceof stdClass ? ($num($state, 'resetAt') ?? 0) : 0;
+        $resetAt = max($resetOf($a), $resetOf($b));
+        $since = fn(array $entries, string $key): array => $resetAt <= 0 ? $entries : array_filter($entries, fn(mixed $e) => ($num($e, $key) ?? -1) >= $resetAt);
+
         $out = new stdClass();
+        if ($resetAt > 0) $out->resetAt = $resetAt;
         $out->places = new stdClass();
-        [$pa, $pb] = [$part($a, 'places'), $part($b, 'places')];
+        [$pa, $pb] = [$since($part($a, 'places'), 'unlocked'), $since($part($b, 'places'), 'unlocked')];
         foreach (array_unique([...array_keys($pa), ...array_keys($pb)]) as $id) {
             $unlocked = $min($num($pa[$id] ?? null, 'unlocked'), $num($pb[$id] ?? null, 'unlocked'));
             if ($unlocked === null) continue;
@@ -190,7 +198,7 @@ final class ProgressService
             $out->places->{$id} = $place;
         }
         $out->routes = new stdClass();
-        [$ra, $rb] = [$part($a, 'routes'), $part($b, 'routes')];
+        [$ra, $rb] = [$resetOf($a) >= $resetAt ? $part($a, 'routes') : [], $resetOf($b) >= $resetAt ? $part($b, 'routes') : []];
         foreach (array_unique([...array_keys($ra), ...array_keys($rb)]) as $id) {
             $revealed = $max($num($ra[$id] ?? null, 'revealed'), $num($rb[$id] ?? null, 'revealed'));
             if ($revealed === null) continue;
@@ -203,7 +211,7 @@ final class ProgressService
             $out->routes->{$id} = $route;
         }
         $out->positions = new stdClass();
-        [$xa, $xb] = [$part($a, 'positions'), $part($b, 'positions')];
+        [$xa, $xb] = [$since($part($a, 'positions'), 'at'), $since($part($b, 'positions'), 'at')];
         foreach (array_unique([...array_keys($xa), ...array_keys($xb)]) as $toon) {
             $p = ($xa[$toon] ?? null) instanceof stdClass ? $xa[$toon] : null;
             $q = ($xb[$toon] ?? null) instanceof stdClass ? $xb[$toon] : null;

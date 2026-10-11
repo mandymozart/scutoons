@@ -21,12 +21,23 @@
 	import { page } from '$app/state';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { locales } from '$lib/paraglide/runtime.js';
-	import { Icon } from '@scutoons/ui';
+	import { Icon, confirmDialog } from '@scutoons/ui';
+	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { toonName, type ToonIndex } from '@scutoons/content';
 
 	const membershipCtx = getMembershipContext();
 	const session = getSessionContext();
 	const inventory = getInventoryContext();
+	const world = getWorldContext();
+	/** the map reset happened in this visit (the hint says so) */
+	let mapReset = $state(false);
+	async function resetMap() {
+		if (!world) return;
+		const ok = await confirmDialog({ title: m['account.reset_map_confirm_title'](), message: m['account.reset_map_confirm'](), confirmLabel: m['account.reset_map'](), cancelLabel: m['account.reset_map_cancel']() });
+		if (!ok) return;
+		world.resetMap();
+		mapReset = true;
+	}
 
 	// `?return=<path>` (the follow-up bar's "Anmelden" before a members-only chapter): back there after signing in;
 	// same-origin paths only
@@ -232,6 +243,13 @@
 						<small>{m['account.draft_preview_hint']()}</small>
 					</span>
 				</label>
+				{#if draftPreview.on && world}
+					<!-- for checking: the map as if read anew (owner 2026-10-11) – only the map, the rest of the progress stays -->
+					<p class="creator-line">
+						<button type="button" class="btn btn-secondary" onclick={resetMap} data-testid="reset-map">{m['account.reset_map']()}</button>
+						<small>{mapReset ? m['account.reset_map_done']() : m['account.reset_map_hint']()}</small>
+					</p>
+				{/if}
 			{/if}
 		</section>
 
