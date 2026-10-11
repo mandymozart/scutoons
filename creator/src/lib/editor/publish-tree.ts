@@ -9,9 +9,13 @@
  *
  * Levels: everything (the platform: every toon + the world – map, characters, settings …) → a toon (all its files) → a
  * season (itself, its chapters and their scene files) → a chapter (itself and its scene files).
+ *
+ * Catalog entries (`item:<id>` …, agents/CATALOG-IN-CREATOR.md) are files of the world level (no toon in their key):
+ * the server decides who publishes them (their toon is the entry's; a physical change needs the `physical` rule) –
+ * a 403 review_required puts the line into the submit for review instead.
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
-import type { ContentIndexEntity } from '@scutoons/api';
+import { ApiError, catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
 import { contentApi, contentIndex, getPublished, getVersion, publishVersion, putDraft } from '$lib/api.ts';
 import { DOCUMENT_PARTS, applyParts, diffParts, type PartChange } from '@scutoons/content';
 import { fileLabel } from '$lib/labels.ts';
@@ -50,7 +54,7 @@ export function inScope(key: string, scope: PublishScope): boolean {
 		case 'files':
 			return scope.keys.includes(key);
 		case 'toon':
-			return key.split(':')[1] === scope.toon || key === `toon:${scope.toon}`;
+			return !catalogDocKey(key) && (key.split(':')[1] === scope.toon || key === `toon:${scope.toon}`);
 		case 'season':
 			return key === `season:${scope.toon}:${scope.number}` || scope.chapters.some((n) => chapter(scope.toon, n));
 		case 'chapter':
@@ -58,8 +62,11 @@ export function inScope(key: string, scope: PublishScope): boolean {
 	}
 }
 
-/** the order in a list: the level's own files first, then down the tree */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits'];
+/**
+ * the order in a list: the level's own files first, then down the tree; the catalog last, in the order its entries
+ * refer to each other (an item names its edition / album, a product its item, a recipe its items)
+ */
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'characters', 'edition', 'album', 'item', 'product', 'recipe'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
@@ -194,8 +201,14 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 		}
 		if (reviews.needsReview(file.toon)) forReview.push({ key: file.key, version });
 		else {
-			await publishVersion(file.key, version);
-			done.push(file.key);
+			try {
+				await publishVersion(file.key, version);
+				done.push(file.key);
+			} catch (e) {
+				// the server's rules decide (a catalog entry's toon, a physical change – Reviews): submit it instead
+				if (!(e instanceof ApiError && e.code === 'review_required')) throw e;
+				forReview.push({ key: file.key, version });
+			}
 		}
 		if (p && inPart) await putDraft(file.key, p.draft, version, `The draft goes on (not published yet: ${names(mine.filter((l) => !chosen.has(l.id)))})`);
 	}

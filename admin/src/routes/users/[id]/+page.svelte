@@ -59,10 +59,10 @@
 		}
 	}
 
-	// ── Review rules (docs/API.md "Reviews"): per toon or every toon, reviewer | needs_review ──
+	// ── Review rules (docs/API.md "Reviews"): per toon or every toon, reviewer | needs_review | physical (publishes physical catalog changes) ──
 	let ruleToon = $state('*');
 	let ruleKind = $state<AdminReviewRule['rule']>('needs_review');
-	const ruleLabel = (rule: string) => (rule === 'reviewer' ? m['users.rule_reviewer']() : m['users.rule_needs_review']());
+	const ruleLabel = (rule: string) => (rule === 'reviewer' ? m['users.rule_reviewer']() : rule === 'physical' ? m['users.rule_physical']() : m['users.rule_needs_review']());
 	const toonLabel = (toon: string) => (toon === '*' ? m['users.review_all_toons']() : (toons.find((t) => t.id === toon)?.name ?? toon));
 
 	async function setReviewRule(toon: string, rule: AdminReviewRule['rule'], on: boolean) {
@@ -206,6 +206,7 @@
 					<select {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={ruleKind} data-testid="review-rule">
 						<option value="needs_review">{m['users.rule_needs_review']()}</option>
 						<option value="reviewer">{m['users.rule_reviewer']()}</option>
+						<option value="physical" title={m['users.rule_physical_hint']()}>{m['users.rule_physical']()}</option>
 					</select>
 				{/snippet}
 			</Field>

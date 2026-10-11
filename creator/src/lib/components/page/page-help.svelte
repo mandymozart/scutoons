@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'guide' | 'map';
+	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'guide' | 'map' | 'catalog';
 	export type ChapterSection = 'meta' | 'audio' | 'group' | 'slice';
 </script>
 
@@ -34,6 +34,10 @@
 		<p>{m['creator.help_home']()}</p>
 		<h3>{m['creator.characters']()}</h3>
 		<p>{m['creator.characters_home_hint']()}</p>
+		{@render saving()}
+	{:else if page === 'catalog'}
+		<p>{m['creator.catalog_help']()}</p>
+		<p>{m['creator.catalog_help_physical']()}</p>
 		{@render saving()}
 	{:else if page === 'map'}
 		<p>{m['creator.map_help']()}</p>

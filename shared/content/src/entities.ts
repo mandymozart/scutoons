@@ -37,10 +37,21 @@ export type EntityKind =
 	| 'people'
 	| 'roles'
 	| 'events'
-	| 'map';
+	| 'map'
+	| CatalogEntityKind;
 
-/** kind → [has toon, has number, has scene name, localized] */
-const SHAPES: Record<EntityKind, [boolean, boolean, boolean, boolean]> = {
+/**
+ * The catalog entries as versioned documents, `<kind>:<id>` (server CatalogDocs, agents/CATALOG-IN-CREATOR.md): no toon
+ * segment (the toon is the entry's `toon` field – an entry may move), language-neutral; publishing writes the catalog.
+ */
+export const CATALOG_ENTITY_KINDS = ['item', 'recipe', 'album', 'product', 'edition'] as const;
+export type CatalogEntityKind = (typeof CATALOG_ENTITY_KINDS)[number];
+/** a catalog document's id (the server's widest catalog id rule; ids may hold upper case) */
+const CATALOG_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/;
+const isCatalogKind = (kind: string): kind is CatalogEntityKind => (CATALOG_ENTITY_KINDS as readonly string[]).includes(kind);
+
+/** kind → [has toon, has number, has scene name, localized] (the catalog kinds: an id instead – parseEntityKey) */
+const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, boolean, boolean]> = {
 	toon: [true, false, false, false],
 	'toon-settings': [true, false, false, true],
 	season: [true, true, false, true],
@@ -69,6 +80,8 @@ export interface EntityRef {
 	scene?: string;
 	/** only on stored keys of localized kinds */
 	locale?: string;
+	/** a catalog document's entry id (`item:camera` → camera) */
+	id?: string;
 }
 
 /** Builders of entities (keys without locale) */
@@ -91,7 +104,9 @@ export const entities = {
 	roles: 'roles',
 	events: 'events',
 	/** the SCUTOONS world map (agents/MAP.md) */
-	map: 'map'
+	map: 'map',
+	/** a catalog entry's document (`item:camera`) */
+	catalog: (kind: CatalogEntityKind, id: string) => `${kind}:${id}`
 } as const;
 
 /**
@@ -114,7 +129,7 @@ export function isNeutralDocKey(key: string): boolean {
 
 /** Whether an entity (or key) of this kind is stored per locale (for chapter / scene / season: the legacy form) */
 export function isLocalizedEntity(entity: string): boolean {
-	const shape = SHAPES[entity.split(':')[0] as EntityKind];
+	const shape = SHAPES[entity.split(':')[0] as Exclude<EntityKind, CatalogEntityKind>];
 	return !!shape?.[3];
 }
 
@@ -126,7 +141,9 @@ export function entityKeyFor(entity: string, locale: string | null | undefined):
 /** A key or entity split into its parts, null when it is none (`chapter:catpope:2` and `chapter:catpope:2:de` both parse) */
 export function parseEntityKey(key: string): EntityRef | null {
 	const parts = key.split(':');
-	const kind = parts.shift() as EntityKind;
+	const first = parts.shift() ?? '';
+	if (isCatalogKind(first)) return parts.length === 1 && CATALOG_ID.test(parts[0]) ? { kind: first, id: parts[0] } : null;
+	const kind = first as Exclude<EntityKind, CatalogEntityKind>;
 	const shape = SHAPES[kind];
 	if (!shape) return null;
 	const [hasToon, hasNumber, hasScene, localized] = shape;

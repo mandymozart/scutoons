@@ -352,6 +352,8 @@
 		"review_rule": "Regel",
 		"rule_reviewer": "Reviewer",
 		"rule_needs_review": "Braucht Review",
+		"rule_physical": "Physische Items",
+		"rule_physical_hint": "Veröffentlicht physische Katalog-Änderungen (Edition, Produkt, physische Items, Shop) und prüft sie für andere",
 		"review_add": "Hinzufügen",
 		"review_remove": "Entfernen",
 		"review_added": "{rule} für {toon} hinzugefügt.",

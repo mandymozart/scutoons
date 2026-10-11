@@ -352,6 +352,8 @@
 		"review_rule": "Rule",
 		"rule_reviewer": "Reviewer",
 		"rule_needs_review": "Needs review",
+		"rule_physical": "Physical items",
+		"rule_physical_hint": "Publishes physical catalog changes (edition, product, physical items, shop) and reviews them for others",
 		"review_add": "Add",
 		"review_remove": "Remove",
 		"review_added": "{rule} for {toon} added.",

@@ -226,7 +226,8 @@ export interface AdminUserDetail extends Omit<AdminUserRow, 'codes'> {
 
 export interface AdminReviewRule {
 	toon: string;
-	rule: 'reviewer' | 'needs_review';
+	/** physical: publishes physical catalog changes of that toon and decides their submits (agents/CATALOG-IN-CREATOR.md) */
+	rule: 'reviewer' | 'needs_review' | 'physical';
 	user: { id: string; email: string };
 	created_at: string | null;
 	created_by: string | null;
