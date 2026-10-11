@@ -1,5 +1,108 @@
 # CATALOG-IN-CREATOR – should the catalog move from the admin into the creator? (research, 2026-10-12)
 
+## Overnight draft 2026-10-12 – summary for the morning review
+
+Branch `claude/quizzical-goldstine-44c6a4` (worktree `.claude/worktrees/quizzical-goldstine-44c6a4`, own DB
+`scutoons_catalog`). **Not merged, not pushed.** 7 commits, each with the checks green (see "Checks").
+
+### What works
+
+1. **Crafting keeps physical pieces** (bea142f1) – `InventoryService::remove` never touches a code-bound row any more
+   (the "possible bug" of ACCOUNT-RESTART.md §2 – fixed); `craft` skips `kind: physical` inputs and code-bound pieces
+   of any item (they only have to be there), the output comes in addition; `use` / `take` count only consumable pieces
+   (`InventoryService::consumable`). Test `InventoryServiceTest::testCraftingNeverConsumesAPhysicalPiece`.
+2. **`@scutoons/catalog`** (shared/catalog, 778fef49) – the admin's forms (item, recipe, album, product, edition, code
+   type, permission, toon, meta), fields, `kinds.ts`, `problems.ts`, `CatalogProblems` moved out of the admin; own de/en
+   texts generated from the admin's `catalog.*` messages (same keys, `m['catalog.x']()` reads as before);
+   `setupCatalog({ locale, locales, adminUrl })` once per app. The admin's editor scaffold, history and image import stay
+   in the admin and import the forms from the package – the admin page works as before.
+3. **Every catalog entry its own versioned document** (58be6b81) – `item:<id>`, `recipe:<id>`, `album:<id>`,
+   `product:<id>`, `edition:<id>` in `entity_versions` (`EntityKey::CATALOG_KINDS` + `$id`; `Domain/Catalog/CatalogDocs`).
+   Drafts / versions / restore / review through the normal `/api/entities` path; **publish writes the catalog table**
+   (validated, `catalog_history` note `published v<n>`); the table stays what readers and the ~25 consumers read. An admin
+   write to the table becomes the entry's published version (`CatalogAdmin::syncDoc`), so document and table never
+   disagree. No unpublish (422 `not_supported`). `GET /api/catalog/docs/<kind>` lists the entries with their state.
+   Migration **`2026-10-12-catalog-docs.mysql.sql`**: first published version per existing entry – idempotent (dry-run
+   on `scutoons_catalog`: 42 rows, second run 0). No column changes.
+4. **Physical items need a review – enforced on the server** (58be6b81, 91ecfc00) – a third review rule **`physical`**
+   (per toon / `*`, admin → Users → review rules: "Physical items"). A physical change = the entry before OR after is an
+   item with `kind: physical`, `edition_id` (= claimable from every unclaimed code of that edition), `product` (also a
+   variant's), `max_world`; a recipe whose output is such an item; an album with `owners` access; every product and
+   edition. Only an account with `physical` for every toon it touches publishes it; everyone else gets
+   `403 review_required { physical: true }` → submits; those submits go to and are decided only by `physical` accounts
+   (content reviewers neither see nor decide them); nobody with the rule → `409 no_reviewer { rule: physical }`.
+   Non-physical catalog changes follow the existing rules (`needs_review` / `reviewer` of the entry's toon; a recipe:
+   its output item's toon; a cross-toon entry `toon: null` = only the `*` rules). **The admin's old catalog page answers
+   to the same rule** (PUT / DELETE / undo of items, recipes, albums, products, editions: `403 review_required`) – a
+   change readers don't see (an accepted warning only) is not physical. Codes: nothing added, no delete anywhere.
+5. **The catalog in the creator** (0e3d8937, 63e69341) – sidebar "Catalog" → `/catalog/<kind>` (tabs Items · Recipes ·
+   Albums · Products · Editions): list (search, toon filter, badges New / Draft / Physical) + the shared form +
+   "More fields (JSON)", in the normal MetaPage shell: Save (draft, note), History (the entry's versions), Publish (the ONE
+   checklist – `publish-tree.ts`: catalog lines sorted edition → album → item → product → recipe; a 403
+   `review_required` from the server puts the line into the submit instead), Problems (validateCatalog for the open
+   entry), PhoneBar on phones. The reviewers' dashboard links a catalog submit to its entry. Admin: a note + link "Open
+   in the creator" on those five tabs.
+   **Verified in the browser** (own API :9100 on `scutoons_catalog`, own creator :10100, test user agent@scutoons.test):
+   renamed the physical `dago_hoodie` → Save = draft v275, table unchanged → Publish → server refused → "Submit for
+   review" → "Nobody publishes physical catalog changes of catpope yet" → granted `physical` (catpope) → Publish →
+   "1 published", table updated, history `published v275`. Phone width: list above the form, PhoneBar.
+
+### Checks (last run)
+- PHPUnit 344 tests green (`SCUTOONS_DB_NAME=scutoons_catalog npm run dev:db test`), phpstan clean. New:
+  `CatalogDocsTest` (5 tests), the crafting test; `EntityStoreTest` adapted (catalog documents are platform-wide keys).
+- `npm run check`: every workspace green **except two older failures not touched here**: `tools/mcp` (`server.ts:477`
+  uses `MapPlace.unlock`, removed on main 2026-10-11) and `check:tools-css` (its known list – phone-bar font sizes,
+  map-builder, viewer). Viewer warnings are older too.
+
+### Open (not built tonight)
+- **Undo / redo** of the creator's catalog forms: the shared forms edit the document in place, so Ctrl+Z only covers the
+  "More fields" JSON; dirty / autosave / save work. Fix: the forms call an `onchange` the creator routes through `doc.edit`.
+- **"Looks fine"** (accepting a catalog warning) in the creator: the Problems panel shows the warnings, accepting them
+  is still the admin's (`accepted_warnings` in the entry – works through the admin page).
+- Image **bulk import**, **reorder** (position), featured, code types, permissions, toons, meta: admin only (unchanged).
+- New entries published from the creator go to the end of the table's order.
+- `/api/items/` (pickers, readers) is cached up to 5 min after a publish – as for admin edits today.
+- **MCP**: `save_draft` / `list_entities` see the catalog keys through `/entities` (not tried); `read_catalog` is
+  unchanged; `propose_changes` for the catalog runs through the admin path (now guarded by `physical`).
+- No toon ↔ creator relation (Q2): every creator can DRAFT any entry; the review rules decide what is PUBLISHED.
+- Collation: `entity_key` is case-insensitive, catalog ids are case-sensitive – two ids differing only in case would
+  share a document; none exist (checked on the dump); the creator's id field accepts the kinds' own id rules.
+- The tab row wraps to two lines on phones.
+- **Merge with the map-documents draft** (branch `claude/zen-shaw-d9c2dd`, the session told me its names): both add
+  `$id` as the LAST `EntityKey` constructor param and `<kind>:<id>` keys without toon; theirs `ID_KINDS = ['place',
+  'route']` with a lower-case `ID_PATTERN`, mine `CATALOG_KINDS` with a mixed-case pattern (catalog ids have upper case)
+  → at merge: one parse branch over both lists, each with its own pattern; TS: their `ID_KINDS` / `EntityRef.id`, mine
+  `CATALOG_ENTITY_KINDS` / `EntityRef.id` – same field. Their generic `GET /entities?kinds=&content=`, `POST
+  /entities/batch`, `POST /entities/publish` could replace my `GET /catalog/docs/<kind>` later. Their removal = a
+  tombstone version `removed: true` (see decision D5).
+
+### Production, if merged (migrations now run by themselves with the deploy)
+- `2026-10-12-catalog-docs` runs on deploy: 42 published versions (27 items, 5 recipes, 1 album, 6 products, 3 editions).
+- **Right after the deploy nobody holds `physical`** – so nobody, admins included, can publish a physical change
+  (creator or admin page) until an admin adds the rule: admin → Users → <you> → review rule "Physical items", toon `*`
+  (and per toon for others). Deliberately not granted by the migration (D2).
+
+### Decisions waiting (owner)
+- **D1 Four eyes for physical?** Today an account with `physical` publishes its OWN physical changes directly (like a
+  reviewer without `needs_review`). Should a physical change always need a second person?
+- **D2 Who gets `physical` first** – only you (`*`)? Should the migration grant it to every admin (then the admin page
+  keeps working as today)?
+- **D3 Cross-toon entries** (`toon: null`: camera wear, cucumber …) answer only to `*` rules – right? (Q7)
+- **D4 More "physical" fields?** `starter` (every new inventory), `grantable: scan`, `effect` (substances), `max` – not
+  gated tonight; only `max_world` is. (Q4)
+- **D5 Removing an entry**: no unpublish tonight (the admin's delete with its `in_use` check stays). The map draft
+  removes with a tombstone version (`removed: true`, the id stays taken) – the same for the catalog?
+- **D6 The admin's five tabs** during the move: keep editing there (now guarded by `physical`), or make them read-only
+  with the link, and when to remove them? (Featured / code types / permissions / toons / meta stay in the admin – "Shop
+  & codes"? Q8)
+- **D7 Products and editions in the creator** at all (commerce), or only items / recipes / albums there? Both are built
+  and always count as physical.
+- **D8 Recipes' toon**: derived from the output item tonight; a `toon` column instead? (Q5)
+- **D9 Physical recipe inputs**: presence suffices – a recipe can be crafted again and again with the same physical
+  piece (only the output's `max` limits it). Intended?
+
+---
+
 ## Owner decisions (2026-10-12)
 
 - **Not now on main** – played through overnight as a draft in its own worktree / session (branch, own DB), reviewed in
@@ -17,7 +120,7 @@ den Creator umgezogen werden. Das einzige Problem ist, wie wir die Sache handeln
 ja quasi andere Berechtigung brauchen, weil nicht jeder Creator einfach ein Item anlegen kann – oder doch? Bitte kurz
 recherchieren."
 
-Status: research only – nothing built. Background: agents/CATALOG.md (tables, admin UI), agents/ITEMS.md (item
+Status: the research below (2026-10-12); the overnight draft built on it – summary at the top. Background: agents/CATALOG.md (tables, admin UI), agents/ITEMS.md (item
 definition, codes → items, limits, ownership), agents/ACCOUNT-RESTART.md §2 (item sources).
 
 ## 1. What the catalog is today
