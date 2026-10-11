@@ -567,6 +567,15 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   catalog) through `toStandard` instead of their own `toWebp` calls; a tool that lists assets off the standard and
   converts them (a new version at the same path, `uploadOrReplace`); video (MP4 H.264 / WebM, 480p / 720p / 1080p) once
   there is a way to run ffmpeg (not on the server: ffmpeg.wasm in the browser or a worker).
+- [ ] 10.68 **Phones: Save / Publish unreachable while something is selected** (owner 2026-10-11: "kein Publish – diesen
+  UI-Fehler müssen wir unbedingt beheben, das ist sehr schwer nachvollziehbar"; UI-CONCEPTS E.10). The phone bar
+  (shared/ui PhoneBar, creator MetaPage `phoneItems`) is REPLACED by the selection's own actions (`phoneSelection`, like
+  CapCut) – while a place / route / slice is selected, Save · History · Publish · More are gone, and the map often opens
+  with a place selected (`?location=`). Workaround today: deselect (the bar's back arrow or an empty spot). Options shown
+  (none chosen – owner: "noch kein gutes Konzept", moving every document action up top is too much): (a) Save / Publish
+  in the header like CapCut's Export, (b) two levels at the bottom (selection strip above the base bar), (c) fixed
+  Save / Publish slots at the end of the selection bar. Needs a concept first (UI-CONCEPTS), then a draft on the page.
+
 - [ ] 10.65 **Open after the session 2026-10-11 (map, phone editors, unlock events)**: publish the map draft (v256:
   the dioramas with plaster + 1x / 2x / 3x, new places ore-pit / ore-mountain / vienna-subway, waterfall-tower back –
   production had deleted it; place them and give them unlockLocation events, else they stay hidden); the migrated
