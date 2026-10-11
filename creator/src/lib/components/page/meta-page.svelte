@@ -158,8 +158,8 @@
 			<button class:secondary={!anyDirty} class="phone-save" aria-label={m['creator.save_draft']()} title={anyDirty ? m['creator.save_draft']() : m['creator.nothing_to_save']()} onclick={() => session.saveDraft()} disabled={anySaving} data-testid="phone-save"><Icon name="save" />{#if anyDirty}<span class="dirty-dot" aria-hidden="true"></span>{/if}</button>
 		{/snippet}
 		{#snippet start()}
-			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
-				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
+			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} title={m['creator.problems']()} data-testid="problems-toggle">
+				<span class="bar-icon"><Icon name="alert-triangle" /></span><span class="bar-word">{m['creator.problems']()}</span> <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 			{@render actions?.()}
 			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
@@ -167,7 +167,7 @@
 		{#snippet secondary()}
 			<button class="ghost in-bar" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
 			<button class="ghost in-bar" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
-			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
+			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}><span class="bar-icon"><Icon name="clock" label={m['creator.history']()} /></span><span class="bar-word">{m['creator.history']()}</span></button>
 		{/snippet}
 		{#snippet end()}
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
@@ -175,7 +175,7 @@
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
 			<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish"><span class="publish-icon"><Icon name="upload-cloud" /></span>{publishLabel(toon)}</button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish"><span class="bar-icon"><Icon name="upload-cloud" label={publishLabel(toon)} /></span><span class="bar-word">{publishLabel(toon)}</span></button>
 		{/snippet}
 	</ActionBar>
 
@@ -209,17 +209,6 @@
 	</div>
 {/snippet}
 <style>
-	/* the publish icon only on phones (in ⋯, UI-CONCEPTS E.10) */
-	.publish-icon {
-		display: none;
-	}
-	@media (max-width: 767px) {
-		.publish-icon {
-			display: inline-flex;
-			margin-right: 0.4rem;
-			vertical-align: middle;
-		}
-	}
 	.phone-save {
 		position: relative;
 	}

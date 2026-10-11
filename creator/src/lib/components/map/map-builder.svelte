@@ -4,6 +4,7 @@
 	import { replaceState } from '$app/navigation';
 	import {
 		MAP_SOURCE_LANGUAGE,
+		characterImage,
 		checkWorldMap,
 		entities,
 		isPlaceWaypoint,
@@ -20,7 +21,9 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { BarTabs, Icon, confirmDialog, liveRegion, region } from '@scutoons/ui';
+	import { BarTabs, Icon, clickOutside, confirmDialog, liveRegion, region } from '@scutoons/ui';
+	import { isKnownMissing } from '$lib/editor/characters.ts';
+	import { asset } from '$lib/utils/cdn.ts';
 	import { getPublished, library } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -127,6 +130,15 @@
 		const entry = nav.toons.find((t) => t.id === toonFilter);
 		return toonTileColor(registry, toonFilter, entry?.tile) ?? NEUTRAL_SEA;
 	});
+
+	/** the toon chip's mini avatar (owner 2026-10-11): the toon's star (the registry character whose own toon it is) */
+	function toonAvatar(toon: string): { src: string; color: string } | null {
+		const star = registry?.characters?.find((c) => c?.own_toon === toon);
+		if (!star) return null;
+		const src = characterImage(star, {}, 'avatar', { isMissing: isKnownMissing });
+		return { src: src ? asset(src) : '', color: star.color ?? 'transparent' };
+	}
+	let toonMenu = $state(false);
 
 	// ── the toon's start view (owner 2026-10-01): set here per toon, stored in the toon entry `toon:<toon>` (`map: { center,
 	//    zoom }`, language-neutral); the entry is saved / published with the map once set here ─────────────────────────
@@ -503,15 +515,30 @@
 	</div>
 {/snippet}
 
+{#snippet avatar(toon: string)}
+	{@const a = toon ? toonAvatar(toon) : null}
+	<span class="mini" style:background={a?.color}>{#if a?.src}<img src={a.src} alt="" />{:else if !toon}<Icon name="globe" size="1rem" />{/if}</span>
+{/snippet}
+
 {#snippet toonChip()}
-	<!-- phones (UI-CONCEPTS E.10, owner 2026-10-11): the toon filter at the right of the crumb row -->
-	<label class="toon-chip">
-		<span class="vh">{m['creator.map_toon_filter']()}</span>
-		<select bind:value={toonFilter} data-testid="phone-toon-filter">
-			<option value="">{m['creator.map_all_toons']()}</option>
-			{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
-		</select>
-	</label>
+	<!-- phones (UI-CONCEPTS E.10, owner 2026-10-11): the toon filter at the right of the crumb row – a chip with the
+	     toon's mini avatar (its star), a tap lists the toons -->
+	<span class="toon-chip" {@attach clickOutside(() => (toonMenu = false))}>
+		<button type="button" class="chip-button" aria-haspopup="listbox" aria-expanded={toonMenu} aria-label={m['creator.map_toon_filter']()} onclick={() => (toonMenu = !toonMenu)} data-testid="phone-toon-filter">
+			{@render avatar(toonFilter)}<span class="chip-name">{toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()}</span><Icon name="chevron-down" size="1rem" />
+		</button>
+		{#if toonMenu}
+			<ul class="toon-menu" role="listbox" aria-label={m['creator.map_toon_filter']()}>
+				{#each [{ id: '', name: m['creator.map_all_toons']() }, ...toons] as t (t.id)}
+					<li>
+						<button type="button" role="option" aria-selected={toonFilter === t.id} class:on={toonFilter === t.id} onclick={() => ((toonFilter = t.id), (toonMenu = false))} data-testid="phone-toon-{t.id || 'all'}">
+							{@render avatar(t.id)}<span>{t.name}</span>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</span>
 {/snippet}
 
 {#snippet barTabs()}
@@ -879,23 +906,73 @@
 	}
 
 	/* the toon filter in the crumb row (phones; a single thing = round, DESIGN.md "Round vs square") */
-	.toon-chip .vh {
-		position: absolute;
-		width: 1px; /* px-ok: the visually-hidden pattern */
-		height: 1px; /* px-ok: the visually-hidden pattern */
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
+	.toon-chip {
+		position: relative;
+		display: inline-flex;
 	}
-	.toon-chip select {
-		font: inherit;
+	.chip-button {
+		all: unset;
+		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
 		min-height: 2.25rem;
-		max-width: 10rem;
-		padding: 0 0.9rem;
+		max-width: 11rem;
+		padding: 0 0.6rem 0 0.2rem;
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: 999rem;
 		background: var(--paper);
 		color: var(--ink);
+		cursor: pointer;
+	}
+	.chip-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.mini {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: 50%;
+		overflow: hidden;
+		border: var(--border-width-hairline, 1px) solid var(--ink);
+	}
+	.mini img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.toon-menu {
+		position: absolute;
+		z-index: 50;
+		top: calc(100% + 0.3rem);
+		right: 0;
+		min-width: 12rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		background: var(--paper);
+		border: var(--border-width-regular) solid var(--ink);
+	}
+	.toon-menu button {
+		all: unset;
+		box-sizing: border-box;
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		width: 100%;
+		min-height: 2.75rem;
+		padding: 0 0.75rem;
+		cursor: pointer;
+	}
+	.toon-menu button.on {
+		background: var(--ink);
+		color: var(--paper);
 	}
 
 	/* the sidebar (rendered into the shell's left column) */

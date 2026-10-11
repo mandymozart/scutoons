@@ -964,30 +964,31 @@
 			<!-- phones have no Cmd keys: copy / cut / paste on the live region from here (BACKLOG 10.39) -->
 			<span class="clip-phone"><ClipMenu bar /></span>
 			<!-- phones: undo / redo are icons in the bar (E.10); Problems is here in ⋯ -->
-			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
-				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
+			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} title={m['creator.problems']()} data-testid="problems-toggle">
+				<span class="bar-icon"><Icon name="alert-triangle" /></span><span class="bar-word">{m['creator.problems']()}</span> <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
 		{#snippet secondary()}
 			<button class="ghost not-phone" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="undo"><Icon name="rotate-ccw" /></button>
 			<button class="ghost not-phone" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="redo"><Icon name="rotate-cw" /></button>
 			<span class="preview">
-				{m['creator.preview']()}:
+				<span class="bar-icon"><Icon name="eye" label={m['creator.preview']()} /></span><span class="bar-word">{m['creator.preview']()}:</span>
 				{#each readerLocales as l}
 					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
-			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
+			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}><span class="bar-icon"><Icon name="clock" label={m['creator.history']()} /></span><span class="bar-word">{m['creator.history']()}</span></button>
 			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet end()}
-			{@render sliceNav('end')}
+			<!-- phones: the slice stepper is left out of the one bar for now (owner 2026-10-11) -->
+			<span class="in-bar">{@render sliceNav('end')}</span>
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 			<button class="in-bar" onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
 			<LiveChip files={liveFiles} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish"><span class="publish-icon"><Icon name="upload-cloud" /></span>{publishLabel(toon)}</button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish"><span class="bar-icon"><Icon name="upload-cloud" label={publishLabel(toon)} /></span><span class="bar-word">{publishLabel(toon)}</span></button>
 		{/snippet}
 	</ActionBar>
 
@@ -1300,17 +1301,6 @@
 		/* the inspector sheet's tabs are in the bottom bar (UI-CONCEPTS E.10) */
 		.columns :global(.inspector > .sc-tabs) {
 			display: none;
-		}
-	}
-	/* the publish icon only on phones (in ⋯, UI-CONCEPTS E.10) */
-	.publish-icon {
-		display: none;
-	}
-	@media (max-width: 767px) {
-		.publish-icon {
-			display: inline-flex;
-			margin-right: 0.4rem;
-			vertical-align: middle;
 		}
 	}
 	.phone-save {

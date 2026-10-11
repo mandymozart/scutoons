@@ -20,10 +20,11 @@
 	 * Closed by default; open/closed is remembered in localStorage (`infoKey`), so it stays open across pages until the
 	 * user closes it.
 	 *
-	 * Phones (< 768px, UI-CONCEPTS E.10, owner 2026-10-11 "one bar at the bottom"): with `phone` the bar is ONE row of
-	 * icons – `tabs` (the page's sheet tabs, e.g. the slice inspector's) left, `phone` (undo, redo, save as icons) and
-	 * ⋯ right; ⋯ holds everything else (Info, `start`, `secondary`, `end`; what a page marks `in-bar` is left out there –
-	 * the bar shows it). The row scrolls sideways when it does not fit. More is always the ⋯ icon (its word the label).
+	 * Phones (< 768px, UI-CONCEPTS E.10, owner 2026-10-11 "one bar at the bottom", "More würde wegfallen"): with `phone`
+	 * the bar is ONE row that scrolls sideways (like CapCut) – `tabs` (the page's sheet tabs), `phone` (undo, redo, save),
+	 * then Info, `start`, `secondary`, `end` inline. There a page's `.bar-word` is hidden and its `.bar-icon` shown (icons
+	 * instead of words); `.in-bar` (a duplicate of `phone`) and note fields are left out. A white fade at an edge shows
+	 * that more follows there. Elsewhere More (narrow screens) is the ⋯ icon (its word the label).
 	 */
 	let {
 		start,
@@ -91,7 +92,31 @@
 	/** the one-row icon bar (phones, a page with `phone` actions) */
 	const compact = $derived(phoneWide && !!phone);
 
-	const hasMore = $derived(!!start || !!secondary || (compact && (!!end || !!info)));
+	const hasMore = $derived(!!start || !!secondary);
+
+	// the faded edges: more to scroll to on that side
+	let scroller = $state<HTMLElement>();
+	let fadeStart = $state(false);
+	let fadeEnd = $state(false);
+	function edges() {
+		if (!scroller) return;
+		fadeStart = scroller.scrollLeft > 2;
+		fadeEnd = scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 2;
+	}
+	$effect(() => {
+		const el = scroller;
+		if (!el) return;
+		edges();
+		const observer = new ResizeObserver(edges);
+		observer.observe(el);
+		for (const child of el.children) observer.observe(child);
+		const mutations = new MutationObserver(edges);
+		mutations.observe(el, { childList: true, subtree: true });
+		return () => {
+			observer.disconnect();
+			mutations.disconnect();
+		};
+	});
 
 	// the Info panel: closed by default, the user's choice is remembered (storage may be unavailable)
 	$effect(() => {
@@ -164,21 +189,15 @@
 
 <div class="sc-action-bar" class:compact role="region" aria-label={label}>
 	{#if compact}
-		<div class="scroller">
-			<div class="tabs">{#if tabs}{@render tabs()}{/if}</div>
-			<div class="phone">{@render phone?.()}</div>
-		</div>
-		<div class="more" {@attach clickOutside(() => (moreOpen = false))}>
-			{@render moreToggle()}
-			{#if moreOpen}
-				<button type="button" class="more-scrim" tabindex="-1" data-control-exempt="scrim" aria-label={moreLabel} onclick={() => (moreOpen = false)}></button>
-				<div class="more-panel" id="{uid}-more">
-					{#if info}<div class="more-start">{@render infoToggle()}</div>{/if}
-					{#if start}<div class="more-start">{@render start()}</div>{/if}
-					{#if secondary}<div class="more-secondary">{@render secondary()}</div>{/if}
-					{#if end}<div class="more-secondary more-end">{@render end()}</div>{/if}
-				</div>
-			{/if}
+		<div class="scroll-wrap" class:fade-start={fadeStart} class:fade-end={fadeEnd}>
+			<div class="scroller" bind:this={scroller} onscroll={edges}>
+				<div class="tabs">{#if tabs}{@render tabs()}{/if}</div>
+				<div class="phone">{@render phone?.()}</div>
+				{#if info}{@render infoToggle()}{/if}
+				{#if start}<div class="inline">{@render start()}</div>{/if}
+				{#if secondary}<div class="inline">{@render secondary()}</div>{/if}
+				{#if end}<div class="inline">{@render end()}</div>{/if}
+			</div>
 		</div>
 	{:else if narrow}
 		{#if info}{@render infoToggle()}{/if}
@@ -371,7 +390,39 @@
 	.compact {
 		gap: var(--space-05);
 	}
-	/* everything but ⋯ scrolls sideways when it does not fit (owner 2026-10-11: like CapCut's bottom bar) */
+	/* the row scrolls sideways when it does not fit (owner 2026-10-11: like CapCut's bottom bar); a white fade at an edge
+	   where more follows ("so erkenne ich besser, ob noch was kommt") */
+	.scroll-wrap {
+		position: relative;
+		flex: 1;
+		min-width: 0;
+		align-self: stretch;
+		display: flex;
+	}
+	.scroll-wrap::before,
+	.scroll-wrap::after {
+		content: '';
+		position: absolute;
+		z-index: 1;
+		top: 0;
+		bottom: 0;
+		width: 2.5rem;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+	.scroll-wrap::before {
+		left: 0;
+		background: linear-gradient(to left, transparent, var(--paper));
+	}
+	.scroll-wrap::after {
+		right: 0;
+		background: linear-gradient(to right, transparent, var(--paper));
+	}
+	.scroll-wrap.fade-start::before,
+	.scroll-wrap.fade-end::after {
+		opacity: 1;
+	}
 	.compact .scroller {
 		flex: 1;
 		min-width: 0;
@@ -390,6 +441,15 @@
 		display: flex;
 		align-items: center;
 	}
+	.compact .inline {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+		flex: none;
+	}
+	.compact .inline > :global(*) {
+		flex: none;
+	}
 	.compact .phone {
 		display: flex;
 		align-items: center;
@@ -399,16 +459,26 @@
 	.compact .tabs :global(button) {
 		padding-inline: 0;
 	}
-	.compact .phone :global(:is(button, a.sc-button)) {
+	.compact :is(.phone, .inline) :global(:is(button, a.sc-button)),
+	.compact .info-toggle {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		min-width: 2.5rem;
 		padding-inline: var(--space-05);
 	}
-	/* in ⋯ of the one-row bar: what the bar already shows as an icon (a page marks it `in-bar`) */
-	.compact .more-panel :global(.in-bar) {
+	/* icons instead of words: a page's `.bar-icon` only here, its `.bar-word` everywhere but here */
+	.sc-action-bar :global(.bar-icon) {
 		display: none;
+	}
+	.compact :global(.bar-icon) {
+		display: inline-flex;
+	}
+	/* !important: the row's own button layout below must not bring them back */
+	.compact :global(.bar-word),
+	.compact .inline :global(.in-bar),
+	.compact .inline :global(input) {
+		display: none !important;
 	}
 	.more-start,
 	.more-secondary {
