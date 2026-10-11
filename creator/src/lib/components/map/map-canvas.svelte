@@ -21,6 +21,8 @@
 		DEFAULT_PLACE_IMAGE_SIZE,
 		HEX_CELL,
 		routePoints,
+		routeStroke,
+		bezierPath,
 		visibleLabels,
 		waypointPoint,
 		type MapPlace,
@@ -33,6 +35,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { freeWaypointId, nearestSegment } from '$lib/editor/map.ts';
+	import { page } from '$app/state';
 
 	/**
 	 * The builder's canvas (agents/MAP.md §4.2): the world at any zoom (25 %–800 %), the tools – select (click, drag places
@@ -255,6 +258,83 @@
 	);
 	const layerVisible = (id: string) => !hiddenLayers.has(id);
 
+	// ── DRAFT (BACKLOG 10.66 (4), for the owner – `?routeDraft=a|b|c`): routes going behind a place's diorama with an entry
+	// and an exit point. a = gates: the route stops at the diorama's edge where it comes in (a gate mark) and goes on from
+	// where it leaves – nothing drawn across the place; b = tunnel: the route under the diorama as today, the hidden part
+	// through it shown dashed and faint on top; c = behind: the route bends round the back of the diorama (its far half),
+	// under the picture, so it disappears behind the building and comes out on the other side. Entry / exit = where the
+	// line to the previous / next waypoint crosses the place's footprint (later: points set per place by the author).
+	const routeDraft = $derived(page.url.searchParams.get('routeDraft'));
+	interface DraftRoute {
+		id: string;
+		stroke: ReturnType<typeof routeStroke>;
+		segments: Point[][];
+		gates: Point[];
+		inner: Point[][];
+	}
+	const draftRoutes = $derived.by<DraftRoute[]>(() => {
+		if (!routeDraft) return [];
+		return map.routes.map((r) => {
+			const pts = r.waypoints
+				.map((w) => {
+					const p = waypointPoint(map.locations, w);
+					const place = isPlaceWaypoint(w) ? map.locations.find((x) => x.id === w.location) : undefined;
+					return p ? { p, place } : null;
+				})
+				.filter((x): x is { p: Point; place: MapPlace | undefined } => !!x);
+			const segments: Point[][] = [[]];
+			const gates: Point[] = [];
+			const inner: Point[][] = [];
+			// the diorama's ground: an ellipse (an isometric patch is flatter than wide) on the place's point
+			const FLAT = 0.6;
+			const toward = (from: Point, to: Point, r: number) => {
+				const a = Math.atan2((to.y - from.y) / FLAT, to.x - from.x);
+				return { x: from.x + Math.cos(a) * r, y: from.y + Math.sin(a) * r * FLAT };
+			};
+			pts.forEach(({ p, place }, i) => {
+				const current = segments[segments.length - 1];
+				if (!place) return void current.push(p);
+				const r = (placeSize(place) / 2) * 0.5;
+				const prev = pts[i - 1]?.p;
+				const next = pts[i + 1]?.p;
+				const entry = prev ? toward(p, prev, r) : null;
+				const exit = next ? toward(p, next, r) : null;
+				if (routeDraft === 'a') {
+					if (entry) {
+						current.push(entry);
+						gates.push(entry);
+					}
+					if (exit) {
+						segments.push([exit]);
+						gates.push(exit);
+					}
+				} else if (routeDraft === 'b') {
+					current.push(p);
+					inner.push([entry ?? p, p, exit ?? p]);
+				} else {
+					if (!entry || !exit) return void current.push(entry ?? exit ?? p);
+					// the far half: from the entry's angle to the exit's, the way round that passes the top (−90°)
+					const a1 = Math.atan2((entry.y - p.y) / FLAT, entry.x - p.x);
+					const a2 = Math.atan2((exit.y - p.y) / FLAT, exit.x - p.x);
+					const up = -Math.PI / 2;
+					const passes = (from: number, delta: number) => {
+						const t = (((up - from) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+						return delta >= 0 ? t <= delta : 2 * Math.PI - t <= -delta;
+					};
+					let delta = a2 - a1;
+					if (delta > Math.PI) delta -= 2 * Math.PI;
+					if (delta < -Math.PI) delta += 2 * Math.PI;
+					if (!passes(a1, delta)) delta = delta > 0 ? delta - 2 * Math.PI : delta + 2 * Math.PI;
+					for (let k = 0; k <= 8; k++) {
+						const a = a1 + (delta * k) / 8;
+						current.push({ x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r * FLAT });
+					}
+				}
+			});
+			return { id: r.id, stroke: routeStroke(r.style), segments: segments.filter((x) => x.length >= 2), gates, inner };
+		});
+	});
+
 	/** the phone frame: a 375 × 812 reader screen at the reader's zoom (the toon's start zoom, 1) around the canvas centre */
 	/** what the frame shows: the selected place's reader view, else the toon's start view */
 	const framed = $derived(placeFrame ?? startView);
@@ -338,7 +418,20 @@
 		<svg class="footprint" class:preview={footprint.preview} aria-hidden="true" data-testid="place-footprint"><path transform="translate({o.x} {o.y})" d={cellsPath(footprint.cells, { x: 0, y: 0 })} /></svg>
 	{/if}
 
-	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
+	{#if routeDraft}
+		<svg class="route-draft" aria-hidden="true">
+			<g transform="translate({view.x} {view.y}) scale({view.zoom})">
+				{#each draftRoutes as r (r.id)}
+					{#each r.segments as seg, si (si)}
+						{#if r.stroke.outline}<path d={bezierPath(seg, r.stroke.tension, r.stroke.bow)} stroke={r.stroke.outline} style:stroke-width="{r.stroke.width + 3}px" />{/if}
+						<path d={bezierPath(seg, r.stroke.tension, r.stroke.bow)} stroke={r.stroke.color} stroke-dasharray={r.stroke.dash || undefined} style:stroke-width="{r.stroke.width}px" />
+					{/each}
+				{/each}
+			</g>
+		</svg>
+	{:else}
+		<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
+	{/if}
 
 	{#if draftPoints.length >= 2}
 		<svg class="draft" aria-hidden="true">
@@ -391,6 +484,22 @@
 			</div>
 		{/each}
 	</div>
+
+	{#if routeDraft === 'a' || routeDraft === 'b'}
+		<!-- DRAFT 10.66 (4): over the dioramas – the gates (a) / the hidden path through the place (b) -->
+		<svg class="route-draft" aria-hidden="true">
+			<g transform="translate({view.x} {view.y}) scale({view.zoom})">
+				{#each draftRoutes as r (r.id)}
+					{#each r.inner as seg, si (si)}
+						<path class="inner" d={bezierPath(seg, 0.3, 0)} stroke={r.stroke.color} style:stroke-width="{r.stroke.width}px" />
+					{/each}
+					{#each r.gates as g, gi (gi)}
+						<circle class="gate" cx={g.x} cy={g.y} r={4 / view.zoom} stroke={r.stroke.color} />
+					{/each}
+				{/each}
+			</g>
+		</svg>
+	{/if}
 
 	{#if selectedRoute}
 		<div class="handles">
@@ -515,6 +624,30 @@
 		stroke: var(--ink);
 		stroke-width: 2;
 		stroke-dasharray: 5 4;
+		vector-effect: non-scaling-stroke;
+	}
+	/* DRAFT 10.66 (4) */
+	.route-draft {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		pointer-events: none;
+	}
+	.route-draft path {
+		fill: none;
+		vector-effect: non-scaling-stroke;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.route-draft .inner {
+		stroke-dasharray: 4 7;
+		opacity: 0.8;
+	}
+	.route-draft circle.gate {
+		fill: var(--paper);
+		stroke-width: 2.5px;
 		vector-effect: non-scaling-stroke;
 	}
 	.place-image {
