@@ -173,3 +173,23 @@ test('a chapter’s slices in reading order', () => {
 		[['a.webp', 0, 0, 0], ['b.webp', 0, 1, 1], ['c.webp', 2, 0, 2], ['d.webp', 2, 1, 3]]
 	);
 });
+
+test('the hex grid: cells, a place’s size, snapping to the nearest free spot', async () => {
+	const { hexCellAt, hexCenter, hexArea, placeCells, snapPlace, HEX_CELL } = await import('../src/map.ts');
+	const c = hexCellAt({ x: 100, y: 100 });
+	const centre = hexCenter(c);
+	assert.deepEqual(hexCellAt(centre), c, 'a centre lies in its own cell');
+	assert.ok(Math.hypot(centre.x - 100, centre.y - 100) <= HEX_CELL / Math.sqrt(3) + 1e-9, 'within one cell radius');
+	assert.equal(hexArea(c, 1).length, 7);
+	assert.equal(hexArea(c, 2).length, 19);
+	assert.equal(placeCells({ x: centre.x, y: centre.y, size: 4 }).length, 1, 'small: its own cell');
+	assert.equal(placeCells({ x: centre.x, y: centre.y, size: 2 * HEX_CELL }).length, 7, 'a ring');
+	assert.ok(placeCells({ x: centre.x, y: centre.y, size: 96 }).length > 100, 'the ore mountain takes many');
+	const map = { width: 400, height: 300, locations: [{ id: 'a', x: centre.x, y: centre.y, toons: [], name: {}, size: 4 } as any] };
+	const free = snapPlace(map, centre, 4);
+	assert.notDeepEqual(hexCellAt(free), c, 'an occupied cell is not taken');
+	assert.ok(Math.hypot(free.x - centre.x, free.y - centre.y) < HEX_CELL * 1.01, 'the next cell');
+	assert.deepEqual(hexCellAt(snapPlace(map, centre, 4, 'a')), c, 'the moved place itself does not block');
+	const big = snapPlace(map, centre, 32);
+	assert.ok(!placeCells({ ...big, size: 32 }).some((x) => x.q === c.q && x.r === c.r), 'a big place keeps its whole area free');
+});

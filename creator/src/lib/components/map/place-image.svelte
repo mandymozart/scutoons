@@ -103,7 +103,7 @@
 			{#if imageState.kb !== null && imageState.kb > 60}<span class="warn"> · {m['creator.map_image_large']({ kb: imageState.kb })}</span>{/if}
 			{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ px: size * 2 })}</span>{/if}
 		</p>
-		<label class="field small"><span>{m['creator.map_image_size']()}</span><input type="number" min="8" value={place.image.size ?? ''} placeholder={String(DEFAULT_PLACE_IMAGE_SIZE)} onchange={(e) => setImageField('size', numberOrUnset(e.currentTarget.value))} data-testid="place-image-size" /></label>
+		<label class="field small"><span>{m['creator.map_image_size']()}</span><input type="number" min="2" value={place.image.size ?? ''} placeholder={String(DEFAULT_PLACE_IMAGE_SIZE)} onchange={(e) => setImageField('size', numberOrUnset(e.currentTarget.value))} data-testid="place-image-size" /></label>
 		<span class="lbl">{m['creator.map_image_anchor']()} ({anchor.x} / {anchor.y} %)</span>
 		<div
 			class="anchor checker"

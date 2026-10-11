@@ -123,6 +123,10 @@
 					],
 					"description": "the chapter the place's card links to"
 				},
+				"size": {
+					"type": "number",
+					"description": "its diorama's width in world units – how much of the map's hex grid it takes (`placeSize`, `placeCells`)"
+				},
 				"view": {
 					"$ref": "#/definitions/PlaceView",
 					"description": "how the reader's map frames the place when it centres on it (owner 2026-10-10: \"pro Location einen Zoom festlegen … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset\"; set in the map builder). Without it: the place's point at `PLACE_ZOOM` (`placeView`)."

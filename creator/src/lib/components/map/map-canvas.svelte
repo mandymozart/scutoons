@@ -8,6 +8,10 @@
 		isPlaceWaypoint,
 		mapName,
 		placeImageBox,
+		placeSize,
+		hexCellAt,
+		hexCenter,
+		HEX_CELL,
 		routePoints,
 		visibleLabels,
 		waypointPoint,
@@ -154,6 +158,32 @@
 
 	// ── dragging places and waypoints ─────────────────────────────────────────────────────────────────────────
 	let dragging = $state<{ kind: 'place'; id: string } | { kind: 'waypoint'; route: string; index: number } | null>(null);
+
+	// ── the hex grid (owner 2026-10-11): shown only while a place is placed or dragged – the cells on screen, one path ──
+	const showGrid = $derived(tool === 'place' || dragging?.kind === 'place');
+	const gridPath = $derived.by(() => {
+		if (!showGrid || view.zoom < 1) return '';
+		const a = view.toWorld({ x: 0, y: 0 });
+		const b = view.toWorld({ x: view.width, y: view.height });
+		const r = HEX_CELL / Math.sqrt(3);
+		const first = hexCellAt({ x: Math.max(0, a.x), y: Math.max(0, a.y) });
+		const last = hexCellAt({ x: Math.min(map.width, b.x), y: Math.min(map.height, b.y) });
+		if ((last.r - first.r) * ((b.x - a.x) / HEX_CELL) > 6000) return ''; // too far out to draw every cell
+		let d = '';
+		for (let row = first.r - 1; row <= last.r + 1; row++)
+			for (let col = Math.floor(a.x / HEX_CELL - row / 2) - 1; col <= Math.ceil(b.x / HEX_CELL - row / 2) + 1; col++) {
+				const c = hexCenter({ q: col, r: row });
+				if (c.x < a.x - HEX_CELL || c.x > b.x + HEX_CELL || c.y < a.y - HEX_CELL || c.y > b.y + HEX_CELL) continue;
+				const pts = [0, 1, 2, 3, 4, 5].map((i) => {
+					const ang = (Math.PI / 180) * (60 * i - 30);
+					const w = view.toScreen({ x: c.x + r * Math.cos(ang), y: c.y + r * Math.sin(ang) });
+					return `${w.x.toFixed(1)},${w.y.toFixed(1)}`;
+				});
+				d += `M${pts.join('L')}Z`;
+			}
+		return d;
+	});
+
 	let dragMoved = false;
 	function startDrag(e: PointerEvent, target: NonNullable<typeof dragging>) {
 		if (tool !== 'select' || space || e.button !== 0) return;
@@ -271,6 +301,9 @@
 	data-testid="map-canvas"
 >
 	<MapTerrain {view} width={map.width} height={map.height} layers={map.layers ?? []} url={asset} visible={layerVisible} zoomRange={false} />
+	{#if gridPath}
+		<svg class="hex-grid" aria-hidden="true"><path d={gridPath} /></svg>
+	{/if}
 
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
 
@@ -288,8 +321,17 @@
 				{@const active = selection?.kind === 'place' && selection.id === p.id}
 				<div class="place" class:has-image={!!p.image?.src} class:dim class:active class:collides={collisions.has(p.id)} class:hidden-place={!!p.hidden} style:transform="translate({s.x}px, {s.y}px)">
 					{#if p.image?.src}
-						{@const box = placeImageBox(p.image, view.zoom)}
-						<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+						{@const box = placeImageBox(p.image, view.zoom, 1, p.size)}
+						<!-- the diorama selects its place too (owner 2026-10-11), with the select tool -->
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+						<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" onclick={() => tool === 'select' && onselect({ kind: 'place', id: p.id })} />
+					{:else}
+						<!-- no diorama yet: a dashed outline of one at the place's size (owner 2026-10-11), selectable like the picture -->
+						{@const w = placeSize(p) * view.zoom}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 * 0.8}px" onclick={() => tool === 'select' && onselect({ kind: 'place', id: p.id })}>
+							<path d="M50 6 L94 30 L94 42 L50 66 L6 42 L6 30 Z M6 30 L50 54 L94 30 M50 54 L50 66" />
+						</svg>
 					{/if}
 					<button
 						class="marker"
@@ -376,9 +418,36 @@
 	.place.dim {
 		opacity: 0.3;
 	}
+	.hex-grid {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+	.hex-grid path {
+		fill: none;
+		stroke: var(--ink);
+		stroke-opacity: 0.25;
+		stroke-width: 1;
+	}
+	.place-outline {
+		position: absolute;
+		overflow: visible;
+		pointer-events: auto;
+		cursor: pointer;
+	}
+	.place-outline path {
+		fill: rgb(255 255 255 / 0.35);
+		stroke: var(--ink);
+		stroke-width: 2;
+		stroke-dasharray: 5 4;
+		vector-effect: non-scaling-stroke;
+	}
 	.place-image {
 		position: absolute;
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: pointer;
 		height: auto;
 	}
 	.marker {

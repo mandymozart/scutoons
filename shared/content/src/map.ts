@@ -51,6 +51,8 @@ export interface MapPlace {
 	hidden?: boolean;
 	/** the chapter the place's card links to */
 	chapter?: { toon: string; number: number };
+	/** its diorama's width in world units – how much of the map's hex grid it takes (`placeSize`, `placeCells`) */
+	size?: number;
 	/**
 	 * how the reader's map frames the place when it centres on it (owner 2026-10-10: "pro Location einen Zoom festlegen …
 	 * als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset"; set in the map builder). Without it: the
@@ -156,12 +158,83 @@ export interface ToonMapView {
 
 export const MAP_SOURCE_LANGUAGE = 'de';
 export const MAP_STYLES: MapPathStyle[] = ['road', 'trail', 'flight', 'sea'];
-export const DEFAULT_PLACE_IMAGE_SIZE = 48;
+/**
+ * a place image's width in WORLD units (it scales with the map at every zoom – owner 2026-10-11: "die Dioramen müssen
+ * wesentlich kleiner sein … man sieht sie erst, wenn man reinzoomt"): 12 = 12 px at zoom 1, 96 px at zoom 8
+ */
+export const DEFAULT_PLACE_IMAGE_SIZE = 12;
 export const DEFAULT_PLACE_ANCHOR = { x: 50, y: 90 } as const;
 export const MAP_MIN_ZOOM = 0.25;
 export const MAP_MAX_ZOOM = 8;
 /** the zoom when the map centres on a place – its default and its minimum (owner 2026-10-10: "Mindeststufe 2 und Zoomstufe 2") */
 export const PLACE_ZOOM = 2;
+
+// ── the hex grid for places (owner 2026-10-11: "ein Sechseckraster – Orte nur innerhalb des Grids, damit nichts
+//    überlappt"; "festlegen, wie viele Flächeneinheiten ein Diorama einnimmt – eine sinnvolle Stufung") ─────────────
+/** the distance of two neighbouring cells' centres, world units (2048 × 1046 → ~39 000 cells) */
+export const HEX_CELL = 8;
+/** a place's size range (world units; the builder's slider): a well … the ore mountain and more */
+export const PLACE_SIZE_MIN = 4;
+export const PLACE_SIZE_MAX = 128;
+/** a cell in axial coordinates (pointy-top hexes) */
+export interface HexCell {
+	q: number;
+	r: number;
+}
+const HEX_R = HEX_CELL / Math.sqrt(3);
+/** the cell a world point lies in */
+export function hexCellAt(p: Point): HexCell {
+	const fq = ((Math.sqrt(3) / 3) * p.x - p.y / 3) / HEX_R;
+	const fr = ((2 / 3) * p.y) / HEX_R;
+	let q = Math.round(fq), r = Math.round(fr);
+	const s = Math.round(-fq - fr);
+	const dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s + fq + fr);
+	if (dq > dr && dq > ds) q = -r - s;
+	else if (dr > ds) r = -q - s;
+	return { q: q + 0, r: r + 0 };
+}
+/** a cell's centre (world units) */
+export const hexCenter = (c: HexCell): Point => ({ x: HEX_R * Math.sqrt(3) * (c.q + c.r / 2), y: HEX_R * 1.5 * c.r });
+export const hexDistance = (a: HexCell, b: HexCell) => (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.q + a.r - b.q - b.r)) / 2;
+/** the cells within `rings` of a cell (itself included) */
+export function hexArea(c: HexCell, rings: number): HexCell[] {
+	const out: HexCell[] = [];
+	for (let dq = -rings; dq <= rings; dq++)
+		for (let dr = Math.max(-rings, -dq - rings); dr <= Math.min(rings, -dq + rings); dr++) out.push({ q: c.q + dq, r: c.r + dr });
+	return out;
+}
+const cellKey = (c: HexCell) => `${c.q},${c.r}`;
+/**
+ * a place's size: the width of its diorama (or its outline) in world units – `size`, else its image's, else the default
+ * (owner 2026-10-11: "festlegen, welche Größe so ein Diorama hat – eine sinnvolle Stufung, wie in SimCity")
+ */
+export const placeSize = (p: Pick<MapPlace, 'size' | 'image'>): number => p.size ?? p.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE;
+/** the cells a place takes: those whose centres lie within half its size of its cell's centre (at least its own) */
+export function placeCells(p: Pick<MapPlace, 'x' | 'y' | 'size' | 'image'>): HexCell[] {
+	const home = hexCellAt(p);
+	const centre = hexCenter(home);
+	const radius = placeSize(p) / 2;
+	const rings = Math.ceil(radius / HEX_CELL);
+	return hexArea(home, rings).filter((c) => hexDistance(c, home) === 0 || Math.hypot(hexCenter(c).x - centre.x, hexCenter(c).y - centre.y) <= radius + 1e-6);
+}
+
+/**
+ * Where a place goes on the grid: the free spot nearest to `at` (a cell centre whose footprint touches no other place's
+ * cells and stays inside the map) – the builder snaps placing and dragging to it. `except` = the place being moved.
+ */
+export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>, at: Point, size: number = DEFAULT_PLACE_IMAGE_SIZE, except?: string): Point {
+	const taken = new Set<string>();
+	for (const p of map.locations) if (p.id !== except) for (const c of placeCells(p)) taken.add(cellKey(c));
+	const start = hexCellAt(at);
+	for (let radius = 0; radius < 64; radius++) {
+		const candidates = (radius === 0 ? [start] : hexArea(start, radius).filter((c) => hexDistance(c, start) === radius))
+			.map((c) => ({ c, centre: hexCenter(c) }))
+			.filter(({ centre }) => centre.x >= 0 && centre.y >= 0 && centre.x <= map.width && centre.y <= map.height)
+			.sort((a, b) => Math.hypot(a.centre.x - at.x, a.centre.y - at.y) - Math.hypot(b.centre.x - at.x, b.centre.y - at.y));
+		for (const { c, centre } of candidates) if (!placeCells({ ...centre, size }).some((x) => taken.has(cellKey(x)))) return { x: Math.round(centre.x * 100) / 100, y: Math.round(centre.y * 100) / 100 };
+	}
+	return at;
+}
 /** The reserved game-state id of the world (unlocks are universe-wide; no toon may be called `scutoons`) */
 export const WORLD_STATE_ID = 'scutoons';
 
@@ -301,8 +374,8 @@ export function centerOf(points: readonly Point[]): Point | null {
 }
 
 /** The image box of a place in screen px at a zoom: left/top relative to the place's screen point */
-export function placeImageBox(image: MapImage, zoom: number, ratio = 1): { width: number; height: number; left: number; top: number } {
-	const width = (image.size ?? DEFAULT_PLACE_IMAGE_SIZE) * zoom;
+export function placeImageBox(image: MapImage, zoom: number, ratio = 1, size?: number): { width: number; height: number; left: number; top: number } {
+	const width = (image.size ?? size ?? DEFAULT_PLACE_IMAGE_SIZE) * zoom;
 	const height = width / (ratio || 1);
 	const anchor = image.anchor ?? DEFAULT_PLACE_ANCHOR;
 	return { width, height, left: -(anchor.x / 100) * width, top: -(anchor.y / 100) * height };
@@ -713,6 +786,7 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		if (p.hidden !== undefined && typeof p.hidden !== 'boolean') add('error', [...path, 'hidden'], `${what}: hidden must be true or false`);
 		// the old slice / chapter link (owner 2026-10-11: places are unlocked by the unlockLocation event only)
 		if (p.unlock !== undefined) add('error', [...path, 'unlock'], `${what}: \`unlock\` is gone – an unlockLocation event on a slice or in a script unlocks the place (migration 2026-10-11-unlock-location-events)`);
+		if (p.size !== undefined && (!isNum(p.size) || p.size < PLACE_SIZE_MIN || p.size > PLACE_SIZE_MAX)) add('error', [...path, 'size'], `${what}: the size is ${PLACE_SIZE_MIN}–${PLACE_SIZE_MAX} world units`);
 		if (p.chapter !== undefined) {
 			if (!isObj(p.chapter) || typeof p.chapter.toon !== 'string' || !Number.isInteger(p.chapter.number) || p.chapter.number < 0)
 				add('error', [...path, 'chapter'], `${what}: the chapter link must be { toon, number }`);

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
-	import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_ZOOM, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_SIZE_MAX, PLACE_SIZE_MIN, PLACE_ZOOM, placeSize, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -121,6 +121,10 @@
 </div>
 
 <MapToonsChips {toons} value={place.toons} onchange={(next) => editPlace(doc, place.id, (p) => (p.toons = next))} />
+<!-- its size on the map (owner 2026-10-11, "wie in SimCity"): the diorama's width in world units – how many hex cells it takes -->
+<label class="field"><span>{m['creator.map_footprint']()} · {placeSize(place)}</span>
+	<input type="range" min={PLACE_SIZE_MIN} max={PLACE_SIZE_MAX} step="2" value={placeSize(place)} oninput={(e) => editPlace(doc, place.id, (p) => (p.size = Number(e.currentTarget.value)), `size:${place.id}`)} data-testid="place-size" />
+</label>
 </div>
 
 <div class="tab" data-tab="place">

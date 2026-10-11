@@ -969,6 +969,7 @@
 		"map_image_plaster": "Plaster model",
 		"map_image_plaster_hint": "The same diorama unpainted, framed like the painted image (same size and ground point). When the story unlocks the place, the reader’s map fades from the plaster model to the painted one.",
 		"map_hidden_by_event": "Hidden until the story unlocks it: an unlockLocation event (in a VN script, on a slice or an item) in any toon.",
+		"map_footprint": "Size (map units)",
 		"map_hidden_never_unlocked": "“{name}” is hidden and no unlockLocation event unlocks it – readers never see it.",
 		"map_delete_confirm_events": "Delete “{name}”? {count} document(s) have unlockLocation events for it – they will do nothing then.",
 		"map_used_in": "Used in",

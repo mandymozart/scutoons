@@ -11,6 +11,8 @@
 		mapName,
 		placeImagePath,
 		placeView,
+		snapPlace,
+		placeSize,
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
@@ -286,17 +288,21 @@
 
 	// ── edits from the canvas ────────────────────────────────────────────────────────────────────────────────
 	const filterToons = () => (toonFilter ? [toonFilter] : []);
+	// places sit on the hex grid, one per cell (owner 2026-10-11, "wie in SimCity"): placing and dragging snap to the
+	// nearest spot where the place's whole footprint is free
 	function onAddPlace(at: Point) {
-		const id = addPlace(doc, at, filterToons());
+		const id = addPlace(doc, map ? snapPlace(map, at) : at, filterToons());
 		tool = 'select';
 		selection = { kind: 'place', id };
 		// the name first (the id follows from it until the first publish)
 		setTimeout(() => document.querySelector<HTMLInputElement>(`[data-testid="place-name-${MAP_SOURCE_LANGUAGE}"]`)?.focus(), 50);
 	}
 	function onMovePlace(id: string, at: Point) {
+		const place = map?.locations.find((p) => p.id === id);
+		const spot = map && place ? snapPlace(map, at, placeSize(place), id) : at;
 		editPlace(doc, id, (p) => {
-			p.x = at.x;
-			p.y = at.y;
+			p.x = spot.x;
+			p.y = spot.y;
 		}, `drag:${id}`);
 	}
 	let sharedConfirm = { key: '', at: 0, ok: false, asking: false, last: null as Point | null };

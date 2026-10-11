@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -290,18 +290,18 @@
 		}
 	}
 
-	// a place image is laid out once at its largest drawn size (zoom 3) and scaled down by a transform – zooming then never
-	// lays out or resamples it per frame (agents/MAP.md §8.5c)
-	const IMAGE_ZOOM = 3;
-	const imageBox = (p: ReaderPlace) => placeImageBox(p.image!, IMAGE_ZOOM);
-	const imageScale = $derived(Math.min(view.zoom, IMAGE_ZOOM) / IMAGE_ZOOM);
+	// a place image has a size in world units and scales with the map at every zoom (owner 2026-10-11); laid out once at the
+	// largest zoom and scaled down by a transform – zooming then never lays out or resamples it per frame
+	const IMAGE_ZOOM = MAP_MAX_ZOOM;
+	const imageBox = (p: ReaderPlace) => placeImageBox(p.image!, IMAGE_ZOOM, 1, p.size);
+	const imageScale = $derived(view.zoom / IMAGE_ZOOM);
 	/** the zoom the files are picked for: updated at rest only (no new downloads mid-gesture) */
 	let restZoom = $state(1);
 	$effect(() => {
-		if (!view.moving) restZoom = Math.min(view.zoom, IMAGE_ZOOM);
+		if (!view.moving) restZoom = view.zoom;
 	});
 	/** `sizes`: the width the image is drawn at – the browser picks 1x / 2x / 3x from it and the screen's density */
-	const drawnSize = (p: ReaderPlace) => `${Math.ceil(placeImageBox(p.image!, restZoom).width)}px`;
+	const drawnSize = (p: ReaderPlace) => `${Math.ceil(placeImageBox(p.image!, restZoom, 1, p.size).width)}px`;
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -335,7 +335,9 @@
 								{#if p.image.plaster && revealing === p.id}
 									<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} sizes={drawnSize(p)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 								{/if}
-								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								<!-- the diorama opens its place's card too (owner 2026-10-11) -->
+								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+								<img class="place-image" class:waiting={revealing === p.id && !revealShow} onclick={() => select(p)} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 								</span>
 							{/if}
 							<button
@@ -498,8 +500,12 @@
 	}
 	.place-image {
 		position: absolute;
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: pointer;
 		height: auto;
+	}
+	.place-image.plaster {
+		pointer-events: none;
 	}
 	/* scales the place's images around its point (the .place origin) */
 	.image-scale {
