@@ -17,7 +17,6 @@
 	import { creatorLink, type ShowRequest } from '$lib/creator-link.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
-	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
 	import { showDrafts } from '$lib/draft-preview.svelte.ts';
@@ -178,7 +177,6 @@
 	// reading progress for the toon page's start button: how far into the chapter (all its groups' slices), finished at
 	// the last slice of its last group (agents/DESIGN.md "Start button")
 	const game = getGameContext();
-	const world = getWorldContext();
 	let visiting = 0;
 	const spot = $derived.by((): ReadingSpot | null => {
 		const chapter = data.chapter;
@@ -196,13 +194,6 @@
 				const fresh = visiting !== number;
 				visiting = number;
 				game.readChapter(number, position, fresh);
-			},
-			// a passed slice unlocks the map places whose unlock is that slice (agents/MAP.md §8.5, universe-wide)
-			onSlice: (index) => {
-				// the page index → its group's slice
-				const owner = c.groups.findLast((g) => g.offset <= index && index < g.offset + count(g.group));
-				const image = owner?.group.slices?.[index - owner.offset]?.image;
-				if (image && world) world.sliceSeen(page.params.toonId ?? '', number, image);
 			}
 		};
 	});

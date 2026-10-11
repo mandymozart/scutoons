@@ -54,7 +54,6 @@
 	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
 	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
-	import { chapterSlices } from '@scutoons/content';
 	import MetaPanel from '$lib/components/chapter/meta-panel.svelte';
 	import FeaturingField from '$lib/components/fields/featuring-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
@@ -153,10 +152,8 @@
 	const cast = castDoc(toon);
 	const registry = registryDoc();
 	const moods = moodsDoc();
-	// the world map: a slice unlocks places (agents/MAP.md, edited here and in the map builder – one storage, the place's
-	// `unlock`); saved / published with the chapter once edited here
+	// the world map: read for the expressions' map facts (places are unlocked by unlockLocation events – owner 2026-10-11)
 	const worldMap = worldMapDoc();
-	let mapTouched = $state(false);
 	let toonInfos = $state<ToonInfo[]>([]);
 	let castTouched = $state(false);
 	const registryIndex = $derived(characterIndex(registryOf(registry)));
@@ -249,7 +246,7 @@
 		season,
 		...Object.values(refs),
 		...(castTouched || cast.dirty ? [cast] : []),
-		...(mapTouched || worldMap.dirty ? [worldMap] : [])
+		...(worldMap.dirty ? [worldMap] : [])
 	]);
 	const anyDirty = $derived(allDocs.some((d) => d.dirty));
 	/** the chapter's documents with slices (the chapter + its separate scenes) */
@@ -1232,9 +1229,6 @@
 					chapterAudio={chapterData?.audio}
 					{librarySample}
 					{heldMusic}
-					{worldMap}
-					chapterSlices={chapterSlices(sceneGroups())}
-					onmaptouch={() => (mapTouched = true)}
 					onaddtext={(preset) => addDialog(undefined, preset)}
 					onadditem={addSliceItem}
 					oncreatebox={createBoxForEvent}

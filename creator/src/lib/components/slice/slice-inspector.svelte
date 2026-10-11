@@ -3,7 +3,7 @@
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import type { VariantMedia } from '@scutoons/media';
 	import { Icon, SortGrip, Tabs, sortable } from '@scutoons/ui';
-	import { getAt, previewText, scriptLabels, setSliceLayers, sliceLayers, type ChapterSliceRef, type Path, type SliceLayerKind } from '@scutoons/content';
+	import { getAt, previewText, scriptLabels, setSliceLayers, sliceLayers, type Path, type SliceLayerKind } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -20,7 +20,6 @@
 	import ItemInspector from '$lib/components/items/item-inspector.svelte';
 	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 	import SliceMedia from '$lib/components/slice/slice-media.svelte';
-	import SliceUnlocks from '$lib/components/slice/slice-unlocks.svelte';
 	import SliceAudio from '$lib/components/slice/slice-audio.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 
@@ -47,9 +46,6 @@
 		chapterAudio,
 		librarySample,
 		heldMusic,
-		worldMap,
-		chapterSlices,
-		onmaptouch,
 		onaddtext,
 		onadditem,
 		oncreatebox,
@@ -76,9 +72,6 @@
 		librarySample: (media: VariantMedia) => string;
 		/** per track: the level it holds from an earlier slice (none = silent) */
 		heldMusic: Record<string, { volume: number; label: string }>;
-		worldMap: ContentDoc;
-		chapterSlices: ChapterSliceRef[];
-		onmaptouch: () => void;
 		onaddtext: (preset: TextPreset) => void;
 		onadditem: (itemId: string) => void;
 		/** "+ New text box": a showTextBox event's box (`eventsPath` relative to the slice) */
@@ -229,11 +222,6 @@
 		{/if}
 	{:else if view.inspectorTab === 'slice'}
 		<SliceMedia {doc} {slicePath} {toon} place="{toon}/s{seasonNumber}/c{chapterNumber}/" />
-		<!-- the slice's map unlocks, in the same view (owner 2026-10-03) -->
-		<section class="slice-map" data-testid="slice-map">
-			<h3><Icon name="map-pin" /> {m['creator.map']()}</h3>
-			<SliceUnlocks mapDoc={worldMap} {toon} chapter={chapterNumber} image={slice.image ?? ''} slices={chapterSlices} ontouch={onmaptouch} />
-		</section>
 	{:else if view.inspectorTab === 'audio'}
 		<SliceAudio
 			{doc}
@@ -272,19 +260,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
-	}
-	.slice-map {
-		border-top: var(--border-width-regular) solid var(--ink);
-		padding-top: var(--space-1);
-	}
-	.slice-map h3 {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		margin: 0 0 var(--space-05);
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
 	}
 	/* the layer stack: one line per entry – grip, icon, name, the pickup mark */
 	.layers {

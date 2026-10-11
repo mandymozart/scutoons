@@ -847,6 +847,22 @@ with a place select + silent; the plaster slot), viewer (`env.unlockPlace` → `
 `map.place_unlocked`, the reveal in `map-overlay.svelte`; `flightAt` in map-view.ts, tested; intersect / hover triggers
 pass `mapReveal: false`). The viewer map lost its zoom buttons (owner: fingers / mouse; the +/− keys stay).
 
+### 8.5b Places are unlocked by events only (owner 2026-10-11)
+
+Owner: "Freischalten von Locations sollten wir an diesen Events machen. Das ist viel konsistenter, wenn wir zwischen Toons
+hin und her springen – dann kann auch ein anderer eine Location freischalten … die, die an einem Chapter dranhängen, tun
+wir einfach auf den ersten Slice, und schauen später." The place's `unlock` (slice / chapter position, read from the
+reading progress – §8.3a, §8.5's bidirectional unlock) is gone: migration `2026-10-11-unlock-location-events` turns every
+place's unlock into an `unlockLocation` event (`trigger: intersect`, id `unlock-<place>`) on its slice – found by its
+image in the chapter's documents, else the chapter's first slice – and removes `unlock` from the map (the airport's
+`unlock: null` too). Then the code: `PlaceUnlock`, `unlocksFromProgress`, `placesForSlice`, `placesUnlockedBy`,
+`sliceUnlockPoint` (content), `world.sliceSeen` / `setUnlockRules` (viewer, now `setPlaces` for the names), the place
+form's unlock fieldset and the sheet's Unlock tab, the slice inspector's map section (`slice-unlocks.svelte`) and
+`setSliceUnlock` (creator) went; `unlock` on a place is a validation error. `readerHere` breaks ties by the map's list
+order. Lost on purpose: the silent catch-up for readers who start in the middle – their places come with the events.
+**Order on production:** run the SQL first (the published viewer already runs unlockLocation), empty the API's library
+cache, then deploy.
+
 ### 8.6 Not built yet
 
 M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the

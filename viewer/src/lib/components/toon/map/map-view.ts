@@ -39,8 +39,7 @@ export interface StoredMapView {
 /**
  * Where the reader is on a toon's map: the toon's position (set by the story, `positions[toon]`) when it is a place on
  * the map; else the place of this toon the reader reached last – the most recently unlocked one, ties (several unlocked
- * at once, e.g. from the reading progress) by story order (the unlock's chapter, then its reading point). Null: nothing
- * reached yet.
+ * at once) by the map's list order (the later one). Null: nothing reached yet.
  */
 export function readerHere(places: readonly ReaderPlace[], toon: string, state: MapState): MapHere | null {
 	const at = (p: ReaderPlace | undefined): MapHere | null => {
@@ -54,16 +53,15 @@ export function readerHere(places: readonly ReaderPlace[], toon: string, state: 
 		const placed = at(places.find((p) => p.id === id));
 		if (placed) return placed;
 	}
+	// the latest unlock; unlocked together: the one later in the map's list (the order the places were laid out in)
 	let best: ReaderPlace | undefined;
-	let bestKey: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+	let bestAt = -Infinity;
 	for (const p of places) {
 		const unlocked = state.places?.[p.id]?.unlocked;
 		if (unlocked === undefined || !p.toons?.includes(toon)) continue;
-		const u = p.unlock && p.unlock.toon === toon ? p.unlock : null;
-		const key: [number, number, number] = [unlocked, u ? u.chapter : -1, u ? (u.at ?? 0) : -1];
-		if (key[0] > bestKey[0] || (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) {
+		if (unlocked >= bestAt) {
 			best = p;
-			bestKey = key;
+			bestAt = unlocked;
 		}
 	}
 	return at(best);

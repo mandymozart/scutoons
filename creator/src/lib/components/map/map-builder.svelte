@@ -427,7 +427,7 @@
 	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11, variant C): the properties slide up from below, one tab at a
 	//    time; closed it is its tab row only – a tap on a tab opens it there, on the open tab closes it; it closes
 	//    while the map is being dragged ─────────────────────────────────────────────────────────────────────────
-	type SheetTab = 'place' | 'image' | 'unlock' | 'view' | 'map' | 'start' | 'problems';
+	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start' | 'problems';
 	let sheetOpen = $state(false);
 	let sheetTab = $state<SheetTab>('map');
 	let mapDragging = $state(false);
@@ -436,7 +436,6 @@
 			return [
 				{ id: 'place', icon: 'info', label: m['creator.map_sheet_place']() },
 				{ id: 'image', icon: 'image', label: m['creator.map_image']() },
-				{ id: 'unlock', icon: 'unlock', label: m['creator.map_unlock']() },
 				{ id: 'view', icon: 'crosshair', label: m['creator.map_place_view']() }
 			];
 		if (selection) return [];
@@ -1010,7 +1009,6 @@
 		/* one tab at a time: the groups carry data-tab (place-props.svelte; the map / start view / problems here) */
 		.side[data-sheet-tab='place'] :global([data-tab]:not([data-tab='place'])),
 		.side[data-sheet-tab='image'] :global([data-tab]:not([data-tab='image'])),
-		.side[data-sheet-tab='unlock'] :global([data-tab]:not([data-tab='unlock'])),
 		.side[data-sheet-tab='view'] :global([data-tab]:not([data-tab='view'])),
 		.side[data-sheet-tab='map'] :global([data-tab]:not([data-tab='map'])),
 		.side[data-sheet-tab='start'] :global([data-tab]:not([data-tab='start'])),

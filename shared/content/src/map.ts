@@ -43,13 +43,11 @@ export interface MapPlace {
 	image?: MapImage;
 	/** the toons whose story uses the place (the builder's "used by", the reader's per-toon view) */
 	toons: string[];
-	/** hidden until it is unlocked (by `unlock`, later by an event) – default: visible from the start */
-	hidden?: boolean;
 	/**
-	 * where the story reaches the place (owner 2026-10-01: places unlock over time) – read before the events exist (M3).
-	 * `null` = deliberately "not unlockable yet" (owner 2026-10-01, the airport): hidden, and that is fine for now.
+	 * hidden until the story's `unlockLocation` event unlocks it – default: visible from the start (owner 2026-10-11: places
+	 * are unlocked by events only; the old slice / chapter link `unlock` went with migration 2026-10-11-unlock-location-events)
 	 */
-	unlock?: PlaceUnlock | null;
+	hidden?: boolean;
 	/** the chapter the place's card links to */
 	chapter?: { toon: string; number: number };
 	/**
@@ -68,25 +66,6 @@ export interface PlaceView {
 	offset?: { x: number; y: number };
 }
 
-/**
- * When a hidden place unlocks by reading progress: a chapter of a toon, from a reading position on (0..1 of the chapter,
- * the reader's chapter checkpoint – 0 = when the chapter is opened, 1 = its end). `scene` = the screenplay scene that
- * introduces the place (the reference for the event that replaces this rule in the editor, M3/M4).
- */
-export interface PlaceUnlock {
-	toon: string;
-	chapter: number;
-	/** reading position in the chapter, 0..1 (default 0) – the runtime rule; set from `slice` by the creator */
-	at?: number;
-	/**
-	 * the slice that unlocks it: its image path (the slice's identity – slices have no ids; the Figma pipeline keys slices by
-	 * image too). Edited from both sides (map builder, the chapter editor's slice), `at` follows it (`sliceUnlockPoint`).
-	 */
-	slice?: string;
-	/** the screenplay's scene number */
-	scene?: number;
-}
-
 /** A slice of a chapter in reading order: groups (scenes inlined) → slices */
 export interface ChapterSliceRef {
 	image: string;
@@ -103,34 +82,6 @@ export function chapterSlices(groups: readonly { slices?: readonly { image?: str
 	const out: ChapterSliceRef[] = [];
 	(groups ?? []).forEach((g, group) => (g?.slices ?? []).forEach((s, index) => out.push({ image: s?.image ?? '', group, index, overall: out.length })));
 	return out;
-}
-
-/**
- * The reading position at which a slice counts as read (the reader's checkpoint: `(slices before + 1) / slices`, capped at
- * 0.99 until the chapter's last slice = 1; viewer track-reading.ts), floored to 4 decimals. null when the chapter has no
- * slice with that image.
- */
-export function sliceUnlockPoint(slices: readonly ChapterSliceRef[], image: string): number | null {
-	const hit = slices.find((s) => s.image === image);
-	if (!hit || !image) return null;
-	const total = slices.length;
-	if (hit.overall === total - 1) return 1;
-	return Math.floor(Math.min(0.99, (hit.overall + 1) / total) * 10000) / 10000;
-}
-
-/**
- * The hidden places a seen slice unlocks (the reader: `unlock.slice` = the seen slice's image, in this toon's chapter) –
- * the runtime side of the slice unlock; `placesUnlockedBy` is the editor's (every place, hidden or not).
- */
-export function placesForSlice(places: readonly Pick<MapPlace, 'id' | 'hidden' | 'unlock'>[] | null | undefined, toon: string, chapter: number, image: string): string[] {
-	if (!image) return [];
-	return (places ?? []).filter((p) => p.hidden && p.unlock?.toon === toon && p.unlock.chapter === chapter && p.unlock.slice === image).map((p) => p.id);
-}
-
-/** The places a slice unlocks (`unlock.slice` = the slice's image, in this toon's chapter) */
-export function placesUnlockedBy(map: Pick<WorldMap, 'locations'> | null | undefined, toon: string, chapter: number, image: string): MapPlace[] {
-	if (!image) return [];
-	return (map?.locations ?? []).filter((p) => p.unlock?.toon === toon && p.unlock.chapter === chapter && p.unlock.slice === image);
 }
 
 export interface MapImage {
@@ -466,34 +417,9 @@ export function routeRevealedTo(route: RouteLike, state: MapState): number {
 	const r = state.routes[route.id];
 	return r ? Math.min(r.revealed, last) : -1;
 }
+
 /** A place unlocked but not seen on the opened map yet (the cyan halo, the toggle's badge) */
 export const isPlaceNew = (id: string, state: MapState): boolean => !!state.places[id] && state.places[id].seen === undefined;
-
-/**
- * The hidden places a toon's reading progress has reached. A place with an unlock **slice** unlocks when the reader sees
- * that slice (`placesForSlice`, the reading tracker) – the reading position can jump over slices the reader never saw
- * (a VN choice skips groups: chapter 2's "Auf Arbeit" skips the walk), so the position alone never unlocks it; only a
- * finished chapter does (readers who finished it before the slice rule existed). A place without a slice (its chapter
- * has no slices yet) unlocks from its chapter position `at` on, or when the chapter is finished. The reader writes them
- * into the world state (`unlockPlace`), so they stay unlocked everywhere – until the story events exist (M3).
- */
-export function unlocksFromProgress(
-	places: readonly Pick<MapPlace, 'id' | 'hidden' | 'unlock'>[],
-	toon: string,
-	checkpoints: readonly { uri: string; isComplete?: boolean; position?: number }[] | null | undefined
-): string[] {
-	const out: string[] = [];
-	const list = Array.isArray(checkpoints) ? checkpoints : [];
-	for (const p of places) {
-		const u = p.unlock;
-		if (!p.hidden || !u || u.toon !== toon) continue;
-		const cp = list.find((c) => c?.uri === `${toon}/chapter/${u.chapter}`);
-		if (!cp) continue;
-		const position = typeof cp.position === 'number' && Number.isFinite(cp.position) ? cp.position : cp.isComplete ? 1 : 0;
-		if (cp.isComplete || (!u.slice && position >= (u.at ?? 0))) out.push(p.id);
-	}
-	return out;
-}
 
 /**
  * Up to which waypoint a route is drawn for a reader: a visible route entirely; a hidden one up to its revealed index, else
@@ -763,19 +689,8 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		else if (!inside(p.x, p.y)) add('error', [...path, 'x'], `${what}: the position (${p.x}, ${p.y}) is outside the map`);
 		toonList(p.toons, [...path, 'toons'], what);
 		if (p.hidden !== undefined && typeof p.hidden !== 'boolean') add('error', [...path, 'hidden'], `${what}: hidden must be true or false`);
-		if (p.unlock === null) {
-			// "not unlockable yet" (owner 2026-10-01): a valid state, nothing to report
-		} else if (p.unlock !== undefined) {
-			const u = p.unlock;
-			if (!isObj(u) || typeof u.toon !== 'string' || !Number.isInteger(u.chapter) || u.chapter < 0) add('error', [...path, 'unlock'], `${what}: unlock must be { toon, chapter, at?, scene? }`);
-			else {
-				if (u.at !== undefined && (!isNum(u.at) || u.at < 0 || u.at > 1)) add('error', [...path, 'unlock', 'at'], `${what}: unlock.at is a reading position 0..1`);
-				if (u.scene !== undefined && (!Number.isInteger(u.scene) || u.scene < 0)) add('error', [...path, 'unlock', 'scene'], `${what}: unlock.scene is a screenplay scene number`);
-				if (u.slice !== undefined && (typeof u.slice !== 'string' || !u.slice)) add('error', [...path, 'unlock', 'slice'], `${what}: unlock.slice is the slice's image path`);
-				if (Array.isArray(p.toons) && !p.toons.includes(u.toon)) add('warning', [...path, 'unlock'], `${what}: unlocked in ${u.toon}, which is not in its toons`);
-				if (!p.hidden) add('info', [...path, 'unlock'], `${what}: visible from the start – the unlock point does nothing`);
-			}
-		} else if (p.hidden === true) add('warning', [...path, 'hidden'], `${what}: hidden, and nothing unlocks it yet (no unlock point; story events come later)`);
+		// the old slice / chapter link (owner 2026-10-11: places are unlocked by the unlockLocation event only)
+		if (p.unlock !== undefined) add('error', [...path, 'unlock'], `${what}: \`unlock\` is gone – an unlockLocation event on a slice or in a script unlocks the place (migration 2026-10-11-unlock-location-events)`);
 		if (p.chapter !== undefined) {
 			if (!isObj(p.chapter) || typeof p.chapter.toon !== 'string' || !Number.isInteger(p.chapter.number) || p.chapter.number < 0)
 				add('error', [...path, 'chapter'], `${what}: the chapter link must be { toon, number }`);

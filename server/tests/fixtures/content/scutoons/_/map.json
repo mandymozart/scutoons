@@ -23,14 +23,7 @@
 				"toon": "catpope",
 				"number": 2
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 2,
-				"at": 0.9545,
-				"slice": "s1/c2/s1c2-slice-21.webp",
-				"scene": 17
-			}
+			"hidden": true
 		},
 		{
 			"id": "apartment",
@@ -47,14 +40,7 @@
 				"toon": "catpope",
 				"number": 1
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 1,
-				"at": 0.0315,
-				"slice": "s1/c1/s1c1-slice-2.webp",
-				"scene": 2
-			}
+			"hidden": true
 		},
 		{
 			"id": "apartment-blocks",
@@ -71,14 +57,7 @@
 				"toon": "catpope",
 				"number": 1
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 1,
-				"at": 0.7684,
-				"slice": "s1/c1/s1c1-slice-72.webp",
-				"scene": 11
-			}
+			"hidden": true
 		},
 		{
 			"id": "church-square",
@@ -95,14 +74,7 @@
 				"toon": "catpope",
 				"number": 2
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 2,
-				"at": 0.909,
-				"slice": "s1/c2/s1c2-slice-20.webp",
-				"scene": 12
-			}
+			"hidden": true
 		},
 		{
 			"id": "waterfall-tower",
@@ -119,14 +91,7 @@
 				"toon": "catpope",
 				"number": 2
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 2,
-				"at": 0.1363,
-				"slice": "s1/c2/s1c2-slice-3.webp",
-				"scene": 13
-			}
+			"hidden": true
 		},
 		{
 			"id": "crossroads",
@@ -143,14 +108,7 @@
 				"toon": "catpope",
 				"number": 2
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 2,
-				"at": 0.4545,
-				"slice": "s1/c2/s1c2-slice-10.webp",
-				"scene": 14
-			}
+			"hidden": true
 		},
 		{
 			"id": "airport",
@@ -163,8 +121,7 @@
 			"toons": [
 				"catpope"
 			],
-			"hidden": true,
-			"unlock": null
+			"hidden": true
 		},
 		{
 			"id": "medival-street",
@@ -181,14 +138,7 @@
 				"toon": "catpope",
 				"number": 2
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 2,
-				"at": 0.7272,
-				"slice": "s1/c2/s1c2-slice-16.webp",
-				"scene": 15
-			}
+			"hidden": true
 		},
 		{
 			"id": "infinity-pool",
@@ -205,14 +155,7 @@
 				"toon": "catpope",
 				"number": 2
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 2,
-				"at": 0.2727,
-				"slice": "s1/c2/s1c2-slice-6.webp",
-				"scene": 16
-			}
+			"hidden": true
 		},
 		{
 			"id": "station",
@@ -229,13 +172,7 @@
 				"toon": "catpope",
 				"number": 2
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 2,
-				"at": 1,
-				"scene": 21
-			}
+			"hidden": true
 		},
 		{
 			"id": "mountain-village",
@@ -252,13 +189,7 @@
 				"toon": "catpope",
 				"number": 3
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 3,
-				"at": 0,
-				"scene": 25
-			}
+			"hidden": true
 		},
 		{
 			"id": "beyond-the-crossroads",
@@ -275,13 +206,7 @@
 				"toon": "catpope",
 				"number": 3
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 3,
-				"at": 0.05,
-				"scene": 26
-			}
+			"hidden": true
 		},
 		{
 			"id": "mountain-path",
@@ -298,13 +223,7 @@
 				"toon": "catpope",
 				"number": 3
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 3,
-				"at": 0.07,
-				"scene": 27
-			}
+			"hidden": true
 		},
 		{
 			"id": "forest-clearing",
@@ -321,13 +240,7 @@
 				"toon": "catpope",
 				"number": 3
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 3,
-				"at": 0.11,
-				"scene": 28
-			}
+			"hidden": true
 		},
 		{
 			"id": "monastery",
@@ -344,13 +257,7 @@
 				"toon": "catpope",
 				"number": 3
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 3,
-				"at": 0.18,
-				"scene": 28
-			}
+			"hidden": true
 		},
 		{
 			"id": "library",
@@ -367,13 +274,7 @@
 				"toon": "catpope",
 				"number": 3
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 3,
-				"at": 0.19,
-				"scene": 29
-			}
+			"hidden": true
 		},
 		{
 			"id": "crypt",
@@ -390,13 +291,7 @@
 				"toon": "catpope",
 				"number": 4
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 4,
-				"at": 0,
-				"scene": 35
-			}
+			"hidden": true
 		},
 		{
 			"id": "graveyard",
@@ -413,13 +308,7 @@
 				"toon": "catpope",
 				"number": 4
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 4,
-				"at": 0.2,
-				"scene": 36
-			}
+			"hidden": true
 		},
 		{
 			"id": "well",
@@ -436,13 +325,7 @@
 				"toon": "catpope",
 				"number": 4
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 4,
-				"at": 0.58,
-				"scene": 37
-			}
+			"hidden": true
 		},
 		{
 			"id": "garden",
@@ -459,13 +342,7 @@
 				"toon": "catpope",
 				"number": 5
 			},
-			"hidden": true,
-			"unlock": {
-				"toon": "catpope",
-				"chapter": 5,
-				"at": 1,
-				"scene": 38
-			}
+			"hidden": true
 		}
 	],
 	"routes": [

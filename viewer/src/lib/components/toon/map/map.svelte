@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { unlocksFromProgress, type ReaderMap } from '@scutoons/content';
+	import type { ReaderMap } from '@scutoons/content';
 	import { fetchMap } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
-	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import mapIcon from '$lib/icons/map.svg';
 	import MapOverlay from './map-overlay.svelte';
@@ -20,7 +19,6 @@
 	 * discoveries (`unlocksFromProgress` → the world state, universe-wide) before the story events exist (M3).
 	 */
 	const nav = getNavigationContext();
-	const game = getGameContext();
 	const world = getWorldContext();
 	const toon = $derived(page.params.toonId as string);
 	const open = $derived(nav.isOpen('map'));
@@ -63,16 +61,9 @@
 		}
 	});
 
-	// the places' unlock slices for the reading tracker (a seen slice unlocks its places, world.sliceSeen)
+	// the places' names for the texts (map.total / map.here)
 	$effect(() => {
-		if (data && world) world.setUnlockRules(data.locations);
-	});
-
-	// reading progress → discoveries (set operations: nothing happens twice)
-	$effect(() => {
-		if (!data || !world || !game) return;
-		const ids = unlocksFromProgress(data.locations, toon, game.state.progress);
-		if (ids.some((id) => !world.map.places[id])) world.unlock(ids);
+		if (data && world) world.setPlaces(data.locations);
 	});
 
 	$effect(() => {

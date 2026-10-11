@@ -105,18 +105,7 @@
 				},
 				"hidden": {
 					"type": "boolean",
-					"description": "hidden until it is unlocked (by `unlock`, later by an event) – default: visible from the start"
-				},
-				"unlock": {
-					"anyOf": [
-						{
-							"$ref": "#/definitions/PlaceUnlock"
-						},
-						{
-							"type": "null"
-						}
-					],
-					"description": "where the story reaches the place (owner 2026-10-01: places unlock over time) – read before the events exist (M3). `null` = deliberately \"not unlockable yet\" (owner 2026-10-01, the airport): hidden, and that is fine for now."
+					"description": "hidden until the story's `unlockLocation` event unlocks it – default: visible from the start (owner 2026-10-11: places are unlocked by events only; the old slice / chapter link `unlock` went with migration 2026-10-11-unlock-location-events)"
 				},
 				"chapter": {
 					"type": "object",
@@ -189,34 +178,6 @@
 			"required": [
 				"src"
 			]
-		},
-		"PlaceUnlock": {
-			"type": "object",
-			"properties": {
-				"toon": {
-					"type": "string"
-				},
-				"chapter": {
-					"type": "number"
-				},
-				"at": {
-					"type": "number",
-					"description": "reading position in the chapter, 0..1 (default 0) – the runtime rule; set from `slice` by the creator"
-				},
-				"slice": {
-					"type": "string",
-					"description": "the slice that unlocks it: its image path (the slice's identity – slices have no ids; the Figma pipeline keys slices by image too). Edited from both sides (map builder, the chapter editor's slice), `at` follows it (`sliceUnlockPoint`)."
-				},
-				"scene": {
-					"type": "number",
-					"description": "the screenplay's scene number"
-				}
-			},
-			"required": [
-				"toon",
-				"chapter"
-			],
-			"description": "When a hidden place unlocks by reading progress: a chapter of a toon, from a reading position on (0..1 of the chapter, the reader's chapter checkpoint – 0 = when the chapter is opened, 1 = its end). `scene` = the screenplay scene that introduces the place (the reference for the event that replaces this rule in the editor, M3/M4)."
 		},
 		"PlaceView": {
 			"type": "object",

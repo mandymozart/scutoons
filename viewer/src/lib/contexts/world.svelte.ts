@@ -8,8 +8,8 @@
 // (no SQL reaches a browser; nothing an author did is involved, so no creator feedback – HANDOVER's exception).
 // Per toon is only the view on it (contexts/game.svelte.ts: the toon of the page, its checkpoints).
 //
-// Map writers: the reading – a seen slice (`sliceSeen`) and the chapter progress (`unlocksFromProgress`); the story
-// events (unlockLocation, revealRoute, travel, setPosition – MAP.md §3) call the same operations in M3.
+// Map writers: the story's events – unlockLocation (map-reveal.ts; owner 2026-10-11: places are unlocked by events only,
+// the old slice / reading-progress link went), later revealRoute, travel, setPosition (MAP.md §3) – set operations.
 import { getContext, setContext } from 'svelte';
 import {
 	SAVE_GAME_KEY,
@@ -26,11 +26,9 @@ import {
 	type OldToonState,
 	type SaveGame,
 	markPlacesSeen,
-	placesForSlice,
 	revealRoute,
 	setPosition,
 	unlockPlace,
-	type MapPlace,
 	type MapPosition
 } from '@scutoons/content';
 import { fetchProgress, putProgress } from '$lib/api.ts';
@@ -265,31 +263,11 @@ export function createWorldContext(session: SessionContext | null) {
 		save();
 	}
 
-	// ── slice unlocks: the reading tracker reports every slice passed; the map's places (loaded when the browser is idle,
-	// `toon/map/map.svelte`) say which slice unlocks which place. Slices seen before they arrived wait here (this visit). ──
-
-	type UnlockRules = readonly (Pick<MapPlace, 'id' | 'hidden' | 'unlock'> & { name?: string })[];
-	let rules: UnlockRules | null = null;
 	/** the world's places with their names (the reader's language) once the map data is there – texts read `map.total` / `map.here` */
 	let places = $state<readonly { id: string; name?: string }[] | null>(null);
-	const waiting: { toon: string; chapter: number; image: string }[] = [];
-
-	/** A slice of a toon's chapter was seen: unlock the places it unlocks; returns the ids that were new */
-	function sliceSeen(toon: string, chapter: number, image: string): string[] {
-		if (!image) return [];
-		if (!rules) {
-			waiting.push({ toon, chapter, image });
-			return [];
-		}
-		return unlock(placesForSlice(rules, toon, chapter, image));
-	}
-
-	/** The world's places (with their `unlock` and name), set once the map data is loaded */
-	function setUnlockRules(loaded: UnlockRules) {
-		rules = loaded;
+	/** The world's places (id + name), set once the map data is loaded (toon/map/map.svelte) */
+	function setPlaces(loaded: readonly { id: string; name?: unknown }[]) {
 		places = loaded.map((p) => ({ id: p.id, name: typeof p.name === 'string' ? p.name : undefined }));
-		const ids = waiting.splice(0).flatMap((s) => placesForSlice(loaded, s.toon, s.chapter, s.image));
-		if (ids.length) unlock(ids);
 	}
 
 	load();
@@ -321,8 +299,7 @@ export function createWorldContext(session: SessionContext | null) {
 			return Object.values(state.map.places).some((p) => p.seen === undefined);
 		},
 		unlock,
-		sliceSeen,
-		setUnlockRules,
+		setPlaces,
 		seen,
 		reveal,
 		position,

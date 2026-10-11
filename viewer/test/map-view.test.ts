@@ -17,12 +17,12 @@ const places = [
 const state = (unlocked: Record<string, number>, positions: Record<string, unknown> = {}) =>
 	({ places: Object.fromEntries(Object.entries(unlocked).map(([id, t]) => [id, { unlocked: t }])), routes: {}, positions }) as any;
 
-test('here: the most recently unlocked place of this toon; ties by story order', () => {
+test('here: the most recently unlocked place of this toon; ties: the later one in the map’s list', () => {
 	assert.equal(readerHere(places, 'catpope', state({})), null);
 	assert.equal(readerHere(places, 'catpope', state({ apartment: 1 }))?.id, 'apartment');
-	// unlocked together (the reading progress): the later one in the story
+	// unlocked together: the later one in the map's list
 	assert.equal(readerHere(places, 'catpope', state({ apartment: 5, 'apartment-blocks': 5, 'waterfall-tower': 5 }))?.id, 'waterfall-tower');
-	// a later unlock wins over story order (an event, a slice seen later)
+	// a later unlock wins over the list order
 	assert.equal(readerHere(places, 'catpope', state({ apartment: 9, 'waterfall-tower': 5 }))?.id, 'apartment');
 	// other toons' places are not this toon's "here"
 	assert.equal(readerHere(places, 'catpope', state({ pond: 99, apartment: 1 }))?.id, 'apartment');

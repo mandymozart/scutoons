@@ -6,8 +6,6 @@ import { readFileSync } from 'node:fs';
 import {
 	bezierPath,
 	chapterSlices,
-	placesUnlockedBy,
-	sliceUnlockPoint,
 	checkWorldMap,
 	emptyMapState,
 	isPlaceVisible,
@@ -23,8 +21,6 @@ import {
 	routeDrawnTo,
 	routePoints,
 	unlockPlace,
-	unlocksFromProgress,
-	placesForSlice,
 	placeView,
 	PLACE_ZOOM,
 	visibleLabels,
@@ -82,38 +78,6 @@ test('state operations are idempotent set operations', () => {
 	assert.deepEqual(s.places.home, { unlocked: 1, seen: 5 });
 });
 
-test('unlocksFromProgress: a hidden place unlocks when its chapter is read up to its point', () => {
-	const places = [
-		{ id: 'home', hidden: true, unlock: { toon: 't', chapter: 1, at: 0 } },
-		{ id: 'street', hidden: true, unlock: { toon: 't', chapter: 1, at: 0.8 } },
-		{ id: 'end', hidden: true, unlock: { toon: 't', chapter: 2, at: 1 } },
-		{ id: 'other', hidden: true, unlock: { toon: 'x', chapter: 1 } },
-		{ id: 'open', unlock: { toon: 't', chapter: 1 } }
-	];
-	const cp = (chapter: number, position: number, isComplete = false) => ({ uri: `t/chapter/${chapter}`, position, isComplete });
-	assert.deepEqual(unlocksFromProgress(places, 't', []), []);
-	assert.deepEqual(unlocksFromProgress(places, 't', [cp(1, 0.1)]), ['home']);
-	assert.deepEqual(unlocksFromProgress(places, 't', [cp(1, 0.8)]), ['home', 'street']);
-	assert.deepEqual(unlocksFromProgress(places, 't', [cp(1, 0.2, true), cp(2, 0.99)]), ['home', 'street'], 'finished once = every point; 0.99 < the end');
-	assert.deepEqual(unlocksFromProgress(places, 't', [cp(2, 1, true)]), ['end']);
-});
-
-test('slice unlocks: a place with an unlock slice unlocks when that slice is seen, not by the position', () => {
-	const places = [
-		{ id: 'tower', hidden: true, unlock: { toon: 't', chapter: 2, slice: 'images/s2-3.webp', at: 0.1364 } },
-		{ id: 'pool', hidden: true, unlock: { toon: 't', chapter: 2, slice: 'images/s2-6.webp', at: 0.2727 } },
-		{ id: 'station', hidden: true, unlock: { toon: 't', chapter: 2, at: 1 } },
-		{ id: 'shown', unlock: { toon: 't', chapter: 2, slice: 'images/s2-3.webp' } },
-		{ id: 'elsewhere', hidden: true, unlock: { toon: 't', chapter: 1, slice: 'images/s2-3.webp' } }
-	];
-	assert.deepEqual(placesForSlice(places, 't', 2, 'images/s2-3.webp'), ['tower'], 'hidden, this toon, this chapter, this image');
-	assert.deepEqual(placesForSlice(places, 't', 2, ''), []);
-	assert.deepEqual(placesForSlice(places, 'x', 2, 'images/s2-3.webp'), []);
-	const cp = (position: number, isComplete = false) => ({ uri: 't/chapter/2', position, isComplete });
-	assert.deepEqual(unlocksFromProgress(places, 't', [cp(0.9)]), [], 'a position past the point does not unlock a slice place (a VN choice can skip it)');
-	assert.deepEqual(unlocksFromProgress(places, 't', [cp(1, true)]), ['tower', 'pool', 'station'], 'a finished chapter unlocks them all');
-});
-
 test('visibility and the drawn part of a route', () => {
 	const s = emptyMapState();
 	const route = { id: 'season1', waypoints: [{ location: 'airport' }, { location: 'home' }, { location: 'street' }, { location: 'garden' }] };
@@ -149,16 +113,16 @@ test('resolveWorldMap: names in a locale, fallback to de', () => {
 	assert.deepEqual(r.routes[0].waypoints[1], { id: 'p', x: 2, y: 2, name: 'Pass' });
 });
 
-test('checkWorldMap: ids, positions, waypoints, unlock points', () => {
+test('checkWorldMap: ids, positions, waypoints; the old unlock link is an error', () => {
 	const problems = (map: object) => checkWorldMap(map, { toons: ['t'] }).map((p) => `${p.level} ${p.path.join('.')}`);
 	const ok = { width: 100, height: 50, layers: [{ id: 'terrain', image: 'a/t.svg' }], locations: [{ id: 'a', name: { de: 'A' }, x: 1, y: 1, toons: ['t'] }], routes: [] };
 	assert.deepEqual(problems(ok), []);
 	assert.deepEqual(problems({ ...ok, locations: [...ok.locations, { id: 'a', name: { de: 'B' }, x: 200, y: 1, toons: [] }] }), ['error locations.1.id', 'error locations.1.x', 'warning locations.1.toons']);
 	assert.deepEqual(problems({ ...ok, routes: [{ id: 'r', name: { de: 'R' }, toons: ['t'], waypoints: [{ location: 'a' }] }] }), ['error routes.0.waypoints']);
 	assert.deepEqual(problems({ ...ok, routes: [{ id: 'r', name: { de: 'R' }, toons: ['t'], style: 'boat', waypoints: [{ location: 'a' }, { id: 'a', x: 1, y: 1 }] }] }), ['error routes.0.style', 'error routes.0.waypoints.1.id']);
-	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true }] }), ['warning locations.0.hidden'], 'hidden and nothing unlocks it');
-	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: null }] }), [], '"not unlockable yet" is a valid state');
-	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: { toon: 't', chapter: 1, at: 2 } }] }), ['error locations.0.unlock.at']);
+	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true }] }), [], 'hidden: an unlockLocation event unlocks it (the map cannot see the events)');
+	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: null }] }), ['error locations.0.unlock'], 'unlock is gone (2026-10-11)');
+	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: { toon: 't', chapter: 1 } }] }), ['error locations.0.unlock']);
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
 });
 
@@ -201,25 +165,11 @@ test('wanted images: every place without an image, derived from the map (all 20 
 	assert.equal(media.find((r) => r.id === 'map-place:airport')?.path, 'catpope/map/places/airport.webp');
 });
 
-test('the unlocking slice: its reading point (the reader checkpoint rule) and the places it unlocks', () => {
+test('a chapter’s slices in reading order', () => {
 	const groups = [{ slices: [{ image: 'a.webp' }, { image: 'b.webp' }] }, { label: 'scene' }, { slices: [{ image: 'c.webp' }, { image: 'd.webp' }] }];
 	const slices = chapterSlices(groups);
 	assert.deepEqual(
 		slices.map((s) => [s.image, s.group, s.index, s.overall]),
 		[['a.webp', 0, 0, 0], ['b.webp', 0, 1, 1], ['c.webp', 2, 0, 2], ['d.webp', 2, 1, 3]]
 	);
-	assert.equal(sliceUnlockPoint(slices, 'a.webp'), 0.25);
-	assert.equal(sliceUnlockPoint(slices, 'c.webp'), 0.75);
-	assert.equal(sliceUnlockPoint(slices, 'd.webp'), 1, 'the last slice = the end');
-	assert.equal(sliceUnlockPoint(slices, 'x.webp'), null);
-	const many = chapterSlices([{ slices: Array.from({ length: 200 }, (_, i) => ({ image: `${i}.webp` })) }]);
-	assert.equal(sliceUnlockPoint(many, '198.webp'), 0.99, 'capped at 0.99 before the end, like the reader');
-	const map = {
-		locations: [
-			{ id: 'p', name: { de: 'P' }, x: 1, y: 1, toons: ['t'], hidden: true, unlock: { toon: 't', chapter: 1, slice: 'b.webp', at: 0.5 } },
-			{ id: 'q', name: { de: 'Q' }, x: 1, y: 1, toons: ['t'], hidden: true, unlock: { toon: 't', chapter: 2, slice: 'b.webp' } }
-		]
-	};
-	assert.deepEqual(placesUnlockedBy(map, 't', 1, 'b.webp').map((p) => p.id), ['p']);
-	assert.deepEqual(placesUnlockedBy(map, 't', 1, ''), []);
 });
