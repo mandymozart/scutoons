@@ -550,7 +550,9 @@
 		"import_unknown_item": "{file}: kein Item mit dieser ID",
 		"import_unknown_variant": "{file}: {item} hat keine solche Variante",
 		"import_unknown_recipe": "{file}: kein Rezept mit dieser ID",
-		"import_recipes_hint": "Dateien namens <rezept-id>.png: WebP (höchstens 1024 px), hochgeladen nach <toon>/items/recipes/, als Bild des Rezepts gesetzt (ohne eigenes sehen Lesende das Bild des Ergebnis-Items)"
+		"import_recipes_hint": "Dateien namens <rezept-id>.png: WebP (höchstens 1024 px), hochgeladen nach <toon>/items/recipes/, als Bild des Rezepts gesetzt (ohne eigenes sehen Lesende das Bild des Ergebnis-Items)",
+		"in_creator": "Dieser Teil des Katalogs zieht in den Creator: dort mit Entwürfen, Versionen und Review. Physische Änderungen brauchen auch hier die Regel „Physische Items“.",
+		"in_creator_link": "Im Creator öffnen"
 	},
 	"content": {
 		"title": "Inhalte",

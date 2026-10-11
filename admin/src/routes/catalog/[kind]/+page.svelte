@@ -95,6 +95,10 @@
 <Tabs {tabs} value={kind} label={m['catalog.title']()} onchange={(id) => goto(`/catalog/${id}`, { keepFocus: true, noScroll: true })}>
 	{#snippet children()}
 		{#if error}<p class="error-box" role="alert">{error}</p>{/if}
+		{#if ['items', 'recipes', 'albums', 'products', 'editions'].includes(kind)}
+			<!-- the move into the creator (agents/CATALOG-IN-CREATOR.md): drafts, versions, review there; physical changes need the rule here too -->
+			<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/{kind}" target="_blank" rel="noopener">{m['catalog.in_creator_link']()}</a></p>
+		{/if}
 		{#if kind === 'products'}
 			<p class="muted note">{m['catalog.featured_note']()} <a href="/homepage">{m['nav.homepage']()}</a></p>
 		{/if}
