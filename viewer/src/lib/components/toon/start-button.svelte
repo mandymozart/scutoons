@@ -42,13 +42,15 @@
 	});
 	// the bar only for a chapter in progress, from the stored position (slices seen / the chapter's slices)
 	const percent = $derived(reading?.kind === 'continue' ? Math.max(1, Math.round(reading.position * 100)) : null);
+	// "continue" opens the chapter where the reader stopped (`?resume`, the chapter page scrolls there – BACKLOG 10.69)
+	const href = $derived(reading ? `${localizeHref(`/${toonId}/chapter/${reading.chapter}`)}${reading.kind === 'continue' && reading.spot ? '?resume' : ''}` : '');
 </script>
 
 {#if reading && target}
 	<div class="start" class:inverse>
 		<a
 			class="start-button sc-control"
-			href={localizeHref(`/${toonId}/chapter/${reading.chapter}`)}
+			{href}
 			title={reading.kind === 'prologue'
 				? m['start.prologue_title']({ season, title: target.title ?? '' })
 				: m['start.title']({ season, chapter: chapterShownNumber(reading.chapter) ?? reading.chapter, title: target.title ?? '' })}

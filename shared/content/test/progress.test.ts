@@ -2,7 +2,7 @@
 //   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceCheckpoint, chapterCheckpointUri, chapterProgress, nextStep, readingState, type Checkpoint } from '../src/index.ts';
+import { advanceCheckpoint, chapterCheckpointUri, chapterProgress, checkpointSpot, nextStep, readingState, type Checkpoint } from '../src/index.ts';
 
 const cp = (n: number, position: number | undefined, isComplete: boolean, t: string, toon = 't'): Checkpoint => ({
 	uri: chapterCheckpointUri(toon, n),
@@ -22,7 +22,7 @@ test('readingState: nothing read → the first readable chapter', () => {
 
 test('readingState: the last opened chapter decides', () => {
 	// started, not finished → continue it (with its position)
-	assert.deepEqual(readingState('t', [1, 2, 3], [cp(1, 1, true, '2026-01-01'), cp(2, 0.4, false, '2026-01-02')]), { kind: 'continue', chapter: 2, position: 0.4 });
+	assert.deepEqual(readingState('t', [1, 2, 3], [cp(1, 1, true, '2026-01-01'), cp(2, 0.4, false, '2026-01-02')]), { kind: 'continue', chapter: 2, position: 0.4, spot: null });
 	// finished → the next readable chapter
 	assert.deepEqual(readingState('t', [1, 2, 3], [cp(1, 1, true, '2026-01-01')]), { kind: 'next', chapter: 2 });
 	// finished the last one, an earlier one never finished → that one
@@ -30,9 +30,9 @@ test('readingState: the last opened chapter decides', () => {
 	// everything finished → again from the start
 	assert.deepEqual(readingState('t', [1, 2], [cp(1, 1, true, '2026-01-01'), cp(2, 1, true, '2026-01-02')]), { kind: 'again', chapter: 1 });
 	// re-reading chapter 1 after finishing everything → continue chapter 1
-	assert.deepEqual(readingState('t', [1, 2], [cp(1, 0.2, true, '2026-01-03'), cp(2, 1, true, '2026-01-02')]), { kind: 'continue', chapter: 1, position: 0.2 });
+	assert.deepEqual(readingState('t', [1, 2], [cp(1, 0.2, true, '2026-01-03'), cp(2, 1, true, '2026-01-02')]), { kind: 'continue', chapter: 1, position: 0.2, spot: null });
 	// older checkpoints without position
-	assert.deepEqual(readingState('t', [1, 2], [cp(1, undefined, false, '2026-01-01')]), { kind: 'continue', chapter: 1, position: 0 });
+	assert.deepEqual(readingState('t', [1, 2], [cp(1, undefined, false, '2026-01-01')]), { kind: 'continue', chapter: 1, position: 0, spot: null });
 	assert.deepEqual(readingState('t', [1, 2], [cp(1, undefined, true, '2026-01-01')]), { kind: 'next', chapter: 2 });
 });
 
@@ -44,10 +44,10 @@ test('readingState: the prologue (chapter 0) first, then the chapters as before'
 	// watched to its end (ended / ≥ 95 % = position 1) → chapter 1
 	assert.deepEqual(readingState('t', [0, 1, 2], [cp(0, 1, true, '2026-01-01')]), { kind: 'start', chapter: 1 });
 	// a reader of chapter 1 who never watched it → the chapters' rules
-	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 0.3, false, '2026-01-01')]), { kind: 'continue', chapter: 1, position: 0.3 });
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 0.3, false, '2026-01-01')]), { kind: 'continue', chapter: 1, position: 0.3, spot: null });
 	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 1, true, '2026-01-01')]), { kind: 'next', chapter: 2 });
 	// the prologue watched again after chapter 1 → chapter 1 is still the last opened chapter
-	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 0.3, false, '2026-01-01'), cp(0, 1, true, '2026-01-02')]), { kind: 'continue', chapter: 1, position: 0.3 });
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 0.3, false, '2026-01-01'), cp(0, 1, true, '2026-01-02')]), { kind: 'continue', chapter: 1, position: 0.3, spot: null });
 	// everything finished → "again" from chapter 1, never the prologue
 	assert.deepEqual(readingState('t', [0, 1, 2], [cp(0, 1, true, '2026-01-01'), cp(1, 1, true, '2026-01-02'), cp(2, 1, true, '2026-01-03')]), { kind: 'again', chapter: 1 });
 	assert.deepEqual(readingState('t', [0, 1], [cp(1, 1, true, '2026-01-02')]), { kind: 'again', chapter: 1 });
@@ -70,6 +70,27 @@ test('advanceCheckpoint: positions only grow, a finished chapter opened again st
 	assert.deepEqual([done.position, done.isComplete], [1, true]);
 	const again = advanceCheckpoint(done, uri, 0.02, true, 'e')!;
 	assert.deepEqual([again.position, again.isComplete, again.created_at], [0.02, true, 'a']);
+});
+
+test('advanceCheckpoint: the spot (group / slice) follows the furthest position (BACKLOG 10.69)', () => {
+	const uri = chapterCheckpointUri('t', 1);
+	const first = advanceCheckpoint(undefined, uri, 0.1, true, 'a', { group: 0, slice: 2 })!;
+	assert.deepEqual(checkpointSpot(first), { group: 0, slice: 2 });
+	const further = advanceCheckpoint(first, uri, 0.4, false, 'b', { group: 2, slice: 1 })!;
+	assert.deepEqual(checkpointSpot(further), { group: 2, slice: 1 });
+	assert.equal(advanceCheckpoint(further, uri, 0.2, false, 'c', { group: 1, slice: 0 }), null, 'reading back above it keeps it');
+	const reopened = advanceCheckpoint(further, uri, 0.05, true, 'd', { group: 0, slice: 0 })!;
+	assert.deepEqual([checkpointSpot(reopened), reopened.position, reopened.updated_at], [{ group: 2, slice: 1 }, 0.4, 'd'], 'a new visit keeps the spot');
+	const done = advanceCheckpoint(reopened, uri, 1, false, 'e', { group: 5, slice: 3 })!;
+	const again = advanceCheckpoint(done, uri, 0.02, true, 'f', { group: 0, slice: 0 })!;
+	assert.deepEqual([checkpointSpot(again), again.position, again.isComplete], [{ group: 0, slice: 0 }, 0.02, true], 'a new read-through starts a new spot');
+	// an older checkpoint without a spot gets one at the same position; a report without a spot keeps the stored one
+	const old = advanceCheckpoint({ uri, isComplete: false, position: 0.3, created_at: 'a', updated_at: 'a' }, uri, 0.3, false, 'g', { group: 1, slice: 4 })!;
+	assert.deepEqual(checkpointSpot(old), { group: 1, slice: 4 });
+	assert.deepEqual(checkpointSpot(advanceCheckpoint(old, uri, 0.5, false, 'h')!), { group: 1, slice: 4 });
+	assert.equal(checkpointSpot({ uri, isComplete: false, group: -1, slice: 0, created_at: '', updated_at: '' }), null);
+	// the start button's "continue" carries it
+	assert.deepEqual(readingState('t', [1, 2], [further]), { kind: 'continue', chapter: 1, position: 0.4, spot: { group: 2, slice: 1 } });
 });
 
 test('chapterProgress: never opened, in progress, finished and read again', () => {

@@ -1,4 +1,4 @@
-import { variableKey, type Checkpoint, type ReaderHistory } from '@scutoons/content';
+import { variableKey, type Checkpoint, type ReaderHistory, type ReadingSpotRef } from '@scutoons/content';
 import { setContext, getContext, onDestroy } from 'svelte';
 import { getWorldContext, type WorldContext } from './world.svelte.ts';
 
@@ -60,8 +60,9 @@ export function createGameContext(toonId: string, world: WorldContext) {
 		hasCheckpoint: world.hasCheckpoint,
 		addCheckpoint: world.addCheckpoint,
 		completeCheckpoint: world.completeCheckpoint,
-		/** reading progress of a chapter of THIS toon (0..1, `fresh` = the first call of this visit) */
-		readChapter: (chapter: number, position: number, fresh: boolean) => world.readChapter(toonId, chapter, position, fresh),
+		/** reading progress of a chapter of THIS toon (0..1, `fresh` = the first call of this visit, `spot` = group / slice there) */
+		readChapter: (chapter: number, position: number, fresh: boolean, spot?: ReadingSpotRef | null) =>
+			world.readChapter(toonId, chapter, position, fresh, spot),
 		visits: world.visits,
 		recordVisit: world.recordVisit,
 		sync: world.sync

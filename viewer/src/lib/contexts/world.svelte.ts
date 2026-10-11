@@ -30,7 +30,8 @@ import {
 	revealRoute,
 	setPosition,
 	unlockPlace,
-	type MapPosition
+	type MapPosition,
+	type ReadingSpotRef
 } from '@scutoons/content';
 import { fetchProgress, putProgress } from '$lib/api.ts';
 import { MAP_VIEW_KEY } from '$lib/components/toon/map/map-view.ts';
@@ -225,12 +226,13 @@ export function createWorldContext(session: SessionContext | null) {
 
 	/**
 	 * Reading progress of a toon's chapter (the toon page's start button, agents/DESIGN.md "Start button"): `position` =
-	 * how far (0..1); `fresh` = the first call of this visit.
+	 * how far (0..1); `fresh` = the first call of this visit; `spot` = the group / slice there ("continue" opens it,
+	 * BACKLOG 10.69).
 	 */
-	function readChapter(toon: string, chapter: number, position: number, fresh: boolean) {
+	function readChapter(toon: string, chapter: number, position: number, fresh: boolean, spot?: ReadingSpotRef | null) {
 		const uri = chapterCheckpointUri(toon, chapter);
 		const index = state.progress.findIndex((p) => p.uri === uri);
-		const next = advanceCheckpoint(index >= 0 ? $state.snapshot(state.progress[index]) : undefined, uri, position, fresh, now());
+		const next = advanceCheckpoint(index >= 0 ? $state.snapshot(state.progress[index]) : undefined, uri, position, fresh, now(), spot);
 		if (!next) return;
 		if (index >= 0) state.progress[index] = next;
 		else state.progress.push(next);

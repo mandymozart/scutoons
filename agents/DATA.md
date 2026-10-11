@@ -236,7 +236,10 @@ key – the flow index lists every key with the toons that set / read it (`varia
 `toonFacts(…, { elsewhere })`: dead things (set here + read in another toon = used), "never true", the builder's names
 and unknown-name warnings judge all toons (TS `deadThings` and `FlowIndex.php` agree on the dev DB); a name that looks
 like another (`visits_harbor` / `visits_harbour`, `similarVariable`) warns.
-The fields: `variables` = the story variables, `progress` = the checkpoints, `history` =
+The fields: `variables` = the story variables, `progress` = the checkpoints (a chapter's: `{ uri: '<toon>/chapter/<n>',
+isComplete, position 0..1, group?, slice?, created_at, updated_at }` – `group` / `slice` = the furthest spot of the
+current read-through, index in the chapter's groups / in that group, since BACKLOG 10.69; the admin's user page and its
+Reading page read them, `ReadingReport.php`), `history` =
 the reader's history (EXPRESSIONS.md §5, `@scutoons/content` history.ts: `key → { n, first, last }` (count, ms), keys
 `text:<toon>/<chapter>/<box/<id>/<line> | vn/<group>/<origin>/<event>>#<list>` – visits of `{a|b|c}` lists;
 `event:<event id>` – runs of slice triggers' and placed items' tap events (step 3: their repeat rules – recurrence.ts

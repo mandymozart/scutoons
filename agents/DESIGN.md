@@ -159,7 +159,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   never): nothing read → the first; the **last opened** chapter (newest checkpoint) not read to its end → continue it;
   read to its end → the next readable chapter ("lesen"); after the last one → the first never-finished one; all
   finished → the first chapter "erneut lesen". Opening a finished chapter again starts a new read-through (position
-  from 0, `isComplete` stays).
+  from 0, `isComplete` stays). **"weiterlesen" opens the spot** (BACKLOG 10.69): the checkpoint keeps the furthest group /
+  slice of the read-through; with one the link is `/<toon>/chapter/<n>?resume` and the chapter page (on arrival) opens
+  that slice's page (its chain, by the label of it or a group above it – like the creator's "show") scrolled to the
+  slice, then drops `?resume` from the URL. Older checkpoints without a spot open at the top as before
+  (`scripts/check-resume.mjs`).
   **Prologue (chapter 0, owner 2026-10-01):** a visitor who has read nothing of the other chapters and hasn't watched the
   prologue to its end gets "Prolog ansehen →" / "Watch the prologue →" (`start.prologue`, state `prologue`, title
   "Staffel 1, Prolog: <title>") → `/<toon>/chapter/0`; once it was watched (the video ended or reached 95 %) the rules
