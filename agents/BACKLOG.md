@@ -37,7 +37,7 @@ Branch `claude/silly-mestorf-173e6e` in its own worktree `.claude/worktrees/sill
 - Not mine, seen on the way: `tools/mcp` typecheck fails on `main` (`src/server.ts:477` – `MapPlace.unlock` no longer
   exists); `npm run check:tools-css` reports older findings (phone-bar font sizes, hand-built tabs in place-props …).
 - Dev: this worktree has its own DB `scutoons_reading` (prod seed + 5 sample readers `reader1…5@reading.test`); drop
-  it when done (`SCUTOONS_DB_NAME=scutoons_reading npm run dev:db reset` or just leave it).
+  it when the branch is merged (`DROP DATABASE scutoons_reading` + `scutoons_reading_test`; the owner's `scutoons` is untouched).
 
 - [x] 10.69 **Where is a reader in a chapter** (owner 2026-10-11: "Wir haben ein Progress-Tracking irgendwie gehabt. Das
   ist aber für Story-Points, nicht für wie weit gelesen wurde in einem Chapter – das ist ja auch sehr aussagekräftig, wo
