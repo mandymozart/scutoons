@@ -563,11 +563,16 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
 
 - [ ] 10.64 **A media optimisation tool on the media standard** (owner 2026-10-11: "wir haben einen Standard definiert …
   die Leute können andere benutzen, aber wir empfehlen das Umkonvertieren – im Admin oder im Creator ein
-  Optimierungstool"). Built: `@scutoons/media` media-standard.ts (`checkMedia`, `toStandard`, `standardName`: PNG / JPEG →
-  WebP) – the asset picker's `webp` option uses it (the map's layers). Next: the importers (slice, character, map,
-  catalog) through `toStandard` instead of their own `toWebp` calls; a tool that lists assets off the standard and
-  converts them (a new version at the same path, `uploadOrReplace`); video (MP4 H.264 / WebM, 480p / 720p / 1080p) once
-  there is a way to run ffmpeg (not on the server: ffmpeg.wasm in the browser or a worker).
+  Optimierungstool"; 2026-10-12: "die Importe über den Medienstandard – bitte anfangen"). **Built 2026-10-12** (branch
+  `claude/amazing-hermann-2c20ad`, ASSETS.md "The media standard"): every importer through media-standard.ts (slice,
+  character, map with `-plaster` / `.2x` / `.3x` → 1x / 2x / 3x, catalog images, the asset picker's upload – converts by
+  default); the asset list counts each file's uses; **DRAFT** admin → Assets → Standard (the referenced files off the
+  standard, `media-audit.ts`). Open – owner decisions: (1) the tool in the admin (proposed) or the creator; (2) relinked
+  content as a new DRAFT (proposed) or published right away where the newest version was published; (3) the "too large"
+  limit (1 MB proposed); (4) missing 2x / 3x variants – needs the field's 1x width per use (slice 390, place 256) and
+  writing `imageVariants` / `variants` into content (a content edit, not a relink) – later; (5) the CDN must allow the
+  admin to read the source (CORS on bunny for admin.scutoons.com) – to check on production. Video stays blocked: no
+  ffmpeg on the host (ffmpeg.wasm in the browser or the 10.23 runner).
 - [ ] 10.68 **Phones: Save / Publish unreachable while something is selected** (owner 2026-10-11: "kein Publish – diesen
   UI-Fehler müssen wir unbedingt beheben, das ist sehr schwer nachvollziehbar"; UI-CONCEPTS E.10). The phone bar
   (shared/ui PhoneBar, creator MetaPage `phoneItems`) is REPLACED by the selection's own actions (`phoneSelection`, like

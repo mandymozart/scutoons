@@ -305,6 +305,20 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   Storage (drivers, bunny settings status, totals per kind, 30-day bandwidth chart). The asset sheet: preview, files per
   version, uses (with links into the creator), title / tags, replace, rename, relink, optimize (jobs), delete behind the
   check.
+- **The media standard** (BACKLOG 10.64, `@scutoons/media` media-standard.ts, owner 2026-10-11/12): images WebP (PNG /
+  JPEG converted, transparency kept; WebP / SVG / GIF as they are; a WebP within the size limit keeps its bytes), at most
+  `IMAGE_MAX_BYTES` (1 MB, to confirm); densities as suffixes `name.webp` / `.2x.webp` / `.3x.webp`, each made from the
+  file delivered for it, else the smallest bigger one (`densityPlan`, never scaled up), widths per density (slices 390 ×
+  n, place images 256 / 512 / 1024); video MP4 / WebM (no conversion – no ffmpeg on the host). EVERY importer goes
+  through it: slice import (`standardDensities`), character import + catalog item / recipe images (`standardImage`), the
+  map's import (`<id>` painted, `<id>-plaster` the plaster model, `.2x` / `.3x` / `@2x` in the name; 1x / 2x / 3x
+  written to `image.src` / `variants` / `plaster` / `plasterVariants`), the asset picker's upload (converts by default,
+  untickable; always with `webp`).
+- **Admin – Assets → Standard** (DRAFT 2026-10-12, listing only): `media-audit.ts` audits the files content / the
+  catalog REFERENCE (the list's per-file `usages`, AssetRegistry) – an unused PNG master beside its used WebP is
+  "Unused"'s business, not this tab's. Per file: `convert` (encode → a NEW file `standardName(path)`, `-2` … when taken,
+  then relink – a CDN path is never overwritten, PLATFORM.md), `twin` (the WebP is already a rendition – relink only),
+  none (video, a too-large WebP). Dev seed 2026-10-12: 85 referenced files (28 MB), 71 convert, 14 relink.
 
 ## Slice 1 and the trailer (owner: "can use the same asset and its resolution alternatives")
 
