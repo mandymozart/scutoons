@@ -281,6 +281,15 @@
 		filter: drop-shadow(0 0 8px var(--primary-color));
 		animation: notice-in 0.3s ease;
 	}
+	/* a place's toast is a button (a tap plays the reveal): the toast's look, not a button's – the global button colour
+	   made its text white on white (owner 2026-10-11) – and tappable although the stack lets taps through */
+	.notice.tap {
+		font: inherit;
+		color: var(--ink, #000);
+		text-align: left;
+		cursor: pointer;
+		pointer-events: auto;
+	}
 	@keyframes notice-in {
 		from {
 			transform: translateY(-0.5rem);
