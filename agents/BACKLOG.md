@@ -18,6 +18,10 @@ push, small owner-described fixes are built, bigger UI gets a concept in UI-CONC
   plus padding. Max ONE line: message + actions in a row, compact padding, no bold second sentence (fold "older version"
   into the line or into the `title` tooltip); ellipsis if the line is too long, full text in `title`. Same treatment
   for the other notices that use this component.
+- [x] **D2 – tools at 70 % on desktop.** Owner: "the default font size is too bold. we can just scale to 70 percent"
+  (they zoom the browser to 70 % on the laptop). Done 2026-10-11: tools.css `html:has(.sc-tool)` ≥ 768px = 24px × 0.7
+  (creator, admin, embassy; the reader unchanged). Look at: the creator's reader view / phone frame previews, if they
+  size in rem they shrink too.
 
 ## Storyboard night 2026-10-10 (owner asleep: "run all night and than create a second version of the draft in figma") – result, read this first
 

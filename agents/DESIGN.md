@@ -36,7 +36,7 @@ Border escalation: `border-subtle` → `border-muted` → `border-hover` → `in
 
 One family: **IBM Plex Mono** 400 / 700 (`viewer/static/fonts/-F63fjptAgt5VM-kVkqdyU8n1i8q1w.woff2`,
 `-F6qfjptAgt5VM-kVkqdyU8n3pQPwlBFgg.woff2`), stack `'IBM Plex Mono', monospace`. No italics except the VN narrator
-line. No heading scale — root font-size is fluid: **14px < 480px, 16px baseline, 24px ≥ 768px**; never hardcode px
+line. No heading scale — root font-size is fluid: **14px < 480px, 16px baseline, 24px ≥ 768px** (the tools – `.sc-tool`: creator, admin, embassy – 70 % of it on desktop, 16.8px; owner 2026-10-11, tools.css); never hardcode px
 overrides that break it.
 
 | Style | Size | Line height | Usage |

@@ -25,6 +25,15 @@
 	background: var(--paper);
 }
 
+/* The tools' desktop root: 70 % of the reader's 24px (owner 2026-10-11: "we can just scale to 70 percent and it will
+   be quite nice. I do that already on my laptop always in the browser"). Everything is rem, so the whole tool scales;
+   phones / tablets keep the reader's root. 768px / 24px: keep in sync with base.css. */
+@media (min-width: 768px) {
+	html:has(.sc-tool) {
+		font-size: calc(24px * 0.7);
+	}
+}
+
 /* ── Headings: one bold page title, then regular uppercase labels (no heading scale; bold only rarely, owner
    2026-10-02). `.sc-tool` (0,1,0) beats base.css's h1–h6 rule; a component's own class still wins ── */
 .sc-tool :where(h1) {
