@@ -87,8 +87,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 
 ## Open owner decisions / loose ends
 - 2026-10-11: `2026-10-11-unlock-location-events` ran on production (verified by MCP: no `unlock` on the map, events in
-  chapters 1–5) – pasted, so NOT recorded in `schema_migrations` (complete it before any automatic migrator, BACKLOG
-  10.61); empty the API's `storage/cache/library` once. Publish the map draft v257 (dioramas, sizes, grid). Lesson:
+  chapters 1–5) – pasted, so NOT recorded in `schema_migrations` – `2026-10-11-developer-role` records it (BACKLOG
+  10.61, built: run that file once in phpMyAdmin + set the secret MIGRATE_KEY – from then on the deploy runs migrations,
+  developers' agents over MCP); empty the API's `storage/cache/library` once. Publish the map draft v257 (dioramas, sizes, grid). Lesson:
   phpMyAdmin's connection is utf8mb4_unicode_ci, the tables utf8mb4_general_ci – migrations compare columns with
   literals, never user variables (#1267); give the owner a comment-free ASCII `.paste.sql`.
 - AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md, owner 2026-10-09; the Ask panel and service are

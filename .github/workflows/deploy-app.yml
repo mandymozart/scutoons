@@ -94,6 +94,26 @@ jobs:
           exclude: ${{ steps.plan.outputs.exclude }}
           log-level: standard
 
+      # the API is live: its pending DB migrations run now (BACKLOG 10.61, server/docs/DATABASE.md "Migrations") –
+      # dry run + apply on the server, the changed rows backed up there; a failed run fails this job
+      - name: 🗄️ DB migrations
+        if: inputs.app == 'api' && !inputs.dry-run
+        env:
+          MIGRATE_KEY: ${{ secrets.MIGRATE_KEY }}
+        run: |
+          if [ -z "$MIGRATE_KEY" ]; then echo "::warning title=DB migrations::No MIGRATE_KEY secret – pending migrations were not run"; exit 0; fi
+          status=$(curl -sS -o migrate.json -w '%{http_code}' -X POST https://api.scutoons.com/api/deploy/migrate -H "X-Migrate-Key: $MIGRATE_KEY")
+          {
+            echo "### Database migrations"
+            if [ "$(jq -r '.run' migrate.json)" = null ]; then echo "Nothing pending."; else
+              echo "**$(jq -r '.run.status' migrate.json)**: $(jq -r '.run.files | join(", ")' migrate.json)"
+              echo '```'
+              jq -r '.run.log // "", .run.error // empty' migrate.json
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 200 ]; then echo "::error title=DB migrations::HTTP $status – see the run summary"; cat migrate.json; exit 1; fi
+
       - name: ⚠️ Reminder
         if: steps.plan.outputs.reminder != ''
         run: echo "::warning title=${{ inputs.app }}::${{ steps.plan.outputs.reminder }}"

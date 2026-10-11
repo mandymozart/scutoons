@@ -25,4 +25,14 @@ final class ApcuCache implements Cache
     {
         apcu_store($this->prefix . $key, $value, $ttl);
     }
+
+    /** Only this prefix's entries (the pool may hold other apps' keys) */
+    public function clear(): int
+    {
+        $removed = 0;
+        foreach (new \APCUIterator('/^' . preg_quote($this->prefix, '/') . '/', APC_ITER_KEY) as $entry) {
+            if (apcu_delete((string) $entry['key'])) $removed++;
+        }
+        return $removed;
+    }
 }

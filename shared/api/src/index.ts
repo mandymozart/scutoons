@@ -167,3 +167,15 @@ export {
 	type AssetVersion,
 	type AssetsApi
 } from './assets.ts';
+export {
+	createDevApi,
+	type DevApi,
+	type MigrationFile,
+	type MigrationFilePlan,
+	type MigrationKind,
+	type MigrationRun,
+	type MigrationRunStatus,
+	type MigrationRunSummary,
+	type MigrationStatement,
+	type MigrationStatus
+} from './dev.ts';

@@ -19,6 +19,8 @@ export interface Services {
 	content: 'write' | 'read' | null;
 	embassy: boolean;
 	admin: boolean;
+	/** the database migrations (role developer, BACKLOG 10.61) */
+	developer: boolean;
 }
 
 /** the roles that open a service (Domain\Embassy: liaison / ambassador / admin; RequireRole admin; requireContentEditor) */
@@ -27,7 +29,8 @@ export function servicesOf(roles: readonly string[]): Services {
 	return {
 		content: has('creator') ? 'write' : has('admin') ? 'read' : null,
 		embassy: has('liaison') || has('ambassador') || has('admin'),
-		admin: has('admin')
+		admin: has('admin'),
+		developer: has('developer')
 	};
 }
 export const hasAny = (s: Services) => !!s.content || s.embassy || s.admin;

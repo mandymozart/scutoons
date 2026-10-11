@@ -199,6 +199,15 @@ viewer has no DialogHost); `delete_person` stays allowed for a token (internal d
 says so); `asset_usages` moved to the story tools (every content editor); the drop of the Ask tables is parked in
 `server/migrations/mysql/2026-10-09-drop-ask.mysql.sql` (run on production 2026-10-09).
 
+## 8. Developer: migrations (BACKLOG 10.61, built 2026-10-11)
+
+A role `developer` above admin (the owner's account; only a developer grants it, the last one stays). With it the
+member's normal AI connection lists `migration_status`, `plan_migrations` (a dry run) and `apply_migrations` (that plan)
+(`src/dev.ts`) – an exception to "Draft → link" by the owner's choice (2026-10-11: agents run production migrations
+from the computer; no admin UI). Only the files that came with the deploy run, never SQL from the agent. The deploy
+itself runs pending migrations after the API upload (`/api/deploy/migrate`, MIGRATE_KEY). Details:
+server/docs/DATABASE.md "Migrations", docs/API.md "Developer API".
+
 Open:
 - **Owner, production:** run `2026-10-09-mcp-drafts` + `2026-10-09-api-tokens` with the deploy (the SELECTs first);
   then delete the bunny app, the `ask.` DNS, the ghcr image, the GitHub vars `VITE_ASK_URL` / `BUNNY_ASK_*` and the

@@ -38,7 +38,8 @@
 				"tests/**",
 				"tools/**",
 				"docs/**",
-				"migrations/**",
+				"migrations/mysql/legacy/**",
+				"migrations/**/*.paste.sql",
 				"public/generate/**",
 				".github/**",
 				".phpunit.cache/**",
@@ -87,6 +88,7 @@
 						"EMBASSY_SMTP_PASS": "${EMBASSY_SMTP_PASS}",
 						"EMBASSY_CRON_KEY": "${EMBASSY_CRON_KEY}",
 						"NEWSLETTER_CRON_KEY": "${NEWSLETTER_CRON_KEY}",
+						"MIGRATE_KEY": "${MIGRATE_KEY}",
 						"EMBASSY_URL": "${EMBASSY_URL}",
 						"BUNNY_STORAGE_ZONE": "${BUNNY_STORAGE_ZONE}",
 						"BUNNY_STORAGE_ENDPOINT": "${BUNNY_STORAGE_ENDPOINT}",
@@ -100,7 +102,7 @@
 					}
 				}
 			},
-			"reminder": "Pending DB migrations are NOT run by the deploy: compare server/migrations/mysql/ with schema_migrations and run new files in phpMyAdmin first (server/docs/DATABASE.md)."
+			"reminder": "Pending DB migrations run right after the upload (POST /api/deploy/migrate with the secret MIGRATE_KEY – server/docs/DATABASE.md); without the secret they wait for a developer (MCP apply_migrations)."
 		},
 		"qr": {
 			"description": "qr/ → qr.scutoons.com (docroot qr/public/; root .htaccess forwards if the docroot is qr/)",

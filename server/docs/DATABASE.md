@@ -22,9 +22,35 @@ names the old `scripts/migrate.php` recorded, so existing databases re-run nothi
 New migration: add `migrations/mysql/<YYYY-MM-DD>-<name>.mysql.sql`, keep `migrations/schema/qr.mysql.sql` in sync for
 fresh databases, run `npm run dev:db` (migrates the local database) and `npm run dev:db test` (CI runs the same suite).
 
-**Production (no shell):** run the pending `*.mysql.sql` files in phpMyAdmin (SQL tab, database `d0487143` selected),
-in date order, after a backup (Export). Files with triggers need the delimiter `$$` (see the file header). There is no
-`schema_migrations` bookkeeping needed there – every file is idempotent.
+**Production (no shell) – through the API since 2026-10-11 (BACKLOG 10.61):** the deploy uploads `migrations/` (denied
+to the web by `.htaccess`) and, right after the API upload, calls `POST /api/deploy/migrate` with the header
+`X-Migrate-Key` (GitHub secret `MIGRATE_KEY` → `config.php`): the pending files are planned and applied, the result is in
+the run summary, a failed run fails the deploy job. A developer's agents do the same over MCP with their normal AI
+connection (role `developer`: `migration_status`, `plan_migrations`, `apply_migrations`). Code: `Domain\Dev\Migrations`,
+`MigrationRunner::plan()` / `applyFile()`, `SqlStatement`, `DevController` (docs/API.md "Developer API").
+
+- **Plan** = a dry run: a file of data statements only (INSERT / UPDATE / DELETE / REPLACE / SELECT / SET @…) runs in a
+  transaction that is rolled back – each statement's row count is shown; a file with DDL (CREATE / ALTER / DROP …
+  commit by themselves) is only listed. Each file is counted on its own (a data file that needs a pending DDL file
+  above it fails its dry run). Stored in `dev_migration_runs` with every file's SHA-256; a new plan makes older open ones
+  `stale`.
+- **Apply** a plan: only within a day of it, only when the pending files are still exactly the planned ones (same
+  names, same hashes – else `409 plan_stale`), one run at a time (`GET_LOCK`). A data-only file runs in one transaction
+  (all or nothing); a file with DDL statement by statement (what ran before an error stays – fix the file, it is
+  idempotent, run again). Right before each single-table UPDATE / DELETE its rows are written to
+  `storage/migration-backups/<time>-<run>.jsonl` (`{ migration, statement, table, row }` per line; statements over
+  several tables, REPLACE and ON DUPLICATE KEY are logged as "no backup"). After data statements the library cache is
+  emptied. Who / what triggered it, when and the log stay in `dev_migration_runs`.
+- **Write migrations for it:** never DDL and data in one file (the data then isn't dry-run and not all-or-nothing);
+  compare with literals, not user variables (the connection collation is `DB_COLLATION` = utf8mb4_general_ci – #1267
+  came from phpMyAdmin's utf8mb4_unicode_ci); idempotent as always.
+- The code goes live a moment before its migrations run: code that needs a new table / column must cope for that moment
+  (e.g. `503 not_available`), as before.
+
+phpMyAdmin (SQL tab, database `d0487143` selected, after an Export) stays the fallback – then record the file by hand:
+`INSERT IGNORE INTO schema_migrations (name, applied_at) VALUES ('<file>', UTC_TIMESTAMP());`, else the next deploy runs
+it again. `2026-10-11-developer-role.mysql.sql` is the last file run there: it adds the role (the owner's account),
+`dev_migration_runs`, and records every earlier file in `schema_migrations` (the hand-run ones never were).
 
 ## Local MariaDB (Docker)
 

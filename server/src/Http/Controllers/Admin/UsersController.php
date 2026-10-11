@@ -48,13 +48,13 @@ final class UsersController
     /** @param array{id: string, role: string} $args */
     public function grant(Request $request, Response $response, array $args): Response
     {
-        return Json::response($response, 200, ['status' => 'success'] + $this->users->setRole($args['id'], $args['role'], true, self::by($request)));
+        return Json::response($response, 200, ['status' => 'success'] + $this->users->setRole($args['id'], $args['role'], true, self::by($request), self::actor($request)));
     }
 
     /** @param array{id: string, role: string} $args */
     public function revoke(Request $request, Response $response, array $args): Response
     {
-        return Json::response($response, 200, ['status' => 'success'] + $this->users->setRole($args['id'], $args['role'], false, self::by($request)));
+        return Json::response($response, 200, ['status' => 'success'] + $this->users->setRole($args['id'], $args['role'], false, self::by($request), self::actor($request)));
     }
 
     /** @param array{id: string, character: string} $args */
@@ -104,6 +104,13 @@ final class UsersController
         $this->users->detail($args['id']); // 404 for unknown accounts
         $changed = $this->reviews->setRule($args['id'], $args['toon'], $args['rule'], $on, self::by($request));
         return Json::response($response, 200, ['status' => 'success', 'changed' => $changed, 'review_rules' => $this->reviews->rules($args['id'])]);
+    }
+
+    /** @return array<string, mixed>|null the signed-in admin */
+    private static function actor(Request $request): ?array
+    {
+        $admin = $request->getAttribute('user');
+        return is_array($admin) ? $admin : null;
     }
 
     /** user_roles.granted_by: "admin:<email>" of the signed-in admin */

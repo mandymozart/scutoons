@@ -910,7 +910,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   with a tighter gap; each chip keeps its × (clears that level); the round × that clears the whole medium goes BELOW
   (under preview + chips), not beside them – today it takes too much room.
 
-- [ ] 10.61 **Migrations through a protected interface, a developer role** (owner 2026-10-11: "eine Schnittstelle über
+- [x] 10.61 **Migrations through a protected interface, a developer role** (owner 2026-10-11: "eine Schnittstelle über
   MCP, die Migrationen laufen lässt … mit einer neuen Rolle absichern – nicht Admin, darüber hinaus: eine Developer-Rolle,
   die mein Account hat, andere erst freigeschaltet"). Today: SQL pasted into phpMyAdmin (2026-10-11: #1267 collation
   mismatch, a cache flush by hand). Plan: a `developer` role above admin (the owner's account only); the server's
@@ -931,6 +931,16 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   (9) deploy uploads `migrations/**` (outside public/); (10) MCP tools `migration_status`, `plan_migrations` for
   developers only; (11) PHPUnit; (12) MCP.md, DATABASE.md. Only files that came with the deploy run – never SQL from a
   request (a leaked token or a prompt injection can at most plan).
+  **Built 2026-10-11, simplified by the owner the same day** ("das war sehr einfach gedacht"): no admin UI, no extra
+  token – the role is enough: a developer's normal AI connection gets the MCP tools `migration_status`,
+  `plan_migrations`, `apply_migrations`; the deploy runs pending migrations after the API upload (`POST
+  /api/deploy/migrate`, header `X-Migrate-Key`, GitHub secret `MIGRATE_KEY`). Kept from the plan: only deployed files,
+  dry run, plan hashes + 1-day TTL, GET_LOCK, row backups (storage/migration-backups), `Cache::clear()`, the run log
+  (`dev_migration_runs`), `DB_COLLATION`, only a developer grants the role. Docs: server/docs/DATABASE.md "Migrations",
+  docs/API.md "Developer API". **Owner, production, in this order:** (1) phpMyAdmin once:
+  `2026-10-11-developer-role.mysql.sql` (the two SELECTs in its header first – it records every earlier file in
+  `schema_migrations` as run); (2) GitHub → Settings → Environments → production: secret `MIGRATE_KEY` (e.g.
+  `openssl rand -hex 32`); (3) push – the deploy uploads the files and runs what is pending (none right now).
 - [ ] 10.62 **A derived reference index for the content documents** (research 2026-10-11: JSON documents stay the source –
   the right model for a versioned authoring tool; what is missing is what MediaWiki / Sanity / Payload have): a table
   `entity_refs(version_id, entity_key, status, ref_kind, ref_id, path)` filled on save / publish by one extractor

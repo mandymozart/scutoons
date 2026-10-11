@@ -11,7 +11,8 @@ use Scutoons\Infrastructure\Database\Database;
 /**
  * Account roles (agents/ITEMS.md "Roles, signup rule, promo codes"). Tables `roles` (seeded 1 member, 2 admin,
  * 3 creator) and `user_roles`. Every account gets `member` at signup; `creator` may use the creator app and the content
- * API; `admin` may use the admin app and /api/admin/*.
+ * API; `admin` may use the admin app and /api/admin/*; `developer` (above admin, BACKLOG 10.61) runs the database
+ * migrations (/api/dev/*) – only a developer grants or revokes it, and the last one stays.
  * HTTP: the RequireRole middleware (or require() inside a controller) → 401 unauthorized / 403 forbidden { role }.
  * Outside HTTP: `bin/console roles grant|revoke|list`, admin API /api/admin/users/{id}/roles.
  */
@@ -20,6 +21,7 @@ final class Roles
     public const MEMBER = 'member';
     public const ADMIN = 'admin';
     public const CREATOR = 'creator';
+    public const DEVELOPER = 'developer';
 
     public function __construct(private readonly Database $db, private readonly Clock $clock)
     {
@@ -107,6 +109,12 @@ final class Roles
     {
         $roleId = $this->id($role) ?? throw new InvalidArgumentException("Unknown role $role");
         return $this->db->run('DELETE FROM user_roles WHERE user_id = ? AND role_id = ?', [$userId, $roleId])->rowCount() > 0;
+    }
+
+    /** How many accounts have the role */
+    public function count(string $role): int
+    {
+        return (int) $this->db->value('SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE r.name = ?', [$role]);
     }
 
     private function id(string $role): ?int

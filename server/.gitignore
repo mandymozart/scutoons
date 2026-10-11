@@ -12,5 +12,6 @@ vendor/
 .phpunit.result.cache
 .phpstan.cache/
 storage/cache/
+storage/migration-backups/
 # production data for the local seed (agents/CUTOVER.md 10.30) – may hold creator emails (entity_versions.author)
 db/prod-seed*.sql

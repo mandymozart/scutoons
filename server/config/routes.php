@@ -41,6 +41,7 @@ use Scutoons\Http\Controllers\CatalogController;
 use Scutoons\Http\Controllers\ContactController;
 use Scutoons\Http\Controllers\CertificatesController;
 use Scutoons\Http\Controllers\ClaimsController;
+use Scutoons\Http\Controllers\DevController;
 use Scutoons\Http\Controllers\EmbassyController;
 use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\FlowController;
@@ -364,6 +365,17 @@ return static function (App $app): void {
         $admin->delete("/assets/$asset", [AssetsController::class, 'delete']);
         $admin->post("/assets/$asset/jobs", [AssetsController::class, 'enqueue']);
     })->add(new RequireRole($c->get(Roles::class), Roles::ADMIN));
+
+    // ── Developer API: Session + RequireRole(developer) – the migrations (BACKLOG 10.61, DevController); a developer's
+    //    agents use it over MCP with their normal AI connection. The deploy runs them with MIGRATE_KEY (no session) ───────
+    $app->group('/api/dev', function (RouteCollectorProxy $dev): void {
+        $dev->get('/migrations', [DevController::class, 'status']);
+        $dev->post('/migrations/plan', [DevController::class, 'plan']);
+        $dev->post('/migrations/run', [DevController::class, 'run']);
+        $dev->get('/migrations/runs/{id:[0-9a-f-]{36}}', [DevController::class, 'get']);
+        $dev->post('/migrations/runs/{id:[0-9a-f-]{36}}/apply', [DevController::class, 'apply']);
+    })->add(new RequireRole($c->get(Roles::class), Roles::DEVELOPER));
+    $app->post('/api/deploy/migrate', [DevController::class, 'deploy']);
 
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")
     $app->any('/api[/{rest:.*}]', NotFoundController::class);

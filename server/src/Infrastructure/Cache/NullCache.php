@@ -14,4 +14,9 @@ final class NullCache implements Cache
     public function set(string $key, string $value, int $ttl): void
     {
     }
+
+    public function clear(): int
+    {
+        return 0;
+    }
 }

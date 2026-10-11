@@ -5,6 +5,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { registerAdminTools } from './admin.ts';
 import type { Config } from './config.ts';
+import { registerDevTools } from './dev.ts';
 import { registerEmbassyTools } from './embassy.ts';
 import { registerFigmaTools } from './figma.ts';
 import { instructions, registerPrompts } from './prompts.ts';
@@ -35,7 +36,8 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 							services: {
 								content: services.content ?? 'none',
 								embassy: services.embassy,
-								admin: services.admin
+								admin: services.admin,
+								developer: services.developer
 							},
 							apps: links,
 							api: config.local ? `${config.api} (local dev)` : config.api,
@@ -57,6 +59,7 @@ export function createMemberServer(config: Config, member: Member, services: Ser
 	}
 	if (services.embassy) registerEmbassyTools(server, config, { member, links });
 	if (services.admin) registerAdminTools(server, config, { links });
+	if (services.developer) registerDevTools(server, config);
 	registerPrompts(server, services);
 	return server;
 }

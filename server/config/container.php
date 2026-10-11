@@ -35,7 +35,7 @@ return [
         $settings = $c->get(Settings::class);
         $sqlMode = $settings->get('DB_SQL_MODE');
         return Database::mysql($settings->get('DB_HOST'), $settings->get('DB_NAME'), $settings->get('DB_USER'), $settings->get('DB_PASS'), $settings->get('DB_PORT'),
-            strtolower($sqlMode) === 'server' ? '' : $sqlMode);
+            strtolower($sqlMode) === 'server' ? '' : $sqlMode, strtolower($settings->get('DB_COLLATION')) === 'server' ? '' : $settings->get('DB_COLLATION'));
     },
 
     Templates::class => static fn(ContainerInterface $c): Templates => new Templates($c->get(Settings::class)->root() . '/templates'),

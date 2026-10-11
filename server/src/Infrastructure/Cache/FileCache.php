@@ -33,6 +33,15 @@ final class FileCache implements Cache
         if (random_int(1, self::PRUNE_EVERY) === 1) $this->prune($ttl);
     }
 
+    public function clear(): int
+    {
+        $removed = 0;
+        foreach (glob($this->directory . '/*') ?: [] as $file) {
+            if (is_file($file) && @unlink($file)) $removed++;
+        }
+        return $removed;
+    }
+
     /** Removes entries older than `ttl` seconds (and leftover temp files) */
     public function prune(int $ttl): int
     {

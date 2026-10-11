@@ -293,7 +293,9 @@ until then `config/permissions.json`). `Domain\Access\Permissions::map()` builds
 ## Roles
 
 Tables `roles` (seeded: 1 `member` – every account, 2 `admin` – the admin app and `/api/admin/*`, 3 `creator` – the
-creator app and the content API, 4 `liaison` and 5 `ambassador` – the Embassy app and `/api/embassy/*`) and `user_roles (user_id, role_id, granted_at, granted_by)`. `granted_by`: `signup`,
+creator app and the content API, 4 `liaison` and 5 `ambassador` – the Embassy app and `/api/embassy/*`, 6 `developer` –
+the migrations, `/api/dev/*`; above admin: only a developer grants or revokes it, the last one stays – `409
+last_developer`) and `user_roles (user_id, role_id, granted_at, granted_by)`. `granted_by`: `signup`,
 `migration`, `admin` (legacy SPA), `admin:<email>` (admin API), `cli`. `/me/` and `/auth/verify/` return `user.roles`.
 
 **Content editors – for now creator OR admin** (owner 2026-10-01): one rule, `Roles::CONTENT_EDITORS` = `creator`,
@@ -605,6 +607,21 @@ signs in with a personal token from the account page ("AI connections"). Code: `
 | DELETE | `/me/tokens/{id}` | → `{ status }` – revoked: the next call with it answers 401 |
 
 A real session only (cookie or a session Bearer); CORS allows DELETE there.
+
+## Developer API (`/api/dev/*`, role `developer` – BACKLOG 10.61)
+
+The migrations through the API instead of phpMyAdmin (docs/DATABASE.md "Migrations"): a session or the developer's AI
+connection (their agents over MCP). Only the files that came with the deploy run – never SQL from a request.
+`DevController`, `Domain\Dev\Migrations`.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/dev/migrations` | `{ status, database, base_schema, pending, files: [{ name, applied_at, sha256 }], runs: [the latest 10] }` |
+| POST | `/dev/migrations/plan` | the dry run, stored → `201 { status, run }` · `409 busy` · `409 no_schema` |
+| GET | `/dev/migrations/runs/{id}` | `{ status, run }` – `run.plan`: per file `{ name, sha256, kind, dry_run, error, statements: [{ sql, kind, rows, skipped, backup }] }` |
+| POST | `/dev/migrations/runs/{id}/apply` | → `{ status, run }` with `run.status` applied / failed, `log`, `error`, `backup` · `409 not_planned` · `409 plan_stale` (older than a day, or the pending files changed) · `409 busy` |
+| POST | `/dev/migrations/run` | plan + apply in one go → `{ status, run }`; `run: null` = nothing pending |
+| POST | `/deploy/migrate` | **no session**: header `X-Migrate-Key: <MIGRATE_KEY>` (the deploy) – like `/dev/migrations/run`; HTTP 500 when the run failed · `403` wrong key · `404` MIGRATE_KEY not set |
 
 ## Reviews (review before publish, 2026-10-04 – migration `2026-10-04-reviews`)
 

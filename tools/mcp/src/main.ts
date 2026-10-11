@@ -13,7 +13,7 @@ try {
 	if (!hasAny(services)) throw new Error(`${member.email} has no member role (creator, liaison, ambassador, admin) – SCUTOONS AI connections are for members only`);
 	const server = createMemberServer(config, member, services);
 	await server.connect(new StdioServerTransport());
-	const open = [services.content && `content (${services.content})`, services.embassy && 'embassy', services.admin && 'admin'].filter(Boolean).join(', ');
+	const open = [services.content && `content (${services.content})`, services.embassy && 'embassy', services.admin && 'admin', services.developer && 'migrations'].filter(Boolean).join(', ');
 	console.error(`scutoons-mcp: ${config.api} as ${member.email} (token: ${config.tokenSource}) – ${open}`);
 } catch (error) {
 	console.error(`scutoons-mcp: ${error instanceof Error ? error.message : error}`);

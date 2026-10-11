@@ -22,6 +22,8 @@ export function instructions(services: Services, api: string, local: boolean): s
 		);
 	if (services.embassy) lines.push('Embassy: read the prompt "embassy" (how SCUTOONS writes) before drafting anything. You never send.');
 	if (services.admin) lines.push('Admin: changes only as a proposal (propose_changes) – the admin applies it on the proposal page.');
+	if (services.developer)
+		lines.push('Migrations: migration_status, plan_migrations (a dry run – check the row counts), then apply_migrations with the plan id. Production data: say what you apply.');
 	return lines.join('\n');
 }
 

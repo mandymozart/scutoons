@@ -142,13 +142,23 @@ final class UserAdmin
     }
 
     /**
-     * Grant or revoke a role. 400 unknown_role, 404 not_found.
+     * Grant or revoke a role. 400 unknown_role, 404 not_found; `developer`: 403 unless the actor is one, 409 last_developer.
+     * @param array<string, mixed>|null $actor the signed-in admin
      * @return array{changed: bool, user: array<string, mixed>}
      */
-    public function setRole(string $userId, string $role, bool $grant, string $grantedBy): array
+    public function setRole(string $userId, string $role, bool $grant, string $grantedBy, ?array $actor = null): array
     {
         if (!$this->roles->exists($role)) throw new ApiError(400, 'unknown_role', "Unknown role $role", ['roles' => array_column($this->roles->all(), 'name')]);
         $user = $this->users->byId($userId) ?? throw new ApiError(404, 'not_found', 'User not found');
+        if ($role === Roles::DEVELOPER) {
+            // above admin (BACKLOG 10.61): only a developer hands it on or takes it away, and the last one stays
+            if ($actor === null || !$this->roles->has($actor, Roles::DEVELOPER)) {
+                throw new ApiError(403, 'forbidden', 'Only a developer can grant or revoke the developer role.', ['role' => Roles::DEVELOPER]);
+            }
+            if (!$grant && $this->roles->has($user, Roles::DEVELOPER) && $this->roles->count(Roles::DEVELOPER) <= 1) {
+                throw new ApiError(409, 'last_developer', 'The last developer keeps the role – grant it to someone else first.');
+            }
+        }
         $changed = $grant ? $this->roles->grant((string) $user['id'], $role, $grantedBy) : $this->roles->revoke((string) $user['id'], $role);
         return ['changed' => $changed, 'user' => $this->users->adminJson($this->users->byId((string) $user['id']) ?? $user)];
     }

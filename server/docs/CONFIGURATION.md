@@ -25,6 +25,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 |---|---|---|
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | localhost, –, –, –, – | MariaDB: production's; locally the container (`config.local.php.example`; the dev scripts pass `QR_DB_*` – docs/DATABASE.md "Local MariaDB") |
 | `DB_SQL_MODE` | `STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION` | the session `sql_mode` set on every MySQL/MariaDB connection – strict, whatever the host's default (production's is `NO_ENGINE_SUBSTITUTION`: too long values would be cut silently); `server` = keep the server's mode (docs/DATABASE.md) |
+| `DB_COLLATION` | `utf8mb4_general_ci` | the connection collation (`SET NAMES utf8mb4 COLLATE …`) – the tables' own, so literals and user variables compare without #1267 "Illegal mix of collations"; `server` = keep the server's |
 | `AUTH_SECRET` | – | **required**, ≥ 32 chars: HMAC of login codes, IP/device hashes, access tokens. Rotating it invalidates open login mails and access tokens |
 | `QR_PROXY_SECRET` | – | shared with the qr app (qr.scutoons.com): only requests carrying it in `X-Scutoons-Proxy-Secret` may forward the client IP (`X-Scutoons-Client-Ip`) and device id (`X-Scutoons-Device-Id`), and only they can log landing-page scans (`/api/code/?scan=1`). Empty = trust nobody |
 | `EMBASSY_CRON_KEY` | – | key of the Embassy cron URL `GET\|POST /api/embassy/cron?key=…` (inbox sync + the team's reminder mails; also accepted as the HTTP Basic password – docs/API.md "Embassy" → "Pace"). Empty = the URL answers 404 (off). `openssl rand -hex 32` |
@@ -66,6 +67,9 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `ADMIN_MAX_PAGE_SIZE` | 500 | largest `page_size` of the admin lists |
 | `VERSION_URLS` | the five production `version.json` URLs | `app=url,…` fetched by `GET /api/admin/versions` (viewer, admin, creator, shop, qr) |
 | `CACHE_DRIVER`, `CACHE_PATH` | `auto`, `storage/cache` | server cache of the library answers (docs/API.md "Library"): `auto` = APCu when enabled, else files below `CACHE_PATH`; `apcu`, `file`, `none` |
+| `MIGRATION_BACKUP_PATH` | `storage/migration-backups` | the developer's migration runs (`/api/dev`, BACKLOG 10.61) back up the rows each UPDATE / DELETE changes here first – JSON lines, one file per run; private |
+| `MIGRATE_KEY` | – | `POST /api/deploy/migrate` with `X-Migrate-Key: <this>` runs the pending migrations (the deploy, GitHub secret `MIGRATE_KEY`, ≥ 32 random characters); empty = 404 |
+| `MIGRATIONS_PATH` | `migrations` | the migration files the developer's runs plan and apply (`<path>/mysql/*.mysql.sql`; tests point it elsewhere) |
 | `CONTENT_SHOW_DRAFTS` | `0` | `1` = the library endpoints show `draft` toons/chapters (local development, like the dev viewer); production `0` |
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |

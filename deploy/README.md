@@ -38,6 +38,10 @@ the root [`.env.example`](../.env.example).
 | `generate` | files written from environment variables: `php-define` (server `config.php`) or `php-return` (qr `config.php`); `${VAR}` unset/empty → the key is left out |
 | `reminder` | printed as a warning in every run (api: DB migrations) |
 
+**DB migrations** (BACKLOG 10.61): after the api upload, `deploy-app.yml` calls `POST /api/deploy/migrate` with the
+secret `MIGRATE_KEY` – the pending files are planned and applied on the server, the log lands in the run summary, a
+failed run fails the job. No secret → a warning, nothing runs (server/docs/DATABASE.md "Migrations").
+
 ## deploy.mjs
 
 ```sh

@@ -20,6 +20,9 @@ return [
     // default (production: NO_ENGINE_SUBSTITUTION = not strict: a too long value is cut, a bad one coerced, silently).
     // Strict = such a write fails with an error instead. `server` = keep the server's mode.
     'DB_SQL_MODE' => 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION',
+    // The connection collation (SET NAMES utf8mb4 COLLATE …): the tables' own, so string literals and user variables
+    // in queries and migrations compare without "Illegal mix of collations" (#1267). `server` = keep the server's.
+    'DB_COLLATION' => 'utf8mb4_general_ci',
 
     // ── Secrets ────────────────────────────────────────────────────────────────────────────────────────
     // Long random string (>= 32 chars): login codes, IP/device hashes, access tokens. openssl rand -hex 32
@@ -161,6 +164,14 @@ return [
     // in CACHE_PATH) | apcu | file | none. The keys contain the version ids, so publishing needs no invalidation.
     'CACHE_DRIVER' => 'auto',
     'CACHE_PATH' => 'storage/cache',
+    // The developer's migration runs (BACKLOG 10.61) back up the rows each UPDATE / DELETE changes here (JSON lines,
+    // one file per run) – private, never overwritten by a deploy.
+    'MIGRATION_BACKUP_PATH' => 'storage/migration-backups',
+    // The migration files the developer's runs plan and apply (tests point it elsewhere)
+    'MIGRATIONS_PATH' => 'migrations',
+    // POST /api/deploy/migrate with the header `X-Migrate-Key: <this>` runs the pending migrations (the deploy calls it
+    // right after the API upload – GitHub secret MIGRATE_KEY, >= 32 random chars). Empty = switched off (404).
+    'MIGRATE_KEY' => '',
     // 1 = toons / chapters with the status `draft` are readable through the public library endpoints (local
     // development, like the viewer's dev mode); production 0. Creators read drafts with ?draft=1 either way.
     'CONTENT_SHOW_DRAFTS' => '0',

@@ -8,7 +8,7 @@
 #               steps in deploy-app.yml (with one FTP retry).
 # By hand: Actions → "Deploy" → Run workflow: apps = changed (default) | all | a list like "viewer,admin"; optional dry run.
 # A tag `deploy-*` deploys all. Check what is live: `npm run deploy:status`. Docs: deploy/README.md.
-# DB migrations are NOT run – the plan lists the migration files when the API goes out; run new ones in phpMyAdmin first.
+# DB migrations run right after the API upload (deploy-app.yml → POST /api/deploy/migrate, secret MIGRATE_KEY).
 on:
   push:
     branches:
@@ -54,18 +54,6 @@ jobs:
       - name: 🔎 Compare live commits with this one
         id: changed
         run: node deploy/changed.mjs --github --apps "${{ startsWith(github.ref, 'refs/tags/deploy-') && 'all' || inputs.apps || 'changed' }}"
-
-      - name: ⚠️ DB migrations
-        if: contains(fromJSON(steps.changed.outputs.apps), 'api')
-        run: |
-          {
-            echo "### Database migrations"
-            echo "The deploy does **not** run migrations. Compare these files with the \`schema_migrations\` table"
-            echo "(phpMyAdmin) and run every missing one **before** the API goes live – server/docs/DATABASE.md."
-            echo
-            ls -1 server/migrations/mysql/*.sql | sed 's/^/- /'
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::warning title=DB migrations::The API is deployed; pending DB migrations are not run – check the run summary"
 
   test-api:
     needs: plan
