@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
+use Scutoons\Domain\Catalog\CatalogDocs;
 use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
@@ -32,12 +33,18 @@ use stdClass;
  *   POST /api/entities/<key>/publish { version? } · /unpublish · /restore { id, message? }
  *   GET  /api/catalog/items/<id>/placements      where a catalog item is placed in every toon + its limits and owners
  *                                                (ItemPlacements, BACKLOG 10.39) – 404 unknown_item
+ *   GET  /api/catalog/docs/<kind>                every catalog entry of a kind as a document (CatalogDocs::list)
  * publish / unpublish: 403 review_required for accounts that need a review for the toon (Reviews; submit through
  * /api/reviews instead).
+ *
+ * Catalog documents (`item:<id>`, `recipe:<id>`, `album:<id>`, `product:<id>`, `edition:<id>` – CatalogDocs,
+ * agents/CATALOG-IN-CREATOR.md): a save is checked as a catalog entry (422 invalid_catalog { problems }); publish writes
+ * the entry into the catalog table (physical changes: Reviews' `physical` rule); unpublish is refused (422
+ * not_supported – an entry leaves the catalog through the admin, where its uses are checked).
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs)
     {
     }
 
@@ -71,7 +78,9 @@ final class EntitiesController
         $key = EntityKey::parse($args['key']);
         $user = $this->creator($request);
         $body = $this->body($request);
-        if (property_exists($body, 'content')) {
+        if (property_exists($body, 'content') && $key->isCatalog()) {
+            $this->docs->guardSave($key, $body->content);
+        } elseif (property_exists($body, 'content')) {
             $this->schemas->guard($key, $body->content);
             // where a reader could get stuck (a question whose choices can all be hidden, a divert / jump into nothing)
             $this->flow->guard($key, $body->content);
@@ -93,6 +102,13 @@ final class EntitiesController
         return Json::response($response, 200, $this->placements->report($args['id']));
     }
 
+    /** @param array{kind: string} $args */
+    public function catalogDocs(Request $request, Response $response, array $args): Response
+    {
+        $this->creator($request);
+        return Json::response($response, 200, $this->docs->list($args['kind']));
+    }
+
     /** @param array{key: string} $args */
     public function versions(Request $request, Response $response, array $args): Response
     {
@@ -108,9 +124,13 @@ final class EntitiesController
         $user = $this->creator($request);
         $body = JsonBody::raw($request) === '' ? new stdClass() : $this->body($request);
         $version = isset($body->version) ? (int) $body->version : null;
+        $parsed = EntityKey::parse($key);
+        if ($parsed->isCatalog() && $args['action'] === 'unpublish') {
+            throw new ApiError(422, 'not_supported', 'A catalog entry is not unpublished – the admin removes it from the catalog (its uses are checked there).');
+        }
         if ($args['action'] !== 'restore') $this->reviews->guardPublish($user, EntityKey::parse($key), $version, $args['action'] === 'unpublish');
         $result = match ($args['action']) {
-            'publish' => $this->store->publish($key, $version),
+            'publish' => $parsed->isCatalog() ? $this->docs->publish($user, $parsed, $version) : $this->store->publish($key, $version),
             'unpublish' => $this->store->unpublish($key),
             'restore' => $this->store->restore($user, $key, $body),
             default => throw new ApiError(404, 'not_found', 'Unknown endpoint.'),

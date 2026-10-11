@@ -102,6 +102,7 @@ final class CatalogAdmin
         }
         $this->store->save($kind, $id, json_decode($json), $by, $position);
         $historyId = $this->record($kind, $id, $before === null ? 'create' : 'update', $before['data'] ?? null, $json, $before['position'] ?? null, $by, $note, $undoOf);
+        $this->syncDoc($kind, $id, $json, $by, $note);
         $after = $this->store->row($kind, $id) ?? throw new ApiError(500, 'catalog_write_failed', 'The entry was not stored.');
         return ['created' => $before === null, 'changed' => true, 'entry' => self::entryOf($after), 'history_id' => $historyId];
     }
@@ -118,6 +119,7 @@ final class CatalogAdmin
             $uses = $this->validator->uses($kind, $id);
             if ($uses) throw new ApiError(409, 'in_use', "$id is still used: " . implode(', ', $uses) . '.', ['uses' => $uses]);
             $this->store->remove($kind, $id);
+            $this->syncDoc($kind, $id, null, $by, null);
             return ['deleted' => true, 'history_id' => $this->record($kind, $id, 'delete', $row['data'], null, $row['position'], $by, null, $undoOf)];
         });
         $this->reindex();
@@ -262,6 +264,32 @@ final class CatalogAdmin
         ];
         $this->entities->insert(EntityKey::parse($key), $this->entities->encode(json_decode((string) json_encode($entry))), $userId, 'draft', 'toon created in the admin');
         $this->usages->reindexEntity($key);
+    }
+
+    /**
+     * The entry's document (CatalogDocs) follows a write to the table: the written data becomes its published version
+     * (a new one unless the published version holds it already – publishing a document writes the table after making
+     * its version the published one); a delete leaves the document unpublished (its versions stay)
+     */
+    private function syncDoc(string $kind, string $id, ?string $json, string $by, ?string $note): void
+    {
+        $docKind = array_search($kind, EntityKey::CATALOG_KINDS, true);
+        if ($docKind === false || !EntityKey::isValid("$docKind:$id")) return;
+        $key = "$docKind:$id";
+        $published = $this->entities->published($key);
+        if ($json === null) {
+            if ($published) $this->entities->unpublish($key);
+            return;
+        }
+        if ($published && CatalogStore::encode(json_decode((string) $published['json'])) === $json) return;
+        $versionId = $this->entities->insert(EntityKey::parse($key), $json, null, 'draft', mb_substr('catalog: ' . ($note ?? 'admin') . " ($by)", 0, 255));
+        $this->entities->setPublished(['id' => $versionId, 'entity_key' => $key]);
+    }
+
+    /** The asset usage index after writes made with putIn (a published catalog document) */
+    public function reindexUsages(): void
+    {
+        $this->reindex();
     }
 
     private function reindex(): void

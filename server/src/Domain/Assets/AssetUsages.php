@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Assets;
 
 use Scutoons\Domain\Catalog\CatalogStore;
+use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -151,10 +152,14 @@ final class AssetUsages
         $versions = [];
         if ($published) $versions['published'] = $published;
         if (!$published || (int) $published['id'] !== (int) $latest['id']) $versions['draft'] = $latest;
+        // a catalog document (item:<id> …, CatalogDocs): its published data is the table's row (source `catalog`); only
+        // a newer draft is indexed here – with the catalog's paths (CDN-root), so a picture only a draft uses stays used
+        $catalog = isset(EntityKey::CATALOG_KINDS[(string) $latest['kind']]);
         foreach ($versions as $state => $version) {
+            if ($catalog && $state === 'published') continue;
             $doc = json_decode((string) $version['json'], true);
             if (!is_array($doc)) continue;
-            foreach ($this->references($doc, (string) ($version['toon'] ?? '')) as $ref) {
+            foreach ($catalog ? $this->references($doc, '', false) : $this->references($doc, (string) ($version['toon'] ?? '')) as $ref) {
                 $out[] = ['source' => 'content', 'ref' => $key, 'state' => $state, 'version_id' => (int) $version['id']] + $ref;
             }
         }
