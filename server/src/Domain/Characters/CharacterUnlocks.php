@@ -5,7 +5,7 @@ namespace Scutoons\Domain\Characters;
 
 use PDOException;
 use Scutoons\Domain\ApiError;
-use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Content\CollectionDocs;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -41,7 +41,6 @@ final class CharacterUnlocks
         private readonly Database $db,
         private readonly Clock $clock,
         private readonly Settings $settings,
-        private readonly EntityStore $content,
     ) {
     }
 
@@ -70,11 +69,12 @@ final class CharacterUnlocks
         if ($this->registry !== null) return $this->registry;
         $this->registry = [];
         try {
-            $row = $this->content->published(self::REGISTRY_KEY);
+            // the published registry, composed from `characters` + character:<id> (agents/MAP-DOCUMENTS.md)
+            $registry = CollectionDocs::published(CollectionDocs::CHARACTERS, $this->db);
         } catch (Throwable) {
-            $row = null; // entity_versions not migrated yet
+            $registry = null; // entity_versions not migrated yet
         }
-        $data = $row ? json_decode((string) $row['json'], true) : null;
+        $data = $registry !== null ? json_decode((string) json_encode($registry), true) : null;
         foreach ((is_array($data) ? ($data['characters'] ?? []) : []) as $c) {
             if (is_array($c) && is_string($c['id'] ?? null)) $this->registry[$c['id']] = $c;
         }

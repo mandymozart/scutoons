@@ -39,6 +39,7 @@ final class ContentSchemas
         'map' => 'map',
         'place' => 'map-place',
         'route' => 'map-route',
+        'character' => 'registry-character',
     ];
 
     /** the language-neutral documents of these kinds (a key without locale, agents/NEUTRAL.md) → schema file */
@@ -89,11 +90,16 @@ final class ContentSchemas
     /** Throws 422 invalid_content { problems } when $content doesn't fit its kind (or a text's expression is broken) */
     public function guard(EntityKey $key, mixed $content): void
     {
-        // the world map's places and routes are documents of their own (agents/MAP-DOCUMENTS.md): an older client that
-        // saves the whole map into `map` would be ignored silently – refused instead
-        if ($key->kind === 'map' && $content instanceof \stdClass && (property_exists($content, 'locations') || property_exists($content, 'routes'))) {
-            throw new ApiError(422, 'invalid_content', 'The map document holds only its settings (width, height, layers): every place is place:<id>, every route route:<id>.',
-                ['problems' => ['/locations: the places are documents of their own (place:<id>)']]);
+        // the entries of the world map / the character registry are documents of their own (agents/MAP-DOCUMENTS.md): an
+        // older client that saves the whole collection into its anchor would be ignored silently – refused instead
+        $collection = CollectionDocs::ofAnchor($key->kind);
+        if ($collection !== null && $content instanceof \stdClass) {
+            foreach ($collection['parts'] as $kind => $field) {
+                if (property_exists($content, $field)) {
+                    throw new ApiError(422, 'invalid_content', "The $key->kind document holds only its own fields: every entry of `$field` is a document $kind:<id> of its own.",
+                        ['problems' => ["/$field: the entries are documents of their own ($kind:<id>)"]]);
+                }
+            }
         }
         $problems = $this->problemsOf($key, $content);
         if ($problems) {

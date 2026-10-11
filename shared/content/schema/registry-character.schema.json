@@ -1,0 +1,314 @@
+{
+	"$id": "https://scutoons.com/schema/registry-character.schema.json",
+	"title": "CharacterDoc",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/CharacterDoc",
+	"definitions": {
+		"CharacterDoc": {
+			"type": "object",
+			"properties": {
+				"removed": {
+					"type": "boolean",
+					"description": "taken out of the registry (a tombstone: the id stays reserved – casts, VN events and readers reference it)"
+				},
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "display name per locale (the VN speaker plate)"
+				},
+				"description": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"color": {
+					"type": "string",
+					"description": "CSS color (VN avatar background, speaker accents)"
+				},
+				"testo": {
+					"type": "number",
+					"description": "Testo level 0–100 (owner 2026-10-01: no male/female – the more testo, the more of its read characteristics; the visual mapping comes later with the art, `testoBand`). none = not set."
+				},
+				"tendencies": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "story/workflow tendencies (`psychedelics` …), reference only, no runtime effect"
+				},
+				"own_toon": {
+					"type": "string",
+					"description": "the toon this character is the protagonist of (optional – most characters have none)"
+				},
+				"voiced_by": {
+					"type": "string",
+					"description": "person id of the voice (scutoons/_/people.json)"
+				},
+				"tags": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "search words"
+				},
+				"apose": {
+					"$ref": "#/definitions/CharacterApose",
+					"description": "the reader's avatar body (character level – the persona doesn't matter)"
+				},
+				"personas": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CharacterPersona"
+					},
+					"description": "`regular` first"
+				}
+			},
+			"required": [
+				"color",
+				"name",
+				"personas"
+			],
+			"description": "The document `character:<id>`"
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		},
+		"CharacterApose": {
+			"type": "object",
+			"properties": {
+				"looks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AposeLook"
+					}
+				}
+			},
+			"required": [
+				"looks"
+			],
+			"description": "The A-pose of a character (the reader's avatar body) – separate from the persona / story looks."
+		},
+		"AposeLook": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`swim` (the standard look) | …"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"default": {
+					"type": "boolean",
+					"description": "exactly one A-pose look is the default"
+				},
+				"path": {
+					"type": "string",
+					"description": "CDN path from the CDN root (e.g. `characters/catpope/catpope_apose-swim.webp`, 768 × 1152); none = still wanted"
+				},
+				"slots": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AvatarSlotInstance"
+					},
+					"description": "the wear slots (slot instances, anchors in image px); none = one unplaced instance per slot type"
+				}
+			},
+			"required": [
+				"id"
+			],
+			"description": "One A-pose look of a character (full body, neutral): an avatar body with its wear slots."
+		},
+		"AvatarSlotInstance": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "unique per body, `^[a-z0-9][a-z0-9-]*$`, at most 32 characters (`torso`, `torso-left`)"
+				},
+				"slot": {
+					"$ref": "#/definitions/AvatarSlot",
+					"description": "the slot type (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory)"
+				},
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"size": {
+					"type": "number",
+					"description": "0 = not placed (nothing is drawn)"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the tile label (\"Kopf links\" / \"head left\"); none = the slot type's label"
+				}
+			},
+			"required": [
+				"id",
+				"slot",
+				"x",
+				"y",
+				"size"
+			],
+			"description": "One wear slot of an A-pose body (a slot instance): where an item of slot type `slot` sits on the image (centre and size in px of that image). A body may have a slot type more than once (twins, a duo: `torso-left`, `torso-right`); a single figure has one instance per type with `id` = the type. The reader's avatar stores worn items by instance id (agents/ITEMS.md \"Slots per avatar body\")."
+		},
+		"AvatarSlot": {
+			"type": "string",
+			"enum": [
+				"head",
+				"face",
+				"neck",
+				"torso",
+				"hands",
+				"legs",
+				"feet",
+				"back",
+				"accessory"
+			]
+		},
+		"CharacterPersona": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`regular` or `^[a-z0-9][a-z0-9-]*$` (e.g. `human`, `cat`, `biker`)"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "appended to the name: \"Cat Pope · Biker\" (the regular persona needs none)"
+				},
+				"introduced": {
+					"$ref": "#/definitions/StoryPoint",
+					"description": "where the persona first appears (none = it has always been there)"
+				},
+				"description": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"color": {
+					"type": "string",
+					"description": "the persona's own color (VN avatar background); none = the character's"
+				},
+				"testo": {
+					"type": "number",
+					"description": "the persona's own testo level 0–100 (none = the character's) – substances.ts"
+				},
+				"looks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CharacterLook"
+					}
+				},
+				"transitions": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/LookTransition"
+					}
+				}
+			},
+			"required": [
+				"id",
+				"looks"
+			],
+			"description": "A different identity or role of the same being. `regular` = the base persona every character has."
+		},
+		"StoryPoint": {
+			"type": "object",
+			"properties": {
+				"toon": {
+					"type": "string"
+				},
+				"season": {
+					"type": "number"
+				},
+				"chapter": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"toon"
+			],
+			"description": "A point in a toon's story (a free reference for the editor and the story bible)."
+		},
+		"CharacterLook": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z0-9][a-z0-9-]*$`; `default` = no look segment in the convention path"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"default": {
+					"type": "boolean",
+					"description": "exactly one look of a persona is the default (VN refs without `look`)"
+				},
+				"images": {
+					"$ref": "#/definitions/MoodImages",
+					"description": "mood → view → CDN path (from the CDN root)"
+				}
+			},
+			"required": [
+				"id",
+				"images"
+			],
+			"description": "An appearance of a persona (with / without helmet): its own mood set."
+		},
+		"MoodImages": {
+			"type": "object",
+			"additionalProperties": {
+				"$ref": "#/definitions/CharacterImage"
+			},
+			"description": "mood → view → CDN path"
+		},
+		"CharacterImage": {
+			"type": "object",
+			"properties": {
+				"avatar": {
+					"type": "string"
+				},
+				"portrait": {
+					"type": "string"
+				},
+				"full": {
+					"type": "string"
+				}
+			},
+			"description": "One mood of a character in its three views (framings). \"View\" is the term in the UI (never \"variant\", which would be confused with looks); the keys and `VNCharacterRef.variant` keep their names for backwards compatibility."
+		},
+		"LookTransition": {
+			"type": "object",
+			"properties": {
+				"from": {
+					"type": "string"
+				},
+				"to": {
+					"type": "string"
+				},
+				"image": {
+					"type": "string",
+					"description": "CDN path from the CDN root"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"from",
+				"to",
+				"image"
+			],
+			"description": "An image shown while a persona's look changes (the mouse taking her helmet off)."
+		}
+	}
+}

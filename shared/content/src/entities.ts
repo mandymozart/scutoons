@@ -13,6 +13,7 @@
 //   characters  moods  asset-requests  people  roles  events  map      (platform-wide, language-neutral)
 //   place:<id>  route:<id>            one document per place / route of the world map (agents/MAP-DOCUMENTS.md):
 //                                     `map` keeps the map's own settings (size, layers); ids are stable forever
+//   character:<id>                    one document per character of the registry (`characters` keeps its own fields)
 //   (`locations:*` / `routes:*` are the old per-toon map, read-only since the world map `map`, agents/MAP.md)
 //
 // An "entity" is a key without its locale (`chapter:catpope:2`); the stored document of one language adds `:<locale>`.
@@ -41,7 +42,8 @@ export type EntityKind =
 	| 'events'
 	| 'map'
 	| 'place'
-	| 'route';
+	| 'route'
+	| 'character';
 
 /** kind → [has toon, has number, has scene name, localized] */
 const SHAPES: Record<EntityKind, [boolean, boolean, boolean, boolean]> = {
@@ -64,15 +66,17 @@ const SHAPES: Record<EntityKind, [boolean, boolean, boolean, boolean]> = {
 	map: [false, false, false, false],
 	// one segment: the id (ID_KINDS)
 	place: [false, false, false, false],
-	route: [false, false, false, false]
+	route: [false, false, false, false],
+	character: [false, false, false, false]
 };
 
 /**
- * Kinds addressed by an id of their own (`place:<id>`, `route:<id>` – platform-wide, language-neutral; agents/MAP-DOCUMENTS.md).
+ * Kinds addressed by an id of their own (`place:<id>`, `route:<id>`, `character:<id>` – platform-wide, language-neutral;
+ * agents/MAP-DOCUMENTS.md).
  * The id is a slug, stable forever once published (events reference it). The same shape is meant for the catalog's items
  * (`item:<id>`, agents/CATALOG-IN-CREATOR.md).
  */
-export const ID_KINDS: readonly EntityKind[] = ['place', 'route'];
+export const ID_KINDS: readonly EntityKind[] = ['place', 'route', 'character'];
 /** an id segment: a slug (the map's place / route ids, `checkWorldMap`) */
 export const ENTITY_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
@@ -113,7 +117,9 @@ export const entities = {
 	/** one place of the world map */
 	place: (id: string) => `place:${id}`,
 	/** one route of the world map */
-	route: (id: string) => `route:${id}`
+	route: (id: string) => `route:${id}`,
+	/** one character of the registry (`characters` keeps the registry's own fields) */
+	character: (id: string) => `character:${id}`
 } as const;
 
 /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Console;
 
 use Scutoons\Domain\Content\EntityKey;
-use Scutoons\Domain\Content\WorldMapDocs;
+use Scutoons\Domain\Content\CollectionDocs;
 use Scutoons\Infrastructure\Database\Database;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -48,22 +48,27 @@ final class ExportContentCommand extends Command
             : $db->all("SELECT v.entity_key, v.json FROM entity_versions v JOIN (SELECT entity_key, MIN(id) AS first FROM entity_versions GROUP BY entity_key) m ON m.entity_key = v.entity_key WHERE v.status = 'published' ORDER BY m.first, v.id");
         $files = [];
         $index = [];
-        $mapSettings = null;
-        $mapParts = ['place' => [], 'route' => []];
+        $anchors = [];
+        $collectionParts = [];
         foreach ($rows as $row) {
             if (!EntityKey::isValid($row['entity_key'])) continue; // rows of kinds that no longer exist
             $key = EntityKey::parse($row['entity_key']);
             if (is_string($onlyToon) && $key->toon !== $onlyToon) continue;
             $doc = json_decode((string) $row['json']);
             if ($key->kind === 'toon') $index[(string) $key->toon] = $doc;
-            elseif ($key->kind === 'place' || $key->kind === 'route') $mapParts[$key->kind][(string) $key->id] = $doc;
-            elseif ($key->kind === 'map') $mapSettings = $doc;
+            elseif (CollectionDocs::ofPart($key->kind) !== null) $collectionParts[$key->kind][(string) $key->id] = $doc;
+            elseif (CollectionDocs::ofAnchor($key->kind) !== null) $anchors[$key->kind] = $doc;
             else $files[ContentFiles::pathOf($key)] = $doc;
         }
         if ($index !== []) $files['toons.json'] = array_values($index);
-        // the world map's documents in one file again (creation order; removed ones stay out – agents/MAP-DOCUMENTS.md)
-        if ($mapSettings instanceof \stdClass && $onlyToon === null) {
-            $files[ContentFiles::PLATFORM_DIR . '/_/map.json'] = WorldMapDocs::compose($mapSettings, $mapParts['place'], $mapParts['route']);
+        // the world map's / the registry's documents in one file again (creation order; removed ones stay out –
+        // agents/MAP-DOCUMENTS.md)
+        foreach ($anchors as $anchor => $settings) {
+            $spec = CollectionDocs::ofAnchor($anchor);
+            if ($spec === null || !$settings instanceof \stdClass || $onlyToon !== null) continue;
+            $parts = [];
+            foreach (array_keys($spec['parts']) as $kind) $parts[$kind] = $collectionParts[$kind] ?? [];
+            $files[ContentFiles::PLATFORM_DIR . "/_/$anchor.json"] = CollectionDocs::compose($spec, $settings, $parts);
         }
 
         foreach ($files as $relative => $doc) {

@@ -20,6 +20,7 @@ use Scutoons\Domain\ApiError;
  *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
  *   characters  moods  asset-requests  people  roles  events  map      platform-wide, language-neutral
  *   place:<id>  route:<id>                                         one document per place / route of the world map (ID_KINDS)
+ *   character:<id>                                                 one document per character of the registry (`characters` = its own fields)
  *   (`map` = the SCUTOONS world map's own settings – size, layers –, its places and routes are documents of their own:
  *   agents/MAP.md, agents/MAP-DOCUMENTS.md, WorldMapDocs; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
@@ -50,12 +51,13 @@ final class EntityKey
         // one segment: the id (ID_KINDS)
         'place' => [false, false, false, false],
         'route' => [false, false, false, false],
+        'character' => [false, false, false, false],
     ];
     /**
      * Kinds addressed by an id of their own (`place:<id>`, `route:<id>`; platform-wide, language-neutral – agents/MAP-DOCUMENTS.md):
      * the id is a slug, stable forever once published (events reference it). Meant for the catalog's items too (`item:<id>`).
      */
-    public const ID_KINDS = ['place', 'route'];
+    public const ID_KINDS = ['place', 'route', 'character'];
     public const ID_PATTERN = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /**
      * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only

@@ -107,6 +107,25 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * Stores a whole collection in its old one-document shape (`characters` with its list, `map` with locations / routes)
+     * as its documents – the anchor + one `<kind>:<id>` per entry (agents/MAP-DOCUMENTS.md), like an import
+     * @param array<string, mixed> $composed
+     * @return int the anchor's version id
+     */
+    protected function storeCollection(string $anchor, array $composed, string $status = 'published', string $createdAt = '2026-09-30 00:00:00'): int
+    {
+        $spec = \Scutoons\Domain\Content\CollectionDocs::ofAnchor($anchor) ?? throw new \LogicException("$anchor is no collection");
+        $first = 0;
+        foreach (\Scutoons\Domain\Content\CollectionDocs::split($spec, json_decode((string) json_encode($composed))) as $key => $doc) {
+            $kind = explode(':', $key)[0];
+            $this->db->run('INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, ?, NULL, NULL, ?, NULL, ?, ?, NULL)',
+                [$key, $kind, (string) json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION), $createdAt, $status]);
+            $first = $first ?: $this->db->lastInsertId();
+        }
+        return $first;
+    }
+
+    /**
      * The smallest chapter that fits its type (PUT /api/entities refuses others, ContentSchemas), as a JSON string
      * @param array<string, mixed> $fields
      */

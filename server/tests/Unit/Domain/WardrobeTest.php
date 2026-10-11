@@ -24,7 +24,7 @@ final class WardrobeTest extends TestCase
             ['id' => 'swim', 'default' => true, 'path' => "characters/$c/{$c}_apose-swim.webp", 'slots' => $slots],
         ]];
         $json = json_encode(['characters' => [['id' => 'catpope', 'apose' => $looks('catpope', $single)], ['id' => 'toptoy', 'apose' => $looks('toptoy', $twins)]]]);
-        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $this->storeCollection('characters', (array) json_decode((string) $json, true), 'published', '2026-10-01 00:00:00');
     }
 
     /** @return array<string, string> item id → entry id */

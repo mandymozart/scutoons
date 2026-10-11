@@ -29,7 +29,9 @@ const SCHEMAS = {
 	credits: 'ToonCredits',
 	people: 'PeopleRegistry',
 	roles: 'RoleVocabulary',
-	characters: 'CharacterRegistry',
+	// the registry as documents (agents/MAP-DOCUMENTS.md): `characters` = its own fields, `character:<id>` each
+	characters: 'CharacterRegistrySettings',
+	'registry-character': 'CharacterDoc',
 	moods: 'MoodVocabulary',
 	'asset-requests': 'AssetRequests',
 	cast: 'ToonCast',

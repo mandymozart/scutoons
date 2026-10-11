@@ -218,6 +218,35 @@ final class EntityStoreTest extends TestCase
     }
 
     /**
+     * 2026-10-12-character-documents (owner D10): the registry split like the map – per character the published
+     * registry's entry + the newest's where it differs or is new + a removal draft; the list leaves every version
+     */
+    public function testTheCharacterDocumentsMigration(): void
+    {
+        $c = fn(string $id, string $color) => ['id' => $id, 'name' => ['de' => strtoupper($id)], 'color' => $color, 'personas' => []];
+        $versions = [['published', [$c('cat', 'blue'), $c('boy', 'red')]], ['draft', [$c('cat', 'green'), $c('frog', 'lime')]]];
+        foreach ($versions as $i => [$status, $characters]) {
+            $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, 'u1', ?, ?, NULL)",
+                [json_encode(['characters' => $characters]), '2026-10-0' . ($i + 1) . ' 00:00:00', $status]);
+        }
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-12-character-documents.mysql.sql');
+        $rows = fn() => $this->db->all("SELECT entity_key, json, status FROM entity_versions WHERE kind = 'character' ORDER BY id");
+        $first = $rows();
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-12-character-documents.mysql.sql');
+        self::assertSame($first, $rows(), 'a second run changes nothing');
+        $doc = fn(string $id, string $color, bool $removed = false) => ['name' => ['de' => strtoupper($id)], 'color' => $color, 'personas' => []] + ($removed ? ['removed' => true] : []);
+        self::assertSame([
+            ['character:cat', 'published', $doc('cat', 'blue')],
+            ['character:boy', 'published', $doc('boy', 'red')],
+            ['character:cat', 'draft', $doc('cat', 'green')],
+            ['character:frog', 'draft', $doc('frog', 'lime')],
+            ['character:boy', 'draft', $doc('boy', 'red', true)],
+        ], array_map(fn(array $r) => [$r['entity_key'], $r['status'], json_decode((string) $r['json'], true)], $first));
+        self::assertSame(['{}', '{}'], array_column($this->db->all("SELECT json FROM entity_versions WHERE entity_key = 'characters' ORDER BY id"), 'json'));
+    }
+
+    /**
      * 2026-10-06-target-value: a jump target's numeric value becomes a string (chapter / season / toon / product / xr);
      * strings, other objects with a numeric value and texts stay; a second run changes nothing
      */

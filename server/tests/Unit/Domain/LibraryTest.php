@@ -6,6 +6,7 @@ namespace Scutoons\Tests\Domain;
 use Scutoons\Console\ContentFiles;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Content\CollectionDocs;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Library\Library;
@@ -34,10 +35,11 @@ final class LibraryTest extends TestCase
         };
         self::assertNotNull($key, "$toon/$locale/$path");
         $store = $this->get(EntityStore::class);
-        if ($key === 'map') {
-            // the world map's documents (agents/MAP-DOCUMENTS.md): map + place:<id> + route:<id>, like an import
+        $collection = CollectionDocs::ofAnchor($key);
+        if ($collection !== null) {
+            // the world map's / the registry's documents (agents/MAP-DOCUMENTS.md): the anchor + one per entry, like an import
             $first = 0;
-            foreach (ContentFiles::splitMap(json_decode((string) json_encode($data))) as $part => $doc) {
+            foreach (CollectionDocs::split($collection, json_decode((string) json_encode($data))) as $part => $doc) {
                 $id = $store->insert(EntityKey::parse($part), (string) json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION), null, 'draft', null);
                 if ($publish) $store->setPublished(['id' => $id, 'entity_key' => $part]);
                 $first = $first ?: $id;
