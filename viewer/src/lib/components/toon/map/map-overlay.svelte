@@ -238,14 +238,30 @@
 		);
 	};
 
-	// ── seen: new places that were on screen while the map was open lose their halo (and the badge goes) ─────────
+	// ── seen: new places that were on screen while the map was open – a new place stands as its plaster model until then;
+	//    it gets painted right there (wobble, pop – owner 2026-10-11), then it is seen (its halo and the badge go) ─────
+	/** new places being painted in place (no flight) */
+	let painting = $state<Set<string>>(new Set());
+	const PAINT_MS = 2300;
 	$effect(() => {
-		if (!open || !world) return;
-		const onScreen = places.filter((p) => isPlaceNew(p.id, mapState) && view.onScreen(p)).map((p) => p.id);
+		if (!open || !world || revealing) return;
+		const onScreen = places.filter((p) => isPlaceNew(p.id, mapState) && !painting.has(p.id) && view.onScreen(p)).map((p) => p.id);
 		if (!onScreen.length) return;
-		const timer = setTimeout(() => world.seen(onScreen), 1500);
+		const timer = setTimeout(() => {
+			painting = new Set([...painting, ...onScreen]);
+			setTimeout(() => {
+				world.seen(onScreen);
+				painting = new Set([...painting].filter((id) => !onScreen.includes(id)));
+			}, PAINT_MS);
+		}, 1500);
 		return () => clearTimeout(timer);
 	});
+
+	// ── locked places (owner 2026-10-11: "die Gips-Varianten schon vorher auf der Karte"): every place of this toon that is
+	//    not unlocked yet stands as its plaster model – no name, no marker, no tap; unlocking paints it ──────────────────
+	const lockedPlaces = $derived((data?.locations ?? []).filter((p) => !isPlaceVisible(p, mapState) && own(p) && !!p.image?.plaster));
+	const lockedIndex = $derived(pointIndex(lockedPlaces));
+	const shownLocked = $derived(lockedIndex.query(growRect(view.worldRect(160), PLACE_SIZE_MAX / 2)));
 
 	// ── place card ───────────────────────────────────────────────────────────────────────────────────────────
 	let selected = $state<string | null>(null);
@@ -344,20 +360,34 @@
 		{#if data}
 			<MapTerrain {view} width={data.width} height={data.height} layers={data.layers} url={asset} testid="map-world" />
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} />
+			<div class="places locked" aria-hidden="true">
+				{#each shownLocked as p (p.id)}
+					{@const s = view.toScreen(p)}
+					{@const box = imageBox(p)}
+					<div class="place" style:transform="translate({s.x}px, {s.y}px)">
+						<span class="image-scale" style:transform="scale({imageScale})">
+							<img class="place-image plaster still" src={asset(p.image!.plaster!)} srcset={placeImageSrcset(p.image!.plasterVariants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+						</span>
+					</div>
+				{/each}
+			</div>
 			<div class="places">
 				{#each shownPlaces as p (p.id)}
 					{@const s = view.toScreen(p)}
 					{@const isNew = isPlaceNew(p.id, mapState)}
-					<div class="place" class:own={own(p)} class:new={isNew} class:active={selected === p.id} class:revealed={revealShow && revealing === p.id} style:--reveal-color={revealColor} style:transform="translate({s.x}px, {s.y}px)">
-						{#if revealShow && revealing === p.id}<span class="halo" aria-hidden="true"></span>{/if}
+					{@const showing = (revealShow && revealing === p.id) || painting.has(p.id)}
+					<!-- a new place: plaster until its reveal (the flight) or its painting in place -->
+					{@const plasterOnly = isNew && !!p.image?.plaster && revealing !== p.id && !painting.has(p.id)}
+					<div class="place" class:own={own(p)} class:new={isNew} class:active={selected === p.id} class:revealed={showing} style:--reveal-color={revealColor} style:transform="translate({s.x}px, {s.y}px)">
+						{#if showing}<span class="halo" aria-hidden="true"></span>{/if}
 						{#if p.image && own(p)}
 							{@const box = imageBox(p)}
 							<span class="image-scale" style:transform="scale({imageScale})">
 							<!-- the reveal (§8.5a): the plaster model first, the painted diorama fades in over it -->
-							{#if p.image.plaster && revealing === p.id}
-								<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} sizes={drawnSize(p)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+							{#if p.image.plaster && (revealing === p.id || painting.has(p.id) || plasterOnly)}
+								<img class="place-image plaster" class:still={plasterOnly} src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} sizes={drawnSize(p)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 							{/if}
-							<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+							<img class="place-image" class:waiting={(revealing === p.id && !revealShow) || plasterOnly} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 							<!-- the diorama opens its place's card too (owner 2026-10-11) – on the cells it takes, not its picture's box -->
 							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 							<svg class="place-hit" aria-hidden="true"><path d={hitPath(p)} onclick={() => select(p)} /></svg>
@@ -622,35 +652,68 @@
 			opacity: 0;
 		}
 	}
+	/* the paint pops: up past full size, a squash, then a wobble that settles (owner 2026-10-11: "wackeln und aufpoppen") */
 	@keyframes reveal-image {
 		0% {
 			opacity: 0;
-			transform: scale(0.85) rotate(0deg);
+			transform: scale(0.7) rotate(0deg);
 		}
-		30% {
+		22% {
 			opacity: 1;
-			transform: scale(1.05) rotate(-4deg);
+			transform: scale(1.22, 1.14) rotate(-6deg);
 		}
-		48% {
-			transform: scale(1) rotate(3deg);
+		36% {
+			transform: scale(0.94, 1.04) rotate(5deg);
+		}
+		50% {
+			transform: scale(1.06) rotate(-3.5deg);
 		}
 		64% {
-			transform: rotate(-2deg);
+			transform: scale(0.99) rotate(2deg);
 		}
 		80% {
-			transform: rotate(1deg);
+			transform: scale(1.01) rotate(-1deg);
 		}
 		100% {
 			opacity: 1;
 			transform: scale(1) rotate(0deg);
 		}
 	}
+	/* the plaster model shakes a little before the paint comes */
+	.revealed .plaster {
+		transform-origin: 50% 90%;
+		animation: plaster-shake 0.45s ease-in-out both;
+	}
+	@keyframes plaster-shake {
+		0%,
+		100% {
+			transform: rotate(0deg);
+		}
+		25% {
+			transform: rotate(-3deg) scale(1.02);
+		}
+		50% {
+			transform: rotate(3deg) scale(1.03);
+		}
+		75% {
+			transform: rotate(-2deg) scale(1.02);
+		}
+	}
+	/* a plaster model that just stands (locked, or new and not revealed yet): no animation, no taps */
+	.plaster.still {
+		animation: none;
+	}
+	.places.locked,
+	.places.locked * {
+		pointer-events: none;
+	}
 	@media (prefers-reduced-motion: reduce) {
 		.halo {
 			animation: none;
 			opacity: 0.6;
 		}
-		.revealed .place-image:not(.plaster) {
+		.revealed .place-image:not(.plaster),
+		.revealed .plaster {
 			animation: none;
 		}
 	}
