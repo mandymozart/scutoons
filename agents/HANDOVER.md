@@ -1,6 +1,6 @@
 # HANDOVER — read this first (short on purpose)
 
-State at the end of the 2026-10-02/03 coordinator session. Keep this file short: replace, don't append. Details live in
+State at the end of the 2026-10-02/03 coordinator session (+ the 2026-10-11 map / phone-editor session, below). Keep this file short: replace, don't append. Details live in
 the files it points to – read those only for the part you touch (MEMORY.md is 1800 lines: grep it, never read it whole).
 
 ## Where things are
@@ -26,6 +26,11 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Local dev: **MariaDB in Docker only** – no SQLite any more (owner 2026-10-05): `npm run dev:db` (container, migrate,
   prod seed, sandbox, API, test user), PHPUnit with `npm run dev:db test`. A worktree's own database:
   `SCUTOONS_DB_NAME=scutoons_<x>`. Missing media: `npm run dev:db -- media --apply` (from bunny.net). Test user: `npm run dev:test-user` (`--browser <url>` for a sign-in snippet).
+- Map + phone editors (2026-10-11): places are unlocked ONLY by the `unlockLocation` event (MAP.md §8.5a/b – toast;
+  in a VN script / click / item tap the map flies to the place); place images in 1x / 2x / 3x with a plaster model, a
+  `size` per place on a hex grid (`snapPlace`), shared `MapTerrain`; the phone editors have one bottom bar (`PhoneBar`:
+  Save · History · Publish · More + a selection bar, sheet tabs on the sheet – UI-CONCEPTS E.10). Next steps: BACKLOG
+  10.67 (the map's scale ÷8, deep zoom, tiles), 10.61 (migrations behind a developer role), 10.62–10.66.
 - Open work (post-beta items 10.x + known bugs): agents/BACKLOG.md – one list (owner 2026-10-06; "CUTOVER 10.x" in older notes = the same number there).
 
 ## Working rules learned (owner)
@@ -79,6 +84,11 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   flow (`.sc-empty`, tools.css). DESIGN.md "Empty states".
 
 ## Open owner decisions / loose ends
+- 2026-10-11: `2026-10-11-unlock-location-events` ran on production (verified by MCP: no `unlock` on the map, events in
+  chapters 1–5) – pasted, so NOT recorded in `schema_migrations` (complete it before any automatic migrator, BACKLOG
+  10.61); empty the API's `storage/cache/library` once. Publish the map draft v257 (dioramas, sizes, grid). Lesson:
+  phpMyAdmin's connection is utf8mb4_unicode_ci, the tables utf8mb4_general_ci – migrations compare columns with
+  literals, never user variables (#1267); give the owner a comment-free ASCII `.paste.sql`.
 - AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md, owner 2026-10-09; the Ask panel and service are
   gone). Production: run `2026-10-09-mcp-drafts.mysql.sql` + `2026-10-09-api-tokens.mysql.sql` (the SELECTs first) with
   the deploy; after it delete the bunny Magic Containers app, the `ask.` DNS, the ghcr image `scutoons-ask`, GitHub vars
