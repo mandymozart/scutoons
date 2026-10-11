@@ -8,6 +8,28 @@ New entries: the next free number (10.60, …), owner + date, then **O –** for
 accounts, decisions) – NOT migrations: those run with the deploy / over the MCP (owner 2026-10-12, HANDOVER "Migrations"). Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
+## Reading position night 2026-10-12 (owner: "diesen Plan mit in den Backlog und anfangen, das zu implementieren über die Nacht hinweg … eigenen Branch / eigenen Worktree") – item 10.69
+
+Branch `claude/silly-mestorf-173e6e` in its own worktree (owner asked for it) – **not merged into `main`, not pushed**;
+the owner reviews and merges. Result summary goes here in the morning.
+
+- [ ] 10.69 **Where is a reader in a chapter** (owner 2026-10-11: "Wir haben ein Progress-Tracking irgendwie gehabt. Das
+  ist aber für Story-Points, nicht für wie weit gelesen wurde in einem Chapter – das ist ja auch sehr aussagekräftig, wo
+  eine Person ist"). **What exists:** the save game (DATA.md "The save game", 10.36) – one state per reader, members in
+  `progress` row `toon_id = 'scutoons'`, guests only in localStorage – holds `variables`, `history`, `map` and the
+  checkpoints `progress: [{ uri: '<toon>/chapter/<n>', isComplete, position 0..1 (slices read ÷ the chapter's slices),
+  created_at, updated_at }]` (`@scutoons/content` progress.ts, written by the chapter page → `world.readChapter`). The
+  reader sees it (start button "continue · 43 %", the chapter list's bars). **Missing:** nobody else sees it (admin user
+  page, MCP `read_user`), no per-chapter numbers for the storytellers, only a percentage (no "group X, slice Y"), and
+  "continue" opens the chapter at its top. Guests stay invisible on the server (only localStorage). The plan (owner:
+  "Go"):
+  1. **Per reader, read-only:** the admin user page gets a "Reading" section (per toon + chapter: bar, finished, last read;
+     plus the counts of story variables / places) – the same in `read_user` (MCP). No migration.
+  2. **Per chapter:** members who started / finished each chapter and where the unfinished ones stopped (10 % steps) –
+     computed from the `progress` table (members only), an admin page + an MCP tool `reading_stats`. No migration.
+  3. **Exact spot + real "continue":** the checkpoint also keeps the furthest group / slice read (optional fields, older
+     checkpoints without them stay valid – no SQL needed); "continue" opens the chapter at that group.
+
 ## Desktop UI fixes (owner 2026-10-11: "i like some fixes. we collect them here … can do it over night") – collecting
 
 Collected with the owner, then worked through in a night run (rules: memory night-runs – commit on `main`, never
