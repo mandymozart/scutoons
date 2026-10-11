@@ -23,8 +23,7 @@ export async function loadToonLanguages(toon: string): Promise<ToonLanguages> {
 /**
  * The toon's index entry as an editable doc (language-neutral), saved/published like the other entities. With the toon's
  * `languages` its texts (title, description, release, status per language – agents/NEUTRAL.md step 4) are edited like a
- * neutral document's (`text` / `setText`); an entry without them gets them from the per-language toon settings on load
- * (in memory, `converted` – saving the entry stores them). Without: the entry as stored (the toon page's languages).
+ * neutral document's (`text` / `setText`). Without: the entry as stored (the toon page's languages).
  */
 export function toonIndexDoc(toon: string, languages?: ToonLanguages): ContentDoc {
 	return new ContentDoc(entities.toon(toon), [NEUTRAL_LOCALE], NEUTRAL_LOCALE, languages ? { source: languages.source, languages: languages.languages } : null);
@@ -32,9 +31,8 @@ export function toonIndexDoc(toon: string, languages?: ToonLanguages): ContentDo
 
 /**
  * A localized entity of the toon in all its languages, the source first: a chapter / scene / season is ONE
- * language-neutral document with its texts per language (agents/NEUTRAL.md – converted from its per-locale documents
- * on load while it has none); the script is one document per language (a translation by design). The toon settings
- * are the toon entry's (`toonIndexDoc` with the languages).
+ * language-neutral document with its texts per language (agents/NEUTRAL.md); the script is one document per language
+ * (a translation by design). The toon settings are the toon entry's (`toonIndexDoc` with the languages).
  */
 export function toonDoc(entity: string, languages: ToonLanguages): ContentDoc {
 	const kind = parseEntityKey(entity)?.kind;

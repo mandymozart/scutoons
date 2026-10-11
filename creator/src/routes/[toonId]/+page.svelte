@@ -13,7 +13,7 @@
 	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { chapterSyncChanges, syncChapter } from '$lib/editor/visibility.ts';
 	import { toonUrl } from '$lib/utils/cdn.ts';
-	import { entities, hasToonTexts, Language, NEUTRAL_LOCALE, parseEntityKey, previewText, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
+	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, previewText, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import FileStatus from '$lib/components/status/file-status.svelte';
@@ -47,8 +47,6 @@
 	let index = $state<ContentDoc | null>(null);
 	/** the languages the files below were loaded with (= the saved index entry) */
 	let langs = $state<ToonLanguages | null>(null);
-	/** the toon still has per-language toon settings (`toon-settings:<toon>:<l>`, legacy – agents/NEUTRAL.md step 4) */
-	let toonSettingsStored = $state(false);
 	let season = $state<ContentDoc | null>(null);
 	let chapters = $state<Record<number, ContentDoc>>({});
 	/** chapter numbers that have a file in the content store (any locale), in the season or not */
@@ -75,8 +73,7 @@
 	const titleOf = (doc: ContentDoc | null | undefined) => (doc ? previewText(doc.get(doc.primary, ['title']), [titleLocale, doc.textSource]) : '');
 
 	const sequence = $derived<SequenceItem[]>(season?.data?.[season.primary]?.sequence ?? []);
-	// a season converted in memory (agents/NEUTRAL.md) is not saved from here: the Convert page / its editor stores it
-	const pageDocs = $derived([index, season].filter((d): d is ContentDoc => !!d && !d.unconverted));
+	const pageDocs = $derived([index, season].filter((d): d is ContentDoc => !!d));
 	/** no season 1 yet: the page offers "Create season 1" */
 	const seasonMissing = $derived(!!season && !season.loading && !season.error && season.present.length === 0);
 	/** chapter numbers in the season of any language */
@@ -90,14 +87,6 @@
 		season && !season.loading
 			? sequence.filter((item) => chapters[item.number] && !chapters[item.number].loading && chapterSyncChanges(chapters[item.number]).length).map((item) => chapters[item.number])
 			: []
-	);
-	/**
-	 * documents still stored per language (converted in memory on load) or toon settings not in the toon entry yet: the
-	 * Convert page converts the toon
-	 */
-	const unconverted = $derived(
-		[season, ...Object.values(chapters)].some((d) => !!d?.unconverted) ||
-			(toonSettingsStored && !!index && !index.loading && index.data[NEUTRAL_LOCALE] != null && !hasToonTexts(index.data[NEUTRAL_LOCALE]))
 	);
 	const anyDirty = $derived(pageDocs.some((d) => d.dirty) || followers.length > 0);
 
@@ -119,7 +108,6 @@
 		try {
 			const refs = (await contentIndex(toonId)).entities.map((e) => parseEntityKey(e.key));
 			stored = [...new Set(refs.filter((r) => r?.kind === 'chapter').map((r) => r!.number!))];
-			toonSettingsStored = refs.some((r) => r?.kind === 'toon-settings' && r.toon === toonId);
 		} catch {
 			/* index unavailable: the season's chapters only */
 		}
@@ -313,10 +301,6 @@
 			<h1 class="toon-title">
 				<a href="/{toonId}/toon" title={m['creator.open_toon_settings']({ name: toonName })} data-testid="toon-title"><ToonAvatar src={avatarSrc} name={toonName} /> <span>{toonName}</span></a>
 			</h1>
-			{#if unconverted}
-				<!-- only while something is still stored per language (agents/NEUTRAL.md): the owner's Convert page -->
-				<p class="sc-bar is-note" data-testid="convert-bar">{m['creator.convert_bar']()} <a href="/{toonId}/convert" data-testid="open-convert">{m['creator.convert_open']()}</a></p>
-			{/if}
 			{#if !season || season.loading}
 				<p>{m['creator.loading']()}</p>
 			{:else if season.error}

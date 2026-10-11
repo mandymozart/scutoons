@@ -30,17 +30,6 @@ export type PublishScope =
 /** a stored file with a draft newer than what readers see */
 const hasDraft = (e: ContentIndexEntity) => e.published === null || e.latest > e.published;
 
-/**
- * an old per-language copy of a language-neutral document (before 2026-10-06: `chapter:t:n:de`, `scene:t:n:x:en`,
- * `season:t:n:de`, `toon-settings:t:de`) – read only now, never published again
- */
-export function isLegacy(key: string): boolean {
-	const parts = key.split(':');
-	if (parts[0] === 'chapter' || parts[0] === 'season') return parts.length === 4;
-	if (parts[0] === 'scene') return parts.length === 5;
-	return parts[0] === 'toon-settings';
-}
-
 /** is a key below the level (or the level's own file)? */
 export function inScope(key: string, scope: PublishScope): boolean {
 	const chapter = (t: string, n: number) => key === `chapter:${t}:${n}` || key.startsWith(`scene:${t}:${n}:`);
@@ -84,7 +73,7 @@ function detail(e: ContentIndexEntity): string {
 export async function pendingFiles(scope: PublishScope): Promise<ContentIndexEntity[]> {
 	const toons = scope.kind === 'all' ? ['', ...scope.toons.map((t) => t.id)] : [scope.toon];
 	const lists = await Promise.all(toons.map((t) => contentIndex(t).then((r) => r.entities)));
-	return lists.flat().filter(hasDraft).filter((e) => !isLegacy(e.key) && inScope(e.key, scope)).sort(byTree);
+	return lists.flat().filter(hasDraft).filter((e) => inScope(e.key, scope)).sort(byTree);
 }
 
 /** one line of the checklist: a whole file, or one change inside a document with parts (the map's places …) */

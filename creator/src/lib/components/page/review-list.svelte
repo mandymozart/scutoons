@@ -46,7 +46,7 @@
 		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d) : '';
 	};
 
-	/** the page of a group's first file (chapter / season / toon settings / cast / credits / script) */
+	/** the page of a group's first file (chapter / season / toon entry / cast / credits / script) */
 	function href(g: Group): string {
 		const ref = parseEntityKey(g.items[0].key);
 		const toon = g.toon;
@@ -57,7 +57,6 @@
 			case 'season':
 				return `/${toon}/season/${ref.number}`;
 			case 'toon':
-			case 'toon-settings':
 				return `/${toon}/toon`;
 			case 'cast':
 			case 'credits':
