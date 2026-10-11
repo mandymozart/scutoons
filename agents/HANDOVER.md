@@ -16,8 +16,14 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   (gitignored phpMyAdmin export) via `npm run dev:db` / `npm run dev:db -- seed`.
 - Production DB: MariaDB 10.11.14, server sql_mode NO_ENGINE_SUBSTITUTION, latin1 server default; every table utf8mb4.
   The API sets a strict session sql_mode (`DB_SQL_MODE`). Codes are case-sensitive (utf8mb4_bin, migration
-  2026-10-03-code-case – run on production, verified). Migrations are run by the owner in phpMyAdmin (SQL tab; select
-  the database first – `DATABASE()` is `information_schema` otherwise; the DB is `d0487143`).
+  2026-10-03-code-case – run on production, verified).
+- **Migrations: the owner no longer runs any by hand** (owner 2026-10-12: "Ich muss keine Migrations mehr ausführen –
+  wichtig für alle Agents"; BACKLOG 10.61): a migration file in `server/migrations/mysql/` runs on production by itself
+  with the deploy (after the API upload, `POST /api/deploy/migrate` with MIGRATE_KEY). An agent with the owner's
+  developer role checks and runs them over the SCUTOONS MCP: `migration_status`, `plan_migrations` (a dry run with row
+  counts), `apply_migrations` (that plan; changed rows backed up). So: never ask the owner to open phpMyAdmin – write the
+  file idempotent (a second run changes nothing), dry-run it on the dev DB, push = it runs; check with migration_status
+  (agents/MCP.md §8, server/docs/DATABASE.md "Migrations").
 - The catalog (items, recipes, albums, products, editions, featured, permissions / code types, toons) lives in the
   database since 2026-10-04 (CUTOVER 10.29, agents/CATALOG.md), edited in the admin (`/catalog/<kind>`, history + undo);
   no file seed any more (10.30): local = the prod seed, tests = `server/tests/fixtures/catalog/`. Production: `2026-10-04-catalog.mysql.sql` has run
@@ -40,7 +46,7 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   `main` deploys; the owner pushes, or asks you to (owner 2026-10-05). Never add Claude attribution lines.
 - Deploy: the owner runs `git push origin main` (or asks an agent to).
 - Stored format changes (owner 2026-10-06): first analyse the existing data (dev DB = latest production dump), then a DB
-  migration (SQL, idempotent, a SELECT to check first; the owner runs it in phpMyAdmin) and the old form leaves the code –
+  migration (SQL, idempotent, a SELECT to check first; it runs with the deploy – see "Migrations" above) and the old form leaves the code –
   no aliases. Only when a migration can't work (backwards compatibility): a code helper WITH creator feedback ("action
   required" error or warning) – never a silent load-time conversion. Exception: data in readers' browsers (localStorage) – no
   SQL reaches it, no author is involved: a one-time helper on load (e.g. the old per-toon game states → the save game).

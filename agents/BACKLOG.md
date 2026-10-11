@@ -4,7 +4,8 @@ One list for the open work (owner 2026-10-06: "we need to merge cutover post ite
 CUTOVER.md Phase 10 ("after the beta", items keep their numbers 10.x so commits and docs that cite "CUTOVER 10.x" still
 find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the runbook of the cutover itself.
 
-New entries: the next free number (10.60, …), owner + date, then **O –** for steps the owner runs on production. Tick
+New entries: the next free number (10.60, …), owner + date, then **O –** for steps only the owner can do (hosting,
+accounts, decisions) – NOT migrations: those run with the deploy / over the MCP (owner 2026-10-12, HANDOVER "Migrations"). Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
 ## Desktop UI fixes (owner 2026-10-11: "i like some fixes. we collect them here … can do it over night") – collecting
