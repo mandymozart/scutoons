@@ -51,7 +51,7 @@ export function checkMedia(file: MediaFacts): MediaVerdict {
 	const type = mediaType(file);
 	if (kind === 'image') {
 		if (IMAGE_CONVERT.test(type)) return { ok: false, advice: `${type === 'image/png' ? 'PNG' : 'JPEG'} → WebP`, convertible: true };
-		if (type === 'image/webp' && (file.size ?? 0) > IMAGE_MAX_BYTES) return { ok: false, advice: 'too large', convertible: false };
+		if (type === 'image/webp' && (file.size ?? 0) > IMAGE_MAX_BYTES) return { ok: false, advice: `> ${IMAGE_MAX_BYTES / 1024 / 1024} MB`, convertible: false };
 		return { ok: true, convertible: false };
 	}
 	if (kind === 'video') {

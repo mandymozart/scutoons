@@ -9,7 +9,7 @@ test('checkMedia: PNG / JPEG convert to WebP, WebP / SVG / GIF are fine, a big W
 	assert.deepEqual(checkMedia({ type: 'image/jpeg', name: 'a.jpg' }), { ok: false, advice: 'JPEG → WebP', convertible: true });
 	assert.equal(checkMedia({ type: 'image/webp', name: 'a.webp', size: 2000 }).ok, true);
 	assert.equal(checkMedia({ type: 'image/svg+xml', name: 'a.svg' }).ok, true);
-	assert.deepEqual(checkMedia({ type: 'image/webp', name: 'a.webp', size: IMAGE_MAX_BYTES + 1 }), { ok: false, advice: 'too large', convertible: false });
+	assert.deepEqual(checkMedia({ type: 'image/webp', name: 'a.webp', size: IMAGE_MAX_BYTES + 1 }), { ok: false, advice: '> 1 MB', convertible: false });
 });
 
 test('checkMedia: the type from the extension when there is none (registry paths)', () => {

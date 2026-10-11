@@ -9,6 +9,7 @@
 	import { ASSET_KINDS, type AssetKind, type AssetList, type AssetMissing, type AssetStorageStatus, type AssetSummary, type AssetUnused } from '@scutoons/api';
 	import { assets } from '$lib/api.ts';
 	import { bytes, errorText, number } from '$lib/format.ts';
+	import { auditAssets, type StandardFinding } from '@scutoons/media';
 	import { pagerLabels, tableLabels } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -30,6 +31,9 @@
 	let unusedTotals = $state<{ assets: number; files: number; bytes: number } | null>(null);
 	let selected = $state<string[]>([]);
 	let storage = $state<AssetStorageStatus | null>(null);
+	/** the optimisation tool (BACKLOG 10.64): the assets off the media standard – DRAFT, listing only (owner to decide) */
+	let standard = $state<StandardFinding[] | null>(null);
+	let standardPicked = $state<string[]>([]);
 	let busy = $state('');
 	let notice = $state('');
 	let reload = $state(0);
@@ -57,12 +61,26 @@
 				.then((r) => ((unused = r.items), (unusedTotals = r.totals), (selected = selected.filter((id) => r.items.some((i) => i.id === id)))))
 				.catch((e) => (error = errorText(e)));
 		if (view === 'storage') assets.storage().then((r) => (storage = r)).catch((e) => (error = errorText(e)));
+		if (view === 'standard') loadStandard().catch((e) => (error = errorText(e)));
 	});
+	/** every image / video asset (all pages), audited against the media standard in the browser (media-audit.ts) */
+	async function loadStandard() {
+		const all: AssetSummary[] = [];
+		for (const kind of ['image', 'video']) {
+			for (let p = 1; ; p++) {
+				const r = await assets.list({ kind, page: p, page_size: 100 });
+				all.push(...r.items);
+				if (p * r.pagination.pageSize >= r.pagination.total) break;
+			}
+		}
+		standard = auditAssets(all);
+	}
 
 	const tabs = $derived([
 		{ id: 'library', label: m['assets.tab_library']() },
 		{ id: 'missing', label: m['assets.tab_missing']() },
 		{ id: 'unused', label: m['assets.tab_unused']() },
+		{ id: 'standard', label: m['assets.tab_standard']() },
 		{ id: 'storage', label: m['assets.tab_storage']() }
 	]);
 	const href = (patch: Record<string, string | number | null>) => listHref(page.url, patch);
@@ -111,6 +129,14 @@
 		{ id: 'files', label: m['assets.col_what']() },
 		{ id: 'size', label: m['assets.col_size'](), align: 'end' }
 	]);
+	const standardColumns = $derived<Column[]>([
+		{ id: 'path', label: m['assets.col_path']() },
+		{ id: 'advice', label: m['assets.col_off_standard']() },
+		{ id: 'fix', label: m['assets.col_fix']() },
+		{ id: 'usages', label: m['assets.col_used_by'](), align: 'end' },
+		{ id: 'size', label: m['assets.col_size'](), align: 'end' }
+	]);
+	const standardChosen = $derived((standard ?? []).filter((f) => standardPicked.includes(f.path) && f.fix));
 	const whatLabel = (w: string) => (m as unknown as Record<string, () => string>)[`assets.what_${w}`]?.() ?? w;
 	const chosen = $derived((unused ?? []).filter((i) => selected.includes(i.id)));
 	const chosenFiles = $derived(chosen.reduce((n, i) => n + i.files.length, 0));
@@ -261,6 +287,29 @@
 						{:else if column.id === 'files'}
 							{#if r.all_unused}<Badge tone="warning">{whatLabel('asset')}</Badge>{/if}
 							{#each r.files as f (f.path)}<span class="ref" title={f.path}>{f.path.split('/').pop()}{#if !r.all_unused || f.what !== 'current'} <Badge tone="neutral">{whatLabel(f.what)}</Badge>{/if}</span>{/each}
+						{:else}{bytes(r.size)}{/if}
+					{/snippet}
+				</DataTable>
+			{/if}
+		{:else if active === 'standard'}
+			<p class="sc-caption">{m['assets.standard_hint']()}</p>
+			{#if !standard}
+				<Skeleton variant="table" columns={5} label={m['shell.loading']()} />
+			{:else}
+				{#if standard.length}<p data-testid="assets-standard-totals">{m['assets.standard_totals']({ files: number(standard.length), size: bytes(standard.reduce((n, f) => n + f.size, 0)), convert: number(standard.filter((f) => f.fix === 'convert').length), twin: number(standard.filter((f) => f.fix === 'twin').length), rest: number(standard.filter((f) => !f.fix).length) })}</p>{/if}
+				<DataTable columns={standardColumns} rows={standard} rowKey={(r) => r.path} selectable bind:selected={standardPicked} labels={tableLabels()}>
+					{#snippet bulk()}
+						<!-- DRAFT: not wired yet – converts the chosen files to new WebPs beside them and relinks every use -->
+						<Button size="sm" disabled data-testid="assets-standard-convert">{m['assets.standard_convert']({ files: number(standardChosen.length) })}</Button>
+					{/snippet}
+					{#snippet cell(r, column)}
+						{#if column.id === 'path'}<a href={href({ asset: r.asset })} title={r.path}>{r.path.split('/').pop()}</a><div class="sc-caption">{r.path.split('/').slice(0, -1).join('/')}</div>
+						{:else if column.id === 'advice'}<Badge tone="warning">{r.advice}</Badge>
+						{:else if column.id === 'fix'}
+							{#if r.fix}<span title={r.target}>→ {r.target?.split('/').pop()}</span><div class="sc-caption">{r.fix === 'twin' ? m['assets.fix_twin']() : m['assets.fix_new']()}</div>
+							{:else if r.kind === 'video'}<span class="sc-caption">{m['assets.fix_video']()}</span>
+							{:else}<span class="sc-caption">{m['assets.fix_source']()}</span>{/if}
+						{:else if column.id === 'usages'}{number(r.usages)}
 						{:else}{bytes(r.size)}{/if}
 					{/snippet}
 				</DataTable>

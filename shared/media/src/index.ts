@@ -30,6 +30,7 @@ export {
 	type MediaVerdict,
 	type StandardImage
 } from './media-standard.ts';
+export { auditAsset, auditAssets, nextFreeName, type AuditAsset, type StandardFinding } from './media-audit.ts';
 export {
 	cleanVariants,
 	defaultLevel,

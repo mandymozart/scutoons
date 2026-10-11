@@ -213,6 +213,12 @@ final class AssetsTest extends TestCase
         $orphans = array_column($this->get(AssetUsages::class)->orphans(), null, 'slug');
         self::assertTrue($orphans['catpope/videos/roar-little-kitty']['all_unused']);
         self::assertSame(['catpope/videos/s1-trailer-loop.1280w.mp4', 'catpope/videos/s1-trailer-loop.1920w.mp4'], $orphans['catpope/videos/s1-trailer-loop']['unused']);
+
+        // the list counts each file's own uses (the optimisation tool judges the file content references – BACKLOG 10.64)
+        $trailer = array_values(array_filter($registry->list(['q' => 's1-trailer-loop'])['items'], fn($a) => $a['slug'] === 'catpope/videos/s1-trailer-loop'))[0];
+        $perFile = array_column($trailer['renditions'], 'usages', 'path');
+        self::assertGreaterThan(0, $perFile['catpope/videos/s1-trailer-loop.720p.mp4']);
+        self::assertSame(0, $perFile['catpope/videos/s1-trailer-loop.1920w.mp4']);
     }
 
     public function testDeleteIsRefusedWhileReferenced(): void

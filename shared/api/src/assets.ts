@@ -22,6 +22,8 @@ export interface AssetRendition {
 	height: number | null;
 	duration: number | null;
 	origin: 'imported' | 'uploaded' | 'generated';
+	/** references of this file (content + catalog) – in list rows only */
+	usages?: number;
 }
 
 /** A list row: the asset with its current version */
