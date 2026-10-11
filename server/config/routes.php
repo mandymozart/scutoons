@@ -33,6 +33,7 @@ use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
 use Scutoons\Http\Controllers\Admin\ServerLogController;
 use Scutoons\Http\Controllers\Admin\SystemController;
+use Scutoons\Http\Controllers\Admin\ReadingController;
 use Scutoons\Http\Controllers\Admin\UsersController;
 use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
@@ -339,6 +340,8 @@ return static function (App $app): void {
 
         $admin->get('/users', [UsersController::class, 'list']);
         $admin->get('/users/{id}', [UsersController::class, 'get']);
+        // where the members are in the chapters (BACKLOG 10.69)
+        $admin->get('/reading', [ReadingController::class, 'stats']);
         $admin->put('/users/{id}/roles/{role}', [UsersController::class, 'grant']);
         $admin->delete('/users/{id}/roles/{role}', [UsersController::class, 'revoke']);
         $admin->get('/review-rules', [UsersController::class, 'reviewRules']);

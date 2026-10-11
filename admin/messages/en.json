@@ -64,7 +64,9 @@
 		"calendar": "Events",
 		"calendar_hint": "Dates on scutoons.com/events",
 		"proposals": "Proposals",
-		"proposals_hint": "Changes an admin's own AI proposed – check and apply"
+		"proposals_hint": "Changes an admin's own AI proposed – check and apply",
+		"reading": "Reading",
+		"reading_hint": "Where the members are in the chapters"
 	},
 	"palette": {
 		"label": "Command palette",
@@ -355,7 +357,35 @@
 		"review_add": "Add",
 		"review_remove": "Remove",
 		"review_added": "{rule} for {toon} added.",
-		"review_removed": "{rule} for {toon} removed."
+		"review_removed": "{rule} for {toon} removed.",
+		"section_reading": "Reading",
+		"section_reading_hint": "How far this account has read each chapter (from its save game; last read first). Guests keep their save game in their browser only.",
+		"reading_none": "No save game on the server yet.",
+		"reading_summary": "Story variables: {variables} · places: {places} · last saved {at}",
+		"reading_col_chapter": "Chapter",
+		"reading_col_progress": "Read",
+		"reading_col_spot": "Spot",
+		"reading_col_read": "Last",
+		"reading_finished": "read to the end",
+		"reading_again": "read to the end, reading again",
+		"reading_spot": "group {group}, slice {slice}"
+	},
+	"reading": {
+		"title": "Reading",
+		"count": "Save games of members: {count}",
+		"toon": "Toon",
+		"all_toons": "All toons",
+		"chapter": "{toon} · chapter {chapter}",
+		"prologue": "{toon} · prologue",
+		"col_chapter": "Chapter",
+		"col_started": "Started",
+		"col_finished": "Finished",
+		"col_reading": "Reading",
+		"col_stops": "Where they are",
+		"col_last": "Last read",
+		"stops_label": "Readers who have not finished the chapter yet, in 10 % steps: {stops}",
+		"none": "No member has opened a chapter yet.",
+		"reload": "Reload"
 	},
 	"catalog": {
 		"respawn": "Respawn",
@@ -666,7 +696,8 @@
 		"catalog_media": "Pictures, covers and audio are slots: click to pick a file from the asset manager or upload one. “Import images …” on Items takes many files at once, named <item-id>.png or <item-id>_<variant>.png: they become WebP (at most 1024 px), go to <toon>/items/ (a file already there gets a new version) and are set as the item’s or variant’s picture.",
 		"catalog_kinds_title": "Toons, code types, featured",
 		"catalog_kinds": "Main toons are created here only (id, name, redirect URL); the creator then fills content and meta (“Fill it in the creator”). Code types decide what a scanned code may do – saving one asks first. The products on the landing page are chosen on the Homepage page.",
-		"calendar": "The public events list (scutoons.com/events): upcoming dates first, past ones below – the page sorts by date itself. Saving stores a new version of the events document in the content store and publishes it; live within a minute (cache). Older versions stay in its history."
+		"calendar": "The public events list (scutoons.com/events): upcoming dates first, past ones below – the page sorts by date itself. Saving stores a new version of the events document in the content store and publishes it; live within a minute (cache). Older versions stay in its history.",
+		"reading": "Per chapter: how many members started it and read it to the end. \"Reading\" are those who have not finished it yet; \"Where they are\" shows where they stand (10 bars = 0–100 %). Members only – guests keep their save game in their browser. One account’s reading is on its page."
 	},
 	"entity": {
 		"chapter": "Chapter {number}",

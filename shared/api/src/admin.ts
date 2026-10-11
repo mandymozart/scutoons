@@ -222,6 +222,52 @@ export interface AdminUserDetail extends Omit<AdminUserRow, 'codes'> {
 	characters?: AdminCharacterUnlock[];
 	/** review before publish: per toon (`*` = every toon) reviewer / needs_review (docs/API.md "Reviews") */
 	review_rules?: AdminReviewRule[];
+	/** where this member is in the toons (BACKLOG 10.69); null = no save game on the server */
+	reading?: AdminUserReading | null;
+}
+
+/** One chapter checkpoint of a member's save game (BACKLOG 10.69, DATA.md "The save game") */
+export interface AdminReadingChapter {
+	toon: string;
+	chapter: number;
+	/** the current read-through, 0..1 (slices read ÷ the chapter's slices) */
+	position: number;
+	/** read to its end at least once */
+	finished: boolean;
+	/** the furthest group (index in the chapter) / slice (index in the group) read; null = a checkpoint from before 10.69 */
+	group: number | null;
+	slice: number | null;
+	started_at: string | null;
+	read_at: string | null;
+}
+
+export interface AdminUserReading {
+	/** the save game's last write (ISO) */
+	updated_at: string | null;
+	/** last read first */
+	chapters: AdminReadingChapter[];
+	/** sizes of the rest of the save game */
+	variables: number;
+	places: number;
+	history: number;
+}
+
+/** GET /admin/reading: per chapter, over every member's save game (guests are not on the server) */
+export interface AdminReadingStats {
+	status: string;
+	/** members with a save game */
+	readers: number;
+	chapters: {
+		toon: string;
+		chapter: number;
+		started: number;
+		finished: number;
+		/** not finished yet */
+		reading: number;
+		/** the unfinished readers per 10 % step (10 entries) */
+		stops: number[];
+		last_read_at: string | null;
+	}[];
 }
 
 export interface AdminReviewRule {
@@ -755,6 +801,8 @@ export function createAdminApi(api: ApiClient) {
 
 		listUsers: (params: ListParams = {}) => api.get<ListResult<AdminUserRow>>(`/admin/users${toQuery(params)}`),
 		getUser: (id: string) => api.get<{ status: string; user: AdminUserDetail }>(`/admin/users/${seg(id)}`),
+		/** where the members are in the chapters (BACKLOG 10.69); `toon` narrows it to one toon */
+		reading: (toon?: string) => api.get<AdminReadingStats>(`/admin/reading${toQuery({ toon })}`),
 		grantRole: (id: string, role: string) =>
 			api.put<{ status: string; changed: boolean; user: AdminUserDetail }>(`/admin/users/${seg(id)}/roles/${seg(role)}`),
 		revokeRole: (id: string, role: string) =>

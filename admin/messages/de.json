@@ -64,7 +64,9 @@
 		"calendar": "Termine",
 		"calendar_hint": "Termine auf scutoons.com/events",
 		"proposals": "Vorschläge",
-		"proposals_hint": "Änderungen, die die eigene KI eines Admins vorschlägt – prüfen und übernehmen"
+		"proposals_hint": "Änderungen, die die eigene KI eines Admins vorschlägt – prüfen und übernehmen",
+		"reading": "Lesestand",
+		"reading_hint": "Wo die Mitglieder in den Kapiteln stehen"
 	},
 	"palette": {
 		"label": "Befehlspalette",
@@ -355,7 +357,35 @@
 		"review_add": "Hinzufügen",
 		"review_remove": "Entfernen",
 		"review_added": "{rule} für {toon} hinzugefügt.",
-		"review_removed": "{rule} für {toon} entfernt."
+		"review_removed": "{rule} für {toon} entfernt.",
+		"section_reading": "Lesestand",
+		"section_reading_hint": "Wie weit dieses Konto jedes Kapitel gelesen hat (aus seinem Spielstand; zuletzt gelesen zuerst). Gäste haben ihren Spielstand nur im Browser.",
+		"reading_none": "Noch kein Spielstand auf dem Server.",
+		"reading_summary": "Story-Variablen: {variables} · Orte: {places} · zuletzt gespeichert {at}",
+		"reading_col_chapter": "Kapitel",
+		"reading_col_progress": "Gelesen",
+		"reading_col_spot": "Stelle",
+		"reading_col_read": "Zuletzt",
+		"reading_finished": "zu Ende gelesen",
+		"reading_again": "zu Ende gelesen, liest erneut",
+		"reading_spot": "Gruppe {group}, Slice {slice}"
+	},
+	"reading": {
+		"title": "Lesestand",
+		"count": "Spielstände von Mitgliedern: {count}",
+		"toon": "Toon",
+		"all_toons": "Alle Toons",
+		"chapter": "{toon} · Kapitel {chapter}",
+		"prologue": "{toon} · Prolog",
+		"col_chapter": "Kapitel",
+		"col_started": "Angefangen",
+		"col_finished": "Zu Ende",
+		"col_reading": "Dabei",
+		"col_stops": "Wo sie stehen",
+		"col_last": "Zuletzt gelesen",
+		"stops_label": "Leser, die das Kapitel noch nicht zu Ende gelesen haben, in 10-%-Schritten: {stops}",
+		"none": "Noch hat kein Mitglied ein Kapitel geöffnet.",
+		"reload": "Neu laden"
 	},
 	"catalog": {
 		"respawn": "Wiederkehr",
@@ -666,7 +696,8 @@
 		"catalog_media": "Bilder, Cover und Audio sind Felder zum Anklicken: Datei aus der Asset-Verwaltung wählen oder hochladen. „Bilder importieren …“ bei Items nimmt viele Dateien auf einmal, benannt <item-id>.png oder <item-id>_<variante>.png: sie werden WebP (höchstens 1024 px), landen in <toon>/items/ (eine vorhandene Datei bekommt eine neue Version) und werden als Bild des Items bzw. der Variante gesetzt.",
 		"catalog_kinds_title": "Toons, Code-Typen, Startseite",
 		"catalog_kinds": "Haupt-Toons werden nur hier angelegt (ID, Name, Weiterleitungs-URL); Inhalte und Meta füllt danach der Creator („Im Creator füllen“). Code-Typen entscheiden, was ein gescannter Code darf – Speichern fragt vorher. Die Produkte der Startseite werden auf der Seite „Startseite“ gewählt.",
-		"calendar": "Die öffentliche Terminliste (scutoons.com/events): kommende Termine oben, vergangene darunter – die Seite sortiert selbst nach Datum. Speichern legt eine neue Version des Events-Dokuments im Content-Store an und veröffentlicht sie; nach spätestens einer Minute live (Cache). Ältere Versionen bleiben in der Historie."
+		"calendar": "Die öffentliche Terminliste (scutoons.com/events): kommende Termine oben, vergangene darunter – die Seite sortiert selbst nach Datum. Speichern legt eine neue Version des Events-Dokuments im Content-Store an und veröffentlicht sie; nach spätestens einer Minute live (Cache). Ältere Versionen bleiben in der Historie.",
+		"reading": "Pro Kapitel: wie viele Mitglieder es angefangen und zu Ende gelesen haben. „Dabei“ sind die, die es noch nicht zu Ende gelesen haben; „Wo sie stehen“ zeigt, wo sie gerade sind (10 Balken = 0–100 %). Gezählt werden nur Mitglieder – Gäste haben ihren Spielstand nur im Browser. Der Lesestand eines einzelnen Kontos steht auf dessen Seite."
 	},
 	"entity": {
 		"chapter": "Kapitel {number}",
