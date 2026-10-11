@@ -316,6 +316,7 @@
 				{#if phone.current && nav.crumbs.length > 1}
 					<div class="crumb-row" data-testid="crumb-row">
 						<Breadcrumbs items={nav.crumbs.slice(1)} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} testid="phone-crumb" />
+						{#if nav.crumbEnd}<span class="crumb-end">{@render nav.crumbEnd()}</span>{/if}
 					</div>
 				{/if}
 			{/snippet}
@@ -419,6 +420,11 @@
 		flex: 1;
 	}
 	/* phones: the trail in its own row under the header (the root is the header's logo) */
+	.crumb-end {
+		margin-left: auto;
+		flex: none;
+		padding-left: var(--space-05);
+	}
 	.crumb-row {
 		display: flex;
 		align-items: center;

@@ -20,7 +20,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { Icon, confirmDialog, liveRegion, region } from '@scutoons/ui';
+	import { BarTabs, Icon, confirmDialog, liveRegion, region } from '@scutoons/ui';
 	import { getPublished, library } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -261,6 +261,7 @@
 	});
 	usePageNav({
 		sidebar: mapNav,
+		crumbEnd: toonChip,
 		fill: true,
 		extra: () => (selection ? [{ href: page.url.pathname + page.url.search, label: selectionName }] : [])
 	});
@@ -402,7 +403,53 @@
 		return out;
 	});
 	const sortedPlaces = $derived([...(map?.locations ?? [])].sort((a, b) => (mapName(a.name, locale) || a.id).localeCompare(mapName(b.name, locale) || b.id)));
-	const zoomPercent = $derived(Math.round(view.zoom * 100));
+	const fitAll = () => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5));
+	/** the crosshair on phones: the selected place's reader view, else the toon's start view */
+	function gotoView() {
+		if (placeFrame) view.centerOn(placeFrame.center, placeFrame.zoom);
+		else gotoStartView();
+	}
+
+	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11): the properties slide up from below, one tab at a time;
+	//    peek = the handle, the tabs and the heading; it drops to peek while the map is being dragged ───────────────
+	type SheetTab = 'place' | 'image' | 'unlock' | 'view' | 'map' | 'start' | 'problems';
+	let sheetOpen = $state(false);
+	let sheetTab = $state<SheetTab>('map');
+	let mapDragging = $state(false);
+	const sheetTabs = $derived.by<{ id: SheetTab; icon: string; label: string }[]>(() => {
+		if (selection?.kind === 'place')
+			return [
+				{ id: 'place', icon: 'info', label: m['creator.map_sheet_place']() },
+				{ id: 'image', icon: 'image', label: m['creator.map_image']() },
+				{ id: 'unlock', icon: 'unlock', label: m['creator.map_unlock']() },
+				{ id: 'view', icon: 'crosshair', label: m['creator.map_place_view']() }
+			];
+		if (selection) return [];
+		return [
+			{ id: 'map', icon: 'map', label: m['creator.map']() },
+			...(toonFilter ? [{ id: 'start' as const, icon: 'flag', label: m['creator.map_sheet_start']() }] : []),
+			{ id: 'problems', icon: 'alert-triangle', label: `${m['creator.map_problems']()} (${problems.length})` }
+		];
+	});
+	$effect(() => {
+		const tabs = sheetTabs;
+		untrack(() => {
+			if (tabs.length && !tabs.some((t) => t.id === sheetTab)) sheetTab = tabs[0].id;
+		});
+	});
+	function pickTab(id: SheetTab) {
+		if (sheetTab === id && sheetOpen) sheetOpen = false;
+		else {
+			sheetTab = id;
+			sheetOpen = true;
+		}
+	}
+	/** the handle: a tap toggles, a swipe opens (up) or closes (down) */
+	let handleStart = 0;
+	function handleUp(e: PointerEvent) {
+		const dy = e.clientY - handleStart;
+		sheetOpen = Math.abs(dy) < 12 ? !sheetOpen : dy < 0;
+	}
 </script>
 
 {#snippet mark(key: string)}
@@ -447,12 +494,34 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={() => (tool = 'route')}>{m['creator.map_tool_route']()}</button></li>
 		</ul>
+		<p class="phone-only nav-import">
+			<button type="button" class="item add" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()}>
+				<Icon name="upload" size="1.1em" />
+				{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
+			</button>
+		</p>
 	</div>
 {/snippet}
 
-<svelte:window onkeydown={onKeydown} />
+{#snippet toonChip()}
+	<!-- phones (UI-CONCEPTS E.10, owner 2026-10-11): the toon filter at the right of the crumb row -->
+	<label class="toon-chip">
+		<span class="vh">{m['creator.map_toon_filter']()}</span>
+		<select bind:value={toonFilter} data-testid="phone-toon-filter">
+			<option value="">{m['creator.map_all_toons']()}</option>
+			{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
+		</select>
+	</label>
+{/snippet}
 
-<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map">
+{#snippet barTabs()}
+	<!-- phones (UI-CONCEPTS E.10): the sheet's tabs are the bottom bar's -->
+	{#if sheetTabs.length}<BarTabs label={m['creator.map']()} value={sheetTab} tabs={sheetTabs} onchange={(id) => pickTab(id as SheetTab)} />{/if}
+{/snippet}
+
+<svelte:window onkeydown={onKeydown} onpointerup={() => (mapDragging = false)} onpointercancel={() => (mapDragging = false)} />
+
+<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" phoneTabs={barTabs}>
 	{#if map}
 		<div class="builder" data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
 			<div class="toolbar" role="toolbar" aria-label={m['creator.map']()}>
@@ -493,13 +562,12 @@
 				<!-- a toolbar = grouped = square (DESIGN.md "Round vs square", E.9): one segmented frame like the Flow's zoom -->
 				<div class="zoom sc-seg" role="group" aria-label={m['creator.field_map_zoom']()}>
 					<button type="button" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()} title={m['creator.map_zoom_out']()}><Icon name="zoom-out" /></button>
-					<span class="pct" data-testid="zoom-pct">{zoomPercent} %</span>
 					<button type="button" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()} title={m['creator.map_zoom_in']()}><Icon name="zoom-in" /></button>
-					<button type="button" onclick={() => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5))} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
+					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 				</div>
 			</div>
 			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
-			<div class="stage">
+			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.phone-only'))}>
 				<MapCanvas
 					bind:this={canvas}
 					{map}
@@ -520,13 +588,47 @@
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
 				/>
+				<!-- phones (UI-CONCEPTS E.10): the canvas gets the screen; tools left, zoom right, the toon filter as one chip -->
+				<div class="phone-only strip tools" role="toolbar" aria-label={m['creator.map']()}>
+					{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer'], ['place', m['creator.map_tool_place'](), 'map-pin'], ['route', m['creator.map_tool_route'](), 'share-2']] as [id, label, icon] (id)}
+						<button type="button" class:on={tool === id} aria-pressed={tool === id} aria-label={label} title={label} onclick={() => (tool = id as MapTool)} data-testid="phone-tool-{id}"><Icon name={icon} /></button>
+					{/each}
+					<span class="sep"></span>
+					<button type="button" class:on={readerView} aria-pressed={readerView} aria-label={m['creator.map_reader_view']()} title={m['creator.map_reader_view']()} onclick={() => (readerView = !readerView)}><Icon name="eye" /></button>
+					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)}><Icon name="smartphone" /></button>
+				</div>
+				<div class="phone-only strip zooms" role="group" aria-label={m['creator.field_map_zoom']()}>
+					<button type="button" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()} title={m['creator.map_zoom_in']()}><Icon name="zoom-in" /></button>
+					<button type="button" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()} title={m['creator.map_zoom_out']()}><Icon name="zoom-out" /></button>
+					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
+					<button type="button" onclick={gotoView} disabled={!placeFrame && !startView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()}><Icon name="crosshair" /></button>
+				</div>
 			</div>
-			<aside class="side">
+			<aside class="side" class:open={sheetOpen && !mapDragging} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
+				<div class="phone-only sheet-head">
+					<button type="button" class="handle" aria-label={m['creator.map_sheet_toggle']()} aria-expanded={sheetOpen} onpointerdown={(e) => (handleStart = e.clientY)} onpointerup={handleUp} data-testid="sheet-handle"><span></span></button>
+				</div>
 				{#if selection}
 					<MapProps {doc} {map} {selection} {view} {bust} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
 				{:else}
-					<MapProps {doc} {map} selection={null} {view} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
-					<section class="validation" data-testid="map-validation">
+					<div class="tab" data-tab="map">
+						<MapProps {doc} {map} selection={null} {view} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
+					</div>
+					{#if toonFilter}
+						<section class="phone-only tab start-tab" data-tab="start" data-testid="phone-start-view">
+							<h3>{m['creator.map_sheet_start']()}</h3>
+							<p class="hint">
+								{startView
+									? m['creator.map_start_view_value']({ toon: nav.toonName(toonFilter), x: Math.round(startView.center.x), y: Math.round(startView.center.y), zoom: Math.round(startView.zoom * 100) })
+									: m['creator.map_start_view_none']({ toon: nav.toonName(toonFilter) })}
+							</p>
+							<div class="start-row">
+								<button type="button" class="secondary" onclick={setStartView} disabled={!entryDoc}>{m['creator.map_start_view_set']()}</button>
+								{#if startView}<button type="button" class="ghost" onclick={gotoStartView}>{m['creator.map_start_view_go']()}</button>{/if}
+							</div>
+						</section>
+					{/if}
+					<section class="validation tab" data-tab="problems" data-testid="map-validation">
 						<h3>{m['creator.map_validation']()} ({problems.length})</h3>
 						{#if problems.length}
 							<table>
@@ -603,12 +705,6 @@
 	.zoom {
 		align-self: flex-start;
 	}
-	.zoom .pct {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 3.5rem;
-	}
 	.stage {
 		position: relative;
 		min-height: 0;
@@ -661,6 +757,145 @@
 			border-right: 0;
 			border-bottom: 2px solid var(--ink);
 		}
+	}
+
+	/* ── phones (UI-CONCEPTS E.10): the canvas gets the screen, the properties are a sheet from below ── */
+	.phone-only,
+	.tab.phone-only {
+		display: none;
+	}
+	.tab {
+		display: contents;
+	}
+	@media (max-width: 767px) {
+		.builder {
+			grid-template-rows: minmax(0, 1fr) auto;
+			min-height: 0;
+		}
+		.toolbar {
+			display: none;
+		}
+		.phone-only {
+			display: flex;
+		}
+		.tab.phone-only {
+			display: block;
+		}
+		.stage {
+			border-bottom: 0;
+		}
+		.strip {
+			position: absolute;
+			z-index: 2;
+			flex-direction: column;
+			background: var(--paper);
+			border: var(--border-width-regular) solid var(--ink);
+		}
+		.strip.tools {
+			top: 0.6rem;
+			left: 0.6rem;
+		}
+		.strip.zooms {
+			right: 0.6rem;
+			bottom: 0.6rem;
+		}
+		.strip button {
+			all: unset;
+			box-sizing: border-box;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 2.75rem;
+			height: 2.75rem;
+			color: var(--ink);
+			cursor: pointer;
+		}
+		.strip button.on {
+			background: var(--ink);
+			color: var(--paper);
+		}
+		.strip button:disabled {
+			opacity: 0.35;
+			cursor: default;
+		}
+		.strip .sep {
+			height: var(--border-width-regular);
+			background: var(--ink);
+		}
+		.side {
+			max-height: 6rem;
+			overflow: hidden;
+			border-top: 2px solid var(--ink);
+			background: var(--paper);
+			transition: max-height 0.2s ease;
+		}
+		.side.open {
+			max-height: 60dvh;
+			overflow: auto;
+		}
+		.sheet-head {
+			position: sticky;
+			top: 0;
+			z-index: 1;
+			flex-direction: column;
+			background: var(--paper);
+			border-bottom: 1px solid var(--border-subtle);
+		}
+		.handle {
+			all: unset;
+			display: flex;
+			justify-content: center;
+			padding: 0.5rem 0;
+			cursor: grab;
+			touch-action: none;
+		}
+		.handle span {
+			width: 2.75rem;
+			height: 0.3rem;
+			border-radius: 999rem;
+			background: var(--muted);
+		}
+		/* one tab at a time: the groups carry data-tab (place-props.svelte; the map / start view / problems here) */
+		.side[data-sheet-tab='place'] :global([data-tab]:not([data-tab='place'])),
+		.side[data-sheet-tab='image'] :global([data-tab]:not([data-tab='image'])),
+		.side[data-sheet-tab='unlock'] :global([data-tab]:not([data-tab='unlock'])),
+		.side[data-sheet-tab='view'] :global([data-tab]:not([data-tab='view'])),
+		.side[data-sheet-tab='map'] :global([data-tab]:not([data-tab='map'])),
+		.side[data-sheet-tab='start'] :global([data-tab]:not([data-tab='start'])),
+		.side[data-sheet-tab='problems'] :global([data-tab]:not([data-tab='problems'])) {
+			display: none;
+		}
+		.start-tab {
+			padding: 0 0.75rem 1rem;
+		}
+		.start-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.4rem;
+		}
+		.nav-import {
+			margin: 0.5rem 0 0;
+		}
+	}
+
+	/* the toon filter in the crumb row (phones; a single thing = round, DESIGN.md "Round vs square") */
+	.toon-chip .vh {
+		position: absolute;
+		width: 1px; /* px-ok: the visually-hidden pattern */
+		height: 1px; /* px-ok: the visually-hidden pattern */
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	.toon-chip select {
+		font: inherit;
+		min-height: 2.25rem;
+		max-width: 10rem;
+		padding: 0 0.9rem;
+		border: var(--border-width-regular) solid var(--ink);
+		border-radius: 999rem;
+		background: var(--paper);
+		color: var(--ink);
 	}
 
 	/* the sidebar (rendered into the shell's left column) */

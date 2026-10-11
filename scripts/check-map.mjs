@@ -473,7 +473,7 @@ async function builder() {
 	const slug = name.toLowerCase().replace('ü', 'ue').replace(/[^a-z0-9]+/g, '-');
 	report(`"+ Ort" adds a place at the click; the de name sets its id (${slug})`, placeId === slug ? [] : [`id ${idBefore} → ${placeId}`]);
 	const pos0 = await evaluate(`({ x: Number(document.querySelector('[data-testid="place-x"]').value), y: Number(document.querySelector('[data-testid="place-y"]').value) })`);
-	const zoom = (await evaluate(`Number(document.querySelector('[data-testid="zoom-pct"]').textContent.replace(/\\D/g, '')) / 100`)) || 1;
+	const zoom = (await evaluate(`Number((document.querySelector('[data-testid="zoom-pct"]')?.textContent ?? '100').replace(/\\D/g, '')) / 100`)) || 1;
 	const marker = await center(`[data-testid="builder-place-${placeId}"]`);
 	await drag(marker, { x: marker.x + 60, y: marker.y + 40 });
 	const pos1 = await waitFor(`(() => { const x = Number(document.querySelector('[data-testid="place-x"]').value); return x !== ${pos0.x} ? { x, y: Number(document.querySelector('[data-testid="place-y"]').value) } : null; })()`, 3000);

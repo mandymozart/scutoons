@@ -416,7 +416,20 @@ text-link question); embassy 4 – 2 fixed, 2 owner decides. After the fixes no 
 no ActionBar overflows (the audit's measure). **Owner 2026-10-07:** the 9 "owner decides" findings are deferred –
 "ignore for now"; nothing to build until the owner brings them up again.
 
-## E.10 The map builder on a phone (owner 2026-10-11, draft – for the owner to pick)
+## E.10 The map builder on a phone (owner 2026-10-11) – built, with "one bar at the bottom" for every editor
+
+**Decided and built (owner 2026-10-11):** the properties are a **sheet** from below; the toon filter is a round chip at the
+right of the **crumb row** (`usePageNav({ crumbEnd })`); **no % zoom readout** (phones and desktop). The sheet and the
+ActionBar competed ("das Sheet-Konzept und die Bar unten konkurrieren – bei beiden Editoren") → on phones every editor
+has **one bar**: the sheet's tabs as icons left (`BarTabs`, ActionBar `tabs`), then undo · redo · save (icons,
+ActionBar `phone`; save filled with a dot while there is something to save) and **⋯** (More is the ⋯ icon everywhere);
+⋯ holds the rest (Problems, note, history, draft, Publish with `upload-cloud`; what the bar shows is marked `in-bar` and
+left out there). The row scrolls sideways when it does not fit (like CapCut). The chapter editor's slice bar is gone on
+phones – the slice stepper only in ⋯ for now ("wenn wir wieder mehr Platz haben vielleicht"). Map: tools strip left
+(select · place · route | reader view · phone frame), zoom strip right (in · out · fit · go to the view), sheet tabs
+Place · Image · Unlock · Reader view (a place) / Map · Start view · Problems (nothing selected); Import in the drawer.
+The draft below is kept as written.
+
 
 Owner: "einen Entwurf … wie man den Karten-Editor in der Mobile View so machen kann, dass man ihn am Handy bedienen kann
 und die Funktionen, die wir gerade eingebaut haben (z. B. Ausschnitt feststellen) … was verschwinden kann, was in Menüs

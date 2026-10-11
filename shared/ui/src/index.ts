@@ -33,6 +33,7 @@ export { default as Chart, type ChartSeries } from './chart.svelte';
 export { entityLabel, ENTITY_LABELS, type EntityLabels } from './entity-label.ts';
 export { readList, listHref, listParams, type ListState, type ListDefaults } from './list-query.ts';
 export { default as ActionBar } from './action-bar.svelte';
+export { default as BarTabs } from './bar-tabs.svelte';
 export { default as InfoPanel } from './info-panel.svelte';
 export { default as AppShell } from './app-shell.svelte';
 export { default as ToonAvatar } from './toon-avatar.svelte';

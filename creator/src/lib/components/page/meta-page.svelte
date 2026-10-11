@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import type { Snippet } from 'svelte';
-	import { ActionBar, shellDock, useDock, type DockContent } from '@scutoons/ui';
+	import { ActionBar, Icon, shellDock, useDock, type DockContent } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -39,8 +39,11 @@
 		children,
 		status,
 		dock,
-		dockOpen = $bindable(false)
+		dockOpen = $bindable(false),
+		phoneTabs
 	}: {
+		/** phones: the page's sheet tabs in the one bottom bar (UI-CONCEPTS E.10; the map builder's) */
+		phoneTabs?: Snippet;
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
 		title: string;
@@ -147,7 +150,13 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="meta-page" class:wide class:fill>
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} tabs={phoneTabs}>
+		{#snippet phone()}
+			<!-- phones (UI-CONCEPTS E.10): one bar of icons – undo, redo, save; the rest in ⋯ -->
+			<button class="ghost" aria-label={m['creator.undo']()} title={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="phone-undo"><Icon name="rotate-ccw" /></button>
+			<button class="ghost" aria-label={m['creator.redo']()} title={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="phone-redo"><Icon name="rotate-cw" /></button>
+			<button class:secondary={!anyDirty} class="phone-save" aria-label={m['creator.save_draft']()} title={anyDirty ? m['creator.save_draft']() : m['creator.nothing_to_save']()} onclick={() => session.saveDraft()} disabled={anySaving} data-testid="phone-save"><Icon name="save" />{#if anyDirty}<span class="dirty-dot" aria-hidden="true"></span>{/if}</button>
+		{/snippet}
 		{#snippet start()}
 			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
@@ -156,17 +165,17 @@
 			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
+			<button class="ghost in-bar" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
+			<button class="ghost in-bar" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
 			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
+			<button class="in-bar" class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
 			<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{publishLabel(toon)}</button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish"><span class="publish-icon"><Icon name="upload-cloud" /></span>{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -200,6 +209,29 @@
 	</div>
 {/snippet}
 <style>
+	/* the publish icon only on phones (in ⋯, UI-CONCEPTS E.10) */
+	.publish-icon {
+		display: none;
+	}
+	@media (max-width: 767px) {
+		.publish-icon {
+			display: inline-flex;
+			margin-right: 0.4rem;
+			vertical-align: middle;
+		}
+	}
+	.phone-save {
+		position: relative;
+	}
+	.dirty-dot {
+		position: absolute;
+		top: 0.3rem;
+		right: 0.3rem;
+		width: 0.4rem;
+		height: 0.4rem;
+		border-radius: 50%;
+		background: currentColor;
+	}
 	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here;
 	   --top (the top bar's height) comes from the layout */
 	.status-end {

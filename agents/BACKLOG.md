@@ -855,6 +855,15 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
       typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
       sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
+- [ ] 10.60 **Publish down the tree, with a list to tick** (owner 2026-10-11): "was *eine* Datei ist, ist manchmal unklar.
+  Wenn ich weiter oben in der Gruppe oder im Kapitel publishe, sollten alle darunterliegenden Drafts mitgehen – als Liste
+  bestätigen, ob die mitgehen sollen oder nicht. So bleibt es granular, und ich habe eine Summary, wenn ich doch alle
+  Drafts absegnen möchte." Today Publish takes the page's own files (DocSession.publishAll: `docs` + saved companions)
+  and the confirm dialog lists them. Wanted: Publish on a chapter (or a group / season) collects every file below it
+  with an unpublished draft (the chapter, its scene files, …), shows them as a checklist (all ticked, each with its
+  label and last note), publishes the ticked ones. Same for reviews (submit the ticked ones). Open: which levels (toon →
+  season → chapter → group), and whether the map / characters / items count as "below" a toon.
+
 - [ ] 10.59 **Storyboard: script scene → stacked shots → first throw in Figma → chapter draft, prompts for the gaps**
       (owner 2026-10-09; plan + milestones: agents/STORYBOARD.md §9; rules: workflows/scenes/storyboard.md). Timeline:
       ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout from the week of 2026-10-12. Built on branch

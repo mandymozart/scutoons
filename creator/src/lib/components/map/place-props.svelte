@@ -156,6 +156,7 @@
 </script>
 
 <h2>{mapName(place.name, locale) || place.id}</h2>
+<div class="tab" data-tab="place">
 <label class="field">
 	<span>{m['creator.map_id']()}</span>
 	<input type="text" value={place.id} disabled={locked} title={locked ? m['creator.map_id_locked']() : undefined} onchange={(e) => changeId(e.currentTarget.value)} data-testid="place-id" />
@@ -167,7 +168,9 @@
 </div>
 
 <MapToonsChips {toons} value={place.toons} onchange={(next) => editPlace(doc, place.id, (p) => (p.toons = next))} />
+</div>
 
+<div class="tab" data-tab="unlock">
 <label class="check"><input type="checkbox" checked={!!place.hidden} onchange={(e) => editPlace(doc, place.id, (p) => { if (e.currentTarget.checked) p.hidden = true; else delete p.hidden; })} data-testid="place-hidden" /> {m['creator.map_hidden']()}</label>
 {#if place.hidden}
 	<fieldset>
@@ -212,7 +215,9 @@
 		{/if}
 	</fieldset>
 {/if}
+</div>
 
+<div class="tab" data-tab="place">
 <fieldset>
 	<legend>{m['creator.map_chapter_link']()}</legend>
 	<div class="row">
@@ -225,7 +230,9 @@
 		{/if}
 	</div>
 </fieldset>
+</div>
 
+<div class="tab" data-tab="view">
 <fieldset data-testid="place-view">
 	<legend>{m['creator.map_place_view']()}</legend>
 	<p class="hint">{m['creator.map_place_view_hint']()}</p>
@@ -240,9 +247,13 @@
 		{#if place.view}<button type="button" class="ghost" onclick={() => editView((v) => { delete v.zoom; delete v.offset; })} data-testid="place-view-clear">{m['creator.map_place_view_clear']()}</button>{/if}
 	</div>
 </fieldset>
+</div>
 
+<div class="tab" data-tab="image">
 <PlaceImage {doc} {place} {bust} />
+</div>
 
+<div class="tab" data-tab="place">
 <fieldset>
 	<legend>{m['creator.map_used_in']()}</legend>
 	{#if usedBy.length}<p>{m['creator.map_used_in_routes']({ routes: usedBy.join(', ') })}</p>{/if}
@@ -250,3 +261,11 @@
 </fieldset>
 <button type="button" class="danger" disabled={usedBy.length > 0} title={usedBy.length ? m['creator.map_delete_blocked']({ routes: usedBy.join(', ') }) : undefined} onclick={remove} data-testid="place-delete">{m['creator.map_delete_place']()}</button>
 {#if usedBy.length}<p class="hint">{m['creator.map_delete_blocked']({ routes: usedBy.join(', ') })}</p>{/if}
+</div>
+
+<style>
+	/* the phone sheet's tabs (map-builder.svelte, UI-CONCEPTS E.10) show one group; elsewhere the wrappers are invisible */
+	.tab {
+		display: contents;
+	}
+</style>

@@ -19,6 +19,11 @@
 	 * agents/DOCKING.md – next to the page's own panels, outermost; one remembered width `sc-panel-width:info`).
 	 * Closed by default; open/closed is remembered in localStorage (`infoKey`), so it stays open across pages until the
 	 * user closes it.
+	 *
+	 * Phones (< 768px, UI-CONCEPTS E.10, owner 2026-10-11 "one bar at the bottom"): with `phone` the bar is ONE row of
+	 * icons – `tabs` (the page's sheet tabs, e.g. the slice inspector's) left, `phone` (undo, redo, save as icons) and
+	 * ⋯ right; ⋯ holds everything else (Info, `start`, `secondary`, `end`; what a page marks `in-bar` is left out there –
+	 * the bar shows it). The row scrolls sideways when it does not fit. More is always the ⋯ icon (its word the label).
 	 */
 	let {
 		start,
@@ -32,8 +37,14 @@
 		infoTitle = 'Info',
 		infoHref,
 		infoLabels = {},
-		infoKey = 'sc-info-open'
+		infoKey = 'sc-info-open',
+		tabs,
+		phone
 	}: {
+		/** phones: the page's sheet tabs, left in the one bar */
+		tabs?: Snippet;
+		/** phones: the page's icon actions (undo, redo, save) next to ⋯; with it, `end` moves into ⋯ too */
+		phone?: Snippet;
 		start?: Snippet;
 		secondary?: Snippet;
 		end?: Snippet;
@@ -56,6 +67,7 @@
 	} = $props();
 
 	let narrow = $state(false);
+	let phoneWide = $state(false);
 	let moreOpen = $state(false);
 	const uid = $props.id();
 
@@ -69,8 +81,17 @@
 		query.addEventListener('change', change);
 		return () => query.removeEventListener('change', change);
 	});
+	$effect(() => {
+		const query = window.matchMedia('(max-width: 767px)');
+		phoneWide = query.matches;
+		const change = (event: MediaQueryListEvent) => (phoneWide = event.matches);
+		query.addEventListener('change', change);
+		return () => query.removeEventListener('change', change);
+	});
+	/** the one-row icon bar (phones, a page with `phone` actions) */
+	const compact = $derived(phoneWide && !!phone);
 
-	const hasMore = $derived(!!start || !!secondary);
+	const hasMore = $derived(!!start || !!secondary || (compact && (!!end || !!info)));
 
 	// the Info panel: closed by default, the user's choice is remembered (storage may be unavailable)
 	$effect(() => {
@@ -126,20 +147,44 @@
 	</button>
 {/snippet}
 
-<div class="sc-action-bar" role="region" aria-label={label}>
-	{#if narrow}
+{#snippet moreToggle()}
+	<button
+		type="button"
+		class="more-toggle"
+		aria-expanded={moreOpen}
+		aria-controls="{uid}-more"
+		aria-label={moreLabel}
+		title={moreLabel}
+		onclick={() => (moreOpen = !moreOpen)}
+		data-testid="more-toggle"
+	>
+		<Icon name="more-horizontal" />
+	</button>
+{/snippet}
+
+<div class="sc-action-bar" class:compact role="region" aria-label={label}>
+	{#if compact}
+		<div class="scroller">
+			<div class="tabs">{#if tabs}{@render tabs()}{/if}</div>
+			<div class="phone">{@render phone?.()}</div>
+		</div>
+		<div class="more" {@attach clickOutside(() => (moreOpen = false))}>
+			{@render moreToggle()}
+			{#if moreOpen}
+				<button type="button" class="more-scrim" tabindex="-1" data-control-exempt="scrim" aria-label={moreLabel} onclick={() => (moreOpen = false)}></button>
+				<div class="more-panel" id="{uid}-more">
+					{#if info}<div class="more-start">{@render infoToggle()}</div>{/if}
+					{#if start}<div class="more-start">{@render start()}</div>{/if}
+					{#if secondary}<div class="more-secondary">{@render secondary()}</div>{/if}
+					{#if end}<div class="more-secondary more-end">{@render end()}</div>{/if}
+				</div>
+			{/if}
+		</div>
+	{:else if narrow}
 		{#if info}{@render infoToggle()}{/if}
 		{#if hasMore}
 			<div class="more" {@attach clickOutside(() => (moreOpen = false))}>
-				<button
-					type="button"
-					class="more-toggle"
-					aria-expanded={moreOpen}
-					aria-controls="{uid}-more"
-					onclick={() => (moreOpen = !moreOpen)}
-				>
-					{moreLabel}
-				</button>
+				{@render moreToggle()}
 				{#if moreOpen}
 					<!-- phones: the page under the open panel is dimmed (a tab row peeking above it read as part of it – BACKLOG 10.50 c) -->
 					<button type="button" class="more-scrim" tabindex="-1" data-control-exempt="scrim" aria-label={moreLabel} onclick={() => (moreOpen = false)}></button>
@@ -237,9 +282,13 @@
 		color: var(--paper);
 	}
 	.more-toggle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		padding: 0 var(--space-15);
+		min-width: var(--control-height);
+		padding: 0 var(--space-05);
 		border: var(--border-width-regular) solid var(--border-muted);
 		line-height: var(--type-button-line);
 		background: var(--paper);
@@ -317,6 +366,49 @@
 			margin: 0;
 			border-width: var(--border-width-regular) 0;
 		}
+	}
+	/* phones, one row: the tabs take the room, the icon actions + ⋯ keep theirs */
+	.compact {
+		gap: var(--space-05);
+	}
+	/* everything but ⋯ scrolls sideways when it does not fit (owner 2026-10-11: like CapCut's bottom bar) */
+	.compact .scroller {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+		overflow-x: auto;
+		scrollbar-width: none;
+		overscroll-behavior-x: contain;
+	}
+	.compact .scroller::-webkit-scrollbar {
+		display: none;
+	}
+	.compact .tabs {
+		flex: 1 0 auto;
+		display: flex;
+		align-items: center;
+	}
+	.compact .phone {
+		display: flex;
+		align-items: center;
+		gap: var(--space-025, 0.25rem);
+		flex: none;
+	}
+	.compact .tabs :global(button) {
+		padding-inline: 0;
+	}
+	.compact .phone :global(:is(button, a.sc-button)) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 2.5rem;
+		padding-inline: var(--space-05);
+	}
+	/* in ⋯ of the one-row bar: what the bar already shows as an icon (a page marks it `in-bar`) */
+	.compact .more-panel :global(.in-bar) {
+		display: none;
 	}
 	.more-start,
 	.more-secondary {

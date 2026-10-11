@@ -3,7 +3,7 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { ActionBar, BarTabs, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -41,7 +41,7 @@
 	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
 	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
-	import { ChapterView, clampZoom, type Section } from '$lib/editor/chapter-state.svelte.ts';
+	import { ChapterView, clampZoom, type InspectorTab, type Section } from '$lib/editor/chapter-state.svelte.ts';
 	import * as edits from '$lib/editor/slice-edit.ts';
 	import { clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
@@ -939,11 +939,32 @@
 		moreLabel={m['creator.more']()}
 		breakpoint={2048}
 	>
+		{#snippet tabs()}
+			<!-- phones (UI-CONCEPTS E.10): the inspector sheet's tabs are the bar's; the slice stepper stays in ⋯ for now (owner 2026-10-11) -->
+			{#if view.section === 'slice' && activeSlice}
+				<BarTabs
+					label={m['creator.slice_tab']()}
+					value={view.inspectorTab}
+					onchange={(id) => view.setTab(id as InspectorTab)}
+					tabs={[
+						{ id: 'layers', icon: 'layers', label: m['creator.layers']() },
+						{ id: 'audio', icon: 'music', label: m['creator.audio']() },
+						{ id: 'events', icon: 'zap', label: m['creator.events'](), count: activeSlice.events?.length ?? 0 },
+						{ id: 'slice', icon: 'image', label: m['creator.slice_tab']() }
+					]}
+				/>
+			{/if}
+		{/snippet}
+		{#snippet phone()}
+			<button class="ghost" aria-label={m['creator.undo']()} title={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="phone-undo"><Icon name="rotate-ccw" /></button>
+			<button class="ghost" aria-label={m['creator.redo']()} title={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="phone-redo"><Icon name="rotate-cw" /></button>
+			<button class="phone-save" aria-label={m['creator.save_draft']()} title={m['creator.save_draft']()} onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="phone-save"><Icon name="save" />{#if anyDirty}<span class="dirty-dot" aria-hidden="true"></span>{/if}</button>
+		{/snippet}
 		{#snippet start()}
 			<!-- phones have no Cmd keys: copy / cut / paste on the live region from here (BACKLOG 10.39) -->
 			<span class="clip-phone"><ClipMenu bar /></span>
-			<!-- phones: slice nav, problems, undo / redo are in the slice bar above (BACKLOG 10.50 c) -->
-			<button class="ghost not-phone" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
+			<!-- phones: undo / redo are icons in the bar (E.10); Problems is here in ⋯ -->
+			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
@@ -962,11 +983,11 @@
 		{#snippet end()}
 			{@render sliceNav('end')}
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
+			<button class="in-bar" onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
 			<LiveChip files={liveFiles} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{publishLabel(toon)}</button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish"><span class="publish-icon"><Icon name="upload-cloud" /></span>{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -1127,29 +1148,6 @@
 				</aside>
 			{/if}
 		</div>
-		<!-- phones (BACKLOG 10.50 c, the approved draft): the slice bar above the ActionBar – ‹ Slice n/m ›, undo, redo, the
-		     problems (opens Problems); round icon buttons, More keeps the rest -->
-		<div class="slice-bar" role="toolbar" aria-label={m['creator.slice_navigation']()} data-testid="slice-bar">
-			{#if view.section === 'slice' && activeGroup?.slices?.length}
-				<button type="button" class="sc-round" onclick={() => view.selectSlice(view.sliceIndex - 1)} disabled={view.sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid="bar-prev-slice"><Icon name="chevron-left" /></button>
-				<span class="bar-count" data-testid="bar-slice-count">{m['creator.slice_of']({ index: view.sliceIndex + 1, count: activeGroup.slices.length })}</span>
-				<button type="button" class="sc-round" onclick={() => view.selectSlice(view.sliceIndex + 1)} disabled={view.sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid="bar-next-slice"><Icon name="chevron-right" /></button>
-			{/if}
-			<span class="bar-spacer"></span>
-			<button type="button" class="sc-round" title={m['creator.undo']()} aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="bar-undo"><Icon name="rotate-ccw" /></button>
-			<button type="button" class="sc-round" title={m['creator.redo']()} aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="bar-redo"><Icon name="rotate-cw" /></button>
-			<button
-				type="button"
-				class="sc-round bar-problems"
-				class:is-bad={errorCount > 0}
-				aria-pressed={open.problems}
-				title="{m['creator.problems']()} {errorCount}/{warningCount}"
-				aria-label="{m['creator.problems']()} {errorCount}/{warningCount}"
-				onclick={() => togglePanel('problems')}
-				data-testid="bar-problems"
-				><Icon name="alert-triangle" />{#if errorCount + warningCount}<span class="corner">{errorCount || warningCount}</span>{/if}</button
-			>
-		</div>
 	{/if}
 
 </div>
@@ -1295,54 +1293,37 @@
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}
-	/* phones: the slice bar above the ActionBar (BACKLOG 10.50 c) – its controls leave "More" */
-	.slice-bar {
-		display: none;
-	}
 	@media (max-width: 767px) {
 		.not-phone {
 			display: none !important;
 		}
-		.slice-bar {
-			flex: none;
-			display: flex;
-			align-items: center;
-			gap: var(--space-05);
-			padding: var(--space-025) var(--space-1);
-			border-top: var(--border-width-regular) solid var(--ink);
-			background: var(--paper);
-		}
-		/* the toasts sit above the slice bar too */
-		:global(body:has(.slice-bar)) {
-			--sc-above-action-bar: calc(var(--control-height) + 2 * var(--space-025) + var(--border-width-regular));
+		/* the inspector sheet's tabs are in the bottom bar (UI-CONCEPTS E.10) */
+		.columns :global(.inspector > .sc-tabs) {
+			display: none;
 		}
 	}
-	.bar-count {
-		white-space: nowrap;
+	/* the publish icon only on phones (in ⋯, UI-CONCEPTS E.10) */
+	.publish-icon {
+		display: none;
 	}
-	.bar-spacer {
-		flex: 1;
+	@media (max-width: 767px) {
+		.publish-icon {
+			display: inline-flex;
+			margin-right: 0.4rem;
+			vertical-align: middle;
+		}
 	}
-	.bar-problems {
+	.phone-save {
 		position: relative;
 	}
-	.bar-problems .corner {
+	.dirty-dot {
 		position: absolute;
-		right: -0.25rem;
-		bottom: -0.25rem;
-		min-width: 1.25rem;
-		padding: 0 0.25rem;
-		box-sizing: border-box;
-		border: var(--border-width-hairline) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
-	.bar-problems.is-bad .corner {
-		background: var(--error);
-		border-color: var(--error);
-		color: var(--paper);
+		top: 0.3rem;
+		right: 0.3rem;
+		width: 0.4rem;
+		height: 0.4rem;
+		border-radius: 50%;
+		background: currentColor;
 	}
 	.preview {
 		display: inline-flex;
