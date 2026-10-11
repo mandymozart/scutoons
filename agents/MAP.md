@@ -809,9 +809,48 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
     `(slices before + 1) / slices`, 0.99 cap, the last slice = 1) and stays the runtime rule until M3's slice events.
   - VN groups without slices can't carry an unlock yet (they get `unlockLocation` events in M3).
 
+### 8.5a The unlock reveal (owner 2026-10-11) – plan, then built
+
+Owner: "immer wenn spezielle Orte freigeschaltet werden durch einen Unlock-Event im VN- und Click-Event-System oder als
+Follow-up eines Click-Events, öffnet sich die Karte und bewegt sich smooth vom derzeitigen Zoom und Offset zum
+Ausschnitt und Zoom des neuen Punkts. Dazu ein Toast ‚<Ort> unlocked'. Nach einer kurzen Animation – das Bild des Orts
+fadet ein mit leichtem Wackeln und einer Halo-Animation in Toon-Farbe – schließt sich die Karte wieder und der Ausschnitt
+wird auf den vorherigen Zoom zurückgesetzt (das sieht man nicht mehr, das Panel ist schon draußen)."
+
+The first piece of M3: the one event `unlockLocation` (§3.1), nothing else of M3.
+
+1. **Content** – `VNUnlockLocationEvent { type: 'unlockLocation', params: { location, silent? } }` in the `VNEvent`
+   union (so VN scripts, slice events and item taps carry it), `EVENT_TYPES`, validation (a place id; `silent` a
+   boolean), the JSON schemas regenerated. No migration (a new type).
+2. **Creator** – the event in the VN event list and the slice / item event forms: a place select (the world map's places,
+   by name) + "silent". Labelled "Unlock place" / "Ort freischalten".
+3. **Viewer runner** – `case 'unlockLocation'` → `env.unlockPlace(location, { silent, reveal })`, awaited. `reveal` =
+   the run may open the map: a VN script, a click trigger (and what follows it in that run), an item tap – never an
+   intersect / hover trigger (scrolling is never hijacked, §3.2: there the toast + badge only).
+4. **World** – `unlock([id])`; nothing new or `silent` → nothing shown (set operation, §3.3).
+5. **Toast** – "<name> freigeschaltet" / "<name> unlocked" with the place image as the icon (the items' notice host gets
+   a `place` kind).
+6. **The reveal** (`map-reveal.svelte.ts` → `map.svelte` / `map-overlay.svelte`): the map opens where the reader's map
+   would open; the camera flies (≈ 1.2 s, ease in-out, zoom interpolated on a log scale) to the place's view (`placeView`:
+   point + offset at its zoom, default 2); the place image fades in with a slight wobble while a halo in the toon's colour
+   pulses behind it (≈ 1.4 s); a short hold; the map closes. The reveal's camera is never stored: the next opening shows
+   the reader's previous view (the stored `here` becomes the new place, so it doesn't re-centre once more). A tap / Esc
+   skips to the end. Reduced motion: no flight, no wobble – the map opens on the place, the image shows, it closes.
+   The VN waits for it (the script continues after the map closed); several unlocks in a row: one reveal after another.
+7. **Plaster → painted** (owner 2026-10-11: "zwei Zustände für eine Location – als Gipsmodell und als bemaltes
+   fertiges Diorama … das können wir fürs Animieren gut benutzen"): `MapImage.plaster` (optional, the same framing as
+   `src`), a second slot in the builder's Image fieldset; during the flight the new place shows its plaster model (or
+   nothing), the painted diorama fades in over it with the wobble.
+
+**Built 2026-10-11:** content (`VNUnlockLocationEvent`, validation, `MapImage.plaster`, schemas), creator (the event form
+with a place select + silent; the plaster slot), viewer (`env.unlockPlace` → `map-reveal.ts` → `map.svelte`: toast
+`map.place_unlocked`, the reveal in `map-overlay.svelte`; `flightAt` in map-view.ts, tested; intersect / hover triggers
+pass `mapReveal: false`). The viewer map lost its zoom buttons (owner: fingers / mouse; the +/− keys stay).
+
 ### 8.6 Not built yet
 
-M3 events (`MapEvent`, `runMapEvents`, slice triggers, toasts, follow-up bar text, travel, positions); M4 the event pickers,
+M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the
+follow-up bar text; M4 the event pickers,
 "Used in" from events, the server's 409 `in_use`; M5 the sandbox story; the place images (workflow §5,
 post-processing §5.3).
 

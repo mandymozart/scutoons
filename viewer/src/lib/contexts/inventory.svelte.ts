@@ -107,7 +107,9 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory) */
-	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused';
+	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place';
+	/** place: a map place was unlocked (agents/MAP.md §3.4, §8.5a) – its name and image (the toast's icon) */
+	place?: { name: string; image?: string };
 	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
 	reason?: string;
 	/** the inventory entry (returned) */
@@ -380,6 +382,12 @@ export function createInventoryContext(session: SessionContext) {
 	}
 
 	const noticeTimers = new Map<number, ReturnType<typeof setTimeout>>();
+	/** "<place> unlocked" (agents/MAP.md §8.5a): the place's image as the icon, 4 s */
+	function notifyPlace(name: string, image?: string) {
+		const id = ++noticeSeq;
+		notices = [...notices, { id, item_id: '', qty: 1, kind: 'place', place: { name, image } }];
+		noticeTimers.set(id, setTimeout(() => ((notices = notices.filter((n) => n.id !== id)), noticeTimers.delete(id)), 4000));
+	}
 	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId, email?: string | null, reason?: string) {
 		// an item came or went: the bag (top row) shows again (lib/chrome.ts)
 		void showChrome();
@@ -764,6 +772,7 @@ export function createInventoryContext(session: SessionContext) {
 		get notices() {
 			return notices;
 		},
+		notifyPlace,
 		get busy() {
 			return busy;
 		},

@@ -63,6 +63,11 @@ export interface RunnerEnv {
 	giveItem?(item: string, qty: number, variant?: string): void;
 	/** take a catalog item from the reader (`takeItem` – BACKLOG 10.38): all or nothing, the story goes on either way */
 	takeItem?(take: { item: string; qty?: number; repeat?: unknown }): void;
+	/**
+	 * a map place is discovered (`unlockLocation`, agents/MAP.md §8.5a): the toast, and with `reveal` the map's flight to
+	 * it – resolves when the reader can go on
+	 */
+	unlockPlace?(location: string, options: { silent: boolean; reveal: boolean }): Promise<void>;
 	/** plain text, trimmed, cut (askText answers) */
 	cleanText(text: string, limit: number): string;
 }
@@ -85,6 +90,8 @@ export interface CoreDeps {
 	origin?: string;
 	/** a page script: pause before each event while a slice-trigger run holds the box (box-state.ts) */
 	yieldToRuns?: boolean;
+	/** may an `unlockLocation` open the map (default yes)? Not for intersect / hover triggers: scrolling is never hijacked */
+	mapReveal?: boolean;
 }
 
 export type RunResult = 'done' | 'navigated' | 'cancelled';
@@ -152,6 +159,15 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 				case 'takeItem': {
 					const take = event.params;
 					if (take && typeof take.item === 'string' && take.item) env.takeItem?.(take);
+					break;
+				}
+
+				case 'unlockLocation': {
+					// a place of the world map (agents/MAP.md §8.5a): the story waits while the map shows it
+					const { location, silent } = event.params ?? {};
+					if (typeof location !== 'string' || !location) break;
+					await env.unlockPlace?.(location, { silent: silent === true, reveal: deps.mapReveal !== false });
+					if (cancelled()) return 'cancelled';
 					break;
 				}
 

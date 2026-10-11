@@ -18,10 +18,23 @@ import { CDN_SERVER } from '$lib/config.ts';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { ensure, edit } from '$lib/editor/characters.ts';
 import { neutralDoc } from '$lib/editor/languages.ts';
+import { getDraft } from '$lib/api.ts';
 
 const N = '_';
 
 export const mapDoc = () => neutralDoc(entities.map);
+
+/** the world map's places (id + name) for the event forms – the newest draft, loaded once per page visit */
+let placesOnce: Promise<{ id: string; name: unknown }[]> | null = null;
+export function mapPlaces(): Promise<{ id: string; name: unknown }[]> {
+	placesOnce ??= getDraft('map')
+		.then((r) => ((r.content as WorldMap | null)?.locations ?? []).map((p) => ({ id: p.id, name: p.name })))
+		.catch(() => {
+			placesOnce = null;
+			return [];
+		});
+	return placesOnce;
+}
 export const mapOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as WorldMap | null;
 export const ensureMap = (doc: ContentDoc) => ensure(doc, emptyWorldMap);
 export const editMap = (doc: ContentDoc, change: (map: WorldMap) => void, key?: string) => edit<WorldMap>(doc, change, key);

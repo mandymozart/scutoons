@@ -134,3 +134,18 @@ export function focusMap(toon: string, target: Point | Pick<MapPlace, 'id' | 'x'
 	globalThis.dispatchEvent?.(new CustomEvent(MAP_FOCUS_EVENT, { detail: { toon } }));
 }
 export const MAP_FOCUS_EVENT = 'scutoons:map-focus';
+
+/** the flight's curve: centre linear, zoom on a log scale (it feels even), eased in and out */
+export function flightAt(
+	from: { x: number; y: number; zoom: number },
+	to: { x: number; y: number; zoom: number },
+	t: number
+): { x: number; y: number; zoom: number } {
+	const k = Math.min(1, Math.max(0, t));
+	const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
+	return {
+		x: from.x + (to.x - from.x) * e,
+		y: from.y + (to.y - from.y) * e,
+		zoom: Math.exp(Math.log(from.zoom) + (Math.log(to.zoom) - Math.log(from.zoom)) * e)
+	};
+}

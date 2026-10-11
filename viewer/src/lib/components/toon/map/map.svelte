@@ -10,6 +10,8 @@
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import mapIcon from '$lib/icons/map.svg';
 	import MapOverlay from './map-overlay.svelte';
+	import { onPlaceUnlocked, type RevealRequest } from './map-reveal.ts';
+	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 
 	/**
 	 * The world map in the toon pages (agents/MAP.md M1): the round toggle (key M) with a badge while something new is on
@@ -83,6 +85,38 @@
 		return () => window.removeEventListener('keydown', onKey);
 	});
 
+	// ── the story unlocked a place (map-reveal.ts, agents/MAP.md §8.5a): the toast, and – when the run may open the map –
+	//    the reveal; one after another, the story waits for each ─────────────────────────────────────────────────
+	let reveal = $state<RevealRequest | null>(null);
+	const queue: RevealRequest[] = [];
+	$effect(() =>
+		onPlaceUnlocked((request) => {
+			queue.push(request);
+			void next();
+		})
+	);
+	async function next() {
+		if (reveal || !queue.length) return;
+		const request = queue.shift()!;
+		await load();
+		const place = data?.locations.find((p) => p.id === request.id);
+		getCurrentInventory()?.notifyPlace(place?.name ?? request.id, place?.image?.src);
+		if (!request.reveal || !place) {
+			request.done();
+			return void next();
+		}
+		reveal = request;
+		mounted = true;
+		nav.openOverlay('map');
+	}
+	function revealed() {
+		const request = reveal;
+		reveal = null;
+		nav.closeOverlay();
+		request?.done();
+		void next();
+	}
+
 	function toggle(e: MouseEvent) {
 		e.stopPropagation();
 		nav.toggleOverlay('map');
@@ -102,7 +136,7 @@
 </button>
 
 {#if mounted}
-	<MapOverlay {data} {failed} {open} {toon} onclose={() => nav.closeOverlay()} />
+	<MapOverlay {data} {failed} {open} {toon} onclose={() => nav.closeOverlay()} reveal={reveal?.id ?? null} onrevealed={revealed} />
 {/if}
 
 <style>

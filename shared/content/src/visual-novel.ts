@@ -305,6 +305,23 @@ export interface VNFxEvent {
 }
 
 /**
+ * A place of the world map is discovered (agents/MAP.md §3.1, §8.5a): `places[id].unlocked` in the reader's save game – a
+ * set operation (again = nothing). The reader sees a toast "<place> unlocked"; in a VN script, a click trigger or an item
+ * tap the map opens, flies to the place, shows it and closes again (never on an intersect / hover trigger – scrolling is
+ * not hijacked). `silent`: the state only (no toast, no map).
+ */
+export interface UnlockLocationParams {
+	/** the place's id (world map `locations[].id`) */
+	location: string;
+	silent?: boolean;
+}
+
+export interface VNUnlockLocationEvent {
+	type: 'unlockLocation';
+	params: UnlockLocationParams;
+}
+
+/**
  * A question with one input line in the message box (agents/EXPRESSIONS.md §6): the reader types a short plain text
  * (trimmed, never markup), the page doesn't scroll until it is answered (Enter / ✓, or the answer button: `answer`
  * is its text, `default` what it stores – owner 2026-10-06). `scope`:
@@ -361,6 +378,7 @@ export type VNEvent = (
 	| VNHideMessageEvent
 	| VNShowTextBoxEvent
 	| VNFxEvent
+	| VNUnlockLocationEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

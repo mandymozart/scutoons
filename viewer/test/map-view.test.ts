@@ -4,7 +4,7 @@
 // place reached overrides it once.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAP_VIEW_KEY, focusMap, loadMapView, openingView, parseStoredView, readerHere, type OpeningView, type StoredMapView } from '../src/lib/components/toon/map/map-view.ts';
+import { MAP_VIEW_KEY, flightAt, focusMap, loadMapView, openingView, parseStoredView, readerHere, type OpeningView, type StoredMapView } from '../src/lib/components/toon/map/map-view.ts';
 
 const place = (id: string, x: number, y: number, extra: Record<string, unknown> = {}) =>
 	({ id, name: id, x, y, toons: ['catpope'], hidden: true, ...extra }) as any;
@@ -126,4 +126,16 @@ test('focusMap: a point keeps the remembered zoom; a place is framed by its view
 	} finally {
 		g.localStorage = had;
 	}
+});
+
+test('the unlock reveal’s flight: from the reader’s view to the place’s, zoom on a log scale, eased', () => {
+	const from = { x: 0, y: 0, zoom: 0.5 };
+	const to = { x: 100, y: 200, zoom: 2 };
+	assert.deepEqual(flightAt(from, to, 0), from);
+	assert.deepEqual(flightAt(from, to, 1), to);
+	const mid = flightAt(from, to, 0.5);
+	assert.deepEqual([mid.x, mid.y], [50, 100]);
+	assert.ok(Math.abs(mid.zoom - 1) < 1e-9, 'halfway is the geometric middle (0.5 → 2: 1)');
+	assert.ok(flightAt(from, to, 0.1).x < 10 * 0.5, 'eased: slow at the start');
+	assert.deepEqual(flightAt(from, to, 2), to, 'clamped');
 });

@@ -33,6 +33,14 @@
 			else p.image = { ...(p.image ?? {}), src };
 		});
 	}
+	/** the plaster model (owner 2026-10-11): the unlock reveal fades from it to the painted image – same framing */
+	function setPlaster(src: string | undefined) {
+		editPlace(doc, place.id, (p) => {
+			if (!p.image) return;
+			if (!src) delete p.image.plaster;
+			else p.image.plaster = src;
+		});
+	}
 	function setImageField(field: 'size', value: number | undefined) {
 		if (!place.image) return;
 		editPlace(doc, place.id, (p) => {
@@ -66,6 +74,14 @@
 	<span title={place.image?.src || placeImagePath(place)}>
 		<MediaSlot toon="" value={place.image?.src || undefined} label={place.image?.src ? (place.image.src.split('/').pop() ?? '') : placeImagePath(place).split('/').pop() ?? ''} place={placeImagePath(place).replace(/[^/]+$/, '')} {bust} onchange={setImage} testid="place-image-slot" />
 	</span>
+	{#if place.image?.src}
+		<!-- the plaster model: the same diorama unpainted – the reader's unlock reveal fades from it to the painted one -->
+		<span class="sc-label">{m['creator.map_image_plaster']()}</span>
+		<span title={place.image.plaster || placeImagePath(place).replace(/\.webp$/, '-plaster.webp')}>
+			<MediaSlot toon="" value={place.image.plaster || undefined} label={place.image.plaster ? (place.image.plaster.split('/').pop() ?? '') : (placeImagePath(place).split('/').pop() ?? '').replace(/\.webp$/, '-plaster.webp')} place={placeImagePath(place).replace(/[^/]+$/, '')} {bust} onchange={setPlaster} testid="place-plaster-slot" />
+		</span>
+		<p class="hint">{m['creator.map_image_plaster_hint']()}</p>
+	{/if}
 	{#if place.image?.src}
 		<p class="hint">
 			{#if imageState.missing}<span class="bad">{m['creator.map_image_missing']()}</span>{/if}

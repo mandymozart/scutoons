@@ -1152,6 +1152,30 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "unlockLocation"
+						},
+						"params": {
+							"$ref": "#/definitions/UnlockLocationParams"
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
 							"const": "jumpTo"
 						},
 						"params": {
@@ -1934,6 +1958,22 @@
 				"vignette"
 			]
 		},
+		"UnlockLocationParams": {
+			"type": "object",
+			"properties": {
+				"location": {
+					"type": "string",
+					"description": "the place's id (world map `locations[].id`)"
+				},
+				"silent": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"location"
+			],
+			"description": "A place of the world map is discovered (agents/MAP.md §3.1, §8.5a): `places[id].unlocked` in the reader's save game – a set operation (again = nothing). The reader sees a toast \"<place> unlocked\"; in a VN script, a click trigger or an item tap the map opens, flies to the place, shows it and closes again (never on an intersect / hover trigger – scrolling is not hijacked). `silent`: the state only (no toast, no map)."
+		},
 		"AskTextScope": {
 			"type": "string",
 			"enum": [
@@ -2279,6 +2319,38 @@
 						},
 						"params": {
 							"$ref": "#/definitions/FxParams"
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number",
+							"description": "a click / hover area's place in the slice's ONE layer stack (layers.ts, BACKLOG 10.54): higher = in front (drawn on top, gets the tap / hover first); the events sharing the trigger carry the same number. None = the old order."
+						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "unlockLocation"
+						},
+						"params": {
+							"$ref": "#/definitions/UnlockLocationParams"
 						}
 					},
 					"required": [

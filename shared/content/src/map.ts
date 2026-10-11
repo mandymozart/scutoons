@@ -140,6 +140,12 @@ export interface MapImage {
 	size?: number;
 	/** the ground point inside the image, % of its box (default 50 / 90 = bottom centre) – sits on the place's (x, y) */
 	anchor?: { x: number; y: number };
+	/**
+	 * the same diorama as the unpainted plaster model (owner 2026-10-11: "zwei Zustände – als Gipsmodell und als bemaltes
+	 * fertiges Diorama"): the unlock reveal fades from it to the painted `src` (agents/MAP.md §8.5a). CDN-root path, the
+	 * same framing as `src` (size and ground point are shared)
+	 */
+	plaster?: string;
 }
 
 export type MapPathStyle = 'road' | 'trail' | 'flight' | 'sea';
@@ -791,6 +797,8 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 			if (!isObj(p.image) || typeof p.image.src !== 'string' || !p.image.src) add('error', [...path, 'image'], `${what}: the image needs a path`);
 			else {
 				if (!/\.(webp|png|svg)$/i.test(p.image.src)) add('warning', [...path, 'image', 'src'], `${what}: the image should be a transparent WebP`);
+				if (p.image.plaster !== undefined && (typeof p.image.plaster !== 'string' || !p.image.plaster)) add('error', [...path, 'image', 'plaster'], `${what}: the plaster model needs a path (or none)`);
+				else if (typeof p.image.plaster === 'string' && !/\.(webp|png|svg)$/i.test(p.image.plaster)) add('warning', [...path, 'image', 'plaster'], `${what}: the plaster model should be a transparent WebP`);
 				if (p.image.size !== undefined && (!isNum(p.image.size) || p.image.size <= 0)) add('error', [...path, 'image', 'size'], `${what}: the image size must be a positive number (px at zoom 1)`);
 				const a = p.image.anchor;
 				if (a !== undefined && (!isObj(a) || !isNum(a.x) || !isNum(a.y) || a.x < 0 || a.x > 100 || a.y < 0 || a.y > 100))

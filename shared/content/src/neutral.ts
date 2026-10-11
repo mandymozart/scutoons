@@ -35,7 +35,8 @@ import type {
 	VNShowTextBoxEvent,
 	VNFxEvent,
 	VNGiveItemEvent,
-	VNTakeItemEvent
+	VNTakeItemEvent,
+	VNUnlockLocationEvent
 } from './visual-novel.ts';
 
 // ── Stored types ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -82,6 +83,7 @@ export type VNEventDoc = (
 	| VNHideMessageEvent
 	| VNShowTextBoxEvent
 	| VNFxEvent
+	| VNUnlockLocationEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

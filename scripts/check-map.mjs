@@ -262,9 +262,11 @@ async function reader(width, locale) {
 	await drag({ x: vp.x - 40, y: vp.y + 60 }, { x: vp.x + 20, y: vp.y + 100 });
 	let after = await evaluate(MAP);
 	report('a drag pans the world by the drag (60, 40 px)', Math.abs(after.tx - before.tx - 60) <= 2 && Math.abs(after.ty - before.ty - 40) <= 2 ? [] : [`moved ${after.tx - before.tx}, ${after.ty - before.ty}`]);
-	await click('[data-testid="map-zoom-in"]');
+	// no zoom buttons any more (owner 2026-10-11: fingers / mouse) – the "+" key still zooms
+	await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: '+' })), true`);
+	await sleep(100);
 	after = await evaluate(MAP);
-	report('"+" zooms ×1.5', Math.abs(after.scale / before.scale - 1.5) < 0.01 ? [] : [`scale ${before.scale} → ${after.scale}`]);
+	report('"+" (key) zooms ×1.5', Math.abs(after.scale / before.scale - 1.5) < 0.01 ? [] : [`scale ${before.scale} → ${after.scale}`]);
 	await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: vp.x, y: vp.y, deltaX: 0, deltaY: 200 });
 	await sleep(200);
 	const wheeled = await evaluate(MAP);

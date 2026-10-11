@@ -25,7 +25,9 @@ export class EventProcessor {
 		private vn: VisualNovelContext,
 		private group?: GroupScript,
 		/** where the events are (a slice trigger, a placed item): their texts' identity for visits (runner `origin`) */
-		private origin = 'events'
+		private origin = 'events',
+		/** may an unlockLocation open the map? (no for intersect / hover: scrolling is never hijacked – MAP.md §3.2) */
+		private mapReveal = true
 	) {}
 
 	run(): Promise<string | null> {
@@ -41,7 +43,8 @@ export class EventProcessor {
 			script,
 			label,
 			scope: this.group?.scope ?? '',
-			origin: this.origin
+			origin: this.origin,
+			mapReveal: this.mapReveal
 		});
 	}
 }

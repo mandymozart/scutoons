@@ -4,6 +4,7 @@ import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { getCurrentReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 import { executeVariableAction, giveStoryItem, takeStoryItem } from './variable-actions.ts';
+import { unlockStoryPlace } from '$lib/components/toon/map/map-reveal.ts';
 import { runEvents, type RunnerEnv, type RunResult } from './script-runner.ts';
 
 /**
@@ -49,6 +50,7 @@ export function readerEnv(game: GameContext): RunnerEnv {
 		setVariable: (action) => void executeVariableAction(action as never, game),
 		giveItem: (item, qty, variant) => void giveStoryItem(item, qty, undefined, variant ? { variant } : undefined),
 		takeItem: (take) => void takeStoryItem(take as never, game),
+		unlockPlace: (location, options) => unlockStoryPlace(location, options),
 		cleanText
 	};
 }

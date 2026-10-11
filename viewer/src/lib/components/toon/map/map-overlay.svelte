@@ -10,7 +10,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 	import { untrack } from 'svelte';
-	import { MAP_FOCUS_EVENT, loadMapView, openingView, readerHere, saveMapView } from './map-view.ts';
+	import { MAP_FOCUS_EVENT, flightAt, loadMapView, openingView, readerHere, saveMapView, type StoredMapView } from './map-view.ts';
 
 	/**
 	 * The map overlay (agents/MAP.md M1, DESIGN.md): the SCUTOONS world with pan / pinch / wheel zoom (one transform for
@@ -24,8 +24,19 @@
 		failed,
 		open,
 		toon,
-		onclose
-	}: { data: ReaderMap | null; failed: boolean; open: boolean; toon: string; onclose: () => void } = $props();
+		onclose,
+		reveal = null,
+		onrevealed = () => {}
+	}: {
+		data: ReaderMap | null;
+		failed: boolean;
+		open: boolean;
+		toon: string;
+		onclose: () => void;
+		/** a place just unlocked by the story (map-reveal.ts): fly to it, show it, then `onrevealed` (agents/MAP.md §8.5a) */
+		reveal?: string | null;
+		onrevealed?: () => void;
+	} = $props();
 
 	const world = getWorldContext();
 	const membership = getMembershipContext();
@@ -63,6 +74,13 @@
 	const whereNow = () => readerHere(places, toon, mapState);
 	function applyOpening() {
 		if (!data) return;
+		if (reveal) {
+			// the reveal flies from where the reader's map was (their last view, else the start view); nothing is stored
+			revealFrom = loadMapView(toon);
+			if (revealFrom) view.centerOn({ x: revealFrom.x, y: revealFrom.y }, revealFrom.zoom);
+			else startView();
+			return;
+		}
 		const decision = openingView(loadMapView(toon), whereNow());
 		if (decision.kind === 'start') startView();
 		else {
@@ -100,7 +118,7 @@
 		saveMapView(forToon, { ...at, here: forToon === toon ? (whereNow()?.id ?? null) : (loadMapView(forToon)?.here ?? null) });
 	}
 	$effect(() => {
-		if (!open || !data || !view.width || placed !== toon) return;
+		if (!open || !data || !view.width || placed !== toon || reveal || revealing) return;
 		unsaved = { toon, ...view.toWorld({ x: view.width / 2, y: view.height / 2 }), zoom: view.zoom };
 		clearTimeout(saveTimer);
 		saveTimer = setTimeout(() => untrack(flush), 300);
@@ -117,6 +135,70 @@
 		window.addEventListener(MAP_FOCUS_EVENT, onFocus);
 		return () => window.removeEventListener(MAP_FOCUS_EVENT, onFocus);
 	});
+
+	// ── the unlock reveal (agents/MAP.md §8.5a, owner 2026-10-11): fly from the reader's view to the new place's view,
+	//    the image fades in with a slight wobble over a halo in the toon's colour, a short hold, close; the reader's
+	//    previous view stays the stored one (with the new place as its `here`, so the next opening doesn't jump there).
+	//    A tap / Esc skips to the end; reduced motion: no flight, no wobble ─────────────────────────────────────────
+	let revealFrom: StoredMapView | null = null;
+	let revealing = $state<string | null>(null);
+	let revealShow = $state(false);
+	let skip = false;
+	const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+	const pause = (ms: number) =>
+		new Promise<void>((resolve) => {
+			const end = performance.now() + ms;
+			const tick = () => (skip || performance.now() >= end ? resolve() : requestAnimationFrame(tick));
+			requestAnimationFrame(tick);
+		});
+	function fly(to: { x: number; y: number; zoom: number }, ms: number): Promise<void> {
+		const c = view.toWorld({ x: view.width / 2, y: view.height / 2 });
+		const from = { x: c.x, y: c.y, zoom: view.zoom };
+		const start = performance.now();
+		return new Promise((resolve) => {
+			const step = () => {
+				const t = skip ? 1 : (performance.now() - start) / ms;
+				const at = flightAt(from, to, t);
+				view.centerOn({ x: at.x, y: at.y }, at.zoom);
+				if (t >= 1) resolve();
+				else requestAnimationFrame(step);
+			};
+			requestAnimationFrame(step);
+		});
+	}
+	$effect(() => {
+		if (!reveal || !open || !data || !view.width || placed !== toon || revealing) return;
+		const id = reveal;
+		untrack(() => runReveal(id));
+	});
+	async function runReveal(id: string) {
+		const place = data?.locations.find((p) => p.id === id);
+		revealing = id;
+		skip = false;
+		if (place) {
+			const target = placeView(place);
+			const still = reducedMotion();
+			// the panel slides in first
+			await pause(still ? 150 : 450);
+			if (still || skip) view.centerOn(target.center, target.zoom);
+			else await fly({ ...target.center, zoom: target.zoom }, 1200);
+			revealShow = true;
+			await pause(still ? 1400 : 2000);
+			world?.seen([id]);
+		}
+		// the reader's own view stays the remembered one
+		if (revealFrom) saveMapView(toon, { x: revealFrom.x, y: revealFrom.y, zoom: revealFrom.zoom, here: whereNow()?.id ?? id });
+		revealFrom = null;
+		revealShow = false;
+		revealing = null;
+		placed = '';
+		onrevealed();
+	}
+	// closed by the reader meanwhile (✕): the reveal ends at once – the story never waits for a map that is gone
+	$effect(() => {
+		if (!open && revealing) skip = true;
+	});
+	const revealColor = $derived(data?.view?.color ?? 'var(--primary-cyan, #00d1ff)');
 
 	// ── labels: priority new → this toon's → others; hidden where they'd overlap ───────────────────────────────────
 	/** the root font size (0.75rem labels, 1rem markers: 14 / 16 / 24 px by the viewport, DESIGN.md "Type") */
@@ -179,6 +261,10 @@
 
 	function onKeydown(e: KeyboardEvent) {
 		if (!open) return;
+		if (revealing) {
+			if (e.key === 'Escape') (e.stopPropagation(), (skip = true));
+			return;
+		}
 		if (e.key === 'Escape') {
 			e.stopPropagation();
 			if (selected) selected = null;
@@ -211,7 +297,7 @@
 	<div
 		class="viewport"
 		class:moving={view.moving}
-		{@attach mapGestures(view, { onTap: (e) => { if (!(e.target as HTMLElement)?.closest('button, a')) selected = null; } })}
+		{@attach mapGestures(view, { onTap: (e) => { if (revealing) skip = true; else if (!(e.target as HTMLElement)?.closest('button, a')) selected = null; } })}
 		data-testid="map-viewport"
 	>
 		{#if data}
@@ -228,10 +314,15 @@
 					{@const s = view.toScreen(p)}
 					{#if view.onScreen(p, 160)}
 						{@const isNew = isPlaceNew(p.id, mapState)}
-						<div class="place" class:own={own(p)} class:new={isNew} class:active={selected === p.id} style:transform="translate({s.x}px, {s.y}px)">
+						<div class="place" class:own={own(p)} class:new={isNew} class:active={selected === p.id} class:revealed={revealShow && revealing === p.id} style:--reveal-color={revealColor} style:transform="translate({s.x}px, {s.y}px)">
+							{#if revealShow && revealing === p.id}<span class="halo" aria-hidden="true"></span>{/if}
 							{#if p.image && own(p)}
 								{@const box = imageBox(p)}
-								<img class="place-image" src={asset(p.image.src)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								<!-- the reveal (§8.5a): the plaster model first, the painted diorama fades in over it -->
+								{#if p.image.plaster && revealing === p.id}
+									<img class="place-image plaster" src={asset(p.image.plaster)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								{/if}
+								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 							{/if}
 							<button
 								class="marker"
@@ -260,8 +351,6 @@
 
 	<div class="tools">
 		<button class="tool" onclick={() => (listOpen = !listOpen)} aria-expanded={listOpen} data-testid="map-list-toggle">{m['map.places']({ count: places.length })}</button>
-		<button class="tool round" onclick={() => view.zoomAt(1.5)} aria-label={m['map.zoom_in']()} data-testid="map-zoom-in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button>
-		<button class="tool round" onclick={() => view.zoomAt(1 / 1.5)} aria-label={m['map.zoom_out']()} data-testid="map-zoom-out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg></button>
 		<button class="tool round" onclick={recenter} aria-label={m['map.recenter']()} title={m['map.recenter']()} data-testid="map-recenter"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><circle class="dot" cx="8" cy="8" r="1.75" /></svg></button>
 		<button class="tool round" onclick={onclose} aria-label={m['map.close']()} data-testid="map-close"><CloseIcon size="1rem" /></button>
 	</div>
@@ -449,6 +538,78 @@
 	.marker:focus-visible {
 		outline: 2px solid #000;
 		outline-offset: 3px;
+	}
+	/* the unlock reveal (§8.5a): a halo in the toon's colour pulses behind; the image fades in with a slight wobble */
+	.halo {
+		position: absolute;
+		left: -4rem;
+		top: -4rem;
+		width: 8rem;
+		height: 8rem;
+		border-radius: 50%;
+		background: radial-gradient(circle, var(--reveal-color) 0%, color-mix(in srgb, var(--reveal-color) 45%, transparent) 40%, transparent 70%);
+		pointer-events: none;
+		animation: reveal-halo 1s ease-out 2;
+	}
+	.revealed .place-image:not(.plaster) {
+		transform-origin: 50% 90%;
+		animation: reveal-image 1.4s ease-out both;
+	}
+	/* during the flight the new place shows its plaster model (or nothing) – the painted diorama comes with the reveal */
+	.place-image.waiting {
+		opacity: 0;
+	}
+	/* with a plaster model: it stands there first, the painted one fades in a little later and covers it */
+	.revealed .plaster ~ .place-image {
+		animation-duration: 1.8s;
+		animation-delay: 0.35s;
+	}
+	.revealed .marker {
+		box-shadow:
+			0 0 0 3px var(--reveal-color),
+			0 0 0 5px #000;
+	}
+	@keyframes reveal-halo {
+		from {
+			transform: scale(0.3);
+			opacity: 0.95;
+		}
+		to {
+			transform: scale(1.6);
+			opacity: 0;
+		}
+	}
+	@keyframes reveal-image {
+		0% {
+			opacity: 0;
+			transform: scale(0.85) rotate(0deg);
+		}
+		30% {
+			opacity: 1;
+			transform: scale(1.05) rotate(-4deg);
+		}
+		48% {
+			transform: scale(1) rotate(3deg);
+		}
+		64% {
+			transform: rotate(-2deg);
+		}
+		80% {
+			transform: rotate(1deg);
+		}
+		100% {
+			opacity: 1;
+			transform: scale(1) rotate(0deg);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.halo {
+			animation: none;
+			opacity: 0.6;
+		}
+		.revealed .place-image:not(.plaster) {
+			animation: none;
+		}
 	}
 	/* new: the cyan halo until the place was on screen */
 	.new .marker {

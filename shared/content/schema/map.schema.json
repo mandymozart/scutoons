@@ -180,6 +180,10 @@
 						"y"
 					],
 					"description": "the ground point inside the image, % of its box (default 50 / 90 = bottom centre) – sits on the place's (x, y)"
+				},
+				"plaster": {
+					"type": "string",
+					"description": "the same diorama as the unpainted plaster model (owner 2026-10-11: \"zwei Zustände – als Gipsmodell und als bemaltes fertiges Diorama\"): the unlock reveal fades from it to the painted `src` (agents/MAP.md §8.5a). CDN-root path, the same framing as `src` (size and ground point are shared)"
 				}
 			},
 			"required": [

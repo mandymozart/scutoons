@@ -133,6 +133,8 @@ export interface FlowNode {
 	sets?: string[];
 	/** run / step: catalog items given (`cucumber`, `cucumber ×2` – BACKLOG 10.38) */
 	gives?: string[];
+	/** run / step: map places unlocked (unlockLocation) */
+	unlocks?: string[];
 	/** run / step: catalog items taken (`cucumber ×5`) */
 	takes?: string[];
 	/** run / step: text boxes revealed */
@@ -594,7 +596,7 @@ class Builder {
 
 	/** what a plain event adds to its run / step */
 	summarize(n: FlowNode, e: any) {
-		const push = (key: 'speakers' | 'joins' | 'leaves' | 'sets' | 'gives' | 'takes' | 'boxes', v: string) => {
+		const push = (key: 'speakers' | 'joins' | 'leaves' | 'sets' | 'gives' | 'takes' | 'boxes' | 'unlocks', v: string) => {
 			if (!v) return;
 			const list = (n[key] ??= []);
 			if (!list.includes(v)) list.push(v);
@@ -622,6 +624,9 @@ class Builder {
 				break;
 			case 'giveItem':
 				push('gives', `${e.params?.item ?? ''}${(e.params?.qty ?? 1) > 1 ? ` ×${e.params.qty}` : ''}`);
+				break;
+			case 'unlockLocation':
+				push('unlocks', String(e.params?.location ?? ''));
 				break;
 			case 'showTextBox':
 				push('boxes', String(e.params?.dialog ?? ''));

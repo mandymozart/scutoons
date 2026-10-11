@@ -19,6 +19,7 @@
 	import EventFlow from '$lib/components/events/event-flow.svelte';
 	import EventShowTextBox from '$lib/components/events/event-show-text-box.svelte';
 	import EventFx from '$lib/components/events/event-fx.svelte';
+	import EventUnlockLocation from '$lib/components/events/event-unlock-location.svelte';
 	import EventCast from '$lib/components/events/event-cast.svelte';
 	import EventCondition from '$lib/components/events/event-condition.svelte';
 	import EventTrigger from '$lib/components/events/event-trigger.svelte';
@@ -321,6 +322,8 @@
 					<EventShowTextBox {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
 				{:else if event.type === 'fx'}
 					<EventFx {doc} path={p} {event} />
+				{:else if event.type === 'unlockLocation'}
+					<EventUnlockLocation {doc} path={p} {event} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
 				{/if}

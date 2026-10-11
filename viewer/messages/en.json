@@ -490,6 +490,7 @@
 		"you_are_here": "You are here · {name}",
 		"new_place": "New",
 		"new_badge": "New on the map",
+		"place_unlocked": "{name} unlocked",
 		"close_card": "Close",
 		"other_toon": "From another story",
 		"loading": "Loading the map …",

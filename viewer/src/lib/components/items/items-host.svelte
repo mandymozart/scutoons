@@ -13,6 +13,7 @@
 	import ItemIcon from './item-icon.svelte';
 	import { loadMinigame } from './minigames/registry.ts';
 	import { asset } from '$lib/utils/cdn.ts';
+	import mapIcon from '$lib/icons/map.svg';
 
 	/** Global item overlays (mounted once in the root layout). */
 	const inventory = getInventoryContext();
@@ -45,7 +46,8 @@
 		}
 	}
 
-	function noticeText(n: { item_id: string; qty: number; kind: string; email?: string | null; reason?: string }) {
+	function noticeText(n: { item_id: string; qty: number; kind: string; email?: string | null; reason?: string; place?: { name: string } }) {
+		if (n.kind === 'place') return m['map.place_unlocked']({ name: n.place?.name ?? '' });
 		const name = inventory.nameOf({ item_id: n.item_id, variant: null });
 		if (n.kind === 'refused') return refusedText(n.reason, name);
 		const many = n.qty > 1 ? `${n.qty} × ${name}` : name;
@@ -131,7 +133,11 @@
 	{#each inventory.notices as notice (notice.id)}
 		<div class="notice">
 			<div class="thumb">
-				<ItemIcon srcs={[inventory.item(notice.item_id)?.icon ?? '']} name={inventory.nameOf({ item_id: notice.item_id, variant: null })} />
+				{#if notice.kind === 'place'}
+					<img class="place-thumb" src={notice.place?.image ? asset(notice.place.image) : mapIcon} alt="" />
+				{:else}
+					<ItemIcon srcs={[inventory.item(notice.item_id)?.icon ?? '']} name={inventory.nameOf({ item_id: notice.item_id, variant: null })} />
+				{/if}
 			</div>
 			<span>{noticeText(notice)}</span>
 			{#if (notice.repeat ?? 1) > 1}<span class="repeat" data-testid="notice-repeat">× {notice.repeat}</span>{/if}
@@ -192,6 +198,12 @@
 	.thumb {
 		width: 2.5rem;
 		flex: none;
+	}
+	.place-thumb {
+		display: block;
+		width: 2.5rem;
+		height: 2.5rem;
+		object-fit: contain;
 	}
 	.close {
 		box-sizing: border-box;

@@ -51,7 +51,7 @@
 		if (!triggerElement?.parentElement) return;
 		if (!own && !isWithinRect(e, triggerElement.parentElement)) return;
 
-		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group, `on/${ids[0] ?? shortHash(JSON.stringify(events[0].trigger))}`);
+		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group, `on/${ids[0] ?? shortHash(JSON.stringify(events[0].trigger))}`, false);
 		running = true;
 		// marked before the run (it can wait for the reader a long time)
 		recordRun(ids, game, memory);
