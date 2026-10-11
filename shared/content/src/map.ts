@@ -30,6 +30,19 @@ export interface MapLayer {
 	/** shown only from / up to this zoom (e.g. a street-detail layer for the city) */
 	minZoom?: number;
 	maxZoom?: number;
+	/**
+	 * the same layer as a tile pyramid for deep zoom (BACKLOG 10.63; `scripts/map-tiles.mjs` renders it from `image`):
+	 * `{path}/{z}/{x}_{y}.webp`, `TILE_PX` square; level z draws 2^z px per world unit (0 … `levels`). The image stays the
+	 * base (and the fallback while tiles load); the tiles on screen draw over it from level 1.
+	 */
+	tiles?: MapTiles;
+}
+
+export interface MapTiles {
+	/** CDN-root folder, e.g. `catpope/map/tiles/terrain` */
+	path: string;
+	/** the deepest level (2^levels px per world unit) */
+	levels: number;
 }
 
 export interface MapPlace {
@@ -163,13 +176,13 @@ export const MAP_SOURCE_LANGUAGE = 'de';
 export const MAP_STYLES: MapPathStyle[] = ['road', 'trail', 'flight', 'sea'];
 /**
  * a place image's width in WORLD units (it scales with the map at every zoom – owner 2026-10-11: "die Dioramen müssen
- * wesentlich kleiner sein … man sieht sie erst, wenn man reinzoomt"; BACKLOG 10.67: "das Größte ≈ 12"): 2 = 2 px at
- * zoom 1, 64 px at zoom 32
+ * wesentlich kleiner sein … man sieht sie erst, wenn man reinzoomt"; BACKLOG 10.67: "das Größte ≈ 12", then "alles
+ * doppelt so groß" – the biggest 24): 4 = 4 px at zoom 1, 128 px at zoom 32
  */
-export const DEFAULT_PLACE_IMAGE_SIZE = 2;
+export const DEFAULT_PLACE_IMAGE_SIZE = 4;
 export const DEFAULT_PLACE_ANCHOR = { x: 50, y: 50 } as const;
 export const MAP_MIN_ZOOM = 0.25;
-/** deep enough that the smallest place (a well, 0.75) is ~24 px (BACKLOG 10.67) */
+/** deep enough that the smallest place (a well, 1.5) is ~48 px (BACKLOG 10.67) */
 export const MAP_MAX_ZOOM = 32;
 /**
  * the zoom when the map centres on a place, its default (owner 2026-10-10: "Zoomstufe 2"; ×4 since the places shrank ÷8 –
@@ -190,9 +203,9 @@ export const zoomFromPercent = (percent: number): number => Math.round((percent 
 //    überlappt"; "festlegen, wie viele Flächeneinheiten ein Diorama einnimmt – eine sinnvolle Stufung") ─────────────
 /** the distance of two neighbouring cells' centres, world units (BACKLOG 10.67: ~1, the well's size) */
 export const HEX_CELL = 1;
-/** a place's size range (world units; the builder's slider): a well (0.75) … the ore mountain (12) and more */
+/** a place's size range (world units; the builder's slider): a well (1.5) … the ore mountain (24) and more */
 export const PLACE_SIZE_MIN = 0.5;
-export const PLACE_SIZE_MAX = 16;
+export const PLACE_SIZE_MAX = 32;
 /** the slider's step */
 export const PLACE_SIZE_STEP = 0.25;
 /** a cell in axial coordinates (pointy-top hexes) */
@@ -395,6 +408,54 @@ export function centerOf(points: readonly Point[]): Point | null {
 	const xs = points.map((p) => p.x);
 	const ys = points.map((p) => p.y);
 	return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+}
+
+// ── tiles and culling (BACKLOG 10.63) ─────────────────────────────────────────────────────────────────────────────
+/** a tile's edge in px */
+export const TILE_PX = 256;
+/** the deepest tile level a layer may have (2^8 = 256 px per world unit) */
+export const TILE_LEVELS_MAX = 8;
+/** a world rectangle */
+export interface Rect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+/** the tile level for a zoom on a screen (`dpr`): the first level at least as sharp, within 0 … `levels` */
+export const tileLevel = (zoom: number, dpr: number, levels: number): number => Math.max(0, Math.min(levels, Math.ceil(Math.log2(Math.max(1e-6, zoom * dpr)) - 1e-9)));
+/** the tiles of a level that touch a world rectangle (clipped to the world): their place and size in world units */
+export function visibleTiles(view: Rect, level: number, world: { width: number; height: number }): { z: number; x: number; y: number; left: number; top: number; size: number }[] {
+	const size = TILE_PX / 2 ** level;
+	const x0 = Math.max(0, Math.floor(view.x / size)), y0 = Math.max(0, Math.floor(view.y / size));
+	const x1 = Math.min(Math.ceil(world.width / size) - 1, Math.floor((view.x + view.width) / size));
+	const y1 = Math.min(Math.ceil(world.height / size) - 1, Math.floor((view.y + view.height) / size));
+	const out = [];
+	for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out.push({ z: level, x, y, left: x * size, top: y * size, size });
+	return out;
+}
+/**
+ * A spatial index of points (places) in square buckets: `query(rect)` returns those inside a world rectangle, in the
+ * list's order, without looking at every point – the culling for hundreds of places (BACKLOG 10.63). Build it once per list.
+ */
+/** a world rectangle grown by `by` units on every side */
+export const growRect = (r: Rect, by: number): Rect => ({ x: r.x - by, y: r.y - by, width: r.width + by * 2, height: r.height + by * 2 });
+export function pointIndex<T extends Point>(items: readonly T[], bucket = 64): { query: (r: Rect) => T[] } {
+	const order = new Map(items.map((it, i) => [it, i]));
+	const cells = new Map<string, T[]>();
+	for (const it of items) {
+		const k = `${Math.floor(it.x / bucket)},${Math.floor(it.y / bucket)}`;
+		(cells.get(k) ?? cells.set(k, []).get(k)!).push(it);
+	}
+	return {
+		query(r) {
+			const out: T[] = [];
+			for (let by = Math.floor(r.y / bucket); by <= Math.floor((r.y + r.height) / bucket); by++)
+				for (let bx = Math.floor(r.x / bucket); bx <= Math.floor((r.x + r.width) / bucket); bx++)
+					for (const it of cells.get(`${bx},${by}`) ?? []) if (it.x >= r.x && it.x <= r.x + r.width && it.y >= r.y && it.y <= r.y + r.height) out.push(it);
+			return out.sort((a, b) => order.get(a)! - order.get(b)!); // the list's order (who draws over whom)
+		}
+	};
 }
 
 /** The image box of a place in screen px at a zoom: left/top relative to the place's screen point */
@@ -791,6 +852,8 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		if (typeof l.image !== 'string' || !l.image) add('error', ['layers', i, 'image'], `layer ${l.id ?? i + 1}: no image`);
 		else if (!/\.(svg|webp|png|jpe?g)$/i.test(l.image)) add('warning', ['layers', i, 'image'], `layer ${l.id}: not an image path`);
 		for (const z of ['minZoom', 'maxZoom'] as const) if (l[z] !== undefined && (!isNum(l[z]) || l[z] <= 0)) add('error', ['layers', i, z], `layer ${l.id}: ${z} must be a positive number`);
+		if (l.tiles !== undefined && (!isObj(l.tiles) || typeof l.tiles.path !== 'string' || !l.tiles.path || !Number.isInteger(l.tiles.levels) || l.tiles.levels < 0 || l.tiles.levels > TILE_LEVELS_MAX))
+			add('error', ['layers', i, 'tiles'], `layer ${l.id}: tiles must be { path, levels } (levels 0–${TILE_LEVELS_MAX})`);
 	});
 
 	const places = Array.isArray(map.locations) ? map.locations : [];

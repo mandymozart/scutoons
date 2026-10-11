@@ -12,6 +12,9 @@
 		hexCellAt,
 		hexCenter,
 		hexCorners,
+		growRect,
+		pointIndex,
+		PLACE_SIZE_MAX,
 		zoomPercent,
 		placeCells,
 		snapPlace as snapToGrid,
@@ -206,6 +209,10 @@
 		return null;
 	});
 
+	// culling (BACKLOG 10.63): the places near the screen through a spatial index; the margin covers the biggest diorama
+	const placeIndex = $derived(pointIndex(map.locations));
+	const shownPlaces = $derived(placeIndex.query(growRect(view.worldRect(200), PLACE_SIZE_MAX / 2)));
+
 	let dragMoved = false;
 	function startDrag(e: PointerEvent, target: NonNullable<typeof dragging>) {
 		if (tool !== 'select' || space || e.button !== 0) return;
@@ -340,50 +347,48 @@
 	{/if}
 
 	<div class="places">
-		{#each map.locations as p (p.id)}
+		{#each shownPlaces as p (p.id)}
 			{@const s = view.toScreen(p)}
-			{#if view.onScreen(p, 200)}
-				{@const dim = !inFilter(p.toons) || (readerView && !!p.hidden)}
-				{@const active = selection?.kind === 'place' && selection.id === p.id}
-				<div class="place" class:has-image={!!p.image?.src} class:dim class:active class:collides={collisions.has(p.id)} class:hidden-place={!!p.hidden} style:transform="translate({s.x}px, {s.y}px)">
-					{#if p.image?.src}
-						{@const box = placeImageBox(p.image, view.zoom, 1, p.size)}
-						<!-- the diorama selects its place too (owner 2026-10-11), with the select tool -->
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-						<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
-					{:else}
-						<!-- no diorama yet: a dashed outline of one at the place's size, centred on its cells (owner 2026-10-11) -->
-						{@const w = placeSize(p) * view.zoom}
-						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 / 2}px">
-							<path d="M50 6 L94 30 L94 42 L50 66 L6 42 L6 30 Z M6 30 L50 54 L94 30 M50 54 L50 66" />
-						</svg>
-					{/if}
-					<!-- its hit area: the cells it takes, not the picture's box – a picture reaching over a neighbour's cells lets
-					     clicks there through (owner 2026-10-11); dragging it moves the place like the marker -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<svg class="place-hit" aria-hidden="true" data-handle>
-						<path
-							d={cellsPath(placeCells(p), p)}
-							onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
-							onpointermove={dragMove}
-							onpointerup={(e) => dragEnd(e, () => (tool === 'select' ? onselect({ kind: 'place', id: p.id }) : null))}
-						/>
+			{@const dim = !inFilter(p.toons) || (readerView && !!p.hidden)}
+			{@const active = selection?.kind === 'place' && selection.id === p.id}
+			<div class="place" class:has-image={!!p.image?.src} class:dim class:active class:collides={collisions.has(p.id)} class:hidden-place={!!p.hidden} style:transform="translate({s.x}px, {s.y}px)">
+				{#if p.image?.src}
+					{@const box = placeImageBox(p.image, view.zoom, 1, p.size)}
+					<!-- the diorama selects its place too (owner 2026-10-11), with the select tool -->
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+					<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+				{:else}
+					<!-- no diorama yet: a dashed outline of one at the place's size, centred on its cells (owner 2026-10-11) -->
+					{@const w = placeSize(p) * view.zoom}
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+					<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 / 2}px">
+						<path d="M50 6 L94 30 L94 42 L50 66 L6 42 L6 30 Z M6 30 L50 54 L94 30 M50 54 L50 66" />
 					</svg>
-					<button
-						class="marker"
-						data-control-exempt="map marker on the canvas"
-						data-handle
-						aria-label={mapName(p.name, locale) || p.id}
+				{/if}
+				<!-- its hit area: the cells it takes, not the picture's box – a picture reaching over a neighbour's cells lets
+				     clicks there through (owner 2026-10-11); dragging it moves the place like the marker -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<svg class="place-hit" aria-hidden="true" data-handle>
+					<path
+						d={cellsPath(placeCells(p), p)}
 						onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
 						onpointermove={dragMove}
 						onpointerup={(e) => dragEnd(e, () => (tool === 'select' ? onselect({ kind: 'place', id: p.id }) : null))}
-						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onselect({ kind: 'place', id: p.id }); }}
-						data-testid="builder-place-{p.id}"
-					></button>
-					{#if labelled.has(p.id)}<span class="label">{mapName(p.name, locale) || p.id}</span>{/if}
-				</div>
-			{/if}
+					/>
+				</svg>
+				<button
+					class="marker"
+					data-control-exempt="map marker on the canvas"
+					data-handle
+					aria-label={mapName(p.name, locale) || p.id}
+					onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
+					onpointermove={dragMove}
+					onpointerup={(e) => dragEnd(e, () => (tool === 'select' ? onselect({ kind: 'place', id: p.id }) : null))}
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onselect({ kind: 'place', id: p.id }); }}
+					data-testid="builder-place-{p.id}"
+				></button>
+				{#if labelled.has(p.id)}<span class="label">{mapName(p.name, locale) || p.id}</span>{/if}
+			</div>
 		{/each}
 	</div>
 

@@ -67,11 +67,32 @@
 				},
 				"maxZoom": {
 					"type": "number"
+				},
+				"tiles": {
+					"$ref": "#/definitions/MapTiles",
+					"description": "the same layer as a tile pyramid for deep zoom (BACKLOG 10.63; `scripts/map-tiles.mjs` renders it from `image`): `{path}/{z}/{x}_{y}.webp`, `TILE_PX` square; level z draws 2^z px per world unit (0 … `levels`). The image stays the base (and the fallback while tiles load); the tiles on screen draw over it from level 1."
 				}
 			},
 			"required": [
 				"id",
 				"image"
+			]
+		},
+		"MapTiles": {
+			"type": "object",
+			"properties": {
+				"path": {
+					"type": "string",
+					"description": "CDN-root folder, e.g. `catpope/map/tiles/terrain`"
+				},
+				"levels": {
+					"type": "number",
+					"description": "the deepest level (2^levels px per world unit)"
+				}
+			},
+			"required": [
+				"path",
+				"levels"
 			]
 		},
 		"MapPlace": {

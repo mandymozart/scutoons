@@ -2,7 +2,7 @@
 // for the whole content (`translate(x, y) scale(zoom)`, world units → screen px), zoom at a point, pan, fit, and the
 // pointer gestures (drag = pan, wheel / pinch = zoom at the cursor, double-click zooms in). Pure state + a DOM attachment;
 // no app state.
-import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, type Point } from '@scutoons/content';
+import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, type Point, type Rect } from '@scutoons/content';
 
 export class MapViewport {
 	/** screen px of the world's origin */
@@ -92,6 +92,12 @@ export class MapViewport {
 	}
 
 	/** is a world point on screen (with a margin in px)? */
+	/** the world rectangle on screen, `margin` screen px around it (the culling's query – `pointIndex`) */
+	worldRect(margin = 0): Rect {
+		const a = this.toWorld({ x: -margin, y: -margin });
+		const b = this.toWorld({ x: this.width + margin, y: this.height + margin });
+		return { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y };
+	}
 	onScreen(p: Point, margin = 0): boolean {
 		const s = this.toScreen(p);
 		return s.x >= -margin && s.y >= -margin && s.x <= this.width + margin && s.y <= this.height + margin;

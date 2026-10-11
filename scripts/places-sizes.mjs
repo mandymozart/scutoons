@@ -3,7 +3,7 @@
 // länger), die kleine Kirche die Hälfte vom Dom, Apartment-Blocks und Friedhof größer, Erzberg und Erzloch die größten")
 // as a new map draft: each place gets its `size` (world units), then every place is snapped once to the nearest free
 // spot of the grid – the big ones first – so no two overlap. Production through the SCUTOONS MCP, or the local DB.
-// BACKLOG 10.67 (owner 2026-10-11, "das Größte ≈ 12"): the sizes ÷8, a cell of 1; the places snap from the positions of
+// BACKLOG 10.67 (owner 2026-10-11, "das Größte ≈ 12", then "alles doppelt so groß"): the sizes ÷4, a cell of 1; the places snap from the positions of
 // `--from <version id>` (the map before the first snap: the author's own placement), else from the latest.
 //   node --experimental-transform-types scripts/places-sizes.mjs [--local] [--dry] [--from <version id>]
 import { execFileSync } from 'node:child_process';
@@ -12,10 +12,11 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { snapPlace, placeSize } from '../shared/content/src/map.ts';
 
+// owner 2026-10-11 after seeing them: "definitiv zu klein – alles einmal doppelt so groß"
 const SIZES = {
-	well: 0.75, crypt: 1.5, 'church-square': 2, 'infinity-pool': 3, 'vienna-subway': 3,
-	cathedral: 4, monastery: 4, library: 4, 'mountain-path': 4, station: 4.5,
-	'apartment-blocks': 6, graveyard: 6, 'waterfall-tower': 6, 'ore-pit': 12, 'ore-mountain': 12
+	well: 1.5, crypt: 3, 'church-square': 4, 'infinity-pool': 6, 'vienna-subway': 6,
+	cathedral: 8, monastery: 8, library: 8, 'mountain-path': 8, station: 9,
+	'apartment-blocks': 12, graveyard: 12, 'waterfall-tower': 12, 'ore-pit': 24, 'ore-mountain': 24
 };
 const args = process.argv.slice(2);
 const local = args.includes('--local'), dry = args.includes('--dry');
@@ -26,7 +27,13 @@ function arrange(map, origin = map) {
 	const next = structuredClone(map);
 	for (const p of next.locations) {
 		const o = origin.locations.find((x) => x.id === p.id);
-		if (o) (p.x = o.x), (p.y = o.y);
+		if (o) {
+			p.x = o.x;
+			p.y = o.y;
+			// the view from the origin too, so a second run does not scale it twice
+			if (o.view) p.view = structuredClone(o.view);
+			else delete p.view;
+		}
 		if (SIZES[p.id]) p.size = SIZES[p.id];
 		else delete p.size; // the default
 		if (p.image) delete p.image.size; // one size: the place's
@@ -54,7 +61,7 @@ if (local) {
 	if (!dry) {
 		const BS = String.fromCharCode(92);
 		const json = JSON.stringify(next).split(BS).join(BS + BS).split("'").join(BS + "'");
-		sql(`INSERT INTO entity_versions (entity_key, kind, toon, locale, json, created_at, status, message) VALUES ('map', 'map', NULL, NULL, '${json}', NOW(), 'draft', 'Places: sizes ÷8 on a finer hex grid (cell 1), snapped from the author placement');`);
+		sql(`INSERT INTO entity_versions (entity_key, kind, toon, locale, json, created_at, status, message) VALUES ('map', 'map', NULL, NULL, '${json}', NOW(), 'draft', 'Places: sizes ÷4 (well 1.5 … ore 24) on a finer hex grid (cell 1), snapped from the author placement');`);
 		console.log('local draft saved');
 	}
 } else {
@@ -71,7 +78,7 @@ if (local) {
 		const { next, moves } = arrange(map, origin ? (origin.data?.content ?? origin.data) : map);
 		console.log(`map v${cur.data?.version?.id}: moved (units):`, moves.join(', '));
 		if (!dry) {
-			const r = await call('save_draft', { key: 'map', base: cur.data?.version?.id ?? null, content: next, message: 'Places: sizes ÷8 (well 0.75 … ore mountain 12) on a finer hex grid (cell 1), every place snapped to a free spot' });
+			const r = await call('save_draft', { key: 'map', base: cur.data?.version?.id ?? null, content: next, message: 'Places: sizes ÷4 (well 1.5 … ore mountain 24) on a finer hex grid (cell 1), every place snapped to a free spot (owner: "alles doppelt so groß")' });
 			console.log('save_draft:', JSON.stringify(r.data).slice(0, 400));
 		}
 	} finally {

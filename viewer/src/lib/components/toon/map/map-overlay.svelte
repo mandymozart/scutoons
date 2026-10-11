@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { MAP_MAX_ZOOM, PLACE_ZOOM, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -295,6 +295,10 @@
 	const IMAGE_ZOOM = MAP_MAX_ZOOM;
 	const imageBox = (p: ReaderPlace) => placeImageBox(p.image!, IMAGE_ZOOM, 1, p.size);
 	const imageScale = $derived(view.zoom / IMAGE_ZOOM);
+	// culling (BACKLOG 10.63): only the places near the screen are in the DOM – a spatial index instead of a test per
+	// place; the margin covers the biggest diorama
+	const placeIndex = $derived(pointIndex(places));
+	const shownPlaces = $derived(placeIndex.query(growRect(view.worldRect(160), PLACE_SIZE_MAX / 2)));
 	/** a diorama's hit area: the hex cells its place takes (at IMAGE_ZOOM, around its point) – outside them a tap goes
 	 *  through to what lies behind (owner 2026-10-11) */
 	const hitPath = (p: ReaderPlace) =>
@@ -328,35 +332,33 @@
 			<MapTerrain {view} width={data.width} height={data.height} layers={data.layers} url={asset} testid="map-world" />
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} />
 			<div class="places">
-				{#each places as p (p.id)}
+				{#each shownPlaces as p (p.id)}
 					{@const s = view.toScreen(p)}
-					{#if view.onScreen(p, 160)}
-						{@const isNew = isPlaceNew(p.id, mapState)}
-						<div class="place" class:own={own(p)} class:new={isNew} class:active={selected === p.id} class:revealed={revealShow && revealing === p.id} style:--reveal-color={revealColor} style:transform="translate({s.x}px, {s.y}px)">
-							{#if revealShow && revealing === p.id}<span class="halo" aria-hidden="true"></span>{/if}
-							{#if p.image && own(p)}
-								{@const box = imageBox(p)}
-								<span class="image-scale" style:transform="scale({imageScale})">
-								<!-- the reveal (§8.5a): the plaster model first, the painted diorama fades in over it -->
-								{#if p.image.plaster && revealing === p.id}
-									<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} sizes={drawnSize(p)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
-								{/if}
-								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
-								<!-- the diorama opens its place's card too (owner 2026-10-11) – on the cells it takes, not its picture's box -->
-								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-								<svg class="place-hit" aria-hidden="true"><path d={hitPath(p)} onclick={() => select(p)} /></svg>
-								</span>
+					{@const isNew = isPlaceNew(p.id, mapState)}
+					<div class="place" class:own={own(p)} class:new={isNew} class:active={selected === p.id} class:revealed={revealShow && revealing === p.id} style:--reveal-color={revealColor} style:transform="translate({s.x}px, {s.y}px)">
+						{#if revealShow && revealing === p.id}<span class="halo" aria-hidden="true"></span>{/if}
+						{#if p.image && own(p)}
+							{@const box = imageBox(p)}
+							<span class="image-scale" style:transform="scale({imageScale})">
+							<!-- the reveal (§8.5a): the plaster model first, the painted diorama fades in over it -->
+							{#if p.image.plaster && revealing === p.id}
+								<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} sizes={drawnSize(p)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 							{/if}
-							<button
-								class="marker"
-								data-control-exempt="map marker on the picture"
-								aria-label={own(p) ? p.name : `${p.name} · ${m['map.other_toon']()}`}
-								onclick={() => select(p)}
-								onfocus={() => focusPlace(p)}
-								data-testid="map-place-{p.id}"
-							></button>
-						</div>
-					{/if}
+							<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+							<!-- the diorama opens its place's card too (owner 2026-10-11) – on the cells it takes, not its picture's box -->
+							<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+							<svg class="place-hit" aria-hidden="true"><path d={hitPath(p)} onclick={() => select(p)} /></svg>
+							</span>
+						{/if}
+						<button
+							class="marker"
+							data-control-exempt="map marker on the picture"
+							aria-label={own(p) ? p.name : `${p.name} · ${m['map.other_toon']()}`}
+							onclick={() => select(p)}
+							onfocus={() => focusPlace(p)}
+							data-testid="map-place-{p.id}"
+						></button>
+					</div>
 				{/each}
 			</div>
 			<div class="labels" aria-hidden="true">

@@ -202,3 +202,25 @@ test('zoom percentages: 100 % is the place zoom (owner 2026-10-11)', async () =>
 	assert.equal(zoomFromPercent(100), PLACE_ZOOM);
 	assert.equal(zoomFromPercent(50), 4);
 });
+
+test('tiles and culling: the level for a zoom, the tiles on screen, the point index (BACKLOG 10.63)', async () => {
+	const { tileLevel, visibleTiles, pointIndex, TILE_PX, checkWorldMap } = await import('../src/map.ts');
+	assert.equal(tileLevel(1, 1, 5), 0);
+	assert.equal(tileLevel(2, 1, 5), 1);
+	assert.equal(tileLevel(3, 1, 5), 2, 'the next sharper level');
+	assert.equal(tileLevel(8, 2, 5), 4);
+	assert.equal(tileLevel(32, 2, 5), 5, 'capped at the deepest');
+	assert.equal(tileLevel(0.25, 1, 5), 0);
+	const world = { width: 2048, height: 1046 };
+	assert.equal(visibleTiles({ x: 0, y: 0, width: 2048, height: 1046 }, 0, world).length, 8 * 5, 'level 0: the world in 256 px tiles');
+	const deep = visibleTiles({ x: 1000, y: 300, width: 40, height: 20 }, 5, world);
+	assert.ok(deep.every((t) => t.size === TILE_PX / 32 && t.z === 5));
+	assert.equal(deep.length, 6 * 4, "x 125–130, y 37–40");
+	assert.equal(visibleTiles({ x: -500, y: -500, width: 100, height: 100 }, 0, world).length, 0, 'off the world');
+	const idx = pointIndex([{ x: 10, y: 10, id: 'a' }, { x: 100, y: 100, id: 'b' }, { x: 1000, y: 500, id: 'c' }]);
+	assert.deepEqual(idx.query({ x: 0, y: 0, width: 150, height: 150 }).map((p) => p.id), ['a', 'b']);
+	assert.deepEqual(idx.query({ x: 990, y: 490, width: 20, height: 20 }).map((p) => p.id), ['c']);
+	const bad = (tiles: unknown) => checkWorldMap({ width: 10, height: 10, layers: [{ id: 't', image: 'a.svg', tiles } as any], locations: [], routes: [] }).map((p) => p.path.join('.'));
+	assert.deepEqual(bad({ path: 'm/tiles', levels: 5 }), []);
+	assert.deepEqual(bad({ path: 'm/tiles', levels: 12 }), ['layers.0.tiles']);
+});

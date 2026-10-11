@@ -685,6 +685,7 @@
 			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
 			{#if importSummary}<p class="sc-caption import-summary" role="status">{importSummary}</p>{/if}
 			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.strip'))}>
 				<MapCanvas
 					bind:this={canvas}
