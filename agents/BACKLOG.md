@@ -855,6 +855,19 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
       typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
       sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
+- [ ] 10.66 **Place dioramas on the map: world-fixed size, clickable, outlines, routes behind them** (owner 2026-10-11,
+  the builder on a phone: "die Dioramen müssen wesentlich kleiner sein, sie dürfen nicht so überlappen – man sieht die
+  Tasse erst, wenn man weiter reinzoomt"; "die Icons müssen in der Größe fixiert sein mit der Karte – deshalb die drei
+  Auflösungen"). Today a place image is drawn at `size` × min(zoom, 3) px – it stops growing at zoom 3 and is far too big
+  for the dense city cluster (places ~10–40 world units apart). Wanted: (1) the image sized in WORLD units and scaled with
+  the map at every zoom (no cap) – a much smaller default `size`, so far out it is tiny and close in it is big; the
+  1x / 2x / 3x files are picked by the drawn size (already built: srcset `256w / 512w / 1024w` + sizes); the same in the
+  viewer and the builder (one shared place-image component, like MapTerrain). (2) The image is clickable: it selects /
+  activates the place (today only the small marker is). (3) A place without an image shows an abstract diorama
+  outline (one SVG, dashed) as its selectable element instead of the dot. (4) Routes go behind a place's diorama /
+  outline – entering and leaving it (an entry and an exit point) for an interesting path. Route animation (a path that
+  grows with the progress) is separate – not part of this.
+
 - [ ] 10.64 **A media optimisation tool on the media standard** (owner 2026-10-11: "wir haben einen Standard definiert …
   die Leute können andere benutzen, aber wir empfehlen das Umkonvertieren – im Admin oder im Creator ein
   Optimierungstool"). Built: `@scutoons/media` media-standard.ts (`checkMedia`, `toStandard`, `standardName`: PNG / JPEG →
