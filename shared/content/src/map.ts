@@ -92,7 +92,10 @@ export interface MapImage {
 	src: string;
 	/** drawn width in screen px at zoom 1 (default 48); the image keeps its ratio */
 	size?: number;
-	/** the ground point inside the image, % of its box (default 50 / 90 = bottom centre) – sits on the place's (x, y) */
+	/**
+	 * the point inside the image, % of its box, that sits on the place's (x, y) – the centre of its hex cells (default 50 / 50:
+	 * the diorama centred on its honeycomb patch – owner 2026-10-11, "alle zentrieren, nicht am Boden")
+	 */
 	anchor?: { x: number; y: number };
 	/**
 	 * the same diorama as the unpainted plaster model (owner 2026-10-11: "zwei Zustände – als Gipsmodell und als bemaltes
@@ -164,7 +167,7 @@ export const MAP_STYLES: MapPathStyle[] = ['road', 'trail', 'flight', 'sea'];
  * zoom 1, 64 px at zoom 32
  */
 export const DEFAULT_PLACE_IMAGE_SIZE = 2;
-export const DEFAULT_PLACE_ANCHOR = { x: 50, y: 90 } as const;
+export const DEFAULT_PLACE_ANCHOR = { x: 50, y: 50 } as const;
 export const MAP_MIN_ZOOM = 0.25;
 /** deep enough that the smallest place (a well, 0.75) is ~24 px (BACKLOG 10.67) */
 export const MAP_MAX_ZOOM = 32;
@@ -387,7 +390,7 @@ export function centerOf(points: readonly Point[]): Point | null {
 
 /** The image box of a place in screen px at a zoom: left/top relative to the place's screen point */
 export function placeImageBox(image: MapImage, zoom: number, ratio = 1, size?: number): { width: number; height: number; left: number; top: number } {
-	const width = (image.size ?? size ?? DEFAULT_PLACE_IMAGE_SIZE) * zoom;
+	const width = (size ?? image.size ?? DEFAULT_PLACE_IMAGE_SIZE) * zoom; // the place's size first, like `placeSize`
 	const height = width / (ratio || 1);
 	const anchor = image.anchor ?? DEFAULT_PLACE_ANCHOR;
 	return { width, height, left: -(anchor.x / 100) * width, top: -(anchor.y / 100) * height };

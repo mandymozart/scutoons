@@ -172,7 +172,7 @@
 						"x",
 						"y"
 					],
-					"description": "the ground point inside the image, % of its box (default 50 / 90 = bottom centre) – sits on the place's (x, y)"
+					"description": "the point inside the image, % of its box, that sits on the place's (x, y) – the centre of its hex cells (default 50 / 50: the diorama centred on its honeycomb patch – owner 2026-10-11, \"alle zentrieren, nicht am Boden\")"
 				},
 				"plaster": {
 					"type": "string",

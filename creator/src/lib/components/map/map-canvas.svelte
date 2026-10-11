@@ -351,10 +351,10 @@
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 						<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 					{:else}
-						<!-- no diorama yet: a dashed outline of one at the place's size (owner 2026-10-11), selectable like the picture -->
+						<!-- no diorama yet: a dashed outline of one at the place's size, centred on its cells (owner 2026-10-11) -->
 						{@const w = placeSize(p) * view.zoom}
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 * 0.8}px">
+						<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 / 2}px">
 							<path d="M50 6 L94 30 L94 42 L50 66 L6 42 L6 30 Z M6 30 L50 54 L94 30 M50 54 L50 66" />
 						</svg>
 					{/if}

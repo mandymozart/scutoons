@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { DEFAULT_PLACE_ANCHOR, PLACE_SIZE_MIN, PLACE_SIZE_STEP, PLACE_ZOOM, placeImagePath, placeSize, type MapPlace } from '@scutoons/content';
+	import { DEFAULT_PLACE_ANCHOR, hexCorners, placeCells, PLACE_ZOOM, placeImagePath, placeSize, type MapPlace } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { cdnHas, cdnSize, editPlace, numberOrUnset } from '$lib/editor/map.ts';
+	import { cdnHas, cdnSize, editPlace } from '$lib/editor/map.ts';
 	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 
 	/**
@@ -58,14 +58,6 @@
 			else delete p.image.plasterVariants;
 		});
 	}
-	function setImageField(field: 'size', value: number | undefined) {
-		if (!place.image) return;
-		editPlace(doc, place.id, (p) => {
-			if (!p.image) return;
-			if (value === undefined || !Number.isFinite(value)) delete p.image[field];
-			else p.image[field] = value;
-		}, `image-${field}`);
-	}
 	let anchorBox = $state<HTMLDivElement>();
 	let anchorDrag = false;
 	function setAnchor(e: PointerEvent) {
@@ -80,11 +72,26 @@
 		}, 'image-anchor');
 	}
 	const anchor = $derived(place.image?.anchor ?? DEFAULT_PLACE_ANCHOR);
+	/** the picture's size is the place's (the size slider) – one size, no own image size */
 	const size = $derived(placeSize(place));
+	const ratio = $derived(natural?.w ? natural.h / natural.w : 1);
 	/** the previews' zooms: around the place zoom (the places are a few world units wide – BACKLOG 10.67) */
 	const ZOOMS = [PLACE_ZOOM / 2, PLACE_ZOOM, PLACE_ZOOM * 2];
 	/** blurry at the place zoom on a 2x screen: the file is narrower than twice its drawn width there */
 	const blurry = $derived(!!natural && natural.w < size * PLACE_ZOOM * 2);
+	/**
+	 * the place's hex cells over the picture, around its anchor (owner 2026-10-11: the tiles in the "set the centre" editor):
+	 * the picture is `size` world units wide, so a cell's corner (world units from the place's point) lands at
+	 * anchor + corner / size of the picture's width. viewBox: the width is 100, the height 100 × the picture's ratio.
+	 */
+	const tiles = $derived.by(() => {
+		if (!natural?.w) return null;
+		const h = (100 * natural.h) / natural.w;
+		const d = placeCells({ x: 0, y: 0, size })
+			.map((c) => 'M' + hexCorners(c).map((k) => `${(anchor.x + (k.x / size) * 100).toFixed(2)},${((anchor.y / 100) * h + (k.y / size) * 100).toFixed(2)}`).join('L') + 'Z')
+			.join('');
+		return { h, d };
+	});
 </script>
 
 <fieldset data-testid="place-image">
@@ -105,7 +112,6 @@
 			{#if imageState.kb !== null && imageState.kb > 60}<span class="warn"> · {m['creator.map_image_large']({ kb: imageState.kb })}</span>{/if}
 			{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ zoom: PLACE_ZOOM * 100, px: Math.ceil(size * PLACE_ZOOM * 2) })}</span>{/if}
 		</p>
-		<label class="field small"><span>{m['creator.map_image_size']()}</span><input type="number" min={PLACE_SIZE_MIN} step={PLACE_SIZE_STEP} value={place.image.size ?? ''} placeholder={String(size)} onchange={(e) => setImageField('size', numberOrUnset(e.currentTarget.value))} data-testid="place-image-size" /></label>
 		<span class="lbl">{m['creator.map_image_anchor']()} ({anchor.x} / {anchor.y} %)</span>
 		<div
 			class="anchor checker"
@@ -121,14 +127,17 @@
 			data-testid="place-anchor"
 		>
 			<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" draggable="false" onload={(e) => { const img = e.currentTarget as HTMLImageElement; natural = { w: img.naturalWidth, h: img.naturalHeight }; }} />
+			{#if tiles}<svg class="tiles" viewBox="0 0 100 {tiles.h}" preserveAspectRatio="none" aria-hidden="true"><path d={tiles.d} /></svg>{/if}
 			<span class="cross" style:left="{anchor.x}%" style:top="{anchor.y}%"></span>
 		</div>
 		<span class="lbl">{m['creator.map_image_previews']({ zooms: ZOOMS.map((z) => z * 100).join(' / ') })}</span>
 		<div class="previews">
 			{#each ZOOMS as z (z)}
-				<div class="preview" style:height="{size * z * 1.1 + 12}px">
-					<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:bottom="{6 + size * z * ((100 - anchor.y) / 100) * (natural ? natural.h / natural.w : 1)}px" />
-					<span class="dot"></span>
+				{@const h = size * z * ratio}
+				<!-- the picture at that zoom, its centre point on the place's point (the dot) -->
+				<div class="preview" style:height="{h + 12}px">
+					<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:top="6px" />
+					<span class="dot" style:top="{6 + h * (anchor.y / 100)}px"></span>
 					<span class="z">{z * 100} %</span>
 				</div>
 			{/each}
@@ -162,6 +171,21 @@
 		height: auto;
 		pointer-events: none;
 	}
+	.tiles {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		pointer-events: none;
+	}
+	.tiles path {
+		fill: var(--primary-yellow, #ffe600);
+		fill-opacity: 0.3;
+		stroke: var(--ink);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
 	.cross {
 		position: absolute;
 		width: 18px;
@@ -190,10 +214,10 @@
 	}
 	.preview .dot {
 		position: absolute;
-		left: calc(50% - 3px);
-		bottom: 3px;
+		left: 50%;
 		width: 6px;
 		height: 6px;
+		transform: translate(-50%, -50%);
 		border-radius: 50%;
 		background: var(--ink);
 	}
