@@ -167,6 +167,58 @@ final class EntityStoreTest extends TestCase
     }
 
     /**
+     * 2026-10-12-map-documents (agents/MAP-DOCUMENTS.md): every version of the one-document map is split into place:<id> /
+     * route:<id> versions where an entry appears, changes, leaves (tombstone) or comes back; the published version of each
+     * = the one made from a map version up to the published map; the lists leave the old map versions; idempotent
+     */
+    public function testTheMapDocumentsMigration(): void
+    {
+        $place = fn(string $id, int $x) => ['id' => $id, 'name' => ['de' => strtoupper($id)], 'x' => $x, 'y' => 1, 'toons' => ['t']];
+        $route = fn(array $ids) => ['id' => 'r', 'name' => ['de' => 'R'], 'toons' => ['t'], 'waypoints' => array_map(fn($i) => ['location' => $i], $ids)];
+        $versions = [
+            1 => ['draft', [$place('a', 1), $place('b', 2)], [$route(['a', 'b'])]],
+            2 => ['published', [$place('a', 5), $place('b', 2), $place('c', 3)], [$route(['a', 'b'])]],
+            3 => ['draft', [$place('a', 5), $place('c', 4)], [$route(['a', 'c'])]],
+            4 => ['draft', [$place('a', 5), $place('c', 4), $place('b', 2)], [$route(['a', 'c'])]],
+        ];
+        $mapIds = [];
+        foreach ($versions as $n => [$status, $locations, $routes]) {
+            $json = json_encode(['width' => 10, 'height' => 10, 'layers' => [['id' => 'terrain', 'image' => 'x.svg']], 'locations' => $locations, 'routes' => $routes]);
+            $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('map', 'map', NULL, NULL, ?, 'u1', ?, ?, ?)",
+                [$json, "2026-10-0$n 00:00:00", $status, $n === 3 ? 'b goes' : null]);
+            $mapIds[$n] = $this->db->lastInsertId();
+        }
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-12-map-documents.mysql.sql');
+        $rows = fn() => $this->db->all("SELECT entity_key, json, status, author, created_at, message FROM entity_versions WHERE kind IN ('place', 'route') ORDER BY id");
+        $first = $rows();
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-12-map-documents.mysql.sql');
+        self::assertSame($first, $rows(), 'a second run changes nothing');
+
+        $line = fn(array $r) => [$r['entity_key'], $r['status'], json_decode((string) $r['json'], true)];
+        $p = fn(string $id, int $x, bool $removed = false) => ['name' => ['de' => strtoupper($id)], 'x' => $x, 'y' => 1, 'toons' => ['t']] + ($removed ? ['removed' => true] : []);
+        $r = fn(array $ids) => ['name' => ['de' => 'R'], 'toons' => ['t'], 'waypoints' => array_map(fn($i) => ['location' => $i], $ids)];
+        self::assertSame([
+            ['place:a', 'draft', $p('a', 1)],
+            ['place:b', 'published', $p('b', 2)],
+            ['route:r', 'published', $r(['a', 'b'])],
+            ['place:a', 'published', $p('a', 5)],
+            ['place:c', 'published', $p('c', 3)],
+            ['place:c', 'draft', $p('c', 4)],
+            ['route:r', 'draft', $r(['a', 'c'])],
+            ['place:b', 'draft', $p('b', 2, true)],
+            ['place:b', 'draft', $p('b', 2)],
+        ], array_map($line, $first), 'in map order: version, then list order (routes after places, tombstones last)');
+        self::assertSame(['u1', '2026-10-03 00:00:00', "map v{$mapIds[3]}: b goes"], [$first[5]['author'], $first[5]['created_at'], $first[5]['message']]);
+
+        // the old map versions keep only their settings – same ids, same status
+        foreach ($this->db->all("SELECT id, json, status FROM entity_versions WHERE entity_key = 'map' ORDER BY id") as $i => $m) {
+            self::assertSame(['width' => 10, 'height' => 10, 'layers' => [['id' => 'terrain', 'image' => 'x.svg']]], json_decode((string) $m['json'], true));
+            self::assertSame($i === 1 ? 'published' : 'draft', $m['status']);
+        }
+    }
+
+    /**
      * 2026-10-06-target-value: a jump target's numeric value becomes a string (chapter / season / toon / product / xr);
      * strings, other objects with a numeric value and texts stay; a second run changes nothing
      */
