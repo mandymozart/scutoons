@@ -5,6 +5,7 @@ namespace Scutoons\Console;
 
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\WorldMapDocs;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Infrastructure\Clock\Clock;
@@ -102,7 +103,8 @@ final class ImportContentCommand extends Command
                 }
                 continue;
             }
-            if ($onlyKinds !== [] && !in_array($key->kind, $onlyKinds, true)) continue;
+            // `--only=map`: the world map with its places and routes (one file, many documents – agents/MAP-DOCUMENTS.md)
+            if ($onlyKinds !== [] && !in_array(in_array($key->kind, WorldMapDocs::KINDS, true) ? 'map' : $key->kind, $onlyKinds, true) && !in_array($key->kind, $onlyKinds, true)) continue;
             if (!self::includesKind($key->kind, $onlyKinds, $sqlMode)) {
                 if (!isset($devOnlyReported["kind:$key->kind"])) {
                     $report("  skipped   {$key->kind} (creator only, not in the production seed; --only={$key->kind} to include it)\n");

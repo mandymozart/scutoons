@@ -37,6 +37,8 @@ final class ContentSchemas
         'roles' => 'roles',
         'events' => 'events',
         'map' => 'map',
+        'place' => 'map-place',
+        'route' => 'map-route',
     ];
 
     /** the language-neutral documents of these kinds (a key without locale, agents/NEUTRAL.md) → schema file */

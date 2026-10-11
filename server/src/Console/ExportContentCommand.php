@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Console;
 
 use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\WorldMapDocs;
 use Scutoons\Infrastructure\Database\Database;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -47,15 +48,23 @@ final class ExportContentCommand extends Command
             : $db->all("SELECT v.entity_key, v.json FROM entity_versions v JOIN (SELECT entity_key, MIN(id) AS first FROM entity_versions GROUP BY entity_key) m ON m.entity_key = v.entity_key WHERE v.status = 'published' ORDER BY m.first, v.id");
         $files = [];
         $index = [];
+        $mapSettings = null;
+        $mapParts = ['place' => [], 'route' => []];
         foreach ($rows as $row) {
             if (!EntityKey::isValid($row['entity_key'])) continue; // rows of kinds that no longer exist
             $key = EntityKey::parse($row['entity_key']);
             if (is_string($onlyToon) && $key->toon !== $onlyToon) continue;
             $doc = json_decode((string) $row['json']);
             if ($key->kind === 'toon') $index[(string) $key->toon] = $doc;
+            elseif ($key->kind === 'place' || $key->kind === 'route') $mapParts[$key->kind][(string) $key->id] = $doc;
+            elseif ($key->kind === 'map') $mapSettings = $doc;
             else $files[ContentFiles::pathOf($key)] = $doc;
         }
         if ($index !== []) $files['toons.json'] = array_values($index);
+        // the world map's documents in one file again (creation order; removed ones stay out – agents/MAP-DOCUMENTS.md)
+        if ($mapSettings instanceof \stdClass && $onlyToon === null) {
+            $files[ContentFiles::PLATFORM_DIR . '/_/map.json'] = WorldMapDocs::compose($mapSettings, $mapParts['place'], $mapParts['route']);
+        }
 
         foreach ($files as $relative => $doc) {
             $target = "$dir/$relative";

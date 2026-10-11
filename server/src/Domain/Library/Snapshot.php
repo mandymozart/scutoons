@@ -121,6 +121,21 @@ final class Snapshot
         return array_values(array_filter(array_keys($this->ids), fn(string $k) => str_starts_with($k, $prefix)));
     }
 
+    /**
+     * The keys starting with a prefix in creation order (the id of each key's first version – the world map's places and
+     * routes, WorldMapDocs); one query per prefix
+     * @return list<string>
+     */
+    public function createdOrder(string $prefix): array
+    {
+        $keys = $this->keys($prefix);
+        if ($keys === []) return [];
+        $marks = implode(', ', array_fill(0, count($keys), '?'));
+        $first = self::index($this->db->all("SELECT entity_key, MIN(id) AS id FROM entity_versions WHERE entity_key IN ($marks) GROUP BY entity_key", $keys));
+        usort($keys, fn(string $a, string $b) => ($first[$a] ?? PHP_INT_MAX) <=> ($first[$b] ?? PHP_INT_MAX) ?: strcmp($a, $b));
+        return $keys;
+    }
+
     /** @return list<string> the keys in creation order (the toons list) */
     public function ordered(): array
     {

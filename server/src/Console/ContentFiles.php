@@ -12,7 +12,9 @@ use Scutoons\Domain\Content\EntityKey;
  *
  *   toons.json                         one entry per toon            → toon:<toon>
  *   events.json                                                      → events
- *   scutoons/_/<name>.json             characters, moods, asset-requests, people, roles, map → <name>
+ *   scutoons/_/<name>.json             characters, moods, asset-requests, people, roles → <name>
+ *   scutoons/_/map.json                the whole world map in one file → map (its settings) + place:<id> + route:<id>
+ *                                      (one document each, in the file's order – agents/MAP-DOCUMENTS.md; export composes it back)
  *   <toon>/_/cast.json, credits.json                                 → cast:<toon>, credits:<toon>
  *   <toon>/<l>/toon.json                                             → toon-settings:<toon>:<l>
  *   <toon>/_/season<N>.json, chapter<N>.json                         → season:<toon>:<N>, chapter:<toon>:<N>  (language-neutral, agents/NEUTRAL.md)
@@ -94,11 +96,39 @@ final class ContentFiles
                     $relative = substr(str_replace('\\', '/', $file), strlen(str_replace('\\', '/', $localeDir)) + 1);
                     $key = self::keyOf(basename($dir), basename($localeDir), $relative);
                     if ($key === null) continue;
+                    if ($key === 'map') {
+                        $label = ' (' . basename($dir) . '/' . basename($localeDir) . "/$relative)";
+                        foreach (self::splitMap(self::readJson($file)) as $part => $doc) $sources[] = [$part, $file, $part . $label, fn() => $doc];
+                        continue;
+                    }
                     $sources[] = [$key, $file, $key . ' (' . basename($dir) . '/' . basename($localeDir) . "/$relative)", fn() => self::readJson($file)];
                 }
             }
         }
         return $sources;
+    }
+
+    /**
+     * The interchange file `map.json` (the whole world map, the old one-document shape) as its documents: `map` = the
+     * settings (everything but the lists), then `place:<id>` per location and `route:<id>` per route, in the file's order
+     * (the documents' creation order is the map's order). An entry without a valid id is left out.
+     * @return array<string, mixed> key → document
+     */
+    public static function splitMap(mixed $map): array
+    {
+        if (!$map instanceof \stdClass) return ['map' => $map];
+        $settings = clone $map;
+        unset($settings->locations, $settings->routes);
+        $out = ['map' => $settings];
+        foreach (['locations' => 'place', 'routes' => 'route'] as $field => $kind) {
+            foreach (is_array($map->{$field} ?? null) ? $map->{$field} : [] as $entry) {
+                if (!$entry instanceof \stdClass || !is_string($entry->id ?? null) || !preg_match(EntityKey::ID_PATTERN, $entry->id)) continue;
+                $doc = clone $entry;
+                unset($doc->id);
+                $out["$kind:$entry->id"] = $doc;
+            }
+        }
+        return $out;
     }
 
     /** A JSON file decoded with objects (keeps `{}`), or an ApiError */
