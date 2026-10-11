@@ -1006,7 +1006,7 @@
 		"map_unlock_update": "Stelle aktualisieren",
 		"map_unlock_missing": "Der Slice ist nicht mehr in diesem Kapitel",
 		"map_place_view": "Ausschnitt auf der Leserkarte",
-		"map_place_view_hint": "Wo die Leserkarte auf den Ort zentriert (Ort der Leser:innen, ◎): Zoom 25–3200 % und ein Versatz. Leer: der Ort bei 800 %.",
+		"map_place_view_hint": "Wo die Leserkarte auf den Ort zentriert (Ort der Leser:innen, ◎): Zoom 3–400 % und ein Versatz. Leer: der Ort bei 100 %.",
 		"map_place_view_zoom": "Zoom (%)",
 		"map_place_view_dx": "Versatz x",
 		"map_place_view_dy": "Versatz y",

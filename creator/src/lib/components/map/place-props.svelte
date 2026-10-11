@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
-	import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_SIZE_MAX, PLACE_SIZE_MIN, PLACE_SIZE_STEP, PLACE_ZOOM, placeSize, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_SIZE_MAX, PLACE_SIZE_MIN, PLACE_SIZE_STEP, PLACE_ZOOM, zoomPercent, zoomFromPercent, placeSize, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -57,8 +57,9 @@
 	}
 
 	// ── the reader map's view of the place (owner 2026-10-10/11): zoom MAP_MIN_ZOOM..MAP_MAX_ZOOM (empty = PLACE_ZOOM), offset in world units ──
-	const MIN_PCT = MAP_MIN_ZOOM * 100;
-	const MAX_PCT = MAP_MAX_ZOOM * 100;
+	// in the percentages people see: 100 % = the place zoom (`zoomPercent`)
+	const MIN_PCT = zoomPercent(MAP_MIN_ZOOM);
+	const MAX_PCT = zoomPercent(MAP_MAX_ZOOM);
 	/** edit the place's view; an empty one leaves the place */
 	function editView(change: (v: NonNullable<MapPlace['view']>) => void) {
 		editPlace(doc, place.id, (p) => {
@@ -73,7 +74,7 @@
 		const pct = numberOrUnset(value);
 		editView((v) => {
 			if (pct === undefined || !Number.isFinite(pct)) delete v.zoom;
-			else v.zoom = Math.round(Math.min(MAX_PCT, Math.max(MIN_PCT, pct))) / 100;
+			else v.zoom = Math.min(MAP_MAX_ZOOM, Math.max(MAP_MIN_ZOOM, zoomFromPercent(pct)));
 		});
 	}
 	function setViewOffset(axis: 'x' | 'y', value: string) {
@@ -152,7 +153,7 @@
 	<legend>{m['creator.map_place_view']()}</legend>
 	<p class="hint">{m['creator.map_place_view_hint']()}</p>
 	<div class="row">
-		<label class="field small"><span>{m['creator.map_place_view_zoom']()}</span><input type="number" min={MIN_PCT} max={MAX_PCT} step="10" placeholder={String(PLACE_ZOOM * 100)} value={place.view?.zoom !== undefined ? Math.round(place.view.zoom * 100) : ''} onchange={(e) => setViewZoom(e.currentTarget.value)} data-testid="place-view-zoom" /></label>
+		<label class="field small"><span>{m['creator.map_place_view_zoom']()}</span><input type="number" min={MIN_PCT} max={MAX_PCT} step="5" placeholder={String(zoomPercent(PLACE_ZOOM))} value={place.view?.zoom !== undefined ? zoomPercent(place.view.zoom) : ''} onchange={(e) => setViewZoom(e.currentTarget.value)} data-testid="place-view-zoom" /></label>
 		<label class="field small"><span>{m['creator.map_place_view_dx']()}</span><input type="number" placeholder="0" value={place.view?.offset?.x ?? ''} onchange={(e) => setViewOffset('x', e.currentTarget.value)} data-testid="place-view-dx" /></label>
 		<label class="field small"><span>{m['creator.map_place_view_dy']()}</span><input type="number" placeholder="0" value={place.view?.offset?.y ?? ''} onchange={(e) => setViewOffset('y', e.currentTarget.value)} data-testid="place-view-dy" /></label>
 	</div>

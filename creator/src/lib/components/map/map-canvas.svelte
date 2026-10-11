@@ -12,6 +12,7 @@
 		hexCellAt,
 		hexCenter,
 		hexCorners,
+		zoomPercent,
 		placeCells,
 		snapPlace as snapToGrid,
 		DEFAULT_PLACE_IMAGE_SIZE,
@@ -411,7 +412,7 @@
 	{/if}
 
 	{#if phoneFrame}
-		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {Math.round(frameZoom * 100)} %{placeFrame ? ' · place' : startView ? ' · start' : ''}</span></div>
+		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {zoomPercent(frameZoom)} %{placeFrame ? ' · place' : startView ? ' · start' : ''}</span></div>
 	{/if}
 
 	{#if tool === 'route' || tool === 'place'}

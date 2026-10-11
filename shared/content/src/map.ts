@@ -176,6 +176,15 @@ export const MAP_MAX_ZOOM = 32;
  * BACKLOG 10.67: a district with its places, the biggest ~96 px)
  */
 export const PLACE_ZOOM = 8;
+/**
+ * the zoom every percentage shows as 100 % (owner 2026-10-11: "wenn wir immer auf 800 % eingezoomt sind, dann ist das die
+ * 100 %"): the place zoom – further out is below 100 %, the deepest 400 %. Stored zooms stay factors (world unit → px).
+ */
+export const ZOOM_100 = PLACE_ZOOM;
+/** a zoom factor as the percentage people see */
+export const zoomPercent = (zoom: number): number => Math.round((zoom / ZOOM_100) * 100);
+/** a percentage people typed as a zoom factor (two decimals) */
+export const zoomFromPercent = (percent: number): number => Math.round((percent / 100) * ZOOM_100 * 100) / 100;
 
 // ── the hex grid for places (owner 2026-10-11: "ein Sechseckraster – Orte nur innerhalb des Grids, damit nichts
 //    überlappt"; "festlegen, wie viele Flächeneinheiten ein Diorama einnimmt – eine sinnvolle Stufung") ─────────────
@@ -812,7 +821,7 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 			if (!isObj(v)) add('error', [...path, 'view'], `${what}: the view must be { zoom?, offset? }`);
 			else {
 				if (v.zoom !== undefined && (!isNum(v.zoom) || v.zoom < MAP_MIN_ZOOM || v.zoom > MAP_MAX_ZOOM))
-					add('error', [...path, 'view', 'zoom'], `${what}: the zoom must be a number from ${MAP_MIN_ZOOM * 100} % to ${MAP_MAX_ZOOM * 100} % (${MAP_MIN_ZOOM}–${MAP_MAX_ZOOM})`);
+					add('error', [...path, 'view', 'zoom'], `${what}: the zoom must be a number from ${zoomPercent(MAP_MIN_ZOOM)} % to ${zoomPercent(MAP_MAX_ZOOM)} % (${MAP_MIN_ZOOM}–${MAP_MAX_ZOOM})`);
 				const o = v.offset;
 				if (o !== undefined && (!isObj(o) || !isNum(o.x) || !isNum(o.y))) add('error', [...path, 'view', 'offset'], `${what}: the view offset must be { x, y } in world units`);
 				else if (o !== undefined && isNum(p.x) && isNum(p.y) && !inside(p.x + o.x, p.y + o.y))

@@ -6,6 +6,7 @@
 		MAP_MAX_ZOOM,
 		MAP_SOURCE_LANGUAGE,
 		PLACE_ZOOM,
+		zoomPercent,
 		characterImage,
 		checkWorldMap,
 		entities,
@@ -707,7 +708,7 @@
 					<div class="group start" title={m['creator.map_start_view_hint']()} data-testid="start-view">
 						<span class="hint">
 							{startView
-								? m['creator.map_start_view_value']({ toon: nav.toonName(toonFilter), x: Math.round(startView.center.x), y: Math.round(startView.center.y), zoom: Math.round(startView.zoom * 100) })
+								? m['creator.map_start_view_value']({ toon: nav.toonName(toonFilter), x: Math.round(startView.center.x), y: Math.round(startView.center.y), zoom: zoomPercent(startView.zoom) })
 								: m['creator.map_start_view_none']({ toon: nav.toonName(toonFilter) })}
 						</span>
 						<button type="button" class="ghost" onclick={setStartView} disabled={!entryDoc} data-testid="start-view-set">{m['creator.map_start_view_set']()}</button>
@@ -777,7 +778,7 @@
 							<h3>{m['creator.map_sheet_start']()}</h3>
 							<p class="hint">
 								{startView
-									? m['creator.map_start_view_value']({ toon: nav.toonName(toonFilter), x: Math.round(startView.center.x), y: Math.round(startView.center.y), zoom: Math.round(startView.zoom * 100) })
+									? m['creator.map_start_view_value']({ toon: nav.toonName(toonFilter), x: Math.round(startView.center.x), y: Math.round(startView.center.y), zoom: zoomPercent(startView.zoom) })
 									: m['creator.map_start_view_none']({ toon: nav.toonName(toonFilter) })}
 							</p>
 							<div class="start-row">

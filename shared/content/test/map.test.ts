@@ -193,3 +193,12 @@ test('the hex grid: cells, a place’s size, snapping to the nearest free spot',
 	const big = snapPlace(map, centre, 4 * HEX_CELL);
 	assert.ok(!placeCells({ ...big, size: 4 * HEX_CELL }).some((x) => x.q === c.q && x.r === c.r), 'a big place keeps its whole area free');
 });
+
+test('zoom percentages: 100 % is the place zoom (owner 2026-10-11)', async () => {
+	const { zoomPercent, zoomFromPercent, PLACE_ZOOM, MAP_MAX_ZOOM, MAP_MIN_ZOOM } = await import('../src/map.ts');
+	assert.equal(zoomPercent(PLACE_ZOOM), 100);
+	assert.equal(zoomPercent(MAP_MAX_ZOOM), 400);
+	assert.equal(zoomPercent(MAP_MIN_ZOOM), 3);
+	assert.equal(zoomFromPercent(100), PLACE_ZOOM);
+	assert.equal(zoomFromPercent(50), 4);
+});

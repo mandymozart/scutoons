@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DEFAULT_PLACE_ANCHOR, hexCorners, placeCells, PLACE_ZOOM, placeImagePath, placeSize, type MapPlace } from '@scutoons/content';
+	import { DEFAULT_PLACE_ANCHOR, hexCorners, placeCells, PLACE_ZOOM, zoomPercent, placeImagePath, placeSize, type MapPlace } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -110,7 +110,7 @@
 			{#if imageState.missing}<span class="bad">{m['creator.map_image_missing']()}</span>{/if}
 			{#if imageState.kb !== null}{imageState.kb} KB{/if}
 			{#if imageState.kb !== null && imageState.kb > 60}<span class="warn"> · {m['creator.map_image_large']({ kb: imageState.kb })}</span>{/if}
-			{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ zoom: PLACE_ZOOM * 100, px: Math.ceil(size * PLACE_ZOOM * 2) })}</span>{/if}
+			{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ zoom: zoomPercent(PLACE_ZOOM), px: Math.ceil(size * PLACE_ZOOM * 2) })}</span>{/if}
 		</p>
 		<span class="lbl">{m['creator.map_image_anchor']()} ({anchor.x} / {anchor.y} %)</span>
 		<div
@@ -130,7 +130,7 @@
 			{#if tiles}<svg class="tiles" viewBox="0 0 100 {tiles.h}" preserveAspectRatio="none" aria-hidden="true"><path d={tiles.d} /></svg>{/if}
 			<span class="cross" style:left="{anchor.x}%" style:top="{anchor.y}%"></span>
 		</div>
-		<span class="lbl">{m['creator.map_image_previews']({ zooms: ZOOMS.map((z) => z * 100).join(' / ') })}</span>
+		<span class="lbl">{m['creator.map_image_previews']({ zooms: ZOOMS.map(zoomPercent).join(' / ') })}</span>
 		<div class="previews">
 			{#each ZOOMS as z (z)}
 				{@const h = size * z * ratio}
@@ -138,7 +138,7 @@
 				<div class="preview" style:height="{h + 12}px">
 					<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:top="6px" />
 					<span class="dot" style:top="{6 + h * (anchor.y / 100)}px"></span>
-					<span class="z">{z * 100} %</span>
+					<span class="z">{zoomPercent(z)} %</span>
 				</div>
 			{/each}
 		</div>

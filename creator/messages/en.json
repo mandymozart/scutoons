@@ -1006,7 +1006,7 @@
 		"map_unlock_update": "Update the point",
 		"map_unlock_missing": "The slice is no longer in this chapter",
 		"map_place_view": "Reader map view",
-		"map_place_view_hint": "Where the reader's map centres on the place (the reader's place, ◎): zoom 25–3200 % and a shift. Empty: the place at 800 %.",
+		"map_place_view_hint": "Where the reader's map centres on the place (the reader's place, ◎): zoom 3–400 % and a shift. Empty: the place at 100 %.",
 		"map_place_view_zoom": "Zoom (%)",
 		"map_place_view_dx": "Shift x",
 		"map_place_view_dy": "Shift y",
