@@ -84,7 +84,8 @@
 	function change(fn: (c: RegistryCharacter) => void, key?: string) {
 		editCharacter(registry, id, fn, key ? `${id}:${key}` : undefined);
 	}
-	async function remove() {
+	/** also the phone bar's Delete (characters-editor.svelte, the selection's row) */
+	export async function remove() {
 		if (!character) return;
 		const used = appearsIn.length ? m['creator.characters_remove_used']({ toons: appearsIn.join(', ') }) : '';
 		if (!(await confirmRemove(`${m['creator.characters_remove_confirm']({ name: shownCharacterName(character) })} ${used}`.trim()))) return;
