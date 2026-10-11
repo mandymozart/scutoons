@@ -866,7 +866,13 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   activates the place (today only the small marker is). (3) A place without an image shows an abstract diorama
   outline (one SVG, dashed) as its selectable element instead of the dot. (4) Routes go behind a place's diorama /
   outline – entering and leaving it (an entry and an exit point) for an interesting path. Route animation (a path that
-  grows with the progress) is separate – not part of this.
+  grows with the progress) is separate – not part of this. (5) Against overlaps (owner: "ein Grid auf die Karte – oktagonal oder
+  quadratisch – Orte nur innerhalb dieses Grids setzen"): octagons don't tile on their own (squares fill the gaps) – the
+  real choice is square or hexagonal; recommended a HEX grid (every neighbour the same distance, organic, an isometric
+  diorama's oval base fits a hex cell): cell size = the diorama's world size, at most one place per cell, the builder
+  snaps a placed / dragged place to the nearest free cell and refuses an occupied one; the existing places are moved
+  to their nearest free cells once (a map draft). A milder option without a grid: a builder warning "overlaps with …"
+  when two places' dioramas overlap.
 
 - [ ] 10.64 **A media optimisation tool on the media standard** (owner 2026-10-11: "wir haben einen Standard definiert …
   die Leute können andere benutzen, aber wir empfehlen das Umkonvertieren – im Admin oder im Creator ein
