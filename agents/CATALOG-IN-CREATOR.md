@@ -1,5 +1,17 @@
 # CATALOG-IN-CREATOR – should the catalog move from the admin into the creator? (research, 2026-10-12)
 
+## Owner decisions (2026-10-12)
+
+- **Not now on main** – played through overnight as a draft in its own worktree / session (branch, own DB), reviewed in
+  the morning. A parallel draft moves the map's places into their own documents (agents/MAP-DOCUMENTS.md on its branch):
+  "alle einen eigenen Doc, den man versionieren kann – dann ist das gleichmäßig refactored".
+- **Physical items need a review by the same rules as everything else:** the admin's review rules (who must be
+  reviewed, who reviews, per toon) decide who may publish what – "damit nicht aus Versehen auf der Plattform was
+  rausgesetzt werden kann". Enforced on the server.
+- **Codes cannot be deleted** – a separate process; nothing to change there.
+- **Crafting with physical items:** "physische Items kombiniert verschwinden nicht" – the physical original stays in the
+  user's inventory, the crafted result appears in addition (fix InventoryService::remove's fallback to code-bound pieces).
+
 Owner 2026-10-12: "der Katalog ist aber im Admin. Das ist verwirrend. Eigentlich müsste der logischerweise komplett in
 den Creator umgezogen werden. Das einzige Problem ist, wie wir die Sache handeln mit den physikalischen Gegenständen, die
 ja quasi andere Berechtigung brauchen, weil nicht jeder Creator einfach ein Item anlegen kann – oder doch? Bitte kurz
