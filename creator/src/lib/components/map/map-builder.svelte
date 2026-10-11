@@ -104,7 +104,7 @@
 			const place = map.locations.find((p) => p.id === group.place)!;
 			try {
 				if (group.plaster && !withImage.has(place.id)) throw new Error(m['creator.map_import_plaster_first']());
-				const encoded = await standardDensities(group.files, PLACE_IMAGE_WIDTHS.low);
+				const encoded = await standardDensities(group.files, { 1: PLACE_IMAGE_WIDTHS.low, 2: PLACE_IMAGE_WIDTHS.medium, 3: PLACE_IMAGE_WIDTHS.high });
 				const base = placeImageBase(place, group.plaster);
 				const variants: QualityVariants = {};
 				for (const file of encoded) {

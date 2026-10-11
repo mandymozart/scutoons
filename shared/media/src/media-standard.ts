@@ -84,8 +84,18 @@ export function splitMediaName(name: string): { stem: string; density: Density |
 /** the path of one density: `base` (no extension, no density) + `.2x` / `.3x` (1x = no suffix) + `.webp` */
 export const densityPath = (base: string, density: Density, ext = 'webp') => `${base}${density > 1 ? `.${density}x` : ''}.${ext}`;
 
-/** the density a file of this width delivers when 1x is `width1x` wide (a 1170 px slice → 3x; never above 3x) */
-export const densityFromWidth = (width: number, width1x: number): Density => Math.max(1, Math.min(3, Math.floor((width + 1) / width1x))) as Density;
+/**
+ * The widths of 1x / 2x / 3x: a number = the 1x width, the others its multiples (slices: 390 → 780 / 1170); or each its
+ * own (place images: 256 / 512 / 1024 – owner 2026-10-11)
+ */
+export type DensityWidths = number | Record<Density, number>;
+export const densityWidth = (widths: DensityWidths, density: Density): number => (typeof widths === 'number' ? widths * density : widths[density]);
+
+/** the density a file of this width delivers: the highest one it is wide enough for (a 1170 px slice → 3x; at least 1x) */
+export function densityFromWidth(width: number, widths: DensityWidths): Density {
+	for (const density of [3, 2] as const) if (width + 1 >= densityWidth(widths, density)) return density;
+	return 1;
+}
 
 /** the quality level of a density (`imageVariants` / `variants`: low 1x, medium 2x, high 3x) */
 export const densityLevel = (density: Density): MediaQuality => MEDIA_QUALITIES.find((q) => IMAGE_QUALITY_DENSITIES[q] === density)!;
@@ -146,18 +156,18 @@ export async function standardImage(file: File, size: { maxWidth?: number; maxSi
 
 /**
  * The 1x / 2x / 3x files of ONE image from the file(s) delivered for it (`slice-26.jpg` + `slice-26.3x.jpg`, or one
- * master): each file's density from its name, else from its width (`width1x` = the 1x width); every density up to the
- * highest delivered one, 1x first, each `width1x × density` wide at most.
+ * master): each file's density from its name, else from its width; every density up to the highest delivered one, 1x
+ * first, each at most its width (`widths`: the 1x width, or one per density).
  */
-export async function standardDensities(files: File[], width1x: number): Promise<(StandardImage & { density: Density })[]> {
+export async function standardDensities(files: File[], widths: DensityWidths): Promise<(StandardImage & { density: Density })[]> {
 	const sources: { file: File; bitmap: ImageBitmap; density: Density }[] = [];
 	try {
 		for (const file of files) {
 			const bitmap = await createImageBitmap(file);
-			sources.push({ file, bitmap, density: splitMediaName(file.name).density ?? densityFromWidth(bitmap.width, width1x) });
+			sources.push({ file, bitmap, density: splitMediaName(file.name).density ?? densityFromWidth(bitmap.width, widths) });
 		}
 		const out: (StandardImage & { density: Density })[] = [];
-		for (const { density, source } of densityPlan(sources)) out.push({ density, ...(await encodeBitmap(source.file, source.bitmap, Math.min(source.bitmap.width, width1x * density))) });
+		for (const { density, source } of densityPlan(sources)) out.push({ density, ...(await encodeBitmap(source.file, source.bitmap, Math.min(source.bitmap.width, densityWidth(widths, density)))) });
 		return out;
 	} finally {
 		for (const { bitmap } of sources) bitmap.close();

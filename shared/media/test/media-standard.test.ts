@@ -2,7 +2,7 @@
 //   npm test -w @scutoons/media
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkMedia, densityFromWidth, densityLevel, densityPath, densityPlan, IMAGE_MAX_BYTES, mediaKind, splitMediaName, standardName } from '../src/media-standard.ts';
+import { checkMedia, densityFromWidth, densityLevel, densityPath, densityPlan, densityWidth, IMAGE_MAX_BYTES, mediaKind, splitMediaName, standardName } from '../src/media-standard.ts';
 
 test('checkMedia: PNG / JPEG convert to WebP, WebP / SVG / GIF are fine, a big WebP is too large', () => {
 	assert.deepEqual(checkMedia({ type: 'image/png', name: 'a.png' }), { ok: false, advice: 'PNG → WebP', convertible: true });
@@ -46,8 +46,16 @@ test('densityFromWidth: by the 1x width, 1x … 3x', () => {
 	assert.equal(densityFromWidth(390, 390), 1);
 	assert.equal(densityFromWidth(779, 390), 2);
 	assert.equal(densityFromWidth(1170, 390), 3);
-	assert.equal(densityFromWidth(1024, 256), 3);
 	assert.equal(densityFromWidth(100, 256), 1);
+});
+
+test('densityFromWidth / densityWidth: a width per density (place images 256 / 512 / 1024)', () => {
+	const place = { 1: 256, 2: 512, 3: 1024 } as const;
+	assert.equal(densityFromWidth(1024, place), 3);
+	assert.equal(densityFromWidth(768, place), 2);
+	assert.equal(densityFromWidth(500, place), 1);
+	assert.equal(densityWidth(place, 3), 1024);
+	assert.equal(densityWidth(390, 3), 1170);
 });
 
 test('densityLevel: low / medium / high', () => {
