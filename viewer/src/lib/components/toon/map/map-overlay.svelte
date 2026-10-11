@@ -193,8 +193,12 @@
 			await pause(still ? 1400 : 2000);
 			world?.seen([id]);
 		}
-		// the reader's own view stays the remembered one
-		if (revealFrom) saveMapView(toon, { x: revealFrom.x, y: revealFrom.y, zoom: revealFrom.zoom, here: whereNow()?.id ?? id });
+		// the map stays where it flew: the revealed place is the remembered view, the next opening starts there (owner
+		// 2026-10-11: "not cool that it jumps back to the previous position – better it moves and stays at the new one")
+		if (place) {
+			const at = placeView(place);
+			saveMapView(toon, { x: at.center.x, y: at.center.y, zoom: at.zoom, here: whereNow()?.id ?? id });
+		} else if (revealFrom) saveMapView(toon, { x: revealFrom.x, y: revealFrom.y, zoom: revealFrom.zoom, here: whereNow()?.id ?? id });
 		revealFrom = null;
 		revealShow = false;
 		revealing = null;
