@@ -13,12 +13,16 @@
 		isPlaceWaypoint,
 		mapName,
 		placeImagePath,
+		placeImageTarget,
+		PLACE_IMAGE_WIDTHS,
 		placeView,
 		snapPlace,
 		placeSize,
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
+		type MapPlace,
+		type QualityVariants,
 		type ToonMapView,
 		type Point,
 		type Problem,
@@ -39,7 +43,7 @@
 	import { addPlace, addRoute, cdnHas, editMap, editPlace, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { toWebp, uploadOrReplace } from '@scutoons/media';
+	import { densityLevel, densityPath, splitMediaName, standardDensities, uploadOrReplace } from '@scutoons/media';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
 	import MapProps from '$lib/components/map/map-props.svelte';
@@ -63,14 +67,15 @@
 	let importProblems = $state<string[]>([]);
 	/** set after an import: previews of files with new bytes at the same path load again */
 	let bust = $state(0);
-	/** the longest side of a place illustration (PLACE_IMAGE_SPEC: 256 × 256) */
-	const PLACE_IMAGE_PX = 256;
 
 	/**
-	 * "Import images …": each file named after a place id (`old-church.png`, case and extension don't matter) becomes
-	 * that place's illustration – WebP, at most 256 px on the longest side, at the place's current WebP path or its
-	 * convention path (`<toon>/map/places/<id>.webp`); a file already there gets the new bytes (a new version, the CDN
-	 * purged). One undo step; names that are no place are reported.
+	 * "Import images …" (owner 2026-10-03; 2026-10-12 through the media standard): files named after a place id –
+	 * `old-church.png` the painted diorama, `old-church-plaster.png` its plaster model, `.2x` / `.3x` (or `@2x`) for a
+	 * delivered density; case and extension don't matter. Each becomes WebP in 1x / 2x / 3x (PLACE_IMAGE_WIDTHS 256 / 512
+	 * / 1024 – `standardDensities`: a bigger file makes the smaller ones, nothing is scaled up) at the place's current WebP
+	 * path or its convention path (`<toon>/map/places/<id>.webp`, `<id>-plaster.webp`, `.2x.webp`, `.3x.webp`); a file
+	 * already there gets the new bytes (a new version, the CDN purged). One undo step; names that are no place are
+	 * reported, a plaster model needs the painted image (in the same import or before).
 	 */
 	async function importImages(event: Event) {
 		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
@@ -79,39 +84,69 @@
 		importProblems = [];
 		importSummary = '';
 		const counts = { uploaded: 0, replaced: 0, unchanged: 0 };
-		const placed: { id: string; src: string }[] = [];
-		importing = { done: 0, total: files.length };
+		// one image per place and layer, its density files together; painted first (a plaster model needs it)
+		const groups = new Map<string, { place: string; plaster: boolean; files: File[] }>();
 		for (const file of files) {
-			const stem = file.name.toLowerCase().replace(/\.[a-z0-9]+$/, '');
-			const place = map.locations.find((p) => p.id.toLowerCase() === stem);
-			try {
-				if (!place) throw new Error(m['creator.map_import_no_place']({ name: stem }));
-				const bitmap = await createImageBitmap(file);
-				let blob: Blob;
-				try {
-					const scale = Math.min(1, PLACE_IMAGE_PX / Math.max(bitmap.width, bitmap.height));
-					blob = (await toWebp(bitmap, Math.round(bitmap.width * scale))).blob;
-				} finally {
-					bitmap.close();
-				}
-				const src = place.image?.src?.endsWith('.webp') ? place.image.src : placeImagePath(place);
-				counts[await uploadOrReplace(blob, src, 'map import')]++;
-				placed.push({ id: place.id, src });
-			} catch (e) {
-				importProblems = [...importProblems, `${file.name}: ${e instanceof Error ? e.message : String(e)}`];
+			const { stem } = splitMediaName(file.name);
+			const target = placeImageTarget(stem, map.locations);
+			if (!target) {
+				importProblems = [...importProblems, `${file.name}: ${m['creator.map_import_no_place']({ name: stem })}`];
+				continue;
 			}
-			importing = { done: importing.done + 1, total: files.length };
+			const key = `${target.plaster ? 1 : 0}:${target.place}`;
+			groups.set(key, { ...target, files: [...(groups.get(key)?.files ?? []), file] });
+		}
+		const ordered = [...groups.values()].sort((a, b) => Number(a.plaster) - Number(b.plaster));
+		const withImage = new Set(map.locations.filter((p) => p.image?.src).map((p) => p.id));
+		const placed: { id: string; plaster: boolean; src: string; variants?: QualityVariants }[] = [];
+		importing = { done: 0, total: ordered.length };
+		for (const group of ordered) {
+			const place = map.locations.find((p) => p.id === group.place)!;
+			try {
+				if (group.plaster && !withImage.has(place.id)) throw new Error(m['creator.map_import_plaster_first']());
+				const encoded = await standardDensities(group.files, PLACE_IMAGE_WIDTHS.low);
+				const base = placeImageBase(place, group.plaster);
+				const variants: QualityVariants = {};
+				for (const file of encoded) {
+					const path = densityPath(base, file.density);
+					counts[await uploadOrReplace(file.blob, path, 'map import')]++;
+					variants[densityLevel(file.density)] = path;
+				}
+				placed.push({ id: place.id, plaster: group.plaster, src: variants.low!, ...(encoded.length > 1 ? { variants } : {}) });
+				if (!group.plaster) withImage.add(place.id);
+			} catch (e) {
+				importProblems = [...importProblems, `${group.files.map((f) => f.name).join(' + ')}: ${e instanceof Error ? e.message : String(e)}`];
+			}
+			importing = { done: importing.done + 1, total: ordered.length };
 		}
 		if (placed.length)
 			editMap(doc, (next) => {
-				for (const { id, src } of placed) {
+				for (const { id, plaster, src, variants } of placed) {
 					const place = next.locations.find((p) => p.id === id);
-					if (place) place.image = { ...(place.image ?? {}), src };
+					if (!place) continue;
+					if (plaster) {
+						if (!place.image) continue;
+						place.image.plaster = src;
+						if (variants) place.image.plasterVariants = variants;
+						else delete place.image.plasterVariants;
+					} else {
+						place.image = { ...(place.image ?? {}), src };
+						if (variants) place.image.variants = variants;
+						else delete place.image.variants;
+					}
 				}
 			});
 		importing = null;
 		importSummary = m['creator.characters_import_summary'](counts);
 		bust = Date.now();
+	}
+
+	/** where a place image's files go (no extension, no density): its current WebP, else next to the painted one / the convention path */
+	function placeImageBase(place: MapPlace, plaster: boolean): string {
+		const bare = (path: string) => path.replace(/\.webp$/i, '').replace(/\.[123]x$/i, '');
+		const painted = bare(place.image?.src?.endsWith('.webp') ? place.image.src : placeImagePath(place));
+		if (!plaster) return painted;
+		return place.image?.plaster?.endsWith('.webp') ? bare(place.image.plaster) : `${painted}-plaster`;
 	}
 
 	let tool = $state<MapTool>('select');
