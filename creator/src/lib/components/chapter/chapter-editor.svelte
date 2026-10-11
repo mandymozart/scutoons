@@ -779,7 +779,40 @@
 	// ── phones (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut) ──────────────────────────────────────────────────
 	/** the inspector sheet, variant C: closed it is its tab row only; a tab opens it there, the open tab closes it */
 	let sheetOpen = $state(false);
+	/** the tab row drags the sheet (owner 2026-10-11): up = taller / open, down = lower, let go low = closed; a drag is no tap */
+	let tabDrag: { id: number; y: number; start: number; moved: boolean } | null = null;
+	let swallowTap = false;
+	function tabsDown(event: PointerEvent) {
+		const start = sheetOpen ? (sheetRem ?? sheetLimits().h * 0.45) : 2.75;
+		tabDrag = { id: event.pointerId, y: event.clientY, start, moved: false };
+	}
+	function tabsMove(event: PointerEvent) {
+		if (!tabDrag || tabDrag.id !== event.pointerId) return;
+		const dy = event.clientY - tabDrag.y;
+		if (!tabDrag.moved && Math.abs(dy) < 8) return;
+		if (!tabDrag.moved) try {
+			(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+		} catch {
+			/* a pointer that is gone */
+		}
+		tabDrag.moved = true;
+		sheetOpen = true;
+		setSheet(tabDrag.start - dy / rootRem());
+	}
+	function tabsUp(event: PointerEvent) {
+		if (!tabDrag || tabDrag.id !== event.pointerId) return;
+		const moved = tabDrag.moved;
+		tabDrag = null;
+		if (!moved) return;
+		swallowTap = true;
+		setTimeout(() => (swallowTap = false), 50);
+		if ((sheetRem ?? 99) < 6) {
+			sheetOpen = false;
+			sheetRem = null;
+		}
+	}
 	function pickSheetTab(id: InspectorTab) {
+		if (swallowTap) return;
 		if (view.inspectorTab === id && sheetOpen) sheetOpen = false;
 		else {
 			view.setTab(id);
@@ -1169,7 +1202,8 @@
 					onkeydown={sheetKey}
 				><span></span></div>
 				<!-- phones (E.10, variant C): the sheet's head = its tabs; closed, only this row shows -->
-				<div class="sheet-tabs">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div class="sheet-tabs" onpointerdown={tabsDown} onpointermove={tabsMove} onpointerup={tabsUp} onpointercancel={() => (tabDrag = null)}>
 					<BarTabs
 						label={m['creator.slice_tab']()}
 						value={sheetOpen ? view.inspectorTab : ''}
@@ -1454,6 +1488,7 @@
 			padding-top: 0;
 		}
 		.sheet-tabs {
+			touch-action: none;
 			position: sticky;
 			top: 0;
 			z-index: 2;

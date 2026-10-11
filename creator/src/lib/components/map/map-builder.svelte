@@ -25,6 +25,7 @@
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
+	import scutoonsAvatar from '$lib/icons/scutoons-avatar.svg';
 	import { getPublished, library } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -452,6 +453,7 @@
 		});
 	});
 	function pickTab(id: SheetTab) {
+		if (swallowTap) return;
 		if (sheetTab === id && sheetOpen) sheetOpen = false;
 		else {
 			sheetTab = id;
@@ -461,6 +463,55 @@
 	function openSheet(id: SheetTab) {
 		sheetTab = id;
 		sheetOpen = true;
+	}
+	/** phones (< 768px): the sheet's Map tab lists the layers, places and routes (the drawer's lists) */
+	let phone = $state(false);
+	$effect(() => {
+		const query = window.matchMedia('(max-width: 767px)');
+		phone = query.matches;
+		const change = (e: MediaQueryListEvent) => (phone = e.matches);
+		query.addEventListener('change', change);
+		return () => query.removeEventListener('change', change);
+	});
+	/**
+	 * the tab row drags the sheet (owner 2026-10-11: "warum ist das Sheet nicht mehr klein ziehbar"): up = taller / open,
+	 * down = lower; let go low = closed. A drag never counts as a tap on the tab under it.
+	 */
+	let sheetRem = $state<number | null>(null);
+	let sheetEl = $state<HTMLElement>();
+	let drag: { id: number; y: number; start: number; moved: boolean } | null = null;
+	let swallowTap = false;
+	let dragging = $state(false);
+	const rootRem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+	function headDown(e: PointerEvent) {
+		drag = { id: e.pointerId, y: e.clientY, start: sheetOpen && sheetEl ? sheetEl.getBoundingClientRect().height / rootRem() : 2.75, moved: false };
+	}
+	function headMove(e: PointerEvent) {
+		if (!drag || drag.id !== e.pointerId) return;
+		const dy = e.clientY - drag.y;
+		if (!drag.moved && Math.abs(dy) < 8) return;
+		if (!drag.moved) try {
+			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		} catch {
+			/* a pointer that is gone */
+		}
+		drag.moved = true;
+		dragging = true;
+		sheetOpen = true;
+		sheetRem = Math.max(2.75, Math.min((window.innerHeight * 0.8) / rootRem(), drag.start - dy / rootRem()));
+	}
+	function headUp(e: PointerEvent) {
+		if (!drag || drag.id !== e.pointerId) return;
+		const moved = drag.moved;
+		drag = null;
+		dragging = false;
+		if (!moved) return;
+		swallowTap = true;
+		setTimeout(() => (swallowTap = false), 50);
+		if ((sheetRem ?? 0) < 6) {
+			sheetOpen = false;
+			sheetRem = null;
+		}
 	}
 
 	// ── the phone bar (UI-CONCEPTS E.10): More holds Import; a selection brings its own actions (like CapCut) ──
@@ -580,15 +631,17 @@
 
 {#snippet avatar(toon: string)}
 	{@const a = toon ? toonAvatar(toon) : null}
-	<span class="mini" style:background={a?.color}>{#if a?.src}<img src={a.src} alt="" />{:else if !toon}<Icon name="globe" size="1rem" />{/if}</span>
+	<!-- all toons = the SCUTOONS avatar (the viewer's account face; owner 2026-10-11: no globe – it reads as the language switch) -->
+	<span class="mini" style:background={a?.color}>{#if a?.src}<img src={a.src} alt="" />{:else if !toon}<img src={scutoonsAvatar} alt="" />{/if}</span>
 {/snippet}
 
 {#snippet toonChip()}
 	<!-- phones (UI-CONCEPTS E.10, owner 2026-10-11): the toon filter at the right of the crumb row – a chip with the
 	     toon's mini avatar (its star), a tap lists the toons -->
 	<span class="toon-chip" {@attach clickOutside(() => (toonMenu = false))}>
-		<button type="button" class="chip-button" aria-haspopup="listbox" aria-expanded={toonMenu} aria-label={m['creator.map_toon_filter']()} onclick={() => (toonMenu = !toonMenu)} data-testid="phone-toon-filter">
-			{@render avatar(toonFilter)}<span class="chip-name">{toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()}</span><Icon name="chevron-down" size="1rem" />
+		<button type="button" class="chip-button" aria-haspopup="listbox" aria-expanded={toonMenu} aria-label="{m['creator.map_toon_filter']()}: {toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()}" title={toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()} onclick={() => (toonMenu = !toonMenu)} data-testid="phone-toon-filter">
+			<!-- the pill: the avatar only (owner 2026-10-11); the name is in the list and the label -->
+			{@render avatar(toonFilter)}<Icon name="chevron-down" size="1rem" />
 		</button>
 		{#if toonMenu}
 			<ul class="toon-menu" role="listbox" aria-label={m['creator.map_toon_filter']()}>
@@ -672,7 +725,7 @@
 					onaddroute={onAddRoute}
 				/>
 				<!-- phones (UI-CONCEPTS E.10): the canvas gets the screen; tools left, fit + go to the view right (zoom: two fingers) -->
-				<div class="phone-only strip tools" role="toolbar" aria-label={m['creator.map']()}>
+				<div class="phone-only strip tools" class:sheet-up={sheetOpen} role="toolbar" aria-label={m['creator.map']()}>
 					{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer'], ['place', m['creator.map_tool_place'](), 'map-pin'], ['route', m['creator.map_tool_route'](), 'share-2']] as [id, label, icon] (id)}
 						<button type="button" class:on={tool === id} aria-pressed={tool === id} aria-label={label} title={label} onclick={() => (tool = id as MapTool)} data-testid="phone-tool-{id}"><Icon name={icon} /></button>
 					{/each}
@@ -680,17 +733,18 @@
 					<button type="button" class:on={readerView} aria-pressed={readerView} aria-label={m['creator.map_reader_view']()} title={m['creator.map_reader_view']()} onclick={() => (readerView = !readerView)}><Icon name="eye" /></button>
 					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)}><Icon name="smartphone" /></button>
 				</div>
-				<div class="phone-only strip zooms" role="group" aria-label={m['creator.field_map_zoom']()}>
+				<div class="phone-only strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
 					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 					<button type="button" onclick={gotoView} disabled={!placeFrame && !startView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()}><Icon name="crosshair" /></button>
 				</div>
 			</div>
-			<aside class="side" class:open={sheetOpen && !mapDragging} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
-				<div class="phone-only sheet-head">
+			<aside class="side" class:open={sheetOpen && !mapDragging} class:dragging bind:this={sheetEl} style:--sheet-max={sheetRem !== null ? `${sheetRem}rem` : null} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div class="phone-only sheet-head" onpointerdown={headDown} onpointermove={headMove} onpointerup={headUp} onpointercancel={() => ((drag = null), (dragging = false))}>
 					{#if sheetTabs.length}
 						<BarTabs label={m['creator.map']()} value={sheetOpen ? sheetTab : ''} tabs={sheetTabs} onchange={(id) => pickTab(id as SheetTab)} />
 					{:else}
-						<button type="button" class="sheet-toggle" aria-expanded={sheetOpen} onclick={() => (sheetOpen = !sheetOpen)} data-testid="sheet-toggle"><Icon name={sheetOpen ? 'chevron-down' : 'chevron-up'} /> {selectionName}</button>
+						<button type="button" class="sheet-toggle" aria-expanded={sheetOpen} onclick={() => !swallowTap && (sheetOpen = !sheetOpen)} data-testid="sheet-toggle"><Icon name={sheetOpen ? 'chevron-down' : 'chevron-up'} /> {selectionName}</button>
 					{/if}
 				</div>
 				{#if selection}
@@ -698,6 +752,8 @@
 				{:else}
 					<div class="tab" data-tab="map">
 						<MapProps {doc} {map} selection={null} {view} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
+						<!-- phones: the Map tab = the lists (layers, places, routes) – a pick selects on the map -->
+						{#if phone}<div class="sheet-lists">{@render mapNav()}</div>{/if}
 					</div>
 					{#if toonFilter}
 						<section class="phone-only tab start-tab" data-tab="start" data-testid="phone-start-view">
@@ -915,8 +971,18 @@
 			transition: max-height 0.2s ease;
 		}
 		.side.open {
-			max-height: 60dvh;
+			max-height: var(--sheet-max, 60dvh);
 			overflow: auto;
+		}
+		.side.dragging {
+			transition: none;
+		}
+		/* the floating strips step aside while the sheet is open */
+		.strip.sheet-up {
+			display: none;
+		}
+		.sheet-head {
+			touch-action: none;
 		}
 		.sheet-head {
 			position: sticky;
@@ -974,21 +1040,14 @@
 		box-sizing: border-box;
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: 0.2rem;
 		min-height: 2.25rem;
-		max-width: 11rem;
-		padding: 0 0.6rem 0 0.2rem;
+		padding: 0 0.4rem 0 0.15rem;
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: 999rem;
 		background: var(--paper);
 		color: var(--ink);
 		cursor: pointer;
-	}
-	.chip-name {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	.mini {
 		flex: none;
@@ -999,7 +1058,6 @@
 		height: 1.75rem;
 		border-radius: 50%;
 		overflow: hidden;
-		border: var(--border-width-hairline, 1px) solid var(--ink);
 	}
 	.mini img {
 		width: 100%;
