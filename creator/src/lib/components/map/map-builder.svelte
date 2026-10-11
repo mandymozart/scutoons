@@ -286,7 +286,9 @@
 		sidebar: mapNav,
 		crumbEnd: toonChip,
 		fill: true,
-		extra: () => (selection ? [{ href: page.url.pathname + page.url.search, label: selectionName }] : [])
+		// the selection's own address (page.url lags behind: the selection is written with replaceState); the crumbs are the
+		// way up – "Map" clears the selection (owner 2026-10-11, BACKLOG 10.68)
+		extra: () => (selection ? [{ href: `${page.url.pathname}?${selection.kind === 'place' ? 'location' : selection.kind}=${encodeURIComponent(selection.id)}${toonFilter ? `&toon=${encodeURIComponent(toonFilter)}` : ''}`, label: selectionName }] : [])
 	});
 
 	// ── edits from the canvas ────────────────────────────────────────────────────────────────────────────────

@@ -575,6 +575,11 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   (none chosen – owner: "noch kein gutes Konzept", moving every document action up top is too much): (a) Save / Publish
   in the header like CapCut's Export, (b) two levels at the bottom (selection strip above the base bar), (c) fixed
   Save / Publish slots at the end of the selection bar. Needs a concept first (UI-CONCEPTS), then a draft on the page.
+  **Owner decision (2026-10-11): none of them** – "es reicht, dass wir im Breadcrumb durch die Hierarchie nach oben
+  kommen": the selection shows in the crumb row (Map › Airport), tapping "Map" clears it and the base bar (with
+  Publish) is back – checked on a phone width, works. Fixed: the selection's crumb pointed at `/map` (page.url lags
+  behind replaceState), now at its own address. Open: the bar's own back arrow duplicates the crumb (owner to decide
+  whether it goes).
 
 - [ ] 10.65 **Open after the session 2026-10-11 (map, phone editors, unlock events)**: publish the map draft (v256:
   the dioramas with plaster + 1x / 2x / 3x, new places ore-pit / ore-mountain / vienna-subway, waterfall-tower back –
