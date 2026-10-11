@@ -209,7 +209,7 @@ final class EntityStoreTest extends TestCase
             ['place:b', 'draft', $p('b', 2, true)],
             ['place:b', 'draft', $p('b', 2)],
         ], array_map($line, $first), 'in map order: version, then list order (routes after places, tombstones last)');
-        self::assertSame(['u1', '2026-10-03 00:00:00', "map v{$mapIds[3]}: b goes"], [$first[5]['author'], $first[5]['created_at'], $first[5]['message']]);
+        self::assertSame(['u1', '2026-10-03 00:00:00', 'map v' . ($mapIds[3] ?? 0) . ': b goes'], [$first[5]['author'], $first[5]['created_at'], $first[5]['message']]);
 
         // the old map versions keep only their settings – same ids, same status
         foreach ($this->db->all("SELECT id, json, status FROM entity_versions WHERE entity_key = 'map' ORDER BY id") as $i => $m) {

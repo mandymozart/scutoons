@@ -190,6 +190,97 @@ final class EntityStore
     }
 
     /**
+     * POST /entities/batch { saves: [{ key, content, base?, message? }], message? } → { status, saved: [{ key, unchanged,
+     * version }] } – several documents in ONE transaction (the world map's places / routes, agents/MAP-DOCUMENTS.md): all
+     * are stored or none; a `base` that is not the newest → 409 conflict naming the key (`key`, `latest`). Each key at most
+     * once. The documents are checked by the caller (EntitiesController) before.
+     * @param array<string, mixed> $user
+     * @param list<array{key: EntityKey, body: stdClass}> $saves
+     * @return array<string, mixed>
+     */
+    public function saveMany(array $user, array $saves): array
+    {
+        $seen = [];
+        foreach ($saves as $save) {
+            $k = (string) $save['key'];
+            if (isset($seen[$k])) throw new ApiError(400, 'duplicate_key', "$k is in the batch twice.");
+            $seen[$k] = true;
+        }
+        $saved = $this->db->transaction(function () use ($user, $saves) {
+            $out = [];
+            foreach ($saves as ['key' => $key, 'body' => $body]) {
+                try {
+                    $result = $this->save($user, $key, $body);
+                } catch (ApiError $e) {
+                    // which document: a conflict / an invalid one names its key (the transaction rolls everything back)
+                    throw new ApiError($e->status, $e->errorCode, $e->getMessage(), ['key' => (string) $key] + $e->extra);
+                }
+                $out[] = ['key' => (string) $key, 'unchanged' => $result['unchanged'], 'version' => $result['version']];
+            }
+            return $out;
+        });
+        return ['status' => 'success', 'saved' => $saved];
+    }
+
+    /**
+     * POST /entities/publish { versions: [{ key, version? }] } → { status, published: [{ key, version }] } – several
+     * documents live at once (one transaction: readers never see half of a change that spans documents)
+     * @param list<array{key: string, version: ?int}> $versions
+     * @return array<string, mixed>
+     */
+    public function publishMany(array $versions): array
+    {
+        $published = $this->db->transaction(function () use ($versions) {
+            $out = [];
+            foreach ($versions as ['key' => $key, 'version' => $version]) {
+                $row = $version !== null ? $this->byId($version) : $this->latest($key);
+                if (!$row || $row['entity_key'] !== $key) throw new ApiError(404, 'not_found', "Unknown version of $key.", ['key' => $key]);
+                $this->setPublished($row);
+                $out[] = ['key' => $key, 'version' => self::meta((array) $this->byId((int) $row['id']), $this->authorEmail($row['author'] ?? null))];
+            }
+            return $out;
+        });
+        return ['status' => 'success', 'published' => $published];
+    }
+
+    /**
+     * GET /entities?kinds=place,route,map&content=draft|published → every stored entity of these kinds with its document
+     * (`content`: the newest / the published version, null when none is published) and `first` = the id of its first
+     * version (creation order – the world map's order). One request for a page that edits many documents.
+     * @param list<string> $kinds
+     * @return list<array<string, mixed>>
+     */
+    public function withContent(array $kinds, bool $draft): array
+    {
+        foreach ($kinds as $kind) {
+            if (!isset(EntityKey::KINDS[$kind])) throw new ApiError(400, 'invalid_kind', "Unknown kind $kind.");
+        }
+        if ($kinds === []) return [];
+        $marks = implode(',', array_fill(0, count($kinds), '?'));
+        $rows = $this->db->all("SELECT entity_key, MIN(kind) AS kind, MIN(id) AS first, MAX(id) AS latest, MAX(CASE WHEN status = 'published' THEN id END) AS published
+            FROM entity_versions WHERE kind IN ($marks) GROUP BY entity_key ORDER BY first", $kinds);
+        $ids = array_values(array_filter(array_map(fn(array $r) => $draft ? (int) $r['latest'] : ($r['published'] !== null ? (int) $r['published'] : null), $rows)));
+        $json = [];
+        foreach (array_chunk($ids, 500) as $chunk) {
+            foreach ($this->db->all('SELECT id, json FROM entity_versions WHERE id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk) as $r) {
+                $json[(int) $r['id']] = json_decode((string) $r['json']);
+            }
+        }
+        return array_map(function (array $r) use ($draft, $json) {
+            $id = $draft ? (int) $r['latest'] : ($r['published'] !== null ? (int) $r['published'] : null);
+            return [
+                'key' => $r['entity_key'],
+                'kind' => $r['kind'],
+                'first' => (int) $r['first'],
+                'latest' => (int) $r['latest'],
+                'published' => $r['published'] !== null ? (int) $r['published'] : null,
+                'version' => $id,
+                'content' => $id !== null ? ($json[$id] ?? null) : null,
+            ];
+        }, $rows);
+    }
+
+    /**
      * GET <key>/versions?limit= → { status, versions } (newest first, no bodies)
      * @return array<string, mixed>
      */

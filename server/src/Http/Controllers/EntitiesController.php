@@ -23,6 +23,11 @@ use stdClass;
  * The creator's write path on the content store, by entity key (docs/API.md "Entities"; role creator for everything –
  * readers use the library endpoints):
  *   GET  /api/entities?toon=                     every stored entity of a toon (`toon=` empty: platform-wide ones)
+ *   GET  /api/entities?kinds=place,route,map&content=draft|published   every entity of these kinds WITH its document +
+ *                                                `first` (creation order) – a page that edits many documents (the world map)
+ *   POST /api/entities/batch { saves: [{ key, content, base?, message? }], message? }   several new draft versions in
+ *                                                one transaction (all or none; 409 / 422 name the `key`)
+ *   POST /api/entities/publish { versions: [{ key, version? }] }   several documents live at once (one transaction)
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
  *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas,
@@ -45,6 +50,10 @@ final class EntitiesController
     {
         $this->creator($request);
         $query = $request->getQueryParams();
+        if (is_string($query['kinds'] ?? null)) {
+            $kinds = array_values(array_filter(array_map('trim', explode(',', $query['kinds']))));
+            return Json::response($response, 200, ['status' => 'success', 'entities' => $this->store->withContent($kinds, ($query['content'] ?? 'draft') !== 'published')]);
+        }
         return Json::response($response, 200, $this->store->index(array_key_exists('toon', $query) ? $query['toon'] : null));
     }
 
@@ -83,6 +92,60 @@ final class EntitiesController
         if ($ai !== null) $body->message = mb_substr(trim((is_string($body->message ?? null) ? $body->message : '') . " (AI: {$ai['name']})"), 0, 255);
         $result = $this->store->save($user, $key, $body);
         $this->usages->reindexEntity((string) $key); // the asset usage index (agents/ASSETS.md); never fails the save
+        return Json::response($response, 200, $result);
+    }
+
+    /** POST /api/entities/batch – several saves in one transaction (each document checked like a PUT) */
+    public function batch(Request $request, Response $response): Response
+    {
+        $user = $this->creator($request);
+        $body = $this->body($request);
+        $list = is_array($body->saves ?? null) ? $body->saves : throw new ApiError(400, 'missing_saves', 'saves is required.');
+        if ($list === [] || count($list) > 500) throw new ApiError(400, 'invalid_saves', 'saves must hold 1–500 documents.');
+        $ai = CurrentSession::of($request)->apiToken();
+        $saves = [];
+        foreach ($list as $save) {
+            if (!$save instanceof stdClass || !property_exists($save, 'content')) throw new ApiError(400, 'invalid_saves', 'every save needs { key, content }.');
+            $key = EntityKey::parse($save->key ?? null);
+            try {
+                $this->schemas->guard($key, $save->content);
+                $this->flow->guard($key, $save->content);
+                $this->placements->guard($key, $save->content);
+            } catch (ApiError $e) {
+                throw new ApiError($e->status, $e->errorCode, $e->getMessage(), ['key' => (string) $key] + $e->extra);
+            }
+            $message = is_string($save->message ?? null) && trim($save->message) !== '' ? $save->message : (is_string($body->message ?? null) ? $body->message : null);
+            if ($ai !== null) $message = mb_substr(trim((string) $message . " (AI: {$ai['name']})"), 0, 255);
+            $one = new stdClass();
+            $one->content = $save->content;
+            $one->message = $message;
+            if (property_exists($save, 'base')) $one->base = $save->base;
+            $saves[] = ['key' => $key, 'body' => $one];
+        }
+        $result = $this->store->saveMany($user, $saves);
+        foreach ($saves as $save) $this->usages->reindexEntity((string) $save['key']);
+        return Json::response($response, 200, $result);
+    }
+
+    /** POST /api/entities/publish – several documents live at once (the review rules per key, like a single publish) */
+    public function publishMany(Request $request, Response $response): Response
+    {
+        $user = $this->creator($request);
+        $body = $this->body($request);
+        $list = is_array($body->versions ?? null) ? $body->versions : throw new ApiError(400, 'missing_versions', 'versions is required.');
+        if ($list === [] || count($list) > 500) throw new ApiError(400, 'invalid_versions', 'versions must hold 1–500 documents.');
+        $versions = [];
+        foreach ($list as $v) {
+            $key = EntityKey::parse($v instanceof stdClass ? ($v->key ?? null) : null);
+            $version = $v instanceof stdClass && isset($v->version) ? (int) $v->version : null;
+            $this->reviews->guardPublish($user, $key, $version);
+            $versions[] = ['key' => (string) $key, 'version' => $version];
+        }
+        $result = $this->store->publishMany($versions);
+        foreach ($result['published'] as $p) {
+            $this->reviews->markPublished($user, $p['key'], (int) $p['version']['id']);
+            $this->usages->reindexEntity($p['key']);
+        }
         return Json::response($response, 200, $result);
     }
 

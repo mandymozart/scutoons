@@ -111,6 +111,8 @@ final class Database
     public function transaction(callable $work): mixed
     {
         $pdo = $this->pdo();
+        // inside a transaction already (a batch of saves, EntityStore::saveMany): part of it – the outer one commits / rolls back
+        if ($pdo->inTransaction()) return $work();
         $pdo->beginTransaction();
         try {
             $result = $work();

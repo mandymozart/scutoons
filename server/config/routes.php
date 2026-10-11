@@ -173,6 +173,9 @@ return static function (App $app): void {
 
     // Content store by entity key – the creator's write path (docs/API.md "Entities", role creator)
     $app->get('/api/entities', [EntitiesController::class, 'index']);
+    // many documents at once (the world map's places / routes – agents/MAP-DOCUMENTS.md): one transaction each
+    $app->post('/api/entities/batch', [EntitiesController::class, 'batch']);
+    $app->post('/api/entities/publish', [EntitiesController::class, 'publishMany']);
     $app->get('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'get']);
     $app->put('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'put']);
     $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
