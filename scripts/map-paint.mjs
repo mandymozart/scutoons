@@ -33,13 +33,16 @@ const tilesOut = arg('tiles', `catpope/map/tiles/${name}`);
 const levels = Number(arg('levels', '3'));
 const model = arg('model', 'uni-1-max');
 // a style reference (a finished diorama) – only the `model` look uses one; `--style none` leaves it out
-// (`model`: a diorama under media/; `abstract`: the first abstract region the owner liked – "wow, toll")
-const style = arg('style', arg('look', 'abstract') === 'model' ? 'media/catpope/map/places/cathedral.2x.webp' : 'storyboards/style/map/abstract-6_1.webp');
+// (`model`: a diorama under media/; `abstract`: none – with ANY reference image (a whole painted region, even a sheet of
+// texture swatches) Luma's edit drew the reference's layout, or Europe, instead of the source's; the look is in words)
+const style = arg('style', arg('look', 'abstract') === 'model' ? 'media/catpope/map/places/cathedral.2x.webp' : 'none');
 const only = arg('only', null);
 const dry = has('dry'), assembleOnly = has('assemble');
 const REGION = 256, STEP = 192, PX = 2048; // 8 px per world unit; neighbours share 64 units
 const PPU = PX / REGION;
-const SEA = '#3d8fd4';
+// the sea in the layout: `abstract` paints it as land too (white) – the SVG's land mask cuts the coast afterwards, so the
+// generator only has to fill every area (on a blue sea Luma moved coastlines and left land blue); `model` keeps it blue
+const SEA = arg('look', 'abstract') === 'abstract' ? '#ffffff' : '#3d8fd4';
 const work = join(ROOT, 'logs', 'map-paint', name);
 mkdirSync(work, { recursive: true });
 
@@ -62,8 +65,8 @@ const PROMPTS = {
 	// die Ozeane transparent" (the default)
 	abstract: [
 		"THIS JOB'S DELIVERABLE: The SAME map region as the source image, filled with an ABSTRACT painted LANDSCAPE seen from straight above – no objects, a surface of wild textures. The source is the LAYOUT: every coastline, island outline and inner line stays EXACTLY where it is.",
-		'INPUT ASSETS: the source = the layout (white land with dark outlines, flat blue sea). image 1 = an already painted region of this map – the STYLE reference (the kind of textures, their richness and relief, the thin dark seams); paint THIS layout, do not copy its shapes.',
-		'EXPECTED OUTPUT: 1 image, same size and framing as the source. Every area of land enclosed by lines becomes its own field of a CRAZY, rich TEXTURE – e.g. marbled stone, iridescent mineral, moss and lichen, crystalline facets, cracked lava with glowing veins, terrazzo, swirling sand dunes, woven fibre, oil-slick sheen – neighbouring fields clearly different, the outlines between them stay as thin dark seams. Textures have relief and depth (light catches ridges and grains) but stay ABSTRACT: no buildings, roads, trees, plants as objects, rivers, people, vehicles, icons or symbols. The sea stays a flat plain blue (it is cut away later). Strips along the edges that are already painted: keep them unchanged and continue them seamlessly.',
+		'INPUT ASSETS: the source = the layout: white areas separated by thin dark lines. Nothing else: the SOURCE alone gives every shape.',
+		'EXPECTED OUTPUT: 1 image, same size and framing as the source. The WHOLE image is land – fill EVERY area edge to edge, no water, no sea, no blank or white areas left. Every area enclosed by lines becomes its own field of a CRAZY, rich TEXTURE – e.g. marbled stone, iridescent mineral, moss and lichen, crystalline facets, cracked lava with glowing veins, terrazzo, swirling sand dunes, woven fibre, oil-slick sheen – neighbouring fields clearly different, the lines between them stay as thin dark seams. Textures have relief and depth (light catches ridges and grains) but stay ABSTRACT: no buildings, roads, trees, plants as objects, rivers, people, vehicles, icons or symbols. Strips along the edges that are already painted: keep them unchanged and continue them seamlessly.',
 		'TECHNICAL REQUIREMENTS: keep the geometry of the layout; the highest resolution; no borders, no frame, no vignette, no text.',
 		'LIGHT: soft raking light from the upper left so the textures show relief; rich, saturated, surprising colour combinations.',
 		'LOOK: a map made of materials – like a collage of extraordinary surfaces, tactile and strange, beautiful close up and graphic from far away. No letters, numbers, labels, map symbols, compass or grid.',

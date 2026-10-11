@@ -38,6 +38,15 @@
 			"look": "a REPTILE world of dense primeval JUNGLE: scaly and leathery textures, tangled vines and giant leaves, steaming swamp greens, iridescent lizard-skin patterns"
 		},
 		{
+			"name": "wasteland",
+			"island": 8,
+			"at": {
+				"x": 793,
+				"y": 633
+			},
+			"look": "a WASTELAND: a post-industrial nuclear disaster zone scarred by fracking – cracked toxic crusts, oily black and sulphur-yellow pools, rusted metal textures, ash and slag, a sickly radioactive green glow"
+		},
+		{
 			"name": "archipelago",
 			"rect": {
 				"x": 1070,
