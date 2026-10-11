@@ -904,7 +904,11 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
   through in a browser; scripts/check-map.mjs still checks the old progress unlocks; the Ausschnitt mode (framing a
   place's reader view with the phone frame) was proposed and parked. Owner on the phone (2026-10-11): the place form's "Chapter link (card)" reads like an unlock – it is only where
   the viewer card's "Read chapter N" button goes; rename it (e.g. "Button on the place card: read chapter …"); the size
-  slider shows no label / value on the phone (the `field` span is missing above it).
+  slider shows no label / value on the phone (the `field` span is missing above it). The resolution slot (`MediaVariantsSlot`,
+  owner on the phone, the plaster model): a big square preview; beside it, on the right, the three level chips 1x / 2x /
+  3x stacked, each a third of the preview's height (together exactly as tall as the preview) – much smaller than now,
+  with a tighter gap; each chip keeps its × (clears that level); the round × that clears the whole medium goes BELOW
+  (under preview + chips), not beside them – today it takes too much room.
 
 - [ ] 10.61 **Migrations through a protected interface, a developer role** (owner 2026-10-11: "eine Schnittstelle über
   MCP, die Migrationen laufen lässt … mit einer neuen Rolle absichern – nicht Admin, darüber hinaus: eine Developer-Rolle,

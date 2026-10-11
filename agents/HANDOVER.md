@@ -30,7 +30,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   in a VN script / click / item tap the map flies to the place); place images in 1x / 2x / 3x with a plaster model, a
   `size` per place on a hex grid (`snapPlace`), shared `MapTerrain`; the phone editors have one bottom bar (`PhoneBar`:
   Save · History · Publish · More + a selection bar, sheet tabs on the sheet – UI-CONCEPTS E.10). Next steps: BACKLOG
-  10.67 (the map's scale ÷8, deep zoom, tiles), 10.61 (migrations behind a developer role), 10.62–10.66.
+  10.67 (the map's scale ÷8, deep zoom, tiles), 10.61 (migrations behind a developer role), 10.62–10.66; small UI
+  fixes the owner found on the phone (the resolution slot's layout, the chapter-link wording, the size slider's label)
+  in 10.65.
 - Open work (post-beta items 10.x + known bugs): agents/BACKLOG.md – one list (owner 2026-10-06; "CUTOVER 10.x" in older notes = the same number there).
 
 ## Working rules learned (owner)
