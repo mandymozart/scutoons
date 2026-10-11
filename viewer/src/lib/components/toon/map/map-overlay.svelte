@@ -2,7 +2,7 @@
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
 	import { isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
-	import { MapRoutes, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
+	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -290,7 +290,6 @@
 		}
 	}
 
-	const layerVisible = (l: { minZoom?: number; maxZoom?: number }) => (l.minZoom === undefined || view.zoom >= l.minZoom) && (l.maxZoom === undefined || view.zoom <= l.maxZoom);
 	// a place image is laid out once at its largest drawn size (zoom 3) and scaled down by a transform – zooming then never
 	// lays out or resamples it per frame (agents/MAP.md §8.5c)
 	const IMAGE_ZOOM = 3;
@@ -320,13 +319,7 @@
 		data-testid="map-viewport"
 	>
 		{#if data}
-			<div class="world" style:transform={view.transform} style:width="{data.width}px" style:height="{data.height}px" data-testid="map-world">
-				{#each data.layers as layer (layer.id)}
-					{#if layerVisible(layer)}
-						<img class="layer" src={asset(layer.image)} alt="" width={data.width} height={data.height} draggable="false" />
-					{/if}
-				{/each}
-			</div>
+			<MapTerrain {view} width={data.width} height={data.height} layers={data.layers} url={asset} testid="map-world" />
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} />
 			<div class="places">
 				{#each places as p (p.id)}
@@ -490,22 +483,6 @@
 	}
 	.viewport.moving {
 		cursor: grabbing;
-	}
-	.world {
-		position: absolute;
-		top: 0;
-		left: 0;
-		transform-origin: 0 0;
-	}
-	.moving .world {
-		will-change: transform;
-	}
-	.layer {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
 	}
 	.places {
 		position: absolute;

@@ -31,7 +31,8 @@
 	import { mediaAssets, mediaText, mediaUrl as cdnAsset } from './setup.ts';
 	import { AUDIO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { bestAudioSource, decodeAudio, encodeMp3, nearestKbps, planAudioUpload, type AudioUploadPlan } from './audio-levels.ts';
-	import { toWebp, uploadOrReplace } from './media-upload.ts';
+	import { uploadOrReplace } from './media-upload.ts';
+	import { standardName, toStandard } from './media-standard.ts';
 
 	/**
 	 * The asset picker (agents/ASSETS.md "Asset selector") – like the character picker: a searchable grid of the media
@@ -62,8 +63,8 @@
 		title?: string;
 		onpick: (picked: PickedAsset) => void;
 		/**
-		 * an uploaded PNG / JPEG becomes a WebP (the same name with .webp, transparency kept) – SVG and WebP go as they are
-		 * (owner 2026-10-11, the map's layers: "SVG oder WebP; PNG natürlich wieder konvertieren")
+		 * uploads are brought to the media standard (media-standard.ts: a PNG / JPEG becomes a WebP – same name with .webp,
+		 * transparency kept; SVG and WebP as they are) – owner 2026-10-11, first for the map's layers
 		 */
 		webp?: boolean;
 	} = $props();
@@ -267,17 +268,8 @@
 		}
 	}
 
-	/** with `webp`: a PNG / JPEG as WebP (full size), else the file itself */
-	async function asWebp(file: File): Promise<File> {
-		if (!webp || !/^image\/(png|jpeg)$/.test(file.type)) return file;
-		const bitmap = await createImageBitmap(file);
-		try {
-			const { blob } = await toWebp(bitmap);
-			return new File([blob], file.name.replace(/\.(png|jpe?g)$/i, '.webp'), { type: 'image/webp' });
-		} finally {
-			bitmap.close();
-		}
-	}
+	/** with `webp`: the file in the SCUTOONS media standard (media-standard.ts – PNG / JPEG → WebP), else as it is */
+	const asWebp = (file: File): Promise<File> => (webp ? toStandard(file) : Promise.resolve(file));
 
 	function chooseFile(event: Event) {
 		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
@@ -296,7 +288,7 @@
 		}
 		if (file) {
 			let clean = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
-			if (webp && /\.(png|jpe?g)$/.test(clean)) clean = clean.replace(/\.(png|jpe?g)$/, '.webp');
+			if (webp) clean = standardName(clean, file);
 			// the field's place first (owner 2026-10-03: uploads go next to where they are used, by the content rules)
 			uploadPath = place ? `${place.replace(/\/?$/, '/')}${clean}` : `${folder || toon || 'scutoons'}/${placeOf(clean)}${clean}`;
 		}

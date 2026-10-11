@@ -855,6 +855,22 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       nudge, shape hit-test, contour, account volume + vibration; `npm run check:fx`), 3 (entrances pop / slam / fade /
       typeOn + a sound per reveal) and 4 (the `fx` event: shake / flash / punch / vignette). Open: an item's own pickup
       sound (catalog `ItemDef.sound`, a migration) – owner decision on the sound design first (FX.md open decisions).
+- [ ] 10.64 **A media optimisation tool on the media standard** (owner 2026-10-11: "wir haben einen Standard definiert …
+  die Leute können andere benutzen, aber wir empfehlen das Umkonvertieren – im Admin oder im Creator ein
+  Optimierungstool"). Built: `@scutoons/media` media-standard.ts (`checkMedia`, `toStandard`, `standardName`: PNG / JPEG →
+  WebP) – the asset picker's `webp` option uses it (the map's layers). Next: the importers (slice, character, map,
+  catalog) through `toStandard` instead of their own `toWebp` calls; a tool that lists assets off the standard and
+  converts them (a new version at the same path, `uploadOrReplace`); video (MP4 H.264 / WebM, 480p / 720p / 1080p) once
+  there is a way to run ffmpeg (not on the server: ffmpeg.wasm in the browser or a worker).
+- [ ] 10.65 **Open after the session 2026-10-11 (map, phone editors, unlock events)**: publish the map draft (v256:
+  the dioramas with plaster + 1x / 2x / 3x, new places ore-pit / ore-mountain / vienna-subway, waterfall-tower back –
+  production had deleted it; place them and give them unlockLocation events, else they stay hidden); the migrated
+  unlock events sit on slices or a chapter's first slice – move them where the story reaches the place; empty the
+  API's library cache after the migration (or wait 7 days); the bulk "Import images" should understand `-plaster`,
+  `.2x`, `.3x` names; the creator selection bar's Duplicate / Copy and the place actions View / Hidden were not clicked
+  through in a browser; scripts/check-map.mjs still checks the old progress unlocks; the Ausschnitt mode (framing a
+  place's reader view with the phone frame) was proposed and parked.
+
 - [ ] 10.61 **Migrations through a protected interface, a developer role** (owner 2026-10-11: "eine Schnittstelle über
   MCP, die Migrationen laufen lässt … mit einer neuen Rolle absichern – nicht Admin, darüber hinaus: eine Developer-Rolle,
   die mein Account hat, andere erst freigeschaltet"). Today: SQL pasted into phpMyAdmin (2026-10-11: #1267 collation

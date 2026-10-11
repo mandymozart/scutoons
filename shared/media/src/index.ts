@@ -8,6 +8,7 @@ export { default as MediaSlot } from './media-slot.svelte';
 export { default as MediaVariantsSlot } from './media-variants-slot.svelte';
 export { default as FileSlot } from './file-slot.svelte';
 export { toWebp, uploadOrReplace } from './media-upload.ts';
+export { checkMedia, mediaKind, standardName, toStandard, type MediaKind, type MediaVerdict } from './media-standard.ts';
 export {
 	cleanVariants,
 	defaultLevel,

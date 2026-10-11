@@ -2,7 +2,8 @@
 // WebP – normalized by the session's script: each painted / plaster pair cropped to one shared square frame) uploaded
 // through the SCUTOONS MCP (the member's own rights; upload_asset never overwrites – an existing path is reported and
 // skipped), then a new draft of the world map: each place's image = the painted 1x (+ the plaster 1x), three new places
-// for the pictures that had none (ore pit, ore mountain, Vienna subway – hidden: an unlockLocation event unlocks them).
+// for the pictures that had none (ore pit, ore mountain, Vienna subway – hidden: an unlockLocation event unlocks them;
+// waterfall-tower again where it is gone).
 //   node scripts/places-upload.mjs <folder with catpope/map/places/*.webp> [--read] [--assets-only] [--draft-only] [--variants]
 // --variants: also the 2x / 3x files in `variants` / `plasterVariants` (only once the API knows them – after the deploy).
 import { readFileSync, readdirSync } from 'node:fs';
@@ -24,7 +25,9 @@ const PLACES = ['cathedral', 'mountain-path', 'ore-pit', 'monastery', 'infinity-
 const NEW_PLACES = [
 	{ id: 'ore-pit', name: { de: 'Erz-Tagebau', en: 'Ore pit' }, x: 1492, y: 540 },
 	{ id: 'ore-mountain', name: { de: 'Erzberg', en: 'Ore mountain' }, x: 1500, y: 506 },
-	{ id: 'vienna-subway', name: { de: 'U-Bahn-Station', en: 'Subway station' }, x: 1214, y: 318 }
+	{ id: 'vienna-subway', name: { de: 'U-Bahn-Station', en: 'Subway station' }, x: 1214, y: 318 },
+	// gone on production (2026-10-11) – back for the Alt Erlaa diorama; its migrated unlockLocation events work again
+	{ id: 'waterfall-tower', name: { de: 'Brutalistisches Hochhaus mit Wasserfall', en: 'Brutalist tower with waterfall' }, x: 1236, y: 266 }
 ];
 
 const cfg = JSON.parse(readFileSync(resolve(homedir(), '.claude.json'), 'utf8')).mcpServers?.scutoons;

@@ -16,7 +16,7 @@
 		type Waypoint,
 		type WorldMap
 	} from '@scutoons/content';
-	import { MapRoutes, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
+	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -270,13 +270,7 @@
 	aria-label={m['creator.map']()}
 	data-testid="map-canvas"
 >
-	<div class="world" style:transform={view.transform} style:width="{map.width}px" style:height="{map.height}px">
-		{#each map.layers ?? [] as layer (layer.id)}
-			{#if layerVisible(layer.id) && layer.image}
-				<img class="layer" src={asset(layer.image)} alt="" draggable="false" />
-			{/if}
-		{/each}
-	</div>
+	<MapTerrain {view} width={map.width} height={map.height} layers={map.layers ?? []} url={asset} visible={layerVisible} zoomRange={false} />
 
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
 
@@ -367,22 +361,6 @@
 	.tool-place,
 	.tool-route {
 		cursor: crosshair;
-	}
-	.world {
-		position: absolute;
-		top: 0;
-		left: 0;
-		transform-origin: 0 0;
-	}
-	.moving .world {
-		will-change: transform;
-	}
-	.layer {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
 	}
 	.places,
 	.handles {
