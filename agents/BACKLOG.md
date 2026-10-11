@@ -23,6 +23,9 @@ push, small owner-described fixes are built, bigger UI gets a concept in UI-CONC
   (they zoom the browser to 70 % on the laptop). Done 2026-10-11: tools.css `html:has(.sc-tool)` ≥ 768px = 24px × 0.7
   (creator, admin, embassy; the reader unchanged). Look at: the creator's reader view / phone frame previews, if they
   size in rem they shrink too.
+- Overlap check 2026-10-12: the desktop creator UI (phone concepts on desktop, the map builder's small points from
+  the phone – 10.65) is the session "Creator UI: desktop takes the phone concepts" (branch claude/zealous-faraday-e6338b,
+  a DRAFT for the owner); new desktop fixes go there or here, not both.
 
 ## Storyboard night 2026-10-10 (owner asleep: "run all night and than create a second version of the draft in figma") – result, read this first
 
