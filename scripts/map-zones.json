@@ -1,0 +1,57 @@
+{
+	"_": "What each landmass of the painted map looks like (owner 2026-10-11) – scripts/map-paint.mjs puts the zones of a region into its prompt. `at` = a point on the island (world units; the landmass under it), `rect` = every landmass whose middle lies inside and that no `at` zone took. Land in no zone gets a season of its own (random, fixed per island). The numbers: logs/map-paint/zones-sheet.png (scripts/map-zones.mjs).",
+	"zones": [
+		{
+			"name": "desert",
+			"island": 3,
+			"at": {
+				"x": 654,
+				"y": 355
+			},
+			"look": "an African desert like an alien DOOM planet: rust-red and ochre dunes, cracked salt pans, scorched strange rock formations, an unearthly hostile glow"
+		},
+		{
+			"name": "altiplano",
+			"island": 1,
+			"at": {
+				"x": 528,
+				"y": 913
+			},
+			"look": "a high steppe like the Peruvian altiplano: golden-olive grass textures, wide plains with low, rounded mountain ranges, lichen and pale stone"
+		},
+		{
+			"name": "alps",
+			"island": 2,
+			"at": {
+				"x": 1577,
+				"y": 902
+			},
+			"look": "the Alps in deep WINTER (always winter here): snow and ice textures, sharp rocky ridges, glaciers, frozen blue shadows"
+		},
+		{
+			"name": "jungle",
+			"island": 4,
+			"at": {
+				"x": 1782,
+				"y": 124
+			},
+			"look": "a REPTILE world of dense primeval JUNGLE: scaly and leathery textures, tangled vines and giant leaves, steaming swamp greens, iridescent lizard-skin patterns"
+		},
+		{
+			"name": "archipelago",
+			"rect": {
+				"x": 1070,
+				"y": 40,
+				"width": 500,
+				"height": 670
+			},
+			"look": "an island world – NOT a city: every small island its own crazy jewel-like texture, like the style reference"
+		}
+	],
+	"seasons": [
+		"in SPRING: fresh greens, blossoming colour fields, wet earth",
+		"in SUMMER: saturated warm colours, dry grass, sun-baked stone",
+		"in AUTUMN: rust, amber and crimson, fallen-leaf textures",
+		"in WINTER: frost, snow crust and ice, cold blue light"
+	]
+}
