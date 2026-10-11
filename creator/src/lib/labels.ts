@@ -22,7 +22,9 @@ export function fileLabel(key: string): string {
 		credits: m['creator.credits'](),
 		people: m['creator.credits_tab_people'](),
 		roles: m['creator.credits_tab_roles'](),
-		script: m['creator.script']()
+		script: m['creator.script'](),
+		place: (id) => `${m['creator.publish_part_place']()}: ${id}`,
+		route: (id) => `${m['creator.publish_part_route']()}: ${id}`
 	});
 }
 

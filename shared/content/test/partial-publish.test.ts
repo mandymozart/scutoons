@@ -2,9 +2,10 @@
 // line of the publish checklist; the ticked ones go on top of the published version, the rest stays a draft.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyParts, diffParts, DOCUMENT_PARTS } from '../src/partial-publish.ts';
+import { applyParts, diffParts } from '../src/partial-publish.ts';
 
-const F = DOCUMENT_PARTS.map;
+// any document with id lists (the world map's places are documents of their own since map-docs.ts – the lists stand for one)
+const F = ['locations', 'routes', 'layers'] as const;
 const published = {
 	width: 100,
 	layers: [{ id: 'terrain', image: 'a.svg' }],

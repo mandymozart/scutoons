@@ -32,7 +32,8 @@
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import scutoonsAvatar from '$lib/icons/scutoons-avatar.svg';
-	import { getPublished, library } from '$lib/api.ts';
+	import { library } from '$lib/api.ts';
+	import { loadWorldMap } from '$lib/editor/world-map-doc.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
@@ -193,11 +194,12 @@
 		await doc.load();
 		ensureMap(doc);
 	});
-	// the published map's ids are fixed (events reference them): reloaded after every publish
+	// the published map's ids are fixed (events reference them): reloaded after every publish (of any place / route –
+	// each is its own document, agents/MAP-DOCUMENTS.md)
 	$effect(() => {
-		void doc.published['_'];
-		getPublished<WorldMap>(entities.map)
-			.then((r) => (published = r.content))
+		void JSON.stringify(doc.versions);
+		loadWorldMap('published')
+			.then((m) => (published = m))
 			.catch(() => (published = null));
 	});
 

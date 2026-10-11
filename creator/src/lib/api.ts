@@ -18,7 +18,7 @@ export const api = createApiClient({ baseUrl: API_URL, getToken: getSessionToken
 export const authApi = createQrApi(api);
 
 export const contentApi = createContentApi(api);
-export const { getDraft, getPublished, getVersion, putDraft, publishVersion, unpublish, restoreVersion, listVersions, contentIndex } = contentApi;
+export const { getDraft, getPublished, getVersion, putDraft, publishVersion, unpublish, restoreVersion, listVersions, contentIndex, withContent, saveBatch, publishMany } = contentApi;
 
 /** Reader views of the content (drafts with `{ draft: true }`), e.g. the preview and the toons list */
 export const library = createLibraryApi({ publicClient: api, sessionClient: api });

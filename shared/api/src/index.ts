@@ -18,6 +18,8 @@ export {
 	type ContentVersion,
 	type WrappedContent,
 	type ContentIndexEntity,
+	type ContentEntityWithContent,
+	type BatchSave,
 	type ContentReview,
 	type ReviewOverview,
 	needsReview

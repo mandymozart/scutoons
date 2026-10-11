@@ -21,6 +21,9 @@ export interface EntityLabels {
 	roles: string;
 	/** the SCUTOONS world map (entity `map`; the old per-toon `locations` / `routes` too) */
 	map: string;
+	/** one place / route of the world map (`place:<id>`, `route:<id>` – agents/MAP-DOCUMENTS.md); callers that know its name pass it */
+	place: (id: string) => string;
+	route: (id: string) => string;
 	events: string;
 	/** the toon's screenplay (one per language, creator only) */
 	script: string;
@@ -40,6 +43,8 @@ export const ENTITY_LABELS: EntityLabels = {
 	people: 'People',
 	roles: 'Roles',
 	map: 'Map',
+	place: (id) => `Place ${id}`,
+	route: (id) => `Route ${id}`,
 	events: 'Events',
 	script: 'Script'
 };
@@ -68,6 +73,7 @@ export function entityLabel(key: string, labels: Partial<EntityLabels> = {}): st
 	if (kind === 'chapter' && number) return l.chapter(Number(number));
 	if (kind === 'season' && number) return l.season(Number(number));
 	if (kind === 'scene' && scene) return l.scene(scene.replace(/^scene-/, ''));
+	if ((kind === 'place' || kind === 'route') && key.split(':')[1]) return l[kind](key.split(':')[1]);
 	const named = NAMED[kind];
 	if (named) return l[named] as string;
 	return kind;

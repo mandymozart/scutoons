@@ -7,9 +7,12 @@
  * as a version, publishes it, and saves the whole draft again on top (creator/src/lib/editor/publish-tree.ts).
  */
 
-/** which lists of a document are parts (by stored key) */
+/**
+ * which lists of a document are parts (by stored key). The world map is no longer one: its places and routes are
+ * documents of their own (`place:<id>`, `route:<id>`, map-docs.ts – DRAFT, agents/MAP-DOCUMENTS.md), each a line of the
+ * checklist by itself; its layers stay in `map` (the settings).
+ */
 export const DOCUMENT_PARTS: Record<string, readonly string[]> = {
-	map: ['locations', 'routes', 'layers'],
 	characters: ['characters']
 };
 

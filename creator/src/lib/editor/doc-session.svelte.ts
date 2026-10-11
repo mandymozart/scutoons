@@ -123,10 +123,10 @@ export class DocSession {
 		if ([...this.docs, ...this.companions].some((d) => d.dirty) && !(await this.saveAll())) return;
 		try {
 			const own = [...this.docs, ...this.companions];
-			const result = await publishTree(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.stored.map((l) => d.key(l))) }, title);
+			const result = await publishTree(scope ?? { kind: 'files', toon: own[0]?.toon ?? '', keys: own.flatMap((d) => d.storedKeys()) }, title);
 			if (!result) return;
 			const live = new Set(result.published);
-			for (const doc of [...this.docs, ...this.companions]) if (doc.stored.some((l) => live.has(doc.key(l)))) await doc.load();
+			for (const doc of [...this.docs, ...this.companions]) if (doc.storedKeys().some((k) => live.has(k))) await doc.load();
 			this.savedCompanions = [];
 			this.notify(result.message, result.published.length ? 'success' : undefined);
 		} catch (e) {

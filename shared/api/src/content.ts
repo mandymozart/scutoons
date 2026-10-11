@@ -73,6 +73,28 @@ export function needsReview(rules: { needs_review: string[] } | null | undefined
 	return !!toon && !!rules && (rules.needs_review.includes('*') || rules.needs_review.includes(toon));
 }
 
+/** One entity WITH its document (GET /entities?kinds=…): a page that edits many documents (the world map's places) */
+export interface ContentEntityWithContent<T = unknown> {
+	key: string;
+	kind: string;
+	/** the id of its first version: the creation order (the world map's order) */
+	first: number;
+	latest: number;
+	published: number | null;
+	/** the version `content` is (the newest, or the published one; null: none published) */
+	version: number | null;
+	content: T | null;
+}
+
+/** One save of a batch (POST /entities/batch) */
+export interface BatchSave {
+	key: string;
+	content: unknown;
+	/** the version the edit started from (null = a new key); left out = no conflict check (overwrite) */
+	base?: number | null;
+	message?: string;
+}
+
 export type ContentApi = ReturnType<typeof createContentApi>;
 
 export function createContentApi(client: ApiClient) {
@@ -114,6 +136,21 @@ export function createContentApi(client: ApiClient) {
 		/** A reviewer publishes the submitted versions / sends them back (with an optional note to the author) */
 		decideReviews: (action: 'publish' | 'return', ids: number[], note?: string) =>
 			client.post<{ status: string; reviews: ContentReview[]; keys: string[] }>(`/reviews/${action}`, { ids, note: note || undefined }),
+
+		/** Every entity of some kinds with its newest (`draft`) or published document, in creation order */
+		withContent: <T = unknown>(kinds: string[], content: 'draft' | 'published' = 'draft') =>
+			client.get<{ status: string; entities: ContentEntityWithContent<T>[] }>(`/entities?kinds=${encodeURIComponent(kinds.join(','))}&content=${content}`),
+
+		/** Several draft versions in one transaction: all or none (409 conflict / 422 invalid name the `key`) */
+		saveBatch: (saves: BatchSave[], message?: string) =>
+			client.post<{ status: string; saved: { key: string; unchanged: boolean; version: ContentVersion }[] }>('/entities/batch', {
+				saves: saves.map((s) => ({ ...s, message: s.message || undefined })),
+				message: message || undefined
+			}),
+
+		/** Several documents live at once (one transaction) */
+		publishMany: (versions: { key: string; version?: number }[]) =>
+			client.post<{ status: string; published: { key: string; version: ContentVersion }[] }>('/entities/publish', { versions }),
 
 		/** Every stored entity of a toon; `''` = the platform-wide ones (characters, people, events …). */
 		contentIndex: (toon: string) =>

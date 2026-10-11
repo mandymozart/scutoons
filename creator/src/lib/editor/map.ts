@@ -1,5 +1,6 @@
-// The map builder's model (agents/MAP.md §4): the world map entity `map` as one language-neutral ContentDoc (saved /
-// published through the page's ActionBar like every entity), and the edits the builder makes – each one an undo step.
+// The map builder's model (agents/MAP.md §4): the world map as one editable WorldMap (WorldMapDoc – stored as many
+// documents: `map`, `place:<id>`, `route:<id>`, agents/MAP-DOCUMENTS.md; saved / published through the page's ActionBar
+// like every entity), and the edits the builder makes – each one an undo step.
 import {
 	MAP_SOURCE_LANGUAGE,
 	emptyWorldMap,
@@ -17,18 +18,17 @@ import {
 import { CDN_SERVER } from '$lib/config.ts';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { ensure, edit } from '$lib/editor/characters.ts';
-import { neutralDoc } from '$lib/editor/languages.ts';
-import { getDraft } from '$lib/api.ts';
+import { WorldMapDoc, loadWorldMap } from '$lib/editor/world-map-doc.svelte.ts';
 
 const N = '_';
 
-export const mapDoc = () => neutralDoc(entities.map);
+export const mapDoc = () => new WorldMapDoc();
 
 /** the world map's places (id, name, toons) for the event forms – the newest draft, loaded once per page visit */
 let placesOnce: Promise<{ id: string; name: unknown; toons: string[] }[]> | null = null;
 export function mapPlaces(): Promise<{ id: string; name: unknown; toons: string[] }[]> {
-	placesOnce ??= getDraft('map')
-		.then((r) => ((r.content as WorldMap | null)?.locations ?? []).map((p) => ({ id: p.id, name: p.name, toons: p.toons ?? [] })))
+	placesOnce ??= loadWorldMap('draft')
+		.then((map) => (map?.locations ?? []).map((p) => ({ id: p.id, name: p.name, toons: p.toons ?? [] })))
 		.catch(() => {
 			placesOnce = null;
 			return [];
@@ -39,14 +39,20 @@ export const mapOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? nu
 export const ensureMap = (doc: ContentDoc) => ensure(doc, emptyWorldMap);
 export const editMap = (doc: ContentDoc, change: (map: WorldMap) => void, key?: string) => edit<WorldMap>(doc, change, key);
 
-/** every id of the map's places, routes, layers (new ids must be unique among their kind) */
-const ids = (list: { id: string }[] | undefined) => (list ?? []).map((x) => x.id);
+/**
+ * every id of the map's places, routes, layers (new ids must be unique among their kind) – for places and routes also
+ * every id ever stored (a removed one's tombstone keeps it: ids are stable forever, agents/MAP-DOCUMENTS.md)
+ */
+const ids = (list: { id: string }[] | undefined, doc?: ContentDoc, kind?: 'place' | 'route') => [
+	...(list ?? []).map((x) => x.id),
+	...(doc instanceof WorldMapDoc && kind ? doc.takenIds(kind) : [])
+];
 
 /** A new place at a world point; the id comes from the name later (editable until the first publish) */
 export function addPlace(doc: ContentDoc, at: Point, toons: string[]): string {
 	let id = '';
 	editMap(doc, (map) => {
-		id = uniqueId('ort', ids(map.locations));
+		id = uniqueId('ort', ids(map.locations, doc, 'place'));
 		map.locations.push({ id, name: { [MAP_SOURCE_LANGUAGE]: '' }, x: Math.round(at.x), y: Math.round(at.y), toons: [...toons] });
 	});
 	return id;
@@ -68,7 +74,7 @@ export function renamePlace(doc: ContentDoc, from: string, wanted: string, key?:
 	let to = from;
 	editMap(doc, (map) => {
 		const slug = slugId(wanted) || from;
-		to = slug === from ? from : uniqueId(slug, ids(map.locations));
+		to = slug === from ? from : uniqueId(slug, ids(map.locations, doc, 'place'));
 		if (to === from) return;
 		const place = map.locations.find((p) => p.id === from);
 		if (!place) return;
@@ -92,7 +98,7 @@ export function removePlace(doc: ContentDoc, id: string) {
 export function addRoute(doc: ContentDoc, waypoints: MapPath['waypoints'], toons: string[]): string {
 	let id = '';
 	editMap(doc, (map) => {
-		id = uniqueId('weg', ids(map.routes));
+		id = uniqueId('weg', ids(map.routes, doc, 'route'));
 		map.routes.push({ id, name: { [MAP_SOURCE_LANGUAGE]: '' }, toons: [...toons], waypoints: JSON.parse(JSON.stringify(waypoints)), style: 'road' });
 	});
 	return id;
@@ -113,7 +119,7 @@ export function renameRoute(doc: ContentDoc, from: string, wanted: string, key?:
 	let to = from;
 	editMap(doc, (map) => {
 		const slug = slugId(wanted) || from;
-		to = slug === from ? from : uniqueId(slug, ids(map.routes));
+		to = slug === from ? from : uniqueId(slug, ids(map.routes, doc, 'route'));
 		const route = map.routes.find((r) => r.id === from);
 		if (route) route.id = to;
 	}, key);

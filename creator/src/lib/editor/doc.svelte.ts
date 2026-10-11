@@ -249,7 +249,14 @@ export class ContentDoc {
 	get stored(): string[] {
 		return this.locales.filter((l) => this.base[l] !== null && this.base[l] !== undefined);
 	}
-	/** a stored locale whose newest version is not the published one */
+	/**
+	 * the stored keys of this document (the publish checklist's files, what to reload after a publish); a document made of
+	 * many stored documents (the world map, world-map-doc.svelte.ts) lists all of them
+	 */
+	storedKeys(): string[] {
+		return this.stored.map((l) => this.key(l));
+	}
+		/** a stored locale whose newest version is not the published one */
 	get unpublished(): string[] {
 		return this.stored.filter((l) => this.published[l] !== this.base[l]);
 	}
@@ -385,7 +392,7 @@ export class ContentDoc {
 		this.loading = false;
 	}
 
-	private adopt(
+	protected adopt(
 		data: Record<string, any>,
 		base: Record<string, number | null>,
 		published: Record<string, number | null>,
