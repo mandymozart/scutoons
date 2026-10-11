@@ -26,7 +26,7 @@ test('here: the most recently unlocked place of this toon; ties: the later one i
 	assert.equal(readerHere(places, 'catpope', state({ apartment: 9, 'waterfall-tower': 5 }))?.id, 'apartment');
 	// other toons' places are not this toon's "here"
 	assert.equal(readerHere(places, 'catpope', state({ pond: 99, apartment: 1 }))?.id, 'apartment');
-	assert.deepEqual(readerHere(places, 'catpope', state({ apartment: 1 })), { id: 'apartment', x: 1206, y: 304, zoom: 2 });
+	assert.deepEqual(readerHere(places, 'catpope', state({ apartment: 1 })), { id: 'apartment', x: 1206, y: 304, zoom: 8 });
 });
 
 test('here: the story position wins when it is a place on the map', () => {
@@ -56,13 +56,13 @@ const placed = (v: OpeningView) => {
 	return v;
 };
 
-const apartment = { id: 'apartment', x: 1206, y: 304, zoom: 2 };
+const apartment = { id: 'apartment', x: 1206, y: 304, zoom: 8 };
 const tower = { id: 'waterfall-tower', x: 1240, y: 272, zoom: 4 };
 
 test('first opening: centred on here at its zoom (and remembered with that here)', () => {
 	const v = openingView(null, apartment);
 	assert.equal(v.kind, 'here');
-	assert.deepEqual([placed(v).center, placed(v).zoom, placed(v).store], [{ x: 1206, y: 304 }, 2, { x: 1206, y: 304, zoom: 2, here: 'apartment' }]);
+	assert.deepEqual([placed(v).center, placed(v).zoom, placed(v).store], [{ x: 1206, y: 304 }, 8, { x: 1206, y: 304, zoom: 8, here: 'apartment' }]);
 	// nothing reached and nothing remembered: the toon's start view
 	assert.deepEqual(openingView(null, null), { kind: 'start', store: null });
 });
@@ -113,14 +113,14 @@ test('focusMap: a point keeps the remembered zoom; a place is framed by its view
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) };
 	try {
 		focusMap('catpope', { x: 1, y: 2 });
-		assert.deepEqual(loadMapView('catpope'), { x: 1, y: 2, zoom: 2, focus: true });
+		assert.deepEqual(loadMapView('catpope'), { x: 1, y: 2, zoom: 8, focus: true });
 		store.set(MAP_VIEW_KEY, JSON.stringify({ catpope: { x: 0, y: 0, zoom: 0.7, here: 'apartment' } }));
 		focusMap('catpope', { x: 1, y: 2 });
 		assert.deepEqual(loadMapView('catpope'), { x: 1, y: 2, zoom: 0.7, here: 'apartment', focus: true });
 		focusMap('catpope', { id: 'apartment', x: 1206, y: 304, view: { zoom: 3, offset: { x: 4, y: 6 } } });
 		assert.deepEqual(loadMapView('catpope'), { x: 1210, y: 310, zoom: 3, here: 'apartment', focus: true });
 		focusMap('catpope', { id: 'apartment', x: 1206, y: 304 });
-		assert.equal(loadMapView('catpope')?.zoom, 2, 'a place without its own zoom: 2, not the remembered zoom');
+		assert.equal(loadMapView('catpope')?.zoom, 8, 'a place without its own zoom: 8 (PLACE_ZOOM), not the remembered zoom');
 		focusMap('catpope', { id: 'apartment', x: 1206, y: 304, view: { zoom: 3 } }, 0.25);
 		assert.equal(loadMapView('catpope')?.zoom, 0.25, 'an explicit frame (the whole world) wins');
 	} finally {

@@ -126,24 +126,24 @@ test('checkWorldMap: ids, positions, waypoints; the old unlock link is an error'
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
 });
 
-test('a place’s view: its own zoom (0.25–8, default 2) and offset; validation', () => {
+test('a place’s view: its own zoom (0.25–32, default 8) and offset; validation', () => {
 	const problems = (view: unknown) =>
 		checkWorldMap({ width: 100, height: 50, layers: [], locations: [{ id: 'a', name: { de: 'A' }, x: 10, y: 10, toons: ['t'], view }], routes: [] }, { toons: ['t'] }).map((p) => `${p.level} ${p.path.join('.')}`);
 	assert.deepEqual(problems(undefined), []);
 	assert.deepEqual(problems({ zoom: 3, offset: { x: 5, y: -5 } }), []);
-	assert.deepEqual(problems({ zoom: 1.5 }), [], 'below the default 2 is fine (owner 2026-10-11: "kleiner geht schon")');
+	assert.deepEqual(problems({ zoom: 1.5 }), [], 'below the default 8 is fine (owner 2026-10-11: "kleiner geht schon")');
 	assert.deepEqual(problems({ zoom: 0.1 }), ['error locations.0.view.zoom'], 'below the map minimum');
-	assert.deepEqual(problems({ zoom: 9 }), ['error locations.0.view.zoom']);
+	assert.deepEqual(problems({ zoom: 33 }), ['error locations.0.view.zoom']);
 	assert.deepEqual(problems({ offset: { x: 'a', y: 0 } }), ['error locations.0.view.offset']);
 	assert.deepEqual(problems({ offset: { x: 200, y: 0 } }), ['warning locations.0.view.offset']);
 	assert.deepEqual(problems(7), ['error locations.0.view']);
-	// the reader: the point + offset at the place zoom; without a view: the point at 2; junk → ignored, out of range → clamped
-	assert.equal(PLACE_ZOOM, 2);
-	assert.deepEqual(placeView({ x: 10, y: 20 }), { center: { x: 10, y: 20 }, zoom: 2 });
+	// the reader: the point + offset at the place zoom; without a view: the point at 8; junk → ignored, out of range → clamped
+	assert.equal(PLACE_ZOOM, 8);
+	assert.deepEqual(placeView({ x: 10, y: 20 }), { center: { x: 10, y: 20 }, zoom: 8 });
 	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: 4, offset: { x: 5, y: -3 } } }), { center: { x: 15, y: 17 }, zoom: 4 });
 	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: 1 } }), { center: { x: 10, y: 20 }, zoom: 1 });
 	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: 0.1 } }), { center: { x: 10, y: 20 }, zoom: 0.25 });
-	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: NaN, offset: { x: NaN, y: 1 } } as any }), { center: { x: 10, y: 20 }, zoom: 2 });
+	assert.deepEqual(placeView({ x: 10, y: 20, view: { zoom: NaN, offset: { x: NaN, y: 1 } } as any }), { center: { x: 10, y: 20 }, zoom: 8 });
 });
 
 test('wanted images: every place without an image, derived from the map (all 20 of the fixture)', () => {
@@ -182,14 +182,14 @@ test('the hex grid: cells, a place’s size, snapping to the nearest free spot',
 	assert.ok(Math.hypot(centre.x - 100, centre.y - 100) <= HEX_CELL / Math.sqrt(3) + 1e-9, 'within one cell radius');
 	assert.equal(hexArea(c, 1).length, 7);
 	assert.equal(hexArea(c, 2).length, 19);
-	assert.equal(placeCells({ x: centre.x, y: centre.y, size: 4 }).length, 1, 'small: its own cell');
+	assert.equal(placeCells({ x: centre.x, y: centre.y, size: HEX_CELL / 2 }).length, 1, 'small: its own cell');
 	assert.equal(placeCells({ x: centre.x, y: centre.y, size: 2 * HEX_CELL }).length, 7, 'a ring');
-	assert.ok(placeCells({ x: centre.x, y: centre.y, size: 96 }).length > 100, 'the ore mountain takes many');
-	const map = { width: 400, height: 300, locations: [{ id: 'a', x: centre.x, y: centre.y, toons: [], name: {}, size: 4 } as any] };
-	const free = snapPlace(map, centre, 4);
+	assert.ok(placeCells({ x: centre.x, y: centre.y, size: 12 * HEX_CELL }).length > 100, 'the ore mountain takes many');
+	const map = { width: 400, height: 300, locations: [{ id: 'a', x: centre.x, y: centre.y, toons: [], name: {}, size: HEX_CELL / 2 } as any] };
+	const free = snapPlace(map, centre, HEX_CELL / 2);
 	assert.notDeepEqual(hexCellAt(free), c, 'an occupied cell is not taken');
 	assert.ok(Math.hypot(free.x - centre.x, free.y - centre.y) < HEX_CELL * 1.01, 'the next cell');
-	assert.deepEqual(hexCellAt(snapPlace(map, centre, 4, 'a')), c, 'the moved place itself does not block');
-	const big = snapPlace(map, centre, 32);
-	assert.ok(!placeCells({ ...big, size: 32 }).some((x) => x.q === c.q && x.r === c.r), 'a big place keeps its whole area free');
+	assert.deepEqual(hexCellAt(snapPlace(map, centre, HEX_CELL / 2, 'a')), c, 'the moved place itself does not block');
+	const big = snapPlace(map, centre, 4 * HEX_CELL);
+	assert.ok(!placeCells({ ...big, size: 4 * HEX_CELL }).some((x) => x.q === c.q && x.r === c.r), 'a big place keeps its whole area free');
 });

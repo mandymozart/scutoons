@@ -162,7 +162,7 @@
 	// ── the hex grid (owner 2026-10-11): shown only while a place is placed or dragged – the cells on screen, one path ──
 	const showGrid = $derived(tool === 'place' || dragging?.kind === 'place');
 	const gridPath = $derived.by(() => {
-		if (!showGrid || view.zoom < 1) return '';
+		if (!showGrid || view.zoom * HEX_CELL < 6) return ''; // cells under 6 px are noise
 		const a = view.toWorld({ x: 0, y: 0 });
 		const b = view.toWorld({ x: view.width, y: view.height });
 		const r = HEX_CELL / Math.sqrt(3);

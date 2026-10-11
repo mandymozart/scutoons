@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { DEFAULT_PLACE_ANCHOR, DEFAULT_PLACE_IMAGE_SIZE, placeImagePath, type MapPlace } from '@scutoons/content';
+	import { DEFAULT_PLACE_ANCHOR, PLACE_SIZE_MIN, PLACE_SIZE_STEP, PLACE_ZOOM, placeImagePath, placeSize, type MapPlace } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -80,9 +80,11 @@
 		}, 'image-anchor');
 	}
 	const anchor = $derived(place.image?.anchor ?? DEFAULT_PLACE_ANCHOR);
-	const size = $derived(place.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE);
-	/** blurry at 200 %: the file is narrower than twice its drawn width there */
-	const blurry = $derived(!!natural && natural.w < size * 2);
+	const size = $derived(placeSize(place));
+	/** the previews' zooms: around the place zoom (the places are a few world units wide – BACKLOG 10.67) */
+	const ZOOMS = [PLACE_ZOOM / 2, PLACE_ZOOM, PLACE_ZOOM * 2];
+	/** blurry at the place zoom on a 2x screen: the file is narrower than twice its drawn width there */
+	const blurry = $derived(!!natural && natural.w < size * PLACE_ZOOM * 2);
 </script>
 
 <fieldset data-testid="place-image">
@@ -101,9 +103,9 @@
 			{#if imageState.missing}<span class="bad">{m['creator.map_image_missing']()}</span>{/if}
 			{#if imageState.kb !== null}{imageState.kb} KB{/if}
 			{#if imageState.kb !== null && imageState.kb > 60}<span class="warn"> · {m['creator.map_image_large']({ kb: imageState.kb })}</span>{/if}
-			{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ px: size * 2 })}</span>{/if}
+			{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ zoom: PLACE_ZOOM * 100, px: Math.ceil(size * PLACE_ZOOM * 2) })}</span>{/if}
 		</p>
-		<label class="field small"><span>{m['creator.map_image_size']()}</span><input type="number" min="2" value={place.image.size ?? ''} placeholder={String(DEFAULT_PLACE_IMAGE_SIZE)} onchange={(e) => setImageField('size', numberOrUnset(e.currentTarget.value))} data-testid="place-image-size" /></label>
+		<label class="field small"><span>{m['creator.map_image_size']()}</span><input type="number" min={PLACE_SIZE_MIN} step={PLACE_SIZE_STEP} value={place.image.size ?? ''} placeholder={String(size)} onchange={(e) => setImageField('size', numberOrUnset(e.currentTarget.value))} data-testid="place-image-size" /></label>
 		<span class="lbl">{m['creator.map_image_anchor']()} ({anchor.x} / {anchor.y} %)</span>
 		<div
 			class="anchor checker"
@@ -121,9 +123,9 @@
 			<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" draggable="false" onload={(e) => { const img = e.currentTarget as HTMLImageElement; natural = { w: img.naturalWidth, h: img.naturalHeight }; }} />
 			<span class="cross" style:left="{anchor.x}%" style:top="{anchor.y}%"></span>
 		</div>
-		<span class="lbl">{m['creator.map_image_previews']()}</span>
+		<span class="lbl">{m['creator.map_image_previews']({ zooms: ZOOMS.map((z) => z * 100).join(' / ') })}</span>
 		<div class="previews">
-			{#each [0.5, 1, 2] as z (z)}
+			{#each ZOOMS as z (z)}
 				<div class="preview" style:height="{size * z * 1.1 + 12}px">
 					<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:bottom="{6 + size * z * ((100 - anchor.y) / 100) * (natural ? natural.h / natural.w : 1)}px" />
 					<span class="dot"></span>

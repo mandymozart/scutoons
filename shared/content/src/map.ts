@@ -160,22 +160,29 @@ export const MAP_SOURCE_LANGUAGE = 'de';
 export const MAP_STYLES: MapPathStyle[] = ['road', 'trail', 'flight', 'sea'];
 /**
  * a place image's width in WORLD units (it scales with the map at every zoom – owner 2026-10-11: "die Dioramen müssen
- * wesentlich kleiner sein … man sieht sie erst, wenn man reinzoomt"): 12 = 12 px at zoom 1, 96 px at zoom 8
+ * wesentlich kleiner sein … man sieht sie erst, wenn man reinzoomt"; BACKLOG 10.67: "das Größte ≈ 12"): 2 = 2 px at
+ * zoom 1, 64 px at zoom 32
  */
-export const DEFAULT_PLACE_IMAGE_SIZE = 12;
+export const DEFAULT_PLACE_IMAGE_SIZE = 2;
 export const DEFAULT_PLACE_ANCHOR = { x: 50, y: 90 } as const;
 export const MAP_MIN_ZOOM = 0.25;
-export const MAP_MAX_ZOOM = 8;
-/** the zoom when the map centres on a place – its default and its minimum (owner 2026-10-10: "Mindeststufe 2 und Zoomstufe 2") */
-export const PLACE_ZOOM = 2;
+/** deep enough that the smallest place (a well, 0.75) is ~24 px (BACKLOG 10.67) */
+export const MAP_MAX_ZOOM = 32;
+/**
+ * the zoom when the map centres on a place, its default (owner 2026-10-10: "Zoomstufe 2"; ×4 since the places shrank ÷8 –
+ * BACKLOG 10.67: a district with its places, the biggest ~96 px)
+ */
+export const PLACE_ZOOM = 8;
 
 // ── the hex grid for places (owner 2026-10-11: "ein Sechseckraster – Orte nur innerhalb des Grids, damit nichts
 //    überlappt"; "festlegen, wie viele Flächeneinheiten ein Diorama einnimmt – eine sinnvolle Stufung") ─────────────
-/** the distance of two neighbouring cells' centres, world units (2048 × 1046 → ~39 000 cells) */
-export const HEX_CELL = 8;
-/** a place's size range (world units; the builder's slider): a well … the ore mountain and more */
-export const PLACE_SIZE_MIN = 4;
-export const PLACE_SIZE_MAX = 128;
+/** the distance of two neighbouring cells' centres, world units (BACKLOG 10.67: ~1, the well's size) */
+export const HEX_CELL = 1;
+/** a place's size range (world units; the builder's slider): a well (0.75) … the ore mountain (12) and more */
+export const PLACE_SIZE_MIN = 0.5;
+export const PLACE_SIZE_MAX = 16;
+/** the slider's step */
+export const PLACE_SIZE_STEP = 0.25;
 /** a cell in axial coordinates (pointy-top hexes) */
 export interface HexCell {
 	q: number;
@@ -226,7 +233,7 @@ export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>,
 	const taken = new Set<string>();
 	for (const p of map.locations) if (p.id !== except) for (const c of placeCells(p)) taken.add(cellKey(c));
 	const start = hexCellAt(at);
-	for (let radius = 0; radius < 64; radius++) {
+	for (let radius = 0; radius < 64 / HEX_CELL; radius++) {
 		const candidates = (radius === 0 ? [start] : hexArea(start, radius).filter((c) => hexDistance(c, start) === radius))
 			.map((c) => ({ c, centre: hexCenter(c) }))
 			.filter(({ centre }) => centre.x >= 0 && centre.y >= 0 && centre.x <= map.width && centre.y <= map.height)

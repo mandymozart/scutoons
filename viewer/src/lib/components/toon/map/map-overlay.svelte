@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { MAP_MAX_ZOOM, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, PLACE_ZOOM, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -91,10 +91,10 @@
 	function startView() {
 		if (!data) return;
 		// the toon's start view (set in the creator, owner 2026-10-01); only when it would show none of the places this reader
-		// discovered in this toon, the map fits those instead (never zoomed in further than 3×)
+		// discovered in this toon, the map fits those instead (never zoomed in further than a place's zoom)
 		view.centerOn(data.view?.center ?? { x: data.width / 2, y: data.height / 2 }, data.view?.zoom ?? 1);
 		const mine = places.filter(own);
-		if (mine.length && !mine.some((p) => view.onScreen(p, -24))) view.fit(mine, 56, 3);
+		if (mine.length && !mine.some((p) => view.onScreen(p, -24))) view.fit(mine, 56, PLACE_ZOOM);
 	}
 	/** ◎: back to where the reader is (the place's view: point + offset at its zoom, default 2), else the start view */
 	function recenter() {
