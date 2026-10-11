@@ -3,7 +3,7 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
-	import { ActionBar, BarTabs, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
+	import { ActionBar, BarTabs, PhoneBar, type PhoneBarItem, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -43,7 +43,7 @@
 	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { ChapterView, clampZoom, type InspectorTab, type Section } from '$lib/editor/chapter-state.svelte.ts';
 	import * as edits from '$lib/editor/slice-edit.ts';
-	import { clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
+	import { clipboard, clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
 	import { setClipContext } from '$lib/editor/clip-context.ts';
 	import { countPlacements } from '$lib/editor/clip.ts';
@@ -776,6 +776,76 @@
 		view.selection = null;
 	}
 
+	// ── phones (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut) ──────────────────────────────────────────────────
+	/** the inspector sheet, variant C: closed it is its tab row only; a tab opens it there, the open tab closes it */
+	let sheetOpen = $state(false);
+	function pickSheetTab(id: InspectorTab) {
+		if (view.inspectorTab === id && sheetOpen) sheetOpen = false;
+		else {
+			view.setTab(id);
+			sheetOpen = true;
+		}
+	}
+	/** copy / cut / paste on the slice (the live region), as the clipboard menu */
+	async function clip(action: 'copy' | 'cut' | 'paste' | 'duplicate') {
+		liveRegion.set(SLICE_REGION);
+		if (action === 'paste') return void (await clipboard.pasteFromMenu(false));
+		await clipboard.copyFromMenu(action === 'cut');
+		if (action === 'duplicate') await clipboard.pasteFromMenu(false);
+	}
+	/** the bar: Save · History (undo, redo, versions) · Publish · More */
+	const phoneItems = $derived<PhoneBarItem[]>([
+		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, disabled: !anyDirty || anySaving, run: () => session.saveDraft(), testid: 'phone-save' },
+		{
+			id: 'history',
+			icon: 'clock',
+			label: m['creator.history'](),
+			items: [
+				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc, run: undoLast, stay: true, testid: 'phone-undo' },
+				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc, run: redoLast, stay: true, testid: 'phone-redo' },
+				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history') }
+			]
+		},
+		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, run: () => session.publishAll(), testid: 'phone-publish' },
+		{
+			id: 'more',
+			icon: 'more-horizontal',
+			label: m['creator.more'](),
+			badge: errorCount || undefined,
+			items: [
+				{ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems') },
+				{ id: 'preview', label: m['creator.preview'](), content: phonePreview },
+				{ id: 'paste', icon: 'clipboard', label: m['creator.clip_paste'](), run: () => clip('paste') },
+				...(view.section === 'slice' && activeGroup?.slices?.length
+					? [
+							{ id: 'prev-slice', icon: 'chevron-left', label: m['creator.bar_prev_slice'](), disabled: view.sliceIndex <= 0, run: () => view.selectSlice(view.sliceIndex - 1), stay: true },
+							{ id: 'next-slice', icon: 'chevron-right', label: m['creator.bar_next_slice'](), disabled: view.sliceIndex >= activeGroup.slices.length - 1, run: () => view.selectSlice(view.sliceIndex + 1), stay: true }
+						]
+					: []),
+				{ id: 'status', label: m['creator.status'](), content: phoneStatus },
+				{ id: 'note', label: m['creator.note_label'](), content: phoneNote }
+			]
+		}
+	]);
+	/** the selected text box / item / area: its own actions (‹ deselects) */
+	const phoneSelection = $derived.by(() => {
+		const sel = view.selection;
+		if (!sel || view.section !== 'slice') return null;
+		const tab: InspectorTab = sel.kind === 'event' ? 'events' : sel.kind === 'sample' ? 'audio' : 'layers';
+		const label = { dialog: m['creator.bar_sel_text'](), item: m['creator.bar_sel_item'](), event: m['creator.bar_sel_event'](), sample: m['creator.bar_sel_sample']() }[sel.kind as string] ?? '';
+		return {
+			label,
+			onback: () => (view.selection = null),
+			items: [
+				{ id: 'edit', icon: 'edit-2', label: m['creator.bar_edit'](), active: sheetOpen && view.inspectorTab === tab, run: () => ((sheetOpen = true), view.setTab(tab)), testid: 'phone-sel-edit' },
+				{ id: 'duplicate', icon: 'copy', label: m['creator.bar_duplicate'](), run: () => clip('duplicate'), testid: 'phone-sel-duplicate' },
+				{ id: 'copy', icon: 'clipboard', label: m['creator.clip_copy'](), run: () => clip('copy') },
+				{ id: 'cut', icon: 'scissors', label: m['creator.clip_cut_action'](), run: () => clip('cut') },
+				{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: removeSelected, testid: 'phone-sel-delete' }
+			] satisfies PhoneBarItem[]
+		};
+	});
+
 	const previewLabel = $derived(view.section === 'group' || view.section === 'slice' ? (activeGroup?.label ?? '') : '');
 	/**
 	 * The chapter in the live reader with its draft preview on (`?preview=draft`, viewer lib/draft-preview.svelte.ts):
@@ -939,56 +1009,37 @@
 		moreLabel={m['creator.more']()}
 		breakpoint={2048}
 	>
-		{#snippet tabs()}
-			<!-- phones (UI-CONCEPTS E.10): the inspector sheet's tabs are the bar's; the slice stepper stays in ⋯ for now (owner 2026-10-11) -->
-			{#if view.section === 'slice' && activeSlice}
-				<BarTabs
-					label={m['creator.slice_tab']()}
-					value={view.inspectorTab}
-					onchange={(id) => view.setTab(id as InspectorTab)}
-					tabs={[
-						{ id: 'layers', icon: 'layers', label: m['creator.layers']() },
-						{ id: 'audio', icon: 'music', label: m['creator.audio']() },
-						{ id: 'events', icon: 'zap', label: m['creator.events'](), count: activeSlice.events?.length ?? 0 },
-						{ id: 'slice', icon: 'image', label: m['creator.slice_tab']() }
-					]}
-				/>
-			{/if}
-		{/snippet}
 		{#snippet phone()}
-			<button class="ghost" aria-label={m['creator.undo']()} title={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="phone-undo"><Icon name="rotate-ccw" /></button>
-			<button class="ghost" aria-label={m['creator.redo']()} title={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="phone-redo"><Icon name="rotate-cw" /></button>
-			<button class="phone-save" aria-label={m['creator.save_draft']()} title={m['creator.save_draft']()} onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="phone-save"><Icon name="save" />{#if anyDirty}<span class="dirty-dot" aria-hidden="true"></span>{/if}</button>
+			<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
 		{/snippet}
 		{#snippet start()}
 			<!-- phones have no Cmd keys: copy / cut / paste on the live region from here (BACKLOG 10.39) -->
 			<span class="clip-phone"><ClipMenu bar /></span>
 			<!-- phones: undo / redo are icons in the bar (E.10); Problems is here in ⋯ -->
-			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} title={m['creator.problems']()} data-testid="problems-toggle">
-				<span class="bar-icon"><Icon name="alert-triangle" /></span><span class="bar-word">{m['creator.problems']()}</span> <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
+			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
+				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
 		{#snippet secondary()}
 			<button class="ghost not-phone" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="undo"><Icon name="rotate-ccw" /></button>
 			<button class="ghost not-phone" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="redo"><Icon name="rotate-cw" /></button>
 			<span class="preview">
-				<span class="bar-icon"><Icon name="eye" label={m['creator.preview']()} /></span><span class="bar-word">{m['creator.preview']()}:</span>
+				{m['creator.preview']()}:
 				{#each readerLocales as l}
 					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
-			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}><span class="bar-icon"><Icon name="clock" label={m['creator.history']()} /></span><span class="bar-word">{m['creator.history']()}</span></button>
+			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}>{m['creator.history']()}</button>
 			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet end()}
-			<!-- phones: the slice stepper is left out of the one bar for now (owner 2026-10-11) -->
-			<span class="in-bar">{@render sliceNav('end')}</span>
+			{@render sliceNav('end')}
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-			<button class="in-bar" onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
+			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
 			<LiveChip files={liveFiles} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish"><span class="bar-icon"><Icon name="upload-cloud" label={publishLabel(toon)} /></span><span class="bar-word">{publishLabel(toon)}</span></button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish">{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -1000,7 +1051,7 @@
 		<DocNotices {session} docs={allDocs} />
 
 		<!-- the slice canvas + its inspector = ONE selection region (live on load; the keys act on it) -->
-		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css} style:--sheet-height={sheetRem === null ? null : `${sheetRem}rem`}>
+		<div class="columns" use:region={view.section === 'slice' ? { name: SLICE_REGION, initial: true } : null} class:has-inspector={view.section === 'slice'} class:inspector-max={inspectorMax && view.section === 'slice'} class:sheet-closed={!sheetOpen} bind:this={columnsEl} style:--inspector-width={inspectorSize.css} style:--sheet-height={sheetRem === null ? null : `${sheetRem}rem`}>
 			<!-- Main -->
 			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
 				{#if view.section === 'meta'}
@@ -1117,6 +1168,20 @@
 					onpointercancel={() => (sheetDrag = null)}
 					onkeydown={sheetKey}
 				><span></span></div>
+				<!-- phones (E.10, variant C): the sheet's head = its tabs; closed, only this row shows -->
+				<div class="sheet-tabs">
+					<BarTabs
+						label={m['creator.slice_tab']()}
+						value={sheetOpen ? view.inspectorTab : ''}
+						onchange={(id) => pickSheetTab(id as InspectorTab)}
+						tabs={[
+							{ id: 'layers', icon: 'layers', label: m['creator.layers'](), testid: 'sheet-tab-layers' },
+							{ id: 'audio', icon: 'music', label: m['creator.audio'](), testid: 'sheet-tab-audio' },
+							{ id: 'events', icon: 'zap', label: m['creator.events'](), count: activeSlice.events?.length ?? 0, testid: 'sheet-tab-events' },
+							{ id: 'slice', icon: 'image', label: m['creator.slice_tab'](), testid: 'sheet-tab-slice' }
+						]}
+					/>
+				</div>
 				<SliceInspector
 					{view}
 					doc={activeDoc}
@@ -1153,6 +1218,12 @@
 
 </div>
 
+
+{#snippet phonePreview()}
+	<span class="phone-preview"><Icon name="eye" />{#each readerLocales as l}<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })}>{l}</a>{/each}</span>
+{/snippet}
+{#snippet phoneStatus()}<LiveChip files={liveFiles} />{/snippet}
+{#snippet phoneNote()}<input class="phone-note" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />{/snippet}
 
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
@@ -1303,18 +1374,6 @@
 			display: none;
 		}
 	}
-	.phone-save {
-		position: relative;
-	}
-	.dirty-dot {
-		position: absolute;
-		top: 0.3rem;
-		right: 0.3rem;
-		width: 0.4rem;
-		height: 0.4rem;
-		border-radius: 50%;
-		background: currentColor;
-	}
 	.preview {
 		display: inline-flex;
 		align-items: center;
@@ -1360,8 +1419,9 @@
 			display: none;
 		}
 	}
-	/* phones: the inspector is a sheet below the canvas with a grab handle (BACKLOG 10.50 e) */
-	.sheet-handle {
+	/* phones: the inspector is a sheet below the canvas with a grab handle (BACKLOG 10.50 e); its head = the tabs (E.10) */
+	.sheet-handle,
+	.sheet-tabs {
 		display: none;
 	}
 	@media (max-width: 767px) {
@@ -1393,6 +1453,36 @@
 		.inspector-region :global(.inspector) {
 			padding-top: 0;
 		}
+		.sheet-tabs {
+			position: sticky;
+			top: 0;
+			z-index: 2;
+			display: flex;
+			background: var(--paper);
+			border-bottom: var(--border-width-regular) solid var(--ink);
+		}
+		/* variant C: no grab handle – the tabs open and close the sheet */
+		.sheet-handle {
+			display: none;
+		}
+		/* closed (variant C): the tab row only; the canvas gets the rest */
+		.columns.has-inspector.sheet-closed {
+			grid-template-rows: minmax(0, 1fr) auto;
+		}
+		.sheet-closed .inspector-region {
+			overflow: hidden;
+		}
+		.sheet-closed .inspector-region > :not(.sheet-tabs) {
+			display: none;
+		}
+	}
+	.phone-preview {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.phone-note {
+		width: 10rem;
 	}
 	/* the inspector maximized: it covers the columns (beside or below the canvas), the canvas stays laid out, hidden */
 	.columns.inspector-max .main {

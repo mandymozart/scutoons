@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import type { Snippet } from 'svelte';
-	import { ActionBar, Icon, shellDock, useDock, type DockContent } from '@scutoons/ui';
+	import { ActionBar, Icon, PhoneBar, shellDock, useDock, type DockContent, type PhoneBarItem } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -40,10 +40,13 @@
 		status,
 		dock,
 		dockOpen = $bindable(false),
-		phoneTabs
+		phoneMore = [],
+		phoneSelection = null
 	}: {
-		/** phones: the page's sheet tabs in the one bottom bar (UI-CONCEPTS E.10; the map builder's) */
-		phoneTabs?: Snippet;
+		/** phones: the page's own entries in the bar's "More" group (the map builder's Import) */
+		phoneMore?: PhoneBarItem[];
+		/** phones: the selected object's own row in the bar (UI-CONCEPTS E.10, like CapCut's clip toolbar) */
+		phoneSelection?: { label: string; items: PhoneBarItem[]; onback: () => void } | null;
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
 		title: string;
@@ -101,6 +104,7 @@
 	function togglePanel(next: 'problems' | 'history') {
 		open[next] = !open[next];
 	}
+
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
 		if (validate) {
@@ -133,6 +137,38 @@
 	// accepted warnings ("Looks fine") don't count
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(docs, p)).length);
 
+	/**
+	 * phones (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut): Save · History (undo, redo, versions) · Publish · More
+	 * (problems, the page's own entries, the files' status, the note, the page's actions)
+	 */
+	const phoneItems = $derived<PhoneBarItem[]>([
+		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, disabled: anySaving, run: () => session.saveDraft(), testid: 'phone-save' },
+		{
+			id: 'history',
+			icon: 'clock',
+			label: m['creator.history'](),
+			items: [
+				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc?.canUndo, run: () => undoDoc?.undo(), stay: true, testid: 'phone-undo' },
+				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc?.canRedo, run: () => redoDoc?.redo(), stay: true, testid: 'phone-redo' },
+				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history') }
+			]
+		},
+		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, run: () => session.publishAll(), testid: 'phone-publish' },
+		{
+			id: 'more',
+			icon: 'more-horizontal',
+			label: m['creator.more'](),
+			badge: errorCount || undefined,
+			items: [
+				{ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems') },
+				...phoneMore,
+				{ id: 'status', label: m['creator.status'](), content: phoneStatus },
+				{ id: 'note', label: m['creator.note_label'](), content: phoneNote },
+				...(actions ? [{ id: 'actions', label: m['creator.page_actions'](), content: actions }] : [])
+			]
+		}
+	]);
+
 	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
 	beforeNavigate(leaveGuard(() => anyDirty));
 
@@ -150,32 +186,29 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="meta-page" class:wide class:fill>
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} tabs={phoneTabs}>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet phone()}
-			<!-- phones (UI-CONCEPTS E.10): one bar of icons – undo, redo, save; the rest in ⋯ -->
-			<button class="ghost" aria-label={m['creator.undo']()} title={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="phone-undo"><Icon name="rotate-ccw" /></button>
-			<button class="ghost" aria-label={m['creator.redo']()} title={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="phone-redo"><Icon name="rotate-cw" /></button>
-			<button class:secondary={!anyDirty} class="phone-save" aria-label={m['creator.save_draft']()} title={anyDirty ? m['creator.save_draft']() : m['creator.nothing_to_save']()} onclick={() => session.saveDraft()} disabled={anySaving} data-testid="phone-save"><Icon name="save" />{#if anyDirty}<span class="dirty-dot" aria-hidden="true"></span>{/if}</button>
+			<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
 		{/snippet}
 		{#snippet start()}
-			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} title={m['creator.problems']()} data-testid="problems-toggle">
-				<span class="bar-icon"><Icon name="alert-triangle" /></span><span class="bar-word">{m['creator.problems']()}</span> <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
+			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
+				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 			{@render actions?.()}
 			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost in-bar" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
-			<button class="ghost in-bar" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
-			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}><span class="bar-icon"><Icon name="clock" label={m['creator.history']()} /></span><span class="bar-word">{m['creator.history']()}</span></button>
+			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
+			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
+			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-			<button class="in-bar" class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
+			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
 			</button>
 			<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish"><span class="bar-icon"><Icon name="upload-cloud" label={publishLabel(toon)} /></span><span class="bar-word">{publishLabel(toon)}</span></button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish">{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -193,6 +226,9 @@
 </div>
 
 
+{#snippet phoneStatus()}<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />{/snippet}
+{#snippet phoneNote()}<input class="phone-note" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />{/snippet}
+
 <!-- the History panel, shown in the shell's right dock (useDock) – the Flow and Problems are FlowDock / ProblemsDock -->
 {#snippet sidePanel()}
 	<div class="side-panel">
@@ -209,17 +245,8 @@
 	</div>
 {/snippet}
 <style>
-	.phone-save {
-		position: relative;
-	}
-	.dirty-dot {
-		position: absolute;
-		top: 0.3rem;
-		right: 0.3rem;
-		width: 0.4rem;
-		height: 0.4rem;
-		border-radius: 50%;
-		background: currentColor;
+	.phone-note {
+		width: 10rem;
 	}
 	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here;
 	   --top (the top bar's height) comes from the layout */

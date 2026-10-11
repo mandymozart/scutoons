@@ -428,7 +428,14 @@ left out there). The row scrolls sideways when it does not fit (like CapCut). Th
 phones – the slice stepper only in ⋯ for now ("wenn wir wieder mehr Platz haben vielleicht"). Map: tools strip left
 (select · place · route | reader view · phone frame), zoom strip right (in · out · fit · go to the view), sheet tabs
 Place · Image · Unlock · Reader view (a place) / Map · Start view · Problems (nothing selected); Import in the drawer.
-The draft below is kept as written.
+**Then (owner 2026-10-11, "an CapCut anlehnen"):** the bar is grouped – `PhoneBar` (shared/ui) in the ActionBar's
+`phone`: **Save · History** (undo, redo, versions – "Rückgängig benutze ich selten") **· Publish · More** (problems,
+preview de/en, paste, slice back/on, the files' status, the note; the map: Import) – icon + a small word (the word for
+testing, maybe dropped later); a group replaces the row, ‹ goes back. **The selection bar** (like CapCut's clip
+toolbar): a selected text box / item / event or sound area brings Edit · Duplicate · Copy · Cut · Delete; a place Edit ·
+Image · View (use the canvas's) · Show · Hidden · Delete; a route Edit · Delete; a layer Edit · Show; ‹ deselects. The
+sheet's tabs sit on the sheet (**variant C**): closed it is its tab row only, a tab opens it there, the open tab closes it
+(no grab handle). The draft below is kept as written.
 
 
 Owner: "einen Entwurf … wie man den Karten-Editor in der Mobile View so machen kann, dass man ihn am Handy bedienen kann
