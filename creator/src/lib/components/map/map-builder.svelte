@@ -3,7 +3,9 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import {
+		MAP_MAX_ZOOM,
 		MAP_SOURCE_LANGUAGE,
+		PLACE_ZOOM,
 		characterImage,
 		checkWorldMap,
 		entities,
@@ -208,9 +210,9 @@
 			view.worldWidth = w.width;
 			view.worldHeight = w.height;
 			view.minZoom = 0.25;
-			view.maxZoom = 8;
+			view.maxZoom = MAP_MAX_ZOOM;
 			const focus = selectionPoint();
-			if (focus) view.centerOn(focus, 2);
+			if (focus) view.centerOn(focus, PLACE_ZOOM);
 			else if (w.locations.length) view.fit(w.locations, 80, 3);
 			else view.centerOn({ x: w.width / 2, y: w.height / 2 }, Math.min(1, view.width / w.width));
 		});

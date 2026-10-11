@@ -202,7 +202,12 @@ export function hexCellAt(p: Point): HexCell {
 }
 /** a cell's centre (world units) */
 export const hexCenter = (c: HexCell): Point => ({ x: HEX_R * Math.sqrt(3) * (c.q + c.r / 2), y: HEX_R * 1.5 * c.r });
-export const hexDistance = (a: HexCell, b: HexCell) => (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.q + a.r - b.q - b.r)) / 2;
+/** a cell's six corners (world units, pointy-top) – drawing the grid and a place's footprint */
+export const hexCorners = (c: HexCell): Point[] => {
+	const centre = hexCenter(c);
+	return [0, 1, 2, 3, 4, 5].map((i) => ({ x: centre.x + HEX_R * Math.cos((Math.PI / 180) * (60 * i - 30)), y: centre.y + HEX_R * Math.sin((Math.PI / 180) * (60 * i - 30)) }));
+};
+export const hexDistance =(a: HexCell, b: HexCell) => (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.q + a.r - b.q - b.r)) / 2;
 /** the cells within `rings` of a cell (itself included) */
 export function hexArea(c: HexCell, rings: number): HexCell[] {
 	const out: HexCell[] = [];

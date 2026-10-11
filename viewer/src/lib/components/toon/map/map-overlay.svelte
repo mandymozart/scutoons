@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { MAP_MAX_ZOOM, PLACE_ZOOM, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, PLACE_ZOOM, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -295,6 +295,12 @@
 	const IMAGE_ZOOM = MAP_MAX_ZOOM;
 	const imageBox = (p: ReaderPlace) => placeImageBox(p.image!, IMAGE_ZOOM, 1, p.size);
 	const imageScale = $derived(view.zoom / IMAGE_ZOOM);
+	/** a diorama's hit area: the hex cells its place takes (at IMAGE_ZOOM, around its point) – outside them a tap goes
+	 *  through to what lies behind (owner 2026-10-11) */
+	const hitPath = (p: ReaderPlace) =>
+		placeCells(p)
+			.map((c) => 'M' + hexCorners(c).map((k) => `${((k.x - p.x) * IMAGE_ZOOM).toFixed(1)},${((k.y - p.y) * IMAGE_ZOOM).toFixed(1)}`).join('L') + 'Z')
+			.join('');
 	/** the zoom the files are picked for: updated at rest only (no new downloads mid-gesture) */
 	let restZoom = $state(1);
 	$effect(() => {
@@ -335,9 +341,10 @@
 								{#if p.image.plaster && revealing === p.id}
 									<img class="place-image plaster" src={asset(p.image.plaster)} srcset={placeImageSrcset(p.image.plasterVariants, asset)} sizes={drawnSize(p)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 								{/if}
-								<!-- the diorama opens its place's card too (owner 2026-10-11) -->
-								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-								<img class="place-image" class:waiting={revealing === p.id && !revealShow} onclick={() => select(p)} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								<img class="place-image" class:waiting={revealing === p.id && !revealShow} src={asset(p.image.src)} srcset={placeImageSrcset(p.image.variants, asset)} sizes={drawnSize(p)} alt="" loading="lazy" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
+								<!-- the diorama opens its place's card too (owner 2026-10-11) – on the cells it takes, not its picture's box -->
+								<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+								<svg class="place-hit" aria-hidden="true"><path d={hitPath(p)} onclick={() => select(p)} /></svg>
 								</span>
 							{/if}
 							<button
@@ -500,12 +507,22 @@
 	}
 	.place-image {
 		position: absolute;
-		pointer-events: auto;
-		cursor: pointer;
+		pointer-events: none;
 		height: auto;
 	}
-	.place-image.plaster {
+	.place-hit {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 1px;
+		height: 1px;
+		overflow: visible;
 		pointer-events: none;
+	}
+	.place-hit path {
+		fill: transparent;
+		pointer-events: fill;
+		cursor: pointer;
 	}
 	/* scales the place's images around its point (the .place origin) */
 	.image-scale {

@@ -11,6 +11,10 @@
 		placeSize,
 		hexCellAt,
 		hexCenter,
+		hexCorners,
+		placeCells,
+		snapPlace as snapToGrid,
+		DEFAULT_PLACE_IMAGE_SIZE,
 		HEX_CELL,
 		routePoints,
 		visibleLabels,
@@ -184,6 +188,23 @@
 		return d;
 	});
 
+	// ── a place's footprint (owner 2026-10-11): the cells it takes – shown while it is dragged, while it is selected and,
+	//    with the place tool, where a new one would land; the same cells are its hit area (outside them a click goes through)
+	const cellsPath = (cells: ReturnType<typeof placeCells>, origin: Point) =>
+		cells
+			.map((c) => 'M' + hexCorners(c).map((k) => `${((k.x - origin.x) * view.zoom).toFixed(1)},${((k.y - origin.y) * view.zoom).toFixed(1)}`).join('L') + 'Z')
+			.join('');
+	const footprint = $derived.by(() => {
+		const id = dragging?.kind === 'place' ? dragging.id : tool === 'select' && selection?.kind === 'place' ? selection.id : null;
+		const place = id ? map.locations.find((p) => p.id === id) : null;
+		if (place) return { cells: placeCells(place), preview: false };
+		if (tool === 'place' && hover && !space) {
+			const at = snapToGrid(map, view.toWorld(hover), DEFAULT_PLACE_IMAGE_SIZE);
+			return { cells: placeCells({ ...at, size: DEFAULT_PLACE_IMAGE_SIZE }), preview: true };
+		}
+		return null;
+	});
+
 	let dragMoved = false;
 	function startDrag(e: PointerEvent, target: NonNullable<typeof dragging>) {
 		if (tool !== 'select' || space || e.button !== 0) return;
@@ -304,6 +325,10 @@
 	{#if gridPath}
 		<svg class="hex-grid" aria-hidden="true"><path d={gridPath} /></svg>
 	{/if}
+	{#if footprint}
+		{@const o = view.toScreen({ x: 0, y: 0 })}
+		<svg class="footprint" class:preview={footprint.preview} aria-hidden="true" data-testid="place-footprint"><path transform="translate({o.x} {o.y})" d={cellsPath(footprint.cells, { x: 0, y: 0 })} /></svg>
+	{/if}
 
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
 
@@ -324,15 +349,26 @@
 						{@const box = placeImageBox(p.image, view.zoom, 1, p.size)}
 						<!-- the diorama selects its place too (owner 2026-10-11), with the select tool -->
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-						<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" onclick={() => tool === 'select' && onselect({ kind: 'place', id: p.id })} />
+						<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
 					{:else}
 						<!-- no diorama yet: a dashed outline of one at the place's size (owner 2026-10-11), selectable like the picture -->
 						{@const w = placeSize(p) * view.zoom}
 						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-						<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 * 0.8}px" onclick={() => tool === 'select' && onselect({ kind: 'place', id: p.id })}>
+						<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 * 0.8}px">
 							<path d="M50 6 L94 30 L94 42 L50 66 L6 42 L6 30 Z M6 30 L50 54 L94 30 M50 54 L50 66" />
 						</svg>
 					{/if}
+					<!-- its hit area: the cells it takes, not the picture's box – a picture reaching over a neighbour's cells lets
+					     clicks there through (owner 2026-10-11); dragging it moves the place like the marker -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<svg class="place-hit" aria-hidden="true" data-handle>
+						<path
+							d={cellsPath(placeCells(p), p)}
+							onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
+							onpointermove={dragMove}
+							onpointerup={(e) => dragEnd(e, () => (tool === 'select' ? onselect({ kind: 'place', id: p.id }) : null))}
+						/>
+					</svg>
 					<button
 						class="marker"
 						data-control-exempt="map marker on the canvas"
@@ -431,11 +467,42 @@
 		stroke-opacity: 0.25;
 		stroke-width: 1;
 	}
+	.footprint {
+		position: absolute;
+		z-index: 1; /* over the dioramas: the size must show (owner 2026-10-11) */
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+	.footprint path {
+		fill: var(--primary-yellow, #ffe600);
+		fill-opacity: 0.45;
+		stroke: var(--ink);
+		stroke-width: 1.5;
+	}
+	.footprint.preview path {
+		fill-opacity: 0.3;
+		stroke-dasharray: 4 3;
+	}
+	.place-hit {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 1px;
+		height: 1px;
+		overflow: visible;
+		pointer-events: none;
+	}
+	.place-hit path {
+		fill: transparent;
+		pointer-events: fill;
+		cursor: pointer;
+	}
 	.place-outline {
 		position: absolute;
 		overflow: visible;
-		pointer-events: auto;
-		cursor: pointer;
+		pointer-events: none;
 	}
 	.place-outline path {
 		fill: rgb(255 255 255 / 0.35);
@@ -446,8 +513,7 @@
 	}
 	.place-image {
 		position: absolute;
-		pointer-events: auto;
-		cursor: pointer;
+		pointer-events: none;
 		height: auto;
 	}
 	.marker {
