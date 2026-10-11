@@ -305,6 +305,8 @@
 					{:else}
 						<!-- the logo is the trail's root crumb (the "CREATOR" word went – the app name is in the tab title) -->
 						<Breadcrumbs items={nav.crumbs} label={m['creator.breadcrumb']()} moreLabel={m['creator.breadcrumb_more']()} root={logoCrumb} />
+						<!-- the page's own thing at the end of the trail (the map's toon pill – owner 2026-10-11, desktop like phones) -->
+						{#if nav.crumbEnd}{@render nav.crumbEnd()}{/if}
 						{#if textLanguages.languages.length > 1}
 							<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
 						{/if}

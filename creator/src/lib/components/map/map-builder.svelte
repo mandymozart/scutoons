@@ -638,7 +638,7 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={() => (tool = 'route')}>{m['creator.map_tool_route']()}</button></li>
 		</ul>
-		<p class="phone-only nav-import">
+		<p class="nav-import">
 			<button type="button" class="item add" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()}>
 				<Icon name="upload" size="1.1em" />
 				{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
@@ -654,10 +654,10 @@
 {/snippet}
 
 {#snippet toonChip()}
-	<!-- phones (UI-CONCEPTS E.10, owner 2026-10-11): the toon filter at the right of the crumb row – a chip with the
+	<!-- UI-CONCEPTS E.10 (owner 2026-10-11; desktop too since then): the toon filter at the end of the crumbs – a chip with the
 	     toon's mini avatar (its star), a tap lists the toons -->
 	<span class="toon-chip" {@attach clickOutside(() => (toonMenu = false))}>
-		<button type="button" class="chip-button" aria-haspopup="listbox" aria-expanded={toonMenu} aria-label="{m['creator.map_toon_filter']()}: {toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()}" title={toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()} onclick={() => (toonMenu = !toonMenu)} data-testid="phone-toon-filter">
+		<button type="button" class="chip-button" aria-haspopup="listbox" aria-expanded={toonMenu} aria-label="{m['creator.map_toon_filter']()}: {toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()}" title={toonFilter ? nav.toonName(toonFilter) : m['creator.map_all_toons']()} onclick={() => (toonMenu = !toonMenu)} data-testid="toon-filter">
 			<!-- the pill: the avatar only (owner 2026-10-11); the name is in the list and the label -->
 			{@render avatar(toonFilter)}<Icon name="chevron-down" size="1rem" />
 		</button>
@@ -665,7 +665,7 @@
 			<ul class="toon-menu" role="listbox" aria-label={m['creator.map_toon_filter']()}>
 				{#each [{ id: '', name: m['creator.map_all_toons']() }, ...toons] as t (t.id)}
 					<li>
-						<button type="button" role="option" aria-selected={toonFilter === t.id} class:on={toonFilter === t.id} onclick={() => ((toonFilter = t.id), (toonMenu = false))} data-testid="phone-toon-{t.id || 'all'}">
+						<button type="button" role="option" aria-selected={toonFilter === t.id} class:on={toonFilter === t.id} onclick={() => ((toonFilter = t.id), (toonMenu = false))} data-testid="toon-{t.id || 'all'}">
 							{@render avatar(t.id)}<span>{t.name}</span>
 						</button>
 					</li>
@@ -680,48 +680,12 @@
 <MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" {phoneMore} {phoneSelection}>
 	{#if map}
 		<div class="builder" data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
-			<div class="toolbar" role="toolbar" aria-label={m['creator.map']()}>
-				<div class="group" role="radiogroup">
-					<!-- icons for the tools (DESIGN.md "Icons": Feather, label + shortcut in the tooltip) -->
-					{#each [['select', m['creator.map_tool_select'](), 'V', 'mouse-pointer'], ['place', m['creator.map_tool_place'](), 'P', 'map-pin'], ['route', m['creator.map_tool_route'](), 'R', 'share-2']] as [id, label, key, icon] (id)}
-						<button type="button" class="tool icon" class:on={tool === id} role="radio" aria-checked={tool === id} aria-label="{label} ({key})" title="{label} ({key})" onclick={() => (tool = id as MapTool)} data-testid="tool-{id}"><Icon name={icon} /></button>
-					{/each}
-				</div>
-				<div class="group chips">
-					<button type="button" class="chip" class:on={!toonFilter} onclick={() => (toonFilter = '')} data-testid="filter-all">{m['creator.map_all_toons']()}</button>
-					{#each toons as t (t.id)}
-						<button type="button" class="chip" class:on={toonFilter === t.id} onclick={() => (toonFilter = toonFilter === t.id ? '' : t.id)} data-testid="filter-{t.id}">{t.name}</button>
-					{/each}
-				</div>
-				<div class="group">
-					<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()} data-testid="map-import">
-						{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
-					</button>
-					<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
-					{#if importSummary}<span class="sc-caption" role="status">{importSummary}</span>{/if}
-				</div>
-				<div class="group">
-					<label class="check"><input type="checkbox" bind:checked={readerView} data-testid="reader-view" /> {m['creator.map_reader_view']()}</label>
-					<label class="check"><input type="checkbox" bind:checked={phoneFrame} data-testid="phone-frame" /> {m['creator.map_phone_frame']()}</label>
-				</div>
-				{#if toonFilter}
-					<div class="group start" title={m['creator.map_start_view_hint']()} data-testid="start-view">
-						<span class="hint">
-							{startView
-								? m['creator.map_start_view_value']({ toon: nav.toonName(toonFilter), x: Math.round(startView.center.x), y: Math.round(startView.center.y), zoom: zoomPercent(startView.zoom) })
-								: m['creator.map_start_view_none']({ toon: nav.toonName(toonFilter) })}
-						</span>
-						<button type="button" class="ghost" onclick={setStartView} disabled={!entryDoc} data-testid="start-view-set">{m['creator.map_start_view_set']()}</button>
-						{#if startView}<button type="button" class="ghost" onclick={gotoStartView} data-testid="start-view-go">{m['creator.map_start_view_go']()}</button>{/if}
-					</div>
-				{/if}
-				<!-- show everything; zooming itself is the wheel / two fingers (owner 2026-10-11: no zoom in / out buttons) -->
-				<div class="zoom sc-seg" role="group" aria-label={m['creator.field_map_zoom']()}>
-					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
-				</div>
-			</div>
+			<!-- the tools are strips on the canvas at every width (owner 2026-10-11: "in Desktop platzeffizienter – Toons und
+			     Tools wie auf Mobile"); the toon filter is the pill in the header, Import sits under the lists -->
+			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
+			{#if importSummary}<p class="sc-caption import-summary" role="status">{importSummary}</p>{/if}
 			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
-			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.phone-only'))}>
+			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.strip'))}>
 				<MapCanvas
 					bind:this={canvas}
 					{map}
@@ -742,16 +706,16 @@
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
 				/>
-				<!-- phones (UI-CONCEPTS E.10): the canvas gets the screen; tools left, fit + go to the view right (zoom: two fingers) -->
-				<div class="phone-only strip tools" class:sheet-up={sheetOpen} role="toolbar" aria-label={m['creator.map']()}>
-					{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer'], ['place', m['creator.map_tool_place'](), 'map-pin'], ['route', m['creator.map_tool_route'](), 'share-2']] as [id, label, icon] (id)}
-						<button type="button" class:on={tool === id} aria-pressed={tool === id} aria-label={label} title={label} onclick={() => (tool = id as MapTool)} data-testid="phone-tool-{id}"><Icon name={icon} /></button>
+				<!-- UI-CONCEPTS E.10, on every width since 2026-10-11: tools left, fit + go to the view right (zoom: wheel / two fingers) -->
+				<div class="strip tools" class:sheet-up={sheetOpen} role="toolbar" aria-label={m['creator.map']()}>
+					{#each [['select', m['creator.map_tool_select'](), 'mouse-pointer', 'V'], ['place', m['creator.map_tool_place'](), 'map-pin', 'P'], ['route', m['creator.map_tool_route'](), 'share-2', 'R']] as [id, label, icon, key] (id)}
+						<button type="button" class:on={tool === id} aria-pressed={tool === id} aria-label="{label} ({key})" title="{label} ({key})" onclick={() => (tool = id as MapTool)} data-testid="tool-{id}"><Icon name={icon} /></button>
 					{/each}
 					<span class="sep"></span>
-					<button type="button" class:on={readerView} aria-pressed={readerView} aria-label={m['creator.map_reader_view']()} title={m['creator.map_reader_view']()} onclick={() => (readerView = !readerView)}><Icon name="eye" /></button>
-					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)}><Icon name="smartphone" /></button>
+					<button type="button" class:on={readerView} aria-pressed={readerView} aria-label={m['creator.map_reader_view']()} title={m['creator.map_reader_view']()} onclick={() => (readerView = !readerView)} data-testid="reader-view"><Icon name="eye" /></button>
+					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)} data-testid="phone-frame"><Icon name="smartphone" /></button>
 				</div>
-				<div class="phone-only strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
+				<div class="strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
 					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 					<button type="button" onclick={gotoView} disabled={!placeFrame && !startView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()}><Icon name="crosshair" /></button>
 				</div>
@@ -774,7 +738,7 @@
 						{#if phone}<div class="sheet-lists">{@render mapNav()}</div>{/if}
 					</div>
 					{#if toonFilter}
-						<section class="phone-only tab start-tab" data-tab="start" data-testid="phone-start-view">
+						<section class="tab start-tab" data-tab="start" data-testid="start-view">
 							<h3>{m['creator.map_sheet_start']()}</h3>
 							<p class="hint">
 								{startView
@@ -782,8 +746,8 @@
 									: m['creator.map_start_view_none']({ toon: nav.toonName(toonFilter) })}
 							</p>
 							<div class="start-row">
-								<button type="button" class="secondary" onclick={setStartView} disabled={!entryDoc}>{m['creator.map_start_view_set']()}</button>
-								{#if startView}<button type="button" class="ghost" onclick={gotoStartView}>{m['creator.map_start_view_go']()}</button>{/if}
+								<button type="button" class="secondary" onclick={setStartView} disabled={!entryDoc} data-testid="start-view-set">{m['creator.map_start_view_set']()}</button>
+								{#if startView}<button type="button" class="ghost" onclick={gotoStartView} data-testid="start-view-go">{m['creator.map_start_view_go']()}</button>{/if}
 							</div>
 						</section>
 					{/if}
@@ -814,55 +778,10 @@
 <style>
 	.builder {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 340px;
-		grid-template-rows: auto minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1fr) 16rem;
+		grid-template-rows: minmax(0, 1fr);
 		height: 100%;
 		min-height: 24rem;
-	}
-	.toolbar {
-		grid-column: 1 / -1;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem 1rem;
-		align-items: center;
-		padding: 0.4rem 0.75rem;
-		border-bottom: 1px solid var(--border-subtle);
-	}
-	.group {
-		display: flex;
-		gap: 0.25rem;
-		align-items: center;
-		flex-wrap: wrap;
-	}
-	.tool,
-	.chip {
-		font: inherit;
-		box-sizing: border-box;
-		min-height: var(--control-height);
-		padding: 0 0.55rem;
-		border: var(--border-width-regular) solid var(--border-muted);
-		background: var(--paper);
-		color: var(--ink);
-		cursor: pointer;
-	}
-	.tool.icon {
-		display: inline-flex;
-		align-items: center;
-		padding: 0 0.4rem;
-	}
-	.tool.on,
-	.chip.on {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
-	}
-	.check {
-		display: flex;
-		gap: 0.3rem;
-		align-items: center;
-	}
-	.zoom {
-		align-self: flex-start;
 	}
 	.stage {
 		position: relative;
@@ -910,7 +829,7 @@
 	@media (max-width: 1100px) {
 		.builder {
 			grid-template-columns: minmax(0, 1fr);
-			grid-template-rows: auto minmax(22rem, 1fr) auto;
+			grid-template-rows: minmax(22rem, 1fr) auto;
 		}
 		.stage {
 			border-right: 0;
@@ -918,6 +837,61 @@
 		}
 	}
 
+	/* the canvas strips (every width): square, grouped controls (DESIGN.md "Round vs square") */
+	.strip {
+		position: absolute;
+		z-index: 2;
+		flex-direction: column;
+		background: var(--paper);
+		border: var(--border-width-regular) solid var(--ink);
+	}
+	.strip.tools {
+		top: 0.6rem;
+		left: 0.6rem;
+	}
+	.strip.zooms {
+		right: 0.6rem;
+		bottom: 0.6rem;
+	}
+	.strip button {
+		all: unset;
+		box-sizing: border-box;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--control-height);
+		height: var(--control-height);
+		color: var(--ink);
+		cursor: pointer;
+	}
+	.strip button.on {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.strip button:disabled {
+		opacity: 0.35;
+		cursor: default;
+	}
+	.strip .sep {
+		height: var(--border-width-regular);
+		background: var(--ink);
+	}
+	.start-tab {
+		padding: 0 0.75rem 1rem;
+	}
+	.start-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+	.nav-import {
+		margin: 0.5rem 0 0;
+	}
+	.import-summary {
+		grid-column: 1 / -1;
+		margin: 0;
+		padding: 0.25rem 0.75rem;
+	}
 	/* ── phones (UI-CONCEPTS E.10): the canvas gets the screen, the properties are a sheet from below ── */
 	.phone-only,
 	.tab.phone-only {
@@ -931,9 +905,6 @@
 			grid-template-rows: minmax(0, 1fr) auto;
 			min-height: 0;
 		}
-		.toolbar {
-			display: none;
-		}
 		.phone-only {
 			display: flex;
 		}
@@ -942,44 +913,6 @@
 		}
 		.stage {
 			border-bottom: 0;
-		}
-		.strip {
-			position: absolute;
-			z-index: 2;
-			flex-direction: column;
-			background: var(--paper);
-			border: var(--border-width-regular) solid var(--ink);
-		}
-		.strip.tools {
-			top: 0.6rem;
-			left: 0.6rem;
-		}
-		.strip.zooms {
-			right: 0.6rem;
-			bottom: 0.6rem;
-		}
-		.strip button {
-			all: unset;
-			box-sizing: border-box;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 2.75rem;
-			height: 2.75rem;
-			color: var(--ink);
-			cursor: pointer;
-		}
-		.strip button.on {
-			background: var(--ink);
-			color: var(--paper);
-		}
-		.strip button:disabled {
-			opacity: 0.35;
-			cursor: default;
-		}
-		.strip .sep {
-			height: var(--border-width-regular);
-			background: var(--ink);
 		}
 		.side {
 			max-height: 2.75rem;
@@ -1032,17 +965,6 @@
 		.side[data-sheet-tab='map'] :global([data-tab]:not([data-tab='map'])),
 		.side[data-sheet-tab='start'] :global([data-tab]:not([data-tab='start'])) {
 			display: none;
-		}
-		.start-tab {
-			padding: 0 0.75rem 1rem;
-		}
-		.start-row {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 0.4rem;
-		}
-		.nav-import {
-			margin: 0.5rem 0 0;
 		}
 	}
 

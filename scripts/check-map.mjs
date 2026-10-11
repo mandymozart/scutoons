@@ -166,6 +166,11 @@ async function saveDraft() {
 	await click('[data-testid="save-draft"]');
 	if (await waitFor(`document.querySelector('dialog.sc-dialog[open] button.primary') ? true : null`, 3000)) await click('dialog.sc-dialog[open] button.primary');
 }
+/** the toon filter: the pill at the end of the crumbs (owner 2026-10-11: like on phones) – `all` = every toon */
+async function pickToon(t) {
+	await click('[data-testid="toon-filter"]');
+	await click(`[data-testid="toon-${t}"]`);
+}
 async function clickAt(x, y, clickCount = 1) { await mouse('mousePressed', x, y, { clickCount }); await mouse('mouseReleased', x, y, { clickCount }); }
 async function drag(from, to, steps = 8) {
 	await mouse('mousePressed', from.x, from.y);
@@ -537,12 +542,12 @@ async function builder() {
 	const seas = {};
 	await click('[data-testid="reader-view"]');
 	for (const t of ['catpope', 'toptoy', 'yellowmouse']) {
-		await click(`[data-testid="filter-${t}"]`);
+		await pickToon(t);
 		await sleep(150);
 		seas[t] = await evaluate(`getComputedStyle(document.querySelector('[data-testid="map-canvas"]')).backgroundColor`);
 		await shot(`builder-4-sea-${t}`);
 	}
-	await click('[data-testid="filter-all"]');
+	await pickToon('all');
 	const neutral = await evaluate(`getComputedStyle(document.querySelector('[data-testid="map-canvas"]')).backgroundColor`);
 	const wrong = Object.entries(seas).filter(([t, bg]) => colorOf(t) && bg !== (colorOf(t).startsWith('#') ? rgb(colorOf(t)) : bg)).map(([t, bg]) => `${t}: ${bg} ≠ ${colorOf(t)}`);
 	report(`reader view: the sea is the filtered toon's colour (${Object.keys(seas).map((t) => `${t} ${colorOf(t)}`).join(', ')}), neon green #00ff00 without a filter`, !wrong.length && neutral === rgb('#00ff00') ? [] : [...wrong, `neutral ${neutral}`]);
@@ -562,7 +567,7 @@ async function builder() {
 	await waitFor(`document.querySelector('[data-testid="map-canvas"]') ? true : null`, 10000);
 
 	// 15. the toon's start view: set in the builder from the current view (toon filter), stored in the toon entry
-	await click('[data-testid="filter-catpope"]');
+	await pickToon('catpope');
 	await waitFor(`document.querySelector('[data-testid="start-view-set"]:not([disabled])') ? true : null`, 8000);
 	const canvasBox = await evaluate(`(() => { const b = document.querySelector('[data-testid="map-canvas"]').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
 	await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: canvasBox.x, y: canvasBox.y, deltaX: 0, deltaY: -300 });
