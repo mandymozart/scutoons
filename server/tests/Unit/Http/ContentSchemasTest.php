@@ -216,5 +216,9 @@ final class ContentSchemasTest extends TestCase
         self::assertSame(200, $pub->getStatusCode(), (string) $pub->getBody());
         self::assertSame(['map', 'place:b', 'place:a'], array_column($read('published'), 'key'));
         self::assertSame('A', $read('published')[2]['content']['name']['de']);
+
+        // the whole map in one document (an older client): refused, not silently ignored
+        $old = $this->request('PUT', '/api/entities/map', $auth, (string) json_encode(['content' => $map + ['locations' => [['id' => 'a'] + $place('A', 1)]]]));
+        self::assertSame(422, $old->getStatusCode());
     }
 }

@@ -89,6 +89,12 @@ final class ContentSchemas
     /** Throws 422 invalid_content { problems } when $content doesn't fit its kind (or a text's expression is broken) */
     public function guard(EntityKey $key, mixed $content): void
     {
+        // the world map's places and routes are documents of their own (agents/MAP-DOCUMENTS.md): an older client that
+        // saves the whole map into `map` would be ignored silently – refused instead
+        if ($key->kind === 'map' && $content instanceof \stdClass && (property_exists($content, 'locations') || property_exists($content, 'routes'))) {
+            throw new ApiError(422, 'invalid_content', 'The map document holds only its settings (width, height, layers): every place is place:<id>, every route route:<id>.',
+                ['problems' => ['/locations: the places are documents of their own (place:<id>)']]);
+        }
         $problems = $this->problemsOf($key, $content);
         if ($problems) {
             $what = str_contains($problems[0], '(expr:') ? "has a text that can't be shown" : "doesn't fit its type";
