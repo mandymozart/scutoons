@@ -226,6 +226,18 @@ test('tiles and culling: the level for a zoom, the tiles on screen, the point in
 	assert.deepEqual(bad({ path: 'm/tiles', levels: 12 }), ['layers.0.tiles']);
 });
 
+test('fog of war: the unlocked places, the layer field (owner 2026-10-12, MAP.md §8.9)', async () => {
+	const { fogPlaces, checkWorldMap } = await import('../src/map.ts');
+	const places = [{ id: 'a', x: 1, y: 1 }, { id: 'b', x: 2, y: 2 }, { id: 'c', x: 3, y: 3 }];
+	assert.deepEqual(fogPlaces(places, { places: { b: { unlocked: 1 }, zz: { unlocked: 2 } } }).map((p) => p.id), ['b'], 'only unlocked places of the map');
+	assert.deepEqual(fogPlaces(places, { places: {} }), [], 'a fresh reader: nothing painted');
+	const bad = (fog: unknown) => checkWorldMap({ width: 10, height: 10, layers: [{ id: 'p', image: 'a.webp', fog } as any], locations: [], routes: [] }).map((p) => p.path.join('.'));
+	assert.deepEqual(bad(undefined), []);
+	assert.deepEqual(bad({ radius: 40 }), []);
+	assert.deepEqual(bad({ radius: 0 }), ['layers.0.fog']);
+	assert.deepEqual(bad(40), ['layers.0.fog'], 'an object, not a bare number');
+});
+
 test('resetting the map: the merge drops what came before the reset – also from a device that missed it (owner 2026-10-11)', async () => {
 	const { mergeMapState, resetMapState } = await import('../src/map.ts');
 	const old = { places: { apartment: { unlocked: 100, seen: 110 }, cathedral: { unlocked: 200 } }, routes: { season1: { revealed: 3 } }, positions: { catpope: { location: 'apartment', at: 120 } } };

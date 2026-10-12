@@ -1002,6 +1002,8 @@
 		"map_insert_hint": "Klick auf die Linie des gewählten Wegs fügt einen freien Punkt ein; Punkte lassen sich ziehen.",
 		"map_move_shared_place": "„{name}“ ist ein Ort (auch auf anderen Wegen) – verschieben?",
 		"map_layer_image": "Bild (CDN-Pfad)",
+		"map_layer_fog": "Fog of War: nur im Umkreis freigeschalteter Orte (Welteinheiten, leer = überall)",
+		"map_layer_fog_hint": "Für die bemalte Ebene über dem Gipsmodell – der Reader zeigt sie nur dort, wo man war; hier im Builder ganz.",
 		"map_layer_zoom": "sichtbar ab / bis Zoom",
 		"map_layer_show": "im Builder zeigen",
 		"map_delete_layer": "Ebene löschen",

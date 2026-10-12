@@ -46,8 +46,8 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   müssen wesentlich kleiner sein"). Built: world-unit size, hex grid (`snapPlace`), the ÷8 scale (10.67). Check what is
   left: (2) the image selects the place, (3) a dashed outline for a place without an image. (4) is built: route gates (MAP.md §8.5c).
 - [ ] 10.63 **Map rendering: culling, a spatial index, tiles** (research 2026-10-11) – when needed: viewport culling with
-  rbush / quadtree, the terrain as WebP for the usual zooms, a tile pyramid for deep zoom. Measure first on a mid-range
-  Android (×5 / ×10 / ×25 places).
+  rbush / quadtree; the terrain tiles (levels 1–3) are built (MAP.md §8.9). Measure first on a mid-range Android
+  (×5 / ×10 / ×25 places).
 - [ ] 10.73 **Map M3–M5** (MAP.md §8.6): the events `revealRoute`, `travel`, `setPosition`, `focusMap`,
   `runMapEvents`; the event pickers, "Used in", the server's 409 `in_use`; the sandbox story.
 

@@ -882,6 +882,53 @@ builder. Builder: the selected place shows one handle per gate its routes use (h
 "in" / "out"), dragging one sets the offset (a tenth of a unit); the place form's "Route gates" says computed / set and
 "Back to computed" drops `gates`. One entry and one exit per place – every route through it uses them.
 
+### 8.9 The painted map, the plaster layer, fog of war (owner 2026-10-12)
+
+Owner: "Ich brauche die Kacheln in demselben Stil, wie wir ihn definiert haben, und auf jeden Fall auch in derselben Form
+im Gipsmodell-Style – am Anfang ist erstmal nichts drauf, und dann, wie ein Fog of War, gewinnt die Karte da, wo man war,
+in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
+
+- **Painted layer** – `scripts/map-paint.mjs` (Luma `image_edit`, uni-1-max, the `abstract` look, the zones of
+  `scripts/map-zones.json`): the terrain SVG is the layout (white, no sea – the SVG's land mask cuts the real coast
+  afterwards), one region of 256 world units every 192 (neighbours share 64; the painted strips of the neighbours above /
+  left go into the source so the seams continue), 8 px per unit. Lessons (2026-10-11): no reference image (Luma copies its
+  layout), ONE continuous landscape, colour first, the SCUTOONS look in words. Mostly-empty regions: Luma invents
+  outlines in the white – harmless, the land mask removes them.
+- **Plaster layer** – the SAME shapes unpainted, derived from the painted mosaic (`--plaster`, free and exactly
+  aligned): per pixel the fine relief (luminance minus its blur) over a warm plaster white, a little broad tone, the
+  alpha unchanged. A Luma plaster pass (~$6) only if this looks poor (owner decision).
+- **Tiles** – `--assemble --plaster --levels 3`: `media/<out>[-plaster].webp` (1 px / unit, the base and fallback) +
+  `media/<tiles>[-plaster]/<z>/<x>_<y>.webp` (levels 1–3, 256 px; level 3 = the mosaic's 8 px / unit).
+- **Data** – `MapLayer.fog?: { radius }` (world units): the reader draws such a layer only within `radius` of the places
+  the reader has unlocked (`fogPlaces` = the save game's `map.places`, every toon – one universe), soft beyond (fades
+  out over `FOG_FEATHER` × radius). Layer order in the map: terrain (lines) · plaster · painted (`fog`). Validation:
+  `fog` must be `{ radius }` (1–1024).
+- **Reader** – shared `MapTerrain` (`fog` prop = the unlocked places' points; null in the builder = whole): a fog layer
+  gets ONE CSS mask (`shared/reader/src/map/fog-mask.ts`): a small alpha image in world proportions (½ px per unit, max
+  2048 px) of soft discs – one disc + 5 lobes per place, so the edge looks like a cloud, not a compass circle – inside
+  the camera transform, so it scales with the map and is drawn again only when the places change (never per frame, never
+  per tile). A place that joins the list later grows its disc (~1.6 s, CSS radial-gradient mask layers over the image,
+  then folded into the image); reduced motion: no growing. The viewer (`map-overlay.svelte`) passes the unlocked places
+  except the new (unseen) ones – a new place's surroundings get their colour with its reveal (`revealShow`) or its
+  painting in place, together with its diorama.
+- **Builder** – both layers with the eyes (the plaster under the painted one); the layer form has the fog radius.
+- **Generated 2026-10-12** (all 59 land regions, uni-1-max; the owner: "Sample regions look amazing"; then the long island
+  east of the island world – Bergdorf, Bergpfad, Kloster, Erzberg – got its own zone "lowlands → HUGE mountains" (owner:
+  "this is what I meant with huge mountains") and r_7_1–r_7_3 were repainted; ≈ $6.50 in all). The regions:
+  `logs/map-paint/abstract/` of the worktree (not in git).
+- **Naming (owner 2026-10-12: "a standardized file naming pattern – versions possible, but within a version we can replace
+  tiles"):** `catpope/map/terrain/<layer>/v<n>/world.webp` (level 0, 1 px / unit) + `…/v<n>/<z>/<x>_<y>.webp`
+  (`--version n`, layers `painted` / `plaster`). A fix within a version (a region repainted) replaces its files:
+  `php bin/console assets:sync --source-root=../media --prefix=catpope/map/terrain/ --apply --overwrite --hash` (purges
+  the CDN per file; browsers may keep an old tile until their cache expires). A new look = a new version (a new draft).
+  The first upload's dated folders `catpope/map/painted/terrain-2026-10-12*` / `catpope/map/tiles/painted-2026-10-12*`
+  are unused now (delete only with the owner's go).
+- **Repainting a region in a new look:** `--only x_y --fresh` (without the neighbours' strips – with all eight painted
+  neighbours as strips Luma kept the old look), then `--assemble --plaster`. The neighbours are sent to the page one by
+  one (one call with eight ~10 MB PNGs hung CDP for hours).
+- Production map draft v276: layers terrain · plaster · painted (`fog: { radius: 24 }`, still the dated paths – switch to v1, see HANDOVER) – publish only after the code deploy
+  (an older viewer ignores `fog` and shows the painted layer everywhere).
+
 ### 8.6 Not built yet
 
 M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the
