@@ -75,6 +75,10 @@
 
 	const params = page.url.searchParams;
 	let selected = $state<string>(params.get('id') ?? '');
+	// the History panel follows the selection (owner D5): every character is a document of its own
+	$effect(() => {
+		registry.selectedKey = selected ? `character:${selected}` : null;
+	});
 	let persona = $state<string>(params.get('persona') ?? REGULAR_PERSONA);
 	let look = $state<string>(params.get('look') ?? '');
 	let tab = $state<string>(['moods', 'wanted'].includes(params.get('tab') ?? '') ? (params.get('tab') as string) : 'characters');

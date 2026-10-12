@@ -152,6 +152,10 @@
 
 	let tool = $state<MapTool>('select');
 	let selection = $state<MapSelection>(null);
+	// the History panel follows the selection (owner D5): a place / route is a document of its own
+	$effect(() => {
+		doc.selectedKey = selection?.kind === 'place' ? `place:${selection.id}` : selection?.kind === 'route' ? `route:${selection.id}` : null;
+	});
 	let toonFilter = $state('');
 	let readerView = $state(false);
 	let phoneFrame = $state(false);
