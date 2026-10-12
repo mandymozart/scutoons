@@ -236,6 +236,16 @@ final class CatalogDocsTest extends TestCase
         self::assertSame(200, $this->request('POST', '/api/entities/item:cup/publish', $this->bearer($writer), '{}')->getStatusCode());
         $this->put($writer, 'item:mug', self::item('mug', ['edition_id' => '1_catpope_dago', 'name' => ['de' => 'Becher', 'en' => 'Mug']]));
         self::assertSame(200, $this->request('POST', '/api/entities/item:mug/publish', $this->bearer($writer), '{}')->getStatusCode(), '* covers catpope');
+        // "Submits for review" on ANY toon covers cross-toon entries too, non-physical ones included (owner 2026-10-12);
+        // their requests go to the `*` reviewers
+        $this->put($writer, 'item:fork', self::item('fork', ['toon' => null]));
+        $denied = $this->request('POST', '/api/entities/item:fork/publish', $this->bearer($writer), '{}');
+        self::assertSame([403, 'review_required'], [$denied->getStatusCode(), self::json($denied)['error'] ?? null]);
+        $boss = $this->creator('boss@example.com');
+        $reviews->setRule((string) $boss['id'], Reviews::ALL_TOONS, Reviews::REVIEWER, true);
+        self::assertSame(['boss@example.com'], self::json($this->request('POST', '/api/reviews', $this->bearer($writer), '{"items":[{"key":"item:fork"}]}'))['reviewers']);
+        $reviews->setRule($id, 'catpope', Reviews::NEEDS_REVIEW, false);
+        self::assertSame(200, $this->request('POST', '/api/entities/item:fork/publish', $this->bearer($writer), '{}')->getStatusCode(), 'no restriction left');
     }
 
     public function testNeedsReviewAppliesToTheCatalogOfThatToon(): void
@@ -247,9 +257,11 @@ final class CatalogDocsTest extends TestCase
         $reviews->setRule((string) $editor['id'], 'catpope', Reviews::REVIEWER, true);
         $this->put($writer, 'item:spoon', self::item('spoon'));
         self::assertSame(403, $this->request('POST', '/api/entities/item:spoon/publish', $this->bearer($writer), '{}')->getStatusCode());
-        // another toon's / a cross-toon item is not catpope's
+        // another toon's item is not catpope's; a cross-toon one acts on catpope too (owner 2026-10-12)
+        $this->put($writer, 'item:knife', self::item('knife', ['toon' => 'yellowmouse']));
+        self::assertSame(200, $this->request('POST', '/api/entities/item:knife/publish', $this->bearer($writer), '{}')->getStatusCode());
         $this->put($writer, 'item:fork', self::item('fork', ['toon' => null]));
-        self::assertSame(200, $this->request('POST', '/api/entities/item:fork/publish', $this->bearer($writer), '{}')->getStatusCode());
+        self::assertSame(403, $this->request('POST', '/api/entities/item:fork/publish', $this->bearer($writer), '{}')->getStatusCode());
         $sent = self::json($this->request('POST', '/api/reviews', $this->bearer($writer), '{"items":[{"key":"item:spoon"}]}'));
         self::assertSame(['editor@example.com'], $sent['reviewers']);
         self::assertSame(200, $this->request('POST', '/api/reviews/publish', $this->bearer($editor), json_encode(['ids' => [$sent['reviews'][0]['id']]]) ?: '')->getStatusCode());

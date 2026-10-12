@@ -672,7 +672,7 @@ it deletes the table entry (`409 in_use` while anything uses it); `entries[].rem
 physical, toons, content }] }`. An admin write to the table (`/admin/catalog/…`, undo, relink) becomes the entry's
 published version; a delete leaves it unpublished.
 
-Reviews apply to them with the entry's toon (`toon` field; a recipe: its output item's; none = `*` – only the `*` rules).
+Reviews apply to them with the entry's toon (`toon` field; a recipe: its output item's; none = `*` – only the `*` rules grant, but `needs_review` on ANY toon restricts a cross-toon entry too).
 A **physical** change – the entry before or after is an item with `kind: physical` / `edition_id` / `product` (a
 variant's too) / `max_world`, a recipe whose output is such an item, an album with `owners` access, any product or
 edition; a change readers don't see (an accepted warning) is not – is published only by an account with the third rule

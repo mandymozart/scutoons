@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-12 · catalog · "Submits for review" on ANY toon also covers cross-toon (`toon: null`) catalog changes, non-physical ones included (refines D3: grants still only by `*` rules); their requests go to `*` reviewers · owner via the coordinator · → Domain\Content\Reviews::policy, research/CATALOG-IN-CREATOR.md
 - 2026-10-12 · admin · The review rules read as what the account does: "Reviews publishing requests" (reviewer) and "Publishes physical items" (physical) grant, "Submits for review" (needs_review) restricts; stored ids unchanged · "Reviews publishing requests – the other one should be [like that]" · → admin Users → Reviews, Domain\Content\Reviews
 - 2026-10-12 · catalog · D6 changed: the admin's items / recipes / albums / products / editions tabs go now (not read-only first); the admin's catalog page keeps the "edited in the creator" note + link and "Shop & codes" (toons, permissions, code types, meta; featured on Homepage) · owner via the coordinator · → research/CATALOG-IN-CREATOR.md (D6)
 - 2026-10-12 · catalog · D9: a physical recipe input is only checked for being there and can be used again; the output's `max` limits it · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D9), InventoryService::craft

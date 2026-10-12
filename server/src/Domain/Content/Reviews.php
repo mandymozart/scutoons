@@ -29,7 +29,8 @@ use stdClass;
  * token) get the same answer.
  *
  * Catalog documents (`item:<id>` …, CatalogDocs – agents/CATALOG-IN-CREATOR.md) are reviewed by the same rules: their
- * toon is the entry's `toon` field (a recipe: its output item's; none = `*`, only the `*` rules apply). A PHYSICAL change
+ * toon is the entry's `toon` field (a recipe: its output item's; none = `*`: only the `*` rules grant – but "Submits
+ * for review" on ANY toon restricts it, owner 2026-10-12: a cross-toon entry acts on every toon). A PHYSICAL change
  * (CatalogDocs::isPhysical – an item with kind physical / edition / product / max_world, a recipe making one, an album
  * for owners, products, editions) is published only by an account with the rule
  *   physical      reviews physical catalog changes of that toon: publishes them, decides their submits
@@ -79,7 +80,10 @@ final class Reviews
         $toons = $this->docs->toons($key, $data);
         $physical = $this->docs->isPhysical($key, $data);
         $has = fn(string $rule) => array_filter($toons, fn(string $t) => $this->hasRule($userId, $t, $rule));
-        $review = $physical ? count($has(self::PHYSICAL)) < count($toons) : $has(self::NEEDS_REVIEW) !== [];
+        // a cross-toon entry acts on every toon: "Submits for review" on ANY toon covers it too (owner 2026-10-12)
+        $restricted = $has(self::NEEDS_REVIEW) !== [] || (in_array(self::ALL_TOONS, $toons, true)
+            && $this->db->value('SELECT 1 FROM content_review_rules WHERE user_id = ? AND rule = ? LIMIT 1', [$userId, self::NEEDS_REVIEW]) !== null);
+        $review = $physical ? count($has(self::PHYSICAL)) < count($toons) : $restricted;
         return ['review' => $review, 'physical' => $physical, 'toons' => $toons];
     }
 

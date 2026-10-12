@@ -21,6 +21,7 @@ Branch `claude/quizzical-goldstine-44c6a4` (worktree `.claude/worktrees/quizzica
   items" (physical) grant, "Submits for review" (needs_review) restricts; hints per rule; the server's messages use them.
 - Also: batch saves now check catalog documents like a single save; "Looks fine" for catalog warnings in the creator.
 - D1, D3, D4, D7, D8, D9: as built (no change).
+- D3 refined (owner 2026-10-12): "Submits for review" on ANY toon also covers cross-toon entries (non-physical too); the item order editor: not now.
 
 ### What works
 
