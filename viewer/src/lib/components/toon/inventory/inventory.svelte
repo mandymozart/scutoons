@@ -20,9 +20,8 @@
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
 	const ui = getItemsUiContext();
-	// one slide-out, two top buttons (owner 2026-10-03): "inventory" opens it on Items, "avatar" on the Avatar tab
-	const inventoryVisible = $derived(nav.isOpen('inventory') || nav.isOpen('avatar'));
-	const tab = $derived<'items' | 'avatar'>(nav.isOpen('avatar') ? 'avatar' : 'items');
+	// two top buttons, two panels (owner 2026-10-12: avatar and inventory "auf eigene Panels", the tab buttons in the
+	// shared panel out – it was 2026-10-03's one slide-out with Items / Avatar tabs)
 
 	let selected = $state<Entry | null>(null);
 	let combineWith = $state<Entry | null>(null);
@@ -103,57 +102,43 @@
 		nav.toggleOverlay(overlay);
 	}
 
-	function showTab(overlay: 'inventory' | 'avatar') {
-		reset();
-		nav.openOverlay(overlay);
-	}
 </script>
 
 <button class="top-toggle inventory-toggle" onclick={(e) => toggle(e, 'inventory')} aria-label={m['items.tab_items']()} aria-pressed={nav.isOpen('inventory')} aria-controls="inventory-panel">
 	<img src={inventoryIcon} alt="" />
 </button>
-<button class="top-toggle avatar-toggle" onclick={(e) => toggle(e, 'avatar')} aria-label={m['items.tab_avatar']()} aria-pressed={nav.isOpen('avatar')} aria-controls="inventory-panel" data-testid="avatar-toggle">
+<button class="top-toggle avatar-toggle" onclick={(e) => toggle(e, 'avatar')} aria-label={m['items.tab_avatar']()} aria-pressed={nav.isOpen('avatar')} aria-controls="avatar-panel" data-testid="avatar-toggle">
 	<img src={avatarIcon} alt="" />
 </button>
 
-<PullPanel
-	open={inventoryVisible}
-	onclose={() => nav.closeOverlay()}
-	label={tab === 'avatar' ? m['items.tab_avatar']() : m['items.tab_items']()}
-	id="inventory-panel"
-	{keepOpen}
-	testid="inventory"
->
-	{#snippet header()}
-	<div class="tabs" role="tablist">
-		<!-- in the top row's order (avatar left of the bag, owner 2026-10-10: the tabs were "verdreht" – the other way round) -->
-		<button
-			role="tab"
-			aria-selected={tab === 'avatar'}
-			class:active={tab === 'avatar'}
-			onclick={() => showTab('avatar')}><img src={avatarIcon} alt="" /><span class="tab-label">{m['items.tab_avatar']()}</span></button
-		>
-		<button
-			role="tab"
-			aria-selected={tab === 'items'}
-			class:active={tab === 'items'}
-			onclick={() => showTab('inventory')}><img src={inventoryIcon} alt="" /><span class="tab-label">{m['items.tab_items']()}</span></button
-		>
-		<!-- the reader's stats (appetite, testo) small at the right of the tab row, seen on both tabs (owner 2026-10-03) -->
-		<div class="tab-stats"><ReaderStats compact /></div>
+{#snippet head(icon: string, label: string)}
+	<!-- the panel's name and the reader's stats (appetite, testo) small at the right, in both panels (owner 2026-10-03) -->
+	<div class="head">
+		<img src={icon} alt="" /><span>{label}</span>
+		<div class="stats"><ReaderStats compact /></div>
 	</div>
-	{/snippet}
+{/snippet}
 
+{#snippet guest()}
 	{#if !inventory.isAccount}
 		<p class="guest">
 			{m['items.guest_hint']()}
 			<a href={localizeHref('/account')}>{m['items.sign_in']()}</a>
 		</p>
 	{/if}
+{/snippet}
 
-	{#if tab === 'avatar'}
-		<Avatar />
-	{:else if combineWith && combineSecond}
+<PullPanel open={nav.isOpen('avatar')} onclose={() => nav.closeOverlay()} label={m['items.tab_avatar']()} id="avatar-panel" {keepOpen} testid="avatar-panel">
+	{#snippet header()}{@render head(avatarIcon, m['items.tab_avatar']())}{/snippet}
+	{@render guest()}
+	<Avatar />
+</PullPanel>
+
+<PullPanel open={nav.isOpen('inventory')} onclose={() => nav.closeOverlay()} label={m['items.tab_items']()} id="inventory-panel" {keepOpen} testid="inventory">
+	{#snippet header()}{@render head(inventoryIcon, m['items.tab_items']())}{/snippet}
+	{@render guest()}
+
+	{#if combineWith && combineSecond}
 		<RecipePreview
 			first={combineWith}
 			second={combineSecond}
@@ -229,57 +214,24 @@
 		background: var(--primary-color);
 	}
 
-	/* the panel's header: the grip above, the tabs and the stats */
-	.tabs {
+	/* the panel's header: the grip above, its name and the stats */
+	.head {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
-		padding: 0 1rem 1rem;
-	}
-	/* the stats wrap below the tabs (still right) only where they don't fit beside them (≈ 320 px phones) */
-	.tab-stats {
-		margin-left: auto;
-		align-self: center;
-		flex-shrink: 0;
-		color: var(--ink);
-	}
-	/* the switch uses the secondary (outlined) button look of the panel, like "Kombinieren" (owner 2026-09-30):
-	   inactive = muted outline, active = ink outline */
-	.tabs button {
-		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0 1rem;
-		background: transparent;
+		padding: 0 1rem 1rem;
 		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		cursor: pointer;
-	}
-	.tabs button:hover,
-	.tabs button.active {
-		background: transparent;
-		border-color: var(--ink);
 	}
 	/* the top buttons' icons, white on the dark panel */
-	.tabs img {
+	.head img {
 		width: 1rem;
 		filter: invert(1);
 	}
-	/* phones: icon-only tabs (the label stays for screen readers), so the stats fit beside them */
-	@media (max-width: 479px) {
-		.tabs button {
-			width: var(--control-height);
-			justify-content: center;
-			padding: 0;
-		}
-		.tab-label {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
-		}
+	/* the stats wrap below the name (still right) only where they don't fit beside it (≈ 320 px phones) */
+	.stats {
+		margin-left: auto;
+		flex-shrink: 0;
 	}
 
 	.guest {
