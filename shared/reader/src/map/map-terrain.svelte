@@ -153,14 +153,47 @@
 		if (!settledTiles.has(src)) settledTiles = new Set(settledTiles).add(src);
 	};
 	const tileSrc = (tiles: MapTiles, t: { z: number; x: number; y: number }) => url(`${tiles.path}/${t.z}/${t.x}_${t.y}.webp`);
+
+	// ── interim tiles (owner 2026-10-12; OpenLayers' "interim tiles", Leaflet's parent-tile fallback): the last level whose
+	//    tiles on screen had all loaded stays under a new level until that one covers the screen – zooming in it shows
+	//    soft and scaled up, zooming out sharp in the middle – instead of only the coarsest stand-ins ──────────────────
+	type Tile = ReturnType<typeof tilesOf>[number];
+	let interim = $state<Record<string, Tile[]>>({});
+	const isCovered = (tiles: MapTiles, list: Tile[]) => list.length > 0 && list.every((t) => settledTiles.has(tileSrc(tiles, t)));
+	$effect(() => {
+		for (const layer of layers) {
+			if (!layer.tiles) continue;
+			const list = tilesOf(layer.tiles);
+			if (!isCovered(layer.tiles, list)) continue;
+			const before = untrack(() => interim[layer.id]);
+			const key = (l?: Tile[]) => l?.map((t) => `${t.z}/${t.x}_${t.y}`).join(',') ?? '';
+			if (key(before) !== key(list)) interim = { ...untrack(() => interim), [layer.id]: list };
+		}
+	});
+	/** the tiles a layer draws, bottom → top: the coarsest stand-ins, the interim level (while the current one loads), the current level – each once */
+	function stack(layer: (typeof layers)[number], list: Tile[]): Tile[] {
+		const tiles = layer.tiles!;
+		// covered: the current level alone – a coarser tile's soft coast would show through the sea around the crisp one
+		if (isCovered(tiles, list)) return list;
+		const current = list[0]?.z;
+		const under = (interim[layer.id] ?? []).filter((t) => t.z !== current);
+		const seen = new Set<string>();
+		return [...standIns(tiles), ...under, ...list].filter((t) => {
+			const k = `${t.z}/${t.x}_${t.y}`;
+			return !seen.has(k) && (seen.add(k), true);
+		});
+	}
+	/** a tile fades in when it arrives (owner 2026-10-12) – one already loaded (a stand-in, an interim tile) shows at once */
+	const fresh = (src: string) => !settledTiles.has(src);
 	const inRange = (l: { minZoom?: number; maxZoom?: number }) => (l.minZoom === undefined || view.zoom >= l.minZoom) && (l.maxZoom === undefined || view.zoom <= l.maxZoom);
 </script>
 
 <!-- zoomed in, a fog layer masks each tile on its own (owner 2026-10-12, the phone: "after zooming in the fog of war
      does not work any more" – one masked layer as big as the zoomed world is more than a phone's GPU keeps a mask for) -->
 {#snippet fogTiles(layer: (typeof layers)[number], f: MapFog, list: ReturnType<typeof tilesOf>)}
-	{#each [...standIns(layer.tiles!), ...list] as t (`${t.z}/${t.x}_${t.y}`)}
-		<img class="tile" src={url(`${layer.tiles!.path}/${t.z}/${t.x}_${t.y}.webp`)} alt="" draggable="false" style="left: {t.left}px; top: {t.top}px; width: {t.size}px; height: {t.size}px; {maskOf(f, t)}" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} data-testid="map-fog-tile" />
+	{#each stack(layer, list) as t (`${t.z}/${t.x}_${t.y}`)}
+		{@const src = tileSrc(layer.tiles!, t)}
+		<img class="tile" class:fresh={fresh(src)} {src} alt="" draggable="false" style="left: {t.left}px; top: {t.top}px; width: {t.size}px; height: {t.size}px; {maskOf(f, t)}" onload={() => settle(src)} onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden', settle(src))} data-testid="map-fog-tile" />
 	{/each}
 {/snippet}
 
@@ -170,9 +203,9 @@
 	{#if layer.tiles?.minLevel === undefined}
 		<img class="layer" class:covered src={url(layer.image!)} alt="" {width} {height} draggable="false" />
 	{/if}
-	{#each [...(layer.tiles ? standIns(layer.tiles) : []), ...list] as t (`${t.z}/${t.x}_${t.y}`)}
+	{#each layer.tiles ? stack(layer, list) : [] as t (`${t.z}/${t.x}_${t.y}`)}
 		{@const src = tileSrc(layer.tiles!, t)}
-		<img class="tile" {src} alt="" draggable="false" style:left="{t.left}px" style:top="{t.top}px" style:width="{t.size}px" style:height="{t.size}px" onload={() => settle(src)} onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden', settle(src))} />
+		<img class="tile" class:fresh={fresh(src)} {src} alt="" draggable="false" style:left="{t.left}px" style:top="{t.top}px" style:width="{t.size}px" style:height="{t.size}px" onload={() => settle(src)} onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden', settle(src))} />
 	{/each}
 {/snippet}
 
@@ -229,9 +262,18 @@
 		-webkit-mask-repeat: no-repeat;
 		pointer-events: none;
 	}
-	/* in world units inside the camera transform */
+	/* in world units inside the camera transform; a tile that is still loading is clear and fades in once it is there */
 	.tile {
 		position: absolute;
 		pointer-events: none;
+		transition: opacity 0.25s ease-out;
+	}
+	.tile.fresh {
+		opacity: 0;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tile {
+			transition: none;
+		}
 	}
 </style>

@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.91**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.92**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -47,8 +47,12 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   müssen wesentlich kleiner sein"). Built: world-unit size, hex grid (`snapPlace`), the ÷8 scale (10.67). Check what is
   left: (2) the image selects the place, (3) a dashed outline for a place without an image. (4) is built: route gates (MAP.md §8.5c).
 - [ ] 10.63 **Map rendering: culling, a spatial index, tiles** (research 2026-10-11) – when needed: viewport culling with
-  rbush / quadtree; the terrain tiles (levels 1–3) are built (MAP.md §8.9). Measure first on a mid-range Android
+  rbush / quadtree; the terrain is a full tile pyramid (v2: 512 px, levels −2…3, ≤ 20 tiles per layer on a phone – MAP.md §8.9a). Measure first on a mid-range Android
   (×5 / ×10 / ×25 places).
+- [ ] 10.91 **Map terrain: editors' own tiles (someday)** (owner 2026-10-12: "if we ever want the editor to load their
+  own tiles, the generation process has to run on the server – for now that is insane") – today `scripts/map-paint.mjs`
+  runs locally (Luma per region, headless Chrome assembles, coast mask, plaster, the tile pyramid, `assets:sync`).
+  Server-side would need a job queue, a canvas / image library instead of Chrome, the Luma key and costs per editor. Not now.
 - [ ] 10.73 **Map M3–M5** (MAP.md §8.6): the events `revealRoute`, `travel`, `setPosition`, `focusMap`,
   `runMapEvents`; the event pickers, "Used in", the server's 409 `in_use`; the sandbox story.
 
