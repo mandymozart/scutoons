@@ -17,6 +17,7 @@
 // --look abstract (default: fields of crazy textures, no objects – owner 2026-10-11) | model (a model town, the first try).
 // --plaster: also the plaster layer (the same shapes unpainted – derived from the painted world, free and aligned):
 //   `catpope/map/terrain/plaster/v<--version>/…` – the reader draws it everywhere, the painted one (fog) over it.
+// --no-mask: assemble without the SVG's land mask (the whole painted squares, Luma's own coasts).
 // --fresh: paint without the neighbours' strips (a region repainted in a NEW look; the assembly still blends the seams).
 //   node --experimental-transform-types scripts/map-paint.mjs [--look abstract] [--dry] [--only 6_1] [--fresh] [--assemble] [--plaster] [--version 1] [--model uni-1-max] [--levels 3]
 import { spawn } from 'node:child_process';
@@ -393,8 +394,9 @@ try {
 				window.__world.getContext('2d').drawImage(c, ${r.x * PPU}, ${r.y * PPU});
 				return true;
 			})()`);
-		// the land mask: the SVG at the same scale (its alpha) – the sea becomes transparent again
-		await evaluate(`(async () => {
+		// the land mask: the SVG at the same scale (its alpha) – the sea becomes transparent again; --no-mask keeps the whole
+		// painted squares (owner 2026-10-12: "the cut-out is too messy" – a demo without it)
+		if (!has('no-mask')) await evaluate(`(async () => {
 			const img = await window.__svgImage(0, 0, ${world.width}, ${world.height}, ${W}, ${H});
 			const g = window.__world.getContext('2d');
 			g.globalCompositeOperation = 'destination-in';

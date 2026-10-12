@@ -131,6 +131,14 @@
 		return visibleTiles({ x: a.x - margin, y: a.y - margin, width: b.x - a.x + margin * 2, height: b.y - a.y + margin * 2 }, level, { width, height });
 	}
 
+	// the base image (1 px per world unit) is only the fallback while a layer's tiles load: under loaded tiles its coarse
+	// edge showed as a soft halo past the crisp coast at deep zoom (owner 2026-10-12, the phone: "some feather") – hidden
+	// once every tile on screen has loaded (or failed: a sea tile does not exist)
+	let settledTiles = $state(new Set<string>());
+	const settle = (src: string) => {
+		if (!settledTiles.has(src)) settledTiles = new Set(settledTiles).add(src);
+	};
+	const tileSrc = (tiles: MapTiles, t: { z: number; x: number; y: number }) => url(`${tiles.path}/${t.z}/${t.x}_${t.y}.webp`);
 	const inRange = (l: { minZoom?: number; maxZoom?: number }) => (l.minZoom === undefined || view.zoom >= l.minZoom) && (l.maxZoom === undefined || view.zoom <= l.maxZoom);
 </script>
 
@@ -143,12 +151,13 @@
 {/snippet}
 
 {#snippet drawn(layer: (typeof layers)[number])}
-	<img class="layer" src={url(layer.image!)} alt="" {width} {height} draggable="false" />
-	{#if layer.tiles}
-		{#each tilesOf(layer.tiles) as t (`${t.z}/${t.x}_${t.y}`)}
-			<img class="tile" src={url(`${layer.tiles.path}/${t.z}/${t.x}_${t.y}.webp`)} alt="" draggable="false" style:left="{t.left}px" style:top="{t.top}px" style:width="{t.size}px" style:height="{t.size}px" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />
-		{/each}
-	{/if}
+	{@const list = layer.tiles ? tilesOf(layer.tiles) : []}
+	{@const covered = list.length > 0 && list.every((t) => settledTiles.has(tileSrc(layer.tiles!, t)))}
+	<img class="layer" class:covered src={url(layer.image!)} alt="" {width} {height} draggable="false" />
+	{#each list as t (`${t.z}/${t.x}_${t.y}`)}
+		{@const src = tileSrc(layer.tiles!, t)}
+		<img class="tile" {src} alt="" draggable="false" style:left="{t.left}px" style:top="{t.top}px" style:width="{t.size}px" style:height="{t.size}px" onload={() => settle(src)} onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden', settle(src))} />
+	{/each}
 {/snippet}
 
 <div class="terrain" class:moving={view.moving} style:transform={view.transform} style:width="{width}px" style:height="{height}px" data-testid={testid}>
@@ -189,6 +198,10 @@
 		width: 100%;
 		height: 100%;
 		pointer-events: none;
+	}
+	/* the tiles on screen have loaded: the coarse base image steps aside (its soft coast showed past the tiles' crisp one) */
+	.layer.covered {
+		visibility: hidden;
 	}
 	/* a fog layer: its mask in world proportions (one image, scaled with the camera) */
 	.fog {
