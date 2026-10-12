@@ -87,7 +87,7 @@
 	const tiles = $derived.by(() => {
 		if (!natural?.w) return null;
 		const h = (100 * natural.h) / natural.w;
-		const d = placeCells({ x: 0, y: 0, size })
+		const d = placeCells({ x: 0, y: 0, size, cells: place.cells })
 			.map((c) => 'M' + hexCorners(c).map((k) => `${(anchor.x + (k.x / size) * 100).toFixed(2)},${((anchor.y / 100) * h + (k.y / size) * 100).toFixed(2)}`).join('L') + 'Z')
 			.join('');
 		return { h, d };

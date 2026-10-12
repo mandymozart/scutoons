@@ -23,6 +23,7 @@
 		routePoints,
 		routeGeometry,
 		snapToPlace,
+		cellsOutline,
 		ROUTE_HANDLE,
 		type PlaceGate,
 		visibleLabels,
@@ -38,6 +39,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { freeWaypointId, nearestSegment } from '$lib/editor/map.ts';
+	import HexBrush, { type HexBrushTarget } from '$lib/components/map/hex-brush.svelte';
 
 	/**
 	 * The builder's canvas (agents/MAP.md §4.2): the world at any zoom (25 %–800 %), the tools – select (click, drag places
@@ -66,8 +68,11 @@
 		onmovewaypointhandle,
 		oninsertwaypoint,
 		onaddroute,
-		onendpoint
+		onendpoint,
+		brush = null
 	}: {
+		/** the hex brush over the canvas (a place's ground – owner 2026-10-12): painting replaces selecting while it is on */
+		brush?: HexBrushTarget | null;
 		map: WorldMap;
 		view: MapViewport;
 		tool?: MapTool;
@@ -124,6 +129,8 @@
 	const handleOf = (e: PointerEvent) => (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-drag]')?.dataset.drag ?? null;
 	function canPan(e: PointerEvent) {
 		if (space || e.button === 1) return true;
+		// the hex brush paints with the primary button / one finger (two fingers still pan – the gesture's pinch)
+		if (brush && (e.target as HTMLElement | null)?.closest('[data-testid="hex-brush"]')) return false;
 		// drawing a route / adding a place: a drag pans, a tap sets the point (owner 2026-10-12, phone: "I can not drag
 		// the map in route mode")
 		if (tool !== 'select') return true;
@@ -275,9 +282,31 @@
 		cells
 			.map((c) => 'M' + hexCorners(c).map((k) => `${((k.x - origin.x) * view.zoom).toFixed(1)},${((k.y - origin.y) * view.zoom).toFixed(1)}`).join('L') + 'Z')
 			.join('');
+	// ── the selected route's places (owner 2026-10-12, B + C of three drafts: "the circle handle in the centre is really
+	// ugly … would only be needed if the zoom level makes the hexagon too small … the number label is needed"): the
+	// place's patch edge in the route's highlight + a small numbered chip at its entry gate (its exit for the first);
+	// the round centre handle only while the patch is under 2rem on screen; a free point is a small dot
+	const rootPx = typeof document === 'undefined' ? 16 : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+	const tinyPlace = (place: MapPlace) => placeSize(place) * view.zoom < 2 * rootPx;
+	/** where a place waypoint's chip sits: its entry gate (its exit for the first) */
+	function chipAt(route: { waypoints: readonly Waypoint[] }, i: number, fallback: Point): Point {
+		const w = route.waypoints[i];
+		if (!w || !isPlaceWaypoint(w)) return fallback;
+		const g = routeGeometry(map.locations, route.waypoints).gates.find((x) => x.place === w.location && x.which === (i === 0 ? 'exit' : 'entry'));
+		return g?.at ?? fallback;
+	}
+
+	/** the patch's outer edge (owner 2026-10-12: "the peripheral ones darker than the others") – one path of segments */
+	const outlinePath = (cells: ReturnType<typeof placeCells>, origin: Point) =>
+		cellsOutline(cells)
+			.map(([a, b]) => `M${((a.x - origin.x) * view.zoom).toFixed(1)},${((a.y - origin.y) * view.zoom).toFixed(1)}L${((b.x - origin.x) * view.zoom).toFixed(1)},${((b.y - origin.y) * view.zoom).toFixed(1)}`)
+			.join('');
+	/** while a gate is dragged: the hexagon it snaps to lights up (owner 2026-10-12) */
+	let gateCell = $state<{ place: string; cell: ReturnType<typeof hexCellAt> } | null>(null);
 	const footprint = $derived.by(() => {
 		const id = dragging?.kind === 'place' ? dragging.id : tool === 'select' && selection?.kind === 'place' ? selection.id : null;
 		const place = id ? map.locations.find((p) => p.id === id) : null;
+		if (brush && place) return null; // the brush draws the cells it paints
 		if (place) return { cells: placeCells(place), preview: false };
 		if (tool === 'place' && hover && !space) {
 			const at = snapToGrid(map, view.toWorld(hover), DEFAULT_PLACE_IMAGE_SIZE);
@@ -369,6 +398,7 @@
 			const found = gateOf(dragging.place, dragging.which);
 			if (!found) return;
 			const c = snapToPlace(found.place, world);
+			gateCell = { place: found.place.id, cell: hexCellAt(c) };
 			onmovegate(found.place.id, dragging.which, { ...found.gate, x: Math.round((c.x - found.place.x) * 100) / 100, y: Math.round((c.y - found.place.y) * 100) / 100 });
 		} else if (dragging.kind === 'gate-handle') {
 			const found = gateOf(dragging.place, dragging.which);
@@ -382,6 +412,7 @@
 		} else onmovewaypoint(dragging.route, dragging.index, at);
 	}
 	function dragEnd(e: PointerEvent, click: () => void) {
+		gateCell = null;
 		if (!dragging) return;
 		const moved = dragMoved;
 		dragging = null;
@@ -485,7 +516,7 @@
 	{/if}
 	{#if footprint}
 		{@const o = view.toScreen({ x: 0, y: 0 })}
-		<svg class="footprint" class:preview={footprint.preview} aria-hidden="true" data-testid="place-footprint"><path transform="translate({o.x} {o.y})" d={cellsPath(footprint.cells, { x: 0, y: 0 })} /></svg>
+		<svg class="footprint" class:preview={footprint.preview} aria-hidden="true" data-testid="place-footprint"><path transform="translate({o.x} {o.y})" d={cellsPath(footprint.cells, { x: 0, y: 0 })} /><path class="edge" transform="translate({o.x} {o.y})" d={outlinePath(footprint.cells, { x: 0, y: 0 })} />{#if gateCell}<path class="snap" transform="translate({o.x} {o.y})" d={cellsPath([gateCell.cell], { x: 0, y: 0 })} />{/if}</svg>
 	{/if}
 
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
@@ -526,6 +557,7 @@
 						onpointermove={dragMove}
 						onpointerup={(e) => dragEnd(e, () => (tool === 'select' ? onselect({ kind: 'place', id: p.id }) : null))}
 					/>
+					{#if !p.image?.src}<path class="edge" d={outlinePath(placeCells(p), p)} />{/if}
 				</svg>
 				<button
 					class="marker"
@@ -590,6 +622,8 @@
 					style:transform="translate({s.x}px, {s.y}px)"
 					aria-label={g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()}
 					title="{g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()} · {g.set ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()}"
+					onpointerenter={() => !dragging && (gateCell = { place: (selection as { id: string }).id, cell: hexCellAt(g.at) })}
+					onpointerleave={() => !dragging && (gateCell = null)}
 					onpointerdown={(e) => startDrag(e, { kind: 'gate', place: (selection as { id: string }).id, which: g.which })}
 					onpointermove={dragMove}
 					onpointerup={(e) => dragEnd(e, () => {})}
@@ -624,15 +658,30 @@
 		</div>
 	{/if}
 	{#if selectedRoute}
+		<!-- the route's places as their patch's edge (B) -->
+		<svg class="route-patches" aria-hidden="true">
+			{#each selectedRoute.waypoints as w, i (i)}
+				{#if isPlaceWaypoint(w)}
+					{@const place = map.locations.find((p) => p.id === w.location)}
+					{#if place && !tinyPlace(place)}
+						{@const o = view.toScreen(place)}
+						<path transform="translate({o.x} {o.y})" d={outlinePath(placeCells(place), place)} />
+					{/if}
+				{/if}
+			{/each}
+		</svg>
 		<div class="handles">
 			{#each selectedRoute.waypoints as w, i (i)}
 				{@const pt = waypointPoint(map.locations, w)}
+				{@const place = isPlaceWaypoint(w) ? map.locations.find((p) => p.id === w.location) : undefined}
 				{#if pt}
-					{@const s = view.toScreen(pt)}
+					{@const tiny = !!place && tinyPlace(place)}
+					{@const s = view.toScreen(place && !tiny ? chipAt(selectedRoute, i, pt) : pt)}
 					<button
 						class="handle"
 						data-control-exempt="canvas resize handle"
 						class:free={!isPlaceWaypoint(w)}
+						class:chip={!!place && !tiny}
 						class:active={activeHandle === `waypoint:${selectedRoute.id}:${i}`}
 						data-handle
 						data-drag="waypoint:{selectedRoute.id}:{i}"
@@ -643,11 +692,13 @@
 						onpointermove={dragMove}
 						onpointerup={(e) => dragEnd(e, () => {})}
 						data-testid="builder-waypoint-{i}"
-					>{i + 1}</button>
+					>{isPlaceWaypoint(w) ? i + 1 : ''}</button>
 				{/if}
 			{/each}
 		</div>
 	{/if}
+
+	{#if brush}<HexBrush {view} target={brush} />{/if}
 
 	{#if phoneFrame}
 		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {zoomPercent(frameZoom)} %{placeFrame ? ' · place' : startView ? ' · start' : ''}</span></div>
@@ -711,15 +762,37 @@
 		height: 100%;
 		pointer-events: none;
 	}
+	/* the cells (owner 2026-10-12: "more transparent, less dark the outlines … the peripheral ones darker"): a light fill,
+	   faint inner lines, the patch's outer edge in ink */
 	.footprint path {
 		fill: var(--primary-yellow, #ffe600);
-		fill-opacity: 0.45;
+		fill-opacity: 0.18;
 		stroke: var(--ink);
+		stroke-opacity: 0.2;
+		stroke-width: 1;
+	}
+	.footprint path.edge,
+	.place-hit path.edge {
+		fill: none;
+		stroke: var(--ink);
+		stroke-opacity: 0.85;
 		stroke-width: 1.5;
+		stroke-linecap: round;
+		pointer-events: none;
 	}
 	.footprint.preview path {
-		fill-opacity: 0.3;
+		fill-opacity: 0.12;
+	}
+	.footprint.preview path.edge {
 		stroke-dasharray: 4 3;
+	}
+	/* the hexagon a dragged gate snaps to lights up */
+	.footprint path.snap {
+		fill: var(--primary-cyan, #00d1ff);
+		fill-opacity: 0.45;
+		stroke: var(--primary-cyan, #00d1ff);
+		stroke-opacity: 1;
+		stroke-width: 1.5;
 	}
 	.place-hit {
 		position: absolute;
@@ -737,9 +810,12 @@
 	}
 	/* a place without a diorama: its cells, dashed (owner 2026-10-12) */
 	.place-hit.bare path {
-		fill: rgb(255 255 255 / 0.35);
+		fill: rgb(255 255 255 / 0.2);
 		stroke: var(--ink);
+		stroke-opacity: 0.2;
 		stroke-width: 1;
+	}
+	.place-hit.bare path.edge {
 		stroke-dasharray: 3 3;
 	}
 	/* the Bézier handles (owner 2026-10-12): a small square on a thin arm – hollow while computed, filled once set */
@@ -866,9 +942,40 @@
 		pointer-events: auto;
 		cursor: move;
 	}
-	.handle.free {
-		background: var(--paper);
+	/* the selected route's places (owner 2026-10-12): the patch edge in the route's highlight */
+	.route-patches {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+	.route-patches path {
+		fill: none;
+		stroke: var(--primary-cyan, #00d1ff);
+		stroke-width: 3;
+		stroke-linecap: round;
+	}
+	/* a place waypoint's number: a small ink chip at its entry gate */
+	.handle.chip {
+		left: -0.45rem;
+		top: -0.45rem;
+		width: 0.9rem;
+		height: 0.9rem;
 		border-radius: 0;
+		border-width: 0.0625rem;
+		background: var(--ink);
+		color: var(--paper);
+		font-size: 0.55rem;
+	}
+	/* a free point: a small dot */
+	.handle.free {
+		left: -0.3rem;
+		top: -0.3rem;
+		width: 0.6rem;
+		height: 0.6rem;
+		border-width: 0.125rem;
+		background: var(--paper);
 	}
 	/* a route gate (BACKLOG 10.66 (4)): hollow while computed, filled once the author set it */
 	.handle.gate {

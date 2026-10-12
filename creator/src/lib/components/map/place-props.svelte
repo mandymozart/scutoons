@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
-	import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_SIZE_MAX, PLACE_SIZE_MIN, PLACE_SIZE_STEP, PLACE_ZOOM, zoomPercent, zoomFromPercent, placeSize, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
+	import { placeBrush } from '$lib/editor/place-brush.svelte.ts';
+	import { Icon } from '@scutoons/ui';
+	import { BRUSH_MAX, BRUSH_MIN, MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_SOURCE_LANGUAGE, PLACE_SIZE_MAX, PLACE_SIZE_MIN, PLACE_SIZE_STEP, PLACE_ZOOM, zoomPercent, zoomFromPercent, placeSize, placeView, mapName, slugId, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -126,6 +128,29 @@
 <label class="field"><span>{m['creator.map_footprint']()} · {placeSize(place)}</span>
 	<input type="range" min={PLACE_SIZE_MIN} max={PLACE_SIZE_MAX} step={PLACE_SIZE_STEP} value={placeSize(place)} oninput={(e) => editPlace(doc, place.id, (p) => (p.size = Number(e.currentTarget.value)), `size:${place.id}`)} data-testid="place-size" />
 </label>
+<!-- the ground: painted cells (owner 2026-10-12: "a brush that adds or removes hexagons to the place's base") – the brush on the
+     map, add / remove, its size; refused where another place stands; "computed" goes back to the size above -->
+<fieldset class="ground" data-testid="place-ground">
+	<legend>{m['creator.map_cells']()}</legend>
+	<p class="hint">{place.cells?.length ? m['creator.map_cells_painted']({ count: place.cells.length }) : m['creator.map_cells_computed']()}</p>
+	<div class="row">
+		<button type="button" class:secondary={placeBrush.place !== place.id} aria-pressed={placeBrush.place === place.id} onclick={() => placeBrush.toggle(place.id)} data-testid="place-cells-paint"><Icon name="hexagon" /> {m['creator.map_cells_paint']()}</button>
+		{#if placeBrush.place === place.id}
+			<span class="sc-seg" role="group" aria-label={m['creator.map_cells']()}>
+				<button type="button" class:on={placeBrush.mode === 'add'} aria-pressed={placeBrush.mode === 'add'} onclick={() => (placeBrush.mode = 'add')} data-testid="place-cells-add">{m['creator.map_cells_add']()}</button>
+				<button type="button" class:on={placeBrush.mode === 'remove'} aria-pressed={placeBrush.mode === 'remove'} onclick={() => (placeBrush.mode = 'remove')} data-testid="place-cells-remove">{m['creator.map_cells_remove']()}</button>
+			</span>
+		{/if}
+	</div>
+	{#if placeBrush.place === place.id}
+		<label class="field"><span>{m['creator.map_brush_size']()} · {placeBrush.size}</span>
+			<input type="range" min={BRUSH_MIN} max={BRUSH_MAX} step="1" bind:value={placeBrush.size} data-testid="place-brush-size" />
+		</label>
+	{/if}
+	{#if place.cells?.length}
+		<button type="button" class="ghost" onclick={() => editPlace(doc, place.id, (p) => void delete p.cells)} data-testid="place-cells-reset">{m['creator.map_cells_reset']()}</button>
+	{/if}
+</fieldset>
 </div>
 
 <div class="tab" data-tab="place">

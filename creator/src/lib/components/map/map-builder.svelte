@@ -13,6 +13,9 @@
 		isPlaceWaypoint,
 		mapName,
 		placeImagePath,
+		placeCells,
+		placeCellOffsets,
+		hexCellAt,
 		placeImageTarget,
 		PLACE_IMAGE_WIDTHS,
 		placeView,
@@ -46,6 +49,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { densityLevel, densityPath, splitMediaName, standardDensities, uploadOrReplace } from '@scutoons/media';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import { placeBrush } from '$lib/editor/place-brush.svelte.ts';
+	import type { HexBrushTarget } from '$lib/components/map/hex-brush.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
 	import MapProps from '$lib/components/map/map-props.svelte';
 
@@ -345,7 +350,7 @@
 	}
 	function onMovePlace(id: string, at: Point) {
 		const place = map?.locations.find((p) => p.id === id);
-		const spot = map && place ? snapPlace(map, at, placeSize(place), id) : at;
+		const spot = map && place ? snapPlace(map, at, placeSize(place), id, place.cells) : at;
 		editPlace(doc, id, (p) => {
 			p.x = spot.x;
 			p.y = spot.y;
@@ -634,6 +639,32 @@
 		removeRoute(doc, id);
 		selection = null;
 	}
+	// ── the ground brush (owner 2026-10-12: "a brush that adds or removes hexagons to the place's base"): on the selected
+	// place only; cells another place takes are refused; a stroke = one undo step; no cells left = computed from the size ──
+	$effect(() => {
+		if (placeBrush.place && (selection?.kind !== 'place' || selection.id !== placeBrush.place)) placeBrush.stop();
+	});
+	const brushTarget = $derived.by<HexBrushTarget | null>(() => {
+		const id = placeBrush.place;
+		const place = id && map ? map.locations.find((p) => p.id === id) : undefined;
+		if (!id || !place || !map) return null;
+		const taken = new Set(map.locations.filter((p) => p.id !== id).flatMap((p) => placeCells(p).map((c) => `${c.q},${c.r}`)));
+		return {
+			cells: placeCells(place),
+			mode: placeBrush.mode,
+			size: placeBrush.size,
+			allowed: (c) => !taken.has(`${c.q},${c.r}`),
+			// one patch with the place's own cell (owner 2026-10-12: "Zusammenhängen wäre sinnvoll")
+			connected: true,
+			anchor: hexCellAt(place),
+			onchange: (cells) =>
+				editPlace(doc, id, (p) => {
+					if (cells.length) p.cells = placeCellOffsets(p, cells);
+					else delete p.cells;
+				})
+		};
+	});
+
 	const phoneSelection = $derived.by(() => {
 		const s = selection;
 		if (!s || !map) return null;
@@ -651,6 +682,7 @@
 					{ id: 'image', icon: 'image', label: m['creator.map_image'](), run: () => openSheet('image') },
 					{ id: 'use-view', icon: 'crosshair', label: m['creator.bar_view'](), run: () => useViewFor(s.id), testid: 'phone-place-use-view' },
 					{ id: 'show', icon: 'eye', label: m['creator.bar_show'](), run: () => placeFrame && view.centerOn(placeFrame.center, placeFrame.zoom) },
+					{ id: 'cells', icon: 'hexagon', label: m['creator.map_cells_paint'](), active: placeBrush.place === s.id, run: () => placeBrush.toggle(s.id), testid: 'phone-place-cells' },
 					{ id: 'hidden', icon: place.hidden ? 'eye-off' : 'eye', label: m['creator.bar_hidden'](), active: !!place.hidden, run: () => editPlace(doc, s.id, (p) => { if (p.hidden) delete p.hidden; else p.hidden = true; }) },
 					{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), disabled: used.length > 0, run: () => deletePlace(s.id) }
 				]
@@ -777,6 +809,7 @@
 			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.strip'))}>
 				<MapCanvas
 					bind:this={canvas}
+					brush={brushTarget}
 					{map}
 					{view}
 					bind:tool

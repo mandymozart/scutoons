@@ -105,6 +105,12 @@ export interface MapPlace {
 	 * neighbouring waypoint)
 	 */
 	gates?: PlaceGates;
+	/**
+	 * the hex cells the place's ground takes, painted with the builder's brush (owner 2026-10-12: "a brush that adds or
+	 * removes hexagons to the place's base"): axial offsets from its home cell (the cell its point lies in), so they move
+	 * with it; without them the cells are computed from `size` (`placeCells`)
+	 */
+	cells?: HexCell[];
 }
 
 /** A place's route gates (`MapPlace.gates`): offsets from its point, world units */
@@ -301,20 +307,127 @@ const cellKey = (c: HexCell) => `${c.q},${c.r}`;
  * (owner 2026-10-11: "festlegen, welche Größe so ein Diorama hat – eine sinnvolle Stufung, wie in SimCity")
  */
 export const placeSize = (p: { size?: number; image?: { size?: number } }): number => p.size ?? p.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE;
-/** the cells a place takes: those whose centres lie within half its size of its cell's centre (at least its own) */
-export function placeCells(p: Point & { size?: number; image?: { size?: number } }): HexCell[] {
+/**
+ * the cells a place takes: its painted ones (`cells`, offsets from its home cell – owner 2026-10-12), else those whose
+ * centres lie within half its size of its cell's centre (at least its own)
+ */
+export function placeCells(p: Point & { size?: number; image?: { size?: number }; cells?: readonly HexCell[] }): HexCell[] {
 	const home = hexCellAt(p);
+	if (p.cells?.length) return p.cells.map((c) => ({ q: home.q + c.q, r: home.r + c.r }));
 	const centre = hexCenter(home);
 	const radius = placeSize(p) / 2;
 	const rings = Math.ceil(radius / HEX_CELL);
 	return hexArea(home, rings).filter((c) => hexDistance(c, home) === 0 || Math.hypot(hexCenter(c).x - centre.x, hexCenter(c).y - centre.y) <= radius + 1e-6);
 }
 
+/** a place's painted cells as stored: offsets from its home cell (`MapPlace.cells`) */
+export function placeCellOffsets(p: Point, cells: readonly HexCell[]): HexCell[] {
+	const home = hexCellAt(p);
+	return cells.map((c) => ({ q: c.q - home.q, r: c.r - home.r }));
+}
+
+/** the brush's size limits (owner 2026-10-12: regions paint fast with big brushes – 1 to 256 cells) */
+export const BRUSH_MIN = 1;
+export const BRUSH_MAX = 256;
+
+/**
+ * The cells a hex brush of `size` cells covers around `center` (the reusable brush – place grounds, later region covers):
+ * the `size` cells nearest the centre, ring by ring (a full ring is a hexagon: 1, 7, 19, 37 … cells), ties within a ring
+ * in a fixed order so a stroke paints the same cells every time
+ */
+export function brushArea(center: HexCell, size: number): HexCell[] {
+	const n = Math.max(BRUSH_MIN, Math.min(BRUSH_MAX, Math.round(size)));
+	let rings = 0;
+	while (1 + 3 * rings * (rings + 1) < n) rings++;
+	const c = hexCenter(center);
+	return hexArea(center, rings)
+		.map((x) => ({ x, ring: hexDistance(x, center), d: Math.hypot(hexCenter(x).x - c.x, hexCenter(x).y - c.y), a: Math.atan2(hexCenter(x).y - c.y, hexCenter(x).x - c.x) }))
+		.sort((a, b) => a.ring - b.ring || a.d - b.d || a.a - b.a)
+		.slice(0, n)
+		.map((e) => e.x);
+}
+
+/** the six axial neighbours of a cell */
+const AXIAL_DIRS: HexCell[] = [{ q: 1, r: 0 }, { q: -1, r: 0 }, { q: 0, r: 1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: -1, r: 1 }];
+const neighbours = (c: HexCell): HexCell[] => AXIAL_DIRS.map((d) => ({ q: c.q + d.q, r: c.r + d.r }));
+
+/** one patch: every cell reachable from every other over shared edges (and `anchor` among them, when given) */
+export function cellsConnected(cells: readonly HexCell[], anchor?: HexCell): boolean {
+	if (!cells.length) return !anchor;
+	const keys = new Set(cells.map(cellKey));
+	if (anchor && !keys.has(cellKey(anchor))) return false;
+	const seen = new Set<string>([cellKey(cells[0])]);
+	const queue = [cells[0]];
+	while (queue.length) {
+		const c = queue.pop()!;
+		for (const n of neighbours(c)) {
+			const k = cellKey(n);
+			if (keys.has(k) && !seen.has(k)) {
+				seen.add(k);
+				queue.push(n);
+			}
+		}
+	}
+	return seen.size === keys.size;
+}
+
+/** how a stroke treats the set: `allowed` refuses cells when adding; `connected` keeps it one patch (with `anchor` in it) */
+export interface PaintRules {
+	allowed?: (cell: HexCell) => boolean;
+	/** owner 2026-10-12, a place's ground: "Zusammenhängen wäre sinnvoll" – an add never starts an island, a remove never splits the patch or takes the anchor */
+	connected?: boolean;
+	/** the cell that must stay (a place's home cell) */
+	anchor?: HexCell;
+}
+
+/**
+ * A brush stroke on a set of cells (place grounds, region covers): `add` puts the touched cells in, `remove` takes them
+ * out – by the rules (`allowed`; `connected`: an added cell must touch the set, a removed one must not split it or be
+ * the anchor; a stroke that reaches the patch only later still grows it from there). Returns a new array, the input's
+ * order kept, added cells at the end
+ */
+export function paintCells(cells: readonly HexCell[], touched: readonly HexCell[], mode: 'add' | 'remove', rules: PaintRules | ((cell: HexCell) => boolean) = {}): HexCell[] {
+	const { allowed, connected, anchor } = typeof rules === 'function' ? { allowed: rules } : rules;
+	if (mode === 'remove') {
+		let out = [...cells];
+		for (const t of touched) {
+			const k = cellKey(t);
+			if (!out.some((c) => cellKey(c) === k)) continue;
+			if (connected && anchor && cellKey(anchor) === k) continue;
+			const next = out.filter((c) => cellKey(c) !== k);
+			if (connected && !cellsConnected(next, anchor)) continue;
+			out = next;
+		}
+		return out;
+	}
+	const keys = new Set(cells.map(cellKey));
+	const out = [...cells];
+	const touches = (c: HexCell) => !keys.size || neighbours(c).some((n) => keys.has(cellKey(n)));
+	let pending = touched.filter((c) => !keys.has(cellKey(c)) && (!allowed || allowed(c)));
+	// connected: grow from the patch – a touched cell joins once a neighbour is in (repeat until nothing more joins)
+	for (let grew = true; grew && pending.length; ) {
+		grew = false;
+		const rest: HexCell[] = [];
+		for (const c of pending) {
+			if (keys.has(cellKey(c))) continue;
+			if (connected && !touches(c)) {
+				rest.push(c);
+				continue;
+			}
+			keys.add(cellKey(c));
+			out.push({ q: c.q, r: c.r });
+			grew = true;
+		}
+		pending = connected ? rest : [];
+	}
+	return out;
+}
+
 /**
  * Where a place goes on the grid: the free spot nearest to `at` (a cell centre whose footprint touches no other place's
  * cells and stays inside the map) – the builder snaps placing and dragging to it. `except` = the place being moved.
  */
-export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>, at: Point, size: number = DEFAULT_PLACE_IMAGE_SIZE, except?: string): Point {
+export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>, at: Point, size: number = DEFAULT_PLACE_IMAGE_SIZE, except?: string, cells?: readonly HexCell[]): Point {
 	const taken = new Set<string>();
 	for (const p of map.locations) if (p.id !== except) for (const c of placeCells(p)) taken.add(cellKey(c));
 	const start = hexCellAt(at);
@@ -323,7 +436,7 @@ export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>,
 			.map((c) => ({ c, centre: hexCenter(c) }))
 			.filter(({ centre }) => centre.x >= 0 && centre.y >= 0 && centre.x <= map.width && centre.y <= map.height)
 			.sort((a, b) => Math.hypot(a.centre.x - at.x, a.centre.y - at.y) - Math.hypot(b.centre.x - at.x, b.centre.y - at.y));
-		for (const { c, centre } of candidates) if (!placeCells({ ...centre, size }).some((x) => taken.has(cellKey(x)))) return { x: Math.round(centre.x * 100) / 100, y: Math.round(centre.y * 100) / 100 };
+		for (const { c, centre } of candidates) if (!placeCells({ ...centre, size, cells }).some((x) => taken.has(cellKey(x)))) return { x: Math.round(centre.x * 100) / 100, y: Math.round(centre.y * 100) / 100 };
 	}
 	return at;
 }
@@ -428,7 +541,7 @@ export function routePoints(places: readonly { id: string; x: number; y: number 
 export const ROUTE_HANDLE = 2 * HEX_CELL;
 
 /** what route drawing needs of a place */
-export type RoutePlace = { id: string; x: number; y: number; size?: number; image?: { size?: number }; gates?: PlaceGates };
+export type RoutePlace = { id: string; x: number; y: number; size?: number; image?: { size?: number }; gates?: PlaceGates; cells?: readonly HexCell[] };
 
 /** a point of a route's curve with its control points (absolute, world units; missing = smooth) */
 export interface RouteNode {
@@ -445,7 +558,7 @@ const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 /** a place's cells and their outer edges (an edge's midpoint and outward normal), cached by the place's footprint */
 const coverCache = new Map<string, { cells: HexCell[]; keys: Set<string>; edges: { mid: Point; normal: Point }[] }>();
 function placeCover(place: RoutePlace) {
-	const key = `${place.x},${place.y},${placeSize(place)}`;
+	const key = `${place.x},${place.y},${placeSize(place)},${place.cells?.map(cellKey).join(';') ?? ''}`;
 	let cover = coverCache.get(key);
 	if (!cover) {
 		const cells = placeCells(place);
@@ -464,6 +577,26 @@ function placeCover(place: RoutePlace) {
 }
 
 /** a point on the place's hexagons: the centre of its cell nearest to `at` (owner 2026-10-12: gates snap to the place's cells, never outside) */
+/**
+ * The outer edges of a patch of hex cells (owner 2026-10-12: "the peripheral ones darker than the others"): the cell
+ * edges no other cell of the patch shares, as point pairs (world units) – drawn darker than the inner lines
+ */
+export function cellsOutline(cells: readonly HexCell[]): [Point, Point][] {
+	const key = (p: Point) => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`;
+	const edges = new Map<string, { a: Point; b: Point; n: number }>();
+	for (const c of cells) {
+		const k = hexCorners(c);
+		for (let i = 0; i < 6; i++) {
+			const a = k[i], b = k[(i + 1) % 6];
+			const id = [key(a), key(b)].sort().join('|');
+			const e = edges.get(id);
+			if (e) e.n++;
+			else edges.set(id, { a, b, n: 1 });
+		}
+	}
+	return [...edges.values()].filter((e) => e.n === 1).map((e) => [e.a, e.b]);
+}
+
 export function snapToPlace(place: RoutePlace, at: Point): Point {
 	const { cells } = placeCover(place);
 	let best = cells[0], bestD = Infinity;
@@ -1254,6 +1387,21 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				if (o !== undefined && (!isObj(o) || !isNum(o.x) || !isNum(o.y))) add('error', [...path, 'view', 'offset'], `${what}: the view offset must be { x, y } in world units`);
 				else if (o !== undefined && isNum(p.x) && isNum(p.y) && !inside(p.x + o.x, p.y + o.y))
 					add('warning', [...path, 'view', 'offset'], `${what}: the view centre (${p.x + o.x}, ${p.y + o.y}) is outside the map`);
+			}
+		}
+		if (p.cells !== undefined) {
+			const cells = p.cells as unknown;
+			if (!Array.isArray(cells) || !cells.length) add('error', [...path, 'cells'], `${what}: the ground cells must be a non-empty list (or none: computed from the size)`);
+			else {
+				const seen = new Set<string>();
+				cells.forEach((c, i) => {
+					if (!isObj(c) || !Number.isInteger((c as any).q) || !Number.isInteger((c as any).r)) add('error', [...path, 'cells', i], `${what}: a ground cell needs whole numbers q / r`);
+					else if (seen.has(`${(c as any).q},${(c as any).r}`)) add('warning', [...path, 'cells', i], `${what}: the ground cell ${(c as any).q} / ${(c as any).r} is listed twice`);
+					else seen.add(`${(c as any).q},${(c as any).r}`);
+				});
+				// one patch with the home cell (owner 2026-10-12: "Zusammenhängen wäre sinnvoll")
+				if (cells.every((c) => isObj(c) && Number.isInteger((c as any).q) && Number.isInteger((c as any).r)) && !cellsConnected(cells as HexCell[], { q: 0, r: 0 }))
+					add('error', [...path, 'cells'], `${what}: the ground cells must be one connected patch with the place's own cell (0 / 0) in it`);
 			}
 		}
 		if (p.gates !== undefined) {
