@@ -61,10 +61,18 @@
 		}
 	}
 
-	// ── Review rules (docs/API.md "Reviews"): per toon or every toon, reviewer | needs_review | physical (publishes physical catalog changes) ──
+	// ── Review rules (docs/API.md "Reviews"): per toon or every toon – what the account does (owner 2026-10-12): two grants,
+	// reviewer "Reviews publishing requests" and physical "Publishes physical items", one restriction, needs_review "Submits
+	// for review"; the stored ids stay ──
 	let ruleToon = $state('*');
-	let ruleKind = $state<AdminReviewRule['rule']>('needs_review');
-	const ruleLabel = (rule: string) => (rule === 'reviewer' ? m['users.rule_reviewer']() : rule === 'physical' ? m['users.rule_physical']() : m['users.rule_needs_review']());
+	let ruleKind = $state<AdminReviewRule['rule']>('reviewer');
+	const RULES: { id: AdminReviewRule['rule']; label: () => string; hint: () => string }[] = [
+		{ id: 'reviewer', label: () => m['users.rule_reviewer'](), hint: () => m['users.rule_reviewer_hint']() },
+		{ id: 'physical', label: () => m['users.rule_physical'](), hint: () => m['users.rule_physical_hint']() },
+		{ id: 'needs_review', label: () => m['users.rule_needs_review'](), hint: () => m['users.rule_needs_review_hint']() }
+	];
+	const ruleOf = (rule: string) => RULES.find((r) => r.id === rule);
+	const ruleLabel = (rule: string) => ruleOf(rule)?.label() ?? rule;
 	const toonLabel = (toon: string) => (toon === '*' ? m['users.review_all_toons']() : (toons.find((t) => t.id === toon)?.name ?? toon));
 
 	async function setReviewRule(toon: string, rule: AdminReviewRule['rule'], on: boolean) {
@@ -216,7 +224,7 @@
 				{#each user.review_rules as r (r.toon + r.rule)}
 					<li>
 						<span>{toonLabel(r.toon)}</span>
-						<Badge tone={r.rule === 'reviewer' ? 'ink' : 'neutral'}>{ruleLabel(r.rule)}</Badge>
+						<span title={ruleOf(r.rule)?.hint()}><Badge tone={r.rule === 'needs_review' ? 'neutral' : 'ink'}>{ruleLabel(r.rule)}</Badge></span>
 						<Button variant="clear" size="sm" disabled={working !== null} onclick={() => setReviewRule(r.toon, r.rule, false)}>{m['users.review_remove']()}</Button>
 					</li>
 				{/each}
@@ -231,12 +239,10 @@
 					</select>
 				{/snippet}
 			</Field>
-			<Field label={m['users.review_rule']()}>
+			<Field label={m['users.review_rule']()} hint={ruleOf(ruleKind)?.hint()}>
 				{#snippet children({ id, describedby, invalid })}
 					<select {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={ruleKind} data-testid="review-rule">
-						<option value="needs_review">{m['users.rule_needs_review']()}</option>
-						<option value="reviewer">{m['users.rule_reviewer']()}</option>
-						<option value="physical" title={m['users.rule_physical_hint']()}>{m['users.rule_physical']()}</option>
+						{#each RULES as r (r.id)}<option value={r.id}>{r.label()}</option>{/each}
 					</select>
 				{/snippet}
 			</Field>

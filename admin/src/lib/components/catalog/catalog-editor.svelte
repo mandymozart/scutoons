@@ -17,9 +17,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import CatalogHistory from '$lib/components/catalog/catalog-history.svelte';
-	import { CatalogProblems, JsonField } from '@scutoons/catalog';
-	import { ACCEPTED_WARNINGS_FIELD, type CharacterRegistry } from '@scutoons/content';
-	import { canAccept, catalogProblems, entryOf, isAccepted, withAccepted, type CatalogProblem } from '@scutoons/catalog';
+	import { JsonField } from '@scutoons/catalog';
+	import { ACCEPTED_WARNINGS_FIELD } from '@scutoons/content';
 
 
 	/**
@@ -32,7 +31,6 @@
 	let {
 		def,
 		lists,
-		registry = null,
 		refresh,
 		form: Form,
 		barActions,
@@ -43,8 +41,6 @@
 		reload?: number;
 		def: KindDef;
 		lists: CatalogLists;
-		/** the published character registry (wear overlays are checked against it); null = not loaded, not checked */
-		registry?: CharacterRegistry | null;
 		/** reads a kind's list again (after a write) */
 		refresh: (kind: KindDef['kind']) => Promise<void>;
 		form: Component<CatalogFormProps, {}, 'data'>;
@@ -235,57 +231,9 @@
 		...def.columns.map((c) => ({ id: c.id, label: c.label(), secondary: c.secondary, width: c.image || c.id === 'avatar' ? '3.5rem' : undefined })),
 	]);
 	const columnDef = (id: string) => def.columns.find((c) => c.id === id);
-	// accepted warnings are kept out of the Advanced JSON: the Problems panel is their one control
+	// accepted warnings are kept out of the Advanced JSON (the creator's Problems panel accepts them)
 	const advancedKeys = $derived(def.formKeys ? [...def.formKeys, ACCEPTED_WARNINGS_FIELD] : null);
 	const advanced = $derived(advancedKeys && shown !== 'none' && shown !== 'missing' ? restOf(draft, advancedKeys) : null);
-
-	// ── Problems (validateCatalog over the lists; a warning accepted in its entry – lib/catalog/problems.ts) ─────────
-	let problemsOpen = $state(false);
-	let accepting = $state<CatalogProblem | null>(null);
-	/** the lists as the editor stands: the open entry as its form has it (problems follow the typing) */
-	const liveLists = $derived<CatalogLists>(
-		shown === 'entry' && openId && lists[kind]
-			? { ...lists, [kind]: lists[kind]!.map((e) => (e.id === openId ? { ...e, data: (def.fromForm ? def.fromForm(draft) : draft) as Data } : e)) }
-			: lists
-	);
-	const kindProblems = $derived(catalogProblems(liveLists, registry).filter((p) => p.list === kind));
-	/** the problem's entry is the one open in the form */
-	const inDraft = (p: CatalogProblem) => shown === 'entry' && !!p.place && p.place.kind === kind && p.place.id === openId;
-	const accepted = (p: CatalogProblem) => isAccepted(liveLists, p);
-	const problemCounts = $derived({
-		error: kindProblems.filter((p) => p.level === 'error').length,
-		warning: kindProblems.filter((p) => p.level === 'warning' && !accepted(p)).length
-	});
-
-	async function openProblem(p: CatalogProblem) {
-		if (!p.place || p.place.kind !== kind) return;
-		problemsOpen = false;
-		await openEntry(p.place.id);
-	}
-
-	/** ✓: the open entry takes it into its form (unsaved, Save keeps it – like any edit of it); another entry is saved at
-	 *  once (one change in its history, undo takes it back) */
-	async function toggleAccepted(p: CatalogProblem) {
-		if (!canAccept(liveLists, p) || !p.place || accepting) return;
-		const on = !accepted(p);
-		if (inDraft(p)) {
-			draft = withAccepted(draft, p, on);
-			return;
-		}
-		const entry = entryOf(lists, p.place);
-		if (!entry) return;
-		accepting = p;
-		try {
-			const kindOf = p.place.kind;
-			await admin.catalogPut(kindOf, entry.id, withAccepted(entry.data, p, on), on ? m['catalog.problems_accepted_note']() : m['catalog.problems_unaccepted_note']());
-			await refresh(kindOf);
-			historyReload++;
-		} catch (e) {
-			toaster.addToast({ message: errorText(e), type: 'error' });
-		} finally {
-			accepting = null;
-		}
-	}
 </script>
 
 <ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['catalog.title']()}>
@@ -295,13 +243,9 @@
 		{#if dirty}<span>{m['catalog.unsaved']()}</span>{/if}
 	{/snippet}
 	{#snippet secondary()}
-		{#if def.kind === 'items' || def.kind === 'albums' || def.kind === 'recipes'}
-			<Button size="sm" variant="secondary" onclick={() => (problemsOpen = true)} data-testid="catalog-problems-toggle">
-				{m['catalog.problems_button']()} <span class:bad={problemCounts.error > 0}>{problemCounts.error}</span>/<span>{problemCounts.warning}</span>
-			</Button>
-		{/if}
+
 		<Button size="sm" variant="secondary" onclick={() => (kindHistoryOpen = true)} data-testid="catalog-kind-history">{m['catalog.history']()}</Button>
-		<!-- the page's own actions (items: Import images …) – in "More" when narrow: the bar's end pushed them under More on a
+		<!-- the page's own actions – in "More" when narrow: the bar's end pushed them under More on a
 		     phone (E.9); wide, the secondary actions sit right before the end, so the order stays -->
 		{#if barActions}{@render barActions()}{/if}
 	{/snippet}
@@ -417,14 +361,7 @@
 	{#if kindHistoryOpen}<CatalogHistory {kind} reload={historyReload} onundone={undone} />{/if}
 </Sheet>
 
-<Sheet bind:open={problemsOpen} title={m['catalog.problems_title']({ what: def.label() })} side="right" widthKey="problems" closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()}>
-	{#if problemsOpen}<CatalogProblems problems={kindProblems} lists={liveLists} {accepted} busy={accepting} onopen={openProblem} ontoggle={toggleAccepted} />{/if}
-</Sheet>
-
 <style>
-	.bad {
-		color: var(--state-error);
-	}
 	.thumb {
 		display: block;
 		width: 2.5rem;

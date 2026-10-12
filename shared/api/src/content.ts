@@ -88,6 +88,8 @@ export interface CatalogDoc {
 	live: boolean;
 	/** a version newer than the published one */
 	draft: boolean;
+	/** the newest version is a tombstone (`removed: true`, D5): removed, or waiting to be published as removed */
+	removed: boolean;
 	versions: number;
 	latest_at: string | null;
 	latest_author: string | null;

@@ -1,6 +1,8 @@
 # CATALOG – the catalog in the database (CUTOVER 10.29, done 2026-10-04)
 
-How it is now: the tables, loaders, admin API and admin UI (Part 3). The plan and status sections below are the
+How it is now: the tables, loaders, admin API and admin UI (Part 3). **Since 2026-10-12 items, recipes, albums, products
+and editions are edited in the creator** (every entry its own document, agents/research/CATALOG-IN-CREATOR.md); the
+admin's catalog page keeps "Shop & codes" (toons, permissions, code types, meta) and refuses writes of the five kinds. The plan and status sections below are the
 history of the move (from `server/config/*.json`, gone since 10.30); the one-off production steps ran 2026-10-05.
 
 Owner 2026-10-04: "cant we just create the db table for this already? it is not like this is going to be hard coded for

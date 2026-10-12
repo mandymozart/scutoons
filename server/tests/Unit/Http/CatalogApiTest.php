@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace Scutoons\Tests\Http;
 
 use Psr\Http\Message\ResponseInterface;
+use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Avatar\AvatarSlots;
 use Scutoons\Domain\Reader\ReaderStats;
 use Scutoons\Domain\Roles\Roles;
@@ -34,6 +36,18 @@ final class CatalogApiTest extends TestCase
         $container = Kernel::container(Settings::fixed(self::root(), $this->settings()));
         $container->set(Clock::class, $this->clock);
         return Kernel::app($container)->handle($request);
+    }
+
+    /** the ApiError's message of a refused domain call (its code checked) */
+    private static function refused(callable $call, string $code = 'invalid_catalog'): string
+    {
+        try {
+            $call();
+        } catch (ApiError $e) {
+            self::assertSame($code, $e->errorCode);
+            return $e->getMessage() . ' ' . implode(' ', (array) ($e->extra['problems'] ?? $e->extra['uses'] ?? []));
+        }
+        self::fail("ApiError $code expected");
     }
 
     /** @return array<string, mixed> */
@@ -86,26 +100,25 @@ final class CatalogApiTest extends TestCase
         self::assertSame(404, $this->request('GET', '/api/admin/catalog/items/nope', $auth)->getStatusCode());
         self::assertSame(404, $this->request('GET', '/api/admin/catalog/bogus', $auth)->getStatusCode());
 
-        // create: 201, validated, objects kept
+        // items, recipes, albums, products, editions are written by the creator's publish (CatalogDocs → CatalogAdmin);
+        // the admin API refuses them (owner 2026-10-12, D6) – the domain keeps every rule: validated, objects kept, history
+        $admin = $this->get(CatalogAdmin::class);
+        $by = 'admin:boss@example.com';
         $item = ['id' => 'onion', 'toon' => 'catpope', 'name' => ['de' => 'Zwiebel', 'en' => 'Onion'], 'kind' => 'virtual', 'category' => 'food', 'icon' => 'catpope/items/onion.webp',
             'stackable' => true, 'grantable' => ['story'], 'slot' => null, 'skills' => [], 'wear' => (object) []];
         $r = $this->request('PUT', '/api/admin/catalog/items/onion', $auth, (string) json_encode(['data' => $item]));
-        $body = self::json($r);
-        self::assertSame([201, true, true, 27], [$r->getStatusCode(), $body['created'], $body['changed'], $body['entry']['position']]);
+        self::assertSame([409, 'edited_in_creator'], [$r->getStatusCode(), self::json($r)['error']]);
+        $body = $admin->put('items', 'onion', json_decode((string) json_encode($item)), $by);
+        self::assertSame([true, true, 27], [$body['created'], $body['changed'], $body['entry']['position']]);
         self::assertStringContainsString('"wear":{}', (string) $this->request('GET', '/api/admin/catalog/items/onion', $auth)->getBody(), 'stored as sent (GET /api/items/ decodes as arrays, as when it read the file)');
-        $r = $this->request('PUT', '/api/admin/catalog/items/onion', $auth, (string) json_encode(['data' => ['slot' => 'tail'] + $item]));
-        self::assertSame([422, 'invalid_catalog'], [$r->getStatusCode(), self::json($r)['error']]);
-        self::assertStringContainsString('unknown slot "tail"', implode(' ', self::json($r)['problems']));
+        self::assertStringContainsString('unknown slot "tail"', self::refused(fn() => $admin->put('items', 'onion', ['slot' => 'tail'] + $item, $by)));
         self::assertSame([400, 'missing_data'], [$this->request('PUT', '/api/admin/catalog/items/onion', $auth, '{"item":1}')->getStatusCode(), self::json($this->request('PUT', '/api/admin/catalog/items/onion', $auth, '{"item":1}'))['error']]);
         // a recipe that uses it, then the item can't go
-        $r = $this->request('PUT', '/api/admin/catalog/recipes/onion_soup', $auth, (string) json_encode(['data' => ['id' => 'onion_soup', 'inputs' => [['item' => 'onion', 'qty' => 2]], 'output' => ['item' => 'cucumber', 'qty' => 1]]]));
-        self::assertSame(201, $r->getStatusCode());
+        self::assertTrue($admin->put('recipes', 'onion_soup', ['id' => 'onion_soup', 'inputs' => [['item' => 'onion', 'qty' => 2]], 'output' => ['item' => 'cucumber', 'qty' => 1]], $by)['created']);
         // a recipe's own picture must be an image path (refused = no history row)
-        $r = $this->request('PUT', '/api/admin/catalog/recipes/onion_soup', $auth, (string) json_encode(['data' => ['id' => 'onion_soup', 'inputs' => [['item' => 'onion', 'qty' => 2]], 'output' => ['item' => 'cucumber', 'qty' => 1], 'image' => 'catpope/items/recipes/onion_soup.txt']]));
-        self::assertSame([422, 'invalid_catalog'], [$r->getStatusCode(), self::json($r)['error']]);
-        self::assertStringContainsString('image must be an image path', implode(' ', self::json($r)['problems']));
-        $r = $this->request('DELETE', '/api/admin/catalog/items/onion', $auth);
-        self::assertSame([409, 'in_use', ['recipe onion_soup']], [$r->getStatusCode(), self::json($r)['error'], self::json($r)['uses']]);
+        self::assertStringContainsString('image must be an image path', self::refused(fn() => $admin->put('recipes', 'onion_soup', ['id' => 'onion_soup', 'inputs' => [['item' => 'onion', 'qty' => 2]], 'output' => ['item' => 'cucumber', 'qty' => 1], 'image' => 'catpope/items/recipes/onion_soup.txt'], $by)));
+        self::assertStringContainsString('recipe onion_soup', self::refused(fn() => $admin->delete('items', 'onion', $by), 'in_use'));
+        self::assertSame(409, $this->request('DELETE', '/api/admin/catalog/items/onion', $auth)->getStatusCode());
         // reorder
         $r = $this->request('POST', '/api/admin/catalog/items/reorder', $auth, '{"ids":["onion","camera"]}');
         self::assertSame(['onion', 'camera'], array_slice(self::json($r)['ids'], 0, 2));
@@ -119,10 +132,12 @@ final class CatalogApiTest extends TestCase
         $r = $this->request('POST', "/api/admin/catalog/history/{$history[0]['id']}/undo", $auth);
         self::assertSame([200, true], [$r->getStatusCode(), self::json($r)['undone']]);
         self::assertSame('camera', self::json($this->request('GET', '/api/items/'))['items'][0]['id']);
+        // an entry's change of a moved kind: restored in the creator, not undone here
         $r = $this->request('POST', "/api/admin/catalog/history/{$history[2]['id']}/undo", $auth);
-        self::assertSame([409, 'in_use'], [$r->getStatusCode(), self::json($r)['error']], 'undoing the item\'s creation = deleting it: the recipe still uses it');
-        $this->request('POST', "/api/admin/catalog/history/{$history[1]['id']}/undo", $auth);
-        self::assertSame(200, $this->request('POST', "/api/admin/catalog/history/{$history[2]['id']}/undo", $auth)->getStatusCode());
+        self::assertSame([409, 'edited_in_creator'], [$r->getStatusCode(), self::json($r)['error']]);
+        self::assertStringContainsString('recipe onion_soup', self::refused(fn() => $admin->undo((int) $history[2]['id'], $by), 'in_use'), 'undoing the item\'s creation = deleting it: the recipe still uses it');
+        $admin->undo((int) $history[1]['id'], $by);
+        $admin->undo((int) $history[2]['id'], $by);
         self::assertSame(404, $this->request('GET', '/api/admin/catalog/items/onion', $auth)->getStatusCode());
         self::assertSame(404, $this->request('POST', '/api/admin/catalog/history/999999/undo', $auth)->getStatusCode());
     }
@@ -134,28 +149,28 @@ final class CatalogApiTest extends TestCase
         $auth = $this->admin();
         $public = (string) $this->request('GET', '/api/items/')->getBody();
         $products = (string) $this->request('GET', '/api/products/')->getBody();
+        $admin = $this->get(CatalogAdmin::class);
+        $by = 'admin:boss@example.com';
         $camera = self::json($this->request('GET', '/api/admin/catalog/items/camera', $auth))['entry']['data'];
-        $r = $this->request('PUT', '/api/admin/catalog/items/camera', $auth, (string) json_encode(['data' => $camera + ['accepted_warnings' => ['category#1x2y3z']], 'note' => 'warning accepted']));
-        self::assertSame([200, true], [$r->getStatusCode(), self::json($r)['changed']]);
+        self::assertTrue($admin->put('items', 'camera', $camera + ['accepted_warnings' => ['category#1x2y3z']], $by, null, 'warning accepted')['changed']);
         $meta = self::json($this->request('GET', '/api/admin/catalog/meta/items', $auth))['entry']['data'];
         self::assertSame(200, $this->request('PUT', '/api/admin/catalog/meta/items', $auth, (string) json_encode(['data' => $meta + ['accepted_warnings' => ['#abc']]]))->getStatusCode());
         $product = self::json($this->request('GET', '/api/admin/catalog/products/dago_hoodie', $auth))['entry']['data'];
-        self::assertSame(200, $this->request('PUT', '/api/admin/catalog/products/dago_hoodie', $auth, (string) json_encode(['data' => $product + ['accepted_warnings' => ['price#q']]]))->getStatusCode());
+        self::assertTrue($admin->put('products', 'dago_hoodie', $product + ['accepted_warnings' => ['price#q']], $by)['changed']);
         self::assertSame(['category#1x2y3z'], self::json($this->request('GET', '/api/admin/catalog/items/camera', $auth))['entry']['data']['accepted_warnings']);
         self::assertSame($public, (string) $this->request('GET', '/api/items/')->getBody(), 'readers never get accepted warnings');
         self::assertSame($products, (string) $this->request('GET', '/api/products/')->getBody());
         foreach ([['x'], [''], 'x', [1], []] as $bad) {
-            $r = $this->request('PUT', '/api/admin/catalog/items/camera', $auth, (string) json_encode(['data' => ['accepted_warnings' => $bad] + $camera]));
             if ($bad === ['x']) {
-                self::assertSame(200, $r->getStatusCode());
+                $admin->put('items', 'camera', ['accepted_warnings' => $bad] + $camera, $by);
                 continue;
             }
-            self::assertSame([422, 'invalid_catalog'], [$r->getStatusCode(), self::json($r)['error']], (string) json_encode($bad));
+            self::refused(fn() => $admin->put('items', 'camera', ['accepted_warnings' => $bad] + $camera, $by));
         }
         // undo the last change of camera (['x']) and the acceptance before it: back to the stored item without the field
         $history = self::json($this->request('GET', '/api/admin/catalog/history?kind=items&id=camera&limit=5', $auth))['items'];
         self::assertSame('warning accepted', $history[1]['note']);
-        foreach ([$history[0], $history[1]] as $h) self::assertSame(200, $this->request('POST', "/api/admin/catalog/history/{$h['id']}/undo", $auth)->getStatusCode());
+        foreach ([$history[0], $history[1]] as $h) self::assertTrue($admin->undo((int) $h['id'], $by)['undone']);
         self::assertArrayNotHasKey('accepted_warnings', self::json($this->request('GET', '/api/admin/catalog/items/camera', $auth))['entry']['data']);
     }
 

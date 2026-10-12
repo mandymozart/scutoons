@@ -665,7 +665,9 @@ Every item, recipe, album, product and edition is also a versioned entity: `item
 on content: `PUT` stores a draft (checked as a catalog entry: `422 invalid_catalog { problems }`; a reference to an entry
 that is only a draft passes), `publish` makes the version the published one AND writes it into the catalog table
 (`catalog_history` note `published v<n>`; `422 invalid_catalog` rolls back), `restore` as usual, **`unpublish` →
-`422 not_supported`**. `GET /catalog/docs/<kind>` (kind = items | recipes | albums | products | editions, role creator)
+`422 not_supported`**. Removing (D5): never published → `POST /entities/batch { deletes: [key] }` (409 `published`
+when it is in the catalog); published → a version = the document + `removed: true` (not validated again), publishing
+it deletes the table entry (`409 in_use` while anything uses it); `entries[].removed` marks it. `GET /catalog/docs/<kind>` (kind = items | recipes | albums | products | editions, role creator)
 → `{ kind, entries: [{ id, key, latest, published, live, draft, versions, latest_at, latest_author, latest_message,
 physical, toons, content }] }`. An admin write to the table (`/admin/catalog/…`, undo, relink) becomes the entry's
 published version; a delete leaves it unpublished.
@@ -676,8 +678,8 @@ variant's too) / `max_world`, a recipe whose output is such an item, an album wi
 edition; a change readers don't see (an accepted warning) is not – is published only by an account with the third rule
 **`physical`** for every toon it touches; everyone else gets `403 review_required { toons, physical: true }` and submits.
 Its submits go to (and are decided only by) the `physical` accounts (`409 no_reviewer { toon, rule: physical }` when
-there is none); `GET /reviews` adds `physical_of`. The admin's direct catalog writes (`PUT|DELETE /admin/catalog/<kind>/<id>`,
-undo) answer to the same rule: `403 review_required`.
+there is none); `GET /reviews` adds `physical_of`. The admin's direct catalog writes of these five kinds (`PUT|DELETE /admin/catalog/<kind>/<id>`,
+an entry's undo) are refused: **`409 edited_in_creator`** (D6); list, get, history and reorder stay.
 
 ## Library (the reader's entities, agents/DATA.md)
 

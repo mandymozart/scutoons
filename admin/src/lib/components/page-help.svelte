@@ -114,8 +114,6 @@
 		<p>{m['help.catalog']()}</p>
 		<h3>{m['help.catalog_history_title']()}</h3>
 		<p>{m['help.catalog_history']()}</p>
-		<h3>{m['help.catalog_media_title']()}</h3>
-		<p>{m['help.catalog_media']()}</p>
 		<h3>{m['help.catalog_kinds_title']()}</h3>
 		<p>{m['help.catalog_kinds']()}</p>
 	{:else if page === 'settings'}

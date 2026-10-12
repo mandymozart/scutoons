@@ -2,39 +2,33 @@
 	import type { Component } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button, CloseIcon, Tabs } from '@scutoons/ui';
-	import type { CatalogEntry, CatalogKind } from '@scutoons/api';
-	import { admin, library } from '$lib/api.ts';
-	import type { CharacterRegistry } from '@scutoons/content';
-	import { invalidateCatalog } from '$lib/catalog.ts';
-	import { importItemImages, importRecipeImages, type ImportReport } from '$lib/catalog/import.ts';
-	import { EDITED_KINDS, KINDS, type CatalogFormProps, type CatalogLists, type EditedKind } from '@scutoons/catalog';
+	import { Button, Tabs } from '@scutoons/ui';
+	import type { CatalogKind } from '@scutoons/api';
+	import { admin } from '$lib/api.ts';
+	import { KINDS, type CatalogFormProps, type CatalogLists } from '@scutoons/catalog';
+	import { ADMIN_KINDS, type AdminKind } from '$lib/catalog/admin-kinds.ts';
 	import { CREATOR_URL } from '$lib/config.ts';
 	import { errorText } from '$lib/format.ts';
-	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CatalogEditor from '$lib/components/catalog/catalog-editor.svelte';
-	import { AlbumForm, CodeTypeForm, EditionForm, ItemForm, MetaForm, PermissionForm, ProductForm, RecipeForm, ToonForm } from '@scutoons/catalog';
+	import { CodeTypeForm, MetaForm, PermissionForm, ToonForm } from '@scutoons/catalog';
 
 	/**
-	 * The catalog in the database (agents/CATALOG.md part 3): one tab per kind, each the same editor (list in order,
-	 * form, history with undo). The featured products stay on the Homepage page (one place for them).
+	 * "Shop & codes" – the part of the catalog the admin keeps (agents/CATALOG.md part 3): toons, permissions, code types,
+	 * meta; one tab per kind, each the same editor (list in order, form, history with undo). Items, recipes, albums,
+	 * products and editions are edited in the creator (owner 2026-10-12, CATALOG-IN-CREATOR D6) – the note links there;
+	 * the featured products stay on the Homepage page.
 	 */
-	const toaster = getToaster();
-	const FORMS: Record<EditedKind, Component<CatalogFormProps, {}, 'data'>> = {
-		items: ItemForm,
-		recipes: RecipeForm,
-		albums: AlbumForm,
-		products: ProductForm,
-		editions: EditionForm,
+	const FORMS: Record<AdminKind, Component<CatalogFormProps, {}, 'data'>> = {
 		toons: ToonForm,
 		permissions: PermissionForm,
 		'code-types': CodeTypeForm,
 		meta: MetaForm
 	};
 
-	const kind = $derived<EditedKind>((EDITED_KINDS as readonly string[]).includes(page.params.kind ?? '') ? (page.params.kind as EditedKind) : 'items');
+	/** an old link to a moved kind (/catalog/items …) shows the note and the first tab */
+	const kind = $derived<AdminKind>((ADMIN_KINDS as readonly string[]).includes(page.params.kind ?? '') ? (page.params.kind as AdminKind) : ADMIN_KINDS[0]);
 	const def = $derived(KINDS[kind]);
 
 	let lists = $state<CatalogLists>({});
@@ -45,86 +39,28 @@
 		lists[k] = result.items;
 	}
 
-	// the published characters, for the wear overlays' problems (not loaded = not checked; never blocks the page)
-	let registry = $state<CharacterRegistry | null>(null);
-	$effect(() => {
-		library.fetchRegistry().then((r) => (registry = r), () => (registry = null));
-	});
-
-	// every kind once (the forms' selects need the others: items, editions, products, albums, toons, permissions)
+	// every kind once (the code types' form lists the permissions)
 	$effect(() => {
 		error = null;
-		Promise.all(EDITED_KINDS.map((k) => refresh(k))).catch((e) => (error = errorText(e)));
+		Promise.all(ADMIN_KINDS.map((k) => refresh(k))).catch((e) => (error = errorText(e)));
 	});
 
-	const tabs = $derived(EDITED_KINDS.map((k) => ({ id: k, label: KINDS[k].label() })));
-
-	// ── items / recipes: "Import images …" ────────────────────────────────────────────────────────────────────────────────
-	let importInput = $state<HTMLInputElement>();
-	let importing = $state<{ done: number; total: number } | null>(null);
-	let report = $state<ImportReport | null>(null);
-	/** bumped after the import wrote items: the open item is read again */
-	let editorReload = $state(0);
-
-	async function importImages(event: Event) {
-		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
-		if (importInput) importInput.value = '';
-		if (!files.length) return;
-		report = null;
-		importing = { done: 0, total: files.length };
-		try {
-			const step = (done: number, total: number) => (importing = { done, total });
-			report = kind === 'recipes' ? await importRecipeImages(files, lists.recipes ?? [], lists.items ?? [], step) : await importItemImages(files, lists.items ?? [], step);
-			invalidateCatalog();
-			await refresh(kind === 'recipes' ? 'recipes' : 'items');
-			editorReload++;
-			toaster.addToast({ message: summary(report), type: report.problems.length ? 'warning' : 'success' });
-		} catch (e) {
-			toaster.addToast({ message: errorText(e), type: 'error' });
-		} finally {
-			importing = null;
-		}
-	}
-	const summary = (r: ImportReport) => m['catalog.import_summary']({ uploaded: r.uploaded, replaced: r.replaced, unchanged: r.unchanged });
-	const problemText = (p: ImportReport['problems'][number]) =>
-		p.problem === 'unknown_item' ? m['catalog.import_unknown_item']({ file: p.file }) : p.problem === 'unknown_recipe' ? m['catalog.import_unknown_recipe']({ file: p.file }) : p.problem === 'unknown_variant' ? m['catalog.import_unknown_variant']({ file: p.file, item: p.item ?? '' }) : `${p.file}: ${p.message ?? ''}`;
+	const tabs = $derived(ADMIN_KINDS.map((k) => ({ id: k, label: KINDS[k].label() })));
 </script>
 
 <PageHeader type={m['nav.group_data']()} title={m['catalog.title']()} meta={m['catalog.meta']()} />
 
+<!-- items, recipes, albums, products, editions: drafts, versions and review in the creator (agents/research/CATALOG-IN-CREATOR.md) -->
+<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/items" target="_blank" rel="noopener">{m['catalog.in_creator_link']()}</a></p>
+
 <Tabs {tabs} value={kind} label={m['catalog.title']()} onchange={(id) => goto(`/catalog/${id}`, { keepFocus: true, noScroll: true })}>
 	{#snippet children()}
 		{#if error}<p class="error-box" role="alert">{error}</p>{/if}
-		{#if ['items', 'recipes', 'albums', 'products', 'editions'].includes(kind)}
-			<!-- the move into the creator (agents/CATALOG-IN-CREATOR.md): drafts, versions, review there; physical changes need the rule here too -->
-			<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/{kind}" target="_blank" rel="noopener">{m['catalog.in_creator_link']()}</a></p>
-		{/if}
-		{#if kind === 'products'}
-			<p class="muted note">{m['catalog.featured_note']()} <a href="/homepage">{m['nav.homepage']()}</a></p>
-		{/if}
-		{#if (kind === 'items' || kind === 'recipes') && report}
-			<div class="report" role="status" data-testid="import-report">
-				<p>
-					{summary(report)}{#if report.updated.length}{' · '}{m['catalog.import_updated']({ items: report.updated.join(', ') })}{/if}
-				</p>
-				{#if report.problems.length}
-					<ul class="problems">{#each report.problems as p, i (i)}<li>{problemText(p)}</li>{/each}</ul>
-				{/if}
-				<button type="button" class="sc-round" title={m['common.close']()} aria-label={m['common.close']()} onclick={() => (report = null)}><CloseIcon /></button>
-			</div>
-		{/if}
 		{#key kind}
-			<CatalogEditor {def} {lists} {registry} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' || kind === 'recipes' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
+			<CatalogEditor {def} {lists} {refresh} form={FORMS[kind]} detailActions={kind === 'toons' ? toonActions : undefined} />
 		{/key}
 	{/snippet}
 </Tabs>
-
-{#snippet itemActions()}
-	<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} data-testid="import-images-input" />
-	<Button size="sm" variant="secondary" disabled={!!importing || !lists.items} onclick={() => importInput?.click()} title={kind === 'recipes' ? m['catalog.import_recipes_hint']() : m['catalog.import_hint']()} data-testid="import-images">
-		{importing ? m['catalog.importing']({ done: importing.done, total: importing.total }) : m['catalog.import_images']()}
-	</Button>
-{/snippet}
 
 {#snippet toonActions(id: string)}
 	<Button size="sm" variant="secondary" href="{CREATOR_URL}/{encodeURIComponent(id)}" target="_blank" rel="noopener" data-testid="toon-open-creator">{m['catalog.toon_fill']()}</Button>
@@ -133,27 +69,5 @@
 <style>
 	.note {
 		margin: 0 0 var(--space-1);
-	}
-	.report {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: var(--space-05) var(--space-1);
-		align-items: start;
-		margin-bottom: var(--space-1);
-		padding: var(--space-075);
-		border: var(--border-width-regular) solid var(--ink);
-	}
-	.report p {
-		margin: 0;
-	}
-	.report .problems {
-		grid-column: 1;
-		margin: 0;
-		padding-left: 1.2em;
-		color: var(--state-error);
-	}
-	.report .sc-round {
-		grid-column: 2;
-		grid-row: 1;
 	}
 </style>

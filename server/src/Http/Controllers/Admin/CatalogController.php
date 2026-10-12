@@ -8,7 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogStore;
-use Scutoons\Domain\Content\Reviews;
+use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
 
@@ -25,12 +25,13 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST   /catalog/history/<n>/undo     { force? } → { status, undone, history_id, entry? } (409 changed_since)
  * Creating a toon (PUT /catalog/toons/<id> { data: { id, name, redirectUrl } }) also creates its content index entry
  * `toon:<id>` (a draft) when the creator has none yet.
- * A physical change of an item / recipe / album / product / edition (put, delete, undo) needs the review rule `physical`
- * for its toons – admins too (Reviews::guardPhysical, agents/CATALOG-IN-CREATOR.md): 403 review_required.
+ * Items, recipes, albums, products and editions are edited in the creator (owner 2026-10-12, D6 – their documents,
+ * drafts, review, the `physical` rule): put / delete / undo of those kinds → 409 edited_in_creator; list, get, history
+ * and reorder (the order has no other home) stay. CatalogDocs, agents/research/CATALOG-IN-CREATOR.md.
  */
 final class CatalogController
 {
-    public function __construct(private readonly CatalogAdmin $admin, private readonly Reviews $reviews)
+    public function __construct(private readonly CatalogAdmin $admin)
     {
     }
 
@@ -52,9 +53,8 @@ final class CatalogController
         CatalogStore::kind($args['kind']);
         $body = JsonBody::object($request);
         if ($body === null || !property_exists($body, 'data')) throw new ApiError(400, 'missing_data', 'Send { data: <the entry> }.');
+        self::refuseMoved($args['kind']);
         [$by, $userId] = self::who($request);
-        $data = json_decode((string) json_encode($body->data), true);
-        $this->reviews->guardPhysical((string) $userId, $args['kind'], $args['id'], is_array($data) ? $data : null);
         $result = $this->admin->put($args['kind'], $args['id'], $body->data, $by, $userId, isset($body->note) && is_string($body->note) ? $body->note : null);
         return Json::response($response, $result['created'] ? 201 : 200, ['status' => 'success'] + $result);
     }
@@ -62,8 +62,8 @@ final class CatalogController
     /** @param array{kind: string, id: string} $args */
     public function delete(Request $request, Response $response, array $args): Response
     {
-        [$by, $userId] = self::who($request);
-        $this->reviews->guardPhysical((string) $userId, $args['kind'], $args['id'], null);
+        self::refuseMoved($args['kind']);
+        [$by] = self::who($request);
         return Json::response($response, 200, ['status' => 'success'] + $this->admin->delete($args['kind'], $args['id'], $by));
     }
 
@@ -89,11 +89,17 @@ final class CatalogController
         $body = JsonBody::of($request);
         [$by, $userId] = self::who($request);
         $change = $this->admin->historyRow((int) $args['id']);
-        if ($change !== null && $change['entry_id'] !== '') {
-            $before = $change['before_json'] !== null ? json_decode((string) $change['before_json'], true) : null;
-            $this->reviews->guardPhysical((string) $userId, (string) $change['kind'], (string) $change['entry_id'], is_array($before) ? $before : null);
-        }
+        // an entry's change of a moved kind: restore its version in the creator instead (an order's undo stays)
+        if ($change !== null && $change['entry_id'] !== '') self::refuseMoved((string) $change['kind']);
         return Json::response($response, 200, ['status' => 'success'] + $this->admin->undo((int) $args['id'], $by, ($body['force'] ?? false) === true, $userId));
+    }
+
+    /** 409 edited_in_creator for the kinds that are catalog documents now (D6) */
+    private static function refuseMoved(string $kind): void
+    {
+        if (in_array($kind, EntityKey::CATALOG_KINDS, true)) {
+            throw new ApiError(409, 'edited_in_creator', "The $kind are edited in the creator now (Catalog) – drafts, versions and review there.", ['kind' => $kind]);
+        }
     }
 
     /** @return array{0: string, 1: ?string} [admin:<email>, user id] */
