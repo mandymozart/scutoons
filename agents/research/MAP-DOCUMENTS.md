@@ -1,3 +1,5 @@
+Status 2026-10-12: merged into `main` (map, places, routes and characters as their own documents; two migrations run with the deploy); D5–D8 open (FEATURES 10.89).
+
 # MAP-DOCUMENTS – the world map and the character registry as many documents (DRAFT, 2026-10-12)
 
 Owner 2026-10-12: "das brauchen wir dann auch für die Items, dass alle einen eigenen Doc haben, den man versionieren

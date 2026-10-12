@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.89**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.90**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -30,6 +30,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.72 **Expressions polish: a chip shows its code** (EXPRESSIONS.md "State").
 
 ## Map
+- [ ] 10.89 **Map / character documents: four questions left** (research/MAP-DOCUMENTS.md) – `decide`: D5 History
+  panel per place / character, D6 hide checklist lines equal to the published version, D7 the server refuses a route to
+  an unknown place, D8 creation order vs an explicit order list. Built as they are now.
 - [ ] 10.25 **Map places ↔ story** – owner 2026-10-03 ("isn't group the better place?"). Unlocking is decided since
   2026-10-11 (only the `unlockLocation` event, MAP §8.5a); open: the place card's link to a group label instead of the
   chapter start, renaming groups to their places (labels are in jump links). `decide`.
