@@ -997,7 +997,7 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
 - Production map draft v276: layers terrain · plaster · painted (`fog: { radius: 24 }`, still the dated paths – switch to v1, see HANDOVER) – publish only after the code deploy
   (an older viewer ignores `fog` and shows the painted layer everywhere).
 
-### 8.10 Regions (concept, owner 2026-10-12 – not built yet)
+### 8.10 Regions (owner 2026-10-12 – built the same day, branch `claude/cool-galileo-5d33f7`)
 
 Owner: "Since we identified areas with specific terrain conditions, can we translate them into hexagonal area covers and
 list them in the map editor – not as locations, not as layers, but as regions. Same doc type, changeable. They will have
@@ -1017,7 +1017,18 @@ generic narrator says a region-specific greeting."
    `scripts/region-signs.mjs` → `logs/map-paint/signs/` (Luma, uni-1-max).
 5. Write it up + generate example signs: **yes**.
 
-**Proposal (to build):**
+**Built (2026-10-12):** `MapRegion` / `region:<id>` (cover = row runs `[r, q0, q1]` – `regionCells`, `cellRuns`,
+`runsOutline`, `runsPaths`, `paintRuns`, `regionAt`), validation, schema `map-region`, keys + composition TS / PHP, the
+library answer's `regions` (texts in the locale, no cells); save game `map.residences` (TS + PHP merge, newer move wins,
+a reset leaves them); `RegistryCharacter.origin` / `residence` (+ the character form); the event `migrate` (creator form,
+viewer runner → `region-welcome.ts` → map.svelte registers + plays `RegionWelcome`: the sign behind, the representative's
+portrait + greeting, or the narrator); the builder's Regions fold + `RegionProps` + covers on the canvas + the shared
+`HexBrush` in bulk mode. Migration `2026-10-12-map-regions` seeds the seven regions as DRAFTS with their signs (only where
+a world map exists – a fresh local `dev:db` migrates before it seeds: run the file once by hand there, or load a newer
+production dump). Open: elections; the sign round in the industrial style (Luma: the owner's go); regions in the reader's
+map (an overlay?) – not asked yet.
+
+**Proposal (as planned before building):**
 - **Data:** `region:<id>` documents in the map collection (like `place:` / `route:`): `name {de, en}`, `claim {de, en}`,
   `cells` (the map's hex cells – run-length or a cell list), `sign` (image, maybe a plaster version like the dioramas),
   `vegetation` (text; also the paint prompt when the region is repainted), `description {de, en}` (the in-depth info),
