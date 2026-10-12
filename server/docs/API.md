@@ -127,7 +127,8 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET/POST | `/batches` | list · create `{ edition_id, count?, start_number?, force? }` (reserves codes, `409 batch_complete`) |
 | GET/PUT | `/batches/{filename}` · GET `/batches/{filename}/zip` | manifest · progress · ZIP |
 | GET/PUT | `/files/{type}/{filename}` | batch output (svgs, certificates, signatures, batch, zips) |
-| GET | `/users` · `/users/{id}` · `/roles` | accounts (emails shown here), detail, roles |
+| GET | `/users` · `/users/{id}` · `/roles` | accounts (emails shown here), detail (incl. `reading`: the member's chapter checkpoints, last read first – `{ toon, chapter, position, finished, group, slice, started_at, read_at }` – and the sizes of their save game; null = none on the server), roles |
+| GET | `/reading?toon=` | where the members are (BACKLOG 10.69): per chapter `{ toon, chapter, started, finished, reading, stops[10], last_read_at }` + `readers` (members with a save game; guests are not on the server) · `400 invalid_toon` |
 | PUT/DELETE | `/users/{id}/roles/{role}` | grant / revoke |
 | PUT | `/users/{id}/characters/{character}` | unlock an avatar-body character `{ looks?, source?: default\|code\|item\|story\|admin (admin), ref? (admin:<email>) }` → `{ changed, characters }` · `400 unknown_character\|invalid_look\|invalid_source\|invalid_body` · 404 |
 | DELETE | `/users/{id}/characters/{character}[/looks/{look}]` | revoke the character (with its looks) or one look → `{ changed, characters }`; a worn body that is no longer unlocked is reset; defaults can't be revoked per account |
@@ -657,6 +658,27 @@ Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { i
 `PUT|DELETE /users/{id}/review-rules/{toon}/{rule}` → `{ changed, review_rules }` (`400 invalid_toon|invalid_rule`);
 `GET /users/{id}` includes `review_rules`. Mails name the toon (its catalog name) and link to the creator dashboard `CREATOR_URL/` ("To review" / "Your submissions").
 
+### Catalog documents and the `physical` rule (2026-10-12 draft, migration `2026-10-12-catalog-docs` – agents/CATALOG-IN-CREATOR.md)
+
+Every item, recipe, album, product and edition is also a versioned entity: `item:<id>`, `recipe:<id>`, `album:<id>`,
+`product:<id>`, `edition:<id>` (no toon segment; ids as in the catalog, upper case allowed). `/entities` works on them like
+on content: `PUT` stores a draft (checked as a catalog entry: `422 invalid_catalog { problems }`; a reference to an entry
+that is only a draft passes), `publish` makes the version the published one AND writes it into the catalog table
+(`catalog_history` note `published v<n>`; `422 invalid_catalog` rolls back), `restore` as usual, **`unpublish` →
+`422 not_supported`**. `GET /catalog/docs/<kind>` (kind = items | recipes | albums | products | editions, role creator)
+→ `{ kind, entries: [{ id, key, latest, published, live, draft, versions, latest_at, latest_author, latest_message,
+physical, toons, content }] }`. An admin write to the table (`/admin/catalog/…`, undo, relink) becomes the entry's
+published version; a delete leaves it unpublished.
+
+Reviews apply to them with the entry's toon (`toon` field; a recipe: its output item's; none = `*` – only the `*` rules).
+A **physical** change – the entry before or after is an item with `kind: physical` / `edition_id` / `product` (a
+variant's too) / `max_world`, a recipe whose output is such an item, an album with `owners` access, any product or
+edition; a change readers don't see (an accepted warning) is not – is published only by an account with the third rule
+**`physical`** for every toon it touches; everyone else gets `403 review_required { toons, physical: true }` and submits.
+Its submits go to (and are decided only by) the `physical` accounts (`409 no_reviewer { toon, rule: physical }` when
+there is none); `GET /reviews` adds `physical_of`. The admin's direct catalog writes (`PUT|DELETE /admin/catalog/<kind>/<id>`,
+undo) answer to the same rule: `403 review_required`.
+
 ## Library (the reader's entities, agents/DATA.md)
 
 Public GETs composed from the content store's **published** documents (the configuration format of `@scutoons/content`
@@ -789,7 +811,7 @@ zone). Content editors (creator, admin):
 | GET | `/assets/missing` · `/assets/orphans` | uses of unknown files · current files nothing uses |
 
 Admin (`/api/admin/assets/*`): `GET storage[?stats=1]` (drivers, settings status – never secrets –, totals, 30-day
-bandwidth), `POST scan`, `POST relink { from, to, publish? }`, `PUT {id}/file?path=&note=` (raw body: replace in place →
+bandwidth), `POST scan`, `POST relink { from, to, publish? }` (or `{ map: { old: new, … }, publish? }` – several files in one pass, one new draft per touched document; nothing written when a target is missing), `PUT {id}/file?path=&note=` (raw body: replace in place →
 `replaced, archived_as, purged, stale_renditions`), `POST {id}/rename { slug, publish? }`, `GET {id}/delete-check`,
 `DELETE {id}[?force=1]` (409 `in_use` + `usages` while referenced; `force` only when drafts are the only uses),
 `POST {id}/jobs { kind, params }`, `GET jobs`, `GET unused` (cleanup list per asset on a freshly rebuilt index:

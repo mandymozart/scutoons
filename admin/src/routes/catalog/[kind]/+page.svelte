@@ -8,22 +8,14 @@
 	import type { CharacterRegistry } from '@scutoons/content';
 	import { invalidateCatalog } from '$lib/catalog.ts';
 	import { importItemImages, importRecipeImages, type ImportReport } from '$lib/catalog/import.ts';
-	import { EDITED_KINDS, KINDS, type CatalogFormProps, type CatalogLists, type EditedKind } from '$lib/catalog/kinds.ts';
+	import { EDITED_KINDS, KINDS, type CatalogFormProps, type CatalogLists, type EditedKind } from '@scutoons/catalog';
 	import { CREATOR_URL } from '$lib/config.ts';
 	import { errorText } from '$lib/format.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CatalogEditor from '$lib/components/catalog/catalog-editor.svelte';
-	import AlbumForm from '$lib/components/catalog/album-form.svelte';
-	import CodeTypeForm from '$lib/components/catalog/code-type-form.svelte';
-	import EditionForm from '$lib/components/catalog/edition-form.svelte';
-	import ItemForm from '$lib/components/catalog/item-form.svelte';
-	import MetaForm from '$lib/components/catalog/meta-form.svelte';
-	import PermissionForm from '$lib/components/catalog/permission-form.svelte';
-	import ProductForm from '$lib/components/catalog/product-form.svelte';
-	import RecipeForm from '$lib/components/catalog/recipe-form.svelte';
-	import ToonForm from '$lib/components/catalog/toon-form.svelte';
+	import { AlbumForm, CodeTypeForm, EditionForm, ItemForm, MetaForm, PermissionForm, ProductForm, RecipeForm, ToonForm } from '@scutoons/catalog';
 
 	/**
 	 * The catalog in the database (agents/CATALOG.md part 3): one tab per kind, each the same editor (list in order,
@@ -103,6 +95,10 @@
 <Tabs {tabs} value={kind} label={m['catalog.title']()} onchange={(id) => goto(`/catalog/${id}`, { keepFocus: true, noScroll: true })}>
 	{#snippet children()}
 		{#if error}<p class="error-box" role="alert">{error}</p>{/if}
+		{#if ['items', 'recipes', 'albums', 'products', 'editions'].includes(kind)}
+			<!-- the move into the creator (agents/CATALOG-IN-CREATOR.md): drafts, versions, review there; physical changes need the rule here too -->
+			<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/{kind}" target="_blank" rel="noopener">{m['catalog.in_creator_link']()}</a></p>
+		{/if}
 		{#if kind === 'products'}
 			<p class="muted note">{m['catalog.featured_note']()} <a href="/homepage">{m['nav.homepage']()}</a></p>
 		{/if}

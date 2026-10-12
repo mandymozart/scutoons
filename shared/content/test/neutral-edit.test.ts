@@ -129,7 +129,7 @@ test('validateNeutral: the toon entry (index) – texts, release and status per 
 	assert.match(withOld.find((p) => p.path[0] === 'i18n')!.message, /drop it, the name is "title"/);
 	const unconverted = validateNeutral('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: old }, L, { file: 'toon:t' });
 	assert.deepEqual(lines(unconverted), ['warning - i18n']);
-	assert.match(unconverted[0].message, /Convert/);
+	assert.match(unconverted[0].message, /toon settings and save/);
 	assert.deepEqual(lines(validateNeutral('index', { id: 't', title: 'T' }, L, { file: 'toon:t' })), ['error - title']);
 });
 

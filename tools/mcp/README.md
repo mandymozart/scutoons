@@ -17,7 +17,7 @@ Readers (no member role) can't connect. ChatGPT / Cursor: not offered for now.
 | creator / admin | story | `src/story.ts`: `read_flow` (SCUTOONS / toon / chapter / group – the Flow panel's own functions, stuck points), `story_variables`, `dead_things`, `item_placements`, `asset_usages`, `missing_assets`, `list_reviews`, `compare_versions` |
 | creator | Figma (the member's own file) | `src/figma.ts`: `figma_status`, `figma_read`, `figma_view` (a node as a picture), `figma_place_draft` (storyboard draft frames) – through the SCUTOONS Figma bridge on the member's computer (`tools/figma-bridge`: relay + development plugin in Figma desktop; no Figma token, no call cap) |
 | liaison / ambassador / admin | Embassy | `src/embassy.ts`: `today`, `my_portion`, `search_orgs`, `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `create_org`, `update_org`, `add_person`, `update_person`, `delete_person`, `draft_mail`, `check_inbox` |
-| admin | admin | `src/admin.ts`: `dashboard`, `count_codes`, `list_codes`, `read_code`, `list_events`, `list_users`, `read_user`, `list_claims`, `read_claim`, `email_log`, `read_catalog`, `catalog_history`, `read_calendar`, `read_settings`, `propose_changes` |
+| admin | admin | `src/admin.ts`: `dashboard`, `count_codes`, `list_codes`, `read_code`, `list_events`, `list_users`, `read_user`, `reading_stats`, `list_claims`, `read_claim`, `email_log`, `read_catalog`, `catalog_history`, `read_calendar`, `read_settings`, `propose_changes` |
 | developer | migrations | `src/dev.ts`: `migration_status`, `plan_migrations` (a dry run: row counts, nothing changes), `apply_migrations` (that plan, backups, cache emptied) – the deploy runs pending ones by itself |
 | everyone | – | `whoami` (member, services, the app links) |
 

@@ -19,6 +19,10 @@ export interface MediaLabels {
 	use: string;
 	upload: string;
 	uploadPath: string;
+	/** the upload in the media standard (BACKLOG 10.64): `advice` = "PNG → WebP" */
+	uploadStandard: (advice: string) => string;
+	/** a file off the standard that can't be converted here (video: no ffmpeg yet) */
+	uploadOffStandard: (advice: string) => string;
 	replaceTitle: string;
 	replaceMessage: (path: string) => string;
 	replace: string;
@@ -72,6 +76,8 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		use: 'Verwenden',
 		upload: 'Hochladen',
 		uploadPath: 'Pfad im CDN',
+		uploadStandard: (advice) => `Medienstandard: ${advice} (empfohlen)`,
+		uploadOffStandard: (advice) => `Nicht im Medienstandard: ${advice}`,
 		replaceTitle: 'Datei ersetzen?',
 		replaceMessage: (path) =>
 			`${path} gibt es schon. Die neue Datei ersetzt sie überall, wo sie verwendet wird; die alte bleibt als frühere Fassung erhalten.`,
@@ -122,6 +128,8 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		use: 'Use',
 		upload: 'Upload',
 		uploadPath: 'Path on the CDN',
+		uploadStandard: (advice) => `Media standard: ${advice} (recommended)`,
+		uploadOffStandard: (advice) => `Off the media standard: ${advice}`,
 		replaceTitle: 'Replace the file?',
 		replaceMessage: (path) =>
 			`${path} is already there. The new file takes its place everywhere it is used; the old one is kept as a previous version.`,

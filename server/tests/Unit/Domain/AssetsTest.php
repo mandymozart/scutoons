@@ -213,6 +213,12 @@ final class AssetsTest extends TestCase
         $orphans = array_column($this->get(AssetUsages::class)->orphans(), null, 'slug');
         self::assertTrue($orphans['catpope/videos/roar-little-kitty']['all_unused']);
         self::assertSame(['catpope/videos/s1-trailer-loop.1280w.mp4', 'catpope/videos/s1-trailer-loop.1920w.mp4'], $orphans['catpope/videos/s1-trailer-loop']['unused']);
+
+        // the list counts each file's own uses (the optimisation tool judges the file content references – BACKLOG 10.64)
+        $trailer = array_values(array_filter($registry->list(['q' => 's1-trailer-loop'])['items'], fn($a) => $a['slug'] === 'catpope/videos/s1-trailer-loop'))[0];
+        $perFile = array_column($trailer['renditions'], 'usages', 'path');
+        self::assertGreaterThan(0, $perFile['catpope/videos/s1-trailer-loop.720p.mp4']);
+        self::assertSame(0, $perFile['catpope/videos/s1-trailer-loop.1920w.mp4']);
     }
 
     public function testDeleteIsRefusedWhileReferenced(): void
@@ -379,6 +385,34 @@ final class AssetsTest extends TestCase
         self::assertSame('catpope/items/awakening-vinyl', $registry->asset($icon)['slug'] ?? null);
         $this->get(AssetImporter::class)->import($this->get(AssetStorages::class)->local());
         self::assertNull($registry->bySlug('catpope/items/vinyl'), 'the old file stays attached to the archived version');
+    }
+
+    public function testRelinkAllMakesOneDraftPerEntity(): void
+    {
+        $this->fixture();
+        $this->scan();
+        $service = $this->get(AssetService::class);
+        $user = $this->user('admin@example.com');
+        $store = $this->get(EntityStore::class);
+
+        // a target that isn't there: refused, nothing written
+        try {
+            $service->relinkAll($user, ['catpope/images/s1-cover-square.jpg' => 'catpope/images/s1-cover-square.webp', 'catpope/images/webtoon/s1c1/s1c1-slice-1.webp' => 'catpope/images/nowhere.webp']);
+            self::fail('missing target');
+        } catch (ApiError $error) {
+            self::assertSame('missing_target', $error->errorCode);
+        }
+        self::assertSame('images/s1-cover-square.jpg', json_decode((string) ($store->latest('chapter:catpope:1:de')['json'] ?? ''), true)['groups'][0]['slices'][1]['image']);
+
+        // two files of the chapter's draft in one pass (the optimisation tool): ONE new draft with both
+        $before = $store->latest('chapter:catpope:1:de')['id'] ?? null;
+        $result = $service->relinkAll($user, ['catpope/images/s1-cover-square.jpg' => 'catpope/images/s1-cover-square.webp', 'catpope/images/webtoon/s1c1/s1c1-slice-1.webp' => 'catpope/images/s1-cover-square.webp']);
+        $refs = array_column($result['content'], 'ref');
+        self::assertSame(array_values(array_unique($refs)), $refs, 'one entry per entity');
+        self::assertContains('chapter:catpope:1:de', $refs);
+        $draft = json_decode((string) ($store->latest('chapter:catpope:1:de')['json'] ?? ''), true);
+        self::assertSame(['images/s1-cover-square.webp', 'images/s1-cover-square.webp'], array_column($draft['groups'][0]['slices'], 'image'));
+        self::assertNotSame($before, $store->latest('chapter:catpope:1:de')['id'] ?? null);
     }
 
     public function testJobsQueueAndValidate(): void

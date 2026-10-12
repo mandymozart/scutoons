@@ -1215,7 +1215,7 @@ function checkToonIndex(c: Collector, t: any) {
 			['i18n'],
 			hasToonTexts(t)
 				? 'i18n is the old per-language name – drop it, the name is "title" (a text per language)'
-				: 'i18n is the old per-language name – converting the toon (Convert) puts it into "title" (a text per language)'
+				: 'i18n is the old per-language name – open the toon settings and save: the name moves into "title" (a text per language)'
 		);
 	if (t.map !== undefined) {
 		// the toon's start view on the world map (agents/MAP.md §2.2); the world's size and layers live in the entity `map`

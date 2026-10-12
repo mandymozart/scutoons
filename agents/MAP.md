@@ -1,9 +1,10 @@
 # MAP — one world map for all of SCUTOONS: data, events, the creator's map builder, location images, a sandbox story
 
-Written 2026-10-01 (branch `platform`) as a concept; **M0 + M1 + M2 built the same day on branch `map`** (owner decisions
-and what differs from the concept: [§8 Built](#8-built-m0--m1--m2-2026-10-01-branch-map)). Companion docs: [DATA.md](DATA.md) (entities, API),
+Written 2026-10-01 as a concept (§1–§7 – partly built, partly superseded); **how it is now: §8** (M0 + M1 + M2 built the
+same day, merged into `main`; places unlock only by the `unlockLocation` event since 2026-10-11) (owner decisions
+and what differs from the concept: [§8 Built](#8-built-m0--m1--m2-2026-10-01)). Companion docs: [DATA.md](DATA.md) (entities, API),
 [DESIGN.md](DESIGN.md) (reader + creator UI, follow-up bar, VN layout), [ITEMS.md](ITEMS.md) (grant bridge, inventory
-notices), [PLAN.md](PLAN.md) (rules: small configuration, API-first, the creator as the only editor).
+notices), [RULES.md](RULES.md) (rules: small configuration, API-first, the creator as the only editor).
 
 **Owner request (2026-10-01):** a map builder in the creator; map entries linked to VN events **and** to events in the
 scroll (webtoon) reader, e.g. "unlock location"; routes and waypoints; small transparent WebP illustrations per place
@@ -11,7 +12,6 @@ scroll (webtoon) reader, e.g. "unlock location"; routes and waypoints; small tra
 one world map for every toon; an example story in the sandbox with **all** characters that exercises every map
 feature; built on the existing Cat Pope map data.
 
-**Timing:** this is post-release work (release 2026-10-04 has priority). Nothing here blocks or changes the release.
 
 Mockups (wireframe level, not committed): `%TEMP%\claude\C--Development-scutoons\2736b5c1-…\scratchpad\map-concept\`
 `builder-mockup.png` (creator, 1440 × 900), `reader-mockup.png` (reader, 390 × 844), `terrain.png` (the terrain with
@@ -19,7 +19,7 @@ today's 9 catpope locations).
 
 ---
 
-## 1. What exists today
+## 1. What existed before the map (2026-10-01 – history; the per-toon lists were purged 2026-10-12)
 
 | Piece | Where | What it does |
 |---|---|---|
@@ -611,7 +611,7 @@ same unlocks after sync.
 
 ---
 
-## 8. Built: M0 + M1 + M2 (2026-10-01, branch `map`)
+## 8. Built: M0 + M1 + M2 (2026-10-01)
 
 Branch `map` from `platform` bab74a3; `platform` (icons, covers + media requests, colours, toon scripts, ports) merged in
 at `932c578`. Commits: M0 `91a0c8f`, M1 `4248cff`,
@@ -837,9 +837,10 @@ The first piece of M3: the one event `unlockLocation` (§3.1), nothing else of M
 6. **The reveal** (`map-reveal.svelte.ts` → `map.svelte` / `map-overlay.svelte`): the map opens where the reader's map
    would open; the camera flies (≈ 1.2 s, ease in-out, zoom interpolated on a log scale) to the place's view (`placeView`:
    point + offset at its zoom, default 2); the place image fades in with a slight wobble while a halo in the toon's colour
-   pulses behind it (≈ 1.4 s); a short hold; the map closes. The reveal's camera is never stored: the next opening shows
-   the reader's previous view (the stored `here` becomes the new place, so it doesn't re-centre once more). A tap / Esc
-   skips to the end. Reduced motion: no flight, no wobble – the map opens on the place, the image shows, it closes.
+   pulses behind it (≈ 1.4 s); a short hold; the map closes. The map **stays at the revealed place** (owner 2026-10-11: "better it moves and stays at the new one"; the
+   stored `here` becomes the new place). Esc skips
+   to the end. The reader touching the map (tap, drag, pinch, wheel) stops it where it is: the map stays open, the reader
+   closes it (owner 2026-10-12); the VN goes on. Reduced motion: no flight, no wobble – the map opens on the place, the image shows, it closes.
    The VN waits for it (the script continues after the map closed); several unlocks in a row: one reveal after another.
 7. **Plaster → painted** (owner 2026-10-11: "zwei Zustände für eine Location – als Gipsmodell und als bemaltes
    fertiges Diorama … das können wir fürs Animieren gut benutzen"): `MapImage.plaster` (optional, the same framing as
@@ -864,8 +865,125 @@ image in the chapter's documents, else the chapter's first slice – and removes
 form's unlock fieldset and the sheet's Unlock tab, the slice inspector's map section (`slice-unlocks.svelte`) and
 `setSliceUnlock` (creator) went; `unlock` on a place is a validation error. `readerHere` breaks ties by the map's list
 order. Lost on purpose: the silent catch-up for readers who start in the middle – their places come with the events.
-**Order on production:** run the SQL first (the published viewer already runs unlockLocation), empty the API's library
+**Order on production (done 2026-10-11):** the SQL first (the published viewer already runs unlockLocation), empty the API's library
 cache, then deploy.
+
+### 8.5c Route gates (owner 2026-10-12, BACKLOG 10.66 (4))
+
+Three drafts on the map (a gates, b tunnel, c behind) → the owner picked **A** ("aber die Compute ist ja erstmal das, was
+automatisch gemacht wird. Und dann kann man das noch anpassen"): a route runs into a place's diorama at its **entry gate**
+and on from its **exit gate** – nothing is drawn across the place; a route starting at a place leaves from its exit, one
+ending there comes in at its entry. Computed (`placeGate`): the point on the diorama's ground ellipse (half size ×
+`GATE_RADIUS` 0.5, flattened `GATE_FLAT` 0.6) toward the previous / next waypoint; set by the author: `MapPlace.gates
+{ entry?, exit? }`, offsets from the place's point in world units (validated: x / y numbers). `routeGeometry` (content,
+tested) gives the lines + the gate marks; `MapRoutes` draws the lines under the places (`layer="lines"`) and the marks
+over them (`layer="gates"`, a small round mark: paper inside, the route's colour around) – the same in the viewer and the
+builder. Builder: the selected place shows one handle per gate its routes use (hollow = computed, filled = set;
+"in" / "out"), dragging one sets the offset (a tenth of a unit); the place form's "Route gates" says computed / set and
+"Back to computed" drops `gates`. One entry and one exit per place – every route through it uses them.
+
+### 8.5d Bézier routes, gates on the hexagons (owner 2026-10-12)
+
+Owner: "Paths in the editor need bezier curves so I can design their way they run in and out of a location. To start it
+should find an angle orthogonal to the side closest to the connecting point, with a default of maybe two hexagon widths.
+The connecting points should snap to the hexagons of that place, not outside. Dragging outside is not possible." – and
+"remove the placeholder image inside a place if there is no image; the hexagons are enough".
+
+- **Gates on the place's cells** (supersedes §8.5c's ellipse): a computed gate is the centre of the place cell nearest the
+  neighbouring waypoint (an outer cell facing it); a set gate (`gates.entry|exit {x, y}`) is kept on the place's cells –
+  one outside them is pulled onto the nearest (`snapToPlace`). The builder snaps a dragged gate to the cells.
+- **Handles**: `PlaceGate.handle {x, y}` (offset from the gate) = the curve's control point there; computed
+  (`gateHandle`): perpendicular to the place's outer hexagon edge nearest the gate (of equally near edges, the one facing
+  the neighbour), `ROUTE_HANDLE` = 2 hexagon widths. A free waypoint may have `handle` (outgoing control point, the
+  incoming one mirrored); without it the curve is smooth through it as before.
+- **One curve for everything**: `routeGeometry` gives curve nodes (point + in/out control points), `routePath` the SVG
+  path (reader + builder `MapRoutes`), `sampleRoute` points along it – the fog's route corridor (`fogRoutePoints`) follows
+  the curve.
+- **Builder**: with a place selected, its gates ("in" / "out") and their handles (small squares on a dashed arm: hollow =
+  computed, filled = set); with a route selected, its free points' handles. Drag to shape; double-click a handle: back to
+  computed; double-click a gate: the gate back to computed. A place without a diorama shows its cells dashed (the old
+  isometric placeholder outline is gone).
+- No migration: `handle` is new and optional; the gates already set on production (station, graveyard) are pulled onto
+  their cells when drawn.
+
+### 8.9a A full tile pyramid like Google Maps (owner 2026-10-12)
+
+Owner: "once a certain zoom level is reached, a certain amount can be combined into a new tile … all tiles always have
+the same file size but display different levels – much less bandwidth, not ~2000 small images in the DOM"; "since we
+have the fog layer, fewer images is better – it adds up with each layer".
+
+- `MapTiles.minLevel` (≤ 0): the pyramid goes down to coarse tiles too (level −2: the whole world in a few tiles); the
+  layer's big image is never loaded – the coarsest tiles on screen stand in while sharper ones load. Without it: as
+  before (the image below level 1).
+- `MapTiles.px` 512: four times fewer images per screen than 256. Level z is still 2^z px per world unit.
+- The level is the NEAREST to zoom × dpr (a tile drawn at 0.7–1.4 × its pixels), dpr capped at `TILE_DPR_MAX` 2 (a 3×
+  phone fetches 2× tiles); half a tile around the screen is preloaded.
+- Measured (content test + count): a 375 × 812 phone needs at most 20 tiles per layer at any zoom (was up to ~120 with
+  256 px tiles, dpr 3, ceil); a 1440 × 900 retina desktop at most 48 (was ~140).
+- Generate: `map-paint.mjs --assemble --plaster --levels 3 --min-level -2 --tile-px 512 --version 2` → the layer:
+  `tiles: { path: "catpope/map/terrain/<layer>/v2", levels: 3, minLevel: -2, px: 512 }`.
+
+### 8.9 The painted map, the plaster layer, fog of war (owner 2026-10-12)
+
+Owner: "Ich brauche die Kacheln in demselben Stil, wie wir ihn definiert haben, und auf jeden Fall auch in derselben Form
+im Gipsmodell-Style – am Anfang ist erstmal nichts drauf, und dann, wie ein Fog of War, gewinnt die Karte da, wo man war,
+in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
+
+- **Painted layer** – `scripts/map-paint.mjs` (Luma `image_edit`, uni-1-max, the `abstract` look, the zones of
+  `scripts/map-zones.json`): the terrain SVG is the layout (white, no sea – the SVG's land mask cuts the real coast
+  afterwards), one region of 256 world units every 192 (neighbours share 64; the painted strips of the neighbours above /
+  left go into the source so the seams continue), 8 px per unit. Lessons (2026-10-11): no reference image (Luma copies its
+  layout), ONE continuous landscape, colour first, the SCUTOONS look in words. Mostly-empty regions: Luma invents
+  outlines in the white – harmless, the land mask removes them.
+- **Plaster layer** – the SAME shapes unpainted, derived from the painted mosaic (`--plaster`, free and exactly
+  aligned): per pixel the fine relief (luminance minus its blur) over a warm plaster white, a little broad tone, the
+  alpha unchanged. A Luma plaster pass (~$6) only if this looks poor (owner decision).
+- **Tiles** – `--assemble --plaster --levels 3`: `media/<out>[-plaster].webp` (1 px / unit, the base and fallback) +
+  `media/<tiles>[-plaster]/<z>/<x>_<y>.webp` (levels 1–3, 256 px; level 3 = the mosaic's 8 px / unit).
+- **Data** – `MapLayer.fog?: { radius }` (world units): the reader draws such a layer only within `radius` of the places
+  the reader has unlocked (`fogPlaces` = the save game's `map.places`, every toon – one universe), soft beyond (fades
+  out over `FOG_FEATHER` × radius). Layer order in the map: terrain (lines) · plaster · painted (`fog`). Validation:
+  `fog` must be `{ radius }` (1–1024).
+- **Along routes** (owner 2026-10-12: "Fog of War should also be around unlocked routes. Between two unlocked places in
+  a row"): `fogRoutePoints` – points every 8 units on a route's stretch between two unlocked places that follow each other
+  on it (free points included), each clearing `FOG_ROUTE_SCALE` (0.6) of the radius: a cloudy corridor. They go straight
+  into the mask image (no growing – hundreds of CSS gradients); the places grow.
+- **Deep zoom:** with tiles on screen each tile carries the world-sized mask, shifted to its place – one masked layer as
+  big as the zoomed world was dropped by phones' GPUs (owner 2026-10-12: "after zooming in … does not work any more").
+- **Camera** (owner 2026-10-12): `WorldMap.bounded` (map setting, builder: the Layers fold-out "Readers stay on the terrain") – the reader's
+  camera zooms out only until the map fills the screen and stops at its edges (`MapViewport.bounded`, `coverZoom`); off
+  = half a screen past the edge, out to `MAP_MIN_ZOOM` (for a map bigger than its terrain art). The builder is never
+  bounded. A drag glides on after release (`mapGestures`: the last ~100 ms give the speed, `FRICTION` 0.996 per ms,
+  a touch or the wheel stops it; reader and builder).
+- **Reader** – shared `MapTerrain` (`fog` prop = the unlocked places' points; null in the builder = whole): a fog layer
+  gets ONE CSS mask (`shared/reader/src/map/fog-mask.ts`): a small alpha image in world proportions (½ px per unit, max
+  2048 px) of soft discs – one disc + 5 lobes per place, so the edge looks like a cloud, not a compass circle – inside
+  the camera transform, so it scales with the map and is drawn again only when the places change (never per frame, never
+  per tile). A place that joins the list later grows its disc (~1.6 s, CSS radial-gradient mask layers over the image,
+  then folded into the image); reduced motion: no growing. The viewer (`map-overlay.svelte`) passes the unlocked places
+  except the new (unseen) ones – a new place's surroundings get their colour with its reveal (`revealShow`) or its
+  painting in place, together with its diorama.
+- **Builder** – both layers with the eyes (the plaster under the painted one); the layer form has the fog radius.
+- **Drag safeguard** (owner 2026-10-12: "while scrolling around I often accidentally move things … it is a mess if it
+  just goes"): in the builder anything draggable moves only once it is active – a place when it is selected, a gate /
+  curve handle / route point after a tap on it (cyan ring, `activeHandle`). A drag on something not active pans the map;
+  a new selection deactivates.
+- **Generated 2026-10-12** (all 59 land regions, uni-1-max; the owner: "Sample regions look amazing"; then the long island
+  east of the island world – Bergdorf, Bergpfad, Kloster, Erzberg – got its own zone "lowlands → HUGE mountains" (owner:
+  "this is what I meant with huge mountains") and r_7_1–r_7_3 were repainted; ≈ $6.50 in all). The regions:
+  `logs/map-paint/abstract/` of the worktree (not in git).
+- **Naming (owner 2026-10-12: "a standardized file naming pattern – versions possible, but within a version we can replace
+  tiles"):** `catpope/map/terrain/<layer>/v<n>/world.webp` (level 0, 1 px / unit) + `…/v<n>/<z>/<x>_<y>.webp`
+  (`--version n`, layers `painted` / `plaster`). A fix within a version (a region repainted) replaces its files:
+  `php bin/console assets:sync --source-root=../media --prefix=catpope/map/terrain/ --apply --overwrite --hash` (purges
+  the CDN per file; browsers may keep an old tile until their cache expires). A new look = a new version (a new draft).
+  The first upload's dated folders `catpope/map/painted/terrain-2026-10-12*` / `catpope/map/tiles/painted-2026-10-12*`
+  are unused now (delete only with the owner's go).
+- **Repainting a region in a new look:** `--only x_y --fresh` (without the neighbours' strips – with all eight painted
+  neighbours as strips Luma kept the old look), then `--assemble --plaster`. The neighbours are sent to the page one by
+  one (one call with eight ~10 MB PNGs hung CDP for hours).
+- Production map draft v276: layers terrain · plaster · painted (`fog: { radius: 24 }`, still the dated paths – switch to v1, see HANDOVER) – publish only after the code deploy
+  (an older viewer ignores `fog` and shows the painted layer everywhere).
 
 ### 8.6 Not built yet
 
@@ -876,17 +994,22 @@ post-processing §5.3).
 
 ### 8.7 Checks
 
-- `scripts/check-map.mjs` (headless CDP, test user; `--viewer --creator --api`): reader 390 de + 1440 en (sea colour, start
-  view, empty for a fresh guest, progress unlocks + badge + halo → seen, pan, "+", wheel, no overlapping labels, card +
-  chapter-link rule, "Orte", universe-wide in the sandbox), member (guest discoveries merge on sign-in), builder (add / name →
-  id / drag a place, draw a route, save, place image on its ground point + previews, reader-view sea colours, Wanted images →
-  Map places = every place without an image, Set start view, the bidirectional unlock). Restores the member's world state,
-  the published map and toon entry. 42 checks.
+- `scripts/check-map.mjs` (headless CDP, test user; `--viewer --creator --api`; `SCUTOONS_DB_NAME` for a worktree's
+  database): reader 390 de + 1440 en (sea colour, start view, empty for a fresh guest, unlocked places put into the guest's
+  world state → kept + badge + "new" look → seen, pan, "+" key, wheel, no overlapping labels, card + chapter-link rule,
+  "Orte", universe-wide when another toon is public), reading (a guest with a promo code scrolls chapter 1 – chapter 2 too
+  when it is published – slice by slice: each intersect `unlockLocation` event of the chapter documents unlocks its place
+  at its slice, not before, with the toast, the map stays closed; §8.5b), member (guest discoveries merge on sign-in),
+  builder (read only: every event's place is on the map, the problems table warns about exactly the hidden places no
+  event unlocks – the flow index's `placeUnlocks` – and follows a toggled "hidden"; then, only when the map has no
+  unpublished draft: add / name → id / drag a place, draw a route, save, place image on its ground point + previews,
+  reader-view sea colours, Wanted images → Map places = every place without an image, Set start view). Restores the
+  member's world state, the published map and toon entry. 47 checks (2026-10-12, scutoons_ui).
 - Unit: `shared/content/test/map.test.ts`, `LibraryTest` (world map, visibility, view + sea colour, the old bundle fields),
   `InventoryServiceTest::testWorldProgressMergesTheMapState`. Contract: `entities-smoke` (/library/map), `api-smoke` (the
   world-state merge incl. a stale write), `entities-compare` (§8.2).
 
-### 8.8 Merge note (the owner merges after the 2026-10-04 release)
+### 8.8 Merge note (history)
 
 _(History: since CUTOVER 10.30 there is no seed SQL, no SQLite store and no `migrate-map.ts`; local dev loads
 production's map with `npm run dev:db -- seed`.)_

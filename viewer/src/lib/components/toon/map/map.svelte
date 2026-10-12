@@ -120,10 +120,11 @@
 		mounted = true;
 		nav.openOverlay('map');
 	}
-	function revealed() {
+	/** `kept`: the reader touched the map during the reveal – it stays open (owner 2026-10-12) */
+	function revealed(kept = false) {
 		const request = reveal;
 		reveal = null;
-		if (!stayOpen) nav.closeOverlay();
+		if (!stayOpen && !kept) nav.closeOverlay();
 		stayOpen = false;
 		request?.done();
 		void next();

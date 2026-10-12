@@ -22,6 +22,10 @@ export {
 	type BatchSave,
 	type ContentReview,
 	type ReviewOverview,
+	type CatalogDoc,
+	type CatalogDocKind,
+	CATALOG_DOC_KINDS,
+	catalogDocKey,
 	needsReview
 } from './content.ts';
 export { createLibraryApi, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
@@ -75,6 +79,9 @@ export {
 	type AdminSetting,
 	type AdminSettings,
 	type AdminUserDetail,
+	type AdminUserReading,
+	type AdminReadingChapter,
+	type AdminReadingStats,
 	type AdminChange,
 	type AdminChangeField,
 	type AdminProposal,

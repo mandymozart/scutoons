@@ -27,6 +27,10 @@
 						"$ref": "#/definitions/MapLayer"
 					},
 					"description": "drawn bottom → top"
+				},
+				"bounded": {
+					"type": "boolean",
+					"description": "the reader's camera stays on the terrain (`WorldMap.bounded`)"
 				}
 			},
 			"required": [
@@ -57,6 +61,10 @@
 				"tiles": {
 					"$ref": "#/definitions/MapTiles",
 					"description": "the same layer as a tile pyramid for deep zoom (BACKLOG 10.63; `scripts/map-tiles.mjs` renders it from `image`): `{path}/{z}/{x}_{y}.webp`, `TILE_PX` square; level z draws 2^z px per world unit (0 … `levels`). The image stays the base (and the fallback while tiles load); the tiles on screen draw over it from level 1."
+				},
+				"fog": {
+					"$ref": "#/definitions/MapFog",
+					"description": "fog of war (owner 2026-10-12: \"am Anfang ist erstmal nichts drauf, und dann, wie ein Fog of War, gewinnt die Karte da, wo man war, in einem gewissen Umkreis an Farbe\"): the reader draws this layer only within `radius` world units of the places the reader has unlocked (the save game's `map.places`), soft at the edge – over a plain layer of the same shapes (the plaster model). The builder shows it whole."
 				}
 			},
 			"required": [
@@ -74,11 +82,31 @@
 				"levels": {
 					"type": "number",
 					"description": "the deepest level (2^levels px per world unit)"
+				},
+				"minLevel": {
+					"type": "number",
+					"description": "the coarsest level with tiles (owner 2026-10-12: \"like Google Maps / OpenStreetMap\" – every level the same 256 px tiles, a coarse one covering more of the world): ≤ 0 = the whole pyramid is tiles, the layer's image is never loaded and the coarsest tiles on screen stand in while sharper ones load; missing = 1 (levels below 1 are the image)"
+				},
+				"px": {
+					"type": "number",
+					"description": "a tile's edge in px: `TILE_PX` (256, the default) or 512 – four times fewer images per screen (owner 2026-10-12)"
 				}
 			},
 			"required": [
 				"path",
 				"levels"
+			]
+		},
+		"MapFog": {
+			"type": "object",
+			"properties": {
+				"radius": {
+					"type": "number",
+					"description": "world units around an unlocked place where the layer shows fully (it fades out over `FOG_FEATHER` × radius beyond)"
+				}
+			},
+			"required": [
+				"radius"
 			]
 		}
 	}

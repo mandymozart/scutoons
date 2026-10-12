@@ -284,9 +284,10 @@ const boxAt = (i) =>
 const SLICE_W = sliceWidth;
 const near = (a, b, eps = 0.15) => Math.abs(a - b) <= eps;
 const writesSince = (n) => writes.slice(n);
-/** a bar button; below the bar's breakpoint the secondary ones sit in "More" (opened first) */
+/** a bar button; the grouped bar (UI-CONCEPTS E.10, every width since 2026-10-12) keeps undo / redo in its History
+ * group and the rest in More – the group is opened first (undo / redo keep it open) */
 async function barClick(testid) {
-	if (!(await js(`!!${q(testid)}`))) await click('.sc-action-bar .more-toggle');
+	if (!(await js(`!!${q(testid)}`))) await click(tid(['undo', 'redo'].includes(testid) ? 'phone-bar-history' : 'phone-bar-more'));
 	await click(tid(testid));
 }
 

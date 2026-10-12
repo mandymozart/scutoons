@@ -1,22 +1,36 @@
-// World map check (agents/MAP.md M0–M2): the reader's map and the creator's map builder, headless Chrome via CDP (own temp
-// profile, no dependencies; Node 22 WebSocket), like scripts/check-next-bar.mjs.
+// World map check (agents/MAP.md M0–M2, §8.5a/b): the reader's map and the creator's map builder, headless Chrome via CDP
+// (own temp profile, no dependencies; Node 22 WebSocket), like scripts/check-next-bar.mjs.
+// Since 2026-10-11 a place is unlocked ONLY by an `unlockLocation` event (MAP.md §8.5b, owner: "Freischalten von Locations
+// sollten wir an diesen Events machen"): the migration put every old place unlock on its slice as an intersect-triggered
+// event `unlock-<place>`. No reading-progress rule, no `unlock` on a place, no Unlock tab / slice map section any more –
+// the check reads the events from the chapter documents the API serves (`/library/toons/catpope/chapters/<n>?draft=1`,
+// slices[].events with `type: unlockLocation`, `trigger.type: intersect`).
 //
 // Reader (guest; 390 de and 1440 en):
-//   1. a fresh guest: the map opens (toggle), its sea is the toon's colour, no place is visible (catpope's places unlock
-//      over time), the list is empty;
-//   2. reading progress (chapter 1 read, chapter 2 at 70 %) unlocks exactly the places whose unlock point was reached
-//      (computed here from /library/map), written to the world state `scutoons_game_scutoons`; the toggle shows the badge,
-//      the opened map shows the places with the halo, then marks them seen (badge gone);
-//   3. pan: a mouse drag moves the world by the drag; zoom: "+" (×1.5) and the wheel (at the cursor) change the scale;
+//   1. a fresh guest: the map opens (toggle), its sea is the toon's colour, it opens at the toon's start view, no place
+//      is visible (catpope's places are hidden until an event unlocks them), "Orte" says nothing was discovered;
+//   2. the guest's world state `scutoons_game_scutoons` gets the places of chapter 1 + 2's unlock events
+//      ({ map: { places: { <id>: { unlocked } } } }, as if read): after a reload exactly those are in it, the toggle shows
+//      the badge, the opened map shows them with the "new" look (`.place.new`), the ones on screen are marked seen (painted
+//      in place, then `seen`) and the badge goes;
+//   3. pan: a mouse drag moves the world by the drag; zoom: the "+" key (×1.5) and the wheel (at the cursor) change the
+//      scale (no zoom buttons since 2026-10-11);
 //   4. no two visible labels overlap (the phone overlap fix);
-//   5. a click on a place opens its card (name; "Kapitel N lesen" only when that chapter is readable for this reader);
+//   5. a click on a (seen) place in "Orte" opens its card (name; "Kapitel N lesen" only when that chapter is readable for
+//      this reader) – a new one would play its reveal instead;
 //   6. "Orte" lists the visible places A–Z;
-//   7. universe-wide: in another public toon (none in the production data: skipped) the unlocked catpope places are on the map as plain markers (no label);
+//   7. universe-wide: in another public toon (none in the production data: skipped) the unlocked catpope places are on the
+//      map as plain markers (no label);
 //   8. markers are round (bbox width = height) and screen-sized after zooming;
-// Reading (a fresh guest, 390 de): the places unlock as their slices are passed (`unlock.slice`, the reading tracker):
-//  R1. chapter 1 scrolled slice by slice: each place appears at its slice, not before;
-//  R2. chapter 2 group by group (?label=): after the first two groups only their places, then every place at its slice
-//      (the places without a slice yet come with the chapter's last slice: the chapter is finished);
+// Reading (a fresh guest with a promo code redeemed on the device, 390 de): the unlock events fire as their slices scroll
+// in (an intersect trigger: half the slice on screen; the map never opens for it – scrolling is never hijacked, §8.5a):
+//  R1. chapter 1 scrolled slice by slice: each event's place enters the world state at its slice, not before, with the toast
+//      "<Ort> freigeschaltet" (`notice-place`; none for a `silent` event), the map stays closed;
+//  R2. chapter 2 group by group (?label=), the same – only when a guest can read it (the dev DB is production's: chapter 2
+//      is "coming soon" since 2026-10-06, then R2 says so and is skipped);
+//      then the opened map shows exactly the places unlocked while reading.
+//  Practical limits: only slice events with an intersect trigger and no `if` are read (VN-script / click / item events
+//  would need the story played); chapters a guest can't open are skipped.
 // Member (the test user, `npm run dev:test-user`):
 //   8. a guest's discoveries merge into the account's world state on sign-in (set merge, nothing lost on either side);
 //      the member's server state is restored afterwards.
@@ -24,10 +38,20 @@
 //   9. "+ Ort": a click on the canvas adds a place, the de name sets its id; a drag moves it (x/y follow the drag);
 //  10. "Weg zeichnen": the new place + a free point + Enter → a route with 2 waypoints (place, free point);
 //  11. Save draft → the stored draft has the place and the route; the published map is restored afterwards (the map must
-//      have no unpublished draft before the check, else it refuses to run – someone's work in progress is never touched).
+//      have no unpublished draft before the check, else it refuses to run – someone's work in progress is never touched);
+//  12. a place image on its ground point (default 50 / 50 %) at the place's size (world units × zoom, default 4 – the hex
+//      footprint, 2026-10-11) with the anchor editor and 3 previews; 13. reader view sea colours;
+//  14. the place's unlock events (the builder reads `/creator/flow-index` placeUnlocks): the new place made hidden gets the
+//      warning "… is hidden and no unlockLocation event unlocks it" in the problems table; none of the places the
+//      events unlock has it;
+//  15. Set start view → the toon entry's map { center, zoom }; 16. Wanted images → every place without an image;
+//  17. every hidden place of the published map is unlocked by some event (flow-index), and every intersect unlock event
+//      in the chapters names a place of the map (an unknown one fizzles in the reader).
 //
 // usage: node scripts/check-map.mjs [--viewer=http://localhost:8000] [--creator=http://localhost:10000]
 //        [--api=http://localhost:9000/api] [--shots=<dir>] [--only=reader|reading|member|builder] [--verbose]
+//        (the promo code and the member's save game are read / restored in the database SCUTOONS_DB_NAME, default
+//        `scutoons` – set it for a worktree's own database)
 // Exit code 1 on any failure.
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -80,21 +104,19 @@ function rgb(hex) {
 	return `rgb(${parseInt(full.slice(0, 2), 16)}, ${parseInt(full.slice(2, 4), 16)}, ${parseInt(full.slice(4, 6), 16)})`;
 }
 
-/** the places a reader with these checkpoints has unlocked (@scutoons/content unlocksFromProgress: a slice place only by
- *  a finished chapter – else by seeing its slice –, a place without a slice from its point `at` on) */
-function unlocked(places, checkpoints) {
-	return places.filter((p) => {
-		const u = p.unlock;
-		if (!p.hidden || !u || u.toon !== 'catpope') return false;
-		const cp = checkpoints.find((c) => c.uri === `catpope/chapter/${u.chapter}`);
-		return !!cp && (cp.isComplete || (!u.slice && (cp.position ?? 0) >= (u.at ?? 0)));
-	}).map((p) => p.id);
-}
 const now = new Date().toISOString();
-const PROGRESS = [
-	{ uri: 'catpope/chapter/1', isComplete: true, position: 1, created_at: now, updated_at: now },
-	{ uri: 'catpope/chapter/2', isComplete: false, position: 0.7, created_at: now, updated_at: now }
-];
+/** a catpope chapter's document as the creator / a draft reader gets it (groups → slices → events) */
+const chapterDocs = {};
+const chapterOf = async (n) => (chapterDocs[n] ??= await (await fetch(`${api}/library/toons/catpope/chapters/${n}?locale=de&draft=1`, { headers: auth })).json());
+/**
+ * a chapter's unlock events that fire on scrolling (MAP.md §8.5b: `unlockLocation` with an intersect trigger, no `if`),
+ * in reading order: { group (label), groupIndex, slice (0-based in the group), image, location, silent }
+ */
+function sliceUnlocks(doc) {
+	return (doc?.groups ?? []).flatMap((g, gi) => (g.slices ?? []).flatMap((s, si) => (s.events ?? [])
+		.filter((e) => e?.type === 'unlockLocation' && e.trigger?.type === 'intersect' && !e.if && typeof e.params?.location === 'string')
+		.map((e) => ({ group: g.label, groupIndex: gi, slice: si, image: s.image ?? '', location: e.params.location, silent: !!e.params.silent }))));
+}
 
 // ── Chrome ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 const CHROME = process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find((p) => existsSync(p));
@@ -201,6 +223,15 @@ const MAP = `(() => {
 		world: JSON.parse(localStorage.getItem('scutoons_game_scutoons') || 'null') };
 })()`;
 
+/** opens the reader's map with its toggle – again while the page still hydrates (a cold dev server: the first click is lost) */
+async function openMap() {
+	for (let i = 0; i < 3; i++) {
+		if (!(await waitFor(`document.querySelector('[data-testid="map-toggle"]') ? true : null`, 10000))) return;
+		await click('[data-testid="map-toggle"]');
+		if (await waitFor(`document.querySelector('[data-testid="map-overlay"].visible') ? true : null`, 5000)) return;
+	}
+}
+
 // ── reader ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 async function reader(width, locale) {
 	const prefix = locale === 'en' ? '/en' : '';
@@ -215,7 +246,7 @@ async function reader(width, locale) {
 	await open(`${viewer}${prefix}/catpope`);
 
 	// 1. fresh guest
-	await click('[data-testid="map-toggle"]');
+	await openMap();
 	let s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.scale ? s : null; })()`);
 	report('fresh guest: the map opens, no place visible yet (they unlock while reading)', s && s.places.length === 0 ? [] : [JSON.stringify(s && { open: s.open, places: s.places })]);
 	{
@@ -234,21 +265,27 @@ async function reader(width, locale) {
 	report('"Orte" says nothing was discovered yet', empty === msg.map.places_empty ? [] : [`"${empty}"`]);
 	await shot(`map-${width}-${locale}-1-empty`);
 
-	// 2. progress → unlocks
-	const expected = unlocked(data.locations, PROGRESS).sort();
-	await evaluate(`localStorage.setItem('scutoons_game_catpope', JSON.stringify({ toonId: 'catpope', variables: {}, progress: ${JSON.stringify(PROGRESS)}, created_at: '${now}', updated_at: '${now}' })), true`);
+	// 2. unlocked places in the world state (as chapter 1 + 2's unlock events would have put them; the events themselves:
+	//    the reading section)
+	const ids = new Set(data.locations.filter((p) => p.hidden).map((p) => p.id));
+	const expected = [...new Set([...sliceUnlocks(await chapterOf(1)), ...sliceUnlocks(await chapterOf(2))].map((u) => u.location))].filter((id) => ids.has(id)).sort();
+	const seeded = { map: { places: Object.fromEntries(expected.map((id, i) => [id, { unlocked: Date.now() - 1000 * (i + 1) }])), routes: {}, positions: {} }, created_at: now, updated_at: now };
+	await evaluate(`localStorage.setItem('scutoons_game_scutoons', ${JSON.stringify(JSON.stringify(seeded))}), true`);
 	await open(`${viewer}${prefix}/catpope`);
 	s = await waitFor(`(() => { const s = ${MAP}; return s.badge && s.world ? s : null; })()`, 10000);
 	{
 		const got = Object.keys(s?.world?.map?.places ?? {}).sort();
-		report(`progress unlocks the reached places (${expected.length}: ${expected.join(', ')}) in the world state + badge`, s && JSON.stringify(got) === JSON.stringify(expected) ? [] : [`world state ${JSON.stringify(got)}`, `badge ${s?.badge}`]);
+		report(`unlocked places in the world state (${expected.length}: ${expected.join(', ')}) are kept, the toggle shows the badge`, s && expected.length && JSON.stringify(got) === JSON.stringify(expected) ? [] : [`world state ${JSON.stringify(got)}`, `badge ${s?.badge}`]);
 	}
-	await click('[data-testid="map-toggle"]');
+	await openMap();
 	s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.places.length ? s : null; })()`);
 	report('the opened map shows them, new ones with the halo', s && JSON.stringify([...s.places].sort()) === JSON.stringify(expected) && s.newPlaces.length > 0 ? [] : [JSON.stringify(s && { places: s.places, isNew: s.newPlaces })]);
 	await shot(`map-${width}-${locale}-2-unlocked`);
-	const seen = await waitFor(`(() => { const s = ${MAP}; return !s.badge && Object.values(s.world.map.places).some((p) => p.seen) ? s : null; })()`, 6000);
-	report('places on screen are marked seen, the badge goes', seen ? [] : [JSON.stringify((await evaluate(MAP)).badge)]);
+	// a new place on screen is painted in place (≈ 1.5 s + 2.3 s), then seen; the badge goes once none is new any more –
+	// places off screen stay new (and keep the badge) until they are looked at
+	const seen = await waitFor(`(() => { const s = ${MAP}; const p = Object.values(s.world.map.places); return p.some((x) => x.seen) && s.badge === p.some((x) => x.seen === undefined) ? s : null; })()`, 8000);
+	report('places on screen are marked seen (the badge stays only while one is still new)', seen ? [] : [JSON.stringify((({ badge, world }) => ({ badge, places: world?.map?.places }))(await evaluate(MAP)))]);
+	await shot(`map-${width}-${locale}-2b-seen`);
 
 	// 4. labels never overlap
 	s = await evaluate(MAP);
@@ -267,8 +304,9 @@ async function reader(width, locale) {
 	await drag({ x: vp.x - 40, y: vp.y + 60 }, { x: vp.x + 20, y: vp.y + 100 });
 	let after = await evaluate(MAP);
 	report('a drag pans the world by the drag (60, 40 px)', Math.abs(after.tx - before.tx - 60) <= 2 && Math.abs(after.ty - before.ty - 40) <= 2 ? [] : [`moved ${after.tx - before.tx}, ${after.ty - before.ty}`]);
-	// no zoom buttons any more (owner 2026-10-11: fingers / mouse) – the "+" key still zooms
-	await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: '+' })), true`);
+	// no zoom buttons any more (owner 2026-10-11: fingers / mouse) – the "+" key still zooms (sent from the page: the key
+	// handlers look at the event target's `closest`)
+	await evaluate(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true })), true`);
 	await sleep(100);
 	after = await evaluate(MAP);
 	report('"+" (key) zooms ×1.5', Math.abs(after.scale / before.scale - 1.5) < 0.01 ? [] : [`scale ${before.scale} → ${after.scale}`]);
@@ -285,7 +323,9 @@ async function reader(width, locale) {
 	}
 
 	// 5. card
-	const first = data.locations.find((p) => p.id === expected[0]);
+	// a seen place (a new one's tap plays its reveal first – owner 2026-10-11, "der kleine Punkt")
+	const seenIds = Object.entries((await evaluate(MAP)).world?.map?.places ?? {}).filter(([, p]) => p.seen !== undefined).map(([id]) => id);
+	const first = data.locations.find((p) => p.id === (expected.find((id) => seenIds.includes(id)) ?? expected[0]));
 	await evaluate(`(() => { document.querySelector('[data-testid="map-place-${first.id}"]').scrollIntoView(); return true; })()`);
 	await click('[data-testid="map-list-toggle"]');
 	const listed = await waitFor(`(() => { const s = ${MAP}; return s.list.length ? s.list : null; })()`, 3000);
@@ -311,7 +351,7 @@ async function reader(width, locale) {
 	await open(`${viewer}${prefix}/${other}`);
 	const ok = await waitFor(`document.querySelector('[data-testid="map-toggle"]') ? true : null`, 8000);
 	if (ok) {
-		await click('[data-testid="map-toggle"]');
+		await openMap();
 		s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.places.length ? s : null; })()`, 8000);
 		report(`universe-wide: another toon (${other}) shows the discovered places, as markers without labels`, s && expected.every((id) => s.places.includes(id)) && s.labels.length === 0 ? [] : [JSON.stringify(s && { places: s.places, labels: s.labels.map((l) => l.text) })]);
 	} else report(`universe-wide: the ${other} toon page`, [`no map toggle on /${other}`]);
@@ -320,32 +360,44 @@ async function reader(width, locale) {
 // ── reading: a passed slice unlocks its places ──────────────────────────────────────────────────────────────────────
 const worldPlaces = () => evaluate(`Object.keys(JSON.parse(localStorage.getItem('scutoons_game_scutoons') || 'null')?.map?.places ?? {})`);
 /**
- * opens a chapter page and scrolls its slices one by one; returns the places that appeared per slice (1-based, in the
- * group; the first slice is on screen when the page opens)
+ * opens a chapter page and scrolls its slices one by one; returns the places that entered the world state per slice
+ * (1-based, in the group; the first slice is on screen when the page opens), the place toasts' texts that showed and
+ * whether the map overlay ever opened (an intersect trigger never opens it)
  */
 async function readSlices(url) {
 	let known = new Set(await worldPlaces());
 	await open(url);
 	const count = await waitFor(`document.querySelectorAll('[data-slice-index]').length || null`, 15000);
-	await sleep(2500); // the map's unlock rules load when the browser is idle (toon/map/map.svelte)
+	await sleep(2500); // the map's data loads when the browser is idle (toon/map/map.svelte) – an unlock waits for it
 	const appeared = {};
-	for (let i = 0; i < (count ?? 0); i++) {
-		await evaluate(`(document.querySelectorAll('[data-slice-index]')[${i}].scrollIntoView({ block: 'end' }), true)`);
-		await sleep(150);
+	const toasts = new Set();
+	let mapOpened = false;
+	const look = async () => {
+		const r = await evaluate(`({ toasts: [...document.querySelectorAll('[data-testid="notice-place"]')].map((n) => n.textContent.trim()), open: !!document.querySelector('[data-testid="map-overlay"].visible') })`);
+		for (const t of r?.toasts ?? []) toasts.add(t);
+		if (r?.open) mapOpened = true;
+	};
+	const step = async (i) => {
+		await look();
 		const now = await worldPlaces();
 		const fresh = now.filter((id) => !known.has(id));
-		if (fresh.length) appeared[i + 1] = fresh.sort();
+		if (fresh.length) appeared[i + 1] = [...(appeared[i + 1] ?? []), ...fresh].sort();
 		known = new Set(now);
+	};
+	await step(0); // what the opened page shows
+	for (let i = 0; i < (count ?? 0); i++) {
+		await evaluate(`(document.querySelectorAll('[data-slice-index]')[${i}].scrollIntoView({ block: 'end' }), true)`);
+		await sleep(250);
+		await step(i);
 	}
-	// the last slice: a finished chapter also unlocks its places without a slice (the progress rule, a debounced effect)
 	await sleep(800);
-	const late = (await worldPlaces()).filter((id) => !known.has(id));
-	if (late.length && count) appeared[count] = [...(appeared[count] ?? []), ...late].sort();
-	return { count, appeared };
+	await step(Math.max(0, (count ?? 1) - 1));
+	return { count, appeared, toasts, mapOpened };
 }
 async function reading() {
 	console.log('reading (fresh guest, 390 de)');
 	const data = world.de;
+	const nameOf = (id) => data.locations.find((p) => p.id === id)?.name ?? id;
 	await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
 	await send('Network.clearBrowserCookies');
 	await setLocale('de', viewer);
@@ -355,21 +407,37 @@ async function reading() {
 	await open(`${viewer}/catpope/chapter/0?code=${encodeURIComponent(promo)}`);
 	const access = await waitFor(`JSON.parse(localStorage.getItem('scutoons_access') || 'null')?.permissions?.length ? true : null`, 10000);
 	report('a fresh guest (no discoveries) with a code redeemed on the device', access && !(await worldPlaces()).length ? [] : [`access ${access}`, JSON.stringify(await worldPlaces())]);
-	const chapterOf = async (n) => (await (await fetch(`${api}/library/toons/catpope/chapters/${n}?locale=de&draft=1`, { headers: auth })).json());
-	const slicePlaces = (n, image) => data.locations.filter((p) => p.hidden && p.unlock?.toon === 'catpope' && p.unlock.chapter === n && p.unlock.slice === image).map((p) => p.id).sort();
-	const want = (n, groups) => {
+	const onMap = new Set(data.locations.map((p) => p.id));
+	/** the expected unlocks of these groups: "<label>#<slice>" → places (a place already unlocked earlier shows nothing) */
+	const unlocked = new Set();
+	const want = (doc, groups) => {
 		const out = {};
-		groups.forEach((g) => (g.slices ?? []).forEach((s, i) => { const ids = slicePlaces(n, s.image); if (ids.length) out[`${g.label}#${i + 1}`] = ids; }));
+		for (const u of sliceUnlocks(doc)) {
+			if (!groups.includes(u.group) || !onMap.has(u.location) || unlocked.has(u.location)) continue;
+			unlocked.add(u.location);
+			(out[`${u.group}#${u.slice + 1}`] ??= []).push(u.location);
+		}
+		for (const k of Object.keys(out)) out[k].sort();
 		return out;
 	};
+	const toastsOf = (doc, places) => places.filter((id) => !sliceUnlocks(doc).find((u) => u.location === id)?.silent).map((id) => fill(messages.de.map.place_unlocked, { name: nameOf(id) })).sort();
 	const describe = (o) => Object.entries(o).map(([k, v]) => `${v.join('+')} @ ${k}`).join(', ');
+	const checkRead = (label, doc, got, exp, r) => {
+		const places = Object.values(exp).flat();
+		report(`${label}: ${places.length} place(s) unlock as their slices scroll in (${describe(exp) || 'none'}), not before`,
+			places.length && JSON.stringify(got) === JSON.stringify(exp) ? [] : [`got ${JSON.stringify(got)}`, `want ${JSON.stringify(exp)}`]);
+		const toasts = [...r.toasts].sort();
+		const wantToasts = toastsOf(doc, places);
+		report(`${label}: a toast per unlocked place ("${wantToasts.join('", "')}"), the map stays closed`,
+			JSON.stringify(toasts) === JSON.stringify(wantToasts) && !r.mapOpened ? [] : [`toasts ${JSON.stringify(toasts)}`, `map opened ${r.mapOpened}`]);
+	};
 	// R1. chapter 1 (one group)
 	const c1 = await chapterOf(1);
 	const r1 = await readSlices(`${viewer}/catpope/chapter/1`);
 	const got1 = Object.fromEntries(Object.entries(r1.appeared).map(([k, v]) => [`${c1.groups[0].label}#${k}`, v]));
-	const exp1 = want(1, c1.groups);
-	report(`chapter 1: ${Object.values(exp1).flat().length} places appear as their slices are passed (${describe(exp1)})`,
-		JSON.stringify(got1) === JSON.stringify(exp1) ? [] : [`got ${JSON.stringify(got1)}`, `want ${JSON.stringify(exp1)}`]);
+	const exp1 = want(c1, [c1.groups[0].label]);
+	checkRead('chapter 1', c1, got1, exp1, r1);
+	await shot('map-reading-chapter-1');
 	// R2. chapter 2, group by group (its walk is a VN choice: a group not visited unlocks nothing) – only when a guest can
 	// read it: a coming-soon / draft chapter shows its teaser (the dev DB is production's: chapter 2 is "coming soon" there
 	// since 2026-10-06 – then R2 has nothing to read and says so)
@@ -380,26 +448,19 @@ async function reading() {
 	if (c2Status !== 'published') console.log(`  skip  chapter 2 is ${c2Status ?? 'not listed'} for readers – nothing to read as a guest (R2)`);
 	else {
 		const got2 = {};
-		for (const [gi, g] of c2.groups.entries()) {
+		const toasts = new Set();
+		let mapOpened = false;
+		for (const g of c2.groups) {
 			const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.label)}`);
 			for (const [k, v] of Object.entries(r.appeared)) got2[`${g.label}#${k}`] = v;
-			if (gi === 1) {
-				const sofar = (await worldPlaces()).filter((id) => data.locations.find((p) => p.id === id)?.unlock?.chapter === 2).sort();
-				const exp = Object.values(want(2, c2.groups.slice(0, 2))).flat().sort();
-				report(`chapter 2 after its first 2 groups: only their places (${exp.join(', ')})`, JSON.stringify(sofar) === JSON.stringify(exp) ? [] : [JSON.stringify(sofar)]);
-			}
+			r.toasts.forEach((t) => toasts.add(t));
+			mapOpened ||= r.mapOpened;
 		}
-		exp2 = want(2, c2.groups);
-		// the chapter's last slice finishes it: its places without a slice yet (their chapter position) come with it
-		const last = c2.groups.at(-1);
-		const lastKey = `${last.label}#${last.slices.length}`;
-		const noSlice = data.locations.filter((p) => p.hidden && p.unlock?.toon === 'catpope' && p.unlock.chapter === 2 && !p.unlock.slice).map((p) => p.id);
-		if (noSlice.length) exp2[lastKey] = [...(exp2[lastKey] ?? []), ...noSlice].sort();
-		report(`chapter 2: ${Object.values(exp2).flat().length} places appear as their slices are passed (${describe(exp2)})`,
-			JSON.stringify(got2) === JSON.stringify(exp2) ? [] : [`got ${JSON.stringify(got2)}`, `want ${JSON.stringify(exp2)}`]);
+		exp2 = want(c2, c2.groups.map((g) => g.label));
+		checkRead('chapter 2', c2, got2, exp2, { toasts, mapOpened });
 	}
 	await open(`${viewer}/catpope`);
-	await click('[data-testid="map-toggle"]');
+	await openMap();
 	const s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.places.length ? s : null; })()`, 10000);
 	const all = [...new Set([...Object.values(exp1).flat(), ...Object.values(exp2).flat()])].sort();
 	report(`the opened map shows those ${all.length} places`, s && JSON.stringify([...s.places].sort()) === JSON.stringify(all) ? [] : [JSON.stringify(s?.places)]);
@@ -430,6 +491,71 @@ async function member() {
 // ── builder ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 async function builder() {
 	console.log('builder (creator /map)');
+	const content = mapEntity.content; // the newest version: what the builder shows
+	const unlocks = (await (await fetch(`${api}/creator/flow-index`, { headers: auth })).json())?.placeUnlocks ?? {};
+	// 17. every hidden place is unlocked by some unlockLocation event (in any toon's documents – the flow index the builder
+	//     reads), and every event names a place of the map (an unknown place fizzles in the reader, §8.5a) – read only.
+	//     A hidden place no event unlocks yet is content still to be written (new places, the airport): listed, not a failure
+	//     (the builder warns about it, 14)
+	{
+		const ids = new Set(content.locations.map((p) => p.id));
+		const never = content.locations.filter((p) => p.hidden && !unlocks[p.id]?.length).map((p) => p.id);
+		const unknown = Object.entries(unlocks).filter(([id]) => !ids.has(id)).map(([id, docs]) => `${id} (${docs.join(', ')})`);
+		if (never.length) console.log(`  note  hidden, no unlockLocation event unlocks them yet (readers never see them): ${never.join(', ')}`);
+		report(`every unlockLocation event names a place of the map (${Object.keys(unlocks).length} places in events; ${content.locations.filter((p) => p.hidden).length - never.length} of ${content.locations.filter((p) => p.hidden).length} hidden places unlocked by one)`,
+			unknown.map((u) => `unknown place in an event: ${u}`));
+	}
+	await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+	await send('Network.clearBrowserCookies');
+	await setLocale('de', creator);
+	await open(`${creator}/`);
+	await evaluate(`localStorage.clear(), localStorage.setItem('scutoons_session', ${JSON.stringify(token)}), true`);
+	await open(`${creator}/map`);
+	const ready = await waitFor(`document.querySelector('[data-testid="map-canvas"]') && document.querySelectorAll('[data-testid^="builder-place-"]').length ? true : null`, 15000);
+	report("the builder opens with the world's places", ready ? [] : ['no canvas / places']);
+	if (!ready) return;
+	{
+		// markers are round: the creator's global button min-height made them tall ellipses (owner screenshot 2026-10-01)
+		const boxes = await evaluate(`[...document.querySelectorAll('[data-testid^="builder-place-"]')].map((b) => { const r = b.getBoundingClientRect(); return [b.dataset.testid.slice(14), Math.round(r.width), Math.round(r.height)]; })`);
+		const bad = boxes.filter(([, w, h]) => !w || Math.abs(w - h) > 1);
+		report(`builder markers are round (width = height, ${boxes.length})`, boxes.length && !bad.length ? [] : bad.map((b) => b.join(' ')));
+	}
+	await shot('builder-1-open');
+
+	// 14. the places' unlock events (owner 2026-10-11: places are unlocked by events only; the builder reads them from
+	//     /creator/flow-index placeUnlocks): the problems table warns "… is hidden and no unlockLocation event unlocks it"
+	//     for exactly the hidden places no event unlocks; a place without events toggled "hidden" gets it / loses it, and
+	//     back (nothing is saved: the page is reloaded without saving)
+	{
+		const warning = (p) => ['de', 'en'].map((l) => fill(creatorMessages[l].creator.map_hidden_never_unlocked, { name: p.name?.[l] || p.name?.de || p.name?.en || p.id }));
+		const rows = () => waitFor(`(() => { const v = document.querySelector('[data-testid="map-validation"]'); return v ? [...v.querySelectorAll('tbody tr')].map((r) => r.textContent) : null; })()`, 5000);
+		const warned = (list, p) => (list ?? []).some((r) => warning(p).some((w) => r.includes(w)));
+		await waitFor(`document.querySelector('[data-testid="map-validation"] h3') ? true : null`, 5000);
+		await sleep(1500); // the flow index loads after the map
+		const now = await rows();
+		const want = content.locations.filter((p) => p.hidden && !unlocks[p.id]?.length).map((p) => p.id).sort();
+		const got = content.locations.filter((p) => warned(now, p)).map((p) => p.id).sort();
+		report(`the problems table warns about exactly the hidden places no event unlocks (${want.length ? want.join(', ') : 'none'})`, now && JSON.stringify(got) === JSON.stringify(want) ? [] : [`warned ${JSON.stringify(got)}`, `rows ${now?.length ?? 'no table'}`]);
+		const loose = content.locations.find((p) => !p.hidden && !unlocks[p.id]?.length) ?? content.locations.find((p) => !unlocks[p.id]?.length);
+		if (!loose) console.log('  skip  a place without unlock events to toggle "hidden" (every place has one)');
+		else {
+			const toggle = async (on) => {
+				await evaluate(`(document.querySelector('[data-testid="nav-place-${loose.id}"]')?.click(), true)`);
+				await waitFor(`document.querySelector('[data-testid="place-hidden"]') ? true : null`, 3000);
+				await evaluate(`(() => { const c = document.querySelector('[data-testid="place-hidden"]'); if (c.checked !== ${on}) c.click(); return true; })()`);
+				await sleep(200);
+				await key('Escape'); // no selection: the problems table shows
+				return rows();
+			};
+			const was = !!loose.hidden;
+			const flipped = await toggle(!was);
+			await shot('builder-1b-hidden-warning');
+			const back = await toggle(was);
+			report(`"${loose.id}" (no event unlocks it) toggled ${was ? 'visible and back to hidden' : 'hidden and back'}: the warning follows ("${warning(loose)[0]}")`,
+				warned(flipped, loose) === !was && warned(back, loose) === was ? [] : [JSON.stringify({ flipped: warned(flipped, loose), back: warned(back, loose) })]);
+		}
+	}
+
 	if (mapEntity?.published?.id !== mapEntity?.version?.id) {
 		report('the map has no unpublished draft (the check never touches work in progress)', [`newest version ${mapEntity?.version?.id} ≠ published ${mapEntity?.published?.id} – publish or discard it first`]);
 		return;
@@ -450,27 +576,25 @@ async function builder() {
 			entryBefore.version = (await (await fetch(`${api}/entities/toon:catpope?draft=1&wrap=1`, { headers: auth })).json()).version;
 		}
 	};
-	await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
-	await send('Network.clearBrowserCookies');
-	await setLocale('de', creator);
-	await open(`${creator}/`);
-	await evaluate(`localStorage.clear(), localStorage.setItem('scutoons_session', ${JSON.stringify(token)}), true`);
+	// a fresh page: the ticked / unticked place of 14 is not carried into the saves below
 	await open(`${creator}/map`);
-	const ready = await waitFor(`document.querySelector('[data-testid="map-canvas"]') && document.querySelectorAll('[data-testid^="builder-place-"]').length ? true : null`, 15000);
-	report('the builder opens with the world\'s places', ready ? [] : ['no canvas / places']);
-	if (!ready) return;
-	{
-		// markers are round: the creator's global button min-height made them tall ellipses (owner screenshot 2026-10-01)
-		const boxes = await evaluate(`[...document.querySelectorAll('[data-testid^="builder-place-"]')].map((b) => { const r = b.getBoundingClientRect(); return [b.dataset.testid.slice(14), Math.round(r.width), Math.round(r.height)]; })`);
-		const bad = boxes.filter(([, w, h]) => !w || Math.abs(w - h) > 1);
-		report(`builder markers are round (width = height, ${boxes.length})`, boxes.length && !bad.length ? [] : bad.map((b) => b.join(' ')));
-	}
-	await shot('builder-1-open');
+	await waitFor(`document.querySelector('[data-testid="map-canvas"]') && document.querySelectorAll('[data-testid^="builder-place-"]').length ? true : null`, 15000);
 
 	// 9. add a place, name it, drag it
 	const canvas = await evaluate(`(() => { const b = document.querySelector('[data-testid="map-canvas"]').getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; })()`);
 	await click('[data-testid="tool-place"]');
-	const at = { x: canvas.x + canvas.w * 0.3, y: canvas.y + canvas.h * 0.3 };
+	// an empty spot of the terrain: not on a place (its marker / diorama), a route's (wide) hit line or the tool strips –
+	// a click on a route line adds the place but the route gets selected (map-canvas.svelte: the click after the tap)
+	const at = await evaluate(`(() => {
+		const c = document.querySelector('[data-testid="map-canvas"]');
+		for (const fy of [0.3, 0.4, 0.5, 0.6, 0.25, 0.7, 0.2]) for (const fx of [0.3, 0.4, 0.5, 0.6, 0.25, 0.7, 0.2]) {
+			const x = ${canvas.x} + ${canvas.w} * fx, y = ${canvas.y} + ${canvas.h} * fy;
+			const el = document.elementFromPoint(x, y);
+			if (el && c.contains(el) && !el.closest('[data-route], [data-handle], button, a, input, select, .strip')) return { x, y };
+		}
+		return null;
+	})()`);
+	if (!at) { report('"+ Ort": an empty spot on the canvas to click', ['every probed point is on a place, a route or a control']); return; }
 	await clickAt(at.x, at.y);
 	const idBefore = await waitFor(`document.querySelector('[data-testid="place-id"]')?.value || null`, 5000);
 	const name = `Prüfort ${Date.now() % 100000}`;
@@ -478,9 +602,16 @@ async function builder() {
 	await typeText(name);
 	const placeId = await waitFor(`(() => { const v = document.querySelector('[data-testid="place-id"]')?.value; return v && v !== ${JSON.stringify(idBefore)} ? v : null; })()`, 5000);
 	const slug = name.toLowerCase().replace('ü', 'ue').replace(/[^a-z0-9]+/g, '-');
-	report(`"+ Ort" adds a place at the click; the de name sets its id (${slug})`, placeId === slug ? [] : [`id ${idBefore} → ${placeId}`]);
+	report(`"+ Ort" adds a place at the click; the de name sets its id (${slug})`, placeId === slug ? [] : [`id ${idBefore} → ${placeId}`, `selection ${await evaluate('location.search')}`]);
+	if (placeId !== slug) return; // the rest needs the new place (the map is restored on the way out)
 	const pos0 = await evaluate(`({ x: Number(document.querySelector('[data-testid="place-x"]').value), y: Number(document.querySelector('[data-testid="place-y"]').value) })`);
-	const zoom = (await evaluate(`Number((document.querySelector('[data-testid="zoom-pct"]')?.textContent ?? '100').replace(/\\D/g, '')) / 100`)) || 1;
+	// the canvas zoom (no zoom display any more since the phone bar, 2026-10-11): two places' screen distance / world distance
+	const zoom = await (async () => {
+		const [a, b] = original.locations.filter((p, i, all) => all.findIndex((q) => q.x === p.x && q.y === p.y) === i);
+		const [sa, sb] = [await center(`[data-testid="builder-place-${a?.id}"]`), await center(`[data-testid="builder-place-${b?.id}"]`)];
+		const world = a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+		return sa && sb && !sa.error && !sb.error && world ? Math.hypot(sa.x - sb.x, sa.y - sb.y) / world : 1;
+	})();
 	const marker = await center(`[data-testid="builder-place-${placeId}"]`);
 	await drag(marker, { x: marker.x + 60, y: marker.y + 40 });
 	const pos1 = await waitFor(`(() => { const x = Number(document.querySelector('[data-testid="place-x"]').value); return x !== ${pos0.x} ? { x, y: Number(document.querySelector('[data-testid="place-y"]').value) } : null; })()`, 3000);
@@ -511,7 +642,8 @@ async function builder() {
 		place && place.name?.de === name && place.x === pos1?.x && route && route.waypoints.length === 2 && route.waypoints[0].location === placeId && typeof route.waypoints[1].x === 'number'
 			? [] : [JSON.stringify({ place, route })]);
 
-	// 12. a place image (any image of the CDN): it stands on the place's point (ground point 50 / 90 %), size + previews
+	// 12. a place image (any image of the CDN): it stands on the place's point (ground point = the default anchor 50 / 50 %),
+	//     as wide as the place's size × zoom (the size slider, default 4 world units since the hex footprint), + previews
 	await click('[data-testid="tool-select"]');
 	await evaluate(`(document.querySelector('[data-testid="nav-place-${placeId}"]')?.click(), true)`);
 	// the image is a slot with the asset picker (platform 04eb9e5): search the file, pick it, "Use"
@@ -528,10 +660,10 @@ async function builder() {
 		const marker = document.querySelector('[data-testid="builder-place-${placeId}"]'); const im = marker?.parentElement.querySelector('.place-image');
 		if (!im || !im.complete || !im.naturalWidth) return null;
 		const m = marker.getBoundingClientRect(), b = im.getBoundingClientRect();
-		return { w: Math.round(b.width), groundX: Math.round(b.left + b.width * 0.5 - (m.left + m.width / 2)), groundY: Math.round(b.top + b.height * 0.9 - (m.top + m.height / 2)), previews: document.querySelectorAll('.previews .preview img').length, anchor: !!document.querySelector('[data-testid="place-anchor"] img') };
+		return { w: Math.round(b.width), groundX: Math.round(b.left + b.width * 0.5 - (m.left + m.width / 2)), groundY: Math.round(b.top + b.height * 0.5 - (m.top + m.height / 2)), size: Number(document.querySelector('[data-testid="place-size"]')?.value || 4), previews: document.querySelectorAll('.previews .preview img').length, anchor: !!document.querySelector('[data-testid="place-anchor"] img') };
 	})()`, 8000);
-	report('a place image stands on the point (48 px × zoom, ground point bottom centre), with the ground point editor and 3 previews',
-		img && Math.abs(img.w - 48 * zoom) <= 2 && Math.abs(img.groundX) <= 2 && Math.abs(img.groundY) <= 2 && img.previews === 3 && img.anchor ? [] : [JSON.stringify(img)]);
+	report(`a place image stands on the point (size ${img?.size} × zoom ${Math.round(zoom * 100) / 100}, ground point centre), with the ground point editor and 3 previews`,
+		img && Math.abs(img.w - img.size * zoom) <= 2 && Math.abs(img.groundX) <= 2 && Math.abs(img.groundY) <= 2 && img.previews === 3 && img.anchor ? [] : [JSON.stringify(img)]);
 	await evaluate(`(() => { const side = document.querySelector('.side'); const f = document.querySelector('[data-testid="place-image"]'); side.scrollTop = f.offsetTop - 20; return true; })()`);
 	await shot('builder-3-image');
 
@@ -585,67 +717,6 @@ async function builder() {
 	const sv = entry?.content?.map;
 	report('"Set start view" stores the toon entry map { center, zoom } from the builder view (shown + phone frame)', shown && sv?.center && Number.isInteger(sv.center.x) && sv.zoom > 1 && entry.version.id !== entryBefore.version.id ? [] : [JSON.stringify({ shown, map: sv })]);
 
-	// 14. bidirectional unlock (owner 2026-10-01): the chapter's slice sets "unlocks: <place>", the builder shows it with a
-	//     link back – one storage, the place's unlock { toon, chapter, slice: <the slice's image>, at: <its reading point> }
-	await restoreMap(); // a clean map again (the builder's test place is not needed here)
-	const chapter = await (await fetch(`${api}/library/toons/catpope/chapters/1?draft=1`, { headers: auth })).json();
-	const slices = (chapter.groups ?? []).flatMap((g, gi) => (g.slices ?? []).map((s, si) => ({ image: s.image ?? '', group: gi, index: si })));
-	const target = slices.find((s) => s.group === 0 && s.index === 1) ?? slices[1];
-	const k = slices.indexOf(target);
-	const point = k === slices.length - 1 ? 1 : Math.floor(Math.min(0.99, (k + 1) / slices.length) * 10000) / 10000;
-	const placeToUnlock = original.locations.find((p) => !p.unlock)?.id ?? original.locations[0].id;
-	await open(`${creator}/catpope/chapter/1?group=${target.group + 1}&slice=${target.index + 1}`);
-	const tab = await waitFor(`document.querySelector('[data-testid="tab-background"]') ? true : null`, 15000);
-	if (!tab) {
-		report('chapter editor: the slice inspector has the "Slice" tab (background + map)', ['no tab-background']);
-		return;
-	}
-	await click('[data-testid="tab-background"]');
-	await waitFor(`document.querySelector('[data-testid="slice-unlock-add"]') ? true : null`, 8000);
-	await evaluate(`(() => { const s = document.querySelector('[data-testid="slice-unlock-add"]'); s.value = ${JSON.stringify(placeToUnlock)}; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
-	const listedHere = await waitFor(`document.querySelector('[data-testid="slice-unlock-${placeToUnlock}"]') ? true : null`, 3000);
-	report(`chapter editor, slice 2 of chapter 1: "unlocks: ${placeToUnlock}" is set from the slice`, listedHere ? [] : ['not listed']);
-	await shot('builder-5-slice-unlocks');
-	await saveDraft();
-	let unlock = null;
-	for (let i = 0; i < 20 && !unlock; i++) {
-		const d = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
-		unlock = d.content.locations.find((p) => p.id === placeToUnlock)?.unlock?.slice ? d.content.locations.find((p) => p.id === placeToUnlock) : null;
-		if (!unlock) await sleep(400);
-	}
-	report('saving the chapter page stores it in the world map (place: hidden, unlock { toon, chapter, slice image, reading point })',
-		unlock && unlock.hidden === true && unlock.unlock.toon === 'catpope' && unlock.unlock.chapter === 1 && unlock.unlock.slice === target.image && unlock.unlock.at === point ? [] : [JSON.stringify(unlock?.unlock), `want slice ${target.image} at ${point}`]);
-	await open(`${creator}/map?location=${placeToUnlock}`);
-	const where = await waitFor(`(() => { const p = document.querySelector('[data-testid="place-unlock-where"]'); const a = document.querySelector('[data-testid="place-unlock-open"]'); return p && a ? { text: p.textContent, href: a.getAttribute('href'), slice: document.querySelector('[data-testid="place-unlock-slice"]').value } : null; })()`, 10000);
-	report('the builder shows "Freigeschaltet in Kapitel 1, Slice 2" with a link to that slice, the slice picked',
-		where && where.text.includes('1') && where.href === `/catpope/chapter/1?group=${encodeURIComponent(chapter.groups[target.group]?.label ?? String(target.group + 1))}&slice=${target.index + 1}` && where.slice === target.image ? [] : [JSON.stringify(where)]);
-	await shot('builder-6-unlock-where');
-
-	// 17. every place unlocked by a slice (catpope's screenplay places, 2026-10-01): the builder says "Kapitel N, Slice k"
-	//     and that slice's inspector lists the place (read only: nothing is saved)
-	await restoreMap();
-	const placed = original.locations.filter((p) => p.unlock?.slice);
-	const chapters = {};
-	const problems = [];
-	for (const p of placed) {
-		const n = p.unlock.chapter;
-		chapters[n] ??= await (await fetch(`${api}/library/toons/catpope/chapters/${n}?draft=1`, { headers: auth })).json();
-		const refs = (chapters[n].groups ?? []).flatMap((g, gi) => (g.slices ?? []).map((s, si) => ({ image: s.image, group: gi, index: si })));
-		const ref = refs.find((r) => r.image === p.unlock.slice);
-		if (!ref) { problems.push(`${p.id}: slice ${p.unlock.slice} not in chapter ${n}`); continue; }
-		const k = refs.indexOf(ref) + 1;
-		await open(`${creator}/map?location=${p.id}`);
-		const text = await waitFor(`document.querySelector('[data-testid="place-unlock-where"]')?.textContent.trim() || null`, 10000);
-		// k = the slice's number in the chapter's reading order (the slice picker's numbers); the UI language may be de or en
-		const wantText = ['de', 'en'].map((l) => fill(creatorMessages[l].creator.map_unlock_in, { chapter: n, slice: k }));
-		if (!wantText.some((w) => text?.startsWith(`${w} ·`))) problems.push(`${p.id}: builder "${text}" ≠ "${wantText[0]}"`);
-		await open(`${creator}/catpope/chapter/${n}?group=${ref.group + 1}&slice=${ref.index + 1}`);
-		if (await waitFor(`document.querySelector('[data-testid="tab-background"]') ? true : null`, 15000)) {
-			await click('[data-testid="tab-background"]');
-			if (!(await waitFor(`document.querySelector('[data-testid="slice-unlock-${p.id}"]') ? true : null`, 5000))) problems.push(`${p.id}: not listed in the inspector of chapter ${n} group ${ref.group + 1} slice ${ref.index + 1}`);
-		} else problems.push(`${p.id}: no Slice tab`);
-	}
-	report(`every slice-unlocked place (${placed.length}): the builder says "Freigeschaltet in Kapitel N, Slice k", the slice's Slice tab lists it`, placed.length ? problems : ['no place has a slice']);
 }
 
 try {

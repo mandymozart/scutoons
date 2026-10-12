@@ -31,7 +31,7 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  *   ── admin ──
  *   PUT  /api/admin/assets/{id}/file?path=&note=       raw body: replace that file in place (new version, purge)
  *   POST /api/admin/assets/{id}/rename                 { slug, publish? }
- *   POST /api/admin/assets/relink                      { from, to, publish? }
+ *   POST /api/admin/assets/relink                      { from, to, publish? } or { map: { old: new … }, publish? }
  *   GET  /api/admin/assets/{id}/delete-check · DELETE /api/admin/assets/{id}?force=1
  *   GET  /api/admin/assets/unused · POST /api/admin/assets/cleanup { paths }   unused files (fresh index) · delete them
  *   POST /api/admin/assets/{id}/jobs                   { kind } → queued job · GET /api/admin/assets/jobs
@@ -178,7 +178,13 @@ final class AssetsController
     {
         $user = $this->admin($request);
         $body = JsonBody::of($request);
-        return Json::response($response, 200, $this->service->relink($user, (string) ($body['from'] ?? ''), (string) ($body['to'] ?? ''), ($body['publish'] ?? false) === true));
+        $publish = ($body['publish'] ?? false) === true;
+        // `map` (old path → new path): several files in one pass – one draft per touched entity (BACKLOG 10.64)
+        if (isset($body['map'])) {
+            if (!is_array($body['map'])) throw new ApiError(400, 'invalid_map', 'map is an object: old path → new path.');
+            return Json::response($response, 200, $this->service->relinkAll($user, $body['map'], $publish));
+        }
+        return Json::response($response, 200, $this->service->relink($user, (string) ($body['from'] ?? ''), (string) ($body['to'] ?? ''), $publish));
     }
 
     /** @param array{id: string} $args */

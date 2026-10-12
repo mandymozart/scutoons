@@ -107,7 +107,7 @@ final class ReaderState
         $applies = array_filter($item['skills'] ?? [], fn($s) => is_array($s) && ($s['type'] ?? null) === 'apply') !== [];
         if (!$applies || (empty($item['effects']) && empty($item['effect']) && empty($item['sober']))) throw new ApiError(422, 'not_usable', 'This item cannot be used like that.');
         $this->db->transaction(function () use ($userId, $item) {
-            if ($this->inventory->count($userId, (string) $item['id']) < 1) throw new ApiError(422, 'missing', 'This item is not in your inventory.', ['item_id' => $item['id']]);
+            if ($this->inventory->consumable($userId, (string) $item['id']) < 1) throw new ApiError(422, 'missing', 'This item is not in your inventory.', ['item_id' => $item['id']]);
             $this->inventory->remove($userId, (string) $item['id'], 1);
             $now = $this->clock->time();
             $at = $this->clock->utc();

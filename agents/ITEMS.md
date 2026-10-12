@@ -120,16 +120,16 @@ unreferenced (left on the CDN).
 
 ## Accounts (port of osct `server/api/src/{Auth,LoginMail,Mailer,Progress}.php`)
 
-Lives in qr.scutoons.com (the only backend). Email-based login (U): request → mail with one-time code + magic link →
-verify → session token (Bearer, stored by the viewer in localStorage `scutoons_session`). Claiming a code during login
+Lives in the API (`server/`, api.scutoons.com). Email-based login (U): request → mail with one-time code + magic link →
+verify → session (shared SSO cookie across the apps since 2026-10-01; the dev test user's snippet still uses localStorage `scutoons_session`). Claiming a code during login
 ("email + code") attaches the code in the same step. Book progress (the viewer game state per toon) is stored per user
 like osct's Progress. Local dev: mail is written to a log file instead of sent. (2026-10-02: every mail goes through
 the server's email module, agents/PLATFORM.md "Emails".)
 
-## HTTP API contract (base `QR_API` = `http://localhost:9000/api` dev, `https://qr.scutoons.com/api` prod)
+## HTTP API contract (base `http://localhost:9000/api` dev, `https://api.scutoons.com/api` prod – `VITE_API_URL`)
 
-(Platform P1b: the same paths answer on `https://api.scutoons.com/api` – the target base, `VITE_API_URL` – and stay
-on `https://qr.scutoons.com/api` during the transition, `QR_HOST_SERVES_API`; agents/PLATFORM.md "Domain architecture".
+(qr.scutoons.com keeps only the printed URLs and proxies `/api/validate/` + the key; `PROXY_FULL_API` is off since
+2026-10-05 – agents/PLATFORM.md "Domain architecture".
 Production CORS adds creator, admin and shop origins; dev 8000/10000/11000/12000.)
 
 All JSON. Auth = `Authorization: Bearer <session_token>` **or** (single sign-on, 2026-10-01) the HttpOnly cookie
@@ -335,7 +335,7 @@ page. Non-claimable types keep their direct redirect.
 - Every new account gets `member`. `/me/` → `user.roles: ["member", …]`.
 - Grant/revoke: admin SPA (generate) "Users" view (search by email, toggle roles) via admin-token endpoints, and a CLI
   `php scripts/roles.php grant|revoke <email> <role>`.
-- `creator` → may use `scutoons.com/creator` and the content API; `admin` → reserved (later: admin UI in the viewer).
+- `creator` → may use the creator app (creator.scutoons.com) and the content API; `admin` → the admin app (admin.scutoons.com); `developer` → above admin, runs migrations over the MCP (owner's account; 2026-10-11).
 
 ### Accounts only with a product or a PR code
 - **A new account can only be created with a code whose type has `"signup": true`** in its code type (table `catalog_code_types`, admin → Catalog):
@@ -660,7 +660,7 @@ cast computed from scenes would be empty there.
   the star only until the owner names more; chapter 2: its scenes use no characters (narrator only) → the star).
 
 
-## Wardrobe (2026-10-01, owner — built 2026-10-01 on branch `wardrobe`)
+## Wardrobe (2026-10-01, owner)
 
 Owner: "clothing becomes real, exchangeable items that overlay the character's A-pose."
 
@@ -748,7 +748,7 @@ default wearables so the next `/me/` hands them out and puts the basic dress on,
 the four wearables on their next `/me/` with the basic dress (T-shirt, shorts, sandals – the swim pants on a body
 without a shorts overlay) worn where those slots were free.
 
-## Substances, reader stats, testo (2026-10-01, owner — built 2026-10-01 on branch `wardrobe`)
+## Substances, reader stats, testo (2026-10-01, owner)
 
 Owner: "There is no male/female. Instead a testo value (a slider): the more testo, the more [gender-]read
 characteristics." Then: "other drugs too, taken at any time" → one small **substances** model, not a one-off. Game
@@ -909,7 +909,7 @@ Catalog → Items, "Placements (all toons)" / "Owners in the world"; whole numbe
   pieces given back / consumed free it for the next one. Claims (physical products, one code = one owner) and gifts
   (they move a piece – the number of owners only grows when the giver keeps some) are not checked.
 - **A deleted account** (owner 2026-10-07: "It is back up for grabs. The code still applies."): there is no deletion
-  feature – an account goes by `DELETE FROM users` (phpMyAdmin). The foreign keys (ON DELETE CASCADE) remove its
+  feature – an account goes by `DELETE FROM users` (a deliberate DB step by the owner). The foreign keys (ON DELETE CASCADE) remove its
   inventory, avatar, sessions, save game, …, so its pieces stop counting toward `max_world` at once (nothing is
   excluded at read time). The trigger `users_release_codes` (migration `2026-10-07-account-deletion-frees-codes`, which
   also repairs accounts deleted earlier) **releases every code the account owned** (`claimed_by` NULL, `email` '' – as
@@ -975,7 +975,7 @@ records (the admin's "signature valid" badge had the same flaw). Now:
   "Certificates" (real stored signatures by their exact code, tampered, foreign key, revoked), qr public-urls (verify page,
   proxied identical to the API).
 
-## Ownership, claims, gifting (2026-10-02, owner — built 2026-10-02 on branch `platform`)
+## Ownership, claims, gifting (2026-10-02, owner)
 
 **Owner decisions (final):**
 - **QR codes are unique:** one code = one owner account; that ties the real world to the virtual one and is the
@@ -1100,9 +1100,9 @@ migration), `OwnershipApiTest` (HTTP: claim flow incl. raw upload + admin downlo
 `LoginServiceTest` (dispute signup), `MailTest` (every template renders); api-smoke "Ownership claims + gifts",
 admin-smoke "Ownership claims + transfers"; qr `public-urls` (registered → file-claim link, free → register now).
 
-## Where to buy – stores carrying products (2026-10-02, owner — branch `stores`)
+## Where to buy – stores carrying products (2026-10-02, owner)
 
-Physical products (`config/products.json`) can also be bought in real shops: the Embassy's stores (type `store` /
+Physical products (the catalog's products, admin → Catalog) can also be bought in real shops: the Embassy's stores (type `store` /
 `record_shop`) carry product ids, and the listed ones appear on scutoons.com/stores, independent vendors first. Next to
 "Kaufen" (toon page related row, landing editions) a product a store carries offers "Läden vor Ort" →
 `/stores?product=<id>`. A store carries **products**, not items or editions: the product is what is sold (item + edition
@@ -1116,14 +1116,14 @@ often close to a release. They must never put a release at risk, and a finished 
 **Two layers.**
 - **Fundamentals** = code that defines what items *can* do: skill types (`scan_qr`, `scan_object`, `apply`, `craft`,
   `play_audio`/players …), the camera and its recognition plumbing, inventory, collection limits, ownership, gifting,
-  avatar slots, the item UI. They change only through the platform release flow (`platform` → `main`, full suite green).
+  avatar slots, the item UI. They change only with the code on `main` (full suite green).
 - **Content (a pack)** = data on top of released fundamentals: item definitions, recipes, variants, icons and
   overlays, de/en texts, trained model weights for an existing model type, story grants in the seed.
 
 **Rules.**
-1. A new set of items/recipes is a **pack** with a short name, built on its own branch `items/<pack>` in a separate
-   git worktree (e.g. `C:\Development\scutoons-<pack>`), branched from `platform` (or `main` after a release). Never
-   on the branch that is being released.
+1. A new set of items/recipes is a **pack** with a short name. Since the catalog lives in the DB (2026-10-04) a pack's
+   items and recipes are added in the admin catalog; code for a pack (a new fundamental) goes on `main` like any change
+   – a separate branch / worktree only when the owner asks for one (RULES.md; e.g. the parked onion camera).
 2. A pack only **adds**: new catalog entries (items + recipes in the catalog tables, admin → Catalog), CDN assets
    (`<toon>/items/…`, `scutoons/models/…`; uploaded in the creator / admin → Assets), texts, story grants (seed statements), tests. It never changes
    the id or meaning of a released item – inventories reference ids forever; a rename is a new item plus a migration.
@@ -1142,7 +1142,7 @@ often close to a release. They must never put a release at risk, and a finished 
 **First pack:** `items/onion-camera` (Top Toy's onion camera; agents/research/auto-flute-and-onion-camera.md) – not
 in the 2026-10-03/04 release.
 
-## Players, albums, related items (2026-10-02, owner — built 2026-10-02 on branch `platform`)
+## Players, albums, related items (2026-10-02, owner)
 
 Owner: "You cannot play audio [just by owning the record]. You need a record player first … Also tape player and CD
 player … perhaps a refactor of how the audio media is stored in relation to the item and how the item is related to the
@@ -1232,7 +1232,7 @@ chapter 5 exists (see "Record player repair"); whether the test press joins the 
 on the toon page should fold into the vinyl's related entry (kept separate now: the download is free for members, the
 related entry sells the vinyl); a viewer display for chapter related items.
 
-### Record player repair (2026-10-02, owner — built 2026-10-02 on branch `platform`)
+### Record player repair (2026-10-02, owner)
 
 Owner-approved exception to the packs rule for the 2026-10-03/04 release: it replaces the already-built chapter-2 pickup
 of the record player and is data only on existing fundamentals (two catalog items, one recipe, story grants in the seed,
@@ -1251,7 +1251,7 @@ two placeholder icons) – no code change.
 - The coupon's place once chapter 5 exists (owner: "for now at the end of chapter 2; later at the end of season 1") –
   move the events from `s1c2-slice-22` to chapter 5's last slice then.
 
-**Items** (`server/config/items.json`, both toon null like the record player, virtual, not stackable, giftable by
+**Items** (the catalog, admin → Catalog; then `server/config/items.json`; both toon null like the record player, virtual, not stackable, giftable by
 default, `grantable: ["story"]`):
 - `broken_record_player` "Kaputter Plattenspieler" / "Broken record player" – category tool, no `plays` (plays
   nothing), icon `scutoons/items/broken_record_player.png` (the record player with a cracked record and the tonearm
@@ -1285,7 +1285,7 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
 `not_grantable`; grant both inputs → craft `record_player_repair` → record player 1, inputs 0; again → 422); admin-smoke
 (27 items).
 
-## Placed items (2026-10-03, owner — branch `slice-items`)
+## Placed items (2026-10-03, owner)
 
 > "Add items to the slice – like we did with samples and text boxes. Scaling is possible." · correction: what a tap does
 > is the editor's decision per placed item, not prebaked.

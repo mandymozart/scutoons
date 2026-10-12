@@ -13,12 +13,16 @@
 		isPlaceWaypoint,
 		mapName,
 		placeImagePath,
+		placeImageTarget,
+		PLACE_IMAGE_WIDTHS,
 		placeView,
 		snapPlace,
 		placeSize,
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
+		type MapPlace,
+		type QualityVariants,
 		type ToonMapView,
 		type Point,
 		type Problem,
@@ -40,7 +44,7 @@
 	import { addPlace, addRoute, cdnHas, editMap, editPlace, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { toWebp, uploadOrReplace } from '@scutoons/media';
+	import { densityLevel, densityPath, splitMediaName, standardDensities, uploadOrReplace } from '@scutoons/media';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
 	import MapProps from '$lib/components/map/map-props.svelte';
@@ -64,14 +68,15 @@
 	let importProblems = $state<string[]>([]);
 	/** set after an import: previews of files with new bytes at the same path load again */
 	let bust = $state(0);
-	/** the longest side of a place illustration (PLACE_IMAGE_SPEC: 256 × 256) */
-	const PLACE_IMAGE_PX = 256;
 
 	/**
-	 * "Import images …": each file named after a place id (`old-church.png`, case and extension don't matter) becomes
-	 * that place's illustration – WebP, at most 256 px on the longest side, at the place's current WebP path or its
-	 * convention path (`<toon>/map/places/<id>.webp`); a file already there gets the new bytes (a new version, the CDN
-	 * purged). One undo step; names that are no place are reported.
+	 * "Import images …" (owner 2026-10-03; 2026-10-12 through the media standard): files named after a place id –
+	 * `old-church.png` the painted diorama, `old-church-plaster.png` its plaster model, `.2x` / `.3x` (or `@2x`) for a
+	 * delivered density; case and extension don't matter. Each becomes WebP in 1x / 2x / 3x (PLACE_IMAGE_WIDTHS 256 / 512
+	 * / 1024 – `standardDensities`: a bigger file makes the smaller ones, nothing is scaled up) at the place's current WebP
+	 * path or its convention path (`<toon>/map/places/<id>.webp`, `<id>-plaster.webp`, `.2x.webp`, `.3x.webp`); a file
+	 * already there gets the new bytes (a new version, the CDN purged). One undo step; names that are no place are
+	 * reported, a plaster model needs the painted image (in the same import or before).
 	 */
 	async function importImages(event: Event) {
 		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
@@ -80,39 +85,69 @@
 		importProblems = [];
 		importSummary = '';
 		const counts = { uploaded: 0, replaced: 0, unchanged: 0 };
-		const placed: { id: string; src: string }[] = [];
-		importing = { done: 0, total: files.length };
+		// one image per place and layer, its density files together; painted first (a plaster model needs it)
+		const groups = new Map<string, { place: string; plaster: boolean; files: File[] }>();
 		for (const file of files) {
-			const stem = file.name.toLowerCase().replace(/\.[a-z0-9]+$/, '');
-			const place = map.locations.find((p) => p.id.toLowerCase() === stem);
-			try {
-				if (!place) throw new Error(m['creator.map_import_no_place']({ name: stem }));
-				const bitmap = await createImageBitmap(file);
-				let blob: Blob;
-				try {
-					const scale = Math.min(1, PLACE_IMAGE_PX / Math.max(bitmap.width, bitmap.height));
-					blob = (await toWebp(bitmap, Math.round(bitmap.width * scale))).blob;
-				} finally {
-					bitmap.close();
-				}
-				const src = place.image?.src?.endsWith('.webp') ? place.image.src : placeImagePath(place);
-				counts[await uploadOrReplace(blob, src, 'map import')]++;
-				placed.push({ id: place.id, src });
-			} catch (e) {
-				importProblems = [...importProblems, `${file.name}: ${e instanceof Error ? e.message : String(e)}`];
+			const { stem } = splitMediaName(file.name);
+			const target = placeImageTarget(stem, map.locations);
+			if (!target) {
+				importProblems = [...importProblems, `${file.name}: ${m['creator.map_import_no_place']({ name: stem })}`];
+				continue;
 			}
-			importing = { done: importing.done + 1, total: files.length };
+			const key = `${target.plaster ? 1 : 0}:${target.place}`;
+			groups.set(key, { ...target, files: [...(groups.get(key)?.files ?? []), file] });
+		}
+		const ordered = [...groups.values()].sort((a, b) => Number(a.plaster) - Number(b.plaster));
+		const withImage = new Set(map.locations.filter((p) => p.image?.src).map((p) => p.id));
+		const placed: { id: string; plaster: boolean; src: string; variants?: QualityVariants }[] = [];
+		importing = { done: 0, total: ordered.length };
+		for (const group of ordered) {
+			const place = map.locations.find((p) => p.id === group.place)!;
+			try {
+				if (group.plaster && !withImage.has(place.id)) throw new Error(m['creator.map_import_plaster_first']());
+				const encoded = await standardDensities(group.files, { 1: PLACE_IMAGE_WIDTHS.low, 2: PLACE_IMAGE_WIDTHS.medium, 3: PLACE_IMAGE_WIDTHS.high });
+				const base = placeImageBase(place, group.plaster);
+				const variants: QualityVariants = {};
+				for (const file of encoded) {
+					const path = densityPath(base, file.density);
+					counts[await uploadOrReplace(file.blob, path, 'map import')]++;
+					variants[densityLevel(file.density)] = path;
+				}
+				placed.push({ id: place.id, plaster: group.plaster, src: variants.low!, ...(encoded.length > 1 ? { variants } : {}) });
+				if (!group.plaster) withImage.add(place.id);
+			} catch (e) {
+				importProblems = [...importProblems, `${group.files.map((f) => f.name).join(' + ')}: ${e instanceof Error ? e.message : String(e)}`];
+			}
+			importing = { done: importing.done + 1, total: ordered.length };
 		}
 		if (placed.length)
 			editMap(doc, (next) => {
-				for (const { id, src } of placed) {
+				for (const { id, plaster, src, variants } of placed) {
 					const place = next.locations.find((p) => p.id === id);
-					if (place) place.image = { ...(place.image ?? {}), src };
+					if (!place) continue;
+					if (plaster) {
+						if (!place.image) continue;
+						place.image.plaster = src;
+						if (variants) place.image.plasterVariants = variants;
+						else delete place.image.plasterVariants;
+					} else {
+						place.image = { ...(place.image ?? {}), src };
+						if (variants) place.image.variants = variants;
+						else delete place.image.variants;
+					}
 				}
 			});
 		importing = null;
 		importSummary = m['creator.characters_import_summary'](counts);
 		bust = Date.now();
+	}
+
+	/** where a place image's files go (no extension, no density): its current WebP, else next to the painted one / the convention path */
+	function placeImageBase(place: MapPlace, plaster: boolean): string {
+		const bare = (path: string) => path.replace(/\.webp$/i, '').replace(/\.[123]x$/i, '');
+		const painted = bare(place.image?.src?.endsWith('.webp') ? place.image.src : placeImagePath(place));
+		if (!plaster) return painted;
+		return place.image?.plaster?.endsWith('.webp') ? bare(place.image.plaster) : `${painted}-plaster`;
 	}
 
 	let tool = $state<MapTool>('select');
@@ -443,11 +478,20 @@
 		if (placeFrame) view.centerOn(placeFrame.center, placeFrame.zoom);
 		else gotoStartView();
 	}
+	// the two view helpers show only when they would do something (owner 2026-10-12: "only visible when needed or
+	// actually clickable"): "Show all" while a place is off screen, the crosshair while its view is not the one shown
+	const allOnScreen = $derived(!map?.locations.length || map.locations.every((p) => view.onScreen(p)));
+	const viewTarget = $derived(placeFrame ?? startView);
+	const atViewTarget = $derived.by(() => {
+		if (!viewTarget) return true;
+		const at = view.toScreen(viewTarget.center);
+		return Math.abs(view.zoom / viewTarget.zoom - 1) < 0.02 && Math.hypot(at.x - view.width / 2, at.y - view.height / 2) < 4;
+	});
 
 	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11, variant C): the properties slide up from below, one tab at a
 	//    time; closed it is its tab row only – a tap on a tab opens it there, on the open tab closes it; it closes
 	//    while the map is being dragged ─────────────────────────────────────────────────────────────────────────
-	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start';
+	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start' | 'route' | 'layer';
 	let sheetOpen = $state(false);
 	let sheetTab = $state<SheetTab>('map');
 	let mapDragging = $state(false);
@@ -458,7 +502,10 @@
 				{ id: 'image', icon: 'image', label: m['creator.map_image']() },
 				{ id: 'view', icon: 'crosshair', label: m['creator.map_place_view']() }
 			];
-		if (selection) return [];
+		// a route / layer: one tab like a place's – its name is the crumb at the top; the bar is no picker (owner 2026-10-12:
+		// "the route name selector can only be the active route")
+		if (selection?.kind === 'route') return [{ id: 'route', icon: 'share-2', label: m['creator.map_sheet_route']() }];
+		if (selection) return [{ id: 'layer', icon: 'layers', label: m['creator.map_sheet_layer']() }];
 		return [
 			{ id: 'map', icon: 'map', label: m['creator.map']() },
 			// Problems: once, in the bar's More (the page's Problems panel) – not a sheet tab too (owner 2026-10-11)
@@ -608,7 +655,9 @@
 	<!-- the nav lists + the map = ONE selection region ('map', DESIGN.md "Selection"): the selected layer / place / route
 	     is sc-selected here, the marker's halo on the map -->
 	<div class="map-nav" data-testid="map-nav" use:region={'map'}>
-		<p class="head"><Icon name="layers" size="1.1em" /> {m['creator.map_layers']()}</p>
+		<!-- three fold-outs (owner 2026-10-12: "layers, routes und places als collapsibles – default collapsed, places offen") -->
+		<details class="fold" data-testid="map-nav-layers-fold">
+		<summary class="head"><Icon name="layers" size="1.1em" /> {m['creator.map_layers']()}</summary>
 		<ul>
 			{#each map?.layers ?? [] as l (l.id)}
 				<li class="item-row">
@@ -619,7 +668,13 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={addLayer}>{m['creator.map_add_layer']()}</button></li>
 		</ul>
-		<p class="head">{m['creator.map_places']()} ({map?.locations.length ?? 0})</p>
+		<!-- a setting of the whole map, with its layers (owner 2026-10-12): the reader's camera stays on the terrain -->
+		{#if doc && map}
+			<label class="check bounded" title={m['creator.map_bounded_hint']()}><input type="checkbox" checked={!!map.bounded} onchange={(e) => { const on = e.currentTarget.checked; editMap(doc!, (w) => { if (on) w.bounded = true; else delete w.bounded; }); }} data-testid="map-bounded" /> {m['creator.map_bounded']()}</label>
+		{/if}
+		</details>
+		<details class="fold" open data-testid="map-nav-places-fold">
+		<summary class="head">{m['creator.map_places']()} ({map?.locations.length ?? 0})</summary>
 		<ul data-testid="map-nav-places">
 			{#each sortedPlaces as p (p.id)}
 				<li>
@@ -631,7 +686,9 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={() => (tool = 'place')} data-testid="nav-add-place">{m['creator.map_add_place']()}</button></li>
 		</ul>
-		<p class="head">{m['creator.map_routes']()} ({map?.routes.length ?? 0})</p>
+		</details>
+		<details class="fold" data-testid="map-nav-routes-fold">
+		<summary class="head">{m['creator.map_routes']()} ({map?.routes.length ?? 0})</summary>
 		<ul data-testid="map-nav-routes">
 			{#each map?.routes ?? [] as r (r.id)}
 				<li>
@@ -642,6 +699,7 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={() => (tool = 'route')}>{m['creator.map_tool_route']()}</button></li>
 		</ul>
+		</details>
 		<p class="nav-import">
 			<button type="button" class="item add" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()}>
 				<Icon name="upload" size="1.1em" />
@@ -708,6 +766,21 @@
 					onaddplace={onAddPlace}
 					onmoveplace={onMovePlace}
 					onmovewaypoint={onMoveWaypoint}
+					onmovegate={(place, which, gate) =>
+						editPlace(doc, place, (p) => {
+							const gates = { ...(p.gates ?? {}) };
+							if (gate) gates[which] = gate;
+							else delete gates[which];
+							if (gates.entry || gates.exit) p.gates = gates;
+							else delete p.gates;
+						}, `gate:${place}:${which}`)}
+					onmovewaypointhandle={(route, index, handle) =>
+						editRoute(doc, route, (r) => {
+							const w = r.waypoints[index];
+							if (!w || isPlaceWaypoint(w)) return;
+							if (handle) w.handle = handle;
+							else delete w.handle;
+						}, `handle:${route}:${index}`)}
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
 				/>
@@ -720,10 +793,12 @@
 					<button type="button" class:on={readerView} aria-pressed={readerView} aria-label={m['creator.map_reader_view']()} title={m['creator.map_reader_view']()} onclick={() => (readerView = !readerView)} data-testid="reader-view"><Icon name="eye" /></button>
 					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)} data-testid="phone-frame"><Icon name="smartphone" /></button>
 				</div>
-				<div class="strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
-					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
-					<button type="button" onclick={gotoView} disabled={!placeFrame && !startView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()}><Icon name="crosshair" /></button>
-				</div>
+				{#if !allOnScreen || !atViewTarget}
+					<div class="strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
+						{#if !allOnScreen}<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()} data-testid="map-fit"><Icon name="maximize" /></button>{/if}
+						{#if !atViewTarget}<button type="button" onclick={gotoView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()} data-testid="map-go-view"><Icon name="crosshair" /></button>{/if}
+					</div>
+				{/if}
 			</div>
 			<aside class="side" class:open={sheetOpen && !mapDragging} class:dragging bind:this={sheetEl} style:--sheet-max={sheetRem !== null ? `${sheetRem}rem` : null} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1042,6 +1117,36 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		color: var(--muted);
+	}
+	/* a fold-out section: the head is its summary (a chevron before it, turned when open) */
+	.map-nav summary.head {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		cursor: pointer;
+		list-style: none;
+	}
+	.map-nav summary.head::-webkit-details-marker {
+		display: none;
+	}
+	.map-nav summary.head::before {
+		content: '';
+		width: 0.4rem;
+		height: 0.4rem;
+		border-right: var(--border-width-regular) solid currentColor;
+		border-bottom: var(--border-width-regular) solid currentColor;
+		transform: rotate(-45deg);
+		transition: transform var(--duration-fast) var(--easing);
+	}
+	.map-nav details[open] > summary.head::before {
+		transform: rotate(45deg);
+	}
+	.map-nav .bounded {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		padding: 0.25rem 1rem 0.5rem;
+		font-size: var(--type-caption-size);
 	}
 	.map-nav ul {
 		list-style: none;

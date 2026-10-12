@@ -33,6 +33,7 @@ use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
 use Scutoons\Http\Controllers\Admin\ServerLogController;
 use Scutoons\Http\Controllers\Admin\SystemController;
+use Scutoons\Http\Controllers\Admin\ReadingController;
 use Scutoons\Http\Controllers\Admin\UsersController;
 use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
@@ -176,12 +177,13 @@ return static function (App $app): void {
     // many documents at once (the world map's places / routes – agents/MAP-DOCUMENTS.md): one transaction each
     $app->post('/api/entities/batch', [EntitiesController::class, 'batch']);
     $app->post('/api/entities/publish', [EntitiesController::class, 'publishMany']);
-    $app->get('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'get']);
-    $app->put('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'put']);
-    $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
-    $app->post('/api/entities/{key:[a-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
+    $app->get('/api/entities/{key:[A-Za-z0-9:_-]+}', [EntitiesController::class, 'get']);
+    $app->put('/api/entities/{key:[A-Za-z0-9:_-]+}', [EntitiesController::class, 'put']);
+    $app->get('/api/entities/{key:[A-Za-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
+    $app->post('/api/entities/{key:[A-Za-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
     // where a catalog item is placed in every toon (item limits, BACKLOG 10.39) – role creator
     $app->get('/api/catalog/items/{id:[A-Za-z0-9_.-]{1,100}}/placements', [EntitiesController::class, 'itemPlacements']);
+    $app->get('/api/catalog/docs/{kind:items|recipes|albums|products|editions}', [EntitiesController::class, 'catalogDocs']);
     // the creator's SCUTOONS-wide flow: every toon's ways out of its chapters + dead things (docs/API.md "Flow index", role creator)
     $app->get('/api/creator/flow-index', [FlowController::class, 'index']);
     // Review before publish (docs/API.md "Reviews", role creator; the review rules per toon decide the rest)
@@ -342,6 +344,8 @@ return static function (App $app): void {
 
         $admin->get('/users', [UsersController::class, 'list']);
         $admin->get('/users/{id}', [UsersController::class, 'get']);
+        // where the members are in the chapters (BACKLOG 10.69)
+        $admin->get('/reading', [ReadingController::class, 'stats']);
         $admin->put('/users/{id}/roles/{role}', [UsersController::class, 'grant']);
         $admin->delete('/users/{id}/roles/{role}', [UsersController::class, 'revoke']);
         $admin->get('/review-rules', [UsersController::class, 'reviewRules']);

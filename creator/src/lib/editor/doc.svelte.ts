@@ -4,11 +4,8 @@
 //
 // Chapters, scenes, seasons and the toon entry are ONE language-neutral document each (agents/NEUTRAL.md): structure
 // once, every text a locale map `{ de: …, en: … }` (`texts` = the toon's languages). `edit` / `set` change the document,
-// `text` / `setText` one language of a text leaf (the creator header's text language). An entity without a neutral
-// document yet (production before its conversion) is loaded from its per-locale documents and converted in memory
-// (`neutralizeDocs`, `converted` = the report): saving stores the neutral document; the per-locale keys are never
-// written again. A toon entry without texts gets them from the per-language toon settings the same way
-// (`neutralizeToon`, step 4).
+// `text` / `setText` one language of a text leaf (the creator header's text language). A missing neutral document is
+// simply missing (the old per-locale copies are purged, owner 2026-10-12).
 //
 // The script is the only localized entity with one document per locale (a translation by design): `setLocal` one
 // locale, `createLocale` a missing locale from the source. Language-neutral entities (cast, credits, the map …) are one
@@ -26,25 +23,19 @@ import {
 	hasLegacyToonName,
 	foldToonName,
 	isLocaleValue,
-	neutralizeDocs,
-	neutralizeToon,
 	parseEntityKey,
 	resolveGroup,
 	resolveSlice,
 	setAt,
 	type Group,
-	type NeutralDifference,
-	type NeutralKind,
 	type Path,
-	type Slice,
-	type ToonIndex,
-	type ToonSettings
+	type Slice
 } from '@scutoons/content';
 import { repairBooleans } from '$lib/editor/repair-booleans.ts';
 import { assignEventIds } from '$lib/editor/event-ids.ts';
 import { draftSaves } from '$lib/editor/draft-saves.svelte.ts';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script';
+export type DocKind = 'chapter' | 'group' | 'season' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script' | 'catalog';
 export type DocSource = 'store' | 'new' | 'missing';
 
 const HISTORY_LIMIT = 150;
@@ -82,14 +73,6 @@ export interface DocTexts {
 	languages: readonly string[];
 }
 
-/** A neutral document converted in memory from the per-locale ones (saving stores it) */
-export interface DocConversion {
-	/** what the source locale overrode (@scutoons/content neutralize.ts) */
-	report: NeutralDifference[];
-	/** the languages it was made of (source first) */
-	locales: string[];
-}
-
 /** The editor kind of an entity (which validation and panels apply) */
 export function kindOfEntity(entity: string): DocKind {
 	switch (parseEntityKey(entity)?.kind) {
@@ -97,8 +80,6 @@ export function kindOfEntity(entity: string): DocKind {
 			return 'chapter';
 		case 'season':
 			return 'season';
-		case 'toon-settings':
-			return 'toon';
 		case 'toon':
 			return 'index';
 		case 'credits':
@@ -115,14 +96,19 @@ export function kindOfEntity(entity: string): DocKind {
 			return 'moods';
 		case 'asset-requests':
 			return 'requests';
-		case 'locations':
-		case 'routes':
 		case 'map':
 			return 'map';
 		case 'events':
 			return 'events';
 		case 'script':
 			return 'script';
+		// a catalog entry's document (item:<id> …, agents/CATALOG-IN-CREATOR.md)
+		case 'item':
+		case 'recipe':
+		case 'album':
+		case 'product':
+		case 'edition':
+			return 'catalog';
 		default:
 			return 'group';
 	}
@@ -163,10 +149,6 @@ export class ContentDoc {
 	error = $state<string | null>(null);
 	/** set when a local autosave newer than the loaded state exists */
 	recoverable = $state<AutosaveEntry | null>(null);
-	/** set when the neutral document was converted from the per-locale ones on load (not stored yet) */
-	converted = $state<DocConversion | null>(null);
-	/** the stored version the conversion was made on (null: none – a new neutral document; the toon entry: its version) */
-	private convertedBase: number | null = null;
 	lastSavedAt = $state<number | null>(null);
 	/**
 	 * events that got their hidden id on load (stored before step 3, agents/EXPRESSIONS.md §5) – in memory, stored with
@@ -202,11 +184,6 @@ export class ContentDoc {
 		this.locales = [primary, ...locales.filter((l) => l !== primary)];
 		this.primary = primary;
 		this.texts = texts ? { source: texts.source, languages: [texts.source, ...texts.languages.filter((l) => l !== texts.source)] } : null;
-	}
-
-	/** converted from the per-locale documents on load and not stored yet (only a save of this document stores it) */
-	get unconverted(): boolean {
-		return !!this.converted && (this.base[this.primary] ?? null) === this.convertedBase;
 	}
 
 	/** a language-neutral document with locale-map texts (chapter, scene, season, the toon entry) */
@@ -266,7 +243,6 @@ export class ContentDoc {
 	async load() {
 		this.loading = true;
 		this.error = null;
-		let legacy = null as { doc: unknown; conversion: DocConversion } | null;
 		const data: Record<string, any> = {};
 		const base: Record<string, number | null> = {};
 		const published: Record<string, number | null> = {};
@@ -285,16 +261,6 @@ export class ContentDoc {
 					} catch (e) {
 						if (!(e instanceof ApiError) || e.status !== 404) throw e;
 					}
-					// no neutral document yet: the per-locale ones, converted in memory
-					legacy = this.texts ? await this.loadLegacy() : null;
-					if (legacy) {
-						data[locale] = legacy.doc;
-						base[locale] = null;
-						published[locale] = null;
-						this.changedAt[locale] = null;
-						source[locale] = 'new';
-						return;
-					}
 					data[locale] = null;
 					base[locale] = null;
 					published[locale] = null;
@@ -306,74 +272,13 @@ export class ContentDoc {
 			this.loading = false;
 			return;
 		}
-		// the toon entry without texts: the per-language toon settings folded in (agents/NEUTRAL.md step 4)
-		if (!legacy && this.kind === 'index' && this.texts && data[this.primary] && !hasToonTexts(data[this.primary])) {
-			try {
-				legacy = await this.loadToonSettings(data[this.primary]);
-			} catch (e) {
-				this.error = e instanceof Error ? e.message : String(e);
-				this.loading = false;
-				return;
-			}
-			if (legacy) data[this.primary] = legacy.doc;
-		}
 		// an entry with texts that still stores the old name (`i18n`, decision 4): folded into `title` in memory – the next
-		// save stores it without (the Convert page / dev:neutralize store it on their own)
+		// save stores it without
 		if (this.kind === 'index' && hasToonTexts(data[this.primary]) && hasLegacyToonName(data[this.primary])) data[this.primary] = foldToonName(data[this.primary]).doc;
 		this.adopt(data, base, published, source);
 		if (this.kind === 'season') void this.loadPublishedSequences();
-		// a conversion is not stored yet: unsaved until the next save stores the neutral document
-		if (legacy) this.saved[this.primary] = '';
-		this.converted = legacy?.conversion ?? null;
-		this.convertedBase = legacy ? (base[this.primary] ?? null) : null;
 		this.checkAutosave();
 		this.loading = false;
-	}
-
-	/**
-	 * The newest per-locale documents of a neutral entity (`chapter:catpope:2:de` …) as one neutral document
-	 * (@scutoons/content neutralizeDocs); null when there are none
-	 */
-	private async loadLegacy(): Promise<{ doc: unknown; conversion: DocConversion } | null> {
-		const texts = this.texts!;
-		const found: [string, unknown][] = [];
-		await Promise.all(
-			texts.languages.map(async (locale) => {
-				try {
-					const wrapped = await getDraft(`${this.entity}:${locale}`);
-					found.push([locale, wrapped.content]);
-				} catch (e) {
-					if (!(e instanceof ApiError) || e.status !== 404) throw e;
-				}
-			})
-		);
-		if (!found.length) return null;
-		found.sort((a, b) => texts.languages.indexOf(a[0]) - texts.languages.indexOf(b[0]));
-		const kind = parseEntityKey(this.entity)!.kind as NeutralKind;
-		const result = neutralizeDocs(kind, Object.fromEntries(found.map(([l, doc]) => [l, doc])), texts.source);
-		return { doc: result.doc, conversion: { report: result.report, locales: found.map(([l]) => l) } };
-	}
-
-	/**
-	 * The toon entry with the newest per-language toon settings (`toon-settings:<toon>:<l>`) folded in
-	 * (@scutoons/content neutralizeToon); null when there are none
-	 */
-	private async loadToonSettings(entry: ToonIndex): Promise<{ doc: unknown; conversion: DocConversion } | null> {
-		const texts = this.texts!;
-		const found: [string, ToonSettings][] = [];
-		await Promise.all(
-			texts.languages.map(async (locale) => {
-				try {
-					found.push([locale, (await getDraft<ToonSettings>(`toon-settings:${this.toon}:${locale}`)).content]);
-				} catch (e) {
-					if (!(e instanceof ApiError) || e.status !== 404) throw e;
-				}
-			})
-		);
-		if (!found.length) return null;
-		found.sort((a, b) => texts.languages.indexOf(a[0]) - texts.languages.indexOf(b[0]));
-		const result = neutralizeToon(entry, Object.fromEntries(found), texts.source);
-		return { doc: result.doc, conversion: { report: result.report, locales: found.map(([l]) => l) } };
 	}
 
 	/** Starts a new entity (e.g. a new chapter) in every locale. */

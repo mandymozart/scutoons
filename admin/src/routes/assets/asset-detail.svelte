@@ -4,7 +4,7 @@
 	import { ApiError, assets } from '$lib/api.ts';
 	import { bytes, errorText, minute } from '$lib/format.ts';
 	import { tableLabels } from '$lib/labels.ts';
-	import { CREATOR_URL } from '$lib/config.ts';
+	import { contentHref } from '$lib/creator-links.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -140,14 +140,7 @@
 		[r.width && r.height ? `${r.width}×${r.height}` : '', r.duration ? `${Math.floor(r.duration / 60)}:${String(Math.round(r.duration % 60)).padStart(2, '0')}` : ''].filter(Boolean).join(' · ') || '—';
 	const stateTone = (u: AssetUsage) => (u.state === 'published' ? 'published' : u.state === 'config' ? 'info' : 'draft');
 	/** a content use → the creator page that edits it */
-	function editHref(u: AssetUsage): string | null {
-		if (u.source !== 'content') return null;
-		const parts = u.ref.split(':');
-		if (parts[0] === 'season') return `${CREATOR_URL}/${parts[1]}/season/${parts[2]}`;
-		if (parts[0] === 'chapter' || parts[0] === 'scene') return `${CREATOR_URL}/${parts[1]}/chapter/${parts[2]}`;
-		if (parts[0] === 'toon' || parts[0] === 'toon-settings') return `${CREATOR_URL}/${parts[1]}`;
-		return null;
-	}
+	const editHref = (u: AssetUsage): string | null => (u.source === 'content' ? contentHref(u.ref) : null);
 	const jobTone = (j: AssetJob) => (j.status === 'done' ? 'published' : j.status === 'failed' ? 'error' : 'draft');
 </script>
 

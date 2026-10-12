@@ -3,7 +3,7 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, confirmDialog, DataTable, Field, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
-	import type { AdminReviewRule, AdminUserDetail, RoleInfo } from '@scutoons/api';
+	import type { AdminReadingChapter, AdminReviewRule, AdminUserDetail, RoleInfo } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { day, errorText, minute } from '$lib/format.ts';
 	import { tableLabels } from '$lib/labels.ts';
@@ -11,6 +11,8 @@
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import ReadingBar from '$lib/components/reading-bar.svelte';
+	import { chapterLabel, toonName } from '$lib/reading.ts';
 
 	const toaster = getToaster();
 	const session = getAdminSession();
@@ -59,10 +61,10 @@
 		}
 	}
 
-	// ── Review rules (docs/API.md "Reviews"): per toon or every toon, reviewer | needs_review ──
+	// ── Review rules (docs/API.md "Reviews"): per toon or every toon, reviewer | needs_review | physical (publishes physical catalog changes) ──
 	let ruleToon = $state('*');
 	let ruleKind = $state<AdminReviewRule['rule']>('needs_review');
-	const ruleLabel = (rule: string) => (rule === 'reviewer' ? m['users.rule_reviewer']() : m['users.rule_needs_review']());
+	const ruleLabel = (rule: string) => (rule === 'reviewer' ? m['users.rule_reviewer']() : rule === 'physical' ? m['users.rule_physical']() : m['users.rule_needs_review']());
 	const toonLabel = (toon: string) => (toon === '*' ? m['users.review_all_toons']() : (toons.find((t) => t.id === toon)?.name ?? toon));
 
 	async function setReviewRule(toon: string, rule: AdminReviewRule['rule'], on: boolean) {
@@ -129,6 +131,14 @@
 		{ id: 'claimed_at', label: m['codes.col_claimed']() },
 		{ id: 'revoked_at', label: m['codes.status_revoked']() }
 	]);
+
+	// where this member is in the toons (BACKLOG 10.69): their save game's chapter checkpoints, last read first
+	const readingColumns = $derived<Column[]>([
+		{ id: 'chapter', label: m['users.reading_col_chapter']() },
+		{ id: 'position', label: m['users.reading_col_progress']() },
+		{ id: 'spot', label: m['users.reading_col_spot']() },
+		{ id: 'read_at', label: m['users.reading_col_read']() }
+	]);
 </script>
 
 {#if error}
@@ -180,6 +190,26 @@
 		</Section>
 	</div>
 
+	<Section title={m['users.section_reading']()}>
+		{#if !user.reading}
+			<p class="sc-caption" data-testid="reading-none">{m['users.reading_none']()}</p>
+		{:else}
+			<p class="sc-caption">{m['users.reading_summary']({ variables: String(user.reading.variables), places: String(user.reading.places), at: minute(user.reading.updated_at) })}</p>
+			{#if user.reading.chapters.length}
+				<DataTable columns={readingColumns} rows={user.reading.chapters} rowKey={(c) => `${c.toon}/${c.chapter}`} labels={tableLabels()}>
+					{#snippet cell(c: AdminReadingChapter, column)}
+						{#if column.id === 'chapter'}{chapterLabel(toonName(toons, c.toon), c.chapter)}
+						{:else if column.id === 'position'}
+							{#if c.finished && c.position >= 1}<Badge tone="ink">{m['users.reading_finished']()}</Badge>
+							{:else}<ReadingBar position={c.position} />{#if c.finished} <span class="meta">{m['users.reading_again']()}</span>{/if}{/if}
+						{:else if column.id === 'spot'}{c.group !== null && c.slice !== null ? m['users.reading_spot']({ group: String(c.group + 1), slice: String(c.slice + 1) }) : '—'}
+						{:else}{minute(c.read_at)}{/if}
+					{/snippet}
+				</DataTable>
+			{/if}
+		{/if}
+	</Section>
+
 	<Section title={m['users.section_reviews']()} hint={m['users.section_reviews_hint']()}>
 		{#if user.review_rules?.length}
 			<ul class="rules" data-testid="review-rules">
@@ -206,6 +236,7 @@
 					<select {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={ruleKind} data-testid="review-rule">
 						<option value="needs_review">{m['users.rule_needs_review']()}</option>
 						<option value="reviewer">{m['users.rule_reviewer']()}</option>
+						<option value="physical" title={m['users.rule_physical_hint']()}>{m['users.rule_physical']()}</option>
 					</select>
 				{/snippet}
 			</Field>
@@ -291,7 +322,8 @@
 		align-items: center;
 		gap: var(--space-05);
 	}
-	.unlocks .meta {
+	.unlocks .meta,
+	.meta {
 		font-size: var(--type-caption-size);
 		opacity: 0.7;
 	}

@@ -2,7 +2,7 @@
 
 Owner 2026-10-06: "these areas should all behave a bit more like in Blender or here in the Claude Code desktop app, so we
 don't have to deal with their sizing and collapsing individually. Closing them is a different story." Status: approved
-(owner 2026-10-06: "go go go, sounds good, we can still revise it later") and migrated on branch `ui/docking-areas` –
+(owner 2026-10-06: "go go go, sounds good, we can still revise it later") and migrated (merged into `main`) –
 every area below is on the model. Closing panels is unchanged (their ✕). Several page panels side by side, the main's
 fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, below). The Ask region is gone (owner
 2026-10-09, agents/MCP.md – members use their own Claude through the SCUTOONS MCP).
@@ -73,9 +73,8 @@ fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, bel
   deliberately (a token in a URL leaks via history, logs and referrers; one sent by postMessage would put a session into a
   second origin's storage). `?draft=1` turns the viewer origin's per-device draft preview on, as the "Preview" links in
   More always did (`?preview=draft`). The frame has `referrerpolicy="no-referrer"` and `allow="autoplay; fullscreen"`
-  (the reader's sound, a strip's full screen). The viewer sends no frame-blocking header today; a
-  `Content-Security-Policy: frame-ancestors` limited to the creator would need the static hosts' .htaccess – not done
-  (the messages are origin-checked anyway). Check: `npm run check:creator-reader`.
+  (the reader's sound, a strip's full screen). Only the creator may frame the viewer (owner 2026-10-07): `viewer/static/.htaccess` sends
+  `Content-Security-Policy: frame-ancestors` limited to the creator (PLATFORM.md; the messages are origin-checked too). Check: `npm run check:creator-reader`.
 - **Several panels** (BACKLOG 10.57, owner 2026-10-07: "why is it either Flow or phone preview? … jumping through the
   Flow would also directly show the final result in the preview"): the page panels no longer take turns – any of them
   can be open together (the Flow + the Reader is the case that matters: a click in the Flow moves the main AND the

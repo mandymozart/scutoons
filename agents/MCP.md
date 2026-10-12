@@ -2,7 +2,7 @@
 
 Owner 2026-10-09: the Ask service goes because it costs too much for what it does. People use their own AI plan
 (Claude; ChatGPT skipped for now, owner 2026-10-09) and connect it to SCUTOONS through the MCP server. Their plan pays for the model, and
-SCUTOONS pays for no tokens. This file covers the analysis, the target, auth and the removal. Status: **built 2026-10-09** (phases 1–5, §7) – the production steps and the drop of the Ask tables are the owner's. "What exists today" (§1) and "Removing Ask" (§4) describe the state BEFORE.
+SCUTOONS pays for no tokens. This file covers the analysis, the target, auth and the removal. Status: **built 2026-10-09** (phases 1–5, §7); production steps, the drop of the Ask tables and the hosting clean-up are done (owner 2026-10-12). "What exists today" (§1) and "Removing Ask" (§4) describe the state BEFORE.
 
 ## 1. What exists today
 
@@ -209,12 +209,8 @@ itself runs pending migrations after the API upload (`/api/deploy/migrate`, MIGR
 server/docs/DATABASE.md "Migrations", docs/API.md "Developer API".
 
 Open:
-- **Owner, production:** run `2026-10-09-mcp-drafts` + `2026-10-09-api-tokens` with the deploy (the SELECTs first);
-  then delete the bunny app, the `ask.` DNS, the ghcr image, the GitHub vars `VITE_ASK_URL` / `BUNNY_ASK_*` and the
-  secret `AGENT_SERVICE_KEY`, revoke the Anthropic API key. `2026-10-09-drop-ask.mysql.sql` ran too
-  (2026-10-09).
 - **Owner:** install the extension once in Claude Desktop (account page → AI connections) – not tried (no Claude Desktop
   in the agent's reach).
 - Not built: the version check (`/api/meta` → `mcp_min_version`, §3a) – a member with an old copy simply downloads again.
 - The four browser checks that lost their Ask steps (creator-dock, creator-flow-dock, creator-reader, tools-dock) were
-  not run after the change.
+  not run after the change – ISSUES 10.87.

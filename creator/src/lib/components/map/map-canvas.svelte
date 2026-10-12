@@ -21,6 +21,10 @@
 		DEFAULT_PLACE_IMAGE_SIZE,
 		HEX_CELL,
 		routePoints,
+		routeGeometry,
+		snapToPlace,
+		ROUTE_HANDLE,
+		type PlaceGate,
 		visibleLabels,
 		waypointPoint,
 		type MapPlace,
@@ -57,6 +61,8 @@
 		onaddplace,
 		onmoveplace,
 		onmovewaypoint,
+		onmovegate,
+		onmovewaypointhandle,
 		oninsertwaypoint,
 		onaddroute
 	}: {
@@ -79,6 +85,13 @@
 		/** `done` = the drag ended (one undo step per drag) */
 		onmoveplace: (id: string, at: Point) => void;
 		onmovewaypoint: (route: string, index: number, at: Point) => void;
+		/**
+		 * a route gate of a place dragged (BACKLOG 10.66 (4)) or its Bézier handle (owner 2026-10-12): the gate's offset from
+		 * the place's point with its handle, world units; null = back to computed
+		 */
+		onmovegate: (place: string, which: 'entry' | 'exit', gate: PlaceGate | null) => void;
+		/** a free waypoint's Bézier handle dragged (an offset from the point; null = smooth again) */
+		onmovewaypointhandle: (route: string, index: number, handle: Point | null) => void;
 		oninsertwaypoint: (route: string, after: number, at: Point) => void;
 		onaddroute: (waypoints: Waypoint[]) => void;
 	} = $props();
@@ -87,23 +100,53 @@
 	const inFilter = (toons: string[] | undefined) => !toonFilter || !!toons?.includes(toonFilter);
 	const placeById = $derived(new Map(map.locations.map((p) => [p.id, p])));
 
-	// ── panning: the middle button, Space held, or a drag on the empty terrain with Select (touch: drag / two fingers) ──
+	// ── panning: the middle button, Space held, a drag on the empty terrain with Select, any drag with the route / place
+	//    tools (a tap there sets the point; touch: drag / two fingers) ──
 	let space = $state(false);
+	// a safeguard (owner 2026-10-12: "while scrolling around I often accidentally move things … items, Bézier and route
+	// entries – it is a mess if it just goes"): anything draggable moves only once it is active – a place when it is
+	// selected, a gate / curve handle / route point when it was tapped (`activeHandle`). The first tap activates; a drag
+	// on something not active pans the map.
+	const isActivePlace = (id: string) => selection?.kind === 'place' && selection.id === id;
+	let activeHandle = $state<string | null>(null);
+	$effect(() => {
+		void selection;
+		activeHandle = null;
+	});
+	const placeOf = (e: PointerEvent) => (e.target as HTMLElement | null)?.closest<HTMLElement | SVGElement>('[data-place]')?.dataset.place ?? null;
+	const handleOf = (e: PointerEvent) => (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-drag]')?.dataset.drag ?? null;
 	function canPan(e: PointerEvent) {
 		if (space || e.button === 1) return true;
-		if (tool === 'select') return !(e.target as HTMLElement | null)?.closest('[data-handle]');
-		return false;
+		// drawing a route / adding a place: a drag pans, a tap sets the point (owner 2026-10-12, phone: "I can not drag
+		// the map in route mode")
+		if (tool !== 'select') return true;
+		if (!(e.target as HTMLElement | null)?.closest('[data-handle]')) return true;
+		const place = placeOf(e);
+		if (place) return !isActivePlace(place);
+		const handle = handleOf(e);
+		return !!handle && handle !== activeHandle;
 	}
 	function onTap(e: PointerEvent, at: Point) {
 		if (space) return;
 		const world = view.toWorld(at);
 		if (tool === 'place') {
 			if ((e.target as HTMLElement | null)?.closest('[data-handle]')) return;
+			// the tool turns to select with the new place selected: the click that follows this tap must not select a
+			// route whose line is under it (check-map 2026-10-12 – the new place lost its selection)
+			placedAt = e.timeStamp;
 			onaddplace(world);
 			return;
 		}
 		if (tool === 'route') {
 			addDraftPoint(at, world);
+			return;
+		}
+		// something not active yet: the tap activates it (it moves from the next drag on)
+		const place = placeOf(e);
+		if (place) return onselect({ kind: 'place', id: place });
+		const handle = handleOf(e);
+		if (handle) {
+			activeHandle = handle;
 			return;
 		}
 		if (!(e.target as HTMLElement | null)?.closest('[data-handle], [data-route]')) onselect(null);
@@ -165,7 +208,14 @@
 	}
 
 	// ── dragging places and waypoints ─────────────────────────────────────────────────────────────────────────
-	let dragging = $state<{ kind: 'place'; id: string } | { kind: 'waypoint'; route: string; index: number } | null>(null);
+	let dragging = $state<
+		| { kind: 'place'; id: string }
+		| { kind: 'waypoint'; route: string; index: number }
+		| { kind: 'gate'; place: string; which: 'entry' | 'exit' }
+		| { kind: 'gate-handle'; place: string; which: 'entry' | 'exit' }
+		| { kind: 'waypoint-handle'; route: string; index: number }
+		| null
+	>(null);
 
 	// ── the hex grid (owner 2026-10-11): shown only while a place is placed or dragged – the cells on screen, one path ──
 	const showGrid = $derived(tool === 'place' || dragging?.kind === 'place');
@@ -209,13 +259,69 @@
 		return null;
 	});
 
+	// the selected place's route gates (BACKLOG 10.66 (4), owner 2026-10-12: "the computed ones first, then adjustable"):
+	// one handle per gate the routes through it use – dragging one sets its offset (filled = set, hollow = computed)
+	const placeGates = $derived.by(() => {
+		if (tool !== 'select' || selection?.kind !== 'place') return [];
+		const id = selection.id;
+		const place = map.locations.find((p) => p.id === id);
+		if (!place) return [];
+		const seen = new Set<string>();
+		const out: { which: 'entry' | 'exit'; at: Point; handle: Point; set: boolean; handleSet: boolean }[] = [];
+		for (const r of map.routes)
+			for (const g of routeGeometry(map.locations, r.waypoints).gates)
+				if (g.place === id && !seen.has(g.which)) {
+					seen.add(g.which);
+					out.push({ which: g.which, at: g.at, handle: g.handle, set: g.set, handleSet: g.handleSet });
+				}
+		return out;
+	});
+	// the selected route's free points: their Bézier handles (owner 2026-10-12) – their own, else where the smooth curve's
+	// control point lies (hollow), so a drag starts from the shape that is drawn
+	const waypointHandles = $derived.by(() => {
+		if (tool !== 'select' || selection?.kind !== 'route') return [];
+		const route = map.routes.find((r) => r.id === (selection as { id: string }).id);
+		if (!route) return [];
+		const out: { index: number; at: Point; handle: Point; set: boolean }[] = [];
+		route.waypoints.forEach((w, i) => {
+			if (isPlaceWaypoint(w)) return;
+			const at = { x: w.x, y: w.y };
+			if (w.handle) return void out.push({ index: i, at, handle: { x: w.x + w.handle.x, y: w.y + w.handle.y }, set: true });
+			const prev = route.waypoints[i - 1] ? waypointPoint(map.locations, route.waypoints[i - 1]) : null;
+			const next = route.waypoints[i + 1] ? waypointPoint(map.locations, route.waypoints[i + 1]) : null;
+			const a = prev ?? at, b = next ?? at;
+			const t = { x: b.x - a.x, y: b.y - a.y };
+			const l = Math.hypot(t.x, t.y) || 1;
+			const len = Math.max(ROUTE_HANDLE, (l / 2) * 0.3);
+			out.push({ index: i, at, handle: { x: at.x + (t.x / l) * len, y: at.y + (t.y / l) * len }, set: false });
+		});
+		return out;
+	});
+	/** a gate as stored: its offset (the drawn position when it was computed) and its handle */
+	function gateOf(placeId: string, which: 'entry' | 'exit'): { place: MapPlace; gate: PlaceGate } | null {
+		const place = map.locations.find((p) => p.id === placeId);
+		const drawn = placeGates.find((g) => g.which === which);
+		if (!place || !drawn) return null;
+		const own = place.gates?.[which];
+		const r = (n: number) => Math.round(n * 100) / 100;
+		return { place, gate: { x: r(drawn.at.x - place.x), y: r(drawn.at.y - place.y), ...(own?.handle ? { handle: own.handle } : {}) } };
+	}
+
 	// culling (BACKLOG 10.63): the places near the screen through a spatial index; the margin covers the biggest diorama
 	const placeIndex = $derived(pointIndex(map.locations));
 	const shownPlaces = $derived(placeIndex.query(growRect(view.worldRect(200), PLACE_SIZE_MAX / 2)));
 
 	let dragMoved = false;
+	/** a handle's key for the safeguard (`data-drag`) */
+	function dragKey(t: NonNullable<typeof dragging>): string {
+		if (t.kind === 'place') return `place:${t.id}`;
+		if (t.kind === 'gate' || t.kind === 'gate-handle') return `${t.kind}:${t.place}:${t.which}`;
+		return `${t.kind}:${t.route}:${t.index}`;
+	}
 	function startDrag(e: PointerEvent, target: NonNullable<typeof dragging>) {
 		if (tool !== 'select' || space || e.button !== 0) return;
+		// not active yet: no drag – the map's gestures pan, a tap activates (canPan / onTap)
+		if (target.kind === 'place' ? !isActivePlace(target.id) : dragKey(target) !== activeHandle) return;
 		e.stopPropagation();
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		dragging = target;
@@ -231,7 +337,22 @@
 		const at = { x: Math.round(Math.max(0, Math.min(map.width, world.x))), y: Math.round(Math.max(0, Math.min(map.height, world.y))) };
 		dragMoved = true;
 		if (dragging.kind === 'place') onmoveplace(dragging.id, at);
-		else onmovewaypoint(dragging.route, dragging.index, at);
+		else if (dragging.kind === 'gate') {
+			// a gate snaps to the place's own hexagons – never outside them (owner 2026-10-12); its handle stays
+			const found = gateOf(dragging.place, dragging.which);
+			if (!found) return;
+			const c = snapToPlace(found.place, world);
+			onmovegate(found.place.id, dragging.which, { ...found.gate, x: Math.round((c.x - found.place.x) * 100) / 100, y: Math.round((c.y - found.place.y) * 100) / 100 });
+		} else if (dragging.kind === 'gate-handle') {
+			const found = gateOf(dragging.place, dragging.which);
+			if (!found) return;
+			const gx = found.place.x + found.gate.x, gy = found.place.y + found.gate.y;
+			onmovegate(found.place.id, dragging.which, { ...found.gate, handle: { x: Math.round((world.x - gx) * 10) / 10, y: Math.round((world.y - gy) * 10) / 10 } });
+		} else if (dragging.kind === 'waypoint-handle') {
+			const route = map.routes.find((r) => r.id === (dragging as { route: string }).route);
+			const w = route?.waypoints[dragging.index];
+			if (w && !isPlaceWaypoint(w)) onmovewaypointhandle(route!.id, dragging.index, { x: Math.round((world.x - w.x) * 10) / 10, y: Math.round((world.y - w.y) * 10) / 10 });
+		} else onmovewaypoint(dragging.route, dragging.index, at);
 	}
 	function dragEnd(e: PointerEvent, click: () => void) {
 		if (!dragging) return;
@@ -291,8 +412,10 @@
 	});
 
 	let viewportEl = $state<HTMLDivElement>();
+	/** when the last tap added a place (its trailing click is not a route click) */
+	let placedAt = -Infinity;
 	function onRouteClick(id: string, e: MouseEvent) {
-		if (tool !== 'select') return;
+		if (tool !== 'select' || e.timeStamp - placedAt < 500) return;
 		e.stopPropagation();
 		if (selection?.kind === 'route' && selection.id === id) {
 			// a click on the selected route's line inserts a free point there
@@ -323,7 +446,7 @@
 	class:space
 	class:moving={view.moving}
 	bind:this={viewportEl}
-	{@attach mapGestures(view, { canPan, onTap, onDoubleClick, onHover: (_, at) => (hover = at) })}
+	{@attach mapGestures(view, { canPan, onTap, onDoubleClick, onHover: (e, at) => (hover = e.pointerType === 'mouse' ? at : null) })}
 	onpointerleave={() => (hover = null)}
 	role="application"
 	aria-label={m['creator.map']()}
@@ -357,18 +480,12 @@
 					<!-- the diorama selects its place too (owner 2026-10-11), with the select tool -->
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 					<img class="place-image" src={asset(p.image.src)} alt="" draggable="false" style:width="{box.width}px" style:left="{box.left}px" style:top="{box.top}px" />
-				{:else}
-					<!-- no diorama yet: a dashed outline of one at the place's size, centred on its cells (owner 2026-10-11) -->
-					{@const w = placeSize(p) * view.zoom}
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<svg class="place-outline" viewBox="0 0 100 70" style:width="{w}px" style:height="{w * 0.7}px" style:left="{-w / 2}px" style:top="{-w * 0.7 / 2}px">
-						<path d="M50 6 L94 30 L94 42 L50 66 L6 42 L6 30 Z M6 30 L50 54 L94 30 M50 54 L50 66" />
-					</svg>
 				{/if}
 				<!-- its hit area: the cells it takes, not the picture's box – a picture reaching over a neighbour's cells lets
 				     clicks there through (owner 2026-10-11); dragging it moves the place like the marker -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<svg class="place-hit" aria-hidden="true" data-handle>
+				<!-- without a diorama the cells themselves show, dashed (owner 2026-10-12: "the hexagons are enough") -->
+				<svg class="place-hit" class:bare={!p.image?.src} aria-hidden="true" data-handle data-place={p.id}>
 					<path
 						d={cellsPath(placeCells(p), p)}
 						onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
@@ -380,6 +497,7 @@
 					class="marker"
 					data-control-exempt="map marker on the canvas"
 					data-handle
+					data-place={p.id}
 					aria-label={mapName(p.name, locale) || p.id}
 					onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
 					onpointermove={dragMove}
@@ -392,6 +510,85 @@
 		{/each}
 	</div>
 
+	<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12: variant A – computed, adjustable) -->
+	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} layer="gates" />
+
+	{#if placeGates.length || waypointHandles.length}
+		<!-- the Bézier handles' arms (owner 2026-10-12): gate or free point → its control point -->
+		<svg class="arms" aria-hidden="true">
+			{#each [...placeGates.map((g) => ({ key: g.which, at: g.at, handle: g.handle, set: g.handleSet })), ...waypointHandles.map((h) => ({ key: `wp${h.index}`, at: h.at, handle: h.handle, set: h.set }))] as arm (arm.key)}
+				{@const a = view.toScreen(arm.at)}
+				{@const b = view.toScreen(arm.handle)}
+				<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class:set={arm.set} />
+			{/each}
+		</svg>
+	{/if}
+	{#if placeGates.length}
+		<div class="handles">
+			{#each placeGates as g (g.which)}
+				{@const h = view.toScreen(g.handle)}
+				<button
+					class="handle curve"
+					class:set={g.handleSet}
+					class:active={activeHandle === `gate-handle:${(selection as { id: string }).id}:${g.which}`}
+					data-control-exempt="canvas resize handle"
+					data-handle
+					data-drag="gate-handle:{(selection as { id: string }).id}:{g.which}"
+					style:transform="translate({h.x}px, {h.y}px)"
+					aria-label={m['creator.map_curve_handle']()}
+					title="{m['creator.map_curve_handle']()} · {g.handleSet ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()} – {m['creator.map_curve_reset_hint']()}"
+					onpointerdown={(e) => startDrag(e, { kind: 'gate-handle', place: (selection as { id: string }).id, which: g.which })}
+					onpointermove={dragMove}
+					onpointerup={(e) => dragEnd(e, () => {})}
+					ondblclick={() => { const found = gateOf((selection as { id: string }).id, g.which); if (found) { const { handle: _, ...rest } = found.gate; onmovegate(found.place.id, g.which, g.set ? rest : null); } }}
+					data-testid="builder-gate-handle-{g.which}"
+				></button>
+			{/each}
+			{#each placeGates as g (g.which)}
+				{@const s = view.toScreen(g.at)}
+				<button
+					class="handle gate"
+					class:set={g.set}
+					class:active={activeHandle === `gate:${(selection as { id: string }).id}:${g.which}`}
+					data-control-exempt="canvas resize handle"
+					data-handle
+					data-drag="gate:{(selection as { id: string }).id}:{g.which}"
+					style:transform="translate({s.x}px, {s.y}px)"
+					aria-label={g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()}
+					title="{g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()} · {g.set ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()}"
+					onpointerdown={(e) => startDrag(e, { kind: 'gate', place: (selection as { id: string }).id, which: g.which })}
+					onpointermove={dragMove}
+					onpointerup={(e) => dragEnd(e, () => {})}
+					ondblclick={() => onmovegate((selection as { id: string }).id, g.which, null)}
+					data-testid="builder-gate-{g.which}"
+				>{g.which === 'entry' ? m['creator.map_gate_entry_short']() : m['creator.map_gate_exit_short']()}</button>
+			{/each}
+		</div>
+	{/if}
+
+	{#if selectedRoute && waypointHandles.length}
+		<div class="handles">
+			{#each waypointHandles as h (h.index)}
+				{@const s = view.toScreen(h.handle)}
+				<button
+					class="handle curve"
+					class:set={h.set}
+					class:active={activeHandle === `waypoint-handle:${selectedRoute.id}:${h.index}`}
+					data-control-exempt="canvas resize handle"
+					data-handle
+					data-drag="waypoint-handle:{selectedRoute.id}:{h.index}"
+					style:transform="translate({s.x}px, {s.y}px)"
+					aria-label={m['creator.map_curve_handle']()}
+					title="{m['creator.map_curve_handle']()} · {h.set ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()} – {m['creator.map_curve_reset_hint']()}"
+					onpointerdown={(e) => startDrag(e, { kind: 'waypoint-handle', route: selectedRoute.id, index: h.index })}
+					onpointermove={dragMove}
+					onpointerup={(e) => dragEnd(e, () => {})}
+					ondblclick={() => onmovewaypointhandle(selectedRoute.id, h.index, null)}
+					data-testid="builder-waypoint-handle-{h.index}"
+				></button>
+			{/each}
+		</div>
+	{/if}
 	{#if selectedRoute}
 		<div class="handles">
 			{#each selectedRoute.waypoints as w, i (i)}
@@ -402,7 +599,9 @@
 						class="handle"
 						data-control-exempt="canvas resize handle"
 						class:free={!isPlaceWaypoint(w)}
+						class:active={activeHandle === `waypoint:${selectedRoute.id}:${i}`}
 						data-handle
+						data-drag="waypoint:{selectedRoute.id}:{i}"
 						style:transform="translate({s.x}px, {s.y}px)"
 						aria-label={String(i + 1)}
 						title="{i + 1}: {isPlaceWaypoint(w) ? w.location : w.id}"
@@ -420,9 +619,6 @@
 		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {zoomPercent(frameZoom)} %{placeFrame ? ' · place' : startView ? ' · start' : ''}</span></div>
 	{/if}
 
-	{#if tool === 'route' || tool === 'place'}
-		<p class="hint">{tool === 'route' ? m['creator.map_route_hint']() : m['creator.map_place_hint']()}</p>
-	{/if}
 </div>
 
 <style>
@@ -505,17 +701,40 @@
 		pointer-events: fill;
 		cursor: pointer;
 	}
-	.place-outline {
-		position: absolute;
-		overflow: visible;
-		pointer-events: none;
-	}
-	.place-outline path {
+	/* a place without a diorama: its cells, dashed (owner 2026-10-12) */
+	.place-hit.bare path {
 		fill: rgb(255 255 255 / 0.35);
 		stroke: var(--ink);
-		stroke-width: 2;
-		stroke-dasharray: 5 4;
-		vector-effect: non-scaling-stroke;
+		stroke-width: 1;
+		stroke-dasharray: 3 3;
+	}
+	/* the Bézier handles (owner 2026-10-12): a small square on a thin arm – hollow while computed, filled once set */
+	.arms {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+	.arms line {
+		stroke: var(--ink);
+		stroke-width: 1;
+		stroke-dasharray: 3 2;
+	}
+	.arms line.set {
+		stroke-dasharray: none;
+	}
+	.handle.curve {
+		left: -0.4rem;
+		top: -0.4rem;
+		width: 0.8rem;
+		height: 0.8rem;
+		border-radius: 0;
+		border-width: 0.125rem;
+		background: var(--paper);
+	}
+	.handle.curve.set {
+		background: var(--ink);
 	}
 	.place-image {
 		position: absolute;
@@ -590,6 +809,11 @@
 			0 -2px 0 #fff,
 			0 2px 0 #fff;
 	}
+	/* the active handle – the only one a drag moves (the safeguard: a tap activates) */
+	.handle.active {
+		outline: var(--border-width-focus) solid var(--primary-cyan);
+		outline-offset: var(--focus-offset);
+	}
 	.handle {
 		position: absolute;
 		left: -10px;
@@ -611,6 +835,14 @@
 	.handle.free {
 		background: var(--paper);
 		border-radius: 0;
+	}
+	/* a route gate (BACKLOG 10.66 (4)): hollow while computed, filled once the author set it */
+	.handle.gate {
+		background: var(--paper);
+	}
+	.handle.gate.set {
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.draft {
 		position: absolute;
@@ -641,18 +873,5 @@
 		font-size: var(--type-caption-size);
 		background: var(--paper);
 		padding: 0 0.3rem;
-	}
-	.hint {
-		position: absolute;
-		left: 50%;
-		bottom: 0.75rem;
-		transform: translateX(-50%);
-		margin: 0;
-		background: var(--paper);
-		border: 2px solid var(--ink);
-		padding: 0.25rem 0.5rem;
-		font-size: var(--type-caption-size);
-		pointer-events: none;
-		max-width: 90%;
 	}
 </style>

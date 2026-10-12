@@ -12,14 +12,15 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, editCharacter, ensureMoods } from '$lib/editor/characters.ts';
 	import { applyApose, closeRequests } from '$lib/editor/character-form.ts';
-	import { toWebp, uploadOrReplace } from '@scutoons/media';
+	import { standardImage, uploadOrReplace } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * "Import images …" (owner 2026-10-03): each file whose name says its slot (`matchCharacterImageFile`: expressions of
-	 * any persona / look, A-pose looks, transitions) goes there as WebP at its own size (no density variants) under the
-	 * convention path; a file already there gets the new bytes (a new version, the CDN purged). New looks and moods are
-	 * added, answered requests closed – one undo step. Names for another character, a persona the character lacks or a
+	 * any persona / look, A-pose looks, transitions) goes there in the media standard (`standardImage`: WebP at its own
+	 * size, no density variants; a delivered WebP keeps its bytes) under the convention path; a file already there gets
+	 * the new bytes (a new version, the CDN purged). New looks and moods are added, answered requests closed – one undo
+	 * step. Names for another character, a persona the character lacks or a
 	 * transition between looks it lacks are reported, not guessed. `bust` is set afterwards (previews load again).
 	 */
 	let {
@@ -73,13 +74,7 @@
 			try {
 				if (slot.kind === 'unknown') throw new Error(problemOf(slot));
 				if (slot.kind === 'apose' && isRetiredAposeLook({ id: slot.look })) throw new Error(m['creator.characters_import_retired_look']({ name: slot.look }));
-				const bitmap = await createImageBitmap(file);
-				let blob: Blob;
-				try {
-					blob = (await toWebp(bitmap)).blob;
-				} finally {
-					bitmap.close();
-				}
+				const { blob } = await standardImage(file);
 				counts[await uploadOrReplace(blob, slot.path, 'character import')]++;
 				done.push(slot);
 			} catch (e) {

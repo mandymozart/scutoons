@@ -1,7 +1,6 @@
 # EXPRESSIONS – variables, logic and reader state in texts (owner 2026-10-06)
 
-Owner decisions of 2026-10-06 (session with the coordinator). Research: scratchpad `expression-research.md` (summary
-below). Branch `chapter-neutral`.
+Owner decisions of 2026-10-06 (session with the coordinator). Research summary below. Built 2026-10-06 (merged into `main`); the step logs below are history.
 
 ## State (2026-10-06)
 
@@ -10,13 +9,12 @@ All five steps of §7 are done – what is left is polish only:
   shared golden fixtures – step 1); the reader (every namespace of §2, text boxes / VN messages / choice labels /
   conditions, the clock-syntax migration – step 2); event ids, repeat modes on one recurrence model with the items,
   the save game's history, `askText`, expression conditions (step 3); the creator's expression field (chips, builder,
-  wavy underlines, sample readers, the Problems panel – step 4); the example story (the mama story, agents/EXAMPLES.md)
+  wavy underlines, sample readers, the Problems panel – step 4); the example story (the mama story, agents/archive/EXAMPLES.md)
   and the flow graph on every level (slice → group → chapter → season / toon → SCUTOONS, `@scutoons/content` flow.ts –
   it reads "once for good" events (✓), askText answers as set variables and `if.expr` conditions; reach.ts the same)
   – step 5.
-- **Production**: the migrations `2026-10-06-clock-syntax`, `2026-10-06-repeat`, `2026-10-06-display-name` (CUTOVER
-  10.33 / 10.34, HANDOVER "Open owner decisions").
-- **Left (polish)**: a chip shows its code, not a summary (the summary is its tooltip).
+- **Production**: the migrations `2026-10-06-clock-syntax`, `2026-10-06-repeat`, `2026-10-06-display-name` are applied.
+- **Left (polish)**: a chip shows its code, not a summary (the summary is its tooltip) – FEATURES 10.72.
 - **One save game** (owner 2026-10-06, DATA.md "The save game"): story variables are SCUTOONS-wide – set in one toon,
   read in another; the builder offers every toon's names, unknown names / "never true" / dead things judge all toons, a
   look-alike name warns (`similarVariable`).
@@ -53,7 +51,7 @@ compiles whole stories; we evaluate single texts).
 - Safety: no generic property access (names resolved by a SCUTOONS resolver against fixed namespaces), only registered
   functions, limits (500 chars, depth 32, 64 nodes), runtime errors never break the reader, never eval.
 - **Old syntax discarded** (owner): `{x:clock}` is not supported in code (no alias, no load-time conversion). Stored data
-  is moved by a DB MIGRATION (SQL, run in phpMyAdmin like `2026-10-06-show-text-box`): `2026-10-06-clock-syntax.mysql.sql`
+  is moved by a DB MIGRATION (SQL, runs with the deploy like `2026-10-06-show-text-box`): `2026-10-06-clock-syntax.mysql.sql`
   rewrites `{name:clock}` → `{clock(name)}` in `entity_versions` / `content_versions` (MariaDB `REGEXP_REPLACE`,
   idempotent, SELECT first). Dev DB check 2026-10-06: 0 occurrences – it's for production's newer test content. Rule
   (owner): data changes = DB migrations, never code that converts old data on load.

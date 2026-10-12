@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogStore;
+use Scutoons\Domain\Content\Reviews;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
 
@@ -24,10 +25,12 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST   /catalog/history/<n>/undo     { force? } → { status, undone, history_id, entry? } (409 changed_since)
  * Creating a toon (PUT /catalog/toons/<id> { data: { id, name, redirectUrl } }) also creates its content index entry
  * `toon:<id>` (a draft) when the creator has none yet.
+ * A physical change of an item / recipe / album / product / edition (put, delete, undo) needs the review rule `physical`
+ * for its toons – admins too (Reviews::guardPhysical, agents/CATALOG-IN-CREATOR.md): 403 review_required.
  */
 final class CatalogController
 {
-    public function __construct(private readonly CatalogAdmin $admin)
+    public function __construct(private readonly CatalogAdmin $admin, private readonly Reviews $reviews)
     {
     }
 
@@ -50,6 +53,8 @@ final class CatalogController
         $body = JsonBody::object($request);
         if ($body === null || !property_exists($body, 'data')) throw new ApiError(400, 'missing_data', 'Send { data: <the entry> }.');
         [$by, $userId] = self::who($request);
+        $data = json_decode((string) json_encode($body->data), true);
+        $this->reviews->guardPhysical((string) $userId, $args['kind'], $args['id'], is_array($data) ? $data : null);
         $result = $this->admin->put($args['kind'], $args['id'], $body->data, $by, $userId, isset($body->note) && is_string($body->note) ? $body->note : null);
         return Json::response($response, $result['created'] ? 201 : 200, ['status' => 'success'] + $result);
     }
@@ -57,7 +62,8 @@ final class CatalogController
     /** @param array{kind: string, id: string} $args */
     public function delete(Request $request, Response $response, array $args): Response
     {
-        [$by] = self::who($request);
+        [$by, $userId] = self::who($request);
+        $this->reviews->guardPhysical((string) $userId, $args['kind'], $args['id'], null);
         return Json::response($response, 200, ['status' => 'success'] + $this->admin->delete($args['kind'], $args['id'], $by));
     }
 
@@ -82,6 +88,11 @@ final class CatalogController
     {
         $body = JsonBody::of($request);
         [$by, $userId] = self::who($request);
+        $change = $this->admin->historyRow((int) $args['id']);
+        if ($change !== null && $change['entry_id'] !== '') {
+            $before = $change['before_json'] !== null ? json_decode((string) $change['before_json'], true) : null;
+            $this->reviews->guardPhysical((string) $userId, (string) $change['kind'], (string) $change['entry_id'], is_array($before) ? $before : null);
+        }
         return Json::response($response, 200, ['status' => 'success'] + $this->admin->undo((int) $args['id'], $by, ($body['force'] ?? false) === true, $userId));
     }
 

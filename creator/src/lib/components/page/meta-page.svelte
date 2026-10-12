@@ -14,10 +14,10 @@
 	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsDock from '$lib/components/page/problems-dock.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
-	import LiveChip from '$lib/components/status/live-chip.svelte';
 	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { dockWidth, flowWidth } from '$lib/nav.svelte.ts';
+	import { MediaQuery } from 'svelte/reactivity';
 
 	/**
 	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
@@ -142,30 +142,42 @@
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(docs, p)).length);
 
 	/**
-	 * phones (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut): Save · History (undo, redo, versions) · Publish · More
-	 * (problems, the page's own entries, the files' status, the note, the page's actions)
+	 * The bar (UI-CONCEPTS E.10, owner 2026-10-11, like CapCut; every width since 2026-10-12 – "phone grouping"): Save ·
+	 * History (undo, redo, versions) · Publish · More (problems, the page's own entries, the note, the page's actions);
+	 * on a desktop Problems leads the row (its count as the badge) and the More group drops it
 	 */
+	const phoneWidth = new MediaQuery('max-width: 767px', false);
+	const problemsItem = $derived<PhoneBarItem>({
+		id: 'problems',
+		icon: 'alert-triangle',
+		label: m['creator.problems'](),
+		badge: errorCount + warningCount || undefined,
+		active: open.problems,
+		run: () => togglePanel('problems'),
+		testid: 'problems-toggle'
+	});
 	const phoneItems = $derived<PhoneBarItem[]>([
-		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, disabled: anySaving, run: () => session.saveDraft(), testid: 'phone-save' },
+		...(phoneWidth.current ? [] : [problemsItem]),
+		{ id: 'save', icon: 'save', label: anySaving ? m['creator.saving']() : m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: anySaving, run: () => session.saveDraft(), testid: 'save-draft' },
 		{
 			id: 'history',
 			icon: 'clock',
 			label: m['creator.history'](),
 			items: [
-				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc?.canUndo, run: () => undoDoc?.undo(), stay: true, testid: 'phone-undo' },
-				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc?.canRedo, run: () => redoDoc?.redo(), stay: true, testid: 'phone-redo' },
-				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history') }
+				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc?.canUndo, run: () => undoDoc?.undo(), stay: true, testid: 'undo' },
+				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc?.canRedo, run: () => redoDoc?.redo(), stay: true, testid: 'redo' },
+				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history'), testid: 'history-versions' }
 			]
 		},
 		// a dot while saved drafts are not live yet (owner 2026-10-11: the state on Save / Publish, no status chip in More)
-		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: docs.some((d) => d.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'phone-publish' },
+		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: docs.some((d) => d.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'publish' },
 		{
 			id: 'more',
 			icon: 'more-horizontal',
 			label: m['creator.more'](),
 			badge: errorCount || undefined,
 			items: [
-				{ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems') },
+				...(phoneWidth.current ? [problemsItem] : []),
 				...phoneMore,
 				{ id: 'note', label: m['creator.note_label'](), content: phoneNote },
 				...(actions ? [{ id: 'actions', label: m['creator.page_actions'](), content: actions }] : [])
@@ -193,26 +205,6 @@
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet phone()}
 			<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-		{#snippet start()}
-			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
-				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
-			</button>
-			{@render actions?.()}
-			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-		{/snippet}
-		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
-			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}>{m['creator.history']()}</button>
-		{/snippet}
-		{#snippet end()}
-			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
-				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
-			</button>
-			<LiveChip files={docs.map((d) => ({ doc: d, label: fileLabel(d.entity) }))} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish">{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -267,31 +259,6 @@
 		align-items: center;
 		padding: 0.35rem 0.75rem;
 		border-bottom: 1px solid var(--border-subtle);
-	}
-	/* the bar fits at every width ≥ 375 (as the chapter editor): below 1280 "Save" and the note in "More" (the ActionBar's
-	   breakpoint is 1024 here – between them the note sits in the bar's start); the chip drops its state word below 1600 */
-	.message {
-		width: 11rem !important;
-	}
-	.save-short {
-		display: none;
-	}
-	@media (max-width: 1279px) {
-		.save-long,
-		.message.in-end {
-			display: none !important;
-		}
-		.save-short {
-			display: inline;
-		}
-	}
-	@media (min-width: 1280px) {
-		.message.in-start {
-			display: none !important;
-		}
-	}
-	.bad {
-		color: var(--error);
 	}
 	.content {
 		padding: 1rem;

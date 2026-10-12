@@ -33,6 +33,8 @@ export interface MapSettings extends AcceptedWarnings {
 	height: number;
 	/** drawn bottom → top */
 	layers: WorldMap['layers'];
+	/** the reader's camera stays on the terrain (`WorldMap.bounded`) */
+	bounded?: boolean;
 }
 
 /** The document `place:<id>` */

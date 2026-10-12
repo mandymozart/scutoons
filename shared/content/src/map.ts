@@ -6,7 +6,7 @@ import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
 import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
 import { toonAsset } from './paths.ts';
-import { MEDIA_QUALITIES, type QualityVariants } from './media-quality.ts';
+import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type MediaQuality, type QualityVariants } from './media-quality.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
 // ── The entity `map` ────────────────────────────────────────────────────────────────────────────────────────────
@@ -18,6 +18,12 @@ export interface WorldMap extends AcceptedWarnings {
 	height: number;
 	/** drawn bottom → top; image paths relative to the CDN root */
 	layers: MapLayer[];
+	/**
+	 * the reader's camera stays on the terrain (owner 2026-10-12: "limit the zoom out and move … a flag I can take out
+	 * later if I finish a bigger map"): zoom out only until the map fills the screen, pan only to its edges. Off = the
+	 * camera may leave the map by half a screen and zoom out to `MAP_MIN_ZOOM`. The builder is never bounded.
+	 */
+	bounded?: boolean;
 	locations: MapPlace[];
 	routes: MapPath[];
 }
@@ -36,6 +42,18 @@ export interface MapLayer {
 	 * base (and the fallback while tiles load); the tiles on screen draw over it from level 1.
 	 */
 	tiles?: MapTiles;
+	/**
+	 * fog of war (owner 2026-10-12: "am Anfang ist erstmal nichts drauf, und dann, wie ein Fog of War, gewinnt die Karte da,
+	 * wo man war, in einem gewissen Umkreis an Farbe"): the reader draws this layer only within `radius` world units of the
+	 * places the reader has unlocked (the save game's `map.places`), soft at the edge – over a plain layer of the same shapes
+	 * (the plaster model). The builder shows it whole.
+	 */
+	fog?: MapFog;
+}
+
+export interface MapFog {
+	/** world units around an unlocked place where the layer shows fully (it fades out over `FOG_FEATHER` × radius beyond) */
+	radius: number;
 }
 
 export interface MapTiles {
@@ -43,6 +61,14 @@ export interface MapTiles {
 	path: string;
 	/** the deepest level (2^levels px per world unit) */
 	levels: number;
+	/**
+	 * the coarsest level with tiles (owner 2026-10-12: "like Google Maps / OpenStreetMap" – every level the same 256 px
+	 * tiles, a coarse one covering more of the world): ≤ 0 = the whole pyramid is tiles, the layer's image is never
+	 * loaded and the coarsest tiles on screen stand in while sharper ones load; missing = 1 (levels below 1 are the image)
+	 */
+	minLevel?: number;
+	/** a tile's edge in px: `TILE_PX` (256, the default) or 512 – four times fewer images per screen (owner 2026-10-12) */
+	px?: number;
 }
 
 export interface MapPlace {
@@ -72,6 +98,30 @@ export interface MapPlace {
 	 * place's point at `PLACE_ZOOM` (`placeView`).
 	 */
 	view?: PlaceView;
+	/**
+	 * where routes enter and leave the place's diorama (owner 2026-10-12, BACKLOG 10.66 (4), variant A "gates"): a route
+	 * stops at the entry and goes on from the exit – nothing is drawn across the place. Offsets from the place's point in
+	 * world units, on the place's own hexagons; each one missing = computed (`placeGate`: the place's hexagon nearest the
+	 * neighbouring waypoint)
+	 */
+	gates?: PlaceGates;
+}
+
+/** A place's route gates (`MapPlace.gates`): offsets from its point, world units */
+export interface PlaceGates {
+	entry?: PlaceGate;
+	exit?: PlaceGate;
+}
+
+/** One gate: its offset from the place's point, and its Bézier handle (owner 2026-10-12) */
+export interface PlaceGate {
+	x: number;
+	y: number;
+	/**
+	 * the route's control point at the gate, an offset from the gate (world units) – how the line runs in or out of the
+	 * place; missing = computed (`gateHandle`: perpendicular to the place's nearest outer hexagon edge, `ROUTE_HANDLE` long)
+	 */
+	handle?: Point;
 }
 
 /** A place's own framing on the reader's map (agents/MAP.md §8.4) */
@@ -163,6 +213,11 @@ export interface FreeWaypoint {
 	x: number;
 	y: number;
 	name?: LocaleText;
+	/**
+	 * the curve's handle here (owner 2026-10-12: Bézier routes): an offset from the point, world units – the outgoing
+	 * control point, the incoming one mirrored; missing = smooth (the neighbours' direction)
+	 */
+	handle?: Point;
 }
 export type Waypoint = PlaceWaypoint | FreeWaypoint;
 
@@ -245,9 +300,9 @@ const cellKey = (c: HexCell) => `${c.q},${c.r}`;
  * a place's size: the width of its diorama (or its outline) in world units – `size`, else its image's, else the default
  * (owner 2026-10-11: "festlegen, welche Größe so ein Diorama hat – eine sinnvolle Stufung, wie in SimCity")
  */
-export const placeSize = (p: Pick<MapPlace, 'size' | 'image'>): number => p.size ?? p.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE;
+export const placeSize = (p: { size?: number; image?: { size?: number } }): number => p.size ?? p.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE;
 /** the cells a place takes: those whose centres lie within half its size of its cell's centre (at least its own) */
-export function placeCells(p: Pick<MapPlace, 'x' | 'y' | 'size' | 'image'>): HexCell[] {
+export function placeCells(p: Point & { size?: number; image?: { size?: number } }): HexCell[] {
 	const home = hexCellAt(p);
 	const centre = hexCenter(home);
 	const radius = placeSize(p) / 2;
@@ -295,6 +350,8 @@ export interface ReaderMap {
 	width: number;
 	height: number;
 	layers: MapLayer[];
+	/** the camera stays on the terrain (`WorldMap.bounded`) */
+	bounded?: boolean;
 	locations: ReaderPlace[];
 	routes: ReaderPath[];
 	/**
@@ -367,6 +424,182 @@ export function routePoints(places: readonly { id: string; x: number; y: number 
 	return out;
 }
 
+/** a route's default handle at a gate: two hexagon widths (owner 2026-10-12) */
+export const ROUTE_HANDLE = 2 * HEX_CELL;
+
+/** what route drawing needs of a place */
+export type RoutePlace = { id: string; x: number; y: number; size?: number; image?: { size?: number }; gates?: PlaceGates };
+
+/** a point of a route's curve with its control points (absolute, world units; missing = smooth) */
+export interface RouteNode {
+	p: Point;
+	in?: Point;
+	out?: Point;
+}
+
+/** the six neighbour directions of a pointy-top cell (also its edges' outward normals) */
+const HEX_DIRS: Point[] = [0, 1, 2, 3, 4, 5].map((i) => ({ x: Math.cos((i * Math.PI) / 3), y: Math.sin((i * Math.PI) / 3) }));
+const finitePoint = (v: unknown): v is Point => !!v && Number.isFinite((v as Point).x) && Number.isFinite((v as Point).y);
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** a place's cells and their outer edges (an edge's midpoint and outward normal), cached by the place's footprint */
+const coverCache = new Map<string, { cells: HexCell[]; keys: Set<string>; edges: { mid: Point; normal: Point }[] }>();
+function placeCover(place: RoutePlace) {
+	const key = `${place.x},${place.y},${placeSize(place)}`;
+	let cover = coverCache.get(key);
+	if (!cover) {
+		const cells = placeCells(place);
+		const keys = new Set(cells.map(cellKey));
+		const edges: { mid: Point; normal: Point }[] = [];
+		for (const c of cells) {
+			const centre = hexCenter(c);
+			for (const d of HEX_DIRS)
+				if (!keys.has(cellKey(hexCellAt({ x: centre.x + d.x * HEX_CELL, y: centre.y + d.y * HEX_CELL }))))
+					edges.push({ mid: { x: centre.x + (d.x * HEX_CELL) / 2, y: centre.y + (d.y * HEX_CELL) / 2 }, normal: d });
+		}
+		if (coverCache.size > 2000) coverCache.clear();
+		coverCache.set(key, (cover = { cells, keys, edges }));
+	}
+	return cover;
+}
+
+/** a point on the place's hexagons: the centre of its cell nearest to `at` (owner 2026-10-12: gates snap to the place's cells, never outside) */
+export function snapToPlace(place: RoutePlace, at: Point): Point {
+	const { cells } = placeCover(place);
+	let best = cells[0], bestD = Infinity;
+	for (const c of cells) {
+		const d = distance(hexCenter(c), at);
+		if (d < bestD) (best = c), (bestD = d);
+	}
+	return hexCenter(best);
+}
+
+/**
+ * A place's entry / exit gate (owner 2026-10-12, BACKLOG 10.66 (4)): its own offset when the author set one (kept on the
+ * place's hexagons), else the centre of the place's cell nearest `toward` (the previous waypoint for the entry, the next
+ * for the exit)
+ */
+export function placeGate(place: RoutePlace, which: 'entry' | 'exit', toward: Point | null): Point {
+	const own = place.gates?.[which];
+	if (finitePoint(own)) {
+		const at = { x: place.x + own.x, y: place.y + own.y };
+		return placeCover(place).keys.has(cellKey(hexCellAt(at))) ? at : snapToPlace(place, at);
+	}
+	if (!toward) return { x: place.x, y: place.y };
+	return snapToPlace(place, toward);
+}
+
+/**
+ * A gate's Bézier control point (absolute): its own handle, else perpendicular to the place's outer hexagon edge nearest
+ * the gate – of several equally near (a gate on a corner cell) the one facing `toward` – `ROUTE_HANDLE` long (owner
+ * 2026-10-12: "an angle orthogonal to the side closest to the connecting point, by default two hexagon widths")
+ */
+export function gateHandle(place: RoutePlace, which: 'entry' | 'exit', gate: Point, toward: Point | null): Point {
+	const own = place.gates?.[which]?.handle;
+	if (finitePoint(own)) return { x: gate.x + own.x, y: gate.y + own.y };
+	const { edges } = placeCover(place);
+	const dir = toward ? { x: toward.x - gate.x, y: toward.y - gate.y } : { x: 0, y: 0 };
+	let best = edges[0], bestD = Infinity, bestFacing = -Infinity;
+	for (const e of edges) {
+		const d = distance(e.mid, gate);
+		const facing = e.normal.x * dir.x + e.normal.y * dir.y;
+		if (d < bestD - 1e-6 || (Math.abs(d - bestD) <= 1e-6 && facing > bestFacing)) (best = e), (bestD = d), (bestFacing = facing);
+	}
+	const n = best?.normal ?? { x: 0, y: 0 };
+	return { x: gate.x + n.x * ROUTE_HANDLE, y: gate.y + n.y * ROUTE_HANDLE };
+}
+
+/** one gate mark of a drawn route: where, its control point, and whether the author set the gate / its handle */
+export interface RouteGate {
+	place: string;
+	which: 'entry' | 'exit';
+	at: Point;
+	handle: Point;
+	set: boolean;
+	handleSet: boolean;
+}
+
+/**
+ * A route as it is drawn (owner 2026-10-12, variant A "gates"): the line stops at each place's entry gate and goes on
+ * from its exit gate, so a route runs into the diorama and out again – nothing across the place; a route starting at a
+ * place leaves from its exit, one ending there comes in at its entry. `segments` = the separate curves (each ≥ 2 nodes;
+ * a gate brings its handle, a free point its own), `gates` = the marks. Waypoints `[from, to]` only (the reader's
+ * progress); unknown places are skipped like `routePoints`.
+ */
+export function routeGeometry(
+	places: readonly RoutePlace[],
+	waypoints: readonly (Waypoint | ReaderWaypoint)[],
+	from = 0,
+	to = Infinity
+): { segments: RouteNode[][]; gates: RouteGate[] } {
+	const pts: { p: Point; place?: RoutePlace; handle?: Point }[] = [];
+	waypoints.forEach((w, i) => {
+		if (i < from || i > to) return;
+		const p = waypointPoint(places, w);
+		if (!p) return;
+		if (isPlaceWaypoint(w)) pts.push({ p, place: places.find((x) => x.id === w.location) });
+		else {
+			const h = (w as FreeWaypoint).handle;
+			pts.push({ p, handle: finitePoint(h) ? h : undefined });
+		}
+	});
+	const segments: RouteNode[][] = [[]];
+	const gates: RouteGate[] = [];
+	pts.forEach(({ p, place, handle }, i) => {
+		const current = segments[segments.length - 1];
+		if (!place) return void current.push(handle ? { p, out: { x: p.x + handle.x, y: p.y + handle.y }, in: { x: p.x - handle.x, y: p.y - handle.y } } : { p });
+		const prev = pts[i - 1]?.p ?? null;
+		const next = pts[i + 1]?.p ?? null;
+		for (const [which, toward] of [['entry', prev], ['exit', next]] as const) {
+			if (!toward) continue;
+			const at = placeGate(place, which, toward);
+			const h = gateHandle(place, which, at, toward);
+			gates.push({ place: place.id, which, at, handle: h, set: finitePoint(place.gates?.[which]), handleSet: finitePoint(place.gates?.[which]?.handle) });
+			if (which === 'entry') current.push({ p: at, in: h });
+			else segments.push([{ p: at, out: h }]);
+		}
+	});
+	return { segments: segments.filter((s) => s.length >= 2), gates };
+}
+
+/** a curve's cubic pieces: each node's own control points, else smooth along its neighbours (`tension` of the chord) */
+export function routeCubics(nodes: readonly RouteNode[], tension = 0.3): { a: Point; c1: Point; c2: Point; b: Point }[] {
+	const smooth = (k: number, sign: 1 | -1, len: number): Point => {
+		const here = nodes[k].p;
+		const before = nodes[k - 1]?.p ?? here, after = nodes[k + 1]?.p ?? here;
+		const t = { x: after.x - before.x, y: after.y - before.y };
+		const l = Math.hypot(t.x, t.y) || 1;
+		return { x: here.x + (sign * t.x * len) / l, y: here.y + (sign * t.y * len) / l };
+	};
+	const out: { a: Point; c1: Point; c2: Point; b: Point }[] = [];
+	for (let i = 1; i < nodes.length; i++) {
+		const a = nodes[i - 1], b = nodes[i];
+		const len = distance(a.p, b.p) * tension;
+		out.push({ a: a.p, c1: a.out ?? smooth(i - 1, 1, len), c2: b.in ?? smooth(i, -1, len), b: b.p });
+	}
+	return out;
+}
+
+/** a route curve as an SVG path */
+export function routePath(nodes: readonly RouteNode[], tension = 0.3): string {
+	const cubics = routeCubics(nodes, tension);
+	if (!cubics.length) return '';
+	return cubics.reduce((d, c) => `${d} C ${round(c.c1.x)} ${round(c.c1.y)}, ${round(c.c2.x)} ${round(c.c2.y)}, ${round(c.b.x)} ${round(c.b.y)}`, `M ${round(cubics[0].a.x)} ${round(cubics[0].a.y)}`);
+}
+
+/** points along a route curve about every `spacing` world units (the fog's corridor follows the curve) */
+export function sampleRoute(nodes: readonly RouteNode[], spacing: number, tension = 0.3): Point[] {
+	const out: Point[] = [];
+	routeCubics(nodes, tension).forEach(({ a, c1, c2, b }, k) => {
+		const n = Math.max(1, Math.ceil((distance(a, c1) + distance(c1, c2) + distance(c2, b)) / spacing));
+		for (let s = k === 0 ? 0 : 1; s <= n; s++) {
+			const t = s / n, u = 1 - t;
+			out.push({ x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y });
+		}
+	});
+	return out;
+}
+
 /**
  * A smooth SVG path through the points (cubic Bézier, control points along the neighbours' tangents – the curve of the
  * original reader map, `tension` 0.3). `bow` lifts every segment's control points (a flight arcs upwards).
@@ -413,8 +646,63 @@ export function centerOf(points: readonly Point[]): Point | null {
 // ── tiles and culling (BACKLOG 10.63) ─────────────────────────────────────────────────────────────────────────────
 /** a tile's edge in px */
 export const TILE_PX = 256;
+/** the tile edges a layer may use */
+export const TILE_PX_OPTIONS = [256, 512];
+/**
+ * the most pixel density tiles are fetched for (owner 2026-10-12: fewer images – Google Maps does the same): a 3× phone
+ * gets 2× tiles, about half the data, hardly a visible difference
+ */
+export const TILE_DPR_MAX = 2;
 /** the deepest tile level a layer may have (2^8 = 256 px per world unit) */
 export const TILE_LEVELS_MAX = 8;
+/** the coarsest tile level a layer may have (2^-4: a 256 px tile covers 4096 world units) */
+export const TILE_LEVEL_MIN = -4;
+/** a fog layer's soft edge: it fades from the radius to radius × (1 + FOG_FEATHER) */
+export const FOG_FEATHER = 0.6;
+/** a fog radius's limits in world units */
+export const FOG_RADIUS_MIN = 1;
+export const FOG_RADIUS_MAX = 1024;
+/** the places whose surroundings a fog layer shows: the unlocked ones (the save game), with their point */
+export function fogPlaces<T extends { id: string; x: number; y: number }>(places: readonly T[], state: Pick<MapState, 'places'>): T[] {
+	return places.filter((p) => !!state.places[p.id]);
+}
+
+/** a fog point along a route clears this share of the fog radius (a corridor, narrower than around a place) */
+export const FOG_ROUTE_SCALE = 0.6;
+
+/**
+ * The fog also clears along a route between two unlocked places that follow each other on it (owner 2026-10-12: "Fog of
+ * War should also be around unlocked routes. Between two unlocked places in a row") – free points between them included:
+ * points every `spacing` world units on that stretch, each clearing `FOG_ROUTE_SCALE` of the radius. Ids are stable
+ * (`route~<route>~<n>`), so a stretch that joins later grows in like a place.
+ */
+export function fogRoutePoints(
+	places: readonly RoutePlace[],
+	routes: readonly { id: string; waypoints?: readonly (Waypoint | ReaderWaypoint)[] }[],
+	unlocked: (placeId: string) => boolean,
+	spacing = 8
+): { id: string; x: number; y: number; scale: number }[] {
+	const out: { id: string; x: number; y: number; scale: number }[] = [];
+	for (const route of routes) {
+		const ws = route.waypoints ?? [];
+		let from = -1; // the last unlocked place waypoint
+		ws.forEach((w, i) => {
+			if (!isPlaceWaypoint(w)) return;
+			if (!unlocked(w.location)) {
+				from = -1;
+				return;
+			}
+			if (from >= 0) {
+				// along the drawn curve (gate to gate, owner 2026-10-12: Bézier routes), not the straight line
+				routeGeometry(places, ws, from, i).segments.forEach((nodes, k) =>
+					sampleRoute(nodes, spacing).forEach((p, n) => out.push({ id: `route~${route.id}~${from}~${k}~${n}`, x: p.x, y: p.y, scale: FOG_ROUTE_SCALE }))
+				);
+			}
+			from = i;
+		});
+	}
+	return out;
+}
 /** a world rectangle */
 export interface Rect {
 	x: number;
@@ -422,11 +710,11 @@ export interface Rect {
 	width: number;
 	height: number;
 }
-/** the tile level for a zoom on a screen (`dpr`): the first level at least as sharp, within 0 … `levels` */
-export const tileLevel = (zoom: number, dpr: number, levels: number): number => Math.max(0, Math.min(levels, Math.ceil(Math.log2(Math.max(1e-6, zoom * dpr)) - 1e-9)));
+/** the tile level for a zoom on a screen (`dpr`): the nearest (a tile drawn at 0.7–1.4 × its pixels – owner 2026-10-12: fewer, bigger tiles like Google Maps), within `minLevel` … `levels` */
+export const tileLevel = (zoom: number, dpr: number, levels: number, minLevel = 0): number => Math.max(minLevel, Math.min(levels, Math.round(Math.log2(Math.max(1e-6, zoom * dpr))))) + 0;
 /** the tiles of a level that touch a world rectangle (clipped to the world): their place and size in world units */
-export function visibleTiles(view: Rect, level: number, world: { width: number; height: number }): { z: number; x: number; y: number; left: number; top: number; size: number }[] {
-	const size = TILE_PX / 2 ** level;
+export function visibleTiles(view: Rect, level: number, world: { width: number; height: number }, px: number = TILE_PX): { z: number; x: number; y: number; left: number; top: number; size: number }[] {
+	const size = px / 2 ** level;
 	const x0 = Math.max(0, Math.floor(view.x / size)), y0 = Math.max(0, Math.floor(view.y / size));
 	const x1 = Math.min(Math.ceil(world.width / size) - 1, Math.floor((view.x + view.width) / size));
 	const y1 = Math.min(Math.ceil(world.height / size) - 1, Math.floor((view.y + view.height) / size));
@@ -800,6 +1088,20 @@ export function placeImagePath(place: Pick<MapPlace, 'id' | 'toons'>): string {
 	return `${folder}/map/places/${place.id}.webp`;
 }
 
+/**
+ * Which place an imported file names (the map's "Import images …", owner 2026-10-12): its stem without extension and
+ * density marker – `old-church` = the painted diorama, `old-church-plaster` = its plaster model; case ignored, an exact
+ * id wins (a place whose id ends in `-plaster`). Null = no place.
+ */
+export function placeImageTarget(stem: string, places: readonly Pick<MapPlace, 'id'>[]): { place: string; plaster: boolean } | null {
+	const name = stem.trim().toLowerCase();
+	const exact = places.find((p) => p.id.toLowerCase() === name);
+	if (exact) return { place: exact.id, plaster: false };
+	const base = name.match(/^(.+)[-_]plaster$/)?.[1];
+	const painted = base ? places.find((p) => p.id.toLowerCase() === base) : undefined;
+	return painted ? { place: painted.id, plaster: true } : null;
+}
+
 export interface MapImageRequest {
 	/** the place */
 	place: string;
@@ -899,6 +1201,7 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 
 	const layers = Array.isArray(map.layers) ? map.layers : [];
 	if (!Array.isArray(map.layers)) add('error', ['layers'], 'layers must be a list');
+	if (map.bounded !== undefined && typeof map.bounded !== 'boolean') add('error', ['bounded'], 'bounded must be true or false');
 	const layerIds = new Set<string>();
 	layers.forEach((l: any, i: number) => {
 		if (!isObj(l)) return add('error', ['layers', i], 'a layer must be { id, image }');
@@ -910,6 +1213,12 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		for (const z of ['minZoom', 'maxZoom'] as const) if (l[z] !== undefined && (!isNum(l[z]) || l[z] <= 0)) add('error', ['layers', i, z], `layer ${l.id}: ${z} must be a positive number`);
 		if (l.tiles !== undefined && (!isObj(l.tiles) || typeof l.tiles.path !== 'string' || !l.tiles.path || !Number.isInteger(l.tiles.levels) || l.tiles.levels < 0 || l.tiles.levels > TILE_LEVELS_MAX))
 			add('error', ['layers', i, 'tiles'], `layer ${l.id}: tiles must be { path, levels } (levels 0–${TILE_LEVELS_MAX})`);
+		else if (l.tiles?.px !== undefined && !TILE_PX_OPTIONS.includes(l.tiles.px))
+			add('error', ['layers', i, 'tiles', 'px'], `layer ${l.id}: px must be one of ${TILE_PX_OPTIONS.join(', ')}`);
+		else if (l.tiles?.minLevel !== undefined && (!Number.isInteger(l.tiles.minLevel) || l.tiles.minLevel < TILE_LEVEL_MIN || l.tiles.minLevel > l.tiles.levels))
+			add('error', ['layers', i, 'tiles', 'minLevel'], `layer ${l.id}: minLevel must be a whole number ${TILE_LEVEL_MIN}…levels`);
+		if (l.fog !== undefined && (!isObj(l.fog) || !isNum(l.fog.radius) || l.fog.radius < FOG_RADIUS_MIN || l.fog.radius > FOG_RADIUS_MAX))
+			add('error', ['layers', i, 'fog'], `layer ${l.id}: fog must be { radius } (${FOG_RADIUS_MIN}–${FOG_RADIUS_MAX} world units)`);
 	});
 
 	const places = Array.isArray(map.locations) ? map.locations : [];
@@ -946,6 +1255,17 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				else if (o !== undefined && isNum(p.x) && isNum(p.y) && !inside(p.x + o.x, p.y + o.y))
 					add('warning', [...path, 'view', 'offset'], `${what}: the view centre (${p.x + o.x}, ${p.y + o.y}) is outside the map`);
 			}
+		}
+		if (p.gates !== undefined) {
+			if (!isObj(p.gates)) add('error', [...path, 'gates'], `${what}: the route gates must be an object { entry, exit }`);
+			else
+				for (const which of ['entry', 'exit'] as const) {
+					const g = (p.gates as Record<string, unknown>)[which];
+					if (g !== undefined && (!isObj(g) || !Number.isFinite((g as any).x) || !Number.isFinite((g as any).y)))
+						add('error', [...path, 'gates', which], `${what}: the ${which} gate needs x / y numbers (or none: computed)`);
+					else if (isObj(g) && (g as any).handle !== undefined && !finitePoint((g as any).handle))
+						add('error', [...path, 'gates', which, 'handle'], `${what}: the ${which} gate's handle needs x / y numbers (or none: computed)`);
+				}
 		}
 		if (p.image !== undefined) {
 			if (!isObj(p.image) || typeof p.image.src !== 'string' || !p.image.src) add('error', [...path, 'image'], `${what}: the image needs a path`);
@@ -994,6 +1314,7 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				else free.add(w.id);
 				if (!inside(w.x, w.y)) add('error', [...wp, 'x'], `${what}: waypoint ${w.id ?? j + 1} is outside the map`);
 				names(w.name, [...wp, 'name'], `${what} waypoint ${w.id ?? j + 1}`, false);
+				if (w.handle !== undefined && !finitePoint(w.handle)) add('error', [...wp, 'handle'], `${what}: waypoint ${w.id ?? j + 1}'s handle needs x / y numbers (or none: smooth)`);
 			} else add('error', wp, `${what}: waypoint ${j + 1} must be { location } or { id, x, y }`);
 		});
 	});

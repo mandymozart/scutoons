@@ -335,9 +335,9 @@ try {
 
 	// ── the Problems panel: an expression problem jumps to its field and selects the range ────────────────────────
 	const viaMore = !(await js(`!!${q('problems-toggle')}`));
-	if (viaMore) await click('.sc-action-bar .more-toggle');
+	if (viaMore) await click('[data-testid="phone-bar-more"]');
 	await click('[data-testid="problems-toggle"]');
-	if (viaMore && (await js(`document.querySelector('.sc-action-bar .more-toggle')?.getAttribute('aria-expanded') === 'true'`))) await click('.sc-action-bar .more-toggle');
+	if (viaMore && (await js(`document.querySelector('[data-testid="phone-bar-more"]')?.getAttribute('aria-expanded') === 'true'`))) await click('[data-testid="phone-bar-more"]');
 	await until(`!!${q('problems-panel')}`, 3000);
 	const rows = await js(`[...${q('problems-panel')}.querySelectorAll('li')].map((li) => li.textContent.trim())`);
 	const totlRow = rows.findIndex((r) => /map\.totl/.test(r));

@@ -18,7 +18,8 @@
 		| 'assets'
 		| 'claims'
 		| 'claim'
-		| 'server-errors';
+		| 'server-errors'
+		| 'reading';
 </script>
 
 <script lang="ts">
@@ -39,6 +40,8 @@
 <div data-testid="page-help-{page}">
 	{#if page === 'server-errors'}
 		<p>{m['server_errors.help']()}</p>
+	{:else if page === 'reading'}
+		<p>{m['help.reading']()}</p>
 	{:else if page === 'dashboard'}
 		<p>{m['nav.dashboard_hint']()}</p>
 		<h3>{m['help.terms_title']()}</h3>
@@ -92,6 +95,8 @@
 			<dd>{m['users.section_account_hint']()}</dd>
 			<dt>{m['users.section_roles']()}</dt>
 			<dd>{m['users.section_roles_hint']()}</dd>
+			<dt>{m['users.section_reading']()}</dt>
+			<dd>{m['users.section_reading_hint']()}</dd>
 			<dt>{m['users.section_characters']()}</dt>
 			<dd>{m['users.section_characters_hint']()}</dd>
 			<dt>{m['users.section_codes']()}</dt>

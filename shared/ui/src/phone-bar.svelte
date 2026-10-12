@@ -35,6 +35,9 @@
 	 * replaces the row with its own actions (‹ back at the left). With a `selection` (a text box, an item, a place …)
 	 * the row shows that object's own actions instead – ‹ deselects – like CapCut's clip toolbar. A row that does not
 	 * fit scrolls sideways; a white fade at an edge shows that more follows there. Rendered in the ActionBar's `phone`.
+	 * Desktop too (owner 2026-10-12, "phone grouping" – the same groups at every width): from 768px the cells sit in a
+	 * row at the bar's end, icon + word side by side at the control height; the selection's row is a phone thing only
+	 * (a desktop has the selection's panel beside the canvas, and Save / Publish stay in reach).
 	 */
 	let {
 		items,
@@ -49,14 +52,24 @@
 		backLabel?: string;
 	} = $props();
 
+	let phone = $state(true);
+	$effect(() => {
+		const query = window.matchMedia('(max-width: 767px)');
+		phone = query.matches;
+		const change = (event: MediaQueryListEvent) => (phone = event.matches);
+		query.addEventListener('change', change);
+		return () => query.removeEventListener('change', change);
+	});
+	const picked = $derived(phone ? selection : null);
+
 	let openGroup = $state<string | null>(null);
 	const group = $derived(openGroup ? items.find((i) => i.id === openGroup && i.items) : undefined);
 	// a new selection closes an open group
 	$effect(() => {
-		if (selection) openGroup = null;
+		if (picked) openGroup = null;
 	});
-	const row = $derived(selection ? selection.items : group ? (group.items ?? []) : items);
-	const back = $derived(selection ? selection.onback : group ? () => (openGroup = null) : null);
+	const row = $derived(picked ? picked.items : group ? (group.items ?? []) : items);
+	const back = $derived(picked ? picked.onback : group ? () => (openGroup = null) : null);
 
 	function tap(item: PhoneBarItem) {
 		if (item.items) {
@@ -93,7 +106,7 @@
 	});
 </script>
 
-<div class="phone-bar" role="toolbar" aria-label={selection ? selection.label : group ? group.label : label} data-testid="phone-bar">
+<div class="phone-bar" role="toolbar" aria-label={picked ? picked.label : group ? group.label : label} data-testid="phone-bar">
 	{#if back}
 		<button type="button" class="back" aria-label={backLabel} title={backLabel} onclick={back} data-testid="phone-bar-back"><Icon name="chevron-left" /></button>
 	{/if}
@@ -246,5 +259,53 @@
 		font-size: 0.625rem;
 		line-height: 1;
 		white-space: nowrap;
+	}
+	/* desktop: a row of cells at the bar's end – icon + word side by side, the control height, square (grouped controls) */
+	@media (min-width: 768px) {
+		.phone-bar {
+			justify-content: flex-end;
+			align-items: center;
+			gap: var(--space-05);
+		}
+		.wrap {
+			flex: 0 1 auto;
+		}
+		.row {
+			gap: var(--space-025);
+			align-items: center;
+		}
+		.cell,
+		.back {
+			flex: 0 0 auto;
+			flex-direction: row;
+			gap: var(--space-05);
+			min-width: var(--control-height);
+			min-height: var(--control-height);
+			padding: 0 var(--space-075);
+			border: var(--border-width-regular) solid transparent;
+		}
+		.back {
+			width: auto;
+			border-color: var(--border-muted);
+		}
+		.cell:hover:not(:disabled),
+		.back:hover {
+			border-color: var(--ink);
+		}
+		.cell.custom {
+			padding: 0;
+		}
+		.cell.active {
+			box-shadow: none;
+			border-color: var(--ink);
+		}
+		.word {
+			font-size: var(--type-body-size);
+			line-height: var(--type-button-line);
+		}
+		.badge {
+			top: -0.45rem;
+			right: -0.6rem;
+		}
 	}
 </style>

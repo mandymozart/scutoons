@@ -23,7 +23,7 @@
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
-	import { EDITED_KINDS, KINDS } from '$lib/catalog/kinds.ts';
+	import { EDITED_KINDS, KINDS, setupCatalog } from '@scutoons/catalog';
 	import { openClaims } from '$lib/claims.svelte.ts';
 	import { setupMedia } from '@scutoons/media';
 	import { assets } from '$lib/api.ts';
@@ -37,6 +37,8 @@
 	const toaster = setToaster();
 	// the shared media tooling (@scutoons/media: asset picker, media slots, uploads) uses this app's API, CDN and locale
 	setupMedia({ assets, cdn: CDN_SERVER, locale: getLocale });
+	// the catalog editors (@scutoons/catalog: forms, fields, problems) – texts in this app's locale
+	setupCatalog({ locale: getLocale, locales, adminUrl: '' });
 
 	let menuOpen = $state(false);
 	let paletteOpen = $state(false);

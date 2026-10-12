@@ -1,7 +1,8 @@
 # PLATFORM — monorepo, server refactor, shared libraries, creator + admin apps
 
-Branch **`platform`** (from `anger`, 2026-09-30). `anger` stays the release branch for 2026-10-04; `platform` merges
-back after the release. Companion docs: [PLAN.md](PLAN.md), [ITEMS.md](ITEMS.md) (API contract), [DESIGN.md](DESIGN.md).
+Written 2026-09-30 on the former `platform` branch (merged; `main` is the only branch since 2026-10-05). The phase
+results (P1a … P3) and the cutover checklist below are history; how agents work: [RULES.md](RULES.md). Companion docs:
+[ITEMS.md](ITEMS.md) (API contract), [DESIGN.md](DESIGN.md), [DATA.md](DATA.md), deploy/README.md.
 
 ## Target picture
 
@@ -300,8 +301,7 @@ assertion cover the new id). The admin page lists it without a frontend change. 
 another person's email). A new block type = a case in `MailRenderer` + the layout.
 
 **Settings:** `MAIL_TRANSPORT`, `MAIL_FROM`, `MAIL_FROM_NAME`, `MAIL_LOG_PATH`, `SMTP_*` (unchanged); new
-`MAIL_ADMIN_TO`, `MAIL_ADMIN_LOCALE` (de), `MAIL_LOG_DAYS` (180). Production: run `2026-10-02-mail-log.mysql.sql` in
-phpMyAdmin (idempotent; until then nothing is logged), then set the admin recipients on the Emails page.
+`MAIL_ADMIN_TO`, `MAIL_ADMIN_LOCALE` (de), `MAIL_LOG_DAYS` (180). The mail log table (`2026-10-02-mail-log`) is applied on production; the admin recipients are set on the Emails page.
 
 ## Cross-app auth
 
@@ -411,7 +411,7 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
   `git subtree pull --prefix=server C:\Development\qr.scutoons.com anger`.
 - After cutover the old repo is read-only.
 
-## Local dev (platform branch)
+## Local dev (history: the platform branch era – today: RULES.md "Dev setup")
 
 - Server: `cd server && composer serve` (:9000),
   local-only files (config.local.php, db/prod-seed.sql, storage/files, storage/keys/keypair.json) — gitignored.
@@ -518,7 +518,7 @@ The docker services (`docker/compose.yml`: mariadb, adminer) take the port from 
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
 | embassy (embassy.scutoons.com) | **13000** | `npm run dev:embassy` (agents/EMBASSY.md) |
-| studio (the storyboard studio, a local workflow tool) | **14000** | `npm run dev:studio` (workflows/storyboard-studio, agents/STORYBOARD.md) |
+| studio (the storyboard studio, a local workflow tool) | **14000** | `npm run dev:studio` (workflows/storyboard-studio, agents/research/STORYBOARD.md) |
 | mariadb (Docker, the production engine; the only local database) | **13306** | `npm run dev:db` (server/docs/DATABASE.md "Local MariaDB"); `npm run dev` starts it too |
 | adminer (Docker, web UI of the MariaDB; optional) | **13380** | `npm run dev:db adminer` |
 
@@ -577,8 +577,8 @@ DB. Rules:
 - ✅ First step done in P2b (2026-09-30): `products.json` + `featured-products.json` moved to the server's `config/`,
   served as stored by `GET /api/products/` and `/api/products/featured/` (byte-for-byte = the old static files,
   checked by api-smoke + a unit test); shop and viewer homepage load them via `@scutoons/api`; the static copies in
-  `viewer/static/api/` are deleted (no fallback release: the P2b brief asked for the removal in the same step). Still
-  files, not DB tables.
+  `viewer/static/api/` are deleted (no fallback release: the P2b brief asked for the removal in the same step). Since
+  2026-10-04 DB tables (CATALOG.md).
 - Toon languages (2026-09-29): the toon index entry (`ToonIndex`, `toons.json`) carries `sourceLanguage` + `languages`
   (source first; optional, defaults via `toonLanguages()`: `languages` → `title` keys → the old `i18n` keys → `de`). The creator edits it as
   the language-neutral content store file `<toon>/_/index.json` (locale `_`), falling back to the static `toons.json`;
@@ -592,13 +592,12 @@ DB. Rules:
 
 ### Players, albums, related items (2026-10-02)
 
-- **Albums** live in the item catalog (`server/config/items.json` → `albums`, `GET /api/items/`), not in the content
+- **Albums** live in the item catalog (DB since 2026-10-04, admin → Catalog; `GET /api/items/`), not in the content
   store: they exist through the media items that carry them (owner-edited config like products / editions); agents/ITEMS.md
   "Players, albums, related items" has the model, the access flags (`download` / `listen` = everyone | members | owners)
   and why.
-- **`related_items`** (catalog item ids, ordered) on `season:<toon>:<n>:<l>` and `chapter:<toon>:<n>:<l>`:
-  language-neutral but stored per locale like the season's `download` / `trailer` / `cover` (seasons have no neutral
-  entity; the creator writes one list to every locale, `validateLocales` warns on a difference). The library passes them
+- **`related_items`** (catalog item ids, ordered) on `season:<toon>:<n>` and `chapter:<toon>:<n>`: language-neutral,
+  stored once (the language-neutral documents since 2026-10-06, DATA.md §2). The library passes them
   through unchanged.
 
 ### Credits (2026-09-29)

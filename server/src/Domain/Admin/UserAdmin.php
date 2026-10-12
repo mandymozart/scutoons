@@ -7,6 +7,7 @@ use Scutoons\Domain\Accounts\Users;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Characters\CharacterUnlocks;
 use Scutoons\Domain\Content\Reviews;
+use Scutoons\Domain\Progress\ReadingReport;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
@@ -25,6 +26,7 @@ final class UserAdmin
         private readonly Roles $roles,
         private readonly CharacterUnlocks $unlocks,
         private readonly Reviews $reviews,
+        private readonly ReadingReport $reading,
     ) {
     }
 
@@ -76,7 +78,7 @@ final class UserAdmin
     }
 
     /**
-     * One account: admin fields + owned codes, inventory size, sessions
+     * One account: admin fields + owned codes, inventory size, sessions, where they are in the toons (`reading`, BACKLOG 10.69)
      * @return array<string, mixed>
      */
     public function detail(string $id): array
@@ -99,6 +101,7 @@ final class UserAdmin
             'last_seen_at' => Time::iso($sessions['last_used_at'] ?? null),
             'characters' => $this->characters($id),
             'review_rules' => $this->reviews->rules($id),
+            'reading' => $this->reading->forUser($id),
         ];
     }
 

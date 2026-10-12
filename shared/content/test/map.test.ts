@@ -10,6 +10,7 @@ import {
 	emptyMapState,
 	isPlaceVisible,
 	mapImageRequests,
+	placeImageTarget,
 	mapImageRequestsText,
 	mapMediaRequests,
 	placeImagePath,
@@ -207,7 +208,7 @@ test('tiles and culling: the level for a zoom, the tiles on screen, the point in
 	const { tileLevel, visibleTiles, pointIndex, TILE_PX, checkWorldMap } = await import('../src/map.ts');
 	assert.equal(tileLevel(1, 1, 5), 0);
 	assert.equal(tileLevel(2, 1, 5), 1);
-	assert.equal(tileLevel(3, 1, 5), 2, 'the next sharper level');
+	assert.equal(tileLevel(3, 1, 5), 2, 'the nearest level');
 	assert.equal(tileLevel(8, 2, 5), 4);
 	assert.equal(tileLevel(32, 2, 5), 5, 'capped at the deepest');
 	assert.equal(tileLevel(0.25, 1, 5), 0);
@@ -223,6 +224,41 @@ test('tiles and culling: the level for a zoom, the tiles on screen, the point in
 	const bad = (tiles: unknown) => checkWorldMap({ width: 10, height: 10, layers: [{ id: 't', image: 'a.svg', tiles } as any], locations: [], routes: [] }).map((p) => p.path.join('.'));
 	assert.deepEqual(bad({ path: 'm/tiles', levels: 5 }), []);
 	assert.deepEqual(bad({ path: 'm/tiles', levels: 12 }), ['layers.0.tiles']);
+});
+
+test('fog of war: the unlocked places, the layer field (owner 2026-10-12, MAP.md §8.9)', async () => {
+	const { fogPlaces, checkWorldMap } = await import('../src/map.ts');
+	const places = [{ id: 'a', x: 1, y: 1 }, { id: 'b', x: 2, y: 2 }, { id: 'c', x: 3, y: 3 }];
+	assert.deepEqual(fogPlaces(places, { places: { b: { unlocked: 1 }, zz: { unlocked: 2 } } }).map((p) => p.id), ['b'], 'only unlocked places of the map');
+	assert.deepEqual(fogPlaces(places, { places: {} }), [], 'a fresh reader: nothing painted');
+	const bad = (fog: unknown) => checkWorldMap({ width: 10, height: 10, layers: [{ id: 'p', image: 'a.webp', fog } as any], locations: [], routes: [] }).map((p) => p.path.join('.'));
+	assert.deepEqual(bad(undefined), []);
+	assert.deepEqual(bad({ radius: 40 }), []);
+	assert.deepEqual(bad({ radius: 0 }), ['layers.0.fog']);
+	assert.deepEqual(bad(40), ['layers.0.fog'], 'an object, not a bare number');
+});
+
+test('a full tile pyramid: coarse levels as tiles, a screen never needs many (owner 2026-10-12: "like Google Maps")', async () => {
+	const { tileLevel, visibleTiles, checkWorldMap, TILE_DPR_MAX } = await import('../src/map.ts');
+	const world = { width: 2048, height: 1046 };
+	// zoomed far out on a phone (dpr 3): a coarse level, not the deepest
+	assert.equal(tileLevel(0.18, 3, 3, -2), -1);
+	assert.equal(tileLevel(0.05, 1, 3, -2), -2, 'clamped to the coarsest');
+	assert.equal(tileLevel(64, 3, 3, -2), 3, 'clamped to the deepest');
+	assert.equal(visibleTiles({ x: 0, y: 0, ...world }, -2, world).length, 4, 'the whole world at -2: 2 × 2 tiles');
+	// a 375 × 812 phone at any zoom (dpr 3, fetched as 2), 512 px tiles: a handful per layer (plus half a tile around)
+	for (const zoom of [0.18, 0.5, 1, 2, 4, 8, 16, 32]) {
+		const level = tileLevel(zoom, Math.min(3, TILE_DPR_MAX), 3, -2);
+		const size = 512 / 2 ** level;
+		const n = visibleTiles({ x: 1000 - 375 / zoom / 2 - size / 2, y: 500 - 812 / zoom / 2 - size / 2, width: 375 / zoom + size, height: 812 / zoom + size }, level, world, 512).length;
+		assert.ok(n <= 24, `zoom ${zoom}: ${n} tiles`);
+	}
+	const bad = (tiles: unknown) => checkWorldMap({ width: 10, height: 10, layers: [{ id: 'p', image: 'a.webp', tiles } as any], locations: [], routes: [] }).map((p) => p.path.join('.'));
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, minLevel: -2 }), []);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, minLevel: 4 }), ['layers.0.tiles.minLevel']);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, minLevel: -9 }), ['layers.0.tiles.minLevel']);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, px: 512 }), []);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, px: 300 }), ['layers.0.tiles.px']);
 });
 
 test('resetting the map: the merge drops what came before the reset – also from a device that missed it (owner 2026-10-11)', async () => {
@@ -253,4 +289,86 @@ test('unlockLocation: map open / toast or unset (owner 2026-10-11: chosen in the
 	assert.deepEqual(errs({ location: 'apartment', map: 'open' }), []);
 	assert.deepEqual(errs({ location: 'apartment', map: 'toast' }), []);
 	assert.deepEqual(errs({ location: 'apartment', map: 'always' }), ['map']);
+});
+
+test('placeImageTarget: the place id, or <id>-plaster for its plaster model; an exact id wins', () => {
+	const places = [{ id: 'old-church' }, { id: 'Cathedral' }, { id: 'kiln-plaster' }, { id: 'kiln' }];
+	assert.deepEqual(placeImageTarget('old-church', places), { place: 'old-church', plaster: false });
+	assert.deepEqual(placeImageTarget('cathedral', places), { place: 'Cathedral', plaster: false });
+	assert.deepEqual(placeImageTarget('Old-Church-Plaster', places), { place: 'old-church', plaster: true });
+	assert.deepEqual(placeImageTarget('old-church_plaster', places), { place: 'old-church', plaster: true });
+	assert.deepEqual(placeImageTarget('kiln-plaster', places), { place: 'kiln-plaster', plaster: false });
+	assert.equal(placeImageTarget('nowhere', places), null);
+	assert.equal(placeImageTarget('nowhere-plaster', places), null);
+});
+
+test('route gates: a route stops at the place entry and goes on from its exit, on the place hexagons (BACKLOG 10.66 (4), owner 2026-10-12)', async () => {
+	const { routeGeometry, placeGate, checkWorldMap } = await import('../src/map.ts');
+	const places = [
+		{ id: 'a', x: 0, y: 0, size: 10 },
+		{ id: 'b', x: 100, y: 0, size: 10 },
+		{ id: 'c', x: 200, y: 0, size: 10, gates: { entry: { x: 0, y: 3 } } }
+	];
+	const w = [{ location: 'a' }, { location: 'b' }, { location: 'c' }] as any;
+	const g = routeGeometry(places, w);
+	const r = (p: { x: number; y: number }) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
+	// a → b, b → c: two curves; a starts at its exit (its cell nearest b: the outer one at x 5), c ends at its own entry
+	assert.equal(g.segments.length, 2);
+	assert.deepEqual(r(g.segments[0][0].p), { x: 5, y: 0 });
+	assert.deepEqual(r(g.segments[0][1].p), { x: 95, y: 0 });
+	assert.deepEqual(r(g.segments[1][0].p), { x: 105, y: 0 });
+	assert.deepEqual(r(g.segments[1][1].p), { x: 200, y: 3 });
+	assert.deepEqual(g.gates.map((x) => `${x.place}:${x.which}`), ['a:exit', 'b:entry', 'b:exit', 'c:entry']);
+	// progress `to` ends at the reached place's entry
+	assert.equal(routeGeometry(places, w, 0, 1).segments.length, 1);
+	assert.deepEqual(placeGate(places[0], 'entry', null), { x: 0, y: 0 });
+	// a gate set outside the place's hexagons is pulled onto them
+	assert.deepEqual(r(placeGate({ id: 'd', x: 0, y: 0, size: 4, gates: { exit: { x: 30, y: 0 } } }, 'exit', null)), { x: 2, y: 0 });
+	const bad = { width: 10, height: 10, layers: [], routes: [], locations: [{ id: 'x', name: { de: 'X' }, x: 1, y: 1, toons: [], gates: { exit: { x: 'no' } } }] } as any;
+	assert.ok(checkWorldMap(bad).some((p: any) => p.path.join('.').endsWith('gates.exit')));
+});
+
+test('Bézier routes: gate handles perpendicular to the outer hexagon edge, own handles, free points, the curve (owner 2026-10-12)', async () => {
+	const { routeGeometry, routePath, sampleRoute, ROUTE_HANDLE, checkWorldMap } = await import('../src/map.ts');
+	const r = (p: { x: number; y: number }) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
+	const places = [
+		{ id: 'a', x: 0, y: 0, size: 10 },
+		{ id: 'b', x: 100, y: 0, size: 10, gates: { entry: { x: -5, y: 0, handle: { x: 0, y: -6 } } } }
+	];
+	const g = routeGeometry(places, [{ location: 'a' }, { location: 'b' }] as any);
+	// a's exit at x 5 leaves straight out of the edge facing b, two hexagon widths
+	assert.deepEqual(r(g.segments[0][0].out!), { x: 5 + ROUTE_HANDLE, y: 0 });
+	assert.equal(g.gates[0].handleSet, false);
+	// b's entry has its own handle: the curve comes in from above
+	assert.deepEqual(r(g.segments[0][1].in!), { x: 95, y: -6 });
+	assert.equal(g.gates[1].handleSet, true);
+	assert.match(routePath(g.segments[0]), /^M 5 0 C 7 0, 95 -6, 95 0$/);
+	// a free point's handle: out along it, in mirrored
+	const f = routeGeometry(places, [{ location: 'a' }, { id: 'wp-1', x: 50, y: 20, handle: { x: 10, y: 0 } }, { location: 'b' }] as any);
+	assert.deepEqual(r(f.segments[0][1].out!), { x: 60, y: 20 });
+	assert.deepEqual(r(f.segments[0][1].in!), { x: 40, y: 20 });
+	// the samples start and end at the curve's ends
+	const pts = sampleRoute(g.segments[0], 8);
+	assert.deepEqual(r(pts[0]), { x: 5, y: 0 });
+	assert.deepEqual(r(pts.at(-1)!), { x: 95, y: 0 });
+	const bad = { width: 200, height: 200, layers: [], locations: [{ id: 'a', name: { de: 'A' }, x: 1, y: 1, toons: ['t'], gates: { exit: { x: 0, y: 0, handle: { x: 'no' } } } }], routes: [] } as any;
+	assert.ok(checkWorldMap(bad).some((p: any) => p.path.join('.').endsWith('gates.exit.handle')));
+});
+
+test('fog of war along routes: between two unlocked places in a row, free points included (owner 2026-10-12)', async () => {
+	const { fogRoutePoints, FOG_ROUTE_SCALE } = await import('../src/map.ts');
+	const places = [
+		{ id: 'a', x: 0, y: 0 },
+		{ id: 'b', x: 16, y: 0 },
+		{ id: 'c', x: 32, y: 0 }
+	];
+	const routes = [{ id: 'r', waypoints: [{ location: 'a' }, { id: 'p', x: 8, y: 8 }, { location: 'b' }, { location: 'c' }] }] as any;
+	const open = (ids: string[]) => (id: string) => ids.includes(id);
+	assert.deepEqual(fogRoutePoints(places, routes, open(['a', 'c'])), [], 'a and c are not in a row (b is locked)');
+	const ab = fogRoutePoints(places, routes, open(['a', 'b']), 8);
+	assert.ok(ab.length >= 3 && ab.every((p) => p.scale === FOG_ROUTE_SCALE));
+	assert.ok(ab.some((p) => p.x === 8 && p.y === 8), 'through the free point');
+	assert.ok(ab.every((p) => p.x <= 16), 'only the stretch a → b');
+	assert.equal(new Set(ab.map((p) => p.id)).size, ab.length, 'stable, unique ids');
+	assert.ok(fogRoutePoints(places, routes, open(['a', 'b', 'c'])).some((p) => p.x > 16), 'b → c too');
 });

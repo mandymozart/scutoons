@@ -67,6 +67,10 @@
 				"view": {
 					"$ref": "#/definitions/PlaceView",
 					"description": "how the reader's map frames the place when it centres on it (owner 2026-10-10: \"pro Location einen Zoom festlegen … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset\"; set in the map builder). Without it: the place's point at `PLACE_ZOOM` (`placeView`)."
+				},
+				"gates": {
+					"$ref": "#/definitions/PlaceGates",
+					"description": "where routes enter and leave the place's diorama (owner 2026-10-12, BACKLOG 10.66 (4), variant A \"gates\"): a route stops at the entry and goes on from the exit – nothing is drawn across the place. Offsets from the place's point in world units, on the place's own hexagons; each one missing = computed (`placeGate`: the place's hexagon nearest the neighbouring waypoint)"
 				}
 			},
 			"required": [
@@ -168,6 +172,53 @@
 				}
 			},
 			"description": "A place's own framing on the reader's map (agents/MAP.md §8.4)"
+		},
+		"PlaceGates": {
+			"type": "object",
+			"properties": {
+				"entry": {
+					"$ref": "#/definitions/PlaceGate"
+				},
+				"exit": {
+					"$ref": "#/definitions/PlaceGate"
+				}
+			},
+			"description": "A place's route gates (`MapPlace.gates`): offsets from its point, world units"
+		},
+		"PlaceGate": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"handle": {
+					"$ref": "#/definitions/Point",
+					"description": "the route's control point at the gate, an offset from the gate (world units) – how the line runs in or out of the place; missing = computed (`gateHandle`: perpendicular to the place's nearest outer hexagon edge, `ROUTE_HANDLE` long)"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			],
+			"description": "One gate: its offset from the place's point, and its Bézier handle (owner 2026-10-12)"
+		},
+		"Point": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			]
 		}
 	}
 }

@@ -74,10 +74,9 @@ Other failures: a temporary one (4xx, a broken connection after the login) is tr
 `NEWSLETTER_RETRY_MINUTES` (15), failed after `NEWSLETTER_ATTEMPTS` (3). A problem with the account or the server
 (connection, TLS, login) stops the batch at once, counts nobody's attempt and shows on the newsletter (`last_error`).
 
-## Going live (owner, one step at a time)
+## Going live (done – owner 2026-10-12; the steps as they were)
 
-1. phpMyAdmin (database d0487143, SQL tab): the SELECTs at the top of `server/migrations/mysql/2026-10-07-newsletter.mysql.sql`
-   (how many members, opted in, old QR addresses), then the whole file.
+1. The migration `2026-10-07-newsletter` (applied; new migrations run with the deploy).
 2. GitHub → Settings → Secrets → Actions: `NEWSLETTER_CRON_KEY` = a new random string (`openssl rand -hex 32`).
 3. Push `main` (deploys api + admin).
 4. All-inkl KAS → Tools → Cronjobs: URL `https://api.scutoons.com/api/newsletter/cron?key=<the key>`, every 5 minutes.

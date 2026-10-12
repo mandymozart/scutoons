@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Content;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\CatalogDocs;
 use Scutoons\Domain\Catalog\Toons;
 use Scutoons\Domain\Mail\MailFailed;
 use Scutoons\Domain\Mail\Mailer;
@@ -24,6 +25,14 @@ use stdClass;
  * rule an account publishes directly, as before. The API decides, so the creator app and agents (the MCP server, same
  * token) get the same answer.
  *
+ * Catalog documents (`item:<id>` …, CatalogDocs – agents/CATALOG-IN-CREATOR.md) are reviewed by the same rules: their
+ * toon is the entry's `toon` field (a recipe: its output item's; none = `*`, only the `*` rules apply). A PHYSICAL change
+ * (CatalogDocs::isPhysical – an item with kind physical / edition / product / max_world, a recipe making one, an album
+ * for owners, products, editions) is published only by an account with the rule
+ *   physical      reviews physical catalog changes of that toon: publishes them, decides their submits
+ * – everyone else submits it, and only `physical` accounts get those submits (owner 2026-10-12: "damit nicht aus
+ * Versehen auf der Plattform was rausgesetzt werden kann"). Without a `physical` rule nobody publishes physical changes.
+ *
  * A submit (table content_reviews) is pinned to one version: the reviewer publishes exactly that one, newer drafts stay
  * drafts. A newer submit for the same key annuls the open one. Submits, publishes and returns take several files at once
  * (a chapter = every language + its scenes) and send one mail per person: review_requested (reviewers),
@@ -33,7 +42,8 @@ final class Reviews
 {
     public const REVIEWER = 'reviewer';
     public const NEEDS_REVIEW = 'needs_review';
-    public const RULES = [self::REVIEWER, self::NEEDS_REVIEW];
+    public const PHYSICAL = 'physical';
+    public const RULES = [self::REVIEWER, self::NEEDS_REVIEW, self::PHYSICAL];
     public const ALL_TOONS = '*';
     public const NOTE_MAX = 1000;
 
@@ -44,13 +54,63 @@ final class Reviews
         private readonly Mailer $mailer,
         private readonly Settings $settings,
         private readonly Toons $toons,
+        private readonly CatalogDocs $docs,
     ) {
     }
 
-    /** Is this entity reviewed at all? (toon-level kinds only) */
+    /** Is this entity reviewed at all? (toon-level kinds and the catalog documents) */
     public static function applies(EntityKey $key): bool
     {
-        return $key->toon !== null;
+        return $key->toon !== null || $key->isCatalog();
+    }
+
+    /**
+     * What publishing a version (default: the newest) asks of this account: { review: must it be submitted?, physical,
+     * toons } – content by the toon in its key, a catalog document by its entry (see the class comment)
+     * @return array{review: bool, physical: bool, toons: list<string>}
+     */
+    public function policy(string $userId, EntityKey $key, ?int $version = null): array
+    {
+        if (!$key->isCatalog()) return ['review' => $this->needsReview($userId, $key), 'physical' => false, 'toons' => $key->toon !== null ? [$key->toon] : []];
+        $data = $this->docs->versionData($key, $version);
+        $toons = $this->docs->toons($key, $data);
+        $physical = $this->docs->isPhysical($key, $data);
+        $has = fn(string $rule) => array_filter($toons, fn(string $t) => $this->hasRule($userId, $t, $rule));
+        $review = $physical ? count($has(self::PHYSICAL)) < count($toons) : $has(self::NEEDS_REVIEW) !== [];
+        return ['review' => $review, 'physical' => $physical, 'toons' => $toons];
+    }
+
+    /**
+     * The admin's direct catalog writes (/api/admin/catalog – the page the creator's catalog replaces) answer to the same
+     * rule: a physical change of an entry (CatalogDocs::isPhysical, $data = what is written, null = a delete) needs the
+     * `physical` rule for its toons, admins included (owner 2026-10-12: "nach denselben Regeln"). 403 review_required.
+     * @param array<string, mixed>|null $data
+     */
+    public function guardPhysical(string $userId, string $catalogKind, string $id, ?array $data): void
+    {
+        $docKind = array_search($catalogKind, EntityKey::CATALOG_KINDS, true);
+        if ($docKind === false || !EntityKey::isValid("$docKind:$id")) return;
+        $key = EntityKey::parse("$docKind:$id");
+        if (!$this->docs->isPhysical($key, $data)) return;
+        $toons = $this->docs->toons($key, $data);
+        foreach ($toons as $toon) {
+            if (!$this->hasRule($userId, $toon, self::PHYSICAL)) {
+                throw new ApiError(403, 'review_required', 'A physical catalog change needs the physical rule for ' . ($toon === self::ALL_TOONS ? 'every toon' : $toon)
+                    . ' – or edit it in the creator and submit it for review.', ['toons' => $toons, 'physical' => true]);
+            }
+        }
+    }
+
+    /** May this account decide (publish / return) a submit of $key's version? */
+    private function mayDecide(string $userId, EntityKey $key, int $version, string $toon): bool
+    {
+        if (!$key->isCatalog()) return $this->hasRule($userId, $toon, self::REVIEWER);
+        $data = $this->docs->versionData($key, $version);
+        $rule = $this->docs->isPhysical($key, $data) ? self::PHYSICAL : self::REVIEWER;
+        foreach ($this->docs->toons($key, $data) as $t) {
+            if (!$this->hasRule($userId, $t, $rule)) return false;
+        }
+        return true;
     }
 
     // ── Rules (admin) ─────────────────────────────────────────────────────────────────────────────────────
@@ -88,7 +148,7 @@ final class Reviews
         if ($toon !== self::ALL_TOONS && (!preg_match(EntityKey::TOON_PATTERN, $toon) || $toon === 'scutoons')) {
             throw new ApiError(400, 'invalid_toon', 'Unknown toon id (or * for every toon).');
         }
-        if (!in_array($rule, self::RULES, true)) throw new ApiError(400, 'invalid_rule', 'The rule is reviewer or needs_review.');
+        if (!in_array($rule, self::RULES, true)) throw new ApiError(400, 'invalid_rule', 'The rule is reviewer, needs_review or physical.');
         if (!$on) return $this->db->run('DELETE FROM content_review_rules WHERE toon = ? AND user_id = ? AND rule = ?', [$toon, $userId, $rule])->rowCount() > 0;
         if ($this->db->value('SELECT 1 FROM content_review_rules WHERE toon = ? AND user_id = ? AND rule = ?', [$toon, $userId, $rule]) !== null) return false;
         $this->db->run('INSERT INTO content_review_rules (toon, user_id, rule, created_at, created_by) VALUES (?, ?, ?, ?, ?)',
@@ -100,10 +160,10 @@ final class Reviews
      * The reviewers of a toon (its own and the `*` ones), without one account (the author never reviews themselves)
      * @return list<array{id: string, email: string, locale: ?string}>
      */
-    public function reviewers(string $toon, ?string $except = null): array
+    public function reviewers(string $toon, ?string $except = null, string $rule = self::REVIEWER): array
     {
         $rows = $this->db->all("SELECT DISTINCT u.id, u.email, u.locale FROM content_review_rules r JOIN users u ON u.id = r.user_id
-            WHERE r.rule = ? AND r.toon IN (?, ?) AND u.id <> ? ORDER BY u.email", [self::REVIEWER, $toon, self::ALL_TOONS, $except ?? '']);
+            WHERE r.rule = ? AND r.toon IN (?, ?) AND u.id <> ? ORDER BY u.email", [$rule, $toon, self::ALL_TOONS, $except ?? '']);
         return array_map(fn(array $r) => ['id' => (string) $r['id'], 'email' => (string) $r['email'], 'locale' => $r['locale'] !== null ? (string) $r['locale'] : null], $rows);
     }
 
@@ -117,6 +177,19 @@ final class Reviews
     public function guardPublish(array $user, EntityKey $key, ?int $version, bool $unpublish = false): void
     {
         $userId = (string) $user['id'];
+        if ($key->isCatalog()) {
+            $policy = $this->policy($userId, $key, $version);
+            if (!$policy['review']) return;
+            $version ??= (int) ($this->store->latest((string) $key)['id'] ?? 0);
+            if (!$unpublish && $this->mayDecide($userId, $key, $version, $policy['toons'][0])) {
+                $submitted = $this->db->value("SELECT 1 FROM content_reviews WHERE entity_key = ? AND version_id = ? AND state = 'pending' AND (author IS NULL OR author <> ?)",
+                    [(string) $key, $version, $userId]);
+                if ($submitted !== null) return;
+            }
+            throw new ApiError(403, 'review_required', $policy['physical']
+                ? 'A physical catalog change needs a review – submit it; an account with the physical rule publishes it.'
+                : 'This catalog change needs a review – submit it for review instead.', ['toons' => $policy['toons'], 'physical' => $policy['physical']]);
+        }
         if (!$this->needsReview($userId, $key)) return;
         if (!$unpublish && $this->hasRule($userId, (string) $key->toon, self::REVIEWER)) {
             $version ??= (int) ($this->store->latest((string) $key)['id'] ?? 0);
@@ -151,17 +224,22 @@ final class Reviews
         $userId = (string) $user['id'];
         $toons = fn(string $rule) => array_map('strval', array_column($this->db->all('SELECT toon FROM content_review_rules WHERE user_id = ? AND rule = ? ORDER BY toon', [$userId, $rule]), 'toon'));
         $reviewerOf = $toons(self::REVIEWER);
+        $physicalOf = $toons(self::PHYSICAL);
         $toReview = [];
-        if ($reviewerOf !== []) {
-            $all = in_array(self::ALL_TOONS, $reviewerOf, true);
-            $in = implode(',', array_fill(0, count($reviewerOf), '?'));
+        $decides = array_values(array_unique([...$reviewerOf, ...$physicalOf]));
+        if ($decides !== []) {
+            $all = in_array(self::ALL_TOONS, $decides, true);
+            $in = implode(',', array_fill(0, count($decides), '?'));
             $toReview = $this->select("r.state = 'pending' AND (r.author IS NULL OR r.author <> ?)" . ($all ? '' : " AND r.toon IN ($in)") . ' ORDER BY r.id',
-                $all ? [$userId] : [$userId, ...$reviewerOf]);
+                $all ? [$userId] : [$userId, ...$decides]);
+            // a physical submit only for the physical rule, the others only for reviewers
+            $toReview = array_values(array_filter($toReview, fn(array $r) => $this->mayDecide($userId, EntityKey::parse($r['key']), (int) $r['version'], (string) $r['toon'])));
         }
         return [
             'status' => 'success',
             'needs_review' => $toons(self::NEEDS_REVIEW),
             'reviewer_of' => $reviewerOf,
+            'physical_of' => $physicalOf,
             'to_review' => $toReview,
             'mine' => $this->select('r.author = ? ORDER BY r.id DESC LIMIT 50', [$userId]),
         ];
@@ -184,23 +262,28 @@ final class Reviews
             $row = isset($item->version) ? $this->store->byId((int) $item->version) : $this->store->latest((string) $key);
             if (!$row || $row['entity_key'] !== (string) $key) throw new ApiError(404, 'not_found', "No such version of $key.", ['key' => (string) $key]);
             if ($row['status'] === 'published') throw new ApiError(409, 'already_published', "This version of $key is already published.", ['key' => (string) $key]);
-            $versions[(string) $key] = [$key, (int) $row['id']];
+            // the toon a review is filed under, and who decides it (a physical catalog change: the physical rule)
+            $policy = $this->policy($userId, $key, (int) $row['id']);
+            $toon = $key->isCatalog() ? $policy['toons'][0] : (string) $key->toon;
+            $versions[(string) $key] = [$key, (int) $row['id'], $toon, $policy['physical'] ? self::PHYSICAL : self::REVIEWER];
         }
         $reviewers = [];
-        foreach ($versions as [$key]) {
-            $reviewers[$key->toon] ??= $this->reviewers((string) $key->toon, $userId);
-            if ($reviewers[$key->toon] === []) {
-                throw new ApiError(409, 'no_reviewer', "Nobody reviews {$key->toon} yet – ask an admin to add a reviewer.", ['toon' => $key->toon]);
+        foreach ($versions as [, , $toon, $rule]) {
+            $reviewers["$toon|$rule"] ??= $this->reviewers($toon, $userId, $rule);
+            if ($reviewers["$toon|$rule"] === []) {
+                $who = $rule === self::PHYSICAL ? 'Nobody publishes physical catalog changes of ' . ($toon === self::ALL_TOONS ? 'every toon' : $toon) . ' yet – ask an admin to add the physical rule.'
+                    : "Nobody reviews $toon yet – ask an admin to add a reviewer.";
+                throw new ApiError(409, 'no_reviewer', $who, ['toon' => $toon, 'rule' => $rule]);
             }
         }
         $note = self::note($body->note ?? null);
         $ids = $this->db->transaction(function () use ($versions, $userId, $note) {
             $now = $this->clock->utc();
             $ids = [];
-            foreach ($versions as $k => [$key, $version]) {
+            foreach ($versions as $k => [, $version, $toon]) {
                 $this->db->run("UPDATE content_reviews SET state = 'annulled', decided_by = ?, decided_at = ? WHERE entity_key = ? AND state = 'pending'", [$userId, $now, $k]);
                 $this->db->run('INSERT INTO content_reviews (entity_key, toon, version_id, author, note, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [$k, $key->toon, $version, $userId, $note, 'pending', $now]);
+                    [$k, $toon, $version, $userId, $note, 'pending', $now]);
                 $ids[] = $this->db->lastInsertId();
             }
             return $ids;
@@ -209,8 +292,10 @@ final class Reviews
 
         // one mail per reviewer with the files of the toons they review
         $mails = [];
+        $rules = [];
+        foreach ($versions as $k => [, , $toon, $rule]) $rules[$k] = "$toon|$rule";
         foreach ($reviews as $review) {
-            foreach ($reviewers[$review['toon']] as $reviewer) {
+            foreach ($reviewers[$rules[$review['key']]] as $reviewer) {
                 $mails[$reviewer['id']] ??= ['to' => $reviewer, 'toons' => [], 'keys' => []];
                 $mails[$reviewer['id']]['toons'][$review['toon']] = true;
                 $mails[$reviewer['id']]['keys'][] = (string) $review['key'];
@@ -244,19 +329,22 @@ final class Reviews
         if (!is_array($ids) || $ids === [] || count($ids) > 200) throw new ApiError(400, 'invalid_ids', 'ids: a list of 1–200 review ids.');
         $ids = array_values(array_unique(array_map('intval', $ids)));
         $note = self::note($body->note ?? null);
-        $keys = $this->db->transaction(function () use ($ids, $userId, $note, $publish) {
+        $by = (string) ($user['email'] ?? $userId);
+        $keys = $this->db->transaction(function () use ($ids, $userId, $note, $publish, $by) {
             $now = $this->clock->utc();
             $keys = [];
             foreach ($ids as $id) {
                 $row = $this->db->one('SELECT * FROM content_reviews WHERE id = ? FOR UPDATE', [$id]);
                 if (!$row) throw new ApiError(404, 'not_found', "Unknown review $id.");
                 if ($row['state'] !== 'pending') throw new ApiError(409, 'review_closed', "Review $id is {$row['state']}.", ['id' => $id, 'state' => $row['state']]);
-                if ($row['author'] === $userId || !$this->hasRule($userId, (string) $row['toon'], self::REVIEWER)) {
+                if ($row['author'] === $userId || !$this->mayDecide($userId, EntityKey::parse((string) $row['entity_key']), (int) $row['version_id'], (string) $row['toon'])) {
                     throw new ApiError(403, 'not_reviewer', "You don't review {$row['toon']}" . ($row['author'] === $userId ? ' – not your own submit.' : '.'), ['toon' => $row['toon']]);
                 }
                 if ($publish) {
                     $version = $this->store->byId((int) $row['version_id']) ?? throw new ApiError(404, 'not_found', 'The submitted version is gone.');
-                    $this->store->setPublished($version);
+                    // a catalog document: its data becomes the table's entry too (validated – a 422 rolls the whole decision back)
+                    if (EntityKey::parse((string) $row['entity_key'])->isCatalog()) $this->docs->publishIn($version, $by);
+                    else $this->store->setPublished($version);
                 }
                 $this->db->run('UPDATE content_reviews SET state = ?, decided_by = ?, decided_at = ?, decision_note = ? WHERE id = ?',
                     [$publish ? 'published' : 'returned', $userId, $now, $note, $id]);
@@ -265,6 +353,7 @@ final class Reviews
             return $keys;
         });
         $reviews = $this->byIds($ids);
+        if ($publish && array_filter($keys, fn(string $k) => EntityKey::parse($k)->isCatalog()) !== []) $this->docs->reindex();
 
         $byAuthor = [];
         foreach ($reviews as $review) {
@@ -353,6 +442,10 @@ final class Reviews
         $entities = [];
         foreach ($keys as $k) {
             $key = EntityKey::parse($k);
+            if ($key->id !== null) {
+                $entities["$key->kind $key->id"] ??= [];
+                continue;
+            }
             $label = str_replace('-', ' ', $key->kind) . ($key->number !== null ? ' ' . $key->number : '') . ($key->scene !== null ? '/' . $key->scene : '');
             $entities[$label] ??= [];
             if ($key->locale !== null) $entities[$label][] = $key->locale;

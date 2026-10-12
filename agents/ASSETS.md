@@ -1,7 +1,6 @@
 # ASSETS — the media asset layer, storage drivers, bunny.net, the asset selector
 
-Branch **`assets`** (worktree `C:\Development\scutoons-assets`, from `platform` at cd96a91, 2026-10-02). Target: before the
-**public** release (Sunday 2026-10-04 is the internal beta; PLAN.md "Release plan update"). Companion docs: PLATFORM.md
+Built 2026-10-02 (merged; `main` only since 2026-10-05); how it is now, with the bunny.net set-up as history. Companion docs: PLATFORM.md
 "CDN" + cutover, DATA.md "Language-independent media", ITEMS.md "Players, albums, related items", server
 docs/CONFIGURATION.md + docs/API.md "Assets".
 
@@ -145,7 +144,7 @@ unit-tested): `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT` (region hostname, w
    hostnames) and its 30-day statistics. `--write-test` puts / reads back / deletes one file below `_test/`.
 3. `php bin/console assets:sync --source-root=<media> --hash` – the upload plan (dry run). `--apply [--overwrite]
    [--purge-zone] --log=../logs/cutover/<name>.json` performs it (verified uploads, retries, never deletes).
-4. `php bin/console migrate` (local) / phpMyAdmin `2026-10-02-assets.mysql.sql` (production), then `assets:scan`.
+4. `npm run dev:db` (local; production: `2026-10-02-assets` is applied), then `assets:scan`.
 
 **State 2026-10-02 (read-only checks with the owner's keys):** zone `scutoons` (storage zone #1599226) at
 `storage.bunnycdn.com`, only `catpope/`: 330 files / 324,078,057 bytes = an older snapshot. vs the main checkout's
@@ -163,9 +162,8 @@ Reference check of the 134 bunny-only files (a text search over EVERY stored ver
 `main`'s static viewer JSON (pre-content-store) and old versions. The 3x key visuals of chapters 3–5
 (`images/3x/s1c{3,4,5}-key-visual.jpg`) are referenced by published content but exist nowhere – the owner regenerates
 them in Figma.
-**The initial upload did not run:** the agent's permission system blocked lifting the local write fence – the owner runs
-step 3 with `--apply --overwrite --purge-zone` (after commenting out `BUNNY_WRITE_PREFIX` in the worktree's
-`server/config.local.php`), or grants it in a session.
+**The initial upload ran 2026-10-02** (CUTOVER 1.5, PLATFORM.md "CDN"); history: it first needed the owner to lift the
+local write fence (`BUNNY_WRITE_PREFIX`).
 
 **Owner decision (2026-10-02): the domain switch.** Until the new asset system is deployed, bunny is reached at the
 interim `https://scutoons.b-cdn.net` (`CDN_PUBLIC_URL`). When it is deployed the owner rewires `cdn.scutoons.com` to bunny
@@ -305,6 +303,24 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   Storage (drivers, bunny settings status, totals per kind, 30-day bandwidth chart). The asset sheet: preview, files per
   version, uses (with links into the creator), title / tags, replace, rename, relink, optimize (jobs), delete behind the
   check.
+- **The media standard** (BACKLOG 10.64, `@scutoons/media` media-standard.ts, owner 2026-10-11/12): images WebP (PNG /
+  JPEG converted, transparency kept; WebP / SVG / GIF as they are; a delivered WebP keeps its bytes unless an importer's maximum
+  scales it down), NO size limit (owner 2026-10-12: "ein Large Limit gibt es im Moment nicht"); densities as suffixes `name.webp` / `.2x.webp` / `.3x.webp`, each made from the
+  file delivered for it, else the smallest bigger one (`densityPlan`, never scaled up), widths per density (slices 390 ×
+  n, place images 256 / 512 / 1024); video MP4 / WebM (no conversion – no ffmpeg on the host). EVERY importer goes
+  through it: slice import (`standardDensities`), character import + catalog item / recipe images (`standardImage`), the
+  map's import (`<id>` painted, `<id>-plaster` the plaster model, `.2x` / `.3x` / `@2x` in the name; 1x / 2x / 3x
+  written to `image.src` / `variants` / `plaster` / `plasterVariants`), the asset picker's upload (converts by default,
+  untickable; always with `webp`).
+- **Admin – Assets → Standard** (the optimisation tool, 2026-10-12): `media-audit.ts` audits the files content / the
+  catalog REFERENCE (the list's per-file `usages`, AssetRegistry) – an unused PNG master beside its used WebP is
+  "Unused"'s business, not this tab's. Per file: `convert` (encode → a NEW file `standardName(path)`, `-2` … when taken
+  – a CDN path is never overwritten, PLATFORM.md), `twin` (the WebP is already a rendition – relink only), none (video).
+  "Convert N files …" (`fixFindings`, I/O injected – node tests): read from the CDN (bunny: CORS `*`), `standardImage`
+  at full size, upload, then ONE `POST /admin/assets/relink { map }` (`AssetService::relinkAll`): one new draft per
+  touched document, catalog rows directly; the report links the drafts into the creator (`$lib/creator-links.ts`) and
+  lists the by-hand ones. Tested on the dev seed: 2 thumbnails 103 KB → 19 KB, 8 uses, 5 drafts (toon:catpope one draft
+  for both). Dev seed 2026-10-12: 85 referenced files (28 MB), 71 convert, 14 relink.
 
 ## Slice 1 and the trailer (owner: "can use the same asset and its resolution alternatives")
 
@@ -364,7 +380,7 @@ Registered as app code in `AssetUsages::CODE_REFERENCES` (+ AssetLayout): never 
 
 ## Open / next
 
-- Owner: run the bunny initialisation (above); decide the bunny-only files (the old `1x/de` slices are used only by the
+- Owner: decide the bunny-only files (the old `1x/de` slices are used only by the
   never-published draft `scene:catpope:2:scene-19`; deleting that draft entity frees them).
 - Owner decision: trailer from the prologue film (see above).
 - Per-file bandwidth from the Logging API (aggregate the daily logs into a table; per asset in the detail).

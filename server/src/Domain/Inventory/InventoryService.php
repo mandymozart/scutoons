@@ -160,10 +160,19 @@ final class InventoryService
         return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ?', [$userId, $itemId]);
     }
 
-    /** Consumes `$qty` of an item (virtual pieces first, oldest first); unequips removed entries */
+    /** What `remove` may consume: the pieces without a code (a code-bound piece is physical – it never disappears) */
+    public function consumable(string $userId, string $itemId): int
+    {
+        return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ? AND code IS NULL', [$userId, $itemId]);
+    }
+
+    /**
+     * Consumes `$qty` of an item (oldest first); unequips removed entries. Never a code-bound piece (owner 2026-10-12:
+     * "physische Items, kombiniert, verschwinden nicht" – its row is what `qr.claimed_by` stands for).
+     */
     public function remove(string $userId, string $itemId, int $qty): void
     {
-        $rows = $this->db->all('SELECT id, qty FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0 ORDER BY (code IS NOT NULL), acquired_at, id', [$userId, $itemId]);
+        $rows = $this->db->all('SELECT id, qty FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0 AND code IS NULL ORDER BY acquired_at, id', [$userId, $itemId]);
         foreach ($rows as $row) {
             if ($qty <= 0) break;
             $take = min($qty, (int) $row['qty']);
@@ -179,7 +188,9 @@ final class InventoryService
     }
 
     /**
-     * Crafts a recipe: all inputs are consumed, the output is added. 404 unknown_recipe, 422 missing_inputs { missing }.
+     * Crafts a recipe: the inputs are consumed, the output is added. A physical input (catalog `kind: physical`, or a
+     * code-bound piece of any item) only has to be there – it stays in the inventory, the output comes in addition
+     * (owner 2026-10-12). 404 unknown_recipe, 422 missing_inputs { missing }.
      * @return array<string, mixed> the recipe
      */
     public function craft(string $userId, mixed $recipeId): array
@@ -199,7 +210,11 @@ final class InventoryService
                 throw new ApiError(409, 'max_reached', 'You cannot hold more of this.', ['max' => self::maxOf($output)]);
             }
             if ($output) $this->guardWorld($userId, $output);
-            foreach ($recipe['inputs'] as $input) $this->remove($userId, $input['item'], (int) $input['qty']);
+            foreach ($recipe['inputs'] as $input) {
+                if (($this->catalog->item($input['item'])['kind'] ?? null) === 'physical') continue;
+                $consume = min((int) $input['qty'], $this->consumable($userId, $input['item']));
+                if ($consume > 0) $this->remove($userId, $input['item'], $consume);
+            }
             $this->add($userId, $recipe['output']['item'], null, (int) $recipe['output']['qty'], 'craft');
         });
         return $recipe;
@@ -226,7 +241,7 @@ final class InventoryService
         return $this->db->transaction(function () use ($userId, $item, $qty, $ref) {
             $refBucket = "takeref:$userId:{$item['id']}";
             if ($ref !== null && $this->limits->exists($refBucket, $ref)) return ['taken' => 0, 'reason' => 'already_taken'];
-            if ($this->count($userId, $item['id']) < $qty) return ['taken' => 0, 'reason' => 'too_few'];
+            if ($this->consumable($userId, $item['id']) < $qty) return ['taken' => 0, 'reason' => 'too_few'];
             $this->remove($userId, $item['id'], $qty);
             if ($ref !== null) $this->limits->hit($refBucket, $ref);
             return ['taken' => $qty, 'reason' => null];

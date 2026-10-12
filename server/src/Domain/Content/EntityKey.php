@@ -24,8 +24,13 @@ use Scutoons\Domain\ApiError;
  *   (`map` = the SCUTOONS world map's own settings – size, layers –, its places and routes are documents of their own:
  *   agents/MAP.md, agents/MAP-DOCUMENTS.md, WorldMapDocs; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
+ *   item:<id>  recipe:<id>  album:<id>  product:<id>  edition:<id>
+ *                                        a catalog entry as its own versioned document (agents/CATALOG-IN-CREATOR.md):
+ *                                        drafts like content, publishing writes the catalog table (CatalogDocs); the
+ *                                        toon is the entry's `toon` field, not a key segment (an entry may move)
+ *
  * Every toon-related text of every locale lives in these documents (per-locale documents or `{ de, en }` fields); UI
- * chrome stays in the apps' message files; the catalog (items, editions, products) follows later (DATA.md "B2").
+ * chrome stays in the apps' message files.
  */
 final class EntityKey
 {
@@ -65,6 +70,10 @@ final class EntityKey
      * names them (agents/DATA.md "Script").
      */
     public const CREATOR_ONLY_KINDS = ['script'];
+    /** document kind → catalog kind (CatalogStore::KINDS) of the catalog documents `<kind>:<id>` */
+    public const CATALOG_KINDS = ['item' => 'items', 'recipe' => 'recipes', 'album' => 'albums', 'product' => 'products', 'edition' => 'editions'];
+    /** a catalog document's id: the widest catalog id rule (CatalogValidator checks the kind's own rule on save) */
+    public const CATALOG_ID_PATTERN = '#^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$#';
     /**
      * Localized kinds stored as one language-neutral document under the entity itself (no locale segment, agents/NEUTRAL.md,
      * NeutralDoc); their per-locale keys are the legacy form, still accepted until production is converted
@@ -83,6 +92,7 @@ final class EntityKey
         public readonly ?int $number = null,
         public readonly ?string $scene = null,
         public readonly ?string $locale = null,
+        /** the id of an ID_KINDS key (`place:cathedral` → cathedral) or a catalog document's entry id (`item:camera` → camera) */
         public readonly ?string $id = null,
     ) {
     }
@@ -93,6 +103,10 @@ final class EntityKey
         if (!is_string($key) || strlen($key) > 191) throw $invalid;
         $parts = explode(':', $key);
         $kind = array_shift($parts);
+        if (isset(self::CATALOG_KINDS[$kind])) {
+            if (count($parts) !== 1 || !preg_match(self::CATALOG_ID_PATTERN, $parts[0])) throw $invalid;
+            return new self($kind, id: $parts[0]);
+        }
         $shape = self::KINDS[$kind] ?? null;
         if ($shape === null) throw $invalid;
         if (in_array($kind, self::ID_KINDS, true)) {
@@ -128,6 +142,18 @@ final class EntityKey
     {
         return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->scene, $this->locale, $this->id],
             fn($p) => $p !== null));
+    }
+
+    /** A catalog entry's document (`item:<id>` …) */
+    public function isCatalog(): bool
+    {
+        return isset(self::CATALOG_KINDS[$this->kind]);
+    }
+
+    /** The catalog kind of a catalog document (`items` …) */
+    public function catalogKind(): ?string
+    {
+        return self::CATALOG_KINDS[$this->kind] ?? null;
     }
 
     /** A language-neutral document: a kind without locales, or the neutral document of a chapter / scene / season */

@@ -7,6 +7,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Avatar\AvatarService;
 use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogStore;
+use Scutoons\Domain\Codes\CodeService;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Domain\Progress\ProgressService;
 use Scutoons\Tests\TestCase;
@@ -48,6 +49,37 @@ final class InventoryServiceTest extends TestCase
         self::assertSame('cucumber_camera', $this->inventory->craft($id, 'cucumber_camera')['id']);
         self::assertSame(0, $this->inventory->count($id, 'camera'));
         self::assertSame(1, $this->inventory->count($id, 'cucumber_camera'));
+    }
+
+    /** owner 2026-10-12: "physische Items, kombiniert, verschwinden nicht" – a physical input stays, the output comes in addition */
+    public function testCraftingNeverConsumesAPhysicalPiece(): void
+    {
+        $user = $this->user();
+        $id = (string) $user['id'];
+        $this->get(CatalogAdmin::class)->put('recipes', 'hoodie_cross', ['id' => 'hoodie_cross',
+            'inputs' => [['item' => 'dago_hoodie', 'qty' => 1], ['item' => 'cucumber', 'qty' => 1]], 'output' => ['item' => 'cucumber_cross', 'qty' => 1]], 'test');
+        $hood = $this->code('membership', ['edition_id' => '1_catpope_dago', 'edition_number' => 7]);
+        $this->get(CodeService::class)->claim($user, $hood, 'dago_hoodie', 'black');
+        $this->inventory->add($id, 'cucumber', null, 1, 'story');
+        $this->inventory->craft($id, 'hoodie_cross');
+        self::assertSame([['dago_hoodie', $hood]], array_map(fn($r) => [$r['item_id'], $r['code']],
+            $this->db->all("SELECT item_id, code FROM inventory WHERE user_id = ? AND item_id = 'dago_hoodie'", [$id])), 'the physical original stays');
+        self::assertSame(0, $this->inventory->count($id, 'cucumber'), 'a virtual input is consumed');
+        self::assertSame(1, $this->inventory->count($id, 'cucumber_cross'));
+
+        // a code-bound piece of a virtual item is physical too (ACCOUNT-RESTART §2): it counts, it is never consumed
+        $other = (string) $this->user()['id'];
+        $this->db->run("DELETE FROM inventory WHERE user_id = ? AND item_id = 'camera'", [$other]);
+        $cam = $this->code();
+        $this->db->run('UPDATE qr SET claimed_by = ? WHERE code = ?', [$other, $cam]);
+        $this->inventory->add($other, 'camera', null, 1, 'qr', $cam);
+        $this->inventory->add($other, 'cucumber', null, 1, 'story');
+        $this->inventory->craft($other, 'cucumber_camera');
+        self::assertSame($cam, $this->db->value("SELECT code FROM inventory WHERE user_id = ? AND item_id = 'camera'", [$other]));
+        self::assertSame(1, $this->inventory->count($other, 'cucumber_camera'));
+        self::assertSame(0, $this->inventory->consumable($other, 'camera'));
+        $this->expectException(\RuntimeException::class);
+        $this->inventory->remove($other, 'camera', 1);
     }
 
     public function testGrantRespectsSourceRefToolAndCooldown(): void

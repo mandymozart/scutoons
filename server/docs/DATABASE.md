@@ -163,29 +163,10 @@ Production equivalents without a shell: roles → admin app / `generate/` "Users
 source); edition numbers → copy `storage/files/batch/*.json` from the server, run
 `backfill-edition-numbers --sql --manifests=<copy>` locally, import the output.
 
-## Production data steps still open from the account system (docs/DEPLOY.md "Cutover")
+## Production data steps (history)
 
-In phpMyAdmin, in this order (all idempotent): `2026-09-29-accounts-inventory.mysql.sql`,
-`2026-09-30-code-owner-guard.mysql.sql` (delimiter `$$`), `2026-09-30-revoke-events.mysql.sql`,
-`2026-09-30-roles-signup.mysql.sql`, `2026-09-30-content-versions.mysql.sql`, `2026-09-30-settings.mysql.sql`,
-`2026-09-30-sensitive-content.mysql.sql` (`users.hide_sensitive`, default 1), `2026-10-01-media-quality.mysql.sql`
-(`users.media_quality`, default `auto` – with the `media-quality` branch, after the release), `2026-10-02-mail-log.mysql.sql`
-(the sent-mail log of the email module; without it mails are still sent, just not logged), `2026-10-02-ownership.mysql.sql`
-(ownership claims, claim files, transfer history – agents/ITEMS.md "Ownership, claims, gifting"; until it ran gifts and
-claims answer 503, everything else works), `2026-10-02-assets.mysql.sql` (the media asset registry: assets, versions, renditions, usages, jobs –
-agents/ASSETS.md; without it only the asset manager answers 503), `2026-10-02-ownership-signup.mysql.sql` (`login_requests.dispute`: signing up
-to file a claim), `2026-10-03-code-case.mysql.sql` (codes case-sensitive: the code columns → `utf8mb4_bin`; safe before
-or after the deploy of the matching API), `2026-10-04-catalog.mysql.sql` (the catalog moves from server/config/*.json into
-tables with today's data, history; folds and removes the settings `item_respawn` / `featured_products` – agents/CATALOG.md
-"Status"; ran 2026-10-05 – the API needs the tables since 10.30),
-`2026-10-04-agent-chats.mysql.sql`, `2026-10-04-agent-usage.mysql.sql`, `2026-10-06-agent-web-search.mysql.sql` (the
-Ask panel's chat history and usage log – ran; Ask is gone since 2026-10-09, nothing reads `agent_chats` / `agent_usage`
-any more; `2026-10-09-drop-ask.mysql.sql` dropped them – production 2026-10-09),
-`2026-10-04-ask-embassy-mail.mysql.sql` (after the Embassy ones: the mail fields of `embassy_activities`,
-`embassy_mail_state` for the inbox sync; without it Embassy mails are sent and logged without subject / addresses, the
-inbox sync answers 503), `2026-10-09-mcp-drafts.mysql.sql` (`embassy_mail_drafts`, `admin_proposals`: what the
-member's own AI saves for the member to send / apply – agents/MCP.md; without it those endpoints answer 503),
-`2026-10-09-api-tokens.mysql.sql` (`api_tokens`: the AI connections, personal tokens `sct_…`; without it
-`/api/me/tokens` answers 503); then the edition-number backfill
-above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
-automatically).
+Every file up to `2026-10-12-purge-legacy-map-lists` is applied on production (`migration_status`, 2026-10-12: 0
+pending; the ones pasted into phpMyAdmin before 2026-10-11 were recorded by `2026-10-11-developer-role`). New files run
+with the deploy – see "Migrations" above. Still by hand, when wanted: the edition-number backfill above and a
+`report-orphan-codes` review against a copy of the production DB (nothing is deleted automatically).
+

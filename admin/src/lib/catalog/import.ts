@@ -1,11 +1,11 @@
 // Bulk "Import images …" of the items page (agents/CATALOG.md part 3, the creator importers' pattern): files named
-// `<item-id>.<ext>` or `<item-id>_<variant>.<ext>` (case-insensitive) → WebP (size kept, scaled down to at most
-// 1024 px on the longest side, transparency kept) → upload, or a new version of the file already there, at
+// `<item-id>.<ext>` or `<item-id>_<variant>.<ext>` (case-insensitive) → the media standard (`standardImage`:
+// WebP, scaled down to at most 1024 px on the longest side, transparency kept; a WebP within that keeps its bytes) → upload, or a new version of the file already there, at
 // `<toon or scutoons>/items/<item-id>[_<variant>].webp` → the item's (or variant's) `icon`, one PUT per item.
 import type { CatalogEntry } from '@scutoons/api';
-import { toWebp, uploadOrReplace } from '@scutoons/media';
+import { standardImage, uploadOrReplace } from '@scutoons/media';
 import { admin } from '$lib/api.ts';
-import type { Data } from './kinds.ts';
+import type { Data } from '@scutoons/catalog';
 
 export const MAX_SIDE = 1024;
 
@@ -37,9 +37,6 @@ export interface ImportReport {
 	problems: { file: string; problem: 'unknown_item' | 'unknown_variant' | 'unknown_recipe' | 'failed'; item?: string; message?: string }[];
 }
 
-/** the longest side at most MAX_SIDE (never scaled up) */
-export const targetWidth = (width: number, height: number) => Math.round(width * Math.min(1, MAX_SIDE / Math.max(width, height)));
-
 export async function importItemImages(files: File[], items: CatalogEntry[], progress?: (done: number, total: number) => void): Promise<ImportReport> {
 	const report: ImportReport = { uploaded: 0, replaced: 0, unchanged: 0, updated: [], problems: [] };
 	/** item id → { the entry, the icons to set: variant id (null = the item's own) → path } */
@@ -52,13 +49,7 @@ export async function importItemImages(files: File[], items: CatalogEntry[], pro
 				report.problems.push({ file: file.name, problem: match.problem, item: match.item });
 				continue;
 			}
-			const bitmap = await createImageBitmap(file);
-			let blob: Blob;
-			try {
-				blob = (await toWebp(bitmap, targetWidth(bitmap.width, bitmap.height))).blob;
-			} finally {
-				bitmap.close();
-			}
+			const { blob } = await standardImage(file, { maxSide: MAX_SIDE });
 			const result = await uploadOrReplace(blob, match.path, 'catalog image import');
 			report[result]++;
 			const change = changes.get(match.item.id) ?? { entry: match.item, icons: new Map() };
@@ -116,13 +107,7 @@ export async function importRecipeImages(files: File[], recipes: CatalogEntry[],
 				report.problems.push({ file: file.name, problem: 'unknown_recipe' });
 				continue;
 			}
-			const bitmap = await createImageBitmap(file);
-			let blob: Blob;
-			try {
-				blob = (await toWebp(bitmap, targetWidth(bitmap.width, bitmap.height))).blob;
-			} finally {
-				bitmap.close();
-			}
+			const { blob } = await standardImage(file, { maxSide: MAX_SIDE });
 			const path = recipeImagePath(recipe, items);
 			report[await uploadOrReplace(blob, path, 'catalog image import')]++;
 			if (recipe.data?.image !== path) {

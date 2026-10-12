@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { sanitizeNumber, isPrologue, chapterProgress } from '@scutoons/content';
+	import { sanitizeNumber, isPrologue, chapterProgress, chapterCheckpointUri, checkpointSpot } from '@scutoons/content';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { toonUrl } from '$lib/utils/cdn.ts';
 	import type { LoadedSequenceItem } from '@scutoons/content';
@@ -30,6 +30,10 @@
 	// only a bar (owner 2026-09-30): a finished chapter = a full ink bar, one being read = how far
 	const percent = $derived(!progress ? 0 : progress.finished ? 100 : Math.max(1, Math.round(progress.position * 100)));
 	const shown = $derived(!!progress && (progress.finished || progress.position > 0));
+	// a chapter being read opens where the reader stopped, like the start button's "continue" (owner 2026-10-12, BACKLOG 10.69)
+	const resumes = $derived(
+		!!progress && progress.position < 1 && !!checkpointSpot(game.state.progress.find((c) => c.uri === chapterCheckpointUri(toonId, chapter.number)))
+	);
 
 	// a coming-soon chapter with a key visual opens its page: the teaser (owner 2026-10-03)
 	const hasTeaser = $derived.by(() => {
@@ -41,7 +45,7 @@
 	function handleClick() {
 		if (!opens) return;
 		nav.closeOverlay();
-		goto(localizeHref(`/${toonId}/chapter/${safeChapterNumber}`));
+		goto(`${localizeHref(`/${toonId}/chapter/${safeChapterNumber}`)}${resumes ? '?resume' : ''}`);
 	}
 </script>
 

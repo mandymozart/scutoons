@@ -8,6 +8,15 @@ import { m } from '$lib/paraglide/messages.js';
  * "Chapter 2", `season:catpope:1` → "Season 1", scenes → "Scene 14", `toon-settings:catpope` → "Toon settings" … One
  * mapping for the whole creator (@scutoons/ui `entityLabel`).
  */
+/** a catalog document's kind as a word ("Item camera", agents/CATALOG-IN-CREATOR.md) */
+const CATALOG_WORD: Record<string, () => string> = {
+	item: () => m['creator.catalog_item'](),
+	recipe: () => m['creator.catalog_recipe'](),
+	album: () => m['creator.catalog_album'](),
+	product: () => m['creator.catalog_product'](),
+	edition: () => m['creator.catalog_edition']()
+};
+
 export function fileLabel(key: string): string {
 	return entityLabel(key, {
 		chapter: (number) => m['creator.entity_chapter']({ number }),
@@ -25,7 +34,8 @@ export function fileLabel(key: string): string {
 		script: m['creator.script'](),
 		place: (id) => `${m['creator.publish_part_place']()}: ${id}`,
 		route: (id) => `${m['creator.publish_part_route']()}: ${id}`,
-		character: (id) => `${m['creator.publish_part_character']()}: ${id}`
+		character: (id) => `${m['creator.publish_part_character']()}: ${id}`,
+		catalog: (kind, id) => `${CATALOG_WORD[kind]?.() ?? kind} ${id}`
 	});
 }
 

@@ -8,7 +8,28 @@ export { default as MediaSlot } from './media-slot.svelte';
 export { default as MediaVariantsSlot } from './media-variants-slot.svelte';
 export { default as FileSlot } from './file-slot.svelte';
 export { toWebp, uploadOrReplace } from './media-upload.ts';
-export { checkMedia, mediaKind, standardName, toStandard, type MediaKind, type MediaVerdict } from './media-standard.ts';
+export {
+	checkMedia,
+	densityFromWidth,
+	densityLevel,
+	densityPath,
+	densityPlan,
+	densityWidth,
+	mediaKind,
+	mediaType,
+	splitMediaName,
+	standardDensities,
+	standardImage,
+	standardName,
+	toStandard,
+	type Density,
+	type DensityWidths,
+	type MediaFacts,
+	type MediaKind,
+	type MediaVerdict,
+	type StandardImage
+} from './media-standard.ts';
+export { auditAsset, auditAssets, fixFindings, nextFreeName, type AuditAsset, type FixDeps, type FixReport, type FixRow, type StandardFinding } from './media-audit.ts';
 export {
 	cleanVariants,
 	defaultLevel,

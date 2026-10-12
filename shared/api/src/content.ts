@@ -66,8 +66,45 @@ export interface ReviewOverview {
 	needs_review: string[];
 	/** toons (or `*`) this account reviews */
 	reviewer_of: string[];
+	/** toons (or `*`) whose physical catalog changes this account publishes (rule `physical`) */
+	physical_of?: string[];
 	to_review: ContentReview[];
 	mine: ContentReview[];
+}
+
+/** The catalog kinds that are versioned documents (`item:<id>` …, server CatalogDocs – agents/CATALOG-IN-CREATOR.md) */
+export const CATALOG_DOC_KINDS = { items: 'item', recipes: 'recipe', albums: 'album', products: 'product', editions: 'edition' } as const;
+export type CatalogDocKind = keyof typeof CATALOG_DOC_KINDS;
+
+/** A catalog entry as a document (GET /api/catalog/docs/<kind>) */
+export interface CatalogDoc {
+	id: string;
+	/** `item:<id>` … – the /entities key (drafts, versions, publish, restore) */
+	key: string;
+	/** the newest stored version (null: none stored – the table's data) */
+	latest: number | null;
+	published: number | null;
+	/** in the catalog table (readers have it); false = a new entry, only drafted so far */
+	live: boolean;
+	/** a version newer than the published one */
+	draft: boolean;
+	versions: number;
+	latest_at: string | null;
+	latest_author: string | null;
+	latest_message: string | null;
+	/** publishing it needs the `physical` review rule (edition, product, kind physical, max_world …) */
+	physical: boolean;
+	/** the toons it touches (`*` = every toon) */
+	toons: string[];
+	/** the newest version's data */
+	content: Record<string, unknown>;
+}
+
+/** a catalog document's key: `item:camera` → { kind: 'items', id: 'camera' } */
+export function catalogDocKey(key: string): { kind: CatalogDocKind; id: string } | null {
+	const [prefix, id, ...rest] = key.split(':');
+	const kind = (Object.keys(CATALOG_DOC_KINDS) as CatalogDocKind[]).find((k) => CATALOG_DOC_KINDS[k] === prefix);
+	return kind && id && !rest.length ? { kind, id } : null;
 }
 
 /** Does an account with these rules need a review to publish in this toon? */
@@ -159,6 +196,9 @@ export function createContentApi(client: ApiClient) {
 		/** Several documents live at once (one transaction) */
 		publishMany: (versions: { key: string; version?: number }[]) =>
 			client.post<{ status: string; published: { key: string; version: ContentVersion }[] }>('/entities/publish', { versions }),
+
+		/** Every catalog entry of a kind as a document: its newest version, draft / live / physical */
+		catalogDocs: (kind: CatalogDocKind) => client.get<{ status: string; kind: CatalogDocKind; entries: CatalogDoc[] }>(`/catalog/docs/${kind}`),
 
 		/** Every stored entity of a toon; `''` = the platform-wide ones (characters, people, events …). */
 		contentIndex: (toon: string) =>

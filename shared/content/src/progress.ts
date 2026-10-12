@@ -59,7 +59,7 @@ export function chapterProgress(
 export type ReadingState =
 	| { kind: 'prologue'; chapter: number }
 	| { kind: 'start'; chapter: number }
-	| { kind: 'continue'; chapter: number; position: number }
+	| { kind: 'continue'; chapter: number; position: number; spot: ReadingSpotRef | null }
 	| { kind: 'next'; chapter: number }
 	| { kind: 'again'; chapter: number };
 
@@ -92,7 +92,7 @@ function chaptersState(toon: string, readable: number[], checkpoints: Checkpoint
 	}
 	if (last === null) return { kind: 'start', chapter: readable[0] };
 	const position = checkpointPosition(byChapter.get(last)!);
-	if (position < 1) return { kind: 'continue', chapter: last, position };
+	if (position < 1) return { kind: 'continue', chapter: last, position, spot: checkpointSpot(byChapter.get(last)!) };
 	const after = readable[readable.indexOf(last) + 1];
 	if (after !== undefined) return { kind: 'next', chapter: after };
 	const unfinished = readable.find((n) => !byChapter.get(n)?.isComplete);
@@ -100,18 +100,44 @@ function chaptersState(toon: string, readable: number[], checkpoints: Checkpoint
 	return { kind: 'again', chapter: readable[0] };
 }
 
+/** A spot in a chapter (BACKLOG 10.69): the group's index in the chapter and the slice's index in that group */
+export interface ReadingSpotRef {
+	group: number;
+	slice: number;
+}
+
+/** The furthest spot a checkpoint keeps (null: none – a checkpoint from before 10.69, or never past a slice) */
+export function checkpointSpot(checkpoint: Checkpoint | undefined): ReadingSpotRef | null {
+	const { group, slice } = checkpoint ?? {};
+	return Number.isInteger(group) && Number.isInteger(slice) && group! >= 0 && slice! >= 0 ? { group: group!, slice: slice! } : null;
+}
+
 /**
  * The checkpoint after reading up to `position` (0..1) of a chapter; `fresh` = the first update of this visit (a chapter
- * read to its end and opened again starts a new read-through). Returns null when nothing changes.
+ * read to its end and opened again starts a new read-through). `spot` = where that position is (group / slice): kept
+ * while it is the furthest of the read-through. Returns null when nothing changes.
  */
-export function advanceCheckpoint(current: Checkpoint | undefined, uri: string, position: number, fresh: boolean, now: string): Checkpoint | null {
+export function advanceCheckpoint(
+	current: Checkpoint | undefined,
+	uri: string,
+	position: number,
+	fresh: boolean,
+	now: string,
+	spot?: ReadingSpotRef | null
+): Checkpoint | null {
 	const p = Math.min(1, Math.max(0, position));
-	if (!current) return { uri, isComplete: p >= 1, position: p, created_at: now, updated_at: now };
+	const at = spot ? { group: spot.group, slice: spot.slice } : {};
+	if (!current) return { uri, isComplete: p >= 1, position: p, ...at, created_at: now, updated_at: now };
 	const before = checkpointPosition(current);
-	const next = fresh && before >= 1 ? p : Math.max(before, p);
+	const restart = fresh && before >= 1;
+	const next = restart ? p : Math.max(before, p);
+	// the spot follows the furthest position: a new read-through or a step further (reading back above it keeps it)
+	const moved = !!spot && (restart || p > before || (p === before && !checkpointSpot(current)));
 	// the first update of a visit always touches `updated_at`: this chapter is now the last opened one
-	if (!fresh && next === before && (current.isComplete || next < 1)) return null;
-	return { ...current, isComplete: current.isComplete || next >= 1, position: next, updated_at: now };
+	if (!fresh && !moved && next === before && (current.isComplete || next < 1)) return null;
+	const { group: _group, slice: _slice, ...rest } = current;
+	const kept = restart ? rest : current;
+	return { ...kept, ...(moved ? at : {}), isComplete: current.isComplete || next >= 1, position: next, updated_at: now };
 }
 
 function time(value: unknown): number {
