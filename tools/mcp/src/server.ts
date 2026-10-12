@@ -466,7 +466,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 	server.registerTool(
 		'read_map_places',
 		{
-			description: 'Places of the SCUTOONS world map (entity `map`): id, name, position, which toons use it, hidden / unlock rule, linked chapter.',
+			description: 'Places of the SCUTOONS world map (entity `map`): id, name, position, which toons use it, hidden (unlocked by unlockLocation events), the chapter its card links to.',
 			inputSchema: z.object({ toon: z.string().optional().describe('only places this toon uses') }),
 			annotations: read
 		},
@@ -474,7 +474,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			const map = await data<WorldMap>('map');
 			if (!map) return text('no world map stored');
 			const places = (map.locations ?? []).filter((p) => !toon || p.toons?.includes(toon));
-			return text(places.map(({ id, name, x, y, toons, hidden, unlock, chapter }) => ({ id, name, x, y, toons, hidden, unlock, chapter })));
+			return text(places.map(({ id, name, x, y, toons, hidden, chapter }) => ({ id, name, x, y, toons, hidden, chapter })));
 		})
 	);
 

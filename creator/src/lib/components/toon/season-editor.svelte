@@ -203,7 +203,7 @@
 		container-type: inline-size;
 	}
 	@container (min-width: 60rem) {
-		.grid {
+		.grid { /* grid-ok: two page sections side by side (texts | media), not fields */
 			display: grid;
 			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 			gap: 0 2rem;
