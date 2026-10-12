@@ -5,6 +5,7 @@
 	import PlaceProps from '$lib/components/map/place-props.svelte';
 	import RouteProps from '$lib/components/map/route-props.svelte';
 	import LayerProps from '$lib/components/map/layer-props.svelte';
+	import RegionProps from '$lib/components/map/region-props.svelte';
 	import type { MapSelection } from '$lib/components/map/map-canvas.svelte';
 	import type { MapViewport } from '@scutoons/reader';
 
@@ -21,15 +22,18 @@
 		publishedIds,
 		onselect,
 		view,
-		bust = 0
+		bust = 0,
+		characters = []
 	}: {
+		/** the registry's characters (a region's representative) */
+		characters?: { id: string; name: string }[];
 		doc: ContentDoc;
 		map: WorldMap;
 		selection: MapSelection;
 		toons: { id: string; name: string }[];
 		languages: string[];
 		/** ids in the published map (fixed: events reference them) */
-		publishedIds: { places: Set<string>; routes: Set<string> };
+		publishedIds: { places: Set<string>; routes: Set<string>; regions?: Set<string> };
 		onselect: (selection: MapSelection) => void;
 		/** the builder's canvas view (a place's "Use the current view") */
 		view: MapViewport;
@@ -41,6 +45,7 @@
 	const route = $derived(selection?.kind === 'route' ? (map.routes.find((r) => r.id === selection.id) ?? null) : null);
 	const layerIndex = $derived(selection?.kind === 'layer' ? (map.layers ?? []).findIndex((l) => l.id === selection.id) : -1);
 	const layer = $derived(layerIndex >= 0 ? map.layers[layerIndex] : null);
+	const region = $derived(selection?.kind === 'region' ? (map.regions?.find((r) => r.id === selection.id) ?? null) : null);
 </script>
 
 <div class="props" data-testid="map-props">
@@ -50,6 +55,8 @@
 		<RouteProps {doc} {map} {route} {toons} {languages} locked={publishedIds.routes.has(route.id)} {onselect} />
 	{:else if layer}
 		<LayerProps {doc} {map} {layer} index={layerIndex} {onselect} />
+	{:else if region}
+		<RegionProps {doc} {region} {languages} {characters} locked={!!publishedIds.regions?.has(region.id)} {onselect} />
 	{/if}
 </div>
 

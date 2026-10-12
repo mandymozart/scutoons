@@ -286,6 +286,22 @@ test('regions: covers as row runs, the region at a point, validation, residences
 	assert.deepEqual(m.residences, { [READER_RESIDENT]: { region: 'dunes', at: 300 }, boy: { region: 'jungle', at: 50 } });
 	assert.equal(residenceOf(m, 'nobody', 'highlands'), 'highlands');
 	assert.equal(mergeMapState(emptyMapState(), emptyMapState()).residences, undefined, 'left out while empty');
+	// the outline from the runs = the outline from the cells (a blob with holes and a ragged edge)
+	const { runsOutline, cellsOutline, runsPaths } = await import('../src/map.ts');
+	const blob = cellRuns([...Array(400)].map((_, i) => ({ q: (i * 7919) % 23, r: (i * 104729) % 17 })).filter((c) => (c.q + c.r) % 5 !== 0));
+	const key = ([a, b]: [{ x: number; y: number }, { x: number; y: number }]) => [a, b].map((p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).sort().join('|');
+	assert.deepEqual(runsOutline(blob).map(key).sort(), cellsOutline(regionCells(blob)).map(key).sort());
+	assert.equal(runsOutline([[0, 0, 0]]).length, 6, 'one cell: six edges');
+	assert.match(runsPaths([[0, 0, 2]]).fill, /^M-0\.5 /);
+	// painting on runs = painting cell by cell
+	const { paintRuns, paintCells, brushArea } = await import('../src/map.ts');
+	const centre = regionCells(blob)[40];
+	for (const mode of ['add', 'remove'] as const) {
+		const touched = brushArea(centre, 19);
+		assert.deepEqual(paintRuns(blob, touched, mode), cellRuns(paintCells(regionCells(blob), touched, mode)), mode);
+	}
+	assert.deepEqual(paintRuns([[0, 0, 4]], [{ q: 2, r: 0 }], 'remove'), [[0, 0, 1], [0, 3, 4]], 'a hole splits the run');
+	assert.deepEqual(paintRuns([[0, 0, 1]], [{ q: 2, r: 0 }, { q: 5, r: 1 }], 'add', (c) => c.r === 0), [[0, 0, 2]], 'allowed refuses');
 });
 
 test('resetting the map: the merge drops what came before the reset – also from a device that missed it (owner 2026-10-11)', async () => {

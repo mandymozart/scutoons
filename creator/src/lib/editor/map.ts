@@ -12,6 +12,7 @@ import {
 	type FreeWaypoint,
 	type MapPath,
 	type MapPlace,
+	type MapRegion,
 	type Point,
 	type WorldMap
 } from '@scutoons/content';
@@ -54,7 +55,7 @@ export const editMap = (doc: ContentDoc, change: (map: WorldMap) => void, key?: 
  * every id of the map's places, routes, layers (new ids must be unique among their kind) – for places and routes also
  * every id ever stored (a removed one's tombstone keeps it: ids are stable forever, agents/MAP-DOCUMENTS.md)
  */
-const ids = (list: { id: string }[] | undefined, doc?: ContentDoc, kind?: 'place' | 'route'): string[] => [
+const ids = (list: { id: string }[] | undefined, doc?: ContentDoc, kind?: 'place' | 'route' | 'region'): string[] => [
 	...(list ?? []).map((x) => x.id),
 	...(doc instanceof WorldMapDoc && kind ? doc.takenIds(kind) : [])
 ];
@@ -140,6 +141,44 @@ export function renameRoute(doc: ContentDoc, from: string, wanted: string, key?:
 export function removeRoute(doc: ContentDoc, id: string) {
 	editMap(doc, (map) => {
 		map.routes = map.routes.filter((r) => r.id !== id);
+	});
+}
+
+// ── regions (agents/MAP.md §8.10): their cover is painted with the hex brush (row runs, `paintRuns`) ───────────────
+/** A new region, no cells yet (painted with the brush); its id comes from the name (editable until the first publish) */
+export function addRegion(doc: ContentDoc): string {
+	let id = '';
+	editMap(doc, (map) => {
+		map.regions ??= [];
+		id = uniqueId('region', ids(map.regions, doc, 'region'));
+		map.regions.push({ id, name: { [MAP_SOURCE_LANGUAGE]: '' }, cells: [] });
+	});
+	return id;
+}
+export function editRegion(doc: ContentDoc, id: string, change: (region: MapRegion) => void, key?: string) {
+	editMap(
+		doc,
+		(map) => {
+			const region = map.regions?.find((r) => r.id === id);
+			if (region) change(region);
+		},
+		key
+	);
+}
+/** Renames a region id (characters and migrate events refer to it – only before its first publish); returns the new id */
+export function renameRegion(doc: ContentDoc, from: string, wanted: string, key?: string): string {
+	let to = from;
+	editMap(doc, (map) => {
+		const slug = slugId(wanted) || from;
+		to = slug === from ? from : uniqueId(slug, ids(map.regions, doc, 'region'));
+		const region = map.regions?.find((r) => r.id === from);
+		if (region) region.id = to;
+	}, key);
+	return to;
+}
+export function removeRegion(doc: ContentDoc, id: string) {
+	editMap(doc, (map) => {
+		map.regions = (map.regions ?? []).filter((r) => r.id !== id);
 	});
 }
 

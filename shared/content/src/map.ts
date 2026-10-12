@@ -568,6 +568,98 @@ export function cellRuns(cells: readonly HexCell[]): CellRun[] {
 }
 /** how many cells a cover has */
 export const runsSize = (runs: readonly CellRun[]): number => runs.reduce((n, [, a, b]) => n + b - a + 1, 0);
+/**
+ * A cover's outer edges straight from its row runs (agents/MAP.md §8.10) – work in proportion to the outline, not the
+ * area (a region has hundreds of thousands of cells; `cellsOutline` visits each): per run its west / east end and the
+ * cells whose neighbour above / below is not covered. The same segments as `cellsOutline` of the cells.
+ */
+export function runsOutline(runs: readonly CellRun[]): [Point, Point][] {
+	const rows = new Map<number, [number, number][]>();
+	for (const [r, q0, q1] of runs) (rows.get(r) ?? rows.set(r, []).get(r)!).push([q0, q1]);
+	for (const list of rows.values()) list.sort((a, b) => a[0] - b[0]);
+	const covered = (r: number, q: number) => {
+		const list = rows.get(r);
+		if (!list) return false;
+		let lo = 0, hi = list.length - 1;
+		while (lo <= hi) {
+			const mid = (lo + hi) >> 1, [a, b] = list[mid];
+			if (q < a) hi = mid - 1;
+			else if (q > b) lo = mid + 1;
+			else return true;
+		}
+		return false;
+	};
+	/** the q in [a, b] that row r does not cover */
+	const gaps = function* (r: number, a: number, b: number) {
+		let q = a;
+		for (const [x, y] of rows.get(r) ?? []) {
+			if (y < q) continue;
+			if (x > b) break;
+			for (; q < x && q <= b; q++) yield q;
+			q = Math.max(q, y + 1);
+		}
+		for (; q <= b; q++) yield q;
+	};
+	const out: [Point, Point][] = [];
+	// corner i of a pointy-top cell at 60·i − 30°: the edge toward a neighbour runs between two of them
+	const edge = (q: number, r: number, i: number) => {
+		const k = hexCorners({ q, r });
+		out.push([k[i], k[(i + 1) % 6]]);
+	};
+	for (const [r, q0, q1] of runs) {
+		if (!covered(r, q0 - 1)) edge(q0, r, 3); // west
+		if (!covered(r, q1 + 1)) edge(q1, r, 0); // east
+		for (const q of gaps(r - 1, q0, q1)) edge(q, r, 4); // north-west: (q, r − 1)
+		for (const q of gaps(r - 1, q0 + 1, q1 + 1)) edge(q - 1, r, 5); // north-east: (q + 1, r − 1)
+		for (const q of gaps(r + 1, q0, q1)) edge(q, r, 1); // south-east: (q, r + 1)
+		for (const q of gaps(r + 1, q0 - 1, q1 - 1)) edge(q + 1, r, 2); // south-west: (q − 1, r + 1)
+	}
+	return out;
+}
+/** a cover as SVG paths in world units: `fill` = one band per run (rows tile without gaps), `edge` = its outline */
+export function runsPaths(runs: readonly CellRun[]): { fill: string; edge: string } {
+	const R = HEX_CELL / Math.sqrt(3);
+	const n = (v: number) => Math.round(v * 100) / 100;
+	let fill = '';
+	for (const [r, q0, q1] of runs) {
+		const a = hexCenter({ q: q0, r }), b = hexCenter({ q: q1, r });
+		fill += `M${n(a.x - HEX_CELL / 2)} ${n(a.y - 0.75 * R)}H${n(b.x + HEX_CELL / 2)}V${n(a.y + 0.75 * R)}H${n(a.x - HEX_CELL / 2)}Z`;
+	}
+	const edge = runsOutline(runs).map(([a, b]) => `M${n(a.x)} ${n(a.y)}L${n(b.x)} ${n(b.y)}`).join('');
+	return { fill, edge };
+}
+/**
+ * A brush stroke on a cover's row runs (a region – agents/MAP.md §8.10): `add` = the union, `remove` = the difference,
+ * interval by interval (the cell-by-cell `paintCells` takes seconds on a region's hundreds of thousands of cells).
+ * `allowed` refuses touched cells when adding (another region's, outside the map …).
+ */
+export function paintRuns(runs: readonly CellRun[], touched: readonly HexCell[], mode: 'add' | 'remove', allowed?: (cell: HexCell) => boolean): CellRun[] {
+	const stroke = cellRuns(mode === 'add' && allowed ? touched.filter(allowed) : touched);
+	const rows = new Map<number, [number, number][]>();
+	for (const [r, a, b] of runs) (rows.get(r) ?? rows.set(r, []).get(r)!).push([a, b]);
+	const strokeRows = new Map<number, [number, number][]>();
+	for (const [r, a, b] of stroke) (strokeRows.get(r) ?? strokeRows.set(r, []).get(r)!).push([a, b]);
+	for (const [r, cut] of strokeRows) {
+		const have = (rows.get(r) ?? []).slice().sort((x, y) => x[0] - y[0]);
+		let next: [number, number][];
+		if (mode === 'add') {
+			next = [];
+			for (const [a, b] of [...have, ...cut].sort((x, y) => x[0] - y[0])) {
+				const last = next[next.length - 1];
+				if (last && a <= last[1] + 1) last[1] = Math.max(last[1], b);
+				else next.push([a, b]);
+			}
+		} else {
+			next = have;
+			for (const [a, b] of cut) next = next.flatMap(([x, y]): [number, number][] => (b < x || a > y ? [[x, y]] : [...(x < a ? [[x, a - 1] as [number, number]] : []), ...(y > b ? [[b + 1, y] as [number, number]] : [])]));
+		}
+		if (next.length) rows.set(r, next);
+		else rows.delete(r);
+	}
+	const out: CellRun[] = [];
+	for (const r of [...rows.keys()].sort((x, y) => x - y)) for (const [a, b] of rows.get(r)!.sort((x, y) => x[0] - y[0])) out.push([r, a, b]);
+	return out;
+}
 /** the region whose cover holds a world point (the first in list order), or null */
 export function regionAt<T extends { cells: readonly CellRun[] }>(regions: readonly T[], p: Point): T | null {
 	const c = hexCellAt(p);
