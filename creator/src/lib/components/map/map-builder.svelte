@@ -672,7 +672,9 @@
 
 {#snippet mark(key: string)}
 	{@const level = marks.get(key)}
-	{#if level === 'error'}<span class="mark bad" title={problems.filter((p) => { const t = problemTarget(p); return t && `${t.kind}:${t.id}` === key; }).map((p) => p.message).join('\n')}>!</span>{:else if level === 'warning'}<span class="mark warn">!</span>{/if}
+	<!-- one list of problems: the page's Problems panel (owner 2026-10-12: "validations and problems? why two?"); here the
+	     mark, its messages in the tooltip -->
+	{#if level}<span class="mark" class:bad={level === 'error'} class:warn={level === 'warning'} title={problems.filter((p) => { const t = problemTarget(p); return t && `${t.kind}:${t.id}` === key; }).map((p) => p.message).join('\n')}>!</span>{/if}
 {/snippet}
 
 {#snippet mapNav()}
@@ -856,24 +858,6 @@
 							</div>
 						</section>
 					{/if}
-					<section class="validation tab" data-tab="problems" data-testid="map-validation">
-						<h3>{m['creator.map_validation']()} ({problems.length})</h3>
-						{#if problems.length}
-							<table>
-								<thead><tr><th>{m['creator.map_level']()}</th><th>{m['creator.map_where']()}</th><th>{m['creator.map_message']()}</th></tr></thead>
-								<tbody>
-									{#each problems as p, i (i)}
-										{@const t = problemTarget(p)}
-										<tr class={p.level}>
-											<td>{p.level}</td>
-											<td>{#if t}<button type="button" class="link" onclick={() => select(t, true)}>{t.id}</button>{:else}{p.path.join('.')}{/if}</td>
-											<td>{p.message}</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						{/if}
-					</section>
 				{/if}
 			</aside>
 		</div>
@@ -896,36 +880,6 @@
 	.side {
 		min-height: 0;
 		overflow: auto;
-	}
-	.validation {
-		padding: 0 0.75rem 1rem;
-	}
-	.validation h3 {
-		margin: 0.5rem 0;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--type-caption-size);
-	}
-	th,
-	td {
-		text-align: left;
-		vertical-align: top;
-		padding: 0.2rem 0.25rem;
-		border-bottom: 1px solid var(--border-subtle);
-	}
-	tr.error td:first-child {
-		color: var(--error);
-		font-weight: var(--font-weight-regular);
-	}
-	tr.warning td:first-child {
-		color: var(--warn);
-	}
-	.link {
-		all: unset;
-		cursor: pointer;
-		text-decoration: underline;
 	}
 	.hint {
 		font-size: var(--type-caption-size);
@@ -998,8 +952,7 @@
 		padding: 0.25rem 0.75rem;
 	}
 	/* ── phones (UI-CONCEPTS E.10): the canvas gets the screen, the properties are a sheet from below ── */
-	.phone-only,
-	.tab.phone-only {
+	.phone-only {
 		display: none;
 	}
 	.tab {
@@ -1012,9 +965,6 @@
 		}
 		.phone-only {
 			display: flex;
-		}
-		.tab.phone-only {
-			display: block;
 		}
 		.stage {
 			border-bottom: 0;
