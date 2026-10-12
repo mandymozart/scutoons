@@ -93,15 +93,27 @@ export interface MapPlace {
 	/**
 	 * where routes enter and leave the place's diorama (owner 2026-10-12, BACKLOG 10.66 (4), variant A "gates"): a route
 	 * stops at the entry and goes on from the exit – nothing is drawn across the place. Offsets from the place's point in
-	 * world units; each one missing = computed (`placeGate`: the diorama's ground ellipse toward the neighbouring waypoint)
+	 * world units, on the place's own hexagons; each one missing = computed (`placeGate`: the place's hexagon nearest the
+	 * neighbouring waypoint)
 	 */
 	gates?: PlaceGates;
 }
 
 /** A place's route gates (`MapPlace.gates`): offsets from its point, world units */
 export interface PlaceGates {
-	entry?: { x: number; y: number };
-	exit?: { x: number; y: number };
+	entry?: PlaceGate;
+	exit?: PlaceGate;
+}
+
+/** One gate: its offset from the place's point, and its Bézier handle (owner 2026-10-12) */
+export interface PlaceGate {
+	x: number;
+	y: number;
+	/**
+	 * the route's control point at the gate, an offset from the gate (world units) – how the line runs in or out of the
+	 * place; missing = computed (`gateHandle`: perpendicular to the place's nearest outer hexagon edge, `ROUTE_HANDLE` long)
+	 */
+	handle?: Point;
 }
 
 /** A place's own framing on the reader's map (agents/MAP.md §8.4) */
@@ -193,6 +205,11 @@ export interface FreeWaypoint {
 	x: number;
 	y: number;
 	name?: LocaleText;
+	/**
+	 * the curve's handle here (owner 2026-10-12: Bézier routes): an offset from the point, world units – the outgoing
+	 * control point, the incoming one mirrored; missing = smooth (the neighbours' direction)
+	 */
+	handle?: Point;
 }
 export type Waypoint = PlaceWaypoint | FreeWaypoint;
 
@@ -275,9 +292,9 @@ const cellKey = (c: HexCell) => `${c.q},${c.r}`;
  * a place's size: the width of its diorama (or its outline) in world units – `size`, else its image's, else the default
  * (owner 2026-10-11: "festlegen, welche Größe so ein Diorama hat – eine sinnvolle Stufung, wie in SimCity")
  */
-export const placeSize = (p: Pick<MapPlace, 'size' | 'image'>): number => p.size ?? p.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE;
+export const placeSize = (p: { size?: number; image?: { size?: number } }): number => p.size ?? p.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE;
 /** the cells a place takes: those whose centres lie within half its size of its cell's centre (at least its own) */
-export function placeCells(p: Pick<MapPlace, 'x' | 'y' | 'size' | 'image'>): HexCell[] {
+export function placeCells(p: Point & { size?: number; image?: { size?: number } }): HexCell[] {
 	const home = hexCellAt(p);
 	const centre = hexCenter(home);
 	const radius = placeSize(p) / 2;
@@ -399,66 +416,180 @@ export function routePoints(places: readonly { id: string; x: number; y: number 
 	return out;
 }
 
-/** the share of a place's half size where a computed gate sits (inside the diorama's ground, not its box edge) */
-export const GATE_RADIUS = 0.5;
-/** the diorama's ground is an ellipse: an isometric patch is flatter than wide */
-export const GATE_FLAT = 0.6;
+/** a route's default handle at a gate: two hexagon widths (owner 2026-10-12) */
+export const ROUTE_HANDLE = 2 * HEX_CELL;
 
 /** what route drawing needs of a place */
 export type RoutePlace = { id: string; x: number; y: number; size?: number; image?: { size?: number }; gates?: PlaceGates };
 
+/** a point of a route's curve with its control points (absolute, world units; missing = smooth) */
+export interface RouteNode {
+	p: Point;
+	in?: Point;
+	out?: Point;
+}
+
+/** the six neighbour directions of a pointy-top cell (also its edges' outward normals) */
+const HEX_DIRS: Point[] = [0, 1, 2, 3, 4, 5].map((i) => ({ x: Math.cos((i * Math.PI) / 3), y: Math.sin((i * Math.PI) / 3) }));
+const finitePoint = (v: unknown): v is Point => !!v && Number.isFinite((v as Point).x) && Number.isFinite((v as Point).y);
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** a place's cells and their outer edges (an edge's midpoint and outward normal), cached by the place's footprint */
+const coverCache = new Map<string, { cells: HexCell[]; keys: Set<string>; edges: { mid: Point; normal: Point }[] }>();
+function placeCover(place: RoutePlace) {
+	const key = `${place.x},${place.y},${placeSize(place)}`;
+	let cover = coverCache.get(key);
+	if (!cover) {
+		const cells = placeCells(place);
+		const keys = new Set(cells.map(cellKey));
+		const edges: { mid: Point; normal: Point }[] = [];
+		for (const c of cells) {
+			const centre = hexCenter(c);
+			for (const d of HEX_DIRS)
+				if (!keys.has(cellKey(hexCellAt({ x: centre.x + d.x * HEX_CELL, y: centre.y + d.y * HEX_CELL }))))
+					edges.push({ mid: { x: centre.x + (d.x * HEX_CELL) / 2, y: centre.y + (d.y * HEX_CELL) / 2 }, normal: d });
+		}
+		if (coverCache.size > 2000) coverCache.clear();
+		coverCache.set(key, (cover = { cells, keys, edges }));
+	}
+	return cover;
+}
+
+/** a point on the place's hexagons: the centre of its cell nearest to `at` (owner 2026-10-12: gates snap to the place's cells, never outside) */
+export function snapToPlace(place: RoutePlace, at: Point): Point {
+	const { cells } = placeCover(place);
+	let best = cells[0], bestD = Infinity;
+	for (const c of cells) {
+		const d = distance(hexCenter(c), at);
+		if (d < bestD) (best = c), (bestD = d);
+	}
+	return hexCenter(best);
+}
+
 /**
- * A place's entry / exit gate (owner 2026-10-12, BACKLOG 10.66 (4)): its own offset when the author set one, else the
- * point on the diorama's ground ellipse toward `toward` (the previous waypoint for the entry, the next for the exit)
+ * A place's entry / exit gate (owner 2026-10-12, BACKLOG 10.66 (4)): its own offset when the author set one (kept on the
+ * place's hexagons), else the centre of the place's cell nearest `toward` (the previous waypoint for the entry, the next
+ * for the exit)
  */
 export function placeGate(place: RoutePlace, which: 'entry' | 'exit', toward: Point | null): Point {
 	const own = place.gates?.[which];
-	if (own && Number.isFinite(own.x) && Number.isFinite(own.y)) return { x: place.x + own.x, y: place.y + own.y };
+	if (finitePoint(own)) {
+		const at = { x: place.x + own.x, y: place.y + own.y };
+		return placeCover(place).keys.has(cellKey(hexCellAt(at))) ? at : snapToPlace(place, at);
+	}
 	if (!toward) return { x: place.x, y: place.y };
-	const r = ((place.size ?? place.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE) / 2) * GATE_RADIUS;
-	const a = Math.atan2((toward.y - place.y) / GATE_FLAT, toward.x - place.x);
-	return { x: place.x + Math.cos(a) * r, y: place.y + Math.sin(a) * r * GATE_FLAT };
+	return snapToPlace(place, toward);
+}
+
+/**
+ * A gate's Bézier control point (absolute): its own handle, else perpendicular to the place's outer hexagon edge nearest
+ * the gate – of several equally near (a gate on a corner cell) the one facing `toward` – `ROUTE_HANDLE` long (owner
+ * 2026-10-12: "an angle orthogonal to the side closest to the connecting point, by default two hexagon widths")
+ */
+export function gateHandle(place: RoutePlace, which: 'entry' | 'exit', gate: Point, toward: Point | null): Point {
+	const own = place.gates?.[which]?.handle;
+	if (finitePoint(own)) return { x: gate.x + own.x, y: gate.y + own.y };
+	const { edges } = placeCover(place);
+	const dir = toward ? { x: toward.x - gate.x, y: toward.y - gate.y } : { x: 0, y: 0 };
+	let best = edges[0], bestD = Infinity, bestFacing = -Infinity;
+	for (const e of edges) {
+		const d = distance(e.mid, gate);
+		const facing = e.normal.x * dir.x + e.normal.y * dir.y;
+		if (d < bestD - 1e-6 || (Math.abs(d - bestD) <= 1e-6 && facing > bestFacing)) (best = e), (bestD = d), (bestFacing = facing);
+	}
+	const n = best?.normal ?? { x: 0, y: 0 };
+	return { x: gate.x + n.x * ROUTE_HANDLE, y: gate.y + n.y * ROUTE_HANDLE };
+}
+
+/** one gate mark of a drawn route: where, its control point, and whether the author set the gate / its handle */
+export interface RouteGate {
+	place: string;
+	which: 'entry' | 'exit';
+	at: Point;
+	handle: Point;
+	set: boolean;
+	handleSet: boolean;
 }
 
 /**
  * A route as it is drawn (owner 2026-10-12, variant A "gates"): the line stops at each place's entry gate and goes on
  * from its exit gate, so a route runs into the diorama and out again – nothing across the place; a route starting at a
- * place leaves from its exit, one ending there comes in at its entry. `segments` = the separate lines (each ≥ 2
- * points), `gates` = the marks, with the place and which gate. Waypoints `[from, to]` only (the reader's progress);
- * unknown places are skipped like `routePoints`.
+ * place leaves from its exit, one ending there comes in at its entry. `segments` = the separate curves (each ≥ 2 nodes;
+ * a gate brings its handle, a free point its own), `gates` = the marks. Waypoints `[from, to]` only (the reader's
+ * progress); unknown places are skipped like `routePoints`.
  */
 export function routeGeometry(
 	places: readonly RoutePlace[],
 	waypoints: readonly (Waypoint | ReaderWaypoint)[],
 	from = 0,
 	to = Infinity
-): { segments: Point[][]; gates: { place: string; which: 'entry' | 'exit'; at: Point }[] } {
-	const pts: { p: Point; place?: RoutePlace }[] = [];
+): { segments: RouteNode[][]; gates: RouteGate[] } {
+	const pts: { p: Point; place?: RoutePlace; handle?: Point }[] = [];
 	waypoints.forEach((w, i) => {
 		if (i < from || i > to) return;
 		const p = waypointPoint(places, w);
 		if (!p) return;
-		pts.push({ p, place: isPlaceWaypoint(w) ? places.find((x) => x.id === w.location) : undefined });
+		if (isPlaceWaypoint(w)) pts.push({ p, place: places.find((x) => x.id === w.location) });
+		else {
+			const h = (w as FreeWaypoint).handle;
+			pts.push({ p, handle: finitePoint(h) ? h : undefined });
+		}
 	});
-	const segments: Point[][] = [[]];
-	const gates: { place: string; which: 'entry' | 'exit'; at: Point }[] = [];
-	pts.forEach(({ p, place }, i) => {
+	const segments: RouteNode[][] = [[]];
+	const gates: RouteGate[] = [];
+	pts.forEach(({ p, place, handle }, i) => {
 		const current = segments[segments.length - 1];
-		if (!place) return void current.push(p);
+		if (!place) return void current.push(handle ? { p, out: { x: p.x + handle.x, y: p.y + handle.y }, in: { x: p.x - handle.x, y: p.y - handle.y } } : { p });
 		const prev = pts[i - 1]?.p ?? null;
 		const next = pts[i + 1]?.p ?? null;
-		if (prev) {
-			const at = placeGate(place, 'entry', prev);
-			current.push(at);
-			gates.push({ place: place.id, which: 'entry', at });
-		}
-		if (next) {
-			const at = placeGate(place, 'exit', next);
-			segments.push([at]);
-			gates.push({ place: place.id, which: 'exit', at });
+		for (const [which, toward] of [['entry', prev], ['exit', next]] as const) {
+			if (!toward) continue;
+			const at = placeGate(place, which, toward);
+			const h = gateHandle(place, which, at, toward);
+			gates.push({ place: place.id, which, at, handle: h, set: finitePoint(place.gates?.[which]), handleSet: finitePoint(place.gates?.[which]?.handle) });
+			if (which === 'entry') current.push({ p: at, in: h });
+			else segments.push([{ p: at, out: h }]);
 		}
 	});
 	return { segments: segments.filter((s) => s.length >= 2), gates };
+}
+
+/** a curve's cubic pieces: each node's own control points, else smooth along its neighbours (`tension` of the chord) */
+export function routeCubics(nodes: readonly RouteNode[], tension = 0.3): { a: Point; c1: Point; c2: Point; b: Point }[] {
+	const smooth = (k: number, sign: 1 | -1, len: number): Point => {
+		const here = nodes[k].p;
+		const before = nodes[k - 1]?.p ?? here, after = nodes[k + 1]?.p ?? here;
+		const t = { x: after.x - before.x, y: after.y - before.y };
+		const l = Math.hypot(t.x, t.y) || 1;
+		return { x: here.x + (sign * t.x * len) / l, y: here.y + (sign * t.y * len) / l };
+	};
+	const out: { a: Point; c1: Point; c2: Point; b: Point }[] = [];
+	for (let i = 1; i < nodes.length; i++) {
+		const a = nodes[i - 1], b = nodes[i];
+		const len = distance(a.p, b.p) * tension;
+		out.push({ a: a.p, c1: a.out ?? smooth(i - 1, 1, len), c2: b.in ?? smooth(i, -1, len), b: b.p });
+	}
+	return out;
+}
+
+/** a route curve as an SVG path */
+export function routePath(nodes: readonly RouteNode[], tension = 0.3): string {
+	const cubics = routeCubics(nodes, tension);
+	if (!cubics.length) return '';
+	return cubics.reduce((d, c) => `${d} C ${round(c.c1.x)} ${round(c.c1.y)}, ${round(c.c2.x)} ${round(c.c2.y)}, ${round(c.b.x)} ${round(c.b.y)}`, `M ${round(cubics[0].a.x)} ${round(cubics[0].a.y)}`);
+}
+
+/** points along a route curve about every `spacing` world units (the fog's corridor follows the curve) */
+export function sampleRoute(nodes: readonly RouteNode[], spacing: number, tension = 0.3): Point[] {
+	const out: Point[] = [];
+	routeCubics(nodes, tension).forEach(({ a, c1, c2, b }, k) => {
+		const n = Math.max(1, Math.ceil((distance(a, c1) + distance(c1, c2) + distance(c2, b)) / spacing));
+		for (let s = k === 0 ? 0 : 1; s <= n; s++) {
+			const t = s / n, u = 1 - t;
+			out.push({ x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y });
+		}
+	});
+	return out;
 }
 
 /**
@@ -529,7 +660,7 @@ export const FOG_ROUTE_SCALE = 0.6;
  * (`route~<route>~<n>`), so a stretch that joins later grows in like a place.
  */
 export function fogRoutePoints(
-	places: readonly { id: string; x: number; y: number }[],
+	places: readonly RoutePlace[],
 	routes: readonly { id: string; waypoints?: readonly (Waypoint | ReaderWaypoint)[] }[],
 	unlocked: (placeId: string) => boolean,
 	spacing = 8
@@ -545,12 +676,10 @@ export function fogRoutePoints(
 				return;
 			}
 			if (from >= 0) {
-				const line = routePoints(places, ws, from, i);
-				for (let k = 1; k < line.length; k++) {
-					const a = line[k - 1], b = line[k];
-					const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / spacing));
-					for (let s = k === 1 ? 0 : 1; s <= n; s++) out.push({ id: `route~${route.id}~${from}~${k}~${s}`, x: a.x + ((b.x - a.x) * s) / n, y: a.y + ((b.y - a.y) * s) / n, scale: FOG_ROUTE_SCALE });
-				}
+				// along the drawn curve (gate to gate, owner 2026-10-12: Bézier routes), not the straight line
+				routeGeometry(places, ws, from, i).segments.forEach((nodes, k) =>
+					sampleRoute(nodes, spacing).forEach((p, n) => out.push({ id: `route~${route.id}~${from}~${k}~${n}`, x: p.x, y: p.y, scale: FOG_ROUTE_SCALE }))
+				);
 			}
 			from = i;
 		});
@@ -1113,6 +1242,8 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 					const g = (p.gates as Record<string, unknown>)[which];
 					if (g !== undefined && (!isObj(g) || !Number.isFinite((g as any).x) || !Number.isFinite((g as any).y)))
 						add('error', [...path, 'gates', which], `${what}: the ${which} gate needs x / y numbers (or none: computed)`);
+					else if (isObj(g) && (g as any).handle !== undefined && !finitePoint((g as any).handle))
+						add('error', [...path, 'gates', which, 'handle'], `${what}: the ${which} gate's handle needs x / y numbers (or none: computed)`);
 				}
 		}
 		if (p.image !== undefined) {
@@ -1162,6 +1293,7 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				else free.add(w.id);
 				if (!inside(w.x, w.y)) add('error', [...wp, 'x'], `${what}: waypoint ${w.id ?? j + 1} is outside the map`);
 				names(w.name, [...wp, 'name'], `${what} waypoint ${w.id ?? j + 1}`, false);
+				if (w.handle !== undefined && !finitePoint(w.handle)) add('error', [...wp, 'handle'], `${what}: waypoint ${w.id ?? j + 1}'s handle needs x / y numbers (or none: smooth)`);
 			} else add('error', wp, `${what}: waypoint ${j + 1} must be { location } or { id, x, y }`);
 		});
 	});

@@ -1037,6 +1037,8 @@
 		"map_gates": "Weg-Tore",
 		"map_gates_hint": "Wo Wege ins Diorama hinein- und wieder herausführen – Eingang: {entry}, Ausgang: {exit}. Ein Tor auf der Karte ziehen (der Ort ausgewählt), um es zu setzen.",
 		"map_gates_reset": "Wieder berechnen",
+		"map_curve_handle": "Kurvengriff",
+		"map_curve_reset_hint": "ziehen, um den Verlauf der Route zu formen; Doppelklick: wieder berechnet",
 		"map_gate_entry": "Eingangstor",
 		"map_gate_exit": "Ausgangstor",
 		"map_gate_entry_short": "ein",

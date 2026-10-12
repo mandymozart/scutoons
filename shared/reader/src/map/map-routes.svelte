@@ -14,7 +14,7 @@
 </script>
 
 <script lang="ts">
-	import { bezierPath, routeGeometry, routeStroke, type RoutePlace } from '@scutoons/content';
+	import { routeGeometry, routePath, routeStroke, type RoutePlace } from '@scutoons/content';
 
 	/**
 	 * The routes of the world map as one SVG over the map's viewport (agents/MAP.md §4.4 styles): the paths are in world
@@ -63,8 +63,8 @@
 				</g>
 			{:else if shape.segments.length}
 				<g class="route" class:dimmed={route.dimmed} class:selected={route.selected} data-route={route.id}>
-					{#each shape.segments as points, si (si)}
-						{@const d = bezierPath(points, stroke.tension, stroke.bow)}
+					{#each shape.segments as nodes, si (si)}
+						{@const d = routePath(nodes, stroke.tension)}
 						{#if onroute}
 							<!-- a wide invisible line makes the route easy to hit in the builder -->
 							<path class="hit" {d} role="presentation" onclick={(e) => onroute(route.id, e)} />

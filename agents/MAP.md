@@ -882,6 +882,30 @@ builder. Builder: the selected place shows one handle per gate its routes use (h
 "in" / "out"), dragging one sets the offset (a tenth of a unit); the place form's "Route gates" says computed / set and
 "Back to computed" drops `gates`. One entry and one exit per place – every route through it uses them.
 
+### 8.5d Bézier routes, gates on the hexagons (owner 2026-10-12)
+
+Owner: "Paths in the editor need bezier curves so I can design their way they run in and out of a location. To start it
+should find an angle orthogonal to the side closest to the connecting point, with a default of maybe two hexagon widths.
+The connecting points should snap to the hexagons of that place, not outside. Dragging outside is not possible." – and
+"remove the placeholder image inside a place if there is no image; the hexagons are enough".
+
+- **Gates on the place's cells** (supersedes §8.5c's ellipse): a computed gate is the centre of the place cell nearest the
+  neighbouring waypoint (an outer cell facing it); a set gate (`gates.entry|exit {x, y}`) is kept on the place's cells –
+  one outside them is pulled onto the nearest (`snapToPlace`). The builder snaps a dragged gate to the cells.
+- **Handles**: `PlaceGate.handle {x, y}` (offset from the gate) = the curve's control point there; computed
+  (`gateHandle`): perpendicular to the place's outer hexagon edge nearest the gate (of equally near edges, the one facing
+  the neighbour), `ROUTE_HANDLE` = 2 hexagon widths. A free waypoint may have `handle` (outgoing control point, the
+  incoming one mirrored); without it the curve is smooth through it as before.
+- **One curve for everything**: `routeGeometry` gives curve nodes (point + in/out control points), `routePath` the SVG
+  path (reader + builder `MapRoutes`), `sampleRoute` points along it – the fog's route corridor (`fogRoutePoints`) follows
+  the curve.
+- **Builder**: with a place selected, its gates ("in" / "out") and their handles (small squares on a dashed arm: hollow =
+  computed, filled = set); with a route selected, its free points' handles. Drag to shape; double-click a handle: back to
+  computed; double-click a gate: the gate back to computed. A place without a diorama shows its cells dashed (the old
+  isometric placeholder outline is gone).
+- No migration: `handle` is new and optional; the gates already set on production (station, graveyard) are pulled onto
+  their cells when drawn.
+
 ### 8.9 The painted map, the plaster layer, fog of war (owner 2026-10-12)
 
 Owner: "Ich brauche die Kacheln in demselben Stil, wie wir ihn definiert haben, und auf jeden Fall auch in derselben Form

@@ -279,7 +279,7 @@ test('placeImageTarget: the place id, or <id>-plaster for its plaster model; an 
 	assert.equal(placeImageTarget('nowhere-plaster', places), null);
 });
 
-test('route gates: a route stops at the place entry and goes on from its exit (BACKLOG 10.66 (4), variant A)', async () => {
+test('route gates: a route stops at the place entry and goes on from its exit, on the place hexagons (BACKLOG 10.66 (4), owner 2026-10-12)', async () => {
 	const { routeGeometry, placeGate, checkWorldMap } = await import('../src/map.ts');
 	const places = [
 		{ id: 'a', x: 0, y: 0, size: 10 },
@@ -289,18 +289,47 @@ test('route gates: a route stops at the place entry and goes on from its exit (B
 	const w = [{ location: 'a' }, { location: 'b' }, { location: 'c' }] as any;
 	const g = routeGeometry(places, w);
 	const r = (p: { x: number; y: number }) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
-	// a → b, b → c: two lines; a starts at its exit, c ends at its own entry
+	// a → b, b → c: two curves; a starts at its exit (its cell nearest b: the outer one at x 5), c ends at its own entry
 	assert.equal(g.segments.length, 2);
-	assert.deepEqual(r(g.segments[0][0]), { x: 2.5, y: 0 });
-	assert.deepEqual(r(g.segments[0][1]), { x: 97.5, y: 0 });
-	assert.deepEqual(r(g.segments[1][0]), { x: 102.5, y: 0 });
-	assert.deepEqual(r(g.segments[1][1]), { x: 200, y: 3 });
+	assert.deepEqual(r(g.segments[0][0].p), { x: 5, y: 0 });
+	assert.deepEqual(r(g.segments[0][1].p), { x: 95, y: 0 });
+	assert.deepEqual(r(g.segments[1][0].p), { x: 105, y: 0 });
+	assert.deepEqual(r(g.segments[1][1].p), { x: 200, y: 3 });
 	assert.deepEqual(g.gates.map((x) => `${x.place}:${x.which}`), ['a:exit', 'b:entry', 'b:exit', 'c:entry']);
-	// a free point in between stays a point of the line; progress `to` ends at the reached place's entry
+	// progress `to` ends at the reached place's entry
 	assert.equal(routeGeometry(places, w, 0, 1).segments.length, 1);
 	assert.deepEqual(placeGate(places[0], 'entry', null), { x: 0, y: 0 });
+	// a gate set outside the place's hexagons is pulled onto them
+	assert.deepEqual(r(placeGate({ id: 'd', x: 0, y: 0, size: 4, gates: { exit: { x: 30, y: 0 } } }, 'exit', null)), { x: 2, y: 0 });
 	const bad = { width: 10, height: 10, layers: [], routes: [], locations: [{ id: 'x', name: { de: 'X' }, x: 1, y: 1, toons: [], gates: { exit: { x: 'no' } } }] } as any;
 	assert.ok(checkWorldMap(bad).some((p: any) => p.path.join('.').endsWith('gates.exit')));
+});
+
+test('Bézier routes: gate handles perpendicular to the outer hexagon edge, own handles, free points, the curve (owner 2026-10-12)', async () => {
+	const { routeGeometry, routePath, sampleRoute, ROUTE_HANDLE, checkWorldMap } = await import('../src/map.ts');
+	const r = (p: { x: number; y: number }) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
+	const places = [
+		{ id: 'a', x: 0, y: 0, size: 10 },
+		{ id: 'b', x: 100, y: 0, size: 10, gates: { entry: { x: -5, y: 0, handle: { x: 0, y: -6 } } } }
+	];
+	const g = routeGeometry(places, [{ location: 'a' }, { location: 'b' }] as any);
+	// a's exit at x 5 leaves straight out of the edge facing b, two hexagon widths
+	assert.deepEqual(r(g.segments[0][0].out!), { x: 5 + ROUTE_HANDLE, y: 0 });
+	assert.equal(g.gates[0].handleSet, false);
+	// b's entry has its own handle: the curve comes in from above
+	assert.deepEqual(r(g.segments[0][1].in!), { x: 95, y: -6 });
+	assert.equal(g.gates[1].handleSet, true);
+	assert.match(routePath(g.segments[0]), /^M 5 0 C 7 0, 95 -6, 95 0$/);
+	// a free point's handle: out along it, in mirrored
+	const f = routeGeometry(places, [{ location: 'a' }, { id: 'wp-1', x: 50, y: 20, handle: { x: 10, y: 0 } }, { location: 'b' }] as any);
+	assert.deepEqual(r(f.segments[0][1].out!), { x: 60, y: 20 });
+	assert.deepEqual(r(f.segments[0][1].in!), { x: 40, y: 20 });
+	// the samples start and end at the curve's ends
+	const pts = sampleRoute(g.segments[0], 8);
+	assert.deepEqual(r(pts[0]), { x: 5, y: 0 });
+	assert.deepEqual(r(pts.at(-1)!), { x: 95, y: 0 });
+	const bad = { width: 200, height: 200, layers: [], locations: [{ id: 'a', name: { de: 'A' }, x: 1, y: 1, toons: ['t'], gates: { exit: { x: 0, y: 0, handle: { x: 'no' } } } }], routes: [] } as any;
+	assert.ok(checkWorldMap(bad).some((p: any) => p.path.join('.').endsWith('gates.exit.handle')));
 });
 
 test('fog of war along routes: between two unlocked places in a row, free points included (owner 2026-10-12)', async () => {
