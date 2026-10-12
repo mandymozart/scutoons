@@ -1,14 +1,14 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.93**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.94**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
-- [ ] 10.90 **Catalog in the creator: after the deploy + nine questions** (research/CATALOG-IN-CREATOR.md) – [owner]
-  right after the deploy nobody holds `physical`: admin → Users → you → review rule "Physical items", toon `*` – until
-  then nobody (admins too) publishes a physical change. `decide` D1–D9 (four eyes, who gets `physical`, cross-toon
-  entries, more physical fields, removing, the admin's tabs, products / editions, recipes' toon, physical inputs).
+- [ ] 10.93 **Remove the admin's five catalog tabs** (owner 2026-10-12, CATALOG-IN-CREATOR D6) – around 2026-10-19: items,
+  recipes, albums, products, editions are read-only in the admin since the move (server: 409 `edited_in_creator`); then
+  remove the tabs + the admin's catalog editor for them (keep "Shop & codes": featured, code types, permissions, toons,
+  meta; the order of items needs a home first). MCP `propose_changes` of those kinds = the creator's drafts instead.
 - [ ] 10.83 **Desktop UI fixes – collecting** (owner 2026-10-11: "i like some fixes. we collect them here") – add each
   fix as its own item here. The desktop creator taking the phone concepts is a DRAFT session for the owner (branch
   `claude/zealous-faraday-e6338b`) – new desktop fixes go there or here, not both.

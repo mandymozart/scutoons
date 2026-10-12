@@ -6,6 +6,16 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-12 · catalog · D9: a physical recipe input is only checked for being there and can be used again; the output's `max` limits it · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D9), InventoryService::craft
+- 2026-10-12 · catalog · D8: a recipe's toon stays derived from its output item – no column · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D8)
+- 2026-10-12 · catalog · D7: products and editions stay in the creator, always physical, always through the review rules · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D7)
+- 2026-10-12 · catalog · D6: the admin's items / recipes / albums / products / editions tabs are read-only with "Open in the creator" (the server refuses their writes), removed in about a week; featured, code types, permissions, toons, meta stay in the admin ("Shop & codes") · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D6), FEATURES 10.93
+- 2026-10-12 · catalog · D5: removing a catalog entry like the map's places – never published: deleted; published: a `removed: true` version (its id stays taken) · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D5)
+- 2026-10-12 · catalog · D4: no more physical fields for now – `kind: physical`, `edition_id`, `product`, `max_world` (+ recipes making such an item, owners albums, products, editions) · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D4)
+- 2026-10-12 · catalog · D3: cross-toon catalog entries (`toon: null`) answer only to `*` review rules · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D3)
+- 2026-10-12 · catalog · D2: the owner gets the review rule `physical` for `*` by migration (`2026-10-12-owner-physical-rule`, idempotent); nobody else · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D2)
+- 2026-10-12 · catalog · D1: no second person – an account with `physical` publishes its own physical changes; everyone else submits · "go go" (as recommended) · → research/CATALOG-IN-CREATOR.md (D1)
+- 2026-10-12 · admin · The review rule is called "Publishes physical items" – a grant like Reviewer; only Needs review restricts · → admin Users → Reviews
 - 2026-10-12 · map · The History panel follows the selection: a selected place / route / character shows (and restores) its own versions · "what is selected gets a history" · → research/MAP-DOCUMENTS.md (D5)
 - 2026-10-12 · map · The server refuses a route through a place that is not on the map; the builder should make every waypoint a picked or a new place · "good call, and our ui will hopefully soon also make it impossible to create a waypoint without either selecting a place or creating a new one" · → research/MAP-DOCUMENTS.md (D7), FEATURES 10.89
 - 2026-10-12 · content · A draft that equals the published version is no line in the publish checklist · "i think we do this already" · → research/MAP-DOCUMENTS.md (D6)

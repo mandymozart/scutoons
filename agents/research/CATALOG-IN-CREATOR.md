@@ -7,6 +7,19 @@ Status 2026-10-12: merged into `main` (catalog entries as documents, edited in t
 Branch `claude/quizzical-goldstine-44c6a4` (worktree `.claude/worktrees/quizzical-goldstine-44c6a4`, own DB
 `scutoons_catalog`). **Not merged, not pushed.** 7 commits, each with the checks green (see "Checks").
 
+### After the decisions (2026-10-12, built on the branch after the merge)
+- **D2** migration `2026-10-12-owner-physical-rule` (idempotent; physical `*` for the owner only) – the lock-out right after the deploy is gone.
+- **D5** creator "Remove": never published → deleted (`POST /entities/batch { deletes }`, catalog keys allowed now);
+  published → its document + `removed: true` as a draft, publishing it deletes the table entry (409 `in_use` while
+  used; physical → the rule); "Keep it" takes it back; removed entries leave the list, their ids stay taken. An
+  admin-side delete (undo, migration) leaves the same tombstone.
+- **D6** admin: the five tabs read-only (form disabled, no new / save / delete, only an order's undo; server 409
+  `edited_in_creator` for PUT / DELETE / undo); reorder stays in the admin (the creator has no order). The image import
+  moved into the creator ("Import images …", drafts). FEATURES 10.93: remove the tabs in a week.
+- (a) the rule is "Publishes physical items"; the Reviews explainer: a grant like Reviewer, only Needs review restricts.
+- Also: batch saves now check catalog documents like a single save; "Looks fine" for catalog warnings in the creator.
+- D1, D3, D4, D7, D8, D9: as built (no change).
+
 ### What works
 
 1. **Crafting keeps physical pieces** (bea142f1) – `InventoryService::remove` never touches a code-bound row any more
@@ -93,7 +106,7 @@ Branch `claude/quizzical-goldstine-44c6a4` (worktree `.claude/worktrees/quizzica
   (creator or admin page) until an admin adds the rule: admin → Users → <you> → review rule "Physical items", toon `*`
   (and per toon for others). Deliberately not granted by the migration (D2).
 
-### Decisions waiting (owner)
+### Decisions (owner 2026-10-12, "go go" – all as recommended; built: see "After the decisions" below)
 - **D1 Four eyes for physical?** Today an account with `physical` publishes its OWN physical changes directly (like a
   reviewer without `needs_review`). Should a physical change always need a second person?
 - **D2 Who gets `physical` first** – only you (`*`)? Should the migration grant it to every admin (then the admin page
@@ -131,7 +144,7 @@ den Creator umgezogen werden. Das einzige Problem ist, wie wir die Sache handeln
 ja quasi andere Berechtigung brauchen, weil nicht jeder Creator einfach ein Item anlegen kann – oder doch? Bitte kurz
 recherchieren."
 
-Status: the research below (2026-10-12); the overnight draft built on it – summary at the top. Background: agents/CATALOG.md (tables, admin UI), agents/ITEMS.md (item
+Status: built and decided (2026-10-12): the overnight draft (summary at the top) is merged; D1–D9 decided by the owner ("go go", all as recommended – agents/DECISIONS.md) and built on branch `claude/quizzical-goldstine-44c6a4` (D2 migration, D5 removing, D6 read-only admin tabs, the rule's name); the research below is history. Background: agents/CATALOG.md (tables, admin UI), agents/ITEMS.md (item
 definition, codes → items, limits, ownership), agents/research/ACCOUNT-RESTART.md §2 (item sources).
 
 ## 1. What the catalog is today
