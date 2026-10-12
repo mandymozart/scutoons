@@ -3,7 +3,10 @@
 // images"): one Luma image per region (uni-1-max ≈ $0.10) → logs/map-paint/signs/<id>.png. A sign already made is
 // skipped (delete it to redo). Costs money – --dry prints the prompts; --only <id> makes one.
 // Key: LUMA_AGENT(S)_API_KEY in .env.
-//   node scripts/region-signs.mjs [--dry] [--only dunes] [--model uni-1-max]
+// --style industrial (owner 2026-10-12: "I like the more industrial look" – the references: Eisenerz, Twin Peaks, the
+// Hawaii LED trailer, the Frankenmuth arch): each region's own sign from scripts/map-regions.json `industrial`, standing in
+// its landscape (it is the welcome's full-screen background) → logs/map-paint/signs/industrial/<id>.png
+//   node scripts/region-signs.mjs [--dry] [--only dunes] [--style industrial] [--model uni-1-max]
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,12 +18,23 @@ const arg = (name, fallback) => (process.argv.includes(`--${name}`) ? process.ar
 const dry = process.argv.includes('--dry');
 const only = arg('only', null);
 const model = arg('model', 'uni-1-max');
-const out = join(ROOT, 'logs', 'map-paint', 'signs');
+const style = arg('style', 'board');
+const out = join(ROOT, 'logs', 'map-paint', 'signs', ...(style === 'board' ? [] : [style]));
 mkdirSync(out, { recursive: true });
 
 /** the regions: scripts/map-regions.json (shared with scripts/map-regions-seed.mjs) */
 const REGIONS = JSON.parse(readFileSync(join(ROOT, 'scripts', 'map-regions.json'), 'utf8')).regions;
 
+const industrial = (r) =>
+	[
+		`A WELCOME SIGN at the entrance of the region "${r.name}", photographed in its landscape – a wide roadside view, the sign big and in focus in the foreground.`,
+		`THE SIGN: ${r.industrial}`,
+		`LETTERING: the name "${r.name}" big and readable, the claim "${r.claim}" smaller – spelled exactly like this, German; nothing else written except what the sign description names.`,
+		"LOOK – the SCUTOONS style: a high-detail stylised 3D render like a premium collectible diorama – tactile industrial materials (rusted steel, chipped enamel, bolts and welds, weathered paint), soft natural light, saturated colours, crisp edges; the region's landscape as a rich, colourful backdrop.",
+		'No people, no cars, no other text, no logos, no watermark.'
+	].join(LF);
+const LF = String.fromCharCode(10);
+const promptFor = (r) => (style === 'industrial' ? industrial(r) : prompt(r));
 const prompt = (r) =>
 	[
 		`A SPECTACULAR roadside WELCOME SIGN for the region "${r.name}" – in the spirit of the "Welcome to Twin Peaks" sign, the US state welcome signs ("Idaho – Famous Potatoes") and the illustrated wine-region signs of the Wachau.`,
@@ -32,9 +46,9 @@ const prompt = (r) =>
 	].join('\n');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function luma(text) {
+async function luma(text, aspect = '4:3') {
 	const h = { authorization: `Bearer ${KEY}`, 'content-type': 'application/json' };
-	const r = await fetch('https://agents.lumalabs.ai/v1/generations', { method: 'POST', headers: h, body: JSON.stringify({ type: 'image', model, prompt: text, output_format: 'png', aspect_ratio: '4:3' }) });
+	const r = await fetch('https://agents.lumalabs.ai/v1/generations', { method: 'POST', headers: h, body: JSON.stringify({ type: 'image', model, prompt: text, output_format: 'png', aspect_ratio: aspect }) });
 	let j = await r.json();
 	if (!r.ok) throw new Error(`luma ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
 	while (!['completed', 'failed'].includes(j.state)) {
@@ -49,11 +63,11 @@ const todo = REGIONS.filter((r) => (only ? r.id === only : !existsSync(join(out,
 console.log(`${todo.length} signs to make (${model} ≈ $${(todo.length * 0.1).toFixed(2)})`);
 for (const r of todo) {
 	if (dry) {
-		console.log(`\n── ${r.id} ──\n${prompt(r)}`);
+		console.log(`\n── ${r.id} ──\n${promptFor(r)}`);
 		continue;
 	}
 	if (!KEY) throw new Error('LUMA_AGENT_API_KEY is not set in .env');
 	const t0 = Date.now();
-	writeFileSync(join(out, `${r.id}.png`), await luma(prompt(r)));
+	writeFileSync(join(out, `${r.id}.png`), await luma(promptFor(r), style === 'industrial' ? '3:2' : '4:3'));
 	console.log(`${r.id} (${Math.round((Date.now() - t0) / 1000)} s)`);
 }
