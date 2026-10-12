@@ -31,7 +31,6 @@ Decisions: agents/DECISIONS.md.
   (`.claude/worktrees/claude-*`) – the owner reviews and merges them; agents don't.
 
 ## Last run
-2026-10-12 docs refactor (archive/DOCS-REFACTOR.md): RULES / DECISIONS (337 lines) / ISSUES + FEATURES (43 open, cap 40)
-/ GOTCHAS created; finished docs in archive/, concepts in research/ (status line on top); topic docs' stale migration /
-branch / worktree text fixed. Look at: RULES.md (anything missing?), FEATURES/ISSUES (prune to 40), the open questions
-in the session summary (map place srcset vs the media-quality rule, places as documents, ISSUES 10.35).
+2026-10-12 morning: the night's sessions merged into `main` and pushed by one session (reading position, media
+standard, map / character documents, catalog in the creator, creator desktop UI + route gates, desktop UI fixes; the
+painted world map follows when its session is done). After the deploy, decisions and look-at: research/FOLLOW-UP-2026-10-12.md.
