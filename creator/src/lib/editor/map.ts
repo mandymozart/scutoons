@@ -35,6 +35,17 @@ export function mapPlaces(): Promise<{ id: string; name: unknown; toons: string[
 		});
 	return placesOnce;
 }
+/** the world map's regions (id, name) for the character form and the migrate event – the newest draft, loaded once per page visit */
+let regionsOnce: Promise<{ id: string; name: unknown }[]> | null = null;
+export function mapRegions(): Promise<{ id: string; name: unknown }[]> {
+	regionsOnce ??= loadWorldMap('draft')
+		.then((map) => (map?.regions ?? []).map((r) => ({ id: r.id, name: r.name })))
+		.catch(() => {
+			regionsOnce = null;
+			return [];
+		});
+	return regionsOnce;
+}
 export const mapOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as WorldMap | null;
 export const ensureMap = (doc: ContentDoc) => ensure(doc, emptyWorldMap);
 export const editMap = (doc: ContentDoc, change: (map: WorldMap) => void, key?: string) => edit<WorldMap>(doc, change, key);
