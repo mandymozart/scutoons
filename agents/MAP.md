@@ -920,6 +920,12 @@ have the fog layer, fewer images is better – it adds up with each layer".
   phone fetches 2× tiles); half a tile around the screen is preloaded.
 - Measured (content test + count): a 375 × 812 phone needs at most 20 tiles per layer at any zoom (was up to ~120 with
   256 px tiles, dpr 3, ceil); a 1440 × 900 retina desktop at most 48 (was ~140).
+- While a level loads (owner 2026-10-12: "a blurry preview before the final image … leave the previous tile active till
+  the new ones cover … fading in"): the coarse levels are the blurry preview (LQIP / blur-up – no extra files); the last
+  fully loaded level stays under the new one as **interim tiles** (OpenLayers' term; Leaflet: parent-tile fallback) –
+  zooming in soft and scaled up, zooming out sharp in the middle; new tiles fade in (0.25 s, none with reduced motion).
+  Once the current level covers the screen it is drawn alone (a coarser tile's soft coast showed through the sea).
+  Measured on a throttled 375 px phone: 18 images at rest (two layers), ~50 for a moment while a zoom-out loads.
 - Generate: `map-paint.mjs --assemble --plaster --levels 3 --min-level -2 --tile-px 512 --version 2` → the layer:
   `tiles: { path: "catpope/map/terrain/<layer>/v2", levels: 3, minLevel: -2, px: 512 }`.
 
