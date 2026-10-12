@@ -289,7 +289,9 @@ async function luma(source, refs, prompt) {
 /** the world canvas → the base image `media/<base>.webp` (1 px per unit) + its tiles `media/<tiles>/<z>/<x>_<y>.webp` */
 async function writeLayer(base, tiles) {
 	const W = Math.ceil(world.width * PPU), H = Math.ceil(world.height * PPU);
-	const b64 = await evaluate(`(async () => { const c = new OffscreenCanvas(${world.width}, ${world.height}); c.getContext('2d').drawImage(window.__world, 0, 0, ${W}, ${H}, 0, 0, ${world.width}, ${world.height}); return window.__toB64(c, 'image/webp', 0.85); })()`);
+	// the world at 1 px per unit: the base image, and the source of the coarse levels (≤ 0) – scaling those straight out of
+	// the 8 px-per-unit canvas (16384 px wide) cost headless Chrome its canvas (the plaster came out empty)
+	const b64 = await evaluate(`(async () => { const c = new OffscreenCanvas(${world.width}, ${world.height}); c.getContext('2d').drawImage(window.__world, 0, 0, ${W}, ${H}, 0, 0, ${world.width}, ${world.height}); window.__small = c; return window.__toB64(c, 'image/webp', 0.85); })()`);
 	mkdirSync(dirname(join(ROOT, 'media', base)), { recursive: true });
 	writeFileSync(join(ROOT, 'media', `${base}.webp`), Buffer.from(b64, 'base64'));
 	// level z: 2^z px per unit; the deepest one PPU
@@ -299,9 +301,9 @@ async function writeLayer(base, tiles) {
 		for (let y = 0; y < rows; y++) {
 			const row = await evaluate(`Promise.all(Array.from({ length: ${cols} }, async (_, x) => {
 				const c = new OffscreenCanvas(${tilePx}, ${tilePx}), g = c.getContext('2d');
-				g.imageSmoothingQuality = 'high';
-				const s = ${size * PPU};
-				g.drawImage(window.__world, x * s, ${y} * s, s, s, 0, 0, ${tilePx}, ${tilePx});
+				const s = ${z <= 0 ? size : size * PPU};
+				${z <= 0 ? "g.imageSmoothingQuality = 'high';" : ''}
+				g.drawImage(${z <= 0 ? 'window.__small' : 'window.__world'}, x * s, ${y} * s, s, s, 0, 0, ${tilePx}, ${tilePx});
 				const a = g.getImageData(0, 0, ${tilePx}, ${tilePx}).data;
 				let ink = false;
 				for (let i = 3; i < a.length; i += 4) if (a[i]) { ink = true; break; }
