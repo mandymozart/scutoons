@@ -2,7 +2,7 @@
 //   npm test -w @scutoons/media
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { auditAsset, auditAssets, nextFreeName, type AuditAsset } from '../src/media-audit.ts';
+import { auditAsset, auditAssets, fixFindings, nextFreeName, type AuditAsset, type FixDeps, type StandardFinding } from '../src/media-audit.ts';
 
 const file = (path: string, mime: string, size: number, usages = 1) => ({ path, size, mime, label: 'original', usages });
 const asset = (files: ReturnType<typeof file>[]): AuditAsset => ({
@@ -29,7 +29,7 @@ test('auditAsset: an unused PNG master beside its used WebP is fine (owner data:
 
 test('auditAsset: a used JPEG whose WebP twin exists – relink only', () => {
 	const [f] = auditAsset(asset([file('catpope/s1/c1/s1c1-key-visual.jpg', 'image/jpeg', 800_000, 2), file('catpope/s1/c1/s1c1-key-visual.webp', 'image/webp', 200_000, 0)]));
-	assert.deepEqual([f.fix, f.target], ['twin', 'catpope/s1/c1/s1c1-key-visual.webp']);
+	assert.deepEqual([f.fix, f.target, f.targetSize], ['twin', 'catpope/s1/c1/s1c1-key-visual.webp', 200_000]);
 });
 
 test('auditAsset: no size limit; a video off the standard – listed, nothing to do here', () => {
@@ -51,4 +51,49 @@ test('auditAssets: the most used first, then the biggest', () => {
 
 test('nextFreeName: -2, -3 before the extension', () => {
 	assert.equal(nextFreeName('catpope/items/camera.webp', 2), 'catpope/items/camera-2.webp');
+});
+
+const finding = (path: string, fix: StandardFinding['fix'], target?: string): StandardFinding => ({ asset: path, slug: path, kind: 'image', path, size: 1000, usages: 1, advice: 'PNG → WebP', fix, target, targetSize: fix === 'twin' ? 300 : undefined });
+const relinkResult = (map: Record<string, string>) => ({ status: 'success' as const, map, content: [], catalog: [], manual: [], usages: Object.keys(map).length });
+
+test('fixFindings: converts to new files, takes a free name when one is taken, relinks everything in ONE pass', async () => {
+	const uploaded: string[] = [];
+	const relinks: Record<string, string>[] = [];
+	const deps: FixDeps = {
+		read: async (path) => new File(['x'.repeat(1000)], path, { type: 'image/png' }),
+		encode: async () => new Blob(['y'.repeat(200)]),
+		upload: async (_blob, path) => {
+			if (path === 'a/taken.webp') throw Object.assign(new Error('exists'), { code: 'exists' });
+			uploaded.push(path);
+		},
+		relink: async (map) => (relinks.push(map), relinkResult(map))
+	};
+	const report = await fixFindings([finding('a/one.png', 'convert', 'a/one.webp'), finding('a/taken.png', 'convert', 'a/taken.webp'), finding('a/twin.jpg', 'twin', 'a/twin.webp')], deps);
+	assert.deepEqual(uploaded, ['a/one.webp', 'a/taken-2.webp']);
+	assert.deepEqual(relinks, [{ 'a/one.png': 'a/one.webp', 'a/taken.png': 'a/taken-2.webp', 'a/twin.jpg': 'a/twin.webp' }]);
+	assert.deepEqual(report.rows.map((r) => [r.result, r.target, r.after]), [['converted', 'a/one.webp', 200], ['converted', 'a/taken-2.webp', 200], ['relinked', 'a/twin.webp', 300]]);
+	assert.equal(report.relink?.usages, 3);
+});
+
+test('fixFindings: a failed file is reported and left out of the relink; a failed relink is reported', async () => {
+	const deps: FixDeps = {
+		read: async (path) => {
+			if (path === 'a/broken.png') throw new Error('404');
+			return new File(['x'], path, { type: 'image/png' });
+		},
+		encode: async () => new Blob(['y']),
+		upload: async () => {},
+		relink: async () => {
+			throw new Error('missing_target');
+		}
+	};
+	const report = await fixFindings([finding('a/broken.png', 'convert', 'a/broken.webp'), finding('a/ok.png', 'convert', 'a/ok.webp')], deps);
+	assert.deepEqual(report.rows.map((r) => [r.path, r.result, r.error]), [['a/broken.png', 'failed', '404'], ['a/ok.png', 'converted', undefined]]);
+	assert.deepEqual([report.relink, report.error], [null, 'missing_target']);
+});
+
+test('fixFindings: nothing fixable – no relink at all', async () => {
+	let called = false;
+	const report = await fixFindings([finding('a/clip.mov', null)], { read: async () => new File([], ''), encode: async () => new Blob(), upload: async () => {}, relink: async (m) => ((called = true), relinkResult(m)) });
+	assert.deepEqual([report.rows, report.relink, called], [[], null, false]);
 });

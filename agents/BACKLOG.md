@@ -566,13 +566,19 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   Optimierungstool"; 2026-10-12: "die Importe über den Medienstandard – bitte anfangen"). **Built 2026-10-12** (branch
   `claude/amazing-hermann-2c20ad`, ASSETS.md "The media standard"): every importer through media-standard.ts (slice,
   character, map with `-plaster` / `.2x` / `.3x` → 1x / 2x / 3x, catalog images, the asset picker's upload – converts by
-  default); the asset list counts each file's uses; **DRAFT** admin → Assets → Standard (the referenced files off the
-  standard, `media-audit.ts`). Open – owner decisions: (1) the tool in the admin (proposed) or the creator; (2) relinked
-  content as a new DRAFT (proposed) or published right away where the newest version was published; (3) ~~the "too large"
-  limit~~ – none for now (owner 2026-10-12: "ein Large Limit gibt es im Moment nicht"); (4) missing 2x / 3x variants – needs the field's 1x width per use (slice 390, place 256) and
-  writing `imageVariants` / `variants` into content (a content edit, not a relink) – later; (5) the CDN must allow the
-  admin to read the source (CORS on bunny for admin.scutoons.com) – to check on production. Video stays blocked: no
-  ffmpeg on the host (ffmpeg.wasm in the browser or the 10.23 runner).
+  default); **admin → Assets → Standard** (owner 2026-10-12: "continue with your proposals"): the files content / the
+  catalog reference that are off the standard; "Convert N files …" = a NEW WebP beside each (never over a CDN path,
+  `-2` when taken), then ONE relink (`POST relink { map }`) – content as new DRAFTS, one per document (publish in the
+  creator; the report links them), the catalog directly; the report lists sizes before → after and what is left by hand.
+  bunny serves `Access-Control-Allow-Origin: *`, so the admin reads the sources from the CDN. Decided: no size limit for
+  now (owner: "ein Large Limit gibt es im Moment nicht"). Open:
+  - **Missing 2x / 3x** (owner 2026-10-12: "If we have 3, we can do the others. If we don't, we have to wait for the
+    user"): a 3x-wide source → generate 2x / 1x (`standardDensities`) and write `imageVariants` / `variants` into the
+    content (a content edit, not a relink); without it the author has to deliver the file. **Decide:** list missing
+    variants as a validation WARNING (creator Problems) or not.
+  - Video: blocked – no ffmpeg on the host (ffmpeg.wasm in the browser or the 10.23 runner).
+  - Production after merge + deploy: run the tool once (dev seed: 85 referenced files, 71 convert, 14 relink only),
+    publish the drafts in the creator, then "Unused" cleans up the old files.
 - [ ] 10.68 **Phones: Save / Publish unreachable while something is selected** (owner 2026-10-11: "kein Publish – diesen
   UI-Fehler müssen wir unbedingt beheben, das ist sehr schwer nachvollziehbar"; UI-CONCEPTS E.10). The phone bar
   (shared/ui PhoneBar, creator MetaPage `phoneItems`) is REPLACED by the selection's own actions (`phoneSelection`, like

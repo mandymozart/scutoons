@@ -9,7 +9,8 @@
 	import { ASSET_KINDS, type AssetKind, type AssetList, type AssetMissing, type AssetStorageStatus, type AssetSummary, type AssetUnused } from '@scutoons/api';
 	import { assets } from '$lib/api.ts';
 	import { bytes, errorText, number } from '$lib/format.ts';
-	import { auditAssets, type StandardFinding } from '@scutoons/media';
+	import { auditAssets, fixFindings, standardImage, type FixReport, type StandardFinding } from '@scutoons/media';
+	import { contentHref } from '$lib/creator-links.ts';
 	import { pagerLabels, tableLabels } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -31,9 +32,12 @@
 	let unusedTotals = $state<{ assets: number; files: number; bytes: number } | null>(null);
 	let selected = $state<string[]>([]);
 	let storage = $state<AssetStorageStatus | null>(null);
-	/** the optimisation tool (BACKLOG 10.64): the assets off the media standard – DRAFT, listing only (owner to decide) */
+	/** the optimisation tool (BACKLOG 10.64): the referenced files off the media standard, converting the chosen ones */
 	let standard = $state<StandardFinding[] | null>(null);
 	let standardPicked = $state<string[]>([]);
+	let standardCdn = $state('');
+	let fixing = $state<{ done: number; total: number } | null>(null);
+	let report = $state<FixReport | null>(null);
 	let busy = $state('');
 	let notice = $state('');
 	let reload = $state(0);
@@ -69,12 +73,55 @@
 		for (const kind of ['image', 'video']) {
 			for (let p = 1; ; p++) {
 				const r = await assets.list({ kind, page: p, page_size: 100 });
+				standardCdn = r.cdn ?? standardCdn;
 				all.push(...r.items);
 				if (p * r.pagination.pageSize >= r.pagination.total) break;
 			}
 		}
 		standard = auditAssets(all);
+		standardPicked = standardPicked.filter((path) => standard!.some((f) => f.path === path && f.fix));
 	}
+
+	/**
+	 * "Convert N files …" (owner 2026-10-12, the proposals): each chosen file → a NEW WebP beside it (read from the CDN,
+	 * `standardImage` at full size, never over an existing path), then ONE relink of all of them – content as new DRAFTS
+	 * (one per document; published in the creator), the catalog directly. The report lists both and what is left by hand.
+	 */
+	async function convertStandard() {
+		const chosen = standardChosen;
+		if (!chosen.length) return;
+		const ok = await confirmDialog({
+			title: m['assets.standard_confirm_title']({ files: number(chosen.length) }),
+			message: m['assets.standard_confirm_message'](),
+			confirmLabel: m['assets.standard_confirm']()
+		});
+		if (!ok) return;
+		error = null;
+		report = null;
+		fixing = { done: 0, total: chosen.length };
+		try {
+			report = await fixFindings(chosen, {
+				read: async (path) => {
+					const response = await fetch(url(path), { cache: 'no-store' });
+					if (!response.ok) throw new Error(`${response.status} ${path}`);
+					const blob = await response.blob();
+					return new File([blob], path.split('/').pop() ?? path, { type: blob.type });
+				},
+				encode: async (file) => (await standardImage(file)).blob,
+				upload: async (blob, path) => void (await assets.upload(blob, path)),
+				relink: (map) => assets.relinkMap(map),
+				progress: (done, total) => (fixing = { done, total })
+			});
+			standardPicked = [];
+			reload++;
+		} catch (e) {
+			error = errorText(e);
+		} finally {
+			fixing = null;
+		}
+	}
+	const reportCount = (result: string) => report?.rows.filter((r) => r.result === result).length ?? 0;
+	const reportBytes = (key: 'before' | 'after') => (report?.rows ?? []).filter((r) => r.result !== 'failed').reduce((n, r) => n + (r[key] ?? 0), 0);
 
 	const tabs = $derived([
 		{ id: 'library', label: m['assets.tab_library']() },
@@ -86,7 +133,7 @@
 	const href = (patch: Record<string, string | number | null>) => listHref(page.url, patch);
 	const nav = (patch: Record<string, string | number | null>) => goto(href(patch), { keepFocus: true, noScroll: true });
 
-	const cdn = $derived((list?.cdn ?? storage?.public_base ?? '').replace(/\/+$/, ''));
+	const cdn = $derived((list?.cdn ?? (standardCdn || storage?.public_base) ?? '').replace(/\/+$/, ''));
 	const url = (path: string) => `${cdn}/${path}`;
 	function thumb(a: AssetSummary): string {
 		if (a.kind === 'image') return [...a.renditions].filter((r) => r.mime?.startsWith('image/')).sort((x, y) => x.size - y.size)[0]?.path ?? a.path;
@@ -137,6 +184,12 @@
 		{ id: 'size', label: m['assets.col_size'](), align: 'end' }
 	]);
 	const standardChosen = $derived((standard ?? []).filter((f) => standardPicked.includes(f.path) && f.fix));
+	const reportColumns = $derived<Column[]>([
+		{ id: 'path', label: m['assets.col_path']() },
+		{ id: 'target', label: m['assets.col_new_file']() },
+		{ id: 'result', label: m['assets.col_result']() },
+		{ id: 'size', label: m['assets.col_size'](), align: 'end' }
+	]);
 	const whatLabel = (w: string) => (m as unknown as Record<string, () => string>)[`assets.what_${w}`]?.() ?? w;
 	const chosen = $derived((unused ?? []).filter((i) => selected.includes(i.id)));
 	const chosenFiles = $derived(chosen.reduce((n, i) => n + i.files.length, 0));
@@ -293,14 +346,41 @@
 			{/if}
 		{:else if active === 'standard'}
 			<p class="sc-caption">{m['assets.standard_hint']()}</p>
+			{#if report}
+				{@const drafts = report.relink?.content ?? []}
+				<Section title={m['assets.standard_report']()}>
+					<p data-testid="assets-standard-report">
+						{m['assets.standard_report_files']({ converted: number(reportCount('converted')), relinked: number(reportCount('relinked')), failed: number(reportCount('failed')), before: bytes(reportBytes('before')), after: bytes(reportBytes('after')) })}
+						{#if report.relink}<br />{m['assets.standard_report_uses']({ uses: number(report.relink.usages), drafts: number(drafts.length), catalog: number(report.relink.catalog.length), manual: number(report.relink.manual.length) })}{/if}
+					</p>
+					{#if report.error}<p class="error-box" role="alert">{m['assets.standard_report_relink_failed']({ error: report.error })}</p>{/if}
+					{#if drafts.length}
+						<p class="sc-caption">{m['assets.standard_report_drafts']()}</p>
+						<ul class="refs">
+							{#each drafts as c (c.ref)}<li>{#if contentHref(c.ref)}<a href={contentHref(c.ref)} target="_blank" rel="noreferrer">{c.ref}</a>{:else}{c.ref}{/if}{#if c.version}{' '}<Badge tone="draft">v{c.version}</Badge>{/if}</li>{/each}
+						</ul>
+					{/if}
+					{#if report.relink?.manual.length}
+						<p class="sc-caption">{m['assets.standard_report_manual']()}</p>
+						<ul class="refs">{#each report.relink.manual as c (c.ref)}<li>{c.ref} – {c.reason}</li>{/each}</ul>
+					{/if}
+					<DataTable columns={reportColumns} rows={report.rows} rowKey={(r) => r.path} labels={tableLabels()}>
+						{#snippet cell(r, column)}
+							{#if column.id === 'path'}<span title={r.path}>{r.path.split('/').pop()}</span>
+							{:else if column.id === 'target'}{#if r.target && r.result !== 'failed'}<a href={url(r.target)} target="_blank" rel="noreferrer" title={r.target}>{r.target.split('/').pop()}</a>{/if}
+							{:else if column.id === 'result'}{#if r.result === 'failed'}<Badge tone="error">{m['assets.result_failed']()}</Badge> <span class="sc-caption">{r.error}</span>{:else}<Badge tone="published">{r.result === 'converted' ? m['assets.result_converted']() : m['assets.result_relinked']()}</Badge>{/if}
+							{:else}{bytes(r.before)}{#if r.after !== undefined}{' → '}{bytes(r.after)}{/if}{/if}
+						{/snippet}
+					</DataTable>
+				</Section>
+			{/if}
 			{#if !standard}
 				<Skeleton variant="table" columns={5} label={m['shell.loading']()} />
 			{:else}
 				{#if standard.length}<p data-testid="assets-standard-totals">{m['assets.standard_totals']({ files: number(standard.length), size: bytes(standard.reduce((n, f) => n + f.size, 0)), convert: number(standard.filter((f) => f.fix === 'convert').length), twin: number(standard.filter((f) => f.fix === 'twin').length), rest: number(standard.filter((f) => !f.fix).length) })}</p>{/if}
 				<DataTable columns={standardColumns} rows={standard} rowKey={(r) => r.path} selectable bind:selected={standardPicked} labels={tableLabels()}>
 					{#snippet bulk()}
-						<!-- DRAFT: not wired yet – converts the chosen files to new WebPs beside them and relinks every use -->
-						<Button size="sm" disabled data-testid="assets-standard-convert">{m['assets.standard_convert']({ files: number(standardChosen.length) })}</Button>
+						<Button size="sm" disabled={!!fixing || !standardChosen.length} onclick={convertStandard} data-testid="assets-standard-convert">{fixing ? m['assets.standard_converting']({ done: number(fixing.done), total: number(fixing.total) }) : m['assets.standard_convert']({ files: number(standardChosen.length) })}</Button>
 					{/snippet}
 					{#snippet cell(r, column)}
 						{#if column.id === 'path'}<a href={href({ asset: r.asset })} title={r.path}>{r.path.split('/').pop()}</a><div class="sc-caption">{r.path.split('/').slice(0, -1).join('/')}</div>
@@ -367,6 +447,12 @@
 </Sheet>
 
 <style>
+	/* the report's drafts / by-hand lists: one line each, in the flow */
+	.refs {
+		list-style: none;
+		margin: 0 0 var(--space-1);
+		padding: 0;
+	}
 	.grid { /* grid-ok: the asset cards, not fields */
 		list-style: none;
 		margin: 0;

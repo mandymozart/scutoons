@@ -29,7 +29,7 @@ export {
 	type MediaVerdict,
 	type StandardImage
 } from './media-standard.ts';
-export { auditAsset, auditAssets, nextFreeName, type AuditAsset, type StandardFinding } from './media-audit.ts';
+export { auditAsset, auditAssets, fixFindings, nextFreeName, type AuditAsset, type FixDeps, type FixReport, type FixRow, type StandardFinding } from './media-audit.ts';
 export {
 	cleanVariants,
 	defaultLevel,
