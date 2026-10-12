@@ -504,6 +504,8 @@ final class Library
                 'locations' => $places,
                 'routes' => $routes,
             ];
+            // the reader's camera stays on the terrain (WorldMap.bounded, owner 2026-10-12)
+            if (($world->bounded ?? null) === true) $answer['bounded'] = true;
             if ($toon !== null) {
                 if (!$isVisible($toon)) throw new ApiError(404, 'not_found', "Unknown toon $toon.");
                 $entry = $snapshot->doc("toon:$toon");

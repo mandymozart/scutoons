@@ -49,6 +49,8 @@
 	<input type="number" min="1" value={map.width} aria-label={m['creator.map_width']()} onchange={(e) => editMap(doc, (w) => (w.width = Math.max(1, Math.round(Number(e.currentTarget.value)))))} />
 	<input type="number" min="1" value={map.height} aria-label={m['creator.map_height']()} onchange={(e) => editMap(doc, (w) => (w.height = Math.max(1, Math.round(Number(e.currentTarget.value)))))} />
 </div>
+<!-- the reader's camera stays on the terrain (owner 2026-10-12 – a flag for as long as the map is this size) -->
+<label class="check" title={m['creator.map_bounded_hint']()}><input type="checkbox" checked={!!map.bounded} onchange={(e) => { const on = e.currentTarget.checked; editMap(doc, (w) => { if (on) w.bounded = true; else delete w.bounded; }); }} data-testid="map-bounded" /> {m['creator.map_bounded']()}</label>
 <button type="button" class="danger" onclick={remove}>{m['creator.map_delete_layer']()}</button>
 
 

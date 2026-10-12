@@ -19,8 +19,8 @@ function hash(id: string, salt: number): number {
  * The discs a place clears: one round disc and a few smaller lobes around it (a cloud's edge, not a compass circle) – in
  * world units. `grow` 0…1 scales them (the reveal's growing).
  */
-export function fogDiscs(p: Point & { id: string }, radius: number, grow = 1): { x: number; y: number; r: number }[] {
-	const r = radius * grow;
+export function fogDiscs(p: Point & { id: string; scale?: number }, radius: number, grow = 1): { x: number; y: number; r: number }[] {
+	const r = radius * grow * (p.scale ?? 1);
 	const out = [{ x: p.x, y: p.y, r }];
 	const lobes = 5;
 	for (let i = 0; i < lobes; i++) {
@@ -32,12 +32,12 @@ export function fogDiscs(p: Point & { id: string }, radius: number, grow = 1): {
 }
 
 /** the CSS gradients of a place's discs (world px inside the layer) – the growing place's mask layers */
-export function fogGradients(p: Point & { id: string }, radius: number, grow: number): string[] {
+export function fogGradients(p: Point & { id: string; scale?: number }, radius: number, grow: number): string[] {
 	return fogDiscs(p, radius, grow).map((d) => `radial-gradient(circle at ${d.x}px ${d.y}px, #000 ${d.r}px, transparent ${d.r * (1 + FOG_FEATHER)}px)`);
 }
 
 /** the mask image of these places (an object URL – revoke it when replaced), or null without a canvas (SSR, tests) */
-export async function fogMaskUrl(places: readonly (Point & { id: string })[], radius: number, world: { width: number; height: number }): Promise<string | null> {
+export async function fogMaskUrl(places: readonly (Point & { id: string; scale?: number })[], radius: number, world: { width: number; height: number }): Promise<string | null> {
 	if (typeof OffscreenCanvas === 'undefined') return null;
 	const scale = Math.min(MASK_SCALE, MASK_MAX / Math.max(world.width, world.height));
 	const w = Math.max(1, Math.ceil(world.width * scale)), h = Math.max(1, Math.ceil(world.height * scale));

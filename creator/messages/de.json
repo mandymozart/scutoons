@@ -1008,6 +1008,8 @@
 		"map_layer_show": "im Builder zeigen",
 		"map_delete_layer": "Ebene löschen",
 		"map_world_size": "Weltgröße (px der Geländegrafik)",
+		"map_bounded": "Leser bleiben auf dem Gelände",
+		"map_bounded_hint": "Die Karte im Reader zoomt nur so weit heraus, bis das Gelände den Bildschirm füllt, und hält an seinen Rändern. Aus: Leser können weiter herauszoomen und über den Rand fahren (für eine Karte, die größer ist als ihre Geländegrafik).",
 		"map_validation": "Prüfung",
 		"map_level": "Stufe",
 		"map_where": "Wo",

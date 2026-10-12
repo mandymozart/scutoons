@@ -1008,6 +1008,8 @@
 		"map_layer_show": "show in the builder",
 		"map_delete_layer": "Delete layer",
 		"map_world_size": "World size (px of the terrain art)",
+		"map_bounded": "Readers stay on the terrain",
+		"map_bounded_hint": "The reader's map zooms out only until the terrain fills the screen and stops at its edges. Off: readers may zoom further out and move past the edge (for a map bigger than its terrain art).",
 		"map_validation": "Validation",
 		"map_level": "Level",
 		"map_where": "Where",

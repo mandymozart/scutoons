@@ -302,3 +302,21 @@ test('route gates: a route stops at the place entry and goes on from its exit (B
 	const bad = { width: 10, height: 10, layers: [], routes: [], locations: [{ id: 'x', name: { de: 'X' }, x: 1, y: 1, toons: [], gates: { exit: { x: 'no' } } }] } as any;
 	assert.ok(checkWorldMap(bad).some((p: any) => p.path.join('.').endsWith('gates.exit')));
 });
+
+test('fog of war along routes: between two unlocked places in a row, free points included (owner 2026-10-12)', async () => {
+	const { fogRoutePoints, FOG_ROUTE_SCALE } = await import('../src/map.ts');
+	const places = [
+		{ id: 'a', x: 0, y: 0 },
+		{ id: 'b', x: 16, y: 0 },
+		{ id: 'c', x: 32, y: 0 }
+	];
+	const routes = [{ id: 'r', waypoints: [{ location: 'a' }, { id: 'p', x: 8, y: 8 }, { location: 'b' }, { location: 'c' }] }] as any;
+	const open = (ids: string[]) => (id: string) => ids.includes(id);
+	assert.deepEqual(fogRoutePoints(places, routes, open(['a', 'c'])), [], 'a and c are not in a row (b is locked)');
+	const ab = fogRoutePoints(places, routes, open(['a', 'b']), 8);
+	assert.ok(ab.length >= 3 && ab.every((p) => p.scale === FOG_ROUTE_SCALE));
+	assert.ok(ab.some((p) => p.x === 8 && p.y === 8), 'through the free point');
+	assert.ok(ab.every((p) => p.x <= 16), 'only the stretch a → b');
+	assert.equal(new Set(ab.map((p) => p.id)).size, ab.length, 'stable, unique ids');
+	assert.ok(fogRoutePoints(places, routes, open(['a', 'b', 'c'])).some((p) => p.x > 16), 'b → c too');
+});

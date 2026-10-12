@@ -18,6 +18,12 @@ export interface WorldMap extends AcceptedWarnings {
 	height: number;
 	/** drawn bottom → top; image paths relative to the CDN root */
 	layers: MapLayer[];
+	/**
+	 * the reader's camera stays on the terrain (owner 2026-10-12: "limit the zoom out and move … a flag I can take out
+	 * later if I finish a bigger map"): zoom out only until the map fills the screen, pan only to its edges. Off = the
+	 * camera may leave the map by half a screen and zoom out to `MAP_MIN_ZOOM`. The builder is never bounded.
+	 */
+	bounded?: boolean;
 	locations: MapPlace[];
 	routes: MapPath[];
 }
@@ -319,6 +325,8 @@ export interface ReaderMap {
 	width: number;
 	height: number;
 	layers: MapLayer[];
+	/** the camera stays on the terrain (`WorldMap.bounded`) */
+	bounded?: boolean;
 	locations: ReaderPlace[];
 	routes: ReaderPath[];
 	/**
@@ -509,6 +517,45 @@ export const FOG_RADIUS_MAX = 1024;
 /** the places whose surroundings a fog layer shows: the unlocked ones (the save game), with their point */
 export function fogPlaces<T extends { id: string; x: number; y: number }>(places: readonly T[], state: Pick<MapState, 'places'>): T[] {
 	return places.filter((p) => !!state.places[p.id]);
+}
+
+/** a fog point along a route clears this share of the fog radius (a corridor, narrower than around a place) */
+export const FOG_ROUTE_SCALE = 0.6;
+
+/**
+ * The fog also clears along a route between two unlocked places that follow each other on it (owner 2026-10-12: "Fog of
+ * War should also be around unlocked routes. Between two unlocked places in a row") – free points between them included:
+ * points every `spacing` world units on that stretch, each clearing `FOG_ROUTE_SCALE` of the radius. Ids are stable
+ * (`route~<route>~<n>`), so a stretch that joins later grows in like a place.
+ */
+export function fogRoutePoints(
+	places: readonly { id: string; x: number; y: number }[],
+	routes: readonly { id: string; waypoints?: readonly (Waypoint | ReaderWaypoint)[] }[],
+	unlocked: (placeId: string) => boolean,
+	spacing = 8
+): { id: string; x: number; y: number; scale: number }[] {
+	const out: { id: string; x: number; y: number; scale: number }[] = [];
+	for (const route of routes) {
+		const ws = route.waypoints ?? [];
+		let from = -1; // the last unlocked place waypoint
+		ws.forEach((w, i) => {
+			if (!isPlaceWaypoint(w)) return;
+			if (!unlocked(w.location)) {
+				from = -1;
+				return;
+			}
+			if (from >= 0) {
+				const line = routePoints(places, ws, from, i);
+				for (let k = 1; k < line.length; k++) {
+					const a = line[k - 1], b = line[k];
+					const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / spacing));
+					for (let s = k === 1 ? 0 : 1; s <= n; s++) out.push({ id: `route~${route.id}~${from}~${k}~${s}`, x: a.x + ((b.x - a.x) * s) / n, y: a.y + ((b.y - a.y) * s) / n, scale: FOG_ROUTE_SCALE });
+				}
+			}
+			from = i;
+		});
+	}
+	return out;
 }
 /** a world rectangle */
 export interface Rect {
@@ -1008,6 +1055,7 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 
 	const layers = Array.isArray(map.layers) ? map.layers : [];
 	if (!Array.isArray(map.layers)) add('error', ['layers'], 'layers must be a list');
+	if (map.bounded !== undefined && typeof map.bounded !== 'boolean') add('error', ['bounded'], 'bounded must be true or false');
 	const layerIds = new Set<string>();
 	layers.forEach((l: any, i: number) => {
 		if (!isObj(l)) return add('error', ['layers', i], 'a layer must be { id, image }');

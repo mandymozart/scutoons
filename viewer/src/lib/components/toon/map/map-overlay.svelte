@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, fogPlaces, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
+	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, fogPlaces, fogRoutePoints, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -68,6 +68,7 @@
 		if (!data || !view.width) return;
 		view.worldWidth = data.width;
 		view.worldHeight = data.height;
+		view.bounded = !!data.bounded;
 		// a phone sees less of the world: never further out than the whole width
 		view.minZoom = Math.min(1, Math.max(0.15, view.width / data.width));
 		if (!open) {
@@ -274,11 +275,16 @@
 	//    not unlocked yet stands as its plaster model – no name, no marker, no tap; unlocking paints it ──────────────────
 	// ── fog of war (owner 2026-10-12, agents/MAP.md §8.9): a fog layer (the painted terrain) shows only around the places the
 	//    reader unlocked – a new place's surroundings get their colour with its reveal or its painting in place ─────────
-	const fogPoints = $derived(
+	//    and along a route between two such places in a row (owner 2026-10-12, `fogRoutePoints`) ─────────────────────
+	const fogShownPlaces = $derived(
 		fogPlaces(data?.locations ?? [], mapState)
 			.filter((p) => !isPlaceNew(p.id, mapState) || (revealing === p.id && revealShow) || painting.has(p.id))
 			.map((p) => ({ id: p.id, x: p.x, y: p.y }))
 	);
+	const fogPoints = $derived.by(() => {
+		const shown = new Set(fogShownPlaces.map((p) => p.id));
+		return [...fogShownPlaces, ...fogRoutePoints(data?.locations ?? [], data?.routes ?? [], (id) => shown.has(id))];
+	});
 
 	const lockedPlaces = $derived((data?.locations ?? []).filter((p) => !isPlaceVisible(p, mapState) && own(p) && !!p.image?.plaster));
 	const lockedIndex = $derived(pointIndex(lockedPlaces));

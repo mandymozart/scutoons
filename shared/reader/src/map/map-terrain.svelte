@@ -38,13 +38,13 @@
 		/** false: every layer at every zoom (the builder shows them all to edit) */
 		zoomRange?: boolean;
 		/** the places the reader has unlocked (their points): fog layers show only around them; null = no fog (whole) */
-		fog?: readonly { id: string; x: number; y: number }[] | null;
+		fog?: readonly { id: string; x: number; y: number; scale?: number }[] | null;
 		testid?: string;
 	} = $props();
 
 	// ── fog of war: per radius one mask image of the settled places; a place new to the list grows first (≈ 1.6 s) ──
 	const GROW_MS = 1600;
-	type FogPlace = { id: string; x: number; y: number };
+	type FogPlace = { id: string; x: number; y: number; scale?: number };
 	/** the places already in the mask image, and those growing (with their start) */
 	let known: Set<string> | null = null;
 	let growing = $state<{ p: FogPlace; start: number }[]>([]);
@@ -61,7 +61,9 @@
 			const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 			// the first list after mount is there already; later additions grow (unless motion is reduced)
 			if (known && !reduced) {
-				const fresh = list.filter((p) => !known!.has(p.id) && !growing.some((g) => g.p.id === p.id));
+				// a route's corridor points (`scale`) go straight into the mask image – hundreds of growing CSS gradients would be
+				// too much for a phone; the places grow
+				const fresh = list.filter((p) => p.scale === undefined && !known!.has(p.id) && !growing.some((g) => g.p.id === p.id));
 				if (fresh.length) growing = [...growing, ...fresh.map((p) => ({ p, start: performance.now() }))];
 			}
 			known = new Set(list.map((p) => p.id));

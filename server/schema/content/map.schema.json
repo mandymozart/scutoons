@@ -27,6 +27,10 @@
 						"$ref": "#/definitions/MapLayer"
 					},
 					"description": "drawn bottom → top"
+				},
+				"bounded": {
+					"type": "boolean",
+					"description": "the reader's camera stays on the terrain (`WorldMap.bounded`)"
 				}
 			},
 			"required": [

@@ -903,6 +903,17 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
   the reader has unlocked (`fogPlaces` = the save game's `map.places`, every toon – one universe), soft beyond (fades
   out over `FOG_FEATHER` × radius). Layer order in the map: terrain (lines) · plaster · painted (`fog`). Validation:
   `fog` must be `{ radius }` (1–1024).
+- **Along routes** (owner 2026-10-12: "Fog of War should also be around unlocked routes. Between two unlocked places in
+  a row"): `fogRoutePoints` – points every 8 units on a route's stretch between two unlocked places that follow each other
+  on it (free points included), each clearing `FOG_ROUTE_SCALE` (0.6) of the radius: a cloudy corridor. They go straight
+  into the mask image (no growing – hundreds of CSS gradients); the places grow.
+- **Deep zoom:** with tiles on screen each tile carries the world-sized mask, shifted to its place – one masked layer as
+  big as the zoomed world was dropped by phones' GPUs (owner 2026-10-12: "after zooming in … does not work any more").
+- **Camera** (owner 2026-10-12): `WorldMap.bounded` (map setting, builder "Readers stay on the terrain") – the reader's
+  camera zooms out only until the map fills the screen and stops at its edges (`MapViewport.bounded`, `coverZoom`); off
+  = half a screen past the edge, out to `MAP_MIN_ZOOM` (for a map bigger than its terrain art). The builder is never
+  bounded. A drag glides on after release (`mapGestures`: the last ~100 ms give the speed, `FRICTION` 0.996 per ms,
+  a touch or the wheel stops it; reader and builder).
 - **Reader** – shared `MapTerrain` (`fog` prop = the unlocked places' points; null in the builder = whole): a fog layer
   gets ONE CSS mask (`shared/reader/src/map/fog-mask.ts`): a small alpha image in world proportions (½ px per unit, max
   2048 px) of soft discs – one disc + 5 lobes per place, so the edge looks like a cloud, not a compass circle – inside

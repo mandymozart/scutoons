@@ -17,6 +17,8 @@ export class MapViewport {
 	worldHeight = $state(0);
 	minZoom = $state(MAP_MIN_ZOOM);
 	maxZoom = $state(MAP_MAX_ZOOM);
+	/** the camera stays on the world (`WorldMap.bounded`): zoom out only until it fills the view, pan only to its edges */
+	bounded = $state(false);
 	/** a gesture is running (the apps raise `will-change` while it does) */
 	moving = $state(false);
 	#settle: ReturnType<typeof setTimeout> | undefined;
@@ -41,17 +43,24 @@ export class MapViewport {
 		return { x: (p.x - this.x) / this.zoom, y: (p.y - this.y) / this.zoom };
 	}
 
-	clampZoom(z: number) {
-		return Math.min(this.maxZoom, Math.max(this.minZoom, z));
+	/** the zoom at which the world just covers the view (bounded: the furthest out) */
+	get coverZoom(): number {
+		return this.worldWidth && this.width ? Math.max(this.width / this.worldWidth, this.height / this.worldHeight) : 0;
 	}
 
-	/** keeps some of the world on screen (half the view may leave it, not more) */
+	clampZoom(z: number) {
+		const min = this.bounded ? Math.max(this.minZoom, this.coverZoom) : this.minZoom;
+		return Math.max(min, Math.min(this.maxZoom, z));
+	}
+
+	/** keeps some of the world on screen (half the view may leave it, not more); bounded: none of the view leaves it */
 	clamp() {
 		if (!this.worldWidth || !this.width) return;
+		if (this.bounded && this.zoom < this.coverZoom) this.zoom = this.coverZoom;
 		const w = this.worldWidth * this.zoom;
 		const h = this.worldHeight * this.zoom;
-		const mx = this.width / 2;
-		const my = this.height / 2;
+		const mx = this.bounded ? 0 : this.width / 2;
+		const my = this.bounded ? 0 : this.height / 2;
 		this.x = Math.min(mx, Math.max(this.width - w - mx, this.x));
 		this.y = Math.min(my, Math.max(this.height - h - my, this.y));
 	}
@@ -134,6 +143,44 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 		let pan = { dx: 0, dy: 0 };
 		let zoomBy: { factor: number; at: Point } | null = null;
 		let zoomTo: { zoom: number; at: Point } | null = null;
+		// momentum (owner 2026-10-12: "if I drag and release it will take some time till it stops"): the last ~100 ms of
+		// a pan give the speed; released, it glides on and slows down (FRICTION per ms); a new touch or the wheel stops it
+		let samples: { x: number; y: number; t: number }[] = [];
+		let glide = 0;
+		const FRICTION = 0.996;
+		const stopGlide = () => {
+			if (glide) cancelAnimationFrame(glide);
+			glide = 0;
+		};
+		function startGlide() {
+			const last = samples[samples.length - 1];
+			const first = samples.find((s) => last && last.t - s.t <= 100) ?? samples[0];
+			samples = [];
+			if (!first || !last || last.t - first.t < 16 || performance.now() - last.t > 60) return;
+			let vx = (last.x - first.x) / (last.t - first.t);
+			let vy = (last.y - first.y) / (last.t - first.t);
+			if (Math.hypot(vx, vy) < 0.2) return; // px per ms: a slow release just stops
+			let before = performance.now();
+			view.moving = true;
+			const step = (now: number) => {
+				const dt = Math.min(32, Math.max(0, now - before));
+				before = now;
+				const fromX = view.x;
+				const fromY = view.y;
+				view.panBy(vx * dt, vy * dt);
+				const decay = FRICTION ** dt;
+				vx *= decay;
+				vy *= decay;
+				// at an edge or slow enough: done
+				if ((dt > 0 && view.x === fromX && view.y === fromY) || Math.hypot(vx, vy) < 0.02) {
+					glide = 0;
+					view.moving = false;
+					return;
+				}
+				glide = requestAnimationFrame(step);
+			};
+			glide = requestAnimationFrame(step);
+		}
 		const flush = () => {
 			frame = 0;
 			if (pan.dx || pan.dy) view.panBy(pan.dx, pan.dy);
@@ -166,6 +213,8 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 
 		function down(e: PointerEvent) {
 			if (e.button !== 0 && e.button !== 1) return;
+			stopGlide();
+			samples = [];
 			if (pointers.size === 0) panning = !options.canPan || options.canPan(e);
 			pointers.set(e.pointerId, local(e));
 			if (pointers.size === 1) {
@@ -209,21 +258,26 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 				}
 			}
 			pan = { dx: pan.dx + p.x - previous.x, dy: pan.dy + p.y - previous.y };
+			samples.push({ x: p.x, y: p.y, t: performance.now() });
+			if (samples.length > 12) samples.shift();
 			schedule();
 		}
 		function up(e: PointerEvent) {
 			if (!pointers.has(e.pointerId)) return;
 			pointers.delete(e.pointerId);
 			if (pointers.size < 2) pinch = null;
+			if (pointers.size === 1) samples = []; // a pinch ending: no glide from its last finger
 			if (pointers.size === 0) {
 				flush();
 				view.moving = false;
 				if (!dragged && options.onTap) options.onTap(e, local(e));
+				else if (dragged && panning && e.type === 'pointerup') startGlide();
 				start = null;
 			}
 		}
 		function wheel(e: WheelEvent) {
 			if (options.wheel === false) return;
+			stopGlide();
 			e.preventDefault();
 			// trackpads send many small deltas (ctrlKey = pinch); a mouse wheel sends ±100
 			const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
@@ -246,6 +300,7 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 		node.addEventListener('dblclick', dblclick);
 		return () => {
 			cancelAnimationFrame(frame);
+			stopGlide();
 			resize.disconnect();
 			node.removeEventListener('pointerdown', down);
 			node.removeEventListener('pointermove', move);
