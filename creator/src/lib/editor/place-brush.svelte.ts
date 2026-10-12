@@ -2,6 +2,7 @@
 // base"): which place is being painted, add or remove, the brush's size. The place form (place-props.svelte) and the
 // phone bar switch it; the builder hands the canvas a HexBrushTarget for it (map-builder.svelte → hex-brush.svelte).
 import { BRUSH_MIN } from '@scutoons/content';
+import { shared } from '$lib/utils/shared.ts';
 
 class PlaceBrush {
 	/** the place whose ground is painted (null: no brush) */
@@ -17,4 +18,5 @@ class PlaceBrush {
 	}
 }
 
-export const placeBrush = new PlaceBrush();
+/** the builder's one place brush (shared(): one instance even when the module is loaded twice) */
+export const placeBrush = shared('place-brush', () => new PlaceBrush());
