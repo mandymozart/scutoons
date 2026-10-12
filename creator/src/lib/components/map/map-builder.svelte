@@ -688,9 +688,7 @@
 		const id = regionBrush.region;
 		const region = id && map ? map.regions?.find((r) => r.id === id) : undefined;
 		if (!id || !region || !map) return null;
-		// the other regions' covers, one row index (sorted runs per row): a touched cell is checked by a binary search –
-		// comparing each against every run of every region took seconds for a big stroke (owner 2026-10-12)
-		const taken = runsIndex((map.regions ?? []).filter((r) => r.id !== id).flatMap((r) => r.cells ?? []));
+		const others = (map.regions ?? []).filter((r) => r.id !== id);
 		return {
 			cells: [],
 			bulk: true,
@@ -699,6 +697,12 @@
 			onchange: () => {},
 			onstroke: (touched) =>
 				editRegion(doc, id, (r) => {
+					// coarse to fine (owner 2026-10-12: "bigger approximations to smaller"): only the rows the stroke touches are read
+					// from the other regions (a region outside them costs nothing), then one binary search per touched cell in its
+					// row – comparing each cell against every run of every region took seconds
+					let top = Infinity, bottom = -Infinity;
+					for (const c of touched) (top = Math.min(top, c.r)), (bottom = Math.max(bottom, c.r));
+					const taken = runsIndex(others.flatMap((o) => (o.cells ?? []).filter(([row]) => row >= top && row <= bottom)));
 					r.cells = paintRuns(r.cells ?? [], touched, regionBrush.mode, (c) => !taken(c));
 				})
 		};
