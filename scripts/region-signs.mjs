@@ -4,7 +4,7 @@
 // skipped (delete it to redo). Costs money – --dry prints the prompts; --only <id> makes one.
 // Key: LUMA_AGENT(S)_API_KEY in .env.
 //   node scripts/region-signs.mjs [--dry] [--only dunes] [--model uni-1-max]
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,16 +18,8 @@ const model = arg('model', 'uni-1-max');
 const out = join(ROOT, 'logs', 'map-paint', 'signs');
 mkdirSync(out, { recursive: true });
 
-/** the example regions (the painted map's zones, scripts/map-zones.json) – names and claims to refine */
-export const REGIONS = [
-	{ id: 'dunes', name: 'Dünenmeer Magenta', claim: 'Wo der Sand singt', scene: 'glowing dunes drifting from tangerine into hot magenta and turquoise, neon-pink salt pans, black rock ridges with glowing veins, a lone camel-like creature' },
-	{ id: 'altiplano', name: 'Hochland Regenbogen', claim: 'Sieben Farben, ein Himmel', scene: 'golden steppe grass, rainbow-striped mountains like Vinicunca, turquoise lagoons, a llama' },
-	{ id: 'alps', name: 'Ewigschnee', claim: 'Hier ist immer Dezember', scene: 'glittering snowy peaks in electric cyan and lilac, frosted pines, a cosy wooden chalet, icicles hanging from the sign' },
-	{ id: 'jungle', name: 'Schuppenwald', claim: 'Leise treten, laut staunen', scene: 'dense emerald jungle canopy, iridescent lizard scales, a gecko peeking over the sign, steaming electric-blue swamp pools' },
-	{ id: 'wasteland', name: 'Ödland Fracktal', claim: 'Wir sind noch da', scene: 'cracked sulphur-yellow crust, rusty drilling rigs, oily rainbow pools, radioactive green glow; the sign bent and patched, still proud' },
-	{ id: 'archipelago', name: 'Juwelenarchipel', claim: 'Jede Insel ein Schatz', scene: 'little islands made of opal, malachite, rose quartz and lapis in a candy-blue sea, a shell and pearls' },
-	{ id: 'highlands', name: 'Erzberge', claim: 'Geizig! Garstig! Steil!', scene: 'green lowlands rising into huge, grim, jagged snowy mountains, rust-red ore slopes, a mining pick and hammer crest, a small monastery clinging to a cliff' }
-];
+/** the regions: scripts/map-regions.json (shared with scripts/map-regions-seed.mjs) */
+const REGIONS = JSON.parse(readFileSync(join(ROOT, 'scripts', 'map-regions.json'), 'utf8')).regions;
 
 const prompt = (r) =>
 	[

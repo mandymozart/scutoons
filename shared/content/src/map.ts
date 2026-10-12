@@ -26,7 +26,40 @@ export interface WorldMap extends AcceptedWarnings {
 	bounded?: boolean;
 	locations: MapPlace[];
 	routes: MapPath[];
+	/** the regions (agents/MAP.md §8.10) – areas of the map's hex cells with a welcome sign, a claim and a greeting */
+	regions?: MapRegion[];
 }
+
+/**
+ * A region of the world map (agents/MAP.md §8.10, owner 2026-10-12: "hexagonal area covers … not as locations, not as
+ * layers but as regions"): its cover is a set of the map's hex cells (`HEX_CELL`, the places' grid), stored as row runs;
+ * a character comes from one (`origin`) and lives in one (`residence`); the event `migrate` moves the reader or a
+ * character there and plays the welcome (the sign, the representative – or the narrator – saying the greeting).
+ */
+export interface MapRegion {
+	/** slug, stable forever (events and characters reference it) */
+	id: string;
+	name: LocaleText;
+	/** the slogan on the welcome sign ("Geizig! Garstig! Steil!") */
+	claim?: LocaleText;
+	/** the cover: row runs `[r, q0, q1]` – the cells `{ q, r }` for q0 ≤ q ≤ q1 (`regionCells` / `cellRuns`) */
+	cells: CellRun[];
+	/** the welcome sign (the Ortseingangsschild) – a CDN-root path */
+	sign?: { src: string };
+	/** what grows there (also the paint prompt when the region is repainted) */
+	vegetation?: string;
+	/** the in-depth information */
+	description?: LocaleText;
+	/** what the representative – or, without one, the narrator – says when someone moves in */
+	greeting?: LocaleText;
+	/** the elected representative: a character of the registry (elections later – set by hand until then) */
+	representative?: string;
+	/** the region's colour on the map (#rrggbb) */
+	colour?: string;
+}
+
+/** one row of a region's cover: the cells `{ q, r }` from q0 to q1 */
+export type CellRun = [r: number, q0: number, q1: number];
 
 export interface MapLayer {
 	/** e.g. `terrain` */
@@ -453,6 +486,9 @@ export const waypointId = (w: Waypoint | ReaderWaypoint): string => (isPlaceWayp
 
 // ── The reader's answer (`GET /library/map`) ────────────────────────────────────────────────────────────────────────
 
+/** A region with its texts in the reader's locale */
+export type ReaderRegion = Omit<MapRegion, 'name' | 'claim' | 'description' | 'greeting' | 'cells'> & { name: string; claim?: string; description?: string; greeting?: string; cells?: CellRun[] };
+
 /** A place with its name in the reader's locale */
 export type ReaderPlace = Omit<MapPlace, 'name'> & { name: string };
 export type ReaderWaypoint = PlaceWaypoint | (Omit<FreeWaypoint, 'name'> & { name?: string });
@@ -467,6 +503,8 @@ export interface ReaderMap {
 	bounded?: boolean;
 	locations: ReaderPlace[];
 	routes: ReaderPath[];
+	/** the regions with their texts in the reader's locale (every region – a region belongs to no toon; the library leaves the covers out) */
+	regions?: ReaderRegion[];
 	/**
 	 * with `?toon=`: where the map opens for that toon (its start view, else the centre of its places) and `color` = the sea's
 	 * colour (owner 2026-10-01: the toon's colour – its tile colour, else its star's registry colour, `toonTileColor`)
@@ -493,8 +531,47 @@ export function resolveWorldMap(map: WorldMap, locale: string): ReaderMap {
 			...r,
 			name: mapName(r.name, locale),
 			waypoints: (r.waypoints ?? []).map((w) => (isPlaceWaypoint(w) ? { ...w } : { ...w, ...(w.name ? { name: mapName(w.name, locale) } : {}) })) as ReaderWaypoint[]
-		}))
+		})),
+		regions: (map.regions ?? []).map((r) => resolveRegion(r, locale))
 	};
+}
+
+/** a region's texts in a locale (empty ones left out) */
+export function resolveRegion(r: MapRegion, locale: string): ReaderRegion {
+	const text = (t: LocaleText | undefined) => (t ? mapName(t, locale) || undefined : undefined);
+	const { name, claim, description, greeting, ...rest } = r;
+	return { ...rest, name: mapName(name, locale) || r.id, ...(text(claim) ? { claim: text(claim) } : {}), ...(text(description) ? { description: text(description) } : {}), ...(text(greeting) ? { greeting: text(greeting) } : {}) };
+}
+
+// ── regions: covers as row runs (agents/MAP.md §8.10) ─────────────────────────────────────────────────────────────
+/** a cover's cells (row runs → cells) */
+export function regionCells(runs: readonly CellRun[]): HexCell[] {
+	const out: HexCell[] = [];
+	for (const [r, q0, q1] of runs) for (let q = q0; q <= q1; q++) out.push({ q, r });
+	return out;
+}
+/** cells → row runs (sorted by row, then q; duplicates merged) – how a region stores its cover */
+export function cellRuns(cells: readonly HexCell[]): CellRun[] {
+	const rows = new Map<number, number[]>();
+	for (const c of cells) (rows.get(c.r) ?? rows.set(c.r, []).get(c.r)!).push(c.q);
+	const out: CellRun[] = [];
+	for (const r of [...rows.keys()].sort((a, b) => a - b)) {
+		const qs = [...new Set(rows.get(r))].sort((a, b) => a - b);
+		let start = qs[0], prev = qs[0];
+		for (const q of qs.slice(1)) {
+			if (q === prev + 1) prev = q;
+			else (out.push([r, start, prev]), (start = prev = q));
+		}
+		out.push([r, start, prev]);
+	}
+	return out;
+}
+/** how many cells a cover has */
+export const runsSize = (runs: readonly CellRun[]): number => runs.reduce((n, [, a, b]) => n + b - a + 1, 0);
+/** the region whose cover holds a world point (the first in list order), or null */
+export function regionAt<T extends { cells: readonly CellRun[] }>(regions: readonly T[], p: Point): T | null {
+	const c = hexCellAt(p);
+	return regions.find((reg) => reg.cells.some(([r, q0, q1]) => r === c.r && c.q >= q0 && c.q <= q1)) ?? null;
 }
 
 // ── Geometry (reader + builder draw routes identically) ──────────────────────────────────────────────────────────────
@@ -926,7 +1003,21 @@ export interface MapState {
 	 * seen this reset – so another device's older copy never brings them back
 	 */
 	resetAt?: number;
+	/**
+	 * who lives where (agents/MAP.md §8.10): `reader` (the reader's avatar) or a character id → its region, `at` = when it
+	 * moved (ms; the newer move wins in the merge). A character without an entry lives in its `residence` (registry).
+	 * Not touched by a map reset – the reader's registration is no unlock animation. Left out while empty.
+	 */
+	residences?: Record<string, MapResidence>;
 }
+
+/** one move (`migrate`): the region and when */
+export interface MapResidence {
+	region: string;
+	at: number;
+}
+/** the save game's key for the reader's own avatar in `residences` */
+export const READER_RESIDENT = 'reader';
 
 export const emptyMapState = (): MapState => ({ places: {}, routes: {}, positions: {} });
 /** a map state that starts over now (`resetAt`) */
@@ -944,6 +1035,9 @@ export function normalizeMapState(value: unknown): MapState {
 	for (const [toon, p] of Object.entries(obj(v.positions)))
 		if (p && Number.isFinite(p.at) && (typeof p.location === 'string' || (typeof p.route === 'string' && typeof p.waypoint === 'string'))) state.positions[toon] = { ...p } as MapPosition;
 	if (Number.isFinite(v.resetAt) && (v.resetAt as number) > 0) state.resetAt = v.resetAt;
+	const residences: Record<string, MapResidence> = {};
+	for (const [who, r] of Object.entries(obj(v.residences))) if (r && typeof r.region === 'string' && r.region && Number.isFinite(r.at)) residences[who] = { region: r.region, at: r.at };
+	if (Object.keys(residences).length) state.residences = residences;
 	return state;
 }
 
@@ -989,6 +1083,14 @@ export function mergeMapState(a: MapState | null | undefined, b: MapState | null
 		const q = ya.positions[toon];
 		out.positions[toon] = !p ? q : !q ? p : q.at > p.at ? q : p;
 	}
+	// residences: the newer move wins (a reset does not touch them)
+	const residences: Record<string, MapResidence> = {};
+	for (const who of new Set([...Object.keys(x.residences ?? {}), ...Object.keys(y.residences ?? {})])) {
+		const p = x.residences?.[who];
+		const q = y.residences?.[who];
+		residences[who] = (!p ? q : !q ? p : q.at > p.at ? q : p)!;
+	}
+	if (Object.keys(residences).length) out.residences = residences;
 	return out;
 }
 
@@ -1008,6 +1110,15 @@ export function revealRoute(state: MapState, id: string, upTo: number): boolean 
 	state.routes[id] = { ...current, revealed: upTo };
 	return true;
 }
+
+/** Moves the reader (`READER_RESIDENT`) or a character to a region (`migrate`); false when it lives there already */
+export function moveResident(state: MapState, who: string, region: string, now: number): boolean {
+	if (state.residences?.[who]?.region === region) return false;
+	state.residences = { ...(state.residences ?? {}), [who]: { region, at: now } };
+	return true;
+}
+/** where the reader or a character lives: the save game's last move, else the character's registry `residence` */
+export const residenceOf = (state: Pick<MapState, 'residences'>, who: string, fallback?: string): string | undefined => state.residences?.[who]?.region ?? fallback;
 
 export function setPosition(state: MapState, toon: string, position: Omit<MapPosition, 'at'>, now: number): void {
 	state.positions[toon] = { ...position, at: now } as MapPosition;
@@ -1470,6 +1581,27 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				if (w.handle !== undefined && !finitePoint(w.handle)) add('error', [...wp, 'handle'], `${what}: waypoint ${w.id ?? j + 1}'s handle needs x / y numbers (or none: smooth)`);
 			} else add('error', wp, `${what}: waypoint ${j + 1} must be { location } or { id, x, y }`);
 		});
+	});
+
+	// regions (agents/MAP.md §8.10): id, name, the cover's runs, the sign, colour, representative
+	const regions = Array.isArray(map.regions) ? map.regions : [];
+	if (map.regions !== undefined && !Array.isArray(map.regions)) add('error', ['regions'], 'regions must be a list');
+	const regionIds = new Set<string>();
+	regions.forEach((g: any, i: number) => {
+		const path = ['regions', i];
+		if (!isObj(g)) return add('error', path, 'a region must be an object');
+		const what = `region "${g.id ?? i + 1}"`;
+		if (typeof g.id !== 'string' || !ID.test(g.id)) add('error', [...path, 'id'], `${what}: the id must be a slug (a–z, 0–9, -)`);
+		else if (regionIds.has(g.id)) add('error', [...path, 'id'], `duplicate region id "${g.id}"`);
+		else regionIds.add(g.id);
+		names(g.name, [...path, 'name'], what, true);
+		if (!Array.isArray(g.cells) || !g.cells.every((c: unknown) => Array.isArray(c) && c.length === 3 && c.every(Number.isInteger) && (c as number[])[1] <= (c as number[])[2]))
+			add('error', [...path, 'cells'], `${what}: the cover must be row runs [r, q0, q1] (whole numbers, q0 ≤ q1)`);
+		else if (!g.cells.length) add('warning', [...path, 'cells'], `${what}: no cells yet – paint its cover with the brush`);
+		if (g.sign !== undefined && (!isObj(g.sign) || typeof g.sign.src !== 'string' || !g.sign.src)) add('error', [...path, 'sign'], `${what}: the sign needs an image path`);
+		if (g.colour !== undefined && (typeof g.colour !== 'string' || !/^#[0-9a-f]{6}$/i.test(g.colour))) add('error', [...path, 'colour'], `${what}: the colour must be #rrggbb`);
+		if (g.representative !== undefined && (typeof g.representative !== 'string' || !g.representative)) add('error', [...path, 'representative'], `${what}: the representative must be a character id`);
+		if (g.vegetation !== undefined && typeof g.vegetation !== 'string') add('error', [...path, 'vegetation'], `${what}: the vegetation must be a text`);
 	});
 	return out;
 }

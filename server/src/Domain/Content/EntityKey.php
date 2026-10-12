@@ -56,13 +56,14 @@ final class EntityKey
         // one segment: the id (ID_KINDS)
         'place' => [false, false, false, false],
         'route' => [false, false, false, false],
+        'region' => [false, false, false, false],
         'character' => [false, false, false, false],
     ];
     /**
      * Kinds addressed by an id of their own (`place:<id>`, `route:<id>`; platform-wide, language-neutral – agents/MAP-DOCUMENTS.md):
      * the id is a slug, stable forever once published (events reference it). Meant for the catalog's items too (`item:<id>`).
      */
-    public const ID_KINDS = ['place', 'route', 'character'];
+    public const ID_KINDS = ['place', 'route', 'region', 'character'];
     public const ID_PATTERN = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /**
      * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only

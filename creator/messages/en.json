@@ -46,6 +46,7 @@
 		"publish_tree_title": "Publish – {name}",
 		"publish_tree_button": "Publish everything …",
 		"publish_part_place": "Place",
+		"publish_part_region": "Region",
 		"publish_part_route": "Route",
 		"publish_part_character": "Character",
 		"publish_part_added": "new",

@@ -1,0 +1,102 @@
+{
+	"$id": "https://scutoons.com/schema/map-region.schema.json",
+	"title": "RegionDoc",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/RegionDoc",
+	"definitions": {
+		"RegionDoc": {
+			"type": "object",
+			"properties": {
+				"removed": {
+					"type": "boolean",
+					"description": "taken off the map (a tombstone)"
+				},
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"claim": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the slogan on the welcome sign (\"Geizig! Garstig! Steil!\")"
+				},
+				"cells": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CellRun"
+					},
+					"description": "the cover: row runs `[r, q0, q1]` – the cells `{ q, r }` for q0 ≤ q ≤ q1 (`regionCells` / `cellRuns`)"
+				},
+				"sign": {
+					"type": "object",
+					"properties": {
+						"src": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"src"
+					],
+					"description": "the welcome sign (the Ortseingangsschild) – a CDN-root path"
+				},
+				"vegetation": {
+					"type": "string",
+					"description": "what grows there (also the paint prompt when the region is repainted)"
+				},
+				"description": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the in-depth information"
+				},
+				"greeting": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "what the representative – or, without one, the narrator – says when someone moves in"
+				},
+				"representative": {
+					"type": "string",
+					"description": "the elected representative: a character of the registry (elections later – set by hand until then)"
+				},
+				"colour": {
+					"type": "string",
+					"description": "the region's colour on the map (#rrggbb)"
+				}
+			},
+			"required": [
+				"cells",
+				"name"
+			],
+			"description": "The document `region:<id>` (agents/MAP.md §8.10)"
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		},
+		"CellRun": {
+			"type": "array",
+			"minItems": 3,
+			"items": [
+				{
+					"type": "number",
+					"title": "r"
+				},
+				{
+					"type": "number",
+					"title": "q0"
+				},
+				{
+					"type": "number",
+					"title": "q1"
+				}
+			],
+			"maxItems": 3,
+			"description": "one row of a region's cover: the cells `{ q, r }` from q0 to q1"
+		}
+	}
+}

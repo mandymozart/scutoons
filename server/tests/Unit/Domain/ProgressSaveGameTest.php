@@ -100,6 +100,13 @@ final class ProgressSaveGameTest extends TestCase
         self::assertSame([], $s['map']['routes'], 'the phone\'s routes are from before the reset');
         self::assertSame([], $s['map']['positions']);
         self::assertSame(['tips' => 1], $s['variables'], 'only the map');
+        // residences (agents/MAP.md §8.10): the newer move wins, a reset does not touch them, none = no field
+        $moved = ProgressService::mergeMapState(
+            self::obj(['places' => (object) [], 'residences' => ['reader' => ['region' => 'alps', 'at' => 100], 'boy' => ['region' => 'jungle', 'at' => 50]]]),
+            self::obj(['places' => (object) [], 'resetAt' => 900, 'residences' => ['reader' => ['region' => 'dunes', 'at' => 300], 'bad' => ['region' => '', 'at' => 1]]])
+        );
+        self::assertSame(['reader' => 'dunes', 'boy' => 'jungle'], array_map(fn($r) => $r->region, get_object_vars($moved->residences)));
+        self::assertObjectNotHasProperty('residences', ProgressService::mergeMapState(self::obj($old), self::obj($old)));
         // without a reset nothing changes
         $plain = ProgressService::mergeMapState(self::obj($old), self::obj($old));
         self::assertObjectNotHasProperty('resetAt', $plain);

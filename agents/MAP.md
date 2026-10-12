@@ -1038,6 +1038,11 @@ generic narrator says a region-specific greeting."
   Drawn with the VN's pieces (background, character, text box), so it looks like the VN.
 - **Later:** elections (who can vote, when, how the representative changes), region pages in the reader.
 
+**Sign references (owner 2026-10-12, "I like the more industrial look"):** the "Welcome to Twin Peaks" board (painted,
+on posts, the mountains in the picture); the LED trailer sign "Welcome to Hawaii"; the steel-framed "Glück Auf! in
+Eisenerz" sign – the location where the Erzberg story was shot (→ the Erzberge's sign); the Frankenmuth gantry arch over
+the road – for the megaworld / the hyper-city capital. The next sign round builds on these (Luma spend: the owner's go).
+
 **Example signs (to refine):** Dünenmeer Magenta (desert) · Hochland Regenbogen (altiplano) · Ewigschnee (the Alps) ·
 Schuppenwald (reptile jungle) · Ödland Fracktal (wasteland) · Juwelenarchipel (the island world) · Erzberge – "Geizig! Garstig! Steil!" (owner)
 (the mountain island) – names, claims and looks in `scripts/region-signs.mjs`.

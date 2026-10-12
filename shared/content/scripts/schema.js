@@ -40,6 +40,7 @@ const SCHEMAS = {
 	map: 'MapSettings',
 	'map-place': 'PlaceDoc',
 	'map-route': 'RouteDoc',
+	'map-region': 'RegionDoc',
 	events: 'EventList'
 };
 

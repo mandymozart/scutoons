@@ -22,6 +22,7 @@ import {
 	type FlowIndex,
 	type FlowNode,
 	MAP_COLLECTION,
+	collectionKinds,
 	collectionDocsFromEntities,
 	composeWorldMap
 } from '@scutoons/content';
@@ -93,7 +94,7 @@ export function registerStoryTools(server: McpServer, config: Config): void {
 		const [docs, map, fi] = await Promise.all([
 			Promise.all([...chosen].map(([entity, key]) => content.getDraft(key).then((r) => [entity, r.content] as const))),
 			// the world map composed from its documents (map, place:<id>, route:<id> – agents/MAP-DOCUMENTS.md)
-			content.withContent(['map', 'place', 'route'], 'draft').then((r) => { const d = collectionDocsFromEntities(MAP_COLLECTION, r.entities); return d.settings ? composeWorldMap(d) : null; }).catch(() => null),
+			content.withContent(collectionKinds(MAP_COLLECTION), 'draft').then((r) => { const d = collectionDocsFromEntities(MAP_COLLECTION, r.entities); return d.settings ? composeWorldMap(d) : null; }).catch(() => null),
 			flowIndex().catch(() => null)
 		]);
 		const byEntity = new Map<string, any>(docs);

@@ -23,7 +23,7 @@ use stdClass;
 final class CollectionDocs
 {
     /** @var array{key: string, parts: array<string, string>} anchor key + part kind → list field */
-    public const MAP = ['key' => 'map', 'parts' => ['place' => 'locations', 'route' => 'routes']];
+    public const MAP = ['key' => 'map', 'parts' => ['place' => 'locations', 'route' => 'routes', 'region' => 'regions']];
     /** @var array{key: string, parts: array<string, string>} */
     public const CHARACTERS = ['key' => 'characters', 'parts' => ['character' => 'characters']];
 

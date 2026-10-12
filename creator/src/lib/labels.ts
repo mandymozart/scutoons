@@ -34,6 +34,7 @@ export function fileLabel(key: string): string {
 		script: m['creator.script'](),
 		place: (id) => `${m['creator.publish_part_place']()}: ${id}`,
 		route: (id) => `${m['creator.publish_part_route']()}: ${id}`,
+		region: (id) => `${m['creator.publish_part_region']()}: ${id}`,
 		character: (id) => `${m['creator.publish_part_character']()}: ${id}`,
 		catalog: (kind, id) => `${CATALOG_WORD[kind]?.() ?? kind} ${id}`
 	});
