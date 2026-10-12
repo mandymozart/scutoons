@@ -5,10 +5,6 @@ next free number is **10.94**, a done item leaves in the same commit (`10.N done
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
-- [ ] 10.93 **Remove the admin's five catalog tabs** (owner 2026-10-12, CATALOG-IN-CREATOR D6) – around 2026-10-19: items,
-  recipes, albums, products, editions are read-only in the admin since the move (server: 409 `edited_in_creator`); then
-  remove the tabs + the admin's catalog editor for them (keep "Shop & codes": featured, code types, permissions, toons,
-  meta; the order of items needs a home first). MCP `propose_changes` of those kinds = the creator's drafts instead.
 - [ ] 10.83 **Desktop UI fixes – collecting** (owner 2026-10-11: "i like some fixes. we collect them here") – add each
   fix as its own item here. The desktop creator taking the phone concepts is a DRAFT session for the owner (branch
   `claude/zealous-faraday-e6338b`) – new desktop fixes go there or here, not both.

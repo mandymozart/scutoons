@@ -13,10 +13,12 @@ Branch `claude/quizzical-goldstine-44c6a4` (worktree `.claude/worktrees/quizzica
   published → its document + `removed: true` as a draft, publishing it deletes the table entry (409 `in_use` while
   used; physical → the rule); "Keep it" takes it back; removed entries leave the list, their ids stay taken. An
   admin-side delete (undo, migration) leaves the same tombstone.
-- **D6** admin: the five tabs read-only (form disabled, no new / save / delete, only an order's undo; server 409
-  `edited_in_creator` for PUT / DELETE / undo); reorder stays in the admin (the creator has no order). The image import
-  moved into the creator ("Import images …", drafts). FEATURES 10.93: remove the tabs in a week.
-- (a) the rule is "Publishes physical items"; the Reviews explainer: a grant like Reviewer, only Needs review restricts.
+- **D6** (changed by the owner the same day: "they go now") – the admin's five tabs are gone: its catalog page is "Shop &
+  codes" (toons, permissions, code types, meta) with the note + link to the creator's catalog; the server still answers
+  409 `edited_in_creator` to admin PUT / DELETE / undo of those kinds (MCP proposals too). The image import moved into
+  the creator ("Import images …", drafts); the items' **order** has no editor any more (new entries go to the end).
+- The review rules read as what the account does: "Reviews publishing requests" (reviewer) and "Publishes physical
+  items" (physical) grant, "Submits for review" (needs_review) restricts; hints per rule; the server's messages use them.
 - Also: batch saves now check catalog documents like a single save; "Looks fine" for catalog warnings in the creator.
 - D1, D3, D4, D7, D8, D9: as built (no change).
 

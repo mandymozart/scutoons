@@ -1,10 +1,10 @@
-// /catalog = the catalog's entry: its first kind (agents/CATALOG.md part 3). The old read-only page's `?tab=` links
-// (items, editions, toons, permissions) land on that kind.
+// /catalog = the admin's part of the catalog ("Shop & codes"): its first kind. The old read-only page's `?tab=` links
+// land on that kind when the admin still has it; items, editions … are the creator's now (the page links there).
 import { redirect } from '@sveltejs/kit';
-import { EDITED_KINDS } from '@scutoons/catalog';
+import { ADMIN_KINDS } from '$lib/catalog/admin-kinds.ts';
 
 export function load({ url }) {
 	const tab = url.searchParams.get('tab') ?? '';
-	const kind = (EDITED_KINDS as readonly string[]).includes(tab) ? tab : 'items';
+	const kind = (ADMIN_KINDS as readonly string[]).includes(tab) ? tab : ADMIN_KINDS[0];
 	redirect(307, `/catalog/${kind}`);
 }

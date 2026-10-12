@@ -3,36 +3,32 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Button, Tabs } from '@scutoons/ui';
-	import type { CatalogEntry, CatalogKind } from '@scutoons/api';
-	import { admin, library } from '$lib/api.ts';
-	import type { CharacterRegistry } from '@scutoons/content';
-	import { EDITED_KINDS, KINDS, type CatalogFormProps, type CatalogLists, type EditedKind } from '@scutoons/catalog';
+	import type { CatalogKind } from '@scutoons/api';
+	import { admin } from '$lib/api.ts';
+	import { KINDS, type CatalogFormProps, type CatalogLists } from '@scutoons/catalog';
+	import { ADMIN_KINDS, type AdminKind } from '$lib/catalog/admin-kinds.ts';
 	import { CREATOR_URL } from '$lib/config.ts';
 	import { errorText } from '$lib/format.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CatalogEditor from '$lib/components/catalog/catalog-editor.svelte';
-	import { AlbumForm, CodeTypeForm, EditionForm, ItemForm, MetaForm, PermissionForm, ProductForm, RecipeForm, ToonForm } from '@scutoons/catalog';
+	import { CodeTypeForm, MetaForm, PermissionForm, ToonForm } from '@scutoons/catalog';
 
 	/**
-	 * The catalog in the database (agents/CATALOG.md part 3): one tab per kind, each the same editor (list in order,
-	 * form, history with undo). The featured products stay on the Homepage page (one place for them).
+	 * "Shop & codes" – the part of the catalog the admin keeps (agents/CATALOG.md part 3): toons, permissions, code types,
+	 * meta; one tab per kind, each the same editor (list in order, form, history with undo). Items, recipes, albums,
+	 * products and editions are edited in the creator (owner 2026-10-12, CATALOG-IN-CREATOR D6) – the note links there;
+	 * the featured products stay on the Homepage page.
 	 */
-	const FORMS: Record<EditedKind, Component<CatalogFormProps, {}, 'data'>> = {
-		items: ItemForm,
-		recipes: RecipeForm,
-		albums: AlbumForm,
-		products: ProductForm,
-		editions: EditionForm,
+	const FORMS: Record<AdminKind, Component<CatalogFormProps, {}, 'data'>> = {
 		toons: ToonForm,
 		permissions: PermissionForm,
 		'code-types': CodeTypeForm,
 		meta: MetaForm
 	};
 
-	/** edited in the creator now (owner 2026-10-12, D6 – read-only here, to be removed: FEATURES); the rest = "Shop & codes" */
-	const IN_CREATOR: string[] = ['items', 'recipes', 'albums', 'products', 'editions'];
-	const kind = $derived<EditedKind>((EDITED_KINDS as readonly string[]).includes(page.params.kind ?? '') ? (page.params.kind as EditedKind) : 'items');
+	/** an old link to a moved kind (/catalog/items …) shows the note and the first tab */
+	const kind = $derived<AdminKind>((ADMIN_KINDS as readonly string[]).includes(page.params.kind ?? '') ? (page.params.kind as AdminKind) : ADMIN_KINDS[0]);
 	const def = $derived(KINDS[kind]);
 
 	let lists = $state<CatalogLists>({});
@@ -43,36 +39,25 @@
 		lists[k] = result.items;
 	}
 
-	// the published characters, for the wear overlays' problems (not loaded = not checked; never blocks the page)
-	let registry = $state<CharacterRegistry | null>(null);
-	$effect(() => {
-		library.fetchRegistry().then((r) => (registry = r), () => (registry = null));
-	});
-
-	// every kind once (the forms' selects need the others: items, editions, products, albums, toons, permissions)
+	// every kind once (the code types' form lists the permissions)
 	$effect(() => {
 		error = null;
-		Promise.all(EDITED_KINDS.map((k) => refresh(k))).catch((e) => (error = errorText(e)));
+		Promise.all(ADMIN_KINDS.map((k) => refresh(k))).catch((e) => (error = errorText(e)));
 	});
 
-	const tabs = $derived(EDITED_KINDS.map((k) => ({ id: k, label: KINDS[k].label() })));
-
+	const tabs = $derived(ADMIN_KINDS.map((k) => ({ id: k, label: KINDS[k].label() })));
 </script>
 
 <PageHeader type={m['nav.group_data']()} title={m['catalog.title']()} meta={m['catalog.meta']()} />
 
+<!-- items, recipes, albums, products, editions: drafts, versions and review in the creator (agents/research/CATALOG-IN-CREATOR.md) -->
+<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/items" target="_blank" rel="noopener">{m['catalog.in_creator_link']()}</a></p>
+
 <Tabs {tabs} value={kind} label={m['catalog.title']()} onchange={(id) => goto(`/catalog/${id}`, { keepFocus: true, noScroll: true })}>
 	{#snippet children()}
 		{#if error}<p class="error-box" role="alert">{error}</p>{/if}
-		{#if IN_CREATOR.includes(kind)}
-			<!-- the move into the creator (agents/CATALOG-IN-CREATOR.md): drafts, versions, review there; physical changes need the rule here too -->
-			<p class="muted note" data-testid="catalog-in-creator">{m['catalog.in_creator']()} <a href="{CREATOR_URL}/catalog/{kind}" target="_blank" rel="noopener">{m['catalog.in_creator_link']()}</a></p>
-		{/if}
-		{#if kind === 'products'}
-			<p class="muted note">{m['catalog.featured_note']()} <a href="/homepage">{m['nav.homepage']()}</a></p>
-		{/if}
 		{#key kind}
-			<CatalogEditor {def} {lists} {registry} {refresh} form={FORMS[kind]} readonly={IN_CREATOR.includes(kind)} detailActions={kind === 'toons' ? toonActions : undefined} />
+			<CatalogEditor {def} {lists} {refresh} form={FORMS[kind]} detailActions={kind === 'toons' ? toonActions : undefined} />
 		{/key}
 	{/snippet}
 </Tabs>

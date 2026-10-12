@@ -215,6 +215,29 @@ final class CatalogDocsTest extends TestCase
         self::assertSame(0, (int) $this->db->value('SELECT COUNT(*) FROM content_review_rules WHERE user_id = ?', [$other['id']]));
     }
 
+    /** the rules combine per toon: grants and the restriction each count where they hold; `*` adds to a toon's own */
+    public function testRulesCombine(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $reviews = $this->get(Reviews::class);
+        $id = (string) $writer['id'];
+        // "Submits for review" + "Publishes physical items" in one toon: the physical change goes out, the story one waits
+        $reviews->setRule($id, 'catpope', Reviews::NEEDS_REVIEW, true);
+        $reviews->setRule($id, 'catpope', Reviews::PHYSICAL, true);
+        $this->put($writer, 'item:mug', self::item('mug', ['edition_id' => '1_catpope_dago']));
+        $this->put($writer, 'item:spoon', self::item('spoon'));
+        self::assertSame(200, $this->request('POST', '/api/entities/item:mug/publish', $this->bearer($writer), '{}')->getStatusCode());
+        self::assertSame(403, $this->request('POST', '/api/entities/item:spoon/publish', $this->bearer($writer), '{}')->getStatusCode());
+        // `*` + the toon's own: either counts (the physical rule for every toon covers a cross-toon entry, catpope's doesn't)
+        $this->put($writer, 'item:cup', self::item('cup', ['toon' => null, 'max_world' => 3]));
+        self::assertSame(403, $this->request('POST', '/api/entities/item:cup/publish', $this->bearer($writer), '{}')->getStatusCode());
+        $reviews->setRule($id, Reviews::ALL_TOONS, Reviews::PHYSICAL, true);
+        $reviews->setRule($id, 'catpope', Reviews::PHYSICAL, false);
+        self::assertSame(200, $this->request('POST', '/api/entities/item:cup/publish', $this->bearer($writer), '{}')->getStatusCode());
+        $this->put($writer, 'item:mug', self::item('mug', ['edition_id' => '1_catpope_dago', 'name' => ['de' => 'Becher', 'en' => 'Mug']]));
+        self::assertSame(200, $this->request('POST', '/api/entities/item:mug/publish', $this->bearer($writer), '{}')->getStatusCode(), '* covers catpope');
+    }
+
     public function testNeedsReviewAppliesToTheCatalogOfThatToon(): void
     {
         $writer = $this->creator('writer@example.com');

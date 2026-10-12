@@ -23,7 +23,8 @@
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
-	import { EDITED_KINDS, KINDS, setupCatalog } from '@scutoons/catalog';
+	import { KINDS, setupCatalog } from '@scutoons/catalog';
+	import { ADMIN_KINDS } from '$lib/catalog/admin-kinds.ts';
 	import { openClaims } from '$lib/claims.svelte.ts';
 	import { setupMedia } from '@scutoons/media';
 	import { assets } from '$lib/api.ts';
@@ -71,9 +72,9 @@
 			goto,
 			m['palette.go_to']()
 		),
-		// the catalog's kinds (one tab each, /catalog/<kind>)
+		// the admin's catalog kinds (one tab each, /catalog/<kind>; items … are the creator's – the command below)
 		...linkCommands(
-			EDITED_KINDS.map((kind) => ({ id: `catalog-${kind}`, label: m['palette.catalog_kind']({ what: KINDS[kind].label() }), keywords: `catalog katalog ${kind}`, href: `/catalog/${kind}` })),
+			ADMIN_KINDS.map((kind) => ({ id: `catalog-${kind}`, label: m['palette.catalog_kind']({ what: KINDS[kind].label() }), keywords: `catalog katalog ${kind}`, href: `/catalog/${kind}` })),
 			goto,
 			m['palette.go_to']()
 		),
@@ -81,7 +82,6 @@
 			[
 				{ id: 'new-batch', label: m['palette.new_batch'](), keywords: 'batch edition', href: '/batches?new=1' },
 				{ id: 'generate', label: m['palette.generate'](), keywords: 'code qr', href: '/codes/new' },
-				{ id: 'new-item', label: m['catalog.new']({ what: m['catalog.item']() }), keywords: 'catalog item', href: '/catalog/items?new=1' },
 				{ id: 'new-toon', label: m['catalog.new']({ what: m['catalog.toon']() }), keywords: 'catalog toon', href: '/catalog/toons?new=1' },
 				{ id: 'revoked', label: m['palette.revoked_codes'](), href: '/codes?status=revoked' },
 				{ id: 'admins', label: m['palette.admins'](), href: '/users?role=admin' }
@@ -91,6 +91,8 @@
 		),
 		// the content lives in the creator (the admin's read-only Content page is gone, owner 2026-10-02)
 		{ id: 'open-creator', label: m['palette.open_creator'](), group: m['palette.actions'](), keywords: 'content chapters toons creator', run: () => void (location.href = CREATOR_URL) },
+		// the catalog's items, recipes, albums, products, editions (owner 2026-10-12, D6)
+		{ id: 'creator-catalog', label: m['catalog.in_creator_link'](), group: m['palette.actions'](), keywords: 'catalog katalog item items recipe album product edition', run: () => void (location.href = `${CREATOR_URL}/catalog/items`) },
 		languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale }), group: m['palette.actions']() }),
 		signOutCommand({ label: m['shell.sign_out'](), run: () => session.logout(), group: m['palette.actions']() })
 	]);

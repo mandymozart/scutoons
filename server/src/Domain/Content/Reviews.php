@@ -17,9 +17,12 @@ use stdClass;
 
 /**
  * Review before publish (agents/CUTOVER.md 10.28 "Review levels", docs/API.md "Reviews"). Not a role – a relation per
- * toon, set by an admin (table content_review_rules, `*` = every toon):
- *   reviewer      gets the "review requested" mail, publishes a submitted version or sends it back
- *   needs_review  may save drafts and submit them, but not publish / unpublish entities of that toon
+ * toon, set by an admin (table content_review_rules, `*` = every toon; a `*` rule and a toon's own rule add up). The
+ * admin shows what the account does (owner 2026-10-12) – two grants, one restriction; the stored ids stay:
+ *   reviewer      "Reviews publishing requests": gets the "review requested" mail, publishes a submitted version or
+ *                 sends it back (not physical catalog changes)
+ *   physical      "Publishes physical items" (below)
+ *   needs_review  "Submits for review": may save drafts and submit them, but not publish / unpublish entities of that toon
  * Only toon-level entities are reviewed (every kind with a toon in its key: toon, toon-settings, season, chapter, scene,
  * cast, credits, script …); platform-wide ones (characters, map, events …) publish directly for every creator. Without a
  * rule an account publishes directly, as before. The API decides, so the creator app and agents (the MCP server, same
@@ -127,7 +130,7 @@ final class Reviews
         if ($toon !== self::ALL_TOONS && (!preg_match(EntityKey::TOON_PATTERN, $toon) || $toon === 'scutoons')) {
             throw new ApiError(400, 'invalid_toon', 'Unknown toon id (or * for every toon).');
         }
-        if (!in_array($rule, self::RULES, true)) throw new ApiError(400, 'invalid_rule', 'The rule is reviewer, needs_review or physical.');
+        if (!in_array($rule, self::RULES, true)) throw new ApiError(400, 'invalid_rule', 'The rule is reviewer ("Reviews publishing requests"), physical ("Publishes physical items") or needs_review ("Submits for review").');
         if (!$on) return $this->db->run('DELETE FROM content_review_rules WHERE toon = ? AND user_id = ? AND rule = ?', [$toon, $userId, $rule])->rowCount() > 0;
         if ($this->db->value('SELECT 1 FROM content_review_rules WHERE toon = ? AND user_id = ? AND rule = ?', [$toon, $userId, $rule]) !== null) return false;
         $this->db->run('INSERT INTO content_review_rules (toon, user_id, rule, created_at, created_by) VALUES (?, ?, ?, ?, ?)',
@@ -165,9 +168,10 @@ final class Reviews
                     [(string) $key, $version, $userId]);
                 if ($submitted !== null) return;
             }
+            $where = implode(', ', array_map(fn(string $t) => $t === self::ALL_TOONS ? 'every toon' : $t, $policy['toons']));
             throw new ApiError(403, 'review_required', $policy['physical']
-                ? 'A physical catalog change needs a review – submit it; an account with the physical rule publishes it.'
-                : 'This catalog change needs a review – submit it for review instead.', ['toons' => $policy['toons'], 'physical' => $policy['physical']]);
+                ? "Publishing a physical catalog change needs \"Publishes physical items\" for $where – submit it for review instead."
+                : "You submit for review in $where – submit this change instead of publishing it.", ['toons' => $policy['toons'], 'physical' => $policy['physical']]);
         }
         if (!$this->needsReview($userId, $key)) return;
         if (!$unpublish && $this->hasRule($userId, (string) $key->toon, self::REVIEWER)) {
@@ -176,7 +180,7 @@ final class Reviews
                 [(string) $key, $version, $userId]);
             if ($submitted !== null) return;
         }
-        throw new ApiError(403, 'review_required', "Changes to {$key->toon} need a review – submit them for review instead.", ['toon' => $key->toon]);
+        throw new ApiError(403, 'review_required', "You submit for review in {$key->toon} – submit these changes instead of publishing them.", ['toon' => $key->toon]);
     }
 
     /**
@@ -250,8 +254,10 @@ final class Reviews
         foreach ($versions as [, , $toon, $rule]) {
             $reviewers["$toon|$rule"] ??= $this->reviewers($toon, $userId, $rule);
             if ($reviewers["$toon|$rule"] === []) {
-                $who = $rule === self::PHYSICAL ? 'Nobody publishes physical catalog changes of ' . ($toon === self::ALL_TOONS ? 'every toon' : $toon) . ' yet – ask an admin to add the physical rule.'
-                    : "Nobody reviews $toon yet – ask an admin to add a reviewer.";
+                $where = $toon === self::ALL_TOONS ? 'every toon' : $toon;
+                $who = $rule === self::PHYSICAL
+                    ? "Nobody else may publish physical items for $where yet – an admin gives someone \"Publishes physical items\" (Admin → Users → Reviews)."
+                    : "Nobody else reviews publishing requests for $where yet – an admin gives someone \"Reviews publishing requests\" (Admin → Users → Reviews).";
                 throw new ApiError(409, 'no_reviewer', $who, ['toon' => $toon, 'rule' => $rule]);
             }
         }
@@ -317,7 +323,8 @@ final class Reviews
                 if (!$row) throw new ApiError(404, 'not_found', "Unknown review $id.");
                 if ($row['state'] !== 'pending') throw new ApiError(409, 'review_closed', "Review $id is {$row['state']}.", ['id' => $id, 'state' => $row['state']]);
                 if ($row['author'] === $userId || !$this->mayDecide($userId, EntityKey::parse((string) $row['entity_key']), (int) $row['version_id'], (string) $row['toon'])) {
-                    throw new ApiError(403, 'not_reviewer', "You don't review {$row['toon']}" . ($row['author'] === $userId ? ' – not your own submit.' : '.'), ['toon' => $row['toon']]);
+                    throw new ApiError(403, 'not_reviewer', $row['author'] === $userId ? 'Not your own request – someone else decides it.'
+                        : "You don't decide this request of {$row['toon']} (a physical change needs \"Publishes physical items\", any other \"Reviews publishing requests\").", ['toon' => $row['toon']]);
                 }
                 if ($publish) {
                     $version = $this->store->byId((int) $row['version_id']) ?? throw new ApiError(404, 'not_found', 'The submitted version is gone.');

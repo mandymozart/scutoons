@@ -15,13 +15,10 @@
 		kind,
 		id,
 		reload = 0,
-		onundone,
-		readonly = false
+		onundone
 	}: {
 		kind: CatalogKind;
 		id?: string;
-		/** the kind is edited in the creator (D6): only an order's change can be undone here */
-		readonly?: boolean;
 		/** bump to read the history again (after a save) */
 		reload?: number;
 		onundone: () => void;
@@ -100,7 +97,7 @@
 					<span class="sc-caption muted">#{h.id} · {minute(h.at)} · {(h.by ?? '—').replace(/^admin:/, '')}{#if h.note}{' · '}{h.note}{/if}</span>
 					{#if keys.length}<span class="sc-caption muted">{keys.join(', ')}</span>{/if}
 				</span>
-				{#if !readonly || !h.entry_id}<Button size="sm" variant="secondary" onclick={() => undo(h)} disabled={busy !== null} data-testid="history-undo">{busy === h.id ? '…' : m['catalog.undo']()}</Button>{/if}
+				<Button size="sm" variant="secondary" onclick={() => undo(h)} disabled={busy !== null} data-testid="history-undo">{busy === h.id ? '…' : m['catalog.undo']()}</Button>
 			</li>
 		{/each}
 	</ol>
