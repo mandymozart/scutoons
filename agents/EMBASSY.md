@@ -1,7 +1,7 @@
-# PLAN — Embassy (embassy.scutoons.com), the partner network of Top Toy / SCUTOONS
+# EMBASSY — embassy.scutoons.com, the partner network of Top Toy / SCUTOONS
 
-Written 2026-10-01. Branch `embassy` (worktree `.claude/worktrees/embassy`), kept out of the 2026-10-04 release
-(`platform` → `main`); merge after the release. Status: **phase 0 + phase 1 built** (see "Built" below).
+Written 2026-10-01 as a plan; live since the 2026-10-04 rollout. Status: **phases 0–2 built** (mail: SMTP send + IMAP
+replies + pace, 2026-10-05); phase 3 (AI) = the member's own Claude over the MCP (agents/MCP.md) – the in-app Ask is gone.
 
 ## Goal
 
@@ -174,7 +174,7 @@ own data, no per-seat fees. Phase 0 works either way.
 |---|---|---|
 | **0 – now, no code** ✅ import file | owner: tiers, first pitch (EPK, release links), 3 first-contact templates (de/en); agent: clean + dedupe the Top List into an import file | import file reviewed |
 | **1 – MVP** ✅ built | DB + API + `embassy/` app: import, organisations/persons/leads, territories, stages, next date, Today list with call tasks + outcome buttons, activity notes, roles; compose opens the mail app (`mailto:`) and logs it | owner + 1 helper work a week in it on the phone |
-| **2 – mail** | SMTP send from the app, IMAP sync, reply stops sequence, cadence defaults (mail → call), daily reminder; member updates to opted-in members with unsubscribe | no manual logging needed; first member update sent |
+| **2 – mail** ✅ built 2026-10-05 | SMTP send from the app, IMAP sync, reply stops sequence, cadence defaults (mail → call), daily reminder; member updates to opted-in members with unsubscribe | no manual logging needed; first member update sent |
 | **3 – AI** | enrichment (incl. phone numbers), drafts, reply classification, **research runs** + fit profile, "who should hear about this pitch" | owner starts a research run in one sentence and gets candidates with reasons |
 | **4 – scale** | scheduled research runs, Europe coverage view, reporting per helper/track, more languages, member update triggered by new catalog items | – |
 
@@ -191,7 +191,7 @@ own data, no per-seat fees. Phase 0 works either way.
    are they the first ones?
 8. Is the Top List itself (public, Top Toy's community spreadsheet) to be moved onto the platform as a public page too?
 
-## Built (2026-10-01, branch `embassy`)
+## Built (2026-10-01; merged)
 
 - **API** (`server/`): migration `2026-10-01-embassy` (tables `embassy_orgs`, `embassy_people`, `embassy_leads`,
   `embassy_activities`; roles 4 `liaison`, 5 `ambassador`), `Domain\Embassy\Embassy`, `/api/embassy/*`
@@ -206,18 +206,18 @@ own data, no per-seat fees. Phase 0 works either way.
   `agent@scutoons.test` (import of the Top List into a local DB copy, mail → call → voicemail, duplicate warning,
   phone width 375 px, German).
 
-**To go live (owner):** subdomain `embassy.scutoons.com` on all-inkl → folder `embassy/dist/` (+ SSL); run
-`server/migrations/mysql/2026-10-01-embassy.mysql.sql` then `2026-10-02-embassy-stores.mysql.sql` in phpMyAdmin (the api deploy adds the origin to `ALLOWED_ORIGINS`); grant roles in the admin app (Users); import the file on `/import`
+**Went live (history):** subdomain `embassy.scutoons.com` on all-inkl → folder `embassy/dist/` (+ SSL); the
+migrations `2026-10-01-embassy` + `2026-10-02-embassy-stores` are applied (the api deploy adds the origin to `ALLOWED_ORIGINS`); grant roles in the admin app (Users); import the file on `/import`
 (dry run first). Local: nothing to add, the dev API allows every port of `shared/dev-ports.json` (PLATFORM.md "Local dev ports").
 
 **Released with the 2026-10-04 rollout (owner 2026-10-04; was held back since 2026-10-01):** `embassy` is in
 `deploy/targets.json` `order`, so the Deploy workflow ships it on pushes to main; `.github/workflows/embassy.yml` stays the
 manual single-app run. The DB migrations are additive.
 
-**Next (phase 2):** sending from the app (SMTP, shared mailbox), inbox sync, templates + call notes, member updates
-to opted-in members, daily reminder. Then phase 3 (AI enrichment, drafts, research runs).
+**Phase 2 built** (2026-10-05: SMTP send, inbox sync, pace). Phase 3 (enrichment, drafts, research runs) goes through
+the member's own Claude over the MCP (agents/MCP.md).
 
-## Stores – "Where to buy" (2026-10-02, owner — built on branch `stores`)
+## Stores – "Where to buy" (2026-10-02, owner — built)
 
 Owner: "In the embassy I need a type STORE. Any store that carries products from SCUTOONS needs to be mentioned. We need
 a public page on the main viewer which lists which stores carry which items, so people can buy from a local supplier of

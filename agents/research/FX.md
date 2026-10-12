@@ -3,7 +3,7 @@ Status 2026-10-12: phases 1–4 BUILT (how they work: the part from "later the s
 # FX — reader feedback cues (plan, not started)
 
 Owner 2026-10-07: plan only; **built after the rest of the backlog** (BACKLOG 10.56). The reader's own effects – no
-external MIDI, devices or network (that is agents/LIVE.md, the performance mode, which builds on this). Drafts: the
+external MIDI, devices or network (that is agents/research/LIVE.md, the performance mode, which builds on this). Drafts: the
 "Feedback cues" board of the artifact "Scutoons Live drafts" https://claude.ai/artifact/GNwrpUc1VxpYT7bohnTEFD
 (pick up · can't take it · nudge, as phone frames).
 

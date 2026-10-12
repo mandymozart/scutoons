@@ -1,8 +1,7 @@
 # DATA — everything from the API, stored in the database (widened P4)
 
-Written 2026-09-30 (branch `platform`), Phase C done the same day. Companion docs: [PLATFORM.md](PLATFORM.md) ("Data",
-domain architecture, CDN), [PERFORMANCE.md](PERFORMANCE.md) (P4), [ITEMS.md](ITEMS.md) (API contract), [PLAN.md](PLAN.md)
-(rules, release).
+Written 2026-09-30, Phase C done the same day; how it is now. Companion docs: [PLATFORM.md](PLATFORM.md) ("Data",
+domain architecture, CDN), [ITEMS.md](ITEMS.md) (API contract), [CATALOG.md](CATALOG.md), rules: [RULES.md](RULES.md).
 
 **Owner decisions (2026-09-30):** "Switch the entire loading process to not file-based. It has to be served via the API
 and stored in the database. [...] a real service layer that can cache and get chapters or other entities on demand
@@ -14,15 +13,14 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 
 | What | Where | Edited in |
 |---|---|---|
-| toon list entry (status, languages; the name = `title` per language, decision 4 of agents/NEUTRAL.md) | DB entity `toon:<toon>` | creator (toon page / toon settings) |
-| language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) + the toon's title / description / release / status per language (locale maps, agents/NEUTRAL.md step 4) | DB entity `toon:<toon>` (the same entry); legacy `toon-settings:<toon>:<l>` | creator (toon settings) |
+| toon list entry (status, languages; the name = `title` per language, decision 4 of agents/archive/NEUTRAL.md) | DB entity `toon:<toon>` | creator (toon page / toon settings) |
+| language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) + the toon's title / description / release / status per language (locale maps, agents/archive/NEUTRAL.md step 4) | DB entity `toon:<toon>` (the same entry); legacy `toon-settings:<toon>:<l>` | creator (toon settings) |
 | toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>` (language-neutral, texts as locale maps); legacy `season:<toon>:<n>:<l>` | creator (season page) |
 | season positions (BACKLOG 10.41): `/<toon>/season/S/chapter/K` = the K-th `sequence` entry with number ≠ 0 (the prologue 0 not counted; drafts / coming-soon counted) – computed, not stored (`@scutoons/content` seasons.ts); frozen once published (the season validator) | – | – |
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>` (language-neutral); legacy `chapter:<toon>:<n>:<l>` | creator |
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>` (language-neutral); legacy `scene:<toon>:<chapter>:<name>:<l>` | creator |
 | the world map (places, routes, layers; names `{ de, en }`; unlock points) | DB `map` (platform-wide, language-neutral; agents/MAP.md §8) | creator (Universe → Map; a slice's "unlocks place" in the chapter editor) |
-| old per-toon map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` – read-only since `map`, removed from the seed after one release | – |
 | cast per season | DB `cast:<toon>` | creator (cast page) |
 | characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; the A-pose look is `swim` – the naked one was removed 2026-10-05, ITEMS.md "Reader avatar bodies"; **no male/female** – an optional `testo` level 0–100 per character/persona (more testo → reads more male, less → more female) and `tendencies`, ITEMS.md "Substances") | creator (characters) |
 | reader stats (testo, appetite) and timed effects | tables `member_stats`, `member_effects` (guests: localStorage `scutoons_reader`), via `GET /me/`, `POST /inventory/use/` | reader inventory ("Benutzen") |
@@ -52,7 +50,7 @@ every read is "one entity (+ its children) of one toon in one locale"; compositi
 toon:<toon>                              index entry            toon-settings:<toon>:<l>      settings
 season:<toon>:<n>                        chapter:<toon>:<n>      scene:<toon>:<chapter>:<name>   (language-neutral)
 season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>  (legacy per locale)
-locations:<toon>:<l>   routes:<toon>:<l>  cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
+cast:<toon>   credits:<toon>   script:<toon>:<l>  (creator only)
 characters   moods   asset-requests   people   roles   events   map    (platform-wide)
 ```
 Segments are `:`-separated; numbers are digits without leading zeros – seasons from 1, **chapters (and their scenes)
@@ -64,7 +62,7 @@ format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:sce
 `EntityKey::sceneOf`). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
 endpoint and the season overview pass it through; the `/cast` answer always has the toon's star in every season.
 
-**Language-neutral chapters, scenes, seasons (2026-10-06, agents/NEUTRAL.md):** one document per entity, stored under
+**Language-neutral chapters, scenes, seasons (2026-10-06, agents/archive/NEUTRAL.md):** one document per entity, stored under
 the entity itself (`chapter:catpope:2`, `EntityKey::NEUTRAL_DOC_KINDS` / `NEUTRAL_DOC_KINDS`, `isNeutralDocKey`;
 `locale` column NULL). Structure once; every text leaf is a locale map – chapter `title` / `description` / `release`,
 text box `text` (`{ de: string | string[] }`), VN `showMessage.params.text` / `addChoice.params.label`, season `title` /
@@ -148,7 +146,7 @@ registry name, owner 2026-10-01) and its entry has the duo `avatar.webp`. Seed (
 `server/db/local.sqlite.bak-2026-10-01-landing`, `…-top-toy`), seed SQL: 6 toon-settings statements (2 changed, 4 new),
 `toon:toptoy` and `characters` (also in `characters-seed.mysql.sql`); unchanged statements keep their timestamps.
 
-**Since 2026-10-06 (agents/NEUTRAL.md step 4) the per-language part is in the entry too**: `title`, `description`,
+**Since 2026-10-06 (agents/archive/NEUTRAL.md step 4) the per-language part is in the entry too**: `title`, `description`,
 `release` as locale maps and `languageStatus` (the status per language; the entry's `status` stays the whole toon's);
 `toon-settings:<toon>:<l>` is legacy – the library reads it only while the entry has no `title` map, the creator edits
 the entry only (one document), `/library/toons?locale=` leaves out a toon closed in that language. **The name is `title`**
@@ -299,7 +297,7 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
 - **Type guard (2026-10-04):** every PUT is checked against its kind's JSON Schema (`ContentSchemas`, opis/json-schema;
   the schemas are generated from the TS types – `npm run schema -w @scutoons/content` writes shared/content/schema/ and
   the server's copy server/schema/content/, `npm run check` fails when either is stale) → `422 invalid_content
-  { problems: ["/0/city: …"] }`. Extra fields are allowed; `locations` / `routes` (old map) are not checked.
+  { problems: ["/0/city: …"] }`. Extra fields are allowed.
   `php bin/console content:check [--db] [--kind]` checks what is stored (newest + published per key; neutral
   chapters / scenes / seasons against their neutral schemas). Restore and
   the seed import are not guarded. The first run fixed stale types (narration `showMessage` without `character`,
@@ -371,13 +369,13 @@ history row, note "warning accepted", undo takes it back). The server never serv
 | A | this design | ✅ 2026-09-30 |
 | B | server library endpoints, cache, import/export, contract suites | ✅ 2026-09-30 |
 | C | entity keys + migration, `/api/entities`, all frontends on the API, static files and fallbacks removed, UI without file names | ✅ 2026-09-30 – **ships with the release** |
-| B2 | catalog (items, editions, products/featured) into the store; QR toons list derived; permissions stay a private file | after the release |
-| D | PWA (§6) | after the release |
+| B2 | catalog (items, editions, products/featured) into the store; QR toons list derived; permissions stay a private file | ✅ 2026-10-04 (CATALOG.md) |
+| D | PWA (§6) | open – FEATURES 10.74 |
 
 **Risks**: no static fallback – API down = reader down (`/api/health/` monitoring; PWA later); visibility decided on the
 server (compare test, `403` reasons); an `en` reader may get a flagged `de` document instead of an error; all-inkl may
 lack APCu (file cache in `storage/cache`, writable, deploy-protected); the store is the only source (use
-`export-content` as backup/diff; the seed folder is the reviewed snapshot); drafts are `no-store` and never cached.
+`export-content` as backup/diff; there is no file seed since 10.30); drafts are `no-store` and never cached.
 
 ## Phase B — result (2026-09-30)
 
@@ -490,8 +488,8 @@ baked into an image is extracted into text and rendered by the UI in the reader'
 avatar").** `season.cover` (art + lettering layout) is the cover; the toon is represented by its avatar. `cover` left
 `TOON_NEUTRAL_FIELDS` / `ToonIndex` again (TS + `Library::TOON_NEUTRAL_FIELDS`, cache FORMAT 4); a `cover` in the toon entry
 or the toon settings is a warning ("belongs to the season"); `Toon.cover` stays as a deprecated read-only fallback for
-older per-language toon settings. Seasons have no neutral entity, so like `download` / `trailer` / `related_items` the
-creator's cover editor writes the cover to every locale's season document (the validation warns when locales differ).
+older per-language toon settings. Since 2026-10-06 the season is ONE language-neutral document (`season:<toon>:<n>`, §1), so the cover is stored once like
+`download` / `trailer` / `related_items`.
 Reader: the toon page shows the cover of the season it presents (`season.cover`, else the old `toon.cover`); the desktop
 hero's fallback background is that season's cover art. Data: catpope's seasons already had `cover` (the baked images, no
 lettering) → only `toons.json` lost it (seed SQL: the `toon:catpope` statement, old timestamp); sandbox: `cover` moved from
@@ -519,8 +517,8 @@ without it in the entry keeps each language's cover – `LibraryTest::testCoverF
   `cover.portrait`, the "Lettering" checkbox, a **preview** per language – "as readers see it" and, while the flag is off,
   "rendered title" (the `CoverArt` lettering over today's image with a soft blur behind it, `veil`, so the owner can judge
   the model before the clean art exists) – and the toon's open media requests. The covers left the per-language block.
-- **Season covers** (`season.cover`, unused by the reader): seasons have no language-neutral entity – like `download`,
-  `trailer`, `supporters` the creator writes the cover to every locale (one field) – so it stays in `season:<toon>:<n>:<l>`
+- **Season covers** (`season.cover`, unused by the reader): (history – before 2026-10-06 seasons had no neutral entity and
+  the creator wrote the cover to every locale; now it is one field of `season:<toon>:<n>`)
   (catpope: the same two files in de + en). The cross-locale validation warns when a season's covers differ between
   languages, and `Cover.lettering` works there too. A real move needs a neutral season entity (owner decision; not built:
   keep the configuration small).

@@ -20,7 +20,7 @@ ja quasi andere Berechtigung brauchen, weil nicht jeder Creator einfach ein Item
 recherchieren."
 
 Status: research only – nothing built. Background: agents/CATALOG.md (tables, admin UI), agents/ITEMS.md (item
-definition, codes → items, limits, ownership), agents/ACCOUNT-RESTART.md §2 (item sources).
+definition, codes → items, limits, ownership), agents/research/ACCOUNT-RESTART.md §2 (item sources).
 
 ## 1. What the catalog is today
 

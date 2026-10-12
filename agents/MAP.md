@@ -1,9 +1,10 @@
 # MAP — one world map for all of SCUTOONS: data, events, the creator's map builder, location images, a sandbox story
 
-Written 2026-10-01 (branch `platform`) as a concept; **M0 + M1 + M2 built the same day on branch `map`** (owner decisions
-and what differs from the concept: [§8 Built](#8-built-m0--m1--m2-2026-10-01-branch-map)). Companion docs: [DATA.md](DATA.md) (entities, API),
+Written 2026-10-01 as a concept (§1–§7 – partly built, partly superseded); **how it is now: §8** (M0 + M1 + M2 built the
+same day, merged into `main`; places unlock only by the `unlockLocation` event since 2026-10-11) (owner decisions
+and what differs from the concept: [§8 Built](#8-built-m0--m1--m2-2026-10-01)). Companion docs: [DATA.md](DATA.md) (entities, API),
 [DESIGN.md](DESIGN.md) (reader + creator UI, follow-up bar, VN layout), [ITEMS.md](ITEMS.md) (grant bridge, inventory
-notices), [PLAN.md](PLAN.md) (rules: small configuration, API-first, the creator as the only editor).
+notices), [RULES.md](RULES.md) (rules: small configuration, API-first, the creator as the only editor).
 
 **Owner request (2026-10-01):** a map builder in the creator; map entries linked to VN events **and** to events in the
 scroll (webtoon) reader, e.g. "unlock location"; routes and waypoints; small transparent WebP illustrations per place
@@ -11,7 +12,6 @@ scroll (webtoon) reader, e.g. "unlock location"; routes and waypoints; small tra
 one world map for every toon; an example story in the sandbox with **all** characters that exercises every map
 feature; built on the existing Cat Pope map data.
 
-**Timing:** this is post-release work (release 2026-10-04 has priority). Nothing here blocks or changes the release.
 
 Mockups (wireframe level, not committed): `%TEMP%\claude\C--Development-scutoons\2736b5c1-…\scratchpad\map-concept\`
 `builder-mockup.png` (creator, 1440 × 900), `reader-mockup.png` (reader, 390 × 844), `terrain.png` (the terrain with
@@ -19,7 +19,7 @@ today's 9 catpope locations).
 
 ---
 
-## 1. What exists today
+## 1. What existed before the map (2026-10-01 – history; the per-toon lists were purged 2026-10-12)
 
 | Piece | Where | What it does |
 |---|---|---|
@@ -611,7 +611,7 @@ same unlocks after sync.
 
 ---
 
-## 8. Built: M0 + M1 + M2 (2026-10-01, branch `map`)
+## 8. Built: M0 + M1 + M2 (2026-10-01)
 
 Branch `map` from `platform` bab74a3; `platform` (icons, covers + media requests, colours, toon scripts, ports) merged in
 at `932c578`. Commits: M0 `91a0c8f`, M1 `4248cff`,
@@ -865,7 +865,7 @@ image in the chapter's documents, else the chapter's first slice – and removes
 form's unlock fieldset and the sheet's Unlock tab, the slice inspector's map section (`slice-unlocks.svelte`) and
 `setSliceUnlock` (creator) went; `unlock` on a place is a validation error. `readerHere` breaks ties by the map's list
 order. Lost on purpose: the silent catch-up for readers who start in the middle – their places come with the events.
-**Order on production:** run the SQL first (the published viewer already runs unlockLocation), empty the API's library
+**Order on production (done 2026-10-11):** the SQL first (the published viewer already runs unlockLocation), empty the API's library
 cache, then deploy.
 
 ### 8.6 Not built yet
@@ -887,7 +887,7 @@ post-processing §5.3).
   `InventoryServiceTest::testWorldProgressMergesTheMapState`. Contract: `entities-smoke` (/library/map), `api-smoke` (the
   world-state merge incl. a stale write), `entities-compare` (§8.2).
 
-### 8.8 Merge note (the owner merges after the 2026-10-04 release)
+### 8.8 Merge note (history)
 
 _(History: since CUTOVER 10.30 there is no seed SQL, no SQLite store and no `migrate-map.ts`; local dev loads
 production's map with `npm run dev:db -- seed`.)_

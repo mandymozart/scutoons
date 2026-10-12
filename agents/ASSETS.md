@@ -1,7 +1,6 @@
 # ASSETS — the media asset layer, storage drivers, bunny.net, the asset selector
 
-Branch **`assets`** (worktree `C:\Development\scutoons-assets`, from `platform` at cd96a91, 2026-10-02). Target: before the
-**public** release (Sunday 2026-10-04 is the internal beta; PLAN.md "Release plan update"). Companion docs: PLATFORM.md
+Built 2026-10-02 (merged; `main` only since 2026-10-05); how it is now, with the bunny.net set-up as history. Companion docs: PLATFORM.md
 "CDN" + cutover, DATA.md "Language-independent media", ITEMS.md "Players, albums, related items", server
 docs/CONFIGURATION.md + docs/API.md "Assets".
 
@@ -145,7 +144,7 @@ unit-tested): `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT` (region hostname, w
    hostnames) and its 30-day statistics. `--write-test` puts / reads back / deletes one file below `_test/`.
 3. `php bin/console assets:sync --source-root=<media> --hash` – the upload plan (dry run). `--apply [--overwrite]
    [--purge-zone] --log=../logs/cutover/<name>.json` performs it (verified uploads, retries, never deletes).
-4. `php bin/console migrate` (local) / phpMyAdmin `2026-10-02-assets.mysql.sql` (production), then `assets:scan`.
+4. `npm run dev:db` (local; production: `2026-10-02-assets` is applied), then `assets:scan`.
 
 **State 2026-10-02 (read-only checks with the owner's keys):** zone `scutoons` (storage zone #1599226) at
 `storage.bunnycdn.com`, only `catpope/`: 330 files / 324,078,057 bytes = an older snapshot. vs the main checkout's
@@ -163,9 +162,8 @@ Reference check of the 134 bunny-only files (a text search over EVERY stored ver
 `main`'s static viewer JSON (pre-content-store) and old versions. The 3x key visuals of chapters 3–5
 (`images/3x/s1c{3,4,5}-key-visual.jpg`) are referenced by published content but exist nowhere – the owner regenerates
 them in Figma.
-**The initial upload did not run:** the agent's permission system blocked lifting the local write fence – the owner runs
-step 3 with `--apply --overwrite --purge-zone` (after commenting out `BUNNY_WRITE_PREFIX` in the worktree's
-`server/config.local.php`), or grants it in a session.
+**The initial upload ran 2026-10-02** (CUTOVER 1.5, PLATFORM.md "CDN"); history: it first needed the owner to lift the
+local write fence (`BUNNY_WRITE_PREFIX`).
 
 **Owner decision (2026-10-02): the domain switch.** Until the new asset system is deployed, bunny is reached at the
 interim `https://scutoons.b-cdn.net` (`CDN_PUBLIC_URL`). When it is deployed the owner rewires `cdn.scutoons.com` to bunny
@@ -364,7 +362,7 @@ Registered as app code in `AssetUsages::CODE_REFERENCES` (+ AssetLayout): never 
 
 ## Open / next
 
-- Owner: run the bunny initialisation (above); decide the bunny-only files (the old `1x/de` slices are used only by the
+- Owner: decide the bunny-only files (the old `1x/de` slices are used only by the
   never-published draft `scene:catpope:2:scene-19`; deleting that draft entity frees them).
 - Owner decision: trailer from the prologue film (see above).
 - Per-file bandwidth from the Logging API (aggregate the daily logs into a table; per asset in the detail).

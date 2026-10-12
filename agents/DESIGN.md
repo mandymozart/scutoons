@@ -36,7 +36,7 @@ Border escalation: `border-subtle` → `border-muted` → `border-hover` → `in
 
 One family: **IBM Plex Mono** 400 / 700 (`viewer/static/fonts/-F63fjptAgt5VM-kVkqdyU8n1i8q1w.woff2`,
 `-F6qfjptAgt5VM-kVkqdyU8n3pQPwlBFgg.woff2`), stack `'IBM Plex Mono', monospace`. No italics except the VN narrator
-line. No heading scale — root font-size is fluid: **14px < 480px, 16px baseline, 24px ≥ 768px** (the tools – `.sc-tool`: creator, admin, embassy – 70 % of it on desktop, 16.8px; owner 2026-10-11, tools.css); never hardcode px
+line. No heading scale — root font-size is fluid: **14px < 480px, 16px baseline, 24px ≥ 768px**; the tools (`.sc-tool`: creator, admin, embassy) run at **70 % of it from 768px: 16.8px** (owner 2026-10-11, tools.css `html:has(.sc-tool)`) – every rem size below scales with it; never hardcode px
 overrides that break it.
 
 | Style | Size | Line height | Usage |
@@ -270,7 +270,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   as a second row only when the position changes something (bars or a crop above/below on one of the screens), nothing
   shown otherwise; one small preview of the poster placed: a phone, plus a desktop in full-viewport mode, or the frame.
   No help sentences. The size line is short: "390 × 693" (frame), "Bildschirm · 1,89:1" (full viewport), else the image
-  size as before. Sizes in `em` of the creator's fixed 13 px base (its root `rem` is the reader's fluid one). "Original"
+  size as before. Sizes in rem (the creator has no fixed px base any more – "Type = the reader's"). "Original"
   with a poster whose ratio differs from the video's (> 2 %) shows a warning (the slice would shift while loading).
 - **Linked groups** (owner 2026-10-06, DATA.md "Linked groups"): groups with `continues` share one chapter page – a
   chain read top to bottom (vertical → strip → strip → vertical reads smoothly: each strip pins, moves sideways,
@@ -504,7 +504,7 @@ images and only the words change.
 - Geometry in **% of the slice box** (same convention as triggers/samples) → resolution-independent.
 - **Geometry is the same in every language** (owner 2026-10-03): position, size, rotation and scale of text boxes and
   placed items; only the text is per language. Since 2026-10-06 a chapter is one language-neutral document
-  (agents/NEUTRAL.md): geometry exists once, only the texts are locale maps (`unifyGeometry` is gone).
+  (agents/archive/NEUTRAL.md): geometry exists once, only the texts are locale maps (`unifyGeometry` is gone).
 - **One layer stack** (owner 2026-10-07, BACKLOG 10.43): text boxes and placed items share one paint order – `layer`
   on each entry, higher = on top; none = items under the text boxes (agents/ITEMS.md "Placed items"). The creator's
   slice inspector lists them in one "Layers" tab, the top row in front, reordered with the shared Sortable.
@@ -689,7 +689,7 @@ word, never a data path; technical detail at most in the label's `title`). One t
 
 Never in the UI: file names or paths of documents (`chapter2.json`, `<toon>/<l>/…`), "store", "per-locale document",
 overrides per language – a chapter, group, season or the toon settings is one thing with its texts per language
-(agents/NEUTRAL.md). Real files stay files: images, audio, video on the CDN. A bool select reads "ja / nein" with the
+(agents/archive/NEUTRAL.md). Real files stay files: images, audio, video on the CDN. A bool select reads "ja / nein" with the
 default in brackets ("(nein)"); a select's default likewise ("(Links)").
 
 ### Empty states (owner rule 2026-10-06) – creator, admin, embassy; the reader in spirit
@@ -984,8 +984,9 @@ Applies to the creator, the admin and the embassy (opt-in class `sc-tool` on the
 inert without it). The shop already uses the reader's rem scale and keeps the reader's look.
 
 **Type = the reader's.**
-- The root is the reader's fluid root from base.css: **14px < 480px, 16px, 24px ≥ 768px**. No app sets `html { font-size }`
-  or a px base on its root (the admin's 16px/14px and the creator's 13px are gone).
+- The root is the reader's fluid root from base.css: **14px < 480px, 16px, 24px ≥ 768px**; the one exception is tools.css's
+  70 % for the tools from 768px (16.8px, owner 2026-10-11). No app sets its own px base (the admin's 16px/14px and the
+  creator's 13px are gone).
 - Only the type styles: `body` / `button` / `label` 1rem (running text, table cells, inputs, sidebar entries, crumbs,
   buttons); `caption` 0.75rem = **the smallest text** (field labels, table headers, chips, hints, meta);
   `--type-title-size` 1.5rem = the one page title (h1, bold) and big numbers (regular). `nav-micro` is not used in tools.
@@ -1025,7 +1026,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   **Grouped controls are square**: segmented groups (`sc-seg` / `Segmented`), toolbars (the Flow's zoom / fit is one
   `sc-seg`, the ActionBar, canvas tools), tab rows, and every **language switcher** (the creator's text-language
   switch, the viewer menu's languages – one joined frame, the chosen one inverted – the shop's). A control that shows
-  text (label, code, "Ctrl K") is square too. Exception still open: the frameless close cross (`CloseButton`).
+  text (label, code, "Ctrl K") is square too. Open: is the frameless close cross (`CloseButton`, "Close cross" below) round too? – FEATURES 10.70.
 - Cyan (`primary-cyan`) only for **live** states: the "published" badge, the live selection (see "Selection" below),
   the canvas selection. Never for the current nav entry or a selected row outside the live region.
 - **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **white text where it reaches
@@ -1048,7 +1049,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 
 **Controls.**
 - **Sizes in rem** (owner 2026-10-01, no px): fields, nav entries and clickable rows are `--control-height` =
-  2rem + the 2px frame (32 · 36 · 52px), as tall as a compact button.
+  2rem + the 2px frame (32 · 36 · 52px at the reader's root; the tools on desktop: 37.6px), as tall as a compact button.
 - **Touch minimum only on touch screens** (owner 2026-10-01): one rule in tokens.css, `@media (pointer: coarse)`
   raises `--control-height` to max(44px, 2rem + frame); fields, list rows, nav entries and buttons use it as
   `min-height`, so phones and tablets get ≥ 44px targets while a mouse desktop stays rem-only.
@@ -1087,7 +1088,8 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   act on the live region only. One region shows at a time on a phone: it is live, nothing extra shows.
   **Canvas objects** (slice canvas, cover, map) can't be inverted – the art is under them: selected = the kind's frame;
   live = the frame + handles + its tag. **Multi-pick**: every picked row has the selected look (all cyan when live).
-- Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = the tool label.
+- Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = **no frame** (owner 2026-10-03: framed groups looked like
+  another form concept), legend = the tool label above the fields, like a field's label (tools.css).
   details/summary = a regular uppercase label row (`--control-height`).
 - **Icons:** Feather via `Icon` (see "Icons"; the close cross is NOT Feather, see "Close cross"): menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
   arrow-up/down for reorder, plus, info, search, sort arrows; icon-only controls carry `aria-label` + `title`.
@@ -1131,7 +1133,7 @@ single-line control exactly `--control-height` ("One control height" below).
   toggles of the viewer's top bar, the palette trigger, the creator's i18n switch, tabs, menu triggers and entries,
   segmented buttons, close crosses), selects, text / email / number / date / search / url / password inputs, and the
   **interactive chips** that sit in a row with controls (a removable language, a tag / role / filter chip with ×).
-- `--control-height` (tokens.css) = **2rem + the two 2px frames** (32 · 36 · 52 px at the fluid root 14 · 16 · 24 px);
+- `--control-height` (tokens.css) = **2rem + the two 2px frames** (32 · 36 · 52 px at the fluid root 14 · 16 · 24 px; the tools on desktop 37.6 px at 16.8 px);
   on a coarse pointer `max(44px, …)`. There is **no small variant** and no second token: `Button size="sm"` and the
   creator's compact buttons only have less side padding.
 - How: `box-sizing: border-box`, the height from the token (`height` on fields, `min-height` on buttons so a label

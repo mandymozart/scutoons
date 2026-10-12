@@ -2,7 +2,7 @@
 
 Owner 2026-10-06: "these areas should all behave a bit more like in Blender or here in the Claude Code desktop app, so we
 don't have to deal with their sizing and collapsing individually. Closing them is a different story." Status: approved
-(owner 2026-10-06: "go go go, sounds good, we can still revise it later") and migrated on branch `ui/docking-areas` –
+(owner 2026-10-06: "go go go, sounds good, we can still revise it later") and migrated (merged into `main`) –
 every area below is on the model. Closing panels is unchanged (their ✕). Several page panels side by side, the main's
 fold and maximize = "fold everything else": BACKLOG 10.57 (owner 2026-10-07, below). The Ask region is gone (owner
 2026-10-09, agents/MCP.md – members use their own Claude through the SCUTOONS MCP).

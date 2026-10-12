@@ -3,7 +3,7 @@ Status 2026-10-12: PARKED until February 2027 (owner). The dates below (building
 # LIVE — performance mode (plan, final; not started)
 
 Owner 2026-10-07: plan only. **No development until the rest of the backlog is done**; building starts **Mon 2026-11-02**,
-target: **show-ready February 1st, 2027**, the first show in the first two weeks of February (B.10). Builds on the reader's feedback cues (agents/FX.md, BACKLOG 10.56 –
+target: **show-ready February 1st, 2027**, the first show in the first two weeks of February (B.10). Builds on the reader's feedback cues (agents/research/FX.md, BACKLOG 10.56 –
 its own plan, not redesigned here) and the reader's **event bus** (B.1). Decisions of the 2026-10-07 plan session: B.11.
 
 Drafts (basic, iterated in the plan session): artifact "Scutoons Live drafts"
@@ -20,7 +20,7 @@ playing along on theirs, a DAW / synths / lights following the story over MIDI, 
 Every trigger already runs through the viewer's `EventProcessor` (`viewer/src/lib/visual-novel/event-processor.ts`).
 Add one internal **bus**: every slice enter / leave, fired VN event (by its event id – the creator assigns them since
 10.44), FX cue, pickup, choice and variable change is published as `{ seq, t, kind, id, payload }`. Normal reading:
-nobody listens. Performance: the conductor forwards it to the relay (B.6). The FX cues (agents/FX.md) are bus messages.
+nobody listens. Performance: the conductor forwards it to the relay (B.6). The FX cues (agents/research/FX.md) are bus messages.
 The bus is also the conductor's **input**: a vote result is applied as the choice event the reader would have fired, so
 the story logic (variables, jumps, the save game) stays the toon's own – the show never re-implements it.
 
