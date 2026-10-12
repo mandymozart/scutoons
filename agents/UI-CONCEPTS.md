@@ -435,7 +435,10 @@ testing, maybe dropped later); a group replaces the row, ‹ goes back. **The se
 toolbar): a selected text box / item / event or sound area brings Edit · Duplicate · Copy · Cut · Delete; a place Edit ·
 Image · View (use the canvas's) · Show · Hidden · Delete; a route Edit · Delete; a layer Edit · Show; ‹ deselects. The
 sheet's tabs sit on the sheet (**variant C**): closed it is its tab row only, a tab opens it there, the open tab closes it
-(no grab handle). The draft below is kept as written.
+(no grab handle). **Everywhere (owner 2026-10-12, "ziemlich brutal einführen"):** every selection brings its row with ‹
+– characters (the selected one, the list steps aside), the chapter editor's phone lists (a long press picks slices /
+groups, then taps add / remove; Edit · Duplicate · Copy · Cut · Delete), the slice canvas, the map; the crumbs stay the
+way up too (BACKLOG 10.68). The draft below is kept as written.
 
 
 Owner: "einen Entwurf … wie man den Karten-Editor in der Mobile View so machen kann, dass man ihn am Handy bedienen kann

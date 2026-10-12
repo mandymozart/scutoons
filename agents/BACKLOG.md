@@ -579,10 +579,21 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   **Owner decision (2026-10-11): none of them** – "es reicht, dass wir im Breadcrumb durch die Hierarchie nach oben
   kommen": the selection shows in the crumb row (Map › Airport), tapping "Map" clears it and the base bar (with
   Publish) is back – checked on a phone width, works. Fixed: the selection's crumb pointed at `/map` (page.url lags
-  behind replaceState), now at its own address. Open: the bar's own back arrow duplicates the crumb (owner to decide
-  whether it goes).
+  behind replaceState), now at its own address. **Decided (owner 2026-10-12):** the bar's back arrow stays and goes
+  everywhere a selection exists ("das Zurück unten in der Auswahl-Leiste ist super – ziemlich brutal einführen"); the
+  crumbs stay the way up the hierarchy too. Built (branch claude/zealous-faraday-e6338b): characters (the selected one –
+  the list steps aside for its detail; Delete; the crumb "Characters" goes back to the list too), the chapter editor's
+  phone lists (a long press picks slices in the group's grid / groups in the chapter's list: Edit · Duplicate · Copy · Cut
+  · Delete, the same handlers as the tree – lib/editor/slices-clip / groups-clip), besides the map and the slice canvas.
+  Not a selection today: the cast (rows with inline fields), moods, wanted images; no creator catalog yet.
 
-- [ ] 10.65 **Open after the session 2026-10-11 (map, phone editors, unlock events)**: publish the map draft (v256:
+- [ ] 10.65 **Open after the session 2026-10-11** – done 2026-10-12 (branch claude/zealous-faraday-e6338b): the chapter-link
+  wording ("Button on the place card: read chapter …"), the resolution slot's layout (square preview, the levels stacked
+  as tall as it, × below), the bulk import's `-plaster` / `.2x` / `.3x`, scripts/check-map.mjs on the event-only unlocks
+  (47 checks; it found a builder bug: a place added on a route line lost its selection to the route – fixed), the
+  click-through at 375 px (a text box's Duplicate / Copy, a place's View / Hidden – both work); the size slider's label
+  already showed. Still open from the list below: publishing the map draft, moving the migrated unlock events, the
+  library cache, the Ausschnitt mode. **Open after the session 2026-10-11 (map, phone editors, unlock events)**: publish the map draft (v256:
   the dioramas with plaster + 1x / 2x / 3x, new places ore-pit / ore-mountain / vienna-subway, waterfall-tower back –
   production had deleted it; place them and give them unlockLocation events, else they stay hidden); the migrated
   unlock events sit on slices or a chapter's first slice – move them where the story reaches the place; empty the
