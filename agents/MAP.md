@@ -964,6 +964,12 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
   except the new (unseen) ones – a new place's surroundings get their colour with its reveal (`revealShow`) or its
   painting in place, together with its diorama.
 - **Builder** – both layers with the eyes (the plaster under the painted one); the layer form has the fog radius.
+- **A route starts and ends at a place** (owner 2026-10-12: "if each endpoint is a place, dropping a pin should prompt
+  select location or create one"): in route mode the first tap off a place asks "Start of the route" (`choiceDialog`:
+  "New place here" + the six nearest places, the filtered toon's first); free points in between as before; "Done" (the
+  drawing bar bottom centre, with "remove the last point" – no Enter / double tap needed on a phone) asks for the end
+  when the last point is free – it becomes that place. A drag pans, a tap sets a point. Older routes with a free first /
+  last point: a warning (`checkWorldMap`).
 - **Drag safeguard** (owner 2026-10-12: "while scrolling around I often accidentally move things … it is a mess if it
   just goes"): in the builder anything draggable moves only once it is active – a place when it is selected, a gate /
   curve handle / route point after a tap on it (cyan ring, `activeHandle`). A drag on something not active pans the map;

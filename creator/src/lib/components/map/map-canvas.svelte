@@ -33,6 +33,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
+	import { Icon } from '@scutoons/ui';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -64,7 +65,8 @@
 		onmovegate,
 		onmovewaypointhandle,
 		oninsertwaypoint,
-		onaddroute
+		onaddroute,
+		onendpoint
 	}: {
 		map: WorldMap;
 		view: MapViewport;
@@ -94,6 +96,11 @@
 		onmovewaypointhandle: (route: string, index: number, handle: Point | null) => void;
 		oninsertwaypoint: (route: string, after: number, at: Point) => void;
 		onaddroute: (waypoints: Waypoint[]) => void;
+		/**
+		 * a route starts and ends at a place (owner 2026-10-12: "if each endpoint is a place, dropping a pin should prompt
+		 * select location or create one"): asked for a start / end point on the open terrain – the place id, or null
+		 */
+		onendpoint: (at: Point, which: 'start' | 'end') => Promise<string | null>;
 	} = $props();
 
 	const locale = $derived(getLocale());
@@ -169,8 +176,17 @@
 		}
 		return best;
 	}
-	function addDraftPoint(at: Point, world: Point) {
+	let asking = false;
+	async function addDraftPoint(at: Point, world: Point) {
 		const place = snapPlace(at);
+		// the start is a place: on the open terrain ask which (or a new one there)
+		if (!place && !draft.length) {
+			if (asking) return;
+			asking = true;
+			const id = await onendpoint({ x: Math.round(world.x), y: Math.round(world.y) }, 'start').finally(() => (asking = false));
+			if (id) draft = [{ location: id }];
+			return;
+		}
 		if (place) {
 			const last = draft.at(-1);
 			if (last && isPlaceWaypoint(last) && last.location === place.id) return;
@@ -179,8 +195,19 @@
 			draft = [...draft, { id: freeWaypointId(draft, map.locations.map((p) => p.id)), x: Math.round(world.x), y: Math.round(world.y) }];
 		}
 	}
-	export function finishRoute() {
-		if (draft.length >= 2) onaddroute(draft);
+	export async function finishRoute() {
+		if (draft.length < 2 || asking) return;
+		const last = draft.at(-1)!;
+		if (!isPlaceWaypoint(last)) {
+			// the end is a place: the last free point becomes one (picked or new there)
+			asking = true;
+			const id = await onendpoint({ x: Math.round(last.x), y: Math.round(last.y) }, 'end').finally(() => (asking = false));
+			if (!id) return; // cancelled: keep drawing
+			const before = draft.at(-2);
+			draft = before && isPlaceWaypoint(before) && before.location === id ? draft.slice(0, -1) : [...draft.slice(0, -1), { location: id }];
+			if (draft.length < 2) return;
+		}
+		onaddroute(draft);
 		draft = [];
 	}
 	export function cancelRoute() {
@@ -463,6 +490,13 @@
 
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
 
+	{#if tool === 'route' && draft.length}
+		<!-- drawing a route: the last point back, done (on a phone there is no Enter, a double tap is unreliable) -->
+		<div class="draw-bar sc-seg" role="group" data-testid="route-draw-bar">
+			<button type="button" onclick={() => undoDraftPoint()} title={m['creator.map_route_undo_point']()} aria-label={m['creator.map_route_undo_point']()}><Icon name="corner-up-left" /></button>
+			<button type="button" class="on" onclick={() => void finishRoute()} disabled={draft.length < 2} data-testid="route-done"><Icon name="check" /> {m['creator.map_route_done']()}</button>
+		</div>
+	{/if}
 	{#if draftPoints.length >= 2}
 		<svg class="draft" aria-hidden="true">
 			<polyline points={draftPoints.map((p) => { const s = view.toScreen(p); return `${s.x},${s.y}`; }).join(' ')} />
@@ -873,5 +907,14 @@
 		font-size: var(--type-caption-size);
 		background: var(--paper);
 		padding: 0 0.3rem;
+	}
+	/* drawing a route: undo / done, bottom centre over the map */
+	.draw-bar {
+		position: absolute;
+		left: 50%;
+		bottom: 1rem;
+		transform: translateX(-50%);
+		z-index: 3;
+		background: var(--paper);
 	}
 </style>

@@ -120,7 +120,7 @@ test('checkWorldMap: ids, positions, waypoints; the old unlock link is an error'
 	assert.deepEqual(problems(ok), []);
 	assert.deepEqual(problems({ ...ok, locations: [...ok.locations, { id: 'a', name: { de: 'B' }, x: 200, y: 1, toons: [] }] }), ['error locations.1.id', 'error locations.1.x', 'warning locations.1.toons']);
 	assert.deepEqual(problems({ ...ok, routes: [{ id: 'r', name: { de: 'R' }, toons: ['t'], waypoints: [{ location: 'a' }] }] }), ['error routes.0.waypoints']);
-	assert.deepEqual(problems({ ...ok, routes: [{ id: 'r', name: { de: 'R' }, toons: ['t'], style: 'boat', waypoints: [{ location: 'a' }, { id: 'a', x: 1, y: 1 }] }] }), ['error routes.0.style', 'error routes.0.waypoints.1.id']);
+	assert.deepEqual(problems({ ...ok, routes: [{ id: 'r', name: { de: 'R' }, toons: ['t'], style: 'boat', waypoints: [{ location: 'a' }, { id: 'a', x: 1, y: 1 }] }] }), ['error routes.0.style', 'warning routes.0.waypoints.1', 'error routes.0.waypoints.1.id']);
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true }] }), [], 'hidden: an unlockLocation event unlocks it (the map cannot see the events)');
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: null }] }), ['error locations.0.unlock'], 'unlock is gone (2026-10-11)');
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: { toon: 't', chapter: 1 } }] }), ['error locations.0.unlock']);
@@ -371,4 +371,14 @@ test('fog of war along routes: between two unlocked places in a row, free points
 	assert.ok(ab.every((p) => p.x <= 16), 'only the stretch a → b');
 	assert.equal(new Set(ab.map((p) => p.id)).size, ab.length, 'stable, unique ids');
 	assert.ok(fogRoutePoints(places, routes, open(['a', 'b', 'c'])).some((p) => p.x > 16), 'b → c too');
+});
+
+test('a route starts and ends at a place: a free first / last point is a warning (owner 2026-10-12)', async () => {
+	const { checkWorldMap } = await import('../src/map.ts');
+	const base = { width: 100, height: 100, layers: [], locations: [{ id: 'a', name: { de: 'A' }, x: 10, y: 10, toons: [] }, { id: 'b', name: { de: 'B' }, x: 50, y: 50, toons: [] }] };
+	const route = (waypoints: unknown[]) => checkWorldMap({ ...base, routes: [{ id: 'r', name: { de: 'R' }, toons: [], waypoints }] } as any).filter((p: any) => /starts at a place|ends at a place/.test(p.message));
+	assert.deepEqual(route([{ location: 'a' }, { id: 'p', x: 30, y: 30 }, { location: 'b' }]), []);
+	const loose = route([{ id: 'p', x: 30, y: 30 }, { id: 'q', x: 40, y: 40 }]);
+	assert.equal(loose.length, 2);
+	assert.ok(loose.every((p: any) => p.level === 'warning'));
 });

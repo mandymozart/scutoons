@@ -1303,6 +1303,11 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		if (r.hidden !== undefined && typeof r.hidden !== 'boolean') add('error', [...path, 'hidden'], `${what}: hidden must be true or false`);
 		const waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
 		if (!Array.isArray(r.waypoints) || waypoints.length < 2) add('error', [...path, 'waypoints'], `${what}: a route needs at least 2 waypoints`);
+		// a route starts and ends at a place (owner 2026-10-12) – older routes are only warned about
+		else {
+			if (!isPlaceWaypoint(waypoints[0])) add('warning', [...path, 'waypoints', 0], `${what}: a route starts at a place – the first point is a free point`);
+			if (!isPlaceWaypoint(waypoints[waypoints.length - 1])) add('warning', [...path, 'waypoints', waypoints.length - 1], `${what}: a route ends at a place – the last point is a free point`);
+		}
 		const free = new Set<string>();
 		waypoints.forEach((w: any, j: number) => {
 			const wp = [...path, 'waypoints', j];
