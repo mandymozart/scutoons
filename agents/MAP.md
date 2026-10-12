@@ -837,8 +837,8 @@ The first piece of M3: the one event `unlockLocation` (§3.1), nothing else of M
 6. **The reveal** (`map-reveal.svelte.ts` → `map.svelte` / `map-overlay.svelte`): the map opens where the reader's map
    would open; the camera flies (≈ 1.2 s, ease in-out, zoom interpolated on a log scale) to the place's view (`placeView`:
    point + offset at its zoom, default 2); the place image fades in with a slight wobble while a halo in the toon's colour
-   pulses behind it (≈ 1.4 s); a short hold; the map closes. The reveal's camera is never stored: the next opening shows
-   the reader's previous view (the stored `here` becomes the new place, so it doesn't re-centre once more). Esc skips
+   pulses behind it (≈ 1.4 s); a short hold; the map closes. The map **stays at the revealed place** (owner 2026-10-11: "better it moves and stays at the new one"; the
+   stored `here` becomes the new place). Esc skips
    to the end. The reader touching the map (tap, drag, pinch, wheel) stops it where it is: the map stays open, the reader
    closes it (owner 2026-10-12); the VN goes on. Reduced motion: no flight, no wobble – the map opens on the place, the image shows, it closes.
    The VN waits for it (the script continues after the map closed); several unlocks in a row: one reveal after another.

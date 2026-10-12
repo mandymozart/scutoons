@@ -83,6 +83,4 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.62 **A derived reference index for the content documents** (research 2026-10-11) – `entity_refs` filled on
   save / publish by one extractor (TS + PHP) + a rebuild command → "used by", guards on delete / rename, migrations
   that find targets by SQL; stable ids for referenced things (slices have none). When the triggers show up.
-- [ ] 10.49 **A `frame-ancestors` CSP for the viewer** (framing only by the creator; needs the static hosts' .htaccess
-  – DOCKING.md "The Reader panel"). `decide`.
 - [ ] 10.19 **`console setup`** – a setup step for a fresh environment (owner: priority last).

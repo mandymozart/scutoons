@@ -1,0 +1,347 @@
+# DECISIONS — the owner's decisions, one line each (newest first)
+
+How to use: grep this file before changing how something works. One line per decision: date · area · the decision ·
+"the owner's words" (short, original language) · → where it is described now. A decision that a later one replaces
+stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: agents/RULES.md. Never edit old lines except
+to mark them superseded.
+
+## 2026-10
+- 2026-10-12 · process · The owner never runs migrations by hand: they run with the deploy; developers' agents check / plan / apply over the MCP; never ask for phpMyAdmin · "wichtig für alle Agents" · → RULES "Migrations and stored data", MCP.md §8
+- 2026-10-12 · process · Docs restructured: RULES / HANDOVER / DECISIONS on top, ISSUES + FEATURES for open work, topic docs = how it is now, research/, archive/ · "nicht zu sehr ausrasten lassen" · → RULES "Docs", DOCS-REFACTOR.md
+- 2026-10-12 · process · Open work = two files in agents/ (ISSUES bugs, FEATURES the rest), same 10.N numbers, a done item leaves the list · "The recommendation works" · → RULES "Docs"
+- 2026-10-12 · process · Finished docs go to a frozen agents/archive/ – never edited, never read on start, grep only · → archive/README.md
+- 2026-10-12 · process · Doc caps: RULES 150 lines, HANDOVER 60 (replace, never append), GOTCHAS 80, ISSUES + FEATURES 40 open items · → RULES "Docs"
+- 2026-10-12 · git · Owner-requested overnight drafts each get their own worktree / branch / DB and are never merged by agents – the owner reviews · "eine neue Session in einem eigenen Worktree … über Nacht als Entwurf durchspielen" · → RULES "Git"
+- 2026-10-12 · catalog · Moving the catalog from the admin into the creator: research + an overnight draft, not on main now · "der Katalog ist aber im Admin. Das ist verwirrend." · → research/CATALOG-IN-CREATOR.md
+- 2026-10-12 · catalog · Physical items go through the same review rules as other content, enforced on the server · "damit nicht aus Versehen auf der Plattform was rausgesetzt werden kann" · → research/CATALOG-IN-CREATOR.md
+- 2026-10-12 · items · Codes can never be deleted (a separate process, unchanged) · → research/CATALOG-IN-CREATOR.md
+- 2026-10-12 · items · Crafting with a physical item keeps the original in the inventory; the result is added · "physische Items kombiniert verschwinden nicht" · → research/CATALOG-IN-CREATOR.md
+- 2026-10-12 · map · Places (and characters) are parts of their one document; publish can take single parts from the list · "die Orte sind Unterebenen der Karte" · → git 35669c6e (partial publish), archive/BACKLOG.md 10.60
+- 2026-10-12 · map · A draft moves the map's places into their own versioned documents (own worktree, owner reviews) · "alle einen eigenen Doc, den man versionieren kann" · → research/CATALOG-IN-CREATOR.md (MAP-DOCUMENTS on its branch)
+- 2026-10-12 · data · The creator's legacy conversion goes; the per-language copies and per-toon map lists are purged (archived in entity_versions_legacy) · → HANDOVER "Where things are", DATA.md §1
+- 2026-10-12 · reader · Avatar and inventory each open their own panel – the tabs go · "auf eigene Panels" · → git ec9c3d30, FEATURES 10.83
+- 2026-10-12 · map · Touching the map during an unlock reveal stops the flight and keeps the map open; the reader closes it · "dann wird die Karte nicht wieder weggefahren" · → MAP.md §8.5a
+- 2026-10-12 · live · Live performance mode parked until February 2027; its old dates are void · → research/LIVE.md
+- 2026-10-11 · process · Desktop UI fixes are collected one item each and worked through (night runs allowed) · "i like some fixes. we collect them here" · → FEATURES 10.83
+- 2026-10-11 · ui · The tools (creator, admin, embassy) render at 70 % of the reader's root on desktop (≥ 768px); the reader unchanged · "we can just scale to 70 percent" · → DESIGN "Type", tools.css
+- 2026-10-11 · ui · Doc notices take at most one line (message + actions, ellipsis, full text in the tooltip) · "these messages use too much real estate" · → git abd46347
+- 2026-10-11 · deploy · A `developer` role above admin (the owner's account; only a developer grants it); developers' AI runs migration_status / plan / apply · "eine Developer-Rolle, die mein Account hat" · → MCP.md §8
+- 2026-10-11 · deploy · Simplified: no admin UI, no extra token – the role is enough; the deploy runs pending migrations itself · "das war sehr einfach gedacht" · → MCP.md §8, server/docs/DATABASE.md "Migrations"
+- 2026-10-11 · creator · Publish down the tree: toon · season · chapter (+ "everything") publish what is below as a checklist to tick · "zusammenfassend, aber granular" · → archive/BACKLOG.md 10.60 (done; git c258c037)
+- 2026-10-11 · creator · One publish dialog everywhere (the checklist), no per-page publishing interface · "nicht für alles ein eigenes Publishing-Interface, sondern für alles gleich" · → git dd45fe84
+- 2026-10-11 · data · Purge the old per-language copies of the neutral documents (archived, reversible) · "die Altlasten purgen" · → git fd7bcdb8, HANDOVER
+- 2026-10-11 · map · Places unlock only by the `unlockLocation` event (VN, click, item tap); place/slice unlock links migrated into events, then removed · "Das ist viel konsistenter, wenn wir zwischen Toons hin und her springen" · → MAP.md §8.5b
+- 2026-10-11 · map · An unlock opens the map, flies to the place, shows the image with wobble + halo in toon colour, a toast "<place> unlocked" · "öffnet sich die Karte und bewegt sich smooth" · → MAP.md §8.5a
+- 2026-10-11 · map · After a reveal the map stays at the revealed place (not back to the previous view) · "better it moves and stays at the new one" · → git e8a96b3d (MAP.md §8.5a step 6 still says otherwise)
+- 2026-10-11 · map · The event chooses how the map opens: open · toast only · by the trigger; a tap on the toast / new place replays the reveal · "im Creator auswählen können, wie die Karte aufgeht" · → MAP.md §8.5a
+- 2026-10-11 · map · Two states per place: plaster model and painted diorama; plaster stands on the map before, the reveal pops it painted · "zwei Zustände für eine Location – als Gipsmodell und als bemaltes" · → MAP.md §8.5a, git 524d08bc
+- 2026-10-11 · map · No zoom buttons in the viewer map or the builder: fingers / mouse / wheel (keys stay; fit stays) · "geht ja wie Finger oder Maus" · → MAP.md §8.5a, git 3314b322
+- 2026-10-11 · map · Place dioramas sized in world units and scaling with the map, clickable, a dashed outline without an image · "die Dioramen müssen wesentlich kleiner sein" · → FEATURES 10.66
+- 2026-10-11 · map · Places on a hex grid, one place per cell, the builder snaps · "ein Grid auf die Karte" · → FEATURES 10.66, git f6b0b288
+- 2026-10-11 · map · Scale calibrated: the biggest place ≈ 12 world units (÷8), max zoom 32, hex cell 1 · "da waren sie alle gleich groß, aber fast klein genug" · → archive/BACKLOG.md 10.67 (superseded 2026-10-11 → places twice as big, git 7d03d7a3)
+- 2026-10-11 · map · Places twice as big after the ÷8 step (well 1.5 … ore 24); terrain tiles + culling laid out · "alles einmal doppelt so groß" · → git 7d03d7a3, FEATURES 10.63
+- 2026-10-11 · map · Zoom percentages count the place zoom as 100 %; dioramas centred on their cells · "wenn wir immer auf 800 % eingezoomt sind, ist das die 100 %" · → git 73f6063b, 388d50c6
+- 2026-10-11 · map · A place's own zoom may be below 2 (range 0.25–8; default 2) · "kleiner geht schon" · → MAP.md §8.4
+- 2026-10-11 · map · The painted map: one continuous landscape, vivid palettes per zone, described in words, no reference image · "colorful. vivid. phantastic" · → git 8806967d, 85ff1201
+- 2026-10-11 · map · Map layers take an asset from the picker (SVG or WebP; uploaded PNG / JPEG becomes WebP) · → git 71b49164
+- 2026-10-11 · reader · A "Reset the map" in the account (draft preview on): places locked again, the rest stays · "im Draft-Mode im Account ein Reset, als würde ich es neu lesen" · → git 1ac465ca, research/ACCOUNT-RESTART.md
+- 2026-10-11 · creator · Phones: one bar at the bottom for every editor; grouped like CapCut: Save · History · Publish · More, a selection bar per object · "an CapCut anlehnen" · → archive/UI-CONCEPTS.md E.10, git 5a06752b
+- 2026-10-11 · creator · Undo / redo live inside the History group on phones · "Rückgängig benutze ich selten" · → archive/UI-CONCEPTS.md E.10
+- 2026-10-11 · creator · Map builder on phones: properties as a sheet, toon filter = round chip in the crumb row, no % zoom readout · "das Sheet-Konzept und die Bar unten konkurrieren" · → archive/UI-CONCEPTS.md E.10
+- 2026-10-11 · creator · Map builder on desktop like phones: tool strips on the canvas, toon pill in the crumbs · "in Desktop platzeffizienter … aber das Dogma behalten" · → git d95aed85
+- 2026-10-11 · creator · On phones, a selection is left through the crumb row (no Save / Publish slots in the selection bar) · "es reicht, dass wir im Breadcrumb durch die Hierarchie nach oben kommen" · → FEATURES 10.68
+- 2026-10-11 · media · A media standard (WebP images; MP4/WebM 480p/720p/1080p) – other formats allowed, converting is recommended via a tool · "wir empfehlen das Umkonvertieren" · → FEATURES 10.64
+- 2026-10-11 · deploy · All go-live production steps (phpMyAdmin, FTP, DNS, hosting) are done – the old "O – run" todos are closed · → archive/BACKLOG.md
+- 2026-10-10 · map · Map camera: first opening at the reader's place; then it remembers the last view, unless a focus is sent or a checkpoint reached · "danach merkt sie sich den State der letzten Interaction" · → MAP.md §8.4
+- 2026-10-10 · map · A reader-map view per place (zoom + offset); without one: zoom 2 at the point · "pro Location einen Zoom … als Mittelpunkt die Location selber" · → MAP.md §8.4, §8.5
+- 2026-10-10 · design · Speech bubbles are rectangles with a tail; no ovals (an old oval draws as a box) · "ich brauche keine runden" · → DESIGN "Drawn bubble"
+- 2026-10-10 · storyboard · Generated frames are black-and-white film-noir photographs, not line art · "lets give up on the line art … the photo noir is better" · → research/STORYBOARD.md
+- 2026-10-10 · storyboard · Narrators are Cat Pope from the future; PLF is the human priest or the sphynx cat · "erzaehler sind cat pope from the future" · → git e151da02, 26f879ca
+- 2026-10-10 · reader · One pull-down panel for inventory + avatar and the chapter list; dragging down closes it · "nach unten ziehen macht das Menü zu" · → git db672811 (superseded 2026-10-12 → own panels for avatar and inventory)
+- 2026-10-10 · reader · English menu / account heading says "Account", not "My Account" · "sonst zu lang" · → git 00c9d59e
+- 2026-10-09 · mcp · The Ask service goes (too expensive); members use their own AI plan through the SCUTOONS MCP · "Ask is gone" · → MCP.md, memory ask-panel-to-be-removed
+- 2026-10-09 · mcp · No SCUTOONS server on the internet for AI: local MCP only, personal token, no OAuth, the bunny container goes (D3) · → MCP.md §2, §6
+- 2026-10-09 · mcp · Claude Code / Desktop only; ChatGPT skipped for now; Cursor not offered · → MCP.md §2
+- 2026-10-09 · mcp · The AI acts with exactly the member's own roles; the API stays the only authority · → MCP.md §2
+- 2026-10-09 · mcp · Draft → link → the member confirms in the browser; the AI never sends, applies or publishes; no publish tool (D1, D4) · → MCP.md §2, RULES "Working with the owner"
+- 2026-10-09 · mcp · Every member with a tool role sets it up themselves (Desktop extension + token); developers a one-line command (D2) · → MCP.md §6
+- 2026-10-09 · mcp · Readers can't connect: tokens only for creator / liaison / ambassador / admin · → MCP.md §3
+- 2026-10-09 · mcp · Personal tokens expire after six months; renew on the account page; one reminder mail · → MCP.md §3
+- 2026-10-09 · mcp · The MCP files are served from our own host, no third party · "alles bei uns" · → MCP.md §3a
+- 2026-10-09 · mcp · No export of Ask chats – the chat and usage tables are dropped (D5); every member gets an AI plan, no fallback (D6) · → MCP.md §6
+- 2026-10-09 · platform · No third-party delivery: libraries come from the bundle (Howler not from jsdelivr) · "alles bei uns" · → git d51f6251
+- 2026-10-09 · platform · The legacy generate/ SPA is removed (the admin has parity) · "alter Generator kann entfernt werden" · → git 04e18e19
+- 2026-10-09 · legal · A contact form at scutoons.com/contact (also QR problems) as the imprint's second contact route (ECG § 5) · → git 7ef616e2
+- 2026-10-09 · newsletter · Our own addresses (@scutoons.com) are left out of a newsletter unless ticked · → git a01c6414, NEWSLETTER.md
+- 2026-10-09 · reader · Coming-soon teaser: a tap anywhere on the playing video toggles the sound (like Instagram / TikTok) · → git 6640433e (DESIGN "Coming-soon page" not updated)
+- 2026-10-09 · storyboard · Webtoons have no panels: the unit is the shot = one image (slice) · "Webtoons have no panels – images are stacked one after another" · → research/STORYBOARD.md
+- 2026-10-09 · storyboard · Timeline: ch3 2026-11-15, ch4 2026-12-15, ch5 2027-01-15; ch3 layout from the week of 2026-10-12 · → research/STORYBOARD.md §9, FEATURES 10.59
+- 2026-10-09 · storyboard · Generation today = manual prompting in Luma; FLORA not used now · → research/STORYBOARD.md
+- 2026-10-09 · storyboard · Existing material first (photos, Unreal, direct shots matched from the Figma preselection), prompting only the gaps · → research/STORYBOARD.md §9 "The flow"
+- 2026-10-09 · storyboard · Generation in the cloud only, only while there are jobs – no own GPU, no silent costs · → research/STORYBOARD.md §7
+- 2026-10-09 · storyboard · One budget set in the admin, a hard cut with a message · "set in the admin, very simple: just how much money" · → research/STORYBOARD.md "Budget"
+- 2026-10-09 · storyboard · Open models on a cloud GPU run next to the services, not a cut-over; switch per format by cost per usable shot · → research/STORYBOARD.md
+- 2026-10-09 · storyboard · The photo library is Figma (sorted and preselected there); no own index of the photos · "already done in our Figma" · → research/STORYBOARD.md §9
+- 2026-10-09 · storyboard · The first throw lands in a long 390-wide Figma draft frame on the chapter's page · "upload the pre-generated SVGs to a long 390-wide draft frame" · → research/STORYBOARD.md §9
+- 2026-10-09 · storyboard · Figma through MCP, then a private SCUTOONS Figma plugin bridge; order: MCP refactor → bridge → Figma work · "then we just build a SCUTOONS plugin bridge" · → research/STORYBOARD.md §9
+- 2026-10-09 · storyboard · The catpope Figma file goes to the owner's drafts (Starter for testing; upgrade only if needed) · → research/STORYBOARD.md §9
+- 2026-10-09 · storyboard · The owner works in the creator or via Claude + MCP on the computer; workers in cloud sessions get a narrow allow list + their own creator account · "then it's optimal" · → research/STORYBOARD.md "Where the workflow runs"
+- 2026-10-09 · storyboard · Reading-time calibration: chapter 1 careful reading = 15–20 min; chapters almost the same length · "still very packed – I had no idea about rhythm yet" · → research/STORYBOARD.md §6
+- 2026-10-09 · storyboard · Light is decided in the script → shot step: extreme hard light · "extreme hard light, not diffusion" · → git 948c6f0e
+- 2026-10-09 · git · The storyboard runs in its own checkout `scutoons-storyboard` (owner's request) · → research/STORYBOARD.md, HANDOVER
+- 2026-10-09 · git · Sketch3d prototype in its own worktree on request · "build prototype … in its own worktree" · → memory keep-dev-setup-simple
+- 2026-10-08 · creator · The strip preview goes; the Reader in the right dock shows how a group reads · → DOCKING.md "The Reader panel", archive/UI-CONCEPTS.md E.6
+- 2026-10-08 · fx · Reader effects per item (`effect.kind` + minutes: psychedelic, haze …), chosen in the admin catalog · "Different drugs hit differently" · → research/FX.md "Reader effects per item"
+- 2026-10-08 · fx · A running effect can't be ended; it follows the reader everywhere; eating sobers up · → research/FX.md
+- 2026-10-08 · fx · LSD: a drifting echo with a swinging stereo pan; scrolling faster speeds the echo up · → research/FX.md
+- 2026-10-08 · fx · Wearables can tint what the reader sees (`worn_tint`); colour as an item variant with its own tint / wear · "sunglasses will make everything orange hued" · → research/FX.md, ITEMS.md
+- 2026-10-08 · fx · Interaction hints are only wandering lights (fireflies etc.), no dashed boxes / icons · → research/FX.md "Show hints"
+- 2026-10-08 · reader · Coming-soon teaser: the key visual starts with sound and plays once; "Nochmal ansehen" at the end; small white speaker toggle · → git cd323d99, 9a5f84ca (DESIGN "Coming-soon page" not updated)
+- 2026-10-08 · reader · The top row (logo + toggles) hides while reading / watching and comes back on scrolling up · → git a5d8abca
+- 2026-10-07 · git · Never a separate worktree on our own – "a separate branch" means `git switch -c` in the one checkout · "no separate worktree!!!! never! this is a rule!" · → RULES "Git", memory keep-dev-setup-simple
+- 2026-10-07 · git · Exception on request: the newsletter in its own worktree + DB while FX continues on main · "do a worktree coordination for newsletter" · → memory keep-dev-setup-simple
+- 2026-10-07 · process · Day run plan: two lanes on separate files, every item decided with the owner first · "go automatically" · → RULES "Git" (lanes)
+- 2026-10-07 · fx · Sound is part of a scutoon – no "sounds off"; the account has effects volume + haptics on / off; no own reduced-motion setting · → research/FX.md "Rules"
+- 2026-10-07 · fx · Effects may move anywhere within the visible viewport, never past it · → research/FX.md "Rules"
+- 2026-10-07 · fx · Pickup sound override per item (catalog) and per slice · "an override for the sound pickup defaults on item level in catalog and on slice level" · → research/FX.md, FEATURES 10.56
+- 2026-10-07 · fx · Slice shake / punch move the content inside its own box – no white gaps · → research/FX.md
+- 2026-10-07 · fx · typeOn opens like an old screen, then types letter by letter · → research/FX.md
+- 2026-10-07 · fx · Reader FX planned after the backlog – then started the same day · "free to go" · → research/FX.md
+- 2026-10-07 · reader · Interaction outlines hidden; an account toggle "Show hints" (off by default; guests off) · "hide click outlines for any interaction element … a toggle in the account" · → archive/BACKLOG.md M.1
+- 2026-10-07 · reader · The chapter's end actions are choices of the VN message box, no own bar · "the box at the bottom is where I act" · → DESIGN "Follow-up bar"
+- 2026-10-07 · reader · The next-chapter countdown is 10 s (was 5) · → DESIGN "Follow-up bar"
+- 2026-10-07 · reader · Season URLs `/<toon>/season/S/chapter/K` redirect to `/chapter/N`; labels "Season 2 · Chapter 1"; listed positions frozen · → DESIGN (season labels), PLATFORM.md "Printed URLs"
+- 2026-10-07 · data · A season's `sequence` holds chapters only (no `type`); songs stay in credits + scripts · → archive/BACKLOG.md 10.42
+- 2026-10-07 · design · One layer stack: text boxes and placed items share one paint order (`layer`) · → DESIGN "One layer stack", ITEMS.md "Placed items"
+- 2026-10-07 · design · Layers 2: click / hover / sound areas join the stack and show in Layers too · "that is the important thing" · → DESIGN "One layer stack"
+- 2026-10-07 · ui · One reorderable-list mechanism (Sortable: grip, drop line, Alt+↑/↓) everywhere · → DESIGN "Reorderable lists"
+- 2026-10-07 · ui · Notifications: toasts bottom-right · → DESIGN "Notifications" (superseded 2026-10-07 → bottom-left, they covered fields in use)
+- 2026-10-07 · ui · Toasts sit fixed bottom-left above the ActionBar, never in the page flow; the language status is a chip next to Publish · → DESIGN "Notifications"
+- 2026-10-07 · creator · Crumbs: the logo is the root crumb, "CREATOR" goes, overflow into a "…" menu; on phones the crumbs get their own row · "the creator title can go" · → DESIGN "Creator navigation"
+- 2026-10-07 · creator · Copy / paste: one system only, no sandbox → production transfer · "too much overhead" · → DESIGN "Copy / paste"
+- 2026-10-07 · creator · Cross-toon media are references, never copies; a paste writes `../<toon>/…` · "keep ../" · → DESIGN "Copy / paste", ASSETS.md
+- 2026-10-07 · items · Item limits, combined: placements across all toons AND owners in the world (`max_world`) · "combined" · → ITEMS.md "Item limits"
+- 2026-10-07 · items · A deleted account's unique items and codes are free again · "It is back up for grabs. The code still applies." · → ITEMS.md "Item limits"
+- 2026-10-07 · items · `takeItem` / a choice's `take`: only items flagged "a story may take it", never physical; all or nothing · → archive/BACKLOG.md 10.38
+- 2026-10-07 · design · An offer the reader can't afford: guard the paying choices, a conditional label on the always-there answer · "solved by good button text" · → EXPRESSIONS.md
+- 2026-10-07 · ui · One selection model app-wide: selected = inverted; the live selection = cyan tint + primary border; nav "you are here" stays inverted · "keep as is" · → DESIGN "Selection"
+- 2026-10-07 · ui · Round vs square: a standalone icon-only button is round; grouped controls and controls with text are square · → DESIGN "Round vs square"
+- 2026-10-07 · ui · Approved phone draft: header ☰ · logo · search, crumbs own row, inspector as a sheet, action bar More · Save · de ▾ · Publish · → DESIGN "Phones and tablets"
+- 2026-10-07 · ui · The 9 phone findings of the E.9 audit are deferred · "ignore for now" · → FEATURES 10.71
+- 2026-10-07 · creator · Copy / paste on phones through a menu · → archive/BACKLOG.md 10.39
+- 2026-10-07 · creator · Several dock panels side by side (one per kind); the least recently used folds first · "why is it either Flow or phone preview?" · → DOCKING.md "Several panels"
+- 2026-10-07 · creator · The main folds only by hand; maximize = fold everything else; the ActionBar stays while maximized · "maximize = fold everything else" · → DOCKING.md "Decisions" 4
+- 2026-10-07 · platform · Only the creator may frame the viewer (`frame-ancestors` CSP) · → PLATFORM.md (PLATFORM.md "Only the creator may frame the viewer" still says decide)
+- 2026-10-07 · data · The scene-14 `end` event is only configuration in a test scene; the owner fixes it · "only configuration – a test scene" · → archive/BACKLOG.md B.2 (ISSUES 10.35 still says decide)
+- 2026-10-07 · embassy · No "Top Toy" in mails or DMs · → EMBASSY.md "Communication strategy"
+- 2026-10-07 · embassy · Mails are signed with the writer's first name (`display_name` required) · → EMBASSY.md "Pace + weekly portion"
+- 2026-10-07 · newsletter · Newsletters to every member and the old QR form's addresses, bundled so the SMTP isn't overloaded · "bundle to not overload the smtp" · → NEWSLETTER.md
+- 2026-10-07 · newsletter · Audiences: opted-in members, all members, QR-claim contacts, event paper lists; unsubscribe link + one-click in every mail · → NEWSLETTER.md "Who can be mailed"
+- 2026-10-07 · newsletter · The owner sets each contact's language by hand; a newsletter can't start while one has none · → NEWSLETTER.md
+- 2026-10-07 · live · Performance mode = plan only, a try-out without crunch; relay as its own bunny app `scutoons-live` · "are we rebuilding Ableton?" · → research/LIVE.md B.11 (parked 2026-10-12)
+- 2026-10-07 · live · A show is its own entity `show:<toon>:<n>`; one flow – the toon's flow decides everything; rows never launched · → research/LIVE.md B.11
+- 2026-10-07 · live · Audience guest first, account optional; groups by QR; votes per rule + time + fallback; musicians get a free-form sheet · "keep it simple" · → research/LIVE.md B.11
+- 2026-10-07 · live · One local bridge app (Electron, mac + win, unsigned for now); a global `live` role; DMX fixtures + looks over USB-DMX · → research/LIVE.md B.11
+- 2026-10-06 · git · One checkout, one dev DB `scutoons`, no `git worktree`, no per-agent DBs, agents run one after another · "they make things super complicated" · → RULES "Git, sessions, checkout"
+- 2026-10-06 · git · Unattended runs: commit on `main` in small steps, never push (a push deploys); the dev DB may be changed freely · "just merge to main, but do not push to production" · → RULES "Git", memory night-runs
+- 2026-10-06 · process · One list for all open work in agents/ (cut-over post items + minor bugs), not GitHub issues · "we need to merge cutover post items and minor bugs" · → RULES "Docs" (superseded 2026-10-12 → ISSUES + FEATURES)
+- 2026-10-06 · process · Bigger UI is drafted first, the owner picks; small owner-described fixes may be built · → RULES "Working with the owner"
+- 2026-10-06 · process · Prioritise by technical implementation and when refactors are needed · "prioritize based on technical implementation" · → archive/BACKLOG.md "Priorities"
+- 2026-10-06 · data · Stored-format changes: analyse the data, write a SQL migration, drop the old form – no silent load-time conversion; a helper only with creator feedback · "not a code migration for old configs like you did before" · → RULES "Migrations and stored data"
+- 2026-10-06 · data · The owner runs data migrations in phpMyAdmin · → RULES "Migrations" (superseded 2026-10-12 → they run with the deploy / over the MCP)
+- 2026-10-06 · data · One language-neutral document per chapter, scene, season, toon; texts as inline locale maps · "better to make these decisions now" · → DATA.md §1, archive/NEUTRAL.md
+- 2026-10-06 · data · Text-box styles are the same in every language (source wins); a missing translation falls back to the source · → archive/NEUTRAL.md "Owner decisions"
+- 2026-10-06 · data · `/library/toons?locale=` leaves out a toon whose page is closed in that language · → archive/NEUTRAL.md "Owner decisions"
+- 2026-10-06 · data · One toon name: `title` per language; `i18n.<l>.name` no longer stored · "one property – if title is adequate do it" · → DATA.md, archive/NEUTRAL.md decision 4
+- 2026-10-06 · data · One save game for every toon (`scutoons`) – story variables are SCUTOONS-wide · "Variables are per save game … make them across all toons" · → DATA.md "The save game"
+- 2026-10-06 · data · Variables have a domain: `x` = this toon's, `global.x`, `<toon>.x` · "it is still good to have basic variables with a domain" · → DATA.md "The save game", EXPRESSIONS.md
+- 2026-10-06 · data · Items are not variables: an item lives only in the catalog / inventory; `giveItem`, `inventory.<item>` · "it is just a naming conflict" · → archive/BACKLOG.md 10.38, ITEMS.md
+- 2026-10-06 · data · Linked groups (`continues`) share one reader page; VN scripts in a chain run one after another · → DATA.md "Linked groups"
+- 2026-10-06 · data · Reachability check over a chapter (unreachable, never true, endless loop) as warnings + chips · → DATA.md "Linked groups" (Reachability)
+- 2026-10-06 · data · Jumps into another toon at a label (`JumpToTarget.toon`) · "at label" · → DATA.md "Jumps into another toon at a label"
+- 2026-10-06 · data · Expressions in texts use ink's inline syntax with our own small engine · "use inkle, to keep at least some standard" · → EXPRESSIONS.md §1
+- 2026-10-06 · data · Expression functions are defined in code only (one registry), offered as a list · → EXPRESSIONS.md §1
+- 2026-10-06 · data · The old `{x:clock}` syntax is gone (no alias), moved by a DB migration · → EXPRESSIONS.md §1
+- 2026-10-06 · data · Dead-end safety: no timeouts or escape buttons; stuck states impossible by logic, refused on save · "no time-based patches: avoid such cases in logic and validation" · → EXPRESSIONS.md "Dead-end safety"
+- 2026-10-06 · data · askText: one input + ✓, the default as an answer button; no "Skip" link · → EXPRESSIONS.md
+- 2026-10-06 · creator · The event is `showTextBox` (misspelt `showOnomatopeia` gone, no alias); its box field = one select "choose or create new" · → DESIGN "Onomatopoeia = a text box"
+- 2026-10-06 · creator · One text language at a time – no side-by-side or "each field in its source" mode · → DESIGN "Creator: content language"
+- 2026-10-06 · creator · The source language is marked with the Feather star everywhere · → DESIGN "Creator: content language"
+- 2026-10-06 · creator · Creator wording: short, plain, de = en; "text box", "preset", "item" · → DESIGN "Creator wording"
+- 2026-10-06 · ui · Empty states: an empty list shows nothing; a muted one-liner only when the whole area would be blank · "it makes no sense to waste space" · → DESIGN "Empty states", RULES "UI rules"
+- 2026-10-06 · creator · Group panel compact (one field grid, hints as tooltips); switching to horizontal turns Continuous on · → DESIGN "Creator group panel"
+- 2026-10-06 · creator · Flow panel: a read-only zoomable graph of the story flow on every level, edge to edge, with pictures · → DESIGN "Flow panel"
+- 2026-10-06 · creator · Docking areas like Blender / the Claude desktop app: regions tile, fold to rails, dividers · "go go go, sounds good, we can still revise it later" · → DOCKING.md
+- 2026-10-06 · creator · The sidebar never folds for room by itself; no bottom region for now; the right dock folds to a rail, opens unfolded · "closing them is a different story" · → DOCKING.md "Decisions" 1–3
+- 2026-10-06 · creator · Panel sizes remembered per panel kind in the browser – no server state for chrome · → DOCKING.md
+- 2026-10-06 · creator · A setup step for a fresh environment: priority last · → archive/BACKLOG.md 10.19
+- 2026-10-05 · git · `platform` is merged and abandoned; `main` is the only branch and is production (a push deploys) · → RULES "Git", HANDOVER
+- 2026-10-05 · process · The beta phase (Phase 9) is scratched; open work becomes the 10.x line · → archive/CUTOVER.md
+- 2026-10-05 · dev · MariaDB in Docker only – SQLite removed everywhere · "i want no sqlite also anymore" · → RULES "Dev setup", memory local-dev-mariadb
+- 2026-10-05 · data · Production is the source of truth for content and catalog; local data = the production export (`npm run dev:db`); no file seeds · → RULES "Migrations and stored data"
+- 2026-10-05 · dev · A worktree uses its own DB `SCUTOONS_DB_NAME=scutoons_<x>` · → RULES "Git" (superseded 2026-10-06 → one checkout, one DB; worktrees only on request)
+- 2026-10-05 · assets · No local bunny sync; missing media are fetched on demand, Rescan registers them · → ASSETS.md
+- 2026-10-05 · items · The naked A-pose look is removed (swim only); the safe-for-work switch stays in the account · "Remove the naked A-pose variant. Keep the safe-for-work switch" · → ITEMS.md "Reader avatar bodies"
+- 2026-10-05 · reader · Sensitive slices: a per-slice flag; with "Hide sensitive content" the slice is blurred and muted with a note · → DATA.md "Sensitive slices", ITEMS.md "Sensitive content"
+- 2026-10-05 · reader · Coming-soon page with a key visual = a fullscreen teaser, text on a scrim · → DESIGN "Coming-soon page" (superseded 2026-10-08 in part → plays once with sound)
+- 2026-10-05 · embassy · Liaisons work at their own pace: contacts per week + a reminder, "Today" shows this week's portion · "consumable portions per day or per week" · → EMBASSY.md "Pace + weekly portion"
+- 2026-10-05 · deploy · qr-legacy dropped; the old folders stay on disk as the rollback · → archive/CUTOVER.md 8.1
+- 2026-10-04 · catalog · The catalog (items, recipes, albums, products, editions, featured, code types, toons) goes into DB tables now, with an admin UI · "lets just do it properly" · → CATALOG.md
+- 2026-10-04 · catalog · Images are WebP everywhere (AVIF later via a server job) · "webp is everywhere the format to go" · → CATALOG.md
+- 2026-10-04 · creator · Review levels: not a role but a relation per toon (reviewer / needs_review), set by an admin; platform-wide entities publish directly · → archive/BACKLOG.md 10.28 "Review levels"
+- 2026-10-04 · mcp · Personal access tokens for Claude Code / Desktop (OAuth recommended, owner chose tokens) · → MCP.md §3
+- 2026-10-04 · mcp · Ask panel in the creator, owner pays, hosted on bunny, chat history, publish tool kept · "we stick to the node server on bunny" · → archive/BACKLOG.md 10.28 (superseded 2026-10-09 → own Claude via local MCP)
+- 2026-10-04 · embassy · No automatic follow-ups – nothing is sent on its own; follow-ups are call tasks · → EMBASSY.md "Communication strategy"
+- 2026-10-04 · embassy · Mails sent over SMTP from hello@scutoons.com; anyone with the role sends, no approval step; replies read by IMAP · → EMBASSY.md "AI + mail"
+- 2026-10-04 · embassy · Track dormant contacts that were responsive in the past ("answered before, quiet now") · "keep track of dormant contacts that have been responsive in the past" · → EMBASSY.md "AI + mail"
+- 2026-10-04 · embassy · Embassy ships with the 2026-10-04 rollout (D5) · → EMBASSY.md, archive/CUTOVER.md
+- 2026-10-04 · reader · Player videos get our own overlay controls; loops stay bare · "like the Netflix / Prime players" · → DESIGN "Player overlay"
+- 2026-10-04 · reader · Controls off on a player = only ▶ / ↺; the skip button also in full screen · → DESIGN "Player video slice"
+- 2026-10-04 · reader · Skipping is not watching: progress stays; the end leaves full screen · → DESIGN "Player overlay"
+- 2026-10-04 · creator · No own preview in the creator; the live reader is the preview · "no point in rebuilding the viewer" · → archive/MEMORY.md, DOCKING.md "The Reader panel"
+- 2026-10-04 · creator · Chapter audio uses asset slots, no hard-coded URLs; slice music as a mixer · "audio assets still use hard-coded urls" · → archive/COMPONENTS.md
+- 2026-10-04 · admin · No raw record sections on admin detail pages · → PLATFORM.md
+- 2026-10-04 · dev · Sizes in rem, never px – also sizes set from JS · "a dogma across the app" · → RULES "UI rules", memory rem-not-px
+- 2026-10-04 · media · Local `media/` is only a dev copy; production holds the real assets · "final data is on the production system" · → RULES, memory local-media-not-authoritative
+- 2026-10-04 · media · Audio quality levels: low 96k / medium 128k / high 320k MP3 · → archive/PLAN.md RULE "one file per quality level"
+- 2026-10-03 · creator · "Text", not "text box", in the creator; a text's look is one of five presets · → DESIGN "Texts and presets"
+- 2026-10-03 · design · Geometry of text boxes and placed items is the same in every language; only the text differs · → DESIGN "Geometry is the same in every language"
+- 2026-10-03 · design · Onomatopoeia is a text box revealed by an event (option B); the legacy form removed · → DESIGN "Onomatopoeia = a text box"
+- 2026-10-03 · design · Drawn speech bubbles (bubble + frame); a wobbly "shout" shape for screaming and singing · "loud and intense stuff such as screaming and singing" · → DESIGN "Drawn bubble"
+- 2026-10-03 · media · Text masks are deprecated: re-import the art text-free, keep the dialog data · → DESIGN (dialog fields), DATA.md "Audit"
+- 2026-10-03 · creator · Season page cleaned up like the chapter page; no chapter list on it (the sidebar has it) · "clean this season view up" · → DESIGN "Creator: season page"
+- 2026-10-03 · creator · Media with quality levels = one slot with a chip per level; the default is the lower level · "simplify the multiple resolutions situation" · → DESIGN "Creator: season page", RULES "UI rules"
+- 2026-10-03 · creator · Media paths are not typed – the preview / picker does the job · "the preview does the job" · → archive/COMPONENTS.md
+- 2026-10-03 · creator · Undo inside a field is the browser's; outside a field it undoes the file · → archive/COMPONENTS.md 4.4
+- 2026-10-03 · creator · Field-grid spacing follows the hierarchy level (page / panel / dense) on the token scale · → archive/COMPONENTS.md 4.4
+- 2026-10-03 · creator · Publish wording names exactly what and which language; in-page dialog, never `confirm()` · → RULES "UI rules", archive/COMPONENTS.md 4.4
+- 2026-10-03 · creator · One "Add group" in the chapter tree; scene keys are internal ids, never shown · "legacy from files – in the db we don't care about ids that way" · → archive/BACKLOG.md 10.22
+- 2026-10-03 · ui · Input fields keep a visible frame to tell them from selects and buttons; selects look like secondary buttons · → DESIGN (Fields)
+- 2026-10-03 · reader · Avatar has its own top button; it opens the inventory slide-out's Avatar tab · "inventory should be inventory" · → DESIGN "Top-right icon group" (superseded 2026-10-12 → own panels)
+- 2026-10-03 · reader · The testo shows small next to the Avatar heading · "less massive" · → ITEMS.md "Substances"
+- 2026-10-03 · reader · Media-quality text names the data of a chapter, not resolutions · "Ein Kapitel mit rund 100 Bildern und zwei kurzen Videos" · → DESIGN "Media quality"
+- 2026-10-03 · items · Codes are case-sensitive and matched exactly everywhere; strict session sql_mode · "make it case sensitive … stick to one rule" · → PLATFORM.md "Printed URLs", ITEMS.md "Certificates"
+- 2026-10-03 · items · Respawn per item with a placement override within the item's range · "both: item, and an override within the range the item allows" · → ITEMS.md "Respawn"
+- 2026-10-03 · data · VN story logic is built for the release; adopt some of ink's concepts (labels, diverts, conditions) · "we have to build it now. it is part of the release" · → EXPRESSIONS.md, archive/BACKLOG.md 10.27
+- 2026-10-03 · mcp · A SCUTOONS MCP server: an agent with the signed-in creator's rights · "very important" · → MCP.md
+- 2026-10-03 · assets · Content editors may replace a file at its path (the picker asks "Replace?") · → ASSETS.md
+- 2026-10-03 · assets · Clean up the CDN: admin → Assets → Unused · "clean up the CDN" · → ASSETS.md
+- 2026-10-03 · platform · Public release: one version 1.0.0 everywhere, tag v1.0.0 · → FEATURES 10.8
+- 2026-10-02 · process · 2026-10-04 is a soft release (internal beta), public release a week later · → archive/PLAN.md (superseded 2026-10-05 → beta scratched)
+- 2026-10-02 · items · New items / recipes are packs added as data on released fundamentals · "make sure we can patch it in later" · → ITEMS.md "Developing items and recipes (packs)", RULES "Product rules"
+- 2026-10-02 · git · Packs are built on their own branch `items/<pack>` in a separate worktree · → ITEMS.md (packs) step 1 (superseded 2026-10-06 → one checkout; ITEMS.md not updated)
+- 2026-10-02 · items · QR codes are unique: one code = one owner account; reading with someone else's code is allowed · "important relation" · → ITEMS.md "Ownership, claims, gifting"
+- 2026-10-02 · items · Certificates are signed to the buyer by hand; the platform records ownership changes · → ITEMS.md "Ownership, claims, gifting"
+- 2026-10-02 · items · A lost registration is fixed by a claim + admin transfer; evidence optional · → ITEMS.md "Ownership, claims, gifting"
+- 2026-10-02 · items · Gifting of digital items between readers; no money, no marketplace · "beautiful for game play" · → ITEMS.md "Ownership, claims, gifting"
+- 2026-10-02 · items · Verify checks a signature against the DB entry, not only the embedded key · "not if it also matches an entry in the db" · → ITEMS.md "Certificates"
+- 2026-10-02 · items · Audio plays only with a player for its format (record / tape / CD player) · "You need a record player first" · → ITEMS.md "Players, albums, related items"
+- 2026-10-02 · items · Albums live in the item catalog; access per album (download / listen = everyone / members / owners) · "download and inline playing are different things" · → ITEMS.md "Players, albums, related items"
+- 2026-10-02 · items · Related items on season (and chapter) to upsell physical products on the toon page · → ITEMS.md, DESIGN "Toon page"
+- 2026-10-02 · items · The record player is repaired: broken player (ch2 scene 1) + Vienna repair coupon = recipe; the broken one consumed · "The broken one is consumed." · → ITEMS.md "Record player repair"
+- 2026-10-02 · items · The repair coupon is used up too · "coupon is used up" · → ITEMS.md "Record player repair"
+- 2026-10-02 · items · Coupon at the end of chapter 2 for now; later the end of season 1 · → ITEMS.md, FEATURES 10.76
+- 2026-10-02 · items · The record player came by direct grant · → ITEMS.md "Record player repair" (superseded 2026-10-02 → repair recipe)
+- 2026-10-02 · design · Covers are per season; the toon is represented by its avatar · "Per toon I have no covers intended – I use the avatar" · → DATA.md "Language-independent media"
+- 2026-10-02 · creator · A season cover editor with lettering layouts for every language · "a season cover image editor view for multi-language support" · → DESIGN "Creator: cover editor", DATA.md "Cover lettering layout"
+- 2026-10-02 · design · Square covers only – portrait unused · "portrait I think we are not using" · → DATA.md "Cover lettering layout"
+- 2026-10-02 · ui · Bold only very rarely: regular everywhere, bold for the page h1 and rare emphasis · "only use bold very rarely" · → DESIGN "Brutalist tools"
+- 2026-10-02 · ui · One control height for every single-line control in every app · "A general rule should apply for those." · → DESIGN "One control height"
+- 2026-10-02 · ui · One drawn close cross: as high as the headline's capitals, square, 2px (or 1px) stroke · "Same height as the headline and same width." · → DESIGN "Close cross"
+- 2026-10-02 · ui · Command palette (Ctrl K) in every tool – admin, creator, embassy · → PLATFORM.md
+- 2026-10-02 · creator · Content language switch for translators; chapter lists without spreadsheet look, badges only when something is up · "no spreadsheet vibe" · → DESIGN "Chapter lists"
+- 2026-10-02 · platform · One mail sender: the API's email module; every future mail goes there · "a place to manage emails" · → PLATFORM.md "Emails"
+- 2026-10-02 · platform · Mail Reply-To = hello@scutoons.com · → archive/BACKLOG.md 10.16
+- 2026-10-02 · data · Content source of truth is the DB; local dev from production's export · → archive/BACKLOG.md 10.15
+- 2026-10-02 · dev · Local MariaDB in Docker for dev + tests next to SQLite · → archive/BACKLOG.md 10.10 (superseded 2026-10-05 → MariaDB only)
+- 2026-10-02 · assets · An asset manager over the CDN: picker, versions, relink, optimisation, delete checks · "An asset selector will be very much needed" · → ASSETS.md
+- 2026-10-02 · assets · Folder convention approved: folders are the toon hierarchy (season / chapter); models follow the item hierarchy · "items and models belong together" · → ASSETS.md "Folder convention"
+- 2026-10-02 · assets · Delete the 94 lettered masters and 11 unplaced unused files; leave `scene-19`; deletions happen with the move · → ASSETS.md "Owner decisions on the mapping"
+- 2026-10-02 · assets · Backup target later = the old all-inkl FTP CDN; no second bunny zone · → ASSETS.md "Backup"
+- 2026-10-02 · assets · Bunny via the interim `scutoons.b-cdn.net` until cdn.scutoons.com is rewired · → ASSETS.md (domain switch)
+- 2026-10-02 · assets · Relayout before the bunny upload, the old CDN kept until the switch · "I want to risk it; I keep the old CDN until the switch" · → ASSETS.md, archive/CUTOVER.md Phase 1
+- 2026-10-02 · deploy · Cutover: bunny first, then the new platform side by side in `/web/` with a new DB, subdomains switched one by one · → archive/CUTOVER.md
+- 2026-10-02 · deploy · New DB / FTP credentials only in the GitHub `production` environment, never in a local file · → archive/CUTOVER.md
+- 2026-10-02 · deploy · No legacy `generate/` on the new platform; DB-T stays the production DB · → archive/CUTOVER.md 5.5, 7.1
+- 2026-10-02 · embassy · An organisation type STORE; a public page lists which stores carry which products; small vendors first · "I want to encourage small vendors at first." · → EMBASSY.md "Stores"
+- 2026-10-02 · map · Every screenplay location on the map, unlocked from its slice · "add all the locations already mentioned in the script" · → MAP.md §8.3a (superseded 2026-10-11 → unlockLocation events)
+- 2026-10-01 · data · Everything is language-independent: media shared by all languages, text only in text fields, lettering rendered by the UI · "Everything should be language-independent" · → RULES "Product rules", DATA.md "Language-independent media"
+- 2026-10-01 · media · Media quality is a reader setting: one file per level (low / medium / high) or Automatic by bandwidth; never by viewport · → RULES "Product rules", DESIGN "Media quality"
+- 2026-10-01 · reader · catpope season 1 starts with chapter 0, the prologue "Roar Little Kitty" (public); reader texts never say "music video" · → DATA.md "Prologue", DESIGN "Start button"
+- 2026-10-01 · reader · Player videos autoplay in the reader (sound when allowed, else muted + "Ton an") · → DESIGN "Player video slice"
+- 2026-10-01 · reader · Player slice controls flag: on for a player, off for a loop · → DESIGN "Player video slice"
+- 2026-10-01 · reader · Video placement: a box (original or frame ratio) with four fits + a position; full viewport option · → DESIGN "Video placement"
+- 2026-10-01 · creator · Slice tab "Hintergrund / Background" (image or video); a simple placement picker · "less descriptive, more simple UI, basic" · → DESIGN "Creator slice tab"
+- 2026-10-01 · reader · Follow-up bar at a group's end with a 5 s countdown · → DESIGN "Follow-up bar" (superseded 2026-10-07 → end actions in the message box, 10 s)
+- 2026-10-01 · reader · Toon page desktop design "A · Vollbild": trailer hero, 12-column grid, colophon in the left column · → DESIGN "Toon page desktop"
+- 2026-10-01 · reader · The logo links to the landing page and never opens the menu; the slide-out lists the toons first · → DESIGN "The logo", "Slide-out order"
+- 2026-10-01 · reader · Landing page after design "D · Brutal", everything from the API · → DESIGN "Landing page"
+- 2026-10-01 · data · Toon settings without text live once in the toon entry · "fields with no text are edited and stored per language, which is pointless" · → DATA.md "Language-neutral toon settings"
+- 2026-10-01 · data · A screenplay per toon (not per chapter), versioned; scripts are not in production by default · "Scripts come per toon, not per chapter." · → DATA.md "Script", DESIGN "Creator: script page"
+- 2026-10-01 · data · Season trailer, music image, announced toons + landing tile are language-neutral settings · → DATA.md
+- 2026-10-01 · map · A map builder in the creator; the world map is SCUTOONS' whole universe · "for now the world map we have is the entire universe of SCUTOONS" · → MAP.md
+- 2026-10-01 · map · Unlocks are universe-wide (one world state for every toon) · → MAP.md §8.1 Q1
+- 2026-10-01 · map · catpope's places unlock over time from the screenplay; a place click shows a card · → MAP.md §8.1 Q2, Q4
+- 2026-10-01 · map · "Garten" is "Garten Eden / Garden of Eden", end of chapter 5 · → MAP.md §8.1 Q5
+- 2026-10-01 · map · The sea takes the colour of the toon being read, default neon green #00ff00 · → MAP.md §8.1
+- 2026-10-01 · map · Unlock set from both the map builder and the slice (bidirectional) · → MAP.md §8.5b (superseded 2026-10-11 → unlockLocation events)
+- 2026-10-01 · map · A start view per toon set in the builder; places without images listed in Wanted images · → MAP.md §8.1, §8.5
+- 2026-10-01 · map · The airport does not unlock yet (`unlock: null`) · "it does not unlock yet" · → MAP.md §8.1 (superseded 2026-10-11 → unlock fields removed)
+- 2026-10-01 · ui · No hand tool: canvases pan with the middle button or Space + drag · → DESIGN "Icons", MAP.md §8.1
+- 2026-10-01 · ui · UI icons come from Feather via the shared `Icon`; icons where a word makes no sense · → DESIGN "Icons"
+- 2026-10-01 · ui · Brutalist tools: the reader's font sizes and look in every tool, no tiny text · "I want clear brutalism, not something in between." · → DESIGN "Brutalist tools" (superseded 2026-10-11 in part → 70 % on desktop)
+- 2026-10-01 · ui · Bold sparingly · → DESIGN "Brutalist tools" (superseded 2026-10-02 → bold only very rarely)
+- 2026-10-01 · ui · Badges are filled (white text where it reaches 4.5:1, else ink); colours from one tokens file · → DESIGN (badges)
+- 2026-10-01 · ui · Sizes in rem; the 44px touch minimum only on coarse pointers · → DESIGN (sizes), RULES "UI rules"
+- 2026-10-01 · ui · Buttons = the viewer's (secondary outline turns ink on hover, no inversion) · "no new invention" · → DESIGN (buttons)
+- 2026-10-01 · creator · Script page type follows the tools' type scale (the earlier 13/20 px superseded) · → DESIGN "Creator: script page"
+- 2026-10-01 · dev · Dev ports defined in code in one file `shared/dev-ports.json` · "in code, no special place" · → PLATFORM.md "Local dev ports", RULES
+- 2026-10-01 · platform · One sign-in for every app, roles permitting; a notice + "switch account" otherwise · → PLATFORM.md (SSO)
+- 2026-10-01 · platform · Admins may use the creator "for now" (`CONTENT_EDITORS` = creator, admin) · → PLATFORM.md (roles)
+- 2026-10-01 · items · Clothing becomes real exchangeable items overlaying the A-pose; basic dress T-shirt + shorts + sandals · "T-shirt + short pants + sandals" · → ITEMS.md "Wardrobe"
+- 2026-10-01 · items · Worn items are not listed in the Items tab, only in the Avatar slots · → ITEMS.md "Wardrobe"
+- 2026-10-01 · items · No male / female: a testo level; more testo reads more male, less more female · "There is no male/female." · → ITEMS.md "Substances, reader stats, testo"
+- 2026-10-01 · items · One substances model ("other drugs too"); food lowers appetite, the button says "Essen" · "some drugs like weed make you want to eat" · → ITEMS.md "Substances"
+- 2026-10-01 · items · The Check It camera (nod to checkit!, no branding) is crafted from camera + testo · → ITEMS.md
+- 2026-10-01 · items · Codes and certificates in circulation must stay valid through the move (copy checked) · → PLATFORM.md
+- 2026-10-01 · embassy · The app is "Embassy" at embassy.scutoons.com; Liaisons (part time) and Ambassadors (full time) · → EMBASSY.md
+- 2026-10-01 · embassy · Mail first, then a phone call – follow-ups old school by phone · → EMBASSY.md "Communication strategy"
+- 2026-10-01 · embassy · Automated follow-up mails OK · → EMBASSY.md (superseded 2026-10-04 → no automatic follow-ups)
+- 2026-10-01 · embassy · Liaisons' first mails wait for an ambassador's approval · → EMBASSY.md roles (superseded 2026-10-04 → anyone with the role sends)
+- 2026-10-01 · data · Removed: the obsolete `template/episode1.json` · → archive/MEMORY.md
+
+## 2026-09
+- 2026-09-30 · data · Content is served by the API from the database, on demand; JSON only as import / export · "Switch the entire loading process to not file-based." · → RULES "Product rules", DATA.md
+- 2026-09-30 · data · Clean entity keys; every toon-related text in the DB; UI translations stay in the apps' message files · → DATA.md (owner decisions)
+- 2026-09-30 · data · Chapters, scenes and seasons stored per language · → DATA.md §1 (superseded 2026-10-06 → language-neutral documents)
+- 2026-09-30 · platform · Printed / public URLs never change; new ones may be added · → RULES "Product rules", PLATFORM.md "Printed URLs"
+- 2026-09-30 · data · Every chapter belongs to a season · → RULES "Product rules"
+- 2026-09-30 · data · Keep the configuration small: model only what a screen edits or code reads · → RULES "Product rules"
+- 2026-09-30 · media · Default slice 390 × 625, 1x WebP; every slice carries width / height · → RULES "Product rules"
+- 2026-09-30 · media · One resolution everywhere · → archive/PLAN.md (superseded 2026-10-01 → one file per quality level)
+- 2026-09-30 · media · Slices 1x WebP only, no srcset, as sharp as possible; music 128 kbps · → research/PERFORMANCE.md (superseded 2026-10-01 → quality levels)
+- 2026-09-30 · process · Done = the full suite green (check, PHPUnit, builds, dev servers start) · → RULES "Dev setup and checks"
+- 2026-09-30 · dev · One start-up routine: fixed ports, servers only via `npm run dev`; never kill servers you didn't start · → RULES "Dev setup and checks"
+- 2026-09-30 · dev · Agents debug as the local test user, never as the owner · "Create a test user for yourself, you can debug better." · → RULES "Dev setup and checks"
+- 2026-09-30 · git · Release 2026-10-04 ships `platform` (+ `anger`) → `main`; feature branches merge after the release · → archive/PLAN.md (superseded 2026-10-05 → `main` only)
+- 2026-09-30 · admin · A fixed bottom action bar on every admin and creator page (pager, filters, primary action right-most) · → PLATFORM.md "Bottom action bar"
+- 2026-09-30 · platform · Server folder renamed to `server/` · → PLATFORM.md
+- 2026-09-30 · reader · No featuring in the reader – it must stay super logical and simple; the data stays · "the reader frontend is supposed to be super logical and simple" · → DESIGN, ITEMS.md "Cast & featuring"
+- 2026-09-30 · reader · Toon page order: cover, title, season, start button, chapter list, music, credits colophon · → DESIGN "Toon page"
+- 2026-09-30 · reader · Credits colophon: typography after the vinyl's back cover, the credits as they are · → DESIGN "Credits colophon"
+- 2026-09-30 · reader · VN layout: the joinScene view is the side; everyone in the scene visible, standing on the box; `full` = centre group · → DESIGN "VN layout"
+- 2026-09-30 · creator · The creator is a hierarchy Creator → toon → season → chapter → group → slice · → DESIGN "Creator navigation"
+- 2026-09-30 · creator · No version numbers anywhere in the UI – state words and dates · → DESIGN "Creator navigation"
+- 2026-09-30 · items · Only catpope is unlocked as an avatar body for every member by default · → ITEMS.md "Reader avatar bodies"
+- 2026-09-30 · items · Slots per avatar body (the same slot twice is possible – twins) · "define slots per avatar" · → ITEMS.md "Slots per avatar body"
+- 2026-09-30 · reader · Hide sensitive content: a member-wide setting, on by default · "Hide sensitive content is on by default." · → ITEMS.md "Sensitive content"
+- 2026-09-30 · data · Season downloads (music album) and supporters belong to the season · → DATA.md "Season downloads and supporters"
+- 2026-09-30 · assets · Transitions are named after their states: `<character>_transition-<from>-to-<to>.png` · → PLATFORM.md
+- 2026-09-30 · assets · The avatar is its own generated view (head with neck, 600 × 600); without one, crop from the mood portrait · → archive/PLAN.md
+- 2026-09-30 · data · catpope chapter 6 (test bed) removed; a sandbox toon shows every character and is the VN test bed · → archive/MEMORY.md
+- 2026-09-30 · storyboard · Vision: story → script → scenes → frames, workflows in `workflows/<domain>/`; the platform is the single source of truth · → research/AUTOMATION.md, research/TREATMENTS.md
+- 2026-09-29 · items · Every reader starts with a camera; a regular camera only scans QR codes of SCUTOONS items · → ITEMS.md "Concept"
+- 2026-09-29 · items · The avatar has one item per body-part slot · → ITEMS.md "Concept"
+- 2026-09-29 · items · A code always contains items; without code items the edition's items are options the claimer picks · → ITEMS.md "Codes"
+- 2026-09-29 · items · n codes → one account (email); email-based login with one-time code + magic link · → ITEMS.md "Codes", "Accounts"
+- 2026-09-29 · data · The source language is set per toon (not per chapter, not global) · → archive/MEMORY.md, DESIGN "Creator: content language"

@@ -83,8 +83,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   by season, each under its heading `#season-S` (one season: as before). No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
   and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
 - **Coming-soon page** (owner 2026-10-05): with a key visual the page is a fullscreen teaser (`chapter-teaser.svelte`):
-  the key visual video fills the window, muted, on a loop, autoplay (reduced motion: the poster until "Ton an"); the
-  text ("Demnächst", chapter name, release date) sits over its lower part on a dark scrim, "Ton an" bottom right.
+  the key visual video fills the window and starts **with sound, once** – no loop; at the end "Nochmal ansehen" in the
+  centre (reduced motion: "Abspielen" before it starts) (owner 2026-10-08); a tap anywhere on the playing video toggles
+  the sound (owner 2026-10-09, like Instagram / TikTok); the toggle is a small white Feather speaker bottom right, no
+  frame, no text (labels for screen readers). The text ("Demnächst", chapter name, release date) sits over its lower
+  part on a dark scrim.
   Portrait windows crop to fill, landscape windows show the whole key visual on black. No key visual: the text page.
 - **Toon page, top to bottom** (owner 2026-09-30): cover, toon title + description, "Staffel 1: <title>", the season
   text, **the start button**, the chapter list, **the season's music** (a secondary button "Musik herunterladen" /
@@ -136,9 +139,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
   toon pages inventory, **avatar**, map and chapter list follow to its left (each `--control-height` + 0.5rem further
   left; five buttons + the logo fit at 320 px). Avatar has its own button (owner 2026-10-03: "inventory should be
-  inventory"; `icons/avatar.svg`, overlay `avatar` in the navigation context) but opens the same inventory slide-out on
-  its Avatar tab; the slide-out's two tabs carry the same icons (+ label; icon-only under 480 px, the label stays for
-  screen readers) and switch the overlay, so the top buttons and tabs always agree. The menu slide-out's
+  inventory"; `icons/avatar.svg`, overlay `avatar` in the navigation context) and **its own panel** – avatar and
+  inventory each open their own panel, no tabs (owner 2026-10-12: "auf eigene Panels"). The menu slide-out's
   entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
   "Anmelden" were hard 16 px before).
 - **The logo** (top left, all pages) is a link to the localized landing page (`/` · `/en/`, alt "SCUTOONS – Startseite" /

@@ -13,7 +13,7 @@ Template and rules: agents/RULES.md "Docs". Older notes of an item: `grep "10.N"
 ## Content
 - [ ] 10.35 **scene-14 has an unknown `end` event** – the published `scene:catpope:2:scene-14` still holds
   `{"type":"end",…}` (the reader skips it, `content:check` reports it). `decide`: publish the scene's newest version
-  (no `end`) or delete the event.
+  (no `end`) or delete the event – or close it: owner 2026-10-07 (B.2): "only configuration – a test scene".
 
 ## Reader, media
 - [ ] M.15 **Some slices look poor even at 2x / high** – findings 2026-10-07: (1) the files aren't there: no slice has
