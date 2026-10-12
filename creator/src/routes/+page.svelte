@@ -28,12 +28,6 @@
 
 	const name = (toon: ToonIndex) => toonName(toon, getLocale());
 
-	// phones (UI-CONCEPTS E.10, the editors' one bar): Publish everything · the reader – icon + a small word
-	const phoneItems = $derived<PhoneBarItem[]>([
-		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: publishing || !toons.length, run: publishEverything, testid: 'phone-publish' },
-		{ id: 'reader', icon: 'book-open', label: m['creator.reader'](), run: () => window.open(VIEWER_URL, '_blank'), testid: 'phone-reader' }
-	]);
-
 	// the top of the tree (BACKLOG 10.60, owner 2026-10-11): every draft of every toon and of the world as one list to tick
 	let publishing = $state(false);
 	async function publishEverything() {
@@ -47,6 +41,11 @@
 			publishing = false;
 		}
 	}
+	// phones (UI-CONCEPTS E.10, the editors' one bar): Publish everything · the reader – icon + a small word
+	const phoneItems = $derived<PhoneBarItem[]>([
+		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: publishing || !toons.length, run: publishEverything, testid: 'phone-publish' },
+		{ id: 'reader', icon: 'book-open', label: m['creator.reader'](), run: () => window.open(VIEWER_URL, '_blank'), testid: 'phone-reader' }
+	]);
 </script>
 
 <div class="creator-page">
