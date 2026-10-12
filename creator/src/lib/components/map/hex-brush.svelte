@@ -44,9 +44,15 @@
 	let stroke = $state<HexCell[] | null>(null);
 	let hover = $state<HexCell | null>(null);
 	const shown = $derived(target.bulk ? [] : (stroke ?? target.cells));
-	/** bulk: the cells the stroke touched so far (drawn, handed over on release) */
+	/**
+	 * bulk: the cells the stroke touched so far (handed over on release) – NOT drawn cell by cell: with a 256 brush a long
+	 * stroke sweeps tens of thousands of cells and one polygon each per pointer move stalled the browser (owner 2026-10-12,
+	 * Firefox: "this page is slowing down"); the stroke shows as the pointer's trail at the brush's width instead
+	 */
 	let swept = new Map<string, HexCell>();
-	let sweptList = $state<HexCell[]>([]);
+	let trail = $state<Point[]>([]);
+	/** the brush's width in world units: the rings `brushArea` fills for its size (3r(r+1)+1 cells) */
+	const brushWidth = $derived((2 * Math.ceil((-3 + Math.sqrt(9 + 12 * Math.max(0, target.size - 1))) / 6) + 1) * HEX_CELL);
 	const touched = $derived(hover ? brushArea(hover, target.size) : []);
 
 	let box = $state<HTMLElement>();
@@ -58,12 +64,10 @@
 	}
 	function paint(at: HexCell) {
 		if (target.bulk) {
-			let grew = false;
 			for (const c of brushArea(at, target.size)) {
 				const key = `${c.q},${c.r}`;
-				if (!swept.has(key)) (swept.set(key, c), (grew = true));
+				if (!swept.has(key)) swept.set(key, c);
 			}
-			if (grew) sweptList = [...swept.values()];
 			return;
 		}
 		stroke = paintCells(stroke ?? target.cells, brushArea(at, target.size), target.mode, { allowed: target.allowed, connected: target.connected, anchor: target.anchor });
@@ -71,7 +75,13 @@
 	/** paints from the last point to `to`, a step of half a cell */
 	function paintTo(to: Point) {
 		const from = last ?? to;
-		const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / (HEX_CELL / 2)));
+		// a big bulk brush steps by a quarter of its width (its areas overlap), a small one by half a cell
+		const step = target.bulk ? Math.max(HEX_CELL / 2, brushWidth / 4) : HEX_CELL / 2;
+		const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / step));
+		if (target.bulk) {
+			const end = trail[trail.length - 1];
+			if (!end || Math.hypot(to.x - end.x, to.y - end.y) >= HEX_CELL / 2) trail = [...trail, to];
+		}
 		let prev = '';
 		for (let i = last ? 1 : 0; i <= steps; i++) {
 			const c = hexCellAt({ x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps });
@@ -89,7 +99,7 @@
 		hover = hexCellAt(at);
 		stroke = target.bulk ? [] : [...target.cells];
 		swept = new Map();
-		sweptList = [];
+		trail = [];
 		last = null;
 		paintTo(at);
 	}
@@ -110,7 +120,7 @@
 		if (target.bulk) {
 			const touched = [...swept.values()];
 			swept = new Map();
-			sweptList = [];
+			trail = [];
 			if (touched.length) target.onstroke?.(touched);
 			return;
 		}
@@ -145,7 +155,12 @@
 	<svg aria-hidden="true">
 		<path class="cells" d={cellsD(shown)} />
 		<path class="edge" d={edgeD(shown)} />
-		{#if sweptList.length}<path class="brush swept" d={cellsD(sweptList)} />{/if}
+		{#if trail.length}
+			<!-- bulk: the stroke so far as the pointer's trail at the brush's width (world units, the camera's transform) -->
+			<g transform="translate({view.x} {view.y}) scale({view.zoom})">
+				<polyline class="trail" points={(trail.length === 1 ? [trail[0], trail[0]] : trail).map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ')} stroke-width={brushWidth} />
+			</g>
+		{/if}
 		{#if touched.length}<path class="brush" d={cellsD(touched)} />{/if}
 	</svg>
 </div>
@@ -187,6 +202,17 @@
 		fill-opacity: 0.35;
 		stroke: var(--primary-cyan, #00d1ff);
 		stroke-width: 1.5;
+	}
+	.trail {
+		fill: none;
+		stroke: var(--primary-cyan, #00d1ff);
+		stroke-opacity: 0.35;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.remove .trail {
+		stroke: var(--ink);
+		stroke-opacity: 0.25;
 	}
 	.remove .brush {
 		fill-opacity: 0.15;
