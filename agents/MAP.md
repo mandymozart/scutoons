@@ -1055,7 +1055,7 @@ Eisenerz" sign – the location where the Erzberg story was shot (→ the Erzber
 the road – for the megaworld / the hyper-city capital. The next sign round builds on these (Luma spend: the owner's go).
 
 **Example signs (to refine):** Dünenmeer Magenta (desert) · Hochland Regenbogen (altiplano) · Ewigschnee (the Alps) ·
-Schuppenwald (reptile jungle) · Ödland Fracktal (wasteland) · Juwelenarchipel (the island world) · Erzberge – "Geizig! Garstig! Steil!" (owner)
+Schuppenwald (reptile jungle) · Fracktal (wasteland, owner: "Fracktal is enough") · Juwelenarchipel (the island world) · Erzberge – "Geizig! Garstig! Steil!" (owner)
 (the mountain island) – names, claims and looks in `scripts/region-signs.mjs`.
 
 ### 8.6 Not built yet

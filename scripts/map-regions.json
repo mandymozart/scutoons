@@ -5,43 +5,50 @@
 			"id": "dunes",
 			"name": "Dünenmeer Magenta",
 			"claim": "Wo der Sand singt",
-			"scene": "glowing dunes drifting from tangerine into hot magenta and turquoise, neon-pink salt pans, black rock ridges with glowing veins, a lone camel-like creature"
+			"scene": "glowing dunes drifting from tangerine into hot magenta and turquoise, neon-pink salt pans, black rock ridges with glowing veins, a lone camel-like creature",
+			"industrial": "A sand-blasted enamel welcome sign on riveted steel posts at a desert highway, half buried by a magenta dune; glowing tangerine-to-magenta dunes, a salt flat and black rock ridges behind, a heat shimmer."
 		},
 		{
 			"id": "altiplano",
 			"name": "Hochland Regenbogen",
 			"claim": "Sieben Farben, ein Himmel",
-			"scene": "golden steppe grass, rainbow-striped mountains like Vinicunca, turquoise lagoons, a llama"
+			"scene": "golden steppe grass, rainbow-striped mountains like Vinicunca, turquoise lagoons, a llama",
+			"industrial": "A big painted billboard on a rusty steel truss frame by a high-plain road, the billboard illustrated with rainbow mountains; behind it the real altiplano – golden grass, rainbow-striped mountains, a turquoise lagoon, a llama by the road."
 		},
 		{
 			"id": "alps",
 			"name": "Ewigschnee",
 			"claim": "Hier ist immer Dezember",
-			"scene": "glittering snowy peaks in electric cyan and lilac, frosted pines, a cosy wooden chalet, icicles hanging from the sign"
+			"scene": "glittering snowy peaks in electric cyan and lilac, frosted pines, a cosy wooden chalet, icicles hanging from the sign",
+			"industrial": "Like the \"Welcome to Twin Peaks\" sign: a big hand-painted wooden board on two weathered posts at the edge of a lonely mountain road, the painting on the board shows two snowy peaks and dark pines; behind it the real deep-winter Alps glowing in cyan and lilac, snow banks along the road."
 		},
 		{
 			"id": "jungle",
 			"name": "Schuppenwald",
 			"claim": "Leise treten, laut staunen",
-			"scene": "dense emerald jungle canopy, iridescent lizard scales, a gecko peeking over the sign, steaming electric-blue swamp pools"
+			"scene": "dense emerald jungle canopy, iridescent lizard scales, a gecko peeking over the sign, steaming electric-blue swamp pools",
+			"industrial": "Like the Frankenmuth welcome arch, but industrial and overgrown: a rusted steel truss arch spanning a jungle road, the name in big welded steel letters on top, the claim on a hanging enamel plate; vines, giant leaves and a big iridescent lizard on the arch; steaming emerald jungle behind."
 		},
 		{
 			"id": "wasteland",
-			"name": "Ödland Fracktal",
+			"name": "Fracktal",
 			"claim": "Wir sind noch da",
-			"scene": "cracked sulphur-yellow crust, rusty drilling rigs, oily rainbow pools, radioactive green glow; the sign bent and patched, still proud"
+			"scene": "cracked sulphur-yellow crust, rusty drilling rigs, oily rainbow pools, radioactive green glow; the sign bent and patched, still proud",
+			"industrial": "Like a roadside LED trailer sign (\"Welcome to Hawaii\"): a battered orange mobile LED message board on a small trailer, the name glowing in amber LED dots, the claim on a dented steel plate bolted underneath, traffic cones around it; behind it a toxic fracking wasteland – drilling rigs, sulphur-yellow cracked ground, oily rainbow pools, a radioactive green haze."
 		},
 		{
 			"id": "archipelago",
 			"name": "Juwelenarchipel",
 			"claim": "Jede Insel ein Schatz",
-			"scene": "little islands made of opal, malachite, rose quartz and lapis in a candy-blue sea, a shell and pearls"
+			"scene": "little islands made of opal, malachite, rose quartz and lapis in a candy-blue sea, a shell and pearls",
+			"industrial": "An industrial signal mast at a small ferry terminal: enamel plates with the name and the claim bolted to a steel lattice mast with a lamp on top, a mooring bollard and rope; behind it little islands of opal, malachite and rose quartz in a candy-blue sea."
 		},
 		{
 			"id": "highlands",
 			"name": "Erzberge",
 			"claim": "Geizig! Garstig! Steil!",
-			"scene": "green lowlands rising into huge, grim, jagged snowy mountains, rust-red ore slopes, a mining pick and hammer crest, a small monastery clinging to a cliff"
+			"scene": "green lowlands rising into huge, grim, jagged snowy mountains, rust-red ore slopes, a mining pick and hammer crest, a small monastery clinging to a cliff",
+			"industrial": "Like the real \"Glück Auf! in Eisenerz\" town sign (where the Erzberg story was shot): a big white municipal board in a heavy rusted corten-steel frame on steel legs, a small coat of arms with crossed hammer and pick in the upper corner, the line \"Glück Auf!\" above the name, a long maroon banner plate under it carrying the claim; behind it a winter mining valley – snow on the slopes, a giant terraced ore mountain, pine forest, a few old miners' houses."
 		}
 	]
 }
