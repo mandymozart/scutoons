@@ -25,12 +25,11 @@ export interface StandardFinding {
 	size: number;
 	/** its references */
 	usages: number;
-	/** what is off, language-neutral: "PNG → WebP", "> 1 MB", "→ MP4 (H.264) / WebM" */
+	/** what is off, language-neutral: "PNG → WebP", "→ MP4 (H.264) / WebM" */
 	advice: string;
 	/**
 	 * the fix: `convert` = encode to `target` (a new file), then relink; `twin` = the asset already has the WebP at
-	 * `target` – relink only; null = nothing here (video needs ffmpeg – not on the host; a WebP over the size limit needs
-	 * a smaller source)
+	 * `target` – relink only; null = nothing here (video needs ffmpeg – not on the host)
 	 */
 	fix: 'convert' | 'twin' | null;
 	target?: string;

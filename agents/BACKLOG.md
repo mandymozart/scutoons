@@ -568,8 +568,8 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   character, map with `-plaster` / `.2x` / `.3x` → 1x / 2x / 3x, catalog images, the asset picker's upload – converts by
   default); the asset list counts each file's uses; **DRAFT** admin → Assets → Standard (the referenced files off the
   standard, `media-audit.ts`). Open – owner decisions: (1) the tool in the admin (proposed) or the creator; (2) relinked
-  content as a new DRAFT (proposed) or published right away where the newest version was published; (3) the "too large"
-  limit (1 MB proposed); (4) missing 2x / 3x variants – needs the field's 1x width per use (slice 390, place 256) and
+  content as a new DRAFT (proposed) or published right away where the newest version was published; (3) ~~the "too large"
+  limit~~ – none for now (owner 2026-10-12: "ein Large Limit gibt es im Moment nicht"); (4) missing 2x / 3x variants – needs the field's 1x width per use (slice 390, place 256) and
   writing `imageVariants` / `variants` into content (a content edit, not a relink) – later; (5) the CDN must allow the
   admin to read the source (CORS on bunny for admin.scutoons.com) – to check on production. Video stays blocked: no
   ffmpeg on the host (ffmpeg.wasm in the browser or the 10.23 runner).

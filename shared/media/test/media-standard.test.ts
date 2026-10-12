@@ -2,14 +2,14 @@
 //   npm test -w @scutoons/media
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkMedia, densityFromWidth, densityLevel, densityPath, densityPlan, densityWidth, IMAGE_MAX_BYTES, mediaKind, splitMediaName, standardName } from '../src/media-standard.ts';
+import { checkMedia, densityFromWidth, densityLevel, densityPath, densityPlan, densityWidth, mediaKind, splitMediaName, standardName } from '../src/media-standard.ts';
 
-test('checkMedia: PNG / JPEG convert to WebP, WebP / SVG / GIF are fine, a big WebP is too large', () => {
+test('checkMedia: PNG / JPEG convert to WebP, WebP / SVG / GIF are fine, no size limit', () => {
 	assert.deepEqual(checkMedia({ type: 'image/png', name: 'a.png' }), { ok: false, advice: 'PNG → WebP', convertible: true });
 	assert.deepEqual(checkMedia({ type: 'image/jpeg', name: 'a.jpg' }), { ok: false, advice: 'JPEG → WebP', convertible: true });
 	assert.equal(checkMedia({ type: 'image/webp', name: 'a.webp', size: 2000 }).ok, true);
 	assert.equal(checkMedia({ type: 'image/svg+xml', name: 'a.svg' }).ok, true);
-	assert.deepEqual(checkMedia({ type: 'image/webp', name: 'a.webp', size: IMAGE_MAX_BYTES + 1 }), { ok: false, advice: '> 1 MB', convertible: false });
+	assert.deepEqual(checkMedia({ type: 'image/webp', name: 'a.webp', size: 30_000_000 }), { ok: true, convertible: false });
 });
 
 test('checkMedia: the type from the extension when there is none (registry paths)', () => {

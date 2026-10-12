@@ -15,7 +15,6 @@ export {
 	densityPath,
 	densityPlan,
 	densityWidth,
-	IMAGE_MAX_BYTES,
 	mediaKind,
 	mediaType,
 	splitMediaName,

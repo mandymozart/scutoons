@@ -307,8 +307,7 @@
 						{:else if column.id === 'advice'}<Badge tone="warning">{r.advice}</Badge>
 						{:else if column.id === 'fix'}
 							{#if r.fix}<span title={r.target}>→ {r.target?.split('/').pop()}</span><div class="sc-caption">{r.fix === 'twin' ? m['assets.fix_twin']() : m['assets.fix_new']()}</div>
-							{:else if r.kind === 'video'}<span class="sc-caption">{m['assets.fix_video']()}</span>
-							{:else}<span class="sc-caption">{m['assets.fix_source']()}</span>{/if}
+							{:else}<span class="sc-caption">{m['assets.fix_video']()}</span>{/if}
 						{:else if column.id === 'usages'}{number(r.usages)}
 						{:else}{bytes(r.size)}{/if}
 					{/snippet}

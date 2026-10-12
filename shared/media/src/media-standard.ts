@@ -3,7 +3,8 @@
 // a file meets it and turns it into one that does. Every importer goes through here (owner 2026-10-12: "die Importe über
 // den Medienstandard"): the slice import, the character import, the map's import, the catalog's images (admin), the
 // asset picker's upload – and the optimisation tool (BACKLOG 10.64).
-//   images: PNG / JPEG → WebP (transparency kept); WebP, SVG, GIF stay as they are; a size limit scales down, never up
+//   images: PNG / JPEG → WebP (transparency kept); WebP, SVG, GIF stay as they are; no size limit (owner 2026-10-12:
+//           "ein Large Limit gibt es im Moment nicht") – an importer's own maximum scales down, never up
 //   density: 1x / 2x / 3x files of one image (`name.webp`, `name.2x.webp`, `name.3x.webp` – ASSETS.md "Variants are
 //           suffixes"), each made from the file delivered for it, else from the smallest bigger one
 //   video:  the standard is MP4 (H.264) / WebM in 480p / 720p / 1080p – converting needs ffmpeg, which the server
@@ -16,9 +17,6 @@ export type Density = 1 | 2 | 3;
 
 /** a file's type and name (a File, or a registry rendition: `mime` as `type`, the path as `name`) – `size` in bytes */
 export type MediaFacts = { type: string; name: string; size?: number };
-
-/** an image above this is "too large" (the optimisation tool lists it) – BACKLOG 10.64, owner to confirm */
-export const IMAGE_MAX_BYTES = 1024 * 1024;
 
 export interface MediaVerdict {
 	/** the file meets the standard as it is */
@@ -51,7 +49,6 @@ export function checkMedia(file: MediaFacts): MediaVerdict {
 	const type = mediaType(file);
 	if (kind === 'image') {
 		if (IMAGE_CONVERT.test(type)) return { ok: false, advice: `${type === 'image/png' ? 'PNG' : 'JPEG'} → WebP`, convertible: true };
-		if (type === 'image/webp' && (file.size ?? 0) > IMAGE_MAX_BYTES) return { ok: false, advice: `> ${IMAGE_MAX_BYTES / 1024 / 1024} MB`, convertible: false };
 		return { ok: true, convertible: false };
 	}
 	if (kind === 'video') {

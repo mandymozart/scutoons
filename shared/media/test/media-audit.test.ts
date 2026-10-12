@@ -32,8 +32,8 @@ test('auditAsset: a used JPEG whose WebP twin exists – relink only', () => {
 	assert.deepEqual([f.fix, f.target], ['twin', 'catpope/s1/c1/s1c1-key-visual.webp']);
 });
 
-test('auditAsset: too large / a video off the standard – listed, nothing to do here', () => {
-	assert.deepEqual(auditAsset(asset([file('a/big.webp', 'image/webp', 3_000_000)])).map((f) => [f.fix, f.advice]), [[null, '> 1 MB']]);
+test('auditAsset: no size limit; a video off the standard – listed, nothing to do here', () => {
+	assert.deepEqual(auditAsset(asset([file('a/big.webp', 'image/webp', 30_000_000)])), []);
 	assert.equal(auditAsset(asset([file('a/clip.mov', 'video/quicktime', 9_000_000)]))[0].fix, null);
 	assert.deepEqual(auditAsset(asset([file('a/clip.mp4', 'video/mp4', 9_000_000)])), []);
 });
