@@ -393,7 +393,7 @@
 	},
 	"catalog": {
 		"title": "Catalog",
-		"meta": "Shop & codes: toons, permissions, code types and meta – stored in the database; every change is in the history and can be undone. Items, recipes, albums, products and editions are edited in the creator.",
+		"meta": "Shop & codes: toons, permissions, code types and meta – stored in the database; every change is in the history and can be undone.",
 		"editions": "Editions",
 		"toons": "Toons",
 		"product": "Product",
