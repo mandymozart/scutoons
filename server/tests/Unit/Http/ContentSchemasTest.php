@@ -217,6 +217,14 @@ final class ContentSchemasTest extends TestCase
         self::assertSame(['map', 'place:b', 'place:a'], array_column($read('published'), 'key'));
         self::assertSame('A', $read('published')[2]['content']['name']['de']);
 
+        // changed and changed back: a newer version that equals the published one is nothing to publish (owner D6)
+        $post('/api/entities/batch', ['saves' => [['key' => 'place:a', 'content' => $place('A', 4)]]]);
+        $post('/api/entities/batch', ['saves' => [['key' => 'place:a', 'content' => $place('A', 1)]]]);
+        $index = fn() => array_column(json_decode((string) $this->request('GET', '/api/entities?toon=', $auth)->getBody(), true)['entities'], null, 'key');
+        self::assertTrue($index()['place:a']['same_as_published'] ?? false, 'back to what readers see');
+        self::assertArrayNotHasKey('same_as_published', $index()['place:b'], 'nothing newer');
+        self::assertTrue(array_column($read(), 'same_as_published', 'key')['place:a']);
+
         // a never-published place is deleted outright (owner D3), a published one is not (a tombstone instead)
         $post('/api/entities/batch', ['saves' => [['key' => 'place:x', 'content' => $place('X', 7)]]]);
         self::assertContains('place:x', array_column($read(), 'key'));

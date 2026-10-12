@@ -37,6 +37,8 @@ export interface ContentIndexEntity {
 	latest_at?: string;
 	latest_message?: string | null;
 	latest_author?: string | null;
+	/** the newest version is the same document as the published one (a restore …): nothing new for readers (owner D6) */
+	same_as_published?: boolean;
 }
 
 /** A submit for review (server `/api/reviews`, docs/API.md "Reviews"), pinned to one version */
@@ -81,6 +83,8 @@ export interface ContentEntityWithContent<T = unknown> {
 	first: number;
 	latest: number;
 	published: number | null;
+	/** the newest version is the same document as the published one (owner D6) */
+	same_as_published: boolean;
 	/** the version `content` is (the newest, or the published one; null: none published) */
 	version: number | null;
 	content: T | null;

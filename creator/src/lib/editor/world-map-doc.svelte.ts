@@ -32,13 +32,13 @@ const N = '_';
 export interface StoredCollection {
 	docs: CollectionDocs;
 	/** key → { latest, published } */
-	versions: Record<string, { latest: number; published: number | null }>;
+	versions: Record<string, { latest: number; published: number | null; same?: boolean }>;
 }
 
 /** Loads every document of a collection (newest or published versions), in creation order */
 export async function loadCollection(spec: CollectionSpec, content: 'draft' | 'published' = 'draft'): Promise<StoredCollection> {
 	const { entities: list } = await withContent(collectionKinds(spec), content);
-	const versions: StoredCollection['versions'] = Object.fromEntries(list.map((e) => [e.key, { latest: e.latest, published: e.published }]));
+	const versions: StoredCollection['versions'] = Object.fromEntries(list.map((e) => [e.key, { latest: e.latest, published: e.published, same: e.same_as_published }]));
 	return { docs: collectionDocsFromEntities(spec, list), versions };
 }
 
@@ -58,7 +58,7 @@ export class CollectionDoc extends ContentDoc {
 	/** the documents as stored (tombstones included) – what a save compares against */
 	private storedDocs = $state<CollectionDocs>({ settings: null, parts: {} });
 	/** key → the newest version this editor knows (its save's `base`) / the published one */
-	versions = $state<Record<string, { latest: number; published: number | null }>>({});
+	versions = $state<Record<string, { latest: number; published: number | null; same?: boolean }>>({});
 
 	constructor(
 		readonly spec: CollectionSpec,
@@ -76,7 +76,7 @@ export class CollectionDoc extends ContentDoc {
 	/** the keys with a draft newer than what readers see */
 	get unpublishedKeys(): string[] {
 		return Object.entries(this.versions)
-			.filter(([, v]) => v.published !== v.latest)
+			.filter(([, v]) => v.published !== v.latest && !v.same)
 			.map(([k]) => k);
 	}
 	override get unpublished(): string[] {

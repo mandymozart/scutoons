@@ -296,9 +296,11 @@ final class EntityStore
                 $json[(int) $r['id']] = json_decode((string) $r['json']);
             }
         }
-        return array_map(function (array $r) use ($draft, $json) {
+        $same = array_flip($this->sameAsPublished($rows));
+        return array_map(function (array $r) use ($draft, $json, $same) {
             $id = $draft ? (int) $r['latest'] : ($r['published'] !== null ? (int) $r['published'] : null);
             return [
+                'same_as_published' => isset($same[(int) $r['latest']]),
                 'key' => $r['entity_key'],
                 'kind' => $r['kind'],
                 'first' => (int) $r['first'],
@@ -360,6 +362,9 @@ final class EntityStore
             foreach ($this->db->all("SELECT v.id, v.created_at, v.message, u.email FROM entity_versions v LEFT JOIN users u ON u.id = v.author WHERE v.id IN ($marks)", $open) as $l) {
                 $latest[(int) $l['id']] = ['latest_at' => Time::iso($l['created_at']), 'latest_message' => $l['message'], 'latest_author' => $l['email']];
             }
+            // a newer version that is the same document as the published one (a restore, an anchor after the collection
+            // migration – owner D6): nothing new for readers, so no line in the publish checklist
+            foreach ($this->sameAsPublished($rows) as $id) $latest[$id]['same_as_published'] = true;
         }
         return ['status' => 'success', 'entities' => array_map(fn(array $r) => [
             'key' => $r['entity_key'],
@@ -370,6 +375,28 @@ final class EntityStore
             'published' => $r['published'] !== null ? (int) $r['published'] : null,
             'versions' => (int) $r['versions'],
         ] + ($latest[(int) $r['latest']] ?? []), $rows)];
+    }
+
+    /**
+     * The newest version ids (of rows { latest, published }) whose document is byte for byte the published one – one query
+     * @param list<array<string, mixed>> $rows
+     * @return list<int>
+     */
+    private function sameAsPublished(array $rows): array
+    {
+        $pairs = [];
+        foreach ($rows as $r) {
+            if ($r['published'] !== null && (int) $r['latest'] > (int) $r['published']) $pairs[(int) $r['latest']] = (int) $r['published'];
+        }
+        if ($pairs === []) return [];
+        $ids = [...array_keys($pairs), ...array_values($pairs)];
+        $json = [];
+        foreach (array_chunk($ids, 500) as $chunk) {
+            foreach ($this->db->all('SELECT id, json FROM entity_versions WHERE id IN (' . implode(',', array_fill(0, count($chunk), '?')) . ')', $chunk) as $r) {
+                $json[(int) $r['id']] = (string) $r['json'];
+            }
+        }
+        return array_values(array_filter(array_keys($pairs), fn(int $latest) => isset($json[$latest], $json[$pairs[$latest]]) && $json[$latest] === $json[$pairs[$latest]]));
     }
 
     /**

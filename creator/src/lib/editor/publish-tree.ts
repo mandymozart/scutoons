@@ -28,8 +28,8 @@ export type PublishScope =
 	| { kind: 'season'; toon: string; number: number; chapters: number[] }
 	| { kind: 'chapter'; toon: string; number: number };
 
-/** a stored file with a draft newer than what readers see */
-const hasDraft = (e: ContentIndexEntity) => e.published === null || e.latest > e.published;
+/** a stored file with a draft newer than what readers see – a newer version that equals the published one is none (owner D6) */
+const hasDraft = (e: ContentIndexEntity) => (e.published === null || e.latest > e.published) && !e.same_as_published;
 
 /**
  * an old per-language copy of a language-neutral document (before 2026-10-06: `chapter:t:n:de`, `scene:t:n:x:en`,
