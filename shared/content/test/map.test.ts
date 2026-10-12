@@ -415,3 +415,22 @@ test('painted ground cells and the reusable hex brush (owner 2026-10-12)', async
 	const bad = { width: 10, height: 10, layers: [], routes: [], locations: [{ id: 'x', name: { de: 'X' }, x: 1, y: 1, toons: [], cells: [{ q: 0.5, r: 0 }] }] } as any;
 	assert.ok(checkWorldMap(bad).some((x: any) => x.path.join('.').includes('cells')));
 });
+
+test('a place ground stays one patch with its home cell (owner 2026-10-12: "Zusammenhängen wäre sinnvoll")', async () => {
+	const { paintCells, cellsConnected, checkWorldMap } = await import('../src/map.ts');
+	const home = { q: 0, r: 0 };
+	const line = [home, { q: 1, r: 0 }, { q: 2, r: 0 }];
+	const rules = { connected: true, anchor: home };
+	assert.ok(cellsConnected(line, home));
+	assert.ok(!cellsConnected([home, { q: 2, r: 0 }], home));
+	// an add away from the patch is refused, one that touches it joins – and a stroke reaching the patch later grows it
+	assert.equal(paintCells(line, [{ q: 5, r: 0 }], 'add', rules).length, 3);
+	assert.equal(paintCells(line, [{ q: 4, r: 0 }, { q: 3, r: 0 }], 'add', rules).length, 5);
+	// a remove that would split the patch, or take the home cell, is refused; an end cell may go
+	assert.equal(paintCells(line, [{ q: 1, r: 0 }], 'remove', rules).length, 3);
+	assert.equal(paintCells(line, [home], 'remove', rules).length, 3);
+	assert.equal(paintCells(line, [{ q: 2, r: 0 }], 'remove', rules).length, 2);
+	const map = (cells: any) => ({ width: 10, height: 10, layers: [], routes: [], locations: [{ id: 'x', name: { de: 'X' }, x: 0, y: 0, toons: [], cells }] }) as any;
+	assert.ok(checkWorldMap(map([{ q: 0, r: 0 }, { q: 2, r: 0 }])).some((x: any) => x.level === 'error' && x.path.join('.').endsWith('cells')));
+	assert.ok(!checkWorldMap(map(line)).some((x: any) => x.path.join('.').endsWith('cells')));
+});

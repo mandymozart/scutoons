@@ -11,6 +11,10 @@
 		size: number;
 		/** refuses cells when adding (another place's, outside the map …) */
 		allowed?: (cell: HexCell) => boolean;
+		/** one patch (a place's ground – owner 2026-10-12): no add starts an island, no remove splits it or takes `anchor` */
+		connected?: boolean;
+		/** the cell that must stay (a place's home cell) */
+		anchor?: HexCell;
 		/** once per stroke (one undo step): the cells after it */
 		onchange: (cells: HexCell[]) => void;
 	}
@@ -43,7 +47,7 @@
 		return view.toWorld({ x: e.clientX - r.left, y: e.clientY - r.top });
 	}
 	function paint(at: HexCell) {
-		stroke = paintCells(stroke ?? target.cells, brushArea(at, target.size), target.mode, target.allowed);
+		stroke = paintCells(stroke ?? target.cells, brushArea(at, target.size), target.mode, { allowed: target.allowed, connected: target.connected, anchor: target.anchor });
 	}
 	/** paints from the last point to `to`, a step of half a cell */
 	function paintTo(to: Point) {

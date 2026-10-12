@@ -15,6 +15,7 @@
 		placeImagePath,
 		placeCells,
 		placeCellOffsets,
+		hexCellAt,
 		placeImageTarget,
 		PLACE_IMAGE_WIDTHS,
 		placeView,
@@ -653,6 +654,9 @@
 			mode: placeBrush.mode,
 			size: placeBrush.size,
 			allowed: (c) => !taken.has(`${c.q},${c.r}`),
+			// one patch with the place's own cell (owner 2026-10-12: "Zusammenhängen wäre sinnvoll")
+			connected: true,
+			anchor: hexCellAt(place),
 			onchange: (cells) =>
 				editPlace(doc, id, (p) => {
 					if (cells.length) p.cells = placeCellOffsets(p, cells);

@@ -347,24 +347,79 @@ export function brushArea(center: HexCell, size: number): HexCell[] {
 		.map((e) => e.x);
 }
 
+/** the six axial neighbours of a cell */
+const AXIAL_DIRS: HexCell[] = [{ q: 1, r: 0 }, { q: -1, r: 0 }, { q: 0, r: 1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: -1, r: 1 }];
+const neighbours = (c: HexCell): HexCell[] => AXIAL_DIRS.map((d) => ({ q: c.q + d.q, r: c.r + d.r }));
+
+/** one patch: every cell reachable from every other over shared edges (and `anchor` among them, when given) */
+export function cellsConnected(cells: readonly HexCell[], anchor?: HexCell): boolean {
+	if (!cells.length) return !anchor;
+	const keys = new Set(cells.map(cellKey));
+	if (anchor && !keys.has(cellKey(anchor))) return false;
+	const seen = new Set<string>([cellKey(cells[0])]);
+	const queue = [cells[0]];
+	while (queue.length) {
+		const c = queue.pop()!;
+		for (const n of neighbours(c)) {
+			const k = cellKey(n);
+			if (keys.has(k) && !seen.has(k)) {
+				seen.add(k);
+				queue.push(n);
+			}
+		}
+	}
+	return seen.size === keys.size;
+}
+
+/** how a stroke treats the set: `allowed` refuses cells when adding; `connected` keeps it one patch (with `anchor` in it) */
+export interface PaintRules {
+	allowed?: (cell: HexCell) => boolean;
+	/** owner 2026-10-12, a place's ground: "Zusammenhängen wäre sinnvoll" – an add never starts an island, a remove never splits the patch or takes the anchor */
+	connected?: boolean;
+	/** the cell that must stay (a place's home cell) */
+	anchor?: HexCell;
+}
+
 /**
  * A brush stroke on a set of cells (place grounds, region covers): `add` puts the touched cells in, `remove` takes them
- * out; `allowed` (optional) refuses cells it says no to when adding (e.g. another place's). Returns a new array, the
- * input's order kept, added cells at the end; unchanged when nothing changed
+ * out – by the rules (`allowed`; `connected`: an added cell must touch the set, a removed one must not split it or be
+ * the anchor; a stroke that reaches the patch only later still grows it from there). Returns a new array, the input's
+ * order kept, added cells at the end
  */
-export function paintCells(cells: readonly HexCell[], touched: readonly HexCell[], mode: 'add' | 'remove', allowed?: (cell: HexCell) => boolean): HexCell[] {
-	const keys = new Set(cells.map(cellKey));
+export function paintCells(cells: readonly HexCell[], touched: readonly HexCell[], mode: 'add' | 'remove', rules: PaintRules | ((cell: HexCell) => boolean) = {}): HexCell[] {
+	const { allowed, connected, anchor } = typeof rules === 'function' ? { allowed: rules } : rules;
 	if (mode === 'remove') {
-		const gone = new Set(touched.map(cellKey));
-		const out = cells.filter((c) => !gone.has(cellKey(c)));
-		return out.length === cells.length ? [...cells] : out;
+		let out = [...cells];
+		for (const t of touched) {
+			const k = cellKey(t);
+			if (!out.some((c) => cellKey(c) === k)) continue;
+			if (connected && anchor && cellKey(anchor) === k) continue;
+			const next = out.filter((c) => cellKey(c) !== k);
+			if (connected && !cellsConnected(next, anchor)) continue;
+			out = next;
+		}
+		return out;
 	}
+	const keys = new Set(cells.map(cellKey));
 	const out = [...cells];
-	for (const c of touched)
-		if (!keys.has(cellKey(c)) && (!allowed || allowed(c))) {
+	const touches = (c: HexCell) => !keys.size || neighbours(c).some((n) => keys.has(cellKey(n)));
+	let pending = touched.filter((c) => !keys.has(cellKey(c)) && (!allowed || allowed(c)));
+	// connected: grow from the patch – a touched cell joins once a neighbour is in (repeat until nothing more joins)
+	for (let grew = true; grew && pending.length; ) {
+		grew = false;
+		const rest: HexCell[] = [];
+		for (const c of pending) {
+			if (keys.has(cellKey(c))) continue;
+			if (connected && !touches(c)) {
+				rest.push(c);
+				continue;
+			}
 			keys.add(cellKey(c));
 			out.push({ q: c.q, r: c.r });
+			grew = true;
 		}
+		pending = connected ? rest : [];
+	}
 	return out;
 }
 
@@ -1344,6 +1399,9 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 					else if (seen.has(`${(c as any).q},${(c as any).r}`)) add('warning', [...path, 'cells', i], `${what}: the ground cell ${(c as any).q} / ${(c as any).r} is listed twice`);
 					else seen.add(`${(c as any).q},${(c as any).r}`);
 				});
+				// one patch with the home cell (owner 2026-10-12: "Zusammenhängen wäre sinnvoll")
+				if (cells.every((c) => isObj(c) && Number.isInteger((c as any).q) && Number.isInteger((c as any).r)) && !cellsConnected(cells as HexCell[], { q: 0, r: 0 }))
+					add('error', [...path, 'cells'], `${what}: the ground cells must be one connected patch with the place's own cell (0 / 0) in it`);
 			}
 		}
 		if (p.gates !== undefined) {
