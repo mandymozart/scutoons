@@ -41,10 +41,10 @@
 			publishing = false;
 		}
 	}
-	// phones (UI-CONCEPTS E.10, the editors' one bar): Publish everything · the reader – icon + a small word
+	// the bar (UI-CONCEPTS E.10, the editors' one bar – every width since 2026-10-12): Publish everything · the reader – icon + a small word
 	const phoneItems = $derived<PhoneBarItem[]>([
-		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: publishing || !toons.length, run: publishEverything, testid: 'phone-publish' },
-		{ id: 'reader', icon: 'book-open', label: m['creator.reader'](), run: () => window.open(VIEWER_URL, '_blank'), testid: 'phone-reader' }
+		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: publishing || !toons.length, run: publishEverything, testid: 'publish-everything' },
+		{ id: 'reader', icon: 'book-open', label: m['creator.reader'](), run: () => window.open(VIEWER_URL, '_blank'), testid: 'open-reader' }
 	]);
 </script>
 
@@ -71,10 +71,6 @@
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet phone()}
 			<PhoneBar items={phoneItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-		{#snippet end()}
-			<button type="button" class="secondary" disabled={publishing || !toons.length} onclick={publishEverything} data-testid="publish-everything">{m['creator.publish_tree_button']()}</button>
-			<a class="btn" href={VIEWER_URL}>{m['creator.open_reader']()}</a>
 		{/snippet}
 	</ActionBar>
 </div>

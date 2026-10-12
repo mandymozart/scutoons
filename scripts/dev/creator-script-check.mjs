@@ -257,7 +257,10 @@ try {
 	const en = await api('GET', `/entities/${KEYS[1]}?draft=1&wrap=1`);
 	check(published.includes(`POST /entities/${KEYS[0]}/publish 200`) && en.version.id === baseline[KEYS[1]].id && en.published.id === baseline[KEYS[1]].id,
 		'Publish publishes the edited German script; the English one stays the same version', JSON.stringify(published));
+	// the bar's History is a group (UI-CONCEPTS E.10, every width since 2026-10-12): its Versions opens the panel
 	await js(`${historyButton}?.click()`);
+	await until(`!!document.querySelector('[data-testid="history-versions"]')`, 3000);
+	await js(`document.querySelector('[data-testid="history-versions"]')?.click(), true`);
 	check(await until(`!!document.querySelector('[data-testid="history-panel"]') && !!document.querySelector('[data-testid="restore-de-${baseline[KEYS[0]].id}"]')`), 'the history lists the edited and the original version');
 	const listed = await js(`[...document.querySelectorAll('[data-testid="history-panel"] li')].length`);
 	check(listed >= 3, `history entries: ${listed} (de + en)`);

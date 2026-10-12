@@ -20,9 +20,10 @@
 	 * Closed by default; open/closed is remembered in localStorage (`infoKey`), so it stays open across pages until the
 	 * user closes it.
 	 *
-	 * Phones (< 768px, UI-CONCEPTS E.10, owner 2026-10-11): with `phone` the bar is that snippet alone, full width – the
-	 * page's PhoneBar (grouped actions, the selection's actions, like CapCut); `start` / `secondary` / `end` are not shown
-	 * there (the page puts what it needs into its PhoneBar). Elsewhere More (narrow screens) is the ⋯ icon (its word the label).
+	 * With `phone` the bar is that snippet – the page's PhoneBar (grouped actions; on phones also the selection's actions,
+	 * like CapCut): on phones alone and full width (< 768px, UI-CONCEPTS E.10, owner 2026-10-11), at every other width too
+	 * with the Info toggle left of it (owner 2026-10-12: the phone grouping on the desktop); `start` / `secondary` / `end`
+	 * are then not shown (the page puts what it needs into its PhoneBar). Without it, More (narrow screens) is the ⋯ icon.
 	 */
 	let {
 		start,
@@ -84,8 +85,8 @@
 		query.addEventListener('change', change);
 		return () => query.removeEventListener('change', change);
 	});
-	/** the one-row icon bar (phones, a page with `phone` actions) */
-	const compact = $derived(phoneWide && !!phone);
+	/** the grouped bar (a page with `phone` actions – every width since 2026-10-12) */
+	const compact = $derived(!!phone);
 
 	const hasMore = $derived(!!start || !!secondary);
 
@@ -161,6 +162,7 @@
 
 <div class="sc-action-bar" class:compact role="region" aria-label={label}>
 	{#if compact}
+		{#if info && !phoneWide}{@render infoToggle()}{/if}
 		{@render phone?.()}
 	{:else if narrow}
 		{#if info}{@render infoToggle()}{/if}
@@ -350,8 +352,10 @@
 		}
 	}
 	/* phones with a PhoneBar: the bar is that row, edge to edge */
-	.compact {
-		padding: 0;
+	@media (max-width: 767px) {
+		.compact {
+			padding: 0;
+		}
 	}
 	.more-start,
 	.more-secondary {

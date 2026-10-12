@@ -296,10 +296,10 @@
 		}
 	}
 
-	// phones (UI-CONCEPTS E.10, the editors' one bar): Save · Publish; New chapter is the list's last row
+	// the bar (UI-CONCEPTS E.10, the editors' one bar – every width since 2026-10-12): Save · Publish; New chapter is the list's last row
 	const phoneItems = $derived<PhoneBarItem[]>([
-		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, disabled: busy || !anyDirty, run: saveAll, testid: 'phone-save' },
-		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: busy, run: publishAll, testid: 'phone-publish' }
+		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: busy || !anyDirty, run: saveAll, testid: 'save-draft' },
+		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: busy, run: publishAll, testid: 'publish' }
 	]);
 </script>
 
@@ -393,14 +393,6 @@
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet phone()}
 			<PhoneBar items={phoneItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-		{#snippet start()}
-			{#if anyDirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}
-			{#if error}<span class="error" data-testid="page-error">{error}</span>{:else if message}<span class="hint">{message}</span>{/if}
-		{/snippet}
-		{#snippet end()}
-			<button class="secondary" disabled={busy || !anyDirty} onclick={saveAll} data-testid="save-draft">{m['creator.save_draft']()}{anyDirty ? ' •' : ''}</button>
-			<button class="secondary" disabled={busy} onclick={publishAll} data-testid="publish">{publishLabel(toonId)}</button>
 		{/snippet}
 	</ActionBar>
 </div>

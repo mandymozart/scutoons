@@ -3,6 +3,7 @@
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, tick, untrack } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import { ActionBar, BarTabs, PhoneBar, type PhoneBarItem, confirmDialog, Divider, Icon, MaximizeButton, panelWidth, shellDock, useDock } from '@scutoons/ui';
 	import { liveRegion, region } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
@@ -68,7 +69,6 @@
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FlowDock from '$lib/components/flow/flow-dock.svelte';
 	import ReaderDock from '$lib/components/reader/reader-dock.svelte';
-	import LiveChip from '$lib/components/status/live-chip.svelte';
 	import { toonUrl } from '$lib/utils/cdn.ts';
 	import ClipMenu from '$lib/components/page/clip-menu.svelte';
 	import { toast } from '$lib/toasts.ts';
@@ -836,31 +836,38 @@
 		await clipboard.copyFromMenu(action === 'cut');
 		if (action === 'duplicate') await clipboard.pasteFromMenu(false);
 	}
-	/** the bar: Save · History (undo, redo, versions) · Publish · More */
+	/**
+	 * the bar (UI-CONCEPTS E.10; every width since 2026-10-12, owner: "phone grouping"): Save · History (undo, redo,
+	 * versions) · Publish · More; on a desktop Problems and the slice stepper lead the row (More drops them)
+	 */
+	const phoneWidth = new MediaQuery('max-width: 767px', false);
+	const problemsItem = $derived<PhoneBarItem>({ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems'), testid: 'problems-toggle' });
+	const stepping = $derived(view.section === 'slice' && !!activeGroup?.slices?.length);
 	const phoneItems = $derived<PhoneBarItem[]>([
-		{ id: 'save', icon: 'save', label: m['creator.save_short'](), primary: anyDirty, disabled: !anyDirty || anySaving, run: () => session.saveDraft(), testid: 'phone-save' },
+		...(phoneWidth.current ? [] : [problemsItem, ...(stepping ? [{ id: 'slices', label: m['creator.slice_navigation'](), content: deskSliceNav }] : [])]),
+		{ id: 'save', icon: 'save', label: anySaving ? m['creator.saving']() : m['creator.save_short'](), primary: anyDirty, badge: anyDirty ? '•' : undefined, disabled: !anyDirty || anySaving, run: () => session.saveDraft(), testid: 'save-draft' },
 		{
 			id: 'history',
 			icon: 'clock',
 			label: m['creator.history'](),
 			items: [
-				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc, run: undoLast, stay: true, testid: 'phone-undo' },
-				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc, run: redoLast, stay: true, testid: 'phone-redo' },
-				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history') }
+				{ id: 'undo', icon: 'rotate-ccw', label: m['creator.undo'](), disabled: !undoDoc, run: undoLast, stay: true, testid: 'undo' },
+				{ id: 'redo', icon: 'rotate-cw', label: m['creator.redo'](), disabled: !redoDoc, run: redoLast, stay: true, testid: 'redo' },
+				{ id: 'versions', icon: 'list', label: m['creator.bar_versions'](), active: open.history, run: () => togglePanel('history'), testid: 'history-versions' }
 			]
 		},
 		// a dot while saved drafts are not live yet (owner 2026-10-11: the state on Save / Publish, no status chip in More)
-		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: liveFiles.some((f) => f.doc.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'phone-publish' },
+		{ id: 'publish', icon: 'upload-cloud', label: publishLabel(toon), disabled: anySaving, badge: liveFiles.some((f) => f.doc.unpublished.length) ? '•' : undefined, run: () => session.publishAll(), testid: 'publish' },
 		{
 			id: 'more',
 			icon: 'more-horizontal',
 			label: m['creator.more'](),
 			badge: errorCount || undefined,
 			items: [
-				{ id: 'problems', icon: 'alert-triangle', label: m['creator.problems'](), badge: errorCount + warningCount || undefined, active: open.problems, run: () => togglePanel('problems') },
+				...(phoneWidth.current ? [problemsItem] : []),
 				{ id: 'preview', label: m['creator.preview'](), content: phonePreview },
 				{ id: 'paste', icon: 'clipboard', label: m['creator.clip_paste'](), run: () => clip('paste') },
-				...(view.section === 'slice' && activeGroup?.slices?.length
+				...(phoneWidth.current && stepping && activeGroup
 					? [
 							{ id: 'prev-slice', icon: 'chevron-left', label: m['creator.bar_prev_slice'](), disabled: view.sliceIndex <= 0, run: () => view.selectSlice(view.sliceIndex - 1), stay: true },
 							{ id: 'next-slice', icon: 'chevron-right', label: m['creator.bar_next_slice'](), disabled: view.sliceIndex >= activeGroup.slices.length - 1, run: () => view.selectSlice(view.sliceIndex + 1), stay: true }
@@ -1138,52 +1145,9 @@
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
 	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
-	{#snippet sliceNav(where: 'start' | 'end')}
-		{#if view.section === 'slice' && activeGroup?.slices?.length}
-			<span class="slice-nav in-{where}" role="group" aria-label={m['creator.slice_navigation']()}>
-				<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex - 1)} disabled={view.sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid={where === 'end' ? 'prev-slice' : undefined}><Icon name="chevron-left" /></button>
-				<span class="slice-long">{m['creator.slice_of']({ index: view.sliceIndex + 1, count: activeGroup.slices.length })}</span><span class="slice-short">{view.sliceIndex + 1} / {activeGroup.slices.length}</span>
-				<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex + 1)} disabled={view.sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid={where === 'end' ? 'next-slice' : undefined}><Icon name="chevron-right" /></button>
-			</span>
-		{/if}
-	{/snippet}
-	<!-- the reader's type size needs the room: below 2048px start + secondary sit in "More" (DESIGN.md "Brutalist tools") -->
-	<ActionBar
-		label={m['creator.page_actions']()}
-		moreLabel={m['creator.more']()}
-		breakpoint={2048}
-	>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet phone()}
 			<PhoneBar items={phoneItems} selection={phoneSelection} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
-		{/snippet}
-		{#snippet start()}
-			<!-- phones have no Cmd keys: copy / cut / paste on the live region from here (BACKLOG 10.39) -->
-			<span class="clip-phone"><ClipMenu bar /></span>
-			<!-- phones: undo / redo are icons in the bar (E.10); Problems is here in ⋯ -->
-			<button class="ghost" class:active={open.problems} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
-				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
-			</button>
-		{/snippet}
-		{#snippet secondary()}
-			<button class="ghost not-phone" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="undo"><Icon name="rotate-ccw" /></button>
-			<button class="ghost not-phone" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="redo"><Icon name="rotate-cw" /></button>
-			<span class="preview">
-				{m['creator.preview']()}:
-				{#each readerLocales as l}
-					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>
-				{/each}
-			</span>
-			<button class="ghost" class:active={open.history} onclick={() => togglePanel('history')} title={m['creator.history']()}>{m['creator.history']()}</button>
-			<input class="message in-start" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-		{/snippet}
-		{#snippet end()}
-			{@render sliceNav('end')}
-			<input class="message in-end" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />
-			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
-				{#if anySaving}{m['creator.saving']()}{:else}<span class="save-long">{m['creator.save_draft']()}</span><span class="save-short">{m['creator.save_short']()}</span>{/if}{anyDirty ? ' •' : ''}
-			</button>
-			<LiveChip files={liveFiles} />
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} title={publishLabel(toon)} data-testid="publish">{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -1384,7 +1348,16 @@
 
 
 {#snippet phonePreview()}
-	<span class="phone-preview"><Icon name="eye" />{#each readerLocales as l}<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })}>{l}</a>{/each}</span>
+	<span class="phone-preview"><Icon name="eye" />{#each readerLocales as l}<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title={m['creator.preview_in_reader']({ locale: l })} data-testid="preview-{l}">{l}</a>{/each}</span>
+{/snippet}
+{#snippet deskSliceNav()}
+	{#if view.section === 'slice' && activeGroup?.slices?.length}
+		<span class="slice-nav" role="group" aria-label={m['creator.slice_navigation']()}>
+			<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex - 1)} disabled={view.sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid="prev-slice"><Icon name="chevron-left" /></button>
+			<span class="slice-long">{m['creator.slice_of']({ index: view.sliceIndex + 1, count: activeGroup.slices.length })}</span><span class="slice-short">{view.sliceIndex + 1} / {activeGroup.slices.length}</span>
+			<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex + 1)} disabled={view.sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid="next-slice"><Icon name="chevron-right" /></button>
+		</span>
+	{/if}
 {/snippet}
 {#snippet phoneNote()}<input class="phone-note" type="text" placeholder={m['creator.note_label']()} aria-label={m['creator.note_label']()} bind:value={session.message} />{/snippet}
 
@@ -1406,30 +1379,16 @@
 		height: 100%;
 		overflow: hidden;
 	}
-	/* the bar fits at every width ≥ 375 (owner screenshot 2026-10-07: the live chip pushed Publish out at 1440 – the
-	   reader's type size): below 1280 "Save" + the slice count without its word + the note in "More"; below 768 the
-	   bar holds only save / publish (slice nav and note in "More"). The chip drops its state word below 1600 (live-chip). */
-	.save-short,
+	/* the bar's slice stepper (desktop): the count without its word below 1280 */
 	.slice-short {
 		display: none;
 	}
 	@media (max-width: 1279px) {
-		.save-long,
 		.slice-long {
 			display: none;
 		}
-		.save-short,
 		.slice-short {
 			display: inline;
-		}
-	}
-	/* the clipboard buttons only where there are no keys: phones (in "More") */
-	.clip-phone {
-		display: none;
-	}
-	@media (max-width: 767px) {
-		.clip-phone {
-			display: contents;
 		}
 	}
 	.slice-nav {
@@ -1437,36 +1396,6 @@
 		align-items: center;
 		gap: var(--space-025);
 		white-space: nowrap;
-	}
-	/* the note gives way first: it shrinks (ActionBar's end may shrink) before anything is pushed out */
-	.message {
-		flex: 0 1 10rem;
-		width: 10rem !important;
-		min-width: 4rem !important;
-	}
-	/* below 1024 the slice nav keeps its arrows (the count is in the crumbs) */
-	@media (max-width: 1023px) {
-		.slice-nav.in-end .slice-short {
-			display: none;
-		}
-	}
-	@media (max-width: 1279px) {
-		.message.in-end {
-			display: none !important;
-		}
-		.message.in-start {
-			width: 100% !important;
-		}
-	}
-	@media (min-width: 1280px) {
-		.message.in-start {
-			display: none !important;
-		}
-	}
-	@media (max-width: 767px) {
-		.in-end {
-			display: none !important;
-		}
 	}
 	/* phones (BACKLOG 10.50 h): the content first – the chapter's groups, a group's slices */
 	.phone-only {
@@ -1546,25 +1475,10 @@
 		line-height: var(--type-caption-line);
 	}
 	@media (max-width: 767px) {
-		.not-phone {
-			display: none !important;
-		}
 		/* the inspector sheet's tabs are in the bottom bar (UI-CONCEPTS E.10) */
 		.columns :global(.inspector > .sc-tabs) {
 			display: none;
 		}
-	}
-	.preview {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-05);
-		white-space: nowrap;
-	}
-	.preview a {
-		color: var(--ink);
-	}
-	.bad {
-		color: var(--error);
 	}
 	/* status bars: ink on paper with a thick state rule (no tinted fills); unsaved = inverted */
 	.columns {
@@ -1706,11 +1620,6 @@
 		min-width: 0;
 		padding: 0;
 		container-type: size;
-	}
-	.row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
 	}
 	.sub {
 		margin-top: var(--space-15);
