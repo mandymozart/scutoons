@@ -2,7 +2,18 @@
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import NextBar from '$lib/components/chapter/next-bar.svelte';
 	import ChapterTeaser from '$lib/components/chapter/chapter-teaser.svelte';
-	import { chainOf, chainSlices, hasVisualNovel, nextStep, seasonMusic, seasonMusicDownload } from '@scutoons/content';
+	import {
+		chainOf,
+		chainSlices,
+		chapterCheckpointUri,
+		checkpointPosition,
+		checkpointSpot,
+		hasVisualNovel,
+		nextStep,
+		seasonMusic,
+		seasonMusicDownload,
+		type ReadingSpotRef
+	} from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
@@ -12,9 +23,9 @@
 	import { audio } from '$lib/actions/audio/index.ts';
 	import type { PageProps } from './$types.js';
 	import { page } from '$app/state';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate, goto, replaceState } from '$app/navigation';
 	import { onDestroy, tick, untrack } from 'svelte';
-	import { creatorLink, type ShowRequest } from '$lib/creator-link.svelte.ts';
+	import { creatorLink } from '$lib/creator-link.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
@@ -79,6 +90,9 @@
 		if (type === 'popstate') return;
 		// a jump (a script, a choice, an end) to the very page the reader is on: it starts again, like "Nochmal"
 		if (type === 'goto' && from?.url.href === to?.url.href) replays++;
+		// "continue" (the start button): the spot the reader stopped at instead (BACKLOG 10.69)
+		const chapter = data.chapter;
+		if (to?.url.searchParams.has('resume') && chapter) return void resume(chapter.number, chapter.groups);
 		const c = chain;
 		if (!c || c.at === c.start) return;
 		const offset = c.groups[c.at - c.start].offset;
@@ -147,9 +161,30 @@
 		const chapter = data.chapter;
 		if (!r || r.seq === shown || !chapter || r.toon !== page.params.toonId || r.chapter !== chapter.number) return;
 		shown = r.seq;
-		untrack(() => void showFromCreator(r, chapter.groups));
+		untrack(() => void showSpot(r, chapter.groups, () => creatorLink.request?.seq === r.seq));
 	});
-	async function showFromCreator(r: ShowRequest, groups: NonNullable<typeof data.chapter>['groups']) {
+
+	// "continue" (the toon page's start button, BACKLOG 10.69): an arrival with `?resume` opens the chapter at the furthest
+	// spot of the current read-through (its checkpoint's group / slice); the parameter leaves the URL. A chapter read to
+	// its end, or a checkpoint without a spot (from before), opens at its top as before.
+	let resumes = 0;
+	async function resume(number: number, groups: NonNullable<typeof data.chapter>['groups']) {
+		const seq = ++resumes;
+		const checkpoint = game.state.progress.find((c) => c.uri === chapterCheckpointUri(page.params.toonId ?? '', number));
+		const spot = checkpoint && checkpointPosition(checkpoint) < 1 ? checkpointSpot(checkpoint) : null;
+		await tick();
+		const url = new URL(location.href);
+		url.searchParams.delete('resume');
+		try {
+			replaceState(url.pathname + url.search + url.hash, page.state);
+		} catch {
+			// the router not ready yet: the parameter stays, harmless (a reload resumes again)
+		}
+		if (spot) await showSpot(spot, groups, () => seq === resumes && data.chapter?.number === number);
+	}
+
+	/** Scrolls to a group / slice of the chapter, opening its chain first when it is another one; `current` = still wanted */
+	async function showSpot(r: ReadingSpotRef, groups: NonNullable<typeof data.chapter>['groups'], current: () => boolean) {
 		if (!groups[r.group]) return;
 		const inChain = () => !!chain && r.group >= chain.start && r.group <= chain.end;
 		if (!inChain()) {
@@ -157,11 +192,12 @@
 			const label = groups.slice(start, r.group + 1).findLast((g) => g.label)?.label ?? null;
 			if (!label && start !== 0) return;
 			const url = new URL(location.href);
+			url.searchParams.delete('resume');
 			if (label) url.searchParams.set('label', label);
 			else url.searchParams.delete('label');
 			await goto(url.pathname + url.search, { replaceState: true, noScroll: true, keepFocus: true });
 			await tick();
-			if (!inChain() || creatorLink.request?.seq !== r.seq) return;
+			if (!inChain() || !current()) return;
 		}
 		const c = chain!;
 		arrival?.();
@@ -190,10 +226,12 @@
 			count: c.count,
 			total: chapter.groups.reduce((sum, g) => sum + count(g), 0),
 			last: c.end === chapter.groups.length - 1,
-			onRead: (position) => {
+			onRead: (position, index) => {
 				const fresh = visiting !== number;
 				visiting = number;
-				game.readChapter(number, position, fresh);
+				// the spot: the chain's group that slice is in (its index in the chapter) and the slice in that group
+				const at = c.groups.findLast((g) => g.offset <= index) ?? c.groups[0];
+				game.readChapter(number, position, fresh, { group: at.index, slice: Math.max(0, index - at.offset) });
 			}
 		};
 	});

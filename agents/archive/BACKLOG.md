@@ -8,6 +8,59 @@ New entries: the next free number (10.60, …), owner + date, then **O –** for
 accounts, decisions) – NOT migrations: those run with the deploy / over the MCP (owner 2026-10-12, HANDOVER "Migrations"). Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
+## Reading position night 2026-10-12 (owner: "diesen Plan mit in den Backlog und anfangen, das zu implementieren über die Nacht hinweg … eigenen Branch / eigenen Worktree") – item 10.69
+
+Branch `claude/silly-mestorf-173e6e` in its own worktree `.claude/worktrees/silly-mestorf-173e6e` (owner asked for it)
+– **not merged into `main`, not pushed**; the owner reviews and merges (`git merge claude/silly-mestorf-173e6e` on `main`).
+
+**Result (all three steps built, checks green):**
+- **Admin → Menschen → Lesestand** (`/reading`, new): per chapter started / finished (with %) / still reading / "Wo sie
+  stehen" (10 small bars, 0–100 %) / last read; filter by toon. **Admin user page:** a "Lesestand" section (per
+  chapter: bar or "zu Ende gelesen", the spot "Gruppe 4, Slice 5", last read; story variables / places / last saved).
+  **MCP:** `read_user` now includes `reading`; new tool `reading_stats` (needs the MCP server rebuilt / restarted).
+  API: `GET /api/admin/reading?toon=`, the user detail's `reading` (server/docs/API.md). No migration.
+- **"Weiterlesen" opens the spot:** checkpoints keep the furthest group / slice (optional fields; older checkpoints
+  open at the top as before – they get a spot the next time the chapter is read). Start button → `…/chapter/<n>?resume`
+  → the chapter page scrolls to that slice and drops `?resume`.
+- Checks: PHPUnit 341 ok (+ `ReadingApiTest`), PHPStan ok, content tests 237 ok, viewer tests ok, svelte-check 0 errors
+  in every app; new browser check `node scripts/check-resume.mjs` (390 + 1440: spot stored → "continue" with ?resume →
+  lands on the slice) 6/6 ok. Screenshots checked: the Reading page and the user section in the admin.
+
+**Owner's answers (2026-10-12):** the resumed slice at the top stays ("der Slice passt schon"); the chapter list
+resumes too ("Kapitelleiste auch dort weiterlesen" – built: `chapter-item.svelte` adds `?resume` for a chapter being
+read; svelte-check ok, the `?resume` arrival itself is what check-resume.mjs covers – the list click is not in that
+check yet); guests are counted too ("Gäste mitzählen") → 10.70, not built yet.
+
+**Look at:**
+- Statistics read every member's save game per request (fine now; a summary table later if the numbers grow).
+- Not mine, seen on the way: `tools/mcp` typecheck fails on `main` (`src/server.ts:477` – `MapPlace.unlock` no longer
+  exists); `npm run check:tools-css` reports older findings (phone-bar font sizes, hand-built tabs in place-props …).
+- Dev: this worktree has its own DB `scutoons_reading` (prod seed + 5 sample readers `reader1…5@reading.test`); drop
+  it when the branch is merged (`DROP DATABASE scutoons_reading` + `scutoons_reading_test`; the owner's `scutoons` is untouched).
+
+- [ ] 10.70 **Count guests in the reading statistics** (owner 2026-10-12: "Gäste mitzählen. Das ja, mit Seele." – the
+  last words came through dictation unclear: ask what "mit Seele" means before building). Guests' save games live only
+  in localStorage; counting them needs an anonymous server write: e.g. the viewer sends a guest's chapter checkpoints
+  (no variables / history) under its `scutoons_device` id to a new endpoint → a new table (migration) → `ReadingReport`
+  adds them as "Gäste" next to "Mitglieder" (never per person in the admin). Privacy: the privacy page has to say it;
+  drop rows of devices that sign in (their state merges into the member's) and old ones after N days.
+- [x] 10.69 **Where is a reader in a chapter** (owner 2026-10-11: "Wir haben ein Progress-Tracking irgendwie gehabt. Das
+  ist aber für Story-Points, nicht für wie weit gelesen wurde in einem Chapter – das ist ja auch sehr aussagekräftig, wo
+  eine Person ist"). **What exists:** the save game (DATA.md "The save game", 10.36) – one state per reader, members in
+  `progress` row `toon_id = 'scutoons'`, guests only in localStorage – holds `variables`, `history`, `map` and the
+  checkpoints `progress: [{ uri: '<toon>/chapter/<n>', isComplete, position 0..1 (slices read ÷ the chapter's slices),
+  created_at, updated_at }]` (`@scutoons/content` progress.ts, written by the chapter page → `world.readChapter`). The
+  reader sees it (start button "continue · 43 %", the chapter list's bars). **Missing:** nobody else sees it (admin user
+  page, MCP `read_user`), no per-chapter numbers for the storytellers, only a percentage (no "group X, slice Y"), and
+  "continue" opens the chapter at its top. Guests stay invisible on the server (only localStorage). The plan (owner:
+  "Go"):
+  1. **Per reader, read-only:** the admin user page gets a "Reading" section (per toon + chapter: bar, finished, last read;
+     plus the counts of story variables / places) – the same in `read_user` (MCP). No migration.
+  2. **Per chapter:** members who started / finished each chapter and where the unfinished ones stopped (10 % steps) –
+     computed from the `progress` table (members only), an admin page + an MCP tool `reading_stats`. No migration.
+  3. **Exact spot + real "continue":** the checkpoint also keeps the furthest group / slice read (optional fields, older
+     checkpoints without them stay valid – no SQL needed); "continue" opens the chapter at that group.
+
 ## Desktop UI fixes (owner 2026-10-11: "i like some fixes. we collect them here … can do it over night") – collecting
 
 Collected with the owner, then worked through in a night run (rules: memory night-runs – commit on `main`, never

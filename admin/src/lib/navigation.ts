@@ -54,6 +54,7 @@ export const navigation: NavGroup[] = [
 		title: () => m['nav.group_people'](),
 		items: [
 			{ id: 'users', title: () => m['nav.users'](), description: () => m['nav.users_hint'](), href: '/users', icon: 'users', keywords: 'accounts roles email' },
+			{ id: 'reading', title: () => m['nav.reading'](), description: () => m['nav.reading_hint'](), href: '/reading', icon: 'book-open', keywords: 'progress chapters readers lesen kapitel fortschritt lesestand' },
 			{ id: 'events', title: () => m['nav.events'](), description: () => m['nav.events_hint'](), href: '/events', icon: 'list', keywords: 'log activity scans' }
 		]
 	},

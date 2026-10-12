@@ -25,8 +25,11 @@ export interface ReadingSpot {
 	total: number;
 	/** this is the chapter's last group: its last slice is the chapter's end */
 	last: boolean;
-	/** called when the reader got further: 0..1, exactly 1 only at the chapter's end */
-	onRead: (position: number) => void;
+	/**
+	 * called when the reader got further: 0..1, exactly 1 only at the chapter's end; `index` = the slice that got them
+	 * there (its `data-slice-index` on the page – the page's spot, BACKLOG 10.69)
+	 */
+	onRead: (position: number, index: number) => void;
 	/**
 	 * called once per slice of this group the reader passed (index in the group): a seen slice and every slice before it
 	 * (a fast fling can skip a slice's seen moment; reaching slice k means the ones above were scrolled past). The map's
@@ -59,7 +62,7 @@ export function trackReading(spot: ReadingSpot | null): Attachment<HTMLElement> 
 			const position = end ? 1 : Math.min(0.99, (spot.offset + index + share) / spot.total);
 			if (position <= reported) return;
 			reported = position;
-			spot.onRead(position);
+			spot.onRead(position, index);
 		}
 
 		function onPlayer(event: Event) {

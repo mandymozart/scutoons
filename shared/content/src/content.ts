@@ -426,6 +426,12 @@ export interface Checkpoint {
 	isComplete: boolean;
 	/** furthest point of the current read-through, 0..1 (slices seen / the chapter's slices; 1 = the end); a finished chapter opened again starts a new read-through */
 	position?: number;
+	/**
+	 * the furthest spot of the current read-through (BACKLOG 10.69): the group (index in the chapter's groups) and the
+	 * slice (index in that group) read last; "continue" opens the chapter there. Missing in checkpoints from before.
+	 */
+	group?: number;
+	slice?: number;
 	created_at: string;
 	updated_at: string;
 }

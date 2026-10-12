@@ -127,7 +127,8 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET/POST | `/batches` | list · create `{ edition_id, count?, start_number?, force? }` (reserves codes, `409 batch_complete`) |
 | GET/PUT | `/batches/{filename}` · GET `/batches/{filename}/zip` | manifest · progress · ZIP |
 | GET/PUT | `/files/{type}/{filename}` | batch output (svgs, certificates, signatures, batch, zips) |
-| GET | `/users` · `/users/{id}` · `/roles` | accounts (emails shown here), detail, roles |
+| GET | `/users` · `/users/{id}` · `/roles` | accounts (emails shown here), detail (incl. `reading`: the member's chapter checkpoints, last read first – `{ toon, chapter, position, finished, group, slice, started_at, read_at }` – and the sizes of their save game; null = none on the server), roles |
+| GET | `/reading?toon=` | where the members are (BACKLOG 10.69): per chapter `{ toon, chapter, started, finished, reading, stops[10], last_read_at }` + `readers` (members with a save game; guests are not on the server) · `400 invalid_toon` |
 | PUT/DELETE | `/users/{id}/roles/{role}` | grant / revoke |
 | PUT | `/users/{id}/characters/{character}` | unlock an avatar-body character `{ looks?, source?: default\|code\|item\|story\|admin (admin), ref? (admin:<email>) }` → `{ changed, characters }` · `400 unknown_character\|invalid_look\|invalid_source\|invalid_body` · 404 |
 | DELETE | `/users/{id}/characters/{character}[/looks/{look}]` | revoke the character (with its looks) or one look → `{ changed, characters }`; a worn body that is no longer unlocked is reset; defaults can't be revoked per account |

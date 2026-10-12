@@ -201,11 +201,23 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 	server.registerTool(
 		'read_user',
 		{
-			description: 'One account: roles, locale, opt-in, its codes, unlocked avatar characters, review rules.',
+			description:
+				'One account: roles, locale, opt-in, its codes, unlocked avatar characters, review rules, and `reading` – where they are in the toons (per chapter: position 0..1, finished, the furthest group / slice read, last read; null = no save game on the server).',
 			inputSchema: z.object({ id: z.string().min(1) }),
 			annotations: read
 		},
 		guard(async ({ id }) => text((await admin.getUser(id)).user))
+	);
+
+	server.registerTool(
+		'reading_stats',
+		{
+			description:
+				"Where the members are in the chapters (the Reading page): per chapter how many started it, finished it, are still reading it, and where those still reading stand (`stops` = readers per 10 % step, 10 entries). Members only – guests keep their save game in their browser. `toon` = one toon's chapters.",
+			inputSchema: z.object({ toon: z.string().optional() }),
+			annotations: read
+		},
+		guard(async ({ toon }) => text(await admin.reading(toon)))
 	);
 
 	server.registerTool(
