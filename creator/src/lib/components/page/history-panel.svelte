@@ -4,13 +4,33 @@
 	import { CloseIcon } from '@scutoons/ui';
 	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { CollectionDoc } from '$lib/editor/world-map-doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel } from '$lib/labels.ts';
 	import { NEUTRAL_LOCALE } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 
-	/** Version history of one entity per locale: restore an old version as the new draft, publish / unpublish. */
+	/**
+	 * Version history of one entity per locale: restore an old version as the new draft, publish / unpublish. A document
+	 * made of many documents (the world map, the characters – CollectionDoc) shows the SELECTED entry's history (owner
+	 * D5: "what is selected gets a history"; `place:<id>`, `character:<id>`), else its anchor's.
+	 */
 	let { doc, onclose }: { doc: ContentDoc; onclose?: () => void } = $props();
+
+	const collection = $derived(doc instanceof CollectionDoc ? doc : null);
+	/** the stored key a locale's history is of */
+	const keyOf = (locale: string) => collection?.historyKey ?? doc.key(locale);
+	/** a selected entry (not the anchor): its own versions, removal goes through the page, not unpublish */
+	const entry = $derived(!!collection && collection.historyKey !== collection.spec.key);
+	/** the version the editor is based on */
+	const baseOf = (locale: string) => (collection && entry ? (collection.versions[collection.historyKey]?.latest ?? null) : doc.base[locale]);
+	/** the heading: the entry by its name, else the file */
+	const title = $derived.by(() => {
+		if (!collection || !entry) return fileLabel(doc.entity);
+		const name = collection.entryName(collection.historyKey);
+		const text = typeof name === 'string' ? name : name && typeof name === 'object' ? ((name as Record<string, unknown>)[getLocale()] ?? Object.values(name)[0]) : null;
+		return typeof text === 'string' && text ? `${fileLabel(doc.entity)} · ${text}` : fileLabel(collection.historyKey);
+	});
 
 	let versions = $state<Record<string, ContentVersion[]>>({});
 	let error = $state<string | null>(null);
@@ -22,7 +42,7 @@
 			const out: Record<string, ContentVersion[]> = {};
 			await Promise.all(
 				doc.locales.map(async (l) => {
-					out[l] = doc.source[l] === 'store' ? (await listVersions(doc.key(l))).versions : [];
+					out[l] = doc.source[l] === 'store' ? (await listVersions(keyOf(l))).versions : [];
 				})
 			);
 			versions = out;
@@ -32,7 +52,7 @@
 	}
 
 	$effect(() => {
-		void [doc.entity, doc.base[doc.primary], doc.published[doc.primary]];
+		void [doc.entity, doc.base[doc.primary], doc.published[doc.primary], collection?.historyKey, collection && JSON.stringify(collection.versions[collection.historyKey] ?? null)];
 		load();
 	});
 
@@ -60,19 +80,19 @@
 
 	async function restore(locale: string, v: ContentVersion) {
 		// one question: unsaved changes in that language are lost, and the version becomes a new draft
-		const message = `${doc.dirtyLocales.includes(locale) ? `${m['creator.leave_confirm']()} ` : ''}${m['creator.restore_confirm_when']({ when: when(v.created_at), locale: lang(locale) })}`;
+		const message = `${doc.dirtyLocales.includes(locale) ? `${m['creator.leave_confirm']()} ` : ''}${m['creator.restore_confirm_when']({ when: when(v.created_at), locale: entry ? title : lang(locale) })}`;
 		if (!(await confirmDialog({ title: m['creator.restore_title'](), message, confirmLabel: m['creator.restore']() }))) return;
-		act(() => restoreVersion(doc.key(locale), v.id));
+		act(() => restoreVersion(keyOf(locale), v.id));
 	}
 
 	async function publish(locale: string, v: ContentVersion) {
-		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} (${when(v.created_at)})`, locales: lang(locale) }), confirmLabel: m['creator.publish']() }))) return;
-		act(() => publishVersion(doc.key(locale), v.id));
+		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${title} (${when(v.created_at)})`, locales: lang(locale) }), confirmLabel: m['creator.publish']() }))) return;
+		act(() => publishVersion(keyOf(locale), v.id));
 	}
 
 	async function unpublish(locale: string) {
 		if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: fileLabel(doc.entity), locale: lang(locale) }), confirmLabel: m['creator.unpublish_label']() }))) return;
-		act(() => unpublishEntity(doc.key(locale)));
+		act(() => unpublishEntity(keyOf(locale)));
 	}
 
 	/** versions are told apart by date, author and note – never by their (store-wide) id */
@@ -84,7 +104,7 @@
 
 <div class="history" data-testid="history-panel">
 	<header>
-		<h2>{m['creator.history']()} · {fileLabel(doc.entity)}</h2>
+		<h2>{m['creator.history']()} · {title}</h2>
 		<DockFold label={m['creator.fold_panel']()} maximizeLabel={m['creator.maximize_panel']()} restoreLabel={m['creator.restore_panel']()} />
 		{#if onclose}<button class="ghost" onclick={onclose} aria-label={m['creator.close']()}><CloseIcon /></button>{/if}
 	</header>
@@ -96,20 +116,20 @@
 		{:else}
 			<ol>
 				{#each versions[l] as v (v.id)}
-					<li class:live={v.status === 'published'} class:current={v.id === doc.base[l]}>
+					<li class:live={v.status === 'published'} class:current={v.id === baseOf(l)}>
 						<span class="what">
-							<span>{when(v.created_at)}</span>{#if v.id === doc.base[l]} <span class="tag">{m['creator.history_current']()}</span>{/if}{#if inReview.has(v.id)} <span class="tag">{m['creator.review_state_pending']()}</span>{/if}
+							<span>{when(v.created_at)}</span>{#if v.id === baseOf(l)} <span class="tag">{m['creator.history_current']()}</span>{/if}{#if inReview.has(v.id)} <span class="tag">{m['creator.review_state_pending']()}</span>{/if}
 							<br />{v.author_email ? m['creator.history_by']({ author: v.author_email }) : m['creator.history_import']()}
 							{#if v.message}<br /><i>{v.message}</i>{/if}
 						</span>
 						<span class="acts">
 							{#if v.status === 'published'}
 								<span>{m['creator.state_published']()}</span>
-								{#if !reviewed}<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>{m['creator.unpublish_label']()}</button>{/if}
+								{#if !reviewed && !entry}<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>{m['creator.unpublish_label']()}</button>{/if}
 							{:else if !reviewed}
 								<button class="ghost" disabled={busy} onclick={() => publish(l, v)}>{m['creator.publish']()}</button>
 							{/if}
-							{#if v.id !== doc.base[l]}
+							{#if v.id !== baseOf(l)}
 								<button class="ghost" disabled={busy} onclick={() => restore(l, v)} data-testid="restore-{l}-{v.id}">{m['creator.restore']()}</button>
 							{/if}
 						</span>

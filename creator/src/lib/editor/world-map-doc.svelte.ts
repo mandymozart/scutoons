@@ -59,6 +59,11 @@ export class CollectionDoc extends ContentDoc {
 	private storedDocs = $state<CollectionDocs>({ settings: null, parts: {} });
 	/** key → the newest version this editor knows (its save's `base`) / the published one */
 	versions = $state<Record<string, { latest: number; published: number | null; same?: boolean }>>({});
+	/**
+	 * the entry the page has selected (`place:cathedral`, `character:boy`): the History panel shows its versions (owner
+	 * D5: "what is selected gets a history"); null = the anchor's own
+	 */
+	selectedKey = $state<string | null>(null);
 
 	constructor(
 		readonly spec: CollectionSpec,
@@ -81,6 +86,19 @@ export class CollectionDoc extends ContentDoc {
 	}
 	override get unpublished(): string[] {
 		return this.unpublishedKeys.length ? [N] : [];
+	}
+
+	/** the stored key the History panel shows: the selected entry when it is stored, else the anchor */
+	get historyKey(): string {
+		return this.selectedKey && this.versions[this.selectedKey] ? this.selectedKey : this.spec.key;
+	}
+
+	/** an entry's name in the composed document (a locale map or a string), null when it isn't in it */
+	entryName(key: string): unknown {
+		const [kind, id] = key.split(':');
+		const field = this.spec.parts.find((p) => p.kind === kind)?.field;
+		const entry = field ? (this.data[N]?.[field] as { id: string; name?: unknown }[] | undefined)?.find((e) => e.id === id) : undefined;
+		return entry?.name ?? null;
 	}
 
 	/** ids a new entry must not take: every one stored (removed ones too – ids are stable forever once published) */
