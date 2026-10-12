@@ -16,9 +16,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.26 **Delete a chapter safely** – owner 2026-10-03: "super dangerous". Proposal: only a never-published,
   last chapter of its season; typed confirmation; removed from the sequence + marked deleted, versions kept (admin
   restores); a published chapter is only hidden. Server enforces, the creator mirrors. `decide` the rules.
-- [ ] 10.64 **Media optimisation tool on the media standard** – owner 2026-10-11 ("wir empfehlen das Umkonvertieren").
-  `@scutoons/media` media-standard.ts exists; next: the importers through `toStandard`, a tool listing off-standard
-  assets and converting them, video once ffmpeg can run (wasm / worker).
+- [ ] 10.64 **Media standard: the rest** – importers + admin → Assets → Standard are built (ASSETS.md "The media
+  standard"). [owner] after the deploy: run the tool once on production (71 convert, 14 relink), publish its drafts,
+  "Unused" cleans up. `decide`: missing 2x / 3x variants as a creator warning? Video blocked (no ffmpeg on the host).
 - [ ] 10.68 **Phones: the selection bar's own back arrow duplicates the crumb** – `decide` whether it goes (owner
   2026-10-11 chose the crumb row as the way back up; that part is built).
 - [ ] 10.69 **Media quality: three open questions** (from the media-quality merge note) – `decide`: Automatic's
