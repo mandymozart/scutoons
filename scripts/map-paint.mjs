@@ -304,7 +304,7 @@ async function writeLayer(base, tiles) {
  */
 async function plasterInPlace() {
 	const W = Math.ceil(world.width * PPU), H = Math.ceil(world.height * PPU);
-	const STRIP = 512, M = 32; // rows per strip, the blur's margin
+	const STRIP = 512, M = 96; // rows per strip, the blur's margin (> 3 × the blur radius, or the strips show)
 	for (let y0 = 0; y0 < H; y0 += STRIP)
 		await evaluate(`(() => {
 			const W = ${W}, H = ${H}, y0 = ${y0}, top = Math.max(0, y0 - ${M}), bottom = Math.min(H, y0 + ${STRIP} + ${M}), h = bottom - top;
@@ -322,9 +322,12 @@ async function plasterInPlace() {
 				const v = Math.min(1, Math.max(0.35, 0.85 + 1.3 * (l - lb) + 0.22 * (lb - 0.5)));
 				d[i] = 255 * v; d[i + 1] = 252 * v; d[i + 2] = 244 * v;
 			}
-			window.__world.getContext('2d').putImageData(src, 0, y0);
+			// written one strip later: the next strip's top margin must still read the painted rows, not plaster
+			if (window.__pending) window.__world.getContext('2d').putImageData(window.__pending.data, 0, window.__pending.y);
+			window.__pending = { data: src, y: y0 };
 			return true;
 		})()`);
+	await evaluate(`(() => { window.__world.getContext('2d').putImageData(window.__pending.data, 0, window.__pending.y); window.__pending = null; return true; })()`);
 }
 
 try {
