@@ -1,4 +1,4 @@
-# DOCS-REFACTOR — approved by the owner 2026-10-12 ("The recommendation works"; Ask clean-up + newsletter go-live are done), Phase 2 in progress
+# DOCS-REFACTOR — done 2026-10-12 (approved by the owner: "The recommendation works"); the result is agents/RULES.md "Docs"
 
 Owner 2026-10-12: "in agents/ werden die ganzen Markdown-Dokumente langsam zu einer Art Ticketsystem … die
 Entscheidungen und die Regeln für die Agents straffer ziehen, und Issues und Feature Requests separat halten, und das

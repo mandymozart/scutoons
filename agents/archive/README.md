@@ -15,3 +15,4 @@ trail). How things are now: the topic docs in agents/; how agents work: agents/R
 | PLAN.md | the Chapter-2 "Anger" plan + release 2026-10-04 (done); its `RULE:` sections → RULES.md "Product rules" / "Dev setup" |
 | MEMORY.md | facts & findings log 2026-09-28 … 10-04 (mostly the pre-platform state); its gotchas → GOTCHAS.md |
 | BACKLOG.md | the one open-work list 2026-10-06 … 10-12: run results (night / day runs), Open, Done. Its open items were rewritten into FEATURES.md + ISSUES.md (same numbers) |
+| DOCS-REFACTOR.md | the 2026-10-12 analysis + proposal behind the current docs structure (done) |

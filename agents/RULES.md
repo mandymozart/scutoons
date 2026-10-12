@@ -1,6 +1,6 @@
 # RULES — how agents work on SCUTOONS (read this whole; hard limit 150 lines)
 
-The owner's standing rules, in one place (owner 2026-10-12, agents/DOCS-REFACTOR.md). Each rule's story and quote:
+The owner's standing rules, in one place (owner 2026-10-12, agents/archive/DOCS-REFACTOR.md). Each rule's story and quote:
 agents/DECISIONS.md. A change to how agents work changes this file in the same commit as its DECISIONS line.
 
 ## Git, sessions, checkout
