@@ -643,7 +643,9 @@
 	<!-- the nav lists + the map = ONE selection region ('map', DESIGN.md "Selection"): the selected layer / place / route
 	     is sc-selected here, the marker's halo on the map -->
 	<div class="map-nav" data-testid="map-nav" use:region={'map'}>
-		<p class="head"><Icon name="layers" size="1.1em" /> {m['creator.map_layers']()}</p>
+		<!-- three fold-outs (owner 2026-10-12: "layers, routes und places als collapsibles – default collapsed, places offen") -->
+		<details class="fold" data-testid="map-nav-layers-fold">
+		<summary class="head"><Icon name="layers" size="1.1em" /> {m['creator.map_layers']()}</summary>
 		<ul>
 			{#each map?.layers ?? [] as l (l.id)}
 				<li class="item-row">
@@ -654,7 +656,13 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={addLayer}>{m['creator.map_add_layer']()}</button></li>
 		</ul>
-		<p class="head">{m['creator.map_places']()} ({map?.locations.length ?? 0})</p>
+		<!-- a setting of the whole map, with its layers (owner 2026-10-12): the reader's camera stays on the terrain -->
+		{#if doc && map}
+			<label class="check bounded" title={m['creator.map_bounded_hint']()}><input type="checkbox" checked={!!map.bounded} onchange={(e) => { const on = e.currentTarget.checked; editMap(doc!, (w) => { if (on) w.bounded = true; else delete w.bounded; }); }} data-testid="map-bounded" /> {m['creator.map_bounded']()}</label>
+		{/if}
+		</details>
+		<details class="fold" open data-testid="map-nav-places-fold">
+		<summary class="head">{m['creator.map_places']()} ({map?.locations.length ?? 0})</summary>
 		<ul data-testid="map-nav-places">
 			{#each sortedPlaces as p (p.id)}
 				<li>
@@ -666,7 +674,9 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={() => (tool = 'place')} data-testid="nav-add-place">{m['creator.map_add_place']()}</button></li>
 		</ul>
-		<p class="head">{m['creator.map_routes']()} ({map?.routes.length ?? 0})</p>
+		</details>
+		<details class="fold" data-testid="map-nav-routes-fold">
+		<summary class="head">{m['creator.map_routes']()} ({map?.routes.length ?? 0})</summary>
 		<ul data-testid="map-nav-routes">
 			{#each map?.routes ?? [] as r (r.id)}
 				<li>
@@ -677,6 +687,7 @@
 			{/each}
 			<li><button type="button" class="item add" onclick={() => (tool = 'route')}>{m['creator.map_tool_route']()}</button></li>
 		</ul>
+		</details>
 		<p class="nav-import">
 			<button type="button" class="item add" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()}>
 				<Icon name="upload" size="1.1em" />
@@ -1078,6 +1089,36 @@
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		color: var(--muted);
+	}
+	/* a fold-out section: the head is its summary (a chevron before it, turned when open) */
+	.map-nav summary.head {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		cursor: pointer;
+		list-style: none;
+	}
+	.map-nav summary.head::-webkit-details-marker {
+		display: none;
+	}
+	.map-nav summary.head::before {
+		content: '';
+		width: 0.4rem;
+		height: 0.4rem;
+		border-right: var(--border-width-regular) solid currentColor;
+		border-bottom: var(--border-width-regular) solid currentColor;
+		transform: rotate(-45deg);
+		transition: transform var(--duration-fast) var(--easing);
+	}
+	.map-nav details[open] > summary.head::before {
+		transform: rotate(45deg);
+	}
+	.map-nav .bounded {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		padding: 0.25rem 1rem 0.5rem;
+		font-size: var(--type-caption-size);
 	}
 	.map-nav ul {
 		list-style: none;

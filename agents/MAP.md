@@ -909,7 +909,7 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
   into the mask image (no growing – hundreds of CSS gradients); the places grow.
 - **Deep zoom:** with tiles on screen each tile carries the world-sized mask, shifted to its place – one masked layer as
   big as the zoomed world was dropped by phones' GPUs (owner 2026-10-12: "after zooming in … does not work any more").
-- **Camera** (owner 2026-10-12): `WorldMap.bounded` (map setting, builder "Readers stay on the terrain") – the reader's
+- **Camera** (owner 2026-10-12): `WorldMap.bounded` (map setting, builder: the Layers fold-out "Readers stay on the terrain") – the reader's
   camera zooms out only until the map fills the screen and stops at its edges (`MapViewport.bounded`, `coverZoom`); off
   = half a screen past the edge, out to `MAP_MIN_ZOOM` (for a map bigger than its terrain art). The builder is never
   bounded. A drag glides on after release (`mapGestures`: the last ~100 ms give the speed, `FRICTION` 0.996 per ms,
