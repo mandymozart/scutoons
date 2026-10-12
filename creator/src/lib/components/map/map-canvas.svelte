@@ -39,6 +39,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { freeWaypointId, nearestSegment } from '$lib/editor/map.ts';
+	import { page } from '$app/state';
 
 	/**
 	 * The builder's canvas (agents/MAP.md §4.2): the world at any zoom (25 %–800 %), the tools – select (click, drag places
@@ -276,6 +277,19 @@
 		cells
 			.map((c) => 'M' + hexCorners(c).map((k) => `${((k.x - origin.x) * view.zoom).toFixed(1)},${((k.y - origin.y) * view.zoom).toFixed(1)}`).join('L') + 'Z')
 			.join('');
+	// ── DRAFT (owner 2026-10-12: "the waypoint needs a better idea that is less irritating") – `?waypointDraft=a|b|c`:
+	// a = quiet: a place waypoint has no handle (the place is the point – drag the place), a free point a small dot;
+	// b = the patch: a place waypoint shows as its patch's edge in the route's highlight, a free point a small hollow
+	// square; c = small chips on the line: the number in a small ink chip at the place's entry gate, not its centre
+	const waypointDraft = $derived(page.url.searchParams.get('waypointDraft'));
+	/** where a place waypoint's chip sits in draft c: its entry gate (its exit for the first) */
+	function chipAt(route: { waypoints: readonly Waypoint[] }, i: number, fallback: Point): Point {
+		const w = route.waypoints[i];
+		if (!w || !isPlaceWaypoint(w)) return fallback;
+		const g = routeGeometry(map.locations, route.waypoints).gates.find((x) => x.place === w.location && x.which === (i === 0 ? 'exit' : 'entry'));
+		return g?.at ?? fallback;
+	}
+
 	/** the patch's outer edge (owner 2026-10-12: "the peripheral ones darker than the others") – one path of segments */
 	const outlinePath = (cells: ReturnType<typeof placeCells>, origin: Point) =>
 		cellsOutline(cells)
@@ -636,16 +650,33 @@
 			{/each}
 		</div>
 	{/if}
+	{#if selectedRoute && waypointDraft === 'b'}
+		<!-- DRAFT b: the route's places as their patch's edge -->
+		<svg class="route-patches" aria-hidden="true">
+			{#each selectedRoute.waypoints as w, i (i)}
+				{#if isPlaceWaypoint(w)}
+					{@const place = map.locations.find((p) => p.id === w.location)}
+					{#if place}
+						{@const o = view.toScreen(place)}
+						<path transform="translate({o.x} {o.y})" d={outlinePath(placeCells(place), place)} />
+					{/if}
+				{/if}
+			{/each}
+		</svg>
+	{/if}
 	{#if selectedRoute}
 		<div class="handles">
 			{#each selectedRoute.waypoints as w, i (i)}
 				{@const pt = waypointPoint(map.locations, w)}
-				{#if pt}
-					{@const s = view.toScreen(pt)}
+				{#if pt && !((waypointDraft === 'a' || waypointDraft === 'b') && isPlaceWaypoint(w))}
+					{@const s = view.toScreen(waypointDraft === 'c' ? chipAt(selectedRoute, i, pt) : pt)}
 					<button
 						class="handle"
 						data-control-exempt="canvas resize handle"
 						class:free={!isPlaceWaypoint(w)}
+						class:draft-dot={waypointDraft === 'a'}
+						class:draft-square={waypointDraft === 'b'}
+						class:draft-chip={waypointDraft === 'c'}
 						class:active={activeHandle === `waypoint:${selectedRoute.id}:${i}`}
 						data-handle
 						data-drag="waypoint:{selectedRoute.id}:{i}"
@@ -656,7 +687,7 @@
 						onpointermove={dragMove}
 						onpointerup={(e) => dragEnd(e, () => {})}
 						data-testid="builder-waypoint-{i}"
-					>{i + 1}</button>
+					>{waypointDraft === 'a' || waypointDraft === 'b' ? '' : i + 1}</button>
 				{/if}
 			{/each}
 		</div>
@@ -903,6 +934,43 @@
 		font: 700 9px/1 var(--font-mono);
 		pointer-events: auto;
 		cursor: move;
+	}
+	/* DRAFT waypoints (owner 2026-10-12) */
+	.route-patches {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+	.route-patches path {
+		fill: none;
+		stroke: var(--primary-cyan, #00d1ff);
+		stroke-width: 3;
+		stroke-linecap: round;
+	}
+	.handle.draft-dot,
+	.handle.draft-square {
+		left: -0.3rem;
+		top: -0.3rem;
+		width: 0.6rem;
+		height: 0.6rem;
+		border-width: 0.125rem;
+		background: var(--paper);
+	}
+	.handle.draft-square {
+		border-radius: 0;
+	}
+	.handle.draft-chip {
+		left: -0.45rem;
+		top: -0.45rem;
+		width: 0.9rem;
+		height: 0.9rem;
+		border-radius: 0;
+		border-width: 0.0625rem;
+		background: var(--ink);
+		color: var(--paper);
+		font-size: 0.55rem;
 	}
 	.handle.free {
 		background: var(--paper);
