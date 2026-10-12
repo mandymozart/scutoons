@@ -51,7 +51,7 @@
 <div class="creator-page">
 	<main class="browser">
 		<ReviewList />
-		<!-- draft 2026-10-12 (owner: "mehr Konzepte aus der Mobile in die Desktop-Variante", "Platz sparen"): no "Toons"
+		<!-- owner 2026-10-12, approved from the draft: "mehr Konzepte aus der Mobile in die Desktop-Variante", "Platz sparen": no "Toons"
 		     heading (the sidebar / drawer says it), one compact row per toon – avatar · name · state – at every width -->
 		{#if error}<p class="error">{error}</p>{/if}
 		<ul class="toons" aria-label={m['creator.toons']()}>
@@ -84,7 +84,7 @@
 		padding: 1.5rem 1rem;
 		max-width: 75rem;
 	}
-	/* compact rows (draft 2026-10-12): two or more columns when there is room, one on a phone; rows split by 1px ink like
+	/* compact rows (owner 2026-10-12): two or more columns when there is room, one on a phone; rows split by 1px ink like
 	   the toon page's chapter list */
 	.toons {
 		list-style: none;

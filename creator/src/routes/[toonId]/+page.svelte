@@ -34,7 +34,7 @@
 	useDock(() =>
 		flowOpen ? { kind: 'flow', content: { component: FlowDock, props: flowProps }, size: flowSize, title: m['creator.flow'](), icon: 'git-merge', close: () => (flowOpen = false) } : null
 	);
-	// draft 2026-10-12 (owner: "mehr Konzepte aus der Mobile in die Desktop-Variante"): the toon's settings as a pill with its
+	// owner 2026-10-12, approved from the draft: "mehr Konzepte aus der Mobile in die Desktop-Variante": the toon's settings as a pill with its
 	// avatar at the end of the crumbs (like the map's toon pill) – the big title row goes
 	usePageNav({ actions: flowToggle, crumbEnd: settingsPill });
 	/** the toon's display name in the UI language (never the id as a title) */
@@ -359,7 +359,7 @@
 			{/if}
 			<!-- the content first (BACKLOG 10.50 h): the chapters, then the toon's languages (set up once, rarely changed) -->
 			{#if index && !index.loading && edited}
-				<!-- draft 2026-10-12: the languages in one row of chips (set up once, rarely changed): the source filled, the
+				<!-- owner 2026-10-12: the languages in one row of chips (set up once, rarely changed): the source filled, the
 				     translations with ★ (make it the source) and ×, an "add" select at the end -->
 				<section class="languages" data-testid="languages">
 					<span class="sc-label">{m['creator.languages']()}</span>
@@ -485,7 +485,7 @@
 	.add-row .add {
 		padding-left: 0;
 	}
-	/* after the chapters: one row of chips (draft 2026-10-12) */
+	/* after the chapters: one row of chips (owner 2026-10-12) */
 	.languages {
 		display: flex;
 		flex-wrap: wrap;

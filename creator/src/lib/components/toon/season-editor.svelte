@@ -124,7 +124,7 @@
 	{#if season.present.length === 0}
 		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
-		<!-- draft 2026-10-12 (owner: "mehr Konzepte aus der Mobile in die Desktop-Variante", "Platz sparen"): the texts and the
+		<!-- owner 2026-10-12, approved from the draft: "mehr Konzepte aus der Mobile in die Desktop-Variante", "Platz sparen": the texts and the
 		     media side by side when the page is wide enough (one column on a phone); no "Meta" heading – the fields say it -->
 		<div class="columns"><div class="grid">
 		<section class="block" data-testid="season-meta" aria-label={m['creator.meta']()}>
