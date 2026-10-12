@@ -29,7 +29,7 @@ use stdClass;
  *                                                `first` (creation order) – a page that edits many documents (the world map)
  *   POST /api/entities/batch { saves: [{ key, content, base?, message? }], deletes?: [key], message? }   several new
  *                                                draft versions in one transaction (all or none; 409 / 422 name the `key`);
- *                                                `deletes`: never-published place / route keys (409 published otherwise)
+ *                                                `deletes`: never-published place / route / catalog keys (409 published otherwise)
  *   POST /api/entities/publish { versions: [{ key, version? }] }   several documents live at once (one transaction)
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
@@ -47,7 +47,8 @@ use stdClass;
  * Catalog documents (`item:<id>`, `recipe:<id>`, `album:<id>`, `product:<id>`, `edition:<id>` – CatalogDocs,
  * agents/CATALOG-IN-CREATOR.md): a save is checked as a catalog entry (422 invalid_catalog { problems }); publish writes
  * the entry into the catalog table (physical changes: Reviews' `physical` rule); unpublish is refused (422
- * not_supported – an entry leaves the catalog through the admin, where its uses are checked).
+ * not_supported): an entry is removed with a tombstone version (`removed: true`) – publishing it takes it out of the
+ * catalog (409 in_use while used) – or, never published, deleted (batch `deletes`).
  */
 final class EntitiesController
 {
@@ -122,9 +123,13 @@ final class EntitiesController
             if (!$save instanceof stdClass || !property_exists($save, 'content')) throw new ApiError(400, 'invalid_saves', 'every save needs { key, content }.');
             $key = EntityKey::parse($save->key ?? null);
             try {
-                $this->schemas->guard($key, $save->content);
-                $this->flow->guard($key, $save->content);
-                $this->placements->guard($key, $save->content);
+                if ($key->isCatalog()) {
+                    $this->docs->guardSave($key, $save->content);
+                } else {
+                    $this->schemas->guard($key, $save->content);
+                    $this->flow->guard($key, $save->content);
+                    $this->placements->guard($key, $save->content);
+                }
             } catch (ApiError $e) {
                 throw new ApiError($e->status, $e->errorCode, $e->getMessage(), ['key' => (string) $key] + $e->extra);
             }
@@ -135,6 +140,9 @@ final class EntitiesController
             $one->message = $message;
             if (property_exists($save, 'base')) $one->base = $save->base;
             $saves[] = ['key' => $key, 'body' => $one];
+        }
+        foreach ($deletes as $key) {
+            if ($key->isCatalog()) $this->docs->guardDelete($key);
         }
         // the map's references judged on the whole batch (a new place and the route through it together are fine; owner D7)
         $this->mapRefs->guard(array_combine(array_map(fn(array $s) => (string) $s['key'], $saves), array_map(fn(array $s) => $s['body']->content, $saves)) ?: [], array_map('strval', $deletes));

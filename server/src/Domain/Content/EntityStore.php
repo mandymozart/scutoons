@@ -235,13 +235,13 @@ final class EntityStore
     /**
      * Deletes every version of a key that was never published (owner 2026-10-12, D3: "delete when never published" –
      * a place / route made and dropped again, or renamed before its first publish): nothing references it yet, so its id
-     * is free again. Only the kinds with ids of their own (EntityKey::ID_KINDS); a key with a published version → 409
+     * is free again. Only the kinds with ids of their own (EntityKey::ID_KINDS, the catalog documents); a key with a published version → 409
      * published (remove it with a `removed: true` version instead – a tombstone). Pending reviews of it are annulled.
      * Inside saveMany's transaction when called from a batch.
      */
     public function deleteUnpublished(EntityKey $key): int
     {
-        if (!in_array($key->kind, EntityKey::ID_KINDS, true)) throw new ApiError(400, 'not_deletable', "$key->kind documents are never deleted.", ['key' => (string) $key]);
+        if (!in_array($key->kind, EntityKey::ID_KINDS, true) && !$key->isCatalog()) throw new ApiError(400, 'not_deletable', "$key->kind documents are never deleted.", ['key' => (string) $key]);
         return $this->db->transaction(function () use ($key) {
             $published = $this->db->value("SELECT id FROM entity_versions WHERE entity_key = ? AND status = 'published' LIMIT 1 FOR UPDATE", [(string) $key]);
             if ($published !== null) {

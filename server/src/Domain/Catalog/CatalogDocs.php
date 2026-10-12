@@ -17,6 +17,11 @@ use Scutoons\Support\Time;
  * catalog_history note "published v<n>"); an admin write to the table (the admin's catalog page, undo, a relink) is
  * stored as a published version in turn (CatalogAdmin::syncDoc), so document and table never disagree.
  *
+ * Removing (owner 2026-10-12, D5 – the same as the map's places): a never-published entry is deleted (POST
+ * /entities/batch { deletes }); a published one gets a last version = its document + `removed: true` (a tombstone, the
+ * id stays taken); publishing the tombstone takes the entry out of the table (CatalogAdmin::delete – 409 in_use while
+ * anything refers to it). A tombstone of a physical entry is a physical change.
+ *
  * Physical (owner 2026-10-12: physical items need a review, "damit nicht aus Versehen auf der Plattform was rausgesetzt
  * werden kann"): a change is physical when the entry is physical before OR after it – an item with `kind: physical`,
  * an `edition_id` (every unclaimed code of that edition offers it: CodeService::itemsForEdition), a `product` (also a
@@ -44,9 +49,28 @@ final class CatalogDocs
     {
         $kind = (string) $key->catalogKind();
         $data = json_decode((string) json_encode($content), true);
+        // a tombstone is the entry's last document as it was – not checked again
+        if (self::isTombstone($data)) return;
         $problems = array_values(array_filter($this->validator->problems($kind, (string) $key->id, $data), fn(string $p) => !$this->draftReference($p)));
         if ($problems) {
             throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $key->id]);
+        }
+    }
+
+    /** a removed entry's last version (`removed: true`) */
+    public static function isTombstone(mixed $data): bool
+    {
+        return is_array($data) && ($data['removed'] ?? false) === true;
+    }
+
+    /**
+     * Before a batch deletes a catalog document: only one that never reached the catalog (no table entry – an admin
+     * write or a migration made one published) – 409 published otherwise, like EntityStore::deleteUnpublished
+     */
+    public function guardDelete(EntityKey $key): void
+    {
+        if ($this->publishedData($key) !== null) {
+            throw new ApiError(409, 'published', "$key is in the catalog – remove it with a version that has \"removed\": true.", ['key' => (string) $key]);
         }
     }
 
@@ -185,6 +209,11 @@ final class CatalogDocs
     {
         $key = EntityKey::parse((string) $row['entity_key']);
         $this->entities->setPublished($row);
+        if (self::isTombstone(json_decode((string) $row['json'], true))) {
+            // the entry leaves the catalog (409 in_use rolls the publish back); the tombstone stays the published version
+            if ($this->publishedData($key) !== null) $this->admin->delete((string) $key->catalogKind(), (string) $key->id, $by);
+            return;
+        }
         $this->admin->putIn((string) $key->catalogKind(), (string) $key->id, json_decode((string) $row['json']), $by, 'published v' . $row['id']);
     }
 
@@ -251,6 +280,8 @@ final class CatalogDocs
             // in the table (readers have it) – a document never published is a new entry
             'live' => $tableJson !== null,
             'draft' => $newest !== null && ($published === null || $newest > $published),
+            // the newest version is a tombstone (removed – published or waiting to be)
+            'removed' => self::isTombstone($data),
             'versions' => $doc !== null ? (int) $doc['versions'] : 0,
             'latest_at' => $latest !== null ? Time::iso($latest['created_at']) : null,
             'latest_author' => $latest['email'] ?? null,

@@ -287,7 +287,14 @@ final class CatalogAdmin
         $key = "$docKind:$id";
         $published = $this->entities->published($key);
         if ($json === null) {
-            if ($published) $this->entities->unpublish($key);
+            // D5: the entry's last document + removed: true as its published version (unless publishing that tombstone
+            // is what deletes the entry right now)
+            if (!$published) return;
+            $last = json_decode((string) $published['json']);
+            if (!$last instanceof stdClass || ($last->removed ?? false) === true) return;
+            $last->removed = true;
+            $versionId = $this->entities->insert(EntityKey::parse($key), CatalogStore::encode($last), null, 'draft', mb_substr("catalog: removed ($by)", 0, 255));
+            $this->entities->setPublished(['id' => $versionId, 'entity_key' => $key]);
             return;
         }
         if ($published && CatalogStore::encode(json_decode((string) $published['json'])) === $json) return;

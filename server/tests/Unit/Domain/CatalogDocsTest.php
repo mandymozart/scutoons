@@ -85,11 +85,10 @@ final class CatalogDocsTest extends TestCase
         $count = (int) $this->db->value("SELECT COUNT(*) FROM entity_versions WHERE entity_key = 'item:camera'");
         $admin->put('items', 'camera', $data, 'admin:boss@example.com');
         self::assertSame($count, (int) $this->db->value("SELECT COUNT(*) FROM entity_versions WHERE entity_key = 'item:camera'"), 'unchanged: no version');
-        // a delete leaves the document unpublished
+        // a delete leaves a tombstone as the published version (D5: its last document + removed: true, the id stays taken)
         $admin->put('items', 'ladle', self::item('ladle'), 'admin:boss@example.com');
         $admin->delete('items', 'ladle', 'admin:boss@example.com');
-        self::assertNull($store->published('item:ladle'));
-        self::assertNotNull($store->latest('item:ladle'));
+        self::assertTrue(json_decode((string) ($store->published('item:ladle')['json'] ?? '{}'), true)['removed'] ?? false);
     }
 
     /** owner 2026-10-12: physical items are reviewed – "damit nicht aus Versehen auf der Plattform was rausgesetzt werden kann" */
@@ -148,39 +147,72 @@ final class CatalogDocsTest extends TestCase
         self::assertSame('item spoon, item dago_hoodie', Reviews::files(['item:spoon', 'item:dago_hoodie']));
     }
 
-    /** the admin's old catalog page answers to the same rule: an admin without the physical rule can't make an item claimable */
-    public function testTheBatchPublishTakesCatalogEntriesWithThePhysicalRule(): void
-    {
-        // the one-call publish (POST /api/entities/publish – the map's checklist) writes the catalog table too, and a
-        // key that needs a review stops the whole call: nothing goes out, the answer names the keys
-        $writer = $this->creator('batch@example.com');
-        $before = $this->data('items', 'cucumber');
-        $this->put($writer, 'item:cucumber', array_merge($this->data('items', 'cucumber'), ['name' => ['de' => 'Gurke', 'en' => 'Pickle']]));
-        $this->put($writer, 'item:spoon', self::item('spoon', ['edition_id' => '1_catpope_dago']));
-        $publish = fn(string $keys) => $this->request('POST', '/api/entities/publish', $this->bearer($writer), '{"versions":[' . $keys . ']}');
-
-        $refused = $publish('{"key":"item:cucumber"},{"key":"item:spoon"}');
-        self::assertSame([403, 'review_required', ['item:spoon']], [$refused->getStatusCode(), self::json($refused)['error'] ?? null, self::json($refused)['keys'] ?? null]);
-        self::assertFalse($this->inCatalog('items', 'spoon'));
-        self::assertSame($before, $this->data('items', 'cucumber'), 'nothing went out');
-
-        self::assertSame(200, $publish('{"key":"item:cucumber"}')->getStatusCode());
-        self::assertSame('Pickle', $this->data('items', 'cucumber')['name']['en'] ?? null);
-    }
-
-    public function testTheAdminPathNeedsThePhysicalRuleToo(): void
+    /** D6: the admin's five catalog tabs are read-only – their entries are edited in the creator; the order stays there */
+    public function testTheAdminNoLongerWritesTheMovedKinds(): void
     {
         $boss = $this->creator('boss@example.com');
         $this->get(Roles::class)->grant((string) $boss['id'], Roles::ADMIN);
         $camera = $this->data('items', 'camera');
-        $put = fn(array $data) => $this->request('PUT', '/api/admin/catalog/items/camera', $this->bearer($boss), (string) json_encode(['data' => $data]));
-        self::assertSame(200, $put(array_merge($camera, ['name' => ['de' => 'Kamera', 'en' => 'Cam']]))->getStatusCode(), 'a virtual change: as before');
-        $denied = $put(array_merge($camera, ['edition_id' => '1_catpope_dago']));
-        self::assertSame([403, 'review_required'], [$denied->getStatusCode(), self::json($denied)['error'] ?? null]);
+        $put = $this->request('PUT', '/api/admin/catalog/items/camera', $this->bearer($boss), (string) json_encode(['data' => array_merge($camera, ['edition_id' => '1_catpope_dago'])]));
+        self::assertSame([409, 'edited_in_creator'], [$put->getStatusCode(), self::json($put)['error'] ?? null]);
         self::assertNull($this->data('items', 'camera')['edition_id']);
-        self::assertSame(403, $this->request('DELETE', '/api/admin/catalog/editions/1_catpope_dago', $this->bearer($boss))->getStatusCode());
-        $this->get(Reviews::class)->setRule((string) $boss['id'], 'catpope', Reviews::PHYSICAL, true);
-        self::assertSame(200, $put(array_merge($camera, ['edition_id' => '1_catpope_dago']))->getStatusCode());
+        self::assertSame(409, $this->request('DELETE', '/api/admin/catalog/editions/1_catpope_dago', $this->bearer($boss))->getStatusCode());
+        self::assertSame(200, $this->request('GET', '/api/admin/catalog/items/camera', $this->bearer($boss))->getStatusCode());
+        self::assertSame(200, $this->request('POST', '/api/admin/catalog/items/reorder', $this->bearer($boss), '{"ids":["cucumber"]}')->getStatusCode());
+        // the shop & codes kinds stay the admin's
+        self::assertSame(201, $this->request('PUT', '/api/admin/catalog/permissions/test_perm', $this->bearer($boss), '{"data":"A test permission"}')->getStatusCode());
+    }
+
+    /** D5 (as the map's places): never published → deleted; published → a tombstone, publishing it takes the entry out */
+    public function testRemovingAnEntry(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $this->put($writer, 'item:spoon', self::item('spoon'));
+        $gone = $this->request('POST', '/api/entities/batch', $this->bearer($writer), '{"deletes":["item:spoon"]}');
+        self::assertSame(200, $gone->getStatusCode(), (string) $gone->getBody());
+        self::assertNull($this->get(EntityStore::class)->latest('item:spoon'), 'never published: deleted, the id is free');
+        $refused = $this->request('POST', '/api/entities/batch', $this->bearer($writer), '{"deletes":["item:tuna_can"]}');
+        self::assertSame([409, 'published'], [$refused->getStatusCode(), self::json($refused)['error'] ?? null]);
+
+        // a published, unused entry: its last document + removed: true, then publish → out of the catalog, id taken
+        $this->put($writer, 'item:fork', self::item('fork'));
+        $this->request('POST', '/api/entities/item:fork/publish', $this->bearer($writer), '{}');
+        self::assertSame(200, $this->put($writer, 'item:fork', self::item('fork', ['removed' => true]))->getStatusCode(), 'a tombstone is not checked again');
+        self::assertTrue($this->inCatalog('items', 'fork'), 'a draft tombstone changes nothing yet');
+        self::assertSame(200, $this->request('POST', '/api/entities/item:fork/publish', $this->bearer($writer), '{}')->getStatusCode());
+        self::assertFalse($this->inCatalog('items', 'fork'));
+        $fork = array_values(array_filter(self::json($this->request('GET', '/api/catalog/docs/items', $this->bearer($writer)))['entries'], fn($e) => $e['id'] === 'fork'))[0];
+        self::assertSame([true, false, false], [$fork['removed'], $fork['live'], $fork['draft']]);
+        self::assertSame(409, $this->request('POST', '/api/entities/batch', $this->bearer($writer), '{"deletes":["item:fork"]}')->getStatusCode(), 'its id stays taken');
+
+        // a used entry can't leave (409 in_use, nothing changes); a physical one needs the physical rule
+        $this->put($writer, 'item:cucumber', array_merge($this->data('items', 'cucumber'), ['removed' => true]));
+        $used = $this->request('POST', '/api/entities/item:cucumber/publish', $this->bearer($writer), '{}');
+        self::assertSame([409, 'in_use'], [$used->getStatusCode(), self::json($used)['error'] ?? null]);
+        self::assertTrue($this->inCatalog('items', 'cucumber'));
+        $this->put($writer, 'item:awakening_test_press', array_merge($this->data('items', 'awakening_test_press'), ['removed' => true]));
+        self::assertSame(403, $this->request('POST', '/api/entities/item:awakening_test_press/publish', $this->bearer($writer), '{}')->getStatusCode());
+    }
+
+    /** a batch checks catalog documents like a single save */
+    public function testABatchChecksCatalogDocuments(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $bad = $this->request('POST', '/api/entities/batch', $this->bearer($writer), (string) json_encode(['saves' => [['key' => 'item:fork', 'content' => self::item('knife')]]]));
+        self::assertSame([422, 'invalid_catalog', 'item:fork'], [$bad->getStatusCode(), self::json($bad)['error'] ?? null, self::json($bad)['key'] ?? null]);
+    }
+
+    /** D2: the owner gets the physical rule for every toon by migration – once, nobody else */
+    public function testTheOwnersPhysicalRuleMigration(): void
+    {
+        $owner = $this->user('tilman@porschuetz.de');
+        $other = $this->user('someone@example.com');
+        $sql = (string) file_get_contents(self::root() . '/migrations/mysql/2026-10-12-owner-physical-rule.mysql.sql');
+        $statement = trim((string) preg_replace('/^--.*$/m', '', $sql));
+        $this->db->run($statement);
+        $this->db->run($statement);
+        self::assertSame([['*', 'physical']], array_map(fn($r) => [$r['toon'], $r['rule']], $this->db->all('SELECT toon, rule FROM content_review_rules WHERE user_id = ?', [$owner['id']])));
+        self::assertSame(0, (int) $this->db->value('SELECT COUNT(*) FROM content_review_rules WHERE user_id = ?', [$other['id']]));
     }
 
     public function testNeedsReviewAppliesToTheCatalogOfThatToon(): void
