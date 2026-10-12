@@ -47,6 +47,15 @@
 			"look": "a toxic WASTELAND – a post-industrial nuclear disaster zone scarred by fracking: cracked crusts in sulphur yellow, radioactive green glow, rust orange, oily black pools with rainbow sheen, slag in hot pink"
 		},
 		{
+			"name": "mountains",
+			"island": "the long island east of the island world (Bergdorf, Bergpfad, Kloster, Erzberg) – owner 2026-10-12: \"this is also mountainous – changing from lowlands to the mountains; this is what I meant with huge mountains\"",
+			"at": {
+				"x": 1484,
+				"y": 518
+			},
+			"look": "a long island that rises from LOWLANDS into HUGE MOUNTAINS: in the north lush rolling lowlands (meadows, fields and forest canopy in emerald, lime and turquoise), climbing south through foothills and deep valleys into a massive range of towering, dramatic peaks – sharp ridges, glaciers and snowy summits in pearl, lilac and electric cyan, rust-red and copper ore slopes on the mountainsides; strong relief, the biggest mountains of the world map"
+		},
+		{
 			"name": "archipelago",
 			"rect": {
 				"x": 1070,

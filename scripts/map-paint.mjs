@@ -7,15 +7,18 @@
 //   2. paint (Luma, image_edit): the layout + the strips the neighbours above / left already painted (so the seams
 //      continue) → `logs/map-paint/<name>/r_<x>_<y>.png`. A region already painted is skipped (delete it to redo).
 //   3. assemble: the regions blended over their overlaps, masked by the SVG's land → the base image
-//      `media/<out>.webp` (world size, 1 px per unit) + tiles `media/<tiles>/<z>/<x>_<y>.webp` (levels 1 … --levels).
+//      `media/<dir>/world.webp` (world size, 1 px per unit = level 0) + tiles `media/<dir>/<z>/<x>_<y>.webp` (levels 1 …
+//      --levels), <dir> = `catpope/map/terrain/painted/v<--version>` (owner 2026-10-12: one naming pattern, a version
+//      folder; a fix within a version replaces its files – `assets:sync --overwrite --hash`, which purges the CDN).
 //   Then add the layer (under the line layer, or instead of it) with `tiles: { path, levels }` in a map draft.
 //
 // Costs money: one Luma image per land region (uni-1-max ≈ $0.10) – --dry prints the count and the prompt and renders the
 // layouts only; --only x_y paints one region (a test); --assemble skips painting. Key: LUMA_AGENT(S)_API_KEY in .env.
 // --look abstract (default: fields of crazy textures, no objects – owner 2026-10-11) | model (a model town, the first try).
 // --plaster: also the plaster layer (the same shapes unpainted – derived from the painted world, free and aligned):
-//   media/<out>-plaster.webp + media/<tiles>-plaster/… – the reader draws it everywhere, the painted one (fog) over it.
-//   node --experimental-transform-types scripts/map-paint.mjs [--look abstract] [--dry] [--only 6_1] [--assemble] [--plaster] [--model uni-1-max] [--levels 3]
+//   `catpope/map/terrain/plaster/v<--version>/…` – the reader draws it everywhere, the painted one (fog) over it.
+// --fresh: paint without the neighbours' strips (a region repainted in a NEW look; the assembly still blends the seams).
+//   node --experimental-transform-types scripts/map-paint.mjs [--look abstract] [--dry] [--only 6_1] [--fresh] [--assemble] [--plaster] [--version 1] [--model uni-1-max] [--levels 3]
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,8 +33,8 @@ const arg = (name, fallback) => (process.argv.includes(`--${name}`) ? process.ar
 const has = (name) => process.argv.includes(`--${name}`);
 const svgPath = arg('svg', 'catpope/map/map-layer-terrain.svg');
 const name = arg('name', arg('look', 'abstract'));
-const out = arg('out', `catpope/map/painted/terrain-${name}`); // the base image (without .webp)
-const tilesOut = arg('tiles', `catpope/map/tiles/${name}`);
+const version = Number(arg('version', '1'));
+const layerDir = (layer) => `${arg('root', 'catpope/map/terrain')}/${layer}/v${version}`;
 const levels = Number(arg('levels', '3'));
 const model = arg('model', 'uni-1-max');
 // a style reference (a finished diorama) – only the `model` look uses one; `--style none` leaves it out
@@ -152,8 +155,9 @@ await evaluate(`(() => {
 	window.__seed = async (layout, neighbours, px, band) => {
 		const c = new OffscreenCanvas(px, px), g = c.getContext('2d');
 		g.drawImage(await load(layout), 0, 0);
-		for (const n of neighbours) {
-			const img = await load(n.b64);
+		// the neighbours were sent one by one before (window.__nb – one call with all eight hung CDP: ~110 MB)
+		for (const n of window.__nb.splice(0)) {
+			const img = n.img;
 			g.save();
 			g.beginPath();
 			// only the bands this neighbour shares: left / right columns, top / bottom rows
@@ -181,19 +185,22 @@ await evaluate(`(async () => {
 	for (let i = 0; i < W * H; i++) {
 		if (label[i] || a[i * 4 + 3] < 128) continue;
 		const id = masses.length + 1;
-		let n = 0, sx = 0, sy = 0;
+		let n = 0, sx = 0, sy = 0, y0 = H, y1 = 0;
 		label[i] = id;
 		stack.push(i);
 		while (stack.length) {
 			const j = stack.pop(), x = j % W;
-			n++; sx += x; sy += (j / W) | 0;
+			const y = (j / W) | 0;
+			n++; sx += x; sy += y;
+			if (y < y0) y0 = y;
+			if (y > y1) y1 = y;
 			for (const k of [j - 1, j + 1, j - W, j + W]) {
 				if (k < 0 || k >= W * H || label[k] || a[k * 4 + 3] < 128 || (k === j - 1 && x === 0) || (k === j + 1 && x === W - 1)) continue;
 				label[k] = id;
 				stack.push(k);
 			}
 		}
-		masses.push({ id, n, cx: sx / n, cy: sy / n });
+		masses.push({ id, n, cx: sx / n, cy: sy / n, y0, y1 });
 	}
 	window.__labels = label;
 	window.__masses = masses;
@@ -221,8 +228,9 @@ async function regionContent(r) {
 	const byLook = new Map();
 	for (const [id, o] of Object.entries(parts)) {
 		const look = lookOf.get(Number(id));
-		const b = byLook.get(look) ?? { n: 0, sx: 0, sy: 0 };
+		const b = byLook.get(look) ?? { n: 0, sx: 0, sy: 0, main: null };
 		b.n += o.n; b.sx += o.sx; b.sy += o.sy;
+		if (!b.main || o.n > b.main.n) b.main = { id: Number(id), n: o.n, cy: o.sy / o.n };
 		byLook.set(look, b);
 	}
 	const total = [...byLook.values()].reduce((t, b) => t + b.n, 0);
@@ -230,7 +238,14 @@ async function regionContent(r) {
 	return [...byLook.entries()]
 		.filter(([, b]) => b.n / total >= 0.03)
 		.sort((p, q) => q[1].n - p[1].n)
-		.map(([look, b]) => `- ${where((b.sx / b.n - r.x) / REGION, (b.sy / b.n - r.y) / REGION)} (~${Math.round((100 * b.n) / total)} % of the land here): ${look}`);
+		.map(([look, b]) => `- ${where((b.sx / b.n - r.x) / REGION, (b.sy / b.n - r.y) / REGION)} (~${Math.round((100 * b.n) / total)} % of the land here)${partOf(b.main)}: ${look}`);
+}
+/** an island taller than a region: which part of it this region shows (a look that changes from north to south) */
+function partOf(main) {
+	const m = main && masses.find((x) => x.id === main.id);
+	if (!m || m.y1 - m.y0 < REGION) return '';
+	const f = (main.cy - m.y0) / (m.y1 - m.y0);
+	return `, showing the island's ${f < 1 / 3 ? 'NORTHERN' : f < 2 / 3 ? 'MIDDLE' : 'SOUTHERN'} part`;
 }
 const promptFor = async (r) => {
 	if (look !== 'abstract') return PROMPT;
@@ -341,9 +356,12 @@ try {
 		for (const r of todo) {
 			// the neighbours already painted (row by row: above and left first) give their strips
 			const neighbours = land
-				.filter((n) => n !== r && Math.abs(n.gx - r.gx) <= 1 && Math.abs(n.gy - r.gy) <= 1 && existsSync(n.file))
-				.map((n) => ({ b64: png64(n.file), dx: (n.gx - r.gx) * STEP * PPU, dy: (n.gy - r.gy) * STEP * PPU }));
-			const source = neighbours.length ? await evaluate(`window.__seed(${JSON.stringify(layouts.get(r))}, ${JSON.stringify(neighbours)}, ${PX}, ${(REGION - STEP) * PPU})`) : layouts.get(r);
+				// --fresh: none (a region repainted in a new look – with all eight neighbours' bands Luma kept the old one)
+				.filter((n) => !has('fresh') && n !== r && Math.abs(n.gx - r.gx) <= 1 && Math.abs(n.gy - r.gy) <= 1 && existsSync(n.file))
+				.map((n) => ({ file: n.file, dx: (n.gx - r.gx) * STEP * PPU, dy: (n.gy - r.gy) * STEP * PPU }));
+			await evaluate(`(() => { window.__nb = []; return true; })()`);
+			for (const n of neighbours) await evaluate(`(async () => { window.__nb.push({ img: await window.__load(${JSON.stringify(png64(n.file))}), dx: ${n.dx}, dy: ${n.dy} }); return true; })()`);
+			const source = neighbours.length ? await evaluate(`window.__seed(${JSON.stringify(layouts.get(r))}, null, ${PX}, ${(REGION - STEP) * PPU})`) : layouts.get(r);
 			writeFileSync(join(work, `source_${r.gx}_${r.gy}.png`), Buffer.from(source, 'base64'));
 			const t0 = Date.now();
 			const bytes = await luma(source, refs, await promptFor(r));
@@ -385,12 +403,12 @@ try {
 			return true;
 		})()`);
 		// the painted layer, then (--plaster) the plaster layer derived from it in place: the same shapes, unpainted
-		await writeLayer(out, tilesOut);
-		console.log(`layer: { id: "${name}", image: "${out}.webp", tiles: { path: "${tilesOut}", levels: ${levels} }, fog: { radius: 40 } }`);
+		await writeLayer(`${layerDir('painted')}/world`, layerDir('painted'));
+		console.log(`layer: { id: "painted", image: "${layerDir('painted')}/world.webp", tiles: { path: "${layerDir('painted')}", levels: ${levels} }, fog: { radius: 24 } }`);
 		if (has('plaster')) {
 			await plasterInPlace();
-			await writeLayer(`${out}-plaster`, `${tilesOut}-plaster`);
-			console.log(`layer: { id: "${name}-plaster", image: "${out}-plaster.webp", tiles: { path: "${tilesOut}-plaster", levels: ${levels} } }  (under the painted one)`);
+			await writeLayer(`${layerDir('plaster')}/world`, layerDir('plaster'));
+			console.log(`layer: { id: "plaster", image: "${layerDir('plaster')}/world.webp", tiles: { path: "${layerDir('plaster')}", levels: ${levels} } }  (under the painted one)`);
 		}
 	}
 } finally {

@@ -897,11 +897,21 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
   except the new (unseen) ones – a new place's surroundings get their colour with its reveal (`revealShow`) or its
   painting in place, together with its diorama.
 - **Builder** – both layers with the eyes (the plaster under the painted one); the layer form has the fog radius.
-- **Generated 2026-10-12** (all 59 land regions, uni-1-max, ≈ $5.90; the owner: "Sample regions look amazing"):
-  on the CDN (new paths, nothing overwritten) `catpope/map/painted/terrain-2026-10-12[-plaster].webp` +
-  `catpope/map/tiles/painted-2026-10-12[-plaster]/{1,2,3}/` (1559 tiles each); the regions in `logs/map-paint/abstract/`
-  of the worktree (repainting one: delete its `r_x_y.png`, `--only x_y`, then `--assemble --plaster` to NEW paths).
-  Production map draft **v276** (on v275): layers terrain · plaster · painted (`fog: { radius: 24 }`) – publish only after the code deploy
+- **Generated 2026-10-12** (all 59 land regions, uni-1-max; the owner: "Sample regions look amazing"; then the long island
+  east of the island world – Bergdorf, Bergpfad, Kloster, Erzberg – got its own zone "lowlands → HUGE mountains" (owner:
+  "this is what I meant with huge mountains") and r_7_1–r_7_3 were repainted; ≈ $6.50 in all). The regions:
+  `logs/map-paint/abstract/` of the worktree (not in git).
+- **Naming (owner 2026-10-12: "a standardized file naming pattern – versions possible, but within a version we can replace
+  tiles"):** `catpope/map/terrain/<layer>/v<n>/world.webp` (level 0, 1 px / unit) + `…/v<n>/<z>/<x>_<y>.webp`
+  (`--version n`, layers `painted` / `plaster`). A fix within a version (a region repainted) replaces its files:
+  `php bin/console assets:sync --source-root=../media --prefix=catpope/map/terrain/ --apply --overwrite --hash` (purges
+  the CDN per file; browsers may keep an old tile until their cache expires). A new look = a new version (a new draft).
+  The first upload's dated folders `catpope/map/painted/terrain-2026-10-12*` / `catpope/map/tiles/painted-2026-10-12*`
+  are unused now (delete only with the owner's go).
+- **Repainting a region in a new look:** `--only x_y --fresh` (without the neighbours' strips – with all eight painted
+  neighbours as strips Luma kept the old look), then `--assemble --plaster`. The neighbours are sent to the page one by
+  one (one call with eight ~10 MB PNGs hung CDP for hours).
+- Production map draft: layers terrain · plaster · painted (`fog: { radius: 24 }`) – publish only after the code deploy
   (an older viewer ignores `fog` and shows the painted layer everywhere).
 
 ### 8.6 Not built yet
