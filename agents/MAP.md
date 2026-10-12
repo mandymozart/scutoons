@@ -947,6 +947,10 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
   except the new (unseen) ones – a new place's surroundings get their colour with its reveal (`revealShow`) or its
   painting in place, together with its diorama.
 - **Builder** – both layers with the eyes (the plaster under the painted one); the layer form has the fog radius.
+- **Drag safeguard** (owner 2026-10-12: "while scrolling around I often accidentally move things … it is a mess if it
+  just goes"): in the builder anything draggable moves only once it is active – a place when it is selected, a gate /
+  curve handle / route point after a tap on it (cyan ring, `activeHandle`). A drag on something not active pans the map;
+  a new selection deactivates.
 - **Generated 2026-10-12** (all 59 land regions, uni-1-max; the owner: "Sample regions look amazing"; then the long island
   east of the island world – Bergdorf, Bergpfad, Kloster, Erzberg – got its own zone "lowlands → HUGE mountains" (owner:
   "this is what I meant with huge mountains") and r_7_1–r_7_3 were repainted; ≈ $6.50 in all). The regions:

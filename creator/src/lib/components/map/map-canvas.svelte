@@ -102,10 +102,26 @@
 
 	// ── panning: the middle button, Space held, or a drag on the empty terrain with Select (touch: drag / two fingers) ──
 	let space = $state(false);
+	// a safeguard (owner 2026-10-12: "while scrolling around I often accidentally move things … items, Bézier and route
+	// entries – it is a mess if it just goes"): anything draggable moves only once it is active – a place when it is
+	// selected, a gate / curve handle / route point when it was tapped (`activeHandle`). The first tap activates; a drag
+	// on something not active pans the map.
+	const isActivePlace = (id: string) => selection?.kind === 'place' && selection.id === id;
+	let activeHandle = $state<string | null>(null);
+	$effect(() => {
+		void selection;
+		activeHandle = null;
+	});
+	const placeOf = (e: PointerEvent) => (e.target as HTMLElement | null)?.closest<HTMLElement | SVGElement>('[data-place]')?.dataset.place ?? null;
+	const handleOf = (e: PointerEvent) => (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-drag]')?.dataset.drag ?? null;
 	function canPan(e: PointerEvent) {
 		if (space || e.button === 1) return true;
-		if (tool === 'select') return !(e.target as HTMLElement | null)?.closest('[data-handle]');
-		return false;
+		if (tool !== 'select') return false;
+		if (!(e.target as HTMLElement | null)?.closest('[data-handle]')) return true;
+		const place = placeOf(e);
+		if (place) return !isActivePlace(place);
+		const handle = handleOf(e);
+		return !!handle && handle !== activeHandle;
 	}
 	function onTap(e: PointerEvent, at: Point) {
 		if (space) return;
@@ -120,6 +136,14 @@
 		}
 		if (tool === 'route') {
 			addDraftPoint(at, world);
+			return;
+		}
+		// something not active yet: the tap activates it (it moves from the next drag on)
+		const place = placeOf(e);
+		if (place) return onselect({ kind: 'place', id: place });
+		const handle = handleOf(e);
+		if (handle) {
+			activeHandle = handle;
 			return;
 		}
 		if (!(e.target as HTMLElement | null)?.closest('[data-handle], [data-route]')) onselect(null);
@@ -285,8 +309,16 @@
 	const shownPlaces = $derived(placeIndex.query(growRect(view.worldRect(200), PLACE_SIZE_MAX / 2)));
 
 	let dragMoved = false;
+	/** a handle's key for the safeguard (`data-drag`) */
+	function dragKey(t: NonNullable<typeof dragging>): string {
+		if (t.kind === 'place') return `place:${t.id}`;
+		if (t.kind === 'gate' || t.kind === 'gate-handle') return `${t.kind}:${t.place}:${t.which}`;
+		return `${t.kind}:${t.route}:${t.index}`;
+	}
 	function startDrag(e: PointerEvent, target: NonNullable<typeof dragging>) {
 		if (tool !== 'select' || space || e.button !== 0) return;
+		// not active yet: no drag – the map's gestures pan, a tap activates (canPan / onTap)
+		if (target.kind === 'place' ? !isActivePlace(target.id) : dragKey(target) !== activeHandle) return;
 		e.stopPropagation();
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		dragging = target;
@@ -450,7 +482,7 @@
 				     clicks there through (owner 2026-10-11); dragging it moves the place like the marker -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<!-- without a diorama the cells themselves show, dashed (owner 2026-10-12: "the hexagons are enough") -->
-				<svg class="place-hit" class:bare={!p.image?.src} aria-hidden="true" data-handle>
+				<svg class="place-hit" class:bare={!p.image?.src} aria-hidden="true" data-handle data-place={p.id}>
 					<path
 						d={cellsPath(placeCells(p), p)}
 						onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
@@ -462,6 +494,7 @@
 					class="marker"
 					data-control-exempt="map marker on the canvas"
 					data-handle
+					data-place={p.id}
 					aria-label={mapName(p.name, locale) || p.id}
 					onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
 					onpointermove={dragMove}
@@ -494,8 +527,10 @@
 				<button
 					class="handle curve"
 					class:set={g.handleSet}
+					class:active={activeHandle === `gate-handle:${(selection as { id: string }).id}:${g.which}`}
 					data-control-exempt="canvas resize handle"
 					data-handle
+					data-drag="gate-handle:{(selection as { id: string }).id}:{g.which}"
 					style:transform="translate({h.x}px, {h.y}px)"
 					aria-label={m['creator.map_curve_handle']()}
 					title="{m['creator.map_curve_handle']()} · {g.handleSet ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()} – {m['creator.map_curve_reset_hint']()}"
@@ -511,8 +546,10 @@
 				<button
 					class="handle gate"
 					class:set={g.set}
+					class:active={activeHandle === `gate:${(selection as { id: string }).id}:${g.which}`}
 					data-control-exempt="canvas resize handle"
 					data-handle
+					data-drag="gate:{(selection as { id: string }).id}:{g.which}"
 					style:transform="translate({s.x}px, {s.y}px)"
 					aria-label={g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()}
 					title="{g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()} · {g.set ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()}"
@@ -533,8 +570,10 @@
 				<button
 					class="handle curve"
 					class:set={h.set}
+					class:active={activeHandle === `waypoint-handle:${selectedRoute.id}:${h.index}`}
 					data-control-exempt="canvas resize handle"
 					data-handle
+					data-drag="waypoint-handle:{selectedRoute.id}:{h.index}"
 					style:transform="translate({s.x}px, {s.y}px)"
 					aria-label={m['creator.map_curve_handle']()}
 					title="{m['creator.map_curve_handle']()} · {h.set ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()} – {m['creator.map_curve_reset_hint']()}"
@@ -557,7 +596,9 @@
 						class="handle"
 						data-control-exempt="canvas resize handle"
 						class:free={!isPlaceWaypoint(w)}
+						class:active={activeHandle === `waypoint:${selectedRoute.id}:${i}`}
 						data-handle
+						data-drag="waypoint:{selectedRoute.id}:{i}"
 						style:transform="translate({s.x}px, {s.y}px)"
 						aria-label={String(i + 1)}
 						title="{i + 1}: {isPlaceWaypoint(w) ? w.location : w.id}"
@@ -767,6 +808,11 @@
 			2px 0 0 #fff,
 			0 -2px 0 #fff,
 			0 2px 0 #fff;
+	}
+	/* the active handle – the only one a drag moves (the safeguard: a tap activates) */
+	.handle.active {
+		outline: var(--border-width-focus) solid var(--primary-cyan);
+		outline-offset: var(--focus-offset);
 	}
 	.handle {
 		position: absolute;
