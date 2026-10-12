@@ -1,3 +1,5 @@
+Status 2026-10-12: a dated report (2026-09-30; local dev ran on SQLite then). P1–P3 done; P4 (one request per chapter) came with the data refactor (DATA.md §3); P5–P7 → FEATURES 10.75.
+
 # PERFORMANCE — why the app feels slow (2026-09-30)
 
 Owner question: "Why does the entire app feel so slow? Is it because of the file-based system?"

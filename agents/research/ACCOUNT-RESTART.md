@@ -1,3 +1,5 @@
+Status 2026-10-12: concept, waits for the owner's answers Q1–Q9 (FEATURES 10.79). The map-only reset it mentions as "being built" is built (1ac465ca).
+
 # ACCOUNT-RESTART — play SCUTOONS again as a new identity, keep the physical items (concept, 2026-10-11)
 
 Research only – nothing built. Owner (2026-10-11): "einen Agenten starten, der ein Research macht, wie man ein Account

@@ -1,3 +1,5 @@
+Status 2026-10-12: vision, not built. Its "AI assistant in the creator" is superseded: AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md); the Ask panel is gone.
+
 # AUTOMATION — from story to finished webtoon (vision, owner 2026-09-30)
 
 Not built yet. This is the direction; it grows progressively as we have more data and refine stories.

@@ -1,3 +1,5 @@
+Status 2026-10-12: PARKED until February 2027 (owner). The dates below (building from 2026-11-02, show-ready 2027-02-01, the B.10 schedule) are void – a new schedule when the owner restarts it.
+
 # LIVE — performance mode (plan, final; not started)
 
 Owner 2026-10-07: plan only. **No development until the rest of the backlog is done**; building starts **Mon 2026-11-02**,

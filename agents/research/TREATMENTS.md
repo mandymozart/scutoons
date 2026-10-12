@@ -1,3 +1,5 @@
+Status 2026-10-12: concept, not built; superseded in part by STORYBOARD.md (Luma is the plan there, FLORA research only).
+
 # TREATMENTS — script scene → shot treatment, automated in the creator (concept, 2026-10-05)
 
 Concept only, nothing built. Precursor: `workflows/scenes/generate-shots.md` (manual, FLORA). Pipeline context:

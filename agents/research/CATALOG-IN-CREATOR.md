@@ -1,3 +1,5 @@
+Status 2026-10-12: research; a draft is played through in an owner-requested worktree of its own – the owner reviews and merges it.
+
 # CATALOG-IN-CREATOR – should the catalog move from the admin into the creator? (research, 2026-10-12)
 
 ## Owner decisions (2026-10-12)

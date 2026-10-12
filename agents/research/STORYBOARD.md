@@ -1,3 +1,5 @@
+Status 2026-10-12: research + plan; M1 is built on branch `storyboard` (the owner-requested checkout C:\Development\scutoons-storyboard) – FEATURES 10.59. The owner's open questions per scene: §10.
+
 # STORYBOARD — script → stacked shots → schematic storyboard → chapter draft + image prompts (research, 2026-10-09)
 
 Research only, nothing built. Illustration: [storyboard-example.html](storyboard-example.html) (one scene, hand-written
@@ -763,6 +765,23 @@ prompts"), a side line after 10.28 (MCP), and a one-line pointer in AUTOMATION.m
 if the owner agrees.
 
 ## 10. Open questions for the owner
+
+**Per scene of ch3 (from the storyboards' notes, run 2026-10-09):**
+- 25: PLF gets off a train (end of ch2) or a bus?
+- 26: what is the sphere (chrome mirror ball assumed; a hint at the server farm?); PLF's lines – speech or thought?
+- 27: the script switches to plural ("Sie atmeten") – intended?
+- 28: TIGER = catpope / mountaintiger (the registry) or its own character ("Anger Stage Character")? Gone after the
+  fall? Added SFX AAAAAHHH! / WUMMS ok?
+- 29: the Aquinas quote ("man of one book"?), English or German; PAH as lettering? Who plays YPLF (new, Wanted)?
+- 30: book subtitles readable (tap → text)? The CHOR (text, audio, both)? PLF's eyes already cat eyes?
+- 31: the riddle (four words in order) – wanted, which mechanic? The "digital paw" – first transformation?
+- 32: KRÄHENWESEN = crows? (not in 25–30); "Trans" = Trance? CATS.MANIFEST as a tappable full text?
+- 33: who streams (Cat Pope or PLF)? A real video? The studio's place (not on the map)? "Apple Store" ok? A reader
+  poll for the comments line?
+- 34: Kamehameha (name, how close to the original); end on the cemetery or at the door (overlap with 35)? "NO HE SAID"
+  – end of ch3, start of ch4, or not in the toon?
+- All: PLF's pronoun switches in the script (sie / er) – the storyboards use "sie" throughout.
+
 
 1. **The formats:** viewport · vertical · loop360 (+ the one-way sideways strip) – complete? Is "horizontal loop 360"
    the Swiper with `loop` + `freeMode` (drag, wraps), or should the pinned strip learn to loop?

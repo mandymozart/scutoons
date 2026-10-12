@@ -1,3 +1,5 @@
+Status 2026-10-12: phases 1–4 BUILT (how they work: the part from "later the same day" on); open: an item's own pickup sound (FEATURES 10.56). The title's "not started" is history.
+
 # FX — reader feedback cues (plan, not started)
 
 Owner 2026-10-07: plan only; **built after the rest of the backlog** (BACKLOG 10.56). The reader's own effects – no
