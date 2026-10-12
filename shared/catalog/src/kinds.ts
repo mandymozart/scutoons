@@ -2,8 +2,8 @@
 // (catalog-editor.svelte) – tab label, list columns, a new entry's data, which keys the form shows (the rest is the
 // "Advanced" JSON), and what the kind allows (create, delete, reorder, a confirmation before saving).
 import type { CatalogEntry, CatalogKind } from '@scutoons/api';
-import { getLocale } from '$lib/paraglide/runtime.js';
-import { m } from '$lib/paraglide/messages.js';
+import { catalogLocale as getLocale } from './setup.ts';
+import { m } from './messages.ts';
 
 export type Data = Record<string, any>;
 

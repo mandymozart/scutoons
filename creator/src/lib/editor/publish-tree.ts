@@ -11,9 +11,13 @@
  *
  * Levels: everything (the platform: every toon + the world – map, characters, settings …) → a toon (all its files) → a
  * season (itself, its chapters and their scene files) → a chapter (itself and its scene files).
+ *
+ * Catalog entries (`item:<id>` …, agents/CATALOG-IN-CREATOR.md) are files of the world level (no toon in their key):
+ * the server decides who publishes them (their toon is the entry's; a physical change needs the `physical` rule) –
+ * a 403 review_required puts the line into the submit for review instead.
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
-import type { ContentIndexEntity } from '@scutoons/api';
+import { ApiError, catalogDocKey, type ContentIndexEntity } from '@scutoons/api';
 import { contentApi, contentIndex, publishMany, withContent } from '$lib/api.ts';
 import { fileLabel } from '$lib/labels.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
@@ -40,7 +44,7 @@ export function inScope(key: string, scope: PublishScope): boolean {
 		case 'files':
 			return scope.keys.includes(key);
 		case 'toon':
-			return key.split(':')[1] === scope.toon || key === `toon:${scope.toon}`;
+			return !catalogDocKey(key) && (key.split(':')[1] === scope.toon || key === `toon:${scope.toon}`);
 		case 'season':
 			return key === `season:${scope.toon}:${scope.number}` || scope.chapters.some((n) => chapter(scope.toon, n));
 		case 'chapter':
@@ -48,8 +52,11 @@ export function inScope(key: string, scope: PublishScope): boolean {
 	}
 }
 
-/** the order in a list: the level's own files first, then down the tree */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route'];
+/**
+ * the order in a list: the level's own files first, then down the tree; the catalog last, in the order its entries
+ * refer to each other (an item names its edition / album, a product its item, a recipe its items)
+ */
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route', 'characters', 'character', 'edition', 'album', 'item', 'product', 'recipe'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
@@ -151,15 +158,26 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 	const forReview: { key: string; version: number }[] = [];
 	// the ticked files go live together, in one transaction (a route and the new place it runs through never half);
 	// the version the list showed – a newer save in between is not published unseen
-	const live: { key: string; version: number }[] = [];
+	let live: { key: string; version: number }[] = [];
 	for (const file of files) {
 		if (!chosen.has(file.key)) continue;
 		if (reviews.needsReview(file.toon)) forReview.push({ key: file.key, version: file.latest });
 		else live.push({ key: file.key, version: file.latest });
 	}
-	if (live.length) {
-		await publishMany(live);
-		done.push(...live.map((w) => w.key));
+	// the catalog entries too (publishing writes the catalog table): the server's rules decide (a catalog entry's toon,
+	// a physical change – Reviews) and name the keys that need a review – nothing went out; those are submitted, the
+	// rest goes live together
+	while (live.length) {
+		try {
+			await publishMany(live);
+			done.push(...live.map((w) => w.key));
+			break;
+		} catch (e) {
+			const keys: unknown = e instanceof ApiError && e.code === 'review_required' ? e.body?.keys : null;
+			if (!Array.isArray(keys) || !keys.length) throw e;
+			forReview.push(...live.filter((w) => keys.includes(w.key)));
+			live = live.filter((w) => !keys.includes(w.key));
+		}
 	}
 	let submitted = '';
 	if (forReview.length) {

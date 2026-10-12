@@ -4,6 +4,7 @@
 	// scenes). Shown only when there is something in it (less UI).
 	import { askDialog, Badge } from '@scutoons/ui';
 	import { entityOf, parseEntityKey } from '@scutoons/content';
+	import { catalogDocKey } from '@scutoons/api';
 	import type { ContentReview } from '@scutoons/api';
 	import { contentApi } from '$lib/api.ts';
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
@@ -50,6 +51,9 @@
 	function href(g: Group): string {
 		const ref = parseEntityKey(g.items[0].key);
 		const toon = g.toon;
+		// a catalog entry (agents/CATALOG-IN-CREATOR.md): its page in the catalog
+		const doc = catalogDocKey(g.items[0].key);
+		if (doc) return `/catalog/${doc.kind}?id=${encodeURIComponent(doc.id)}`;
 		switch (ref?.kind) {
 			case 'chapter':
 			case 'scene':

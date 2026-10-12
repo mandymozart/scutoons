@@ -354,6 +354,8 @@
 		"review_rule": "Rule",
 		"rule_reviewer": "Reviewer",
 		"rule_needs_review": "Needs review",
+		"rule_physical": "Physical items",
+		"rule_physical_hint": "Publishes physical catalog changes (edition, product, physical items, shop) and reviews them for others",
 		"review_add": "Add",
 		"review_remove": "Remove",
 		"review_added": "{rule} for {toon} added.",
@@ -578,7 +580,9 @@
 		"import_unknown_item": "{file}: no item with this id",
 		"import_unknown_variant": "{file}: {item} has no such variant",
 		"import_unknown_recipe": "{file}: no recipe with this id",
-		"import_recipes_hint": "Files named <recipe-id>.png: WebP (at most 1024 px), uploaded to <toon>/items/recipes/, set as the recipe's picture (without one, readers see the output item's picture)"
+		"import_recipes_hint": "Files named <recipe-id>.png: WebP (at most 1024 px), uploaded to <toon>/items/recipes/, set as the recipe's picture (without one, readers see the output item's picture)",
+		"in_creator": "This part of the catalog moves into the creator: drafts, versions and review there. Physical changes need the rule \"Physical items\" here too.",
+		"in_creator_link": "Open in the creator"
 	},
 	"content": {
 		"title": "Content",

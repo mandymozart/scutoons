@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { problemFor, type CatalogFormProps } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
+	import { problemFor, type CatalogFormProps } from '../kinds.ts';
+	import { m } from '../messages.ts';
+	import CatalogField from './catalog-field.svelte';
 
 	/** A permission (server-only: what a code type may grant): the id and what it allows, in words */
 	let { data = $bindable(), problems }: CatalogFormProps = $props();

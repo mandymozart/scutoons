@@ -254,18 +254,20 @@ final class EntityStore
 
     /**
      * POST /entities/publish { versions: [{ key, version? }] } → { status, published: [{ key, version }] } – several
-     * documents live at once (one transaction: readers never see half of a change that spans documents)
+     * documents live at once (one transaction: readers never see half of a change that spans documents). `$publish`
+     * publishes a row itself when it returns true (the catalog documents write their table – CatalogDocs::publishIn).
      * @param list<array{key: string, version: ?int}> $versions
+     * @param (callable(array<string, mixed>): bool)|null $publish
      * @return array<string, mixed>
      */
-    public function publishMany(array $versions): array
+    public function publishMany(array $versions, ?callable $publish = null): array
     {
-        $published = $this->db->transaction(function () use ($versions) {
+        $published = $this->db->transaction(function () use ($versions, $publish) {
             $out = [];
             foreach ($versions as ['key' => $key, 'version' => $version]) {
                 $row = $version !== null ? $this->byId($version) : $this->latest($key);
                 if (!$row || $row['entity_key'] !== $key) throw new ApiError(404, 'not_found', "Unknown version of $key.", ['key' => $key]);
-                $this->setPublished($row);
+                if (!$publish || !$publish($row)) $this->setPublished($row);
                 $out[] = ['key' => $key, 'version' => self::meta((array) $this->byId((int) $row['id']), $this->authorEmail($row['author'] ?? null))];
             }
             return $out;

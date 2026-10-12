@@ -354,6 +354,8 @@
 		"review_rule": "Regel",
 		"rule_reviewer": "Reviewer",
 		"rule_needs_review": "Braucht Review",
+		"rule_physical": "Physische Items",
+		"rule_physical_hint": "Veröffentlicht physische Katalog-Änderungen (Edition, Produkt, physische Items, Shop) und prüft sie für andere",
 		"review_add": "Hinzufügen",
 		"review_remove": "Entfernen",
 		"review_added": "{rule} für {toon} hinzugefügt.",
@@ -578,7 +580,9 @@
 		"import_unknown_item": "{file}: kein Item mit dieser ID",
 		"import_unknown_variant": "{file}: {item} hat keine solche Variante",
 		"import_unknown_recipe": "{file}: kein Rezept mit dieser ID",
-		"import_recipes_hint": "Dateien namens <rezept-id>.png: WebP (höchstens 1024 px), hochgeladen nach <toon>/items/recipes/, als Bild des Rezepts gesetzt (ohne eigenes sehen Lesende das Bild des Ergebnis-Items)"
+		"import_recipes_hint": "Dateien namens <rezept-id>.png: WebP (höchstens 1024 px), hochgeladen nach <toon>/items/recipes/, als Bild des Rezepts gesetzt (ohne eigenes sehen Lesende das Bild des Ergebnis-Items)",
+		"in_creator": "Dieser Teil des Katalogs zieht in den Creator: dort mit Entwürfen, Versionen und Review. Physische Änderungen brauchen auch hier die Regel „Physische Items“.",
+		"in_creator_link": "Im Creator öffnen"
 	},
 	"content": {
 		"title": "Inhalte",

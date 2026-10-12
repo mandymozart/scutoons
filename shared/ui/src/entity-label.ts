@@ -29,6 +29,8 @@ export interface EntityLabels {
 	events: string;
 	/** the toon's screenplay (one per language, creator only) */
 	script: string;
+	/** a catalog entry's document (`item:camera` → kind `item`, id `camera`; agents/CATALOG-IN-CREATOR.md) */
+	catalog: (kind: string, id: string) => string;
 }
 
 export const ENTITY_LABELS: EntityLabels = {
@@ -49,8 +51,11 @@ export const ENTITY_LABELS: EntityLabels = {
 	route: (id) => `Route ${id}`,
 	character: (id) => `Character ${id}`,
 	events: 'Events',
-	script: 'Script'
+	script: 'Script',
+	catalog: (kind, id) => `${kind[0].toUpperCase()}${kind.slice(1)} ${id}`
 };
+
+const CATALOG = ['item', 'recipe', 'album', 'product', 'edition'];
 
 const NAMED: Record<string, keyof EntityLabels> = {
 	'toon-settings': 'toon',
@@ -72,7 +77,8 @@ const NAMED: Record<string, keyof EntityLabels> = {
 /** `chapter:catpope:2` → "Chapter 2", `season:catpope:1:de` → "Season 1", `scene:catpope:2:scene-14` → "Scene 14" … */
 export function entityLabel(key: string, labels: Partial<EntityLabels> = {}): string {
 	const l = { ...ENTITY_LABELS, ...labels };
-	const [kind, , number, scene] = key.split(':');
+	const [kind, id, number, scene] = key.split(':');
+	if (CATALOG.includes(kind) && id) return l.catalog(kind, id);
 	if (kind === 'chapter' && number) return l.chapter(Number(number));
 	if (kind === 'season' && number) return l.season(Number(number));
 	if (kind === 'scene' && scene) return l.scene(scene.replace(/^scene-/, ''));

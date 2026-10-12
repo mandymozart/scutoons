@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { FileSlot, MediaSlot } from '@scutoons/media';
-	import { problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
-	import CatalogRows from '$lib/components/catalog/catalog-rows.svelte';
-	import LocaleText from '$lib/components/catalog/locale-text.svelte';
+	import { problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
+	import { m } from '../messages.ts';
+	import CatalogField from './catalog-field.svelte';
+	import CatalogRows from './catalog-rows.svelte';
+	import LocaleText from './locale-text.svelte';
 
 	/**
 	 * An album (agents/ITEMS.md "Players, albums, related items"): the music media items carry – title, cover, the

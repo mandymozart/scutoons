@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { listText, parseList, problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
-	import CatalogRows from '$lib/components/catalog/catalog-rows.svelte';
+	import { listText, parseList, problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
+	import { m } from '../messages.ts';
+	import { adminHref } from '../setup.ts';
+	import CatalogField from './catalog-field.svelte';
+	import CatalogRows from './catalog-rows.svelte';
 
 	/** An edition (the QR codes' editions: batches, certificates): name, numbers, creators and its variants (sizes / colours) */
 	let { data = $bindable(), id, creating, lists, problems }: CatalogFormProps = $props();
@@ -45,8 +46,8 @@
 
 {#if !creating && id}
 	<p class="links">
-		<a href="/codes?edition_id={encodeURIComponent(id)}">{m['nav.codes']()}</a>
-		<a href="/batches?edition_id={encodeURIComponent(id)}">{m['nav.batches']()}</a>
+		<a href={adminHref(`/codes?edition_id=${encodeURIComponent(id)}`)}>{m['nav.codes']()}</a>
+		<a href={adminHref(`/batches?edition_id=${encodeURIComponent(id)}`)}>{m['nav.batches']()}</a>
 	</p>
 {/if}
 

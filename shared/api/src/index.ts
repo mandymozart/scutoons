@@ -22,6 +22,10 @@ export {
 	type BatchSave,
 	type ContentReview,
 	type ReviewOverview,
+	type CatalogDoc,
+	type CatalogDocKind,
+	CATALOG_DOC_KINDS,
+	catalogDocKey,
 	needsReview
 } from './content.ts';
 export { createLibraryApi, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';

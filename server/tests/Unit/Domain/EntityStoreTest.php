@@ -56,7 +56,10 @@ final class EntityStoreTest extends TestCase
         self::assertSame([$restored['version']['id'], $v2['version']['id'], $id1], array_column($store->versions('chapter:smoke:1:de')['versions'], 'id'));
         self::assertSame(1, $store->unpublish('chapter:smoke:1:de')['unpublished']);
         $store->save($user, EntityKey::parse('characters'), (object) ['content' => ['characters' => []]]);
-        self::assertSame(['characters'], array_column($store->index('')['entities'], 'key'), 'toon= empty: the platform-wide entities');
+        // the catalog documents (item:<id> …, CatalogDocs) have no toon in their key – platform-wide too
+        $platform = array_column($store->index('')['entities'], 'key');
+        self::assertSame(['characters'], array_values(array_filter($platform, fn(string $k) => !EntityKey::parse($k)->isCatalog())), 'toon= empty: the platform-wide entities');
+        self::assertContains('item:camera', $platform);
     }
 
     public function testKeyScheme(): void

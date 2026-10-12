@@ -24,7 +24,9 @@
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
 	import { entities, parseEntityKey, toonLanguages } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
-	import { VIEWER_URL } from '$lib/config.ts';
+	import { ADMIN_URL, VIEWER_URL } from '$lib/config.ts';
+	import { setupCatalog } from '@scutoons/catalog';
+	import { CATALOG_LABELS, isCatalogPageKind } from '$lib/editor/catalog-docs.ts';
 	import { setupMedia } from '@scutoons/media';
 	import { assetsApi, contentIndex, library } from '$lib/api.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -42,6 +44,8 @@
 	const session = setCreatorSession();
 	// the shared media tooling (@scutoons/media: asset picker, media slots, uploads) uses this app's API, CDN and locale
 	setupMedia({ assets: assetsApi, cdn: asset, locale: getLocale });
+	// the catalog editors (@scutoons/catalog, agents/CATALOG-IN-CREATOR.md): texts in this app's locale, links to the admin
+	setupCatalog({ locale: getLocale, locales, adminUrl: ADMIN_URL });
 
 	onMount(() => {
 		// magic link from the login mail: `<creator origin>/?login=<token>`; else the shared session (single sign-on)
@@ -108,6 +112,12 @@
 		}
 		// the world map (agents/MAP.md §4.1): Creator / Karte / <selection – added by the builder>
 		if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
+		// the catalog (agents/CATALOG-IN-CREATOR.md): Creator / Katalog / <kind>
+		if (route === '/catalog/[kind]') {
+			out.push({ href: '/catalog/items', label: m['creator.catalog']() });
+			const kind = page.params.kind;
+			if (isCatalogPageKind(kind)) out.push({ href: `/catalog/${kind}`, label: CATALOG_LABELS[kind]() });
+		}
 		// the SCUTOONS-wide Flow (owner 2026-10-06): Creator / Ablauf
 		if (route === '/flow') out.push({ href: '/flow', label: m['creator.flow_universe']() });
 		if (!toonId) return out;
@@ -160,10 +170,15 @@
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
 		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
 		{ href: '/map', label: m['creator.map'](), tab: 'map' },
+		{ href: '/catalog/items', label: m['creator.catalog'](), tab: 'catalog', title: m['creator.catalog_hint']() },
 		{ href: '/flow', label: m['creator.flow_universe'](), tab: 'flow', title: m['creator.flow_universe_hint']() }
 	]);
 	const universeCurrent = (tab: string | null) =>
-		tab === 'map' || tab === 'flow'
+		tab === 'catalog'
+			? page.route.id === '/catalog/[kind]'
+				? 'page'
+				: undefined
+			: tab === 'map' || tab === 'flow'
 			? page.route.id === `/${tab}`
 				? 'page'
 				: undefined

@@ -19,3 +19,8 @@ export const CDN_SERVER: string = trim(
 export const VIEWER_URL: string = trim(
 	import.meta.env.VITE_WWW_URL || import.meta.env.VITE_VIEWER_URL || (import.meta.env.PROD ? 'https://scutoons.com' : `http://localhost:${ports.viewer}`)
 );
+
+/** The admin: links to codes / batches from the catalog's editions (`VITE_ADMIN_URL`; dev: shared/dev-ports.json). */
+export const ADMIN_URL: string = trim(
+	import.meta.env.VITE_ADMIN_URL || (import.meta.env.PROD ? 'https://admin.scutoons.com' : `http://localhost:${ports.admin}`)
+);

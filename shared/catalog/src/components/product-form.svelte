@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { MediaSlot } from '@scutoons/media';
-	import { listText, parseList, problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
-	import CatalogRows from '$lib/components/catalog/catalog-rows.svelte';
-	import CheckField from '$lib/components/catalog/check-field.svelte';
-	import LocaleText from '$lib/components/catalog/locale-text.svelte';
+	import { listText, parseList, problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
+	import { m } from '../messages.ts';
+	import CatalogField from './catalog-field.svelte';
+	import CatalogRows from './catalog-rows.svelte';
+	import CheckField from './check-field.svelte';
+	import LocaleText from './locale-text.svelte';
 
 	/**
 	 * A shop product (`Product` in @scutoons/content, the old config/products.json entry): the digital item it belongs

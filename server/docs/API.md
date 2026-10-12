@@ -658,6 +658,27 @@ Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { i
 `PUT|DELETE /users/{id}/review-rules/{toon}/{rule}` → `{ changed, review_rules }` (`400 invalid_toon|invalid_rule`);
 `GET /users/{id}` includes `review_rules`. Mails name the toon (its catalog name) and link to the creator dashboard `CREATOR_URL/` ("To review" / "Your submissions").
 
+### Catalog documents and the `physical` rule (2026-10-12 draft, migration `2026-10-12-catalog-docs` – agents/CATALOG-IN-CREATOR.md)
+
+Every item, recipe, album, product and edition is also a versioned entity: `item:<id>`, `recipe:<id>`, `album:<id>`,
+`product:<id>`, `edition:<id>` (no toon segment; ids as in the catalog, upper case allowed). `/entities` works on them like
+on content: `PUT` stores a draft (checked as a catalog entry: `422 invalid_catalog { problems }`; a reference to an entry
+that is only a draft passes), `publish` makes the version the published one AND writes it into the catalog table
+(`catalog_history` note `published v<n>`; `422 invalid_catalog` rolls back), `restore` as usual, **`unpublish` →
+`422 not_supported`**. `GET /catalog/docs/<kind>` (kind = items | recipes | albums | products | editions, role creator)
+→ `{ kind, entries: [{ id, key, latest, published, live, draft, versions, latest_at, latest_author, latest_message,
+physical, toons, content }] }`. An admin write to the table (`/admin/catalog/…`, undo, relink) becomes the entry's
+published version; a delete leaves it unpublished.
+
+Reviews apply to them with the entry's toon (`toon` field; a recipe: its output item's; none = `*` – only the `*` rules).
+A **physical** change – the entry before or after is an item with `kind: physical` / `edition_id` / `product` (a
+variant's too) / `max_world`, a recipe whose output is such an item, an album with `owners` access, any product or
+edition; a change readers don't see (an accepted warning) is not – is published only by an account with the third rule
+**`physical`** for every toon it touches; everyone else gets `403 review_required { toons, physical: true }` and submits.
+Its submits go to (and are decided only by) the `physical` accounts (`409 no_reviewer { toon, rule: physical }` when
+there is none); `GET /reviews` adds `physical_of`. The admin's direct catalog writes (`PUT|DELETE /admin/catalog/<kind>/<id>`,
+undo) answer to the same rule: `403 review_required`.
+
 ## Library (the reader's entities, agents/DATA.md)
 
 Public GETs composed from the content store's **published** documents (the configuration format of `@scutoons/content`

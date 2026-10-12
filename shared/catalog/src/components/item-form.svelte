@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { AVATAR_SLOTS, FX_SOUNDS, READER_EFFECTS } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
-	import { problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
-	import CatalogRows from '$lib/components/catalog/catalog-rows.svelte';
-	import CheckField from '$lib/components/catalog/check-field.svelte';
-	import LocaleText from '$lib/components/catalog/locale-text.svelte';
-	import RespawnField from '$lib/components/catalog/respawn-field.svelte';
+	import { problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
+	import { m } from '../messages.ts';
+	import CatalogField from './catalog-field.svelte';
+	import CatalogRows from './catalog-rows.svelte';
+	import CheckField from './check-field.svelte';
+	import LocaleText from './locale-text.svelte';
+	import RespawnField from './respawn-field.svelte';
 
 	/**
 	 * An item (agents/ITEMS.md "Item definition"): texts per language, kind / category, the picture (a slot; uploads go

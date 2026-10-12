@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { RECURRENCE_UNITS, intervalParts, itemRespawnProblems, type ItemRespawn, type RecurrenceInterval, type RecurrenceUnit } from '@scutoons/content';
-	import { m } from '$lib/paraglide/messages.js';
+	import { m } from '../messages.ts';
 
 	/**
 	 * When a picked-up placed item reappears (agents/ITEMS.md "Placed items" → "Respawn"), part of the item form (was

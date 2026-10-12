@@ -5,7 +5,7 @@
 import type { CatalogEntry } from '@scutoons/api';
 import { standardImage, uploadOrReplace } from '@scutoons/media';
 import { admin } from '$lib/api.ts';
-import type { Data } from './kinds.ts';
+import type { Data } from '@scutoons/catalog';
 
 export const MAX_SIDE = 1024;
 

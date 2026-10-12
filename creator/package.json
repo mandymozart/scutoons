@@ -17,6 +17,7 @@
 		"@scutoons/api": "*",
 		"@scutoons/auth": "*",
 		"@scutoons/content": "*",
+		"@scutoons/catalog": "*",
 		"@scutoons/media": "*",
 		"@scutoons/reader": "*",
 		"@scutoons/tokens": "*",
