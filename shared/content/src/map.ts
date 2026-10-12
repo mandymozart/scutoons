@@ -660,6 +660,24 @@ export function paintRuns(runs: readonly CellRun[], touched: readonly HexCell[],
 	for (const r of [...rows.keys()].sort((x, y) => x - y)) for (const [a, b] of rows.get(r)!.sort((x, y) => x[0] - y[0])) out.push([r, a, b]);
 	return out;
 }
+/** a cover's row runs as a lookup: is a cell in it? (sorted runs per row, a binary search – fast for big covers) */
+export function runsIndex(runs: readonly CellRun[]): (cell: HexCell) => boolean {
+	const rows = new Map<number, [number, number][]>();
+	for (const [r, a, b] of runs) (rows.get(r) ?? rows.set(r, []).get(r)!).push([a, b]);
+	for (const list of rows.values()) list.sort((x, y) => x[0] - y[0]);
+	return ({ q, r }) => {
+		const list = rows.get(r);
+		if (!list) return false;
+		let lo = 0, hi = list.length - 1;
+		while (lo <= hi) {
+			const mid = (lo + hi) >> 1, [a, b] = list[mid];
+			if (q < a) hi = mid - 1;
+			else if (q > b) lo = mid + 1;
+			else return true;
+		}
+		return false;
+	};
+}
 /** the region whose cover holds a world point (the first in list order), or null */
 export function regionAt<T extends { cells: readonly CellRun[] }>(regions: readonly T[], p: Point): T | null {
 	const c = hexCellAt(p);

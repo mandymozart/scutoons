@@ -16,6 +16,7 @@
 		placeCells,
 		placeCellOffsets,
 		paintRuns,
+		runsIndex,
 		runsPaths,
 		hexCellAt,
 		placeImageTarget,
@@ -687,7 +688,9 @@
 		const id = regionBrush.region;
 		const region = id && map ? map.regions?.find((r) => r.id === id) : undefined;
 		if (!id || !region || !map) return null;
-		const others = (map.regions ?? []).filter((r) => r.id !== id);
+		// the other regions' covers, one row index (sorted runs per row): a touched cell is checked by a binary search –
+		// comparing each against every run of every region took seconds for a big stroke (owner 2026-10-12)
+		const taken = runsIndex((map.regions ?? []).filter((r) => r.id !== id).flatMap((r) => r.cells ?? []));
 		return {
 			cells: [],
 			bulk: true,
@@ -696,8 +699,7 @@
 			onchange: () => {},
 			onstroke: (touched) =>
 				editRegion(doc, id, (r) => {
-					const free = (c: { q: number; r: number }) => !others.some((o) => o.cells.some(([row, a, b]) => row === c.r && c.q >= a && c.q <= b));
-					r.cells = paintRuns(r.cells ?? [], touched, regionBrush.mode, free);
+					r.cells = paintRuns(r.cells ?? [], touched, regionBrush.mode, (c) => !taken(c));
 				})
 		};
 	});
