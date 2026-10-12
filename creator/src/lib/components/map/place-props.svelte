@@ -148,6 +148,18 @@
 </fieldset>
 </div>
 
+<div class="tab" data-tab="place">
+<!-- where routes run into and out of the diorama (BACKLOG 10.66 (4), owner 2026-10-12: "the computed ones first, then
+     adjustable"): computed toward the neighbouring waypoints; dragging a gate's handle on the canvas sets it -->
+<fieldset data-testid="place-gates">
+	<legend>{m['creator.map_gates']()}</legend>
+	<p class="hint">{m['creator.map_gates_hint']({ entry: place.gates?.entry ? m['creator.map_gate_set']() : m['creator.map_gate_auto'](), exit: place.gates?.exit ? m['creator.map_gate_set']() : m['creator.map_gate_auto']() })}</p>
+	{#if place.gates}
+		<button type="button" class="ghost" onclick={() => editPlace(doc, place.id, (p) => void delete p.gates)} data-testid="place-gates-reset">{m['creator.map_gates_reset']()}</button>
+	{/if}
+</fieldset>
+</div>
+
 <div class="tab" data-tab="view">
 <fieldset data-testid="place-view">
 	<legend>{m['creator.map_place_view']()}</legend>

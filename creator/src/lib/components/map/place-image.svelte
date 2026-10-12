@@ -98,7 +98,7 @@
 	<legend>{m['creator.map_image']()}</legend>
 	<!-- a slot with the asset picker (owner 2026-10-03); uploads go to the place illustrations' folder (`<toon>/map/places/`) -->
 	<div class="slots">
-		<MediaVariantsSlot toon="" kind="image" label={m['creator.map_image']()} value={paintedMedia} place={placeImagePath(place).replace(/[^/]+$/, '')} onchange={setPainted} testid="place-image-slot" />
+		<MediaVariantsSlot toon="" kind="image" label={m['creator.map_image_painted']()} value={paintedMedia} place={placeImagePath(place).replace(/[^/]+$/, '')} onchange={setPainted} testid="place-image-slot" />
 		{#if place.image?.src}
 			<!-- the plaster model: the same diorama unpainted – the reader's unlock reveal fades from it to the painted one -->
 			<MediaVariantsSlot toon="" kind="image" label={m['creator.map_image_plaster']()} value={plasterMedia} place={placeImagePath(place).replace(/[^/]+$/, '')} onchange={setPlaster} testid="place-plaster-slot" />

@@ -868,6 +868,20 @@ order. Lost on purpose: the silent catch-up for readers who start in the middle 
 **Order on production (done 2026-10-11):** the SQL first (the published viewer already runs unlockLocation), empty the API's library
 cache, then deploy.
 
+### 8.5c Route gates (owner 2026-10-12, BACKLOG 10.66 (4))
+
+Three drafts on the map (a gates, b tunnel, c behind) → the owner picked **A** ("aber die Compute ist ja erstmal das, was
+automatisch gemacht wird. Und dann kann man das noch anpassen"): a route runs into a place's diorama at its **entry gate**
+and on from its **exit gate** – nothing is drawn across the place; a route starting at a place leaves from its exit, one
+ending there comes in at its entry. Computed (`placeGate`): the point on the diorama's ground ellipse (half size ×
+`GATE_RADIUS` 0.5, flattened `GATE_FLAT` 0.6) toward the previous / next waypoint; set by the author: `MapPlace.gates
+{ entry?, exit? }`, offsets from the place's point in world units (validated: x / y numbers). `routeGeometry` (content,
+tested) gives the lines + the gate marks; `MapRoutes` draws the lines under the places (`layer="lines"`) and the marks
+over them (`layer="gates"`, a small round mark: paper inside, the route's colour around) – the same in the viewer and the
+builder. Builder: the selected place shows one handle per gate its routes use (hollow = computed, filled = set;
+"in" / "out"), dragging one sets the offset (a tenth of a unit); the place form's "Route gates" says computed / set and
+"Back to computed" drops `gates`. One entry and one exit per place – every route through it uses them.
+
 ### 8.6 Not built yet
 
 M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the
@@ -877,12 +891,17 @@ post-processing §5.3).
 
 ### 8.7 Checks
 
-- `scripts/check-map.mjs` (headless CDP, test user; `--viewer --creator --api`): reader 390 de + 1440 en (sea colour, start
-  view, empty for a fresh guest, progress unlocks + badge + halo → seen, pan, "+", wheel, no overlapping labels, card +
-  chapter-link rule, "Orte", universe-wide in the sandbox), member (guest discoveries merge on sign-in), builder (add / name →
-  id / drag a place, draw a route, save, place image on its ground point + previews, reader-view sea colours, Wanted images →
-  Map places = every place without an image, Set start view, the bidirectional unlock). Restores the member's world state,
-  the published map and toon entry. 42 checks.
+- `scripts/check-map.mjs` (headless CDP, test user; `--viewer --creator --api`; `SCUTOONS_DB_NAME` for a worktree's
+  database): reader 390 de + 1440 en (sea colour, start view, empty for a fresh guest, unlocked places put into the guest's
+  world state → kept + badge + "new" look → seen, pan, "+" key, wheel, no overlapping labels, card + chapter-link rule,
+  "Orte", universe-wide when another toon is public), reading (a guest with a promo code scrolls chapter 1 – chapter 2 too
+  when it is published – slice by slice: each intersect `unlockLocation` event of the chapter documents unlocks its place
+  at its slice, not before, with the toast, the map stays closed; §8.5b), member (guest discoveries merge on sign-in),
+  builder (read only: every event's place is on the map, the problems table warns about exactly the hidden places no
+  event unlocks – the flow index's `placeUnlocks` – and follows a toggled "hidden"; then, only when the map has no
+  unpublished draft: add / name → id / drag a place, draw a route, save, place image on its ground point + previews,
+  reader-view sea colours, Wanted images → Map places = every place without an image, Set start view). Restores the
+  member's world state, the published map and toon entry. 47 checks (2026-10-12, scutoons_ui).
 - Unit: `shared/content/test/map.test.ts`, `LibraryTest` (world map, visibility, view + sea colour, the old bundle fields),
   `InventoryServiceTest::testWorldProgressMergesTheMapState`. Contract: `entities-smoke` (/library/map), `api-smoke` (the
   world-state merge incl. a stale write), `entities-compare` (§8.2).

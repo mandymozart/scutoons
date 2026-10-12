@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ActionBar, Badge, ToonAvatar } from '@scutoons/ui';
+	import { ActionBar, Badge, PhoneBar, ToonAvatar, type PhoneBarItem } from '@scutoons/ui';
 	import { statusWord } from '$lib/editor/status-word.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { library } from '$lib/api.ts';
@@ -41,33 +41,36 @@
 			publishing = false;
 		}
 	}
+	// the bar (UI-CONCEPTS E.10, the editors' one bar – every width since 2026-10-12): Publish everything · the reader – icon + a small word
+	const phoneItems = $derived<PhoneBarItem[]>([
+		{ id: 'publish', icon: 'upload-cloud', label: m['creator.publish'](), disabled: publishing || !toons.length, run: publishEverything, testid: 'publish-everything' },
+		{ id: 'reader', icon: 'book-open', label: m['creator.reader'](), run: () => window.open(VIEWER_URL, '_blank'), testid: 'open-reader' }
+	]);
 </script>
 
 <div class="creator-page">
 	<main class="browser">
 		<ReviewList />
-		<section>
-			<h2>{m['creator.toons']()}</h2>
-			{#if error}<p class="error">{error}</p>{/if}
-			<ul class="toons">
-				{#each toons as toon (toon.id)}
-					<li>
-						<a href="/{toon.id}" data-testid="toon-{toon.id}">
-							<ToonAvatar src={toon.avatar ? asset(`${toon.id}/${toon.avatar}`) : null} name={name(toon)} size="4rem" />
-							<span>{name(toon)}</span>
-							<!-- owner 2026-10-02: no id, the state as a filled label -->
-							<span class="meta"><Badge tone={toon.status === 'published' ? 'published' : toon.status === 'coming-soon' ? 'soon' : 'draft'}>{statusWord(toon.status)}</Badge></span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</section>
+		<!-- owner 2026-10-12, approved from the draft: "mehr Konzepte aus der Mobile in die Desktop-Variante", "Platz sparen": no "Toons"
+		     heading (the sidebar / drawer says it), one compact row per toon – avatar · name · state – at every width -->
+		{#if error}<p class="error">{error}</p>{/if}
+		<ul class="toons" aria-label={m['creator.toons']()}>
+			{#each toons as toon (toon.id)}
+				<li>
+					<a href="/{toon.id}" data-testid="toon-{toon.id}">
+						<ToonAvatar src={toon.avatar ? asset(`${toon.id}/${toon.avatar}`) : null} name={name(toon)} size="2.5rem" />
+						<span class="name">{name(toon)}</span>
+						<!-- owner 2026-10-02: no id, the state as a filled label -->
+						<Badge tone={toon.status === 'published' ? 'published' : toon.status === 'coming-soon' ? 'soon' : 'draft'}>{statusWord(toon.status)}</Badge>
+					</a>
+				</li>
+			{/each}
+		</ul>
 	</main>
 	<!-- Bottom action bar: open the reader (no toon count, owner 2026-10-02; sign out: the search palette) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet end()}
-			<button type="button" class="secondary" disabled={publishing || !toons.length} onclick={publishEverything} data-testid="publish-everything">{m['creator.publish_tree_button']()}</button>
-			<a class="btn" href={VIEWER_URL}>{m['creator.open_reader']()}</a>
+		{#snippet phone()}
+			<PhoneBar items={phoneItems} label={m['creator.bar_actions']()} backLabel={m['creator.bar_back']()} />
 		{/snippet}
 	</ActionBar>
 </div>
@@ -75,32 +78,38 @@
 <style>
 	.browser {
 		padding: 1.5rem 1rem;
-		max-width: 1200px;
+		max-width: 75rem;
 	}
+	/* compact rows (owner 2026-10-12): two or more columns when there is room, one on a phone; rows split by 1px ink like
+	   the toon page's chapter list */
 	.toons {
 		list-style: none;
 		padding: 0;
 		margin: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-		gap: 1rem;
+		grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+		column-gap: 1.5rem;
+		border-top: var(--border-width-regular) solid var(--ink);
+	}
+	.toons li {
+		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
 	.toons a {
 		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		padding: 0.75rem;
-		border: 2px solid var(--border-muted);
+		align-items: center;
+		gap: var(--space-075);
+		min-height: var(--control-height);
+		padding: var(--space-05) 0;
 		color: var(--ink);
 		text-decoration: none;
 	}
-	.toons a:hover {
-		border-color: var(--ink);
+	.toons a:hover .name {
+		text-decoration: underline;
 	}
-	.meta {
-		color: var(--muted);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
+	.name {
+		flex: 1;
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 	.error {
 		color: var(--error);

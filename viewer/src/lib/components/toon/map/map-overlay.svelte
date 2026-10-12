@@ -419,6 +419,8 @@
 					</div>
 				{/each}
 			</div>
+			<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12): where a route runs in and out -->
+			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} layer="gates" />
 			<div class="labels" aria-hidden="true">
 				{#each places as p (p.id)}
 					{#if labelled.has(p.id)}

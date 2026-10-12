@@ -21,6 +21,7 @@
 		DEFAULT_PLACE_IMAGE_SIZE,
 		HEX_CELL,
 		routePoints,
+		routeGeometry,
 		visibleLabels,
 		waypointPoint,
 		type MapPlace,
@@ -57,6 +58,7 @@
 		onaddplace,
 		onmoveplace,
 		onmovewaypoint,
+		onmovegate,
 		oninsertwaypoint,
 		onaddroute
 	}: {
@@ -79,6 +81,8 @@
 		/** `done` = the drag ended (one undo step per drag) */
 		onmoveplace: (id: string, at: Point) => void;
 		onmovewaypoint: (route: string, index: number, at: Point) => void;
+		/** a route gate of a place dragged (BACKLOG 10.66 (4)): its offset from the place's point, world units */
+		onmovegate: (place: string, which: 'entry' | 'exit', offset: Point) => void;
 		oninsertwaypoint: (route: string, after: number, at: Point) => void;
 		onaddroute: (waypoints: Waypoint[]) => void;
 	} = $props();
@@ -99,6 +103,9 @@
 		const world = view.toWorld(at);
 		if (tool === 'place') {
 			if ((e.target as HTMLElement | null)?.closest('[data-handle]')) return;
+			// the tool turns to select with the new place selected: the click that follows this tap must not select a
+			// route whose line is under it (check-map 2026-10-12 – the new place lost its selection)
+			placedAt = e.timeStamp;
 			onaddplace(world);
 			return;
 		}
@@ -165,7 +172,7 @@
 	}
 
 	// ── dragging places and waypoints ─────────────────────────────────────────────────────────────────────────
-	let dragging = $state<{ kind: 'place'; id: string } | { kind: 'waypoint'; route: string; index: number } | null>(null);
+	let dragging = $state<{ kind: 'place'; id: string } | { kind: 'waypoint'; route: string; index: number } | { kind: 'gate'; place: string; which: 'entry' | 'exit' } | null>(null);
 
 	// ── the hex grid (owner 2026-10-11): shown only while a place is placed or dragged – the cells on screen, one path ──
 	const showGrid = $derived(tool === 'place' || dragging?.kind === 'place');
@@ -209,6 +216,24 @@
 		return null;
 	});
 
+	// the selected place's route gates (BACKLOG 10.66 (4), owner 2026-10-12: "the computed ones first, then adjustable"):
+	// one handle per gate the routes through it use – dragging one sets its offset (filled = set, hollow = computed)
+	const placeGates = $derived.by(() => {
+		if (tool !== 'select' || selection?.kind !== 'place') return [];
+		const id = selection.id;
+		const place = map.locations.find((p) => p.id === id);
+		if (!place) return [];
+		const seen = new Set<string>();
+		const out: { which: 'entry' | 'exit'; at: Point; set: boolean }[] = [];
+		for (const r of map.routes)
+			for (const g of routeGeometry(map.locations, r.waypoints).gates)
+				if (g.place === id && !seen.has(g.which)) {
+					seen.add(g.which);
+					out.push({ which: g.which, at: g.at, set: !!place.gates?.[g.which] });
+				}
+		return out;
+	});
+
 	// culling (BACKLOG 10.63): the places near the screen through a spatial index; the margin covers the biggest diorama
 	const placeIndex = $derived(pointIndex(map.locations));
 	const shownPlaces = $derived(placeIndex.query(growRect(view.worldRect(200), PLACE_SIZE_MAX / 2)));
@@ -231,7 +256,11 @@
 		const at = { x: Math.round(Math.max(0, Math.min(map.width, world.x))), y: Math.round(Math.max(0, Math.min(map.height, world.y))) };
 		dragMoved = true;
 		if (dragging.kind === 'place') onmoveplace(dragging.id, at);
-		else onmovewaypoint(dragging.route, dragging.index, at);
+		else if (dragging.kind === 'gate') {
+			const place = map.locations.find((p) => p.id === (dragging as { place: string }).place);
+			// a gate is fine-grained (a diorama is a few units wide): a tenth of a unit, not snapped to whole units
+			if (place) onmovegate(place.id, dragging.which, { x: Math.round((world.x - place.x) * 10) / 10, y: Math.round((world.y - place.y) * 10) / 10 });
+		} else onmovewaypoint(dragging.route, dragging.index, at);
 	}
 	function dragEnd(e: PointerEvent, click: () => void) {
 		if (!dragging) return;
@@ -291,8 +320,10 @@
 	});
 
 	let viewportEl = $state<HTMLDivElement>();
+	/** when the last tap added a place (its trailing click is not a route click) */
+	let placedAt = -Infinity;
 	function onRouteClick(id: string, e: MouseEvent) {
-		if (tool !== 'select') return;
+		if (tool !== 'select' || e.timeStamp - placedAt < 500) return;
 		e.stopPropagation();
 		if (selection?.kind === 'route' && selection.id === id) {
 			// a click on the selected route's line inserts a free point there
@@ -391,6 +422,30 @@
 			</div>
 		{/each}
 	</div>
+
+	<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12: variant A – computed, adjustable) -->
+	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} layer="gates" />
+
+	{#if placeGates.length}
+		<div class="handles">
+			{#each placeGates as g (g.which)}
+				{@const s = view.toScreen(g.at)}
+				<button
+					class="handle gate"
+					class:set={g.set}
+					data-control-exempt="canvas resize handle"
+					data-handle
+					style:transform="translate({s.x}px, {s.y}px)"
+					aria-label={g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()}
+					title="{g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()} · {g.set ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()}"
+					onpointerdown={(e) => startDrag(e, { kind: 'gate', place: (selection as { id: string }).id, which: g.which })}
+					onpointermove={dragMove}
+					onpointerup={(e) => dragEnd(e, () => {})}
+					data-testid="builder-gate-{g.which}"
+				>{g.which === 'entry' ? m['creator.map_gate_entry_short']() : m['creator.map_gate_exit_short']()}</button>
+			{/each}
+		</div>
+	{/if}
 
 	{#if selectedRoute}
 		<div class="handles">
@@ -611,6 +666,14 @@
 	.handle.free {
 		background: var(--paper);
 		border-radius: 0;
+	}
+	/* a route gate (BACKLOG 10.66 (4)): hollow while computed, filled once the author set it */
+	.handle.gate {
+		background: var(--paper);
+	}
+	.handle.gate.set {
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.draft {
 		position: absolute;

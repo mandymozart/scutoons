@@ -87,7 +87,7 @@
 
 <div class="variants-slot" data-testid={testid}>
 	{#if !hideLabel}<span class="sc-label">{label}</span>{/if}
-	<div class="row">
+	<div class="row" class:stacked={kind !== 'audio'}>
 		<button
 			type="button"
 			class="slot"
@@ -114,7 +114,8 @@
 		</button>
 		{#if value.src}
 			<!-- the levels beside the preview (owner 2026-10-11: "weniger Platz"): which files exist – the main file filled
-			     (no "(default)" word); each one replaceable / clearable on its own -->
+			     (no "(default)" word); each one replaceable / clearable on its own; stacked, together as tall as the preview
+			     (owner 2026-10-11 on the phone, BACKLOG 10.65) -->
 			<ul class="levels" class:side={kind !== 'audio'} aria-label={t.files} title={t.filesHint}>
 				{#each MEDIA_QUALITIES as level (level)}
 					{@const file = value.variants?.[level]}
@@ -135,7 +136,7 @@
 			</ul>
 		{/if}
 		{#if value.src && clearable}
-			<!-- icon only → round (owner 2026-10-03) -->
+			<!-- icon only → round (owner 2026-10-03); below preview + levels, not beside them (owner 2026-10-11: less room) -->
 			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange({})} data-testid={testid ? `${testid}-clear` : undefined}><CloseIcon /></button>
 		{/if}
 	</div>
@@ -256,13 +257,42 @@
 	.level.missing button {
 		color: var(--text-muted);
 	}
-	/* beside the preview: a narrow column of small chips */
-	.levels.side {
-		flex-direction: column;
-		flex-wrap: nowrap;
-		gap: 0.2rem;
+	/* image / video (owner 2026-10-11 on the phone, BACKLOG 10.65): the preview, beside it the levels stacked – each a
+	   third of the preview's height, together exactly as tall; the round × for the whole medium below both */
+	.variants-slot .row.stacked {
+		display: grid;
+		grid-template-columns: auto auto;
+		justify-content: start;
+		align-items: stretch;
 	}
-	.levels.side .level {
+	.row.stacked > .sc-round {
+		grid-column: 1 / -1;
+		justify-self: start;
+	}
+	.row.stacked > .slot {
+		width: 14rem;
+		max-width: 100%;
+	}
+	/* a chosen image: a big square preview, the picture contained in it */
+	.row.stacked > .slot.image:not(.empty) {
+		width: 9rem;
+		aspect-ratio: 1;
+	}
+	.slot.image img {
+		height: 100%;
+		object-fit: contain;
+	}
+	.row.stacked > .slot.empty {
+		width: 6rem;
+	}
+	.levels.side {
+		display: grid;
+		grid-template-rows: repeat(3, minmax(0, 1fr));
+		gap: 0.15rem;
+	}
+	.levels.side .level,
+	.levels.side .level :global(button) {
+		height: auto;
 		min-height: 0;
 		font-size: var(--type-caption-size);
 	}

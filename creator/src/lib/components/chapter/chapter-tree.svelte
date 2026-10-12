@@ -7,9 +7,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { ChapterView } from '$lib/editor/chapter-state.svelte.ts';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
-	import { applyGroupSettings, clipPlacements, makeClip, mergeSounds, prepareGroup, remapSounds, soundsOf } from '$lib/editor/clip.ts';
-	import { clipWhat, pastedMessage, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
-	import { boxIdSource, getClipContext } from '$lib/editor/clip-context.ts';
+	import { useClipHandler } from '$lib/editor/clipboard.svelte.ts';
+	import { groupsClipHandler } from '$lib/editor/groups-clip.svelte.ts';
 	import { newGroup } from '$lib/editor/defaults.ts';
 	import SliceList from '$lib/components/chapter/slice-list.svelte';
 	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
@@ -99,65 +98,25 @@
 	// its content and pasted as a group of the chapter; a paste goes after the last picked / the open group (else at the
 	// end), fresh ids, unique labels, media of another toon referenced; Shift+V puts the copied group's renderer, end and
 	// `continues` onto every picked group of the chapter ──
-	const pickedGroups = () => (picked.length ? [...picked] : view.inGroup ? [view.groupIndex] : []).filter((i) => i < groups.length).sort((a, b) => a - b);
-	useClipHandler(() => 'tree', {
-		copy() {
-			const clipCtx = getClipContext();
-			const list = pickedGroups().map((i) => resolveGroup(groups[i])).filter(Boolean);
-			if (!list.length || !clipCtx) return null;
-			const entries = $state.snapshot(list).map((g: any) => {
-				const { ref: _ref, ...rest } = g;
-				return rest;
-			});
-			const slices = entries.flatMap((g: any) => g?.slices ?? []);
-			const clip = makeClip('groups', chapter.toon, entries, { sounds: soundsOf(slices, chapter.get(chapter.primary, ['audio'])), chapter: chapterNumber });
-			return { clip, what: clipWhat(clip) };
-		},
-		remove() {
-			const gone = pickedGroups();
-			if (!gone.length) return;
-			chapter.edit((file) => {
-				if (Array.isArray(file.groups)) for (const i of [...gone].reverse()) file.groups.splice(i, 1);
-			});
-			picked = [];
-			anchor = null;
-			view.groupIndex = Math.max(0, gone[0] - 1);
-			view.section = 'meta';
-		},
-		paste(clip) {
-			const clipCtx = getClipContext();
-			if (clip.kind !== 'groups' || !clipCtx) return null;
-			const refused = clipCtx.placementLimit(clipPlacements(clip));
-			if (refused) return refused;
-			const now = pickedGroups();
-			const at = now.length ? Math.max(...now) + 1 : groups.length;
-			const labels = new Set(clipCtx.groupLabels());
-			const nextBoxId = boxIdSource(clipCtx, (_s, i) => i + 1);
-			const prepared = clip.entries.map((g) => prepareGroup(clip, g, { toon: chapter.toon, nextBoxId }, labels));
-			chapter.edit((file) => {
-				const map = mergeSounds(file, clip.sounds, clip.toon, chapter.toon);
-				for (const g of prepared) for (const s of g.slices ?? []) remapSounds(s, map);
-				file.groups ??= [];
-				file.groups.splice(at, 0, ...prepared);
-			});
-			view.selectGroup(at);
-			picked = prepared.map((_, n) => at + n);
-			anchor = at;
-			return { message: pastedMessage(clip, chapter.toon) };
-		},
-		pasteSettings(clip) {
-			const clipCtx = getClipContext();
-			if (clip.kind !== 'groups') return null;
-			const source = clip.entries[0];
-			// a separate scene keeps its renderer / end / continues in its own document: only the chapter's groups here
-			const targets = pickedGroups().filter((i) => !groups[i]?.ref);
-			if (!targets.length || !source) return { message: m['creator.clip_no_settings']() };
-			chapter.edit((file) => {
-				for (const i of targets) if (file.groups?.[i]) applyGroupSettings(file.groups[i], source);
-			});
-			return { message: pastedMessage(clip, chapter.toon, true, m['creator.clip_what_groups']({ count: targets.length })) };
-		}
-	});
+	useClipHandler(
+		() => 'tree',
+		groupsClipHandler({
+			chapter: () => chapter,
+			groups: () => groups,
+			resolveGroup: (g) => resolveGroup(g),
+			chapterNumber: () => chapterNumber,
+			picked: () => (picked.length ? picked : view.inGroup ? [view.groupIndex] : []),
+			pick: (next) => {
+				picked = next;
+				anchor = next[0] ?? null;
+			},
+			onremove: (gone) => {
+				view.groupIndex = Math.max(0, gone[0] - 1);
+				view.section = 'meta';
+			},
+			onpaste: (at) => view.selectGroup(at)
+		})
+	);
 
 	/** one "Add group" (owner 2026-10-03: "Add separate scene" was a storage detail); new groups live in the chapter */
 	function addGroup() {

@@ -153,8 +153,8 @@ try {
 
 	// ── Problems: chapter → season the same panel ──
 	// the bar's start (Problems) may sit in "More" (the chapter editor's ActionBar breakpoint)
-	check(await go(`/${TOON}/chapter/1`, `!!${q('problems-toggle')} || !!document.querySelector('.sc-action-bar .more-toggle')`), 'chapter editor');
-	await js(`(${q('problems-toggle')} ?? (document.querySelector('.sc-action-bar .more-toggle').click(), null)) ? true : null`);
+	check(await go(`/${TOON}/chapter/1`, `!!${q('problems-toggle')} || !!document.querySelector('[data-testid="phone-bar-more"]')`), 'chapter editor');
+	await js(`(${q('problems-toggle')} ?? (document.querySelector('[data-testid="phone-bar-more"]').click(), null)) ? true : null`);
 	await until(`!!${q('problems-toggle')}`);
 	await js(`${q('problems-toggle')}.click(), true`);
 	await until(`!!${q('problems-panel')}`);

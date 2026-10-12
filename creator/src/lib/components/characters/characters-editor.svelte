@@ -25,7 +25,7 @@
 		type ToonCast
 	} from '@scutoons/content';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import { Badge, CloseIcon, Icon, Tabs, region } from '@scutoons/ui';
+	import { Badge, CloseIcon, Icon, Tabs, region, type PhoneBarItem } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -245,13 +245,27 @@
 		const nextId = params.get('id');
 		untrack(() => {
 			if (nextTab !== tab) tab = nextTab;
-			if (nextId !== null && nextId !== selected) selected = nextId;
+			// the crumb "Characters" (no id) goes back to the list
+			if ((nextId ?? '') !== selected && (nextId !== null || nextTab === 'characters')) selected = nextId ?? '';
 		});
 	});
+	// phones (owner 2026-10-12: "das Zurück unten in der Auswahl-Leiste … brutal einführen", UI-CONCEPTS E.10): a selected
+	// character is the selection – the list steps aside for its detail, the bar shows its own row (Delete; ‹ back to the list)
+	let detail = $state<ReturnType<typeof CharacterDetail>>();
+	const selectedCharacter = $derived(tab === 'characters' ? characters.find((c) => c.id === selected) : undefined);
+	const phoneSelection = $derived(
+		selectedCharacter
+			? {
+					label: shownCharacterName(selectedCharacter) || selectedCharacter.id,
+					onback: () => (selected = ''),
+					items: [{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => detail?.remove(), testid: 'phone-sel-delete' }] satisfies PhoneBarItem[]
+				}
+			: null
+	);
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon="" title={m['creator.characters']()} {docs} {validate} wide help="characters">
+<MetaPage toon="" title={m['creator.characters']()} {docs} {validate} wide help="characters" {phoneSelection}>
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
@@ -270,7 +284,7 @@
 			{:else if active === 'wanted'}
 				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={textLanguage.names} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
 			{:else}
-				<div class="layout">
+				<div class="layout" class:picked={!!selectedCharacter}>
 					<aside class="list" data-testid="character-list">
 						<div class="filters">
 							<input type="search" bind:value={query} placeholder={m['creator.characters_search']()} data-testid="character-search" />
@@ -321,6 +335,7 @@
 						{#if !registry.loading}
 							{#key selected}
 								<CharacterDetail
+									bind:this={detail}
 									{registry}
 									moodsDoc={moods}
 									requestsDoc={requests}
@@ -353,6 +368,12 @@
 	@media (max-width: 900px) {
 		.layout {
 			grid-template-columns: 1fr;
+		}
+	}
+	/* phones: a selected character's detail alone (the bar's ‹ / the crumb go back to the list) */
+	@media (max-width: 767px) {
+		.layout.picked .list {
+			display: none;
 		}
 	}
 	.pad-top {

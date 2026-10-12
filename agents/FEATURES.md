@@ -23,8 +23,6 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.64 **Media standard: the rest** – importers + admin → Assets → Standard are built (ASSETS.md "The media
   standard"). [owner] after the deploy: run the tool once on production (71 convert, 14 relink), publish its drafts,
   "Unused" cleans up. `decide`: missing 2x / 3x variants as a creator warning? Video blocked (no ffmpeg on the host).
-- [ ] 10.68 **Phones: the selection bar's own back arrow duplicates the crumb** – `decide` whether it goes (owner
-  2026-10-11 chose the crumb row as the way back up; that part is built).
 - [ ] 10.69 **Media quality: three open questions** (from the media-quality merge note) – `decide`: Automatic's
   thresholds (≥ 7 Mbit/s → 1080p, ≥ 5 → 720p); the season trailer's hero loop still picks by viewport – move it to the
   quality setting?; should a member's choice apply when signed out on the same device (it does now)?
@@ -42,12 +40,11 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   chapter start, renaming groups to their places (labels are in jump links). `decide`.
 - [ ] 10.65 **After the 2026-10-11 map session** – [owner] publish the map draft (dioramas, new places ore-pit /
   ore-mountain / vienna-subway, waterfall-tower; give them unlockLocation events) and move the migrated unlock events
-  where the story reaches the place. Build: "Import images" understands `-plaster` `.2x` `.3x`; rename the place form's
-  "Chapter link (card)" (owner: reads like an unlock); the resolution slot's layout (owner: preview big, 1x/2x/3x chips
-  stacked beside it at a third of its height each, the clear-all × below). Parked: the "Ausschnitt" mode.
+  where the story reaches the place; the library cache. Parked: the "Ausschnitt" mode. (Import names, the chapter-link
+  wording, the resolution slot are built.)
 - [ ] 10.66 **Place dioramas: world-fixed size, clickable, outlines, routes behind** – owner 2026-10-11 ("die Dioramen
   müssen wesentlich kleiner sein"). Built: world-unit size, hex grid (`snapPlace`), the ÷8 scale (10.67). Check what is
-  left: (2) the image selects the place, (3) a dashed outline for a place without an image, (4) routes behind dioramas.
+  left: (2) the image selects the place, (3) a dashed outline for a place without an image. (4) is built: route gates (MAP.md §8.5c).
 - [ ] 10.63 **Map rendering: culling, a spatial index, tiles** (research 2026-10-11) – when needed: viewport culling with
   rbush / quadtree, the terrain as WebP for the usual zooms, a tile pyramid for deep zoom. Measure first on a mid-range
   Android (×5 / ×10 / ×25 places).

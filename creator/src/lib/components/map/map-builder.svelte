@@ -743,6 +743,7 @@
 					onaddplace={onAddPlace}
 					onmoveplace={onMovePlace}
 					onmovewaypoint={onMoveWaypoint}
+					onmovegate={(place, which, offset) => editPlace(doc, place, (p) => (p.gates = { ...(p.gates ?? {}), [which]: offset }), `gate:${place}:${which}`)}
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
 				/>

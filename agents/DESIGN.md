@@ -653,8 +653,13 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   read "de · Published", "Draft · not published" (newer unpublished changes), "Not published" (never published), with
   the last change's date in the title; the History panel lists versions by date, author and note (restore / publish
   stay); the admin content overview shows the same state words + "N versions · changed <date>".
-- **Toon page** (owner 2026-09-30): the toon's display name (UI language, `CreatorNav.toonName`) is the title and links to
-  Toon settings; "Season 1: <title>" links to the season editor; a chapter row (its title link covers the row) opens
+- **Start page** (owner 2026-10-12, "mehr Konzepte aus der Mobile in die Desktop-Variante – Platz sparen"): no "Toons"
+  heading; one compact row per toon (avatar · name · state badge) in columns when there is room; phones: the PhoneBar
+  (Publish everything · Reader).
+- **Toon page** (owner 2026-09-30; 2026-10-12): no title row – the toon's settings are a round pill with its avatar at the
+  end of the crumbs (`crumbEnd`, like the map's toon pill); "Season 1: <title>" links to the season editor; no "Chapters"
+  heading; "+ New chapter" is the list's last row; the languages are one row of chips (the source filled, translations
+  with ★ make-source and ×, an "+ Add" select); phones: the PhoneBar (Save · Publish); a chapter row (its title link covers the row) opens
   the chapter – no separate "Edit season" / "Toon settings" / "Open" buttons. **Statuses in lists are read-only badges**
   (published / draft / coming soon per language, `status-badges.svelte`: toon page, season editor, season sidebar);
   the status is changed only on the chapter page (Meta).
@@ -804,6 +809,11 @@ Three kinds, three places; none moves the layout:
 - **The slice bar** (chapter editor, < 768): a row above the ActionBar – ‹ Slice n/m ›, undo, redo, ⚠ (the problems'
   count in its corner, opens Problems); round icon buttons. "More" keeps the rest (copy / paste, preview, History, the
   note). Toasts sit above it (`--sc-above-action-bar`).
+- **The bottom bar is grouped at every width** (owner 2026-10-11 phones, 2026-10-12 desktop – UI-CONCEPTS E.10):
+  Save · History (undo, redo, versions) · Publish · More, icon + word; Save carries a dot while dirty, Publish while
+  drafts are not live; on a desktop Problems (and the chapter editor's slice stepper) lead the row. A selection (a text
+  box, a place, a character, picked slices / groups – a long press picks on a phone) swaps the row for its own actions
+  with ‹ – on phones only.
 - **More on a phone** is a sheet flush on the ActionBar, the page above it dimmed (a tap there closes it; the toasts
   wait under the dim).
 - **The inspector on a phone** is a sheet below the canvas (45 % of the editor) with a grab handle: drag it, tap it
@@ -942,7 +952,8 @@ page"). The toon settings have no cover.
 ### Creator: season page (owner 2026-10-03)
 
 Owner: "clean this season view up, like we did on the chapter page" (chapter meta, 876abb0). `/<toon>/season/<n>`
-(`season-editor.svelte`), top to bottom:
+(`season-editor.svelte`), top to bottom (2026-10-12: no "Meta" heading; texts | media side by side from a 60rem wide page,
+a container query):
 - **Meta:** title, description (per language, `LocaleText`); a warning + "Fix" only when a document's `language` field is
   not its own language (the old always-visible "language: de: de · en: en" line is gone); release (date) · authors (list)
   in one row; one caption says once that everything but title and description is the same in every language (the
