@@ -14,7 +14,7 @@ use stdClass;
 final class WorldMapDocs
 {
     /** the kinds a composed map is made of */
-    public const KINDS = ['map', 'place', 'route'];
+    public const KINDS = ['map', 'place', 'route', 'region'];
 
     /** The composed map of a snapshot (published or newest versions), null when it has no `map` document */
     public static function fromSnapshot(Snapshot $snapshot): ?stdClass

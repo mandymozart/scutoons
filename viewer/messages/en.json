@@ -496,6 +496,8 @@
 		"you_are_here": "You are here · {name}",
 		"new_place": "New",
 		"new_badge": "New on the map",
+		"region_welcome": "Welcome to {name}!",
+		"region_continue": "Continue",
 		"place_unlocked": "{name} unlocked",
 		"close_card": "Close",
 		"other_toon": "From another story",

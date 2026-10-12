@@ -1,10 +1,11 @@
-import type { ExprResolver, JumpToTarget, VNEvent } from '@scutoons/content';
+import { READER_RESIDENT, type ExprResolver, type JumpToTarget, type VNEvent } from '@scutoons/content';
 import { cleanText, READER_NAME_MAX, readerKnown, readerName } from '$lib/reader-name.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { getCurrentReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 import { executeVariableAction, giveStoryItem, takeStoryItem } from './variable-actions.ts';
 import { unlockStoryPlace } from '$lib/components/toon/map/map-reveal.ts';
+import { migrateStory } from '$lib/components/toon/map/region-welcome.ts';
 import { runEvents, type RunnerEnv, type RunResult } from './script-runner.ts';
 
 /**
@@ -51,6 +52,7 @@ export function readerEnv(game: GameContext): RunnerEnv {
 		giveItem: (item, qty, variant) => void giveStoryItem(item, qty, undefined, variant ? { variant } : undefined),
 		takeItem: (take) => void takeStoryItem(take as never, game),
 		unlockPlace: (location, options) => unlockStoryPlace(location, options),
+		migrate: (who, region, options) => migrateStory(who ?? READER_RESIDENT, region, options),
 		cleanText
 	};
 }

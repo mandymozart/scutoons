@@ -373,6 +373,10 @@ export interface RegistryCharacter {
 	voiced_by?: string;
 	/** search words */
 	tags?: string[];
+	/** the region the character comes from (a map region id – agents/MAP.md §8.10); fixed */
+	origin?: string;
+	/** the region the character is registered in by default (a `migrate` in the story moves it – the save game) */
+	residence?: string;
 	/** the reader's avatar body (character level – the persona doesn't matter) */
 	apose?: CharacterApose;
 	/** `regular` first */
@@ -1306,6 +1310,8 @@ export interface CharactersContext {
 	people?: string[];
 	/** known toon ids (own_toon, introduced) */
 	toons?: string[];
+	/** known map region ids (origin, residence – agents/MAP.md §8.10) */
+	regions?: string[];
 	file?: string;
 }
 
@@ -1340,6 +1346,8 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 		if (c.own_toon !== undefined && (!isStr(c.own_toon) || (ctx.toons && !ctx.toons.includes(c.own_toon)))) add('warning', [...path, 'own_toon'], `${who}: unknown own toon "${c.own_toon}"`);
 		if (c.voiced_by !== undefined && (!isStr(c.voiced_by) || (ctx.people && !ctx.people.includes(c.voiced_by)))) add('error', [...path, 'voiced_by'], `${who}: voiced by an unknown person "${c.voiced_by}"`);
 		if (c.tags !== undefined && !(Array.isArray(c.tags) && c.tags.every(isStr))) add('error', [...path, 'tags'], `${who}: tags must be a list of texts`);
+		for (const field of ['origin', 'residence'] as const)
+			if (c[field] !== undefined && (!isStr(c[field]) || !c[field] || (ctx.regions && !ctx.regions.includes(c[field])))) add('warning', [...path, field], `${who}: unknown region "${c[field]}" (${field})`);
 
 		// the A-pose (avatar body): its own looks, one default, image + anchors
 		if (c.apose !== undefined) {

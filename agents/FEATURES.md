@@ -53,10 +53,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   own tiles, the generation process has to run on the server – for now that is insane") – today `scripts/map-paint.mjs`
   runs locally (Luma per region, headless Chrome assembles, coast mask, plaster, the tile pyramid, `assets:sync`).
   Server-side would need a job queue, a canvas / image library instead of Chrome, the Luma key and costs per editor. Not now.
-- [ ] 10.92 **Map regions** (owner 2026-10-12, concept MAP.md §8.10): hex-cell regions (`region:<id>`, brush 1–256
-  cells) with a spectacular Ortseingangsschild + claim, vegetation, info, greeting, a representative; characters'
-  origin / residence; the event `migrate` (avatar + characters) with the welcome (sign + representative or narrator).
-  Elections later. Example signs: `scripts/region-signs.mjs`.
+- [ ] 10.92 **Map regions: after the deploy** (built 2026-10-12, MAP.md §8.10) – [owner] review the seven pre-drawn
+  region drafts in the map builder (covers with the brush, names, claims, greetings, representatives) and publish them;
+  `decide`: the next sign round in the industrial style (references in §8.10, Luma ≈ $0.10 each); regions shown in the
+  reader's map?; elections (later).
 - [ ] 10.73 **Map M3–M5** (MAP.md §8.6): the events `revealRoute`, `travel`, `setPosition`, `focusMap`,
   `runMapEvents`; the event pickers, "Used in", the server's 409 `in_use`; the sandbox story.
 

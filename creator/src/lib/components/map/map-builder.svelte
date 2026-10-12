@@ -15,6 +15,8 @@
 		placeImagePath,
 		placeCells,
 		placeCellOffsets,
+		paintRuns,
+		runsPaths,
 		hexCellAt,
 		placeImageTarget,
 		PLACE_IMAGE_WIDTHS,
@@ -44,12 +46,13 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
-	import { addPlace, addRoute, cdnHas, editMap, editPlace, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
+	import { addPlace, addRegion, addRoute, cdnHas, editMap, editPlace, editRegion, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { densityLevel, densityPath, splitMediaName, standardDensities, uploadOrReplace } from '@scutoons/media';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { placeBrush } from '$lib/editor/place-brush.svelte.ts';
+	import { regionBrush } from '$lib/editor/region-brush.svelte.ts';
 	import type { HexBrushTarget } from '$lib/components/map/hex-brush.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
 	import MapProps from '$lib/components/map/map-props.svelte';
@@ -159,7 +162,7 @@
 	let selection = $state<MapSelection>(null);
 	// the History panel follows the selection (owner D5): a place / route is a document of its own
 	$effect(() => {
-		doc.selectedKey = selection?.kind === 'place' ? `place:${selection.id}` : selection?.kind === 'route' ? `route:${selection.id}` : null;
+		doc.selectedKey = selection?.kind === 'place' ? `place:${selection.id}` : selection?.kind === 'route' ? `route:${selection.id}` : selection?.kind === 'region' ? `region:${selection.id}` : null;
 	});
 	let toonFilter = $state('');
 	let readerView = $state(false);
@@ -172,11 +175,16 @@
 	const languages = $derived([...new Set([MAP_SOURCE_LANGUAGE, 'en', ...nav.toons.flatMap((t) => toonLanguages(t).languages as string[])])]);
 	const publishedIds = $derived({
 		places: new Set((published?.locations ?? []).map((p) => p.id)),
-		routes: new Set((published?.routes ?? []).map((r) => r.id))
+		routes: new Set((published?.routes ?? []).map((r) => r.id)),
+		regions: new Set((published?.regions ?? []).map((r) => r.id))
 	});
 
 	/** the reader view's sea = the filtered toon's colour (owner 2026-10-01: tile colour, else its star's); else the default neon green */
 	let registry = $state<CharacterRegistry | null>(null);
+	/** the registry's characters by name (a region's representative) */
+	const characterOptions = $derived(
+		(registry?.characters ?? []).map((c) => ({ id: c.id, name: mapName(c.name, locale) || c.id })).sort((a, b) => a.name.localeCompare(b.name))
+	);
 	const NEUTRAL_SEA = '#00ff00';
 	const sea = $derived.by(() => {
 		if (!readerView || !toonFilter) return NEUTRAL_SEA;
@@ -280,7 +288,9 @@
 				? { kind: 'route', id: params.get('route')! }
 				: params.get('layer')
 					? { kind: 'layer', id: params.get('layer')! }
-					: null;
+					: params.get('region')
+						? { kind: 'region', id: params.get('region')! }
+						: null;
 		const toon = params.get('toon') ?? '';
 		untrack(() => {
 			if (JSON.stringify(next) !== JSON.stringify(selection)) selection = next;
@@ -293,7 +303,7 @@
 		try {
 			// the address bar, not page.url: replaceState (shallow routing) leaves page.url at the last navigation
 			const url = new URL(location.href);
-			for (const key of ['location', 'route', 'layer']) url.searchParams.delete(key);
+			for (const key of ['location', 'route', 'layer', 'region']) url.searchParams.delete(key);
 			if (s) url.searchParams.set(s.kind === 'place' ? 'location' : s.kind, s.id);
 			if (t) url.searchParams.set('toon', t);
 			else url.searchParams.delete('toon');
@@ -326,6 +336,7 @@
 		if (!s || !map) return '';
 		if (s.kind === 'place') return mapName(map.locations.find((p) => p.id === s.id)?.name, locale) || s.id;
 		if (s.kind === 'route') return mapName(map.routes.find((r) => r.id === s.id)?.name, locale) || s.id;
+		if (s.kind === 'region') return mapName(map.regions?.find((r) => r.id === s.id)?.name, locale) || s.id;
 		return s.id;
 	});
 	usePageNav({
@@ -488,6 +499,7 @@
 		if (kind === 'locations' && map.locations[index]) return { kind: 'place', id: map.locations[index].id };
 		if (kind === 'routes' && map.routes[index]) return { kind: 'route', id: map.routes[index].id };
 		if (kind === 'layers' && map.layers[index]) return { kind: 'layer', id: map.layers[index].id };
+		if (kind === 'regions' && map.regions?.[index]) return { kind: 'region', id: map.regions[index].id };
 		return null;
 	}
 	const marks = $derived.by(() => {
@@ -520,7 +532,7 @@
 	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11, variant C): the properties slide up from below, one tab at a
 	//    time; closed it is its tab row only – a tap on a tab opens it there, on the open tab closes it; it closes
 	//    while the map is being dragged ─────────────────────────────────────────────────────────────────────────
-	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start' | 'route' | 'layer';
+	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start' | 'route' | 'layer' | 'region';
 	let sheetOpen = $state(false);
 	let sheetTab = $state<SheetTab>('map');
 	let mapDragging = $state(false);
@@ -534,6 +546,7 @@
 		// a route / layer: one tab like a place's – its name is the crumb at the top; the bar is no picker (owner 2026-10-12:
 		// "the route name selector can only be the active route")
 		if (selection?.kind === 'route') return [{ id: 'route', icon: 'share-2', label: m['creator.map_sheet_route']() }];
+		if (selection?.kind === 'region') return [{ id: 'region', icon: 'hexagon', label: m['creator.map_sheet_region']() }];
 		if (selection) return [{ id: 'layer', icon: 'layers', label: m['creator.map_sheet_layer']() }];
 		return [
 			{ id: 'map', icon: 'map', label: m['creator.map']() },
@@ -665,6 +678,44 @@
 		};
 	});
 
+	// ── the region brush (agents/MAP.md §8.10): a bulk target – the canvas draws the covers, the brush hands over the cells
+	//    of a stroke, painted on the row runs at once (paintRuns); cells another region takes are refused ────────────
+	$effect(() => {
+		if (regionBrush.region && (selection?.kind !== 'region' || selection.id !== regionBrush.region)) regionBrush.stop();
+	});
+	const regionBrushTarget = $derived.by<HexBrushTarget | null>(() => {
+		const id = regionBrush.region;
+		const region = id && map ? map.regions?.find((r) => r.id === id) : undefined;
+		if (!id || !region || !map) return null;
+		const others = (map.regions ?? []).filter((r) => r.id !== id);
+		return {
+			cells: [],
+			bulk: true,
+			mode: regionBrush.mode,
+			size: regionBrush.size,
+			onchange: () => {},
+			onstroke: (touched) =>
+				editRegion(doc, id, (r) => {
+					const free = (c: { q: number; r: number }) => !others.some((o) => o.cells.some(([row, a, b]) => row === c.r && c.q >= a && c.q <= b));
+					r.cells = paintRuns(r.cells ?? [], touched, regionBrush.mode, free);
+				})
+		};
+	});
+	/** the covers as world-unit paths, worked out once per change of a region's cells (runsPaths – a region is big) */
+	const coverPaths = new WeakMap<object, { fill: string; edge: string }>();
+	const drawnRegions = $derived(
+		(map?.regions ?? []).map((r) => {
+			let paths = coverPaths.get(r.cells);
+			if (!paths) coverPaths.set(r.cells, (paths = runsPaths(r.cells ?? [])));
+			return { id: r.id, colour: r.colour ?? '#888888', ...paths, selected: selection?.kind === 'region' && selection.id === r.id };
+		})
+	);
+	function newRegion() {
+		const id = addRegion(doc);
+		select({ kind: 'region', id });
+		regionBrush.region = id;
+	}
+
 	const phoneSelection = $derived.by(() => {
 		const s = selection;
 		if (!s || !map) return null;
@@ -693,6 +744,12 @@
 				label: selectionName,
 				onback,
 				items: [edit('place'), { id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: () => deleteRoute(s.id) }]
+			};
+		if (s.kind === 'region')
+			return {
+				label: selectionName,
+				onback,
+				items: [edit('region'), { id: 'cells', icon: 'hexagon', label: m['creator.map_cells_paint'](), active: regionBrush.region === s.id, run: () => regionBrush.toggle(s.id), testid: 'phone-region-cells' }]
 			};
 		return {
 			label: selectionName,
@@ -758,6 +815,21 @@
 			<li><button type="button" class="item add" onclick={() => (tool = 'route')}>{m['creator.map_tool_route']()}</button></li>
 		</ul>
 		</details>
+		<!-- the regions (agents/MAP.md §8.10, owner 2026-10-12): areas of the map's hex cells, pre-drawn from the zones -->
+		<details class="fold" data-testid="map-nav-regions-fold">
+		<summary class="head">{m['creator.map_regions']()} ({map?.regions?.length ?? 0})</summary>
+		<ul data-testid="map-nav-regions">
+			{#each map?.regions ?? [] as r (r.id)}
+				<li>
+					<button type="button" class="item" class:sc-selected={selection?.kind === 'region' && selection.id === r.id} onclick={() => select({ kind: 'region', id: r.id })} data-testid="nav-region-{r.id}">
+						<span class="dot" style:background={r.colour ?? null}></span>
+						<span class="name">{mapName(r.name, locale) || r.id}</span>{@render mark(`region:${r.id}`)}
+					</button>
+				</li>
+			{/each}
+			<li><button type="button" class="item add" onclick={newRegion} data-testid="nav-add-region">{m['creator.map_add_region']()}</button></li>
+		</ul>
+		</details>
 		<p class="nav-import">
 			<button type="button" class="item add" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()}>
 				<Icon name="upload" size="1.1em" />
@@ -809,7 +881,8 @@
 			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.strip'))}>
 				<MapCanvas
 					bind:this={canvas}
-					brush={brushTarget}
+					brush={regionBrushTarget ?? brushTarget}
+					regions={drawnRegions}
 					{map}
 					{view}
 					bind:tool
@@ -870,7 +943,7 @@
 					{/if}
 				</div>
 				{#if selection}
-					<MapProps {doc} {map} {selection} {view} {bust} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
+					<MapProps {doc} {map} {selection} {view} {bust} {toons} {languages} {publishedIds} characters={characterOptions} onselect={(s) => select(s, true)} />
 				{:else}
 					<div class="tab" data-tab="map">
 						<MapProps {doc} {map} selection={null} {view} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />

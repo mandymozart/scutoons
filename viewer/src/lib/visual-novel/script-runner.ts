@@ -68,6 +68,11 @@ export interface RunnerEnv {
 	 * it – resolves when the reader can go on
 	 */
 	unlockPlace?(location: string, options: { silent: boolean; reveal: boolean }): Promise<void>;
+	/**
+	 * the reader's avatar (`who` unset) or a character moves to a region (`migrate`, agents/MAP.md §8.10): the save game,
+	 * then the welcome – resolves when the reader can go on
+	 */
+	migrate?(who: string | undefined, region: string, options: { silent: boolean }): Promise<void>;
 	/** plain text, trimmed, cut (askText answers) */
 	cleanText(text: string, limit: number): string;
 }
@@ -169,6 +174,15 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 					// the event's own choice (`map`: open / toast) wins over the trigger's default (owner 2026-10-11)
 					const reveal = map === 'open' ? true : map === 'toast' ? false : deps.mapReveal !== false;
 					await env.unlockPlace?.(location, { silent: silent === true, reveal });
+					if (cancelled()) return 'cancelled';
+					break;
+				}
+
+				case 'migrate': {
+					// a region of the world map (agents/MAP.md §8.10): the story waits while the welcome plays
+					const { region, who, silent } = event.params ?? {};
+					if (typeof region !== 'string' || !region) break;
+					await env.migrate?.(typeof who === 'string' && who ? who : undefined, region, { silent: silent === true });
 					if (cancelled()) return 'cancelled';
 					break;
 				}

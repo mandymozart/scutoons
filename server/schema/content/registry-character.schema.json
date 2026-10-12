@@ -55,6 +55,14 @@
 					},
 					"description": "search words"
 				},
+				"origin": {
+					"type": "string",
+					"description": "the region the character comes from (a map region id – agents/MAP.md §8.10); fixed"
+				},
+				"residence": {
+					"type": "string",
+					"description": "the region the character is registered in by default (a `migrate` in the story moves it – the save game)"
+				},
 				"apose": {
 					"$ref": "#/definitions/CharacterApose",
 					"description": "the reader's avatar body (character level – the persona doesn't matter)"

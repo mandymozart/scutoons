@@ -54,7 +54,7 @@
 	import CharacterDetail from '$lib/components/characters/character-detail.svelte';
 	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
-	import { mapDoc, mapOf } from '$lib/editor/map.ts';
+	import { mapDoc, mapOf, mapRegions } from '$lib/editor/map.ts';
 
 	/**
 	 * The global Characters page: the registry (entity `characters`) as a searchable, filterable list (characters
@@ -65,6 +65,9 @@
 	const moods = moodsDoc();
 	const requests = requestsDoc();
 	const people = peopleDoc();
+	// the map's region ids (origin / residence – agents/MAP.md §8.10); undefined until loaded (no false warnings)
+	let regionIds = $state<string[] | undefined>(undefined);
+	onMount(() => void mapRegions().then((list) => (regionIds = list.length ? list.map((r) => r.id) : undefined)));
 	// the world map: its places without an image are listed in Wanted images (read-only here, never saved from this page)
 	const worldMap = mapDoc();
 	const docs = [registry, moods, requests];
@@ -210,6 +213,7 @@
 					languages: (c) => characterLanguages(c, toons, castsOf(c.id, casts)).languages as string[],
 					people: people.loading ? undefined : peopleListOf(people).map((p) => p.id),
 					toons: toons.length ? toons.map((t) => t.id) : undefined,
+					regions: regionIds,
 					moods: vocabulary,
 					file: registryFile
 				})

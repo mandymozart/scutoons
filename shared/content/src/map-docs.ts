@@ -15,14 +15,15 @@ import {
 	type CollectionDocs,
 	type CollectionSpec
 } from './collection-docs.ts';
-import { checkWorldMap, type MapPath, type MapPlace, type MapValidateOptions, type WorldMap } from './map.ts';
+import { checkWorldMap, type MapPath, type MapPlace, type MapRegion, type MapValidateOptions, type WorldMap } from './map.ts';
 
 /** The world map's documents */
 export const MAP_COLLECTION: CollectionSpec = {
 	key: 'map',
 	parts: [
 		{ kind: 'place', field: 'locations' },
-		{ kind: 'route', field: 'routes' }
+		{ kind: 'route', field: 'routes' },
+		{ kind: 'region', field: 'regions' }
 	]
 };
 
@@ -51,9 +52,18 @@ export type RouteDoc = Omit<MapPath, 'id'> &
 		removed?: boolean;
 	};
 
+/** The document `region:<id>` (agents/MAP.md §8.10) */
+export type RegionDoc = Omit<MapRegion, 'id'> &
+	AcceptedWarnings & {
+		/** taken off the map (a tombstone) */
+		removed?: boolean;
+	};
+
 /** The one WorldMap of the documents (the settings with defaults; places / routes that are not removed, creation order) */
 export function composeWorldMap(docs: CollectionDocs): WorldMap {
 	const map = composeCollection(MAP_COLLECTION, docs);
+	// no regions yet: the field stays out (a map without regions keeps its shape)
+	if (Array.isArray(map.regions) && !map.regions.length) delete map.regions;
 	return { ...map, width: map.width ?? 0, height: map.height ?? 0, layers: Array.isArray(map.layers) ? map.layers : [] } as WorldMap;
 }
 

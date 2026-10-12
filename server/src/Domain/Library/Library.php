@@ -497,6 +497,22 @@ final class Library
                 }, is_array($route->waypoints ?? null) ? $route->waypoints : []);
                 $routes[] = $route;
             }
+            // the regions (agents/MAP.md §8.10): every one (a region belongs to no toon), texts in the locale, without the
+            // cover's cells – the reader needs the welcome (sign, claim, greeting, representative), not the hexagons
+            $regions = [];
+            foreach (is_array($world->regions ?? null) ? $world->regions : [] as $region) {
+                if (!$region instanceof stdClass) continue;
+                $region = clone $region;
+                unset($region->cells);
+                $region->name = $name($region->name ?? null) ?: ($region->id ?? '');
+                foreach (['claim', 'description', 'greeting'] as $field) {
+                    if (!property_exists($region, $field)) continue;
+                    $text = $name($region->{$field});
+                    if ($text === '') unset($region->{$field});
+                    else $region->{$field} = $text;
+                }
+                $regions[] = $region;
+            }
             $answer = [
                 'width' => $world->width ?? 0,
                 'height' => $world->height ?? 0,
@@ -504,6 +520,7 @@ final class Library
                 'locations' => $places,
                 'routes' => $routes,
             ];
+            if ($regions !== []) $answer['regions'] = $regions;
             // the reader's camera stays on the terrain (WorldMap.bounded, owner 2026-10-12)
             if (($world->bounded ?? null) === true) $answer['bounded'] = true;
             if ($toon !== null) {

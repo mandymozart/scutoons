@@ -621,6 +621,21 @@ final class LibraryTest extends TestCase
         self::assertSame(['home', 'well'], array_column(self::decode($this->library()->toon('t', 'en', false)->body)['locations'], 'id'));
     }
 
+    /** the regions (agents/MAP.md §8.10): region:<id> documents in the map, every one for readers, texts in the locale, no cells */
+    public function testWorldMapRegions(): void
+    {
+        $this->seedWorldMap();
+        $store = $this->get(EntityStore::class);
+        self::assertArrayNotHasKey('regions', self::decode($this->library()->map('de', null, false)->body), 'none yet: no field');
+        $id = $store->insert(EntityKey::parse('region:alps'), (string) json_encode(['name' => ['de' => 'Ewigschnee', 'en' => 'Everlasting Snow'], 'claim' => ['de' => 'Hier ist immer Dezember'], 'greeting' => ['de' => ''], 'cells' => [[1, 1, 3]], 'sign' => ['src' => 'catpope/map/regions/alps/sign.webp'], 'representative' => 'boy']), null, 'draft', null);
+        self::assertArrayNotHasKey('regions', self::decode($this->library()->map('de', null, false)->body), 'a draft: readers do not see it');
+        $store->setPublished(['id' => $id, 'entity_key' => 'region:alps']);
+        $regions = self::decode($this->library()->map('en', null, false)->body)['regions'];
+        self::assertEquals([['name' => 'Everlasting Snow', 'claim' => 'Hier ist immer Dezember', 'sign' => ['src' => 'catpope/map/regions/alps/sign.webp'], 'representative' => 'boy', 'id' => 'alps']], $regions, 'no cells, an empty greeting dropped, the claim falls back to German');
+        self::assertSame('alps', EntityKey::parse('region:alps')->id);
+        self::assertFalse(EntityKey::isValid('region:Alps'));
+    }
+
     public function testPlaceAndRouteKeys(): void
     {
         self::assertSame('cathedral', EntityKey::parse('place:cathedral')->id);

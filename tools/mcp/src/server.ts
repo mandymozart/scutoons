@@ -212,7 +212,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 			return { problems: validateCast(doc, { registry: reg, languages: index.languages, file }), validated: true };
 		}
 		// the world map's documents: the composition with this one in it (references between places and routes), its own problems
-		if (ref.kind === 'map' || ref.kind === 'place' || ref.kind === 'route') {
+		if (ref.kind === 'map' || ref.kind === 'place' || ref.kind === 'route' || ref.kind === 'region') {
 			const { docs } = await mapDocs('draft', { key, doc });
 			const problems = checkMapDocs(docs).filter((p) => p.key === key);
 			return { problems: problems.map(({ level, docPath, message }) => ({ level, file: key, locale: null, path: docPath, message })), validated: true };

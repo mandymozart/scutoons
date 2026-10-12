@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export type MapTool = 'select' | 'place' | 'route';
-	export type MapSelection = { kind: 'place' | 'route' | 'layer'; id: string } | null;
+	export type MapSelection = { kind: 'place' | 'route' | 'layer' | 'region'; id: string } | null;
 </script>
 
 <script lang="ts">
@@ -69,10 +69,16 @@
 		oninsertwaypoint,
 		onaddroute,
 		onendpoint,
-		brush = null
+		brush = null,
+		regions = []
 	}: {
 		/** the hex brush over the canvas (a place's ground – owner 2026-10-12): painting replaces selecting while it is on */
 		brush?: HexBrushTarget | null;
+		/**
+		 * the regions' covers to draw (agents/MAP.md §8.10): SVG paths in world units (`runsPaths`, computed once per change
+		 * by the builder) under the camera's transform – a light fill each, the selected one with its outline
+		 */
+		regions?: { id: string; colour: string; fill: string; edge: string; selected: boolean }[];
 		map: WorldMap;
 		view: MapViewport;
 		tool?: MapTool;
@@ -519,6 +525,16 @@
 		<svg class="footprint" class:preview={footprint.preview} aria-hidden="true" data-testid="place-footprint"><path transform="translate({o.x} {o.y})" d={cellsPath(footprint.cells, { x: 0, y: 0 })} /><path class="edge" transform="translate({o.x} {o.y})" d={outlinePath(footprint.cells, { x: 0, y: 0 })} />{#if gateCell}<path class="snap" transform="translate({o.x} {o.y})" d={cellsPath([gateCell.cell], { x: 0, y: 0 })} />{/if}</svg>
 	{/if}
 
+	{#if regions.length}
+		<svg class="regions" aria-hidden="true" data-testid="map-regions">
+			<g transform="translate({view.x} {view.y}) scale({view.zoom})">
+				{#each regions as r (r.id)}
+					<path class="region-fill" class:selected={r.selected} d={r.fill} fill={r.colour} data-region={r.id} />
+					{#if r.selected}<path class="region-edge under" d={r.edge} /><path class="region-edge" d={r.edge} stroke={r.colour} />{/if}
+				{/each}
+			</g>
+		</svg>
+	{/if}
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
 
 	{#if tool === 'route' && draft.length}
@@ -956,6 +972,11 @@
 		stroke-width: 3;
 		stroke-linecap: round;
 	}
+	/* a dark line under the region's colour: the outline reads on any terrain */
+	.region-edge.under {
+		stroke: var(--ink, #000);
+		stroke-width: 5;
+	}
 	/* a place waypoint's number: a small ink chip at its entry gate */
 	.handle.chip {
 		left: -0.45rem;
@@ -1023,5 +1044,27 @@
 		transform: translateX(-50%);
 		z-index: 3;
 		background: var(--paper);
+	}
+	/* the regions' covers (agents/MAP.md §8.10): a light wash each, the selected one stronger with its outline */
+	.regions {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		pointer-events: none;
+	}
+	.region-fill {
+		fill-opacity: 0.18;
+		stroke: none;
+	}
+	.region-fill.selected {
+		fill-opacity: 0.45;
+	}
+	.region-edge {
+		fill: none;
+		stroke-width: 2.5;
+		vector-effect: non-scaling-stroke;
+		stroke-linecap: round;
 	}
 </style>

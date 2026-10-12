@@ -25,7 +25,7 @@ import { matchRevealPreset } from '$lib/editor/event-presets.ts';
 import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
 /** the types the editor has a form for (another type is only named, to remove) */
-export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'askText', 'jumpTo', 'showTextBox', 'fx', 'unlockLocation', 'joinScene', 'leaveScene', 'label', 'divert', 'giveItem', 'takeItem', 'setVariable'];
+export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'askText', 'jumpTo', 'showTextBox', 'fx', 'unlockLocation', 'migrate', 'joinScene', 'leaveScene', 'label', 'divert', 'giveItem', 'takeItem', 'setVariable'];
 
 /** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
 export const viewSlots = () => [
@@ -62,6 +62,9 @@ export function template(type: string, ctx: { firstCharacter?: string; events: a
 		case 'unlockLocation':
 			// the place is picked from the world map in the form (agents/MAP.md §8.5a)
 			return { type, params: { location: '' } };
+		case 'migrate':
+			// the region is picked from the world map in the form; no `who` = the reader (agents/MAP.md §8.10)
+			return { type, params: { region: '' } };
 		case 'giveItem':
 		case 'takeItem':
 			// the item is picked from the catalog in the form (BACKLOG 10.38)
@@ -159,6 +162,8 @@ export function summary(event: any, chain: readonly string[] = [], boxes: { id: 
 			return giveWords(p);
 		case 'unlockLocation':
 			return `${p.location ?? ''}${p.silent ? ' · silent' : ''}`;
+		case 'migrate':
+			return `${p.who ?? 'reader'} → ${p.region ?? ''}${p.silent ? ' · silent' : ''}`;
 		case 'takeItem':
 			return takeWords(p);
 		case 'askText':
