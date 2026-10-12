@@ -21,6 +21,8 @@ import {
 	type CharacterRegistry,
 	type CollectionDocs,
 	type CollectionSpec,
+	type CellRun,
+	type MapRegion,
 	type WorldMap
 } from '@scutoons/content';
 import { ContentDoc, SaveConflict, SaveError } from '$lib/editor/doc.svelte.ts';
@@ -172,10 +174,32 @@ export class CollectionDoc extends ContentDoc {
 	}
 }
 
-/** The world map in the builder (map + place:<id> + route:<id>) */
+/**
+ * A region cover's row runs kept OUT of Svelte's deep proxies (an Array subclass – `$state` proxies plain arrays only):
+ * a region has thousands of runs, and every read through the proxies – the undo history's JSON.stringify of the whole map
+ * on each edit above all – cost seconds per brush stroke (owner 2026-10-12, a ThinkPad: "takes forever"). Stored and
+ * sent as a plain JSON array; a new cover is assigned whole (`region.cells = rawRuns(…)`), which the store tracks.
+ */
+class RunList extends Array<CellRun> {}
+export const rawRuns = (runs: readonly CellRun[]): CellRun[] => (runs instanceof RunList ? runs : (RunList.from(runs, (r) => [r[0], r[1], r[2]] as CellRun) as CellRun[]));
+const unproxyRegions = (map: Record<string, any> | null | undefined) => {
+	for (const region of (map?.regions ?? []) as MapRegion[]) region.cells = rawRuns(region.cells ?? []);
+	return map;
+};
+
+/** The world map in the builder (map + place:<id> + route:<id> + region:<id>) */
 export class WorldMapDoc extends CollectionDoc {
 	constructor() {
-		super(MAP_COLLECTION, (docs) => composeWorldMap(docs) as unknown as Record<string, any>);
+		super(MAP_COLLECTION, (docs) => unproxyRegions(composeWorldMap(docs) as unknown as Record<string, any>)!);
+	}
+	// undo / redo bring the map back from JSON: the covers out of the proxies again
+	override undo() {
+		super.undo();
+		unproxyRegions(this.data?.[N]);
+	}
+	override redo() {
+		super.redo();
+		unproxyRegions(this.data?.[N]);
 	}
 }
 

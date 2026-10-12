@@ -526,14 +526,17 @@
 	{/if}
 
 	{#if regions.length}
-		<svg class="regions" aria-hidden="true" data-testid="map-regions">
-			<g transform="translate({view.x} {view.y}) scale({view.zoom})">
-				{#each regions as r (r.id)}
-					<path class="region-fill" class:selected={r.selected} d={r.fill} fill={r.colour} data-region={r.id} />
-					{#if r.selected}<path class="region-edge under" d={r.edge} /><path class="region-edge" d={r.edge} stroke={r.colour} />{/if}
-				{/each}
-			</g>
-		</svg>
+		<!-- one SVG (its own layer) per region: after a stroke the browser repaints the changed region only -->
+		<div class="regions-layers" data-testid="map-regions">
+			{#each regions as r (r.id)}
+				<svg class="regions" aria-hidden="true">
+					<g transform="translate({view.x} {view.y}) scale({view.zoom})">
+						<path class="region-fill" class:selected={r.selected} d={r.fill} fill={r.colour} data-region={r.id} />
+						{#if r.selected}<path class="region-edge under" d={r.edge} /><path class="region-edge" d={r.edge} stroke={r.colour} />{/if}
+					</g>
+				</svg>
+			{/each}
+		</div>
 	{/if}
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
 
@@ -1046,6 +1049,11 @@
 		background: var(--paper);
 	}
 	/* the regions' covers (agents/MAP.md §8.10): a light wash each, the selected one stronger with its outline */
+	.regions-layers {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
 	.regions {
 		position: absolute;
 		inset: 0;
@@ -1053,6 +1061,7 @@
 		height: 100%;
 		overflow: visible;
 		pointer-events: none;
+		will-change: transform;
 	}
 	.region-fill {
 		fill-opacity: 0.18;
