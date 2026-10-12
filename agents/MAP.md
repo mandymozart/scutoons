@@ -1016,8 +1016,14 @@ generic narrator says a region-specific greeting."
   `cells` (the map's hex cells – run-length or a cell list), `sign` (image, maybe a plaster version like the dioramas),
   `vegetation` (text; also the paint prompt when the region is repainted), `description {de, en}` (the in-depth info),
   `greeting {de, en}` (the narrator's line), `representative` (a character id from the region, or none), `colour`.
-- **Builder:** a third list "Regions" beside places and routes; a region brush (1–256 cells) paints / erases its cells;
-  the regions as an optional overlay (outline + colour). First covers from `scripts/map-zones.json` (the landmasses).
+- **Builder:** a third list "Regions" beside places and routes; the region cover is painted with the SHARED hex brush
+  (no second brush): `creator/src/lib/components/map/hex-brush.svelte` with `HexBrushTarget { cells, mode, size,
+  allowed?, onchange }` – size 1–256 (`brushArea`), one stroke = one history entry, the outline one path
+  (`cellsOutline`), `paintCells` in @scutoons/content; built by "Creator UI" for the place footprints (commit 0944057a,
+  branch `claude/zealous-faraday-e6338b`). A region keeps its cells absolute (places store offsets) and gets its own small
+  state like `place-brush.svelte.ts`; a "no overlap with other regions" rule goes into `allowed`. Big covers: cull the
+  outline to the screen if redrawing per frame gets slow. The regions as an optional overlay (outline + colour); first
+  covers from `scripts/map-zones.json` (the landmasses).
 - **Characters:** `origin` (fixed) and `residence` (the default) on the character document; the current residence of
   each character – and the reader's avatar – lives in the save game (one universe: a move counts in every toon).
 - **Event `migrate { who: <character> | reader, region, silent? }`:** sets the residence; then the welcome, played in
