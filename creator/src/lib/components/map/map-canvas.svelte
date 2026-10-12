@@ -100,7 +100,8 @@
 	const inFilter = (toons: string[] | undefined) => !toonFilter || !!toons?.includes(toonFilter);
 	const placeById = $derived(new Map(map.locations.map((p) => [p.id, p])));
 
-	// ── panning: the middle button, Space held, or a drag on the empty terrain with Select (touch: drag / two fingers) ──
+	// ── panning: the middle button, Space held, a drag on the empty terrain with Select, any drag with the route / place
+	//    tools (a tap there sets the point; touch: drag / two fingers) ──
 	let space = $state(false);
 	// a safeguard (owner 2026-10-12: "while scrolling around I often accidentally move things … items, Bézier and route
 	// entries – it is a mess if it just goes"): anything draggable moves only once it is active – a place when it is
@@ -116,7 +117,9 @@
 	const handleOf = (e: PointerEvent) => (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-drag]')?.dataset.drag ?? null;
 	function canPan(e: PointerEvent) {
 		if (space || e.button === 1) return true;
-		if (tool !== 'select') return false;
+		// drawing a route / adding a place: a drag pans, a tap sets the point (owner 2026-10-12, phone: "I can not drag
+		// the map in route mode")
+		if (tool !== 'select') return true;
 		if (!(e.target as HTMLElement | null)?.closest('[data-handle]')) return true;
 		const place = placeOf(e);
 		if (place) return !isActivePlace(place);
@@ -443,7 +446,7 @@
 	class:space
 	class:moving={view.moving}
 	bind:this={viewportEl}
-	{@attach mapGestures(view, { canPan, onTap, onDoubleClick, onHover: (_, at) => (hover = at) })}
+	{@attach mapGestures(view, { canPan, onTap, onDoubleClick, onHover: (e, at) => (hover = e.pointerType === 'mouse' ? at : null) })}
 	onpointerleave={() => (hover = null)}
 	role="application"
 	aria-label={m['creator.map']()}
