@@ -491,7 +491,7 @@
 	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11, variant C): the properties slide up from below, one tab at a
 	//    time; closed it is its tab row only – a tap on a tab opens it there, on the open tab closes it; it closes
 	//    while the map is being dragged ─────────────────────────────────────────────────────────────────────────
-	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start';
+	type SheetTab = 'place' | 'image' | 'view' | 'map' | 'start' | 'route' | 'layer';
 	let sheetOpen = $state(false);
 	let sheetTab = $state<SheetTab>('map');
 	let mapDragging = $state(false);
@@ -502,7 +502,10 @@
 				{ id: 'image', icon: 'image', label: m['creator.map_image']() },
 				{ id: 'view', icon: 'crosshair', label: m['creator.map_place_view']() }
 			];
-		if (selection) return [];
+		// a route / layer: one tab like a place's – its name is the crumb at the top; the bar is no picker (owner 2026-10-12:
+		// "the route name selector can only be the active route")
+		if (selection?.kind === 'route') return [{ id: 'route', icon: 'share-2', label: m['creator.map_sheet_route']() }];
+		if (selection) return [{ id: 'layer', icon: 'layers', label: m['creator.map_sheet_layer']() }];
 		return [
 			{ id: 'map', icon: 'map', label: m['creator.map']() },
 			// Problems: once, in the bar's More (the page's Problems panel) – not a sheet tab too (owner 2026-10-11)

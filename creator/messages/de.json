@@ -1056,6 +1056,8 @@
 		"map_start_view_set": "Startansicht setzen",
 		"map_start_view_go": "Zur Startansicht",
 		"map_sheet_place": "Ort",
+		"map_sheet_route": "Route",
+		"map_sheet_layer": "Ebene",
 		"map_sheet_start": "Startansicht",
 		"map_problems": "Probleme",
 		"map_sheet_toggle": "Panel ein- oder ausfahren",

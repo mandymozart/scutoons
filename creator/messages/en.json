@@ -1056,6 +1056,8 @@
 		"map_start_view_set": "Set start view",
 		"map_start_view_go": "Go to the start view",
 		"map_sheet_place": "Place",
+		"map_sheet_route": "Route",
+		"map_sheet_layer": "Layer",
 		"map_sheet_start": "Start view",
 		"map_problems": "Problems",
 		"map_sheet_toggle": "Show or hide the panel",
