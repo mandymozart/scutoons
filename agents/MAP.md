@@ -876,12 +876,17 @@ post-processing §5.3).
 
 ### 8.7 Checks
 
-- `scripts/check-map.mjs` (headless CDP, test user; `--viewer --creator --api`): reader 390 de + 1440 en (sea colour, start
-  view, empty for a fresh guest, progress unlocks + badge + halo → seen, pan, "+", wheel, no overlapping labels, card +
-  chapter-link rule, "Orte", universe-wide in the sandbox), member (guest discoveries merge on sign-in), builder (add / name →
-  id / drag a place, draw a route, save, place image on its ground point + previews, reader-view sea colours, Wanted images →
-  Map places = every place without an image, Set start view, the bidirectional unlock). Restores the member's world state,
-  the published map and toon entry. 42 checks.
+- `scripts/check-map.mjs` (headless CDP, test user; `--viewer --creator --api`; `SCUTOONS_DB_NAME` for a worktree's
+  database): reader 390 de + 1440 en (sea colour, start view, empty for a fresh guest, unlocked places put into the guest's
+  world state → kept + badge + "new" look → seen, pan, "+" key, wheel, no overlapping labels, card + chapter-link rule,
+  "Orte", universe-wide when another toon is public), reading (a guest with a promo code scrolls chapter 1 – chapter 2 too
+  when it is published – slice by slice: each intersect `unlockLocation` event of the chapter documents unlocks its place
+  at its slice, not before, with the toast, the map stays closed; §8.5b), member (guest discoveries merge on sign-in),
+  builder (read only: every event's place is on the map, the problems table warns about exactly the hidden places no
+  event unlocks – the flow index's `placeUnlocks` – and follows a toggled "hidden"; then, only when the map has no
+  unpublished draft: add / name → id / drag a place, draw a route, save, place image on its ground point + previews,
+  reader-view sea colours, Wanted images → Map places = every place without an image, Set start view). Restores the
+  member's world state, the published map and toon entry. 47 checks (2026-10-12, scutoons_ui).
 - Unit: `shared/content/test/map.test.ts`, `LibraryTest` (world map, visibility, view + sea colour, the old bundle fields),
   `InventoryServiceTest::testWorldProgressMergesTheMapState`. Contract: `entities-smoke` (/library/map), `api-smoke` (the
   world-state merge incl. a stale write), `entities-compare` (§8.2).
