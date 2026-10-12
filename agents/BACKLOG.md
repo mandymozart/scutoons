@@ -26,19 +26,24 @@ Branch `claude/silly-mestorf-173e6e` in its own worktree `.claude/worktrees/sill
   in every app; new browser check `node scripts/check-resume.mjs` (390 + 1440: spot stored → "continue" with ?resume →
   lands on the slice) 6/6 ok. Screenshots checked: the Reading page and the user section in the admin.
 
-**Look at / decide:**
-- The resumed slice is aligned to the top of the screen: it is the furthest slice seen (≥ half on screen), so the reader
-  sees it again first. One slice earlier would give more context – say if you want that.
-- The chapter list (the bars) still opens a chapter at its top; only the start button resumes. Should a click on a
-  half-read chapter in the list resume too?
-- Members only: guests' progress is only in their browser (not counted). Counting guests would need an anonymous
-  server write – a privacy decision.
+**Owner's answers (2026-10-12):** the resumed slice at the top stays ("der Slice passt schon"); the chapter list
+resumes too ("Kapitelleiste auch dort weiterlesen" – built: `chapter-item.svelte` adds `?resume` for a chapter being
+read; svelte-check ok, the `?resume` arrival itself is what check-resume.mjs covers – the list click is not in that
+check yet); guests are counted too ("Gäste mitzählen") → 10.70, not built yet.
+
+**Look at:**
 - Statistics read every member's save game per request (fine now; a summary table later if the numbers grow).
 - Not mine, seen on the way: `tools/mcp` typecheck fails on `main` (`src/server.ts:477` – `MapPlace.unlock` no longer
   exists); `npm run check:tools-css` reports older findings (phone-bar font sizes, hand-built tabs in place-props …).
 - Dev: this worktree has its own DB `scutoons_reading` (prod seed + 5 sample readers `reader1…5@reading.test`); drop
   it when the branch is merged (`DROP DATABASE scutoons_reading` + `scutoons_reading_test`; the owner's `scutoons` is untouched).
 
+- [ ] 10.70 **Count guests in the reading statistics** (owner 2026-10-12: "Gäste mitzählen. Das ja, mit Seele." – the
+  last words came through dictation unclear: ask what "mit Seele" means before building). Guests' save games live only
+  in localStorage; counting them needs an anonymous server write: e.g. the viewer sends a guest's chapter checkpoints
+  (no variables / history) under its `scutoons_device` id to a new endpoint → a new table (migration) → `ReadingReport`
+  adds them as "Gäste" next to "Mitglieder" (never per person in the admin). Privacy: the privacy page has to say it;
+  drop rows of devices that sign in (their state merges into the member's) and old ones after N days.
 - [x] 10.69 **Where is a reader in a chapter** (owner 2026-10-11: "Wir haben ein Progress-Tracking irgendwie gehabt. Das
   ist aber für Story-Points, nicht für wie weit gelesen wurde in einem Chapter – das ist ja auch sehr aussagekräftig, wo
   eine Person ist"). **What exists:** the save game (DATA.md "The save game", 10.36) – one state per reader, members in
