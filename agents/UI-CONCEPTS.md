@@ -438,7 +438,9 @@ sheet's tabs sit on the sheet (**variant C**): closed it is its tab row only, a 
 (no grab handle). **Everywhere (owner 2026-10-12, "ziemlich brutal einführen"):** every selection brings its row with ‹
 – characters (the selected one, the list steps aside), the chapter editor's phone lists (a long press picks slices /
 groups, then taps add / remove; Edit · Duplicate · Copy · Cut · Delete), the slice canvas, the map; the crumbs stay the
-way up too (BACKLOG 10.68). The draft below is kept as written.
+way up too (BACKLOG 10.68). **The desktop too (owner 2026-10-12, "phone grouping"):** the same bar at every width – from
+768px the cells sit at the bar's end, icon + word side by side at the control height, Problems (+ the chapter editor's
+slice stepper) leading the row; the selection's row stays a phone thing. The draft below is kept as written.
 
 
 Owner: "einen Entwurf … wie man den Karten-Editor in der Mobile View so machen kann, dass man ihn am Handy bedienen kann

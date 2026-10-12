@@ -867,6 +867,20 @@ order. Lost on purpose: the silent catch-up for readers who start in the middle 
 **Order on production:** run the SQL first (the published viewer already runs unlockLocation), empty the API's library
 cache, then deploy.
 
+### 8.5c Route gates (owner 2026-10-12, BACKLOG 10.66 (4))
+
+Three drafts on the map (a gates, b tunnel, c behind) → the owner picked **A** ("aber die Compute ist ja erstmal das, was
+automatisch gemacht wird. Und dann kann man das noch anpassen"): a route runs into a place's diorama at its **entry gate**
+and on from its **exit gate** – nothing is drawn across the place; a route starting at a place leaves from its exit, one
+ending there comes in at its entry. Computed (`placeGate`): the point on the diorama's ground ellipse (half size ×
+`GATE_RADIUS` 0.5, flattened `GATE_FLAT` 0.6) toward the previous / next waypoint; set by the author: `MapPlace.gates
+{ entry?, exit? }`, offsets from the place's point in world units (validated: x / y numbers). `routeGeometry` (content,
+tested) gives the lines + the gate marks; `MapRoutes` draws the lines under the places (`layer="lines"`) and the marks
+over them (`layer="gates"`, a small round mark: paper inside, the route's colour around) – the same in the viewer and the
+builder. Builder: the selected place shows one handle per gate its routes use (hollow = computed, filled = set;
+"in" / "out"), dragging one sets the offset (a tenth of a unit); the place form's "Route gates" says computed / set and
+"Back to computed" drops `gates`. One entry and one exit per place – every route through it uses them.
+
 ### 8.6 Not built yet
 
 M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the

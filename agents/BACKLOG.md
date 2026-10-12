@@ -552,7 +552,8 @@ B.1–B.3 → M.15 (report) → 10.11 → `tokens-switch-knob` → concepts E.1�
   viewer and the builder (one shared place-image component, like MapTerrain). (2) The image is clickable: it selects /
   activates the place (today only the small marker is). (3) A place without an image shows an abstract diorama
   outline (one SVG, dashed) as its selectable element instead of the dot. (4) Routes go behind a place's diorama /
-  outline – entering and leaving it (an entry and an exit point) for an interesting path. Route animation (a path that
+  outline – entering and leaving it (an entry and an exit point) for an interesting path (**built 2026-10-12**: owner
+  picked variant A of three drafts, computed first, adjustable – MAP.md §8.5c). Route animation (a path that
   grows with the progress) is separate – not part of this. (5) Against overlaps (owner: "ein Grid auf die Karte – oktagonal oder
   quadratisch – Orte nur innerhalb dieses Grids setzen"): octagons don't tile on their own (squares fill the gaps) – the
   real choice is square or hexagonal; recommended a HEX grid (every neighbour the same distance, organic, an isometric

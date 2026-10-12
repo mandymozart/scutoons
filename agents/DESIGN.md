@@ -802,6 +802,11 @@ Three kinds, three places; none moves the layout:
 - **The slice bar** (chapter editor, < 768): a row above the ActionBar – ‹ Slice n/m ›, undo, redo, ⚠ (the problems'
   count in its corner, opens Problems); round icon buttons. "More" keeps the rest (copy / paste, preview, History, the
   note). Toasts sit above it (`--sc-above-action-bar`).
+- **The bottom bar is grouped at every width** (owner 2026-10-11 phones, 2026-10-12 desktop – UI-CONCEPTS E.10):
+  Save · History (undo, redo, versions) · Publish · More, icon + word; Save carries a dot while dirty, Publish while
+  drafts are not live; on a desktop Problems (and the chapter editor's slice stepper) lead the row. A selection (a text
+  box, a place, a character, picked slices / groups – a long press picks on a phone) swaps the row for its own actions
+  with ‹ – on phones only.
 - **More on a phone** is a sheet flush on the ActionBar, the page above it dimmed (a tap there closes it; the toasts
   wait under the dim).
 - **The inspector on a phone** is a sheet below the canvas (45 % of the editor) with a grab handle: drag it, tap it
