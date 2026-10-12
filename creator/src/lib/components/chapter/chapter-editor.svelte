@@ -44,6 +44,9 @@
 	import { ChapterView, clampZoom, type InspectorTab, type Section } from '$lib/editor/chapter-state.svelte.ts';
 	import * as edits from '$lib/editor/slice-edit.ts';
 	import { clipboard, clipboardEvents, useClipHandler } from '$lib/editor/clipboard.svelte.ts';
+	import { slicesClipHandler } from '$lib/editor/slices-clip.svelte.ts';
+	import { groupsClipHandler } from '$lib/editor/groups-clip.svelte.ts';
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { sliceClipHandler } from '$lib/editor/slice-clip.ts';
 	import { setClipContext } from '$lib/editor/clip-context.ts';
 	import { countPlacements } from '$lib/editor/clip.ts';
@@ -867,8 +870,109 @@
 			]
 		}
 	]);
+	// ── phones: picking slices in the group's grid and groups in the chapter's list (owner 2026-10-12: "das Zurück unten
+	// in der Auswahl-Leiste … brutal einführen" – chapter editor slices / groups). A long press picks one, then taps add /
+	// remove; a tap without picks still opens it (BACKLOG 10.50 h). The picks are a selection: the bar shows their row
+	// (copy / cut / paste through the same handlers as the tree's lists), ‹ drops them ──
+	const PHONE_SLICES = 'phone-slices';
+	const PHONE_GROUPS = 'phone-groups';
+	let phonePicks = $state<number[]>([]);
+	let phoneGroupPicks = $state<number[]>([]);
+	$effect(() => {
+		void view.groupIndex;
+		void view.section;
+		untrack(() => {
+			phonePicks = [];
+			phoneGroupPicks = [];
+		});
+	});
+	const phoneSliceClip = slicesClipHandler({
+		doc: () => activeDoc!,
+		groupPath: () => groupPath,
+		slices: () => activeGroup?.slices ?? [],
+		picked: () => phonePicks,
+		pick: (next) => (phonePicks = next),
+		onselect: () => {}
+	});
+	useClipHandler(() => (view.section === 'group' && activeDoc ? PHONE_SLICES : null), phoneSliceClip);
+	const phoneGroupClip = groupsClipHandler({
+		chapter: () => chapter,
+		groups: () => groups,
+		resolveGroup: (g: any) => (g?.ref?.src ? refs[g.ref.src]?.data?.[refs[g.ref.src].primary] : g),
+		chapterNumber: () => chapterNumber,
+		picked: () => phoneGroupPicks,
+		pick: (next) => (phoneGroupPicks = next),
+		onremove: () => {},
+		onpaste: () => {}
+	});
+	useClipHandler(() => (view.section === 'meta' ? PHONE_GROUPS : null), phoneGroupClip);
+	/** a long press (450 ms without moving) picks; the tap that ends it does nothing else */
+	let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null = null;
+	function pressStart(event: PointerEvent, fire: () => void) {
+		press = { x: event.clientX, y: event.clientY, fired: false, timer: setTimeout(() => press && ((press.fired = true), fire()), 450) };
+	}
+	function pressMove(event: PointerEvent) {
+		if (press && !press.fired && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 8) pressEnd();
+	}
+	function pressEnd() {
+		if (press && !press.fired) {
+			clearTimeout(press.timer);
+			press = null;
+		}
+	}
+	/** a tap: false when it only ended a long press */
+	function pressTap(): boolean {
+		const ended = !!press?.fired;
+		press = null;
+		return !ended;
+	}
+	const addPick = (picks: number[], index: number) => (picks.includes(index) ? picks : [...picks, index].sort((a, b) => a - b));
+	const togglePick = (picks: number[], index: number) => (picks.includes(index) ? picks.filter((i) => i !== index) : addPick(picks, index));
+	function sliceTap(index: number) {
+		if (!pressTap()) return;
+		if (!phonePicks.length) return view.selectSlice(index);
+		phonePicks = togglePick(phonePicks, index);
+	}
+	function groupTap(index: number) {
+		if (!pressTap()) return;
+		if (!phoneGroupPicks.length) return view.selectGroup(index);
+		phoneGroupPicks = togglePick(phoneGroupPicks, index);
+	}
+	async function pickedClip(region: string, action: 'copy' | 'cut' | 'duplicate' | 'delete', what: string) {
+		liveRegion.set(region);
+		if (action === 'delete') {
+			if (await confirmRemove(m['creator.remove_confirm']({ what }))) clipboard.handler?.remove();
+			return;
+		}
+		if (action === 'duplicate') {
+			const copied = clipboard.copy();
+			if (copied) clipboard.paste(copied);
+			return;
+		}
+		await clipboard.copyFromMenu(action === 'cut');
+	}
+	/** the bar's row for picked slices / groups */
+	function picksRow(kind: 'slices' | 'groups', picks: number[], clear: () => void, open: (index: number) => void) {
+		const region = kind === 'slices' ? PHONE_SLICES : PHONE_GROUPS;
+		const what = kind === 'slices' ? m['creator.clip_what_slices']({ count: picks.length }) : m['creator.clip_what_groups']({ count: picks.length });
+		const run = (action: 'copy' | 'cut' | 'duplicate' | 'delete') => () => pickedClip(region, action, what);
+		return {
+			label: what,
+			onback: clear,
+			items: [
+				...(picks.length === 1 ? [{ id: 'open', icon: 'edit-2', label: m['creator.bar_edit'](), run: () => open(picks[0]), testid: `phone-${kind}-open` }] : []),
+				{ id: 'duplicate', icon: 'copy', label: m['creator.bar_duplicate'](), run: run('duplicate'), testid: `phone-${kind}-duplicate` },
+				{ id: 'copy', icon: 'clipboard', label: m['creator.clip_copy'](), run: run('copy'), testid: `phone-${kind}-copy` },
+				{ id: 'cut', icon: 'scissors', label: m['creator.clip_cut_action'](), run: run('cut'), testid: `phone-${kind}-cut` },
+				{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), run: run('delete'), testid: `phone-${kind}-delete` }
+			] satisfies PhoneBarItem[]
+		};
+	}
+
 	/** the selected text box / item / area: its own actions (‹ deselects) */
 	const phoneSelection = $derived.by(() => {
+		if (view.section === 'group' && phonePicks.length) return picksRow('slices', phonePicks, () => (phonePicks = []), (i) => view.selectSlice(i));
+		if (view.section === 'meta' && phoneGroupPicks.length) return picksRow('groups', phoneGroupPicks, () => (phoneGroupPicks = []), (i) => view.selectGroup(i));
 		const sel = view.selection;
 		if (!sel || view.section !== 'slice') return null;
 		const tab: InspectorTab = sel.kind === 'event' ? 'events' : sel.kind === 'sample' ? 'audio' : 'layers';
@@ -1099,7 +1203,19 @@
 					<nav class="phone-only phone-groups" aria-label={m['creator.groups']()} data-testid="phone-groups">
 						<p class="sc-nav-head">{m['creator.groups']()}</p>
 						{#each sceneGroups() as g, gi (gi)}
-							<button type="button" class="sc-nav-item" onclick={() => view.selectGroup(gi)} data-testid="phone-group-{gi}">
+							<button
+								type="button"
+								class="sc-nav-item phone-group"
+								class:sc-selected={phoneGroupPicks.includes(gi)}
+								aria-pressed={phoneGroupPicks.length ? phoneGroupPicks.includes(gi) : undefined}
+								onpointerdown={(e) => pressStart(e, () => (phoneGroupPicks = addPick(phoneGroupPicks, gi)))}
+								onpointermove={pressMove}
+								onpointerup={pressEnd}
+								onpointercancel={pressEnd}
+								oncontextmenu={(e) => e.preventDefault()}
+								onclick={() => groupTap(gi)}
+								data-testid="phone-group-{gi}"
+							>
 								<span class="phone-name">{groupName(groups[gi], gi)}</span>
 								<span class="phone-hint">{#if g?.events}<Icon name="zap" size="0.875rem" label={m['creator.events']()} />{/if}{g?.slices?.length ?? 0}</span>
 							</button>
@@ -1135,8 +1251,18 @@
 						{#if activeGroup?.slices?.length}
 							<nav class="phone-only phone-slices" aria-label={m['creator.slices']()} data-testid="phone-slices">
 								{#each activeGroup.slices as s, si (si)}
-									<button type="button" class="phone-slice" onclick={() => view.selectSlice(si)} aria-label={m['creator.slice_n']({ number: si + 1 })} title={m['creator.slice_n']({ number: si + 1 })} data-control-exempt="slice thumbnail" data-testid="phone-slice-{si}">
-										<img src={toonUrl(activeDoc.toon, s?.image)} alt="" loading="lazy" />
+									<button
+										type="button"
+										class="phone-slice"
+										class:sc-selected={phonePicks.includes(si)}
+										aria-pressed={phonePicks.length ? phonePicks.includes(si) : undefined}
+										onpointerdown={(e) => pressStart(e, () => (phonePicks = addPick(phonePicks, si)))}
+										onpointermove={pressMove}
+										onpointerup={pressEnd}
+										onpointercancel={pressEnd}
+										oncontextmenu={(e) => e.preventDefault()}
+										onclick={() => sliceTap(si)} aria-label={m['creator.slice_n']({ number: si + 1 })} title={m['creator.slice_n']({ number: si + 1 })} data-control-exempt="slice thumbnail" data-testid="phone-slice-{si}">
+										<img src={toonUrl(activeDoc.toon, s?.image)} alt="" loading="lazy" draggable="false" />
 										<span>{si + 1}</span>
 									</button>
 								{/each}
@@ -1385,6 +1511,23 @@
 		border: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 		overflow: hidden;
+	}
+	/* a long press picks (no system menu, no drag ghost); a picked one: a thick frame, its number inverted */
+	.phone-slice {
+		-webkit-touch-callout: none;
+		user-select: none;
+	}
+	.phone-group {
+		-webkit-touch-callout: none;
+		user-select: none;
+	}
+	.phone-slice.sc-selected {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--border-width-regular);
+	}
+	.phone-slice.sc-selected span {
+		background: var(--primary-cyan);
+		color: var(--ink);
 	}
 	.phone-slice img {
 		display: block;
