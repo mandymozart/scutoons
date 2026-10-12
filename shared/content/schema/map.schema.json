@@ -82,6 +82,14 @@
 				"levels": {
 					"type": "number",
 					"description": "the deepest level (2^levels px per world unit)"
+				},
+				"minLevel": {
+					"type": "number",
+					"description": "the coarsest level with tiles (owner 2026-10-12: \"like Google Maps / OpenStreetMap\" – every level the same 256 px tiles, a coarse one covering more of the world): ≤ 0 = the whole pyramid is tiles, the layer's image is never loaded and the coarsest tiles on screen stand in while sharper ones load; missing = 1 (levels below 1 are the image)"
+				},
+				"px": {
+					"type": "number",
+					"description": "a tile's edge in px: `TILE_PX` (256, the default) or 512 – four times fewer images per screen (owner 2026-10-12)"
 				}
 			},
 			"required": [

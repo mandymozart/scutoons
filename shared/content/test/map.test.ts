@@ -208,7 +208,7 @@ test('tiles and culling: the level for a zoom, the tiles on screen, the point in
 	const { tileLevel, visibleTiles, pointIndex, TILE_PX, checkWorldMap } = await import('../src/map.ts');
 	assert.equal(tileLevel(1, 1, 5), 0);
 	assert.equal(tileLevel(2, 1, 5), 1);
-	assert.equal(tileLevel(3, 1, 5), 2, 'the next sharper level');
+	assert.equal(tileLevel(3, 1, 5), 2, 'the nearest level');
 	assert.equal(tileLevel(8, 2, 5), 4);
 	assert.equal(tileLevel(32, 2, 5), 5, 'capped at the deepest');
 	assert.equal(tileLevel(0.25, 1, 5), 0);
@@ -236,6 +236,29 @@ test('fog of war: the unlocked places, the layer field (owner 2026-10-12, MAP.md
 	assert.deepEqual(bad({ radius: 40 }), []);
 	assert.deepEqual(bad({ radius: 0 }), ['layers.0.fog']);
 	assert.deepEqual(bad(40), ['layers.0.fog'], 'an object, not a bare number');
+});
+
+test('a full tile pyramid: coarse levels as tiles, a screen never needs many (owner 2026-10-12: "like Google Maps")', async () => {
+	const { tileLevel, visibleTiles, checkWorldMap, TILE_DPR_MAX } = await import('../src/map.ts');
+	const world = { width: 2048, height: 1046 };
+	// zoomed far out on a phone (dpr 3): a coarse level, not the deepest
+	assert.equal(tileLevel(0.18, 3, 3, -2), -1);
+	assert.equal(tileLevel(0.05, 1, 3, -2), -2, 'clamped to the coarsest');
+	assert.equal(tileLevel(64, 3, 3, -2), 3, 'clamped to the deepest');
+	assert.equal(visibleTiles({ x: 0, y: 0, ...world }, -2, world).length, 4, 'the whole world at -2: 2 × 2 tiles');
+	// a 375 × 812 phone at any zoom (dpr 3, fetched as 2), 512 px tiles: a handful per layer (plus half a tile around)
+	for (const zoom of [0.18, 0.5, 1, 2, 4, 8, 16, 32]) {
+		const level = tileLevel(zoom, Math.min(3, TILE_DPR_MAX), 3, -2);
+		const size = 512 / 2 ** level;
+		const n = visibleTiles({ x: 1000 - 375 / zoom / 2 - size / 2, y: 500 - 812 / zoom / 2 - size / 2, width: 375 / zoom + size, height: 812 / zoom + size }, level, world, 512).length;
+		assert.ok(n <= 24, `zoom ${zoom}: ${n} tiles`);
+	}
+	const bad = (tiles: unknown) => checkWorldMap({ width: 10, height: 10, layers: [{ id: 'p', image: 'a.webp', tiles } as any], locations: [], routes: [] }).map((p) => p.path.join('.'));
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, minLevel: -2 }), []);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, minLevel: 4 }), ['layers.0.tiles.minLevel']);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, minLevel: -9 }), ['layers.0.tiles.minLevel']);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, px: 512 }), []);
+	assert.deepEqual(bad({ path: 'm/t', levels: 3, px: 300 }), ['layers.0.tiles.px']);
 });
 
 test('resetting the map: the merge drops what came before the reset – also from a device that missed it (owner 2026-10-11)', async () => {

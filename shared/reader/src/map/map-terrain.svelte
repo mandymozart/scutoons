@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { tileLevel, visibleTiles, type MapFog, type MapTiles } from '@scutoons/content';
+	import { TILE_DPR_MAX, TILE_PX, tileLevel, visibleTiles, type MapFog, type MapTiles } from '@scutoons/content';
 	import type { MapViewport } from './viewport.svelte.ts';
 	import { fogGradients, fogMaskUrl } from './fog-mask.ts';
 
@@ -122,13 +122,27 @@
 		if (!view.moving) restZoom = view.zoom;
 	});
 	const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
-	function tilesOf(tiles: MapTiles) {
-		const level = tileLevel(restZoom, dpr, tiles.levels);
-		if (level < 1) return []; // level 0 = the image itself
+	/** the tiles on screen at a level (half a tile around it) */
+	function onScreen(level: number, px: number) {
 		const a = view.toWorld({ x: 0, y: 0 });
 		const b = view.toWorld({ x: view.width, y: view.height });
-		const margin = 256 / 2 ** level; // one tile around the screen
-		return visibleTiles({ x: a.x - margin, y: a.y - margin, width: b.x - a.x + margin * 2, height: b.y - a.y + margin * 2 }, level, { width, height });
+		const margin = px / 2 / 2 ** level;
+		return visibleTiles({ x: a.x - margin, y: a.y - margin, width: b.x - a.x + margin * 2, height: b.y - a.y + margin * 2 }, level, { width, height }, px);
+	}
+	/** the level for the zoom: a 512 px tile is one level sharper per tile than a 256 one, so its level comes from the same zoom */
+	const levelOf = (tiles: MapTiles, minLevel: number) => tileLevel(restZoom, Math.min(dpr, TILE_DPR_MAX), tiles.levels, minLevel);
+	function tilesOf(tiles: MapTiles) {
+		const level = levelOf(tiles, tiles.minLevel ?? 0);
+		if (tiles.minLevel === undefined && level < 1) return []; // level 0 = the image itself
+		return onScreen(level, tiles.px ?? TILE_PX);
+	}
+	/**
+	 * a full pyramid (`minLevel` ≤ 0, owner 2026-10-12 – "like Google Maps"): its coarsest tiles on screen stand in under
+	 * the sharper ones while they load – a handful of 256 px files instead of the layer's big image
+	 */
+	function standIns(tiles: MapTiles) {
+		if (tiles.minLevel === undefined) return [];
+		return levelOf(tiles, tiles.minLevel) > tiles.minLevel ? onScreen(tiles.minLevel, tiles.px ?? TILE_PX) : [];
 	}
 
 	// the base image (1 px per world unit) is only the fallback while a layer's tiles load: under loaded tiles its coarse
@@ -145,7 +159,7 @@
 <!-- zoomed in, a fog layer masks each tile on its own (owner 2026-10-12, the phone: "after zooming in the fog of war
      does not work any more" – one masked layer as big as the zoomed world is more than a phone's GPU keeps a mask for) -->
 {#snippet fogTiles(layer: (typeof layers)[number], f: MapFog, list: ReturnType<typeof tilesOf>)}
-	{#each list as t (`${t.z}/${t.x}_${t.y}`)}
+	{#each [...standIns(layer.tiles!), ...list] as t (`${t.z}/${t.x}_${t.y}`)}
 		<img class="tile" src={url(`${layer.tiles!.path}/${t.z}/${t.x}_${t.y}.webp`)} alt="" draggable="false" style="left: {t.left}px; top: {t.top}px; width: {t.size}px; height: {t.size}px; {maskOf(f, t)}" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} data-testid="map-fog-tile" />
 	{/each}
 {/snippet}
@@ -153,8 +167,10 @@
 {#snippet drawn(layer: (typeof layers)[number])}
 	{@const list = layer.tiles ? tilesOf(layer.tiles) : []}
 	{@const covered = list.length > 0 && list.every((t) => settledTiles.has(tileSrc(layer.tiles!, t)))}
-	<img class="layer" class:covered src={url(layer.image!)} alt="" {width} {height} draggable="false" />
-	{#each list as t (`${t.z}/${t.x}_${t.y}`)}
+	{#if layer.tiles?.minLevel === undefined}
+		<img class="layer" class:covered src={url(layer.image!)} alt="" {width} {height} draggable="false" />
+	{/if}
+	{#each [...(layer.tiles ? standIns(layer.tiles) : []), ...list] as t (`${t.z}/${t.x}_${t.y}`)}
 		{@const src = tileSrc(layer.tiles!, t)}
 		<img class="tile" {src} alt="" draggable="false" style:left="{t.left}px" style:top="{t.top}px" style:width="{t.size}px" style:height="{t.size}px" onload={() => settle(src)} onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden', settle(src))} />
 	{/each}
