@@ -34,14 +34,14 @@ page and the verify page and proxies `/api/validate/`, `/api/keys/keys.php`, `ge
 ## Cutover
 
 The step-by-step cutover of the whole platform (folders, subdomain targets, SSL, secrets, order, checks, rollback)
-is in `agents/PLATFORM.md` → "Cutover checklist (all-inkl)". Server-specific data moves in it:
+is in `agents/PLATFORM.md` → "Cutover checklist (all-inkl)" (done 2026-10-05; history: agents/archive/CUTOVER.md). Server-specific data moves in it:
 
 - keypair: old `api/keys/keypair.json` → `api/storage/keys/keypair.json` (upload **before** the first API deploy,
   so `/api/keys/keys.php` never answers 404);
 - batch output: old `generate/files/` → `api/storage/files/`;
 - `generate/.htpasswd` (Basic auth of the legacy SPA) → next to `api/public/generate/.htaccess`; set `AuthUserFile`
   there to the file's absolute path (KAS shows the account path, e.g. `/www/htdocs/<account>/api/public/generate/.htpasswd`);
-- database: the same MySQL database; run the pending `migrations/mysql/*.sql` in phpMyAdmin first.
+- database: the same MySQL database; pending `migrations/mysql/*.sql` run with the deploy (DATABASE.md "Migrations").
 
 ## Admin role in production
 
