@@ -743,7 +743,21 @@
 					onaddplace={onAddPlace}
 					onmoveplace={onMovePlace}
 					onmovewaypoint={onMoveWaypoint}
-					onmovegate={(place, which, offset) => editPlace(doc, place, (p) => (p.gates = { ...(p.gates ?? {}), [which]: offset }), `gate:${place}:${which}`)}
+					onmovegate={(place, which, gate) =>
+						editPlace(doc, place, (p) => {
+							const gates = { ...(p.gates ?? {}) };
+							if (gate) gates[which] = gate;
+							else delete gates[which];
+							if (gates.entry || gates.exit) p.gates = gates;
+							else delete p.gates;
+						}, `gate:${place}:${which}`)}
+					onmovewaypointhandle={(route, index, handle) =>
+						editRoute(doc, route, (r) => {
+							const w = r.waypoints[index];
+							if (!w || isPlaceWaypoint(w)) return;
+							if (handle) w.handle = handle;
+							else delete w.handle;
+						}, `handle:${route}:${index}`)}
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
 				/>

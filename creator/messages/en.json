@@ -1037,6 +1037,8 @@
 		"map_gates": "Route gates",
 		"map_gates_hint": "Where routes run into and out of the diorama – entry: {entry}, exit: {exit}. Drag a gate on the map (with the place selected) to place it.",
 		"map_gates_reset": "Back to computed",
+		"map_curve_handle": "Curve handle",
+		"map_curve_reset_hint": "drag it to shape how the route runs; double-click: back to computed",
 		"map_gate_entry": "Entry gate",
 		"map_gate_exit": "Exit gate",
 		"map_gate_entry_short": "in",

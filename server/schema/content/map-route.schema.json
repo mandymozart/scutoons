@@ -93,6 +93,10 @@
 				},
 				"name": {
 					"$ref": "#/definitions/LocaleText"
+				},
+				"handle": {
+					"$ref": "#/definitions/Point",
+					"description": "the curve's handle here (owner 2026-10-12: Bézier routes): an offset from the point, world units – the outgoing control point, the incoming one mirrored; missing = smooth (the neighbours' direction)"
 				}
 			},
 			"required": [
@@ -101,6 +105,21 @@
 				"y"
 			],
 			"description": "A free point on a route (a bridge, a pass); `id` unique within the route"
+		},
+		"Point": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			]
 		},
 		"MapPathStyle": {
 			"type": "string",
