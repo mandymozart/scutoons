@@ -897,6 +897,12 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
   except the new (unseen) ones – a new place's surroundings get their colour with its reveal (`revealShow`) or its
   painting in place, together with its diorama.
 - **Builder** – both layers with the eyes (the plaster under the painted one); the layer form has the fog radius.
+- **Generated 2026-10-12** (all 59 land regions, uni-1-max, ≈ $5.90; the owner: "Sample regions look amazing"):
+  on the CDN (new paths, nothing overwritten) `catpope/map/painted/terrain-2026-10-12[-plaster].webp` +
+  `catpope/map/tiles/painted-2026-10-12[-plaster]/{1,2,3}/` (1559 tiles each); the regions in `logs/map-paint/abstract/`
+  of the worktree (repainting one: delete its `r_x_y.png`, `--only x_y`, then `--assemble --plaster` to NEW paths).
+  Production map draft **v276** (on v275): layers terrain · plaster · painted (`fog: { radius: 24 }`) – publish only after the code deploy
+  (an older viewer ignores `fog` and shows the painted layer everywhere).
 
 ### 8.6 Not built yet
 

@@ -39,6 +39,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   10.67 (the map's scale ÷8, deep zoom, tiles), 10.61 (migrations behind a developer role), 10.62–10.66; small UI
   fixes the owner found on the phone (the resolution slot's layout, the chapter-link wording, the size slider's label)
   in 10.65.
+- Painted map + fog of war (2026-10-12, branch `claude/cool-galileo-5d33f7`, MAP.md §8.9): the painted terrain (Luma, all
+  regions) + a plaster layer derived from it, tiles on the CDN, `MapLayer.fog: { radius }` – the reader shows the painted
+  layer only around unlocked places. Production map draft v276 carries the two layers: publish it after the code deploy.
 - Open work (post-beta items 10.x + known bugs): agents/BACKLOG.md – one list (owner 2026-10-06; "CUTOVER 10.x" in older notes = the same number there).
 
 ## Working rules learned (owner)
