@@ -6,6 +6,8 @@ namespace Scutoons\Domain\Library;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\NeutralDoc;
+use Scutoons\Domain\Content\CollectionDocs;
+use Scutoons\Domain\Content\WorldMapDocs;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -286,7 +288,7 @@ final class Library
             }
             // the map: computed from the world map (entity `map`) in the old per-toon shape for older viewer builds; the
             // old `locations:<toon>:<l>` / `routes:<toon>:<l>` documents only while no world map is stored
-            $world = $ctx->snapshot->doc('map');
+            $world = WorldMapDocs::fromSnapshot($ctx->snapshot);
             if ($world instanceof stdClass) {
                 [$locations, $routes] = self::legacyMapLists($world, $toon, $locale);
             } else {
@@ -364,7 +366,7 @@ final class Library
         $ctx = $this->context($toon, $draft);
         return $this->answer("cast:$toon:" . ($chapter ?? '*'), $ctx->snapshot, function () use ($ctx, $chapter): array {
             $this->visibleToon($ctx, $ctx->source);
-            $registry = $ctx->snapshot->doc('characters');
+            $registry = CollectionDocs::fromSnapshot(CollectionDocs::CHARACTERS, $ctx->snapshot);
             $cast = self::withStar($ctx->snapshot->doc("cast:$ctx->toon"), self::star($registry, $ctx->toon));
             if ($chapter !== null) {
                 $doc = $ctx->pick("chapter:$ctx->toon:$chapter", $ctx->source);
@@ -420,7 +422,8 @@ final class Library
     {
         $snapshot = Snapshot::platform($this->db, $draft);
         return $this->answer('characters', $snapshot, function () use ($snapshot): array {
-            $registry = $snapshot->doc('characters') ?? throw new ApiError(404, 'not_found', 'No characters stored.');
+            // the registry composed from `characters` + character:<id> (agents/MAP-DOCUMENTS.md)
+            $registry = CollectionDocs::fromSnapshot(CollectionDocs::CHARACTERS, $snapshot) ?? throw new ApiError(404, 'not_found', 'No characters stored.');
             return [$registry, null];
         });
     }
@@ -451,10 +454,10 @@ final class Library
             throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
         }
         $locale ??= self::DEFAULT_SOURCE;
-        $snapshot = Snapshot::kinds($this->db, ['map', 'toon', 'characters'], $draft);
+        $snapshot = Snapshot::kinds($this->db, [...WorldMapDocs::KINDS, 'toon', ...CollectionDocs::kinds(CollectionDocs::CHARACTERS)], $draft);
         $ctx = new Context($snapshot, self::PLATFORM, null, self::DEFAULT_SOURCE, [self::DEFAULT_SOURCE], $draft, $draft || $this->showDrafts());
         return $this->answer("map:$locale:" . ($toon ?? '*'), $snapshot, function () use ($snapshot, $ctx, $locale, $toon, $draft): array {
-            $world = $snapshot->doc('map');
+            $world = WorldMapDocs::fromSnapshot($snapshot);
             if (!$world instanceof stdClass) throw new ApiError(404, 'not_found', 'No world map stored.');
             $visible = [];
             $isVisible = function (mixed $id) use (&$visible, $snapshot, $draft): bool {
@@ -517,7 +520,7 @@ final class Library
                 $tile = $entry instanceof stdClass && ($entry->tile ?? null) instanceof stdClass ? $entry->tile : null;
                 $color = $tile !== null && is_string($tile->color ?? null) && $tile->color !== '' ? $tile->color : null;
                 if ($color === null) {
-                    $registry = $snapshot->doc('characters');
+                    $registry = CollectionDocs::fromSnapshot(CollectionDocs::CHARACTERS, $snapshot);
                     foreach ($registry instanceof stdClass && is_array($registry->characters ?? null) ? $registry->characters : [] as $c) {
                         if ($c instanceof stdClass && ($c->own_toon ?? null) === $toon && is_string($c->color ?? null) && $c->color !== '') {
                             $color = $c->color;

@@ -29,12 +29,17 @@ const SCHEMAS = {
 	credits: 'ToonCredits',
 	people: 'PeopleRegistry',
 	roles: 'RoleVocabulary',
-	characters: 'CharacterRegistry',
+	// the registry as documents (agents/MAP-DOCUMENTS.md): `characters` = its own fields, `character:<id>` each
+	characters: 'CharacterRegistrySettings',
+	'registry-character': 'CharacterDoc',
 	moods: 'MoodVocabulary',
 	'asset-requests': 'AssetRequests',
 	cast: 'ToonCast',
 	script: 'ToonScript',
-	map: 'WorldMap',
+	// the world map as documents (agents/MAP-DOCUMENTS.md): `map` = its settings, `place:<id>`, `route:<id>`
+	map: 'MapSettings',
+	'map-place': 'PlaceDoc',
+	'map-route': 'RouteDoc',
 	events: 'EventList'
 };
 

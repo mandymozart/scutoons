@@ -19,7 +19,10 @@ use Scutoons\Domain\ApiError;
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
  *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
  *   characters  moods  asset-requests  people  roles  events  map      platform-wide, language-neutral
- *   (`map` = the SCUTOONS world map, agents/MAP.md; `locations:*` / `routes:*` are the old per-toon map, read-only)
+ *   place:<id>  route:<id>                                         one document per place / route of the world map (ID_KINDS)
+ *   character:<id>                                                 one document per character of the registry (`characters` = its own fields)
+ *   (`map` = the SCUTOONS world map's own settings – size, layers –, its places and routes are documents of their own:
+ *   agents/MAP.md, agents/MAP-DOCUMENTS.md, WorldMapDocs; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
  * Every toon-related text of every locale lives in these documents (per-locale documents or `{ de, en }` fields); UI
  * chrome stays in the apps' message files; the catalog (items, editions, products) follows later (DATA.md "B2").
@@ -45,7 +48,17 @@ final class EntityKey
         'roles' => [false, false, false, false],
         'events' => [false, false, false, false],
         'map' => [false, false, false, false],
+        // one segment: the id (ID_KINDS)
+        'place' => [false, false, false, false],
+        'route' => [false, false, false, false],
+        'character' => [false, false, false, false],
     ];
+    /**
+     * Kinds addressed by an id of their own (`place:<id>`, `route:<id>`; platform-wide, language-neutral – agents/MAP-DOCUMENTS.md):
+     * the id is a slug, stable forever once published (events reference it). Meant for the catalog's items too (`item:<id>`).
+     */
+    public const ID_KINDS = ['place', 'route', 'character'];
+    public const ID_PATTERN = '#^[a-z0-9][a-z0-9_-]{0,63}$#';
     /**
      * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only
      * `/api/entities`, role creator) and the production seed (`import-content --sql`) leaves them out unless `--only`
@@ -70,6 +83,7 @@ final class EntityKey
         public readonly ?int $number = null,
         public readonly ?string $scene = null,
         public readonly ?string $locale = null,
+        public readonly ?string $id = null,
     ) {
     }
 
@@ -81,6 +95,10 @@ final class EntityKey
         $kind = array_shift($parts);
         $shape = self::KINDS[$kind] ?? null;
         if ($shape === null) throw $invalid;
+        if (in_array($kind, self::ID_KINDS, true)) {
+            if (count($parts) !== 1 || !preg_match(self::ID_PATTERN, $parts[0])) throw $invalid;
+            return new self((string) $kind, id: $parts[0]);
+        }
         [$hasToon, $hasNumber, $hasScene, $localized] = $shape;
         $expected = (int) $hasToon + (int) $hasNumber + (int) $hasScene + (int) $localized;
         if ($localized && count($parts) === $expected - 1 && in_array($kind, self::NEUTRAL_DOC_KINDS, true)) $localized = false; // the neutral document
@@ -108,7 +126,7 @@ final class EntityKey
 
     public function __toString(): string
     {
-        return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->scene, $this->locale],
+        return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->scene, $this->locale, $this->id],
             fn($p) => $p !== null));
     }
 
@@ -127,13 +145,13 @@ final class EntityKey
     /** The same entity in another locale (localized kinds) */
     public function withLocale(string $locale): self
     {
-        return new self($this->kind, $this->toon, $this->number, $this->scene, $locale);
+        return new self($this->kind, $this->toon, $this->number, $this->scene, $locale, $this->id);
     }
 
     /** Key without the locale (the entity across its languages), e.g. `chapter:catpope:2` */
     public function entity(): string
     {
-        return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->scene], fn($p) => $p !== null));
+        return implode(':', array_filter([$this->kind, $this->toon, $this->number === null ? null : (string) $this->number, $this->scene, $this->id], fn($p) => $p !== null));
     }
 
     /** A chapter's scene reference (`ref.src` of a group: `chapter<N>/<name>.json`, the content format) → its entity */

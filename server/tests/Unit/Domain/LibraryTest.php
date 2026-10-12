@@ -6,6 +6,7 @@ namespace Scutoons\Tests\Domain;
 use Scutoons\Console\ContentFiles;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Content\CollectionDocs;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Library\Library;
@@ -34,6 +35,17 @@ final class LibraryTest extends TestCase
         };
         self::assertNotNull($key, "$toon/$locale/$path");
         $store = $this->get(EntityStore::class);
+        $collection = CollectionDocs::ofAnchor($key);
+        if ($collection !== null) {
+            // the world map's / the registry's documents (agents/MAP-DOCUMENTS.md): the anchor + one per entry, like an import
+            $first = 0;
+            foreach (CollectionDocs::split($collection, json_decode((string) json_encode($data))) as $part => $doc) {
+                $id = $store->insert(EntityKey::parse($part), (string) json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION), null, 'draft', null);
+                if ($publish) $store->setPublished(['id' => $id, 'entity_key' => $part]);
+                $first = $first ?: $id;
+            }
+            return $first;
+        }
         $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         $id = $store->insert(EntityKey::parse($key), (string) $json, null, 'draft', null);
         if ($publish) $store->setPublished(['id' => $id, 'entity_key' => $key]);
@@ -576,6 +588,46 @@ final class LibraryTest extends TestCase
         self::assertSame([['id' => 'way', 'title' => 'Way', 'locations' => ['home', 'tower', 'gone']]], $data['routes']);
         self::assertSame(['layers' => ['terrain' => 'images/map/terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 100, 'y' => 50]], $data['toon']['map']);
         self::assertArrayNotHasKey('map', $data['entry']);
+    }
+
+    /**
+     * The world map as documents (agents/MAP-DOCUMENTS.md): place:<id> / route:<id> on their own – a newer draft of one
+     * place only in draft mode, a removed place (tombstone) is gone once published, a new place joins at the end
+     * (creation order), and a place publish gives the answer a new cache key
+     */
+    public function testWorldMapFromDocuments(): void
+    {
+        $this->seedWorldMap();
+        $store = $this->get(EntityStore::class);
+        $ids = fn(bool $draft) => array_column(self::decode($this->library()->map('de', null, $draft)->body)['locations'], 'id');
+        $before = $this->library()->map('de', null, false)->etag;
+
+        // a draft of one place: readers still get the published one
+        $store->insert(EntityKey::parse('place:home'), (string) json_encode(['name' => ['de' => 'Neu'], 'x' => 91, 'y' => 40, 'toons' => ['t']]), null, 'draft', null);
+        self::assertSame('Zuhause', self::decode($this->library()->map('de', null, false)->body)['locations'][0]['name']);
+        self::assertSame('Neu', self::decode($this->library()->map('de', null, true)->body)['locations'][0]['name']);
+        self::assertSame($before, $this->library()->map('de', null, false)->etag, 'a draft changes nothing for readers');
+
+        // a new place: at the end; a removed one: a published tombstone
+        $new = $store->insert(EntityKey::parse('place:well'), (string) json_encode(['name' => ['de' => 'Brunnen'], 'x' => 95, 'y' => 45, 'toons' => ['t']]), null, 'draft', null);
+        $store->setPublished(['id' => $new, 'entity_key' => 'place:well']);
+        $gone = $store->insert(EntityKey::parse('place:tower'), (string) json_encode(['name' => ['de' => 'Turm'], 'x' => 120, 'y' => 60, 'toons' => ['t'], 'removed' => true]), null, 'draft', null);
+        self::assertSame(['home', 'tower', 'well'], $ids(false), 'the tombstone is a draft: tower is still there');
+        $store->setPublished(['id' => $gone, 'entity_key' => 'place:tower']);
+        self::assertSame(['home', 'well'], $ids(false));
+        self::assertNotSame($before, $this->library()->map('de', null, false)->etag, 'publishing a place gives a new cache key');
+
+        // the old bundle lists follow the documents too
+        self::assertSame(['home', 'well'], array_column(self::decode($this->library()->toon('t', 'en', false)->body)['locations'], 'id'));
+    }
+
+    public function testPlaceAndRouteKeys(): void
+    {
+        self::assertSame('cathedral', EntityKey::parse('place:cathedral')->id);
+        self::assertSame('place:cathedral', (string) EntityKey::parse('place:cathedral'));
+        self::assertSame('route:season1', EntityKey::parse('route:season1')->entity());
+        self::assertNull(EntityKey::parse('place:cathedral')->toon, 'platform-wide');
+        foreach (['place', 'place:', 'place:A', 'place:a:b', 'route:-x', 'place:scutoons:de'] as $bad) self::assertFalse(EntityKey::isValid($bad), $bad);
     }
 
     // ── Language-neutral chapters, scenes, seasons (agents/NEUTRAL.md) ─────────────────────────────────────

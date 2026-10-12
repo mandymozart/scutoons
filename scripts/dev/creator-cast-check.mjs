@@ -282,7 +282,8 @@ try {
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(
-		[`PUT /entities/cast:${TOON} 200`, 'PUT /entities/characters 200', `POST /entities/cast:${TOON}/publish 200`, 'POST /entities/characters/publish 200'].every((w) => published.includes(w)),
+		// the registry is many documents (agents/MAP-DOCUMENTS.md): saved in one batch, everything published in one transaction
+		[`PUT /entities/cast:${TOON} 200`, 'POST /entities/batch 200', 'POST /entities/publish 200'].every((w) => published.includes(w)),
 		'Publish saves and publishes cast + characters',
 		JSON.stringify(published)
 	);

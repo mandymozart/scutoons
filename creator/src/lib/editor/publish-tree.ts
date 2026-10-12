@@ -4,16 +4,17 @@
  * every stored file below a level that has an unpublished draft, as a checklist (all ticked); the ticked ones are
  * published – or submitted for review where the account's review rules ask for it.
  *
- * Documents with parts (the map's places / routes / layers, the characters – DOCUMENT_PARTS) list one line per change
- * and can be published in part (owner 2026-10-12).
+ * The world map's places and routes and the registry's characters are files of their own (`place:<id>`, `route:<id>`,
+ * `character:<id>` – agents/MAP-DOCUMENTS.md; owner 2026-10-12): one line each, by its name, "new" / "changed" /
+ * "removed" – so no document is published in part any more. The ticked files go live in one transaction
+ * (POST /entities/publish): a route and the new place it runs through are never half published.
  *
  * Levels: everything (the platform: every toon + the world – map, characters, settings …) → a toon (all its files) → a
  * season (itself, its chapters and their scene files) → a chapter (itself and its scene files).
  */
 import { checklistDialog, askDialog, type ChecklistGroup } from '@scutoons/ui';
 import type { ContentIndexEntity } from '@scutoons/api';
-import { contentApi, contentIndex, getPublished, getVersion, publishVersion, putDraft } from '$lib/api.ts';
-import { DOCUMENT_PARTS, applyParts, diffParts, type PartChange } from '@scutoons/content';
+import { contentApi, contentIndex, publishMany, withContent } from '$lib/api.ts';
 import { fileLabel } from '$lib/labels.ts';
 import { reviews } from '$lib/editor/reviews.svelte.ts';
 import { m } from '$lib/paraglide/messages.js';
@@ -48,7 +49,7 @@ export function inScope(key: string, scope: PublishScope): boolean {
 }
 
 /** the order in a list: the level's own files first, then down the tree */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits'];
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
@@ -76,11 +77,12 @@ export async function pendingFiles(scope: PublishScope): Promise<ContentIndexEnt
 	return lists.flat().filter(hasDraft).filter((e) => inScope(e.key, scope)).sort(byTree);
 }
 
-/** one line of the checklist: a whole file, or one change inside a document with parts (the map's places …) */
+/** one line of the checklist: one stored file (an entry of the map / the registry by its name) */
 interface Line {
 	id: string;
 	file: ContentIndexEntity;
-	change?: PartChange;
+	/** an entry of a collection (a place, a route, a character – agents/MAP-DOCUMENTS.md): its name and what the draft does */
+	part?: { kind: string; name: unknown; change: 'added' | 'changed' | 'removed' };
 }
 
 /** an entry's name in the creator's language (a locale map or a string), else its id */
@@ -93,49 +95,30 @@ function nameOf(name: unknown, id: string | null): string {
 	}
 	return id ?? '';
 }
+/** the kinds stored one document per entry (a line each, by name) */
 const PART_WORD: Record<string, () => string> = {
-	locations: () => m['creator.publish_part_place'](),
-	routes: () => m['creator.publish_part_route'](),
-	layers: () => m['creator.publish_part_layer'](),
-	characters: () => m['creator.publish_part_character']()
+	place: () => m['creator.publish_part_place'](),
+	route: () => m['creator.publish_part_route'](),
+	character: () => m['creator.publish_part_character']()
 };
-const KIND_WORD: Record<PartChange['kind'], () => string> = {
+const CHANGE_WORD: Record<'added' | 'changed' | 'removed', () => string> = {
 	added: () => m['creator.publish_part_added'](),
 	changed: () => m['creator.publish_part_changed'](),
-	removed: () => m['creator.publish_part_removed'](),
-	settings: () => m['creator.publish_part_settings']()
+	removed: () => m['creator.publish_part_removed']()
 };
-const lineLabel = (l: Line) =>
-	!l.change
-		? label(l.file.key)
-		: l.change.kind === 'settings'
-			? `${label(l.file.key)} · ${KIND_WORD.settings()}`
-			: `${label(l.file.key)} · ${PART_WORD[l.change.field ?? '']?.() ?? l.change.field}: ${nameOf(l.change.name, l.change.id)}`;
-const lineDetail = (l: Line) => (l.change && l.change.kind !== 'settings' ? `${KIND_WORD[l.change.kind]()} · ${detail(l.file)}` : detail(l.file));
+const lineLabel = (l: Line) => (l.part ? `${PART_WORD[l.part.kind]()}: ${nameOf(l.part.name, l.file.key.split(':')[1] ?? null)}` : label(l.file.key));
+const lineDetail = (l: Line) => (l.part ? `${CHANGE_WORD[l.part.change]()} · ${detail(l.file)}` : detail(l.file));
 
-type Parts = Map<string, { published: unknown; draft: unknown; fields: readonly string[] }>;
-
-/**
- * The lines for the files: a document with parts (DOCUMENT_PARTS – the map, the characters) that is published already
- * gives one line per change against its published version; every other file is one line.
- */
-async function linesOf(files: ContentIndexEntity[]): Promise<{ lines: Line[]; parts: Parts }> {
-	const lines: Line[] = [];
-	const parts: Parts = new Map();
-	for (const file of files) {
-		const fields = DOCUMENT_PARTS[file.key];
-		if (fields && file.published !== null) {
-			const [pub, draft] = await Promise.all([getPublished(file.key), getVersion(file.key, file.latest)]);
-			const changes = diffParts(pub.content, draft.content, fields);
-			if (changes.length) {
-				parts.set(file.key, { published: pub.content, draft: draft.content, fields });
-				for (const change of changes) lines.push({ id: `${file.key}#${change.line}`, file, change });
-				continue;
-			}
-		}
-		lines.push({ id: file.key, file });
-	}
-	return { lines, parts };
+/** The lines for the files: one per file; an entry of the map / the registry by its name (one request for their names) */
+async function linesOf(files: ContentIndexEntity[]): Promise<Line[]> {
+	const kinds = [...new Set(files.map((f) => f.kind).filter((k) => k in PART_WORD))];
+	const entries = kinds.length ? new Map((await withContent<{ name?: unknown; removed?: boolean }>(kinds, 'draft')).entities.map((e) => [e.key, e])) : null;
+	return files.map((file) => {
+		const entry = entries?.get(file.key);
+		if (!entry) return { id: file.key, file };
+		const change = entry.content?.removed ? 'removed' : file.published === null ? 'added' : 'changed';
+		return { id: file.key, file, part: { kind: file.kind, name: entry.content?.name, change } };
+	});
 }
 
 /**
@@ -145,7 +128,7 @@ async function linesOf(files: ContentIndexEntity[]): Promise<{ lines: Line[]; pa
 export async function publishTree(scope: PublishScope, title: string): Promise<{ message: string; published: string[] } | null> {
 	const files = await pendingFiles(scope);
 	if (!files.length) return { message: m['creator.nothing_to_publish'](), published: [] };
-	const { lines, parts } = await linesOf(files);
+	const lines = await linesOf(files);
 	const toonName = (id: string | null) => (id ? (scope.kind === 'all' ? scope.toons.find((t) => t.id === id)?.name : undefined) ?? id : m['creator.publish_tree_world']());
 	const item = (l: Line) => ({ id: l.id, label: lineLabel(l), detail: lineDetail(l) });
 	const groups: ChecklistGroup[] =
@@ -166,27 +149,17 @@ export async function publishTree(scope: PublishScope, title: string): Promise<{
 	const chosen = new Set(picked);
 	const done: string[] = [];
 	const forReview: { key: string; version: number }[] = [];
-	const names = (ls: Line[]) => ls.map((l) => (l.change!.kind === 'settings' ? 'settings' : nameOf(l.change!.name, l.change!.id))).join(', ').slice(0, 180);
+	// the ticked files go live together, in one transaction (a route and the new place it runs through never half);
+	// the version the list showed – a newer save in between is not published unseen
+	const live: { key: string; version: number }[] = [];
 	for (const file of files) {
-		const mine = lines.filter((l) => l.file === file);
-		const ticked = mine.filter((l) => chosen.has(l.id));
-		if (!ticked.length) continue;
-		// the version the list showed – a newer save in between is not published unseen
-		let version = file.latest;
-		const p = parts.get(file.key);
-		const inPart = !!p && ticked.length < mine.length;
-		if (p && inPart) {
-			// one document stays one document: save published + the ticked changes and put that live; the whole draft is
-			// saved again on top, so what was not ticked stays a draft (owner 2026-10-12: "die Karte nicht mit ganz vielen Dokumenten")
-			const merged = applyParts(p.published, p.draft, p.fields, new Set(ticked.map((l) => l.change!.line)));
-			version = (await putDraft(file.key, merged, file.latest, `Published in part: ${names(ticked)}`)).version.id;
-		}
-		if (reviews.needsReview(file.toon)) forReview.push({ key: file.key, version });
-		else {
-			await publishVersion(file.key, version);
-			done.push(file.key);
-		}
-		if (p && inPart) await putDraft(file.key, p.draft, version, `The draft goes on (not published yet: ${names(mine.filter((l) => !chosen.has(l.id)))})`);
+		if (!chosen.has(file.key)) continue;
+		if (reviews.needsReview(file.toon)) forReview.push({ key: file.key, version: file.latest });
+		else live.push({ key: file.key, version: file.latest });
+	}
+	if (live.length) {
+		await publishMany(live);
+		done.push(...live.map((w) => w.key));
 	}
 	let submitted = '';
 	if (forReview.length) {

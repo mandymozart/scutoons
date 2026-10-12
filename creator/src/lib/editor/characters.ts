@@ -2,6 +2,7 @@
 // `characters`, `moods`, `asset-requests` – and the per-toon `cast:<toon>`, as ContentDocs with
 // the single locale `_`, saved / published through the ActionBar of the page that edits them (Characters page, Cast page,
 // chapter editor when the picker adds a character to the season's cast).
+import { CharacterRegistryDoc } from '$lib/editor/world-map-doc.svelte.ts';
 import { SvelteSet } from 'svelte/reactivity';
 import {
 	AUTHORED_VIEW,
@@ -41,7 +42,8 @@ import { loadToonEntry, neutralDoc } from '$lib/editor/languages.ts';
 
 const N = NEUTRAL_LOCALE;
 
-export const registryDoc = () => neutralDoc(entities.characters);
+/** the character registry: one editable registry, stored as `characters` + one `character:<id>` each (agents/MAP-DOCUMENTS.md) */
+export const registryDoc = () => new CharacterRegistryDoc();
 export const castDoc = (toon: string) => neutralDoc(entities.cast(toon));
 export const peopleDoc = () => neutralDoc(entities.people);
 export const moodsDoc = () => neutralDoc(entities.moods);
@@ -99,7 +101,8 @@ const firstText = (languages: string[], text: string): LocaleText => Object.from
 export function addCharacter(doc: ContentDoc, name: string, languages: string[], extra: Partial<RegistryCharacter> = {}): string {
 	ensureRegistry(doc);
 	const registry = registryOf(doc)!;
-	const id = uniqueId(slugId(name), registry.characters.map((c) => c.id));
+	// every id ever stored is taken (a removed character's tombstone keeps it – casts and VN events reference it)
+	const id = uniqueId(slugId(name), [...registry.characters.map((c) => c.id), ...(doc instanceof CharacterRegistryDoc ? doc.takenIds('character') : [])]);
 	edit<CharacterRegistry>(doc, (file) => file.characters.push(newCharacter(id, firstText(languages, name), extra)));
 	return id;
 }

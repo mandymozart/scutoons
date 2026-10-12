@@ -25,7 +25,7 @@ final class FlowIndex
 {
     private const CACHE_TTL = 3600;
     private const VERSION = 'v6';
-    private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map'];
+    private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map', 'place', 'route'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
     public function __construct(private readonly Database $db, private readonly Cache $cache)
@@ -94,11 +94,12 @@ final class FlowIndex
         $chapters = [];
         /** @var array<string, list<array<mixed>>> $toonDocs */
         $toonDocs = [];
-        $map = $docs['map'] ?? null;
+        // the world map composed from its documents (map, place:<id>, route:<id> – WorldMapDocs)
+        $map = WorldMapDocs::fromArrays($docs);
         foreach ($docs as $entity => $doc) {
             $parts = explode(':', $entity);
             $kind = $parts[0];
-            if ($kind === 'map' || count($parts) < 2) continue;
+            if (in_array($kind, WorldMapDocs::KINDS, true) || count($parts) < 2) continue;
             $toon = $parts[1];
             $toons[$toon] ??= ['id' => $toon, 'title' => null, 'status' => null, 'avatar' => null, 'seasons' => [], 'chapters' => []];
             $toonDocs[$toon][] = $doc;

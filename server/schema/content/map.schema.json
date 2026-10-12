@@ -1,10 +1,10 @@
 {
 	"$id": "https://scutoons.com/schema/map.schema.json",
-	"title": "WorldMap",
+	"title": "MapSettings",
 	"$schema": "http://json-schema.org/draft-07/schema#",
-	"$ref": "#/definitions/WorldMap",
+	"$ref": "#/definitions/MapSettings",
 	"definitions": {
-		"WorldMap": {
+		"MapSettings": {
 			"type": "object",
 			"properties": {
 				"accepted_warnings": {
@@ -16,7 +16,7 @@
 				},
 				"width": {
 					"type": "number",
-					"description": "world units = px of the terrain artwork (2048 × 1046 today); every position is in this space"
+					"description": "world units = px of the terrain artwork; every position is in this space"
 				},
 				"height": {
 					"type": "number"
@@ -26,29 +26,15 @@
 					"items": {
 						"$ref": "#/definitions/MapLayer"
 					},
-					"description": "drawn bottom → top; image paths relative to the CDN root"
-				},
-				"locations": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/MapPlace"
-					}
-				},
-				"routes": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/MapPath"
-					}
+					"description": "drawn bottom → top"
 				}
 			},
 			"required": [
 				"width",
 				"height",
-				"layers",
-				"locations",
-				"routes"
+				"layers"
 			],
-			"description": "The SCUTOONS world map (entity `map`, seed `scutoons/_/map.json`)"
+			"description": "The document `map`: the world map's own settings"
 		},
 		"MapLayer": {
 			"type": "object",
@@ -93,256 +79,6 @@
 			"required": [
 				"path",
 				"levels"
-			]
-		},
-		"MapPlace": {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string",
-					"description": "slug, stable forever (events reference it)"
-				},
-				"name": {
-					"$ref": "#/definitions/LocaleText",
-					"description": "`{ de, en }`, more languages as keys; missing → the source language (de)"
-				},
-				"x": {
-					"type": "number",
-					"description": "the place's ground point, world units"
-				},
-				"y": {
-					"type": "number"
-				},
-				"image": {
-					"$ref": "#/definitions/MapImage",
-					"description": "the small illustration (agents/MAP.md §5)"
-				},
-				"toons": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					},
-					"description": "the toons whose story uses the place (the builder's \"used by\", the reader's per-toon view)"
-				},
-				"hidden": {
-					"type": "boolean",
-					"description": "hidden until the story's `unlockLocation` event unlocks it – default: visible from the start (owner 2026-10-11: places are unlocked by events only; the old slice / chapter link `unlock` went with migration 2026-10-11-unlock-location-events)"
-				},
-				"chapter": {
-					"type": "object",
-					"properties": {
-						"toon": {
-							"type": "string"
-						},
-						"number": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"toon",
-						"number"
-					],
-					"description": "the chapter the place's card links to"
-				},
-				"size": {
-					"type": "number",
-					"description": "its diorama's width in world units – how much of the map's hex grid it takes (`placeSize`, `placeCells`)"
-				},
-				"view": {
-					"$ref": "#/definitions/PlaceView",
-					"description": "how the reader's map frames the place when it centres on it (owner 2026-10-10: \"pro Location einen Zoom festlegen … als Mittelpunkt die Location selber, gegebenenfalls noch mit einem Offset\"; set in the map builder). Without it: the place's point at `PLACE_ZOOM` (`placeView`)."
-				}
-			},
-			"required": [
-				"id",
-				"name",
-				"x",
-				"y",
-				"toons"
-			]
-		},
-		"LocaleText": {
-			"type": "object",
-			"additionalProperties": {
-				"type": "string"
-			},
-			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
-		},
-		"MapImage": {
-			"type": "object",
-			"properties": {
-				"src": {
-					"type": "string",
-					"description": "CDN-root path, e.g. `map/locations/cathedral.webp`"
-				},
-				"size": {
-					"type": "number",
-					"description": "drawn width in screen px at zoom 1 (default 48); the image keeps its ratio"
-				},
-				"anchor": {
-					"type": "object",
-					"properties": {
-						"x": {
-							"type": "number"
-						},
-						"y": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"x",
-						"y"
-					],
-					"description": "the point inside the image, % of its box, that sits on the place's (x, y) – the centre of its hex cells (default 50 / 50: the diorama centred on its honeycomb patch – owner 2026-10-11, \"alle zentrieren, nicht am Boden\")"
-				},
-				"plaster": {
-					"type": "string",
-					"description": "the same diorama as the unpainted plaster model (owner 2026-10-11: \"zwei Zustände – als Gipsmodell und als bemaltes fertiges Diorama\"): the unlock reveal fades from it to the painted `src` (agents/MAP.md §8.5a). CDN-root path, the same framing as `src` (size and ground point are shared)"
-				},
-				"variants": {
-					"$ref": "#/definitions/QualityVariants",
-					"description": "the sizes of `src` for the screen's density (owner 2026-10-11: \"Locations in 1x 2x 3x – 256 512 1024\"): `low` 1x, `medium` 2x, `high` 3x – the same shape as a slice's `imageVariants`; none = `src` alone"
-				},
-				"plasterVariants": {
-					"$ref": "#/definitions/QualityVariants",
-					"description": "the same for the plaster model"
-				}
-			},
-			"required": [
-				"src"
-			]
-		},
-		"QualityVariants": {
-			"type": "object",
-			"properties": {
-				"low": {
-					"type": "string"
-				},
-				"medium": {
-					"type": "string"
-				},
-				"high": {
-					"type": "string"
-				}
-			},
-			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
-		},
-		"PlaceView": {
-			"type": "object",
-			"properties": {
-				"zoom": {
-					"type": "number",
-					"description": "the zoom when the map centres on the place, `MAP_MIN_ZOOM`..`MAP_MAX_ZOOM` (default `PLACE_ZOOM` – owner 2026-10-11: \"kleiner geht schon\")"
-				},
-				"offset": {
-					"type": "object",
-					"properties": {
-						"x": {
-							"type": "number"
-						},
-						"y": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"x",
-						"y"
-					],
-					"description": "the view centre's shift from the place's point, world units (default none: the place itself is the centre)"
-				}
-			},
-			"description": "A place's own framing on the reader's map (agents/MAP.md §8.4)"
-		},
-		"MapPath": {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string"
-				},
-				"name": {
-					"$ref": "#/definitions/LocaleText"
-				},
-				"toons": {
-					"type": "array",
-					"items": {
-						"type": "string"
-					}
-				},
-				"waypoints": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/Waypoint"
-					},
-					"description": "ordered, ≥ 2; a waypoint is a place or a free point"
-				},
-				"style": {
-					"$ref": "#/definitions/MapPathStyle",
-					"description": "how the line is drawn (default `road`)"
-				},
-				"hidden": {
-					"type": "boolean",
-					"description": "hidden until an event reveals it (default visible)"
-				}
-			},
-			"required": [
-				"id",
-				"name",
-				"toons",
-				"waypoints"
-			]
-		},
-		"Waypoint": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/PlaceWaypoint"
-				},
-				{
-					"$ref": "#/definitions/FreeWaypoint"
-				}
-			]
-		},
-		"PlaceWaypoint": {
-			"type": "object",
-			"properties": {
-				"location": {
-					"type": "string"
-				}
-			},
-			"required": [
-				"location"
-			],
-			"description": "A place of the map (`location` = the place id; its waypoint id is the place id)"
-		},
-		"FreeWaypoint": {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string"
-				},
-				"x": {
-					"type": "number"
-				},
-				"y": {
-					"type": "number"
-				},
-				"name": {
-					"$ref": "#/definitions/LocaleText"
-				}
-			},
-			"required": [
-				"id",
-				"x",
-				"y"
-			],
-			"description": "A free point on a route (a bridge, a pass); `id` unique within the route"
-		},
-		"MapPathStyle": {
-			"type": "string",
-			"enum": [
-				"road",
-				"trail",
-				"flight",
-				"sea"
 			]
 		}
 	}

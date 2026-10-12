@@ -20,7 +20,7 @@ final class CharacterUnlocksTest extends TestCase
             ['id' => 'yellowmouse', 'apose' => ['looks' => [$look('yellowmouse', 'swim', true), $look('yellowmouse', 'winter', false, false)]]],
             ['id' => 'toptoy'],
         ]]);
-        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
+        $this->storeCollection('characters', (array) json_decode((string) $json, true), 'published', '2026-09-30 00:00:00');
     }
 
     private function userId(): string
@@ -73,7 +73,7 @@ final class CharacterUnlocksTest extends TestCase
             ['id' => 'catpope', 'apose' => ['looks' => [['id' => 'swim', 'default' => true, 'path' => 'characters/catpope/catpope_apose-swim.webp']]]],
             ['id' => 'toptoy', 'apose' => ['looks' => [['id' => 'swim', 'default' => true, 'path' => 'characters/toptoy/toptoy_apose-swim.webp', 'slots' => [$slot('torso-left', 'torso'), $slot('torso-right', 'torso'), ['id' => 'broken']]]]]],
         ]]);
-        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
+        $this->storeCollection('characters', (array) json_decode((string) $json, true), 'published', '2026-09-30 00:00:00');
         $unlocks = $this->get(CharacterUnlocks::class);
         $avatar = $this->get(AvatarService::class);
         self::assertSame([['id' => 'torso-left', 'slot' => 'torso'], ['id' => 'torso-right', 'slot' => 'torso']], $unlocks->slotInstances('toptoy', 'swim'));
@@ -99,7 +99,7 @@ final class CharacterUnlocksTest extends TestCase
                 ['id' => 'beach', 'sensitive' => true, 'path' => 'characters/catpope/catpope_apose-beach.webp'],
             ]]],
         ]]);
-        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
+        $this->storeCollection('characters', (array) json_decode((string) $json, true), 'published', '2026-09-30 00:00:00');
         $unlocks = $this->get(CharacterUnlocks::class);
         $avatar = $this->get(AvatarService::class);
         $accounts = $this->get(AccountService::class);

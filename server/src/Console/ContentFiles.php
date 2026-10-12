@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Console;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Content\CollectionDocs;
 use Scutoons\Domain\Content\EntityKey;
 
 /**
@@ -12,7 +13,11 @@ use Scutoons\Domain\Content\EntityKey;
  *
  *   toons.json                         one entry per toon            → toon:<toon>
  *   events.json                                                      → events
- *   scutoons/_/<name>.json             characters, moods, asset-requests, people, roles, map → <name>
+ *   scutoons/_/<name>.json             moods, asset-requests, people, roles → <name>
+ *   scutoons/_/map.json                the whole world map in one file → map (its settings) + place:<id> + route:<id>
+ *   scutoons/_/characters.json         the whole registry in one file → characters (its own fields) + character:<id>
+ *                                      (one document each, in the file's order – agents/MAP-DOCUMENTS.md, CollectionDocs;
+ *                                      export composes them back)
  *   <toon>/_/cast.json, credits.json                                 → cast:<toon>, credits:<toon>
  *   <toon>/<l>/toon.json                                             → toon-settings:<toon>:<l>
  *   <toon>/_/season<N>.json, chapter<N>.json                         → season:<toon>:<N>, chapter:<toon>:<N>  (language-neutral, agents/NEUTRAL.md)
@@ -94,6 +99,12 @@ final class ContentFiles
                     $relative = substr(str_replace('\\', '/', $file), strlen(str_replace('\\', '/', $localeDir)) + 1);
                     $key = self::keyOf(basename($dir), basename($localeDir), $relative);
                     if ($key === null) continue;
+                    $collection = CollectionDocs::ofAnchor($key);
+                    if ($collection !== null) {
+                        $label = ' (' . basename($dir) . '/' . basename($localeDir) . "/$relative)";
+                        foreach (CollectionDocs::split($collection, self::readJson($file)) as $part => $doc) $sources[] = [$part, $file, $part . $label, fn() => $doc];
+                        continue;
+                    }
                     $sources[] = [$key, $file, $key . ' (' . basename($dir) . '/' . basename($localeDir) . "/$relative)", fn() => self::readJson($file)];
                 }
             }

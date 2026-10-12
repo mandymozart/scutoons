@@ -174,4 +174,64 @@ final class ContentSchemasTest extends TestCase
         $good = $this->request('PUT', '/api/entities/events', $auth, (string) json_encode(['content' => [self::EVENT]]));
         self::assertSame(200, $good->getStatusCode(), (string) $good->getBody());
     }
+    /**
+     * Many documents at once (the world map's places / routes, agents/MAP-DOCUMENTS.md): POST /api/entities/batch stores
+     * all or none (a bad document or a stale base names its key, nothing is stored), GET /api/entities?kinds= reads them
+     * with their documents in creation order, POST /api/entities/publish puts several live at once
+     */
+    public function testBatchSaveReadAndPublish(): void
+    {
+        $user = $this->user('creator@example.com');
+        $this->get(Roles::class)->grant((string) $user['id'], Roles::CREATOR);
+        $auth = ['Authorization' => 'Bearer ' . $this->get(Sessions::class)->create((string) $user['id'])];
+        $place = fn(string $de, int $x) => ['name' => ['de' => $de], 'x' => $x, 'y' => 1, 'toons' => ['t']];
+        $map = ['width' => 10, 'height' => 10, 'layers' => []];
+        $post = fn(string $uri, array $body) => $this->request('POST', $uri, $auth, (string) json_encode($body));
+        $read = fn(string $content = 'draft') => json_decode((string) $this->request('GET', "/api/entities?kinds=map,place,route&content=$content", $auth)->getBody(), true)['entities'];
+
+        // a bad document: nothing is stored, the answer names it
+        $bad = $post('/api/entities/batch', ['saves' => [['key' => 'map', 'content' => $map], ['key' => 'place:a', 'content' => ['x' => 'left']]]]);
+        self::assertSame(422, $bad->getStatusCode());
+        self::assertSame('place:a', json_decode((string) $bad->getBody(), true)['key']);
+        self::assertSame([], $read());
+
+        $ok = $post('/api/entities/batch', ['message' => 'two places', 'saves' => [
+            ['key' => 'map', 'content' => $map, 'base' => null], ['key' => 'place:b', 'content' => $place('B', 2)], ['key' => 'place:a', 'content' => $place('A', 1)],
+        ]]);
+        self::assertSame(200, $ok->getStatusCode(), (string) $ok->getBody());
+        $saved = json_decode((string) $ok->getBody(), true)['saved'];
+        self::assertSame(['map', 'place:b', 'place:a'], array_column($saved, 'key'));
+        $entities = $read();
+        self::assertSame(['map', 'place:b', 'place:a'], array_column($entities, 'key'), 'creation order');
+        self::assertSame('B', $entities[1]['content']['name']['de']);
+        self::assertSame([null, null, null], array_column($read('published'), 'content'));
+
+        // a stale base: 409 names the key, the other save of the batch is not stored either
+        $stale = $post('/api/entities/batch', ['saves' => [['key' => 'place:a', 'content' => $place('A', 5), 'base' => $saved[2]['version']['id']], ['key' => 'place:b', 'content' => $place('B', 9), 'base' => 1]]]);
+        self::assertSame(409, $stale->getStatusCode());
+        self::assertSame('place:b', json_decode((string) $stale->getBody(), true)['key']);
+        self::assertSame(1, $read()[2]['content']['x'], 'rolled back');
+
+        $pub = $post('/api/entities/publish', ['versions' => array_map(fn($s) => ['key' => $s['key'], 'version' => $s['version']['id']], $saved)]);
+        self::assertSame(200, $pub->getStatusCode(), (string) $pub->getBody());
+        self::assertSame(['map', 'place:b', 'place:a'], array_column($read('published'), 'key'));
+        self::assertSame('A', $read('published')[2]['content']['name']['de']);
+
+        // a never-published place is deleted outright (owner D3), a published one is not (a tombstone instead)
+        $post('/api/entities/batch', ['saves' => [['key' => 'place:x', 'content' => $place('X', 7)]]]);
+        self::assertContains('place:x', array_column($read(), 'key'));
+        $gone = $post('/api/entities/batch', ['saves' => [['key' => 'place:y', 'content' => $place('Y', 8)]], 'deletes' => ['place:x']]);
+        self::assertSame(200, $gone->getStatusCode(), (string) $gone->getBody());
+        self::assertSame(['place:x'], json_decode((string) $gone->getBody(), true)['deleted']);
+        self::assertSame(['map', 'place:b', 'place:a', 'place:y'], array_column($read(), 'key'));
+        $refused = $post('/api/entities/batch', ['saves' => [['key' => 'place:z', 'content' => $place('Z', 1)]], 'deletes' => ['place:a']]);
+        self::assertSame(409, $refused->getStatusCode());
+        self::assertSame('published', json_decode((string) $refused->getBody(), true)['error']);
+        self::assertNotContains('place:z', array_column($read(), 'key'), 'nothing of a refused batch is stored');
+        self::assertSame(400, $post('/api/entities/batch', ['deletes' => ['map']])->getStatusCode(), 'only places / routes are ever deleted');
+
+        // the whole map in one document (an older client): refused, not silently ignored
+        $old = $this->request('PUT', '/api/entities/map', $auth, (string) json_encode(['content' => $map + ['locations' => [['id' => 'a'] + $place('A', 1)]]]));
+        self::assertSame(422, $old->getStatusCode());
+    }
 }
