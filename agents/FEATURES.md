@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.92**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.93**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -53,6 +53,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   own tiles, the generation process has to run on the server – for now that is insane") – today `scripts/map-paint.mjs`
   runs locally (Luma per region, headless Chrome assembles, coast mask, plaster, the tile pyramid, `assets:sync`).
   Server-side would need a job queue, a canvas / image library instead of Chrome, the Luma key and costs per editor. Not now.
+- [ ] 10.92 **Map regions** (owner 2026-10-12, concept MAP.md §8.10): hex-cell regions (`region:<id>`, brush 1–256
+  cells) with a spectacular Ortseingangsschild + claim, vegetation, info, greeting, a representative; characters'
+  origin / residence; the event `migrate` (avatar + characters) with the welcome (sign + representative or narrator).
+  Elections later. Example signs: `scripts/region-signs.mjs`.
 - [ ] 10.73 **Map M3–M5** (MAP.md §8.6): the events `revealRoute`, `travel`, `setPosition`, `focusMap`,
   `runMapEvents`; the event pickers, "Used in", the server's 409 `in_use`; the sandbox story.
 

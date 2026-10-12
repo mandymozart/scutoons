@@ -997,6 +997,45 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
 - Production map draft v276: layers terrain · plaster · painted (`fog: { radius: 24 }`, still the dated paths – switch to v1, see HANDOVER) – publish only after the code deploy
   (an older viewer ignores `fog` and shows the painted layer everywhere).
 
+### 8.10 Regions (concept, owner 2026-10-12 – not built yet)
+
+Owner: "Since we identified areas with specific terrain conditions, can we translate them into hexagonal area covers and
+list them in the map editor – not as locations, not as layers, but as regions. Same doc type, changeable. They will have
+a logo, a sort of Ortseingangsschild each, which we can generate in Luma, and a specific vegetation. Regions will have
+more in-depth information. Each character has an origin region and a current residence where they are registered.
+Migration is the action that facilitates this. It is an event. After migrating officially, the Ortseingangsschild of the
+new region is shown and the elected representative of that region is shown in portrait, the sign in the background …
+The rep is also a character from that region. If there is no character elected at the moment, no one says hello – a
+generic narrator says a region-specific greeting."
+
+**Owner's answers (2026-10-12):**
+1. Who migrates: **both** – the reader's avatar and story characters.
+2. Representatives: an **election mechanism later** (until then set by hand in the editor, or none → the narrator).
+3. Cells: **the map's own hexagons** (`HEX_CELL`); the region brush scales **from 1 to 256** cells so big areas paint fast.
+4. Signs: **spectacular**, like the wine-region signs of the Wachau, "Idaho – Famous Potatoes", the "Welcome to Twin
+   Peaks" sign: the name, a **claim**, a fancy illustrated scene of the region. First samples:
+   `scripts/region-signs.mjs` → `logs/map-paint/signs/` (Luma, uni-1-max).
+5. Write it up + generate example signs: **yes**.
+
+**Proposal (to build):**
+- **Data:** `region:<id>` documents in the map collection (like `place:` / `route:`): `name {de, en}`, `claim {de, en}`,
+  `cells` (the map's hex cells – run-length or a cell list), `sign` (image, maybe a plaster version like the dioramas),
+  `vegetation` (text; also the paint prompt when the region is repainted), `description {de, en}` (the in-depth info),
+  `greeting {de, en}` (the narrator's line), `representative` (a character id from the region, or none), `colour`.
+- **Builder:** a third list "Regions" beside places and routes; a region brush (1–256 cells) paints / erases its cells;
+  the regions as an optional overlay (outline + colour). First covers from `scripts/map-zones.json` (the landmasses).
+- **Characters:** `origin` (fixed) and `residence` (the default) on the character document; the current residence of
+  each character – and the reader's avatar – lives in the save game (one universe: a move counts in every toon).
+- **Event `migrate { who: <character> | reader, region, silent? }`:** sets the residence; then the welcome, played in
+  code from the region document (not a VN chain per region – a new representative appears without editing chains):
+  the sign as the background, the representative's portrait saying the greeting, or the narrator when none is elected.
+  Drawn with the VN's pieces (background, character, text box), so it looks like the VN.
+- **Later:** elections (who can vote, when, how the representative changes), region pages in the reader.
+
+**Example signs (to refine):** Dünenmeer Magenta (desert) · Hochland Regenbogen (altiplano) · Ewigschnee (the Alps) ·
+Schuppenwald (reptile jungle) · Ödland Fracktal (wasteland) · Juwelenarchipel (the island world) · Bergland Hohe Erz
+(the mountain island) – names, claims and looks in `scripts/region-signs.mjs`.
+
 ### 8.6 Not built yet
 
 M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the
