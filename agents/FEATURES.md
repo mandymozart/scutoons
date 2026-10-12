@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.83**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.89**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -48,6 +48,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   `runMapEvents`; the event pickers, "Used in", the server's 409 `in_use`; the sandbox story.
 
 ## Reader
+- [ ] 10.88 **Count guests in the reading statistics** – owner 2026-10-12: "Gäste mitzählen. Das ja, mit Seele." –
+  `decide` first what "mit Seele" means (dictation unclear). Guests' save games live only in localStorage: an anonymous
+  write under `scutoons_device` → a new table (migration) → `ReadingReport` adds "Gäste"; the privacy page must say it.
 - [ ] 10.12 **Credits / download pages unlinked** – `/catpope/credits` and `/catpope/download` work, nothing links them.
   `decide`: link them (toon page / season slot / menu) or drop the routes.
 - [ ] M.3 **VN: the end actions inside the message box** (part 2; part 1 built 2026-10-07) – drafts on the real page
