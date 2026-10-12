@@ -75,6 +75,15 @@ Branch `claude/quizzical-goldstine-44c6a4` (worktree `.claude/worktrees/quizzica
   `CATALOG_ENTITY_KINDS` / `EntityRef.id` – same field. Their generic `GET /entities?kinds=&content=`, `POST
   /entities/batch`, `POST /entities/publish` could replace my `GET /catalog/docs/<kind>` later. Their removal = a
   tombstone version `removed: true` (see decision D5).
+  Update from that session (owner decisions there): `ID_KINDS = ['place', 'route', 'character']`; a never-published
+  entry is DELETED (`POST /entities/batch { deletes }`, a published one keeps a `removed: true` version); migrations
+  carry only the published version + the newest draft; a generic compose / split (`collection-docs.ts`, PHP
+  `Domain\Content\CollectionDocs`, specs MAP / CHARACTERS) – the catalog could be one more spec (e.g. `/api/items/` built
+  from `item:<id>` docs instead of the table – a later step); `partial-publish.ts` is gone and the checklist publishes
+  each entry document atomically via `POST /entities/publish`. **Merge conflict expected in `publish-tree.ts`**: keep
+  theirs and re-apply mine there – catalog keys out of the toon scope, the catalog kinds in `KIND_ORDER` (edition →
+  album → item → product → recipe), and a 403 `review_required` per key going into the submit (their atomic publish
+  must then report which keys need review instead of failing all). D5 can simply follow theirs.
 
 ### Production, if merged (migrations now run by themselves with the deploy)
 - `2026-10-12-catalog-docs` runs on deploy: 42 published versions (27 items, 5 recipes, 1 album, 6 products, 3 editions).
