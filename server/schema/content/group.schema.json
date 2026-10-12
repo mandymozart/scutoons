@@ -1005,6 +1005,30 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "migrate"
+						},
+						"params": {
+							"$ref": "#/definitions/MigrateParams"
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
 							"const": "jumpTo"
 						},
 						"params": {
@@ -1811,6 +1835,26 @@
 			],
 			"description": "A place of the world map is discovered (agents/MAP.md §3.1, §8.5a): `places[id].unlocked` in the reader's save game – a set operation (again = nothing). The reader sees a toast \"<place> unlocked\"; in a VN script, a click trigger or an item tap the map opens, flies to the place, shows it and closes again (not on an intersect / hover trigger – scrolling is not hijacked – unless `map` says `open`). `silent`: the state only (no toast, no map). A tap on the toast, or on the new place in the map, plays the reveal any time."
 		},
+		"MigrateParams": {
+			"type": "object",
+			"properties": {
+				"region": {
+					"type": "string",
+					"description": "the region's id (world map `regions[].id`)"
+				},
+				"who": {
+					"type": "string",
+					"description": "a character id (registry); missing = the reader's own avatar"
+				},
+				"silent": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"region"
+			],
+			"description": "A move to another region of the world map (agents/MAP.md §8.10, owner 2026-10-12: \"migration is the action that facilitates this – it is an event\"): the reader's avatar (no `who`) or a character is registered there (the save game's `map.residences`); then the welcome plays – the region's sign, its representative in portrait saying the region's greeting, or the narrator when none is elected. The script waits until the welcome is closed. `silent`: the registration only."
+		},
 		"AskTextScope": {
 			"type": "string",
 			"enum": [
@@ -2188,6 +2232,38 @@
 						},
 						"params": {
 							"$ref": "#/definitions/UnlockLocationParams"
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number",
+							"description": "a click / hover area's place in the slice's ONE layer stack (layers.ts, BACKLOG 10.54): higher = in front (drawn on top, gets the tap / hover first); the events sharing the trigger carry the same number. None = the old order."
+						},
+						"id": {
+							"type": "string",
+							"description": "hidden stable id (the creator assigns it, unique in the chapter and its scenes – like a text box id): the reader's save game remembers the event by it (`event:<id>`: repeat, `resolved(id)` / `count(id)`)"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "migrate"
+						},
+						"params": {
+							"$ref": "#/definitions/MigrateParams"
 						}
 					},
 					"required": [

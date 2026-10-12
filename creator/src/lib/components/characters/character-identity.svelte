@@ -6,6 +6,9 @@
 	import { cleanText, toHex } from '$lib/editor/character-form.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
+	import { mapRegions } from '$lib/editor/map.ts';
+	import { mapName } from '@scutoons/content';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 
 	/**
 	 * A character's identity (character level): name and description per language of its toons, colour, testo, own
@@ -20,6 +23,12 @@
 	}: { registry: ContentDoc; character: RegistryCharacter; languages: string[]; toons: ToonInfo[]; people: CreditPerson[] } = $props();
 
 	const id = $derived(character.id);
+	// the map's regions (agents/MAP.md §8.10): where the character comes from and where it is registered
+	let regions = $state<{ id: string; name: unknown }[]>([]);
+	$effect(() => {
+		void mapRegions().then((list) => (regions = list));
+	});
+	const regionName = (r: { id: string; name: unknown }) => mapName(r.name as Record<string, string>, getLocale()) || r.id;
 	function change(fn: (c: RegistryCharacter) => void, key?: string) {
 		editCharacter(registry, id, fn, key ? `${id}:${key}` : undefined);
 	}
@@ -69,6 +78,17 @@
 				{#if character.voiced_by && !people.some((p) => p.id === character.voiced_by)}<option value={character.voiced_by}>{character.voiced_by} (?)</option>{/if}
 			</select>
 		</label>
+		{#each [['origin', m['creator.characters_origin']()], ['residence', m['creator.characters_residence']()]] as [field, label] (field)}
+			{@const value = character[field as 'origin' | 'residence']}
+			<label>
+				{label}
+				<select value={value ?? ''} onchange={(e) => setField(field as 'origin' | 'residence', e.currentTarget.value)} data-testid="character-{field}">
+					<option value="">–</option>
+					{#each regions as r (r.id)}<option value={r.id}>{regionName(r)}</option>{/each}
+					{#if value && !regions.some((r) => r.id === value)}<option {value}>{value} (?)</option>{/if}
+				</select>
+			</label>
+		{/each}
 		<label>
 			{m['creator.characters_tags']()}
 			<input type="text" value={(character.tags ?? []).join(', ')} onchange={(e) => setField('tags', e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean))} />

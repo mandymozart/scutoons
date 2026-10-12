@@ -10,6 +10,10 @@
 	import mapIcon from '$lib/icons/map.svg';
 	import MapOverlay from './map-overlay.svelte';
 	import { onPlaceUnlocked, replayPlaceReveal, type RevealRequest } from './map-reveal.ts';
+	import { onMigrate, type MigrateRequest } from './region-welcome.ts';
+	import RegionWelcome from './region-welcome.svelte';
+	import { fetchRegistry } from '$lib/api.ts';
+	import { characterImage, mapName, type CharacterRegistry, type ReaderRegion } from '@scutoons/content';
 	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 
 	/**
@@ -130,6 +134,49 @@
 		void next();
 	}
 
+	// ── the story's `migrate` (agents/MAP.md §8.10): registered in the save game, then the welcome – the region's sign,
+	//    its representative (a registry character) saying the greeting, or the narrator; one after another ──────────
+	let welcome = $state<{ region: ReaderRegion; representative: { name: string; portrait: string; color?: string } | null; done: () => void } | null>(null);
+	const moves: MigrateRequest[] = [];
+	let registry: Promise<CharacterRegistry | null> | null = null;
+	$effect(() =>
+		onMigrate((request) => {
+			moves.push(request);
+			void nextMove();
+		})
+	);
+	async function nextMove() {
+		if (welcome || !moves.length) return;
+		const request = moves.shift()!;
+		await load();
+		const region = data?.regions?.find((r) => r.id === request.region);
+		// not on the map (deleted, mistyped – or the map could not load): the event fizzles
+		if (!region || !world) {
+			request.done();
+			return void nextMove();
+		}
+		world.migrate(request.who, region.id);
+		if (request.silent) {
+			request.done();
+			return void nextMove();
+		}
+		registry ??= fetchRegistry().catch(() => null);
+		const reg = await registry;
+		const rep = region.representative ? reg?.characters.find((c) => c.id === region.representative) : undefined;
+		const portrait = rep ? characterImage(rep, {}, 'portrait') : '';
+		welcome = {
+			region,
+			representative: rep && portrait ? { name: mapName(rep.name as Record<string, string>, getLocale()) || rep.id, portrait, color: rep.color } : null,
+			done: request.done
+		};
+	}
+	function welcomed() {
+		const done = welcome?.done;
+		welcome = null;
+		done?.();
+		void nextMove();
+	}
+
 	function toggle(e: MouseEvent) {
 		e.stopPropagation();
 		nav.toggleOverlay('map');
@@ -147,6 +194,10 @@
 	<img src={mapIcon} alt="" />
 	{#if world?.hasNew}<span class="badge" data-testid="map-badge"></span>{/if}
 </button>
+
+{#if welcome}
+	<RegionWelcome region={welcome.region} representative={welcome.representative} ondone={welcomed} />
+{/if}
 
 {#if mounted}
 	<MapOverlay {data} {failed} {open} {toon} onclose={() => nav.closeOverlay()} reveal={reveal?.id ?? null} revealStays={stayOpen} onrevealed={revealed} onreplay={(id) => replayPlaceReveal(id)} />

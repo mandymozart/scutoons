@@ -364,3 +364,34 @@ test('random scripts, triggers and readers: frozen only with something to answer
 	}
 	assert.ok(moves > CASES, `the readers moved (${moves})`);
 });
+
+test('migrate: the story waits for the welcome; no `who` = the reader (agents/MAP.md §8.10)', async () => {
+	const h = harness();
+	const moves: string[] = [];
+	let close: () => void = () => {};
+	const events: VNEvent[] = [
+		{ type: 'migrate', params: { region: 'alps' } },
+		{ type: 'migrate', params: { region: 'dunes', who: 'boy', silent: true } },
+		{ type: 'setVariable', params: { variable: 'after', value: 1, op: 'set' } } as VNEvent
+	];
+	const env: RunnerEnv = {
+		readerKnown: () => Promise.resolve(),
+		setReaderName: () => Promise.resolve(),
+		readerNameMax: 32,
+		setVariable: (a) => void ('set' in a && (h.vars[a.set.variable] = a.set.value)),
+		cleanText: (t) => t,
+		migrate: (who, region, o) => {
+			moves.push(`${who ?? 'reader'}→${region}${o.silent ? ' (silent)' : ''}`);
+			return o.silent ? Promise.resolve() : new Promise<void>((r) => (close = r));
+		}
+	};
+	const vn = { ...h.box, findInScene: () => null, joinScene: () => {}, leaveScene: () => {}, showTextBox: () => true, setTextBoxResolver: () => {}, holds: h.box.holds };
+	const run = runEvents(events, 0, { vn, game: { getVariable: () => undefined, setVariable: () => {}, state: { toonId: 't' } }, env, navigate: () => {}, cancelled: () => false, currentLabel: () => 'here' } as any);
+	await settle();
+	assert.deepEqual(moves, ['reader→alps'], 'waits at the welcome');
+	assert.equal(h.vars.after, undefined);
+	close();
+	await run;
+	assert.deepEqual(moves, ['reader→alps', 'boy→dunes (silent)']);
+	assert.equal(h.vars.after, 1, 'then the story goes on');
+});

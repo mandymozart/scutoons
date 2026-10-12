@@ -56,7 +56,7 @@ export function inScope(key: string, scope: PublishScope): boolean {
  * the order in a list: the level's own files first, then down the tree; the catalog last, in the order its entries
  * refer to each other (an item names its edition / album, a product its item, a recipe its items)
  */
-const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route', 'characters', 'character', 'edition', 'album', 'item', 'product', 'recipe'];
+const KIND_ORDER = ['toon', 'entry', 'season', 'chapter', 'scene', 'script', 'cast', 'credits', 'map', 'place', 'route', 'region', 'characters', 'character', 'edition', 'album', 'item', 'product', 'recipe'];
 const rank = (key: string) => {
 	const i = KIND_ORDER.indexOf(key.split(':')[0]);
 	return i < 0 ? KIND_ORDER.length : i;
@@ -106,6 +106,7 @@ function nameOf(name: unknown, id: string | null): string {
 const PART_WORD: Record<string, () => string> = {
 	place: () => m['creator.publish_part_place'](),
 	route: () => m['creator.publish_part_route'](),
+	region: () => m['creator.publish_part_region'](),
 	character: () => m['creator.publish_part_character']()
 };
 const CHANGE_WORD: Record<'added' | 'changed' | 'removed', () => string> = {

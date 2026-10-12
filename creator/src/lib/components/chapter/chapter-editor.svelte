@@ -162,6 +162,11 @@
 		const map = worldMap.loading ? null : (worldMap.data?.[worldMap.primary] as { locations?: { id: string; toons?: string[] }[] } | undefined);
 		return map?.locations ? map.locations : undefined;
 	});
+	/** the world map's region ids (migrate events point at them); undefined until loaded = no check */
+	const worldMapRegions = $derived.by(() => {
+		const map = worldMap.loading ? null : (worldMap.data?.[worldMap.primary] as { regions?: { id: string }[] } | undefined);
+		return map?.regions ? map.regions.map((r) => r.id) : undefined;
+	});
 	let toonInfos = $state<ToonInfo[]>([]);
 	let castTouched = $state(false);
 	const registryIndex = $derived(characterIndex(registryOf(registry)));
@@ -596,7 +601,8 @@
 				itemRespawn,
 				// unlockLocation: the world map's places (once loaded)
 				places: worldMapPlaces?.map((l) => l.id),
-				toonPlaces: worldMapPlaces?.filter((l) => l.toons?.includes(toon)).map((l) => l.id)
+				toonPlaces: worldMapPlaces?.filter((l) => l.toons?.includes(toon)).map((l) => l.id),
+				regions: worldMapRegions
 			};
 			if (data == null) {
 				if (doc.source[doc.primary] === 'missing') out.push({ level: 'error', file: doc.entity, locale: null, path: [], message: m['creator.missing']() });

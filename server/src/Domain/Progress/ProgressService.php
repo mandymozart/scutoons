@@ -218,6 +218,17 @@ final class ProgressService
             $pick = $p === null ? $q : ($q === null ? $p : (($num($q, 'at') ?? 0) > ($num($p, 'at') ?? 0) ? $q : $p));
             if ($pick !== null) $out->positions->{$toon} = $pick;
         }
+        // residences (agents/MAP.md §8.10 – who lives in which region): the newer move wins; a reset does not touch them
+        $residences = new stdClass();
+        [$sa, $sb] = [$part($a, 'residences'), $part($b, 'residences')];
+        foreach (array_unique([...array_keys($sa), ...array_keys($sb)]) as $who) {
+            $valid = fn(mixed $r) => $r instanceof stdClass && is_string($r->region ?? null) && $r->region !== '' && $num($r, 'at') !== null;
+            $p = $valid($sa[$who] ?? null) ? $sa[$who] : null;
+            $q = $valid($sb[$who] ?? null) ? $sb[$who] : null;
+            $pick = $p === null ? $q : ($q === null ? $p : ($num($q, 'at') > $num($p, 'at') ? $q : $p));
+            if ($pick !== null) $residences->{$who} = $pick;
+        }
+        if (get_object_vars($residences)) $out->residences = $residences;
         return $out;
     }
 

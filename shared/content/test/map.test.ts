@@ -261,6 +261,49 @@ test('a full tile pyramid: coarse levels as tiles, a screen never needs many (ow
 	assert.deepEqual(bad({ path: 'm/t', levels: 3, px: 300 }), ['layers.0.tiles.px']);
 });
 
+test('regions: covers as row runs, the region at a point, validation, residences in the save game (MAP.md §8.10)', async () => {
+	const { regionCells, cellRuns, runsSize, regionAt, hexCenter, checkWorldMap, resolveRegion, mergeMapState, moveResident, residenceOf, emptyMapState, READER_RESIDENT } = await import('../src/map.ts');
+	const cells = [{ q: 3, r: 1 }, { q: 1, r: 1 }, { q: 2, r: 1 }, { q: 7, r: 1 }, { q: 0, r: 0 }, { q: 2, r: 1 }];
+	const runs = cellRuns(cells);
+	assert.deepEqual(runs, [[0, 0, 0], [1, 1, 3], [1, 7, 7]], 'sorted, merged, duplicates once');
+	assert.equal(runsSize(runs), 5);
+	assert.deepEqual(cellRuns(regionCells(runs)), runs, 'round trip');
+	const regions = [{ id: 'a', cells: [[1, 1, 3]] as [number, number, number][] }, { id: 'b', cells: [[0, 0, 0]] as [number, number, number][] }];
+	assert.equal(regionAt(regions, hexCenter({ q: 2, r: 1 }))?.id, 'a');
+	assert.equal(regionAt(regions, hexCenter({ q: 9, r: 1 })), null);
+	const map = (region: unknown) => ({ width: 100, height: 100, layers: [], locations: [], routes: [], regions: [region] }) as any;
+	assert.deepEqual(checkWorldMap(map({ id: 'alps', name: { de: 'Ewigschnee' }, cells: [[1, 1, 3]], colour: '#7fd8ff' })).filter((p) => p.level === 'error'), []);
+	const errs = (r: unknown) => checkWorldMap(map(r)).filter((p) => p.level === 'error').map((p) => p.path.join('.'));
+	assert.deepEqual(errs({ id: 'x', name: { de: 'X' }, cells: [[1, 3, 1]] }), ['regions.0.cells'], 'q0 > q1');
+	assert.deepEqual(errs({ id: 'x', name: { de: 'X' }, cells: [], colour: 'red' }), ['regions.0.colour']);
+	assert.deepEqual(resolveRegion({ id: 'x', name: { de: 'Erzberge' }, claim: { de: 'Steil!' }, greeting: { de: '' }, cells: [] }, 'en'), { id: 'x', name: 'Erzberge', claim: 'Steil!', cells: [] }, 'German falls back, empty texts drop');
+	// residences: the newer move wins, a reset does not touch them, a character without one lives in its registry residence
+	const s1 = emptyMapState();
+	assert.equal(moveResident(s1, READER_RESIDENT, 'alps', 100), true);
+	assert.equal(moveResident(s1, READER_RESIDENT, 'alps', 200), false, 'already there');
+	const s2 = { ...emptyMapState(), resetAt: 500, residences: { [READER_RESIDENT]: { region: 'dunes', at: 300 }, boy: { region: 'jungle', at: 50 } } };
+	const m = mergeMapState(s1, s2);
+	assert.deepEqual(m.residences, { [READER_RESIDENT]: { region: 'dunes', at: 300 }, boy: { region: 'jungle', at: 50 } });
+	assert.equal(residenceOf(m, 'nobody', 'highlands'), 'highlands');
+	assert.equal(mergeMapState(emptyMapState(), emptyMapState()).residences, undefined, 'left out while empty');
+	// the outline from the runs = the outline from the cells (a blob with holes and a ragged edge)
+	const { runsOutline, cellsOutline, runsPaths } = await import('../src/map.ts');
+	const blob = cellRuns([...Array(400)].map((_, i) => ({ q: (i * 7919) % 23, r: (i * 104729) % 17 })).filter((c) => (c.q + c.r) % 5 !== 0));
+	const key = ([a, b]: [{ x: number; y: number }, { x: number; y: number }]) => [a, b].map((p) => `${p.x.toFixed(3)},${p.y.toFixed(3)}`).sort().join('|');
+	assert.deepEqual(runsOutline(blob).map(key).sort(), cellsOutline(regionCells(blob)).map(key).sort());
+	assert.equal(runsOutline([[0, 0, 0]]).length, 6, 'one cell: six edges');
+	assert.match(runsPaths([[0, 0, 2]]).fill, /^M-0\.5 /);
+	// painting on runs = painting cell by cell
+	const { paintRuns, paintCells, brushArea } = await import('../src/map.ts');
+	const centre = regionCells(blob)[40];
+	for (const mode of ['add', 'remove'] as const) {
+		const touched = brushArea(centre, 19);
+		assert.deepEqual(paintRuns(blob, touched, mode), cellRuns(paintCells(regionCells(blob), touched, mode)), mode);
+	}
+	assert.deepEqual(paintRuns([[0, 0, 4]], [{ q: 2, r: 0 }], 'remove'), [[0, 0, 1], [0, 3, 4]], 'a hole splits the run');
+	assert.deepEqual(paintRuns([[0, 0, 1]], [{ q: 2, r: 0 }, { q: 5, r: 1 }], 'add', (c) => c.r === 0), [[0, 0, 2]], 'allowed refuses');
+});
+
 test('resetting the map: the merge drops what came before the reset – also from a device that missed it (owner 2026-10-11)', async () => {
 	const { mergeMapState, resetMapState } = await import('../src/map.ts');
 	const old = { places: { apartment: { unlocked: 100, seen: 110 }, cathedral: { unlocked: 200 } }, routes: { season1: { revealed: 3 } }, positions: { catpope: { location: 'apartment', at: 120 } } };

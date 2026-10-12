@@ -27,6 +27,7 @@ import {
 	type OldToonState,
 	type SaveGame,
 	markPlacesSeen,
+	moveResident,
 	revealRoute,
 	setPosition,
 	unlockPlace,
@@ -249,6 +250,13 @@ export function createWorldContext(session: SessionContext | null) {
 		return added;
 	}
 
+	/** The reader (`READER_RESIDENT`) or a character moves to a region (`migrate`, agents/MAP.md §8.10); false = lives there already */
+	function migrate(who: string, region: string): boolean {
+		const moved = moveResident(state.map, who, region, Date.now());
+		if (moved) save();
+		return moved;
+	}
+
 	/** Marks places seen on the opened map (their halo and the toggle's badge go away) */
 	function seen(ids: Iterable<string>): string[] {
 		const marked = markPlacesSeen(state.map, ids, Date.now());
@@ -318,6 +326,7 @@ export function createWorldContext(session: SessionContext | null) {
 			return Object.values(state.map.places).some((p) => p.seen === undefined);
 		},
 		unlock,
+		migrate,
 		setPlaces,
 		seen,
 		reveal,

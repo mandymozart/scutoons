@@ -80,7 +80,7 @@ const repeatWords = (rule: unknown) => {
 	const r = repeatOf(rule);
 	return r.mode === 'once' ? 'once for good' : r.mode === 'interval' ? `every ${JSON.stringify(r.every)}` : r.mode;
 };
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'fx', 'unlockLocation', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'takeItem', 'askText'];
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'fx', 'unlockLocation', 'migrate', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'takeItem', 'askText'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -118,6 +118,8 @@ export interface ValidateContext {
 	places?: string[];
 	/** of those, the places that list this toon in their `toons` (the others show as plain markers here) */
 	toonPlaces?: string[];
+	/** the world map's region ids (migrate events are checked against them; none = no check) */
+	regions?: string[];
 	/** the catalog items' variant ids (gives / pickups may name one) */
 	itemVariants?: Record<string, string[]>;
 	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
@@ -522,6 +524,16 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				else if (ctx.toonPlaces && !ctx.toonPlaces.includes(p.location)) c.info([...pp, 'location'], `the place "${p.location}" doesn't list this toon – its map shows it as a plain marker (no name, no picture); add the toon to the place's toons`);
 				if (p.silent !== undefined && typeof p.silent !== 'boolean') c.error([...pp, 'silent'], 'silent must be true/false');
 				if (p.map !== undefined && p.map !== 'open' && p.map !== 'toast') c.error([...pp, 'map'], 'map must be "open" or "toast" (or unset: by the trigger)');
+			}
+			break;
+		case 'migrate':
+			// a region of the world map (agents/MAP.md §8.10); the reader (no `who`) or a character moves there
+			if (!isObj(p) || typeof p.region !== 'string' || !p.region.trim()) c.error([...pp, 'region'], 'migrate needs params.region: a region id of the world map');
+			else {
+				if (ctx.regions && !ctx.regions.includes(p.region)) c.warn([...pp, 'region'], `the region "${p.region}" is not on the world map – this event does nothing for the readers`);
+				// a character id of the registry (any character may move – not only the season's cast)
+				if (p.who !== undefined && (typeof p.who !== 'string' || !p.who.trim())) c.error([...pp, 'who'], 'who must be a character id (or unset: the reader)');
+				if (p.silent !== undefined && typeof p.silent !== 'boolean') c.error([...pp, 'silent'], 'silent must be true/false');
 			}
 			break;
 		case 'jumpTo':

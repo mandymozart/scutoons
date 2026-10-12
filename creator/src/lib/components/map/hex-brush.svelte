@@ -17,6 +17,13 @@
 		anchor?: HexCell;
 		/** once per stroke (one undo step): the cells after it */
 		onchange: (cells: HexCell[]) => void;
+		/**
+		 * a big cover (a map region – agents/MAP.md §8.10, hundreds of thousands of cells): the caller draws the cover and
+		 * paints it (`paintRuns` on its row runs); the brush shows the stroke only and hands over the cells it touched,
+		 * once on release (`onstroke`) – no cell-by-cell painting per pointer move
+		 */
+		bulk?: boolean;
+		onstroke?: (touched: HexCell[]) => void;
 	}
 </script>
 
@@ -36,7 +43,10 @@
 	/** the cells while a stroke is under way (null: none) */
 	let stroke = $state<HexCell[] | null>(null);
 	let hover = $state<HexCell | null>(null);
-	const shown = $derived(stroke ?? target.cells);
+	const shown = $derived(target.bulk ? [] : (stroke ?? target.cells));
+	/** bulk: the cells the stroke touched so far (drawn, handed over on release) */
+	let swept = new Map<string, HexCell>();
+	let sweptList = $state<HexCell[]>([]);
 	const touched = $derived(hover ? brushArea(hover, target.size) : []);
 
 	let box = $state<HTMLElement>();
@@ -47,6 +57,15 @@
 		return view.toWorld({ x: e.clientX - r.left, y: e.clientY - r.top });
 	}
 	function paint(at: HexCell) {
+		if (target.bulk) {
+			let grew = false;
+			for (const c of brushArea(at, target.size)) {
+				const key = `${c.q},${c.r}`;
+				if (!swept.has(key)) (swept.set(key, c), (grew = true));
+			}
+			if (grew) sweptList = [...swept.values()];
+			return;
+		}
 		stroke = paintCells(stroke ?? target.cells, brushArea(at, target.size), target.mode, { allowed: target.allowed, connected: target.connected, anchor: target.anchor });
 	}
 	/** paints from the last point to `to`, a step of half a cell */
@@ -68,7 +87,9 @@
 		box!.setPointerCapture(e.pointerId);
 		const at = worldAt(e);
 		hover = hexCellAt(at);
-		stroke = [...target.cells];
+		stroke = target.bulk ? [] : [...target.cells];
+		swept = new Map();
+		sweptList = [];
 		last = null;
 		paintTo(at);
 	}
@@ -86,6 +107,13 @@
 		const done = stroke!;
 		stroke = null;
 		last = null;
+		if (target.bulk) {
+			const touched = [...swept.values()];
+			swept = new Map();
+			sweptList = [];
+			if (touched.length) target.onstroke?.(touched);
+			return;
+		}
 		if (done.length !== target.cells.length || done.some((c, i) => c.q !== target.cells[i]?.q || c.r !== target.cells[i]?.r)) target.onchange(done);
 	}
 
@@ -117,6 +145,7 @@
 	<svg aria-hidden="true">
 		<path class="cells" d={cellsD(shown)} />
 		<path class="edge" d={edgeD(shown)} />
+		{#if sweptList.length}<path class="brush swept" d={cellsD(sweptList)} />{/if}
 		{#if touched.length}<path class="brush" d={cellsD(touched)} />{/if}
 	</svg>
 </div>

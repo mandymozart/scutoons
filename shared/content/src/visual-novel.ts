@@ -329,6 +329,26 @@ export interface VNUnlockLocationEvent {
 }
 
 /**
+ * A move to another region of the world map (agents/MAP.md §8.10, owner 2026-10-12: "migration is the action that
+ * facilitates this – it is an event"): the reader's avatar (no `who`) or a character is registered there (the save
+ * game's `map.residences`); then the welcome plays – the region's sign, its representative in portrait saying the
+ * region's greeting, or the narrator when none is elected. The script waits until the welcome is closed. `silent`: the
+ * registration only.
+ */
+export interface MigrateParams {
+	/** the region's id (world map `regions[].id`) */
+	region: string;
+	/** a character id (registry); missing = the reader's own avatar */
+	who?: string;
+	silent?: boolean;
+}
+
+export interface VNMigrateEvent {
+	type: 'migrate';
+	params: MigrateParams;
+}
+
+/**
  * A question with one input line in the message box (agents/EXPRESSIONS.md §6): the reader types a short plain text
  * (trimmed, never markup), the page doesn't scroll until it is answered (Enter / ✓, or the answer button: `answer`
  * is its text, `default` what it stores – owner 2026-10-06). `scope`:
@@ -386,6 +406,7 @@ export type VNEvent = (
 	| VNShowTextBoxEvent
 	| VNFxEvent
 	| VNUnlockLocationEvent
+	| VNMigrateEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

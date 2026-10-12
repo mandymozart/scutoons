@@ -39,6 +39,7 @@ final class ContentSchemas
         'map' => 'map',
         'place' => 'map-place',
         'route' => 'map-route',
+        'region' => 'map-region',
         'character' => 'registry-character',
     ];
 

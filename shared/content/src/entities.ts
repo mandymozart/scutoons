@@ -42,6 +42,7 @@ export type EntityKind =
 	| 'events'
 	| 'map'
 	| 'place'
+	| 'region'
 	| 'route'
 	| 'character'
 	| CatalogEntityKind;
@@ -77,6 +78,7 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
 	map: [false, false, false, false],
 	// one segment: the id (ID_KINDS)
 	place: [false, false, false, false],
+	region: [false, false, false, false],
 	route: [false, false, false, false],
 	character: [false, false, false, false]
 };
@@ -87,7 +89,7 @@ const SHAPES: Record<Exclude<EntityKind, CatalogEntityKind>, [boolean, boolean, 
  * The id is a slug, stable forever once published (events reference it). The same shape is meant for the catalog's items
  * (`item:<id>`, agents/CATALOG-IN-CREATOR.md).
  */
-export const ID_KINDS: readonly EntityKind[] = ['place', 'route', 'character'];
+export const ID_KINDS: readonly EntityKind[] = ['place', 'route', 'region', 'character'];
 /** an id segment: a slug (the map's place / route ids, `checkWorldMap`) */
 export const ENTITY_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
@@ -129,6 +131,8 @@ export const entities = {
 	place: (id: string) => `place:${id}`,
 	/** one route of the world map */
 	route: (id: string) => `route:${id}`,
+	/** one region of the world map (agents/MAP.md §8.10) */
+	region: (id: string) => `region:${id}`,
 	/** one character of the registry (`characters` keeps the registry's own fields) */
 	character: (id: string) => `character:${id}`,
 	/** a catalog entry's document (`item:camera`) */

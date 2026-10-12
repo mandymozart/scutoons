@@ -37,7 +37,9 @@ test('keys: place:<id>, route:<id>, character:<id> parse, other shapes do not', 
 	assert.equal(entityOf('place:well'), 'place:well');
 	for (const bad of ['place', 'place:', 'place:Cathedral', 'place:a:b', 'route:-x', 'place:catpope:de', 'character:']) assert.equal(parseEntityKey(bad), null, bad);
 	assert.deepEqual(parseEntityKey('map'), { kind: 'map' });
-	assert.deepEqual(collectionKinds(MAP_COLLECTION), ['map', 'place', 'route']);
+	assert.deepEqual(collectionKinds(MAP_COLLECTION), ['map', 'place', 'route', 'region']);
+	assert.deepEqual(parseEntityKey('region:alps'), { kind: 'region', id: 'alps' });
+	assert.equal(entities.region('alps'), 'region:alps');
 });
 
 test('split → compose gives the same map (the fixture)', () => {

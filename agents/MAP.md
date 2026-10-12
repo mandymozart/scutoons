@@ -997,7 +997,7 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
 - Production map draft v276: layers terrain · plaster · painted (`fog: { radius: 24 }`, still the dated paths – switch to v1, see HANDOVER) – publish only after the code deploy
   (an older viewer ignores `fog` and shows the painted layer everywhere).
 
-### 8.10 Regions (concept, owner 2026-10-12 – not built yet)
+### 8.10 Regions (owner 2026-10-12 – built the same day, branch `claude/cool-galileo-5d33f7`)
 
 Owner: "Since we identified areas with specific terrain conditions, can we translate them into hexagonal area covers and
 list them in the map editor – not as locations, not as layers, but as regions. Same doc type, changeable. They will have
@@ -1017,13 +1017,30 @@ generic narrator says a region-specific greeting."
    `scripts/region-signs.mjs` → `logs/map-paint/signs/` (Luma, uni-1-max).
 5. Write it up + generate example signs: **yes**.
 
-**Proposal (to build):**
+**Built (2026-10-12):** `MapRegion` / `region:<id>` (cover = row runs `[r, q0, q1]` – `regionCells`, `cellRuns`,
+`runsOutline`, `runsPaths`, `paintRuns`, `regionAt`), validation, schema `map-region`, keys + composition TS / PHP, the
+library answer's `regions` (texts in the locale, no cells); save game `map.residences` (TS + PHP merge, newer move wins,
+a reset leaves them); `RegistryCharacter.origin` / `residence` (+ the character form); the event `migrate` (creator form,
+viewer runner → `region-welcome.ts` → map.svelte registers + plays `RegionWelcome`: the sign behind, the representative's
+portrait + greeting, or the narrator); the builder's Regions fold + `RegionProps` + covers on the canvas + the shared
+`HexBrush` in bulk mode. Migration `2026-10-12-map-regions` seeds the seven regions as DRAFTS with their signs (only where
+a world map exists – a fresh local `dev:db` migrates before it seeds: run the file once by hand there, or load a newer
+production dump). Open: elections; the sign round in the industrial style (Luma: the owner's go); regions in the reader's
+map (an overlay?) – not asked yet.
+
+**Proposal (as planned before building):**
 - **Data:** `region:<id>` documents in the map collection (like `place:` / `route:`): `name {de, en}`, `claim {de, en}`,
   `cells` (the map's hex cells – run-length or a cell list), `sign` (image, maybe a plaster version like the dioramas),
   `vegetation` (text; also the paint prompt when the region is repainted), `description {de, en}` (the in-depth info),
   `greeting {de, en}` (the narrator's line), `representative` (a character id from the region, or none), `colour`.
-- **Builder:** a third list "Regions" beside places and routes; a region brush (1–256 cells) paints / erases its cells;
-  the regions as an optional overlay (outline + colour). First covers from `scripts/map-zones.json` (the landmasses).
+- **Builder:** a third list "Regions" beside places and routes; the region cover is painted with the SHARED hex brush
+  (no second brush): `creator/src/lib/components/map/hex-brush.svelte` with `HexBrushTarget { cells, mode, size,
+  allowed?, onchange }` – size 1–256 (`brushArea`), one stroke = one history entry, the outline one path
+  (`cellsOutline`), `paintCells` in @scutoons/content; built by "Creator UI" for the place footprints (commit 0944057a,
+  branch `claude/zealous-faraday-e6338b`). A region keeps its cells absolute (places store offsets) and gets its own small
+  state like `place-brush.svelte.ts`; a "no overlap with other regions" rule goes into `allowed`. Big covers: cull the
+  outline to the screen if redrawing per frame gets slow. The regions as an optional overlay (outline + colour); first
+  covers from `scripts/map-zones.json` (the landmasses).
 - **Characters:** `origin` (fixed) and `residence` (the default) on the character document; the current residence of
   each character – and the reader's avatar – lives in the save game (one universe: a move counts in every toon).
 - **Event `migrate { who: <character> | reader, region, silent? }`:** sets the residence; then the welcome, played in
@@ -1032,8 +1049,13 @@ generic narrator says a region-specific greeting."
   Drawn with the VN's pieces (background, character, text box), so it looks like the VN.
 - **Later:** elections (who can vote, when, how the representative changes), region pages in the reader.
 
+**Sign references (owner 2026-10-12, "I like the more industrial look"):** the "Welcome to Twin Peaks" board (painted,
+on posts, the mountains in the picture); the LED trailer sign "Welcome to Hawaii"; the steel-framed "Glück Auf! in
+Eisenerz" sign – the location where the Erzberg story was shot (→ the Erzberge's sign); the Frankenmuth gantry arch over
+the road – for the megaworld / the hyper-city capital. The next sign round builds on these (Luma spend: the owner's go).
+
 **Example signs (to refine):** Dünenmeer Magenta (desert) · Hochland Regenbogen (altiplano) · Ewigschnee (the Alps) ·
-Schuppenwald (reptile jungle) · Ödland Fracktal (wasteland) · Juwelenarchipel (the island world) · Bergland Hohe Erz
+Schuppenwald (reptile jungle) · Ödland Fracktal (wasteland) · Juwelenarchipel (the island world) · Erzberge – "Geizig! Garstig! Steil!" (owner)
 (the mountain island) – names, claims and looks in `scripts/region-signs.mjs`.
 
 ### 8.6 Not built yet
