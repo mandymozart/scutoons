@@ -1060,6 +1060,47 @@ the road – for the megaworld / the hyper-city capital. The next sign round bui
 Schuppenwald (reptile jungle) · Fracktal (wasteland, owner: "Fracktal is enough") · Juwelenarchipel (the island world) · Erzberge – "Geizig! Garstig! Steil!" (owner)
 (the mountain island) – names, claims and looks in `scripts/region-signs.mjs`.
 
+### 8.11 Diorama ground on the hexagons – the Luma prompt (owner 2026-10-12, used by hand in the Luma app)
+
+Owner: "a prompt that tells Luma to adjust the ground shape of the diorama for the new hexagon shapes, so the graphics fit
+much better – for a future workflow, I will use it manually in my Luma app". The map is top-down, the dioramas are 3/4
+isometric: a hexagon base shows flatter than wide in the picture. The image width = the place's size (= its footprint's
+diameter), centred on the home cell (`anchor` 50/50) – so the plinth should be as wide as the old ground patch.
+
+**Edit (attach the current painted diorama as the image to edit):**
+
+```
+Edit this diorama. Keep EVERYTHING of it exactly as it is – the building, every detail, the colours, the light, the camera angle, the size and position in the frame. Change ONLY the ground it stands on.
+
+NEW BASE: replace the irregular ground patch with a plinth made of HEXAGON TILES, like a premium board-game or collectible miniature base: [OUTLINE]. The hexagons are pointy-top (a corner at the top and at the bottom, flat sides left and right). Seen from the diorama's own three-quarter camera angle the cluster looks flatter than wide, exactly in the perspective of the existing scene. The plinth's outer edge zig-zags along the hexagon sides; the plinth is as wide as the old ground patch and centred under the building.
+
+THE TOP: the scene's own ground ([GROUND]) continues as ONE surface across the whole top, right up to the hexagon edge – no lines, no grid, no visible tile seams on top.
+
+THE SIDE: a thin, tactile plinth side visible below the top edge, in a neutral warm earth / painted-wood tone.
+
+KEEP CLEAN: nothing outside the plinth – plain white background; no text, no frame, no extra objects; the building unchanged.
+
+LOOK – the SCUTOONS style: high-detail stylised 3D render like a premium collectible miniature – tactile materials (felt grass, painted wood, glossy enamel, frosted snow), soft even studio light from the upper left, saturated playful colours, crisp clean edges.
+```
+
+- `[OUTLINE]` – the footprint in words, as the builder shows it: "a cluster of 7 hexagons: one in the middle, six around
+  it" · "a round cluster of 19 hexagons: one in the middle and two rings around it" · "a round cluster of about 37
+  hexagons, three rings around a centre hexagon" · "an irregular patch of 9 hexagons, longer towards the right".
+- `[GROUND]` – e.g. "green felt grass with a gravel path", "cobblestones", "frosted snow".
+
+**Plaster twin (attach the NEW painted image – never the old plaster one, so the outline stays identical for the reveal):**
+
+```
+The same image as an unpainted plaster model: every surface – building, ground, hexagon plinth – in matt white-grey plaster with soft shading; the same shapes, details, framing and position, nothing added or removed; plain white background.
+```
+
+**Tips:** for an exact fit, screenshot the place's cells in the builder (flat grey, no outlines), lay it UNDER the diorama
+in an image editor and attach that as the image to edit, adding "The pale grey shape is a guide for the top of the
+plinth – follow it exactly, don't draw it." Never attach it as a separate reference image (Luma copies references –
+§8.9). Tiny places (a well, 1–3 cells): enlarge the image before the edit so the plinth has pixels. Open: keep the
+current camera (safe; the base fits the cells across, flattened by perspective) or a steeper ~60° camera (fits almost
+1:1, but every building is redrawn) – owner decision.
+
 ### 8.6 Not built yet
 
 M3 events except `unlockLocation` (§8.5a) – `revealRoute`, `travel`, `setPosition`, `focusMap`, `runMapEvents`, the
