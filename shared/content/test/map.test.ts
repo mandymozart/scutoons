@@ -392,3 +392,26 @@ test('cellsOutline: the outer edges of a patch of hex cells (owner 2026-10-12)',
 	const ring = [{ q: 0, r: 0 }, { q: 1, r: 0 }, { q: -1, r: 0 }, { q: 0, r: 1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: -1, r: 1 }];
 	assert.equal(cellsOutline(ring).length, 18);
 });
+
+test('painted ground cells and the reusable hex brush (owner 2026-10-12)', async () => {
+	const { placeCells, placeCellOffsets, brushArea, paintCells, checkWorldMap, hexCenter } = await import('../src/map.ts');
+	const home = { q: 3, r: 2 };
+	const at = hexCenter(home);
+	// painted cells are offsets from the home cell: they move with the place
+	const p = { ...at, cells: [{ q: 0, r: 0 }, { q: 1, r: 0 }] };
+	assert.deepEqual(placeCells(p), [{ q: 3, r: 2 }, { q: 4, r: 2 }]);
+	assert.deepEqual(placeCellOffsets(at, placeCells(p)), p.cells);
+	// the brush: 1 cell, a full ring (7), clamped to 1..256
+	assert.equal(brushArea(home, 1).length, 1);
+	assert.equal(brushArea(home, 7).length, 7);
+	assert.equal(brushArea(home, 10).length, 10);
+	assert.equal(brushArea(home, 999).length, 256);
+	assert.deepEqual(brushArea(home, 0), [home]);
+	// a stroke adds (refusing what `allowed` says no to) and removes
+	const added = paintCells([home], brushArea(home, 7), 'add', (c) => c.q !== 4);
+	assert.ok(added.length < 7 && added.length > 1);
+	assert.ok(!added.some((c) => c.q === 4));
+	assert.deepEqual(paintCells(added, [{ q: 3, r: 2 }], 'remove').some((c) => c.q === 3 && c.r === 2), false);
+	const bad = { width: 10, height: 10, layers: [], routes: [], locations: [{ id: 'x', name: { de: 'X' }, x: 1, y: 1, toons: [], cells: [{ q: 0.5, r: 0 }] }] } as any;
+	assert.ok(checkWorldMap(bad).some((x: any) => x.path.join('.').includes('cells')));
+});

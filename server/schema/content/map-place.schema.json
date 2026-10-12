@@ -71,6 +71,13 @@
 				"gates": {
 					"$ref": "#/definitions/PlaceGates",
 					"description": "where routes enter and leave the place's diorama (owner 2026-10-12, BACKLOG 10.66 (4), variant A \"gates\"): a route stops at the entry and goes on from the exit – nothing is drawn across the place. Offsets from the place's point in world units, on the place's own hexagons; each one missing = computed (`placeGate`: the place's hexagon nearest the neighbouring waypoint)"
+				},
+				"cells": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/HexCell"
+					},
+					"description": "the hex cells the place's ground takes, painted with the builder's brush (owner 2026-10-12: \"a brush that adds or removes hexagons to the place's base\"): axial offsets from its home cell (the cell its point lies in), so they move with it; without them the cells are computed from `size` (`placeCells`)"
 				}
 			},
 			"required": [
@@ -219,6 +226,22 @@
 				"x",
 				"y"
 			]
+		},
+		"HexCell": {
+			"type": "object",
+			"properties": {
+				"q": {
+					"type": "number"
+				},
+				"r": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"q",
+				"r"
+			],
+			"description": "a cell in axial coordinates (pointy-top hexes)"
 		}
 	}
 }

@@ -105,6 +105,12 @@ export interface MapPlace {
 	 * neighbouring waypoint)
 	 */
 	gates?: PlaceGates;
+	/**
+	 * the hex cells the place's ground takes, painted with the builder's brush (owner 2026-10-12: "a brush that adds or
+	 * removes hexagons to the place's base"): axial offsets from its home cell (the cell its point lies in), so they move
+	 * with it; without them the cells are computed from `size` (`placeCells`)
+	 */
+	cells?: HexCell[];
 }
 
 /** A place's route gates (`MapPlace.gates`): offsets from its point, world units */
@@ -301,20 +307,72 @@ const cellKey = (c: HexCell) => `${c.q},${c.r}`;
  * (owner 2026-10-11: "festlegen, welche Größe so ein Diorama hat – eine sinnvolle Stufung, wie in SimCity")
  */
 export const placeSize = (p: { size?: number; image?: { size?: number } }): number => p.size ?? p.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE;
-/** the cells a place takes: those whose centres lie within half its size of its cell's centre (at least its own) */
-export function placeCells(p: Point & { size?: number; image?: { size?: number } }): HexCell[] {
+/**
+ * the cells a place takes: its painted ones (`cells`, offsets from its home cell – owner 2026-10-12), else those whose
+ * centres lie within half its size of its cell's centre (at least its own)
+ */
+export function placeCells(p: Point & { size?: number; image?: { size?: number }; cells?: readonly HexCell[] }): HexCell[] {
 	const home = hexCellAt(p);
+	if (p.cells?.length) return p.cells.map((c) => ({ q: home.q + c.q, r: home.r + c.r }));
 	const centre = hexCenter(home);
 	const radius = placeSize(p) / 2;
 	const rings = Math.ceil(radius / HEX_CELL);
 	return hexArea(home, rings).filter((c) => hexDistance(c, home) === 0 || Math.hypot(hexCenter(c).x - centre.x, hexCenter(c).y - centre.y) <= radius + 1e-6);
 }
 
+/** a place's painted cells as stored: offsets from its home cell (`MapPlace.cells`) */
+export function placeCellOffsets(p: Point, cells: readonly HexCell[]): HexCell[] {
+	const home = hexCellAt(p);
+	return cells.map((c) => ({ q: c.q - home.q, r: c.r - home.r }));
+}
+
+/** the brush's size limits (owner 2026-10-12: regions paint fast with big brushes – 1 to 256 cells) */
+export const BRUSH_MIN = 1;
+export const BRUSH_MAX = 256;
+
+/**
+ * The cells a hex brush of `size` cells covers around `center` (the reusable brush – place grounds, later region covers):
+ * the `size` cells nearest the centre, ring by ring (a full ring is a hexagon: 1, 7, 19, 37 … cells), ties within a ring
+ * in a fixed order so a stroke paints the same cells every time
+ */
+export function brushArea(center: HexCell, size: number): HexCell[] {
+	const n = Math.max(BRUSH_MIN, Math.min(BRUSH_MAX, Math.round(size)));
+	let rings = 0;
+	while (1 + 3 * rings * (rings + 1) < n) rings++;
+	const c = hexCenter(center);
+	return hexArea(center, rings)
+		.map((x) => ({ x, ring: hexDistance(x, center), d: Math.hypot(hexCenter(x).x - c.x, hexCenter(x).y - c.y), a: Math.atan2(hexCenter(x).y - c.y, hexCenter(x).x - c.x) }))
+		.sort((a, b) => a.ring - b.ring || a.d - b.d || a.a - b.a)
+		.slice(0, n)
+		.map((e) => e.x);
+}
+
+/**
+ * A brush stroke on a set of cells (place grounds, region covers): `add` puts the touched cells in, `remove` takes them
+ * out; `allowed` (optional) refuses cells it says no to when adding (e.g. another place's). Returns a new array, the
+ * input's order kept, added cells at the end; unchanged when nothing changed
+ */
+export function paintCells(cells: readonly HexCell[], touched: readonly HexCell[], mode: 'add' | 'remove', allowed?: (cell: HexCell) => boolean): HexCell[] {
+	const keys = new Set(cells.map(cellKey));
+	if (mode === 'remove') {
+		const gone = new Set(touched.map(cellKey));
+		const out = cells.filter((c) => !gone.has(cellKey(c)));
+		return out.length === cells.length ? [...cells] : out;
+	}
+	const out = [...cells];
+	for (const c of touched)
+		if (!keys.has(cellKey(c)) && (!allowed || allowed(c))) {
+			keys.add(cellKey(c));
+			out.push({ q: c.q, r: c.r });
+		}
+	return out;
+}
+
 /**
  * Where a place goes on the grid: the free spot nearest to `at` (a cell centre whose footprint touches no other place's
  * cells and stays inside the map) – the builder snaps placing and dragging to it. `except` = the place being moved.
  */
-export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>, at: Point, size: number = DEFAULT_PLACE_IMAGE_SIZE, except?: string): Point {
+export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>, at: Point, size: number = DEFAULT_PLACE_IMAGE_SIZE, except?: string, cells?: readonly HexCell[]): Point {
 	const taken = new Set<string>();
 	for (const p of map.locations) if (p.id !== except) for (const c of placeCells(p)) taken.add(cellKey(c));
 	const start = hexCellAt(at);
@@ -323,7 +381,7 @@ export function snapPlace(map: Pick<WorldMap, 'width' | 'height' | 'locations'>,
 			.map((c) => ({ c, centre: hexCenter(c) }))
 			.filter(({ centre }) => centre.x >= 0 && centre.y >= 0 && centre.x <= map.width && centre.y <= map.height)
 			.sort((a, b) => Math.hypot(a.centre.x - at.x, a.centre.y - at.y) - Math.hypot(b.centre.x - at.x, b.centre.y - at.y));
-		for (const { c, centre } of candidates) if (!placeCells({ ...centre, size }).some((x) => taken.has(cellKey(x)))) return { x: Math.round(centre.x * 100) / 100, y: Math.round(centre.y * 100) / 100 };
+		for (const { c, centre } of candidates) if (!placeCells({ ...centre, size, cells }).some((x) => taken.has(cellKey(x)))) return { x: Math.round(centre.x * 100) / 100, y: Math.round(centre.y * 100) / 100 };
 	}
 	return at;
 }
@@ -428,7 +486,7 @@ export function routePoints(places: readonly { id: string; x: number; y: number 
 export const ROUTE_HANDLE = 2 * HEX_CELL;
 
 /** what route drawing needs of a place */
-export type RoutePlace = { id: string; x: number; y: number; size?: number; image?: { size?: number }; gates?: PlaceGates };
+export type RoutePlace = { id: string; x: number; y: number; size?: number; image?: { size?: number }; gates?: PlaceGates; cells?: readonly HexCell[] };
 
 /** a point of a route's curve with its control points (absolute, world units; missing = smooth) */
 export interface RouteNode {
@@ -445,7 +503,7 @@ const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 /** a place's cells and their outer edges (an edge's midpoint and outward normal), cached by the place's footprint */
 const coverCache = new Map<string, { cells: HexCell[]; keys: Set<string>; edges: { mid: Point; normal: Point }[] }>();
 function placeCover(place: RoutePlace) {
-	const key = `${place.x},${place.y},${placeSize(place)}`;
+	const key = `${place.x},${place.y},${placeSize(place)},${place.cells?.map(cellKey).join(';') ?? ''}`;
 	let cover = coverCache.get(key);
 	if (!cover) {
 		const cells = placeCells(place);
@@ -1274,6 +1332,18 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				if (o !== undefined && (!isObj(o) || !isNum(o.x) || !isNum(o.y))) add('error', [...path, 'view', 'offset'], `${what}: the view offset must be { x, y } in world units`);
 				else if (o !== undefined && isNum(p.x) && isNum(p.y) && !inside(p.x + o.x, p.y + o.y))
 					add('warning', [...path, 'view', 'offset'], `${what}: the view centre (${p.x + o.x}, ${p.y + o.y}) is outside the map`);
+			}
+		}
+		if (p.cells !== undefined) {
+			const cells = p.cells as unknown;
+			if (!Array.isArray(cells) || !cells.length) add('error', [...path, 'cells'], `${what}: the ground cells must be a non-empty list (or none: computed from the size)`);
+			else {
+				const seen = new Set<string>();
+				cells.forEach((c, i) => {
+					if (!isObj(c) || !Number.isInteger((c as any).q) || !Number.isInteger((c as any).r)) add('error', [...path, 'cells', i], `${what}: a ground cell needs whole numbers q / r`);
+					else if (seen.has(`${(c as any).q},${(c as any).r}`)) add('warning', [...path, 'cells', i], `${what}: the ground cell ${(c as any).q} / ${(c as any).r} is listed twice`);
+					else seen.add(`${(c as any).q},${(c as any).r}`);
+				});
 			}
 		}
 		if (p.gates !== undefined) {

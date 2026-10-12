@@ -40,6 +40,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { freeWaypointId, nearestSegment } from '$lib/editor/map.ts';
 	import { page } from '$app/state';
+	import HexBrush, { type HexBrushTarget } from '$lib/components/map/hex-brush.svelte';
 
 	/**
 	 * The builder's canvas (agents/MAP.md §4.2): the world at any zoom (25 %–800 %), the tools – select (click, drag places
@@ -68,8 +69,11 @@
 		onmovewaypointhandle,
 		oninsertwaypoint,
 		onaddroute,
-		onendpoint
+		onendpoint,
+		brush = null
 	}: {
+		/** the hex brush over the canvas (a place's ground – owner 2026-10-12): painting replaces selecting while it is on */
+		brush?: HexBrushTarget | null;
 		map: WorldMap;
 		view: MapViewport;
 		tool?: MapTool;
@@ -126,6 +130,8 @@
 	const handleOf = (e: PointerEvent) => (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-drag]')?.dataset.drag ?? null;
 	function canPan(e: PointerEvent) {
 		if (space || e.button === 1) return true;
+		// the hex brush paints with the primary button / one finger (two fingers still pan – the gesture's pinch)
+		if (brush && (e.target as HTMLElement | null)?.closest('[data-testid="hex-brush"]')) return false;
 		// drawing a route / adding a place: a drag pans, a tap sets the point (owner 2026-10-12, phone: "I can not drag
 		// the map in route mode")
 		if (tool !== 'select') return true;
@@ -300,6 +306,7 @@
 	const footprint = $derived.by(() => {
 		const id = dragging?.kind === 'place' ? dragging.id : tool === 'select' && selection?.kind === 'place' ? selection.id : null;
 		const place = id ? map.locations.find((p) => p.id === id) : null;
+		if (brush && place) return null; // the brush draws the cells it paints
 		if (place) return { cells: placeCells(place), preview: false };
 		if (tool === 'place' && hover && !space) {
 			const at = snapToGrid(map, view.toWorld(hover), DEFAULT_PLACE_IMAGE_SIZE);
@@ -692,6 +699,8 @@
 			{/each}
 		</div>
 	{/if}
+
+	{#if brush}<HexBrush {view} target={brush} />{/if}
 
 	{#if phoneFrame}
 		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {zoomPercent(frameZoom)} %{placeFrame ? ' · place' : startView ? ' · start' : ''}</span></div>
