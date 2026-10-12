@@ -242,4 +242,36 @@ final class ContentSchemasTest extends TestCase
         $old = $this->request('PUT', '/api/entities/map', $auth, (string) json_encode(['content' => $map + ['locations' => [['id' => 'a'] + $place('A', 1)]]]));
         self::assertSame(422, $old->getStatusCode());
     }
+    /**
+     * Owner D7: the server refuses a route through a place that is not on the map, and taking a place off the map that a
+     * route still runs through – judged on the whole batch (a new place with its route, or a place and its waypoint
+     * dropped together, are fine)
+     */
+    public function testRoutesOnlyThroughPlacesOnTheMap(): void
+    {
+        $user = $this->user('creator@example.com');
+        $this->get(Roles::class)->grant((string) $user['id'], Roles::CREATOR);
+        $auth = ['Authorization' => 'Bearer ' . $this->get(Sessions::class)->create((string) $user['id'])];
+        $post = fn(array $body) => $this->request('POST', '/api/entities/batch', $auth, (string) json_encode($body));
+        $place = fn(string $de) => ['name' => ['de' => $de], 'x' => 1, 'y' => 1, 'toons' => ['t']];
+        $route = fn(array $ids) => ['name' => ['de' => 'R'], 'toons' => ['t'], 'waypoints' => array_map(fn($i) => ['location' => $i], $ids)];
+        $key = fn($r) => json_decode((string) $r->getBody(), true)['key'] ?? null;
+
+        $bad = $post(['saves' => [['key' => 'place:a', 'content' => $place('A')], ['key' => 'route:r', 'content' => $route(['a', 'nowhere'])]]]);
+        self::assertSame([422, 'route:r'], [$bad->getStatusCode(), $key($bad)], 'a waypoint at no place');
+        $ok = $post(['saves' => [['key' => 'place:a', 'content' => $place('A')], ['key' => 'place:b', 'content' => $place('B')], ['key' => 'route:r', 'content' => $route(['a', 'b'])]]]);
+        self::assertSame(200, $ok->getStatusCode(), (string) $ok->getBody());
+
+        $removed = $post(['saves' => [['key' => 'place:b', 'content' => $place('B') + ['removed' => true]]]]);
+        self::assertSame([422, 'place:b'], [$removed->getStatusCode(), $key($removed)], 'a place a route runs through stays');
+        $deleted = $post(['saves' => [['key' => 'place:c', 'content' => $place('C')]], 'deletes' => ['place:b']]);
+        self::assertSame([422, 'place:b'], [$deleted->getStatusCode(), $key($deleted)]);
+        $single = $this->request('PUT', '/api/entities/route:r', $auth, (string) json_encode(['content' => $route(['a', 'gone'])]));
+        self::assertSame(422, $single->getStatusCode(), 'a single save too');
+
+        $together = $post(['saves' => [['key' => 'route:r', 'content' => $route(['a', 'c'])], ['key' => 'place:c', 'content' => $place('C')]], 'deletes' => ['place:b']]);
+        self::assertSame(200, $together->getStatusCode(), (string) $together->getBody());
+        $routeGone = $post(['saves' => [['key' => 'route:r', 'content' => $route(['a', 'c']) + ['removed' => true]], ['key' => 'place:c', 'content' => $place('C') + ['removed' => true]]]]);
+        self::assertSame(200, $routeGone->getStatusCode(), 'a removed route holds no place');
+    }
 }

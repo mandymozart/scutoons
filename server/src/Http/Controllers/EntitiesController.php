@@ -13,6 +13,7 @@ use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Content\FlowCheck;
 use Scutoons\Domain\Content\ItemPlacements;
+use Scutoons\Domain\Content\MapRefs;
 use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
@@ -50,7 +51,7 @@ use stdClass;
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas, private readonly FlowCheck $flow, private readonly ItemPlacements $placements, private readonly CatalogDocs $docs, private readonly MapRefs $mapRefs)
     {
     }
 
@@ -96,6 +97,8 @@ final class EntitiesController
             $this->flow->guard($key, $body->content);
             // an item placed more often than its catalog limit allows, counted over every toon (BACKLOG 10.39)
             $this->placements->guard($key, $body->content);
+            // a route through a place that is not on the map / a place taken off a route's way (owner D7)
+            $this->mapRefs->guard([(string) $key => $body->content]);
         }
         // an AI connection signs its saves with its name (the History shows who – and through what – saved)
         $ai = CurrentSession::of($request)->apiToken();
@@ -133,6 +136,8 @@ final class EntitiesController
             if (property_exists($save, 'base')) $one->base = $save->base;
             $saves[] = ['key' => $key, 'body' => $one];
         }
+        // the map's references judged on the whole batch (a new place and the route through it together are fine; owner D7)
+        $this->mapRefs->guard(array_combine(array_map(fn(array $s) => (string) $s['key'], $saves), array_map(fn(array $s) => $s['body']->content, $saves)) ?: [], array_map('strval', $deletes));
         $result = $this->store->saveMany($user, $saves, $deletes);
         foreach ([...array_column($saves, 'key'), ...$deletes] as $key) $this->usages->reindexEntity((string) $key);
         return Json::response($response, 200, $result);
