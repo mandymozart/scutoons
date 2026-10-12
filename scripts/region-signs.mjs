@@ -26,7 +26,7 @@ export const REGIONS = [
 	{ id: 'jungle', name: 'Schuppenwald', claim: 'Leise treten, laut staunen', scene: 'dense emerald jungle canopy, iridescent lizard scales, a gecko peeking over the sign, steaming electric-blue swamp pools' },
 	{ id: 'wasteland', name: 'Ödland Fracktal', claim: 'Wir sind noch da', scene: 'cracked sulphur-yellow crust, rusty drilling rigs, oily rainbow pools, radioactive green glow; the sign bent and patched, still proud' },
 	{ id: 'archipelago', name: 'Juwelenarchipel', claim: 'Jede Insel ein Schatz', scene: 'little islands made of opal, malachite, rose quartz and lapis in a candy-blue sea, a shell and pearls' },
-	{ id: 'highlands', name: 'Bergland Hohe Erz', claim: 'Der Berg gibt, der Berg nimmt', scene: 'green lowlands rising into huge snowy mountains, rust-red ore slopes, a mining pick and hammer crest, a small monastery' }
+	{ id: 'highlands', name: 'Erzberge', claim: 'Geizig! Garstig! Steil!', scene: 'green lowlands rising into huge, grim, jagged snowy mountains, rust-red ore slopes, a mining pick and hammer crest, a small monastery clinging to a cliff' }
 ];
 
 const prompt = (r) =>

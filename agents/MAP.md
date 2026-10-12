@@ -1033,7 +1033,7 @@ generic narrator says a region-specific greeting."
 - **Later:** elections (who can vote, when, how the representative changes), region pages in the reader.
 
 **Example signs (to refine):** Dünenmeer Magenta (desert) · Hochland Regenbogen (altiplano) · Ewigschnee (the Alps) ·
-Schuppenwald (reptile jungle) · Ödland Fracktal (wasteland) · Juwelenarchipel (the island world) · Bergland Hohe Erz
+Schuppenwald (reptile jungle) · Ödland Fracktal (wasteland) · Juwelenarchipel (the island world) · Erzberge – "Geizig! Garstig! Steil!" (owner)
 (the mountain island) – names, claims and looks in `scripts/region-signs.mjs`.
 
 ### 8.6 Not built yet
