@@ -790,7 +790,7 @@ zone). Content editors (creator, admin):
 | GET | `/assets/missing` · `/assets/orphans` | uses of unknown files · current files nothing uses |
 
 Admin (`/api/admin/assets/*`): `GET storage[?stats=1]` (drivers, settings status – never secrets –, totals, 30-day
-bandwidth), `POST scan`, `POST relink { from, to, publish? }`, `PUT {id}/file?path=&note=` (raw body: replace in place →
+bandwidth), `POST scan`, `POST relink { from, to, publish? }` (or `{ map: { old: new, … }, publish? }` – several files in one pass, one new draft per touched document; nothing written when a target is missing), `PUT {id}/file?path=&note=` (raw body: replace in place →
 `replaced, archived_as, purged, stale_renditions`), `POST {id}/rename { slug, publish? }`, `GET {id}/delete-check`,
 `DELETE {id}[?force=1]` (409 `in_use` + `usages` while referenced; `force` only when drafts are the only uses),
 `POST {id}/jobs { kind, params }`, `GET jobs`, `GET unused` (cleanup list per asset on a freshly rebuilt index:

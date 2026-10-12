@@ -32,7 +32,7 @@
 	import { AUDIO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { bestAudioSource, decodeAudio, encodeMp3, nearestKbps, planAudioUpload, type AudioUploadPlan } from './audio-levels.ts';
 	import { uploadOrReplace } from './media-upload.ts';
-	import { standardName, toStandard } from './media-standard.ts';
+	import { checkMedia, standardName, toStandard } from './media-standard.ts';
 
 	/**
 	 * The asset picker (agents/ASSETS.md "Asset selector") – like the character picker: a searchable grid of the media
@@ -63,8 +63,10 @@
 		title?: string;
 		onpick: (picked: PickedAsset) => void;
 		/**
-		 * uploads are brought to the media standard (media-standard.ts: a PNG / JPEG becomes a WebP – same name with .webp,
-		 * transparency kept; SVG and WebP as they are) – owner 2026-10-11, first for the map's layers
+		 * uploads are ALWAYS brought to the media standard (media-standard.ts: a PNG / JPEG becomes a WebP – same name with
+		 * .webp, transparency kept; SVG and WebP as they are) – owner 2026-10-11, first for the map's layers. Without it the
+		 * standard is the default for every upload and can be unticked (owner 2026-10-11: "die Leute können andere
+		 * benutzen, aber wir empfehlen das Umkonvertieren")
 		 */
 		webp?: boolean;
 	} = $props();
@@ -268,8 +270,19 @@
 		}
 	}
 
-	/** with `webp`: the file in the SCUTOONS media standard (media-standard.ts – PNG / JPEG → WebP), else as it is */
-	const asWebp = (file: File): Promise<File> => (webp ? toStandard(file) : Promise.resolve(file));
+	/** the chosen file against the media standard; `standard` = convert it (always with `webp`, else the default) */
+	const verdict = $derived(uploadFile ? checkMedia(uploadFile) : null);
+	let standard = $state(true);
+	const converting = $derived(!!verdict?.convertible && (webp || standard));
+	/** the file in the SCUTOONS media standard (media-standard.ts – PNG / JPEG → WebP) when converting, else as it is */
+	const asWebp = (file: File): Promise<File> => (converting ? toStandard(file) : Promise.resolve(file));
+	/** the path's extension follows the choice (`a.png` ⇄ `a.webp`) */
+	function setStandard(on: boolean) {
+		standard = on;
+		if (!uploadFile) return;
+		const original = uploadFile.name.match(/\.[a-z0-9]+$/i)?.[0].toLowerCase() ?? '';
+		uploadPath = on ? standardName(uploadPath, uploadFile) : uploadPath.replace(/\.webp$/i, original);
+	}
 
 	function chooseFile(event: Event) {
 		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
@@ -288,7 +301,8 @@
 		}
 		if (file) {
 			let clean = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
-			if (webp) clean = standardName(clean, file);
+			standard = true;
+			clean = standardName(clean, file);
 			// the field's place first (owner 2026-10-03: uploads go next to where they are used, by the content rules)
 			uploadPath = place ? `${place.replace(/\/?$/, '/')}${clean}` : `${folder || toon || 'scutoons'}/${placeOf(clean)}${clean}`;
 		}
@@ -375,6 +389,11 @@
 			{#if uploadFile}
 				<label class="sc-label" for="asset-upload-path">{t.uploadPath}</label>
 				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />
+				{#if verdict?.convertible && !webp}
+					<label class="check" data-testid="asset-upload-standard"><input type="checkbox" checked={standard} onchange={(e) => setStandard(e.currentTarget.checked)} /> {t.uploadStandard(verdict.advice ?? '')}</label>
+				{:else if verdict && !verdict.ok}
+					<p class="sc-caption" data-testid="asset-upload-off-standard">{t.uploadOffStandard(verdict.advice ?? '')}</p>
+				{/if}
 				{#if uploadPlan}
 					<p class="sc-caption" data-testid="asset-upload-levels">
 						{#if !uploadPlan.original}{t.audioLossless}<br />{/if}

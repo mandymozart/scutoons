@@ -800,6 +800,20 @@ export function placeImagePath(place: Pick<MapPlace, 'id' | 'toons'>): string {
 	return `${folder}/map/places/${place.id}.webp`;
 }
 
+/**
+ * Which place an imported file names (the map's "Import images …", owner 2026-10-12): its stem without extension and
+ * density marker – `old-church` = the painted diorama, `old-church-plaster` = its plaster model; case ignored, an exact
+ * id wins (a place whose id ends in `-plaster`). Null = no place.
+ */
+export function placeImageTarget(stem: string, places: readonly Pick<MapPlace, 'id'>[]): { place: string; plaster: boolean } | null {
+	const name = stem.trim().toLowerCase();
+	const exact = places.find((p) => p.id.toLowerCase() === name);
+	if (exact) return { place: exact.id, plaster: false };
+	const base = name.match(/^(.+)[-_]plaster$/)?.[1];
+	const painted = base ? places.find((p) => p.id.toLowerCase() === base) : undefined;
+	return painted ? { place: painted.id, plaster: true } : null;
+}
+
 export interface MapImageRequest {
 	/** the place */
 	place: string;

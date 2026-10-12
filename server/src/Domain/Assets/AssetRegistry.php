@@ -298,7 +298,10 @@ final class AssetRegistry
         if (!$versionIds) return [];
         $marks = implode(',', array_fill(0, count($versionIds), '?'));
         $out = [];
-        foreach ($this->db->all("SELECT * FROM asset_renditions WHERE version_id IN ($marks) ORDER BY path", $versionIds) as $r) {
+        // each file's own usage count: the optimisation tool judges the file content references (a used WebP twin of an
+        // unused PNG master is fine – BACKLOG 10.64)
+        foreach ($this->db->all("SELECT r.*, (SELECT COUNT(*) FROM asset_usages u WHERE u.path = r.path) AS usages
+                FROM asset_renditions r WHERE r.version_id IN ($marks) ORDER BY r.path", $versionIds) as $r) {
             $out[(int) $r['version_id']][] = $r;
         }
         return $out;
@@ -326,7 +329,7 @@ final class AssetRegistry
             'size' => (int) $row['total_size'],
             'usages' => (int) $row['usages'],
             'updated_at' => Time::iso($row['updated_at']),
-            'renditions' => array_map([self::class, 'rendition'], $renditions),
+            'renditions' => array_map(fn(array $r) => self::rendition($r) + ['usages' => (int) $r['usages']], $renditions),
         ];
     }
 

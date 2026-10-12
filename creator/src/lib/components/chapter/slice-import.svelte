@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { ApiError, rootPath, toonRelativePath } from '@scutoons/api';
-	import { DEFAULT_SLICE, getAt, IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type Path, type QualityVariants } from '@scutoons/content';
+	import { DEFAULT_SLICE, getAt, type Path, type QualityVariants } from '@scutoons/content';
 	import { confirmDialog, Sheet } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { chapterFolder, chapterSlug } from '$lib/editor/defaults.ts';
-	import { mediaAssets, toWebp, uploadOrReplace } from '@scutoons/media';
+	import { densityLevel, densityPath, mediaAssets, splitMediaName, standardDensities, uploadOrReplace, type Density } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 
@@ -58,26 +58,16 @@
 	const slug = $derived(chapterSlug(chapterNumber, season));
 	const folder = $derived(`${doc.toon}/${chapterFolder(chapterNumber, season)}`);
 
-	/** "….3x.jpg", "…@2x.png", "… 3x.webp" → the density named in a file name; else null */
-	const DENSITY_IN_NAME = /(?:^|[._@\- ])([123])x(?=[._\- ]|$)/i;
-	const stem = (name: string) => name.replace(/\.(jpe?g|png|webp)$/i, '');
-	/** the name without extension and density marker: "s1c1-slice-26.3x.jpg" → "s1c1-slice-26" */
-	const bareName = (name: string) => stem(name.split('/').pop() ?? '').replace(DENSITY_IN_NAME, '');
-	const densityInName = (name: string) => {
-		const found = stem(name).match(DENSITY_IN_NAME);
-		return found ? Number(found[1]) : null;
-	};
+	/** the name without extension and density marker: "s1c1-slice-26.3x.jpg" → "s1c1-slice-26" (the media standard's names) */
+	const bareName = (name: string) => splitMediaName(name).stem;
 	/** the slice number in a file name: "s1c1-slice-26.3x.jpg" → 26, "26.png" → 26; else null */
 	const numberOf = (name: string) => {
 		const bare = bareName(name);
 		const found = bare.match(/slice[-_ ]?(\d+)/i) ?? bare.match(/(\d+)(?!.*\d)/);
 		return found ? Number(found[1]) : null;
 	};
-	/** the density of a delivered image: from its name, else from its width (1170 px → 3x, 780 px → 2x) */
-	const densityOf = (name: string, width: number) =>
-		densityInName(name) ?? Math.max(1, Math.min(3, Math.floor((width + 1) / DEFAULT_SLICE.width)));
 	/** the file path of a density: 1x = no suffix */
-	const pathOf = (base: string, density: number) => `${base}${density > 1 ? `.${density}x` : ''}.webp`;
+	const pathOf = (base: string, density: Density) => densityPath(base, density);
 	/** the CDN-root base path (no extension, no density) of a slice's image; null = none */
 	const baseOf = (image: unknown) => (typeof image === 'string' && image ? rootPath(image.replace(/\.(jpe?g|png|webp)$/i, '').replace(/\.[123]x$/i, ''), doc.toon) : null);
 	/** the number N of this chapter's `<slug>-slice-<N>` image; else null */
@@ -168,27 +158,11 @@
 		closeRows();
 	}
 
-	/** reads the files of one image, encodes every density up to the delivered one (1x first) */
-	async function encode(files: File[]) {
-		const bitmaps: { bitmap: ImageBitmap; density: number }[] = [];
-		try {
-			for (const file of files) {
-				const bitmap = await createImageBitmap(file);
-				bitmaps.push({ bitmap, density: densityOf(file.name, bitmap.width) });
-			}
-			bitmaps.sort((a, b) => b.density - a.density || b.bitmap.width - a.bitmap.width);
-			const top = bitmaps[0].density;
-			const encoded: { density: number; blob: Blob; width: number; height: number }[] = [];
-			for (let density = 1; density <= top; density++) {
-				// the file delivered for this density, else the smallest bigger one (the biggest is always >= density)
-				const source = bitmaps.find((b) => b.density === density) ?? [...bitmaps].reverse().find((b) => b.density > density)!;
-				encoded.push({ density, ...(await toWebp(source.bitmap, DEFAULT_SLICE.width * density)) });
-			}
-			return encoded;
-		} finally {
-			for (const { bitmap } of bitmaps) bitmap.close();
-		}
-	}
+	/**
+	 * the files of one image in the media standard, every density up to the delivered one (1x first): a file's density
+	 * from its name, else from its width (1170 px → 3x, 780 px → 2x)
+	 */
+	const encode = (files: File[]) => standardDensities(files, DEFAULT_SLICE.width);
 
 	async function run(chosen: Row[], where: Placement) {
 		const current = slices.map((s) => s?.image);
@@ -211,10 +185,7 @@
 				const { width, height } = encoded[0];
 				const top = encoded[encoded.length - 1].density;
 				const variants: QualityVariants = {};
-				const record = (path: string, density: number) => {
-					const level = MEDIA_QUALITIES.find((q) => IMAGE_QUALITY_DENSITIES[q] === density);
-					if (level) variants[level] = toonRelativePath(path, doc.toon);
-				};
+				const record = (path: string, density: Density) => (variants[densityLevel(density)] = toonRelativePath(path, doc.toon));
 				const old = row.target === 'new' ? null : slices[row.target];
 				let base = old ? baseOf(old.image) : null;
 				if (old && Number(old.height) && Math.abs(Number(old.height) - height) > 1) {

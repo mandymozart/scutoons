@@ -10,6 +10,7 @@ import {
 	emptyMapState,
 	isPlaceVisible,
 	mapImageRequests,
+	placeImageTarget,
 	mapImageRequestsText,
 	mapMediaRequests,
 	placeImagePath,
@@ -253,4 +254,15 @@ test('unlockLocation: map open / toast or unset (owner 2026-10-11: chosen in the
 	assert.deepEqual(errs({ location: 'apartment', map: 'open' }), []);
 	assert.deepEqual(errs({ location: 'apartment', map: 'toast' }), []);
 	assert.deepEqual(errs({ location: 'apartment', map: 'always' }), ['map']);
+});
+
+test('placeImageTarget: the place id, or <id>-plaster for its plaster model; an exact id wins', () => {
+	const places = [{ id: 'old-church' }, { id: 'Cathedral' }, { id: 'kiln-plaster' }, { id: 'kiln' }];
+	assert.deepEqual(placeImageTarget('old-church', places), { place: 'old-church', plaster: false });
+	assert.deepEqual(placeImageTarget('cathedral', places), { place: 'Cathedral', plaster: false });
+	assert.deepEqual(placeImageTarget('Old-Church-Plaster', places), { place: 'old-church', plaster: true });
+	assert.deepEqual(placeImageTarget('old-church_plaster', places), { place: 'old-church', plaster: true });
+	assert.deepEqual(placeImageTarget('kiln-plaster', places), { place: 'kiln-plaster', plaster: false });
+	assert.equal(placeImageTarget('nowhere', places), null);
+	assert.equal(placeImageTarget('nowhere-plaster', places), null);
 });

@@ -372,12 +372,29 @@ final class AssetService
      */
     public function relink(array $user, string $from, string $to, bool $publish = false): array
     {
+        return $this->relinkAll($user, [$from => $to], $publish);
+    }
+
+    /**
+     * Several relinks in ONE pass (the optimisation tool, BACKLOG 10.64): each touched entity gets one new draft for all
+     * its files, not one per file. Every target must exist; nothing is written when one doesn't.
+     * @param array<array-key, mixed> $map old path → new path
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    public function relinkAll(array $user, array $map, bool $publish = false): array
+    {
         $this->registry->requireAvailable();
-        $from = StorageKey::normalize($from);
-        $to = self::targetPath($to);
-        if ($from === $to) throw new ApiError(422, 'same_path', 'Nothing to relink.');
-        if (!$this->storage()->stat($to)) throw new ApiError(422, 'missing_target', "The new file $to is not on the storage.");
-        return $this->relinkMany($user, [$from => $to], $publish);
+        if (!$map) throw new ApiError(422, 'same_path', 'Nothing to relink.');
+        $clean = [];
+        foreach ($map as $from => $to) {
+            $from = StorageKey::normalize((string) $from);
+            $to = self::targetPath((string) $to);
+            if ($from === $to) throw new ApiError(422, 'same_path', "Nothing to relink: $from.");
+            if (!$this->storage()->stat($to)) throw new ApiError(422, 'missing_target', "The new file $to is not on the storage.");
+            $clean[$from] = $to;
+        }
+        return $this->relinkMany($user, $clean, $publish);
     }
 
     /**

@@ -22,6 +22,8 @@ export interface AssetRendition {
 	height: number | null;
 	duration: number | null;
 	origin: 'imported' | 'uploaded' | 'generated';
+	/** references of this file (content + catalog) – in list rows only */
+	usages?: number;
 }
 
 /** A list row: the asset with its current version */
@@ -227,6 +229,8 @@ export function createAssetsApi(api: ApiClient) {
 			),
 		rename: (id: string, slug: string, publish = false) => api.post<AssetDetail & { renamed: Record<string, string>; relink: AssetRelinkResult }>(`/admin/assets/${enc(id)}/rename/`, { slug, publish }),
 		relink: (from: string, to: string, publish = false) => api.post<AssetRelinkResult>('/admin/assets/relink/', { from, to, publish }),
+		/** several files in one pass: one new draft per touched entity (BACKLOG 10.64) */
+		relinkMap: (map: Record<string, string>, publish = false) => api.post<AssetRelinkResult>('/admin/assets/relink/', { map, publish }),
 		unused: () => api.get<{ status: 'success'; items: AssetUnused[]; totals: { assets: number; files: number; bytes: number } }>('/admin/assets/unused/'),
 		/** deletes these unused files; the server checks every path against a fresh usage index first */
 		cleanup: (paths: string[]) => api.post<AssetCleanupResult>('/admin/assets/cleanup/', { paths }),
