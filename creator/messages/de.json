@@ -956,8 +956,6 @@
 		"map_fit": "Alles zeigen",
 		"map_zoom_in": "Hineinzoomen",
 		"map_zoom_out": "Herauszoomen",
-		"map_route_hint": "Klick auf einen Ort oder ins Gelände setzt Wegpunkte · Enter / Doppelklick beendet · Rücktaste entfernt den letzten · Esc bricht ab",
-		"map_place_hint": "Klick ins Gelände setzt einen neuen Ort",
 		"map_id": "ID",
 		"map_id_locked": "Fest seit der Veröffentlichung (Events verweisen auf die ID)",
 		"map_name": "Name",

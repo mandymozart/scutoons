@@ -478,6 +478,15 @@
 		if (placeFrame) view.centerOn(placeFrame.center, placeFrame.zoom);
 		else gotoStartView();
 	}
+	// the two view helpers show only when they would do something (owner 2026-10-12: "only visible when needed or
+	// actually clickable"): "Show all" while a place is off screen, the crosshair while its view is not the one shown
+	const allOnScreen = $derived(!map?.locations.length || map.locations.every((p) => view.onScreen(p)));
+	const viewTarget = $derived(placeFrame ?? startView);
+	const atViewTarget = $derived.by(() => {
+		if (!viewTarget) return true;
+		const at = view.toScreen(viewTarget.center);
+		return Math.abs(view.zoom / viewTarget.zoom - 1) < 0.02 && Math.hypot(at.x - view.width / 2, at.y - view.height / 2) < 4;
+	});
 
 	// ── the phone sheet (UI-CONCEPTS E.10, owner 2026-10-11, variant C): the properties slide up from below, one tab at a
 	//    time; closed it is its tab row only – a tap on a tab opens it there, on the open tab closes it; it closes
@@ -781,10 +790,12 @@
 					<button type="button" class:on={readerView} aria-pressed={readerView} aria-label={m['creator.map_reader_view']()} title={m['creator.map_reader_view']()} onclick={() => (readerView = !readerView)} data-testid="reader-view"><Icon name="eye" /></button>
 					<button type="button" class:on={phoneFrame} aria-pressed={phoneFrame} aria-label={m['creator.map_phone_frame']()} title={m['creator.map_phone_frame']()} onclick={() => (phoneFrame = !phoneFrame)} data-testid="phone-frame"><Icon name="smartphone" /></button>
 				</div>
-				<div class="strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
-					<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
-					<button type="button" onclick={gotoView} disabled={!placeFrame && !startView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()}><Icon name="crosshair" /></button>
-				</div>
+				{#if !allOnScreen || !atViewTarget}
+					<div class="strip zooms" class:sheet-up={sheetOpen} role="group" aria-label={m['creator.field_map_zoom']()}>
+						{#if !allOnScreen}<button type="button" onclick={fitAll} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()} data-testid="map-fit"><Icon name="maximize" /></button>{/if}
+						{#if !atViewTarget}<button type="button" onclick={gotoView} aria-label={m['creator.map_go_view']()} title={m['creator.map_go_view']()} data-testid="map-go-view"><Icon name="crosshair" /></button>{/if}
+					</div>
+				{/if}
 			</div>
 			<aside class="side" class:open={sheetOpen && !mapDragging} class:dragging bind:this={sheetEl} style:--sheet-max={sheetRem !== null ? `${sheetRem}rem` : null} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
 				<!-- svelte-ignore a11y_no_static_element_interactions -->

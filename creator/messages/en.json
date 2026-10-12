@@ -956,8 +956,6 @@
 		"map_fit": "Show all",
 		"map_zoom_in": "Zoom in",
 		"map_zoom_out": "Zoom out",
-		"map_route_hint": "Click a place or the terrain to add waypoints · Enter / double-click finishes · Backspace removes the last · Esc cancels",
-		"map_place_hint": "Click the terrain to add a place",
 		"map_id": "ID",
 		"map_id_locked": "Fixed since it was published (events reference the id)",
 		"map_name": "Name",

@@ -619,9 +619,6 @@
 		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {zoomPercent(frameZoom)} %{placeFrame ? ' · place' : startView ? ' · start' : ''}</span></div>
 	{/if}
 
-	{#if tool === 'route' || tool === 'place'}
-		<p class="hint">{tool === 'route' ? m['creator.map_route_hint']() : m['creator.map_place_hint']()}</p>
-	{/if}
 </div>
 
 <style>
@@ -876,18 +873,5 @@
 		font-size: var(--type-caption-size);
 		background: var(--paper);
 		padding: 0 0.3rem;
-	}
-	.hint {
-		position: absolute;
-		left: 50%;
-		bottom: 0.75rem;
-		transform: translateX(-50%);
-		margin: 0;
-		background: var(--paper);
-		border: 2px solid var(--ink);
-		padding: 0.25rem 0.5rem;
-		font-size: var(--type-caption-size);
-		pointer-events: none;
-		max-width: 90%;
 	}
 </style>
