@@ -14,12 +14,14 @@
 </script>
 
 <script lang="ts">
-	import { bezierPath, routePoints, routeStroke, type Point } from '@scutoons/content';
+	import { bezierPath, routeGeometry, routeStroke, type RoutePlace } from '@scutoons/content';
 
 	/**
 	 * The routes of the world map as one SVG over the map's viewport (agents/MAP.md §4.4 styles): the paths are in world
 	 * units under the viewport's transform, strokes keep their screen width at every zoom. Places the reader can't see
-	 * are skipped (`visible`), unknown ones too (catpope's old `garden`).
+	 * are skipped (`visible`), unknown ones too (catpope's old `garden`). A route runs into a place's diorama at its entry
+	 * gate and out at its exit gate (owner 2026-10-12, BACKLOG 10.66 (4), variant A – `routeGeometry`): `layer="lines"`
+	 * (under the places) draws the lines, `layer="gates"` (over them) the gate marks.
 	 */
 	let {
 		routes,
@@ -28,10 +30,13 @@
 		x,
 		y,
 		visible = () => true,
-		onroute
+		onroute,
+		layer = 'lines'
 	}: {
 		routes: DrawnRoute[];
-		places: { id: string; x: number; y: number }[];
+		places: RoutePlace[];
+		/** lines (under the places) or the gate marks (over them) */
+		layer?: 'lines' | 'gates';
 		zoom: number;
 		x: number;
 		y: number;
@@ -42,29 +47,36 @@
 
 	const shown = $derived(places.filter((p) => visible(p.id)));
 
-	function points(route: DrawnRoute, from = 0, to = route.to ?? Infinity): Point[] {
-		return routePoints(shown, route.waypoints, from, to);
-	}
+	const geometry = (route: DrawnRoute) => routeGeometry(shown, route.waypoints, 0, route.to ?? Infinity);
 </script>
 
 <svg class="map-routes" aria-hidden="true">
 	<g transform="translate({x} {y}) scale({zoom})">
 		{#each routes as route (route.id)}
 			{@const stroke = routeStroke(route.style)}
-			{@const d = bezierPath(points(route), stroke.tension, stroke.bow)}
-			{#if d}
+			{@const shape = geometry(route)}
+			{#if layer === 'gates'}
+				<g class="route" class:dimmed={route.dimmed} data-route-gates={route.id}>
+					{#each shape.gates as g, gi (gi)}
+						<circle class="gate" cx={g.at.x} cy={g.at.y} r={4 / zoom} stroke={stroke.color} data-gate="{g.place}:{g.which}" />
+					{/each}
+				</g>
+			{:else if shape.segments.length}
 				<g class="route" class:dimmed={route.dimmed} class:selected={route.selected} data-route={route.id}>
-					{#if onroute}
-						<!-- a wide invisible line makes the route easy to hit in the builder -->
-						<path class="hit" {d} role="presentation" onclick={(e) => onroute(route.id, e)} />
-					{/if}
-					{#if route.selected}
-						<path class="halo" {d} style:stroke-width="{stroke.width + 8}px" />
-					{/if}
-					{#if stroke.outline}
-						<path class="line" {d} stroke={stroke.outline} style:stroke-width="{stroke.width + 3}px" />
-					{/if}
-					<path class="line" {d} stroke={stroke.color} stroke-dasharray={stroke.dash || undefined} style:stroke-width="{stroke.width}px" />
+					{#each shape.segments as points, si (si)}
+						{@const d = bezierPath(points, stroke.tension, stroke.bow)}
+						{#if onroute}
+							<!-- a wide invisible line makes the route easy to hit in the builder -->
+							<path class="hit" {d} role="presentation" onclick={(e) => onroute(route.id, e)} />
+						{/if}
+						{#if route.selected}
+							<path class="halo" {d} style:stroke-width="{stroke.width + 8}px" />
+						{/if}
+						{#if stroke.outline}
+							<path class="line" {d} stroke={stroke.outline} style:stroke-width="{stroke.width + 3}px" />
+						{/if}
+						<path class="line" {d} stroke={stroke.color} stroke-dasharray={stroke.dash || undefined} style:stroke-width="{stroke.width}px" />
+					{/each}
 				</g>
 			{/if}
 		{/each}
@@ -95,6 +107,12 @@
 	.halo {
 		stroke: var(--primary-cyan, #00d1ff);
 		opacity: 0.6;
+	}
+	/* a gate: a small round mark where the route meets the diorama (paper inside, the route's colour around) */
+	.gate {
+		fill: var(--paper, #fff);
+		stroke-width: 2.5px;
+		vector-effect: non-scaling-stroke;
 	}
 	.dimmed {
 		opacity: 0.25;

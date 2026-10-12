@@ -72,6 +72,18 @@ export interface MapPlace {
 	 * place's point at `PLACE_ZOOM` (`placeView`).
 	 */
 	view?: PlaceView;
+	/**
+	 * where routes enter and leave the place's diorama (owner 2026-10-12, BACKLOG 10.66 (4), variant A "gates"): a route
+	 * stops at the entry and goes on from the exit – nothing is drawn across the place. Offsets from the place's point in
+	 * world units; each one missing = computed (`placeGate`: the diorama's ground ellipse toward the neighbouring waypoint)
+	 */
+	gates?: PlaceGates;
+}
+
+/** A place's route gates (`MapPlace.gates`): offsets from its point, world units */
+export interface PlaceGates {
+	entry?: { x: number; y: number };
+	exit?: { x: number; y: number };
 }
 
 /** A place's own framing on the reader's map (agents/MAP.md §8.4) */
@@ -365,6 +377,68 @@ export function routePoints(places: readonly { id: string; x: number; y: number 
 		if (p) out.push(p);
 	});
 	return out;
+}
+
+/** the share of a place's half size where a computed gate sits (inside the diorama's ground, not its box edge) */
+export const GATE_RADIUS = 0.5;
+/** the diorama's ground is an ellipse: an isometric patch is flatter than wide */
+export const GATE_FLAT = 0.6;
+
+/** what route drawing needs of a place */
+export type RoutePlace = { id: string; x: number; y: number; size?: number; image?: { size?: number }; gates?: PlaceGates };
+
+/**
+ * A place's entry / exit gate (owner 2026-10-12, BACKLOG 10.66 (4)): its own offset when the author set one, else the
+ * point on the diorama's ground ellipse toward `toward` (the previous waypoint for the entry, the next for the exit)
+ */
+export function placeGate(place: RoutePlace, which: 'entry' | 'exit', toward: Point | null): Point {
+	const own = place.gates?.[which];
+	if (own && Number.isFinite(own.x) && Number.isFinite(own.y)) return { x: place.x + own.x, y: place.y + own.y };
+	if (!toward) return { x: place.x, y: place.y };
+	const r = ((place.size ?? place.image?.size ?? DEFAULT_PLACE_IMAGE_SIZE) / 2) * GATE_RADIUS;
+	const a = Math.atan2((toward.y - place.y) / GATE_FLAT, toward.x - place.x);
+	return { x: place.x + Math.cos(a) * r, y: place.y + Math.sin(a) * r * GATE_FLAT };
+}
+
+/**
+ * A route as it is drawn (owner 2026-10-12, variant A "gates"): the line stops at each place's entry gate and goes on
+ * from its exit gate, so a route runs into the diorama and out again – nothing across the place; a route starting at a
+ * place leaves from its exit, one ending there comes in at its entry. `segments` = the separate lines (each ≥ 2
+ * points), `gates` = the marks, with the place and which gate. Waypoints `[from, to]` only (the reader's progress);
+ * unknown places are skipped like `routePoints`.
+ */
+export function routeGeometry(
+	places: readonly RoutePlace[],
+	waypoints: readonly (Waypoint | ReaderWaypoint)[],
+	from = 0,
+	to = Infinity
+): { segments: Point[][]; gates: { place: string; which: 'entry' | 'exit'; at: Point }[] } {
+	const pts: { p: Point; place?: RoutePlace }[] = [];
+	waypoints.forEach((w, i) => {
+		if (i < from || i > to) return;
+		const p = waypointPoint(places, w);
+		if (!p) return;
+		pts.push({ p, place: isPlaceWaypoint(w) ? places.find((x) => x.id === w.location) : undefined });
+	});
+	const segments: Point[][] = [[]];
+	const gates: { place: string; which: 'entry' | 'exit'; at: Point }[] = [];
+	pts.forEach(({ p, place }, i) => {
+		const current = segments[segments.length - 1];
+		if (!place) return void current.push(p);
+		const prev = pts[i - 1]?.p ?? null;
+		const next = pts[i + 1]?.p ?? null;
+		if (prev) {
+			const at = placeGate(place, 'entry', prev);
+			current.push(at);
+			gates.push({ place: place.id, which: 'entry', at });
+		}
+		if (next) {
+			const at = placeGate(place, 'exit', next);
+			segments.push([at]);
+			gates.push({ place: place.id, which: 'exit', at });
+		}
+	});
+	return { segments: segments.filter((s) => s.length >= 2), gates };
 }
 
 /**
@@ -974,6 +1048,15 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 				else if (o !== undefined && isNum(p.x) && isNum(p.y) && !inside(p.x + o.x, p.y + o.y))
 					add('warning', [...path, 'view', 'offset'], `${what}: the view centre (${p.x + o.x}, ${p.y + o.y}) is outside the map`);
 			}
+		}
+		if (p.gates !== undefined) {
+			if (!isObj(p.gates)) add('error', [...path, 'gates'], `${what}: the route gates must be an object { entry, exit }`);
+			else
+				for (const which of ['entry', 'exit'] as const) {
+					const g = (p.gates as Record<string, unknown>)[which];
+					if (g !== undefined && (!isObj(g) || !Number.isFinite((g as any).x) || !Number.isFinite((g as any).y)))
+						add('error', [...path, 'gates', which], `${what}: the ${which} gate needs x / y numbers (or none: computed)`);
+				}
 		}
 		if (p.image !== undefined) {
 			if (!isObj(p.image) || typeof p.image.src !== 'string' || !p.image.src) add('error', [...path, 'image'], `${what}: the image needs a path`);

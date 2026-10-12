@@ -266,3 +266,27 @@ test('place image names: -plaster and .2x / .3x (BACKLOG 10.65)', async () => {
 	assert.equal(placeImageFile('catpope/map/places/airport.webp', true, 'medium'), 'catpope/map/places/airport-plaster.2x.webp');
 	assert.equal(placeImageFile('scutoons/map/places/x.webp', false, 'high'), 'scutoons/map/places/x.3x.webp');
 });
+
+test('route gates: a route stops at the place entry and goes on from its exit (BACKLOG 10.66 (4), variant A)', async () => {
+	const { routeGeometry, placeGate, checkWorldMap } = await import('../src/map.ts');
+	const places = [
+		{ id: 'a', x: 0, y: 0, size: 10 },
+		{ id: 'b', x: 100, y: 0, size: 10 },
+		{ id: 'c', x: 200, y: 0, size: 10, gates: { entry: { x: 0, y: 3 } } }
+	];
+	const w = [{ location: 'a' }, { location: 'b' }, { location: 'c' }] as any;
+	const g = routeGeometry(places, w);
+	const r = (p: { x: number; y: number }) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 });
+	// a → b, b → c: two lines; a starts at its exit, c ends at its own entry
+	assert.equal(g.segments.length, 2);
+	assert.deepEqual(r(g.segments[0][0]), { x: 2.5, y: 0 });
+	assert.deepEqual(r(g.segments[0][1]), { x: 97.5, y: 0 });
+	assert.deepEqual(r(g.segments[1][0]), { x: 102.5, y: 0 });
+	assert.deepEqual(r(g.segments[1][1]), { x: 200, y: 3 });
+	assert.deepEqual(g.gates.map((x) => `${x.place}:${x.which}`), ['a:exit', 'b:entry', 'b:exit', 'c:entry']);
+	// a free point in between stays a point of the line; progress `to` ends at the reached place's entry
+	assert.equal(routeGeometry(places, w, 0, 1).segments.length, 1);
+	assert.deepEqual(placeGate(places[0], 'entry', null), { x: 0, y: 0 });
+	const bad = { width: 10, height: 10, layers: [], routes: [], locations: [{ id: 'x', name: { de: 'X' }, x: 1, y: 1, toons: [], gates: { exit: { x: 'no' } } }] } as any;
+	assert.ok(checkWorldMap(bad).some((p: any) => p.path.join('.').endsWith('gates.exit')));
+});
