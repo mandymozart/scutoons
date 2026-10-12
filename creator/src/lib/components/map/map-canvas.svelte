@@ -102,6 +102,9 @@
 		const world = view.toWorld(at);
 		if (tool === 'place') {
 			if ((e.target as HTMLElement | null)?.closest('[data-handle]')) return;
+			// the tool turns to select with the new place selected: the click that follows this tap must not select a
+			// route whose line is under it (check-map 2026-10-12 – the new place lost its selection)
+			placedAt = e.timeStamp;
 			onaddplace(world);
 			return;
 		}
@@ -371,8 +374,10 @@
 	});
 
 	let viewportEl = $state<HTMLDivElement>();
+	/** when the last tap added a place (its trailing click is not a route click) */
+	let placedAt = -Infinity;
 	function onRouteClick(id: string, e: MouseEvent) {
-		if (tool !== 'select') return;
+		if (tool !== 'select' || e.timeStamp - placedAt < 500) return;
 		e.stopPropagation();
 		if (selection?.kind === 'route' && selection.id === id) {
 			// a click on the selected route's line inserts a free point there
