@@ -660,6 +660,12 @@ export function paintRuns(runs: readonly CellRun[], touched: readonly HexCell[],
 	for (const r of [...rows.keys()].sort((x, y) => x - y)) for (const [a, b] of rows.get(r)!.sort((x, y) => x[0] - y[0])) out.push([r, a, b]);
 	return out;
 }
+/** a fingerprint of a cover's runs (FNV-1a over the numbers): the same cover gives the same value – a cache key that survives copies */
+export function runsHash(runs: readonly CellRun[]): string {
+	let h = 0x811c9dc5;
+	for (const run of runs) for (const n of run) h = Math.imul(h ^ (n & 0xffff), 16777619) ^ (n >>> 16);
+	return `${runs.length}:${(h >>> 0).toString(36)}`;
+}
 /** a cover's row runs as a lookup: is a cell in it? (sorted runs per row, a binary search – fast for big covers) */
 export function runsIndex(runs: readonly CellRun[]): (cell: HexCell) => boolean {
 	const rows = new Map<number, [number, number][]>();

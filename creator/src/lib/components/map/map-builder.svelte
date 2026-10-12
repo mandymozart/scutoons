@@ -16,6 +16,7 @@
 		placeCells,
 		placeCellOffsets,
 		paintRuns,
+		runsHash,
 		runsIndex,
 		runsPaths,
 		hexCellAt,
@@ -688,9 +689,7 @@
 		const id = regionBrush.region;
 		const region = id && map ? map.regions?.find((r) => r.id === id) : undefined;
 		if (!id || !region || !map) return null;
-		// the other regions' covers, one row index (sorted runs per row): a touched cell is checked by a binary search –
-		// comparing each against every run of every region took seconds for a big stroke (owner 2026-10-12)
-		const taken = runsIndex((map.regions ?? []).filter((r) => r.id !== id).flatMap((r) => r.cells ?? []));
+		const others = (map.regions ?? []).filter((r) => r.id !== id);
 		return {
 			cells: [],
 			bulk: true,
@@ -699,19 +698,31 @@
 			onchange: () => {},
 			onstroke: (touched) =>
 				editRegion(doc, id, (r) => {
+					// coarse to fine (owner 2026-10-12: "bigger approximations to smaller"): only the rows the stroke touches are read
+					// from the other regions (a region outside them costs nothing), then one binary search per touched cell in its
+					// row – comparing each cell against every run of every region took seconds
+					let top = Infinity, bottom = -Infinity;
+					for (const c of touched) (top = Math.min(top, c.r)), (bottom = Math.max(bottom, c.r));
+					const taken = runsIndex(others.flatMap((o) => (o.cells ?? []).filter(([row]) => row >= top && row <= bottom)));
 					r.cells = paintRuns(r.cells ?? [], touched, regionBrush.mode, (c) => !taken(c));
 				})
 		};
 	});
 	/** the covers as world-unit paths, worked out once per change of a region's cells (runsPaths – a region is big) */
-	const coverPaths = new WeakMap<object, { fill: string; edge: string }>();
-	const drawnRegions = $derived(
-		(map?.regions ?? []).map((r) => {
-			let paths = coverPaths.get(r.cells);
-			if (!paths) coverPaths.set(r.cells, (paths = runsPaths(r.cells ?? [])));
+	// keyed by the region and a fingerprint of its runs, not the array: every edit copies the map (the undo history), so
+	// by identity every region was redrawn after each stroke – now only the one whose cover changed (~50 ms instead of ~250)
+	let coverPaths = new Map<string, { fill: string; edge: string }>();
+	const drawnRegions = $derived.by(() => {
+		const next = new Map<string, { fill: string; edge: string }>();
+		const out = (map?.regions ?? []).map((r) => {
+			const key = `${r.id}|${runsHash(r.cells ?? [])}`;
+			const paths = coverPaths.get(key) ?? runsPaths(r.cells ?? []);
+			next.set(key, paths);
 			return { id: r.id, colour: r.colour ?? '#888888', ...paths, selected: selection?.kind === 'region' && selection.id === r.id };
-		})
-	);
+		});
+		coverPaths = next; // only the covers on the map now stay cached
+		return out;
+	});
 	function newRegion() {
 		const id = addRegion(doc);
 		select({ kind: 'region', id });

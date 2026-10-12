@@ -1016,6 +1016,8 @@ generic narrator says a region-specific greeting."
    Peaks" sign: the name, a **claim**, a fancy illustrated scene of the region. First samples:
    `scripts/region-signs.mjs` → `logs/map-paint/signs/` (Luma, uni-1-max).
 5. Write it up + generate example signs: **yes**.
+6. Overlap: **a region blocks** – the brush takes only free cells, no take-over of a neighbour's (owner 2026-10-12: "a
+   region blocks is better and only free can be taken").
 
 **Built (2026-10-12):** `MapRegion` / `region:<id>` (cover = row runs `[r, q0, q1]` – `regionCells`, `cellRuns`,
 `runsOutline`, `runsPaths`, `paintRuns`, `regionAt`), validation, schema `map-region`, keys + composition TS / PHP, the
