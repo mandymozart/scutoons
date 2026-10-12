@@ -13,13 +13,18 @@
 		ProductForm,
 		RecipeForm,
 		catalogProblems,
+		importItemImages,
+		importRecipeImages,
+		type CatalogWrite,
 		restOf,
 		withRest,
 		type CatalogFormProps,
 		type Data
 	} from '@scutoons/catalog';
-	import { askDialog, Badge, Icon, Tabs, region } from '@scutoons/ui';
+	import { askDialog, confirmDialog, Badge, Icon, Tabs, region } from '@scutoons/ui';
 	import { neutralDoc } from '$lib/editor/languages.ts';
+	import { contentApi, putDraft } from '$lib/api.ts';
+	import { toast } from '$lib/toasts.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { CATALOG_LABELS, CATALOG_PAGE_KINDS, catalogKey, catalogLists, loadCatalogDocs } from '$lib/editor/catalog-docs.ts';
 	import { contentName } from '$lib/editor/text-language.svelte.ts';
@@ -79,6 +84,7 @@
 	const visible = $derived(
 		entries.filter((e) => {
 			const data = e.content as Data;
+			if (e.removed && !e.draft) return false;
 			if (toonFilter === '__none' ? data.toon != null : toonFilter && data.toon !== toonFilter) return false;
 			const q = query.trim().toLowerCase();
 			return !q || e.id.toLowerCase().includes(q) || def.title(data, e.id).toLowerCase().includes(q);
@@ -138,7 +144,65 @@
 		if (!doc || !selected) return [];
 		return catalogProblems(lists)
 			.filter((p) => p.place?.kind === kind && p.place.id === selected)
-			.map(({ list: _list, place: _place, ...p }) => ({ ...p, file: doc!.entity }));
+			// keyed inside the entry (the admin's accepted_warnings keep working): the Problems panel's "Looks fine" stores it there
+			.map(({ list: _list, place, ...p }) => ({ ...p, path: place?.path ?? p.path, file: doc!.entity }));
+	}
+
+	// ── Removing (owner 2026-10-12, D5 – the same as the map's places) ─────────────────────────────────────────────
+	/**
+	 * never published: the document goes (its id is free again); published: a version = the entry + removed: true – a
+	 * draft like any other, published through the checklist (that takes the entry out of the catalog; physical: review)
+	 */
+	async function removeEntry() {
+		if (!doc || !selected || !data) return;
+		const neverPublished = !entry || (!entry.live && entry.published === null);
+		const ok = await confirmDialog({
+			title: m['creator.catalog_remove_title']({ id: selected }),
+			message: neverPublished ? m['creator.catalog_remove_never_published']() : m['creator.catalog_remove_published'](),
+			confirmLabel: m['creator.catalog_remove']()
+		});
+		if (!ok) return;
+		if (neverPublished) {
+			try {
+				if (entry) await contentApi.saveBatch([], undefined, [catalogKey(kind, selected)]);
+				selected = null;
+				doc = null;
+				// leave its URL first, then the list (the first entry opens)
+				await goto(`/catalog/${kind}`, { replaceState: true });
+				await reload();
+			} catch (e) {
+				loadError = e instanceof Error ? e.message : String(e);
+			}
+			return;
+		}
+		doc.edit((file: Data) => void (file.removed = true), 'remove');
+	}
+	function restoreEntry() {
+		doc?.edit((file: Data) => void delete file.removed, 'remove');
+	}
+
+	// ── Import images … (moved from the admin): `<id>[_<variant>].<ext>` → the pictures, a draft per changed entry ──
+	let importInput = $state<HTMLInputElement>();
+	let importing = $state<string | null>(null);
+	const write: CatalogWrite = (k, id, next, note) => putDraft(catalogKey(k, id), next, undefined, note);
+	async function importImages(event: Event) {
+		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
+		if (importInput) importInput.value = '';
+		if (!files.length) return;
+		const step = (done: number, total: number) => (importing = m['creator.catalog_importing']({ done, total }));
+		try {
+			step(0, files.length);
+			const report = kind === 'recipes' ? await importRecipeImages(files, lists.recipes ?? [], lists.items ?? [], write, step) : await importItemImages(files, lists.items ?? [], write, step);
+			const unknown = report.problems.map((p) => p.file);
+			loadError = unknown.length ? m['creator.catalog_import_unknown']({ files: unknown.join(', ') }) : null;
+			toast(m['creator.catalog_import_done']({ uploaded: report.uploaded, replaced: report.replaced, unchanged: report.unchanged, drafts: report.updated.length }), { type: unknown.length ? 'info' : 'success' });
+			await reload();
+			if (doc && selected && report.updated.includes(selected)) await doc.load();
+		} catch (e) {
+			loadError = e instanceof Error ? e.message : String(e);
+		} finally {
+			importing = null;
+		}
 	}
 
 	async function create() {
@@ -152,6 +216,7 @@
 		const clean = id?.trim();
 		if (!clean) return;
 		if (!def.idPattern.test(clean)) return void (loadError = m['creator.catalog_id_invalid']({ id: clean }));
+		// a removed entry's id stays taken (D5)
 		if (entries.some((e) => e.id === clean)) return void (loadError = m['creator.catalog_id_taken']({ id: clean }));
 		loadError = null;
 		selected = clean;
@@ -177,6 +242,17 @@
 <MetaPage toon="" title={CATALOG_LABELS[kind]()} docs={doc ? [doc] : []} {validate} wide help="catalog">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={create} data-testid="catalog-new"><Icon name="plus" /> {m['creator.catalog_new']({ what: def.singular() })}</button>
+		{#if kind === 'items' || kind === 'recipes'}
+			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} data-testid="catalog-import-input" />
+			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.catalog_import_hint']()} data-testid="catalog-import">{importing ?? m['creator.catalog_import']()}</button>
+		{/if}
+		{#if data && selected}
+			{#if data.removed}
+				<button type="button" class="secondary" onclick={restoreEntry} data-testid="catalog-restore">{m['creator.catalog_restore']()}</button>
+			{:else}
+				<button type="button" class="secondary" onclick={removeEntry} data-testid="catalog-remove">{m['creator.catalog_remove']()}</button>
+			{/if}
+		{/if}
 	{/snippet}
 	<Tabs tabs={CATALOG_PAGE_KINDS.map((k) => ({ id: k, label: CATALOG_LABELS[k]() }))} bind:value={tab} label={m['creator.catalog']()}>
 		{#snippet children()}
@@ -205,7 +281,7 @@
 										<span class="hint">{e.id}{(e.content as Data).toon ? ` · ${(e.content as Data).toon}` : ''}</span>
 									</span>
 									<span class="marks">
-										{#if !e.live}<Badge tone="soon">{m['creator.catalog_state_new']()}</Badge>{:else if e.draft}<Badge tone="draft">{m['creator.catalog_state_draft']()}</Badge>{/if}
+										{#if e.removed}<Badge tone="error">{m['creator.catalog_state_removed']()}</Badge>{:else if !e.live}<Badge tone="soon">{m['creator.catalog_state_new']()}</Badge>{:else if e.draft}<Badge tone="draft">{m['creator.catalog_state_draft']()}</Badge>{/if}
 										{#if e.physical}<span title={m['creator.catalog_physical_hint']()}><Badge tone="info">{m['creator.catalog_physical']()}</Badge></span>{/if}
 									</span>
 								</button>
@@ -217,6 +293,9 @@
 					{#if doc && data}
 						{#if entry?.physical || (kind === 'items' && (data.kind === 'physical' || data.edition_id || data.product || data.max_world != null)) || kind === 'products' || kind === 'editions'}
 							<p class="note" data-testid="catalog-physical-note"><Icon name="lock" /> {m['creator.catalog_physical_note']()}</p>
+						{/if}
+						{#if data.removed}
+							<p class="note" data-testid="catalog-removed-note"><Icon name="trash-2" /> {m['creator.catalog_removed_note']()}</p>
 						{/if}
 						{#key selected}
 							<Form bind:data={formData.get, formData.set} creating={!entry?.live} id={selected ?? ''} {lists} problems={serverProblems} />

@@ -37,8 +37,11 @@
 		form: Form,
 		barActions,
 		detailActions,
-		reload = 0
+		reload = 0,
+		readonly = false
 	}: {
+		/** the kind is edited in the creator now (owner 2026-10-12, D6): no new / save / delete, the form only shows (the order stays) */
+		readonly?: boolean;
 		/** bumped by the page after it wrote entries itself (the open entry is read again) */
 		reload?: number;
 		def: KindDef;
@@ -306,7 +309,7 @@
 		{#if barActions}{@render barActions()}{/if}
 	{/snippet}
 	{#snippet end()}
-		{#if def.creatable}
+		{#if def.creatable && !readonly}
 			<Button size="sm" onclick={openNew} data-testid="catalog-new">{m['catalog.new']({ what: def.singular() })}</Button>
 		{/if}
 	{/snippet}
@@ -345,10 +348,10 @@
 	{/snippet}
 	{#snippet actions()}
 		{#if shown === 'entry' && openId && detailActions}{@render detailActions(openId)}{/if}
-		{#if shown === 'entry' && def.deletable}
+		{#if shown === 'entry' && def.deletable && !readonly}
 			<Button size="sm" variant="secondary" onclick={remove} disabled={saving} data-testid="catalog-delete">{m['catalog.delete']()}</Button>
 		{/if}
-		{#if (shown === 'entry' || shown === 'new')}
+		{#if (shown === 'entry' || shown === 'new') && !readonly}
 			<Button size="sm" onclick={save} disabled={saving || (shown === 'new' && (!newId.trim() || !!newIdError))} data-testid="catalog-save">
 				{saving ? m['catalog.saving']() : m['catalog.save']()}
 			</Button>
@@ -388,7 +391,9 @@
 				{:else}
 					<p class="sc-caption muted">id: <span class="mono-code">{openId}</span></p>
 				{/if}
-				<Form bind:data={draft} creating={shown === 'new'} id={currentId} {lists} {problems} />
+				<fieldset class="plain" disabled={readonly}>
+					<Form bind:data={draft} creating={shown === 'new'} id={currentId} {lists} {problems} />
+				</fieldset>
 				{#if advanced}
 					<details class="advanced" open={Object.keys(advanced).length > 0 && problems.length > 0}>
 						<summary>{m['catalog.advanced']()}</summary>
@@ -406,7 +411,7 @@
 			{#if shown === 'entry' && openId}
 				<details class="entry-history">
 					<summary>{m['catalog.history']()}</summary>
-					<CatalogHistory {kind} id={openId} reload={historyReload} onundone={undone} />
+					<CatalogHistory {kind} id={openId} reload={historyReload} onundone={undone} {readonly} />
 				</details>
 			{/if}
 		{/if}
@@ -414,7 +419,7 @@
 </SplitView>
 
 <Sheet bind:open={kindHistoryOpen} title={m['catalog.history_of']({ what: def.label() })} side="right" widthKey="history" closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()}>
-	{#if kindHistoryOpen}<CatalogHistory {kind} reload={historyReload} onundone={undone} />{/if}
+	{#if kindHistoryOpen}<CatalogHistory {kind} reload={historyReload} onundone={undone} {readonly} />{/if}
 </Sheet>
 
 <Sheet bind:open={problemsOpen} title={m['catalog.problems_title']({ what: def.label() })} side="right" widthKey="problems" closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()}>
@@ -451,5 +456,12 @@
 	}
 	p {
 		margin: 0 0 var(--space-1);
+	}
+	/* a read-only kind's form (D6): the fieldset only disables, it draws nothing */
+	.plain {
+		border: 0;
+		margin: 0;
+		padding: 0;
+		min-width: 0;
 	}
 </style>
