@@ -16,7 +16,7 @@
 		placeCells,
 		placeCellOffsets,
 		paintRuns,
-		runsHash,
+		type CellRun,
 		runsIndex,
 		runsPaths,
 		hexCellAt,
@@ -55,6 +55,7 @@
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { placeBrush } from '$lib/editor/place-brush.svelte.ts';
 	import { regionBrush } from '$lib/editor/region-brush.svelte.ts';
+	import { rawRuns } from '$lib/editor/world-map-doc.svelte.ts';
 	import type { HexBrushTarget } from '$lib/components/map/hex-brush.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
 	import MapProps from '$lib/components/map/map-props.svelte';
@@ -698,29 +699,35 @@
 			onchange: () => {},
 			onstroke: (touched) =>
 				editRegion(doc, id, (r) => {
-					// coarse to fine (owner 2026-10-12: "bigger approximations to smaller"): only the rows the stroke touches are read
-					// from the other regions (a region outside them costs nothing), then one binary search per touched cell in its
-					// row – comparing each cell against every run of every region took seconds
-					let top = Infinity, bottom = -Infinity;
-					for (const c of touched) (top = Math.min(top, c.r)), (bottom = Math.max(bottom, c.r));
-					const taken = runsIndex(others.flatMap((o) => (o.cells ?? []).filter(([row]) => row >= top && row <= bottom)));
-					r.cells = paintRuns(r.cells ?? [], touched, regionBrush.mode, (c) => !taken(c));
+					// coarse to fine (owner 2026-10-12: "bigger approximations to smaller"): a touched cell looks only into its own
+					// row of each other region, a binary search there; each region's row index is built once and kept while its
+					// cover is unchanged (edits change the map in place – an untouched region keeps its identity) – comparing each
+					// cell against every run of every region took seconds
+					const indexes = others.map((o) => coverIndex(o.cells ?? []));
+					// the new cover outside the store's proxies (rawRuns – world-map-doc.svelte.ts)
+					r.cells = rawRuns(paintRuns(r.cells ?? [], touched, regionBrush.mode, (c) => !indexes.some((taken) => taken(c))));
 				})
 		};
 	});
-	/** the covers as world-unit paths, worked out once per change of a region's cells (runsPaths – a region is big) */
-	// keyed by the region and a fingerprint of its runs, not the array: every edit copies the map (the undo history), so
-	// by identity every region was redrawn after each stroke – now only the one whose cover changed (~50 ms instead of ~250)
-	let coverPaths = new Map<string, { fill: string; edge: string }>();
+	/**
+	 * a region's cover, worked out once per change of its cells and kept by the cells' identity (edits change the map in
+	 * place: an untouched region keeps its array – after a stroke only the painted one is redrawn / re-indexed; reading a
+	 * cover goes through the store's proxies, so it is read once, not on every change of the map)
+	 */
+	const coverPaths = new WeakMap<object, { fill: string; edge: string }>();
+	const coverIndexes = new WeakMap<object, (cell: { q: number; r: number }) => boolean>();
+	function coverIndex(cells: CellRun[]) {
+		let index = coverIndexes.get(cells);
+		if (!index) coverIndexes.set(cells, (index = runsIndex(cells)));
+		return index;
+	}
 	const drawnRegions = $derived.by(() => {
-		const next = new Map<string, { fill: string; edge: string }>();
 		const out = (map?.regions ?? []).map((r) => {
-			const key = `${r.id}|${runsHash(r.cells ?? [])}`;
-			const paths = coverPaths.get(key) ?? runsPaths(r.cells ?? []);
-			next.set(key, paths);
+			const cells = r.cells ?? [];
+			let paths = coverPaths.get(cells);
+			if (!paths) coverPaths.set(cells, (paths = runsPaths(cells)));
 			return { id: r.id, colour: r.colour ?? '#888888', ...paths, selected: selection?.kind === 'region' && selection.id === r.id };
 		});
-		coverPaths = next; // only the covers on the map now stay cached
 		return out;
 	});
 	function newRegion() {
