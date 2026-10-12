@@ -24,6 +24,9 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join as pathJoin, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+	CHARACTERS_COLLECTION,
+	collectionDocsFromEntities,
+	composeCharacterRegistry,
 	DEFAULT_MOOD,
 	REGULAR_PERSONA,
 	characterName,
@@ -630,7 +633,12 @@ async function main() {
 		if (!rows.length) throw new Error(`no "${key}" in the local database – npm run dev:db loads production's content first`);
 		return JSON.parse(rows[0].json);
 	};
-	const registry: CharacterRegistry = newest('characters');
+	// the registry is many documents (agents/MAP-DOCUMENTS.md): `characters` + one `character:<id>` each, in creation order
+	const [entries] = localSql([
+		"SELECT v.entity_key AS `key`, v.json FROM entity_versions v JOIN (SELECT entity_key, MAX(id) AS id, MIN(id) AS first FROM entity_versions WHERE kind IN ('characters', 'character') GROUP BY entity_key) m ON m.id = v.id ORDER BY m.first"
+	]);
+	if (!entries.length) throw new Error('no character registry in the local database – npm run dev:db loads the content of production first');
+	const registry: CharacterRegistry = composeCharacterRegistry(collectionDocsFromEntities(CHARACTERS_COLLECTION, entries.map((e: { key: string; json: string }) => ({ key: e.key, content: JSON.parse(e.json) }))));
 	const vocabulary: MoodVocabulary = newest('moods');
 
 	const { files, report } = buildSandbox(registry, vocabulary);
