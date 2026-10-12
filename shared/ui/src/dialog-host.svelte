@@ -57,6 +57,15 @@
 					<button type="button" onclick={() => (picked = new Set())}>{request.checklist.noneLabel}</button>
 				</div>
 			{/if}
+			{#if request.choices}
+				<div class="choices">
+					{#each request.choices as item (item.id)}
+						<button type="button" class="secondary choice" onclick={() => dialogState.close(item.id)}>
+							<span>{item.label}</span>{#if item.detail}<small>{item.detail}</small>{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
 			{#if request.input}
 				<label class="sc-label" for="sc-dialog-input">{request.input.label}</label>
 				<!-- svelte-ignore a11y_autofocus -->
@@ -67,7 +76,7 @@
 				<!-- one primary action, last (owner 2026-10-06): with a skip label it says "save without note" while the field
 				     is empty and "save" once something is typed – submitting empty is the skip -->
 				<!-- svelte-ignore a11y_autofocus -->
-				<button type="submit" class="primary" autofocus={!request.input && !request.checklist} disabled={!!request.checklist && picked.size === 0}>{request.checklist ? request.checklist.countLabel(picked.size) : request.input?.skipLabel && !text.trim() ? request.input.skipLabel : request.confirmLabel}</button>
+				{#if !request.choices}<button type="submit" class="primary" autofocus={!request.input && !request.checklist} disabled={!!request.checklist && picked.size === 0}>{request.checklist ? request.checklist.countLabel(picked.size) : request.input?.skipLabel && !text.trim() ? request.input.skipLabel : request.confirmLabel}</button>{/if}
 			</div>
 		</form>
 	{/if}
@@ -110,6 +119,28 @@
 	}
 	.line input {
 		flex: none;
+	}
+	/* a choice list (choiceDialog): one line per option, a tap picks it */
+	.choices {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		max-height: min(50vh, 24rem);
+		overflow: auto;
+	}
+	.choice {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.1rem;
+		text-align: left;
+		height: auto;
+		min-height: var(--control-height);
+		padding: 0.35rem 0.75rem; /* control-ok: a two-line choice row */
+	}
+	.choice small {
+		color: var(--text-muted);
+		font-size: var(--type-caption-size);
 	}
 	.buttons {
 		display: flex;

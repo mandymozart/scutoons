@@ -1,4 +1,4 @@
-Status 2026-10-12: merged into `main` (map, places, routes and characters as their own documents; two migrations run with the deploy); D5–D8 open (FEATURES 10.89).
+Status 2026-10-12: merged into `main` (map, places, routes and characters as their own documents; two migrations run with the deploy). D5–D7 built afterwards on the same branch; D8 open (FEATURES 10.89).
 
 # MAP-DOCUMENTS – the world map and the character registry as many documents (DRAFT, 2026-10-12)
 
@@ -21,8 +21,13 @@ admin into creator") – the same key shape, see §8.
 | D9 | the seconds-long empty map between API upload and migration | accepted | §4 |
 | D10 | the character registry the same way, partial publishing goes | yes | everywhere |
 
-Open (left as built, no answer yet): D5 History panel per entry, D6 hide checklist lines whose draft equals the
-published version, D7 server refusing a route to an unknown place, D8 creation order (vs an explicit order list).
+| D5 | History per entry | **"what is selected gets a history"** | §2 Creator |
+| D6 | hide checklist lines whose draft equals the published version | **yes** ("i think we do this already" – it wasn't) | §2 |
+| D7 | the server refuses a route to an unknown place | **yes**; the UI should make every waypoint a picked or a new place | §5 |
+
+Open: D8 – the order of places / routes is their creation order (each is its own document, so no document holds a
+list order; an explicit order list in `map` would change `map` on every add). Nobody sees it directly: the builder's
+sidebar is A–Z, the reader uses it only to break ties. The owner asked what it means – explained, waiting.
 
 ## TL;DR
 
@@ -129,14 +134,15 @@ content-addressed: the fingerprint holds every entry's version id, so publishing
 The collection's own check of the composition is still THE check (`checkWorldMap`, `validateCharacters`);
 `checkMapDocs` / `checkCharacterDocs` address each problem to its document. The editors validate the composed document
 as before; the MCP's `validate` checks one document against the others; the server checks each save against its schema
-(D7 open: refusing a route to an unknown place on the server).
+and (D7, `Domain\Content\MapRefs`) refuses a route through a place that is not on the map and removing / deleting a
+place a route still runs through – judged on the whole batch; 422 names the culprit key.
 
 ## 6. Not done / known gaps
 
-- History panel (D5): the map / characters page shows the anchor's history (now only its own fields). A place's /
-  character's own history and restore is the next step – History follows the selection.
-- The checklist lists an anchor version whose own fields equal the published ones (after the migration: every newer
-  draft of `map` / `characters`) – harmless (D6).
+- (D5 built: the History panel follows the selection – a place's / route's / character's own versions, restore per
+  entry, no unpublish for an entry; nothing selected = the anchor's own.)
+- (D6 built: the entity index marks a newer version that equals the published one – `same_as_published` – and the
+  checklist / a collection's draft badge leave it out.)
 - Not run: `scripts/check-map.mjs`, `check:creator-cast` (need the full dev stack on the default ports), `check:mcp`
   (fails on the 10-06 seed's unconverted chapters – the same on main).
 - The admin's content overview lists every entry as a row (platform-wide) – maybe group by kind.

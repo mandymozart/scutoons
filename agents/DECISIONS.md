@@ -6,6 +6,12 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-12 · map · The History panel follows the selection: a selected place / route / character shows (and restores) its own versions · "what is selected gets a history" · → research/MAP-DOCUMENTS.md (D5)
+- 2026-10-12 · map · The server refuses a route through a place that is not on the map; the builder should make every waypoint a picked or a new place · "good call, and our ui will hopefully soon also make it impossible to create a waypoint without either selecting a place or creating a new one" · → research/MAP-DOCUMENTS.md (D7), FEATURES 10.89
+- 2026-10-12 · content · A draft that equals the published version is no line in the publish checklist · "i think we do this already" · → research/MAP-DOCUMENTS.md (D6)
+- 2026-10-12 · map · Every place, route and character is its own versioned document (`place:<id>`, `route:<id>`, `character:<id>`); `map` keeps size + layers; partial publishing goes · "alle einen eigenen Doc" · → research/MAP-DOCUMENTS.md (D1, D2, D10)
+- 2026-10-12 · data · Removing an entry: deleted when never published, else a `removed: true` version (its id stays taken) · "delete when never published" · → research/MAP-DOCUMENTS.md (D3)
+- 2026-10-12 · data · The map / character migrations carry over only the published version + the newest draft; the seconds of an empty map during the deploy are fine · "only newest" · → research/MAP-DOCUMENTS.md (D4, D9)
 - 2026-10-12 · process · The owner never runs migrations by hand: they run with the deploy; developers' agents check / plan / apply over the MCP; never ask for phpMyAdmin · "wichtig für alle Agents" · → RULES "Migrations and stored data", MCP.md §8
 - 2026-10-12 · process · Docs restructured: RULES / HANDOVER / DECISIONS on top, ISSUES + FEATURES for open work, topic docs = how it is now, research/, archive/ · "nicht zu sehr ausrasten lassen" · → RULES "Docs", DOCS-REFACTOR.md
 - 2026-10-12 · process · Open work = two files in agents/ (ISSUES bugs, FEATURES the rest), same 10.N numbers, a done item leaves the list · "The recommendation works" · → RULES "Docs"
@@ -16,7 +22,7 @@ to mark them superseded.
 - 2026-10-12 · catalog · Physical items go through the same review rules as other content, enforced on the server · "damit nicht aus Versehen auf der Plattform was rausgesetzt werden kann" · → research/CATALOG-IN-CREATOR.md
 - 2026-10-12 · items · Codes can never be deleted (a separate process, unchanged) · → research/CATALOG-IN-CREATOR.md
 - 2026-10-12 · items · Crafting with a physical item keeps the original in the inventory; the result is added · "physische Items kombiniert verschwinden nicht" · → research/CATALOG-IN-CREATOR.md
-- 2026-10-12 · map · Places (and characters) are parts of their one document; publish can take single parts from the list · "die Orte sind Unterebenen der Karte" · → git 35669c6e (partial publish), archive/BACKLOG.md 10.60
+- 2026-10-12 · map · Places (and characters) are parts of their one document; publish can take single parts from the list · "die Orte sind Unterebenen der Karte" · → git 35669c6e (partial publish), archive/BACKLOG.md 10.60 (superseded 2026-10-12 → every place / character its own document, research/MAP-DOCUMENTS.md)
 - 2026-10-12 · map · A draft moves the map's places into their own versioned documents (own worktree, owner reviews) · "alle einen eigenen Doc, den man versionieren kann" · → research/CATALOG-IN-CREATOR.md (MAP-DOCUMENTS on its branch)
 - 2026-10-12 · data · The creator's legacy conversion goes; the per-language copies and per-toon map lists are purged (archived in entity_versions_legacy) · → HANDOVER "Where things are", DATA.md §1
 - 2026-10-12 · reader · Avatar and inventory each open their own panel – the tabs go · "auf eigene Panels" · → git ec9c3d30, FEATURES 10.83

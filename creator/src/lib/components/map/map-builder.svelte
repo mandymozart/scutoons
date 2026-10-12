@@ -13,6 +13,9 @@
 		isPlaceWaypoint,
 		mapName,
 		placeImagePath,
+		placeCells,
+		placeCellOffsets,
+		hexCellAt,
 		placeImageTarget,
 		PLACE_IMAGE_WIDTHS,
 		placeView,
@@ -30,7 +33,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { BarTabs, Icon, clickOutside, confirmDialog, liveRegion, region, type PhoneBarItem } from '@scutoons/ui';
+	import { BarTabs, Icon, clickOutside, confirmDialog, liveRegion, region, type PhoneBarItem, choiceDialog } from '@scutoons/ui';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -46,6 +49,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { densityLevel, densityPath, splitMediaName, standardDensities, uploadOrReplace } from '@scutoons/media';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import { placeBrush } from '$lib/editor/place-brush.svelte.ts';
+	import type { HexBrushTarget } from '$lib/components/map/hex-brush.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
 	import MapProps from '$lib/components/map/map-props.svelte';
 
@@ -152,6 +157,10 @@
 
 	let tool = $state<MapTool>('select');
 	let selection = $state<MapSelection>(null);
+	// the History panel follows the selection (owner D5): a place / route is a document of its own
+	$effect(() => {
+		doc.selectedKey = selection?.kind === 'place' ? `place:${selection.id}` : selection?.kind === 'route' ? `route:${selection.id}` : null;
+	});
 	let toonFilter = $state('');
 	let readerView = $state(false);
 	let phoneFrame = $state(false);
@@ -341,7 +350,7 @@
 	}
 	function onMovePlace(id: string, at: Point) {
 		const place = map?.locations.find((p) => p.id === id);
-		const spot = map && place ? snapPlace(map, at, placeSize(place), id) : at;
+		const spot = map && place ? snapPlace(map, at, placeSize(place), id, place.cells) : at;
 		editPlace(doc, id, (p) => {
 			p.x = spot.x;
 			p.y = spot.y;
@@ -381,6 +390,26 @@
 				x.y = at.y;
 			}
 		}, `drag:${route}:${index}`);
+	}
+	/** a route's start / end on the open terrain: pick a place (the nearest first) or make a new one there */
+	async function onEndpoint(at: Point, which: 'start' | 'end'): Promise<string | null> {
+		const near = [...(map?.locations ?? [])]
+			.map((p) => ({ p, d: Math.hypot(p.x - at.x, p.y - at.y) }))
+			.sort((a, b) => Number(!!toonFilter && !b.p.toons?.includes(toonFilter)) - Number(!!toonFilter && !a.p.toons?.includes(toonFilter)) || a.d - b.d)
+			.slice(0, 6);
+		const NEW = '__new__';
+		const picked = await choiceDialog({
+			title: which === 'start' ? m['creator.map_route_start']() : m['creator.map_route_end'](),
+			message: m['creator.map_route_endpoint_hint'](),
+			choices: [
+				{ id: NEW, label: m['creator.map_route_new_place'](), detail: m['creator.map_route_new_place_hint']() },
+				...near.map(({ p, d }) => ({ id: p.id, label: mapName(p.name, locale) || p.id, detail: `${p.id} · ${Math.round(d)}` }))
+			],
+			cancelLabel: m['creator.cancel']()
+		});
+		if (!picked) return null;
+		if (picked !== NEW) return picked;
+		return addPlace(doc, at, filterToons());
 	}
 	function onAddRoute(waypoints: Waypoint[]) {
 		const id = addRoute(doc, waypoints, filterToons());
@@ -610,6 +639,32 @@
 		removeRoute(doc, id);
 		selection = null;
 	}
+	// ── the ground brush (owner 2026-10-12: "a brush that adds or removes hexagons to the place's base"): on the selected
+	// place only; cells another place takes are refused; a stroke = one undo step; no cells left = computed from the size ──
+	$effect(() => {
+		if (placeBrush.place && (selection?.kind !== 'place' || selection.id !== placeBrush.place)) placeBrush.stop();
+	});
+	const brushTarget = $derived.by<HexBrushTarget | null>(() => {
+		const id = placeBrush.place;
+		const place = id && map ? map.locations.find((p) => p.id === id) : undefined;
+		if (!id || !place || !map) return null;
+		const taken = new Set(map.locations.filter((p) => p.id !== id).flatMap((p) => placeCells(p).map((c) => `${c.q},${c.r}`)));
+		return {
+			cells: placeCells(place),
+			mode: placeBrush.mode,
+			size: placeBrush.size,
+			allowed: (c) => !taken.has(`${c.q},${c.r}`),
+			// one patch with the place's own cell (owner 2026-10-12: "Zusammenhängen wäre sinnvoll")
+			connected: true,
+			anchor: hexCellAt(place),
+			onchange: (cells) =>
+				editPlace(doc, id, (p) => {
+					if (cells.length) p.cells = placeCellOffsets(p, cells);
+					else delete p.cells;
+				})
+		};
+	});
+
 	const phoneSelection = $derived.by(() => {
 		const s = selection;
 		if (!s || !map) return null;
@@ -627,6 +682,7 @@
 					{ id: 'image', icon: 'image', label: m['creator.map_image'](), run: () => openSheet('image') },
 					{ id: 'use-view', icon: 'crosshair', label: m['creator.bar_view'](), run: () => useViewFor(s.id), testid: 'phone-place-use-view' },
 					{ id: 'show', icon: 'eye', label: m['creator.bar_show'](), run: () => placeFrame && view.centerOn(placeFrame.center, placeFrame.zoom) },
+					{ id: 'cells', icon: 'hexagon', label: m['creator.map_cells_paint'](), active: placeBrush.place === s.id, run: () => placeBrush.toggle(s.id), testid: 'phone-place-cells' },
 					{ id: 'hidden', icon: place.hidden ? 'eye-off' : 'eye', label: m['creator.bar_hidden'](), active: !!place.hidden, run: () => editPlace(doc, s.id, (p) => { if (p.hidden) delete p.hidden; else p.hidden = true; }) },
 					{ id: 'delete', icon: 'trash-2', label: m['creator.bar_delete'](), disabled: used.length > 0, run: () => deletePlace(s.id) }
 				]
@@ -648,7 +704,9 @@
 
 {#snippet mark(key: string)}
 	{@const level = marks.get(key)}
-	{#if level === 'error'}<span class="mark bad" title={problems.filter((p) => { const t = problemTarget(p); return t && `${t.kind}:${t.id}` === key; }).map((p) => p.message).join('\n')}>!</span>{:else if level === 'warning'}<span class="mark warn">!</span>{/if}
+	<!-- one list of problems: the page's Problems panel (owner 2026-10-12: "validations and problems? why two?"); here the
+	     mark, its messages in the tooltip -->
+	{#if level}<span class="mark" class:bad={level === 'error'} class:warn={level === 'warning'} title={problems.filter((p) => { const t = problemTarget(p); return t && `${t.kind}:${t.id}` === key; }).map((p) => p.message).join('\n')}>!</span>{/if}
 {/snippet}
 
 {#snippet mapNav()}
@@ -751,6 +809,7 @@
 			<div class="stage" onpointerdown={(e) => (mapDragging = !(e.target as HTMLElement).closest('.strip'))}>
 				<MapCanvas
 					bind:this={canvas}
+					brush={brushTarget}
 					{map}
 					{view}
 					bind:tool
@@ -783,6 +842,7 @@
 						}, `handle:${route}:${index}`)}
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
+					onendpoint={onEndpoint}
 				/>
 				<!-- UI-CONCEPTS E.10, on every width since 2026-10-11: tools left, fit + go to the view right (zoom: wheel / two fingers) -->
 				<div class="strip tools" class:sheet-up={sheetOpen} role="toolbar" aria-label={m['creator.map']()}>
@@ -831,24 +891,6 @@
 							</div>
 						</section>
 					{/if}
-					<section class="validation tab" data-tab="problems" data-testid="map-validation">
-						<h3>{m['creator.map_validation']()} ({problems.length})</h3>
-						{#if problems.length}
-							<table>
-								<thead><tr><th>{m['creator.map_level']()}</th><th>{m['creator.map_where']()}</th><th>{m['creator.map_message']()}</th></tr></thead>
-								<tbody>
-									{#each problems as p, i (i)}
-										{@const t = problemTarget(p)}
-										<tr class={p.level}>
-											<td>{p.level}</td>
-											<td>{#if t}<button type="button" class="link" onclick={() => select(t, true)}>{t.id}</button>{:else}{p.path.join('.')}{/if}</td>
-											<td>{p.message}</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						{/if}
-					</section>
 				{/if}
 			</aside>
 		</div>
@@ -871,36 +913,6 @@
 	.side {
 		min-height: 0;
 		overflow: auto;
-	}
-	.validation {
-		padding: 0 0.75rem 1rem;
-	}
-	.validation h3 {
-		margin: 0.5rem 0;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--type-caption-size);
-	}
-	th,
-	td {
-		text-align: left;
-		vertical-align: top;
-		padding: 0.2rem 0.25rem;
-		border-bottom: 1px solid var(--border-subtle);
-	}
-	tr.error td:first-child {
-		color: var(--error);
-		font-weight: var(--font-weight-regular);
-	}
-	tr.warning td:first-child {
-		color: var(--warn);
-	}
-	.link {
-		all: unset;
-		cursor: pointer;
-		text-decoration: underline;
 	}
 	.hint {
 		font-size: var(--type-caption-size);
@@ -973,8 +985,7 @@
 		padding: 0.25rem 0.75rem;
 	}
 	/* ── phones (UI-CONCEPTS E.10): the canvas gets the screen, the properties are a sheet from below ── */
-	.phone-only,
-	.tab.phone-only {
+	.phone-only {
 		display: none;
 	}
 	.tab {
@@ -987,9 +998,6 @@
 		}
 		.phone-only {
 			display: flex;
-		}
-		.tab.phone-only {
-			display: block;
 		}
 		.stage {
 			border-bottom: 0;

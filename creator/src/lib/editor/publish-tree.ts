@@ -32,8 +32,8 @@ export type PublishScope =
 	| { kind: 'season'; toon: string; number: number; chapters: number[] }
 	| { kind: 'chapter'; toon: string; number: number };
 
-/** a stored file with a draft newer than what readers see */
-const hasDraft = (e: ContentIndexEntity) => e.published === null || e.latest > e.published;
+/** a stored file with a draft newer than what readers see – a newer version that equals the published one is none (owner D6) */
+const hasDraft = (e: ContentIndexEntity) => (e.published === null || e.latest > e.published) && !e.same_as_published;
 
 /** is a key below the level (or the level's own file)? */
 export function inScope(key: string, scope: PublishScope): boolean {

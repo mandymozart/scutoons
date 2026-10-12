@@ -16,6 +16,8 @@ export interface DialogRequest {
 	input?: { label: string; placeholder?: string; skipLabel?: string };
 	/** a list to tick (checklistDialog): the primary button says `countLabel(n)` and is off at 0 */
 	checklist?: { groups: ChecklistGroup[]; countLabel: (n: number) => string; allLabel: string; noneLabel: string };
+	/** a list to pick ONE line from (choiceDialog): a tap answers */
+	choices?: ChecklistItem[];
 	resolve: (value: string | boolean | null | string[]) => void;
 }
 
@@ -74,6 +76,16 @@ export async function checklistDialog(options: {
 	const { groups, countLabel, allLabel, noneLabel, ...rest } = options;
 	const value = await open({ ...rest, confirmLabel: '', checklist: { groups, countLabel, allLabel, noneLabel } });
 	return Array.isArray(value) ? value : null;
+}
+
+/**
+ * One line to pick (owner 2026-10-12, the route's start / end: "select a location or create one"): the picked line's id,
+ * or null when cancelled. A tap on a line answers – no primary button.
+ */
+export async function choiceDialog(options: { title: string; message?: string; choices: ChecklistItem[]; cancelLabel?: string }): Promise<string | null> {
+	const { choices, ...rest } = options;
+	const value = await open({ ...rest, confirmLabel: '', choices });
+	return typeof value === 'string' ? value : null;
 }
 
 /** the entered text; '' when skipped (submitted empty – the button then says skipLabel); null when cancelled */

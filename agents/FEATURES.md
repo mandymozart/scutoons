@@ -32,9 +32,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.72 **Expressions polish: a chip shows its code** (EXPRESSIONS.md "State").
 
 ## Map
-- [ ] 10.89 **Map / character documents: four questions left** (research/MAP-DOCUMENTS.md) – `decide`: D5 History
-  panel per place / character, D6 hide checklist lines equal to the published version, D7 the server refuses a route to
-  an unknown place, D8 creation order vs an explicit order list. Built as they are now.
+- [ ] 10.89 **Map / character documents: what is left** (research/MAP-DOCUMENTS.md) – D5–D7 built (History follows
+  the selection, no checklist line for a draft equal to the published one, the server refuses a route to an unknown
+  place). Open: D8 the order of places (creation order now) – `decide` after the explanation; the builder making every
+  waypoint a picked or a new place (owner 2026-10-12; start / end are done in b8e98a6c – free waypoints next).
 - [ ] 10.25 **Map places ↔ story** – owner 2026-10-03 ("isn't group the better place?"). Unlocking is decided since
   2026-10-11 (only the `unlockLocation` event, MAP §8.5a); open: the place card's link to a group label instead of the
   chapter start, renaming groups to their places (labels are in jump links). `decide`.
