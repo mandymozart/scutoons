@@ -39,7 +39,8 @@
 		reveal?: string | null;
 		/** the map stays open after this reveal (it was open – a new place tapped in it): the camera stays at the place */
 		revealStays?: boolean;
-		onrevealed?: () => void;
+		/** `kept`: the reader touched the map during the reveal – it stays open, they close it themselves */
+		onrevealed?: (kept: boolean) => void;
 		/** a new (unseen) place tapped: play its reveal (owner 2026-10-11 – "der kleine Punkt") */
 		onreplay?: (id: string) => void;
 	} = $props();
@@ -145,16 +146,23 @@
 	// ── the unlock reveal (agents/MAP.md §8.5a, owner 2026-10-11): fly from the reader's view to the new place's view,
 	//    the image fades in with a slight wobble over a halo in the toon's colour, a short hold, close; the reader's
 	//    previous view stays the stored one (with the new place as its `here`, so the next opening doesn't jump there).
-	//    A tap / Esc skips to the end; reduced motion: no flight, no wobble ─────────────────────────────────────────
+	//    Esc skips to the end; reduced motion: no flight, no wobble. The reader touching the map (tap, drag, pinch, wheel)
+	//    stops it where it is and the map stays open – they close it themselves (owner 2026-10-12: "dann wird die Karte
+	//    nicht wieder weggefahren") ─────────────────────────────────────────────────────────────────────────────────
 	let revealFrom: StoredMapView | null = null;
 	let revealing = $state<string | null>(null);
 	let revealShow = $state(false);
 	let skip = false;
+	/** the reader took the map over during the reveal */
+	let kept = false;
+	function takeOver() {
+		if (revealing) kept = true;
+	}
 	const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 	const pause = (ms: number) =>
 		new Promise<void>((resolve) => {
 			const end = performance.now() + ms;
-			const tick = () => (skip || performance.now() >= end ? resolve() : requestAnimationFrame(tick));
+			const tick = () => (skip || kept || performance.now() >= end ? resolve() : requestAnimationFrame(tick));
 			requestAnimationFrame(tick);
 		});
 	function fly(to: { x: number; y: number; zoom: number }, ms: number): Promise<void> {
@@ -163,6 +171,8 @@
 		const start = performance.now();
 		return new Promise((resolve) => {
 			const step = () => {
+				// taken over: the camera stays where the reader has it
+				if (kept) return resolve();
 				const t = skip ? 1 : (performance.now() - start) / ms;
 				const at = flightAt(from, to, t);
 				view.stir(250);
@@ -182,6 +192,7 @@
 		const place = data?.locations.find((p) => p.id === id);
 		revealing = id;
 		skip = false;
+		kept = false;
 		if (place) {
 			const target = placeView(place);
 			const still = reducedMotion();
@@ -195,7 +206,9 @@
 		}
 		// the map stays where it flew: the revealed place is the remembered view, the next opening starts there (owner
 		// 2026-10-11: "not cool that it jumps back to the previous position – better it moves and stays at the new one")
-		if (place) {
+		if (kept) {
+			// the reader's own view is saved as they move it (the effect above, once the reveal is over)
+		} else if (place) {
 			const at = placeView(place);
 			saveMapView(toon, { x: at.center.x, y: at.center.y, zoom: at.zoom, here: whereNow()?.id ?? id });
 		} else if (revealFrom) saveMapView(toon, { x: revealFrom.x, y: revealFrom.y, zoom: revealFrom.zoom, here: whereNow()?.id ?? id });
@@ -203,8 +216,8 @@
 		revealShow = false;
 		revealing = null;
 		// a map that stays open keeps its camera at the place; one that closes opens fresh next time
-		if (!revealStays) placed = '';
-		onrevealed();
+		if (!revealStays && !kept) placed = '';
+		onrevealed(kept);
 	}
 	// closed by the reader meanwhile (✕): the reveal ends at once – the story never waits for a map that is gone
 	$effect(() => {
@@ -354,7 +367,9 @@
 	<div
 		class="viewport"
 		class:moving={view.moving}
-		{@attach mapGestures(view, { onTap: (e) => { if (revealing) skip = true; else if (!(e.target as HTMLElement)?.closest('button, a')) selected = null; } })}
+		{@attach mapGestures(view, { onTap: (e) => { if (!revealing && !(e.target as HTMLElement)?.closest('button, a')) selected = null; } })}
+		onpointerdowncapture={takeOver}
+		onwheelcapture={takeOver}
 		data-testid="map-viewport"
 	>
 		{#if data}

@@ -838,8 +838,9 @@ The first piece of M3: the one event `unlockLocation` (§3.1), nothing else of M
    would open; the camera flies (≈ 1.2 s, ease in-out, zoom interpolated on a log scale) to the place's view (`placeView`:
    point + offset at its zoom, default 2); the place image fades in with a slight wobble while a halo in the toon's colour
    pulses behind it (≈ 1.4 s); a short hold; the map closes. The reveal's camera is never stored: the next opening shows
-   the reader's previous view (the stored `here` becomes the new place, so it doesn't re-centre once more). A tap / Esc
-   skips to the end. Reduced motion: no flight, no wobble – the map opens on the place, the image shows, it closes.
+   the reader's previous view (the stored `here` becomes the new place, so it doesn't re-centre once more). Esc skips
+   to the end. The reader touching the map (tap, drag, pinch, wheel) stops it where it is: the map stays open, the reader
+   closes it (owner 2026-10-12); the VN goes on. Reduced motion: no flight, no wobble – the map opens on the place, the image shows, it closes.
    The VN waits for it (the script continues after the map closed); several unlocks in a row: one reveal after another.
 7. **Plaster → painted** (owner 2026-10-11: "zwei Zustände für eine Location – als Gipsmodell und als bemaltes
    fertiges Diorama … das können wir fürs Animieren gut benutzen"): `MapImage.plaster` (optional, the same framing as
