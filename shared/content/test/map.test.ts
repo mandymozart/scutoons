@@ -302,6 +302,12 @@ test('regions: covers as row runs, the region at a point, validation, residences
 	}
 	assert.deepEqual(paintRuns([[0, 0, 4]], [{ q: 2, r: 0 }], 'remove'), [[0, 0, 1], [0, 3, 4]], 'a hole splits the run');
 	assert.deepEqual(paintRuns([[0, 0, 1]], [{ q: 2, r: 0 }, { q: 5, r: 1 }], 'add', (c) => c.r === 0), [[0, 0, 2]], 'allowed refuses');
+	// the cover's fingerprint survives a copy and changes with the cover; the row index answers like the runs
+	const { runsHash, runsIndex } = await import('../src/map.ts');
+	assert.equal(runsHash(JSON.parse(JSON.stringify(blob))), runsHash(blob));
+	assert.notEqual(runsHash(paintRuns(blob, [centre], 'remove')), runsHash(blob));
+	const inBlob = runsIndex(blob), cellSet = new Set(regionCells(blob).map((c) => `${c.q},${c.r}`));
+	for (let q = -2; q < 26; q++) for (let r = -2; r < 20; r++) assert.equal(inBlob({ q, r }), cellSet.has(`${q},${r}`));
 });
 
 test('resetting the map: the merge drops what came before the reset – also from a device that missed it (owner 2026-10-11)', async () => {
