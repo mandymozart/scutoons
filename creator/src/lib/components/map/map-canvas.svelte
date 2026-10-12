@@ -23,6 +23,7 @@
 		routePoints,
 		routeGeometry,
 		snapToPlace,
+		cellsOutline,
 		ROUTE_HANDLE,
 		type PlaceGate,
 		visibleLabels,
@@ -275,6 +276,13 @@
 		cells
 			.map((c) => 'M' + hexCorners(c).map((k) => `${((k.x - origin.x) * view.zoom).toFixed(1)},${((k.y - origin.y) * view.zoom).toFixed(1)}`).join('L') + 'Z')
 			.join('');
+	/** the patch's outer edge (owner 2026-10-12: "the peripheral ones darker than the others") – one path of segments */
+	const outlinePath = (cells: ReturnType<typeof placeCells>, origin: Point) =>
+		cellsOutline(cells)
+			.map(([a, b]) => `M${((a.x - origin.x) * view.zoom).toFixed(1)},${((a.y - origin.y) * view.zoom).toFixed(1)}L${((b.x - origin.x) * view.zoom).toFixed(1)},${((b.y - origin.y) * view.zoom).toFixed(1)}`)
+			.join('');
+	/** while a gate is dragged: the hexagon it snaps to lights up (owner 2026-10-12) */
+	let gateCell = $state<{ place: string; cell: ReturnType<typeof hexCellAt> } | null>(null);
 	const footprint = $derived.by(() => {
 		const id = dragging?.kind === 'place' ? dragging.id : tool === 'select' && selection?.kind === 'place' ? selection.id : null;
 		const place = id ? map.locations.find((p) => p.id === id) : null;
@@ -369,6 +377,7 @@
 			const found = gateOf(dragging.place, dragging.which);
 			if (!found) return;
 			const c = snapToPlace(found.place, world);
+			gateCell = { place: found.place.id, cell: hexCellAt(c) };
 			onmovegate(found.place.id, dragging.which, { ...found.gate, x: Math.round((c.x - found.place.x) * 100) / 100, y: Math.round((c.y - found.place.y) * 100) / 100 });
 		} else if (dragging.kind === 'gate-handle') {
 			const found = gateOf(dragging.place, dragging.which);
@@ -382,6 +391,7 @@
 		} else onmovewaypoint(dragging.route, dragging.index, at);
 	}
 	function dragEnd(e: PointerEvent, click: () => void) {
+		gateCell = null;
 		if (!dragging) return;
 		const moved = dragMoved;
 		dragging = null;
@@ -485,7 +495,7 @@
 	{/if}
 	{#if footprint}
 		{@const o = view.toScreen({ x: 0, y: 0 })}
-		<svg class="footprint" class:preview={footprint.preview} aria-hidden="true" data-testid="place-footprint"><path transform="translate({o.x} {o.y})" d={cellsPath(footprint.cells, { x: 0, y: 0 })} /></svg>
+		<svg class="footprint" class:preview={footprint.preview} aria-hidden="true" data-testid="place-footprint"><path transform="translate({o.x} {o.y})" d={cellsPath(footprint.cells, { x: 0, y: 0 })} /><path class="edge" transform="translate({o.x} {o.y})" d={outlinePath(footprint.cells, { x: 0, y: 0 })} />{#if gateCell}<path class="snap" transform="translate({o.x} {o.y})" d={cellsPath([gateCell.cell], { x: 0, y: 0 })} />{/if}</svg>
 	{/if}
 
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} onroute={onRouteClick} />
@@ -526,6 +536,7 @@
 						onpointermove={dragMove}
 						onpointerup={(e) => dragEnd(e, () => (tool === 'select' ? onselect({ kind: 'place', id: p.id }) : null))}
 					/>
+					{#if !p.image?.src}<path class="edge" d={outlinePath(placeCells(p), p)} />{/if}
 				</svg>
 				<button
 					class="marker"
@@ -590,6 +601,8 @@
 					style:transform="translate({s.x}px, {s.y}px)"
 					aria-label={g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()}
 					title="{g.which === 'entry' ? m['creator.map_gate_entry']() : m['creator.map_gate_exit']()} · {g.set ? m['creator.map_gate_set']() : m['creator.map_gate_auto']()}"
+					onpointerenter={() => !dragging && (gateCell = { place: (selection as { id: string }).id, cell: hexCellAt(g.at) })}
+					onpointerleave={() => !dragging && (gateCell = null)}
 					onpointerdown={(e) => startDrag(e, { kind: 'gate', place: (selection as { id: string }).id, which: g.which })}
 					onpointermove={dragMove}
 					onpointerup={(e) => dragEnd(e, () => {})}
@@ -711,15 +724,37 @@
 		height: 100%;
 		pointer-events: none;
 	}
+	/* the cells (owner 2026-10-12: "more transparent, less dark the outlines … the peripheral ones darker"): a light fill,
+	   faint inner lines, the patch's outer edge in ink */
 	.footprint path {
 		fill: var(--primary-yellow, #ffe600);
-		fill-opacity: 0.45;
+		fill-opacity: 0.18;
 		stroke: var(--ink);
+		stroke-opacity: 0.2;
+		stroke-width: 1;
+	}
+	.footprint path.edge,
+	.place-hit path.edge {
+		fill: none;
+		stroke: var(--ink);
+		stroke-opacity: 0.85;
 		stroke-width: 1.5;
+		stroke-linecap: round;
+		pointer-events: none;
 	}
 	.footprint.preview path {
-		fill-opacity: 0.3;
+		fill-opacity: 0.12;
+	}
+	.footprint.preview path.edge {
 		stroke-dasharray: 4 3;
+	}
+	/* the hexagon a dragged gate snaps to lights up */
+	.footprint path.snap {
+		fill: var(--primary-cyan, #00d1ff);
+		fill-opacity: 0.45;
+		stroke: var(--primary-cyan, #00d1ff);
+		stroke-opacity: 1;
+		stroke-width: 1.5;
 	}
 	.place-hit {
 		position: absolute;
@@ -737,9 +772,12 @@
 	}
 	/* a place without a diorama: its cells, dashed (owner 2026-10-12) */
 	.place-hit.bare path {
-		fill: rgb(255 255 255 / 0.35);
+		fill: rgb(255 255 255 / 0.2);
 		stroke: var(--ink);
+		stroke-opacity: 0.2;
 		stroke-width: 1;
+	}
+	.place-hit.bare path.edge {
 		stroke-dasharray: 3 3;
 	}
 	/* the Bézier handles (owner 2026-10-12): a small square on a thin arm – hollow while computed, filled once set */

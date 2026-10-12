@@ -382,3 +382,13 @@ test('a route starts and ends at a place: a free first / last point is a warning
 	assert.equal(loose.length, 2);
 	assert.ok(loose.every((p: any) => p.level === 'warning'));
 });
+
+test('cellsOutline: the outer edges of a patch of hex cells (owner 2026-10-12)', async () => {
+	const { cellsOutline } = await import('../src/map.ts');
+	assert.equal(cellsOutline([{ q: 0, r: 0 }]).length, 6);
+	// two neighbours share one edge: 12 − 2 = 10 outer edges
+	assert.equal(cellsOutline([{ q: 0, r: 0 }, { q: 1, r: 0 }]).length, 10);
+	// a centre with its six neighbours: 7 × 6 − 2 × 12 shared = 18
+	const ring = [{ q: 0, r: 0 }, { q: 1, r: 0 }, { q: -1, r: 0 }, { q: 0, r: 1 }, { q: 0, r: -1 }, { q: 1, r: -1 }, { q: -1, r: 1 }];
+	assert.equal(cellsOutline(ring).length, 18);
+});

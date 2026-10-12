@@ -464,6 +464,26 @@ function placeCover(place: RoutePlace) {
 }
 
 /** a point on the place's hexagons: the centre of its cell nearest to `at` (owner 2026-10-12: gates snap to the place's cells, never outside) */
+/**
+ * The outer edges of a patch of hex cells (owner 2026-10-12: "the peripheral ones darker than the others"): the cell
+ * edges no other cell of the patch shares, as point pairs (world units) – drawn darker than the inner lines
+ */
+export function cellsOutline(cells: readonly HexCell[]): [Point, Point][] {
+	const key = (p: Point) => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`;
+	const edges = new Map<string, { a: Point; b: Point; n: number }>();
+	for (const c of cells) {
+		const k = hexCorners(c);
+		for (let i = 0; i < 6; i++) {
+			const a = k[i], b = k[(i + 1) % 6];
+			const id = [key(a), key(b)].sort().join('|');
+			const e = edges.get(id);
+			if (e) e.n++;
+			else edges.set(id, { a, b, n: 1 });
+		}
+	}
+	return [...edges.values()].filter((e) => e.n === 1).map((e) => [e.a, e.b]);
+}
+
 export function snapToPlace(place: RoutePlace, at: Point): Point {
 	const { cells } = placeCover(place);
 	let best = cells[0], bestD = Infinity;
