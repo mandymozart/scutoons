@@ -30,7 +30,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { BarTabs, Icon, clickOutside, confirmDialog, liveRegion, region, type PhoneBarItem } from '@scutoons/ui';
+	import { BarTabs, Icon, clickOutside, confirmDialog, liveRegion, region, type PhoneBarItem, choiceDialog } from '@scutoons/ui';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -381,6 +381,26 @@
 				x.y = at.y;
 			}
 		}, `drag:${route}:${index}`);
+	}
+	/** a route's start / end on the open terrain: pick a place (the nearest first) or make a new one there */
+	async function onEndpoint(at: Point, which: 'start' | 'end'): Promise<string | null> {
+		const near = [...(map?.locations ?? [])]
+			.map((p) => ({ p, d: Math.hypot(p.x - at.x, p.y - at.y) }))
+			.sort((a, b) => Number(!!toonFilter && !b.p.toons?.includes(toonFilter)) - Number(!!toonFilter && !a.p.toons?.includes(toonFilter)) || a.d - b.d)
+			.slice(0, 6);
+		const NEW = '__new__';
+		const picked = await choiceDialog({
+			title: which === 'start' ? m['creator.map_route_start']() : m['creator.map_route_end'](),
+			message: m['creator.map_route_endpoint_hint'](),
+			choices: [
+				{ id: NEW, label: m['creator.map_route_new_place'](), detail: m['creator.map_route_new_place_hint']() },
+				...near.map(({ p, d }) => ({ id: p.id, label: mapName(p.name, locale) || p.id, detail: `${p.id} · ${Math.round(d)}` }))
+			],
+			cancelLabel: m['creator.cancel']()
+		});
+		if (!picked) return null;
+		if (picked !== NEW) return picked;
+		return addPlace(doc, at, filterToons());
 	}
 	function onAddRoute(waypoints: Waypoint[]) {
 		const id = addRoute(doc, waypoints, filterToons());
@@ -783,6 +803,7 @@
 						}, `handle:${route}:${index}`)}
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
 					onaddroute={onAddRoute}
+					onendpoint={onEndpoint}
 				/>
 				<!-- UI-CONCEPTS E.10, on every width since 2026-10-11: tools left, fit + go to the view right (zoom: wheel / two fingers) -->
 				<div class="strip tools" class:sheet-up={sheetOpen} role="toolbar" aria-label={m['creator.map']()}>
