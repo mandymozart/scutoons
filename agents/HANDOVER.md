@@ -41,7 +41,10 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   in 10.65.
 - Painted map + fog of war (2026-10-12, branch `claude/cool-galileo-5d33f7`, MAP.md §8.9): the painted terrain (Luma, all
   regions) + a plaster layer derived from it, tiles on the CDN, `MapLayer.fog: { radius }` – the reader shows the painted
-  layer only around unlocked places. Production map draft v276 carries the two layers: publish it after the code deploy.
+  layer only around unlocked places. Production map draft v276 carries the two layers on the first (dated) paths. After the
+  deploy: switch layers 1 / 2 to `catpope/map/terrain/plaster/v1` and `catpope/map/terrain/painted/v1` (`world.webp` +
+  tiles, levels 3; v1 = with the repainted mountain island – the MCP refused the save while production was between the
+  map-documents migration and the new code), then publish. The dated folders can go afterwards (owner's go).
 - Open work (post-beta items 10.x + known bugs): agents/BACKLOG.md – one list (owner 2026-10-06; "CUTOVER 10.x" in older notes = the same number there).
 
 ## Working rules learned (owner)

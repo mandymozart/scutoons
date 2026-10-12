@@ -911,7 +911,7 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
 - **Repainting a region in a new look:** `--only x_y --fresh` (without the neighbours' strips – with all eight painted
   neighbours as strips Luma kept the old look), then `--assemble --plaster`. The neighbours are sent to the page one by
   one (one call with eight ~10 MB PNGs hung CDP for hours).
-- Production map draft: layers terrain · plaster · painted (`fog: { radius: 24 }`) – publish only after the code deploy
+- Production map draft v276: layers terrain · plaster · painted (`fog: { radius: 24 }`, still the dated paths – switch to v1, see HANDOVER) – publish only after the code deploy
   (an older viewer ignores `fog` and shows the painted layer everywhere).
 
 ### 8.6 Not built yet
