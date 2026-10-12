@@ -61,6 +61,14 @@ export interface MapTiles {
 	path: string;
 	/** the deepest level (2^levels px per world unit) */
 	levels: number;
+	/**
+	 * the coarsest level with tiles (owner 2026-10-12: "like Google Maps / OpenStreetMap" – every level the same 256 px
+	 * tiles, a coarse one covering more of the world): ≤ 0 = the whole pyramid is tiles, the layer's image is never
+	 * loaded and the coarsest tiles on screen stand in while sharper ones load; missing = 1 (levels below 1 are the image)
+	 */
+	minLevel?: number;
+	/** a tile's edge in px: `TILE_PX` (256, the default) or 512 – four times fewer images per screen (owner 2026-10-12) */
+	px?: number;
 }
 
 export interface MapPlace {
@@ -638,8 +646,17 @@ export function centerOf(points: readonly Point[]): Point | null {
 // ── tiles and culling (BACKLOG 10.63) ─────────────────────────────────────────────────────────────────────────────
 /** a tile's edge in px */
 export const TILE_PX = 256;
+/** the tile edges a layer may use */
+export const TILE_PX_OPTIONS = [256, 512];
+/**
+ * the most pixel density tiles are fetched for (owner 2026-10-12: fewer images – Google Maps does the same): a 3× phone
+ * gets 2× tiles, about half the data, hardly a visible difference
+ */
+export const TILE_DPR_MAX = 2;
 /** the deepest tile level a layer may have (2^8 = 256 px per world unit) */
 export const TILE_LEVELS_MAX = 8;
+/** the coarsest tile level a layer may have (2^-4: a 256 px tile covers 4096 world units) */
+export const TILE_LEVEL_MIN = -4;
 /** a fog layer's soft edge: it fades from the radius to radius × (1 + FOG_FEATHER) */
 export const FOG_FEATHER = 0.6;
 /** a fog radius's limits in world units */
@@ -693,11 +710,11 @@ export interface Rect {
 	width: number;
 	height: number;
 }
-/** the tile level for a zoom on a screen (`dpr`): the first level at least as sharp, within 0 … `levels` */
-export const tileLevel = (zoom: number, dpr: number, levels: number): number => Math.max(0, Math.min(levels, Math.ceil(Math.log2(Math.max(1e-6, zoom * dpr)) - 1e-9)));
+/** the tile level for a zoom on a screen (`dpr`): the nearest (a tile drawn at 0.7–1.4 × its pixels – owner 2026-10-12: fewer, bigger tiles like Google Maps), within `minLevel` … `levels` */
+export const tileLevel = (zoom: number, dpr: number, levels: number, minLevel = 0): number => Math.max(minLevel, Math.min(levels, Math.round(Math.log2(Math.max(1e-6, zoom * dpr))))) + 0;
 /** the tiles of a level that touch a world rectangle (clipped to the world): their place and size in world units */
-export function visibleTiles(view: Rect, level: number, world: { width: number; height: number }): { z: number; x: number; y: number; left: number; top: number; size: number }[] {
-	const size = TILE_PX / 2 ** level;
+export function visibleTiles(view: Rect, level: number, world: { width: number; height: number }, px: number = TILE_PX): { z: number; x: number; y: number; left: number; top: number; size: number }[] {
+	const size = px / 2 ** level;
 	const x0 = Math.max(0, Math.floor(view.x / size)), y0 = Math.max(0, Math.floor(view.y / size));
 	const x1 = Math.min(Math.ceil(world.width / size) - 1, Math.floor((view.x + view.width) / size));
 	const y1 = Math.min(Math.ceil(world.height / size) - 1, Math.floor((view.y + view.height) / size));
@@ -1196,6 +1213,10 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		for (const z of ['minZoom', 'maxZoom'] as const) if (l[z] !== undefined && (!isNum(l[z]) || l[z] <= 0)) add('error', ['layers', i, z], `layer ${l.id}: ${z} must be a positive number`);
 		if (l.tiles !== undefined && (!isObj(l.tiles) || typeof l.tiles.path !== 'string' || !l.tiles.path || !Number.isInteger(l.tiles.levels) || l.tiles.levels < 0 || l.tiles.levels > TILE_LEVELS_MAX))
 			add('error', ['layers', i, 'tiles'], `layer ${l.id}: tiles must be { path, levels } (levels 0–${TILE_LEVELS_MAX})`);
+		else if (l.tiles?.px !== undefined && !TILE_PX_OPTIONS.includes(l.tiles.px))
+			add('error', ['layers', i, 'tiles', 'px'], `layer ${l.id}: px must be one of ${TILE_PX_OPTIONS.join(', ')}`);
+		else if (l.tiles?.minLevel !== undefined && (!Number.isInteger(l.tiles.minLevel) || l.tiles.minLevel < TILE_LEVEL_MIN || l.tiles.minLevel > l.tiles.levels))
+			add('error', ['layers', i, 'tiles', 'minLevel'], `layer ${l.id}: minLevel must be a whole number ${TILE_LEVEL_MIN}…levels`);
 		if (l.fog !== undefined && (!isObj(l.fog) || !isNum(l.fog.radius) || l.fog.radius < FOG_RADIUS_MIN || l.fog.radius > FOG_RADIUS_MAX))
 			add('error', ['layers', i, 'fog'], `layer ${l.id}: fog must be { radius } (${FOG_RADIUS_MIN}–${FOG_RADIUS_MAX} world units)`);
 	});

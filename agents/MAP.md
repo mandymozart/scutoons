@@ -906,6 +906,23 @@ The connecting points should snap to the hexagons of that place, not outside. Dr
 - No migration: `handle` is new and optional; the gates already set on production (station, graveyard) are pulled onto
   their cells when drawn.
 
+### 8.9a A full tile pyramid like Google Maps (owner 2026-10-12)
+
+Owner: "once a certain zoom level is reached, a certain amount can be combined into a new tile … all tiles always have
+the same file size but display different levels – much less bandwidth, not ~2000 small images in the DOM"; "since we
+have the fog layer, fewer images is better – it adds up with each layer".
+
+- `MapTiles.minLevel` (≤ 0): the pyramid goes down to coarse tiles too (level −2: the whole world in a few tiles); the
+  layer's big image is never loaded – the coarsest tiles on screen stand in while sharper ones load. Without it: as
+  before (the image below level 1).
+- `MapTiles.px` 512: four times fewer images per screen than 256. Level z is still 2^z px per world unit.
+- The level is the NEAREST to zoom × dpr (a tile drawn at 0.7–1.4 × its pixels), dpr capped at `TILE_DPR_MAX` 2 (a 3×
+  phone fetches 2× tiles); half a tile around the screen is preloaded.
+- Measured (content test + count): a 375 × 812 phone needs at most 20 tiles per layer at any zoom (was up to ~120 with
+  256 px tiles, dpr 3, ceil); a 1440 × 900 retina desktop at most 48 (was ~140).
+- Generate: `map-paint.mjs --assemble --plaster --levels 3 --min-level -2 --tile-px 512 --version 2` → the layer:
+  `tiles: { path: "catpope/map/terrain/<layer>/v2", levels: 3, minLevel: -2, px: 512 }`.
+
 ### 8.9 The painted map, the plaster layer, fog of war (owner 2026-10-12)
 
 Owner: "Ich brauche die Kacheln in demselben Stil, wie wir ihn definiert haben, und auf jeden Fall auch in derselben Form

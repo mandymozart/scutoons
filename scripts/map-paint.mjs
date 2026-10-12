@@ -37,6 +37,11 @@ const name = arg('name', arg('look', 'abstract'));
 const version = Number(arg('version', '1'));
 const layerDir = (layer) => `${arg('root', 'catpope/map/terrain')}/${layer}/v${version}`;
 const levels = Number(arg('levels', '3'));
+// the coarsest tile level (owner 2026-10-12: a full pyramid like Google Maps – ≤ 0: the layer's tiles go down to 2^minLevel
+// px per unit, the reader never loads the big image); the map's layer then says `tiles: { path, levels, minLevel }`
+const minLevel = Number(arg('min-level', '1'));
+// a tile's edge in px (owner 2026-10-12: 512 = four times fewer images per screen); the layer says `tiles: { …, px }`
+const tilePx = Number(arg('tile-px', String(TILE_PX)));
 const model = arg('model', 'uni-1-max');
 // a style reference (a finished diorama) – only the `model` look uses one; `--style none` leaves it out
 // (`model`: a diorama under media/; `abstract`: none – with ANY reference image (a whole painted region, even a sheet of
@@ -284,19 +289,22 @@ async function luma(source, refs, prompt) {
 /** the world canvas → the base image `media/<base>.webp` (1 px per unit) + its tiles `media/<tiles>/<z>/<x>_<y>.webp` */
 async function writeLayer(base, tiles) {
 	const W = Math.ceil(world.width * PPU), H = Math.ceil(world.height * PPU);
-	const b64 = await evaluate(`(async () => { const c = new OffscreenCanvas(${world.width}, ${world.height}); c.getContext('2d').drawImage(window.__world, 0, 0, ${W}, ${H}, 0, 0, ${world.width}, ${world.height}); return window.__toB64(c, 'image/webp', 0.85); })()`);
+	// the world at 1 px per unit: the base image, and the source of the coarse levels (≤ 0) – scaling those straight out of
+	// the 8 px-per-unit canvas (16384 px wide) cost headless Chrome its canvas (the plaster came out empty)
+	const b64 = await evaluate(`(async () => { const c = new OffscreenCanvas(${world.width}, ${world.height}); c.getContext('2d').drawImage(window.__world, 0, 0, ${W}, ${H}, 0, 0, ${world.width}, ${world.height}); window.__small = c; return window.__toB64(c, 'image/webp', 0.85); })()`);
 	mkdirSync(dirname(join(ROOT, 'media', base)), { recursive: true });
 	writeFileSync(join(ROOT, 'media', `${base}.webp`), Buffer.from(b64, 'base64'));
 	// level z: 2^z px per unit; the deepest one PPU
-	for (let z = 1; z <= levels; z++) {
-		const size = TILE_PX / 2 ** z, cols = Math.ceil(world.width / size), rows = Math.ceil(world.height / size);
+	for (let z = minLevel; z <= levels; z++) {
+		const size = tilePx / 2 ** z, cols = Math.ceil(world.width / size), rows = Math.ceil(world.height / size);
 		let written = 0;
 		for (let y = 0; y < rows; y++) {
 			const row = await evaluate(`Promise.all(Array.from({ length: ${cols} }, async (_, x) => {
-				const c = new OffscreenCanvas(${TILE_PX}, ${TILE_PX}), g = c.getContext('2d');
-				const s = ${size * PPU};
-				g.drawImage(window.__world, x * s, ${y} * s, s, s, 0, 0, ${TILE_PX}, ${TILE_PX});
-				const a = g.getImageData(0, 0, ${TILE_PX}, ${TILE_PX}).data;
+				const c = new OffscreenCanvas(${tilePx}, ${tilePx}), g = c.getContext('2d');
+				const s = ${z <= 0 ? size : size * PPU};
+				${z <= 0 ? "g.imageSmoothingQuality = 'high';" : ''}
+				g.drawImage(${z <= 0 ? 'window.__small' : 'window.__world'}, x * s, ${y} * s, s, s, 0, 0, ${tilePx}, ${tilePx});
+				const a = g.getImageData(0, 0, ${tilePx}, ${tilePx}).data;
 				let ink = false;
 				for (let i = 3; i < a.length; i += 4) if (a[i]) { ink = true; break; }
 				return ink ? window.__toB64(c, 'image/webp', 0.85) : null;
@@ -406,11 +414,11 @@ try {
 		})()`);
 		// the painted layer, then (--plaster) the plaster layer derived from it in place: the same shapes, unpainted
 		await writeLayer(`${layerDir('painted')}/world`, layerDir('painted'));
-		console.log(`layer: { id: "painted", image: "${layerDir('painted')}/world.webp", tiles: { path: "${layerDir('painted')}", levels: ${levels} }, fog: { radius: 24 } }`);
+		console.log(`layer: { id: "painted", image: "${layerDir('painted')}/world.webp", tiles: { path: "${layerDir('painted')}", levels: ${levels}${minLevel !== 1 ? `, minLevel: ${minLevel}` : ''}${tilePx !== TILE_PX ? `, px: ${tilePx}` : ''} }, fog: { radius: 24 } }`);
 		if (has('plaster')) {
 			await plasterInPlace();
 			await writeLayer(`${layerDir('plaster')}/world`, layerDir('plaster'));
-			console.log(`layer: { id: "plaster", image: "${layerDir('plaster')}/world.webp", tiles: { path: "${layerDir('plaster')}", levels: ${levels} } }  (under the painted one)`);
+			console.log(`layer: { id: "plaster", image: "${layerDir('plaster')}/world.webp", tiles: { path: "${layerDir('plaster')}", levels: ${levels}${minLevel !== 1 ? `, minLevel: ${minLevel}` : ''}${tilePx !== TILE_PX ? `, px: ${tilePx}` : ''} } }  (under the painted one)`);
 		}
 	}
 } finally {
