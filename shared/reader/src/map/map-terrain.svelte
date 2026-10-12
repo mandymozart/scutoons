@@ -99,13 +99,18 @@
 	$effect(() => () => Object.values(untrack(() => masks)).forEach((u) => u && URL.revokeObjectURL(u)));
 	const ease = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
 	/** a fog layer's mask (CSS): the growing places' gradients over the settled mask image */
-	function maskOf(f: MapFog): string {
+	function maskOf(f: MapFog, tile?: { left: number; top: number }): string {
 		// a grown place keeps its gradients until the new mask image (with it) is there – no flicker
 		const layers = growing.flatMap((g) => fogGradients(g.p, f.radius, ease((now - g.start) / GROW_MS)));
 		const url = masks[f.radius];
 		if (url) layers.push(`url(${url})`);
 		const image = layers.length ? layers.join(', ') : 'linear-gradient(transparent, transparent)';
-		return `mask-image: ${image}; -webkit-mask-image: ${image}`;
+		const css = `mask-image: ${image}; -webkit-mask-image: ${image}`;
+		if (!tile) return css;
+		// one tile: the world-sized mask, shifted to the tile's place
+		const box = `mask-size: ${width}px ${height}px; -webkit-mask-size: ${width}px ${height}px; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat`;
+		const at = `mask-position: ${-tile.left}px ${-tile.top}px; -webkit-mask-position: ${-tile.left}px ${-tile.top}px`;
+		return `${css}; ${box}; ${at}`;
 	}
 
 	// ── tiles (BACKLOG 10.63): a layer with a pyramid draws the tiles on screen over its image (the base and fallback) –
@@ -127,6 +132,14 @@
 	const inRange = (l: { minZoom?: number; maxZoom?: number }) => (l.minZoom === undefined || view.zoom >= l.minZoom) && (l.maxZoom === undefined || view.zoom <= l.maxZoom);
 </script>
 
+<!-- zoomed in, a fog layer masks each tile on its own (owner 2026-10-12, the phone: "after zooming in the fog of war
+     does not work any more" – one masked layer as big as the zoomed world is more than a phone's GPU keeps a mask for) -->
+{#snippet fogTiles(layer: (typeof layers)[number], f: MapFog, list: ReturnType<typeof tilesOf>)}
+	{#each list as t (`${t.z}/${t.x}_${t.y}`)}
+		<img class="tile" src={url(`${layer.tiles!.path}/${t.z}/${t.x}_${t.y}.webp`)} alt="" draggable="false" style="left: {t.left}px; top: {t.top}px; width: {t.size}px; height: {t.size}px; {maskOf(f, t)}" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} data-testid="map-fog-tile" />
+	{/each}
+{/snippet}
+
 {#snippet drawn(layer: (typeof layers)[number])}
 	<img class="layer" src={url(layer.image!)} alt="" {width} {height} draggable="false" />
 	{#if layer.tiles}
@@ -141,9 +154,14 @@
 		{#if layer.image && (!zoomRange || inRange(layer)) && visible(layer.id)}
 			{#if layer.fog && fog}
 				{#if fog.length || growing.length}
-					<div class="fog" style={maskOf(layer.fog)} data-testid="map-fog-{layer.id}">
-						{@render drawn(layer)}
-					</div>
+					{@const list = layer.tiles ? tilesOf(layer.tiles) : []}
+					{#if list.length}
+						{@render fogTiles(layer, layer.fog, list)}
+					{:else}
+						<div class="fog" style={maskOf(layer.fog)} data-testid="map-fog-{layer.id}">
+							{@render drawn(layer)}
+						</div>
+					{/if}
 				{/if}
 			{:else}
 				{@render drawn(layer)}
