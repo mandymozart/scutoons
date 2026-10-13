@@ -35,6 +35,11 @@ enough (owner: "kind of stupid actually and didnt work as i hoped"); the cast's 
 - Colours projected from the front smear along the sides (the storyboard doesn't need colour anyway).
 - A hybrid (Claude desktop / mobile doing the workflow, a deployed web page doing the 3D) – not wanted: no Claude API.
 
+## Where models live (2026-10-13)
+A persona's `model` / a look's `model` in the character registry (a .glb asset, `modelOf` – the look's wins); the
+storyboard's catpope (regular) and the stand-in tiger (CC BY 3.0, Poly by Google – credit in the asset title) are the
+first. The renderer still reads tools/storyboard-render/models/ until FEATURES 10.95.
+
 ## Better tooling (directions, not decided)
 - **Artists model in Blender** (or similar) to a one-page spec: GLB, low-poly, A-pose, figures.js joint names (or a
   standard rig such as Mixamo / AccuRIG with a name mapping in the renderer), scale / facing / feet as above, a `robe`

@@ -5,8 +5,9 @@ import { toonAsset } from '@scutoons/content';
 import type { ApiClient } from './client.ts';
 import { toQuery, type ListParams, type ListResult } from './admin.ts';
 
-export type AssetKind = 'image' | 'video' | 'audio' | 'archive' | 'document' | 'other';
-export const ASSET_KINDS: AssetKind[] = ['image', 'video', 'audio', 'archive', 'document', 'other'];
+export type AssetKind = 'image' | 'video' | 'audio' | 'archive' | 'document' | 'model' | 'other';
+/** `model` = a 3D model, binary glTF (.glb) only (agents/ASSETS.md) */
+export const ASSET_KINDS: AssetKind[] = ['image', 'video', 'audio', 'archive', 'document', 'model', 'other'];
 export type AssetQuality = 'low' | 'medium' | 'high';
 
 /** One file of an asset version: the source ("original" / its marker) or a derived copy (480p, 1280w, webp, 2x …) */

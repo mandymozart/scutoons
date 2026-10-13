@@ -174,7 +174,7 @@
 	const rank = (r: AssetRendition) =>
 		r.label === 'original' ? 0 : r.quality ? 1 + ['low', 'medium', 'high'].indexOf(r.quality) : /^\d+[wpk]$/.test(r.label) ? 10 + parseInt(r.label, 10) / 10000 : 20;
 	const ordered = (list: AssetRendition[]) => [...list].sort((x, y) => rank(x) - rank(y) || x.label.localeCompare(y.label));
-	const icon = (k: AssetKind) => ({ image: 'image', video: 'film', audio: 'music', archive: 'archive', document: 'file-text', other: 'file' })[k];
+	const icon = (k: AssetKind) => ({ image: 'image', video: 'film', audio: 'music', archive: 'archive', document: 'file-text', model: 'box', other: 'file' })[k];
 
 	/** the asset's own file (its current path) – the size a reader loads, not the master's (BACKLOG 10.20) */
 	const mainSize = (a: { path?: string; size: number; renditions?: AssetRendition[] }) => a.renditions?.find((r) => r.path === a.path)?.size || a.size;
@@ -385,7 +385,7 @@
 		<!-- upload: a button (owner 2026-10-03: the fold-out was confusing); the path appears once a file is chosen -->
 		<div class="upload" data-testid="asset-upload">
 			<Button size="sm" variant="secondary" disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose">{t.upload} …</Button>
-			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
+			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : kind === 'model' ? '.glb' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
 			{#if uploadFile}
 				<label class="sc-label" for="asset-upload-path">{t.uploadPath}</label>
 				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />

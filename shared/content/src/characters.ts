@@ -229,6 +229,8 @@ export interface CharacterLook {
 	default?: boolean;
 	/** mood → view → CDN path (from the CDN root) */
 	images: MoodImages;
+	/** this look's own 3D model (a .glb, CDN path from the CDN root) – wins over the persona's (`modelOf`) */
+	model?: string;
 }
 
 /** An image shown while a persona's look changes (the mouse taking her helmet off). */
@@ -255,6 +257,8 @@ export interface CharacterPersona {
 	testo?: number;
 	looks: CharacterLook[];
 	transitions?: LookTransition[];
+	/** the persona's 3D model (a .glb, CDN path from the CDN root); a look may have its own (`modelOf`) */
+	model?: string;
 }
 
 /**
@@ -587,6 +591,17 @@ export function findLook(persona: CharacterPersona | null | undefined, look?: st
 export function defaultLookId(persona: Pick<CharacterPersona, 'looks'> | null | undefined): string {
 	const looks = persona?.looks ?? [];
 	return looks.find((l) => l?.default)?.id ?? looks[0]?.id ?? DEFAULT_LOOK;
+}
+
+/**
+ * The 3D model of a persona in a look (owner 2026-10-13: one per persona, looks may have their own): the look's
+ * `model`, else the persona's, else '' (agents/research/CHARACTERS3D.md – the storyboard renderer, FEATURES 10.95).
+ */
+export function modelOf(character: RegistryCharacter | null | undefined, persona: string = REGULAR_PERSONA, look?: string): string {
+	const p = findPersona(character, persona);
+	if (!p) return '';
+	const l = findLook(p, look || defaultLookId(p));
+	return l?.model?.trim() || p.model?.trim() || '';
 }
 
 export function personaLabel(character: RegistryCharacter | null | undefined, persona: string | undefined, locale: string, fallbacks: string[] = ['en', 'de']): string {
@@ -1283,6 +1298,7 @@ export function closeFulfilledRequests(requests: AssetRequests, registry: Charac
 const isObj = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
 const IMAGE_PATH = /\.(jpe?g|png|webp|gif|svg)$/i;
+const MODEL_PATH = /^[^/\s]\S*\.glb$/i;
 
 type Add = (level: Level, path: Path, message: string) => void;
 
@@ -1444,6 +1460,11 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			});
 			const defaults = p.looks.filter((l: any) => isObj(l) && l.default === true).length;
 			if (defaults !== 1) add('error', [...pp, 'looks'], `${pwho}: exactly one look must be the default (${defaults} are)`);
+			// 3D models: binary glTF only (agents/ASSETS.md)
+			if (p.model !== undefined && (!isStr(p.model) || !MODEL_PATH.test(p.model))) add('warning', [...pp, 'model'], `${pwho}: the 3D model must be a CDN path to a .glb`);
+			p.looks.forEach((l: any, k: number) => {
+				if (isObj(l) && l.model !== undefined && (!isStr(l.model) || !MODEL_PATH.test(l.model))) add('warning', [...pp, 'looks', k, 'model'], `${pwho}: look ${l.id}: the 3D model must be a CDN path to a .glb`);
+			});
 			if (p.transitions !== undefined) {
 				if (!Array.isArray(p.transitions)) add('error', [...pp, 'transitions'], `${pwho}: transitions must be a list`);
 				else

@@ -221,6 +221,10 @@
 					"items": {
 						"$ref": "#/definitions/LookTransition"
 					}
+				},
+				"model": {
+					"type": "string",
+					"description": "the persona's 3D model (a .glb, CDN path from the CDN root); a look may have its own (`modelOf`)"
 				}
 			},
 			"required": [
@@ -264,6 +268,10 @@
 				"images": {
 					"$ref": "#/definitions/MoodImages",
 					"description": "mood → view → CDN path (from the CDN root)"
+				},
+				"model": {
+					"type": "string",
+					"description": "this look's own 3D model (a .glb, CDN path from the CDN root) – wins over the persona's (`modelOf`)"
 				}
 			},
 			"required": [

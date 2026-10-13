@@ -80,6 +80,7 @@ final class StorageKey
             'flac' => 'audio/flac',
             'zip' => 'application/zip',
             'pdf' => 'application/pdf',
+            'glb' => 'model/gltf-binary',
             'json' => 'application/json',
             'mscz' => 'application/octet-stream',
             default => 'application/octet-stream',

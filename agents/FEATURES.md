@@ -86,11 +86,11 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
   ch4 12-15, ch5 2027-01-15). Branch `storyboard` in its own checkout (owner's request). Open: the owner's answers per
   scene (STORYBOARD §10), the first Figma bridge run, the remaining generated shots.
-- [ ] 10.95 **Storyboard: render the cast from artists' 3D models** – owner 2026-10-13: "i will ask people to provide
-  better 3d models via a character", "the storyboard renderer does a great job". A character gets a 3D model (GLB);
-  `tools/storyboard-render/core.js` loads it instead of the procedural figurine when present (like the mountain tiger)
-  and poses it with figures.js. Open: the model spec for artists (rig / joint names, scale, facing), where it lives
-  (character document + CDN). Learnings to reuse (joint contract, robe bone, region skinning): research/CHARACTERS3D.md.
+- [ ] 10.95 **Storyboard: render the cast from the characters' 3D models** – owner 2026-10-13: "a 3d model for each
+  persona of each character", "the storyboard renderer does a great job". Built: `model` (.glb) per persona / look on the
+  character page (`modelOf`, ASSETS.md "3D models"). Open: [owner] after the deploy attach catpope-regular.glb +
+  catpope-mountaintiger.glb (= tools/storyboard-render/models/*.glb) on production and publish; the renderer loads
+  `modelOf(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md).
 
 ## Platform, release
 - [ ] 10.8 **Public release** – one version everywhere (`1.0.0`, today root 0.0.0, frontends 0.1.0, api/qr 1.0.0),
