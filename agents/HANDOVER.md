@@ -32,9 +32,8 @@ Decisions: agents/DECISIONS.md.
 - Painted map + fog of war (2026-10-12, MAP.md §8.9): painted terrain (Luma) + a plaster layer of the same shapes,
   tiles on the CDN (`catpope/map/terrain/<layer>/v<n>/`); `MapLayer.fog: { radius }` shows the painted layer only around
   unlocked places.
-- Sketch → 3D (2026-10-13, tools/sketch3d/README.md): a local page (`npm run dev:sketch3d`, port 14001) turns a
-  front A-pose (+ side profile) into a colourless low-poly GLB rigged with figures.js's joints; batch:
-  `node tools/sketch3d/server.mjs --batch`. The storyboard doesn't load these models yet (FEATURES 10.95).
+- Storyboard 3D cast: artists will provide a 3D model per character; the renderer loading it is FEATURES 10.95.
+  tools/sketch3d (sketch → 3D, merged 2026-10-13) is a dropped experiment – not the source of the models.
 
 ## Last run
 2026-10-12 morning: the night's sessions merged into `main` and pushed by one session (reading position, media
