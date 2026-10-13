@@ -247,6 +247,9 @@ const HUMAN = {
 	pray: { shL: [48, -28], shR: [48, -28], elL: 112, elR: 112, head: [28, 0] }
 };
 
+/** the human pose names (tools/sketch3d poses its rigged models with this table) */
+export const humanPoses = Object.keys(HUMAN);
+
 function applyHuman(f, name) {
 	if (f.joints.humanRig) return applyHumanRig(f, name);
 	const p = HUMAN[name] ?? HUMAN.stand;

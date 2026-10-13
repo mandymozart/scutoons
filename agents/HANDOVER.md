@@ -27,11 +27,14 @@ Decisions: agents/DECISIONS.md.
 - Parked until February 2027: live performance mode (research/LIVE.md), the onion camera (checkout
   `C:\Development\scutoons-onion-camera`, branch `items/onion-camera`).
 - Other checkouts (`git worktree list`): owner-requested drafts and parked branches (newsletter, onion-camera,
-  sketch3d, storyboard, the 2026-10-12 catalog → creator and map-places drafts) and the app's session worktrees
+  storyboard, the 2026-10-12 catalog → creator and map-places drafts) and the app's session worktrees
   (`.claude/worktrees/claude-*`) – the owner reviews and merges them; agents don't.
 - Painted map + fog of war (2026-10-12, MAP.md §8.9): painted terrain (Luma) + a plaster layer of the same shapes,
   tiles on the CDN (`catpope/map/terrain/<layer>/v<n>/`); `MapLayer.fog: { radius }` shows the painted layer only around
   unlocked places.
+- Sketch → 3D (2026-10-13, tools/sketch3d/README.md): a local page (`npm run dev:sketch3d`, port 14001) turns a
+  front A-pose (+ side profile) into a colourless low-poly GLB rigged with figures.js's joints; batch:
+  `node tools/sketch3d/server.mjs --batch`. The storyboard doesn't load these models yet (FEATURES 10.95).
 
 ## Last run
 2026-10-12 morning: the night's sessions merged into `main` and pushed by one session (reading position, media

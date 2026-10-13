@@ -11,6 +11,7 @@ spec, the prompts and the steps. They are the manual/semi-automated precursors o
 | `scenes/` | [generate-shots.md](scenes/generate-shots.md) | script scene → approved, character-consistent shot stills (FLORA) for the Figma collage |
 | `scenes/` | [storyboard.md](scenes/storyboard.md) + [storyboard-taste.md](scenes/storyboard-taste.md) | script scene → storyboard (stacked shots, light, perspective) → Sin City frames, chapter draft, reference packs (agents/STORYBOARD.md) |
 | `storyboard-studio/` | [README.md](storyboard-studio/README.md) | the layers of a chapter side by side, frames edited by hand with a live render, variants, reviews (`npm run dev:studio`) |
+| `characters/` | [../tools/sketch3d/README.md](../tools/sketch3d/README.md) | sketch / A-pose / character sheet → low-poly 3D model + auto-rig in the storyboard's joint names, local (`npm run dev:sketch3d`, prototype) |
 
 Conventions: artist-made content always wins over generated content and may replace it at any time; every workflow
 ends in the same place (files on the CDN by convention + registered data), so its output is usable in the creator.

@@ -429,6 +429,9 @@ the registry; missing moods go to the moods workflow). The intended aspect is ke
   character sheet. Missing views → the wanted list before generation. Tall shots show figures from above / below and
   falling: a **turnaround** (front / ¾ / side / back, plus one from above) would help most. Proposal: an optional
   generator-only view `turn` for the main cast (owner decision).
+- **3D figures of the cast** (2026-10-13): tools/sketch3d turns a front A-pose (+ a 90° side profile, e.g. from Luma)
+  into a colourless low-poly GLB rigged with figures.js's joints – the renderer's figurines can become the real
+  silhouettes (FEATURES 10.95).
 - **Small figures in huge shots** (1:7 polar, top-down) are where references matter least and silhouettes most: the
   persona must read from its shape (cat ears, robe). The schematic's silhouettes should carry that marker.
 - **Layout control:** the schematic PNG as a "layout only" reference. FLORA has no ControlNet / pose models; hard
