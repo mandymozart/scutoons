@@ -1,6 +1,6 @@
 Status 2026-10-13: learnings from a dropped experiment (owner: "we keep the learning … we just need better tooling").
 
-# SKETCH3D — what the sketch → 3D experiment taught us
+# CHARACTERS3D — 3D models of the cast: what the sketch → 3D experiment taught us, where to go
 
 tools/sketch3d (2026-10-09…13, on `main`, not developed further): front A-pose (+ 90° side profile) → silhouette →
 inflated low-poly mesh → auto-rig with figures.js's joints → GLB. Local, no service, no ML. The models weren't good

@@ -33,7 +33,7 @@ Decisions: agents/DECISIONS.md.
   tiles on the CDN (`catpope/map/terrain/<layer>/v<n>/`); `MapLayer.fog: { radius }` shows the painted layer only around
   unlocked places.
 - Storyboard 3D cast: artists will provide a 3D model per character; the renderer loading it is FEATURES 10.95.
-  tools/sketch3d (sketch → 3D) is a dropped experiment; its learnings: research/SKETCH3D.md.
+  tools/sketch3d (sketch → 3D) is a dropped experiment; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
 2026-10-12 morning: the night's sessions merged into `main` and pushed by one session (reading position, media

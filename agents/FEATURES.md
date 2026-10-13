@@ -90,7 +90,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   better 3d models via a character", "the storyboard renderer does a great job". A character gets a 3D model (GLB);
   `tools/storyboard-render/core.js` loads it instead of the procedural figurine when present (like the mountain tiger)
   and poses it with figures.js. Open: the model spec for artists (rig / joint names, scale, facing), where it lives
-  (character document + CDN). Learnings to reuse (joint contract, robe bone, region skinning): research/SKETCH3D.md.
+  (character document + CDN). Learnings to reuse (joint contract, robe bone, region skinning): research/CHARACTERS3D.md.
 
 ## Platform, release
 - [ ] 10.8 **Public release** – one version everywhere (`1.0.0`, today root 0.0.0, frontends 0.1.0, api/qr 1.0.0),
