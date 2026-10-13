@@ -353,7 +353,7 @@ return static function (App $app): void {
         $admin->delete('/users/{id}/review-rules/{toon}/{rule}', [UsersController::class, 'removeReviewRule']);
         $admin->put('/users/{id}/characters/{character}', [UsersController::class, 'unlockCharacter']);
         $admin->delete('/users/{id}/characters/{character}', [UsersController::class, 'lockCharacter']);
-        $admin->delete('/users/{id}/characters/{character}/looks/{look}', [UsersController::class, 'lockLook']);
+        $admin->delete('/users/{id}/characters/{character}/looks/{persona}/{look}', [UsersController::class, 'lockLook']);
         $admin->get('/roles', [UsersController::class, 'roles']);
 
         $admin->get('/content', [AdminContentController::class, 'index']);

@@ -17,7 +17,8 @@ Decisions: agents/DECISIONS.md.
   2026-10-04, edited in the admin (`/catalog/<kind>`, history + undo; agents/CATALOG.md); tests use
   `server/tests/fixtures/catalog/`.
 - Production DB: MariaDB 10.11, tables utf8mb4, strict session sql_mode (`DB_SQL_MODE`); codes case-sensitive
-  (utf8mb4_bin). All migrations up to `2026-10-12-purge-legacy-map-lists` are applied (`migration_status`: 0 pending).
+  (utf8mb4_bin). All migrations up to `2026-10-12-purge-legacy-map-lists` are applied (`migration_status`: 0 pending);
+  `2026-10-13-apose-per-look` (branch of the A-pose-per-look worktree) runs with its deploy.
 - Local dev: MariaDB in Docker with the production seed (`npm run dev:db`), test user `agent@scutoons.test`.
 - The world map: places unlock only by the `unlockLocation` event; place images 1x/2x/3x on a hex grid, `size` per
   place, shared `MapTerrain`; the phone editors share one bottom bar (`PhoneBar`) – agents/MAP.md §8.
@@ -29,6 +30,9 @@ Decisions: agents/DECISIONS.md.
 - Other checkouts (`git worktree list`): owner-requested drafts and parked branches (newsletter, onion-camera,
   sketch3d, storyboard, the 2026-10-12 catalog → creator and map-places drafts) and the app's session worktrees
   (`.claude/worktrees/claude-*`) – the owner reviews and merges them; agents don't.
+- Reader avatar (owner 2026-10-12): the A-pose belongs to a look (`look.apose`), the body is { character, persona,
+  look }; no naked body; worn items sit as icons in the avatar page's slots, nothing is drawn on the body (ITEMS.md
+  "Reader avatar bodies", "Wardrobe"). Real dress-up is a separate research session.
 - Painted map + fog of war (2026-10-12, MAP.md §8.9): painted terrain (Luma) + a plaster layer of the same shapes,
   tiles on the CDN (`catpope/map/terrain/<layer>/v<n>/`); `MapLayer.fog: { radius }` shows the painted layer only around
   unlocked places.

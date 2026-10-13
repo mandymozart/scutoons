@@ -3,16 +3,18 @@
 	import { CloseIcon } from '@scutoons/ui';
 	import { setLookImage, type AssetRequests, type CharacterFileSlot, type CharacterPersona, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { addAssetRequest, edit, editPersona, ensureMoods } from '$lib/editor/characters.ts';
-	import { cleanText, closeRequests } from '$lib/editor/character-form.ts';
+	import { addAssetRequest, edit, editCharacter, editPersona, ensureMoods } from '$lib/editor/characters.ts';
+	import { cleanText, closeRequests, setLookApose } from '$lib/editor/character-form.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 	import ExpressionGrid from '$lib/components/characters/expression-grid.svelte';
+	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
 
 	/**
-	 * One look of a persona: its label, default / remove, and the mood grid (ExpressionGrid) – setting a cell's image
-	 * closes its open request, a request can be written per cell, a new mood joins the vocabulary.
+	 * One look of a persona: its label, default / remove, the mood grid (ExpressionGrid) – setting a cell's image
+	 * closes its open request, a request can be written per cell, a new mood joins the vocabulary – and the look's A-pose
+	 * (the reader's avatar body in this look, AposeEditor).
 	 */
 	let {
 		registry,
@@ -84,6 +86,12 @@
 		if (existing) edit<AssetRequests>(requestsDoc, (f) => f.requests.forEach((r) => r.id === existing.id && (note.trim() ? (r.note = note.trim()) : delete r.note)));
 		else addAssetRequest(requestsDoc, { character: id, persona: persona.id, look: lookId, mood, view }, note, session.user?.email ?? null);
 	}
+	/** the look's A-pose picked (closes its open request) or cleared */
+	function setApose(path: string | undefined) {
+		const target = lookId;
+		editCharacter(registry, id, (c) => setLookApose(c, persona.id, target, path, languages), `${id}:${persona.id}:apose-${target}`);
+		if (path) closeRequests(requestsDoc, requests, id, [{ kind: 'apose', persona: persona.id, look: target, newLook: false, path }]);
+	}
 	function addMood(mood: string, label: string) {
 		if (!moods.moods.some((x) => x.id === mood)) {
 			ensureMoods(moodsDoc);
@@ -104,6 +112,7 @@
 	</div>
 	{#key `${persona.id}/${lookId}`}
 		<ExpressionGrid {character} persona={persona.id} {look} {moods} {requests} locale={source} onset={setImage} onrequest={request} onaddmood={addMood} {bust} />
+		<AposeEditor character={id} persona={persona.id} {look} {bust} onchange={setApose} />
 	{/key}
 {/if}
 

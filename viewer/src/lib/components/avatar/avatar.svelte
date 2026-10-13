@@ -2,9 +2,8 @@
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import {
 		AVATAR_SLOTS,
-		WEAR_ORDER,
+		bodyLookKey,
 		pickText,
-		wardrobeBase,
 		type AvatarBody,
 		type AvatarSlot,
 		type AvatarSlotInstance,
@@ -16,17 +15,16 @@
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 
 	/**
-	 * Reader avatar: a character's A-pose (CDN, 768 × 1152) with a tile per wear slot of that body in a column on each
-	 * side. The bodies come from the character registry (`avatarBodies`, loaded by the inventory context), filtered to
-	 * what the reader has unlocked (members: `/me/ avatar.unlocked`; guests: the default unlocks); locked characters are
-	 * not shown. A body's wear slots are slot instances (`apose.looks[].slots`: id, slot type, anchor) – a duo has every
-	 * slot type twice ("Kopf links" / "Kopf rechts").
+	 * Reader avatar: the A-pose of a look (CDN, 768 × 1152) with a tile per wear slot of that body in a column on each
+	 * side. The bodies come from the character registry (`avatarBodies`: every look with an A-pose, loaded by the
+	 * inventory context), filtered to what the reader has unlocked (members: `/me/ avatar.unlocked`; guests: the default
+	 * unlocks); locked characters are not shown. A body's wear slots are slot instances (`look.apose.slots`: id, slot
+	 * type, label) – a duo has every slot type twice ("Kopf links" / "Kopf rechts": the first of a type in the left
+	 * column, the second in the right).
 	 *
-	 * Wardrobe (ITEMS.md "Wardrobe"): the base image is the body's A-pose (the swim look, pants painted in – the naked
-	 * look was removed 2026-10-05). On top: worn items with an overlay for this body as full-body layers in WEAR_ORDER
-	 * (legs → feet → torso → back → hands → accessory → neck → head → face), then the items without one as icons at their
-	 * slot anchors. The picker shows one tile per character. ITEMS.md "Reader avatar bodies & character unlocks", "Slots
-	 * per avatar body".
+	 * Wardrobe (ITEMS.md "Wardrobe"): worn items are NOT drawn on the body (owner 2026-10-12: "additional items dont get
+	 * overlayed and we just put them in the slots on the avatar page") – each sits as its icon in its slot tile. The
+	 * picker shows one tile per body (look). ITEMS.md "Reader avatar bodies & character unlocks", "Slots per avatar body".
 	 */
 	const W = 768;
 	const H = 1152;
@@ -38,28 +36,25 @@
 
 	// the current body (inventory context: the chosen one, else the first unlocked default)
 	const body = $derived<AvatarBody | undefined>(inventory.currentBody);
-	/** one tile per character: its current body, else its first look (the default first) */
-	const bodies = $derived<AvatarBody[]>(
-		inventory.bodies.filter((b, i, all) => all.findIndex((x) => x.character === b.character) === i).map((b) => (body?.character === b.character ? body : b))
-	);
+	/** one tile per body (a look with an A-pose) */
+	const bodies = $derived<AvatarBody[]>(inventory.bodies);
+	const bodyKey = (b: AvatarBody | undefined) => (b ? `${b.character}/${bodyLookKey(b.persona, b.look)}` : '');
 	let bodyError = $state<string | null>(null);
 
 	async function chooseBody(b: AvatarBody) {
 		bodyError = null;
 		try {
-			await inventory.setBody({ character: b.character, look: b.look });
+			await inventory.setBody({ character: b.character, persona: b.persona, look: b.look });
 		} catch (e) {
 			console.warn('Avatar body not saved', e);
 			bodyError = m['items.avatar_body_error']();
 		}
 	}
 
-	// icons without an overlay: back first, face/head last (drawn above every overlay)
-	const WORN_ORDER: AvatarSlot[] = ['back', 'legs', 'feet', 'torso', 'hands', 'accessory', 'neck', 'head', 'face'];
 	// tiles of a single figure: left column top→bottom, right column top→bottom
 	const LEFT: AvatarSlot[] = ['head', 'face', 'hands', 'legs', 'feet'];
 	const RIGHT: AvatarSlot[] = ['neck', 'torso', 'back', 'accessory'];
-	// tiles of a multi-figure body (a slot type more than once): each instance in the column of its anchor, top→bottom
+	// tiles of a multi-figure body (a slot type more than once): the first instance of a type left, the others right
 	const TYPE_ORDER: AvatarSlot[] = ['head', 'face', 'neck', 'torso', 'back', 'hands', 'accessory', 'legs', 'feet'];
 
 	/** the catalog's slot types (instances of other types are not shown) */
@@ -68,23 +63,13 @@
 	const multi = $derived(new Set(instances.map((s) => s.slot)).size < instances.length);
 	const byType = (list: AvatarSlotInstance[], order: AvatarSlot[]) =>
 		[...list].sort((a, b) => (order.indexOf(a.slot) + 1 || 99) - (order.indexOf(b.slot) + 1 || 99));
+	const firstOfType = (s: AvatarSlotInstance) => instances.find((x) => x.slot === s.slot) === s;
 	const left = $derived(
-		multi ? byType(instances.filter((s) => s.x < W / 2), TYPE_ORDER) : byType(instances.filter((s) => LEFT.includes(s.slot)), LEFT)
+		multi ? byType(instances.filter(firstOfType), TYPE_ORDER) : byType(instances.filter((s) => LEFT.includes(s.slot)), LEFT)
 	);
 	const right = $derived(
-		multi ? byType(instances.filter((s) => s.x >= W / 2), TYPE_ORDER) : byType(instances.filter((s) => !LEFT.includes(s.slot)), RIGHT)
+		multi ? byType(instances.filter((s) => !firstOfType(s)), TYPE_ORDER) : byType(instances.filter((s) => !LEFT.includes(s.slot)), RIGHT)
 	);
-	/** worn items with an overlay for this body (full-body layers, WEAR_ORDER) */
-	const overlays = $derived(
-		byType(instances, WEAR_ORDER).flatMap((s) => {
-			const entry = inventory.equippedEntry(s.id);
-			const src = entry ? inventory.overlayOf(entry, s.id) : null;
-			return entry && src ? [{ slot: s, entry, src }] : [];
-		})
-	);
-	/** worn items without an overlay: icons at the anchors */
-	const drawn = $derived(byType(instances.filter((s) => s.size > 0 && !overlays.some((o) => o.slot.id === s.id)), WORN_ORDER));
-	const base = $derived(wardrobeBase(body));
 	/** the newest swap note (back in the inventory) for the status line */
 	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned'));
 	const noteText = $derived(note ? m['items.returned']({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : '');
@@ -122,6 +107,7 @@
 		onclick={() => (selectedId = selectedId === slot.id ? null : slot.id)}
 		aria-pressed={selectedId === slot.id}
 		data-slot={slot.id}
+		data-item={entry?.item_id}
 	>
 		<span class="thumb">
 			{#if entry}
@@ -135,19 +121,19 @@
 <div class="avatar">
 	{#if bodies.length > 1}
 	<div class="bodies" role="group" aria-label={m['items.avatar_body']()} data-testid="avatar-bodies">
-		{#each bodies as b (b.character)}
-			{@const active = b.character === body?.character}
+		{#each bodies as b (bodyKey(b))}
+			{@const active = bodyKey(b) === bodyKey(body)}
 			<button
 				class="body-choice"
 				data-control-exempt="square body picture"
 				class:active
 				aria-pressed={active}
-				title={b.name}
-				data-body="{b.character}/{b.look}"
+				title={b.label}
+				data-body={bodyKey(b)}
 				onclick={() => chooseBody(b)}
 			>
 				<img src={asset(b.path)} alt="" loading="lazy" draggable="false" />
-				<span class="body-name">{b.name}</span>
+				<span class="body-name">{b.label}</span>
 			</button>
 		{/each}
 	</div>
@@ -159,31 +145,9 @@
 			{#each left as slot (slot.id)}{@render tile(slot)}{/each}
 		</div>
 		<div class="figure" style="aspect-ratio: {W} / {H}">
-			{#if body && base}
-				<img class="apose" src={asset(base.path)} alt={body.name} draggable="false" data-layer="base" />
+			{#if body}
+				<img class="apose" src={asset(body.path)} alt={body.label} draggable="false" data-layer="base" />
 			{/if}
-			{#each overlays as o (o.slot.id)}
-				<img
-					class="apose"
-					src={asset(o.src)}
-					alt=""
-					draggable="false"
-					data-overlay={o.slot.id}
-					data-item={o.entry.item_id}
-				/>
-			{/each}
-			{#each drawn as w (w.id)}
-				{@const worn = inventory.equippedEntry(w.id)}
-				{#if worn}
-					<div
-						class="worn"
-						data-worn={w.id}
-						style="left:{((w.x - w.size / 2) / W) * 100}%; top:{((w.y - w.size / 2) / H) * 100}%; width:{(w.size / W) * 100}%"
-					>
-						<ItemIcon srcs={[inventory.iconOf(worn)]} name={inventory.nameOf(worn)} />
-					</div>
-				{/if}
-			{/each}
 		</div>
 		<div class="column">
 			{#each right as slot (slot.id)}{@render tile(slot)}{/each}
@@ -288,10 +252,6 @@
 		height: 100%;
 		object-fit: contain;
 		user-select: none;
-	}
-	.worn {
-		position: absolute;
-		pointer-events: none;
 	}
 	.tile {
 		box-sizing: border-box;

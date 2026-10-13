@@ -6,7 +6,6 @@
 		castsOf,
 		defaultLookId,
 		findPersona,
-		isRetiredAposeLook,
 		lookLabel,
 		lookPortraitMoods,
 		personaIds,
@@ -20,7 +19,6 @@
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { addLook, addPersona, characterLanguages, edit, editCharacter, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
-	import { aposeLooksOf, applyApose, closeRequests } from '$lib/editor/character-form.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import CharacterIdentity from '$lib/components/characters/character-identity.svelte';
@@ -28,14 +26,13 @@
 	import CharacterPersonaFields from '$lib/components/characters/character-persona.svelte';
 	import CharacterLook from '$lib/components/characters/character-look.svelte';
 	import CharacterTransitions from '$lib/components/characters/character-transitions.svelte';
-	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import CharacterPrompts from '$lib/components/characters/character-prompts.svelte';
 
 	/**
 	 * One character (COMPONENTS.md step 9: in sections): identity (CharacterIdentity), the image import, its personas as
 	 * tabs → the persona's own fields (CharacterPersonaFields) → its looks as sub-tabs → the look's mood grid
-	 * (CharacterLook) and transitions, the A-pose looks, the character's wanted images and – at the very end – prompts
+	 * (CharacterLook, with the look's A-pose) and transitions, the character's wanted images and – at the very end – prompts
 	 * for an image generator or an artist (CharacterPrompts).
 	 */
 	let {
@@ -108,26 +105,6 @@
 		look = addLook(registry, id, personaId, newLookLabel, languages);
 		newLookLabel = '';
 	}
-
-	/** the A-pose looks shown: the stored ones plus the standard looks not stored yet (empty slots) */
-	const aposeLooks = $derived(aposeLooksOf(character));
-	/**
-	 * an A-pose slot picked (a path closes its open request) or cleared (an unused standard look disappears again, a
-	 * retired one – the removed naked look – always)
-	 */
-	function setAposePath(target: string, path: string | undefined) {
-		change((c) => {
-			if (path) return applyApose(c, target, path, languages);
-			const looks = c.apose?.looks;
-			const look = looks?.find((l) => l.id === target);
-			if (!looks || !look) return;
-			delete look.path;
-			if (isRetiredAposeLook(look) || (!look.slots?.length && aposeLooksOf(null).some((l) => l.id === target))) looks.splice(looks.indexOf(look), 1);
-			if (!looks.length) delete c.apose;
-			else if (!looks.some((l) => l.default)) looks[0].default = true;
-		}, `apose-${target}-path`);
-		if (path) closeRequests(requestsDoc, requests, id, [{ kind: 'apose', look: target, path }]);
-	}
 </script>
 
 
@@ -196,11 +173,6 @@
 					<CharacterTransitions {registry} characterId={id} persona={currentPersona} {languages} />
 				</div>
 			{/if}
-		</section>
-
-		<section class="block" data-testid="apose">
-			<h3>{m['creator.characters_apose']()}</h3>
-			<AposeEditor character={id} looks={aposeLooks} locale={textLanguage.names} {bust} onchange={setAposePath} />
 		</section>
 
 		<section class="block">

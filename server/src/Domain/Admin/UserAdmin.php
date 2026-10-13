@@ -115,7 +115,7 @@ final class UserAdmin
     }
 
     /**
-     * Unlock a character (+ optional further A-pose looks) for an account. 404 not_found, 400 unknown_character |
+     * Unlock a character (+ optional further looks `<persona>/<look>`) for an account. 404 not_found, 400 unknown_character |
      * invalid_look | invalid_source | invalid_body.
      * @param array<string, mixed> $body { looks?: string[], source?: default|code|item|story|admin, ref?: string }
      * @return array{changed: bool, characters: list<array<string, mixed>>}
@@ -127,7 +127,7 @@ final class UserAdmin
         $source = $body['source'] ?? 'admin';
         $ref = $body['ref'] ?? $by;
         if (!is_array($looks) || !array_is_list($looks) || !is_string($source) || !is_string($ref) || strlen($ref) > 255) {
-            throw new ApiError(400, 'invalid_body', 'Body: { looks?: [look ids], source?, ref? }.');
+            throw new ApiError(400, 'invalid_body', 'Body: { looks?: ["<persona>/<look>"], source?, ref? }.');
         }
         $changed = $this->unlocks->grant((string) $user['id'], $character, $looks, $source, $ref);
         return ['changed' => $changed, 'characters' => $this->characters((string) $user['id'])];
@@ -137,10 +137,10 @@ final class UserAdmin
      * Revoke a character unlock (with its looks) or one look. Defaults can't be revoked per account.
      * @return array{changed: bool, characters: list<array<string, mixed>>}
      */
-    public function lockCharacter(string $userId, string $character, ?string $look = null): array
+    public function lockCharacter(string $userId, string $character, ?string $persona = null, ?string $look = null): array
     {
         $user = $this->users->byId($userId) ?? throw new ApiError(404, 'not_found', 'User not found');
-        $changed = $this->unlocks->revoke((string) $user['id'], $character, $look);
+        $changed = $this->unlocks->revoke((string) $user['id'], $character, $persona, $look);
         return ['changed' => $changed, 'characters' => $this->characters((string) $user['id'])];
     }
 

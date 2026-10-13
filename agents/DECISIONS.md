@@ -6,6 +6,9 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-13 · items · A wear slot has no image position any more (x / y / size dropped): items aren't drawn on the body; a duo's tiles go left / right by order · "Drop x/y/size entirely" · → ITEMS.md "Slots per avatar body"
+- 2026-10-13 · items · Any persona's look can carry an A-pose: the avatar body is { character, persona, look }; unlocks name looks `<persona>/<look>` · "Any persona's look" · → ITEMS.md "Reader avatar bodies"
+- 2026-10-12 · items · The A-pose belongs to a look, no naked body; worn items are not overlaid on the body – they sit as icons in the avatar page's slots (a fallback until the dress-up research) · "nackt does not exist anymore. a poses come per look … additional items dont get overlayed and we just put them in the slots on the avatar page" · → ITEMS.md "Reader avatar bodies", "Wardrobe"
 - 2026-10-12 · catalog · "Submits for review" on ANY toon also covers cross-toon (`toon: null`) catalog changes, non-physical ones included (refines D3: grants still only by `*` rules); their requests go to `*` reviewers · owner via the coordinator · → Domain\Content\Reviews::policy, research/CATALOG-IN-CREATOR.md
 - 2026-10-12 · admin · The review rules read as what the account does: "Reviews publishing requests" (reviewer) and "Publishes physical items" (physical) grant, "Submits for review" (needs_review) restricts; stored ids unchanged · "Reviews publishing requests – the other one should be [like that]" · → admin Users → Reviews, Domain\Content\Reviews
 - 2026-10-12 · catalog · D6 changed: the admin's items / recipes / albums / products / editions tabs go now (not read-only first); the admin's catalog page keeps the "edited in the creator" note + link and "Shop & codes" (toons, permissions, code types, meta; featured on Homepage) · owner via the coordinator · → research/CATALOG-IN-CREATOR.md (D6)
@@ -317,7 +320,7 @@ to mark them superseded.
 - 2026-10-01 · dev · Dev ports defined in code in one file `shared/dev-ports.json` · "in code, no special place" · → PLATFORM.md "Local dev ports", RULES
 - 2026-10-01 · platform · One sign-in for every app, roles permitting; a notice + "switch account" otherwise · → PLATFORM.md (SSO)
 - 2026-10-01 · platform · Admins may use the creator "for now" (`CONTENT_EDITORS` = creator, admin) · → PLATFORM.md (roles)
-- 2026-10-01 · items · Clothing becomes real exchangeable items overlaying the A-pose; basic dress T-shirt + shorts + sandals · "T-shirt + short pants + sandals" · → ITEMS.md "Wardrobe"
+- 2026-10-01 · items · Clothing becomes real exchangeable items overlaying the A-pose; basic dress T-shirt + shorts + sandals · "T-shirt + short pants + sandals" · → ITEMS.md "Wardrobe" (overlaying superseded 2026-10-12 → items in the slots, not on the body)
 - 2026-10-01 · items · Worn items are not listed in the Items tab, only in the Avatar slots · → ITEMS.md "Wardrobe"
 - 2026-10-01 · items · No male / female: a testo level; more testo reads more male, less more female · "There is no male/female." · → ITEMS.md "Substances, reader stats, testo"
 - 2026-10-01 · items · One substances model ("other drugs too"); food lowers appetite, the button says "Essen" · "some drugs like weed make you want to eat" · → ITEMS.md "Substances"

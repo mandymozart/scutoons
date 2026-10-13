@@ -342,7 +342,7 @@
 		"section_characters": "Avatar bodies",
 		"section_characters_hint": "Characters this account may wear as reader avatar. Defaults (every member) come from the setting AVATAR_DEFAULT_UNLOCKS and cannot be revoked here.",
 		"character_id": "Character id",
-		"character_looks": "Extra A-pose looks (comma separated, optional)",
+		"character_looks": "Extra looks with an A-pose, persona/look (comma separated, optional)",
 		"unlock": "Unlock",
 		"unlock_revoke": "Revoke",
 		"unlocked": "{character} unlocked for {email}",

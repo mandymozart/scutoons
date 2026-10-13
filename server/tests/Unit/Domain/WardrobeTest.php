@@ -17,13 +17,14 @@ final class WardrobeTest extends TestCase
 {
     private function registry(): void
     {
-        $slot = fn(string $id, string $type) => ['id' => $id, 'slot' => $type, 'x' => 1, 'y' => 1, 'size' => 1];
+        $slot = fn(string $id, string $type) => ['id' => $id, 'slot' => $type];
         $single = array_map(fn(string $t) => $slot($t, $t), ['head', 'face', 'neck', 'torso', 'hands', 'legs', 'feet', 'back', 'accessory']);
         $twins = [$slot('torso-left', 'torso'), $slot('torso-right', 'torso'), $slot('legs-left', 'legs'), $slot('legs-right', 'legs'), $slot('feet-left', 'feet'), $slot('feet-right', 'feet')];
-        $looks = fn(string $c, array $slots) => ['looks' => [
-            ['id' => 'swim', 'default' => true, 'path' => "characters/$c/{$c}_apose-swim.webp", 'slots' => $slots],
-        ]];
-        $json = json_encode(['characters' => [['id' => 'catpope', 'apose' => $looks('catpope', $single)], ['id' => 'toptoy', 'apose' => $looks('toptoy', $twins)]]]);
+        // the A-pose on the regular persona's default look (owner 2026-10-12: per look)
+        $personas = fn(string $c, array $slots) => [['id' => 'regular', 'looks' => [
+            ['id' => 'default', 'default' => true, 'images' => (object) [], 'apose' => ['path' => "characters/$c/{$c}_apose.webp", 'slots' => $slots]],
+        ]]];
+        $json = json_encode(['characters' => [['id' => 'catpope', 'personas' => $personas('catpope', $single)], ['id' => 'toptoy', 'personas' => $personas('toptoy', $twins)]]]);
         $this->storeCollection('characters', (array) json_decode((string) $json, true), 'published', '2026-10-01 00:00:00');
     }
 
@@ -82,7 +83,7 @@ final class WardrobeTest extends TestCase
         $user = (string) $this->user()['id'];
         $this->get(CharacterUnlocks::class)->grant($user, 'toptoy', [], 'admin', null);
         $avatar = $this->get(AvatarService::class);
-        $avatar->update($user, ['body' => ['character' => 'toptoy', 'look' => 'swim']]);
+        $avatar->update($user, ['body' => ['character' => 'toptoy', 'persona' => 'regular', 'look' => 'default']]);
         $this->db->run("DELETE FROM avatar_slots WHERE user_id = ?", [$user]);
         $this->db->run("DELETE FROM inventory WHERE user_id = ? AND item_id LIKE 'scutoons_%'", [$user]);
         $avatar->ensureWardrobe($user);
@@ -101,7 +102,7 @@ final class WardrobeTest extends TestCase
         $avatar->update($user, ['slots' => ['legs' => $e['scutoons_swim_pants']]]);
         self::assertSame($e['scutoons_swim_pants'], $this->slots($user)['legs']);
         self::assertSame(1, $this->get(InventoryService::class)->count($user, 'scutoons_shorts'));
-        // the swim pants come off (the base is the swim A-pose, pants painted in) – also with "Hide sensitive content" on
+        // the swim pants come off (the base A-pose has the pants painted in) – also with "Hide sensitive content" on
         $avatar->update($user, ['slots' => ['legs' => null, 'torso' => null, 'feet' => null]]);
         self::assertSame([null, null, null], [$this->slots($user)['legs'], $this->slots($user)['torso'], $this->slots($user)['feet']]);
         // the setting doesn't touch the avatar
@@ -120,11 +121,11 @@ final class WardrobeTest extends TestCase
         $this->get(CharacterUnlocks::class)->grant($user, 'toptoy', [], 'admin', null);
         $avatar = $this->get(AvatarService::class);
         // switching to the twins: the worn items go to the first figure, the second stays empty
-        $avatar->update($user, ['body' => ['character' => 'toptoy', 'look' => 'swim']]);
+        $avatar->update($user, ['body' => ['character' => 'toptoy', 'persona' => 'regular', 'look' => 'default']]);
         $slots = $this->slots($user);
         self::assertSame([$e['scutoons_shorts'], null, $e['scutoons_tshirt'], $e['scutoons_sandals']], [$slots['legs-left'], $slots['legs-right'], $slots['torso-left'], $slots['feet-left']]);
         // back to a single figure: one legs slot
-        $avatar->update($user, ['body' => ['character' => 'catpope', 'look' => 'swim']]);
+        $avatar->update($user, ['body' => ['character' => 'catpope', 'persona' => 'regular', 'look' => 'default']]);
         self::assertSame($e['scutoons_shorts'], $this->slots($user)['legs']);
     }
 

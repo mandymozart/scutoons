@@ -627,7 +627,7 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
 
 | Store path | Type | What |
 |---|---|---|
-| `scutoons/_/characters.json` | `CharacterRegistry` | every character, **global**: Character → Persona → Look → Mood × View. Character: `id`, `name`/`description` {locale}, `color`, `own_toon?`, `voiced_by?` (people.json), `tags?`, legacy `image`, `artwork?`, `apose?` { looks: [{ id (`swim` = the standard look; `naked` removed 2026-10-05 – ignored, a warning), label, default, path?, slots?: [{ id, slot, x, y, size, label? }] }] } (the reader's avatar body, character level), `personas` [{ id (`regular` always + e.g. `human`, `cat`, `mountaintiger`, `biker`), label, introduced?, description?, color?, `looks` [{ id, label, default (exactly one), images: mood → view → CDN path }], transitions? [{ from, to, image, label? }] }] |
+| `scutoons/_/characters.json` | `CharacterRegistry` | every character, **global**: Character → Persona → Look → Mood × View. Character: `id`, `name`/`description` {locale}, `color`, `own_toon?`, `voiced_by?` (people.json), `tags?`, legacy `image`, `artwork?`, `personas` [{ id (`regular` always + e.g. `human`, `cat`, `mountaintiger`, `biker`), label, introduced?, description?, color?, `looks` [{ id, label, default (exactly one), images: mood → view → CDN path, apose?: { path?, slots?: [{ id, slot, label? }] } (the reader's avatar body in this look, ITEMS.md "Reader avatar bodies") }], transitions? [{ from, to, image, label? }] }] |
 | `scutoons/_/moods.json` | `MoodVocabulary` | open-ended mood vocabulary `{ id, label, standard?, order? }` (17 standard + dizzy, tripping); only `neutral` is required |
 | `scutoons/_/asset-requests.json` | `AssetRequests` | wanted images `{ id, character, persona, look, mood, view, path (convention), note?, requested_by, requested_at, status open/done }` |
 | `<toon>/_/cast.json` | `ToonCast` | `{ seasons: { "<n>": [{ character, personas, role? }] } }` – casting per season, in order |
@@ -638,7 +638,7 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
 - Former characters are Cat Pope personas: plf → `human`, cat → `cat`, mountain-tiger → `mountaintiger`
   (`LEGACY_CHARACTER_IDS`: old refs still resolve).
 - Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (delivered as PNG under the same name; the creator's asset import writes the WebP (`toWebp`, `@scutoons/media`), the 192 px avatar comes from the owner's Luma generation workflows (repo `cdn/tools/` removed 2026-10-04), the registry points to the WebP; transitions likewise `.webp`),
-  A-pose `characters/<character>/<character>_apose-<look>.webp`.
+  A-pose (per look) `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_apose.webp`.
 - **Transitions are named after their states (owner 2026-09-30):**
   `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.png` (look ids, e.g.
   `yellowmouse_transition-helmet-to-default.png`, `catpope-biker_transition-helmet-to-default.png`). No other names
@@ -655,7 +655,7 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
   store, published, `resolveCast()` → the legacy `characters.json` shape + `personas`) → static
   `<toon>/<locale>/characters.json` → `[]`. VN refs `{ character, persona, look?, mood?, variant? }` (old form + old ids
   accepted); scene key = character + persona; a look change with a transition shows the transition image for 800 ms.
-- Creator: `/characters` (list with persona chips, detail: personas → looks → mood grid, transitions, A-pose, artwork,
+- Creator: `/characters` (list with persona chips, detail: personas → looks → mood grid + the look's A-pose, transitions, artwork,
   wanted images; tabs Moods and Wanted images; glossary), `/<toon>/cast` (per season), the visual picker in every VN
   character field (picking someone outside the season cast adds them, with undo).
 - `avatarBodies(registry)` → `[{ character, look, label, path, slots, default }]` for the reader's avatar picker (follow-up).
