@@ -90,6 +90,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   sketch → 3D tool is on `main` (tools/sketch3d/README.md: front A-pose + side profile → colourless low-poly GLB,
   rigged with figures.js's joint names). Open: `tools/storyboard-render/core.js` loads `<char>.glb` instead of the
   procedural figurine (like the mountain tiger) and poses it with figures.js; where the GLBs live (repo vs CDN).
+  The owner's first catpope models + joint fixes: `tools/sketch3d/out/` (local, gitignored). Worktree closed 2026-10-13.
 
 ## Platform, release
 - [ ] 10.8 **Public release** – one version everywhere (`1.0.0`, today root 0.0.0, frontends 0.1.0, api/qr 1.0.0),
