@@ -1573,7 +1573,8 @@
 		.sheet-closed .inspector-region {
 			overflow: hidden;
 		}
-		.sheet-closed .inspector-region > :not(.sheet-tabs) {
+		/* :global – the inspector is SliceInspector's root, scoped CSS here would miss it (the sheet then grew with it) */
+		.sheet-closed .inspector-region > :global(:not(.sheet-tabs)) {
 			display: none;
 		}
 	}
