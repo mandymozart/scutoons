@@ -1,7 +1,7 @@
 # Sketch → 3D (prototype)
 
 **Status 2026-10-13: dropped experiment** – the models weren't good enough (owner); the cast's 3D models come from
-artists (FEATURES 10.95). Kept as it is; not developed further.
+artists (FEATURES 10.95). Kept as it is; not developed further. What it taught us: agents/research/SKETCH3D.md.
 
 A local tool (owner 2026-10-09: "sketch to 3d. low poly models … a workflow that creates 3D from the A-pose for
 characters … without an external service"). A drawing, a cut-out or a character sheet becomes a closed **low-poly
