@@ -1,7 +1,7 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntityKey, sceneEntityOfRef, validateFile, validateLocales } from '../src/index.ts';
+import { parseEntityKey, sceneEntityOfRef, stageProblems, validateFile, validateLocales } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
@@ -363,4 +363,18 @@ test('step 3 (EXPRESSIONS.md §5–6): repeat rules, event ids, askText, conditi
 	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'count("e1") < 3 and not has("cucumber")' } })])), []);
 	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'coins > (' } })])), ['error events.0.if.expr expr:expected-value']);
 	assert.deepEqual(at(group([], [msg({ id: 'e1', if: { expr: 'map.totl > 1' } })])), ['warning events.0.if.expr expr:unknown-name']);
+});
+
+test('stageProblems: a speaker (showMessage, askText) must have joined; the slices follow the script', () => {
+	const say = (character: string, type = 'showMessage') => ({ type, params: { character, text: { de: 'x' } } });
+	const join = (character: string) => ({ type: 'joinScene', params: { characters: [{ character }] } });
+	const group = {
+		events: [join('boy')],
+		slices: [{ events: [say('boy'), say('mama'), say('mama', 'askText')] }, { events: [join('mama'), say('mama'), { type: 'leaveScene', params: { characters: [{ character: 'dog' }] } }] }]
+	};
+	assert.deepEqual(
+		stageProblems(group).map((s) => `${s.kind} ${s.id} ${s.event.join('.')}`),
+		['speaks mama slices.0.events.1', 'speaks mama slices.0.events.2', 'leaves dog slices.1.events.2']
+	);
+	assert.deepEqual(stageProblems({ slices: [{ events: [say('')] }] }), [], 'the narrator needs no stage');
 });
