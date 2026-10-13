@@ -1,4 +1,4 @@
-Status 2026-10-13: RESEARCH – free part done (inventory, Test A from existing assets, cost math, 3D on paper); the paid runs (Luma Test A/B ≈ $2.50, 3D Test C) wait for the owner's go. Nothing built into the app.
+Status 2026-10-13: RESEARCH – direction decided (owner 2026-10-13): full 3D for all characters and items, dressed in 3D, rendered per view on a photostage in a build pipeline (§5). Paid tests still wait for the owner's go. Nothing built into the app.
 
 # DRESS-UP — looks with their A-pose + an avatar that dresses per region
 
@@ -92,24 +92,28 @@ like a premium collectible") – a real 3D model renders straight into it; no to
   already plans `model3d` cues (glTF in a three.js layer); **references** – turnarounds, expressions sheets and the
   A-pose of every new look rendered instead of generated.
 
-## 5. Recommendation
+## 5. Direction (owner 2026-10-13)
 
-1. **Now: 2D layers per look** (Test A) – linear cost (~$2 per look, ~$2 per new item per look), fits today's `wear`
-   code (a key per look instead of per character), a run of a script like `scripts/region-signs.mjs`.
-2. **In parallel, a small 3D pilot** for Katzenpapst + 1 item (Tripo's free credits or one RunPod day) – judged on the
-   storyboard / reference use first. If its render-to-sprite layers look as good as the painted ones, the 3D render
-   replaces Luma as the layer source (layers without drift, every look from one model).
-3. **No full renders per combination** for the avatar; only hero images.
+Owner: "i would go full 3d for all models and items at some point. we can than dress up characters, and if we dont want
+to put characters in 3d in to the viewer. we use a photostage and render each view in a build pipeline."
 
-**First pipeline step** (after the owner's go, ≈ $2.50): `scripts/wear-paint.mjs` – input a look's A-pose + an item
-icon → Luma `image_edit` → dressed A-pose → difference layer limited to the item's region → `logs/wear-paint/`;
-run on Katzenpapst swim + tourist with hoodie (torso), sunglasses (face), sandals (feet) and show the composites.
+- **Target:** every character (per look) and every wearable item is a 3D model; items are fitted and dressed in 3D.
+- **Photostage:** a fixed 3D scene (camera, light, background / alpha) per view – A-pose, avatar, portrait, full – that
+  renders each look and each item layer (or each requested combination) in a build pipeline. Same camera + light for
+  everything → layers without drift; a new item = one model fitted to the bodies, then a render run, no generation.
+- **The viewer stays 2D** (sprites from the photostage) unless the owner later decides on real-time 3D (three.js).
+- **2D layers per look** (Test A) are only the bridge until the 3D models exist; full renders per combination: no.
+- The same models feed storyboards (Unreal, pose references), live performance (`model3d` cues) and references.
+
+**First pipeline steps** (each after the owner's go on cost): 1. one Katzenpapst look + one item from image → mesh →
+rig (Tripo free credits or a RunPod day), judged against the painted A-pose; 2. a photostage in Blender (headless,
+`blender -b stage.blend --python render.py`, the local GPU is enough) that renders the A-pose and the item layer at
+768 × 1152 with alpha; 3. compare the render with the painted look – then decide the face / texture fix workflow.
 
 ## 6. Owner decisions
 
 - [ ] Spend ≈ $2.50 (cap $4) on Luma for the paid Test A (+ the 8 Test B combinations for comparison)?
 - [ ] 3D test: create a Tripo account (free credits – only the owner can sign up) or a RunPod day (≈ $4.50, cap $8)?
-- [ ] Layers keyed per look (`catpope_tourist`) – i.e. every look carries its own A-pose and its own item layers?
+- [ ] Photostage views: which views get rendered (A-pose, avatar, portrait, full) and at which sizes?
 - [ ] Colour variants: one layer recoloured locally (cheap, exact) or one generation per colour?
-- [ ] Stay with "no in-app AI" (no on-demand generation when a reader dresses)?
 - [ ] Head region: no head item exists yet – which item for the tests (sunglasses = face)?

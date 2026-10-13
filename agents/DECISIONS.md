@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-13 · assets · Characters and wearable items go full 3D eventually (every model and item); dressing happens in 3D, and unless the viewer gets 3D characters a photostage renders each view in a build pipeline · "i would go full 3d for all models and items at some point … we use a photostage and render each view in a build pipeline" · → research/DRESS-UP.md
 - 2026-10-12 · catalog · "Submits for review" on ANY toon also covers cross-toon (`toon: null`) catalog changes, non-physical ones included (refines D3: grants still only by `*` rules); their requests go to `*` reviewers · owner via the coordinator · → Domain\Content\Reviews::policy, research/CATALOG-IN-CREATOR.md
 - 2026-10-12 · admin · The review rules read as what the account does: "Reviews publishing requests" (reviewer) and "Publishes physical items" (physical) grant, "Submits for review" (needs_review) restricts; stored ids unchanged · "Reviews publishing requests – the other one should be [like that]" · → admin Users → Reviews, Domain\Content\Reviews
 - 2026-10-12 · catalog · D6 changed: the admin's items / recipes / albums / products / editions tabs go now (not read-only first); the admin's catalog page keeps the "edited in the creator" note + link and "Shop & codes" (toons, permissions, code types, meta; featured on Homepage) · owner via the coordinator · → research/CATALOG-IN-CREATOR.md (D6)
