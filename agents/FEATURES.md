@@ -81,6 +81,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   enforced). `decide`. An onion item in the catalog is needed before onions can respawn (onion camera parked to Feb 2027).
 - [ ] 10.78 **[owner] Text-free season cover art** – upload it and switch the cover editor's lettering on (DESIGN
   "cover editor"); lettering-free re-exports of the media in DATA.md "Audit" too.
+- [ ] 10.96 **Gift invites** – owner 2026-10-13: "Do you want to invite them? … invite them with a promo code". A gift
+  to an address without an account waits (30 days) and SCUTOONS mails a personal invite code; recallable; switched on in
+  the admin with an optional from / until (a campaign). Plan + Q1–Q3: research/GIFT-INVITES.md.
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
