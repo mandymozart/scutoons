@@ -48,7 +48,6 @@
 		"dev:shop": "npm run dev -w shop",
 		"dev:embassy": "npm run dev -w embassy",
 		"dev:studio": "npm run dev -w workflows/storyboard-studio",
-		"dev:sketch3d": "node tools/sketch3d/server.mjs",
 		"dev:api": "node server/bin/dev-serve.mjs",
 		"dev:qr": "php scripts/dev/php-serve.php qr qr/public qr/public/router.php",
 		"check": "npm run check:ports && npm run check:tools-css && npm run check --workspaces --if-present",

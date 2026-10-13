@@ -2,15 +2,15 @@ Status 2026-10-13: learnings from a dropped experiment (owner: "we keep the lear
 
 # CHARACTERS3D — 3D models of the cast: what the sketch → 3D experiment taught us, where to go
 
-tools/sketch3d (2026-10-09…13, on `main`, not developed further): front A-pose (+ 90° side profile) → silhouette →
+tools/sketch3d (2026-10-09…13; removed – the code: `git show f535aeb8:tools/sketch3d/<file>`, e.g. core/rig.js): front A-pose (+ 90° side profile) → silhouette →
 inflated low-poly mesh → auto-rig with figures.js's joints → GLB. Local, no service, no ML. The models weren't good
 enough (owner: "kind of stupid actually and didnt work as i hoped"); the cast's models come from artists
 (FEATURES 10.95). The ideas below are worth reusing.
 
 ## What worked – reuse
 - **figures.js's joint names as the contract.** A model rigged with `pelvis, spine, chest, neck, head, sh/el/wr L|R,
-  hip/kn/an L|R` (+ `robe`) is posed by the storyboard's pose table as it is (`pose()` in figures.js; it now exports
-  `humanPoses`). L = the figure's left = +x, it faces +z, metres, feet on y = 0. → the spec for artists' models.
+  hip/kn/an L|R` (+ `robe`) is posed by the storyboard's pose table as it is (`pose()` in figures.js; the pose names are
+  the keys of its `HUMAN` table). L = the figure's left = +x, it faces +z, metres, feet on y = 0. → the spec for artists' models.
 - **Bind pose = A-pose, rest = limbs down.** The shoulder / hip bones carry the A angle as their rest rotation (z), so
   the pose table's angles (0 = hanging down) apply unchanged. The pelvis height is scaled to the figure's own
   (`p.y` drops of the pose table assume 0.98 m) – core/rig.js `skinnedFigure`, public/app.js `applyPose`.
