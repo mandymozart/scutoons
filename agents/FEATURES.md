@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.94**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.95**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -49,6 +49,11 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   own tiles, the generation process has to run on the server – for now that is insane") – today `scripts/map-paint.mjs`
   runs locally (Luma per region, headless Chrome assembles, coast mask, plaster, the tile pyramid, `assets:sync`).
   Server-side would need a job queue, a canvas / image library instead of Chrome, the Luma key and costs per editor. Not now.
+- [ ] 10.94 **Map: a place grid in the dioramas' perspective (someday)** (owner 2026-10-13: "keep it for now – if it ever
+  gets more complex we shift everything to real 3D, there it doesn't matter anymore") – the map's hexagons are regular
+  (top-down), the dioramas 3/4 isometric (bases ~0.6 flatter): a squashed place grid would make every base sit on its
+  cells (hexCenter / hexCellAt / hexCorners / placeCells + a flattening factor; regions stay on the regular grid or get
+  converted). Parked: for now the guide per diorama (MAP.md §8.11, anchor ~50/57).
 - [ ] 10.92 **Map regions: after the deploy** (built 2026-10-12, MAP.md §8.10) – [owner] review the seven pre-drawn
   region drafts in the map builder (covers with the brush, names, claims, greetings, representatives) and publish them;
   `decide`: the next sign round in the industrial style (references in §8.10, Luma ≈ $0.10 each); regions shown in the
