@@ -1,4 +1,4 @@
-Status 2026-10-13: RESEARCH – direction decided (owner 2026-10-13): full 3D for all characters and items, dressed in 3D, rendered per view on a photostage in a build pipeline (§5). Paid tests still wait for the owner's go. Nothing built into the app.
+Status 2026-10-13: CLOSED – concluded by the owner's decision (2026-10-13, DECISIONS.md): full 3D for all characters and items, dressed in 3D, a photostage renders each view in a build pipeline (§5). The paid tests were not run; §5 lists the first steps and §6 the questions for when the 3D work starts. The test images were removed (git history).
 
 # DRESS-UP — looks with their A-pose + an avatar that dresses per region
 
@@ -38,17 +38,14 @@ look, items only in the avatar page's slots, no overlay) is built by another ses
 
 ## 2. Test A – 2D layers per look (free part: the existing overlays)
 
-![Layers per look](dress-up/test-a-layers-per-look.jpg)
-![Swim look vs tourist look, same layers](dress-up/zoom-swim-vs-tourist.jpg)
-
-- **On the look they were made for, layers work** (tile 2): T-shirt, shorts, sandals extracted from the dressed
+- **On the look they were made for, layers work** : T-shirt, shorts, sandals extracted from the dressed
   reference sit on the swim A-pose within 1–3 px; light and material match because they came out of the same render.
-- **On another look of the same character they don't** (tiles 4, 5, zoom): the tourist A-pose is a different render –
+- **On another look of the same character they don't** : the tourist A-pose is a different render –
   bigger head, wider shoulders, thicker arms, other leg stance, no visible tail. The same layers leave the tourist's
   own sleeves peeking under the shirt, its blue shorts between the legs, its sandals beside the layer's sandals. The
-  outline drift (tile 5) is 10–40 px at 768 × 1152. **So layers are per look (per A-pose image), never per character** –
+  outline drift is 10–40 px at 768 × 1152. **So layers are per look (per A-pose image), never per character** –
   which confirms the owner's "a poses come per look".
-- **An item without a layer** (tile 6, today's fallback): the icon at the slot anchor – readable, not "dressed".
+- **An item without a layer** (today's fallback): the icon at the slot anchor – readable, not "dressed".
 - **The paid part** (not run, ≈ $1.50): per look the A-pose (Luma `image_edit`, source = an existing A-pose, image 1 =
   the look's full image, "same pose, same light") and per item `image_edit` "put on image 1, change nothing else" →
   the layer = the difference to the base (the swim − naked method of ITEMS.md, which gave clean layers). Risk: Luma
