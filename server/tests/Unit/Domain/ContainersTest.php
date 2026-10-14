@@ -140,6 +140,27 @@ final class ContainersTest extends TestCase
         self::assertSame(0, $this->inventory->count($this->id, 'songbook_diy'));
     }
 
+    /** owner 2026-10-14: "the scores go along with the book" – what can't be given stays with the giver, loose */
+    public function testAGiftedBookTakesItsScoresAlong(): void
+    {
+        $this->get(CatalogAdmin::class)->put('items', 'score_private', ['id' => 'score_private', 'name' => ['en' => 'p'], 'kind' => 'virtual', 'category' => 'score',
+            'icon' => 'p.png', 'stackable' => false, 'starter' => false, 'grantable' => ['story'], 'slot' => null, 'skills' => [], 'giftable' => false], 'test');
+        $giver = $this->db->one('SELECT * FROM users WHERE id = ?', [$this->id]) ?? [];
+        $friend = $this->user('friend@example.com');
+        [$book] = $this->add('songbook_diy', 1, 'red');
+        $scores = [...$this->add('score_a', 2), ...$this->add('score_private')];
+        foreach ($scores as $s) $this->containers->move($this->id, ['entry_id' => $s, 'into' => $book, 'overfill' => true]);
+        $gift = $this->get(\Scutoons\Domain\Ownership\Gifts::class)->gift($giver, ['entry_id' => $book, 'to' => 'friend@example.com']);
+        self::assertSame(['went' => 2, 'stayed' => 1], $gift['contents']);
+        $theirs = $this->inventory->entries((string) $friend['id']);
+        $theirBook = array_values(array_filter($theirs, fn($e) => $e['id'] === $book))[0];
+        self::assertSame(['songbook_diy', 'red'], [$theirBook['item_id'], $theirBook['variant']]);
+        self::assertNotNull($theirBook['aged_since'], 'the age goes along');
+        self::assertNull($theirBook['overfilled_at'], 'two scores: no longer overfilled');
+        self::assertCount(2, array_filter($theirs, fn($e) => $e['in'] === $book));
+        self::assertNull($this->entry($scores[2])['in'], 'the private score stays with the giver, loose');
+    }
+
     public function testAUsedUpContainerLetsItsContentFallOut(): void
     {
         [$book] = $this->add('songbook_small');

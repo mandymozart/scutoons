@@ -77,7 +77,7 @@ final class Containers
     }
 
     /** Sets / clears a container's `overfilled_at` from what it holds now (back to `max` = saved). */
-    private function recount(string $userId, string $containerId): void
+    public function recount(string $userId, string $containerId): void
     {
         $container = $this->db->one('SELECT id, item_id, overfilled_at FROM inventory WHERE id = ? AND user_id = ?', [$containerId, $userId]);
         if (!$container) return;
