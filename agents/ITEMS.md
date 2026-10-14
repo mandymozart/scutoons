@@ -132,6 +132,11 @@ unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card
 - Creator: catalog tab "Home scenes" (`home-scene:<id>` documents, migration `2026-10-14-homes_scene_docs`; 1080p + 4K
   stills, an optional video loop), the item form's "Furniture" (size, home picture, workbench) and "Takes you home (VR
   headset)", the recipe's "Only at a workbench", the character page's "Home" (a map place) and "Home looks like".
+- Rides (step 2, research/CAVE.md D8): a map route with `network: subway | tram | airlift` is a line (its places = the
+  stops; never walked – `walkPath` skips it), drawn in its network's look (the airlift in the `sky` layer over the places);
+  the place card offers a ride from the avatar's stop along that network (`ridePath`), the fare in cucumbers
+  (`RIDE_PRICES` tram 1 / subway 2 / airlift 3 – proposed) paid first: members `POST /api/map/ride { network }`, guests on
+  the device. The map builder sets a route's "Line (rides)".
 - Guests: their homes on the device (`guest:<place>`, no WG, no visit links); furniture placed as a guest comes into
   the account loose (the import doesn't carry `home`).
 - Catalog `home_scenes` (admin kind `home-scenes`, served in `GET /api/items/`): `{ id, name, image: { src, variants },
