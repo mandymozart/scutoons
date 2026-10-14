@@ -38,6 +38,9 @@ agents/DECISIONS.md. A change to how agents work changes this file in the same c
   never as the owner, never in the owner's browser tab – open your own (`tabs_create`). Never paste tokens anywhere.
 - **Done = green:** `npm run check` (0 errors), `check:tools-css`, server PHPUnit + PHPStan, the builds of the apps you
   touched, plus the named `check:*` browser script of the area. Breakage another task caused: report it, don't skip it.
+- **Restarting the SCUTOONS MCP is allowed** (owner 2026-10-14: "i allow you to do it … give all agents that rule"):
+  after a change in tools/mcp, stop only YOUR session's server (the `scutoons-mcp.mjs` node process whose parent is
+  your session's claude.exe, + its child) – it restarts by itself; never another session's. How: agents/GOTCHAS.md.
 - Tool traps (Windows, heredocs, paraglide, vite preview …): agents/GOTCHAS.md.
 
 ## Working with the owner

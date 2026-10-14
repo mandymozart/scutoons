@@ -87,7 +87,8 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   reused by live mode. Plan: research/SCORES.md. Built: model, server, catalog editor fields, vault uploads, the reader's score view /
   cover lettering / ageing, and the viewer inventory as a DRAFT for the owner's look (containers, Put into / Take out,
   drag on desktop, scores Open / PDF). [owner] bunny vault: secrets BUNNY_PROTECTED_CDN_KEY, BUNNY_PROTECTED_STORAGE_PASSWORD,
-  variables PROTECTED_CDN_URL, BUNNY_PROTECTED_STORAGE_ZONE (deploy/README.md); the real score / song book items.
+  variables PROTECTED_CDN_URL, BUNNY_PROTECTED_STORAGE_ZONE (deploy/README.md); the six score items are production drafts (item:cloud9_en … item:roarlittlekitty_en, files in the vault) – [owner]
+  publish them; the song book items and the Luma images (research/SCORES.md) next.
 - [ ] 10.98 **The avatar's home + a walking mode** – owner 2026-10-14: "not inventory but cave... the home of the
   avatar". A home per character on the world map (a WG of up to 5 avatars), its look a home scene (`cave`,
   `tatami_room`), furniture placed freely (racks, a workbench); the avatar walks there or rides for cucumbers (step 2);
