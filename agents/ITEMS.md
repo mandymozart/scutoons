@@ -1191,7 +1191,7 @@ listen, download; validation `validateAlbums` (inside `validateCatalog`) + `chec
 - **Record (item detail)** with a record player: "Abspielen" / "Play" → the audio player plays the album's tracks in
   order as a little playlist (owner 2026-10-14: "play the whole album"; record-player.svelte): "Spielt: Cloud 9 ·
   Awakening", n / N, back / next, a turntable – the record turns, the tonearm moves in as the song plays and lifts
-  between songs (still under reduced motion); it stops after the last song; a vault track is signed when it starts
+  between songs (still under reduced motion); after the last song it starts again (owner 2026-10-14: loop); a vault track is signed when it starts
   (the URLs live ten minutes); "Album herunterladen" when
   `access.download` allows it. Without one: "Zum Abspielen brauchst du einen Plattenspieler." / "You need a player to
   play it: Record player." (the player's catalog name) + "Album herunterladen". No "Benutzen" any more.

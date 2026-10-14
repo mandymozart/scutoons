@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ARM_REST, armAngle, nextTrack, previousTrack } from '../src/lib/components/items/playlist.ts';
 
-test('the album plays in order and stops after the last song', () => {
+test('the album plays in order and starts again after the last song', () => {
 	assert.equal(nextTrack(0, 6), 1);
 	assert.equal(nextTrack(4, 6), 5);
-	assert.equal(nextTrack(5, 6), null);
-	assert.equal(nextTrack(0, 1), null);
+	assert.equal(nextTrack(5, 6), 0);
+	assert.equal(nextTrack(0, 1), 0);
+	assert.equal(nextTrack(0, 0), null);
 });
 
 test('back: restarts a song a few seconds in, else the one before; the first song only restarts', () => {

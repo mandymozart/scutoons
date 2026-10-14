@@ -1,9 +1,10 @@
 // The record player's playlist (owner 2026-10-14: "play the whole album – like a little playlist, or an animation on
 // the record player"): which track comes next, what "back" does, where the tonearm sits. Pure – test/playlist.test.ts.
 
-/** the track after `index` of `count`; null at the album's end (it stops there – no loop) */
+/** the track after `index` of `count`: after the last song the album starts again (owner 2026-10-14: loop); null
+ *  only without tracks */
 export function nextTrack(index: number, count: number): number | null {
-	return index + 1 < count ? index + 1 : null;
+	return count > 0 ? (index + 1) % count : null;
 }
 
 /** "back": a few seconds into a song it starts the song again (like a CD player), at its start the one before */

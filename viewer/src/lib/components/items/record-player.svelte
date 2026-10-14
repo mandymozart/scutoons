@@ -9,7 +9,7 @@
 	 * The audio player at the bottom (owner 2026-10-14: "play the whole album – like a little playlist, or an animation on
 	 * the record player"): the album's songs one after another, the song's title and n / N, back / next, and a small
 	 * turntable – the record (the album's cover as its label) turns while it plays, the tonearm sits on the outer groove at a
-	 * song's start and moves in as it plays, lifting off between songs. It stops after the last song. A vault track gets
+	 * song's start and moves in as it plays, lifting off between songs. After the last song the album starts again. A vault track gets
 	 * its signed address only when it starts (`request.sign` – the addresses live ten minutes, an album runs longer).
 	 * Reduced motion: the record stands still, the arm jumps.
 	 */
@@ -54,10 +54,15 @@
 		if (gap) clearTimeout(gap);
 		gap = null;
 		changing = false;
+		// the same song again (a one-song album looping): its address stays, so start it over by hand
+		if (i === index && audio) {
+			audio.currentTime = 0;
+			void audio.play().catch(() => {});
+		}
 		index = i;
 	}
 
-	/** a song ended: lift the arm a moment, then the next one – or rest after the last */
+	/** a song ended: lift the arm a moment, then the next one (after the last: the first again) */
 	function ended() {
 		const next = nextTrack(index, count);
 		playing = false;
@@ -112,7 +117,7 @@
 	{#if count > 1}
 		<div class="skip">
 			<IconButton label={m['items.previous_track']()} onclick={back} data-testid="audio-prev"><Icon name="skip-back" /></IconButton>
-			<IconButton label={m['items.next_track']()} disabled={index >= count - 1} onclick={() => go(index + 1)} data-testid="audio-next"><Icon name="skip-forward" /></IconButton>
+			<IconButton label={m['items.next_track']()} onclick={() => go(nextTrack(index, count) ?? 0)} data-testid="audio-next"><Icon name="skip-forward" /></IconButton>
 		</div>
 	{/if}
 	<button class="close" onclick={onclose} aria-label={m['items.close']()}><CloseIcon size="1rem" /></button>
