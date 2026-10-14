@@ -72,8 +72,7 @@ its property (`holds`). Items to set up (admin catalog, as a proposal the admin 
 | `songbook_diy` | container, `holds: score`, `max: 25`; plain or a colour variant; **ages** (below) | output of the recipes |
 | `songbook_diy_large` | the upgraded DIY book, `max: 99`; plain or a colour variant; ages too |
 | `songbook_diy_broken` | what an overfilled DIY book becomes; the colour variants; holds nothing | a recipe input |
-| `diy_market_coupon` | a DIY-market voucher (Baumarkt-Gutschein), consumed | obtained like the parts (placed / campaign gift) – not the city's repair coupon |
-| recipe `songbook_diy_repair` | songbook_diy_broken (colour X) + diy_market_coupon → songbook_diy (colour X, the old age and look) | | owner 2026-10-14: "it can be upgraded with bigger zip ties" |
+| repair | songbook_diy_broken (colour X) → songbook_diy (colour X, the old age and look) | **only at a friend's cave with a workshop** (owner 2026-10-14: "or only at a friends cave with a workshop. thats better" – replaces the DIY-market voucher); waits for the cave (research/CAVE.md, its own session) | owner 2026-10-14: "it can be upgraded with bigger zip ties" |
 | recipe `songbook_diy` | drill (kept) + 4 × zip_tie → songbook_diy (plain) | |
 | recipe `songbook_diy_colour` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | the output takes the plastic's colour; a book with scores keeps them (owner 2026-10-14: "why would they leave the book?"); the same for `songbook_diy_large` |
 | recipe `songbook_diy_upgrade` | songbook_diy (any colour) + 4 × zip_tie_large → songbook_diy_large (the same colour) | no drill (owner 2026-10-14: "no drill needed for upgrade only 4 large zip ties"); the colour and the scores carry over |
@@ -93,7 +92,7 @@ inventory is next read (no timer needed); guests: the same check in their device
 (owner 2026-10-14: "broken song book is good. can be fixed. but not with a repair gutschein, but with a diy market
 gutschein"): the scores fall out loose into the inventory, the entry turns into `songbook_diy_broken` (the same colour
 variant; `overfill.breaks_into` names it). Only the DIY book can break (the upgraded one's 99 is already the ceiling).
-Q13 (c): does emptying in time save it?
+Until the cave exists a broken book stays broken. Q13 (c): does emptying in time save it?
 
 **The DIY book ages** (owner 2026-10-14: "the diy one ages really bad. so older ones have a tinted color on each score
 and spots"). An item fundamental: `ages: { full_days }` on the item – the age = now − the entry's creation (the craft),
