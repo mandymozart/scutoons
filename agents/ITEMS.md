@@ -124,7 +124,11 @@ Built: the catalog model and the server (2026-10-14); the admin fields and the r
 ### Homes and furniture (model + server, 2026-10-14 – research/CAVE.md, FEATURES 10.98)
 
 `@scutoons/content` homes.ts (validated in `validateHomes` and the server's `CatalogValidator`); server
-`Domain\Homes\Homes`, migration `2026-10-14-homes`. The reader UI and the walking mode follow.
+`Domain\Homes\Homes`, migration `2026-10-14-homes`. Reader: `HomeView` (@scutoons/reader, full screen – live mode
+reuses it) opened by the viewer's home host: "Eintreten" at the avatar's home place, the VR headset (`enter_home`), a
+visit link `?visit=<token>`. The map: the avatar's marker (`map-avatar.svelte`) walks along visible routes between
+unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card's "Hingehen" / "Nach Hause gehen" /
+"Eintreten" (`home-actions.svelte`); the home place is always shown for its avatar.
 - Catalog `home_scenes` (admin kind `home-scenes`, served in `GET /api/items/`): `{ id, name, image: { src, variants },
   video? }` – 1080p `src`, 4K `variants.high`, a video loop optional; first rows `cave`, `tatami_room` (no pictures yet).
 - `furniture: { size 5–60 (% of a 4 m room front), image, workshop? }` on a `category: "furniture"` item (never

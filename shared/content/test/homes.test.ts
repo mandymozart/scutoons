@@ -10,6 +10,7 @@ import {
 	setAvatarPosition,
 	validateCatalog,
 	walkPath,
+	walkPoints,
 	type ItemDef,
 	type RouteLike
 } from '../src/index.ts';
@@ -44,6 +45,21 @@ test('no walk to a locked place or along a hidden route (no spoilers)', () => {
 	revealed.routes.secret.revealed = 1;
 	assert.deepEqual(walkPath(routes, revealed, 'cathedral', 'crypt', () => true)?.map((s) => s.place), ['crypt']);
 	assert.equal(walkPath(routes, state, 'home', 'cathedral', (id) => id !== 'square'), null, 'a locked place in between blocks the way');
+});
+
+test('the walk’s points follow the route, free points included, either direction', () => {
+	const places = [
+		{ id: 'home', x: 0, y: 0 },
+		{ id: 'square', x: 10, y: 0 },
+		{ id: 'cathedral', x: 20, y: 0 }
+	];
+	const withBend: RouteLike[] = [{ id: 'ring', waypoints: [at('home'), { id: 'bend', x: 5, y: 5 } as any, at('square'), at('cathedral')] }];
+	const steps = walkPath(withBend, state, 'cathedral', 'home', open)!;
+	assert.deepEqual(
+		walkPoints(places, withBend, steps).map((p) => [p.x, p.y]),
+		[[20, 0], [10, 0], [5, 5], [0, 0]]
+	);
+	assert.deepEqual(walkPoints(places, withBend, []), []);
 });
 
 test('furniture is smaller further back', () => {

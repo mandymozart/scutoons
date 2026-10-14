@@ -3,7 +3,7 @@
 // `tatami_room`); furniture = items standing in a home; a WG = a home several of the reader's avatars share.
 import type { Localized } from './items.ts';
 import type { QualityVariants } from './media-quality.ts';
-import { isPlaceWaypoint, routeDrawnTo, type MapState, type RouteLike } from './map.ts';
+import { isPlaceWaypoint, routeDrawnTo, routePoints, type MapState, type Point, type RouteLike } from './map.ts';
 
 /**
  * A home scene's file at the reader's media quality (media-quality.ts `pickQualityVariant`): `src` = 1080p (low and
@@ -113,6 +113,22 @@ export function walkPath(routes: readonly RouteLike[], state: MapState, from: st
 	if (!back.has(to)) return null;
 	const out: WalkStep[] = [];
 	for (let link = back.get(to); link; link = back.get(link.prev)) out.unshift(link.step);
+	return out;
+}
+
+/**
+ * The world points a walk passes (the avatar's marker follows them): each stretch along its route's waypoints – free
+ * points included, either direction – without repeating the place where two stretches meet.
+ */
+export function walkPoints(places: readonly { id: string; x: number; y: number }[], routes: readonly RouteLike[], steps: readonly WalkStep[]): Point[] {
+	const out: Point[] = [];
+	for (const step of steps) {
+		const route = routes.find((r) => r.id === step.route);
+		if (!route) continue;
+		const points = routePoints(places, route.waypoints, Math.min(step.from, step.to), Math.max(step.from, step.to));
+		if (step.from > step.to) points.reverse();
+		out.push(...(out.length ? points.slice(1) : points));
+	}
 	return out;
 }
 

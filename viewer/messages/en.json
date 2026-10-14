@@ -621,6 +621,13 @@
 		"err_in_container": "Take it out first.",
 		"err_needs_workshop": "This can only be made at a workbench.",
 		"err_failed": "That didn't work.",
-		"repaired": "Done: {name} is in your inventory."
+		"repaired": "Done: {name} is in your inventory.",
+		"your_home": "Your home",
+		"avatar_here": "Your avatar is here.",
+		"enter": "Enter",
+		"enter_vr": "Enter with the VR headset",
+		"walk_here": "Walk here",
+		"walk_home": "Walk home",
+		"walking": "Walking …"
 	}
 }

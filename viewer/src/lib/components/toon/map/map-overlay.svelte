@@ -8,6 +8,11 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { getHomesContext } from '$lib/contexts/homes.svelte.ts';
+	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
+	import { walkPath, walkPoints, type Point } from '@scutoons/content';
+	import MapAvatar from './map-avatar.svelte';
+	import HomeActions from './home-actions.svelte';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 	import { untrack } from 'svelte';
 	import { MAP_FOCUS_EVENT, flightAt, loadMapView, openingView, readerHere, saveMapView, type StoredMapView } from './map-view.ts';
@@ -50,7 +55,22 @@
 	const view = new MapViewport();
 	const mapState = $derived(world?.map ?? { places: {}, routes: {}, positions: {} });
 
-	const places = $derived((data?.locations ?? []).filter((p) => isPlaceVisible(p, mapState)));
+	// ── the reader's own avatar: its home, where it stands, walking (research/CAVE.md D1, D2) ──────────────────
+	const homes = getHomesContext();
+	const inventory = getInventoryContext();
+	$effect(() => {
+		if (open) void homes?.load();
+	});
+	const homePlace = $derived(homes?.homeOf(inventory?.currentBody?.character)?.place);
+	/** where the avatar stands: its last walk, else its home */
+	const avatarAt = $derived(mapState.avatar && 'location' in mapState.avatar ? mapState.avatar.location : homePlace);
+	/** the avatar walks between unlocked places and its home only – no spoilers */
+	const walkable = (id: string) => !!mapState.places[id] || id === homePlace;
+	let walking = $state<{ points: Point[]; ms: number; to: string } | null>(null);
+	const hasVr = $derived(!!inventory?.entries.some((e) => inventory.item(e.item_id)?.skills?.some((s) => s.type === 'enter_home')));
+
+	// visible = not hidden, or unlocked – and the avatar's home is always there for it
+	const places = $derived((data?.locations ?? []).filter((p) => isPlaceVisible(p, mapState) || p.id === homePlace));
 	const visibleIds = $derived(new Set(places.map((p) => p.id)));
 	const own = (p: ReaderPlace) => p.toons?.includes(toon);
 	const routes = $derived<DrawnRoute[]>(
@@ -309,6 +329,20 @@
 		return !!card && !!p && 'location' in p && p.location === card.id;
 	});
 
+	const cardPath = $derived(card && avatarAt && data ? walkPath(data.routes ?? [], mapState, avatarAt, card.id, walkable) : null);
+	function walkTo() {
+		if (!card || !data || !cardPath?.length) return;
+		walking = { points: walkPoints(data.locations, data.routes ?? [], cardPath), ms: 1200 * cardPath.length, to: card.id };
+	}
+	function walked() {
+		if (walking) world?.avatarTo({ location: walking.to });
+		walking = null;
+	}
+	function enterHome(how: 'there' | 'vr') {
+		onclose();
+		void homes?.openOwn(how);
+	}
+
 	function select(p: ReaderPlace) {
 		// a new place (its dot / halo): its reveal first – the card comes with the next tap
 		if (onreplay && !revealing && isPlaceNew(p.id, mapState) && own(p)) return onreplay(p.id);
@@ -433,6 +467,9 @@
 					</div>
 				{/each}
 			</div>
+			{#if inventory?.currentBody}
+				<MapAvatar {view} at={data.locations.find((p) => p.id === avatarAt) ?? null} walk={walking} image={asset(inventory.currentBody.path)} ondone={walked} />
+			{/if}
 			<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12): where a route runs in and out -->
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} layer="gates" />
 			<div class="labels" aria-hidden="true">
@@ -485,6 +522,7 @@
 					{cardChapter === 0 ? m['map.read_prologue']() : m['map.read_chapter']({ number: cardChapter })}
 				</a>
 			{/if}
+			<HomeActions place={card.id} at={avatarAt} home={homePlace} reachable={!!cardPath?.length} walking={!!walking} vr={hasVr} onwalk={walkTo} onenter={enterHome} />
 		</section>
 	{/if}
 </div>

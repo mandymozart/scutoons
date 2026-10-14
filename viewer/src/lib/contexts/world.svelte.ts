@@ -30,6 +30,7 @@ import {
 	moveResident,
 	revealRoute,
 	setPosition,
+	setAvatarPosition,
 	unlockPlace,
 	type MapPosition,
 	type ReadingSpotRef
@@ -290,6 +291,12 @@ export function createWorldContext(session: SessionContext | null) {
 		save();
 	}
 
+	/** The reader's own avatar walked somewhere (the walking mode – research/CAVE.md D1) */
+	function avatarTo(where: Omit<MapPosition, 'at'>) {
+		setAvatarPosition(state.map, where, Date.now());
+		save();
+	}
+
 	/** the world's places with their names (the reader's language) once the map data is there – texts read `map.total` / `map.here` */
 	let places = $state<readonly { id: string; name?: string }[] | null>(null);
 	/** The world's places (id + name), set once the map data is loaded (toon/map/map.svelte) */
@@ -332,6 +339,7 @@ export function createWorldContext(session: SessionContext | null) {
 		reveal,
 		resetMap,
 		position,
+		avatarTo,
 		sync,
 		destroy() {
 			unsubscribe();

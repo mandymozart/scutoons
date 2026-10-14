@@ -621,6 +621,13 @@
 		"err_in_container": "Nimm es zuerst heraus.",
 		"err_needs_workshop": "Das geht nur an einer Werkbank.",
 		"err_failed": "Das hat nicht geklappt.",
-		"repaired": "Fertig: {name} ist in deinem Inventar."
+		"repaired": "Fertig: {name} ist in deinem Inventar.",
+		"your_home": "Dein Zuhause",
+		"avatar_here": "Dein Avatar ist hier.",
+		"enter": "Eintreten",
+		"enter_vr": "Mit der VR-Brille hinein",
+		"walk_here": "Hingehen",
+		"walk_home": "Nach Hause gehen",
+		"walking": "Unterwegs …"
 	}
 }
