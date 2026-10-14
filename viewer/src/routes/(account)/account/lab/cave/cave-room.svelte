@@ -7,7 +7,7 @@
 	import CavePanel from './cave-panel.svelte';
 	import Glyph from './glyph.svelte';
 	import RoomBackdrop from './room-backdrop.svelte';
-	import { depth, furn, type Placed, type Thing, thing } from './cave-things.ts';
+	import { depth, furn, type Furniture, type Placed, type Thing, thing } from './cave-things.ts';
 
 	let { visitor, where, onleave }: { visitor: boolean; where: string; onleave: () => void } =
 		$props();
