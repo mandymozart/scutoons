@@ -11,12 +11,15 @@
 	import type { InviteOffer } from '@scutoons/api';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
+	import ContainerActions from './container-actions.svelte';
+	import ScoreActions from './score-actions.svelte';
 
 	let {
 		entry,
 		onback,
-		oncombine
-	}: { entry: Entry; onback: () => void; oncombine: (entry: Entry) => void } = $props();
+		oncombine,
+		onopencontainer = () => {}
+	}: { entry: Entry; onback: () => void; oncombine: (entry: Entry) => void; onopencontainer?: (container: Entry) => void } = $props();
 
 	const inventory = getInventoryContext();
 	const ui = getItemsUiContext();
@@ -151,7 +154,7 @@
 	<button class="btn-back btn-clear" onclick={onback}>← {m['items.back']()}</button>
 
 	<div class="hero">
-		<ItemIcon srcs={[inventory.iconOf(entry), def?.icon ?? '']} name={inventory.nameOf(entry)} />
+		<ItemIcon srcs={[inventory.iconOf(entry), def?.icon ?? '']} name={inventory.nameOf(entry)} lettering={inventory.letteringOf(entry)} />
 	</div>
 
 	<h2>{inventory.nameOf(entry)}</h2>
@@ -181,6 +184,9 @@
 	</dl>
 
 	<div class="actions">
+		<!-- scores and containers (research/SCORES.md): open the score, its PDF; open a container, put into / take out -->
+		<ScoreActions {entry} />
+		<ContainerActions {entry} onopen={onopencontainer} />
 		{#if usable}
 			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
 		{/if}

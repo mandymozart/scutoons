@@ -209,6 +209,13 @@
 		e.preventDefault();
 	}
 
+	/** the view lives at the page's top level: opened from inside a panel (the inventory) it must not be clipped,
+	 *  positioned or recoloured by it */
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return { destroy: () => node.remove() };
+	}
+
 	let restoreFocus: Element | null = typeof document !== 'undefined' ? document.activeElement : null;
 	onDestroy(() => (restoreFocus as HTMLElement | null)?.focus?.());
 	const pageLabel = $derived(labels.page.replace('{page}', String(page)).replace('{pages}', String(pages)));
@@ -216,7 +223,7 @@
 
 <svelte:window {onkeydown} />
 
-<div class="score-view" role="dialog" aria-modal="true" aria-label={title} data-testid="score-view">
+<div class="score-view" use:portal role="dialog" aria-modal="true" aria-label={title} data-testid="score-view">
 	<header>
 		<IconButton label={labels.close} onclick={onclose} data-testid="score-close"><Icon name="x" /></IconButton>
 		<h2>{title}</h2>
@@ -337,11 +344,14 @@
 		cursor: default;
 	}
 
+	/* music is printed on paper: black on white in every theme */
 	.sheet {
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
 		user-select: none;
+		background: #ffffff;
+		color: #000000;
 	}
 
 	.swiper {

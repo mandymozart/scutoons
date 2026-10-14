@@ -18,7 +18,8 @@
 		"chapter": "Kapitel {number}",
 		"season_chapter": "Staffel {season} · Kapitel {number}",
 		"loading": "Geduld ...",
-		"cancel": "Abbrechen"
+		"cancel": "Abbrechen",
+		"close": "Schließen"
 	},
 	"upcoming_events": "Kommende Veranstaltungen",
 	"past_events": "Vergangene Veranstaltungen",
@@ -367,7 +368,26 @@
 		"invite_note_paid": "Die Person sieht deine E-Mail-Adresse.",
 		"invite_payment_done": "{name} für {email} wartet auf deine Zahlung – wir schicken dir die Zahlungsinfos per E-Mail.",
 		"ship_saved": "Danke – wir schicken dein Geschenk an diese Adresse.",
-		"invite_error_container_needs_account": "Etwas, in dem Dinge liegen, geht nur an jemanden mit Konto."
+		"invite_error_container_needs_account": "Etwas, in dem Dinge liegen, geht nur an jemanden mit Konto.",
+		"container_open": "Öffnen",
+		"container_put_in": "In {name} legen",
+		"container_take_out": "Aus {name} nehmen",
+		"container_full": "Da passt nichts mehr hinein (höchstens {max}).",
+		"container_overfilled": "Überfüllt – fällt bald auseinander.",
+		"container_back": "Zurück",
+		"move_failed": "Das hat nicht geklappt.",
+		"overfill_title": "Überfüllen?",
+		"overfill_warning": "Das Buch hält nur {max} Noten. Überfüllt fällt es in {days} Tagen auseinander – außer du nimmst vorher wieder welche heraus.",
+		"overfill_anyway": "Trotzdem hineinlegen",
+		"overfill_cancel": "Doch nicht",
+		"score_open": "Öffnen",
+		"score_pdf": "PDF herunterladen",
+		"score_failed": "Die Noten konnten nicht geladen werden.",
+		"score_larger": "Größer",
+		"score_smaller": "Kleiner",
+		"score_previous": "Vorherige Seite",
+		"score_next": "Nächste Seite",
+		"score_page": "Seite {page} von {pages}"
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

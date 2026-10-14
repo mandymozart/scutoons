@@ -26,7 +26,7 @@
 	async function craft() {
 		if (!recipe) return;
 		crafting = true;
-		const result = await inventory.craft(recipe);
+		const result = await inventory.craft(recipe, { [first.item_id]: first.id, [second.item_id]: second.id });
 		crafting = false;
 		if (result.ok) ondone(recipe.output.item);
 		else error = result.error === 'missing_inputs' ? m['items.combine_missing']() : m['claim.failed']();

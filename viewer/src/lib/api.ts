@@ -33,6 +33,8 @@ export const {
 	fetchCode,
 	claimCode,
 	craftRecipe,
+	moveEntry,
+	scoreFile,
 	grantItem,
 	takeItem,
 	importItems,
