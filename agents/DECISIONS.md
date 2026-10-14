@@ -6,6 +6,8 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · items · A score is always in one language: each language is its own edition (its own item, MusicXML + PDF); the cover shows the title in the score's own language · "a score is always in one language. you want to sing the german version, you get the german edition" · → research/SCORES.md §1
+- 2026-10-14 · items · Score files are protected: the server hands them out only to owners (signed short-lived URLs), not public CDN paths · "we will need a protection for this soon" · → research/SCORES.md §5
 - 2026-10-14 · items · Invite codes are ordinary promo codes (one per invite, linked to it) – no own code type; single use, the accept window and the reading time live in the invite row / the code's expires_at set at joining · "is it really different to promo?" · → research/GIFT-INVITES.md §4
 - 2026-10-14 · items · Only invite gifts wait (and can be recalled until accepted); gifts between members stay instant and final; the first version of gift invite campaigns includes physical items · "only invite codes wait", "first version should include physical items" · → research/GIFT-INVITES.md
 - 2026-10-14 · items · A campaign gift the member pays for is paid by hand: a mail to hello@, an admin sends a payment link or bank details, the gift stays on hold until an admin marks the payment received; uncleared after 30 days it expires · "a manual email send to the admin hello and ask them to send a money order link to the user, or a bank account. until that payment is cleared by an admin the gifting is on hold and expires after 30 days" · → research/GIFT-INVITES.md 1a

@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; waits for the owner on Q1–Q4; nothing built (FEATURES 10.97).
+Status 2026-10-14: plan; Q1 + Q4 decided, waits for the owner on Q2, Q3, Q5 and the renderer spike; nothing built (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -19,11 +19,14 @@ renderer … some scale option which can paginate if needed". The score view is 
   reader at the script; the item carries its own title.
 
 ## Proposal
-**1. The score = an item with a `score` field** (no new catalog table – one item per score, unlike albums with several
-carriers): category `score` (new `ItemCategory`), `score: { musicxml, pdf }` (CDN paths, admin slots in Catalog →
-Items like an album's download). `name` = the song title (locale map). `icon` = the shared cover (a blank songsheet);
-`ItemIcon` letters `name` in the reader's language onto it – in the inventory, the song book, the item detail and on
-the slice (sized with the rect, container-query units – rem rule).
+**1. The score = an item with a `score` field, in ONE language** (owner 2026-10-14: "a score is always in one
+language. you want to sing the german version, you get the german edition"): no new catalog table, one item per
+edition – the German and the English edition of a song are two items. Category `score` (new `ItemCategory`),
+`score: { language, musicxml, pdf }` (admin slots in Catalog → Items like an album's download). `icon` = the shared
+cover (a blank songsheet); `ItemIcon` letters the title **in the score's own language** (`name[score.language]`) onto
+it – the edition's real title, whatever the reader's language – in the inventory, the song book, the item detail and
+on the slice (sized with the rect, container-query units – rem rule). The media rule holds: the files are one
+language because the edition is.
 
 **2. The song book = a lens, not a container.** Items don't nest today, and a real container (scores moved "into" an
 item) would change the inventory model, the server's grants, gifting and guest import. Instead: the song book is an
@@ -51,21 +54,23 @@ view, "PDF herunterladen" (the print file).
   the live musician gets this for free), "PDF" download, close. Re-renders on resize / rotation, keeps the page.
 - Lives in `@scutoons/reader` (no app state) so live mode reuses it; the viewer wraps it.
 
-**5. Access.** Owning the score item = open + download. CDN files are public by path like album zips – the gate is
-the reader UI (same strength as `albumDownload`); good enough for sheet music? (Q4)
+**5. Access – protected** (owner 2026-10-14: "we will need a protection for this soon"). Built from the start:
+a file once on a public CDN path stays out there. The score files live outside the public paths; the API answers
+`GET /api/items/<item>/score/<pdf|musicxml>` only to a reader who owns the item (account or a guest's device
+inventory? – guests can't prove ownership to the server, so: members only, Q5) with a short-lived signed URL
+(bunny.net token authentication on a separate pull zone – [owner] enable it, the key goes to the server's env).
+Album downloads can move to the same path later.
 
 **6. Creator / admin.** Admin → Catalog → Items: the `score` slots (MusicXML, PDF), validation (both present, the
 MusicXML parses – a Verovio load test in the admin, the server checks extension + size). Creator: nothing new – a
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q1 lyrics per language:** a score's lyrics are text inside media. (a) One MusicXML + PDF for all languages
-  (recommended for now – the rule holds, a German song stays German); (b) per language with the source as fallback
-  (`score: { [locale]: { musicxml, pdf } }`) – an exception to the media rule.
 - **Q2 scores without a song book:** picked up before the reader has the book – (a) loose in the inventory, moving into
   the book once it is found (recommended), or (b) not pickable until then?
 - **Q3 one song book per toon or one for all toons** (`toon: null`)? Recommended: one for all, filtered by toon inside.
-- **Q4 access:** is a UI gate enough, or must the PDF / MusicXML be served by the API only to owners?
+- **Q5 guests:** a guest's inventory lives only on the device, the server can't check it – score files only for
+  members (a guest sees the cover + "Sign in to open"), or open the MusicXML in the view for guests and protect the PDF?
 
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, the `songbook` skill, validation + schemas, tests; a catalog
