@@ -53,7 +53,7 @@ final class Homes
         }
         $where = $this->whereTheyLive($userId);
         $homes = [];
-        foreach ($this->db->all('SELECT id, place, scene FROM homes WHERE user_id = ? ORDER BY created_at, id', [$userId]) as $h) {
+        foreach ($this->db->all('SELECT id, place, scene FROM homes WHERE user_id = ? ORDER BY created_at, place', [$userId]) as $h) {
             $homes[] = ['id' => $h['id'], 'place' => $h['place'], 'scene' => $h['scene'], 'residents' => array_keys($where, $h['id'], true)];
         }
         return ['homes' => $homes, 'max_residents' => self::RESIDENTS_MAX, 'mover' => self::MOVER_PRICE];
