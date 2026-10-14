@@ -7,6 +7,7 @@ to mark them superseded.
 
 ## 2026-10
 - 2026-10-14 · mail · Every new account mails the admin recipients: who signed up and with which code (+ its type), linked to the account · "email notifications if a new member signs up, and which code they used" · → PLATFORM.md "Emails"
+- 2026-10-14 · items · A DJ trolley will be a container for the records · "record box is a dj trolly. that is for sure" · → research/SCORES.md §2b
 - 2026-10-14 · items · The song book parts (drill, zip ties, plastic) come as placed items or as campaign gifts, for now · "for now they are placed items, or we gift them through campaigns" · → research/SCORES.md §2a
 - 2026-10-14 · items · What fits into a container is one rule per container item, edited in the admin: listed categories or listed item ids, plus a capacity; a new container needs no code · "can we decide what items can go into what containable item? with a simple rule we can edit? so creating new containers is easier" · → research/SCORES.md §2b
 - 2026-10-14 · items · Plastic (song book) colours: black, white, red, blue, light blue, orange, green, brown, mother-of-pearl; colouring a book keeps the scores inside · "red and blue and orange green and brown and light blue perlmut", "why would they leave book?" · → research/SCORES.md §2a

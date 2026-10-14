@@ -43,7 +43,9 @@ what containable item? with a simple rule we can edit? so creating new container
 with a `holds` rule, edited in admin → Catalog → Items ("Holds" in the item form):
 `holds: { categories?: ItemCategory[], items?: string[], max?: number }` – an item fits when its category is listed
 OR its id is listed; `max` = how many entries fit (none = no limit). Song book = `{ categories: ["score"], max: n }`;
-a pencil case later = `{ items: ["pencil", "eraser"] }`. Making a new container = filling in "Holds" on an item, no
+a pencil case later = `{ items: ["pencil", "eraser"] }`. Planned next to the song book (owner 2026-10-14: "that is
+for sure"): the **DJ trolley** (`dj_trolley`) holds the records (the media items with an album – a category rule
+`media`, or the record items listed; capacity open). Making a new container = filling in "Holds" on an item, no
 code. Validation: unknown categories / item ids warn, a container may not hold containers (no nesting). The reader's
 item detail shows where an item fits ("Passt in: Liederbuch"). If grouping by category is ever too coarse, item tags
 come later – not now (keep the configuration small).
