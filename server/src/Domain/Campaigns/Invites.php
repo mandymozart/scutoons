@@ -95,7 +95,8 @@ final class Invites
 
     /**
      * POST /api/invites { to, entry_id | item_id (+ variant), qty? } – the gift is the campaign's: no entry for a
-     * campaign item. 403 no_campaign · 400 invalid_email / self_gift / code_needs_account (+ Gifts::prepare) ·
+     * campaign item. 403 no_campaign · 400 invalid_email / self_gift / code_needs_account / container_needs_account
+     * (+ Gifts::prepare) ·
      * 409 has_account / already_invited · 429 daily_limit / campaign_limit / rate_limited · 410 sold_out.
      * @param array<string, mixed> $user
      * @param array<string, mixed> $body
@@ -114,6 +115,8 @@ final class Invites
         if ($c['gift'] === 'own') {
             $own = $this->gifts->prepare($userId, $body);
             if ($own['code'] !== null) throw new ApiError(400, 'code_needs_account', 'A piece with a code can only go to someone who has an account.');
+            // a container (research/SCORES.md) carries its contents along on a gift – not into a waiting invite (yet)
+            if (($own['item']['holds'] ?? null) !== null) throw new ApiError(400, 'container_needs_account', 'Something that holds other things can only go to someone who has an account.');
         }
         if ($offer['left'] < 1) {
             if ($this->campaigns->stockLeft($c) === 0) throw new ApiError(410, 'sold_out', 'The campaign has given away everything.');

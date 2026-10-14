@@ -91,7 +91,7 @@
 	 */
 	let inviteOffer = $state<InviteOffer | null>(null);
 	const GIFT_ERRORS = ['recipient_not_found', 'worn', 'cooldown', 'max_reached', 'daily_limit', 'self_gift', 'invalid_email', 'not_giftable'];
-	const INVITE_ERRORS = ['has_account', 'already_invited', 'campaign_limit', 'sold_out', 'no_campaign', 'daily_limit', 'code_needs_account'];
+	const INVITE_ERRORS = ['has_account', 'already_invited', 'campaign_limit', 'sold_out', 'no_campaign', 'daily_limit', 'code_needs_account', 'container_needs_account'];
 	const giftCount = $derived(Math.min(Math.max(1, giftQty), giftMax || 1));
 	async function sendGift(event: SubmitEvent) {
 		event.preventDefault();
@@ -110,7 +110,7 @@
 			return;
 		}
 		// a campaign with the member's own item, invites left, a piece without a code: offer the invite
-		if (result.error === 'recipient_not_found' && result.invite?.gift === 'own' && result.invite.left > 0 && !entry.code) {
+		if (result.error === 'recipient_not_found' && result.invite?.gift === 'own' && result.invite.left > 0 && !entry.code && !def?.holds) {
 			inviteOffer = result.invite;
 			return;
 		}

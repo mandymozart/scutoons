@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import {
 		entities,
+		NEUTRAL_LOCALE,
 		scriptOutline,
 		validateFile,
 		validateLocales,
@@ -10,9 +11,11 @@
 		type ScriptMeta,
 		type ScriptOutlineItem,
 		type ToonLanguages,
-		type ToonScript
+		type Language,
+		type ToonScript,
+		withToonLanguages
 	} from '@scutoons/content';
-	import { toonDoc } from '$lib/editor/languages.ts';
+	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { Divider, Icon, Rail, confirmDialog, dockRegion } from '@scutoons/ui';
@@ -280,6 +283,34 @@
 		doc.createLocale(locale, copy ? undefined : () => ({ text: '' }));
 	}
 
+	/**
+	 * The script is the ultimate source (owner 2026-10-14): a translation's script can make its language the toon's source
+	 * language – asked first, saved as a draft of the toon entry (`toon:<toon>`), the page reloads in the new order.
+	 * Not with unsaved script changes (the reload would drop them).
+	 */
+	let switching = $state(false);
+	async function makeSource() {
+		if (switching || locale === doc.primary || doc.dirty) return;
+		const ok = await confirmDialog({
+			title: m['creator.make_source_title']({ locale }),
+			message: m['creator.make_source_message']({ locale, source: doc.primary }),
+			confirmLabel: m['creator.make_source']({ locale })
+		});
+		if (!ok) return;
+		switching = true;
+		try {
+			const entry = toonIndexDoc(toon);
+			await entry.load();
+			const next = withToonLanguages(entry.data[NEUTRAL_LOCALE] ?? {}, locale as Language, languages.languages);
+			entry.setLocal(NEUTRAL_LOCALE, ['sourceLanguage'], next.sourceLanguage, 'languages');
+			entry.setLocal(NEUTRAL_LOCALE, ['languages'], next.languages, 'languages');
+			await entry.save(`source language ${locale}`);
+			window.location.reload();
+		} finally {
+			switching = false;
+		}
+	}
+
 	function setMeta(field: keyof ScriptMeta, value: string) {
 		const meta: ScriptMeta = { ...(doc.data[locale]?.meta ?? {}) };
 		if (value) meta[field] = value;
@@ -334,6 +365,11 @@
 				<div class="main">
 					<div class="head">
 					<ScriptTitlePage meta={script.meta} {editing} onset={setMeta} onrequestedit={requestEdit} />
+					{#if locale !== doc.primary}
+						<button type="button" class="edit-script secondary" onclick={makeSource} disabled={switching || doc.dirty} title={doc.dirty ? m['creator.make_source_save_first']() : undefined} data-testid="script-make-source">
+							{m['creator.make_source']({ locale })}
+						</button>
+					{/if}
 					{#if !editing}
 						<button type="button" class="edit-script secondary" onclick={requestEdit} data-testid="script-edit">
 							<Icon name="lock" />{m['creator.script_edit']()}

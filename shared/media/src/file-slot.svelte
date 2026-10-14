@@ -6,7 +6,7 @@
 
 	/**
 	 * A media field that has no picture (audio, a ZIP download, a 3D model) as a slot like MediaSlot (UI rule: media fields are
-	 * slots, not path text fields): the file's name is the button that opens the asset picker (that kind), an empty
+	 * slots, not path text fields): the file's name is the button that opens the asset picker (that kind; `document` = a PDF, a score's MusicXML), an empty
 	 * dashed slot when nothing is set, the path as the tooltip; × clears it. Audio plays in a small player under it.
 	 * Paths are CDN-root paths (the catalog's) unless a `toon` is given: then toon-relative, like MediaSlot (chapter audio).
 	 */
@@ -25,7 +25,7 @@
 		/** the toon folder ('' = paths from the CDN root, the catalog's) */
 		toon?: string;
 		value: string | null | undefined;
-		kind: 'audio' | 'archive' | 'model';
+		kind: 'audio' | 'archive' | 'model' | 'document';
 		label: string;
 		place?: string;
 		onchange: (path: string | null) => void;
@@ -48,7 +48,7 @@
 	{#if !hideLabel}<span class="sc-label">{label}</span>{/if}
 	<div class="row">
 		<button type="button" class="slot" class:empty={!value} onclick={() => (open = true)} title={value ? `${value}\n${t.chooseHint}` : t.chooseHint} aria-label="{label}: {value ?? t.choose}">
-			{#if value}<Icon name={kind === 'audio' ? 'music' : kind === 'model' ? 'box' : 'archive'} /> <span class="name">{name}</span>{:else}<Icon name="plus" />{/if}
+			{#if value}<Icon name={kind === 'audio' ? 'music' : kind === 'model' ? 'box' : kind === 'document' ? 'file-text' : 'archive'} /> <span class="name">{name}</span>{:else}<Icon name="plus" />{/if}
 		</button>
 		{#if value && clearable}
 			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange(null)}><CloseIcon /></button>

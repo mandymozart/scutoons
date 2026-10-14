@@ -283,6 +283,7 @@
 		"slot_feet": "Füße",
 		"slot_back": "Rücken",
 		"slot_accessory": "Accessoire",
+		"avatar_look": "Look",
 		"avatar_body": "Körper",
 		"avatar_body_sphynx": "Sphynx",
 		"avatar_body_mouse": "Maus",
@@ -365,7 +366,8 @@
 		"ship_error_country": "In dieses Land können wir es nicht schicken.",
 		"invite_note_paid": "Die Person sieht deine E-Mail-Adresse.",
 		"invite_payment_done": "{name} für {email} wartet auf deine Zahlung – wir schicken dir die Zahlungsinfos per E-Mail.",
-		"ship_saved": "Danke – wir schicken dein Geschenk an diese Adresse."
+		"ship_saved": "Danke – wir schicken dein Geschenk an diese Adresse.",
+		"invite_error_container_needs_account": "Etwas, in dem Dinge liegen, geht nur an jemanden mit Konto."
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

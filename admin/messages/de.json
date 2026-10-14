@@ -357,7 +357,7 @@
 		"section_characters": "Avatar-Körper",
 		"section_characters_hint": "Figuren, die dieses Konto als Leser-Avatar tragen darf. Die Standards (jedes Mitglied) kommen aus der Einstellung AVATAR_DEFAULT_UNLOCKS und lassen sich hier nicht entziehen.",
 		"character_id": "Figuren-ID",
-		"character_looks": "Weitere A-Pose-Looks (kommagetrennt, optional)",
+		"character_looks": "Weitere Looks mit A-Pose, Persona/Look (kommagetrennt, optional)",
 		"unlock": "Freischalten",
 		"unlock_revoke": "Entziehen",
 		"unlocked": "{character} für {email} freigeschaltet",

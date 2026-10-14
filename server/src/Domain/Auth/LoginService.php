@@ -247,6 +247,13 @@ final class LoginService
         $response = ['status' => 'success', 'session_token' => $session, 'user' => null, 'created' => $created] + ($dispute ? ['dispute' => true] : []);
         if ($created) {
             $this->events->log('signup', (string) $code, (string) $user['id']);
+            $this->mailer->sendToAdmins(MailTemplates::SIGNUP_ADMIN, [
+                'email' => (string) $user['email'],
+                'code' => (string) $code,
+                'type' => $claimRow !== null ? (string) $claimRow['type'] : '–',
+                'dispute' => $dispute,
+                'url' => rtrim($this->settings->get('ADMIN_URL'), '/') . '/users/' . rawurlencode((string) $user['id']),
+            ]);
             if ($claimable) {
                 if ($claimedNew) $this->events->log('claim', (string) $code, (string) $user['id']);
                 $response['claimed'] = [$code];

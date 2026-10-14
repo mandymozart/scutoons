@@ -3,9 +3,11 @@
 	import { Button, CloseIcon } from '@scutoons/ui';
 	import { problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
 	import { m } from '../messages.ts';
+	import CheckField from './check-field.svelte';
 
 	/**
-	 * A recipe (agents/ITEMS.md): the items it takes (all consumed) and the item it makes, each with a quantity, and its own
+	 * A recipe (agents/ITEMS.md): the items it takes (consumed, unless kept – a tool like the drill) and the item it makes,
+	 * each with a quantity; the output may take its variant (colour) from an input (research/SCORES.md §2a); its own
 	 * optional picture (owner 2026-10-04; readers see the output item's picture without one) in the output item's toon folder.
 	 */
 	let { data = $bindable(), lists, problems }: CatalogFormProps = $props();
@@ -41,6 +43,7 @@
 	<legend>{m['catalog.recipe_inputs']()}</legend>
 	{#each inputs as input, i (i)}
 		{@render part(input, `${m['catalog.recipe_input']()} ${i + 1}`, 'recipe-input', inputs.length > 1 ? () => (data.inputs = inputs.filter((_, j) => j !== i)) : undefined)}
+		<CheckField label={m['catalog.recipe_keep']()} checked={input.keep === true} onchange={(on) => (on ? (input.keep = true) : delete input.keep)} testid="recipe-input-keep" />
 	{/each}
 	<span><Button size="sm" variant="secondary" onclick={() => (data.inputs = [...inputs, { item: '', qty: 1 }])} data-testid="recipe-add-input">{m['catalog.add_input']()}</Button></span>
 	{#if err('inputs', 'input')}<p class="sc-error">{err('inputs', 'input')}</p>{/if}
@@ -50,6 +53,11 @@
 	<legend>{m['catalog.recipe_output']()}</legend>
 	{#if data.output && typeof data.output === 'object'}
 		{@render part(data.output, m['catalog.recipe_output'](), 'recipe-output')}
+		<label class="sc-label" for="recipe-variant-from">{m['catalog.recipe_variant_from']()}</label>
+		<select id="recipe-variant-from" value={data.output.variant_from ?? ''} onchange={(e) => (e.currentTarget.value ? (data.output.variant_from = e.currentTarget.value) : delete data.output.variant_from)} data-testid="recipe-variant-from">
+			<option value="">{m['catalog.none']()}</option>
+			{#each inputs.filter((p) => p.item) as p (p.item)}<option value={p.item}>{items.find((o) => o.value === p.item)?.label ?? p.item}</option>{/each}
+		</select>
 	{:else}
 		<span><Button size="sm" variant="secondary" onclick={() => (data.output = { item: '', qty: 1 })}>{m['catalog.add_output']()}</Button></span>
 	{/if}

@@ -12,27 +12,26 @@ use Scutoons\Infrastructure\Database\Database;
 use Throwable;
 
 /**
- * Which characters (and which of their A-pose looks) a member may wear as the reader's avatar body
- * (agents/ITEMS.md "Reader avatar bodies & character unlocks").
+ * Which characters (and which of their looks) a member may wear as the reader's avatar body (agents/ITEMS.md "Reader
+ * avatar bodies & character unlocks"). A body is a look with an A-pose (`personas[].looks[].apose`, owner 2026-10-12:
+ * "a poses come per look"); a look is named `<persona>/<look>` in unlock lists (`bodyLookKey` in @scutoons/content).
  *
- *   default   the setting AVATAR_DEFAULT_UNLOCKS – JSON { "<character>": ["<look>", …] } – for every member, no rows
- *             (owner 2026-10-05: catpope with swim)
- *   rows      member_characters (the character with its default A-pose look) + member_character_looks (further
- *             looks), each with `source` (default | code | item | story | admin) and `ref`
+ *   default   the setting AVATAR_DEFAULT_UNLOCKS – JSON ["<character>", …] – the characters every member has, with
+ *             their default body; no rows (owner 2026-10-05: catpope)
+ *   rows      member_characters (the character with its default body) + member_character_looks (further looks:
+ *             persona_id + look_id), each with `source` (default | code | item | story | admin) and `ref`
  *
- * The character registry (published content store file `scutoons/_/characters.json`) says which A-pose looks exist and
- * have an image; a body must be unlocked AND have an A-pose image. Retired looks of older registry data – the removed
- * `naked` look (owner 2026-10-05) or any look still marked `sensitive: true` – are ignored everywhere (isRetiredAposeLook
- * in @scutoons/content; the creator's validation warns about them).
+ * A character's default body: its regular persona's default look when that has an A-pose image, else its first look
+ * with one (registry order). The published character registry says which looks have an A-pose image; a body must be
+ * unlocked AND have one.
  */
 final class CharacterUnlocks
 {
     public const SOURCES = ['default', 'code', 'item', 'story', 'admin'];
     /** The character registry's entity key (published version) */
     public const REGISTRY_KEY = 'characters';
+    public const REGULAR_PERSONA = 'regular';
     private const ID = '/^[a-z0-9][a-z0-9-]{0,63}$/';
-    /** A-pose look ids that are no longer used (RETIRED_APOSE_LOOKS in @scutoons/content) */
-    public const RETIRED_LOOKS = ['naked'];
 
     /** @var array<string, array<string, mixed>>|null character id → registry character (per request) */
     private ?array $registry = null;
@@ -44,20 +43,21 @@ final class CharacterUnlocks
     ) {
     }
 
+    /** `<persona>/<look>` – a look in unlock lists */
+    public static function key(string $persona, string $look): string
+    {
+        return "$persona/$look";
+    }
+
     /**
-     * The configured default unlocks: character → A-pose look ids (invalid JSON = none).
-     * @return array<string, list<string>>
+     * The configured default unlocks: the character ids every member has (invalid JSON = none).
+     * @return list<string>
      */
     public function defaults(): array
     {
         $decoded = json_decode($this->settings->get('AVATAR_DEFAULT_UNLOCKS'), true);
-        if (!is_array($decoded)) return [];
-        $out = [];
-        foreach ($decoded as $character => $looks) {
-            if (!is_string($character) || !preg_match(self::ID, $character) || !is_array($looks)) continue;
-            $out[$character] = array_values(array_filter($looks, fn($l) => is_string($l) && preg_match(self::ID, $l) === 1 && !$this->isRetired($character, $l)));
-        }
-        return $out;
+        if (!is_array($decoded) || !array_is_list($decoded)) return [];
+        return array_values(array_unique(array_filter($decoded, fn($c) => is_string($c) && preg_match(self::ID, $c) === 1)));
     }
 
     /**
@@ -81,62 +81,55 @@ final class CharacterUnlocks
         return $this->registry;
     }
 
-    /** @return list<array<string, mixed>> the character's A-pose looks as stored (retired ones included) */
-    private function registryLooks(string $character): array
+    /**
+     * The character's looks with an A-pose image (registry order: persona → look).
+     * @return list<array{persona: string, look: string, default: bool, apose: array<string, mixed>}> `default` = the persona's default look
+     */
+    private function bodies(string $character): array
     {
-        $looks = $this->registry()[$character]['apose']['looks'] ?? [];
-        return is_array($looks) ? array_values(array_filter($looks, 'is_array')) : [];
-    }
-
-    /** @return list<array<string, mixed>> the character's A-pose looks in use (retired ones left out) */
-    private function aposeLooks(string $character): array
-    {
-        return array_values(array_filter($this->registryLooks($character), fn(array $l) => !self::retiredLook($l)));
-    }
-
-    /** @param array<string, mixed> $look true for a leftover look of older registry data (`naked`, or `sensitive: true`) */
-    private static function retiredLook(array $look): bool
-    {
-        return in_array($look['id'] ?? null, self::RETIRED_LOOKS, true) || ($look['sensitive'] ?? false) === true;
-    }
-
-    /** true when the A-pose look id is retired (`naked`, or the registry still marks the look `sensitive: true`) */
-    public function isRetired(string $character, string $look): bool
-    {
-        if (in_array($look, self::RETIRED_LOOKS, true)) return true;
-        foreach ($this->registryLooks($character) as $l) if (($l['id'] ?? null) === $look) return self::retiredLook($l);
-        return false;
-    }
-
-    /** The default A-pose look id of a character (marked default, else the first; null = no A-pose) */
-    public function defaultLook(string $character): ?string
-    {
-        $looks = $this->aposeLooks($character);
-        foreach ($looks as $l) if (($l['default'] ?? false) === true && is_string($l['id'] ?? null)) return $l['id'];
-        return is_string($looks[0]['id'] ?? null) ? $looks[0]['id'] : null;
-    }
-
-    /** true when the character has this A-pose look with an image */
-    public function hasApose(string $character, string $look): bool
-    {
-        foreach ($this->aposeLooks($character) as $l) {
-            if (($l['id'] ?? null) === $look) return is_string($l['path'] ?? null) && trim($l['path']) !== '';
+        $out = [];
+        foreach ($this->registry()[$character]['personas'] ?? [] as $p) {
+            if (!is_array($p) || !is_string($p['id'] ?? null)) continue;
+            foreach (is_array($p['looks'] ?? null) ? $p['looks'] : [] as $l) {
+                $apose = is_array($l) ? ($l['apose'] ?? null) : null;
+                if (!is_string($l['id'] ?? null) || !is_array($apose) || !is_string($apose['path'] ?? null) || trim($apose['path']) === '') continue;
+                $out[] = ['persona' => $p['id'], 'look' => $l['id'], 'default' => ($l['default'] ?? false) === true, 'apose' => $apose];
+            }
         }
+        return $out;
+    }
+
+    /**
+     * The default body of a character: the regular persona's default look with an A-pose image, else the first look with
+     * one; null = no A-pose at all.
+     * @return array{persona: string, look: string}|null
+     */
+    public function defaultLook(string $character): ?array
+    {
+        $bodies = $this->bodies($character);
+        foreach ($bodies as $b) if ($b['persona'] === self::REGULAR_PERSONA && $b['default']) return ['persona' => $b['persona'], 'look' => $b['look']];
+        return $bodies ? ['persona' => $bodies[0]['persona'], 'look' => $bodies[0]['look']] : null;
+    }
+
+    /** true when the look has an A-pose image */
+    public function hasApose(string $character, string $persona, string $look): bool
+    {
+        foreach ($this->bodies($character) as $b) if ($b['persona'] === $persona && $b['look'] === $look) return true;
         return false;
     }
 
     /**
-     * The wear slots (slot instances) of a body: the A-pose look's `slots` as [{ id, slot }] (registry order; a duo has
+     * The wear slots (slot instances) of a body: the A-pose's `slots` as [{ id, slot }] (registry order; a duo has
      * `torso-left` + `torso-right`, a single figure `torso`). Empty = the look has none (or is unknown) – the caller
      * falls back to one instance per catalog slot type (agents/ITEMS.md "Slots per avatar body").
      * @return list<array{id: string, slot: string}>
      */
-    public function slotInstances(string $character, string $look): array
+    public function slotInstances(string $character, string $persona, string $look): array
     {
-        foreach ($this->aposeLooks($character) as $l) {
-            if (($l['id'] ?? null) !== $look) continue;
+        foreach ($this->bodies($character) as $b) {
+            if ($b['persona'] !== $persona || $b['look'] !== $look) continue;
             $out = [];
-            foreach (is_array($l['slots'] ?? null) ? $l['slots'] : [] as $s) {
+            foreach (is_array($b['apose']['slots'] ?? null) ? $b['apose']['slots'] : [] as $s) {
                 if (is_array($s) && is_string($s['id'] ?? null) && is_string($s['slot'] ?? null)) $out[] = ['id' => $s['id'], 'slot' => $s['slot']];
             }
             return $out;
@@ -145,56 +138,55 @@ final class CharacterUnlocks
     }
 
     /**
-     * The body the reader sees when none is chosen (the viewer's rule): the first unlocked character whose default
-     * A-pose look is unlocked and has an image, else the first unlocked look with an image; null = none.
-     * @return array{character: string, look: string}|null
+     * The body the reader sees when none is chosen (the viewer's rule): the first unlocked character's default body,
+     * else the first unlocked look with an A-pose image; null = none.
+     * @return array{character: string, persona: string, look: string}|null
      */
     public function defaultBody(string $userId): ?array
     {
         $unlocked = $this->forUser($userId);
-        $ok = fn(string $character, string $look) => $this->hasApose($character, $look);
         foreach ($unlocked as $u) {
-            $look = $this->defaultLook($u['character']);
-            if ($look !== null && in_array($look, $u['looks'], true) && $ok($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
+            $d = $this->defaultLook($u['character']);
+            if ($d !== null) return ['character' => $u['character']] + $d;
         }
         foreach ($unlocked as $u) {
-            foreach ($u['looks'] as $look) if ($ok($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
+            foreach ($u['looks'] as $key) {
+                [$persona, $look] = explode('/', $key, 2);
+                if ($this->hasApose($u['character'], $persona, $look)) return ['character' => $u['character'], 'persona' => $persona, 'look' => $look];
+            }
         }
         return null;
     }
 
     /**
      * Everything the member has unlocked, defaults first, then rows (unlock order):
-     * [{ character, looks: [look ids], source, ref, unlocked_at }] – `source` / `ref` of the character unlock. Retired
-     * looks (old rows, an old setting value) are left out.
+     * [{ character, looks: [`<persona>/<look>`], source, ref, unlocked_at }] – `looks` starts with the character's default
+     * body (when it has one); `source` / `ref` of the character unlock.
      * @return list<array<string, mixed>>
      */
     public function forUser(string $userId): array
     {
         /** @var array<string, array<string, mixed>> $out */
         $out = [];
-        foreach ($this->defaults() as $character => $looks) {
-            $out[$character] = ['character' => $character, 'looks' => $looks, 'source' => 'default', 'ref' => null, 'unlocked_at' => null];
-        }
+        $add = function (string $character, string $source, mixed $ref, mixed $at) use (&$out): void {
+            if (isset($out[$character])) return;
+            $d = $this->defaultLook($character);
+            $out[$character] = ['character' => $character, 'looks' => $d !== null ? [self::key($d['persona'], $d['look'])] : [], 'source' => $source, 'ref' => $ref, 'unlocked_at' => $at];
+        };
+        foreach ($this->defaults() as $character) $add($character, 'default', null, null);
         try {
             $characters = $this->db->all('SELECT character_id, source, ref, unlocked_at FROM member_characters WHERE user_id = ? ORDER BY unlocked_at, character_id', [$userId]);
-            $looks = $this->db->all('SELECT character_id, look_id FROM member_character_looks WHERE user_id = ? ORDER BY unlocked_at, look_id', [$userId]);
+            $looks = $this->db->all('SELECT character_id, persona_id, look_id FROM member_character_looks WHERE user_id = ? ORDER BY unlocked_at, persona_id, look_id', [$userId]);
         } catch (PDOException) {
             return array_values($out); // tables not migrated yet: defaults only
         }
-        foreach ($characters as $r) {
-            $id = (string) $r['character_id'];
-            if (!isset($out[$id])) {
-                $default = $this->defaultLook($id);
-                $out[$id] = ['character' => $id, 'looks' => $default !== null ? [$default] : [], 'source' => (string) $r['source'], 'ref' => $r['ref'], 'unlocked_at' => $r['unlocked_at']];
-            }
-        }
+        foreach ($characters as $r) $add((string) $r['character_id'], (string) $r['source'], $r['ref'], $r['unlocked_at']);
         foreach ($looks as $r) {
             $id = (string) $r['character_id'];
-            if ($this->isRetired($id, (string) $r['look_id'])) continue;
-            // a look without the character unlock also unlocks the character (with just that look)
-            $out[$id] ??= ['character' => $id, 'looks' => [], 'source' => 'admin', 'ref' => null, 'unlocked_at' => null];
-            if (!in_array($r['look_id'], $out[$id]['looks'], true)) $out[$id]['looks'][] = (string) $r['look_id'];
+            // a look without the character unlock also unlocks the character (with that look)
+            $add($id, 'admin', null, null);
+            $key = self::key((string) $r['persona_id'], (string) $r['look_id']);
+            if (!in_array($key, $out[$id]['looks'], true)) $out[$id]['looks'][] = $key;
         }
         return array_values($out);
     }
@@ -207,36 +199,40 @@ final class CharacterUnlocks
         return array_map(fn(array $u) => ['character' => $u['character'], 'looks' => $u['looks'], 'source' => $u['source']], $this->forUser($userId));
     }
 
-    public function isUnlocked(string $userId, string $character, string $look): bool
+    public function isUnlocked(string $userId, string $character, string $persona, string $look): bool
     {
-        foreach ($this->forUser($userId) as $u) if ($u['character'] === $character) return in_array($look, $u['looks'], true);
+        foreach ($this->forUser($userId) as $u) if ($u['character'] === $character) return in_array(self::key($persona, $look), $u['looks'], true);
         return false;
     }
 
     /**
-     * Admin: unlock a character (and optionally further A-pose looks) for a member. 400 unknown_character (not in the
-     * registry) | invalid_look | invalid_source. Returns whether anything changed.
+     * Admin: unlock a character (and optionally further looks, `<persona>/<look>`) for a member. 400 unknown_character
+     * (not in the registry) | invalid_look (no such look with an A-pose image) | invalid_source. Returns whether
+     * anything changed.
      * @param list<string> $looks
      */
     public function grant(string $userId, string $character, array $looks, string $source, ?string $ref): bool
     {
         $this->checkCharacter($character);
         if (!in_array($source, self::SOURCES, true)) throw new ApiError(400, 'invalid_source', 'Unknown unlock source.', ['sources' => self::SOURCES]);
-        $known = array_filter(array_map(fn(array $l) => $l['id'] ?? null, $this->aposeLooks($character)), 'is_string');
+        $known = array_map(fn(array $b) => self::key($b['persona'], $b['look']), $this->bodies($character));
         foreach ($looks as $look) {
-            if (!is_string($look) || !in_array($look, $known, true)) throw new ApiError(400, 'invalid_look', "Unknown A-pose look of $character.", ['looks' => array_values($known)]);
+            if (!is_string($look) || !in_array($look, $known, true)) throw new ApiError(400, 'invalid_look', "Unknown look of $character (persona/look with an A-pose).", ['looks' => $known]);
         }
+        $default = $this->defaultLook($character);
+        $defaultKey = $default !== null ? self::key($default['persona'], $default['look']) : null;
         $now = $this->clock->utc();
-        return (bool) $this->db->transaction(function () use ($userId, $character, $looks, $source, $ref, $now) {
+        return (bool) $this->db->transaction(function () use ($userId, $character, $looks, $source, $ref, $now, $defaultKey) {
             $changed = false;
             if (!$this->db->one('SELECT 1 FROM member_characters WHERE user_id = ? AND character_id = ?', [$userId, $character])) {
                 $this->db->run('INSERT INTO member_characters (user_id, character_id, source, ref, unlocked_at) VALUES (?, ?, ?, ?, ?)', [$userId, $character, $source, $ref, $now]);
                 $changed = true;
             }
-            foreach (array_unique($looks) as $look) {
-                if ($look === $this->defaultLook($character)) continue; // the character unlock includes its default look
-                if ($this->db->one('SELECT 1 FROM member_character_looks WHERE user_id = ? AND character_id = ? AND look_id = ?', [$userId, $character, $look])) continue;
-                $this->db->run('INSERT INTO member_character_looks (user_id, character_id, look_id, source, ref, unlocked_at) VALUES (?, ?, ?, ?, ?, ?)', [$userId, $character, $look, $source, $ref, $now]);
+            foreach (array_unique($looks) as $key) {
+                if ($key === $defaultKey) continue; // the character unlock includes its default body
+                [$persona, $look] = explode('/', $key, 2);
+                if ($this->db->one('SELECT 1 FROM member_character_looks WHERE user_id = ? AND character_id = ? AND persona_id = ? AND look_id = ?', [$userId, $character, $persona, $look])) continue;
+                $this->db->run('INSERT INTO member_character_looks (user_id, character_id, persona_id, look_id, source, ref, unlocked_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [$userId, $character, $persona, $look, $source, $ref, $now]);
                 $changed = true;
             }
             return $changed;
@@ -247,19 +243,19 @@ final class CharacterUnlocks
      * Admin: revoke a character unlock (with its looks), or only one look. Default unlocks can't be revoked per member
      * (change the setting). A worn body that is no longer unlocked is reset.
      */
-    public function revoke(string $userId, string $character, ?string $look = null): bool
+    public function revoke(string $userId, string $character, ?string $persona = null, ?string $look = null): bool
     {
         if (!preg_match(self::ID, $character)) throw new ApiError(400, 'unknown_character', 'Unknown character.');
-        $changed = $this->db->transaction(function () use ($userId, $character, $look) {
-            if ($look !== null) {
-                return $this->db->run('DELETE FROM member_character_looks WHERE user_id = ? AND character_id = ? AND look_id = ?', [$userId, $character, $look])->rowCount() > 0;
+        $changed = $this->db->transaction(function () use ($userId, $character, $persona, $look) {
+            if ($persona !== null && $look !== null) {
+                return $this->db->run('DELETE FROM member_character_looks WHERE user_id = ? AND character_id = ? AND persona_id = ? AND look_id = ?', [$userId, $character, $persona, $look])->rowCount() > 0;
             }
             $a = $this->db->run('DELETE FROM member_characters WHERE user_id = ? AND character_id = ?', [$userId, $character])->rowCount();
             $b = $this->db->run('DELETE FROM member_character_looks WHERE user_id = ? AND character_id = ?', [$userId, $character])->rowCount();
             return $a + $b > 0;
         });
-        $body = $this->db->one('SELECT character_id, look_id FROM avatar_body WHERE user_id = ?', [$userId]);
-        if ($body && !$this->isUnlocked($userId, (string) $body['character_id'], (string) $body['look_id'])) {
+        $body = $this->db->one('SELECT character_id, persona_id, look_id FROM avatar_body WHERE user_id = ?', [$userId]);
+        if ($body && !$this->isUnlocked($userId, (string) $body['character_id'], (string) $body['persona_id'], (string) $body['look_id'])) {
             $this->db->run('DELETE FROM avatar_body WHERE user_id = ?', [$userId]);
         }
         return (bool) $changed;

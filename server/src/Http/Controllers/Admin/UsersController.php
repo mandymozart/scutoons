@@ -21,7 +21,7 @@ use Scutoons\Infrastructure\Config\Settings;
  *   DELETE /users/{id}/roles/{role}      revoke → { changed, user }
  *   PUT    /users/{id}/characters/{c}    unlock an avatar-body character { looks?, source?, ref? } → { changed, characters }
  *   DELETE /users/{id}/characters/{c}    revoke it (with its looks) → { changed, characters }
- *   DELETE /users/{id}/characters/{c}/looks/{look}   revoke one A-pose look → { changed, characters }
+ *   DELETE /users/{id}/characters/{c}/looks/{persona}/{look}   revoke one look → { changed, characters }
  *   GET    /roles                        every role
  *   GET    /review-rules                 every review rule (Domain\Content\Reviews) → { items }
  *   PUT    /users/{id}/review-rules/{toon}/{rule}   add (toon id or *, rule reviewer | needs_review) → { changed, review_rules }
@@ -70,10 +70,10 @@ final class UsersController
         return Json::response($response, 200, ['status' => 'success'] + $this->users->lockCharacter($args['id'], $args['character']));
     }
 
-    /** @param array{id: string, character: string, look: string} $args */
+    /** @param array{id: string, character: string, persona: string, look: string} $args */
     public function lockLook(Request $request, Response $response, array $args): Response
     {
-        return Json::response($response, 200, ['status' => 'success'] + $this->users->lockCharacter($args['id'], $args['character'], $args['look']));
+        return Json::response($response, 200, ['status' => 'success'] + $this->users->lockCharacter($args['id'], $args['character'], $args['persona'], $args['look']));
     }
 
     public function roles(Request $request, Response $response): Response

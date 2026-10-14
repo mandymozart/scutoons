@@ -127,7 +127,6 @@
 		<h3>{m['creator.help_transitions_title']()}</h3>
 		<p>{m['creator.characters_transition_hint']()}</p>
 		<p>{m['creator.characters_apose_hint']()}</p>
-		<p>{m['creator.characters_apose_anchors_hint']()}</p>
 		{@render saving()}
 		<h3 class="guide-head">{m['creator.style_guide']()}</h3>
 		<StyleGuide sections={['characters']} />

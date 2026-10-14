@@ -8,6 +8,7 @@ use Scutoons\Domain\Accounts\Users;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Campaigns\CampaignStore;
 use Scutoons\Domain\Catalog\Catalog;
+use Scutoons\Domain\Inventory\Containers;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Domain\Mail\MailFailed;
 use Scutoons\Domain\Mail\Mailer;
@@ -30,6 +31,9 @@ use Scutoons\Infrastructure\Database\Database;
  * prepare / checkDailyLimit / lookup / takeable / takeOut are shared with Invites (an invite with the giver's own item).
  * A code-bound item (a physical product's twin) moves its whole code: the same transfer core as a claim, kind `gift`.
  * Every gift is in the transfer log; the recipient gets an email and a notice (GET /me/ `received`).
+ * A container (research/SCORES.md §2, owner 2026-10-14: "the scores go along with the book") moves as itself – its
+ * colour, age and overfill stay – and takes what lies in it; what can't be given (not giftable, a code) or would pass
+ * the recipient's limit stays with the giver, loose. The answer says how many went and stayed (`contents`).
  */
 final class Gifts
 {
@@ -44,6 +48,7 @@ final class Gifts
         private readonly Mailer $mailer,
         private readonly Settings $settings,
         private readonly CampaignStore $campaigns,
+        private readonly Containers $containers,
     ) {
     }
 
@@ -53,7 +58,7 @@ final class Gifts
      * rate_limited.
      * @param array<string, mixed> $giver users row
      * @param array<string, mixed> $body
-     * @return array{item_id: string, variant: ?string, qty: int, code: ?string, to: string, transfer_id: int}
+     * @return array{item_id: string, variant: ?string, qty: int, code: ?string, to: string, transfer_id: int, contents?: array{went: int, stayed: int}}
      */
     public function gift(array $giver, array $body): array
     {
@@ -74,12 +79,26 @@ final class Gifts
         $result = $this->db->transaction(function () use ($giverId, $recipient, $recipientId, $entry, $item, $code, $qty) {
             $entry = $this->takeable($giverId, $entry, $qty);
 
+            $container = ($item['holds'] ?? null) !== null;
             if ($code !== null) {
+                $contents = $container ? $this->carryContents($giverId, $recipientId, (string) $entry['id']) : null;
                 $moved = $this->transfers->moveCode($code, $recipient, 'gift', $giverId, null);
-                return ['item_id' => (string) $entry['item_id'], 'variant' => $entry['variant'], 'qty' => 1, 'code' => $code, 'transfer_id' => $moved['transfer_id']];
+                return ['item_id' => (string) $entry['item_id'], 'variant' => $entry['variant'], 'qty' => 1, 'code' => $code, 'transfer_id' => $moved['transfer_id']]
+                    + ($contents !== null ? ['contents' => $contents] : []);
             }
             if ($this->inventory->room($recipientId, $item) < $qty) {
                 throw new ApiError(409, 'max_reached', 'They cannot hold more of this.', ['max' => InventoryService::maxOf($item)]);
+            }
+            $now = $this->clock->utc();
+            if ($container) {
+                // the book itself moves (its colour, age and overfill stay), then what lies in it
+                $this->db->run('UPDATE inventory SET user_id = ?, source = ?, aged_since = COALESCE(aged_since, acquired_at), acquired_at = ?, updated_at = ? WHERE id = ?',
+                    [$recipientId, 'gift', $now, $now, $entry['id']]);
+                $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND entry_id = ?', [$giverId, $entry['id']]);
+                $contents = $this->carryContents($giverId, $recipientId, (string) $entry['id']);
+                $variant = $entry['variant'] !== null ? (string) $entry['variant'] : null;
+                $id = $this->transfers->record('gift', null, (string) $entry['item_id'], $variant, 1, $giverId, $recipientId, $giverId, null, null);
+                return ['item_id' => (string) $entry['item_id'], 'variant' => $variant, 'qty' => 1, 'code' => null, 'transfer_id' => $id, 'contents' => $contents];
             }
             $this->takeOut($giverId, $entry, $qty);
             $variant = $entry['variant'] !== null ? (string) $entry['variant'] : null;
@@ -174,6 +193,32 @@ final class Gifts
         } else {
             $this->db->run('UPDATE inventory SET qty = qty - ?, updated_at = ? WHERE id = ?', [$qty, $this->clock->utc(), $entry['id']]);
         }
+    }
+
+    /**
+     * What lies in a gifted container goes along when it can be given and fits the recipient's limit; the rest stays
+     * with the giver, loose. Each piece that went is in the transfer log.
+     * @return array{went: int, stayed: int}
+     */
+    private function carryContents(string $giverId, string $recipientId, string $containerId): array
+    {
+        $went = 0;
+        $stayed = 0;
+        $now = $this->clock->utc();
+        foreach ($this->db->all('SELECT * FROM inventory WHERE container_id = ? AND user_id = ? AND qty > 0', [$containerId, $giverId]) as $row) {
+            $item = $this->catalog->item((string) $row['item_id']);
+            $goes = $item !== null && Catalog::giftable($item) && $row['code'] === null && $this->inventory->room($recipientId, $item) >= (int) $row['qty'];
+            if (!$goes) {
+                $this->db->run('UPDATE inventory SET container_id = NULL, updated_at = ? WHERE id = ?', [$now, $row['id']]);
+                $stayed += (int) $row['qty'];
+                continue;
+            }
+            $this->db->run('UPDATE inventory SET user_id = ?, source = ?, acquired_at = ?, updated_at = ? WHERE id = ?', [$recipientId, 'gift', $now, $now, $row['id']]);
+            $this->transfers->record('gift', null, (string) $row['item_id'], $row['variant'] !== null ? (string) $row['variant'] : null, (int) $row['qty'], $giverId, $recipientId, $giverId, null, null);
+            $went += (int) $row['qty'];
+        }
+        $this->containers->recount($recipientId, $containerId);
+        return ['went' => $went, 'stayed' => $stayed];
     }
 
     /**

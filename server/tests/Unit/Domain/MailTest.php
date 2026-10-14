@@ -21,7 +21,7 @@ final class MailTest extends TestCase
     public function testEveryTemplateRendersInEveryLocale(): void
     {
         $renderer = $this->get(MailRenderer::class);
-        self::assertSame(['login_code', 'signup_without_code', 'ownership_claim_received', 'ownership_claim_admin', 'ownership_claim_rejected', 'ownership_transferred_from', 'ownership_transferred_to', 'gift_received', 'invite_received', 'invite_returned', 'invite_payment_requested', 'review_requested', 'review_published', 'review_returned', 'embassy_portion', 'ai_token_expiring'], MailTemplates::ids());
+        self::assertSame(['login_code', 'signup_without_code', 'ownership_claim_received', 'signup_admin', 'ownership_claim_admin', 'ownership_claim_rejected', 'ownership_transferred_from', 'ownership_transferred_to', 'gift_received', 'invite_received', 'invite_returned', 'invite_payment_requested', 'review_requested', 'review_published', 'review_returned', 'embassy_portion', 'ai_token_expiring'], MailTemplates::ids());
         foreach (MailTemplates::ids() as $id) {
             $definition = MailTemplates::get($id);
             self::assertSame(array_keys($definition['vars']), array_keys($definition['sample']), "$id: a sample for every var");

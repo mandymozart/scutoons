@@ -6,7 +6,6 @@
 		castsOf,
 		defaultLookId,
 		findPersona,
-		isRetiredAposeLook,
 		lookLabel,
 		lookPortraitMoods,
 		personaIds,
@@ -19,24 +18,22 @@
 	} from '@scutoons/content';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { addLook, addPersona, characterLanguages, edit, editCharacter, editPersona, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
-	import { FileSlot } from '@scutoons/media';
-	import { aposeLooksOf, applyApose, closeRequests } from '$lib/editor/character-form.ts';
+	import { addLook, addPersona, characterLanguages, edit, editCharacter, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import CharacterIdentity from '$lib/components/characters/character-identity.svelte';
 	import CharacterImport from '$lib/components/characters/character-import.svelte';
 	import CharacterPersonaFields from '$lib/components/characters/character-persona.svelte';
 	import CharacterLook from '$lib/components/characters/character-look.svelte';
+	import PersonaModel from '$lib/components/characters/persona-model.svelte';
 	import CharacterTransitions from '$lib/components/characters/character-transitions.svelte';
-	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import CharacterPrompts from '$lib/components/characters/character-prompts.svelte';
 
 	/**
 	 * One character (COMPONENTS.md step 9: in sections): identity (CharacterIdentity), the image import, its personas as
 	 * tabs → the persona's own fields (CharacterPersonaFields) → its looks as sub-tabs → the look's mood grid
-	 * (CharacterLook) and transitions, the persona's 3D model (a look may have its own – owner 2026-10-13), the A-pose looks, the character's wanted images and – at the very end – prompts
+	 * (CharacterLook, with the look's A-pose) and transitions, the persona's 3D model (PersonaModel: preview, slot, body preset; a look may have its own), the character's wanted images and – at the very end – prompts
 	 * for an image generator or an artist (CharacterPrompts).
 	 */
 	let {
@@ -104,34 +101,10 @@
 		change((c) => (c.personas = c.personas.filter((p) => p.id !== personaId)));
 		persona = REGULAR_PERSONA;
 	}
-	/** a persona's 3D model (a .glb from the asset manager); cleared = none */
-	function setPersonaModel(path: string | null) {
-		editPersona(registry, id, personaId, (p) => (path ? (p.model = path) : delete p.model), `${id}:${personaId}:model`);
-	}
 	function newLook() {
 		if (!newLookLabel.trim()) return;
 		look = addLook(registry, id, personaId, newLookLabel, languages);
 		newLookLabel = '';
-	}
-
-	/** the A-pose looks shown: the stored ones plus the standard looks not stored yet (empty slots) */
-	const aposeLooks = $derived(aposeLooksOf(character));
-	/**
-	 * an A-pose slot picked (a path closes its open request) or cleared (an unused standard look disappears again, a
-	 * retired one – the removed naked look – always)
-	 */
-	function setAposePath(target: string, path: string | undefined) {
-		change((c) => {
-			if (path) return applyApose(c, target, path, languages);
-			const looks = c.apose?.looks;
-			const look = looks?.find((l) => l.id === target);
-			if (!looks || !look) return;
-			delete look.path;
-			if (isRetiredAposeLook(look) || (!look.slots?.length && aposeLooksOf(null).some((l) => l.id === target))) looks.splice(looks.indexOf(look), 1);
-			if (!looks.length) delete c.apose;
-			else if (!looks.some((l) => l.default)) looks[0].default = true;
-		}, `apose-${target}-path`);
-		if (path) closeRequests(requestsDoc, requests, id, [{ kind: 'apose', look: target, path }]);
 	}
 </script>
 
@@ -154,7 +127,7 @@
 		<CharacterIdentity {registry} {character} {languages} {toons} {people} />
 
 		<!-- Personas → looks → moods -->
-		<section class="block" data-testid="personas">
+		<section class="sc-section" data-testid="personas">
 			<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust />
 			<Tabs
 				variant="ruled"
@@ -175,9 +148,7 @@
 					{#if personaId !== REGULAR_PERSONA}
 						<CharacterPersonaFields {registry} {character} persona={currentPersona} {languages} {toons} onremove={removePersona} />
 					{/if}
-					<div class="model" title={m['creator.characters_model_hint']()}>
-						<FileSlot kind="model" value={currentPersona.model} label={m['creator.characters_model']()} place="characters/{id}/" player={false} onchange={setPersonaModel} testid="persona-model" />
-					</div>
+					<PersonaModel {registry} {character} persona={currentPersona} {lookId} />
 
 					<Tabs
 						variant="sub"
@@ -206,17 +177,12 @@
 			{/if}
 		</section>
 
-		<section class="block" data-testid="apose">
-			<h3>{m['creator.characters_apose']()}</h3>
-			<AposeEditor character={id} looks={aposeLooks} locale={textLanguage.names} {bust} onchange={setAposePath} />
-		</section>
-
-		<section class="block">
+		<section class="sc-section">
 			<h3>{m['creator.characters_wanted']()}</h3>
 			<WantedImages registry={file} {moods} {requests} locale={textLanguage.names} character={id} onopen={(_, p, l) => ((persona = p), (look = l))} />
 		</section>
 
-		<section class="block" data-testid="prompts">
+		<section class="sc-section" data-testid="prompts">
 			<h3>{m['creator.prompts_title']()}</h3>
 			<CharacterPrompts registry={file} {character} persona={personaId} look={lookId} {moods} {requests} locale={source} />
 		</section>
@@ -256,13 +222,6 @@
 		align-items: center;
 		margin: 0;
 	}
-	.block {
-		border-top: 1px solid var(--border-subtle);
-		padding-top: 0.6rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-	}
 	.tally {
 		margin-left: 0.35rem;
 		font-size: var(--type-caption-size);
@@ -281,9 +240,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-	}
-	.model {
-		max-width: 24rem;
 	}
 	.danger {
 		color: var(--error);

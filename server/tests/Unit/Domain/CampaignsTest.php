@@ -188,6 +188,18 @@ final class CampaignsTest extends TestCase
         $this->assertApiError(403, 'no_campaign', fn() => $invites->create($anna, ['item_id' => 'cucumber', 'to' => 'carl@example.com']));
     }
 
+    public function testAContainerGoesOnlyToAnAccount(): void
+    {
+        $this->get(\Scutoons\Domain\Catalog\CatalogAdmin::class)->put('items', 'songbook_small', ['id' => 'songbook_small', 'name' => ['en' => 'Songbook'], 'kind' => 'virtual',
+            'category' => 'tool', 'icon' => 'songbook.png', 'stackable' => false, 'starter' => false, 'grantable' => ['story'], 'slot' => null, 'skills' => [],
+            'holds' => ['categories' => ['score'], 'max' => 2]], 'test');
+        $this->campaign(['inviters' => 'all']);
+        $anna = $this->user('anna@example.com');
+        $this->get(InventoryService::class)->add((string) $anna['id'], 'songbook_small', null, 1, 'story');
+        $this->assertApiError(400, 'container_needs_account', fn() => $this->get(Invites::class)->create($anna, ['item_id' => 'songbook_small', 'to' => 'ben@example.com']));
+        self::assertSame(1, $this->get(InventoryService::class)->count((string) $anna['id'], 'songbook_small'), 'it stays');
+    }
+
     // ── The campaign's item, physical, paid by the member ────────────────────────────────────────────────────
 
     public function testPhysicalGiftPaidByHandAddressAndShipping(): void

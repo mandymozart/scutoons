@@ -81,13 +81,13 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   enforced). `decide`. An onion item in the catalog is needed before onions can respawn (onion camera parked to Feb 2027).
 - [ ] 10.78 **[owner] Text-free season cover art** – upload it and switch the cover editor's lettering on (DESIGN
   "cover editor"); lettering-free re-exports of the media in DATA.md "Audit" too.
-- [ ] 10.96 **Gift invites** – owner 2026-10-13: "Do you want to invite them? … invite them with a promo code". A gift
-  to an address without an account waits (30 days) and SCUTOONS mails a personal invite code; recallable; switched on in
-  the admin with an optional from / until (a campaign). Plan + Q1–Q3: research/GIFT-INVITES.md.
 - [ ] 10.97 **Scores + song book + score view** – owner 2026-10-14: "special items, called scores … go into a song
   book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
-  on a shared cover; the song book lists owned scores; the score view renders MusicXML (Verovio) with scale + pages,
-  reused by live mode. Plan + Q1–Q4: research/SCORES.md.
+  on a shared cover; containers (song books, DJ trolley …) hold items by an editable rule; the score view renders MusicXML (Verovio, decided) with scale + pages,
+  reused by live mode. Plan: research/SCORES.md. Built: the model, the server (ITEMS.md "Containers"), the catalog
+  editor fields, the reader's score view / cover lettering / ageing (draft `/account/lab/score`); next: the viewer UI
+  (drafts first) and score uploads into the protected storage. [owner] before score files go live: a bunny storage
+  + pull zone with token auth, secrets PROTECTED_CDN_KEY / variable PROTECTED_CDN_URL (deploy/README.md).
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
@@ -95,9 +95,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   scene (STORYBOARD §10), the first Figma bridge run, the remaining generated shots.
 - [ ] 10.95 **Storyboard: render the cast from the characters' 3D models** – owner 2026-10-13: "a 3d model for each
   persona of each character", "the storyboard renderer does a great job". Built: `model` (.glb) per persona / look on the
-  character page (`modelOf`, ASSETS.md "3D models"). Open: [owner] after the deploy attach catpope-regular.glb +
-  catpope-mountaintiger.glb (= tools/storyboard-render/models/*.glb) on production and publish; the renderer loads
-  `modelOf(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md).
+  character page (`personaModel`, ASSETS.md "3D models"). Open: [owner] publish the drafts character:catpope 559
+  (regular, Silikon, Gebirgstiger), toptoy 560, yellowmouse 561 – models on the CDN (the source of truth; the sketch ones
+  are placeholders until artists' models replace them); the renderer loads
+  `personaModel(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md).
 
 ## Platform, release
 - [ ] 10.8 **Public release** – one version everywhere (`1.0.0`, today root 0.0.0, frontends 0.1.0, api/qr 1.0.0),

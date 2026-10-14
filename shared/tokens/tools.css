@@ -311,6 +311,19 @@
 	letter-spacing: var(--tracking-label);
 	color: var(--ink);
 }
+/* a page section (owner 2026-10-14: on long pages "it is hard to differentiate where what ends"): one stack; the next
+   section starts after a clear gap, a 2px ink rule (the structure line) and the same gap again – DESIGN.md "Page sections" */
+.sc-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-075);
+	min-width: 0;
+}
+.sc-section + .sc-section {
+	margin-top: var(--space-15);
+	padding-top: var(--space-15);
+	border-top: var(--border-width-regular) solid var(--ink);
+}
 /* section heading: 1rem regular uppercase (bold only rarely, owner 2026-10-02) */
 .sc-heading {
 	margin: 0;

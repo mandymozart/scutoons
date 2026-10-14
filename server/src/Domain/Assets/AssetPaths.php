@@ -48,7 +48,7 @@ final class AssetPaths
             in_array($ext, self::AUDIO, true) => 'audio',
             $ext === 'zip' => 'archive',
             in_array($ext, self::MODEL, true) => 'model',
-            in_array($ext, ['pdf', 'mscz', 'json', 'txt'], true) => 'document',
+            in_array($ext, ['pdf', 'mscz', 'musicxml', 'mxl', 'xml', 'json', 'txt'], true) => 'document',
             default => 'other',
         };
     }

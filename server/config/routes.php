@@ -117,6 +117,8 @@ return static function (App $app): void {
     $app->get('/api/health', HealthController::class);
 
     $app->any('/api/items[/index.php]', [CatalogController::class, 'items']);
+    // a score's MusicXML / PDF as a short-lived signed URL (agents/research/SCORES.md §5)
+    $app->get('/api/items/{id}/score/{file}', [CatalogController::class, 'scoreFile']);
     $app->any('/api/editions[/index.php]', [CatalogController::class, 'editions']);
     $app->any('/api/toons[/index.php]', [CatalogController::class, 'toons']);
     $app->get('/api/{folder:items|editions|toons}/{file:items|editions|toons}.json', [CatalogController::class, 'file']);
@@ -156,6 +158,8 @@ return static function (App $app): void {
 
     $app->post('/api/inventory/claim', [InventoryController::class, 'claim']);
     $app->post('/api/inventory/craft', [InventoryController::class, 'craft']);
+    // containers (research/SCORES.md): put an entry into a container or take it out
+    $app->post('/api/inventory/move', [InventoryController::class, 'move']);
     $app->post('/api/inventory/grant', [InventoryController::class, 'grant']);
     // a story takes an item (VN takeItem, BACKLOG 10.38)
     $app->post('/api/inventory/take', [InventoryController::class, 'take']);
@@ -386,7 +390,7 @@ return static function (App $app): void {
         $admin->delete('/users/{id}/review-rules/{toon}/{rule}', [UsersController::class, 'removeReviewRule']);
         $admin->put('/users/{id}/characters/{character}', [UsersController::class, 'unlockCharacter']);
         $admin->delete('/users/{id}/characters/{character}', [UsersController::class, 'lockCharacter']);
-        $admin->delete('/users/{id}/characters/{character}/looks/{look}', [UsersController::class, 'lockLook']);
+        $admin->delete('/users/{id}/characters/{character}/looks/{persona}/{look}', [UsersController::class, 'lockLook']);
         $admin->get('/roles', [UsersController::class, 'roles']);
 
         $admin->get('/content', [AdminContentController::class, 'index']);

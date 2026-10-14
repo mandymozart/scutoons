@@ -23,6 +23,8 @@ import {
 import type { InviteOffer, InvitesResult } from '@scutoons/api';
 import {
 	DEFAULT_AVATAR_UNLOCKS,
+	DEFAULT_LOOK,
+	REGULAR_PERSONA,
 	activeEffects,
 	applySubstance,
 	avatarBodies,
@@ -33,8 +35,7 @@ import {
 	bodySlots as bodySlotsOf,
 	maxOf,
 	remapAvatarSlots,
-	unlockedBodies,
-	wearOverlay
+	unlockedBodies
 } from '@scutoons/content';
 import type {
 	Avatar,
@@ -62,7 +63,11 @@ import { showChrome } from '$lib/chrome.ts';
 
 const INVENTORY_KEY = Symbol('inventory');
 const GUEST_STORAGE_KEY = 'scutoons_inventory';
-/** The guest's avatar body { character, look } (per device; the old ids sphynx / sphynx_nude / mouse are mapped) */
+/**
+ * The guest's avatar body { character, persona, look } (per device). Older values are read once and rewritten
+ * (RULES.md: data in readers' browsers): the ids sphynx / sphynx_nude / mouse and { character, look: 'swim' } (the
+ * character-level A-pose before 2026-10-13) → the character's regular default look, where the A-pose moved to.
+ */
 const GUEST_BODY_KEY = 'scutoons_avatar_body';
 /** The guest's reader stats + effects (ITEMS.md "Substances"), per device */
 const GUEST_READER_KEY = 'scutoons_reader';
@@ -75,19 +80,18 @@ function readGuestReader(): ReaderState {
 		return { stats: {}, effects: [] };
 	}
 }
-const LEGACY_BODIES: Record<string, AvatarBodyRef> = {
-	sphynx: { character: 'catpope', look: 'swim' },
-	sphynx_nude: { character: 'catpope', look: 'swim' },
-	mouse: { character: 'yellowmouse', look: 'swim' }
-};
+const LEGACY_BODIES: Record<string, string> = { sphynx: 'catpope', sphynx_nude: 'catpope', mouse: 'yellowmouse' };
 
 function readGuestBody(): AvatarBodyRef | null {
 	try {
 		const raw = localStorage.getItem(GUEST_BODY_KEY);
 		if (!raw) return null;
-		if (LEGACY_BODIES[raw]) return LEGACY_BODIES[raw];
-		const parsed = JSON.parse(raw);
-		return typeof parsed?.character === 'string' && typeof parsed?.look === 'string' ? { character: parsed.character, look: parsed.look } : null;
+		const parsed = LEGACY_BODIES[raw] ? { character: LEGACY_BODIES[raw] } : JSON.parse(raw);
+		if (typeof parsed?.character !== 'string') return null;
+		if (typeof parsed.persona === 'string' && typeof parsed.look === 'string') return { character: parsed.character, persona: parsed.persona, look: parsed.look };
+		const body = { character: parsed.character, persona: REGULAR_PERSONA, look: DEFAULT_LOOK };
+		localStorage.setItem(GUEST_BODY_KEY, JSON.stringify(body));
+		return body;
 	} catch {
 		return null;
 	}
@@ -167,11 +171,11 @@ export function createInventoryContext(session: SessionContext) {
 	// the bodies the reader may pick (registry, lazily loaded) and the current one with its wear slots (slot instances)
 	let registry = $state<CharacterRegistry | null>(null);
 	let registryLoaded = $state(false);
-	// the unlocked bodies (avatarBodies leaves the removed naked look out – ITEMS.md "Reader avatar bodies")
+	// the unlocked bodies: every unlocked look with an A-pose (ITEMS.md "Reader avatar bodies")
 	const bodies = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), unlocked));
-	// the chosen body; an unknown look (e.g. the removed naked one) shows the same character's default look instead
+	// the chosen body; an unknown look (e.g. one that lost its A-pose) shows the same character's default body instead
 	const currentBody = $derived<AvatarBody | undefined>(
-		bodies.find((b) => b.character === body?.character && b.look === body?.look) ??
+		bodies.find((b) => b.character === body?.character && b.persona === body?.persona && b.look === body?.look) ??
 			bodies.find((b) => b.character === body?.character && b.default) ??
 			bodies.find((b) => b.character === body?.character) ??
 			bodies.find((b) => b.default) ??
@@ -662,7 +666,7 @@ export function createInventoryContext(session: SessionContext) {
 			const result = await putAvatarBody(ref);
 			session.patchMe({ avatar: result.avatar ?? { ...avatar, body: ref } });
 		} else {
-			const target = ref ? bodies.find((b) => b.character === ref.character && b.look === ref.look) : (bodies.find((b) => b.default) ?? bodies[0]);
+			const target = ref ? bodies.find((b) => b.character === ref.character && b.persona === ref.persona && b.look === ref.look) : (bodies.find((b) => b.default) ?? bodies[0]);
 			const targetSlots = target?.slots ?? bodySlotsOf(null);
 			guest.avatar = { ...guest.avatar, slots: remapAvatarSlots(worn, targetSlots, slotTypeOf) };
 			saveGuest();
@@ -675,11 +679,6 @@ export function createInventoryContext(session: SessionContext) {
 			}
 		}
 		// items that don't fit the new body just come off (no notice)
-	}
-
-	/** The wardrobe overlay of an entry on a slot instance of the current body (null = draw its icon at the anchor). */
-	function overlayOf(entry: Pick<Entry, 'item_id' | 'variant'>, slotId: string): string | null {
-		return wearOverlay(item(entry.item_id), currentBody?.character, slotId, variantOf(entry));
 	}
 
 	/**
@@ -811,7 +810,7 @@ export function createInventoryContext(session: SessionContext) {
 		get avatar() {
 			return avatar;
 		},
-		/** characters (+ A-pose looks) the reader may wear as avatar body */
+		/** characters (+ looks with an A-pose) the reader may wear as avatar body */
 		get unlocked() {
 			return unlocked;
 		},
@@ -819,7 +818,6 @@ export function createInventoryContext(session: SessionContext) {
 		get body() {
 			return body;
 		},
-		overlayOf,
 		/** the bodies the reader may pick (after `loadRegistry()`) */
 		get bodies() {
 			return bodies;

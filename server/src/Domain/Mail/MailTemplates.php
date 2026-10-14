@@ -25,6 +25,7 @@ use InvalidArgumentException;
  * Mailer::send() (or sendToAdmins() for audience admin), a render test in tests/Unit/Domain/MailTest.php.
  * Ownership + gifting (agents/ITEMS.md "Ownership, claims, gifting"; Domain\Ownership): ownership_claim_received,
  * ownership_claim_admin, ownership_claim_rejected, ownership_transferred_from, ownership_transferred_to, gift_received.
+ * Signup (Domain\Auth\LoginService::confirm, audience admin): signup_admin – a new account and the code it used.
  * Review before publish (Domain\Content\Reviews, audience creator): review_requested (reviewers), review_published,
  * review_returned (the author) – one mail per person per submit / decision, listing every file.
  * Gift invites (Domain\Campaigns\Invites; agents/research/GIFT-INVITES.md): invite_received (the friend, with the
@@ -39,6 +40,7 @@ final class MailTemplates
 {
     public const LOGIN_CODE = 'login_code';
     public const SIGNUP_WITHOUT_CODE = 'signup_without_code';
+    public const SIGNUP_ADMIN = 'signup_admin';
     public const OWNERSHIP_CLAIM_RECEIVED = 'ownership_claim_received';
     public const OWNERSHIP_CLAIM_ADMIN = 'ownership_claim_admin';
     public const OWNERSHIP_CLAIM_REJECTED = 'ownership_claim_rejected';
@@ -99,6 +101,18 @@ final class MailTemplates
                 ['button', 'button', 'url' => 'url'],
             ],
             'fineprint' => ['ignore'],
+        ],
+        self::SIGNUP_ADMIN => [
+            'audience' => 'admin',
+            'description' => 'New account: to the admin recipients – who signed up and with which code (POST /auth/verify/)',
+            'vars' => ['email' => 'string', 'code' => 'string', 'type' => 'string', 'dispute' => 'bool', 'url' => 'url'],
+            'sample' => ['email' => 'reader@example.com', 'code' => 'Ab3dE6gH', 'type' => 'promo', 'dispute' => false, 'url' => 'https://admin.scutoons.com/users/00000000-0000-0000-0000-000000000000'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'dispute', 'if' => 'dispute'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => [],
         ],
         self::OWNERSHIP_CLAIM_ADMIN => [
             'audience' => 'admin',

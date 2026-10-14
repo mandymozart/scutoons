@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
+use Scutoons\Domain\Inventory\Containers;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Domain\Ownership\Gifts;
 use Scutoons\Domain\Ownership\OwnershipTransfers;
@@ -19,10 +20,11 @@ use Scutoons\Http\Middleware\JsonBody;
 /**
  * Signed-in inventory actions (Bearer):
  *   POST /api/inventory/claim/   { code, item_id?, variant? } → { status, claimed: "new"|"already_yours", code, inventory }
- *   POST /api/inventory/craft/   { recipe_id } → { status, recipe_id, inventory }
+ *   POST /api/inventory/craft/   { recipe_id, use?: { <item id>: <entry id> } } → { status, recipe_id, inventory }
+ *   POST /api/inventory/move/    { entry_id, into: <container entry id> | null, overfill? } → { status, inventory } (containers, research/SCORES.md)
  *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
  *   POST /api/inventory/take/    { item_id, qty?, ref? } → { status, taken, reason: null|too_few|already_taken, inventory } (a story takes – BACKLOG 10.38)
- *   POST /api/inventory/import/  { items: [{ item_id, qty }] } → { status, imported, skipped, inventory }
+ *   POST /api/inventory/import/  { items: [{ item_id, qty, variant?, local_id?, in? }] } → { status, imported, skipped, inventory }
  *   POST /api/inventory/use/     { item_id } → { status, item_id, stats, effects, inventory } (a substance, ITEMS.md "Substances")
  *   POST /api/effects/end/       { kind } → { status, ended, effects } ("Effekt beenden")
  *   POST /api/inventory/gift/    { entry_id | item_id (+ variant), qty?, to: email } → { status, gift, inventory } (ITEMS.md "Ownership, claims, gifting")
@@ -36,6 +38,7 @@ final class InventoryController
         private readonly ReaderState $reader,
         private readonly Gifts $gifts,
         private readonly OwnershipTransfers $transfers,
+        private readonly Containers $containers,
     ) {
     }
 
@@ -90,8 +93,17 @@ final class InventoryController
     {
         $body = JsonBody::of($request);
         $user = CurrentSession::of($request)->requireUser();
-        $recipe = $this->inventory->craft((string) $user['id'], $body['recipe_id'] ?? null);
+        $recipe = $this->inventory->craft((string) $user['id'], $body['recipe_id'] ?? null, $body['use'] ?? null);
         return Json::response($response, 200, ['status' => 'success', 'recipe_id' => $recipe['id'], 'inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+
+    /** Into a container or out (research/SCORES.md §2): 409 overfill_warning until the reader agrees (`overfill: true`) */
+    public function move(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $this->containers->move((string) $user['id'], $body);
+        return Json::response($response, 200, ['status' => 'success', 'inventory' => $this->inventory->entries((string) $user['id'])]);
     }
 
     public function grant(Request $request, Response $response): Response

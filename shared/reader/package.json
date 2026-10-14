@@ -24,7 +24,10 @@
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
 	},
 	"dependencies": {
-		"@scutoons/content": "*"
+		"@scutoons/content": "*",
+		"@scutoons/ui": "*",
+		"swiper": "^12.0.3",
+		"verovio": "6.3.0"
 	},
 	"peerDependencies": {
 		"svelte": "^5.32.0"

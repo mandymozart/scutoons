@@ -2,7 +2,7 @@
 	import { publishTree } from '$lib/editor/publish-tree.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, PhoneBar, ToonAvatar, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, PhoneBar, confirmDialog, ToonAvatar, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -143,19 +143,22 @@
 		index.setLocal(NEUTRAL_LOCALE, ['languages'], next.languages, 'languages');
 	}
 
-	function setSource(source: Language) {
-		if (!edited) return;
-		setLanguages(source, [source, ...edited.languages]);
-	}
-
 	function addTarget() {
 		if (!edited || !addLanguage) return;
 		setLanguages(edited.source, [...edited.languages, addLanguage as Language]);
 		addLanguage = '';
 	}
 
-	function removeTarget(locale: Language) {
+	/** Asks first (owner 2026-10-14): the texts stay in the documents, the editor only stops showing and checking them */
+	async function removeTarget(locale: Language) {
 		if (!edited || locale === edited.source) return;
+		const name = LANGUAGE_NAMES[locale] ?? locale;
+		const ok = await confirmDialog({
+			title: m['creator.remove_language_title']({ locale: name }),
+			message: m['creator.remove_language_message']({ locale: name }),
+			confirmLabel: m['creator.remove_language']({ locale: name })
+		});
+		if (!ok || !edited) return;
 		setLanguages(edited.source, edited.languages.filter((l) => l !== locale));
 	}
 
@@ -360,7 +363,7 @@
 			<!-- the content first (BACKLOG 10.50 h): the chapters, then the toon's languages (set up once, rarely changed) -->
 			{#if index && !index.loading && edited}
 				<!-- owner 2026-10-12: the languages in one row of chips (set up once, rarely changed): the source filled, the
-				     translations with ★ (make it the source) and ×, an "add" select at the end -->
+				     translations with × (owner 2026-10-14: the source is changed on the script page – the ultimate source), an "add" select at the end -->
 				<section class="languages" data-testid="languages">
 					<span class="sc-label">{m['creator.languages']()}</span>
 					<ul class="chips">
@@ -368,7 +371,6 @@
 						{#each targets as l (l)}
 							<li class="sc-chip-control" data-testid="language-{l}">
 								{languageLabel(l)}
-								<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
 								<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
 							</li>
 						{/each}

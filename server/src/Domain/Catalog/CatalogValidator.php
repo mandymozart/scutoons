@@ -228,6 +228,55 @@ final class CatalogValidator
         if ($hasFormat && !in_array($item['format'], self::MEDIA_FORMATS, true)) $p[] = "$id: format must be one of " . implode(', ', self::MEDIA_FORMATS);
         if ($hasAlbum && !is_array($this->store->get('albums', (string) self::show($item['album'])))) $p[] = "$id: unknown album \"" . self::show($item['album']) . '"';
         if ($hasAlbum !== $hasFormat) $p[] = "$id: a media item needs both album and format";
+        return [...$p, ...self::container($id, $item, $items)];
+    }
+
+    /**
+     * Containers, ageing, score files (@scutoons/content containers.ts `validateContainers`; research/SCORES.md §2b):
+     * `holds` = categories or item ids + a capacity, an overfill that breaks it; never a container in a container.
+     *
+     * @param array<string, mixed> $item
+     * @param array<string, mixed> $items the catalog's items with this entry's new data
+     * @return list<string>
+     */
+    private static function container(string $id, array $item, array $items): array
+    {
+        $p = [];
+        $whole = fn(mixed $v, int $min) => is_int($v) && $v >= $min;
+        $holds = $item['holds'] ?? null;
+        if ($holds !== null) {
+            if (!is_array($holds) || array_is_list($holds) && $holds !== []) {
+                $p[] = "$id: holds must be { categories?, items?, max?, overfill? }";
+            } else {
+                $listed = (array) ($holds['items'] ?? []);
+                if ((array) ($holds['categories'] ?? []) === [] && $listed === []) $p[] = "$id: holds needs categories or items";
+                foreach ($listed as $other) {
+                    if (is_array($items[$other] ?? null) && ($items[$other]['holds'] ?? null) !== null) $p[] = "$id: a container can't hold a container (\"" . self::show($other) . '")';
+                }
+                foreach ($items as $other => $o) {
+                    if ($other !== $id && is_array($o) && in_array($id, (array) ($o['holds']['items'] ?? []), true)) $p[] = "$id: $other holds it – a container can't hold a container";
+                }
+                if (($holds['max'] ?? null) !== null && !$whole($holds['max'], 1)) $p[] = "$id: holds.max must be a whole number ≥ 1";
+                $over = $holds['overfill'] ?? null;
+                if ($over !== null) {
+                    if (!is_array($over) || !$whole($over['days'] ?? null, 1) || !$whole($over['max'] ?? null, 1) || !is_string($over['breaks_into'] ?? null)) {
+                        $p[] = "$id: overfill must be { days ≥ 1, max, breaks_into }";
+                    } else {
+                        if (!is_int($holds['max'] ?? null) || $over['max'] <= $holds['max']) $p[] = "$id: overfill.max must be above holds.max";
+                        if (!is_array($items[$over['breaks_into']] ?? null)) $p[] = "$id: breaks into an unknown item \"{$over['breaks_into']}\"";
+                    }
+                }
+            }
+        }
+        $ages = $item['ages'] ?? null;
+        if ($ages !== null && !(is_array($ages) && $whole($ages['tint_days'] ?? null, 0) && $whole($ages['spots_days'] ?? null, 0) && $whole($ages['full_days'] ?? null, 1)
+                && $ages['tint_days'] < $ages['full_days'] && $ages['spots_days'] < $ages['full_days'])) $p[] = "$id: ages must be { tint_days, spots_days, full_days } with both starts before full_days";
+        $score = $item['score'] ?? null;
+        if ($score !== null) {
+            if (!is_array($score) || !is_string($score['language'] ?? null) || $score['language'] === '' || !is_string($score['musicxml'] ?? null) || !preg_match('/\.(musicxml|xml|mxl)$/i', $score['musicxml'])) {
+                $p[] = "$id: score must be { language, musicxml: a .musicxml / .mxl path, pdf? }";
+            } elseif (($score['pdf'] ?? null) !== null && !(is_string($score['pdf']) && preg_match('/\.pdf$/i', $score['pdf']))) $p[] = "$id: score.pdf must be a .pdf path";
+        }
         return $p;
     }
 
@@ -249,7 +298,12 @@ final class CatalogValidator
             }
             if (!isset($items[$part['item']])) $p[] = "$what: unknown item \"{$part['item']}\"";
             if (!is_int($part['qty'] ?? null) || $part['qty'] < 1) $p[] = "$what: qty must be a whole number ≥ 1";
+            if (array_key_exists('keep', $part) && !is_bool($part['keep'])) $p[] = "$what: keep must be true or false";
         }
+        // research/SCORES.md §2a: a kept input (a tool like the drill), the output's variant from an input
+        if (is_array($inputs) && $inputs !== [] && array_filter($inputs, fn($i) => !is_array($i) || ($i['keep'] ?? false) !== true) === []) $p[] = 'a recipe must use up at least one input';
+        $from = is_array($recipe['output'] ?? null) ? ($recipe['output']['variant_from'] ?? null) : null;
+        if ($from !== null && !in_array($from, array_map(fn($i) => is_array($i) ? ($i['item'] ?? null) : null, is_array($inputs) ? $inputs : []), true)) $p[] = 'output: variant_from must name one of the inputs';
         // the recipe's own picture (owner 2026-10-04), optional – without it readers see the output item's picture
         if (($recipe['image'] ?? null) !== null && !(is_string($recipe['image']) && preg_match('/\.(png|webp|avif|svg)$/i', $recipe['image']))) $p[] = 'image must be an image path (.webp / .png / .avif / .svg)';
         return $p;
