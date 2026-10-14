@@ -259,6 +259,8 @@ test('A-pose: per look, its own view without fallback, avatar bodies', async () 
 		// the regular default look has no A-pose image yet: the first body is the default
 		'yellowmouse/regular/helmet*: Yellow Mouse (helmet)'
 	]);
+	// the look select's labels: the look without the name
+	assert.deepEqual(bodies.map((b) => b.lookLabel), ['default', 'Biker (with helmet)', 'helmet']);
 	// a character unlock includes its default body; further looks by key
 	const unlocked = (looks: string[]) => unlockedBodies(bodies, [{ character: 'catpope', looks }]).map((b) => b.look);
 	assert.deepEqual(unlocked([]), ['default']);

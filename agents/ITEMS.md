@@ -548,8 +548,9 @@ Owner 2026-10-12: "nackt does not exist anymore. a poses come per look." – the
   invalid_look`: no such look with an A-pose image), `DELETE /admin/users/{id}/characters/{character}[/looks/{persona}/{look}]`
   → `{ changed, characters }`; admin app user page: section "Avatar bodies". PHPUnit `CharacterUnlocksTest`.
 - **Viewer** (`components/avatar/avatar.svelte`): `unlockedBodies(avatarBodies(registry, locale), inventory.unlocked)`
-  (registry via `fetchRegistry`, once per page load); one picker tile per body (A-pose + "Cat Pope · Biker (with
-  helmet)"), shown when there is more than one; locked characters hidden. Members save with `PUT /avatar/ { body }`;
+  (registry via `fetchRegistry`, once per page load); one picker tile per character (its current body, else its
+  default body; shown when there is more than one), the character's looks in a "Look" select (`AvatarBody.lookLabel`:
+  "papal", "Biker (with helmet)"; shown when it has more than one – owner 2026-10-14); locked characters hidden. Members save with `PUT /avatar/ { body }`;
   guests get `DEFAULT_AVATAR_UNLOCKS` and store `{ character, persona, look }` in localStorage `scutoons_avatar_body`
   (older values – sphynx / sphynx_nude / mouse, `{ character, look: 'swim' }` – are rewritten once to the character's
   regular default look).

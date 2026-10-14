@@ -1026,6 +1026,8 @@ export interface AvatarBody {
 	label: string;
 	/** the character's name ("Cat Pope") */
 	name: string;
+	/** the look without the name: "papal", "Biker (with helmet)" – the reader's look select */
+	lookLabel: string;
 	path: string;
 	/** the body's wear slots (`bodySlots`: the A-pose's slot instances, or one instance per slot type) */
 	slots: AvatarSlotInstance[];
@@ -1048,8 +1050,10 @@ export function avatarBodies(registry: CharacterRegistry | null | undefined, loc
 				const path = look?.apose?.path?.trim();
 				if (!look?.id || !path) continue;
 				const personaName = characterName(c, locale, persona.id);
-				const label = persona.looks.length > 1 ? `${personaName} (${lookLabel(persona, look.id, locale)})` : personaName;
-				own.push({ character: c.id, persona: persona.id, look: look.id, label, name, path, slots: bodySlots(look.apose?.slots), default: false });
+				const lookName = lookLabel(persona, look.id, locale);
+				const label = persona.looks.length > 1 ? `${personaName} (${lookName})` : personaName;
+				const lookText = persona.id === REGULAR_PERSONA ? lookName : persona.looks.length > 1 ? `${personaLabel(c, persona.id, locale)} (${lookName})` : personaLabel(c, persona.id, locale);
+				own.push({ character: c.id, persona: persona.id, look: look.id, label, name, lookLabel: lookText, path, slots: bodySlots(look.apose?.slots), default: false });
 			}
 		}
 		const regular = findPersona(c, REGULAR_PERSONA);

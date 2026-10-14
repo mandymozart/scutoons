@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · items · The avatar picker keeps one tile per character; its looks are a select ("Look"); the overlay data stays unshown; the A-pose wears the look's clothing · "yes. maybe a select is better, change look" · → ITEMS.md "Reader avatar bodies"
 - 2026-10-13 · items · A wear slot has no image position any more (x / y / size dropped): items aren't drawn on the body; a duo's tiles go left / right by order · "Drop x/y/size entirely" · → ITEMS.md "Slots per avatar body"
 - 2026-10-13 · items · Any persona's look can carry an A-pose: the avatar body is { character, persona, look }; unlocks name looks `<persona>/<look>` · "Any persona's look" · → ITEMS.md "Reader avatar bodies"
 - 2026-10-12 · items · The A-pose belongs to a look, no naked body; worn items are not overlaid on the body – they sit as icons in the avatar page's slots (a fallback until the dress-up research) · "nackt does not exist anymore. a poses come per look … additional items dont get overlayed and we just put them in the slots on the avatar page" · → ITEMS.md "Reader avatar bodies", "Wardrobe"
