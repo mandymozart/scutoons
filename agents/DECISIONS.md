@@ -7,6 +7,7 @@ to mark them superseded.
 
 ## 2026-10
 - 2026-10-14 · mail · Every new account mails the admin recipients: who signed up and with which code (+ its type), linked to the account · "email notifications if a new member signs up, and which code they used" · → PLATFORM.md "Emails"
+- 2026-10-14 · items · DIY book ageing: a light tint after 2 weeks, spots after a month, fully aged after 3 months; the upgrade keeps the old look; overfilled it breaks after 3 days, at most 99 scores · "good timing", "upgrade keeps old look", "3 days", "upper limit for this is 99" · → research/SCORES.md §2a
 - 2026-10-14 · items · The DIY song book can be overfilled past 25, but then breaks after a few days; the reader is warned when trying it · "it will really break but after only a few days. we have to warn them when they try to do this" · → research/SCORES.md §2a
 - 2026-10-14 · items · The CD case holds 25 CDs, the cassette suitcase 30 cassettes – enough for a DJ set to bring along · "cd case holds 25 cassette box can hold 30 enough for a dj set to bring along" · → research/SCORES.md §2b
 - 2026-10-14 · items · Upgrading the DIY song book needs only 4 large zip ties, no drill · "no drill needed for upgrade only 4 large zip ties" · → research/SCORES.md §2a
