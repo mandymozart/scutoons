@@ -53,6 +53,7 @@
 	import 'swiper/css';
 	import { Icon, IconButton } from '@scutoons/ui';
 	import { loadToolkit, type ScoreToolkit } from './verovio.ts';
+	import ScoreAge from './score-age.svelte';
 
 	/**
 	 * The score view (research/SCORES.md §4): a full-screen sheet of music rendered from MusicXML by Verovio. Pages are
@@ -66,6 +67,7 @@
 		pdf = null,
 		title,
 		labels = DEFAULT_SCORE_LABELS,
+		age = null,
 		onclose
 	}: {
 		/** the MusicXML file's URL */
@@ -74,6 +76,8 @@
 		pdf?: string | null;
 		title: string;
 		labels?: ScoreLabels;
+		/** an ageing book's look (`ageLook` + a seed – the book entry): tint and spots over every page */
+		age?: { tint: number; spots: number; seed: string } | null;
 		onclose: () => void;
 	} = $props();
 
@@ -232,7 +236,10 @@
 				<div class="swiper-wrapper">
 					{#each { length: pages }, i (i)}
 						<!-- Verovio's SVG of our own MusicXML -->
-						<div class="swiper-slide" data-page={i + 1}>{@html rendered[i + 1] ?? ''}</div>
+						<div class="swiper-slide" data-page={i + 1}>
+							{@html rendered[i + 1] ?? ''}
+							{#if age}<ScoreAge tint={age.tint} spots={age.spots} seed="{age.seed}:{i + 1}" />{/if}
+						</div>
 					{/each}
 				</div>
 			</div>
@@ -343,6 +350,7 @@
 
 	/* a system taller than the page (a big zoom on a phone) scrolls instead of being cut */
 	.swiper-slide {
+		position: relative;
 		height: 100%;
 		overflow: hidden auto;
 	}

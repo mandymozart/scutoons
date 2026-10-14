@@ -1,10 +1,12 @@
 <script lang="ts" module>
 	import type { SliceItem } from '@scutoons/content';
 
-	/** What the app knows about a placed item's catalog entry: its icon URL (resolved) and its name. */
+	/** What the app knows about a placed item's catalog entry: its icon URL (resolved), its name, and a title lettered on
+	 *  its cover (a score's song title in the score's language – research/SCORES.md §1). */
 	export interface SliceItemInfo {
 		src: string;
 		label: string;
+		lettering?: string | null;
 	}
 
 	export type ResolveSliceItem = (item: SliceItem) => SliceItemInfo | null | undefined;
@@ -12,6 +14,7 @@
 
 <script lang="ts">
 	import { hitsShape, loadShape, type Shape } from '../fx/shape.ts';
+	import CoverLettering from './cover-lettering.svelte';
 
 	/**
 	 * One catalog item placed on a slice (`Slice.items[index]`): the item's cut-out icon at its rect, rotated around its
@@ -99,7 +102,22 @@
 		onclick={tap}
 	>
 		<img src={info.src} alt="" draggable="false" />
+		{#if info.lettering}<CoverLettering text={info.lettering} />{/if}
 	</button>
+{:else if info.lettering}
+	<span
+		class="slice-item lettered"
+		data-item={item.item}
+		data-index={index}
+		style:left="{item.rect.x}%"
+		style:top="{item.rect.y}%"
+		style:width="{item.rect.width}%"
+		style:height={item.rect.height !== undefined ? `${item.rect.height}%` : null}
+		style:--rotation="{item.rotation ?? 0}deg"
+	>
+		<img src={info.src} alt={info.label} draggable="false" />
+		<CoverLettering text={info.lettering} />
+	</span>
 {:else}
 	<img
 		class="slice-item"
@@ -126,6 +144,13 @@
 	}
 
 	img.slice-item {
+		height: auto;
+	}
+
+	/* an art-only placement with a lettered cover (a score): the picture + its title */
+	.lettered img {
+		display: block;
+		width: 100%;
 		height: auto;
 	}
 
