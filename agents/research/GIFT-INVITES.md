@@ -11,8 +11,7 @@ The invite carries that code, so the refusal becomes an offer.
 
 - **The gift waits:** taken from the giver at once and reserved; delivered when the friend signs up; back to the giver
   if unused after 30 days.
-- **A personal invite code:** a new single-use code per invite (code type `invite`: allows signup, unlocks like a promo
-  code), tied to that gift – it can't leak or be reused.
+- **A personal invite code:** a new single-use promo code per invite (§4), tied to that gift – it can't leak or be reused.
 - **SCUTOONS mails it:** an invite mail naming the giver, with the code link; limited per giver per day and once per
   address (against spam).
 - **Recall:** a gift can be called back ("Any gift has to be recalled") – only while it is waiting, not once the friend
@@ -64,9 +63,12 @@ code-bound item (a physical product's twin) stays with the giver's account until
 an account that doesn't exist yet). Limits: it counts towards the giver's 10 gifts a day; one waiting invite per
 address at a time.
 
-**4. The invite code.** A new code type `invite` in the catalog's code types (signup: yes, grants `catalog` like promo,
-not claimable); one code per pending gift, created by the server (not the admin form), its `expires_at` = the switch's
-*access ends*. Used once: signing up with it delivers the gift; afterwards no new account can use it.
+**4. The invite code = a promo code (owner 2026-10-14: "is it really different to promo?" – no).** A code type only
+says signup / claimable / grants, and an invite's are promo's. What is special lives in the invite row, per code: used
+once (the invite knows it), accepted only while its invite waits (30 days, never past the campaign's end), and the
+reading time = the code's own `expires_at`, set when the friend joins – none with "keep reading", the date with "until"
+– so the existing access logic (`Permissions::access`, `AccountService::signupCodeRow`) needs no new rule. Created by
+the server, one per invite; the admin's Codes list shows the link ("promo · invite from …").
 
 **4a. When the access ends – already how accounts work.** An account reads with its signup code only while that code
 is valid (`AccountService::signupCodeRow`, `Permissions::access`: an expired code grants nothing); the account itself
