@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; Q7 + Q10 decided; waits for the owner on Q11, the DJ trolley's rule + capacity (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; Q7, Q10, Q11 decided; waits for the owner on Q12 (ageing) (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -48,7 +48,7 @@ with a `holds` rule, edited in admin → Catalog → Items ("Holds" in the item 
 `holds: { categories?: ItemCategory[], items?: string[], max?: number }` – an item fits when its category is listed
 OR its id is listed; `max` = how many entries fit (none = no limit). Song book = `{ categories: ["score"], max: n }`;
 a pencil case later = `{ items: ["pencil", "eraser"] }`. Planned next to the song book (owner 2026-10-14): the **DJ trolley** (`dj_trolley`) holds
-**only vinyl** – the record items listed (`items`), not the category (capacity open). CDs go into a **CD case** (90s
+**only vinyl** – the record items listed (`items`), not the category, `max: 60`. CDs go into a **CD case** (90s
 style), cassettes into a **little toy suitcase** – carried containers like the song book. A **CD rack** / **cassette
 rack** are not inventory: they belong to the **cave** – the avatar's home, a new concept designed in its own session
 (owner: "not inventory but cave … the home of the avatar"). Making a new container = filling in "Holds" on an item, no
@@ -62,22 +62,30 @@ colors. you might need to set up those items for me"). Every song book is its ow
 its property (`holds`). Items to set up (admin catalog, as a proposal the admin applies – once the code knows `holds`):
 | id | what | notes |
 |---|---|---|
-| `songbook_<size>` | container, `holds: { categories: [score], max }`; colour variants | one item per size (sizes / capacities: Q11); not a starter – obtained like the parts (placed / campaign gift) |
+| `songbook_small` | container, `holds: { categories: [score], max: 12 }`; colour variants | not a starter – obtained like the parts (placed / campaign gift) |
+| `songbook_large` | the same, `max: 99`; named the **conductor edition** | owner 2026-10-14: "small and large only" |
 | `drill` | tool, virtual | kept by the recipe (a tool, not an ingredient) |
 | `zip_tie` | stackable | placed items or campaign gifts (see below) |
 | `zip_tie_large` | stackable | the bigger zip ties – upgrade the DIY book |
 | `plastic_sheet` | stackable, colour variants: black, white, red, blue, light blue, orange, green, brown, mother-of-pearl (owner 2026-10-14) | colours the book (owner 2026-10-14: "doesn't have a color unless you add a piece of plastic in a specific color") |
-| `songbook_diy` | container, `holds: score` (one size, its `max`: Q11); plain or a colour variant | output of the recipes |
-| `songbook_diy_large` | the upgraded DIY book, a bigger `max`; plain or a colour variant | owner 2026-10-14: "it can be upgraded with bigger zip ties" |
+| `songbook_diy` | container, `holds: score`, `max: 25`; plain or a colour variant; **ages** (below) | output of the recipes |
+| `songbook_diy_large` | the upgraded DIY book, `max: 99`; plain or a colour variant; ages too | owner 2026-10-14: "it can be upgraded with bigger zip ties" |
 | recipe `songbook_diy` | drill (kept) + 4 × zip_tie → songbook_diy (plain) | |
 | recipe `songbook_diy_colour` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | the output takes the plastic's colour; a book with scores keeps them (owner 2026-10-14: "why would they leave the book?"); the same for `songbook_diy_large` |
-| recipe `songbook_diy_upgrade` | songbook_diy (any colour) + 4 × zip_tie_large → songbook_diy_large (the same colour) | the colour and the scores carry over |
+| recipe `songbook_diy_upgrade` | songbook_diy (any colour) + 4 × zip_tie_large → songbook_diy_large (the same colour) | no drill (owner 2026-10-14: "no drill needed for upgrade only 4 large zip ties"); the colour and the scores carry over |
 **Colour and size** (owner 2026-10-14: "song books have color variants and maybe even size variants. so specific books
 can hold only up to [n] scores"): a container's capacity is part of its property – `holds: { categories: ["score"],
 max?: n }` (none = no limit); a full book refuses the move ("Das Liederbuch ist voll." / "The song book is full.").
 Decided (owner 2026-10-14, Q10): "the sizes are separate items, the colors are variants, the diy book is its own. diy
 has only one size for now. it can be upgraded with bigger zip ties" – one variant axis per item, so colour × size
 never multiplies; a size has its own icon, price and recipe.
+**The DIY book ages** (owner 2026-10-14: "the diy one ages really bad. so older ones have a tinted color on each score
+and spots"). An item fundamental: `ages: { full_days }` on the item – the age = now − the entry's creation (the craft),
+0 … 1 over `full_days`. A score shown from an ageing book (its cover in the book's grid and every page in the score
+view) gets a paper tint that deepens with the age and spots that appear and grow – placed by a seed from the entry
+id, so a page's spots stay where they are. `ScoreView` takes `{ age, seed }` and lays the tint + spots over the pages
+(the music stays readable); the PDF stays clean (the print file). Q12: how fast; does the upgrade keep the age?
+
 Where readers get the parts (owner 2026-10-14): for now placed items in the story (`grantable: ["story"]`) or gifts
 through campaigns (research/GIFT-INVITES.md, built in its own session).
 Three recipe fundamentals the code needs (ITEMS.md, with the code): an input that is **kept** (`RecipePart.keep`);
@@ -120,10 +128,14 @@ into the server's env.
 MusicXML parses – a Verovio load test in the admin, the server checks extension + size). Creator: nothing new – a
 score is placed with "Place an item …".
 
+**7. Annotations (later, with live mode)** – owner 2026-10-14: "important feature. scores allow for annotations. but
+that is perhaps plan for live". A reader / musician writes on a score (marks, fingerings, breath marks, notes) and
+finds them again; Verovio's SVG gives every note and bar an id, so annotations can anchor to the music, not to page
+coordinates, and survive a new zoom / page layout. Planned with research/LIVE.md (parked to Feb 2027), not now.
+
 ## Open questions
-- **Q11 capacities:** which sizes of the bought / found book (small, large, …?) and how many scores each holds; the DIY
-  book; the upgraded DIY book. Does the upgrade need the drill again (new holes)? Recommended: no.
-- **DJ trolley:** how many records does it hold? (Only vinyl – decided.)
+- **Q12 ageing:** how fast – e.g. a light tint after 2 weeks, spots after a month, fully aged after 3 months? Does the
+  upgraded book keep the old book's age (the pages are old – recommended) or start new?
 
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
