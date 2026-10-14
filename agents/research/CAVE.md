@@ -1,4 +1,4 @@
-Status 2026-10-14: concept decided (Q1–Q4, D1–D7, the data model; the home scene per avatar, racks max 50, the mover 50 cucumbers – may come with the first build); open: the build order ("cave can go step two"), the mover's form; draft `/account/lab/cave`; nothing built (FEATURES 10.98).
+Status 2026-10-14: concept decided (Q1–Q4, D1–D7, the data model, furniture sizes, the mover – built super basic); building step 1 (FEATURES 10.98), the order is the agent's (owner: "as you see fit"); draft `/account/lab/cave`.
 
 # CAVE — the avatar's home (concept, 2026-10-14)
 
@@ -128,6 +128,10 @@ Catalog / content (edited in the admin / creator):
   point, **smaller further back** (65 % at the back wall's foot … 100 % at the front), what stands further front covers
   what stands behind (the avatar too); "Turn" mirrors it (for the right wall – `inventory.home_flip`). The same numbers
   in every home scene; no rotation beyond the mirror, no collisions.
+- **Images first, 3D second** (owner 2026-10-14: "so we have 3d items and images. because our first iteration is images,
+  second will be 3d for more flexibility"): iteration 1 = the 2.5D images above (home scene backgrounds, furniture
+  home images); iteration 2 = 3D – a `.glb` per home scene and per furniture item (like the characters' models,
+  ASSETS.md "3D models"), free camera / rotation; the fields come then (`model`), `size` stays the piece's width.
 - **VR headset** (ItemDef): skill `{ type: "enter_home" }`.
 
 Reader state (server tables for members; the same shape in localStorage for guests, imported at sign-in):
