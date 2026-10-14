@@ -7,6 +7,7 @@ to mark them superseded.
 
 ## 2026-10
 - 2026-10-14 · mail · Every new account mails the admin recipients: who signed up and with which code (+ its type), linked to the account · "email notifications if a new member signs up, and which code they used" · → PLATFORM.md "Emails"
+- 2026-10-14 · items · Song book sizes are separate items, colours are variants; the DIY book is its own item with one size, upgradable with bigger zip ties (colour and scores carry over) · "the sizes are separte items, the colors are variants, the diy book is its own. diy has only one size for now. it can be upgraded with bigger zip looks" · → research/SCORES.md §2a
 - 2026-10-14 · items · A gifted container takes its contents along; what can't be given or would exceed the recipient's max stays with the giver · "the scores go along with the book" · → research/SCORES.md §2
 - 2026-10-14 · items · No song book is a starter item; every song book has to be obtained · "it is not a starter item. has to be obtained" · → research/SCORES.md §2a
 - 2026-10-14 · items · A DJ trolley will be a container for the records · "record box is a dj trolly. that is for sure" · → research/SCORES.md §2b

@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q10, the DJ trolley's rule + capacity (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; Q7 + Q10 decided; waits for the owner on Q11, the DJ trolley's rule + capacity (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -60,23 +60,28 @@ colors. you might need to set up those items for me"). Every song book is its ow
 its property (`holds`). Items to set up (admin catalog, as a proposal the admin applies – once the code knows `holds`):
 | id | what | notes |
 |---|---|---|
-| `songbook` | container, `holds: score` | not a starter – obtained like the parts (placed / campaign gift) |
+| `songbook_<size>` | container, `holds: { categories: [score], max }`; colour variants | one item per size (sizes / capacities: Q11); not a starter – obtained like the parts (placed / campaign gift) |
 | `drill` | tool, virtual | kept by the recipe (a tool, not an ingredient) |
 | `zip_tie` | stackable | placed items or campaign gifts (see below) |
+| `zip_tie_large` | stackable | the bigger zip ties – upgrade the DIY book |
 | `plastic_sheet` | stackable, colour variants: black, white, red, blue, light blue, orange, green, brown, mother-of-pearl (owner 2026-10-14) | colours the book (owner 2026-10-14: "doesn't have a color unless you add a piece of plastic in a specific color") |
-| `songbook_diy` | container, `holds: score`; plain (no variant) or a colour variant | output of the recipes |
+| `songbook_diy` | container, `holds: score` (one size, its `max`: Q11); plain or a colour variant | output of the recipes |
+| `songbook_diy_large` | the upgraded DIY book, a bigger `max`; plain or a colour variant | owner 2026-10-14: "it can be upgraded with bigger zip ties" |
 | recipe `songbook_diy` | drill (kept) + 4 × zip_tie → songbook_diy (plain) | |
-| recipe `songbook_diy_<colour>` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | one per colour; a book with scores keeps them (owner 2026-10-14: "why would they leave the book?") |
+| recipe `songbook_diy_colour` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | the output takes the plastic's colour; a book with scores keeps them (owner 2026-10-14: "why would they leave the book?"); the same for `songbook_diy_large` |
+| recipe `songbook_diy_upgrade` | songbook_diy (any colour) + 4 × zip_tie_large → songbook_diy_large (the same colour) | the colour and the scores carry over |
 **Colour and size** (owner 2026-10-14: "song books have color variants and maybe even size variants. so specific books
 can hold only up to [n] scores"): a container's capacity is part of its property – `holds: { categories: ["score"],
 max?: n }` (none = no limit); a full book refuses the move ("Das Liederbuch ist voll." / "The song book is full.").
-Colours are variants. Sizes as their own items (`songbook_small`, `songbook_large` …, each with its own `max`)
-rather than size variants: one variant axis per item keeps colour × size from multiplying the variants and recipes,
-and a size can then have its own icon, price and recipe (Q10).
+Decided (owner 2026-10-14, Q10): "the sizes are separate items, the colors are variants, the diy book is its own. diy
+has only one size for now. it can be upgraded with bigger zip ties" – one variant axis per item, so colour × size
+never multiplies; a size has its own icon, price and recipe.
 Where readers get the parts (owner 2026-10-14): for now placed items in the story (`grantable: ["story"]`) or gifts
 through campaigns (research/GIFT-INVITES.md, built in its own session).
-Two recipe fundamentals the code needs (ITEMS.md, with the code): an input that is **kept** (`RecipePart.keep`) and
-a **variant** on a part (`RecipePart.variant` – explicit per colour, no hidden inheritance). Icons: placeholders until
+Three recipe fundamentals the code needs (ITEMS.md, with the code): an input that is **kept** (`RecipePart.keep`);
+the output's **variant taken from an input** (`output.variant_from: <input item>` – the plastic's colour, or the book's
+colour on an upgrade; one recipe instead of one per colour: with 9 colours × 2 DIY sizes explicit recipes would be
+~30); the **contents carried over** when the consumed input is a container (its entries move into the output). Icons: placeholders until
 the owner's art (like the players').
 
 **3. The song book view** – the inventory grid component reused (one job: a grid of owned items), filtered to
@@ -114,8 +119,8 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q10 sizes:** sizes as their own items with their own capacity (recommended), or size variants of one item (then
-  each variant carries its `max`)? And the capacities: the basic book, the DIY book, the sizes.
+- **Q11 capacities:** which sizes of the bought / found book (small, large, …?) and how many scores each holds; the DIY
+  book; the upgraded DIY book. Does the upgrade need the drill again (new holes)? Recommended: no.
 
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
