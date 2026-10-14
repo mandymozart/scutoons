@@ -16,6 +16,15 @@
 	const score = $derived<Data>(value ?? { language: 'en', musicxml: '' });
 	const languages = Object.values(Language).map((l) => ({ value: l }));
 	const set = (patch: Data) => onchange({ ...score, ...patch });
+	/** the choir part (`score.parts.choir`): both slots empty = no choir part */
+	const choir = $derived<Data>(score.parts?.choir ?? {});
+	function setChoir(patch: Data) {
+		const next = { ...choir, ...patch };
+		const parts = { ...(score.parts ?? {}) };
+		if (next.musicxml || next.pdf) parts.choir = next;
+		else delete parts.choir;
+		set({ parts: Object.keys(parts).length ? parts : undefined });
+	}
 </script>
 
 <fieldset class="score" data-testid="item-score">
@@ -23,6 +32,8 @@
 	<CatalogField label={m['catalog.score_language']()} type="select" value={score.language} options={languages} hint={m['catalog.score_language_hint']()} onchange={(v) => set({ language: v })} testid="item-score-language" />
 	<ProtectedFileSlot {item} file="musicxml" value={score.musicxml || null} label={m['catalog.score_musicxml']()} onchange={(path) => set({ musicxml: path ?? '' })} testid="item-score-musicxml" />
 	<ProtectedFileSlot {item} file="pdf" value={score.pdf ?? null} label={m['catalog.score_pdf']()} onchange={(path) => set({ pdf: path ?? null })} testid="item-score-pdf" />
+	<ProtectedFileSlot {item} file="musicxml" value={choir.musicxml || null} label={m['catalog.score_choir_musicxml']()} onchange={(path) => setChoir({ musicxml: path ?? '' })} testid="item-score-choir-musicxml" />
+	<ProtectedFileSlot {item} file="pdf" value={choir.pdf ?? null} label={m['catalog.score_choir_pdf']()} onchange={(path) => setChoir({ pdf: path ?? null })} testid="item-score-choir-pdf" />
 	<p class="sc-caption muted">{m['catalog.score_protected']()}</p>
 	{#if error}<p class="sc-error">{error}</p>{/if}
 </fieldset>

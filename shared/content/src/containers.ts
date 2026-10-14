@@ -26,8 +26,28 @@ export interface ItemAges {
 /** A score's files (one language per score – an edition per language, owner 2026-10-14): CDN paths, served signed. */
 export interface ScoreFiles {
 	language: string;
+	/** the full score */
 	musicxml: string;
 	pdf?: string | null;
+	/**
+	 * Named parts of the same score (owner 2026-10-14: one item per song, "different parts" – no second item):
+	 * `choir` = the choir arrangement. Switched on per reader later with live mode's performance groups; for now the
+	 * reader sees `READER_PART` when the score has it (`readerPart`).
+	 */
+	parts?: Record<string, ScorePart> | null;
+}
+
+export interface ScorePart {
+	musicxml: string;
+	pdf?: string | null;
+}
+
+/** the part readers see for now (owner 2026-10-14: "you always choose the choir parts in the viewer") */
+export const READER_PART = 'choir';
+
+/** which part of a score a reader opens: the choir when there is one, else the full score (null) */
+export function readerPart(score: Pick<ScoreFiles, 'parts'> | { parts?: Record<string, unknown> | null } | null | undefined): string | null {
+	return score?.parts && READER_PART in score.parts ? READER_PART : null;
 }
 
 const DAY_MS = 86_400_000;
@@ -113,6 +133,14 @@ export function validateContainers(catalog: { items: any[]; recipes?: any[] }, a
 			if (!isObj(s) || typeof s.language !== 'string' || !s.language || typeof s.musicxml !== 'string' || !/\.(musicxml|xml|mxl)$/i.test(s.musicxml)) {
 				add('error', [...path, 'score'], `${item.id}: score must be { language, musicxml: a .musicxml / .mxl path, pdf? }`);
 			} else if (s.pdf != null && !(typeof s.pdf === 'string' && /\.pdf$/i.test(s.pdf))) add('error', [...path, 'score', 'pdf'], `${item.id}: score.pdf must be a .pdf path`);
+			if (isObj(s) && s.parts != null) {
+				if (!isObj(s.parts)) add('error', [...path, 'score', 'parts'], `${item.id}: score.parts must be { <part>: { musicxml, pdf? } }`);
+				else for (const [name, part] of Object.entries(s.parts as Record<string, any>)) {
+					if (!/^[a-z0-9_]{1,40}$/.test(name)) add('error', [...path, 'score', 'parts', name], `${item.id}: part name "${name}" – lower-case letters, digits, _`);
+					if (!isObj(part) || typeof part.musicxml !== 'string' || !/\.(musicxml|xml|mxl)$/i.test(part.musicxml)) add('error', [...path, 'score', 'parts', name], `${item.id}: part ${name} needs a .musicxml / .mxl path`);
+					else if (part.pdf != null && !(typeof part.pdf === 'string' && /\.pdf$/i.test(part.pdf))) add('error', [...path, 'score', 'parts', name, 'pdf'], `${item.id}: part ${name}: pdf must be a .pdf path`);
+				}
+			}
 			if (item.category !== 'score') add('warning', [...path, 'category'], `${item.id}: an item with score files should have the category "score"`);
 		}
 	});

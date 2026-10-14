@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ageLook, type Entry } from '@scutoons/content';
+	import { ageLook, readerPart, type Entry } from '@scutoons/content';
 	import { ScoreView } from '@scutoons/reader';
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { scoreFile } from '$lib/api.ts';
@@ -7,14 +7,17 @@
 
 	/**
 	 * A score in the item detail (agents/research/SCORES.md §4, §5): "Open" shows it in the score view (its MusicXML
-	 * through a signed URL – anyone who has it, guests too), "PDF" downloads the print file (members who own it). Lying
-	 * in an ageing book (the DIY song book), its pages show the book's age.
+	 * through a signed URL – anyone who has it, guests too), "PDF" downloads the print file (members who own it). For
+	 * now both are the choir part when the score has one (owner 2026-10-14; parts switch on later with performance
+	 * groups). Lying in an ageing book (the DIY song book), its pages show the book's age.
 	 */
 	let { entry }: { entry: Entry } = $props();
 
 	const inventory = getInventoryContext();
 	const def = $derived(inventory.item(entry.item_id));
 	const title = $derived(def?.score ? (def.name?.[def.score.language] ?? localized(def.name)) : '');
+	const part = $derived(readerPart(def?.score));
+	const hasPdf = $derived(!!(part ? def?.score?.parts?.[part]?.pdf : def?.score?.pdf));
 	const book = $derived(inventory.containerOf(entry));
 	const age = $derived.by(() => {
 		const ages = book ? inventory.item(book.item_id)?.ages : null;
@@ -29,7 +32,7 @@
 		working = true;
 		failed = false;
 		try {
-			src = (await scoreFile(entry.item_id, 'musicxml')).url;
+			src = (await scoreFile(entry.item_id, 'musicxml', part)).url;
 		} catch {
 			failed = true;
 		} finally {
@@ -41,7 +44,7 @@
 		working = true;
 		failed = false;
 		try {
-			window.open((await scoreFile(entry.item_id, 'pdf')).url, '_blank', 'noopener');
+			window.open((await scoreFile(entry.item_id, 'pdf', part)).url, '_blank', 'noopener');
 		} catch {
 			failed = true;
 		} finally {
@@ -52,7 +55,7 @@
 
 {#if def?.score}
 	<button class="btn-secondary" disabled={working} onclick={open} data-testid="score-open">{m['items.score_open']()}</button>
-	{#if def.score.pdf && inventory.isAccount}
+	{#if hasPdf && inventory.isAccount}
 		<button class="btn-secondary" disabled={working} onclick={pdf} data-testid="score-pdf">{m['items.score_pdf']()}</button>
 	{/if}
 	{#if failed}<p class="note" role="alert">{m['items.score_failed']()}</p>{/if}

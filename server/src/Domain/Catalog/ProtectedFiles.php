@@ -30,15 +30,19 @@ final class ProtectedFiles
     }
 
     /**
-     * GET /api/items/{id}/score/{file} → { url, expires }. 404 unknown_item / no_score / no_file, 401 (pdf, signed out),
+     * GET /api/items/{id}/score/{file}[?part=<name>] → { url, expires } – the full score, or one of its named parts
+     * (`score.parts.<name>`: the choir …). 404 unknown_item / no_score / no_part / no_file, 401 (pdf, signed out),
      * 403 not_owner (pdf).
      * @param array<string, mixed>|null $user the signed-in account, if any
      * @return array{url: string, expires: int}
      */
-    public function score(string $itemId, string $file, ?array $user): array
+    public function score(string $itemId, string $file, ?array $user, ?string $part = null): array
     {
         $item = $this->catalog->item($itemId) ?? throw new ApiError(404, 'unknown_item', 'Unknown item.');
         $score = is_array($item['score'] ?? null) ? $item['score'] : throw new ApiError(404, 'no_score', 'This item has no score.');
+        if ($part !== null && $part !== '') {
+            $score = is_array($score['parts'][$part] ?? null) ? $score['parts'][$part] : throw new ApiError(404, 'no_part', 'This score has no such part.');
+        }
         if ($file !== 'musicxml' && $file !== 'pdf') throw new ApiError(404, 'no_file', 'musicxml or pdf.');
         $path = is_string($score[$file] ?? null) && $score[$file] !== '' ? $score[$file] : throw new ApiError(404, 'no_file', 'This score has no such file.');
         if ($file === 'pdf') {
@@ -64,14 +68,17 @@ final class ProtectedFiles
     }
 
     /**
-     * The catalog as readers get it: a score names its language and whether it has a PDF, never its paths
+     * The catalog as readers get it: a score names its language, whether it has a PDF and its parts, never its paths
      * @param array<string, mixed> $item
      * @return array<string, mixed>
      */
     public static function publicItem(array $item): array
     {
         if (!is_array($item['score'] ?? null)) return $item;
-        $item['score'] = ['language' => $item['score']['language'] ?? null, 'pdf' => is_string($item['score']['pdf'] ?? null) && $item['score']['pdf'] !== ''];
+        $hasPdf = fn(mixed $files) => is_array($files) && is_string($files['pdf'] ?? null) && $files['pdf'] !== '';
+        $parts = is_array($item['score']['parts'] ?? null) ? $item['score']['parts'] : [];
+        $item['score'] = ['language' => $item['score']['language'] ?? null, 'pdf' => $hasPdf($item['score'])]
+            + ($parts !== [] ? ['parts' => array_map(fn($p) => ['pdf' => $hasPdf($p)], $parts)] : []);
         return $item;
     }
 }

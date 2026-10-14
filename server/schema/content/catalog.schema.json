@@ -804,6 +804,40 @@
 					"type": "string"
 				},
 				"musicxml": {
+					"type": "string",
+					"description": "the full score"
+				},
+				"pdf": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"parts": {
+					"anyOf": [
+						{
+							"type": "object",
+							"additionalProperties": {
+								"$ref": "#/definitions/ScorePart"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "Named parts of the same score (owner 2026-10-14: one item per song, \"different parts\" – no second item): `choir` = the choir arrangement. Switched on per reader later with live mode's performance groups; for now the reader sees `READER_PART` when the score has it (`readerPart`)."
+				}
+			},
+			"required": [
+				"language",
+				"musicxml"
+			],
+			"description": "A score's files (one language per score – an edition per language, owner 2026-10-14): CDN paths, served signed."
+		},
+		"ScorePart": {
+			"type": "object",
+			"properties": {
+				"musicxml": {
 					"type": "string"
 				},
 				"pdf": {
@@ -814,10 +848,8 @@
 				}
 			},
 			"required": [
-				"language",
 				"musicxml"
-			],
-			"description": "A score's files (one language per score – an edition per language, owner 2026-10-14): CDN paths, served signed."
+			]
 		},
 		"ItemFurniture": {
 			"type": "object",

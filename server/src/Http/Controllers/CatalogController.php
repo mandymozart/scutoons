@@ -50,7 +50,8 @@ final class CatalogController
     public function scoreFile(Request $request, Response $response, array $args): Response
     {
         $user = CurrentSession::of($request)->user();
-        $signed = $this->files->score((string) ($args['id'] ?? ''), (string) ($args['file'] ?? ''), $user);
+        $part = $request->getQueryParams()['part'] ?? null;
+        $signed = $this->files->score((string) ($args['id'] ?? ''), (string) ($args['file'] ?? ''), $user, is_string($part) ? $part : null);
         return Json::response($response, 200, ['status' => 'success'] + $signed, ['Cache-Control' => 'no-store']);
     }
 

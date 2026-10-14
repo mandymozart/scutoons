@@ -1,13 +1,13 @@
 // Containers, scores, ageing, kept recipe inputs and inherited variants (agents/research/SCORES.md).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ageLook, breaksAt, fitsIn, hardCapacity, moveInCheck, validateCatalog, type ItemDef } from '../src/index.ts';
+import { ageLook, breaksAt, fitsIn, hardCapacity, moveInCheck, readerPart, validateCatalog, type ItemDef } from '../src/index.ts';
 
 const base = { toon: null, name: { en: 'x' }, description: {}, kind: 'virtual', icon: 'x.png', stackable: false, starter: false, grantable: ['story'], slot: null, skills: [], edition_id: null, product: null, variants: null } as const;
 const def = (id: string, extra: Partial<ItemDef>): ItemDef => ({ ...base, id, category: 'collectible', ...extra }) as ItemDef;
 const colours = [{ id: 'black', name: { en: 'Black' } }, { id: 'red', name: { en: 'Red' } }];
 
-const score = def('cloud9_en', { category: 'score', score: { language: 'en', musicxml: 'scutoons/scores/cloud9-en.musicxml', pdf: 'scutoons/scores/cloud9-en.pdf' } });
+const score = def('cloud9_en', { category: 'score', score: { language: 'en', musicxml: 'scutoons/scores/cloud9-en.musicxml', pdf: 'scutoons/scores/cloud9-en.pdf', parts: { choir: { musicxml: 'scores/c/choir.musicxml', pdf: 'scores/c/choir.pdf' } } } });
 const small = def('songbook_small', { category: 'tool', holds: { categories: ['score'], max: 12 }, variants: colours });
 const diy = def('songbook_diy', { category: 'tool', holds: { categories: ['score'], max: 25, overfill: { days: 3, max: 99, breaks_into: 'songbook_diy_broken' } }, ages: { tint_days: 14, spots_days: 30, full_days: 90 }, variants: colours });
 const broken = def('songbook_diy_broken', { category: 'tool', variants: colours });
@@ -98,4 +98,13 @@ test('validation: holds, overfill, ages, score files, recipes', () => {
 		'warning: r3: book has no variant red of plastic_sheet'
 	];
 	for (const m of expect) assert.ok(bad.includes(m), `missing: ${m}\n${bad.join('\n')}`);
+});
+
+test('score parts: the reader sees the choir when there is one; parts are checked', () => {
+	assert.equal(readerPart(score.score), 'choir');
+	assert.equal(readerPart({ parts: null }), null);
+	assert.equal(readerPart(null), null);
+	const bad = messages(catalog([def('s', { category: 'score', score: { language: 'en', musicxml: 'a.musicxml', parts: { Choir: { musicxml: 'x.pdf' } } as never } })]));
+	assert.ok(bad.includes('error: s: part name "Choir" – lower-case letters, digits, _'), bad.join('\n'));
+	assert.ok(bad.includes('error: s: part Choir needs a .musicxml / .mxl path'), bad.join('\n'));
 });
