@@ -26,7 +26,7 @@
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { ADMIN_URL, VIEWER_URL } from '$lib/config.ts';
 	import { setupCatalog } from '@scutoons/catalog';
-	import { CATALOG_LABELS, isCatalogPageKind } from '$lib/editor/catalog-docs.ts';
+	import { CATALOG_LABELS, CATALOG_PAGE_KINDS, isCatalogPageKind } from '$lib/editor/catalog-docs.ts';
 	import { setupMedia } from '@scutoons/media';
 	import { assetsApi, contentIndex, library } from '$lib/api.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -234,6 +234,8 @@
 		const pages: PaletteLink[] = [
 			{ id: 'home', label: m['palette.home'](), href: '/', keywords: 'toons home start' },
 			...universe.map((item) => ({ id: `universe-${item.tab ?? 'characters'}`, label: item.label, hint: m['creator.universe'](), href: item.href })),
+			// every catalog page (owner 2026-10-14: the search should know the new pages – home scenes, airlift carriers …)
+			...CATALOG_PAGE_KINDS.map((kind) => ({ id: `catalog-${kind}`, label: `${m['creator.catalog']()} · ${CATALOG_LABELS[kind]()}`, href: `/catalog/${kind}`, keywords: `catalog katalog ${kind.replace('-', ' ')}` })),
 			{ id: 'guide', label: m['creator.style_guide'](), href: '/guide', keywords: 'style guide design' }
 		];
 		// the toon being worked on comes first

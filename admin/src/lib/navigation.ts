@@ -37,7 +37,7 @@ export const navigation: NavGroup[] = [
 		items: [
 			{ id: 'codes', title: () => m['nav.codes'](), description: () => m['nav.codes_hint'](), href: '/codes', icon: 'hash', keywords: 'qr revoke csv' },
 			{ id: 'generate', title: () => m['nav.generate'](), description: () => m['nav.generate_hint'](), href: '/codes/new', icon: 'plus-square', keywords: 'new code certificate' },
-			{ id: 'batches', title: () => m['nav.batches'](), description: () => m['nav.batches_hint'](), href: '/batches', icon: 'layers', keywords: 'zip print sheet edition' },
+			{ id: 'batches', title: () => m['nav.batches'](), description: () => m['nav.batches_hint'](), href: '/batches', icon: 'layers', keywords: 'zip print sheet edition promo codes promotion' },
 			{
 				id: 'claims',
 				title: () => m['nav.claims'](),
