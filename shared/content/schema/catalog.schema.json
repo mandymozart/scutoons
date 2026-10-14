@@ -287,6 +287,39 @@
 						}
 					],
 					"description": "A player: the formats it plays (`record_player` → `['vinyl']`)"
+				},
+				"holds": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ItemHolds"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "A container (containers.ts, research/SCORES.md §2b): what it holds, how many, an overfill that breaks it"
+				},
+				"ages": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ItemAges"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "It ages from its creation: tint, then spots (the DIY song book; containers.ts `ageLook`)"
+				},
+				"score": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ScoreFiles"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "A score's files – MusicXML for the score view, the print PDF (one language per score)"
 				}
 			},
 			"required": [
@@ -329,9 +362,10 @@
 				"collectible",
 				"media",
 				"substance",
-				"food"
+				"food",
+				"score"
 			],
-			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite"
+			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite; `score` = sheet music (`ItemDef.score`, research/SCORES.md)"
 		},
 		"GrantSource": {
 			"type": "string",
@@ -667,6 +701,89 @@
 				"cd"
 			]
 		},
+		"ItemHolds": {
+			"type": "object",
+			"properties": {
+				"categories": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/ItemCategory"
+					}
+				},
+				"items": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"max": {
+					"type": "number"
+				},
+				"overfill": {
+					"type": "object",
+					"properties": {
+						"days": {
+							"type": "number"
+						},
+						"max": {
+							"type": "number"
+						},
+						"breaks_into": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"days",
+						"max",
+						"breaks_into"
+					],
+					"description": "A soft limit (the DIY song book, owner 2026-10-14): past `max` up to `overfill.max` after a warning; overfilled for `days` it breaks into `breaks_into` (its contents fall out). Taking entries out back to `max` in time saves it."
+				}
+			},
+			"description": "What a container takes (owner 2026-10-14: \"a simple rule we can edit\"): an item fits when its category is listed OR its id is listed; `max` = how many entries fit (none = no limit). A container never holds a container."
+		},
+		"ItemAges": {
+			"type": "object",
+			"properties": {
+				"tint_days": {
+					"type": "number"
+				},
+				"spots_days": {
+					"type": "number"
+				},
+				"full_days": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"tint_days",
+				"spots_days",
+				"full_days"
+			],
+			"description": "An item that ages from its creation (the DIY song book): a tint from `tint_days`, spots from `spots_days`, fully aged at `full_days`."
+		},
+		"ScoreFiles": {
+			"type": "object",
+			"properties": {
+				"language": {
+					"type": "string"
+				},
+				"musicxml": {
+					"type": "string"
+				},
+				"pdf": {
+					"type": [
+						"string",
+						"null"
+					]
+				}
+			},
+			"required": [
+				"language",
+				"musicxml"
+			],
+			"description": "A score's files (one language per score – an edition per language, owner 2026-10-14): CDN paths, served signed."
+		},
 		"Recipe": {
 			"type": "object",
 			"properties": {
@@ -701,6 +818,14 @@
 				},
 				"qty": {
 					"type": "number"
+				},
+				"keep": {
+					"type": "boolean",
+					"description": "an input that is kept – a tool like the drill, not an ingredient (research/SCORES.md §2a)"
+				},
+				"variant_from": {
+					"type": "string",
+					"description": "the output only: its variant is taken from this input item's variant (the plastic's colour, an upgraded book's)"
 				}
 			},
 			"required": [

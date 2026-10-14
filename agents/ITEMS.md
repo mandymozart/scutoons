@@ -97,6 +97,19 @@ your code" still opens the QR scanner without any item).
 | scutoons_shorts | virtual | wearable | legs | – | – | starter, basic dress (owner may still move it to a story find) |
 | scutoons_sandals | virtual | wearable | feet | – | – | starter, basic dress |
 
+### Containers, scores, ageing, recipe tools (model, 2026-10-14 – research/SCORES.md, FEATURES 10.97)
+
+`@scutoons/content` containers.ts; validated the same in `validateContainers` and the server's `CatalogValidator`.
+Only the catalog model is built – moving items in / out, gifting with contents, breaking and the reader UI follow.
+- `holds: { categories?, items?, max?, overfill?: { days, max, breaks_into } }` makes an item a container: an item
+  fits when its category OR its id is listed (`fitsIn`); never a container in a container; `max` = capacity (none =
+  no limit); `overfill` = a soft limit up to `overfill.max` that breaks the container into `breaks_into` after `days`
+  (`moveInCheck` → ok / overfill / full, `breaksAt`).
+- `ages: { tint_days, spots_days, full_days }` – the look from the entry's creation (`ageLook` → tint, spots 0 … 1).
+- `score: { language, musicxml, pdf? }` on a `category: "score"` item – one language per score.
+- Recipes: an input with `keep: true` stays (a tool – at least one input is used up); `output.variant_from: <input>`
+  gives the output that input's variant.
+
 ## Collectables removed – items are the only concept (U, 2026-09-30)
 
 The old VN inventory ("collectables": `<toon>/<locale>/collectables.json`, `Collectable`/`CollectableRef` types, the
