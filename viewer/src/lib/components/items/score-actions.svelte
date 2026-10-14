@@ -60,7 +60,7 @@
 	{/if}
 	{#if failed}<p class="note" role="alert">{m['items.score_failed']()}</p>{/if}
 	{#if src}
-		<ScoreView {src} {title} {age} labels={{ close: m['common.close'](), zoomIn: m['items.score_larger'](), zoomOut: m['items.score_smaller'](), previous: m['items.score_previous'](), next: m['items.score_next'](), page: m['items.score_page']({ page: '{page}', pages: '{pages}' }), pdf: 'PDF', loading: m['items.loading'](), failed: m['items.score_failed']() }} onclose={() => (src = null)} />
+		<ScoreView {src} {title} {age} labels={{ close: m['common.close'](), zoomIn: m['items.score_larger'](), zoomOut: m['items.score_smaller'](), previous: m['items.score_previous'](), next: m['items.score_next'](), page: m['items.score_page']({ page: '{page}', pages: '{pages}' }), pdf: 'PDF', loading: m['items.loading'](), failed: m['items.score_failed'](), play: m['items.score_play'](), stop: m['items.score_stop'](), pad: m['items.score_pad']() }} onclose={() => (src = null)} />
 	{/if}
 {/if}
 

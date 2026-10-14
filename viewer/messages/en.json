@@ -389,7 +389,10 @@
 		"score_previous": "Previous page",
 		"score_next": "Next page",
 		"score_page": "Page {page} of {pages}",
-		"release_failed": "That did not work – are you signed in?"
+		"release_failed": "That did not work – are you signed in?",
+		"score_play": "Play",
+		"score_stop": "Stop",
+		"score_pad": "Slide over the notes: echo"
 	},
 	"claim": {
 		"title": "SCUTOONS item",

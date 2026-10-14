@@ -389,7 +389,10 @@
 		"score_previous": "Vorherige Seite",
 		"score_next": "Nächste Seite",
 		"score_page": "Seite {page} von {pages}",
-		"release_failed": "Das hat nicht geklappt – bist du angemeldet?"
+		"release_failed": "Das hat nicht geklappt – bist du angemeldet?",
+		"score_play": "Abspielen",
+		"score_stop": "Stopp",
+		"score_pad": "Über die Noten wischen: Echo"
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

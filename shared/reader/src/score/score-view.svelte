@@ -11,6 +11,10 @@
 		pdf: string;
 		loading: string;
 		failed: string;
+		play: string;
+		stop: string;
+		/** the hint on the echo pad while playing */
+		pad: string;
 	}
 
 	export const DEFAULT_SCORE_LABELS: ScoreLabels = {
@@ -22,7 +26,10 @@
 		page: 'Page {page} of {pages}',
 		pdf: 'PDF',
 		loading: 'Loading the score …',
-		failed: 'The score could not be loaded.'
+		failed: 'The score could not be loaded.',
+		play: 'Play',
+		stop: 'Stop',
+		pad: 'Slide over the notes: echo'
 	};
 
 	/** Verovio scales in percent; the steps − / + walk through */
@@ -54,6 +61,7 @@
 	import { Icon, IconButton } from '@scutoons/ui';
 	import { cleanMusicXml, loadToolkit, type ScoreToolkit } from './verovio.ts';
 	import ScoreAge from './score-age.svelte';
+	import { ScoreSynth, notesFromTimemap, type ScoreNote, type TimemapEntry } from './synth.ts';
 
 	/**
 	 * The score view (research/SCORES.md §4): a full-screen sheet of music rendered from MusicXML by Verovio. Pages are
@@ -61,6 +69,9 @@
 	 * bar the reader was at. Pages are slides of the app's Swiper (the horizontal reader's) – a swipe turns them; so do
 	 * ← / → / PageUp / PageDown / Space (Bluetooth page-turn pedals send these); + / − zoom, Escape closes. A page is
 	 * rendered when it comes near (the current one ± 1). The PDF (the print file) is a plain download.
+	 * Play (owner 2026-10-14) sounds the file's notes on a small synth from the current page on, lights the notes that
+	 * sound and turns the pages along; while it plays the sheet is an echo pad – a finger sliding over it sets the delay
+	 * (x: echo time and length, y: how much of it – the top all echo), lifting it glides back to dry (score/synth.ts).
 	 */
 	let {
 		src,
@@ -105,6 +116,7 @@
 				if (cancelled) return;
 				toolkit = tk;
 				xml = cleanMusicXml(text);
+				notes = null;
 			})
 			.catch(() => !cancelled && (status = 'failed'));
 		return () => (cancelled = true);
@@ -223,6 +235,93 @@
 		return { destroy: () => node.remove() };
 	}
 
+	// ── playing ──
+	let synth: ScoreSynth | null = null;
+	let playing = $state(false);
+	/** the loaded file's notes and timemap (made on the first Play) */
+	let notes: ScoreNote[] | null = null;
+	let timemap: TimemapEntry[] = [];
+	let cursor = 0;
+	let frame = 0;
+	const lit = new Set<string>();
+	/** the finger on the echo pad (0 … 1 of the sheet) */
+	let finger = $state<{ x: number; y: number } | null>(null);
+	const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	function togglePlay() {
+		if (playing) return stopPlaying();
+		const tk = toolkit;
+		if (!tk || status !== 'ready' || held !== xml) return;
+		if (!notes) {
+			timemap = tk.renderToTimemap();
+			notes = notesFromTimemap(timemap, (id) => tk.getMIDIValuesForElement(id).pitch ?? null);
+		}
+		// the audio starts inside this click (browsers allow sound only after a gesture)
+		synth ??= new ScoreSynth();
+		// from the first note on the page the reader is on
+		const first = sheet?.querySelector(`[data-page="${page}"] g.note`)?.id;
+		const from = page > 1 ? (notes.find((n) => n.id === first)?.at ?? 0) : 0;
+		cursor = Math.max(0, timemap.findIndex((e) => e.tstamp >= from));
+		playing = true;
+		if (swiper) swiper.allowTouchMove = false;
+		synth.play(notes, from, stopPlaying);
+		frame = requestAnimationFrame(follow);
+	}
+
+	function stopPlaying() {
+		cancelAnimationFrame(frame);
+		synth?.stop();
+		playing = false;
+		finger = null;
+		if (swiper) swiper.allowTouchMove = true;
+		for (const id of lit) light(id, false);
+		lit.clear();
+	}
+
+	/** every frame: light the notes sounding now and turn to their page */
+	function follow() {
+		if (!synth || !playing) return;
+		const t = synth.now();
+		while (cursor < timemap.length && timemap[cursor].tstamp <= t) {
+			const entry = timemap[cursor++];
+			for (const id of entry.off ?? []) light(id, false);
+			for (const id of entry.on ?? []) light(id, true);
+			const on = entry.on?.[0];
+			if (on && toolkit) {
+				const at = toolkit.getPageWithElement(on);
+				if (at > 0 && at !== page) show(at, reduceMotion);
+			}
+		}
+		frame = requestAnimationFrame(follow);
+	}
+
+	function light(id: string, on: boolean) {
+		if (on) lit.add(id);
+		else lit.delete(id);
+		sheet?.querySelector(`#${CSS.escape(id)}`)?.classList.toggle('playing', on);
+	}
+
+	function padAt(e: PointerEvent) {
+		const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		finger = { x: (e.clientX - box.left) / box.width, y: (e.clientY - box.top) / box.height };
+		synth?.pad(finger.x, finger.y);
+	}
+
+	function padDown(e: PointerEvent) {
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		padAt(e);
+	}
+
+	function padUp() {
+		finger = null;
+		synth?.release();
+	}
+
+	onDestroy(() => {
+		cancelAnimationFrame(frame);
+		synth?.close();
+	});
+
 	let restoreFocus: Element | null = typeof document !== 'undefined' ? document.activeElement : null;
 	onDestroy(() => (restoreFocus as HTMLElement | null)?.focus?.());
 	const pageLabel = $derived(labels.page.replace('{page}', String(page)).replace('{pages}', String(pages)));
@@ -234,6 +333,9 @@
 	<header>
 		<IconButton label={labels.close} onclick={onclose} data-testid="score-close"><Icon name="x" /></IconButton>
 		<h2>{title}</h2>
+		<button type="button" class="play" class:on={playing} aria-label={playing ? labels.stop : labels.play} disabled={status !== 'ready'} onclick={togglePlay} data-testid="score-play">
+			<Icon name={playing ? 'square' : 'play'} /><span class="wide">{playing ? labels.stop : labels.play}</span>
+		</button>
 		<div class="group" role="group">
 			<button type="button" title={labels.zoomOut} aria-label={labels.zoomOut} disabled={zoom === ZOOMS[0]} onclick={() => step(-1)} data-testid="score-zoom-out"><Icon name="minus" /></button>
 			<button type="button" title={labels.zoomIn} aria-label={labels.zoomIn} disabled={zoom === ZOOMS[ZOOMS.length - 1]} onclick={() => step(1)} data-testid="score-zoom-in"><Icon name="plus" /></button>
@@ -257,6 +359,16 @@
 					{/each}
 				</div>
 			</div>
+			{#if playing}
+				<!-- the echo pad: a finger sliding over the sheet plays with the delay (pointer only – an extra, the music plays without it) -->
+				<div class="pad" role="presentation" onpointerdown={padDown} onpointermove={(e) => finger && padAt(e)} onpointerup={padUp} onpointercancel={padUp} data-testid="score-pad">
+					{#if finger}
+						<span class="ring" style="left: {finger.x * 100}%; top: {finger.y * 100}%; --wet: {1 - finger.y}"></span>
+					{:else}
+						<span class="hint">{labels.pad}</span>
+					{/if}
+				</div>
+			{/if}
 		{:else}
 			<p class="note" role="status">{status === 'failed' ? labels.failed : labels.loading}</p>
 		{/if}
@@ -319,6 +431,7 @@
 	}
 
 	.group button,
+	.play,
 	.pdf {
 		display: inline-flex;
 		align-items: center;
@@ -342,17 +455,21 @@
 	}
 
 	.group button:hover:not(:disabled),
+	.play:hover:not(:disabled),
+	.play.on,
 	.pdf:hover {
 		background: var(--primary-cyan);
 	}
 
-	.group button:disabled {
+	.group button:disabled,
+	.play:disabled {
 		color: var(--text-muted);
 		cursor: default;
 	}
 
 	/* music is printed on paper: black on white in every theme */
 	.sheet {
+		position: relative;
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
@@ -374,6 +491,51 @@
 
 	.sheet :global(svg) {
 		display: block;
+	}
+
+	/* the notes sounding now */
+	.sheet :global(g.note.playing) {
+		fill: var(--primary-cyan);
+		color: var(--primary-cyan);
+	}
+
+	.pad {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		touch-action: none;
+		cursor: crosshair;
+	}
+
+	.hint {
+		position: absolute;
+		left: 50%;
+		bottom: var(--space-1);
+		transform: translateX(-50%);
+		padding: var(--space-025) var(--space-075);
+		background: var(--paper);
+		color: var(--ink);
+		border: var(--border-width-regular) solid var(--ink);
+		white-space: nowrap;
+		pointer-events: none;
+	}
+
+	/* the finger: the more echo (higher up), the bigger and fuller the ring */
+	.ring {
+		position: absolute;
+		width: calc(2.5rem + 5rem * var(--wet));
+		aspect-ratio: 1;
+		transform: translate(-50%, -50%);
+		border: var(--border-width-regular) solid var(--ink);
+		border-radius: 50%;
+		background: color-mix(in srgb, var(--primary-cyan) calc(var(--wet) * 40%), transparent);
+		pointer-events: none;
+	}
+
+	@media (max-width: 40rem) {
+		.wide {
+			display: none;
+		}
 	}
 
 	.note {

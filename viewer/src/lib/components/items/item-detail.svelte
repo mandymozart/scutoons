@@ -351,12 +351,6 @@
 		flex: 1 1 auto;
 		padding: 0 1rem;
 	}
-	.actions a.btn {
-		flex: 1 1 auto;
-		padding: 0 1rem;
-		text-align: center;
-		text-decoration: none;
-	}
 	.player-albums {
 		border-top: 2px solid var(--ink, black);
 		padding-top: 0.75rem;

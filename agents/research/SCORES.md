@@ -119,7 +119,12 @@ view, "PDF herunterladen" (the print file).
 **4. The score view** – a full-screen reader view (own component; item-detail and inventory are already > 300 lines):
 - Renderer **Verovio** (`verovio` npm, bundled + lazy-loaded only here – "alles bei uns"): MusicXML in, SVG per page
   out; `scale` and `pageWidth / pageHeight` = the viewport → real pagination with good line / page breaks
-  (`breaks: smart`), `getPageCount()`, `renderToSVG(n)`; later `renderToMIDI()` for playback in live mode.
+  (`breaks: smart`), `getPageCount()`, `renderToSVG(n)`.
+- Play (owner 2026-10-14: "play the notes with a synthesizer … when you slide, it changes some delay and adds the
+  mix"): Verovio's timemap + MIDI pitches on a small Web Audio synth (no samples; score/synth.ts) from the current page
+  on, the sounding notes lit, the pages turning along (instant under reduced motion); while it plays the sheet is an
+  echo pad – x = echo time + feedback, y = the mix (top all echo), lifting the finger glides back to dry. DRAFT for the
+  owner's feel (dev: /account/lab/score).
   Decided (owner 2026-10-14: "go verovio … looks more elaborate") over OpenSheetMusicDisplay (Phonicscore, Vienna;
   MusicXML-native, lighter, BSD, but endless scroll first and a sponsors-only audio player); no spike. Verovio is
   LGPL: its toolkit stays a separate, replaceable file in the bundle. pdf.js is out (no reflow).

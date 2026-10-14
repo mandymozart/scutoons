@@ -10,6 +10,9 @@ export interface ScoreToolkit {
 	getPageCount(): number;
 	getPageWithElement(id: string): number;
 	renderToSVG(page: number): string;
+	/** when each note starts / stops (ms) – the player's clock (score/synth.ts) */
+	renderToTimemap(options?: Record<string, unknown>): { tstamp: number; on?: string[]; off?: string[] }[];
+	getMIDIValuesForElement(id: string): { pitch?: number; time?: number; duration?: number };
 }
 
 let toolkit: Promise<ScoreToolkit> | null = null;
