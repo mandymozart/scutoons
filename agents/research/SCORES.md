@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7–Q9 (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7–Q10 (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -51,6 +51,12 @@ its property (`holds`). Items to set up (admin catalog, as a proposal the admin 
 | `songbook_diy` | container, `holds: score`; plain (no variant) or a colour variant | output of the recipes |
 | recipe `songbook_diy` | drill (kept) + 4 × zip_tie → songbook_diy (plain) | |
 | recipe `songbook_diy_<colour>` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | one per colour; when: Q9 |
+**Colour and size** (owner 2026-10-14: "song books have color variants and maybe even size variants. so specific books
+can hold only up to [n] scores"): a container's capacity is part of its property – `holds: { categories: ["score"],
+max?: n }` (none = no limit); a full book refuses the move ("Das Liederbuch ist voll." / "The song book is full.").
+Colours are variants. Sizes as their own items (`songbook_small`, `songbook_large` …, each with its own `max`)
+rather than size variants: one variant axis per item keeps colour × size from multiplying the variants and recipes,
+and a size can then have its own icon, price and recipe (Q10).
 Two recipe fundamentals the code needs (ITEMS.md, with the code): an input that is **kept** (`RecipePart.keep`) and
 a **variant** on a part (`RecipePart.variant` – explicit per colour, no hidden inheritance). Icons: placeholders until
 the owner's art (like the players').
@@ -97,6 +103,8 @@ score is placed with "Place an item …".
 - **Q9 colouring a book with scores in it:** (a) the scores stay inside the coloured book (the recipe carries the
   contents over – recommended), or (b) only an empty book can be coloured?
 
+- **Q10 sizes:** sizes as their own items with their own capacity (recommended), or size variants of one item (then
+  each variant carries its `max`)? And the capacities: the basic book, the DIY book, the sizes.
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
    catalog columns if needed (CATALOG.md) and the inventory's `in`.
