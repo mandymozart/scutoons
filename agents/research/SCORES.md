@@ -121,6 +121,7 @@ score is placed with "Place an item …".
 ## Open questions
 - **Q11 capacities:** which sizes of the bought / found book (small, large, …?) and how many scores each holds; the DIY
   book; the upgraded DIY book. Does the upgrade need the drill again (new holes)? Recommended: no.
+- **DJ trolley:** only vinyl (the record items listed) or CDs and tapes too (the category `media`)? How many records?
 
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
