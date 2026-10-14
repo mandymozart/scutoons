@@ -37,7 +37,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { BarTabs, Icon, clickOutside, confirmDialog, liveRegion, region, type PhoneBarItem, choiceDialog } from '@scutoons/ui';
+	import { BarTabs, Divider, Icon, clickOutside, confirmDialog, liveRegion, panelWidth, region, type PhoneBarItem, choiceDialog } from '@scutoons/ui';
 	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { loadPlaceUnlocks } from '$lib/editor/toon-facts.ts';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
@@ -575,8 +575,15 @@
 		sheetTab = id;
 		sheetOpen = true;
 	}
+	// the properties panel on the right (owner 2026-10-14: "not our standard rail panel – can't scale it"): the standard
+	// right region like the slice inspector (agents/DOCKING.md) – its Divider drags it from 16rem up to half the builder,
+	// remembered; with nothing to show (no selection, no toon's start view) it steps aside instead of standing empty
+	let builderEl = $state<HTMLElement>();
+	const sideSize = panelWidth('sc-panel-width:map-props', 16, () => builderEl?.getBoundingClientRect().right ?? window.innerWidth);
+	sideSize.room = () => (builderEl?.clientWidth ?? window.innerWidth) / 2;
 	/** phones (< 768px): the sheet's Map tab lists the layers, places and routes (the drawer's lists) */
 	let phone = $state(false);
+	const sideEmpty = $derived(!phone && !selection && !toonFilter);
 	$effect(() => {
 		const query = window.matchMedia('(max-width: 767px)');
 		phone = query.matches;
@@ -891,7 +898,7 @@
 
 <MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map" {phoneMore} {phoneSelection}>
 	{#if map}
-		<div class="builder" data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
+		<div class="builder" class:side-empty={sideEmpty} bind:this={builderEl} style:--map-side-width={sideSize.css} data-testid="map-builder" use:region={{ name: 'map', initial: true }}>
 			<!-- the tools are strips on the canvas at every width (owner 2026-10-11: "in Desktop platzeffizienter – Toons und
 			     Tools wie auf Mobile"); the toon filter is the pill in the header, Import sits under the lists -->
 			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
@@ -953,7 +960,8 @@
 					</div>
 				{/if}
 			</div>
-			<aside class="side" class:open={sheetOpen && !mapDragging} class:dragging bind:this={sheetEl} style:--sheet-max={sheetRem !== null ? `${sheetRem}rem` : null} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
+			{#if !sideEmpty}<Divider size={sideSize} edge="left" at="var(--map-side-width, 16rem)" label={m['creator.resize_panel']()} controls="map-sheet" class="side-resize" />{/if}
+			<aside class="side" id="map-sheet" class:open={sheetOpen && !mapDragging} class:dragging bind:this={sheetEl} style:--sheet-max={sheetRem !== null ? `${sheetRem}rem` : null} data-sheet-tab={sheetTabs.length ? sheetTab : undefined} data-testid="map-sheet">
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="phone-only sheet-head" onpointerdown={headDown} onpointermove={headMove} onpointerup={headUp} onpointercancel={() => ((drag = null), (dragging = false))}>
 					{#if sheetTabs.length}
@@ -992,11 +1000,22 @@
 
 <style>
 	.builder {
+		position: relative;
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 16rem;
+		grid-template-columns: minmax(0, 1fr) var(--map-side-width, 16rem);
 		grid-template-rows: minmax(0, 1fr);
 		height: 100%;
 		min-height: 24rem;
+	}
+	/* nothing to show on the right: the map takes the room (no empty panel) */
+	.builder.side-empty {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.builder.side-empty .side {
+		display: none;
+	}
+	.builder.side-empty .stage {
+		border-right: 0;
 	}
 	.stage {
 		position: relative;
@@ -1019,6 +1038,13 @@
 		.stage {
 			border-right: 0;
 			border-bottom: 2px solid var(--ink);
+		}
+		/* below the canvas: no side drag edge */
+		.builder :global(.side-resize) {
+			display: none;
+		}
+		.builder.side-empty .stage {
+			border-bottom: 0;
 		}
 	}
 
