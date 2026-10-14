@@ -38,6 +38,16 @@ the inventory like any item; the reader moves it: drag it onto the book in the g
 inventory (owner 2026-10-14: "it can, goes back into regular inventory"). The book's grid shows only what lies in it. "Unlocked" vs "a regular
 item" stays one model: unlocked = `starter: true`, found = `grantable: ["story"]`, bought = a product.
 
+**2b. What goes into which container – one editable rule** (owner 2026-10-14: "can we decide what items can go into
+what containable item? with a simple rule we can edit? so creating new containers is easier"). A container is any item
+with a `holds` rule, edited in admin → Catalog → Items ("Holds" in the item form):
+`holds: { categories?: ItemCategory[], items?: string[], max?: number }` – an item fits when its category is listed
+OR its id is listed; `max` = how many entries fit (none = no limit). Song book = `{ categories: ["score"], max: n }`;
+a pencil case later = `{ items: ["pencil", "eraser"] }`. Making a new container = filling in "Holds" on an item, no
+code. Validation: unknown categories / item ids warn, a container may not hold containers (no nesting). The reader's
+item detail shows where an item fits ("Passt in: Liederbuch"). If grouping by category is ever too coarse, item tags
+come later – not now (keep the configuration small).
+
 **2a. Many song books, one you can make** (owner 2026-10-14: "there can be more song books, it's a property of a song
 book item. you can also create specific ones with a recipe. you need a drill and 4 zip ties, black or white or other
 colors. you might need to set up those items for me"). Every song book is its own container item; what it takes is
