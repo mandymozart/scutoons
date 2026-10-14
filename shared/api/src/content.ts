@@ -73,7 +73,7 @@ export interface ReviewOverview {
 }
 
 /** The catalog kinds that are versioned documents (`item:<id>` …, server CatalogDocs – agents/CATALOG-IN-CREATOR.md) */
-export const CATALOG_DOC_KINDS = { items: 'item', recipes: 'recipe', albums: 'album', products: 'product', editions: 'edition' } as const;
+export const CATALOG_DOC_KINDS = { items: 'item', recipes: 'recipe', albums: 'album', products: 'product', editions: 'edition', 'home-scenes': 'home-scene' } as const;
 export type CatalogDocKind = keyof typeof CATALOG_DOC_KINDS;
 
 /** A catalog entry as a document (GET /api/catalog/docs/<kind>) */

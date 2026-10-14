@@ -1,4 +1,4 @@
-Status 2026-10-14: concept decided (Q1–Q4, D1–D7, the data model, furniture sizes, the mover – built super basic); building step 1 (FEATURES 10.98), the order is the agent's (owner: "as you see fit"); draft `/account/lab/cave`.
+Status 2026-10-14: decided; step 1 built (homes, home scenes, furniture, HomeView, walking, VR headset, visits, creator fields – ITEMS.md "Homes and furniture"); open: the owner's art + catalog entries, step 2 (rides); draft `/account/lab/cave` (FEATURES 10.98).
 
 # CAVE — the avatar's home (concept, 2026-10-14)
 

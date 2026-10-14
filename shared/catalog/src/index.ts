@@ -7,6 +7,7 @@ export * from './kinds.ts';
 export * from './problems.ts';
 export * from './import.ts';
 export { default as AlbumForm } from './components/album-form.svelte';
+export { default as HomeSceneForm } from './components/home-scene-form.svelte';
 export { default as CodeTypeForm } from './components/code-type-form.svelte';
 export { default as EditionForm } from './components/edition-form.svelte';
 export { default as ItemForm } from './components/item-form.svelte';

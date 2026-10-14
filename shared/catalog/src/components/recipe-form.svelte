@@ -39,6 +39,9 @@
 	{#if err('image')}<p class="sc-error">{err('image')}</p>{/if}
 </div>
 
+<!-- made only at a workbench in a home (research/CAVE.md D4 - the broken song book's repair, at a friend's) -->
+<CheckField label={m['catalog.recipe_workshop']()} checked={data.at === 'workshop'} onchange={(on) => (on ? (data.at = 'workshop') : delete data.at)} testid="recipe-workshop" />
+
 <fieldset class="group">
 	<legend>{m['catalog.recipe_inputs']()}</legend>
 	{#each inputs as input, i (i)}

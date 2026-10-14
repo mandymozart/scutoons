@@ -29,7 +29,7 @@ final class AssetUsages
 {
     public const SKIP_KINDS = ['asset-requests'];
     /** the catalog kinds whose rows may reference media (permissions / code types / meta never do) */
-    public const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'toons'];
+    public const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'toons', 'home-scenes'];
     /**
      * CDN paths (a trailing `/` = everything below) that app code references directly → the code file (repo-relative).
      * Keep in step with the code: AssetsTest checks every entry still appears in its file.

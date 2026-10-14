@@ -8,7 +8,7 @@ import { m } from './messages.ts';
 export type Data = Record<string, any>;
 
 /** the kinds with a tab, in the tab order (featured stays on the Homepage page – one place for it) */
-export const EDITED_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'toons', 'permissions', 'code-types', 'meta'] as const;
+export const EDITED_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'toons', 'permissions', 'code-types', 'meta', 'home-scenes'] as const;
 export type EditedKind = (typeof EDITED_KINDS)[number];
 
 /** the lists of every kind, read by the forms for their selects (items, editions, products …) */
@@ -106,7 +106,7 @@ export const KINDS: Record<EditedKind, KindDef> = {
 			product: null,
 			variants: null
 		}),
-		formKeys: ['id', 'toon', 'name', 'description', 'kind', 'category', 'icon', 'stackable', 'starter', 'slot', 'edition_id', 'product', 'album', 'format', 'variants', 'respawn'],
+		formKeys: ['id', 'toon', 'name', 'description', 'kind', 'category', 'icon', 'stackable', 'starter', 'slot', 'edition_id', 'product', 'album', 'format', 'variants', 'respawn', 'furniture'],
 		dataId: true,
 		idPattern: ID,
 		creatable: true,
@@ -159,6 +159,26 @@ export const KINDS: Record<EditedKind, KindDef> = {
 		title: (d, id) => text(d.title) || id,
 		blank: () => ({ toon: 'catpope', title: { de: '', en: '' }, tracks: [], access: { download: 'members', listen: 'owners' } }),
 		formKeys: ['id', 'toon', 'title', 'cover', 'download', 'tracks', 'access'],
+		dataId: true,
+		idPattern: /^[a-z0-9][a-z0-9_]{0,63}$/,
+		creatable: true,
+		deletable: true,
+		reorderable: true
+	},
+	// what homes look like (agents/research/CAVE.md): a still + a video loop, 1080p and 4K
+	'home-scenes': {
+		kind: 'home-scenes',
+		label: () => m['catalog.home_scenes'](),
+		singular: () => m['catalog.home_scene'](),
+		columns: [
+			{ id: 'image', label: () => '', image: (d) => d.image?.src || undefined },
+			{ id: 'id', label: () => 'id', text: (_d, _l, e) => e.id },
+			{ id: 'name', label: () => m['catalog.name'](), text: (d) => dash(d.name) },
+			{ id: 'video', label: () => m['catalog.home_scene_video'](), secondary: true, text: (d) => (d.video?.src ? '✓' : '—') }
+		],
+		title: (d, id) => text(d.name) || id,
+		blank: () => ({ name: { de: '', en: '' }, image: { src: '' } }),
+		formKeys: ['id', 'name', 'image', 'video'],
 		dataId: true,
 		idPattern: /^[a-z0-9][a-z0-9_]{0,63}$/,
 		creatable: true,

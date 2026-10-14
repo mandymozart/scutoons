@@ -6,7 +6,8 @@
 	import { cleanText, toHex } from '$lib/editor/character-form.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
-	import { mapRegions } from '$lib/editor/map.ts';
+	import { mapPlaces, mapRegions } from '$lib/editor/map.ts';
+	import { contentApi } from '$lib/api.ts';
 	import { mapName } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 
@@ -29,6 +30,14 @@
 		void mapRegions().then((list) => (regions = list));
 	});
 	const regionName = (r: { id: string; name: unknown }) => mapName(r.name as Record<string, string>, getLocale()) || r.id;
+	// the avatar's home (agents/research/CAVE.md D1): a map place (a missing one is added in the map builder) and the home
+	// scene – what the home looks like, set per avatar
+	let places = $state<{ id: string; name: unknown }[]>([]);
+	let scenes = $state<{ id: string; name: unknown }[]>([]);
+	$effect(() => {
+		void mapPlaces().then((list) => (places = [...list].sort((a, b) => regionName(a).localeCompare(regionName(b)))));
+		void contentApi.catalogDocs('home-scenes').then((r) => (scenes = r.entries.filter((e) => !e.removed).map((e) => ({ id: e.id, name: e.content.name }))), () => {});
+	});
 	function change(fn: (c: RegistryCharacter) => void, key?: string) {
 		editCharacter(registry, id, fn, key ? `${id}:${key}` : undefined);
 	}
@@ -89,6 +98,22 @@
 				</select>
 			</label>
 		{/each}
+		<label>
+			{m['creator.characters_home']()}
+			<select value={character.home ?? ''} onchange={(e) => setField('home', e.currentTarget.value)} data-testid="character-home">
+				<option value="">–</option>
+				{#each places as p (p.id)}<option value={p.id}>{regionName(p)}</option>{/each}
+				{#if character.home && !places.some((p) => p.id === character.home)}<option value={character.home}>{character.home} (?)</option>{/if}
+			</select>
+		</label>
+		<label>
+			{m['creator.characters_home_scene']()}
+			<select value={character.home_scene ?? ''} onchange={(e) => setField('home_scene', e.currentTarget.value)} data-testid="character-home-scene">
+				<option value="">{m['creator.characters_home_scene_default']()}</option>
+				{#each scenes as s (s.id)}<option value={s.id}>{regionName(s)}</option>{/each}
+				{#if character.home_scene && !scenes.some((s) => s.id === character.home_scene)}<option value={character.home_scene}>{character.home_scene} (?)</option>{/if}
+			</select>
+		</label>
 		<label>
 			{m['creator.characters_tags']()}
 			<input type="text" value={(character.tags ?? []).join(', ')} onchange={(e) => setField('tags', e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean))} />

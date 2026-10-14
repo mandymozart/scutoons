@@ -72,7 +72,7 @@ final class EntityKey
      */
     public const CREATOR_ONLY_KINDS = ['script'];
     /** document kind → catalog kind (CatalogStore::KINDS) of the catalog documents `<kind>:<id>` */
-    public const CATALOG_KINDS = ['item' => 'items', 'recipe' => 'recipes', 'album' => 'albums', 'product' => 'products', 'edition' => 'editions'];
+    public const CATALOG_KINDS = ['item' => 'items', 'recipe' => 'recipes', 'album' => 'albums', 'product' => 'products', 'edition' => 'editions', 'home-scene' => 'home-scenes'];
     /** a catalog document's id: the widest catalog id rule (CatalogValidator checks the kind's own rule on save) */
     public const CATALOG_ID_PATTERN = '#^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$#';
     /**

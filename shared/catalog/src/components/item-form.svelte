@@ -10,6 +10,7 @@
 	import RespawnField from './respawn-field.svelte';
 	import ContainerField from './container-field.svelte';
 	import ScoreField from './score-field.svelte';
+	import FurnitureField from './furniture-field.svelte';
 
 	/**
 	 * An item (agents/ITEMS.md "Item definition"): texts per language, kind / category, the picture (a slot; uploads go
@@ -19,7 +20,13 @@
 	 */
 	let { data = $bindable(), id, lists, problems }: CatalogFormProps = $props();
 
-	const CATEGORIES = ['tool', 'consumable', 'wearable', 'collectible', 'media', 'substance', 'food', 'score'];
+	const CATEGORIES = ['tool', 'consumable', 'wearable', 'collectible', 'media', 'substance', 'food', 'score', 'furniture'];
+	/** the VR headset: "use" enters the reader's home from anywhere (research/CAVE.md D2) */
+	const entersHome = $derived(Array.isArray(data.skills) && data.skills.some((s: Data) => s?.type === 'enter_home'));
+	function setEntersHome(on: boolean) {
+		const others = (Array.isArray(data.skills) ? data.skills : []).filter((s: Data) => s?.type !== 'enter_home');
+		data.skills = on ? [...others, { type: 'enter_home' }] : others;
+	}
 	const FORMATS = ['vinyl', 'tape', 'cd'];
 	const options = (kind: 'toons' | 'editions' | 'products' | 'albums') =>
 		(lists[kind] ?? []).map((e) => ({ value: e.id, label: `${text(e.data?.name ?? e.data?.title) || e.id}` }));
@@ -74,6 +81,7 @@
 	{#if data.kind !== 'physical'}
 		<CheckField label={m['catalog.takeable']()} checked={data.takeable === true} onchange={(v) => (data.takeable = v || undefined)} testid="item-takeable" />
 	{/if}
+	<CheckField label={m['catalog.enters_home']()} checked={entersHome} onchange={setEntersHome} testid="item-enters-home" />
 </fieldset>
 
 <CatalogField label={m['catalog.slot']()} type="select" value={data.slot} options={AVATAR_SLOTS.map((s) => ({ value: s }))} none={m['catalog.slot_none']()} error={err('slot')} onchange={(v) => (data.slot = v)} />
@@ -142,6 +150,10 @@
 
 {#if data.category === 'score' || data.score}
 	<ScoreField value={data.score} item={id || data.id} error={err('score')} onchange={(v) => (data.score = v)} />
+{/if}
+
+{#if data.category === 'furniture' || data.furniture}
+	<FurnitureField value={data.furniture} error={err('furniture')} onchange={(v) => (data.furniture = v)} />
 {/if}
 
 <ContainerField value={data.holds} categories={CATEGORIES} {lists} error={err('holds', 'overfill', 'container')} onchange={(v) => (v ? (data.holds = v) : delete data.holds)} />

@@ -6,6 +6,7 @@
 	import type { CatalogDoc, CatalogDocKind } from '@scutoons/api';
 	import {
 		AlbumForm,
+		HomeSceneForm,
 		EditionForm,
 		ItemForm,
 		JsonField,
@@ -47,6 +48,7 @@
 		items: ItemForm,
 		recipes: RecipeForm,
 		albums: AlbumForm,
+		'home-scenes': HomeSceneForm,
 		products: ProductForm,
 		editions: EditionForm
 	};

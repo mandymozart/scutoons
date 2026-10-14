@@ -129,6 +129,11 @@ reuses it) opened by the viewer's home host: "Eintreten" at the avatar's home pl
 visit link `?visit=<token>`. The map: the avatar's marker (`map-avatar.svelte`) walks along visible routes between
 unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card's "Hingehen" / "Nach Hause gehen" /
 "Eintreten" (`home-actions.svelte`); the home place is always shown for its avatar.
+- Creator: catalog tab "Home scenes" (`home-scene:<id>` documents, migration `2026-10-14-homes_scene_docs`; 1080p + 4K
+  stills, an optional video loop), the item form's "Furniture" (size, home picture, workbench) and "Takes you home (VR
+  headset)", the recipe's "Only at a workbench", the character page's "Home" (a map place) and "Home looks like".
+- Guests: their homes on the device (`guest:<place>`, no WG, no visit links); furniture placed as a guest comes into
+  the account loose (the import doesn't carry `home`).
 - Catalog `home_scenes` (admin kind `home-scenes`, served in `GET /api/items/`): `{ id, name, image: { src, variants },
   video? }` – 1080p `src`, 4K `variants.high`, a video loop optional; first rows `cave`, `tatami_room` (no pictures yet).
 - `furniture: { size 5–60 (% of a 4 m room front), image, workshop? }` on a `category: "furniture"` item (never

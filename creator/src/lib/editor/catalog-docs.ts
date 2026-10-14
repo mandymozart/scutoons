@@ -14,7 +14,8 @@ export const CATALOG_LABELS: Record<CatalogDocKind, () => string> = {
 	recipes: () => m['creator.catalog_recipes'](),
 	albums: () => m['creator.catalog_albums'](),
 	products: () => m['creator.catalog_products'](),
-	editions: () => m['creator.catalog_editions']()
+	editions: () => m['creator.catalog_editions'](),
+	'home-scenes': () => m['creator.catalog_home_scenes']()
 };
 
 export const isCatalogPageKind = (kind: string | undefined): kind is CatalogDocKind => !!kind && (CATALOG_PAGE_KINDS as string[]).includes(kind);

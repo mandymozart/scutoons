@@ -6,6 +6,7 @@ namespace Scutoons\Tests\Domain;
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\Auth\Sessions;
 use Scutoons\Domain\Catalog\CatalogAdmin;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
@@ -70,6 +71,21 @@ final class CatalogDocsTest extends TestCase
         // no unpublish – an entry leaves the catalog through the admin
         $un = $this->request('POST', '/api/entities/item:spoon/unpublish', $this->bearer($writer), '{}');
         self::assertSame([422, 'not_supported'], [$un->getStatusCode(), self::json($un)['error'] ?? null]);
+    }
+
+    /** research/CAVE.md: what homes look like – a document kind of its own, edited in the creator like albums */
+    public function testHomeScenesAreDocumentsToo(): void
+    {
+        $writer = $this->creator('writer@example.com');
+        $list = self::json($this->request('GET', '/api/catalog/docs/home-scenes', $this->bearer($writer)));
+        self::assertSame(['cave', 'tatami_room'], array_column($list['entries'], 'id'), 'the two scenes of the migration');
+        $scene = ['id' => 'garden_shed', 'name' => ['de' => 'Gartenhütte', 'en' => 'Garden shed'], 'image' => ['src' => 'scutoons/homes/garden_shed.1080p.webp', 'variants' => ['high' => 'scutoons/homes/garden_shed.4k.webp']], 'video' => ['src' => 'scutoons/homes/garden_shed.1080p.mp4']];
+        self::assertSame(200, $this->put($writer, 'home-scene:garden_shed', $scene)->getStatusCode());
+        self::assertFalse($this->inCatalog('home-scenes', 'garden_shed'));
+        self::assertSame(200, $this->request('POST', '/api/entities/home-scene:garden_shed/publish', $this->bearer($writer), '{}')->getStatusCode());
+        self::assertSame('Garden shed', $this->data('home-scenes', 'garden_shed')['name']['en']);
+        $bad = $this->put($writer, 'home-scene:attic', ['id' => 'attic', 'name' => ['en' => 'Attic'], 'image' => ['src' => ''], 'video' => ['src' => 'attic.gif']]);
+        self::assertSame([422, 'invalid_catalog'], [$bad->getStatusCode(), self::json($bad)['error'] ?? null]);
     }
 
     public function testAnAdminWriteBecomesThePublishedVersion(): void
@@ -273,14 +289,14 @@ final class CatalogDocsTest extends TestCase
     /** @return array<string, mixed> an entry as the table has it now (the requests run in their own container) */
     private function data(string $kind, string $id): array
     {
-        $json = $this->db->value('SELECT data FROM catalog_' . $kind . ' WHERE id = ?', [$id]);
+        $json = $this->db->value('SELECT data FROM ' . CatalogStore::table($kind) . ' WHERE id = ?', [$id]);
         if ($json === null) self::fail("no $kind entry $id");
         return (array) json_decode((string) $json, true);
     }
 
     private function inCatalog(string $kind, string $id): bool
     {
-        return $this->db->value('SELECT 1 FROM catalog_' . $kind . ' WHERE id = ?', [$id]) !== null;
+        return $this->db->value('SELECT 1 FROM ' . CatalogStore::table($kind) . ' WHERE id = ?', [$id]) !== null;
     }
 
     /** @return array<string, mixed> */

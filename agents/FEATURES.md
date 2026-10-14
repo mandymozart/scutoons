@@ -90,9 +90,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   variables PROTECTED_CDN_URL, BUNNY_PROTECTED_STORAGE_ZONE (deploy/README.md); the six score items are production drafts (item:cloud9_en … item:roarlittlekitty_en, files in the vault) – [owner]
   publish them; the song book items and the Luma images (research/SCORES.md) next.
 - [ ] 10.98 **The avatar's home + a walking mode** – owner 2026-10-14: "not inventory but cave... the home of the
-  avatar". A home per character on the world map (a WG of up to 5 avatars), its look a home scene (`cave`,
-  `tatami_room`), furniture placed freely (racks, a workbench); the avatar walks there or rides for cucumbers (step 2);
-  a VR headset enters from anywhere; friends visit by link. Concept + data model: research/CAVE.md; draft `/account/lab/cave`.
+  avatar". Built (step 1): homes per avatar (WG ≤ 5, mover), home scenes, furniture, the full-screen HomeView, walking,
+  the VR headset, visit links, the creator fields (ITEMS.md "Homes and furniture"). Open: [owner] scene + furniture art
+  (workflows/home/furniture.md), the items in the catalog, each character's `home`; step 2: rides. research/CAVE.md
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,

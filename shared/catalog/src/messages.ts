@@ -5,6 +5,18 @@ import { catalogLocale } from './setup.ts';
 
 export const CATALOG_MESSAGES = {
 	de: {
+		"catalog.furniture": "Möbel – im Zuhause",
+		"catalog.furniture_size": "Größe (% der Raumbreite)",
+		"catalog.furniture_size_hint": "Der Raum ist vorne 4 m breit: Meter ÷ 4 × 100 – CD-Regal 12, Werkbank 35, Sofa 45 (5–60)",
+		"catalog.furniture_image": "Bild im Zuhause",
+		"catalog.furniture_workshop": "Werkbank (hier laufen die Werkbank-Rezepte)",
+		"catalog.enters_home": "Bringt einen nach Hause (VR-Brille)",
+		"catalog.recipe_workshop": "Nur an einer Werkbank",
+		"catalog.home_scenes": "Zuhause-Szenen",
+		"catalog.home_scene": "Zuhause-Szene",
+		"catalog.home_scene_image": "Hintergrund (1080p, 4K)",
+		"catalog.home_scene_video": "Video (kurze Schleife)",
+		"catalog.home_scene_video_hint": "Optional: ein kurzes, stummes Video, das sich wiederholt – das Bild ist sein Standbild. 4K nur für „Hoch“.",
 		"catalog.ages": "Altert",
 		"catalog.ages_full": "Ganz gealtert nach (Tagen)",
 		"catalog.ages_spots": "Flecken ab (Tagen)",
@@ -163,6 +175,18 @@ export const CATALOG_MESSAGES = {
 		"nav.codes": "Codes"
 	},
 	en: {
+		"catalog.furniture": "Furniture – in the home",
+		"catalog.furniture_size": "Size (% of the room's width)",
+		"catalog.furniture_size_hint": "The room is 4 m wide at the front: metres ÷ 4 × 100 – CD rack 12, workbench 35, sofa 45 (5–60)",
+		"catalog.furniture_image": "Picture in the home",
+		"catalog.furniture_workshop": "Workbench (the workshop recipes run here)",
+		"catalog.enters_home": "Takes you home (VR headset)",
+		"catalog.recipe_workshop": "Only at a workbench",
+		"catalog.home_scenes": "Home scenes",
+		"catalog.home_scene": "Home scene",
+		"catalog.home_scene_image": "Background (1080p, 4K)",
+		"catalog.home_scene_video": "Video (a short loop)",
+		"catalog.home_scene_video_hint": "Optional: a short muted video that repeats – the picture is its still. 4K only for \"High\".",
 		"catalog.ages": "Ages",
 		"catalog.ages_full": "Fully aged after (days)",
 		"catalog.ages_spots": "Spots from (days)",
