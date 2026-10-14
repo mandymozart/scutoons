@@ -27,12 +27,15 @@ final class InventoryService
         private readonly RateLimiter $limits,
         private readonly Settings $settings,
         private readonly ItemRespawn $respawn,
+        private readonly Containers $containers,
     ) {
     }
 
     /** @return list<array<string, mixed>> the user's entries as JSON */
     public function entries(string $userId): array
     {
+        // an overfilled container past its days breaks now (research/SCORES.md §2a – no timer)
+        $this->containers->settle($userId);
         $rows = $this->db->all('SELECT * FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY acquired_at, id', [$userId]);
         return array_map([self::class, 'toJson'], $rows);
     }
@@ -52,33 +55,45 @@ final class InventoryService
             'code' => $row['code'],
             'edition_number' => $row['edition_number'] !== null ? (int) $row['edition_number'] : null,
             'acquired_at' => Time::iso($row['acquired_at']),
+            // containers (research/SCORES.md): the container entry it lies in, since when a container is overfilled,
+            // where an ageing item's age starts (null = acquired_at)
+            'in' => $row['container_id'] ?? null,
+            'overfilled_at' => Time::iso($row['overfilled_at'] ?? null),
+            'aged_since' => Time::iso($row['aged_since'] ?? null),
         ];
     }
 
-    /** Adds items (call inside a transaction when combined with other writes) */
-    public function add(string $userId, string $itemId, ?string $variant, int $qty, string $source, ?string $code = null, ?int $editionNumber = null): void
+    /**
+     * Adds items (call inside a transaction when combined with other writes)
+     * @return list<string> the entries written (a stack: its row)
+     */
+    public function add(string $userId, string $itemId, ?string $variant, int $qty, string $source, ?string $code = null, ?int $editionNumber = null): array
     {
         $item = $this->catalog->item($itemId) ?? throw new ApiError(404, 'unknown_item', "Unknown item $itemId.");
         // the collection limit (`max`, default 99 per account; owner 2026-10-02) – never for a claimed physical
         // product (a code): what was bought is always added
         if ($code === null) $qty = min($qty, $this->room($userId, $item));
-        if ($qty < 1) return;
+        if ($qty < 1) return [];
         $now = $this->clock->utc();
         if (!empty($item['stackable'])) {
             $row = $this->db->one('SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND ' . ($variant === null ? 'variant IS NULL' : 'variant = ?') . ' ORDER BY acquired_at LIMIT 1',
                 $variant === null ? [$userId, $itemId] : [$userId, $itemId, $variant]);
             if ($row) {
                 $this->db->run('UPDATE inventory SET qty = qty + ?, updated_at = ? WHERE id = ?', [$qty, $now, $row['id']]);
-                return;
+                return [(string) $row['id']];
             }
+            $id = Ids::uuid();
             $this->db->run('INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [Ids::uuid(), $userId, $itemId, $variant, $qty, $source, $code, $editionNumber, $now, $now]);
-            return;
+                [$id, $userId, $itemId, $variant, $qty, $source, $code, $editionNumber, $now, $now]);
+            return [$id];
         }
+        $ids = [];
         for ($i = 0; $i < $qty; $i++) {
+            $ids[] = $id = Ids::uuid();
             $this->db->run('INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)',
-                [Ids::uuid(), $userId, $itemId, $variant, $source, $code, $editionNumber, $now, $now]);
+                [$id, $userId, $itemId, $variant, $source, $code, $editionNumber, $now, $now]);
         }
+        return $ids;
     }
 
     /**
@@ -178,8 +193,7 @@ final class InventoryService
             $take = min($qty, (int) $row['qty']);
             $qty -= $take;
             if ($take >= (int) $row['qty']) {
-                $this->db->run('DELETE FROM inventory WHERE id = ?', [$row['id']]);
-                $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND entry_id = ?', [$userId, $row['id']]);
+                $this->drop($userId, (string) $row['id']);
             } else {
                 $this->db->run('UPDATE inventory SET qty = qty - ?, updated_at = ? WHERE id = ?', [$take, $this->clock->utc(), $row['id']]);
             }
@@ -187,18 +201,31 @@ final class InventoryService
         if ($qty > 0) throw new RuntimeException("remove: not enough $itemId");
     }
 
+    /** Deletes an entry: off the avatar, and what lay in it (a container) falls out loose */
+    private function drop(string $userId, string $entryId): void
+    {
+        $this->db->run('UPDATE inventory SET container_id = NULL WHERE user_id = ? AND container_id = ?', [$userId, $entryId]);
+        $this->db->run('DELETE FROM inventory WHERE id = ?', [$entryId]);
+        $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND entry_id = ?', [$userId, $entryId]);
+    }
+
     /**
      * Crafts a recipe: the inputs are consumed, the output is added. A physical input (catalog `kind: physical`, or a
      * code-bound piece of any item) only has to be there – it stays in the inventory, the output comes in addition
-     * (owner 2026-10-12). 404 unknown_recipe, 422 missing_inputs { missing }.
+     * (owner 2026-10-12); so does an input marked `keep` (a tool – the drill; research/SCORES.md §2a). The output takes
+     * the variant of the `output.variant_from` input (the plastic's colour); a consumed container hands what lies in it
+     * and its age to the output (the coloured / upgraded song book). `$use` = { <item id>: <entry id> } picks the entry
+     * of an input (which colour); none = the oldest. 404 unknown_recipe, 422 missing_inputs { missing }.
      * @return array<string, mixed> the recipe
      */
-    public function craft(string $userId, mixed $recipeId): array
+    public function craft(string $userId, mixed $recipeId, mixed $use = null): array
     {
         $recipe = is_string($recipeId) ? $this->catalog->recipe($recipeId) : null;
         if (!$recipe) throw new ApiError(404, 'unknown_recipe', 'Unknown recipe.');
+        $use = is_array($use) ? $use : [];
 
-        $this->db->transaction(function () use ($userId, $recipe) {
+        $this->db->transaction(function () use ($userId, $recipe, $use) {
+            $this->containers->settle($userId);
             $missing = [];
             foreach ($recipe['inputs'] as $input) {
                 $have = $this->count($userId, $input['item']);
@@ -210,14 +237,59 @@ final class InventoryService
                 throw new ApiError(409, 'max_reached', 'You cannot hold more of this.', ['max' => self::maxOf($output)]);
             }
             if ($output) $this->guardWorld($userId, $output);
+            $variantFrom = $recipe['output']['variant_from'] ?? null;
+            $variant = null;
+            $carried = [];
+            $agedSince = null;
             foreach ($recipe['inputs'] as $input) {
-                if (($this->catalog->item($input['item'])['kind'] ?? null) === 'physical') continue;
-                $consume = min((int) $input['qty'], $this->consumable($userId, $input['item']));
+                $inputItem = $this->catalog->item($input['item']) ?? [];
+                if (($inputItem['kind'] ?? null) === 'physical' || ($input['keep'] ?? false) === true) continue;
+                $qty = (int) $input['qty'];
+                $container = ($inputItem['holds'] ?? null) !== null;
+                $picked = $input['item'] === $variantFrom || $container
+                    ? $this->pick($userId, $input['item'], is_string($use[$input['item']] ?? null) ? $use[$input['item']] : null, $qty) : null;
+                if ($picked !== null) {
+                    if ($input['item'] === $variantFrom) $variant = $picked['variant'];
+                    if ($container) {
+                        $carried = [...$carried, ...$this->containers->contentIds((string) $picked['id'])];
+                        $agedSince ??= $picked['aged_since'] ?? $picked['acquired_at'];
+                    }
+                    $qty -= $this->consumeEntry($userId, $picked, $qty);
+                }
+                $consume = min($qty, $this->consumable($userId, $input['item']));
                 if ($consume > 0) $this->remove($userId, $input['item'], $consume);
             }
-            $this->add($userId, $recipe['output']['item'], null, (int) $recipe['output']['qty'], 'craft');
+            $variants = array_map(fn($v) => is_array($v) ? ($v['id'] ?? null) : null, is_array($output['variants'] ?? null) ? $output['variants'] : []);
+            $ids = $this->add($userId, $recipe['output']['item'], in_array($variant, $variants, true) ? $variant : null, (int) $recipe['output']['qty'], 'craft');
+            if ($ids !== [] && $agedSince !== null && ($output['ages'] ?? null) !== null) $this->db->run('UPDATE inventory SET aged_since = ? WHERE id = ?', [$agedSince, $ids[0]]);
+            if ($ids !== [] && ($output['holds'] ?? null) !== null) $this->containers->carryInto($userId, $carried, $ids[0]);
         });
         return $recipe;
+    }
+
+    /**
+     * The entry of an input to use: the reader's pick (this item, theirs, without a code, enough of it), else the oldest.
+     * @return array<string, mixed>|null
+     */
+    private function pick(string $userId, string $itemId, ?string $entryId, int $qty): ?array
+    {
+        if ($entryId === null) return $this->db->one('SELECT * FROM inventory WHERE user_id = ? AND item_id = ? AND code IS NULL AND qty > 0 ORDER BY acquired_at, id LIMIT 1', [$userId, $itemId]);
+        $row = $this->db->one('SELECT * FROM inventory WHERE id = ? AND user_id = ? AND item_id = ? AND code IS NULL AND qty > 0', [$entryId, $userId, $itemId]);
+        if (!$row || (int) $row['qty'] < $qty) throw new ApiError(422, 'missing_inputs', 'Some ingredients are missing.', ['missing' => [['item' => $itemId, 'qty' => $qty]]]);
+        return $row;
+    }
+
+    /**
+     * Uses up to `$qty` from one entry
+     * @param array<string, mixed> $row
+     * @return int how many it took
+     */
+    private function consumeEntry(string $userId, array $row, int $qty): int
+    {
+        $take = min($qty, (int) $row['qty']);
+        if ($take >= (int) $row['qty']) $this->drop($userId, (string) $row['id']);
+        else $this->db->run('UPDATE inventory SET qty = qty - ?, updated_at = ? WHERE id = ?', [$take, $this->clock->utc(), $row['id']]);
+        return $take;
     }
 
     /**

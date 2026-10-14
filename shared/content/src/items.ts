@@ -247,6 +247,12 @@ export interface Entry {
 	code: string | null;
 	edition_number: number | null;
 	acquired_at: string;
+	/** the container entry it lies in (containers.ts; none = loose in the inventory) */
+	in?: EntryId | null;
+	/** a container: overfilled since (it breaks after `holds.overfill.days`) */
+	overfilled_at?: string | null;
+	/** an ageing item ages from here (none = `acquired_at`; an upgraded book keeps the old age) */
+	aged_since?: string | null;
 }
 
 /** Where an avatar-body unlock came from (server `member_characters.source`) */
