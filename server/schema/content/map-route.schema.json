@@ -41,6 +41,10 @@
 				"hidden": {
 					"type": "boolean",
 					"description": "hidden until an event reveals it (default visible)"
+				},
+				"network": {
+					"$ref": "#/definitions/MapNetwork",
+					"description": "a line of a ride network (research/CAVE.md D8): rides only, never walked; its place waypoints are its stops"
 				}
 			},
 			"required": [
@@ -129,6 +133,15 @@
 				"flight",
 				"sea"
 			]
+		},
+		"MapNetwork": {
+			"type": "string",
+			"enum": [
+				"subway",
+				"tram",
+				"airlift"
+			],
+			"description": "a ride network (research/CAVE.md D8): a route with one is a line, its places the stops"
 		}
 	}
 }

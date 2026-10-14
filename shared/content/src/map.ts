@@ -229,6 +229,9 @@ export function placeImageSrcset(variants: QualityVariants | null | undefined, u
 }
 
 export type MapPathStyle = 'road' | 'trail' | 'flight' | 'sea';
+/** a ride network (research/CAVE.md D8): a route with one is a line, its places the stops */
+export type MapNetwork = 'subway' | 'tram' | 'airlift';
+export const MAP_NETWORKS: MapNetwork[] = ['subway', 'tram', 'airlift'];
 
 export interface MapPath {
 	id: string;
@@ -240,6 +243,8 @@ export interface MapPath {
 	style?: MapPathStyle;
 	/** hidden until an event reveals it (default visible) */
 	hidden?: boolean;
+	/** a line of a ride network (research/CAVE.md D8): rides only, never walked; its place waypoints are its stops */
+	network?: MapNetwork;
 }
 
 /** A place of the map (`location` = the place id; its waypoint id is the place id) */
@@ -1690,6 +1695,8 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		names(r.name, [...path, 'name'], what, true);
 		toonList(r.toons, [...path, 'toons'], what);
 		if (r.style !== undefined && !MAP_STYLES.includes(r.style)) add('error', [...path, 'style'], `${what}: style must be one of ${MAP_STYLES.join(', ')}`);
+		if (r.network !== undefined && !MAP_NETWORKS.includes(r.network)) add('error', [...path, 'network'], `${what}: network must be one of ${MAP_NETWORKS.join(', ')}`);
+		else if (r.network !== undefined && (Array.isArray(r.waypoints) ? r.waypoints.filter(isPlaceWaypoint).length : 0) < 2) add('warning', [...path, 'network'], `${what}: a line needs at least two stops (places)`);
 		if (r.hidden !== undefined && typeof r.hidden !== 'boolean') add('error', [...path, 'hidden'], `${what}: hidden must be true or false`);
 		const waypoints = Array.isArray(r.waypoints) ? r.waypoints : [];
 		if (!Array.isArray(r.waypoints) || waypoints.length < 2) add('error', [...path, 'waypoints'], `${what}: a route needs at least 2 waypoints`);

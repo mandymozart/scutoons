@@ -3,7 +3,7 @@
 // `tatami_room`); furniture = items standing in a home; a WG = a home several of the reader's avatars share.
 import type { Localized } from './items.ts';
 import type { QualityVariants } from './media-quality.ts';
-import { isPlaceWaypoint, routeDrawnTo, routePoints, type MapState, type Point, type RouteLike } from './map.ts';
+import { isPlaceWaypoint, routeDrawnTo, routePoints, type MapNetwork, type MapState, type Point, type RouteLike } from './map.ts';
 
 /**
  * A home scene's file at the reader's media quality (media-quality.ts `pickQualityVariant`): `src` = 1080p (low and
@@ -66,6 +66,12 @@ export function characterHome(character: { home?: string; home_scene?: string } 
 	return { place: character?.home || undefined, scene: character?.home_scene || DEFAULT_HOME_SCENE };
 }
 
+/** what a ride costs in cucumbers per network (research/CAVE.md D8 – proposed, the owner decides) */
+export const RIDE_PRICES: Record<MapNetwork, number> = { tram: 1, subway: 2, airlift: 3 };
+/** a ride is faster than walking: ms per stretch */
+export const RIDE_MS = 700;
+export const WALK_MS = 1200;
+
 /** One walked stretch: along `route` from waypoint index `from` to `to` (either direction) */
 export interface WalkStep {
 	route: string;
@@ -79,7 +85,29 @@ export interface WalkStep {
  * The shortest walk (fewest stretches) from one place to another along the routes the reader can see, between places
  * that are open to them (unlocked, or their home): CAVE.md D1 – no spoilers. null = no path; [] = already there.
  */
-export function walkPath(routes: readonly RouteLike[], state: MapState, from: string, to: string, open: (placeId: string) => boolean): WalkStep[] | null {
+export function walkPath(routes: readonly (RouteLike & { network?: MapNetwork })[], state: MapState, from: string, to: string, open: (placeId: string) => boolean): WalkStep[] | null {
+	// lines of the ride networks are never walked (research/CAVE.md D8)
+	return path(routes.filter((r) => !r.network), state, from, to, open);
+}
+
+/** A ride on one network (research/CAVE.md D8): from a stop to an open stop along its visible lines – changing is free */
+export function ridePath(routes: readonly (RouteLike & { network?: MapNetwork })[], state: MapState, network: MapNetwork, from: string, to: string, open: (placeId: string) => boolean): WalkStep[] | null {
+	const steps = path(routes.filter((r) => r.network === network), state, from, to, open);
+	return steps?.length ? steps : null;
+}
+
+/** the networks with a visible line stopping at a place (where a ride can start) */
+export function networksAt(routes: readonly (RouteLike & { network?: MapNetwork })[], state: MapState, place: string, open: (placeId: string) => boolean): MapNetwork[] {
+	const out = new Set<MapNetwork>();
+	for (const r of routes) {
+		if (!r.network) continue;
+		const upTo = routeDrawnTo(r, state, open);
+		if (r.waypoints.some((w, i) => i <= upTo && isPlaceWaypoint(w) && w.location === place)) out.add(r.network);
+	}
+	return [...out];
+}
+
+function path(routes: readonly RouteLike[], state: MapState, from: string, to: string, open: (placeId: string) => boolean): WalkStep[] | null {
 	if (from === to) return [];
 	const edges = new Map<string, WalkStep[]>();
 	const add = (a: string, step: WalkStep) => edges.set(a, [...(edges.get(a) ?? []), step]);

@@ -111,6 +111,21 @@ Guests have a cave on the device (their furniture in the local inventory), can w
 needs an account (the server must answer for your home). Not now: more rooms (one home = one room, one home
 scene), decorating beyond the home scene, a friend list, live presence / chat, a per-reader map spot, rides (step 2), selling.
 
+## D8 – rides (step 2, proposal 2026-10-14 – the owner decides the marked points)
+Owner 2026-10-14: "the rides go along a subway, tram, and special creature airlift taxi network. and are animated in
+their respecitve map layer"; "YES – build step 2" (relayed). Proposal:
+- **A line = a map route with a network** (`MapPath.network: 'subway' | 'tram' | 'airlift'`), drawn in the creator's
+  map builder like any route; its place waypoints are its **stops**. Lines of one network meet at shared stops
+  (changing lines is free). Hidden / revealed like routes – a line shows once the story reveals it (no spoilers).
+- **Each network its own look and layer** on the reader's map: the subway a bold coloured line drawn *under* the
+  terrain's places (a "U" at its stops), the tram twin rails along the streets, the creature airlift a dotted arc in the
+  sky above everything. A ride animates the avatar's marker along the line in that layer (faster than walking).
+- **A ride = from the stop where the avatar stands to any open stop of the same network** (unlocked or its home),
+  paid per ride in cucumbers – [owner] the prices: proposed **tram 1, subway 2, creature airlift 3**. Members: the server
+  takes the cucumbers (`POST /api/map/ride`); guests: from the device inventory. No cucumbers → "You need 2 cucumbers".
+- [owner] The creature airlift: lines like the others (proposed), or a taxi from anywhere to any unlocked place?
+- Not now: timetables, waiting, tickets as items, a ride that ends between stops.
+
 ## Data model (proposal – the names to build with)
 Catalog / content (edited in the admin / creator):
 - **Home scene** – a catalog table `catalog_home_scenes` (CATALOG.md, like albums): `{ id, name: Localized, image,
