@@ -281,7 +281,7 @@
 		padding: 0 1rem 1rem;
 	}
 	@media (min-width: 64rem) {
-		.room {
+		.body .room {
 			width: min(100% - 2rem, 100vh - 6rem);
 		}
 		.body {
