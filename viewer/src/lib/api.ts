@@ -41,6 +41,7 @@ export const {
 	revokeHomeVisit,
 	fetchHomeVisit,
 	scoreFile,
+	albumFile,
 	grantItem,
 	takeItem,
 	importItems,

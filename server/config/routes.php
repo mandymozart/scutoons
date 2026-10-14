@@ -120,6 +120,9 @@ return static function (App $app): void {
     $app->any('/api/items[/index.php]', [CatalogController::class, 'items']);
     // a score's MusicXML / PDF as a short-lived signed URL (agents/research/SCORES.md §5)
     $app->get('/api/items/{id}/score/{file}', [CatalogController::class, 'scoreFile']);
+    // a physical release's zip / track as a short-lived signed URL by the album's access (owner 2026-10-14)
+    $app->get('/api/albums/{id}/download', [CatalogController::class, 'albumFile']);
+    $app->get('/api/albums/{id}/tracks/{track}', [CatalogController::class, 'albumFile']);
     $app->any('/api/editions[/index.php]', [CatalogController::class, 'editions']);
     $app->any('/api/toons[/index.php]', [CatalogController::class, 'toons']);
     $app->get('/api/{folder:items|editions|toons}/{file:items|editions|toons}.json', [CatalogController::class, 'file']);

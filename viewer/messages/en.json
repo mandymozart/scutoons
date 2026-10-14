@@ -37,7 +37,8 @@
 	},
 	"download": {
 		"read_webtoon": "Read Webtoon",
-		"owners_only": "This download is only for owners of the record."
+		"owners_only": "This download is only for owners of the record.",
+		"sign_in": "Please sign in to download the music."
 	},
 	"account": {
 		"my_account": "Account",
@@ -387,7 +388,8 @@
 		"score_smaller": "Smaller",
 		"score_previous": "Previous page",
 		"score_next": "Next page",
-		"score_page": "Page {page} of {pages}"
+		"score_page": "Page {page} of {pages}",
+		"release_failed": "That did not work – are you signed in?"
 	},
 	"claim": {
 		"title": "SCUTOONS item",

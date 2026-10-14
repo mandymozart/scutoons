@@ -76,6 +76,32 @@ final class ProtectedFilesTest extends TestCase
         }
     }
 
+    /** a physical release's audio (owner 2026-10-14): the zip for signed-in readers, a track only for owners of a carrier */
+    public function testAReleaseIsSignedByTheAlbumsAccess(): void
+    {
+        $admin = $this->get(CatalogAdmin::class);
+        $admin->put('albums', 'rel', ['id' => 'rel', 'toon' => null, 'title' => ['en' => 'Rel'], 'tracks' => [['id' => 'one', 'title' => 'One', 'src' => 'albums/rel/aaa.mp3']], 'download' => 'albums/rel/bbb.zip'], 'test');
+        $admin->put('items', 'rel_vinyl', ['id' => 'rel_vinyl', 'name' => ['en' => 'Rel vinyl'], 'kind' => 'virtual', 'category' => 'media', 'icon' => 'v.png', 'stackable' => false,
+            'starter' => false, 'grantable' => ['story'], 'slot' => null, 'skills' => [], 'album' => 'rel', 'format' => 'vinyl'], 'test');
+        $files = $this->get(ProtectedFiles::class);
+        $refused = function (callable $call): string {
+            try {
+                $call();
+            } catch (ApiError $error) {
+                return $error->errorCode;
+            }
+            return 'none';
+        };
+        self::assertSame('unauthorized', $refused(fn() => $files->album('rel', null, null)));
+        $user = $this->user();
+        self::assertStringStartsWith('https://protected.example.net/albums/rel/bbb.zip?token=HS256-', $files->album('rel', null, $user)['url']);
+        self::assertSame('not_owner', $refused(fn() => $files->album('rel', 'one', $user)));
+        $this->get(InventoryService::class)->add((string) $user['id'], 'rel_vinyl', null, 1, 'story');
+        self::assertStringStartsWith('https://protected.example.net/albums/rel/aaa.mp3?token=HS256-', $files->album('rel', 'one', $user)['url']);
+        self::assertSame('unknown_track', $refused(fn() => $files->album('rel', 'two', $user)));
+        self::assertSame('unknown_album', $refused(fn() => $files->album('nope', null, $user)));
+    }
+
     public function testThePublicCatalogNeverNamesThePaths(): void
     {
         $item = $this->get(\Scutoons\Domain\Catalog\Catalog::class)->item('cloud9_en') ?? [];

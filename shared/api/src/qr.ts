@@ -209,6 +209,10 @@ export function createQrApi(api: ApiClient) {
 		/** a friend's home, read-only (anyone with the link): 404 unknown_visit */
 		fetchHomeVisit: (token: string) => api.get<HomeVisitResult>(`/homes/visit/${encodeURIComponent(token)}`),
 
+		/** a physical release's zip (no `track`) or one track as a short-lived signed URL, by the album's access rules */
+		albumFile: (album_id: string, track_id?: string) =>
+			api.get<{ status: string; url: string; expires: number }>(`/albums/${encodeURIComponent(album_id)}/${track_id ? `tracks/${encodeURIComponent(track_id)}` : 'download'}`),
+
 		/** a score's MusicXML / PDF as a short-lived signed URL (the PDF only for a signed-in owner) */
 		scoreFile: (item_id: string, file: 'musicxml' | 'pdf', part?: string | null) =>
 			api.get<{ status: string; url: string; expires: number }>(`/items/${encodeURIComponent(item_id)}/score/${file}${part ? `?part=${encodeURIComponent(part)}` : ''}`),

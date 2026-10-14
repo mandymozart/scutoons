@@ -52,6 +52,47 @@ final class ProtectedFiles
         return $this->signed($path);
     }
 
+    /** paths in the vault (the protected storage): scores' files, physical releases' audio */
+    public static function inVault(string $path): bool
+    {
+        return str_starts_with($path, 'scores/') || str_starts_with($path, 'albums/');
+    }
+
+    /**
+     * GET /api/albums/{id}/download | /api/albums/{id}/tracks/{track} → { url, expires } – a physical release's zip / one
+     * track (owner 2026-10-14) by the album's `access` (agents/ITEMS.md "Players, albums"): `everyone`; `members` = a
+     * signed-in account; `owners` = an account owning a carrier of the album (an item with `album` = it). Defaults:
+     * download members, listen owners (the reader also needs a player – the app's rule). A file not in the vault (an older
+     * album) is answered with its public CDN URL. 404 unknown_album / unknown_track / no_file, 401, 403 not_owner.
+     * @param array<string, mixed>|null $user
+     * @return array{url: string, expires: int}
+     */
+    public function album(string $albumId, ?string $trackId, ?array $user): array
+    {
+        $album = null;
+        foreach ((array) ($this->catalog->data()['albums'] ?? []) as $a) if (is_array($a) && ($a['id'] ?? null) === $albumId) $album = $a;
+        if ($album === null) throw new ApiError(404, 'unknown_album', 'Unknown album.');
+        if ($trackId === null) {
+            $path = is_string($album['download'] ?? null) && $album['download'] !== '' ? $album['download'] : throw new ApiError(404, 'no_file', 'This album has no download.');
+            $rule = $album['access']['download'] ?? 'members';
+        } else {
+            $track = null;
+            foreach ((array) ($album['tracks'] ?? []) as $t) if (is_array($t) && ($t['id'] ?? null) === $trackId) $track = $t;
+            $path = is_string($track['src'] ?? null) && $track['src'] !== '' ? $track['src'] : throw new ApiError(404, 'unknown_track', 'Unknown track.');
+            $rule = $album['access']['listen'] ?? 'owners';
+        }
+        if ($rule !== 'everyone') {
+            if ($user === null) throw new ApiError(401, 'unauthorized', 'Sign in for this album.');
+            if ($rule === 'owners') {
+                $carriers = array_keys(array_filter($this->catalog->items(), fn($i) => ($i['album'] ?? null) === $albumId));
+                $owns = array_filter($carriers, fn($id) => $this->inventory->count((string) $user['id'], (string) $id) > 0) !== [];
+                if (!$owns) throw new ApiError(403, 'not_owner', 'Only owners of this release.');
+            }
+        }
+        if (!self::inVault($path)) return ['url' => rtrim($this->settings->get('CDN_URL'), '/') . '/' . ltrim($path, '/'), 'expires' => $this->clock->time() + self::TTL];
+        return $this->signed($path);
+    }
+
     /**
      * A signed URL of a protected file (bunny.net token authentication, HMAC-SHA256: the URL path + expires, base64url,
      * prefix `HS256-` – BunnyWay/BunnyCDN.TokenAuthentication php/url_signing.php)
