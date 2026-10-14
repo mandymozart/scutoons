@@ -95,8 +95,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   scene (STORYBOARD §10), the first Figma bridge run, the remaining generated shots.
 - [ ] 10.95 **Storyboard: render the cast from the characters' 3D models** – owner 2026-10-13: "a 3d model for each
   persona of each character", "the storyboard renderer does a great job". Built: `model` (.glb) per persona / look on the
-  character page (`modelOf`, ASSETS.md "3D models"). Open: [owner] after the deploy attach catpope-regular.glb +
-  catpope-mountaintiger.glb (= tools/storyboard-render/models/*.glb) on production and publish; the renderer loads
+  character page (`modelOf`, ASSETS.md "3D models"). Open: [owner] publish draft 557 of character:catpope
+  (Gebirgstiger → catpope-mountaintiger.glb, on the CDN) and upload catpope-regular.glb (= tools/storyboard-render/models/catpope.glb)
+  in the regular persona's slot; the renderer loads
   `modelOf(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md).
 
 ## Platform, release
