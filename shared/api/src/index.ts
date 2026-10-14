@@ -10,6 +10,8 @@ export {
 	type InventoryResult,
 	type ProgressResult,
 	type GiftResult,
+	type InviteOffer,
+	type InvitesResult,
 	type ContactMessage
 } from './qr.ts';
 export {

@@ -14,8 +14,13 @@ import {
 	useItem,
 	endEffect as endEffectApi,
 	giftItem,
-	markReceivedSeen
+	markReceivedSeen,
+	fetchInvites,
+	createInvite,
+	recallInvite as recallInviteApi,
+	inviteAddress
 } from '$lib/api.ts';
+import type { InviteOffer, InvitesResult } from '@scutoons/api';
 import {
 	DEFAULT_AVATAR_UNLOCKS,
 	activeEffects,
@@ -107,14 +112,17 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory) */
-	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place';
+	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place' | 'invited' | 'recalled';
 	/** place: a map place was unlocked (agents/MAP.md §3.4, §8.5a) – its name and image (the toast's icon) */
 	place?: { name: string; image?: string; id?: string };
 	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
 	reason?: string;
 	/** the inventory entry (returned) */
 	entry?: EntryId;
-	/** gifted: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership, claims, gifting") */
+	/**
+	 * gifted / invited / recalled: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership,
+	 * claims, gifting"; invites: research/GIFT-INVITES.md)
+	 */
 	email?: string | null;
 	/** the same notice again while it shows: counted here ("× 2") instead of one more toast (owner 2026-10-08) */
 	repeat?: number;
@@ -411,9 +419,10 @@ export function createInventoryContext(session: SessionContext) {
 
 	/**
 	 * Gives an item to another reader (members only; ITEMS.md "Ownership, claims, gifting"). A code-bound piece moves
-	 * its code. `error` = the API's error code (recipient_not_found, worn, cooldown, max_reached, daily_limit, …).
+	 * its code. `error` = the API's error code (recipient_not_found, worn, cooldown, max_reached, daily_limit, …);
+	 * recipient_not_found while a gift invite campaign runs for the member brings `invite` – the offer to invite them.
 	 */
-	async function gift(entry: Entry, to: string, qty = 1): Promise<{ ok: boolean; error?: string }> {
+	async function gift(entry: Entry, to: string, qty = 1): Promise<{ ok: boolean; error?: string; invite?: InviteOffer }> {
 		if (!isAccount) return { ok: false, error: 'unauthorized' };
 		busy = true;
 		try {
@@ -423,9 +432,70 @@ export function createInventoryContext(session: SessionContext) {
 			if (entry.code) await session.loadMe(); // the code (and its access) left the account
 			return { ok: true };
 		} catch (e) {
+			if (e instanceof ApiError) return { ok: false, error: e.code, invite: (e.body?.invite as InviteOffer | undefined) ?? undefined };
+			return { ok: false, error: 'failed' };
+		} finally {
+			busy = false;
+		}
+	}
+
+	// ── gift invites (agents/research/GIFT-INVITES.md): someone without an account gets an invite with the gift ──
+	let invites = $state<InvitesResult | null>(null);
+	/** the running campaign, the member's invites, gifts waiting for a shipping address (members only) */
+	async function loadInvites(): Promise<void> {
+		if (!isAccount) {
+			invites = null;
+			return;
+		}
+		try {
+			invites = await fetchInvites();
+		} catch (e) {
+			console.warn('Could not load the invites', e);
+		}
+	}
+	/**
+	 * Invites someone without an account: with the member's own item (`entry`, the gift form) or the campaign's item
+	 * (no entry). `error` = the API's code (has_account, already_invited, campaign_limit, sold_out, no_campaign, …).
+	 */
+	async function invite(to: string, entry?: Entry, qty = 1): Promise<{ ok: boolean; error?: string; status?: string }> {
+		if (!isAccount) return { ok: false, error: 'unauthorized' };
+		busy = true;
+		try {
+			const result = await createInvite({ to: to.trim(), ...(entry ? { entry_id: entry.id, qty } : {}) });
+			applyInventory(result.inventory);
+			// a gift the member pays waits for the payment: the notice says so (reason payment)
+			notify(result.invite.item_id, result.invite.qty, 'invited', undefined, result.invite.email, result.invite.status === 'payment' ? 'payment' : undefined);
+			await loadInvites();
+			return { ok: true, status: result.invite.status };
+		} catch (e) {
 			return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
 		} finally {
 			busy = false;
+		}
+	}
+	/** calls an invite back while it is not accepted – the member's own item comes back */
+	async function recallInvite(id: string): Promise<{ ok: boolean; error?: string }> {
+		busy = true;
+		try {
+			const result = await recallInviteApi(id);
+			applyInventory(result.inventory);
+			notify(result.invite.item_id, result.invite.qty, 'recalled', undefined, result.invite.email);
+			await loadInvites();
+			return { ok: true };
+		} catch (e) {
+			await loadInvites();
+			return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
+		} finally {
+			busy = false;
+		}
+	}
+	/** the shipping address of a physical gift the member joined by */
+	async function setInviteAddress(id: string, address: { name: string; address: string; country: string }): Promise<{ ok: boolean; error?: string }> {
+		try {
+			invites = await inviteAddress(id, address);
+			return { ok: true };
+		} catch (e) {
+			return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
 		}
 	}
 
@@ -805,6 +875,13 @@ export function createInventoryContext(session: SessionContext) {
 		craft,
 		claim,
 		gift,
+		get invites() {
+			return invites;
+		},
+		loadInvites,
+		invite,
+		recallInvite,
+		setInviteAddress,
 		announceReceived,
 		equip,
 		unequip,

@@ -1,6 +1,7 @@
 // Typed endpoints of the SCUTOONS API: accounts, access, items, inventory, avatar, progress
 // (agents/ITEMS.md → HTTP API contract). `createQrApi(client)` binds them to one configured client.
 import type { ApiClient } from './client.ts';
+import type { CampaignInvite } from './admin.ts';
 import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, OwnershipClaim, User, RecurrenceInterval } from '@scutoons/content';
 
 export interface VerifyResult {
@@ -70,6 +71,33 @@ export interface ContactMessage {
 }
 
 export type QrApi = ReturnType<typeof createQrApi>;
+
+/** The campaign a member may invite with (research/GIFT-INVITES.md; server CampaignStore::offerFor) */
+export interface InviteOffer {
+	id: string;
+	ends_at: string | null;
+	/** an invite sent now waits until then */
+	wait_until: string | null;
+	/** own = the member's own item (the gift form), campaign = item_id / variant given by SCUTOONS */
+	gift: 'own' | 'campaign';
+	item_id: string | null;
+	variant: string | null;
+	physical: boolean;
+	payer: 'scutoons' | 'member' | null;
+	/** the member pays this (by hand), null = free */
+	price_cents: number | null;
+	currency: string;
+	/** invites the member has left now */
+	left: number;
+}
+
+export interface InvitesResult {
+	status: string;
+	campaign: InviteOffer | null;
+	invites: CampaignInvite[];
+	/** physical gifts the member joined by that wait for a shipping address */
+	address_needed: { id: string; item_id: string; variant: string | null; item: string; countries: string[] }[];
+}
 
 export function createQrApi(api: ApiClient) {
 	return {
@@ -167,6 +195,16 @@ export function createQrApi(api: ApiClient) {
 		 */
 		giftItem: (gift: { entry_id?: string | number; item_id?: string; variant?: string | null; qty?: number; to: string }) =>
 			api.post<GiftResult>('/inventory/gift/', gift),
+		/** gift invites (research/GIFT-INVITES.md): the running campaign, the member's invites, gifts waiting for an address */
+		invites: () => api.get<InvitesResult>('/invites/'),
+		/** an invite: the member's own item (entry_id / item_id) or, in a campaign item campaign, only `to` */
+		createInvite: (invite: { to: string; entry_id?: string | number; item_id?: string; variant?: string | null; qty?: number }) =>
+			api.post<InventoryResult & { invite: CampaignInvite }>('/invites/', invite),
+		/** calls an invite back while it is not accepted (the own item comes back) */
+		recallInvite: (id: string) => api.post<InventoryResult & { invite: CampaignInvite }>(`/invites/${encodeURIComponent(id)}/recall/`),
+		/** the shipping address of a physical gift the member joined by */
+		inviteAddress: (id: string, address: { name: string; address: string; country: string }) =>
+			api.put<InvitesResult>(`/invites/${encodeURIComponent(id)}/address/`, address),
 		/**
 		 * The contact form (POST /api/contact/): one mail to hello@ with the sender as Reply-To. `website` = the honeypot
 		 * (empty), `elapsed` = ms since the form opened. 400 invalid_email / message_required / message_too_long ·

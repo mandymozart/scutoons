@@ -8,6 +8,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { Field } from '@scutoons/ui';
+	import type { InviteOffer } from '@scutoons/api';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
 
@@ -84,7 +85,14 @@
 	let giftTo = $state('');
 	let giftQty = $state(1);
 	let giftError = $state<string | null>(null);
+	/**
+	 * no account for the address while a gift invite campaign runs (agents/research/GIFT-INVITES.md): not an error but
+	 * an offer – invite them, the gift waits for them (until `inviteUntil`) and can be called back until then
+	 */
+	let inviteOffer = $state<InviteOffer | null>(null);
 	const GIFT_ERRORS = ['recipient_not_found', 'worn', 'cooldown', 'max_reached', 'daily_limit', 'self_gift', 'invalid_email', 'not_giftable'];
+	const INVITE_ERRORS = ['has_account', 'already_invited', 'campaign_limit', 'sold_out', 'no_campaign', 'daily_limit', 'code_needs_account'];
+	const giftCount = $derived(Math.min(Math.max(1, giftQty), giftMax || 1));
 	async function sendGift(event: SubmitEvent) {
 		event.preventDefault();
 		if (!giftTo.includes('@')) {
@@ -92,17 +100,38 @@
 			return;
 		}
 		giftError = null;
+		inviteOffer = null;
 		working = true;
-		const result = await inventory.gift(entry, giftTo, Math.min(Math.max(1, giftQty), giftMax || 1));
+		const result = await inventory.gift(entry, giftTo, giftCount);
 		working = false;
 		if (result.ok) {
 			giving = false;
 			onback();
 			return;
 		}
+		// a campaign with the member's own item, invites left, a piece without a code: offer the invite
+		if (result.error === 'recipient_not_found' && result.invite?.gift === 'own' && result.invite.left > 0 && !entry.code) {
+			inviteOffer = result.invite;
+			return;
+		}
 		const code = GIFT_ERRORS.includes(result.error ?? '') ? result.error : 'failed';
 		giftError = (m as unknown as Record<string, () => string>)[`items.gift_error_${code}`]();
 	}
+	async function sendInvite() {
+		working = true;
+		const result = await inventory.invite(giftTo, entry, giftCount);
+		working = false;
+		if (result.ok) {
+			giving = false;
+			inviteOffer = null;
+			onback();
+			return;
+		}
+		inviteOffer = null;
+		const code = INVITE_ERRORS.includes(result.error ?? '') ? result.error : 'failed';
+		giftError = (m as unknown as Record<string, () => string>)[`items.invite_error_${code}`]();
+	}
+	const inviteUntil = $derived(inviteOffer?.wait_until ? new Date(inviteOffer.wait_until).toLocaleDateString(getLocale()) : '');
 
 	async function toggleWear() {
 		if (!def?.slot) return;
@@ -209,7 +238,7 @@
 			{:else}
 				<Field label={m['items.gift_to']()} error={giftError}>
 					{#snippet children({ id, describedby, invalid })}
-						<input {id} type="email" name="gift_to" autocomplete="off" inputmode="email" required aria-describedby={describedby} aria-invalid={invalid} bind:value={giftTo} />
+						<input {id} type="email" name="gift_to" autocomplete="off" inputmode="email" required aria-describedby={describedby} aria-invalid={invalid} bind:value={giftTo} oninput={() => (inviteOffer = null)} />
 					{/snippet}
 				</Field>
 				{#if giftMax > 1}
@@ -219,11 +248,23 @@
 						{/snippet}
 					</Field>
 				{/if}
-				<p class="gift-note">{m['items.gift_note']()}{entry.code ? ` ${m['items.gift_note_code']()}` : ''}</p>
-				<div class="actions">
-					<button type="button" class="btn-secondary" onclick={() => (giving = false)}>{m['items.gift_cancel']()}</button>
-					<button type="submit" class:disabled={working} disabled={working} data-testid="gift-confirm">{m['items.gift_confirm']()}</button>
-				</div>
+				{#if inviteOffer}
+					<div class="invite-offer" role="status" data-testid="gift-invite-offer">
+						<span class="invite-title">{m['items.invite_no_account']()}</span>
+						<span>{m['items.invite_offer']({ name: inventory.nameOf(entry), until: inviteUntil })}</span>
+					</div>
+					<p class="gift-note">{m['items.invite_note']()}</p>
+					<div class="actions">
+						<button type="button" class="btn-secondary" onclick={() => ((giving = false), (inviteOffer = null))}>{m['items.gift_cancel']()}</button>
+						<button type="button" class:disabled={working} disabled={working} onclick={sendInvite} data-testid="gift-invite">{m['items.invite_confirm']()}</button>
+					</div>
+				{:else}
+					<p class="gift-note">{m['items.gift_note']()}{entry.code ? ` ${m['items.gift_note_code']()}` : ''}</p>
+					<div class="actions">
+						<button type="button" class="btn-secondary" onclick={() => (giving = false)}>{m['items.gift_cancel']()}</button>
+						<button type="submit" class:disabled={working} disabled={working} data-testid="gift-confirm">{m['items.gift_confirm']()}</button>
+					</div>
+				{/if}
 			{/if}
 		</form>
 	{/if}
@@ -349,5 +390,18 @@
 		margin: 0;
 		font-size: 0.75rem;
 		line-height: 1.3;
+	}
+	/* no account for the address: a warning that offers the invite (research/GIFT-INVITES.md), not an error */
+	.invite-offer {
+		display: grid;
+		gap: 0.25rem;
+		padding-left: 0.6rem;
+		border-left: 0.5rem solid var(--state-warning);
+		font-size: 0.875rem;
+		line-height: 1.35;
+	}
+	.invite-title {
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
 	}
 </style>
