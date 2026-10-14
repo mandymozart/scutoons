@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q8 (the basic book), Q10 (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q10, the DJ trolley's rule + capacity (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -56,7 +56,7 @@ colors. you might need to set up those items for me"). Every song book is its ow
 its property (`holds`). Items to set up (admin catalog, as a proposal the admin applies – once the code knows `holds`):
 | id | what | notes |
 |---|---|---|
-| `songbook` | container, `holds: score` | the "unlocked" one (`starter`) or found / bought |
+| `songbook` | container, `holds: score` | not a starter – obtained like the parts (placed / campaign gift) |
 | `drill` | tool, virtual | kept by the recipe (a tool, not an ingredient) |
 | `zip_tie` | stackable | placed items or campaign gifts (see below) |
 | `plastic_sheet` | stackable, colour variants: black, white, red, blue, light blue, orange, green, brown, mother-of-pearl (owner 2026-10-14) | colours the book (owner 2026-10-14: "doesn't have a color unless you add a piece of plastic in a specific color") |
@@ -110,7 +110,6 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q8 the basic song book:** a starter for everyone, or placed / gifted like the parts?
 - **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
   inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
 - **Q10 sizes:** sizes as their own items with their own capacity (recommended), or size variants of one item (then
