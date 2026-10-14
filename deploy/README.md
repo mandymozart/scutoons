@@ -118,7 +118,7 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `VITE_ADMIN_URL` | variable | admin |
 | `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_API_KEY` | secret | api `config.php` – the asset manager's bunny.net storage zone passwords (read/write, read-only) and the account API key (all optional; agents/ASSETS.md) |
 | `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_PULLZONE_ID` | variable | api `config.php` (optional, same); `CDN_PUBLIC_URL` is fixed in `targets.json` (a `production` variable of that name is not read) |
-| `PROTECTED_CDN_KEY` | secret | api `config.php` – the token authentication key of the protected bunny.net pull zone (scores' MusicXML / PDF, agents/research/SCORES.md §5); unset = signed URLs fall back to the public CDN (dev only – set it before score files go live) |
+| `BUNNY_PROTECTED_CDN_KEY` | secret | api `config.php` – the token authentication key of the protected bunny.net pull zone (scores' MusicXML / PDF, agents/research/SCORES.md §5); unset = signed URLs fall back to the public CDN (dev only – set it before score files go live) |
 | `PROTECTED_CDN_URL` | variable | api `config.php` – that pull zone's base URL: `https://vault.scutoons.com` (pull zone + storage zone `scutoons-protected`, Falkenstein; never the public storage) |
 
 Not used any more: `CREATOR_FTP_*`, `SHOP_FTP_*`, `ADMIN_FTP_*`, `SERVER_FTP_DIR`, `VITE_VIEWER_URL` (→ `VITE_WWW_URL`),

@@ -143,7 +143,7 @@ base64url) in PHP, ~30 lines + tests; [owner] create the pull zone with token au
 into the server's env.
 Set up (owner 2026-10-14): storage zone + pull zone `scutoons-protected` (Falkenstein, token authentication), custom
 hostname **`vault.scutoons.com`** (CNAME → scutoons-protected.b-cdn.net) = `PROTECTED_CDN_URL`; the key is the secret
-`PROTECTED_CDN_KEY`.
+`BUNNY_PROTECTED_CDN_KEY`.
 
 **6. Creator / admin.** Admin → Catalog → Items: the `score` slots (MusicXML, PDF), validation (both present, the
 MusicXML parses – a Verovio load test in the admin, the server checks extension + size). Creator: nothing new – a

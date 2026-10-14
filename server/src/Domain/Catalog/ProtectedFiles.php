@@ -10,7 +10,7 @@ use Scutoons\Infrastructure\Config\Settings;
 
 /**
  * Protected files – a score's MusicXML and PDF (agents/research/SCORES.md §5; album downloads later). They live on
- * their own bunny.net storage + pull zone with token authentication (PROTECTED_CDN_URL, PROTECTED_CDN_KEY); the API
+ * their own bunny.net storage + pull zone with token authentication (PROTECTED_CDN_URL, BUNNY_PROTECTED_CDN_KEY); the API
  * hands out short-lived signed URLs, and the public catalog never names their paths (CatalogController::items).
  * Rules (owner 2026-10-14): the MusicXML for anyone opening the score in the view (a guest's inventory lives on the
  * device – the server can't check it), the PDF only to a signed-in account that owns the score.
@@ -57,7 +57,7 @@ final class ProtectedFiles
     {
         $expires = $this->clock->time() + self::TTL;
         $urlPath = '/' . implode('/', array_map('rawurlencode', explode('/', ltrim($path, '/'))));
-        $key = $this->settings->get('PROTECTED_CDN_KEY');
+        $key = $this->settings->get('BUNNY_PROTECTED_CDN_KEY');
         if ($key === '') return ['url' => rtrim($this->settings->get('CDN_URL'), '/') . $urlPath, 'expires' => $expires];
         $token = 'HS256-' . rtrim(strtr(base64_encode(hash_hmac('sha256', $urlPath . $expires, $key, true)), '+/', '-_'), '=');
         return ['url' => rtrim($this->settings->get('PROTECTED_CDN_URL'), '/') . "$urlPath?token=$token&expires=$expires", 'expires' => $expires];

@@ -206,7 +206,7 @@ return [
     // with token authentication. URL = that pull zone's base (https://<zone>.b-cdn.net or a custom host), KEY = its
     // token authentication key (secret). Empty KEY = signed URLs fall back to CDN_URL (dev: the local media server).
     'PROTECTED_CDN_URL' => '',
-    'PROTECTED_CDN_KEY' => '',
+    'BUNNY_PROTECTED_CDN_KEY' => '',
     'BUNNY_API_KEY' => '',
     // Only keys below this prefix may be written / deleted on the zone (e.g. "_test/" while trying the driver); '' = all
     'BUNNY_WRITE_PREFIX' => '',

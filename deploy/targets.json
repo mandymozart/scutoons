@@ -97,7 +97,7 @@
 						"BUNNY_PULLZONE_ID": "${BUNNY_PULLZONE_ID}",
 						"BUNNY_API_KEY": "${BUNNY_API_KEY}",
 						"PROTECTED_CDN_URL": "${PROTECTED_CDN_URL}",
-						"PROTECTED_CDN_KEY": "${PROTECTED_CDN_KEY}",
+						"BUNNY_PROTECTED_CDN_KEY": "${BUNNY_PROTECTED_CDN_KEY}",
 						"CDN_URL": "https://cdn.scutoons.com/",
 						"CDN_PUBLIC_URL": "https://cdn.scutoons.com",
 						"ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"

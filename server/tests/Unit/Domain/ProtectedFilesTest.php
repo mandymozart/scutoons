@@ -20,7 +20,7 @@ final class ProtectedFilesTest extends TestCase
     /** @return array<string, string> */
     protected function settings(): array
     {
-        return ($this->signing ? ['PROTECTED_CDN_URL' => 'https://protected.example.net/', 'PROTECTED_CDN_KEY' => 'test-key'] : []) + parent::settings();
+        return ($this->signing ? ['PROTECTED_CDN_URL' => 'https://protected.example.net/', 'BUNNY_PROTECTED_CDN_KEY' => 'test-key'] : []) + parent::settings();
     }
 
     protected function setUp(): void

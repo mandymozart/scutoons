@@ -87,7 +87,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   reused by live mode. Plan: research/SCORES.md. Built: the model, the server (ITEMS.md "Containers"), the catalog
   editor fields, the reader's score view / cover lettering / ageing (draft `/account/lab/score`); next: the viewer UI
   (drafts first) and score uploads into the protected storage. [owner] before score files go live: a bunny storage
-  + pull zone with token auth, secrets PROTECTED_CDN_KEY / variable PROTECTED_CDN_URL (deploy/README.md).
+  + pull zone with token auth, secrets BUNNY_PROTECTED_CDN_KEY / variable PROTECTED_CDN_URL (deploy/README.md).
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
