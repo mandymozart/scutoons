@@ -134,6 +134,24 @@ final class AssetsApiTest extends TestCase
         self::assertFileExists($this->dir . '/cdn/catpope/videos/clip.720p.mp4');
     }
 
+    /** a score's file goes into the protected storage (agents/research/SCORES.md §5): editors only, checked type, a hashed name */
+    public function testScoreFilesGoIntoTheProtectedStorage(): void
+    {
+        $member = $this->as('member');
+        $creator = $this->as('creator');
+        $xml = '<?xml version="1.0"?><score-partwise version="4.0"><part-list/></score-partwise>';
+        self::assertSame(403, $this->request('PUT', '/api/assets/protected?item=cloud9_en&file=musicxml', $member, $xml)->getStatusCode());
+        self::assertSame('wrong_type', self::json($this->request('PUT', '/api/assets/protected?item=cloud9_en&file=pdf', $creator, $xml))['error'] ?? null);
+        self::assertSame('invalid_item', self::json($this->request('PUT', '/api/assets/protected?item=../x&file=pdf', $creator, '%PDF-1.7'))['error'] ?? null);
+        $response = $this->request('PUT', '/api/assets/protected?item=cloud9_en&file=musicxml', $creator, $xml);
+        self::assertSame(201, $response->getStatusCode());
+        $path = (string) (self::json($response)['path'] ?? '');
+        self::assertSame('scores/cloud9_en/' . substr(hash('sha256', $xml), 0, 12) . '.musicxml', $path);
+        self::assertSame($xml, file_get_contents($this->dir . "/cdn/$path"), 'dev: the local media folder');
+        self::assertSame(201, $this->request('PUT', '/api/assets/protected?item=cloud9_en&file=pdf', $creator, "%PDF-1.7\n")->getStatusCode());
+        self::assertSame(0, (int) $this->db->value("SELECT COUNT(*) FROM asset_versions WHERE path LIKE 'scores/%'"), 'never in the public asset registry');
+    }
+
     public function testStorageStatusNeverShowsSecrets(): void
     {
         $this->fixture();

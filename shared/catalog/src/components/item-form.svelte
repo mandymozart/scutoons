@@ -141,7 +141,7 @@
 </CatalogRows>
 
 {#if data.category === 'score' || data.score}
-	<ScoreField value={data.score} {place} error={err('score')} onchange={(v) => (data.score = v)} />
+	<ScoreField value={data.score} item={id || data.id} error={err('score')} onchange={(v) => (data.score = v)} />
 {/if}
 
 <ContainerField value={data.holds} categories={CATEGORIES} {lists} error={err('holds', 'overfill', 'container')} onchange={(v) => (v ? (data.holds = v) : delete data.holds)} />

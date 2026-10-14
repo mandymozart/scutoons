@@ -120,6 +120,8 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_PULLZONE_ID` | variable | api `config.php` (optional, same); `CDN_PUBLIC_URL` is fixed in `targets.json` (a `production` variable of that name is not read) |
 | `BUNNY_PROTECTED_CDN_KEY` | secret | api `config.php` – the token authentication key of the protected bunny.net pull zone (scores' MusicXML / PDF, agents/research/SCORES.md §5); unset = signed URLs fall back to the public CDN (dev only – set it before score files go live) |
 | `PROTECTED_CDN_URL` | variable | api `config.php` – that pull zone's base URL: `https://vault.scutoons.com` (pull zone + storage zone `scutoons-protected`, Falkenstein; never the public storage) |
+| `BUNNY_PROTECTED_STORAGE_PASSWORD` | secret | api `config.php` – the read/write password of the protected storage zone (bunny → Storage → scutoons-protected → FTP & API Access): the catalog editor's score uploads go there |
+| `BUNNY_PROTECTED_STORAGE_ZONE` | variable | api `config.php` – that storage zone's name: `scutoons-protected` |
 
 Not used any more: `CREATOR_FTP_*`, `SHOP_FTP_*`, `ADMIN_FTP_*`, `SERVER_FTP_DIR`, `VITE_VIEWER_URL` (→ `VITE_WWW_URL`),
 `VITE_QR_API` (→ `VITE_API_URL`), `VITE_STATIC_API` (no static files any more: content comes from the API, agents/DATA.md).

@@ -116,6 +116,38 @@ final class AssetsController
     }
 
     /**
+     * PUT /api/assets/protected?item=<item id>&file=musicxml|pdf – a score's file into the protected storage
+     * (agents/research/SCORES.md §5; AssetStorages::protectedStorage), never the public one and not in the asset registry:
+     * `scores/<item>/<first 12 of the sha-256>.<ext>` (a changed file gets a new name) → 201 { path }. The catalog
+     * editor puts the path into the item's `score`; readers only ever get signed URLs (ProtectedFiles).
+     * 400 invalid_item / invalid_file / wrong_type, 413 file_too_large, 503 not_configured.
+     */
+    public function uploadProtected(Request $request, Response $response): Response
+    {
+        $this->roles->requireContentEditor(CurrentSession::of($request)->user());
+        CurrentSession::of($request)->rejectCsrf();
+        $query = $request->getQueryParams();
+        $item = is_string($query['item'] ?? null) && preg_match('/^[a-z0-9_]{1,100}$/', $query['item']) ? $query['item'] : throw new ApiError(400, 'invalid_item', 'item: the catalog item id.');
+        $kind = in_array($query['file'] ?? null, ['musicxml', 'pdf'], true) ? (string) $query['file'] : throw new ApiError(400, 'invalid_file', 'file: musicxml or pdf.');
+        $storage = $this->storages->protectedStorage() ?? throw new ApiError(503, 'not_configured', 'The protected storage is not set up (BUNNY_PROTECTED_STORAGE_ZONE + _PASSWORD).');
+        $file = $this->bodyToFile($request);
+        try {
+            $head = (string) file_get_contents($file, false, null, 0, 512);
+            $ext = match (true) {
+                $kind === 'pdf' && str_starts_with($head, '%PDF') => 'pdf',
+                $kind === 'musicxml' && str_starts_with($head, "PK\x03\x04") => 'mxl',
+                $kind === 'musicxml' && (str_contains($head, '<score-partwise') || str_contains($head, '<score-timewise') || str_contains($head, 'MusicXML')) => 'musicxml',
+                default => throw new ApiError(400, 'wrong_type', $kind === 'pdf' ? 'That is not a PDF.' : 'That is not MusicXML (.musicxml / .mxl).'),
+            };
+            $path = "scores/$item/" . substr((string) hash_file('sha256', $file), 0, 12) . ".$ext";
+            $storage->upload($path, $file, $ext === 'pdf' ? 'application/pdf' : ($ext === 'mxl' ? 'application/vnd.recordare.musicxml' : 'application/vnd.recordare.musicxml+xml'));
+        } finally {
+            @unlink($file);
+        }
+        return Json::response($response, 201, ['path' => $path]);
+    }
+
+    /**
      * New bytes for a file that is already there (owner 2026-10-03: "creators should be able to replace slice images" –
      * updating media meant renaming): the asset's `replace` by path – the old bytes are archived as a version, the CDN
      * purged. 404 when no asset has that file, 409 `unchanged` when the bytes are the same.

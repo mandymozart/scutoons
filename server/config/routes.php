@@ -212,6 +212,8 @@ return static function (App $app): void {
     $app->get('/api/assets/missing', [AssetsController::class, 'missing']);
     $app->get('/api/assets/orphans', [AssetsController::class, 'orphans']);
     $app->put('/api/assets/upload', [AssetsController::class, 'upload']);
+    // a score's file into the protected storage (agents/research/SCORES.md §5)
+    $app->put('/api/assets/protected', [AssetsController::class, 'uploadProtected']);
     $app->put('/api/assets/replace', [AssetsController::class, 'replaceAt']);
     $app->get("/api/assets/$asset", [AssetsController::class, 'get']);
     $app->put("/api/assets/$asset", [AssetsController::class, 'update']);

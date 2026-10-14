@@ -206,6 +206,11 @@ return [
     // with token authentication. URL = that pull zone's base (https://<zone>.b-cdn.net or a custom host), KEY = its
     // token authentication key (secret). Empty KEY = signed URLs fall back to CDN_URL (dev: the local media server).
     'PROTECTED_CDN_URL' => '',
+    // ... and its storage zone, where the catalog editor's score uploads go (PUT /api/assets/protected): the zone name
+    // (variable) + its read/write password (secret). Unset on a dev machine = the local media folder; unset on
+    // production = uploads answer 503 (never the public storage)
+    'BUNNY_PROTECTED_STORAGE_ZONE' => '',
+    'BUNNY_PROTECTED_STORAGE_PASSWORD' => '',
     'BUNNY_PROTECTED_CDN_KEY' => '',
     'BUNNY_API_KEY' => '',
     // Only keys below this prefix may be written / deleted on the zone (e.g. "_test/" while trying the driver); '' = all

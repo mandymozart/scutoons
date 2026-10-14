@@ -217,6 +217,9 @@ export function createAssetsApi(api: ApiClient) {
 				`/assets/replace/${toQuery({ path, note })}`,
 				file
 			),
+		/** a score's file into the protected storage (research/SCORES.md §5) → its path `scores/<item>/<hash>.<ext>` */
+		uploadProtected: (file: Blob, item: string, kind: 'musicxml' | 'pdf') =>
+			api.put<{ path: string }>(`/assets/protected/${toQuery({ item, file: kind })}`, file),
 		missing: () => api.get<{ status: 'success'; items: AssetMissing[] }>('/assets/missing/'),
 		orphans: () => api.get<{ status: 'success'; items: AssetOrphan[] }>('/assets/orphans/'),
 

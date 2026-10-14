@@ -7,6 +7,7 @@ export { default as AssetPickerSheet, bytes, type PickedAsset, type AssetPickerK
 export { default as MediaSlot } from './media-slot.svelte';
 export { default as MediaVariantsSlot } from './media-variants-slot.svelte';
 export { default as FileSlot } from './file-slot.svelte';
+export { default as ProtectedFileSlot } from './protected-file-slot.svelte';
 export { default as ModelPreview } from './model-preview.svelte';
 export { default as ModelThumb } from './model-thumb.svelte';
 export { modelThumbnail, type ModelInfo } from './model-view.js';
