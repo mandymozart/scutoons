@@ -22,19 +22,19 @@ const FURNITURE: Record<string, Omit<Furniture, 'uid'>> = {
 		item: 'cd_rack',
 		name: 'CD rack',
 		kind: 'furniture',
-		holds: { kinds: ['cd'], max: 12, label: 'CDs' }
+		holds: { kinds: ['cd'], max: 50, label: 'CDs' }
 	},
 	cassette_rack: {
 		item: 'cassette_rack',
 		name: 'Cassette rack',
 		kind: 'furniture',
-		holds: { kinds: ['tape'], max: 12, label: 'cassettes' }
+		holds: { kinds: ['tape'], max: 50, label: 'cassettes' }
 	},
 	record_shelf: {
 		item: 'record_shelf',
 		name: 'Record shelf',
 		kind: 'furniture',
-		holds: { kinds: ['vinyl'], max: 20, label: 'records' }
+		holds: { kinds: ['vinyl'], max: 50, label: 'records' }
 	},
 	workbench: { item: 'workbench', name: 'Workbench', kind: 'furniture', workshop: true }
 };

@@ -1,4 +1,4 @@
-Status 2026-10-14: concept – Q1, Q2, Q4, D2–D7 decided (a home per character, a WG of up to 5, home scenes: cave + tatami room, free placement, furniture stays in its home); data model below; draft `/account/lab/cave`; nothing built (FEATURES 10.98).
+Status 2026-10-14: concept decided (Q1–Q4, D1–D7, the data model; the home scene per avatar, racks max 50, the mover 50 cucumbers – may come with the first build); open: the build order ("cave can go step two"), the mover's form; draft `/account/lab/cave`; nothing built (FEATURES 10.98).
 
 # CAVE — the avatar's home (concept, 2026-10-14)
 
@@ -84,7 +84,8 @@ reader's items scroll below. Desktop: the room fills the height, the panel at th
 
 **D4 – furniture = items that live in the room.** Racks and the workbench are catalog items, category `furniture`
 (new). A rack is a container (`holds`, ITEMS.md "Containers"): `cd_rack` (CDs), `cassette_rack` (tapes),
-`record_shelf` (vinyl). **Every home has a workbench** (owner 2026-10-14: "workbench. yes, we can add that to each
+`record_shelf` (vinyl) – **at most 50 each for now** (`max: 50`; owner 2026-10-14: "the cd and vinyl? most 50 for the
+moment"). **Every home has a workbench** (owner 2026-10-14: "workbench. yes, we can add that to each
 apartment, place it somehwere"): it comes with the room, the reader moves it like any furniture; recipes marked
 `at: "workshop"` run at a workbench (the broken song book's repair, SCORES.md §2a – at a friend's). **Furniture can't
 leave a room for now** (owner 2026-10-14: "furniture items can not leave a room for now"): once placed it stays in the
@@ -131,6 +132,6 @@ Reader state (server tables for members; the same shape in localStorage for gues
 - **`home_visits`** `{ token, home_id, expires_at, revoked_at }` – the friend's visit link (D6).
 
 ## Open for the owner
-- Later: the mover's form (a service in the home, or an item). Rack capacities (D4).
+- Later: the mover's form (a service in the home, or an item).
 - "cave can go step two": read as "design the open points now". If it means the home itself moves to step two (walking
   first, then the home with the rides), the order changes – the owner says which.
