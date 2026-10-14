@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; Q7, Q10, Q11 decided; waits for the owner on Q12 (ageing) (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; Q7, Q10, Q11 decided; waits for the owner on Q12 (ageing), Q13 (breaking) (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -80,6 +80,15 @@ max?: n }` (none = no limit); a full book refuses the move ("Das Liederbuch ist 
 Decided (owner 2026-10-14, Q10): "the sizes are separate items, the colors are variants, the diy book is its own. diy
 has only one size for now. it can be upgraded with bigger zip ties" – one variant axis per item, so colour × size
 never multiplies; a size has its own icon, price and recipe.
+**The DIY book can be overfilled – and then breaks** (owner 2026-10-14: "it will really break but after only a few
+days. we have to warn them when they try to do this"). Its 25 is a soft limit: `holds: { …, max: 25, overfill: {
+days: n } }` (a container without `overfill` refuses past `max`). Moving the 26th score in asks first, in-page
+(`askDialog`): "Das Buch hält nur 25 Noten. Überfüllt fällt es in ein paar Tagen auseinander." – the primary action
+is "Doch nicht", "Trotzdem hineinlegen" the other. The entry remembers when it became overfilled (`overfilled_at`);
+the book shows a warning while overfilled ("Fällt bald auseinander"). After the days the server breaks it when the
+inventory is next read (no timer needed); guests: the same check in their device inventory. Q13: what breaking
+leaves, how many days, whether emptying in time saves it.
+
 **The DIY book ages** (owner 2026-10-14: "the diy one ages really bad. so older ones have a tinted color on each score
 and spots"). An item fundamental: `ages: { full_days }` on the item – the age = now − the entry's creation (the craft),
 0 … 1 over `full_days`. A score shown from an ageing book (its cover in the book's grid and every page in the score
@@ -137,6 +146,10 @@ coordinates, and survive a new zoom / page layout. Planned with research/LIVE.md
 ## Open questions
 - **Q12 ageing:** how fast – e.g. a light tint after 2 weeks, spots after a month, fully aged after 3 months? Does the
   upgraded book keep the old book's age (the pages are old – recommended) or start new?
+- **Q13 breaking:** (a) how many days – 3?; (b) what is left – the scores fall out loose into the inventory and the
+  book is (i) gone or (ii) a "broken song book" (a recipe input, like the broken record player – repairable?);
+  (c) taking scores out back to 25 before the days are up saves it (recommended); (d) a ceiling – can it be overfilled
+  without limit, or up to e.g. 35?
 
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
