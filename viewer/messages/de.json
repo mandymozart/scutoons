@@ -37,7 +37,8 @@
 	},
 	"download": {
 		"read_webtoon": "Webtoon Lesen",
-		"owners_only": "Diesen Download gibt es nur für Besitzer der Platte."
+		"owners_only": "Diesen Download gibt es nur für Besitzer der Platte.",
+		"sign_in": "Für den Download der Musik bitte anmelden."
 	},
 	"account": {
 		"my_account": "Mein Konto",
@@ -387,7 +388,8 @@
 		"score_smaller": "Kleiner",
 		"score_previous": "Vorherige Seite",
 		"score_next": "Nächste Seite",
-		"score_page": "Seite {page} von {pages}"
+		"score_page": "Seite {page} von {pages}",
+		"release_failed": "Das hat nicht geklappt – bist du angemeldet?"
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

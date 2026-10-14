@@ -14,6 +14,7 @@
 	import ItemIcon from './item-icon.svelte';
 	import ContainerActions from './container-actions.svelte';
 	import ScoreActions from './score-actions.svelte';
+	import { albumDownloadUrl, albumTrackUrl } from '$lib/protected-files.ts';
 
 	let {
 		entry,
@@ -43,8 +44,24 @@
 	$effect(() => {
 		if (playerList.some((row) => !row.listen)) loadProducts().then((c) => (products = c));
 	});
-	function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
-		ui.playAlbum({ tracks: tracks.map((t) => ({ src: t.src, title: t.title })), title: localized(album.title), entry: from });
+	// a physical release's tracks live in the vault: each one gets its signed URL first (owner 2026-10-14)
+	let audioError = $state(false);
+	async function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
+		audioError = false;
+		try {
+			const srcs = await Promise.all(tracks.map((t) => albumTrackUrl(album.id, t)));
+			ui.playAlbum({ tracks: tracks.map((t, i) => ({ src: srcs[i], title: t.title })), title: localized(album.title), entry: from });
+		} catch {
+			audioError = true;
+		}
+	}
+	async function download(album: Album, path: string) {
+		audioError = false;
+		try {
+			window.open(await albumDownloadUrl(album.id, path), '_blank', 'noopener');
+		} catch {
+			audioError = true;
+		}
 	}
 	const entryOf = (itemId: string) => inventory.entries.find((e) => e.item_id === itemId) ?? null;
 	// a substance (ITEMS.md "Substances"): "Benutzen" uses one piece up and applies it
@@ -197,7 +214,7 @@
 			<button class="btn-secondary" onclick={() => playback.kind === 'play' && play(playback.album, playback.tracks, entry)} data-testid="item-play">{m['items.play']()}</button>
 		{/if}
 		{#if playback?.download}
-			<a class="btn btn-secondary" href={asset(playback.download)} download target="_blank" rel="noopener" data-testid="item-download">{m['items.download_album']()}</a>
+			<button class="btn-secondary" onclick={() => playback.download && download(playback.album, playback.download)} data-testid="item-download">{m['items.download_album']()}</button>
 		{/if}
 		{#if combinable}
 			<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
@@ -279,6 +296,7 @@
 	{/if}
 	{#if noteText}<p class="swap-note" role="status" data-testid="item-note">{noteText}</p>{/if}
 	{#if useError}<p class="swap-note" role="alert">{m['items.use_failed']()}</p>{/if}
+	{#if audioError}<p class="swap-note" role="alert">{m['items.release_failed']()}</p>{/if}
 </div>
 
 <style>

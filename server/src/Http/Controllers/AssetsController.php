@@ -116,9 +116,10 @@ final class AssetsController
     }
 
     /**
-     * PUT /api/assets/protected?item=<item id>&file=musicxml|pdf – a score's file into the protected storage
+     * PUT /api/assets/protected?item=<item id>&file=musicxml|pdf – a score's file, or ?album=<album id>&file=track|download
+     * – a physical release's audio (an mp3, the album zip; owner 2026-10-14: release audio, not game audio) – into the protected storage
      * (agents/research/SCORES.md §5; AssetStorages::protectedStorage), never the public one and not in the asset registry:
-     * `scores/<item>/<first 12 of the sha-256>.<ext>` (a changed file gets a new name) → 201 { path }. The catalog
+     * `scores/<item>/` or `albums/<album>/<first 12 of the sha-256>.<ext>` (a changed file gets a new name) → 201 { path }. The catalog
      * editor puts the path into the item's `score`; readers only ever get signed URLs (ProtectedFiles).
      * 400 invalid_item / invalid_file / wrong_type, 413 file_too_large, 503 not_configured.
      */
@@ -127,8 +128,12 @@ final class AssetsController
         $this->roles->requireContentEditor(CurrentSession::of($request)->user());
         CurrentSession::of($request)->rejectCsrf();
         $query = $request->getQueryParams();
-        $item = is_string($query['item'] ?? null) && preg_match('/^[a-z0-9_]{1,100}$/', $query['item']) ? $query['item'] : throw new ApiError(400, 'invalid_item', 'item: the catalog item id.');
-        $kind = in_array($query['file'] ?? null, ['musicxml', 'pdf'], true) ? (string) $query['file'] : throw new ApiError(400, 'invalid_file', 'file: musicxml or pdf.');
+        // a score's file (item=…&file=musicxml|pdf) or a physical release's audio (album=…&file=track|download)
+        $album = is_string($query['album'] ?? null) ? $query['album'] : null;
+        $owner = $album ?? (is_string($query['item'] ?? null) ? $query['item'] : '');
+        if (!preg_match('/^[a-z0-9_]{1,100}$/', $owner)) throw new ApiError(400, $album !== null ? 'invalid_album' : 'invalid_item', $album !== null ? 'album: the album id.' : 'item: the catalog item id.');
+        $kinds = $album !== null ? ['track', 'download'] : ['musicxml', 'pdf'];
+        $kind = in_array($query['file'] ?? null, $kinds, true) ? (string) $query['file'] : throw new ApiError(400, 'invalid_file', 'file: ' . implode(' or ', $kinds) . '.');
         $storage = $this->storages->protectedStorage() ?? throw new ApiError(503, 'not_configured', 'The protected storage is not set up (BUNNY_PROTECTED_STORAGE_ZONE + _PASSWORD).');
         $file = $this->bodyToFile($request);
         try {
@@ -137,10 +142,12 @@ final class AssetsController
                 $kind === 'pdf' && str_starts_with($head, '%PDF') => 'pdf',
                 $kind === 'musicxml' && str_starts_with($head, "PK\x03\x04") => 'mxl',
                 $kind === 'musicxml' && (str_contains($head, '<score-partwise') || str_contains($head, '<score-timewise') || str_contains($head, 'MusicXML')) => 'musicxml',
-                default => throw new ApiError(400, 'wrong_type', $kind === 'pdf' ? 'That is not a PDF.' : 'That is not MusicXML (.musicxml / .mxl).'),
+                $kind === 'track' && (str_starts_with($head, 'ID3') || (strlen($head) > 1 && ord($head[0]) === 0xFF && (ord($head[1]) & 0xE0) === 0xE0)) => 'mp3',
+                $kind === 'download' && str_starts_with($head, "PK\x03\x04") => 'zip',
+                default => throw new ApiError(400, 'wrong_type', match ($kind) { 'pdf' => 'That is not a PDF.', 'track' => 'That is not an MP3.', 'download' => 'That is not a ZIP.', default => 'That is not MusicXML (.musicxml / .mxl).' }),
             };
-            $path = "scores/$item/" . substr((string) hash_file('sha256', $file), 0, 12) . ".$ext";
-            $storage->upload($path, $file, $ext === 'pdf' ? 'application/pdf' : ($ext === 'mxl' ? 'application/vnd.recordare.musicxml' : 'application/vnd.recordare.musicxml+xml'));
+            $path = ($album !== null ? 'albums' : 'scores') . "/$owner/" . substr((string) hash_file('sha256', $file), 0, 12) . ".$ext";
+            $storage->upload($path, $file, match ($ext) { 'pdf' => 'application/pdf', 'mxl' => 'application/vnd.recordare.musicxml', 'mp3' => 'audio/mpeg', 'zip' => 'application/zip', default => 'application/vnd.recordare.musicxml+xml' });
         } finally {
             @unlink($file);
         }

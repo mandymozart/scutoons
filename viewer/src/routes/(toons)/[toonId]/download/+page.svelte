@@ -8,6 +8,7 @@
 	import { albumAccess, seasonMusic, seasonMusicDownload } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { albumDownloadUrl } from '$lib/protected-files.ts';
 
 	let { data, params }: PageProps = $props();
 
@@ -27,6 +28,17 @@
 
 	function handleDownload(url: string) {
 		window.open(url, '_blank');
+	}
+
+	// the release's zip in the vault: a signed URL first (signed-in readers – owner 2026-10-14)
+	let failed = $state(false);
+	async function downloadMusic(path: string) {
+		failed = false;
+		try {
+			handleDownload(album ? await albumDownloadUrl(album.id, path) : asset(path));
+		} catch {
+			failed = true;
+		}
 	}
 
 	function goBack() {
@@ -56,9 +68,10 @@
 				{@const musicUrl = music.download}
 				<div class="download-item">
 					<h2>Music</h2>
-					<button onclick={() => handleDownload(asset(musicUrl))}>
+					<button onclick={() => downloadMusic(musicUrl)}>
 						{m['season.download']()}
 					</button>
+					{#if failed}<p role="alert">{m['download.sign_in']()}</p>{/if}
 				</div>
 			{/if}
 

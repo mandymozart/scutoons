@@ -44,6 +44,16 @@ final class CatalogController
     }
 
     /**
+     * GET /api/albums/{id}/download, /api/albums/{id}/tracks/{track} → { url, expires } (ProtectedFiles::album)
+     * @param array<string, string> $args
+     */
+    public function albumFile(Request $request, Response $response, array $args): Response
+    {
+        $signed = $this->files->album((string) ($args['id'] ?? ''), isset($args['track']) ? (string) $args['track'] : null, CurrentSession::of($request)->user());
+        return Json::response($response, 200, ['status' => 'success'] + $signed, ['Cache-Control' => 'no-store']);
+    }
+
+    /**
      * GET /api/items/{id}/score/{file} → { url, expires } – a signed URL of a score's MusicXML / PDF (ProtectedFiles)
      * @param array<string, string> $args
      */
