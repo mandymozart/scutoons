@@ -1,5 +1,5 @@
 Status 2026-10-12: PARKED until February 2027 (owner). The dates below (building from 2026-11-02, show-ready 2027-02-01, the B.10 schedule) are void – a new schedule when the owner restarts it.
-2026-10-14: a score view (MusicXML rendered by Verovio, pages, zoom, pedal keys) is built for score items – research/SCORES.md §4; musicians' sheets can use it, and score annotations are planned here (SCORES §7) – the "no score rendering" below is superseded.
+2026-10-14: a score view (MusicXML rendered by Verovio, pages, zoom, pedal keys) is built for score items – research/SCORES.md §4; musicians' sheets can use it, and score annotations and turning parts of a score on / off (performance groups) are planned here (SCORES §6a, §7) – the "no score rendering" below is superseded.
 
 # LIVE — performance mode (plan, final; not started)
 

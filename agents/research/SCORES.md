@@ -149,6 +149,10 @@ hostname **`vault.scutoons.com`** (CNAME → scutoons-protected.b-cdn.net) = `PR
 MusicXML parses – a Verovio load test in the admin, the server checks extension + size). Creator: nothing new – a
 score is placed with "Place an item …".
 
+**6a. Parts (later, with live mode)** – owner 2026-10-14: readers get the full score for now ("all scores for now");
+turning parts of a score off / showing one part comes only with performance groups (live mode, research/LIVE.md) –
+"this is not part of this".
+
 **7. Annotations (later, with live mode)** – owner 2026-10-14: "important feature. scores allow for annotations. but
 that is perhaps plan for live". A reader / musician writes on a score (marks, fingerings, breath marks, notes) and
 finds them again; Verovio's SVG gives every note and bar an id, so annotations can anchor to the music, not to page

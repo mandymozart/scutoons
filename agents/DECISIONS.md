@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · items · Score items show the full score for now; turning parts off comes only with performance groups (live mode), not in this feature · "all scores for now", "to turn of parts of a score will only be possible once we have performance groups. this is not part of this" · → research/SCORES.md §6a, research/LIVE.md
 - 2026-10-14 · cave · The racks (CD rack, cassette rack, record shelf) hold at most 50 each for now · "what rack? the cd and vinyl? most 50 for the moment" · → research/CAVE.md D4
 - 2026-10-14 · cave · The home scene is set per avatar (the character definition), not picked by the reader; the mover costs 50 cucumbers for now; new furniture waits in the inventory until placed · "home scene is set per avatar", "the price is 50 cucumbers for now", "yes, furniture waits" · → research/CAVE.md D1, D3, D4
 - 2026-10-14 · cave · "Cave" and "tatami room" are home scenes – examples of what a home looks like; the data model names the home, the home scene, furniture and the WG apart; when an avatar moves into another home its furniture stays behind – unless the reader can afford a mover (not required for the first build, may come along) · "cave or tatami room means this examples for a home scene … i said it to be clear in the data model", "yes, furniture stays behind", "unless they can afford a mover", "which we dont have to build yet", "but hey why not" · → research/CAVE.md "Terms", "Data model"
