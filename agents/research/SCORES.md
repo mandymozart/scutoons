@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q8 (where from, starter), Q10 (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q8 (the basic book), Q10 (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -56,7 +56,7 @@ its property (`holds`). Items to set up (admin catalog, as a proposal the admin 
 |---|---|---|
 | `songbook` | container, `holds: score` | the "unlocked" one (`starter`) or found / bought |
 | `drill` | tool, virtual | kept by the recipe (a tool, not an ingredient) |
-| `zip_tie` | stackable | where readers find them: Q8 |
+| `zip_tie` | stackable | placed items or campaign gifts (see below) |
 | `plastic_sheet` | stackable, colour variants: black, white, red, blue, light blue, orange, green, brown, mother-of-pearl (owner 2026-10-14) | colours the book (owner 2026-10-14: "doesn't have a color unless you add a piece of plastic in a specific color") |
 | `songbook_diy` | container, `holds: score`; plain (no variant) or a colour variant | output of the recipes |
 | recipe `songbook_diy` | drill (kept) + 4 × zip_tie → songbook_diy (plain) | |
@@ -67,6 +67,8 @@ max?: n }` (none = no limit); a full book refuses the move ("Das Liederbuch ist 
 Colours are variants. Sizes as their own items (`songbook_small`, `songbook_large` …, each with its own `max`)
 rather than size variants: one variant axis per item keeps colour × size from multiplying the variants and recipes,
 and a size can then have its own icon, price and recipe (Q10).
+Where readers get the parts (owner 2026-10-14): for now placed items in the story (`grantable: ["story"]`) or gifts
+through campaigns (research/GIFT-INVITES.md, built in its own session).
 Two recipe fundamentals the code needs (ITEMS.md, with the code): an input that is **kept** (`RecipePart.keep`) and
 a **variant** on a part (`RecipePart.variant` – explicit per colour, no hidden inheritance). Icons: placeholders until
 the owner's art (like the players').
@@ -106,8 +108,7 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q8 the parts:** where readers get the drill, the zip ties and the plastic (placed
-  in a story, a scan, a product?); `songbook` starter for everyone, or found?
+- **Q8 the basic song book:** a starter for everyone, or placed / gifted like the parts?
 - **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
   inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
 - **Q10 sizes:** sizes as their own items with their own capacity (recommended), or size variants of one item (then
