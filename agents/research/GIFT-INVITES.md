@@ -1,4 +1,4 @@
-Status 2026-10-14: concept + drafts (a basic campaign); waits for the owner on: accept step for member gifts (Q4), physical items in the first version (Q6); nothing built (FEATURES 10.96).
+Status 2026-10-14: concept + drafts (a basic campaign), questions answered, ready to build; nothing built (FEATURES 10.96).
 
 # GIFT-INVITES — give an item to someone without an account: invite them (plan, 2026-10-13)
 
@@ -49,8 +49,8 @@ order lands in a "to ship" list in the campaign, countries limited by the campai
 (owner 2026-10-14: "a manual email send to the admin hello and ask them to send a money order link to the user, or a
 bank account"): the gift is on hold ("payment open", the campaign's price incl. shipping), hello@scutoons.com gets a
 mail, an admin sends the member a payment link or the bank details and marks the payment received in the campaign's
-Invites tab – then the invite goes out; not cleared within 30 days, the gift ends. Order of work: digital items first,
-then physical items (SCUTOONS or the member paying).
+Invites tab – then the invite goes out; not cleared within 30 days, the gift ends. The first version includes physical items
+(owner 2026-10-14).
 
 **2. Giving (viewer, the gift form).** The giver enters an address without an account:
 - switch off: today's message ("ask them to sign up first");
@@ -92,9 +92,7 @@ comes back, the invite code stops working.
 
 - ~~Q1 Recall after delivery~~ – answered: only while waiting.
 - ~~Q2 Who may invite~~ – answered: ticked accounts in a list, select-all = every account (segments later).
-- **Q4 Member gifts: accept first?** "recall only if not accepted" needs an accept step; today member gifts arrive at
-  once. Recommended: every gift waits for "Annehmen", recallable until then, back after 30 days.
+- ~~Q4 Member gifts: accept first?~~ – answered: no, only invite gifts wait; member gifts stay instant and final.
 - ~~Q5 Invite without an item?~~ – answered: no; a campaign can supply the item (1a).
-- **Q6 Physical campaign items in the first version?** Recommended: digital first, then physical paid by SCUTOONS,
-  the member paying with a payment provider later.
+- ~~Q6 Physical campaign items in the first version?~~ – answered: yes, the first version includes them.
 - ~~Q3 What the invite unlocks~~ – answered: like a promo code, until the admin's *access ends*.
