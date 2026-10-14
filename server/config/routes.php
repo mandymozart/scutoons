@@ -114,6 +114,8 @@ return static function (App $app): void {
     $app->get('/api/health', HealthController::class);
 
     $app->any('/api/items[/index.php]', [CatalogController::class, 'items']);
+    // a score's MusicXML / PDF as a short-lived signed URL (agents/research/SCORES.md §5)
+    $app->get('/api/items/{id}/score/{file}', [CatalogController::class, 'scoreFile']);
     $app->any('/api/editions[/index.php]', [CatalogController::class, 'editions']);
     $app->any('/api/toons[/index.php]', [CatalogController::class, 'toons']);
     $app->get('/api/{folder:items|editions|toons}/{file:items|editions|toons}.json', [CatalogController::class, 'file']);

@@ -198,6 +198,11 @@ return [
     'BUNNY_STORAGE_PASSWORD' => '',
     'BUNNY_STORAGE_READONLY_PASSWORD' => '',
     'BUNNY_PULLZONE_ID' => '',
+    // Protected files (agents/research/SCORES.md §5 – scores' MusicXML / PDF): their own bunny.net storage + pull zone
+    // with token authentication. URL = that pull zone's base (https://<zone>.b-cdn.net or a custom host), KEY = its
+    // token authentication key (secret). Empty KEY = signed URLs fall back to CDN_URL (dev: the local media server).
+    'PROTECTED_CDN_URL' => '',
+    'PROTECTED_CDN_KEY' => '',
     'BUNNY_API_KEY' => '',
     // Only keys below this prefix may be written / deleted on the zone (e.g. "_test/" while trying the driver); '' = all
     'BUNNY_WRITE_PREFIX' => '',
