@@ -140,6 +140,25 @@ final class LoginServiceTest extends TestCase
         $this->expectApiError(429, 'rate_limited', fn() => $this->login->request(['email' => 'link@example.com']));
     }
 
+    public function testANewAccountMailsTheAdminsWhoAndWhichCode(): void
+    {
+        $this->get(\Scutoons\Domain\Mail\MailRecipients::class)->update(['boss@example.com'], 'admin:test');
+        $code = $this->code('membership', ['edition_id' => '3_catpope_vinyl']);
+        $this->login->request(['email' => 'new@example.com', 'code' => $code]);
+        $result = $this->login->verify(['email' => 'new@example.com', 'otp' => $this->otp()]);
+        self::assertTrue($result['created']);
+        $mail = $this->lastMail();
+        self::assertStringContainsString('To: boss@example.com', $mail);
+        self::assertStringContainsString("new@example.com hat sich mit dem Code $code angemeldet (Typ membership).", $mail);
+        self::assertStringContainsString('/users/' . $result['user']['id'], $mail);
+
+        // signing in to an existing account mails nobody but the member
+        $this->clock->advance(1);
+        $this->login->request(['email' => 'new@example.com']);
+        $this->login->verify(['email' => 'new@example.com', 'otp' => $this->otp()]);
+        self::assertSame(1, (int) $this->db->value("SELECT COUNT(*) FROM mail_log WHERE template = 'signup_admin'"));
+    }
+
     private function lastMail(): string
     {
         $log = (string) file_get_contents($this->dir . '/mail.log');

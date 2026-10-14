@@ -36,6 +36,12 @@ return [
             'button' => 'My account',
             'ignore' => 'You did not file this claim? Ignore this email.',
         ],
+        'signup_admin' => [
+            'subject' => 'New member: {email}',
+            'intro' => '{email} signed up with the code {code} (type {type}).',
+            'dispute' => 'The code is registered to another account – this account was made to file an ownership claim.',
+            'button' => 'Open the account',
+        ],
         'ownership_claim_admin' => [
             'subject' => 'New ownership claim: {code}',
             'intro' => '{claimant} says the code {code} is theirs. It is registered to another account.',
@@ -156,6 +162,12 @@ return [
             'proof' => 'Du hast eine Rechnung, ein Foto vom Stück oder das signierte Zertifikat? Häng es auf deiner Kontoseite an deinen Anspruch – das hilft.',
             'button' => 'Mein Konto',
             'ignore' => 'Du hast diesen Anspruch nicht gestellt? Dann ignoriere diese E-Mail.',
+        ],
+        'signup_admin' => [
+            'subject' => 'Neues Mitglied: {email}',
+            'intro' => '{email} hat sich mit dem Code {code} angemeldet (Typ {type}).',
+            'dispute' => 'Der Code ist in einem anderen Konto registriert – dieses Konto wurde für einen Besitzanspruch angelegt.',
+            'button' => 'Konto öffnen',
         ],
         'ownership_claim_admin' => [
             'subject' => 'Neuer Besitzanspruch: {code}',
