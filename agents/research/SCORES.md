@@ -35,8 +35,8 @@ A new item fundamental (ITEMS.md, with the code): a container item says what it 
 migration; guests: in their localStorage inventory, carried by the import at sign-in). A picked-up score lands loose in
 the inventory like any item; the reader moves it: drag it onto the book in the grid, or select it and tap the book
 ("In das Liederbuch legen" offered on the book). Taking out works the same way and puts it back into the regular
-inventory (owner 2026-10-14: "it can, goes back into regular inventory"). The book's grid shows only what lies in it. "Unlocked" vs "a regular
-item" stays one model: unlocked = `starter: true`, found = `grantable: ["story"]`, bought = a product.
+inventory (owner 2026-10-14: "it can, goes back into regular inventory"). The book's grid shows only what lies in it.
+A song book is never a starter – it is found (`grantable: ["story"]`), gifted by a campaign or bought (Q8).
 
 **2b. What goes into which container – one editable rule** (owner 2026-10-14: "can we decide what items can go into
 what containable item? with a simple rule we can edit? so creating new containers is easier"). A container is any item
