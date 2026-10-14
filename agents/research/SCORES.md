@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7–Q10 (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q8 (where from, starter), Q10 (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -47,10 +47,10 @@ its property (`holds`). Items to set up (admin catalog, as a proposal the admin 
 | `songbook` | container, `holds: score` | the "unlocked" one (`starter`) or found / bought |
 | `drill` | tool, virtual | kept by the recipe (a tool, not an ingredient) |
 | `zip_tie` | stackable | where readers find them: Q8 |
-| `plastic_sheet` | stackable, colour variants (black, white, …) | colours the book (owner 2026-10-14: "doesn't have a color unless you add a piece of plastic in a specific color") |
+| `plastic_sheet` | stackable, colour variants: black, white, red, blue, light blue, orange, green, brown, mother-of-pearl (owner 2026-10-14) | colours the book (owner 2026-10-14: "doesn't have a color unless you add a piece of plastic in a specific color") |
 | `songbook_diy` | container, `holds: score`; plain (no variant) or a colour variant | output of the recipes |
 | recipe `songbook_diy` | drill (kept) + 4 × zip_tie → songbook_diy (plain) | |
-| recipe `songbook_diy_<colour>` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | one per colour; when: Q9 |
+| recipe `songbook_diy_<colour>` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | one per colour; a book with scores keeps them (owner 2026-10-14: "why would they leave the book?") |
 **Colour and size** (owner 2026-10-14: "song books have color variants and maybe even size variants. so specific books
 can hold only up to [n] scores"): a container's capacity is part of its property – `holds: { categories: ["score"],
 max?: n }` (none = no limit); a full book refuses the move ("Das Liederbuch ist voll." / "The song book is full.").
@@ -96,13 +96,10 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q8 the parts:** the plastic's colours (black, white, …?); where readers get the drill and the zip ties (placed
+- **Q8 the parts:** where readers get the drill, the zip ties and the plastic (placed
   in a story, a scan, a product?); `songbook` starter for everyone, or found?
 - **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
   inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
-- **Q9 colouring a book with scores in it:** (a) the scores stay inside the coloured book (the recipe carries the
-  contents over – recommended), or (b) only an empty book can be coloured?
-
 - **Q10 sizes:** sizes as their own items with their own capacity (recommended), or size variants of one item (then
   each variant carries its `max`)? And the capacities: the basic book, the DIY book, the sizes.
 ## Steps once answered

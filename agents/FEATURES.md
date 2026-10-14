@@ -87,7 +87,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.97 **Scores + song book + score view** – owner 2026-10-14: "special items, called scores … go into a song
   book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
   on a shared cover; the song book lists owned scores; the score view renders MusicXML (Verovio, decided) with scale + pages,
-  reused by live mode. Plan + open Q7–Q10: research/SCORES.md; draft `/account/lab/score`.
+  reused by live mode. Plan + open Q7, Q8, Q10: research/SCORES.md; draft `/account/lab/score`.
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
