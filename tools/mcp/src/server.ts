@@ -646,6 +646,35 @@ export function registerContentTools(server: McpServer, config: Config, options:
 	);
 
 	server.registerTool(
+		'upload_score_file',
+		{
+			description:
+				"Puts a score's MusicXML or PDF into the PROTECTED storage (the vault, never the public CDN; agents/research/SCORES.md §5) for the catalog item `item` (its id, e.g. \"cloud9_en\"). Source: a local `file` (stdio server only) or an http(s) `url`. Returns the path for the item's `score.musicxml` / `score.pdf` (`scores/<item>/<hash>.<ext>`); readers only ever get signed links. Checked: a real PDF / MusicXML.",
+			inputSchema: z.object({
+				item: z.string().regex(/^[a-z0-9_]{1,100}$/).describe('catalog item id'),
+				kind: z.enum(['musicxml', 'pdf']),
+				file: z.string().optional().describe('local file path (stdio server only)'),
+				url: z.string().url().optional()
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true }
+		},
+		guard(async ({ item, kind, file, url }) => {
+			if (!url === !file) return fail('give either url or file');
+			let blob: Blob;
+			if (url) {
+				if (!/^https?:\/\//i.test(url)) return fail('url must be http(s)');
+				const res = await fetch(url);
+				if (!res.ok) return fail(`download failed: ${res.status} ${res.statusText}`);
+				blob = new Blob([await res.arrayBuffer()]);
+			} else {
+				blob = new Blob([await readFile(file!)]);
+			}
+			const r = await assets.uploadProtected(blob, item, kind);
+			return text({ path: r.path, size: blob.size });
+		})
+	);
+
+	server.registerTool(
 		'save_draft',
 		{
 			description:
