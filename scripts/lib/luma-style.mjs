@@ -27,7 +27,8 @@ export const pricePerImage = (model = DEFAULT_MODEL, refs = STYLE_REFS.length) =
 
 /** the style paragraph for an object (an item, a piece of furniture …) – put it after the "what" */
 export const STYLE = [
-	'STYLE – the same set as the attached reference images: pseudo-3D, a hyper-realistic but cartoony stylised 3D render like a premium collectible toy or game item – chunky, slightly rounded forms, tactile believable materials, soft studio light from the upper left, gentle contact shading, crisp clean edges.',
+	// owner 2026-10-14: "all more cartoon. we are losing our 3d style" – the plain-material prompts drifted to photos
+	'STYLE – the same set as the attached reference images: a stylised CARTOON 3D render like a prop from an animated film or a premium collectible toy – clearly rendered 3D, never a photograph: chunky simplified forms, slightly exaggerated proportions, thick softly rounded edges, smooth surfaces with few fine details, tactile materials, soft studio light from the upper left, gentle contact shading, crisp clean silhouette.',
 	'COLOURS AND MATERIALS: give this object its OWN look like a real, general product of its kind – be creative, colourful and a little experimental (unexpected colour combinations, patterned or translucent plastic, enamel, rubber, fabric, metal finishes); do NOT copy the reference images\' colours and do NOT add a cyan accent.'
 ].join(LF);
 
