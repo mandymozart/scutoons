@@ -1006,6 +1006,7 @@
 		"map_network_none": "None – a path on foot",
 		"map_network_subway": "Subway",
 		"map_network_tram": "Tram",
+		"map_network_train": "Train",
 		"map_unlock": "Unlocked by reading",
 		"map_unlock_hint": "The place appears once a reader has read the chapter up to this point (0 = its start, 100 = its end). Scene = the screenplay scene.",
 		"map_unlock_none": "no unlock point",

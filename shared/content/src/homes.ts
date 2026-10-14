@@ -66,10 +66,10 @@ export function characterHome(character: { home?: string; home_scene?: string } 
 	return { place: character?.home || undefined, scene: character?.home_scene || DEFAULT_HOME_SCENE };
 }
 
-/** a ride: a line of the subway / tram, or the creature airlift – a taxi from anywhere to anywhere open */
+/** a ride: a line of the subway / tram / train, or the creature airlift – a taxi from anywhere to anywhere open */
 export type RideKind = MapNetwork | 'airlift';
 /** what a ride costs in cucumbers (owner 2026-10-14: "1 cucumber … the airlift (air taxi) costs 10 cucumbers") */
-export const RIDE_PRICES: Record<RideKind, number> = { tram: 1, subway: 1, airlift: 10 };
+export const RIDE_PRICES: Record<RideKind, number> = { tram: 1, subway: 1, train: 1, airlift: 10 };
 
 /**
  * A carrier of the creature airlift (catalog `airlift_carriers`, research/CAVE.md D8): a crazy creature or a flying robot

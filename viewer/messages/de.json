@@ -633,6 +633,7 @@
 		"walking": "Unterwegs …",
 		"ride_subway": "Mit der U-Bahn hin · {price} Gurken",
 		"ride_tram": "Mit der Straßenbahn hin · {price} Gurke(n)",
+		"ride_train": "Mit dem Zug hin · {price} Gurke(n)",
 		"ride_airlift": "Mit dem Kreaturen-Lufttaxi · {price} Gurken",
 		"ride_cannot_afford": "Dafür brauchst du {price} Gurken."
 	}
