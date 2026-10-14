@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 decided; waits for the owner on Q6, Q7, Q8 (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q8 (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -34,7 +34,8 @@ A new item fundamental (ITEMS.md, with the code): a container item says what it 
 ["score"] }`); an inventory entry can lie in a container entry (`in: <entry id>` – a column on the inventory, a
 migration; guests: in their localStorage inventory, carried by the import at sign-in). A picked-up score lands loose in
 the inventory like any item; the reader moves it: drag it onto the book in the grid, or select it and tap the book
-("In das Liederbuch legen" offered on the book). The book's grid shows only what lies in it. "Unlocked" vs "a regular
+("In das Liederbuch legen" offered on the book). Taking out works the same way and puts it back into the regular
+inventory (owner 2026-10-14: "it can, goes back into regular inventory"). The book's grid shows only what lies in it. "Unlocked" vs "a regular
 item" stays one model: unlocked = `starter: true`, found = `grantable: ["story"]`, bought = a product.
 
 **2a. Many song books, one you can make** (owner 2026-10-14: "there can be more song books, it's a property of a song
@@ -87,7 +88,6 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q6 taking out:** can a score be taken out of the book again (drag out / "Herausnehmen")? Recommended: yes.
 - **Q8 the parts:** the colours of the zip ties (black, white, …?); where readers get the drill and the zip ties (placed
   in a story, a scan, a product?); `songbook` starter for everyone, or found?
 - **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
