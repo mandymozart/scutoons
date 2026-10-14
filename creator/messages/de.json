@@ -421,6 +421,8 @@
 		"add_language": "Hinzufügen",
 		"add_language_label": "Übersetzung hinzufügen",
 		"remove_language": "{locale} entfernen",
+		"remove_language_title": "{locale} entfernen?",
+		"remove_language_message": "Die {locale}-Texte bleiben in allen Kapiteln gespeichert, der Editor zeigt und prüft sie nur nicht mehr. Fügst du {locale} wieder hinzu, sind sie zurück. Was Leser:innen sehen, ändert sich erst beim Veröffentlichen.",
 		"make_source": "{locale} zur Quelle machen",
 		"languages_unsaved": "Speichere den Entwurf, damit die Editoren die neuen Sprachen nutzen.",
 		"languages_remove_note": "Eine entfernte Sprache behält ihre Texte; die Editoren zeigen sie nur nicht mehr.",

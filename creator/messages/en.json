@@ -421,6 +421,8 @@
 		"add_language": "Add",
 		"add_language_label": "Add a translation",
 		"remove_language": "Remove {locale}",
+		"remove_language_title": "Remove {locale}?",
+		"remove_language_message": "The {locale} texts stay stored in every chapter; the editor just stops showing and checking them. Add {locale} again and they are back. Readers only see a change once you publish.",
 		"make_source": "Make {locale} the source",
 		"languages_unsaved": "Save the draft to use the new languages in the editors.",
 		"languages_remove_note": "Removing a language keeps its texts; the editors just stop showing them.",

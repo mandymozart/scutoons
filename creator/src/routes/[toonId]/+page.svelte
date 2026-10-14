@@ -2,7 +2,7 @@
 	import { publishTree } from '$lib/editor/publish-tree.ts';
 	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { onMount } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, PhoneBar, ToonAvatar, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, PhoneBar, confirmDialog, ToonAvatar, shellDock, useDock, type PhoneBarItem } from '@scutoons/ui';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -154,8 +154,16 @@
 		addLanguage = '';
 	}
 
-	function removeTarget(locale: Language) {
+	/** Asks first (owner 2026-10-14): the texts stay in the documents, the editor only stops showing and checking them */
+	async function removeTarget(locale: Language) {
 		if (!edited || locale === edited.source) return;
+		const name = LANGUAGE_NAMES[locale] ?? locale;
+		const ok = await confirmDialog({
+			title: m['creator.remove_language_title']({ locale: name }),
+			message: m['creator.remove_language_message']({ locale: name }),
+			confirmLabel: m['creator.remove_language']({ locale: name })
+		});
+		if (!ok || !edited) return;
 		setLanguages(edited.source, edited.languages.filter((l) => l !== locale));
 	}
 
