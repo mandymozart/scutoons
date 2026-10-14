@@ -8,7 +8,7 @@
 	import { admin } from '$lib/api.ts';
 	import { downloadPrintSheet, downloadZip } from '$lib/batch-actions.ts';
 	import { errorText, number } from '$lib/format.ts';
-	import { BatchRun, PIPELINE, type PipelineStep } from '$lib/qr/batch.svelte.ts';
+	import { BatchRun, isPromo, type PipelineStep } from '$lib/qr/batch.svelte.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -16,6 +16,7 @@
 	/**
 	 * One batch: the manifest's codes with the pipeline steps (sign → db → svg → pdf → sig), run / pause / abort,
 	 * resumable after a reload (completed steps are stored in the manifest after every code), ZIP and print sheet.
+	 * A promo batch runs without the certificate step (its column is left out).
 	 */
 	const toaster = getToaster();
 	const filename = $derived(page.params.filename ?? '');
@@ -100,12 +101,13 @@
 	<Skeleton variant="table" columns={8} label={m['shell.loading']()} />
 {:else}
 	{@const b = run.manifest}
-	<PageHeader type={m['batches.type_label']()} title={b.edition} meta={b.filename} />
+	<PageHeader type={isPromo(b) ? m['batches.promo']() : m['batches.type_label']()} title={b.edition} meta={b.filename} />
 
 	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={b.edition}>
 		{#snippet info()}<PageHelp page="batch" />{/snippet}
 		{#snippet start()}
 			<a href="/batches">{m['batches.back']()}</a>
+			<a href="/codes?batch={encodeURIComponent(b.filename)}">{m['batches.codes_link']()}</a>
 			<span class="bar-summary">{m['batches.summary']({ done: number(run!.done), total: number(b.total), errors: number(run!.failed) })}</span>
 		{/snippet}
 		{#snippet secondary()}
@@ -150,7 +152,7 @@
 				<tr>
 					<th scope="col">#</th>
 					<th scope="col">{m['codes.col_code']()}</th>
-					{#each PIPELINE as step (step)}
+					{#each run.pipeline as step (step)}
 						<th scope="col" class="step">{STEP_LABELS[step]()}</th>
 					{/each}
 					<th scope="col">{m['codes.col_status']()}</th>
@@ -167,7 +169,7 @@
 								<span class="mono-code">{item.code}</span>
 							{/if}
 						</td>
-						{#each PIPELINE as step (step)}
+						{#each run.pipeline as step (step)}
 							{@const ok = run.stepDone(item, step)}
 							<td class="step" class:ok>
 								<span aria-hidden="true">{ok ? '✓' : '—'}</span><span class="sr-only">{ok ? m['common.yes']() : m['common.no']()}</span>

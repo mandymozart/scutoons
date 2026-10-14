@@ -210,11 +210,14 @@ final class Batches
         $zip = new ZipArchive();
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Could not create ZIP archive');
         $zip->addFile($this->files->path('batch', $filename), 'manifest.json');
+        // the runner names the QR SVG by the batch type (SCUTOONS-QR-MEMBERSHIP-… / SCUTOONS-QR-PROMO-…); a promo batch
+        // has no certificates (the exists check skips them)
+        $svgType = strtoupper(preg_replace('/[^a-z]/', '', strtolower((string) ($manifest['type'] ?? 'membership'))) ?: 'membership');
         foreach ($manifest['codes'] as $item) {
             if (($item['status'] ?? null) !== 'done' || !is_string($item['code'] ?? null)) continue;
             $code = $item['code'];
             foreach ([
-                ['svgs', "SCUTOONS-QR-MEMBERSHIP-$code.svg"],
+                ['svgs', "SCUTOONS-QR-$svgType-$code.svg"],
                 ['certificates', "SCUTOONS-COA-$code.pdf"],
                 ['signatures', "SIGNATURE-$code.json"],
             ] as [$type, $name]) {

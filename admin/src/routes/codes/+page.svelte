@@ -18,7 +18,7 @@
 		readList,
 		type Column
 	} from '@scutoons/ui';
-	import type { AdminCodeRow, ListResult } from '@scutoons/api';
+	import type { AdminCodeRow, BatchRow, ListResult } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { CODE_STATUSES, CODE_TYPES, loadCatalog, type Edition } from '$lib/catalog.ts';
 	import { day, errorText, number } from '$lib/format.ts';
@@ -31,7 +31,7 @@
 	import CodeSummary from '$lib/components/code-summary.svelte';
 
 	const toaster = getToaster();
-	const FILTERS = ['edition_id', 'type', 'status'];
+	const FILTERS = ['edition_id', 'type', 'status', 'batch'];
 
 	const query = $derived(readList(page.url, { pageSize: 50, sort: '-created_at', filters: FILTERS }));
 	const open = $derived(page.url.searchParams.get('open'));
@@ -41,11 +41,16 @@
 	let loading = $state(false);
 	let selected = $state<string[]>([]);
 	let editions = $state<Edition[]>([]);
+	let batches = $state<BatchRow[]>([]);
 	let reload = $state(0);
 
 	$effect(() => {
 		loadCatalog()
 			.then((c) => (editions = c.editions as Edition[]))
+			.catch(() => {});
+		admin
+			.listBatches({ page_size: 500 })
+			.then((r) => (batches = r.items))
 			.catch(() => {});
 	});
 
@@ -145,6 +150,15 @@
 			<option value="">{m['common.all']()}</option>
 			{#each CODE_TYPES as t (t)}
 				<option value={t}>{t}</option>
+			{/each}
+		</select>
+	</label>
+	<label class="bar-filter">
+		<span>{m['batches.type_label']()}</span>
+		<select value={query.filters.batch ?? ''} onchange={(e) => nav({ batch: e.currentTarget.value })}>
+			<option value="">{m['common.all']()}</option>
+			{#each batches as b (b.filename)}
+				<option value={b.filename}>{b.edition} · {day(b.created_at)}</option>
 			{/each}
 		</select>
 	</label>

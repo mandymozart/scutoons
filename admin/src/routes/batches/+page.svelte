@@ -3,7 +3,7 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, Field, Pager, Sheet, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, DataTable, Field, Pager, Segmented, Sheet, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
 	import { ApiError, type BatchRow, type ListResult } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { downloadPrintSheet, downloadZip } from '$lib/batch-actions.ts';
@@ -21,11 +21,15 @@
 	let error = $state<string | null>(null);
 	let loading = $state(false);
 	let editions = $state<Edition[]>([]);
+	let toons = $state<{ id: string; name: string }[]>([]);
 	let busy = $state<string | null>(null);
 
 	$effect(() => {
 		loadCatalog()
-			.then((c) => (editions = c.editions as Edition[]))
+			.then((c) => {
+				editions = c.editions as Edition[];
+				toons = c.toons;
+			})
 			.catch(() => {});
 	});
 
@@ -56,6 +60,13 @@
 	$effect.pre(() => {
 		sheetOpen = newOpen;
 	});
+	// the kind: a product edition (numbered, with certificates) or promo codes (owner 2026-10-14: "promo batches like
+	// editions" – a name, a count, optionally a toon and an expiry)
+	let kind = $state<'membership' | 'promo'>('membership');
+	let promoName = $state('');
+	let promoCount = $state<number | null>(100);
+	let promoToon = $state('');
+	let promoExpires = $state('');
 	let editionId = $state('');
 	let count = $state<number | null>(null);
 	let startNumber = $state(1);
@@ -77,17 +88,27 @@
 		goto(listHref(page.url, { new: null, page: query.page > 1 ? query.page : null }), { keepFocus: true, noScroll: true });
 	}
 
+	const canCreate = $derived(kind === 'promo' ? !!promoName.trim() && !!promoCount : !!edition);
+
 	async function create(force = false) {
-		if (!edition) return;
+		if (!canCreate) return;
 		creating = true;
 		createError = null;
 		try {
-			const { batch } = await admin.createBatch({
-				edition_id: edition.id,
-				count: count || edition.edition_count,
-				start_number: startNumber || 1,
-				force
-			});
+			const { batch } =
+				kind === 'promo'
+					? await admin.createPromoBatch({
+							name: promoName.trim(),
+							count: promoCount ?? 0,
+							toon_id: promoToon || null,
+							expires_at: promoExpires || null
+						})
+					: await admin.createBatch({
+							edition_id: edition!.id,
+							count: count || edition!.edition_count,
+							start_number: startNumber || 1,
+							force
+						});
 			await goto(`/batches/${encodeURIComponent(batch.filename)}?run=1`);
 		} catch (e) {
 			if (e instanceof ApiError && e.code === 'batch_complete') {
@@ -165,6 +186,7 @@
 				<a href="/batches/{encodeURIComponent(b.filename)}">{day(b.created_at)}</a>
 				<span class="file muted">{b.filename}</span>
 			{:else if column.id === 'edition'}
+				{#if b.type === 'promo'}<Badge>{m['batches.promo']()}</Badge>{/if}
 				{b.edition}
 			{:else if column.id === 'done'}
 				{number(b.done)} / {number(b.total)}
@@ -193,36 +215,76 @@
 
 <Sheet bind:open={sheetOpen} side="right" widthKey="form" title={m['batches.new']()} closeLabel={m['common.close']()} resizeLabel={m['shell.resize_panel']()} onclose={() => newOpen && closeForm()}>
 	<form id="new-batch" onsubmit={(e) => (e.preventDefault(), create(false))}>
-		<Field label={m['common.edition']()}>
-			{#snippet children({ id })}
-				<select {id} bind:value={editionId}>
-					{#each editions as e (e.id)}
-						<option value={e.id}>{m['batches.edition_option']({ name: e.name, count: e.edition_count })}</option>
-					{/each}
-				</select>
-			{/snippet}
-		</Field>
-		{#if edition}
-			<dl class="facts">
-				<dt>{m['batches.product']()}</dt>
-				<dd>{edition.name}</dd>
-				<dt>{m['batches.excluded']()}</dt>
-				<dd>{edition.excluded_number ?? 0}</dd>
-				<dt>{m['batches.creators']()}</dt>
-				<dd class="pre">{edition.creators ?? '—'}</dd>
-			</dl>
+		<div class="kind">
+			<Segmented
+				radio
+				label={m['batches.kind']()}
+				value={kind}
+				onchange={(v) => (kind = v)}
+				options={[
+					{ value: 'membership', label: m['batches.kind_edition']() },
+					{ value: 'promo', label: m['batches.kind_promo']() }
+				]}
+			/>
+		</div>
+		{#if kind === 'promo'}
+			<Field label={m['batches.promo_name']()} hint={m['batches.promo_name_hint']()}>
+				{#snippet children({ id, describedby })}
+					<input {id} aria-describedby={describedby} maxlength="100" required bind:value={promoName} />
+				{/snippet}
+			</Field>
+			<Field label={m['batches.count']()} hint={m['batches.promo_count_hint']()}>
+				{#snippet children({ id, describedby })}
+					<input {id} type="number" min="1" max="2000" required aria-describedby={describedby} bind:value={promoCount} />
+				{/snippet}
+			</Field>
+			<Field label={m['batches.promo_toon']()} hint={m['batches.promo_toon_hint']()}>
+				{#snippet children({ id, describedby })}
+					<select {id} aria-describedby={describedby} bind:value={promoToon}>
+						<option value="">{m['batches.promo_no_toon']()}</option>
+						{#each toons as t (t.id)}
+							<option value={t.id}>{t.name}</option>
+						{/each}
+					</select>
+				{/snippet}
+			</Field>
+			<Field label={m['batches.promo_expires']()} hint={m['batches.promo_expires_hint']()}>
+				{#snippet children({ id, describedby })}
+					<input {id} type="datetime-local" aria-describedby={describedby} bind:value={promoExpires} />
+				{/snippet}
+			</Field>
+		{:else}
+			<Field label={m['common.edition']()}>
+				{#snippet children({ id })}
+					<select {id} bind:value={editionId}>
+						{#each editions as e (e.id)}
+							<option value={e.id}>{m['batches.edition_option']({ name: e.name, count: e.edition_count })}</option>
+						{/each}
+					</select>
+				{/snippet}
+			</Field>
+			{#if edition}
+				<dl class="facts">
+					<dt>{m['batches.product']()}</dt>
+					<dd>{edition.name}</dd>
+					<dt>{m['batches.excluded']()}</dt>
+					<dd>{edition.excluded_number ?? 0}</dd>
+					<dt>{m['batches.creators']()}</dt>
+					<dd class="pre">{edition.creators ?? '—'}</dd>
+				</dl>
+			{/if}
+			<Field label={m['batches.count']()} hint={m['batches.count_hint']()}>
+				{#snippet children({ id, describedby })}
+					<input {id} type="number" min="1" max="2000" aria-describedby={describedby} bind:value={count} />
+				{/snippet}
+			</Field>
+			<Field label={m['batches.start_number']()}>
+				{#snippet children({ id })}
+					<input {id} type="number" min="1" bind:value={startNumber} />
+				{/snippet}
+			</Field>
 		{/if}
-		<Field label={m['batches.count']()} hint={m['batches.count_hint']()}>
-			{#snippet children({ id, describedby })}
-				<input {id} type="number" min="1" max="2000" aria-describedby={describedby} bind:value={count} />
-			{/snippet}
-		</Field>
-		<Field label={m['batches.start_number']()}>
-			{#snippet children({ id })}
-				<input {id} type="number" min="1" bind:value={startNumber} />
-			{/snippet}
-		</Field>
-		{#if completeWarning}
+		{#if completeWarning && kind === 'membership'}
 			<div class="error-box" role="alert">
 				<p>{completeWarning}</p>
 				<Button size="sm" variant="secondary" disabled={creating} onclick={() => create(true)}>{m['batches.create_anyway']()}</Button>
@@ -232,7 +294,7 @@
 	</form>
 	{#snippet footer()}
 		<Button size="sm" variant="secondary" onclick={closeForm}>{m['common.cancel']()}</Button>
-		<Button size="sm" type="submit" form="new-batch" disabled={creating || !edition}>{m['batches.start']()}</Button>
+		<Button size="sm" type="submit" form="new-batch" disabled={creating || !canCreate}>{m['batches.start']()}</Button>
 	{/snippet}
 </Sheet>
 
@@ -249,6 +311,9 @@
 	}
 	.pre {
 		white-space: pre-line;
+	}
+	.kind {
+		margin-bottom: var(--space-1);
 	}
 	.facts {
 		margin-bottom: var(--space-1) !important;

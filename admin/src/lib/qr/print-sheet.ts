@@ -1,5 +1,6 @@
 // Sticker print sheet of a batch, port of generate/app/utils/printSheet.js: A4, 4×6 stickers of 40 mm (gap 6 mm),
-// QR 26 mm centered, "n / total" above and the code below in courier 10pt.
+// QR 26 mm centered, "n / total" above (not on a promo batch – its codes are no numbered edition) and the code below
+// in courier 10pt.
 import { jsPDF } from 'jspdf';
 import type { BatchManifest } from '@scutoons/api';
 import { qrUrl } from './config.ts';
@@ -21,6 +22,7 @@ const TEXT_GAP = 1.5;
 export async function printSheet(manifest: BatchManifest) {
 	const doc = new jsPDF({ unit: 'mm', format: [PAGE_W, PAGE_H] });
 	const codes = manifest.codes.filter((c) => c.status === 'done');
+	const numbered = manifest.type !== 'promo';
 
 	for (let i = 0; i < codes.length; i++) {
 		const item = codes[i];
@@ -37,7 +39,7 @@ export async function printSheet(manifest: BatchManifest) {
 		doc.setFont('courier', 'normal');
 		doc.setTextColor(60);
 		doc.setFontSize(10);
-		doc.text(`${item.n} / ${manifest.total}`, cx, qrY - TEXT_GAP + 3, { align: 'center' });
+		if (numbered) doc.text(`${item.n} / ${manifest.total}`, cx, qrY - TEXT_GAP + 3, { align: 'center' });
 		doc.setFontSize(10);
 		doc.text(item.code, cx, qrY + QR_MM + TEXT_GAP, { align: 'center' });
 	}
