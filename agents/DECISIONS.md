@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · characters · The mannequin fallback has three body presets: two legs (Xbot), more legs (the Khronos fox, CC BY credit in the asset), wings (a bird – the storyboard's crow figure); the persona field is `body` · "i was missing winged creatures. they come with a different preset. a bird for now", owner via the session manager: "YES – download Khronos Fox.glb" · → ASSETS.md "3D models"
 - 2026-10-14 · items · The avatar picker keeps one tile per character; its looks are a select ("Look"); the overlay data stays unshown; the A-pose wears the look's clothing · "yes. maybe a select is better, change look" · → ITEMS.md "Reader avatar bodies"
 - 2026-10-13 · items · A wear slot has no image position any more (x / y / size dropped): items aren't drawn on the body; a duo's tiles go left / right by order · "Drop x/y/size entirely" · → ITEMS.md "Slots per avatar body"
 - 2026-10-13 · items · Any persona's look can carry an A-pose: the avatar body is { character, persona, look }; unlocks name looks `<persona>/<look>` · "Any persona's look" · → ITEMS.md "Reader avatar bodies"

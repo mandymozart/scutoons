@@ -100,8 +100,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   character page (`personaModel`, ASSETS.md "3D models"). Open: [owner] publish the drafts character:catpope 559
   (regular, Silikon, Gebirgstiger), toptoy 560, yellowmouse 561 – models on the CDN (the source of truth; the sketch ones
   are placeholders until artists' models replace them); the renderer loads
-  `personaModel(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md);
-  a four-legged mannequin for `legs: more` (`scutoons/3d/mannequin-more-legs.glb` – e.g. the Khronos Fox, CC0 + CC BY rigging).
+  `personaModel(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md).
 
 ## Platform, release
 - [ ] 10.8 **Public release** – one version everywhere (`1.0.0`, today root 0.0.0, frontends 0.1.0, api/qr 1.0.0),

@@ -40,6 +40,7 @@ final class AssetUsages
         'catpope/vectors/vector-demon-saw-1.svg' => 'viewer/src/lib/components/toon/map/map-overlay.svelte',
         'scutoons/3d/mannequin.glb' => 'shared/content/src/characters.ts',
         'scutoons/3d/mannequin-more-legs.glb' => 'shared/content/src/characters.ts',
+        'scutoons/3d/mannequin-wings.glb' => 'shared/content/src/characters.ts',
     ];
 
     /** @var array<string, true>|null */

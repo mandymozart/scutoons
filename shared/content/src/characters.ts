@@ -261,8 +261,8 @@ export interface CharacterPersona {
 	transitions?: LookTransition[];
 	/** the persona's 3D model (a .glb, CDN path from the CDN root); a look may have its own (`personaModel`) */
 	model?: string;
-	/** the body preset for the 3D fallback: `more` = four or more legs (a four-legged mannequin); none = two */
-	legs?: PersonaLegs;
+	/** the body preset for the 3D fallback (which mannequin): `more-legs` (four or more), `wings`; none = two legs */
+	body?: PersonaBody;
 }
 
 /**
@@ -577,18 +577,22 @@ export function defaultLookId(persona: Pick<CharacterPersona, 'looks'> | null | 
 	return looks.find((l) => l?.default)?.id ?? looks[0]?.id ?? DEFAULT_LOOK;
 }
 
-/** A persona's body preset for its 3D fallback (owner 2026-10-14: "2 legs or more legs is enough as preset"). */
-export const PERSONA_LEGS = ['two', 'more'] as const;
-export type PersonaLegs = (typeof PERSONA_LEGS)[number];
+/**
+ * A persona's body preset for its 3D fallback (owner 2026-10-14: "2 legs or more legs is enough as preset"; "winged
+ * creatures … come with a different preset. a bird for now").
+ */
+export const PERSONA_BODIES = ['two-legs', 'more-legs', 'wings'] as const;
+export type PersonaBody = (typeof PERSONA_BODIES)[number];
 
 /**
  * The 3D fallback for every persona / look without its own model, per body preset (owner 2026-10-14: "a simple
  * mannequin … if there is no model there yet"; "some characters have 4 or even more legs"): two legs = three.js's
- * example mannequin (Xbot, Mixamo; Mixamo bone names), more legs = a four-legged one. One asset each on the CDN.
+ * example mannequin (Xbot, Mixamo; Mixamo bone names), more legs = a four-legged one (the Khronos fox), wings = a bird (the storyboard's crow figure). One asset each on the CDN.
  */
-export const MANNEQUINS: Record<PersonaLegs, string> = {
-	two: 'scutoons/3d/mannequin.glb',
-	more: 'scutoons/3d/mannequin-more-legs.glb'
+export const MANNEQUINS: Record<PersonaBody, string> = {
+	'two-legs': 'scutoons/3d/mannequin.glb',
+	'more-legs': 'scutoons/3d/mannequin-more-legs.glb',
+	wings: 'scutoons/3d/mannequin-wings.glb'
 };
 
 /**
@@ -600,7 +604,7 @@ export function personaModelSource(character: RegistryCharacter | null | undefin
 	const p = findPersona(character, persona);
 	if (!p) return { path: '', fallback: false };
 	const own = findLook(p, look || defaultLookId(p))?.model?.trim() || p.model?.trim();
-	return own ? { path: own, fallback: false } : { path: MANNEQUINS[p.legs ?? 'two'] ?? MANNEQUINS.two, fallback: true };
+	return own ? { path: own, fallback: false } : { path: MANNEQUINS[p.body ?? 'two-legs'] ?? MANNEQUINS['two-legs'], fallback: true };
 }
 
 /** The stored 3D model of a persona in a look (the look's, else the persona's), '' when none – no mannequin. */
@@ -1466,7 +1470,7 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			if (defaults !== 1) add('error', [...pp, 'looks'], `${pwho}: exactly one look must be the default (${defaults} are)`);
 			// 3D models: binary glTF only (agents/ASSETS.md)
 			if (p.model !== undefined && (!isStr(p.model) || !MODEL_PATH.test(p.model))) add('warning', [...pp, 'model'], `${pwho}: the 3D model must be a CDN path to a .glb`);
-			if (p.legs !== undefined && !(PERSONA_LEGS as readonly unknown[]).includes(p.legs)) add('warning', [...pp, 'legs'], `${pwho}: legs must be one of ${PERSONA_LEGS.join(', ')}`);
+			if (p.body !== undefined && !(PERSONA_BODIES as readonly unknown[]).includes(p.body)) add('warning', [...pp, 'body'], `${pwho}: body must be one of ${PERSONA_BODIES.join(', ')}`);
 			p.looks.forEach((l: any, k: number) => {
 				if (isObj(l) && l.model !== undefined && (!isStr(l.model) || !MODEL_PATH.test(l.model))) add('warning', [...pp, 'looks', k, 'model'], `${pwho}: look ${l.id}: the 3D model must be a CDN path to a .glb`);
 			});

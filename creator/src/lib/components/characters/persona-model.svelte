@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PERSONA_LEGS, personaModelSource, type CharacterPersona, type PersonaLegs, type RegistryCharacter } from '@scutoons/content';
+	import { PERSONA_BODIES, personaModelSource, type CharacterPersona, type PersonaBody, type RegistryCharacter } from '@scutoons/content';
 	import { FileSlot, ModelPreview } from '@scutoons/media';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { editPersona } from '$lib/editor/characters.ts';
@@ -8,7 +8,7 @@
 	/**
 	 * A persona's 3D model (owner 2026-10-13/14): the live preview of what the shown look uses – the look's model, the
 	 * persona's, or the mannequin of its body preset (dashed, "Placeholder") –, the persona's model slot (a .glb from the
-	 * asset manager) and the body preset for the fallback: two legs / more legs.
+	 * asset manager) and the body preset for the fallback: two legs / more legs / wings.
 	 */
 	let {
 		registry,
@@ -23,7 +23,11 @@
 	} = $props();
 
 	const source = $derived(personaModelSource(character, persona.id, lookId));
-	const LEG_LABELS: Record<PersonaLegs, () => string> = { two: () => m['creator.characters_legs_two'](), more: () => m['creator.characters_legs_more']() };
+	const BODY_LABELS: Record<PersonaBody, () => string> = {
+		'two-legs': () => m['creator.characters_body_two_legs'](),
+		'more-legs': () => m['creator.characters_body_more_legs'](),
+		wings: () => m['creator.characters_body_wings']()
+	};
 
 	function change(fn: (p: CharacterPersona) => void, key: string) {
 		editPersona(registry, character.id, persona.id, fn, `${character.id}:${persona.id}:${key}`);
@@ -31,8 +35,8 @@
 	function setModel(path: string | null) {
 		change((p) => (path ? (p.model = path) : delete p.model), 'model');
 	}
-	function setLegs(legs: PersonaLegs) {
-		change((p) => (legs === 'two' ? delete p.legs : (p.legs = legs)), 'legs');
+	function setBody(body: PersonaBody) {
+		change((p) => (body === 'two-legs' ? delete p.body : (p.body = body)), 'body');
 	}
 </script>
 
@@ -42,10 +46,10 @@
 		<FileSlot kind="model" value={persona.model} label={m['creator.characters_model']()} place="characters/{character.id}/" player={false} onchange={setModel} testid="persona-model" />
 		{#if source.fallback}<span class="hint" data-testid="persona-model-mannequin">{m['creator.characters_model_mannequin']()}</span>{/if}
 		<fieldset>
-			<legend>{m['creator.characters_legs']()}</legend>
-			<span class="sc-seg" role="group" aria-label={m['creator.characters_legs']()}>
-				{#each PERSONA_LEGS as legs (legs)}
-					<button type="button" aria-pressed={(persona.legs ?? 'two') === legs} onclick={() => setLegs(legs)} data-testid="persona-legs-{legs}">{LEG_LABELS[legs]()}</button>
+			<legend>{m['creator.characters_body']()}</legend>
+			<span class="sc-seg" role="group" aria-label={m['creator.characters_body']()}>
+				{#each PERSONA_BODIES as body (body)}
+					<button type="button" aria-pressed={(persona.body ?? 'two-legs') === body} onclick={() => setBody(body)} data-testid="persona-body-{body}">{BODY_LABELS[body]()}</button>
 				{/each}
 			</span>
 		</fieldset>

@@ -340,8 +340,11 @@ be edited. Used by the characters' personas / looks (`model`, DATA.md); picker a
 (owner 2026-10-14): `ModelPreview` (@scutoons/media – a live view, turns slowly, drag to turn; dashed + "Placeholder"
 for a stand-in) in the character page and the admin asset sheet, `ModelThumb` stills on the picker / admin cards (one
 shared renderer); three.js loads only when a model is shown (`model-view.js`). **Mannequins** (the fallback of a
-persona without a model, by its body preset `legs`: two / more – `MANNEQUINS`, code references in AssetUsages):
-`scutoons/3d/mannequin.glb` (Xbot, Mixamo, via the three.js examples), `scutoons/3d/mannequin-more-legs.glb` (open).
+persona without a model, by its body preset `body` – `MANNEQUINS`, code references in AssetUsages; credits in the
+asset titles): two legs `scutoons/3d/mannequin.glb` (Xbot, Mixamo, via the three.js examples); more legs
+`scutoons/3d/mannequin-more-legs.glb` (Fox, Khronos glTF Sample Assets: model PixelMannen CC0, rigging & animation
+tomkranis CC BY 4.0, glTF @AsoboStudio & @scurest CC BY 4.0); wings `scutoons/3d/mannequin-wings.glb` (the storyboard's
+crow figure from figures.js, ours – posable nodes, no skin).
 
 ## Albums and downloads (owner: the season "Downloads" fields are redundant)
 
