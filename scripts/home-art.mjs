@@ -48,8 +48,8 @@ const ICONS = {
  * Japanese mat chamber with tatamis"; generated, no internet photos)
  */
 const SCENES = {
-	cave: 'a cosy, human-habitable cave dwelling (a troglodyte-style living cave): rough carved rock walls and a vaulted rock ceiling, warm light from a hidden source, a smooth, level, completely EMPTY floor area in the middle for furniture',
-	tatami_room: 'a standard, empty Japanese washitsu: tatami mats covering the floor, sliding shoji paper screens with a wooden lattice, a tokonoma alcove in the back wall, soft daylight, the floor completely EMPTY for furniture'
+	cave: 'a NATURAL cave, a den like a big animal would live in (the cave of a bear) – raw, organic rock, roots and moss at the entrance side, no carved or built walls, no doors, no windows, no masonry; a wide, roughly level earthen floor with plenty of free space',
+	tatami_room: 'a standard, empty Japanese washitsu: tatami mats covering the floor, shoji paper screens, a tokonoma alcove in the back wall, one side opened wide (sliding screens pushed aside) with a view far out into a garden and the distance – framed like a shot from an old Japanese film, an anime or a manga; a large empty tatami floor'
 };
 /** the creature airlift's carriers (research/CAVE.md D8): crazy creatures and flying robot taxis – placeholders */
 const CARRIERS = {
@@ -67,7 +67,8 @@ const scenePrompt = (what) =>
 	[
 		`An EMPTY ROOM for a game home: ${what}.`,
 		STYLE,
-		'A full-frame wide view (16:9) into the room from slightly above, like a game location: the floor in front and in the middle, the walls behind – nothing else, no furniture, no people, no objects. The floor must stay free (furniture is placed on it later).',
+		'CAMERA: a strict one-point CENTRAL PERSPECTIVE, the camera at the centre, looking straight in, symmetrical – the vanishing point in the middle of the image, like a classic Japanese film shot (Ozu) or an anime background; full frame 16:9.',
+	'ENOUGH ROOM TO PLACE THINGS: a large, empty, level floor taking up the lower half of the image – nothing on it, no furniture, no people, no objects (furniture is placed on it later).',
 		'No text, no letters, no logos, no watermark.'
 	].join(LF);
 const fileRef = (file) => ({ data: readFileSync(file).toString('base64'), media_type: { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[extname(file).toLowerCase()] ?? 'image/png' });
