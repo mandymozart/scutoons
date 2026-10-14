@@ -1125,6 +1125,11 @@ export interface MapState {
 	 * Not touched by a map reset – the reader's registration is no unlock animation. Left out while empty.
 	 */
 	residences?: Record<string, MapResidence>;
+	/**
+	 * Where the reader's own avatar stands (research/CAVE.md D1 – the walking mode; world-wide, apart from the toon heroes'
+	 * `positions`); none = at its home. The newer `at` wins in the merge; a map reset sends it home.
+	 */
+	avatar?: MapPosition;
 }
 
 /** one move (`migrate`): the region and when */
@@ -1154,6 +1159,8 @@ export function normalizeMapState(value: unknown): MapState {
 	const residences: Record<string, MapResidence> = {};
 	for (const [who, r] of Object.entries(obj(v.residences))) if (r && typeof r.region === 'string' && r.region && Number.isFinite(r.at)) residences[who] = { region: r.region, at: r.at };
 	if (Object.keys(residences).length) state.residences = residences;
+	const a = obj(v.avatar);
+	if (Number.isFinite(a.at) && (typeof a.location === 'string' || (typeof a.route === 'string' && typeof a.waypoint === 'string'))) state.avatar = { ...a } as MapPosition;
 	return state;
 }
 
@@ -1207,6 +1214,9 @@ export function mergeMapState(a: MapState | null | undefined, b: MapState | null
 		residences[who] = (!p ? q : !q ? p : q.at > p.at ? q : p)!;
 	}
 	if (Object.keys(residences).length) out.residences = residences;
+	// the avatar: the newer position, unless a reset came after it (then it is home)
+	const avatar = [x.avatar, y.avatar].filter((p): p is MapPosition => !!p && p.at >= resetAt).sort((p, q) => q.at - p.at)[0];
+	if (avatar) out.avatar = avatar;
 	return out;
 }
 
@@ -1238,6 +1248,11 @@ export const residenceOf = (state: Pick<MapState, 'residences'>, who: string, fa
 
 export function setPosition(state: MapState, toon: string, position: Omit<MapPosition, 'at'>, now: number): void {
 	state.positions[toon] = { ...position, at: now } as MapPosition;
+}
+
+/** Moves the reader's own avatar (the walking mode – research/CAVE.md D1) */
+export function setAvatarPosition(state: MapState, position: Omit<MapPosition, 'at'>, now: number): void {
+	state.avatar = { ...position, at: now } as MapPosition;
 }
 
 /** Marks places as seen on the opened map; returns the ids that were new */

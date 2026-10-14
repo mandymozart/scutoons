@@ -113,8 +113,13 @@ scene), decorating beyond the home scene, a friend list, live presence / chat, a
 
 ## Data model (proposal – the names to build with)
 Catalog / content (edited in the admin / creator):
-- **Home scene** – a catalog table `catalog_home_scenes` (CATALOG.md, like albums): `{ id, name: Localized, image }` –
-  `image` = the 2.5D background (CDN path, MAP.md §5.1 style), language-neutral; first rows `cave`, `tatami_room`.
+- **Home scene** – a catalog table `catalog_home_scenes` (CATALOG.md, like albums): `{ id, name: Localized, image,
+  video? }` (shared/content homes.ts) – `image` = the still background (MAP.md §5.1 style, language-neutral, the video's
+  poster); `video` = an optional short muted loop (.mp4 / .webm; owner 2026-10-14: "Die Cave-Hintergründe können auch
+  Videos sein. Animierte kurze Clips … wichtig"); reduced motion shows the still. Both `{ src, variants }` by the
+  reader's media quality (RULES: a reader setting, never by viewport): `src` = **1080p** (low + medium), `variants.high`
+  = **4K** (owner 2026-10-14: "4K und 1080p ist … ausreichend für die Hintergründe"; no 720p / 480p). First rows `cave`,
+  `tatami_room`.
 - **Character** (characters.ts, next to `origin` / `residence`): `home?: <map place id>` (none = the place of its first
   introduction, D1) and `home_scene: <home scene id>` (set per avatar, owner 2026-10-14; until a character has one: `cave`).
 - **Furniture item** (ItemDef): `category: "furniture"`; racks carry `holds` (ITEMS.md "Containers"); the workbench

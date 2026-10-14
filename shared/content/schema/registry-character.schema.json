@@ -63,6 +63,14 @@
 					"type": "string",
 					"description": "the region the character is registered in by default (a `migrate` in the story moves it – the save game)"
 				},
+				"home": {
+					"type": "string",
+					"description": "The avatar's home (research/CAVE.md D1): a map place id – none = where the character is first introduced in a story (the creator suggests it); a missing place is added to the map as a new one"
+				},
+				"home_scene": {
+					"type": "string",
+					"description": "what its home looks like: a catalog home scene id (`cave`, `tatami_room`; set per avatar – none = `cave`)"
+				},
 				"personas": {
 					"type": "array",
 					"items": {

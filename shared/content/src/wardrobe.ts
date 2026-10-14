@@ -11,6 +11,7 @@ import { AVATAR_SLOTS } from './items.ts';
 import type { Problem } from './validate.ts';
 import { validateAlbums } from './albums.ts';
 import { validateContainers } from './containers.ts';
+import { validateHomes } from './homes.ts';
 import { READER_EFFECTS, READER_STATS } from './substances.ts';
 
 /** `catpope`, `toptoy/legs-left` – a key of `ItemDef.wear` */
@@ -131,6 +132,8 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 	validateAlbums(catalog, add);
 	// containers, scores, ageing, kept inputs and inherited variants (containers.ts)
 	validateContainers(catalog as { items: any[]; recipes?: any[] }, add);
+	// home scenes, furniture, workshop recipes (homes.ts)
+	validateHomes(catalog as { items: any[]; recipes?: any[]; home_scenes?: any[] }, add);
 	for (const [id, def] of Object.entries(isObj(catalog.stats) ? catalog.stats : {})) {
 		const d = def as any;
 		if (!isObj(d) || typeof d.baseline !== 'number' || d.baseline < 0 || d.baseline > 100 || typeof d.half_life_days !== 'number' || d.half_life_days <= 0) {

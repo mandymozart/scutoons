@@ -48,6 +48,13 @@
 						"$ref": "#/definitions/Album"
 					},
 					"description": "the music media items carry (albums.ts), language-neutral"
+				},
+				"home_scenes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/HomeScene"
+					},
+					"description": "what homes look like (homes.ts, research/CAVE.md): `cave`, `tatami_room` …"
 				}
 			},
 			"required": [
@@ -320,6 +327,17 @@
 						}
 					],
 					"description": "A score's files – MusicXML for the score view, the print PDF (one language per score)"
+				},
+				"furniture": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ItemFurniture"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "Furniture: its size and picture in a home, a workbench (homes.ts, research/CAVE.md D4)"
 				}
 			},
 			"required": [
@@ -363,9 +381,10 @@
 				"media",
 				"substance",
 				"food",
-				"score"
+				"score",
+				"furniture"
 			],
-			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite; `score` = sheet music (`ItemDef.score`, research/SCORES.md)"
+			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite; `score` = sheet music (`ItemDef.score`, research/SCORES.md); `furniture` = stands in a home (`ItemDef.furniture`, homes.ts)"
 		},
 		"GrantSource": {
 			"type": "string",
@@ -390,6 +409,9 @@
 				},
 				{
 					"$ref": "#/definitions/ApplySkill"
+				},
+				{
+					"$ref": "#/definitions/EnterHomeSkill"
 				}
 			]
 		},
@@ -514,6 +536,19 @@
 				"type"
 			],
 			"description": "\"Benutzen\" applies a substance (\"Essen\" for `food`): one piece is used up, its `effects` / `effect` hit the reader (substances.ts)"
+		},
+		"EnterHomeSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "enter_home"
+				}
+			},
+			"required": [
+				"type"
+			],
+			"description": "\"Nach Hause\" from anywhere – the VR headset (research/CAVE.md D2): enters the reader's home without walking there"
 		},
 		"ItemVariant": {
 			"type": "object",
@@ -784,6 +819,25 @@
 			],
 			"description": "A score's files (one language per score – an edition per language, owner 2026-10-14): CDN paths, served signed."
 		},
+		"ItemFurniture": {
+			"type": "object",
+			"properties": {
+				"size": {
+					"type": "number"
+				},
+				"image": {
+					"type": "string"
+				},
+				"workshop": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"size",
+				"image"
+			],
+			"description": "A furniture item (`ItemDef.furniture`, category `furniture`): how it stands in a home. `size` = its width in % of the room's width at the front edge (the room = 4 m: metres ÷ 4 × 100 – workflows/home/furniture.md); `image` = the piece as it stands in a home (three-quarter view, its back to the left wall, its foot at the bottom), next to the item's `icon`; `workshop` = recipes `at: \"workshop\"` run at it (the workbench)."
+		},
 		"Recipe": {
 			"type": "object",
 			"properties": {
@@ -802,6 +856,11 @@
 				"image": {
 					"type": "string",
 					"description": "the recipe's own picture (CDN path, `<toon>/items/recipes/<id>.webp`; owner 2026-10-04) – none = the output item's"
+				},
+				"at": {
+					"type": "string",
+					"const": "workshop",
+					"description": "where it can be made: `workshop` = only at a workbench in a home (the broken song book's repair, research/CAVE.md D4)"
 				}
 			},
 			"required": [
@@ -958,6 +1017,76 @@
 				"members",
 				"owners"
 			]
+		},
+		"HomeScene": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable, snake_case (`cave`, `tatami_room`)"
+				},
+				"name": {
+					"$ref": "#/definitions/Localized"
+				},
+				"image": {
+					"$ref": "#/definitions/HomeSceneMedia",
+					"description": "the room's background, a still (MAP.md §5.1 three-quarter view), language-neutral; the video's poster"
+				},
+				"video": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/HomeSceneMedia"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "An animated background (owner 2026-10-14: \"Die Cave-Hintergründe können auch Videos sein. Animierte kurze Clips\"): a short muted loop (.mp4 / .webm) over the still; reduced motion or a failed load shows the still"
+				}
+			},
+			"required": [
+				"id",
+				"name",
+				"image"
+			],
+			"description": "A home scene (catalog `home_scenes`): what a home looks like – the 2.5D background (images first, 3D later)"
+		},
+		"HomeSceneMedia": {
+			"type": "object",
+			"properties": {
+				"src": {
+					"type": "string"
+				},
+				"variants": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/QualityVariants"
+						},
+						{
+							"type": "null"
+						}
+					]
+				}
+			},
+			"required": [
+				"src"
+			],
+			"description": "A home scene's file at the reader's media quality (media-quality.ts `pickQualityVariant`): `src` = 1080p (low and medium), `variants.high` = 4K (owner 2026-10-14: \"4K und 1080p ist, glaube ich, ausreichend für die Hintergründe\")"
+		},
+		"QualityVariants": {
+			"type": "object",
+			"properties": {
+				"low": {
+					"type": "string"
+				},
+				"medium": {
+					"type": "string"
+				},
+				"high": {
+					"type": "string"
+				}
+			},
+			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		}
 	}
 }

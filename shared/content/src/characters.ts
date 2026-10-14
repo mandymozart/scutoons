@@ -357,6 +357,13 @@ export interface RegistryCharacter {
 	origin?: string;
 	/** the region the character is registered in by default (a `migrate` in the story moves it – the save game) */
 	residence?: string;
+	/**
+	 * The avatar's home (research/CAVE.md D1): a map place id – none = where the character is first introduced in a
+	 * story (the creator suggests it); a missing place is added to the map as a new one
+	 */
+	home?: string;
+	/** what its home looks like: a catalog home scene id (`cave`, `tatami_room`; set per avatar – none = `cave`) */
+	home_scene?: string;
 	/** `regular` first */
 	personas: CharacterPersona[];
 }
@@ -1352,6 +1359,10 @@ export interface CharactersContext {
 	toons?: string[];
 	/** known map region ids (origin, residence – agents/MAP.md §8.10) */
 	regions?: string[];
+	/** known map place ids (home) */
+	places?: string[];
+	/** known home scene ids (home_scene – the catalog) */
+	homeScenes?: string[];
 	file?: string;
 }
 
@@ -1406,6 +1417,8 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 		if (c.tags !== undefined && !(Array.isArray(c.tags) && c.tags.every(isStr))) add('error', [...path, 'tags'], `${who}: tags must be a list of texts`);
 		for (const field of ['origin', 'residence'] as const)
 			if (c[field] !== undefined && (!isStr(c[field]) || !c[field] || (ctx.regions && !ctx.regions.includes(c[field])))) add('warning', [...path, field], `${who}: unknown region "${c[field]}" (${field})`);
+		if (c.home !== undefined && (!isStr(c.home) || (ctx.places && !ctx.places.includes(c.home)))) add('warning', [...path, 'home'], `${who}: the home "${c.home}" is not a place on the map – add it in the map builder`);
+		if (c.home_scene !== undefined && (!isStr(c.home_scene) || (ctx.homeScenes && !ctx.homeScenes.includes(c.home_scene)))) add('warning', [...path, 'home_scene'], `${who}: unknown home scene "${c.home_scene}"`);
 
 		if (c.apose !== undefined) add('error', [...path, 'apose'], `${who}: the A-pose belongs to a look now (look.apose) – the character-level "apose" is gone`);
 

@@ -5,6 +5,7 @@ import type { ItemRespawn } from './respawn.ts';
 import type { FxSoundChoice } from './fx.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 import type { ItemAges, ItemHolds, ScoreFiles } from './containers.ts';
+import type { HomeScene, ItemFurniture } from './homes.ts';
 
 export type Localized = Record<string, string>;
 
@@ -37,8 +38,8 @@ export const AVATAR_SLOTS: AvatarSlot[] = [
 
 export type ItemKind = 'physical' | 'virtual';
 /** `food` = eaten with the `apply` skill ("Essen" instead of "Benutzen"), e.g. the cucumber and the tuna can lower appetite;
- *  `score` = sheet music (`ItemDef.score`, research/SCORES.md) */
-export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food' | 'score';
+ *  `score` = sheet music (`ItemDef.score`, research/SCORES.md); `furniture` = stands in a home (`ItemDef.furniture`, homes.ts) */
+export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food' | 'score' | 'furniture';
 export type GrantSource = 'story' | 'scan';
 /** `gift` = given by another reader (ITEMS.md "Ownership, claims, gifting"; a code-bound gift keeps its code) */
 export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter' | 'gift';
@@ -85,7 +86,12 @@ export interface ApplySkill {
 	type: 'apply';
 }
 
-export type Skill = ScanQrSkill | ScanObjectSkill | MinigameSkill | PlayAudioSkill | ApplySkill;
+/** "Nach Hause" from anywhere – the VR headset (research/CAVE.md D2): enters the reader's home without walking there */
+export interface EnterHomeSkill {
+	type: 'enter_home';
+}
+
+export type Skill = ScanQrSkill | ScanObjectSkill | MinigameSkill | PlayAudioSkill | ApplySkill | EnterHomeSkill;
 
 export interface ItemVariant {
 	id: string;
@@ -189,6 +195,8 @@ export interface ItemDef extends AcceptedWarnings {
 	ages?: ItemAges | null;
 	/** A score's files – MusicXML for the score view, the print PDF (one language per score) */
 	score?: ScoreFiles | null;
+	/** Furniture: its size and picture in a home, a workbench (homes.ts, research/CAVE.md D4) */
+	furniture?: ItemFurniture | null;
 }
 
 /** Can this item be given to another reader? The same rule as the server's `Catalog::giftable`. */
@@ -221,6 +229,8 @@ export interface Recipe {
 	output: RecipePart;
 	/** the recipe's own picture (CDN path, `<toon>/items/recipes/<id>.webp`; owner 2026-10-04) – none = the output item's */
 	image?: string;
+	/** where it can be made: `workshop` = only at a workbench in a home (the broken song book's repair, research/CAVE.md D4) */
+	at?: 'workshop';
 }
 
 /** The item catalog. `accepted_warnings` (here and on items / albums) are the admin's accepted catalog warnings
@@ -234,6 +244,8 @@ export interface Catalog extends AcceptedWarnings {
 	stats?: Record<string, StatDef>;
 	/** the music media items carry (albums.ts), language-neutral */
 	albums?: Album[];
+	/** what homes look like (homes.ts, research/CAVE.md): `cave`, `tatami_room` … */
+	home_scenes?: HomeScene[];
 }
 
 export type EntryId = number | string;
