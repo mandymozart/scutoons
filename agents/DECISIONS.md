@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · admin · Accounts get filters (signed up with which code type / edition / batch, campaign invited / joined, segment) and named segments assigned by hand in Users & roles; a campaign's inviters can be a segment or all matching accounts; promo codes get batches like the editions' – all in the first version of the gift invite campaigns · "segments have one difficulty since promo codes also have segments depending on which batch", "or memebers which are already part of a campaign", "we need filters for these and perhapse also to be able in the users view to assign people to segments" · → research/GIFT-INVITES.md
 - 2026-10-14 · mail · Every new account mails the admin recipients: who signed up and with which code (+ its type), linked to the account · "email notifications if a new member signs up, and which code they used" · → PLATFORM.md "Emails"
 - 2026-10-14 · items · An overfilled DIY book is saved when the reader takes scores out back to 25 within the 3 days · "yes" · → research/SCORES.md §2a
 - 2026-10-14 · items · An overfilled DIY song book breaks into a broken song book (the scores fall out); it can be repaired only at a friend's cave with a workshop (not with a voucher) · "broken song book is good. can be fixed", "or only at a friends cave with a workshop. thats better" · → research/SCORES.md §2a

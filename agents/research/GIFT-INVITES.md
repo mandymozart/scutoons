@@ -51,6 +51,13 @@ mail, an admin sends the member a payment link or the bank details and marks the
 Invites tab – then the invite goes out; not cleared within 30 days, the gift ends. The first version includes physical items
 (owner 2026-10-14).
 
+**1b. Segments, account filters, promo batches (owner 2026-10-14, in the first version).** Account filters for the
+Users list and a campaign's account list: signed up with (product / promo / invite code), owns or signed up with a code
+of an edition or a batch, invited / joined in a campaign, in a segment. Segments = named groups assigned by hand
+(Users & roles: tick accounts → Add to segment). A campaign's inviters: all · chosen · a segment; "all matching" ticks
+every account the filters find (every page). Promo codes get batches like the editions' (qr.batch; a promo batch has
+a name instead of an edition; the runner takes the code type from the batch).
+
 **2. Giving (viewer, the gift form).** The giver enters an address without an account:
 - switch off: today's message ("ask them to sign up first");
 - switch on: a warning in the form, not an error – "There's no SCUTOONS account for this address yet. Invite them? We
