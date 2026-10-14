@@ -29,8 +29,9 @@ The invite carries that code, so the refusal becomes an offer.
 **1. The campaign (admin → Campaigns; owner 2026-10-14: "campaigns are a specially cool thing … we can also use
 them for promo later, but now we need the most basic implementation").** A table `campaigns`: kind (only
 `gift_invite` now – promo can be another kind later), name (admins only), runs from / until (members invite and
-friends accept inside it; outside it the gift form behaves as today), **who may invite** (the newsletter's member
-audiences – members who want news, all members – plus chosen accounts, pasted addresses), **invitees' reading**
+friends accept inside it; outside it the gift form behaves as today), **who may invite** (owner 2026-10-14: a list of
+accounts with a checkbox each and a select-all box that selects every account across all pages – also members who
+join later; "members who want news" is no criterion; member groups / segments can plug in here later), **invitees' reading**
 (*keep reading after the campaign*: whoever joined during it keeps access, overriding the invite code's end – the
 owner's twist; or *until* a date and time, then they need a product), limits (gift waits 30 days but never past the
 end, invites per member per day, one waiting invite per address). **Statistics** from `campaign_invites` (campaign,
@@ -77,7 +78,7 @@ comes back, the invite code stops working.
 ## Open questions for the owner
 
 - ~~Q1 Recall after delivery~~ – answered: only while waiting.
-- ~~Q2 Who may invite~~ – answered: the newsletter's grouping (member audiences + chosen accounts), per campaign.
+- ~~Q2 Who may invite~~ – answered: ticked accounts in a list, select-all = every account (segments later).
 - **Q4 Member gifts: accept first?** "recall only if not accepted" needs an accept step; today member gifts arrive at
   once. Recommended: every gift waits for "Annehmen", recallable until then, back after 30 days.
 - **Q5 Invite without an item?** Recommended: gift only now; a plain invite later as another campaign kind.
