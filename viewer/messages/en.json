@@ -633,6 +633,7 @@
 		"walking": "Walking …",
 		"ride_subway": "Ride the subway here · {price} cucumbers",
 		"ride_tram": "Ride the tram here · {price} cucumber(s)",
+		"ride_train": "Ride the train here · {price} cucumber(s)",
 		"ride_airlift": "Take the creature airlift · {price} cucumbers",
 		"ride_cannot_afford": "You need {price} cucumbers for that."
 	}

@@ -138,7 +138,8 @@
 			"type": "string",
 			"enum": [
 				"subway",
-				"tram"
+				"tram",
+				"train"
 			],
 			"description": "a ride network with lines (research/CAVE.md D8): a route with one is a line, its places the stops (the airlift is a taxi)"
 		}

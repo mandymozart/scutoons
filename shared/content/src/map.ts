@@ -230,8 +230,8 @@ export function placeImageSrcset(variants: QualityVariants | null | undefined, u
 
 export type MapPathStyle = 'road' | 'trail' | 'flight' | 'sea';
 /** a ride network with lines (research/CAVE.md D8): a route with one is a line, its places the stops (the airlift is a taxi) */
-export type MapNetwork = 'subway' | 'tram';
-export const MAP_NETWORKS: MapNetwork[] = ['subway', 'tram'];
+export type MapNetwork = 'subway' | 'tram' | 'train';
+export const MAP_NETWORKS: MapNetwork[] = ['subway', 'tram', 'train'];
 
 export interface MapPath {
 	id: string;
@@ -962,11 +962,12 @@ const round = (n: number) => Math.round(n * 100) / 100;
  * How a route is drawn: one look for every route (owner 2026-10-01: the mode of transport is not part of the story;
  * a stored legacy `style` is ignored)
  */
-export function routeStroke(_style?: MapPathStyle, network?: MapNetwork): { width: number; dash: string; color: string; outline?: string; tension: number; bow: number } {
+export function routeStroke(_style?: MapPathStyle, network?: MapNetwork): { width: number; dash: string; color: string; outline?: string; ties?: { width: number; dash: string }; tension: number; bow: number } {
 	// the ride networks (research/CAVE.md D8): each its own look – the subway bold red, the tram twin rails (a light line
-	// in a dark outline)
+	// in a dark outline), the train a classic railway (a rail over sleepers: a wide dashed stroke underneath)
 	if (network === 'subway') return { width: 7, dash: '', color: '#e03131', outline: '#000', tension: 0.3, bow: 0 };
 	if (network === 'tram') return { width: 2, dash: '', color: '#fff', outline: '#000', tension: 0.3, bow: 0 };
+	if (network === 'train') return { width: 3, dash: '', color: '#000', ties: { width: 11, dash: '2 5' }, tension: 0.3, bow: 0 };
 	return { width: 6, dash: '', color: '#000', tension: 0.3, bow: 0 };
 }
 

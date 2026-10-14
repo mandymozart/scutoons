@@ -67,19 +67,22 @@ test('the walk’s points follow the route, free points included, either directi
 });
 
 test('rides: lines are never walked, a ride stays on its network, changing lines is free', () => {
-	const lines: (RouteLike & { network?: 'subway' | 'tram' })[] = [
+	const lines: (RouteLike & { network?: 'subway' | 'tram' | 'train' })[] = [
 		...routes,
 		{ id: 'u1', network: 'subway', waypoints: [at('home'), at('station')] },
 		{ id: 'u2', network: 'subway', waypoints: [at('station'), at('cathedral')] },
-		{ id: 't1', network: 'tram', waypoints: [at('home'), at('cathedral')] }
+		{ id: 't1', network: 'tram', waypoints: [at('home'), at('cathedral')] },
+		{ id: 'r1', network: 'train', waypoints: [at('station'), at('cathedral')] }
 	];
 	assert.deepEqual(walkPath(lines, state, 'home', 'station', open)?.map((s) => s.place), ['square', 'station'], 'on foot: the road, not the subway');
 	assert.deepEqual(ridePath(lines, state, 'subway', 'home', 'cathedral', open)?.map((s) => s.route), ['u1', 'u2']);
 	assert.deepEqual(ridePath(lines, state, 'tram', 'home', 'cathedral', open)?.map((s) => s.route), ['t1']);
+	assert.deepEqual(ridePath(lines, state, 'train', 'station', 'cathedral', open)?.map((s) => s.route), ['r1']);
+	assert.equal(ridePath(lines, state, 'train', 'home', 'cathedral', open), null, 'no train stop at home');
 	assert.equal(ridePath(lines, state, 'subway', 'home', 'home', open), null, 'no ride to where you are');
 	assert.deepEqual(networksAt(lines, state, 'home', open).sort(), ['subway', 'tram']);
 	assert.deepEqual(networksAt(lines, state, 'square', open), []);
-	assert.deepEqual(RIDE_PRICES, { tram: 1, subway: 1, airlift: 10 });
+	assert.deepEqual(RIDE_PRICES, { tram: 1, subway: 1, train: 1, airlift: 10 });
 });
 
 test('the airlift: a carrier at random, none without a list', () => {

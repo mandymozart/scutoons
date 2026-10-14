@@ -3,7 +3,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The place card's rides (research/CAVE.md D8): a subway / tram line from the stop where the avatar stands, and the
+	 * The place card's rides (research/CAVE.md D8): a subway / tram / train line from the stop where the avatar stands, and the
 	 * creature airlift to anywhere – "Ride the subway here · 1 cucumber". The fare is paid when the ride starts.
 	 */
 	let {
@@ -21,7 +21,7 @@
 	} = $props();
 
 	const label = (n: RideKind) =>
-		({ subway: m['avatar_home.ride_subway'], tram: m['avatar_home.ride_tram'], airlift: m['avatar_home.ride_airlift'] })[n]({ price: RIDE_PRICES[n] });
+		({ subway: m['avatar_home.ride_subway'], tram: m['avatar_home.ride_tram'], train: m['avatar_home.ride_train'], airlift: m['avatar_home.ride_airlift'] })[n]({ price: RIDE_PRICES[n] });
 </script>
 
 {#if networks.length}

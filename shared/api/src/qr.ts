@@ -203,7 +203,7 @@ export function createQrApi(api: ApiClient) {
 		/** an avatar moves into a home (a WG, ≤ 5): 409 home_full / cannot_afford { price } (the mover) */
 		moveIntoHome: (character: string, home_id: string, mover = false) =>
 			api.post<InventoryResult & HomesResult>('/homes/move-in/', { character, home_id, ...(mover ? { mover } : {}) }),
-		/** a ride on the subway / tram / creature airlift: the fare in cucumbers (research/CAVE.md D8) – 409 cannot_afford { price } */
+		/** a ride on the subway / tram / train / creature airlift: the fare in cucumbers (research/CAVE.md D8) – 409 cannot_afford { price } */
 		payRide: (network: string) => api.post<InventoryResult & { network: string; paid: number }>('/map/ride/', { network }),
 		/** a friend's visit link (7 days) */
 		createHomeVisit: (home_id: string) => api.post<{ status: string; token: string; expires_at: string }>('/homes/visits/', { home_id }),

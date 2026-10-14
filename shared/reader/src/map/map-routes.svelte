@@ -74,6 +74,9 @@
 						{#if route.selected}
 							<path class="halo" {d} style:stroke-width="{stroke.width + 8}px" />
 						{/if}
+						{#if stroke.ties}
+							<path class="line" {d} stroke={stroke.color} stroke-dasharray={stroke.ties.dash} style:stroke-width="{stroke.ties.width}px" />
+						{/if}
 						{#if stroke.outline}
 							<path class="line" {d} stroke={stroke.outline} style:stroke-width="{stroke.width + 3}px" />
 						{/if}

@@ -29,7 +29,7 @@ final class Homes
     /** @scutoons/content DEFAULT_HOME_SCENE */
     public const DEFAULT_SCENE = 'cave';
     /** a ride's price in cucumbers (@scutoons/content RIDE_PRICES; owner 2026-10-14: 1 a line ride, the airlift taxi 10) */
-    public const RIDE_PRICES = ['tram' => 1, 'subway' => 1, 'airlift' => 10];
+    public const RIDE_PRICES = ['tram' => 1, 'subway' => 1, 'train' => 1, 'airlift' => 10];
     /** a visit link lives 7 days (research/CAVE.md D6) */
     public const VISIT_DAYS = 7;
 
@@ -152,7 +152,7 @@ final class Homes
     }
 
     /**
-     * POST /api/map/ride { network }: a ride on the subway / tram / creature airlift costs RIDE_PRICES cucumbers
+     * POST /api/map/ride { network }: a ride on the subway / tram / train / creature airlift costs RIDE_PRICES cucumbers
      * (research/CAVE.md D8). Where the avatar rides is map state (synced like walking); the server takes the fare.
      * 400 unknown_network · 409 cannot_afford { price }.
      * @return array{network: string, paid: int}

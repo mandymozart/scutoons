@@ -116,9 +116,9 @@ Owner 2026-10-14: "the rides go along a subway, tram, and special creature airli
 their respecitve map layer"; "YES – build step 2"; "Airlift is going anywhere"; fares "1 cucumber … the airlift (air
 taxi) costs 10 cucumbers"; "the airlift is done by crazy creatures and flying robot taxis – for now completely random
 which one carries you" (all relayed by the session manager).
-- **Subway and tram = lines**: a map route with `network: 'subway' | 'tram'` (drawn in the map builder); its place
+- **Subway, tram and train = lines** (train: owner 2026-10-14): a map route with `network: 'subway' | 'tram' | 'train'` (drawn in the map builder); its place
   waypoints are its stops, changing lines is free, never walked. Shown once the story reveals the route. Each its own
-  look (the subway bold red, the tram twin rails). A ride goes from the stop where the avatar stands to any open stop of
+  look (the subway bold red, the tram twin rails, the train a classic railway – a rail over sleepers). A ride goes from the stop where the avatar stands to any open stop of
   that network – **1 cucumber**.
 - **The creature airlift = a taxi to anywhere**: from wherever the avatar stands to any unlocked place (or its home), no
   lines – **10 cucumbers**. The carrier is **drawn at random per flight** from a list of crazy creatures and flying robot
