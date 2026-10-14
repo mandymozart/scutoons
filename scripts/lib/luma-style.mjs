@@ -32,18 +32,34 @@ export const STYLE = [
 ].join(LF);
 
 /**
- * Colour schemes – one drawn AT RANDOM per image (owner 2026-10-14: "random is necessary"), so a set never shares one
- * house colour; the prompt names it as the object's main colours.
+ * Material and colour schemes – one drawn AT RANDOM per image (owner 2026-10-14: "random is necessary"; "use creative
+ * colors. maybe exotic textures like from a 3d texture library. organics, experimental. or sugar coated. make it fun a
+ * little"), so a set never shares one house look; the prompt names it as the object's surface.
  */
 export const COLOUR_SCHEMES = [
-	'tomato red and cream', 'mint green and warm grey', 'mustard yellow and navy blue', 'bubblegum pink and black',
-	'tangerine orange and teal', 'lavender and silver', 'forest green and brass', 'cobalt blue and coral',
-	'lemon yellow and lilac', 'burgundy and gold', 'sky blue and sunflower yellow', 'olive green and rust orange',
-	'hot magenta and lime', 'chocolate brown and turquoise', 'pearl white and candy red', 'charcoal and neon orange',
-	'peach and seafoam green', 'royal purple and copper', 'pastel blue and peach', 'emerald and black with gold details'
+	'sugar-coated candy glaze in strawberry pink and lemon, with sparkling sugar crystals',
+	'gummy translucent jelly in lime green and cherry red, light glowing through',
+	'iridescent beetle-shell finish shifting from emerald to violet',
+	'soft mossy organic surface in forest greens with tiny lichen speckles',
+	'marbled resin swirls of teal, gold flakes and cream',
+	'colourful terrazzo with chunky chips of coral, mustard and mint on off-white',
+	'chunky knitted wool in tomato red and cream stripes',
+	'glossy lacquered enamel in cobalt blue with chipped white edges',
+	'holographic rainbow foil with crisp reflections',
+	'thick ceramic glaze in burnt orange with drips running down',
+	'speckled stoneware in sand and charcoal',
+	'frosted milk glass in pastel lilac and peach',
+	'glossy liquorice black with neon pink piping',
+	'woven rattan and natural cane with turquoise accents',
+	'brushed copper with verdigris patina',
+	'puffy inflated vinyl in bubblegum pink and sky blue',
+	'chocolate-dipped finish with rainbow sprinkles',
+	'cork and recycled-paper texture with mustard yellow paint',
+	'jade-green polished stone with gold inlays',
+	'glow-in-the-dark plastic in acid yellow-green with purple details'
 ];
 
-/** one colour scheme, drawn at random */
+/** one material / colour scheme, drawn at random */
 export const randomScheme = () => COLOUR_SCHEMES[Math.floor(Math.random() * COLOUR_SCHEMES.length)];
 
 /** an object alone on white, ready to be cut out; `scheme` = its main colours (default: drawn at random) */
@@ -51,7 +67,7 @@ export const objectPrompt = (what, kind = 'ITEM ICON', scheme = randomScheme()) 
 	[
 		`An ${kind} of ${what}.`,
 		STYLE,
-		`THIS OBJECT'S COLOURS: mainly ${scheme} (with natural material colours where the product needs them – metal, paper, glass).`,
+		`THIS OBJECT'S SURFACE: ${scheme} – fun and a little experimental, while the object stays clearly recognisable (natural material where the product needs it to work, e.g. a drill bit's steel, paper pages).`,
 		'The object alone, centred, three-quarter view, filling about 75% of the square, on a plain pure white background (#FFFFFF), no floor, no cast shadow on the background.',
 		'No text, no letters, no logos, no watermark, no frame, no scene.'
 	].join(LF);
