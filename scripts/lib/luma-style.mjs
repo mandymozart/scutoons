@@ -31,11 +31,27 @@ export const STYLE = [
 	'COLOURS AND MATERIALS: give this object its OWN look like a real, general product of its kind – be creative, colourful and a little experimental (unexpected colour combinations, patterned or translucent plastic, enamel, rubber, fabric, metal finishes); do NOT copy the reference images\' colours and do NOT add a cyan accent.'
 ].join(LF);
 
-/** an object alone on white, ready to be cut out */
-export const objectPrompt = (what, kind = 'ITEM ICON') =>
+/**
+ * Colour schemes – one drawn AT RANDOM per image (owner 2026-10-14: "random is necessary"), so a set never shares one
+ * house colour; the prompt names it as the object's main colours.
+ */
+export const COLOUR_SCHEMES = [
+	'tomato red and cream', 'mint green and warm grey', 'mustard yellow and navy blue', 'bubblegum pink and black',
+	'tangerine orange and teal', 'lavender and silver', 'forest green and brass', 'cobalt blue and coral',
+	'lemon yellow and lilac', 'burgundy and gold', 'sky blue and sunflower yellow', 'olive green and rust orange',
+	'hot magenta and lime', 'chocolate brown and turquoise', 'pearl white and candy red', 'charcoal and neon orange',
+	'peach and seafoam green', 'royal purple and copper', 'pastel blue and peach', 'emerald and black with gold details'
+];
+
+/** one colour scheme, drawn at random */
+export const randomScheme = () => COLOUR_SCHEMES[Math.floor(Math.random() * COLOUR_SCHEMES.length)];
+
+/** an object alone on white, ready to be cut out; `scheme` = its main colours (default: drawn at random) */
+export const objectPrompt = (what, kind = 'ITEM ICON', scheme = randomScheme()) =>
 	[
 		`An ${kind} of ${what}.`,
 		STYLE,
+		`THIS OBJECT'S COLOURS: mainly ${scheme} (with natural material colours where the product needs them – metal, paper, glass).`,
 		'The object alone, centred, three-quarter view, filling about 75% of the square, on a plain pure white background (#FFFFFF), no floor, no cast shadow on the background.',
 		'No text, no letters, no logos, no watermark, no frame, no scene.'
 	].join(LF);
