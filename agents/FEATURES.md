@@ -86,7 +86,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   the admin with an optional from / until (a campaign). Plan + Q1–Q3: research/GIFT-INVITES.md.
 - [ ] 10.97 **Scores + song book + score view** – owner 2026-10-14: "special items, called scores … go into a song
   book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
-  on a shared cover; the song book lists owned scores; the score view renders MusicXML (Verovio) with scale + pages,
+  on a shared cover; the song book lists owned scores; the score view renders MusicXML (Verovio, decided) with scale + pages,
   reused by live mode. Plan + open Q2, Q3, Q5: research/SCORES.md.
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.

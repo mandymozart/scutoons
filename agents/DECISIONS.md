@@ -6,6 +6,8 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · mail · Every new account mails the admin recipients: who signed up and with which code (+ its type), linked to the account · "email notifications if a new member signs up, and which code they used" · → PLATFORM.md "Emails"
+- 2026-10-14 · items · The score view renders MusicXML with Verovio (not OpenSheetMusicDisplay); no comparison spike · "go verovio … looks more elaborate" · → research/SCORES.md §4
 - 2026-10-14 · items · A score is always in one language: each language is its own edition (its own item, MusicXML + PDF); the cover shows the title in the score's own language · "a score is always in one language. you want to sing the german version, you get the german edition" · → research/SCORES.md §1
 - 2026-10-14 · items · Score files are protected: the server hands them out only to owners (signed short-lived URLs), not public CDN paths · "we will need a protection for this soon" · → research/SCORES.md §5
 - 2026-10-14 · items · Invite codes are ordinary promo codes (one per invite, linked to it) – no own code type; single use, the accept window and the reading time live in the invite row / the code's expires_at set at joining · "is it really different to promo?" · → research/GIFT-INVITES.md §4

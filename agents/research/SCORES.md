@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1 + Q4 decided, waits for the owner on Q2, Q3, Q5 and the renderer spike; nothing built (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q4 + the renderer (Verovio) decided, waits for the owner on Q2, Q3, Q5; nothing built (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -43,12 +43,9 @@ view, "PDF herunterladen" (the print file).
 - Renderer **Verovio** (`verovio` npm, bundled + lazy-loaded only here – "alles bei uns"): MusicXML in, SVG per page
   out; `scale` and `pageWidth / pageHeight` = the viewport → real pagination with good line / page breaks
   (`breaks: smart`), `getPageCount()`, `renderToSVG(n)`; later `renderToMIDI()` for playback in live mode.
-  The alternative is **OpenSheetMusicDisplay** (OSMD, Phonicscore, Vienna – the engine of their PracticeBird app):
-  MusicXML-native (Verovio converts MusicXML to MEI internally), pure JS on VexFlow, smaller, BSD licence (Verovio:
-  LGPL), a cursor for following along; but endless scroll by default (`pageFormat` gives paper pages, not viewport
-  pages), it lays out the whole score at once instead of one page on demand, and its audio player is for GitHub
-  sponsors only (Verovio's MIDI is free). Decided by a spike: the owner's real MusicXML files in both, phone + desktop,
-  two scales – lyrics, page breaks, load time. pdf.js is out (no reflow).
+  Decided (owner 2026-10-14: "go verovio … looks more elaborate") over OpenSheetMusicDisplay (Phonicscore, Vienna;
+  MusicXML-native, lighter, BSD, but endless scroll first and a sponsors-only audio player); no spike. Verovio is
+  LGPL: its toolkit stays a separate, replaceable file in the bundle. pdf.js is out (no reflow).
 - Controls (less UI): scale − / + as one square group (`sc-seg`, fit-to-width = the default), page n / total with
   ‹ › when it needs more than one page, swipe / arrow keys / PageUp-Down (Bluetooth page-turn pedals send these –
   the live musician gets this for free), "PDF" download, close. Re-renders on resize / rotation, keeps the page.
