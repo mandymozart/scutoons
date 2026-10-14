@@ -52,7 +52,7 @@
 	import Swiper from 'swiper';
 	import 'swiper/css';
 	import { Icon, IconButton } from '@scutoons/ui';
-	import { loadToolkit, type ScoreToolkit } from './verovio.ts';
+	import { cleanMusicXml, loadToolkit, type ScoreToolkit } from './verovio.ts';
 	import ScoreAge from './score-age.svelte';
 
 	/**
@@ -104,7 +104,7 @@
 			.then(([tk, text]) => {
 				if (cancelled) return;
 				toolkit = tk;
-				xml = text;
+				xml = cleanMusicXml(text);
 			})
 			.catch(() => !cancelled && (status = 'failed'));
 		return () => (cancelled = true);
@@ -123,7 +123,14 @@
 
 	// the score, a new size or zoom: lay out again, staying at the bar the page started with
 	$effect(() => {
-		if (toolkit && xml && width && height) layout(toolkit, xml, width, height, zoom);
+		if (!toolkit || !xml || !width || !height) return;
+		try {
+			layout(toolkit, xml, width, height, zoom);
+		} catch {
+			// the renderer gave up on this file: say so instead of loading forever
+			held = null;
+			status = 'failed';
+		}
 	});
 
 	/** Verovio's page units at `zoom` % = the sheet's pixels (its tutorial's way to fit a page to a box) */

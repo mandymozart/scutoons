@@ -23,3 +23,12 @@ export function loadToolkit(): Promise<ScoreToolkit> {
 		});
 	return toolkit;
 }
+
+/**
+ * Repairs what MuseScore exports and Verovio can't take (it aborts inside its engine – a WebAssembly exception):
+ * a chord symbol's added degree with an empty value (`<degree><degree-value></degree-value>…</degree>`, "No He Said"
+ * bar 12). Only that empty addition goes; the chord itself stays. The stored file is never changed.
+ */
+export function cleanMusicXml(xml: string): string {
+	return xml.replace(/<degree>\s*<degree-value>\s*<\/degree-value>[\s\S]*?<\/degree>/g, '');
+}
