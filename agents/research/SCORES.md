@@ -102,6 +102,7 @@ score is placed with "Place an item …".
   inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
 - **Q10 sizes:** sizes as their own items with their own capacity (recommended), or size variants of one item (then
   each variant carries its `max`)? And the capacities: the basic book, the DIY book, the sizes.
+
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
    catalog columns if needed (CATALOG.md) and the inventory's `in`.
