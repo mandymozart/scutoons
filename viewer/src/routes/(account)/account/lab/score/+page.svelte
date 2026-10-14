@@ -9,7 +9,11 @@
 	const isDev = import.meta.env.DEV;
 	const SCORES = [
 		{ id: 'cloud9-en', title: 'Cloud 9' },
-		{ id: 'likeababy-en', title: 'Like A Baby' }
+		{ id: 'likeababy-en', title: 'Like A Baby' },
+		{ id: 'nohesaid-en', title: 'No He Said' },
+		{ id: 'notmycity-en', title: 'Not My City' },
+		{ id: 'oncetwicethrice-en', title: 'Once, Twice, Thrice' },
+		{ id: 'roarlittlekitty-en', title: 'Roar Little Kitty' }
 	];
 	const DIY_AGES = { tint_days: 14, spots_days: 30, full_days: 90 };
 	let open = $state<(typeof SCORES)[number] | null>(SCORES[0]);
