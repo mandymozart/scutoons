@@ -7,7 +7,9 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Codes\CodeRules;
+use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Codes\CodeService;
+use Scutoons\Domain\Homes\Homes;
 use Scutoons\Domain\Inventory\Containers;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Domain\Ownership\Gifts;
@@ -20,7 +22,8 @@ use Scutoons\Http\Middleware\JsonBody;
 /**
  * Signed-in inventory actions (Bearer):
  *   POST /api/inventory/claim/   { code, item_id?, variant? } → { status, claimed: "new"|"already_yours", code, inventory }
- *   POST /api/inventory/craft/   { recipe_id, use?: { <item id>: <entry id> } } → { status, recipe_id, inventory }
+ *   POST /api/inventory/craft/   { recipe_id, use?: { <item id>: <entry id> }, workshop?: { home } | { visit } } → { status, recipe_id, inventory }
+ *                                (a recipe `at: "workshop"` needs a workbench there – 409 needs_workshop; research/CAVE.md D4)
  *   POST /api/inventory/move/    { entry_id, into: <container entry id> | null, overfill? } → { status, inventory } (containers, research/SCORES.md)
  *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
  *   POST /api/inventory/take/    { item_id, qty?, ref? } → { status, taken, reason: null|too_few|already_taken, inventory } (a story takes – BACKLOG 10.38)
@@ -39,6 +42,8 @@ final class InventoryController
         private readonly Gifts $gifts,
         private readonly OwnershipTransfers $transfers,
         private readonly Containers $containers,
+        private readonly Catalog $catalog,
+        private readonly Homes $homes,
     ) {
     }
 
@@ -93,6 +98,10 @@ final class InventoryController
     {
         $body = JsonBody::of($request);
         $user = CurrentSession::of($request)->requireUser();
+        $wanted = is_string($body['recipe_id'] ?? null) ? $this->catalog->recipe($body['recipe_id']) : null;
+        if (($wanted['at'] ?? null) === 'workshop' && !$this->homes->workshopAt((string) $user['id'], $body['workshop'] ?? null)) {
+            throw new ApiError(409, 'needs_workshop', 'This can only be made at a workbench.');
+        }
         $recipe = $this->inventory->craft((string) $user['id'], $body['recipe_id'] ?? null, $body['use'] ?? null);
         return Json::response($response, 200, ['status' => 'success', 'recipe_id' => $recipe['id'], 'inventory' => $this->inventory->entries((string) $user['id'])]);
     }

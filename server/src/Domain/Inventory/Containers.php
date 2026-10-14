@@ -58,6 +58,7 @@ final class Containers
         if ($holds === null) throw new ApiError(409, 'not_a_container', 'That is not a container.');
         $item = $this->catalog->item((string) $entry['item_id']) ?? [];
         if (($item['holds'] ?? null) !== null) throw new ApiError(409, 'container_in_container', 'A container cannot go into a container.');
+        if (($entry['home_id'] ?? null) !== null) throw new ApiError(409, 'furniture_stays', 'It stands in your home – furniture stays there.');
         if (!in_array($item['category'] ?? null, (array) ($holds['categories'] ?? []), true) && !in_array($entry['item_id'], (array) ($holds['items'] ?? []), true)) {
             throw new ApiError(409, 'does_not_fit', 'This does not fit in there.');
         }

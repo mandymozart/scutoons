@@ -657,5 +657,9 @@
       "cover": "catpope/s1/s1-music-vinyl.webp",
       "access": { "download": "members", "listen": "owners" }
     }
+  ],
+  "home_scenes": [
+    { "id": "cave", "name": { "de": "Höhle", "en": "Cave" }, "image": { "src": "" } },
+    { "id": "tatami_room", "name": { "de": "Tatami-Zimmer", "en": "Tatami room" }, "image": { "src": "" } }
   ]
 }

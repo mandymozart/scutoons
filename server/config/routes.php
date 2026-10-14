@@ -59,6 +59,7 @@ use Scutoons\Http\Controllers\NewsletterController;
 use Scutoons\Http\Controllers\NotFoundController;
 use Scutoons\Http\Controllers\PageNotFoundController;
 use Scutoons\Http\Controllers\ProductsController;
+use Scutoons\Http\Controllers\HomesController;
 use Scutoons\Http\Controllers\ProgressController;
 use Scutoons\Http\Controllers\StockistsController;
 use Scutoons\Http\Controllers\ValidateController;
@@ -168,6 +169,13 @@ return static function (App $app): void {
     $app->post('/api/effects/end', [InventoryController::class, 'endEffect']);
     // Ownership + gifting (agents/ITEMS.md "Ownership, claims, gifting"): gift an item to another reader, the "you
     // received" notices, ownership claims ("This is mine") with optional evidence files
+    // the avatar's home (agents/research/CAVE.md): furniture, the WG + mover, a friend's visit link
+    $app->get('/api/homes', [HomesController::class, 'list']);
+    $app->post('/api/homes/place', [HomesController::class, 'place']);
+    $app->post('/api/homes/move-in', [HomesController::class, 'moveIn']);
+    $app->post('/api/homes/visits', [HomesController::class, 'createVisit']);
+    $app->delete('/api/homes/visits/{token:[A-Za-z0-9_-]{16,64}}', [HomesController::class, 'revokeVisit']);
+    $app->get('/api/homes/visit/{token:[A-Za-z0-9_-]{16,64}}', [HomesController::class, 'visit']);
     $app->post('/api/inventory/gift', [InventoryController::class, 'gift']);
     $app->post('/api/inventory/received/seen', [InventoryController::class, 'seen']);
     // gift invites while a campaign runs (agents/research/GIFT-INVITES.md): someone without an account gets an invite

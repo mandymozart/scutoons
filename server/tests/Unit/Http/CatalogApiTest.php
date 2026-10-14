@@ -73,7 +73,7 @@ final class CatalogApiTest extends TestCase
     {
         // the migrated tables = the fixture's files (+ slots / stats, which are code), decoded as arrays, the API's flags
         $file = json_decode(self::config('items.json'), true);
-        $items = Json::encode(['version' => $file['version'], 'slots' => AvatarSlots::ALL, 'items' => $file['items'], 'recipes' => $file['recipes'], 'albums' => $file['albums'], 'stats' => ReaderStats::DEFINITIONS]);
+        $items = Json::encode(['version' => $file['version'], 'slots' => AvatarSlots::ALL, 'items' => $file['items'], 'recipes' => $file['recipes'], 'albums' => $file['albums'], 'stats' => ReaderStats::DEFINITIONS, 'home_scenes' => $file['home_scenes']]);
         self::assertSame($items, (string) $this->request('GET', '/api/items/')->getBody());
         self::assertSame(json_decode($items, true), self::json($this->request('GET', '/api/items/items.json')), 'the old file URL');
         self::assertSame(Json::encode(json_decode(self::config('editions.json'), true)), (string) $this->request('GET', '/api/editions/')->getBody());

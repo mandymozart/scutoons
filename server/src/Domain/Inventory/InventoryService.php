@@ -60,6 +60,8 @@ final class InventoryService
             'in' => $row['container_id'] ?? null,
             'overfilled_at' => Time::iso($row['overfilled_at'] ?? null),
             'aged_since' => Time::iso($row['aged_since'] ?? null),
+            // furniture standing in a home (research/CAVE.md D4): the home, its foot in % of the room, mirrored
+            'home' => ($row['home_id'] ?? null) !== null ? ['id' => $row['home_id'], 'x' => (float) $row['home_x'], 'y' => (float) $row['home_y'], 'flip' => (bool) $row['home_flip']] : null,
         ];
     }
 
@@ -170,15 +172,16 @@ final class InventoryService
         return (int) $this->db->value('SELECT COUNT(DISTINCT user_id) FROM inventory WHERE item_id = ? AND qty > 0', [$item['id']]) >= $max;
     }
 
+    /** What the reader carries of an item – furniture standing in a home doesn't count (it stays there, CAVE.md D4) */
     public function count(string $userId, string $itemId): int
     {
-        return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ?', [$userId, $itemId]);
+        return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ? AND home_id IS NULL', [$userId, $itemId]);
     }
 
     /** What `remove` may consume: the pieces without a code (a code-bound piece is physical – it never disappears) */
     public function consumable(string $userId, string $itemId): int
     {
-        return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ? AND code IS NULL', [$userId, $itemId]);
+        return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ? AND code IS NULL AND home_id IS NULL', [$userId, $itemId]);
     }
 
     /**
@@ -187,7 +190,7 @@ final class InventoryService
      */
     public function remove(string $userId, string $itemId, int $qty): void
     {
-        $rows = $this->db->all('SELECT id, qty FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0 AND code IS NULL ORDER BY acquired_at, id', [$userId, $itemId]);
+        $rows = $this->db->all('SELECT id, qty FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0 AND code IS NULL AND home_id IS NULL ORDER BY acquired_at, id', [$userId, $itemId]);
         foreach ($rows as $row) {
             if ($qty <= 0) break;
             $take = min($qty, (int) $row['qty']);
@@ -273,8 +276,8 @@ final class InventoryService
      */
     private function pick(string $userId, string $itemId, ?string $entryId, int $qty): ?array
     {
-        if ($entryId === null) return $this->db->one('SELECT * FROM inventory WHERE user_id = ? AND item_id = ? AND code IS NULL AND qty > 0 ORDER BY acquired_at, id LIMIT 1', [$userId, $itemId]);
-        $row = $this->db->one('SELECT * FROM inventory WHERE id = ? AND user_id = ? AND item_id = ? AND code IS NULL AND qty > 0', [$entryId, $userId, $itemId]);
+        if ($entryId === null) return $this->db->one('SELECT * FROM inventory WHERE user_id = ? AND item_id = ? AND code IS NULL AND home_id IS NULL AND qty > 0 ORDER BY acquired_at, id LIMIT 1', [$userId, $itemId]);
+        $row = $this->db->one('SELECT * FROM inventory WHERE id = ? AND user_id = ? AND item_id = ? AND code IS NULL AND home_id IS NULL AND qty > 0', [$entryId, $userId, $itemId]);
         if (!$row || (int) $row['qty'] < $qty) throw new ApiError(422, 'missing_inputs', 'Some ingredients are missing.', ['missing' => [['item' => $itemId, 'qty' => $qty]]]);
         return $row;
     }

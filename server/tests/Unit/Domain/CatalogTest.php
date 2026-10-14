@@ -55,7 +55,7 @@ final class CatalogTest extends TestCase
     private static function servedItemsBefore(): string
     {
         $file = json_decode(self::config('items.json'), true);
-        $before = ['version' => $file['version'], 'slots' => AvatarSlots::ALL, 'items' => $file['items'], 'recipes' => $file['recipes'], 'albums' => $file['albums'], 'stats' => ReaderStats::DEFINITIONS];
+        $before = ['version' => $file['version'], 'slots' => AvatarSlots::ALL, 'items' => $file['items'], 'recipes' => $file['recipes'], 'albums' => $file['albums'], 'stats' => ReaderStats::DEFINITIONS, 'home_scenes' => $file['home_scenes']];
         return Json::encode($before);
     }
 

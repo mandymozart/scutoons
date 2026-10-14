@@ -172,6 +172,7 @@ final class Gifts
     {
         $entry = $this->db->one('SELECT * FROM inventory WHERE id = ? AND user_id = ? AND qty > 0 FOR UPDATE', [$entry['id'], $giverId])
             ?? throw new ApiError(404, 'not_found', 'This item is not in your inventory.');
+        if (($entry['home_id'] ?? null) !== null) throw new ApiError(409, 'furniture_stays', 'It stands in your home – furniture stays there.');
         $worn = $this->db->value('SELECT 1 FROM avatar_slots WHERE user_id = ? AND entry_id = ? LIMIT 1', [$giverId, $entry['id']]) !== null;
         $free = (int) $entry['qty'] - ($worn ? 1 : 0);
         if ($free < 1) throw new ApiError(409, 'worn', 'Take it off first.');

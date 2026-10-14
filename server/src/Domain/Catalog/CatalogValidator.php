@@ -26,6 +26,8 @@ final class CatalogValidator
     public const PERMISSION_ID_PATTERN = '#^[A-Za-z0-9][A-Za-z0-9_:.-]{0,99}$#';
     public const ALBUM_ID_PATTERN = '#^[a-z0-9][a-z0-9_]{0,63}$#';
     public const MEDIA_FORMATS = ['vinyl', 'tape', 'cd'];
+    /** furniture.size bounds – % of the room's front width (@scutoons/content homes.ts FURNITURE_SIZE_MIN / _MAX) */
+    public const FURNITURE_SIZE = [5, 60];
     /** the reader's effect sounds (@scutoons/content fx.ts FX_SOUNDS – CatalogTest keeps them equal): an item's pickup sound */
     /** the reader effects an item can start (@scutoons/content substances.ts READER_EFFECTS – CatalogTest keeps them equal) */
     public const READER_EFFECTS = ['psychedelic', 'haze'];
@@ -71,6 +73,7 @@ final class CatalogValidator
             'items' => $this->item($id, $data),
             'recipes' => $this->recipe($data),
             'albums' => self::album($data),
+            'home-scenes' => self::homeScene($data),
             'products' => $this->product($data),
             'editions' => self::edition($data),
             'featured' => $this->featured($id, $data),
@@ -228,7 +231,51 @@ final class CatalogValidator
         if ($hasFormat && !in_array($item['format'], self::MEDIA_FORMATS, true)) $p[] = "$id: format must be one of " . implode(', ', self::MEDIA_FORMATS);
         if ($hasAlbum && !is_array($this->store->get('albums', (string) self::show($item['album'])))) $p[] = "$id: unknown album \"" . self::show($item['album']) . '"';
         if ($hasAlbum !== $hasFormat) $p[] = "$id: a media item needs both album and format";
-        return [...$p, ...self::container($id, $item, $items)];
+        return [...$p, ...self::container($id, $item, $items), ...self::furniture($id, $item)];
+    }
+
+    /**
+     * Furniture (@scutoons/content homes.ts `validateHomes`, research/CAVE.md D4): `furniture: { size 5–60 (% of the
+     * room's front width), image, workshop? }` with the category `furniture`, never stackable.
+     *
+     * @param array<string, mixed> $item
+     * @return list<string>
+     */
+    private static function furniture(string $id, array $item): array
+    {
+        $p = [];
+        $f = $item['furniture'] ?? null;
+        if ($f !== null) {
+            $size = is_array($f) ? ($f['size'] ?? null) : null;
+            if (!is_array($f) || array_is_list($f) || !(is_int($size) || is_float($size)) || $size < self::FURNITURE_SIZE[0] || $size > self::FURNITURE_SIZE[1]) {
+                $p[] = "$id: furniture must be { size: " . implode('–', self::FURNITURE_SIZE) . " (% of the room's width), image, workshop? }";
+            } else {
+                if (($f['image'] ?? null) !== null && !is_string($f['image'])) $p[] = "$id: furniture.image must be a path";
+                if (array_key_exists('workshop', $f) && !is_bool($f['workshop'])) $p[] = "$id: furniture.workshop must be true or false";
+            }
+            if (($item['stackable'] ?? false) === true) $p[] = "$id: furniture can't be stackable (each piece stands on its own)";
+        } elseif (($item['category'] ?? null) === 'furniture') {
+            $p[] = "$id: the category \"furniture\" needs furniture { size, image }";
+        }
+        return $p;
+    }
+
+    /**
+     * A home scene (homes.ts HomeScene): { id, name, image: { src, variants? }, video?: { src: .mp4 / .webm, variants? } }
+     *
+     * @param array<string, mixed> $scene
+     * @return list<string>
+     */
+    private static function homeScene(array $scene): array
+    {
+        $p = [];
+        $id = (string) self::show($scene['id'] ?? '');
+        if (!self::text($scene['name'] ?? null)) $p[] = "$id: name must be a text or { <locale>: text }";
+        $media = fn(mixed $m) => is_array($m) && is_string($m['src'] ?? null) && (($m['variants'] ?? null) === null || is_array($m['variants']));
+        if (!$media($scene['image'] ?? null)) $p[] = "$id: image must be { src, variants? } (src may be empty until the picture is there)";
+        $video = $scene['video'] ?? null;
+        if ($video !== null && !($media($video) && preg_match('/\.(mp4|webm)$/i', $video['src']))) $p[] = "$id: video must be { src: an .mp4 / .webm path, variants? }";
+        return $p;
     }
 
     /**
@@ -306,6 +353,8 @@ final class CatalogValidator
         if ($from !== null && !in_array($from, array_map(fn($i) => is_array($i) ? ($i['item'] ?? null) : null, is_array($inputs) ? $inputs : []), true)) $p[] = 'output: variant_from must name one of the inputs';
         // the recipe's own picture (owner 2026-10-04), optional – without it readers see the output item's picture
         if (($recipe['image'] ?? null) !== null && !(is_string($recipe['image']) && preg_match('/\.(png|webp|avif|svg)$/i', $recipe['image']))) $p[] = 'image must be an image path (.webp / .png / .avif / .svg)';
+        // research/CAVE.md D4: made only at a workbench in a home (the broken song book's repair)
+        if (($recipe['at'] ?? null) !== null && $recipe['at'] !== 'workshop') $p[] = 'at can only be "workshop"';
         return $p;
     }
 

@@ -121,6 +121,23 @@ Built: the catalog model and the server (2026-10-14); the admin fields and the r
 - Recipes: an input with `keep: true` stays (a tool – at least one input is used up); `output.variant_from: <input>`
   gives the output that input's variant.
 
+### Homes and furniture (model + server, 2026-10-14 – research/CAVE.md, FEATURES 10.98)
+
+`@scutoons/content` homes.ts (validated in `validateHomes` and the server's `CatalogValidator`); server
+`Domain\Homes\Homes`, migration `2026-10-14-homes`. The reader UI and the walking mode follow.
+- Catalog `home_scenes` (admin kind `home-scenes`, served in `GET /api/items/`): `{ id, name, image: { src, variants },
+  video? }` – 1080p `src`, 4K `variants.high`, a video loop optional; first rows `cave`, `tatami_room` (no pictures yet).
+- `furniture: { size 5–60 (% of a 4 m room front), image, workshop? }` on a `category: "furniture"` item (never
+  stackable); a recipe `at: "workshop"` needs a workbench (`POST /api/inventory/craft` `workshop: { home } | { visit }`,
+  409 needs_workshop). Skill `enter_home` = the VR headset.
+- Character: `home` (map place), `home_scene` (none = `cave`). `MapState.avatar` = the reader's avatar on the map
+  (merged newest-first, a reset sends it home); `walkPath` = the walk along visible routes between open places.
+- Server: `homes` (one per reader + place, made for every unlocked avatar with a home place), `home_residents` (a WG,
+  ≤ 5), `inventory.home_id / home_x / home_y / home_flip` (furniture stays; entries answer `home: { id, x, y, flip }`;
+  placed furniture doesn't count as carried – no recipes, gifts or containers), `home_visits` (7-day links).
+  `GET /api/homes`, `POST /api/homes/place`, `POST /api/homes/move-in` { character, home_id, mover? } (the mover:
+  50 cucumbers, takes the old home's furniture along), `POST|DELETE /api/homes/visits`, `GET /api/homes/visit/{token}`.
+
 ## Collectables removed – items are the only concept (U, 2026-09-30)
 
 The old VN inventory ("collectables": `<toon>/<locale>/collectables.json`, `Collectable`/`CollectableRef` types, the

@@ -229,6 +229,15 @@ final class ProgressService
             if ($pick !== null) $residences->{$who} = $pick;
         }
         if (get_object_vars($residences)) $out->residences = $residences;
+        // the reader's own avatar (research/CAVE.md D1 – the walking mode): the newer position, unless a reset came after it
+        $avatar = null;
+        foreach ([$a, $b] as $state) {
+            $p = $state instanceof stdClass && ($state->avatar ?? null) instanceof stdClass ? $state->avatar : null;
+            $at = $num($p, 'at');
+            $where = $p !== null && (is_string($p->location ?? null) || (is_string($p->route ?? null) && is_string($p->waypoint ?? null)));
+            if ($where && $at !== null && $at >= $resetAt && ($avatar === null || $at > $num($avatar, 'at'))) $avatar = $p;
+        }
+        if ($avatar !== null) $out->avatar = $avatar;
         return $out;
     }
 

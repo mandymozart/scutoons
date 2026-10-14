@@ -27,7 +27,7 @@ final class Catalog
 
     /**
      * @return array<string, mixed> the whole catalog as served by GET /api/items/: { version, slots, items, recipes,
-     *   albums, stats } (the order of the old file)
+     *   albums, stats, home_scenes } (the order of the old file; home scenes – research/CAVE.md)
      */
     public function data(): array
     {
@@ -42,6 +42,7 @@ final class Catalog
                 'recipes' => $this->store->list('recipes'),
                 'albums' => $this->store->list('albums'),
                 'stats' => ReaderStats::DEFINITIONS,
+                'home_scenes' => $this->store->list('home-scenes'),
             ];
         }
         return $this->data;

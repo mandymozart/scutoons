@@ -25,6 +25,8 @@ final class CatalogStore
         'items' => ['table' => 'catalog_items', 'columns' => ['toon' => 'toon', 'edition_id' => 'edition_id'], 'label' => 'item', 'data_id' => true],
         'recipes' => ['table' => 'catalog_recipes', 'columns' => [], 'label' => 'recipe', 'data_id' => true],
         'albums' => ['table' => 'catalog_albums', 'columns' => ['toon' => 'toon'], 'label' => 'album', 'data_id' => true],
+        // what homes look like (research/CAVE.md, migration 2026-10-14-homes)
+        'home-scenes' => ['table' => 'catalog_home_scenes', 'columns' => [], 'label' => 'home-scene', 'data_id' => true],
         'products' => ['table' => 'catalog_products', 'columns' => ['toon' => 'toon', 'item_id' => 'item_id', 'edition_id' => 'edition_id'], 'label' => 'product', 'data_id' => true],
         'editions' => ['table' => 'catalog_editions', 'columns' => ['toon' => 'toon'], 'label' => 'edition', 'data_id' => true],
         'featured' => ['table' => 'catalog_featured', 'columns' => ['product_id' => 'product', 'variant_id' => 'variant'], 'label' => 'featured', 'data_id' => false],
