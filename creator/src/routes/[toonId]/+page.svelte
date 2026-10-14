@@ -143,11 +143,6 @@
 		index.setLocal(NEUTRAL_LOCALE, ['languages'], next.languages, 'languages');
 	}
 
-	function setSource(source: Language) {
-		if (!edited) return;
-		setLanguages(source, [source, ...edited.languages]);
-	}
-
 	function addTarget() {
 		if (!edited || !addLanguage) return;
 		setLanguages(edited.source, [...edited.languages, addLanguage as Language]);
@@ -368,7 +363,7 @@
 			<!-- the content first (BACKLOG 10.50 h): the chapters, then the toon's languages (set up once, rarely changed) -->
 			{#if index && !index.loading && edited}
 				<!-- owner 2026-10-12: the languages in one row of chips (set up once, rarely changed): the source filled, the
-				     translations with ★ (make it the source) and ×, an "add" select at the end -->
+				     translations with × (owner 2026-10-14: the source is changed on the script page – the ultimate source), an "add" select at the end -->
 				<section class="languages" data-testid="languages">
 					<span class="sc-label">{m['creator.languages']()}</span>
 					<ul class="chips">
@@ -376,7 +371,6 @@
 						{#each targets as l (l)}
 							<li class="sc-chip-control" data-testid="language-{l}">
 								{languageLabel(l)}
-								<button class="ghost" title={m['creator.make_source']({ locale: l })} aria-label={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}><Icon name="star" size="0.9em" /></button>
 								<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
 							</li>
 						{/each}
