@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · cave · Furniture has sizes: `furniture.size` (width in % of a 4 m room front) + its own home image next to the icon (one render, workflows/home/furniture.md); depth scaling, front covers back, a mirror to turn; the mover is built now (super basic); the build order is the agent's call · "important the furniture items should have different sizes. right?", "i guess item is different than the imag that will be placed", "order is okay, as you see fit. move on", "built the mover now too. super basic" · → research/CAVE.md "Data model"
 - 2026-10-14 · agents · Agents may restart their own session's SCUTOONS MCP server themselves (only their own, never another session's) · "i allow you to do it. yourself", "restart the mcp", "when ever give all agents that rule for this project" · → RULES.md "Dev setup", GOTCHAS.md
 - 2026-10-14 · items · Score items show the full score for now; turning parts off comes only with performance groups (live mode), not in this feature · "all scores for now", "to turn of parts of a score will only be possible once we have performance groups. this is not part of this" · → research/SCORES.md §6a, research/LIVE.md
 - 2026-10-14 · cave · The racks (CD rack, cassette rack, record shelf) hold at most 50 each for now · "what rack? the cd and vinyl? most 50 for the moment" · → research/CAVE.md D4

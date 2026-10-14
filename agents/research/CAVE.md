@@ -56,8 +56,8 @@ character's home for this reader (reader state, the character's default `home` s
 (owner 2026-10-14: "yes, furniture stays behind") – it belongs to the home, not to the avatar – **unless you can afford
 a mover** (owner 2026-10-14: "unless they can afford a mover"): a paid move – **50 cucumbers** for now (owner 2026-10-14: "the price is 50 cucumbers for now") – takes the
 moving avatar's furniture along into the new home (the one exception to D4's "furniture can't leave its home") –
-**not required for the first build, may come
-along** (owner 2026-10-14: "which we dont have to build yet", "but hey why not"). Every avatar starts there. It walks only along **revealed routes to unlocked
+**built with the first build, super basic** (owner
+2026-10-14: "built the mover now too. super basic"). Every avatar starts there. It walks only along **revealed routes to unlocked
 places** (no spoilers – the fog of war stays the story's); tap a place → "Hingehen" / "Walk here" → the marker walks the
 shortest revealed path (the existing marker animation, ≈ 1.2 s per segment); no path → no button. The position is
 world-wide reader state next to the map state (MAP.md §2.4: `MapState.avatar: { location } | { route, waypoint }`),
@@ -119,12 +119,15 @@ Catalog / content (edited in the admin / creator):
   introduction, D1) and `home_scene: <home scene id>` (set per avatar, owner 2026-10-14; until a character has one: `cave`).
 - **Furniture item** (ItemDef): `category: "furniture"`; racks carry `holds` (ITEMS.md "Containers"); the workbench
   `workshop: true`; recipes `at?: "workshop"` (run only at a workbench).
-- **Furniture size – proposal, waits for the owner's yes** (owner 2026-10-14: "important the furniture items should
-  have different sizes. right?"): `ItemDef.furniture: { size: number }` – the width in % of the room's width at the
-  front edge (a CD rack 12, a cassette rack 10, a record shelf 22, the workbench 32, a sofa 40); the height follows the
-  icon's own proportions. In the home: drawn at its foot point (where it was placed), **smaller further back** (depth:
-  65 % at the back wall's foot … 100 % at the front), and what stands further front covers what stands behind (also
-  the avatar). One number per item, relative to the room – the same in every home scene; no rotation, no collisions.
+- **Furniture size + home image** (owner 2026-10-14: "important the furniture items should have different sizes.
+  right?", "i guess item is different than the imag that will be placed"; "as you see fit"): `ItemDef.furniture:
+  { size: number, image: string }` – `size` = the width in % of the room's width at the front edge (the room = 4 m:
+  size = metres ÷ 4 × 100 – a CD rack 12, a record shelf 20, the workbench 35, a sofa 45); `image` = the piece as it
+  stands in a home (three-quarter view, back to the left wall, its foot at the bottom), next to the item's `icon`
+  (inventory) – both from one render: workflows/home/furniture.md (the Luma brief). In the home: drawn at its foot
+  point, **smaller further back** (65 % at the back wall's foot … 100 % at the front), what stands further front covers
+  what stands behind (the avatar too); "Turn" mirrors it (for the right wall – `inventory.home_flip`). The same numbers
+  in every home scene; no rotation beyond the mirror, no collisions.
 - **VR headset** (ItemDef): skill `{ type: "enter_home" }`.
 
 Reader state (server tables for members; the same shape in localStorage for guests, imported at sign-in):
@@ -132,12 +135,12 @@ Reader state (server tables for members; the same shape in localStorage for gues
   home is first needed: `place` / `scene` from the character).
 - **`home_residents`** `{ home_id, character }` (unique per user + character) – who lives where; at most 5 per home
   (the WG); a character without a row lives in its own home (created on demand).
-- **Furniture in a home**: `inventory.home_id` + `home_x`, `home_y` (% of the room); set when placed, never null again (furniture can't
+- **Furniture in a home**: `inventory.home_id` + `home_x`, `home_y` (% of the room, the foot point), `home_flip`; set when placed, never null again (furniture can't
   leave a home – D4) – only a mover changes `home_id` (paid, D1 – later); its contents keep `inventory.container_id`.
 - **Avatar position**: `MapState.avatar: { location } | { route, waypoint }` (MAP.md §2.4, world-wide game state).
 - **`home_visits`** `{ token, home_id, expires_at, revoked_at }` – the friend's visit link (D6).
 
 ## Open for the owner
-- Later: the mover's form (a service in the home, or an item).
+- The mover's form: proposed a button "Move in with … (mover, 50 cucumbers)" on the move-in dialog – no item.
 - "cave can go step two": read as "design the open points now". If it means the home itself moves to step two (walking
   first, then the home with the rides), the order changes – the owner says which.
