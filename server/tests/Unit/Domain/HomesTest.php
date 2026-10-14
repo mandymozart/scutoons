@@ -174,6 +174,17 @@ final class HomesTest extends TestCase
         self::assertSame(['cave', 'tatami_room'], array_column($this->get(\Scutoons\Domain\Catalog\Catalog::class)->data()['home_scenes'], 'id'));
     }
 
+    public function testARideCostsItsFareInCucumbers(): void
+    {
+        $this->refused('cannot_afford', fn() => $this->homes->ride($this->id, 'subway'));
+        $this->inventory->add($this->id, 'cucumber', null, 3, 'story');
+        self::assertSame(['network' => 'subway', 'paid' => 2], $this->homes->ride($this->id, 'subway'));
+        self::assertSame(1, $this->inventory->count($this->id, 'cucumber'));
+        self::assertSame(['network' => 'tram', 'paid' => 1], $this->homes->ride($this->id, 'tram'));
+        $this->refused('cannot_afford', fn() => $this->homes->ride($this->id, 'airlift'));
+        $this->refused('unknown_network', fn() => $this->homes->ride($this->id, 'bus'));
+    }
+
     public function testTheAvatarPositionMergesNewestFirstAndAResetSendsItHome(): void
     {
         $state = fn(int $at, string $where, ?int $reset = null) => json_decode((string) json_encode(['places' => (object) [], 'routes' => (object) [], 'positions' => (object) [], 'avatar' => ['location' => $where, 'at' => $at]] + ($reset !== null ? ['resetAt' => $reset] : [])));

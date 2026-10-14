@@ -28,6 +28,8 @@ final class Homes
     public const MOVER_PRICE = ['item' => 'cucumber', 'qty' => 50];
     /** @scutoons/content DEFAULT_HOME_SCENE */
     public const DEFAULT_SCENE = 'cave';
+    /** a ride's price in cucumbers per network (@scutoons/content RIDE_PRICES; research/CAVE.md D8 – proposed) */
+    public const RIDE_PRICES = ['tram' => 1, 'subway' => 2, 'airlift' => 3];
     /** a visit link lives 7 days (research/CAVE.md D6) */
     public const VISIT_DAYS = 7;
 
@@ -147,6 +149,23 @@ final class Homes
             if ($to['id'] === $this->ownHomeId($userId, $character)) $this->db->run('DELETE FROM home_residents WHERE user_id = ? AND character_id = ?', [$userId, $character]);
             else $this->db->run('REPLACE INTO home_residents (user_id, character_id, home_id, moved_at) VALUES (?, ?, ?, ?)', [$userId, $character, $to['id'], $this->clock->utc()]);
         });
+    }
+
+    /**
+     * POST /api/map/ride { network }: a ride on the subway / tram / creature airlift costs RIDE_PRICES cucumbers
+     * (research/CAVE.md D8). Where the avatar rides is map state (synced like walking); the server takes the fare.
+     * 400 unknown_network · 409 cannot_afford { price }.
+     * @return array{network: string, paid: int}
+     */
+    public function ride(string $userId, mixed $network): array
+    {
+        if (!is_string($network) || !isset(self::RIDE_PRICES[$network])) throw new ApiError(400, 'unknown_network', 'Unknown network.', ['networks' => array_keys(self::RIDE_PRICES)]);
+        $price = self::RIDE_PRICES[$network];
+        $this->db->transaction(function () use ($userId, $price) {
+            if ($this->inventory->consumable($userId, self::MOVER_PRICE['item']) < $price) throw new ApiError(409, 'cannot_afford', "The ride costs $price cucumbers.", ['price' => ['item' => self::MOVER_PRICE['item'], 'qty' => $price]]);
+            $this->inventory->remove($userId, self::MOVER_PRICE['item'], $price);
+        });
+        return ['network' => $network, 'paid' => $price];
     }
 
     /**

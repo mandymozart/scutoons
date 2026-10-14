@@ -19,6 +19,7 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST   /api/homes/visits           { home_id } → { status, token, expires_at } (a friend's visit link)
  *   DELETE /api/homes/visits/{token}   → { status }
  *   GET    /api/homes/visit/{token}    (anyone with the link) → { status, home: { place, scene }, furniture, workshop }
+ *   POST   /api/map/ride               { network } → { status, network, paid, inventory } (the fare in cucumbers – CAVE.md D8)
  */
 final class HomesController
 {
@@ -61,6 +62,14 @@ final class HomesController
         $user = CurrentSession::of($request)->requireUser();
         $this->homes->revokeVisit((string) $user['id'], $args['token']);
         return Json::response($response, 200, ['status' => 'success']);
+    }
+
+    public function ride(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $ride = $this->homes->ride((string) $user['id'], $body['network'] ?? null);
+        return Json::response($response, 200, ['status' => 'success', ...$ride, 'inventory' => $this->inventory->entries((string) $user['id'])]);
     }
 
     /** @param array<string, string> $args */

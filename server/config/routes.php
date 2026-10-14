@@ -179,6 +179,8 @@ return static function (App $app): void {
     $app->post('/api/homes/visits', [HomesController::class, 'createVisit']);
     $app->delete('/api/homes/visits/{token:[A-Za-z0-9_-]{16,64}}', [HomesController::class, 'revokeVisit']);
     $app->get('/api/homes/visit/{token:[A-Za-z0-9_-]{16,64}}', [HomesController::class, 'visit']);
+    // a ride on the subway / tram / creature airlift: the fare in cucumbers (research/CAVE.md D8)
+    $app->post('/api/map/ride', [HomesController::class, 'ride']);
     $app->post('/api/inventory/gift', [InventoryController::class, 'gift']);
     $app->post('/api/inventory/received/seen', [InventoryController::class, 'seen']);
     // gift invites while a campaign runs (agents/research/GIFT-INVITES.md): someone without an account gets an invite
