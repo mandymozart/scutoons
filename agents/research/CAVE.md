@@ -10,7 +10,7 @@ suitcase – research/SCORES.md §2b); the cave = what the reader keeps at home 
 ## Decided
 - **Q1 – a place on the world map** (owner 2026-10-14): the cave is reached on the map, not as a panel tab or page.
 - **Q2 – getting there costs something** (owner 2026-10-14): you enter the cave when you are there on the map, and
-  travelling home costs something (what: Q3). **The VR headset** (an item) enters your home from anywhere, even if you
+  travelling home costs something: walk for free or ride for cucumbers. **The VR headset** (an item) enters your home from anywhere, even if you
   didn't get there on the map (owner 2026-10-14: "with a VR headset, you can enter your home from remote. also if you
   dont got here on the map"). A new skill (ITEMS.md "Skills"), with the code.
   **Being there = entering for free** (owner 2026-10-14: "if you are there you can just enter for free of course") –
@@ -22,6 +22,10 @@ suitcase – research/SCORES.md §2b); the cave = what the reader keeps at home 
 - **Q4 – the reader's avatar walks** (owner 2026-10-14): the avatar gets its own marker and its own world-wide
   position ("where my avatar is"), separate from the toon heroes the story moves (MAP.md §2.4 `positions`); the reader
   walks it along revealed routes for free. The cave is where the avatar lives.
+- **Rides run on networks – a second step** (owner 2026-10-14: "the rides go along a subway, tram, and special
+  creature airlift taxi network. and are animated in their respecitve map layer. this needs to be build in a second
+  step"): three ride networks – subway, tram, creature airlift taxi – each animated in its own map layer (MAP.md
+  `MapLayer`); paid in cucumbers. Step 1 = the cave + walking (+ the VR headset); step 2 = the ride networks.
 
 ## Inputs from other sessions
 - **Workshop + visiting a friend's cave** (scores session, owner 2026-10-14: "or only at a friends cave with a
@@ -30,8 +34,7 @@ suitcase – research/SCORES.md §2b); the cave = what the reader keeps at home 
   feature) where repairs (recipes) run.
 
 ## Open (one at a time)
-- Walking: where the avatar starts, how fast, which routes / places it may use (revealed only?); the ride: how many
-  cucumbers, from anywhere?; guests.
+- Walking: where the avatar starts, how fast, which routes / places it may use (revealed only?); guests. (Rides: step 2.)
 - Visiting a friend's cave: how you get there (link from the friend, a friend list, the map?), what a visitor may do.
 - Racks (CD rack, cassette rack, record shelf) and the workshop as cave furniture: reuse the `holds` rule
   (SCORES.md §2b) for racks; how furniture is obtained and placed.
