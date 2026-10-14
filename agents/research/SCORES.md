@@ -149,6 +149,14 @@ hostname **`vault.scutoons.com`** (CNAME → scutoons-protected.b-cdn.net) = `PR
 MusicXML parses – a Verovio load test in the admin, the server checks extension + size). Creator: nothing new – a
 score is placed with "Place an item …".
 
+**6b. One item, several parts** (owner 2026-10-14: "they should not collect two items for a score … only one and then
+only the activate … for this current moment you always choose the choir parts in the viewer"): `score.parts.<name>`
+(`choir` = the choir arrangement) next to the full score – one item per song; readers see the choir part now
+(`readerPart`, the view and the PDF), the full score stays on the item. Choir editions: the MuseScore "Choir" part
+where the file has one (Cloud 9, No He Said), else the choir staves of the full score (the others).
+**Goal (later, configured by hand):** licensing deals for scores – different parts, different pricing – sold with a
+printed copy; the printed copy's physical item (its QR code) grants the score item.
+
 **6a. Parts (later, with live mode)** – owner 2026-10-14: readers get the full score for now ("all scores for now");
 turning parts of a score off / showing one part comes only with performance groups (live mode, research/LIVE.md) –
 "this is not part of this".

@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · items · One score item per song holds several parts (score.parts – the choir arrangement next to the full score), never two items; readers see the choir part for now; later: licensing deals per part with different pricing, sold with a printed copy whose physical item grants the score (configured by hand) · "they should not collect two items for a score", "always choose the [choir] parts in the viewer", "licensing deals … different parts, different pricing … sell them with a printed copy" · → research/SCORES.md §6b
 - 2026-10-14 · agents · Agents may restart their own session's SCUTOONS MCP server themselves (only their own, never another session's) · "i allow you to do it. yourself", "restart the mcp", "when ever give all agents that rule for this project" · → RULES.md "Dev setup", GOTCHAS.md
 - 2026-10-14 · items · Score items show the full score for now; turning parts off comes only with performance groups (live mode), not in this feature · "all scores for now", "to turn of parts of a score will only be possible once we have performance groups. this is not part of this" · → research/SCORES.md §6a, research/LIVE.md
 - 2026-10-14 · cave · The racks (CD rack, cassette rack, record shelf) hold at most 50 each for now · "what rack? the cd and vinyl? most 50 for the moment" · → research/CAVE.md D4

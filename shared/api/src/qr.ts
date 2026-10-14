@@ -180,8 +180,8 @@ export function createQrApi(api: ApiClient) {
 			api.post<InventoryResult>('/inventory/move/', { entry_id, into, ...(overfill ? { overfill } : {}) }),
 
 		/** a score's MusicXML / PDF as a short-lived signed URL (the PDF only for a signed-in owner) */
-		scoreFile: (item_id: string, file: 'musicxml' | 'pdf') =>
-			api.get<{ status: string; url: string; expires: number }>(`/items/${encodeURIComponent(item_id)}/score/${file}`),
+		scoreFile: (item_id: string, file: 'musicxml' | 'pdf', part?: string | null) =>
+			api.get<{ status: string; url: string; expires: number }>(`/items/${encodeURIComponent(item_id)}/score/${file}${part ? `?part=${encodeURIComponent(part)}` : ''}`),
 
 		/** `respawn` (+ `visit` for every visit): a placed item that reappears – the server checks it and adds the period to the ref */
 		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RecurrenceInterval; visit?: string }, variant?: string | null) =>

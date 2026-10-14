@@ -28,7 +28,8 @@ final class ProtectedFilesTest extends TestCase
         parent::setUp();
         $this->get(CatalogAdmin::class)->put('items', 'cloud9_en', ['id' => 'cloud9_en', 'name' => ['en' => 'Cloud 9'], 'kind' => 'virtual', 'category' => 'score',
             'icon' => 'score.png', 'stackable' => false, 'starter' => false, 'grantable' => ['story'], 'slot' => null, 'skills' => [],
-            'score' => ['language' => 'en', 'musicxml' => 'scores/cloud 9-en.musicxml', 'pdf' => 'scores/cloud9-en.pdf']], 'test');
+            'score' => ['language' => 'en', 'musicxml' => 'scores/cloud 9-en.musicxml', 'pdf' => 'scores/cloud9-en.pdf',
+                'parts' => ['choir' => ['musicxml' => 'scores/cloud9-choir.musicxml', 'pdf' => 'scores/cloud9-choir.pdf']]]], 'test');
     }
 
     public function testASignedUrlIsBunnysHs256Token(): void
@@ -62,10 +63,23 @@ final class ProtectedFilesTest extends TestCase
         }
     }
 
+    /** one item, several parts (owner 2026-10-14): the choir arrangement next to the full score */
+    public function testAPartHasItsOwnSignedUrl(): void
+    {
+        $files = $this->get(ProtectedFiles::class);
+        self::assertStringStartsWith('https://protected.example.net/scores/cloud9-choir.musicxml?token=HS256-', $files->score('cloud9_en', 'musicxml', null, 'choir')['url']);
+        try {
+            $files->score('cloud9_en', 'musicxml', null, 'brass');
+            self::fail('no part expected');
+        } catch (ApiError $error) {
+            self::assertSame('no_part', $error->errorCode);
+        }
+    }
+
     public function testThePublicCatalogNeverNamesThePaths(): void
     {
         $item = $this->get(\Scutoons\Domain\Catalog\Catalog::class)->item('cloud9_en') ?? [];
-        self::assertSame(['language' => 'en', 'pdf' => true], ProtectedFiles::publicItem($item)['score']);
+        self::assertSame(['language' => 'en', 'pdf' => true, 'parts' => ['choir' => ['pdf' => true]]], ProtectedFiles::publicItem($item)['score']);
         self::assertSame(['id' => 'x'], ProtectedFiles::publicItem(['id' => 'x']));
     }
 

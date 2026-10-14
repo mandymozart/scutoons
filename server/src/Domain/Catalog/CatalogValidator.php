@@ -276,6 +276,15 @@ final class CatalogValidator
             if (!is_array($score) || !is_string($score['language'] ?? null) || $score['language'] === '' || !is_string($score['musicxml'] ?? null) || !preg_match('/\.(musicxml|xml|mxl)$/i', $score['musicxml'])) {
                 $p[] = "$id: score must be { language, musicxml: a .musicxml / .mxl path, pdf? }";
             } elseif (($score['pdf'] ?? null) !== null && !(is_string($score['pdf']) && preg_match('/\.pdf$/i', $score['pdf']))) $p[] = "$id: score.pdf must be a .pdf path";
+            // named parts of the same score (the choir arrangement …) – one item, several parts (owner 2026-10-14)
+            if (is_array($score) && ($score['parts'] ?? null) !== null) {
+                if (!is_array($score['parts']) || array_is_list($score['parts'])) $p[] = "$id: score.parts must be { <part>: { musicxml, pdf? } }";
+                else foreach ($score['parts'] as $name => $part) {
+                    if (!preg_match('/^[a-z0-9_]{1,40}$/', (string) $name)) $p[] = "$id: part name \"$name\" – lower-case letters, digits, _";
+                    if (!is_array($part) || !is_string($part['musicxml'] ?? null) || !preg_match('/\.(musicxml|xml|mxl)$/i', $part['musicxml'])) $p[] = "$id: part $name needs a .musicxml / .mxl path";
+                    elseif (($part['pdf'] ?? null) !== null && !(is_string($part['pdf']) && preg_match('/\.pdf$/i', $part['pdf']))) $p[] = "$id: part $name: pdf must be a .pdf path";
+                }
+            }
         }
         return $p;
     }
