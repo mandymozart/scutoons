@@ -29,6 +29,7 @@
 		"@scutoons/content": "*",
 		"@scutoons/tokens": "*",
 		"@scutoons/ui": "*",
+		"three": "0.186.1",
 		"wasm-media-encoders": "^0.7.0"
 	},
 	"peerDependencies": {

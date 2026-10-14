@@ -89,7 +89,15 @@
 		if (!maskKey) return;
 		const places = untrack(() => settled), rs = untrack(() => radii), size = { width: untrack(() => width), height: untrack(() => height) };
 		const run = ++maskRun;
-		void Promise.all(rs.map(async (r) => [r, await fogMaskUrl(places, r, size)] as const)).then((pairs) => {
+		// decoded before it is swapped in: a mask still loading let the painted tiles show unmasked for a moment
+		const decoded = async (u: string | null) => {
+			if (!u) return;
+			const img = new Image();
+			img.src = u;
+			await img.decode().catch(() => {});
+		};
+		void Promise.all(rs.map(async (r) => [r, await fogMaskUrl(places, r, size)] as const)).then(async (pairs) => {
+			await Promise.all(pairs.map(([, u]) => decoded(u)));
 			if (run !== maskRun) return pairs.forEach(([, u]) => u && URL.revokeObjectURL(u));
 			const old = masks;
 			masks = Object.fromEntries(pairs);
@@ -148,10 +156,54 @@
 	// the base image (1 px per world unit) is only the fallback while a layer's tiles load: under loaded tiles its coarse
 	// edge showed as a soft halo past the crisp coast at deep zoom (owner 2026-10-12, the phone: "some feather") – hidden
 	// once every tile on screen has loaded (or failed: a sea tile does not exist)
+	/** the tiles whose element may show (fading in); `shownTiles`: faded in – only they cover the screen */
 	let settledTiles = $state(new Set<string>());
-	const settle = (src: string) => {
-		if (!settledTiles.has(src)) settledTiles = new Set(settledTiles).add(src);
-	};
+	let shownTiles = $state(new Set<string>());
+	const FADE_MS = 250; // .tile's opacity transition
+	const without = (set: Set<string>, src: string) => (set.has(src) ? new Set([...set].filter((s) => s !== src)) : set);
+	/**
+	 * a tile element arrives (owner 2026-10-13: the map flickered between levels): every new element starts clear – even
+	 * of a tile loaded before – and shows two frames after its image is there (a fog tile's mask is applied by then; drawn
+	 * at once it flashed unmasked, in full colour); the levels under it stay until it has faded in (dropped mid-fade the
+	 * plaster showed through). Gone, the tile counts as not loaded again.
+	 */
+	function arrive(src: string) {
+		return (img: HTMLImageElement) => {
+			let frame = 0;
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			let fallback: ReturnType<typeof setTimeout> | undefined;
+			const show = () => {
+				cancelAnimationFrame(frame);
+				clearTimeout(fallback);
+				if (settledTiles.has(src)) return;
+				settledTiles = new Set(settledTiles).add(src);
+				timer = setTimeout(() => {
+					if (!shownTiles.has(src)) shownTiles = new Set(shownTiles).add(src);
+				}, FADE_MS + 50);
+			};
+			// two frames; a page that paints no frames (hidden) goes on after 100 ms
+			const ready = () => {
+				frame = requestAnimationFrame(() => (frame = requestAnimationFrame(show)));
+				fallback = setTimeout(show, 100);
+			};
+			// a sea tile does not exist: hidden, it counts as there
+			const failed = () => ((img.style.visibility = 'hidden'), ready());
+			if (img.complete) (img.naturalWidth ? ready() : failed());
+			else {
+				img.addEventListener('load', ready, { once: true });
+				img.addEventListener('error', failed, { once: true });
+			}
+			return () => {
+				cancelAnimationFrame(frame);
+				clearTimeout(timer);
+				clearTimeout(fallback);
+				img.removeEventListener('load', ready);
+				img.removeEventListener('error', failed);
+				settledTiles = without(settledTiles, src);
+				shownTiles = without(shownTiles, src);
+			};
+		};
+	}
 	const tileSrc = (tiles: MapTiles, t: { z: number; x: number; y: number }) => url(`${tiles.path}/${t.z}/${t.x}_${t.y}.webp`);
 
 	// ── interim tiles (owner 2026-10-12; OpenLayers' "interim tiles", Leaflet's parent-tile fallback): the last level whose
@@ -159,7 +211,7 @@
 	//    soft and scaled up, zooming out sharp in the middle – instead of only the coarsest stand-ins ──────────────────
 	type Tile = ReturnType<typeof tilesOf>[number];
 	let interim = $state<Record<string, Tile[]>>({});
-	const isCovered = (tiles: MapTiles, list: Tile[]) => list.length > 0 && list.every((t) => settledTiles.has(tileSrc(tiles, t)));
+	const isCovered = (tiles: MapTiles, list: Tile[]) => list.length > 0 && list.every((t) => shownTiles.has(tileSrc(tiles, t)));
 	$effect(() => {
 		for (const layer of layers) {
 			if (!layer.tiles) continue;
@@ -183,7 +235,7 @@
 			return !seen.has(k) && (seen.add(k), true);
 		});
 	}
-	/** a tile fades in when it arrives (owner 2026-10-12) – one already loaded (a stand-in, an interim tile) shows at once */
+	/** a tile element fades in when it arrives (owner 2026-10-12); one that stays (a stand-in, an interim tile) stays shown */
 	const fresh = (src: string) => !settledTiles.has(src);
 	const inRange = (l: { minZoom?: number; maxZoom?: number }) => (l.minZoom === undefined || view.zoom >= l.minZoom) && (l.maxZoom === undefined || view.zoom <= l.maxZoom);
 </script>
@@ -193,19 +245,19 @@
 {#snippet fogTiles(layer: (typeof layers)[number], f: MapFog, list: ReturnType<typeof tilesOf>)}
 	{#each stack(layer, list) as t (`${t.z}/${t.x}_${t.y}`)}
 		{@const src = tileSrc(layer.tiles!, t)}
-		<img class="tile" class:fresh={fresh(src)} {src} alt="" draggable="false" style="left: {t.left}px; top: {t.top}px; width: {t.size}px; height: {t.size}px; {maskOf(f, t)}" onload={() => settle(src)} onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden', settle(src))} data-testid="map-fog-tile" />
+		<img class="tile" class:fresh={fresh(src)} {src} alt="" draggable="false" style="left: {t.left}px; top: {t.top}px; width: {t.size}px; height: {t.size}px; {maskOf(f, t)}" {@attach arrive(src)} data-testid="map-fog-tile" />
 	{/each}
 {/snippet}
 
 {#snippet drawn(layer: (typeof layers)[number])}
 	{@const list = layer.tiles ? tilesOf(layer.tiles) : []}
-	{@const covered = list.length > 0 && list.every((t) => settledTiles.has(tileSrc(layer.tiles!, t)))}
+	{@const covered = isCovered(layer.tiles!, list)}
 	{#if layer.tiles?.minLevel === undefined}
 		<img class="layer" class:covered src={url(layer.image!)} alt="" {width} {height} draggable="false" />
 	{/if}
 	{#each layer.tiles ? stack(layer, list) : [] as t (`${t.z}/${t.x}_${t.y}`)}
 		{@const src = tileSrc(layer.tiles!, t)}
-		<img class="tile" class:fresh={fresh(src)} {src} alt="" draggable="false" style:left="{t.left}px" style:top="{t.top}px" style:width="{t.size}px" style:height="{t.size}px" onload={() => settle(src)} onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden', settle(src))} />
+		<img class="tile" class:fresh={fresh(src)} {src} alt="" draggable="false" style:left="{t.left}px" style:top="{t.top}px" style:width="{t.size}px" style:height="{t.size}px" {@attach arrive(src)} />
 	{/each}
 {/snippet}
 

@@ -758,28 +758,34 @@ function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path,
 	});
 }
 
-/**
- * The VN's logic in a group (owner 2026-10-03: "people need to enter before they can speak"): the scene starts empty on a
- * page and is cleared when the page ends (viewer visual-novel.svelte.ts `clear`); linked groups carry the stage on, but
- * a chain can be entered in the middle (`?label=`), so each group is checked on its own – per group – the group's script first, then
- * the slices' events in reading order – a speaker must have joined and not left, nobody leaves without being there (joining
- * again updates the character on stage), and choices are added before they are shown and shown once added. Warnings: the reader still plays it.
- */
-function checkVnFlow(c: Collector, g: any, path: Path) {
+/** a group's VN events in reading order: the group's script first, then the slices' events (paths relative to the group) */
+function vnFlowOf(g: any): { e: any; path: Path }[] {
 	const flow: { e: any; path: Path }[] = [];
-	if (Array.isArray(g.events)) g.events.forEach((e: any, i: number) => flow.push({ e, path: [...path, 'events', i] }));
+	if (!isObj(g)) return flow;
+	if (Array.isArray(g.events)) g.events.forEach((e: any, i: number) => flow.push({ e, path: ['events', i] }));
 	if (Array.isArray(g.slices))
 		g.slices.forEach((s: any, si: number) =>
-			(Array.isArray(s?.events) ? s.events : []).forEach((e: any, i: number) => flow.push({ e, path: [...path, 'slices', si, 'events', i] }))
+			(Array.isArray(s?.events) ? s.events : []).forEach((e: any, i: number) => flow.push({ e, path: ['slices', si, 'events', i] }))
 		);
-	if (!flow.length) return;
+	return flow;
+}
+
+/** one stage problem of a group: `event` = the event's path relative to the group, `at` = the field the warning is on */
+export type StageProblem = { kind: 'speaks' | 'leaves'; id: string; event: Path; at: Path };
+
+/**
+ * The stage walk of a group (owner 2026-10-03: "people need to enter before they can speak"): who speaks (showMessage,
+ * askText) without having joined, who leaves without being there. The validator warns with it; the creator marks the
+ * event (and offers a joinScene before it) – one walk, so the Problems panel and the event agree.
+ */
+export function stageProblems(g: any): StageProblem[] {
 	const idOf = (ref: any) => {
 		const raw = isObj(ref) ? (ref.character ?? ref.name) : undefined;
 		return isStr(raw) && raw ? resolveCharacterId(raw, isStr(ref.persona) ? ref.persona : undefined).character : '';
 	};
+	const out: StageProblem[] = [];
 	const onStage = new Set<string>();
-	let choices: Path[] = [];
-	for (const { e, path: ep } of flow) {
+	for (const { e, path: ep } of vnFlowOf(g)) {
 		if (!isObj(e)) continue;
 		const p = isObj(e.params) ? e.params : {};
 		if (e.type === 'joinScene' || e.type === 'leaveScene') {
@@ -789,14 +795,33 @@ function checkVnFlow(c: Collector, g: any, path: Path) {
 				// joining again is fine: the reader updates the character on stage (another look / view)
 				if (e.type === 'joinScene') onStage.add(id);
 				else {
-					if (!onStage.has(id)) c.warn([...ep, 'params', 'characters', i], `${id} leaves the scene without having joined it`);
+					if (!onStage.has(id)) out.push({ kind: 'leaves', id, event: ep, at: [...ep, 'params', 'characters', i] });
 					onStage.delete(id);
 				}
 			});
-		} else if (e.type === 'showMessage') {
+		} else if (e.type === 'showMessage' || e.type === 'askText') {
 			const id = idOf(p);
-			if (id && !onStage.has(id)) c.warn([...ep, 'params', 'character'], `${id} speaks without being in the scene – add a joinScene before`);
-		} else if ((e.type === 'divert' || e.type === 'jumpTo') && !isObj(e.if)) {
+			if (id && !onStage.has(id)) out.push({ kind: 'speaks', id, event: ep, at: [...ep, 'params', 'character'] });
+		}
+	}
+	return out;
+}
+
+/**
+ * The VN's logic in a group: the scene starts empty on a page and is cleared when the page ends (viewer
+ * visual-novel.svelte.ts `clear`); linked groups carry the stage on, but a chain can be entered in the middle
+ * (`?label=`), so each group is checked on its own – the stage (`stageProblems`; the reader skips a message whose speaker
+ * isn't there), and choices are added before they are shown and shown once added. Warnings.
+ */
+function checkVnFlow(c: Collector, g: any, path: Path) {
+	const flow = vnFlowOf(g).map(({ e, path: ep }) => ({ e, path: [...path, ...ep] }));
+	if (!flow.length) return;
+	for (const s of stageProblems(g))
+		c.warn([...path, ...s.at], s.kind === 'leaves' ? `${s.id} leaves the scene without having joined it` : `${s.id} speaks without being in the scene – add a joinScene before`);
+	let choices: Path[] = [];
+	for (const { e, path: ep } of flow) {
+		if (!isObj(e)) continue;
+		if ((e.type === 'divert' || e.type === 'jumpTo') && !isObj(e.if)) {
 			// the script leaves here (another point / page): choices added before are never shown
 			for (const cp of choices) c.warn(cp, 'addChoice is never shown – add a showChoices after it');
 			choices = [];

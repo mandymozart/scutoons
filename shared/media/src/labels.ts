@@ -59,6 +59,11 @@ export interface MediaLabels {
 	audioEncoding: (level: string, percent: number) => string;
 	audioUploading: (file: string) => string;
 	audioUndecodable: string;
+	/** the 3D model preview */
+	modelPlaceholder: string;
+	modelTurn: string;
+	modelError: string;
+	modelInfo: (tris: number, bones: number) => string;
 }
 
 export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
@@ -88,7 +93,7 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		allFolders: 'Alle Ordner',
 		kind: 'Art',
 		allKinds: 'Alle Arten',
-		kinds: { image: 'Bilder', video: 'Videos', audio: 'Audio', archive: 'Archive (zip)', document: 'Dokumente', other: 'Andere' },
+		kinds: { image: 'Bilder', video: 'Videos', audio: 'Audio', archive: 'Archive (zip)', document: 'Dokumente', model: '3D-Modelle (glb)', other: 'Andere' },
 		unusedOnly: 'Nur unbenutzte',
 		none: 'Nichts gefunden.',
 		more: 'Mehr',
@@ -112,7 +117,11 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		audioLevelsHint: 'Kodiert die fehlenden Qualitätsstufen aus der besten Datei dieses Assets im Browser und lädt sie hoch',
 		audioEncoding: (level, percent) => `${level} wird kodiert … ${percent} %`,
 		audioUploading: (file) => `${file} wird hochgeladen …`,
-		audioUndecodable: 'Diese Audiodatei kann der Browser nicht lesen – keine weiteren Qualitätsstufen.'
+		audioUndecodable: 'Diese Audiodatei kann der Browser nicht lesen – keine weiteren Qualitätsstufen.',
+		modelPlaceholder: 'Platzhalter',
+		modelTurn: 'Ziehen zum Drehen',
+		modelError: 'Das 3D-Modell lässt sich nicht laden.',
+		modelInfo: (tris, bones) => `${tris} Dreiecke${bones ? ` · ${bones} Knochen` : ' · ohne Skelett'}`
 	},
 	en: {
 		pickerTitle: 'Choose a file',
@@ -140,7 +149,7 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		allFolders: 'All folders',
 		kind: 'Kind',
 		allKinds: 'All kinds',
-		kinds: { image: 'Images', video: 'Videos', audio: 'Audio', archive: 'Archives (zip)', document: 'Documents', other: 'Other' },
+		kinds: { image: 'Images', video: 'Videos', audio: 'Audio', archive: 'Archives (zip)', document: 'Documents', model: '3D models (glb)', other: 'Other' },
 		unusedOnly: 'Unused only',
 		none: 'Nothing found.',
 		more: 'More',
@@ -164,7 +173,11 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		audioLevelsHint: "Encodes the missing quality levels from this asset's best file in the browser and uploads them",
 		audioEncoding: (level, percent) => `Encoding ${level} … ${percent} %`,
 		audioUploading: (file) => `Uploading ${file} …`,
-		audioUndecodable: "The browser can't read this audio file – no further quality levels."
+		audioUndecodable: "The browser can't read this audio file – no further quality levels.",
+		modelPlaceholder: 'Placeholder',
+		modelTurn: 'Drag to turn',
+		modelError: "The 3D model can't be loaded.",
+		modelInfo: (tris, bones) => `${tris} triangles${bones ? ` · ${bones} bones` : ' · no skeleton'}`
 	}
 };
 

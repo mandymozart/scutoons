@@ -25,6 +25,7 @@
 	import CharacterImport from '$lib/components/characters/character-import.svelte';
 	import CharacterPersonaFields from '$lib/components/characters/character-persona.svelte';
 	import CharacterLook from '$lib/components/characters/character-look.svelte';
+	import PersonaModel from '$lib/components/characters/persona-model.svelte';
 	import CharacterTransitions from '$lib/components/characters/character-transitions.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import CharacterPrompts from '$lib/components/characters/character-prompts.svelte';
@@ -32,7 +33,7 @@
 	/**
 	 * One character (COMPONENTS.md step 9: in sections): identity (CharacterIdentity), the image import, its personas as
 	 * tabs → the persona's own fields (CharacterPersonaFields) → its looks as sub-tabs → the look's mood grid
-	 * (CharacterLook, with the look's A-pose) and transitions, the character's wanted images and – at the very end – prompts
+	 * (CharacterLook, with the look's A-pose) and transitions, the persona's 3D model (PersonaModel: preview, slot, body preset; a look may have its own), the character's wanted images and – at the very end – prompts
 	 * for an image generator or an artist (CharacterPrompts).
 	 */
 	let {
@@ -126,7 +127,7 @@
 		<CharacterIdentity {registry} {character} {languages} {toons} {people} />
 
 		<!-- Personas → looks → moods -->
-		<section class="block" data-testid="personas">
+		<section class="sc-section" data-testid="personas">
 			<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust />
 			<Tabs
 				variant="ruled"
@@ -147,6 +148,7 @@
 					{#if personaId !== REGULAR_PERSONA}
 						<CharacterPersonaFields {registry} {character} persona={currentPersona} {languages} {toons} onremove={removePersona} />
 					{/if}
+					<PersonaModel {registry} {character} persona={currentPersona} {lookId} />
 
 					<Tabs
 						variant="sub"
@@ -175,12 +177,12 @@
 			{/if}
 		</section>
 
-		<section class="block">
+		<section class="sc-section">
 			<h3>{m['creator.characters_wanted']()}</h3>
 			<WantedImages registry={file} {moods} {requests} locale={textLanguage.names} character={id} onopen={(_, p, l) => ((persona = p), (look = l))} />
 		</section>
 
-		<section class="block" data-testid="prompts">
+		<section class="sc-section" data-testid="prompts">
 			<h3>{m['creator.prompts_title']()}</h3>
 			<CharacterPrompts registry={file} {character} persona={personaId} look={lookId} {moods} {requests} locale={source} />
 		</section>
@@ -219,13 +221,6 @@
 		gap: 0.4rem;
 		align-items: center;
 		margin: 0;
-	}
-	.block {
-		border-top: 1px solid var(--border-subtle);
-		padding-top: 0.6rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
 	}
 	.tally {
 		margin-left: 0.35rem;

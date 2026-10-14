@@ -15,6 +15,7 @@
 		problems,
 		docs = [],
 		home,
+		groupLabel,
 		ongoto,
 		onclose
 	}: {
@@ -23,6 +24,8 @@
 		docs?: ContentDoc[];
 		/** the page's own file: its name is left out of the places (other files, e.g. a scene group, keep theirs) */
 		home?: string;
+		/** a group of the page's own file by its name (the tree's), not its number (owner 2026-10-13) */
+		groupLabel?: (index: number) => string;
 		ongoto?: (problem: Problem) => void;
 		onclose?: () => void;
 	} = $props();
@@ -41,8 +44,8 @@
 	});
 	const visible = $derived(problems.filter((p) => (p.level === 'info' ? showInfo : isAccepted(p) ? showAccepted : true)));
 
-	// a path as a place: groups.0.slices.42.dialog.1.text → Group 1 · Slice 43 · Line 2 (the page's own file and a
-	// line's "text" field add nothing)
+	// a path as a place: groups.0.slices.42.dialog.1.text → scene-12 · Slice 43 · Line 2 (a group of the page's own file
+	// by its name; the page's own file and a line's "text" field add nothing)
 	const NUMBERED: Record<string, (n: number) => string> = {
 		groups: (n) => m['creator.group_n']({ number: n }),
 		slices: (n) => m['creator.slice_n']({ number: n }),
@@ -58,7 +61,10 @@
 		for (let i = 0; i < path.length; i++) {
 			const key = path[i];
 			const next = path[i + 1];
-			if (typeof key === 'string' && typeof next === 'number' && NUMBERED[key]) {
+			if (key === 'groups' && typeof next === 'number' && i === 0 && p.file === home && groupLabel) {
+				parts.push(groupLabel(next));
+				i++;
+			} else if (typeof key === 'string' && typeof next === 'number' && NUMBERED[key]) {
 				parts.push(NUMBERED[key](next + 1));
 				i++;
 			} else parts.push(typeof key === 'number' ? `#${key + 1}` : String(key));

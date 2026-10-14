@@ -4,6 +4,7 @@ import type { Album, MediaFormat } from './albums.ts';
 import type { ItemRespawn } from './respawn.ts';
 import type { FxSoundChoice } from './fx.ts';
 import type { AcceptedWarnings } from './accepted.ts';
+import type { ItemAges, ItemHolds, ScoreFiles } from './containers.ts';
 
 export type Localized = Record<string, string>;
 
@@ -35,8 +36,9 @@ export const AVATAR_SLOTS: AvatarSlot[] = [
 ];
 
 export type ItemKind = 'physical' | 'virtual';
-/** `food` = eaten with the `apply` skill ("Essen" instead of "Benutzen"), e.g. the cucumber and the tuna can lower appetite */
-export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food';
+/** `food` = eaten with the `apply` skill ("Essen" instead of "Benutzen"), e.g. the cucumber and the tuna can lower appetite;
+ *  `score` = sheet music (`ItemDef.score`, research/SCORES.md) */
+export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food' | 'score';
 export type GrantSource = 'story' | 'scan';
 /** `gift` = given by another reader (ITEMS.md "Ownership, claims, gifting"; a code-bound gift keeps its code) */
 export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter' | 'gift';
@@ -181,6 +183,12 @@ export interface ItemDef extends AcceptedWarnings {
 	format?: MediaFormat | null;
 	/** A player: the formats it plays (`record_player` → `['vinyl']`) */
 	plays?: MediaFormat[] | null;
+	/** A container (containers.ts, research/SCORES.md §2b): what it holds, how many, an overfill that breaks it */
+	holds?: ItemHolds | null;
+	/** It ages from its creation: tint, then spots (the DIY song book; containers.ts `ageLook`) */
+	ages?: ItemAges | null;
+	/** A score's files – MusicXML for the score view, the print PDF (one language per score) */
+	score?: ScoreFiles | null;
 }
 
 /** Can this item be given to another reader? The same rule as the server's `Catalog::giftable`. */
@@ -201,6 +209,10 @@ export function maxOf(item: Pick<ItemDef, 'max'> | null | undefined): number {
 export interface RecipePart {
 	item: string;
 	qty: number;
+	/** an input that is kept – a tool like the drill, not an ingredient (research/SCORES.md §2a) */
+	keep?: boolean;
+	/** the output only: its variant is taken from this input item's variant (the plastic's colour, an upgraded book's) */
+	variant_from?: string;
 }
 
 export interface Recipe {
@@ -235,6 +247,12 @@ export interface Entry {
 	code: string | null;
 	edition_number: number | null;
 	acquired_at: string;
+	/** the container entry it lies in (containers.ts; none = loose in the inventory) */
+	in?: EntryId | null;
+	/** a container: overfilled since (it breaks after `holds.overfill.days`) */
+	overfilled_at?: string | null;
+	/** an ageing item ages from here (none = `acquired_at`; an upgraded book keeps the old age) */
+	aged_since?: string | null;
 }
 
 /** Where an avatar-body unlock came from (server `member_characters.source`) */

@@ -17,10 +17,13 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  */
 final class AssetPaths
 {
-    public const KINDS = ['image', 'video', 'audio', 'archive', 'document', 'other'];
+    public const KINDS = ['image', 'video', 'audio', 'archive', 'document', 'model', 'other'];
     public const IMAGE = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif'];
     public const VIDEO = ['mp4', 'webm', 'mov', 'm4v'];
     public const AUDIO = ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'wav', 'flac'];
+    /** 3D models: binary glTF only – one self-contained file (a .gltf points to separate .bin / textures that a move or
+     * rename would break; GLB ↔ glTF converts losslessly when a model must be edited) – owner 2026-10-13 */
+    public const MODEL = ['glb'];
     /** the quality level of a video height (MediaQuality, PLAN.md "one file per quality level") */
     public const VIDEO_QUALITY = [480 => 'low', 720 => 'medium', 1080 => 'high'];
     /** slice densities (IMAGE_QUALITY_DENSITIES) */
@@ -29,7 +32,7 @@ final class AssetPaths
      * hostname, which stays valid – absolute references starting with either resolve to CDN-root paths */
     public const PUBLIC_BASES = ['https://cdn.scutoons.com/', 'https://scutoons.b-cdn.net/'];
     /** the extensions content may reference as media (usage scanner) */
-    public const MEDIA_EXTENSION = '/\.(jpe?g|png|webp|gif|svg|avif|mp4|webm|mov|m4v|mp3|m4a|aac|ogg|oga|wav|flac|zip|pdf|mscz)$/i';
+    public const MEDIA_EXTENSION = '/\.(jpe?g|png|webp|gif|svg|avif|mp4|webm|mov|m4v|mp3|m4a|aac|ogg|oga|wav|flac|zip|pdf|mscz|glb)$/i';
 
     public static function extension(string $key): string
     {
@@ -44,6 +47,7 @@ final class AssetPaths
             in_array($ext, self::VIDEO, true) => 'video',
             in_array($ext, self::AUDIO, true) => 'audio',
             $ext === 'zip' => 'archive',
+            in_array($ext, self::MODEL, true) => 'model',
             in_array($ext, ['pdf', 'mscz', 'json', 'txt'], true) => 'document',
             default => 'other',
         };

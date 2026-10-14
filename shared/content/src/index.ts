@@ -9,6 +9,7 @@ export * from './items.ts';
 export * from './recurrence.ts';
 export * from './respawn.ts';
 export * from './albums.ts';
+export * from './containers.ts';
 export * from './membership.ts';
 export * from './products.ts';
 export * from './template.ts';

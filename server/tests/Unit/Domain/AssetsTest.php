@@ -132,6 +132,7 @@ final class AssetsTest extends TestCase
         self::assertSame('webp', $groups['i/c']['files']['i/c.webp']['label']);
         self::assertSame('original', $groups['i/only']['files']['i/only.webp']['label']);
 
+        self::assertSame(['model', 'other'], [AssetPaths::kind('characters/catpope/m.glb'), AssetPaths::kind('characters/catpope/m.gltf')]);
         self::assertSame('characters/x.webp', AssetPaths::resolve('../characters/x.webp', 'catpope'));
         self::assertSame('catpope/images/a.webp', AssetPaths::resolve('images/a.webp', 'catpope'));
         self::assertSame('catpope/images/a.webp', AssetPaths::resolve('https://cdn.scutoons.com/catpope/images/a.webp', '', ['https://cdn.scutoons.com']));
@@ -209,7 +210,7 @@ final class AssetsTest extends TestCase
         self::assertContains(['catpope/audio/album.zip', 'album:a', '/download', 'config'], $rows);
 
         $missing = $this->get(AssetUsages::class)->missing();
-        self::assertSame(['catpope/images/missing-poster.webp', 'catpope/vectors/vector-demon-saw-1.svg'], array_column($missing, 'path'), 'asset-requests are wishes, not usages; a file app code needs is reported missing');
+        self::assertSame(['catpope/images/missing-poster.webp', 'catpope/vectors/vector-demon-saw-1.svg', 'scutoons/3d/mannequin-more-legs.glb', 'scutoons/3d/mannequin.glb'], array_column($missing, 'path'), 'asset-requests are wishes, not usages; a file app code needs is reported missing');
         $orphans = array_column($this->get(AssetUsages::class)->orphans(), null, 'slug');
         self::assertTrue($orphans['catpope/videos/roar-little-kitty']['all_unused']);
         self::assertSame(['catpope/videos/s1-trailer-loop.1280w.mp4', 'catpope/videos/s1-trailer-loop.1920w.mp4'], $orphans['catpope/videos/s1-trailer-loop']['unused']);
@@ -334,7 +335,10 @@ final class AssetsTest extends TestCase
         self::assertSame(['catpope/images/new-art', 'New art', ['cover']], [$new['asset']['slug'], $new['asset']['title'], $new['asset']['tags']]);
         $rendition = $service->upload($user, $this->local(self::MP4 . 'new360'), 'catpope/videos/s1-trailer-loop.360p.mp4');
         self::assertSame('catpope/videos/s1-trailer-loop', $rendition['asset']['slug']);
-        foreach ([['catpope/images/new-art.png', self::PNG, 'exists'], ['catpope/images/x.webp', self::PNG, 'content_mismatch'], ['catpope/images/x.exe', 'MZ', 'invalid_type'], ['x.png', self::PNG, 'invalid_path'], ['catpope/../x.png', self::PNG, 'invalid_path'], ['catpope/i/x.svg', '<svg onload="alert(1)"></svg>', 'unsafe_svg']] as [$path, $bytes, $code]) {
+        // a 3D model: binary glTF only (owner 2026-10-13) – kind model, the GLB magic checked
+        $model = $service->upload($user, $this->local('glTF' . pack('V', 2) . str_repeat(chr(0), 8)), 'characters/catpope/catpope-mountaintiger.glb');
+        self::assertSame(['characters/catpope/catpope-mountaintiger', 'model'], [$model['asset']['slug'], $model['asset']['kind']]);
+        foreach ([['catpope/images/new-art.png', self::PNG, 'exists'], ['catpope/images/x.webp', self::PNG, 'content_mismatch'], ['catpope/images/x.exe', 'MZ', 'invalid_type'], ['x.png', self::PNG, 'invalid_path'], ['catpope/../x.png', self::PNG, 'invalid_path'], ['catpope/i/x.svg', '<svg onload="alert(1)"></svg>', 'unsafe_svg'], ['characters/catpope/x.glb', self::PNG, 'content_mismatch'], ['characters/catpope/x.gltf', '{}', 'invalid_type']] as [$path, $bytes, $code]) {
             try {
                 $service->upload($user, $this->local($bytes), $path);
                 self::fail("$path should be refused");

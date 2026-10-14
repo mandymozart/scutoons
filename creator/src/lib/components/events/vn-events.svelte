@@ -10,6 +10,7 @@
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { FORM_TYPES, castOptions, conditionWords, summary, template, triggerWord } from '$lib/editor/vn-forms.ts';
+	import { joinBefore, offStage } from '$lib/editor/vn-stage.ts';
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
@@ -125,6 +126,19 @@
 			);
 		target?.focus();
 		root.scrollIntoView({ block: 'nearest' });
+	}
+
+	/** speakers not on stage here (the validator's stage walk over the group): the line is marked, the form says it + fixes it */
+	const offStageAt = $derived(offStage(doc.get(doc.primary, []), eventsPath));
+	function joinSpeaker(index: number) {
+		let done = false;
+		doc.edit((file) => (done = joinBefore(file, eventsPath, index)));
+		if (!done) return;
+		const shift = (i: number) => (i >= index ? i + 1 : i);
+		open = open.map(shift);
+		picked = picked.map(shift);
+		anchor = anchor === null ? null : shift(anchor);
+		if (selected >= 0) onselect?.(shift(selected));
 	}
 
 	function remove(index: number) {
@@ -289,6 +303,7 @@
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
 					<span class="sum">{conditionWords(event?.if) ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain, dialogs)}</span>
+					{#if offStageAt.has(i)}<span class="off-stage" title={m['creator.event_off_stage']({ who: offStageAt.get(i) ?? '' })}><Icon name="alert-triangle" /></span>{/if}
 					<ReachChip mark={markOf(i)} />
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
@@ -331,6 +346,13 @@
 					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
 				{/if}
 
+				{#if offStageAt.has(i)}
+					{@const who = offStageAt.get(i) ?? ''}
+					<p class="warn" data-testid="event-{i}-off-stage">
+						<span>{event.type === 'askText' ? m['creator.event_off_stage_ask']({ who }) : m['creator.event_off_stage']({ who })}</span>
+						<button type="button" class="secondary" onclick={() => joinSpeaker(i)} data-testid="event-{i}-join">+ {m['creator.event_off_stage_join']()}</button>
+					</p>
+				{/if}
 				<EventCondition {doc} path={p} {event} index={i} />
 				{#if sliceEvents}
 					<EventTrigger {doc} path={p} {event} index={i} {onselect} />
@@ -384,6 +406,23 @@
 	.line .idx {
 		flex: none;
 		min-width: 1.5em;
+	}
+	/* a speaker who isn't on stage (vn-stage.ts): a mark in the line, the reason + the fix in the form */
+	.line .off-stage {
+		display: inline-flex;
+		color: var(--state-warning);
+	}
+	.event.open .line .off-stage :global(svg) {
+		transform: none;
+	}
+	.warn {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-05);
+		margin: 0;
+		padding-left: var(--space-05);
+		border-left: 0.5rem solid var(--state-warning);
 	}
 	.line .type {
 		flex: none;

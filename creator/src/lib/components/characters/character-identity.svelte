@@ -41,12 +41,12 @@
 	}
 </script>
 
-<section class="block">
+<section class="sc-section">
 	<LocaleMapField value={character.name} {languages} label={m['creator.characters_name']()} required testid="character-name" onchange={(v) => change((c) => (c.name = v), 'name')} />
 	<LocaleMapField value={character.description} {languages} label={m['creator.characters_description']()} multiline testid="character-description" onchange={(v) => setField('description', cleanText(v))} />
 </section>
 
-<section class="block">
+<section class="sc-section">
 	<div class="sc-fields" data-cols="fill">
 		<label>
 			{m['creator.characters_color']()}
@@ -101,13 +101,6 @@
 </section>
 
 <style>
-	.block {
-		border-top: 1px solid var(--border-subtle);
-		padding-top: 0.6rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-	}
 	/* the field grid's column width: 1/8 rem under the default, so the page gap (1rem) still fits as many columns as
 	   the old 12rem + 0.75rem */
 	.sc-fields {

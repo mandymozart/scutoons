@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon } from '@scutoons/ui';
+	import { FileSlot } from '@scutoons/media';
 	import { setLookImage, type AssetRequests, type CharacterFileSlot, type CharacterPersona, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { addAssetRequest, edit, editCharacter, editPersona, ensureMoods } from '$lib/editor/characters.ts';
@@ -12,9 +13,9 @@
 	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
 
 	/**
-	 * One look of a persona: its label, default / remove, the mood grid (ExpressionGrid) – setting a cell's image
-	 * closes its open request, a request can be written per cell, a new mood joins the vocabulary – and the look's A-pose
-	 * (the reader's avatar body in this look, AposeEditor).
+	 * One look of a persona: its label, default / remove, its own 3D model (else the persona's), the mood grid
+	 * (ExpressionGrid) – setting a cell's image closes its open request, a request can be written per cell, a new mood
+	 * joins the vocabulary – and the look's A-pose (the reader's avatar body in this look, AposeEditor).
 	 */
 	let {
 		registry,
@@ -73,6 +74,15 @@
 		onlookchange('');
 	}
 
+	/** the look's own 3D model (a .glb); cleared = the persona's is used */
+	function setModel(path: string | null) {
+		change((p) => {
+			const l = p.looks.find((x) => x.id === lookId);
+			if (!l) return;
+			if (path) l.model = path;
+			else delete l.model;
+		}, `model-${lookId}`);
+	}
 	/** a cell's path; setting one also closes the cell's open request */
 	function setImage(mood: string, view: string, path: string) {
 		change((p) => {
@@ -110,6 +120,9 @@
 		<label class="check"><input type="radio" name="default-look-{id}-{persona.id}" checked={!!look.default} onchange={setDefault} /> {m['creator.characters_default_look']()}</label>
 		{#if lookIds.length > 1}<button type="button" class="ghost" onclick={remove}><CloseIcon /> {m['creator.characters_remove_look']()}</button>{/if}
 	</div>
+	<div class="model">
+		<FileSlot kind="model" value={look.model} label={m['creator.characters_look_model']()} place="characters/{id}/" player={false} onchange={setModel} testid="look-model" />
+	</div>
 	{#key `${persona.id}/${lookId}`}
 		<ExpressionGrid {character} persona={persona.id} {look} {moods} {requests} locale={source} onset={setImage} onrequest={request} onaddmood={addMood} {bust} />
 		<AposeEditor character={id} persona={persona.id} {look} {bust} onchange={setApose} />
@@ -122,6 +135,9 @@
 		grid-template-columns: minmax(0, 1fr) auto auto;
 		gap: 0.6rem;
 		align-items: end;
+	}
+	.model {
+		max-width: 24rem;
 	}
 	.check {
 		font-size: var(--type-caption-size);

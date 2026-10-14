@@ -122,6 +122,14 @@
 					"items": {
 						"$ref": "#/definitions/LookTransition"
 					}
+				},
+				"model": {
+					"type": "string",
+					"description": "the persona's 3D model (a .glb, CDN path from the CDN root); a look may have its own (`personaModel`)"
+				},
+				"legs": {
+					"$ref": "#/definitions/PersonaLegs",
+					"description": "the body preset for the 3D fallback: `more` = four or more legs (a four-legged mannequin); none = two"
 				}
 			},
 			"required": [
@@ -169,6 +177,10 @@
 				"apose": {
 					"$ref": "#/definitions/LookApose",
 					"description": "the look's A-pose – the reader's avatar body in this look; none = the look is no avatar body"
+				},
+				"model": {
+					"type": "string",
+					"description": "this look's own 3D model (a .glb, CDN path from the CDN root) – wins over the persona's (`personaModel`)"
 				}
 			},
 			"required": [
@@ -275,6 +287,13 @@
 				"image"
 			],
 			"description": "An image shown while a persona's look changes (the mouse taking her helmet off)."
+		},
+		"PersonaLegs": {
+			"type": "string",
+			"enum": [
+				"two",
+				"more"
+			]
 		}
 	}
 }

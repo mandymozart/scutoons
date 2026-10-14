@@ -8,7 +8,9 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Catalog\Editions;
+use Scutoons\Domain\Catalog\ProtectedFiles;
 use Scutoons\Domain\Catalog\Toons;
+use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\Cors;
 use Scutoons\Support\Json as JsonEncoding;
@@ -28,13 +30,28 @@ final class CatalogController
         private readonly Editions $editions,
         private readonly Toons $toons,
         private readonly Cors $cors,
+        private readonly ProtectedFiles $files,
     ) {
     }
 
     public function items(Request $request, Response $response): Response
     {
         self::requireGet($request);
-        return $this->public($request, $response, $this->catalog->data());
+        $data = $this->catalog->data();
+        // a score's file paths stay private: readers ask for signed URLs (scoreFile)
+        $data['items'] = array_map([ProtectedFiles::class, 'publicItem'], $data['items']);
+        return $this->public($request, $response, $data);
+    }
+
+    /**
+     * GET /api/items/{id}/score/{file} → { url, expires } – a signed URL of a score's MusicXML / PDF (ProtectedFiles)
+     * @param array<string, string> $args
+     */
+    public function scoreFile(Request $request, Response $response, array $args): Response
+    {
+        $user = CurrentSession::of($request)->user();
+        $signed = $this->files->score((string) ($args['id'] ?? ''), (string) ($args['file'] ?? ''), $user);
+        return Json::response($response, 200, ['status' => 'success'] + $signed, ['Cache-Control' => 'no-store']);
     }
 
     public function editions(Request $request, Response $response): Response

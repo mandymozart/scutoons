@@ -36,7 +36,7 @@ way we could even migrate in the future or run various systems behind it. Long-t
 
 | Table | What | Key columns |
 |---|---|---|
-| `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `status` active / deleted, created/updated/by |
+| `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / model / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `status` active / deleted, created/updated/by |
 | `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, created/by |
 | `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `origin` imported / uploaded / generated |
 | `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog / code, `ref` (entity key; catalog entry `<kind>:<id>` – `item:camera`, `product:dago_hoodie` – since the catalog is in tables, 2026-10-04 agents/CATALOG.md; code file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
@@ -330,6 +330,18 @@ Possible now: any video field can pick any video asset; the picker fills the qua
 prologue film (7:55; 55–267 MB per level) as the desktop background loop would download that much on every toon-page
 visit – **owner decision**. Alternative that keeps one source: an optimization job "excerpt" (cut a loop from the
 prologue master and register it as renditions of a loop asset) – not built.
+
+## 3D models (owner 2026-10-13)
+
+Kind `model`: **binary glTF (`.glb`) only** – one self-contained file (upload magic `glTF`, MIME
+`model/gltf-binary`, counted as used content like images). A `.gltf` is refused: it points to separate `.bin` /
+texture files that a move or rename would break; GLB ↔ glTF converts losslessly (e.g. gltf-transform) when a model must
+be edited. Used by the characters' personas / looks (`model`, DATA.md); picker and `FileSlot kind="model"`. **Preview**
+(owner 2026-10-14): `ModelPreview` (@scutoons/media – a live view, turns slowly, drag to turn; dashed + "Placeholder"
+for a stand-in) in the character page and the admin asset sheet, `ModelThumb` stills on the picker / admin cards (one
+shared renderer); three.js loads only when a model is shown (`model-view.js`). **Mannequins** (the fallback of a
+persona without a model, by its body preset `legs`: two / more – `MANNEQUINS`, code references in AssetUsages):
+`scutoons/3d/mannequin.glb` (Xbot, Mixamo, via the three.js examples), `scutoons/3d/mannequin-more-legs.glb` (open).
 
 ## Albums and downloads (owner: the season "Downloads" fields are redundant)
 

@@ -99,19 +99,30 @@
 		move(next ?? (direction > 0 ? travel : 0));
 	}
 
+	/**
+	 * The whole page goes full screen and the strip covers it (`.pin.fullscreen`) – not the strip element alone: only the
+	 * full-screen element is drawn, so a reader effect, a worn tint, a VN message stayed outside (owner 2026-10-13: "the
+	 * LSD effect is not applied … a way to cheat the LSD").
+	 */
+	let mine = false;
 	async function toggleFullscreen() {
 		try {
 			if (document.fullscreenElement) await document.exitFullscreen();
-			else await pin?.requestFullscreen();
+			else {
+				mine = true;
+				await document.documentElement.requestFullscreen();
+			}
 		} catch {
 			// refused (e.g. an embedded browser): the strip stays on the page
+			mine = false;
 		}
 	}
 
 	$effect(() => {
 		const onChange = () => {
 			const was = fullscreen;
-			fullscreen = document.fullscreenElement === pin && !!pin;
+			fullscreen = mine && document.fullscreenElement === document.documentElement;
+			if (!document.fullscreenElement) mine = false;
 			if (was && !fullscreen) {
 				// back on the page: scroll to where the strip was
 				requestAnimationFrame(() => {
@@ -231,7 +242,11 @@
 		overflow: hidden;
 		background: var(--ink, #000);
 	}
+	/* full screen: over the page (its menus, the VN box, a reader effect stay above – z-index 100 and more) */
 	.pin.fullscreen {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
 		height: 100vh;
 	}
 	.track {

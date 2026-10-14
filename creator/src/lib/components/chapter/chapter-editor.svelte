@@ -406,7 +406,7 @@
 		locale: readerLocale,
 		onclose: () => (open.reader = false)
 	});
-	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, ongoto: gotoProblem, onclose: () => (open.problems = false) });
+	const problemsProps = () => ({ problems, docs: allDocs, home: chapter.entity, groupLabel: (i: number) => groupName(groups[i], i), ongoto: gotoProblem, onclose: () => (open.problems = false) });
 	const docked = (kind: PanelKind, size: typeof panelSize) => ({ kind, size, title: PANELS[kind].title(), icon: PANELS[kind].icon, close: () => (open[kind] = false) });
 	useDock(() => (open.flow ? { ...docked('flow', flowSize), content: { component: FlowDock, props: flowProps } } : null));
 	useDock(() => (open.reader ? { ...docked('reader', readerSize), content: { component: ReaderDock, props: readerProps } } : null));
@@ -1573,7 +1573,8 @@
 		.sheet-closed .inspector-region {
 			overflow: hidden;
 		}
-		.sheet-closed .inspector-region > :not(.sheet-tabs) {
+		/* :global – the inspector is SliceInspector's root, scoped CSS here would miss it (the sheet then grew with it) */
+		.sheet-closed .inspector-region > :global(:not(.sheet-tabs)) {
 			display: none;
 		}
 	}

@@ -28,7 +28,7 @@ Decisions: agents/DECISIONS.md.
 - Parked until February 2027: live performance mode (research/LIVE.md), the onion camera (checkout
   `C:\Development\scutoons-onion-camera`, branch `items/onion-camera`).
 - Other checkouts (`git worktree list`): owner-requested drafts and parked branches (newsletter, onion-camera,
-  sketch3d, storyboard, the 2026-10-12 catalog → creator and map-places drafts) and the app's session worktrees
+  storyboard, the 2026-10-12 catalog → creator and map-places drafts) and the app's session worktrees
   (`.claude/worktrees/claude-*`) – the owner reviews and merges them; agents don't.
 - Reader avatar (owner 2026-10-12): the A-pose belongs to a look (`look.apose`), the body is { character, persona,
   look }; no naked body; worn items sit as icons in the avatar page's slots, nothing is drawn on the body (ITEMS.md
@@ -36,6 +36,8 @@ Decisions: agents/DECISIONS.md.
 - Painted map + fog of war (2026-10-12, MAP.md §8.9): painted terrain (Luma) + a plaster layer of the same shapes,
   tiles on the CDN (`catpope/map/terrain/<layer>/v<n>/`); `MapLayer.fog: { radius }` shows the painted layer only around
   unlocked places.
+- Storyboard 3D cast: artists will provide a 3D model per character; the renderer loading it is FEATURES 10.95.
+  The sketch → 3D experiment is removed; its learnings: research/CHARACTERS3D.md.
 
 ## Last run
 2026-10-12 morning: the night's sessions merged into `main` and pushed by one session (reading position, media

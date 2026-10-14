@@ -287,7 +287,9 @@ every future mail (ownership claims etc.) is added to the module below, never se
 | admin app | **Emails** (nav group System): `/emails` = sent-mail log (URL-driven: `q`, `template`, `status`, `recipient`, `from`, `to`, sort, pager; a recipient → filter / find the account), `/emails/templates` = every template rendered de/en with its sample vars (HTML in a sandboxed iframe + plain text), `?locale=`, and the admin recipients editor |
 
 **Registered:** `login_code` (link + 6-digit code; vars `link`, `otp`, `minutes`, `code?`, `signup`), `signup_without_code`
-(no account, no usable signup code; vars `url`, `code?`). Subjects, texts and HTML are byte-identical to before the
+(no account, no usable signup code; vars `url`, `code?`), `signup_admin` (sendToAdmins on every new account in
+`LoginService::confirm`: the address, the signup code and its type, a "claim" note for a dispute signup, link
+`ADMIN_URL/users/<id>`; who gets it = the admin recipients on the Emails page). Subjects, texts and HTML are byte-identical to before the
 refactor (both mails, de/en, with and without code / signup).
 
 **Adding a mail (e.g. the ownership emails):** 1. a const + definition in `MailTemplates` (audience, description, vars,

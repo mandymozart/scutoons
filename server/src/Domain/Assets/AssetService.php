@@ -29,7 +29,7 @@ use Throwable;
  */
 final class AssetService
 {
-    public const UPLOAD_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'mp4', 'webm', 'mp3', 'm4a', 'ogg', 'wav', 'flac', 'zip', 'pdf'];
+    public const UPLOAD_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'mp4', 'webm', 'mp3', 'm4a', 'ogg', 'wav', 'flac', 'zip', 'pdf', 'glb'];
     public const ARCHIVE_PREFIX = '.versions/';
 
     public function __construct(
@@ -88,6 +88,7 @@ final class AssetService
             'mp3' => str_starts_with($head, 'ID3') || (strlen($head) > 1 && ord($head[0]) === 0xFF && (ord($head[1]) & 0xE0) === 0xE0),
             'zip' => str_starts_with($head, "PK\x03\x04") || str_starts_with($head, "PK\x05\x06"),
             'pdf' => str_starts_with($head, '%PDF'),
+            'glb' => str_starts_with($head, 'glTF'),
             default => true,
         };
         if (!$ok) throw new ApiError(422, 'content_mismatch', 'The file content does not match its extension.');

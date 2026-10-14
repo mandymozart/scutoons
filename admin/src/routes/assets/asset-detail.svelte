@@ -6,6 +6,7 @@
 	import { tableLabels } from '$lib/labels.ts';
 	import { contentHref } from '$lib/creator-links.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { ModelPreview } from '@scutoons/media';
 
 	/**
 	 * One asset (agents/ASSETS.md "Operations"): preview, the files of every version, where it is used, and the
@@ -59,6 +60,7 @@
 		if (detail.asset.kind === 'video') return files.find((r) => r.quality === 'low') ?? files.find((r) => r.mime?.startsWith('video/')) ?? null;
 		if (detail.asset.kind === 'image') return files.find((r) => r.mime?.startsWith('image/')) ?? null;
 		if (detail.asset.kind === 'audio') return files.find((r) => r.quality === 'medium') ?? files[0] ?? null;
+		if (detail.asset.kind === 'model') return files.find((r) => r.label === 'original') ?? files[0] ?? null;
 		return null;
 	});
 
@@ -154,7 +156,8 @@
 			<div class="preview">
 				{#if preview && detail.asset.kind === 'image'}<img src={url(preview.path)} alt="" />
 				{:else if preview && detail.asset.kind === 'video'}<!-- svelte-ignore a11y_media_has_caption --><video src={url(preview.path)} controls muted preload="metadata"></video>
-				{:else if preview && detail.asset.kind === 'audio'}<audio src={url(preview.path)} controls preload="none"></audio>{/if}
+				{:else if preview && detail.asset.kind === 'audio'}<audio src={url(preview.path)} controls preload="none"></audio>
+				{:else if preview && detail.asset.kind === 'model'}<ModelPreview path={preview.path} testid="asset-model-preview" />{/if}
 			</div>
 			<div class="text">
 				<p class="sc-label">{detail.asset.kind} · v{current?.number ?? '–'} · {detail.asset.folder ?? '/'}</p>
