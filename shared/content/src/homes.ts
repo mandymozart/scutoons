@@ -3,7 +3,7 @@
 // `tatami_room`); furniture = items standing in a home; a WG = a home several of the reader's avatars share.
 import type { Localized } from './items.ts';
 import type { QualityVariants } from './media-quality.ts';
-import { isPlaceWaypoint, routeDrawnTo, routePoints, type MapNetwork, type MapState, type Point, type RouteLike } from './map.ts';
+import { isPlaceWaypoint, routeDrawnTo, routeGeometry, sampleRoute, type MapNetwork, type MapState, type Point, type RouteLike, type RoutePlace } from './map.ts';
 
 /**
  * A home scene's file at the reader's media quality (media-quality.ts `pickQualityVariant`): `src` = 1080p (low and
@@ -165,14 +165,24 @@ function path(routes: readonly RouteLike[], state: MapState, from: string, to: s
  * The world points a walk passes (the avatar's marker follows them): each stretch along its route's waypoints – free
  * points included, either direction – without repeating the place where two stretches meet.
  */
-export function walkPoints(places: readonly { id: string; x: number; y: number }[], routes: readonly RouteLike[], steps: readonly WalkStep[]): Point[] {
+export function walkPoints(places: readonly RoutePlace[], routes: readonly RouteLike[], steps: readonly WalkStep[], spacing = 4): Point[] {
+	// along the DRAWN curve (owner 2026-10-14: "the avatar should follow the line" – the tram's, subway's, train's curve,
+	// not straight jumps between its points): each stretch's curve pieces (in at a place's entry gate, out at its exit)
+	// sampled about every `spacing` world units, from the start place's point to the end place's
 	const out: Point[] = [];
+	const push = (p: Point | undefined) => {
+		const last = out[out.length - 1];
+		if (p && (!last || last.x !== p.x || last.y !== p.y)) out.push({ x: p.x, y: p.y });
+	};
 	for (const step of steps) {
 		const route = routes.find((r) => r.id === step.route);
 		if (!route) continue;
-		const points = routePoints(places, route.waypoints, Math.min(step.from, step.to), Math.max(step.from, step.to));
+		const lo = Math.min(step.from, step.to), hi = Math.max(step.from, step.to);
+		const ends = [route.waypoints[lo], route.waypoints[hi]].map((w) => (w && isPlaceWaypoint(w) ? places.find((p) => p.id === w.location) : undefined));
+		const curve = routeGeometry(places, route.waypoints, lo, hi).segments.flatMap((seg) => sampleRoute(seg, spacing));
+		const points = [ends[0], ...curve, ends[1]].filter((p): p is Point => !!p);
 		if (step.from > step.to) points.reverse();
-		out.push(...(out.length ? points.slice(1) : points));
+		points.forEach(push);
 	}
 	return out;
 }

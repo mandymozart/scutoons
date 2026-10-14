@@ -508,7 +508,7 @@
 				{/each}
 			</div>
 			{#if inventory?.currentBody}
-				<MapAvatar {view} at={data.locations.find((p) => p.id === avatarAt) ?? null} walk={walking} image={asset(inventory.currentBody.path)} ondone={walked} />
+				<MapAvatar {view} at={data.locations.find((p) => p.id === avatarAt) ?? null} walk={walking} image={asset(inventory.currentAvatar)} ondone={walked} />
 			{/if}
 			<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12): where a route runs in and out -->
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} layer="gates" />

@@ -59,10 +59,12 @@ test('the walk’s points follow the route, free points included, either directi
 	];
 	const withBend: RouteLike[] = [{ id: 'ring', waypoints: [at('home'), { id: 'bend', x: 5, y: 5 } as any, at('square'), at('cathedral')] }];
 	const steps = walkPath(withBend, state, 'cathedral', 'home', open)!;
-	assert.deepEqual(
-		walkPoints(places, withBend, steps).map((p) => [p.x, p.y]),
-		[[20, 0], [10, 0], [5, 5], [0, 0]]
-	);
+	const pts = walkPoints(places, withBend, steps);
+	// along the drawn curve: from the cathedral to home, through the free bend, many small steps
+	assert.deepEqual([pts[0].x, pts[0].y], [20, 0]);
+	assert.deepEqual([pts.at(-1)!.x, pts.at(-1)!.y], [0, 0]);
+	assert.ok(pts.some((p) => Math.abs(p.x - 5) < 0.01 && Math.abs(p.y - 5) < 0.01), 'through the free point');
+	assert.ok(pts.length > 4, 'sampled along the curve');
 	assert.deepEqual(walkPoints(places, withBend, []), []);
 });
 

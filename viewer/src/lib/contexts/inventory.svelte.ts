@@ -34,6 +34,7 @@ import {
 	activeEffects,
 	applySubstance,
 	avatarBodies,
+	characterImage,
 	endEffect as endEffectState,
 	isSubstance,
 	statLevels,
@@ -191,6 +192,22 @@ export function createInventoryContext(session: SessionContext) {
 			bodies[0]
 	);
 	const slots = $derived<AvatarSlotInstance[]>(currentBody?.slots ?? bodySlotsOf(null));
+	/**
+	 * the current body's face for markers (owner 2026-10-14: the map shows "a real avatar picture, not the A-pose"): the
+	 * look's avatar image, else its portrait, else the A-pose
+	 */
+	const currentAvatar = $derived.by<string>(() => {
+		const b = currentBody;
+		if (!b) return '';
+		const character = registry?.characters?.find((c) => c.id === b.character);
+		const ref = { persona: b.persona, look: b.look };
+		const missing = (path: string) => !path || path.includes('/_missing/');
+		for (const view of ['avatar', 'portrait']) {
+			const path = characterImage(character, ref, view, { substitute: '' });
+			if (!missing(path)) return path;
+		}
+		return b.path;
+	});
 	const itemsById = $derived<Record<string, ItemDef>>(
 		Object.fromEntries((catalog?.items ?? []).map((i) => [i.id, i]))
 	);
@@ -1012,6 +1029,10 @@ export function createInventoryContext(session: SessionContext) {
 		/** the current body's wear slots (slot instances) */
 		get slots() {
 			return slots;
+		},
+		/** the current body's avatar picture (its portrait, else its A-pose) – markers such as the map's avatar */
+		get currentAvatar() {
+			return currentAvatar;
 		},
 		/** the character registry (avatar bodies, homes) once loaded */
 		get registry() {

@@ -80,19 +80,20 @@
 		top: 0;
 		width: 5rem;
 		height: 5rem;
-		margin: -6.5rem 0 0 -2.5rem;
+		margin: -3rem 0 0 -2.5rem;
 		object-fit: contain;
 		pointer-events: none;
 		z-index: 4;
 	}
-	/* above the place markers, below the card; the point is its foot */
+	/* above the place markers, below the card; it stands UNDER the place's dot (owner 2026-10-14: the place's name sits
+	   above the dot) – its top edge just below the point */
 	.avatar {
 		position: absolute;
 		left: 0;
 		top: 0;
 		width: 2.5rem;
 		height: 2.5rem;
-		margin: -2.75rem 0 0 -1.25rem;
+		margin: 0.75rem 0 0 -1.25rem;
 		object-fit: cover;
 		object-position: top;
 		border: var(--border-width-regular) solid var(--ink);
