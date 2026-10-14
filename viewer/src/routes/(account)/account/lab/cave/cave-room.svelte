@@ -55,7 +55,7 @@
 	/** tap on the room itself: a selected furniture item is placed there (D4) – it stays in the room from now on */
 	function tapRoom(e: MouseEvent) {
 		if (visitor || sel?.kind !== 'furniture' || (e.target as Element).closest('.furniture')) return;
-		placed.push({ f: sel, ...at(e), contents: [] });
+		placed.push({ f: sel as Furniture, ...at(e), contents: [] });
 		carried = carried.filter((c) => c.uid !== sel.uid);
 		open = placed[placed.length - 1].f.uid;
 		selected = null;
