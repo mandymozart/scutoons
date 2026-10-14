@@ -392,7 +392,9 @@
 		"release_failed": "That did not work – are you signed in?",
 		"score_play": "Play",
 		"score_stop": "Stop",
-		"score_pad": "Slide over the notes: echo"
+		"score_pad": "Slide over the notes: echo",
+		"previous_track": "Previous song",
+		"next_track": "Next song"
 	},
 	"claim": {
 		"title": "SCUTOONS item",

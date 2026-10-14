@@ -11,6 +11,7 @@
 	import CameraOverlay from '$lib/components/camera/camera-overlay.svelte';
 	import ClaimSheet from './claim-sheet.svelte';
 	import ItemIcon from './item-icon.svelte';
+	import RecordPlayer from './record-player.svelte';
 	import { loadMinigame } from './minigames/registry.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import mapIcon from '$lib/icons/map.svg';
@@ -27,16 +28,6 @@
 		const received = session.me?.received;
 		if (received?.length) inventory.announceReceived(received);
 	});
-
-	// the album's tracks in order: a new request starts at the first, the end of a track plays the next
-	let trackIndex = $state(0);
-	$effect(() => {
-		void ui.audio;
-		trackIndex = 0;
-	});
-	function nextTrack() {
-		if (ui.audio && trackIndex < ui.audio.tracks.length - 1) trackIndex += 1;
-	}
 
 	function openInventory() {
 		ui.closeClaim();
@@ -108,22 +99,11 @@
 {/if}
 
 {#if ui.audio}
-	{@const track = ui.audio.tracks[Math.min(trackIndex, ui.audio.tracks.length - 1)]}
-	<div class="audio-player" data-testid="audio-player">
-		{#if ui.audio.entry}
-			<div class="thumb">
-				<ItemIcon srcs={[inventory.iconOf(ui.audio.entry)]} name={inventory.nameOf(ui.audio.entry)} />
-			</div>
-		{/if}
-		<div class="track">
-			{#if track.title || ui.audio.title}
-				<span class="track-title" data-testid="audio-title">{m['items.now_playing']({ title: [ui.audio.title, track.title].filter(Boolean).join(' · ') })}</span>
-			{/if}
-			<!-- svelte-ignore a11y_media_has_caption -->
-			<audio src={/^https?:/.test(track.src) ? track.src : asset(track.src)} controls autoplay onended={nextTrack}></audio>
-		</div>
-		<button class="close" onclick={ui.closeAudio} aria-label={m['items.close']()}><CloseIcon size="1rem" /></button>
-	</div>
+	<RecordPlayer
+		request={ui.audio}
+		icon={ui.audio.entry ? { src: inventory.iconOf(ui.audio.entry), name: inventory.nameOf(ui.audio.entry) } : null}
+		onclose={ui.closeAudio}
+	/>
 {/if}
 
 {#if membership.invalidatedCode}
@@ -176,37 +156,6 @@
 		border-bottom: none;
 		padding: 1rem;
 	}
-	.audio-player {
-		position: fixed;
-		z-index: 2040;
-		left: 0.5rem;
-		right: 0.5rem;
-		bottom: 0.5rem;
-		max-width: 500px;
-		margin: 0 auto;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		background: white;
-		border: 2px solid black;
-		padding: 0.25rem 0.5rem;
-	}
-	.audio-player .track {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-	}
-	.audio-player audio {
-		width: 100%;
-		min-width: 0;
-	}
-	.track-title {
-		font-size: 0.75rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
 	.thumb {
 		width: 2.5rem;
 		flex: none;
@@ -216,22 +165,6 @@
 		width: 2.5rem;
 		height: 2.5rem;
 		object-fit: contain;
-	}
-	.close {
-		box-sizing: border-box;
-		width: var(--control-height);
-		height: var(--control-height);
-		padding: 0;
-		border-radius: 50%;
-		background: white;
-		color: black;
-		border: 2px solid black;
-		display: inline-grid;
-		place-items: center;
-		flex: none;
-	}
-	.close:hover {
-		background: var(--primary-color);
 	}
 	.banner {
 		position: fixed;

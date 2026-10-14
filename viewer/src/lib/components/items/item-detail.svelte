@@ -44,16 +44,18 @@
 	$effect(() => {
 		if (playerList.some((row) => !row.listen)) loadProducts().then((c) => (products = c));
 	});
-	// a physical release's tracks live in the vault: each one gets its signed URL first (owner 2026-10-14)
+	// a physical release's tracks live in the vault: the player asks for each one's signed URL when it starts (the URLs
+	// live ten minutes, an album longer – owner 2026-10-14: "play the whole album")
 	let audioError = $state(false);
-	async function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
+	function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
 		audioError = false;
-		try {
-			const srcs = await Promise.all(tracks.map((t) => albumTrackUrl(album.id, t)));
-			ui.playAlbum({ tracks: tracks.map((t, i) => ({ src: srcs[i], title: t.title })), title: localized(album.title), entry: from });
-		} catch {
-			audioError = true;
-		}
+		ui.playAlbum({
+			tracks: tracks.map((t) => ({ src: t.src, title: t.title })),
+			title: localized(album.title),
+			entry: from,
+			cover: album.cover ?? null,
+			sign: (i) => albumTrackUrl(album.id, tracks[i])
+		});
 	}
 	async function download(album: Album, path: string) {
 		audioError = false;

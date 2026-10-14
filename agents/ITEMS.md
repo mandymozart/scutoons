@@ -1189,7 +1189,10 @@ listen, download; validation `validateAlbums` (inside `validateCatalog`) + `chec
 
 **What the reader sees** (viewer):
 - **Record (item detail)** with a record player: "Abspielen" / "Play" → the audio player plays the album's tracks in
-  order ("Spielt: Awakening · Instrumental (Brass Morton)", next track on end); "Album herunterladen" when
+  order as a little playlist (owner 2026-10-14: "play the whole album"; record-player.svelte): "Spielt: Cloud 9 ·
+  Awakening", n / N, back / next, a turntable – the record turns, the tonearm moves in as the song plays and lifts
+  between songs (still under reduced motion); it stops after the last song; a vault track is signed when it starts
+  (the URLs live ten minutes); "Album herunterladen" when
   `access.download` allows it. Without one: "Zum Abspielen brauchst du einen Plattenspieler." / "You need a player to
   play it: Record player." (the player's catalog name) + "Album herunterladen". No "Benutzen" any more.
 - **Record player (item detail)**: "Platten für diesen Spieler" – per album the carrier's icon, the album title, "In

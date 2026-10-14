@@ -19,6 +19,11 @@ export interface AudioRequest {
 	title: string;
 	/** the media item it plays from (its icon in the player), if any */
 	entry: Entry | null;
+	/** the album's cover (CDN-root path) – the record's label in the player */
+	cover?: string | null;
+	/** track `i`'s playable address, asked for when it starts (a vault track's signed URL lives ten minutes); without it
+	 *  `tracks[i].src` plays as it is */
+	sign?: (i: number) => Promise<string>;
 }
 
 export type ItemsUiContext = ReturnType<typeof createItemsUiContext>;
