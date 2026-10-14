@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q8 (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7–Q9 (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -46,9 +46,11 @@ its property (`holds`). Items to set up (admin catalog, as a proposal the admin 
 |---|---|---|
 | `songbook` | container, `holds: score` | the "unlocked" one (`starter`) or found / bought |
 | `drill` | tool, virtual | kept by the recipe (a tool, not an ingredient) |
-| `zip_tie` | stackable, variants black / white / … | where readers find them: Q8 |
-| `songbook_diy` | container, `holds: score`, the same colour variants | output of the recipe |
-| recipe `songbook_diy` | drill (kept) + 4 × zip_tie (colour X) → songbook_diy (colour X) | one recipe per colour |
+| `zip_tie` | stackable | where readers find them: Q8 |
+| `plastic_sheet` | stackable, colour variants (black, white, …) | colours the book (owner 2026-10-14: "doesn't have a color unless you add a piece of plastic in a specific color") |
+| `songbook_diy` | container, `holds: score`; plain (no variant) or a colour variant | output of the recipes |
+| recipe `songbook_diy` | drill (kept) + 4 × zip_tie → songbook_diy (plain) | |
+| recipe `songbook_diy_<colour>` | songbook_diy (plain) + plastic_sheet (colour X) → songbook_diy (colour X) | one per colour; when: Q9 |
 Two recipe fundamentals the code needs (ITEMS.md, with the code): an input that is **kept** (`RecipePart.keep`) and
 a **variant** on a part (`RecipePart.variant` – explicit per colour, no hidden inheritance). Icons: placeholders until
 the owner's art (like the players').
@@ -88,10 +90,12 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q8 the parts:** the colours of the zip ties (black, white, …?); where readers get the drill and the zip ties (placed
+- **Q8 the parts:** the plastic's colours (black, white, …?); where readers get the drill and the zip ties (placed
   in a story, a scan, a product?); `songbook` starter for everyone, or found?
 - **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
   inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
+- **Q9 colouring a book with scores in it:** (a) the scores stay inside the coloured book (the recipe carries the
+  contents over – recommended), or (b) only an empty book can be coloured?
 
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
