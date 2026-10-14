@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q7, Q10, the DJ trolley's rule + capacity (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; waits for the owner on Q10, the DJ trolley's rule + capacity (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -36,6 +36,10 @@ migration; guests: in their localStorage inventory, carried by the import at sig
 the inventory like any item; the reader moves it: drag it onto the book in the grid, or select it and tap the book
 ("In das Liederbuch legen" offered on the book). Taking out works the same way and puts it back into the regular
 inventory (owner 2026-10-14: "it can, goes back into regular inventory"). The book's grid shows only what lies in it.
+Giving a container away takes its contents along (owner 2026-10-14: "the scores go along with the book"): one
+transaction moves the book and every entry in it; an entry that can't be given (not giftable, code-bound) or that
+would exceed the recipient's max stays with the giver, loose; the gift form says so before sending ("3 scores go
+with the book, 1 stays with you").
 A song book is never a starter – it is found (`grantable: ["story"]`), gifted by a campaign or bought (Q8).
 
 **2b. What goes into which container – one editable rule** (owner 2026-10-14: "can we decide what items can go into
@@ -110,8 +114,6 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
-  inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
 - **Q10 sizes:** sizes as their own items with their own capacity (recommended), or size variants of one item (then
   each variant carries its `max`)? And the capacities: the basic book, the DIY book, the sizes.
 
