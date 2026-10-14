@@ -386,7 +386,7 @@
 		<!-- upload: a button (owner 2026-10-03: the fold-out was confusing); the path appears once a file is chosen -->
 		<div class="upload" data-testid="asset-upload">
 			<Button size="sm" variant="secondary" disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose">{t.upload} …</Button>
-			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : kind === 'model' ? '.glb' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
+			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : kind === 'model' ? '.glb' : kind === 'document' ? '.pdf,.musicxml,.mxl,.xml' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
 			{#if uploadFile}
 				<label class="sc-label" for="asset-upload-path">{t.uploadPath}</label>
 				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />
