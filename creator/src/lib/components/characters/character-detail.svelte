@@ -19,8 +19,7 @@
 	} from '@scutoons/content';
 	import { shownCharacterName, textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { addLook, addPersona, characterLanguages, edit, editCharacter, editPersona, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
-	import { FileSlot } from '@scutoons/media';
+	import { addLook, addPersona, characterLanguages, edit, editCharacter, registryOf, requestsOf, type ToonInfo } from '$lib/editor/characters.ts';
 	import { aposeLooksOf, applyApose, closeRequests } from '$lib/editor/character-form.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
@@ -28,6 +27,7 @@
 	import CharacterImport from '$lib/components/characters/character-import.svelte';
 	import CharacterPersonaFields from '$lib/components/characters/character-persona.svelte';
 	import CharacterLook from '$lib/components/characters/character-look.svelte';
+	import PersonaModel from '$lib/components/characters/persona-model.svelte';
 	import CharacterTransitions from '$lib/components/characters/character-transitions.svelte';
 	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
@@ -36,7 +36,7 @@
 	/**
 	 * One character (COMPONENTS.md step 9: in sections): identity (CharacterIdentity), the image import, its personas as
 	 * tabs → the persona's own fields (CharacterPersonaFields) → its looks as sub-tabs → the look's mood grid
-	 * (CharacterLook) and transitions, the persona's 3D model (a look may have its own – owner 2026-10-13), the A-pose looks, the character's wanted images and – at the very end – prompts
+	 * (CharacterLook) and transitions, the persona's 3D model (PersonaModel: preview, slot, body preset; a look may have its own), the A-pose looks, the character's wanted images and – at the very end – prompts
 	 * for an image generator or an artist (CharacterPrompts).
 	 */
 	let {
@@ -103,10 +103,6 @@
 		if (personaId === REGULAR_PERSONA || !(await confirmRemove(m['creator.characters_remove_persona_confirm']({ persona: shownCharacterName(character, personaId) })))) return;
 		change((c) => (c.personas = c.personas.filter((p) => p.id !== personaId)));
 		persona = REGULAR_PERSONA;
-	}
-	/** a persona's 3D model (a .glb from the asset manager); cleared = none */
-	function setPersonaModel(path: string | null) {
-		editPersona(registry, id, personaId, (p) => (path ? (p.model = path) : delete p.model), `${id}:${personaId}:model`);
 	}
 	function newLook() {
 		if (!newLookLabel.trim()) return;
@@ -175,9 +171,7 @@
 					{#if personaId !== REGULAR_PERSONA}
 						<CharacterPersonaFields {registry} {character} persona={currentPersona} {languages} {toons} onremove={removePersona} />
 					{/if}
-					<div class="model" title={m['creator.characters_model_hint']()}>
-						<FileSlot kind="model" value={currentPersona.model} label={m['creator.characters_model']()} place="characters/{id}/" player={false} onchange={setPersonaModel} testid="persona-model" />
-					</div>
+					<PersonaModel {registry} {character} persona={currentPersona} {lookId} />
 
 					<Tabs
 						variant="sub"
@@ -274,9 +268,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-	}
-	.model {
-		max-width: 24rem;
 	}
 	.danger {
 		color: var(--error);

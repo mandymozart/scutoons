@@ -336,7 +336,12 @@ prologue master and register it as renditions of a loop asset) – not built.
 Kind `model`: **binary glTF (`.glb`) only** – one self-contained file (upload magic `glTF`, MIME
 `model/gltf-binary`, counted as used content like images). A `.gltf` is refused: it points to separate `.bin` /
 texture files that a move or rename would break; GLB ↔ glTF converts losslessly (e.g. gltf-transform) when a model must
-be edited. Used by the characters' personas / looks (`model`, DATA.md); picker and `FileSlot kind="model"`.
+be edited. Used by the characters' personas / looks (`model`, DATA.md); picker and `FileSlot kind="model"`. **Preview**
+(owner 2026-10-14): `ModelPreview` (@scutoons/media – a live view, turns slowly, drag to turn; dashed + "Placeholder"
+for a stand-in) in the character page and the admin asset sheet, `ModelThumb` stills on the picker / admin cards (one
+shared renderer); three.js loads only when a model is shown (`model-view.js`). **Mannequins** (the fallback of a
+persona without a model, by its body preset `legs`: two / more – `MANNEQUINS`, code references in AssetUsages):
+`scutoons/3d/mannequin.glb` (Xbot, Mixamo, via the three.js examples), `scutoons/3d/mannequin-more-legs.glb` (open).
 
 ## Albums and downloads (owner: the season "Downloads" fields are redundant)
 

@@ -9,7 +9,7 @@
 	import { ASSET_KINDS, type AssetKind, type AssetList, type AssetMissing, type AssetStorageStatus, type AssetSummary, type AssetUnused } from '@scutoons/api';
 	import { assets } from '$lib/api.ts';
 	import { bytes, errorText, number } from '$lib/format.ts';
-	import { auditAssets, fixFindings, standardImage, type FixReport, type StandardFinding } from '@scutoons/media';
+	import { auditAssets, fixFindings, ModelThumb, standardImage, type FixReport, type StandardFinding } from '@scutoons/media';
 	import { contentHref } from '$lib/creator-links.ts';
 	import { pagerLabels, tableLabels } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -297,7 +297,7 @@
 						{@const src = thumb(a)}
 						<li>
 							<a class="card" href={href({ asset: a.id })} title={`${a.slug}\n${a.renditions.map((r) => r.label).join(' · ')}`} data-testid="asset-card">
-								<span class="img">{#if src}<img src={url(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}</span>
+								<span class="img">{#if a.kind === 'model'}<ModelThumb path={a.path} />{:else if src}<img src={url(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}</span>
 								<span class="name">{a.path.split('/').pop()}</span>
 								<span class="sc-caption line">{a.folder ?? '/'} · {bytes(a.size)}{a.width && a.height ? ` · ${a.width}×${a.height}` : ''}</span>
 								<span class="badges">

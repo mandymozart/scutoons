@@ -229,7 +229,7 @@ export interface CharacterLook {
 	default?: boolean;
 	/** mood → view → CDN path (from the CDN root) */
 	images: MoodImages;
-	/** this look's own 3D model (a .glb, CDN path from the CDN root) – wins over the persona's (`modelOf`) */
+	/** this look's own 3D model (a .glb, CDN path from the CDN root) – wins over the persona's (`personaModel`) */
 	model?: string;
 }
 
@@ -257,8 +257,10 @@ export interface CharacterPersona {
 	testo?: number;
 	looks: CharacterLook[];
 	transitions?: LookTransition[];
-	/** the persona's 3D model (a .glb, CDN path from the CDN root); a look may have its own (`modelOf`) */
+	/** the persona's 3D model (a .glb, CDN path from the CDN root); a look may have its own (`personaModel`) */
 	model?: string;
+	/** the body preset for the 3D fallback: `more` = four or more legs (a four-legged mannequin); none = two */
+	legs?: PersonaLegs;
 }
 
 /**
@@ -593,15 +595,36 @@ export function defaultLookId(persona: Pick<CharacterPersona, 'looks'> | null | 
 	return looks.find((l) => l?.default)?.id ?? looks[0]?.id ?? DEFAULT_LOOK;
 }
 
+/** A persona's body preset for its 3D fallback (owner 2026-10-14: "2 legs or more legs is enough as preset"). */
+export const PERSONA_LEGS = ['two', 'more'] as const;
+export type PersonaLegs = (typeof PERSONA_LEGS)[number];
+
+/**
+ * The 3D fallback for every persona / look without its own model, per body preset (owner 2026-10-14: "a simple
+ * mannequin … if there is no model there yet"; "some characters have 4 or even more legs"): two legs = three.js's
+ * example mannequin (Xbot, Mixamo; Mixamo bone names), more legs = a four-legged one. One asset each on the CDN.
+ */
+export const MANNEQUINS: Record<PersonaLegs, string> = {
+	two: 'scutoons/3d/mannequin.glb',
+	more: 'scutoons/3d/mannequin-more-legs.glb'
+};
+
 /**
  * The 3D model of a persona in a look (owner 2026-10-13: one per persona, looks may have their own): the look's
- * `model`, else the persona's, else '' (agents/research/CHARACTERS3D.md – the storyboard renderer, FEATURES 10.95).
+ * `model`, else the persona's – else the mannequin of the persona's body preset, marked `fallback` (what a preview /
+ * the storyboard renderer shows; agents/research/CHARACTERS3D.md, FEATURES 10.95). `path` '' = no persona.
  */
-export function modelOf(character: RegistryCharacter | null | undefined, persona: string = REGULAR_PERSONA, look?: string): string {
+export function personaModelSource(character: RegistryCharacter | null | undefined, persona: string = REGULAR_PERSONA, look?: string): { path: string; fallback: boolean } {
 	const p = findPersona(character, persona);
-	if (!p) return '';
-	const l = findLook(p, look || defaultLookId(p));
-	return l?.model?.trim() || p.model?.trim() || '';
+	if (!p) return { path: '', fallback: false };
+	const own = findLook(p, look || defaultLookId(p))?.model?.trim() || p.model?.trim();
+	return own ? { path: own, fallback: false } : { path: MANNEQUINS[p.legs ?? 'two'] ?? MANNEQUINS.two, fallback: true };
+}
+
+/** The stored 3D model of a persona in a look (the look's, else the persona's), '' when none – no mannequin. */
+export function personaModel(character: RegistryCharacter | null | undefined, persona: string = REGULAR_PERSONA, look?: string): string {
+	const s = personaModelSource(character, persona, look);
+	return s.fallback ? '' : s.path;
 }
 
 export function personaLabel(character: RegistryCharacter | null | undefined, persona: string | undefined, locale: string, fallbacks: string[] = ['en', 'de']): string {
@@ -1462,6 +1485,7 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			if (defaults !== 1) add('error', [...pp, 'looks'], `${pwho}: exactly one look must be the default (${defaults} are)`);
 			// 3D models: binary glTF only (agents/ASSETS.md)
 			if (p.model !== undefined && (!isStr(p.model) || !MODEL_PATH.test(p.model))) add('warning', [...pp, 'model'], `${pwho}: the 3D model must be a CDN path to a .glb`);
+			if (p.legs !== undefined && !(PERSONA_LEGS as readonly unknown[]).includes(p.legs)) add('warning', [...pp, 'legs'], `${pwho}: legs must be one of ${PERSONA_LEGS.join(', ')}`);
 			p.looks.forEach((l: any, k: number) => {
 				if (isObj(l) && l.model !== undefined && (!isStr(l.model) || !MODEL_PATH.test(l.model))) add('warning', [...pp, 'looks', k, 'model'], `${pwho}: look ${l.id}: the 3D model must be a CDN path to a .glb`);
 			});
