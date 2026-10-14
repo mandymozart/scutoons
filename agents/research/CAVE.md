@@ -111,19 +111,22 @@ Guests have a cave on the device (their furniture in the local inventory), can w
 needs an account (the server must answer for your home). Not now: more rooms (one home = one room, one home
 scene), decorating beyond the home scene, a friend list, live presence / chat, a per-reader map spot, rides (step 2), selling.
 
-## D8 – rides (step 2, proposal 2026-10-14 – the owner decides the marked points)
+## D8 – rides (step 2; decided 2026-10-14)
 Owner 2026-10-14: "the rides go along a subway, tram, and special creature airlift taxi network. and are animated in
-their respecitve map layer"; "YES – build step 2" (relayed). Proposal:
-- **A line = a map route with a network** (`MapPath.network: 'subway' | 'tram' | 'airlift'`), drawn in the creator's
-  map builder like any route; its place waypoints are its **stops**. Lines of one network meet at shared stops
-  (changing lines is free). Hidden / revealed like routes – a line shows once the story reveals it (no spoilers).
-- **Each network its own look and layer** on the reader's map: the subway a bold coloured line drawn *under* the
-  terrain's places (a "U" at its stops), the tram twin rails along the streets, the creature airlift a dotted arc in the
-  sky above everything. A ride animates the avatar's marker along the line in that layer (faster than walking).
-- **A ride = from the stop where the avatar stands to any open stop of the same network** (unlocked or its home),
-  paid per ride in cucumbers – [owner] the prices: proposed **tram 1, subway 2, creature airlift 3**. Members: the server
-  takes the cucumbers (`POST /api/map/ride`); guests: from the device inventory. No cucumbers → "You need 2 cucumbers".
-- [owner] The creature airlift: lines like the others (proposed), or a taxi from anywhere to any unlocked place?
+their respecitve map layer"; "YES – build step 2"; "Airlift is going anywhere"; fares "1 cucumber … the airlift (air
+taxi) costs 10 cucumbers"; "the airlift is done by crazy creatures and flying robot taxis – for now completely random
+which one carries you" (all relayed by the session manager).
+- **Subway and tram = lines**: a map route with `network: 'subway' | 'tram'` (drawn in the map builder); its place
+  waypoints are its stops, changing lines is free, never walked. Shown once the story reveals the route. Each its own
+  look (the subway bold red, the tram twin rails). A ride goes from the stop where the avatar stands to any open stop of
+  that network – **1 cucumber**.
+- **The creature airlift = a taxi to anywhere**: from wherever the avatar stands to any unlocked place (or its home), no
+  lines – **10 cucumbers**. The carrier is **drawn at random per flight** from a list of crazy creatures and flying robot
+  taxis (catalog `airlift_carriers` – `{ id, name, image }`, edited in the creator like the home scenes; the owner adds
+  more later, no code); the flight shows it carrying the avatar along an arc in the sky.
+- The fare is paid first (members on the server: `POST /api/map/ride { network }`; guests on the device).
+- Art: placeholders with Luma (scripts/home-art.mjs, the shared look) – the carriers, the scenes from a description
+  (owner: "any human habitable cave", "a standard Japanese mat chamber with tatamis" – generated, no internet photos).
 - Not now: timetables, waiting, tickets as items, a ride that ends between stops.
 
 ## Data model (proposal – the names to build with)
