@@ -46,13 +46,19 @@ export const COLOUR_SCHEMES = [
 /** one colour scheme, drawn at random */
 export const randomScheme = () => COLOUR_SCHEMES[Math.floor(Math.random() * COLOUR_SCHEMES.length)];
 
-/** an object alone on white, ready to be cut out; `scheme` = its main colours (default: drawn at random) */
-export const objectPrompt = (what, kind = 'ITEM ICON', scheme = randomScheme()) =>
+/** how an object sits in the image (the default: an item icon) */
+export const ICON_FRAMING = 'The object alone, centred, three-quarter view, filling about 75% of the square, on a plain pure white background (#FFFFFF), no floor, no cast shadow on the background.';
+
+/**
+ * an object alone on white, ready to be cut out; `scheme` = its main colours (default: drawn at random); `framing` = how
+ * it sits (default ICON_FRAMING – the cave's furniture turns its back to the left wall: scripts/home-art.mjs)
+ */
+export const objectPrompt = (what, kind = 'ITEM ICON', scheme = randomScheme(), framing = ICON_FRAMING) =>
 	[
 		`An ${kind} of ${what}.`,
 		STYLE,
 		`THIS OBJECT'S COLOURS: mainly ${scheme} (with natural material colours where the product needs them – metal, paper, glass).`,
-		'The object alone, centred, three-quarter view, filling about 75% of the square, on a plain pure white background (#FFFFFF), no floor, no cast shadow on the background.',
+		framing,
 		'No text, no letters, no logos, no watermark, no frame, no scene.'
 	].join(LF);
 
@@ -91,7 +97,7 @@ export async function lumaImage(prompt, { model = DEFAULT_MODEL, refs = [], aspe
 const CUT = `
 import sys
 from PIL import Image, ImageDraw
-src, dst, size = sys.argv[1], sys.argv[2], int(sys.argv[3])
+src, dst, size, square = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4] == '1'
 im = Image.open(src).convert('RGB')
 w, h = im.size
 mark = (255, 0, 255)
@@ -108,13 +114,20 @@ for y in range(h):
 bbox = out.getbbox()
 if bbox:
     out = out.crop(bbox)
-side = int(max(out.size) / 0.86)
-canvas = Image.new('RGBA', (side, side), (0, 0, 0, 0))
-canvas.paste(out, ((side - out.width) // 2, (side - out.height) // 2))
-canvas.resize((size, size), Image.LANCZOS).save(dst)
+if square:
+    side = int(max(out.size) / 0.86)
+    canvas = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+    canvas.paste(out, ((side - out.width) // 2, (side - out.height) // 2))
+    canvas.resize((size, size), Image.LANCZOS).save(dst)
+else:
+    k = size / max(out.size)
+    out.resize((max(1, round(out.width * k)), max(1, round(out.height * k))), Image.LANCZOS).save(dst)
 `;
 
-/** a PNG on white → a transparent square PNG of `size` px (python + Pillow) */
-export function cutOut(srcPng, dstPng, size = 512) {
-	execFileSync('python', ['-c', CUT, srcPng, dstPng, String(size)]);
+/**
+ * a PNG on white → a transparent PNG (python + Pillow): a centred square of `size` px, or with `square: false` trimmed
+ * to the object, its longest side `size` (a piece of furniture standing on its foot – scripts/home-art.mjs)
+ */
+export function cutOut(srcPng, dstPng, size = 512, { square = true } = {}) {
+	execFileSync('python', ['-c', CUT, srcPng, dstPng, String(size), square ? '1' : '0']);
 }
