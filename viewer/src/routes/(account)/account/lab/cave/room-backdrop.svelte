@@ -1,8 +1,8 @@
 <script lang="ts">
-	// Draft placeholders for the base rooms (research/CAVE.md D3 – the owner's art comes later): the cave and an empty
+	// Draft placeholders for the home scenes (research/CAVE.md "Terms", D3 – the owner's art comes later): the cave and an empty
 	// Japanese monk's room with tatami, both in the map places' three-quarter view (MAP.md §5.1). viewBox 0 0 100 100;
 	// the floor is the rhombus left (0,80) – back (50,58) – right (100,80) – front (50,102).
-	let { base }: { base: 'cave' | 'tatami' } = $props();
+	let { scene }: { scene: 'cave' | 'tatami_room' } = $props();
 
 	/** a point on the floor: u from left→back edge … right, v from left→front edge (both 0 … 1) */
 	const floor = (u: number, v: number) => `${u * 50 + v * 50},${80 - u * 22 + v * 22}`;
@@ -13,8 +13,8 @@
 	const quarters = [0.25, 0.5, 0.75];
 </script>
 
-<svg viewBox="0 0 100 100" aria-hidden="true" data-testid="room-backdrop" data-base={base}>
-	{#if base === 'tatami'}
+<svg viewBox="0 0 100 100" aria-hidden="true" data-testid="room-backdrop" data-scene={scene}>
+	{#if scene === 'tatami_room'}
 		<polygon class="wall" points="0,30 50,8 50,58 0,80" />
 		<polygon class="wall" points="50,8 100,30 100,80 50,58" />
 		<!-- shoji: a lattice on both walls -->

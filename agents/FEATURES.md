@@ -88,10 +88,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   cover lettering / ageing, and the viewer inventory as a DRAFT for the owner's look (containers, Put into / Take out,
   drag on desktop, scores Open / PDF). [owner] bunny vault: secrets BUNNY_PROTECTED_CDN_KEY, BUNNY_PROTECTED_STORAGE_PASSWORD,
   variables PROTECTED_CDN_URL, BUNNY_PROTECTED_STORAGE_ZONE (deploy/README.md); the real score / song book items.
-- [ ] 10.98 **The cave – the avatar's home + a walking mode** – owner 2026-10-14: "not inventory but cave... the home of
-  the avatar". A place on the world map with racks / a workshop; the reader's avatar walks there (free, its own map
-  position) or rides for cucumbers; a VR headset enters from anywhere; friends' caves (workshop repairs). Concept with
-  the owner, nothing built: research/CAVE.md. `decide`
+- [ ] 10.98 **The avatar's home + a walking mode** – owner 2026-10-14: "not inventory but cave... the home of the
+  avatar". A home per character on the world map (a WG of up to 5 avatars), its look a home scene (`cave`,
+  `tatami_room`), furniture placed freely (racks, a workbench); the avatar walks there or rides for cucumbers (step 2);
+  a VR headset enters from anywhere; friends visit by link. Concept + data model: research/CAVE.md; draft `/account/lab/cave`.
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,

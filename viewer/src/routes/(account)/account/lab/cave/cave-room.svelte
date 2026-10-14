@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Draft (research/CAVE.md D3–D6): a full-screen view (owner 2026-10-14: reused by live mode – built, it moves to
-	// @scutoons/reader like the ScoreView). A base room (cave / tatami room), furniture placed freely (drag it; select
+	// @scutoons/reader like the ScoreView). A home scene (`cave` / `tatami_room` – research/CAVE.md "Terms"), furniture placed freely (drag it; select
 	// one in the inventory, tap the room), furniture never leaves the room; racks are containers (select, then tap the
 	// rack); every home has a workbench. As a visitor: read-only, the workbench works with your own items. Nothing is saved.
 	import { asset } from '$lib/utils/cdn.ts';
@@ -12,7 +12,7 @@
 	let { visitor, where, onleave }: { visitor: boolean; where: string; onleave: () => void } =
 		$props();
 
-	let base = $state<'cave' | 'tatami'>('cave');
+	let scene = $state<'cave' | 'tatami_room'>('cave');
 	let placed = $state<Placed[]>([
 		{ f: furn('workbench'), x: 24, y: 80, contents: [] },
 		{
@@ -106,18 +106,18 @@
 	<header>
 		<span data-testid="cave-where">{where}</span>
 		{#if !visitor}
-			<!-- draft only: compare the base rooms (who picks it is open – CAVE.md) -->
-			<span class="seg" role="group" aria-label="Base room">
-				<button aria-pressed={base === 'cave'} onclick={() => (base = 'cave')}>Cave</button>
+			<!-- draft only: compare the home scenes (who picks it is open – CAVE.md) -->
+			<span class="seg" role="group" aria-label="Home scene">
+				<button aria-pressed={scene === 'cave'} onclick={() => (scene = 'cave')}>Cave</button>
 				<button
-					aria-pressed={base === 'tatami'}
-					onclick={() => (base = 'tatami')}
-					data-testid="cave-base-tatami">Tatami room</button
+					aria-pressed={scene === 'tatami_room'}
+					onclick={() => (scene = 'tatami_room')}
+					data-testid="home-scene-tatami">Tatami room</button
 				>
 			</span>
 		{/if}
 		<button onclick={onleave} data-testid="cave-leave"
-			>{visitor ? 'Leave the visit' : 'Leave the cave'}</button
+			>{visitor ? 'Leave the visit' : 'Leave home'}</button
 		>
 	</header>
 	<div class="body">
@@ -129,7 +129,7 @@
 			onclick={tapRoom}
 			data-testid="cave-room"
 		>
-			<RoomBackdrop {base} />
+			<RoomBackdrop {scene} />
 			<img class="avatar" src={asset('catpope/avatar.webp')} alt="Your avatar" />
 			{#each placed as p (p.f.uid)}
 				<button
