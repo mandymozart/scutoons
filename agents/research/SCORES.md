@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 + Q6 decided; Q7, Q10, Q11 decided; Q12 decided; waits for the owner on Q13 (what breaking leaves, saving it) (FEATURES 10.97).
+Status 2026-10-14: plan decided (Q1–Q13, the renderer Verovio); the score view is a dev draft (`/account/lab/score`); building next (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -92,7 +92,8 @@ inventory is next read (no timer needed); guests: the same check in their device
 (owner 2026-10-14: "broken song book is good. can be fixed. but not with a repair gutschein, but with a diy market
 gutschein"): the scores fall out loose into the inventory, the entry turns into `songbook_diy_broken` (the same colour
 variant; `overfill.breaks_into` names it). Only the DIY book can break (the upgraded one's 99 is already the ceiling).
-Until the cave exists a broken book stays broken. Q13 (c): does emptying in time save it?
+Until the cave exists a broken book stays broken. Taking scores out back to 25 within the 3 days saves it
+(`overfilled_at` cleared; owner 2026-10-14: "yes").
 
 **The DIY book ages** (owner 2026-10-14: "the diy one ages really bad. so older ones have a tinted color on each score
 and spots"). An item fundamental: `ages: { full_days }` on the item – the age = now − the entry's creation (the craft),
@@ -150,10 +151,7 @@ that is perhaps plan for live". A reader / musician writes on a score (marks, fi
 finds them again; Verovio's SVG gives every note and bar an id, so annotations can anchor to the music, not to page
 coordinates, and survive a new zoom / page layout. Planned with research/LIVE.md (parked to Feb 2027), not now.
 
-## Open questions
-- **Q13 (c):** taking scores out back to 25 before the 3 days are up saves the book (recommended)?
-
-## Steps once answered
+## Steps
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
    catalog columns if needed (CATALOG.md) and the inventory's `in`.
 2. server: the move API (put in / take out, ownership + `holds` checked), the signed-URL endpoint, the guest import.
