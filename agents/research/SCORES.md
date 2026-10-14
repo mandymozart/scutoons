@@ -40,8 +40,12 @@ view, "PDF herunterladen" (the print file).
 - Renderer **Verovio** (`verovio` npm, bundled + lazy-loaded only here – "alles bei uns"): MusicXML in, SVG per page
   out; `scale` and `pageWidth / pageHeight` = the viewport → real pagination with good line / page breaks
   (`breaks: smart`), `getPageCount()`, `renderToSVG(n)`; later `renderToMIDI()` for playback in live mode.
-  Rejected: OpenSheetMusicDisplay (lighter, BSD, but endless-scroll first and weak page layout); pdf.js (no reflow,
-  no scale that re-breaks lines).
+  The alternative is **OpenSheetMusicDisplay** (OSMD, Phonicscore, Vienna – the engine of their PracticeBird app):
+  MusicXML-native (Verovio converts MusicXML to MEI internally), pure JS on VexFlow, smaller, BSD licence (Verovio:
+  LGPL), a cursor for following along; but endless scroll by default (`pageFormat` gives paper pages, not viewport
+  pages), it lays out the whole score at once instead of one page on demand, and its audio player is for GitHub
+  sponsors only (Verovio's MIDI is free). Decided by a spike: the owner's real MusicXML files in both, phone + desktop,
+  two scales – lyrics, page breaks, load time. pdf.js is out (no reflow).
 - Controls (less UI): scale − / + as one square group (`sc-seg`, fit-to-width = the default), page n / total with
   ‹ › when it needs more than one page, swipe / arrow keys / PageUp-Down (Bluetooth page-turn pedals send these –
   the live musician gets this for free), "PDF" download, close. Re-renders on resize / rotation, keeps the page.
