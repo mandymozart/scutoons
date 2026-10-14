@@ -61,7 +61,8 @@ final class ContainersTest extends TestCase
         self::fail("no entry $entryId");
     }
 
-    private function refused(string $code, callable $call): ?array
+    /** @return array<string, mixed> the error's extra fields */
+    private function refused(string $code, callable $call): array
     {
         try {
             $call();
@@ -151,7 +152,7 @@ final class ContainersTest extends TestCase
         $scores = [...$this->add('score_a', 2), ...$this->add('score_private')];
         foreach ($scores as $s) $this->containers->move($this->id, ['entry_id' => $s, 'into' => $book, 'overfill' => true]);
         $gift = $this->get(\Scutoons\Domain\Ownership\Gifts::class)->gift($giver, ['entry_id' => $book, 'to' => 'friend@example.com']);
-        self::assertSame(['went' => 2, 'stayed' => 1], $gift['contents']);
+        self::assertSame(['went' => 2, 'stayed' => 1], $gift['contents'] ?? null);
         $theirs = $this->inventory->entries((string) $friend['id']);
         $theirBook = array_values(array_filter($theirs, fn($e) => $e['id'] === $book))[0];
         self::assertSame(['songbook_diy', 'red'], [$theirBook['item_id'], $theirBook['variant']]);
