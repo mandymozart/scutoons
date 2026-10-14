@@ -12,6 +12,8 @@
 	import { DialogHost, Icon } from '@scutoons/ui';
 	import Loader from '$lib/components/loader.svelte';
 	import ItemsHost from '$lib/components/items/items-host.svelte';
+	import HomeHost from '$lib/components/home/home-host.svelte';
+	import { setHomesContext } from '$lib/contexts/homes.svelte.ts';
 	import ReaderEffect from '$lib/components/items/reader-effect.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { setSessionContext } from '$lib/contexts/session.svelte.ts';
@@ -33,6 +35,8 @@
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
 	const itemsUi = setItemsUiContext();
+	// the avatar's home (agents/research/CAVE.md): the reader's homes, the home view
+	const homes = setHomesContext(inventory);
 	// the map discoveries of the whole universe (agents/MAP.md §2.4), synced like progress for members
 	setWorldContext(session);
 
@@ -63,13 +67,16 @@
 		const code = params.get('code') || (magicToken ? params.get('c') : null) || null;
 		// `?code=…&claim=1` = "This is mine? File a claim" from the QR landing page (ITEMS.md "Ownership, claims, gifting")
 		const dispute = params.get('claim') === '1';
+		// `?visit=<token>` = a friend's visit link (research/CAVE.md D6): their home, read-only
+		const visit = params.get('visit');
 
 		// `?preview=draft` from the creator: already read by lib/draft-preview.svelte.ts
-		if (code || magicToken || params.has('preview')) {
+		if (code || magicToken || visit || params.has('preview')) {
 			const url = new URL(window.location.href);
 			url.searchParams.delete('preview');
 			url.searchParams.delete('code');
 			url.searchParams.delete('claim');
+			url.searchParams.delete('visit');
 			if (magicToken) url.searchParams.delete('c');
 			// already consumed by the toon inventory (child onMount runs first)
 			url.searchParams.delete('inventory');
@@ -85,6 +92,7 @@
 			// the sheet grants device access via /access/ right away and offers "Add to my account"
 			itemsUi.openClaim(code, addToAccount, dispute);
 		}
+		if (visit && /^[A-Za-z0-9_-]{16,64}$/.test(visit)) homes.openVisit(visit);
 	});
 </script>
 
@@ -104,6 +112,7 @@
 </div>
 
 <ItemsHost />
+<HomeHost />
 <!-- in-page confirmations (confirmDialog / askDialog from @scutoons/ui) -->
 <DialogHost />
 <!-- a running reader effect goes wherever the reader goes (owner 2026-10-08) – not only the toon pages -->

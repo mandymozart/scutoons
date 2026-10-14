@@ -595,5 +595,32 @@
 		"error_message": "Bitte schreib eine Nachricht.",
 		"error_limit": "Zu viele Nachrichten in kurzer Zeit – bitte später noch einmal oder per E-Mail.",
 		"error_failed": "Das hat nicht geklappt – bitte schreib uns direkt an hello@scutoons.com."
+	},
+	"avatar_home": {
+		"leave": "Nach draußen",
+		"visit_leave": "Besuch beenden",
+		"inventory": "Dein Inventar",
+		"visiting": "Dein Inventar (du bist zu Besuch)",
+		"count": "{count} / {max}",
+		"put_in_hint": "Wähle etwas aus deinem Inventar, dann tippe auf: {name}.",
+		"place_hint": "Tippe auf einen Platz im Raum – das Möbel bleibt dann in diesem Zuhause.",
+		"turn": "Drehen",
+		"workshop": "Werkbank",
+		"no_recipes": "Hier gibt es gerade nichts zu bauen.",
+		"drag_hint": "{name} – zum Verschieben ziehen",
+		"room": "Der Raum",
+		"where_own": "Zuhause · {place}",
+		"where_vr": "Zuhause · {place} · VR-Brille",
+		"where_visit": "Zu Besuch · {place}",
+		"no_home": "Dieser Avatar hat noch kein Zuhause.",
+		"visit_invalid": "Dieser Besuchslink gilt nicht (mehr).",
+		"err_furniture_stays": "Das steht in einem anderen Zuhause – Möbel bleiben, wo sie sind.",
+		"err_does_not_fit": "Das passt da nicht hinein.",
+		"err_container_full": "Das ist voll.",
+		"err_worn": "Zieh es zuerst aus.",
+		"err_in_container": "Nimm es zuerst heraus.",
+		"err_needs_workshop": "Das geht nur an einer Werkbank.",
+		"err_failed": "Das hat nicht geklappt.",
+		"repaired": "Fertig: {name} ist in deinem Inventar."
 	}
 }

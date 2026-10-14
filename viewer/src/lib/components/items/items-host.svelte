@@ -47,8 +47,9 @@
 		}
 	}
 
-	function noticeText(n: { item_id: string; qty: number; kind: string; email?: string | null; reason?: string; place?: { name: string } }) {
+	function noticeText(n: { item_id: string; qty: number; kind: string; email?: string | null; reason?: string; place?: { name: string }; text?: string }) {
 		if (n.kind === 'place') return m['map.place_unlocked']({ name: n.place?.name ?? '' });
+		if (n.kind === 'message') return n.text ?? '';
 		const name = inventory.nameOf({ item_id: n.item_id, variant: null });
 		if (n.kind === 'refused') return refusedText(n.reason, name);
 		const many = n.qty > 1 ? `${n.qty} × ${name}` : name;

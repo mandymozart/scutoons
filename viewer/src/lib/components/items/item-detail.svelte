@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
+	import { getHomesContext } from '$lib/contexts/homes.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { isGiftable, isSoldOut, mediaPlayback, playerAlbums, type Album, type AlbumTrack, type Entry, type ProductCatalog } from '@scutoons/content';
 	import { loadProducts, productOf } from '$lib/products.ts';
@@ -25,6 +26,8 @@
 	const ui = getItemsUiContext();
 
 	const def = $derived(inventory.item(entry.item_id));
+	// the VR headset: the reader's home from anywhere (research/CAVE.md D2)
+	const homes = getHomesContext();
 	const skills = $derived(def?.skills ?? []);
 	// the old play_audio skill is offered as "Abspielen" below (mediaPlayback), not as "Benutzen"
 	const usable = $derived(skills.some((s) => s.type !== 'play_audio'));
@@ -188,7 +191,7 @@
 		<ScoreActions {entry} />
 		<ContainerActions {entry} onopen={onopencontainer} />
 		{#if usable}
-			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
+			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : skills.some((s) => s.type === 'enter_home') ? homes.openOwn('vr') : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
 		{/if}
 		{#if playback?.kind === 'play'}
 			<button class="btn-secondary" onclick={() => playback.kind === 'play' && play(playback.album, playback.tracks, entry)} data-testid="item-play">{m['items.play']()}</button>

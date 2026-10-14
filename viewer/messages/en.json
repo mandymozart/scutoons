@@ -595,5 +595,32 @@
 		"error_message": "Please write a message.",
 		"error_limit": "Too many messages in a short time – please try later or write an email.",
 		"error_failed": "That didn't work – please write to hello@scutoons.com directly."
+	},
+	"avatar_home": {
+		"leave": "Leave home",
+		"visit_leave": "Leave the visit",
+		"inventory": "Your inventory",
+		"visiting": "Your inventory (you are visiting)",
+		"count": "{count} / {max}",
+		"put_in_hint": "Select something in your inventory, then tap: {name}.",
+		"place_hint": "Tap a place in the room – the furniture stays in this home from then on.",
+		"turn": "Turn",
+		"workshop": "Workbench",
+		"no_recipes": "Nothing to make here right now.",
+		"drag_hint": "{name} – drag to move",
+		"room": "The room",
+		"where_own": "Home · {place}",
+		"where_vr": "Home · {place} · VR headset",
+		"where_visit": "Visiting · {place}",
+		"no_home": "This avatar has no home yet.",
+		"visit_invalid": "This visit link is not valid (any more).",
+		"err_furniture_stays": "It stands in another home – furniture stays where it is.",
+		"err_does_not_fit": "That doesn't fit in there.",
+		"err_container_full": "It is full.",
+		"err_worn": "Take it off first.",
+		"err_in_container": "Take it out first.",
+		"err_needs_workshop": "This can only be made at a workbench.",
+		"err_failed": "That didn't work.",
+		"repaired": "Done: {name} is in your inventory."
 	}
 }

@@ -7,6 +7,8 @@ export {
 	type VerifyResult,
 	type SessionResult,
 	type AccessResult,
+	type HomesResult,
+	type HomeVisitResult,
 	type InventoryResult,
 	type ProgressResult,
 	type GiftResult,

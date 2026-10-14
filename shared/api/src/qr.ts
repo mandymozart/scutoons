@@ -40,6 +40,22 @@ export interface AccessResult {
 	access_token?: string;
 }
 
+/** GET /homes/ (research/CAVE.md): the reader's homes and who lives where */
+export interface HomesResult {
+	status: string;
+	homes: { id: string; place: string; scene: string; residents: string[] }[];
+	max_residents: number;
+	mover: { item: string; qty: number };
+}
+
+/** GET /homes/visit/{token}: a friend's home, read-only */
+export interface HomeVisitResult {
+	status: string;
+	home: { place: string; scene: string };
+	furniture: { item_id: string; variant: string | null; x: number; y: number; flip: boolean; contents: { item_id: string; variant: string | null; qty: number }[] }[];
+	workshop: boolean;
+}
+
 export interface InventoryResult {
 	status: string;
 	inventory: Entry[];
@@ -169,8 +185,8 @@ export function createQrApi(api: ApiClient) {
 			}),
 
 		/** `use` = { <item id>: <entry id> }: which entry of an input (the plastic's colour, the book) – none = the oldest */
-		craftRecipe: (recipe_id: string, use?: Record<string, string | number>) =>
-			api.post<InventoryResult>('/inventory/craft/', { recipe_id, ...(use && Object.keys(use).length ? { use } : {}) }),
+		craftRecipe: (recipe_id: string, use?: Record<string, string | number>, workshop?: { home: string } | { visit: string }) =>
+			api.post<InventoryResult>('/inventory/craft/', { recipe_id, ...(use && Object.keys(use).length ? { use } : {}), ...(workshop ? { workshop } : {}) }),
 
 		/**
 		 * Into a container or out (`into` null) – research/SCORES.md §2: 409 does_not_fit / container_full /
@@ -178,6 +194,20 @@ export function createQrApi(api: ApiClient) {
 		 */
 		moveEntry: (entry_id: string | number, into: string | number | null, overfill = false) =>
 			api.post<InventoryResult>('/inventory/move/', { entry_id, into, ...(overfill ? { overfill } : {}) }),
+
+		/** the reader's homes (research/CAVE.md): which avatars live where, the WG limit, the mover's price */
+		fetchHomes: () => api.get<HomesResult>('/homes/'),
+		/** stands a furniture entry in a home or moves it there: 409 not_furniture / furniture_stays / in_container / worn */
+		placeFurniture: (entry_id: string | number, home_id: string, x: number, y: number, flip?: boolean) =>
+			api.post<InventoryResult>('/homes/place/', { entry_id, home_id, x, y, ...(flip !== undefined ? { flip } : {}) }),
+		/** an avatar moves into a home (a WG, ≤ 5): 409 home_full / cannot_afford { price } (the mover) */
+		moveIntoHome: (character: string, home_id: string, mover = false) =>
+			api.post<InventoryResult & HomesResult>('/homes/move-in/', { character, home_id, ...(mover ? { mover } : {}) }),
+		/** a friend's visit link (7 days) */
+		createHomeVisit: (home_id: string) => api.post<{ status: string; token: string; expires_at: string }>('/homes/visits/', { home_id }),
+		revokeHomeVisit: (token: string) => api.delete<{ status: string }>(`/homes/visits/${encodeURIComponent(token)}`),
+		/** a friend's home, read-only (anyone with the link): 404 unknown_visit */
+		fetchHomeVisit: (token: string) => api.get<HomeVisitResult>(`/homes/visit/${encodeURIComponent(token)}`),
 
 		/** a score's MusicXML / PDF as a short-lived signed URL (the PDF only for a signed-in owner) */
 		scoreFile: (item_id: string, file: 'musicxml' | 'pdf') =>

@@ -40,9 +40,9 @@ export interface ItemFurniture {
 	workshop?: boolean;
 }
 
-/** A piece of furniture in a home (reader state): where its foot stands (% of the room), mirrored to face left */
-export interface FurniturePlacement {
-	home: string;
+/** Where a furniture entry stands (`Entry.home`): the home, its foot in % of the room, mirrored to face left */
+export interface EntryHome {
+	id: string;
 	x: number;
 	y: number;
 	flip?: boolean;

@@ -5,7 +5,7 @@ import type { ItemRespawn } from './respawn.ts';
 import type { FxSoundChoice } from './fx.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 import type { ItemAges, ItemHolds, ScoreFiles } from './containers.ts';
-import type { HomeScene, ItemFurniture } from './homes.ts';
+import type { EntryHome, HomeScene, ItemFurniture } from './homes.ts';
 
 export type Localized = Record<string, string>;
 
@@ -265,6 +265,8 @@ export interface Entry {
 	overfilled_at?: string | null;
 	/** an ageing item ages from here (none = `acquired_at`; an upgraded book keeps the old age) */
 	aged_since?: string | null;
+	/** furniture standing in a home (homes.ts; it stays there – research/CAVE.md D4) */
+	home?: EntryHome | null;
 }
 
 /** Where an avatar-body unlock came from (server `member_characters.source`) */

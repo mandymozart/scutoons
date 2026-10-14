@@ -4,6 +4,7 @@ import {
 	claimCode,
 	craftRecipe,
 	moveEntry,
+	placeFurniture,
 	fetchCatalog,
 	fetchEditions,
 	grantItem,
@@ -51,6 +52,7 @@ import type {
 	CharacterUnlock,
 	Catalog,
 	Entry,
+	EntryHome,
 	EntryId,
 	GrantSource,
 	ItemDef,
@@ -120,7 +122,9 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory) */
-	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place' | 'invited' | 'recalled';
+	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place' | 'invited' | 'recalled' | 'message';
+	/** message: a plain text (the home: "This avatar has no home yet.") */
+	text?: string;
 	/** place: a map place was unlocked (agents/MAP.md §3.4, §8.5a) – its name and image (the toast's icon) */
 	place?: { name: string; image?: string; id?: string };
 	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
@@ -299,6 +303,30 @@ export function createInventoryContext(session: SessionContext) {
 			recountGuest(into.id);
 		} else mine.in = null;
 		if (from != null) recountGuest(from);
+		saveGuest();
+		return { ok: true };
+	}
+
+	/**
+	 * Stands a furniture entry in a home or moves it inside its home (research/CAVE.md D4): once placed it stays in that
+	 * home. Errors: not_furniture, furniture_stays (another home), in_container, worn.
+	 */
+	async function place(entry: Entry, home: EntryHome): Promise<{ ok: boolean; error?: string }> {
+		if (isAccount) {
+			try {
+				applyInventory((await placeFurniture(entry.id, home.id, home.x, home.y, !!home.flip)).inventory);
+				return { ok: true };
+			} catch (e) {
+				return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
+			}
+		}
+		const mine = guest.entries.find((e) => sameId(e.id, entry.id));
+		if (!mine) return { ok: false, error: 'unknown_entry' };
+		if (!itemsById[mine.item_id]?.furniture) return { ok: false, error: 'not_furniture' };
+		if (mine.home && mine.home.id !== home.id) return { ok: false, error: 'furniture_stays' };
+		if (mine.in != null) return { ok: false, error: 'in_container' };
+		if (isEquipped(mine)) return { ok: false, error: 'worn' };
+		mine.home = { id: home.id, x: home.x, y: home.y, flip: !!home.flip };
 		saveGuest();
 		return { ok: true };
 	}
@@ -485,6 +513,12 @@ export function createInventoryContext(session: SessionContext) {
 	const noticeTimers = new Map<number, ReturnType<typeof setTimeout>>();
 	/** "<place> unlocked" (agents/MAP.md §8.5a): the place's image as the icon, 4 s */
 	/** a place was unlocked (its toast); `place` = its id – a tap on the toast plays its reveal (map-reveal.ts) */
+	/** a plain toast (4 s) */
+	function notifyMessage(text: string) {
+		const id = ++noticeSeq;
+		notices = [...notices, { id, item_id: '', qty: 0, kind: 'message', text }];
+		noticeTimers.set(id, setTimeout(() => ((notices = notices.filter((n) => n.id !== id)), noticeTimers.delete(id)), 4000));
+	}
 	function notifyPlace(name: string, image?: string, place?: string) {
 		const id = ++noticeSeq;
 		notices = [...notices, { id, item_id: '', qty: 1, kind: 'place', place: { name, image, id: place } }];
@@ -685,12 +719,13 @@ export function createInventoryContext(session: SessionContext) {
 	 * the server (research/SCORES.md §2a): a `keep` input stays (the drill), the output takes `variant_from`'s variant,
 	 * a used-up container hands its contents and its age to the output.
 	 */
-	async function craft(recipe: Recipe, use: Record<string, EntryId> = {}): Promise<{ ok: boolean; error?: string }> {
+	/** `workshop`: where a recipe `at: "workshop"` is made – the reader's home or a friend's (visit link; research/CAVE.md D4) */
+	async function craft(recipe: Recipe, use: Record<string, EntryId> = {}, workshop?: { home: string } | { visit: string }): Promise<{ ok: boolean; error?: string }> {
 		if (!canCraft(recipe)) return { ok: false, error: 'missing_inputs' };
 		busy = true;
 		try {
 			if (isAccount) {
-				const result = await craftRecipe(recipe.id, use);
+				const result = await craftRecipe(recipe.id, use, workshop);
 				applyInventory(result.inventory);
 			} else {
 				let variant: string | null = null;
@@ -958,6 +993,10 @@ export function createInventoryContext(session: SessionContext) {
 		get slots() {
 			return slots;
 		},
+		/** the character registry (avatar bodies, homes) once loaded */
+		get registry() {
+			return registry;
+		},
 		get registryLoaded() {
 			return registryLoaded;
 		},
@@ -970,6 +1009,7 @@ export function createInventoryContext(session: SessionContext) {
 			return notices;
 		},
 		notifyPlace,
+		notifyMessage,
 		get busy() {
 			return busy;
 		},
@@ -1006,6 +1046,7 @@ export function createInventoryContext(session: SessionContext) {
 		contentsOf,
 		containersFor,
 		move,
+		place,
 		get invites() {
 			return invites;
 		},
