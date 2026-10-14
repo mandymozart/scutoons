@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.94**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.98**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -84,6 +84,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.96 **Gift invites** – owner 2026-10-13: "Do you want to invite them? … invite them with a promo code". A gift
   to an address without an account waits (30 days) and SCUTOONS mails a personal invite code; recallable; switched on in
   the admin with an optional from / until (a campaign). Plan + Q1–Q3: research/GIFT-INVITES.md.
+- [ ] 10.97 **Scores + song book + score view** – owner 2026-10-14: "special items, called scores … go into a song
+  book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
+  on a shared cover; the song book lists owned scores; the score view renders MusicXML (Verovio) with scale + pages,
+  reused by live mode. Plan + Q1–Q4: research/SCORES.md.
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
