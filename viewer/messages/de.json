@@ -630,6 +630,10 @@
 		"enter_vr": "Mit der VR-Brille hinein",
 		"walk_here": "Hingehen",
 		"walk_home": "Nach Hause gehen",
-		"walking": "Unterwegs …"
+		"walking": "Unterwegs …",
+		"ride_subway": "Mit der U-Bahn hin · {price} Gurken",
+		"ride_tram": "Mit der Straßenbahn hin · {price} Gurke(n)",
+		"ride_airlift": "Mit dem Kreaturen-Lufttaxi · {price} Gurken",
+		"ride_cannot_afford": "Dafür brauchst du {price} Gurken."
 	}
 }

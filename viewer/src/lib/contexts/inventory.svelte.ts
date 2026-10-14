@@ -5,6 +5,7 @@ import {
 	craftRecipe,
 	moveEntry,
 	placeFurniture,
+	payRide,
 	fetchCatalog,
 	fetchEditions,
 	grantItem,
@@ -327,6 +328,25 @@ export function createInventoryContext(session: SessionContext) {
 		if (mine.in != null) return { ok: false, error: 'in_container' };
 		if (isEquipped(mine)) return { ok: false, error: 'worn' };
 		mine.home = { id: home.id, x: home.x, y: home.y, flip: !!home.flip };
+		saveGuest();
+		return { ok: true };
+	}
+
+	/**
+	 * The fare of a ride (research/CAVE.md D8): members pay on the server, guests from the device inventory. Error:
+	 * cannot_afford.
+	 */
+	async function payFare(network: string, cucumbers: number): Promise<{ ok: boolean; error?: string }> {
+		if (isAccount) {
+			try {
+				applyInventory((await payRide(network)).inventory);
+				return { ok: true };
+			} catch (e) {
+				return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
+			}
+		}
+		if (guest.entries.filter((e) => e.item_id === 'cucumber' && !e.home).reduce((n, e) => n + e.qty, 0) < cucumbers) return { ok: false, error: 'cannot_afford' };
+		removeGuestItems('cucumber', cucumbers);
 		saveGuest();
 		return { ok: true };
 	}
@@ -1047,6 +1067,7 @@ export function createInventoryContext(session: SessionContext) {
 		containersFor,
 		move,
 		place,
+		payFare,
 		get invites() {
 			return invites;
 		},

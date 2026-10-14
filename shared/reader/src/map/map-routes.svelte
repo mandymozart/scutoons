@@ -3,6 +3,8 @@
 		id: string;
 		waypoints: (import('@scutoons/content').Waypoint | import('@scutoons/content').ReaderWaypoint)[];
 		style?: import('@scutoons/content').MapPathStyle;
+		/** a ride line (research/CAVE.md D8): drawn in its network's look; the airlift above the places (`gates` layer) */
+		network?: import('@scutoons/content').MapNetwork;
 		/** draw up to this waypoint index (default: all) */
 		to?: number;
 		/** drawn solid up to this index (travelled; the rest of a revealed route is dashed) – reader state, M3 */
@@ -35,8 +37,8 @@
 	}: {
 		routes: DrawnRoute[];
 		places: RoutePlace[];
-		/** lines (under the places) or the gate marks (over them) */
-		layer?: 'lines' | 'gates';
+		/** lines (under the places), the gate marks (over them), or the sky: the creature airlift's lines over everything */
+		layer?: 'lines' | 'gates' | 'sky';
 		zoom: number;
 		x: number;
 		y: number;
@@ -53,7 +55,7 @@
 <svg class="map-routes" aria-hidden="true">
 	<g transform="translate({x} {y}) scale({zoom})">
 		{#each routes as route (route.id)}
-			{@const stroke = routeStroke(route.style)}
+			{@const stroke = routeStroke(route.style, route.network)}
 			{@const shape = geometry(route)}
 			{#if layer === 'gates'}
 				<g class="route" class:dimmed={route.dimmed} data-route-gates={route.id}>
@@ -61,7 +63,7 @@
 						<circle class="gate" cx={g.at.x} cy={g.at.y} r={4 / zoom} stroke={stroke.color} data-gate="{g.place}:{g.which}" />
 					{/each}
 				</g>
-			{:else if shape.segments.length}
+			{:else if shape.segments.length && (route.network === 'airlift') === (layer === 'sky')}
 				<g class="route" class:dimmed={route.dimmed} class:selected={route.selected} data-route={route.id}>
 					{#each shape.segments as nodes, si (si)}
 						{@const d = routePath(nodes, stroke.tension)}

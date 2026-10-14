@@ -40,6 +40,7 @@ export const {
 	createHomeVisit,
 	revokeHomeVisit,
 	fetchHomeVisit,
+	payRide,
 	scoreFile,
 	albumFile,
 	grantItem,

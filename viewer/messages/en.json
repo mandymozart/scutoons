@@ -630,6 +630,10 @@
 		"enter_vr": "Enter with the VR headset",
 		"walk_here": "Walk here",
 		"walk_home": "Walk home",
-		"walking": "Walking …"
+		"walking": "Walking …",
+		"ride_subway": "Ride the subway here · {price} cucumbers",
+		"ride_tram": "Ride the tram here · {price} cucumber(s)",
+		"ride_airlift": "Take the creature airlift · {price} cucumbers",
+		"ride_cannot_afford": "You need {price} cucumbers for that."
 	}
 }

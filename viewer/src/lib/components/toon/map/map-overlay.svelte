@@ -10,8 +10,9 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getHomesContext } from '$lib/contexts/homes.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
-	import { walkPath, walkPoints, type Point } from '@scutoons/content';
+	import { MAP_NETWORKS, RIDE_MS, RIDE_PRICES, WALK_MS, ridePath, walkPath, walkPoints, type MapNetwork, type Point } from '@scutoons/content';
 	import MapAvatar from './map-avatar.svelte';
+	import RideActions from './ride-actions.svelte';
 	import HomeActions from './home-actions.svelte';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 	import { untrack } from 'svelte';
@@ -75,7 +76,7 @@
 	const own = (p: ReaderPlace) => p.toons?.includes(toon);
 	const routes = $derived<DrawnRoute[]>(
 		(data?.routes ?? [])
-			.map((r) => ({ id: r.id, waypoints: r.waypoints, style: r.style, to: routeDrawnTo(r, mapState, (id) => visibleIds.has(id)) }))
+			.map((r) => ({ id: r.id, waypoints: r.waypoints, style: r.style, network: r.network, to: routeDrawnTo(r, mapState, (id) => visibleIds.has(id)) }))
 			.filter((r) => r.to > 0)
 	);
 
@@ -332,7 +333,27 @@
 	const cardPath = $derived(card && avatarAt && data ? walkPath(data.routes ?? [], mapState, avatarAt, card.id, walkable) : null);
 	function walkTo() {
 		if (!card || !data || !cardPath?.length) return;
-		walking = { points: walkPoints(data.locations, data.routes ?? [], cardPath), ms: 1200 * cardPath.length, to: card.id };
+		walking = { points: walkPoints(data.locations, data.routes ?? [], cardPath), ms: WALK_MS * cardPath.length, to: card.id };
+	}
+	// rides (research/CAVE.md D8): the networks that reach the card's place from the avatar's stop
+	const rideOptions = $derived.by(() => {
+		if (!card || !avatarAt || !data || card.id === avatarAt) return [] as { network: MapNetwork; steps: NonNullable<ReturnType<typeof ridePath>> }[];
+		return MAP_NETWORKS.flatMap((network) => {
+			const steps = ridePath(data.routes ?? [], mapState, network, avatarAt, card.id, walkable);
+			return steps ? [{ network, steps }] : [];
+		});
+	});
+	let rideNote = $state('');
+	async function ride(network: MapNetwork) {
+		const option = rideOptions.find((o) => o.network === network);
+		if (!card || !data || !option || !inventory) return;
+		const paid = await inventory.payFare(network, RIDE_PRICES[network]);
+		if (!paid.ok) {
+			rideNote = paid.error === 'cannot_afford' ? m['avatar_home.ride_cannot_afford']({ price: RIDE_PRICES[network] }) : m['avatar_home.err_failed']();
+			return;
+		}
+		rideNote = '';
+		walking = { points: walkPoints(data.locations, data.routes ?? [], option.steps), ms: RIDE_MS * option.steps.length, to: card.id };
 	}
 	function walked() {
 		if (walking) world?.avatarTo({ location: walking.to });
@@ -472,6 +493,8 @@
 			{/if}
 			<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12): where a route runs in and out -->
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} layer="gates" />
+			<!-- the creature airlift flies above everything (research/CAVE.md D8) -->
+			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} layer="sky" />
 			<div class="labels" aria-hidden="true">
 				{#each places as p (p.id)}
 					{#if labelled.has(p.id)}
@@ -522,6 +545,7 @@
 					{cardChapter === 0 ? m['map.read_prologue']() : m['map.read_chapter']({ number: cardChapter })}
 				</a>
 			{/if}
+			<RideActions networks={rideOptions.map((o) => o.network)} busy={!!walking} note={rideNote} onride={ride} />
 			<HomeActions place={card.id} at={avatarAt} home={homePlace} reachable={!!cardPath?.length} walking={!!walking} vr={hasVr} onwalk={walkTo} onenter={enterHome} />
 		</section>
 	{/if}
