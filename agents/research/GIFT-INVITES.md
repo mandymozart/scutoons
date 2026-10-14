@@ -1,4 +1,4 @@
-Status 2026-10-13: plan; Q1 + Q3 answered, Q2 open (assumed: every member); nothing built (FEATURES 10.96).
+Status 2026-10-14: concept + drafts (a basic campaign); waits for the owner on: accept step for member gifts, invite without an item; nothing built (FEATURES 10.96).
 
 # GIFT-INVITES — give an item to someone without an account: invite them (plan, 2026-10-13)
 
@@ -26,11 +26,17 @@ The invite carries that code, so the refusal becomes an offer.
 
 ## The plan
 
-**1. The switch (admin, the campaign).** One setting in the admin: *Invites with gifts* – off / on, with an optional
-*from* and *until* (when invites can be sent; empty = open-ended) and the required **access ends** date and time (when
-every invite code stops reading). Outside the window the gift form behaves as today. Stored as
-one settings row (no campaign table, no campaign names, no stats page). A campaign with a name, its own limits or a
-report can come later if a promotion needs it.
+**1. The campaign (admin → Campaigns; owner 2026-10-14: "campaigns are a specially cool thing … we can also use
+them for promo later, but now we need the most basic implementation").** A table `campaigns`: kind (only
+`gift_invite` now – promo can be another kind later), name (admins only), runs from / until (members invite and
+friends accept inside it; outside it the gift form behaves as today), **who may invite** (the newsletter's member
+audiences – members who want news, all members – plus chosen accounts, pasted addresses), **invitees' reading**
+(*keep reading after the campaign*: whoever joined during it keeps access, overriding the invite code's end – the
+owner's twist; or *until* a date and time, then they need a product), limits (gift waits 30 days but never past the
+end, invites per member per day, one waiting invite per address). **Statistics** from `campaign_invites` (campaign,
+inviter, address, item, invite code, state waiting · joined · back · called back, the account that joined, times):
+members who invited, invites sent, joined, waiting, back / called back, per member; "joined later" = the address made
+an account afterwards without the invite. Drafts: https://claude.ai/artifact/6jWjnwmb6sc5Yy8QCGuwuv (private).
 
 **2. Giving (viewer, the gift form).** The giver enters an address without an account:
 - switch off: today's message ("ask them to sign up first");
@@ -71,6 +77,8 @@ comes back, the invite code stops working.
 ## Open questions for the owner
 
 - ~~Q1 Recall after delivery~~ – answered: only while waiting.
-- **Q2 Who may invite while it is on:** every member, or only accounts the admin marks (e.g. ambassadors)?
-  Recommended: every member – the switch and the daily limits are the control.
+- ~~Q2 Who may invite~~ – answered: the newsletter's grouping (member audiences + chosen accounts), per campaign.
+- **Q4 Member gifts: accept first?** "recall only if not accepted" needs an accept step; today member gifts arrive at
+  once. Recommended: every gift waits for "Annehmen", recallable until then, back after 30 days.
+- **Q5 Invite without an item?** Recommended: gift only now; a plain invite later as another campaign kind.
 - ~~Q3 What the invite unlocks~~ – answered: like a promo code, until the admin's *access ends*.
