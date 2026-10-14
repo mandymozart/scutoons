@@ -145,6 +145,9 @@ return [
     'GIFT_MAX_PER_DAY' => '10',
     'GIFT_LOOKUPS_PER_DAY' => '30',
     'GIFT_COOLDOWN_HOURS' => '24',
+    // Gift invites (agents/research/GIFT-INVITES.md): the key of GET /api/invites/cron (the host's daily cronjob returns
+    // the invites that ran out); empty = no cron URL (they are returned on the next visit / admin view anyway)
+    'CAMPAIGN_CRON_KEY' => '',
     'PROGRESS_MAX_BYTES' => '262144',
     'CONTENT_MAX_BYTES' => '2097152',
     // Admin lists: largest page_size

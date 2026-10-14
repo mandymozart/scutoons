@@ -12,6 +12,7 @@ use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
+use PDOException;
 
 /**
  * QR codes (table `qr`) → items (agents/ITEMS.md "Codes → items"): a code contains its `code_items` rows; without rows
@@ -107,7 +108,23 @@ final class CodeService
             $legacyEmail = strtolower(trim((string) $row['email']));
             if ($row['claimed_by'] !== null || ($legacyEmail !== '' && $legacyEmail !== $email)) return 'already_claimed';
         }
+        if ($this->inviteCodeUsed($code)) return 'used';
         return null;
+    }
+
+    /**
+     * A promo code mailed with a gift invite (Domain\Campaigns\Invites) makes one account: only while its invite waits
+     * (read here, not through Invites – that one depends on this class). Nothing before the 2026-10-14 migration.
+     */
+    private function inviteCodeUsed(string $code): bool
+    {
+        try {
+            $status = $this->db->value('SELECT status FROM campaign_invites WHERE invite_code = ? LIMIT 1', [$code]);
+        } catch (PDOException $error) {
+            if ($error->getCode() === '42S02' || preg_match('/Base table or view not found/i', $error->getMessage()) === 1) return false;
+            throw $error;
+        }
+        return $status !== null && $status !== 'waiting';
     }
 
     /**

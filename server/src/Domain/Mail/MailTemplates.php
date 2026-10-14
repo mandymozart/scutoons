@@ -27,6 +27,9 @@ use InvalidArgumentException;
  * ownership_claim_admin, ownership_claim_rejected, ownership_transferred_from, ownership_transferred_to, gift_received.
  * Review before publish (Domain\Content\Reviews, audience creator): review_requested (reviewers), review_published,
  * review_returned (the author) – one mail per person per submit / decision, listing every file.
+ * Gift invites (Domain\Campaigns\Invites; agents/research/GIFT-INVITES.md): invite_received (the friend, with the
+ * code), invite_returned (the member: not collected / not paid), invite_payment_requested (admins: a member pays a
+ * physical gift – send them a payment link or the bank details).
  * Embassy (Domain\Embassy\EmbassyReminders, audience embassy): embassy_portion – a team member's own reminder (weekly
  * or daily) of their portion; never to a contact.
  * Planned (not registered until it is sent – same pattern):
@@ -42,6 +45,9 @@ final class MailTemplates
     public const OWNERSHIP_TRANSFERRED_FROM = 'ownership_transferred_from';
     public const OWNERSHIP_TRANSFERRED_TO = 'ownership_transferred_to';
     public const GIFT_RECEIVED = 'gift_received';
+    public const INVITE_RECEIVED = 'invite_received';
+    public const INVITE_RETURNED = 'invite_returned';
+    public const INVITE_PAYMENT_REQUESTED = 'invite_payment_requested';
     public const REVIEW_REQUESTED = 'review_requested';
     public const REVIEW_PUBLISHED = 'review_published';
     public const REVIEW_RETURNED = 'review_returned';
@@ -155,6 +161,45 @@ final class MailTemplates
                 ['button', 'button', 'url' => 'url'],
             ],
             'fineprint' => ['free'],
+        ],
+        self::INVITE_RECEIVED => [
+            'audience' => 'member',
+            'description' => 'A member invited someone without an account with a gift (POST /api/invites, a campaign): to the friend, with the promo code',
+            'vars' => ['from' => 'string', 'item' => 'string', 'code' => 'string', 'until' => 'string', 'physical' => 'bool', 'url' => 'url'],
+            'sample' => ['from' => 'anna@example.org', 'item' => 'Gurke', 'code' => 'K7Q2MX9A', 'until' => '30.11.2026', 'physical' => false, 'url' => 'https://scutoons.com/?code=K7Q2MX9A'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'how'],
+                ['p', 'shipping', 'if' => 'physical'],
+                ['code', 'code_label', 'value' => 'code'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['until', 'why', 'free'],
+        ],
+        self::INVITE_RETURNED => [
+            'audience' => 'member',
+            'description' => 'An invite ended without the friend joining (not in time, or a gift the member pays was not paid): to the member',
+            'vars' => ['friend' => 'string', 'item' => 'string', 'unpaid' => 'bool', 'back' => 'bool', 'url' => 'url'],
+            'sample' => ['friend' => 'ben@example.org', 'item' => 'Gurke', 'unpaid' => false, 'back' => true, 'url' => 'https://scutoons.com/account'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'unpaid_text', 'if' => 'unpaid'],
+                ['p', 'back_text', 'if' => 'back'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => [],
+        ],
+        self::INVITE_PAYMENT_REQUESTED => [
+            'audience' => 'admin',
+            'description' => 'A member invites someone with a physical gift they pay (a campaign): send them a payment link or the bank details, then mark it paid',
+            'vars' => ['member' => 'string', 'friend' => 'string', 'item' => 'string', 'price' => 'string', 'until' => 'string', 'url' => 'url'],
+            'sample' => ['member' => 'anna@example.org', 'friend' => 'ben@example.org', 'item' => 'Awakening Vinyl', 'price' => '39,00 EUR', 'until' => '13.11.2026', 'url' => 'https://admin.scutoons.com/campaigns/1?tab=invites'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'todo'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['until'],
         ],
         self::REVIEW_REQUESTED => [
             'audience' => 'creator',

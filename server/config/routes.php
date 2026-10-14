@@ -24,6 +24,7 @@ use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
 use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
+use Scutoons\Http\Controllers\Admin\CampaignsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
@@ -48,6 +49,7 @@ use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\FlowController;
 use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
+use Scutoons\Http\Controllers\InvitesController;
 use Scutoons\Http\Controllers\KeysController;
 use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\SignatureController;
@@ -137,6 +139,8 @@ return static function (App $app): void {
     $app->get('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribePage']);
     $app->post('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribe']);
     $app->map(['GET', 'POST'], '/api/newsletter/cron', [NewsletterController::class, 'cron']);
+    // Gift invites (agents/research/GIFT-INVITES.md): returns the invites that ran out (the host's daily cron; a key)
+    $app->map(['GET', 'POST'], '/api/invites/cron', [InvitesController::class, 'cron']);
 
     $app->get('/api/me', [MeController::class, 'get']);
     $app->put('/api/me', [MeController::class, 'put']);
@@ -161,6 +165,11 @@ return static function (App $app): void {
     // received" notices, ownership claims ("This is mine") with optional evidence files
     $app->post('/api/inventory/gift', [InventoryController::class, 'gift']);
     $app->post('/api/inventory/received/seen', [InventoryController::class, 'seen']);
+    // gift invites while a campaign runs (agents/research/GIFT-INVITES.md): someone without an account gets an invite
+    $app->get('/api/invites', [InvitesController::class, 'mine']);
+    $app->post('/api/invites', [InvitesController::class, 'create']);
+    $app->post('/api/invites/{id:[0-9a-f-]{36}}/recall', [InvitesController::class, 'recall']);
+    $app->put('/api/invites/{id:[0-9a-f-]{36}}/address', [InvitesController::class, 'address']);
     $app->post('/api/claims', [ClaimsController::class, 'create']);
     $app->get('/api/claims', [ClaimsController::class, 'list']);
     $app->post('/api/claims/{id:[0-9a-f-]{36}}/files', [ClaimsController::class, 'addFile']);
@@ -326,6 +335,21 @@ return static function (App $app): void {
         $admin->post('/codes/{code}/transfer', [CodesController::class, 'transfer']);
         $admin->get('/codes/{code}/signature', [CodesController::class, 'signature']);
         $admin->put('/codes/{code}/signature', [CodesController::class, 'saveSignature']);
+
+        // campaigns: gift invites (agents/research/GIFT-INVITES.md)
+        $admin->get('/campaigns', [CampaignsController::class, 'list']);
+        $admin->post('/campaigns', [CampaignsController::class, 'create']);
+        $admin->post('/campaigns/invites/{id:[0-9a-f-]{36}}/paid', [CampaignsController::class, 'paid']);
+        $admin->post('/campaigns/invites/{id:[0-9a-f-]{36}}/shipped', [CampaignsController::class, 'shipped']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'get']);
+        $admin->put('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'update']);
+        $admin->delete('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'delete']);
+        $admin->post('/campaigns/{id:[0-9a-f-]{36}}/start', [CampaignsController::class, 'start']);
+        $admin->post('/campaigns/{id:[0-9a-f-]{36}}/stop', [CampaignsController::class, 'stop']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}/accounts', [CampaignsController::class, 'accounts']);
+        $admin->put('/campaigns/{id:[0-9a-f-]{36}}/accounts', [CampaignsController::class, 'setAccounts']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}/invites', [CampaignsController::class, 'invites']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}/stats', [CampaignsController::class, 'stats']);
 
         // ownership claims (agents/ITEMS.md "Ownership, claims, gifting")
         $admin->get('/claims', [AdminClaimsController::class, 'list']);
