@@ -7,6 +7,7 @@ to mark them superseded.
 
 ## 2026-10
 - 2026-10-14 · mail · Every new account mails the admin recipients: who signed up and with which code (+ its type), linked to the account · "email notifications if a new member signs up, and which code they used" · → PLATFORM.md "Emails"
+- 2026-10-14 · items · The CD case holds 25 CDs, the cassette suitcase 30 cassettes – enough for a DJ set to bring along · "cd case holds 25 cassette box can hold 30 enough for a dj set to bring along" · → research/SCORES.md §2b
 - 2026-10-14 · items · Upgrading the DIY song book needs only 4 large zip ties, no drill · "no drill needed for upgrade only 4 large zip ties" · → research/SCORES.md §2a
 - 2026-10-14 · items · Capacities: DJ trolley 60 records; song books small 12 and large 99 (the large one = the conductor edition), only these two sizes; DIY book 25, the upgraded DIY book 99 · "trolly hold 60 records", "small and large only small holds 12 large 99 the large one is conductor edition", "diy will fall apart after 25 and large ones can take 99" · → research/SCORES.md §2a
 - 2026-10-14 · items · The DIY song book ages: the older it is, the more tinted its scores look, with spots · "the diy one ages really bad. so older ones have a tinted color on each score and spots" · → research/SCORES.md §2a

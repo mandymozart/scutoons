@@ -49,7 +49,8 @@ with a `holds` rule, edited in admin → Catalog → Items ("Holds" in the item 
 OR its id is listed; `max` = how many entries fit (none = no limit). Song book = `{ categories: ["score"], max: n }`;
 a pencil case later = `{ items: ["pencil", "eraser"] }`. Planned next to the song book (owner 2026-10-14): the **DJ trolley** (`dj_trolley`) holds
 **only vinyl** – the record items listed (`items`), not the category, `max: 60`. CDs go into a **CD case** (90s
-style), cassettes into a **little toy suitcase** – carried containers like the song book. A **CD rack** / **cassette
+style, `max: 25`), cassettes into a **little toy suitcase** (`max: 30`) – carried containers like the song book, sized
+for a DJ set to bring along (owner 2026-10-14: "enough for a dj set to bring along"). A **CD rack** / **cassette
 rack** are not inventory: they belong to the **cave** – the avatar's home, a new concept designed in its own session
 (owner: "not inventory but cave … the home of the avatar"). Making a new container = filling in "Holds" on an item, no
 code. Validation: unknown categories / item ids warn, a container may not hold containers (no nesting). The reader's
