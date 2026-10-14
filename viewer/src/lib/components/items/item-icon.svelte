@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { asset } from '$lib/utils/cdn.ts';
+	import { CoverLettering } from '@scutoons/reader';
 
 	/**
 	 * Transparent cut-out icon of an item. Falls back through `srcs` and finally to an ink-line
 	 * placeholder with the item's initials (cut-outs may not exist on the CDN yet).
 	 */
-	let { srcs, name, size = '100%' }: { srcs: string[]; name: string; size?: string } = $props();
+	let { srcs, name, size = '100%', lettering = null }: { srcs: string[]; name: string; size?: string; lettering?: string | null } = $props();
 
 	let failed = $state(0);
 	const candidates = $derived([...new Set(srcs.filter(Boolean))]);
@@ -33,10 +34,13 @@
 	{:else}
 		<div class="placeholder" title={name} aria-label={name}>{initials}</div>
 	{/if}
+	<!-- a score's title on its cover (research/SCORES.md §1) -->
+	{#if lettering}<CoverLettering text={lettering} />{/if}
 </div>
 
 <style>
 	.item-icon {
+		position: relative;
 		aspect-ratio: 1;
 		display: flex;
 		align-items: center;

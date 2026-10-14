@@ -168,8 +168,20 @@ export function createQrApi(api: ApiClient) {
 				variant: variant || undefined
 			}),
 
-		craftRecipe: (recipe_id: string) =>
-			api.post<InventoryResult>('/inventory/craft/', { recipe_id }),
+		/** `use` = { <item id>: <entry id> }: which entry of an input (the plastic's colour, the book) – none = the oldest */
+		craftRecipe: (recipe_id: string, use?: Record<string, string | number>) =>
+			api.post<InventoryResult>('/inventory/craft/', { recipe_id, ...(use && Object.keys(use).length ? { use } : {}) }),
+
+		/**
+		 * Into a container or out (`into` null) – research/SCORES.md §2: 409 does_not_fit / container_full /
+		 * container_in_container / worn, 409 overfill_warning { max, days } until `overfill: true`
+		 */
+		moveEntry: (entry_id: string | number, into: string | number | null, overfill = false) =>
+			api.post<InventoryResult>('/inventory/move/', { entry_id, into, ...(overfill ? { overfill } : {}) }),
+
+		/** a score's MusicXML / PDF as a short-lived signed URL (the PDF only for a signed-in owner) */
+		scoreFile: (item_id: string, file: 'musicxml' | 'pdf') =>
+			api.get<{ status: string; url: string; expires: number }>(`/items/${encodeURIComponent(item_id)}/score/${file}`),
 
 		/** `respawn` (+ `visit` for every visit): a placed item that reappears – the server checks it and adds the period to the ref */
 		grantItem: (item_id: string, source: GrantSource, ref?: string, respawn?: { respawn: RecurrenceInterval; visit?: string }, variant?: string | null) =>
@@ -179,7 +191,8 @@ export function createQrApi(api: ApiClient) {
 		takeItem: (item_id: string, qty: number, ref?: string) =>
 			api.post<InventoryResult & { taken: number; reason: 'too_few' | 'already_taken' | null }>('/inventory/take/', { item_id, qty, ref }),
 
-		importItems: (items: { item_id: string; qty: number; variant?: string | null }[]) =>
+		/** `local_id` / `in`: a guest's container and what lay in it (research/SCORES.md §2) */
+		importItems: (items: { item_id: string; qty: number; variant?: string | null; local_id?: string; in?: string }[]) =>
 			api.post<InventoryResult>('/inventory/import/', { items }),
 
 		/** apply one piece of a substance (ITEMS.md "Substances"): 422 missing / not_usable */

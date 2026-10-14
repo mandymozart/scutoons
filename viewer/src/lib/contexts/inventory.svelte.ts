@@ -3,6 +3,7 @@ import { ApiError } from '$lib/api.ts';
 import {
 	claimCode,
 	craftRecipe,
+	moveEntry,
 	fetchCatalog,
 	fetchEditions,
 	grantItem,
@@ -22,6 +23,9 @@ import {
 } from '$lib/api.ts';
 import type { InviteOffer, InvitesResult } from '@scutoons/api';
 import {
+	breaksAt,
+	fitsIn,
+	moveInCheck,
 	DEFAULT_AVATAR_UNLOCKS,
 	DEFAULT_LOOK,
 	REGULAR_PERSONA,
@@ -220,6 +224,85 @@ export function createInventoryContext(session: SessionContext) {
 		}
 	}
 
+	// ---------- containers (research/SCORES.md §2: items that hold items, moved by hand) ----------
+
+	const sameId = (a: EntryId | null | undefined, b: EntryId | null | undefined) => a != null && b != null && String(a) === String(b);
+	/** the container an entry lies in */
+	function containerOf(entry: Pick<Entry, 'in'>): Entry | undefined {
+		return entry.in != null ? entries.find((c) => sameId(c.id, entry.in)) : undefined;
+	}
+	/** what lies in a container */
+	function contentsOf(container: Pick<Entry, 'id'>): Entry[] {
+		return entries.filter((e) => sameId(e.in, container.id));
+	}
+	const countIn = (container: Pick<Entry, 'id'>) => contentsOf(container).reduce((n, e) => n + e.qty, 0);
+	/** the reader's containers this entry fits into (its rule), the one it lies in excluded */
+	function containersFor(entry: Entry): Entry[] {
+		const def = itemsById[entry.item_id];
+		return entries.filter((c) => !sameId(c.id, entry.id) && !sameId(c.id, entry.in) && fitsIn(itemsById[c.item_id], def));
+	}
+
+	/** a guest's container past its overfill days breaks now (the server does the same on every read) */
+	function settleGuest() {
+		const now = Date.now();
+		let changed = false;
+		for (const c of guest.entries) {
+			const holds = itemsById[c.item_id]?.holds;
+			const at = c.overfilled_at ? Date.parse(c.overfilled_at) : null;
+			const end = holds ? breaksAt({ holds }, guest.entries.filter((e) => sameId(e.in, c.id)).reduce((n, e) => n + e.qty, 0), at) : null;
+			if (end == null || end > now || !holds?.overfill) continue;
+			for (const e of guest.entries) if (sameId(e.in, c.id)) e.in = null;
+			c.item_id = holds.overfill.breaks_into;
+			c.aged_since ??= c.acquired_at;
+			c.overfilled_at = null;
+			changed = true;
+		}
+		if (changed) saveGuest();
+	}
+
+	/** sets / clears a guest container's overfill time from what it holds now */
+	function recountGuest(id: EntryId) {
+		const c = guest.entries.find((e) => sameId(e.id, id));
+		const max = c ? itemsById[c.item_id]?.holds?.max : undefined;
+		if (!c || max == null) return;
+		const over = guest.entries.filter((e) => sameId(e.in, id)).reduce((n, e) => n + e.qty, 0) > max;
+		if (over && !c.overfilled_at) c.overfilled_at = new Date().toISOString();
+		if (!over) c.overfilled_at = null;
+	}
+
+	/**
+	 * Puts an entry into a container, or takes it out (`into` null). `overfill`: the reader agreed to the warning.
+	 * Errors: does_not_fit, container_in_container, worn, container_full { max }, overfill_warning { max, days }.
+	 */
+	async function move(entry: Entry, into: Entry | null, overfill = false): Promise<{ ok: boolean; error?: string; max?: number; days?: number }> {
+		if (isAccount) {
+			try {
+				applyInventory((await moveEntry(entry.id, into?.id ?? null, overfill)).inventory);
+				return { ok: true };
+			} catch (e) {
+				return e instanceof ApiError ? { ok: false, error: e.code, max: e.body?.max, days: e.body?.days } : { ok: false, error: 'failed' };
+			}
+		}
+		const mine = guest.entries.find((e) => sameId(e.id, entry.id));
+		if (!mine) return { ok: false, error: 'unknown_entry' };
+		const from = mine.in ?? null;
+		if (into) {
+			const holds = itemsById[into.item_id]?.holds;
+			if (!holds) return { ok: false, error: 'not_a_container' };
+			if (itemsById[mine.item_id]?.holds) return { ok: false, error: 'container_in_container' };
+			if (!fitsIn(itemsById[into.item_id], itemsById[mine.item_id])) return { ok: false, error: 'does_not_fit' };
+			if (isEquipped(mine)) return { ok: false, error: 'worn' };
+			const check = moveInCheck({ holds }, countIn(into) + mine.qty - 1);
+			if (check === 'full') return { ok: false, error: 'container_full', max: holds.overfill?.max ?? holds.max };
+			if (check === 'overfill' && !overfill) return { ok: false, error: 'overfill_warning', max: holds.max, days: holds.overfill?.days };
+			mine.in = into.id;
+			recountGuest(into.id);
+		} else mine.in = null;
+		if (from != null) recountGuest(from);
+		saveGuest();
+		return { ok: true };
+	}
+
 	function saveGuest() {
 		try {
 			localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(guest));
@@ -339,6 +422,12 @@ export function createInventoryContext(session: SessionContext) {
 
 	function iconOf(entry: Pick<Entry, 'item_id' | 'variant'>): string {
 		return variantOf(entry)?.icon || item(entry.item_id)?.icon || '';
+	}
+
+	/** the title lettered on a score's cover – in the score's own language (research/SCORES.md §1) */
+	function letteringOf(entry: Pick<Entry, 'item_id'>): string | null {
+		const def = itemsById[entry.item_id];
+		return def?.score ? (def.name?.[def.score.language] ?? localized(def.name)) : null;
 	}
 
 	function nameOf(entry: Pick<Entry, 'item_id' | 'variant'>): string {
@@ -591,16 +680,47 @@ export function createInventoryContext(session: SessionContext) {
 		notify(item_id, 0, 'refused', undefined, null, reason);
 	}
 
-	async function craft(recipe: Recipe): Promise<{ ok: boolean; error?: string }> {
+	/**
+	 * `use` = which entry of an input (the combine mode's two picks: the plastic's colour, the book). The same rules as
+	 * the server (research/SCORES.md §2a): a `keep` input stays (the drill), the output takes `variant_from`'s variant,
+	 * a used-up container hands its contents and its age to the output.
+	 */
+	async function craft(recipe: Recipe, use: Record<string, EntryId> = {}): Promise<{ ok: boolean; error?: string }> {
 		if (!canCraft(recipe)) return { ok: false, error: 'missing_inputs' };
 		busy = true;
 		try {
 			if (isAccount) {
-				const result = await craftRecipe(recipe.id);
+				const result = await craftRecipe(recipe.id, use);
 				applyInventory(result.inventory);
 			} else {
-				for (const input of recipe.inputs) removeGuestItems(input.item, input.qty);
-				addGuestEntry(recipe.output.item, recipe.output.qty, 'craft');
+				let variant: string | null = null;
+				let carried: Entry[] = [];
+				let agedSince: string | null = null;
+				for (const input of recipe.inputs) {
+					if (input.keep) continue;
+					const container = !!itemsById[input.item]?.holds;
+					const picked = input.item === recipe.output.variant_from || container
+						? (guest.entries.find((e) => sameId(e.id, use[input.item]) && e.item_id === input.item) ?? guest.entries.find((e) => e.item_id === input.item))
+						: undefined;
+					let left = input.qty;
+					if (picked) {
+						if (input.item === recipe.output.variant_from) variant = picked.variant ?? null;
+						if (container) {
+							carried = [...carried, ...guest.entries.filter((e) => sameId(e.in, picked.id))];
+							agedSince ??= picked.aged_since ?? picked.acquired_at;
+						}
+						const take = Math.min(left, picked.qty);
+						picked.qty -= take;
+						left -= take;
+						if (picked.qty <= 0) guest.entries = guest.entries.filter((e) => e !== picked);
+					}
+					if (left > 0) removeGuestItems(input.item, left);
+				}
+				const output = itemsById[recipe.output.item];
+				const made = addGuestEntry(recipe.output.item, recipe.output.qty, 'craft', output?.variants?.some((v) => v.id === variant) ? variant : null);
+				if (agedSince && output?.ages) made.aged_since = agedSince;
+				for (const e of carried) e.in = output?.holds && fitsIn(output, itemsById[e.item_id]) ? made.id : null;
+				if (output?.holds) recountGuest(made.id);
 				saveGuest();
 			}
 			notify(recipe.output.item, recipe.output.qty, 'craft');
@@ -770,8 +890,16 @@ export function createInventoryContext(session: SessionContext) {
 			const recipe = catalog?.recipes.find((r) => r.output.item === id);
 			if (recipe) for (const input of recipe.inputs) add(input.item, input.qty * qty);
 		};
-		for (const entry of guest.entries) if (entry.source !== 'qr') add(entry.item_id, entry.qty, entry.variant ?? null);
-		const items = [...totals.values()];
+		// a container and what lies in it go one by one with their local ids, so the score lies in the book again
+		const linked: { item_id: string; qty: number; variant: string | null; local_id: string; in?: string }[] = [];
+		for (const entry of guest.entries) {
+			if (entry.source === 'qr') continue;
+			const def = item(entry.item_id);
+			if ((def?.holds || entry.in != null) && def?.grantable?.length && !def.starter) {
+				linked.push({ item_id: entry.item_id, qty: entry.qty, variant: entry.variant ?? null, local_id: String(entry.id), ...(entry.in != null ? { in: String(entry.in) } : {}) });
+			} else add(entry.item_id, entry.qty, entry.variant ?? null);
+		}
+		const items = [...totals.values(), ...linked];
 		if (items.length === 0) {
 			resetGuest();
 			return;
@@ -787,7 +915,7 @@ export function createInventoryContext(session: SessionContext) {
 
 	function init() {
 		loadGuest();
-		loadCatalog();
+		void loadCatalog().then(() => !isAccount && settleGuest());
 		session.subscribe((event) => {
 			if (event === 'login') importGuest();
 			if (event === 'logout') resetGuest();
@@ -860,6 +988,7 @@ export function createInventoryContext(session: SessionContext) {
 		item,
 		variantOf,
 		iconOf,
+		letteringOf,
 		nameOf,
 		count,
 		editionTotal,
@@ -873,6 +1002,10 @@ export function createInventoryContext(session: SessionContext) {
 		craft,
 		claim,
 		gift,
+		containerOf,
+		contentsOf,
+		containersFor,
+		move,
 		get invites() {
 			return invites;
 		},

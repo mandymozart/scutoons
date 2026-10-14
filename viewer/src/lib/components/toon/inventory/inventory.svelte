@@ -17,6 +17,7 @@
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import ReaderStats from '$lib/components/items/reader-stats.svelte';
 	import InvitesPanel from '$lib/components/items/invites-panel.svelte';
+	import { moveWithWarning } from '$lib/components/items/container-move.ts';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -27,14 +28,19 @@
 	let selected = $state<Entry | null>(null);
 	let combineWith = $state<Entry | null>(null);
 	let combineSecond = $state<Entry | null>(null);
+	/** a container opened: its own grid (research/SCORES.md §2) */
+	let openBox = $state<Entry | null>(null);
+	let moveError = $state<string | null>(null);
 
 	const entries = $derived(
 		[...inventory.entries].sort((a, b) => (a.acquired_at < b.acquired_at ? -1 : 1))
 	);
 	// worn items are not listed (owner 2026-10-01): they live in the Avatar tab's slot tiles; a stackable entry shows
 	// the pieces that are not worn (an entry is worn at most once). Taking an item off brings it back here.
+	// what lies in a container is only in that container's grid
+	const shown = $derived(openBox ? inventory.contentsOf(openBox) : entries.filter((e) => !inventory.containerOf(e)));
 	const listed = $derived(
-		entries.flatMap((e) => {
+		shown.flatMap((e) => {
 			const left = e.qty - (inventory.isEquipped(e) ? 1 : 0);
 			return left > 0 ? [{ entry: e, qty: left }] : [];
 		})
@@ -42,7 +48,25 @@
 	// keep the detail sheet in sync with inventory updates (e.g. qty change, entry consumed)
 	$effect(() => {
 		if (selected && !inventory.entries.some((e) => String(e.id) === String(selected!.id))) selected = null;
+		if (openBox && !inventory.entries.some((e) => String(e.id) === String(openBox!.id))) openBox = null;
 	});
+
+	/** a container's fill: "3 / 25" */
+	function fill(entry: Entry): string | null {
+		const holds = inventory.item(entry.item_id)?.holds;
+		if (!holds) return null;
+		const n = inventory.contentsOf(entry).reduce((sum, e) => sum + e.qty, 0);
+		return holds.max != null ? `${n} / ${holds.max}` : String(n);
+	}
+
+	// drag an item onto a container (desktop; phones use "Put into …" in the item's detail)
+	let dragged = $state<Entry | null>(null);
+	async function dropOn(container: Entry) {
+		const entry = dragged;
+		dragged = null;
+		if (!entry || String(entry.id) === String(container.id)) return;
+		moveError = await moveWithWarning(inventory, entry, container);
+	}
 
 	function iconsFor(entry: Entry): string[] {
 		return [inventory.iconOf(entry), inventory.item(entry.item_id)?.icon ?? ''];
@@ -50,6 +74,7 @@
 
 	function reset() {
 		selected = null;
+		openBox = null;
 		combineWith = null;
 		combineSecond = null;
 	}
@@ -147,13 +172,21 @@
 			ondone={() => reset()}
 		/>
 	{:else if selected && !combineWith}
-		<ItemDetail entry={selected} onback={() => (selected = null)} oncombine={(e) => (combineWith = e)} />
+		<ItemDetail entry={selected} onback={() => (selected = null)} oncombine={(e) => (combineWith = e)} onopencontainer={(c) => ((openBox = c), (selected = null))} />
 	{:else if !inventory.catalog && inventory.entries.length === 0}
 		<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
 	{:else}
 		<!-- gift invites: invite with a campaign's item, the open invites, a gift's shipping address (research/GIFT-INVITES.md) -->
-		{#if !combineWith}<InvitesPanel />{/if}
-		{#if listed.length === 0}
+		{#if !combineWith && !openBox}<InvitesPanel />{/if}
+		{#if openBox}
+			<div class="box-bar" data-testid="container-view">
+				<button class="btn-back btn-clear" onclick={() => (openBox = null)}>← {m['items.container_back']()}</button>
+				<span>{inventory.nameOf(openBox)} · {fill(openBox)}</span>
+			</div>
+			{#if openBox.overfilled_at}<p class="empty">{m['items.container_overfilled']()}</p>{/if}
+		{/if}
+		{#if moveError}<p class="empty" role="alert">{moveError}</p>{/if}
+		{#if listed.length === 0 && !openBox}
 			<p class="empty">{m['inventory.empty']()}</p>
 		{/if}
 		{#if combineWith}
@@ -172,10 +205,18 @@
 						onclick={() => pick(entry)}
 						title={inventory.nameOf(entry)}
 						data-item={entry.item_id}
+						draggable={!openBox && !combineWith}
+						ondragstart={() => (dragged = entry)}
+						ondragend={() => (dragged = null)}
+						ondragover={(e) => dragged && inventory.containersFor(dragged).some((c) => String(c.id) === String(entry.id)) && e.preventDefault()}
+						ondrop={(e) => (e.preventDefault(), dropOn(entry))}
+						class:drop-target={dragged && inventory.containersFor(dragged).some((c) => String(c.id) === String(entry.id))}
 					>
-						<ItemIcon srcs={iconsFor(entry)} name={inventory.nameOf(entry)} />
+						<ItemIcon srcs={iconsFor(entry)} name={inventory.nameOf(entry)} lettering={inventory.letteringOf(entry)} />
 						{#if qty > 1}
 							<div class="count">{qty}</div>
+						{:else if fill(entry)}
+							<div class="count fill" data-testid="container-fill">{fill(entry)}</div>
 						{/if}
 						<span class="name">{inventory.nameOf(entry)}</span>
 					</button>
@@ -251,6 +292,27 @@
 		margin: 0;
 	}
 
+	.box-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0 1rem 0.5rem;
+		color: var(--ink);
+	}
+	.box-bar .btn-back {
+		color: inherit;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+	.item.drop-target {
+		outline: 3px dashed var(--primary-color);
+		outline-offset: -3px;
+	}
+	.count.fill {
+		width: auto;
+		padding: 0 0.35rem;
+		border-radius: 1rem;
+	}
 	.combine-bar {
 		display: flex;
 		align-items: center;

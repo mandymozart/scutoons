@@ -84,10 +84,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.97 **Scores + song book + score view** – owner 2026-10-14: "special items, called scores … go into a song
   book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
   on a shared cover; containers (song books, DJ trolley …) hold items by an editable rule; the score view renders MusicXML (Verovio, decided) with scale + pages,
-  reused by live mode. Plan: research/SCORES.md. Built: the model, the server (ITEMS.md "Containers"), the catalog
-  editor fields, the reader's score view / cover lettering / ageing (draft `/account/lab/score`); next: the viewer UI
-  (drafts first) and score uploads into the protected storage. [owner] before score files go live: a bunny storage
-  + pull zone with token auth, secrets BUNNY_PROTECTED_CDN_KEY / variable PROTECTED_CDN_URL (deploy/README.md).
+  reused by live mode. Plan: research/SCORES.md. Built: model, server, catalog editor fields, vault uploads, the reader's score view /
+  cover lettering / ageing, and the viewer inventory as a DRAFT for the owner's look (containers, Put into / Take out,
+  drag on desktop, scores Open / PDF). [owner] bunny vault: secrets BUNNY_PROTECTED_CDN_KEY, BUNNY_PROTECTED_STORAGE_PASSWORD,
+  variables PROTECTED_CDN_URL, BUNNY_PROTECTED_STORAGE_ZONE (deploy/README.md); the real score / song book items.
 - [ ] 10.98 **The cave – the avatar's home + a walking mode** – owner 2026-10-14: "not inventory but cave... the home of
   the avatar". A place on the world map with racks / a workshop; the reader's avatar walks there (free, its own map
   position) or rides for cucumbers; a VR headset enters from anywhere; friends' caves (workshop repairs). Concept with

@@ -18,7 +18,8 @@
 		"chapter": "Chapter {number}",
 		"season_chapter": "Season {season} · Chapter {number}",
 		"loading": "Patience ...",
-		"cancel": "Cancel"
+		"cancel": "Cancel",
+		"close": "Close"
 	},
 	"upcoming_events": "Upcoming Events",
 	"past_events": "Past Events",
@@ -367,7 +368,26 @@
 		"invite_note_paid": "They see your email address.",
 		"invite_payment_done": "{name} for {email} waits for your payment – we email you how to pay.",
 		"ship_saved": "Thank you – we send your gift to this address.",
-		"invite_error_container_needs_account": "Something that holds other things can only go to someone with an account."
+		"invite_error_container_needs_account": "Something that holds other things can only go to someone with an account.",
+		"container_open": "Open",
+		"container_put_in": "Put into {name}",
+		"container_take_out": "Take out of {name}",
+		"container_full": "Nothing more fits in there (at most {max}).",
+		"container_overfilled": "Overfilled – it will fall apart soon.",
+		"container_back": "Back",
+		"move_failed": "That did not work.",
+		"overfill_title": "Overfill it?",
+		"overfill_warning": "This book only holds {max} scores. Overfilled, it falls apart in {days} days – unless you take some out again before.",
+		"overfill_anyway": "Put it in anyway",
+		"overfill_cancel": "Never mind",
+		"score_open": "Open",
+		"score_pdf": "Download PDF",
+		"score_failed": "The score could not be loaded.",
+		"score_larger": "Larger",
+		"score_smaller": "Smaller",
+		"score_previous": "Previous page",
+		"score_next": "Next page",
+		"score_page": "Page {page} of {pages}"
 	},
 	"claim": {
 		"title": "SCUTOONS item",
