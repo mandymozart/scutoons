@@ -7,7 +7,14 @@
 
 	type Place = { id: string; name: string; x: number; y: number; image: string; unlocked: boolean };
 	const PLACES: Place[] = [
-		{ id: 'home', name: 'Home (Cat Pope)', x: 18, y: 72, image: 'apartment-blocks', unlocked: true },
+		{
+			id: 'home',
+			name: 'Home (Cat Pope)',
+			x: 18,
+			y: 72,
+			image: 'apartment-blocks',
+			unlocked: true
+		},
 		{ id: 'square', name: 'Church square', x: 42, y: 52, image: 'church-square', unlocked: true },
 		{ id: 'cathedral', name: 'Cathedral', x: 70, y: 30, image: 'cathedral', unlocked: true },
 		{ id: 'station', name: 'Station', x: 78, y: 74, image: 'station', unlocked: true },

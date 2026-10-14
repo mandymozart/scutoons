@@ -1,4 +1,4 @@
-Status 2026-10-14: concept – Q1, Q2, Q4, home per avatar, full screen decided; the rest is a design proposal (D1–D7) waiting for the owner; draft `/account/lab/cave`; nothing built (FEATURES 10.98).
+Status 2026-10-14: concept – Q1, Q2, Q4, home per avatar, full screen decided; D2–D7 decided 2026-10-14 (free placement, base rooms: cave + tatami room; furniture stays in the room); a home per character, a WG of up to 5; draft `/account/lab/cave`; nothing built (FEATURES 10.98).
 
 # CAVE — the avatar's home (concept, 2026-10-14)
 
@@ -42,54 +42,63 @@ avatar is where they get first introduced in any story. or set in character defi
 to be added as new ones"): the character definition gets `home?: <map place id>` (next to `origin` / `residence`,
 characters.ts, edited on the creator's character page); none set = the place where the character is first introduced in
 any story (in reading order). A home place that doesn't exist yet is added as a new map place (the map builder, its own
-image). The avatar's home = the home of its body's character (ITEMS.md "Reader avatar bodies"); proposal: switching the
-body moves you to the new body's home. Every avatar starts there. It walks only along **revealed routes to unlocked
+image). The avatar's home = the home of its body's character (ITEMS.md "Reader avatar bodies"); **switching the
+character moves you to that character's home** (owner 2026-10-14: "if they switch character. yes, they move, each
+character has their own, but they can move around"). **A WG / shared flat:** a reader's avatars (the characters they
+have) can move in with each other – at most **5 of your avatars in one home** (owner 2026-10-14: "the most that is
+allowed is to house 5 of your avatars in one home. its claled WG oder shared flat"); moving in = that home becomes the
+character's home for this reader (reader state, the character's default `home` stays). Every avatar starts there. It walks only along **revealed routes to unlocked
 places** (no spoilers – the fog of war stays the story's); tap a place → "Hingehen" / "Walk here" → the marker walks the
 shortest revealed path (the existing marker animation, ≈ 1.2 s per segment); no path → no button. The position is
 world-wide reader state next to the map state (MAP.md §2.4: `MapState.avatar: { location } | { route, waypoint }`),
 synced like progress (newer write wins), a guest's on the device, merged at sign-in. A home place is always shown for
 its avatar, even before the story unlocks it.
 
-**D2 – entering.** The home place's card: "Eintreten" / "Enter" when the avatar is there (free); otherwise "Nach Hause
+**D2 – entering** (owner 2026-10-14: yes). The home place's card: "Eintreten" / "Enter" when the avatar is there (free); otherwise "Nach Hause
 gehen" (walk, when a path exists) and, with a VR headset in the inventory, "Mit VR-Brille betreten" / "Enter with the
 VR headset". The VR headset = a virtual item with a new skill `enter_cave` (ITEMS.md "Skills"); the avatar stays where
 it is on the map. Rides for cucumbers: step 2 (the networks).
 
-**D3 – the look: a full-screen view, one drawn room with fixed spots, phone first.** Full screen (owner 2026-10-14:
+**D3 – the look: a full-screen view, a base room, free placement, phone first.** Full screen (owner 2026-10-14:
 "the cave design is a full screen i will need this later in the live scenario as well"): built as its own component in
 `@scutoons/reader` (no app state, like the ScoreView) so live mode (research/LIVE.md) reuses it; a bar with where you
-are + "Leave". A 2.5D diorama in the map places' style (three-quarter
-view, MAP.md §5.1), one room, **fixed furniture spots** (proposal: 6 – two wall spots, two floor spots, a corner, the
-workbench spot); the avatar's A-pose stands in the middle. No free placement, no walls / colours to decorate now.
-Phone: the room on top, the furniture's contents and the reader's items scroll below. Desktop: the room fills the
-height, the panel at the side.
+are + "Leave". **Free placement** (owner 2026-10-14: "free placement of course"): furniture stands where the reader
+drags it (a position in the room, in % of the room – resolution-independent). **Base rooms** (owner 2026-10-14:
+"background can be diffrent base rooms, we start with a cave and a japanese monks room with tatami and with nothing in
+there"): the room's background is one of the base rooms – to start: **the cave** and **a Japanese monk's room** (tatami,
+empty); a 2.5D diorama in the map places' style (three-quarter view, MAP.md §5.1), the owner's art later (the draft
+draws placeholders). The avatar's A-pose stands in the room. Phone: the room on top, the furniture's contents and the
+reader's items scroll below. Desktop: the room fills the height, the panel at the side.
 
-**D4 – furniture = items placed in the cave.** Racks and the workshop are catalog items, category `furniture` (new),
-found / gifted / bought / crafted like any item. A rack is a container (`holds`, ITEMS.md "Containers"):
-`cd_rack` { categories? / items: CDs, max }, `cassette_rack` (tapes), `record_shelf` (vinyl). The workshop
-(`workbench`) has no `holds`; recipes marked `at: "workshop"` run only in a cave with a workbench (the broken song book's
-repair, SCORES.md §2a). Placing: in the cave, tap an empty spot → pick a furniture item from the inventory → it stands
-there (`inventory.cave_spot`, one column next to `container_id`); "Wegräumen" / "Put away" takes it back into the
-inventory (its contents stay in it). Furniture can't be worn or carried into a container.
+**D4 – furniture = items that live in the room.** Racks and the workbench are catalog items, category `furniture`
+(new). A rack is a container (`holds`, ITEMS.md "Containers"): `cd_rack` (CDs), `cassette_rack` (tapes),
+`record_shelf` (vinyl). **Every home has a workbench** (owner 2026-10-14: "workbench. yes, we can add that to each
+apartment, place it somehwere"): it comes with the room, the reader moves it like any furniture; recipes marked
+`at: "workshop"` run at a workbench (the broken song book's repair, SCORES.md §2a – at a friend's). **Furniture can't
+leave a room for now** (owner 2026-10-14: "furniture items can not leave a room for now"): once placed it stays in the
+room – moved freely inside it, never back into the inventory, never given away. Placing: select a furniture item in the
+inventory, tap a point in the room → it stands there (`inventory.room_pos` { x, y }, next to `container_id`).
 
-**D5 – items between inventory and cave.** Only while you are in your cave (there or by VR headset). Into a rack:
-the container move that exists (drag, or select-then-tap – `POST /api/inventory/move`); out: back into the inventory.
-Gifts and campaigns land in the inventory, as now. Giving away works from the inventory only – take it out of the rack
-first (a rack is never given away while it stands). Inventory = what you carry, the cave = what you keep.
+**D5 – items between inventory and cave** (owner 2026-10-14: "just answered" – by D4: furniture stays in the room;
+the rest as proposed). Only while you are in your cave (there or by VR headset). Into a rack: the container move that
+exists (drag, or select-then-tap – `POST /api/inventory/move`); out: back into the inventory. Gifts and campaigns land
+in the inventory, as now. Giving away works from the inventory only – take it out of the rack first.
 
-**D6 – a friend's cave.** No friend list now: a member shares a **visit link** ("Freund:in einladen" / "Invite a
+**D6 – a friend's cave** (owner 2026-10-14: yes). No friend list now: a member shares a **visit link** ("Freund:in einladen" / "Invite a
 friend", a token, valid 7 days, revocable) – the link opens the friend's cave directly (it isn't on your map, so no
 travel). A visitor sees the room and the racks' contents read-only and may use the **workshop** with their own items
 (a repair takes the visitor's broken book and gives it back repaired). No visitor can take or move the host's things.
 Server: a `cave_visits` token table; the host's cave answer (furniture + contents, no account data but the
 display name).
 
-**D7 – guests and what it does NOT do now.** Guests have a cave on the device (their furniture is in the local
-inventory), can walk and visit a friend's link; inviting needs an account (the server must answer for your cave).
-Not now: free placement, more rooms, decorating, a friend list, live presence / chat in a cave, a cave on a per-reader
-map spot, rides (step 2), selling from the cave.
+**D7 – guests and what it does NOT do now** (owner 2026-10-14: "no more rooms, no chat and presence, selling").
+Guests have a cave on the device (their furniture in the local inventory), can walk and visit a friend's link; inviting
+needs an account (the server must answer for your cave). Not now: more rooms (one home, one base room), decorating
+beyond the base room, a friend list, live presence / chat, a per-reader map spot, rides (step 2), selling.
 
 ## Open for the owner
-- Yes / changes to D1–D7; switching the avatar body moves the home (D1)?; how many spots (D3); rack capacities (D4).
+- Moving in (WG): does the moving avatar's furniture come along (it can't leave its room – D4)?; who picks the base room (the reader, or set per character like the
+  home?) and can it be changed; how a new furniture item arrives (in the inventory until placed – proposed); rack
+  capacities (D4).
 - "cave can go step two": read as "design the open points now". If it means the cave itself moves to step two (walking
   first, then the cave with the rides), the order changes – the owner says which.

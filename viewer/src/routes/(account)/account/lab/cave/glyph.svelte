@@ -72,8 +72,8 @@
 		stroke: var(--ink);
 		stroke-width: 3;
 	}
-	:global(.spot) svg,
-	:global(.spot) img {
+	:global(.furniture) svg,
+	:global(.furniture) img {
 		max-width: none;
 	}
 	.fill {
