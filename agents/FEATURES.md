@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.98**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.99**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -88,6 +88,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
   on a shared cover; containers (song books, DJ trolley …) hold items by an editable rule; the score view renders MusicXML (Verovio, decided) with scale + pages,
   reused by live mode. Plan (decided): research/SCORES.md; draft `/account/lab/score`.
+- [ ] 10.98 **The cave – the avatar's home + a walking mode** – owner 2026-10-14: "not inventory but cave... the home of
+  the avatar". A place on the world map with racks / a workshop; the reader's avatar walks there (free, its own map
+  position) or rides for cucumbers; a VR headset enters from anywhere; friends' caves (workshop repairs). Concept with
+  the owner, nothing built: research/CAVE.md. `decide`
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
