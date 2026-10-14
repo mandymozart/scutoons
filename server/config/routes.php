@@ -24,6 +24,8 @@ use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
 use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
+use Scutoons\Http\Controllers\Admin\CampaignsController;
+use Scutoons\Http\Controllers\Admin\SegmentsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
@@ -48,6 +50,7 @@ use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\FlowController;
 use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
+use Scutoons\Http\Controllers\InvitesController;
 use Scutoons\Http\Controllers\KeysController;
 use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\SignatureController;
@@ -114,6 +117,8 @@ return static function (App $app): void {
     $app->get('/api/health', HealthController::class);
 
     $app->any('/api/items[/index.php]', [CatalogController::class, 'items']);
+    // a score's MusicXML / PDF as a short-lived signed URL (agents/research/SCORES.md §5)
+    $app->get('/api/items/{id}/score/{file}', [CatalogController::class, 'scoreFile']);
     $app->any('/api/editions[/index.php]', [CatalogController::class, 'editions']);
     $app->any('/api/toons[/index.php]', [CatalogController::class, 'toons']);
     $app->get('/api/{folder:items|editions|toons}/{file:items|editions|toons}.json', [CatalogController::class, 'file']);
@@ -137,6 +142,8 @@ return static function (App $app): void {
     $app->get('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribePage']);
     $app->post('/api/newsletter/unsubscribe', [NewsletterController::class, 'unsubscribe']);
     $app->map(['GET', 'POST'], '/api/newsletter/cron', [NewsletterController::class, 'cron']);
+    // Gift invites (agents/research/GIFT-INVITES.md): returns the invites that ran out (the host's daily cron; a key)
+    $app->map(['GET', 'POST'], '/api/invites/cron', [InvitesController::class, 'cron']);
 
     $app->get('/api/me', [MeController::class, 'get']);
     $app->put('/api/me', [MeController::class, 'put']);
@@ -151,6 +158,8 @@ return static function (App $app): void {
 
     $app->post('/api/inventory/claim', [InventoryController::class, 'claim']);
     $app->post('/api/inventory/craft', [InventoryController::class, 'craft']);
+    // containers (research/SCORES.md): put an entry into a container or take it out
+    $app->post('/api/inventory/move', [InventoryController::class, 'move']);
     $app->post('/api/inventory/grant', [InventoryController::class, 'grant']);
     // a story takes an item (VN takeItem, BACKLOG 10.38)
     $app->post('/api/inventory/take', [InventoryController::class, 'take']);
@@ -161,6 +170,11 @@ return static function (App $app): void {
     // received" notices, ownership claims ("This is mine") with optional evidence files
     $app->post('/api/inventory/gift', [InventoryController::class, 'gift']);
     $app->post('/api/inventory/received/seen', [InventoryController::class, 'seen']);
+    // gift invites while a campaign runs (agents/research/GIFT-INVITES.md): someone without an account gets an invite
+    $app->get('/api/invites', [InvitesController::class, 'mine']);
+    $app->post('/api/invites', [InvitesController::class, 'create']);
+    $app->post('/api/invites/{id:[0-9a-f-]{36}}/recall', [InvitesController::class, 'recall']);
+    $app->put('/api/invites/{id:[0-9a-f-]{36}}/address', [InvitesController::class, 'address']);
     $app->post('/api/claims', [ClaimsController::class, 'create']);
     $app->get('/api/claims', [ClaimsController::class, 'list']);
     $app->post('/api/claims/{id:[0-9a-f-]{36}}/files', [ClaimsController::class, 'addFile']);
@@ -198,6 +212,8 @@ return static function (App $app): void {
     $app->get('/api/assets/missing', [AssetsController::class, 'missing']);
     $app->get('/api/assets/orphans', [AssetsController::class, 'orphans']);
     $app->put('/api/assets/upload', [AssetsController::class, 'upload']);
+    // a score's file into the protected storage (agents/research/SCORES.md §5)
+    $app->put('/api/assets/protected', [AssetsController::class, 'uploadProtected']);
     $app->put('/api/assets/replace', [AssetsController::class, 'replaceAt']);
     $app->get("/api/assets/$asset", [AssetsController::class, 'get']);
     $app->put("/api/assets/$asset", [AssetsController::class, 'update']);
@@ -327,6 +343,29 @@ return static function (App $app): void {
         $admin->get('/codes/{code}/signature', [CodesController::class, 'signature']);
         $admin->put('/codes/{code}/signature', [CodesController::class, 'saveSignature']);
 
+        // campaigns: gift invites (agents/research/GIFT-INVITES.md)
+        $admin->get('/campaigns', [CampaignsController::class, 'list']);
+        $admin->post('/campaigns', [CampaignsController::class, 'create']);
+        $admin->post('/campaigns/invites/{id:[0-9a-f-]{36}}/paid', [CampaignsController::class, 'paid']);
+        $admin->post('/campaigns/invites/{id:[0-9a-f-]{36}}/shipped', [CampaignsController::class, 'shipped']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'get']);
+        $admin->put('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'update']);
+        $admin->delete('/campaigns/{id:[0-9a-f-]{36}}', [CampaignsController::class, 'delete']);
+        $admin->post('/campaigns/{id:[0-9a-f-]{36}}/start', [CampaignsController::class, 'start']);
+        $admin->post('/campaigns/{id:[0-9a-f-]{36}}/stop', [CampaignsController::class, 'stop']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}/accounts', [CampaignsController::class, 'accounts']);
+        $admin->put('/campaigns/{id:[0-9a-f-]{36}}/accounts', [CampaignsController::class, 'setAccounts']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}/invites', [CampaignsController::class, 'invites']);
+        $admin->get('/campaigns/{id:[0-9a-f-]{36}}/stats', [CampaignsController::class, 'stats']);
+
+        // segments: named groups of accounts (agents/research/GIFT-INVITES.md 1b)
+        $admin->get('/segments', [SegmentsController::class, 'list']);
+        $admin->post('/segments', [SegmentsController::class, 'create']);
+        $admin->put('/segments/{id:[0-9a-f-]{36}}', [SegmentsController::class, 'rename']);
+        $admin->delete('/segments/{id:[0-9a-f-]{36}}', [SegmentsController::class, 'delete']);
+        $admin->post('/segments/{id:[0-9a-f-]{36}}/members', [SegmentsController::class, 'add']);
+        $admin->post('/segments/{id:[0-9a-f-]{36}}/members/remove', [SegmentsController::class, 'remove']);
+
         // ownership claims (agents/ITEMS.md "Ownership, claims, gifting")
         $admin->get('/claims', [AdminClaimsController::class, 'list']);
         $admin->get('/claims/{id:[0-9a-f-]{36}}', [AdminClaimsController::class, 'get']);
@@ -353,7 +392,7 @@ return static function (App $app): void {
         $admin->delete('/users/{id}/review-rules/{toon}/{rule}', [UsersController::class, 'removeReviewRule']);
         $admin->put('/users/{id}/characters/{character}', [UsersController::class, 'unlockCharacter']);
         $admin->delete('/users/{id}/characters/{character}', [UsersController::class, 'lockCharacter']);
-        $admin->delete('/users/{id}/characters/{character}/looks/{look}', [UsersController::class, 'lockLook']);
+        $admin->delete('/users/{id}/characters/{character}/looks/{persona}/{look}', [UsersController::class, 'lockLook']);
         $admin->get('/roles', [UsersController::class, 'roles']);
 
         $admin->get('/content', [AdminContentController::class, 'index']);

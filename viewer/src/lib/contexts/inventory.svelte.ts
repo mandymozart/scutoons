@@ -14,10 +14,17 @@ import {
 	useItem,
 	endEffect as endEffectApi,
 	giftItem,
-	markReceivedSeen
+	markReceivedSeen,
+	fetchInvites,
+	createInvite,
+	recallInvite as recallInviteApi,
+	inviteAddress
 } from '$lib/api.ts';
+import type { InviteOffer, InvitesResult } from '@scutoons/api';
 import {
 	DEFAULT_AVATAR_UNLOCKS,
+	DEFAULT_LOOK,
+	REGULAR_PERSONA,
 	activeEffects,
 	applySubstance,
 	avatarBodies,
@@ -28,8 +35,7 @@ import {
 	bodySlots as bodySlotsOf,
 	maxOf,
 	remapAvatarSlots,
-	unlockedBodies,
-	wearOverlay
+	unlockedBodies
 } from '@scutoons/content';
 import type {
 	Avatar,
@@ -57,7 +63,11 @@ import { showChrome } from '$lib/chrome.ts';
 
 const INVENTORY_KEY = Symbol('inventory');
 const GUEST_STORAGE_KEY = 'scutoons_inventory';
-/** The guest's avatar body { character, look } (per device; the old ids sphynx / sphynx_nude / mouse are mapped) */
+/**
+ * The guest's avatar body { character, persona, look } (per device). Older values are read once and rewritten
+ * (RULES.md: data in readers' browsers): the ids sphynx / sphynx_nude / mouse and { character, look: 'swim' } (the
+ * character-level A-pose before 2026-10-13) → the character's regular default look, where the A-pose moved to.
+ */
 const GUEST_BODY_KEY = 'scutoons_avatar_body';
 /** The guest's reader stats + effects (ITEMS.md "Substances"), per device */
 const GUEST_READER_KEY = 'scutoons_reader';
@@ -70,19 +80,18 @@ function readGuestReader(): ReaderState {
 		return { stats: {}, effects: [] };
 	}
 }
-const LEGACY_BODIES: Record<string, AvatarBodyRef> = {
-	sphynx: { character: 'catpope', look: 'swim' },
-	sphynx_nude: { character: 'catpope', look: 'swim' },
-	mouse: { character: 'yellowmouse', look: 'swim' }
-};
+const LEGACY_BODIES: Record<string, string> = { sphynx: 'catpope', sphynx_nude: 'catpope', mouse: 'yellowmouse' };
 
 function readGuestBody(): AvatarBodyRef | null {
 	try {
 		const raw = localStorage.getItem(GUEST_BODY_KEY);
 		if (!raw) return null;
-		if (LEGACY_BODIES[raw]) return LEGACY_BODIES[raw];
-		const parsed = JSON.parse(raw);
-		return typeof parsed?.character === 'string' && typeof parsed?.look === 'string' ? { character: parsed.character, look: parsed.look } : null;
+		const parsed = LEGACY_BODIES[raw] ? { character: LEGACY_BODIES[raw] } : JSON.parse(raw);
+		if (typeof parsed?.character !== 'string') return null;
+		if (typeof parsed.persona === 'string' && typeof parsed.look === 'string') return { character: parsed.character, persona: parsed.persona, look: parsed.look };
+		const body = { character: parsed.character, persona: REGULAR_PERSONA, look: DEFAULT_LOOK };
+		localStorage.setItem(GUEST_BODY_KEY, JSON.stringify(body));
+		return body;
 	} catch {
 		return null;
 	}
@@ -107,14 +116,17 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory) */
-	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place';
+	kind: 'grant' | 'taken' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused' | 'place' | 'invited' | 'recalled';
 	/** place: a map place was unlocked (agents/MAP.md §3.4, §8.5a) – its name and image (the toast's icon) */
 	place?: { name: string; image?: string; id?: string };
 	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
 	reason?: string;
 	/** the inventory entry (returned) */
 	entry?: EntryId;
-	/** gifted: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership, claims, gifting") */
+	/**
+	 * gifted / invited / recalled: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership,
+	 * claims, gifting"; invites: research/GIFT-INVITES.md)
+	 */
 	email?: string | null;
 	/** the same notice again while it shows: counted here ("× 2") instead of one more toast (owner 2026-10-08) */
 	repeat?: number;
@@ -159,11 +171,11 @@ export function createInventoryContext(session: SessionContext) {
 	// the bodies the reader may pick (registry, lazily loaded) and the current one with its wear slots (slot instances)
 	let registry = $state<CharacterRegistry | null>(null);
 	let registryLoaded = $state(false);
-	// the unlocked bodies (avatarBodies leaves the removed naked look out – ITEMS.md "Reader avatar bodies")
+	// the unlocked bodies: every unlocked look with an A-pose (ITEMS.md "Reader avatar bodies")
 	const bodies = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), unlocked));
-	// the chosen body; an unknown look (e.g. the removed naked one) shows the same character's default look instead
+	// the chosen body; an unknown look (e.g. one that lost its A-pose) shows the same character's default body instead
 	const currentBody = $derived<AvatarBody | undefined>(
-		bodies.find((b) => b.character === body?.character && b.look === body?.look) ??
+		bodies.find((b) => b.character === body?.character && b.persona === body?.persona && b.look === body?.look) ??
 			bodies.find((b) => b.character === body?.character && b.default) ??
 			bodies.find((b) => b.character === body?.character) ??
 			bodies.find((b) => b.default) ??
@@ -411,9 +423,10 @@ export function createInventoryContext(session: SessionContext) {
 
 	/**
 	 * Gives an item to another reader (members only; ITEMS.md "Ownership, claims, gifting"). A code-bound piece moves
-	 * its code. `error` = the API's error code (recipient_not_found, worn, cooldown, max_reached, daily_limit, …).
+	 * its code. `error` = the API's error code (recipient_not_found, worn, cooldown, max_reached, daily_limit, …);
+	 * recipient_not_found while a gift invite campaign runs for the member brings `invite` – the offer to invite them.
 	 */
-	async function gift(entry: Entry, to: string, qty = 1): Promise<{ ok: boolean; error?: string }> {
+	async function gift(entry: Entry, to: string, qty = 1): Promise<{ ok: boolean; error?: string; invite?: InviteOffer }> {
 		if (!isAccount) return { ok: false, error: 'unauthorized' };
 		busy = true;
 		try {
@@ -423,9 +436,70 @@ export function createInventoryContext(session: SessionContext) {
 			if (entry.code) await session.loadMe(); // the code (and its access) left the account
 			return { ok: true };
 		} catch (e) {
+			if (e instanceof ApiError) return { ok: false, error: e.code, invite: (e.body?.invite as InviteOffer | undefined) ?? undefined };
+			return { ok: false, error: 'failed' };
+		} finally {
+			busy = false;
+		}
+	}
+
+	// ── gift invites (agents/research/GIFT-INVITES.md): someone without an account gets an invite with the gift ──
+	let invites = $state<InvitesResult | null>(null);
+	/** the running campaign, the member's invites, gifts waiting for a shipping address (members only) */
+	async function loadInvites(): Promise<void> {
+		if (!isAccount) {
+			invites = null;
+			return;
+		}
+		try {
+			invites = await fetchInvites();
+		} catch (e) {
+			console.warn('Could not load the invites', e);
+		}
+	}
+	/**
+	 * Invites someone without an account: with the member's own item (`entry`, the gift form) or the campaign's item
+	 * (no entry). `error` = the API's code (has_account, already_invited, campaign_limit, sold_out, no_campaign, …).
+	 */
+	async function invite(to: string, entry?: Entry, qty = 1): Promise<{ ok: boolean; error?: string; status?: string }> {
+		if (!isAccount) return { ok: false, error: 'unauthorized' };
+		busy = true;
+		try {
+			const result = await createInvite({ to: to.trim(), ...(entry ? { entry_id: entry.id, qty } : {}) });
+			applyInventory(result.inventory);
+			// a gift the member pays waits for the payment: the notice says so (reason payment)
+			notify(result.invite.item_id, result.invite.qty, 'invited', undefined, result.invite.email, result.invite.status === 'payment' ? 'payment' : undefined);
+			await loadInvites();
+			return { ok: true, status: result.invite.status };
+		} catch (e) {
 			return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
 		} finally {
 			busy = false;
+		}
+	}
+	/** calls an invite back while it is not accepted – the member's own item comes back */
+	async function recallInvite(id: string): Promise<{ ok: boolean; error?: string }> {
+		busy = true;
+		try {
+			const result = await recallInviteApi(id);
+			applyInventory(result.inventory);
+			notify(result.invite.item_id, result.invite.qty, 'recalled', undefined, result.invite.email);
+			await loadInvites();
+			return { ok: true };
+		} catch (e) {
+			await loadInvites();
+			return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
+		} finally {
+			busy = false;
+		}
+	}
+	/** the shipping address of a physical gift the member joined by */
+	async function setInviteAddress(id: string, address: { name: string; address: string; country: string }): Promise<{ ok: boolean; error?: string }> {
+		try {
+			invites = await inviteAddress(id, address);
+			return { ok: true };
+		} catch (e) {
+			return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
 		}
 	}
 
@@ -592,7 +666,7 @@ export function createInventoryContext(session: SessionContext) {
 			const result = await putAvatarBody(ref);
 			session.patchMe({ avatar: result.avatar ?? { ...avatar, body: ref } });
 		} else {
-			const target = ref ? bodies.find((b) => b.character === ref.character && b.look === ref.look) : (bodies.find((b) => b.default) ?? bodies[0]);
+			const target = ref ? bodies.find((b) => b.character === ref.character && b.persona === ref.persona && b.look === ref.look) : (bodies.find((b) => b.default) ?? bodies[0]);
 			const targetSlots = target?.slots ?? bodySlotsOf(null);
 			guest.avatar = { ...guest.avatar, slots: remapAvatarSlots(worn, targetSlots, slotTypeOf) };
 			saveGuest();
@@ -605,11 +679,6 @@ export function createInventoryContext(session: SessionContext) {
 			}
 		}
 		// items that don't fit the new body just come off (no notice)
-	}
-
-	/** The wardrobe overlay of an entry on a slot instance of the current body (null = draw its icon at the anchor). */
-	function overlayOf(entry: Pick<Entry, 'item_id' | 'variant'>, slotId: string): string | null {
-		return wearOverlay(item(entry.item_id), currentBody?.character, slotId, variantOf(entry));
 	}
 
 	/**
@@ -741,7 +810,7 @@ export function createInventoryContext(session: SessionContext) {
 		get avatar() {
 			return avatar;
 		},
-		/** characters (+ A-pose looks) the reader may wear as avatar body */
+		/** characters (+ looks with an A-pose) the reader may wear as avatar body */
 		get unlocked() {
 			return unlocked;
 		},
@@ -749,7 +818,6 @@ export function createInventoryContext(session: SessionContext) {
 		get body() {
 			return body;
 		},
-		overlayOf,
 		/** the bodies the reader may pick (after `loadRegistry()`) */
 		get bodies() {
 			return bodies;
@@ -805,6 +873,13 @@ export function createInventoryContext(session: SessionContext) {
 		craft,
 		claim,
 		gift,
+		get invites() {
+			return invites;
+		},
+		loadInvites,
+		invite,
+		recallInvite,
+		setInviteAddress,
 		announceReceived,
 		equip,
 		unequip,

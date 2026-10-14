@@ -18,7 +18,7 @@ use Scutoons\Support\Time;
 final class UserAdmin
 {
     public const SORTABLE = ['created_at', 'email', 'codes'];
-    public const FILTERS = ['role', 'opt_in'];
+    public const FILTERS = AccountFilters::NAMES;
 
     public function __construct(
         private readonly Database $db,
@@ -27,6 +27,7 @@ final class UserAdmin
         private readonly CharacterUnlocks $unlocks,
         private readonly Reviews $reviews,
         private readonly ReadingReport $reading,
+        private readonly Segments $segments,
     ) {
     }
 
@@ -49,32 +50,20 @@ final class UserAdmin
     }
 
     /**
-     * Admin list: q = part of the email, filters role (name), opt_in (1|0); sort created_at | email | codes (owned).
+     * Admin list: q = part of the email, the account filters (AccountFilters: role, opt_in, signup, edition, batch,
+     * campaign + campaign_role, segment); sort created_at | email | codes (owned). Each row lists its segments.
      * @return array{items: list<mixed>, pagination: array{total: int, page: int, pageSize: int}}
      */
     public function list(ListQuery $query): array
     {
-        $conditions = [];
-        $params = [];
-        if ($query->q !== '') {
-            $conditions[] = "u.email LIKE ? ESCAPE '!'";
-            $params[] = Database::likeContains(strtolower($query->q));
-        }
-        if (($role = $query->filter('role')) !== null) {
-            $conditions[] = 'EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = ?)';
-            $params[] = $role;
-        }
-        if (($optIn = $query->filter('opt_in')) !== null) {
-            $conditions[] = 'u.marketing_opt_in = ?';
-            $params[] = Users::flag($optIn) ? 1 : 0;
-        }
-        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        [$where, $params] = AccountFilters::where($query->q, $query->filters);
         $total = (int) $this->db->value("SELECT COUNT(*) FROM users u $where", $params);
         $column = $query->sortField === 'codes' ? 'codes' : "u.{$query->sortField}";
         $rows = $this->db->all("SELECT u.id, u.email, u.created_at, u.signup_code, u.marketing_opt_in, u.marketing_opt_in_at,
                 (SELECT COUNT(*) FROM qr q WHERE q.claimed_by = u.id) AS codes
             FROM users u $where {$query->orderBy($column, 'u.id')} LIMIT {$query->pageSize} OFFSET {$query->offset()}", $params);
-        return $query->result(array_map(fn(array $r) => $this->users->adminJson($r) + ['codes' => (int) $r['codes']], $rows), $total);
+        $segments = $this->segments->of(array_map(fn(array $r) => (string) $r['id'], $rows));
+        return $query->result(array_map(fn(array $r) => $this->users->adminJson($r) + ['codes' => (int) $r['codes'], 'segments' => $segments[(string) $r['id']] ?? []], $rows), $total);
     }
 
     /**
@@ -115,7 +104,7 @@ final class UserAdmin
     }
 
     /**
-     * Unlock a character (+ optional further A-pose looks) for an account. 404 not_found, 400 unknown_character |
+     * Unlock a character (+ optional further looks `<persona>/<look>`) for an account. 404 not_found, 400 unknown_character |
      * invalid_look | invalid_source | invalid_body.
      * @param array<string, mixed> $body { looks?: string[], source?: default|code|item|story|admin, ref?: string }
      * @return array{changed: bool, characters: list<array<string, mixed>>}
@@ -127,7 +116,7 @@ final class UserAdmin
         $source = $body['source'] ?? 'admin';
         $ref = $body['ref'] ?? $by;
         if (!is_array($looks) || !array_is_list($looks) || !is_string($source) || !is_string($ref) || strlen($ref) > 255) {
-            throw new ApiError(400, 'invalid_body', 'Body: { looks?: [look ids], source?, ref? }.');
+            throw new ApiError(400, 'invalid_body', 'Body: { looks?: ["<persona>/<look>"], source?, ref? }.');
         }
         $changed = $this->unlocks->grant((string) $user['id'], $character, $looks, $source, $ref);
         return ['changed' => $changed, 'characters' => $this->characters((string) $user['id'])];
@@ -137,10 +126,10 @@ final class UserAdmin
      * Revoke a character unlock (with its looks) or one look. Defaults can't be revoked per account.
      * @return array{changed: bool, characters: list<array<string, mixed>>}
      */
-    public function lockCharacter(string $userId, string $character, ?string $look = null): array
+    public function lockCharacter(string $userId, string $character, ?string $persona = null, ?string $look = null): array
     {
         $user = $this->users->byId($userId) ?? throw new ApiError(404, 'not_found', 'User not found');
-        $changed = $this->unlocks->revoke((string) $user['id'], $character, $look);
+        $changed = $this->unlocks->revoke((string) $user['id'], $character, $persona, $look);
         return ['changed' => $changed, 'characters' => $this->characters((string) $user['id'])];
     }
 

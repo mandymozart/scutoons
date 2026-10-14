@@ -11,7 +11,7 @@
 //   1. POST /api/auth/request/ { email, code: <signup code> } – a local promo code (signup: true) from the local DB
 //   2. the 6-digit OTP from server/logs/mail.log (MAIL_TRANSPORT=log) → POST /api/auth/verify/
 //   3. roles creator + admin via `php server/bin/console roles grant` (member comes with the signup)
-//   4. Cat Pope (every A-pose look) via the admin API PUT /api/admin/users/<id>/characters/catpope
+//   4. Cat Pope (every look with an A-pose) via the admin API PUT /api/admin/users/<id>/characters/catpope
 // Session: logs/dev/test-user.json { email, token, created } (gitignored). Refuses anything but a localhost API.
 // --reset is local-only maintenance on the dev DB (there is no API to empty an inventory).
 // Database: the local MariaDB container (scripts/dev/db-env.mjs, npm run dev:db).
@@ -141,11 +141,11 @@ async function main() {
 		execFileSync('php', [...phpMysqlArgs(), 'bin/console', 'roles', 'grant', EMAIL, role], { cwd: resolve(ROOT, 'server'), env: { ...process.env, ...phpDbEnv() }, stdio: 'inherit' });
 	}
 
-	// Cat Pope with every A-pose look: admin API
+	// Cat Pope with every look that has an A-pose (`<persona>/<look>`): admin API
 	const reg = await api('GET', '/library/characters');
 	const registry = reg.json?.characters ?? reg.json;
 	const entry = Array.isArray(registry) ? registry.find((c) => c.id === CHARACTER) : registry?.[CHARACTER];
-	const looks = (entry?.apose?.looks ?? []).map((l) => l.id).filter(Boolean);
+	const looks = (entry?.personas ?? []).flatMap((p) => (p?.looks ?? []).filter((l) => l?.apose?.path).map((l) => `${p.id}/${l.id}`));
 	let unlock = await api('PUT', `/admin/users/${user.id}/characters/${CHARACTER}`, { looks, source: 'admin', ref: 'dev:test-user' }, token);
 	// the library's registry may list a look the server's (published) registry doesn't have yet: the looks it knows
 	if (unlock.status === 400 && unlock.json?.error === 'invalid_look' && Array.isArray(unlock.json.looks)) {
@@ -191,7 +191,7 @@ async function main() {
 
 	const final = (await api('GET', '/me/', undefined, token)).json;
 	console.log(`${EMAIL}  roles: ${final.user.roles.join(', ')}  session: logs/dev/test-user.json (${session.created})`);
-	console.log(`  unlocked: ${(final.avatar?.unlocked ?? []).map((u) => `${u.character}[${u.looks.join('/')}]`).join(', ') || '–'}  inventory: ${final.inventory?.length ?? 0}`);
+	console.log(`  unlocked: ${(final.avatar?.unlocked ?? []).map((u) => `${u.character}[${u.looks.join(', ')}]`).join(', ') || '–'}  inventory: ${final.inventory?.length ?? 0}`);
 
 	if (browserUrl) {
 		const origin = new URL(browserUrl).origin;

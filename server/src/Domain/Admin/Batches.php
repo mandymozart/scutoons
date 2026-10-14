@@ -39,7 +39,7 @@ final class Batches
 
     /**
      * Summary of every manifest, newest first (get-batches.php)
-     * @return list<array{filename: string, edition: mixed, editionId: mixed, total: mixed, done: int, errors: int, created_at: mixed, complete: bool}>
+     * @return list<array{filename: string, type: string, edition: mixed, editionId: mixed, total: mixed, done: int, errors: int, created_at: mixed, complete: bool}>
      */
     public function summaries(): array
     {
@@ -51,6 +51,7 @@ final class Batches
             $errors = count(array_filter($manifest['codes'], fn($c) => ($c['status'] ?? null) === 'error'));
             $batches[] = [
                 'filename' => $filename,
+                'type' => (string) ($manifest['type'] ?? 'membership'),
                 'edition' => $manifest['edition'] ?? '',
                 'editionId' => $manifest['editionId'] ?? '',
                 'total' => $manifest['total'] ?? 0,
@@ -99,21 +100,14 @@ final class Batches
                 }
             }
         }
-        $taken = array_flip($this->manifestCodes());
-        $codes = [];
-        for ($i = 0; $i < $count; $i++) {
-            do {
-                $code = Ids::nanoid(8);
-            } while (isset($taken[$code]) || $this->db->value('SELECT 1 FROM qr WHERE code = ?', [$code]) !== null);
-            $taken[$code] = true;
-            $codes[] = ['n' => $startNumber + $i, 'code' => $code, 'status' => 'pending', 'completedSteps' => []];
-        }
+        $codes = $this->freshCodes($count, $startNumber);
         $now = $this->clock->time();
         $filename = 'BATCH-' . gmdate('Y-m-d\THis', $now) . '-' . $editionId . '.json';
         if ($this->files->exists('batch', $filename)) throw new ApiError(409, 'batch_exists', 'A batch with this name exists – try again in a second.');
         $toon = $this->toons->find((string) ($edition['toon'] ?? ''));
         $manifest = [
             'filename' => $filename,
+            'type' => 'membership',
             'edition' => $edition['name'] ?? $editionId,
             'editionId' => $editionId,
             'productname' => $edition['name'] ?? $editionId,
@@ -128,6 +122,64 @@ final class Batches
         ];
         $this->save($filename, $manifest);
         return $manifest;
+    }
+
+    /**
+     * A promo batch (owner 2026-10-14: "promo batches like editions"): $count promo codes under one name (e.g. "Comic Con
+     * Wien 2026"), no edition and no numbers to print – the runner registers each code (type promo, qr.batch = this
+     * file), signs it and makes its QR; the account filters find who signed up with one (AccountFilters `batch`).
+     * 400 invalid_name / invalid_count / invalid_expires_at · 404 unknown_toon.
+     * @return array<string, mixed> the manifest
+     */
+    public function createPromo(string $name, int $count, ?string $toonId, ?string $expiresAt): array
+    {
+        $name = trim($name);
+        if ($name === '' || mb_strlen($name) > 100) throw new ApiError(400, 'invalid_name', 'name: 1–100 characters, e.g. "Comic Con Wien 2026".');
+        if ($count < 1 || $count > 2000) throw new ApiError(400, 'invalid_count', 'count must be between 1 and 2000.');
+        $toon = $toonId !== null && $toonId !== '' ? ($this->toons->find($toonId) ?? throw new ApiError(404, 'unknown_toon', 'Unknown toon.')) : null;
+        $expires = null;
+        if ($expiresAt !== null && $expiresAt !== '') {
+            $time = strtotime($expiresAt);
+            if ($time === false) throw new ApiError(400, 'invalid_expires_at', 'expires_at is not a date.');
+            $expires = date('Y-m-d H:i:s', $time);
+        }
+        $codes = $this->freshCodes($count, 1);
+        $now = $this->clock->time();
+        $slug = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($name)), '-') ?: 'promo';
+        $filename = 'BATCH-' . gmdate('Y-m-d\THis', $now) . '-promo-' . substr($slug, 0, 40) . '.json';
+        if ($this->files->exists('batch', $filename)) throw new ApiError(409, 'batch_exists', 'A batch with this name exists – try again in a second.');
+        $manifest = [
+            'filename' => $filename,
+            'type' => 'promo',
+            'edition' => $name,
+            'editionId' => null,
+            'productname' => $name,
+            'redirectUrl' => $toon['redirectUrl'] ?? '',
+            'expires_at' => $expires,
+            'total' => $count,
+            'created_at' => gmdate('Y-m-d\TH:i:s.000\Z', $now),
+            'codes' => $codes,
+        ];
+        $this->save($filename, $manifest);
+        return $manifest;
+    }
+
+    /**
+     * $count fresh codes that exist neither in the database nor in another manifest, numbered from $start
+     * @return list<array{n: int, code: string, status: string, completedSteps: list<string>}>
+     */
+    private function freshCodes(int $count, int $start): array
+    {
+        $taken = array_flip($this->manifestCodes());
+        $codes = [];
+        for ($i = 0; $i < $count; $i++) {
+            do {
+                $code = Ids::nanoid(8);
+            } while (isset($taken[$code]) || $this->db->value('SELECT 1 FROM qr WHERE code = ?', [$code]) !== null);
+            $taken[$code] = true;
+            $codes[] = ['n' => $start + $i, 'code' => $code, 'status' => 'pending', 'completedSteps' => []];
+        }
+        return $codes;
     }
 
     /**
@@ -158,11 +210,14 @@ final class Batches
         $zip = new ZipArchive();
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Could not create ZIP archive');
         $zip->addFile($this->files->path('batch', $filename), 'manifest.json');
+        // the runner names the QR SVG by the batch type (SCUTOONS-QR-MEMBERSHIP-… / SCUTOONS-QR-PROMO-…); a promo batch
+        // has no certificates (the exists check skips them)
+        $svgType = strtoupper(preg_replace('/[^a-z]/', '', strtolower((string) ($manifest['type'] ?? 'membership'))) ?: 'membership');
         foreach ($manifest['codes'] as $item) {
             if (($item['status'] ?? null) !== 'done' || !is_string($item['code'] ?? null)) continue;
             $code = $item['code'];
             foreach ([
-                ['svgs', "SCUTOONS-QR-MEMBERSHIP-$code.svg"],
+                ['svgs', "SCUTOONS-QR-$svgType-$code.svg"],
                 ['certificates', "SCUTOONS-COA-$code.pdf"],
                 ['signatures', "SIGNATURE-$code.json"],
             ] as [$type, $name]) {

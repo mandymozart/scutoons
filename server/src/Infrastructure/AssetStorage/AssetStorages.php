@@ -76,6 +76,23 @@ final class AssetStorages
         return BunnyConfig::fromSettings($this->settings, $this->settings->get('CDN_URL'));
     }
 
+    /**
+     * The protected storage (agents/research/SCORES.md §5 – scores' MusicXML / PDF, served only through signed URLs):
+     * its own bunny.net zone (BUNNY_PROTECTED_STORAGE_ZONE + _PASSWORD, the public zone's endpoint), else on a dev
+     * machine the local media folder (the dev CDN serves it, like ProtectedFiles' fallback), else null – never the
+     * public zone.
+     */
+    public function protectedStorage(): ?AssetStorage
+    {
+        $zone = trim($this->settings->get('BUNNY_PROTECTED_STORAGE_ZONE'));
+        $password = trim($this->settings->get('BUNNY_PROTECTED_STORAGE_PASSWORD'));
+        if ($zone !== '' && $password !== '') {
+            $public = $this->bunnyConfig();
+            return new BunnyStorage($this->http ?? new CurlHttpClient(), new BunnyConfig($zone, $public->endpoint, $password, '', '', '', rtrim($this->settings->get('PROTECTED_CDN_URL'), '/')));
+        }
+        return $this->primaryName() === 'local' ? $this->local() : null;
+    }
+
     /** null when the zone or both of its passwords are not configured */
     public function bunny(): ?BunnyStorage
     {

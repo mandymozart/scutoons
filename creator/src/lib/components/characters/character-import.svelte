@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		isRetiredAposeLook,
 		matchCharacterImageFile,
 		newLook as lookEntry,
 		setLookImage,
@@ -11,7 +10,7 @@
 	} from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, editCharacter, ensureMoods } from '$lib/editor/characters.ts';
-	import { applyApose, closeRequests } from '$lib/editor/character-form.ts';
+	import { closeRequests, setLookApose } from '$lib/editor/character-form.ts';
 	import { standardImage, uploadOrReplace } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -53,7 +52,7 @@
 		if (slot.reason === 'other-character') return m['creator.characters_import_other']({ name: slot.name ?? '' });
 		if (slot.reason === 'unknown-persona') return m['creator.characters_import_unknown_persona']({ name: slot.name ?? '' });
 		if (slot.reason === 'unknown-look') return m['creator.characters_import_unknown_look']({ name: slot.name ?? '' });
-		return m['creator.characters_import_no_slot']({ example: `${id}_portrait-neutral.png, ${id}_apose-swim.png` });
+		return m['creator.characters_import_no_slot']({ example: `${id}_portrait-neutral.png, ${id}_apose.png` });
 	}
 
 	async function importImages(event: Event) {
@@ -70,10 +69,9 @@
 		const isTransition = (f: File) => /_transition-/i.test(f.name);
 		for (const file of [...files.filter((f) => !isTransition(f)), ...files.filter(isTransition)]) {
 			const slot = matchCharacterImageFile(file.name, known);
-			if (slot.kind === 'expression' && slot.newLook) known.personas.find((p) => p.id === slot.persona)?.looks.push(lookEntry(slot.look, undefined, false));
+			if ((slot.kind === 'expression' || slot.kind === 'apose') && slot.newLook) known.personas.find((p) => p.id === slot.persona)?.looks.push(lookEntry(slot.look, undefined, false));
 			try {
 				if (slot.kind === 'unknown') throw new Error(problemOf(slot));
-				if (slot.kind === 'apose' && isRetiredAposeLook({ id: slot.look })) throw new Error(m['creator.characters_import_retired_look']({ name: slot.look }));
 				const { blob } = await standardImage(file);
 				counts[await uploadOrReplace(blob, slot.path, 'character import')]++;
 				done.push(slot);
@@ -93,7 +91,7 @@
 			editCharacter(registry, id, (c: RegistryCharacter) => {
 				for (const s of done) {
 					if (s.kind === 'apose') {
-						applyApose(c, s.look, s.path, languages);
+						setLookApose(c, s.persona, s.look, s.path, languages);
 						continue;
 					}
 					const p = c.personas.find((x) => x.id === s.persona);

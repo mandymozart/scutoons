@@ -53,6 +53,8 @@
 		if (n.kind === 'refused') return refusedText(n.reason, name);
 		const many = n.qty > 1 ? `${n.qty} × ${name}` : name;
 		if (n.kind === 'gifted') return m['items.gift_done']({ email: n.email ?? '', name: many });
+		if (n.kind === 'invited') return (n.reason === 'payment' ? m['items.invite_payment_done'] : m['items.invite_done'])({ email: n.email ?? '', name: many });
+		if (n.kind === 'recalled') return m['items.invite_recalled']({ email: n.email ?? '', name: many });
 		if (n.kind === 'gift_received') return m['items.gift_received']({ from: n.email ?? '', name: many });
 		if (n.kind === 'now_yours') return m['items.now_yours']({ name });
 		if (n.kind === 'craft') return m['items.crafted']({ name });

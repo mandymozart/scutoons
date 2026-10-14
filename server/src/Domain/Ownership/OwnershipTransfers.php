@@ -80,6 +80,9 @@ final class OwnershipTransfers
             $entries = array_map(fn(array $r) => (string) $r['id'], $this->db->all('SELECT id FROM inventory WHERE code = ? ORDER BY acquired_at, id', [$code]));
             if ($kind === 'gift' && $entries) $this->db->run("UPDATE inventory SET source = 'gift' WHERE code = ?", [$code]);
         }
+        // a container that changed hands: what lies in it and still belongs to the old owner falls out loose there (a
+        // gift moved its contents before – Gifts::carryContents; research/SCORES.md §2)
+        foreach ($entries as $entryId) $this->db->run('UPDATE inventory SET container_id = NULL WHERE container_id = ? AND user_id <> ?', [$entryId, $toId]);
 
         $first = $entries ? $this->db->one('SELECT item_id, variant FROM inventory WHERE id = ?', [$entries[0]]) : null;
         $itemId = $first !== null ? (string) $first['item_id'] : null;

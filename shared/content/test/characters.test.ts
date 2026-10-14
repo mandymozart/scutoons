@@ -239,53 +239,48 @@ test('wanted images and asset requests', async () => {
 	assert.equal(requests.requests[0].status, 'done');
 });
 
-test('A-pose: character level, its own view without fallback, avatar bodies', async () => {
-	const { avatarBodies, wantedImages } = await import('../src/index.ts');
+test('A-pose: per look, its own view without fallback, avatar bodies', async () => {
+	const { avatarBodies, unlockedBodies, wantedImages, bodyLookKey } = await import('../src/index.ts');
 	const c: RegistryCharacter = structuredClone(catpope);
-	c.apose = {
-		looks: [
-			{ id: 'swim', label: { en: 'swim pants' }, default: true, path: 'catpope/avatar/mannequin.webp', slots: [{ id: 'head', slot: 'head', x: 370, y: 70, size: 170 }] },
-			{ id: 'winter', label: { en: 'winter' }, path: 'catpope/avatar/mannequin-winter.webp' }
-		]
-	};
-	const m2: RegistryCharacter = { ...structuredClone(mouse), apose: { looks: [{ id: 'swim', default: true, path: 'yellowmouse/avatar/mannequin.webp' }, { id: 'winter' }] } };
-	assert.equal(characterImage(c, {}, 'apose'), 'catpope/avatar/mannequin.webp');
-	assert.equal(characterImage(c, { look: 'winter' }, 'apose'), 'catpope/avatar/mannequin-winter.webp');
-	// no A-pose → the A-pose substitute (never the portrait)
-	assert.equal(characterImage(catpope, {}, 'apose'), 'characters/_missing/missing_apose.png');
+	c.personas[0].looks[0].apose = { path: 'characters/catpope/catpope_apose.webp', slots: [{ id: 'head', slot: 'head' }] };
+	c.personas[2].looks[1].apose = { path: 'characters/catpope-biker/catpope-biker_helmet_apose.webp' };
+	const m2: RegistryCharacter = structuredClone(mouse);
+	m2.personas[0].looks[1].apose = { path: 'characters/yellowmouse/yellowmouse_helmet_apose.webp' };
+	m2.personas[0].looks[0].apose = {};
+	assert.equal(characterImage(c, {}, 'apose'), 'characters/catpope/catpope_apose.webp');
+	assert.equal(characterImage(c, { persona: 'biker', look: 'helmet' }, 'apose'), 'characters/catpope-biker/catpope-biker_helmet_apose.webp');
+	// no A-pose on that look → the A-pose substitute (never another look, never the portrait)
+	assert.equal(characterImage(c, { persona: 'biker' }, 'apose'), 'characters/_missing/missing_apose.png');
 	assert.equal(characterImage(catpope, {}, 'apose', { substitute: '' }), '');
 	const bodies = avatarBodies({ characters: [c, m2] }, 'en');
-	assert.deepEqual(bodies.map((b) => `${b.character}/${b.look}${b.default ? '*' : ''}: ${b.label}`), ['catpope/swim*: Cat Pope (swim pants)', 'catpope/winter: Cat Pope (winter)', 'yellowmouse/swim*: Yellow Mouse (swim)']);
-	// the missing winter A-pose of the mouse is a wanted image
-	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.look === 'winter' && w.path === 'characters/yellowmouse/yellowmouse_apose-winter.webp'));
+	assert.deepEqual(bodies.map((b) => `${b.character}/${bodyLookKey(b.persona, b.look)}${b.default ? '*' : ''}: ${b.label}`), [
+		'catpope/regular/default*: Cat Pope',
+		'catpope/biker/helmet: Cat Pope · Biker (with helmet)',
+		// the regular default look has no A-pose image yet: the first body is the default
+		'yellowmouse/regular/helmet*: Yellow Mouse (helmet)'
+	]);
+	// the look select's labels: the look without the name
+	assert.deepEqual(bodies.map((b) => b.lookLabel), ['default', 'Biker (with helmet)', 'helmet']);
+	// a character unlock includes its default body; further looks by key
+	const unlocked = (looks: string[]) => unlockedBodies(bodies, [{ character: 'catpope', looks }]).map((b) => b.look);
+	assert.deepEqual(unlocked([]), ['default']);
+	assert.deepEqual(unlocked(['biker/helmet']), ['default', 'helmet']);
+	// a look with an A-pose but no image is wanted, at the convention path
+	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.persona === 'regular' && w.look === 'default' && w.path === 'characters/yellowmouse/yellowmouse_apose.webp'));
+	assert.ok(!wantedImages({ characters: [c] }).some((w) => w.view === 'apose'));
 	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
-	// a body without slots gets one unplaced instance per slot type
+	// a body without slots gets one instance per slot type
 	assert.deepEqual(bodies[0].slots.map((s) => s.id), ['head']);
 	assert.equal(bodies[1].slots.length, 9);
-	assert.deepEqual(bodies[1].slots[3], { id: 'torso', slot: 'torso', x: 0, y: 0, size: 0 });
+	assert.deepEqual(bodies[1].slots[3], { id: 'torso', slot: 'torso' });
+	// the old character-level A-pose is an error (migration 2026-10-13-apose-per-look moved it)
+	const old = { ...structuredClone(catpope), apose: { looks: [{ id: 'swim', path: 'x.webp' }] } };
+	assert.ok(validateCharacters({ characters: [old] }, { languages: ['en'] }).some((p) => p.level === 'error' && p.path.join('.') === 'characters.0.apose'));
 });
 
-test('the naked A-pose look is retired (owner 2026-10-05): ignored, a warning; the reader setting stays', async () => {
-	const { avatarBodies, wantedImages, hidesSensitive, withoutSensitive, APOSE_LOOKS } = await import('../src/index.ts');
-	assert.deepEqual(APOSE_LOOKS.map((l) => l.id), ['swim']);
-	const c: RegistryCharacter = structuredClone(catpope);
-	c.apose = {
-		looks: [
-			{ id: 'swim', default: true, path: 'characters/catpope/catpope_apose-swim.webp' },
-			{ id: 'naked', path: 'characters/catpope/catpope_apose-naked.webp' },
-			{ id: 'beach', sensitive: true } as any
-		]
-	};
-	// leftover looks of older registry data: no avatar body, no wanted image
-	assert.deepEqual(avatarBodies({ characters: [c] }, 'en').map((b) => b.look), ['swim']);
-	assert.ok(!wantedImages({ characters: [c] }).some((w) => w.view === 'apose'));
-	const problems = validateCharacters({ characters: [c] }, { languages: ['en'] });
-	assert.ok(!problems.some((p) => p.level === 'error'));
-	assert.deepEqual(
-		problems.filter((p) => p.message.includes('no longer used')).map((p) => `${p.level} ${p.path.join('.')}`),
-		['warning characters.0.apose.looks.1.id', 'warning characters.0.apose.looks.2.id']
-	);
-	// the setting itself stays (guests always hide, members by their setting, default on)
+test('the hide-sensitive reader setting (it no longer touches the avatar)', async () => {
+	const { hidesSensitive, withoutSensitive } = await import('../src/index.ts');
+	// guests always hide, members by their setting, default on
 	assert.equal(hidesSensitive(null), true);
 	assert.equal(hidesSensitive({}), true);
 	assert.equal(hidesSensitive({ hide_sensitive: false }), false);
@@ -295,29 +290,26 @@ test('the naked A-pose look is retired (owner 2026-10-05): ignored, a warning; t
 test('A-pose slot instances: twins, validation, remapping between bodies', async () => {
 	const { avatarBodies, remapAvatarSlots } = await import('../src/index.ts');
 	const duo: RegistryCharacter = structuredClone(mouse);
-	const twin = (side: string, x: number) => [
-		{ id: `head-${side}`, slot: 'head' as const, x, y: 460, size: 330, label: { en: `head ${side}` } },
-		{ id: `torso-${side}`, slot: 'torso' as const, x, y: 710, size: 200, label: { en: `torso ${side}` } }
+	const twin = (side: string) => [
+		{ id: `head-${side}`, slot: 'head' as const, label: { en: `head ${side}` } },
+		{ id: `torso-${side}`, slot: 'torso' as const, label: { en: `torso ${side}` } }
 	];
-	duo.apose = { looks: [{ id: 'swim', default: true, path: 'characters/duo/duo_apose-swim.webp', slots: [...twin('left', 200), ...twin('right', 570)] }] };
+	duo.personas[0].looks[0].apose = { path: 'characters/duo/duo_apose.webp', slots: [...twin('left'), ...twin('right')] };
 	assert.ok(!validateCharacters({ characters: [duo] }, { languages: ['en'] }).some((p) => p.level === 'error'));
 	const [body] = avatarBodies({ characters: [duo] }, 'en');
 	assert.deepEqual(body.slots.map((s) => s.id), ['head-left', 'torso-left', 'head-right', 'torso-right']);
-	// validation: unique ids, known types, numbers, no old anchors
+	// validation: unique ids, known types, the id pattern
 	const bad: RegistryCharacter = structuredClone(duo);
-	bad.apose!.looks[0].slots = [
-		{ id: 'torso-left', slot: 'torso', x: 1, y: 1, size: 1 },
-		{ id: 'torso-left', slot: 'torso', x: 1, y: 1, size: 1 },
-		{ id: 'tail', slot: 'tail' as any, x: 1, y: 1, size: 1 },
-		{ id: 'Neck', slot: 'neck', x: 1, y: 1, size: 1 },
-		{ id: 'neck', slot: 'neck', x: -1, y: 1, size: 1 }
+	bad.personas[0].looks[0].apose!.slots = [
+		{ id: 'torso-left', slot: 'torso' },
+		{ id: 'torso-left', slot: 'torso' },
+		{ id: 'tail', slot: 'tail' as any },
+		{ id: 'Neck', slot: 'neck' }
 	];
-	(bad.apose!.looks[0] as any).anchors = { head: { x: 1, y: 1, size: 1 } };
 	const errors = validateCharacters({ characters: [bad] }, { languages: ['en'] }).filter((p) => p.level === 'error').map((p) => p.message);
-	assert.equal(errors.length, 5, errors.join(' | '));
+	assert.equal(errors.length, 3, errors.join(' | '));
 	assert.ok(errors.some((e) => e.includes('"torso-left" twice')));
 	assert.ok(errors.some((e) => e.includes('unknown slot type "tail"')));
-	assert.ok(errors.some((e) => e.includes('old "anchors"')));
 	// remapping: same id stays, otherwise by type to the first free instance, else off; an entry is worn once
 	const types: Record<string, 'head' | 'torso' | 'neck'> = { hoodie: 'torso', tee: 'torso', cap: 'head', chain: 'neck' };
 	const single = ['head', 'torso', 'neck'].map((t) => ({ id: t, slot: t as 'head' }));
@@ -429,7 +421,10 @@ test('matchCharacterImageFile maps a delivered file onto its slot of the whole c
 	assert.deepEqual(match('boy_cap_portrait-neutral.png'), { kind: 'expression', persona: 'regular', look: 'cap', newLook: true, view: 'portrait', mood: 'neutral', path: 'characters/boy/boy_cap_portrait-neutral.webp' });
 	// a persona: its folder, its default look when the name has none
 	assert.deepEqual(match('boy-biker_portrait-sad.png'), { kind: 'expression', persona: 'biker', look: 'jacket', newLook: false, view: 'portrait', mood: 'sad', path: 'characters/boy-biker/boy-biker_jacket_portrait-sad.webp' });
-	assert.deepEqual(match('boy_apose-swim.png'), { kind: 'apose', look: 'swim', path: 'characters/boy/boy_apose-swim.webp' });
+	assert.deepEqual(match('boy_apose.png'), { kind: 'apose', persona: 'regular', look: 'default', newLook: false, path: 'characters/boy/boy_apose.webp' });
+	assert.deepEqual(match('boy-biker_apose.png'), { kind: 'apose', persona: 'biker', look: 'jacket', newLook: false, path: 'characters/boy-biker/boy-biker_jacket_apose.webp' });
+	assert.deepEqual(match('boy_helmet_apose.png'), { kind: 'apose', persona: 'regular', look: 'helmet', newLook: false, path: 'characters/boy/boy_helmet_apose.webp' });
+	assert.deepEqual(match('boy_apose-swim.png'), { kind: 'unknown', reason: 'no-slot' });
 	assert.deepEqual(match('boy_transition-helmet-to-default.png'), { kind: 'transition', persona: 'regular', from: 'helmet', to: 'default', path: 'characters/boy/boy_transition-helmet-to-default.webp' });
 	assert.deepEqual(match('boy_transition-cap-to-default.png'), { kind: 'unknown', reason: 'unknown-look', name: 'cap' });
 	assert.deepEqual(match('boy-pirate_portrait-neutral.png'), { kind: 'unknown', reason: 'unknown-persona', name: 'pirate' });

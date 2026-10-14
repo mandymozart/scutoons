@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Auth;
 use Scutoons\Domain\Access\Permissions;
 use Scutoons\Domain\Accounts\Users;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Campaigns\Invites;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
 use Scutoons\Domain\Events\EventLog;
@@ -47,6 +48,7 @@ final class LoginService
         private readonly Permissions $permissions,
         private readonly EventLog $events,
         private readonly Mailer $mailer,
+        private readonly Invites $invites,
     ) {
     }
 
@@ -231,6 +233,8 @@ final class LoginService
                 $user = $this->users->create((string) $request['email'], (string) $request['locale'], $code, $optIn);
                 // Account + claim of its product code are atomic: a failed claim rolls the new account back
                 $claimedNew = $claimable ? $this->codes->claimInTransaction($user, (string) $code, $itemId, $variant) : null;
+                // gift invites waiting for this address arrive with the account (agents/research/GIFT-INVITES.md)
+                $this->invites->deliverTo($user, $code);
                 return [$user, true, $this->sessions->create((string) $user['id']), $claimedNew];
             });
         } catch (ApiError $error) {

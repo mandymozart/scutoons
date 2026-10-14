@@ -2,22 +2,23 @@
 // dependencies; Node 22 WebSocket), like scripts/check-next-bar.mjs.
 //
 // Per width (390, 1440), as a guest (fresh device) and as the test user (`npm run dev:test-user -- --reset` first):
-//   1. the default look = Cat Pope in the basic dress: the swim A-pose as the base (owner 2026-10-05: no naked A-pose)
-//      + the T-shirt, shorts and sandals overlays; the swim pants wait in the inventory;
-//   2. "Anziehen" on the swim pants (legs) → the swim pants overlay, the shorts back in the inventory (note + the Items
-//      tab lists the shorts; worn items are not listed there – owner 2026-10-01: they live in the Avatar tab only);
-//   3. "Ausziehen" on the swim pants → legs empty, the base stays the swim A-pose; the item detail: shorts on → note,
-//      shorts off → legs empty again;
+//   1. the default = Cat Pope's default body (the A-pose of its regular default look) in the basic dress: the T-shirt,
+//      shorts and sandals in their slot tiles – nothing drawn on the body (owner 2026-10-12: "additional items dont get
+//      overlayed and we just put them in the slots"); the swim pants wait in the inventory;
+//   2. "Anziehen" on the swim pants (legs) → in the legs tile, the shorts back in the inventory (note + the Items tab
+//      lists the shorts; worn items are not listed there – owner 2026-10-01: they live in the Avatar tab only);
+//   3. "Ausziehen" on the swim pants → legs empty, the base stays; the item detail: shorts on → note, shorts off → legs
+//      empty again;
 //   member only:
 //   4. "Hide sensitive content" off and on again → the avatar is not touched (legs stay empty);
 //   5. Top Toy (unlocked for the check through the admin API, revoked at the end), the swim pants on first: the twins
-//      wear them on the left figure (overlay), the right figure's legs stay empty, the shirt is an icon;
+//      wear them in the left figure's legs tile, the right figure's legs stay empty, the shirt in torso-left;
 //   6. back to Cat Pope: one legs slot, the swim pants.
 // The member's avatar is put back to the default at the end (body null, the default wearables on).
 //
 // usage: node scripts/check-wardrobe.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
 //        [--shots=<dir>] [--only=390] [--verbose]
-// Needs the viewer, the API, the CDN with the wear overlays and the test user.
+// Needs the viewer, the API, the CDN (the A-poses, the item icons) and the test user.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -104,17 +105,19 @@ async function clickEl(js) {
 	return true;
 }
 const q = (s) => `document.querySelector(${JSON.stringify(s)})`;
-const tab = (i) => `document.querySelectorAll('.inventory .tabs button')[${i}]`;
+/** the panel toggles in the header (since the avatar got its own panel): 0 = Items, 1 = Avatar */
+const tab = (i) => (i ? `document.querySelector('[data-testid="avatar-toggle"]')` : `document.querySelector('.inventory-toggle')`);
 /** the button of an item row in the avatar picker */
 const pickerButton = (name) => `[...document.querySelectorAll('.picker li')].find((li) => li.querySelector('.name')?.textContent.includes(${JSON.stringify(name)}))?.querySelector('button')`;
-/** the avatar figure: base, overlays (instance → item), icons */
+/** the avatar: the base (the body's A-pose), what is drawn on it (must be nothing), the slot tiles (instance → item) */
 const FIGURE = `(() => {
 	const f = document.querySelector('.figure');
 	if (!f) return null;
-	const overlays = {};
-	for (const o of f.querySelectorAll('img[data-overlay]')) overlays[o.dataset.overlay] = { item: o.dataset.item, loaded: o.complete && o.naturalWidth > 0 };
-	const base = f.querySelector('[data-layer="base"]')?.getAttribute('src') ?? null;
-	return { base, swim: /apose-swim/.test(base ?? ''), bases: f.querySelectorAll('img[data-layer]').length, overlays, icons: [...f.querySelectorAll('[data-worn]')].map((w) => w.dataset.worn),
+	const tiles = {};
+	for (const t of document.querySelectorAll('.avatar [data-slot]')) tiles[t.dataset.slot] = t.dataset.item ?? null;
+	const img = f.querySelector('[data-layer="base"]');
+	const base = img?.getAttribute('src') ?? null;
+	return { base, loaded: !!img && img.complete && img.naturalWidth > 0, layers: f.querySelectorAll('img').length, drawn: f.querySelectorAll('[data-overlay], [data-worn], .item-icon').length, tiles,
 		note: document.querySelector('[data-testid="avatar-note"]')?.textContent.trim() ?? null,
 		bodies: [...document.querySelectorAll('[data-body]')].map((b) => b.dataset.body) };
 })()`;
@@ -126,59 +129,74 @@ function report(name, problems, detail = '') {
 	else { passed++; console.log(`  ok    ${name}${opt.verbose && detail ? `  ${detail}` : ''}`); }
 }
 
+/** opens a panel (0 = Items, 1 = Avatar) through its header toggle and waits until it has slid in (PullPanel, 0.3 s) */
+async function openPanel(i) {
+	const panel = i ? '[data-testid="avatar-panel"]' : '[data-testid="inventory"]';
+	const ready = `(() => { const p = document.querySelector('${panel}'); return !!p && p.classList.contains('visible') && /^(none|matrix\\(1, 0, 0, 1, 0, 0\\))$/.test(getComputedStyle(p).transform); })()`;
+	for (let n = 0; n < 3; n++) {
+		if (await evaluate(ready)) return true;
+		if (!(await evaluate(`document.querySelector('${panel}')?.classList.contains('visible')`))) await evaluate(`(${tab(i)}?.click(), true)`);
+		if (await waitFor(ready, 3000)) return true;
+	}
+	return false;
+}
 async function openAvatar() {
-	await open(`${viewer}/de/catpope?inventory=open`);
+	await open(`${viewer}/de/catpope`);
 	await waitFor(`${tab(1)}`);
-	await clickEl(tab(1));
-	return until(`s.overlays.legs || s.overlays['legs-left'] || s.overlays.torso`, 12000);
+	if (!(await openPanel(1))) console.log('        (the avatar panel did not open)');
+	return until(`s.tiles.legs || s.tiles['legs-left'] || s.tiles.torso`, 12000);
 }
 
 /** steps 1–3 (both guest and member) */
 async function basics(who, w) {
 	const p1 = [];
 	const s1 = await openAvatar();
-	if (!s1) p1.push('no avatar figure / no overlays');
+	if (!s1) p1.push('no avatar figure / no worn tiles');
 	else {
-		if (s1.overlays.legs?.item !== 'scutoons_shorts' || s1.overlays.torso?.item !== 'scutoons_tshirt' || s1.overlays.feet?.item !== 'scutoons_sandals') p1.push(`overlays ${JSON.stringify(s1.overlays)}`);
-		if (!s1.swim || s1.bases !== 1) p1.push(`base ${s1.base} (${s1.bases} base layers): the swim A-pose expected`);
-		if (!Object.values(s1.overlays).every((o) => o.loaded)) p1.push('an overlay did not load');
-		if (s1.bodies.length > 1 && new Set(s1.bodies.map((b) => b.split('/')[0])).size !== s1.bodies.length) p1.push(`one tile per character: ${s1.bodies}`);
+		if (s1.tiles.legs !== 'scutoons_shorts' || s1.tiles.torso !== 'scutoons_tshirt' || s1.tiles.feet !== 'scutoons_sandals') p1.push(`tiles ${JSON.stringify(s1.tiles)}`);
+		if (!s1.base || !s1.loaded || s1.layers !== 1) p1.push(`base ${s1.base} (loaded ${s1.loaded}, ${s1.layers} images): one A-pose expected`);
+		if (s1.drawn) p1.push(`${s1.drawn} item(s) drawn on the body – items belong in the slot tiles only`);
+		// the body picker shows only with more than one body (the member has Top Toy too)
+		if (s1.bodies.length && !s1.bodies.includes('catpope/regular/default')) p1.push(`bodies ${s1.bodies}: Cat Pope's default body expected`);
+		if (!/\/catpope\//.test(s1.base ?? '')) p1.push(`base ${s1.base}: Cat Pope expected`);
 	}
 	await shot(`${who}-${w}-1-default`);
-	report(`${who} ${w}: default = Cat Pope in the basic dress (T-shirt, shorts, sandals overlays on the swim A-pose)`, p1, JSON.stringify(s1));
+	report(`${who} ${w}: default = Cat Pope's default body, the basic dress (T-shirt, shorts, sandals) in the slot tiles`, p1, JSON.stringify(s1));
 
 	const p2 = [];
 	await clickEl(q('[data-slot="legs"]'));
 	await clickEl(pickerButton(nameOf('scutoons_swim_pants')));
-	const s2 = await until(`s.overlays.legs?.item === 'scutoons_swim_pants'`);
-	if (!s2) p2.push('the swim pants overlay did not appear');
+	const s2 = await until(`s.tiles.legs === 'scutoons_swim_pants'`);
+	if (!s2) p2.push('the swim pants did not appear in the legs tile');
+	else if (s2.drawn) p2.push('an item is drawn on the body');
 	else if (s2.note !== fill(de.items.returned, { name: nameOf('scutoons_shorts') })) p2.push(`note "${s2.note}"`);
 	await shot(`${who}-${w}-2-swim-pants`);
 	const shortsRow = await evaluate(`[...document.querySelectorAll('.picker li')].map((li) => li.textContent.replace(/\\s+/g, ' ').trim())`);
 	if (!shortsRow?.some?.((t) => t.includes(nameOf('scutoons_shorts')) && t.includes(de.items.put_on))) p2.push(`picker rows ${JSON.stringify(shortsRow)}`);
 	// the Items tab: the shorts are listed again; the worn swim pants, T-shirt and sandals are not (one plain list)
-	await clickEl(tab(0));
-	const lists = await waitFor(`(() => { const s = document.querySelector('.inventory [data-testid="inventory-items"]'); return s ? { items: [...s.querySelectorAll('.item')].map((b) => b.dataset.item), sections: document.querySelectorAll('.inventory [data-section], .inventory .section-title').length } : null; })()`);
+	await openPanel(0);
+	const lists = await waitFor(`(() => { const s = document.querySelector('[data-testid="inventory-items"]'); return s ? { items: [...s.querySelectorAll('.item')].map((b) => b.dataset.item), sections: document.querySelectorAll('[data-testid="inventory"] [data-section], [data-testid="inventory"] .section-title').length } : null; })()`);
 	const worn = ['scutoons_swim_pants', 'scutoons_tshirt', 'scutoons_sandals'];
 	if (!lists?.items?.includes('scutoons_shorts') || worn.some((id) => lists?.items?.includes(id)) || lists?.sections) p2.push(`items tab ${JSON.stringify(lists)}`);
 	await shot(`${who}-${w}-2-items`);
 	report(`${who} ${w}: swim pants on → the shorts back in the inventory (Items lists them, not the worn items)`, p2, JSON.stringify(lists));
 
 	const p3 = [];
-	await clickEl(tab(1));
+	await openPanel(1);
 	await until('true');
-	await clickEl(q('[data-slot="legs"]'));
+	// the legs tile may still be selected from step 2 (the panel stays mounted): a second tap would close the picker
+	if (!(await evaluate(`!!document.querySelector('[data-slot="legs"].active')`))) await clickEl(q('[data-slot="legs"]'));
 	await clickEl(pickerButton(nameOf('scutoons_swim_pants')));
-	const s3 = await until(`!s.overlays.legs`);
+	const s3 = await until(`!s.tiles.legs`);
 	if (!s3) p3.push(`after "Ausziehen" on the swim pants: ${JSON.stringify(await evaluate(FIGURE))}`);
-	else if (!s3.swim) p3.push(`base ${s3.base}`);
+	else if (!s3.base) p3.push('no base');
 	await shot(`${who}-${w}-3-legs-empty`);
-	report(`${who} ${w}: swim pants off → legs empty, the swim A-pose stays the base`, p3);
+	report(`${who} ${w}: swim pants off → legs empty, the A-pose stays the base`, p3);
 
 	// the item detail ("Anziehen" / "Ausziehen") swaps the same way
 	const p3b = [];
-	await clickEl(tab(0));
-	await clickEl(`[...document.querySelectorAll('.inventory .item')].find((b) => b.querySelector('.name')?.textContent.trim() === ${JSON.stringify(nameOf('scutoons_shorts'))})`);
+	await openPanel(0);
+	await clickEl(`[...document.querySelectorAll('[data-testid="inventory-items"] .item')].find((b) => b.querySelector('.name')?.textContent.trim() === ${JSON.stringify(nameOf('scutoons_shorts'))})`);
 	const detailBtn = `[...document.querySelectorAll('.item-detail .actions button')].find((b) => b.textContent.trim() === %s)`;
 	await clickEl(detailBtn.replace('%s', JSON.stringify(de.items.put_on)));
 	const n1 = await waitFor(`document.querySelector('[data-testid="item-note"]')?.textContent.trim()`);
@@ -217,8 +235,8 @@ for (const w of widths) {
 	const on = await call('PUT', '/me/', { hide_sensitive: true });
 	if (off.status !== 200 || on.status !== 200 || on.json?.user?.hide_sensitive !== true) p4.push(`PUT /me/ ${off.status} / ${on.status}`);
 	if (on.json?.avatar?.slots?.legs) p4.push(`setting on again put something on: legs ${JSON.stringify(on.json?.avatar?.slots)}`);
-	const s4 = await openAvatar().then(() => until(`!s.overlays.legs`));
-	if (!s4?.swim) p4.push(`after the setting: ${JSON.stringify(s4)}`);
+	const s4 = await openAvatar().then(() => until(`!s.tiles.legs`));
+	if (!s4?.base) p4.push(`after the setting: ${JSON.stringify(s4)}`);
 	await shot(`member-${w}-4-setting`);
 	report(`member ${w}: "Hide sensitive content" off / on → the avatar is not touched`, p4);
 
@@ -228,22 +246,22 @@ for (const w of widths) {
 	await call('PUT', '/avatar/', { slots: { legs: pants } });
 	await openAvatar();
 	await clickEl(q('[data-body^="toptoy/"]'));
-	const s5 = await until(`s.overlays['legs-left']`);
+	const s5 = await until(`s.tiles['legs-left']`);
 	if (!s5) p5.push(`twins: ${JSON.stringify((await evaluate(FIGURE)))}`);
 	else {
-		// the swim pants have an overlay per figure, the shirt has none for Top Toy yet (icon); the right legs stay empty
-		if (s5.overlays['legs-left'].item !== 'scutoons_swim_pants') p5.push(`legs ${JSON.stringify(s5.overlays)}`);
-		if (s5.overlays['legs-right'] || s5.icons.includes('legs-right')) p5.push(`legs-right is not empty: ${JSON.stringify(s5)}`);
-		if (!s5.swim) p5.push(`base ${s5.base}`);
-		if (!s5.icons.includes('torso-left')) p5.push(`the T-shirt has no Top Toy overlay: the icon at torso-left expected, icons ${s5.icons}`);
+		// the worn items move to the first instance of their type (the left figure); the right legs stay empty
+		if (s5.tiles['legs-left'] !== 'scutoons_swim_pants') p5.push(`legs ${JSON.stringify(s5.tiles)}`);
+		if (s5.tiles['legs-right']) p5.push(`legs-right is not empty: ${JSON.stringify(s5.tiles)}`);
+		if (s5.tiles['torso-left'] !== 'scutoons_tshirt') p5.push(`the T-shirt in torso-left expected: ${JSON.stringify(s5.tiles)}`);
+		if (!s5.base || s5.drawn) p5.push(`base ${s5.base}, ${s5.drawn} drawn on the body`);
 	}
 	await shot(`member-${w}-5-toptoy`);
-	report(`member ${w}: Top Toy twins – pants overlay left, right legs empty, shirt as icon`, p5, JSON.stringify(s5));
+	report(`member ${w}: Top Toy twins – pants in the left legs tile, right legs empty, shirt in torso-left`, p5, JSON.stringify(s5));
 
 	const p6 = [];
 	await clickEl(q('[data-body^="catpope/"]'));
-	const s6 = await until(`s.overlays.legs && !s.overlays['legs-left']`);
-	if (s6?.overlays.legs?.item !== 'scutoons_swim_pants') p6.push(`catpope again: ${JSON.stringify(s6)}`);
+	const s6 = await until(`s.tiles.legs && !('legs-left' in s.tiles)`);
+	if (s6?.tiles.legs !== 'scutoons_swim_pants') p6.push(`catpope again: ${JSON.stringify(s6)}`);
 	await shot(`member-${w}-6-back`);
 	report(`member ${w}: back to Cat Pope – one legs slot, the swim pants`, p6);
 	await cleanup();

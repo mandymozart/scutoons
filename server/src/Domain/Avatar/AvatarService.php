@@ -12,9 +12,9 @@ use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 
 /**
- * The reader's avatar: the body (a character's A-pose look, agents/ITEMS.md "Reader avatar bodies & character unlocks")
- * and the worn items by **slot instance** of that body (agents/ITEMS.md "Slots per avatar body"): the A-pose look's
- * `slots` in the character registry ([{ id, slot }], a duo has `torso-left` + `torso-right`), or – for a body without
+ * The reader's avatar: the body (a look with an A-pose: { character, persona, look }, agents/ITEMS.md "Reader avatar
+ * bodies & character unlocks") and the worn items by **slot instance** of that body (agents/ITEMS.md "Slots per avatar
+ * body"): the A-pose's `slots` in the character registry ([{ id, slot }], a duo has `torso-left` + `torso-right`), or – for a body without
  * slots – one instance per catalog slot type (id = type). `avatar_slots.slot` stores the instance id (for single
  * figures the same value as the type, so rows from before the slot instances stay valid as they are).
  *
@@ -22,15 +22,12 @@ use Scutoons\Infrastructure\Database\Database;
  * an item stays on the instance with the same id, otherwise it goes to the first free instance of its slot type, else
  * it comes off (the same rule as `remapAvatarSlots` in @scutoons/content).
  *
- * The naked A-pose look was removed (owner 2026-10-05): a body stored with a retired look reads as the character's
- * default look (migration 2026-10-05-no-naked moves the rows).
- *
  * Wardrobe (agents/ITEMS.md "Wardrobe"): the default wearables (starter items with a slot: SCUTOONS T-shirt, swim
  * pants, shorts, sandals) are granted at signup and lazily for accounts older than them (ensureWardrobe); the basic
  * dress (`default_worn`: T-shirt, shorts, sandals – the swim pants instead of the shorts on a body without a shorts
  * overlay) is put on where nothing of that slot type is worn (wearBasicDress). Putting an item on an
  * occupied instance swaps the old one back into the inventory (it stays an entry, just not worn). Every slot may be
- * empty: the base image is the swim A-pose with the pants painted in.
+ * empty. Worn items are not drawn on the body (owner 2026-10-12): the reader shows them in the avatar page's slots.
  */
 final class AvatarService
 {
@@ -112,9 +109,9 @@ final class AvatarService
 
     /**
      * { slots, body, unlocked }: every slot instance of the current body → entry id or null (a JSON object also when
-     * empty); body = the chosen { character, look } or null (= the reader shows the first unlocked default);
+     * empty); body = the chosen { character, persona, look } or null (= the reader shows the first unlocked default);
      * unlocked = CharacterUnlocks::toJson
-     * @return array{slots: object, body: array{character: string, look: string}|null, unlocked: list<array<string, mixed>>}
+     * @return array{slots: object, body: array{character: string, persona: string, look: string}|null, unlocked: list<array<string, mixed>>}
      */
     public function toJson(string $userId): array
     {
@@ -124,46 +121,41 @@ final class AvatarService
     }
 
     /**
-     * The chosen body while it is still unlocked; a retired look (the removed `naked`) reads as the character's default
-     * look.
-     * @return array{character: string, look: string}|null
+     * The chosen body while it is still unlocked.
+     * @return array{character: string, persona: string, look: string}|null
      */
     public function body(string $userId): ?array
     {
         $row = $this->storedBody($userId);
-        if ($row && $this->unlocks->isRetired($row['character'], $row['look'])) {
-            $look = $this->unlocks->defaultLook($row['character']);
-            $row = $look !== null ? ['character' => $row['character'], 'look' => $look] : null;
-        }
-        if (!$row || !$this->unlocks->isUnlocked($userId, $row['character'], $row['look'])) return null;
+        if (!$row || !$this->unlocks->isUnlocked($userId, $row['character'], $row['persona'], $row['look'])) return null;
         return $row;
     }
 
-    /** @return array{character: string, look: string}|null the stored avatar_body row, unchecked */
+    /** @return array{character: string, persona: string, look: string}|null the stored avatar_body row, unchecked */
     private function storedBody(string $userId): ?array
     {
         try {
-            $row = $this->db->one('SELECT character_id, look_id FROM avatar_body WHERE user_id = ?', [$userId]);
+            $row = $this->db->one('SELECT character_id, persona_id, look_id FROM avatar_body WHERE user_id = ?', [$userId]);
         } catch (PDOException) {
             return null; // not migrated yet
         }
-        return $row ? ['character' => (string) $row['character_id'], 'look' => (string) $row['look_id']] : null;
+        return $row ? ['character' => (string) $row['character_id'], 'persona' => (string) $row['persona_id'], 'look' => (string) $row['look_id']] : null;
     }
 
     /**
      * The slot instances of a body (null or a body without slots: one per catalog slot type).
-     * @param array{character: string, look: string}|null $body
+     * @param array{character: string, persona: string, look: string}|null $body
      * @return list<array{id: string, slot: string}>
      */
     public function instances(?array $body): array
     {
-        $out = $body ? $this->unlocks->slotInstances($body['character'], $body['look']) : [];
+        $out = $body ? $this->unlocks->slotInstances($body['character'], $body['persona'], $body['look']) : [];
         if ($out) return $out;
         return array_map(fn(string $t) => ['id' => $t, 'slot' => $t], $this->catalog->slots());
     }
 
     /**
-     * PUT /avatar/ { slots?: { <instance id>: entryId|null }, body?: { character, look }|null } – only what is given
+     * PUT /avatar/ { slots?: { <instance id>: entryId|null }, body?: { character, persona, look }|null } – only what is given
      * changes (at least one of them). body: must be unlocked for the member and have an A-pose image; null = back to the
      * default; the worn items move to the new body (same instance id, else the first free instance of their type).
      * slots: instance ids of the (new) body; the item's slot type must match the instance's type.
@@ -183,7 +175,7 @@ final class AvatarService
             }
         }
         $target = $hasBody
-            ? (is_array($body['body']) ? ['character' => (string) $body['body']['character'], 'look' => (string) $body['body']['look']] : null)
+            ? (is_array($body['body']) ? ['character' => (string) $body['body']['character'], 'persona' => (string) $body['body']['persona'], 'look' => (string) $body['body']['look']] : null)
             : $this->body($userId);
         $instances = $this->instances($target ?? $this->unlocks->defaultBody($userId));
         $types = array_column($instances, 'slot', 'id');
@@ -280,15 +272,16 @@ final class AvatarService
     private function checkBody(string $userId, mixed $value): void
     {
         if ($value === null) return;
-        if (!is_array($value) || !is_string($value['character'] ?? null) || !is_string($value['look'] ?? null)) {
-            throw new ApiError(400, 'invalid_body', 'body must be { character, look } or null.');
+        if (!is_array($value) || !is_string($value['character'] ?? null) || !is_string($value['persona'] ?? null) || !is_string($value['look'] ?? null)) {
+            throw new ApiError(400, 'invalid_body', 'body must be { character, persona, look } or null.');
         }
-        [$character, $look] = [$value['character'], $value['look']];
-        if (!$this->unlocks->isUnlocked($userId, $character, $look)) {
-            throw new ApiError(422, 'locked', 'This character or look is not unlocked for your account.', ['character' => $character, 'look' => $look]);
+        [$character, $persona, $look] = [$value['character'], $value['persona'], $value['look']];
+        $details = ['character' => $character, 'persona' => $persona, 'look' => $look];
+        if (!$this->unlocks->isUnlocked($userId, $character, $persona, $look)) {
+            throw new ApiError(422, 'locked', 'This character or look is not unlocked for your account.', $details);
         }
-        if (!$this->unlocks->hasApose($character, $look)) {
-            throw new ApiError(422, 'no_apose', 'This character has no A-pose image for that look.', ['character' => $character, 'look' => $look]);
+        if (!$this->unlocks->hasApose($character, $persona, $look)) {
+            throw new ApiError(422, 'no_apose', 'This look has no A-pose image.', $details);
         }
     }
 
@@ -296,7 +289,7 @@ final class AvatarService
     {
         $this->db->run('DELETE FROM avatar_body WHERE user_id = ?', [$userId]);
         if (is_array($value)) {
-            $this->db->run('INSERT INTO avatar_body (user_id, character_id, look_id, updated_at) VALUES (?, ?, ?, ?)', [$userId, $value['character'], $value['look'], $this->clock->utc()]);
+            $this->db->run('INSERT INTO avatar_body (user_id, character_id, persona_id, look_id, updated_at) VALUES (?, ?, ?, ?, ?)', [$userId, $value['character'], $value['persona'], $value['look'], $this->clock->utc()]);
         }
     }
 }

@@ -45,6 +45,11 @@ export const {
 	// ownership + gifting (agents/ITEMS.md "Ownership, claims, gifting")
 	giftItem,
 	markReceivedSeen,
+	// gift invites (agents/research/GIFT-INVITES.md)
+	invites: fetchInvites,
+	createInvite,
+	recallInvite,
+	inviteAddress,
 	fileClaim,
 	addClaimFile,
 	myClaims,

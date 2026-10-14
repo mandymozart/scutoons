@@ -144,6 +144,8 @@ export interface CreateCodeInput {
 	email?: string;
 	expires_at?: string | null;
 	edition_id?: string | null;
+	/** the batch manifest a batch run registers it from (qr.batch) */
+	batch?: string | null;
 }
 
 export interface CreatedCode {
@@ -164,11 +166,18 @@ export interface BatchManifestCode {
 	completedSteps: BatchStep[];
 }
 
-/** `BATCH-<UTC timestamp>-<edition id>.json` (same format as the legacy generate/ batches) */
+/**
+ * `BATCH-<UTC timestamp>-<edition id>.json` (same format as the legacy generate/ batches); a promo batch
+ * (`BATCH-<ts>-promo-<name>.json`, research/GIFT-INVITES.md 1b): type promo, `edition` = its name, no edition id
+ */
 export interface BatchManifest {
 	filename: string;
+	/** membership (older manifests have none) | promo */
+	type?: 'membership' | 'promo';
 	edition: string;
-	editionId: string;
+	editionId: string | null;
+	/** a promo batch's codes end then (null = never) */
+	expires_at?: string | null;
 	productname: string;
 	edition_number: number;
 	edition_count: number;
@@ -183,8 +192,10 @@ export interface BatchManifest {
 
 export interface BatchRow {
 	filename: string;
+	/** membership | promo (research/GIFT-INVITES.md 1b) */
+	type: 'membership' | 'promo';
 	edition: string;
-	editionId: string;
+	editionId: string | null;
 	total: number;
 	done: number;
 	errors: number;
@@ -203,6 +214,8 @@ export interface AdminUserRow {
 	marketing_opt_in: boolean;
 	marketing_opt_in_at: string | null;
 	codes: number;
+	/** the list only (research/GIFT-INVITES.md 1b) */
+	segments?: AdminSegmentRef[];
 }
 
 export interface AdminUserDetail extends Omit<AdminUserRow, 'codes'> {
@@ -761,6 +774,129 @@ export interface AdminProposal {
 /** A proposal in the list: without its changes, `count` = how many */
 export type AdminProposalRow = Omit<AdminProposal, 'changes'> & { count: number };
 
+// ── Campaigns, segments (agents/research/GIFT-INVITES.md; /admin/campaigns, /admin/segments) ─────────────────
+
+/** the account filters of the Users list and a campaign's account list (server AccountFilters) */
+export type AccountFilterParams = {
+	q?: string;
+	role?: string;
+	opt_in?: '1' | '0';
+	/** membership | promo | invite | none | another code type */
+	signup?: string;
+	edition?: string;
+	batch?: string;
+	campaign?: string;
+	campaign_role?: 'invited' | 'joined';
+	/** a segment id, or none */
+	segment?: string;
+};
+
+export interface AdminSegmentRef {
+	id: string;
+	name: string;
+}
+
+export interface AdminSegment extends AdminSegmentRef {
+	members: number;
+	created_at: string | null;
+}
+
+export type CampaignStatus = 'draft' | 'started' | 'stopped';
+/** what the campaign does now: running (inside its window), scheduled (started, not yet), ended, draft, stopped */
+export type CampaignState = 'running' | 'scheduled' | 'ended' | 'draft' | 'stopped';
+export type CampaignInviters = 'all' | 'chosen' | 'segment';
+
+export interface Campaign {
+	id: string;
+	kind: 'gift_invite';
+	name: string;
+	status: CampaignStatus;
+	state: CampaignState;
+	starts_at: string;
+	ends_at: string;
+	inviters: CampaignInviters;
+	segment_id: string | null;
+	/** own = the member's own item, campaign = item_id / variant given by SCUTOONS */
+	gift: 'own' | 'campaign';
+	item_id: string | null;
+	variant: string | null;
+	physical: boolean;
+	stock: number | null;
+	stock_left: number | null;
+	per_member: number;
+	per_day: number;
+	wait_days: number;
+	/** a physical campaign item: who pays */
+	payer: 'scutoons' | 'member' | null;
+	price_cents: number | null;
+	currency: string;
+	countries: string[];
+	/** keep = invitees read on after the campaign; until = until access_until */
+	access: 'keep' | 'until';
+	access_until: string | null;
+	created_at: string;
+	updated_at: string;
+	counts: { sent: number; payment: number; waiting: number; joined: number; ended: number };
+}
+
+export type CampaignInput = Partial<
+	Pick<Campaign, 'name' | 'starts_at' | 'ends_at' | 'gift' | 'item_id' | 'variant' | 'stock' | 'per_member' | 'per_day' | 'wait_days' | 'payer' | 'price_cents' | 'currency' | 'access' | 'access_until'>
+> & { countries?: string[] | string };
+
+export interface CampaignAccounts {
+	mode: CampaignInviters;
+	segment_id: string | null;
+	/** how many may invite */
+	chosen: number;
+	/** accounts the filters find */
+	total: number;
+	items: { id: string; email: string; created_at: string | null; chosen: boolean }[];
+	page: number;
+	page_size: number;
+}
+
+export type InviteStatus = 'payment' | 'waiting' | 'joined' | 'returned' | 'recalled' | 'unpaid';
+
+export interface CampaignInvite {
+	id: string;
+	email: string;
+	status: InviteStatus;
+	gift: 'own' | 'campaign';
+	item_id: string;
+	variant: string | null;
+	item: string;
+	qty: number;
+	physical: boolean;
+	price_cents: number | null;
+	currency: string | null;
+	created_at: string;
+	payment_due_at: string | null;
+	expires_at: string | null;
+	joined_at: string | null;
+	ended_at: string | null;
+	shipped: boolean;
+}
+
+export interface AdminCampaignInvite extends CampaignInvite {
+	campaign_id: string;
+	inviter: { id: string; email: string | null };
+	joined: { id: string; email: string | null } | null;
+	invite_code: string | null;
+	paid_at: string | null;
+	sent_at: string | null;
+	ship: { name: string; address: string; country: string; given_at: string | null } | null;
+	shipped_at: string | null;
+	ship_note: string | null;
+}
+
+export interface CampaignStats {
+	inviters: number;
+	sent: number;
+	by_status: Record<InviteStatus, number>;
+	joined_later: number;
+	members: { id: string; email: string | null; invites: number; joined: number; open: number; ended: number; joined_later: number; last_invite: string | null }[];
+}
+
 export function createAdminApi(api: ApiClient) {
 	return {
 		dashboard: (params: { days?: number; edition_id?: string | null } = {}) =>
@@ -791,6 +927,9 @@ export function createAdminApi(api: ApiClient) {
 		/** Reserves unique codes in a new manifest (not inserted). 409 batch_complete → `force: true` */
 		createBatch: (input: { edition_id: string; count?: number; start_number?: number; force?: boolean }) =>
 			api.post<{ status: string; batch: BatchManifest }>('/admin/batches', input),
+		/** a promo batch (research/GIFT-INVITES.md 1b): `count` promo codes under one name */
+		createPromoBatch: (input: { name: string; count: number; toon_id?: string | null; expires_at?: string | null }) =>
+			api.post<{ status: string; batch: BatchManifest }>('/admin/batches', { type: 'promo', ...input }),
 		getBatch: (filename: string) => api.get<{ status: string; batch: BatchManifest }>(`/admin/batches/${seg(filename)}`),
 		saveBatch: (manifest: BatchManifest) =>
 			api.put<{ status: string; batch: BatchManifest }>(`/admin/batches/${seg(manifest.filename)}`, { manifest }),
@@ -800,7 +939,40 @@ export function createAdminApi(api: ApiClient) {
 			api.put<{ status: string; type: FileType; filename: string }>(`/admin/files/${type}/${seg(filename)}`, { doc }),
 		getFile: (type: FileType, filename: string) => api.fetchRaw(`/admin/files/${type}/${seg(filename)}`),
 
-		listUsers: (params: ListParams = {}) => api.get<ListResult<AdminUserRow>>(`/admin/users${toQuery(params)}`),
+		listUsers: (params: ListParams & AccountFilterParams = {}) => api.get<ListResult<AdminUserRow>>(`/admin/users${toQuery(params)}`),
+
+		// segments (research/GIFT-INVITES.md 1b)
+		segments: () => api.get<{ status: string; items: AdminSegment[] }>('/admin/segments'),
+		createSegment: (name: string) => api.post<{ status: string; item: AdminSegment }>('/admin/segments', { name }),
+		renameSegment: (id: string, name: string) => api.put<{ status: string; item: AdminSegment }>(`/admin/segments/${seg(id)}`, { name }),
+		deleteSegment: (id: string) => api.delete<{ status: string }>(`/admin/segments/${seg(id)}`),
+		/** ticked accounts, or every account the filters find (`matching`) */
+		addToSegment: (id: string, body: { ids: string[] } | { matching: true; q?: string; filters?: AccountFilterParams }) =>
+			api.post<{ status: string; added: number; segment: AdminSegment }>(`/admin/segments/${seg(id)}/members`, body),
+		removeFromSegment: (id: string, ids: string[]) =>
+			api.post<{ status: string; removed: number; segment: AdminSegment }>(`/admin/segments/${seg(id)}/members/remove`, { ids }),
+
+		// campaigns: gift invites (research/GIFT-INVITES.md)
+		campaigns: () => api.get<{ status: string; items: Campaign[] }>('/admin/campaigns'),
+		createCampaign: (input: CampaignInput & { name: string }) => api.post<{ status: string; item: Campaign }>('/admin/campaigns', input),
+		getCampaign: (id: string) => api.get<{ status: string; item: Campaign }>(`/admin/campaigns/${seg(id)}`),
+		updateCampaign: (id: string, input: CampaignInput) => api.put<{ status: string; item: Campaign }>(`/admin/campaigns/${seg(id)}`, input),
+		deleteCampaign: (id: string) => api.delete<{ status: string }>(`/admin/campaigns/${seg(id)}`),
+		startCampaign: (id: string) => api.post<{ status: string; item: Campaign }>(`/admin/campaigns/${seg(id)}/start`),
+		stopCampaign: (id: string) => api.post<{ status: string; item: Campaign }>(`/admin/campaigns/${seg(id)}/stop`),
+		campaignAccounts: (id: string, params: AccountFilterParams & { page?: number; page_size?: number } = {}) =>
+			api.get<{ status: string } & CampaignAccounts>(`/admin/campaigns/${seg(id)}/accounts${toQuery(params)}`),
+		/** { all } · { segment_id } · { add, remove } · { add_matching: true, q, filters } */
+		setCampaignAccounts: (
+			id: string,
+			body: { all: boolean } | { segment_id: string } | { add?: string[]; remove?: string[] } | { add_matching: true; q?: string; filters?: AccountFilterParams }
+		) => api.put<{ status: string } & CampaignAccounts>(`/admin/campaigns/${seg(id)}/accounts`, body),
+		campaignInvites: (id: string, status?: InviteStatus | 'to_ship') =>
+			api.get<{ status: string; items: AdminCampaignInvite[] }>(`/admin/campaigns/${seg(id)}/invites${toQuery({ status })}`),
+		campaignStats: (id: string) => api.get<{ status: string } & CampaignStats>(`/admin/campaigns/${seg(id)}/stats`),
+		invitePaid: (inviteId: string) => api.post<{ status: string; item: AdminCampaignInvite }>(`/admin/campaigns/invites/${seg(inviteId)}/paid`),
+		inviteShipped: (inviteId: string, note?: string) =>
+			api.post<{ status: string; item: AdminCampaignInvite }>(`/admin/campaigns/invites/${seg(inviteId)}/shipped`, { note: note ?? null }),
 		getUser: (id: string) => api.get<{ status: string; user: AdminUserDetail }>(`/admin/users/${seg(id)}`),
 		/** where the members are in the chapters (BACKLOG 10.69); `toon` narrows it to one toon */
 		reading: (toon?: string) => api.get<AdminReadingStats>(`/admin/reading${toQuery({ toon })}`),

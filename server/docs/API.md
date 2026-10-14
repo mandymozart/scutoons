@@ -756,6 +756,30 @@ app (`Domain\Embassy\EmbassyMail`, "Embassy" → "Mail": same transport, logged 
   `Mailer::sendToAdmins($templateId, $vars)` in `MAIL_ADMIN_LOCALE`.
 - Admin app → **Emails** (`/emails` log, `/emails/templates` previews + recipients); admin API above.
 
+## Gift invites, campaigns, segments (2026-10-14, migrations `2026-10-14-campaigns`, `2026-10-14-segments-batches` – agents/ITEMS.md "Gift invites")
+
+Member (session):
+
+| Method | Path | Body | Answer |
+|---|---|---|---|
+| GET | `/invites/` | – | `{ campaign: offer \| null, invites, address_needed }` (offer: id, ends_at, wait_until, gift own \| campaign, item_id, variant, physical, payer, price_cents, currency, left) |
+| POST | `/invites/` | `{ to, entry_id \| item_id (+ variant), qty? }` (a campaign item: only `to`) | `{ invite, inventory }` · 403 no_campaign · 400 code_needs_account / container_needs_account · 409 has_account / already_invited · 410 sold_out · 429 campaign_limit / daily_limit |
+| POST | `/invites/{id}/recall/` | – | `{ invite, inventory }` · 409 not_open (accepted or ended) |
+| PUT | `/invites/{id}/address/` | `{ name, address, country }` | as GET · 400 invalid_address / invalid_country · 409 shipped |
+| GET\|POST | `/invites/cron?key=CAMPAIGN_CRON_KEY` | – | `{ result: { returned, unpaid } }` (empty key → 404) |
+
+`POST /inventory/gift/` → `404 recipient_not_found` carries `invite` (the offer) while a campaign runs for the giver.
+
+Admin (`/api/admin`): `GET|POST /campaigns`, `GET|PUT|DELETE /campaigns/{id}` (DELETE only without invites),
+`POST /campaigns/{id}/start|stop`, `GET /campaigns/{id}/accounts` (?q, page, page_size + the account filters) and
+`PUT …/accounts` (`{ all }` · `{ segment_id }` · `{ add, remove }` · `{ add_matching: true, q, filters }`),
+`GET /campaigns/{id}/invites?status=…|to_ship`, `GET /campaigns/{id}/stats`, `POST /campaigns/invites/{id}/paid`,
+`POST /campaigns/invites/{id}/shipped { note? }`. Segments: `GET|POST /segments`, `PUT|DELETE /segments/{id}`,
+`POST /segments/{id}/members` (`{ ids }` or `{ matching: true, q, filters }`), `POST /segments/{id}/members/remove`.
+Account filters (Users list too): `signup` membership | promo | invite | none, `edition`, `batch`, `campaign` +
+`campaign_role` invited | joined, `segment` (an id or none). `POST /batches { type: promo, name, count, toon_id?,
+expires_at? }` makes a promo batch; `POST /codes { …, batch }` sets `qr.batch`; `GET /codes?batch=…`.
+
 ## Newsletter (2026-10-07, migration `2026-10-07-newsletter` – agents/NEWSLETTER.md)
 
 Mass mails to members and contacts, sent in batches through the SMTP account (`Domain\Newsletter`). Not a

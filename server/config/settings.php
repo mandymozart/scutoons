@@ -145,6 +145,9 @@ return [
     'GIFT_MAX_PER_DAY' => '10',
     'GIFT_LOOKUPS_PER_DAY' => '30',
     'GIFT_COOLDOWN_HOURS' => '24',
+    // Gift invites (agents/research/GIFT-INVITES.md): the key of GET /api/invites/cron (the host's daily cronjob returns
+    // the invites that ran out); empty = no cron URL (they are returned on the next visit / admin view anyway)
+    'CAMPAIGN_CRON_KEY' => '',
     'PROGRESS_MAX_BYTES' => '262144',
     'CONTENT_MAX_BYTES' => '2097152',
     // Admin lists: largest page_size
@@ -155,9 +158,10 @@ return [
         . 'qr=https://qr.scutoons.com/version.json',
 
     // ── Avatar bodies ──────────────────────────────────────────────────────────────────────────────────
-    // Characters (with their A-pose looks) every member may wear as the reader's avatar body, without per-member rows
-    // (Domain\Characters\CharacterUnlocks). JSON { "<character>": ["<look>", …] }. Owner 2026-10-05: Cat Pope, swim (no naked look any more).
-    'AVATAR_DEFAULT_UNLOCKS' => '{"catpope":["swim"]}',
+    // Characters every member may wear as the reader's avatar body (each with its default body – the regular persona's
+    // default look), without per-member rows (Domain\Characters\CharacterUnlocks). JSON ["<character>", …]. Owner
+    // 2026-10-05: Cat Pope.
+    'AVATAR_DEFAULT_UNLOCKS' => '["catpope"]',
 
     // ── Caches and private storage (the catalog is in the database: agents/CATALOG.md) ───────────────────
     // Composed answers of the library endpoints /api/library/* (agents/DATA.md): auto (APCu when enabled, else files
@@ -198,6 +202,16 @@ return [
     'BUNNY_STORAGE_PASSWORD' => '',
     'BUNNY_STORAGE_READONLY_PASSWORD' => '',
     'BUNNY_PULLZONE_ID' => '',
+    // Protected files (agents/research/SCORES.md §5 – scores' MusicXML / PDF): their own bunny.net storage + pull zone
+    // with token authentication. URL = that pull zone's base (https://<zone>.b-cdn.net or a custom host), KEY = its
+    // token authentication key (secret). Empty KEY = signed URLs fall back to CDN_URL (dev: the local media server).
+    'PROTECTED_CDN_URL' => '',
+    // ... and its storage zone, where the catalog editor's score uploads go (PUT /api/assets/protected): the zone name
+    // (variable) + its read/write password (secret). Unset on a dev machine = the local media folder; unset on
+    // production = uploads answer 503 (never the public storage)
+    'BUNNY_PROTECTED_STORAGE_ZONE' => '',
+    'BUNNY_PROTECTED_STORAGE_PASSWORD' => '',
+    'BUNNY_PROTECTED_CDN_KEY' => '',
     'BUNNY_API_KEY' => '',
     // Only keys below this prefix may be written / deleted on the zone (e.g. "_test/" while trying the driver); '' = all
     'BUNNY_WRITE_PREFIX' => '',

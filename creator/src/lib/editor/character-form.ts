@@ -1,10 +1,8 @@
 // The character page's pure / store helpers (COMPONENTS.md step 9: character-detail in sections): colours for the
-// native picker, empty texts, story points, the A-pose looks, closing answered image requests.
+// native picker, empty texts, story points, a look's A-pose, closing answered image requests.
 import {
-	APOSE_LOOKS,
 	APOSE_VIEW,
-	isRetiredAposeLook,
-	type AposeLook,
+	newLook,
 	type AssetRequests,
 	type CharacterFileSlot,
 	type LocaleText,
@@ -38,25 +36,22 @@ export function setPoint(p: StoryPoint | undefined, key: 'toon' | 'season' | 'ch
 	return next.toon ? next : undefined;
 }
 
-/** the A-pose looks shown: the stored ones plus the standard looks not stored yet (empty slots) */
-export function aposeLooksOf(character: RegistryCharacter | null): AposeLook[] {
-	const stored = character?.apose?.looks ?? [];
-	const missing = APOSE_LOOKS.filter((l) => !stored.some((x) => x.id === l.id)).map((l) => ({ id: l.id, label: { ...l.label } }));
-	return [...stored, ...missing];
-}
-
-/** an A-pose look's file (the look is created when it isn't stored; swim is the default; a retired look id is refused) */
-export function applyApose(c: RegistryCharacter, target: string, path: string, languages: string[]) {
-	if (isRetiredAposeLook({ id: target })) return;
-	c.apose ??= { looks: [] };
-	let look = c.apose.looks.find((l) => l.id === target);
-	if (!look) {
-		const standard = APOSE_LOOKS.find((l) => l.id === target);
-		look = { id: target, label: standard ? { ...standard.label } : { [languages[0] ?? 'en']: target } };
-		c.apose.looks.push(look);
+/**
+ * A look's A-pose file (owner 2026-10-12: per look): a path sets it (an import may name a look the persona lacks – it is
+ * created), none clears it (an A-pose without an image and without slots goes).
+ */
+export function setLookApose(c: RegistryCharacter, persona: string, look: string, path: string | undefined, languages: string[]) {
+	const p = c.personas.find((x) => x.id === persona);
+	if (!p) return;
+	if (path && !p.looks.some((x) => x.id === look)) p.looks.push(newLook(look, { [languages[0] ?? 'en']: look }, !p.looks.length));
+	// (read back: the edit works on reactive proxies – a pushed object is not the stored one)
+	const l = p.looks.find((x) => x.id === look);
+	if (!l) return;
+	if (path) l.apose = { ...l.apose, path };
+	else if (l.apose) {
+		delete l.apose.path;
+		if (!l.apose.slots?.length) delete l.apose;
 	}
-	c.apose.looks.find((l) => l.id === target)!.path = path;
-	if (!c.apose.looks.some((l) => l.default)) (c.apose.looks.find((l) => l.id === APOSE_LOOKS[0].id) ?? c.apose.looks[0]).default = true;
 }
 
 /** closes the open requests of character `id` that the given files answer */
@@ -65,7 +60,9 @@ export function closeRequests(requestsDoc: ContentDoc, requests: AssetRequests |
 		r.status === 'open' &&
 		r.character === id &&
 		slots.some((s) =>
-			s.kind === 'apose' ? r.view === APOSE_VIEW && r.look === s.look : s.kind === 'expression' && r.persona === s.persona && r.look === s.look && r.mood === s.mood && r.view === s.view
+			s.kind === 'apose'
+				? r.view === APOSE_VIEW && r.persona === s.persona && r.look === s.look
+				: s.kind === 'expression' && r.persona === s.persona && r.look === s.look && r.mood === s.mood && r.view === s.view
 		);
 	if (!requests?.requests.some(answers)) return;
 	edit<AssetRequests>(requestsDoc, (f) =>

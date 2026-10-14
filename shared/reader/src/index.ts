@@ -23,3 +23,5 @@ export { configureFx, playFxSound, playRevealSound, buzz, isFxSound, FX_SOUNDS, 
 export { fxLayer, liftCue, refuseCue, nudgeCue, sparkles, impactCue, IMPACTS, IMPACT_DEFAULT_MS, type Impact, type Lift } from './fx/cues.ts';
 export { loadShape, type Shape } from './fx/shape.ts';
 export { default as ScoreView, DEFAULT_SCORE_LABELS, type ScoreLabels } from './score/score-view.svelte';
+export { default as ScoreAge } from './score/score-age.svelte';
+export { default as CoverLettering } from './items/cover-lettering.svelte';

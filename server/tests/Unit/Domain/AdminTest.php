@@ -125,6 +125,27 @@ final class AdminTest extends TestCase
         }
     }
 
+    public function testPromoBatchZipPacksItsPromoSvgs(): void
+    {
+        $batches = $this->get(Batches::class);
+        $manifest = $batches->createPromo('Comic Con Wien 2026', 2, null, null);
+        self::assertSame('promo', $manifest['type']);
+        $manifest['codes'][0]['status'] = 'done';
+        $batches->save($manifest['filename'], $manifest);
+        $done = $manifest['codes'][0]['code'];
+        $open = $manifest['codes'][1]['code'];
+        $batches->writeFile('svgs', "SCUTOONS-QR-PROMO-$done.svg", '<svg/>');
+        $batches->writeFile('svgs', "SCUTOONS-QR-PROMO-$open.svg", '<svg/>');
+        $batches->writeFile('signatures', "SIGNATURE-$done.json", '{}');
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($batches->zip($manifest['filename'])));
+        $names = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) $names[] = $zip->getNameIndex($i);
+        $zip->close();
+        sort($names);
+        self::assertSame(['manifest.json', "signatures/SIGNATURE-$done.json", "svgs/SCUTOONS-QR-PROMO-$done.svg"], $names, 'only finished codes, no certificate');
+    }
+
     public function testUserAdminListsAndChangesRoles(): void
     {
         $users = $this->get(UserAdmin::class);

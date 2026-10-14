@@ -100,7 +100,18 @@ your code" still opens the QR scanner without any item).
 ### Containers, scores, ageing, recipe tools (model, 2026-10-14 – research/SCORES.md, FEATURES 10.97)
 
 `@scutoons/content` containers.ts; validated the same in `validateContainers` and the server's `CatalogValidator`.
-Only the catalog model is built – moving items in / out, gifting with contents, breaking and the reader UI follow.
+Built: the catalog model and the server (2026-10-14); the admin fields and the reader UI follow.
+- Server (`Domain\Inventory\Containers`, migration `2026-10-14-containers`): `inventory.container_id` (lies in),
+  `overfilled_at`, `aged_since`; entries answer `in`, `overfilled_at`, `aged_since`. `POST /api/inventory/move`
+  { entry_id, into | null, overfill? } – by hand, the rule, the capacity; past `max` 409 `overfill_warning` { max, days }
+  until `overfill: true`. An overfilled container breaks on the next inventory read after its days (contents loose,
+  the entry becomes `breaks_into`, colour + age kept); back to `max` in time clears it. Craft: `keep` inputs stay,
+  `variant_from`, a consumed container's contents + age go to the output; `use: { item: entry }` picks the entry.
+  A used-up container lets its contents fall out. A gifted container moves as itself with its giftable contents
+  (answer `contents: { went, stayed }`); the import keeps a guest's `local_id` / `in`.
+- Score files: `GET /api/items/{id}/score/{musicxml|pdf}` → a short-lived bunny.net signed URL (`ProtectedFiles`,
+  PROTECTED_CDN_URL / _KEY); MusicXML for anyone, PDF for a signed-in owner; `/api/items/` shows only
+  `score: { language, pdf: bool }`.
 - `holds: { categories?, items?, max?, overfill?: { days, max, breaks_into } }` makes an item a container: an item
   fits when its category OR its id is listed (`fitsIn`); never a container in a container; `max` = capacity (none =
   no limit); `overfill` = a soft limit up to `overfill.max` that breaks the container into `breaks_into` after `days`
@@ -531,87 +542,71 @@ The admin app lists the content store without the `creator` role; editing stays 
 The legacy `generate/*.php` endpoints (static `X-Generate-Token`) keep working unchanged for the `generate/` SPA until the
 admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
 
-## Reader avatar bodies & character unlocks (2026-09-30, owner — built 2026-09-30)
+## Reader avatar bodies & character unlocks (2026-09-30, owner; A-pose per look 2026-10-12)
 
-- The reader avatar body is a **character's A-pose** (character level, not persona) in its A-pose look `swim` (swim
-  pants painted in; **the `naked` look was removed 2026-10-05 (owner)** – see below). Data lives in the character
-  registry (`character.apose.looks[]` with path + wear slots, see "Slots per avatar body"); helper
-  `avatarBodies(registry)` in `@scutoons/content`.
-- **Members can only pick characters they have unlocked.** Server tables (to build):
-  `member_characters (user_id, character_id, source: default|code|item|story|admin, ref?, unlocked_at)` and
-  `member_character_looks (user_id, character_id, look_id, source, unlocked_at)` for A-pose looks beyond the default.
-  A default-unlocked set is configurable (permissions/settings) — **owner decision 2026-09-30: only `catpope` is unlocked for every member by default** (swim); unlocks can be granted by codes/items (catalog),
-  story events (VN `add`/grant) and admins. `avatar` gets `body: { character, look }` (server, per account; guests
-  per device).
-- **No look creator:** outfitting (putting items on the body) happens only in the reader's inventory avatar view;
-  the creator only stores A-pose images and wear slots as data.
+Owner 2026-10-12: "nackt does not exist anymore. a poses come per look." – the A-pose belongs to a **look**
+(`personas[].looks[].apose`), not to the character; there is no naked body any more (migration
+`2026-10-13-apose-per-look` moved each character's `swim` A-pose to its regular persona's default look and dropped
+`naked`).
 
-**Implemented (2026-09-30):**
-- Server: migration `2026-09-30-member-characters.{mysql,sqlite}.sql` (idempotent; after `settings`): `member_characters
-  (user_id, character_id, source, ref, unlocked_at)`, `member_character_looks (user_id, character_id, look_id, source, ref,
-  unlocked_at)`, `avatar_body (user_id, character_id, look_id, updated_at)`. `Domain\Characters\CharacterUnlocks`: the
-  default unlocks are **one setting** `AVATAR_DEFAULT_UNLOCKS` (config/settings.php, JSON `{"catpope":["swim"]}`,
-  overridable per install like every setting) – no rows per member; a `member_characters` row unlocks the character with
-  its **default** A-pose look, `member_character_looks` adds further looks. The registry is the published store file
-  `scutoons/_/characters.json` (which looks exist and have an image). Sources `default|code|item|story|admin` + `ref` are
-  stored; no code/item/story flows yet.
-- API: `/me/ avatar` = `{ slots, body: { character, look }|null, unlocked: [{ character, looks, source }] }`;
-  `PUT /avatar/ { body }` (with or without `slots`) → `422 locked` (not unlocked) / `no_apose` (no A-pose image),
-  `400 invalid_body`; `body: null` = default. Admin: `PUT /admin/users/{id}/characters/{character} { looks?, source?, ref? }`,
-  `DELETE /admin/users/{id}/characters/{character}[/looks/{look}]` → `{ changed, characters }`; `GET /admin/users/{id}`
-  has `characters` (defaults + rows). Admin app user page: section "Avatar bodies" (list, unlock by id + extra looks,
-  revoke). Contract: admin-smoke "Avatar bodies & character unlocks" (21 checks), PHPUnit `CharacterUnlocksTest`.
-- Viewer: `components/avatar/avatar.svelte` = `unlockedBodies(avatarBodies(registry, locale), inventory.unlocked)`
-  (registry via `fetchRegistry` of `@scutoons/api`, once per page load); thumbnails (A-pose + name + look label), locked
-  characters hidden; worn items at the body's wear slots (since 2026-09-30 slot instances – "Slots per avatar body").
-  Members save with `PUT /avatar/ { body }`; guests get `DEFAULT_AVATAR_UNLOCKS` (@scutoons/content, same list as the
-  server default) and store `{ character, look }` in localStorage `scutoons_avatar_body` (old values sphynx /
-  sphynx_nude / mouse are mapped; a locked choice falls back to the default).
-- **Naked look removed (owner 2026-10-05: "Remove the naked A-pose variant. Keep the safe-for-work switch in the
-  account.")**: `APOSE_LOOKS` = swim only. Production's registry still holds `naked` looks until the owner deletes them
-  in the creator (CUTOVER 10.31): a look with id `naked` or still marked `sensitive: true` is **retired** –
-  `isRetiredAposeLook` / `RETIRED_APOSE_LOOKS` (@scutoons/content), `CharacterUnlocks::RETIRED_LOOKS` – and ignored by
-  `avatarBodies`, wanted images, the unlocks (rows, setting) and grants (`invalid_look`); a body stored with it reads as
-  the character's default look. `validateCharacters` warns ("no longer used – remove it in the creator"); × on its
-  A-pose slot removes it, the import refuses `…_apose-naked.png`. Migration `2026-10-05-no-naked` moves `avatar_body`
-  rows to swim and deletes the `member_character_looks` rows (keeping the character unlock).
+- **Data** (`@scutoons/content` characters.ts): `CharacterLook.apose?: { path?, slots? }` – `path` = the A-pose image
+  (768 × 1152, convention `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_apose.webp`,
+  `aposeConventionPath`; an `apose` without `path` is a wanted image), `slots` = its wear slots ("Slots per avatar
+  body"). A look without `apose` is no avatar body. Validation: a CDN path, slot ids / types; the old character-level
+  `apose` is an error.
+- **A body = a look with an A-pose image:** `{ character, persona, look }`. `avatarBodies(registry)` lists them
+  (character → persona → look); a character's **default body** = its regular persona's default look when that has an
+  A-pose image, else its first body. In unlock lists a look is `<persona>/<look>` (`bodyLookKey`).
+- **Unlocks:** the default unlocks are **one setting** `AVATAR_DEFAULT_UNLOCKS` (config/settings.php, JSON
+  `["catpope"]` – owner 2026-09-30: only Cat Pope for every member): those characters with their default body, no rows.
+  Tables (migration `2026-09-30-member-characters`, `persona_id` since `2026-10-13-apose-per-look`):
+  `member_characters (user_id, character_id, source, ref, unlocked_at)` – the character with its default body;
+  `member_character_looks (user_id, character_id, persona_id, look_id, source, ref, unlocked_at)` – further looks;
+  `avatar_body (user_id, character_id, persona_id, look_id, updated_at)` – the chosen body. Sources
+  `default|code|item|story|admin` + `ref` are stored; no code/item/story flows yet. `Domain\Characters\CharacterUnlocks`
+  reads the published registry.
+- **API:** `/me/ avatar` = `{ slots, body: { character, persona, look }|null, unlocked: [{ character, looks:
+  ["<persona>/<look>"], source }] }` (`looks` starts with the default body); `PUT /avatar/ { body }` (with or without
+  `slots`) → `422 locked` (not unlocked) / `no_apose` (no A-pose image), `400 invalid_body`; `body: null` = default.
+  Admin: `PUT /admin/users/{id}/characters/{character} { looks?: ["<persona>/<look>"], source?, ref? }` (`400
+  invalid_look`: no such look with an A-pose image), `DELETE /admin/users/{id}/characters/{character}[/looks/{persona}/{look}]`
+  → `{ changed, characters }`; admin app user page: section "Avatar bodies". PHPUnit `CharacterUnlocksTest`.
+- **Viewer** (`components/avatar/avatar.svelte`): `unlockedBodies(avatarBodies(registry, locale), inventory.unlocked)`
+  (registry via `fetchRegistry`, once per page load); one picker tile per character (its current body, else its
+  default body; shown when there is more than one), the character's looks in a "Look" select (`AvatarBody.lookLabel`:
+  "papal", "Biker (with helmet)"; shown when it has more than one – owner 2026-10-14); locked characters hidden. Members save with `PUT /avatar/ { body }`;
+  guests get `DEFAULT_AVATAR_UNLOCKS` and store `{ character, persona, look }` in localStorage `scutoons_avatar_body`
+  (older values – sphynx / sphynx_nude / mouse, `{ character, look: 'swim' }` – are rewritten once to the character's
+  regular default look).
+- **Creator:** each look's panel has its A-pose slot (`apose-editor.svelte`, MediaSlot / the asset picker; × clears);
+  the character import takes `…_apose.png` / `…_<look>_apose.png` into that look. No look creator: outfitting happens
+  only in the reader's avatar view.
 
-## Slots per avatar body (2026-09-30, owner — built 2026-09-30)
+## Slots per avatar body (2026-09-30, owner; no image anchors since 2026-10-13)
 
 Owner: "there is no rule for two… define slots per avatar, so an avatar can have the same slot twice; very useful for
-twins or triplets."
+twins or triplets." 2026-10-13: "drop x/y/size entirely" – items are not drawn on the body, so a slot has no position.
 
-- **Model** (`@scutoons/content` characters.ts): an A-pose look has `slots: AvatarSlotInstance[]` =
-  `[{ id, slot, x, y, size, label? }]` (replaces the old `anchors: { <slot>: { x, y, size } }`). `slot` = the slot type
-  (the catalog's `head, face, neck, torso, hands, legs, feet, back, accessory`), `id` = unique per body
-  (`^[a-z0-9][a-z0-9-]{0,31}$`), `x/y/size` = anchor in image px (768 × 1152; size 0 = not drawn), `label` = the tile
-  label per locale (none = the type's label). Single figures: one instance per type, `id` = type (catpope, yellowmouse).
-  Toptoy (the duo): one instance per type and figure, `<type>-left` / `<type>-right`, labels "Kopf links" / "Head left" …
-  (measured on the normalized A-pose; `hands` = a figure's outer hand, `accessory` = its inner hand).
-- Helpers: `bodySlots(look.slots)` (a body without slots = one unplaced instance per type), `avatarBodies()` →
-  `AvatarBody.slots`, `remapAvatarSlots(worn, target, typeOf)`. Validation: unique ids, id pattern, known slot types
-  (error), numbers ≥ 0, the old `anchors` field is an error. Source of the values: `migrate-characters.ts`
-  (`SPHYNX_SLOTS`, `MOUSE_SLOTS`, `TOPTOY_SLOTS` via `single()` / `twins()`); the creator shows them read-only (A-pose →
-  "Technical: wear slots": id, type, x, y, size).
-- **Server** (`AvatarService`): worn items are stored by **slot instance id** in `avatar_slots.slot` (no schema change,
-  hence no migration: for single figures the instance id equals the old type value, so existing rows stay valid; rows
-  that don't fit the current body – e.g. a legacy `torso` row on Toptoy – are read by type and rewritten on the next
-  save). `GET /me/` / `GET /avatar/` → `avatar.slots` = every instance of the current body (chosen body, else the first
-  unlocked default – `CharacterUnlocks::defaultBody`) → entry id | null. `PUT /avatar/ { slots: { <instance id>: entryId|null } }`:
-  `422 invalid_slot` (no such instance on this body, + `slots`), `wrong_slot` (item type ≠ instance type, + `slot_type`),
-  `not_owned`; one entry is worn once. **Body switch** (`PUT { body }`): an item stays on the instance with the same id,
-  otherwise it goes to the first free instance of its type, otherwise it comes off (same rule in `remapAvatarSlots` for
-  guests). `CharacterUnlocks::slotInstances(character, look)` reads the registry.
-- **Viewer**: the inventory context loads the registry lazily (`loadRegistry()`), exposes `bodies`, `currentBody`,
-  `slots` and the worn map by instance (`equippedEntry(id)`, `equip(entry, id?)` – without an id the first free instance
-  of the item's type –, `unequip(id)`, `unequipEntry(entry)`); guests store instance ids in `scutoons_inventory` and are
-  remapped on a body switch. `avatar.svelte`: one tile per instance (a multi-figure body puts each figure's tiles in its
-  column by anchor x, smaller tiles), the picker filters by the instance's type, worn items at the instance anchors.
-- Contract: admin-smoke "Slots per avatar body" (11 checks: invalid_slot, twin torsos, wrong_slot, one entry once,
-  switching single ↔ duo, a legacy type row); PHPUnit `CharacterUnlocksTest::testSlotInstancesAndTheDefaultBody`; content
-  tests "A-pose slot instances".
+- **Model:** `look.apose.slots: AvatarSlotInstance[]` = `[{ id, slot, label? }]`. `slot` = the slot type (the
+  catalog's `head, face, neck, torso, hands, legs, feet, back, accessory`), `id` = unique per body
+  (`^[a-z0-9][a-z0-9-]{0,31}$`), `label` = the tile label per locale (none = the type's label). Single figures: one
+  instance per type, `id` = type. Toptoy (the duo): one per type and figure, `<type>-left` / `<type>-right`, labels
+  "Kopf links" / "Head left" …
+- Helpers: `bodySlots(slots)` (none = one instance per type), `avatarBodies()` → `AvatarBody.slots`,
+  `remapAvatarSlots(worn, target, typeOf)`. Validation: unique ids, id pattern, known slot types (error).
+- **Server** (`AvatarService`): worn items are stored by **slot instance id** in `avatar_slots.slot`. `GET /me/` /
+  `GET /avatar/` → `avatar.slots` = every instance of the current body (chosen, else `CharacterUnlocks::defaultBody`)
+  → entry id | null. `PUT /avatar/ { slots: { <instance id>: entryId|null } }`: `422 invalid_slot`, `wrong_slot` (+
+  `slot_type`), `not_owned`; one entry is worn once. **Body switch:** an item stays on the instance with the same id,
+  else it goes to the first free instance of its type, else it comes off (same rule in `remapAvatarSlots` for guests).
+- **Viewer:** the inventory context loads the registry lazily (`loadRegistry()`) and exposes `bodies`, `currentBody`,
+  `slots`, `equippedEntry(id)`, `equip(entry, id?)`, `unequip(id)`. `avatar.svelte`: one tile per instance in two
+  columns beside the A-pose (a single figure: head, face, hands, legs, feet left – the rest right; a multi-figure body:
+  the first instance of each type left, the others right, smaller tiles); a tile shows its worn item's icon, the picker
+  filters by the instance's type.
+- Tests: PHPUnit `CharacterUnlocksTest::testSlotInstancesAndTheDefaultBody`; content tests "A-pose slot instances".
 
-## Sensitive content (2026-09-30, owner — built 2026-09-30; A-pose use removed 2026-10-05)
+## Sensitive content (2026-09-30, owner — built 2026-09-30; no avatar use since 2026-10-05)
 
 Owner: "Make it a member-wide setting. Hide sensitive content is on by default." 2026-10-05: the naked A-pose that used
 it is gone ("Keep the safe-for-work switch in the account"); the setting governs slices marked sensitive (blurred,
@@ -619,15 +614,14 @@ muted – "Sensitive slices" below).
 
 - **Data** (generic): `sensitive?: boolean` = `SensitiveFlag` in `@scutoons/content` (`sensitive.ts`: `isSensitive`,
   `hidesSensitive(user)`, `withoutSensitive(items, hide)`, `HIDE_SENSITIVE_DEFAULT`). Slices use it since 2026-10-05
-  ("Sensitive slices" below); A-pose looks no longer do (a look still marked `sensitive: true` is retired – "Reader
-  avatar bodies").
+  ("Sensitive slices" below); the avatar doesn't (no naked body – "Reader avatar bodies").
 - **Setting `hide_sensitive`, default on.** Members: column `users.hide_sensitive` (migration
   `2026-09-30-sensitive-content`, idempotent – the member-setting pattern of `marketing_opt_in`), `GET /me/
   user.hide_sensitive`, changed with `PUT /me/ { hide_sensitive }` (alone or with the other settings; the answer adds
   `avatar`). **Guests: always on, no toggle.** Account page: checkbox "Sensible Inhalte ausblenden" / "Hide sensitive
   content", hint "Markierte Bilder werden unscharf, ihr Ton stumm." / "Blurs marked panels and mutes their sound."
-- Tests: PHPUnit `CharacterUnlocksTest::testTheRetiredNakedLookIsIgnored` (the setting: default on, off/on, 400),
-  `MediaQualityTest`; content test "the naked A-pose look is retired".
+- Tests: PHPUnit `CharacterUnlocksTest::testTheHideSensitiveSettingLeavesTheAvatarAlone` (the setting: default on,
+  off/on, 400), `MediaQualityTest`; content test "the hide-sensitive reader setting".
 
 ### Sensitive slices (2026-10-05, owner)
 
@@ -673,93 +667,38 @@ cast computed from scenes would be empty there.
   the star only until the owner names more; chapter 2: its scenes use no characters (narrator only) → the star).
 
 
-## Wardrobe (2026-10-01, owner)
+## Wardrobe (2026-10-01, owner; no overlays since 2026-10-12)
 
-Owner: "clothing becomes real, exchangeable items that overlay the character's A-pose."
+Owner 2026-10-01: "clothing becomes real, exchangeable items". 2026-10-12: "additional items dont get overlayed and we
+just put them in the slots on the avatar page" (a fallback for now – real dress-up is researched separately).
 
 - **Default wearables** (starter items with a slot): `scutoons_tshirt` (torso), `scutoons_swim_pants` (legs),
   `scutoons_shorts` (legs), `scutoons_sandals` (feet). Every reader owns all four.
 - **The basic dress** (owner 2026-10-01: "T-shirt + short pants + sandals") = the items marked `"default_worn": true`
   (T-shirt, shorts, sandals), put on when the wearables are handed out, per slot type, where nothing of that type is worn
-  (`basicDress` in `@scutoons/content`, `AvatarService::basicDress` / `wearBasicDress`). **Rule per body:** for each slot
-  type the `default_worn` item with an overlay for the body's character; if it has none, another starter of that type with
-  one – so **yellowmouse and Top Toy (no shorts overlay) wear the swim pants** and their base never looks wrong; if no
-  starter of the type has one, the `default_worn` item anyway (drawn as an icon: the T-shirt and sandals there). The body
-  is the one the reader has at that moment (signup / guests: the default body, Cat Pope). The **swim pants** stay a normal
-  starter in the inventory. Members: granted at signup (`Users::create` →
-  `grantStarterWearables` + `wearBasicDress`), accounts older than the items get them lazily on `GET /me/` /
-  `GET|PUT /avatar/` (`AvatarService::ensureWardrobe`: only items the member owns none of – wearables are never consumed,
-  so no extra table). Guests: `giveGuestStarters` (once per item id, as before) dresses the same way.
-- **Overlays** (`ItemDef.wear`, type + schema + `validateCatalog` in `@scutoons/content` `wardrobe.ts`):
-  `{ "<character>": "<path>", "<character>/<slot instance>": "<path>" }` – a full-body image aligned to the character's
-  A-pose (same 768 × 1152 canvas, transparent WebP). Lookup `<character>/<instance>` first, then `<character>`
-  (`wearOverlay`). A body without an overlay for the worn item draws the item's **icon at the slot anchor** (as before;
-  hoodies, tee, amulet keep that). Validation: keys must be a known character / slot instance of the item's type, `.webp`
-  /`.png`, only wearables, a warning for one overlay on a multi-figure body.
-- **Draw order** (`WEAR_ORDER`, bottom → top): legs → feet → torso → back → hands → accessory → neck → head → face; then
-  the icon-only items (old order back … face) above all overlays.
+  (`basicDress` in `@scutoons/content`, `AvatarService::basicDress` / `wearBasicDress`). Per character: the
+  `default_worn` item with an overlay entry (`wear`) for the character, else another starter of that type with one (so
+  yellowmouse and Top Toy wear the swim pants), else the `default_worn` item. Members: granted at signup
+  (`Users::create` → `grantStarterWearables` + `wearBasicDress`), older accounts lazily on `GET /me/` / `GET|PUT
+  /avatar/` (`AvatarService::ensureWardrobe`). Guests: `giveGuestStarters` dresses the same way.
+- **Worn items are not drawn on the body:** the avatar page shows the look's A-pose alone; each worn item sits as its
+  icon in its slot tile ("Slots per avatar body"). The catalog's overlays (`ItemDef.wear` / `ItemVariant.wear`:
+  `{ "<character>[/<slot instance>]": "<path>" }`, files under `characters/<character>/wear/`) stay as data for now –
+  validated by `validateCatalog` (keys against the characters and their default body's slot instances), read only by
+  the basic dress.
 - **Swap**: putting an item on an occupied instance takes the old one off; it stays an inventory entry (nothing is ever
   lost). The viewer says so ("SCUTOONS Badehose ist zurück im Inventar." – toast, a status line in the avatar view and
-  in the item detail). **Worn items are not listed in the Items tab** (owner 2026-10-01; replaces the "Am Avatar" /
-  "Im Inventar" sections): they are seen and managed in the Avatar tab's slot tiles only; taking one off makes it appear
-  in Items again; a stackable entry with more pieces than are worn shows the rest (an entry is worn at most once).
-- **Base image** (`wardrobeBase`): the body's own A-pose – the swim look with the pants painted in. **Naked look removed
-  2026-10-05 (owner):** no naked base, no cover rule (`SENSITIVE_COVER`, `coverSensitive`, the "restored" note,
-  `AvatarService::cover`/`coverSensitive`/`hideSensitiveBody`, `restored` in `PUT /avatar/` are gone) – every slot,
-  legs included, may be empty; "Hide sensitive content" doesn't touch the avatar.
-- **Bodies picker**: one tile per character. `body { character, look }` stays in the API.
+  in the item detail). **Worn items are not listed in the Items panel** (owner 2026-10-01): they are seen and managed in
+  the Avatar panel's slot tiles only; taking one off makes it appear in Items again.
+- Every slot may be empty (no naked body, no cover rule); "Hide sensitive content" doesn't touch the avatar.
 
-### Files the owner replaces later (same names; placeholders – replace in admin → Assets)
-
-Convention: `characters/<character>/wear/<item>.webp` (single figure) or `…/<item>-<slot instance>.webp` (multi-figure
-body), 768 × 1152 transparent WebP aligned to that character's A-pose; icon `scutoons/items/<item>.png` (512 px cut-out).
-
-| File (CDN root) | Size | Source / method |
-|---|---|---|
-| `characters/catpope/wear/scutoons_swim_pants.webp` | 8 KB | swim − naked difference (the naked A-poses of 2026-10-01) |
-| `characters/catpope/wear/scutoons_tshirt.webp` | 14 KB | the reference `catpope_apose-example-dressed.webp`, colour segmentation (low saturation) |
-| `characters/catpope/wear/scutoons_shorts.webp` | 16 KB | the same reference, colour segmentation (denim blue) |
-| `characters/catpope/wear/scutoons_sandals.webp` | 10 KB | the same reference: brown/cork below the ankles, each sandal moved + scaled onto the naked foot |
-| `characters/yellowmouse/wear/scutoons_swim_pants.webp` | 9 KB | swim − naked difference |
-| `characters/toptoy/wear/scutoons_swim_pants-legs-left.webp` | 16 KB | swim − naked difference, left half |
-| `characters/toptoy/wear/scutoons_swim_pants-legs-right.webp` | 14 KB | swim − naked difference, right half |
-| `scutoons/items/scutoons_tshirt.png` | 122 KB | the catpope overlay, trimmed, 512 px |
-| `scutoons/items/scutoons_swim_pants.png` | 116 KB | the catpope overlay, trimmed, 512 px |
-| `scutoons/items/scutoons_shorts.png` | 190 KB | the catpope overlay, trimmed, 512 px |
-| `scutoons/items/scutoons_sandals.png` | 96 KB | the catpope overlay, the pair side by side, 512 px |
-
-**Missing overlays (asset requests, the icon is drawn meanwhile – `missingWearOverlays(catalog, registry)` lists them):**
-`characters/yellowmouse/wear/scutoons_tshirt.webp`, `characters/yellowmouse/wear/scutoons_shorts.webp`,
-`characters/toptoy/wear/scutoons_tshirt-torso-left.webp`, `…-torso-right.webp`,
-`characters/toptoy/wear/scutoons_shorts-legs-left.webp`, `…-legs-right.webp`,
-`characters/yellowmouse/wear/scutoons_sandals.webp`, `characters/toptoy/wear/scutoons_sandals-feet-left.webp`,
-`…-feet-right.webp` – plus every physical wearable (Dago hoodie /
-heavy T, kangaroo hoodie, scorpion amulet) on every body. They are not stored as `asset-requests` entries (that would
-change the release seed); add them in the creator's wanted images if the owner wants them listed there.
-
-**Extraction quality:** swim pants = clean (the two A-poses share one transform; fur/skin texture noise averaged out by
-blurring the images before the difference, thin attachments like a tail drawn differently dropped); the Top Toy pants
-carry a 2–4 px fringe of the figure's own fur (invisible over the same body). T-shirt/shorts from the dressed reference:
-the upper body lines up with the naked A-pose within 1–3 px, the shirt fits; the reference's legs stand wider than the
-A-pose's, so the shorts hang a little wide over the thighs (reads as loose shorts). The sandals: the reference's feet
-stand wider, turned out and 20 px higher than the naked A-pose's, so each sandal (brown/cork mask below y 950, the holes
-between the straps filled – the reference's toes come along and cover the cat's claws) is moved and scaled onto the naked
-foot (width = foot + 24 px, sole on the sole); it reads as a foot in a sandal in a slight 3/4 view over a front-facing
-foot, the sole edge keeps a few ragged shadow pixels.
-Placeholders only – the owner's branded artwork replaces them.
-
-**Tests:** content `test/wardrobe.test.ts` (catalog vs registry, validation errors, overlay lookup, the basic dress per
-body, base image = swim), PHPUnit `WardrobeTest` (new account wears the basic dress, basic dress per body, lazy grant
-once – the swim pants on Top Toy –, swap keeps the entry, legs may be empty, twins), `npm run check:wardrobe` (headless,
-390 + 1440, guest + test user: the basic dress on the swim base, swim pants on → shorts back + the Items tab lists them and
-none of the worn items, swim pants off → legs empty, item detail, the setting doesn't touch the avatar, Top Toy twins, back
-to Cat Pope). `npm run dev:test-user -- --reset` removes the
-default wearables so the next `/me/` hands them out and puts the basic dress on, like a signup.
-
-**Merge note (after the 2026-10-04 release):** no migration, no seed change. Deploy order: CDN first (the
-`characters/*/wear/` folders and `scutoons/items/`, uploaded in admin → Assets), then the API (items.json + services), then the viewer. Existing members get
-the four wearables on their next `/me/` with the basic dress (T-shirt, shorts, sandals – the swim pants on a body
-without a shorts overlay) worn where those slots were free.
+**Tests:** content `test/wardrobe.test.ts` (catalog vs registry, validation errors, the basic dress per character, the
+bodies per look), PHPUnit `WardrobeTest` (new account wears the basic dress, basic dress per character, lazy grant once,
+swap keeps the entry, legs may be empty, twins), `npm run check:wardrobe` (headless, 390 + 1440, guest + test user: the
+basic dress in the slot tiles and nothing drawn on the body, swim pants on → shorts back + the Items panel lists them and
+none of the worn items, swim pants off → legs empty, item detail, the setting doesn't touch the avatar, Top Toy twins,
+back to Cat Pope). `npm run dev:test-user -- --reset` removes the default wearables so the next `/me/` hands them out
+and puts the basic dress on, like a signup.
 
 ## Substances, reader stats, testo (2026-10-01, owner)
 
@@ -1056,15 +995,38 @@ rule). A keeps reading with the code on their devices (device access ≠ ownersh
   on (`409 cooldown { retry_after }`; a code: its last move into the account; other items: the pieces received).
 - **Daily limit** `GIFT_MAX_PER_DAY` (10 gifts / 24 h, `429 daily_limit`) and `GIFT_LOOKUPS_PER_DAY` (30 recipient
   lookups / 24 h – unknown addresses count too, against probing which emails have an account; `429 rate_limited`).
-- **Recipient must have an account** – decision: **refuse** (`404 recipient_not_found`, "ask them to sign up first"),
-  no pending gifts: a new account needs a product or promo code anyway, so a pending gift would mostly never be
-  collected. The giver is told the recipient sees their email address.
+- **Recipient must have an account** – a gift between members arrives at once and is final (`404 recipient_not_found`,
+  "ask them to sign up first"). While a gift invite campaign runs for the giver, that 404 carries `invite` (the offer)
+  and the reader offers an invite instead – "Gift invites" below. The giver is told the recipient sees their email.
 - **Recipient collection limit** (`409 max_reached { max }`), **no gifts to yourself** (`400 self_gift`), stackables
   `qty` 1…owned, a code-bound piece qty 1.
 - **Code-bound items** (a physical product's twin) move **the whole code** (all its entries) through the transfer core,
   kind `gift`.
 - Every gift is in `item_transfers`; the recipient gets the mail `gift_received` and a notice (`/me/ received` → the
   viewer's toast "X schenkt dir Y"; entry source `gift`).
+
+### Gift invites (campaigns; owner 2026-10-13/14, agents/research/GIFT-INVITES.md – the decisions and their story)
+
+- **Campaigns** (admin → People → Campaigns; `Domain\Campaigns\CampaignStore`, tables `campaigns`,
+  `campaign_inviters`): kind `gift_invite`; runs from / until; who may invite – all accounts (also later ones), ticked
+  accounts, or a segment; the gift – the member's own item or a campaign item from the catalog (stock, per member, per
+  day); a physical campaign item ships to the friend, SCUTOONS or the member pays (by hand: `invite_payment_requested`
+  to the admins, an admin marks it paid); the invitees' reading – keep after the campaign, or until a date.
+- **Invites** (`Domain\Campaigns\Invites`, table `campaign_invites`): an address without an account gets the gift
+  waiting (wait_days, never past the campaign's end) and a personal **promo code** (one per invite, no own code type;
+  `invite_received`). Only invite gifts wait and can be called back while not accepted (status payment | waiting).
+  Signing up with any code delivers every waiting invite of the address (`LoginService::confirm` → `deliverTo`, transfer
+  kind `gift` = the "X schenkt dir Y" notice); the invite code works once (`CodeService::signupRefusal` → `used`) and
+  gets the campaign's reading rule as its `expires_at` (keep → none). Not joined in time → `returned` (own item back,
+  `invite_returned`), not paid → `unpaid`; swept by GET /api/invites, the admin views and `/api/invites/cron?key=
+  CAMPAIGN_CRON_KEY`. A piece with a code or a container goes only to an account. A physical gift: the friend gives a
+  shipping address, the admin marks it shipped; the product's own QR code claims it.
+- **Segments, account filters, promo batches** (`Domain\Admin\Segments`, `AccountFilters`): accounts filter by signed
+  up with (product / promo / invite / none), edition, batch, campaign (invited / joined), segment; segments are filled
+  by hand (Users & roles); `qr.batch` = the batch a code was made in – product and **promo batches** (POST
+  /admin/batches `{ type: promo, name, count }`).
+- Reader: the gift form's "Einladen und schenken", the inventory's "Jemanden einladen" (a campaign item), "Unterwegs"
+  (Zurückholen / Zahlung offen) and the shipping address form (`invites-panel.svelte`).
 
 ### Admin API (`/api/admin`, role admin; server docs/API.md "Admin API")
 

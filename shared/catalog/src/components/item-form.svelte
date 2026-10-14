@@ -8,15 +8,18 @@
 	import CheckField from './check-field.svelte';
 	import LocaleText from './locale-text.svelte';
 	import RespawnField from './respawn-field.svelte';
+	import ContainerField from './container-field.svelte';
+	import ScoreField from './score-field.svelte';
 
 	/**
 	 * An item (agents/ITEMS.md "Item definition"): texts per language, kind / category, the picture (a slot; uploads go
 	 * to <toon>/items/), the flags, slot / edition / product / album, variants (each with its picture) and when a placed
-	 * one reappears. Skills, effects, wear, grantable … are the editor's Advanced JSON.
+	 * one reappears; what it holds (a container), how it ages, a score's files (research/SCORES.md). Skills, effects,
+	 * wear, grantable … are the editor's Advanced JSON.
 	 */
 	let { data = $bindable(), id, lists, problems }: CatalogFormProps = $props();
 
-	const CATEGORIES = ['tool', 'consumable', 'wearable', 'collectible', 'media', 'substance', 'food'];
+	const CATEGORIES = ['tool', 'consumable', 'wearable', 'collectible', 'media', 'substance', 'food', 'score'];
 	const FORMATS = ['vinyl', 'tape', 'cd'];
 	const options = (kind: 'toons' | 'editions' | 'products' | 'albums') =>
 		(lists[kind] ?? []).map((e) => ({ value: e.id, label: `${text(e.data?.name ?? e.data?.title) || e.id}` }));
@@ -31,6 +34,12 @@
 	function setLimit(key: 'max' | 'placements' | 'max_world', value: unknown) {
 		if (value === null || value === undefined || value === '') delete data[key];
 		else data[key] = typeof value === 'number' ? Math.round(value) : value;
+	}
+	/** ageing (the DIY song book): three day counts; all empty = it doesn't age */
+	function setAge(key: 'tint_days' | 'spots_days' | 'full_days', value: unknown) {
+		const next = { ...(data.ages ?? {}), [key]: value === null || value === '' ? undefined : Math.max(0, Math.round(Number(value))) };
+		if (next.tint_days == null && next.spots_days == null && next.full_days == null) delete data.ages;
+		else data.ages = next;
 	}
 </script>
 
@@ -131,6 +140,23 @@
 	{#snippet footer()}{#if id && variants.length}<p class="sc-caption muted">{m['catalog.variant_files']({ id })}</p>{/if}{/snippet}
 </CatalogRows>
 
+{#if data.category === 'score' || data.score}
+	<ScoreField value={data.score} item={id || data.id} error={err('score')} onchange={(v) => (data.score = v)} />
+{/if}
+
+<ContainerField value={data.holds} categories={CATEGORIES} {lists} error={err('holds', 'overfill', 'container')} onchange={(v) => (v ? (data.holds = v) : delete data.holds)} />
+
+<!-- it ages from its creation: a tint, then spots (the DIY song book, owner 2026-10-14) -->
+<fieldset class="ages" data-testid="item-ages">
+	<legend>{m['catalog.ages']()}</legend>
+	<div class="sc-fields" data-cols="fit" style:--fields-fit-min="9rem">
+		<CatalogField label={m['catalog.ages_tint']()} type="number" value={data.ages?.tint_days} onchange={(v) => setAge('tint_days', v)} testid="item-ages-tint" />
+		<CatalogField label={m['catalog.ages_spots']()} type="number" value={data.ages?.spots_days} onchange={(v) => setAge('spots_days', v)} testid="item-ages-spots" />
+		<CatalogField label={m['catalog.ages_full']()} type="number" value={data.ages?.full_days} onchange={(v) => setAge('full_days', v)} testid="item-ages-full" />
+	</div>
+	{#if err('ages')}<p class="sc-error">{err('ages')}</p>{/if}
+</fieldset>
+
 <!-- item limits across the system (BACKLOG 10.39, ITEMS.md "Item limits"): empty = unlimited -->
 <div class="sc-fields" data-cols="fit" style:--fields-fit-min="12rem">
 	<CatalogField label={m['catalog.max']()} type="number" value={data.max} hint={m['catalog.max_hint']()} error={err('max')} onchange={(v) => setLimit('max', v)} testid="item-max" />
@@ -161,6 +187,9 @@
 
 <style>
 	.picture {
+		margin-bottom: var(--space-15);
+	}
+	.ages {
 		margin-bottom: var(--space-15);
 	}
 	.flags {

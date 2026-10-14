@@ -1,4 +1,4 @@
-// Wardrobe (agents/ITEMS.md "Wardrobe"): overlays, the base image, the catalog validation – against the
+// Wardrobe (agents/ITEMS.md "Wardrobe"): the bodies, the basic dress, the catalog validation – against the
 // test fixtures (server/tests/fixtures: the catalog and the character registry of 2026-10-04).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,14 +6,9 @@ import { readFileSync } from 'node:fs';
 import {
 	avatarBodies,
 	basicDress,
-	missingWearOverlays,
 	unlockedBodies,
 	validateCatalog,
 	catalogFromSeed,
-	wardrobeBase,
-	wearConventionPath,
-	wearOverlay,
-	WEAR_ORDER,
 	type Catalog,
 	type CharacterRegistry
 } from '../src/index.ts';
@@ -50,28 +45,6 @@ test('wardrobe: validation errors', () => {
 	assert.ok(!validateCatalog(noLegs, registry).some((p) => p.message.includes('"legs" slot')));
 });
 
-test('wardrobe: overlays per body and slot instance, convention paths', () => {
-	assert.equal(wearOverlay(item('scutoons_swim_pants'), 'catpope', 'legs'), 'characters/catpope/wear/scutoons_swim_pants.webp');
-	assert.equal(wearOverlay(item('scutoons_swim_pants'), 'toptoy', 'legs-right'), 'characters/toptoy/wear/scutoons_swim_pants-legs-right.webp');
-	assert.equal(wearOverlay(item('scutoons_tshirt'), 'toptoy', 'torso-left'), null);
-	assert.equal(wearOverlay(item('dago_hoodie'), 'catpope', 'torso'), null, 'hoodies keep the icon at the anchor');
-	assert.equal(wearConventionPath('toptoy', 'scutoons_tshirt', { id: 'torso-left', slot: 'torso' }), 'characters/toptoy/wear/scutoons_tshirt-torso-left.webp');
-	assert.equal(wearConventionPath('catpope', 'scutoons_tshirt', { id: 'torso', slot: 'torso' }), 'characters/catpope/wear/scutoons_tshirt.webp');
-	assert.deepEqual(WEAR_ORDER.slice(0, 3), ['legs', 'feet', 'torso']);
-	const missing = missingWearOverlays({ items: catalog.items.filter((i) => i.id.startsWith('scutoons_')) }, registry).map((m) => `${m.item}@${m.character}/${m.instance}`);
-	assert.deepEqual(missing.sort(), [
-		'scutoons_sandals@toptoy/feet-left',
-		'scutoons_sandals@toptoy/feet-right',
-		'scutoons_sandals@yellowmouse/feet',
-		'scutoons_shorts@toptoy/legs-left',
-		'scutoons_shorts@toptoy/legs-right',
-		'scutoons_shorts@yellowmouse/legs',
-		'scutoons_tshirt@toptoy/torso-left',
-		'scutoons_tshirt@toptoy/torso-right',
-		'scutoons_tshirt@yellowmouse/torso'
-	]);
-});
-
 test('wardrobe: the basic dress per body (shorts where they have an overlay, else the swim pants)', () => {
 	const starters = catalog.items.filter((i) => i.starter && i.slot);
 	assert.deepEqual(basicDress(starters, 'catpope').map((i) => i.id), ['scutoons_tshirt', 'scutoons_shorts', 'scutoons_sandals']);
@@ -83,18 +56,13 @@ test('wardrobe: the basic dress per body (shorts where they have an overlay, els
 	assert.ok(validateCatalog(bad, registry).some((p) => p.level === 'error' && p.message.includes('default_worn')));
 });
 
-test('wardrobe: the base image is always the swim look (the legacy naked look is ignored)', () => {
-	// the fixture registry still has the removed `naked` looks (production data of 2026-10-04)
-	const all = unlockedBodies(avatarBodies(registry), [{ character: 'catpope', looks: ['swim', 'naked'] }, { character: 'yellowmouse', looks: ['swim'] }]);
-	assert.deepEqual(all.map((b) => `${b.character}/${b.look}`), ['catpope/swim', 'yellowmouse/swim']);
-	const cat = all.find((b) => b.character === 'catpope')!;
-	assert.equal(wardrobeBase(cat)?.path, 'characters/catpope/catpope_apose-swim.webp');
-	assert.equal(wardrobeBase(null), null);
-});
-
-test('a variant can have its own overlay; without one the item\'s counts (owner 2026-10-08: the sunglasses\' colours)', () => {
-	const glasses = { wear: { catpope: 'characters/catpope/wear/sunglasses.webp' } };
-	assert.equal(wearOverlay(glasses, 'catpope', 'face', { wear: { catpope: 'characters/catpope/wear/sunglasses-blue.webp' } }), 'characters/catpope/wear/sunglasses-blue.webp');
-	assert.equal(wearOverlay(glasses, 'catpope', 'face', { wear: null }), 'characters/catpope/wear/sunglasses.webp');
-	assert.equal(wearOverlay({ wear: null }, 'catpope', 'face', { wear: { catpope: 'x.webp' } }), 'x.webp');
+test('wardrobe: the bodies are the looks with an A-pose (owner 2026-10-12; the naked look is gone)', () => {
+	const all = unlockedBodies(avatarBodies(registry), [{ character: 'catpope', looks: [] }, { character: 'yellowmouse', looks: [] }]);
+	assert.deepEqual(all.map((b) => `${b.character}/${b.persona}/${b.look}`), ['catpope/regular/default', 'yellowmouse/regular/default']);
+	assert.equal(all[0].path, 'characters/catpope/catpope_apose-swim.webp');
+	// no image anchors any more: a slot instance is id, type (and a label for twins)
+	assert.deepEqual(all[0].slots[0], { id: 'head', slot: 'head' });
+	const toptoy = avatarBodies(registry).find((b) => b.character === 'toptoy')!;
+	assert.equal(toptoy.slots.length, 18);
+	assert.deepEqual(Object.keys(toptoy.slots[0]).sort(), ['id', 'label', 'slot']);
 });

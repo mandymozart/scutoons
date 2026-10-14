@@ -16,6 +16,7 @@
 	import RecipePreview from '$lib/components/items/recipe-preview.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import ReaderStats from '$lib/components/items/reader-stats.svelte';
+	import InvitesPanel from '$lib/components/items/invites-panel.svelte';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -150,6 +151,8 @@
 	{:else if !inventory.catalog && inventory.entries.length === 0}
 		<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
 	{:else}
+		<!-- gift invites: invite with a campaign's item, the open invites, a gift's shipping address (research/GIFT-INVITES.md) -->
+		{#if !combineWith}<InvitesPanel />{/if}
 		{#if listed.length === 0}
 			<p class="empty">{m['inventory.empty']()}</p>
 		{/if}

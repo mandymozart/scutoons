@@ -19,10 +19,10 @@ Moods are a separate step (`moods.md`, to come): every mood is a variation of th
 | **portrait**   | VN portrait stage (right), base for all moods | 600 × 600 px          | head down to above the waist, with arms, facing the viewer, eyes on the horizontal line at ~40 % from the top, head centred | transparent | neutral |
 | **avatar**     | VN avatar slot (left), lists, pickers         | 600 × 600 px (shown at 192 px) | head with neck, facing the viewer, eyes on a horizontal line, fully inside the frame — generated as its own view (owner decision 2026-09-30); the 192 px display copy is downscaled from it | transparent | neutral |
 | **full**     | full-body scenes                              | 600 × 1200 px (1 : 2) | whole figure in the character's characteristic standing pose, feet ~4 % above the bottom edge, head ~4 % below the top                                                                                                                         | transparent                                              | neutral    |
-| **apose**    | reader avatar body (items are drawn on it)    | 768 × 1152 px (2 : 3) | strict A-pose, front view, symmetrical, arms ~30–40° away from the body, palms towards the thighs, legs slightly apart, feet flat and fully visible, figure centred, same scale for every character (head top ~5 %, soles ~92 % of the height); **multi-figure bodies** (duos, twins, triplets) that would exceed the width at that scale are scaled to fit the width (≥10 px side margins) with the soles still at ~92 %, so the heads sit lower (Toptoy ~22 %) | transparent with a soft floor shadow (as the existing A-poses) | neutral    |
+| **apose**    | reader avatar body (one per look; items sit in the avatar page's slots, not on it) | 768 × 1152 px (2 : 3) | strict A-pose, front view, symmetrical, arms ~30–40° away from the body, palms towards the thighs, legs slightly apart, feet flat and fully visible, figure centred, same scale for every character (head top ~5 %, soles ~92 % of the height); **multi-figure bodies** (duos, twins, triplets) that would exceed the width at that scale are scaled to fit the width (≥10 px side margins) with the soles still at ~92 %, so the heads sit lower (Toptoy ~22 %) | transparent with a soft floor shadow (as the existing A-poses) | neutral    |
 
-A-pose look: `swim` (plain swim shorts/pants) – the only standard A-pose look (the `naked` one was removed 2026-10-05,
-owner). Story looks (e.g. helmet) are **not** A-pose looks.
+The A-pose belongs to a look (owner 2026-10-12: "a poses come per look") and wears that look's clothing; there is no
+naked A-pose. A look without an A-pose is simply no avatar body.
 
 Style for all views: identical to the reference — same rendering, line quality, colours, lighting, proportions,
 clothing of the look. No text, no watermark, no props unless they belong to the look.
@@ -50,22 +50,22 @@ The views (all with a neutral expression):
    head centred, 600 × 600 px, transparent background.
 3. FULL — the whole figure standing in its natural, characteristic pose, feet fully visible, small even margin
    above the head and below the feet, 600 × 1200 px, transparent background. if a reference photo or concept art is provided use that to imagine what clothing and outfit the person has.
-4. A-POSE (SWIM) — strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the
+4. A-POSE — strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the
    thighs, legs slightly apart, feet flat and fully visible, figure centred, head top at ~5 % and soles at ~92 % of
-   the height, 768 × 1152 px, transparent background with a soft shadow under the feet, wearing plain swim shorts.
+   the height, 768 × 1152 px, transparent background with a soft shadow under the feet, wearing the clothing of this look.
 
 
 Deliver each view as its own image, named:
   <character>[-<persona>][_<look>]_avatar-neutral.png
   <character>[-<persona>][_<look>]_portrait-neutral.png
   <character>[-<persona>][_<look>]_full-neutral.png
-  <character>_apose-swim.png
+  <character>[-<persona>][_<look>]_apose.png
 Consistency check before delivering: placed side by side with the reference, the character must be recognisably
 identical in every view; only framing and pose may differ.
 ```
 
 File names for the delivery (the importer also accepts any name inside a folder named after the character):
-`<character>[-<persona>][_<look>]_<view>-neutral.png` · A-pose: `<character>_apose-swim.png`
+`<character>[-<persona>][_<look>]_<view>-neutral.png` · A-pose: `<character>[-<persona>][_<look>]_apose.png`
 
 ## Workflow steps
 

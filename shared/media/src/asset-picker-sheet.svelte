@@ -32,6 +32,7 @@
 	import { AUDIO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { bestAudioSource, decodeAudio, encodeMp3, nearestKbps, planAudioUpload, type AudioUploadPlan } from './audio-levels.ts';
 	import { uploadOrReplace } from './media-upload.ts';
+	import ModelThumb from './model-thumb.svelte';
 	import { checkMedia, standardName, toStandard } from './media-standard.ts';
 
 	/**
@@ -354,7 +355,7 @@
 			<section class="detail" data-testid="asset-detail" aria-label={c.title}>
 				<div class="detail-head">
 					<span class="sc-card-img large">
-						{#if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
+						{#if c.kind === 'model'}<ModelThumb path={c.path} size="2.5em" />{:else if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
 					</span>
 					<div class="detail-text">
 						<span class="name" title={c.slug}>{c.title}</span>
@@ -385,7 +386,7 @@
 		<!-- upload: a button (owner 2026-10-03: the fold-out was confusing); the path appears once a file is chosen -->
 		<div class="upload" data-testid="asset-upload">
 			<Button size="sm" variant="secondary" disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose">{t.upload} …</Button>
-			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : kind === 'model' ? '.glb' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
+			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : kind === 'model' ? '.glb' : kind === 'document' ? '.pdf,.musicxml,.mxl,.xml' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
 			{#if uploadFile}
 				<label class="sc-label" for="asset-upload-path">{t.uploadPath}</label>
 				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />
@@ -440,7 +441,7 @@
 					data-testid="asset-card"
 				>
 					<span class="sc-card-img">
-						{#if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
+						{#if a.kind === 'model'}<ModelThumb path={a.path} />{:else if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
 					</span>
 					<span class="name">{fileName(a.path)}</span>
 					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(mainSize(a))}{#if !a.usages} · {t.unused}{/if}</span>

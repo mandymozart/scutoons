@@ -126,8 +126,8 @@
 	{:else}
 		<!-- owner 2026-10-12, approved from the draft: "mehr Konzepte aus der Mobile in die Desktop-Variante", "Platz sparen": the texts and the
 		     media side by side when the page is wide enough (one column on a phone); no "Meta" heading – the fields say it -->
-		<div class="columns"><div class="grid">
-		<section class="block" data-testid="season-meta" aria-label={m['creator.meta']()}>
+		<div class="columns sc-section"><div class="grid">
+		<section class="part" data-testid="season-meta" aria-label={m['creator.meta']()}>
 			<LocaleText doc={season} path={['title']} label={m['creator.field_title']()} multiline={false} />
 			<LocaleText doc={season} path={['description']} label={m['creator.field_description']()} rows={6} />
 			<div class="sc-fields" data-cols="2" data-align="start">
@@ -137,7 +137,7 @@
 		</section>
 
 		<!-- media as slots (owner 2026-10-03, like the chapter page): the preview is the button, paths only as tooltips -->
-		<section class="block" data-testid="season-media">
+		<section class="part" data-testid="season-media">
 			<h2 title={m['creator.trailer_hint']()}>{m['creator.season_media']()}</h2>
 			<div class="media">
 				<!-- the cover (owner 2026-10-02: covers are per season): art + lettering live in the cover editor -->
@@ -181,7 +181,7 @@
 		</div></div>
 
 		<!-- the season's related items (catalog ids, the same in every language): the toon page's "related" block -->
-		<section class="block" data-testid="season-related">
+		<section class="sc-section narrow" data-testid="season-related">
 			<h2>{m['creator.related_items']()}</h2>
 			<RelatedItemsField doc={season} hint={m['creator.related_items_hint_season']()} legend={false} />
 			<!-- the season's music = the album of a related record (owner 2026-10-02): no own download fields any more;
@@ -190,7 +190,7 @@
 		</section>
 
 		<!-- who supported the season: "Supported by" logos at the end of the reader's credits fine print -->
-		<section class="block" data-testid="season-supporters">
+		<section class="sc-section narrow" data-testid="season-supporters">
 			<h2>{m['creator.supporters']()}</h2>
 			<SupportersField doc={season} {toon} place="{place}supporters/" />
 		</section>
@@ -209,15 +209,19 @@
 			gap: 0 2rem;
 		}
 	}
-	.block {
+	/* the texts | the media: one page section (side by side when wide, stacked when narrow) */
+	.part {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
 		max-width: 56rem;
 		margin-bottom: 2rem;
 	}
-	.block:last-child {
+	.part:last-child {
 		margin-bottom: 0;
+	}
+	.narrow {
+		max-width: 56rem;
 	}
 	h2 {
 		margin: 0;

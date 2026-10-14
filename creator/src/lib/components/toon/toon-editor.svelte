@@ -50,7 +50,7 @@
 	{:else if entry.present.length === 0}
 		<p class="warn">{m['creator.toon_entry_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
-		<section class="block" data-testid="toon-meta">
+		<section class="sc-section" data-testid="toon-meta">
 			<h2>{m['creator.meta']()}</h2>
 			<LocaleText doc={entry} path={['title']} label={m['creator.field_title']()} multiline={false} />
 			<LocaleText doc={entry} path={['description']} label={m['creator.field_description']()} rows={3} />
@@ -76,7 +76,7 @@
 			<LocaleText doc={entry} path={['release']} label={m['creator.field_release']()} type="date" />
 		</section>
 
-		<section class="block neutral" data-testid="toon-neutral">
+		<section class="sc-section neutral" data-testid="toon-neutral">
 			<h2>{m['creator.toon_neutral']()}</h2>
 			<p class="hint">{m['creator.toon_neutral_hint']()}</p>
 			<PropField doc={entry} path={['authors']} label={m['creator.field_authors']()} type="list" testid="toon-authors" />
@@ -133,15 +133,6 @@
 </MetaPage>
 
 <style>
-	.block {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		margin-bottom: 2rem;
-	}
-	.block:last-child {
-		margin-bottom: 0;
-	}
 	.sub {
 		display: flex;
 		flex-direction: column;

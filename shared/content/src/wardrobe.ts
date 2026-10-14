@@ -1,55 +1,20 @@
-// Wardrobe (owner 2026-10-01, agents/ITEMS.md "Wardrobe"): clothing is real, exchangeable items drawn as full-body
-// overlays on the reader's avatar body (a character's A-pose). Every reader starts with the SCUTOONS T-shirt and swim
-// pants worn; another item in the same slot instance swaps the worn one back into the inventory. The base image is the
-// body's own A-pose (the swim look, pants painted in – owner 2026-10-05: no naked A-pose any more), so every slot may be
-// empty. The server applies the same rules (AvatarService).
-import type { AvatarBody, AvatarSlotInstance, CharacterRegistry } from './characters.ts';
-import { bodySlots } from './characters.ts';
-import type { AvatarSlot, Catalog, ItemDef, ItemVariant } from './items.ts';
+// Wardrobe (owner 2026-10-01, agents/ITEMS.md "Wardrobe"): clothing is real, exchangeable items worn in the slots of the
+// reader's avatar body (the A-pose of a look). Since 2026-10-12 worn items are NOT drawn on the body (owner: "additional
+// items dont get overlayed and we just put them in the slots on the avatar page") – the avatar page shows them as icons
+// in its slot tiles; every slot may be empty. Another item in the same slot instance swaps the worn one back into the
+// inventory. The catalog's overlays (`ItemDef.wear`) stay as data for now (the dress-up research, research/); they only
+// pick the basic dress. The server applies the same rules (AvatarService).
+import type { CharacterRegistry } from './characters.ts';
+import { bodySlots, defaultLookId, findLook, findPersona, REGULAR_PERSONA } from './characters.ts';
+import type { ItemDef } from './items.ts';
 import { AVATAR_SLOTS } from './items.ts';
 import type { Problem } from './validate.ts';
 import { validateAlbums } from './albums.ts';
 import { validateContainers } from './containers.ts';
 import { READER_EFFECTS, READER_STATS } from './substances.ts';
 
-/**
- * Draw order of the overlays, bottom → top (legs under the shoes, the shirt over the waistband, the backpack over the
- * shirt, then hands, neck, head, face). Items without an overlay for the body are drawn after all overlays, as icons at
- * their slot anchors.
- */
-export const WEAR_ORDER: AvatarSlot[] = ['legs', 'feet', 'torso', 'back', 'hands', 'accessory', 'neck', 'head', 'face'];
-
 /** `catpope`, `toptoy/legs-left` – a key of `ItemDef.wear` */
 export const WEAR_KEY = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]{0,31})?$/;
-
-/** Folder of a character's overlays (from the CDN root). */
-export const wearFolder = (character: string) => `characters/${character}/wear`;
-
-/**
- * Convention path of an overlay: `characters/<character>/wear/<item>.webp` for a single figure (the instance id equals
- * its slot type), `…/<item>-<instance id>.webp` for one figure of a multi-figure body (Top Toy `legs-left`).
- */
-export function wearConventionPath(character: string, item: string, instance?: Pick<AvatarSlotInstance, 'id' | 'slot'> | null): string {
-	const suffix = instance && instance.id !== instance.slot ? `-${instance.id}` : '';
-	return `${wearFolder(character)}/${item}${suffix}.webp`;
-}
-
-/** The overlay of an item on a character's slot instance: `<character>/<instance>` first, then `<character>`; null = none. */
-export function wearOverlay(
-	item: Pick<ItemDef, 'wear'> | null | undefined,
-	character: string | null | undefined,
-	instanceId: string,
-	variant?: Pick<ItemVariant, 'wear'> | null
-): string | null {
-	if (!character) return null;
-	// a variant's own overlay first (a colour of the sunglasses), else the item's
-	for (const wear of [variant?.wear, item?.wear]) {
-		if (!wear) continue;
-		const path = wear[`${character}/${instanceId}`] ?? wear[character];
-		if (typeof path === 'string' && path.trim()) return path.trim();
-	}
-	return null;
-}
 
 /** The item has an overlay for some slot instance of this character (`<character>` or `<character>/<instance>`). */
 export function hasWearFor(item: Pick<ItemDef, 'wear'> | null | undefined, character: string | null | undefined): boolean {
@@ -60,8 +25,7 @@ export function hasWearFor(item: Pick<ItemDef, 'wear'> | null | undefined, chara
 /**
  * The basic dress put on when the default wearables are handed out, for the body's character: per slot type of the
  * given starter wearables, the `default_worn` one with an overlay for the character; else another of that type with an
- * overlay (yellowmouse / Top Toy have no shorts overlay → the swim pants); else the `default_worn` one (drawn as an
- * icon). Slot types without a `default_worn` item are left out (the swim pants alone are not put on). Same rule on the
+ * overlay (yellowmouse / Top Toy have no shorts overlay → the swim pants); else the `default_worn` one. Slot types without a `default_worn` item are left out (the swim pants alone are not put on). Same rule on the
  * server (AvatarService::basicDress).
  */
 export function basicDress<T extends Pick<ItemDef, 'id' | 'slot' | 'wear' | 'default_worn'>>(items: T[], character: string | null | undefined): T[] {
@@ -76,46 +40,13 @@ export function basicDress<T extends Pick<ItemDef, 'id' | 'slot' | 'wear' | 'def
 	return out;
 }
 
-/** The base image of the avatar: the shown body's A-pose (the safe swim look; the naked base was removed 2026-10-05). */
-export function wardrobeBase(body: Pick<AvatarBody, 'path'> | null | undefined): { path: string } | null {
-	return body?.path ? { path: body.path } : null;
-}
-
-/** A wearable × body slot instance without an overlay (an asset request for the owner; the icon is drawn meanwhile). */
-export interface MissingWear {
-	item: string;
-	character: string;
-	instance: string;
-	/** where the overlay should go (convention, from the CDN root) */
-	path: string;
-}
-
-/**
- * Every wearable item (with a slot) on every A-pose body of the registry (the default look's slot instances of the
- * item's type) that has no overlay yet.
- */
-export function missingWearOverlays(catalog: Pick<Catalog, 'items'> | null | undefined, registry: CharacterRegistry | null | undefined): MissingWear[] {
-	const out: MissingWear[] = [];
-	for (const item of catalog?.items ?? []) {
-		if (!item.slot) continue;
-		for (const c of registry?.characters ?? []) {
-			const looks = c?.apose?.looks ?? [];
-			const look = looks.find((l) => l?.default) ?? looks[0];
-			if (!look?.path?.trim()) continue;
-			for (const inst of bodySlots(look.slots).filter((s) => s.slot === item.slot)) {
-				if (!wearOverlay(item, c.id, inst.id)) out.push({ item: item.id, character: c.id, instance: inst.id, path: wearConventionPath(c.id, item.id, inst) });
-			}
-		}
-	}
-	return out;
-}
-
 const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
  * The item catalog (served by GET /api/items/; a catalog file without slots / stats – those are code,
  * AVATAR_SLOTS / READER_STATS, used when the catalog has none): ids, slots, starters and the wardrobe overlays (`wear`). With the
- * registry, `wear` keys are checked against the characters and their slot instances.
+ * registry, `wear` keys are checked against the characters and the slot instances of their default body (the regular
+ * persona's default look).
  */
 export function validateCatalog(catalog: unknown, registry?: CharacterRegistry | null, file = 'items.json'): Problem[] {
 	const problems: Problem[] = [];
@@ -185,8 +116,8 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 				add('warning', wp, `${item.id}: unknown character "${character}"`);
 				continue;
 			}
-			const looks = c.apose?.looks ?? [];
-			const instances = bodySlots((looks.find((l) => l.default) ?? looks[0])?.slots);
+			const regular = findPersona(c, REGULAR_PERSONA);
+			const instances = bodySlots(findLook(regular, defaultLookId(regular))?.apose?.slots);
 			if (instance) {
 				const inst = instances.find((s) => s.id === instance);
 				if (!inst) add('error', wp, `${item.id}: ${character} has no slot instance "${instance}"`);

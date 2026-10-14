@@ -119,13 +119,13 @@ export interface ItemDef extends AcceptedWarnings {
 	/**
 	 * Wardrobe overlays of a wearable (ITEMS.md "Wardrobe"): `<character>` or `<character>/<slot instance id>` → CDN
 	 * path of a full-body overlay aligned to that character's A-pose (768 × 1152, transparent WebP, convention
-	 * `characters/<character>/wear/<item>[-<slot instance>].webp`). A body without an overlay draws the item's icon at
-	 * the slot anchor instead.
+	 * `characters/<character>/wear/<item>[-<slot instance>].webp`). Not drawn since 2026-10-12 (items sit in the avatar
+	 * page's slot tiles, ITEMS.md "Wardrobe"); kept for the dress-up research, it only picks the basic dress.
 	 */
 	wear?: Record<string, string> | null;
 	/**
 	 * Part of the basic dress (ITEMS.md "Wardrobe": T-shirt, shorts, sandals): a starter wearable that is put on when it
-	 * is handed out (signup, older accounts, guests). A body without an overlay for it wears another starter of the same
+	 * is handed out (signup, older accounts, guests). A character without an overlay for it wears another starter of the same
 	 * slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`.
 	 */
 	default_worn?: boolean;
@@ -247,30 +247,40 @@ export interface Entry {
 	code: string | null;
 	edition_number: number | null;
 	acquired_at: string;
+	/** the container entry it lies in (containers.ts; none = loose in the inventory) */
+	in?: EntryId | null;
+	/** a container: overfilled since (it breaks after `holds.overfill.days`) */
+	overfilled_at?: string | null;
+	/** an ageing item ages from here (none = `acquired_at`; an upgraded book keeps the old age) */
+	aged_since?: string | null;
 }
 
 /** Where an avatar-body unlock came from (server `member_characters.source`) */
 export type UnlockSource = 'default' | 'code' | 'item' | 'story' | 'admin';
 
-/** A character the member may wear as avatar body, with the unlocked A-pose looks (`/me/ avatar.unlocked`) */
+/** A character the member may wear as avatar body, with the unlocked looks (`/me/ avatar.unlocked`) */
 export interface CharacterUnlock {
 	character: string;
-	/** A-pose look ids (`swim`, …) */
+	/**
+	 * unlocked looks with an A-pose as `<persona>/<look>` (`bodyLookKey`; the server lists the default body too – a
+	 * character unlock always includes it)
+	 */
 	looks: string[];
 	source: UnlockSource;
 }
 
-/** The chosen avatar body: a character's A-pose look */
+/** The chosen avatar body: a look (of a persona of a character) with an A-pose */
 export interface AvatarBodyRef {
 	character: string;
+	persona: string;
 	look: string;
 }
 
 /**
- * The default unlocks of every member and of guests (owner 2026-10-05: Cat Pope, swim). The server's value is
- * the setting AVATAR_DEFAULT_UNLOCKS (members get theirs from `/me/`); guests use this one.
+ * The default unlocks of every member and of guests (owner 2026-10-05: Cat Pope – its default body). The server's value
+ * is the setting AVATAR_DEFAULT_UNLOCKS (members get theirs from `/me/`); guests use this one.
  */
-export const DEFAULT_AVATAR_UNLOCKS: CharacterUnlock[] = [{ character: 'catpope', looks: ['swim'], source: 'default' }];
+export const DEFAULT_AVATAR_UNLOCKS: CharacterUnlock[] = [{ character: 'catpope', looks: [], source: 'default' }];
 
 export interface Avatar {
 	/**

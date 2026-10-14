@@ -1,4 +1,4 @@
-Status 2026-10-14: plan decided (Q1–Q13, the renderer Verovio); the score view is a dev draft (`/account/lab/score`); building next (FEATURES 10.97).
+Status 2026-10-14: decided; built – model, server, catalog editor fields, the reader's score view + cover lettering + ageing; next: the viewer UI (drafts first), protected uploads (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -141,6 +141,9 @@ score in the view (a guest's ownership lives on the device – the server can't 
 owns the item; album downloads move to the same zone and rule. Signing = one HMAC (SHA-256 of key + path + expiry,
 base64url) in PHP, ~30 lines + tests; [owner] create the pull zone with token auth in the bunny panel and put its key
 into the server's env.
+Set up (owner 2026-10-14): storage zone + pull zone `scutoons-protected` (Falkenstein, token authentication), custom
+hostname **`vault.scutoons.com`** (CNAME → scutoons-protected.b-cdn.net) = `PROTECTED_CDN_URL`; the key is the secret
+`BUNNY_PROTECTED_CDN_KEY`.
 
 **6. Creator / admin.** Admin → Catalog → Items: the `score` slots (MusicXML, PDF), validation (both present, the
 MusicXML parses – a Verovio load test in the admin, the server checks extension + size). Creator: nothing new – a
