@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { TILE_DPR_MAX, TILE_PX, tileLevel, visibleTiles, type MapFog, type MapTiles } from '@scutoons/content';
+	import { FOG_FEATHER, TILE_DPR_MAX, TILE_PX, tileLevel, visibleTiles, type MapFog, type MapTiles } from '@scutoons/content';
 	import type { MapViewport } from './viewport.svelte.ts';
-	import { fogGradients, fogMaskUrl } from './fog-mask.ts';
+	import { fogDiscs, fogGradients, fogMaskUrl } from './fog-mask.ts';
 
 	/**
 	 * The world map's terrain (agents/MAP.md; owner 2026-10-11: "MapTerrain sollte sowieso shared sein"): the background
@@ -130,19 +130,33 @@
 		if (!view.moving) restZoom = view.zoom;
 	});
 	const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
-	/** the tiles on screen at a level (half a tile around it) */
-	function onScreen(level: number, px: number) {
+	/** the tiles on screen at a level – with `margin` half a tile around it (loaded ahead for a pan) */
+	function onScreen(level: number, px: number, margin = true) {
 		const a = view.toWorld({ x: 0, y: 0 });
 		const b = view.toWorld({ x: view.width, y: view.height });
-		const margin = px / 2 / 2 ** level;
-		return visibleTiles({ x: a.x - margin, y: a.y - margin, width: b.x - a.x + margin * 2, height: b.y - a.y + margin * 2 }, level, { width, height }, px);
+		const m = margin ? px / 2 / 2 ** level : 0;
+		return visibleTiles({ x: a.x - m, y: a.y - m, width: b.x - a.x + m * 2, height: b.y - a.y + m * 2 }, level, { width, height }, px);
 	}
 	/** the level for the zoom: a 512 px tile is one level sharper per tile than a 256 one, so its level comes from the same zoom */
 	const levelOf = (tiles: MapTiles, minLevel: number) => tileLevel(restZoom, Math.min(dpr, TILE_DPR_MAX), tiles.levels, minLevel);
-	function tilesOf(tiles: MapTiles) {
+	function tilesOf(tiles: MapTiles, margin = true) {
 		const level = levelOf(tiles, tiles.minLevel ?? 0);
 		if (tiles.minLevel === undefined && level < 1) return []; // level 0 = the image itself
-		return onScreen(level, tiles.px ?? TILE_PX);
+		return onScreen(level, tiles.px ?? TILE_PX, margin);
+	}
+	/**
+	 * a fog layer's tiles: only those touching a fog disc (owner 2026-10-14, the phone: soft blobs at the fog's edge) – a
+	 * tile wholly in the fog is never downloaded and never holds the layer's "covered" back
+	 */
+	function inFog(f: MapFog | undefined, list: Tile[]): Tile[] {
+		if (!f || !fog) return list;
+		const discs = [...fog, ...growing.map((g) => g.p)].flatMap((p) => fogDiscs(p, f.radius)).map((d) => ({ ...d, r: d.r * (1 + FOG_FEATHER) }));
+		return list.filter((t) =>
+			discs.some((d) => {
+				const dx = Math.max(t.left - d.x, 0, d.x - (t.left + t.size)), dy = Math.max(t.top - d.y, 0, d.y - (t.top + t.size));
+				return dx * dx + dy * dy < d.r * d.r;
+			})
+		);
 	}
 	/**
 	 * a full pyramid (`minLevel` ≤ 0, owner 2026-10-12 – "like Google Maps"): its coarsest tiles on screen stand in under
@@ -159,6 +173,13 @@
 	/** the tiles whose element may show (fading in); `shownTiles`: faded in – only they cover the screen */
 	let settledTiles = $state(new Set<string>());
 	let shownTiles = $state(new Set<string>());
+	/**
+	 * the tiles that have shown once (owner 2026-10-14: the soft levels kept pulsing back): a tile whose element goes and
+	 * comes back (a pan, a level change) is in the browser's cache – it counts as there at once and does not fade in
+	 * again; `missing`: the tiles that do not exist (sea) – never asked for again
+	 */
+	let everShown = $state(new Set<string>());
+	const missing = new Set<string>();
 	const FADE_MS = 250; // .tile's opacity transition
 	const without = (set: Set<string>, src: string) => (set.has(src) ? new Set([...set].filter((s) => s !== src)) : set);
 	/**
@@ -177,9 +198,12 @@
 				clearTimeout(fallback);
 				if (settledTiles.has(src)) return;
 				settledTiles = new Set(settledTiles).add(src);
-				timer = setTimeout(() => {
+				const done = () => {
 					if (!shownTiles.has(src)) shownTiles = new Set(shownTiles).add(src);
-				}, FADE_MS + 50);
+					if (!everShown.has(src)) everShown = new Set(everShown).add(src);
+				};
+				if (everShown.has(src)) done();
+				else timer = setTimeout(done, FADE_MS + 50);
 			};
 			// two frames; a page that paints no frames (hidden) goes on after 100 ms
 			const ready = () => {
@@ -187,7 +211,7 @@
 				fallback = setTimeout(show, 100);
 			};
 			// a sea tile does not exist: hidden, it counts as there
-			const failed = () => ((img.style.visibility = 'hidden'), ready());
+			const failed = () => (missing.add(src), (img.style.visibility = 'hidden'), ready());
 			if (img.complete) (img.naturalWidth ? ready() : failed());
 			else {
 				img.addEventListener('load', ready, { once: true });
@@ -211,32 +235,48 @@
 	//    soft and scaled up, zooming out sharp in the middle – instead of only the coarsest stand-ins ──────────────────
 	type Tile = ReturnType<typeof tilesOf>[number];
 	let interim = $state<Record<string, Tile[]>>({});
-	const isCovered = (tiles: MapTiles, list: Tile[]) => list.length > 0 && list.every((t) => shownTiles.has(tileSrc(tiles, t)));
+	/** a tile is there: it has shown (now or before) or does not exist */
+	const there = (src: string) => shownTiles.has(src) || everShown.has(src) || missing.has(src);
+	/**
+	 * the layer covers the screen: every tile ON screen is there – not the margin around it (owner 2026-10-14: one tile
+	 * loading at the edge of a pan brought the soft levels back under the whole layer); a fog layer only counts the tiles
+	 * in its discs
+	 */
+	function isCovered(layer: (typeof layers)[number]): boolean {
+		const core = inFog(layer.fog, tilesOf(layer.tiles!, false));
+		return core.every((t) => there(tileSrc(layer.tiles!, t)));
+	}
 	$effect(() => {
 		for (const layer of layers) {
 			if (!layer.tiles) continue;
-			const list = tilesOf(layer.tiles);
-			if (!isCovered(layer.tiles, list)) continue;
+			const list = inFog(layer.fog, tilesOf(layer.tiles));
+			if (!list.length || !isCovered(layer)) continue;
 			const before = untrack(() => interim[layer.id]);
 			const key = (l?: Tile[]) => l?.map((t) => `${t.z}/${t.x}_${t.y}`).join(',') ?? '';
 			if (key(before) !== key(list)) interim = { ...untrack(() => interim), [layer.id]: list };
 		}
 	});
-	/** the tiles a layer draws, bottom → top: the coarsest stand-ins, the interim level (while the current one loads), the current level – each once */
+	/**
+	 * the tiles a layer draws, bottom → top: under the current level while it loads, the last level that covered the
+	 * screen (interim) – the coarsest stand-ins only when there is none yet (owner 2026-10-14: the coarsest level, scaled
+	 * up 8–32×, showed as blobs at every coast and fog edge) – each once; tiles known missing are left out
+	 */
 	function stack(layer: (typeof layers)[number], list: Tile[]): Tile[] {
 		const tiles = layer.tiles!;
+		const exists = (t: Tile) => !missing.has(tileSrc(tiles, t));
 		// covered: the current level alone – a coarser tile's soft coast would show through the sea around the crisp one
-		if (isCovered(tiles, list)) return list;
+		if (isCovered(layer)) return list.filter(exists);
 		const current = list[0]?.z;
 		const under = (interim[layer.id] ?? []).filter((t) => t.z !== current);
+		const below = under.length ? under : inFog(layer.fog, standIns(tiles));
 		const seen = new Set<string>();
-		return [...standIns(tiles), ...under, ...list].filter((t) => {
+		return [...below, ...list].filter(exists).filter((t) => {
 			const k = `${t.z}/${t.x}_${t.y}`;
 			return !seen.has(k) && (seen.add(k), true);
 		});
 	}
 	/** a tile element fades in when it arrives (owner 2026-10-12); one that stays (a stand-in, an interim tile) stays shown */
-	const fresh = (src: string) => !settledTiles.has(src);
+	const fresh = (src: string) => !settledTiles.has(src) && !everShown.has(src);
 	const inRange = (l: { minZoom?: number; maxZoom?: number }) => (l.minZoom === undefined || view.zoom >= l.minZoom) && (l.maxZoom === undefined || view.zoom <= l.maxZoom);
 </script>
 
@@ -251,7 +291,7 @@
 
 {#snippet drawn(layer: (typeof layers)[number])}
 	{@const list = layer.tiles ? tilesOf(layer.tiles) : []}
-	{@const covered = isCovered(layer.tiles!, list)}
+	{@const covered = layer.tiles ? list.length > 0 && isCovered(layer) : false}
 	{#if layer.tiles?.minLevel === undefined}
 		<img class="layer" class:covered src={url(layer.image!)} alt="" {width} {height} draggable="false" />
 	{/if}
@@ -266,9 +306,9 @@
 		{#if layer.image && (!zoomRange || inRange(layer)) && visible(layer.id)}
 			{#if layer.fog && fog}
 				{#if fog.length || growing.length}
-					{@const list = layer.tiles ? tilesOf(layer.tiles) : []}
-					{#if list.length}
-						{@render fogTiles(layer, layer.fog, list)}
+					{@const all = layer.tiles ? tilesOf(layer.tiles) : []}
+					{#if all.length}
+						{@render fogTiles(layer, layer.fog, inFog(layer.fog, all))}
 					{:else}
 						<div class="fog" style={maskOf(layer.fog)} data-testid="map-fog-{layer.id}">
 							{@render drawn(layer)}
