@@ -54,7 +54,7 @@ have) can move in with each other – at most **5 of your avatars in one home** 
 allowed is to house 5 of your avatars in one home. its claled WG oder shared flat"); moving in = that home becomes the
 character's home for this reader (reader state, the character's default `home` stays). **Furniture stays behind**
 (owner 2026-10-14: "yes, furniture stays behind") – it belongs to the home, not to the avatar – **unless you can afford
-a mover** (owner 2026-10-14: "unless they can afford a mover"): a paid move (cucumbers, the price open) takes the
+a mover** (owner 2026-10-14: "unless they can afford a mover"): a paid move – **50 cucumbers** for now (owner 2026-10-14: "the price is 50 cucumbers for now") – takes the
 moving avatar's furniture along into the new home (the one exception to D4's "furniture can't leave its home") –
 **not required for the first build, may come
 along** (owner 2026-10-14: "which we dont have to build yet", "but hey why not"). Every avatar starts there. It walks only along **revealed routes to unlocked
@@ -76,7 +76,9 @@ are + "Leave". **Free placement** (owner 2026-10-14: "free placement of course")
 drags it (a position in the room, in % of the room – resolution-independent). **Home scenes** (owner 2026-10-14:
 "background can be diffrent base rooms, we start with a cave and a japanese monks room with tatami and with nothing in
 there"): a home's look is one home scene – to start: **`cave`** and **`tatami_room`** (a Japanese monk's
-room, tatami, empty); a 2.5D diorama in the map places' style (three-quarter view, MAP.md §5.1), the owner's art later (the draft
+room, tatami, empty). **The home scene is set per avatar** (owner 2026-10-14: "home scene is set per avatar"): the
+character definition says it (`home_scene`), the reader doesn't pick it; a WG shows the scene of the avatar whose home
+it is; a 2.5D diorama in the map places' style (three-quarter view, MAP.md §5.1), the owner's art later (the draft
 draws placeholders). The avatar's A-pose stands in the room. Phone: the room on top, the furniture's contents and the
 reader's items scroll below. Desktop: the room fills the height, the panel at the side.
 
@@ -86,8 +88,10 @@ reader's items scroll below. Desktop: the room fills the height, the panel at th
 apartment, place it somehwere"): it comes with the room, the reader moves it like any furniture; recipes marked
 `at: "workshop"` run at a workbench (the broken song book's repair, SCORES.md §2a – at a friend's). **Furniture can't
 leave a room for now** (owner 2026-10-14: "furniture items can not leave a room for now"): once placed it stays in the
-room – moved freely inside it, never back into the inventory, never given away. Placing: select a furniture item in the
-inventory, tap a point in the room → it stands there (`inventory.home_id` + `home_x` / `home_y` – data model below).
+room – moved freely inside it, never back into the inventory, never given away (only a mover takes it along, D1).
+**New furniture waits in the inventory until it is placed** (owner 2026-10-14: "yes, furniture waits"). Placing:
+select a furniture item in the inventory, tap a point in the room → it stands there (`inventory.home_id` + `home_x` /
+`home_y` – data model below).
 
 **D5 – items between inventory and cave** (owner 2026-10-14: "just answered" – by D4: furniture stays in the room;
 the rest as proposed). Only while you are in your cave (there or by VR headset). Into a rack: the container move that
@@ -111,7 +115,7 @@ Catalog / content (edited in the admin / creator):
 - **Home scene** – a catalog table `catalog_home_scenes` (CATALOG.md, like albums): `{ id, name: Localized, image }` –
   `image` = the 2.5D background (CDN path, MAP.md §5.1 style), language-neutral; first rows `cave`, `tatami_room`.
 - **Character** (characters.ts, next to `origin` / `residence`): `home?: <map place id>` (none = the place of its first
-  introduction, D1) and `home_scene?: <home scene id>` (none = the default scene – see open questions).
+  introduction, D1) and `home_scene: <home scene id>` (set per avatar, owner 2026-10-14; until a character has one: `cave`).
 - **Furniture item** (ItemDef): `category: "furniture"`; racks carry `holds` (ITEMS.md "Containers"); the workbench
   `workshop: true`; recipes `at?: "workshop"` (run only at a workbench).
 - **VR headset** (ItemDef): skill `{ type: "enter_home" }`.
@@ -127,7 +131,6 @@ Reader state (server tables for members; the same shape in localStorage for gues
 - **`home_visits`** `{ token, home_id, expires_at, revoked_at }` – the friend's visit link (D6).
 
 ## Open for the owner
-- Later: the mover's price and form (service or item). Who picks the home scene (the reader, or set per character like the home?) and can it be changed; how a new furniture item arrives (in the inventory until placed – proposed); rack
-  capacities (D4).
+- Later: the mover's form (a service in the home, or an item). Rack capacities (D4).
 - "cave can go step two": read as "design the open points now". If it means the home itself moves to step two (walking
   first, then the home with the rides), the order changes – the owner says which.

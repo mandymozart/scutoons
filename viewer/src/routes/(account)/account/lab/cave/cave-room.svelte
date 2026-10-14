@@ -106,7 +106,7 @@
 	<header>
 		<span data-testid="cave-where">{where}</span>
 		{#if !visitor}
-			<!-- draft only: compare the home scenes (who picks it is open – CAVE.md) -->
+			<!-- draft only: compare the home scenes (built: set per avatar in the character definition – CAVE.md D3) -->
 			<span class="seg" role="group" aria-label="Home scene">
 				<button aria-pressed={scene === 'cave'} onclick={() => (scene = 'cave')}>Cave</button>
 				<button
