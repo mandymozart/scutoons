@@ -87,8 +87,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.97 **Scores + song book + score view** – owner 2026-10-14: "special items, called scores … go into a song
   book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
   on a shared cover; containers (song books, DJ trolley …) hold items by an editable rule; the score view renders MusicXML (Verovio, decided) with scale + pages,
-  reused by live mode. Plan: research/SCORES.md. Built: the model + the server (ITEMS.md "Containers"), the score view
-  draft `/account/lab/score`; next: admin fields, reader / viewer UI. [owner] before score files go live: a bunny storage
+  reused by live mode. Plan: research/SCORES.md. Built: the model, the server (ITEMS.md "Containers"), the catalog
+  editor fields, the reader's score view / cover lettering / ageing (draft `/account/lab/score`); next: the viewer UI
+  (drafts first) and score uploads into the protected storage. [owner] before score files go live: a bunny storage
   + pull zone with token auth, secrets PROTECTED_CDN_KEY / variable PROTECTED_CDN_URL (deploy/README.md).
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
