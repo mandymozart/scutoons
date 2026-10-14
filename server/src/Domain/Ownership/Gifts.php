@@ -53,7 +53,7 @@ final class Gifts
      * rate_limited.
      * @param array<string, mixed> $giver users row
      * @param array<string, mixed> $body
-     * @return array{item_id: string, variant: ?string, qty: int, code: ?string, to: string, transfer_id: int}
+     * @return array{item_id: string, variant: ?string, qty: int, code: ?string, to: string, transfer_id: int, contents?: array{went: int, stayed: int}}
      */
     public function gift(array $giver, array $body): array
     {
