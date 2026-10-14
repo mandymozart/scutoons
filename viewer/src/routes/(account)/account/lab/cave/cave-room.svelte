@@ -7,14 +7,14 @@
 	import CavePanel from './cave-panel.svelte';
 	import Glyph from './glyph.svelte';
 	import RoomBackdrop from './room-backdrop.svelte';
-	import { furn, type Placed, type Thing, thing } from './cave-things.ts';
+	import { depth, furn, type Placed, type Thing, thing } from './cave-things.ts';
 
 	let { visitor, where, onleave }: { visitor: boolean; where: string; onleave: () => void } =
 		$props();
 
 	let scene = $state<'cave' | 'tatami_room'>('cave');
 	let placed = $state<Placed[]>([
-		{ f: furn('workbench'), x: 24, y: 80, contents: [] },
+		{ f: furn('workbench'), x: 28, y: 90, contents: [] },
 		{
 			f: furn('record_shelf'),
 			x: 18,
@@ -23,8 +23,8 @@
 		},
 		{
 			f: furn('cd_rack'),
-			x: 66,
-			y: 44,
+			x: 70,
+			y: 64,
 			contents: [thing('cd', 'Awakening (CD)', 'cd'), thing('cd', 'Like A Baby (CD)', 'cd')]
 		}
 	]);
@@ -33,7 +33,8 @@
 		thing('tape', 'Mixtape (cassette)', 'tape'),
 		thing('awakening_test_press', 'Awakening (test press)', 'vinyl'),
 		thing('songbook_diy_broken', 'Broken song book', 'broken_book'),
-		furn('cassette_rack')
+		furn('cassette_rack'),
+		furn('sofa')
 	]);
 	let selected = $state<number | null>(null);
 	let open = $state<number | null>(null);
@@ -137,6 +138,8 @@
 					class:open={open === p.f.uid}
 					class:target={!!sel && !visitor && !!p.f.holds?.kinds.includes(sel.kind)}
 					style:left="{p.x}%"
+					style:width="{p.f.size * depth(p.y)}%"
+					style:z-index={Math.round(p.y)}
 					style:top="{p.y}%"
 					title={visitor ? p.f.name : `${p.f.name} – drag to move`}
 					onpointerdown={(e) => down(e, p)}
@@ -236,12 +239,13 @@
 		top: 50%;
 		width: 20%;
 		translate: -50% 0;
+		z-index: 70; /* its feet: in front of what stands behind it */
 		pointer-events: none;
 	}
+	/* the point is where it stands (its foot), its width = its size × the depth (cave-things.ts) */
 	.furniture {
 		position: absolute;
-		translate: -50% -50%;
-		width: 20%;
+		translate: -50% -90%;
 		aspect-ratio: 1;
 		padding: 0;
 		border: 0;

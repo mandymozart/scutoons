@@ -53,6 +53,10 @@
 				y2="90"
 			/>
 			<path d="M30 40 L30 28 L44 28 L44 40" /><circle cx="68" cy="33" r="6" />
+		{:else if kind === 'sofa'}
+			<path d="M10 45 L10 80 L90 80 L90 45 L80 45 L80 60 L20 60 L20 45 Z" />
+			<rect x="20" y="35" width="60" height="25" />
+			<line x1="14" y1="80" x2="14" y2="88" /><line x1="86" y1="80" x2="86" y2="88" />
 		{:else}
 			<rect x="20" y="20" width="60" height="60" />
 		{/if}

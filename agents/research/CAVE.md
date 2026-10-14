@@ -119,6 +119,12 @@ Catalog / content (edited in the admin / creator):
   introduction, D1) and `home_scene: <home scene id>` (set per avatar, owner 2026-10-14; until a character has one: `cave`).
 - **Furniture item** (ItemDef): `category: "furniture"`; racks carry `holds` (ITEMS.md "Containers"); the workbench
   `workshop: true`; recipes `at?: "workshop"` (run only at a workbench).
+- **Furniture size – proposal, waits for the owner's yes** (owner 2026-10-14: "important the furniture items should
+  have different sizes. right?"): `ItemDef.furniture: { size: number }` – the width in % of the room's width at the
+  front edge (a CD rack 12, a cassette rack 10, a record shelf 22, the workbench 32, a sofa 40); the height follows the
+  icon's own proportions. In the home: drawn at its foot point (where it was placed), **smaller further back** (depth:
+  65 % at the back wall's foot … 100 % at the front), and what stands further front covers what stands behind (also
+  the avatar). One number per item, relative to the room – the same in every home scene; no rotation, no collisions.
 - **VR headset** (ItemDef): skill `{ type: "enter_home" }`.
 
 Reader state (server tables for members; the same shape in localStorage for guests, imported at sign-in):
