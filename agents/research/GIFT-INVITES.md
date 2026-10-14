@@ -45,9 +45,12 @@ own item* (as above) or *a campaign item* chosen from the catalog – SCUTOONS g
 inventory stays untouched; limited by the campaign's stock (invites stop when it is gone) and per member. **Physical
 items** need shipping to the friend (owner: "special rules apply … scutoons can either pay for the shipping and article
 or the person sending the gift can pay"): SCUTOONS pays → the friend enters a shipping address when accepting, the
-order lands in a "to ship" list in the campaign, countries limited by the campaign; the member pays → needs a payment
-provider (the shop only links out to an external store today, PLATFORM.md "Shop app"). Order of work: digital items
-first, then physical paid by SCUTOONS, then the member paying.
+order lands in a "to ship" list in the campaign, countries limited by the campaign; the member pays → by hand, no payment provider
+(owner 2026-10-14: "a manual email send to the admin hello and ask them to send a money order link to the user, or a
+bank account"): the gift is on hold ("payment open", the campaign's price incl. shipping), hello@scutoons.com gets a
+mail, an admin sends the member a payment link or the bank details and marks the payment received in the campaign's
+Invites tab – then the invite goes out; not cleared within 30 days, the gift ends. Order of work: digital items first,
+then physical items (SCUTOONS or the member paying).
 
 **2. Giving (viewer, the gift form).** The giver enters an address without an account:
 - switch off: today's message ("ask them to sign up first");
