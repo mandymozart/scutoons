@@ -772,7 +772,7 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
   page).
 - Tools V / P / R; pan with the middle button, Space + drag or a drag on the empty terrain; the wheel zooms at the cursor
   (25–800 %). Drag places (whole units) and waypoints (a place waypoint asks first – it moves the shared place); arrows nudge
-  1 / Shift 10; a click on the selected route's line inserts a free point. A new place's id follows its de name until the
+  1 / Shift 10; a click on the selected route's line inserts a free point; dragged onto a place (it lights up) it becomes that place's stop (owner 2026-10-14). A new place's id follows its de name until the
   first publish, then it is fixed.
 - Images: path or pick from the CDN folder `<toon>/images/map/places/` (listed where the server has a directory index, e.g.
   the local CDN), size, ground point (crosshair on a 160 px checkerboard), previews at 50 / 100 / 200 % on the sea colour,

@@ -48,7 +48,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
-	import { addPlace, addRegion, addRoute, cdnHas, editMap, editPlace, editRegion, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
+	import { addPlace, addRegion, addRoute, cdnHas, editMap, editPlace, editRegion, editRoute, connectWaypoint, ensureMap, insertWaypoint, mapDoc, mapOf, removePlace, removeRoute, routesThrough } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { densityLevel, densityPath, splitMediaName, standardDensities, uploadOrReplace } from '@scutoons/media';
@@ -941,6 +941,7 @@
 							else delete w.handle;
 						}, `handle:${route}:${index}`)}
 					oninsertwaypoint={(route, after, at) => insertWaypoint(doc, route, after, at)}
+					onconnectwaypoint={(route, index, place) => connectWaypoint(doc, route, index, place)}
 					onaddroute={onAddRoute}
 					onendpoint={onEndpoint}
 				/>

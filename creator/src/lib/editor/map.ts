@@ -196,6 +196,20 @@ export function insertWaypoint(doc: ContentDoc, route: string, after: number, at
 	});
 }
 
+/**
+ * A free waypoint dropped on a place becomes that place's stop (owner 2026-10-14: "a point on the line, drag it onto a
+ * location – connected, like the start and end"); next to the same place already it just goes (no stop twice in a row)
+ */
+export function connectWaypoint(doc: ContentDoc, route: string, index: number, place: string) {
+	editRoute(doc, route, (r) => {
+		const w = r.waypoints[index];
+		if (!w || isPlaceWaypoint(w)) return;
+		const same = (x: MapPath['waypoints'][number] | undefined) => !!x && isPlaceWaypoint(x) && x.location === place;
+		if (same(r.waypoints[index - 1]) || same(r.waypoints[index + 1])) r.waypoints.splice(index, 1);
+		else r.waypoints[index] = { location: place };
+	});
+}
+
 /** The index of the segment of a polyline nearest to a point (the line's click inserts there) */
 export function nearestSegment(points: Point[], p: Point): number {
 	let best = 0;

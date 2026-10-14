@@ -67,6 +67,7 @@
 		onmovegate,
 		onmovewaypointhandle,
 		oninsertwaypoint,
+		onconnectwaypoint,
 		onaddroute,
 		onendpoint,
 		brush = null,
@@ -106,6 +107,8 @@
 		/** a free waypoint's Bézier handle dragged (an offset from the point; null = smooth again) */
 		onmovewaypointhandle: (route: string, index: number, handle: Point | null) => void;
 		oninsertwaypoint: (route: string, after: number, at: Point) => void;
+		/** a free point dropped on a place: it becomes that place's stop (owner 2026-10-14) */
+		onconnectwaypoint: (route: string, index: number, place: string) => void;
 		onaddroute: (waypoints: Waypoint[]) => void;
 		/**
 		 * a route starts and ends at a place (owner 2026-10-12: "if each endpoint is a place, dropping a pin should prompt
@@ -389,6 +392,13 @@
 		dragging = target;
 		dragMoved = false;
 	}
+	/** while a free route point is dragged: the place it would connect to (it lights up) */
+	let connectTarget = $state<string | null>(null);
+	const freePoint = (t: typeof dragging): boolean => {
+		if (t?.kind !== 'waypoint') return false;
+		const w = map.routes.find((r) => r.id === t.route)?.waypoints[t.index];
+		return !!w && !('location' in w);
+	};
 	function local(e: PointerEvent): Point {
 		const r = viewportEl!.getBoundingClientRect();
 		return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -415,12 +425,19 @@
 			const route = map.routes.find((r) => r.id === (dragging as { route: string }).route);
 			const w = route?.waypoints[dragging.index];
 			if (w && !isPlaceWaypoint(w)) onmovewaypointhandle(route!.id, dragging.index, { x: Math.round((world.x - w.x) * 10) / 10, y: Math.round((world.y - w.y) * 10) / 10 });
-		} else onmovewaypoint(dragging.route, dragging.index, at);
+		} else {
+			onmovewaypoint(dragging.route, dragging.index, at);
+			connectTarget = freePoint(dragging) ? snapPlace(local(e))?.id ?? null : null;
+		}
 	}
 	function dragEnd(e: PointerEvent, click: () => void) {
 		gateCell = null;
 		if (!dragging) return;
 		const moved = dragMoved;
+		// a free point let go on a place: connected there
+		const target = moved && freePoint(dragging) ? snapPlace(local(e)) : null;
+		if (target && dragging.kind === 'waypoint') onconnectwaypoint(dragging.route, dragging.index, target.id);
+		connectTarget = null;
 		dragging = null;
 		dragMoved = false;
 		if (!moved) click();
@@ -559,7 +576,7 @@
 			{@const s = view.toScreen(p)}
 			{@const dim = !inFilter(p.toons) || (readerView && !!p.hidden)}
 			{@const active = selection?.kind === 'place' && selection.id === p.id}
-			<div class="place" class:has-image={!!p.image?.src} class:dim class:active class:collides={collisions.has(p.id)} class:hidden-place={!!p.hidden} style:transform="translate({s.x}px, {s.y}px)">
+			<div class="place" class:has-image={!!p.image?.src} class:dim class:active class:collides={collisions.has(p.id)} class:hidden-place={!!p.hidden} class:connect-target={connectTarget === p.id} style:transform="translate({s.x}px, {s.y}px)">
 				{#if p.image?.src}
 					{@const box = placeImageBox(p.image, view.zoom, 1, p.size)}
 					<!-- the diorama selects its place too (owner 2026-10-11), with the select tool -->
@@ -911,6 +928,10 @@
 	.collides .marker {
 		outline: 2px solid var(--error, #e00);
 		outline-offset: 2px;
+	}
+	/* a free route point dragged over this place: let go and it connects here */
+	.connect-target .marker {
+		box-shadow: 0 0 0 6px var(--primary-cyan, #00d1ff);
 	}
 	/* with an image the name goes under the point (the image stands above it) */
 	.has-image .label {
