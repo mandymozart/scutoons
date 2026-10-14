@@ -1,4 +1,4 @@
-Status 2026-10-14: plan decided (Q1–Q13, the renderer Verovio); the score view is a dev draft (`/account/lab/score`); building next (FEATURES 10.97).
+Status 2026-10-14: decided; built – the model (step 1), the server (step 2), the score view draft; next: admin, reader, viewer (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 

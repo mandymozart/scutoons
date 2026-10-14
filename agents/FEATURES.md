@@ -87,7 +87,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.97 **Scores + song book + score view** – owner 2026-10-14: "special items, called scores … go into a song
   book … the use open is opening the score in the score view". A score = an item with MusicXML + PDF, its title lettered
   on a shared cover; containers (song books, DJ trolley …) hold items by an editable rule; the score view renders MusicXML (Verovio, decided) with scale + pages,
-  reused by live mode. Plan (decided): research/SCORES.md; draft `/account/lab/score`.
+  reused by live mode. Plan: research/SCORES.md. Built: the model + the server (ITEMS.md "Containers"), the score view
+  draft `/account/lab/score`; next: admin fields, reader / viewer UI. [owner] before score files go live: a bunny storage
+  + pull zone with token auth, secrets PROTECTED_CDN_KEY / variable PROTECTED_CDN_URL (deploy/README.md).
 - [ ] 10.79 **Account restart** – concept waits for the owner's answers Q1–Q9 (research/ACCOUNT-RESTART.md); the
   map-only reset is built.
 - [ ] 10.59 **Storyboard: script → shots → Figma → chapter draft** (research/STORYBOARD.md §9; timeline ch3 2026-11-15,
@@ -95,10 +97,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   scene (STORYBOARD §10), the first Figma bridge run, the remaining generated shots.
 - [ ] 10.95 **Storyboard: render the cast from the characters' 3D models** – owner 2026-10-13: "a 3d model for each
   persona of each character", "the storyboard renderer does a great job". Built: `model` (.glb) per persona / look on the
-  character page (`modelOf`, ASSETS.md "3D models"). Open: [owner] publish the drafts character:catpope 559
+  character page (`personaModel`, ASSETS.md "3D models"). Open: [owner] publish the drafts character:catpope 559
   (regular, Silikon, Gebirgstiger), toptoy 560, yellowmouse 561 – models on the CDN (the source of truth; the sketch ones
   are placeholders until artists' models replace them); the renderer loads
-  `modelOf(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md).
+  `personaModel(character, persona, look)` from the CDN instead of its local files; the artists' model spec (research/CHARACTERS3D.md).
 
 ## Platform, release
 - [ ] 10.8 **Public release** – one version everywhere (`1.0.0`, today root 0.0.0, frontends 0.1.0, api/qr 1.0.0),

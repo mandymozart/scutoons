@@ -100,7 +100,18 @@ your code" still opens the QR scanner without any item).
 ### Containers, scores, ageing, recipe tools (model, 2026-10-14 – research/SCORES.md, FEATURES 10.97)
 
 `@scutoons/content` containers.ts; validated the same in `validateContainers` and the server's `CatalogValidator`.
-Only the catalog model is built – moving items in / out, gifting with contents, breaking and the reader UI follow.
+Built: the catalog model and the server (2026-10-14); the admin fields and the reader UI follow.
+- Server (`Domain\Inventory\Containers`, migration `2026-10-14-containers`): `inventory.container_id` (lies in),
+  `overfilled_at`, `aged_since`; entries answer `in`, `overfilled_at`, `aged_since`. `POST /api/inventory/move`
+  { entry_id, into | null, overfill? } – by hand, the rule, the capacity; past `max` 409 `overfill_warning` { max, days }
+  until `overfill: true`. An overfilled container breaks on the next inventory read after its days (contents loose,
+  the entry becomes `breaks_into`, colour + age kept); back to `max` in time clears it. Craft: `keep` inputs stay,
+  `variant_from`, a consumed container's contents + age go to the output; `use: { item: entry }` picks the entry.
+  A used-up container lets its contents fall out. A gifted container moves as itself with its giftable contents
+  (answer `contents: { went, stayed }`); the import keeps a guest's `local_id` / `in`.
+- Score files: `GET /api/items/{id}/score/{musicxml|pdf}` → a short-lived bunny.net signed URL (`ProtectedFiles`,
+  PROTECTED_CDN_URL / _KEY); MusicXML for anyone, PDF for a signed-in owner; `/api/items/` shows only
+  `score: { language, pdf: bool }`.
 - `holds: { categories?, items?, max?, overfill?: { days, max, breaks_into } }` makes an item a container: an item
   fits when its category OR its id is listed (`fitsIn`); never a container in a container; `max` = capacity (none =
   no limit); `overfill` = a soft limit up to `overfill.max` that breaks the container into `breaks_into` after `days`
