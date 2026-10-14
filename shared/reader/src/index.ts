@@ -22,3 +22,4 @@ export { default as MapTerrain } from './map/map-terrain.svelte';
 export { configureFx, playFxSound, playRevealSound, buzz, isFxSound, FX_SOUNDS, type FxSound, type FxOutput } from './fx/sounds.ts';
 export { fxLayer, liftCue, refuseCue, nudgeCue, sparkles, impactCue, IMPACTS, IMPACT_DEFAULT_MS, type Impact, type Lift } from './fx/cues.ts';
 export { loadShape, type Shape } from './fx/shape.ts';
+export { default as ScoreView, DEFAULT_SCORE_LABELS, type ScoreLabels } from './score/score-view.svelte';

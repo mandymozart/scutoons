@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q4 + the renderer (Verovio) decided, waits for the owner on Q2, Q3, Q5; nothing built (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); waits for the owner on Q3, Q6, Q7 (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -28,12 +28,14 @@ it – the edition's real title, whatever the reader's language – in the inven
 on the slice (sized with the rect, container-query units – rem rule). The media rule holds: the files are one
 language because the edition is.
 
-**2. The song book = a lens, not a container.** Items don't nest today, and a real container (scores moved "into" an
-item) would change the inventory model, the server's grants, gifting and guest import. Instead: the song book is an
-item with the skill `songbook`; it lists every score the reader owns. While the reader has a song book, scores leave
-the main inventory grid and appear only inside it. "Unlocked" vs "a regular item" is then one model: unlocked =
-`starter: true` (every reader has it), found = `grantable: ["story"]` placed on a slice, bought = a product. Pick a
-score up → a notice "In dein Liederbuch gelegt" / "Added to your song book".
+**2. The song book = a container item** (owner 2026-10-14: "has to be moved manually, dragging it into it or clicking
+selecting the score first and then clicking the book. this will be the rule for any item that can store other items").
+A new item fundamental (ITEMS.md, with the code): a container item says what it takes (`holds: { categories:
+["score"] }`); an inventory entry can lie in a container entry (`in: <entry id>` – a column on the inventory, a
+migration; guests: in their localStorage inventory, carried by the import at sign-in). A picked-up score lands loose in
+the inventory like any item; the reader moves it: drag it onto the book in the grid, or select it and tap the book
+("In das Liederbuch legen" offered on the book). The book's grid shows only what lies in it. "Unlocked" vs "a regular
+item" stays one model: unlocked = `starter: true`, found = `grantable: ["story"]`, bought = a product.
 
 **3. The song book view** – the inventory grid component reused (one job: a grid of owned items), filtered to
 `category: score`, opened from the book's item detail ("Öffnen" / "Open"). A score's detail: "Öffnen" → the score
@@ -46,32 +48,39 @@ view, "PDF herunterladen" (the print file).
   Decided (owner 2026-10-14: "go verovio … looks more elaborate") over OpenSheetMusicDisplay (Phonicscore, Vienna;
   MusicXML-native, lighter, BSD, but endless scroll first and a sponsors-only audio player); no spike. Verovio is
   LGPL: its toolkit stays a separate, replaceable file in the bundle. pdf.js is out (no reflow).
-- Controls (less UI): scale − / + as one square group (`sc-seg`, fit-to-width = the default), page n / total with
-  ‹ › when it needs more than one page, swipe / arrow keys / PageUp-Down (Bluetooth page-turn pedals send these –
-  the live musician gets this for free), "PDF" download, close. Re-renders on resize / rotation, keeps the page.
+- Controls (less UI): scale − / + as one square group (a phone starts at 30 %, wider screens at 40 %, the last choice is
+  remembered on the device), page n / total with ‹ › when it needs more than one page; pages are slides of the app's
+  Swiper (owner 2026-10-14: "use the swiper we got already"), rendered when near; arrow keys / PageUp-Down / Space
+  (Bluetooth page-turn pedals send these – the live musician gets this for free), "PDF" download, close. Re-renders on
+  resize / rotation and stays at the bar the page started with; a system taller than the page scrolls.
+- Draft (2026-10-14): `shared/reader/src/score/`, the dev page `/account/lab/score` with two MuseScore exports of the
+  owner's songs (local `media/scutoons/scores/`, a dev copy). Learned: "Cloud 9" (SATB) reads well – a phone 4 pages,
+  desktop 4; "Like A Baby" as the full score (voice, choir, organ, piano) is 30 pages on a desktop and its lyrics
+  collide – the reader edition should be the choir / voice parts only, exported from MuseScore as its own file.
 - Lives in `@scutoons/reader` (no app state) so live mode reuses it; the viewer wraps it.
 
-**5. Access – protected** (owner 2026-10-14: "we will need a protection for this soon"). Built from the start:
-a file once on a public CDN path stays out there. The score files live outside the public paths; the API answers
-`GET /api/items/<item>/score/<pdf|musicxml>` only to a reader who owns the item (account or a guest's device
-inventory? – guests can't prove ownership to the server, so: members only, Q5) with a short-lived signed URL
-(bunny.net token authentication on a separate pull zone – [owner] enable it, the key goes to the server's env).
-Album downloads can move to the same path later.
+**5. Access – protected** (owner 2026-10-14: "we will need a protection for this soon"; "guests can view the score in
+the app, but only members can download the PDF"; albums the same). The files live on their own bunny pull zone with
+token authentication (no public path); the API hands out short-lived signed URLs: the MusicXML to anyone who opens the
+score in the view (a guest's ownership lives on the device – the server can't check it), the PDF only to a member who
+owns the item; album downloads move to the same zone and rule. Signing = one HMAC (SHA-256 of key + path + expiry,
+base64url) in PHP, ~30 lines + tests; [owner] create the pull zone with token auth in the bunny panel and put its key
+into the server's env.
 
 **6. Creator / admin.** Admin → Catalog → Items: the `score` slots (MusicXML, PDF), validation (both present, the
 MusicXML parses – a Verovio load test in the admin, the server checks extension + size). Creator: nothing new – a
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q2 scores without a song book:** picked up before the reader has the book – (a) loose in the inventory, moving into
-  the book once it is found (recommended), or (b) not pickable until then?
 - **Q3 one song book per toon or one for all toons** (`toon: null`)? Recommended: one for all, filtered by toon inside.
-- **Q5 guests:** a guest's inventory lives only on the device, the server can't check it – score files only for
-  members (a guest sees the cover + "Sign in to open"), or open the MusicXML in the view for guests and protect the PDF?
+- **Q6 taking out:** can a score be taken out of the book again (drag out / "Herausnehmen")? Recommended: yes.
+- **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
+  inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
 
 ## Steps once answered
-1. content: `ItemCategory 'score'`, `ItemDef.score`, the `songbook` skill, validation + schemas, tests; a catalog
-   migration only if a column is needed (the item row's JSON may already carry it – check CATALOG.md).
-2. admin: the two slots + checks. 3. reader: `ItemIcon` lettering, `ScoreView` (Verovio, lazy). 4. viewer: the song
-   book view, the detail actions, the pickup notice, the grid filter. 5. `check:*` browser script for the score view
-   (phone + desktop, pagination at two scales). Drafts of the score view on the real page before step 4.
+1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
+   catalog columns if needed (CATALOG.md) and the inventory's `in`.
+2. server: the move API (put in / take out, ownership + `holds` checked), the signed-URL endpoint, the guest import.
+3. admin: the score slots + checks. 4. reader: `ItemIcon` lettering; `ScoreView` (drafted). 5. viewer: the container
+   grid, drag / select-then-tap moves, the score detail (Open, PDF for members). 6. `check:*` browser script (phone +
+   desktop, two zooms, a swipe). Drafts of the container moves on the real page before step 5.

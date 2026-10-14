@@ -7,6 +7,9 @@ to mark them superseded.
 
 ## 2026-10
 - 2026-10-14 · mail · Every new account mails the admin recipients: who signed up and with which code (+ its type), linked to the account · "email notifications if a new member signs up, and which code they used" · → PLATFORM.md "Emails"
+- 2026-10-14 · items · Items can store items (containers, e.g. the song book): an item is put in by hand – dragged onto the container, or selected and then the container tapped; the rule for every container · "has to be moved manually, dragging it into it or clicking selecting the score first and than clicking the book. this will be the rule for any item that can store other items" · → research/SCORES.md §2
+- 2026-10-14 · items · Guests may view a score in the app; only members download its PDF; album downloads get the same protection (signed URLs) · "Guests can view the score in the app, but only members can download the PDF. yes", "album is the same yes" · → research/SCORES.md §5
+- 2026-10-14 · reader · Score pages turn with the app's Swiper · "pages can be swiped. perhaps use the swiper we got already" · → research/SCORES.md §4
 - 2026-10-14 · items · The score view renders MusicXML with Verovio (not OpenSheetMusicDisplay); no comparison spike · "go verovio … looks more elaborate" · → research/SCORES.md §4
 - 2026-10-14 · items · A score is always in one language: each language is its own edition (its own item, MusicXML + PDF); the cover shows the title in the score's own language · "a score is always in one language. you want to sing the german version, you get the german edition" · → research/SCORES.md §1
 - 2026-10-14 · items · Score files are protected: the server hands them out only to owners (signed short-lived URLs), not public CDN paths · "we will need a protection for this soon" · → research/SCORES.md §5
