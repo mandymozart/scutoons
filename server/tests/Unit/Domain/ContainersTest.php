@@ -161,6 +161,19 @@ final class ContainersTest extends TestCase
         self::assertNull($this->entry($scores[2])['in'], 'the private score stays with the giver, loose');
     }
 
+    public function testAGuestsBookKeepsItsScoresAtSignIn(): void
+    {
+        $this->inventory->import($this->id, ['items' => [
+            ['item_id' => 'songbook_small', 'qty' => 1, 'local_id' => 'g-book'],
+            ['item_id' => 'score_a', 'qty' => 1, 'local_id' => 'g-score', 'in' => 'g-book'],
+            ['item_id' => 'drill', 'qty' => 1, 'local_id' => 'g-drill', 'in' => 'g-book'],
+        ]]);
+        $entries = $this->inventory->entries($this->id);
+        $book = array_values(array_filter($entries, fn($e) => $e['item_id'] === 'songbook_small'))[0]['id'];
+        $by = fn(string $item) => array_values(array_filter($entries, fn($e) => $e['item_id'] === $item))[0]['in'];
+        self::assertSame([$book, null], [$by('score_a'), $by('drill')], 'the score lies in the book again; the drill does not fit');
+    }
+
     public function testAUsedUpContainerLetsItsContentFallOut(): void
     {
         [$book] = $this->add('songbook_small');

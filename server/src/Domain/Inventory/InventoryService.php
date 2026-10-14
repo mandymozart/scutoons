@@ -383,8 +383,10 @@ final class InventoryService
 
     /**
      * Merges a guest inventory after login: only items with a non-empty `grantable` (story/scan finds); starters,
-     * physical and crafted items are skipped. qty is capped at IMPORT_MAX_QTY per item.
-     * @param array<string, mixed> $body { items: [{ item_id, qty }] }
+     * physical and crafted items are skipped. qty is capped at IMPORT_MAX_QTY per item. Containers (research/SCORES.md):
+     * an entry may carry the guest's `local_id` and `in` (the local id of the container it lies in) – when both came
+     * over, it lies in the imported container again (within the container's rule).
+     * @param array<string, mixed> $body { items: [{ item_id, qty, variant?, local_id?, in? }] }
      * @return array{imported: list<array<string, mixed>>, skipped: list<array<string, mixed>>}
      */
     public function import(string $userId, array $body): array
@@ -396,6 +398,10 @@ final class InventoryService
         $imported = [];
         $skipped = [];
         $this->db->transaction(function () use ($userId, $items, &$imported, &$skipped) {
+            /** @var array<string, string> $made the guest's local id → the new entry */
+            $made = [];
+            /** @var list<array{string, string}> $lies [local id, local container id] */
+            $lies = [];
             $this->limits->guard("import:$userId", $this->settings->int('IMPORT_MAX_PER_HOUR'), 3600, 'Too many imports – try again later.');
             $this->limits->hit("import:$userId");
             $max = $this->settings->int('IMPORT_MAX_QTY');
@@ -418,8 +424,16 @@ final class InventoryService
                     if ($owned > 0) { $skipped[] = ['item_id' => $itemId, 'reason' => 'already_owned']; continue; }
                     $qty = 1;
                 }
-                $this->add($userId, (string) $itemId, $variant, $qty, $item['grantable'][0]);
+                $ids = $this->add($userId, (string) $itemId, $variant, $qty, $item['grantable'][0]);
                 $imported[] = ['item_id' => $itemId, 'qty' => $qty] + ($variant !== null ? ['variant' => $variant] : []);
+                $local = is_array($entry) && is_string($entry['local_id'] ?? null) ? $entry['local_id'] : null;
+                if ($local !== null && $ids !== []) $made[$local] = $ids[0];
+                if ($local !== null && is_string($entry['in'] ?? null)) $lies[] = [$local, $entry['in']];
+            }
+            foreach ($lies as [$local, $in]) {
+                if (isset($made[$local], $made[$in]) && empty($this->catalog->item((string) $this->db->value('SELECT item_id FROM inventory WHERE id = ?', [$made[$local]]))['stackable'])) {
+                    $this->containers->carryInto($userId, [$made[$local]], $made[$in]);
+                }
             }
         });
         return ['imported' => $imported, 'skipped' => $skipped];

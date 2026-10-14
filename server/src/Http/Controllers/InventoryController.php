@@ -24,7 +24,7 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST /api/inventory/move/    { entry_id, into: <container entry id> | null, overfill? } → { status, inventory } (containers, research/SCORES.md)
  *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
  *   POST /api/inventory/take/    { item_id, qty?, ref? } → { status, taken, reason: null|too_few|already_taken, inventory } (a story takes – BACKLOG 10.38)
- *   POST /api/inventory/import/  { items: [{ item_id, qty }] } → { status, imported, skipped, inventory }
+ *   POST /api/inventory/import/  { items: [{ item_id, qty, variant?, local_id?, in? }] } → { status, imported, skipped, inventory }
  *   POST /api/inventory/use/     { item_id } → { status, item_id, stats, effects, inventory } (a substance, ITEMS.md "Substances")
  *   POST /api/effects/end/       { kind } → { status, ended, effects } ("Effekt beenden")
  *   POST /api/inventory/gift/    { entry_id | item_id (+ variant), qty?, to: email } → { status, gift, inventory } (ITEMS.md "Ownership, claims, gifting")
