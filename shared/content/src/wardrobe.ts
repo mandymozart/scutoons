@@ -133,7 +133,7 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 	// containers, scores, ageing, kept inputs and inherited variants (containers.ts)
 	validateContainers(catalog as { items: any[]; recipes?: any[] }, add);
 	// home scenes, furniture, workshop recipes (homes.ts)
-	validateHomes(catalog as { items: any[]; recipes?: any[]; home_scenes?: any[] }, add);
+	validateHomes(catalog as { items: any[]; recipes?: any[]; home_scenes?: any[]; airlift_carriers?: any[] }, add);
 	for (const [id, def] of Object.entries(isObj(catalog.stats) ? catalog.stats : {})) {
 		const d = def as any;
 		if (!isObj(d) || typeof d.baseline !== 'number' || d.baseline < 0 || d.baseline > 100 || typeof d.half_life_days !== 'number' || d.half_life_days <= 0) {

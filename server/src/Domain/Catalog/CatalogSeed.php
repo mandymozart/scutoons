@@ -46,6 +46,7 @@ final class CatalogSeed
         }
         // what homes look like (research/CAVE.md) – the same two rows as the migration 2026-10-14-homes
         foreach ((array) ($items->home_scenes ?? []) as $entry) $entries['home-scenes'][] = [self::id($entry), $entry];
+        foreach ((array) ($items->airlift_carriers ?? []) as $entry) $entries['airlift-carriers'][] = [self::id($entry), $entry];
         foreach ((array) ($products->products ?? []) as $entry) $entries['products'][] = [self::id($entry), $entry];
         foreach (self::listOf($this->file('editions.json')) as $entry) $entries['editions'][] = [self::id($entry), $entry];
         foreach (self::listOf($this->file('toons.json')) as $entry) $entries['toons'][] = [self::id($entry), $entry];

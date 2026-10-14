@@ -8,7 +8,7 @@ import { m } from './messages.ts';
 export type Data = Record<string, any>;
 
 /** the kinds with a tab, in the tab order (featured stays on the Homepage page – one place for it) */
-export const EDITED_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'toons', 'permissions', 'code-types', 'meta', 'home-scenes'] as const;
+export const EDITED_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'toons', 'permissions', 'code-types', 'meta', 'home-scenes', 'airlift-carriers'] as const;
 export type EditedKind = (typeof EDITED_KINDS)[number];
 
 /** the lists of every kind, read by the forms for their selects (items, editions, products …) */
@@ -179,6 +179,25 @@ export const KINDS: Record<EditedKind, KindDef> = {
 		title: (d, id) => text(d.name) || id,
 		blank: () => ({ name: { de: '', en: '' }, image: { src: '' } }),
 		formKeys: ['id', 'name', 'image', 'video'],
+		dataId: true,
+		idPattern: /^[a-z0-9][a-z0-9_]{0,63}$/,
+		creatable: true,
+		deletable: true,
+		reorderable: true
+	},
+	// the creature airlift's carriers (agents/research/CAVE.md D8): one at random per flight
+	'airlift-carriers': {
+		kind: 'airlift-carriers',
+		label: () => m['catalog.airlift_carriers'](),
+		singular: () => m['catalog.airlift_carrier'](),
+		columns: [
+			{ id: 'image', label: () => '', image: (d) => d.image || undefined },
+			{ id: 'id', label: () => 'id', text: (_d, _l, e) => e.id },
+			{ id: 'name', label: () => m['catalog.name'](), text: (d) => dash(d.name) }
+		],
+		title: (d, id) => text(d.name) || id,
+		blank: () => ({ name: { de: '', en: '' }, image: '' }),
+		formKeys: ['id', 'name', 'image'],
 		dataId: true,
 		idPattern: /^[a-z0-9][a-z0-9_]{0,63}$/,
 		creatable: true,

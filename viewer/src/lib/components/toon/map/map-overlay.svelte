@@ -10,7 +10,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getHomesContext } from '$lib/contexts/homes.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
-	import { MAP_NETWORKS, RIDE_MS, RIDE_PRICES, WALK_MS, ridePath, walkPath, walkPoints, type MapNetwork, type Point } from '@scutoons/content';
+	import { MAP_NETWORKS, RIDE_MS, RIDE_PRICES, WALK_MS, randomCarrier, ridePath, walkPath, walkPoints, type Point, type RideKind } from '@scutoons/content';
 	import MapAvatar from './map-avatar.svelte';
 	import RideActions from './ride-actions.svelte';
 	import HomeActions from './home-actions.svelte';
@@ -67,7 +67,7 @@
 	const avatarAt = $derived(mapState.avatar && 'location' in mapState.avatar ? mapState.avatar.location : homePlace);
 	/** the avatar walks between unlocked places and its home only – no spoilers */
 	const walkable = (id: string) => !!mapState.places[id] || id === homePlace;
-	let walking = $state<{ points: Point[]; ms: number; to: string } | null>(null);
+	let walking = $state<{ points: Point[]; ms: number; to: string; carrier?: string | null } | null>(null);
 	const hasVr = $derived(!!inventory?.entries.some((e) => inventory.item(e.item_id)?.skills?.some((s) => s.type === 'enter_home')));
 
 	// visible = not hidden, or unlocked – and the avatar's home is always there for it
@@ -336,15 +336,27 @@
 		walking = { points: walkPoints(data.locations, data.routes ?? [], cardPath), ms: WALK_MS * cardPath.length, to: card.id };
 	}
 	// rides (research/CAVE.md D8): the networks that reach the card's place from the avatar's stop
+	// the creature airlift: a taxi from anywhere to any open place (unlocked or home) – no lines
 	const rideOptions = $derived.by(() => {
-		if (!card || !avatarAt || !data || card.id === avatarAt) return [] as { network: MapNetwork; steps: NonNullable<ReturnType<typeof ridePath>> }[];
-		return MAP_NETWORKS.flatMap((network) => {
+		const out: { network: RideKind; steps: NonNullable<ReturnType<typeof ridePath>> | null }[] = [];
+		if (!card || !avatarAt || !data || card.id === avatarAt) return out;
+		for (const network of MAP_NETWORKS) {
 			const steps = ridePath(data.routes ?? [], mapState, network, avatarAt, card.id, walkable);
-			return steps ? [{ network, steps }] : [];
-		});
+			if (steps) out.push({ network, steps });
+		}
+		if (walkable(card.id)) out.push({ network: 'airlift', steps: null });
+		return out;
 	});
+	/** the flight: an arc through the sky from where the avatar stands to the place */
+	function flightPoints(from: Point, to: Point): Point[] {
+		const lift = Math.hypot(to.x - from.x, to.y - from.y) * 0.35;
+		return Array.from({ length: 25 }, (_, i) => {
+			const t = i / 24;
+			return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t - Math.sin(Math.PI * t) * lift };
+		});
+	}
 	let rideNote = $state('');
-	async function ride(network: MapNetwork) {
+	async function ride(network: RideKind) {
 		const option = rideOptions.find((o) => o.network === network);
 		if (!card || !data || !option || !inventory) return;
 		const paid = await inventory.payFare(network, RIDE_PRICES[network]);
@@ -353,6 +365,13 @@
 			return;
 		}
 		rideNote = '';
+		if (!option.steps) {
+			const from = data.locations.find((p) => p.id === avatarAt);
+			if (!from) return;
+			const carrier = randomCarrier(inventory.catalog?.airlift_carriers);
+			walking = { points: flightPoints(from, card), ms: 2500, to: card.id, carrier: carrier?.image ? asset(carrier.image) : null };
+			return;
+		}
 		walking = { points: walkPoints(data.locations, data.routes ?? [], option.steps), ms: RIDE_MS * option.steps.length, to: card.id };
 	}
 	function walked() {
@@ -493,8 +512,6 @@
 			{/if}
 			<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12): where a route runs in and out -->
 			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} layer="gates" />
-			<!-- the creature airlift flies above everything (research/CAVE.md D8) -->
-			<MapRoutes {routes} places={data.locations} zoom={view.zoom} x={view.x} y={view.y} visible={(id) => visibleIds.has(id)} layer="sky" />
 			<div class="labels" aria-hidden="true">
 				{#each places as p (p.id)}
 					{#if labelled.has(p.id)}

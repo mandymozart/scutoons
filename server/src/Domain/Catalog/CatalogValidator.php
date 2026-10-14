@@ -74,6 +74,7 @@ final class CatalogValidator
             'recipes' => $this->recipe($data),
             'albums' => self::album($data),
             'home-scenes' => self::homeScene($data),
+            'airlift-carriers' => self::airliftCarrier($data),
             'products' => $this->product($data),
             'editions' => self::edition($data),
             'featured' => $this->featured($id, $data),
@@ -257,6 +258,21 @@ final class CatalogValidator
         } elseif (($item['category'] ?? null) === 'furniture') {
             $p[] = "$id: the category \"furniture\" needs furniture { size, image }";
         }
+        return $p;
+    }
+
+    /**
+     * An airlift carrier (homes.ts AirliftCarrier, research/CAVE.md D8): { id, name, image }
+     *
+     * @param array<string, mixed> $carrier
+     * @return list<string>
+     */
+    private static function airliftCarrier(array $carrier): array
+    {
+        $p = [];
+        $id = (string) self::show($carrier['id'] ?? '');
+        if (!self::text($carrier['name'] ?? null)) $p[] = "$id: name must be a text or { <locale>: text }";
+        if (!is_string($carrier['image'] ?? null)) $p[] = "$id: image must be a path (empty until the picture is there)";
         return $p;
     }
 

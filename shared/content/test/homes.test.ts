@@ -10,6 +10,7 @@ import {
 	setAvatarPosition,
 	validateCatalog,
 	networksAt,
+	randomCarrier,
 	ridePath,
 	RIDE_PRICES,
 	walkPath,
@@ -66,7 +67,7 @@ test('the walk’s points follow the route, free points included, either directi
 });
 
 test('rides: lines are never walked, a ride stays on its network, changing lines is free', () => {
-	const lines: (RouteLike & { network?: 'subway' | 'tram' | 'airlift' })[] = [
+	const lines: (RouteLike & { network?: 'subway' | 'tram' })[] = [
 		...routes,
 		{ id: 'u1', network: 'subway', waypoints: [at('home'), at('station')] },
 		{ id: 'u2', network: 'subway', waypoints: [at('station'), at('cathedral')] },
@@ -75,11 +76,19 @@ test('rides: lines are never walked, a ride stays on its network, changing lines
 	assert.deepEqual(walkPath(lines, state, 'home', 'station', open)?.map((s) => s.place), ['square', 'station'], 'on foot: the road, not the subway');
 	assert.deepEqual(ridePath(lines, state, 'subway', 'home', 'cathedral', open)?.map((s) => s.route), ['u1', 'u2']);
 	assert.deepEqual(ridePath(lines, state, 'tram', 'home', 'cathedral', open)?.map((s) => s.route), ['t1']);
-	assert.equal(ridePath(lines, state, 'airlift', 'home', 'cathedral', open), null, 'no airlift line');
 	assert.equal(ridePath(lines, state, 'subway', 'home', 'home', open), null, 'no ride to where you are');
 	assert.deepEqual(networksAt(lines, state, 'home', open).sort(), ['subway', 'tram']);
 	assert.deepEqual(networksAt(lines, state, 'square', open), []);
-	assert.deepEqual(RIDE_PRICES, { tram: 1, subway: 2, airlift: 3 });
+	assert.deepEqual(RIDE_PRICES, { tram: 1, subway: 1, airlift: 10 });
+});
+
+test('the airlift: a carrier at random, none without a list', () => {
+	const carriers = [{ id: 'moth', name: { en: 'Moth' }, image: 'a.webp' }, { id: 'robot', name: { en: 'Robot taxi' }, image: 'b.webp' }];
+	assert.equal(randomCarrier(carriers, () => 0)?.id, 'moth');
+	assert.equal(randomCarrier(carriers, () => 0.99)?.id, 'robot');
+	assert.equal(randomCarrier([], () => 0), null);
+	const problems = validateCatalog({ slots: [], items: [], recipes: [], airlift_carriers: [carriers[0], { id: 'moth', name: {}, image: '' }] }).map((p) => `${p.level} ${p.path.join('.')}`);
+	assert.ok(problems.includes('error airlift_carriers.1.id') && problems.includes('error airlift_carriers.1.name') && problems.includes('warning airlift_carriers.1.image'), problems.join(', '));
 });
 
 test('furniture is smaller further back', () => {

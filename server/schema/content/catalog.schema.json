@@ -55,6 +55,13 @@
 						"$ref": "#/definitions/HomeScene"
 					},
 					"description": "what homes look like (homes.ts, research/CAVE.md): `cave`, `tatami_room` …"
+				},
+				"airlift_carriers": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AirliftCarrier"
+					},
+					"description": "the creature airlift's carriers – one at random per flight (homes.ts, research/CAVE.md D8)"
 				}
 			},
 			"required": [
@@ -1119,6 +1126,27 @@
 				}
 			},
 			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
+		},
+		"AirliftCarrier": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"name": {
+					"$ref": "#/definitions/Localized"
+				},
+				"image": {
+					"type": "string",
+					"description": "its picture (a cut-out, CDN path), shown carrying the avatar during the flight"
+				}
+			},
+			"required": [
+				"id",
+				"name",
+				"image"
+			],
+			"description": "A carrier of the creature airlift (catalog `airlift_carriers`, research/CAVE.md D8): a crazy creature or a flying robot taxi – one drawn at random per flight; the owner adds more without code"
 		}
 	}
 }

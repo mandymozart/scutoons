@@ -5,6 +5,8 @@ import { catalogLocale } from './setup.ts';
 
 export const CATALOG_MESSAGES = {
 	de: {
+		"catalog.airlift_carriers": "Lufttaxi-Kreaturen",
+		"catalog.airlift_carrier": "Lufttaxi-Kreatur",
 		"catalog.furniture": "Möbel – im Zuhause",
 		"catalog.furniture_size": "Größe (% der Raumbreite)",
 		"catalog.furniture_size_hint": "Der Raum ist vorne 4 m breit: Meter ÷ 4 × 100 – CD-Regal 12, Werkbank 35, Sofa 45 (5–60)",
@@ -175,6 +177,8 @@ export const CATALOG_MESSAGES = {
 		"nav.codes": "Codes"
 	},
 	en: {
+		"catalog.airlift_carriers": "Airlift carriers",
+		"catalog.airlift_carrier": "Airlift carrier",
 		"catalog.furniture": "Furniture – in the home",
 		"catalog.furniture_size": "Size (% of the room's width)",
 		"catalog.furniture_size_hint": "The room is 4 m wide at the front: metres ÷ 4 × 100 – CD rack 12, workbench 35, sofa 45 (5–60)",

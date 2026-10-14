@@ -177,11 +177,11 @@ final class HomesTest extends TestCase
     public function testARideCostsItsFareInCucumbers(): void
     {
         $this->refused('cannot_afford', fn() => $this->homes->ride($this->id, 'subway'));
-        $this->inventory->add($this->id, 'cucumber', null, 3, 'story');
-        self::assertSame(['network' => 'subway', 'paid' => 2], $this->homes->ride($this->id, 'subway'));
-        self::assertSame(1, $this->inventory->count($this->id, 'cucumber'));
-        self::assertSame(['network' => 'tram', 'paid' => 1], $this->homes->ride($this->id, 'tram'));
-        $this->refused('cannot_afford', fn() => $this->homes->ride($this->id, 'airlift'));
+        $this->inventory->add($this->id, 'cucumber', null, 11, 'story');
+        self::assertSame(['network' => 'subway', 'paid' => 1], $this->homes->ride($this->id, 'subway'));
+        self::assertSame(['network' => 'airlift', 'paid' => 10], $this->homes->ride($this->id, 'airlift'));
+        self::assertSame(0, $this->inventory->count($this->id, 'cucumber'));
+        $this->refused('cannot_afford', fn() => $this->homes->ride($this->id, 'tram'));
         $this->refused('unknown_network', fn() => $this->homes->ride($this->id, 'bus'));
     }
 

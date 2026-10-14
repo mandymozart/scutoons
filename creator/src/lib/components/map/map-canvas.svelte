@@ -598,7 +598,6 @@
 
 	<!-- the routes' gates over the dioramas (BACKLOG 10.66 (4), owner 2026-10-12: variant A – computed, adjustable) -->
 	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} layer="gates" />
-	<MapRoutes {routes} places={map.locations} zoom={view.zoom} x={view.x} y={view.y} layer="sky" onroute={onRouteClick} />
 
 	{#if placeGates.length || waypointHandles.length}
 		<!-- the Bézier handles' arms (owner 2026-10-12): gate or free point → its control point -->

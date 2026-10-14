@@ -3,7 +3,7 @@
 		id: string;
 		waypoints: (import('@scutoons/content').Waypoint | import('@scutoons/content').ReaderWaypoint)[];
 		style?: import('@scutoons/content').MapPathStyle;
-		/** a ride line (research/CAVE.md D8): drawn in its network's look; the airlift above the places (`gates` layer) */
+		/** a ride line (research/CAVE.md D8): drawn in its network's look */
 		network?: import('@scutoons/content').MapNetwork;
 		/** draw up to this waypoint index (default: all) */
 		to?: number;
@@ -37,8 +37,8 @@
 	}: {
 		routes: DrawnRoute[];
 		places: RoutePlace[];
-		/** lines (under the places), the gate marks (over them), or the sky: the creature airlift's lines over everything */
-		layer?: 'lines' | 'gates' | 'sky';
+		/** lines (under the places) or the gate marks (over them) */
+		layer?: 'lines' | 'gates';
 		zoom: number;
 		x: number;
 		y: number;
@@ -63,7 +63,7 @@
 						<circle class="gate" cx={g.at.x} cy={g.at.y} r={4 / zoom} stroke={stroke.color} data-gate="{g.place}:{g.which}" />
 					{/each}
 				</g>
-			{:else if shape.segments.length && (route.network === 'airlift') === (layer === 'sky')}
+			{:else if shape.segments.length}
 				<g class="route" class:dimmed={route.dimmed} class:selected={route.selected} data-route={route.id}>
 					{#each shape.segments as nodes, si (si)}
 						{@const d = routePath(nodes, stroke.tension)}

@@ -229,9 +229,9 @@ export function placeImageSrcset(variants: QualityVariants | null | undefined, u
 }
 
 export type MapPathStyle = 'road' | 'trail' | 'flight' | 'sea';
-/** a ride network (research/CAVE.md D8): a route with one is a line, its places the stops */
-export type MapNetwork = 'subway' | 'tram' | 'airlift';
-export const MAP_NETWORKS: MapNetwork[] = ['subway', 'tram', 'airlift'];
+/** a ride network with lines (research/CAVE.md D8): a route with one is a line, its places the stops (the airlift is a taxi) */
+export type MapNetwork = 'subway' | 'tram';
+export const MAP_NETWORKS: MapNetwork[] = ['subway', 'tram'];
 
 export interface MapPath {
 	id: string;
@@ -964,10 +964,9 @@ const round = (n: number) => Math.round(n * 100) / 100;
  */
 export function routeStroke(_style?: MapPathStyle, network?: MapNetwork): { width: number; dash: string; color: string; outline?: string; tension: number; bow: number } {
 	// the ride networks (research/CAVE.md D8): each its own look – the subway bold red, the tram twin rails (a light line
-	// in a dark outline), the creature airlift a dotted violet arc in the sky
+	// in a dark outline)
 	if (network === 'subway') return { width: 7, dash: '', color: '#e03131', outline: '#000', tension: 0.3, bow: 0 };
 	if (network === 'tram') return { width: 2, dash: '', color: '#fff', outline: '#000', tension: 0.3, bow: 0 };
-	if (network === 'airlift') return { width: 4, dash: '1 9', color: '#7048e8', tension: 0.5, bow: 0 };
 	return { width: 6, dash: '', color: '#000', tension: 0.3, bow: 0 };
 }
 

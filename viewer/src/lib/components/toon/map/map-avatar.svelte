@@ -18,7 +18,7 @@
 		/** where it stands (world units) */
 		at: Point | null;
 		/** a walk to show: its points (world units) and how long it takes (ms) */
-		walk?: { points: Point[]; ms: number } | null;
+		walk?: { points: Point[]; ms: number; carrier?: string | null } | null;
 		image: string;
 		ondone: () => void;
 	} = $props();
@@ -64,11 +64,27 @@
 	const s = $derived(where ? view.toScreen(where) : null);
 </script>
 
+{#if s && current && walk?.carrier}
+	<!-- the creature airlift: its carrier carries the avatar (research/CAVE.md D8) -->
+	<img class="carrier" src={walk.carrier} alt="" draggable="false" style:transform="translate({s.x}px, {s.y}px)" data-testid="map-carrier" />
+{/if}
 {#if s}
 	<img class="avatar" class:walking={!!current} src={image} alt="" draggable="false" style:transform="translate({s.x}px, {s.y}px)" data-testid="map-avatar" />
 {/if}
 
 <style>
+	/* the carrier hovers above the avatar while it flies */
+	.carrier {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 5rem;
+		height: 5rem;
+		margin: -6.5rem 0 0 -2.5rem;
+		object-fit: contain;
+		pointer-events: none;
+		z-index: 4;
+	}
 	/* above the place markers, below the card; the point is its foot */
 	.avatar {
 		position: absolute;

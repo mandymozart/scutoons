@@ -5,7 +5,7 @@ import type { ItemRespawn } from './respawn.ts';
 import type { FxSoundChoice } from './fx.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 import type { ItemAges, ItemHolds, ScoreFiles } from './containers.ts';
-import type { EntryHome, HomeScene, ItemFurniture } from './homes.ts';
+import type { AirliftCarrier, EntryHome, HomeScene, ItemFurniture } from './homes.ts';
 
 export type Localized = Record<string, string>;
 
@@ -246,6 +246,8 @@ export interface Catalog extends AcceptedWarnings {
 	albums?: Album[];
 	/** what homes look like (homes.ts, research/CAVE.md): `cave`, `tatami_room` … */
 	home_scenes?: HomeScene[];
+	/** the creature airlift's carriers – one at random per flight (homes.ts, research/CAVE.md D8) */
+	airlift_carriers?: AirliftCarrier[];
 }
 
 export type EntryId = number | string;

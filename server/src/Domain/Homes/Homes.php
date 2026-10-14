@@ -28,8 +28,8 @@ final class Homes
     public const MOVER_PRICE = ['item' => 'cucumber', 'qty' => 50];
     /** @scutoons/content DEFAULT_HOME_SCENE */
     public const DEFAULT_SCENE = 'cave';
-    /** a ride's price in cucumbers per network (@scutoons/content RIDE_PRICES; research/CAVE.md D8 – proposed) */
-    public const RIDE_PRICES = ['tram' => 1, 'subway' => 2, 'airlift' => 3];
+    /** a ride's price in cucumbers (@scutoons/content RIDE_PRICES; owner 2026-10-14: 1 a line ride, the airlift taxi 10) */
+    public const RIDE_PRICES = ['tram' => 1, 'subway' => 1, 'airlift' => 10];
     /** a visit link lives 7 days (research/CAVE.md D6) */
     public const VISIT_DAYS = 7;
 

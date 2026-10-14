@@ -7,6 +7,7 @@
 	import {
 		AlbumForm,
 		HomeSceneForm,
+		AirliftCarrierForm,
 		EditionForm,
 		ItemForm,
 		JsonField,
@@ -49,6 +50,7 @@
 		recipes: RecipeForm,
 		albums: AlbumForm,
 		'home-scenes': HomeSceneForm,
+		'airlift-carriers': AirliftCarrierForm,
 		products: ProductForm,
 		editions: EditionForm
 	};

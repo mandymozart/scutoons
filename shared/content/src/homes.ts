@@ -66,8 +66,25 @@ export function characterHome(character: { home?: string; home_scene?: string } 
 	return { place: character?.home || undefined, scene: character?.home_scene || DEFAULT_HOME_SCENE };
 }
 
-/** what a ride costs in cucumbers per network (research/CAVE.md D8 – proposed, the owner decides) */
-export const RIDE_PRICES: Record<MapNetwork, number> = { tram: 1, subway: 2, airlift: 3 };
+/** a ride: a line of the subway / tram, or the creature airlift – a taxi from anywhere to anywhere open */
+export type RideKind = MapNetwork | 'airlift';
+/** what a ride costs in cucumbers (owner 2026-10-14: "1 cucumber … the airlift (air taxi) costs 10 cucumbers") */
+export const RIDE_PRICES: Record<RideKind, number> = { tram: 1, subway: 1, airlift: 10 };
+
+/**
+ * A carrier of the creature airlift (catalog `airlift_carriers`, research/CAVE.md D8): a crazy creature or a flying robot
+ * taxi – one drawn at random per flight; the owner adds more without code
+ */
+export interface AirliftCarrier {
+	id: string;
+	name: Localized;
+	/** its picture (a cut-out, CDN path), shown carrying the avatar during the flight */
+	image: string;
+}
+
+/** one carrier at random (none = the flight shows the avatar alone) */
+export const randomCarrier = (carriers: readonly AirliftCarrier[] | null | undefined, random = Math.random): AirliftCarrier | null =>
+	carriers?.length ? carriers[Math.floor(random() * carriers.length)] : null;
 /** a ride is faster than walking: ms per stretch */
 export const RIDE_MS = 700;
 export const WALK_MS = 1200;
@@ -165,7 +182,16 @@ const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' &&
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 
 /** The home rules of a catalog (inside `validateCatalog`; the server: CatalogValidator) */
-export function validateHomes(catalog: { items: any[]; recipes?: any[]; home_scenes?: any[] }, add: Add): void {
+export function validateHomes(catalog: { items: any[]; recipes?: any[]; home_scenes?: any[]; airlift_carriers?: any[] }, add: Add): void {
+	const carriers = new Set<string>();
+	(catalog.airlift_carriers ?? []).forEach((c: any, i: number) => {
+		const path = ['airlift_carriers', i];
+		if (!isObj(c) || !isStr(c.id) || !/^[a-z0-9][a-z0-9_]*$/.test(c.id)) return add('error', path, 'an airlift carrier needs an id (snake_case)');
+		if (carriers.has(c.id)) add('error', [...path, 'id'], `duplicate airlift carrier "${c.id}"`);
+		carriers.add(c.id);
+		if (!isObj(c.name) || !Object.values(c.name).some(isStr)) add('error', [...path, 'name'], `${c.id}: a carrier needs a name`);
+		if (!isStr(c.image)) add('warning', [...path, 'image'], `${c.id}: no picture yet`);
+	});
 	const scenes = new Set<string>();
 	(catalog.home_scenes ?? []).forEach((s: any, i: number) => {
 		const path = ['home_scenes', i];

@@ -55,7 +55,7 @@ final class CatalogTest extends TestCase
     private static function servedItemsBefore(): string
     {
         $file = json_decode(self::config('items.json'), true);
-        $before = ['version' => $file['version'], 'slots' => AvatarSlots::ALL, 'items' => $file['items'], 'recipes' => $file['recipes'], 'albums' => $file['albums'], 'stats' => ReaderStats::DEFINITIONS, 'home_scenes' => $file['home_scenes']];
+        $before = ['version' => $file['version'], 'slots' => AvatarSlots::ALL, 'items' => $file['items'], 'recipes' => $file['recipes'], 'albums' => $file['albums'], 'stats' => ReaderStats::DEFINITIONS, 'home_scenes' => $file['home_scenes'], 'airlift_carriers' => $file['airlift_carriers']];
         return Json::encode($before);
     }
 
@@ -82,7 +82,8 @@ final class CatalogTest extends TestCase
         self::assertSame(27, $counts['items']);
         $this->get(CatalogStore::class)->forget();
         $this->assertServesTheSeedFiles('seeded from the fixture');
-        self::assertSame(array_fill_keys(array_keys(CatalogStore::KINDS), null), self::fixture()->seed($this->db), 'filled tables are left alone');
+        // the airlift carriers start empty (the owner adds them – research/CAVE.md D8): nothing to leave alone
+        self::assertSame(array_merge(array_fill_keys(array_keys(CatalogStore::KINDS), null), ['airlift-carriers' => 0]), self::fixture()->seed($this->db), 'filled tables are left alone');
     }
 
     public function testTheMigrationFoldsTheRetiredSettings(): void

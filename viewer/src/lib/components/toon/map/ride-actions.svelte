@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { RIDE_PRICES, type MapNetwork } from '@scutoons/content';
+	import { RIDE_PRICES, type RideKind } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The place card's rides (research/CAVE.md D8): one button per network that runs from the stop where the avatar
-	 * stands to this place – "Ride the subway here · 2 cucumbers". The fare is paid when the ride starts.
+	 * The place card's rides (research/CAVE.md D8): a subway / tram line from the stop where the avatar stands, and the
+	 * creature airlift to anywhere – "Ride the subway here · 1 cucumber". The fare is paid when the ride starts.
 	 */
 	let {
 		networks,
@@ -12,15 +12,15 @@
 		note,
 		onride
 	}: {
-		/** the networks that reach this place from where the avatar stands */
-		networks: MapNetwork[];
+		/** the rides that reach this place from where the avatar stands */
+		networks: RideKind[];
 		busy: boolean;
 		/** why the last ride didn't start ("You need 2 cucumbers") */
 		note: string;
-		onride: (network: MapNetwork) => void;
+		onride: (network: RideKind) => void;
 	} = $props();
 
-	const label = (n: MapNetwork) =>
+	const label = (n: RideKind) =>
 		({ subway: m['avatar_home.ride_subway'], tram: m['avatar_home.ride_tram'], airlift: m['avatar_home.ride_airlift'] })[n]({ price: RIDE_PRICES[n] });
 </script>
 
