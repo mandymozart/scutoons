@@ -5,6 +5,7 @@ namespace Scutoons\Http\Controllers\Admin;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Scutoons\Domain\Admin\AccountFilters;
 use Scutoons\Domain\Campaigns\CampaignStore;
 use Scutoons\Domain\Campaigns\Invites;
 use Scutoons\Http\CurrentSession;
@@ -17,8 +18,10 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST   /campaigns                      { name, starts_at, ends_at, gift, item_id?, … } → { item } (a draft)
  *   GET|PUT|DELETE /campaigns/{id}         (DELETE: only without invites – stop it otherwise)
  *   POST   /campaigns/{id}/start|stop      → { item }
- *   GET    /campaigns/{id}/accounts        ?q&page&page_size → { all, chosen, total, items: [{ id, email, created_at, chosen }] }
- *   PUT    /campaigns/{id}/accounts        { all? , add?: [ids], remove?: [ids] } → accounts (page 1)
+ *   GET    /campaigns/{id}/accounts        ?q&page&page_size + the account filters (AccountFilters) → { mode, segment_id, chosen,
+ *                                          total, items: [{ id, email, created_at, chosen }] }
+ *   PUT    /campaigns/{id}/accounts        { all } | { segment_id } | { add?: [ids], remove?: [ids] } | { add_matching: true, q?,
+ *                                          filters? } → accounts (page 1)
  *   GET    /campaigns/{id}/invites         ?status=payment|waiting|joined|returned|recalled|unpaid|to_ship → { items }
  *   GET    /campaigns/{id}/stats           { inviters, sent, by_status, joined_later, members }
  *   POST   /campaigns/invites/{id}/paid    → { item } (the member paid: the invite goes out)
@@ -78,7 +81,8 @@ final class CampaignsController
     public function accounts(Request $request, Response $response, array $args): Response
     {
         $q = $request->getQueryParams();
-        $result = $this->campaigns->accounts($args['id'], is_string($q['q'] ?? null) ? trim($q['q']) : '', (int) ($q['page'] ?? 1), (int) ($q['page_size'] ?? 25));
+        $filters = array_filter(array_intersect_key($q, array_flip(AccountFilters::NAMES)), 'is_string');
+        $result = $this->campaigns->accounts($args['id'], is_string($q['q'] ?? null) ? trim($q['q']) : '', (int) ($q['page'] ?? 1), (int) ($q['page_size'] ?? 25), $filters);
         return Json::response($response, 200, ['status' => 'success'] + $result);
     }
 

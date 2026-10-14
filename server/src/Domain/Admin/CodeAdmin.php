@@ -31,7 +31,7 @@ final class CodeAdmin
 
     public const SORTABLE = ['code', 'type', 'edition_id', 'edition_number', 'created_at', 'claimed_at', 'expires_at', 'revoked_at',
         'scans', 'accesses', 'devices', 'logins', 'refused', 'first_seen', 'last_seen'];
-    public const FILTERS = ['edition_id', 'type', 'status'];
+    public const FILTERS = ['edition_id', 'type', 'status', 'batch'];
     public const STATUSES = ['claimed', 'unclaimed', 'revoked', 'expired', 'active', 'signed', 'unsigned'];
 
     public function __construct(
@@ -111,6 +111,11 @@ final class CodeAdmin
                 $conditions[] = 'q.edition_id = ?';
                 $params[] = $edition;
             }
+        }
+        if (($batch = $query->filter('batch')) !== null) {
+            // the batch a code was made in (qr.batch – promo batches too)
+            $conditions[] = 'q.batch = ?';
+            $params[] = $batch;
         }
         if (($type = $query->filter('type')) !== null) {
             $conditions[] = 'q.type = ?';
@@ -219,7 +224,8 @@ final class CodeAdmin
     /**
      * Creates one code (generate.php / POST /api/admin/codes). $code null → a fresh nanoid(8).
      * 400 invalid_* · 409 code_exists.
-     * @param array<string, mixed> $fields redirect_to, type, code?, email?, expires_at?, edition_id?
+     * @param array<string, mixed> $fields redirect_to, type, code?, email?, expires_at?, edition_id?, batch? (the manifest a
+     *                                    batch run registers it from – qr.batch)
      * @return array<string, mixed> the stored row (publicRow + email when given)
      */
     public function create(array $fields): array
@@ -243,12 +249,16 @@ final class CodeAdmin
             $expiresAt = date('Y-m-d H:i:s', $time);
         }
         $editionId = is_string($fields['edition_id'] ?? null) && $fields['edition_id'] !== '' ? $fields['edition_id'] : null;
+        $batch = is_string($fields['batch'] ?? null) && $fields['batch'] !== '' ? $fields['batch'] : null;
+        if ($batch !== null && !Batches::validFilename($batch)) throw new ApiError(400, 'invalid_batch', 'batch: a batch manifest file name (BATCH-….json).');
 
         if ($this->codes->find($code) !== null) throw new ApiError(409, 'code_exists', 'Code already exists, please try again');
         $now = $this->clock->local();
-        $this->db->run('INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, expires_at, edition_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [Ids::uuid(), $code, $redirectTo, $type, $email, $now, $now, $expiresAt, $editionId]);
-        return ['code' => $code, 'redirect_to' => $redirectTo, 'type' => $type, 'email' => $email, 'expires_at' => $expiresAt, 'edition_id' => $editionId];
+        // qr.batch only when given (migration 2026-10-14-segments-batches) – a single code works before it ran
+        $this->db->run('INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, expires_at, edition_id' . ($batch !== null ? ', batch' : '') . ')
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?' . ($batch !== null ? ', ?' : '') . ')',
+            [Ids::uuid(), $code, $redirectTo, $type, $email, $now, $now, $expiresAt, $editionId, ...($batch !== null ? [$batch] : [])]);
+        return ['code' => $code, 'redirect_to' => $redirectTo, 'type' => $type, 'email' => $email, 'expires_at' => $expiresAt, 'edition_id' => $editionId, 'batch' => $batch];
     }
 
     /**

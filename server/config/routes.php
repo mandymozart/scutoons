@@ -25,6 +25,7 @@ use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
 use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CampaignsController;
+use Scutoons\Http\Controllers\Admin\SegmentsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
@@ -350,6 +351,14 @@ return static function (App $app): void {
         $admin->put('/campaigns/{id:[0-9a-f-]{36}}/accounts', [CampaignsController::class, 'setAccounts']);
         $admin->get('/campaigns/{id:[0-9a-f-]{36}}/invites', [CampaignsController::class, 'invites']);
         $admin->get('/campaigns/{id:[0-9a-f-]{36}}/stats', [CampaignsController::class, 'stats']);
+
+        // segments: named groups of accounts (agents/research/GIFT-INVITES.md 1b)
+        $admin->get('/segments', [SegmentsController::class, 'list']);
+        $admin->post('/segments', [SegmentsController::class, 'create']);
+        $admin->put('/segments/{id:[0-9a-f-]{36}}', [SegmentsController::class, 'rename']);
+        $admin->delete('/segments/{id:[0-9a-f-]{36}}', [SegmentsController::class, 'delete']);
+        $admin->post('/segments/{id:[0-9a-f-]{36}}/members', [SegmentsController::class, 'add']);
+        $admin->post('/segments/{id:[0-9a-f-]{36}}/members/remove', [SegmentsController::class, 'remove']);
 
         // ownership claims (agents/ITEMS.md "Ownership, claims, gifting")
         $admin->get('/claims', [AdminClaimsController::class, 'list']);

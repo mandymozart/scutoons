@@ -54,12 +54,14 @@ final class BackfillEditionNumbersCommand extends Command
         $pdo = $this->db->pdo();
         $pdo->beginTransaction();
         foreach ($manifests as $code => $info) {
-            $row = $this->db->one('SELECT code, edition_id, edition_number FROM qr WHERE code = ?', [$code]);
+            $row = $this->db->one('SELECT * FROM qr WHERE code = ?', [$code]);
             if (!$row) {
                 $stats['missing_in_db']++;
                 $output->writeln("not in db: $code ({$info['file']})");
                 continue;
             }
+            // the batch it was made in (qr.batch, migration 2026-10-14-segments-batches) – kept when set
+            if (!$dryRun && array_key_exists('batch', $row) && $row['batch'] === null) $this->db->run('UPDATE qr SET batch = ? WHERE code = ? AND batch IS NULL', [$info['file'], $code]);
             if ((string) $row['edition_id'] !== $info['edition_id']) {
                 $stats['edition_mismatch']++;
                 $output->writeln("edition mismatch: $code db={$row['edition_id']} manifest={$info['edition_id']} – skipped");

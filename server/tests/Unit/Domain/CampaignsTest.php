@@ -55,12 +55,12 @@ final class CampaignsTest extends TestCase
         self::assertNull($store->offerFor($ben));
         // "all" ticks every account (also later ones); unticking one leaves "all" for the list of the others
         $page = $store->setAccounts($c, ['all' => true]);
-        self::assertTrue($page['all']);
+        self::assertSame('all', $page['mode']);
         self::assertNotNull($store->offerFor($this->user('later@example.com')));
         $store->setAccounts($c, ['remove' => [$ben['id']]]);
         self::assertNull($store->offerFor($ben));
         self::assertNotNull($store->offerFor($anna));
-        self::assertFalse($store->accounts($c)['all']);
+        self::assertSame('chosen', $store->accounts($c)['mode']);
         // stopped / outside the window: nothing
         $store->setStatus($c, 'stopped');
         self::assertNull($store->offerFor($anna));

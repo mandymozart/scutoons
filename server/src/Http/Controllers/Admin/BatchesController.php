@@ -53,6 +53,12 @@ final class BatchesController
     public function create(Request $request, Response $response): Response
     {
         $body = JsonBody::of($request);
+        if (($body['type'] ?? null) === 'promo') {
+            // a promo batch: { type: promo, name, count, toon_id?, expires_at? }
+            $manifest = $this->batches->createPromo(is_string($body['name'] ?? null) ? $body['name'] : '', (int) ($body['count'] ?? 0),
+                is_string($body['toon_id'] ?? null) ? $body['toon_id'] : null, is_string($body['expires_at'] ?? null) ? $body['expires_at'] : null);
+            return Json::response($response, 201, ['status' => 'success', 'batch' => $manifest]);
+        }
         $editionId = is_string($body['edition_id'] ?? null) ? $body['edition_id'] : '';
         $count = isset($body['count']) ? (int) $body['count'] : null;
         $start = isset($body['start_number']) ? (int) $body['start_number'] : 1;

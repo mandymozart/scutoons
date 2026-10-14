@@ -18,7 +18,7 @@ use Scutoons\Support\Time;
 final class UserAdmin
 {
     public const SORTABLE = ['created_at', 'email', 'codes'];
-    public const FILTERS = ['role', 'opt_in'];
+    public const FILTERS = AccountFilters::NAMES;
 
     public function __construct(
         private readonly Database $db,
@@ -27,6 +27,7 @@ final class UserAdmin
         private readonly CharacterUnlocks $unlocks,
         private readonly Reviews $reviews,
         private readonly ReadingReport $reading,
+        private readonly Segments $segments,
     ) {
     }
 
@@ -49,32 +50,20 @@ final class UserAdmin
     }
 
     /**
-     * Admin list: q = part of the email, filters role (name), opt_in (1|0); sort created_at | email | codes (owned).
+     * Admin list: q = part of the email, the account filters (AccountFilters: role, opt_in, signup, edition, batch,
+     * campaign + campaign_role, segment); sort created_at | email | codes (owned). Each row lists its segments.
      * @return array{items: list<mixed>, pagination: array{total: int, page: int, pageSize: int}}
      */
     public function list(ListQuery $query): array
     {
-        $conditions = [];
-        $params = [];
-        if ($query->q !== '') {
-            $conditions[] = "u.email LIKE ? ESCAPE '!'";
-            $params[] = Database::likeContains(strtolower($query->q));
-        }
-        if (($role = $query->filter('role')) !== null) {
-            $conditions[] = 'EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = ?)';
-            $params[] = $role;
-        }
-        if (($optIn = $query->filter('opt_in')) !== null) {
-            $conditions[] = 'u.marketing_opt_in = ?';
-            $params[] = Users::flag($optIn) ? 1 : 0;
-        }
-        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        [$where, $params] = AccountFilters::where($query->q, $query->filters);
         $total = (int) $this->db->value("SELECT COUNT(*) FROM users u $where", $params);
         $column = $query->sortField === 'codes' ? 'codes' : "u.{$query->sortField}";
         $rows = $this->db->all("SELECT u.id, u.email, u.created_at, u.signup_code, u.marketing_opt_in, u.marketing_opt_in_at,
                 (SELECT COUNT(*) FROM qr q WHERE q.claimed_by = u.id) AS codes
             FROM users u $where {$query->orderBy($column, 'u.id')} LIMIT {$query->pageSize} OFFSET {$query->offset()}", $params);
-        return $query->result(array_map(fn(array $r) => $this->users->adminJson($r) + ['codes' => (int) $r['codes']], $rows), $total);
+        $segments = $this->segments->of(array_map(fn(array $r) => (string) $r['id'], $rows));
+        return $query->result(array_map(fn(array $r) => $this->users->adminJson($r) + ['codes' => (int) $r['codes'], 'segments' => $segments[(string) $r['id']] ?? []], $rows), $total);
     }
 
     /**

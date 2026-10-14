@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Campaigns;
 
 use PDOException;
+use Scutoons\Domain\Admin\AccountFilters;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Ownership\OwnershipTransfers;
@@ -14,8 +15,8 @@ use Scutoons\Support\Time;
 
 /**
  * Campaigns (agents/research/GIFT-INVITES.md, FEATURES 10.96; owner 2026-10-14: "the most basic implementation"): the
- * admin's campaigns (table campaigns, migration 2026-10-14-campaigns), who may invite (all accounts – also later ones –
- * or the chosen ones, campaign_inviters) and the campaign running for a member right now (`offerFor`). Only one kind
+ * admin's campaigns (table campaigns, migration 2026-10-14-campaigns), who may invite (all accounts – also later ones –,
+ * the chosen ones (campaign_inviters) or a segment's members) and the campaign running for a member right now (`offerFor`). Only one kind
  * so far, `gift_invite`: members give an item to someone without an account; the invite flow is Invites.
  * A campaign runs while status = started and now is inside starts_at … ends_at (UTC). Stopping ends it at once; the
  * invites already out keep waiting until their own end.
@@ -137,37 +138,47 @@ final class CampaignStore
 
     /**
      * The accounts as a list to tick (owner 2026-10-14: "a checkbox on a list of accounts, which also has a all checkbox
-     * … also if paginated"): page of accounts (q = part of the address), each with `chosen`; `all` = every account.
-     * @return array{all: bool, chosen: int, total: int, items: list<array{id: string, email: string, created_at: ?string, chosen: bool}>, page: int, page_size: int}
+     * … also if paginated"): a page of the accounts the filters find (AccountFilters), each with `chosen`; `mode` = all
+     * (every account, also later ones) | chosen | segment (the segment's members, edited in Users & roles).
+     * @param array<string, string|null> $filters
+     * @return array{mode: string, segment_id: ?string, chosen: int, total: int, items: list<array{id: string, email: string, created_at: ?string, chosen: bool}>, page: int, page_size: int}
      */
-    public function accounts(string $id, string $q = '', int $page = 1, int $pageSize = 25): array
+    public function accounts(string $id, string $q = '', int $page = 1, int $pageSize = 25, array $filters = []): array
     {
         $this->requireTables();
         $row = $this->row($id);
         $page = max(1, $page);
         $pageSize = max(1, min(100, $pageSize));
-        $where = $q !== '' ? 'WHERE u.email LIKE ?' : '';
-        $params = $q !== '' ? ['%' . addcslashes(strtolower($q), '%_\\') . '%'] : [];
+        [$where, $params] = AccountFilters::where($q, $filters);
         $total = (int) $this->db->value("SELECT COUNT(*) FROM users u $where", $params);
         $offset = ($page - 1) * $pageSize;
-        $rows = $this->db->all("SELECT u.id, u.email, u.created_at, (ci.user_id IS NOT NULL) AS chosen FROM users u
-            LEFT JOIN campaign_inviters ci ON ci.user_id = u.id AND ci.campaign_id = ?
-            $where ORDER BY u.email LIMIT $pageSize OFFSET $offset", [$id, ...$params]);
-        $all = $row['inviters'] === 'all';
+        $mode = (string) $row['inviters'];
+        $join = $mode === 'segment'
+            ? 'LEFT JOIN segment_members ci ON ci.user_id = u.id AND ci.segment_id = ?'
+            : 'LEFT JOIN campaign_inviters ci ON ci.user_id = u.id AND ci.campaign_id = ?';
+        $rows = $this->db->all("SELECT u.id, u.email, u.created_at, (ci.user_id IS NOT NULL) AS chosen FROM users u $join
+            $where ORDER BY u.email LIMIT $pageSize OFFSET $offset", [$mode === 'segment' ? $row['segment_id'] : $id, ...$params]);
+        $chosen = match ($mode) {
+            'all' => (int) $this->db->value('SELECT COUNT(*) FROM users'),
+            'segment' => (int) $this->db->value('SELECT COUNT(*) FROM segment_members WHERE segment_id = ?', [$row['segment_id']]),
+            default => (int) $this->db->value('SELECT COUNT(*) FROM campaign_inviters WHERE campaign_id = ?', [$id]),
+        };
         return [
-            'all' => $all,
-            'chosen' => $all ? (int) $this->db->value('SELECT COUNT(*) FROM users') : (int) $this->db->value('SELECT COUNT(*) FROM campaign_inviters WHERE campaign_id = ?', [$id]),
+            'mode' => $mode,
+            'segment_id' => $row['segment_id'] !== null ? (string) $row['segment_id'] : null,
+            'chosen' => $chosen,
             'total' => $total,
-            'items' => array_map(fn(array $r) => ['id' => (string) $r['id'], 'email' => (string) $r['email'], 'created_at' => Time::iso($r['created_at']), 'chosen' => $all || (bool) $r['chosen']], $rows),
+            'items' => array_map(fn(array $r) => ['id' => (string) $r['id'], 'email' => (string) $r['email'], 'created_at' => Time::iso($r['created_at']), 'chosen' => $mode === 'all' || (bool) $r['chosen']], $rows),
             'page' => $page,
             'page_size' => $pageSize,
         ];
     }
 
     /**
-     * { all: true } every account (also later ones) · { all: false } back to the chosen ones · { add: [ids], remove: [ids] }.
-     * Ticking one account while all are chosen keeps `all` (the list shows all ticked); unticking one leaves "all":
-     * every account except that one becomes the chosen list. 404 · 400 invalid_accounts.
+     * { all: true } every account (also later ones) · { all: false } back to the chosen ones · { segment_id } a segment's
+     * members · { add: [ids], remove: [ids] } · { add_matching: true, q?, filters? } every account the filters find
+     * (all pages). Unticking one while all are chosen leaves "all": every account except that one becomes the chosen
+     * list; a segment is edited in Users & roles (409 segment_mode). 404 · 400 invalid_accounts · 404 unknown_segment.
      * @param array<string, mixed> $body
      * @return array<string, mixed> accounts() of page 1
      */
@@ -183,17 +194,40 @@ final class CampaignStore
         $add = $ids($body['add'] ?? null);
         $remove = $ids($body['remove'] ?? null);
         $now = $this->clock->utc();
-        $this->db->transaction(function () use ($id, $row, $body, $add, $remove, $now) {
+        if (array_key_exists('segment_id', $body)) {
+            $segment = is_string($body['segment_id']) ? $body['segment_id'] : '';
+            if ($this->db->value('SELECT 1 FROM segments WHERE id = ?', [$segment]) === null) throw new ApiError(404, 'unknown_segment', 'This segment does not exist.');
+            $this->db->run("UPDATE campaigns SET inviters = 'segment', segment_id = ?, updated_at = ? WHERE id = ?", [$segment, $now, $id]);
+            return $this->accounts($id);
+        }
+        $matching = ($body['add_matching'] ?? false) === true;
+        if ($row['inviters'] === 'segment' && !array_key_exists('all', $body) && ($add || $remove || $matching)) {
+            throw new ApiError(409, 'segment_mode', 'A segment invites here – change who is in it in Users & roles, or choose accounts instead.');
+        }
+        $this->db->transaction(function () use ($id, $row, $body, $add, $remove, $matching, $now) {
+            if ($row['inviters'] === 'segment') {
+                // leaving the segment: its members become the chosen list
+                $this->db->run('DELETE FROM campaign_inviters WHERE campaign_id = ?', [$id]);
+                $this->db->run('INSERT INTO campaign_inviters (campaign_id, user_id, added_at) SELECT ?, user_id, ? FROM segment_members WHERE segment_id = ?', [$id, $now, $row['segment_id']]);
+                $this->db->run("UPDATE campaigns SET inviters = 'chosen', segment_id = NULL WHERE id = ?", [$id]);
+                $row['inviters'] = 'chosen';
+            }
             $all = array_key_exists('all', $body) ? (bool) $body['all'] : $row['inviters'] === 'all';
+            if ($matching && $all) return; // every account is in already
             if ($all && $remove) {
                 // leaving "all": everyone else becomes the chosen list
                 $this->db->run('DELETE FROM campaign_inviters WHERE campaign_id = ?', [$id]);
                 $this->db->run('INSERT INTO campaign_inviters (campaign_id, user_id, added_at) SELECT ?, id, ? FROM users', [$id, $now]);
                 $all = false;
             }
-            $this->db->run('UPDATE campaigns SET inviters = ?, updated_at = ? WHERE id = ?', [$all ? 'all' : 'chosen', $now, $id]);
+            $this->db->run('UPDATE campaigns SET inviters = ?, segment_id = NULL, updated_at = ? WHERE id = ?', [$all ? 'all' : 'chosen', $now, $id]);
             if ($all) return;
             foreach ($add as $user) $this->db->run('INSERT IGNORE INTO campaign_inviters (campaign_id, user_id, added_at) SELECT ?, id, ? FROM users WHERE id = ?', [$id, $now, $user]);
+            if ($matching) {
+                [$q, $filters] = AccountFilters::fromBody($body);
+                [$where, $params] = AccountFilters::where($q, $filters);
+                $this->db->run("INSERT IGNORE INTO campaign_inviters (campaign_id, user_id, added_at) SELECT ?, u.id, ? FROM users u $where", [$id, $now, ...$params]);
+            }
             if ($remove) {
                 $marks = implode(',', array_fill(0, count($remove), '?'));
                 $this->db->run("DELETE FROM campaign_inviters WHERE campaign_id = ? AND user_id IN ($marks)", [$id, ...$remove]);
@@ -215,8 +249,10 @@ final class CampaignStore
         try {
             $now = $this->clock->utc();
             return $this->db->one("SELECT c.* FROM campaigns c WHERE c.status = 'started' AND c.kind = 'gift_invite' AND c.starts_at <= ? AND c.ends_at > ?
-                AND (c.inviters = 'all' OR EXISTS (SELECT 1 FROM campaign_inviters ci WHERE ci.campaign_id = c.id AND ci.user_id = ?))
-                ORDER BY c.ends_at, c.id LIMIT 1", [$now, $now, (string) $user['id']]);
+                AND (c.inviters = 'all'
+                    OR (c.inviters = 'chosen' AND EXISTS (SELECT 1 FROM campaign_inviters ci WHERE ci.campaign_id = c.id AND ci.user_id = ?))
+                    OR (c.inviters = 'segment' AND EXISTS (SELECT 1 FROM segment_members sm WHERE sm.segment_id = c.segment_id AND sm.user_id = ?)))
+                ORDER BY c.ends_at, c.id LIMIT 1", [$now, $now, (string) $user['id'], (string) $user['id']]);
         } catch (PDOException $error) {
             if (!OwnershipTransfers::missingTable($error)) throw $error;
             return null;
@@ -380,6 +416,7 @@ final class CampaignStore
             'starts_at' => Time::iso($r['starts_at']),
             'ends_at' => Time::iso($r['ends_at']),
             'inviters' => (string) $r['inviters'],
+            'segment_id' => isset($r['segment_id']) ? (string) $r['segment_id'] : null,
             'gift' => (string) $r['gift'],
             'item_id' => $r['item_id'],
             'variant' => $r['variant'],
