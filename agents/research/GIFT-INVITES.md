@@ -1,4 +1,4 @@
-Status 2026-10-14: concept + drafts (a basic campaign); waits for the owner on: accept step for member gifts, invite without an item; nothing built (FEATURES 10.96).
+Status 2026-10-14: concept + drafts (a basic campaign); waits for the owner on: accept step for member gifts (Q4), physical items in the first version (Q6); nothing built (FEATURES 10.96).
 
 # GIFT-INVITES — give an item to someone without an account: invite them (plan, 2026-10-13)
 
@@ -38,6 +38,16 @@ end, invites per member per day, one waiting invite per address). **Statistics**
 inviter, address, item, invite code, state waiting · joined · back · called back, the account that joined, times):
 members who invited, invites sent, joined, waiting, back / called back, per member; "joined later" = the address made
 an account afterwards without the invite. Drafts: https://claude.ai/artifact/6jWjnwmb6sc5Yy8QCGuwuv (private).
+
+**1a. The campaign gift (owner 2026-10-14: "campaigns which ask the user to invite and they are given a special item
+as a gift … choosen from the items catalog").** No invite without an item. A campaign's gift is either *the member's
+own item* (as above) or *a campaign item* chosen from the catalog – SCUTOONS gives it with every invite, the member's
+inventory stays untouched; limited by the campaign's stock (invites stop when it is gone) and per member. **Physical
+items** need shipping to the friend (owner: "special rules apply … scutoons can either pay for the shipping and article
+or the person sending the gift can pay"): SCUTOONS pays → the friend enters a shipping address when accepting, the
+order lands in a "to ship" list in the campaign, countries limited by the campaign; the member pays → needs a payment
+provider (the shop only links out to an external store today, PLATFORM.md "Shop app"). Order of work: digital items
+first, then physical paid by SCUTOONS, then the member paying.
 
 **2. Giving (viewer, the gift form).** The giver enters an address without an account:
 - switch off: today's message ("ask them to sign up first");
@@ -81,5 +91,7 @@ comes back, the invite code stops working.
 - ~~Q2 Who may invite~~ – answered: ticked accounts in a list, select-all = every account (segments later).
 - **Q4 Member gifts: accept first?** "recall only if not accepted" needs an accept step; today member gifts arrive at
   once. Recommended: every gift waits for "Annehmen", recallable until then, back after 30 days.
-- **Q5 Invite without an item?** Recommended: gift only now; a plain invite later as another campaign kind.
+- ~~Q5 Invite without an item?~~ – answered: no; a campaign can supply the item (1a).
+- **Q6 Physical campaign items in the first version?** Recommended: digital first, then physical paid by SCUTOONS,
+  the member paying with a payment provider later.
 - ~~Q3 What the invite unlocks~~ – answered: like a promo code, until the admin's *access ends*.
