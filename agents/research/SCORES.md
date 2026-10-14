@@ -1,4 +1,4 @@
-Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); waits for the owner on Q3, Q6, Q7 (FEATURES 10.97).
+Status 2026-10-14: plan; Q1, Q2, Q4, Q5 + the renderer (Verovio) decided; the score view is a dev draft (`/account/lab/score`); Q3 decided; waits for the owner on Q6, Q7, Q8 (FEATURES 10.97).
 
 # SCORES — sheet music as items, a song book, the score view (plan, 2026-10-14)
 
@@ -37,6 +37,21 @@ the inventory like any item; the reader moves it: drag it onto the book in the g
 ("In das Liederbuch legen" offered on the book). The book's grid shows only what lies in it. "Unlocked" vs "a regular
 item" stays one model: unlocked = `starter: true`, found = `grantable: ["story"]`, bought = a product.
 
+**2a. Many song books, one you can make** (owner 2026-10-14: "there can be more song books, it's a property of a song
+book item. you can also create specific ones with a recipe. you need a drill and 4 zip ties, black or white or other
+colors. you might need to set up those items for me"). Every song book is its own container item; what it takes is
+its property (`holds`). Items to set up (admin catalog, as a proposal the admin applies – once the code knows `holds`):
+| id | what | notes |
+|---|---|---|
+| `songbook` | container, `holds: score` | the "unlocked" one (`starter`) or found / bought |
+| `drill` | tool, virtual | kept by the recipe (a tool, not an ingredient) |
+| `zip_tie` | stackable, variants black / white / … | where readers find them: Q8 |
+| `songbook_diy` | container, `holds: score`, the same colour variants | output of the recipe |
+| recipe `songbook_diy` | drill (kept) + 4 × zip_tie (colour X) → songbook_diy (colour X) | one recipe per colour |
+Two recipe fundamentals the code needs (ITEMS.md, with the code): an input that is **kept** (`RecipePart.keep`) and
+a **variant** on a part (`RecipePart.variant` – explicit per colour, no hidden inheritance). Icons: placeholders until
+the owner's art (like the players').
+
 **3. The song book view** – the inventory grid component reused (one job: a grid of owned items), filtered to
 `category: score`, opened from the book's item detail ("Öffnen" / "Open"). A score's detail: "Öffnen" → the score
 view, "PDF herunterladen" (the print file).
@@ -72,8 +87,9 @@ MusicXML parses – a Verovio load test in the admin, the server checks extensio
 score is placed with "Place an item …".
 
 ## Open questions
-- **Q3 one song book per toon or one for all toons** (`toon: null`)? Recommended: one for all, filtered by toon inside.
 - **Q6 taking out:** can a score be taken out of the book again (drag out / "Herausnehmen")? Recommended: yes.
+- **Q8 the parts:** the colours of the zip ties (black, white, …?); where readers get the drill and the zip ties (placed
+  in a story, a scan, a product?); `songbook` starter for everyone, or found?
 - **Q7 giving a container away:** a gifted book – (a) its contents go with it, (b) they fall out into the giver's
   inventory first (recommended: (b), a gift is one item), or (c) only an empty book can be given?
 
