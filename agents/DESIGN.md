@@ -54,6 +54,9 @@ overrides that break it.
   `radius-full` 50% (circular icon toggles, map markers only).
 - Border width: `hairline` 1px (form fields, badge) · `regular` 2px (structural).
 - **Borders over shadows** — no elevation scale. `filter: drop-shadow` only as a VFX glow on acid colors / inventory frame.
+- **Page sections** (owner 2026-10-14: on long pages "it is hard to differentiate where what ends"): a long page's
+  sections are `.sc-section` (tools.css) – a stack; each following section starts after `space-15`, a 2px ink rule and
+  `space-15` again. No local section styles. Used by the creator's character, toon, season and cover pages.
 
 ### Motion
 

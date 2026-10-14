@@ -154,7 +154,7 @@
 		<CharacterIdentity {registry} {character} {languages} {toons} {people} />
 
 		<!-- Personas → looks → moods -->
-		<section class="block" data-testid="personas">
+		<section class="sc-section" data-testid="personas">
 			<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust />
 			<Tabs
 				variant="ruled"
@@ -206,17 +206,17 @@
 			{/if}
 		</section>
 
-		<section class="block" data-testid="apose">
+		<section class="sc-section" data-testid="apose">
 			<h3>{m['creator.characters_apose']()}</h3>
 			<AposeEditor character={id} looks={aposeLooks} locale={textLanguage.names} {bust} onchange={setAposePath} />
 		</section>
 
-		<section class="block">
+		<section class="sc-section">
 			<h3>{m['creator.characters_wanted']()}</h3>
 			<WantedImages registry={file} {moods} {requests} locale={textLanguage.names} character={id} onopen={(_, p, l) => ((persona = p), (look = l))} />
 		</section>
 
-		<section class="block" data-testid="prompts">
+		<section class="sc-section" data-testid="prompts">
 			<h3>{m['creator.prompts_title']()}</h3>
 			<CharacterPrompts registry={file} {character} persona={personaId} look={lookId} {moods} {requests} locale={source} />
 		</section>
@@ -255,13 +255,6 @@
 		gap: 0.4rem;
 		align-items: center;
 		margin: 0;
-	}
-	.block {
-		border-top: 1px solid var(--border-subtle);
-		padding-top: 0.6rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
 	}
 	.tally {
 		margin-left: 0.35rem;
