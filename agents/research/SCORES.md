@@ -47,9 +47,11 @@ what containable item? with a simple rule we can edit? so creating new container
 with a `holds` rule, edited in admin → Catalog → Items ("Holds" in the item form):
 `holds: { categories?: ItemCategory[], items?: string[], max?: number }` – an item fits when its category is listed
 OR its id is listed; `max` = how many entries fit (none = no limit). Song book = `{ categories: ["score"], max: n }`;
-a pencil case later = `{ items: ["pencil", "eraser"] }`. Planned next to the song book (owner 2026-10-14: "that is
-for sure"): the **DJ trolley** (`dj_trolley`) holds the records (the media items with an album – a category rule
-`media`, or the record items listed; capacity open). Making a new container = filling in "Holds" on an item, no
+a pencil case later = `{ items: ["pencil", "eraser"] }`. Planned next to the song book (owner 2026-10-14): the **DJ trolley** (`dj_trolley`) holds
+**only vinyl** – the record items listed (`items`), not the category (capacity open). CDs go into a **CD case** (90s
+style), cassettes into a **little toy suitcase** – carried containers like the song book. A **CD rack** / **cassette
+rack** are not inventory: they belong to the **cave** – the avatar's home, a new concept designed in its own session
+(owner: "not inventory but cave … the home of the avatar"). Making a new container = filling in "Holds" on an item, no
 code. Validation: unknown categories / item ids warn, a container may not hold containers (no nesting). The reader's
 item detail shows where an item fits ("Passt in: Liederbuch"). If grouping by category is ever too coarse, item tags
 come later – not now (keep the configuration small).
@@ -121,7 +123,7 @@ score is placed with "Place an item …".
 ## Open questions
 - **Q11 capacities:** which sizes of the bought / found book (small, large, …?) and how many scores each holds; the DIY
   book; the upgraded DIY book. Does the upgrade need the drill again (new holes)? Recommended: no.
-- **DJ trolley:** only vinyl (the record items listed) or CDs and tapes too (the category `media`)? How many records?
+- **DJ trolley:** how many records does it hold? (Only vinyl – decided.)
 
 ## Steps once answered
 1. content: `ItemCategory 'score'`, `ItemDef.score`, `ItemDef.holds`, validation + schemas, tests; migrations: the
