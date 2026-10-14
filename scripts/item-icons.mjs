@@ -23,7 +23,8 @@ mkdirSync(OUT, { recursive: true });
 const ICONS = {
 	// owner 2026-10-14: "like an A3 folded into A4, like a regular score usually comes" – it must read as paper first
 	score: {
-		what: 'a printed music score as it usually comes: ONE A3 sheet of thin matte paper folded once in the middle into an A4 folio (four pages), standing slightly open, seen three-quarter, a soft paper fold; printed five-line staves with notes on the visible inner page; the upper third of the FRONT page completely empty and plain (a title is lettered there later) – no letters, no numbers',
+		// owner 2026-10-14: "single fold" – the last try showed two folded sheets
+		what: 'ONE single sheet of paper, nothing else: a music score printed on one A3 sheet of thin matte paper, folded ONCE down the middle into an A4 folio, standing slightly open like a greeting card, seen three-quarter, one soft fold line; exactly two leaves joined at the fold – no second sheet, no stack, no inserts, no booklet; printed five-line staves with notes on the visible inner page; the upper third of the FRONT page completely empty and plain (a title is lettered there later) – no letters, no numbers',
 		scheme: 'plain off-white matte paper – real paper first; at most a subtle coloured tint along the edges of the paper'
 	},
 	songbook_small: 'a slim closed song book with a ring binding on the left and a plain cover with a small embossed treble clef, no text',
@@ -32,7 +33,11 @@ const ICONS = {
 	songbook_diy_large: 'a thick home-made song book: a big stack of sheet music pages bound along the left edge by four chunky, wide zip ties, a plastic sheet as its cover',
 	songbook_diy_broken: 'a home-made song book fallen apart: snapped zip ties, loose sheet music pages fanning out and sliding away',
 	drill: 'a cordless power drill with a thin drill bit, side view',
-	zip_tie: 'a small bundle of four thin zip ties (cable ties), loosely crossed, floating – no shadow under them',
+	// owner 2026-10-14: "the zip looks black" – a dark scheme (chocolate) drowns on the dark inventory: bright plastic
+	zip_tie: {
+		what: 'a small bundle of four thin zip ties (cable ties), loosely crossed, floating – no shadow under them',
+		scheme: 'bright glossy translucent plastic in lemon yellow, lime and bubblegum pink – light and luminous, never dark'
+	},
 	zip_tie_large: 'a bundle of four long, thick, heavy-duty zip ties (cable ties), loosely crossed',
 	plastic_sheet: 'one single thin, flexible, see-through coloured plastic binder cover sheet (like a report cover), its corner curling up, the light shining through it – clearly a sheet of plastic, not a device or a screen',
 	dj_trolley: 'a small DJ record trolley case on two wheels with a pull handle, lid open, vinyl record sleeves standing inside',
