@@ -6,6 +6,8 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-14 · cave · The cave is a full-screen view, reused later by live mode (in @scutoons/reader like the ScoreView) · "the cave design is a full screen i will need this later in the live scenario as well" · → research/CAVE.md D3
+- 2026-10-14 · cave · Each avatar's home is the place where its character is first introduced in any story, or the `home` set in the character definition; missing places are added as new map places · "home for each avatar is where they get first introduced in any story. or set in character definitions. places that do not exist need to be added as new ones" · → research/CAVE.md D1
 - 2026-10-14 · map · Rides (paid in cucumbers) go along a subway, a tram and a creature airlift taxi network, each animated in its own map layer – built in a second step, after the cave + walking · "the rides go along a subway, tram, and special creature airlift taxi network … this needs to be build in a second step" · → research/CAVE.md
 - 2026-10-14 · cave · The cave (the avatar's home) is a place on the world map; you enter it when you are there (free); getting home costs: walk for free or ride paid in cucumbers; a VR headset item enters from anywhere · "with a VR headset, you can enter your home from remote", "if you are there you can just enter for free of course", "currently we accept cucumbers as payment" · → research/CAVE.md
 - 2026-10-14 · map · A walking mode: the reader's avatar gets its own marker and world-wide position, separate from the toon heroes, and walks along routes for free · "i do want a walking mode but no base is implemented, perhapse we have to do that now as well" · → research/CAVE.md

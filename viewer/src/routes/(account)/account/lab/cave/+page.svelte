@@ -14,14 +14,23 @@
 	<div class="view lab">
 		<h1>Cave (draft)</h1>
 		{#if inside}
-			<p class="muted" data-testid="cave-where">
-				{inside === 'visit' ? "Visiting Mia's cave (from her visit link)" : how === 'vr' ? 'Home – with the VR headset (your avatar stays on the map)' : 'Home'}
-			</p>
-			<CaveRoom visitor={inside === 'visit'} onleave={() => (inside = null)} />
+			<CaveRoom
+				visitor={inside === 'visit'}
+				where={inside === 'visit'
+					? "Mia's cave (visit link)"
+					: how === 'vr'
+						? 'Home · VR headset'
+						: 'Home'}
+				onleave={() => (inside = null)}
+			/>
 		{:else}
 			<div class="toggles">
-				<label><input type="checkbox" bind:checked={vr} data-testid="cave-has-vr" /> I own a VR headset</label>
-				<button onclick={() => (inside = 'visit')} data-testid="cave-visit">Open a friend's visit link</button>
+				<label
+					><input type="checkbox" bind:checked={vr} data-testid="cave-has-vr" /> I own a VR headset</label
+				>
+				<button onclick={() => (inside = 'visit')} data-testid="cave-visit"
+					>Open a friend's visit link</button
+				>
 			</div>
 			<CaveMap {vr} onenter={(h) => ((how = h), (inside = 'own'))} />
 		{/if}
@@ -38,10 +47,6 @@
 	}
 	h1 {
 		margin: 0;
-	}
-	.muted {
-		margin: 0;
-		color: var(--muted);
 	}
 	.toggles {
 		display: flex;

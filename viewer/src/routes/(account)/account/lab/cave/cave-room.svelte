@@ -1,31 +1,82 @@
 <script lang="ts">
-	// Draft (research/CAVE.md D3–D6): one drawn room with fixed furniture spots; racks are containers (`holds`), the
+	// Draft (research/CAVE.md D3–D6): a full-screen view (owner 2026-10-14: reused by live mode – built, it moves to
+	// @scutoons/reader like the ScoreView); one drawn room with fixed furniture spots; racks are containers (`holds`), the
 	// workbench runs workshop recipes; select an item, then tap a rack to put it in. As a visitor: read-only, but the
 	// workbench works with your own items. Local state only – nothing is saved.
 	import { asset } from '$lib/utils/cdn.ts';
 	import Glyph from './glyph.svelte';
 
-	let { visitor, onleave }: { visitor: boolean; onleave: () => void } = $props();
+	let { visitor, where, onleave }: { visitor: boolean; where: string; onleave: () => void } =
+		$props();
 
-	type Thing = { uid: number; item: string; name: string; kind: 'cd' | 'tape' | 'vinyl' | 'book' | 'broken_book' | 'furniture' };
-	type Furniture = Thing & { holds?: { kinds: Thing['kind'][]; max: number; label: string }; workshop?: boolean };
-	type Spot = { id: string; x: number; y: number; wall: boolean; furniture: Furniture | null; contents: Thing[] };
+	type Thing = {
+		uid: number;
+		item: string;
+		name: string;
+		kind: 'cd' | 'tape' | 'vinyl' | 'book' | 'broken_book' | 'furniture';
+	};
+	type Furniture = Thing & {
+		holds?: { kinds: Thing['kind'][]; max: number; label: string };
+		workshop?: boolean;
+	};
+	type Spot = {
+		id: string;
+		x: number;
+		y: number;
+		wall: boolean;
+		furniture: Furniture | null;
+		contents: Thing[];
+	};
 
 	let uid = 100;
-	const t = (item: string, name: string, kind: Thing['kind']): Thing => ({ uid: uid++, item, name, kind });
+	const t = (item: string, name: string, kind: Thing['kind']): Thing => ({
+		uid: uid++,
+		item,
+		name,
+		kind
+	});
 	const FURNITURE: Record<string, Omit<Furniture, 'uid'>> = {
-		cd_rack: { item: 'cd_rack', name: 'CD rack', kind: 'furniture', holds: { kinds: ['cd'], max: 12, label: 'CDs' } },
-		cassette_rack: { item: 'cassette_rack', name: 'Cassette rack', kind: 'furniture', holds: { kinds: ['tape'], max: 12, label: 'cassettes' } },
-		record_shelf: { item: 'record_shelf', name: 'Record shelf', kind: 'furniture', holds: { kinds: ['vinyl'], max: 20, label: 'records' } },
+		cd_rack: {
+			item: 'cd_rack',
+			name: 'CD rack',
+			kind: 'furniture',
+			holds: { kinds: ['cd'], max: 12, label: 'CDs' }
+		},
+		cassette_rack: {
+			item: 'cassette_rack',
+			name: 'Cassette rack',
+			kind: 'furniture',
+			holds: { kinds: ['tape'], max: 12, label: 'cassettes' }
+		},
+		record_shelf: {
+			item: 'record_shelf',
+			name: 'Record shelf',
+			kind: 'furniture',
+			holds: { kinds: ['vinyl'], max: 20, label: 'records' }
+		},
 		workbench: { item: 'workbench', name: 'Workbench', kind: 'furniture', workshop: true }
 	};
 	const furn = (id: string): Furniture => ({ uid: uid++, ...FURNITURE[id] });
 
 	// six fixed spots (D3): two against each wall, two on the floor in front
 	let spots = $state<Spot[]>([
-		{ id: 'wall-left-1', x: 16, y: 50, wall: true, furniture: furn('record_shelf'), contents: [t('awakening_vinyl', 'Awakening (vinyl)', 'vinyl')] },
+		{
+			id: 'wall-left-1',
+			x: 16,
+			y: 50,
+			wall: true,
+			furniture: furn('record_shelf'),
+			contents: [t('awakening_vinyl', 'Awakening (vinyl)', 'vinyl')]
+		},
 		{ id: 'wall-left-2', x: 35, y: 42, wall: true, furniture: null, contents: [] },
-		{ id: 'wall-right-1', x: 65, y: 42, wall: true, furniture: furn('cd_rack'), contents: [t('cd', 'Awakening (CD)', 'cd'), t('cd', 'Like A Baby (CD)', 'cd')] },
+		{
+			id: 'wall-right-1',
+			x: 65,
+			y: 42,
+			wall: true,
+			furniture: furn('cd_rack'),
+			contents: [t('cd', 'Awakening (CD)', 'cd'), t('cd', 'Like A Baby (CD)', 'cd')]
+		},
 		{ id: 'wall-right-2', x: 84, y: 50, wall: true, furniture: null, contents: [] },
 		{ id: 'floor-left', x: 24, y: 80, wall: false, furniture: furn('workbench'), contents: [] },
 		{ id: 'floor-right', x: 76, y: 80, wall: false, furniture: null, contents: [] }
@@ -53,7 +104,8 @@
 	}
 	function putIn(s: Spot, thing: Thing) {
 		const holds = s.furniture!.holds!;
-		if (!holds.kinds.includes(thing.kind)) return void (note = `${thing.name} doesn't fit – the ${s.furniture!.name} takes ${holds.label}.`);
+		if (!holds.kinds.includes(thing.kind))
+			return void (note = `${thing.name} doesn't fit – the ${s.furniture!.name} takes ${holds.label}.`);
 		if (s.contents.length >= holds.max) return void (note = `The ${s.furniture!.name} is full.`);
 		s.contents.push(thing);
 		carried = carried.filter((c) => c.uid !== thing.uid);
@@ -78,95 +130,176 @@
 	function repair() {
 		const broken = carried.find((c) => c.kind === 'broken_book');
 		if (!broken) return;
-		carried = carried.map((c) => (c.uid === broken.uid ? t('songbook_diy', 'DIY song book', 'book') : c));
+		carried = carried.map((c) =>
+			c.uid === broken.uid ? t('songbook_diy', 'DIY song book', 'book') : c
+		);
 		note = 'Repaired – the song book is back in your inventory.';
 	}
 </script>
 
-<div class="cave" class:visitor>
-	<div class="room" data-testid="cave-room">
-		<svg class="shell" viewBox="0 0 100 100" aria-hidden="true">
-			<polygon class="wall" points="0,30 50,8 50,58 0,80" />
-			<polygon class="wall" points="50,8 100,30 100,80 50,58" />
-			<polygon class="floor" points="0,80 50,58 100,80 50,100" />
-		</svg>
-		<img class="avatar" src={asset('catpope/avatar.webp')} alt="Your avatar" />
-		{#each spots as s (s.id)}
-			<button
-				class="spot"
-				class:empty={!s.furniture}
-				class:open={open === s.id}
-				class:target={!!sel && !visitor && ((!!s.furniture?.holds && s.furniture.holds.kinds.includes(sel.kind)) || (sel.kind === 'furniture' && !s.furniture))}
-				style:left="{s.x}%"
-				style:top="{s.y}%"
-				title={s.furniture?.name ?? 'Empty spot'}
-				disabled={visitor && !s.furniture}
-				onclick={() => tapSpot(s)}
-				data-testid="cave-spot"
-			>
-				{#if s.furniture}
-					<Glyph kind={s.furniture.item} count={s.contents.length} />
-				{:else}
-					<span class="plus" aria-hidden="true">+</span>
-				{/if}
-			</button>
-		{/each}
-	</div>
-
-	<aside class="panel" data-testid="cave-panel">
-		{#if note}<p class="note" role="status">{note}</p>{/if}
-		{#if spot?.furniture}
-			<h2>{spot.furniture.name}{#if spot.furniture.holds}<span class="muted">{` · `}{spot.contents.length} / {spot.furniture.holds.max}</span>{/if}</h2>
-			{#if spot.furniture.holds}
-				<div class="grid">
-					{#each spot.contents as c (c.uid)}
-						<button class="thing" disabled={visitor} title={visitor ? c.name : `Take out: ${c.name}`} onclick={() => takeOut(spot, c)}>
-							<Glyph kind={c.item} /><span>{c.name}</span>
-						</button>
-					{/each}
-				</div>
-				{#if !visitor}<p class="muted">Select something in your inventory, then tap the {spot.furniture.name}.</p>{/if}
-			{:else if spot.furniture.workshop}
-				<p>Workshop recipes</p>
-				<button class="primary" disabled={!carried.some((c) => c.kind === 'broken_book')} onclick={repair} data-testid="cave-repair">
-					Repair the broken song book
-				</button>
-			{/if}
-			{#if !visitor}<button onclick={() => putAway(spot)}>Put away</button>{/if}
-		{:else if spot}
-			<h2>Empty spot</h2>
-			<p class="muted">Select a piece of furniture in your inventory, then tap the spot.</p>
-		{/if}
-
-		<h2>{visitor ? 'Your inventory (you are visiting)' : 'Your inventory'}</h2>
-		<div class="grid">
-			{#each carried as c (c.uid)}
-				<button class="thing" class:selected={selected === c.uid} disabled={visitor} onclick={() => (selected = selected === c.uid ? null : c.uid)}>
-					<Glyph kind={c.item} /><span>{c.name}</span>
+<div
+	class="cave"
+	class:visitor
+	role="dialog"
+	aria-modal="true"
+	aria-label={where}
+	data-testid="cave-view"
+>
+	<header>
+		<span data-testid="cave-where">{where}</span>
+		<button onclick={onleave} data-testid="cave-leave"
+			>{visitor ? 'Leave the visit' : 'Leave the cave'}</button
+		>
+	</header>
+	<div class="body">
+		<div class="room" data-testid="cave-room">
+			<svg class="shell" viewBox="0 0 100 100" aria-hidden="true">
+				<polygon class="wall" points="0,30 50,8 50,58 0,80" />
+				<polygon class="wall" points="50,8 100,30 100,80 50,58" />
+				<polygon class="floor" points="0,80 50,58 100,80 50,100" />
+			</svg>
+			<img class="avatar" src={asset('catpope/avatar.webp')} alt="Your avatar" />
+			{#each spots as s (s.id)}
+				<button
+					class="spot"
+					class:empty={!s.furniture}
+					class:open={open === s.id}
+					class:target={!!sel &&
+						!visitor &&
+						((!!s.furniture?.holds && s.furniture.holds.kinds.includes(sel.kind)) ||
+							(sel.kind === 'furniture' && !s.furniture))}
+					style:left="{s.x}%"
+					style:top="{s.y}%"
+					title={s.furniture?.name ?? 'Empty spot'}
+					disabled={visitor && !s.furniture}
+					onclick={() => tapSpot(s)}
+					data-testid="cave-spot"
+				>
+					{#if s.furniture}
+						<Glyph kind={s.furniture.item} count={s.contents.length} />
+					{:else}
+						<span class="plus" aria-hidden="true">+</span>
+					{/if}
 				</button>
 			{/each}
 		</div>
-		<button onclick={onleave} data-testid="cave-leave">{visitor ? 'Leave the visit' : 'Leave the cave'}</button>
-	</aside>
+
+		<aside class="panel" data-testid="cave-panel">
+			{#if note}<p class="note" role="status">{note}</p>{/if}
+			{#if spot?.furniture}
+				<h2>
+					{spot.furniture.name}{#if spot.furniture.holds}<span class="muted"
+							>{` · `}{spot.contents.length} / {spot.furniture.holds.max}</span
+						>{/if}
+				</h2>
+				{#if spot.furniture.holds}
+					<div class="grid">
+						{#each spot.contents as c (c.uid)}
+							<button
+								class="thing"
+								disabled={visitor}
+								title={visitor ? c.name : `Take out: ${c.name}`}
+								onclick={() => takeOut(spot, c)}
+							>
+								<Glyph kind={c.item} /><span>{c.name}</span>
+							</button>
+						{/each}
+					</div>
+					{#if !visitor}<p class="muted">
+							Select something in your inventory, then tap the {spot.furniture.name}.
+						</p>{/if}
+				{:else if spot.furniture.workshop}
+					<p>Workshop recipes</p>
+					<button
+						class="primary"
+						disabled={!carried.some((c) => c.kind === 'broken_book')}
+						onclick={repair}
+						data-testid="cave-repair"
+					>
+						Repair the broken song book
+					</button>
+				{/if}
+				{#if !visitor}<button onclick={() => putAway(spot)}>Put away</button>{/if}
+			{:else if spot}
+				<h2>Empty spot</h2>
+				<p class="muted">Select a piece of furniture in your inventory, then tap the spot.</p>
+			{/if}
+
+			<h2>{visitor ? 'Your inventory (you are visiting)' : 'Your inventory'}</h2>
+			<div class="grid">
+				{#each carried as c (c.uid)}
+					<button
+						class="thing"
+						class:selected={selected === c.uid}
+						disabled={visitor}
+						onclick={() => (selected = selected === c.uid ? null : c.uid)}
+					>
+						<Glyph kind={c.item} /><span>{c.name}</span>
+					</button>
+				{/each}
+			</div>
+		</aside>
+	</div>
 </div>
 
 <style>
+	/* full screen above the app (like the ScoreView): a bar, then the room and the panel */
 	.cave {
+		position: fixed;
+		inset: 0;
+		z-index: 2080; /* above the app, like the ScoreView */
 		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		background: var(--paper);
+		color: var(--ink);
+	}
+	header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		gap: 1rem;
+		padding: 0.5rem 1rem;
+		border-bottom: var(--border-width-regular) solid var(--ink);
+	}
+	header button {
+		min-height: var(--control-height);
+		padding: 0 0.75rem;
+		border: var(--border-width-regular) solid var(--ink);
+		background: var(--paper);
+		color: var(--ink);
+		font: inherit;
+		cursor: pointer;
+	}
+	/* phone: the room on top, the panel scrolls below; desktop: the room fills the height, the panel at the side */
+	.body {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr);
+		min-height: 0;
+	}
+	.panel {
+		overflow-y: auto;
+		padding: 0 1rem 1rem;
 	}
 	@media (min-width: 64rem) {
-		.cave {
+		.room {
+			width: min(100% - 2rem, 100vh - 6rem);
+		}
+		.body {
+			grid-template-rows: none;
 			grid-template-columns: minmax(0, 1fr) 22rem;
-			align-items: start;
+		}
+		.panel {
+			padding-top: 1rem;
+			border-left: var(--border-width-regular) solid var(--ink);
 		}
 	}
 	/* the 2.5D diorama: two walls meeting in a corner, the floor in front (MAP.md §5.1 three-quarter view) */
 	.room {
 		position: relative;
 		aspect-ratio: 1;
-		margin-inline: auto;
-		width: min(100%, 40rem, 75vh);
+		margin: 0.5rem auto;
+		width: min(100% - 1rem, 55vh);
+		align-self: center;
 	}
 	.shell {
 		position: absolute;
@@ -263,7 +396,7 @@
 	.thing:disabled {
 		cursor: default;
 	}
-	.panel > button {
+	.panel button:not(.thing) {
 		justify-self: start;
 		min-height: var(--control-height);
 		padding: 0 0.75rem;
@@ -273,11 +406,11 @@
 		font: inherit;
 		cursor: pointer;
 	}
-	.panel > button.primary {
+	.panel button.primary {
 		background: var(--ink);
 		color: var(--paper);
 	}
-	.panel > button:disabled {
+	.panel button:not(.thing):disabled {
 		opacity: 0.4;
 	}
 </style>

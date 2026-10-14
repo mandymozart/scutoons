@@ -7,7 +7,7 @@
 
 	type Place = { id: string; name: string; x: number; y: number; image: string; unlocked: boolean };
 	const PLACES: Place[] = [
-		{ id: 'home', name: 'Home', x: 18, y: 72, image: 'apartment-blocks', unlocked: true },
+		{ id: 'home', name: 'Home (Cat Pope)', x: 18, y: 72, image: 'apartment-blocks', unlocked: true },
 		{ id: 'square', name: 'Church square', x: 42, y: 52, image: 'church-square', unlocked: true },
 		{ id: 'cathedral', name: 'Cathedral', x: 70, y: 30, image: 'cathedral', unlocked: true },
 		{ id: 'station', name: 'Station', x: 78, y: 74, image: 'station', unlocked: true },
@@ -86,7 +86,14 @@
 			{#if place.unlocked}<span class="label">{place.name}</span>{/if}
 		</button>
 	{/each}
-	<img class="avatar" class:walking src={asset('catpope/avatar.webp')} alt="Your avatar" style:left="{pos.x}%" style:top="{pos.y}%" />
+	<img
+		class="avatar"
+		class:walking
+		src={asset('catpope/avatar.webp')}
+		alt="Your avatar"
+		style:left="{pos.x}%"
+		style:top="{pos.y}%"
+	/>
 </div>
 
 {#if sel}
@@ -95,17 +102,28 @@
 		{#if sel.id === 'home'}
 			{#if at === 'home'}
 				<span class="muted">You are home.</span>
-				<button class="primary" onclick={() => onenter('there')} data-testid="cave-enter">Enter</button>
+				<button class="primary" onclick={() => onenter('there')} data-testid="cave-enter"
+					>Enter</button
+				>
 			{:else}
-				{#if vr}<button onclick={() => onenter('vr')} data-testid="cave-enter-vr">Enter with the VR headset</button>{/if}
-				<button class="primary" disabled={!canWalk || walking} onclick={() => walk('home')} data-testid="cave-walk-home">
+				{#if vr}<button onclick={() => onenter('vr')} data-testid="cave-enter-vr"
+						>Enter with the VR headset</button
+					>{/if}
+				<button
+					class="primary"
+					disabled={!canWalk || walking}
+					onclick={() => walk('home')}
+					data-testid="cave-walk-home"
+				>
 					{walking ? 'Walking …' : 'Walk home'}
 				</button>
 			{/if}
 		{:else if sel.id === at}
 			<span class="muted">Your avatar is here.</span>
 		{:else}
-			<button class="primary" disabled={!canWalk || walking} onclick={() => walk(sel.id)}>{walking ? 'Walking …' : 'Walk here'}</button>
+			<button class="primary" disabled={!canWalk || walking} onclick={() => walk(sel.id)}
+				>{walking ? 'Walking …' : 'Walk here'}</button
+			>
 		{/if}
 	</div>
 {/if}
