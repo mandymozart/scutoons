@@ -52,6 +52,8 @@
 	}
 	/** the MusicXML the shared toolkit holds */
 	let held: string | null = null;
+	/** the look it was loaded with (a font change needs a new load) */
+	let heldLook: unknown = null;
 </script>
 
 <script lang="ts">
@@ -61,6 +63,9 @@
 	import { Icon, IconButton } from '@scutoons/ui';
 	import { cleanMusicXml, loadToolkit, type ScoreToolkit } from './verovio.ts';
 	import ScoreAge from './score-age.svelte';
+	import ScoreBoil from './score-boil.svelte';
+	import type { ScoreLook } from './score-looks.ts';
+	import './score-looks.css';
 	import { ScoreSynth, notesFromTimemap, type ScoreNote, type TimemapEntry } from './synth.ts';
 
 	/**
@@ -72,6 +77,7 @@
 	 * Play (owner 2026-10-14) sounds the file's notes on a small synth from the current page on, lights the notes that
 	 * sound and turns the pages along; while it plays the sheet is an echo pad – a finger sliding over it sets the delay
 	 * (x: echo time and length, y: how much of it – the top all echo), lifting it glides back to dry (score/synth.ts).
+	 * `look` (score-looks.ts): another music font, pen, colours and animations – a draft in the lab.
 	 */
 	let {
 		src,
@@ -79,6 +85,7 @@
 		title,
 		labels = DEFAULT_SCORE_LABELS,
 		age = null,
+		look = null,
 		onclose
 	}: {
 		/** the MusicXML file's URL */
@@ -89,6 +96,7 @@
 		labels?: ScoreLabels;
 		/** an ageing book's look (`ageLook` + a seed – the book entry): tint and spots over every page */
 		age?: { tint: number; spots: number; seed: string } | null;
+		look?: ScoreLook | null;
 		onclose: () => void;
 	} = $props();
 
@@ -137,7 +145,7 @@
 	$effect(() => {
 		if (!toolkit || !xml || !width || !height) return;
 		try {
-			layout(toolkit, xml, width, height, zoom);
+			layout(toolkit, xml, width, height, zoom, look);
 		} catch {
 			// the renderer gave up on this file: say so instead of loading forever
 			held = null;
@@ -146,9 +154,11 @@
 	});
 
 	/** Verovio's page units at `zoom` % = the sheet's pixels (its tutorial's way to fit a page to a box) */
-	function layout(tk: ScoreToolkit, data: string, w: number, h: number, scale: number) {
+	function layout(tk: ScoreToolkit, data: string, w: number, h: number, scale: number, style: ScoreLook | null) {
 		const anchor = untrack(() => (held === data ? firstMeasure() : null));
+		tk.resetOptions();
 		tk.setOptions({
+			...style?.options,
 			pageWidth: Math.round((w * 100) / scale),
 			pageHeight: Math.round((h * 100) / scale),
 			scale,
@@ -161,10 +171,13 @@
 			pageMarginLeft: 40,
 			pageMarginRight: 40
 		});
-		// the toolkit is shared: load the data again when another view loaded its own since
-		if (held !== data) {
+		// the toolkit is shared: load the data again when another view loaded its own (or another look) since
+		if (held !== data || heldLook !== style) {
 			tk.loadData(data);
 			held = data;
+			heldLook = style;
+			// a new load may give the notes new ids
+			notes = null;
 		} else tk.redoLayout();
 		pages = tk.getPageCount();
 		const at = anchor ? tk.getPageWithElement(anchor) : 1;
@@ -346,7 +359,8 @@
 	</header>
 
 	<!-- the sheet: its size is the page size -->
-	<div class="sheet" bind:this={sheet}>
+	<div class="sheet" bind:this={sheet} data-look={look?.id} data-boil={look?.boil && !reduceMotion ? "" : undefined}>
+		{#if look?.boil}<ScoreBoil />{/if}
 		{#if status === 'ready'}
 			<div class="swiper" bind:this={slides}>
 				<div class="swiper-wrapper">

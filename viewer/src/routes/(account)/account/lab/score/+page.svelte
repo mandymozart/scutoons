@@ -1,9 +1,11 @@
 <script lang="ts">
 	// Dev-only draft of the score view (research/SCORES.md §4, FEATURES 10.97): a MusicXML file from the local CDN
 	// (`media/scutoons/scores/`, a dev copy) in the shared ScoreView – before scores exist as catalog items. Also the
-	// lettered cover (§1) and the DIY book's ageing (§2a) at a chosen age.
+	// lettered cover (§1) and the DIY book's ageing (§2a) at a chosen age; the looks (score-looks.ts – Gootville, colours,
+	// boiling lines, hopping notes).
 	import { ageLook } from '@scutoons/content';
-	import { CoverLettering, ScoreView } from '@scutoons/reader';
+	import { CoverLettering, SCORE_LOOKS, ScoreView } from '@scutoons/reader';
+	import { Segmented } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 
 	const isDev = import.meta.env.DEV;
@@ -19,6 +21,13 @@
 	let open = $state<(typeof SCORES)[number] | null>(SCORES[0]);
 	/** the DIY book's age in days (0 = new) */
 	let days = $state(0);
+	let lookId = $state<string>('old-school');
+	const scoreLook = $derived(SCORE_LOOKS.find((l) => l.id === lookId) ?? null);
+	const LOOK_OPTIONS = [
+		{ value: 'plain', label: 'Plain' },
+		{ value: 'old-school', label: 'Old school' },
+		{ value: 'old-school-colour', label: 'Old school colour' }
+	];
 	const look = $derived(ageLook(DIY_AGES, 0, days * 86_400_000));
 </script>
 
@@ -28,6 +37,7 @@
 		<p>
 			<label>DIY book age: {days} days <input type="range" min="0" max="120" bind:value={days} data-testid="score-age-days" /></label>
 		</p>
+		<p><Segmented label="Look" options={LOOK_OPTIONS} value={lookId} onchange={(v) => (lookId = v)} testid="score-look" /></p>
 		<div class="covers">
 			{#each SCORES as score (score.id)}
 				<button class="cover" onclick={() => (open = score)} data-testid="score-open" title={score.title}>
@@ -43,6 +53,7 @@
 				pdf={asset(`scutoons/scores/${open.id}.pdf`)}
 				title={open.title}
 				age={days > 0 ? { ...look, seed: `lab-${open.id}` } : null}
+				look={scoreLook}
 				onclose={() => (open = null)}
 			/>
 		{/key}

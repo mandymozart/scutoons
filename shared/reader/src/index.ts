@@ -24,6 +24,7 @@ export { fxLayer, liftCue, refuseCue, nudgeCue, sparkles, impactCue, IMPACTS, IM
 export { loadShape, type Shape } from './fx/shape.ts';
 export { default as ScoreView, DEFAULT_SCORE_LABELS, type ScoreLabels } from './score/score-view.svelte';
 export { default as ScoreAge } from './score/score-age.svelte';
+export { SCORE_LOOKS, type ScoreLook } from './score/score-looks.ts';
 export { default as HomeView } from './home/home-view.svelte';
 export { DEFAULT_HOME_LABELS, type HomeLabels, type HomePiece, type HomeRecipe, type HomeSceneFiles, type HomeThing } from './home/home-types.ts';
 export { default as CoverLettering } from './items/cover-lettering.svelte';

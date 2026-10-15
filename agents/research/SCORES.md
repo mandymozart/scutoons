@@ -137,6 +137,14 @@ view, "PDF herunterladen" (the print file).
   owner's songs (local `media/scutoons/scores/`, a dev copy). Learned: "Cloud 9" (SATB) reads well – a phone 4 pages,
   desktop 4; "Like A Baby" as the full score (voice, choir, organ, piano) is 30 pages on a desktop and its lyrics
   collide – the reader edition should be the choir / voice parts only, exported from MuseScore as its own file.
+- Looks (owner 2026-10-15: "my own fancy fonts … much more interesting notation fonts … colors"; "old school" =
+  Gootville, not Petaluma): `look` on ScoreView (score/score-looks.ts + .css) – Verovio options (music font, a heavier
+  pen) + CSS on Verovio's SVG classes keyed by `data-look`: old paper, sepia ink, red dynamics / chords, Bangers for title
+  and tempo, lyrics Times italic (Verovio spaces words by Times' widths – a wider face runs them together); "colour"
+  = noteheads by pitch (`note@pname`); boiling lines (three turbulence filters stepped) and the sounding note +
+  syllable hop while playing – both off under reduced motion. The toolkit is shared: `resetOptions()` before every
+  layout. DRAFT in the lab (look switch); not yet chosen for readers. Possible next: own SMuFL font (Verovio's
+  `fontAddCustom`, a converted zip), own drawn clefs swapped into the SVG's symbols.
 - Lives in `@scutoons/reader` (no app state) so live mode reuses it; the viewer wraps it.
 
 **5. Access – protected** (owner 2026-10-14: "we will need a protection for this soon"; "guests can view the score in

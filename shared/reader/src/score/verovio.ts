@@ -5,6 +5,8 @@
  */
 export interface ScoreToolkit {
 	setOptions(options: Record<string, unknown>): void;
+	/** back to Verovio's defaults (the toolkit is shared: one view's look must not stay for the next) */
+	resetOptions(): void;
 	loadData(data: string): boolean;
 	redoLayout(options?: Record<string, unknown>): void;
 	getPageCount(): number;

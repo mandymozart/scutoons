@@ -1,0 +1,85 @@
+/* Score looks (score-looks.ts): the sheet carries data-look; Verovio's SVG keeps its classes (g.note, g.syl …).
+   Fonts: the app's lettering (Bangers) for title and tempo; lyrics in Times italic (Verovio spaces the words by Times' widths – a wider face runs them together). */
+
+.score-view .sheet[data-look^='old-school'] {
+	--score-paper: #f3e7cc;
+	--score-ink: #2b1b0e;
+	--score-red: #9a2b1c;
+	--score-lit: #c0471f;
+	color: var(--score-ink);
+	/* old paper: a warm sheet, a little darker at the edges */
+	background:
+		radial-gradient(ellipse at 50% 40%, transparent 55%, rgb(120 80 30 / 0.18)),
+		var(--score-paper);
+}
+
+.score-view .sheet[data-look^='old-school'] svg {
+	color: var(--score-ink);
+	fill: var(--score-ink);
+}
+
+/* the title (Verovio's page head) and the tempo in the lettering font */
+.score-view .sheet[data-look^='old-school'] g.pgHead text,
+.score-view .sheet[data-look^='old-school'] g.tempo text {
+	font-family: var(--font-lettering);
+	font-weight: 400;
+	letter-spacing: 0.04em;
+}
+
+.score-view .sheet[data-look^='old-school'] g.verse text {
+	font-family: 'Times New Roman', Times, serif;
+	font-style: italic;
+}
+
+.score-view .sheet[data-look^='old-school'] g.dynam,
+.score-view .sheet[data-look^='old-school'] g.harm {
+	fill: var(--score-red);
+	color: var(--score-red);
+}
+
+/* colour notation: the notehead takes its pitch's colour, stems and flags stay ink */
+.score-view .sheet[data-look='old-school-colour'] g.note[data-pname='c'] > g.notehead { fill: #d7322d; }
+.score-view .sheet[data-look='old-school-colour'] g.note[data-pname='d'] > g.notehead { fill: #ec8a1c; }
+.score-view .sheet[data-look='old-school-colour'] g.note[data-pname='e'] > g.notehead { fill: #e8c21a; }
+.score-view .sheet[data-look='old-school-colour'] g.note[data-pname='f'] > g.notehead { fill: #3f9b3a; }
+.score-view .sheet[data-look='old-school-colour'] g.note[data-pname='g'] > g.notehead { fill: #1d8f9a; }
+.score-view .sheet[data-look='old-school-colour'] g.note[data-pname='a'] > g.notehead { fill: #3a54b8; }
+.score-view .sheet[data-look='old-school-colour'] g.note[data-pname='b'] > g.notehead { fill: #b8408e; }
+
+/* boiling lines: the page steps through three wobbles */
+.score-view .sheet[data-boil] .swiper-slide > svg {
+	animation: score-boil 0.36s steps(1) infinite;
+}
+
+@keyframes score-boil {
+	0% { filter: url(#score-boil-0); }
+	33% { filter: url(#score-boil-1); }
+	66% { filter: url(#score-boil-2); }
+}
+
+/* while playing: the sounding note hops and lights up, its syllable with it */
+.score-view .sheet[data-look^='old-school'] g.note.playing {
+	fill: var(--score-lit);
+	color: var(--score-lit);
+}
+
+.score-view .sheet[data-look^='old-school'] g.note.playing > g.notehead,
+.score-view .sheet[data-look^='old-school'] g.note.playing g.syl {
+	transform-box: fill-box;
+	transform-origin: 50% 100%;
+	animation: score-hop 0.28s ease-out;
+}
+
+@keyframes score-hop {
+	0% { transform: translateY(0) scale(1); }
+	40% { transform: translateY(-35%) scale(1.25, 1.15); }
+	100% { transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.score-view .sheet[data-boil] .swiper-slide > svg,
+	.score-view .sheet g.note.playing > g.notehead,
+	.score-view .sheet g.note.playing g.syl {
+		animation: none;
+	}
+}
