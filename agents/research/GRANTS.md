@@ -1,4 +1,4 @@
-Status: proposal 2026-10-15 – structure and workflow for funding applications, waiting for the owner's OK
+Status: live 2026-10-15 – the grants desk now lives in Proton Drive: `Projects/Scutoons/Grants/` (CLAUDE.md, agents/ RULES, REGISTER, FUNDERS, DECISIONS, PLAN, Kit/APPLICANT.md). That desk is the truth; this file is only the pointer and the original concept
 
 # Grants – funding applications for the toons
 
