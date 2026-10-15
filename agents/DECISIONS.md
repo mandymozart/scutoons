@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-15 · content · Text boxes crossing a slice edge are a tool, not a mistake (no validator warning); long term slices become a background and text boxes stop worrying about them – investigation only, not now · "having text boxes pass is good as a tool", "eventually i want to not have to worry about slices", "not important for right now" · → research/TEXT-ACROSS-SLICES.md, FEATURES 10.100
 - 2026-10-15 · map · Reading moves the reader's avatar: the story event `moveAvatar { location }` puts it where the reader last went (a place the reader sees) · "the avatar should go where ever the reader last went, so reading also moves the avatar" · → MAP.md §3.1, research/CAVE.md D1
 - 2026-10-15 · codes · An admin can change or remove a code's expiry after creation (code page; bulk on the Codes list), logged as event `expiry`; first use: promo code 1lA_xqs7 for the MA 7 jury → 30.06.2027 · (asked via the grants session) · → ITEMS.md "Revoke + activity statistics", server/docs/API.md
 - 2026-10-15 · scores · Score looks are a draft in the lab: Gootville ("old school") as the music font, not Petaluma; own fonts, colours and animation on the sheet · "Petaluma, I don't think it's the nice font I want. I want the good llama [= Gootville, dictated] … old school", "add some of the animation stuff" · → research/SCORES.md §4 "Looks"

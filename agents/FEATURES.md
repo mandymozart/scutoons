@@ -69,6 +69,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.74 **PWA: preloading / save to device** (DATA.md §6 concept) – after the data refactor, which is done.
 - [ ] 10.75 **Performance P4–P7** (research/PERFORMANCE.md) – check what is left: P5 production PHP tuning (OPcache,
   compiled DI container, authoritative classmap), P6 cache headers / Brotli on the CDN, P7 parallel catalog loads.
+- [ ] 10.100 **Text boxes across slice edges** – owner 2026-10-15: "having text boxes pass is good as a tool",
+  "eventually … slices … will become a background thing". A box past its slice's bottom is painted under the next
+  slice. `decide`: a stopgap (lift the crossing slice) or text boxes per group. Not now. → research/TEXT-ACROSS-SLICES.md
 
 ## Items, content
 - [ ] 10.38 **[owner] Taking items on production** – set "a story may take it" on the items in admin (e.g. cucumber,
