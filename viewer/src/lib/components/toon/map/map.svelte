@@ -13,7 +13,7 @@
 	import { onMigrate, type MigrateRequest } from './region-welcome.ts';
 	import RegionWelcome from './region-welcome.svelte';
 	import { fetchRegistry } from '$lib/api.ts';
-	import { characterImage, mapName, type CharacterRegistry, type ReaderRegion } from '@scutoons/content';
+	import { characterImage, isPlaceVisible, mapName, type CharacterRegistry, type ReaderRegion } from '@scutoons/content';
 	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 
 	/**
@@ -97,6 +97,12 @@
 		const request = queue.shift()!;
 		await load();
 		const place = data?.locations.find((p) => p.id === request.id);
+		// the story's moveAvatar: the avatar stands there – only at a place the reader can see (no spoilers)
+		if (request.avatar) {
+			if (place && world && isPlaceVisible(place, world.map)) world.avatarTo({ location: place.id });
+			request.done();
+			return void next();
+		}
 		// the reader asked to see an unlocked place again (its toast, the new place in the map): no unlock, no toast
 		if (request.replay) {
 			if (!place || !world?.map.places[place.id]) {

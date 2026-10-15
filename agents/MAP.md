@@ -242,6 +242,7 @@ second vocabulary.
 | `travel` | `{ route, to?, from?, show?, wait? }` (`to` default = the route's end; `from` default = the current position on that route, else its start) | reveals the route up to `to`, `travelled` = index of `to`, **unlocks every place passed** (arriving somewhere = discovering it), `positions[toon]` = `to` | with `show`: the map opens, the toon's marker moves along the line (≈ 1.2 s per segment, linear; reduced motion: jumps), closes on click; without `show`: toasts for the new things only |
 | `setPosition` | `{ location }` or `{ route, waypoint }` | `positions[toon]`, unlocks the place | the "you are here" marker moves (no toast unless the place is new) |
 | `focusMap` | `{ location? , route?, zoom?, wait? }` | – | opens the map centred on it (a route: fitted); `wait` (VN): the script continues when the reader closes the map |
+| `moveAvatar` (built 2026-10-15) | `{ location }` | `avatar` = the place (research/CAVE.md D1) – only a place the reader sees (not hidden, or unlocked), else nothing; runs in the map's queue after the unlocks before it | the reader's own avatar stands there, walking starts from there; no toast |
 
 "Waypoint reached" is `travel { route, to: '<waypoint>' }` – no sixth event. No `lockLocation` (no story needs to
 forget a place; add it when one does).

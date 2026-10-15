@@ -340,6 +340,8 @@
 					<EventFx {doc} path={p} {event} />
 				{:else if event.type === 'unlockLocation'}
 					<EventUnlockLocation {doc} path={p} {event} />
+				{:else if event.type === 'moveAvatar'}
+					<EventUnlockLocation {doc} path={p} {event} move />
 				{:else if event.type === 'migrate'}
 					<EventMigrate {doc} path={p} {event} {charOptions} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}

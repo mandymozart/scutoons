@@ -349,6 +349,22 @@ export interface VNMigrateEvent {
 }
 
 /**
+ * The reader is here now (owner 2026-10-15: "the avatar should go where ever the reader last went, so reading also moves
+ * the avatar"): the reader's own avatar stands at the place (the save game's `map.avatar`, research/CAVE.md D1) – the
+ * map's walking starts from there. No toast. A place the reader can't see yet (hidden, not unlocked) or not on the map:
+ * nothing happens – put an `unlockLocation` before it.
+ */
+export interface MoveAvatarParams {
+	/** the place's id (world map `locations[].id`) */
+	location: string;
+}
+
+export interface VNMoveAvatarEvent {
+	type: 'moveAvatar';
+	params: MoveAvatarParams;
+}
+
+/**
  * A question with one input line in the message box (agents/EXPRESSIONS.md §6): the reader types a short plain text
  * (trimmed, never markup), the page doesn't scroll until it is answered (Enter / ✓, or the answer button: `answer`
  * is its text, `default` what it stores – owner 2026-10-06). `scope`:
@@ -407,6 +423,7 @@ export type VNEvent = (
 	| VNFxEvent
 	| VNUnlockLocationEvent
 	| VNMigrateEvent
+	| VNMoveAvatarEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

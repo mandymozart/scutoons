@@ -62,7 +62,8 @@ places** (no spoilers – the fog of war stays the story's); tap a place → "Hi
 shortest revealed path (the existing marker animation, ≈ 1.2 s per segment); no path → no button. The position is
 world-wide reader state next to the map state (MAP.md §2.4: `MapState.avatar: { location } | { route, waypoint }`),
 synced like progress (newer write wins), a guest's on the device, merged at sign-in. A home place is always shown for
-its avatar, even before the story unlocks it.
+its avatar, even before the story unlocks it. **Reading moves it too** (owner 2026-10-15): the story's `moveAvatar
+{ location }` event puts the avatar where the reader last went (MAP.md §3.1).
 
 **D2 – entering** (owner 2026-10-14: yes). The home place's card: "Eintreten" / "Enter" when the avatar is there (free); otherwise "Nach Hause
 gehen" (walk, when a path exists) and, with a VR headset in the inventory, "Mit VR-Brille betreten" / "Enter with the

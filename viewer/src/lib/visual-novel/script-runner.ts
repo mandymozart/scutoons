@@ -73,6 +73,8 @@ export interface RunnerEnv {
 	 * then the welcome – resolves when the reader can go on
 	 */
 	migrate?(who: string | undefined, region: string, options: { silent: boolean }): Promise<void>;
+	/** the reader's own avatar stands at a map place now (`moveAvatar`, research/CAVE.md D1) – after the unlocks before it */
+	moveAvatar?(location: string): Promise<void>;
 	/** plain text, trimmed, cut (askText answers) */
 	cleanText(text: string, limit: number): string;
 }
@@ -174,6 +176,15 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 					// the event's own choice (`map`: open / toast) wins over the trigger's default (owner 2026-10-11)
 					const reveal = map === 'open' ? true : map === 'toast' ? false : deps.mapReveal !== false;
 					await env.unlockPlace?.(location, { silent: silent === true, reveal });
+					if (cancelled()) return 'cancelled';
+					break;
+				}
+
+				case 'moveAvatar': {
+					// reading moves the avatar (owner 2026-10-15): the map's walking starts where the story last went
+					const { location } = event.params ?? {};
+					if (typeof location !== 'string' || !location) break;
+					await env.moveAvatar?.(location);
 					if (cancelled()) return 'cancelled';
 					break;
 				}

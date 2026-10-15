@@ -777,6 +777,35 @@
 						},
 						"type": {
 							"type": "string",
+							"const": "moveAvatar"
+						},
+						"params": {
+							"$ref": "#/definitions/MoveAvatarParams"
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"layer": {
+							"type": "number"
+						},
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
 							"const": "jumpTo"
 						},
 						"params": {
@@ -1683,6 +1712,19 @@
 			],
 			"description": "A move to another region of the world map (agents/MAP.md §8.10, owner 2026-10-12: \"migration is the action that facilitates this – it is an event\"): the reader's avatar (no `who`) or a character is registered there (the save game's `map.residences`); then the welcome plays – the region's sign, its representative in portrait saying the region's greeting, or the narrator when none is elected. The script waits until the welcome is closed. `silent`: the registration only."
 		},
+		"MoveAvatarParams": {
+			"type": "object",
+			"properties": {
+				"location": {
+					"type": "string",
+					"description": "the place's id (world map `locations[].id`)"
+				}
+			},
+			"required": [
+				"location"
+			],
+			"description": "The reader is here now (owner 2026-10-15: \"the avatar should go where ever the reader last went, so reading also moves the avatar\"): the reader's own avatar stands at the place (the save game's `map.avatar`, research/CAVE.md D1) – the map's walking starts from there. No toast. A place the reader can't see yet (hidden, not unlocked) or not on the map: nothing happens – put an `unlockLocation` before it."
+		},
 		"AskTextScope": {
 			"type": "string",
 			"enum": [
@@ -2048,6 +2090,28 @@
 						},
 						"params": {
 							"$ref": "#/definitions/MigrateParams"
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string"
+						},
+						"if": {
+							"$ref": "#/definitions/VNEventCondition"
+						},
+						"type": {
+							"type": "string",
+							"const": "moveAvatar"
+						},
+						"params": {
+							"$ref": "#/definitions/MoveAvatarParams"
 						}
 					},
 					"required": [
