@@ -237,14 +237,21 @@ export function createVisualNovelContext() {
 		return ms;
 	}
 
+	/**
+	 * The slice the reader sees in the screen's middle – hit-tested, not by its place: a strip's frames share their top
+	 * and bottom (frame 0, often off screen, won). Nothing there (a gap, an overlay without slices under it): the slice
+	 * with the most of it on screen.
+	 */
 	function sliceInView(): HTMLElement | null {
-		const middle = window.innerHeight / 2;
+		for (const el of document.elementsFromPoint(window.innerWidth / 2, window.innerHeight / 2)) {
+			const slice = el.closest<HTMLElement>('[data-slice-index]');
+			if (slice) return slice;
+		}
 		let best: HTMLElement | null = null;
 		let seen = 0;
 		for (const el of document.querySelectorAll<HTMLElement>('[data-slice-index]')) {
 			const r = el.getBoundingClientRect();
-			if (r.top <= middle && r.bottom >= middle) return el;
-			const visible = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+			const visible = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)) * Math.max(0, Math.min(r.right, window.innerWidth) - Math.max(r.left, 0));
 			if (visible > seen) [best, seen] = [el, visible];
 		}
 		return best;

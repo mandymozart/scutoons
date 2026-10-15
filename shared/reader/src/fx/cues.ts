@@ -258,16 +258,37 @@ function spotlight(slice: HTMLElement, keyframes: Keyframe[], ms: number) {
 	};
 }
 
+/** the fixed-position elements inside `root` (≈ 1 ms for a long chapter; `offsetParent` can't tell: Firefox says body) */
+function fixedIn(root: HTMLElement): Element[] {
+	return [...root.querySelectorAll('*')].filter((el) => getComputedStyle(el).position === 'fixed');
+}
+
+/**
+ * what moves of `root`: root itself, or – when a fixed element is inside – its pieces around the fixed ones (a piece
+ * without a box of its own, `display: contents` like the reader's groups, can't move: its children do)
+ */
+function around(root: Element, fixed: Element[]): Element[] {
+	if (!fixed.some((f) => root.contains(f)) && getComputedStyle(root).display !== 'contents') return [root];
+	return [...root.children].flatMap((child) => (fixed.includes(child) ? [] : around(child, fixed)));
+}
+
 /**
  * The whole chapter view moves (a screen shake / punch): around the middle of what is on screen – the view is far taller
- * than the screen, its own middle would shift what the reader sees – clipped by its parent meanwhile
+ * than the screen, its own middle would shift what the reader sees – clipped by its parent meanwhile. Its fixed pieces
+ * (the VN box, the characters, the pause mark) stay where they are: a moving element is the containing block of the
+ * fixed ones inside it, they jumped off the screen; the view's other pieces move. A full-screen cover inside it
+ * (`data-fx-screen`: the strip in full screen) is all the reader sees – it moves instead.
  */
 function onScreen(screen: HTMLElement, keyframes: Keyframe[], ms: number, easing: string) {
-	const r = screen.getBoundingClientRect();
-	const before = screen.style.transformOrigin;
-	screen.style.transformOrigin = `${window.innerWidth / 2 - r.left}px ${window.innerHeight / 2 - r.top}px`;
-	clipAround(screen, ms);
-	screen.animate(keyframes, { duration: ms, easing }).onfinish = () => (screen.style.transformOrigin = before);
+	const cover = screen.querySelector<HTMLElement>('[data-fx-screen]');
+	if (!cover) clipAround(screen, ms);
+	for (const el of cover ? [cover] : around(screen, fixedIn(screen))) {
+		if (!(el instanceof HTMLElement || el instanceof SVGElement)) continue;
+		const r = el.getBoundingClientRect();
+		const before = el.style.transformOrigin;
+		el.style.transformOrigin = `${window.innerWidth / 2 - r.left}px ${window.innerHeight / 2 - r.top}px`;
+		el.animate(keyframes, { duration: ms, easing }).onfinish = () => (el.style.transformOrigin = before);
+	}
 }
 
 function cover(host: HTMLElement, background: string, keyframes: Keyframe[], ms: number) {

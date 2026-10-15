@@ -9,6 +9,8 @@
 //   5. account page: "Sound effects" volume + "Vibration", kept on this device
 //   6. text box entrances: catpope chapter 2's tap reveal on slice 24 (shiver in the content) is rewritten in the API's
 //      answer to pop / slam / fade / typeOn – the box comes in, slam shakes the slice, the page never gets wider
+//   7. fx events: the same tap rewritten to shake / punch / flash / vignette – a slice shakes inside its box; on the
+//      screen the chapter view's pieces move without an edge at the side, its fixed VN box stays where it is
 // The test user is reset afterwards (npm run dev:test-user -- --reset clears the pickup refs).
 //
 //   node scripts/check-fx.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api] [--page=…] [--shots=<dir>] [--verbose]
@@ -274,7 +276,7 @@ for (const [effect, target] of [['shake', 'slice'], ['shake', 'screen'], ['flash
 	const slice = await waitFor(`(() => { const i = [...document.querySelectorAll('[data-slice-index] img')].find((x) => /s1c2-slice-24\\./.test(x.src)); if (!i) return null; const s = i.closest('[data-slice-index]'); s.scrollIntoView({ block: 'center' }); const b = s.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`, 20000);
 	if (!slice) { report(`fx ${effect}`, ['slice 24 not found']); continue; }
 	await sleep(800);
-	await evaluate(`window.__fx = { maxW: 0, slice: false, screen: false, cover: false, layer: false }; (function watch() { const f = window.__fx; f.maxW = Math.max(f.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations({ subtree: true }).length) f.slice = true; if (s && !f.screen) { const b = s.getBoundingClientRect(); f.box ??= [b.top, b.left]; if (Math.abs(b.top - f.box[0]) > 0.5 || Math.abs(b.left - f.box[1]) > 0.5) f.moved = true; } if (document.querySelector('.chapter-view')?.getAnimations().length) f.screen = true; if (s && [...s.children].some((c) => c.style?.zIndex === '4')) f.cover = true; if (document.getElementById('sc-fx-layer')?.children.length) f.layer = true; const v = document.querySelector('.chapter-view'); if (v?.getAnimations().length) { const r = v.getBoundingClientRect(); if (r.left > 0.5 || r.right < innerWidth - 0.5) f.gap = true; if (s) { const t = s.getBoundingClientRect().top; f.top0 ??= t; f.jump = Math.max(f.jump ?? 0, Math.abs(t - f.top0)); } } requestAnimationFrame(watch); })(); true`);
+	await evaluate(`window.__fx = { maxW: 0, slice: false, screen: false, cover: false, layer: false }; (function watch() { const f = window.__fx; f.maxW = Math.max(f.maxW, document.documentElement.scrollWidth); const s = [...document.querySelectorAll('[data-slice-index]')].find((x) => /s1c2-slice-24\\./.test(x.querySelector('img')?.src ?? '')); if (s?.getAnimations({ subtree: true }).length) f.slice = true; if (s && !f.screen) { const b = s.getBoundingClientRect(); f.box ??= [b.top, b.left]; if (Math.abs(b.top - f.box[0]) > 0.5 || Math.abs(b.left - f.box[1]) > 0.5) f.moved = true; } if (s && [...s.children].some((c) => c.style?.zIndex === '4')) f.cover = true; if (document.getElementById('sc-fx-layer')?.children.length) f.layer = true; const v = document.querySelector('.chapter-view'); const piece = s && v?.getAnimations({ subtree: true }).map((a) => a.effect?.target).find((t) => t?.contains(s)); if (piece) { f.screen = true; const r = piece.getBoundingClientRect(); if (r.left > 0.5 || r.right < innerWidth - 0.5) f.gap = true; const t = s.getBoundingClientRect().top; f.top0 ??= t; f.jump = Math.max(f.jump ?? 0, Math.abs(t - f.top0)); const m = v.querySelector('.vn-message'); if (m && !m.getAnimations().length) { const b = m.getBoundingClientRect(); f.box0 ??= [b.top, b.left]; if (Math.abs(b.top - f.box0[0]) > 0.5 || Math.abs(b.left - f.box0[1]) > 0.5) f.boxMoved = true; } } requestAnimationFrame(watch); })(); true`);
 	await tap(slice.x, slice.y);
 	await sleep(effect === 'vignette' ? 500 : 120);
 	await shot(`7-${effect}-${target}`);
@@ -287,6 +289,7 @@ for (const [effect, target] of [['shake', 'slice'], ['shake', 'screen'], ['flash
 		if (!fx.screen) p.push('the chapter view did not move');
 		if (fx.gap) p.push('an edge showed at the side while it moved (owner: no white space left and right)');
 		if ((fx.jump ?? 0) > 40) p.push(`the slice in view jumped ${Math.round(fx.jump)} px (the zoom must centre on the screen)`);
+		if (fx.boxMoved) p.push('the VN box moved with the page – a moving view is the containing block of its fixed pieces, they jump');
 	}
 	if (effect === 'flash' && !fx.layer) p.push('no flash over the screen');
 	if (effect === 'vignette' && !fx.layer) p.push('no spotlight in the viewport layer');

@@ -141,7 +141,10 @@ the graph.
 - LSD and scrolling (owner 2026-10-08): the faster the reader scrolls, the faster the echo repeats – its time and drift
   divided by a pace 1 … 4 (≈ 2500 px/s and more = 4), smoothed, gliding ≈ 0.8 s up and ≈ 0.6 s back when the scrolling
   stops (`followScroll` in audio-effects.ts, only while psychedelic runs). Screen shake / punch: zoomed to cover the
-  sides, around the middle of the screen.
+  sides, around the middle of the screen. The chapter view's fixed pieces (VN box, characters, pause mark) stay put –
+  its other pieces move (a moving element is the containing block of the fixed ones inside: they jumped off screen); in
+  full screen the strip itself moves (`data-fx-screen`, cues.ts `onScreen`). A slice fx plays on the slice hit at the
+  screen's middle – in a strip the frame on screen, not frame 0 (`sliceInView`, contexts/visual-novel.svelte.ts).
 - Wearables that tint (owner 2026-10-08: "sunglasses will make everything orange hued"): catalog `worn_tint` (`#rrggbb`,
   admin "Tönung beim Tragen"; validated TS + PHP): while an item with it is worn, the reader lays that colour over
   everything (reader-effect.svelte, multiply, --sc-tint-blend / --sc-tint-opacity 0.6), under any running effect.

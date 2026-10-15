@@ -186,7 +186,8 @@
 
 <section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="pin" class:fits={travel === 0} class:fullscreen bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>
+	<!-- data-fx-screen: in full screen a screen shake / punch moves the strip itself (fx/cues.ts onScreen) -->
+	<div class="pin" class:fits={travel === 0} class:fullscreen data-fx-screen={fullscreen || undefined} bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>
 		<div class="track" bind:this={track} style:transform="translate3d({-offset}px, 0, 0)">
 			{#each frames as frame, index}
 				<div class="frame" style:aspect-ratio="{frame.width} / {frame.height}">
