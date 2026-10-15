@@ -69,11 +69,11 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.74 **PWA: preloading / save to device** (DATA.md §6 concept) – after the data refactor, which is done.
 - [ ] 10.75 **Performance P4–P7** (research/PERFORMANCE.md) – check what is left: P5 production PHP tuning (OPcache,
   compiled DI container, authoritative classmap), P6 cache headers / Brotli on the CDN, P7 parallel catalog loads.
-- [ ] 10.100 **Slices as background: the strip editor** – owner 2026-10-15: "having text boxes pass is good as a tool",
-  "a concept that will last … scenes and slices are still a bit clunky", "horizontal scroll creates issues". Vertical
-  crossing already works (old iPhones may cut); strips cut both ways (each slice's side clip), Swipers by design; the
-  one-slice canvas is the real problem. Steps: reader paint rule → strip editor → slice ids + scenes inlined → tall
-  pictures. `decide` Q1–Q7. Not now. → research/TEXT-ACROSS-SLICES.md
+- [ ] 10.100 **Slices as background: endless strip + strip editor** – owner 2026-10-15: "Ditch Swiper. Give our own
+  strip an endless drag mode (loop + momentum, no 3D effects)", "having text boxes pass is good as a tool". First the
+  endless band for the four ch3–5 Swipers (drag + glide, loops without clones, `params.endless` by migration, one
+  deploy), Swiper off the chapter page; then paint rule → strip editor → slice ids + scenes inlined → tall pictures.
+  `decide` Q1–Q4, Q7–Q13. → research/TEXT-ACROSS-SLICES.md §8
 
 ## Items, content
 - [ ] 10.38 **[owner] Taking items on production** – set "a story may take it" on the items in admin (e.g. cucumber,

@@ -1,4 +1,4 @@
-Status 2026-10-15: concept, researched (code, real data, three browser engines, horizontal groups §7); nothing built – waits for the owner's Q1–Q7 (§6, §7). FEATURES 10.100.
+Status 2026-10-15: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); nothing built – waits for the owner's Q1–Q4, Q7–Q13. FEATURES 10.100.
 
 # Slices as background: the strip editor
 
@@ -66,7 +66,7 @@ areas, sample areas) are anchored to a slice but may reach anywhere, and paint a
 - **Scope:** a text box is addressed by its id within the group (`showTextBox` from a slice event, an item or the group
   script) – re-anchoring never breaks a target.
 - **Only the layout's window cuts** (§7): vertical = the column's sides; the pinned strip = the screen's top / bottom;
-  a Swiper group = the slide on all four sides (paged on purpose – to cross, use Full width).
+  a Swiper group = the slide on all four sides – until Swiper goes (§8); the endless strip = the band's top / bottom.
 
 ## 4. The strip editor (creator)
 
@@ -161,6 +161,7 @@ Only the layout's **window** cuts:
 .frame :global(.slice) { min-height: 0; overflow-x: visible; }     /* strip.svelte: .pin is the window */
 .renderer--horizontal :global(.slice-layers) { overflow: clip; }   /* horizontal.svelte: the slide is the window */
 ```
+(The last line only while Swiper lives; it goes with horizontal.svelte – §8.)
 - `.slice-layers` is the slice's own box, so 1cqw stays % of the slice width everywhere (column, strip frame, slide,
   creator canvas – `.creator-canvas` keeps its own container): font px identical in 3 engines (real boxes too), and with
   old iOS emulated on `.slice-layers` all verdicts hold – the containment lands on an element that is a stacking
@@ -197,16 +198,136 @@ window would cut.
 (iOS 17 / 18). Step 2 = the editor's axis, re-anchoring across seams (takeable items keep their anchor until slice ids:
 pickups are keyed by `slice.image`), the hidden-box set per group, the Reader dock sliding a Swiper to its slide.
 
-Found on the way (not this feature): the fullscreen strip jumps during a screen shake (the shake transforms
-`.chapter-view`, the fixed pin's new containing block); `sliceInView` picks strip frame 0 for slice fx; home
-`product-slides` leaks `:global(.swiper-slide)`; a Swiper slice over 100dvh loses its bottom; cube / flip fire every
-slide's observers at once; Firefox on a phone widens the page mid cube swipe. Untested: the Swiper cube in WebKit
-(headless draws it blank), any real old iPhone; Safari < 16 ignores `overflow: clip`.
+Found on the way: the fullscreen strip jumping during a screen shake and `sliceInView` picking strip frame 0 – fixed
+2026-10-15 (6e4ebf45); the Swiper ones (home `product-slides` leaking `:global(.swiper-slide)`, a slice over 100dvh,
+cube / flip observers, Firefox's cube page width) go with Swiper (§8). Untested: any real old iPhone; Safari < 16
+ignores `overflow: clip`.
 
-- **Q5** "Horizontal" = the pinned strip (crossing will work both ways) or a Swiper group (cut by design; way out: Full
-  width)?
-- **Q6** The four Swipers (ch3–5) are loop + freeMode and read like a strip – keep them paged, or make them strips?
+- **Q5, Q6** answered 2026-10-15: Swiper goes; every horizontal group is our strip – pinned or endless (§8).
 - **Q7** The canvas bands in today's one-slice canvas with step 1 – or only the strip editor in step 2?
+
+## 8. Endless strip instead of Swiper (owner 2026-10-15)
+
+Owner 2026-10-15: "Ditch Swiper. Give our own strip an endless drag mode (loop + momentum, no 3D effects) for the four
+ch3–5 groups; research it and write the plan into 10.100 before building" · "since we only use swiping right and left,
+we can ditch it altogether". Researched by a workflow (inventory, strip internals, production via MCP, CDN images,
+technique sources, a looper prototype; 3 plans + judge; a prototype stress test + a completeness skeptic) in Chromium
+140, Firefox 141, WebKit 26 at 390 × 844, 1440 × 900 and landscape / fractional-DPR cases; no real iPhone / Android.
+Prototype + tests: the session scratchpad `endless-plan/` (index.html, wrap / seams2 / shift / decode / pinch2 .mjs).
+
+**The four** (ch3 v632 g4 / g9, ch4 v577 g2, ch5 v578 g1): `{loop, freeMode}` only, `continues`, between vertical
+groups, 6 slices 390 × 844 = one 2340 × 844 picture, no events / audio / items, 12 boxes inside their slice; ch3 g4 + g9
+share a page. Today's Swiper: in the 500 px column, cut at 100dvh, traps the vertical wheel, moves DOM nodes.
+
+| group | reads | wrap seam 6 → 1 (CDN images compared) |
+|---|---|---|
+| ch3 g4 duel | standoff across a snowy clearing | nearly (horizon matches, a ridge starts) |
+| ch3 g9 hall | scene opener, heading on slice 1 | hard cut (a rack) |
+| ch4 g2 cat | graveyard, the cat "kept appearing" | hard cut (white ground ↔ gate) |
+| ch5 g1 garden | "5 things I see": intro, 5 items at y 70 % | seamless (drawn 360°) |
+
+**Reader** – new `renderer/strip-endless.svelte` + pure `strip-loop.ts` + attachment `strip-drag.ts` (unit tests, listed
+in viewer/package.json `test`); frames shared via `strip-scroll.ts`; strip.svelte (already 303 lines) stays the pinned
+strip – one component, one job.
+- **Where:** in the page flow, full viewport width (`--viewport-width`), ink behind, `min(100svh, 100lvh − 4rem)` high
+  (with strip.svelte's vh fallback line; never dvh – the 2026-10-10 jump). Starts with slice 1 at the left; a resize
+  keeps the place and stops a running glide / ease (else the old scale is written back).
+- **Loop without clones or DOM moves** (Embla's looper technique, no library code): one `translate3d` on the track; a
+  frame wraps by `left: k·T` (a transform would be a stacking context that covers crossing boxes) only while it and its
+  boxes' overhang are off screen, decided on the device-rounded position. **T and k·T snapped to device px** (T is
+  fractional, 2317.78 px: unsnapped, every full turn shifts the picture 1–3 device px – measured), T from the frame
+  rects, never `scrollWidth`; rAF only while moving. Measured: frame wraps without a jump (234 positions × case),
+  IntersectionObserver exactly 3 entries per frame over 3 turns, no page overflow, CLS 0.
+- **Seams:** at fractional DPR (Windows 125–175 %, browser zoom) Chromium and WebKit show hairlines between frames –
+  today's strip too (a static flex row), Firefox never; rounding doesn't cure it. Frames overlap by one hairline (a
+  token width, like a border) so ink can't show through on light art (ch3 snow).
+- **Fits:** Σratio 2.77, overhang 0.46 → it loops while window ≤ 2.31 : 1, the window = viewport width ÷ band height:
+  portrait phones and 1440 × 900 (1.72) loop; landscape phones (≈ 2.6), a 1366 × 625 laptop window (2.44) and 21:9 get
+  the band narrowed to T − max(W + overhang), centred on ink, still endless (measured: no jump, overlays fine); T ≤
+  window: whole and still. Frames on screen: 1.08 (390 × 844), 1.35 (375 × 667), 3.73 (1440 × 900).
+- **Drag:** `touch-action: pan-y pinch-zoom` (plain `pan-y` blocks pinch-zoom on the band – measured; box text there
+  is ≈ 12 px), 0.5rem dead zone, then 1:1; a swipe whose first ≈ 10 px go sideways belongs to the band for that gesture
+  (inherent, Swiper too). After a drag the next click is swallowed (`detail === 0` passes). Focus slides a frame in only
+  for keyboard focus, minimally, and any drag stops a running ease (a mouse-down on a button fought the drag – measured).
+- **Glide:** last 100 ms velocity, x₀ + vτ(1 − e^(−t/τ)) with **t clamped ≥ 0** (rAF stamps precede `performance.now()`
+  in Chromium / Firefox: the first frame stepped backwards), τ 325 ms, time-based, |v| ≤ T/τ (one turn per fling), no
+  snap; a touch / wheel / key stops it. Measured: monotone, stops in 2–2.7 s, idle rAF 0. Reduced motion: drag + glide
+  stay (like native scrolling); steps and arrivals jump.
+- **Wheel:** only a deltaX-led gesture (or Shift) moves it 1:1, axis latched per 150 ms burst; vertical always scrolls
+  the page (the Swiper trap goes). The 4rem slack is less than a 100 px wheel notch: about 1 in 3 approaches has no
+  stop showing the whole band – accepted (it's a band, not a page). **Keys:** ← → ease to the next frame edge when the
+  band has focus. No fullscreen, arrows, icon, Home / End.
+- `overflow: clip` (hidden let focus / `scrollIntoView` scroll it); `role=region` + `tabindex=0` + an aria-label (a new
+  viewer message); DOM order 1…N. **Images:** all band frames load once it nears, at normal priority (slice.svelte ties
+  eager to `fetchpriority=high` – split them), and are `decode()`d then (Chromium painted decoded-async frames black for
+  one frame on first show – measured; Firefox / WebKit never). ≈ 71 MB decoded at 3x for 12 frames on the ch3 page.
+
+**Seams and the page**
+- At the wrap seam `.slice-layers { z-index: var(--plane) }` in screen rank keeps "later slice wins" (measured 60 / 60);
+  inner seams: DOM order. Crossing boxes show once §7 step 1 lands; until then they cut at frame sides, as today.
+- No clones: `data-slice-index` unique; events, audio, fx fire once per real entry. `sliceInView` (hit test, 6e4ebf45)
+  and fx `inFrame` stay; `holdClip` (cues.ts:80) skips band frames like the strip's.
+- **Reading progress:** track-reading's tall-slice rule (`top < 0 && bottom <= viewport`) counts any band frame read
+  when the band's top is above the screen – a 3 px sliver counted (measured): band frames use a ratio-only rule.
+- **The band's end:** next-bar's `reachedEnd` and a following slice-less script wait for the last slice, which sits off
+  screen left of frame 1 – the band counts as passed when its bottom scrolls above the screen (not live for the four:
+  each is followed by a group with slices).
+- `arriveAt` (arrival, resume, showSpot, Reader dock; +page.svelte ~103–117) gets a `[data-endless]` branch: align the
+  band, a `strip-show` event sets offset = −S_i. next-bar `strip` = pinned only; skip keeps `scrollIntoView`.
+  `html[data-vn-blocking]`: no drag / wheel / keys. `music.ts` / `samples.ts` rAF fallbacks test left / right too.
+  scripts/dev/creator-reader-check.mjs:143 (`viewerScrolledTo`) gets the endless branch.
+
+**Data:** `RendererParams { endless?: boolean }`; autoPlay, loop, flip, keyboard, cube, freeMode, fullWidth leave the
+type, the schemas (RendererParams `additionalProperties: false` – schema.js:54 makes every schema open today, so a stale
+creator tab or member's MCP copy could write old keys back), `flow.ts` (`'vertical' | 'strip' | 'endless'` +
+`rendererOf`) – no aliases. Migration `2026-10-1x-endless-strip.mysql.sql`, every chapter / scene version, per group
+index + scene `$.renderer`, JSON paths only (`loop` is also audio / video):
+- read booleans as `JSON_UNQUOTE(JSON_EXTRACT(…)) = 'true'` (or `JSON_TYPE`): **MariaDB 10.11's `JSON_VALUE` returns
+  `1` for a JSON true** (checked on the dev container 10.11.14) – a `= 'true'` test would match nothing in production;
+- only `renderer.type = 'horizontal'`: `fullWidth` true → params gone (**ch2 g0 v633 / v646 and scene-14 v635 carry
+  `loop: true` next to `fullWidth` – fullWidth wins**); else `loop` true → `{"endless": true}`; else params gone; any
+  other type: params gone. Writes wrapped in `JSON_COMPACT` (JSON_SET / JSON_REMOVE re-serialise with spaces; LIKE
+  checks rely on compact JSON, as 2026-10-11 / 2026-10-13 do). Only rows with an old key → a 2nd run changes 0;
+- PHPUnit (incl. an untouched audio / video `loop`), dev dry run (the dev DB lacks the four – only production
+  `plan_migrations` shows their rows: expect ch3–5 histories, all 40 ch2 versions, scenes 14 / 17 / 18; scene-14 v195
+  `{freeMode, loop}` becomes endless in history), then `apply_migrations` (it empties the library cache itself).
+  `entity_versions_legacy` keeps old-form rows: an undo of the 2026-10-11 purge would bring old keys back.
+
+**Creator:** one Layout select "Vertical · Horizontal · Endless" (one `doc.set` = one undo; switching to vertical clears
+the params) replaces Full width + the 7-field Swiper block and their messages; flow-texts.ts `layoutIcon` (uses
+`group_full_width`); `repair-booleans.ts` drops autoPlay `enabled`, flip, cube, keyboard, freeMode, keeps `loop` (audio
++ video) – its test too; canvas bands: slice 1's left neighbour is the last. Rebuild the public MCP bundle
+(`npm run build:mcp`, it carries `groupLayout` + validate). **Storyboard:** the four sources (s1c3 scene-28 / 32, s1c4
+scene-36, s1c5 scene-38) → `{endless: true}`; compile.mjs:75 stops spreading old params, the in-slide clamp goes;
+storyboard.mjs:117 text; make-sandbox gets an endless group. **Validator:** error for a params key other than
+`endless`; warn on `endless` off horizontal and when the picture is too narrow to loop on a phone; the `sliceEdges`
+part (endless sides all `open` incl. the wrap seam, `slide` gone) comes with §7 step 1.
+
+**Removed with the chapter part:** horizontal.svelte, its gesture svg, the dead `utils/icons.ts`; ≈ −25 kB (−7 kB gz)
+per chapter page (rolldown in the scratchpad, not a viewer build). **The package stays** while the home
+`product-slides` (+ scripts/check-landing.mjs:165–281) and the ScoreView use it – the ScoreView pulls Swiper core onto
+every toon page through toon-shell → inventory → item-detail → score-actions. Then: the attributions page, both
+package.json deps, PLATFORM.md:183, DECISIONS 2026-10-14 superseded.
+
+| Step | What | Done when |
+|---|---|---|
+| 1 | `strip-loop.ts`, `strip-drag.ts` + unit tests | green incl. snapped T, the sliver, narrowing, t ≥ 0, equal glide at 60 / 120 Hz |
+| 2 | **one deploy:** the band + page wiring (progress, end, arrival, VN block, holdClip), Swiper renderer out, format (type, schemas closed, flow, validator, creator select, storyboard, sandbox, MCP bundle) + the migration, docs (DESIGN 371–382 / 492, DATA 459, STORYBOARD 94 / 789) | `check:endless` (ports the prototype checks) 3 engines × 2 sizes + fractional DPR; check:fx, check:resume, check:creator-reader; check, PHPUnit / PHPStan, builds; dry run rows, then 0; the owner tried it on phone + desktop |
+| 3 | §7 step 1 (paint rule) + the crossing part of check:endless + `sliceEdges` | inner + wrap-seam crossing per the contract; one real iPhone + Android |
+| 4 | after Q12 / Q13: home slider + ScoreView off Swiper, package out | no `swiper` import, no Swiper chunk |
+
+(Reader and format ship together: separately, the same document changes layout between two deploys and the creator
+shows Swiper fields the reader ignores.) **Risks:** one lane at a time on strip.svelte / strip-scroll.ts / cues.ts
+(the linked fix session touched them); no real device yet (pan-y pinch-zoom on iOS, the left-edge back swipe); 71 MB
+decoded; an old cached bundle shows migrated ch2 strips as a Swiper until reload.
+
+- **Q8** Hall and cat cut hard once per turn: keep Endless, make them Horizontal (pinned), or redraw the seam?
+- **Q9** Full width, screen high (box text ≈ 12 px at size 4 on a 390 phone): OK, or raise those boxes' sizes?
+- **Q10** Learning that it drags (the peek is only ≈ 0.08 frame on a 390 × 844 phone): nothing but a grab cursor, or
+  once a quarter-frame glide and back, no icon?
+- **Q11** Creator: one Layout select "Vertical · Horizontal · Endless" – OK?
+- **Q12** Home product slider: scroll-snap + ‹ ›, no autoplay (WCAG 2.2.2) – or keep Swiper there?
+- **Q13** Score pages: our paged scroller instead of Swiper (replaces 2026-10-14 "use the swiper we got already")?
 
 Sources: WEBTOON Creators Resource Handbook (800 × 1280 per image, auto-slice); Clip Studio "Export Webtoon"; Chrome 129
 container-query change (dev.to/michaelcharles); WebKit commit 284730@main "Drop layout containment from container-type"
