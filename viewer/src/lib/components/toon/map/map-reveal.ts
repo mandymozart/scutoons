@@ -16,7 +16,7 @@ export interface RevealRequest {
 	 * the map; owner 2026-10-11): no unlock, no toast; an open map stays open afterwards
 	 */
 	replay?: boolean;
-	/** the story's `moveAvatar`: the reader's avatar stands at the place – no unlock, no toast (a place the reader sees only) */
+	/** the story's `setAvatarLocation`: the reader's avatar stands at the place – no unlock, no toast (a place the reader sees only) */
 	avatar?: boolean;
 	done: () => void;
 }
@@ -61,10 +61,10 @@ export function unlockStoryPlace(id: string, options: { silent?: boolean; reveal
 }
 
 /**
- * The story's `moveAvatar` (owner 2026-10-15: "reading also moves the avatar"): the map puts the reader's avatar at the
+ * The story's `setAvatarLocation` (owner 2026-10-15: "reading also moves the avatar"): the map puts the reader's avatar at the
  * place when the reader can see it (not hidden, or unlocked) – in the queue after the unlocks before it. Else nothing.
  */
-export function moveStoryAvatar(id: string): Promise<void> {
+export function setStoryAvatarLocation(id: string): Promise<void> {
 	if (!id) return Promise.resolve();
 	if (!handler) {
 		pending.push({ id, silent: true, reveal: false, avatar: true, done: () => {} });

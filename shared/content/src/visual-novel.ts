@@ -354,14 +354,14 @@ export interface VNMigrateEvent {
  * map's walking starts from there. No toast. A place the reader can't see yet (hidden, not unlocked) or not on the map:
  * nothing happens – put an `unlockLocation` before it.
  */
-export interface MoveAvatarParams {
+export interface SetAvatarLocationParams {
 	/** the place's id (world map `locations[].id`) */
 	location: string;
 }
 
-export interface VNMoveAvatarEvent {
-	type: 'moveAvatar';
-	params: MoveAvatarParams;
+export interface VNSetAvatarLocationEvent {
+	type: 'setAvatarLocation';
+	params: SetAvatarLocationParams;
 }
 
 /**
@@ -423,7 +423,7 @@ export type VNEvent = (
 	| VNFxEvent
 	| VNUnlockLocationEvent
 	| VNMigrateEvent
-	| VNMoveAvatarEvent
+	| VNSetAvatarLocationEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

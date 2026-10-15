@@ -396,12 +396,12 @@ test('migrate: the story waits for the welcome; no `who` = the reader (agents/MA
 	assert.equal(h.vars.after, 1, 'then the story goes on');
 });
 
-test('moveAvatar: reading moves the avatar, after the unlock before it (owner 2026-10-15)', async () => {
+test('setAvatarLocation: reading moves the avatar, after the unlock before it (owner 2026-10-15)', async () => {
 	const h = harness();
 	const log: string[] = [];
 	const events: VNEvent[] = [
 		{ type: 'unlockLocation', params: { location: 'cathedral' } },
-		{ type: 'moveAvatar', params: { location: 'cathedral' } },
+		{ type: 'setAvatarLocation', params: { location: 'cathedral' } },
 		{ type: 'setVariable', params: { variable: 'after', value: 1, op: 'set' } } as VNEvent
 	];
 	const env: RunnerEnv = {
@@ -411,7 +411,7 @@ test('moveAvatar: reading moves the avatar, after the unlock before it (owner 20
 		setVariable: (a) => void ('set' in a && (h.vars[a.set.variable] = a.set.value)),
 		cleanText: (t) => t,
 		unlockPlace: (location) => (log.push(`unlock ${location}`), Promise.resolve()),
-		moveAvatar: (location) => (log.push(`avatar ${location}`), Promise.resolve())
+		setAvatarLocation: (location) => (log.push(`avatar ${location}`), Promise.resolve())
 	};
 	const vn = { ...h.box, findInScene: () => null, joinScene: () => {}, leaveScene: () => {}, showTextBox: () => true, setTextBoxResolver: () => {}, holds: h.box.holds };
 	await runEvents(events, 0, { vn, game: { getVariable: () => undefined, setVariable: () => {}, state: { toonId: 't' } }, env, navigate: () => {}, cancelled: () => false, currentLabel: () => 'here' } as any);

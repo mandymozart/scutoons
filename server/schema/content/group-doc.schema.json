@@ -688,10 +688,10 @@
 						},
 						"type": {
 							"type": "string",
-							"const": "moveAvatar"
+							"const": "setAvatarLocation"
 						},
 						"params": {
-							"$ref": "#/definitions/MoveAvatarParams"
+							"$ref": "#/definitions/SetAvatarLocationParams"
 						}
 					},
 					"required": [
@@ -1630,7 +1630,7 @@
 			],
 			"description": "A move to another region of the world map (agents/MAP.md §8.10, owner 2026-10-12: \"migration is the action that facilitates this – it is an event\"): the reader's avatar (no `who`) or a character is registered there (the save game's `map.residences`); then the welcome plays – the region's sign, its representative in portrait saying the region's greeting, or the narrator when none is elected. The script waits until the welcome is closed. `silent`: the registration only."
 		},
-		"MoveAvatarParams": {
+		"SetAvatarLocationParams": {
 			"type": "object",
 			"properties": {
 				"location": {
@@ -2026,10 +2026,10 @@
 						},
 						"type": {
 							"type": "string",
-							"const": "moveAvatar"
+							"const": "setAvatarLocation"
 						},
 						"params": {
-							"$ref": "#/definitions/MoveAvatarParams"
+							"$ref": "#/definitions/SetAvatarLocationParams"
 						}
 					},
 					"required": [

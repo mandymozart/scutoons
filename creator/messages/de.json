@@ -1144,7 +1144,7 @@
 		"unlock_location_map_open": "Öffnen – zum Ort fliegen",
 		"unlock_location_map_toast": "Nur Hinweis",
 		"unlock_location_hint": "Die Leser:innen bekommen den Hinweis „<Ort> freigeschaltet“ – ein Tipp darauf (oder auf den neuen Ort in der Karte) spielt die Enthüllung ab. Karte: „Nach Auslöser“ öffnet sie in einem VN-Skript, bei einem Tipp-Auslöser oder Gegenstand und zeigt beim Hineinscrollen nur den Hinweis; „Öffnen“ öffnet sie immer und spielt die Enthüllung; „Nur Hinweis“ öffnet sie nie. Still: nur der Zustand.",
-		"move_avatar_hint": "Die Leser:in ist jetzt hier: ihr Avatar steht an dem Ort, das Gehen auf der Karte beginnt von dort. Kein Toast. Nur an einem Ort, den die Leser:in schon sieht – für einen versteckten ein unlockLocation davor setzen.",
+		"set_avatar_location_hint": "Die Leser:in ist jetzt hier: ihr Avatar steht an dem Ort, das Gehen auf der Karte beginnt von dort. Kein Toast. Nur an einem Ort, den die Leser:in schon sieht – für einen versteckten ein unlockLocation davor setzen.",
 		"unlock_location_other_toon": "anderer Toon ({toons})",
 		"map_start_view_value": "Start {toon}: {x}, {y} · {zoom} %",
 		"map_start_view_none": "{toon}: keine Startansicht (Mitte der Orte)",

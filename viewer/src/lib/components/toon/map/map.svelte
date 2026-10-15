@@ -97,7 +97,7 @@
 		const request = queue.shift()!;
 		await load();
 		const place = data?.locations.find((p) => p.id === request.id);
-		// the story's moveAvatar: the avatar stands there – only at a place the reader can see (no spoilers)
+		// the story's setAvatarLocation: the avatar stands there – only at a place the reader can see (no spoilers)
 		if (request.avatar) {
 			if (place && world && isPlaceVisible(place, world.map)) world.avatarTo({ location: place.id });
 			request.done();

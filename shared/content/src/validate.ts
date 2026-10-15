@@ -80,7 +80,7 @@ const repeatWords = (rule: unknown) => {
 	const r = repeatOf(rule);
 	return r.mode === 'once' ? 'once for good' : r.mode === 'interval' ? `every ${JSON.stringify(r.every)}` : r.mode;
 };
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'fx', 'unlockLocation', 'migrate', 'moveAvatar', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'takeItem', 'askText'];
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'fx', 'unlockLocation', 'migrate', 'setAvatarLocation', 'jumpTo', 'label', 'divert', 'setVariable', 'giveItem', 'takeItem', 'askText'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -536,9 +536,9 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.silent !== undefined && typeof p.silent !== 'boolean') c.error([...pp, 'silent'], 'silent must be true/false');
 			}
 			break;
-		case 'moveAvatar':
+		case 'setAvatarLocation':
 			// the reader's avatar stands at a place of the world map (research/CAVE.md D1); not on it: the event does nothing
-			if (!isObj(p) || typeof p.location !== 'string' || !p.location.trim()) c.error([...pp, 'location'], 'moveAvatar needs params.location: a place id of the world map');
+			if (!isObj(p) || typeof p.location !== 'string' || !p.location.trim()) c.error([...pp, 'location'], 'setAvatarLocation needs params.location: a place id of the world map');
 			else if (ctx.places && !ctx.places.includes(p.location)) c.warn([...pp, 'location'], `the place "${p.location}" is not on the world map – this event does nothing for the readers`);
 			break;
 		case 'jumpTo':
