@@ -117,6 +117,7 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | POST | `/codes` | create one code `{ redirect_to, type, code?, email?, expires_at?, edition_id? }` → 201 · `409 code_exists` |
 | GET | `/codes/{code}` · `/codes/{code}/events` | detail (no email/owner id) · timeline |
 | POST | `/codes/{code}/revoke` `{ reason? }` · `/codes/{code}/unrevoke` | |
+| PUT | `/codes/{code}/expiry` `{ expires_at: date \| null }` | change or remove the expiry (server time; event `expiry`) → `{ code, expires_at, expired }` · `400 invalid_expires_at` |
 | GET/PUT | `/codes/{code}/signature` | read / store the certificate signature |
 | GET | `/codes/{code}/history` | ownership history (table `item_transfers`), newest first: `{ items: [{ id, kind: claim\|gift\|admin, code, item_id, variant, qty, from, to, by, claim_id, note, created_at }] }` – accounts as `{ id, email }` (admin only) |
 | POST | `/codes/{code}/transfer` | `{ to: email \| account id, note, item_id?, variant? }` – move the code to another account outside a claim (kind `admin`); mails the previous and the new owner → `{ code, from, to, entries, history }` · `400 note_required\|invalid_recipient` · `404 not_found\|unknown_user` · `409 already_owner` · `422 not_claimable\|choose_item` |
@@ -514,7 +515,7 @@ returns the payload or null – for a later server-side content gate (nothing ch
   "This code is no longer valid". Unrevoke restores it. Both are logged as events.
 - **Events** (`code_events`, append-only, `src/Domain/Events/EventLog.php`): `scan` (landing page: the qr app's `/code/?c=&scan=1`, trusted proxy only, also for expired / revoked codes), `access` (at most
   once per code + device per UTC day), `claim`, `claim_refused`, `login` (one per owned code at sign-in), `signup`,
-  `revoke`, `unrevoke`. Logging never breaks a request.
+  `revoke`, `unrevoke`, `expiry` (an admin changed the expiry). Logging never breaks a request.
 - **Admin views**: `/api/admin/dashboard`, `/api/admin/codes`, `/api/admin/events` (and the legacy `generate/stats.php`,
   `code-events.php`, `revoke.php`).
 

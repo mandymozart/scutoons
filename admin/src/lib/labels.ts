@@ -10,7 +10,8 @@ const EVENTS: Record<EventName, () => string> = {
 	login: () => m['events.login'](),
 	signup: () => m['events.signup'](),
 	revoke: () => m['events.revoke'](),
-	unrevoke: () => m['events.unrevoke']()
+	unrevoke: () => m['events.unrevoke'](),
+	expiry: () => m['events.expiry']()
 };
 
 export const eventLabel = (name: string) => EVENTS[name as EventName]?.() ?? name;

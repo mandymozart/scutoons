@@ -88,7 +88,7 @@ PHPUnit, PHPStan. Composer `vendor/` is built in CI and uploaded (the host has n
 Login with the account flow, role `admin`. UI patterns from akin (see "Admin UI patterns" below once researched),
 styled by `@scutoons/tokens` + `@scutoons/ui` (square, ink/paper, mono, cyan only as fill/glow).
 
-Sections: Dashboard (scans, unlocks, claims, signups per day/edition) · Codes (table, filters, detail timeline, revoke)
+Sections: Dashboard (scans, unlocks, claims, signups per day/edition) · Codes (table, filters, detail timeline, revoke, change the expiry – one or a selection)
 · Batches (port of generate: sign, QR SVG, certificate PDF, sticker sheet, ZIP) · Users & roles · Content (versions,
 publish state per toon/chapter) · Catalog (items, editions, permissions map read-only view) · Events log · Settings
 (runtime settings: QR scan limit + lookup limit per IP and hour, `GET/PUT /api/admin/settings`).

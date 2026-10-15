@@ -23,6 +23,7 @@ use Scutoons\Infrastructure\Config\Settings;
  *   GET  /codes/{code}                detail (no email, no owner id)
  *   GET  /codes/{code}/events         timeline (?limit=, newest first)
  *   POST /codes/{code}/revoke|unrevoke
+ *   PUT  /codes/{code}/expiry         { expires_at: date | null } – change or remove the expiry
  *   GET|PUT /codes/{code}/signature   read / store the certificate signature
  *   GET  /codes/{code}/history        ownership history (transfers: claim, gift, admin – with accounts)
  *   POST /codes/{code}/transfer       { to: email | user id, note, item_id?, variant? } – move it to another account
@@ -75,6 +76,14 @@ final class CodesController
     public function unrevoke(Request $request, Response $response, array $args): Response
     {
         return Json::response($response, 200, ['status' => 'success'] + $this->codes->setRevoked(self::code($args), false));
+    }
+
+    /** @param array{code: string} $args */
+    public function expiry(Request $request, Response $response, array $args): Response
+    {
+        $body = JsonBody::of($request);
+        if (!array_key_exists('expires_at', $body)) throw new ApiError(400, 'invalid_expires_at', 'expires_at missing (a date, or null for no expiry).');
+        return Json::response($response, 200, ['status' => 'success'] + $this->codes->setExpiry(self::code($args), $body['expires_at']));
     }
 
     /** @param array{code: string} $args */

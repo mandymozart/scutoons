@@ -94,15 +94,28 @@
 		}
 	}
 
-	// bulk revoke / unrevoke
+	// bulk revoke / unrevoke / change expiry
+	type BulkAction = 'revoke' | 'unrevoke' | 'expiry';
 	let bulkOpen = $state(false);
-	let bulkAction = $state<'revoke' | 'unrevoke'>('revoke');
+	let bulkAction = $state<BulkAction>('revoke');
 	let bulkReason = $state('');
+	let bulkExpiry = $state('');
 	let bulkWorking = $state(false);
+	const bulkTitle: Record<BulkAction, (count: number) => string> = {
+		revoke: (count) => m['codes.bulk_revoke_title']({ count }),
+		unrevoke: (count) => m['codes.bulk_unrevoke_title']({ count }),
+		expiry: (count) => m['codes.bulk_expiry_title']({ count })
+	};
+	const bulkLabel: Record<BulkAction, () => string> = {
+		revoke: () => m['codes.revoke'](),
+		unrevoke: () => m['codes.unrevoke'](),
+		expiry: () => m['codes.save_expiry']()
+	};
 
-	function startBulk(action: 'revoke' | 'unrevoke') {
+	function startBulk(action: BulkAction) {
 		bulkAction = action;
 		bulkReason = '';
+		bulkExpiry = '';
 		bulkOpen = true;
 	}
 
@@ -113,6 +126,7 @@
 		for (const code of selected) {
 			try {
 				if (bulkAction === 'revoke') await admin.revokeCode(code, bulkReason.trim());
+				else if (bulkAction === 'expiry') await admin.setCodeExpiry(code, bulkExpiry || null);
 				else await admin.unrevokeCode(code);
 				ok++;
 			} catch {
@@ -252,6 +266,7 @@
 				{#snippet bulk()}
 					<Button size="sm" variant="secondary" onclick={() => startBulk('revoke')}>{m['codes.revoke']()}</Button>
 					<Button size="sm" variant="secondary" onclick={() => startBulk('unrevoke')}>{m['codes.unrevoke']()}</Button>
+					<Button size="sm" variant="secondary" onclick={() => startBulk('expiry')}>{m['codes.change_expiry']()}</Button>
 				{/snippet}
 			</DataTable>
 		{/if}
@@ -264,7 +279,7 @@
 	{/snippet}
 </SplitView>
 
-<Sheet bind:open={bulkOpen} title={bulkAction === 'revoke' ? m['codes.bulk_revoke_title']({ count: selected.length }) : m['codes.bulk_unrevoke_title']({ count: selected.length })} closeLabel={m['common.close']()}>
+<Sheet bind:open={bulkOpen} title={bulkTitle[bulkAction](selected.length)} closeLabel={m['common.close']()}>
 	<p>{selected.join(', ')}</p>
 	{#if bulkAction === 'revoke'}
 		<Field label={m['codes.reason']()} hint={m['codes.reason_hint']()}>
@@ -272,11 +287,17 @@
 				<input {id} aria-describedby={describedby} maxlength="255" bind:value={bulkReason} />
 			{/snippet}
 		</Field>
+	{:else if bulkAction === 'expiry'}
+		<Field label={m['codes.expires']()} hint={m['codes.expiry_hint']()}>
+			{#snippet children({ id, describedby })}
+				<input {id} type="datetime-local" aria-describedby={describedby} bind:value={bulkExpiry} />
+			{/snippet}
+		</Field>
 	{/if}
 	{#snippet footer()}
 		<Button size="sm" variant="secondary" onclick={() => (bulkOpen = false)}>{m['common.cancel']()}</Button>
 		<Button size="sm" disabled={bulkWorking} onclick={runBulk}>
-			{bulkAction === 'revoke' ? m['codes.revoke']() : m['codes.unrevoke']()}
+			{bulkLabel[bulkAction]()}
 		</Button>
 	{/snippet}
 </Sheet>

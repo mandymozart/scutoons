@@ -40,7 +40,7 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('YYYY-MM-DD');
 const page = { page: z.number().int().min(1).optional(), page_size: z.number().int().min(1).max(100).optional().describe('default 25') };
 
 const CODE_STATUSES = ['claimed', 'unclaimed', 'revoked', 'expired', 'active', 'signed', 'unsigned'] as const;
-const LOG_EVENTS = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke'] as const;
+const LOG_EVENTS = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke', 'expiry'] as const;
 const CATALOG_READ = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'permissions', 'code-types', 'toons', 'meta'] as const;
 /** what a changes card may change in the catalog (never permissions / code types: they decide what codes unlock) */
 const CATALOG_CHANGE = ['items', 'recipes', 'albums', 'products', 'editions', 'toons'] as const;

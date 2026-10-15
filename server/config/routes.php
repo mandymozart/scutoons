@@ -351,6 +351,7 @@ return static function (App $app): void {
         $admin->get('/codes/{code}/events', [CodesController::class, 'events']);
         $admin->post('/codes/{code}/revoke', [CodesController::class, 'revoke']);
         $admin->post('/codes/{code}/unrevoke', [CodesController::class, 'unrevoke']);
+        $admin->put('/codes/{code}/expiry', [CodesController::class, 'expiry']);
         $admin->get('/codes/{code}/history', [CodesController::class, 'history']);
         $admin->post('/codes/{code}/transfer', [CodesController::class, 'transfer']);
         $admin->get('/codes/{code}/signature', [CodesController::class, 'signature']);

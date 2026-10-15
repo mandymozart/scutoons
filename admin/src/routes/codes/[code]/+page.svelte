@@ -12,6 +12,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import CodeStatus from '$lib/components/code-status.svelte';
 	import RevokeForm from '$lib/components/revoke-form.svelte';
+	import ExpiryForm from '$lib/components/expiry-form.svelte';
 	import CertificatePanel from '$lib/components/certificate-panel.svelte';
 	import OwnershipHistory from '$lib/components/ownership-history.svelte';
 	import { choiceLabel, itemChoices, type ItemChoice } from '$lib/claims.svelte.ts';
@@ -194,6 +195,19 @@
 			{#if c.revoked_at}
 				<p class="muted">{m['codes.revoked_at']({ when: minute(c.revoked_at) })}</p>
 			{/if}
+		</Section>
+
+		<Section title={m['codes.section_expiry']()}>
+			<ExpiryForm
+				code={c.code}
+				expiresAt={c.expires_at}
+				onchanged={(state) => {
+					if (!detail) return;
+					detail.code.expires_at = state.expires_at;
+					detail.expired = state.expired;
+					admin.codeEvents(c.code, 5000).then((e) => (events = e.items));
+				}}
+			/>
 		</Section>
 	</div>
 

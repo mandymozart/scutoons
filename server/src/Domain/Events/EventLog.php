@@ -13,7 +13,8 @@ use Throwable;
 /**
  * Activity statistics per code (table code_events, append-only; agents/ITEMS.md "Revoke + activity statistics").
  * Events: scan (landing page /?c=), access (/access/, at most once per code + device per UTC day), claim,
- * claim_refused, login (one row per owned code at sign-in), signup (account created with this code), revoke, unrevoke.
+ * claim_refused, login (one row per owned code at sign-in), signup (account created with this code), revoke, unrevoke,
+ * expiry (an admin changed or removed expires_at).
  *
  * Privacy: no raw IP, email or user agent. device_hash = HMAC of the browser's random `X-Device-Id`; ip_hash = HMAC of
  * the IP with a daily salt derived from AUTH_SECRET + the UTC date (hashes of different days can't be linked).
@@ -21,7 +22,7 @@ use Throwable;
  */
 final class EventLog
 {
-    public const TYPES = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke'];
+    public const TYPES = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke', 'expiry'];
 
     public function __construct(
         private readonly Database $db,

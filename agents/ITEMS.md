@@ -371,7 +371,8 @@ page. Non-claimable types keep their direct redirect.
   → `410 revoked`; `/me` access ignores them. Viewer: on `410 revoked`/`expired` during a re-check → drop device access.
 - **`code_events`** (append-only): `id, code, event, device_hash NULL, user_id NULL, ip_hash NULL, toon NULL, created_at`.
   Events: `scan` (landing page `/?c=`), `access` (at most once per code+device per UTC day), `claim`,
-  `claim_refused`, `login` (one row per owned code at sign-in), `revoke`, `unrevoke`.
+  `claim_refused`, `login` (one row per owned code at sign-in), `revoke`, `unrevoke`, `expiry` (an admin changed or
+  removed `expires_at`).
   Privacy: viewer sends a random per-browser id `X-Device-Id` (localStorage `scutoons_device`); server stores
   `hmac(device id)` only. IP → `hmac(ip + daily salt)`. No raw IP, no email, no user agent string in events.
 - **Admin stats** in the generate SPA (admin token): per code — edition, number, type, scans, unique devices,
@@ -470,6 +471,7 @@ Implemented in the server (`src/Http/Controllers/Admin/*`, `src/Domain/Admin/*`)
 | GET | `/admin/codes/{code}/events?limit=1000` | limit ≤ 5000 | `{ status, items: [{ event, created_at, device, account, toon }] }` newest first · 404 |
 | POST | `/admin/codes/{code}/revoke` | `{ reason? }` (≤ 255) | `{ status, code, revoked_at, revoked_reason }` (logged as event `revoke`) · 404 |
 | POST | `/admin/codes/{code}/unrevoke` | – | same, `revoked_at: null` · 404 |
+| PUT | `/admin/codes/{code}/expiry` | `{ expires_at }` – a date (server time, like `created_at`) or `null` = no expiry; promo / invite access reads it live, so a later date extends at once | `{ status, code, expires_at, expired }` (logged as event `expiry`) · `400 invalid_expires_at` · 404 |
 | GET | `/admin/codes/{code}/signature` | – | `{ status, signature: { signature, publicKey, algorithm, signedData, timestamp }, fingerprint, qr_data, redirect_to }` · `404 not_found\|no_signature` |
 | PUT | `/admin/codes/{code}/signature` | `{ signature: { signature, publicKey, algorithm, signedData, timestamp } }` (made client-side) | `{ status, code }` · `400 invalid_signature` · 404 |
 

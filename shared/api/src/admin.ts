@@ -18,9 +18,9 @@ export interface ListResult<T> {
 	pagination: Pagination;
 }
 
-export type EventName = 'scan' | 'access' | 'claim' | 'claim_refused' | 'login' | 'signup' | 'revoke' | 'unrevoke';
+export type EventName = 'scan' | 'access' | 'claim' | 'claim_refused' | 'login' | 'signup' | 'revoke' | 'unrevoke' | 'expiry';
 
-export const EVENT_NAMES: EventName[] = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke'];
+export const EVENT_NAMES: EventName[] = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke', 'expiry'];
 
 export type EventCounts = Record<EventName, number>;
 
@@ -919,6 +919,11 @@ export function createAdminApi(api: ApiClient) {
 			api.post<{ status: string; code: string; revoked_at: null; revoked_reason: null }>(
 				`/admin/codes/${seg(code)}/unrevoke`
 			),
+		/** change (a date, server time) or remove (null) a code's expiry; logged as event `expiry` */
+		setCodeExpiry: (code: string, expiresAt: string | null) =>
+			api.put<{ status: string; code: string; expires_at: string | null; expired: boolean }>(`/admin/codes/${seg(code)}/expiry`, {
+				expires_at: expiresAt
+			}),
 		getSignature: (code: string) => api.get<CodeSignatureResult>(`/admin/codes/${seg(code)}/signature`),
 		saveSignature: (code: string, signature: CodeSignature) =>
 			api.put<{ status: string; code: string }>(`/admin/codes/${seg(code)}/signature`, { signature }),

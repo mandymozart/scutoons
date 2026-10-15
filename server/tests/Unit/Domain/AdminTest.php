@@ -72,6 +72,31 @@ final class AdminTest extends TestCase
         self::assertTrue($admin->detail($row['code'])['signed']);
     }
 
+    public function testChangeAndRemoveTheExpiry(): void
+    {
+        $admin = $this->get(CodeAdmin::class);
+        $code = $this->code('promo', ['expires_at' => date('Y-m-d H:i:s', $this->clock->time() - 3600)]);
+        self::assertTrue($admin->detail($code)['expired']);
+        // extend (the jury case: a promo code past its date gets a later one)
+        $set = $admin->setExpiry($code, '2027-06-30T23:59');
+        self::assertSame([$code, '2027-06-30 23:59:00', false], [$set['code'], $set['expires_at'], $set['expired']]);
+        self::assertSame('2027-06-30 23:59:00', $admin->detail($code)['code']['expires_at']);
+        self::assertFalse($admin->detail($code)['expired']);
+        // remove
+        self::assertNull($admin->setExpiry($code, null)['expires_at']);
+        self::assertNull($admin->setExpiry($code, '')['expires_at']);
+        self::assertSame(['expiry', 'expiry', 'expiry'], array_column($admin->timeline($code), 'event'));
+        foreach ([[$code, 'next tuesday-ish'], [$code, 42], ['nope0000', null]] as [$c, $value]) {
+            try {
+                $admin->setExpiry($c, $value);
+                self::fail('ApiError expected');
+            } catch (ApiError $error) {
+                self::assertSame($c === 'nope0000' ? 404 : 400, $error->status);
+            }
+        }
+        self::assertNull($admin->detail($code)['code']['expires_at']);
+    }
+
     public function testDashboardCountsPerDayAndEdition(): void
     {
         $code = $this->code('membership', ['edition_id' => '2_catpope_beetles']);

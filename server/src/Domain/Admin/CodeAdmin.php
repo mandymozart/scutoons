@@ -14,7 +14,7 @@ use Scutoons\Support\Time;
 
 /**
  * Admin operations on QR codes: create one, list with activity statistics, detail + timeline, revoke/unrevoke,
- * signatures. Privacy (agents/ITEMS.md "Revoke + activity statistics"): code views never return emails or user ids
+ * change the expiry, signatures. Privacy (agents/ITEMS.md "Revoke + activity statistics"): code views never return emails or user ids
  * – only `claimed` (bool) and, per event, `account` (bool) and a short device hash prefix.
  */
 final class CodeAdmin
@@ -242,12 +242,7 @@ final class CodeAdmin
         } else {
             do { $code = Ids::nanoid(8); } while ($this->codes->find($code) !== null);
         }
-        $expiresAt = null;
-        if (is_string($fields['expires_at'] ?? null) && $fields['expires_at'] !== '') {
-            $time = strtotime($fields['expires_at']);
-            if ($time === false) throw new ApiError(400, 'invalid_expires_at', 'expires_at is not a date.');
-            $expiresAt = date('Y-m-d H:i:s', $time);
-        }
+        $expiresAt = self::expiresAt($fields['expires_at'] ?? null);
         $editionId = is_string($fields['edition_id'] ?? null) && $fields['edition_id'] !== '' ? $fields['edition_id'] : null;
         $batch = is_string($fields['batch'] ?? null) && $fields['batch'] !== '' ? $fields['batch'] : null;
         if ($batch !== null && !Batches::validFilename($batch)) throw new ApiError(400, 'invalid_batch', 'batch: a batch manifest file name (BATCH-….json).');
@@ -277,6 +272,30 @@ final class CodeAdmin
         $this->events->log($revoked ? 'revoke' : 'unrevoke', $code);
         $row = $this->db->one('SELECT revoked_at, revoked_reason FROM qr WHERE code = ?', [$code]) ?? [];
         return ['code' => $code, 'revoked_at' => $row['revoked_at'] ?? null, 'revoked_reason' => $row['revoked_reason'] ?? null];
+    }
+
+    /**
+     * Sets (a date, server time like created_at) or clears (null / '') the expiry of one code; logged as an `expiry`
+     * event. Promo and invite codes read it live (Permissions), so a later date extends the access at once.
+     * 400 invalid_expires_at · 404 not_found.
+     * @return array{code: string, expires_at: ?string, expired: bool}
+     */
+    public function setExpiry(string $code, mixed $expiresAt): array
+    {
+        if (!$this->codes->find($code)) throw new ApiError(404, 'not_found', 'Code not found');
+        $expiresAt = self::expiresAt($expiresAt);
+        $this->db->run('UPDATE qr SET expires_at = ? WHERE code = ?', [$expiresAt, $code]);
+        $this->events->log('expiry', $code);
+        return ['code' => $code, 'expires_at' => $expiresAt, 'expired' => CodeRules::isExpired(['expires_at' => $expiresAt], $this->clock->time())];
+    }
+
+    /** null / '' → no expiry; a date string → `Y-m-d H:i:s` (server time). 400 invalid_expires_at */
+    private static function expiresAt(mixed $value): ?string
+    {
+        if ($value === null || $value === '') return null;
+        $time = is_string($value) ? strtotime($value) : false;
+        if ($time === false) throw new ApiError(400, 'invalid_expires_at', 'expires_at is not a date.');
+        return date('Y-m-d H:i:s', $time);
     }
 
     /**
