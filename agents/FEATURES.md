@@ -70,9 +70,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.75 **Performance P4–P7** (research/PERFORMANCE.md) – check what is left: P5 production PHP tuning (OPcache,
   compiled DI container, authoritative classmap), P6 cache headers / Brotli on the CDN, P7 parallel catalog loads.
 - [ ] 10.100 **Slices as background: the strip editor** – owner 2026-10-15: "having text boxes pass is good as a tool",
-  "a concept that will last … scenes and slices are still a bit clunky". Current browsers already paint crossing boxes
-  (old iPhones may cut them); the creator's one-slice canvas is the real problem. Steps: reader paint rule → strip
-  editor → slice ids + scenes inlined → tall pictures. `decide` Q1–Q4. Not now. → research/TEXT-ACROSS-SLICES.md
+  "a concept that will last … scenes and slices are still a bit clunky", "horizontal scroll creates issues". Vertical
+  crossing already works (old iPhones may cut); strips cut both ways (each slice's side clip), Swipers by design; the
+  one-slice canvas is the real problem. Steps: reader paint rule → strip editor → slice ids + scenes inlined → tall
+  pictures. `decide` Q1–Q7. Not now. → research/TEXT-ACROSS-SLICES.md
 
 ## Items, content
 - [ ] 10.38 **[owner] Taking items on production** – set "a story may take it" on the items in admin (e.g. cucumber,
