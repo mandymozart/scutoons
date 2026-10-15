@@ -1,5 +1,5 @@
 /* Score looks (score-looks.ts): the sheet carries data-look; Verovio's SVG keeps its classes (g.note, g.syl …).
-   Fonts: the app's lettering (Bangers) for title and tempo; lyrics in Times italic (Verovio spaces the words by Times' widths – a wider face runs them together). */
+   Fonts: the app's lettering (Bangers) for the title; lyrics in Times italic (Verovio spaces the words by Times' widths – a wider face runs them together). */
 
 .score-view .sheet[data-look^='old-school'] {
 	--score-paper: #f3e7cc;
@@ -18,12 +18,16 @@
 	fill: var(--score-ink);
 }
 
-/* the title (Verovio's page head) and the tempo in the lettering font */
-.score-view .sheet[data-look^='old-school'] g.pgHead text,
-.score-view .sheet[data-look^='old-school'] g.tempo text {
+/* the title (Verovio's page head) in the lettering font – not the tempo: its note is a music-font glyph in the text */
+.score-view .sheet[data-look^='old-school'] g.pgHead text {
 	font-family: var(--font-lettering);
 	font-weight: 400;
 	letter-spacing: 0.04em;
+}
+
+/* music glyphs inside text (the tempo's note): Gootville's embedded text set lacks some – Leipzig (also embedded) fills in */
+.score-view .sheet[data-look^='old-school'] tspan[font-family='Gootville'] {
+	font-family: Gootville, Leipzig;
 }
 
 .score-view .sheet[data-look^='old-school'] g.verse text {

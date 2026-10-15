@@ -139,8 +139,8 @@ view, "PDF herunterladen" (the print file).
   collide – the reader edition should be the choir / voice parts only, exported from MuseScore as its own file.
 - Looks (owner 2026-10-15: "my own fancy fonts … much more interesting notation fonts … colors"; "old school" =
   Gootville, not Petaluma): `look` on ScoreView (score/score-looks.ts + .css) – Verovio options (music font, a heavier
-  pen) + CSS on Verovio's SVG classes keyed by `data-look`: old paper, sepia ink, red dynamics / chords, Bangers for title
-  and tempo, lyrics Times italic (Verovio spaces words by Times' widths – a wider face runs them together); "colour"
+  pen) + CSS on Verovio's SVG classes keyed by `data-look`: old paper, sepia ink, red dynamics / chords, Bangers for the
+  title, lyrics Times italic (Verovio spaces words by Times' widths – a wider face runs them together); "colour"
   = noteheads by pitch (`note@pname`); boiling lines (three turbulence filters stepped) and the sounding note +
   syllable hop while playing – both off under reduced motion. The toolkit is shared: `resetOptions()` before every
   layout. DRAFT in the lab (look switch); not yet chosen for readers. Possible next: own SMuFL font (Verovio's

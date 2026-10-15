@@ -25,7 +25,7 @@ const PEN = {
 };
 
 export const SCORE_LOOKS: ScoreLook[] = [
-	/** sepia ink on old paper, lettering for the title and the tempo */
+	/** sepia ink on old paper, lettering for the title */
 	{ id: 'old-school', options: PEN, boil: true },
 	/** the same pen, every notehead in its pitch's colour (C red … B pink – children's colour notation) */
 	{ id: 'old-school-colour', options: { ...PEN, svgAdditionalAttribute: ['note@pname'] }, boil: true }
