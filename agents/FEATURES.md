@@ -87,11 +87,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   `upload_album_file album=awakening kind=track file=<path>` each (same bytes → the same path), then Apply the proposal
   admin.scutoons.com/proposals/01a14302-0363-7537-8450-df3d87e53510 (tracks.N.variants) – not before (low / medium 404).
   Apply the sides proposal (any time): admin.scutoons.com/proposals/01a14311-9a2e-72f5-aec4-bf81be3ad6b4.
-- [ ] 10.102 **Items get a 3D model (`model`)** – owner 2026-10-16: "let the user turn the record", "We will turn all
-  items into 3d assets". Proposal: an optional `model` (CDN `.glb`) on the ITEM (+ per variant, like `icon`) – the item is
-  what readers own, turn and place (furniture's planned `model`, CAVE.md); the shop reads it via the product's item.
-  Then: admin slot (`FileSlot kind="model"`), usage index, propose `awakening_vinyl.model` = `catpope/items/awakening_vinyl.model.glb`;
-  the record player turns it (A/B). `decide`. → ITEMS.md "3D item models"
+- [ ] 10.102 **[owner] The LP's 3D model live** – owner 2026-10-16: "The item should show sleeve with record inside".
+  After the deploy with the item `model` field: Apply admin.scutoons.com/proposals/01a1435a-de73-7e56-97c2-136268179a8b
+  (`awakening_vinyl.model` = `.set.glb`); confirm which half of the cover PDF is the sleeve's front (today the right
+  one – `FRONT_IS_RIGHT_HALF` in tools/vinyl3d/build.py). → ITEMS.md "3D item models"
 - [ ] 10.38 **[owner] Taking items on production** – set "a story may take it" on the items in admin (e.g. cucumber,
   lsd), and the toptoy ch1 blotter-deal content via the creator (the dev draft 819 isn't on production).
 - [ ] 10.76 **Items: open owner decisions** (ITEMS.md "Where to buy" / "Record player repair") – how the tape / CD

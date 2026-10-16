@@ -209,6 +209,7 @@
 	album={request.title}
 	toon={request.toon ?? null}
 	{cover}
+	model={request.model ? asset(request.model) : null}
 	tracks={request.tracks}
 	{index}
 	{onSide}

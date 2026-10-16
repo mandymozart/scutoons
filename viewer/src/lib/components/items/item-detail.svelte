@@ -12,6 +12,7 @@
 	import type { InviteOffer } from '@scutoons/api';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
+	import ItemModel from './item-model.svelte';
 	import ContainerActions from './container-actions.svelte';
 	import ScoreActions from './score-actions.svelte';
 	import { albumDownloadUrl, albumTrackUrl } from '$lib/protected-files.ts';
@@ -28,6 +29,7 @@
 	const ui = getItemsUiContext();
 
 	const def = $derived(inventory.item(entry.item_id));
+	const model = $derived(inventory.modelOf(entry));
 	// the VR headset: the reader's home from anywhere (research/CAVE.md D2)
 	const homes = getHomesContext();
 	const skills = $derived(def?.skills ?? []);
@@ -56,6 +58,8 @@
 			toon: album.toon,
 			entry: from,
 			cover: album.cover ?? null,
+			// the record's 3D model (its sleeve with the record inside – the card plays it on a 3D turntable)
+			model: from ? inventory.modelOf(from) || null : null,
 			// the reader's media quality when the song starts (96k / 128k / 320k – owner 2026-10-16)
 			sign: (i) => albumTrackUrl(album.id, tracks[i], mediaQuality.level)
 		});
@@ -178,8 +182,10 @@
 <div class="item-detail">
 	<button class="btn-back btn-clear" onclick={onback}>← {m['items.back']()}</button>
 
-	<div class="hero">
-		<ItemIcon srcs={[inventory.iconOf(entry), def?.icon ?? '']} name={inventory.nameOf(entry)} lettering={inventory.letteringOf(entry)} />
+	<!-- the item's 3D model when it has one (FEATURES 10.102), else / meanwhile its icon -->
+	<div class="hero" class:model>
+		{#snippet icon()}<ItemIcon srcs={[inventory.iconOf(entry), def?.icon ?? '']} name={inventory.nameOf(entry)} lettering={inventory.letteringOf(entry)} />{/snippet}
+		{#if model}<ItemModel path={model} label={inventory.nameOf(entry)} fallback={icon} />{:else}{@render icon()}{/if}
 	</div>
 
 	<h2>{inventory.nameOf(entry)}</h2>
@@ -319,6 +325,10 @@
 		width: 10rem;
 		max-width: 60%;
 		align-self: center;
+	}
+	.hero.model {
+		width: 15rem;
+		max-width: 80%;
 	}
 	h2 {
 		margin: 0;

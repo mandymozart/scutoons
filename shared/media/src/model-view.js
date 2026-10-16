@@ -1,11 +1,31 @@
 // A 3D model (.glb) shown in the tools (owner 2026-10-14: "a preview of the 3d asset in the asset manager and in the
 // slot where it is placed"): a live view (turns slowly, drag to turn) and still thumbnails for the picker's cards.
 // three.js loads only when a model is shown (dynamic import). Plain JS – the types are in model-view.d.ts.
+// Also the viewer's (`@scutoons/media/model-view`, this file only – FEATURES 10.102): the item view's model and the
+// record player's stage (viewer record-stage.js) load three.js through `loadThree`, so it is one chunk for all.
 
 let threeLib = null;
 async function three() {
 	threeLib ??= Promise.all([import('three'), import('three/addons/loaders/GLTFLoader.js')]).then(([THREE, { GLTFLoader }]) => ({ THREE, GLTFLoader }));
 	return threeLib;
+}
+/** three.js and its GLTFLoader, loaded once on first use */
+export const loadThree = three;
+
+/** WebGL can draw here (a throw-away context, asked once) – without it a page shows its 2D picture */
+let webgl = null;
+export function webglAvailable() {
+	if (webgl === null) {
+		try {
+			const c = document.createElement('canvas');
+			const gl = c.getContext('webgl2') || c.getContext('webgl');
+			webgl = !!gl;
+			gl?.getExtension('WEBGL_lose_context')?.loseContext();
+		} catch {
+			webgl = false;
+		}
+	}
+	return webgl;
 }
 
 /** loads a .glb, centred on the origin, feet on y = 0, scaled to a height of 1 */

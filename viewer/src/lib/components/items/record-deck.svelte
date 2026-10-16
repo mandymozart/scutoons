@@ -6,9 +6,8 @@
 	 * album's title. Drawn at any size: every inner size is in em of the deck (`size` / 3.25), so the compact bar (3.25rem)
 	 * and the expanded card draw the same picture. Reduced motion: no spinning, the arm jumps, the flip has no animation.
 	 *
-	 * Hook for the 3D record (FEATURES 10.102, the item-model field is the owner's call): the vinyl model
-	 * `catpope/items/awakening_vinyl.model.glb` (side A faces +Z, side B −Z) can replace the two faces in the card – a turn
-	 * of the model around Y is this flip; this 2D picture stays the fallback (reduced motion, no WebGL) and the bar's.
+	 * The card shows the item's 3D model instead when it has one (record-stage.svelte, FEATURES 10.102); this 2D picture
+	 * stays the bar's and the card's fallback (reduced motion, no WebGL, a model that fails).
 	 */
 	let {
 		cover = null,

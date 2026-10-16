@@ -157,14 +157,33 @@ unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card
 An item's 3D model is a `.glb` asset next to its icon: `<toon>/items/<item-id>.model.glb` (own slug – a plain
 `<item-id>.glb` would fold into the icon's asset group), extra parts as `<item-id>.<part>.glb`. Real size in metres,
 +Y up, the front faces +Z, standing so a turn around Y (the tools' `ModelPreview`) shows the back; one self-contained
-file ≤ ~1–2 MB, JPEG / PNG textures (ASSETS.md "3D models"). No catalog field reads it yet (10.102).
+file ≤ ~1–2 MB, JPEG / PNG textures (ASSETS.md "3D models").
+- **The field:** `model` on the item (CDN-root `.glb`; a variant may have its own, none = the item's – `modelOf`),
+  validated in TS + PHP (a `.glb` path), counted as used by the asset usage index (`item:<id>` `/model`); admin item
+  form: a `FileSlot kind="model"` + the live `ModelPreview` next to the picture (each variant row: its own slot). It is
+  what the item SHOWS – the LP's is its sleeve with the record inside.
+- **Item view** (item-detail.svelte → item-model.svelte): the model instead of the icon, turning slowly (drag to turn;
+  `mountModelView` from `@scutoons/media/model-view` – three.js loads only then); the icon while it loads, without
+  WebGL, with reduced motion or when it fails.
+- **Record player card** (owner 2026-10-16: "The item should show sleeve with record inside. And on starting to play it
+  is pulled out and put on the record player"): with the playing item's model (`AudioRequest.model`) the card's record
+  is a 3D stage (record-stage.svelte / .js): the sleeve with the record inside stands behind a turntable built in code
+  (plinth, platter, spindle, tonearm); on play the record slides out of the open edge, turns flat and lies down on the
+  platter (the camera moves from the sleeve to the deck), turns at 33⅓ rpm while playing (a pause runs it down), the arm
+  follows the song (`armAngle`) and lifts between songs; "Turn the record" lifts, flips and lays it down with the other
+  side up (A = +Z of the model). The stage needs nodes `record` (+ `sleeve`); a record-only model works without sleeve.
+  One renderer, mounted while the card is open, freed on close; reduced motion / no WebGL / a failing model: the 2D
+  deck (record-deck.svelte, also the bar's).
 - **Awakening LP** (`awakening_vinyl`, also right for `awakening_test_press`): `catpope/items/awakening_vinyl.model.glb`
   (440 KB – Ø 302 mm, 2 mm, labels Ø 100 mm A on +Z / B on −Z, hole Ø 7.24 mm; grooves = a 1D polar normal + roughness
   map with lead-in, 2 track gaps a side, run-out; `KHR_materials_anisotropy` for the radial sheen) and
-  `catpope/items/awakening_vinyl.sleeve.glb` (1.2 MB – spined sleeve 315 × 312 × 3 mm, front +Z, spine left). Source:
+  `catpope/items/awakening_vinyl.sleeve.glb` (1.2 MB – spined sleeve 315 × 312 × 3 mm, front +Z, spine left) and the
+  item's `model` `catpope/items/awakening_vinyl.set.glb` (1.6 MB – the sleeve open at +X with the record standing in
+  it, 25 mm out; nodes `sleeve`, `record`; a part name, not `.model.glb`: that path holds the record alone and CDN paths
+  never change their bytes). Source:
   Proton Drive `Projects/Cat Pope/Artwork/Vinyl/20260620_CATPOPE-Print/` (`20260427_CATPOPE-PRINT-LabelA.pdf`,
   `-LabelB.pdf`, `20260620_CATPOPE-Cover.pdf`; sizes from `specs/`). Front = the cover's right half (the title side) –
-  owner to confirm. Built by `tools/vinyl3d/build.py` (pymupdf at 300 dpi → trim box; usage in its header) – the
+  owner to confirm (one flag: `FRONT_IS_RIGHT_HALF` / `--front left`; a change = new file names). Built by `tools/vinyl3d/build.py` (pymupdf at 300 dpi → trim box; usage in its header) – the
   pattern for the next item.
 
 ## Collectables removed – items are the only concept (U, 2026-09-30)
@@ -1215,8 +1234,8 @@ listen, download; validation `validateAlbums` (inside `validateCatalog`) + `chec
   2026-10-16, a bottom `Sheet`; the sound stays in the bar): the record large with the cover as its label, "Platte
   umdrehen" / "Turn the record" (owner 2026-10-16: a track's `side` A | B, none = A – Awakening: Roar, Cloud 9, Not My
   City on A, the rest on B): the other side's first song plays, the record shows that side (A = the cover, B = a paper
-  label with the album title; an album with one side only turns the picture; the 3D vinyl model is the hook, FEATURES
-  10.102); songs play on within their side (after its last: its first); the bar and the card say "Seite A · 2 / 3"; the
+  label with the album title; an album with one side only turns the picture; with the item's 3D model the 3D stage –
+  "3D item models"); songs play on within their side (after its last: its first); the bar and the card say "Seite A · 2 / 3"; the
   full title, seek, back / play / next, **the
   song's credits** from `credits:<toon>` (`songSection`: `song-<slug of the title>`, else `song-<track id>`, else a song
   section of the same title – no credits field in the catalog, owner 2026-10-16) and the side's songs to pick. After the last

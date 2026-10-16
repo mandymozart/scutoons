@@ -489,6 +489,11 @@ export function createInventoryContext(session: SessionContext) {
 		return variantOf(entry)?.icon || item(entry.item_id)?.icon || '';
 	}
 
+	/** the 3D model of an entry: its variant's, else the item's (FEATURES 10.102); none = '' */
+	function modelOf(entry: Pick<Entry, 'item_id' | 'variant'>): string {
+		return variantOf(entry)?.model || item(entry.item_id)?.model || '';
+	}
+
 	/** the title lettered on a score's cover – in the score's own language (research/SCORES.md §1) */
 	function letteringOf(entry: Pick<Entry, 'item_id'>): string | null {
 		const def = itemsById[entry.item_id];
@@ -1074,6 +1079,7 @@ export function createInventoryContext(session: SessionContext) {
 		item,
 		variantOf,
 		iconOf,
+		modelOf,
 		letteringOf,
 		nameOf,
 		count,

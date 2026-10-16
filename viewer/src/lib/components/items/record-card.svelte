@@ -18,7 +18,10 @@
 	import { resolveCredits, songSection, type ResolvedEntry } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
+	import { MediaQuery } from 'svelte/reactivity';
+	import { webglAvailable } from '@scutoons/media/model-view';
 	import RecordDeck from './record-deck.svelte';
+	import RecordStage from './record-stage.svelte';
 	import SeekBar from './seek-bar.svelte';
 	import { formatTime } from './playlist.ts';
 
@@ -27,7 +30,9 @@
 	 * card and shows the full name and credits for a song"): a bottom sheet over the page with the record large (the cover
 	 * as its label on side A, a paper label on side B) and "Turn the record" (the other side's songs, owner 2026-10-16),
 	 * the song's full title, the album, the side and n / N, the seek line, back / play-pause / next, the song's people from
-	 * the toon's credits (`credits:<toon>`, its `song-…` section – `songSection`) and the side's songs to pick from. The sound lives in the bar (record-player.svelte): closing the
+	 * the toon's credits (`credits:<toon>`, its `song-…` section – `songSection`) and the side's songs to pick from. With the item's 3D model (FEATURES 10.102: the LP's sleeve with the record inside) the
+	 * record is a 3D stage (record-stage.svelte): on play it comes out of the sleeve onto a turntable and turns; without
+	 * WebGL, with reduced motion or a model that fails: the 2D deck. The sound lives in the bar (record-player.svelte): closing the
 	 * card keeps it playing.
 	 */
 	let {
@@ -35,6 +40,7 @@
 		album,
 		toon = null,
 		cover,
+		model = null,
 		tracks,
 		index,
 		onSide,
@@ -57,6 +63,8 @@
 		album: string;
 		toon?: string | null;
 		cover: string | null;
+		/** the item's 3D model (CDN URL) – the 3D stage instead of the 2D deck */
+		model?: string | null;
 		tracks: { id?: string; title: string; duration?: number }[];
 		index: number;
 		/** the side's songs (album indices) */
@@ -79,6 +87,13 @@
 	} = $props();
 
 	const track = $derived(tracks[index]);
+	const reduced = new MediaQuery('prefers-reduced-motion: reduce');
+	let modelFailed = $state(false);
+	$effect(() => {
+		void model;
+		modelFailed = false;
+	});
+	const in3d = $derived(!!model && open && !reduced.current && !modelFailed && webglAvailable());
 	const count = $derived(onSide.length);
 	const position = $derived(onSide.indexOf(index) + 1);
 
@@ -103,7 +118,11 @@
 <Sheet bind:open title={album} side="bottom" closeLabel={m['items.close']()}>
 	<div class="card" data-testid="record-card">
 		<div class="stage">
-			<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
+			{#if in3d && model}
+				<RecordStage url={model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} onfail={() => (modelFailed = true)} />
+			{:else}
+				<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
+			{/if}
 			<button type="button" class="btn-secondary turn" aria-pressed={side === 'B'} onclick={onturn} data-testid="record-turn">
 				<Icon name="refresh-cw" />
 				{m['items.player_turn']()}
@@ -170,6 +189,7 @@
 	}
 
 	.stage {
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;

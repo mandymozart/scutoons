@@ -15,6 +15,10 @@
 			"types": "./src/index.ts",
 			"svelte": "./src/index.ts",
 			"default": "./src/index.ts"
+		},
+		"./model-view": {
+			"types": "./src/model-view.d.ts",
+			"default": "./src/model-view.js"
 		}
 	},
 	"files": [
