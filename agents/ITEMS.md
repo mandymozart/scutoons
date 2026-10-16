@@ -1175,7 +1175,7 @@ landing page [the season section of the toon page]."
 
 **Data model** (`@scutoons/content` `albums.ts`, types in `items.ts` / `content.ts`, schemas regenerated):
 - **Album** = the music, a language-neutral media entity in the **item catalog** (table `catalog_albums`, was `server/config/items.json` →
-  `catalog.albums`; served by `GET /api/items/`): `{ id, toon, title: Localized, tracks: [{ id, title, src, variants?, duration? }],
+  `catalog.albums`; served by `GET /api/items/`): `{ id, toon, title: Localized, tracks: [{ id, title, src, variants?, side?, duration? }],
   download?: <zip>, cover?, access?: { download, listen } }`, paths from the CDN root like item icons.
   *Why the catalog and not the content store:* the album only exists through the items that carry it (records, tapes,
   CDs – owner-edited config like products / editions, not creator content); the reader needs album + carriers + players
@@ -1213,10 +1213,13 @@ listen, download; validation `validateAlbums` (inside `validateCatalog`) + `chec
   release / per arrow key, the length from the file, else the catalog `duration`), back / play-pause / next (a phone:
   play + next), close; no native controls. A tap on the record or the title opens the **card** (record-card.svelte, owner
   2026-10-16, a bottom `Sheet`; the sound stays in the bar): the record large with the cover as its label, "Platte
-  umdrehen" / "Turn the record" (flips to side B: a paper label with the album title – only the picture; the 3D vinyl
-  model is the hook, FEATURES 10.102), the full title, "Awakening · 2 / 6 · Seite A", seek, back / play / next, **the
+  umdrehen" / "Turn the record" (owner 2026-10-16: a track's `side` A | B, none = A – Awakening: Roar, Cloud 9, Not My
+  City on A, the rest on B): the other side's first song plays, the record shows that side (A = the cover, B = a paper
+  label with the album title; an album with one side only turns the picture; the 3D vinyl model is the hook, FEATURES
+  10.102); songs play on within their side (after its last: its first); the bar and the card say "Seite A · 2 / 3"; the
+  full title, seek, back / play / next, **the
   song's credits** from `credits:<toon>` (`songSection`: `song-<slug of the title>`, else `song-<track id>`, else a song
-  section of the same title – no credits field in the catalog, owner 2026-10-16) and the songs to pick. After the last
+  section of the same title – no credits field in the catalog, owner 2026-10-16) and the side's songs to pick. After the last
   song it starts again (owner 2026-10-14: loop). **Quality** (owner 2026-10-16): a track's `variants { low, medium, high }`
   (96k / 128k / 320k MP3, 48 kHz stereo; Awakening's `src` = the 320k master) – the reader's media quality picks one
   when the song starts (`albumTrackFile`; not known yet → 128k, like chapter audio), a vault track is signed at that

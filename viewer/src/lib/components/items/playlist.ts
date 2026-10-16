@@ -35,3 +35,40 @@ export function songLength(mediaDuration: number, catalogDuration: number | unde
 	if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration;
 	return catalogDuration && catalogDuration > 0 ? catalogDuration : 0;
 }
+
+// ── Record sides (owner 2026-10-16: "Roar, Cloud and Not My City is A, the rest B") ──────────────────────────────
+// A track without `side` is on A (@scutoons/content trackSide). "Turn the record" goes to the other side's first song;
+// playing on stays on the side (after its last song the side starts again – the album loop, per side).
+
+export type RecordSide = 'A' | 'B';
+type Sided = { side?: string };
+
+export const sideOf = (track: Sided | null | undefined): RecordSide => (track?.side === 'B' ? 'B' : 'A');
+
+/** the album indices of a side's songs, in album order */
+export function sideIndices(tracks: Sided[], side: RecordSide): number[] {
+	return tracks.flatMap((t, i) => (sideOf(t) === side ? [i] : []));
+}
+
+/** both sides have songs (only then the player speaks of sides and turning changes the songs) */
+export const twoSided = (tracks: Sided[]): boolean => sideIndices(tracks, 'A').length > 0 && sideIndices(tracks, 'B').length > 0;
+
+/** the song after `index` on its side (after the side's last: its first); null only without tracks */
+export function nextOnSide(tracks: Sided[], index: number): number | null {
+	const on = sideIndices(tracks, sideOf(tracks[index]));
+	const at = on.indexOf(index);
+	return at < 0 ? null : (on[nextTrack(at, on.length) ?? 0] ?? null);
+}
+
+/** "back" on the side: a few seconds in the song again, else the side's song before (the side's first only restarts) */
+export function previousOnSide(tracks: Sided[], index: number, elapsed: number): number {
+	const on = sideIndices(tracks, sideOf(tracks[index]));
+	const at = on.indexOf(index);
+	return at < 0 ? index : on[previousTrack(at, elapsed)];
+}
+
+/** turning the record: the other side's first song (null = the other side has none – only the picture turns) */
+export function turnTo(tracks: Sided[], index: number): number | null {
+	const other: RecordSide = sideOf(tracks[index]) === 'A' ? 'B' : 'A';
+	return sideIndices(tracks, other)[0] ?? null;
+}

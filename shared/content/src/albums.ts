@@ -55,8 +55,20 @@ export interface AlbumTrack {
 	/** one file per media quality level (low 96k / medium 128k / high 320k, owner 2026-10-16), like chapter audio; the
 	 *  reader's level picks one (`albumTrackFile`), a missing level falls back to the next lower one, else `src` */
 	variants?: QualityVariants;
+	/** the record side it is on (owner 2026-10-16: "Roar, Cloud and Not My City is A, the rest B"); none = A (`trackSide`) –
+	 *  "Turn the record" switches to the other side's songs */
+	side?: RecordSide;
 	/** seconds, optional */
 	duration?: number;
+}
+
+/** the two sides of a record (a tape, a CD: everything on A) */
+export const RECORD_SIDES = ['A', 'B'] as const;
+export type RecordSide = (typeof RECORD_SIDES)[number];
+
+/** a track's side: `side`, else A (tracks from before sides) */
+export function trackSide(track: Pick<AlbumTrack, 'side'> | null | undefined): RecordSide {
+	return track?.side === 'B' ? 'B' : 'A';
 }
 
 /**
@@ -288,6 +300,7 @@ export function validateAlbums(catalog: Record<string, any>, add: (level: Proble
 				if (typeof t.title !== 'string') add('error', [...tp, 'title'], `${album.id}/${t.id}: title must be a string`);
 				if (typeof t.src !== 'string' || !AUDIO.test(t.src)) add('error', [...tp, 'src'], `${album.id}/${t.id}: src must be an audio path (.mp3 …)`);
 				if (t.duration !== undefined && !(typeof t.duration === 'number' && t.duration > 0)) add('error', [...tp, 'duration'], `${album.id}/${t.id}: duration must be seconds > 0`);
+				if (t.side !== undefined && !(RECORD_SIDES as readonly string[]).includes(t.side)) add('error', [...tp, 'side'], `${album.id}/${t.id}: side must be A or B`);
 				if (t.variants !== undefined) {
 					if (!isObj(t.variants)) add('error', [...tp, 'variants'], `${album.id}/${t.id}: variants must be { low?, medium?, high? } (96k / 128k / 320k files)`);
 					else for (const [level, file] of Object.entries(t.variants)) {

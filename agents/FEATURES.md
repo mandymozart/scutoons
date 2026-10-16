@@ -84,7 +84,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   12 MP3s (96k / 128k per song, 48 kHz stereo) wait in `media/albums/awakening/<hash>.mp3` (local only): in a NEW session
   `upload_album_file album=awakening kind=track file=<path>` each (same bytes → the same path), then Apply the proposal
   admin.scutoons.com/proposals/01a14302-0363-7537-8450-df3d87e53510 (tracks.N.variants) – not before (low / medium 404).
-  Decide: does "Turn the record" switch to side B's songs (which songs are side B?) – today it only flips the picture.
+  Apply the sides proposal (any time): admin.scutoons.com/proposals/01a14311-9a2e-72f5-aec4-bf81be3ad6b4.
 - [ ] 10.102 **Items get a 3D model (`model`)** – owner 2026-10-16: "let the user turn the record", "We will turn all
   items into 3d assets". Proposal: an optional `model` (CDN `.glb`) on the ITEM (+ per variant, like `icon`) – the item is
   what readers own, turn and place (furniture's planned `model`, CAVE.md); the shop reads it via the product's item.

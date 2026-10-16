@@ -51,7 +51,7 @@
 	function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
 		audioError = false;
 		ui.playAlbum({
-			tracks: tracks.map((t) => ({ id: t.id, src: t.src, title: t.title, duration: t.duration })),
+			tracks: tracks.map((t) => ({ id: t.id, src: t.src, title: t.title, duration: t.duration, side: t.side })),
 			title: localized(album.title),
 			toon: album.toon,
 			entry: from,

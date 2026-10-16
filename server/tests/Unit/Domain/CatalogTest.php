@@ -165,6 +165,7 @@ final class CatalogTest extends TestCase
             ['albums', 'awakening', ['tracks' => [['id' => 'x', 'title' => 'X', 'src' => 'x.txt']]] + (array) $store->get('albums', 'awakening'), 'audio path'],
             ['albums', 'awakening', ['tracks' => [['id' => 'x', 'title' => 'X', 'src' => 'x.mp3', 'variants' => ['ultra' => 'u.mp3']]]] + (array) $store->get('albums', 'awakening'), 'unknown quality level "ultra"'],
             ['albums', 'awakening', ['tracks' => [['id' => 'x', 'title' => 'X', 'src' => 'x.mp3', 'variants' => ['low' => 'l.txt']]]] + (array) $store->get('albums', 'awakening'), 'variants.low must be an audio path'],
+            ['albums', 'awakening', ['tracks' => [['id' => 'x', 'title' => 'X', 'src' => 'x.mp3', 'side' => 'C']]] + (array) $store->get('albums', 'awakening'), 'side must be A or B'],
             ['meta', 'products', ['version' => 2, 'currency' => 'euro'], 'currency'],
         ];
         $admin = $this->get(CatalogAdmin::class);

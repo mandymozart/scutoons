@@ -406,6 +406,8 @@ final class CatalogValidator
                 if (!is_string($t['title'] ?? null)) $p[] = "$id/{$t['id']}: title must be a string";
                 if (!is_string($t['src'] ?? null) || !preg_match('/\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i', $t['src'])) $p[] = "$id/{$t['id']}: src must be an audio path (.mp3 …)";
                 if (array_key_exists('duration', $t) && !((is_int($t['duration']) || is_float($t['duration'])) && $t['duration'] > 0)) $p[] = "$id/{$t['id']}: duration must be seconds > 0";
+                // the record side (owner 2026-10-16); none = A
+                if (array_key_exists('side', $t) && !in_array($t['side'], ['A', 'B'], true)) $p[] = "$id/{$t['id']}: side must be A or B";
                 // one file per media quality level (owner 2026-10-16), like chapter audio: low 96k / medium 128k / high 320k
                 if (array_key_exists('variants', $t)) {
                     if (!is_array($t['variants']) || array_is_list($t['variants']) && $t['variants'] !== []) $p[] = "$id/{$t['id']}: variants must be { low?, medium?, high? } (96k / 128k / 320k files)";

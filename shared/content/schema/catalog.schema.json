@@ -1029,6 +1029,10 @@
 					"$ref": "#/definitions/QualityVariants",
 					"description": "one file per media quality level (low 96k / medium 128k / high 320k, owner 2026-10-16), like chapter audio; the reader's level picks one (`albumTrackFile`), a missing level falls back to the next lower one, else `src`"
 				},
+				"side": {
+					"$ref": "#/definitions/RecordSide",
+					"description": "the record side it is on (owner 2026-10-16: \"Roar, Cloud and Not My City is A, the rest B\"); none = A (`trackSide`) – \"Turn the record\" switches to the other side's songs"
+				},
 				"duration": {
 					"type": "number",
 					"description": "seconds, optional"
@@ -1054,6 +1058,13 @@
 				}
 			},
 			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
+		},
+		"RecordSide": {
+			"type": "string",
+			"enum": [
+				"A",
+				"B"
+			]
 		},
 		"AlbumAccess": {
 			"type": "object",

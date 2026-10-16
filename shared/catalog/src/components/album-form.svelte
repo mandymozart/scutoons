@@ -65,6 +65,18 @@
 					else t.duration = v;
 				}}
 			/>
+			<!-- the record side (owner 2026-10-16): "Turn the record" plays the other side's songs; none = A -->
+			<CatalogField
+				label={m['catalog.track_side']()}
+				type="select"
+				value={t.side}
+				options={[{ value: 'A' }, { value: 'B' }]}
+				none={m['catalog.access_default']({ value: 'A' })}
+				onchange={(v) => {
+					if (v === null) delete t.side;
+					else t.side = v;
+				}}
+			/>
 		</div>
 		<CatalogField label={m['catalog.title_field']()} value={t.title} onchange={(v) => (t.title = v)} />
 		<FileSlot kind="audio" value={t.src} label={m['catalog.audio']()} {place} onchange={(path) => (t.src = path ?? '')} testid="album-track-src" />

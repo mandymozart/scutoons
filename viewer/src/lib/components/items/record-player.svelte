@@ -3,7 +3,7 @@
 	import type { AudioRequest } from '$lib/contexts/items-ui.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { armAngle, nextTrack, previousTrack, songLength } from './playlist.ts';
+	import { armAngle, nextOnSide, previousOnSide, sideIndices, sideOf, songLength, turnTo, twoSided } from './playlist.ts';
 	import RecordCard from './record-card.svelte';
 	import RecordDeck from './record-deck.svelte';
 	import SeekBar from './seek-bar.svelte';
@@ -11,9 +11,11 @@
 	/**
 	 * The audio player at the bottom (owner 2026-10-14: "play the whole album – like a little playlist, or an animation on
 	 * the record player"; 2026-10-16: "improve the player" after res.radio's): the album's songs one after another, a
-	 * compact bar – the turntable, the song's title and n / N, the seek line with the time and the length, back /
+	 * compact bar – the turntable, the song's title and "Side A · n / N", the seek line with the time and the length, back /
 	 * play-pause / next, close. A tap on the record or the title opens the card (record-card.svelte: the record large,
-	 * "Turn the record", the full title, the song's credits, the songs). After the last song the album starts again.
+	 * "Turn the record", the full title, the song's credits, the side's songs). Songs play on within their record side
+	 * (owner 2026-10-16: tracks carry `side`, none = A); after the side's last song the side starts again; turning the
+	 * record goes to the other side's first song (an album with one side only turns the picture).
 	 * A vault track gets its signed address at the reader's media quality only when it starts (`request.sign` – the
 	 * addresses live ten minutes, an album runs longer); one that ran out while paused is signed again where it stood.
 	 * No native controls: the state follows the media's own events (a blocked autoplay shows ▶, never a false "playing").
@@ -31,7 +33,8 @@
 	let mediaDuration = $state(0);
 	let audio = $state<HTMLAudioElement>();
 	let expanded = $state(false);
-	let side = $state<'a' | 'b'>('a');
+	/** a one-sided album: "Turn the record" only turns the picture */
+	let flipped = $state(false);
 	/** a signed address that ran out: signed again once, playing on from here */
 	let resumeAt = 0;
 	let retried = false;
@@ -40,12 +43,17 @@
 	const track = $derived(request.tracks[Math.min(index, count - 1)]);
 	const cover = $derived(request.cover ? asset(request.cover) : (icon?.src ?? null));
 	const length = $derived(songLength(mediaDuration, track?.duration));
+	const sided = $derived(twoSided(request.tracks));
+	const side = $derived(sided ? sideOf(track) : flipped ? 'B' : 'A');
+	/** the side's songs (album indices) and where this one is among them */
+	const onSide = $derived(sided ? sideIndices(request.tracks, side) : request.tracks.map((_, i) => i));
+	const position = $derived(onSide.indexOf(index) + 1);
 
-	// a new album starts at its first song, side A
+	// a new album starts at its first song (side A's first when the album has sides)
 	$effect(() => {
-		void request;
-		index = 0;
-		side = 'a';
+		const tracks = request.tracks;
+		index = twoSided(tracks) ? (sideIndices(tracks, 'A')[0] ?? 0) : 0;
+		flipped = false;
 	});
 
 	function address(i: number): Promise<string> {
@@ -107,9 +115,9 @@
 		index = i;
 	}
 
-	/** a song ended: lift the arm a moment, then the next one (after the last: the first again) */
+	/** a song ended: lift the arm a moment, then the side's next one (after the side's last: its first again) */
 	function ended() {
-		const next = nextTrack(index, count);
+		const next = nextOnSide(request.tracks, index);
 		playing = false;
 		if (next === null) return;
 		changing = true;
@@ -118,12 +126,19 @@
 
 	/** back: the song again a few seconds in, else the one before */
 	function back() {
-		const i = previousTrack(index, audio?.currentTime ?? 0);
+		const i = previousOnSide(request.tracks, index, audio?.currentTime ?? 0);
 		if (i === index && audio) audio.currentTime = 0;
 		else go(i);
 	}
 
-	const next = () => go(nextTrack(index, count) ?? 0);
+	const next = () => go(nextOnSide(request.tracks, index) ?? index);
+
+	/** "Turn the record": the other side's first song; one side only: the picture */
+	function turn() {
+		const to = turnTo(request.tracks, index);
+		if (to === null) flipped = !flipped;
+		else go(to);
+	}
 
 	function toggle() {
 		if (!audio || !src) return;
@@ -147,12 +162,12 @@
 
 <div class="record-player" data-testid="audio-player">
 	<button type="button" class="deck-button" onclick={() => (expanded = true)} aria-label={m['items.player_open']()} title={m['items.player_open']()} data-testid="audio-open">
-		<RecordDeck {cover} title={request.title} spinning={playing} {arm} lifted={changing} {side} />
+		<RecordDeck {cover} title={request.title} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} />
 	</button>
 	<div class="track">
 		<button type="button" class="line" onclick={() => (expanded = true)} title={heading} data-testid="audio-expand">
 			<span class="track-title" data-testid="audio-title">{heading}</span>
-			{#if count > 1}<span class="count" data-testid="audio-count">{index + 1} / {count}</span>{/if}
+			{#if sided || onSide.length > 1}<span class="count" data-testid="audio-count">{sided ? `${m['items.player_side']({ side })} · ` : ''}{position} / {onSide.length}</span>{/if}
 		</button>
 		{#if failed}
 			<p class="note" role="alert">{m['items.release_failed']()}</p>
@@ -161,13 +176,13 @@
 		{/if}
 	</div>
 	<div class="buttons">
-		{#if count > 1}
+		{#if onSide.length > 1}
 			<IconButton class="prev" label={m['items.previous_track']()} onclick={back} data-testid="audio-prev"><Icon name="skip-back" /></IconButton>
 		{/if}
 		<IconButton label={playing ? m['items.player_pause']() : m['items.player_play']()} onclick={toggle} disabled={!src || failed} data-testid="audio-play">
 			<Icon name={playing ? 'pause' : 'play'} />
 		</IconButton>
-		{#if count > 1}
+		{#if onSide.length > 1}
 			<IconButton label={m['items.next_track']()} onclick={next} data-testid="audio-next"><Icon name="skip-forward" /></IconButton>
 		{/if}
 	</div>
@@ -196,6 +211,8 @@
 	{cover}
 	tracks={request.tracks}
 	{index}
+	{onSide}
+	{sided}
 	{playing}
 	{changing}
 	{arm}
@@ -203,7 +220,7 @@
 	{length}
 	{side}
 	{failed}
-	onturn={() => (side = side === 'a' ? 'b' : 'a')}
+	onturn={turn}
 	ontoggle={toggle}
 	onseek={seek}
 	onback={back}

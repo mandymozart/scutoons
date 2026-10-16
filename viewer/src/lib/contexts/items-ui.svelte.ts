@@ -14,8 +14,9 @@ export interface CameraRequest {
 
 /** What the audio player plays: an album's tracks in order (one track for the old `play_audio` skill) */
 export interface AudioRequest {
-	/** `id` names the song's credits section (`songSection`); `duration` (s) fills the seek bar until the file says */
-	tracks: { id?: string; src: string; title: string; duration?: number }[];
+	/** `id` names the song's credits section (`songSection`); `duration` (s) fills the seek bar until the file says;
+	 *  `side` = the record side (none = A) */
+	tracks: { id?: string; src: string; title: string; duration?: number; side?: 'A' | 'B' }[];
 	/** the album's title in the reader's language */
 	title: string;
 	/** the toon whose credits (`credits:<toon>`) name the songs' people – the expanded card shows them */

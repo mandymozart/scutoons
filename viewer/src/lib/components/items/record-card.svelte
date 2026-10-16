@@ -25,9 +25,9 @@
 	/**
 	 * The record player's expanded card (owner 2026-10-16: "clicking on the record player or track expands it to a larger
 	 * card and shows the full name and credits for a song"): a bottom sheet over the page with the record large (the cover
-	 * as its label) and "Turn the record" (its back), the song's full title, the album and n / N, the seek line,
-	 * back / play-pause / next, the song's people from the toon's credits (`credits:<toon>`, its `song-…` section –
-	 * `songSection`) and the album's songs to pick from. The sound lives in the bar (record-player.svelte): closing the
+	 * as its label on side A, a paper label on side B) and "Turn the record" (the other side's songs, owner 2026-10-16),
+	 * the song's full title, the album, the side and n / N, the seek line, back / play-pause / next, the song's people from
+	 * the toon's credits (`credits:<toon>`, its `song-…` section – `songSection`) and the side's songs to pick from. The sound lives in the bar (record-player.svelte): closing the
 	 * card keeps it playing.
 	 */
 	let {
@@ -37,6 +37,8 @@
 		cover,
 		tracks,
 		index,
+		onSide,
+		sided,
 		playing,
 		changing,
 		arm,
@@ -57,12 +59,16 @@
 		cover: string | null;
 		tracks: { id?: string; title: string; duration?: number }[];
 		index: number;
+		/** the side's songs (album indices) */
+		onSide: number[];
+		/** the album has two sides */
+		sided: boolean;
 		playing: boolean;
 		changing: boolean;
 		arm: number;
 		time: number;
 		length: number;
-		side: 'a' | 'b';
+		side: 'A' | 'B';
 		failed: boolean;
 		onturn: () => void;
 		ontoggle: () => void;
@@ -73,7 +79,8 @@
 	} = $props();
 
 	const track = $derived(tracks[index]);
-	const count = $derived(tracks.length);
+	const count = $derived(onSide.length);
+	const position = $derived(onSide.indexOf(index) + 1);
 
 	// the song's people: loaded once the card opens; nothing shown while loading or when the song has no section
 	let people = $state<ResolvedEntry[]>([]);
@@ -96,15 +103,15 @@
 <Sheet bind:open title={album} side="bottom" closeLabel={m['items.close']()}>
 	<div class="card" data-testid="record-card">
 		<div class="stage">
-			<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} {side} size="min(15rem, 60vw)" />
-			<button type="button" class="btn-secondary turn" aria-pressed={side === 'b'} onclick={onturn} data-testid="record-turn">
+			<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
+			<button type="button" class="btn-secondary turn" aria-pressed={side === 'B'} onclick={onturn} data-testid="record-turn">
 				<Icon name="refresh-cw" />
 				{m['items.player_turn']()}
 			</button>
 		</div>
 
 		<h3 class="song" data-testid="card-title">{track?.title}</h3>
-		<p class="meta">{[album, count > 1 ? `${index + 1} / ${count}` : '', m['items.player_side']({ side: side.toUpperCase() })].filter(Boolean).join(' · ')}</p>
+		<p class="meta">{[album, sided || side === 'B' ? m['items.player_side']({ side }) : '', count > 1 ? `${position} / ${count}` : ''].filter(Boolean).join(' · ')}</p>
 
 		{#if failed}
 			<p class="note" role="alert">{m['items.release_failed']()}</p>
@@ -137,10 +144,11 @@
 			<section>
 				<h4>{m['items.player_songs']()}</h4>
 				<ol class="songs">
-					{#each tracks as t, i (t.id ?? i)}
+					{#each onSide as i, n (i)}
+						{@const t = tracks[i]}
 						<li>
 							<button type="button" class="song-row" aria-current={i === index ? 'true' : undefined} onclick={() => onpick(i)} data-testid="card-song">
-								<span class="n">{i + 1}</span>
+								<span class="n">{sided ? side : ''}{n + 1}</span>
 								<span class="t">{t.title}</span>
 								{#if t.duration}<span class="d">{formatTime(t.duration)}</span>{/if}
 							</button>

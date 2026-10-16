@@ -11,6 +11,7 @@ import {
 	albumTrackFile,
 	mediaPlayback,
 	songSection,
+	trackSide,
 	playerAlbums,
 	playersFor,
 	seasonMusic,
@@ -197,6 +198,19 @@ test('albums: a track plays the file of the reader’s media quality (owner 2026
 	assert.ok(messages.some((m) => m.includes('unknown quality level "ultra"')), messages.join(' | '));
 	const good = structuredClone(catalog);
 	good.albums![0].tracks[0].variants = track.variants;
+	assert.deepEqual(validateCatalog(good).filter((p) => p.level === 'error'), []);
+});
+
+test('albums: a track is on side A or B of the record (owner 2026-10-16); none = A', () => {
+	assert.equal(trackSide({ side: 'B' }), 'B');
+	assert.equal(trackSide({ side: 'A' }), 'A');
+	assert.equal(trackSide({}), 'A');
+	assert.equal(trackSide(null), 'A');
+	const bad = structuredClone(catalog);
+	bad.albums![0].tracks[0].side = 'C' as never;
+	assert.ok(validateCatalog(bad).some((p) => p.level === 'error' && p.message.includes('side must be A or B')));
+	const good = structuredClone(catalog);
+	good.albums![0].tracks[0].side = 'B';
 	assert.deepEqual(validateCatalog(good).filter((p) => p.level === 'error'), []);
 });
 
