@@ -655,6 +655,12 @@
 		"later": "Later",
 		"reload": "Reload",
 		"offline": "You're offline. SCUTOONS needs a connection for now.",
-		"retry": "Try again"
+		"retry": "Try again",
+		"install_offer": "Install SCUTOONS as an app",
+		"install": "Install",
+		"not_now": "Not now",
+		"app_title": "App",
+		"install_app": "Install app",
+		"install_hint": "SCUTOONS on your home screen, opens without the browser bar."
 	}
 }

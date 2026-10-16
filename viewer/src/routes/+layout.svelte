@@ -3,7 +3,7 @@
 	import '$lib/chrome.css';
 	import { getLocale, localizeHref, locales } from '$lib/paraglide/runtime.js';
 	import { page, navigating } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import type { LayoutData } from './$types.js';
 	import { onMount, type Snippet } from 'svelte';
 	import Header from '$lib/components/header.svelte';
@@ -25,6 +25,8 @@
 	import { fxSettings } from '$lib/fx-settings.svelte.ts';
 	import UpdatePrompt from '$lib/components/update-prompt.svelte';
 	import { pwa } from '$lib/pwa.svelte.ts';
+	import InstallPrompt from '$lib/components/install-prompt.svelte';
+	import { install } from '$lib/install.svelte.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -49,6 +51,11 @@
 		document.documentElement.lang = getLocale();
 	});
 
+	// the install bar's moment comes with a page change (after a finished chapter), never over the chapter's end bar
+	afterNavigate(({ from }) => {
+		if (from) install.check();
+	});
+
 	// framed by the creator's dock Reader (BACKLOG 10.49): "show group / slice" – only from the creator, only in the draft preview
 	onMount(() => listenToCreator());
 
@@ -56,6 +63,8 @@
 		initAnimatedFavicon();
 		// the service worker: app shell + the "new version" prompt (agents/research/PWA.md)
 		void pwa.init();
+		// "Install SCUTOONS as an app" (Android / Chromium): counts the visit, offers it from the 2nd one
+		install.init();
 		// the effect sounds' routing + this device's volume / vibration (agents/FX.md)
 		fxSettings.init();
 
@@ -120,6 +129,7 @@
 <!-- in-page confirmations (confirmDialog / askDialog from @scutoons/ui) -->
 <DialogHost />
 <UpdatePrompt />
+<InstallPrompt />
 <!-- a running reader effect goes wherever the reader goes (owner 2026-10-08) – not only the toon pages -->
 <ReaderEffect />
 

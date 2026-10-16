@@ -12,6 +12,7 @@
 	import { SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
 	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { buildJumpToUrl } from '$lib/visual-novel/jump-to.ts';
+	import { install } from '$lib/install.svelte.ts';
 
 	/**
 	 * The chapter's end actions (agents/DESIGN.md "Follow-up bar", BACKLOG 10.48 / UI-CONCEPTS E.5): once the shown group – the last of linked groups (a chain,
@@ -94,6 +95,10 @@
 	// group on), none in line, nothing waits for a click or a choice, no slice trigger running (a cucumber offer)
 	const sceneDone = $derived(vn.state.pageDone && !vn.state.frozen);
 	const shown = $derived(reachedEnd && sceneDone);
+	// a finished chapter (not just a group): the install bar may come on the next page (research/PWA.md "Install prompt")
+	$effect(() => {
+		if (shown && step.kind !== 'group') install.chapterFinished(`${toonId}/${chapter}`);
+	});
 
 	// the end of the group in the chapter view (the bar's host sits in it, after the group)
 	$effect(() => {

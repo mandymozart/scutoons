@@ -1,4 +1,4 @@
-Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch) – phases 2–4 open. FEATURES 10.74.
+Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); the Android install prompt (phase 4 part) built 2026-10-16 – phases 2–4 otherwise open. FEATURES 10.74.
 
 # PWA — SCUTOONS as an installable web app (2026-10-16)
 
@@ -67,13 +67,32 @@ Not registered in dev, nor in the creator's Reader frame.
 4. **Rollback of phase 1 itself**: revert the commit **and** keep `VITE_SW=off` for that deploy (a plain revert
    leaves registered workers behind – a worker only goes away by a newer service-worker.js or the user).
 
+## 2a. Install prompt (Android / Chromium, built 2026-10-16)
+Owner 2026-10-16: "a prompt to install for Android first". `lib/install.svelte.ts` keeps `beforeinstallprompt`
+(`preventDefault` – no Chrome mini bar), `components/install-prompt.svelte` is the bar (the update prompt's look; a
+waiting update goes first): "Install SCUTOONS as an app" · Not now · Install → Chrome's own install dialog.
+**When** (pure rules `lib/install-rules.ts`, test/install-rules.test.ts):
+- never on the first visit; from the **2nd visit** (a new browser session – sessionStorage marks one) or after the reader
+  **finished a chapter** (the chapter's end bar showed with a next chapter / members / coming soon / season end – not
+  a mere next group; next-bar.svelte → `install.chapterFinished`);
+- checked on the start and on each navigation – never live over the chapter's end bar: a finished chapter offers it on
+  the next page (the next chapter, the toon page …); an event arriving late on a start shows at once;
+- not inside an installed app (display-mode standalone / fullscreen / minimal-ui, `navigator.standalone`, a TWA
+  referrer), not in the creator's Reader frame, not where the browser sends no event (iOS, Firefox);
+- **Not now** (or dismissing Chrome's dialog) → away for 30 days; **appinstalled** → never again on this browser.
+  Stored in localStorage `scutoons_install` `{ visits, chapters, snoozedAt, installed }` (try/catch; blocked storage =
+  this visit only).
+- Account page → settings: "App · Install app" whenever the browser can install (also while the bar is snoozed).
+- Dev: no real event on the dev server – `__scFakeInstallPrompt('dismissed' | 'accepted')` in the console (dev builds only).
+- **iOS: nothing yet** – later item: a "Share → Add to Home Screen" how-to on the account page (Safari, not standalone).
+
 ## 3. Phase 2+ (open)
 
 | Phase | What | Notes |
 |---|---|---|
 | 2 | **Media cache**: slices / posters / portraits (cdn., immutable names) cache first in `scutoons-media` with an LRU cap (≈ 150 MB, DATA.md §6; less on `light`); library JSON stale-while-revalidate with the ETag; next-chapter prefetch (LOADING.md L4) fills it | needs `Access-Control-Allow-Origin` on the bunny zone or opaque responses (opaque = ~7 MB quota padding each in Chrome – avoid); never the vault's signed URLs, never `/auth`, `/access`, `/me`; audio/video stay network (range requests) |
 | 3 | **Save chapter to device** (10.74, DATA.md §6): the assets endpoint, `offline-<toon>-<locale>-c<n>` caches, 206 answers for audio ranges, `storage.persist()` + `estimate()`, membership expiry / 410 re-check deletes gated caches; offline reading progress queued for sync | the account page shows saved chapters + space |
-| 4 | Polish: install hint (Android `beforeinstallprompt`, an iOS "Share → Add to Home Screen" note on the account page), manifest `screenshots` + `shortcuts` (Continue reading), badging, Web Push (needs a server part, iOS only installed), Wake Lock while reading / playing | each one an owner decision |
+| 4 | Polish: install hint (Android built – §2a; open: the iOS "Share → Add to Home Screen" how-to on the account page), manifest `screenshots` + `shortcuts` (Continue reading), badging, Web Push (needs a server part, iOS only installed), Wake Lock while reading / playing | each one an owner decision |
 
 Data budget: phase 2/3 obey `data-budget.svelte.ts` – tier `none` caches only what the reader looked at, nothing is
 prefetched for the cache; saving a chapter is an explicit tap (the bytes shown first).
