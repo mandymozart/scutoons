@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.99**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.102**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -69,6 +69,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.74 **PWA: preloading / save to device** (DATA.md §6 concept) – after the data refactor, which is done.
 - [ ] 10.75 **Performance P4–P7** (research/PERFORMANCE.md) – check what is left: P5 production PHP tuning (OPcache,
   compiled DI container, authoritative classmap), P6 cache headers / Brotli on the CDN, P7 parallel catalog loads.
+- [ ] 10.101 **Viewer loading: lazy + predictive loading** – owner 2026-10-16: "a strategy to bring down viewer loading
+  times … I assume we can predictively load more than we do right now". Measured: ~300 KB / ~81 requests before the first
+  paint, then 12.6 MB of audio at once on ch1. `decide` which of L1–L12 (cache headers, audio on demand, next chapter /
+  toon page prefetch, split heavy features, a data budget). → research/LOADING.md
 - [ ] 10.100 **Slices as background: endless strip + strip editor** – owner 2026-10-15: "Ditch Swiper. Give our own
   strip an endless drag mode (loop + momentum, no 3D effects)", "having text boxes pass is good as a tool". First the
   endless band for the four ch3–5 Swipers (drag + glide, loops without clones, `params.endless` by migration, one

@@ -55,10 +55,10 @@
 		     Howler is bundled from npm -->
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<!-- data-expect: the app code a page needs before it draws, uncompressed (an estimate until agents/research/LOADING.md
-		     measures the reader) – only the bar's scale; it grows when more arrives. The reader's own Loader
+		<!-- data-expect: the app code a page needs before it draws, uncompressed (the reader measured 2026-10-16, agents/research/LOADING.md: ~877 KB in 58 files
+		     before the first paint) – only the bar's scale; it grows when more arrives. The reader's own Loader
 		     (lib/components/loader.svelte, the same picture) carries data-sc-booting while a page fetches its content -->
-		<div id="sc-boot" data-expect="1000000">
+		<div id="sc-boot" data-expect="900000">
 			<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />
 			<span class="text"></span>
 			<span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="fill"></span></span>
