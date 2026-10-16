@@ -297,7 +297,7 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   (owner 2026-10-16): upload icon · search · filter icon (folder, kind, resolution, unused open above the bar; a dot
   when narrower than the field's own) · grid / list switch (remembered per browser, `sc-asset-view`). Previews: images
   themselves, 3D models a rendered still, videos their poster or else their smallest file at 1 s (loaded when the card
-  comes near the screen). The field's current file: the card's border in cyan; the chosen asset's files
+  comes near the screen), edge to edge in the card. Filters also: files = originals only / with versions (`files=single|several`). The field's current file: the card's border in cyan. The chosen asset: picture + whole name in one row, the facts under it, its files as tiles named by their resolution (the original: a star, like the source language), Use across; the chosen asset's files
   (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
   editable, 409 when taken). Every image field (a `MediaSlot` from @scutoons/media; the old path input `image-picker.svelte` is gone since COMPONENTS.md step 14c) opens it via
   "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's

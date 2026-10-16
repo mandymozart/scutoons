@@ -78,6 +78,8 @@
 	let unusedOnly = $state(false);
 	/** a file at this resolution ('' = any; the server's `res`: 480p / 720p / 1080p by label or short side, 2x / 3x) */
 	let resolution = $state('');
+	/** '' | single (the original only) | several (with its versions) */
+	let files = $state('');
 	const RESOLUTIONS = ['480p', '720p', '1080p', '1440p', '2x', '3x'];
 	/** the filters live behind the bar's filter icon (owner 2026-10-16: search at the bottom, one line) */
 	let showFilters = $state(false);
@@ -122,7 +124,7 @@
 	// for "human" found nothing under "catpope" – the toon folder, character images all live under characters/)
 	const home = $derived(toon || (/^characters\/[^/]+\/$/.test(place) ? place.slice(0, -1) : ''));
 	/** a filter narrower than the field's own (the folder / kind it opened on): the filter icon shows a dot */
-	const filtered = $derived(folder !== home || kindFilter !== kind || !!resolution || unusedOnly);
+	const filtered = $derived(folder !== home || kindFilter !== kind || !!resolution || !!files || unusedOnly);
 
 	// every time it opens: the home folder, the field's kind, the current file preselected
 	$effect(() => {
@@ -132,6 +134,7 @@
 		query = '';
 		unusedOnly = false;
 		resolution = '';
+		files = '';
 		chosen = null;
 		uploadFile = null;
 		uploadError = '';
@@ -151,6 +154,7 @@
 				kind: kindFilter || undefined,
 				state: unusedOnly ? 'unused' : undefined,
 				res: resolution || undefined,
+				files: files || undefined,
 				page: next,
 				page_size: 60,
 				sort: 'slug'
@@ -398,27 +402,26 @@
 		<!-- order (owner 2026-10-03): the selected asset · upload · the library (search, filters, grid) -->
 		{#if chosen}
 			{@const c = chosen}
+			<!-- the chosen asset (owner 2026-10-16, phone first): picture + whole name in one row, the facts under it, the files
+			     as tiles (the resolution is the name; the original has a star like the source language), Use across -->
 			<section class="detail" data-testid="asset-detail" aria-label={c.title}>
 				<div class="detail-head">
 					<span class="sc-card-img large">
 						{#if c.kind === 'model'}<ModelThumb path={c.path} size="2.5em" />{:else if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else if previewVideo(c)}<video src="{cdnAsset(previewVideo(c))}#t=1" muted playsinline preload="metadata"></video>{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
 					</span>
 					<div class="detail-text">
-						<!-- the whole name, wrapped (owner 2026-10-16: "hard to read the exact file name" – it was cut at the box) -->
 						<span class="name wrap">{fileName(c.path)}</span>
-						<span class="sc-caption wrap">{c.path}</span>
-						<span class="sc-caption">{meta(c)} · {c.usages ? t.usedN(c.usages) : t.unused}</span>
+						<span class="sc-caption wrap">{c.path.slice(0, c.path.length - fileName(c.path).length)}</span>
 					</div>
 					<CloseButton label={t.back} onclick={() => (chosen = null)} />
 				</div>
-				<p class="sc-label">{t.renditions}</p>
-				<ul class="files">
+				<p class="sc-caption facts">{meta(c)} · {c.usages ? t.usedN(c.usages) : t.unused}</p>
+				<ul class="files" aria-label={t.renditions}>
 					{#each ordered(c.renditions) as r (r.id)}
 						<li>
 							<button type="button" class="sc-card file" class:is-selected={r.path === value} disabled={!pickable(r)} data-file onclick={() => pick(c, r)} title={r.path} data-testid="asset-file-{r.label}">
-								<span class="label">{r.quality ? `${r.label} · ${t.quality[r.quality]}` : r.label}</span>
-									<span class="sc-caption wrap">{fileName(r.path)}</span>
-								<span class="sc-caption">{meta(r)}</span>
+								<span class="label">{#if r.label === 'original'}<Icon name="star" size="0.9em" label={t.original} />{:else}{r.label}{/if}</span>
+								<span class="sc-caption">{r.label === 'original' && r.width && r.height ? `${r.width} × ${r.height} · ${bytes(r.size)}` : bytes(r.size)}</span>
 							</button>
 						</li>
 					{/each}
@@ -511,6 +514,11 @@
 						<option value="">{t.allResolutions}</option>
 						{#each RESOLUTIONS as r (r)}<option value={r} selected={r === resolution}>{r}</option>{/each}
 					</select>
+					<select value={files} onchange={(e) => { files = e.currentTarget.value; load(1); }} aria-label={t.renditions} data-testid="asset-files">
+						<option value="">{t.filesAll}</option>
+						<option value="single" selected={files === 'single'}>{t.filesSingle}</option>
+						<option value="several" selected={files === 'several'}>{t.filesSeveral}</option>
+					</select>
 					<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {t.unusedOnly}</label>
 				</div>
 			{/if}
@@ -560,8 +568,26 @@
 		border-color: var(--paper);
 	}
 	.sc-card-img.large {
-		width: 6rem;
+		width: 5rem;
 		flex: none;
+		border: none;
+	}
+	/* the grid's cards: the picture to the card's edge, no frame inside the frame (owner 2026-10-16: more picture, less
+	   decoration); the text keeps the card's inner spacing */
+	.sc-cards .sc-card {
+		padding: 0 0 0.35rem;
+	}
+	.sc-cards .sc-card > :not(.sc-card-img) {
+		margin-inline: 0.35rem;
+	}
+	.sc-cards .sc-card-img {
+		border: none;
+	}
+	.sc-cards.list .sc-card {
+		padding: 0;
+	}
+	.sc-cards.list .sc-card > :not(.sc-card-img) {
+		margin-inline: 0 0.35rem;
 	}
 	.name,
 	.meta {
@@ -594,7 +620,10 @@
 		flex-direction: column;
 		gap: 0.5rem;
 		border: var(--border-width-regular) solid var(--ink);
-		padding: 0.75rem;
+		padding: 0.5rem;
+	}
+	.facts {
+		margin: 0;
 	}
 	.detail-head {
 		display: flex;
@@ -615,10 +644,19 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
 		gap: 0.4rem;
 	}
-	.picker :global(.use),
+	.file {
+		align-items: center;
+		text-align: center;
+	}
+	.file .label {
+		font-weight: var(--font-weight-bold, 700);
+	}
+	.picker :global(.use) {
+		align-self: stretch;
+	}
 	.picker :global(.more) {
 		align-self: flex-start;
 	}

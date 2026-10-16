@@ -208,14 +208,14 @@ final class AssetRegistry
     // ── Lists for the UI ──────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * GET /assets?q=&folder=&kind=&tag=&state=used|unused|missing&res=480p|720p|1080p|1440p|2x|3x&page=&page_size=&sort=
+     * GET /assets?q=&folder=&kind=&tag=&state=used|unused|missing&res=480p|720p|1080p|1440p|2x|3x&files=single|several&page=&page_size=&sort=
      * One row per asset: its current version's main file (the preview), the renditions, sizes and usage counts.
      * @param array<mixed> $query
      * @return array<string, mixed>
      */
     public function list(array $query): array
     {
-        $list = ListQuery::from($query, ['slug', 'updated', 'size', 'usages', 'kind'], 'slug', ['folder', 'kind', 'tag', 'state', 'res'], 60, 500);
+        $list = ListQuery::from($query, ['slug', 'updated', 'size', 'usages', 'kind'], 'slug', ['folder', 'kind', 'tag', 'state', 'res', 'files'], 60, 500);
         $where = ["a.status = 'active'"];
         $params = [];
         if ($list->q !== '') {
@@ -255,6 +255,15 @@ final class AssetRegistry
                 array_push($params, $band[0], $band[1]);
             }
             $where[] = "$has))";
+        }
+        if (($files = $list->filter('files')) !== null) {
+            // only the original (one file, nothing made from it yet) or with its versions (owner 2026-10-16)
+            $count = '(SELECT COUNT(*) FROM asset_renditions r4 WHERE r4.version_id = v.id)';
+            $where[] = match ($files) {
+                'single' => "$count = 1",
+                'several' => "$count > 1",
+                default => throw new ApiError(400, 'invalid_files', 'files is single | several.'),
+            };
         }
         $usageCount = "(SELECT COUNT(*) FROM asset_usages u WHERE u.path IN (SELECT r2.path FROM asset_renditions r2 WHERE r2.version_id = v.id))";
         $state = $list->filter('state');

@@ -39,6 +39,12 @@ export interface MediaLabels {
 	allResolutions: string;
 	/** the bottom bar: the filter panel, the view switcher */
 	filters: string;
+	/** the files filter: only the original / with its versions (480p, 2x …) */
+	filesAll: string;
+	filesSingle: string;
+	filesSeveral: string;
+	/** the source file's tile (★ like the source language) */
+	original: string;
 	gridView: string;
 	listView: string;
 	none: string;
@@ -105,6 +111,10 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		resolution: 'Auflösung',
 		allResolutions: 'Alle Auflösungen',
 		filters: 'Filter',
+		filesAll: 'Alle Dateien',
+		filesSingle: 'Nur Originale',
+		filesSeveral: 'Mit Versionen',
+		original: 'Original',
 		gridView: 'Kacheln',
 		listView: 'Liste',
 		none: 'Nichts gefunden.',
@@ -166,6 +176,10 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		resolution: 'Resolution',
 		allResolutions: 'All resolutions',
 		filters: 'Filters',
+		filesAll: 'All files',
+		filesSingle: 'Originals only',
+		filesSeveral: 'With versions',
+		original: 'Original',
 		gridView: 'Grid',
 		listView: 'List',
 		none: 'Nothing found.',
