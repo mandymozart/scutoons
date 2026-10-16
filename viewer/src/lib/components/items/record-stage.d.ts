@@ -34,6 +34,10 @@ export function mountRecordStage(
 	opts?: {
 		onload?: () => void;
 		onerror?: (error: unknown) => void;
+		/** a record was carried onto the turntable: put it on (its album plays) */
+		onplay?: (key: string) => void;
+		/** a picture for the table's surface (URL); none = plain brown */
+		table?: string | null;
 		/** the front record of the carousel changed (a swipe, or the stage turned to the one it puts on) */
 		onselect?: (key: string) => void;
 		/** 0…1 of the height at the bottom kept for controls laid over the canvas: the scene moves up */

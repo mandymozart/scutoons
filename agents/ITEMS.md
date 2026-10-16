@@ -189,14 +189,24 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
 - **The reader's records as a carousel** (owner 2026-10-16: "the records the reader owns stand one after another … wie
   ein Karussell"): the card's stage gets every owned record with a model whose album the reader may play
   (record-shelf.ts `shelfOf`; the playing one always among them) standing in a ring where the sleeve stood; the front one
-  is the selected one. Nothing on the platter: the camera looks at the records; one on: at the deck. A swipe over the
-  records turns the ring (up / left = the front one goes to the back, down / right = back again) – also while the music
-  plays; another front record shows its name + "Abspielen" over the stage: its album plays (`albumRequest`), the stage
-  lifts the one on the platter, the ring turns it to the front, it slides into its sleeve, the ring turns the new one to
-  the front, it comes out onto the platter. Gestures (owner's map, record-gestures.js): a tap jumps the camera to the
-  part under it (records / turntable – a while, then back to the deck while one plays); press and hold (350 ms) then
-  drag = the camera ride, snapping back on release; two fingers always move the camera (sideways = ride, pinch = zoom);
-  wheel = zoom. Kept: the intro once per page load, `placed` when already on, the A/B flip. A proper shelf later.
+  is the selected one. Nothing on the platter: the camera has the carousel in the middle of the frame; one on: the deck.
+  A swipe over the records turns the ring (up / left = the front one goes to the back, down / right = back again) – also
+  while the music plays; a tap on a record selects it (the ring turns it to the front), a second tap on the selected one
+  turns its sleeve round to show the back (again: the front); another front record shows its name + "Abspielen" over
+  the stage, and the front record held (280 ms) and carried onto the turntable is put on too: its album plays
+  (`albumRequest`) – the stage lifts the one on the platter, the ring turns it to the front, it slides into its sleeve,
+  the ring turns the new one to the front, it comes out onto the platter. Gestures (owner's map, record-gestures.js): a
+  tap (< 10 px, < 300 ms) on the turntable / the records focuses it (the records a while, then back to the deck while
+  one plays); hold then drag elsewhere = the camera ride around the focused part, springing back on release; two
+  fingers always move the camera (sideways = ride, pinch = zoom); wheel = zoom. The reader's zoom stays (out to the
+  default distance at most); only the stage's own camera moves (a focus change, a record put on / swapped, the intro)
+  tween it back. Kept: the intro once per page load, `placed` when already on, the A/B flip. A proper shelf later.
+- **The card is the stage** (owner 2026-10-16: "the player is the brown of the background"): the canvas lies behind the
+  whole dark panel, sticky while the card scrolls over it; the song, the controls, the songs and the credits lie on the
+  lit table (no fade, a soft text shadow), its top part shows the records and the turntable (`lift` from the measured
+  heights). The table: a fill light keeps its front lit, only the far rim fades into the black. An experiment: a map
+  texture on the table (`TABLE` in record-stage.svelte, lab `?table=desert|jungle`: `scutoons/3d/table-{desert,jungle}.webp`,
+  painted map tiles of the Dünenmeer / Schuppenwald) – plain by default until the owner decides.
 - **Light** (owner 2026-10-16: "a spot on the scene and a little ambient occlusion – as simple as possible but moody"):
   a warm spot from above-front with a soft shadow map (1024, PCF soft), a floor whose pool of light fades into the
   card's black, soft contact shadows (radial blobs) under the plinth and the sleeve, little ambient / environment.

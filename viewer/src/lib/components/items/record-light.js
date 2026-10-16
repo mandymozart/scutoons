@@ -28,8 +28,13 @@ export function contactShadow(THREE, w, d, opacity = 0.8) {
 	return m;
 }
 
-/** the spot, the floor, the plinth's contact shadow; `deck` = the plinth's footprint { x, z, w, d } */
-export function moodyLights(THREE, renderer, scene, deck) {
+/**
+ * The spot, the table, the plinth's contact shadow; `deck` = the plinth's footprint { x, z, w, d }. The table runs out of
+ * the picture at the bottom (owner 2026-10-16: the card's text lies on it – "the player is the brown of the
+ * background"): a fill light keeps its front lit; only its far rim fades into the black. `table` = a picture for its
+ * surface (a map texture – the owner compares plain and textured), else plain brown.
+ */
+export function moodyLights(THREE, renderer, scene, deck, table = null) {
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 	scene.environmentIntensity = 0.16;
@@ -43,17 +48,38 @@ export function moodyLights(THREE, renderer, scene, deck) {
 	spot.shadow.camera.far = 3;
 	spot.shadow.bias = -0.0004;
 	spot.shadow.normalBias = 0.01;
-	scene.add(spot, spot.target);
-	// the floor catches the pool of light and fades to the card's black at its rim (no horizon line)
-	const pool = radial(THREE, [[0, '#ffffff'], [0.35, '#bdbdbd'], [0.75, '#2a2a2a'], [1, '#000000']]);
-	const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshStandardMaterial({ color: 0x4a423b, map: pool, roughness: 0.95, envMapIntensity: 0 }));
+	// the fill: a wide, soft warm light on the table's front, where the card's text lies
+	const fill = new THREE.SpotLight(0xffe2c4, 5, 0, 0.75, 1, 2);
+	fill.position.set(0, 1.4, 1.6);
+	fill.target.position.set(0, 0, 0.75);
+	scene.add(spot, spot.target, fill, fill.target);
+	const material = new THREE.MeshStandardMaterial({ color: 0x4a423b, roughness: 0.95, envMapIntensity: 0 });
+	if (table) {
+		new THREE.TextureLoader().load(table, (tex) => {
+			tex.colorSpace = THREE.SRGBColorSpace;
+			tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping;
+			tex.repeat.set(3, 3);
+			tex.anisotropy = 4;
+			material.map = tex;
+			material.color.set(0x8a8580);
+			material.needsUpdate = true;
+		});
+	}
+	const floor = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), material);
 	floor.rotation.x = -Math.PI / 2;
-	floor.position.x = -0.06;
+	floor.position.set(-0.05, 0, 0.5);
 	floor.receiveShadow = true;
+	// the far rim fades into the card's black (no horizon line): a black ring over the table's edge
+	const rim = new THREE.Mesh(
+		new THREE.PlaneGeometry(4, 4),
+		new THREE.MeshBasicMaterial({ map: radial(THREE, [[0, 'rgba(0,0,0,0)'], [0.45, 'rgba(0,0,0,0)'], [0.85, 'rgba(0,0,0,0.92)'], [1, 'rgba(0,0,0,1)']]), transparent: true, depthWrite: false })
+	);
+	rim.rotation.x = -Math.PI / 2;
+	rim.position.set(-0.05, 0.0003, 0.5);
 	const under = contactShadow(THREE, deck.w + 0.12, deck.d + 0.12, 0.85);
 	under.position.x = deck.x;
 	under.position.z = deck.z;
-	scene.add(floor, under);
+	scene.add(floor, rim, under);
 }
 
 /** these cast (and take) the spot's shadow */

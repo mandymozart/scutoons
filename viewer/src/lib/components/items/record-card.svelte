@@ -23,7 +23,7 @@
 	import { webglAvailable } from '@scutoons/media/model-view';
 	import type { ModelSource } from '@scutoons/content';
 	import RecordDeck from './record-deck.svelte';
-	import RecordStage from './record-stage.svelte';
+	import RecordStage, { TABLE, type StageTable } from './record-stage.svelte';
 	import SeekBar from './seek-bar.svelte';
 	import { formatTime } from './playlist.ts';
 
@@ -46,6 +46,7 @@
 		records = [],
 		current = null,
 		onplayrecord,
+		table = TABLE,
 		tracks,
 		index,
 		onSide,
@@ -73,8 +74,10 @@
 		records?: { key: string; model: ModelSource; name: string }[];
 		/** the key of the record that plays */
 		current?: string | null;
-		/** Play on the carousel's front record (another one than the playing) */
+		/** Play on the carousel's front record (another one than the playing), or it was carried onto the turntable */
 		onplayrecord?: (key: string) => void;
+		/** the table's surface (an experiment – record-stage.svelte TABLE) */
+		table?: StageTable;
 		tracks: { id?: string; title: string; duration?: number }[];
 		index: number;
 		/** the side's songs (album indices) */
@@ -108,6 +111,10 @@
 	const in3d = $derived(records.length > 0 && open && !reduced.current && !modelFailed && webglAvailable());
 	// the carousel's front record (a swipe selects): another than the playing one offers to put it on
 	let selected = $state<string | null>(null);
+	// the stage's scene fills the part of the panel above the song and controls: the rest of the canvas (the table running
+	// out at the bottom) is what `lift` keeps below it
+	let backdropHeight = $state(0), heroHeight = $state(0), overHeight = $state(0);
+	const lift = $derived(backdropHeight ? Math.min(0.85, Math.max(0, 1 - (heroHeight - overHeight) / backdropHeight)) : 0.4);
 	const picked = $derived(selected && selected !== current ? records.find((r) => r.key === selected) : null);
 	const count = $derived(onSide.length);
 	const position = $derived(onSide.indexOf(index) + 1);
@@ -133,13 +140,14 @@
 <!-- above the player bar (z 2040), below the item overlays / claim sheet / notices -->
 <PullPanel {open} onclose={() => (open = false)} label={album} layer={2045} testid="record-panel">
 	{#snippet header()}<p class="head">{album}</p>{/snippet}
-	<div class="card" data-testid="record-card">
-		<!-- the 3D stage is the top's background, the song and the controls lie over its lower part (owner 2026-10-16:
-		     "covering the entire background of the card so it doesn't get cut off … the top part on top the player
-		     controls"); the 2D deck (no WebGL, reduced motion) stays in the flow above them -->
-		<div class="hero" class:in3d>
-			{#if in3d}
-				<RecordStage {records} {current} onselect={(key) => (selected = key)} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
+	<div class="card" class:in3d data-testid="record-card">
+		<!-- the 3D stage is the whole panel's background (owner 2026-10-16: "the player is the brown of the background"): it
+		     stays put while the card scrolls over it – the song, the controls, the songs and the credits lie on the lit
+		     table; the top part shows the records and the turntable. The 2D deck (no WebGL, reduced motion) stays in the
+		     flow above the song. -->
+		{#if in3d}
+			<div class="backdrop" bind:clientHeight={backdropHeight}>
+				<RecordStage {records} {current} {table} onselect={(key) => (selected = key)} onplay={(key) => onplayrecord?.(key)} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} {lift} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
 				{#if picked}
 					<!-- the carousel's front record is another one: put it on (owner 2026-10-16: "when you press Play it is put on") -->
 					<div class="pick" data-testid="record-pick">
@@ -147,12 +155,15 @@
 						<button type="button" class="btn-secondary" onclick={() => onplayrecord?.(picked.key)} data-testid="record-pick-play">{m['items.play']()}</button>
 					</div>
 				{/if}
-			{:else}
+			</div>
+		{/if}
+		<div class="hero" class:in3d bind:clientHeight={heroHeight}>
+			{#if !in3d}
 				<div class="deck">
 					<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
 				</div>
 			{/if}
-			<div class="over">
+			<div class="over" bind:clientHeight={overHeight}>
 				<h3 class="song" data-testid="card-title">{track?.title}</h3>
 				<p class="meta">{[album, sided || side === 'B' ? m['items.player_side']({ side }) : '', count > 1 ? `${position} / ${count}` : ''].filter(Boolean).join(' · ')}</p>
 
@@ -274,21 +285,36 @@
 		gap: var(--space-075);
 	}
 
-	/* 3D: the canvas (transparent – the panel's black shows through) fills the top, the song + controls over its lower
-	   part on a fade into the panel's background (black: the pull panel's dark tokens) so they stay readable */
-	/* out to the panel's edges (its body's padding) and up to its header */
+	/* 3D: the canvas behind the whole panel, out to its edges (its body's padding) and up to its header; sticky, so it
+	   stays while the card scrolls over it; it takes no room in the flow (the negative bottom margin, the gap included) */
+	.backdrop {
+		position: sticky;
+		z-index: 0;
+		top: calc(-1 * var(--space-1));
+		height: 85dvh;
+		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1) - env(safe-area-inset-right)) calc(-85dvh - var(--space-075)) calc(-1 * var(--space-1) - env(safe-area-inset-left));
+	}
+
+	/* the card's own content lies over the stage */
+	.card.in3d > :not(.backdrop) {
+		position: relative;
+		z-index: 1;
+		text-shadow: 0 0 0.5rem rgb(0 0 0 / 0.65);
+	}
+
+	/* the top part: the stage shows through (taps reach the records and the turntable); the song + controls at its foot */
 	.hero.in3d {
 		height: min(32rem, 62vh);
 		justify-content: flex-end;
-		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1) - env(safe-area-inset-right)) 0 calc(-1 * var(--space-1) - env(safe-area-inset-left));
+		pointer-events: none;
 	}
 
-	/* the fade over the whole width, the song + controls in the column */
 	.hero.in3d .over {
-		position: relative;
-		z-index: 1;
-		padding: 3rem max(var(--space-1), calc((100% - var(--column)) / 2)) 0;
-		background: linear-gradient(to bottom, transparent, var(--paper) 2.75rem);
+		pointer-events: auto;
+		box-sizing: border-box;
+		width: 100%;
+		max-width: var(--column);
+		margin-inline: auto;
 	}
 
 	/* the album in the panel's header row (like the inventory's name) */
@@ -428,6 +454,11 @@
 		font-size: 0.75rem;
 		text-align: left;
 		cursor: pointer;
+	}
+
+	/* on the table (3D): the rows lie on it, no black boxes */
+	.card.in3d .song-row:not([aria-current='true']):not(:hover) {
+		background: transparent;
 	}
 
 	.song-row:hover {

@@ -9,7 +9,7 @@
 	import RecordPlayer from '$lib/components/items/record-player.svelte';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 	import ItemModel from '$lib/components/items/item-model.svelte';
-	import RecordStage from '$lib/components/items/record-stage.svelte';
+	import RecordStage, { type StageTable } from '$lib/components/items/record-stage.svelte';
 	import { armAngle } from '$lib/components/items/playlist.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ModelSource, VinylLook } from '@scutoons/content';
@@ -45,6 +45,8 @@
 		...Object.entries(LOOKS).filter(([, look]) => look !== model).map(([key, look]) => ({ key, model: look as ModelSource, name: key }))
 	]);
 	let current = $state('model');
+	// ?table=desert | jungle: a map texture on the table (owner 2026-10-16, to compare with plain)
+	const table = $derived((page.url.searchParams.get('table') ?? 'plain') as StageTable);
 	let selected = $state('model');
 </script>
 
@@ -56,7 +58,7 @@
 			{#snippet icon()}<ItemIcon srcs={['catpope/items/awakening_vinyl.webp']} name="Awakening" />{/snippet}
 			<ItemModel path={model} label="Awakening" fallback={icon} />
 		</section>
-		{#if failed}<p>the model failed</p>{:else}<div class="stage"><RecordStage {records} {current} onselect={(key) => (selected = key)} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} /></div>{/if}
+		{#if failed}<p>the model failed</p>{:else}<div class="stage"><RecordStage {records} {current} {table} onselect={(key) => (selected = key)} onplay={(key) => ((current = key), (playing = true))} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} /></div>{/if}
 		<div class="controls">
 			<button type="button" onclick={() => (playing = !playing)} data-testid="lab-play">{playing ? 'Pause' : 'Play'}</button>
 			<button type="button" class="btn-secondary" onclick={() => (side = side === 'a' ? 'b' : 'a')} data-testid="lab-turn">Turn ({side.toUpperCase()})</button>
@@ -66,6 +68,7 @@
 	</div>
 	{#if open}
 		<RecordPlayer
+			{table}
 			request={{
 				tracks,
 				title: 'Awakening',

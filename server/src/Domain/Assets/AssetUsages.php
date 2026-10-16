@@ -42,6 +42,8 @@ final class AssetUsages
         'scutoons/3d/mannequin.glb' => 'shared/content/src/characters.ts',
         'scutoons/3d/mannequin-more-legs.glb' => 'shared/content/src/characters.ts',
         'scutoons/3d/mannequin-wings.glb' => 'shared/content/src/characters.ts',
+        'scutoons/3d/table-desert.webp' => 'viewer/src/lib/components/items/record-stage.svelte',
+        'scutoons/3d/table-jungle.webp' => 'viewer/src/lib/components/items/record-stage.svelte',
     ];
 
     /** @var array<string, true>|null */

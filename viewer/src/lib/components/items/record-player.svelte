@@ -5,6 +5,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { armAngle, nextOnSide, previousOnSide, sideIndices, sideOf, songLength, turnTo, twoSided } from './playlist.ts';
 	import RecordCard from './record-card.svelte';
+	import type { StageTable } from './record-stage.svelte';
 	import { warmModel } from './model-warmup.ts';
 	import { shelfOf } from './record-shelf.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
@@ -26,7 +27,18 @@
 	 * No native controls: the state follows the media's own events (a blocked autoplay shows ▶, never a false "playing").
 	 * Reduced motion: the record stands still, the arm jumps (record-deck.svelte).
 	 */
-	let { request, icon = null, onclose }: { request: AudioRequest; icon?: { src: string; name: string } | null; onclose: () => void } = $props();
+	let {
+		request,
+		icon = null,
+		table,
+		onclose
+	}: {
+		request: AudioRequest;
+		icon?: { src: string; name: string } | null;
+		/** the 3D stage's table surface (the lab compares; else record-stage.svelte TABLE) */
+		table?: StageTable;
+		onclose: () => void;
+	} = $props();
 
 	let index = $state(0);
 	let src = $state<string | null>(null);
@@ -238,6 +250,7 @@
 	{records}
 	current={currentKey}
 	onplayrecord={playRecord}
+	{table}
 	tracks={request.tracks}
 	{index}
 	{onSide}

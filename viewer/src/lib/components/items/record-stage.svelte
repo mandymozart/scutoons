@@ -4,12 +4,18 @@
 	 * "beim ersten Mal öffnen … pro Browser Reload"); after that a record that is on just lies on the platter.
 	 */
 	let introduced = false;
+
+	/** the table's surface (owner 2026-10-16, an experiment: a map texture on the table – plain or textured to compare):
+	 *  scutoons/3d/table-desert.webp, scutoons/3d/table-jungle.webp (painted map tiles; AssetUsages CODE_REFERENCES) */
+	export type StageTable = 'plain' | 'desert' | 'jungle';
+	export const TABLE: StageTable = 'plain';
 </script>
 
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { ModelSource } from '@scutoons/content';
 	import { modelLoader } from './model-source.ts';
+	import { asset } from '$lib/utils/cdn.ts';
 	import { mountRecordStage, type RecordStageHandle } from './record-stage.js';
 
 	/**
@@ -24,6 +30,8 @@
 		records,
 		current,
 		onselect,
+		onplay,
+		table = TABLE,
 		playing,
 		side,
 		arm,
@@ -40,6 +48,10 @@
 		current: string | null;
 		/** the carousel's front record changed */
 		onselect?: (key: string) => void;
+		/** a record was carried onto the turntable: put it on */
+		onplay?: (key: string) => void;
+		/** the table's surface (TABLE) */
+		table?: StageTable;
 		playing: boolean;
 		side: 'a' | 'b';
 		arm: number;
@@ -62,6 +74,7 @@
 	$effect(() => {
 		const el = canvas;
 		void signature;
+		void table;
 		const list = untrack(() => records.map((r) => ({ key: r.key, source: modelLoader(r.model) })));
 		if (!el || !list.length) return;
 		ready = false;
@@ -72,7 +85,9 @@
 			placed: onAlready,
 			onload: () => (ready = true),
 			onerror: () => onfail(),
-			onselect: (key) => onselect?.(key)
+			onselect: (key) => onselect?.(key),
+			onplay: (key) => onplay?.(key),
+			table: table === 'plain' ? null : asset(`scutoons/3d/table-${table}.webp`)
 		});
 		untrack(() => handle.update({ playing, side, arm, lifted, current }));
 		stage = handle;

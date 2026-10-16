@@ -213,7 +213,7 @@ final class AssetsTest extends TestCase
         self::assertContains(['catpope/audio/album.zip', 'album:a', '/download', 'config'], $rows);
 
         $missing = $this->get(AssetUsages::class)->missing();
-        self::assertSame(['catpope/images/missing-poster.webp', 'catpope/vectors/vector-demon-saw-1.svg', 'scutoons/3d/mannequin-more-legs.glb', 'scutoons/3d/mannequin-wings.glb', 'scutoons/3d/mannequin.glb'], array_column($missing, 'path'), 'asset-requests are wishes, not usages; a file app code needs is reported missing');
+        self::assertSame(['catpope/images/missing-poster.webp', 'catpope/vectors/vector-demon-saw-1.svg', 'scutoons/3d/mannequin-more-legs.glb', 'scutoons/3d/mannequin-wings.glb', 'scutoons/3d/mannequin.glb', 'scutoons/3d/table-desert.webp', 'scutoons/3d/table-jungle.webp'], array_column($missing, 'path'), 'asset-requests are wishes, not usages; a file app code needs is reported missing');
         $orphans = array_column($this->get(AssetUsages::class)->orphans(), null, 'slug');
         self::assertTrue($orphans['catpope/videos/roar-little-kitty']['all_unused']);
         self::assertSame(['catpope/videos/s1-trailer-loop.1280w.mp4', 'catpope/videos/s1-trailer-loop.1920w.mp4'], $orphans['catpope/videos/s1-trailer-loop']['unused']);
