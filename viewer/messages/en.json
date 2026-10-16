@@ -662,7 +662,17 @@
 		"not_now": "Not now",
 		"app_title": "App",
 		"install_app": "Install app",
-		"install_hint": "SCUTOONS on your home screen, opens without the browser bar."
+		"install_hint": "SCUTOONS on your home screen, opens without the browser bar.",
+		"ios_add_before": "Add SCUTOONS to your home screen: tap Share",
+		"ios_add_after": "then “Add to Home Screen”.",
+		"ios_share": "Share",
+		"ios_hint": "It then opens like an app, without Safari's bars.",
+		"push_title": "Notifications",
+		"push_new_chapters": "Tell me when a new chapter is out",
+		"push_hint": "Only for new chapters, on this device.",
+		"push_install_first": "On iPhone and iPad this works in the app: add SCUTOONS to your home screen first, then switch it on there.",
+		"push_denied": "Notifications are blocked for SCUTOONS in this browser's settings.",
+		"push_failed": "That didn't work – try again."
 	},
 	"saved": {
 		"save": "Save to device",

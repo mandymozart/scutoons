@@ -1,9 +1,9 @@
 // "Install SCUTOONS as an app" on Android / Chromium (agents/research/PWA.md "Install prompt", FEATURES 10.74 phase 4):
 // keeps the browser's `beforeinstallprompt` (instead of Chrome's own mini bar) and offers it at a good moment – the
 // rules in lib/install-rules.ts, the bar in components/install-prompt.svelte, "Install app" on the account page.
-// iOS has no such event: nothing there in this step (an iOS how-to is a later item).
+// iOS has no such event: Safari gets the "Share → Add to Home Screen" how-to on the account page (`iosHowTo`).
 import { browser, dev } from '$app/environment';
-import { EMPTY_MEMORY, canInstall, readMemory, shouldOffer, type InstallFacts, type InstallMemory } from './install-rules.ts';
+import { EMPTY_MEMORY, canInstall, isIosSafari, readMemory, shouldOffer, showIosHowTo, type InstallFacts, type InstallMemory } from './install-rules.ts';
 
 const KEY = 'scutoons_install';
 /** set once per browser session: a new session = a new visit */
@@ -27,6 +27,10 @@ class Install {
 	offer = $state(false);
 	/** the browser can install now (the account page's entry) */
 	available = $state(false);
+	/** iPhone / iPad Safari, not the home-screen app: the account page shows how to add it (PWA phase 4) */
+	iosHowTo = $state(false);
+	/** running as the installed app (display-mode standalone & co., iOS home-screen app) */
+	installed = $state(false);
 	#event: BeforeInstallPromptEvent | null = null;
 	#memory: InstallMemory = { ...EMPTY_MEMORY };
 	#framed = false;
@@ -60,6 +64,8 @@ class Install {
 
 	#refresh() {
 		this.available = canInstall(this.#facts(), this.#memory);
+		this.installed = this.#standalone;
+		this.iosHowTo = showIosHowTo({ iosSafari: isIosSafari(navigator.userAgent, navigator.maxTouchPoints), standalone: this.#standalone, framed: this.#framed });
 	}
 
 	#remember(change: Partial<InstallMemory>) {

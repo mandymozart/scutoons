@@ -36,6 +36,7 @@
 	import { accessEnd, autoSaveChapter } from '$lib/offline/auto-save.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
+	import { wakeLock } from '$lib/wake-lock.svelte.ts';
 
 	let { data }: PageProps = $props();
 	// the next-bar's music link: the season's album (related items; older seasons: download.music)
@@ -45,6 +46,8 @@
 
 	// where the page is: a jump into a group of this chapter that isn't there stays (no dead end – jump-to.ts)
 	const vn = getVisualNovelContext();
+	// the screen stays on while the reader reads (PWA phase 4, lib/wake-lock.svelte.ts – lapses when idle)
+	$effect(() => (data.chapter ? wakeLock.hold('chapter', { idle: true }) : undefined));
 	$effect(() => {
 		const chapter = data.chapter;
 		vn?.setPlace(chapter ? { toon: page.params.toonId ?? '', chapter: chapter.number, labels: chapter.groups.flatMap((g) => (g.label ? [g.label] : [])) } : null);

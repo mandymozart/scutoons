@@ -21,6 +21,7 @@ import { cacheShown, cleanUp, clearAll, isLibrary, isMedia, library, media, setT
 import { maySaved, networkThenSaved, reloadIndex, savedFirst } from '$lib/sw/saved-cache.ts';
 import { isSavedDocRequest } from '$lib/sw/saved-rules.ts';
 import { API_URL } from '$lib/config.ts';
+import { registerPush } from '$lib/sw/push.ts';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -146,6 +147,8 @@ if (__SW_OFF__) {
 		);
 	});
 } else {
+	// Web Push: the "new chapter" notification + the app badge (phase 4, lib/sw/push.ts)
+	registerPush(sw);
 	sw.addEventListener('install', (event) => event.waitUntil(install()));
 	sw.addEventListener('activate', (event) => event.waitUntil(activate()));
 

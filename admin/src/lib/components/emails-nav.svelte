@@ -5,14 +5,16 @@
 	 * The views of the Emails page (the sent-mail log, the templates, the newsletters with their contacts and
 	 * unsubscribed addresses – agents/NEWSLETTER.md): links, the current one inverted.
 	 */
-	let { current }: { current: 'log' | 'templates' | 'newsletters' | 'contacts' | 'blocked' } = $props();
+	let { current }: { current: 'log' | 'templates' | 'newsletters' | 'contacts' | 'blocked' | 'push' } = $props();
 
 	const views = [
 		{ id: 'log', href: '/emails', label: () => m['emails.tab_log']() },
 		{ id: 'templates', href: '/emails/templates', label: () => m['emails.tab_templates']() },
 		{ id: 'newsletters', href: '/emails/newsletters', label: () => m['newsletter.tab_newsletters']() },
 		{ id: 'contacts', href: '/emails/contacts', label: () => m['newsletter.tab_contacts']() },
-		{ id: 'blocked', href: '/emails/blocked', label: () => m['newsletter.tab_blocked']() }
+		{ id: 'blocked', href: '/emails/blocked', label: () => m['newsletter.tab_blocked']() },
+		// Web Push "new chapter" (agents/research/PWA.md §2b)
+		{ id: 'push', href: '/emails/push', label: () => m['push.tab']() }
 	] as const;
 </script>
 
