@@ -163,7 +163,8 @@
 {#snippet colophon()}
 	{#await data.credits then credits}
 		{#if credits.lead.length || credits.sections.length || season?.supporters?.length}
-			<section class="credits-section">
+			<!-- `#credits`: the record player's "All credits" jumps here (owner 2026-10-16) – the credits come later than the page, so the jump waits for them -->
+			<section class="credits-section" id="credits" {@attach (el) => { if (location.hash === '#credits') el.scrollIntoView({ block: 'start' }); }}>
 				<CreditsColophon {credits} supporters={season?.supporters} imageUrl={(path) => toonUrl(params.toonId, path)} />
 			</section>
 		{/if}

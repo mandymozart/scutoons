@@ -402,7 +402,8 @@
 		"player_turn": "Platte umdrehen",
 		"player_side": "Seite {side}",
 		"player_songs": "Lieder",
-		"player_credits": "Credits"
+		"player_credits": "Credits",
+		"player_credits_all": "Alle Credits"
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

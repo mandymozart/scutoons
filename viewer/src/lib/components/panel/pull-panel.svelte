@@ -1,3 +1,11 @@
+<script module lang="ts">
+	/**
+	 * One pull panel at a time (owner 2026-10-16: "das ist exklusiv … die Panels … können sich nicht einfach crazy
+	 * überlagern"): opening one closes the others (inventory, chapter list, the record player's card …).
+	 */
+	const openPanels = new Set<() => void>();
+</script>
+
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { tick } from 'svelte';
@@ -223,6 +231,15 @@
 			if (opener?.isConnected && (!now || now === document.body || panel?.contains(now))) opener.focus({ preventScroll: true });
 			opener = null;
 		};
+	});
+
+	// exclusive: this one opening closes the others
+	$effect(() => {
+		if (!open) return;
+		const close = () => onclose();
+		for (const other of [...openPanels]) other();
+		openPanels.add(close);
+		return () => openPanels.delete(close);
 	});
 
 	// a press that began before the panel opened is not outside it (a touch's click comes after the pointerdown – the
