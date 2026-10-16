@@ -66,7 +66,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   first (archive/UI-CONCEPTS.md E.5). [owner] a look on the phone at part 1 (characters stand on the box / bar).
 - [ ] 10.56 **Reader FX: an item's own pickup sound** (catalog `ItemDef.sound`, a migration) – `decide` the sound
   design first (research/FX.md open decisions). Phases 1–4 built.
-- [ ] 10.74 **PWA: preloading / save to device** (DATA.md §6 concept) – after the data refactor, which is done.
+- [ ] 10.74 **PWA: preloading / save to device** – owner 2026-10-16: "turn scutoons into a PWA". Phase 1 built (manifest,
+  icons, app-shell service worker, update prompt, kill switch `VITE_SW=off`). Next: phase 2 media cache (CDN slices /
+  posters LRU), phase 3 save chapter to device, phase 4 install hint / push. → research/PWA.md, DATA.md §6
 - [ ] 10.75 **Performance P4–P7** (research/PERFORMANCE.md) – check what is left: P5 production PHP tuning (OPcache,
   compiled DI container, authoritative classmap), P6 cache headers / Brotli on the CDN, P7 parallel catalog loads.
 - [ ] 10.101 **Viewer loading: lazy + predictive loading** – owner 2026-10-16: "a strategy to bring down viewer loading

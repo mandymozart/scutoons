@@ -9,6 +9,10 @@ import ports from '../shared/dev-ports.json' with { type: 'json' };
 // message files one by one before the first render, agents/PERFORMANCE.md). Builds use the same layout (+2 KB gzip) so a
 // build never swaps the modules under a running dev server (it used to break the dev apps until a restart).
 export default defineConfig(({ command }) => ({
+	// the service worker's kill switch (agents/research/PWA.md "Kill switch"): a build with VITE_SW=off registers no
+	// worker, and its service-worker.js removes itself and its caches from every device that had one. Also seen by the
+	// service worker's own build (SvelteKit passes `define` on).
+	define: { __SW_OFF__: JSON.stringify(process.env.VITE_SW === 'off') },
 	plugins: [
 		cdnFonts(), // @font-face from the CDN (VITE_CDN_URL), the bundled copy as fallback
 		sveltekit(),

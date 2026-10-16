@@ -350,7 +350,10 @@ accepted.ts: kind + id + the path inside the entry), one about a whole list ("no
 history row, note "warning accepted", undo takes it back). The server never serves the field (`CatalogStore::reader`:
 /api/items/, /api/products/ …) and refuses a malformed list (422).
 
-## 6. PWA concept (design only)
+## 6. PWA concept
+
+Built: phase 1 – the app-shell service worker, manifest, update prompt, kill switch (research/PWA.md). The rest below is
+the design for phases 2–3.
 
 - **Service Worker** (SvelteKit `src/service-worker.ts`): app build + fonts precached per build version (cache-first,
   old caches dropped on `activate`); library JSON stale-while-revalidate with the ETag; slices/posters/portraits

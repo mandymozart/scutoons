@@ -23,6 +23,8 @@
 	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
 	import { listenToCreator } from '$lib/creator-link.svelte.ts';
 	import { fxSettings } from '$lib/fx-settings.svelte.ts';
+	import UpdatePrompt from '$lib/components/update-prompt.svelte';
+	import { pwa } from '$lib/pwa.svelte.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -52,6 +54,8 @@
 
 	onMount(async () => {
 		initAnimatedFavicon();
+		// the service worker: app shell + the "new version" prompt (agents/research/PWA.md)
+		void pwa.init();
 		// the effect sounds' routing + this device's volume / vibration (agents/FX.md)
 		fxSettings.init();
 
@@ -115,6 +119,7 @@
 <HomeHost />
 <!-- in-page confirmations (confirmDialog / askDialog from @scutoons/ui) -->
 <DialogHost />
+<UpdatePrompt />
 <!-- a running reader effect goes wherever the reader goes (owner 2026-10-08) – not only the toon pages -->
 <ReaderEffect />
 

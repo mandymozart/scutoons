@@ -115,6 +115,7 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `VITE_WWW_URL` | variable | shop, creator (reader link), admin (as `VITE_VIEWER_URL`) |
 | `VITE_CREATOR_URL` | variable | viewer, admin |
 | `VITE_SHOP_URL` | variable | viewer |
+| `VITE_SW` | variable | viewer – `off` = the service worker kill switch: the build registers no worker and its `service-worker.js` removes itself and its caches from every device (agents/research/PWA.md "Kill switch"). Unset = on |
 | `VITE_ADMIN_URL` | variable | admin |
 | `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_API_KEY` | secret | api `config.php` – the asset manager's bunny.net storage zone passwords (read/write, read-only) and the account API key (all optional; agents/ASSETS.md) |
 | `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_PULLZONE_ID` | variable | api `config.php` (optional, same); `CDN_PUBLIC_URL` is fixed in `targets.json` (a `production` variable of that name is not read) |

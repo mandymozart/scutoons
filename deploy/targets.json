@@ -175,7 +175,8 @@
 				"VITE_API_URL",
 				"VITE_CDN_URL=https://cdn.scutoons.com",
 				"VITE_CREATOR_URL",
-				"VITE_SHOP_URL"
+				"VITE_SHOP_URL",
+				"VITE_SW"
 			],
 			"include": ["**"],
 			"exclude": ["**/.DS_Store"],

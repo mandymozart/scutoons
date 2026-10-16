@@ -37,6 +37,8 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
 - A viewer URL without a locale prefix follows the browser language (headless = en) – checks use `/de/<toon>`.
 - Guests can't read draft chapters locally without a code – run such checks as the test user.
 - Several `intersect` slice events with the same trigger fire in no fixed order.
+- The Browser pane can't register service workers – test the PWA in headless Chrome over CDP (research/PWA.md §6).
+- A viewer build can crash natively (exit 0xC0000409) at random – run it again.
 
 ## Server, DB
 - The dev API runs the working tree: a new table without its migration breaks reads for everyone – migrate right away.

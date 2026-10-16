@@ -649,5 +649,12 @@
 		"ride_train": "Ride the train here · {price} cucumber(s)",
 		"ride_airlift": "Take the creature airlift · {price} cucumbers",
 		"ride_cannot_afford": "You need {price} cucumbers for that."
+	},
+	"pwa": {
+		"update_ready": "A new version of SCUTOONS is ready.",
+		"later": "Later",
+		"reload": "Reload",
+		"offline": "You're offline. SCUTOONS needs a connection for now.",
+		"retry": "Try again"
 	}
 }

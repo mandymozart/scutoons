@@ -649,5 +649,12 @@
 		"ride_train": "Mit dem Zug hin · {price} Gurke(n)",
 		"ride_airlift": "Mit dem Kreaturen-Lufttaxi · {price} Gurken",
 		"ride_cannot_afford": "Dafür brauchst du {price} Gurken."
+	},
+	"pwa": {
+		"update_ready": "Eine neue Version von SCUTOONS ist da.",
+		"later": "Später",
+		"reload": "Neu laden",
+		"offline": "Du bist offline. SCUTOONS braucht vorerst eine Verbindung.",
+		"retry": "Nochmal versuchen"
 	}
 }

@@ -12,3 +12,17 @@
 <IfModule mod_headers.c>
 	Header always set Content-Security-Policy "frame-ancestors 'self' https://creator.scutoons.com"
 </IfModule>
+
+# The web app manifest's type (agents/research/PWA.md)
+AddType application/manifest+json .webmanifest
+
+# Caching (agents/research/PWA.md, research/LOADING.md L1): what names the build → always asked again (a 304 is cheap),
+# so a deploy reaches every reader at once and the service worker's update is found; hashed app files never change
+<IfModule mod_headers.c>
+	<FilesMatch "^(index\.html|service-worker\.js|version\.json|site\.webmanifest)$">
+		Header set Cache-Control "no-cache"
+	</FilesMatch>
+	<If "%{REQUEST_URI} =~ m#^/_app/immutable/#">
+		Header set Cache-Control "public, max-age=31536000, immutable"
+	</If>
+</IfModule>
