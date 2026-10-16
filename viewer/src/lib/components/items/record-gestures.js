@@ -48,6 +48,7 @@ export function stageGestures(canvas, on) {
 			if (start.stage) timer = setTimeout(() => {
 				if (mode !== 'wait') return;
 				if (start.hit.front && on.carry(true)) mode = 'carry';
+				else if (!start.hit.part) mode = 'none'; // empty space: nothing
 				else {
 					mode = 'ride';
 					on.hold();
@@ -91,7 +92,7 @@ export function stageGestures(canvas, on) {
 		clearTimeout(timer);
 		if (pointers.size > 0) return;
 		const dx = e.clientX - (start?.x ?? e.clientX), dy = e.clientY - (start?.y ?? e.clientY);
-		if (mode === 'wait' && start.stage && performance.now() - start.at < 300) on.tap(start.hit);
+		if (mode === 'wait' && start.stage && start.hit.part && performance.now() - start.at < 300) on.tap(start.hit);
 		// up or left = the front record flicks away to the back (the next comes forward); down / right = back again
 		else if (mode === 'swipe') on.swipe((Math.abs(dy) > Math.abs(dx) ? dy < 0 : dx < 0) ? 1 : -1);
 		else if (mode === 'carry') {

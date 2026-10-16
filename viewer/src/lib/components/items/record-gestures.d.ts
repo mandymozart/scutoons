@@ -2,7 +2,8 @@
 
 /** what is under a point of the stage */
 export interface StageHit {
-	part: 'records' | 'deck';
+	/** null: empty space (nothing to tap) */
+	part: 'records' | 'deck' | null;
 	/** the record (its key) under the point, if any */
 	key?: string | null;
 	/** it is the carousel's front record */
@@ -29,6 +30,6 @@ export function stageGestures(
 		/** the carried record follows the finger (canvas px) */
 		carryTo: (x: number, y: number) => void;
 		/** let go of the carried record over a part of the stage */
-		drop: (part: 'records' | 'deck') => void;
+		drop: (part: 'records' | 'deck' | null) => void;
 	}
 ): () => void;

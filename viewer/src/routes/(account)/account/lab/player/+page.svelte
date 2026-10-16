@@ -91,8 +91,9 @@
 		padding: var(--space-1);
 		max-width: 34rem;
 	}
+	/* as wide as the item detail gives it (the panel's width) */
 	.item {
-		width: 15rem;
+		width: 100%;
 	}
 	/* the stage's canvas fills its parent (the card's top in the player) */
 	.stage {

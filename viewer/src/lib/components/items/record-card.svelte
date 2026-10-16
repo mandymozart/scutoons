@@ -299,21 +299,16 @@
 		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1) - env(safe-area-inset-right)) calc(-85dvh - var(--space-075)) calc(-1 * var(--space-1) - env(safe-area-inset-left));
 	}
 
-	/* the card's own content lies over the stage; only what is interactive takes the pointer (owner 2026-10-16: "only
-	   interactive elements like the track, or buttons should be blocking click events to the three.js stage") – text,
-	   headings and gaps let it through to the canvas (a drag there scrolls the card – record-gestures.js) */
+	/* the card's own content lies over the stage and scrolls as any content: a touch on its text, headings or lists is
+	   the card's, never the stage's (owner 2026-10-16: a scroll that started on the title moved the stage) */
 	.card.in3d > :not(.backdrop) {
 		position: relative;
 		z-index: 1;
 		text-shadow: 0 0 0.5rem rgb(0 0 0 / 0.65);
-		pointer-events: none;
 	}
 
-	.card.in3d :global(:is(button, a, input, select, textarea, label)) {
-		pointer-events: auto;
-	}
-
-	/* the top part: the stage shows through (taps reach the records and the turntable); the song + controls at its foot */
+	/* the top part where nothing but the 3D scene is: touches go to the stage (the records, the turntable); the song +
+	   controls at its foot are content again */
 	.hero.in3d {
 		height: min(32rem, 62vh);
 		justify-content: flex-end;
@@ -321,6 +316,7 @@
 	}
 
 	.hero.in3d .over {
+		pointer-events: auto;
 		box-sizing: border-box;
 		width: 100%;
 		max-width: var(--column);

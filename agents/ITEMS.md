@@ -182,7 +182,8 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
   A record in its sleeve (nodes `record` + `sleeve`) can be pulled out (owner 2026-10-16: "if one grabs the actual
   vinyl it can be dragged out"): a drag that starts on the record slides it along the open edge with the finger, at most
   all the way out (the camera steps back to keep it in the picture); let go under half out = it springs back in, more =
-  it slides all the way out and stays. A drag elsewhere turns the model (model-view.js `recordPull`).
+  it slides all the way out and stays; sleeve and record stay in the middle of the view. A drag elsewhere turns the
+  model (model-view.js `recordPull`). The item detail's 3D view spans the panel's whole width (out of its padding).
 - **Record player card** (owner 2026-10-16: "The item should show sleeve with record inside. And on starting to play it
   is pulled out and put on the record player"): with the playing item's model (`AudioRequest.model`) the card's record
   is a 3D stage (record-stage.svelte / .js): the sleeve with the record inside stands behind a turntable built in code
@@ -202,19 +203,19 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
   the stage, and the front record held (280 ms) and carried onto the turntable is put on too: its album plays
   (`albumRequest`) – the stage lifts the one on the platter, the ring turns it to the front, it slides into its sleeve,
   the ring turns the new one to the front, it comes out onto the platter. Gestures (owner's map, record-gestures.js): a
-  tap (< 10 px, < 300 ms) on the turntable / the records focuses it (the records a while, then back to the deck while
-  one plays); hold then drag elsewhere = the camera ride around the focused part, springing back on release; two
+  tap (< 10 px, < 300 ms) on the turntable / the records focuses it – a raycast on the objects, empty space does
+  nothing (a while, then back to the stage's own focus: the deck while a record lies on it, else the records); hold then drag elsewhere = the camera ride around the focused part, springing back on release; two
   fingers always move the camera (sideways = ride, pinch = zoom); wheel = zoom. The reader's zoom stays (out to the
   default distance at most); only the stage's own camera moves (a focus change, a record put on / swapped, the intro)
-  tween it back. The ride and the zoom go around the focused part's centre (the carousel's middle behind the front
+  tween it back – smoothly from where the camera is, no jump. The ride and the zoom go around the focused part's centre (the carousel's middle behind the front
   sleeve, or the plinth's – `inspect()` gives it, the lab reads it as `window.__recordStage` in dev). Kept: the intro once per page load, `placed` when already on, the A/B flip. A proper shelf later.
 - **The card is the stage** (owner 2026-10-16: "the player is the brown of the background"): the canvas lies behind the
   whole dark panel, sticky while the card scrolls over it; the song, the controls, the songs and the credits lie on the
   lit table (no fade, a soft text shadow), its top part shows the records and the turntable (`lift` from the measured
-  heights). Only what is interactive (buttons, links, the seek bar, the song rows) takes the pointer: text, headings
-  and gaps let it through to the stage (owner 2026-10-16); below the stage's own part a drag / the wheel there scrolls
-  the card and a tap does nothing (record-gestures.js `inStage`). The table: a fill light keeps its front lit, only the
-  far rim fades into the black. An experiment: a map
+  heights). The card's content (song, controls, songs, credits) scrolls as any content – a touch on it is never the
+  stage's; only the top part where nothing but the scene is passes touches to the stage (owner 2026-10-16, after a try
+  with text passing through: scrolls that started on the title moved the stage). The table: a fill light keeps its
+  front lit, only the far rim fades into the black. An experiment: a map
   texture on the table (`TABLE` in record-stage.svelte, lab `?table=desert|jungle`: `scutoons/3d/table-{desert,jungle}.webp`,
   painted map tiles of the Dünenmeer / Schuppenwald) – plain by default until the owner decides.
 - **Light** (owner 2026-10-16: "a spot on the scene and a little ambient occlusion – as simple as possible but moody";

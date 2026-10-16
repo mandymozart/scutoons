@@ -34,14 +34,16 @@
 		{#if !ready}<div class="under">{@render fallback()}</div>{/if}
 	</div>
 {:else}
-	{@render fallback()}
+	<div class="flat">{@render fallback()}</div>
 {/if}
 
 <style>
+	/* the whole width it is given (the item detail: the panel's, edge to edge – owner 2026-10-16: a record pulled out of
+	   its sleeve must not be cut off at the sides), a sensible height */
 	.item-model {
 		position: relative;
 		width: 100%;
-		aspect-ratio: 1;
+		height: min(24rem, 70vw);
 	}
 
 	canvas {
@@ -58,9 +60,18 @@
 		opacity: 1;
 	}
 
-	/* the icon while the model loads */
+	/* the icon while the model loads (and without a 3D view): at an icon's size in the middle */
 	.under {
 		position: absolute;
 		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.under > :global(*),
+	.flat {
+		width: min(15rem, 80%);
+		margin-inline: auto;
 	}
 </style>

@@ -1,0 +1,683 @@
+<title>SCUTOONS Account Page Drafts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: a working sheet – controls on top, three phones side by side (A | B | C), one desktop frame, then the
+   reasoning. The mock screens use the SCUTOONS look itself (ink / paper, Plex Mono, square); the sheet around them
+   follows the viewer's theme. */
+:root {
+	--bg: #f3f4f2;
+	--fg: #111312;
+	--muted: #5d625f;
+	--line: #c9ccc9;
+	--card: #ffffff;
+	--accent: #00d1ff;
+	--new: #b70aff;
+	--sans: 'IBM Plex Sans', system-ui, sans-serif;
+	--mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) { --bg: #141615; --fg: #ecefed; --muted: #9da39f; --line: #3a3e3c; --card: #1d201f; --new: #d26bff; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #141615; --fg: #ecefed; --muted: #9da39f; --line: #3a3e3c; --card: #1d201f; --new: #d26bff; color-scheme: dark; }
+
+body { background: var(--bg); color: var(--fg); font: 1rem/1.5 var(--sans); }
+.sheet { max-width: 92rem; margin: 0 auto; padding-block: 1.5rem 4rem; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 2rem; }
+h1, h2, h3 { font-family: var(--mono); text-wrap: balance; margin: 0; }
+h1.title { font-size: 1.6rem; }
+.lead { max-width: 46rem; color: var(--muted); margin: 0.5rem 0 0; }
+.kicker { font: 600 0.75rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* sheet controls */
+.controls { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: end; }
+.ctl { display: grid; gap: 0.35rem; border: 0; margin: 0; padding: 0; min-width: 0; }
+.ctl legend { font: 600 0.75rem/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 0.35rem; }
+.seg { display: flex; flex-wrap: wrap; }
+.seg button { font: 0.875rem/1 var(--mono); min-height: 2.5rem; padding: 0 0.8rem; background: var(--card); color: var(--fg); border: 2px solid var(--fg); margin-left: -2px; cursor: pointer; }
+.seg button:first-child { margin-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.seg button:focus-visible, .chk input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; position: relative; z-index: 1; }
+.chk { display: flex; gap: 0.5rem; align-items: center; font: 0.875rem var(--mono); min-height: 2.5rem; }
+.chk input { width: 1.1rem; height: 1.1rem; accent-color: var(--fg); }
+
+/* stage */
+.phones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; align-items: start; }
+@media (max-width: 70rem) { .phones { grid-template-columns: minmax(0, 1fr); justify-items: center; } }
+.col { display: grid; gap: 0.75rem; width: 100%; max-width: 25rem; min-width: 0; }
+.col header h3 { font-size: 1rem; }
+.col header p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.875rem; }
+.frame { container-type: inline-size; position: relative; border: 2px solid var(--fg); background: #fff; overflow: hidden; }
+.frame.phone { border-radius: 1.6rem; border-width: 0.45rem; aspect-ratio: 390 / 800; }
+.frame.desk { aspect-ratio: 1440 / 860; border-radius: 0.5rem; }
+.desk-wrap { display: grid; gap: 0.75rem; min-width: 0; }
+.desk-head { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: end; justify-content: space-between; }
+
+/* ---------- the mock app (SCUTOONS look, fixed light; the dark panel inverts) ---------- */
+.screen { --ink: #000; --paper: #fff; --muted: #6b6b6b; --bm: #ccc; position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; background: var(--paper); color: var(--ink); font-family: var(--mono); line-height: 1.4; scrollbar-width: thin; }
+.phone .screen { font-size: calc(100cqw * 14 / 390); --ch: calc(100cqw * 44 / 390); }
+.desk .screen { font-size: calc(100cqw * 24 / 1440); --ch: calc(100cqw * 52 / 1440); }
+.screen * { box-sizing: border-box; }
+.screen p { margin: 0; }
+.screen small, .screen .cap { font-size: 0.75em; line-height: 1.3; color: var(--muted); }
+.screen h1 { font-size: 1em; font-weight: 700; display: flex; align-items: center; gap: 0.5em; margin: 0; }
+.screen h2 { font-size: 1em; font-weight: 700; margin: 0; }
+.screen .btn { font: inherit; font-size: 1em; line-height: 1; min-height: var(--ch); padding: 0 1em; border: 2px solid var(--bm); background: var(--paper); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; gap: 0.4em; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.screen .btn:hover { border-color: var(--ink); }
+.screen .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.screen .btn.block { width: 100%; }
+.screen button:focus-visible, .screen input:focus-visible, .screen a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 4px var(--accent-ring, #00d1ff); }
+.screen .round { width: var(--ch); height: var(--ch); border-radius: 50%; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); display: inline-grid; place-items: center; padding: 0; cursor: pointer; flex: none; }
+.screen .round svg { width: 45%; height: 45%; }
+.screen .field { display: grid; gap: 0.35em; }
+.screen input[type="text"], .screen input[type="email"] { font: inherit; height: var(--ch); border: 2px solid var(--ink); padding: 0 0.6em; width: 100%; background: var(--paper); color: var(--ink); }
+.screen .check { display: flex; gap: 0.6em; align-items: flex-start; cursor: pointer; min-height: var(--ch); padding-top: 0.2em; }
+.screen .check input { width: 1.25em; height: 1.25em; margin: 0.1em 0 0; accent-color: var(--ink); flex: none; }
+.screen .check span { display: grid; gap: 0.2em; }
+.screen fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 0.5em; }
+.screen legend { padding: 0; margin-bottom: 0.5em; }
+.screen .sseg { display: flex; }
+.screen .sseg label { flex: 1 1 0; min-width: 0; min-height: var(--ch); border: 2px solid var(--ink); margin-left: -2px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0 0.3em; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.screen .sseg label:first-child { margin-left: 0; }
+.screen .sseg input { position: absolute; opacity: 0; pointer-events: none; }
+.screen .sseg label.on { background: var(--ink); color: var(--paper); }
+.screen .sseg label:focus-within { outline: 2px solid #00d1ff; outline-offset: 1px; z-index: 1; }
+.screen input[type="range"] { width: 100%; accent-color: var(--ink); margin: 0; height: var(--ch); }
+.screen .row { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
+.screen .spread { display: flex; align-items: center; justify-content: space-between; gap: 0.6em; }
+.screen .chip { font-size: 0.7em; line-height: 1; padding: 0.3em 0.45em; background: var(--ink); color: var(--paper); white-space: nowrap; }
+.screen .chip.dev { background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); }
+.screen .new { text-decoration: underline dashed var(--new-mark, transparent) 0.12em; text-underline-offset: 0.2em; }
+.marknew .screen .new { --new-mark: #b70aff; }
+
+/* app chrome */
+.topbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 0.75em 1em; background: var(--paper); }
+.logo { font-weight: 700; letter-spacing: 0.04em; border: 2px solid var(--ink); padding: 0.15em 0.4em; font-size: 0.85em; }
+.topbar .tools { display: flex; gap: 0.5em; }
+.page { padding: 0 1em 2em; display: grid; gap: 1.25em; }
+.desk .page { max-width: 25em; margin: 0 auto; }
+.back { display: inline-flex; align-items: center; gap: 0.25em; min-height: var(--ch); color: var(--ink); text-decoration: none; cursor: pointer; background: none; border: 0; font: inherit; padding: 0; }
+.back svg { width: 1em; height: 1em; }
+.acct-icon { width: 2.2em; height: 2.2em; border: 2px solid var(--ink); border-radius: 50%; display: inline-grid; place-items: center; }
+.acct-icon svg { width: 60%; height: 60%; }
+
+/* top card */
+.card { border: 2px solid var(--ink); padding: 0.9em; display: grid; gap: 0.7em; }
+.card .who { overflow-wrap: anywhere; }
+.card .access { display: grid; gap: 0.2em; }
+.devcode { border-left: 0.5em solid #00d1ff; padding: 0.5em 0.7em; display: grid; gap: 0.2em; }
+
+/* groups (disclosures) */
+.groups { display: grid; }
+.grp { border-top: 2px solid var(--ink); }
+.grp:last-child { border-bottom: 2px solid var(--ink); }
+.disc { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 0.15em 0.6em; align-items: center; text-align: left; background: none; border: 0; padding: 0.7em 0; min-height: calc(var(--ch) + 0.6em); font: inherit; color: inherit; cursor: pointer; }
+.disc .lbl { font-weight: 700; display: flex; gap: 0.5em; align-items: center; }
+.disc .sum { grid-column: 1; font-size: 0.75em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.disc .chev { grid-row: 1 / span 2; grid-column: 2; width: 1em; height: 1em; transition: transform 0.15s ease; }
+.disc[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.grp-body { display: grid; gap: 1.1em; padding: 0.2em 0 1.2em; }
+@media (prefers-reduced-motion: reduce) { .disc .chev, .pull { transition: none !important; } }
+
+/* index rows (B) */
+.idx { display: grid; border-top: 2px solid var(--ink); }
+.idx button { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.15em 0.6em; text-align: left; border: 0; border-bottom: 2px solid var(--ink); background: var(--paper); color: var(--ink); padding: 0.7em 0.2em; font: inherit; cursor: pointer; min-height: calc(var(--ch) + 0.6em); }
+.idx button[aria-current="page"] { background: var(--ink); color: var(--paper); }
+.idx button[aria-current="page"] .sum { color: #bbb; }
+.idx .lbl { font-weight: 700; display: flex; gap: 0.5em; align-items: center; }
+.idx .sum { font-size: 0.75em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.idx svg { grid-row: 1 / span 2; grid-column: 2; width: 1em; height: 1em; }
+.subbar { display: flex; align-items: center; gap: 0.6em; }
+.split { display: grid; grid-template-columns: 17em 1fr; gap: 2em; padding: 0 2em 2em; align-items: start; }
+.split .detail { display: grid; gap: 1.1em; border-left: 2px solid var(--ink); padding-left: 2em; max-width: 26em; }
+
+/* lists inside groups */
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5em; }
+.list li { display: grid; grid-template-columns: 1fr auto auto; gap: 0.6em; align-items: center; }
+.list li .what { display: grid; gap: 0.1em; min-width: 0; }
+.list li a { color: var(--ink); overflow-wrap: anywhere; }
+.bar { height: 0.5em; border: 2px solid var(--ink); position: relative; }
+.bar span { position: absolute; inset: 0 auto 0 0; background: var(--ink); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 0.3em 1em; font-size: 0.9em; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.claim { border: 2px solid var(--ink); padding: 0.6em; display: grid; gap: 0.4em; }
+.tag { font-size: 0.7em; padding: 0.2em 0.4em; background: var(--ink); color: var(--paper); }
+.muted-line { font-size: 0.85em; color: var(--muted); border-left: 0.5em solid var(--bm); padding: 0.3em 0.6em; }
+.sticky { position: sticky; bottom: 0; z-index: 4; padding: 1.5em 1em 1em; margin: 0 -1em; background: linear-gradient(to bottom, transparent, var(--paper) 1.4em); }
+.desk .sticky { margin: 0; }
+
+/* chapter (C) */
+.chapter { min-height: 100%; background: #fff; position: relative; }
+.chapter .ctop { position: sticky; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center; padding: 0.75em 1em; }
+.chapter .ctop .tools { display: flex; gap: 0.4em; }
+.slices { display: grid; gap: 0; max-width: 100%; margin: 0 auto; }
+.desk .slices { width: 22em; }
+.slice { aspect-ratio: 390 / 625; position: relative; overflow: hidden; }
+.slice:nth-child(1) { background: repeating-linear-gradient(135deg, #e8e8e8 0 0.6em, #f6f6f6 0.6em 1.2em); }
+.slice:nth-child(2) { background: radial-gradient(circle at 30% 40%, #d9d9d9 0 18%, transparent 19%), repeating-linear-gradient(45deg, #ededed 0 0.4em, #f8f8f8 0.4em 0.8em); }
+.slice:nth-child(3) { background: linear-gradient(#ececec, #dcdcdc); }
+.bubble { position: absolute; left: 8%; top: 12%; max-width: 60%; background: #fff; border: 2px solid #000; padding: 0.5em 0.7em; font-size: 0.9em; }
+.hint-outline { position: absolute; right: 12%; bottom: 18%; width: 28%; aspect-ratio: 1; border: 2px dashed #00d1ff; border-radius: 50%; }
+.scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 6; border: 0; padding: 0; cursor: pointer; width: 100%; }
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 82%; max-width: 20em; background: var(--paper); border-left: 2px solid var(--ink); z-index: 7; display: grid; align-content: start; gap: 0.75em; padding: 0.75em 1em; overflow-y: auto; }
+.drawer .dhead { display: flex; justify-content: space-between; align-items: center; gap: 0.5em; }
+.drawer .navbtn { display: flex; align-items: center; gap: 0.5em; min-height: var(--ch); border: 0; background: none; font: inherit; color: var(--ink); cursor: pointer; padding: 0; text-align: left; }
+.drawer .navbtn.hl { outline: 2px dashed #00d1ff; outline-offset: 0.2em; }
+.drawer .langs { display: flex; }
+.drawer .langs span { border: 2px solid var(--ink); min-height: var(--ch); min-width: var(--ch); display: inline-grid; place-items: center; margin-left: -2px; font-size: 0.85em; }
+.drawer .langs span.on { background: var(--ink); color: var(--paper); }
+.drawer .toonrow { display: flex; gap: 0.6em; align-items: center; min-height: 3em; }
+.drawer .toonrow i { width: 2.6em; height: 2.6em; border-radius: 0.5em; background: repeating-linear-gradient(135deg, #ddd 0 0.3em, #f3f3f3 0.3em 0.6em); border: 2px solid var(--ink); }
+.pull { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; max-height: 86%; overflow-y: auto; background: #000; color: #fff; --ink: #fff; --paper: #000; --muted: #a8a8a8; --bm: #555; padding: 0 1em 0; display: grid; gap: 1em; }
+.desk .pull { left: 50%; right: auto; width: 26em; transform: translateX(-50%); }
+.pull .grab { width: 3em; height: 0.3em; background: #777; margin: 0.6em auto 0; border-radius: 0.2em; }
+.pull .phead { display: flex; justify-content: space-between; align-items: center; }
+.pull .sticky { background: linear-gradient(to bottom, transparent, #000 1.4em); }
+.toast { position: absolute; left: 1em; right: 1em; bottom: 1em; z-index: 8; background: #000; color: #fff; padding: 0.7em 0.9em; font-size: 0.85em; border: 2px solid #000; }
+
+/* flow + notes */
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+@media (max-width: 60rem) { .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 32rem) { .flow { grid-template-columns: minmax(0, 1fr); } }
+.flow figure { margin: 0; display: grid; gap: 0.5rem; min-width: 0; }
+.flow .frame.phone { aspect-ratio: 390 / 700; border-width: 0.3rem; border-radius: 1.1rem; }
+.flow figcaption { font-size: 0.875rem; color: var(--muted); }
+.flow figcaption b { color: var(--fg); font-family: var(--mono); font-weight: 600; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 1.5rem; }
+.note { background: var(--card); border: 1px solid var(--line); padding: 1.1rem 1.25rem; display: grid; gap: 0.6rem; align-content: start; min-width: 0; }
+.note h3 { font-size: 1rem; }
+.note ul, .note ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+.note p { margin: 0; }
+.rec { border: 2px solid var(--fg); }
+.tbl-wrap { overflow-x: auto; }
+table.cmp { border-collapse: collapse; width: 100%; min-width: 40rem; font-size: 0.9rem; }
+table.cmp th, table.cmp td { border-bottom: 1px solid var(--line); padding: 0.5rem 0.6rem; text-align: left; vertical-align: top; }
+table.cmp th { font-family: var(--mono); font-weight: 600; }
+.legend-new { display: inline-flex; gap: 0.4rem; align-items: center; font-size: 0.85rem; color: var(--muted); }
+.legend-new b { text-decoration: underline dashed var(--new) 2px; text-underline-offset: 3px; font-weight: 400; color: var(--fg); }
+</style>
+
+<div class="sheet marknew" id="sheet">
+	<header>
+		<div class="kicker">SCUTOONS · Reader · Kontoseite / account page · Entwurf 2026-10-16</div>
+		<h1 class="title">Account page: three concepts</h1>
+		<p class="lead">Everything on the page today, grouped into seven areas and played through three ways. Switch the reader's state, where the page was opened from, and the language. The mock screens are clickable: open groups, sub-pages, the menu and the panel. Texts come from <code>viewer/messages</code>; new ones are underlined.</p>
+	</header>
+
+	<div class="controls" role="group" aria-label="Mockup controls">
+		<fieldset class="ctl"><legend>Zustand · state</legend>
+			<div class="seg" data-ctl="role">
+				<button type="button" data-v="guest">Gast</button>
+				<button type="button" data-v="guestcode">Gast + Code</button>
+				<button type="button" data-v="member">Mitglied</button>
+				<button type="button" data-v="noaccess">ohne Zugang</button>
+				<button type="button" data-v="creator">Creator</button>
+			</div>
+		</fieldset>
+		<fieldset class="ctl"><legend>Geöffnet von · opened from</legend>
+			<div class="seg" data-ctl="ctx">
+				<button type="button" data-v="home">Startseite / Toon</button>
+				<button type="button" data-v="chapter">im Kapitel</button>
+			</div>
+		</fieldset>
+		<fieldset class="ctl"><legend>Sprache</legend>
+			<div class="seg" data-ctl="lang">
+				<button type="button" data-v="de">de</button>
+				<button type="button" data-v="en">en</button>
+			</div>
+		</fieldset>
+		<label class="chk"><input type="checkbox" id="marknew" checked> <span class="legend-new"><b>new text</b> marked</span></label>
+		<div class="seg"><button type="button" id="resetBtn">Reset screens</button></div>
+	</div>
+
+	<section class="phones" aria-label="Concepts at phone width">
+		<div class="col">
+			<header><h3>A · One page, grouped</h3><p>Seven groups as disclosure rows with a summary line. One view, open in place.</p></header>
+			<div class="frame phone" data-concept="A" data-device="phone"></div>
+		</div>
+		<div class="col">
+			<header><h3>B · Index → sub-pages</h3><p>Like a phone's settings app: a list of groups, each its own page with back.</p></header>
+			<div class="frame phone" data-concept="B" data-device="phone"></div>
+		</div>
+		<div class="col">
+			<header><h3>C · Hybrid (recommended)</h3><p>Page = A. Inside a chapter: menu → “Einstellungen” opens the dark panel over the chapter.</p></header>
+			<div class="frame phone" data-concept="C" data-device="phone"></div>
+		</div>
+	</section>
+
+	<section class="desk-wrap" aria-label="Desktop width">
+		<div class="desk-head">
+			<div><div class="kicker">Desktop · 1440 px, root 24 px</div><h2 style="font-size:1.15rem;margin-top:0.3rem">The same concept on a wide screen</h2></div>
+			<fieldset class="ctl"><legend>Konzept</legend>
+				<div class="seg" data-ctl="desk">
+					<button type="button" data-v="A">A</button>
+					<button type="button" data-v="B">B</button>
+					<button type="button" data-v="C">C</button>
+				</div>
+			</fieldset>
+		</div>
+		<div class="frame desk" data-concept="A" data-device="desk" id="deskframe"></div>
+	</section>
+
+	<section style="display:grid;gap:1rem" aria-labelledby="flowh">
+		<div><div class="kicker">Flow</div><h2 id="flowh" style="font-size:1.15rem;margin-top:0.3rem">Guest → sign in → back in the chapter, settings carried over</h2></div>
+		<div class="flow" id="flow"></div>
+	</section>
+
+	<section style="display:grid;gap:1rem" aria-labelledby="cmph">
+		<div><div class="kicker">Comparison</div><h2 id="cmph" style="font-size:1.15rem;margin-top:0.3rem">How each concept handles the stages and states</h2></div>
+		<div class="tbl-wrap">
+			<table class="cmp">
+				<thead><tr><th scope="col"></th><th scope="col">A · one page</th><th scope="col">B · sub-pages</th><th scope="col">C · hybrid</th></tr></thead>
+				<tbody>
+					<tr><th scope="row">From a chapter</th><td>Page change; “Lesen” and “Ton” open; sticky “Zurück zu Kapitel 3”.</td><td>Index first, then a sub-page: two backs to the chapter.</td><td>No page change: panel over the chapter, closes to the same spot.</td></tr>
+					<tr><th scope="row">From home / toon</th><td>All groups closed, summaries visible.</td><td>The index; deep links like <code>/account/reading</code>.</td><td>Same as A.</td></tr>
+					<tr><th scope="row">Guest</th><td colspan="3">Top card = sign-in (email code) + how to get an account with a code. Reading, sound and device groups work on the device. Account, collection and notifications are hidden.</td></tr>
+					<tr><th scope="row">Member without access</th><td colspan="3">Access line “Noch kein Code in deinem Konto” + “Code scannen”, everything else as a member.</td></tr>
+					<tr><th scope="row">Creator / admin</th><td colspan="3">A “Creator” group last: Creator link, draft preview, reset the map. The eye mark (draft preview on) opens it.</td></tr>
+					<tr><th scope="row">Build cost</th><td>Low: re-order + one disclosure component.</td><td>Medium: 7 routes, back handling, master-detail on desktop.</td><td>A + one PullPanel reusing the same setting components.</td></tr>
+					<tr><th scope="row">Risk</th><td>Long once several groups are open.</td><td>Thin pages (Ton has two settings); deeper navigation.</td><td>The quick settings exist in two places (same components).</td></tr>
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<section class="notes" aria-label="Recommendation, accessibility and open questions">
+		<div class="note rec">
+			<div class="kicker">Recommendation</div>
+			<h3>C: the page as A, plus a quick panel in the chapter</h3>
+			<p>The page stays one view with no new routes, and the groups with summary lines give it order. In a chapter, the reader reaches volume, vibration, hints, sensitive content, quality and “save this chapter” without leaving the spot. B is the familiar app pattern but adds a level of back navigation from the chapter and makes pages with two settings.</p>
+		</div>
+		<div class="note">
+			<div class="kicker">Accessibility</div>
+			<h3>Same rules in all three</h3>
+			<ul>
+				<li>One <code>h1</code>; each group an <code>h2</code> holding a real <code>&lt;button aria-expanded aria-controls&gt;</code>, with the summary in its name.</li>
+				<li>B: the index is a <code>nav</code>; closing a sub-page puts focus back on its row. C: the panel is a <code>dialog</code>, Escape and pull-down close it, focus returns to the menu.</li>
+				<li>Every row and toggle at <code>--control-height</code> (44 px on touch); segmented choices are radio groups in a <code>fieldset</code>.</li>
+				<li>Saves announce “Gespeichert” (<code>role=status</code>), errors <code>role=alert</code>.</li>
+				<li>Reduced motion: no chevron or panel animation. Sizes in rem; round only for standalone icon buttons.</li>
+			</ul>
+		</div>
+		<div class="note">
+			<div class="kicker">Open questions</div>
+			<h3>For the owner</h3>
+			<ol>
+				<li>Avatar and inventory on the account page: links to their panels (as drawn) or keep the full avatar here?</li>
+				<li>Hints and sensitive content for guests: account only (as drawn) or device settings too?</li>
+				<li>The quick panel in a chapter: a menu row (as drawn) or a sixth round button in the header?</li>
+				<li>At sign-in, copy the device's name and quality into the account where it has none?</li>
+				<li>Push notifications, when built: in “Benachrichtigungen” next to the newsletter?</li>
+				<li>All groups closed by default, and remember open ones per device?</li>
+			</ol>
+		</div>
+	</section>
+</div>
+
+<script>
+(() => {
+const T = {
+	de: {
+		my_account: 'Mein Konto', back_to: (n) => `Zurück zu ${n}`, signed_in_as: 'Angemeldet als', sign_out: 'Abmelden',
+		access: 'Zugang', access_unlocked: (u) => `Alle Kapitel · ${u}`, lifetime: 'Unbegrenzt', access_none: 'Noch kein Code in deinem Konto',
+		scan: 'Code scannen', login_title: 'Anmelden', login_hint: 'Melde dich an, um deine Codes und Gegenstände zu besitzen und deinen Fortschritt auf jedem Gerät zu behalten. Zum Lesen reicht es, deinen Code zu scannen.',
+		email: 'E-Mail', email_ph: 'du@beispiel.de', send_code: 'Code senden',
+		signup_rule: 'Noch kein Konto? Du erstellst eins mit einem Code von einem SCUTOONS-Produkt (dem QR-Code einer limitierten Edition) oder einem Promo-Code: Scanne ihn und wähle „Konto erstellen“ oder „Zu meinem Konto hinzufügen“.',
+		device_access: 'Zugang auf diesem Gerät', device_access_info: (c, u) => `Code ${c} schaltet auf diesem Gerät alle Kapitel frei (${u}). Er bleibt auch nach dem Abmelden.`,
+		roles: 'Rollen', role_creator: 'Creator', role_member: 'Mitglied', created_at: 'Erstellt am', memberships: 'Mitgliedschaften', membership: 'Vollmitgliedschaft',
+		reader_name: 'Dein Name', reader_name_hint: 'Geschichten können dich so ansprechen. Nur du siehst ihn.',
+		mq_title: 'Medienqualität', mq: { auto: 'Automatisch', low: 'Niedrig', medium: 'Mittel', high: 'Hoch' },
+		mq_hint: 'Bilder und Videos gibt es in drei Größen. Automatisch wählt nach deiner Verbindung.', mq_auto_now: (l) => `Automatisch gerade: ${l}.`,
+		show_hints: 'Hinweise zeigen', show_hints_hint: 'Umrandet, was du in einem Kapitel antippen kannst.',
+		hide_sensitive: 'Sensible Inhalte ausblenden', hide_sensitive_hint: 'Markierte Bilder werden unscharf, ihr Ton stumm.',
+		fx_title: 'Soundeffekte', fx_volume: 'Lautstärke', fx_try: 'Anhören', fx_hint: 'Antippen, Aufheben und Effekte in den Kapiteln. Musik und Stimmen behalten ihre eigene Lautstärke.',
+		fx_haptics: 'Vibration', fx_haptics_hint: 'Ein kurzes Brummen beim Antippen und Aufheben (Handys).',
+		app_title: 'App', install_app: 'App installieren', install_hint: 'SCUTOONS auf deinem Startbildschirm, öffnet ohne Browserleiste.',
+		auto_title: 'Kapitel auf dem Gerät speichern', auto: { off: 'Nur von Hand', wifi: 'Im WLAN', always: 'Immer' },
+		auto_hint: 'Ein Kapitel, das du öffnest, wird dann von selbst gespeichert und ist auch ohne Verbindung lesbar – große Videos bleiben weg, nie im Datensparmodus.',
+		saved_title: 'Gespeicherte Kapitel', saved_summary: (c, s) => `${c} auf diesem Gerät · ${s} MB`, saved_storage: (u, q) => `SCUTOONS belegt ${u} MB von den ${q} MB, die dieser Browser erlaubt.`,
+		remove_all: 'Alle entfernen', remove: 'Entfernen', progress: (d, t, p) => `${d} von ${t} MB · ${p} %`, stop: 'Abbrechen',
+		kinds: 'Bilder 14 MB · Musik & Klänge 6 MB · Text & Schrift 1 MB',
+		newsletter: 'Schickt mir Neuigkeiten zu neuen Veröffentlichungen', newsletter_hint: 'Höchstens ein paar E-Mails im Jahr. Du kannst das hier jederzeit abschalten.',
+		inventory: 'Inventar', items_count: (n) => `${n} Gegenstände`, open_inventory: 'Inventar öffnen', avatar: 'Avatar',
+		claims: 'Meine Ansprüche', claim_open: 'Offen', claim_add_file: 'Nachweis anhängen', claim_withdraw: 'Zurückziehen', claim_files: (n) => `${n} Dateien angehängt`,
+		ai_title: 'KI-Verbindungen', ai_hint: 'Lass deine eigene Claude in SCUTOONS als du arbeiten, mit deinen Rechten. Sie speichert Entwürfe – veröffentlichen, senden und übernehmen tust du in den Apps.',
+		ai_new: 'Neue Verbindung', ai_example: 'Claude auf meinem Laptop', ai_meta: 'Erstellt 02.10.2026 · zuletzt genutzt 15.10.2026', ai_revoke: 'Widerrufen',
+		creator_link: 'Creator', creator_hint: 'Toons und Kapitel bearbeiten.', draft_preview: 'Entwurfsvorschau',
+		draft_preview_hint: 'Entwürfe und bald erscheinende Kapitel hier lesen, zum Prüfen. Nur auf diesem Gerät; ein kleines Auge oben rechts zeigt es auf jeder Seite.',
+		reset_map: 'Karte zurücksetzen', reset_map_hint: 'Zum Prüfen: die Karte wie neu gelesen – kein Ort freigeschaltet. Nur die Karte: gelesene Kapitel, Entscheidungen und Gegenstände bleiben.',
+		chapter: (n) => `Kapitel ${n}`, save_device: 'Aufs Gerät laden', menu: 'Menü', limited: 'Limitierte Editionen', events: 'Veranstaltungen', buy: 'Zugang kaufen',
+		/* new texts */
+		g: { reading: 'Lesen', sound: 'Ton & Vibration', device: 'Dieses Gerät', notify: 'Benachrichtigungen', collection: 'Sammlung', account: 'Konto', creator: 'Creator' },
+		scope_account: 'Konto', scope_device: 'Gerät', guest_more: 'Hinweise und sensible Inhalte stellst du mit einem Konto ein.',
+		ios_howto: 'Auf dem iPhone: in Safari „Teilen“ → „Zum Home-Bildschirm“.', push: 'Neue Kapitel als Mitteilung', push_hint: 'Geplant – auf dem iPhone nur in der installierten App.',
+		open_avatar: 'Avatar öffnen', back_chapter: (n) => `Zurück zu Kapitel ${n}`, settings: 'Einstellungen', all_settings: 'Alle Einstellungen', this_chapter: 'Dieses Kapitel',
+		on: 'an', off: 'aus', hints_s: 'Hinweise', sens_s: 'Sensibles', vib_s: 'Vibration', news_s: 'Neuigkeiten', draft_s: 'Entwurfsvorschau', open_s: (n) => `${n} offen`,
+		carried: 'Angemeldet. Von diesem Gerät übernommen: Name, Medienqualität.', name_ex: 'Mia', saving_ex: 'CatPope · Kapitel 4'
+	},
+	en: {
+		my_account: 'Account', back_to: (n) => `Back to ${n}`, signed_in_as: 'Signed in as', sign_out: 'Sign out',
+		access: 'Access', access_unlocked: (u) => `All chapters · ${u}`, lifetime: 'Lifetime', access_none: 'No code in your account yet',
+		scan: 'Scan your code', login_title: 'Sign in', login_hint: 'Sign in to own your codes and items and keep your progress on every device. To just read, scanning your code is enough.',
+		email: 'Email', email_ph: 'you@example.com', send_code: 'Send code',
+		signup_rule: 'No account yet? You create one with a code from a SCUTOONS product (the QR code of a limited edition) or a promo code: scan it and choose "Create account" or "Add to my account".',
+		device_access: 'Access on this device', device_access_info: (c, u) => `Code ${c} unlocks all chapters on this device (${u}). It stays after signing out.`,
+		roles: 'Roles', role_creator: 'Creator', role_member: 'Member', created_at: 'Created At', memberships: 'Memberships', membership: 'Full Membership',
+		reader_name: 'Your name', reader_name_hint: 'Stories may call you by it. Only you see it.',
+		mq_title: 'Media quality', mq: { auto: 'Automatic', low: 'Low', medium: 'Medium', high: 'High' },
+		mq_hint: 'Images and videos come in three sizes. Automatic chooses by your connection.', mq_auto_now: (l) => `Automatic right now: ${l}.`,
+		show_hints: 'Show hints', show_hints_hint: 'Outlines what you can tap in a chapter.',
+		hide_sensitive: 'Hide sensitive content', hide_sensitive_hint: 'Blurs marked panels and mutes their sound.',
+		fx_title: 'Sound effects', fx_volume: 'Volume', fx_try: 'Try', fx_hint: 'Taps, pickups and impacts in the chapters. Music and voices keep their own volume.',
+		fx_haptics: 'Vibration', fx_haptics_hint: 'A short buzz with taps and pickups (phones).',
+		app_title: 'App', install_app: 'Install app', install_hint: 'SCUTOONS on your home screen, opens without the browser bar.',
+		auto_title: 'Save chapters on this device', auto: { off: 'Only by hand', wifi: 'On Wi-Fi', always: 'Always' },
+		auto_hint: 'A chapter you open is then saved by itself and reads without a connection too – big videos are left out, never with data saver on.',
+		saved_title: 'Saved chapters', saved_summary: (c, s) => `${c} on this device · ${s} MB`, saved_storage: (u, q) => `SCUTOONS uses ${u} MB of the ${q} MB this browser allows.`,
+		remove_all: 'Remove all', remove: 'Remove', progress: (d, t, p) => `${d} of ${t} MB · ${p} %`, stop: 'Stop',
+		kinds: 'Pictures 14 MB · Music & sounds 6 MB · Text & fonts 1 MB',
+		newsletter: 'Send me news about new releases', newsletter_hint: 'At most a few emails a year. You can turn this off here any time.',
+		inventory: 'Inventory', items_count: (n) => `${n} items`, open_inventory: 'Open inventory', avatar: 'Avatar',
+		claims: 'My claims', claim_open: 'Open', claim_add_file: 'Add proof', claim_withdraw: 'Withdraw', claim_files: (n) => `${n} files attached`,
+		ai_title: 'AI connections', ai_hint: 'Let your own Claude work in SCUTOONS as you, with your rights. It saves drafts – you publish, send and apply in the apps.',
+		ai_new: 'New connection', ai_example: 'Claude on my laptop', ai_meta: 'Created 2026-10-02 · last used 2026-10-15', ai_revoke: 'Revoke',
+		creator_link: 'Creator', creator_hint: 'Edit toons and chapters.', draft_preview: 'Draft preview',
+		draft_preview_hint: 'Read draft and coming-soon chapters here, for checking. This device only; a small eye top right shows it on every page.',
+		reset_map: 'Reset the map', reset_map_hint: 'For checking: the map as if read anew – no place unlocked. Only the map: chapters read, choices and items stay.',
+		chapter: (n) => `Chapter ${n}`, save_device: 'Save to device', menu: 'Menu', limited: 'Limited Editions', events: 'Events', buy: 'Buy Access',
+		g: { reading: 'Reading', sound: 'Sound & vibration', device: 'This device', notify: 'Notifications', collection: 'Collection', account: 'Account', creator: 'Creator' },
+		scope_account: 'Account', scope_device: 'Device', guest_more: 'Hints and sensitive content are set with an account.',
+		ios_howto: 'On an iPhone: in Safari, “Share” → “Add to Home Screen”.', push: 'New chapters as a notification', push_hint: 'Planned – on an iPhone only in the installed app.',
+		open_avatar: 'Open avatar', back_chapter: (n) => `Back to chapter ${n}`, settings: 'Settings', all_settings: 'All settings', this_chapter: 'This chapter',
+		on: 'on', off: 'off', hints_s: 'Hints', sens_s: 'Sensitive', vib_s: 'Vibration', news_s: 'News', draft_s: 'Draft preview', open_s: (n) => `${n} open`,
+		carried: 'Signed in. Taken over from this device: name, media quality.', name_ex: 'Mia', saving_ex: 'CatPope · Chapter 4'
+	}
+};
+const N = (s) => `<span class="new">${s}</span>`;
+const ICON = {
+	chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+	right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
+	left: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+	menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
+	list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+	map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16"/></svg>',
+	box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8"/></svg>',
+	user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+	x: '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" aria-hidden="true"><path d="M0 0l10 10M10 0 0 10"/></svg>',
+	trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+	dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>'
+};
+
+const S = { role: 'member', ctx: 'home', lang: 'de', desk: 'C' };
+const V = { name: 'Mia', mq: 'auto', hints: true, sens: true, vol: 80, vib: true, auto: 'wifi', news: true, draft: false };
+const fresh = () => ({ A: { open: new Set() }, B: { page: null }, C: { step: 'chapter', page: false, open: new Set() } });
+let U = { phone: fresh(), desk: fresh() };
+
+const isGuest = () => S.role === 'guest' || S.role === 'guestcode';
+const visible = (g) => {
+	if (g === 'creator') return S.role === 'creator';
+	if (['account', 'collection', 'notify'].includes(g)) return !isGuest();
+	return true;
+};
+const GROUPS = ['reading', 'sound', 'device', 'notify', 'collection', 'account', 'creator'];
+const SCOPE = { reading: 'account', sound: 'device', device: 'device', notify: 'account', collection: 'account', account: 'account', creator: 'device' };
+
+function scope(g, t) {
+	const dev = isGuest() || SCOPE[g] === 'device';
+	return `<span class="chip ${dev ? 'dev' : ''}">${N(dev ? t.scope_device : t.scope_account)}</span>`;
+}
+function summary(g, t) {
+	const oo = (b) => (b ? t.on : t.off);
+	switch (g) {
+		case 'reading': return [V.name || '–', t.mq[V.mq], ...(isGuest() ? [] : [`${t.hints_s} ${oo(V.hints)}`, `${t.sens_s} ${V.sens ? t.off : t.on}`])].join(' · ');
+		case 'sound': return `${V.vol} % · ${t.vib_s} ${oo(V.vib)}`;
+		case 'device': return `${t.auto[V.auto]} · ${t.saved_summary(2, 61)}`;
+		case 'notify': return `${t.news_s} ${oo(V.news)}`;
+		case 'collection': return `${t.items_count(12)} · ${t.claims} ${t.open_s(1)}`;
+		case 'account': return S.role === 'noaccess' ? t.access_none : t.access_unlocked(t.lifetime);
+		case 'creator': return `${t.draft_s} ${oo(V.draft)}`;
+	}
+}
+const chk = (key, label, hint, extra = '') => `<label class="check"><input type="checkbox" data-v="${key}" ${V[key] ? 'checked' : ''} ${extra}><span>${label}<small>${hint}</small></span></label>`;
+const seg = (key, opts, labels, legend) => `<fieldset><legend>${legend}</legend><div class="sseg">${opts.map((o) => `<label class="${V[key] === o ? 'on' : ''}"><input type="radio" name="${key}-${Math.random().toString(36).slice(2, 7)}" data-v="${key}" value="${o}" ${V[key] === o ? 'checked' : ''}>${labels[o]}</label>`).join('')}</div></fieldset>`;
+
+function body(g, t, quick = false) {
+	switch (g) {
+		case 'reading': return `
+			${quick ? '' : `<div class="field"><label>${t.reader_name}</label><input type="text" data-v="name" value="${V.name}" maxlength="32" autocomplete="nickname"><small>${t.reader_name_hint}</small></div>`}
+			${seg('mq', ['auto', 'low', 'medium', 'high'], t.mq, t.mq_title)}
+			${quick ? '' : `<small style="margin-top:-0.6em">${t.mq_hint} ${V.mq === 'auto' ? t.mq_auto_now(t.mq.medium) : ''}</small>`}
+			${isGuest() ? `<p class="muted-line">${N(t.guest_more)}</p>` : chk('hints', t.show_hints, t.show_hints_hint) + chk('sens', t.hide_sensitive, t.hide_sensitive_hint)}`;
+		case 'sound': return `
+			<fieldset><legend>${t.fx_title}</legend>
+				<div class="spread"><span>${t.fx_volume} <output data-out="vol">${V.vol} %</output></span><button type="button" class="btn">${t.fx_try}</button></div>
+				<input type="range" min="0" max="100" step="5" value="${V.vol}" data-v="vol" aria-label="${t.fx_volume}">
+				${quick ? '' : `<small>${t.fx_hint}</small>`}
+			</fieldset>
+			${chk('vib', t.fx_haptics, t.fx_haptics_hint)}`;
+		case 'device': return `
+			<fieldset><legend>${t.app_title}</legend>
+				<div class="row"><button type="button" class="btn">${t.install_app}</button><small style="flex:1;min-width:8em">${t.install_hint}</small></div>
+				<small>${N(t.ios_howto)}</small>
+			</fieldset>
+			${seg('auto', ['off', 'wifi', 'always'], t.auto, t.auto_title)}
+			<small style="margin-top:-0.6em">${t.auto_hint}</small>
+			<fieldset><legend>${t.saved_title}</legend>
+				<div style="display:grid;gap:0.3em"><div class="spread"><strong style="font-size:0.9em">${t.saving_ex}</strong><button type="button" class="round" aria-label="${t.stop}" title="${t.stop}" style="width:calc(var(--ch)*0.8);height:calc(var(--ch)*0.8)">${ICON.x}</button></div>
+				<div class="bar" role="progressbar" aria-valuenow="42" aria-valuemin="0" aria-valuemax="100"><span style="width:42%"></span></div><small>${t.progress(14, 33, 42)}</small></div>
+				<ul class="list">
+					${[[2, 24], [3, 37]].map(([n, mb]) => `<li><span class="what"><a href="#" onclick="return false">CatPope · ${t.chapter(n)}</a><small>${t.kinds}</small></span><small>${mb} MB</small><button type="button" class="round" aria-label="${t.remove}" title="${t.remove}">${ICON.trash}</button></li>`).join('')}
+				</ul>
+				<div class="row"><button type="button" class="btn">${t.remove_all}</button><small style="flex:1;min-width:8em">${t.saved_summary(2, 61)} · ${t.saved_storage(61, 2048)}</small></div>
+			</fieldset>`;
+		case 'notify': return `
+			${chk('news', t.newsletter, t.newsletter_hint)}
+			<label class="check" style="opacity:0.55"><input type="checkbox" disabled><span>${N(t.push)}<small>${N(t.push_hint)}</small></span></label>`;
+		case 'collection': return `
+			<div class="spread"><span>${t.inventory} · ${t.items_count(12)}</span><button type="button" class="btn">${t.open_inventory}</button></div>
+			<div class="spread"><span class="row"><span class="acct-icon" style="width:1.8em;height:1.8em">${ICON.user}</span>${t.avatar}</span><button type="button" class="btn">${N(t.open_avatar)}</button></div>
+			<fieldset><legend>${t.claims}</legend>
+				<div class="claim"><div class="spread"><strong>CP7F3K</strong><span class="tag">${t.claim_open}</span></div><small>12.10.2026 · ${t.claim_files(1)}</small>
+				<div class="row"><button type="button" class="btn">${t.claim_add_file}</button><button type="button" class="btn">${t.claim_withdraw}</button></div></div>
+			</fieldset>`;
+		case 'account': return `
+			<dl class="kv">
+				<dt>${t.access}</dt><dd>${S.role === 'noaccess' ? t.access_none : t.access_unlocked(t.lifetime)}</dd>
+				${S.role === 'noaccess' ? '' : `<dt>${t.memberships}</dt><dd>${t.membership} · CP-2KX9 · ${t.lifetime}</dd>`}
+				<dt>${t.roles}</dt><dd>${S.role === 'creator' ? t.role_member + ', ' + t.role_creator : t.role_member}</dd>
+				<dt>${t.created_at}</dt><dd>03.09.2026</dd>
+			</dl>
+			<fieldset><legend>${t.ai_title}</legend>
+				<small>${t.ai_hint}</small>
+				<ul class="list"><li style="grid-template-columns:1fr auto"><span class="what"><span>${t.ai_example}</span><small>${t.ai_meta}</small></span><button type="button" class="btn">${t.ai_revoke}</button></li></ul>
+				<div><button type="button" class="btn">${t.ai_new}</button></div>
+			</fieldset>
+			<div><button type="button" class="btn">${t.sign_out}</button></div>`;
+		case 'creator': return `
+			<div class="row"><a class="btn" href="#" onclick="return false">${t.creator_link}</a><small>${t.creator_hint}</small></div>
+			${chk('draft', t.draft_preview, t.draft_preview_hint)}
+			${V.draft ? `<div class="row"><button type="button" class="btn">${t.reset_map}</button><small style="flex:1;min-width:8em">${t.reset_map_hint}</small></div>` : ''}`;
+	}
+}
+
+function topCard(t) {
+	if (isGuest()) return `
+		<section class="card" aria-labelledby="login-h">
+			<h2 id="login-h">${t.login_title}</h2>
+			<p style="font-size:0.9em">${t.login_hint}</p>
+			<div class="field"><label>${t.email}</label><input type="email" placeholder="${t.email_ph}"></div>
+			<button type="button" class="btn primary block">${t.send_code}</button>
+			<small>${t.signup_rule}</small>
+			${S.role === 'guestcode' ? `<div class="devcode"><strong style="font-size:0.9em">${t.device_access}</strong><small style="color:inherit">${t.device_access_info('CP7F3K', t.lifetime)}</small></div>` : ''}
+		</section>`;
+	return `
+		<section class="card" aria-label="${t.signed_in_as}">
+			<p class="who"><small>${t.signed_in_as}</small><br>mia@beispiel.de</p>
+			<div class="access"><small>${t.access}</small><span>${S.role === 'noaccess' ? t.access_none : t.access_unlocked(t.lifetime)}</span></div>
+			${S.role === 'noaccess' ? `<button type="button" class="btn primary block">${t.scan}</button>` : ''}
+		</section>`;
+}
+
+function topbar(t, tools) {
+	return `<div class="topbar"><span class="logo" aria-label="SCUTOONS">LOGO</span><div class="tools">${tools ?? `<button type="button" class="round" aria-label="${t.menu}">${ICON.menu}</button>`}</div></div>`;
+}
+function heading(t) {
+	return `<h1><span class="acct-icon">${ICON.user}</span>${t.my_account}</h1>`;
+}
+
+/* concept A (and C's page) */
+function pageA(t, ui, c) {
+	const inChapter = S.ctx === 'chapter';
+	const open = ui.open;
+	const groups = GROUPS.filter(visible).map((g) => {
+		const id = `${c}-${g}-${Math.random().toString(36).slice(2, 6)}`;
+		const isOpen = open.has(g);
+		return `<section class="grp"><h2><button type="button" class="disc" aria-expanded="${isOpen}" aria-controls="${id}" data-act="toggle" data-g="${g}">
+			<span class="lbl">${N(t.g[g])} ${scope(g, t)}</span><span class="sum">${summary(g, t)}</span>${ICON.chev}</button></h2>
+			<div class="grp-body" id="${id}" ${isOpen ? '' : 'hidden'}>${body(g, t)}</div></section>`;
+	}).join('');
+	return `${topbar(t)}<main class="page">
+		${inChapter ? '' : `<button type="button" class="back">${ICON.left}${t.back_to('CatPope')}</button>`}
+		${heading(t)}
+		${topCard(t)}
+		<div class="groups">${groups}</div>
+		${inChapter ? `<div class="sticky"><button type="button" class="btn primary block" data-act="backchapter">${ICON.left}${N(t.back_chapter(3))}</button></div>` : ''}
+	</main>`;
+}
+
+/* concept B */
+function pageB(t, ui, device) {
+	const list = GROUPS.filter(visible);
+	const cur = ui.page ?? (device === 'desk' ? 'reading' : null);
+	const idx = (activeOk) => `<nav aria-label="${t.settings}"><div class="idx">${list.map((g) => `<button type="button" data-act="openpage" data-g="${g}" ${activeOk && cur === g ? 'aria-current="page"' : ''}><span class="lbl">${N(t.g[g])} ${scope(g, t)}</span><span class="sum">${summary(g, t)}</span>${ICON.right}</button>`).join('')}</div></nav>`;
+	const back = S.ctx === 'chapter' ? `<button type="button" class="back">${ICON.left}${N(t.back_chapter(3))}</button>` : `<button type="button" class="back">${ICON.left}${t.back_to('CatPope')}</button>`;
+	if (device === 'desk') return `${topbar(t)}<div class="split">
+		<div style="display:grid;gap:1.1em">${back}${heading(t)}${topCard(t)}${idx(true)}</div>
+		<main class="detail"><h2 style="font-size:1.1em">${N(t.g[cur])} ${scope(cur, t)}</h2>${body(cur, t)}</main></div>`;
+	if (cur) return `${topbar(t)}<main class="page">
+		<div class="subbar"><button type="button" class="btn" data-act="backindex">${ICON.left}${t.my_account}</button></div>
+		<h1>${N(t.g[cur])} ${scope(cur, t)}</h1>${body(cur, t)}</main>`;
+	return `${topbar(t)}<main class="page">${back}${heading(t)}${topCard(t)}${idx(false)}</main>`;
+}
+
+/* concept C in a chapter */
+function chapterC(t, ui, device) {
+	if (ui.page) return pageA(t, ui, 'C');
+	const tools = ['list', 'map', 'box', 'user'].map((i) => `<button type="button" class="round" aria-label="${i}">${ICON[i]}</button>`).join('') + `<button type="button" class="round" aria-label="${t.menu}" data-act="menu">${ICON.menu}</button>`;
+	let html = `<div class="chapter"><div class="ctop"><span class="logo">LOGO</span><div class="tools">${tools}</div></div>
+		<div class="slices"><div class="slice"><div class="bubble">„${V.name || '…'}, bist du das?“</div></div><div class="slice">${V.hints && !isGuest() ? '<div class="hint-outline"></div>' : ''}</div><div class="slice"></div></div></div>`;
+	if (ui.step === 'menu') html += `<button type="button" class="scrim" aria-label="close" data-act="closeall"></button>
+		<nav class="drawer" aria-label="${t.menu}">
+			<div class="dhead"><button type="button" class="navbtn"><span class="acct-icon" style="width:1.8em;height:1.8em">${ICON.user}</span>${isGuest() ? t.login_title : t.my_account}</button>
+			<div class="row"><span class="langs"><span class="${S.lang === 'de' ? 'on' : ''}">de</span><span class="${S.lang === 'en' ? 'on' : ''}">en</span></span><button type="button" class="round" style="border:0" data-act="closeall" aria-label="close">${ICON.x}</button></div></div>
+			<button type="button" class="navbtn hl" data-act="panel">${N(t.settings)} ${ICON.right}</button>
+			<div class="toonrow"><i></i>CatPope</div><div class="toonrow"><i></i>Yellow Mouse</div>
+			${S.role === 'noaccess' || isGuest() ? `<a class="btn" href="#" onclick="return false">${t.buy}</a>` : ''}
+			<a class="btn" href="#" onclick="return false">${t.limited}</a><a class="btn" href="#" onclick="return false">${t.events}</a>
+		</nav>`;
+	if (ui.step === 'panel') html += `<button type="button" class="scrim" aria-label="close" data-act="closeall"></button>
+		<section class="pull" role="dialog" aria-modal="true" aria-labelledby="qp-${device}">
+			<div class="grab" aria-hidden="true"></div>
+			<div class="phead"><h2 id="qp-${device}">${N(t.settings)}</h2><button type="button" class="round" style="border:0" data-act="closeall" aria-label="close">${ICON.x}</button></div>
+			${body('sound', t, true)}
+			${body('reading', t, true)}
+			<div class="spread"><span>${N(t.this_chapter)} · ${t.chapter(3)}</span><button type="button" class="btn">${ICON.dl}${t.save_device}</button></div>
+			<div class="sticky" style="margin:0 -1em;padding-inline:1em"><button type="button" class="btn block" data-act="allsettings">${N(t.all_settings)} ${ICON.right}</button></div>
+		</section>`;
+	return html;
+}
+
+function render(frame) {
+	const c = frame.dataset.concept, device = frame.dataset.device;
+	const t = T[S.lang];
+	const ui = U[device][c];
+	const scrollTop = frame.querySelector('.screen')?.scrollTop ?? 0;
+	let html;
+	if (c === 'A') html = pageA(t, ui, 'A');
+	else if (c === 'B') html = pageB(t, ui, device);
+	else html = S.ctx === 'chapter' ? chapterC(t, ui, device) : pageA(t, ui, 'C');
+	frame.innerHTML = `<div class="screen" lang="${S.lang}">${html}</div>`;
+	frame.querySelector('.screen').scrollTop = scrollTop;
+}
+
+function defaults() {
+	U = { phone: fresh(), desk: fresh() };
+	if (S.ctx === 'chapter') for (const d of ['phone', 'desk']) { U[d].A.open = new Set(['reading', 'sound']); U[d].C.open = new Set(['reading', 'sound']); }
+}
+
+function renderAll() {
+	document.querySelectorAll('.frame[data-concept]').forEach(render);
+	for (const [k, v] of Object.entries(S)) document.querySelectorAll(`[data-ctl="${k}"] button`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+	renderFlow();
+}
+
+/* the guest → member flow, four static screens */
+function renderFlow() {
+	const t = T[S.lang];
+	const de = S.lang === 'de';
+	const steps = [
+		[de ? '1 · Im Kapitel' : '1 · In the chapter', de ? 'Ein Mitglieder-Kapitel: das Ende des Kapitels bietet „Anmelden“.' : 'A members-only chapter: the end bar offers “Sign in”.',
+			`<div class="chapter"><div class="slices"><div class="slice"></div></div><div class="sticky" style="position:absolute;left:0;right:0;bottom:0;margin:0;padding:1.5em 1em 1em"><div class="row" style="flex-wrap:nowrap"><button type="button" class="btn" style="flex:1">${t.scan}</button><button type="button" class="btn primary" style="flex:1">${t.login_title}</button></div></div></div>`],
+		[de ? '2 · Anmelden' : '2 · Sign in', de ? '/account?return=… – die Karte oben ist das Anmelden; die Gerät-Einstellungen stehen darunter.' : '/account?return=… – the top card is the sign-in; device settings sit below.',
+			`${topbar(t)}<main class="page">${heading(t)}<section class="card"><h2>${t.login_title}</h2><div class="field"><label>${t.email}</label><input type="email" value="mia@beispiel.de"></div><button type="button" class="btn primary block">${t.send_code}</button></section><div class="groups"><section class="grp"><h2><button type="button" class="disc" aria-expanded="false"><span class="lbl">${N(t.g.reading)} <span class="chip dev">${N(t.scope_device)}</span></span><span class="sum">Mia · ${t.mq.auto}</span>${ICON.chev}</button></h2></section></div></main>`],
+		[de ? '3 · Code eingeben' : '3 · Enter the code', de ? 'Einmal-Code aus der Mail, kein Passwort.' : 'One-time code from the mail, no password.',
+			`${topbar(t)}<main class="page">${heading(t)}<section class="card"><h2>${t.login_title}</h2><div class="field"><label>${de ? 'Einmal-Code' : 'One-time code'}</label><input type="text" value="482 913"></div><button type="button" class="btn primary block">${t.login_title}</button></section></main>`],
+		[de ? '4 · Zurück im Kapitel' : '4 · Back in the chapter', de ? 'Gleiche Stelle; ein Hinweis sagt, was vom Gerät ins Konto übernommen wurde.' : 'Same spot; one line says what moved from the device into the account.',
+			`<div class="chapter"><div class="slices"><div class="slice"><div class="bubble">„Mia, ${de ? 'bist du das?' : 'is that you?'}“</div></div></div></div><div class="toast" role="status">${N(t.carried)}</div>`]
+	];
+	document.getElementById('flow').innerHTML = steps.map(([h, cap, html]) => `<figure><div class="frame phone"><div class="screen" lang="${S.lang}" style="font-size:calc(100cqw * 14 / 390);--ch:calc(100cqw * 44 / 390)" inert>${html}</div></div><figcaption><b>${h}</b><br>${cap}</figcaption></figure>`).join('');
+}
+
+/* events */
+document.addEventListener('click', (e) => {
+	const ctl = e.target.closest('[data-ctl] button');
+	if (ctl) {
+		const k = ctl.parentElement.dataset.ctl;
+		S[k] = ctl.dataset.v;
+		if (k === 'desk') document.getElementById('deskframe').dataset.concept = S.desk;
+		if (k === 'ctx' || k === 'role') defaults();
+		renderAll();
+		return;
+	}
+	if (e.target.closest('#resetBtn')) { defaults(); renderAll(); return; }
+	const act = e.target.closest('[data-act]');
+	if (!act) return;
+	const frame = act.closest('.frame[data-concept]');
+	if (!frame) return;
+	const c = frame.dataset.concept, ui = U[frame.dataset.device][c];
+	switch (act.dataset.act) {
+		case 'toggle': ui.open.has(act.dataset.g) ? ui.open.delete(act.dataset.g) : ui.open.add(act.dataset.g); break;
+		case 'openpage': ui.page = act.dataset.g; break;
+		case 'backindex': ui.page = null; break;
+		case 'menu': ui.step = 'menu'; break;
+		case 'panel': ui.step = 'panel'; break;
+		case 'closeall': ui.step = 'chapter'; break;
+		case 'allsettings': ui.page = true; ui.step = 'chapter'; break;
+		case 'backchapter': if (c === 'C') ui.page = false; break;
+	}
+	render(frame);
+	const again = frame.querySelector(`[data-act="${act.dataset.act}"][data-g="${act.dataset.g ?? ''}"]`) || frame.querySelector('[data-act="backindex"], .pull h2, [data-act="menu"]');
+	again?.focus?.({ preventScroll: true });
+});
+document.addEventListener('keydown', (e) => {
+	if (e.key !== 'Escape') return;
+	document.querySelectorAll('.frame[data-concept="C"]').forEach((f) => { const ui = U[f.dataset.device].C; if (ui.step !== 'chapter') { ui.step = 'chapter'; render(f); } });
+});
+document.addEventListener('input', (e) => {
+	const el = e.target;
+	if (el.dataset?.v === 'vol') { V.vol = +el.value; el.closest('fieldset')?.querySelector('[data-out="vol"]')?.replaceChildren(`${V.vol} %`); }
+});
+document.addEventListener('change', (e) => {
+	const el = e.target;
+	const k = el.dataset?.v;
+	if (el.id === 'marknew') { document.getElementById('sheet').classList.toggle('marknew', el.checked); return; }
+	if (!k) return;
+	V[k] = el.type === 'checkbox' ? el.checked : k === 'vol' ? +el.value : el.value;
+	renderAll();
+});
+
+defaults();
+renderAll();
+})();
+</script>

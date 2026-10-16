@@ -84,6 +84,8 @@ function recordPull(THREE, model, camera, canvas) {
 	if (!record || !model.getObjectByName('sleeve')) return null;
 	model.updateMatrixWorld(true);
 	const home = record.position.clone();
+	// the set shifts back by half the way out: sleeve and record stay in the middle of the view
+	const set = record.parent, setHome = set.position.clone();
 	// all the way out: the record's diameter beyond where it stands (it peeks a little already), in its parent's units
 	const size = new THREE.Box3().setFromObject(record).getSize(new THREE.Vector3());
 	const scale = record.parent.getWorldScale(new THREE.Vector3());
@@ -126,6 +128,7 @@ function recordPull(THREE, model, camera, canvas) {
 			if (grab === null) out += (aim - out) * 0.18;
 			if (Math.abs(out) < 1e-5 && record.position.x === home.x) return false;
 			record.position.x = home.x + out;
+			set.position.x = setHome.x - (out / 2) * set.scale.x;
 			return true;
 		},
 		/** 0 = in its sleeve … 1 = all the way out */
