@@ -31,9 +31,10 @@ const VIEWS = {
 };
 /** the camera ride's whole arc around the stage (owner: "about 75 degrees max") */
 const ARC = (75 * Math.PI) / 180;
-const SLIDE = 0.9; // s
-const CARRY = 1.2;
-const DROP = 0.45;
+// slow enough to watch (owner 2026-10-16: "Ich sehe noch nicht, dass die Schallplatte aus der Hülle rausfährt")
+const SLIDE = 1.6; // s
+const CARRY = 1.6;
+const DROP = 0.6;
 const FLIP = 1.0;
 
 const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
@@ -170,7 +171,7 @@ export function mountRecordStage(canvas, url, opts = {}) {
 			let state = 'sleeve', t0 = 0, lies = want.side, spin = 0, armTurnNow = 0, lift = 0.06, view = 0;
 			const from = { y: 0, tilt: 0 };
 			const flat = (side) => (side === 'b' ? Math.PI / 2 : -Math.PI / 2);
-			const startAt = performance.now() + 500; // the card opens first
+			const startAt = performance.now() + 1200; // the card has opened and the sleeve is seen first
 			let last = performance.now();
 
 			// the stage fills the card's top as its background (owner 2026-10-16: "covering the entire background of the card
