@@ -172,6 +172,18 @@ export function mountRecordStage(canvas, url, opts = {}) {
 			const from = { y: 0, tilt: 0 };
 			const flat = (side) => (side === 'b' ? Math.PI / 2 : -Math.PI / 2);
 			const startAt = performance.now() + 1200; // the card has opened and the sleeve is seen first
+			// a record that is already on (playing, or paused in the album) lies on the platter from the start – the way out
+			// of the sleeve runs only when it is put on (owner 2026-10-16: "wenn die Schallplatte spielt, dann darf beim Auf-
+			// und Zufahren die Animation nicht kommen … nur beim Auflegen")
+			if (opts.placed) {
+				state = 'deck';
+				view = 1;
+				carrier.position.set(PLATTER.x, ON_PLATTER_Y, PLATTER.z);
+				tilt.rotation.x = flat(lies);
+				spin = want.playing ? -OMEGA : 0;
+				armTurnNow = want.playing ? armTurn(want.arm) : 0;
+				lift = want.playing && !want.lifted ? 0 : -0.07;
+			}
 			let last = performance.now();
 
 			// the stage fills the card's top as its background (owner 2026-10-16: "covering the entire background of the card

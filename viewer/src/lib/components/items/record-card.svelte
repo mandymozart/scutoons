@@ -124,7 +124,7 @@
 		     controls"); the 2D deck (no WebGL, reduced motion) stays in the flow above them -->
 		<div class="hero" class:in3d={in3d && model}>
 			{#if in3d && model}
-				<RecordStage url={model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} onfail={() => (modelFailed = true)} />
+				<RecordStage url={model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
 			{:else}
 				<div class="deck">
 					<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />

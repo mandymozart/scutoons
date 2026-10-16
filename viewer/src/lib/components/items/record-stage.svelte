@@ -18,6 +18,7 @@
 		label,
 		lift = 0,
 		resetKey = 0,
+		placed = false,
 		onfail
 	}: {
 		url: string;
@@ -29,6 +30,8 @@
 		lift?: number;
 		/** a new value eases the reader's pivot / zoom back (the card bumps it on a pick in the song list) */
 		resetKey?: number;
+		/** the record is already on when the stage opens: it lies on the platter, the way out runs only when it is put on */
+		placed?: boolean;
 		onfail: () => void;
 	} = $props();
 
@@ -40,7 +43,7 @@
 		const el = canvas;
 		if (!el || !url) return;
 		ready = false;
-		const handle = mountRecordStage(el, url, { lift: untrack(() => lift), onload: () => (ready = true), onerror: () => onfail() });
+		const handle = mountRecordStage(el, url, { lift: untrack(() => lift), placed: untrack(() => placed), onload: () => (ready = true), onerror: () => onfail() });
 		untrack(() => handle.update({ playing, side, arm, lifted }));
 		stage = handle;
 		return () => {
