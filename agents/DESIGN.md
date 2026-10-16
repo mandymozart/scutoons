@@ -298,7 +298,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **Linked groups** (owner 2026-10-06, DATA.md "Linked groups"): groups with `continues` share one chapter page – a
   chain read top to bottom (vertical → strip → strip → vertical reads smoothly: each strip pins, moves sideways,
   releases; an endless band – Layout "Endless", owner 2026-10-15 – stays in the page flow, screen high across the width,
-  and is dragged sideways round without end, a grab cursor (the hint nudge follows, Q10): research/TEXT-ACROSS-SLICES.md §8). One URL: `?label=` of a group inside a chain renders the whole chain and jumps (instant) to that group,
+  and is dragged sideways round without end, a grab cursor; with "Show hints" on, once per band and page view (in view
+  0.7 s, not while the story blocks or the band moves; the reader touching it cancels it) a hint line in the trails'
+  look sweeps right to left across its first slice (arrived at another slice: the most visible one) and the screen
+  bounces sideways – reduced motion: the line only fades, no bounce (renderer/strip-nudge.ts, owner 2026-10-16 Q10): research/TEXT-ACROSS-SLICES.md §8). One URL:
+  `?label=` of a group inside a chain renders the whole chain and jumps (instant) to that group,
   kept aligned while the page above settles. One `{#key}` per chain; the follow-up bar only after its last group, "↺
   Nochmal" from the chain's top. Creator: "Durchgehend" / "Continuous" (not on the chapter's last group), "Ende"
   (set / removed with a button: the jumpTo target fields + "sofort") on a group that doesn't continue; a Feather link

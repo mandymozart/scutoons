@@ -1,5 +1,6 @@
 import type { Attachment } from 'svelte/attachments';
 import { HIGHLIGHTERS, type Highlighter } from '@scutoons/content';
+import { hintGradient, hintStreak } from './hint-streak.ts';
 
 type Shape = [string, number, number, number, number, string, string | null];
 type Alien = typeof import('./alien-shapes.ts');
@@ -7,7 +8,6 @@ type Alien = typeof import('./alien-shapes.ts');
 let alien: Alien | null = null;
 let loading: Promise<void> | null = null;
 const loadAlien = () => (loading ??= import('./alien-shapes.ts').then((m) => void (alien = m)));
-let gradients = 0;
 const SVG = 'http://www.w3.org/2000/svg';
 
 /**
@@ -80,9 +80,8 @@ export function fireflies(): Attachment<HTMLElement> {
 			return Math.min(Math.round(num('--sc-firefly-max', 12)), Math.max(1, Math.round(base)));
 		}
 
-		/** an SVG of one shape with its own radial gradient (core → glow) – filled, or (an arc) stroked */
+		/** an SVG of one shape with its own radial gradient (core → glow, hint-streak.ts) – filled, or (an arc) stroked */
 		function shapeSvg([d, x, y, w, h, transform, rule]: Shape, rem: number, stroked: boolean): SVGSVGElement {
-			const id = `sc-alien-${++gradients}`;
 			const svg = document.createElementNS(SVG, 'svg');
 			// an arc may be flat (a straight line): give the box some height so it has a size at all
 			const long = Math.max(w, h);
@@ -91,24 +90,17 @@ export function fireflies(): Attachment<HTMLElement> {
 			svg.style.width = `${(rem * bw) / Math.max(bw, bh)}rem`;
 			svg.style.height = `${(rem * bh) / Math.max(bw, bh)}rem`;
 			svg.style.rotate = `${Math.round(Math.random() * 360)}deg`;
-			const gradient = document.createElementNS(SVG, 'radialGradient');
-			for (const [k, v] of [['id', id], ['cx', '0'], ['cy', '0'], ['r', '1'], ['gradientUnits', 'userSpaceOnUse'], ['gradientTransform', transform]]) gradient.setAttribute(k, v);
-			for (const [offset, color] of [['0', 'var(--sc-firefly-core)'], ['1', 'var(--sc-firefly-glow)']]) {
-				const stop = document.createElementNS(SVG, 'stop');
-				stop.setAttribute('offset', offset);
-				stop.style.stopColor = color;
-				gradient.appendChild(stop);
-			}
+			const paint = hintGradient(svg, transform);
 			const path = document.createElementNS(SVG, 'path');
 			path.setAttribute('d', d);
 			if (stroked) {
 				// a thin arc: the same line width at any size (its 0.5 unit stroke scaled down would vanish)
-				for (const [k, v] of [['fill', 'none'], ['stroke', `url(#${id})`], ['stroke-width', '2'], ['stroke-linecap', 'round'], ['vector-effect', 'non-scaling-stroke'], ['pathLength', '1']]) path.setAttribute(k, v);
+				for (const [k, v] of [['fill', 'none'], ['stroke', paint], ['stroke-width', '2'], ['stroke-linecap', 'round'], ['vector-effect', 'non-scaling-stroke'], ['pathLength', '1']]) path.setAttribute(k, v);
 			} else {
-				path.setAttribute('fill', `url(#${id})`);
+				path.setAttribute('fill', paint);
 				if (rule) path.setAttribute('fill-rule', rule);
 			}
-			svg.append(gradient, path);
+			svg.append(path);
 			return svg;
 		}
 
@@ -184,17 +176,7 @@ export function fireflies(): Attachment<HTMLElement> {
 			place(svg, spot(svg));
 			const path = svg.querySelector('path')!;
 			const length = 0.25 + Math.random() * 0.2;
-			path.setAttribute('stroke-dasharray', `${length} ${1 + length}`);
-			const ms = 1600 + Math.random() * 1400;
-			const anim = path.animate(
-				[
-					{ strokeDashoffset: `${1 + length}`, opacity: 0 },
-					{ opacity: 1, offset: 0.2 },
-					{ opacity: 1, offset: 0.75 },
-					{ strokeDashoffset: `${-length}`, opacity: 0 }
-				],
-				{ duration: ms, easing: 'ease-in-out', fill: 'forwards' }
-			);
+			const anim = hintStreak(path, { length, from: 1 + length, to: -length, ms: 1600 + Math.random() * 1400, easing: 'ease-in-out', fade: [0.2, 0.75] });
 			running.set(svg, anim);
 			anim.onfinish = () => {
 				running.delete(svg);

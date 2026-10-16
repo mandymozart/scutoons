@@ -1,4 +1,4 @@
-Status 2026-10-16: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built (the endless band, format + migration – not deployed), Q8–Q11 decided (DECISIONS 2026-10-16); open: §8 steps 3–4, Q1–Q4, Q7, Q12–Q13. FEATURES 10.100.
+Status 2026-10-16: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built (the endless band, format + migration – not deployed), Q8–Q11 decided (DECISIONS 2026-10-16); the Q10 hint nudge built; Swiper elsewhere measured (§9: score → scroll-snap, home slider → our utility) – open: the owner's go on §9, §8 steps 3–4, Q1–Q4, Q7. FEATURES 10.100.
 
 # Slices as background: the strip editor
 
@@ -323,11 +323,39 @@ decoded; an old cached bundle shows migrated ch2 strips as a Swiper until reload
 
 - **Q8** Hall and cat cut hard once per turn: keep Endless, make them Horizontal (pinned), or redraw the seam?
 - **Q9** Full width, screen high (box text ≈ 12 px at size 4 on a 390 phone): OK, or raise those boxes' sizes?
-- **Q10** Learning that it drags (the peek is only ≈ 0.08 frame on a 390 × 844 phone): nothing but a grab cursor, or
-  once a quarter-frame glide and back, no icon?
+- **Q10** answered 2026-10-16 ("a nudge is fine. Also use FX … deactivated when hints are turned off"), built: with
+  "Show hints" on, once per band and page view (0.7 s at ≥ 60 % in view; not under `html[data-vn-blocking]`, not while
+  it moves; a pointer on it cancels, moving it spends it) a hint line (the trails' colours, blend, glow) sweeps right
+  to left across the first slice (arrived at another slice: the most visible one), then the screen bounces sideways (fx `bounceCue`); no icon, the grab cursor stays.
+  Reduced motion: the line stands and fades (a fade, like the tap glow, is no travel), no bounce. renderer/
+  strip-nudge.ts (when, unit-tested) + strip-nudge-cue.ts; check:endless 13.
 - **Q11** Creator: one Layout select "Vertical · Horizontal · Endless" – OK?
 - **Q12** Home product slider: scroll-snap + ‹ ›, no autoplay (WCAG 2.2.2) – or keep Swiper there?
 - **Q13** Score pages: our paged scroller instead of Swiper (replaces 2026-10-14 "use the swiper we got already")?
+
+## 9. Swiper elsewhere: payload and reuse (2026-10-16)
+
+**How I measured.** `viewer/build` at ed4c780d, no rebuild. Each route's eager set is its static closure from `.vite/manifest.json` plus the `app.js` dictionary. Per file, Node zlib gzip -9 / brotli q11. Our code bundled with rolldown rc.12 (minified) in the scratchpad. My Swiper bundle came within 0.3% of the build's chunk `CZ-exddm.js` (67,976 B, 20.7 KB gz).
+
+**Payload.**
+- **Home:** 24.8 KB gz / 22.1 KB br eager, about 9% of the page's JS+CSS. That is core 20.7 + Nav/Autoplay 2.5 inlined in node 3 + core CSS 1.1 + navigation CSS about 0.5.
+- **Every toon page:** 21.8 KB gz / 19.5 KB br eager through layout node 2: toon-shell → inventory → item-detail → score-actions → ScoreView. That is 6.6% of the toon page and 6.0% of the chapter. Opening the score adds 0 Swiper bytes; it only lazy-loads Verovio.
+- **Ours:** the pager prototype + band code is 3.5 KB gz / 3.2 KB br. With every export of strip-loop, strip-drag and strip-dom it is 5.1 / 4.4. On chapter pages the pager adds about 1.5 KB gz over the band code already there. Ours is about 6× smaller.
+
+**Reuse.**
+- **Slides:** the band loop + a snap layer serves them. Prototype `pager.ts`: 242 lines, passed a CDP smoke test. perView, gap, buttons and autoplay must stay in the component, not the utility (that is the clone line).
+- **Score:** it does not fit. Bounded mode uses only drag + ease, and a per-page `change(i)` would re-render Verovio and restart the ease on repeat jumps while playing (`follow()` → `show()`).
+- **Score instead:** scroll-snap (`scroll-snap-stop:always`, instant `scrollTo` for jumps, `overscroll-behavior-x:contain`). About 0 B, native nested vertical scroll, loses only desktop mouse drag (keys, buttons and pedal already exist). It still needs a guard so smooth scrolling doesn't report intermediate pages.
+
+**Plan.**
+- **Now:** dynamic `import()` of ScoreView in score-actions (−21.8 KB gz per toon page). Drop product-slides' `:global(.swiper*)` rules: build CSS 3.BSR_asuy.css carries an unscoped `.swiper-slide{display:flex}` that reaches the score slides after SPA navigation (from the CSS, not seen in a browser).
+- **Then, size M:**
+  - strip-drag gets `blocked()` in place of `data-vn-blocking`, a wheel settle hook, and keys separate from touch.
+  - strip-loop gets `settle()` with a short-swipe rule, `indexAt`, and a settle-once event.
+  - product-slides: button arrows, autoplay pause control + reduced-motion, `user-select:none`, a width-only ResizeObserver.
+  - check-landing probes rewritten. The utility stays in viewer/.
+- **Answers Q12** (loop + autoplay kept, on our utility, not scroll-snap) **and Q13** (scroll-snap, not Swiper or the utility). §8 step 4 then removes the package.
+- **Risks:** no real touch, iOS or wheel device tested yet; the gap is 24 px at ≥768 px against Swiper's 16 px.
 
 Sources: WEBTOON Creators Resource Handbook (800 × 1280 per image, auto-slice); Clip Studio "Export Webtoon"; Chrome 129
 container-query change (dev.to/michaelcharles); WebKit commit 284730@main "Drop layout containment from container-type"

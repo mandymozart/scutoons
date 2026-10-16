@@ -281,16 +281,20 @@ function around(root: Element, fixed: Element[]): Element[] {
  * fixed ones inside it, they jumped off the screen; the view's other pieces move. A full-screen cover inside it
  * (`data-fx-screen`: the strip in full screen) is all the reader sees – it moves instead.
  */
-function onScreen(screen: HTMLElement, keyframes: Keyframe[], ms: number, easing: string) {
+function onScreen(screen: HTMLElement, keyframes: Keyframe[], ms: number, easing: string): Animation[] {
 	const cover = screen.querySelector<HTMLElement>('[data-fx-screen]');
 	if (!cover) clipAround(screen, ms);
+	const moving: Animation[] = [];
 	for (const el of cover ? [cover] : around(screen, fixedIn(screen))) {
 		if (!(el instanceof HTMLElement || el instanceof SVGElement)) continue;
 		const r = el.getBoundingClientRect();
 		const before = el.style.transformOrigin;
 		el.style.transformOrigin = `${window.innerWidth / 2 - r.left}px ${window.innerHeight / 2 - r.top}px`;
-		el.animate(keyframes, { duration: ms, easing }).onfinish = () => (el.style.transformOrigin = before);
+		const anim = el.animate(keyframes, { duration: ms, easing });
+		anim.onfinish = anim.oncancel = () => (el.style.transformOrigin = before);
+		moving.push(anim);
 	}
+	return moving;
 }
 
 function cover(host: HTMLElement, background: string, keyframes: Keyframe[], ms: number) {
@@ -299,6 +303,22 @@ function cover(host: HTMLElement, background: string, keyframes: Keyframe[], ms:
 	Object.assign(d.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '4', background, mixBlendMode: 'var(--sc-fx-blend, normal)' });
 	host.appendChild(d);
 	d.animate(keyframes, { duration: ms, easing: 'ease-out' }).onfinish = () => d.remove();
+}
+
+/**
+ * The whole chapter view bounces sideways once – the viewer's endless band hint (owner 2026-10-16, Q10: "bounce the
+ * screen like some existing effect does"): the screen shake's way of moving (`onScreen`), one shove to the left that
+ * springs back, zoomed at every step just enough that no edge shows (owner 2026-10-08: no white at the sides). `width`:
+ * the widest thing on screen that moves, px (a full-bleed band is wider than the reading column – the column's width
+ * zoomed it far more than needed on a desktop); the screen's own by default. Silent, no haptic: a hint, not an impact.
+ * Returns its cancel.
+ */
+export function bounceCue(screen: HTMLElement, ms = 520, width = screen.offsetWidth): () => void {
+	width = Math.max(1, Math.min(width || window.innerWidth, window.innerWidth));
+	const shoves: [number, number][] = [[0, 0], [-0.75, 0.3], [0.35, 0.6], [-0.12, 0.82], [0, 1]];
+	const keyframes = shoves.map(([x, offset]) => ({ offset, transform: x ? `translateX(${x}rem) scale(${1 + (2 * Math.abs(x) * rem()) / width + 0.005})` : 'none' }));
+	const moving = onScreen(screen, keyframes, ms, 'ease-out');
+	return () => moving.forEach((anim) => anim.cancel());
 }
 
 /**

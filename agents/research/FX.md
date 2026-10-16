@@ -100,6 +100,12 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
   mixed) was dropped. Colours / blend from the owner's tuning: --sc-firefly-core #000, --sc-firefly-glow #ec60cf,
   --sc-hint-blend difference; --sc-hint-style on :root overrides the chapter's choice in the inspector. Everything
   re-reads live when the variables change.
+- The endless band's drag hint (owner 2026-10-16, TEXT-ACROSS-SLICES.md §8 Q10): only with "Show hints", once per band
+  and page view – one streak of a hint line (`.sc-hint-sweep` in hint-areas.css; the trails' gradient and streak from
+  hint-streak.ts, their blend and glow) right to left across the part on screen of the band's first slice (arrived at
+  another slice: the most visible one), then `bounceCue` (cues.ts): the chapter view shoved sideways once and springing
+  back the screen shake's way (`onScreen`), silent, zoomed for the band's width so no edge shows (the shake zooms for
+  the column's width – on a desktop more than a full-bleed band needs). Reduced motion: the line fades, no bounce.
 
 **Phases**
 1. `pickup.collect` + `pickup.refuse` with default sounds – viewer only, no data change.

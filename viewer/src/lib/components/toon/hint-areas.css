@@ -62,3 +62,30 @@ html.sc-show-hints .sc-hint-area {
 html.sc-show-hints .sc-hint-area.triggered {
 	opacity: 0.45;
 }
+
+/* the endless band's drag hint (renderer/strip-nudge-cue.ts, owner 2026-10-16 Q10): one streak of a hint line across the
+   band's first slice (its part on screen: left / width inline), right to left – the trails' gradient, blend and glow;
+   above the frame's boxes */
+.sc-hint-sweep {
+	position: absolute;
+	left: 0;
+	top: 50%;
+	width: 100%;
+	height: 3rem;
+	margin-top: -1.5rem;
+	overflow: visible;
+	pointer-events: none;
+	z-index: 99;
+	mix-blend-mode: var(--sc-hint-blend);
+	filter: drop-shadow(0 0 0.4rem color-mix(in srgb, var(--sc-firefly-glow) 70%, transparent));
+}
+/* the viewBox is 10 units high (3rem) at the part's aspect, a uniform scale: 1.2 = 0.36rem at any width, round caps (a
+   non-scaling stroke would take the dash lengths in screen px – the streak shrank to a dot) */
+.sc-hint-sweep path {
+	fill: none;
+	stroke-width: 1.2;
+	stroke-linecap: round;
+}
+html:not(.sc-show-hints) .sc-hint-sweep {
+	display: none;
+}

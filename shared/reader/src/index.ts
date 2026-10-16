@@ -20,7 +20,7 @@ export { MapViewport, mapGestures, type MapGestureOptions } from './map/viewport
 export { default as MapRoutes, type DrawnRoute } from './map/map-routes.svelte';
 export { default as MapTerrain } from './map/map-terrain.svelte';
 export { configureFx, playFxSound, playRevealSound, buzz, isFxSound, FX_SOUNDS, type FxSound, type FxOutput } from './fx/sounds.ts';
-export { fxLayer, liftCue, refuseCue, nudgeCue, sparkles, impactCue, IMPACTS, IMPACT_DEFAULT_MS, type Impact, type Lift } from './fx/cues.ts';
+export { fxLayer, liftCue, refuseCue, nudgeCue, sparkles, impactCue, bounceCue, IMPACTS, IMPACT_DEFAULT_MS, type Impact, type Lift } from './fx/cues.ts';
 export { loadShape, type Shape } from './fx/shape.ts';
 export { default as ScoreView, DEFAULT_SCORE_LABELS, type ScoreLabels } from './score/score-view.svelte';
 export { default as ScoreAge } from './score/score-age.svelte';

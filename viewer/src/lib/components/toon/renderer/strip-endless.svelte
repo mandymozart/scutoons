@@ -9,15 +9,18 @@
 	import type { Motion, Overhang, Placement, StripFit, StripLayout } from './strip-loop.ts';
 	import { STRIP_SHOW, stripDrag, type StripInput } from './strip-drag.ts';
 	import { boxOverhang, decodeImages, rootRem, viewportWidth } from './strip-dom.ts';
+	import { bandNudge } from './strip-nudge-cue.ts';
+	import '../hint-areas.css';
 
 	/**
 	 * A horizontal group with `renderer.params.endless` (owner 2026-10-15, BACKLOG 10.100, TEXT-ACROSS-SLICES.md §8): the
 	 * slices side by side as one screen-high band in the page flow, across the whole width. The reader drags it sideways
 	 * (momentum, no snap) and it never ends: a frame that left the window on one side comes in on the other – no clones,
 	 * no DOM moves (strip-loop.ts), so every slice and its observers exist once and fire once per real entry. The page
-	 * scrolls past it as usual: the vertical wheel and vertical swipes stay the page's (strip-drag.ts). A grab cursor is
-	 * the only cue (owner 2026-10-16, Q10). A picture too narrow for the screen narrows the window (centred on ink) or is
-	 * whole and still. `sliceOffset`: the page index of the first slice (linked groups share one page).
+	 * scrolls past it as usual: the vertical wheel and vertical swipes stay the page's (strip-drag.ts). A grab cursor, and
+	 * with "Show hints" once a hint line sweeping across it and a sideways bounce (owner 2026-10-16, Q10; strip-nudge.ts).
+	 * A picture too narrow for the screen narrows the window (centred on ink) or is whole and still. `sliceOffset`: the
+	 * page index of the first slice (linked groups share one page).
 	 */
 	let { group, sliceOffset = 0 }: { group: Group; sliceOffset?: number } = $props();
 
@@ -49,6 +52,8 @@
 	const rem = (px: number) => `${px / (geo?.rem ?? 16)}rem`;
 	const frameEls = () => [...(track?.children ?? [])] as HTMLElement[];
 	const frameOf = (target: EventTarget | null) => frameEls().findIndex((el) => target instanceof Node && el.contains(target));
+	/** the drag hint: once, with "Show hints" – the reader moving the band spends it; a measure may make it movable */
+	const nudge = bandNudge({ frames: frameEls, movable: () => !!geo && geo.fit.mode !== 'still', busy: () => dragging || motion !== null });
 
 	function render() {
 		if (geo) placement = placeFrames(offset, geo.layout, geo.fit, dpr, overhang);
@@ -77,6 +82,7 @@
 		overhang = boxOverhang(frameEls(), geo.layout.widths);
 		geo = { ...geo, fit: stripFit(geo.layout, measured.width, dpr, overhang) };
 		render();
+		nudge.changed();
 	}
 
 	function tick(now: number) {
@@ -113,6 +119,7 @@
 		enabled: () => !!geo && geo.fit.mode !== 'still',
 		stop,
 		move(dx) {
+			nudge.touch();
 			offset += dx;
 			render();
 		},
@@ -120,6 +127,7 @@
 			if (geo) run(glide(offset, velocity, performance.now(), geo.layout.turn));
 		},
 		step(direction) {
+			nudge.touch();
 			// presses add up: from the running ease's end
 			if (geo) slideTo(stepTarget(motion?.ease ? motion.end : offset, direction, geo.layout));
 		},
@@ -127,7 +135,7 @@
 			const index = frameOf(target);
 			if (!geo || !placement || index < 0) return;
 			const to = revealTarget(offset, index, placement, geo.layout, geo.fit.window);
-			if (to !== null) slideTo(to);
+			if (to !== null) (nudge.touch(), slideTo(to));
 		},
 		dragging: (on) => (dragging = on)
 	};
@@ -192,6 +200,7 @@
 	bind:this={band}
 	{@attach stripDrag(input)}
 	{@attach viewportWidth}
+	{@attach nudge.attach}
 >
 	<div class="window" style:left={geo ? rem(geo.fit.inset) : null} style:width={geo ? rem(geo.fit.window) : null}>
 		<div class="track" bind:this={track} style:transform={placement ? `translate3d(${rem(placement.x)}, 0, 0)` : null}>

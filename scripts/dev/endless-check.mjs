@@ -24,6 +24,11 @@
 //  11. the band never reaches past the page's sides, so the page never gets wider by it (every state read, every recorded
 //      rAF); anything else past them is named in a note (the pinned strip's 100vw counts a classic scrollbar); no page errors
 //  12. at DPR 1.5: no ink hairline between frames (the band red, the art grey: no red at any frame edge, wrap seam too)
+//  13. the drag hint (strip-nudge.ts, owner 2026-10-16 Q10), "Show hints" set by rewriting the API's /me/ answer (off for
+//      1–12): with hints off nothing plays; on, the hint line sweeps once across frame 0 (its part on screen) and the
+//      screen bounces once (zoomed for the band's width), and never again after scrolling away and back; under html[data-vn-blocking] nothing (it plays once the story
+//      lets go); a touch (390) / mouse press (1440) on the band mid-sweep cancels it (line gone, no bounce, no replay);
+//      prefers-reduced-motion: the line stands still (fades) and there is no bounce
 //   node scripts/dev/endless-check.mjs [--page=/de/catpope/chapter/2] [--group=0] [--pinned=<group index>]
 //        [--only=390|1440|1.5] [--shots=<dir>]       (viewer :8000, API :9000 – local only; npm run dev:test-user)
 import { spawn } from 'node:child_process';
@@ -85,6 +90,8 @@ const ws = new WebSocket(wsUrl);
 await new Promise((r) => ws.addEventListener('open', r));
 let seq = 0;
 let rewritten = 0;
+/** the member's "Show hints" in the API's /me/ answer (the test user's own setting would decide otherwise) */
+let HINTS = false;
 const pending = new Map();
 const errors = [];
 const send = (method, params = {}) => new Promise((r) => { const i = ++seq; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
@@ -92,7 +99,7 @@ ws.addEventListener('message', (e) => {
 	const m = JSON.parse(e.data);
 	if (m.id && pending.has(m.id)) return pending.get(m.id)(m), pending.delete(m.id);
 	if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
-	if (m.method === 'Fetch.requestPaused') endless(m.params).catch(() => send('Fetch.continueResponse', { requestId: m.params.requestId }));
+	if (m.method === 'Fetch.requestPaused') (/\/me\/(\?|$)/.test(m.params.request.url) ? hints : endless)(m.params).catch(() => send('Fetch.continueResponse', { requestId: m.params.requestId }));
 });
 /** the chapter's answer with the group endless – the format after the 10.100 migration */
 async function endless({ requestId, responseStatusCode, responseHeaders }) {
@@ -103,6 +110,17 @@ async function endless({ requestId, responseStatusCode, responseHeaders }) {
 		const json = JSON.parse(body);
 		const group = (json.groups ?? json.chapter?.groups)?.[GROUP];
 		if (group) (group.renderer = { type: 'horizontal', params: { endless: true } }), (body = JSON.stringify(json)), rewritten++;
+	} catch {}
+	send('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: responseHeaders.filter((h) => !/^content-(length|encoding)$/i.test(h.name)), body: Buffer.from(body).toString('base64') });
+}
+/** the /me/ answer with "Show hints" = HINTS */
+async function hints({ requestId, responseStatusCode, responseHeaders }) {
+	if (responseStatusCode !== 200) return send('Fetch.continueResponse', { requestId });
+	const r = await send('Fetch.getResponseBody', { requestId });
+	let body = r.result.base64Encoded ? Buffer.from(r.result.body, 'base64').toString('utf8') : r.result.body;
+	try {
+		const json = JSON.parse(body);
+		if (json.user) (json.user.show_hints = HINTS), (body = JSON.stringify(json));
 	} catch {}
 	send('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: responseHeaders.filter((h) => !/^content-(length|encoding)$/i.test(h.name)), body: Buffer.from(body).toString('base64') });
 }
@@ -180,6 +198,42 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__endless 
 		return Object.entries(names).map(([n, k]) => (k > 1 ? n + ' ×' + k : n));
 	}
 };` });
+// the drag hint, recorded from the document's start: each hint line added (moving or still, its frame, when it went) and
+// each sideways bounce (Element.animate calls with a `translateX(…rem) scale(…)` keyframe – fx/cues.ts bounceCue);
+// `__nudge.hold(true)` keeps html[data-vn-blocking] set until hold(false)
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+	const n = (window.__nudge = { sweeps: [], bounces: [], held: false });
+	const animate = Element.prototype.animate;
+	Element.prototype.animate = function (keyframes, options) {
+		const anim = animate.call(this, keyframes, options);
+		if (Array.isArray(keyframes) && keyframes.some((k) => /translateX\\([^)]*rem\\) scale/.test(k.transform ?? ''))) {
+			// the zoom: just enough for the band's width (the full-bleed band, not the column)
+			const zoom = Math.max(...keyframes.map((k) => parseFloat(/scale\\(([\\d.]+)/.exec(k.transform ?? '')?.[1] ?? '1')));
+			const fits = zoom <= 1 + (2 * 0.75 * parseFloat(getComputedStyle(document.documentElement).fontSize)) / (document.querySelector('[data-endless]')?.offsetWidth || innerWidth) + 0.006;
+			const b = { t: performance.now(), canceled: false, finished: false, zoom, fits };
+			anim.addEventListener('cancel', () => (b.canceled = true));
+			anim.addEventListener('finish', () => (b.finished = true));
+			n.bounces.push(b);
+		}
+		return anim;
+	};
+	const root = () => document.documentElement;
+	const block = () => n.held && root().dataset.vnBlocking === undefined && (root().dataset.vnBlocking = '');
+	n.hold = (on) => ((n.held = on), on ? block() : delete root().dataset.vnBlocking, true);
+	// at the document's start there is no root yet
+	const watch = () => (new MutationObserver(block).observe(root(), { attributes: true, attributeFilter: ['data-vn-blocking'] }), new MutationObserver((list) => {
+		for (const m of list) {
+			for (const el of m.addedNodes) if (el.classList?.contains('sc-hint-sweep')) n.sweeps.push({ el, t: performance.now(), gone: null, frame: [...(el.parentElement?.parentElement?.children ?? [])].indexOf(el.parentElement), inside: ((r, w) => !!w && r.left >= w.left - 1 && r.right <= w.right + 1 && r.width > 0)(el.getBoundingClientRect(), el.closest('.window')?.getBoundingClientRect()), moving: [...el.querySelectorAll('path')].some((p) => p.getAnimations().length > 0) });
+			for (const el of m.removedNodes) for (const w of n.sweeps) if (w.el === el && w.gone === null) w.gone = performance.now();
+		}
+	}).observe(document.body, { childList: true, subtree: true }));
+	document.body ? watch() : addEventListener('DOMContentLoaded', watch);
+	/** the record without elements / animations; a bounce run = calls within 100 ms (onScreen animates several pieces at once) */
+	n.read = () => {
+		const runs = n.bounces.filter((b, i) => !i || b.t - n.bounces[i - 1].t > 100).map((b) => ({ t: b.t, canceled: n.bounces.filter((x) => Math.abs(x.t - b.t) <= 100).every((x) => x.canceled), finished: b.finished, zoom: b.zoom, fits: b.fits }));
+		return { sweeps: n.sweeps.map(({ el, ...w }) => w), runs, hints: root().classList.contains('sc-show-hints') };
+	};
+})();` });
 /** how far the page got wider than the viewport, and the band past the page's sides, px – over every state read */
 let wide = { page: 0, band: 0 };
 const widen = (s) => (wide = { page: Math.max(wide.page, s.sw - s.cw), band: Math.max(wide.band, -s.band.x, s.band.x + s.band.w - s.cw) });
@@ -299,8 +353,8 @@ const results = [];
 const check = (name, problems) => { results.push(!problems.length); console.log(`${problems.length ? 'FAIL' : 'ok  '} ${name}${problems.length ? `  — ${problems.join('; ')}` : ''}`); };
 const tolOf = (dpr) => 1 / dpr + 0.02;
 
-async function openPage(name) {
-	await send('Page.navigate', { url: VIEWER + PAGE });
+async function openPage(name, navigate = true) {
+	if (navigate) await send('Page.navigate', { url: VIEWER + PAGE });
 	const ready = await until(`(() => { const s = window.__endless?.state(); const imgs = [...(__endless.band()?.querySelectorAll('img') ?? [])]; return s && s.T > 0 && imgs.length >= ${N} && imgs.every((i) => i.complete && i.naturalWidth > 0) ? true : null; })()`, 40000);
 	await sleep(700); // the band decodes its frames once they loaded
 	if (!ready) check(`${name}: the endless band renders (the API's answer rewritten ${rewritten}×)`, ['no band with loaded frames within 40 s']);
@@ -615,6 +669,113 @@ async function seams(name, dpr) {
 	check(`${name}: no ink hairline between frames at dpr ${dpr} (${edges} edges, the worst red excess ${worst.red}${worst.seam ? ` at ${worst.seam}` : ''})`, p);
 }
 
+/** 13 – the drag hint: off / once / not while blocked / a touch cancels / reduced motion */
+async function nudges(name, mobile) {
+	const PLAYED = 2600; // dwell 700 + the sweep 1100 + the bounce from 78 % of it, 520 – and some slack
+	const read = () => js('__nudge.read()');
+	const fresh = async (hints) => {
+		HINTS = hints;
+		await send('Page.navigate', { url: 'about:blank' });
+		await sleep(200);
+	};
+	/** the band in the middle of the screen, or (out) below it, off screen – no state read (the bounce is past the sides) */
+	const place = (out) => js(`(() => { const b = __endless.band().getBoundingClientRect(); scrollTo({ top: scrollY + b.top + (${out} ? b.height + innerHeight : -(innerHeight - b.height) / 2), behavior: 'instant' }); return true; })()`);
+	const say = (r) => `${r.sweeps.length} line(s)${r.sweeps.length ? ` (${r.sweeps.map((w) => `frame ${w.frame}, ${w.moving ? 'sweeping' : 'still'}`).join('; ')})` : ''}, ${r.runs.length} bounce(s)`;
+
+	// off
+	await fresh(false);
+	if (await openPage(`${name} hints off`)) {
+		await place(false);
+		await sleep(PLAYED);
+		const r = await read();
+		const p = [];
+		if (r.hints) p.push('html.sc-show-hints is set (the /me/ rewrite did not take)');
+		if (r.sweeps.length || r.runs.length) p.push(say(r));
+		check(`${name}: "Show hints" off – no hint line, no bounce (${say(r)})`, p);
+	}
+
+	// on: once, and not again after scrolling away and back
+	await fresh(true);
+	if (await openPage(`${name} hints on`)) {
+		await place(false);
+		await until(`(() => { const r = __nudge.read(); return r.sweeps.length && r.sweeps.every((w) => w.gone !== null) && r.runs.length && r.runs.every((b) => b.finished || b.canceled) ? true : null; })()`, 8000);
+		const r1 = await read();
+		await place(true);
+		await sleep(400);
+		await place(false);
+		await sleep(PLAYED);
+		const r2 = await read();
+		const p = [];
+		if (!r1.hints) p.push('html.sc-show-hints not set (the /me/ rewrite did not take)');
+		if (r1.sweeps.length !== 1 || !r1.sweeps[0].moving || r1.sweeps[0].frame !== 0) p.push(`first view: ${say(r1)}, expected one sweeping line on frame 0`);
+		if (r1.sweeps[0] && !r1.sweeps[0].inside) p.push('the line reaches past the window (it spans the part of the slice on screen)');
+		if (r1.runs[0] && !r1.runs[0].fits) p.push(`the bounce zooms ${r1.runs[0].zoom}, more than the band's width needs`);
+		if (r1.runs.length !== 1 || r1.runs[0].canceled) p.push(`first view: ${r1.runs.length} bounce(s)${r1.runs[0]?.canceled ? ', cancelled' : ''}, expected one`);
+		else if (r1.sweeps[0] && !(r1.runs[0].t > r1.sweeps[0].t + 300)) p.push(`the bounce ${Math.round(r1.runs[0].t - r1.sweeps[0].t)} ms after the line, expected near its end`);
+		if (r2.sweeps.length !== r1.sweeps.length || r2.runs.length !== r1.runs.length) p.push(`after scrolling away and back: ${say(r2)}`);
+		check(`${name}: "Show hints" on – one hint line across frame 0 (on screen), then one bounce${r1.runs[0] && r1.sweeps[0] ? ` (${Math.round(r1.runs[0].t - r1.sweeps[0].t)} ms later, zoom ${r1.runs[0].zoom})` : ''}; not again after scrolling away and back (${say(r2)})`, p);
+	}
+
+	// the story blocks the page from the start: nothing; once it lets go: the nudge
+	await fresh(true);
+	await send('Page.navigate', { url: VIEWER + PAGE });
+	await until(`location.href.startsWith('${VIEWER}') && window.__nudge && __nudge.hold(true)`, 5000);
+	if (await openPage(`${name} blocked`, false)) {
+		await place(false);
+		await sleep(PLAYED);
+		const r1 = await read();
+		await js('__nudge.hold(false)');
+		await sleep(PLAYED);
+		const r2 = await read();
+		const p = [];
+		if (r1.sweeps.length || r1.runs.length) p.push(`while blocking: ${say(r1)}`);
+		if (r2.sweeps.length !== 1) p.push(`after the story let go: ${say(r2)}, expected the nudge once`);
+		check(`${name}: html[data-vn-blocking] – no hint line, no bounce while it blocks (${say(r1)}); after it: ${say(r2)}`, p);
+	}
+
+	// a touch / press on the band mid-sweep cancels it
+	await fresh(true);
+	await send('Page.navigate', { url: VIEWER + PAGE });
+	let caught = null;
+	for (const stop = Date.now() + 20000; Date.now() < stop && !caught; await sleep(30)) {
+		const r = await js('window.__nudge?.read()').catch(() => null);
+		if (r?.sweeps.length) caught = r;
+	}
+	if (!caught) check(`${name}: a ${mobile ? 'touch' : 'mouse press'} cancels the hint`, ['no hint line within 20 s']);
+	else {
+		const at = await point(0.5, 0.5);
+		const go = pointer(mobile ? 'touch' : 'mouse');
+		const pressed = await js('performance.now()');
+		await go.down(at);
+		await sleep(60);
+		await go.up(at);
+		await sleep(PLAYED);
+		const r = await read();
+		const w = r.sweeps[0];
+		const p = [];
+		if (w.gone === null || w.gone - pressed > 250) p.push(`the line stayed ${w.gone === null ? 'on' : `${Math.round(w.gone - pressed)} ms`} after the press`);
+		if (r.runs.some((b) => !b.canceled && b.t > pressed)) p.push('a bounce started after the press');
+		if (r.runs.some((b) => b.finished)) p.push('a bounce ran to its end');
+		if (r.sweeps.length !== 1) p.push(`${r.sweeps.length} lines`);
+		check(`${name}: a ${mobile ? 'touch' : 'mouse press'} on the band ${Math.round(pressed - w.t)} ms into the sweep cancels it – the line gone after ${w.gone === null ? '–' : Math.round(w.gone - pressed)} ms, ${r.runs.length} bounce(s)${r.runs.length ? ' cancelled' : ''}, no replay`, p);
+	}
+
+	// reduced motion: a still line, no bounce
+	await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+	await fresh(true);
+	if (await openPage(`${name} reduced motion`)) {
+		await place(false);
+		await sleep(PLAYED);
+		const r = await read();
+		const p = [];
+		if (r.sweeps.length !== 1 || r.sweeps[0].moving) p.push(`${say(r)}, expected one still line`);
+		if (r.runs.length) p.push(`${r.runs.length} bounce(s)`);
+		check(`${name}: prefers-reduced-motion – the line stands still (it fades), no bounce (${say(r)})`, p);
+	}
+	await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+	HINTS = false;
+}
+
 const SIZES = [
 	{ name: '390', w: 390, h: 844, dpr: 1, mobile: true },
 	{ name: '1440', w: 1440, h: 900, dpr: 1, mobile: false },
@@ -625,7 +786,7 @@ try {
 	await send('Runtime.enable');
 	await send('Page.enable');
 	await send('Emulation.setFocusEmulationEnabled', { enabled: true });
-	await send('Fetch.enable', { patterns: [{ urlPattern: `*/library/toons/${TOON}/chapters/${CHAPTER}?*`, requestStage: 'Response' }, { urlPattern: `*/library/toons/${TOON}/chapters/${CHAPTER}`, requestStage: 'Response' }] });
+	await send('Fetch.enable', { patterns: [{ urlPattern: `*/library/toons/${TOON}/chapters/${CHAPTER}?*`, requestStage: 'Response' }, { urlPattern: `*/library/toons/${TOON}/chapters/${CHAPTER}`, requestStage: 'Response' }, { urlPattern: '*/me/', requestStage: 'Response' }, { urlPattern: '*/me/?*', requestStage: 'Response' }] });
 	await send('Page.navigate', { url: `${VIEWER}/favicon-16x16.png` });
 	await sleep(500);
 	await js(`(localStorage.clear(), localStorage.setItem('scutoons_session', ${JSON.stringify(session.token)}), localStorage.setItem('scutoons.draft-preview', '1'), true)`);
@@ -662,6 +823,8 @@ try {
 		const others = wide.page > 0 ? await js('__endless.over()') : [];
 		if (others.length) console.log(`note ${size.name}: the page is ${wide.page} px wider than the viewport – not the band: ${others.join(', ')}`);
 		check(`${size.name}: the band never reaches past the page's sides, the page never got wider by it (band ${wide.band.toFixed(1)} px, page ${wide.page} px)`, wide.band > 0.5 || (wide.page > 0 && !others.length) ? [`the band reaches ${wide.band.toFixed(1)} px past the page, the page ${wide.page} px wider`] : []);
+		// last: the bounce moves the whole view sideways (zoomed) – past the sides by design
+		if (size.dpr === 1) await nudges(size.name, size.mobile);
 	}
 	check('no page errors', errors.length ? [`${errors.length}: ${errors.slice(0, 3).join(' | ')}`] : []);
 } catch (e) {
