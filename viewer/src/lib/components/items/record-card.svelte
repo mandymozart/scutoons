@@ -130,11 +130,6 @@
 					<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
 				</div>
 			{/if}
-			<button type="button" class="btn-secondary turn" aria-pressed={side === 'B'} onclick={onturn} data-testid="record-turn">
-				<Icon name="refresh-cw" />
-				{m['items.player_turn']()}
-			</button>
-
 			<div class="over">
 				<h3 class="song" data-testid="card-title">{track?.title}</h3>
 				<p class="meta">{[album, sided || side === 'B' ? m['items.player_side']({ side }) : '', count > 1 ? `${position} / ${count}` : ''].filter(Boolean).join(' · ')}</p>
@@ -153,6 +148,8 @@
 			{#if count > 1}
 				<IconButton label={m['items.next_track']()} onclick={onnext} data-testid="card-next"><Icon name="skip-forward" /></IconButton>
 			{/if}
+					<!-- turning the record is a control like the others (owner 2026-10-16: "part of the player's controls … a smaller button") -->
+					<IconButton class="turn" label={m['items.player_turn']()} pressed={side === 'B'} onclick={onturn} data-testid="record-turn"><Icon name="refresh-cw" /></IconButton>
 				</div>
 			</div>
 		</div>
@@ -210,13 +207,6 @@
 		padding: var(--space-05) 0;
 	}
 
-	.turn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-05);
-		align-self: center;
-	}
-
 	.over {
 		display: flex;
 		flex-direction: column;
@@ -228,13 +218,6 @@
 	.hero.in3d {
 		height: min(30rem, 58vh);
 		justify-content: flex-end;
-	}
-
-	.hero.in3d .turn {
-		position: absolute;
-		top: var(--space-05);
-		right: 0;
-		z-index: 1;
 	}
 
 	.hero.in3d .over {
