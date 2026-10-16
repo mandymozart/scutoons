@@ -6,27 +6,44 @@
 	const app = document.getElementById('sc-app');
 	const bar = boot.querySelector('.bar');
 	const fill = boot.querySelector('.fill');
-	boot.querySelector('.text').textContent = document.documentElement.lang === 'de' ? 'Geduld …' : 'Patience …';
+	// the page loader's words (viewer messages common.loading)
+	boot.querySelector('.mid .say').textContent = document.documentElement.lang === 'de' ? 'Geduld ...' : 'Patience ...';
 
-	// the reader: the page's shape by its address – a chapter = a strip of slices, a toon = cover, text, chapter rows;
-	// anything else: the logo and the line alone
+	// the reader: its controls where the app draws them (the header on every toon page and chapter), on a toon page on a
+	// phone also the description, the start button, the season heading and the chapter rows – only buttons and text,
+	// no pictures (owner 2026-10-16: "deckungsgleich", "nur Buttons und Textblöcke"). Positions measured on the app
+	// (375 px wide, root 14px): the cover is a square of the screen's width, the text starts 2 rem below it
 	if (boot.dataset.skeleton === 'reader') {
 		const parts = location.pathname.split('/').filter(Boolean);
 		if (parts[0] === 'de' || parts[0] === 'en') parts.shift();
 		const other = ['account', 'attributions', 'contact', 'events', 'stores'];
-		const kind = parts[1] === 'chapter' ? 'chapter' : parts.length === 1 && !other.includes(parts[0]) ? 'toon' : null;
-		if (kind) {
-			const line = (w) => `<i class="sk-line" style="width:${w}%"></i>`;
-			const head = '<div class="sk-head"><i class="sk-logo"></i>' + '<i class="round"></i>'.repeat(5) + '</div>';
-			const row = (a, b) => `<div class="sk-row"><i></i><span>${line(a)}${line(b)}</span></div>`;
-			const body =
-				kind === 'chapter'
-					? '<div class="sk-strip">' + '<i class="sk-slice"></i>'.repeat(3) + '</div>'
-					: '<i class="sk-cover"></i><div class="sk-body">' + line(92) + line(78) + line(55) + '<i class="sk-button"></i>' + row(70, 40) + row(62, 35) + '</div>';
+		const toon = parts.length === 1 && !other.includes(parts[0]);
+		if (toon || parts[1] === 'chapter') {
+			const at = (cls, css) => `<i class="${cls}" style="${css}"></i>`;
+			// below the cover: n rem down from its bottom edge
+			const y = (rem) => `top:calc(100vw + ${rem} * var(--r))`;
+			const x = (rem) => `left:calc(${rem} * var(--r))`;
+			let html = `<i class="logo"><img src="${boot.querySelector('.mid img').getAttribute('src')}" alt="" /></i>`;
+			for (let n = 0; n < 5; n++) html += at('round', `--n:${n}`);
+			if (toon) {
+				// the description: three lines of 1.3 rem
+				html += at('page text', `${y(2.2)};${x(1)};width:calc(100vw - 2 * var(--r))`);
+				html += at('page text', `${y(3.5)};${x(1)};width:calc(100vw - 2 * var(--r))`);
+				html += at('page text', `${y(4.8)};${x(1)};width:calc(60vw - var(--r))`);
+				html += at('page start', y(6.93));
+				// the season heading, then the chapter rows (thumbnail, title, number on the right)
+				html += at('page text', `${y(13.1)};${x(1)};height:calc(1.1 * var(--r));width:65vw`);
+				for (let i = 0; i < 3; i++) {
+					const top = 15.5 + i * 4.57;
+					html += at('page thumb', y(top));
+					html += at('page text', `${y(top + 0.8)};${x(7.5)};width:calc(${[10, 4.5, 3][i]} * var(--r))`);
+					html += at('page text', `${y(top + 1.2)};right:var(--r);width:calc(${[3, 1.2, 1.2][i]} * var(--r));height:calc(0.75 * var(--r))`);
+				}
+			}
 			const sk = document.createElement('div');
 			sk.className = 'sk';
 			sk.setAttribute('aria-hidden', 'true');
-			sk.innerHTML = head + body;
+			sk.innerHTML = html;
 			boot.prepend(sk);
 		}
 	}

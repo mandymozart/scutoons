@@ -28,7 +28,7 @@ function block(app) {
 		`<div id="sc-boot" data-expect="${expect}"${skeleton ? ` data-skeleton="${skeleton}"` : ''}>`,
 		'\t<div class="mid">',
 		'\t\t<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />',
-		'\t\t<span class="text"></span>',
+		'\t\t<span class="say"></span>',
 		'\t</div>',
 		'\t<span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="fill"></span></span>',
 		'</div>',

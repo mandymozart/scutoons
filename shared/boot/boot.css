@@ -1,28 +1,48 @@
 /* The boot screen of every app (viewer, creator, admin) – edit HERE, then `npm run boot:sync` writes it into each
    app's src/app.html (between the sc-boot markers; `npm run check` fails when an app.html is out of date). Plain CSS:
-   the app's tokens aren't loaded yet. Owner 2026-10-16: "before the app is fully loaded our screen is a dull white";
-   a skeleton of the page in the reader ("klassischer Skeleton-Loader, minimal animiert"), the logo and "Patience …"
-   in the middle, the load progress as a thin line at the very top ("less game, more app"). */
+   the app's tokens and its root font size aren't loaded yet, so --r mirrors the root size of shared/tokens/base.css
+   (16px, ≥ 768px: 24px, ≤ 480px: 14px). Owner 2026-10-16: the skeleton "mit der realen App deckungsgleich", only
+   buttons and text blocks (no pictures, frames or backgrounds – except the chapter list's thumbnails), the logo and
+   "Patience …" exactly as the reader's page loader (lib/components/loader.svelte), the progress a thin line on top. */
 #sc-boot {
+	--r: 16px;
+	/* the app's --control-height (shared/tokens/tokens.css): 2rem + the borders; touch screens at least 44px */
+	--ch: calc(2 * var(--r) + 4px);
+	--sk: #ececec;
 	position: fixed;
 	inset: 0;
 	z-index: 2147483647;
 	overflow: hidden;
 	background: #fff;
 	color: #000;
-	font: 1rem/1.4 'IBM Plex Mono', ui-monospace, monospace;
+	font: var(--r) 'IBM Plex Mono', ui-monospace, monospace;
+}
+@media (min-width: 768px) {
+	#sc-boot {
+		--r: 24px;
+	}
+}
+@media (max-width: 480px) {
+	#sc-boot {
+		--r: 14px;
+	}
+}
+@media (pointer: coarse) {
+	#sc-boot {
+		--ch: max(44px, calc(2 * var(--r) + 4px));
+	}
 }
 
-/* the page's shape (the reader only – boot.js builds it by the address): grey blocks under one soft sweep */
+/* the skeleton (boot.js builds it by the address; the reader only): every block where the app draws it */
 #sc-boot .sk {
 	position: absolute;
 	inset: 0;
-	display: flex;
-	flex-direction: column;
 }
 #sc-boot .sk i {
+	position: absolute;
 	display: block;
-	background: #ececec;
+	box-sizing: border-box;
+	background: var(--sk);
 }
 #sc-boot .sk::after {
 	content: '';
@@ -40,83 +60,51 @@
 		background-position: -20% 0;
 	}
 }
-/* the header: the logo and the round buttons */
-#sc-boot .sk-head {
-	flex: none;
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	height: 7.5rem;
-	box-sizing: border-box;
-	padding: 0 0.75rem 1.5rem;
-	background: #f4f4f4;
+/* the header (main-menu.svelte and the toggles): the logo top left, five round buttons top right */
+#sc-boot .sk .logo {
+	top: calc(0.5 * var(--r));
+	left: 0;
+	width: calc(3 * var(--r));
+	height: calc(3 * var(--r));
+	background: none;
 }
-#sc-boot .sk .sk-logo {
-	width: 2.25rem;
-	height: 4rem;
-	margin-right: auto;
-	border-radius: 0.25rem;
+#sc-boot .sk .logo img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	opacity: 0.25;
 }
 #sc-boot .sk .round {
-	flex: none;
-	width: 3.75rem;
-	height: 3.75rem;
-	box-sizing: border-box;
+	top: calc(0.5 * var(--r));
+	right: calc(0.5 * var(--r) + var(--n) * (var(--ch) + 0.5 * var(--r)));
+	width: var(--ch);
+	height: var(--ch);
+	border: 2px solid #dcdcdc;
 	border-radius: 50%;
-	border: 2px solid #e2e2e2;
 	background: #fff;
 }
-/* the toon page: the cover, the text, the button, the chapter rows */
-#sc-boot .sk-cover {
-	flex: none;
-	height: min(55vh, 36rem);
+/* the toon page on a phone (≤ 480px: the cover is a square of the screen's width – left white): the description,
+   the start button, the season's heading, the chapter rows */
+#sc-boot .sk .text {
+	height: calc(0.85 * var(--r));
 }
-#sc-boot .sk-body {
-	width: min(40rem, 100%);
-	box-sizing: border-box;
-	margin: 0 auto;
-	padding: 2rem 1rem;
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
+#sc-boot .sk .start {
+	left: calc(50vw - 7.45 * var(--r));
+	width: calc(14.9 * var(--r));
+	height: var(--ch);
 }
-#sc-boot .sk-line {
-	height: 1rem;
+#sc-boot .sk .thumb {
+	left: var(--r);
+	width: calc(5.5 * var(--r));
+	height: calc(3.5 * var(--r));
 }
-#sc-boot .sk-button {
-	width: 13rem;
-	height: 3.25rem;
-	margin-top: 1rem;
-}
-#sc-boot .sk-row {
-	display: flex;
-	gap: 1rem;
-	margin-top: 1.5rem;
-}
-#sc-boot .sk-row > i {
-	flex: none;
-	width: 7rem;
-	height: 4.5rem;
-}
-#sc-boot .sk-row > span {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-}
-/* a chapter: the strip of slices, one under the other */
-#sc-boot .sk-strip {
-	width: min(40rem, 100%);
-	margin: 0 auto;
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
-}
-#sc-boot .sk-slice {
-	aspect-ratio: 4 / 5;
+@media (min-width: 481px) {
+	#sc-boot .sk .page {
+		display: none;
+	}
 }
 
-/* the logo and "Patience …" in the middle */
+/* the logo and "Patience …" in the middle: exactly the page loader (its logo at its own size, the text below) */
 #sc-boot .mid {
 	position: absolute;
 	inset: 0;
@@ -124,15 +112,10 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 0.75rem;
+	text-align: center;
 }
 #sc-boot .mid img {
-	width: min(12rem, 45vw);
-	height: auto;
-}
-#sc-boot .text {
-	padding: 0 0.5rem;
-	background: #fff;
+	display: block;
 }
 
 /* the app's code loaded so far: a thin line at the very top */
@@ -151,12 +134,6 @@
 	transition: width 0.15s linear;
 }
 
-@media (min-width: 64rem) {
-	#sc-boot .sk-head {
-		height: 6rem;
-		padding: 0 1.5rem;
-	}
-}
 @media (prefers-reduced-motion: reduce) {
 	#sc-boot .sk::after {
 		animation: none;
