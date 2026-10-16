@@ -1290,5 +1290,27 @@
 		"error_locked": "Invites are out – the gift stays as it is.",
 		"error_has_invites": "Invites were sent – stop the campaign instead.",
 		"error_segment_mode": "A segment invites here – change who is in it in Users & roles."
+	},
+	"push": {
+		"tab": "Push",
+		"title": "Push notifications",
+		"meta": "Readers who switched on “Tell me when a new chapter is out” on their account page. Nothing is sent automatically.",
+		"off": "Push is off on this server: no VAPID keys (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY).",
+		"subscribers": "{count} browsers subscribed · German {de} · English {en}",
+		"toon": "Toon",
+		"chapter": "Chapter",
+		"preview": "What readers see",
+		"test": "Send to my browsers",
+		"send": "Send to everyone",
+		"send_title": "Announce {chapter} to {count} browsers?",
+		"send_message": "Every subscribed browser gets the notification now. It can't be taken back.",
+		"send_again": "This chapter was announced {count} time(s) before.",
+		"sent": "Delivered {delivered} of {recipients} · {gone} gone · {failed} failed",
+		"test_none": "None of your browsers is subscribed – switch on notifications on your account page in the reader first.",
+		"history": "Last sends",
+		"col_when": "When",
+		"col_chapter": "Chapter",
+		"col_result": "Delivered",
+		"test_mark": "test"
 	}
 }

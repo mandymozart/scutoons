@@ -13,6 +13,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import RecordDeck from './record-deck.svelte';
 	import SeekBar from './seek-bar.svelte';
+	import { wakeLock } from '$lib/wake-lock.svelte.ts';
 
 	/**
 	 * The audio player at the bottom (owner 2026-10-14: "play the whole album – like a little playlist, or an animation on
@@ -172,6 +173,9 @@
 	$effect(() => () => {
 		if (gap) clearTimeout(gap);
 	});
+
+	// the screen stays on while a record plays (PWA phase 4, lib/wake-lock.svelte.ts); paused / closed → it may sleep
+	$effect(() => (playing || changing ? wakeLock.hold('record-player') : undefined));
 
 	// the bar is up: the card may open any moment – its 3D stage's three.js and model load ahead in idle time
 	$effect(() => warmModel(request.model));

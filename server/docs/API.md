@@ -825,6 +825,21 @@ done), last_error, created_at/by, updated_at/by, started_at, finished_at, progre
 total }`. A batch result: `{ status: idle | sent | limit | busy | error, sent, failed, retry, skipped, queued, per_hour,
 sent_last_hour, error }`.
 
+## Web Push (2026-10-16, migration `2026-10-16-push-subscriptions` – agents/research/PWA.md §2b)
+
+The reader app's opt-in ("Tell me when a new chapter is out", account page) and the one push there is: "a new chapter
+is out", sent by an admin's tap (admin app → Emails → Push) – never automatically (`Domain\Push`). VAPID keys from
+`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (docs/CONFIGURATION.md); payload encrypted per browser (RFC 8291
+`aes128gcm`, ext-openssl only), TTL one day.
+
+| Method | Path | |
+|---|---|---|
+| GET | `/push/key` | `{ key }` – the VAPID public key (base64url), null = push is off on this server |
+| POST | `/push/subscribe` | `{ subscription: { endpoint, keys: { p256dh, auth } }, locale: de\|en }` → success; upsert by endpoint, the signed-in account remembered (deleted with it). 400 `invalid_subscription` unless https on a known push service (FCM, Mozilla, Apple, Windows) with valid keys. Per-IP limit 60/h |
+| POST | `/push/unsubscribe` | `{ endpoint }` → success (deletes it) |
+| GET | `/admin/push` | `{ configured, subscribers: { total, locales }, sends: [{ id, toon, chapter, test, recipients, delivered, gone, failed, sent_at }] }` (last 20) |
+| POST | `/admin/push/new-chapter` | `{ toon, chapter, test?, dry_run? }` → `{ notification: { de, en: { title, body, url, tag } }, recipients, sent_before, configured }` + `delivered, gone, failed` when sent. The chapter must be published (the library's 403 / 404 otherwise); `test` = only the admin's own browsers; logged in `push_sends`; 409 `push_not_configured` without keys. A push service's 404 / 410 deletes the subscription, 5 other refusals in a row too |
+
 ## Assets (the media asset layer, 2026-10-02 – agents/ASSETS.md)
 
 Content keeps referencing CDN paths; this API manages the registry over the storage (local `media/` or the bunny.net

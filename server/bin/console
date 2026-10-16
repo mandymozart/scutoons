@@ -18,7 +18,8 @@ declare(strict_types=1);
  *   php bin/console sample-stores [--remove]          fake stores for the local /stores page (local dev DB only)
  *   php bin/console embassy:inbox                     read the Embassy mailbox (IMAP), log the replies (cron)
  *   php bin/console embassy:cron                      inbox sync + reminder mails to the team (= GET /api/embassy/cron)
- *   php bin/console list                               all commands, `help <command>` for details
+ *   php bin/console push:vapid-keys                   a new VAPID key pair for Web Push (printed, never stored)
+ *   php bin/console list                              all commands, `help <command>` for details
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -42,6 +43,7 @@ use Scutoons\Console\ExportContentCommand;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Console\MigrateCommand;
 use Scutoons\Console\ProdSeedCommand;
+use Scutoons\Console\PushKeysCommand;
 use Scutoons\Console\SetupCommand;
 use Scutoons\Console\ReportOrphanCodesCommand;
 use Scutoons\Console\RolesCommand;
@@ -51,7 +53,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, SetupCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, ContentCheckCommand::class, ContentNeutralCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class] as $command) {
+foreach ([MigrateCommand::class, SetupCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, ContentCheckCommand::class, ContentNeutralCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class, PushKeysCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

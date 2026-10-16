@@ -30,6 +30,8 @@
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
 	import { API_URL } from '$lib/config.ts';
 	import { accessUntilOf } from '$lib/sw/saved-rules.ts';
+	import { initAppBadge } from '$lib/app-badge.ts';
+	import { CONTINUE_PARAM, continuePath } from '$lib/continue-reading.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -45,7 +47,7 @@
 	// the avatar's home (agents/research/CAVE.md): the reader's homes, the home view
 	const homes = setHomesContext(inventory);
 	// the map discoveries of the whole universe (agents/MAP.md §2.4), synced like progress for members
-	setWorldContext(session);
+	const world = setWorldContext(session);
 
 	// the static build serves one fallback index.html (`<html lang="de">`): the document language follows the locale of
 	// the URL (`/en/…` prefix, else cookie / browser language), like the dev server's `%paraglide.lang%`
@@ -68,6 +70,8 @@
 		void pwa.init();
 		// "Install SCUTOONS as an app" (Android / Chromium): counts the visit, offers it from the 2nd one
 		install.init();
+		// the app icon's badge (new-chapter notifications since the last start) goes when the app is opened
+		initAppBadge();
 		// chapters saved to this device (PWA phase 3)
 		savedChapters.init();
 		// the effect sounds' routing + this device's volume / vibration (agents/FX.md)
@@ -105,6 +109,13 @@
 
 		// magic link from the login mail, else the single sign-on session (any SCUTOONS app) or a stored token
 		await session.init(magicToken);
+
+		// the installed app's "Continue reading" shortcut (manifest `shortcuts`): the chapter read last, where it stopped
+		if (params.has(CONTINUE_PARAM)) {
+			await world.sync();
+			const path = continuePath(world.state.progress);
+			goto(localizeHref(path ?? '/'), { replaceState: true });
+		}
 
 		if (code) {
 			// the sheet grants device access via /access/ right away and offers "Add to my account"

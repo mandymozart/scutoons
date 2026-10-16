@@ -97,6 +97,14 @@ return [
     'NEWSLETTER_RETRY_MINUTES' => '15',
     'API_URL' => 'https://api.scutoons.com',
 
+    // ── Web Push (agents/research/PWA.md §2b; Domain\Push) ─────────────────────────────────────────────────
+    // The VAPID key pair (base64url: public = the 65-byte point, private = the 32-byte scalar) – `php bin/console
+    // push:vapid-keys` prints a new pair. Never in git: GitHub secrets → the deploy's config.php. Empty = push is off
+    // (GET /api/push/key answers null, the reader app shows no opt-in). SUBJECT = the contact push services may write to.
+    'VAPID_PUBLIC_KEY' => '',
+    'VAPID_PRIVATE_KEY' => '',
+    'VAPID_SUBJECT' => 'mailto:hello@scutoons.com',
+
     // ── Embassy mail (agents/EMBASSY.md "Communication strategy"; docs/API.md "Embassy" → "Mail" / "Inbox") ───
     // People send one-to-one mails from the Embassy app (POST /api/embassy/orgs/{id}/mail) from this shared mailbox,
     // through MAIL_TRANSPORT and the SMTP server in SMTP_HOST / _PORT / _SECURE; Reply-To is the same address. The

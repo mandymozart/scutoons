@@ -30,6 +30,8 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `QR_PROXY_SECRET` | – | shared with the qr app (qr.scutoons.com): only requests carrying it in `X-Scutoons-Proxy-Secret` may forward the client IP (`X-Scutoons-Client-Ip`) and device id (`X-Scutoons-Device-Id`), and only they can log landing-page scans (`/api/code/?scan=1`). Empty = trust nobody |
 | `EMBASSY_CRON_KEY` | – | key of the Embassy cron URL `GET\|POST /api/embassy/cron?key=…` (inbox sync + the team's reminder mails; also accepted as the HTTP Basic password – docs/API.md "Embassy" → "Pace"). Empty = the URL answers 404 (off). `openssl rand -hex 32` |
 | `NEWSLETTER_CRON_KEY` | – | key of the newsletter cron URL `GET\|POST /api/newsletter/cron?key=…` (one batch, agents/NEWSLETTER.md; also the HTTP Basic password). Empty = 404 (off). `openssl rand -hex 32` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | – | the Web Push key pair (base64url: the 65-byte P-256 point / the 32-byte scalar; docs/API.md "Web Push"). `php bin/console push:vapid-keys` prints one. Empty (or not a pair) = push off. Keep the pair: a new public key makes every subscription useless |
+| `VAPID_SUBJECT` | `mailto:hello@scutoons.com` | the contact push services may write to (VAPID `sub`) |
 | `QR_URL` | `https://qr.scutoons.com` | the qr app: magic links of login requests without an Origin (it forwards `/?login=` to the viewer) |
 | `APP_URL` | `https://scutoons.com` | the viewer: old magic links are forwarded there; "Open SCUTOONS" in mails |
 | `ADMIN_URL` | `https://admin.scutoons.com` | the admin app: links in admin notification mails (a new ownership claim); the link of an AI proposal (`/proposals/<id>`) |

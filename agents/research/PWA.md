@@ -1,4 +1,4 @@
-Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); phase 2 built 2026-10-16 (media + library cache, §2 "Phase 2"); phase 3 built 2026-10-16 (save a chapter to the device, §2 "Phase 3"); the Android install prompt (phase 4 part) built 2026-10-16 – phase 4 otherwise open. FEATURES 10.74.
+Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); phase 2 built 2026-10-16 (media + library cache, §2 "Phase 2"); phase 3 built 2026-10-16 (save a chapter to the device, §2 "Phase 3"); phase 4 built 2026-10-16 (Android install prompt §2a, iOS how-to, shortcuts + screenshots §1, Web Push + badge §2b, wake lock §2c; push goes live with the owner's VAPID keys, FEATURES 10.107). FEATURES 10.74.
 
 # PWA — SCUTOONS as an installable web app (2026-10-16)
 
@@ -19,7 +19,8 @@ service worker, the data budget `lib/data-budget.svelte.ts`). Scope: the reader 
 | Splash (iOS `apple-touch-startup-image`) | – | deliberately none: one image per device size (~20 files) for a white screen we already have |
 | Service worker | none | `src/service-worker.ts` (§2) – Chrome needs none for install any more, but offline / updates do |
 | MIME + headers | – | `.htaccess`: `AddType application/manifest+json .webmanifest`; `no-cache` for index.html, service-worker.js, version.json, the manifest; `/_app/immutable/` 1 year immutable (= LOADING.md L1, viewer part) |
-| Description, screenshots | – | description = the slogan; `screenshots` (Chrome's richer install sheet) – phase 4 |
+| Description, screenshots | – | description = the slogan; `screenshots` (phase 4: Chrome's richer install sheet) `screenshot-narrow.webp` 780 × 1688 + `screenshot-wide.webp` 1280 × 800 – the Cat Pope toon page (en), taken from the dev viewer in headless Chrome (fresh profile); retake when the page changes much |
+| Shortcuts (long-press on the icon) | – | phase 4: "Continue reading" → `/?continue` (`lib/continue-reading.ts`, the root layout: the chapter checkpoint written last, any toon – unfinished → that chapter `?resume` at its spot, finished → its toon page, whose start button offers the next; nothing read → the start page); "Inventory" → `/catpope?inventory=open` (as the account page links it). English names: the manifest has one language |
 
 Chrome reports no installability errors (CDP `Page.getInstallabilityErrors`, `Page.getAppManifest`: no errors).
 
@@ -174,7 +175,44 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
   this visit only).
 - Account page → settings: "App · Install app" whenever the browser can install (also while the bar is snoozed).
 - Dev: no real event on the dev server – `__scFakeInstallPrompt('dismissed' | 'accepted')` in the console (dev builds only).
-- **iOS: nothing yet** – later item: a "Share → Add to Home Screen" how-to on the account page (Safari, not standalone).
+- **iOS** (phase 4): the account page's "App" shows "Add SCUTOONS to your home screen: tap Share [icon], then 'Add to Home
+  Screen'." – only Safari on iPhone / iPad (`isIosSafari`: iPadOS = a Mac UA with touch; not CriOS / FxiOS / in-app
+  browsers), not inside the home-screen app, not in the creator's frame (`showIosHowTo`, test/install-rules.test.ts).
+  No bar: iOS 26 opens such a site as a web app by default.
+
+## 2b. Web Push + the app badge (phase 4, built 2026-10-16)
+- **What**: one message only – "a new chapter is out" ("Catpope: new chapter" / "Leugnen – jetzt lesen", the reader's
+  language), sent **only by an admin's tap**: admin → Emails → Push (a published chapter; "Send to my browsers" = a test
+  to the admin's own subscriptions first; "Send to everyone" asks "Announce … to N browsers?" and warns when the chapter
+  was announced before). Never automatic, never from the MCP (it may give the link `/emails/push?toon=&chapter=`).
+- **Opt-in**: account page → "Notifications · Tell me when a new chapter is out" (`components/account/notifications-setting.svelte`,
+  `lib/push.svelte.ts`). The browser's permission is asked only by that tap. Hidden without a worker (dev, the kill switch),
+  without a key on the server (`GET /push/key` → null) and in the creator's frame. iOS Safari: "works in the app: add
+  SCUTOONS to your home screen first" (iOS 16.4+ only installed); blocked → "Notifications are blocked …". Each visit of
+  the account page re-sends a live subscription (locale + account stay fresh); a subscription for another key is renewed.
+- **Server** (`Domain/Push`, server/docs/API.md "Web Push"): tables `push_subscriptions` (by endpoint; the account if
+  signed in – deleted with it) + `push_sends` (the log), migration `2026-10-16-push-subscriptions`. No composer package:
+  `WebPushCrypto` does VAPID (ES256 JWT) and RFC 8291 `aes128gcm` with ext-openssl (tested byte for byte against RFC 8291
+  Appendix A). Endpoints only https on FCM / Mozilla / Apple / Windows push hosts (the server POSTs there – no SSRF).
+  404 / 410 → the subscription is deleted, 5 other refusals in a row too. Sent one by one (15 s timeout each) – fine for
+  hundreds; thousands would want batches / curl_multi. Keys: `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` from GitHub
+  secrets → config.php (owner steps: FEATURES 10.107; `php bin/console push:vapid-keys`).
+- **Worker** (`lib/sw/push.ts`, pure rules `lib/sw/push-rules.ts`): `push` → `showNotification(title, { body, tag, icon,
+  data.url })` (a payload it can't read → a plain "SCUTOONS"; the tag = the chapter, a second send replaces it);
+  `notificationclick` → the chapter in an open SCUTOONS window (focus + navigate), else a new one; only paths on our origin.
+  `service-worker.ts` only imports and calls `registerPush(sw)`.
+- **Badge – a proposal the owner may reject** (`decide`, FEATURES 10.74): the app icon counts the **new-chapter
+  notifications that came since the app was last opened** (each chapter once; the worker keeps the tags in the cache
+  `scutoons-badge-v1`, `navigator.setAppBadge`); opening the app or coming back to it clears it (`lib/app-badge.ts`).
+  Why this and not "new chapters since the last visit": it needs no extra polling or data, matches what the reader opted
+  into, and clears itself. Without push there is no badge. Installed apps only (Chromium, iOS 16.4+); no-op elsewhere.
+
+## 2c. Screen Wake Lock (phase 4, built 2026-10-16)
+`lib/wake-lock.svelte.ts`: named holds – the chapter page (`hold('chapter', { idle: true })`: lapses after 3 minutes
+without a scroll / touch / key, back with the next one) and the record player while it plays (`record-player.svelte`,
+released on pause / close). Released when the page leaves the chapter or the last hold ends; the browser drops it when
+the page hides – asked again on `visibilitychange`. A refused request is retried at most every 5 s. No-op where
+`navigator.wakeLock` is missing.
 
 ## 3. Phases 2–4
 
@@ -182,7 +220,7 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
 |---|---|---|
 | 2 | **Built** – media cache + library JSON (§2 "Phase 2"); the next-chapter prefetch (LOADING.md L4) will fill it by itself | bunny sends `ACAO: *` – no owner step |
 | 3 | **Built** – save a chapter to the device (§2 "Phase 3"): the files endpoint, one cache per chapter, 206 for ranges, `storage.persist()` + `estimate()`, gated saves deleted when the access ended | open: refresh on a new version, a season, offline progress sync |
-| 4 | Polish: install hint (Android built – §2a; open: the iOS "Share → Add to Home Screen" how-to on the account page), manifest `screenshots` + `shortcuts` (Continue reading), badging, Web Push (needs a server part, iOS only installed), Wake Lock while reading / playing | each one an owner decision |
+| 4 | **Built** – install prompt (Android) + the iOS how-to (§2a), manifest `screenshots` + `shortcuts` (§1), Web Push + badge (§2b), Wake Lock (§2c) | push live after the owner's VAPID keys (FEATURES 10.107); the badge rule is a proposal |
 
 Data budget: phase 2/3 obey `data-budget.svelte.ts` – tier `none` caches only what the reader looked at, nothing is
 prefetched for the cache; saving a chapter is an explicit tap (the bytes shown first).
@@ -248,6 +286,16 @@ prefetched for the cache; saving a chapter is an explicit tap (the bytes shown f
   probe is not; remove from the row → the cache gone; the prologue offers "Everything 53 MB / Without videos < 1 MB";
   the account page lists it with the space, "Remove all" empties; an expired device access → the gated chapter 1 is
   deleted on the next start, the free prologue kept; `VITE_SW=off` → the saved chapters gone with every other cache.
+- Phase 4, scripted (2026-10-16, production build on vite preview, headless Chrome; the main checkout's dev API has no
+  push endpoints yet, so `/api/push/*` was answered by CDP Fetch – the server side is PHPUnit's PushApiTest +
+  WebPushCryptoTest): the switch shows off, permission still `default` (390 + 1440); the tap → subscribed with a real
+  FCM endpoint, the server told (locale en); **a real push through FCM** encrypted + signed by `WebPushCrypto` (201) arrived
+  and was decrypted by the worker; a CDP push → the notification (title / body / tag / url), a garbage payload → plain
+  "SCUTOONS"; the badge counted both tags, opening the app cleared it; `notificationclick` → the chapter in the open
+  window; switch off → unsubscribed + the server told; iOS UA → "works in the app"; the chapter page → wake lock
+  requested, released on leaving and when the tab hides, requested again when it shows; the manifest: no installability
+  errors, 2 shortcuts, 2 screenshots served as WebP; `/?continue` → the last chapter (built-in browser, dev). Headless
+  Chrome shows no notifications (`getNotifications()` is empty there – a spy on `showNotification` instead).
 - iOS: Safari → Add to Home Screen; Safari's Web Inspector (a Mac) for the home-screen app; check the title, the
   icon, the white launch, that a sign-in is needed again (own storage), and the prompt after a deploy.
 - The Claude desktop Browser pane can't register service workers ("unknown error when fetching the script") – use

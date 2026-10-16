@@ -30,6 +30,7 @@ use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\NewsletterController as AdminNewsletterController;
 use Scutoons\Http\Controllers\Admin\ProposalsController;
+use Scutoons\Http\Controllers\Admin\PushController as AdminPushController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
@@ -61,6 +62,7 @@ use Scutoons\Http\Controllers\PageNotFoundController;
 use Scutoons\Http\Controllers\ProductsController;
 use Scutoons\Http\Controllers\HomesController;
 use Scutoons\Http\Controllers\ProgressController;
+use Scutoons\Http\Controllers\PushController;
 use Scutoons\Http\Controllers\StockistsController;
 use Scutoons\Http\Controllers\ValidateController;
 use Scutoons\Http\Middleware\RateLimit;
@@ -133,6 +135,18 @@ return static function (App $app): void {
     // Stores that carry SCUTOONS products (the Embassy's listed stores, public fields only – agents/EMBASSY.md "Stores")
     $app->get('/api/stockists', [StockistsController::class, 'list'])->add($stockistsLimit);
     $app->post('/api/contact', [ContactController::class, 'send'])->add($contactLimit);
+
+    // Web Push opt-in (agents/research/PWA.md §2b): the VAPID key, subscribe / unsubscribe a browser (per-IP limit)
+    $pushLimit = new RateLimit(
+        $c->get(RateLimiter::class),
+        static fn(Request $request): string => 'push:' . $ipHash(),
+        60,
+        3600,
+        'Too many requests – try again later.',
+    );
+    $app->get('/api/push/key', [PushController::class, 'key']);
+    $app->post('/api/push/subscribe', [PushController::class, 'subscribe'])->add($pushLimit);
+    $app->post('/api/push/unsubscribe', [PushController::class, 'unsubscribe'])->add($pushLimit);
 
     $app->post('/api/auth/request', [AuthController::class, 'request']);
     $app->post('/api/auth/verify', [AuthController::class, 'verify']);
@@ -310,6 +324,9 @@ return static function (App $app): void {
         $admin->get('/versions', VersionsController::class);
         // the newest entries of the API's / the qr app's PHP error log (BACKLOG 10.11)
         $admin->get('/server-errors', [ServerLogController::class, 'list']);
+        // Web Push (agents/research/PWA.md §2b): subscribers + the "new chapter" send – only by an admin's tap
+        $admin->get('/push', [AdminPushController::class, 'overview']);
+        $admin->post('/push/new-chapter', [AdminPushController::class, 'newChapter']);
         $admin->get('/settings', [SettingsController::class, 'get']);
         $admin->put('/settings', [SettingsController::class, 'put']);
         // the email module (Domain\Mail): templates + previews, the sent-mail log, the admin notification recipients

@@ -16,6 +16,7 @@
 	import MediaQualitySetting from '$lib/components/account/media-quality-setting.svelte';
 	import FxSetting from '$lib/components/account/fx-setting.svelte';
 	import InstallAppSetting from '$lib/components/account/install-app-setting.svelte';
+	import NotificationsSetting from '$lib/components/account/notifications-setting.svelte';
 	import SavedChaptersSetting from '$lib/components/account/saved-chapters-setting.svelte';
 	import ReaderNameSetting from '$lib/components/account/reader-name-setting.svelte';
 	import MyClaims from '$lib/components/account/my-claims.svelte';
@@ -311,6 +312,7 @@
 		<MediaQualitySetting />
 		<FxSetting />
 		<InstallAppSetting />
+		<NotificationsSetting />
 		<SavedChaptersSetting />
 	</section>
 

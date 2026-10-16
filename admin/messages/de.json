@@ -1290,5 +1290,27 @@
 		"error_locked": "Einladungen sind draußen – das Geschenk bleibt, wie es ist.",
 		"error_has_invites": "Es gingen schon Einladungen raus – stoppe die Kampagne stattdessen.",
 		"error_segment_mode": "Hier lädt ein Segment ein – wer drin ist, änderst du unter Konten & Rollen."
+	},
+	"push": {
+		"tab": "Push",
+		"title": "Push-Benachrichtigungen",
+		"meta": "Leser, die auf ihrer Kontoseite „Sag mir, wenn ein neues Kapitel erscheint“ eingeschaltet haben. Nichts wird automatisch gesendet.",
+		"off": "Push ist auf diesem Server aus: keine VAPID-Schlüssel (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY).",
+		"subscribers": "{count} Browser angemeldet · Deutsch {de} · Englisch {en}",
+		"toon": "Toon",
+		"chapter": "Kapitel",
+		"preview": "Was Leser sehen",
+		"test": "An meine Browser senden",
+		"send": "An alle senden",
+		"send_title": "{chapter} an {count} Browser ankündigen?",
+		"send_message": "Jeder angemeldete Browser bekommt die Benachrichtigung sofort. Das lässt sich nicht zurücknehmen.",
+		"send_again": "Dieses Kapitel wurde schon {count}-mal angekündigt.",
+		"sent": "{delivered} von {recipients} zugestellt · {gone} abgemeldet · {failed} fehlgeschlagen",
+		"test_none": "Keiner deiner Browser ist angemeldet – schalte zuerst im Reader auf deiner Kontoseite die Benachrichtigungen ein.",
+		"history": "Letzte Sendungen",
+		"col_when": "Wann",
+		"col_chapter": "Kapitel",
+		"col_result": "Zugestellt",
+		"test_mark": "Test"
 	}
 }

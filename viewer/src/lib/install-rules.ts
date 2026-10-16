@@ -69,3 +69,19 @@ export function momentReached(memory: InstallMemory): boolean {
 export function shouldOffer(facts: InstallFacts, memory: InstallMemory, now: number): boolean {
 	return canInstall(facts, memory) && momentReached(memory) && !snoozed(memory, now);
 }
+
+/**
+ * iPhone / iPad Safari (iOS has no install event – the account page shows "Share → Add to Home Screen" instead):
+ * an iOS device (iPadOS reports a Mac with touch) in Safari itself – not Chrome / Firefox / Edge / Opera / the Google
+ * app on iOS, not an in-app browser (Instagram, Facebook …; they send no "Version/… Safari/" or their own token).
+ */
+export function isIosSafari(userAgent: string, maxTouchPoints = 0): boolean {
+	const ios = /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
+	if (!ios || !/Safari\//.test(userAgent) || !/Version\//.test(userAgent)) return false;
+	return !/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|YaBrowser|DuckDuckGo|FBAN|FBAV|Instagram|Line\//.test(userAgent);
+}
+
+/** the account page's iOS how-to: Safari on iOS, not already the home-screen app, not in the creator's frame */
+export function showIosHowTo(facts: { iosSafari: boolean; standalone: boolean; framed: boolean }): boolean {
+	return facts.iosSafari && !facts.standalone && !facts.framed;
+}

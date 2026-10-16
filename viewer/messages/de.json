@@ -663,7 +663,17 @@
 		"not_now": "Nicht jetzt",
 		"app_title": "App",
 		"install_app": "App installieren",
-		"install_hint": "SCUTOONS auf deinem Startbildschirm, öffnet ohne Browserleiste."
+		"install_hint": "SCUTOONS auf deinem Startbildschirm, öffnet ohne Browserleiste.",
+		"ios_add_before": "SCUTOONS auf den Home-Bildschirm: tippe auf Teilen",
+		"ios_add_after": "dann auf „Zum Home-Bildschirm“.",
+		"ios_share": "Teilen",
+		"ios_hint": "Dann öffnet es wie eine App, ohne die Leisten von Safari.",
+		"push_title": "Benachrichtigungen",
+		"push_new_chapters": "Sag mir, wenn ein neues Kapitel erscheint",
+		"push_hint": "Nur bei neuen Kapiteln, auf diesem Gerät.",
+		"push_install_first": "Auf iPhone und iPad geht das in der App: füge SCUTOONS erst zum Home-Bildschirm hinzu und schalte es dort ein.",
+		"push_denied": "Benachrichtigungen sind für SCUTOONS in den Einstellungen dieses Browsers blockiert.",
+		"push_failed": "Hat nicht geklappt – versuch es nochmal."
 	},
 	"saved": {
 		"save": "Aufs Gerät laden",
