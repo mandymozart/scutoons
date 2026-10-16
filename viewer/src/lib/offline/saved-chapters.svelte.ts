@@ -1,9 +1,13 @@
 // "Save chapter to device" – the page side (PWA phase 3, agents/research/PWA.md §2 "Phase 3", DATA.md §6, FEATURES 10.74,
-// owner 2026-10-16 "Go 2 and 3"). The page downloads (progress, cancel); the service worker only answers from the caches
-// (lib/sw/saved-cache.ts). Rules: lib/sw/saved-rules.ts (tested).
+// owner 2026-10-16 "Go 2 and 3", "alle Pakete angehen"). The page downloads (progress, cancel); the service worker only
+// answers from the caches (lib/sw/saved-cache.ts). Rules: lib/sw/saved-rules.ts + saved-update-rules.ts (tested); the
+// download steps: ./save-files.ts; when a saved chapter is checked for a new version: ./refresh-saved.svelte.ts; a whole
+// season: ./save-season.svelte.ts.
 // - One cache per chapter `scutoons-chapter-<toon>-<n>-v1`: the server's file list (`…/chapters/<n>/files`) at the
 //   reader's quality level (with or without the videos), the chapter / toon / cast / toons-list / credits JSON and the
 //   item catalog, the fonts the page uses; the manifest last (no manifest = an unfinished save, tidied away).
+// - A new version (`update`): only the changed files are downloaded, the documents again, then the new manifest, then
+//   the files the new version no longer names go – a failed or stopped refresh leaves the saved version as it was.
 // - Files the media cache already holds are copied, not downloaded again.
 // - `navigator.storage.persist()` is asked on the first save (the browser may then not evict the saves).
 // - Access: only offered for chapters the reader may read; a gated chapter keeps the access end it was saved with
@@ -20,28 +24,26 @@ import { asset } from '$lib/utils/cdn.ts';
 import { MEDIA_CACHE } from '$lib/sw/cache-rules.ts';
 import {
 	aliasesFor,
+	bytesByKind,
 	documentUrls,
+	fileSize,
 	isSavedCacheName,
-	MANIFEST_PATH,
 	planSave,
 	savedCacheName,
 	savedReadable,
+	saveKindOf,
 	toPurge,
-	type ChapterFile,
 	type ChapterFiles,
 	type Level,
 	type SavedManifest,
-	type SaveKind,
-	bytesByKind,
-	saveKindOf
+	type SaveKind
 } from '$lib/sw/saved-rules.ts';
-
-/** at most this many downloads at once */
-const PARALLEL = 4;
-/** the documents a chapter cannot open without (the rest – cast, credits, catalog – are kept when they answer) */
-const REQUIRED_DOCS = 3;
+import type { RefreshPlan } from '$lib/sw/saved-update-rules.ts';
+import { loadedFonts, manifestUrl, measureCache, storeAll, storeDocs, writeManifest } from './save-files.ts';
 
 export interface SaveJob {
+	/** a first save, or a saved chapter taking in its new version */
+	mode: 'save' | 'refresh';
 	/** bytes so far / expected */
 	done: number;
 	total: number;
@@ -65,22 +67,22 @@ export interface SaveOptions {
 }
 
 const key = (toon: string, chapter: number) => `${toon}/${chapter}`;
-const manifestUrl = () => new URL(MANIFEST_PATH, location.origin).href;
+const href = (path: string) => new URL(asset(path)).href;
 
-/** the fonts this page loaded from the CDN – lettering needs them offline */
-function loadedFonts(): string[] {
-	const cdn = new URL(asset('x')).origin;
-	return performance
-		.getEntriesByType('resource')
-		.map((entry) => entry.name)
-		.filter((name) => /\.woff2?$/i.test(new URL(name).pathname) && new URL(name).origin === cdn);
+/** another level's file of a saved media → the saved file, as CDN URLs */
+function aliasUrls(list: ChapterFiles, saved: ChapterFiles['files']): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const [from, to] of Object.entries(aliasesFor(list.files, saved))) out[href(from)] = href(to);
+	return out;
 }
 
 class SavedChapters {
 	/** what is saved on this device (manifests), newest first */
 	list = $state<SavedManifest[]>([]);
-	/** running saves by `<toon>/<n>` */
+	/** running saves and refreshes by `<toon>/<n>` */
 	jobs = $state<Record<string, SaveJob>>({});
+	/** saved chapters with a new version waiting for the reader's tap (bytes to download) – refresh-saved.svelte.ts */
+	outdated = $state<Record<string, number>>({});
 	/** a service worker controls the page: saving is possible */
 	supported = $state(false);
 	#loaded: Promise<void> | null = null;
@@ -122,6 +124,10 @@ class SavedChapters {
 		return this.#loaded;
 	}
 
+	loaded(): Promise<void> {
+		return this.#loaded ?? this.refresh();
+	}
+
 	get(toon: string, chapter: number): SavedManifest | undefined {
 		return this.list.find((m) => m.toon === toon && m.chapter === chapter);
 	}
@@ -148,19 +154,19 @@ class SavedChapters {
 		return (await response.json()) as ChapterFiles;
 	}
 
-	async save(toon: string, chapter: number, options: SaveOptions): Promise<'saved' | 'cancelled' | 'failed'> {
+	/**
+	 * A job in `jobs` (the rows' rings, the account page's bars): `progress(bytes, kind, unplanned)` counts – documents
+	 * and fonts have no size beforehand, they grow their kind's total as they come; `end()` takes it out.
+	 */
+	#begin(toon: string, chapter: number, mode: SaveJob['mode'], files: ChapterFiles['files'], label: string) {
 		const id = key(toon, chapter);
-		if (this.jobs[id]) return 'cancelled';
-		const plan = planSave(options.list.files, options.level, options.videos);
-		const controller = new AbortController();
-		const kinds = Object.fromEntries(Object.entries(bytesByKind(plan.files)).map(([k, total]) => [k, { done: 0, total }])) as SaveJob['kinds'];
-		this.jobs = { ...this.jobs, [id]: { done: 0, total: plan.bytes, kinds, label: `${options.toonTitle} · ${options.label}`, controller } };
 		const name = savedCacheName(toon, chapter);
+		const controller = new AbortController();
+		const total = files.reduce((sum, f) => sum + fileSize(f), 0);
+		const kinds = Object.fromEntries(Object.entries(bytesByKind(files)).map(([k, t]) => [k, { done: 0, total: t }])) as SaveJob['kinds'];
+		this.jobs = { ...this.jobs, [id]: { mode, done: 0, total, kinds, label, controller } };
 		this.#running.add(name);
-		const stored: Record<SaveKind, number> = { image: 0, audio: 0, video: 0, data: 0 };
-		// documents and fonts have no size beforehand (`unplanned`): they grow their kind's total as they come
 		const progress = (bytes: number, kind: SaveKind, unplanned = false) => {
-			stored[kind] += bytes;
 			const job = this.jobs[id];
 			if (!job) return;
 			const k = job.kinds[kind];
@@ -170,6 +176,18 @@ class SavedChapters {
 				[id]: { ...job, done: job.done + bytes, total: job.total + grown, kinds: { ...job.kinds, [kind]: { done: k.done + bytes, total: k.total + grown } } }
 			};
 		};
+		const end = () => {
+			this.#running.delete(name);
+			const { [id]: _done, ...rest } = this.jobs;
+			this.jobs = rest;
+		};
+		return { name, controller, progress, end };
+	}
+
+	async save(toon: string, chapter: number, options: SaveOptions): Promise<'saved' | 'cancelled' | 'failed'> {
+		if (this.jobs[key(toon, chapter)]) return 'cancelled';
+		const plan = planSave(options.list.files, options.level, options.videos);
+		const { name, controller, progress, end } = this.#begin(toon, chapter, 'save', plan.files, `${options.toonTitle} · ${options.label}`);
 		try {
 			// the first save: ask the browser to keep the site's storage (no prompt in Chrome; Safari 17+ decides itself)
 			if (!this.list.length) await navigator.storage?.persist?.().catch(() => false);
@@ -179,43 +197,13 @@ class SavedChapters {
 			// the code of the pages it opens with (the shell caches app files only when used)
 			await this.#preload(toon, chapter);
 			// the documents: exactly the URLs the app asks (lib/api.ts, the public client)
-			const docs = documentUrls(API_URL, toon, chapter, options.locale);
-			const kept: string[] = [];
-			for (const [i, url] of docs.entries()) {
-				try {
-					const response = await fetch(url, { credentials: 'omit', signal: controller.signal });
-					if (!response.ok) throw new Error(`${url} ${response.status}`);
-					const blob = await response.blob();
-					await cache.put(url, new Response(blob, { headers: response.headers }));
-					progress(blob.size, 'data', true);
-					kept.push(url);
-				} catch (error) {
-					if (controller.signal.aborted || i < REQUIRED_DOCS) throw error;
-				}
-			}
+			const docs = await storeDocs(cache, documentUrls(API_URL, toon, chapter, options.locale), controller.signal, (b) => progress(b, 'data', true));
+			// the media (+ the fonts the page uses – not in the plan: they add to the total as they come)
+			const files = [...plan.files.map((f) => ({ url: href(f.path), kind: f.kind })), ...loadedFonts().map((url) => ({ url, kind: 'font' }))];
+			await storeAll(cache, await caches.open(MEDIA_CACHE), files, controller.signal, (b, kind) => progress(b, saveKindOf(kind), kind === 'font'));
 
-			// the media (+ the fonts the page uses), PARALLEL at a time
-			const files: { url: string; file?: ChapterFile }[] = [
-				...plan.files.map((file) => ({ url: new URL(asset(file.path)).href, file })),
-				...loadedFonts().map((url) => ({ url }))
-			];
-			const urls = [...new Set(files.map((f) => f.url))];
-			const media = await caches.open(MEDIA_CACHE);
-			let next = 0;
-			const worker = async () => {
-				while (next < files.length) {
-					const { url, file } = files[next++];
-					const kind = saveKindOf(file?.kind ?? 'font');
-					// a font isn't in the plan: it adds to the total as it comes
-					await this.#store(cache, media, url, file?.kind ?? 'font', controller.signal, (bytes) => progress(bytes, kind, !file));
-				}
-			};
-			await Promise.all(Array.from({ length: PARALLEL }, worker));
-
-			const aliases: Record<string, string> = {};
-			for (const [from, to] of Object.entries(aliasesFor(options.list.files, plan.files)))
-				aliases[new URL(asset(from)).href] = new URL(asset(to)).href;
-			const manifest: SavedManifest = {
+			const kinds = await measureCache(cache, new Set());
+			await writeManifest(cache, {
 				toon,
 				chapter,
 				locale: options.locale,
@@ -224,59 +212,70 @@ class SavedChapters {
 				toonTitle: options.toonTitle,
 				level: options.level,
 				videos: options.videos,
-				bytes: Object.values(stored).reduce((sum, b) => sum + b, 0),
-				kinds: stored,
-				urls,
-				docs: kept,
-				aliases,
+				bytes: Object.values(kinds).reduce((sum, b) => sum + b, 0),
+				kinds,
+				urls: [...new Set(files.map((f) => f.url))],
+				docs,
+				aliases: aliasUrls(options.list, plan.files),
 				version: options.list.version,
 				gated: options.list.gated,
 				accessUntil: options.list.gated ? options.accessUntil : null,
 				savedAt: Date.now()
-			};
-			await cache.put(manifestUrl(), new Response(JSON.stringify(manifest), { headers: { 'Content-Type': 'application/json' } }));
-			this.#tellWorker();
+			});
+			this.tellWorker();
 			await this.refresh();
 			return 'saved';
 		} catch {
 			await caches.delete(name).catch(() => {});
 			return controller.signal.aborted ? 'cancelled' : 'failed';
 		} finally {
-			this.#running.delete(name);
-			const { [id]: _done, ...rest } = this.jobs;
-			this.jobs = rest;
+			end();
 		}
 	}
 
-	/** one file into the chapter's cache: from the media cache when it is there, else downloaded (counted as it comes) */
-	async #store(cache: Cache, media: Cache, url: string, kind: string, signal: AbortSignal, progress: (bytes: number) => void): Promise<number> {
-		const cached = kind === 'image' ? await media.match(url, { ignoreVary: true }) : undefined;
-		if (cached) {
-			const blob = await cached.blob();
-			await cache.put(url, new Response(blob, { headers: { 'Content-Type': cached.headers.get('content-type') ?? blob.type } }));
-			progress(blob.size);
-			return blob.size;
+	/**
+	 * A saved chapter takes in its new version (`plan` from saved-update-rules.ts `planRefresh`): the new files, the
+	 * documents again, the new manifest, then the files it no longer names go. Failed or stopped: the files it added go,
+	 * the saved version stays readable as it was.
+	 */
+	async update(saved: SavedManifest, list: ChapterFiles, plan: RefreshPlan): Promise<'updated' | 'cancelled' | 'failed'> {
+		const { toon, chapter } = saved;
+		if (this.jobs[key(toon, chapter)]) return 'cancelled';
+		const { name, controller, progress, end } = this.#begin(toon, chapter, 'refresh', plan.add, `${saved.toonTitle ?? toon} · ${saved.label ?? chapter}`);
+		const cache = await caches.open(name);
+		const had = new Set(saved.urls);
+		const files = plan.add.map((f) => ({ url: href(f.path), kind: f.kind }));
+		try {
+			await this.#preload(toon, chapter);
+			await storeAll(cache, await caches.open(MEDIA_CACHE), files, controller.signal, (b, kind) => progress(b, saveKindOf(kind)));
+			const docs = await storeDocs(cache, documentUrls(API_URL, toon, chapter, saved.locale), controller.signal, (b) => progress(b, 'data', true), saved.docs);
+			const drop = new Set(plan.drop);
+			const kinds = await measureCache(cache, drop);
+			const kept = planSave(list.files, saved.level, saved.videos).files;
+			await writeManifest(cache, {
+				...saved,
+				bytes: Object.values(kinds).reduce((sum, b) => sum + b, 0),
+				kinds,
+				urls: plan.urls,
+				docs,
+				aliases: aliasUrls(list, kept),
+				version: list.version,
+				gated: list.gated,
+				accessUntil: list.gated ? saved.accessUntil : null,
+				refreshedAt: Date.now()
+			});
+			for (const url of drop) await cache.delete(url);
+			const { [key(toon, chapter)]: _was, ...rest } = this.outdated;
+			this.outdated = rest;
+			this.tellWorker();
+			await this.refresh();
+			return 'updated';
+		} catch {
+			for (const { url } of files) if (!had.has(url)) await cache.delete(url).catch(() => false);
+			return controller.signal.aborted ? 'cancelled' : 'failed';
+		} finally {
+			end();
 		}
-		// images: past the worker's media cache (`reload` – it would keep a second copy); audio / video / fonts: the
-		// browser's HTTP cache may have them already
-		const response = await fetch(url, { mode: 'cors', credentials: 'omit', cache: kind === 'image' ? 'reload' : 'default', signal });
-		// a file the CDN doesn't have (a stale reference) is skipped – the reader shows its gap online too
-		if (response.status === 404) return 0;
-		if (!response.ok || !response.body) throw new Error(`${url} ${response.status}`);
-		const reader = response.body.getReader();
-		const parts: Uint8Array[] = [];
-		let size = 0;
-		for (;;) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			parts.push(value);
-			size += value.byteLength;
-			progress(value.byteLength);
-		}
-		const type = response.headers.get('content-type') ?? '';
-		const blob = new Blob(parts as BlobPart[], { type });
-		await cache.put(url, new Response(blob, { headers: { 'Content-Type': type, 'Content-Length': String(size) } }));
-		return size;
 	}
 
 	cancel(toon: string, chapter: number) {
@@ -286,14 +285,17 @@ class SavedChapters {
 	async remove(toon: string, chapter: number) {
 		this.cancel(toon, chapter);
 		await caches.delete(savedCacheName(toon, chapter)).catch(() => {});
-		this.#tellWorker();
+		const { [key(toon, chapter)]: _was, ...rest } = this.outdated;
+		this.outdated = rest;
+		this.tellWorker();
 		await this.refresh();
 	}
 
 	async removeAll() {
 		for (const id of Object.keys(this.jobs)) this.jobs[id]?.controller.abort();
 		for (const name of await caches.keys()) if (isSavedCacheName(name)) await caches.delete(name);
-		this.#tellWorker();
+		this.outdated = {};
+		this.tellWorker();
 		await this.refresh();
 	}
 
@@ -303,21 +305,21 @@ class SavedChapters {
 	 * the current access end (a renewal reaches offline reading).
 	 */
 	async checkAccess(access: { known: boolean; valid: boolean; until: string | null }) {
-		await (this.#loaded ?? this.refresh());
+		await this.loaded();
 		const gone = toPurge(this.list, access);
 		for (const m of gone) await caches.delete(savedCacheName(m.toon, m.chapter)).catch(() => {});
 		if (access.known && access.valid) {
 			for (const m of this.list) {
 				if (!m.gated || m.accessUntil === access.until) continue;
-				const cache = await caches.open(savedCacheName(m.toon, m.chapter));
-				await cache.put(manifestUrl(), new Response(JSON.stringify({ ...m, accessUntil: access.until }), { headers: { 'Content-Type': 'application/json' } }));
+				await writeManifest(await caches.open(savedCacheName(m.toon, m.chapter)), { ...m, accessUntil: access.until });
 			}
 		}
-		if (gone.length) this.#tellWorker();
+		if (gone.length) this.tellWorker();
 		await this.refresh();
 	}
 
-	#tellWorker() {
+	/** the worker re-reads the manifests (its URL → cache index) */
+	tellWorker() {
 		navigator.serviceWorker?.controller?.postMessage({ type: 'SAVED_CHANGED' });
 	}
 }

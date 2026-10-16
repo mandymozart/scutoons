@@ -69,8 +69,8 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.74 **PWA: preloading / save to device** – owner 2026-10-16: "turn scutoons into a PWA". Phase 1 built (manifest,
   icons, app-shell service worker, update prompt, kill switch `VITE_SW=off`), phase 2 (CDN images, LRU 150 MB per data
   tier, + the public library JSON in the worker) + the Android install prompt (§2a), phase 3 (save a chapter to the
-  device, offline reading incl. music / video). Next: phase 4 (iOS install how-to, push …); open from phase 3: refresh a
-  saved chapter on a new version, save a season, offline reading progress queued for sync. → research/PWA.md, DATA.md §6
+  device, offline reading incl. music / video; a new version refreshed, a whole season, offline progress synced). Next:
+  phase 4 (iOS install how-to, push …). → research/PWA.md, DATA.md §6
 - [ ] 10.75 **Performance P4–P7** (research/PERFORMANCE.md) – check what is left: P5 production PHP tuning (OPcache,
   compiled DI container, authoritative classmap), P6 cache headers / Brotli on the CDN, P7 parallel catalog loads.
 - [ ] 10.101 **Viewer loading: lazy + predictive loading** – owner 2026-10-16: "a strategy to bring down viewer loading

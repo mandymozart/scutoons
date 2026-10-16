@@ -28,6 +28,7 @@ import {
 } from './cache-rules.ts';
 import { allEntries, deleteDatabase, deleteEntries, getEntry, getTier, putEntry, putTier } from './media-index.ts';
 import { savedDoc } from './saved-cache.ts';
+import { deleteOutbox } from './outbox.ts';
 
 /** the worker's FetchEvent, as far as used here (this file is type-checked with the DOM lib, not webworker) */
 interface FetchEvent {
@@ -229,4 +230,6 @@ export async function cleanUp() {
 export async function clearAll() {
 	for (const name of await caches.keys()) if (name.startsWith('scutoons-')) await caches.delete(name);
 	await deleteDatabase();
+	// the queued reading progress (lib/sw/outbox.ts) – the save game itself stays in the page's localStorage
+	await deleteOutbox();
 }

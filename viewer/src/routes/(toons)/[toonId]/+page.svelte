@@ -2,6 +2,7 @@
 	import type { PageProps } from './$types.js';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import ChaptersList from '$lib/components/toon/chapters-list.svelte';
+	import SaveSeason from '$lib/components/toon/save-season.svelte';
 	import StartButton from '$lib/components/toon/start-button.svelte';
 	import Hero from '$lib/components/toon/hero.svelte';
 	import RelatedItems from '$lib/components/toon/related-items.svelte';
@@ -110,7 +111,11 @@
 			<!-- Chapter List: left on desktop, the season's heading above it (owner 2026-10-03) -->
 			<div class="list-column">
 				{#each listSeasons as listed (listed.number)}
-					<h2 class="list-heading" id="season-{listed.number}">{m['chapter.season_title']({ number: listed.number, title: listed.title })}</h2>
+					<!-- the season's heading + "save the season to the device" (PWA phase 3, beside the rows' save buttons) -->
+					<div class="list-head">
+						<h2 class="list-heading" id="season-{listed.number}">{m['chapter.season_title']({ number: listed.number, title: listed.title })}</h2>
+						<SaveSeason toonId={params.toonId} season={listed.number} chapters={listed.chapters} />
+					</div>
 					<ChaptersList items={listed.chapters} toonId={params.toonId} />
 				{/each}
 			</div>
@@ -243,15 +248,22 @@
 
 	/* the chapter list (all widths, owner 2026-10-03): the season's heading over a rule, rows with the thumbnail,
 	   title (+ progress rule / release), "#n" / "Prolog" right-aligned, hairlines between */
-	.list-heading {
-		margin: 0;
+	.list-head {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 1rem;
 		padding-bottom: 0.5rem;
-		font-size: 1.25rem;
-		font-weight: normal;
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
+	.list-heading {
+		margin: 0;
+		min-width: 0;
+		font-size: 1.25rem;
+		font-weight: normal;
+	}
 	/* a further season's list (BACKLOG 10.41): room above its heading, also where /season/S scrolls to */
-	.list-heading:not(:first-child) {
+	.list-head:not(:first-child) {
 		margin-top: 2rem;
 	}
 	.list-heading {
@@ -349,7 +361,6 @@
 		}
 		.list-heading {
 			font-size: 1.3333rem;
-			padding-bottom: 0.5rem;
 		}
 		.list-column :global(.chapter-item) {
 			grid-template-columns: 112px minmax(0, 1fr) 2.6667rem;

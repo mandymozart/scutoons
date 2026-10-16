@@ -25,8 +25,21 @@ import {
 	savedCacheName,
 	savedReadable,
 	toPurge,
-	type ChapterFile
+	type ChapterFile,
+	type ChapterFiles
 } from '../src/lib/sw/saved-rules.ts';
+import {
+	kindOfUrl,
+	planRefresh,
+	planSeason,
+	refreshDue,
+	refreshMode,
+	REFRESH_EVERY_MS,
+	seasonState,
+	seasonTargets,
+	SMALL_REFRESH_BYTES,
+	type SeasonChapter
+} from '../src/lib/sw/saved-update-rules.ts';
 
 const MB = 1024 * 1024;
 const FILES: ChapterFile[] = [
@@ -190,4 +203,96 @@ test('progress per kind: pictures, music, videos, the rest', () => {
 		]),
 		{ image: 150, audio: 1000, video: 5 * MB, data: 7 }
 	);
+});
+
+// ── a new version of a saved chapter; a whole season (lib/sw/saved-update-rules.ts) ─────────────────────────────────────
+const CDN = 'https://cdn.example/';
+const url = (path: string) => CDN + path;
+const LIST = (files: ChapterFile[], version = 'v1', chapter = 1): ChapterFiles => ({ toon: 't', chapter, locale: 'de', version, gated: false, files });
+const SAVED = { version: 'v1', level: 'medium' as const, videos: true, urls: [...filesFor(FILES, 'medium').map((f) => url(f.path)), CDN + 'fonts/letter.woff2'] };
+
+test('refresh: the same version and files → nothing to do', () => {
+	const plan = planRefresh(SAVED, LIST(FILES), url);
+	assert.equal(plan.changed, false);
+	assert.deepEqual(plan.add, []);
+	assert.deepEqual(plan.drop, []);
+	assert.equal(plan.bytes, 0);
+});
+
+test('refresh: only the changed files are downloaded, the gone ones dropped, the fonts kept', () => {
+	// a swapped picture (a new name – immutable CDN paths) and a new slice; the 720p video is gone
+	const next = [
+		...FILES.filter((f) => f.path !== 't/s1/one@2x.webp' && f.kind !== 'video'),
+		{ path: 't/s1/one.v2@2x.webp', size: 220, kind: 'image', levels: ['medium'], group: 0 },
+		{ path: 't/s1/three.webp', size: 70, kind: 'image' }
+	] as ChapterFile[];
+	const plan = planRefresh(SAVED, LIST(next, 'v2'), url);
+	assert.equal(plan.changed, true);
+	assert.deepEqual(plan.add.map((f) => f.path), ['t/s1/one.v2@2x.webp', 't/s1/three.webp']);
+	assert.deepEqual(plan.drop, [url('t/s1/one@2x.webp'), url('t/s1/v.720p.mp4')]);
+	assert.equal(plan.bytes, 290);
+	assert.ok(plan.urls.includes(CDN + 'fonts/letter.woff2'), 'the lettering fonts stay');
+	assert.ok(!plan.urls.includes(url('t/s1/v.720p.mp4')));
+	// saved without the videos: a changed video is not fetched, the new version's documents still come
+	const leanSaved = { ...SAVED, videos: false, urls: filesFor(FILES, 'medium', false).map((f) => url(f.path)) };
+	const lean = planRefresh(leanSaved, LIST(FILES.map((f) => (f.kind === 'video' ? { ...f, path: f.path + '.v2' } : f)), 'v2'), url);
+	assert.deepEqual(lean.add, []);
+	assert.equal(lean.changed, true);
+	// the same files, only the version (a text fix): changed, nothing to download
+	const text = planRefresh(SAVED, LIST(FILES, 'v2'), url);
+	assert.deepEqual([text.changed, text.bytes], [true, 0]);
+});
+
+test('refresh: background when small or the setting would save; never with data saver / tier none', () => {
+	assert.equal(refreshMode(200 * 1024, 'off', undefined, 'normal'), 'auto', 'a text fix: always');
+	assert.equal(refreshMode(SMALL_REFRESH_BYTES + 1, 'off', undefined, 'normal'), 'ask');
+	assert.equal(refreshMode(5 * MB, 'always', { type: 'cellular' }, 'normal'), 'auto');
+	assert.equal(refreshMode(5 * MB, 'wifi', { type: 'cellular' }, 'normal'), 'ask');
+	assert.equal(refreshMode(5 * MB, 'wifi', { type: 'wifi' }, 'generous'), 'auto');
+	assert.equal(refreshMode(10, 'always', { saveData: true }, 'none'), 'ask', 'data saver: the reader taps');
+	assert.equal(refreshMode(10, 'always', { type: 'wifi' }, 'none'), 'ask', 'tier none');
+});
+
+test('refresh: asked at most every 30 minutes', () => {
+	assert.ok(refreshDue(undefined, 1000));
+	assert.ok(!refreshDue(1000, 1000 + REFRESH_EVERY_MS - 1));
+	assert.ok(refreshDue(1000, 1000 + REFRESH_EVERY_MS));
+});
+
+test('refresh: a stored URL counts as its kind', () => {
+	assert.equal(kindOfUrl(url('a/b.WEBP')), 'image');
+	assert.equal(kindOfUrl(url('a/b.m4a')), 'audio');
+	assert.equal(kindOfUrl(url('a/b.webm')), 'video');
+	assert.equal(kindOfUrl(url('fonts/x.woff2')), 'data');
+	assert.equal(kindOfUrl('https://api.example/api/library/toons/t/chapters/1?locale=de'), 'data');
+});
+
+const SEASON: SeasonChapter[] = [
+	{ number: 0, readable: true },
+	{ number: 1, readable: true },
+	{ number: 2, readable: true },
+	{ number: 3, readable: false }
+];
+
+test('season: the readable chapters not saved yet, in order; the button state', () => {
+	assert.deepEqual(seasonTargets(SEASON, (n) => n === 1), [0, 2]);
+	assert.deepEqual(seasonTargets(SEASON, () => false), [0, 1, 2]);
+	assert.equal(seasonState(SEASON, (n) => n === 1), 'partial');
+	assert.equal(seasonState(SEASON, (n) => n < 3), 'saved', 'the coming-soon one does not count');
+	assert.equal(seasonState(SEASON, () => false), 'partial');
+	assert.equal(seasonState([{ number: 3, readable: false }], () => false), 'none');
+});
+
+test('season: the size of all its chapters; "without videos" judged on the whole season', () => {
+	const small: ChapterFile[] = [{ path: 'a.webp', size: 2 * MB, kind: 'image' }];
+	const video: ChapterFile[] = [
+		{ path: 'b.webp', size: 1 * MB, kind: 'image' },
+		{ path: 'v.mp4', size: 11 * MB, kind: 'video' }
+	];
+	const plan = planSeason([LIST(small, 'x', 1), LIST(video, 'y', 2)], 'low');
+	assert.deepEqual(plan.chapters.map((c) => c.chapter), [1, 2]);
+	assert.equal(plan.bytes, 14 * MB);
+	assert.equal(plan.leanBytes, 3 * MB);
+	assert.ok(plan.offerLean, '11 MB of videos in 14 MB');
+	assert.ok(!planSeason([LIST(small), LIST(small, 'x', 2)], 'low').offerLean);
 });

@@ -1,7 +1,9 @@
 <script lang="ts">
 	// Account page "Saved chapters" (PWA phase 3, agents/research/PWA.md §2 "Phase 3"): what is saved on this device,
 	// the space it takes (and what the browser allows), one "Remove" per chapter and "Remove all". Nothing when nothing
-	// is saved (saving happens on the chapter's row).
+	// is saved (saving happens on the chapter's row / the season's heading). The running saves and refreshes with their
+	// bars (a season: one bar per chapter), "Updated …" after a new version came in, "Update" when one waits for the tap
+	// (lib/offline/refresh-saved.svelte.ts), "Save the rest" of a season begun here (saved-seasons.svelte).
 	import { confirmDialog, Icon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -9,7 +11,12 @@
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
 	import { AUTO_SAVE_SETTINGS, roundMb, SAVE_KINDS, type SaveKind } from '$lib/sw/saved-rules.ts';
 	import SaveProgress from './save-progress.svelte';
+	import SeasonProgress from './season-progress.svelte';
+	import SavedSeasons from './saved-seasons.svelte';
 	import { autoSave } from '$lib/offline/auto-save.svelte.ts';
+	import { updateSaved } from '$lib/offline/refresh-saved.svelte.ts';
+	import { seasonSaves } from '$lib/offline/save-season.svelte.ts';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 
 	// the default: save a chapter by itself when it is opened (owner 2026-10-16) – Only by hand / On Wi-Fi / Always
 	let canSave = $state(false);
@@ -18,6 +25,9 @@
 	let estimate = $state<{ usage: number; quota: number } | null>(null);
 	const count = $derived(savedChapters.list.length);
 	const running = $derived(Object.entries(savedChapters.jobs));
+	const seasons = $derived(Object.values(seasonSaves.jobs));
+	/** "16.10.2026" in the reader's language */
+	const day = (at: number) => new Date(at).toLocaleDateString(getLocale());
 	// a finished save: the list and the space again
 	let wasRunning = 0;
 	$effect(() => {
@@ -75,20 +85,35 @@
 		<small>{m['saved.auto_hint']()}{#if autoSave.value === 'wifi' && !knowsWifi} {m['saved.auto_wifi_unknown']()}{/if}</small>
 	</fieldset>
 {/if}
-{#if count || running.length}
+{#if count || running.length || seasons.length}
 	<fieldset class="saved-chapters" data-testid="saved-chapters-setting">
 		<legend>{m['saved.title']()}</legend>
 		<!-- the saves running now: a bar for the chapter and one per kind (owner 2026-10-16) -->
+		{#each seasons as job (job.toon + '/' + job.season)}
+			<SeasonProgress {job} />
+		{/each}
 		{#each running as [id, job] (id)}
 			<SaveProgress {job} onstop={() => job.controller.abort()} />
 		{/each}
 		<ul>
 			{#each savedChapters.list as saved (saved.toon + '/' + saved.chapter)}
 				{@const name = `${saved.toonTitle ?? saved.toon} · ${saved.label ?? m['common.chapter']({ number: saved.chapter })}`}
-				<li>
+				{@const id = `${saved.toon}/${saved.chapter}`}
+				{@const waiting = savedChapters.outdated[id]}
+				<li data-testid="saved-chapter" data-id={id}>
 					<span class="entry">
 						<a href={localizeHref(`/${saved.toon}/chapter/${saved.chapter}`)}>{name}{saved.title ? ` · ${saved.title}` : ''}</a>
 						{#if saved.kinds}<small class="kinds">{breakdown(saved.kinds)}</small>{/if}
+						{#if savedChapters.jobs[id]?.mode === 'refresh'}
+							<small data-testid="saved-updating">{m['saved.updating']()}</small>
+						{:else if waiting !== undefined}
+							<small class="update">
+								{m['saved.outdated']()}
+								<button type="button" class="link" onclick={() => updateSaved(saved.toon, saved.chapter)} data-testid="saved-update">{m['saved.update']({ size: roundMb(waiting) })}</button>
+							</small>
+						{:else if saved.refreshedAt}
+							<small data-testid="saved-updated">{m['saved.updated']({ date: day(saved.refreshedAt) })}</small>
+						{/if}
 					</span>
 					<small>{roundMb(saved.bytes)} MB</small>
 					<button type="button" class="round" title={m['saved.remove']()} aria-label={m['saved.remove']()} onclick={() => remove(saved.toon, saved.chapter, name)}>
@@ -97,6 +122,7 @@
 				</li>
 			{/each}
 		</ul>
+		<SavedSeasons />
 		{#if count}<p>
 			<button type="button" class="btn-secondary" onclick={removeAll} data-testid="saved-remove-all">{m['saved.remove_all']()}</button>
 			<small>
@@ -214,6 +240,16 @@
 		border: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 		color: var(--ink);
+		cursor: pointer;
+	}
+	/* "Update · about 2 MB": a text button in the line (the entry's own action, not a primary one) */
+	.link {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-decoration: underline;
 		cursor: pointer;
 	}
 	small {
