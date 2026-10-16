@@ -6,44 +6,84 @@
 		<meta name="robots" content="noindex" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		<!-- the boot screen (owner 2026-10-16: "before the app is fully loaded our screen is a dull white"): the reader's
-		     page-transition logo, large, until the app draws its first element – a chapter page needs ~85 files / ~400 KB
-		     gzip first. Plain CSS here: the app's tokens aren't loaded yet -->
+		     page-transition loader – the animated logo, large, "Patience …" and a bar for the app code loaded so far – until
+		     the app draws its first element. Plain CSS here: the app's tokens aren't loaded yet -->
 		<style>
 			#sc-boot {
 				position: fixed;
 				inset: 0;
 				z-index: 2147483647;
 				display: flex;
+				flex-direction: column;
 				align-items: center;
 				justify-content: center;
+				gap: 1rem;
 				background: #fff;
-				transition: opacity 0.2s;
+				color: #000;
+				font: 1rem/1.4 'IBM Plex Mono', ui-monospace, monospace;
 			}
 			#sc-boot img {
 				width: min(16rem, 60vw);
 				height: auto;
 			}
-			#sc-boot.is-done {
-				opacity: 0;
-				pointer-events: none;
+			#sc-boot .bar {
+				box-sizing: border-box;
+				width: min(12rem, 50vw);
+				height: 0.75rem;
+				border: 2px solid #000;
+			}
+			#sc-boot .fill {
+				display: block;
+				width: 0;
+				height: 100%;
+				background: #000;
+				transition: width 0.15s linear;
 			}
 		</style>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div id="sc-boot" role="progressbar" aria-label="SCUTOONS"><img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" /></div>
+		<!-- data-expect: the app code a page needs before it draws, uncompressed (creator chapter page measured 2026-10-16:
+		     ~1.3 MB in ~85 files) – only the bar's scale; it grows when more arrives -->
+		<div id="sc-boot" data-expect="1300000">
+			<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />
+			<span class="text"></span>
+			<span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="fill"></span></span>
+		</div>
 		<div id="sc-app" style="display: contents">%sveltekit.body%</div>
 		<script>
-			// away as soon as the app has drawn something (its first element that isn't a script) – but not while it only
-			// waits (an element with data-sc-booting: the sign-in gate checking the session)
 			(() => {
 				const boot = document.getElementById('sc-boot');
 				const app = document.getElementById('sc-app');
+				const bar = boot.querySelector('.bar');
+				const fill = boot.querySelector('.fill');
+				boot.querySelector('.text').textContent = document.documentElement.lang === 'de' ? 'Geduld …' : 'Patience …';
+				// the bar: bytes of the app's own files (/_app/) arrived so far against the expected size (never full before
+				// the app draws)
+				let expect = Number(boot.dataset.expect) || 1000000;
+				let loaded = 0;
+				const show = () => {
+					if (loaded > expect * 0.95) expect = loaded / 0.95;
+					const share = Math.round((loaded / expect) * 100);
+					fill.style.width = share + '%';
+					bar.setAttribute('aria-valuenow', String(share));
+				};
+				let files = null;
+				try {
+					files = new PerformanceObserver((list) => {
+						for (const entry of list.getEntries()) if (entry.name.includes('/_app/')) loaded += entry.decodedBodySize || entry.encodedBodySize || 0;
+						show();
+					});
+					files.observe({ type: 'resource', buffered: true });
+				} catch {
+					/* no PerformanceObserver: the logo alone */
+				}
+				// away as soon as the app has drawn something (its first element that isn't a script) – but not while it only
+				// waits (an element with data-sc-booting: the sign-in gate checking the session)
 				const drawn = () => [...app.children].some((el) => el.tagName !== 'SCRIPT') && !app.querySelector('[data-sc-booting]');
 				const done = () => {
-					if (!boot.isConnected) return;
-					boot.classList.add('is-done');
-					setTimeout(() => boot.remove(), 250);
+					files?.disconnect();
+					boot.remove();
 				};
 				if (drawn()) return done();
 				const watch = new MutationObserver(() => {
@@ -53,7 +93,10 @@
 				});
 				watch.observe(app, { childList: true, subtree: true });
 				// never stuck: whatever the app shows after 10 s (an API that doesn't answer) is better than the logo
-				setTimeout(() => (watch.disconnect(), done()), 10000);
+				setTimeout(() => {
+					watch.disconnect();
+					if (boot.isConnected) done();
+				}, 10000);
 			})();
 		</script>
 	</body>
