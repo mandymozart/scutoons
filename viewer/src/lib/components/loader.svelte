@@ -3,7 +3,8 @@
 
 	let { visible = false, oncancel }: { visible?: boolean; oncancel?: () => void } = $props();
 </script>
-<div class="loading" class:hidden={!visible}>
+<!-- data-sc-booting while shown: the app shell's boot screen (app.html) stays over it on the first load -->
+<div class="loading" class:hidden={!visible} data-sc-booting={visible ? '' : undefined}>
 	<img src="/SCUTOONS-logo-animated.svg" alt="Patience ..." /><br />
 	{m['common.loading']()}<br />
 	{#if oncancel}
