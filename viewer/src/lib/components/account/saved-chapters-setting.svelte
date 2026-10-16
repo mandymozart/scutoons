@@ -1,5 +1,6 @@
 <script lang="ts">
-	// Account page "Saved chapters" (PWA phase 3, agents/research/PWA.md §2 "Phase 3"): what is saved on this device,
+	// Account page → Offline-Inhalte → "Saved chapters" (PWA phase 3, agents/research/PWA.md §2 "Phase 3"; ACCOUNT-PAGE.md
+	// §0 – "save by themselves" is its own setting, auto-save-setting.svelte): what is saved on this device,
 	// the space it takes (and what the browser allows), one "Remove" per chapter and "Remove all". Nothing when nothing
 	// is saved (saving happens on the chapter's row / the season's heading). The running saves and refreshes with their
 	// bars (a season: one bar per chapter), "Updated …" after a new version came in, "Update" when one waits for the tap
@@ -9,18 +10,13 @@
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
-	import { AUTO_SAVE_SETTINGS, roundMb, SAVE_KINDS, type SaveKind } from '$lib/sw/saved-rules.ts';
+	import { roundMb, SAVE_KINDS, type SaveKind } from '$lib/sw/saved-rules.ts';
 	import SaveProgress from './save-progress.svelte';
 	import SeasonProgress from './season-progress.svelte';
 	import SavedSeasons from './saved-seasons.svelte';
-	import { autoSave } from '$lib/offline/auto-save.svelte.ts';
 	import { updateSaved } from '$lib/offline/refresh-saved.svelte.ts';
 	import { seasonSaves } from '$lib/offline/save-season.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
-
-	// the default: save a chapter by itself when it is opened (owner 2026-10-16) – Only by hand / On Wi-Fi / Always
-	let canSave = $state(false);
-	let knowsWifi = $state(true);
 
 	let estimate = $state<{ usage: number; quota: number } | null>(null);
 	const count = $derived(savedChapters.list.length);
@@ -53,8 +49,6 @@
 		estimate = e?.usage !== undefined && e.quota ? { usage: e.usage, quota: e.quota } : null;
 	}
 	onMount(() => {
-		canSave = 'serviceWorker' in navigator && 'caches' in window;
-		knowsWifi = !!(navigator as Navigator & { connection?: { type?: string } }).connection?.type;
 		void savedChapters.refresh().then(measure);
 	});
 
@@ -71,20 +65,6 @@
 	}
 </script>
 
-{#if canSave}
-	<fieldset class="auto-save" data-testid="auto-save-setting">
-		<legend>{m['saved.auto_title']()}</legend>
-		<div class="options">
-			{#each AUTO_SAVE_SETTINGS as value (value)}
-				<label class:active={autoSave.value === value}>
-					<input type="radio" name="auto-save" {value} checked={autoSave.value === value} onchange={() => autoSave.set(value)} data-testid={`auto-save-${value}`} />
-					{m[`saved.auto_${value}`]()}
-				</label>
-			{/each}
-		</div>
-		<small>{m['saved.auto_hint']()}{#if autoSave.value === 'wifi' && !knowsWifi} {m['saved.auto_wifi_unknown']()}{/if}</small>
-	</fieldset>
-{/if}
 {#if count || running.length || seasons.length}
 	<fieldset class="saved-chapters" data-testid="saved-chapters-setting">
 		<legend>{m['saved.title']()}</legend>
@@ -134,60 +114,12 @@
 {/if}
 
 <style>
-	/* the options like the media quality's (media-quality-setting.svelte): one row of square radio buttons */
-	.auto-save {
-		border: 0;
-		margin: 0 0 1rem;
-		padding: 0;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-	.options {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-	.options label {
-		position: relative;
-		display: block;
-		padding: 0.5rem 0.25rem;
-		border: 2px solid #cccccc;
-		margin-left: -2px;
-		text-align: center;
-		font-size: 0.75rem;
-		line-height: 1.2;
-		cursor: pointer;
-		overflow-wrap: anywhere;
-	}
-	.options label:first-child {
-		margin-left: 0;
-	}
-	.options label:hover,
-	.options label:has(input:focus-visible) {
-		border-color: black;
-		z-index: 1;
-	}
-	.options label.active {
-		background: black;
-		color: white;
-		border-color: black;
-		z-index: 1;
-	}
-	.options input {
-		position: absolute;
-		opacity: 0;
-		inset: 0;
-		margin: 0;
-		cursor: pointer;
-	}
 	.saved-chapters {
 		border: 0;
-		margin: 0 0 1rem;
+		margin: 0;
 		padding: 0;
 		min-width: 0;
 	}
-	/* like the account page's section headings (fx-setting.svelte) */
 	legend {
 		padding: 0;
 		margin-bottom: 0.75rem;
@@ -255,6 +187,6 @@
 	small {
 		font-size: 0.75rem;
 		line-height: 1.3;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 </style>

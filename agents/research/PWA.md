@@ -87,7 +87,7 @@ progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers)
   filling while it saves (a tap asks "Stop saving?"), ✓ saved (a tap asks "Remove … from this device? Frees about
   17 MB"); failed → ! (a tap tries again). Only with a service worker controlling the page (production, not the
   creator's Reader frame) and only for chapters the reader may read: published (never a draft or coming soon), a free
-  preview (`isPreview`) or the reader's access (device code / account). Account page → "Saved chapters": each save
+  preview (`isPreview`) or the reader's access (device code / account). `/account/offline` (Offline-Inhalte) → "Saved chapters" (`saved-chapters-setting.svelte`; "Save chapters by themselves" is its own `auto-save-setting.svelte` – ACCOUNT-PAGE.md §0): each save
   (toon · chapter · title, MB, remove), "Remove all", the space (`storage.estimate()`: "SCUTOONS uses 76 MB of the
   10316 MB this browser allows"); nothing when nothing is saved.
 - **The size first** – the list is one server request, `GET /library/toons/<t>/chapters/<n>/files?locale=`
@@ -209,9 +209,10 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
 - **Not now** (or dismissing Chrome's dialog) → away for 30 days; **appinstalled** → never again on this browser.
   Stored in localStorage `scutoons_install` `{ visits, chapters, snoozedAt, installed }` (try/catch; blocked storage =
   this visit only).
-- Account page → settings: "App · Install app" whenever the browser can install (also while the bar is snoozed).
+- `/account/offline` → "App · Install app" whenever the browser can install (also while the bar is snoozed); the bar's
+  text links there (ACCOUNT-PAGE.md §0.7).
 - Dev: no real event on the dev server – `__scFakeInstallPrompt('dismissed' | 'accepted')` in the console (dev builds only).
-- **iOS** (phase 4): the account page's "App" shows "Add SCUTOONS to your home screen: tap Share [icon], then 'Add to Home
+- **iOS** (phase 4): `/account/offline`'s "App" shows "Add SCUTOONS to your home screen: tap Share [icon], then 'Add to Home
   Screen'." – only Safari on iPhone / iPad (`isIosSafari`: iPadOS = a Mac UA with touch; not CriOS / FxiOS / in-app
   browsers), not inside the home-screen app, not in the creator's frame (`showIosHowTo`, test/install-rules.test.ts).
   No bar: iOS 26 opens such a site as a web app by default.
@@ -221,7 +222,7 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
   language), sent **only by an admin's tap**: admin → Emails → Push (a published chapter; "Send to my browsers" = a test
   to the admin's own subscriptions first; "Send to everyone" asks "Announce … to N browsers?" and warns when the chapter
   was announced before). Never automatic, never from the MCP (it may give the link `/emails/push?toon=&chapter=`).
-- **Opt-in**: account page → "Notifications · Tell me when a new chapter is out" (`components/account/notifications-setting.svelte`,
+- **Opt-in**: `/account/notifications` (Benachrichtigungen, guests too) → "Push messages · Tell me when a new chapter is out" (an `AccountToggle`; a refused permission puts it back) (`components/account/notifications-setting.svelte`,
   `lib/push.svelte.ts`). The browser's permission is asked only by that tap. Hidden without a worker (dev, the kill switch),
   without a key on the server (`GET /push/key` → null) and in the creator's frame. iOS Safari: "works in the app: add
   SCUTOONS to your home screen first" (iOS 16.4+ only installed); blocked → "Notifications are blocked …". Each visit of

@@ -3,15 +3,27 @@
 
 	/**
 	 * One account switch (a checkbox with its label and a hint line): saved at once through `save`; a failed save puts the
-	 * box back and says so. The newsletter, "Show hints", "Hide sensitive content", the creator's draft preview.
+	 * box back and says so (`error`, default: the newsletter's text). `save` resolving to `false` = it didn't take (a
+	 * refused browser permission): the box goes back without an error – the hint says why. The newsletter, "Show hints",
+	 * "Hide sensitive content", the creator's draft preview, push (notifications-setting.svelte).
 	 */
 	let {
 		checked,
 		label,
 		hint,
 		save,
-		testid
-	}: { checked: boolean; label: string; hint: string; save: (value: boolean) => Promise<unknown> | void; testid?: string } = $props();
+		testid,
+		disabled = false,
+		error
+	}: {
+		checked: boolean;
+		label: string;
+		hint: string;
+		save: (value: boolean) => Promise<unknown> | void;
+		testid?: string;
+		disabled?: boolean;
+		error?: string;
+	} = $props();
 
 	let saving = $state(false);
 	let failed = $state(false);
@@ -22,7 +34,7 @@
 		saving = true;
 		failed = false;
 		try {
-			await save(value);
+			if ((await save(value)) === false) input.checked = !value;
 		} catch {
 			input.checked = !value;
 			failed = true;
@@ -33,14 +45,14 @@
 </script>
 
 <label class="toggle" data-testid={testid}>
-	<input type="checkbox" {checked} disabled={saving} {onchange} />
+	<input type="checkbox" {checked} disabled={saving || disabled} {onchange} />
 	<span>
 		{label}
 		<small>{hint}</small>
 	</span>
 </label>
 {#if failed}
-	<p class="error" role="alert">{m['account.marketing_opt_in_failed']()}</p>
+	<p class="error" role="alert">{error ?? m['account.marketing_opt_in_failed']()}</p>
 {/if}
 
 <style>

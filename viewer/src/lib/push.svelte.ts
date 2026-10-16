@@ -36,10 +36,23 @@ class Push {
 	failed = $state(false);
 	#key: string | null = null;
 	#started = false;
+	/** init() has finished: `state` is this device's answer (the account page waits for it before it sends a deep link
+	 *  to a group the reader can't see back to the index) */
+	checked = $state(false);
+	#checking: Promise<void> | null = null;
 
 	/** the account page's onMount: what the switch shows (re-sends a live subscription – keeps locale + account fresh) */
-	async init() {
-		if (!browser || this.#started || window.top !== window) return;
+	init(): Promise<void> {
+		if (!browser || window.top !== window) {
+			this.checked = true;
+			return Promise.resolve();
+		}
+		this.#checking ??= this.#check().finally(() => (this.checked = true));
+		return this.#checking;
+	}
+
+	async #check() {
+		if (this.#started) return;
 		this.#started = true;
 		const registration = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
 		if (!registration) return; // no worker: dev, the kill switch, private mode

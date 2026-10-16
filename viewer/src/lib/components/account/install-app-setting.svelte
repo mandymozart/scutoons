@@ -1,7 +1,8 @@
 <script lang="ts">
-	// Account page "App" (agents/research/PWA.md "Install prompt"): "Install app" whenever the browser can install
-	// (Android / Chromium, not already installed) – also while the bar is snoozed. iPhone / iPad Safari (no install
-	// event): how to add it by hand – Share, then "Add to Home Screen" (PWA phase 4). Nothing otherwise.
+	// Account page → Offline-Inhalte → "App" (agents/research/PWA.md §2a, ACCOUNT-PAGE.md §0): one item for both ways in –
+	// Android / Chromium: "Install app" whenever the browser can install (also while the install bar is snoozed);
+	// iPhone / iPad Safari (no install event): how to add it by hand – Share, then "Add to Home Screen". Nothing when
+	// neither applies (installed already, another browser, the creator's frame).
 	import { install } from '$lib/install.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 </script>
@@ -10,8 +11,8 @@
 	<fieldset class="install-app" data-testid="install-app-setting">
 		<legend>{m['pwa.app_title']()}</legend>
 		{#if install.available}
-			<p>
-				<button type="button" class="btn-secondary" onclick={() => install.install()}>{m['pwa.install_app']()}</button>
+			<p class="action">
+				<button type="button" class="btn-secondary" onclick={() => install.install()} data-testid="install-app">{m['pwa.install_app']()}</button>
 				<small>{m['pwa.install_hint']()}</small>
 			</p>
 		{:else}
@@ -33,11 +34,10 @@
 <style>
 	.install-app {
 		border: 0;
-		margin: 0 0 1rem;
+		margin: 0;
 		padding: 0;
 		min-width: 0;
 	}
-	/* like the account page's section headings (fx-setting.svelte) */
 	legend {
 		padding: 0;
 		margin-bottom: 0.75rem;
@@ -46,14 +46,21 @@
 	}
 	p {
 		margin: 0;
+	}
+	/* an action: the button, its hint beside it (wraps under it on a phone) */
+	.action {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5rem 0.75rem;
 	}
+	.action button {
+		height: var(--control-height);
+		padding: 0 1rem;
+	}
 	.ios {
+		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
 		gap: 0.25rem;
 	}
 	.share {
@@ -61,13 +68,9 @@
 		height: 1rem;
 		vertical-align: -0.125rem;
 	}
-	button {
-		height: var(--control-height);
-		padding: 0 1rem;
-	}
 	small {
 		font-size: 0.75rem;
 		line-height: 1.3;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 </style>

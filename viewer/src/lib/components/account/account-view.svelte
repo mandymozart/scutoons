@@ -50,7 +50,9 @@
 
 	// a group that isn't for this reader (signed out on its page, a link to the creator group): the index
 	$effect(() => {
-		if (group && !session.pending && !groups.includes(group)) goto(localizeHref('/account'), { replaceState: true });
+		// only once this device's facts are known (push / the worker / install answer after the first render – a deep link
+		// to "Offline-Inhalte" or a guest's "Benachrichtigungen" must not bounce)
+		if (group && !session.pending && push.checked && !groups.includes(group)) goto(localizeHref('/account'), { replaceState: true });
 	});
 
 	// `?return=<path>` (the follow-up bar's "Anmelden" before a members-only chapter): back there after signing in

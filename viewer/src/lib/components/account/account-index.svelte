@@ -11,6 +11,7 @@
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
 	import { draftPreview } from '$lib/draft-preview.svelte.ts';
 	import { push } from '$lib/push.svelte.ts';
+	import { install } from '$lib/install.svelte.ts';
 	import { roundMb } from '$lib/sw/saved-rules.ts';
 	import { GROUP_ICON, groupScope, type AccountGroup, type AccountReader } from '$lib/account/groups.ts';
 	import { groupTitle } from './group-title.ts';
@@ -43,11 +44,13 @@
 				return `${Math.round(fxSettings.volume * 100)} % · ${onOff(m['fx.haptics'](), fxSettings.haptics)}`;
 			case 'offline': {
 				const count = savedChapters.list.length;
-				const auto = m[`saved.auto_${autoSave.value}`]();
-				return count ? `${auto} · ${m['saved.summary']({ count, size: roundMb(savedChapters.bytes) })}` : auto;
+				const parts = install.installed ? [m['pwa.sum_installed']()] : [];
+				if (savedChapters.supported) parts.push(m[`saved.auto_${autoSave.value}`]());
+				if (count) parts.push(m['saved.summary']({ count, size: roundMb(savedChapters.bytes) }));
+				return parts.join(' · ');
 			}
 			case 'notifications': {
-				const parts = push.state === 'hidden' ? [] : [onOff(m['account.sum_push'](), push.state === 'on')];
+				const parts = push.state === 'hidden' || push.state === 'install-first' ? [] : [onOff(m['account.sum_push'](), push.state === 'on')];
 				if (user) parts.push(onOff(m['account.sum_news'](), !!user.marketing_opt_in));
 				return parts.join(' · ');
 			}

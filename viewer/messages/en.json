@@ -689,7 +689,8 @@
 		"ios_add_after": "then “Add to Home Screen”.",
 		"ios_share": "Share",
 		"ios_hint": "It then opens like an app, without Safari's bars.",
-		"push_title": "Notifications",
+		"push_legend": "Push messages",
+		"sum_installed": "App installed",
 		"push_new_chapters": "Tell me when a new chapter is out",
 		"push_hint": "Only for new chapters, on this device.",
 		"push_install_first": "On iPhone and iPad this works in the app: add SCUTOONS to your home screen first, then switch it on there.",
@@ -742,11 +743,11 @@
 		"kind_audio": "Music & sounds",
 		"kind_video": "Videos",
 		"kind_data": "Text & fonts",
-		"auto_title": "Save chapters on this device",
+		"auto_title": "Save chapters by themselves",
 		"auto_off": "Only by hand",
 		"auto_wifi": "On Wi-Fi",
 		"auto_always": "Always",
-		"auto_hint": "A chapter you open is then saved by itself and reads without a connection too – big videos are left out, never with data saver on. For this device.",
+		"auto_hint": "A chapter you open is then saved by itself and reads without a connection too – big videos are left out, never with data saver on.",
 		"auto_wifi_unknown": "This browser doesn't tell whether you're on Wi-Fi – “On Wi-Fi” saves nothing here, choose “Always”."
 	}
 }

@@ -689,7 +689,8 @@
 		"ios_add_after": "dann auf „Zum Home-Bildschirm“.",
 		"ios_share": "Teilen",
 		"ios_hint": "Dann öffnet es wie eine App, ohne die Leisten von Safari.",
-		"push_title": "Benachrichtigungen",
+		"push_legend": "Push-Nachrichten",
+		"sum_installed": "App installiert",
 		"push_new_chapters": "Sag mir, wenn ein neues Kapitel erscheint",
 		"push_hint": "Nur bei neuen Kapiteln, auf diesem Gerät.",
 		"push_install_first": "Auf iPhone und iPad geht das in der App: füge SCUTOONS erst zum Home-Bildschirm hinzu und schalte es dort ein.",
@@ -742,11 +743,11 @@
 		"kind_audio": "Musik & Klänge",
 		"kind_video": "Videos",
 		"kind_data": "Text & Schrift",
-		"auto_title": "Kapitel auf dem Gerät speichern",
+		"auto_title": "Kapitel von selbst speichern",
 		"auto_off": "Nur von Hand",
 		"auto_wifi": "Im WLAN",
 		"auto_always": "Immer",
-		"auto_hint": "Ein Kapitel, das du öffnest, wird dann von selbst gespeichert und ist auch ohne Verbindung lesbar – große Videos bleiben weg, nie im Datensparmodus. Gilt für dieses Gerät.",
+		"auto_hint": "Ein Kapitel, das du öffnest, wird dann von selbst gespeichert und ist auch ohne Verbindung lesbar – große Videos bleiben weg, nie im Datensparmodus.",
 		"auto_wifi_unknown": "Dieser Browser verrät nicht, ob du im WLAN bist – „Im WLAN“ speichert hier nichts, nimm „Immer“."
 	}
 }

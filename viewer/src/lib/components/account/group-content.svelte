@@ -6,6 +6,7 @@
 	import ReadingGroup from './reading-group.svelte';
 	import FxSetting from './fx-setting.svelte';
 	import InstallAppSetting from './install-app-setting.svelte';
+	import AutoSaveSetting from './auto-save-setting.svelte';
 	import SavedChaptersSetting from './saved-chapters-setting.svelte';
 	import CollectionGroup from './collection-group.svelte';
 	import AiConnections from './ai-connections.svelte';
@@ -25,11 +26,13 @@
 {:else if group === 'sound'}
 	<FxSetting />
 {:else if group === 'offline'}
+	<!-- one component per setting (ACCOUNT-PAGE.md §0): the app (install / iOS how-to), save by themselves, the saves -->
 	<InstallAppSetting />
+	<AutoSaveSetting />
 	<SavedChaptersSetting />
 {:else if group === 'notifications'}
 	<!-- push (this device, also guests – PWA phase 4) and the newsletter (members) -->
-	<NotificationsSetting legend={false} />
+	<NotificationsSetting />
 	{#if session.isLoggedIn && session.user}
 		<AccountToggle
 			checked={!!session.user.marketing_opt_in}

@@ -77,7 +77,6 @@
 		display: block;
 		height: 100%;
 		background: var(--ink);
-		transition: width 0.2s linear;
 	}
 	.bar.total {
 		height: 0.75rem;
@@ -104,7 +103,7 @@
 	small {
 		font-size: 0.75rem;
 		line-height: 1.3;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 	.round {
 		flex: none;
@@ -120,9 +119,10 @@
 		color: var(--ink);
 		cursor: pointer;
 	}
-	@media (prefers-reduced-motion: reduce) {
+	/* motion only for those who don't mind it (ACCOUNT-PAGE.md §0.8) */
+	@media (prefers-reduced-motion: no-preference) {
 		.bar span {
-			transition: none;
+			transition: width 0.2s linear;
 		}
 	}
 </style>

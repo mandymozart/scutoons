@@ -1,93 +1,61 @@
 <script lang="ts">
-	// Account page "Notifications" (agents/research/PWA.md §2b, PWA phase 4): one switch – "Tell me when a new chapter
-	// is out". The browser's permission is asked only by this tap. iPhone / iPad Safari: a hint (it works only in the
-	// home-screen app). Nothing at all where push can't work (no worker, no key on the server, the creator's frame).
+	// Account page → Benachrichtigungen → "Push" (agents/research/PWA.md §2b, ACCOUNT-PAGE.md §0): one switch – "Tell me
+	// when a new chapter is out", on this device (guests too). The browser's permission is asked only by this tap; a
+	// refused one puts the switch back and the hint says it is blocked. iPhone / iPad Safari: only the hint that it works
+	// in the home-screen app. Nothing at all where push can't work (no worker, no key on the server, the creator's frame).
 	import { onMount } from 'svelte';
 	import { push } from '$lib/push.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-
-	/** `legend` false: the account page's "Benachrichtigungen" group says it already – the legend only for screen readers */
-	let { legend = true }: { legend?: boolean } = $props();
+	import AccountToggle from './account-toggle.svelte';
 
 	onMount(() => void push.init());
 
-	function toggle(event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		// the switch follows the real state, not the tap (a refused permission stays off)
-		input.checked = push.state === 'on';
-		if (push.state === 'on') void push.disable();
-		else void push.enable();
+	/** the switch: true = it took; false = the browser said no (the hint says why); a failure throws (the error line) */
+	async function save(on: boolean): Promise<boolean> {
+		await (on ? push.enable() : push.disable());
+		if (push.failed) throw new Error('push');
+		return (push.state === 'on') === on;
 	}
 </script>
 
 {#if push.state !== 'hidden'}
-	<fieldset class="notifications" data-testid="notifications-setting" data-state={push.state}>
-		<legend class:hidden-legend={!legend}>{m['pwa.push_title']()}</legend>
+	<fieldset class="push-setting" data-testid="notifications-setting" data-state={push.state}>
+		<legend>{m['pwa.push_legend']()}</legend>
 		{#if push.state === 'install-first'}
 			<small>{m['pwa.push_install_first']()}</small>
 		{:else}
-			<label class="check">
-				<input
-					type="checkbox"
-					checked={push.state === 'on'}
-					disabled={push.busy || push.state === 'denied'}
-					onchange={toggle}
-					data-testid="push-toggle"
-				/>
-				<span>
-					{m['pwa.push_new_chapters']()}
-					<small>
-						{push.state === 'denied' ? m['pwa.push_denied']() : push.failed ? m['pwa.push_failed']() : m['pwa.push_hint']()}
-					</small>
-				</span>
-			</label>
+			<AccountToggle
+				checked={push.state === 'on'}
+				disabled={push.busy || push.state === 'denied'}
+				label={m['pwa.push_new_chapters']()}
+				hint={push.state === 'denied' ? m['pwa.push_denied']() : m['pwa.push_hint']()}
+				error={m['pwa.push_failed']()}
+				{save}
+				testid="push-toggle"
+			/>
 		{/if}
 	</fieldset>
 {/if}
 
 <style>
-	.hidden-legend {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
-	}
-	.notifications {
+	.push-setting {
 		border: 0;
-		margin: 0 0 1rem;
+		margin: 0;
 		padding: 0;
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
-	/* like the account page's section headings (fx-setting.svelte) */
 	legend {
 		padding: 0;
 		margin-bottom: 0.75rem;
 		font-size: 1rem;
 		font-weight: 700;
 	}
-	.check {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.5rem;
-		cursor: pointer;
-	}
-	.check input {
-		margin: 0.125rem 0 0;
-		width: 1.25rem;
-		height: 1.25rem; /* control-ok: a checkbox */
-		flex: none;
-		accent-color: black;
-	}
-	.check span {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
 	small {
 		font-size: 0.75rem;
 		line-height: 1.3;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 </style>

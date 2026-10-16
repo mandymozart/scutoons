@@ -107,6 +107,6 @@
 	small {
 		font-size: 0.75rem;
 		line-height: 1.3;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 </style>
