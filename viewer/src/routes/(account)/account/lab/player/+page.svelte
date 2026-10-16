@@ -9,7 +9,7 @@
 	import RecordPlayer from '$lib/components/items/record-player.svelte';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 	import ItemModel from '$lib/components/items/item-model.svelte';
-	import RecordStage, { type StageTable } from '$lib/components/items/record-stage.svelte';
+	import RecordStage, { TABLE, type StageTable } from '$lib/components/items/record-stage.svelte';
 	import { armAngle } from '$lib/components/items/playlist.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ModelSource, VinylLook } from '@scutoons/content';
@@ -46,7 +46,7 @@
 	]);
 	let current = $state('model');
 	// ?table=desert | jungle: a map texture on the table (owner 2026-10-16, to compare with plain)
-	const table = $derived((page.url.searchParams.get('table') ?? 'plain') as StageTable);
+	const table = $derived((page.url.searchParams.get('table') ?? TABLE) as StageTable);
 	let selected = $state('model');
 </script>
 

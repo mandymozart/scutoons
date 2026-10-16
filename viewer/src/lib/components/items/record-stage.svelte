@@ -5,10 +5,11 @@
 	 */
 	let introduced = false;
 
-	/** the table's surface (owner 2026-10-16, an experiment: a map texture on the table – plain or textured to compare):
-	 *  scutoons/3d/table-desert.webp, scutoons/3d/table-jungle.webp (painted map tiles; AssetUsages CODE_REFERENCES) */
+	/** the table's surface: a map texture (owner 2026-10-16: "Texture drauf, aber ich nehme Jungle als Preset"); the lab
+	 *  compares (`?table=plain|desert|jungle`). scutoons/3d/table-desert.webp, scutoons/3d/table-jungle.webp (painted map
+	 *  tiles; AssetUsages CODE_REFERENCES) */
 	export type StageTable = 'plain' | 'desert' | 'jungle';
-	export const TABLE: StageTable = 'plain';
+	export const TABLE: StageTable = 'jungle';
 </script>
 
 <script lang="ts">
