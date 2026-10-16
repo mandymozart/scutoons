@@ -98,7 +98,14 @@
 	let pointer = -1;
 	let startX = 0;
 	let startY = 0;
-	let swallowClick = false;
+	// the click a pull may still produce (its press began on a tab, an item …) is no tap: swallowed in the panel (capture)
+	let swallowing = false;
+	let swallowTimer: ReturnType<typeof setTimeout> | undefined;
+	function swallowClick(ms: number) {
+		swallowing = true;
+		clearTimeout(swallowTimer);
+		swallowTimer = setTimeout(() => (swallowing = false), ms);
+	}
 	function headerDown(e: PointerEvent) {
 		if (e.button !== 0 || !open) return;
 		pointer = e.pointerId;
@@ -129,15 +136,14 @@
 		if (e.pointerId !== pointer) return;
 		pointer = -1;
 		if (!dragging) return;
-		swallowClick = true; // the click after a drag is no tap on a tab
-		setTimeout(() => (swallowClick = false), 0);
+		swallowClick(0); // the click after a drag is no tap on a tab
 		release();
 	}
-	function headerClick(e: MouseEvent) {
-		if (!swallowClick) return;
+	function pulledClick(e: MouseEvent) {
+		if (!swallowing) return;
 		e.preventDefault();
 		e.stopPropagation();
-		swallowClick = false;
+		swallowing = false;
 	}
 
 	// the content: touch events (not passive) – a finger pulling down while it is scrolled to its top drags the panel
@@ -200,6 +206,8 @@
 		};
 		const end = () => {
 			tracking = false;
+			// a touch's click comes after touchend, in a later task than a pointer's
+			if (dragging) swallowClick(350);
 			release();
 		};
 		el.addEventListener('touchstart', start, { passive: true });
@@ -242,16 +250,20 @@
 		return () => openPanels.delete(close);
 	});
 
-	// a press that began before the panel opened is not outside it (a touch's click comes after the pointerdown – the
-	// tap on the record player's bar that opens its card would close it again)
-	let openedAt = 0;
+	// a press that began while the panel was closed is not outside it: on touch the outside handler runs on the click
+	// after the pointerdown, after the tap's own handler – the tap on the record player's bar has already opened its
+	// card by then (`open` is true at once, while an effect would note the opening only later), and would close it
+	// again. So the panel's state is noted at the press itself (capture, before anything reacts to it).
+	let pressedWhileOpen: Event | null = null;
 	$effect(() => {
-		if (open) openedAt = performance.now();
+		const note = (e: PointerEvent) => (pressedWhileOpen = open ? e : null);
+		document.addEventListener('pointerdown', note, { capture: true });
+		return () => document.removeEventListener('pointerdown', note, { capture: true });
 	});
 	onClickOutside(
 		() => panel,
 		(e) => {
-			if (open && !keepOpen() && e.timeStamp >= openedAt) onclose();
+			if (open && !keepOpen() && e === pressedWhileOpen) onclose();
 		}
 	);
 
@@ -283,6 +295,7 @@
 	aria-hidden={!open}
 	inert={!open}
 	data-testid={testid}
+	onclickcapture={pulledClick}
 >
 	<img class="frame" src={asset(`catpope/vectors/vector-demon-saw-1.svg`)} alt="" />
 
@@ -293,7 +306,6 @@
 		onpointermove={headerMove}
 		onpointerup={headerUp}
 		onpointercancel={headerUp}
-		onclickcapture={headerClick}
 		data-testid="pull-panel-header"
 	>
 		<span class="grip" aria-hidden="true"></span>
