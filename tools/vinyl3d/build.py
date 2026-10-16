@@ -21,7 +21,10 @@ moire, a few KB; KHR_materials_anisotropy along the tangent (= around) gives the
 
 The sleeve: a spined sleeve 315 × 312 × 3 mm (specs/spinedsleeve_12inch_2019.pdf); the cover PDF's trim box is
 back | spine | front (315 + 3 + 315 mm), front faces +Z, the spine on the left of the front. Which half is the front:
-FRONT_IS_RIGHT_HALF (or --front left|right) – today the right half (the title side), the owner hasn't confirmed it.
+FRONT_IS_RIGHT_HALF (or --front left|right) – the right half, with the obi strip on its left (owner, 2026-10-16).
+
+A test press (`--test-press --name <id>`): blank white labels in a generic, empty paper inner sleeve 310 × 310 mm –
+<name>.set.glb only (owner 2026-10-16: "generic empty inner sleeve and white label on record only").
 
 Textures are JPEG / PNG (core glTF, no extension needed). A next item: same pattern – artwork from the print files,
 real dimensions in metres, standing so a turn shows the back, one self-contained .glb ≤ ~1–2 MB (ASSETS.md "3D models").
@@ -52,8 +55,9 @@ TRACK_GAPS = 3               # 3 tracks a side → 2 gaps (+ the lead-out spiral
 # the sleeve (specs/spinedsleeve_12inch_2019.pdf) and where the record sits in the set
 SLEEVE_W, SLEEVE_H, SLEEVE_D = 315 * MM, 312 * MM, 3 * MM
 PEEK = 25 * MM               # how far the record looks out of the sleeve's open edge in the set
-# the cover PDF is 315 mm | spine | 315 mm: which half is the sleeve's FRONT is not confirmed by the owner – today the
-# right half (the title side). One flag: flip it here or pass --front left.
+INNER_W = 310 * MM           # a paper inner sleeve (square, a test press's only sleeve)
+# the cover PDF is 315 mm | spine | 315 mm: the FRONT is the right half – the one with the obi strip on its left (owner
+# 2026-10-16: "The front is the one with the obi slip on the left"). A change = new file names (CDN paths never change).
 FRONT_IS_RIGHT_HALF = True
 
 
@@ -306,22 +310,30 @@ class Glb:
 
 # ---------------------------------------------------------------- builds
 
-def record_prims(g: Glb, label_a: Path, label_b: Path, out: Path, name: str):
-    """the record's materials + primitives in g (labels from the PDFs; previews next to the output)"""
+WHITE_LABEL = [0.93, 0.92, 0.89, 1]   # a test press's blank label (plain paper)
+INNER_SLEEVE = [0.95, 0.94, 0.91, 1]  # a generic, empty paper inner sleeve
+
+
+def record_prims(g: Glb, label_a: Path | None, label_b: Path | None, out: Path, name: str):
+    """the record's materials + primitives in g (labels from the PDFs; previews next to the output); no PDF = a blank
+    white label (a test press – owner 2026-10-16: "white label on record only")"""
     clamp = g.sampler(33071, 33071)
     around = g.sampler(10497, 33071)
-    tex = {}
-    for key, pdf in (('label_a', label_a), ('label_b', label_b)):
+    labels = {}
+    for key, pdf, title in (('label_a', label_a, 'Label A'), ('label_b', label_b, 'Label B')):
+        if pdf is None:
+            labels[key] = g.material({'name': title, 'pbrMetallicRoughness': {'baseColorFactor': WHITE_LABEL, 'metallicFactor': 0, 'roughnessFactor': 0.8}})
+            continue
         img = render_clip(pdf, dpi=300, size=(1024, 1024))
         img.save(out / f'{name}.{key}.preview.jpg', quality=80)
-        tex[key] = g.texture(jpeg(img, 86), 'image/jpeg', clamp)
+        t = g.texture(jpeg(img, 86), 'image/jpeg', clamp)
+        labels[key] = g.material({'name': title, 'pbrMetallicRoughness': {'baseColorTexture': {'index': t}, 'metallicFactor': 0, 'roughnessFactor': 0.75}})
     normal, mr = groove_maps()
     t_normal = g.texture(png(normal), 'image/png', around)
     t_mr = g.texture(png(mr), 'image/png', around)
     black = [0.012, 0.012, 0.014, 1]
     mats = {
-        'label_a': g.material({'name': 'Label A', 'pbrMetallicRoughness': {'baseColorTexture': {'index': tex['label_a']}, 'metallicFactor': 0, 'roughnessFactor': 0.75}}),
-        'label_b': g.material({'name': 'Label B', 'pbrMetallicRoughness': {'baseColorTexture': {'index': tex['label_b']}, 'metallicFactor': 0, 'roughnessFactor': 0.75}}),
+        **labels,
         'vinyl': g.material({'name': 'Vinyl', 'pbrMetallicRoughness': {'baseColorFactor': black, 'metallicFactor': 1, 'roughnessFactor': 1,
                              'metallicRoughnessTexture': {'index': t_mr}}, 'normalTexture': {'index': t_normal, 'scale': 1},
                              # the grooves' radial sheen: anisotropy along the tangent (= around), no texture needed
@@ -344,6 +356,21 @@ def sleeve_prims(g: Glb, cover: Path, out: Path, name: str, front_right=FRONT_IS
     mats = {k: g.material({'name': f'Sleeve {k}', 'pbrMetallicRoughness': {'baseColorTexture': {'index': v}, 'metallicFactor': 0, 'roughnessFactor': 0.7}}) for k, v in t.items()}
     mats['edge'] = g.material({'name': 'Sleeve edge', 'pbrMetallicRoughness': {'baseColorFactor': [0.85, 0.83, 0.78, 1], 'metallicFactor': 0, 'roughnessFactor': 0.9}})
     return [g.primitive(p, n, tn, u, i, mats[m]) for m, p, n, tn, u, i in box_meshes(SLEEVE_W, SLEEVE_H, SLEEVE_D, open_edge)]
+
+
+def inner_sleeve_prims(g: Glb):
+    """a generic, empty paper inner sleeve (a test press – owner 2026-10-16: "generic empty inner sleeve"): plain paper
+    all round, open at +X, no spine – the same nodes as the printed sleeve"""
+    paper = g.material({'name': 'Inner sleeve', 'pbrMetallicRoughness': {'baseColorFactor': INNER_SLEEVE, 'metallicFactor': 0, 'roughnessFactor': 0.85}})
+    return [g.primitive(p, n, tn, u, i, paper) for _m, p, n, tn, u, i in box_meshes(INNER_W, INNER_W, SLEEVE_D, open_edge=True)]
+
+
+def build_test_press(out: Path, name: str):
+    """a test press: blank white labels, in a plain inner sleeve – <name>.set.glb (nodes sleeve, record)"""
+    g = Glb()
+    g.node('sleeve', inner_sleeve_prims(g), [0, INNER_W / 2, 0])
+    g.node('record', record_prims(g, None, None, out, name), [INNER_W / 2 + PEEK - R_OUT, INNER_W / 2, 0])
+    return g.write(out / f'{name}.set.glb')
 
 
 def build_record(label_a: Path, label_b: Path, out: Path, name: str):
@@ -369,8 +396,9 @@ def build_set(label_a: Path, label_b: Path, cover: Path, out: Path, name: str, f
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--label-a', type=Path, required=True)
-    ap.add_argument('--label-b', type=Path, required=True)
+    ap.add_argument('--label-a', type=Path)
+    ap.add_argument('--label-b', type=Path)
+    ap.add_argument('--test-press', action='store_true', help='blank white labels in a plain inner sleeve: <name>.set.glb only')
     ap.add_argument('--cover', type=Path)
     ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--name', default='awakening_vinyl')
@@ -378,6 +406,11 @@ def main():
                     help="the cover PDF's half that is the sleeve's front (default: FRONT_IS_RIGHT_HALF)")
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
+    if a.test_press:
+        print('test press set', build_test_press(a.out, a.name), 'bytes')
+        return
+    if not (a.label_a and a.label_b):
+        ap.error('--label-a and --label-b are needed (or --test-press)')
     print('record', build_record(a.label_a, a.label_b, a.out, a.name), 'bytes')
     if a.cover:
         front_right = a.front == 'right'

@@ -679,7 +679,7 @@ export function registerContentTools(server: McpServer, config: Config, options:
 		'upload_album_file',
 		{
 			description:
-				"Puts a physical release's audio into the PROTECTED storage (the vault, never the public CDN; owner 2026-10-14: release audio protected, game audio public) for the catalog album `album` (its id, e.g. \"awakening\"): `kind` track = an MP3 (a song, or one of its quality files 96k / 128k / 320k), download = the album ZIP. Source: a local `file` (stdio server only) or an http(s) `url`. Returns the path (`albums/<album>/<hash>.<ext>` – the same bytes give the same path) for the album's `tracks[i].src` / `tracks[i].variants.<level>` / `download` – set it with propose_changes (kind albums). Readers only ever get signed links. Checked: a real MP3 / ZIP.",
+				"Puts a physical release's audio into the PROTECTED storage (the vault, never the public CDN; owner 2026-10-14: release audio protected, game audio public) for the catalog album `album` (its id, e.g. \"awakening\"): `kind` track = an MP3 (a song, or one of its quality files 96k / 128k / 320k), download = the album ZIP. Source: a local `file` (stdio server only) or an http(s) `url`. Returns the path (`albums/<album>/<hash>.<ext>` – the same bytes give the same path) for the album's `tracks[i].src` / `tracks[i].variants.<level>` / `download` – set it in the album document with save_draft (`album:<id>`; a person publishes it in the creator). Readers only ever get signed links. Checked: a real MP3 / ZIP.",
 			inputSchema: z.object({
 				album: z.string().regex(/^[a-z0-9_]{1,100}$/).describe('catalog album id'),
 				kind: z.enum(['track', 'download']),

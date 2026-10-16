@@ -75,7 +75,7 @@ checks it and confirms in the app.** The AI never sends, applies or publishes.
 | --- | --- | --- | --- |
 | content edit | a draft version (as today) | the creator at that document (Reader / History show it) | **Publish** in the creator |
 | Embassy mail (`draft_mail`) | a mail draft on the organisation (new `embassy_mail_drafts` row: org, person, subject, body, reply_to, author, client) | `embassy…/orgs/<id>?draft=<id>`: the existing `mail-draft.svelte`, editable | **Send** (the existing EmbassyMail path; the draft is deleted after) |
-| admin changes (`propose_changes`) | a stored proposal (new `admin_proposals` row: the changes as today's card JSON, base versions, author, client, status open / applied / dismissed) | `admin…/proposals/<id>`: today's `changes-card.svelte` (before → after) as a page | **Apply** (the admin app makes the changes as today; catalog history + undo) or Dismiss |
+| admin changes (`propose_changes`) | a stored proposal (new `admin_proposals` row: the changes as today's card JSON, base versions, author, client, status open / applied / dismissed) | `admin…/proposals/<id>`: today's `changes-card.svelte` (before → after) as a page | **Apply** (the admin app makes the changes as today; catalog history + undo) or Dismiss. Catalog: only `toons` – items / recipes / albums / products / editions are documents (D6), changed with `save_draft` (`item:<id>` …); a proposal for them failed on Apply (409 edited_in_creator), so the tool refuses them (2026-10-16) |
 
 - A draft belongs to its author; the link works only signed in as a member who may do the step (the API checks again
   on Send / Apply / Publish – a role lost in between → 403).

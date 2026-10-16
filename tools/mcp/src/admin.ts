@@ -42,8 +42,13 @@ const page = { page: z.number().int().min(1).optional(), page_size: z.number().i
 const CODE_STATUSES = ['claimed', 'unclaimed', 'revoked', 'expired', 'active', 'signed', 'unsigned'] as const;
 const LOG_EVENTS = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke', 'expiry'] as const;
 const CATALOG_READ = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'permissions', 'code-types', 'toons', 'meta'] as const;
-/** what a changes card may change in the catalog (never permissions / code types: they decide what codes unlock) */
-const CATALOG_CHANGE = ['items', 'recipes', 'albums', 'products', 'editions', 'toons'] as const;
+/**
+ * what a changes card may change in the catalog (never permissions / code types: they decide what codes unlock). Items,
+ * recipes, albums, products and editions are catalog DOCUMENTS (D6, owner 2026-10-12): the admin refuses them
+ * (409 edited_in_creator) – they are drafts via save_draft (`item:<id>`, `album:<id>` …), published in the creator. A
+ * proposal for them could never be applied (owner 2026-10-16: "Das sollten wir zukünftig verhindern").
+ */
+const CATALOG_CHANGE = ['toons'] as const;
 const CALENDAR_FIELDS = ['title', 'date', 'city', 'location', 'category', 'link'] as const;
 const CALENDAR = 'events';
 
@@ -256,7 +261,7 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 		'read_catalog',
 		{
 			description:
-				'The catalog (edited on /catalog/<kind>): items, recipes, albums, products, editions, featured, permissions, code-types, toons, meta. One entry (`id`) or the list in order; `q` = words in the entry (any field); `fields` = only these dot paths (e.g. ["name.en", "icon", "variants"]) to keep long lists short. Image paths (`icon`, `image` …) are CDN paths. Each entry has updated_at / updated_by.',
+				'The catalog as readers see it (published). Items, recipes, albums, products and editions are changed as documents (read_entity / save_draft `item:<id>`, `album:<id>` …, published in the creator), the rest on the admin\'s /catalog/<kind>: items, recipes, albums, products, editions, featured, permissions, code-types, toons, meta. One entry (`id`) or the list in order; `q` = words in the entry (any field); `fields` = only these dot paths (e.g. ["name.en", "icon", "variants"]) to keep long lists short. Image paths (`icon`, `image` …) are CDN paths. Each entry has updated_at / updated_by.',
 			inputSchema: z.object({
 				kind: z.enum(CATALOG_READ),
 				id: z.string().optional(),
@@ -376,7 +381,7 @@ export function registerAdminTools(server: McpServer, config: Config, options: {
 		'propose_changes',
 		{
 			description:
-				'Saves the changes as a PROPOSAL and returns its link – nothing is changed by you: the admin opens the link, reads before → after and presses Apply, then the admin app makes the changes. Kinds: `catalog` (fields of an existing entry of items / recipes / albums / products / editions / toons – one card can change many entries; every applied change lands in the catalog history with undo), `calendar_add` / `calendar_update` (the calendar, saved as a DRAFT – a person publishes it on the Calendar page), `asset` (a file replaced under its old path: every use shows the new picture – the fast way to swap the same image in many places). Read first (read_catalog / read_calendar / asset_usages); the proposal page shows before → after. Not possible here: deleting, revoking / transferring codes, roles, asset cleanup.',
+				'Saves the changes as a PROPOSAL and returns its link – nothing is changed by you: the admin opens the link, reads before → after and presses Apply, then the admin app makes the changes. Kinds: `catalog` (fields of an existing toons entry – every applied change lands in the catalog history with undo; items / recipes / albums / products / editions are NOT changed here: they are documents – read_entity + save_draft `item:<id>`, `album:<id>` …, published in the creator), `calendar_add` / `calendar_update` (the calendar, saved as a DRAFT – a person publishes it on the Calendar page), `asset` (a file replaced under its old path: every use shows the new picture – the fast way to swap the same image in many places). Read first (read_catalog / read_calendar / asset_usages); the proposal page shows before → after. Not possible here: deleting, revoking / transferring codes, roles, asset cleanup.',
 			inputSchema: z.object({
 				title: z.string().min(1).max(200).describe('one line: what the changes do, in the admin\'s language'),
 				changes: z.array(change).min(1).max(100)

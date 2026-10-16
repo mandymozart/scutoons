@@ -37,7 +37,7 @@
 			{#snippet icon()}<ItemIcon srcs={['catpope/items/awakening_vinyl.webp']} name="Awakening" />{/snippet}
 			<ItemModel path={model} label="Awakening" fallback={icon} />
 		</section>
-		{#if failed}<p>the model failed</p>{:else}<RecordStage url={asset(model)} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} />{/if}
+		{#if failed}<p>the model failed</p>{:else}<div class="stage"><RecordStage url={asset(model)} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} /></div>{/if}
 		<div class="controls">
 			<button type="button" onclick={() => (playing = !playing)} data-testid="lab-play">{playing ? 'Pause' : 'Play'}</button>
 			<button type="button" class="btn-secondary" onclick={() => (side = side === 'a' ? 'b' : 'a')} data-testid="lab-turn">Turn ({side.toUpperCase()})</button>
@@ -70,6 +70,12 @@
 	}
 	.item {
 		width: 15rem;
+	}
+	/* the stage's canvas fills its parent (the card's top in the player) */
+	.stage {
+		position: relative;
+		height: 22rem;
+		background: var(--surface-alt, #eee);
 	}
 	.controls {
 		display: flex;

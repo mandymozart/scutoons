@@ -182,8 +182,10 @@ file ≤ ~1–2 MB, JPEG / PNG textures (ASSETS.md "3D models").
   it, 25 mm out; nodes `sleeve`, `record`; a part name, not `.model.glb`: that path holds the record alone and CDN paths
   never change their bytes). Source:
   Proton Drive `Projects/Cat Pope/Artwork/Vinyl/20260620_CATPOPE-Print/` (`20260427_CATPOPE-PRINT-LabelA.pdf`,
-  `-LabelB.pdf`, `20260620_CATPOPE-Cover.pdf`; sizes from `specs/`). Front = the cover's right half (the title side) –
-  owner to confirm (one flag: `FRONT_IS_RIGHT_HALF` / `--front left`; a change = new file names). Built by `tools/vinyl3d/build.py` (pymupdf at 300 dpi → trim box; usage in its header) – the
+  `-LabelB.pdf`, `20260620_CATPOPE-Cover.pdf`; sizes from `specs/`). Front = the cover's right half, the obi strip on its
+  left (owner confirmed 2026-10-16; `FRONT_IS_RIGHT_HALF`). **Test presses** (`awakening_test_press`, per variant
+  `variants[i].model`): `catpope/items/awakening_test_press_{1,2}_of_2.set.glb` (150 KB – blank white labels in a
+  plain paper inner sleeve 310 × 310 mm, same nodes; `build.py --test-press --name <id>`). Built by `tools/vinyl3d/build.py` (pymupdf at 300 dpi → trim box; usage in its header) – the
   pattern for the next item.
 
 ## Collectables removed – items are the only concept (U, 2026-09-30)
