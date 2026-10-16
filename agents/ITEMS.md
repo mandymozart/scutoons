@@ -179,10 +179,14 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
 - **Item view** (item-detail.svelte → item-model.svelte): the model instead of the icon, turning slowly (drag to turn;
   `mountModelView` from `@scutoons/media/model-view` – three.js loads only then); the icon while it loads, without
   WebGL, with reduced motion or when it fails.
+  A record in its sleeve (nodes `record` + `sleeve`) can be pulled out (owner 2026-10-16: "if one grabs the actual
+  vinyl it can be dragged out"): a drag that starts on the record slides it along the open edge with the finger, at most
+  all the way out (the camera steps back to keep it in the picture); let go under half out = it springs back in, more =
+  it slides all the way out and stays. A drag elsewhere turns the model (model-view.js `recordPull`).
 - **Record player card** (owner 2026-10-16: "The item should show sleeve with record inside. And on starting to play it
   is pulled out and put on the record player"): with the playing item's model (`AudioRequest.model`) the card's record
   is a 3D stage (record-stage.svelte / .js): the sleeve with the record inside stands behind a turntable built in code
-  (plinth, platter, spindle, tonearm); on play the record slides out of the open edge, turns flat and lies down on the
+  (plinth with 5 mm rounded edges, platter with a bevelled rim, spindle, tonearm); on play the record slides out of the open edge, turns flat and lies down on the
   platter (the camera moves from the sleeve to the deck), turns at 33⅓ rpm while playing (a pause runs it down), the arm
   follows the song (`armAngle`) and lifts between songs; "Turn the record" lifts, flips and lays it down with the other
   side up (A = +Z of the model). The stage needs nodes `record` (+ `sleeve`); a record-only model works without sleeve.
@@ -202,15 +206,20 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
   one plays); hold then drag elsewhere = the camera ride around the focused part, springing back on release; two
   fingers always move the camera (sideways = ride, pinch = zoom); wheel = zoom. The reader's zoom stays (out to the
   default distance at most); only the stage's own camera moves (a focus change, a record put on / swapped, the intro)
-  tween it back. Kept: the intro once per page load, `placed` when already on, the A/B flip. A proper shelf later.
+  tween it back. The ride and the zoom go around the focused part's centre (the carousel's middle behind the front
+  sleeve, or the plinth's – `inspect()` gives it, the lab reads it as `window.__recordStage` in dev). Kept: the intro once per page load, `placed` when already on, the A/B flip. A proper shelf later.
 - **The card is the stage** (owner 2026-10-16: "the player is the brown of the background"): the canvas lies behind the
   whole dark panel, sticky while the card scrolls over it; the song, the controls, the songs and the credits lie on the
   lit table (no fade, a soft text shadow), its top part shows the records and the turntable (`lift` from the measured
-  heights). The table: a fill light keeps its front lit, only the far rim fades into the black. An experiment: a map
+  heights). Only what is interactive (buttons, links, the seek bar, the song rows) takes the pointer: text, headings
+  and gaps let it through to the stage (owner 2026-10-16); below the stage's own part a drag / the wheel there scrolls
+  the card and a tap does nothing (record-gestures.js `inStage`). The table: a fill light keeps its front lit, only the
+  far rim fades into the black. An experiment: a map
   texture on the table (`TABLE` in record-stage.svelte, lab `?table=desert|jungle`: `scutoons/3d/table-{desert,jungle}.webp`,
   painted map tiles of the Dünenmeer / Schuppenwald) – plain by default until the owner decides.
-- **Light** (owner 2026-10-16: "a spot on the scene and a little ambient occlusion – as simple as possible but moody"):
-  a warm spot from above-front with a soft shadow map (1024, PCF soft), a floor whose pool of light fades into the
+- **Light** (owner 2026-10-16: "a spot on the scene and a little ambient occlusion – as simple as possible but moody";
+  "more interesting shadows"): a warm key spot low from the front left (~38°) with a soft shadow map (1024, PCF soft) –
+  the sleeves, the record and the tonearm throw long shadows across the table – a faint cool rim light from behind, a floor whose pool of light fades into the
   card's black, soft contact shadows (radial blobs) under the plinth and the sleeve, little ambient / environment.
 - **Warm-up** (owner 2026-10-16: "As soon as the player could potentially be loaded, the 3D models … must be loaded"):
   `warmModel` (model-warmup.ts) loads three.js and fetches the model's files (the .glb or the look's pictures) in idle

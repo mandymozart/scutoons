@@ -14,6 +14,8 @@ export function stageGestures(
 	canvas: HTMLCanvasElement,
 	on: {
 		region: (x: number, y: number) => StageHit;
+		/** the point lies in the stage's own part (above the card's text) */
+		inStage: (x: number, y: number) => boolean;
 		tap: (hit: StageHit) => void;
 		swipe: (step: 1 | -1) => void;
 		/** dx in canvas widths */

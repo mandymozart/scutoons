@@ -139,7 +139,6 @@
 
 <!-- above the player bar (z 2040), below the item overlays / claim sheet / notices -->
 <PullPanel {open} onclose={() => (open = false)} label={album} layer={2045} testid="record-panel">
-	{#snippet header()}<p class="head">{album}</p>{/snippet}
 	<div class="card" class:in3d data-testid="record-card">
 		<!-- the 3D stage is the whole panel's background (owner 2026-10-16: "the player is the brown of the background"): it
 		     stays put while the card scrolls over it – the song, the controls, the songs and the credits lie on the lit
@@ -252,12 +251,17 @@
 	.pick {
 		position: absolute;
 		z-index: 1;
+		pointer-events: none;
 		top: var(--space-1);
 		left: max(var(--space-1), env(safe-area-inset-left));
 		display: flex;
 		align-items: center;
 		gap: var(--space-075);
 		max-width: calc(100% - 2 * var(--space-1));
+	}
+
+	.pick button {
+		pointer-events: auto;
 	}
 
 	.pick span {
@@ -295,11 +299,18 @@
 		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1) - env(safe-area-inset-right)) calc(-85dvh - var(--space-075)) calc(-1 * var(--space-1) - env(safe-area-inset-left));
 	}
 
-	/* the card's own content lies over the stage */
+	/* the card's own content lies over the stage; only what is interactive takes the pointer (owner 2026-10-16: "only
+	   interactive elements like the track, or buttons should be blocking click events to the three.js stage") – text,
+	   headings and gaps let it through to the canvas (a drag there scrolls the card – record-gestures.js) */
 	.card.in3d > :not(.backdrop) {
 		position: relative;
 		z-index: 1;
 		text-shadow: 0 0 0.5rem rgb(0 0 0 / 0.65);
+		pointer-events: none;
+	}
+
+	.card.in3d :global(:is(button, a, input, select, textarea, label)) {
+		pointer-events: auto;
 	}
 
 	/* the top part: the stage shows through (taps reach the records and the turntable); the song + controls at its foot */
@@ -310,22 +321,12 @@
 	}
 
 	.hero.in3d .over {
-		pointer-events: auto;
 		box-sizing: border-box;
 		width: 100%;
 		max-width: var(--column);
 		margin-inline: auto;
 	}
 
-	/* the album in the panel's header row (like the inventory's name) */
-	.head {
-		margin: 0;
-		padding: 0 var(--space-1) var(--space-075);
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		overflow-wrap: anywhere;
-	}
 
 	.song {
 		margin: 0;

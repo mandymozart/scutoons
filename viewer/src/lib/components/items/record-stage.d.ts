@@ -25,6 +25,8 @@ export interface RecordStageHandle {
 	dispose(): void;
 	/** eases the reader's look-around (pivot / zoom) back to the stage's own view */
 	resetView(): void;
+	/** the point the camera looks at and rides around (the focused part's centre), the reader's ride and zoom */
+	inspect(): { target: [number, number, number]; yaw: number; zoom: number };
 }
 
 /** the reader's records as a carousel (each sleeve + record) and a turntable on a canvas */

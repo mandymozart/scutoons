@@ -30,12 +30,13 @@ const ARM_Y = PLINTH.h + 0.028;
 // the sleeve stands behind the deck on the left, its open edge towards it
 const SLEEVE = { x: -0.3, z: -0.2 };
 const OUT_X = SLEEVE.x + 0.33; // the record's centre when it is all the way out
-// the camera: the sleeve close up → the deck
-const VIEWS = {
-	// the records: the carousel in the middle of the frame (owner 2026-10-16: "centred")
-	sleeve: { pos: [SLEEVE.x + 0.02, 0.34, SLEEVE.z + 0.95], look: [SLEEVE.x + 0.02, 0.15, SLEEVE.z] },
-	deck: { pos: [0.02, 0.62, 0.8], look: [0.02, 0.06, -0.02] }
-};
+// the camera: the records → the deck; each view looks at its target, the point the reader's ride and zoom go around
+// (owner 2026-10-16: "pivoting around each target point") – the carousel's centre (behind the front sleeve by the ring's
+// radius) or the turntable's
+const views = (rho) => ({
+	sleeve: { pos: [SLEEVE.x, 0.34, SLEEVE.z + 0.95], look: [SLEEVE.x, 0.15, SLEEVE.z - rho] },
+	deck: { pos: [PLINTH.x - 0.1, 0.63, PLINTH.z + 0.74], look: [PLINTH.x, PLINTH.h, PLINTH.z] }
+});
 /** the camera ride's whole arc around the stage (owner: "about 75 degrees max") */
 const ARC = (75 * Math.PI) / 180;
 // slow enough to watch (owner 2026-10-16: "Ich sehe noch nicht, dass die Schallplatte aus der Hülle rausfährt")
@@ -77,12 +78,15 @@ function disposeTree(obj) {
 	});
 }
 
-function buildDeck(THREE) {
+function buildDeck(THREE, RoundedBoxGeometry) {
 	const deck = new THREE.Group();
 	const mat = (color, roughness = 0.6, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
-	const plinth = new THREE.Mesh(new THREE.BoxGeometry(PLINTH.w, PLINTH.h, PLINTH.d), mat(0x2b2724, 0.55));
+	// bevelled edges (owner 2026-10-16: "Add some bevel edges to the record player"): the plinth's 5 mm round, the
+	// platter's rim 3 mm – a few segments each
+	const plinth = new THREE.Mesh(new RoundedBoxGeometry(PLINTH.w, PLINTH.h, PLINTH.d, 3, 0.005), mat(0x2b2724, 0.55));
 	plinth.position.set(PLINTH.x, PLINTH.h / 2, PLINTH.z);
-	const platter = new THREE.Mesh(new THREE.CylinderGeometry(PLATTER.r, PLATTER.r, 0.014, 96), mat(0xa8a8a8, 0.35, 0.85));
+	const b = 0.003, ph = 0.007, rim = [[0, -ph], [PLATTER.r - b, -ph], [PLATTER.r - b * 0.3, -ph + b * 0.3], [PLATTER.r, -ph + b], [PLATTER.r, ph - b], [PLATTER.r - b * 0.3, ph - b * 0.3], [PLATTER.r - b, ph], [0, ph]];
+	const platter = new THREE.Mesh(new THREE.LatheGeometry(rim.map(([x, y]) => new THREE.Vector2(x, y)), 96), mat(0xa8a8a8, 0.35, 0.85));
 	platter.position.set(PLATTER.x, PLATTER.top - 0.009, PLATTER.z);
 	const felt = new THREE.Mesh(new THREE.CylinderGeometry(PLATTER.r - 0.004, PLATTER.r - 0.004, 0.002, 96), mat(0x1c1c1c, 0.95));
 	felt.position.set(PLATTER.x, PLATTER.top - 0.001, PLATTER.z);
@@ -133,12 +137,18 @@ export function mountRecordStage(canvas, records, opts = {}) {
 		held = false;
 		aim.yaw = aim.pitch = aim.zoom = 0;
 	};
-	const handle = { update: (s) => Object.assign(want, s), dispose, resetView };
+	// the orbit centre and the reader's ride / zoom – for the lab and tests (owner 2026-10-16: verify the pivot)
+	const orbit = { x: 0, y: 0, z: 0, copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; } };
+	const inspect = () => ({ target: [orbit.x, orbit.y, orbit.z], yaw: user.yaw, zoom: user.zoom });
+	const handle = { update: (s) => Object.assign(want, s), dispose, resetView, inspect };
 
 	(async () => {
 		try {
 			const { THREE } = await loadThree();
-			const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+			const [{ RoomEnvironment }, { RoundedBoxGeometry }] = await Promise.all([
+				import('three/addons/environments/RoomEnvironment.js'),
+				import('three/addons/geometries/RoundedBoxGeometry.js')
+			]);
 			if (stopped) return;
 			renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 			renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -181,7 +191,8 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				ring.add(item.slot);
 			}
 			items.forEach((item, i) => (item.slot.rotation.y = i * step));
-			const { deck, arm } = buildDeck(THREE);
+			const { deck, arm } = buildDeck(THREE, RoundedBoxGeometry);
+			const VIEWS = views(rho);
 			scene.add(deck);
 			castShadows(deck, ring);
 			const carrier = new THREE.Group(); // position + spin around Y
@@ -306,6 +317,7 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			const carryPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.12);
 			unlisten = stageGestures(canvas, {
 				region,
+				inStage: (x, y) => y < (1 - (opts.lift ?? 0)) * (canvas.clientHeight || 1),
 				tap: (hit) => {
 					const was = (focusRecords || !active) && !carried;
 					if (hit.part === 'deck') {
@@ -504,6 +516,7 @@ export function mountRecordStage(canvas, records, opts = {}) {
 					camera.position.copy(look).add(offset);
 				}
 				camera.lookAt(look);
+				orbit.copy(look);
 				renderer.render(scene, camera);
 				raf = requestAnimationFrame(tick);
 			};
