@@ -14,7 +14,8 @@
 </script>
 
 <script lang="ts">
-	import { Icon, IconButton, Sheet } from '@scutoons/ui';
+	import { Icon, IconButton } from '@scutoons/ui';
+	import PullPanel from '$lib/components/panel/pull-panel.svelte';
 	import { resolveCredits, songSection, type ResolvedEntry } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -27,7 +28,8 @@
 
 	/**
 	 * The record player's expanded card (owner 2026-10-16: "clicking on the record player or track expands it to a larger
-	 * card and shows the full name and credits for a song"): a bottom sheet over the page with the record large (the cover
+	 * card and shows the full name and credits for a song"): the reader's dark pull panel (pull-panel.svelte – like the
+	 * inventory: pulled down, Escape or a tap outside closes it; owner 2026-10-16: "black … exactly such a panel") over the page with the record large (the cover
 	 * as its label on side A, a paper label on side B) and "Turn the record" (the other side's songs, owner 2026-10-16),
 	 * the song's full title, the album, the side and n / N, the seek line, back / play-pause / next, the song's people from
 	 * the toon's credits (`credits:<toon>`, its `song-…` section – `songSection`) and the side's songs to pick from. With the item's 3D model (FEATURES 10.102: the LP's sleeve with the record inside) the
@@ -117,7 +119,9 @@
 	});
 </script>
 
-<Sheet bind:open title={album} side="bottom" closeLabel={m['items.close']()}>
+<!-- above the player bar (z 2040), below the item overlays / claim sheet / notices -->
+<PullPanel {open} onclose={() => (open = false)} label={album} layer={2045} testid="record-panel">
+	{#snippet header()}<p class="head">{album}</p>{/snippet}
 	<div class="card" data-testid="record-card">
 		<!-- the 3D stage is the top's background, the song and the controls lie over its lower part (owner 2026-10-16:
 		     "covering the entire background of the card so it doesn't get cut off … the top part on top the player
@@ -188,7 +192,7 @@
 			</section>
 		{/if}
 	</div>
-</Sheet>
+</PullPanel>
 
 <style>
 	/* the column: 34rem at most – the 3D stage alone goes over the card's whole width (owner 2026-10-16: "im Hintergrund
@@ -227,13 +231,13 @@
 		gap: var(--space-075);
 	}
 
-	/* 3D: the canvas fills the top; the turn button in its corner, the song + controls over its lower part, on a paper
-	   fade so they stay readable over the scene */
-	/* out to the sheet's edges (its body's padding) and up to its header line */
+	/* 3D: the canvas (transparent – the panel's black shows through) fills the top, the song + controls over its lower
+	   part on a fade into the panel's background (black: the pull panel's dark tokens) so they stay readable */
+	/* out to the panel's edges (its body's padding) and up to its header */
 	.hero.in3d {
 		height: min(32rem, 62vh);
 		justify-content: flex-end;
-		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0;
+		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1) - env(safe-area-inset-right)) 0 calc(-1 * var(--space-1) - env(safe-area-inset-left));
 	}
 
 	/* the fade over the whole width, the song + controls in the column */
@@ -242,6 +246,16 @@
 		z-index: 1;
 		padding: 3rem max(var(--space-1), calc((100% - var(--column)) / 2)) 0;
 		background: linear-gradient(to bottom, transparent, var(--paper) 2.75rem);
+	}
+
+	/* the album in the panel's header row (like the inventory's name) */
+	.head {
+		margin: 0;
+		padding: 0 var(--space-1) var(--space-075);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		overflow-wrap: anywhere;
 	}
 
 	.song {

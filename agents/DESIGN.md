@@ -75,6 +75,13 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   `not-allowed`. `.btn-clear`: no chrome. No third variant, no radius, no shadow.
 - **IconButton** — fixed 2rem circle, `paper` bg, 2px `ink` border, hover fill `primary-cyan`, one 16px black icon,
   `touch-action: manipulation` (inventory / main-menu toggles).
+- **Dark panel** (owner 2026-10-16) — the reader's bottom panels are one component, `PullPanel` (viewer
+  `components/panel/pull-panel.svelte`): black, the tokens inverted inside it (`--ink` white, `--paper` black, muted
+  greys), so everything in it follows (filled play = white, the pressed segment white); pulled down / Escape / a tap
+  outside closes it. Inventory, avatar, chapter list, the record player's card (a 3D canvas in it is transparent).
+- **Sticky action bar** (owner 2026-10-16) — a panel's actions stick to its bottom: `StickyActions` (@scutoons/ui) last
+  in the scroll box, no rule on top, the content fades out under it into `--paper` (black in a dark panel); the scroll
+  box hands it its bottom padding as `--sticky-actions-inset`. The item detail and the recipe use it.
 - **ChapterItem** — grid `6rem 1fr auto` (`5rem …` < 768px; the number column at least 3rem, wider only for the
   prologue's label, set in `caption` size; < 768px the row keeps 0.5rem off the right edge), hover `surface-hover`, meta in `caption` + `text-muted`, coming-soon row at 0.5 opacity. Chapter 0
   (the season's prologue) shows "Prolog" / "Prologue" (paraglide `chapter.prologue`) instead of "#0"; prev/next in the

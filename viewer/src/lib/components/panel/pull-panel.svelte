@@ -8,10 +8,13 @@
 	/**
 	 * The reader's pull panel (owner 2026-10-10: the inventory's panel "recycled in a component", "nach unten ziehen
 	 * weg"): the dark sheet that slides up from the bottom edge with the inventory's bouncy curve, the demon-saw vector
-	 * pushed behind its top edge. Used by the inventory (Items / Avatar tabs) and the chapter list.
+	 * pushed behind its top edge. Used by the inventory (Items / Avatar tabs), the chapter list and the record player's
+	 * card. Its inside is the reader's dark scope (the tokens inverted, DESIGN.md "Dark panel"); a bottom action bar in it:
+	 * `StickyActions` (@scutoons/ui) – it fades into the panel's black.
 	 *
 	 * Pulling it down closes it: the header (grab handle + the caller's row) follows a pointer (mouse, pen, touch), the
-	 * content follows a finger once it is scrolled to its top (the overscroll). Let go past a third of its height (at
+	 * content follows a finger once it is scrolled to its top (the overscroll) – not on an element that takes its own
+	 * gestures (`touch-action: none`: a 3D stage, an item model). Let go past a third of its height (at
 	 * most 10rem) or with a flick → the closing animation runs on from where it is; short of that → it springs back.
 	 * Escape (unless `escape` is false), the top button and a tap outside close it too. While open, the page behind
 	 * doesn't scroll (freeze-scroll.ts – nests with the story's own freeze); the panel's content still does.
@@ -22,6 +25,7 @@
 		label,
 		id,
 		escape = true,
+		layer = 1000,
 		keepOpen = () => false,
 		testid,
 		header,
@@ -36,6 +40,8 @@
 		id?: string;
 		/** Escape closes it (the chapter list: no – owner 2026-10-02) */
 		escape?: boolean;
+		/** its z-index (the record card: above the player bar) */
+		layer?: number;
 		/** true while something opened from the panel lives outside it (camera, claim sheet): outside taps / Escape are theirs */
 		keepOpen?: () => boolean;
 		testid?: string;
@@ -133,8 +139,15 @@
 		let tracking = false;
 		let x0 = 0;
 		let y0 = 0;
+		// an element that takes its own gestures (touch-action: none – a 3D stage) keeps the finger
+		const ownGestures = (target: EventTarget | null) => {
+			for (let n = target instanceof Element ? target : null; n && n !== el; n = n.parentElement) {
+				if (getComputedStyle(n).touchAction === 'none') return true;
+			}
+			return false;
+		};
 		const start = (e: TouchEvent) => {
-			tracking = e.touches.length === 1 && open;
+			tracking = e.touches.length === 1 && open && !ownGestures(e.target);
 			x0 = e.touches[0]?.clientX ?? 0;
 			y0 = e.touches[0]?.clientY ?? 0;
 		};
@@ -212,10 +225,16 @@
 		};
 	});
 
+	// a press that began before the panel opened is not outside it (a touch's click comes after the pointerdown – the
+	// tap on the record player's bar that opens its card would close it again)
+	let openedAt = 0;
+	$effect(() => {
+		if (open) openedAt = performance.now();
+	});
 	onClickOutside(
 		() => panel,
-		() => {
-			if (open && !keepOpen()) onclose();
+		(e) => {
+			if (open && !keepOpen() && e.timeStamp >= openedAt) onclose();
 		}
 	);
 
@@ -239,6 +258,7 @@
 	class:visible={open}
 	class:dragging
 	style:transform={pull}
+	style:z-index={layer}
 	bind:this={panel}
 	{id}
 	role="dialog"
@@ -279,12 +299,13 @@
 		--paper: #000000;
 		--text-muted: #a6a6a6;
 		--border-muted: #555555;
+		--border-subtle: #333333;
+		--surface-hover: #222222;
 		--pull-curve: linear(0, 0.996 33.2%, 0.875 39.4%, 0.84 44.4%, 0.999 57.8%, 0.946 65%, 1 74.6%, 1);
 		position: fixed;
 		left: 0;
 		right: 0;
 		bottom: 0;
-		z-index: 1000;
 		background: black;
 		color: var(--ink);
 		border-top: var(--border-width-regular) solid black;
@@ -351,7 +372,9 @@
 		min-height: 8rem;
 		background: var(--paper);
 		color: var(--ink);
-		padding: 1rem calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
+		/* the bottom padding belongs to a sticky action bar in it (StickyActions) */
+		--sticky-actions-inset: calc(1rem + env(safe-area-inset-bottom));
+		padding: 1rem calc(1rem + env(safe-area-inset-right)) var(--sticky-actions-inset) calc(1rem + env(safe-area-inset-left));
 		overflow-y: auto;
 		overscroll-behavior: contain;
 		outline: none;
@@ -366,7 +389,7 @@
 	}
 	/* with a footer the safe area is the footer's */
 	.pull-body:has(+ .pull-footer) {
-		padding-bottom: 1rem;
+		--sticky-actions-inset: 1rem;
 	}
 
 	@media (prefers-reduced-motion: reduce) {

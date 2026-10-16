@@ -82,6 +82,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   endless band for the four ch3–5 Swipers (drag + glide, loops without clones, `params.endless` by migration, one
   deploy), Swiper off the chapter page; then paint rule → strip editor → slice ids + scenes inlined → tall pictures.
   `decide` Q1–Q4, Q7–Q13. → research/TEXT-ACROSS-SLICES.md §8
+- [ ] 10.106 **Record player: dark bar + a shinier turntable** [owner, later] – owner 2026-10-16: "Later we'll take care of
+  the player bar design – it can be inverted and black too", "a shinier look for the turntable / record, maybe a custom
+  shader that fits our style". The expanded card is the dark pull panel already (DESIGN.md "Dark panel").
 
 ## Items, content
 - [ ] 10.103 **[owner] Awakening quality files into the vault** – owner 2026-10-16: "Create quality settings for the player".

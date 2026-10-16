@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import type { Entry } from '@scutoons/content';
+	import { StickyActions } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
 
@@ -67,17 +68,18 @@
 		{#if error}
 			<p class="note">{error}</p>
 		{/if}
-		<div class="actions">
+		<!-- stuck to the panel's bottom like the item's actions (StickyActions, DESIGN.md "Sticky action bar") -->
+		<StickyActions testid="recipe-actions">
 			<button class="btn-secondary" onclick={oncancel}>{m['common.cancel']()}</button>
 			<button class:disabled={!ready || crafting} disabled={!ready || crafting} onclick={craft}>
 				{m['items.craft']()}
 			</button>
-		</div>
+		</StickyActions>
 	{:else}
 		<p class="note">{m['items.combine_none']()}</p>
-		<div class="actions">
+		<StickyActions testid="recipe-actions">
 			<button class="btn-secondary" onclick={oncancel}>{m['items.back']()}</button>
-		</div>
+		</StickyActions>
 	{/if}
 </div>
 
@@ -130,11 +132,7 @@
 		font-size: 0.75rem;
 		color: var(--text-muted);
 	}
-	.actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-	.actions button {
+	.recipe :global(.sc-sticky-actions button) {
 		flex: 1;
 		padding: 0 1rem;
 	}

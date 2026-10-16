@@ -8,7 +8,7 @@
 	import { shopUrl } from '$lib/config.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { Field } from '@scutoons/ui';
+	import { Field, StickyActions } from '@scutoons/ui';
 	import type { InviteOffer } from '@scutoons/api';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
@@ -114,6 +114,7 @@
 	const giftable = $derived(inventory.isAccount && isGiftable(def));
 	const giftMax = $derived(Math.max(0, entry.qty - (equipped ? 1 : 0)));
 	let giving = $state(false);
+	const giftFormId = $derived(`gift-form-${entry.id}`);
 	let giftTo = $state('');
 	let giftQty = $state(1);
 	let giftError = $state<string | null>(null);
@@ -214,31 +215,6 @@
 		{/if}
 	</dl>
 
-	<div class="actions">
-		<!-- scores and containers (research/SCORES.md): open the score, its PDF; open a container, put into / take out -->
-		<ScoreActions {entry} />
-		<ContainerActions {entry} onopen={onopencontainer} />
-		{#if usable}
-			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : skills.some((s) => s.type === 'enter_home') ? homes.openOwn('vr') : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
-		{/if}
-		{#if playback?.kind === 'play'}
-			<button class="btn-secondary" onclick={() => playback.kind === 'play' && play(playback.album, playback.tracks, entry)} data-testid="item-play">{m['items.play']()}</button>
-		{/if}
-		{#if playback?.download}
-			<button class="btn-secondary" onclick={() => playback.download && download(playback.album, playback.download)} data-testid="item-download">{m['items.download_album']()}</button>
-		{/if}
-		{#if combinable}
-			<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
-		{/if}
-		{#if def?.slot}
-			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={toggleWear}>
-				{equipped ? m['items.take_off']() : m['items.put_on']()}
-			</button>
-		{/if}
-		{#if giftable && !giving}
-			<button class="btn-secondary" onclick={() => ((giving = true), (giftError = null), (giftQty = 1))} data-testid="item-gift">{m['items.gift']()}</button>
-		{/if}
-	</div>
 	{#if playback?.kind === 'needs_player' && playback.players.length}
 		<p class="swap-note" role="status" data-testid="item-needs-player">{m['items.needs_player']({ player: localized(playback.players[0].name) })}</p>
 	{/if}
@@ -268,7 +244,7 @@
 		</section>
 	{/if}
 	{#if giving}
-		<form class="gift" onsubmit={sendGift} data-testid="gift-form">
+		<form class="gift" id={giftFormId} onsubmit={sendGift} data-testid="gift-form">
 			<h3>{m['items.gift_title']({ name: inventory.nameOf(entry) })}</h3>
 			{#if giftMax < 1}
 				<p class="swap-note" role="status">{m['items.gift_worn']()}</p>
@@ -291,16 +267,8 @@
 						<span>{m['items.invite_offer']({ name: inventory.nameOf(entry), until: inviteUntil })}</span>
 					</div>
 					<p class="gift-note">{m['items.invite_note']()}</p>
-					<div class="actions">
-						<button type="button" class="btn-secondary" onclick={() => ((giving = false), (inviteOffer = null))}>{m['items.gift_cancel']()}</button>
-						<button type="button" class:disabled={working} disabled={working} onclick={sendInvite} data-testid="gift-invite">{m['items.invite_confirm']()}</button>
-					</div>
 				{:else}
 					<p class="gift-note">{m['items.gift_note']()}{entry.code ? ` ${m['items.gift_note_code']()}` : ''}</p>
-					<div class="actions">
-						<button type="button" class="btn-secondary" onclick={() => (giving = false)}>{m['items.gift_cancel']()}</button>
-						<button type="submit" class:disabled={working} disabled={working} data-testid="gift-confirm">{m['items.gift_confirm']()}</button>
-					</div>
 				{/if}
 			{/if}
 		</form>
@@ -308,6 +276,43 @@
 	{#if noteText}<p class="swap-note" role="status" data-testid="item-note">{noteText}</p>{/if}
 	{#if useError}<p class="swap-note" role="alert">{m['items.use_failed']()}</p>{/if}
 	{#if audioError}<p class="swap-note" role="alert">{m['items.release_failed']()}</p>{/if}
+
+	<!-- the item's actions stuck to the panel's bottom, the detail scrolls under them (owner 2026-10-16, DESIGN.md
+	     "Sticky action bar"); while a gift is written, its cancel / send instead -->
+	<StickyActions testid="item-actions">
+		{#if giving && giftMax >= 1}
+			<button type="button" class="btn-secondary" onclick={() => ((giving = false), (inviteOffer = null))}>{m['items.gift_cancel']()}</button>
+			{#if inviteOffer}
+				<button type="button" class:disabled={working} disabled={working} onclick={sendInvite} data-testid="gift-invite">{m['items.invite_confirm']()}</button>
+			{:else}
+				<button type="submit" form={giftFormId} class:disabled={working} disabled={working} data-testid="gift-confirm">{m['items.gift_confirm']()}</button>
+			{/if}
+		{:else}
+			<!-- scores and containers (research/SCORES.md): open the score, its PDF; open a container, put into / take out -->
+			<ScoreActions {entry} />
+			<ContainerActions {entry} onopen={onopencontainer} />
+			{#if usable}
+				<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : skills.some((s) => s.type === 'enter_home') ? homes.openOwn('vr') : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
+			{/if}
+			{#if playback?.kind === 'play'}
+				<button class="btn-secondary" onclick={() => playback.kind === 'play' && play(playback.album, playback.tracks, entry)} data-testid="item-play">{m['items.play']()}</button>
+			{/if}
+			{#if playback?.download}
+				<button class="btn-secondary" onclick={() => playback.download && download(playback.album, playback.download)} data-testid="item-download">{m['items.download_album']()}</button>
+			{/if}
+			{#if combinable}
+				<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
+			{/if}
+			{#if def?.slot}
+				<button class="btn-secondary" class:disabled={working} disabled={working} onclick={toggleWear}>
+					{equipped ? m['items.take_off']() : m['items.put_on']()}
+				</button>
+			{/if}
+			{#if giftable && !giving}
+				<button class="btn-secondary" onclick={() => ((giving = true), (giftError = null), (giftQty = 1))} data-testid="item-gift">{m['items.gift']()}</button>
+			{/if}
+		{/if}
+	</StickyActions>
 </div>
 
 <style>
@@ -352,18 +357,12 @@
 	dd {
 		margin: 0;
 	}
-	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
 	.swap-note {
 		margin: 0;
 		font-size: 0.75rem;
 		line-height: 1.3;
 	}
-	.actions button {
-		flex: 1 1 auto;
+	.item-detail :global(.sc-sticky-actions button) {
 		padding: 0 1rem;
 	}
 	.player-albums {
