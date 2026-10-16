@@ -102,6 +102,23 @@ final class ProtectedFilesTest extends TestCase
         self::assertSame('unknown_album', $refused(fn() => $files->album('nope', null, $user)));
     }
 
+    /** a track follows the reader's media quality (owner 2026-10-16): the level's file, else the next lower one, else src */
+    public function testATrackIsSignedAtTheReadersQuality(): void
+    {
+        $track = ['id' => 'one', 'title' => 'One', 'src' => 'albums/rel/high.mp3', 'variants' => ['low' => 'albums/rel/low.mp3', 'medium' => 'albums/rel/mid.mp3', 'high' => 'albums/rel/high.mp3']];
+        $admin = $this->get(CatalogAdmin::class);
+        $admin->put('albums', 'rel', ['id' => 'rel', 'toon' => null, 'title' => ['en' => 'Rel'], 'tracks' => [$track], 'access' => ['listen' => 'members']], 'test');
+        $files = $this->get(ProtectedFiles::class);
+        $user = $this->user();
+        self::assertStringStartsWith('https://protected.example.net/albums/rel/low.mp3?token=', $files->album('rel', 'one', $user, 'low')['url']);
+        self::assertStringStartsWith('https://protected.example.net/albums/rel/mid.mp3?token=', $files->album('rel', 'one', $user, 'medium')['url']);
+        self::assertStringStartsWith('https://protected.example.net/albums/rel/high.mp3?token=', $files->album('rel', 'one', $user, 'high')['url']);
+        self::assertStringStartsWith('https://protected.example.net/albums/rel/high.mp3?token=', $files->album('rel', 'one', $user)['url']);
+        self::assertStringStartsWith('https://protected.example.net/albums/rel/high.mp3?token=', $files->album('rel', 'one', $user, 'ultra')['url']);
+        self::assertSame('albums/rel/low.mp3', ProtectedFiles::trackFile(['src' => 's.mp3', 'variants' => ['low' => 'albums/rel/low.mp3']], 'high'));
+        self::assertSame('s.mp3', ProtectedFiles::trackFile(['src' => 's.mp3', 'variants' => ['high' => 'h.mp3']], 'medium'));
+    }
+
     public function testThePublicCatalogNeverNamesThePaths(): void
     {
         $item = $this->get(\Scutoons\Domain\Catalog\Catalog::class)->item('cloud9_en') ?? [];

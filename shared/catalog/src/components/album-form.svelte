@@ -68,6 +68,12 @@
 		</div>
 		<CatalogField label={m['catalog.title_field']()} value={t.title} onchange={(v) => (t.title = v)} />
 		<FileSlot kind="audio" value={t.src} label={m['catalog.audio']()} {place} onchange={(path) => (t.src = path ?? '')} testid="album-track-src" />
+		<!-- quality files (owner 2026-10-16): low 96k / medium 128k / high 320k, set through a proposal (vault files have no picker) -->
+		{#if t.variants && Object.keys(t.variants).length}
+			<p class="sc-caption muted" data-testid="album-track-variants">
+				{m['catalog.track_variants']({ levels: ['low', 'medium', 'high'].filter((l) => t.variants[l]).map((l) => ({ low: '96k', medium: '128k', high: '320k' })[l]).join(' · ') })}
+			</p>
+		{/if}
 	{/snippet}
 </CatalogRows>
 

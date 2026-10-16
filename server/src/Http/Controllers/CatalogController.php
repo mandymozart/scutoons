@@ -44,12 +44,13 @@ final class CatalogController
     }
 
     /**
-     * GET /api/albums/{id}/download, /api/albums/{id}/tracks/{track} → { url, expires } (ProtectedFiles::album)
+     * GET /api/albums/{id}/download, /api/albums/{id}/tracks/{track}[?quality=low|medium|high] → { url, expires } (ProtectedFiles::album)
      * @param array<string, string> $args
      */
     public function albumFile(Request $request, Response $response, array $args): Response
     {
-        $signed = $this->files->album((string) ($args['id'] ?? ''), isset($args['track']) ? (string) $args['track'] : null, CurrentSession::of($request)->user());
+        $quality = $request->getQueryParams()['quality'] ?? null;
+        $signed = $this->files->album((string) ($args['id'] ?? ''), isset($args['track']) ? (string) $args['track'] : null, CurrentSession::of($request)->user(), is_string($quality) ? $quality : null);
         return Json::response($response, 200, ['status' => 'success'] + $signed, ['Cache-Control' => 'no-store']);
     }
 

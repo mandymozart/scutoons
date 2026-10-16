@@ -8,7 +8,9 @@ import {
 	albumByDownload,
 	albumDownload,
 	albumOf,
+	albumTrackFile,
 	mediaPlayback,
+	songSection,
 	playerAlbums,
 	playersFor,
 	seasonMusic,
@@ -175,6 +177,40 @@ test('albums: validation errors', () => {
 	const lonely = structuredClone(catalog);
 	lonely.items = lonely.items.filter((i) => i.id !== 'record_player');
 	assert.ok(validateCatalog(lonely).some((p) => p.level === 'warning' && p.message.includes('no player plays "vinyl"')));
+});
+
+test('albums: a track plays the file of the reader’s media quality (owner 2026-10-16), like chapter audio', () => {
+	const track = { src: 'albums/a/high.mp3', variants: { low: 'albums/a/low.mp3', medium: 'albums/a/mid.mp3', high: 'albums/a/high.mp3' } };
+	assert.equal(albumTrackFile(track, 'low'), 'albums/a/low.mp3');
+	assert.equal(albumTrackFile(track, 'medium'), 'albums/a/mid.mp3');
+	assert.equal(albumTrackFile(track, 'high'), 'albums/a/high.mp3');
+	// the level not known yet ("Automatic" still measuring): the 128k file, as chapter audio plays its 128k `path`
+	assert.equal(albumTrackFile(track, null), 'albums/a/mid.mp3');
+	// no variants: `src`; a missing level: the next lower one
+	assert.equal(albumTrackFile({ src: 'x.mp3' }, 'high'), 'x.mp3');
+	assert.equal(albumTrackFile({ src: 'x.mp3', variants: { low: 'l.mp3' } }, 'high'), 'l.mp3');
+	// validation: known levels, audio paths
+	const bad = structuredClone(catalog);
+	bad.albums![0].tracks[0].variants = { low: 'a.txt', ultra: 'u.mp3' } as never;
+	const messages = validateCatalog(bad).filter((p) => p.level === 'error').map((p) => p.message);
+	assert.ok(messages.some((m) => m.includes('variants.low must be an audio path')), messages.join(' | '));
+	assert.ok(messages.some((m) => m.includes('unknown quality level "ultra"')), messages.join(' | '));
+	const good = structuredClone(catalog);
+	good.albums![0].tracks[0].variants = track.variants;
+	assert.deepEqual(validateCatalog(good).filter((p) => p.level === 'error'), []);
+});
+
+test('albums: a track’s credits are its song section in credits:<toon> (owner 2026-10-16)', () => {
+	const section = (id: string, title: string) => ({ id, kind: 'song' as const, title: { de: title, en: title }, entries: [] });
+	const credits = { sections: [{ id: 'toon', kind: 'toon' as const, lead: [], entries: [] }, section('song-cloud-9', 'Cloud 9'), section('song-roar', 'Roar Little Kitty'), section('song-like-a-baby-2', 'Like A Baby')] };
+	// by the title's slug
+	assert.equal(songSection(credits, { id: 'cloud_9', title: 'Cloud 9' })?.id, 'song-cloud-9');
+	// by the track id
+	assert.equal(songSection(credits, { id: 'like_a_baby_2', title: 'Like a baby (live)' })?.id, 'song-like-a-baby-2');
+	// by the title in any language
+	assert.equal(songSection(credits, { id: 'roar_little_kitty', title: 'roar little kitty' })?.id, 'song-roar');
+	assert.equal(songSection(credits, { id: 'nope', title: 'Nope' }), null);
+	assert.equal(songSection(null, { title: 'Cloud 9' }), null);
 });
 
 test('related items: the fixture season lists catalog items, once for every language', () => {

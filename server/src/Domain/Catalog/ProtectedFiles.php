@@ -21,6 +21,9 @@ final class ProtectedFiles
     /** how long a signed URL works */
     public const TTL = 600;
 
+    /** the media quality levels, lowest first (@scutoons/content MEDIA_QUALITIES) */
+    public const QUALITIES = ['low', 'medium', 'high'];
+
     public function __construct(
         private readonly Settings $settings,
         private readonly Clock $clock,
@@ -63,11 +66,12 @@ final class ProtectedFiles
      * track (owner 2026-10-14) by the album's `access` (agents/ITEMS.md "Players, albums"): `everyone`; `members` = a
      * signed-in account; `owners` = an account owning a carrier of the album (an item with `album` = it). Defaults:
      * download members, listen owners (the reader also needs a player – the app's rule). A file not in the vault (an older
-     * album) is answered with its public CDN URL. 404 unknown_album / unknown_track / no_file, 401, 403 not_owner.
+     * album) is answered with its public CDN URL. A track's file follows the reader's media quality `?quality=low|medium|high`
+     * (owner 2026-10-16; `trackFile`); without one its `src`. 404 unknown_album / unknown_track / no_file, 401, 403 not_owner.
      * @param array<string, mixed>|null $user
      * @return array{url: string, expires: int}
      */
-    public function album(string $albumId, ?string $trackId, ?array $user): array
+    public function album(string $albumId, ?string $trackId, ?array $user, ?string $quality = null): array
     {
         $album = null;
         foreach ((array) ($this->catalog->data()['albums'] ?? []) as $a) if (is_array($a) && ($a['id'] ?? null) === $albumId) $album = $a;
@@ -78,7 +82,7 @@ final class ProtectedFiles
         } else {
             $track = null;
             foreach ((array) ($album['tracks'] ?? []) as $t) if (is_array($t) && ($t['id'] ?? null) === $trackId) $track = $t;
-            $path = is_string($track['src'] ?? null) && $track['src'] !== '' ? $track['src'] : throw new ApiError(404, 'unknown_track', 'Unknown track.');
+            $path = is_string($track['src'] ?? null) && $track['src'] !== '' ? self::trackFile($track, $quality) : throw new ApiError(404, 'unknown_track', 'Unknown track.');
             $rule = $album['access']['listen'] ?? 'owners';
         }
         if ($rule !== 'everyone') {
@@ -91,6 +95,23 @@ final class ProtectedFiles
         }
         if (!self::inVault($path)) return ['url' => rtrim($this->settings->get('CDN_URL'), '/') . '/' . ltrim($path, '/'), 'expires' => $this->clock->time() + self::TTL];
         return $this->signed($path);
+    }
+
+    /**
+     * A track's file at a quality level: the level's variant, else the nearest lower one, else `src` (@scutoons/content
+     * pickQualityVariant – a reader on "low" never gets a bigger file because a variant is missing); no / an unknown level → `src`
+     * @param array<string, mixed> $track
+     */
+    public static function trackFile(array $track, ?string $quality): string
+    {
+        $src = (string) $track['src'];
+        $at = $quality === null ? false : array_search($quality, self::QUALITIES, true);
+        if ($at === false || !is_array($track['variants'] ?? null)) return $src;
+        for ($i = (int) $at; $i >= 0; $i--) {
+            $file = $track['variants'][self::QUALITIES[$i]] ?? null;
+            if (is_string($file) && $file !== '') return $file;
+        }
+        return $src;
     }
 
     /**

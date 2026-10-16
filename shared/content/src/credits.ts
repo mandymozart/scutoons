@@ -711,3 +711,22 @@ export function sectionName(section: Partial<CreditSection> & { kind?: string },
 			return 'Section';
 	}
 }
+
+// ── Songs of an album ─────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The credits section of an album track (owner 2026-10-16: the record player's card shows the song's people – they
+ * already live in `credits:<toon>`, one `song` section per song): by convention `song-<slug of the track title>`
+ * ("Cloud 9" → `song-cloud-9`), else `song-<track id>` (underscores as hyphens), else the song section whose title
+ * reads the same in any language. null = the song has no section.
+ */
+export function songSection(credits: Pick<ToonCredits, 'sections'> | null | undefined, track: { id?: string; title: string }): SongCreditSection | null {
+	const songs = (credits?.sections ?? []).filter((s): s is SongCreditSection => s?.kind === 'song');
+	const ids = [`song-${slugId(track.title)}`, ...(track.id ? [`song-${track.id.replace(/_/g, '-')}`] : [])];
+	for (const id of ids) {
+		const hit = songs.find((s) => s.id === id);
+		if (hit) return hit;
+	}
+	const name = track.title.trim().toLowerCase();
+	return (name && songs.find((s) => Object.values(s.title ?? {}).some((t) => typeof t === 'string' && t.trim().toLowerCase() === name))) || null;
+}

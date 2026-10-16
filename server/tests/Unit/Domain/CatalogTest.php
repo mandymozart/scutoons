@@ -163,6 +163,8 @@ final class CatalogTest extends TestCase
             ['toons', 'New', ['id' => 'New', 'name' => 'New', 'redirectUrl' => 'https://scutoons.com/new'], 'not a valid toons id'],
             ['permissions', 'catalog', '', 'non-empty string'],
             ['albums', 'awakening', ['tracks' => [['id' => 'x', 'title' => 'X', 'src' => 'x.txt']]] + (array) $store->get('albums', 'awakening'), 'audio path'],
+            ['albums', 'awakening', ['tracks' => [['id' => 'x', 'title' => 'X', 'src' => 'x.mp3', 'variants' => ['ultra' => 'u.mp3']]]] + (array) $store->get('albums', 'awakening'), 'unknown quality level "ultra"'],
+            ['albums', 'awakening', ['tracks' => [['id' => 'x', 'title' => 'X', 'src' => 'x.mp3', 'variants' => ['low' => 'l.txt']]]] + (array) $store->get('albums', 'awakening'), 'variants.low must be an audio path'],
             ['meta', 'products', ['version' => 2, 'currency' => 'euro'], 'currency'],
         ];
         $admin = $this->get(CatalogAdmin::class);

@@ -10,6 +10,7 @@ import type { Catalog, ItemDef, Localized, Skill } from './items.ts';
 import { toonAsset } from './paths.ts';
 import type { Problem } from './validate.ts';
 import type { AcceptedWarnings } from './accepted.ts';
+import { isMediaQuality, pickQualityVariant, type MediaQuality, type QualityVariants } from './media-quality.ts';
 
 /** The sound carriers the catalog knows; a player's `plays` lists some of them */
 export const MEDIA_FORMATS = ['vinyl', 'tape', 'cd'] as const;
@@ -48,10 +49,22 @@ export interface AlbumTrack {
 	id: string;
 	/** the song's name (proper names are the same in every language) */
 	title: string;
-	/** CDN-root path of the streamable file (`<toon>/audio/music/<name>.128.mp3`) */
+	/** CDN-root path of the streamable file (`<toon>/audio/music/<name>.128.mp3`; a physical release's in the vault:
+	 *  `albums/<album>/<hash>.mp3`) – the file when no variant fits */
 	src: string;
+	/** one file per media quality level (low 96k / medium 128k / high 320k, owner 2026-10-16), like chapter audio; the
+	 *  reader's level picks one (`albumTrackFile`), a missing level falls back to the next lower one, else `src` */
+	variants?: QualityVariants;
 	/** seconds, optional */
 	duration?: number;
+}
+
+/**
+ * The file a track plays at a quality level (`pickQualityVariant`); `null` = the level isn't known yet: the 128k level
+ * (medium), what chapter audio plays meanwhile (its `path`).
+ */
+export function albumTrackFile(track: Pick<AlbumTrack, 'src' | 'variants'>, level: MediaQuality | null): string {
+	return pickQualityVariant(track, level ?? 'medium');
 }
 
 /** An album: the music a media item carries (language-neutral; only the title is text) */
@@ -275,6 +288,13 @@ export function validateAlbums(catalog: Record<string, any>, add: (level: Proble
 				if (typeof t.title !== 'string') add('error', [...tp, 'title'], `${album.id}/${t.id}: title must be a string`);
 				if (typeof t.src !== 'string' || !AUDIO.test(t.src)) add('error', [...tp, 'src'], `${album.id}/${t.id}: src must be an audio path (.mp3 …)`);
 				if (t.duration !== undefined && !(typeof t.duration === 'number' && t.duration > 0)) add('error', [...tp, 'duration'], `${album.id}/${t.id}: duration must be seconds > 0`);
+				if (t.variants !== undefined) {
+					if (!isObj(t.variants)) add('error', [...tp, 'variants'], `${album.id}/${t.id}: variants must be { low?, medium?, high? } (96k / 128k / 320k files)`);
+					else for (const [level, file] of Object.entries(t.variants)) {
+						if (!isMediaQuality(level)) add('error', [...tp, 'variants', level], `${album.id}/${t.id}: unknown quality level "${level}" (low, medium, high)`);
+						else if (typeof file !== 'string' || !AUDIO.test(file)) add('error', [...tp, 'variants', level], `${album.id}/${t.id}: variants.${level} must be an audio path (.mp3 …)`);
+					}
+				}
 			});
 			if (!album.tracks.length && !album.download) add('warning', [...path, 'tracks'], `${album.id}: no tracks and no download`);
 		}

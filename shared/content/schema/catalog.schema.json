@@ -1023,7 +1023,11 @@
 				},
 				"src": {
 					"type": "string",
-					"description": "CDN-root path of the streamable file (`<toon>/audio/music/<name>.128.mp3`)"
+					"description": "CDN-root path of the streamable file (`<toon>/audio/music/<name>.128.mp3`; a physical release's in the vault: `albums/<album>/<hash>.mp3`) – the file when no variant fits"
+				},
+				"variants": {
+					"$ref": "#/definitions/QualityVariants",
+					"description": "one file per media quality level (low 96k / medium 128k / high 320k, owner 2026-10-16), like chapter audio; the reader's level picks one (`albumTrackFile`), a missing level falls back to the next lower one, else `src`"
 				},
 				"duration": {
 					"type": "number",
@@ -1035,6 +1039,21 @@
 				"title",
 				"src"
 			]
+		},
+		"QualityVariants": {
+			"type": "object",
+			"properties": {
+				"low": {
+					"type": "string"
+				},
+				"medium": {
+					"type": "string"
+				},
+				"high": {
+					"type": "string"
+				}
+			},
+			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		},
 		"AlbumAccess": {
 			"type": "object",
@@ -1111,21 +1130,6 @@
 				"src"
 			],
 			"description": "A home scene's file at the reader's media quality (media-quality.ts `pickQualityVariant`): `src` = 1080p (low and medium), `variants.high` = 4K (owner 2026-10-14: \"4K und 1080p ist, glaube ich, ausreichend für die Hintergründe\")"
-		},
-		"QualityVariants": {
-			"type": "object",
-			"properties": {
-				"low": {
-					"type": "string"
-				},
-				"medium": {
-					"type": "string"
-				},
-				"high": {
-					"type": "string"
-				}
-			},
-			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		},
 		"AirliftCarrier": {
 			"type": "object",
