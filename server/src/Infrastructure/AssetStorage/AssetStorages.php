@@ -108,6 +108,36 @@ final class AssetStorages
      */
     public function configured(): array
     {
-        return $this->bunnyConfig()->status;
+        return $this->bunnyConfig()->status + $this->vaultStatus();
+    }
+
+    /**
+     * The vault (the protected storage: scores' files, physical releases' audio – ProtectedFiles) in the same table (owner
+     * 2026-10-16: the settings list predates it). Secrets never shown: only set / missing.
+     * @return array<string, array{status: string, value: ?string, note: string}>
+     */
+    private function vaultStatus(): array
+    {
+        $zone = trim($this->settings->get('BUNNY_PROTECTED_STORAGE_ZONE'));
+        $password = trim($this->settings->get('BUNNY_PROTECTED_STORAGE_PASSWORD'));
+        $url = rtrim(trim($this->settings->get('PROTECTED_CDN_URL')), '/');
+        $key = trim($this->settings->get('BUNNY_PROTECTED_CDN_KEY'));
+        $off = $this->primaryName() === 'local' ? 'the vault is the local media folder (dev)' : 'no vault: scores\' files and release audio cannot be stored';
+        return [
+            'BUNNY_PROTECTED_STORAGE_ZONE' => $zone === ''
+                ? ['status' => 'missing', 'value' => null, 'note' => "the vault's storage zone – $off"]
+                : (preg_match('/^[A-Za-z0-9-]{1,64}$/', $zone) ? ['status' => 'set', 'value' => $zone, 'note' => 'the vault (protected files)']
+                    : ['status' => 'invalid', 'value' => $zone, 'note' => 'a zone name has only letters, digits and dashes']),
+            'BUNNY_PROTECTED_STORAGE_PASSWORD' => $password === ''
+                ? ['status' => 'missing', 'value' => null, 'note' => "the vault zone's read/write password – $off"]
+                : ['status' => 'set', 'value' => null, 'note' => ''],
+            'PROTECTED_CDN_URL' => $url === ''
+                ? ['status' => 'missing', 'value' => null, 'note' => "the vault's pull zone (token authentication): no download / listen links"]
+                : (filter_var($url, FILTER_VALIDATE_URL) ? ['status' => 'set', 'value' => $url, 'note' => '']
+                    : ['status' => 'invalid', 'value' => $url, 'note' => 'not a URL']),
+            'BUNNY_PROTECTED_CDN_KEY' => $key === ''
+                ? ['status' => 'missing', 'value' => null, 'note' => "the vault pull zone's token key: the signed links are refused"]
+                : ['status' => 'set', 'value' => null, 'note' => ''],
+        ];
     }
 }

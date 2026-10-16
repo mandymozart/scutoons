@@ -28,6 +28,8 @@ final class AssetsApiTest extends TestCase
             'CDN_URL' => 'http://cdn.test/',
             'BUNNY_STORAGE_ZONE' => 'zone',
             'BUNNY_STORAGE_READONLY_PASSWORD' => 'never-shown-password',
+            'BUNNY_PROTECTED_STORAGE_ZONE' => 'vault-zone',
+            'BUNNY_PROTECTED_CDN_KEY' => 'never-shown-vault-key',
         ] + parent::settings();
     }
 
@@ -170,6 +172,10 @@ final class AssetsApiTest extends TestCase
         self::assertSame(['assets' => 1, 'files' => 2], array_intersect_key($body['totals'], ['assets' => 0, 'files' => 0]));
         self::assertSame('set', $body['settings']['BUNNY_STORAGE_READONLY_PASSWORD']['status']);
         self::assertStringNotContainsString('never-shown-password', (string) $response->getBody());
+        // the vault in the same list: its zone shown, its key only as "set"
+        self::assertSame(['set', 'vault-zone'], [$body['settings']['BUNNY_PROTECTED_STORAGE_ZONE']['status'], $body['settings']['BUNNY_PROTECTED_STORAGE_ZONE']['value']]);
+        self::assertSame(['missing', 'set'], [$body['settings']['BUNNY_PROTECTED_STORAGE_PASSWORD']['status'], $body['settings']['BUNNY_PROTECTED_CDN_KEY']['status']]);
+        self::assertStringNotContainsString('never-shown-vault-key', (string) $response->getBody());
         self::assertFalse($body['bunny']['can_write']);
 
         $scan = self::json($this->request('POST', '/api/admin/assets/scan', $admin));

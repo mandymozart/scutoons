@@ -814,7 +814,7 @@
 		"totals": "Registry",
 		"totals_value": "{assets} assets · {files} files · {size}",
 		"settings_title": "bunny.net settings",
-		"settings_hint": "From the server configuration (locally: the repository-root .env). Passwords and keys are never shown.",
+		"settings_hint": "The public CDN and the vault (BUNNY_PROTECTED_* / PROTECTED_*: scores' files, release audio). From the server configuration (locally: the repository-root .env). Passwords and keys are never shown.",
 		"bandwidth_title": "Bandwidth (bunny.net pull zone)",
 		"bandwidth_value": "Last {days} days: {size} served, {requests} requests, cache hit rate {hit} %.",
 		"bandwidth_load": "Load bandwidth",

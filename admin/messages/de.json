@@ -814,7 +814,7 @@
 		"totals": "Verzeichnis",
 		"totals_value": "{assets} Assets · {files} Dateien · {size}",
 		"settings_title": "bunny.net-Einstellungen",
-		"settings_hint": "Aus der Server-Konfiguration (lokal: die .env im Projektordner). Passwörter und Schlüssel werden nie angezeigt.",
+		"settings_hint": "Das öffentliche CDN und der Tresor (BUNNY_PROTECTED_* / PROTECTED_*: Notendateien, Release-Audio). Aus der Server-Konfiguration (lokal: die .env im Projektordner). Passwörter und Schlüssel werden nie angezeigt.",
 		"bandwidth_title": "Bandbreite (bunny.net Pull Zone)",
 		"bandwidth_value": "Letzte {days} Tage: {size} ausgeliefert, {requests} Anfragen, Cache-Trefferquote {hit} %.",
 		"bandwidth_load": "Bandbreite laden",
