@@ -1,8 +1,8 @@
 Status: built 2026-10-16 as concept B (owner: "Stil Entwurf B mit den Menüs") – how it is now: DESIGN.md "Account page".
 Owner's changes to the draft: no group "Konto" ("Konto Konto klingt komisch") → "Verbindungen" (AI) + "Stammdaten"
 (name first, address, sign out, roles, memberships, "Konto löschen" = contact form, privacy topic); icons before every
-group; "Dieses Gerät" → "Offline-Inhalte"; one back link look on both levels. Not built from the draft: the in-chapter
-quick panel (concept C). **Rules for a new setting: §0 "Settings dogma" (binding).** Push (PWA phase 4) sits in "Benachrichtigungen" (guests too: it is per device), the iOS
+group; "Dieses Gerät" → "Offline-Inhalte"; one back link look on both levels. Dropped: the in-chapter quick panel
+(concept C) – owner: "bitte nicht", neither a menu row nor a button. **Rules for a new setting: §0 "Settings dogma" (binding).** Push (PWA phase 4) sits in "Benachrichtigungen" (guests too: it is per device), the iOS
 how-to with "App installieren" and the saved seasons in "Offline-Inhalte". The text below is the draft.
 
 # ACCOUNT-PAGE — reorganising the reader's account page
@@ -145,13 +145,15 @@ Sound and saved chapters stay device-only by nature.
 from the groups and summaries; the chapter gets the few controls a reader actually reaches for without leaving the
 page. B is the familiar app pattern but costs a level of back navigation from the chapter and makes thin pages.
 
-## 6. Open questions (owner)
-1. Avatar and Inventar on the account page: links to their panels (proposed) or keep the full avatar here?
-2. Guests and "Hinweise" / "Sensible Inhalte": stay account-only (proposed) or device settings for guests too?
-3. Where does the quick panel open in a chapter: a menu row (proposed), or a sixth round button in the header?
-4. Carry device settings into the account at sign-in (proposed: only where the account has none)?
-5. Push notifications (planned): which group – "Benachrichtigungen" next to the newsletter (proposed)?
-6. Collapsed by default everywhere, and remember open groups per device (proposed)?
+## 6. Open questions – answered (owner 2026-10-16)
+1. Avatar and Inventar: links to their panels (Sammlung) – built.
+2. "Hinweise" / "Sensible Inhalte": members only; guests see one line that they come with an account – built.
+3. Sign-in: what a guest set on this device goes into the account only where the account has none yet – the name
+   (`readerName.carryToAccount`) and the media quality (`mediaQuality.carryToAccount`), both from the root layout; sound,
+   auto-save and push stay on the device by nature.
+4. Quick panel in the chapter: no ("bitte nicht") – prompts in the chapter link to their group (§0.7).
+5. Push: in "Benachrichtigungen" next to the newsletter – built.
+6. Collapsibles: none – each group is its own page (concept B, §0.2).
 
 ## Drafts
 Artifact (concepts side by side, phone + desktop, de / en, the states): https://claude.ai/artifact/AaCX8ecNkTCH2tDWdsG8b7

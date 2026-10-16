@@ -46,7 +46,7 @@ class ReaderNameState {
 	#carried: string | number | null = null;
 
 	/**
-	 * At sign-in (owner 2026-10-16, agents/research/ACCOUNT-PAGE.md Q4): a name typed on this device as a guest goes into
+	 * At sign-in (owner 2026-10-16, agents/research/ACCOUNT-PAGE.md §6.3): a name typed on this device as a guest goes into
 	 * an account that has none yet – the account's own name always wins. The root layout calls it.
 	 */
 	async carryToAccount(): Promise<void> {

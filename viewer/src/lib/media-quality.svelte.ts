@@ -104,6 +104,33 @@ class MediaQualityState {
 		if (session?.isLoggedIn) await session.setMediaQuality(value);
 	}
 
+	/** the account this device's choice was offered to (once per account and page load) */
+	#carried: string | number | null = null;
+
+	/**
+	 * At sign-in (owner 2026-10-16, agents/research/ACCOUNT-PAGE.md §6.3): a quality chosen on this device as a guest goes
+	 * into an account that has none yet – the account's own choice always wins; the untouched default isn't carried.
+	 * The root layout calls it.
+	 */
+	async carryToAccount(): Promise<void> {
+		const session = getCurrentSession();
+		const user = session?.user;
+		if (!session?.isLoggedIn || !user || isMediaQualitySetting(user.media_quality) || this.#carried === user.id) return;
+		let chosen: string | null = null;
+		try {
+			chosen = localStorage.getItem(MEDIA_QUALITY_KEY);
+		} catch {
+			return;
+		}
+		if (!isMediaQualitySetting(chosen)) return;
+		this.#carried = user.id;
+		try {
+			await session.setMediaQuality(chosen);
+		} catch {
+			// offline / refused: the device's choice still applies (`setting` falls back to it); the next sign-in tries again
+		}
+	}
+
 	/** Measures the bandwidth with the first `PROBE_BYTES` of `url` (once per page load); failures count as slow. */
 	async measure(url: string) {
 		if (!browser || this.auto || this.#measuring) return;

@@ -18,6 +18,7 @@
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { setSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { readerName } from '$lib/reader-name.svelte.ts';
+	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 	import { setInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { setItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { setWorldContext } from '$lib/contexts/world.svelte.ts';
@@ -43,10 +44,13 @@
 	$effect(() => {
 		document.documentElement.classList.toggle('sc-show-hints', session.me?.user?.show_hints === true);
 	});
-	// signed in with a name typed as a guest on this device and none on the account: the account takes it (owner
-	// 2026-10-16, ACCOUNT-PAGE.md Q4 – the account's own name always wins)
+	// signed in after setting things up as a guest on this device: the account takes the name and the media quality where
+	// it has none yet – the account's own values always win (owner 2026-10-16, ACCOUNT-PAGE.md §6.3); sound, auto-save
+	// and push stay on the device by nature
 	$effect(() => {
-		if (session.isLoggedIn && session.user && !session.user.display_name && readerName.local) void readerName.carryToAccount();
+		if (!session.isLoggedIn || !session.user) return;
+		if (!session.user.display_name && readerName.local) void readerName.carryToAccount();
+		if (!session.user.media_quality) void mediaQuality.carryToAccount();
 	});
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
