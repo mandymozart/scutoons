@@ -3,6 +3,8 @@
 // lazy image is then served from the cache – and announces its music tracks / samples to the audio, which loads them
 // only now (the default track and the first slices' sounds still start with the chapter).
 // Only after the chapter's first screen is there (`firstScreenDone`), at idle, never on the `none` tier, never twice.
+// With the service worker in control, the prefetched image passes through its media cache (same URL – lib/sw/
+// runtime-cache.ts), so it also survives a reload and works offline.
 import { dataBudget, estimateImageBytes } from '$lib/data-budget.svelte.ts';
 
 export interface LookaheadTarget {

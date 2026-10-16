@@ -1,4 +1,4 @@
-Status: L2, L3, L6, L9, L10 built 2026-10-16 (viewer lib/data-budget.svelte.ts + lib/lookahead.ts); L1 viewer headers + L11 phase 1 (app shell) built with research/PWA.md – L1 bunny edge rule, L4, L5, L7, L8, L11 media, L12 open. FEATURES 10.101.
+Status: L2, L3, L6, L9, L10 built 2026-10-16 (viewer lib/data-budget.svelte.ts + lib/lookahead.ts); L1 viewer headers + L11 phase 1 (app shell) + L11 media (PWA phase 2: CDN images + library JSON) built with research/PWA.md – L1 bunny edge rule, L4, L5, L7, L8, L12 open. FEATURES 10.101.
 
 # LOADING — viewer loading times, lazy and predictive loading (2026-10-16)
 

@@ -1,4 +1,4 @@
-Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); the Android install prompt (phase 4 part) built 2026-10-16 – phases 2–4 otherwise open. FEATURES 10.74.
+Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); phase 2 built 2026-10-16 (media + library cache, §2 "Phase 2"); the Android install prompt (phase 4 part) built 2026-10-16 – phases 3–4 otherwise open. FEATURES 10.74.
 
 # PWA — SCUTOONS as an installable web app (2026-10-16)
 
@@ -39,10 +39,42 @@ Chrome reports no installability errors (CDP `Page.getInstallabilityErrors`, `Pa
 - **Carry-over**: a new version copies every file it still has from the old cache – a deploy downloads only changed
   chunks. A mid-deploy index.html that names files of another build makes the install fail (FTP uploads file by file);
   the next update check tries again.
-- **Never touched** (no `respondWith`): other origins – api. (data, auth, sessions), cdn. (slices, posters, audio,
-  video), the vault's signed URLs – and every non-GET request.
-- **Offline**: the shell starts; the root layout's toons request fails → `+error.svelte` says "You're offline …" with
+- **Never touched** (no `respondWith`): other origins except phase 2's two (below) – the rest of api. (auth,
+  sessions, inventory, game state, codes, purchases), audio and video, the vault's signed URLs – and every non-GET request.
+- **Offline**: the shell starts; with phase 2 the library JSON and the images the reader saw come from their caches. A
+  page whose data isn't cached (the root layout's toons request fails) → `+error.svelte` says "You're offline …" with
   "Try again" (instead of "Upsi! Not available").
+
+### Phase 2 (built 2026-10-16) – media and library cache
+Code: `lib/sw/cache-rules.ts` (what qualifies, caps – pure, test/sw-cache-rules.test.ts), `lib/sw/runtime-cache.ts`
+(the handlers), `lib/sw/media-index.ts` (IndexedDB `scutoons-sw`: per file { url, size, used, fetched } + the tier).
+- **Media** `scutoons-media-v1`, **cache first**: GET images (webp/png/jpg/avif/gif/svg) on the public CDN origin
+  (`VITE_CDN_URL`), whole files only – never a URL with a query (signed URLs), a `Range` / `no-store` request (the
+  media-quality probe), `Authorization`, `crossorigin=use-credentials`, audio, video, fonts. Slices, posters, portraits,
+  item icons, map tiles.
+- **CORS** (checked 2026-10-16 with curl): cdn.scutoons.com (bunny pull zone) answers `Access-Control-Allow-Origin: *`
+  on every file, with or without an `Origin` header (also on 404s); the local dev CDN too. An `<img>` without
+  `crossorigin` asks `no-cors` (= an opaque answer, ~7 MB of quota padding each in Chrome), so the worker fetches the
+  same URL again with `mode: cors, credentials: omit` and stores that readable, sized answer; opaque answers are never
+  stored. No owner step for the bunny zone needed. If the CDN ever stops sending the header, the cors fetch fails and
+  the worker falls back to the browser's own request – nothing cached, nothing broken.
+- **LRU cap per data tier** (the page posts `DATA_TIER` from `data-budget.svelte.ts` on load, on every change and when a
+  worker takes over; the worker stores it and otherwise guesses from `navigator.connection`; data saver always wins):
+  normal / generous 150 MB, light 50 MB, **none: nothing new is stored** (hits still served). Never more than 25 % of
+  `storage.estimate().quota`. Over the cap → the least recently used go, down to 90 % of the cap. A file older than
+  30 days (the CDN's max-age) is fetched again (the old copy when offline).
+- **First visit**: the images the page showed before the first worker took over are handed over (`CACHE_MEDIA`,
+  Resource Timing, fetched `force-cache` = from the HTTP cache) – a chapter read on the first visit works offline.
+  The look-ahead's `new Image()` prefetches pass through the worker → the same cache (no extra bytes).
+- **Library** `scutoons-library-v1`: GET `<api>/library/…` from the header-free public client only – no credentials,
+  no `Authorization`, no `X-Device-Id`, never `draft`, and only answers that say `Cache-Control: public` (drafts answer
+  `private, no-store`). Younger than 10 min → the cached copy at once, revalidated behind; older → the network first,
+  the cached copy after 3 s or offline (a publish shows on the next load at the latest). Revalidation = the browser's
+  HTTP cache with the ETag (an `If-None-Match` of ours would need a CORS preflight the API doesn't allow). A 4xx
+  (chapter gone, `coming_soon`) deletes the stored copy. At most 200 answers. Not cached: `/events/`, `/items/`, …
+- **Updates**: both caches outlive builds (immutable names / revalidated JSON); activate deletes other *versions* of them
+  (bump the `-v1` in runtime-cache.ts when the stored form changes) and reconciles the bookkeeping with the cache.
+- Not cached: audio and video (range requests) – phase 3 saves chapters explicitly.
 
 ### Update flow
 New worker installs → waits (no `skipWaiting`) → `lib/pwa.svelte.ts` shows the prompt (`update-prompt.svelte`: "A new
@@ -55,11 +87,11 @@ Not registered in dev, nor in the creator's Reader frame.
 ### Kill switch (if anything goes wrong)
 1. **Everyone**: set the GitHub variable `VITE_SW=off` (environment production) and redeploy the viewer (Deploy
    workflow, apps `viewer`). That build registers no worker and unregisters existing ones; its `service-worker.js`
-   installs at once on every device that had one (browsers re-check it on load and our hourly check), deletes the
-   caches and unregisters itself – without a fetch handler, so open pages go straight to the network. Remove the
+   installs at once on every device that had one (browsers re-check it on load and our hourly check), deletes every
+   `scutoons-*` cache (shell, media, library) and the IndexedDB `scutoons-sw`, and unregisters itself – without a fetch handler, so open pages go straight to the network. Remove the
    variable + redeploy to switch it on again. (Tested: worker + caches gone, the page uncontrolled after a reload.)
 2. **Without a build** (CI broken): upload this as `viewer/dist/service-worker.js` by FTP –
-   `self.oninstall=()=>self.skipWaiting();self.onactivate=e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n.startsWith('scutoons-shell-')).map(n=>caches.delete(n)))).then(()=>self.registration.unregister()));`
+   `self.oninstall=()=>self.skipWaiting();self.onactivate=e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n.startsWith('scutoons-')).map(n=>caches.delete(n)))).then(()=>indexedDB.deleteDatabase('scutoons-sw')).then(()=>self.registration.unregister()));`
    – the next deploy overwrites it, so set `VITE_SW=off` too.
 3. **One device**: Chrome DevTools → Application → Service workers → Unregister (+ Storage → Clear site data);
    Android: site settings → Clear & reset; iPhone: Settings → Apps → Safari → Advanced → Website Data → scutoons.com
@@ -86,11 +118,11 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
 - Dev: no real event on the dev server – `__scFakeInstallPrompt('dismissed' | 'accepted')` in the console (dev builds only).
 - **iOS: nothing yet** – later item: a "Share → Add to Home Screen" how-to on the account page (Safari, not standalone).
 
-## 3. Phase 2+ (open)
+## 3. Phases 2–4
 
 | Phase | What | Notes |
 |---|---|---|
-| 2 | **Media cache**: slices / posters / portraits (cdn., immutable names) cache first in `scutoons-media` with an LRU cap (≈ 150 MB, DATA.md §6; less on `light`); library JSON stale-while-revalidate with the ETag; next-chapter prefetch (LOADING.md L4) fills it | needs `Access-Control-Allow-Origin` on the bunny zone or opaque responses (opaque = ~7 MB quota padding each in Chrome – avoid); never the vault's signed URLs, never `/auth`, `/access`, `/me`; audio/video stay network (range requests) |
+| 2 | **Built** – media cache + library JSON (§2 "Phase 2"); the next-chapter prefetch (LOADING.md L4) will fill it by itself | bunny sends `ACAO: *` – no owner step |
 | 3 | **Save chapter to device** (10.74, DATA.md §6): the assets endpoint, `offline-<toon>-<locale>-c<n>` caches, 206 answers for audio ranges, `storage.persist()` + `estimate()`, membership expiry / 410 re-check deletes gated caches; offline reading progress queued for sync | the account page shows saved chapters + space |
 | 4 | Polish: install hint (Android built – §2a; open: the iOS "Share → Add to Home Screen" how-to on the account page), manifest `screenshots` + `shortcuts` (Continue reading), badging, Web Push (needs a server part, iOS only installed), Wake Lock while reading / playing | each one an owner decision |
 
@@ -138,7 +170,16 @@ prefetched for the cache; saving a chapter is an explicit tap (the bytes shown f
 - Scripted (2026-10-16, headless Chrome over CDP): install + control on the first visit (93 files cached), a rebuild +
   `update()` → the new worker waits, the prompt shows; Reload → the new version, the old cache gone; offline
   navigation → the shell (+ the offline message when the API isn't in the HTTP cache); `VITE_SW=off` build → worker
-  and caches gone. Chrome: no installability errors. Lighthouse 12 has no PWA category any more (removed 2024) – it
+  and caches gone. Chrome: no installability errors.
+- Phase 2, scripted (2026-10-16, same setup + proxies in front of the dev API / CDN that can go offline; a test device
+  access in localStorage – ch1 needs one locally): media cache fills (incl. the images shown before the first takeover),
+  no opaque entries, bookkeeping = cache; private requests (`/auth/session`, `/me/`, `/inventory/` with Authorization,
+  a `draft=1` read with credentials, `/items/`, a `?token=` URL, an mp4 range, a no-store probe) never cached; a reload
+  → every CDN image and library answer through the worker; offline with the HTTP cache cleared → the chapter renders
+  from the library cache, every cached slice shows; 60 MB of fillers + tier `light` → evicted to ≤ 50 MB, the least
+  recently used first, the read slices kept; tier `none` stores nothing new; an update keeps media + library, deletes
+  an old `scutoons-media-v0`; the three.js chunk stays out of the shell until a page uses it; `VITE_SW=off` → every
+  `scutoons-*` cache and the database gone. Lighthouse 12 has no PWA category any more (removed 2024) – it
   runs performance / a11y / best practices only.
 - iOS: Safari → Add to Home Screen; Safari's Web Inspector (a Mac) for the home-screen app; check the title, the
   icon, the white launch, that a sign-in is needed again (own storage), and the prompt after a deploy.

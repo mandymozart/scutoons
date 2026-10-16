@@ -104,5 +104,26 @@ class DataBudget {
 /** One per page (module state). */
 export const dataBudget = new DataBudget();
 
+/**
+ * The service worker sizes its media cache by the tier (agents/research/PWA.md §2 "Phase 2": none keeps nothing new,
+ * light 50 MB, normal / generous 150 MB): told on load, on every change and when a worker takes over the page.
+ */
+function shareTier() {
+	if (!('serviceWorker' in navigator)) return;
+	const tell = (tier: DataTier) => navigator.serviceWorker.controller?.postMessage({ type: 'DATA_TIER', tier });
+	navigator.serviceWorker.addEventListener('controllerchange', () => {
+		tell(dataBudget.tier);
+		// the first worker took over this page: the images it already showed go into the media cache too (from the
+		// HTTP cache), so a chapter read on the first visit works offline from its first slice
+		const urls = performance.getEntriesByType('resource').map((entry) => entry.name);
+		navigator.serviceWorker.controller?.postMessage({ type: 'CACHE_MEDIA', urls });
+	});
+	$effect.root(() => {
+		$effect(() => tell(dataBudget.tier));
+	});
+}
+
+if (browser) shareTier();
+
 /** a slice image's bytes before it is loaded: ~0.1 byte per pixel (ch1's WebPs: 390 × 625 ≈ 24 KB) */
 export const estimateImageBytes = (width: number, height: number) => Math.max(8 * 1024, Math.round(width * height * 0.1));

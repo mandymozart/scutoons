@@ -2,16 +2,20 @@
 /// <reference no-default-lib="true"/>
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
-// The reader's service worker, phase 1 (agents/research/PWA.md, FEATURES 10.74): the app shell only.
+// The reader's service worker (agents/research/PWA.md, FEATURES 10.74). Phase 1: the app shell (this file).
+// Phase 2: slice images / posters / portraits / item icons from the CDN and the public library JSON (lib/sw/runtime-cache.ts,
+// the rules in lib/sw/cache-rules.ts) – never auth, sessions, inventory, game state, codes, purchases, signed URLs.
 // - index.html: network first; the cached copy (this build's, fetched at install) only when the network fails (offline)
 // - /_app/immutable/*: this build's files from the cache (precached: what index.html needs + the root layout / error
 //   nodes + CSS, ≈ 25 KB br; not the bundled fonts – they come from the CDN; the rest is cached when the app first
 //   uses it – never a guess, LOADING.md data budget); unchanged files are carried over from the previous version's cache, so a deploy downloads only what changed
 // - the few static files of the first paint: network first, the cache when offline
-// - NOTHING else: the API, the CDN, the vault's signed URLs, auth – not touched (the browser's own fetch)
+// - NOTHING else: the rest of the API, audio / video, the vault's signed URLs, auth – not touched (the browser's own fetch)
 // Updates: a new worker waits until the reader taps "Reload" (lib/pwa.svelte.ts, the update prompt).
 // Kill switch: a build with VITE_SW=off makes this file remove itself and its caches (PWA.md "Kill switch").
 import { build, files, version } from '$service-worker';
+import { isDataTier } from '$lib/sw/cache-rules.ts';
+import { cacheShown, cleanUp, clearAll, isLibrary, isMedia, library, media, setTier } from '$lib/sw/runtime-cache.ts';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -71,6 +75,8 @@ async function install() {
 
 async function activate() {
 	for (const name of await caches.keys()) if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name);
+	// the media / library caches outlive builds (immutable names); only their own version bump replaces them
+	await cleanUp().catch(() => {});
 	await sw.registration.navigationPreload?.enable();
 	// the first install takes over the open page, so the app files it loads from now on are cached (an update only
 	// activates by the reader's "Reload", lib/pwa.svelte.ts)
@@ -127,7 +133,8 @@ if (__SW_OFF__) {
 	sw.addEventListener('activate', (event) => {
 		event.waitUntil(
 			(async () => {
-				for (const name of await caches.keys()) if (name.startsWith(PREFIX)) await caches.delete(name);
+				// every SCUTOONS cache (shell, media, library) and the media bookkeeping (IndexedDB scutoons-sw)
+				await clearAll();
 				await sw.registration.unregister();
 			})()
 		);
@@ -140,16 +147,22 @@ if (__SW_OFF__) {
 		const { request } = event;
 		if (request.method !== 'GET') return;
 		const url = new URL(request.url);
-		if (url.origin !== location.origin) return;
+		if (url.origin !== location.origin) {
+			if (isMedia(request)) return event.respondWith(media(event));
+			if (isLibrary(request)) return event.respondWith(library(event));
+			return;
+		}
 		if (request.mode === 'navigate') return event.respondWith(navigate(event));
 		if (BUILD.has(url.pathname)) return event.respondWith(immutable(request, url.pathname));
 		if (STATIC_SET.has(url.pathname)) return event.respondWith(staticFile(request, url.pathname));
 	});
 
 	sw.addEventListener('message', (event) => {
-		const data = event.data as { type?: string; urls?: unknown } | null;
+		const data = event.data as { type?: string; urls?: unknown; tier?: unknown } | null;
 		if (data?.type === 'SKIP_WAITING') void sw.skipWaiting();
 		else if (data?.type === 'VERSION') event.ports[0]?.postMessage(version);
 		else if (data?.type === 'CACHE_LOADED') event.waitUntil(cacheLoaded(data.urls));
+		else if (data?.type === 'DATA_TIER' && isDataTier(data.tier)) event.waitUntil(setTier(data.tier));
+		else if (data?.type === 'CACHE_MEDIA') event.waitUntil(cacheShown(data.urls));
 	});
 }

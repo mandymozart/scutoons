@@ -352,8 +352,8 @@ history row, note "warning accepted", undo takes it back). The server never serv
 
 ## 6. PWA concept
 
-Built: phase 1 – the app-shell service worker, manifest, update prompt, kill switch (research/PWA.md). The rest below is
-the design for phases 2–3.
+Built: phase 1 – the app-shell service worker, manifest, update prompt, kill switch; phase 2 – CDN images (LRU per data
+tier) + public library JSON in the worker (research/PWA.md §2). The rest below is the design for phase 3.
 
 - **Service Worker** (SvelteKit `src/service-worker.ts`): app build + fonts precached per build version (cache-first,
   old caches dropped on `activate`); library JSON stale-while-revalidate with the ETag; slices/posters/portraits
