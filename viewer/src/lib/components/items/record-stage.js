@@ -29,6 +29,8 @@ const VIEWS = {
 	sleeve: { pos: [SLEEVE.x + 0.2, 0.32, SLEEVE.z + 1.0], look: [SLEEVE.x + 0.15, 0.14, SLEEVE.z + 0.05] },
 	deck: { pos: [0.02, 0.62, 0.8], look: [0.02, 0.06, -0.02] }
 };
+/** the camera ride's whole arc around the stage (owner: "about 75 degrees max") */
+const ARC = (75 * Math.PI) / 180;
 const SLIDE = 0.9; // s
 const CARRY = 1.2;
 const DROP = 0.45;
@@ -102,8 +104,23 @@ function buildDeck(THREE) {
  */
 export function mountRecordStage(canvas, url, opts = {}) {
 	let stopped = false, raf = 0, renderer = null, scene = null, env = null, ro = null;
+	let onDown = null, onMove = null, onUp = null, onWheel = null;
 	const want = { playing: false, side: 'a', arm: -28, lifted: false };
-	const handle = { update: (s) => Object.assign(want, s), dispose };
+	// the reader's look around (owner 2026-10-16: "camera pivoting … zoom in a bit and look at the record cover … smoothly pan
+	// back and zoom out on release or on the next interaction with the track list"; "pivot = moving the camera in a half
+	// circle around the record player, a camera ride, about 75 degrees max"): a sideways drag rides the camera on a level
+	// arc around the stage's centre (75° in all, ±37.5°), pinch / wheel zooms towards the sleeve; releasing – or
+	// `resetView()` – eases back to the stage's own view
+	const user = { yaw: 0, pitch: 0, zoom: 0 };
+	/** spring velocities: a release snaps back with a little overshoot (owner: "snappy easing … snap if released") */
+	const vel = { yaw: 0, pitch: 0, zoom: 0 };
+	const aim = { yaw: 0, pitch: 0, zoom: 0 };
+	let held = false;
+	const resetView = () => {
+		held = false;
+		aim.yaw = aim.pitch = aim.zoom = 0;
+	};
+	const handle = { update: (s) => Object.assign(want, s), dispose, resetView };
 
 	(async () => {
 		try {
@@ -156,16 +173,80 @@ export function mountRecordStage(canvas, url, opts = {}) {
 			const startAt = performance.now() + 500; // the card opens first
 			let last = performance.now();
 
+			// the stage fills the card's top as its background (owner 2026-10-16: "covering the entire background of the card
+			// so it doesn't get cut off"): a narrow, tall canvas widens the view so the 4:3 framing always fits sideways, and
+			// `opts.lift` (0…1 of the height) moves the scene up – the controls lie over the canvas's lower part
 			const resize = () => {
 				const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
 				renderer.setSize(w, h, false);
-				camera.aspect = w / h;
+				const aspect = w / h;
+				const shown = 1 - (opts.lift ?? 0); // the part of the height the scene should fill
+				camera.aspect = aspect;
+				const base = (32 * Math.PI) / 180;
+				// vertical field so that the 4:3 width fits in w and the scene fits in the shown height
+				const fitWidth = 2 * Math.atan((Math.tan(base / 2) * 1.8) / aspect);
+				camera.fov = (Math.max(base / shown, fitWidth) * 180) / Math.PI;
+				const off = ((opts.lift ?? 0) / 2) * h;
+				if (off) camera.setViewOffset(w, h, 0, off, w, h);
+				else camera.clearViewOffset();
 				camera.updateProjectionMatrix();
 			};
+			// pointers: one = pivot, two = pinch zoom; the wheel zooms and eases back after a moment without wheeling
+			const pointers = new Map();
+			let pinchFrom = 0, zoomFrom = 0, wheelTimer = 0;
+			const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+			const dist = () => {
+				const [a, b] = [...pointers.values()];
+				return Math.hypot(a.x - b.x, a.y - b.y) || 1;
+			};
+			onDown = (e) => {
+				try {
+					canvas.setPointerCapture?.(e.pointerId);
+				} catch {
+					/* a pointer the browser doesn't track (synthetic): still follow it */
+				}
+				pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+				held = true;
+				if (pointers.size === 2) {
+					pinchFrom = dist();
+					zoomFrom = aim.zoom;
+				}
+			};
+			onMove = (e) => {
+				const p = pointers.get(e.pointerId);
+				if (!p) return;
+				const dx = e.clientX - p.x, dy = e.clientY - p.y;
+				p.x = e.clientX;
+				p.y = e.clientY;
+				if (pointers.size === 1) {
+					// the arc: a full drag across the stage ≈ the whole 75°
+					aim.yaw = clamp(aim.yaw - (dx / (canvas.clientWidth || 300)) * ARC, -ARC / 2, ARC / 2);
+				} else if (pointers.size === 2) aim.zoom = clamp(zoomFrom + (dist() / pinchFrom - 1) * 0.9, 0, 0.8);
+			};
+			onUp = (e) => {
+				pointers.delete(e.pointerId);
+				if (pointers.size === 0) resetView();
+			};
+			onWheel = (e) => {
+				e.preventDefault();
+				held = true;
+				aim.zoom = clamp(aim.zoom - e.deltaY * 0.0012, 0, 0.8);
+				clearTimeout(wheelTimer);
+				wheelTimer = setTimeout(resetView, 1400);
+			};
+			canvas.addEventListener('pointerdown', onDown);
+			canvas.addEventListener('pointermove', onMove);
+			canvas.addEventListener('pointerup', onUp);
+			canvas.addEventListener('pointercancel', onUp);
+			canvas.addEventListener('wheel', onWheel, { passive: false });
 			ro = new ResizeObserver(resize);
 			ro.observe(canvas);
 			resize();
 			const look = new THREE.Vector3();
+			const cover = new THREE.Vector3(...VIEWS.sleeve.look);
+			const offset = new THREE.Vector3();
+			const yAxis = new THREE.Vector3(0, 1, 0);
+			const side = new THREE.Vector3();
 
 			const tick = (now) => {
 				if (stopped) return;
@@ -213,6 +294,32 @@ export function mountRecordStage(canvas, url, opts = {}) {
 				const v = hasSleeve ? ease(view) : 1;
 				camera.position.set(...VIEWS.sleeve.pos.map((p, i) => lerp(p, VIEWS.deck.pos[i], v)));
 				look.set(...VIEWS.sleeve.look.map((p, i) => lerp(p, VIEWS.deck.look[i], v)));
+				// the reader's look around: while held it follows the finger closely; released, an under-damped spring snaps it
+				// home (≈ 0.35 s, a small overshoot, settled in about half a second)
+				for (const key of ['yaw', 'pitch', 'zoom']) {
+					if (held) {
+						user[key] += (aim[key] - user[key]) * Math.min(1, dt * 14);
+						vel[key] = 0;
+					} else {
+						const stiffness = 170, damping = 15;
+						vel[key] += ((aim[key] - user[key]) * stiffness - vel[key] * damping) * dt;
+						user[key] += vel[key] * dt;
+						if (Math.abs(aim[key] - user[key]) < 1e-4 && Math.abs(vel[key]) < 1e-3) {
+							user[key] = aim[key];
+							vel[key] = 0;
+						}
+					}
+				}
+				if (user.yaw || user.pitch || user.zoom) {
+					// zooming turns the look towards the cover (the sleeve) and comes closer; drag orbits around that point
+					look.lerp(cover, Math.min(1, user.zoom * 1.1));
+					offset.copy(camera.position).sub(look);
+					offset.applyAxisAngle(yAxis, user.yaw);
+					side.crossVectors(offset, yAxis).normalize();
+					offset.applyAxisAngle(side, -user.pitch);
+					offset.multiplyScalar(1 - user.zoom * 0.72);
+					camera.position.copy(look).add(offset);
+				}
 				camera.lookAt(look);
 				renderer.render(scene, camera);
 				raf = requestAnimationFrame(tick);
@@ -227,6 +334,13 @@ export function mountRecordStage(canvas, url, opts = {}) {
 		stopped = true;
 		cancelAnimationFrame(raf);
 		ro?.disconnect();
+		if (onDown) {
+			canvas.removeEventListener('pointerdown', onDown);
+			canvas.removeEventListener('pointermove', onMove);
+			canvas.removeEventListener('pointerup', onUp);
+			canvas.removeEventListener('pointercancel', onUp);
+			canvas.removeEventListener('wheel', onWheel);
+		}
 		if (scene) disposeTree(scene);
 		env?.dispose();
 		renderer?.dispose();

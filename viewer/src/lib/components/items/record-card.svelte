@@ -89,6 +89,8 @@
 	const track = $derived(tracks[index]);
 	const reduced = new MediaQuery('prefers-reduced-motion: reduce');
 	let modelFailed = $state(false);
+	/** bumped on a pick in the song list: the 3D stage eases the reader's pivot / zoom back */
+	let resetKey = $state(0);
 	$effect(() => {
 		void model;
 		modelFailed = false;
@@ -117,26 +119,31 @@
 
 <Sheet bind:open title={album} side="bottom" closeLabel={m['items.close']()}>
 	<div class="card" data-testid="record-card">
-		<div class="stage">
+		<!-- the 3D stage is the top's background, the song and the controls lie over its lower part (owner 2026-10-16:
+		     "covering the entire background of the card so it doesn't get cut off … the top part on top the player
+		     controls"); the 2D deck (no WebGL, reduced motion) stays in the flow above them -->
+		<div class="hero" class:in3d={in3d && model}>
 			{#if in3d && model}
-				<RecordStage url={model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} onfail={() => (modelFailed = true)} />
+				<RecordStage url={model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} onfail={() => (modelFailed = true)} />
 			{:else}
-				<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
+				<div class="deck">
+					<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
+				</div>
 			{/if}
 			<button type="button" class="btn-secondary turn" aria-pressed={side === 'B'} onclick={onturn} data-testid="record-turn">
 				<Icon name="refresh-cw" />
 				{m['items.player_turn']()}
 			</button>
-		</div>
 
-		<h3 class="song" data-testid="card-title">{track?.title}</h3>
-		<p class="meta">{[album, sided || side === 'B' ? m['items.player_side']({ side }) : '', count > 1 ? `${position} / ${count}` : ''].filter(Boolean).join(' · ')}</p>
+			<div class="over">
+				<h3 class="song" data-testid="card-title">{track?.title}</h3>
+				<p class="meta">{[album, sided || side === 'B' ? m['items.player_side']({ side }) : '', count > 1 ? `${position} / ${count}` : ''].filter(Boolean).join(' · ')}</p>
 
-		{#if failed}
-			<p class="note" role="alert">{m['items.release_failed']()}</p>
-		{/if}
-		<SeekBar {time} {length} label={m['items.player_seek']()} {onseek} testid="card-seek" />
-		<div class="controls">
+				{#if failed}
+					<p class="note" role="alert">{m['items.release_failed']()}</p>
+				{/if}
+				<SeekBar {time} {length} label={m['items.player_seek']()} {onseek} testid="card-seek" />
+				<div class="controls">
 			{#if count > 1}
 				<IconButton label={m['items.previous_track']()} onclick={onback} data-testid="card-prev"><Icon name="skip-back" /></IconButton>
 			{/if}
@@ -146,6 +153,8 @@
 			{#if count > 1}
 				<IconButton label={m['items.next_track']()} onclick={onnext} data-testid="card-next"><Icon name="skip-forward" /></IconButton>
 			{/if}
+				</div>
+			</div>
 		</div>
 
 		{#if people.length}
@@ -166,7 +175,7 @@
 					{#each onSide as i, n (i)}
 						{@const t = tracks[i]}
 						<li>
-							<button type="button" class="song-row" aria-current={i === index ? 'true' : undefined} onclick={() => onpick(i)} data-testid="card-song">
+							<button type="button" class="song-row" aria-current={i === index ? 'true' : undefined} onclick={() => { resetKey++; onpick(i); }} data-testid="card-song">
 								<span class="n">{sided ? side : ''}{n + 1}</span>
 								<span class="t">{t.title}</span>
 								{#if t.duration}<span class="d">{formatTime(t.duration)}</span>{/if}
@@ -188,12 +197,16 @@
 		gap: var(--space-075);
 	}
 
-	.stage {
-		width: 100%;
+	.hero {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: var(--space-1);
+		gap: var(--space-075);
+	}
+
+	.deck {
+		display: flex;
+		justify-content: center;
 		padding: var(--space-05) 0;
 	}
 
@@ -201,6 +214,34 @@
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-05);
+		align-self: center;
+	}
+
+	.over {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-075);
+	}
+
+	/* 3D: the canvas fills the top; the turn button in its corner, the song + controls over its lower part, on a paper
+	   fade so they stay readable over the scene */
+	.hero.in3d {
+		height: min(30rem, 58vh);
+		justify-content: flex-end;
+	}
+
+	.hero.in3d .turn {
+		position: absolute;
+		top: var(--space-05);
+		right: 0;
+		z-index: 1;
+	}
+
+	.hero.in3d .over {
+		position: relative;
+		z-index: 1;
+		padding-top: 3rem;
+		background: linear-gradient(to bottom, transparent, var(--paper) 2.75rem);
 	}
 
 	.song {
