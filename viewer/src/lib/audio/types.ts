@@ -1,7 +1,7 @@
 import type { AdoptiveMusicPlayerConfiguration, AudioConfiguration, AudioTrack, Sample } from '@scutoons/content';
 
 export interface IAudioManager {
-	init(audioConfig: AudioConfiguration): Promise<void>;
+	init(audioConfig: AudioConfiguration, eager?: { tracks: string[]; samples: string[] } | null): Promise<void>;
 	setMasterVolume(volume: number): void;
 	getMasterVolume(): number;
 	toggleMute(): void;
@@ -11,7 +11,10 @@ export interface IAudioManager {
 }
 
 export interface IAdaptiveMusicPlayer {
-	loadTracks(musicConfig: AdoptiveMusicPlayerConfiguration): Promise<void>;
+	/** `eager`: the track ids to fetch now (null = all); the others wait for `want` */
+	loadTracks(musicConfig: AdoptiveMusicPlayerConfiguration, eager?: string[] | null): Promise<void>;
+	/** tracks a slice near the screen raises: fetch them (dormant ones), they join in step */
+	want(ids: string[]): void;
 	start(): void;
 	pause(): void;
 	resume(): void;
@@ -30,7 +33,9 @@ export interface IAdaptiveMusicPlayer {
 }
 
 export interface ISampleTriggerManager {
-	loadSampleLibrary(sampleLibrary: AudioTrack[]): Promise<void>;
+	/** `eager`: the sample ids to fetch now (null = all); the others load on `want` or their first trigger */
+	loadSampleLibrary(sampleLibrary: AudioTrack[], eager?: string[] | null): Promise<void>;
+	want(ids: string[]): void;
 	trigger(sample: Sample): void;
 	cleanup(fadeDuration?: number): Promise<void>;
 }

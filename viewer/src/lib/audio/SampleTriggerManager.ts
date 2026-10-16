@@ -1,50 +1,64 @@
 import { Howl } from 'howler';
 import { TriggerMode } from '@scutoons/content';
-import type { SampleTrigger, Sample, AudioTrack } from '@scutoons/content';
+import type { Sample, AudioTrack } from '@scutoons/content';
 /**
  * SampleTriggerManager - Event-based audio sample playback
- * Handles loading, caching, and triggering audio samples based on user interaction
+ * Handles loading, caching, and triggering audio samples based on user interaction.
+ * Samples load on demand (agents/research/LOADING.md L2): the first slices' at the start, the others when their slice
+ * comes near (`want`) or – a fast scroll – at their first trigger, played as soon as they are there.
  */
 import type { IAudioManager, ISampleTriggerManager } from './types.ts';
+
+/** a trigger that waited for its file longer than this is dropped (the sound would come out of place) */
+const LATE_MS = 1000;
 
 export class SampleTriggerManager implements ISampleTriggerManager {
   audioManager: IAudioManager;
   sampleLibrary: Map<string, Howl>;
+  /** the chapter's samples: id → config (fetched or not) */
+  private known = new Map<string, AudioTrack>();
+  /** triggered before its file was there */
+  private waiting = new Map<string, { config: Sample; at: number }>();
 
   constructor(audioManager: IAudioManager) {
     this.audioManager = audioManager;
     this.sampleLibrary = new Map(); // Map<sampleId, Howl>
   }
 
-  async loadSampleLibrary(sampleLibrary:AudioTrack[]) {
-    console.log('Loading sample library...');
-
-    if (!sampleLibrary || sampleLibrary.length === 0) {
-      console.warn('No samples to load');
-      return;
-    }
-
-    // Load all samples
-    const loadPromises = sampleLibrary.map(sampleConfig => 
-      this.loadSample(sampleConfig)
-    );
-
-    await Promise.all(loadPromises);
-    console.log(`Loaded ${this.sampleLibrary.size} samples`);
+  /** `eager`: the ids to fetch now (null = all, the `generous` data tier); the others wait for `want` or a trigger */
+  async loadSampleLibrary(sampleLibrary: AudioTrack[], eager: string[] | null = null) {
+    if (!sampleLibrary || sampleLibrary.length === 0) return;
+    for (const sample of sampleLibrary) this.known.set(sample.id, sample);
+    const now = sampleLibrary.filter((sample) => eager === null || eager.includes(sample.id));
+    // a failing sample doesn't hold up the chapter's audio
+    await Promise.all(now.map((sample) => this.loadSample(sample).catch(() => {})));
+    console.log(`Loaded ${now.length} of ${sampleLibrary.length} samples`);
   }
 
-  loadSample(sampleConfig: AudioTrack):Promise<void> {
+  /** a slice with these samples is near: fetch them */
+  want(ids: string[]) {
+    for (const id of ids) {
+      const config = this.known.get(id);
+      if (config && !this.sampleLibrary.has(id)) void this.loadSample(config).catch(() => {});
+    }
+  }
+
+  loadSample(sampleConfig: AudioTrack): Promise<void> {
     return new Promise((resolve, reject) => {
       const howl = new Howl({
         src: [sampleConfig.path],
         preload: true,
         html5: false,
         onload: () => {
-          console.log(`Sample loaded: ${sampleConfig.id}`);
           resolve();
+          // triggered while it was loading: play it now, unless that was too long ago
+          const waiting = this.waiting.get(sampleConfig.id);
+          this.waiting.delete(sampleConfig.id);
+          if (waiting && performance.now() - waiting.at < LATE_MS) this.trigger(waiting.config);
         },
         onloaderror: (id, error) => {
           console.error(`Failed to load sample: ${sampleConfig.id}`, error);
+          this.waiting.delete(sampleConfig.id);
           reject(error);
         }
       });
@@ -53,13 +67,13 @@ export class SampleTriggerManager implements ISampleTriggerManager {
     });
   }
 
-  // DOM registration methods removed - now handled by Svelte actions
-  // See: src/lib/actions/audio.ts
-
   trigger(config: Sample) {
     const howl = this.sampleLibrary.get(config.id);
-    if (!howl) {
-      console.warn(`Sample not found: ${config.id}`);
+    if (!howl || howl.state() !== 'loaded') {
+      // not there yet (its slice came too fast): fetch it and play it as soon as it is
+      if (!this.known.has(config.id)) return void console.warn(`Sample not found: ${config.id}`);
+      this.waiting.set(config.id, { config, at: performance.now() });
+      if (!howl) this.want([config.id]);
       return;
     }
 
@@ -94,7 +108,7 @@ export class SampleTriggerManager implements ISampleTriggerManager {
 
     // Apply delay if specified
     const delay = config.delay || 0;
-    
+
     if (delay > 0) {
       setTimeout(() => {
         howl.play();
@@ -102,18 +116,13 @@ export class SampleTriggerManager implements ISampleTriggerManager {
     } else {
       howl.play();
     }
-
-    console.log(`Triggered sample: ${config.id}${config.trigger?.mode === 'poly' ? ' (poly)' : ''}`);
   }
 
   async cleanup(fadeDuration = 500): Promise<void> {
-    console.log('Cleaning up sample triggers...');
-
     // Fade out and stop any playing samples
     const playingSamples = [];
-    this.sampleLibrary.forEach((howl, sampleId) => {
+    this.sampleLibrary.forEach((howl) => {
       if (howl.playing()) {
-        console.log(`Fading out sample: ${sampleId}`);
         const currentVolume = howl.volume();
         howl.fade(currentVolume, 0, fadeDuration);
         playingSamples.push(howl);
@@ -131,7 +140,7 @@ export class SampleTriggerManager implements ISampleTriggerManager {
     });
 
     this.sampleLibrary.clear();
-
-    console.log('Sample triggers cleaned up');
+    this.known.clear();
+    this.waiting.clear();
   }
 }

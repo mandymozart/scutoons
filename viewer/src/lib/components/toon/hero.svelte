@@ -3,6 +3,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { pickQualityVariant, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
+	import { dataBudget } from '$lib/data-budget.svelte.ts';
 	import { toonUrl } from '$lib/utils/cdn.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -118,7 +119,7 @@
 
 <section class="hero" bind:this={hero} data-testid="hero">
 	{#if trailer && showVideo}
-		<video bind:this={video} class="hero-media" {poster} muted loop playsinline preload="auto" aria-hidden="true" data-testid="hero-video">
+		<video bind:this={video} class="hero-media" {poster} muted loop playsinline preload={dataBudget.policy.eagerVideo ? 'auto' : 'metadata'} aria-hidden="true" data-testid="hero-video">
 			{#if trailerVariants}
 				<!-- the reader's media quality picks the encoding (like slice videos); the loop while it is not known yet -->
 				<source src={toonUrl(toonId, pickQualityVariant({ src: trailer.loop, variants: trailer.variants }, mediaQuality.level ?? 'low'))} type="video/mp4" />

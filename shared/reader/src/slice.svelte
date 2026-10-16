@@ -36,6 +36,7 @@
 		lang,
 		alt = 'Slice',
 		eager = false,
+		videoEager,
 		autoplayPlayer = false,
 		playerLabels,
 		skippable = false,
@@ -65,6 +66,8 @@
 		alt?: string;
 		/** load right away (the first slices of a chapter), else lazily */
 		eager?: boolean;
+		/** a loop video buffers right away (default: `eager`) – the app's data policy may say no for the video only */
+		videoEager?: boolean;
 		/** a player video slice starts by itself once in view (the reader; `SliceVideo`) */
 		autoplayPlayer?: boolean;
 		/** the player video's texts (the app's language; `SliceVideo`) */
@@ -120,7 +123,7 @@
 			{autoplayPlayer}
 			{playerLabels}
 			{skippable}
-			{eager}
+			eager={videoEager ?? eager}
 		/>
 	{:else}
 		<img

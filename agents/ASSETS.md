@@ -223,6 +223,9 @@ The folders ARE the toon hierarchy; videos and audio belong to their season / ch
   planned on branch `items/onion-camera` at `models/onion-v1/head.json` → `toptoy/items/onion_camera.head.json`). The
   scanner / picker treat `<name>.head.json` as a model file of that item (to build with the grouping: same slug as the
   item's icon `<item-id>.png`, label `head`, kind document).
+- **Music loops** (owner 2026-10-16): a short, seamless section of a track is `<name>-loop.<rate>.mp3` (96 / 128 /
+  320, `variants` low / medium / high) – the reader decodes it and loops it sample-exactly (research/LOADING.md);
+  cut on whole bars for a beat track, the seam crossfaded.
 - **Variants are suffixes, never folders**: `.480p` `.720p` `.1080p`, `.1280w`, `.poster`, density `.2x` `.3x` (1x = no
   suffix; the owner OKed density). The scanner already groups exactly these (see "Grouping").
 - A locale segment (`/de/`) is a smell (DATA.md "Language-independent media"); the plan keeps it where it exists, flagged.

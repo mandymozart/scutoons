@@ -22,7 +22,8 @@ export class AudioManager implements IAudioManager {
     this.isInitialized = false;
   }
 
-  async init(audioConfig: AudioConfiguration) {
+  /** `eager`: what to fetch at the start (null = everything, the `generous` data tier); the rest loads on `want` */
+  async init(audioConfig: AudioConfiguration, eager: { tracks: string[]; samples: string[] } | null = null) {
     if (this.isInitialized)return;
     Howler.volume(this.masterVolume);
     Howler.autoUnlock = true;
@@ -32,9 +33,9 @@ export class AudioManager implements IAudioManager {
     }
     // music (streamed) and samples (Web Audio buffers) load in parallel
     await Promise.all([
-      this.musicPlayer && audioConfig.music ? this.musicPlayer.loadTracks(audioConfig.music) : null,
+      this.musicPlayer && audioConfig.music ? this.musicPlayer.loadTracks(audioConfig.music, eager?.tracks ?? null) : null,
       audioConfig?.sampleLibrary && audioConfig.sampleLibrary.length > 0
-        ? (this.sampleManager = new SampleTriggerManager(this)).loadSampleLibrary(audioConfig.sampleLibrary)
+        ? (this.sampleManager = new SampleTriggerManager(this)).loadSampleLibrary(audioConfig.sampleLibrary, eager?.samples ?? null)
         : null
     ]);
     this.isInitialized = true;
@@ -72,6 +73,12 @@ export class AudioManager implements IAudioManager {
 
   isMutedState(): boolean {
     return this.isMuted;
+  }
+
+  /** a slice near the screen needs these: fetch them (left out at the start) */
+  want(wanted: { tracks: string[]; samples: string[] }) {
+    if (wanted.tracks.length) this.musicPlayer?.want(wanted.tracks);
+    if (wanted.samples.length) this.sampleManager?.want(wanted.samples);
   }
 
   getMusicPlayer(): IAdaptiveMusicPlayer | null {

@@ -5,6 +5,7 @@ import { toonUrl } from '$lib/utils/cdn.ts';
 import { mediaQuality } from '$lib/media-quality.svelte.ts';
 import { pickQualityVariant, type AudioTrack } from '@scutoons/content';
 import { Howler } from 'howler';
+import { dataBudget } from '$lib/data-budget.svelte.ts';
 
 const AUDIO_KEY = Symbol('audio');
 
@@ -36,6 +37,11 @@ export type AudioContext = {
 	holdForPlayer: (playing: boolean) => void;
 	updateMusicVolumes: (volumes: { id: string; volume: number }[], duration?: number) => void;
 	triggerSample: (sample: Sample) => void;
+	/**
+	 * A slice near the screen raises these music tracks / plays these samples (lib/lookahead.ts): fetched now – or, while
+	 * the chapter's audio still waits for the first slices, at its start instead of everything (research/LOADING.md L2)
+	 */
+	want: (wanted: { tracks: string[]; samples: string[] }) => void;
 	toggleMute: () => void;
 	setVolume: (volume: number) => void;
 };
@@ -90,6 +96,8 @@ export function setAudioContext(toonId: string): AudioContext {
 	let expectedTrackIds: string[] | null = null;
 	/** the last volume the slices asked for per track, applied when the music starts */
 	const requestedVolumes = new Map<string, number>();
+	/** what the slices near the screen asked for before the audio loaded: fetched at its start, the rest waits */
+	const wanted = { tracks: new Set<string>(), samples: new Set<string>() };
 	/** a player video plays: the music waits */
 	let held = false;
 	/** the music was playing (or wanted to start) when the hold began */
@@ -118,6 +126,12 @@ export function setAudioContext(toonId: string): AudioContext {
 			requestedVolumes.clear();
 		},
 
+		want(next: { tracks: string[]; samples: string[] }) {
+			if (state.isInitialized) return manager.want(next);
+			next.tracks.forEach((id) => wanted.tracks.add(id));
+			next.samples.forEach((id) => wanted.samples.add(id));
+		},
+
 		getTrackIds() {
 			return manager.getMusicPlayer()?.getTrackIds() ?? expectedTrackIds;
 		},
@@ -131,13 +145,20 @@ export function setAudioContext(toonId: string): AudioContext {
 
 			const transformedConfig = transformAudioPaths(audioConfig, toonId);
 
-			await manager.init(transformedConfig);
+			// the `generous` data tier (Wi-Fi) fetches everything at once, the others only what the slices near the screen
+			// asked for (+ the default track) – the rest when its slice comes near (lib/lookahead.ts)
+			const eager = dataBudget.policy.audioAll ? null : { tracks: [...wanted.tracks], samples: [...wanted.samples] };
+			wanted.tracks.clear();
+			wanted.samples.clear();
+			await manager.init(transformedConfig, eager);
 			state.isInitialized = true;
 			state.currentConfig = audioConfig;
 		},
 
 		async unload() {
 			expectedTrackIds = null;
+			wanted.tracks.clear();
+			wanted.samples.clear();
 			held = false;
 			resumeAfterHold = false;
 			requestedVolumes.clear();

@@ -15,6 +15,9 @@
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audioPlayer } from '$lib/actions/audio/index.ts';
+	import { getCurrentAudioContext } from '$lib/contexts/audio.svelte.ts';
+	import { lookahead, whenFirstScreen } from '$lib/lookahead.ts';
+	import { dataBudget } from '$lib/data-budget.svelte.ts';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 	import { getReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 	import Samples from './audio/samples.svelte';
@@ -108,6 +111,34 @@
 	};
 	/** the first slices load right away, the rest lazily (agents/PERFORMANCE.md P2) */
 	const EAGER_SLICES = 2;
+	const eager = $derived(sliceIndex < EAGER_SLICES);
+	/**
+	 * the first slices' loop video (research/LOADING.md L3): its file only after the first images, so 2.7 MB of video
+	 * don't compete with them (the poster – the slice image – shows meanwhile); on the light / none data tier not before
+	 * it is on screen (then it loads like every other loop)
+	 */
+	let firstScreen = $state(false);
+	$effect(() => {
+		if (!eager || !slice.video?.src || slice.video.player) return;
+		void whenFirstScreen().then(() => (firstScreen = true));
+	});
+	const shownVideoUrl = $derived(eager && slice.video?.src && !slice.video.player && !firstScreen ? undefined : videoUrl);
+	const videoEager = $derived(eager && dataBudget.policy.eagerVideo);
+	/** the next slices ahead (lib/lookahead.ts): the image within the data policy's distance, the music and samples too */
+	const ahead = lookahead({
+		image: () => imageUrl,
+		get width() {
+			return slice.width;
+		},
+		get height() {
+			return slice.height;
+		},
+		audio: () => ({
+			tracks: (slice.audio?.music?.tracks ?? []).filter((t) => t.volume > 0).map((t) => t.id),
+			samples: blurred ? [] : (slice.audio?.audio?.samples ?? []).map((s) => s.id)
+		}),
+		want: getCurrentAudioContext()?.want ?? null
+	});
 	// chapter files are loaded per locale, so the UI locale is the language of the text
 	const lang = getLocale();
 	// `{…}` in the text boxes, answered for this reader (agents/EXPRESSIONS.md); visits counted once per page view
@@ -214,8 +245,10 @@
 	{slice}
 	data-slice-index={pageIndex ?? sliceIndex}
 	src={imageUrl}
-	videoSrc={videoUrl}
-	eager={sliceIndex < EAGER_SLICES}
+	videoSrc={shownVideoUrl}
+	{eager}
+	{videoEager}
+	{@attach ahead}
 	autoplayPlayer
 	{playerLabels}
 	skippable

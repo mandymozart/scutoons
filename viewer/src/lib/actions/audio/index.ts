@@ -2,6 +2,7 @@ import type { AudioConfiguration } from '@scutoons/content';
 import { SLICE_PLAYER_EVENT, type SliceAudioPlayer, type SlicePlayerDetail } from '@scutoons/reader';
 import type { Action } from 'svelte/action';
 import { getCurrentAudioContext } from '$lib/contexts/audio.svelte.ts';
+import { firstScreenDone, resetFirstScreen } from '$lib/lookahead.ts';
 
 /**
  * The current audio context as the player `@scutoons/reader`'s `sliceAudio` action expects (null = no audio).
@@ -39,6 +40,15 @@ export function afterFirstSlices(node: HTMLElement, count = 2, maxWait = FIRST_S
 				.filter((el): el is HTMLImageElement | HTMLVideoElement => !!el);
 			Promise.all(
 				media.map((el) => {
+					// a video counts with its poster (the slice image): its file waits for the first screen itself
+					// (research/LOADING.md L3), so its own data must not be what the first screen waits for
+					if (el instanceof HTMLVideoElement && el.poster && el.readyState < 2) {
+						const poster = new Image();
+						poster.src = el.poster;
+						return poster.complete ? undefined : new Promise<void>((ok) => {
+							poster.onload = poster.onerror = () => ok();
+						});
+					}
 					const ready = el instanceof HTMLImageElement ? el.complete : el.readyState >= 2;
 					if (ready) return;
 					return new Promise<void>((ok) => {
@@ -60,6 +70,11 @@ export const audio: Action<HTMLElement, AudioConfiguration | null | undefined> =
 	const audioContext = getCurrentAudioContext();
 	let currentConfig: AudioConfiguration | null | undefined = null;
 	let destroyed = false;
+	// the chapter's first screen gates every guess (lib/lookahead.ts): next images, later tracks, the first loop video
+	resetFirstScreen();
+	void afterFirstSlices(node).then(() => {
+		if (!destroyed) firstScreenDone();
+	});
 
 	async function setup(config: AudioConfiguration | null | undefined) {
 		if (!audioContext) return;

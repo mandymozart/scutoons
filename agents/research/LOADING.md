@@ -1,4 +1,4 @@
-Status: proposal 2026-10-16 – owner to pick measures (L1–L12 below); nothing built. FEATURES 10.101.
+Status: L2, L3, L6, L9, L10 built 2026-10-16 (viewer lib/data-budget.svelte.ts + lib/lookahead.ts) – L1, L4, L5, L7, L8, L11, L12 open. FEATURES 10.101.
 
 # LOADING — viewer loading times, lazy and predictive loading (2026-10-16)
 
@@ -94,3 +94,18 @@ Suggested order: L1 → L2 → L3 (bytes and headers, small) → L4 + L5 + L7 (p
   text must stay true.
 - Check: a `check:*` browser script that opens ch1 with throttling and asserts requests / bytes before slice 1 and that
   nothing is downloaded twice (`viewer/scripts`, like research/PERFORMANCE.md "Re-measuring").
+
+## Built 2026-10-16 (owner: "do the data measures … tune it in")
+- **One policy** `lib/data-budget.svelte.ts`: tier `none` (saveData, 2G) / `light` (3G, < 1.5 Mbit/s, quality Low) /
+  `normal` (unknown, 4G) / `generous` (Android Wi-Fi / Ethernet). Per tier: images ahead (0 / 1.5 / 4 / 10 screens),
+  audio ahead (0.5 / 2 / 4 / 10 screens), all audio at once (generous only), first loop video after the first images
+  (normal+; else when on screen), session budget for guesses (0 / 3 / 12 / 60 MB, sessionStorage `scutoons_prefetch_bytes`).
+- **Look-ahead** `lib/lookahead.ts`: one IntersectionObserver per distance; at idle after the chapter's first screen
+  (`afterFirstSlices`, videos count with their poster); the exact `<img>` URL, no crossorigin, `fetchPriority` low.
+- **Audio on demand**: the default track + what the first slices raise load at the start; other tracks dormant (no
+  `src`) until a slice that raises them comes near or asks for a volume – then they join the default track in step;
+  samples likewise, a trigger before the file is there plays it on arrival (≤ 1 s late, else dropped).
+- **Short loops** (`…-loop.<rate>.mp3`): decoded once, looped sample-exactly in the music's own AudioContext
+  (AudioBufferSourceNode → the track gain → the music master: the effect chain still applies). Ch1 now: calmness
+  29.9 s + tension 8 bars 26.9 s, 0.3–1.2 MB per level instead of 4.9 + 6.6 MB (draft 656).
+- **Probe once per session** (`scutoons_media_auto`); the hero trailer preloads only on normal+.

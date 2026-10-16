@@ -19,6 +19,17 @@ export const MEDIA_QUALITY_KEY = 'scutoons_media_quality';
 /** how much of the first media "Automatic" downloads to measure the bandwidth */
 const PROBE_BYTES = 512 * 1024;
 const PROBE_TIMEOUT_MS = 4000;
+/** the measured "Automatic" level, kept for the browser session (research/LOADING.md L9: the probe ran on every page load) */
+const MEASURED_KEY = 'scutoons_media_auto';
+
+function readMeasured(): MediaQuality | null {
+	try {
+		const value = sessionStorage.getItem(MEASURED_KEY);
+		return value === 'low' || value === 'medium' || value === 'high' ? value : null;
+	} catch {
+		return null;
+	}
+}
 
 function readLocal(): MediaQualitySetting {
 	try {
@@ -46,6 +57,11 @@ class MediaQualityState {
 	constructor() {
 		if (!browser) return;
 		if (this.auto) this.autoSource = 'network';
+		else {
+			// measured earlier in this browser session: no second probe
+			this.auto = readMeasured();
+			if (this.auto) this.autoSource = 'measured';
+		}
 		// another tab changed it
 		window.addEventListener('storage', (e) => {
 			if (e.key === MEDIA_QUALITY_KEY) this.local = readLocal();
@@ -118,6 +134,14 @@ class MediaQualityState {
 		} finally {
 			clearTimeout(timer);
 			this.#measuring = false;
+			// a real measurement is kept for the session; a fallback (blocked, nothing arrived) may be retried next page
+			if (this.auto && this.autoSource === 'measured') {
+				try {
+					sessionStorage.setItem(MEASURED_KEY, this.auto);
+				} catch {
+					/* private mode: this page only */
+				}
+			}
 		}
 	}
 }

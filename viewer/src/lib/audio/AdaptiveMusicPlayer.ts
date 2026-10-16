@@ -31,15 +31,19 @@ class StreamedTrack {
 	readonly element: HTMLAudioElement;
 	private gain: GainNode | null = null;
 	private rampTimer: ReturnType<typeof setInterval> | null = null;
+	private readonly src: string;
+	/** the file is requested (a dormant track has no `src` yet: nothing is downloaded) */
+	loading = false;
 
-	constructor(src: string) {
+	/** `dormant`: created without its file – `load()` fetches it when a slice that raises it comes near (LOADING.md L2) */
+	constructor(src: string, dormant = false) {
 		const element = new Audio();
 		// the CDN sends CORS headers; without crossOrigin the Web Audio graph would output silence
 		element.crossOrigin = 'anonymous';
-		element.preload = 'auto';
 		element.loop = true;
-		element.src = src;
+		this.src = src;
 		this.element = element;
+		if (!dormant) this.load();
 
 		const out = musicOutput();
 		if (out) {
@@ -51,6 +55,14 @@ class StreamedTrack {
 		} else {
 			element.volume = 0;
 		}
+	}
+
+	/** Starts the download (once). */
+	load() {
+		if (this.loading) return;
+		this.loading = true;
+		this.element.preload = 'auto';
+		this.element.src = this.src;
 	}
 
 	/** Resolves when the element can start playing (or failed: logged, the chapter goes on without this track). */
@@ -99,7 +111,31 @@ class StreamedTrack {
 	}
 
 	play() {
+		// a dormant track waits for its file (`want` starts it once it is there)
+		if (!this.loading) return;
 		this.element.play().catch((error) => console.warn('Music playback blocked until a user gesture', error));
+	}
+
+	/** Joins the reference track at its position (in seconds) – parallel stems of one piece stay in step. */
+	syncTo(position: number) {
+		const duration = this.element.duration;
+		if (!(duration > 0) || !(position > 0)) return;
+		this.element.currentTime = position % duration;
+	}
+
+	/** where it plays, in seconds */
+	position(): number {
+		return this.element.currentTime;
+	}
+
+	/** without Web Audio: the app's mute */
+	setMuted(muted: boolean) {
+		this.element.muted = muted;
+	}
+
+	/** DEV checks */
+	state() {
+		return { paused: this.element.paused, time: this.element.currentTime, ready: this.element.readyState };
 	}
 
 	pause() {
@@ -122,29 +158,167 @@ class StreamedTrack {
 }
 
 /**
+ * A short loop (a file named `…-loop.<rate>.mp3`, ~30 s – agents/ASSETS.md "Music loops", owner 2026-10-16): fetched
+ * whole, decoded once and looped sample-exactly by Web Audio (`AudioBufferSourceNode.loop`). An `<audio loop>` leaves a
+ * tiny gap at every wrap on some browsers (Safari ignores the MP3's gapless info) – every 30 s that is audible. Same
+ * interface as `StreamedTrack`; only with a music output (Web Audio), else the streamed fallback is used.
+ */
+class BufferedTrack {
+	private readonly gain: GainNode;
+	private readonly ctx: AudioContext;
+	private buffer: AudioBuffer | null = null;
+	private source: AudioBufferSourceNode | null = null;
+	private decoded: Promise<void> | null = null;
+	private startedAt = 0;
+	private offset = 0;
+	private playing = false;
+	loading = false;
+
+	constructor(
+		private readonly src: string,
+		out: { ctx: AudioContext; master: GainNode },
+		dormant = false
+	) {
+		this.ctx = out.ctx;
+		this.gain = out.ctx.createGain();
+		this.gain.gain.value = 0;
+		this.gain.connect(out.master);
+		if (!dormant) this.load();
+	}
+
+	load() {
+		if (this.loading) return;
+		this.loading = true;
+		this.decoded = fetch(this.src, { mode: 'cors' })
+			.then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(`${res.status}`))))
+			.then((bytes) => this.ctx.decodeAudioData(bytes))
+			.then((buffer) => {
+				this.buffer = buffer;
+				if (this.playing && !this.source) this.startSource();
+			});
+	}
+
+	ready(id: string): Promise<void> {
+		return (this.decoded ?? Promise.resolve()).catch((error) => console.error(`Failed to load track: ${id}`, error));
+	}
+
+	private startSource() {
+		if (!this.buffer) return;
+		const source = this.ctx.createBufferSource();
+		source.buffer = this.buffer;
+		source.loop = true;
+		source.connect(this.gain);
+		const at = this.offset % this.buffer.duration;
+		source.start(0, at);
+		this.startedAt = this.ctx.currentTime - at;
+		this.source = source;
+	}
+
+	private stopSource() {
+		if (!this.source) return;
+		this.offset = this.position();
+		this.source.stop();
+		this.source.disconnect();
+		this.source = null;
+	}
+
+	position(): number {
+		if (!this.buffer) return this.offset;
+		return this.source ? (this.ctx.currentTime - this.startedAt) % this.buffer.duration : this.offset;
+	}
+
+	volume(): number {
+		return this.gain.gain.value;
+	}
+
+	fade(to: number, ms: number) {
+		const param = this.gain.gain;
+		const now = this.ctx.currentTime;
+		param.cancelScheduledValues(now);
+		param.setValueAtTime(param.value, now);
+		param.linearRampToValueAtTime(to, now + ms / 1000);
+	}
+
+	play() {
+		if (!this.loading) return;
+		this.playing = true;
+		if (!this.source) this.startSource();
+	}
+
+	pause() {
+		this.stopSource();
+		this.playing = false;
+	}
+
+	stop() {
+		this.pause();
+		this.offset = 0;
+	}
+
+	syncTo(position: number) {
+		if (!(position > 0)) return;
+		const wasPlaying = !!this.source;
+		this.stopSource();
+		this.offset = this.buffer ? position % this.buffer.duration : position;
+		if (wasPlaying) this.startSource();
+	}
+
+	setMuted() {
+		/* the master gain mutes it */
+	}
+
+	unload() {
+		this.pause();
+		this.buffer = null;
+		this.gain.disconnect();
+	}
+
+	state() {
+		return { paused: !this.source, time: this.position(), ready: this.buffer ? 4 : 0 };
+	}
+}
+
+type MusicTrack = StreamedTrack | BufferedTrack;
+
+/** a short loop file (`…-loop.<rate>.mp3`): decoded and looped sample-exactly; anything else streams */
+export const isLoopFile = (path: string) => /-loop(\.\d+)?\.(mp3|m4a|ogg|opus|wav)(\?.*)?$/i.test(path);
+
+function createTrack(src: string, dormant: boolean): MusicTrack {
+	const out = musicOutput();
+	return out && isLoopFile(src) ? new BufferedTrack(src, out, dormant) : new StreamedTrack(src, dormant);
+}
+
+/**
  * AdaptiveMusicPlayer - parallel-track emotion-based music system
  * Manages smooth crossfading between emotional states based on slice data.
  * The tracks are streamed (agents/PERFORMANCE.md P1): they start as soon as enough is buffered.
  */
 export class AdaptiveMusicPlayer implements IAdaptiveMusicPlayer {
 	audioManager: IAudioManager;
-	tracks: Map<string, StreamedTrack>;
+	tracks: Map<string, MusicTrack>;
 	currentVolumes: Map<string, number>;
 	isPlaying: boolean;
 	defaultTransitionDuration: number;
 	defaultTrackId: string | null;
 	constructor(audioManager: IAudioManager) {
 		this.audioManager = audioManager;
-		this.tracks = new Map(); // Map<trackId, StreamedTrack>
+		this.tracks = new Map(); // Map<trackId, MusicTrack>
 		this.currentVolumes = new Map(); // Map<trackId, number>
 		this.isPlaying = false;
 		this.defaultTransitionDuration = 3000; // ms
 		// DEV only: the headless checks read the tracks' state
-		if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsMusic = () => ({ ctx: musicOutput()?.ctx.state, playing: this.isPlaying, tracks: [...this.tracks].map(([id, t]) => ({ id, paused: t.element.paused, time: Math.round(t.element.currentTime * 10) / 10, volume: Math.round(t.volume() * 100) / 100, ready: t.element.readyState })) });
+		if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsMusic = () => ({ ctx: musicOutput()?.ctx.state, playing: this.isPlaying, tracks: [...this.tracks].map(([id, t]) => { const s = t.state(); return { id, paused: s.paused, time: Math.round(s.time * 10) / 10, volume: Math.round(t.volume() * 100) / 100, ready: s.ready, loading: t.loading }; }) });
+		// DEV only: the checks ask for a dormant track and set volumes like a slice would
+		if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as Record<string, unknown>).__scutoonsMusicDo = { want: (ids: string[]) => this.want(ids), volumes: (v: { id: string; volume: number }[]) => this.updateVolumes(v, 300) };
 		this.defaultTrackId = null; // Default track to play at full volume
 	}
 
-	async loadTracks(musicConfig: AdoptiveMusicPlayerConfiguration) {
+	/**
+	 * `eager`: the tracks to fetch now (the default one + those the first slices raise); null = all (the old way, the
+	 * `generous` data tier). The others stay dormant until `want` (LOADING.md L2: ch1's second track is 6.6 MB and plays
+	 * minutes later). Resolves when the eager ones can play.
+	 */
+	async loadTracks(musicConfig: AdoptiveMusicPlayerConfiguration, eager: string[] | null = null) {
 		if (!musicConfig || !musicConfig.tracks || musicConfig.tracks.length === 0) return;
 
 		this.defaultTransitionDuration = musicConfig.transitionDuration || 3000;
@@ -155,15 +329,36 @@ export class AdaptiveMusicPlayer implements IAdaptiveMusicPlayer {
 			this.defaultTrackId = musicConfig.tracks[0].id;
 		}
 
-		await Promise.all(musicConfig.tracks.map((trackConfig) => this.loadTrack(trackConfig)));
-		console.log(`Loaded ${this.tracks.size} music tracks (default: ${this.defaultTrackId})`);
+		const now = (id: string) => eager === null || id === this.defaultTrackId || eager.includes(id);
+		await Promise.all(musicConfig.tracks.map((trackConfig) => this.loadTrack(trackConfig, !now(trackConfig.id))));
+		console.log(`Loaded ${[...this.tracks.values()].filter((t) => t.loading).length} of ${this.tracks.size} music tracks (default: ${this.defaultTrackId})`);
 	}
 
-	loadTrack(trackConfig: AudioTrack): Promise<void> {
-		const track = new StreamedTrack(trackConfig.path);
+	loadTrack(trackConfig: AudioTrack, dormant = false): Promise<void> {
+		const track = createTrack(trackConfig.path, dormant);
 		this.tracks.set(trackConfig.id, track);
 		this.currentVolumes.set(trackConfig.id, 0);
-		return track.ready(trackConfig.id);
+		return dormant ? Promise.resolve() : track.ready(trackConfig.id);
+	}
+
+	/**
+	 * A slice that raises these tracks is near: fetch the dormant ones; once one can play it joins the default track in
+	 * step (when the music plays) and fades to the volume asked for meanwhile.
+	 */
+	want(ids: string[]) {
+		for (const id of ids) {
+			const track = this.tracks.get(id);
+			if (!track || track.loading) continue;
+			track.load();
+			void track.ready(id).then(() => {
+				if (this.tracks.get(id) !== track || !this.isPlaying) return;
+				const reference = this.defaultTrackId ? this.tracks.get(this.defaultTrackId) : undefined;
+				if (reference && reference !== track && reference.loading) track.syncTo(reference.position());
+				track.play();
+				const volume = this.currentVolumes.get(id) ?? 0;
+				if (volume > 0) track.fade(volume, this.defaultTransitionDuration);
+			});
+		}
 	}
 
 	start() {
@@ -184,8 +379,13 @@ export class AdaptiveMusicPlayer implements IAdaptiveMusicPlayer {
 			}
 
 			const targetVolume = Math.max(0, Math.min(1, trackVolume.volume));
-			track.fade(targetVolume, transitionDuration);
 			this.currentVolumes.set(trackVolume.id, targetVolume);
+			// asked for before its file came (a fast scroll): fetch it now, it fades in when it can play (`want`)
+			if (!track.loading) {
+				if (targetVolume > 0) this.want([trackVolume.id]);
+				return;
+			}
+			track.fade(targetVolume, transitionDuration);
 		});
 	}
 
@@ -229,7 +429,7 @@ export class AdaptiveMusicPlayer implements IAdaptiveMusicPlayer {
 	setMasterVolume(volume: number, muted: boolean) {
 		const out = musicOutput();
 		if (!out) {
-			this.tracks.forEach((track) => (track.element.muted = muted));
+			this.tracks.forEach((track) => track.setMuted(muted));
 			return;
 		}
 		out.master.gain.setValueAtTime(muted ? 0 : volume, out.ctx.currentTime);
