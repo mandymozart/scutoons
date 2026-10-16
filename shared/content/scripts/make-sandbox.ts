@@ -83,6 +83,11 @@ const CATPOPE = '../catpope/';
 const SCENES: [number, number][] = [[1, 4], [5, 8], [9, 11], [12, 14], [15, 19], [20, 22]];
 /** the "Sonntagnachmittag" street: the alley with the lanterns and the cobblestones (scene 5) */
 const STREET: [number, number] = [15, 19];
+/**
+ * The endless band (FEATURES 10.100 §8) before the street: chapter 2's pinned-strip art (slices 109–114, 390 × 693, one
+ * picture side by side) as a horizontal group with `endless`, so the dev sandbox shows the band
+ */
+const BAND: [number, number] = [109, 114];
 const slicePath = (n: number) => `${CATPOPE}s1/c2/s1c2-slice-${n}.webp`;
 /**
  * Cucumbers in the art (slice number → the click area, % of the 390 × 625 slice, a tight box around it); the first group
@@ -516,8 +521,9 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		report.sundayCast = cast.length;
 		report.sundayStage = stage.length;
 
+		band(number, L('Zieh das Band zur Seite – es hört nie auf.', 'Drag the band sideways – it never ends.'));
 		scene(number, 'sunday', STREET, events);
-		chapter(number, L('Sonntagnachmittag', 'Sunday afternoon'), L('Sandkasten (Layout-Test): alle Figuren auf einer Straße – Plätze, Reihenfolge, Stimmungen, Looks.', 'Sandbox (layout test): every character on one street – slots, order, moods, looks.'), ['sunday'], {
+		chapter(number, L('Sonntagnachmittag', 'Sunday afternoon'), L('Sandkasten (Layout-Test): alle Figuren auf einer Straße – Plätze, Reihenfolge, Stimmungen, Looks.', 'Sandbox (layout test): every character on one street – slots, order, moods, looks.'), ['band', 'sunday'], {
 			title: '일요일 오후',
 			description: '샌드박스(레이아웃 테스트): 모든 캐릭터가 한 거리에 – 자리, 순서, 기분, 룩.'
 		});
@@ -546,6 +552,17 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		const script = events.map((e, k) => ({ id: `sb${number}-${label}-${k + 1}`, ...e }));
 		files[`_/chapter${number}/${label}.json`] = { label, renderer: { type: 'vertical' }, slices, events: script };
 		report.groups++;
+	}
+
+	/** the endless band (scene:sandbox:<n>:band): the BAND slices, one box on the first; it runs on into the next group */
+	function band(number: number, hint: Text) {
+		const slices = Array.from({ length: BAND[1] - BAND[0] + 1 }, (_, k) => ({
+			image: slicePath(BAND[0] + k),
+			width: 390,
+			height: 693,
+			...(k === 0 ? { dialog: [{ id: `sb${number}-band-1`, rect: { x: 6, y: 6, width: 70 }, text: hint }] } : {})
+		}));
+		files[`_/chapter${number}/band.json`] = { label: 'band', renderer: { type: 'horizontal', params: { endless: true } }, continues: true, slices };
 	}
 
 	/** one language-neutral chapter (chapter:sandbox:<n>): title / description in de, en, ko; no status (the season's) */

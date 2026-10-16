@@ -46,11 +46,11 @@ export function iconOf(n: FlowNode): string | undefined {
 	return undefined;
 }
 
-/** a group's layout as an icon + its word: one under the other, side by side (swiper), a full-width strip */
+/** a group's layout as an icon + its word: one under the other, the pinned strip (horizontal), the endless band */
 export function layoutIcon(n: FlowNode): { name: string; title: string } | undefined {
 	if (n.kind !== 'group' || !n.layout) return undefined;
-	if (n.layout === 'strip') return { name: 'film', title: m['creator.group_full_width']() };
-	if (n.layout === 'horizontal') return { name: 'columns', title: m['creator.layout_horizontal']() };
+	if (n.layout === 'strip') return { name: 'film', title: m['creator.layout_horizontal']() };
+	if (n.layout === 'endless') return { name: 'columns', title: m['creator.layout_endless']() };
 	return { name: 'align-justify', title: m['creator.layout_vertical']() };
 }
 

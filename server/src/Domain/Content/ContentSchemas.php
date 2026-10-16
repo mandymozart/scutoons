@@ -14,7 +14,7 @@ use Scutoons\Infrastructure\Config\Settings;
  * from @scutoons/content's TypeScript types (`npm run schema -w @scutoons/content` writes shared/content/schema/ and the
  * copy the server ships in server/schema/content/; `npm run check` fails when either is stale).
  * Checked with opis/json-schema (draft-07). The schemas allow extra fields (the generator's `additionalProperties: true`), so they guard shapes and types, not
- * unknown keys. `locations` / `routes` (the old per-toon map, read-only) have no schema and are not checked.
+ * unknown keys – except a type tagged `@additionalProperties false` (RendererParams, FEATURES 10.100). `locations` / `routes` (the old per-toon map, read-only) have no schema and are not checked.
  */
 final class ContentSchemas
 {

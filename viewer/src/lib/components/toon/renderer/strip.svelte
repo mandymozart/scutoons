@@ -6,11 +6,12 @@
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import Slice from '../slice.svelte';
-	import { ratioSum, stripOffset, stripScroll } from './strip-scroll.ts';
+	import { ratioSum, stripFrames, stripOffset, stripScroll } from './strip-scroll.ts';
+	import { viewportWidth } from './strip-dom.ts';
 
 	/**
-	 * A horizontal group with `renderer.params.fullWidth` (owner 2026-10-06): the slices side by side as one strip, each
-	 * at the screen's full height (its own width from its ratio), out of the reading column across the whole width.
+	 * A horizontal group (owner 2026-10-06; an `endless` one is strip-endless.svelte): the slices side by side as one
+	 * strip, each at the screen's full height (its own width from its ratio), out of the reading column across the width.
 	 * When the strip reaches the top it is pinned (sticky) and scrolling down moves it sideways – 1:1, no snapping, no
 	 * hint, no gesture of its own – then reading goes on downwards; scrolling up runs it backwards. A strip narrower than
 	 * the screen is shown whole, centred, and not pinned. On a desktop (fine pointer) the strip can go full screen: ← →
@@ -37,13 +38,7 @@
 	let fullscreen = $state(false);
 	let canFullscreen = $state(false);
 
-	const frames = $derived(
-		(group.slices ?? []).map((slice) => ({
-			slice,
-			width: slice.width > 0 ? slice.width : DEFAULT_SLICE.width,
-			height: slice.height > 0 ? slice.height : DEFAULT_SLICE.height
-		}))
-	);
+	const frames = $derived(stripFrames(group.slices ?? [], DEFAULT_SLICE));
 
 	/** the frames' width / height ratios summed (the section's height in CSS) */
 	const ratios = $derived(ratioSum(frames));
@@ -184,7 +179,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios}>
+<section class="strip" data-group-label={group.label} bind:this={section} style:--ratios={ratios} {@attach viewportWidth}>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- data-fx-screen: in full screen a screen shake / punch moves the strip itself (fx/cues.ts onScreen) -->
 	<div class="pin" class:fits={travel === 0} class:fullscreen data-fx-screen={fullscreen || undefined} bind:this={pin} {@attach (el) => on(el, 'wheel', onWheel, { passive: false })}>

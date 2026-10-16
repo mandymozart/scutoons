@@ -4,12 +4,45 @@ import { SLICE_PLAYER_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
 /** A player video counts as watched from this far on (the credits at the end of a music video) */
 export const PLAYER_WATCHED = 0.95;
 
-/** A slice counts as read: at least half of it on screen, or – taller than the screen – its bottom edge is */
+/** An endless band (toon/renderer/strip-endless.svelte): its frames come in sideways, in any order */
+export const ENDLESS_BAND = '[data-endless]';
+
+/**
+ * A slice counts as read: at least half of it on screen, or – taller than the screen – its bottom edge is. A band's
+ * frame not by its bottom edge (with the band's top above the screen a 3 px sliver of a frame counted – measured), but
+ * – wider than two screens – by half the screen's width of it at half its height.
+ */
 export function sliceSeen(entry: IntersectionObserverEntry): boolean {
 	if (!entry.isIntersecting) return false;
+	if (entry.intersectionRatio >= 0.5) return true;
 	const rect = entry.boundingClientRect;
-	const height = entry.rootBounds?.height ?? window.innerHeight;
-	return entry.intersectionRatio >= 0.5 || (rect.top < 0 && rect.bottom <= height);
+	const root = entry.rootBounds;
+	if (entry.target.closest(ENDLESS_BAND)) {
+		const shown = entry.intersectionRect;
+		return shown.width >= (root?.width ?? window.innerWidth) / 2 && shown.height >= rect.height / 2;
+	}
+	return rect.top < 0 && rect.bottom <= (root?.height ?? window.innerHeight);
+}
+
+/**
+ * An endless band is reached once its bottom is on screen or scrolled above it – its last slice may never have shown
+ * (it sits off screen left of the first): the end of the page (next-bar) and a following script without slices wait
+ * for this. Not only once passed: a band that ends the page can't scroll above the screen (measured, 3 engines).
+ */
+export function bandReached(entry: IntersectionObserverEntry): boolean {
+	const bottom = entry.boundingClientRect.bottom;
+	if (!entry.isIntersecting) return bottom <= (entry.rootBounds?.top ?? 0);
+	return bottom <= (entry.rootBounds?.bottom ?? window.innerHeight) + 1;
+}
+
+/**
+ * How far a band's frames were seen in a row from its first (page index), `first − 1` for none: frames come in
+ * sideways in any order – dragging right shows the last one first, which must not mark the ones between as read
+ */
+export function seenRun(seen: ReadonlySet<number>, first: number): number {
+	let run = first - 1;
+	while (seen.has(run + 1)) run++;
+	return run;
 }
 
 /** The thresholds `sliceSeen` needs */
@@ -71,9 +104,26 @@ export function trackReading(spot: ReadingSpot | null): Attachment<HTMLElement> 
 			const index = Number(slice?.dataset.sliceIndex);
 			if (!detail || !Number.isInteger(index)) return;
 			const share = detail.state === 'ended' || detail.progress >= PLAYER_WATCHED ? 1 : detail.progress;
-			if (share > 0) read(index, share);
+			// in a band only a watched video counts (its share would jump past frames never seen)
+			if (share >= 1 && slice) readWhole(slice, index);
+			else if (share > 0 && !slice?.closest(ENDLESS_BAND)) read(index, share);
 		}
 		node.addEventListener(SLICE_PLAYER_EVENT, onPlayer);
+
+		/** per endless band: the page indices of its frames seen so far */
+		const bands = new WeakMap<Element, Set<number>>();
+		/** a slice read whole: in a band only the frames seen in a row from its first count (`seenRun`) */
+		function readWhole(slice: Element, index: number) {
+			const band = slice.closest(ENDLESS_BAND);
+			if (!band) return read(index);
+			let seen = bands.get(band);
+			if (!seen) bands.set(band, (seen = new Set()));
+			seen.add(index);
+			const indices = [...band.querySelectorAll<HTMLElement>('[data-slice-index]')].map((el) => Number(el.dataset.sliceIndex));
+			const first = Math.min(...indices);
+			const run = seenRun(seen, first);
+			if (run >= first) read(run);
+		}
 
 		const io = new IntersectionObserver(
 			(entries) => {
@@ -82,7 +132,7 @@ export function trackReading(spot: ReadingSpot | null): Attachment<HTMLElement> 
 						// a player video is read by watching it (onPlayer)
 						if ((entry.target as HTMLElement).querySelector('video[data-player]')) continue;
 						const index = Number((entry.target as HTMLElement).dataset.sliceIndex);
-						if (Number.isInteger(index)) read(index);
+						if (Number.isInteger(index)) readWhole(entry.target, index);
 					}
 				}
 			},

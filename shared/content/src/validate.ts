@@ -851,6 +851,7 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	if (!g.renderer || !values(Renderer).includes(g.renderer.type)) {
 		c.error([...path, 'renderer', 'type'], 'renderer.type must be vertical or horizontal (the reader shows "Renderer is missing")');
 	}
+	checkRendererParams(c, g, path);
 	if (!g.label) c.warn([...path, 'label'], 'group has no label (?label= links and jumpTo need one)');
 	if (!Array.isArray(g.slices) && !Array.isArray(g.events)) c.error(path, 'group needs slices or events');
 	if (Array.isArray(g.slices)) {
@@ -869,6 +870,34 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	// where the reader could get stuck (stuck.ts, owner 2026-10-06): refused – the save guard on the server too
 	for (const p of stuckPoints([g])) c.error([...path, ...p.path.slice(2)], stuckMessage(p));
 	checkGroupLinks(c, g, path, ctx);
+}
+
+/** the widest window a portrait phone gives the endless band (viewport width ÷ band height, measured 0.48 … 0.62) */
+const ENDLESS_PHONE_WINDOW = 0.62;
+
+/**
+ * A group's layout params (FEATURES 10.100 §8): only `endless` (a horizontal group as the endless band); the Swiper's
+ * keys and fullWidth are gone (a horizontal group is the pinned strip). The band loops while the slices side by side,
+ * minus the widest, are wider than the window – narrower, it shows narrowed with ink at the sides.
+ */
+function checkRendererParams(c: Collector, g: any, path: Path) {
+	const params = g.renderer?.params;
+	if (params === undefined) return;
+	const at = [...path, 'renderer', 'params'];
+	if (!isObj(params)) return c.error(at, 'renderer.params must be an object { endless? }');
+	for (const key of Object.keys(params)) {
+		if (key !== 'endless') c.error([...at, key], `renderer.params.${key} is gone – a horizontal group is the pinned strip, { endless: true } makes it the endless band (stored documents: run the migration 2026-10-16-endless-strip)`);
+	}
+	if (params.endless === undefined) return;
+	if (typeof params.endless !== 'boolean') return c.error([...at, 'endless'], 'endless must be true or false');
+	if (!params.endless) return;
+	if (g.renderer.type !== Renderer.HORIZONTAL) return c.warn([...at, 'endless'], 'endless is ignored: only a horizontal group runs as the endless band');
+	const ratios = (Array.isArray(g.slices) ? g.slices : []).flatMap((s: any) => (s?.width > 0 && s?.height > 0 ? [s.width / s.height] : []));
+	if (!ratios.length) return;
+	const span = ratios.reduce((sum: number, r: number) => sum + r, 0) - Math.max(...ratios);
+	if (span < ENDLESS_PHONE_WINDOW) {
+		c.warn([...at, 'endless'], `too narrow to loop on a portrait phone: the slices side by side, minus the widest, are ${span.toFixed(2)} screen heights wide (a phone needs ${ENDLESS_PHONE_WINDOW}) – the band shows narrowed or stands still; add slices or leave it the pinned strip`);
+	}
 }
 
 /** Linked groups (chains.ts): `continues` a boolean, `end` { target, auto? } – ignored on a group that continues */

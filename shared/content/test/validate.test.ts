@@ -378,3 +378,36 @@ test('stageProblems: a speaker (showMessage, askText) must have joined; the slic
 	);
 	assert.deepEqual(stageProblems({ slices: [{ events: [say('')] }] }), [], 'the narrator needs no stage');
 });
+
+test('renderer.params: only endless (FEATURES 10.100 §8); off horizontal ignored; too narrow to loop on a phone', () => {
+	const slice = (width = 390, height = 844) => ({ image: 'a.webp', width, height });
+	const group = (renderer: object, slices = Array.from({ length: 6 }, () => slice())) => ({ label: 'g', renderer, slices });
+	const layout = (g: object) => validateFile('group', g, 'de', { file: 'x' } as never)
+		.filter((p) => p.path.includes('renderer'))
+		.map((p) => `${p.level} ${p.path.join('.')}`);
+	// the pinned strip and the ch3–5 band (6 × 390 × 844: 2.77 − 0.46 = 2.31 screens) are fine
+	assert.deepEqual(layout(group({ type: 'horizontal' })), []);
+	assert.deepEqual(layout(group({ type: 'horizontal', params: {} })), []);
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } })), []);
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: false } })), []);
+	// the Swiper's keys and fullWidth are gone (no aliases) – each one an error
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { loop: true, freeMode: true, fullWidth: true, autoPlay: { enabled: true } } })), [
+		'error renderer.params.loop',
+		'error renderer.params.freeMode',
+		'error renderer.params.fullWidth',
+		'error renderer.params.autoPlay'
+	]);
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: 'yes' } })), ['error renderer.params.endless']);
+	assert.deepEqual(layout(group({ type: 'horizontal', params: [] })), ['error renderer.params']);
+	// endless on a vertical group: ignored (a warning)
+	assert.deepEqual(layout(group({ type: 'vertical', params: { endless: true } })), ['warning renderer.params.endless']);
+	// too narrow to loop on a portrait phone: Σ ratio − the widest < 0.62
+	const narrow = validateFile('group', group({ type: 'horizontal', params: { endless: true } }, [slice(), slice()]), 'de', { file: 'x' } as never)
+		.filter((p) => p.path.includes('renderer'));
+	assert.deepEqual(narrow.map((p) => `${p.level} ${p.path.join('.')}`), ['warning renderer.params.endless']);
+	assert.match(narrow[0].message, /too narrow to loop on a portrait phone.*0\.46 screen heights/);
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } }, [slice(), slice(2000, 844)])), ['warning renderer.params.endless'], 'a wide slice: 2.83 − 2.37 = 0.46 (it must leave the screen to wrap)');
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } }, [slice(), slice(), slice()])), [], '3 × 0.46 − 0.46 = 0.92: loops');
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } }, [slice(390, 625), slice(390, 625)])), [], '2 × 0.624 − 0.624 = 0.624: loops');
+	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } }, [])), [], 'no slices: nothing to measure');
+});

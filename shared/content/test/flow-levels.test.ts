@@ -2,7 +2,7 @@
 // SCUTOONS, dead things.   node --experimental-transform-types --no-warnings --test test/flow-levels.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterExits, chapterFlow, chapterPictures, chapterReach, deadThings, groupFlow, scriptFaces, sliceFlow, sliceImage, targetPictures, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
+import { chapterExits, chapterFlow, chapterPictures, chapterReach, deadThings, groupFlow, groupLayout, rendererOf, scriptFaces, sliceFlow, sliceImage, targetPictures, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
 
 const msg = (text: string, character?: string) => ({ type: 'showMessage', params: { text, ...(character ? { character } : {}) } });
 const join = (character: string, persona?: string) => ({ type: 'joinScene', params: { characters: [{ character, ...(persona ? { persona } : {}), variant: 'avatar' }] } });
@@ -295,14 +295,18 @@ test('pictures: every level names its small picture as data (slices low, thumbna
 			]
 		},
 		{ label: 'harbour', renderer: { type: 'horizontal' }, slices: [s(5)] },
-		{ label: 'strip', renderer: { type: 'horizontal', params: { fullWidth: true } }, slices: [] }
+		{ label: 'band', renderer: { type: 'horizontal', params: { endless: true } }, slices: [] }
 	];
 	const facts = toonFacts([groups], { toon: 'catpope' });
 	const f = chapterFlow(groups, { chapter: 2, toon: 'catpope', facts, nextChapter: 3 });
 	// a group: its first slice (the low variant), everyone acting in order (persona / mood as named), its layout, entry
 	assert.deepEqual(node(f, 'g0')?.image, { kind: 'slice', path: 's1/c2/slice-1.webp', slice: 0, toon: 'catpope', group: 0 });
 	assert.deepEqual(node(f, 'g0')?.faces, [{ character: 'catpope', persona: 'cat' }, { character: 'boy' }]);
-	assert.deepEqual([node(f, 'g0')?.layout, node(f, 'g1')?.layout, node(f, 'g2')?.layout], ['vertical', 'horizontal', 'strip']);
+	assert.deepEqual([node(f, 'g0')?.layout, node(f, 'g1')?.layout, node(f, 'g2')?.layout], ['vertical', 'strip', 'endless']);
+	// the creator's Layout select writes the renderer back: groupLayout(rendererOf(x)) = x; endless off a horizontal group is vertical
+	for (const layout of ['vertical', 'strip', 'endless'] as const) assert.equal(groupLayout({ renderer: rendererOf(layout) }), layout);
+	assert.deepEqual([rendererOf('vertical'), rendererOf('strip')], [{ type: 'vertical' }, { type: 'horizontal' }]);
+	assert.equal(groupLayout({ renderer: { type: 'vertical', params: { endless: true } } }), 'vertical');
 	assert.equal(node(f, 'g2')?.image, undefined, 'no slice: no picture (the UI draws the dashed slot)');
 	assert.deepEqual([node(f, 'g0')?.entry, node(f, 'g1')?.entry, node(f, 'g2')?.entry], [undefined, true, undefined], 'harbour: something jumps there');
 	// the question: who asks (the last speaker before it)

@@ -1,4 +1,4 @@
-Status 2026-10-15: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); nothing built – waits for the owner's Q1–Q4, Q7–Q13. FEATURES 10.100.
+Status 2026-10-16: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built (the endless band, format + migration – not deployed), Q8–Q11 decided (DECISIONS 2026-10-16); open: §8 steps 3–4, Q1–Q4, Q7, Q12–Q13. FEATURES 10.100.
 
 # Slices as background: the strip editor
 

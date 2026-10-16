@@ -58,7 +58,7 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 
 - `id`: `sb-<scene>-<n>`, n counts through the scene, never reused (it names the photo / prompt / still later).
 - `format` / `aspect`: **viewport** `9:16` (a stop: one screen) · **vertical** `9:16`…`1:7` (a move: the scroll is
-  the camera, height = duration) · **loop360** `N:1` (a panorama the reader drags; group renderer horizontal + loop) ·
+  the camera, height = duration) · **loop360** `N:1` (a panorama the reader drags; group renderer horizontal + endless) ·
   **strip** (a one-way sideways pass). Aspect = width:height for viewport / vertical (`1:4` = 390 × 1560), the
   panorama's width:height for loop360.
 - **Safe formats (owner: the restriction for what we suggest and prompt):** vertical up to **1:7**, plan ≤ **1:4**;
@@ -129,7 +129,7 @@ monospaced typewriter face; scene headings appear as such boxes ("2 INT. SCHLAFZ
 - `locations`: MAP.md's place ids (chapter 3: `mountain-village`, `beyond-the-crossroads`, `mountain-path`,
   `forest-clearing`, `monastery`, `library`).
 - Groups: one `vertical` group per scene by default (label `scene-<n>`, `continues: true` so the scenes run on); a
-  `horizontal` group with `loop: true, freeMode: true` for a loop360; a VN group (one plate shot + `events`) only where
+  `horizontal` group with `params: { endless: true }` for a loop360; a VN group (one plate shot + `events`) only where
   the script has a real dialogue with a choice.
 
 ## Personas, looks and perspective (owner 2026-10-09)

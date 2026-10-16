@@ -29,12 +29,14 @@ const imgOf = (el: HTMLElement) => (el instanceof HTMLImageElement ? el : el.que
 
 /**
  * `el` moves sideways for `ms` (a shake, a punch): its parent clips it meanwhile, so the page never gets wider – a
- * clip, not a scroll container (sticky and fixed children keep working). Overlapping impacts share one clip.
+ * clip, not a scroll container (sticky and fixed children keep working). Overlapping impacts share one clip. Inside a
+ * window that clips itself (`data-fx-window`: the viewer's endless band) nothing is added – a clip on its frame would cut
+ * a box reaching into the next frame.
  */
 const clipping = new WeakMap<HTMLElement, { count: number; before: string }>();
 function holdClip(el: HTMLElement | null): () => void {
 	const parent = el?.parentElement;
-	if (!parent) return () => {};
+	if (!parent || parent.closest('[data-fx-window]')) return () => {};
 	const held = clipping.get(parent) ?? { count: 0, before: parent.style.overflowX };
 	held.count++;
 	clipping.set(parent, held);

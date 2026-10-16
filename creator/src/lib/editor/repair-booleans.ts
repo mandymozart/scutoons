@@ -5,16 +5,11 @@
  * the repair). Only the keys of those fields, only the exact strings "true" / "false".
  */
 export const BOOLEAN_KEYS = new Set([
-	// group renderer params (swiper)
-	'enabled',
+	// slice audio samples and videos: loop
 	'loop',
-	'flip',
-	'cube',
-	'keyboard',
-	'freeMode',
 	// VN events: params.wait (trigger.once / a slice item's once are gone: `repeat`, migration 2026-10-06-repeat)
 	'wait',
-	// slice audio samples: loop, trigger.exclusive, trigger.gate
+	// slice audio samples: trigger.exclusive, trigger.gate
 	'exclusive',
 	'gate',
 	// text boxes

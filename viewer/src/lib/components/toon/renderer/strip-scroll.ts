@@ -7,6 +7,18 @@
  * toolbar shows; the scroll is mapped onto the travel.
  */
 
+/**
+ * the frames of a strip or an endless band (strip-endless.svelte): each slice with its size – a slice from before the
+ * size was required gets `fallback` (the standard size)
+ */
+export function stripFrames<S extends { width: number; height: number }>(slices: S[], fallback: { width: number; height: number }) {
+	return slices.map((slice) => ({
+		slice,
+		width: slice.width > 0 ? slice.width : fallback.width,
+		height: slice.height > 0 ? slice.height : fallback.height
+	}));
+}
+
 /** the sum of the frames' width / height ratios – the strip's width in screen heights */
 export function ratioSum(frames: { width: number; height: number }[]): number {
 	return frames.reduce((sum, f) => sum + (f.width > 0 && f.height > 0 ? f.width / f.height : 0), 0);

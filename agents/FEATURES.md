@@ -82,10 +82,11 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   paint, then 12.6 MB of audio at once on ch1. `decide` which of L1–L12 (cache headers, audio on demand, next chapter /
   toon page prefetch, split heavy features, a data budget). → research/LOADING.md
 - [ ] 10.100 **Slices as background: endless strip + strip editor** – owner 2026-10-15: "Ditch Swiper. Give our own
-  strip an endless drag mode (loop + momentum, no 3D effects)", "having text boxes pass is good as a tool". First the
-  endless band for the four ch3–5 Swipers (drag + glide, loops without clones, `params.endless` by migration, one
-  deploy), Swiper off the chapter page; then paint rule → strip editor → slice ids + scenes inlined → tall pictures.
-  `decide` Q1–Q4, Q7–Q13. → research/TEXT-ACROSS-SLICES.md §8
+  strip an endless drag mode (loop + momentum, no 3D effects)", "having text boxes pass is good as a tool". §8 steps 1–2
+  built, not deployed (band, format, migration – plan_migrations rows on production first); open: the owner's phone +
+  desktop try, check:endless is Chromium only (no Firefox / WebKit path, no check:resume), §8 step 3 (paint rule,
+  sliceEdges) and 4 (home slider, ScoreView); then strip editor → slice ids → tall pictures. `decide` Q1–Q4, Q7, Q12–Q13.
+  → research/TEXT-ACROSS-SLICES.md §8
 - [ ] 10.106 **Record player: dark bar + a shinier turntable** [owner, later] – owner 2026-10-16: "Later we'll take care of
   the player bar design – it can be inverted and black too", "a shinier look for the turntable / record, maybe a custom
   shader that fits our style". The expanded card is the dark pull panel already (DESIGN.md "Dark panel").

@@ -20,6 +20,9 @@ Decisions: agents/DECISIONS.md.
   (utf8mb4_bin). All migrations up to `2026-10-12-purge-legacy-map-lists` are applied (`migration_status`: 0 pending);
   `2026-10-13-apose-per-look` (branch of the A-pose-per-look worktree) runs with its deploy.
 - Local dev: MariaDB in Docker with the production seed (`npm run dev:db`), test user `agent@scutoons.test`.
+- Horizontal groups (2026-10-16, FEATURES 10.100): Swiper left the chapter page – a horizontal group is the pinned strip
+  (`strip.svelte`) or, with `params.endless`, the endless band (`strip-endless.svelte`); `2026-10-16-endless-strip`
+  migrates the stored params with that deploy. Swiper stays for the home slider and the ScoreView.
 - The world map: places unlock only by the `unlockLocation` event; place images 1x/2x/3x on a hex grid, `size` per
   place, shared `MapTerrain`; the phone editors share one bottom bar (`PhoneBar`) – agents/MAP.md §8.
 - AI = the member's own Claude through the SCUTOONS MCP (agents/MCP.md); the Ask panel / service is gone (2026-10-09,

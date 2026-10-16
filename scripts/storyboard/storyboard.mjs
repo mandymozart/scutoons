@@ -114,7 +114,7 @@ export function validate(sb, file = '') {
 				const widthScreens = (a.w / a.h) * (S / W);
 				if (widthScreens > SAFE.loop360.maxScreens + 1e-6) warn(id, `panorama ${widthScreens.toFixed(1)} screens wide – beyond ${SAFE.loop360.maxScreens} (Luma's proven maximum)`);
 				else if (widthScreens > SAFE.loop360.plan + 1e-6) warn(id, `panorama ${widthScreens.toFixed(1)} screens wide – above the planning width ${SAFE.loop360.plan}`);
-				if (g.renderer?.type !== 'horizontal') warn(id, 'loop360 belongs in a horizontal group (loop + freeMode)');
+				if (g.renderer?.type !== 'horizontal') warn(id, 'loop360 belongs in a horizontal group (Endless: params.endless)');
 			}
 			if (a && shot.format === 'viewport' && Math.abs(a.h / a.w - 16 / 9) > 0.2) warn(id, `viewport ${shot.aspect} – a viewport is 9:16`);
 			for (const [f, t] of shot.air ?? []) if (!(f >= 0 && t <= 100 && f < t)) err(id, `air [${f}, ${t}] – % from < to within 0…100`);

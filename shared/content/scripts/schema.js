@@ -44,12 +44,15 @@ const SCHEMAS = {
 	events: 'EventList'
 };
 
+// every object stays open (unknown keys pass), except a type whose doc comment says `@additionalProperties false`
+// (RendererParams: a stale creator tab or MCP copy must not write the Swiper's keys back – FEATURES 10.100 §8)
 const generator = createGenerator({
 	path: join(root, 'src/index.ts'),
 	tsconfig: join(root, 'tsconfig.json'),
 	expose: 'export',
 	topRef: true,
 	jsDoc: 'extended',
+	extraTags: ['additionalProperties'],
 	skipTypeCheck: true,
 	additionalProperties: true
 });

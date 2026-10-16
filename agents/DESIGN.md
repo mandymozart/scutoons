@@ -297,7 +297,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   with a poster whose ratio differs from the video's (> 2 %) shows a warning (the slice would shift while loading).
 - **Linked groups** (owner 2026-10-06, DATA.md "Linked groups"): groups with `continues` share one chapter page – a
   chain read top to bottom (vertical → strip → strip → vertical reads smoothly: each strip pins, moves sideways,
-  releases). One URL: `?label=` of a group inside a chain renders the whole chain and jumps (instant) to that group,
+  releases; an endless band – Layout "Endless", owner 2026-10-15 – stays in the page flow, screen high across the width,
+  and is dragged sideways round without end, a grab cursor (the hint nudge follows, Q10): research/TEXT-ACROSS-SLICES.md §8). One URL: `?label=` of a group inside a chain renders the whole chain and jumps (instant) to that group,
   kept aligned while the page above settles. One `{#key}` per chain; the follow-up bar only after its last group, "↺
   Nochmal" from the chain's top. Creator: "Durchgehend" / "Continuous" (not on the chapter's last group), "Ende"
   (set / removed with a button: the jumpTo target fields + "sofort") on a group that doesn't continue; a Feather link
@@ -336,7 +337,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     `chapterPictures`, TS and PHP agree). Icons (Feather, in the title): `message-square` messages, `git-branch` a
     question, `corner-down-right` a jump, `help-circle` askText, `type` a text box, `check` once for good, `repeat` again
     (per page view / period, an endless loop), `log-in` an entry point (a group something outside jumps to); a group's
-    layout at the title's end (`align-justify` vertical, `columns` horizontal, `film` full-width strip). Rules: only small
+    layout at the title's end (`align-justify` vertical, `film` horizontal = the pinned strip, `columns` endless). Rules: only small
     files; loaded lazily (one IntersectionObserver on the canvas, a box within one canvas size of the view); every box
     kind has a fixed rem size with its picture place (`boxSize`), so the layout never moves while pictures load; no
     picture / not found / broken = the dashed empty slot; an image's `title` is its name; zoomed out below 0.6 faces hide
@@ -381,18 +382,18 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     variable). A group label counts as used when something jumps there or the follow-up bar leads there (the group before
     doesn't continue and has no end).
 - **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
-  Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
-  Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the
-  swiper settings only for a horizontal group that isn't full width. Preset (owner 2026-10-06): switching a group to
-  horizontal turns Continuous on (not on the chapter's last group, not when continues / an end is already set); full
-  width stays off – on demand. No "Interaction" field (`Group.interaction` is gone
-  from the model; old stored values are ignored). The **strip preview** of a full-width group below it: the mouse wheel
+  Name · Darstellung / Layout – one select "Vertikal · Horizontal · Endlos" / "Vertical · Horizontal · Endless" (owner
+  2026-10-16, FEATURES 10.100; one undo step writes the whole renderer: Horizontal = the pinned strip, no params;
+  Endless = `params.endless`, the draggable band) · Durchgehend / Continuous · "Ende festlegen"; the explanations are
+  the fields' `title` tooltips, no hint lines. Preset (owner 2026-10-06): switching a vertical group to Horizontal or
+  Endless turns Continuous on (not on the chapter's last group, not when continues / an end is already set). No
+  "Interaction" field (`Group.interaction` is gone from the model). The **strip preview** of a horizontal group below it: the mouse wheel
   down moves the strip sideways while the pointer is over it (like the reader's page scroll); at either end the page
   scrolls on; a horizontal wheel / trackpad scrolls natively. A **vertical** group has the same preview (BACKLOG 10.49,
   UI-CONCEPTS E.6): the same screen (phone 390:844 / desktop 16:9), the slices stacked at the reading column's width
   (phone: the screen's; desktop: the reader's 500 px column of a 1440 px window, centred), scrolled up / down inside
-  the screen's fixed height with the wheel's own scroll (no remap; at either end the page scrolls on). A horizontal
-  swiper group has none.
+  the screen's fixed height with the wheel's own scroll (no remap; at either end the page scrolls on). An endless
+  group has none.
 - **Reader panel** (BACKLOG 10.49, agents/DOCKING.md "The Reader panel"): the chapter editor's top bar has a round
   `smartphone` button left of the Flow's; it docks the viewer's draft preview – a phone (or, the square
   phone / desktop group in its header, a 1440 × 810 window) scaled into the panel, following the group / slice open in
@@ -411,7 +412,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     as the box's text, every action as a box choice in the story choices' look (`.vn-end-choice` = `.vn-choice`, the
     style lives in message.svelte), the primary first, at most 2. Handed over as a snippet (`vn.setEnd`); the box
     reports its height, so the VN characters stand on it as on a message. A spacer (`.next-host`, the box's height +
-    2rem) keeps the last slice clear of it (a full-width strip: none, the box sits over its last screen).
+    2rem) keeps the last slice clear of it (the pinned strip – a horizontal group: none, the box sits over its last screen).
   - **Rules** (`nextStep` in `@scutoons/content` progress.ts + tests, over the season's whole `sequence` – a draft is
     never skipped –, `isItemPublic` for drafts in dev, the membership context):
     | case | text | primary | secondary | countdown |

@@ -185,6 +185,7 @@
 		"strip_fullscreen_exit": "Leave full screen",
 		"strip_prev": "Previous frame",
 		"strip_next": "Next frame",
+		"strip_endless": "Picture band: drag sideways or use the arrow keys",
 		"not_public": "This chapter is not published yet.",
 		"coming_soon": "Coming soon",
 		"release": "Release: {date}",

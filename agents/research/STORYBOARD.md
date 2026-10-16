@@ -91,7 +91,7 @@ Verified in the code 2026-10-09. Types: `shared/content/src/content.ts`, `visual
 | Image = slice | `Slice {image, width, height, …}`. Width 390 (reference), height free (no upper limit on images; default 625). Slices stack edge to edge (`renderer/vertical.svelte`). Rects in % of the slice, font size in % of the width | a shot = one image, one or more slices. 9:16 = 390 × 693, 1:4 = 390 × 1560, 1:7 = 390 × 2730 (3.2 phone screens) |
 | Viewport | `Slice.video.viewport {fit, position}` (full-screen video); in-column video `frame {ratio}` clamped 4:1 … 1:4 | format `viewport`: one screen, a stop. A still viewport = a 9:16 image; a moving one = video |
 | Vertical group | `renderer.type: 'vertical'` | format `vertical` |
-| Horizontal | `horizontal` → Swiper (1 slide per view; `loop`, `freeMode`, `autoPlay`, `cube` / `flip`). `horizontal` + `fullWidth` → the pinned strip (`strip.svelte`: screen-high, moved sideways by the page scroll, travel computed). **The strip doesn't loop; the Swiper does** | `loop360` = the Swiper with `loop: true` + `freeMode: true` (continuous drag that wraps). A one-way sideways pass = the strip |
+| Horizontal | `horizontal` → the pinned strip (`strip.svelte`: screen-high, moved sideways by the page scroll, travel computed). `horizontal` + `params.endless` → the endless band (`strip-endless.svelte`: screen-high in the page flow, dragged sideways with momentum, wraps without end – FEATURES 10.100; Swiper is gone) | `loop360` = an endless horizontal group (`{endless: true}`). A one-way sideways pass = the pinned strip |
 | VN | any group with `events` gets the overlay (`group.svelte`). Events: `joinScene` / `leaveScene`, `showMessage`, `addChoice` + `showChoices`, `askText`, `showTextBox`, `fx`, `jumpTo`, `label`, `divert`, `setVariable`, `giveItem` / `takeItem`, `if`. No x/y: the view places a character (avatar left, portrait right, full centre; `stage.ts`) | a VN group = a backdrop shot (no characters in it) + real `VNEvent`s |
 | Elements | `Dialog` (text boxes, live text, `variant` bubble / caption / narration), `SliceItem` (pickup / events), slice `events` with `trigger` (intersect / hover / click), audio samples + music per slice, the `fx` event | reused 1:1, rects in % of the shot |
 | Characters | registry Character → Persona → Look → Mood × View (avatar / portrait / full; apose). Files `characters/<char>[-<persona>]/<char>[-<persona>][_<look>]_<view>-<mood>.webp` | figures = `{character, persona, look, mood}` + framing; references by the same convention |
@@ -120,9 +120,9 @@ sorted by shooting. Never mix the two.
 |---|---|---|---|---|
 | `viewport` | 9:16 (= the screen) | one image filling the screen; a video with `viewport` | a **stop**: the reader sees all of it at once | establishing, impact, a beat that must land whole, the key visual |
 | `vertical` | 9:16 → 1:4 → **1:7 (the maximum)** | one tall image, scrolled through | a **move**: the scroll is the camera. Height = duration | falls, climbs, reveals, travel, descent, long establishing pans |
-| `loop360` | a seamless panorama, **at most 13 screens wide** (13 × 390 = 5,070 px at 1x; screen-high = ~6:1 – today's limit: the widest Luma generated without massive problems; usually less), cut into N slides | horizontal group, `loop` + `freeMode` | **looking around**: the reader stops scrolling and drags; no end | a place to explore (room, square, crowd), hidden items, "where is …" |
+| `loop360` | a seamless panorama, **at most 13 screens wide** (13 × 390 = 5,070 px at 1x; screen-high = ~6:1 – today's limit: the widest Luma generated without massive problems; usually less), cut into N slides | horizontal group, `endless` | **looking around**: the reader stops scrolling and drags; no end | a place to explore (room, square, crowd), hidden items, "where is …" |
 
-Between them: a one-way **sideways pass** (the pinned strip, `fullWidth`) for chases and walks – a vertical shot
+Between them: a one-way **sideways pass** (the pinned strip, a plain horizontal group) for chases and walks – a vertical shot
 turned 90°.
 
 ### Projections (for `vertical` and `loop360`)
@@ -229,7 +229,7 @@ Example (JSONC; the same scene as [storyboard-example.html](storyboard-example.h
     },
     {
       "label": "s1-courtyard",
-      "renderer": { "type": "horizontal", "params": { "loop": true, "freeMode": true } },  // the 360° loop
+      "renderer": { "type": "horizontal", "params": { "endless": true } },  // the 360° loop
       "shots": [
         {
           "id": "sb-3-2-1",
@@ -276,7 +276,7 @@ The compile (storyboard → chapter draft), deterministic:
    (`height = 390 × h/w`), or **the canvas cut into 625-high slices** like today (lazy loading, smaller files; the cut
    moves off text boxes and items). Dialog / items / events / audio are converted from % of the shot to % of the
    slice. `image` = the rasterized schematic, later the still.
-2. **loop360:** the panorama → N slides (slices) of equal width, the group gets `loop` + `freeMode`. Items / dialogs
+2. **loop360:** the panorama → N slides (slices) of equal width, the group gets `endless`. Items / dialogs
    are assigned to the slide they fall in (a rect over a cut is moved, with a warning).
 3. **VN:** plate shots → the group's slices; `events` copied, ids `<label>-<n>`.
 4. Ids via `defaults.ts` / `nextDialogId`; `validateFile` before `save_draft` (the MCP server does it). Unknown
@@ -785,8 +785,8 @@ if the owner agrees.
 - All: PLF's pronoun switches in the script (sie / er) – the storyboards use "sie" throughout.
 
 
-1. **The formats:** viewport · vertical · loop360 (+ the one-way sideways strip) – complete? Is "horizontal loop 360"
-   the Swiper with `loop` + `freeMode` (drag, wraps), or should the pinned strip learn to loop?
+1. **The formats:** viewport · vertical · loop360 (+ the one-way sideways strip) – complete? ("horizontal loop 360" =
+   the endless band, owner 2026-10-15: "Ditch Swiper" – FEATURES 10.100.)
 2. **Projections:** perspective · top-down · isometric · polar – more (fisheye, Dutch tilt as its own, split-screen)?
 3. ~~1:7~~ – answered 2026-10-09: **1:7 is the maximum height, panoramas at most 13 screens wide**; longer → split into several shots. Was: **1:7 as the upper limit**, or longer shots split into several shots by the storyboard?
 4. **Pauses:** always air inside the shots / transition shots made by code – never a real spacing field in the

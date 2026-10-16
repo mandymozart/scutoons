@@ -6,7 +6,7 @@
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { runScript } from '$lib/visual-novel/runner.ts';
 	import { createScriptQueue } from '$lib/visual-novel/script-queue.ts';
-	import { SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
+	import { bandReached, ENDLESS_BAND, SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
 	import { getVnPage } from './vn-page.svelte';
 	import Characters from '../vn/characters.svelte';
 	import TextBoxWait from '../vn/text-box-wait.svelte';
@@ -98,11 +98,12 @@
 		}
 		if (!el) return;
 		// in linked groups: once the group's first slice is seen (the reading rule, track-reading.ts); a group without
-		// slices once the page's slice before it is
+		// slices once the page's slice before it is – that slice in an endless band: or once the band is reached
 		const view = el.closest('.chapter-view') ?? document;
+		const reached = (entry: IntersectionObserverEntry) => (entry.target.matches(ENDLESS_BAND) ? bandReached(entry) : sliceSeen(entry));
 		const io = new IntersectionObserver(
 			(entries) => {
-				if (asked || !entries.some(sliceSeen)) return;
+				if (asked || !entries.some(reached)) return;
 				stop();
 				ask();
 			},
@@ -111,6 +112,8 @@
 		const find = () => {
 			const first = group.slices?.length ? el.querySelector('[data-slice-index]') : view.querySelector(`[data-slice-index="${sliceOffset - 1}"]`);
 			if (first) io.observe(first);
+			const band = !group.slices?.length && first?.closest(ENDLESS_BAND);
+			if (band) io.observe(band);
 			return !!first;
 		};
 		const mo = new MutationObserver(() => {

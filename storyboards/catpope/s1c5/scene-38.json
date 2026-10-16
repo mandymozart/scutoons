@@ -860,8 +860,7 @@
       "renderer": {
         "type": "horizontal",
         "params": {
-          "loop": true,
-          "freeMode": true
+          "endless": true
         }
       },
       "continues": true,

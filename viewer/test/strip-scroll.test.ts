@@ -6,11 +6,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ratioSum, stripOffset, stripScroll } from '../src/lib/components/toon/renderer/strip-scroll.ts';
+import { ratioSum, stripFrames, stripOffset, stripScroll } from '../src/lib/components/toon/renderer/strip-scroll.ts';
 
 test('ratioSum: the frames side by side, in screen heights', () => {
 	assert.ok(Math.abs(ratioSum(Array.from({ length: 7 }, () => ({ width: 390, height: 693 }))) - (7 * 390) / 693) < 1e-9);
 	assert.equal(ratioSum([{ width: 0, height: 693 }]), 0);
+});
+
+test('stripFrames: each slice with its size, a slice without one at the standard size', () => {
+	const slices = [{ width: 390, height: 844 }, { width: 0, height: 0 }];
+	const frames = stripFrames(slices, { width: 390, height: 625 });
+	assert.deepEqual(
+		frames.map(({ width, height }) => [width, height]),
+		[[390, 844], [390, 625]]
+	);
+	assert.equal(frames[1].slice, slices[1]);
 });
 
 test('the scroll range maps onto the travel: start, middle, end, clamped', () => {

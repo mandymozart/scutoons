@@ -22,7 +22,8 @@
 		title,
 		required = false,
 		testid = '',
-		onchange
+		onchange,
+		source
 	}: {
 		doc: ContentDoc;
 		path: Path;
@@ -41,14 +42,17 @@
 		testid?: string;
 		/** called after the field wrote its value (a preset that follows a choice) */
 		onchange?: (next: unknown) => void;
+		/** a field that stands for several keys (the group's Layout): its value, and its write instead of `doc.set(path)` */
+		source?: { value: unknown; write: (next: unknown) => void };
 	} = $props();
 
-	const value = $derived(doc.get(doc.primary, path));
+	const value = $derived(source ? source.value : doc.get(doc.primary, path));
 	const opts = $derived(options.map((o) => (typeof o === 'object' ? o : { value: o, label: String(o) })));
 	const id = $derived(`f-${path.join('-')}`);
 
 	function write(next: unknown) {
-		doc.set(path, next);
+		if (source) source.write(next);
+		else doc.set(path, next);
 		onchange?.(next);
 	}
 

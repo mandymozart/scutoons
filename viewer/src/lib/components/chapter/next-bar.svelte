@@ -9,7 +9,7 @@
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
-	import { SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
+	import { bandReached, ENDLESS_BAND, SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
 	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { buildJumpToUrl } from '$lib/visual-novel/jump-to.ts';
 	import { install } from '$lib/install.svelte.ts';
@@ -78,11 +78,11 @@
 	/** the group ends with a player video: it is done when the video ended (not when it was seen) */
 	const endsWithPlayer = $derived(group.slices?.at(-1)?.video?.player === true);
 	/**
-	 * a full-width strip (renderer.params.fullWidth): it already fills the screen, so the bar sits over its last screen
+	 * the pinned strip (a horizontal group, not endless): it already fills the screen, so the bar sits over its last screen
 	 * instead of adding room below it – that room made the page longer right at the strip's end, and the next scroll
-	 * pushed the whole strip up (owner 2026-10-06: "the entire page jumps up")
+	 * pushed the whole strip up (owner 2026-10-06: "the entire page jumps up"). An endless band is in the page flow.
 	 */
-	const strip = $derived(group.renderer?.type === Renderer.HORIZONTAL && !!group.renderer.params?.fullWidth);
+	const strip = $derived(group.renderer?.type === Renderer.HORIZONTAL && !group.renderer.params?.endless);
 
 	let host = $state<HTMLElement>();
 	let bar = $state<HTMLElement>();
@@ -111,22 +111,26 @@
 			endInView = true;
 			return;
 		}
-		let observed: Element | null = null;
+		/** the last slice – in an endless band the band too: its last slice sits anywhere in it, maybe never shown */
+		let observed: Element[] = [];
 		const io = new IntersectionObserver(
 			(entries) => {
 				for (const entry of entries) {
-					endInView = entry.isIntersecting;
-					if (!player && sliceSeen(entry)) reachedEnd = true;
+					const band = entry.target.matches(ENDLESS_BAND);
+					// in a band the end is on screen while the band is, and reached once the band's bottom is
+					if (band || observed.length === 1) endInView = entry.isIntersecting;
+					if (!player && (band ? bandReached(entry) : sliceSeen(entry))) reachedEnd = true;
 				}
 			},
 			{ threshold: SEEN_THRESHOLDS }
 		);
 		const find = () => {
 			const last = root.querySelector(`[data-slice-index="${total - 1}"]`);
-			if (!last || last === observed) return;
-			if (observed) io.unobserve(observed);
-			observed = last;
-			io.observe(last);
+			if (!last || last === observed[0]) return;
+			for (const el of observed) io.unobserve(el);
+			const band = last.closest(ENDLESS_BAND);
+			observed = band ? [last, band] : [last];
+			for (const el of observed) io.observe(el);
 		};
 		find();
 		// slices rendered later (VN groups, lazy renderers)

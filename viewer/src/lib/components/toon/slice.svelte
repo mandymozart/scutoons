@@ -31,7 +31,8 @@
 		slice,
 		sliceIndex = 0,
 		pageIndex,
-		allSlices = []
+		allSlices = [],
+		preload = false
 	}: {
 		slice: SliceModel;
 		/** the slice's index in its group (`allSlices`): the music state, eager loading */
@@ -42,6 +43,8 @@
 		 */
 		pageIndex?: number;
 		allSlices?: SliceModel[];
+		/** load the image now, at normal priority (an endless band's frames once it nears – a drag brings them in) */
+		preload?: boolean;
 	} = $props();
 
 	const toonId = $derived(page.params.toonId);
@@ -258,7 +261,8 @@
 	data-slice-index={pageIndex ?? sliceIndex}
 	src={imageUrl}
 	videoSrc={shownVideoUrl}
-	{eager}
+	eager={eager || preload}
+	priority={eager}
 	{videoEager}
 	{@attach ahead}
 	autoplayPlayer

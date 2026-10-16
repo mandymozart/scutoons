@@ -351,4 +351,54 @@ final class EntityStoreTest extends TestCase
         $runner->runFile(self::root() . '/migrations/mysql/2026-10-07-give-item.mysql.sql'); // idempotent
         self::assertSame($expected, $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'scene:smoke:1:s'"));
     }
+
+    /**
+     * 2026-10-16-endless-strip (FEATURES 10.100): a horizontal group's params keep only `endless` – fullWidth → none (even
+     * with a loop), loop → endless, anything else → none, params on a vertical group go; a video's / sample's loop stays;
+     * every group of a chapter (eight with old keys: one pass), a scene's renderer; a second run changes 0 rows
+     */
+    public function testTheEndlessStripMigration(): void
+    {
+        $slice = '{"image":"a.webp","video":{"src":"v.mp4","loop":true},"audio":{"audio":{"samples":[{"id":"bell","loop":true}]}}}';
+        $group = fn(string $renderer) => '{"label":"g","renderer":' . $renderer . ',"slices":[' . $slice . ']}';
+        $before = [
+            '{"type":"horizontal","params":{"loop":true,"autoPlay":{"enabled":false},"fullWidth":true}}',
+            '{"type":"vertical"}',
+            '{"type":"horizontal","params":{"loop":true,"freeMode":true}}',
+            '{"type":"horizontal","params":{"freeMode":true,"keyboard":true}}',
+            '{"type":"vertical","params":{"loop":true,"cube":true}}',
+            '{"type":"horizontal","params":{"endless":true}}',
+            '{"type":"horizontal"}',
+        ];
+        $after = [
+            '{"type":"horizontal"}',
+            '{"type":"vertical"}',
+            '{"type":"horizontal","params":{"endless":true}}',
+            '{"type":"horizontal"}',
+            '{"type":"vertical"}',
+            '{"type":"horizontal","params":{"endless":true}}',
+            '{"type":"horizontal"}',
+        ];
+        // twice: eight groups with old keys in one chapter version, all fixed in one pass
+        $chapter = '{"groups":[' . implode(',', array_map($group, [...$before, ...$before])) . ']}';
+        $expected = '{"groups":[' . implode(',', array_map($group, [...$after, ...$after])) . ']}';
+        $scenes = [
+            'scene:smoke:1:swiper' => [$group('{"type":"horizontal","params":{"freeMode":true,"loop":true}}'), $group('{"type":"horizontal","params":{"endless":true}}')],
+            'scene:smoke:1:strip' => [$group('{"type":"horizontal","params":{"fullWidth":true,"loop":true}}'), $group('{"type":"horizontal"}')],
+            'scene:smoke:1:plain' => [$group('{"type":"horizontal","params":{"flip":true}}'), $group('{"type":"horizontal"}')],
+            'scene:smoke:1:column' => [$group('{"type":"vertical","params":{"loop":true}}'), $group('{"type":"vertical"}')],
+            'scene:smoke:1:done' => [$group('{"type":"horizontal","params":{"endless":true}}'), $group('{"type":"horizontal","params":{"endless":true}}')],
+        ];
+        $insert = "INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, ?, 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', ?, NULL)";
+        foreach (['published', 'draft'] as $status) $this->db->run($insert, ['chapter:smoke:1', 'chapter', $chapter, $status]);
+        foreach ($scenes as $key => [$json]) $this->db->run($insert, [$key, 'scene', $json, 'draft']);
+        foreach ([$chapter, $expected, ...array_merge(...array_values($scenes))] as $json) self::assertNotNull(json_decode($json), 'JSON');
+
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $apply = fn(): int => $runner->applyFile('2026-10-16-endless-strip.mysql.sql', fn(string $line) => null)['rows'];
+        self::assertSame(2 + 4, $apply(), 'each chapter version once (all its groups in one pass), four scenes');
+        self::assertSame([$expected, $expected], array_column($this->db->all("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1' ORDER BY id"), 'json'));
+        foreach ($scenes as $key => [, $after]) self::assertSame($after, $this->db->value('SELECT json FROM entity_versions WHERE entity_key = ?', [$key]), $key);
+        self::assertSame(0, $apply(), 'a second run changes nothing');
+    }
 }

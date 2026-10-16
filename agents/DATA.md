@@ -470,8 +470,9 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
 - **`Group.end: { target: JumpToTarget, auto? }`** – where the reader goes after the chain's last group instead of the
   next group / chapter (`nextStep` kind `jump`; the URL via the VN's `buildJumpToUrl`). `auto` = at once, else the
   follow-up bar offers it with the countdown. Only read on a chain's last group.
-- Stored like `renderer.params.fullWidth`: on the group itself (a `ref` group's in its scene document); the creator writes
-  them to every language. Validation: `continues` on the chapter's last group = error; `end` on a group
+- Stored like the group's `renderer` (`type` vertical / horizontal; `params` only `{ endless?: boolean }` – RendererParams
+  is closed, the schemas refuse any other key; Swiper's keys left with 2026-10-16-endless-strip, FEATURES 10.100): on the
+  group itself (a `ref` group's in its scene document); the creator writes them to every language. Validation: `continues` on the chapter's last group = error; `end` on a group
   that continues = warning (ignored); a chain that isn't the chapter's start without a label on its first group =
   warning (unreachable); `end.target` is checked like a jumpTo target. The chapter check reads ref groups' scenes through
   `ValidateContext.resolveGroup` (the creator passes its loaded scenes).

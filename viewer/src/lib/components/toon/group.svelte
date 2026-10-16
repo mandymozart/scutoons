@@ -3,8 +3,8 @@
 	import { hasVisualNovel, Renderer } from '@scutoons/content';
 	import { setGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import VisualNovel from './interactions/visual-novel.svelte';
-	import Horizontal from './renderer/horizontal.svelte';
 	import Strip from './renderer/strip.svelte';
+	import StripEndless from './renderer/strip-endless.svelte';
 	import Vertical from './renderer/vertical.svelte';
 
 	let {
@@ -45,11 +45,12 @@
 
 	{#if group.renderer?.type === Renderer.VERTICAL}
 		<Vertical {group} {sliceOffset} />
-	{:else if group.renderer?.type === Renderer.HORIZONTAL && group.renderer.params?.fullWidth}
-		<!-- full width (owner 2026-10-06): a screen-high strip, moved sideways by the page scroll -->
-		<Strip {group} {sliceOffset} />
+	{:else if group.renderer?.type === Renderer.HORIZONTAL && group.renderer.params?.endless}
+		<!-- endless (owner 2026-10-15): a screen-high band in the page flow, dragged sideways, looping -->
+		<StripEndless {group} {sliceOffset} />
 	{:else if group.renderer?.type === Renderer.HORIZONTAL}
-		<Horizontal {group} {sliceOffset} />
+		<!-- owner 2026-10-06: a screen-high strip, pinned, moved sideways by the page scroll -->
+		<Strip {group} {sliceOffset} />
 	{:else}
 		Renderer is missing
 	{/if}

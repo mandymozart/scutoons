@@ -185,6 +185,7 @@
 		"strip_fullscreen_exit": "Vollbild verlassen",
 		"strip_prev": "Vorheriges Bild",
 		"strip_next": "Nächstes Bild",
+		"strip_endless": "Bildband: seitwärts ziehen oder die Pfeiltasten nutzen",
 		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht.",
 		"coming_soon": "Demnächst",
 		"release": "Erscheint am {date}",

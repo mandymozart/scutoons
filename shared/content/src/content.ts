@@ -397,23 +397,19 @@ export interface Slice extends SensitiveFlag {
 	_label?: string;
 }
 
+/**
+ * A horizontal group's params (closed: the schema refuses any other key). Without `endless` a horizontal group is the
+ * pinned strip (owner 2026-10-06): it leaves the reading column, its slices side by side at the screen's full height;
+ * scrolling down pins it and moves it sideways (1:1, no snapping), then reading goes on downwards; on a desktop it can go
+ * full screen (← →). `groupLayout` / `rendererOf` (flow.ts) name the three layouts.
+ * @additionalProperties false
+ */
 export interface RendererParams {
-	autoPlay?: {
-		enabled?: boolean;
-		delay?: number;
-	};
-	loop?: boolean;
-	flip?: boolean;
-	keyboard?: boolean;
-	cube?: boolean;
-	freeMode?: boolean;
 	/**
-	 * Full width (owner 2026-10-06): instead of the swiper, the group leaves the reading column and becomes a strip of
-	 * its slices side by side, each at the screen's full height. Scrolling down pins the strip and moves it sideways
-	 * (1:1, no snapping), then reading goes on downwards; on a desktop the strip can go full screen (← →). The swiper
-	 * params above don't apply to it.
+	 * Endless (owner 2026-10-15, FEATURES 10.100 §8): a horizontal group as an inline, screen-high band the reader drags
+	 * sideways with momentum; it loops without end (no clones). Without it a horizontal group is the pinned strip.
 	 */
-	fullWidth?: boolean;
+	endless?: boolean;
 }
 
 /**

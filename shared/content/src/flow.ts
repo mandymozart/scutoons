@@ -19,7 +19,8 @@
 // Statuses come from `chapterReach` (reach.ts) – the single source of truth, so the graph agrees with the chips. Pure: no
 // layout, no texts of the UI.
 import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
-import type { JumpToTarget } from './content.ts';
+import type { JumpToTarget, RendererParams } from './content.ts';
+import { Renderer } from './enums.ts';
 import { analyseExpression, analyseText } from './expr/analyse.ts';
 import { askVariable, chapterReach, factKey, isConditional, runRepeat, triggerKey, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
 import { isStoryPath, writtenVariable } from './variables.ts';
@@ -90,8 +91,11 @@ export interface FlowFace {
 	mood?: string;
 }
 
-/** how a group's slices read: one under the other, side by side (swiper), or a full-width strip */
-export type FlowLayout = 'vertical' | 'horizontal' | 'strip';
+/**
+ * how a group's slices read (FEATURES 10.100 §8): one under the other; side by side in the pinned strip (a horizontal
+ * group); or side by side in the endless band (a horizontal group with `endless`) – `groupLayout` / `rendererOf`
+ */
+export type FlowLayout = 'vertical' | 'strip' | 'endless';
 
 export interface FlowNode {
 	id: string;
@@ -292,10 +296,15 @@ export function scriptFaces(events: readonly any[] | null | undefined): FlowFace
 	}
 	return out;
 }
-/** a group's layout: vertical (default), horizontal (swiper) or a full-width strip */
+/** a group's layout: vertical (default), the pinned strip (horizontal) or the endless band (horizontal + `endless`) */
 export function groupLayout(g: any): FlowLayout {
-	if (g?.renderer?.type !== 'horizontal') return 'vertical';
-	return g.renderer.params?.fullWidth ? 'strip' : 'horizontal';
+	if (g?.renderer?.type !== Renderer.HORIZONTAL) return 'vertical';
+	return g.renderer.params?.endless === true ? 'endless' : 'strip';
+}
+/** the group's `renderer` for a layout – `groupLayout`'s inverse (the creator's Layout select writes it in one step) */
+export function rendererOf(layout: FlowLayout): { type: Renderer; params?: RendererParams } {
+	if (layout === 'vertical') return { type: Renderer.VERTICAL };
+	return layout === 'endless' ? { type: Renderer.HORIZONTAL, params: { endless: true } } : { type: Renderer.HORIZONTAL };
 }
 /** a slice's picture: its low variant (1x); none without an image */
 export function sliceImage(slice: any, k: number, extra: { toon?: string; group?: number } = {}): FlowImage | undefined {

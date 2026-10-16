@@ -38,6 +38,7 @@
 		"check:creator-dock": "node scripts/dev/creator-dock-check.mjs",
 		"check:creator-flow-dock": "node scripts/dev/creator-flow-dock-check.mjs",
 		"check:creator-reader": "node scripts/dev/creator-reader-check.mjs",
+		"check:endless": "node scripts/dev/endless-check.mjs",
 		"check:tools-dock": "node scripts/dev/tools-dock-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",
 		"build:mcp": "node tools/mcp/scripts/build.mjs",

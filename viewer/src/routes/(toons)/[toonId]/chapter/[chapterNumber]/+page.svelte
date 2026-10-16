@@ -18,6 +18,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
 	import { stripScroll } from '$lib/components/toon/renderer/strip-scroll.ts';
+	import { STRIP_SHOW } from '$lib/components/toon/renderer/strip-drag.ts';
 	import VnPage from '$lib/components/toon/interactions/vn-page.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audio } from '$lib/actions/audio/index.ts';
@@ -28,7 +29,7 @@
 	import { creatorLink } from '$lib/creator-link.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
-	import { trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
+	import { ENDLESS_BAND, trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
 	import { showDrafts } from '$lib/draft-preview.svelte.ts';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte.ts';
@@ -116,7 +117,10 @@
 			const strip = el.closest('.strip');
 			const frame = el.closest('.frame');
 			const track = frame?.parentElement;
-			let top = (strip ?? el).getBoundingClientRect().top;
+			// an endless band's slice: the band at the top, the slice's frame at its left (strip-endless.svelte)
+			const band = el.closest(ENDLESS_BAND);
+			if (band) el.dispatchEvent(new CustomEvent(STRIP_SHOW, { bubbles: true }));
+			let top = (strip ?? band ?? el).getBoundingClientRect().top;
 			if (strip && frame && track) {
 				const pin = track.parentElement ?? strip;
 				const x = frame.getBoundingClientRect().left - track.getBoundingClientRect().left;

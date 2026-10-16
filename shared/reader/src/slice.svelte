@@ -36,6 +36,7 @@
 		lang,
 		alt = 'Slice',
 		eager = false,
+		priority,
 		videoEager,
 		autoplayPlayer = false,
 		playerLabels,
@@ -65,8 +66,10 @@
 		/** language of the dialog text (hyphenation) */
 		lang?: string;
 		alt?: string;
-		/** load right away (the first slices of a chapter), else lazily */
+		/** load right away (the first slices of a chapter, an endless band's frames once it nears), else lazily */
 		eager?: boolean;
+		/** fetch the image ahead of others (`fetchpriority=high`; default: `eager`) – a band's frames load at normal priority */
+		priority?: boolean;
 		/** a loop video buffers right away (default: `eager`) – the app's data policy may say no for the video only */
 		videoEager?: boolean;
 		/** a player video slice starts by itself once in view (the reader; `SliceVideo`) */
@@ -136,7 +139,7 @@
 			{height}
 			loading={eager ? 'eager' : 'lazy'}
 			decoding="async"
-			fetchpriority={eager ? 'high' : 'auto'}
+			fetchpriority={(priority ?? eager) ? 'high' : 'auto'}
 		/>
 	{/if}
 	<SliceLayers

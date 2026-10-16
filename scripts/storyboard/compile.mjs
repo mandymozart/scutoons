@@ -1,8 +1,9 @@
 // Storyboard → chapter draft (STORYBOARD.md §2 "The compile", phase 2): the chapter's one language-neutral document
 // as save_draft takes it, with the schematic shots as slice images. One shot = one slice (390 × its height); a loop360
-// = a horizontal group (loop + freeMode) of screen-high slides; dialog / items / events / audio keep the chapter's types,
-// rects stay in % (a shot is its slice). The chapter's other groups (side quests like mama-*) are kept, the
-// placeholder group "chapter-<n>" is replaced. Images are rasterized from the schematic SVGs (headless Edge / Chrome).
+// = an endless horizontal group (`endless`, FEATURES 10.100) of screen-high slides – its boxes keep their place in the
+// panorama and may cross into the next slide; dialog / items / events / audio keep the chapter's types, rects stay in %
+// (a shot is its slice). The chapter's other groups (side quests like mama-*) are kept, the placeholder group
+// "chapter-<n>" is replaced. Images are rasterized from the schematic SVGs (headless Edge / Chrome).
 //
 //   node scripts/storyboard/compile.mjs storyboards/catpope/s1c3 [--chapter catpope:3] [--no-png] [--out storyboards/_out]
 //
@@ -50,14 +51,13 @@ function asset(svg, w, h, id, frameOf = id, crop = null) {
 const groups = [];
 for (const { sb } of list) {
 	for (const g of sb.groups ?? []) {
-		const loop = (g.shots ?? []).some((s) => s.format === 'loop360');
 		const group = { label: g.label, renderer: g.renderer ?? { type: 'vertical' }, interaction: 'webtoon' };
 		if (g.continues) group.continues = true;
 		group.slices = [];
 		for (const shot of g.shots ?? []) {
 			const { svg, w, h } = shotSvg(shot, sb, { noText: true }); // the text is live (slice.dialog), not in the image
 			if (shot.format === 'loop360') {
-				// cut the panorama into screen-high slides of 390
+				// cut the panorama into screen-high slides of 390; a box goes to the slide its left edge is on, unclamped
 				const n = Math.max(1, Math.round(w / W));
 				for (let k = 0; k < n; k++) {
 					const part = svg.replace(/<svg ([^>]*?)width="\d+" height="\d+" viewBox="[^"]*"/, `<svg $1width="${W}" height="${S}" viewBox="${k * W} 0 ${W} ${S}"`);
@@ -65,14 +65,13 @@ for (const { sb } of list) {
 					const inSlide = (pct) => pct * n - k * 100;
 					const dialog = (shot.dialog ?? []).filter((d) => Math.floor(((d.rect?.x ?? 0) / 100) * n) === k)
 						.map((d, j) => {
-							const width = Math.min(96, (d.rect.width ?? 30) * n);
-							const x = Math.max(2, Math.min(100 - width - 2, inSlide(d.rect.x))); // moved inside its slide
-							return { ...dialogOf(d, `${shot.id}-${k + 1}-${j + 1}`), rect: { ...dialogOf(d, '').rect, x: +x.toFixed(2), width: +width.toFixed(2) } };
+							const width = (d.rect.width ?? 30) * n;
+							return { ...dialogOf(d, `${shot.id}-${k + 1}-${j + 1}`), rect: { ...dialogOf(d, '').rect, x: +inSlide(d.rect.x).toFixed(2), width: +width.toFixed(2) } };
 						});
 					if (dialog.length) slice.dialog = dialog;
 					group.slices.push(slice);
 				}
-				if (loop) group.renderer = { type: 'horizontal', params: { ...(g.renderer?.params ?? {}), loop: true, freeMode: true } };
+				group.renderer = { type: 'horizontal', params: { endless: true } };
 				continue;
 			}
 			const slice = { image: asset(svg, w, h, shot.id), width: W, height: h };

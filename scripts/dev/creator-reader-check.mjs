@@ -139,8 +139,11 @@ const dock = () =>
 /** the viewer: where it is, and how far the page slice `index` is from the top of its screen */
 const viewerAt = (index) =>
 	inFrame(`(() => { const el = document.querySelector('.chapter-view [data-slice-index="${index}"]'); return { path: location.pathname, search: location.search, top: el ? Math.round(el.getBoundingClientRect().top) : null, y: Math.round(scrollY), shows: Number(document.documentElement.dataset.creatorShows ?? 0), mark: document.documentElement.dataset.readerCheck ?? null }; })()`);
-/** waits until the slice `index` is at the top of the viewer's screen (a strip's later slice: scrolled into its travel) */
-const viewerScrolledTo = (index) => untilFrame(`(() => { const el = document.querySelector('.chapter-view [data-slice-index="${index}"]'); if (!el) return null; const strip = el.closest('.strip'); const top = strip ? el.closest('.frame').getBoundingClientRect().left : el.getBoundingClientRect().top; return Math.abs(top) < 3 && scrollY > 0 ? true : null; })()`, 15000);
+/**
+ * waits until the slice `index` is at the top of the viewer's screen (a strip's later slice: scrolled into its travel;
+ * an endless band's: the band at the top, the slice's frame at the window's left)
+ */
+const viewerScrolledTo = (index) => untilFrame(`(() => { const el = document.querySelector('.chapter-view [data-slice-index="${index}"]'); if (!el) return null; const band = el.closest('[data-endless]'); const strip = el.closest('.strip'); const top = band ? Math.max(Math.abs(band.getBoundingClientRect().top), Math.abs(el.closest('.frame').getBoundingClientRect().left - band.firstElementChild.getBoundingClientRect().left)) : strip ? el.closest('.frame').getBoundingClientRect().left : el.getBoundingClientRect().top; return Math.abs(top) < 3 && scrollY > 0 ? true : null; })()`, 15000);
 
 /** the page slice `index` at the top: the page's first slice = the page's very top */
 const viewerShows = (index) => (index === 0 ? untilFrame(`scrollY === 0 && document.querySelector('.chapter-view [data-slice-index="0"]') ? true : null`, 15000) : viewerScrolledTo(index));

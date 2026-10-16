@@ -71,7 +71,8 @@ export function handleSampleEvent(
 
 			requestAnimationFrame(() => {
 				const rect = node.getBoundingClientRect();
-				const isInView = rect.top < window.innerHeight && rect.bottom > 0;
+				// left / right too: an endless band's frames wait off screen beside it
+				const isInView = rect.top < window.innerHeight && rect.bottom > 0 && rect.left < window.innerWidth && rect.right > 0;
 				if (isInView) {
 					triggerSample();
 				}
