@@ -12,6 +12,10 @@ export type DataTier = 'none' | 'light' | 'normal' | 'generous';
 
 const MB = 1024 * 1024;
 
+/** the runtime caches (lib/sw/runtime-cache.ts); bump the number when the stored form changes – activate deletes other versions */
+export const MEDIA_CACHE = 'scutoons-media-v1';
+export const LIBRARY_CACHE = 'scutoons-library-v1';
+
 /** the media cache's size per data tier (lib/data-budget.svelte.ts tiers); `none` keeps nothing new */
 export const MEDIA_CAPS: Record<DataTier, number> = {
 	none: 0,

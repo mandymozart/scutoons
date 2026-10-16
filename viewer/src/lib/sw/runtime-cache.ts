@@ -8,16 +8,18 @@
 // - Library `scutoons-library-v<n>`: younger than LIBRARY_FRESH → the cached copy at once, revalidated behind (the
 //   browser's HTTP cache revalidates with the ETag – no If-None-Match of ours, it would need a CORS preflight); older →
 //   the network first, the cached copy after LIBRARY_TIMEOUT or offline.
-// - Audio and video never (range requests; phase 3 saves chapters explicitly).
+// - Audio and video never (range requests) – a chapter saved to the device holds them (lib/sw/saved-cache.ts, phase 3).
 import { API_URL, CDN_SERVER } from '$lib/config.ts';
 import {
 	evictions,
 	isCacheableAnswer,
 	isLibraryRequest,
 	isMediaRequest,
+	LIBRARY_CACHE,
 	LIBRARY_FRESH,
 	LIBRARY_MAX_ENTRIES,
 	LIBRARY_TIMEOUT,
+	MEDIA_CACHE,
 	MEDIA_MAX_AGE,
 	mediaCap,
 	tierFromConnection,
@@ -25,6 +27,7 @@ import {
 	type MediaEntry
 } from './cache-rules.ts';
 import { allEntries, deleteDatabase, deleteEntries, getEntry, getTier, putEntry, putTier } from './media-index.ts';
+import { savedDoc } from './saved-cache.ts';
 
 /** the worker's FetchEvent, as far as used here (this file is type-checked with the DOM lib, not webworker) */
 interface FetchEvent {
@@ -32,9 +35,9 @@ interface FetchEvent {
 	waitUntil(promise: Promise<unknown>): void;
 }
 
-/** bump the number when the stored form changes: activate deletes every other version */
-export const MEDIA_CACHE = 'scutoons-media-v1';
-export const LIBRARY_CACHE = 'scutoons-library-v1';
+// the names (bump the number when the stored form changes: activate deletes every other version) – in cache-rules.ts,
+// so the page (saving a chapter copies from the media cache) needn't load this worker file
+export { LIBRARY_CACHE, MEDIA_CACHE };
 const RUNTIME = /^scutoons-(media|library)-/;
 const CDN_ORIGIN = new URL(CDN_SERVER).origin;
 /** when a library answer was stored (ms) – our own header on the stored copy */
@@ -179,7 +182,8 @@ export async function library(event: FetchEvent): Promise<Response> {
 	const { request } = event;
 	const url = request.url;
 	const cache = await caches.open(LIBRARY_CACHE);
-	const hit = await cache.match(url, { ignoreVary: true });
+	// a chapter saved to the device keeps its own copy (phase 3) – the fallback when this cache has none
+	const hit = (await cache.match(url, { ignoreVary: true })) ?? (await savedDoc(url).catch(() => null));
 	const network = fetch(request).then(async (response) => {
 		if (isCacheableAnswer(response, 'library')) await keepLibrary(cache, url, response.clone()).catch(() => {});
 		// gone or closed now (404 / 403 coming_soon, not_public): the stored copy goes too
@@ -221,7 +225,7 @@ export async function cleanUp() {
 	await evict();
 }
 
-/** the kill switch: every SCUTOONS cache and the bookkeeping */
+/** the kill switch: every SCUTOONS cache (shell, media, library, the saved chapters) and the bookkeeping */
 export async function clearAll() {
 	for (const name of await caches.keys()) if (name.startsWith('scutoons-')) await caches.delete(name);
 	await deleteDatabase();

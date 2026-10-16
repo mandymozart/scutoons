@@ -55,7 +55,7 @@ final class Library
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */
-    private const LEGACY_CHARACTER_IDS = ['plf' => 'catpope', 'cat' => 'catpope', 'mountain-tiger' => 'catpope'];
+    public const LEGACY_CHARACTER_IDS = ['plf' => 'catpope', 'cat' => 'catpope', 'mountain-tiger' => 'catpope'];
 
     /** answers from the legacy per-locale chapters / scenes / seasons only (Snapshot::withoutNeutralDocs) */
     private bool $legacyOnly = false;

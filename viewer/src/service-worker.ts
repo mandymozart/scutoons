@@ -10,12 +10,17 @@
 //   nodes + CSS, ≈ 25 KB br; not the bundled fonts – they come from the CDN; the rest is cached when the app first
 //   uses it – never a guess, LOADING.md data budget); unchanged files are carried over from the previous version's cache, so a deploy downloads only what changed
 // - the few static files of the first paint: network first, the cache when offline
+// - Phase 3: the chapters saved to the device (lib/sw/saved-cache.ts) – their files (also audio / video, ranges → 206)
+//   and their library JSON + item catalog as the offline copy
 // - NOTHING else: the rest of the API, audio / video, the vault's signed URLs, auth – not touched (the browser's own fetch)
 // Updates: a new worker waits until the reader taps "Reload" (lib/pwa.svelte.ts, the update prompt).
 // Kill switch: a build with VITE_SW=off makes this file remove itself and its caches (PWA.md "Kill switch").
 import { build, files, version } from '$service-worker';
 import { isDataTier } from '$lib/sw/cache-rules.ts';
 import { cacheShown, cleanUp, clearAll, isLibrary, isMedia, library, media, setTier } from '$lib/sw/runtime-cache.ts';
+import { maySaved, networkThenSaved, reloadIndex, savedFirst } from '$lib/sw/saved-cache.ts';
+import { isSavedDocRequest } from '$lib/sw/saved-rules.ts';
+import { API_URL } from '$lib/config.ts';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -77,6 +82,7 @@ async function activate() {
 	for (const name of await caches.keys()) if (name.startsWith(PREFIX) && name !== CACHE) await caches.delete(name);
 	// the media / library caches outlive builds (immutable names); only their own version bump replaces them
 	await cleanUp().catch(() => {});
+	await reloadIndex();
 	await sw.registration.navigationPreload?.enable();
 	// the first install takes over the open page, so the app files it loads from now on are cached (an update only
 	// activates by the reader's "Reload", lib/pwa.svelte.ts)
@@ -148,8 +154,11 @@ if (__SW_OFF__) {
 		if (request.method !== 'GET') return;
 		const url = new URL(request.url);
 		if (url.origin !== location.origin) {
-			if (isMedia(request)) return event.respondWith(media(event));
+			// a saved chapter's file first (phase 3), then the media cache (images) / the network
+			if (isMedia(request)) return event.respondWith(savedFirst(event, () => media(event)));
+			if (maySaved(request, url)) return event.respondWith(savedFirst(event, () => fetch(request)));
 			if (isLibrary(request)) return event.respondWith(library(event));
+			if (isSavedDocRequest(request, API_URL)) return event.respondWith(networkThenSaved(event));
 			return;
 		}
 		if (request.mode === 'navigate') return event.respondWith(navigate(event));
@@ -164,5 +173,7 @@ if (__SW_OFF__) {
 		else if (data?.type === 'CACHE_LOADED') event.waitUntil(cacheLoaded(data.urls));
 		else if (data?.type === 'DATA_TIER' && isDataTier(data.tier)) event.waitUntil(setTier(data.tier));
 		else if (data?.type === 'CACHE_MEDIA') event.waitUntil(cacheShown(data.urls));
+		// a chapter was saved to / removed from the device (lib/offline/saved-chapters.svelte.ts)
+		else if (data?.type === 'SAVED_CHANGED') event.waitUntil(reloadIndex());
 	});
 }

@@ -3,7 +3,8 @@
 // carries out the kill switch (a VITE_SW=off build unregisters every worker and drops its caches).
 import { browser, dev, version } from '$app/environment';
 
-const CACHE_PREFIX = 'scutoons-shell-';
+/** every SCUTOONS cache: shell, media, library, the saved chapters (phase 3) */
+const CACHE_PREFIX = 'scutoons-';
 /** an SPA never navigates: look for a new worker when the reader comes back, at most this often */
 const CHECK_EVERY = 30 * 60 * 1000;
 

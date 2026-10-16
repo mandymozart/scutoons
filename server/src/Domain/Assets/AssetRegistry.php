@@ -436,6 +436,25 @@ final class AssetRegistry
     }
 
     /**
+     * The byte sizes of these paths' current renditions (a chapter's save-to-device list, ChapterFiles); paths the
+     * registry doesn't know are missing from the answer
+     * @param list<string> $paths
+     * @return array<string, int>
+     */
+    public function sizesOf(array $paths): array
+    {
+        $out = [];
+        foreach (array_chunk(array_values(array_unique($paths)), 500) as $chunk) {
+            $marks = implode(',', array_fill(0, count($chunk), '?'));
+            foreach ($this->db->all("SELECT r.path, r.size FROM asset_renditions r JOIN asset_versions v ON v.id = r.version_id
+                    WHERE v.status = 'current' AND r.path IN ($marks)", $chunk) as $r) {
+                $out[(string) $r['path']] = (int) $r['size'];
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Where these paths are referenced (the delete check, the detail page, the picker's "used by")
      * @param list<string> $paths
      * @return list<array<string, mixed>>

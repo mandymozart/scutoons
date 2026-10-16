@@ -4,8 +4,11 @@ declare(strict_types=1);
 namespace Scutoons\Tests\Http;
 
 use Psr\Http\Message\ResponseInterface;
+use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Infrastructure\AssetStorage\StoredFile;
 use Scutoons\Console\ContentFiles;
+use Scutoons\Domain\Content\CollectionDocs;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles;
@@ -38,8 +41,13 @@ final class LibraryApiTest extends TestCase
             default => (string) ContentFiles::keyOf($toon, $locale, $path),
         };
         $store = $this->get(EntityStore::class);
-        $id = $store->insert(EntityKey::parse($key), (string) json_encode($data), null, 'draft', null);
-        if ($publish) $store->setPublished(['id' => $id, 'entity_key' => $key]);
+        $collection = CollectionDocs::ofAnchor($key);
+        // the registry: the anchor + one document per character, like an import
+        $parts = $collection !== null ? CollectionDocs::split($collection, json_decode((string) json_encode($data))) : [$key => $data];
+        foreach ($parts as $part => $doc) {
+            $id = $store->insert(EntityKey::parse((string) $part), (string) json_encode($doc), null, 'draft', null);
+            if ($publish) $store->setPublished(['id' => $id, 'entity_key' => (string) $part]);
+        }
     }
 
     protected function setUp(): void
@@ -98,5 +106,79 @@ final class LibraryApiTest extends TestCase
         $r = $this->request('/api/library/toons/t/chapters/2?draft=1', ['Authorization' => "Bearer $token"]);
         self::assertSame([200, 'Zwei (neu)'], [$r->getStatusCode(), self::json($r)['title']]);
         self::assertSame('private, no-store', $r->getHeaderLine('Cache-Control'));
+    }
+
+    public function testChapterFilesForSaveToDevice(): void
+    {
+        $this->publish('t', 'de', 'chapter1.json', [
+            'title' => 'Eins',
+            'thumbnail' => 's1/thumb.jpg',
+            'audio' => [
+                'music' => ['tracks' => [['id' => 'a', 'path' => 's1/a.128.mp3', 'variants' => ['low' => 's1/a.96.mp3', 'high' => 's1/a.320.mp3']]]],
+                'sampleLibrary' => [['id' => 'b', 'path' => 's1/b.128.mp3']],
+            ],
+            'groups' => [[
+                'slices' => [
+                    ['image' => 's1/one.webp', 'imageVariants' => ['medium' => 's1/one@2x.webp', 'high' => 's1/one@3x.webp'], 'items' => [['item' => 'cup']]],
+                    ['image' => 's1/two.webp', 'video' => ['src' => 's1/v.720p.mp4', 'variants' => ['low' => 's1/v.480p.mp4', 'medium' => 's1/v.720p.mp4']]],
+                    ['image' => '../other/x.webp', 'download' => 's1/album.zip'],
+                ],
+                'events' => [['type' => 'joinScene', 'params' => ['character' => 'hero', 'persona' => 'masked']]],
+            ]],
+        ]);
+        $this->publish('scutoons', '_', 'characters.json', ['characters' => [
+            ['id' => 'hero', 'image' => 'characters/hero/hero.svg', 'personas' => [
+                ['id' => 'regular', 'looks' => [['id' => 'default', 'images' => ['neutral' => ['avatar' => 'characters/hero/a.webp', 'portrait' => 'characters/hero/p.webp', 'full' => 'characters/hero/f.webp']], 'apose' => ['image' => 'characters/hero/apose.webp']]]],
+                ['id' => 'masked', 'looks' => [['id' => 'default', 'images' => ['neutral' => ['portrait' => 'characters/hero/m.webp']]]]],
+                ['id' => 'old', 'looks' => [['id' => 'default', 'images' => ['neutral' => ['portrait' => 'characters/hero/old.webp']]]]],
+            ]],
+            ['id' => 'extra', 'personas' => [['id' => 'regular', 'looks' => [['id' => 'default', 'images' => ['neutral' => ['portrait' => 'characters/extra/p.webp']]]]]]],
+        ]]);
+        $this->publish('t', '_', 'cast.json', ['seasons' => ['1' => [['character' => 'hero'], ['character' => 'extra']]]]);
+        $registry = $this->get(AssetRegistry::class);
+        $asset = $registry->create('t/s1/one', 'image');
+        $version = $registry->addVersion($asset, new StoredFile('t/s1/one.webp', 100), 'local');
+        $registry->addRendition($asset, $version, '1x', 'low', new StoredFile('t/s1/one.webp', 100));
+        $registry->addRendition($asset, $version, '3x', 'high', new StoredFile('t/s1/one@3x.webp', 900));
+
+        $r = $this->request('/api/library/toons/t/chapters/1/files?locale=de');
+        self::assertSame(200, $r->getStatusCode());
+        self::assertSame('public, max-age=60', $r->getHeaderLine('Cache-Control'));
+        $body = self::json($r);
+        self::assertSame(['t', 1, 'de', true], [$body['toon'], $body['chapter'], $body['locale'], $body['gated']]);
+        $files = [];
+        foreach ($body['files'] as $f) $files[$f['path']] = [$f['kind'], $f['levels'] ?? 'all', $f['size']];
+        $groups = [];
+        foreach ($body['files'] as $f) if (isset($f['group'])) $groups[$f['group']][] = $f['path'];
+        self::assertSame([['t/s1/a.320.mp3', 't/s1/a.96.mp3'], ['t/s1/one.webp', 't/s1/one@2x.webp', 't/s1/one@3x.webp'], ['t/s1/v.480p.mp4', 't/s1/v.720p.mp4']],
+            array_values(array_map(function (array $g): array {
+                sort($g);
+                return $g;
+            }, $groups)), 'one group per media with levels');
+        self::assertSame([
+            'characters/hero/a.webp' => ['image', 'all', null],
+            'characters/hero/hero.svg' => ['image', 'all', null],
+            'characters/hero/m.webp' => ['image', 'all', null],
+            'characters/hero/p.webp' => ['image', 'all', null],
+            'other/x.webp' => ['image', 'all', null],
+            't/s1/a.320.mp3' => ['audio', ['high'], null],
+            't/s1/a.96.mp3' => ['audio', ['low', 'medium'], null],
+            't/s1/b.128.mp3' => ['audio', 'all', null],
+            't/s1/one.webp' => ['image', ['low'], 100],
+            't/s1/one@2x.webp' => ['image', ['medium'], null],
+            't/s1/one@3x.webp' => ['image', ['high'], 900],
+            't/s1/thumb.jpg' => ['image', 'all', null],
+            't/s1/two.webp' => ['image', 'all', null],
+            't/s1/v.480p.mp4' => ['video', ['low'], null],
+            't/s1/v.720p.mp4' => ['video', ['medium', 'high'], null],
+        ], $files, 'per level the file pickQualityVariant plays (no medium track: the low one, never the default); VN personas + regular, no full view / A-pose / other personas; no zip');
+
+        // the gates of the chapter itself: a draft chapter and a coming-soon one have no files
+        self::assertSame([403, 'not_public'], [($d = $this->request('/api/library/toons/t/chapters/2/files'))->getStatusCode(), self::json($d)['error']]);
+        self::assertSame(404, $this->request('/api/library/toons/nope/chapters/1/files')->getStatusCode());
+        $this->publish('t', 'de', 'chapter3.json', ['title' => 'Drei', 'isPreview' => true, 'groups' => []]);
+        $this->publish('t', 'de', 'season1.json', ['sequence' => [['number' => 1, 'status' => 'published'], ['number' => 2, 'status' => 'coming-soon'], ['number' => 3, 'status' => 'published']]]);
+        self::assertSame([403, 'coming_soon'], [($c = $this->request('/api/library/toons/t/chapters/2/files'))->getStatusCode(), self::json($c)['error']]);
+        self::assertFalse(self::json($this->request('/api/library/toons/t/chapters/3/files'))['gated'], 'a free preview chapter');
     }
 }

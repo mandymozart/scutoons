@@ -1,4 +1,4 @@
-Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); phase 2 built 2026-10-16 (media + library cache, §2 "Phase 2"); the Android install prompt (phase 4 part) built 2026-10-16 – phases 3–4 otherwise open. FEATURES 10.74.
+Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); phase 2 built 2026-10-16 (media + library cache, §2 "Phase 2"); phase 3 built 2026-10-16 (save a chapter to the device, §2 "Phase 3"); the Android install prompt (phase 4 part) built 2026-10-16 – phase 4 otherwise open. FEATURES 10.74.
 
 # PWA — SCUTOONS as an installable web app (2026-10-16)
 
@@ -40,7 +40,8 @@ Chrome reports no installability errors (CDP `Page.getInstallabilityErrors`, `Pa
   chunks. A mid-deploy index.html that names files of another build makes the install fail (FTP uploads file by file);
   the next update check tries again.
 - **Never touched** (no `respondWith`): other origins except phase 2's two (below) – the rest of api. (auth,
-  sessions, inventory, game state, codes, purchases), audio and video, the vault's signed URLs – and every non-GET request.
+  sessions, inventory, game state, codes, purchases; phase 3 only adds `/items/` + `/editions/` as a saved chapter's
+  offline copy), audio and video (except a saved chapter's, phase 3), the vault's signed URLs – and every non-GET request.
 - **Offline**: the shell starts; with phase 2 the library JSON and the images the reader saw come from their caches. A
   page whose data isn't cached (the root layout's toons request fails) → `+error.svelte` says "You're offline …" with
   "Try again" (instead of "Upsi! Not available").
@@ -76,6 +77,63 @@ Code: `lib/sw/cache-rules.ts` (what qualifies, caps – pure, test/sw-cache-rule
   (bump the `-v1` in runtime-cache.ts when the stored form changes) and reconciles the bookkeeping with the cache.
 - Not cached: audio and video (range requests) – phase 3 saves chapters explicitly.
 
+### Phase 3 (built 2026-10-16) – save a chapter to the device
+Owner 2026-10-16: "Go 2 and 3, push in between". Code: server `Domain/Library/ChapterFiles.php` (the list),
+`lib/sw/saved-rules.ts` (pure, test/sw-saved-rules.test.ts), `lib/offline/saved-chapters.svelte.ts` (the page: download,
+progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers), `components/toon/save-chapter.svelte`
+(the row's button), `components/account/saved-chapters-setting.svelte`.
+- **Where**: a round button on every chapter row (toon page + the chapter menu, `chapter-item.svelte`) – ↓ save, a ring
+  filling while it saves (a tap asks "Stop saving?"), ✓ saved (a tap asks "Remove … from this device? Frees about
+  17 MB"); failed → ! (a tap tries again). Only with a service worker controlling the page (production, not the
+  creator's Reader frame) and only for chapters the reader may read: published (never a draft or coming soon), a free
+  preview (`isPreview`) or the reader's access (device code / account). Account page → "Saved chapters": each save
+  (toon · chapter · title, MB, remove), "Remove all", the space (`storage.estimate()`: "SCUTOONS uses 76 MB of the
+  10316 MB this browser allows"); nothing when nothing is saved.
+- **The size first** – the list is one server request, `GET /library/toons/<t>/chapters/<n>/files?locale=`
+  (server/docs/API.md "Library"): every image / audio / video of the chapter as the library answers it, the portraits +
+  avatars of the personas its VN puts on stage (+ the regular persona, the fallback anchor; no `full` view, no
+  A-pose), the icons of the items it names; sizes from the asset registry (`asset_renditions.size`); a media with
+  quality variants yields per level the file `pickQualityVariant` plays (`levels` + one `group` per media). The dialog
+  says "Save Chapter 1 to this device? About 17 MB. Then it reads without a connection."; videos ≥ 10 MB and ≥ 30 % of
+  it → a choice "Everything · about 53 MB" / "Without videos · about < 1 MB"; on mobile data (Android reports
+  `connection.type`) from 20 MB "You're on mobile data.", with data saver "Data saver is on." – the reader decides,
+  nothing starts without the tap.
+- **Level**: the reader's media quality (`effectiveQuality`: Automatic unmeasured → low). The manifest keeps
+  **stand-ins**: every other level's file of a saved media → the saved file, so offline (Automatic's probe fails → low)
+  or after a changed setting the chapter still plays from the device. The quality probe (`cache: no-store`) is never
+  answered from the device – it measures the network.
+- **Storage**: one cache per chapter `scutoons-chapter-<toon>-<n>-v1` (never touched by the media LRU); the page
+  downloads (4 at a time, counted as the bytes arrive; images the media cache holds are copied, not fetched again;
+  images fetched `reload` past the worker – no second copy in the media cache; audio / video / fonts may come from the
+  HTTP cache), then a manifest `/__scutoons/saved-chapter.json` last (level, bytes, URLs, docs, stand-ins, version =
+  the chapter's ETag, `gated`, `accessUntil`) – a cache without one is an unfinished save and is deleted. With it: the
+  chapter / toon / cast / toons-list / credits JSON (exactly the URLs `lib/api.ts`'s public client asks), `/items/` +
+  `/editions/` (the inventory's catalog), the CDN fonts the page loaded (lettering), and the app code of the toon,
+  chapter and account pages (`preloadCode` through the worker → the shell cache; again on every start with saves, so an
+  app update's new chunks are there too). `navigator.storage.persist()` on the first save. A CDN 404 is skipped.
+- **The worker** (`saved-cache.ts`): an index URL → cache from the manifests (at start, on activate and on the page's
+  `SAVED_CHANGED`). CDN requests: the saved copy first (images before the media cache; audio / video / fonts – before
+  the index is read, any of those is routed through the worker, which falls back to the network), a `Range` request →
+  **206** sliced from the whole cached file (`Content-Range`, 416 past the end; the music's `<audio>` streams, seeking,
+  the key-visual `<video>`). Library JSON: phase 2's handler, the saved copy when its cache has none / offline;
+  `/items/` + `/editions/` (header-free client only): network first, the saved copy when it fails.
+- **Access**: a gated save stores the access end it was saved with (the latest of the reader's valid grants – device
+  code `expires_at`, account `access.expires_at`; null = none). Offline, `MembershipBlocker` shows a saved chapter
+  until that end (offline the session can't say – a member signed in only by cookie reads too). On every start the
+  root layout checks: the access counts as **known** when `/api/health` answers and the session loaded without an error;
+  known and no access → every gated save is deleted; known with access → the saves get the current end (a renewal
+  reaches offline reading); unknown (offline) → the saved end decides. Free chapters (`isPreview`) are never deleted.
+  Drafts, the creator preview and the vault's signed album URLs are never saved (not in the list, not readable).
+- **Kill switch**: `VITE_SW=off` deletes every `scutoons-*` cache – the saved chapters too (page side as well:
+  `pwa.svelte.ts` `removeServiceWorker`).
+- Sizes (local dev DB = the production seed, 2026-10-16): ch1 low 17.0 MB · medium 17.2 · high 18.9 (2.6 MB of it the
+  key-visual video; no "without videos" offer); ch0 (the prologue music video) low 53 MB · medium 184 · high 254 (all
+  but < 1 MB video → the choice); ch2 (coming soon, measured from its draft) ≈ 39 MB low · 41.5 medium / high, ≈ 19 MB
+  of it video and ≈ 14 MB the VN portraits of six characters (catpope with four personas).
+- Open: a saved chapter whose version (ETag) changed is not refreshed yet (download only the changed paths); a whole
+  season; reading progress made offline is not queued for sync (members: the next online read saves it); iOS: the
+  home-screen app has its own storage – saves made in Safari don't carry over.
+
 ### Update flow
 New worker installs → waits (no `skipWaiting`) → `lib/pwa.svelte.ts` shows the prompt (`update-prompt.svelte`: "A new
 version of SCUTOONS is ready." · Later · Reload). Reload → `SKIP_WAITING` → `controllerchange` → `location.reload()`
@@ -88,7 +146,7 @@ Not registered in dev, nor in the creator's Reader frame.
 1. **Everyone**: set the GitHub variable `VITE_SW=off` (environment production) and redeploy the viewer (Deploy
    workflow, apps `viewer`). That build registers no worker and unregisters existing ones; its `service-worker.js`
    installs at once on every device that had one (browsers re-check it on load and our hourly check), deletes every
-   `scutoons-*` cache (shell, media, library) and the IndexedDB `scutoons-sw`, and unregisters itself – without a fetch handler, so open pages go straight to the network. Remove the
+   `scutoons-*` cache (shell, media, library, the saved chapters) and the IndexedDB `scutoons-sw`, and unregisters itself – without a fetch handler, so open pages go straight to the network. Remove the
    variable + redeploy to switch it on again. (Tested: worker + caches gone, the page uncontrolled after a reload.)
 2. **Without a build** (CI broken): upload this as `viewer/dist/service-worker.js` by FTP –
    `self.oninstall=()=>self.skipWaiting();self.onactivate=e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n.startsWith('scutoons-')).map(n=>caches.delete(n)))).then(()=>indexedDB.deleteDatabase('scutoons-sw')).then(()=>self.registration.unregister()));`
@@ -123,7 +181,7 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
 | Phase | What | Notes |
 |---|---|---|
 | 2 | **Built** – media cache + library JSON (§2 "Phase 2"); the next-chapter prefetch (LOADING.md L4) will fill it by itself | bunny sends `ACAO: *` – no owner step |
-| 3 | **Save chapter to device** (10.74, DATA.md §6): the assets endpoint, `offline-<toon>-<locale>-c<n>` caches, 206 answers for audio ranges, `storage.persist()` + `estimate()`, membership expiry / 410 re-check deletes gated caches; offline reading progress queued for sync | the account page shows saved chapters + space |
+| 3 | **Built** – save a chapter to the device (§2 "Phase 3"): the files endpoint, one cache per chapter, 206 for ranges, `storage.persist()` + `estimate()`, gated saves deleted when the access ended | open: refresh on a new version, a season, offline progress sync |
 | 4 | Polish: install hint (Android built – §2a; open: the iOS "Share → Add to Home Screen" how-to on the account page), manifest `screenshots` + `shortcuts` (Continue reading), badging, Web Push (needs a server part, iOS only installed), Wake Lock while reading / playing | each one an owner decision |
 
 Data budget: phase 2/3 obey `data-budget.svelte.ts` – tier `none` caches only what the reader looked at, nothing is
@@ -181,6 +239,15 @@ prefetched for the cache; saving a chapter is an explicit tap (the bytes shown f
   an old `scutoons-media-v0`; the three.js chunk stays out of the shell until a page uses it; `VITE_SW=off` → every
   `scutoons-*` cache and the database gone. Lighthouse 12 has no PWA category any more (removed 2024) – it
   runs performance / a11y / best practices only.
+- Phase 3, scripted (2026-10-16, the same setup; the API proxy answers CORS for the test origin so `/api/health`
+  counts): the toon page shows ↓ on chapter 0 and 1, none on the coming-soon 2; saving chapter 1 says "Etwa 17 MB"
+  first, saves 108 files (+ 7 JSON, 3 fonts, 17.0 MB, 6 stand-ins); then the media + library caches deleted, the HTTP
+  cache cleared, the device access removed and the network cut: the chapter opens (no blocker), all 95 slices show, the
+  chapter's music and samples and the key-visual video come from the worker (3 × 206), a 5-minute track plays and seeks
+  to 70 %, the key-visual video plays (900 × 1974), another level's sample is answered by the saved one, the quality
+  probe is not; remove from the row → the cache gone; the prologue offers "Everything 53 MB / Without videos < 1 MB";
+  the account page lists it with the space, "Remove all" empties; an expired device access → the gated chapter 1 is
+  deleted on the next start, the free prologue kept; `VITE_SW=off` → the saved chapters gone with every other cache.
 - iOS: Safari → Add to Home Screen; Safari's Web Inspector (a Mac) for the home-screen app; check the title, the
   icon, the white launch, that a sign-in is needed again (own storage), and the prompt after a deploy.
 - The Claude desktop Browser pane can't register service workers ("unknown error when fetching the script") – use

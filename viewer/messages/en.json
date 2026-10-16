@@ -662,5 +662,28 @@
 		"app_title": "App",
 		"install_app": "Install app",
 		"install_hint": "SCUTOONS on your home screen, opens without the browser bar."
+	},
+	"saved": {
+		"save": "Save to device",
+		"save_title": "Save {chapter} to this device?",
+		"save_message": "About {size} MB. Then it reads without a connection.",
+		"cellular": "You're on mobile data.",
+		"data_saver": "Data saver is on.",
+		"save_confirm": "Save",
+		"with_videos": "Everything · about {size} MB",
+		"without_videos": "Without videos · about {size} MB",
+		"saving": "Saving … {percent} % – tap to stop",
+		"stop_title": "Stop saving {chapter}?",
+		"stop": "Stop",
+		"saved": "Saved on this device – tap to remove",
+		"remove_title": "Remove {chapter} from this device?",
+		"remove_message": "Frees about {size} MB. Online it reads as before.",
+		"remove": "Remove",
+		"failed": "Couldn't save – tap to try again",
+		"title": "Saved chapters",
+		"summary": "{count} on this device · {size} MB",
+		"storage": "SCUTOONS uses {used} MB of the {quota} MB this browser allows.",
+		"remove_all": "Remove all",
+		"remove_all_title": "Remove every saved chapter from this device?"
 	}
 }

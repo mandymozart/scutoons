@@ -32,6 +32,7 @@
 	import { chapterName } from '$lib/utils/chapter-name.ts';
 	import { showDrafts } from '$lib/draft-preview.svelte.ts';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte.ts';
+	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
 
 	let { data }: PageProps = $props();
 	// the next-bar's music link: the season's album (related items; older seasons: download.music)
@@ -306,7 +307,7 @@
 		{/if}
 	</div>
 {:else}
-<MembershipBlocker isPreview={data.chapter.isPreview}>
+<MembershipBlocker isPreview={data.chapter.isPreview} saved={savedChapters.readable(page.params.toonId ?? '', data.chapter.number)}>
 	<!-- data-highlight: how "Show hints" marks the tap areas (the chapter's highlighter – components/toon/fireflies.ts) -->
 	<div class="chapter-view" data-highlight={data.chapter.highlight ?? 'fireflies'} use:audio={data.chapter.audio} {@attach trackReading(spot)}>
 		<!-- another chain, another group of it (`?label=` – also a jump back into the same chain) or another chapter starts

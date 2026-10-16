@@ -12,9 +12,12 @@
 
 	let {
 		isPreview = false,
+		saved = false,
 		children
 	}: {
 		isPreview?: boolean;
+		/** saved to this device with an access that hasn't ended (PWA phase 3 – offline the session can't say) */
+		saved?: boolean;
 		children: Snippet;
 	} = $props();
 
@@ -22,7 +25,7 @@
 	const session = getSessionContext();
 	const itemsUi = getItemsUiContext();
 
-	const shouldShowContent = $derived(isPreview || membership.isValid);
+	const shouldShowContent = $derived(isPreview || saved || membership.isValid);
 	// don't flash the blocker while a stored session is still loading /me/
 	const loading = $derived(session.pending);
 

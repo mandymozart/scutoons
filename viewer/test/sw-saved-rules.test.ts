@@ -1,0 +1,157 @@
+// "Save chapter to device" (lib/sw/saved-rules.ts, agents/research/PWA.md §2 "Phase 3"): the files per quality level,
+// the stand-ins between levels, the size shown first, the data policy, Range answers, the access rules.
+//   npm test -w viewer
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+	accessEnded,
+	accessUntilOf,
+	aliasesFor,
+	dataWarnings,
+	documentUrls,
+	filesFor,
+	isSavedCacheName,
+	isSavedDocRequest,
+	isStaleSavedCacheName,
+	maySaveStreamed,
+	offerWithoutVideos,
+	parseRange,
+	planSave,
+	roundMb,
+	savedCacheName,
+	savedReadable,
+	toPurge,
+	type ChapterFile
+} from '../src/lib/sw/saved-rules.ts';
+
+const MB = 1024 * 1024;
+const FILES: ChapterFile[] = [
+	{ path: 't/s1/one.webp', size: 100, kind: 'image', levels: ['low'], group: 0 },
+	{ path: 't/s1/one@2x.webp', size: 200, kind: 'image', levels: ['medium'], group: 0 },
+	{ path: 't/s1/one@3x.webp', size: 300, kind: 'image', levels: ['high'], group: 0 },
+	{ path: 't/s1/two.webp', size: 50, kind: 'image' },
+	{ path: 't/s1/m.96.mp3', size: 1 * MB, kind: 'audio', levels: ['low', 'medium'], group: 1 },
+	{ path: 't/s1/m.320.mp3', size: 3 * MB, kind: 'audio', levels: ['high'], group: 1 },
+	{ path: 't/s1/v.480p.mp4', size: 4 * MB, kind: 'video', levels: ['low'], group: 2 },
+	{ path: 't/s1/v.720p.mp4', size: 12 * MB, kind: 'video', levels: ['medium', 'high'], group: 2 },
+	{ path: 't/s1/unknown.mp3', size: null, kind: 'audio' }
+];
+
+test('cache names: one per chapter and version; never a phase 2 cache', () => {
+	assert.equal(savedCacheName('catpope', 1), 'scutoons-chapter-catpope-1-v1');
+	assert.ok(isSavedCacheName('scutoons-chapter-catpope-1-v1'));
+	for (const other of ['scutoons-media-v1', 'scutoons-library-v1', 'scutoons-shell-0.1.0-abc']) assert.ok(!isSavedCacheName(other), other);
+	assert.ok(isStaleSavedCacheName('scutoons-chapter-catpope-1-v0'));
+	assert.ok(!isStaleSavedCacheName('scutoons-chapter-catpope-1-v1'));
+});
+
+test('the files of a level: its variants + what every level uses; without videos on request', () => {
+	assert.deepEqual(filesFor(FILES, 'low').map((f) => f.path), ['t/s1/one.webp', 't/s1/two.webp', 't/s1/m.96.mp3', 't/s1/v.480p.mp4', 't/s1/unknown.mp3']);
+	assert.deepEqual(filesFor(FILES, 'high').map((f) => f.path), ['t/s1/one@3x.webp', 't/s1/two.webp', 't/s1/m.320.mp3', 't/s1/v.720p.mp4', 't/s1/unknown.mp3']);
+	assert.ok(!filesFor(FILES, 'medium', false).some((f) => f.kind === 'video'));
+});
+
+test('the size before a byte moves: registry sizes, unknown ones estimated; the "without videos" offer', () => {
+	const medium = planSave(FILES, 'medium');
+	assert.equal(medium.bytes, 200 + 50 + 1 * MB + 12 * MB + 2 * MB);
+	assert.equal(medium.videoBytes, 12 * MB);
+	assert.ok(offerWithoutVideos(medium), '12 MB of videos in 15 MB');
+	const lean = planSave(FILES, 'medium', false);
+	assert.equal(lean.bytes, 200 + 50 + 1 * MB + 2 * MB);
+	assert.equal(lean.videoBytes, 12 * MB, 'what leaving them out saves');
+	assert.ok(!offerWithoutVideos(planSave(FILES, 'low')), '4 MB of videos: no offer');
+	assert.equal(roundMb(18.4 * MB), '18');
+	assert.equal(roundMb(2.26 * MB), '2.3');
+	assert.equal(roundMb(300 * 1024), '< 1');
+});
+
+test('stand-ins: another level of a saved media answers with the saved file; unsaved media none', () => {
+	const saved = filesFor(FILES, 'medium');
+	assert.deepEqual(aliasesFor(FILES, saved), {
+		't/s1/one.webp': 't/s1/one@2x.webp',
+		't/s1/one@3x.webp': 't/s1/one@2x.webp',
+		't/s1/m.320.mp3': 't/s1/m.96.mp3',
+		't/s1/v.480p.mp4': 't/s1/v.720p.mp4'
+	});
+	const lean = filesFor(FILES, 'medium', false);
+	assert.ok(!('t/s1/v.480p.mp4' in aliasesFor(FILES, lean)), 'saved without videos: the video stays online-only');
+});
+
+test('the data policy: mobile data warned from 20 MB, data saver always said', () => {
+	assert.deepEqual(dataWarnings(25 * MB, { type: 'cellular' }), { saveData: false, cellular: true });
+	assert.deepEqual(dataWarnings(5 * MB, { type: 'cellular' }), { saveData: false, cellular: false });
+	assert.deepEqual(dataWarnings(25 * MB, { type: 'wifi' }), { saveData: false, cellular: false });
+	assert.deepEqual(dataWarnings(1 * MB, { saveData: true }), { saveData: true, cellular: false });
+	assert.deepEqual(dataWarnings(25 * MB, undefined), { saveData: false, cellular: false });
+});
+
+test('the documents a saved chapter opens with: exactly the app\'s public library / catalog URLs', () => {
+	assert.deepEqual(documentUrls('https://api.scutoons.com/api/', 'catpope', 1, 'de'), [
+		'https://api.scutoons.com/api/library/toons/catpope/chapters/1?locale=de',
+		'https://api.scutoons.com/api/library/toons/catpope?locale=de',
+		'https://api.scutoons.com/api/library/toons/catpope/cast',
+		'https://api.scutoons.com/api/library/toons/catpope/credits',
+		'https://api.scutoons.com/api/library/toons?locale=de',
+		'https://api.scutoons.com/api/items/',
+		'https://api.scutoons.com/api/editions/'
+	]);
+	const API = 'https://api.scutoons.com/api';
+	const req = (url: string, headers: Record<string, string> = {}, credentials = 'same-origin') => ({ url, method: 'GET', credentials, headers: new Headers(headers) });
+	assert.ok(isSavedDocRequest(req(`${API}/items/`), API));
+	assert.ok(isSavedDocRequest(req(`${API}/editions/`), API));
+	assert.ok(!isSavedDocRequest(req(`${API}/items/`, { Authorization: 'Bearer x' }), API), 'never with a session');
+	assert.ok(!isSavedDocRequest(req(`${API}/items/`, { 'X-Device-Id': 'd' }), API));
+	assert.ok(!isSavedDocRequest(req(`${API}/items/`, {}, 'include'), API));
+	assert.ok(!isSavedDocRequest(req(`${API}/inventory/`), API));
+	assert.ok(!isSavedDocRequest(req(`${API}/items/?x=1`), API));
+});
+
+test('streamed files a saved chapter may hold before the index is read: audio, video, fonts on the CDN', () => {
+	const CDN = 'https://cdn.scutoons.com';
+	assert.ok(maySaveStreamed(new URL(`${CDN}/catpope/s1/c1/a.128.mp3`), CDN));
+	assert.ok(maySaveStreamed(new URL(`${CDN}/catpope/s1/c1/kv.900w.mp4`), CDN));
+	assert.ok(maySaveStreamed(new URL(`${CDN}/scutoons/fonts/x.woff2`), CDN));
+	assert.ok(!maySaveStreamed(new URL(`${CDN}/catpope/s1/c1/a.webp`), CDN), 'images: the media cache path');
+	assert.ok(!maySaveStreamed(new URL(`${CDN}/vault/a.mp3?token=x&expires=1`), CDN), 'signed URLs never');
+	assert.ok(!maySaveStreamed(new URL('https://vault.example/a.mp3'), CDN));
+});
+
+test('Range: one range from the whole file (206), suffix and open ranges, 416 past the end', () => {
+	assert.equal(parseRange(null, 1000), null);
+	assert.deepEqual(parseRange('bytes=0-', 1000), { start: 0, end: 999 });
+	assert.deepEqual(parseRange('bytes=0-1', 1000), { start: 0, end: 1 });
+	assert.deepEqual(parseRange('bytes=500-2000', 1000), { start: 500, end: 999 }, 'clamped to the file');
+	assert.deepEqual(parseRange('bytes=-100', 1000), { start: 900, end: 999 });
+	assert.deepEqual(parseRange('bytes=-5000', 1000), { start: 0, end: 999 });
+	assert.equal(parseRange('bytes=1000-', 1000), 'unsatisfiable');
+	assert.equal(parseRange('bytes=5-2', 1000), 'unsatisfiable');
+	assert.equal(parseRange('bytes=0-1,5-9', 1000), null, 'multi-range: the whole file');
+	assert.equal(parseRange('items=0-1', 1000), null);
+});
+
+test('access: free chapters always; gated ones until the access end they were saved with', () => {
+	const now = Date.parse('2026-10-16T12:00:00Z');
+	assert.ok(accessEnded('2026-10-01 00:00:00', now));
+	assert.ok(!accessEnded('2027-01-01T00:00:00Z', now));
+	assert.ok(!accessEnded(null, now));
+	assert.ok(savedReadable({ gated: false, accessUntil: '2020-01-01 00:00:00' }, now));
+	assert.ok(savedReadable({ gated: true, accessUntil: null }, now));
+	assert.ok(!savedReadable({ gated: true, accessUntil: '2026-10-01 00:00:00' }, now));
+	assert.equal(accessUntilOf([]), null);
+	assert.equal(accessUntilOf(['2026-12-01 00:00:00', null]), null, 'a grant without an end');
+	assert.equal(accessUntilOf(['2026-12-01 00:00:00', '2027-02-01T00:00:00Z']), '2027-02-01T00:00:00Z', 'the latest');
+});
+
+test('purge on start: by the known access, offline by the saved end; free chapters never', () => {
+	const now = Date.parse('2026-10-16T12:00:00Z');
+	const saved = [
+		{ id: 'free', gated: false, accessUntil: null },
+		{ id: 'open', gated: true, accessUntil: null },
+		{ id: 'ended', gated: true, accessUntil: '2026-10-01 00:00:00' },
+		{ id: 'later', gated: true, accessUntil: '2027-01-01 00:00:00' }
+	];
+	const ids = (list: { id: string }[]) => list.map((m) => m.id);
+	assert.deepEqual(ids(toPurge(saved, { known: true, valid: false }, now)), ['open', 'ended', 'later'], 'access ended: every gated save');
+	assert.deepEqual(ids(toPurge(saved, { known: true, valid: true }, now)), [], 'renewed: kept, even past the saved end');
+	assert.deepEqual(ids(toPurge(saved, { known: false, valid: false }, now)), ['ended'], 'offline: the saved end decides');
+});

@@ -236,6 +236,7 @@ return static function (App $app): void {
     $app->get('/api/library/toons/{toon}', [LibraryController::class, 'toon']);
     $app->get('/api/library/toons/{toon}/seasons/{number:[0-9]{1,6}}', [LibraryController::class, 'season']);
     $app->get('/api/library/toons/{toon}/chapters/{number:[0-9]{1,6}}', [LibraryController::class, 'chapter']);
+    $app->get('/api/library/toons/{toon}/chapters/{number:[0-9]{1,6}}/files', [LibraryController::class, 'files']);
     $app->get('/api/library/toons/{toon}/cast', [LibraryController::class, 'cast']);
     $app->get('/api/library/toons/{toon}/credits', [LibraryController::class, 'credits']);
     $app->get('/api/library/characters', [LibraryController::class, 'characters']);

@@ -27,6 +27,9 @@
 	import { pwa } from '$lib/pwa.svelte.ts';
 	import InstallPrompt from '$lib/components/install-prompt.svelte';
 	import { install } from '$lib/install.svelte.ts';
+	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
+	import { API_URL } from '$lib/config.ts';
+	import { accessUntilOf } from '$lib/sw/saved-rules.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -65,11 +68,13 @@
 		void pwa.init();
 		// "Install SCUTOONS as an app" (Android / Chromium): counts the visit, offers it from the 2nd one
 		install.init();
+		// chapters saved to this device (PWA phase 3)
+		savedChapters.init();
 		// the effect sounds' routing + this device's volume / vibration (agents/FX.md)
 		fxSettings.init();
 
 		// device access from a scanned code (+ silent legacy migration, periodic re-check)
-		membership.init();
+		const membershipChecked = membership.init();
 		inventory.init();
 
 		const params = page.url.searchParams;
@@ -106,6 +111,20 @@
 			itemsUi.openClaim(code, addToAccount, dispute);
 		}
 		if (visit && /^[A-Za-z0-9_-]{16,64}$/.test(visit)) homes.openVisit(visit);
+
+		// saved chapters whose access ended go (PWA phase 3): the access counts as known only when the API answered and
+		// the session loaded without an error – offline, each keeps the access end it was saved with
+		await membershipChecked;
+		await savedChapters.refresh();
+		if (savedChapters.list.some((saved) => saved.gated)) {
+			const reachable = await fetch(`${API_URL}/health`, { cache: 'no-store', credentials: 'omit' }).then((r) => r.ok, () => false);
+			const known = reachable && session.ready && !session.error && (!session.isLoggedIn || !!session.me);
+			const grants = [
+				...(membership.deviceValid ? [membership.device?.expires_at ?? null] : []),
+				...(session.hasAccess ? [session.me?.access?.expires_at ?? null] : [])
+			];
+			await savedChapters.checkAccess({ known, valid: membership.isValid, until: accessUntilOf(grants) });
+		}
 	});
 </script>
 

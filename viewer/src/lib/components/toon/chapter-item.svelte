@@ -10,6 +10,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
+	import SaveChapter from './save-chapter.svelte';
 
 	let {
 		chapter,
@@ -87,6 +88,8 @@
 	</div>
 	<div class="chapter-number" data-testid="chapter-number">
 		{#if isPrologue(chapter.number)}<span class="chapter-label">{m['chapter.prologue']()}</span>{:else}{isPublic ? ' ' : ''}#{chapterShownNumber(chapter.number) ?? chapter.number}{/if}
+		<!-- save to device (PWA phase 3): only with a service worker, for chapters the reader may read -->
+		<SaveChapter {toonId} {chapter} />
 	</div>
 </div>
 
@@ -146,6 +149,7 @@
 		justify-content: space-between;
 		display: flex;
 		align-items: center;
+		gap: 0.5rem;
 	}
 
 	/* a word instead of "#n" (the prologue): caption size, so it fits the number column on a phone */

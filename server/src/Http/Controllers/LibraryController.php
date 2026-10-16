@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Library\Answer;
+use Scutoons\Domain\Library\ChapterFiles;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
@@ -18,6 +19,8 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/toons/{toon}?locale=                { entry, toon, seasons, locations, routes }
  *   GET /api/library/toons/{toon}/seasons/{n}?locale=    SeasonOverview
  *   GET /api/library/toons/{toon}/chapters/{n}?locale=   Chapter with its scenes inlined
+ *   GET /api/library/toons/{toon}/chapters/{n}/files?locale=  the chapter's media with sizes + levels (ChapterFiles,
+ *                                                        "save to device", research/PWA.md phase 3)
  *   GET /api/library/toons/{toon}/cast[?chapter=]        { registry, cast }
  *   GET /api/library/toons/{toon}/credits                { credits, people, roles }
  *   GET /api/library/characters                          CharacterRegistry (the whole registry)
@@ -31,8 +34,12 @@ final class LibraryController
 {
     private const EXPOSE = 'ETag, Content-Language, X-Content-Fallback, X-Content-Missing';
 
-    public function __construct(private readonly Library $library, private readonly Roles $roles, private readonly Cors $cors)
-    {
+    public function __construct(
+        private readonly Library $library,
+        private readonly Roles $roles,
+        private readonly Cors $cors,
+        private readonly ChapterFiles $files,
+    ) {
     }
 
     public function toons(Request $request, Response $response): Response
@@ -59,6 +66,17 @@ final class LibraryController
     {
         $locale = $this->locale($request);
         return $this->send($request, $response, $this->library->chapter($args['toon'], (int) $args['number'], $locale, $this->draft($request)));
+    }
+
+    /**
+     * The files to save a chapter to the device (published chapters only – no draft mode; ChapterFiles)
+     * @param array{toon: string, number: string} $args
+     */
+    public function files(Request $request, Response $response, array $args): Response
+    {
+        $files = $this->files->of($args['toon'], (int) $args['number'], $this->locale($request));
+        $body = (string) json_encode($files, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return $this->send($request, $response, new Answer($body, '"f' . substr(sha1($body), 0, 24) . '"', false, $files['locale']));
     }
 
     /** @param array{toon: string} $args */

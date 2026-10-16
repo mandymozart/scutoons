@@ -353,7 +353,8 @@ history row, note "warning accepted", undo takes it back). The server never serv
 ## 6. PWA concept
 
 Built: phase 1 – the app-shell service worker, manifest, update prompt, kill switch; phase 2 – CDN images (LRU per data
-tier) + public library JSON in the worker (research/PWA.md §2). The rest below is the design for phase 3.
+tier) + public library JSON in the worker; phase 3 – save a chapter to the device (research/PWA.md §2 "Phase 3").
+Smart preloading: research/LOADING.md.
 
 - **Service Worker** (SvelteKit `src/service-worker.ts`): app build + fonts precached per build version (cache-first,
   old caches dropped on `activate`); library JSON stale-while-revalidate with the ETag; slices/posters/portraits
@@ -362,11 +363,16 @@ tier) + public library JSON in the worker (research/PWA.md §2). The rest below 
 - **Smart preloading** (idle time, not with `saveData` / 2G): after the first 2 slices + audio start → the next chapter
   (library), its first 3 slices, and the portraits of characters joining in the next scenes (inlined groups +
   `resolveExpression`).
-- **Save to device** (chapter or season): a future `GET /library/toons/<t>/chapters/<n>/assets?locale=` lists every
-  media path with sizes → the SW fills `offline-<toon>-<locale>-c<n>`, IndexedDB keeps fingerprint/bytes/saved_at;
-  `storage.estimate()` + `storage.persist()` first; a new ETag downloads only changed paths; remove per chapter/season.
-- **Membership**: saving only for chapters the device may read; the SW keeps the access `expires_at` and stops serving
-  gated offline content after it or after a `410` on the 6-hourly `/access/` re-check (gated caches deleted).
+- **Save to device** (per chapter, built): `GET /library/toons/<t>/chapters/<n>/files?locale=` lists every media path
+  with its registry size and the quality levels that play it (server/docs/API.md "Library") → the page fills
+  `scutoons-chapter-<toon>-<n>-v1` (the media at the reader's level, the chapter / toon / cast / toons / credits JSON,
+  the item catalog, the fonts) and writes a manifest last (level, bytes, URLs, stand-ins for the other levels, version
+  = the chapter's ETag, `gated`, `accessUntil`); `storage.persist()` on the first save, `storage.estimate()` on the
+  account page; remove per chapter or all. Open: a new version → refresh only the changed paths; a whole season.
+- **Membership**: saving only for chapters the reader may read (a free preview, or device / account access); a gated
+  save keeps the access end it was saved with (offline reading until then, also without a session); on a start with
+  the access known (API reachable, session loaded) a reader without access loses the gated saves, with access they get
+  the current end; offline the saved end decides.
 
 ## 7. Phases, release, risks
 
