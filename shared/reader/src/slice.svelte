@@ -18,7 +18,7 @@
 	 *
 	 * Placed items (`slice.items`) and text boxes are ONE layer stack above the image (`SliceLayers`, their `layer`;
 	 * none = items under the text boxes); items are drawn once the app resolves their icons (`itemInfo`); `itemHidden` /
-	 * `onitemtap` are the app's (what the reader took, what a tap does). Click / hover areas (events with a rect, samples
+	 * `itemSpent` / `onitemtap` are the app's (what the reader took, what they can't take, what a tap does). Click / hover areas (events with a rect, samples
 	 * with an area – BACKLOG 10.54) join that stack when the app passes `area` (it draws one area per call, in the
 	 * stack's order); without it the app draws them in `before` (the old way: under the stack in paint order).
 	 *
@@ -42,6 +42,7 @@
 		skippable = false,
 		itemInfo,
 		itemHidden,
+		itemSpent,
 		onitemtap,
 		onitemidle,
 		dialogHidden,
@@ -78,6 +79,8 @@
 		itemInfo?: ResolveSliceItem;
 		/** a placed item the reader already took (not drawn) */
 		itemHidden?: (item: SliceItem) => boolean;
+		/** a pickup the reader can't take (any more): drawn and tappable, without the tap hint and the nudge */
+		itemSpent?: (item: SliceItem) => boolean;
 		/** a tap on a placed item whose `action` isn't `none` */
 		onitemtap?: ComponentProps<typeof SliceLayers>['ontap'];
 		/** a tappable item untouched on screen for a while (the app nudges – agents/FX.md) */
@@ -145,6 +148,7 @@
 		{expressions}
 		resolve={itemInfo}
 		{itemHidden}
+		spent={itemSpent}
 		ontap={onitemtap}
 		onidle={onitemidle}
 		events={area ? slice.events : undefined}

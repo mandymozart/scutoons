@@ -876,6 +876,7 @@ The Check It camera needs nothing extra on deploy (catalog + viewer): it is craf
 **Built:**
 - **Collection limit:** at most **99 of any item per account** (`MAX_PER_ACCOUNT`, server `InventoryService::MAX_PER_ACCOUNT`).
   An item can set less with `max` (catalog). The server refuses more with 409 `max_reached` (grant and craft output);
+  furniture standing in a home doesn't count (server `count`, the reader's `inventory.carried`);
   `add` caps silently (imports). A claimed physical product (QR code) is always added. Guests are capped locally.
 - **Camera cooldown:** cucumber camera `cooldown_s: 60` (owner: "1 minute and we are cool").
 - **Daily limit:** `per_day` on a `scan_object` skill = scan grants of that item per account in 24 h (cucumber camera
@@ -1373,6 +1374,18 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   `vn:<item>:<page>#<slice image>#<placement id>`; no story variable since 2026-10-07 – BACKLOG 10.38) – the catalog's rules apply
   (grantable story, max count, the server's once-per-ref); on success the game state gets `picked:<slice image>#<id>`
   (synced with a member's progress) and the item is gone from the slice for that reader; on a refusal it stays.
+  - **Can't take it (owner 2026-10-16: "I am not supposed to be picking up items that I already have or are
+    limited")** – `viewer/src/lib/visual-novel/pickup-rules.ts` (pure, `viewer/test/pickup-rules.test.ts`) +
+    `pickupBlockOf` in slice-items.ts. Blocked = not grantable by a story · the collection limit reached (`carried`:
+    the pieces outside homes, the server's count – placed furniture doesn't count) · **held**: the server had granted
+    this ref before (`granted: 0` – taken on another device or before a save-game reset; this used to hide the item
+    without anything coming into the bag) · the world limit (`taken`, remembered for the page view). A blocked pickup
+    stays on the slice as art: no glow, no "Show hints" contour, no nudge (`SliceItem` `spent`, via `Slice.itemSpent`);
+    a tap shakes it (`refuseCue`, no lift, no request) and the notice says why. Held is stored in the same game
+    variable: `picked:…` = `held` (once) / `held@<period>` (respawning; the next period offers it again; `visit`: in
+    memory). Transient refusals (rate limits, cooldown, offline, a server `max_reached` the device didn't see) only
+    shake – it stays offered. Open (owner): should a held / maxed pickup rather be hidden? Least surprising chosen:
+    the art stays as drawn, it just stops inviting. `npm run check:fx` step 4b.
   `events` = the placement's VN events run like a click trigger's (`EventProcessor`), `once` per page view by default.
 - Creator: slice inspector tab "Layers" (since 10.43; was "Items" + "Text boxes"): one single-line row per text box /
   placed item, the top row in front – grip ⋮⋮ (the shared Sortable: drag, or Alt+↑ / ↓), the item's icon (a text box: a
@@ -1387,9 +1400,10 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   - (replaced in round 3 by "Respawn" below)
   - A refused pickup shows a reader notice (items host, kind `refused`): max reached "Du hast schon genug davon." /
     "You already have enough of these.", not grantable, already taken (the server granted 0 for this ref, e.g. taken on
-    another device), rate limited / cooldown, failed (offline). `inventory.grant` now reports `granted` and can stay quiet
+    another device – it stays, "Can't take it" above), rate limited / cooldown, failed (offline). `inventory.grant` now reports `granted` and can stay quiet
     on 0 (`quietWhenNone`).
-  - A slight hint on tappable placed items (`action` ≠ none): a slow glow (3.2 s) – static with reduced motion.
+  - A slight hint on tappable placed items (`action` ≠ none): a slow glow (3.2 s) – static with reduced motion; none
+    on a pickup the reader can't take.
 - **Respawn (round 3, owner 2026-10-03: "per item when they reappear, if they do … both: item, and an override within
   the range the item allows")** – `@scutoons/content` respawn.ts, server `Domain\Catalog\ItemRespawn`:
   - Interval = `"visit"` (every visit / reload) or `{ minutes | hours | days: n }` – the one recurrence model of items

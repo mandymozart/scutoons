@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { fromAction } from 'svelte/attachments';
 	import { hasSliceLayers, hidesSensitive, isAreaTrigger, isSensitive, pickQualityVariant, sanitizeNumber, Trigger, type Dialog, type Slice as SliceModel, type SliceItem, type SliceLayerRef } from '@scutoons/content';
-	import { Slice, liftCue, nudgeCue, sliceAudio, type DialogPlay, type PlayerLabels, type ResolveSliceItem, type Shape } from '@scutoons/reader';
+	import { Slice, liftCue, nudgeCue, refuseCue, sliceAudio, type DialogPlay, type PlayerLabels, type ResolveSliceItem, type Shape } from '@scutoons/reader';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
-	import { isTaken, markNudged, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
+	import { isTaken, markNudged, pickUpSliceItem, pickupBlockOf, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
 	import { idsOf, isRunDue, recordRun, type RunMemory } from '$lib/visual-novel/repeat.ts';
 	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
@@ -165,11 +165,23 @@
 		void taken;
 		return item.action === 'pickup' ? isTaken(slice, item, game) : false;
 	};
+	/** a pickup this reader can't take (any more): it stays as art – no hint, no nudge (slice-items.ts pickupBlockOf) */
+	const itemSpent = (item: SliceItem) => {
+		void taken;
+		return item.action === 'pickup' && !!pickupBlockOf(slice, item, game);
+	};
 	/** how often a placement's tap events run: its `repeat` over the reader's history (visual-novel/repeat.ts) */
 	const tapMemory = new Map<string, RunMemory>();
 	async function onItemTap(item: SliceItem, _index: number, el: HTMLElement) {
 		if (!game) return;
 		if (item.action === 'pickup') {
+			// can't take it (the limit, taken before …): no lift – it shakes and the reader is told why (owner 2026-10-16)
+			const blocked = pickupBlockOf(slice, item, game);
+			if (blocked) {
+				refuseCue(el, item.rotation ?? 0);
+				getCurrentInventory()?.refused(item.item, blocked);
+				return;
+			}
 			// agents/FX.md: it jumps up at once, then flies into the bag (the inventory button) or shakes and stays
 			const lift = liftCue(el, item.rotation ?? 0);
 			// the bag must be on screen before the item flies into it (the top row may be hidden – lib/chrome.ts)
@@ -197,7 +209,7 @@
 
 	/** "you can tap me" (agents/FX.md): an untouched tappable item wiggles – one per slice and page view */
 	function onItemIdle(item: SliceItem, _index: number, el: HTMLElement, shape: Shape | null) {
-		if (blurred || !markNudged(slice.image)) return;
+		if (blurred || (item.action === 'pickup' && pickupBlockOf(slice, item, game)) || !markNudged(slice.image)) return;
 		nudgeCue(el, item.rotation ?? 0, shape);
 	}
 
@@ -255,6 +267,7 @@
 	{lang}
 	{itemInfo}
 	{itemHidden}
+	{itemSpent}
 	onitemtap={onItemTap}
 	onitemidle={onItemIdle}
 	{dialogHidden}

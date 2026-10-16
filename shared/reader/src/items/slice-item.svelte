@@ -19,7 +19,9 @@
 	/**
 	 * One catalog item placed on a slice (`Slice.items[index]`): the item's cut-out icon at its rect, rotated around its
 	 * centre, inside the slice's layer stack (`SliceLayers`). With `ontap` and an `action` other than `none` it is a
-	 * button, else just art. The app resolves the icon (`info`).
+	 * button, else just art. The app resolves the icon (`info`). `spent` = a pickup the reader can't take (the limit
+	 * reached, taken before – agents/ITEMS.md "Can't take it"): still a button (a tap says why), but without the tap
+	 * hint, the "Show hints" contour and the nudge.
 	 *
 	 * Its shape (agents/FX.md): a tap on a transparent pixel of the cut-out misses (0.5rem tolerance; an icon whose
 	 * alpha can't be read counts as its box). `ontap` gets the element and the shape for the app's cues; `onidle` fires
@@ -29,12 +31,14 @@
 		item,
 		index,
 		info,
+		spent = false,
 		ontap,
 		onidle
 	}: {
 		item: SliceItem;
 		index: number;
 		info: SliceItemInfo;
+		spent?: boolean;
 		ontap?: (item: SliceItem, index: number, el: HTMLElement, shape: Shape | null) => void;
 		onidle?: (item: SliceItem, index: number, el: HTMLElement, shape: Shape | null) => void;
 	} = $props();
@@ -54,7 +58,7 @@
 	const IDLE_MS = 4000;
 	$effect(() => {
 		const el = button;
-		if (!el || !onidle || typeof IntersectionObserver === 'undefined') return;
+		if (!el || !onidle || spent || typeof IntersectionObserver === 'undefined') return;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const observer = new IntersectionObserver(
 			([entry]) => {
@@ -90,6 +94,7 @@
 	<button
 		type="button"
 		class="slice-item tappable"
+		class:spent
 		data-item={item.item}
 		data-index={index}
 		style:left="{item.rect.x}%"
@@ -194,7 +199,7 @@
 	}
 
 	/* "Show hints" (account): the contour of the cut-out, not its box (agents/FX.md) */
-	:global(html.sc-show-hints) .tappable img {
+	:global(html.sc-show-hints) .tappable:not(.spent) img {
 		animation: none;
 		filter: drop-shadow(1px 0 0 #00d1ff) drop-shadow(-1px 0 0 #00d1ff) drop-shadow(0 1px 0 #00d1ff) drop-shadow(0 -1px 0 #00d1ff)
 			drop-shadow(0 0 0.35em rgba(0, 209, 255, 0.6));
@@ -205,5 +210,15 @@
 			animation: none;
 			filter: drop-shadow(0 0 0.12em rgba(0, 0, 0, 0.3)) drop-shadow(0 0 0.35em rgba(255, 255, 255, 0.85));
 		}
+	}
+
+	/* a pickup the reader can't take (any more): just the art – no hint; a tap still says why */
+	.tappable.spent {
+		cursor: default;
+	}
+
+	.tappable.spent img {
+		animation: none;
+		filter: none;
 	}
 </style>

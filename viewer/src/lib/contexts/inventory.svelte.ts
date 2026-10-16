@@ -506,6 +506,11 @@ export function createInventoryContext(session: SessionContext) {
 		return entries.filter((e) => e.item_id === item_id).reduce((sum, e) => sum + e.qty, 0);
 	}
 
+	/** the pieces the reader carries – not furniture standing in a home (the server's collection-limit count) */
+	function carried(item_id: string): number {
+		return entries.filter((e) => e.item_id === item_id && !e.home).reduce((sum, e) => sum + e.qty, 0);
+	}
+
 	function editionTotal(item_id: string): number | null {
 		const def = item(item_id);
 		return def?.edition_id ? (editionCounts[def.edition_id] ?? null) : null;
@@ -703,7 +708,7 @@ export function createInventoryContext(session: SessionContext) {
 	): Promise<{ ok: boolean; error?: string; granted?: number }> {
 		const def = item(item_id);
 		if (!def || !def.grantable?.includes(source) || qty <= 0) return { ok: false, error: 'not_grantable' };
-		if (count(item_id) >= maxOf(def)) return { ok: false, error: 'max_reached' };
+		if (carried(item_id) >= maxOf(def)) return { ok: false, error: 'max_reached' };
 		let granted = qty;
 		if (isAccount) {
 			try {
@@ -1072,6 +1077,7 @@ export function createInventoryContext(session: SessionContext) {
 		letteringOf,
 		nameOf,
 		count,
+		carried,
 		editionTotal,
 		canCraft,
 		recipesFor,

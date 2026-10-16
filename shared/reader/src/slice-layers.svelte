@@ -14,7 +14,7 @@
 	 *
 	 * Text boxes: `lang` (hyphenation), `hidden` (a showTextBox event reveals it later), `play` (being revealed now),
 	 * `expressions` (the reader's answers for `{…}`). Placed items: `resolve` gives the icon (no catalog yet = items not
-	 * drawn), `itemHidden` what the reader took, `ontap` what a tap does.
+	 * drawn), `itemHidden` what the reader took, `spent` a pickup they can't take (no hint, no nudge), `ontap` what a tap does.
 	 */
 	let {
 		dialogs,
@@ -25,6 +25,7 @@
 		expressions,
 		resolve,
 		itemHidden,
+		spent,
 		ontap,
 		onidle,
 		events,
@@ -39,6 +40,7 @@
 		expressions?: TextExpressions;
 		resolve?: ResolveSliceItem;
 		itemHidden?: (item: SliceItemModel) => boolean;
+		spent?: (item: SliceItemModel) => boolean;
 		ontap?: ComponentProps<typeof SliceItem>['ontap'];
 		/** a tappable item untouched on screen for a while (the app's nudge) */
 		onidle?: ComponentProps<typeof SliceItem>['onidle'];
@@ -65,7 +67,7 @@
 				{@const item = items![ref.index]}
 				{@const info = item?.rect && resolve ? resolve(item) : null}
 				{#if info && !itemHidden?.(item)}
-					<SliceItem {item} index={ref.index} {info} {ontap} {onidle} />
+					<SliceItem {item} index={ref.index} {info} spent={!!spent?.(item)} {ontap} {onidle} />
 				{/if}
 			{:else if area}
 				{@render area(ref)}

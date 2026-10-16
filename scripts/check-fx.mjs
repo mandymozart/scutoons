@@ -6,6 +6,8 @@
 //   3. collect: a tap lifts it, it flies through the viewport layer into the inventory button, the layer empties,
 //      one pickup less, the "+1" notice; the page never gets wider than the viewport
 //   4. refuse: the grant answers max_reached (faked) – the item shakes and stays, the notice says why
+//   4b. held: the grant answers granted 0 (faked: the server had this ref – owner 2026-10-16, it used to vanish) – the
+//      item stays, without the tap hint (`.spent`), the notice says why; a second tap shakes without asking the server
 //   5. account page: "Sound effects" volume + "Vibration", kept on this device
 //   6. text box entrances: catpope chapter 2's tap reveal on slice 24 (shiver in the content) is rewritten in the API's
 //      answer to pop / slam / fade / typeOn – the box comes in, slam shakes the slice, the page never gets wider
@@ -59,6 +61,9 @@ for (let i = 0; i < 50 && !ws; i++) {
 await new Promise((r) => ws.addEventListener('open', r));
 let seq = 0; const pending = new Map(); let lastNet = Date.now();
 let refuseGrants = false;
+/** step 4b: the server answers "granted 0" (it had this ref already); grant POSTs counted */
+let heldGrants = false;
+let grantPosts = 0;
 /** step 6: the chapter's answer with this effect on the reveal of s1c2-24-2 */
 let rewriteEffect = null;
 const send = (method, params = {}) => new Promise((r) => { const i = ++seq; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
@@ -84,7 +89,10 @@ ws.addEventListener('message', (e) => {
 	if (m.method === 'Fetch.requestPaused') {
 		const { requestId, request } = m.params;
 		const cors = [{ name: 'Access-Control-Allow-Origin', value: viewer }, { name: 'Access-Control-Allow-Credentials', value: 'true' }, { name: 'Access-Control-Allow-Headers', value: 'Authorization, Content-Type' }, { name: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT' }, { name: 'Content-Type', value: 'application/json' }];
-		if (refuseGrants && request.method === 'POST') send('Fetch.fulfillRequest', { requestId, responseCode: 422, responseHeaders: cors, body: Buffer.from(JSON.stringify({ error: 'max_reached', message: 'max reached' })).toString('base64') });
+		if (request.method === 'POST') grantPosts++;
+		if (heldGrants && request.method === 'POST') send('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: cors, body: Buffer.from(JSON.stringify({ status: 'success', granted: 0 })).toString('base64') });
+		else if (heldGrants && request.method === 'OPTIONS') send('Fetch.fulfillRequest', { requestId, responseCode: 204, responseHeaders: cors });
+		else if (refuseGrants && request.method === 'POST') send('Fetch.fulfillRequest', { requestId, responseCode: 422, responseHeaders: cors, body: Buffer.from(JSON.stringify({ error: 'max_reached', message: 'max reached' })).toString('base64') });
 		else if (refuseGrants && request.method === 'OPTIONS') send('Fetch.fulfillRequest', { requestId, responseCode: 204, responseHeaders: cors });
 		else send('Fetch.continueRequest', { requestId });
 	}
@@ -215,6 +223,39 @@ let alphaReadable = false;
 	if ((await evaluate(layerKids)) !== 0) p.push('something left in the layer');
 	if (!notice) p.push('no notice why');
 	report('refuse: it shakes, stays, the notice says why', p, `notice "${notice}"`);
+}
+
+// 4b – held: the server had this ref already (granted 0) – it stays, no longer invites, a second tap asks nothing
+{
+	const p = [];
+	await evaluate(`document.querySelectorAll('.notice').forEach((n) => n.remove()); true`);
+	heldGrants = true;
+	const before = await evaluate(`${PICKUPS}.length`);
+	const b = await firstPickup();
+	await sleep(300);
+	await tap(b.x, b.y);
+	await sleep(1200);
+	heldGrants = false;
+	const after = await evaluate(`${PICKUPS}.length`);
+	const spent = await evaluate(`${PICKUPS}.filter((el) => el.classList.contains('spent')).length`);
+	const glow = await evaluate(`(() => { const el = ${PICKUPS}.find((e) => e.classList.contains('spent')); return el ? getComputedStyle(el.querySelector('img')).animationName : null; })()`);
+	const notice = await evaluate(`[...document.querySelectorAll('.notice')].map((n) => n.innerText).join(' | ')`);
+	if (after !== before) p.push(`pickups ${before} → ${after}: an item the server had granted before must stay`);
+	if (spent !== 1) p.push(`${spent} spent pickups, expected 1 (no tap hint)`);
+	if (glow && glow !== 'none') p.push(`the spent pickup still glows (${glow})`);
+	if (!notice) p.push('no notice why');
+	// a second tap: it shakes, the server is not asked again
+	await evaluate(`window.__shook = false; (() => { const el = ${PICKUPS}.find((e) => e.classList.contains('spent')); const orig = el.animate.bind(el); el.animate = (k, o) => { if (JSON.stringify(k).includes('translateX(-9px)')) window.__shook = true; return orig(k, o); }; })(); true`);
+	const posts = grantPosts;
+	const c = await evaluate(`(() => { const el = ${PICKUPS}.find((e) => e.classList.contains('spent')); if (!el) return null; el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+	if (c) {
+		await sleep(300);
+		await tap(c.x, c.y);
+		await sleep(600);
+		if (grantPosts !== posts) p.push('the second tap asked the server again');
+		if (!(await evaluate('window.__shook'))) p.push('the second tap did not shake');
+	}
+	report('held: it stays, no tap hint, a second tap shakes without asking', p, `notice "${notice}"`);
 }
 
 // 5 – account page
