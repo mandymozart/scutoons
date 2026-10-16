@@ -147,9 +147,9 @@
 </button>
 
 {#snippet head(icon: string, label: string)}
-	<!-- the panel's name and the reader's stats (appetite, testo) small at the right, in both panels (owner 2026-10-03) -->
-	<div class="head">
-		<img src={icon} alt="" /><span>{label}</span>
+	<!-- the reader's stats (appetite, testo) small at the right, in both panels (owner 2026-10-03); no title – the top
+	     button says which panel it is (owner 2026-10-16: "die Überschriften ganz oben am Panel … redundant") -->
+	<div class="head" title={label} data-icon={icon}>
 		<div class="stats"><ReaderStats compact /></div>
 	</div>
 {/snippet}
