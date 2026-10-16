@@ -14,6 +14,8 @@
 	import { useClipHandler } from '$lib/editor/clipboard.svelte.ts';
 	import { slicesClipHandler } from '$lib/editor/slices-clip.svelte.ts';
 	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
+	import Marks from '$lib/components/chapter/marks.svelte';
+	import { sliceMarks } from '$lib/editor/slice-marks.ts';
 
 	let {
 		doc,
@@ -132,7 +134,6 @@
 		})
 	);
 
-	const count = (s: any, key: string) => (Array.isArray(s?.[key]) ? s[key].length : 0);
 </script>
 
 <ol class="slices" use:sortable={{ onmove: moveSlices }} use:region={'slices'} data-testid="slice-list">
@@ -167,9 +168,7 @@
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
 						<ReachChip mark={markOf(index)} />
-						{#if count(slice, 'dialog')}<span title={m['creator.text_boxes']()}>T{count(slice, 'dialog')}</span>{/if}
-						{#if slice?.audio}<span title={m['creator.audio']()}><Icon name="music" label={m['creator.audio']()} /></span>{/if}
-						{#if count(slice, 'events')}<span title={m['creator.events']()}><Icon name="zap" label={m['creator.events']()} />{count(slice, 'events')}</span>{/if}
+						<Marks marks={sliceMarks(slice)} testid="slice-marks-{index}" />
 					</span>
 				</span>
 			</button>

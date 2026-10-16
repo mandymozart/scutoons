@@ -12,6 +12,8 @@
 	import { newGroup } from '$lib/editor/defaults.ts';
 	import SliceList from '$lib/components/chapter/slice-list.svelte';
 	import ReachChip, { type ReachMark } from '$lib/components/chapter/reach-chip.svelte';
+	import Marks from '$lib/components/chapter/marks.svelte';
+	import { groupMarks } from '$lib/editor/slice-marks.ts';
 
 	/**
 	 * The chapter's children in the sidebar (COMPONENTS.md step 12): meta, audio, groups → the open group's slices
@@ -151,11 +153,10 @@
 						{#if linksToNext(resolved, gi)}
 							<span class="link" title={m['creator.group_linked']()} data-testid="group-linked-{gi}"><Icon name="link" size="0.875rem" label={m['creator.group_linked']()} /></span>
 						{/if}
-						{#if resolved[gi]?.events}
-							<span class="link" title={m['creator.events']()} data-testid="group-events-{gi}"><Icon name="zap" size="0.875rem" label={m['creator.events']()} /></span>
-						{/if}
 						{sliceCount(resolved[gi])}
 					</span>
+					<!-- what happens in the group (its slices added up + its own script): items, audio, video, places, events -->
+					<span class="group-marks"><Marks marks={groupMarks(resolved[gi])} testid="group-marks-{gi}" /></span>
 				</button>
 				<span class="tools">
 					<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
@@ -210,12 +211,19 @@
 		overflow-wrap: anywhere;
 		text-align: left;
 	}
-	/* the marks before the slice count (owner 2026-10-07, they replace the "· VN" text): continues into the next group
-	   (link), has VN events (zap) */
+	/* the mark before the slice count (owner 2026-10-07): continues into the next group (link) */
 	.node .hint .link {
 		display: inline-flex;
 		vertical-align: -0.125rem;
 		margin-right: 0.25rem;
+	}
+	/* the group's marks on their own line under the name (owner 2026-10-16) */
+	.group-marks {
+		flex-basis: 100%;
+		display: flex;
+	}
+	.group-marks:empty {
+		display: none;
 	}
 	.group-row .tools {
 		display: none;
