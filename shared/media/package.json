@@ -19,6 +19,10 @@
 		"./model-view": {
 			"types": "./src/model-view.d.ts",
 			"default": "./src/model-view.js"
+		},
+		"./vinyl-model": {
+			"types": "./src/vinyl-model.d.ts",
+			"default": "./src/vinyl-model.js"
 		}
 	},
 	"files": [

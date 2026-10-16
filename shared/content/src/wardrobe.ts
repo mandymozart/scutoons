@@ -7,7 +7,7 @@
 import type { CharacterRegistry } from './characters.ts';
 import { bodySlots, defaultLookId, findLook, findPersona, REGULAR_PERSONA } from './characters.ts';
 import type { ItemDef } from './items.ts';
-import { AVATAR_SLOTS } from './items.ts';
+import { AVATAR_SLOTS, VINYL_FORMATS } from './items.ts';
 import type { Problem } from './validate.ts';
 import { validateAlbums } from './albums.ts';
 import { validateContainers } from './containers.ts';
@@ -43,6 +43,9 @@ export function basicDress<T extends Pick<ItemDef, 'id' | 'slot' | 'wear' | 'def
 
 /** an item's 3D model: a .glb path (ASSETS.md "3D models": binary glTF only) */
 const GLB = /^[^?#]+\.glb$/i;
+/** a shared base model's pictures (VinylLook): WebP (PNG / JPEG accepted) */
+const IMAGE = /^[^?#]+\.(webp|png|jpe?g)$/i;
+const VINYL_PICTURES = ['sleeveFront', 'sleeveBack', 'sleeveSpine', 'labelA', 'labelB'] as const;
 const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
@@ -86,6 +89,16 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		else if (item.worn_tint != null && !item.slot) add('warning', [...path, 'worn_tint'], `${item.id}: worn_tint only matters for something worn (no slot)`);
 		// a 3D model (FEATURES 10.102): one self-contained .glb (ASSETS.md "3D models")
 		if (item.model != null && !(typeof item.model === 'string' && GLB.test(item.model.trim()))) add('error', [...path, 'model'], `${item.id}: model must be a .glb path`);
+		// the shared base model's look (ITEMS.md "3D item models"): a known format, pictures as image paths, a colour
+		if (item.vinyl != null) {
+			const v = item.vinyl;
+			if (!isObj(v) || !(VINYL_FORMATS as readonly unknown[]).includes(v.format)) add('error', [...path, 'vinyl'], `${item.id}: vinyl must be { format: ${VINYL_FORMATS.join(' | ')}, … }`);
+			else {
+				for (const k of VINYL_PICTURES) if (v[k] != null && !(typeof v[k] === 'string' && IMAGE.test(v[k].trim()))) add('error', [...path, 'vinyl', k], `${item.id}: vinyl ${k} must be an image path (.webp)`);
+				if (v.color != null && !(typeof v.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.color))) add('error', [...path, 'vinyl', 'color'], `${item.id}: vinyl color must be a colour #rrggbb`);
+				for (const k of Object.keys(v)) if (k !== 'format' && k !== 'color' && !(VINYL_PICTURES as readonly string[]).includes(k)) add('error', [...path, 'vinyl', k], `${item.id}: vinyl has no "${k}"`);
+			}
+		}
 		// variants with their own tint / overlays (owner 2026-10-08: the sunglasses' colours)
 		(Array.isArray(item.variants) ? item.variants : []).forEach((v, vi) => {
 			if (v?.model != null && !(typeof v.model === 'string' && GLB.test(v.model.trim()))) add('error', [...path, 'variants', vi, 'model'], `${item.id}/${v.id}: model must be a .glb path`);

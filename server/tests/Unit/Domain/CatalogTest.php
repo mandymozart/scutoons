@@ -141,6 +141,8 @@ final class CatalogTest extends TestCase
         $camera = $store->get('items', 'camera');
         self::assertIsArray($camera);
         self::assertSame([], $validator->problems('items', 'camera', ['model' => 'catpope/items/camera.model.glb', 'variants' => [['id' => 'red', 'name' => ['de' => 'Rot', 'en' => 'Red'], 'model' => 'catpope/items/camera_red.model.glb']]] + $camera), 'a .glb model on the item and a variant');
+        self::assertSame([], $validator->problems('items', 'camera', ['vinyl' => ['format' => 'lp12', 'sleeveFront' => 'catpope/items/x.front.webp', 'labelA' => 'catpope/items/x.label_a.webp', 'color' => '#aa2233']] + $camera), 'a vinyl look (the shared record model)');
+        self::assertSame([], $validator->problems('items', 'camera', ['vinyl' => ['format' => 'lp12']] + $camera), 'a test press: no pictures');
         $cases = [
             ['items', 'camera', ['slot' => 'tail'] + $camera, 'unknown slot "tail"'],
             ['items', 'camera', ['id' => 'other'] + $camera, 'data.id must be "camera"'],
@@ -157,6 +159,11 @@ final class CatalogTest extends TestCase
             // a 3D model (FEATURES 10.102): a .glb only, on the item or a variant
             ['items', 'camera', ['model' => 'catpope/items/camera.gltf'] + $camera, 'camera: model must be a .glb path'],
             ['items', 'camera', ['variants' => [['id' => 'red', 'name' => ['de' => 'Rot', 'en' => 'Red'], 'model' => 'catpope/items/camera_red.png']]] + $camera, 'camera/red: model must be a .glb path'],
+            // the shared record model's look (ITEMS.md "3D item models")
+            ['items', 'camera', ['vinyl' => ['format' => 'lp10']] + $camera, 'camera: vinyl must be { format: lp12, … }'],
+            ['items', 'camera', ['vinyl' => ['format' => 'lp12', 'labelB' => 'x.glb']] + $camera, 'camera: vinyl labelB must be an image path (.webp)'],
+            ['items', 'camera', ['vinyl' => ['format' => 'lp12', 'color' => 'red']] + $camera, 'camera: vinyl color must be a colour #rrggbb'],
+            ['items', 'camera', ['vinyl' => ['format' => 'lp12', 'cover' => 'x.webp']] + $camera, 'camera: vinyl has no "cover"'],
             ['recipes', 'r', ['id' => 'r', 'inputs' => [['item' => 'camera', 'qty' => 1, 'keep' => true]], 'output' => ['item' => 'cucumber', 'qty' => 1]], 'use up at least one input'],
             ['recipes', 'r', ['id' => 'r', 'inputs' => [['item' => 'camera', 'qty' => 1]], 'output' => ['item' => 'cucumber', 'qty' => 1, 'variant_from' => 'cucumber']], 'variant_from must name one of the inputs'],
             ['products', 'dago_hoodie', ['item_id' => 'ghost'] + (array) $store->get('products', 'dago_hoodie'), 'unknown item "ghost"'],

@@ -1,5 +1,5 @@
 import { setContext, getContext } from 'svelte';
-import { legacyPlayAudio, type Entry, type ScanObjectSkill, type Skill } from '@scutoons/content';
+import { legacyPlayAudio, type Entry, type ModelSource, type ScanObjectSkill, type Skill } from '@scutoons/content';
 
 const ITEMS_UI_KEY = Symbol('items-ui');
 
@@ -25,8 +25,9 @@ export interface AudioRequest {
 	entry: Entry | null;
 	/** the album's cover (CDN-root path) – the record's label in the player */
 	cover?: string | null;
-	/** the playing item's 3D model (CDN-root `.glb`, ITEMS.md "3D item models") – the card's 3D record player */
-	model?: string | null;
+	/** the playing item's 3D model (a CDN-root `.glb` or the shared record model's look, ITEMS.md "3D item models") –
+	 *  the card's 3D record player */
+	model?: ModelSource | null;
 	/** track `i`'s playable address at the reader's media quality, asked for when it starts (a vault track's signed URL
 	 *  lives ten minutes – asked again when it ran out); without it `tracks[i].src` plays as it is */
 	sign?: (i: number) => Promise<string>;

@@ -33,6 +33,10 @@ textures WebP (EXT_texture_webp, required – no fallback) at SLEEVE_PX / SLEEVE
 The v2 set: 252 KB (front 113, back 66, labels 21 + 14, geometry 26); a test press 32 KB (geometry 24). A changed build
 = a new --tag (CDN paths never change their bytes). A next item: same pattern – artwork from the print files, real
 dimensions in metres, standing so a turn shows the back, one self-contained .glb, as small (ASSETS.md "3D models").
+
+The viewer now builds the record and sleeve in code (@scutoons/media/vinyl-model.js, the same geometry and groove maps):
+an item gives only its pictures (`vinyl`, ITEMS.md "3D item models") – `--pictures` writes them,
+<name>.{sleeve-front,sleeve-back,sleeve-spine,label-a,label-b}.webp. A change to the record here goes there too.
 """
 import argparse
 import io
@@ -458,10 +462,31 @@ def build_set(label_a: Path, label_b: Path, cover: Path, out: Path, name: str, f
     return g.write(out / f'{name}{TAG}.set.glb')
 
 
+def write_pictures(label_a: Path, label_b: Path, cover: Path, out: Path, name: str, front_right=FRONT_IS_RIGHT_HALF):
+    """the pictures of the item's `vinyl` look (the shared record model, @scutoons/media/vinyl-model.js – owner
+    2026-10-16: "Shared 3D-Modelle"): <name>.{sleeve-front,sleeve-back,sleeve-spine,label-a,label-b}.webp, same sizes"""
+    h = SLEEVE_PX * 312 // 315
+    right = render_clip(cover, (318, 0, 633, 312), dpi=300, size=(SLEEVE_PX, h))
+    left = render_clip(cover, (0, 0, 315, 312), dpi=300, size=(SLEEVE_PX, h))
+    front, back = (right, left) if front_right else (left, right)
+    pics = {
+        'sleeve-front': front,
+        'sleeve-back': back.resize((SLEEVE_BACK_PX, SLEEVE_BACK_PX * 312 // 315), Image.LANCZOS),
+        'sleeve-spine': render_clip(cover, (315, 0, 318, 312), dpi=300, size=(16, h)),
+        'label-a': render_clip(label_a, dpi=300, size=(LABEL_PX, LABEL_PX)),
+        'label-b': render_clip(label_b, dpi=300, size=(LABEL_PX, LABEL_PX)),
+    }
+    for k, img in pics.items():
+        data = webp(img)
+        (out / f'{name}.{k}.webp').write_bytes(data)
+        print(f'{name}.{k}.webp', len(data), 'bytes')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--label-a', type=Path)
     ap.add_argument('--label-b', type=Path)
+    ap.add_argument('--pictures', action='store_true', help="only the vinyl look's WebP pictures (the shared record model)")
     ap.add_argument('--test-press', action='store_true', help='blank white labels in a plain inner sleeve: <name>.set.glb only')
     ap.add_argument('--cover', type=Path)
     ap.add_argument('--out', type=Path, required=True)
@@ -473,6 +498,10 @@ def main():
     global TAG
     TAG = f'.{a.tag}' if a.tag else ''
     a.out.mkdir(parents=True, exist_ok=True)
+    if a.pictures:
+        if not (a.label_a and a.label_b and a.cover):
+            ap.error('--pictures needs --label-a, --label-b and --cover')
+        return write_pictures(a.label_a, a.label_b, a.cover, a.out, a.name, a.front == 'right')
     if a.test_press:
         print('test press set', build_test_press(a.out, a.name), 'bytes')
         return

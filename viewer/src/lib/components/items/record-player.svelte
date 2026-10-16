@@ -158,7 +158,7 @@
 	});
 
 	// the bar is up: the card may open any moment – its 3D stage's three.js and model load ahead in idle time
-	$effect(() => warmModel(request.model ? asset(request.model) : null));
+	$effect(() => warmModel(request.model));
 
 	const arm = $derived(armAngle(playing || changing, changing ? 0 : length ? time / length : 0));
 	const heading = $derived(m['items.now_playing']({ title: [track?.title, request.title].filter(Boolean).join(' · ') }));
@@ -213,7 +213,7 @@
 	album={request.title}
 	toon={request.toon ?? null}
 	{cover}
-	model={request.model ? asset(request.model) : null}
+	model={request.model ?? null}
 	tracks={request.tracks}
 	{index}
 	{onSide}

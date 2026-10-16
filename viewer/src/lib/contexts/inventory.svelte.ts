@@ -61,6 +61,7 @@ import type {
 	ReceivedNotice,
 	ItemVariant,
 	Localized,
+	ModelSource,
 	ReaderState,
 	Recipe,
 	RecurrenceInterval
@@ -510,9 +511,11 @@ export function createInventoryContext(session: SessionContext) {
 		return variantOf(entry)?.icon || item(entry.item_id)?.icon || '';
 	}
 
-	/** the 3D model of an entry: its variant's, else the item's (FEATURES 10.102); none = '' */
-	function modelOf(entry: Pick<Entry, 'item_id' | 'variant'>): string {
-		return variantOf(entry)?.model || item(entry.item_id)?.model || '';
+	/** what an entry shows in 3D: its variant's .glb, else the item's vinyl look (the shared record model), else its .glb
+	 *  (FEATURES 10.102, ITEMS.md "3D item models"); none = '' */
+	function modelOf(entry: Pick<Entry, 'item_id' | 'variant'>): ModelSource | '' {
+		const def = item(entry.item_id);
+		return variantOf(entry)?.model || def?.vinyl || def?.model || '';
 	}
 
 	/** the title lettered on a score's cover – in the score's own language (research/SCORES.md §1) */

@@ -1,5 +1,15 @@
+<script module lang="ts">
+	/**
+	 * The first stage of a page load shows the way out of the sleeve even when the record already plays (owner 2026-10-16:
+	 * "beim ersten Mal öffnen … pro Browser Reload"); after that a record that is on just lies on the platter.
+	 */
+	let introduced = false;
+</script>
+
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import type { ModelSource } from '@scutoons/content';
+	import { modelLoader } from './model-source.ts';
 	import { mountRecordStage, type RecordStageHandle } from './record-stage.js';
 
 	/**
@@ -10,7 +20,7 @@
 	 * that the controls cover (the scene moves above them).
 	 */
 	let {
-		url,
+		model,
 		playing,
 		side,
 		arm,
@@ -21,7 +31,8 @@
 		placed = false,
 		onfail
 	}: {
-		url: string;
+		/** the item's model: a .glb or the shared record model's look (model-source.ts) */
+		model: ModelSource;
 		playing: boolean;
 		side: 'a' | 'b';
 		arm: number;
@@ -41,9 +52,11 @@
 
 	$effect(() => {
 		const el = canvas;
-		if (!el || !url) return;
+		if (!el || !model) return;
 		ready = false;
-		const handle = mountRecordStage(el, url, { lift: untrack(() => lift), placed: untrack(() => placed), onload: () => (ready = true), onerror: () => onfail() });
+		const onAlready = introduced && untrack(() => placed);
+		introduced = true;
+		const handle = mountRecordStage(el, modelLoader(model), { lift: untrack(() => lift), placed: onAlready, onload: () => (ready = true), onerror: () => onfail() });
 		untrack(() => handle.update({ playing, side, arm, lifted }));
 		stage = handle;
 		return () => {

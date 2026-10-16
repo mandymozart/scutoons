@@ -19,7 +19,6 @@
 	import InvitesPanel from '$lib/components/items/invites-panel.svelte';
 	import { moveWithWarning } from '$lib/components/items/container-move.ts';
 	import { warmModel } from '$lib/components/items/model-warmup.ts';
-	import { asset } from '$lib/utils/cdn.ts';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -57,8 +56,7 @@
 	$effect(() => {
 		if (!nav.isOpen('inventory')) return;
 		for (const { entry } of listed) {
-			const model = inventory.item(entry.item_id)?.album ? inventory.modelOf(entry) : '';
-			if (model) warmModel(asset(model));
+			if (inventory.item(entry.item_id)?.album) warmModel(inventory.modelOf(entry));
 		}
 	});
 

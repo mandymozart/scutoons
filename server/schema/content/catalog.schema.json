@@ -127,6 +127,17 @@
 					],
 					"description": "The item's 3D model (FEATURES 10.102, owner 2026-10-16: \"We will turn all items into 3d assets\"): a CDN-root `.glb` (ITEMS.md \"3D item models\" – metres, +Y up, front +Z). The item detail shows it instead of the icon (WebGL, no reduced motion); a variant may have its own. The LP's is its sleeve with the record inside (nodes `sleeve`, `record`) – the record player takes the record out (record-stage.js). None = the icon only."
 				},
+				"vinyl": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/VinylLook"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "the record and sleeve as the shared base model (a look instead of a whole `.glb`); it wins over `model`"
+				},
 				"stackable": {
 					"type": "boolean"
 				},
@@ -399,6 +410,42 @@
 				"furniture"
 			],
 			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite; `score` = sheet music (`ItemDef.score`, research/SCORES.md); `furniture` = stands in a home (`ItemDef.furniture`, homes.ts)"
+		},
+		"VinylLook": {
+			"type": "object",
+			"properties": {
+				"format": {
+					"type": "string",
+					"const": "lp12",
+					"description": "the base model: `lp12` = a 12\" LP (Ø 302 mm) – a 7\" single, a cassette … follow as further base models"
+				},
+				"sleeveFront": {
+					"type": "string",
+					"description": "the printed sleeve's front (~1024 px); none = a plain paper inner sleeve (a test press)"
+				},
+				"sleeveBack": {
+					"type": "string",
+					"description": "its back (~768 px) and spine (a narrow strip); none = plain card"
+				},
+				"sleeveSpine": {
+					"type": "string"
+				},
+				"labelA": {
+					"type": "string",
+					"description": "the labels, square pictures of the round label (~512 px); none = a blank white label"
+				},
+				"labelB": {
+					"type": "string"
+				},
+				"color": {
+					"type": "string",
+					"description": "the vinyl's colour `#rrggbb`; none = black"
+				}
+			},
+			"required": [
+				"format"
+			],
+			"description": "A shared base model built in code (owner 2026-10-16: \"dass wir insgesamt auch ganz oft Shared 3D-Modelle anlegen können\"): the record and its sleeve are the same for every LP – an item gives only what differs, its pictures (CDN-root WebP paths) and colour (ITEMS.md \"3D item models\"). `@scutoons/media/vinyl-model` builds it."
 		},
 		"GrantSource": {
 			"type": "string",

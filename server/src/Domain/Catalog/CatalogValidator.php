@@ -174,6 +174,7 @@ final class CatalogValidator
         if (array_key_exists('icon', $item) && $item['icon'] !== null && !is_string($item['icon'])) $p[] = "$id: icon must be a path";
         // a 3D model (FEATURES 10.102): one self-contained .glb (ASSETS.md "3D models")
         if (($item['model'] ?? null) !== null && !self::isGlb($item['model'])) $p[] = "$id: model must be a .glb path";
+        if (($item['vinyl'] ?? null) !== null) $p = [...$p, ...self::vinyl($id, $item['vinyl'])];
         if (array_key_exists('grantable', $item) && !(is_array($item['grantable']) && array_is_list($item['grantable'])
                 && array_diff($item['grantable'], self::GRANT_SOURCES) === [])) $p[] = "$id: grantable must be a list of " . implode(', ', self::GRANT_SOURCES);
         if (array_key_exists('skills', $item) && $item['skills'] !== null && !(is_array($item['skills']) && array_is_list($item['skills'])
@@ -616,6 +617,29 @@ final class CatalogValidator
     }
 
     /** a text or { <locale>: text } with at least one non-empty text */
+    /** the shared base models a vinyl look may name (shared/content VINYL_FORMATS) */
+    public const VINYL_FORMATS = ['lp12'];
+    private const VINYL_PICTURES = ['sleeveFront', 'sleeveBack', 'sleeveSpine', 'labelA', 'labelB'];
+
+    /**
+     * An item's vinyl look: the record and sleeve as the shared base model built in code, only the pictures (image paths)
+     * and the colour per item (ITEMS.md "3D item models"; the same checks as shared/content wardrobe.ts)
+     * @return list<string>
+     */
+    private static function vinyl(string $id, mixed $v): array
+    {
+        if (!is_array($v) || array_is_list($v) || !in_array($v['format'] ?? null, self::VINYL_FORMATS, true)) return ["$id: vinyl must be { format: " . implode(' | ', self::VINYL_FORMATS) . ', … }'];
+        $p = [];
+        foreach (self::VINYL_PICTURES as $k) {
+            if (($v[$k] ?? null) !== null && !(is_string($v[$k]) && preg_match('/^[^?#]+\.(webp|png|jpe?g)$/i', trim($v[$k])) === 1)) $p[] = "$id: vinyl $k must be an image path (.webp)";
+        }
+        if (($v['color'] ?? null) !== null && !(is_string($v['color']) && preg_match('/^#[0-9a-fA-F]{6}$/', $v['color']) === 1)) $p[] = "$id: vinyl color must be a colour #rrggbb";
+        foreach (array_keys($v) as $k) {
+            if ($k !== 'format' && $k !== 'color' && !in_array($k, self::VINYL_PICTURES, true)) $p[] = "$id: vinyl has no \"$k\"";
+        }
+        return $p;
+    }
+
     /** an item's 3D model: a .glb path (ASSETS.md "3D models": binary glTF only) */
     private static function isGlb(mixed $value): bool
     {

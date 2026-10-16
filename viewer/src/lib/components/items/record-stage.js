@@ -7,7 +7,7 @@
 // from the sleeve to the deck. One renderer per stage, three.js loads with the first stage (`loadThree`); `dispose`
 // frees everything. Plain JS like model-view.js (no @types/three) – the types are in record-stage.d.ts.
 // Callers show their 2D deck without WebGL or with reduced motion (record-card.svelte).
-import { loadThree } from '@scutoons/media/model-view';
+import { loadSource, loadThree } from '@scutoons/media/model-view';
 
 const RPM = 100 / 3;
 const OMEGA = (RPM / 60) * 2 * Math.PI; // rad / s, clockwise from above = negative around +Y
@@ -70,6 +70,68 @@ function disposeTree(obj) {
 	});
 }
 
+// the light (owner 2026-10-16: "a bit of light: a spot on the scene and a little ambient occlusion – as simple as
+// possible but moody"): a warm spot from above-front makes a pool of light on a dark floor, the edges fall off into the
+// card's black; little ambient / environment (enough for the platter's metal and the vinyl's sheen); one soft shadow map
+// from the spot and soft contact shadows (a radial blob) under the plinth and the sleeve – no post-processing
+const FLOOR_Y = 0;
+/** a round gradient (a small canvas): [offset, css colour] stops from the middle out */
+function radial(THREE, stops) {
+	const c = document.createElement('canvas');
+	c.width = c.height = 128;
+	const g = c.getContext('2d');
+	const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+	for (const [at, color] of stops) grad.addColorStop(at, color);
+	g.fillStyle = grad;
+	g.fillRect(0, 0, 128, 128);
+	const tex = new THREE.CanvasTexture(c);
+	tex.colorSpace = THREE.SRGBColorSpace;
+	return tex;
+}
+function blob(THREE, w, d, opacity) {
+	const tex = radial(THREE, [[0, `rgba(0,0,0,${opacity})`], [0.55, `rgba(0,0,0,${opacity * 0.6})`], [1, 'rgba(0,0,0,0)']]);
+	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+	m.rotation.x = -Math.PI / 2;
+	m.renderOrder = 1;
+	return m;
+}
+function moodyLights(THREE, renderer, scene) {
+	renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+	scene.environmentIntensity = 0.16;
+	scene.add(new THREE.HemisphereLight(0xffffff, 0x222222, 0.12));
+	const spot = new THREE.SpotLight(0xffe9d2, 13, 0, 0.42, 1, 2);
+	spot.position.set(-0.04, 1.6, 0.7);
+	spot.target.position.set(-0.04, 0.02, -0.06);
+	spot.castShadow = true;
+	spot.shadow.mapSize.set(1024, 1024);
+	spot.shadow.camera.near = 0.5;
+	spot.shadow.camera.far = 3;
+	spot.shadow.bias = -0.0004;
+	spot.shadow.normalBias = 0.01;
+	scene.add(spot, spot.target);
+	// the floor catches the pool of light and fades to the card's black at its rim (no horizon line)
+	const pool = radial(THREE, [[0, '#ffffff'], [0.35, '#bdbdbd'], [0.75, '#2a2a2a'], [1, '#000000']]);
+	const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshStandardMaterial({ color: 0x4a423b, map: pool, roughness: 0.95, envMapIntensity: 0 }));
+	floor.position.x = -0.06;
+	floor.rotation.x = -Math.PI / 2;
+	floor.position.y = FLOOR_Y;
+	floor.receiveShadow = true;
+	scene.add(floor);
+	// contact shadows: under the plinth, along the sleeve's foot
+	const underDeck = blob(THREE, PLINTH.w + 0.12, PLINTH.d + 0.12, 0.85);
+	underDeck.position.set(PLINTH.x, FLOOR_Y + 0.0005, PLINTH.z);
+	const underSleeve = blob(THREE, 0.36, 0.07, 0.8);
+	underSleeve.position.set(SLEEVE.x, FLOOR_Y + 0.0006, SLEEVE.z);
+	scene.add(underDeck, underSleeve);
+	return {
+		/** the deck and the model cast (and take) the spot's shadow */
+		cast(...objs) {
+			for (const o of objs) o.traverse((m) => m.isMesh && (m.castShadow = m.receiveShadow = true));
+		}
+	};
+}
+
 function buildDeck(THREE) {
 	const deck = new THREE.Group();
 	const mat = (color, roughness = 0.6, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
@@ -100,10 +162,10 @@ function buildDeck(THREE) {
 }
 
 /**
- * Mounts the stage on a canvas; `url` = the item's model (.glb, CDN URL). The state comes in by `update` (any time,
- * also before the model is there).
+ * Mounts the stage on a canvas; `source` = the item's model: a .glb's URL or a builder (the shared record model,
+ * @scutoons/media/vinyl-model). The state comes in by `update` (any time, also before the model is there).
  */
-export function mountRecordStage(canvas, url, opts = {}) {
+export function mountRecordStage(canvas, source, opts = {}) {
 	let stopped = false, raf = 0, renderer = null, scene = null, env = null, ro = null;
 	let onDown = null, onMove = null, onUp = null, onWheel = null;
 	const want = { playing: false, side: 'a', arm: -28, lifted: false };
@@ -125,7 +187,7 @@ export function mountRecordStage(canvas, url, opts = {}) {
 
 	(async () => {
 		try {
-			const { THREE, GLTFLoader } = await loadThree();
+			const { THREE } = await loadThree();
 			const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
 			if (stopped) return;
 			renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -135,16 +197,11 @@ export function mountRecordStage(canvas, url, opts = {}) {
 			env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 			pmrem.dispose();
 			scene.environment = env;
-			scene.environmentIntensity = 0.6;
-			scene.add(new THREE.HemisphereLight(0xffffff, 0x666666, 0.5));
-			const key = new THREE.DirectionalLight(0xffffff, 1.2);
-			key.position.set(0.6, 1.2, 0.9);
-			scene.add(key);
+			const lights = moodyLights(THREE, renderer, scene);
 			const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 20);
 
-			const gltf = await new GLTFLoader().loadAsync(url);
-			if (stopped) return disposeTree(gltf.scene);
-			const set = gltf.scene;
+			const set = await loadSource(source);
+			if (stopped) return disposeTree(set);
 			set.position.set(SLEEVE.x, 0, SLEEVE.z);
 			scene.add(set);
 			set.updateMatrixWorld(true);
@@ -165,6 +222,7 @@ export function mountRecordStage(canvas, url, opts = {}) {
 			carrier.position.copy(inSleeve);
 			const { deck, arm } = buildDeck(THREE);
 			scene.add(deck);
+			lights.cast(deck, set, record);
 			opts.onload?.();
 
 			// the record's state: in the sleeve (or standing by it), on its way, on the platter, flipping

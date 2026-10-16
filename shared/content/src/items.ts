@@ -93,6 +93,32 @@ export interface EnterHomeSkill {
 
 export type Skill = ScanQrSkill | ScanObjectSkill | MinigameSkill | PlayAudioSkill | ApplySkill | EnterHomeSkill;
 
+/**
+ * A shared base model built in code (owner 2026-10-16: "dass wir insgesamt auch ganz oft Shared 3D-Modelle anlegen
+ * können"): the record and its sleeve are the same for every LP – an item gives only what differs, its pictures (CDN-root
+ * WebP paths) and colour (ITEMS.md "3D item models"). `@scutoons/media/vinyl-model` builds it.
+ */
+export interface VinylLook {
+	/** the base model: `lp12` = a 12" LP (Ø 302 mm) – a 7" single, a cassette … follow as further base models */
+	format: 'lp12';
+	/** the printed sleeve's front (~1024 px); none = a plain paper inner sleeve (a test press) */
+	sleeveFront?: string;
+	/** its back (~768 px) and spine (a narrow strip); none = plain card */
+	sleeveBack?: string;
+	sleeveSpine?: string;
+	/** the labels, square pictures of the round label (~512 px); none = a blank white label */
+	labelA?: string;
+	labelB?: string;
+	/** the vinyl's colour `#rrggbb`; none = black */
+	color?: string;
+}
+
+/** what an item shows in 3D: a `.glb` (CDN-root path) or a shared base model's look */
+export type ModelSource = string | VinylLook;
+
+/** the formats of `VinylLook` (code – the base models the viewer can build) */
+export const VINYL_FORMATS = ['lp12'] as const;
+
 export interface ItemVariant {
 	id: string;
 	name: Localized;
@@ -120,6 +146,8 @@ export interface ItemDef extends AcceptedWarnings {
 	 * `record`) – the record player takes the record out (record-stage.js). None = the icon only.
 	 */
 	model?: string | null;
+	/** the record and sleeve as the shared base model (a look instead of a whole `.glb`); it wins over `model` */
+	vinyl?: VinylLook | null;
 	stackable: boolean;
 	starter: boolean;
 	grantable: GrantSource[];

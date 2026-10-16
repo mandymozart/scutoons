@@ -11,6 +11,7 @@
 	import ContainerField from './container-field.svelte';
 	import ScoreField from './score-field.svelte';
 	import FurnitureField from './furniture-field.svelte';
+	import VinylField from './vinyl-field.svelte';
 
 	/**
 	 * An item (agents/ITEMS.md "Item definition"): texts per language, kind / category, the picture (a slot; uploads go
@@ -77,6 +78,8 @@
 		{#if data.model}<ModelPreview path={data.model} testid="item-model-preview" />{/if}
 	</div>
 </div>
+<!-- a record: the shared record model with its pictures (ITEMS.md "3D item models") instead of a whole .glb -->
+{#if data.format === 'vinyl' || data.vinyl}<VinylField bind:data {place} />{/if}
 
 <fieldset class="flags">
 	<legend>{m['catalog.flags']()}</legend>

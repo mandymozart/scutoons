@@ -3,6 +3,8 @@
 	// local sounds as an "album" named like Awakening's songs (sides A and B) (so the card finds their credits in credits:catpope), each
 	// "signed" a moment later like a vault track. With the LP's 3D model (FEATURES 10.102, ?model=<CDN path>): the item
 	// view's model, the card's 3D stage (the real player gets it as `model`) and the stage alone with play / turn / progress.
+	// Without ?model: the shared record model (vinyl-model.js) with Awakening's look, ?look=test a test press (white labels,
+	// inner sleeve), ?look=red a red vinyl.
 	import { page } from '$app/state';
 	import RecordPlayer from '$lib/components/items/record-player.svelte';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
@@ -10,6 +12,7 @@
 	import RecordStage from '$lib/components/items/record-stage.svelte';
 	import { armAngle } from '$lib/components/items/playlist.ts';
 	import { asset } from '$lib/utils/cdn.ts';
+	import type { ModelSource, VinylLook } from '@scutoons/content';
 
 	const isDev = import.meta.env.DEV;
 	const tracks = [
@@ -20,7 +23,16 @@
 		{ id: 'once_twice_thrice', src: 'catpope/s1/c1/s1c1-bells.128.mp3', title: 'Once Twice Thrice', duration: 528, side: 'B' as const }
 	];
 	let open = $state(false);
-	const model = $derived(page.url.searchParams.get('model') ?? 'catpope/items/awakening_vinyl.set.glb');
+	const AWAKENING: VinylLook = {
+		format: 'lp12',
+		sleeveFront: 'catpope/items/awakening_vinyl.sleeve-front.webp',
+		sleeveBack: 'catpope/items/awakening_vinyl.sleeve-back.webp',
+		sleeveSpine: 'catpope/items/awakening_vinyl.sleeve-spine.webp',
+		labelA: 'catpope/items/awakening_vinyl.label-a.webp',
+		labelB: 'catpope/items/awakening_vinyl.label-b.webp'
+	};
+	const LOOKS: Record<string, VinylLook> = { awakening: AWAKENING, test: { format: 'lp12' }, red: { ...AWAKENING, color: '#8a1020' } };
+	const model = $derived<ModelSource>(page.url.searchParams.get('model') ?? LOOKS[page.url.searchParams.get('look') ?? 'awakening'] ?? AWAKENING);
 	// the stage alone
 	let playing = $state(false);
 	let side = $state<'a' | 'b'>('a');
@@ -37,7 +49,7 @@
 			{#snippet icon()}<ItemIcon srcs={['catpope/items/awakening_vinyl.webp']} name="Awakening" />{/snippet}
 			<ItemModel path={model} label="Awakening" fallback={icon} />
 		</section>
-		{#if failed}<p>the model failed</p>{:else}<div class="stage"><RecordStage url={asset(model)} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} /></div>{/if}
+		{#if failed}<p>the model failed</p>{:else}<div class="stage"><RecordStage {model} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} /></div>{/if}
 		<div class="controls">
 			<button type="button" onclick={() => (playing = !playing)} data-testid="lab-play">{playing ? 'Pause' : 'Play'}</button>
 			<button type="button" class="btn-secondary" onclick={() => (side = side === 'a' ? 'b' : 'a')} data-testid="lab-turn">Turn ({side.toUpperCase()})</button>
@@ -75,7 +87,8 @@
 	.stage {
 		position: relative;
 		height: 22rem;
-		background: var(--surface-alt, #eee);
+		/* black like the player card (the dark pull panel) */
+		background: #000;
 	}
 	.controls {
 		display: flex;

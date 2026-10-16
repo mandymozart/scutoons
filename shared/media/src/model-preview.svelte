@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { mediaText, mediaUrl } from './setup.ts';
+	import type { VinylLook } from '@scutoons/content';
 	import { mountModelView, type ModelInfo } from './model-view.js';
+	import { buildVinyl } from './vinyl-model.js';
 
 	/**
 	 * A live 3D view of a model (.glb) – turns slowly, drag to turn (owner 2026-10-14: "a preview of the 3d asset in the
@@ -9,12 +11,15 @@
 	 * three.js loads only then.
 	 */
 	let {
-		path,
+		path = '',
+		vinyl = null,
 		fallback = false,
 		testid
 	}: {
 		/** CDN-root path (`characters/catpope/catpope-regular.glb`) or a full URL */
-		path: string;
+		path?: string;
+		/** instead of a .glb: the shared record model with this look (vinyl-model.js) */
+		vinyl?: VinylLook | null;
 		fallback?: boolean;
 		testid?: string;
 	} = $props();
@@ -26,8 +31,9 @@
 
 	$effect(() => {
 		const el = canvas;
-		const url = /^https?:/.test(path) ? path : mediaUrl(path);
-		if (!el || !path) return;
+		const look = vinyl;
+		const url = look ? (THREE: unknown) => buildVinyl(THREE, look, mediaUrl) : /^https?:/.test(path) ? path : mediaUrl(path);
+		if (!el || (!path && !look)) return;
 		info = null;
 		failed = false;
 		let view: { dispose(): void } | null = null;

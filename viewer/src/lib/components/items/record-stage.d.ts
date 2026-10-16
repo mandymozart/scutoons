@@ -19,5 +19,5 @@ export interface RecordStageHandle {
 	resetView(): void;
 }
 
-/** the LP's model (sleeve + record, `.set.glb`) and a turntable on a canvas */
-export function mountRecordStage(canvas: HTMLCanvasElement, url: string, opts?: { onload?: () => void; onerror?: (error: unknown) => void; /** 0…1 of the height at the bottom kept for controls laid over the canvas: the scene moves up */ lift?: number; /** the record is already on (playing / paused in the album): it starts on the platter, no way out of the sleeve */ placed?: boolean }): RecordStageHandle;
+/** the LP's model (sleeve + record: a `.set.glb` URL or a builder – the shared record model) and a turntable on a canvas */
+export function mountRecordStage(canvas: HTMLCanvasElement, source: string | ((THREE: any) => Promise<any>), opts?: { onload?: () => void; onerror?: (error: unknown) => void; /** 0…1 of the height at the bottom kept for controls laid over the canvas: the scene moves up */ lift?: number; /** the record is already on (playing / paused in the album): it starts on the platter, no way out of the sleeve */ placed?: boolean }): RecordStageHandle;

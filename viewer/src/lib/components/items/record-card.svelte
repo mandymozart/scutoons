@@ -17,10 +17,11 @@
 	import { Icon, IconButton } from '@scutoons/ui';
 	import PullPanel from '$lib/components/panel/pull-panel.svelte';
 	import { resolveCredits, songSection, type ResolvedEntry } from '@scutoons/content';
-	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { webglAvailable } from '@scutoons/media/model-view';
+	import type { ModelSource } from '@scutoons/content';
 	import RecordDeck from './record-deck.svelte';
 	import RecordStage from './record-stage.svelte';
 	import SeekBar from './seek-bar.svelte';
@@ -65,8 +66,8 @@
 		album: string;
 		toon?: string | null;
 		cover: string | null;
-		/** the item's 3D model (CDN URL) – the 3D stage instead of the 2D deck */
-		model?: string | null;
+		/** the item's 3D model (a .glb or the shared record model's look) – the 3D stage instead of the 2D deck */
+		model?: ModelSource | null;
 		tracks: { id?: string; title: string; duration?: number }[];
 		index: number;
 		/** the side's songs (album indices) */
@@ -128,7 +129,7 @@
 		     controls"); the 2D deck (no WebGL, reduced motion) stays in the flow above them -->
 		<div class="hero" class:in3d={in3d && model}>
 			{#if in3d && model}
-				<RecordStage url={model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
+				<RecordStage {model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
 			{:else}
 				<div class="deck">
 					<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
@@ -163,17 +164,6 @@
 			</div>
 		</div>
 
-		{#if people.length}
-			<section data-testid="card-credits">
-				<h4>{m['items.player_credits']()}</h4>
-				<ul class="people">
-					{#each people as entry (entry.person.id)}
-						<li><span class="name">{entry.person.name}</span>{#if entry.roles.length}<span class="roles">{entry.roles.join(', ')}</span>{/if}</li>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
 		{#if count > 1}
 			<section>
 				<h4>{m['items.player_songs']()}</h4>
@@ -189,6 +179,24 @@
 						</li>
 					{/each}
 				</ol>
+			</section>
+		{/if}
+
+		<!-- the song's people under the songs, then all of the toon's credits on its page (owner 2026-10-16: "Credits unter die
+		     Trackliste … Show All … mit einem Anker auf die Credits") -->
+		{#if people.length || toon}
+			<section data-testid="card-credits">
+				<h4>{m['items.player_credits']()}</h4>
+				{#if people.length}
+					<ul class="people">
+						{#each people as entry (entry.person.id)}
+							<li><span class="name">{entry.person.name}</span>{#if entry.roles.length}<span class="roles">{entry.roles.join(', ')}</span>{/if}</li>
+						{/each}
+					</ul>
+				{/if}
+				{#if toon}
+					<a class="all" href={localizeHref(`/${toon}#credits`)} onclick={() => (open = false)} data-testid="card-credits-all">{m['items.player_credits_all']()} →</a>
+				{/if}
 			</section>
 		{/if}
 	</div>
@@ -359,6 +367,14 @@
 
 	.roles {
 		color: var(--text-muted);
+	}
+
+	/* "All credits →": a small text link under the song's people */
+	.all {
+		display: inline-block;
+		margin-top: var(--space-05);
+		font-size: 0.75rem;
+		color: var(--ink);
 	}
 
 	.song-row {

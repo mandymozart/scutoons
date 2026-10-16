@@ -58,6 +58,22 @@ test('items: a 3D model is a .glb path, on the item or a variant (FEATURES 10.10
 	assert.ok(errors.includes('camera/red: model must be a .glb path'), errors.join(' | '));
 });
 
+test('items: a vinyl look is the shared record model with pictures, a known format and a colour', () => {
+	const ok = structuredClone(catalog);
+	const camera = ok.items.find((i) => i.id === 'camera')!;
+	camera.vinyl = { format: 'lp12', sleeveFront: 'catpope/items/x.front.webp', labelA: 'catpope/items/x.label_a.webp', color: '#aa2233' };
+	assert.deepEqual(validateCatalog(ok, registry).filter((p) => p.level === 'error' && p.message.includes('vinyl')), []);
+	camera.vinyl = { format: 'lp12' };
+	assert.deepEqual(validateCatalog(ok, registry).filter((p) => p.level === 'error' && p.message.includes('vinyl')), [], 'a test press: no pictures');
+	camera.vinyl = { format: 'lp10', labelB: 'x.glb' } as never;
+	assert.ok(validateCatalog(ok, registry).some((p) => p.level === 'error' && p.message.startsWith('camera: vinyl must be')));
+	camera.vinyl = { format: 'lp12', labelB: 'x.glb', color: 'red', cover: 'x.webp' } as never;
+	const errors = validateCatalog(ok, registry).filter((p) => p.level === 'error').map((p) => p.message);
+	assert.ok(errors.includes('camera: vinyl labelB must be an image path (.webp)'), errors.join(' | '));
+	assert.ok(errors.includes('camera: vinyl color must be a colour #rrggbb'), errors.join(' | '));
+	assert.ok(errors.includes('camera: vinyl has no "cover"'), errors.join(' | '));
+});
+
 test('wardrobe: the basic dress per body (shorts where they have an overlay, else the swim pants)', () => {
 	const starters = catalog.items.filter((i) => i.starter && i.slot);
 	assert.deepEqual(basicDress(starters, 'catpope').map((i) => i.id), ['scutoons_tshirt', 'scutoons_shorts', 'scutoons_sandals']);

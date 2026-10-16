@@ -12,10 +12,16 @@ export interface ModelViewHandle {
 	dispose(): void;
 }
 
-/** a live view of a .glb on a canvas: turns slowly until dragged (drag = turn) */
+/** a model built in code (a shared base model, vinyl-model.js): THREE → its root object */
+export type ModelBuilder = (THREE: any) => Promise<any>;
+
+/** a .glb's URL, or a builder → the model's root object (untyped three.js) */
+export function loadSource(source: string | ModelBuilder): Promise<any>;
+
+/** a live view of a model (a .glb URL or a builder) on a canvas: turns slowly until dragged (drag = turn) */
 export function mountModelView(
 	canvas: HTMLCanvasElement,
-	url: string,
+	source: string | ModelBuilder,
 	opts?: { spin?: boolean; onload?: (info: ModelInfo) => void; onerror?: (error: unknown) => void }
 ): ModelViewHandle;
 

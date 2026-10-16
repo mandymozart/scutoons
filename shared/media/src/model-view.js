@@ -28,11 +28,16 @@ export function webglAvailable() {
 	return webgl;
 }
 
-/** loads a .glb, centred on the origin, feet on y = 0, scaled to a height of 1 */
-async function loadModel(url) {
+/** a model: a .glb's URL, or a builder (THREE) => Promise<Object3D> – a shared base model built in code (vinyl-model.js) */
+export async function loadSource(source) {
 	const { THREE, GLTFLoader } = await three();
-	const gltf = await new GLTFLoader().loadAsync(url);
-	const root = gltf.scene;
+	return typeof source === 'function' ? source(THREE) : (await new GLTFLoader().loadAsync(source)).scene;
+}
+
+/** loads a model, centred on the origin, feet on y = 0, scaled to a height of 1 */
+async function loadModel(source) {
+	const { THREE } = await three();
+	const root = await loadSource(source);
 	root.updateMatrixWorld(true);
 	const box = new THREE.Box3().setFromObject(root);
 	const size = box.getSize(new THREE.Vector3());
@@ -74,8 +79,8 @@ function disposeTree(obj) {
 	});
 }
 
-/** a live view on a canvas: turns slowly until dragged; returns a handle to stop it */
-export function mountModelView(canvas, url, opts = {}) {
+/** a live view on a canvas: turns slowly until dragged; returns a handle to stop it. `source`: a .glb URL or a builder */
+export function mountModelView(canvas, source, opts = {}) {
 	let stopped = false, raf = 0, renderer = null, model = null, ro = null;
 	const handle = { dispose };
 	(async () => {
@@ -85,7 +90,7 @@ export function mountModelView(canvas, url, opts = {}) {
 			renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 			renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 			const { scene, camera } = stage(THREE);
-			const m = await loadModel(url);
+			const m = await loadModel(source);
 			if (stopped) { disposeTree(m.pivot); return; }
 			model = m.pivot;
 			scene.add(model);
