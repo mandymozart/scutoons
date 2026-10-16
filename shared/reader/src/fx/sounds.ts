@@ -156,10 +156,50 @@ export function playRevealSound(choice: FxSoundChoice | undefined, own?: FxSound
 
 /** a short vibration (phones; the account's "Vibration" switch) */
 export function buzz(pattern: number | number[]) {
-	if (!haptics || typeof navigator === 'undefined' || !navigator.vibrate) return;
+	if (!haptics || typeof navigator === 'undefined') return;
+	if (!navigator.vibrate) return iosTicks(pattern);
 	try {
 		navigator.vibrate(pattern);
 	} catch {
 		/* not allowed here */
 	}
+}
+
+/**
+ * iPhone "polyfill" (owner 2026-10-16: "do the hidden checkbox as a polyfill for now … we can kill it later"): Safari has
+ * no `navigator.vibrate`, but toggling an `<input type="checkbox" switch>` (Safari 18+) gives one system haptic tick –
+ * only inside a tap (user activation), so a scroll-fired cue stays silent. One tick per "on" step of the pattern. An
+ * unofficial trick: switch it off here (IOS_SWITCH_HAPTICS = false) when Apple closes it or a real API comes.
+ */
+const IOS_SWITCH_HAPTICS = true;
+let iosSwitch: HTMLLabelElement | null | undefined;
+
+function iosSwitchLabel(): HTMLLabelElement | null {
+	if (iosSwitch !== undefined) return iosSwitch;
+	iosSwitch = null;
+	if (!IOS_SWITCH_HAPTICS || typeof document === 'undefined') return null;
+	// only where the switch exists (Safari 18+): other browsers ignore the attribute
+	const probe = document.createElement('input');
+	probe.type = 'checkbox';
+	probe.setAttribute('switch', '');
+	if (!('switch' in probe) && !/iP(hone|ad|od)/.test(navigator.userAgent)) return null;
+	const label = document.createElement('label');
+	label.setAttribute('aria-hidden', 'true');
+	label.style.cssText = 'position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;left:-100px;top:0';
+	probe.tabIndex = -1;
+	label.appendChild(probe);
+	document.body.appendChild(label);
+	return (iosSwitch = label);
+}
+
+function iosTicks(pattern: number | number[]) {
+	const label = iosSwitchLabel();
+	if (!label) return;
+	const steps = Array.isArray(pattern) ? pattern : [pattern];
+	// even entries vibrate, odd ones pause: a tick at the start of every vibrate step
+	let at = 0;
+	steps.forEach((ms, i) => {
+		if (i % 2 === 0 && ms > 0) setTimeout(() => label.click(), at);
+		at += Math.max(0, ms);
+	});
 }

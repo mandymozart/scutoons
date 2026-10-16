@@ -50,6 +50,9 @@ the `fx` event (new type, no migration). Creator: one "Sound" slot per pickup an
   gives `ontap(item, index, el, shape)` and `onidle` (4 s on screen at 60 %, untapped); the viewer's slice lifts at
   once, flies into the inventory button on a grant (off screen: the bottom right, fading), shakes on a refusal (the
   notice stays the "why"), nudges one pickup per slice and page view. "+1": the existing notice (open decision 3).
+  iPhones (no `navigator.vibrate`): `buzz` toggles a hidden `<input type="checkbox" switch>` – one system haptic tick per
+  vibrate step, only inside a tap (owner 2026-10-16 "do the hidden checkbox as a polyfill … we can kill it later":
+  `IOS_SWITCH_HAPTICS` in shared/reader/src/fx/sounds.ts).
   "Show hints" draws the cut-out's contour. Account page "Soundeffekte": volume (0–100 %, "Anhören") + "Vibration",
   on this device (localStorage `scutoons_fx_volume` / `scutoons_fx_haptics`; members and guests). Check:
   `npm run check:fx` (headless; nudge, alpha miss, collect, refuse with a faked max_reached, account).
