@@ -4,32 +4,133 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<!-- the boot screen (owner 2026-10-16: "before the app is fully loaded our screen is a dull white"): the reader's
-		     page-transition loader – the animated logo, large, "Patience …" and a bar for the app code loaded so far – until
-		     the app draws its first element. Plain CSS here: the app's tokens aren't loaded yet -->
+		<!-- the boot screen (owner 2026-10-16: "before the app is fully loaded our screen is a dull white"): the page's
+		     skeleton (header, buttons, cover, text, rows), the animated logo and "Patience …" in the middle and a thin line at
+		     the top for the app code loaded so far – until the app draws its first element. Plain CSS here: the app's tokens
+		     aren't loaded yet -->
 		<style>
 			#sc-boot {
 				position: fixed;
 				inset: 0;
 				z-index: 2147483647;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				gap: 1rem;
+				overflow: hidden;
 				background: #fff;
 				color: #000;
 				font: 1rem/1.4 'IBM Plex Mono', ui-monospace, monospace;
 			}
-			#sc-boot img {
-				width: min(16rem, 60vw);
+			/* the page's shape while it loads (owner 2026-10-16: "realistisches HTML und minimal CSS … für Logo-Bereich,
+			   Navigation, Header und darunter – klassischer Skeleton-Loader, minimal animiert"): the header with the logo
+			   and the round buttons, the cover, the text, the button, the chapter rows – grey blocks under one soft sweep */
+			#sc-boot .sk {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+			}
+			#sc-boot .sk i {
+				display: block;
+				background: #ececec;
+			}
+			#sc-boot .sk::after {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+				background-size: 250% 100%;
+				animation: sc-sweep 1.6s ease-in-out infinite;
+			}
+			@keyframes sc-sweep {
+				from {
+					background-position: 120% 0;
+				}
+				to {
+					background-position: -20% 0;
+				}
+			}
+			#sc-boot .sk-head {
+				flex: none;
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				height: 7.5rem;
+				padding: 0 0.75rem 1.5rem;
+				background: #f4f4f4;
+			}
+			#sc-boot .sk-logo {
+				width: 2.25rem;
+				height: 4rem;
+				margin-right: auto;
+				border-radius: 0.25rem;
+			}
+			#sc-boot .sk-head .round {
+				width: 3.75rem;
+				height: 3.75rem;
+				border-radius: 50%;
+				border: 2px solid #e2e2e2;
+				background: #fff;
+			}
+			#sc-boot .sk-cover {
+				flex: none;
+				height: min(55vh, 36rem);
+			}
+			#sc-boot .sk-body {
+				width: min(40rem, 100%);
+				box-sizing: border-box;
+				margin: 0 auto;
+				padding: 2rem 1rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0.75rem;
+			}
+			#sc-boot .sk-line {
+				height: 1rem;
+			}
+			#sc-boot .sk-button {
+				width: 13rem;
+				height: 3.25rem;
+				margin-top: 1rem;
+			}
+			#sc-boot .sk-row {
+				display: flex;
+				gap: 1rem;
+				margin-top: 1.5rem;
+			}
+			#sc-boot .sk-row i:first-child {
+				flex: none;
+				width: 7rem;
+				height: 4.5rem;
+			}
+			#sc-boot .sk-row span {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				gap: 0.5rem;
+			}
+			/* the logo and "Patience …" in the middle, over the page's shape */
+			#sc-boot .mid {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 0.75rem;
+			}
+			#sc-boot .mid img {
+				width: min(12rem, 45vw);
 				height: auto;
 			}
+			#sc-boot .text {
+				padding: 0 0.5rem;
+				background: #fff;
+			}
+			/* the code loaded so far: a thin line at the very top (an app, not a game) */
 			#sc-boot .bar {
-				box-sizing: border-box;
-				width: min(12rem, 50vw);
-				height: 0.75rem;
-				border: 2px solid #000;
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 2px;
 			}
 			#sc-boot .fill {
 				display: block;
@@ -37,6 +138,18 @@
 				height: 100%;
 				background: #000;
 				transition: width 0.15s linear;
+			}
+			@media (min-width: 64rem) {
+				#sc-boot .sk-head {
+					height: 6rem;
+					padding: 0 1.5rem;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				#sc-boot .sk::after {
+					animation: none;
+					background: none;
+				}
 			}
 		</style>
 		%sveltekit.head%
@@ -67,8 +180,22 @@
 		     before the first paint) – only the bar's scale; it grows when more arrives. The reader's own Loader
 		     (lib/components/loader.svelte, the same picture) carries data-sc-booting while a page fetches its content -->
 		<div id="sc-boot" data-expect="900000">
-			<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />
-			<span class="text"></span>
+			<div class="sk" aria-hidden="true">
+				<div class="sk-head"><i class="sk-logo"></i><i class="round"></i><i class="round"></i><i class="round"></i><i class="round"></i><i class="round"></i></div>
+				<i class="sk-cover"></i>
+				<div class="sk-body">
+					<i class="sk-line" style="width: 92%"></i>
+					<i class="sk-line" style="width: 78%"></i>
+					<i class="sk-line" style="width: 55%"></i>
+					<i class="sk-button"></i>
+					<div class="sk-row"><i></i><span><i class="sk-line" style="width: 70%"></i><i class="sk-line" style="width: 40%"></i></span></div>
+					<div class="sk-row"><i></i><span><i class="sk-line" style="width: 62%"></i><i class="sk-line" style="width: 35%"></i></span></div>
+				</div>
+			</div>
+			<div class="mid">
+				<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />
+				<span class="text"></span>
+			</div>
 			<span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="fill"></span></span>
 		</div>
 		<div id="sc-app" style="display: contents">%sveltekit.body%</div>
