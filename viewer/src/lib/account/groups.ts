@@ -7,8 +7,10 @@ export interface AccountReader {
 	roles: readonly string[];
 	/** may use the creator (`canUseApp('creator', roles)`) */
 	creator: boolean;
-	/** the browser can install the app or save chapters (else "Offline content" has nothing to offer) */
+	/** the browser can install the app (or show the iOS how-to) or save chapters (else "Offline content" is empty) */
 	offline: boolean;
+	/** this device can get push notifications (lib/push.svelte.ts state ≠ hidden) – guests too, it is per device */
+	push: boolean;
 }
 
 export const ACCOUNT_GROUPS = ['details', 'reading', 'sound', 'offline', 'notifications', 'collection', 'connections', 'creator'] as const;
@@ -41,7 +43,7 @@ export function groupVisible(group: AccountGroup, reader: AccountReader): boolea
 		case 'offline':
 			return reader.offline;
 		case 'notifications':
-			return reader.signedIn;
+			return reader.signedIn || reader.push;
 		case 'connections':
 			return reader.signedIn && reader.roles.some((r) => AI_ROLES.includes(r));
 		case 'creator':

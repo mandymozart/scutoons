@@ -4,7 +4,7 @@
 	 * "alle Pakete angehen"): the season's bar, then one bar per chapter – saved, saving now (its bytes), waiting, failed –
 	 * and × to stop (the chapters already saved stay). The running chapter's per-kind bars follow below (save-progress.svelte).
 	 */
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
 	import { seasonSaves, type SeasonJob } from '$lib/offline/save-season.svelte.ts';
@@ -28,7 +28,7 @@
 	<div class="head">
 		<strong>{job.label}</strong>
 		<button type="button" class="round" title={m['saved.stop']()} aria-label={m['saved.stop']()} onclick={() => seasonSaves.cancel(toon, season)}>
-			<Icon name="x" size="0.875rem" />
+			<CloseIcon size="0.875rem" />
 		</button>
 	</div>
 	<div class="bar total" role="progressbar" aria-label={job.label} aria-valuemin="0" aria-valuemax="100" aria-valuenow={total}>

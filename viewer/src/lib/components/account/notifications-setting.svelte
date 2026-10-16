@@ -6,6 +6,9 @@
 	import { push } from '$lib/push.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
+	/** `legend` false: the account page's "Benachrichtigungen" group says it already – the legend only for screen readers */
+	let { legend = true }: { legend?: boolean } = $props();
+
 	onMount(() => void push.init());
 
 	function toggle(event: Event) {
@@ -19,7 +22,7 @@
 
 {#if push.state !== 'hidden'}
 	<fieldset class="notifications" data-testid="notifications-setting" data-state={push.state}>
-		<legend>{m['pwa.push_title']()}</legend>
+		<legend class:hidden-legend={!legend}>{m['pwa.push_title']()}</legend>
 		{#if push.state === 'install-first'}
 			<small>{m['pwa.push_install_first']()}</small>
 		{:else}
@@ -43,6 +46,14 @@
 {/if}
 
 <style>
+	.hidden-legend {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
 	.notifications {
 		border: 0;
 		margin: 0 0 1rem;

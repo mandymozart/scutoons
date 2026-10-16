@@ -11,6 +11,7 @@
 	import AiConnections from './ai-connections.svelte';
 	import CreatorGroup from './creator-group.svelte';
 	import AccountToggle from './account-toggle.svelte';
+	import NotificationsSetting from './notifications-setting.svelte';
 
 	/** What a group of the account page holds (the order and who sees which: lib/account/groups.ts). */
 	let { group }: { group: AccountGroup } = $props();
@@ -26,14 +27,18 @@
 {:else if group === 'offline'}
 	<InstallAppSetting />
 	<SavedChaptersSetting />
-{:else if group === 'notifications' && session.user}
-	<AccountToggle
-		checked={!!session.user.marketing_opt_in}
-		label={m['account.marketing_opt_in']()}
-		hint={m['account.marketing_opt_in_hint']()}
-		save={(v) => session.setMarketingOptIn(v)}
-		testid="marketing-opt-in"
-	/>
+{:else if group === 'notifications'}
+	<!-- push (this device, also guests – PWA phase 4) and the newsletter (members) -->
+	<NotificationsSetting legend={false} />
+	{#if session.isLoggedIn && session.user}
+		<AccountToggle
+			checked={!!session.user.marketing_opt_in}
+			label={m['account.marketing_opt_in']()}
+			hint={m['account.marketing_opt_in_hint']()}
+			save={(v) => session.setMarketingOptIn(v)}
+			testid="marketing-opt-in"
+		/>
+	{/if}
 {:else if group === 'collection'}
 	<CollectionGroup />
 {:else if group === 'connections'}

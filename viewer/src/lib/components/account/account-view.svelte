@@ -11,6 +11,8 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
 	import { install } from '$lib/install.svelte.ts';
+	import { push } from '$lib/push.svelte.ts';
+	import { onMount } from 'svelte';
 	import { cameFrom, trackCameFrom } from '$lib/account/came-from.svelte.ts';
 	import { ACCOUNT_GROUPS, GROUP_ICON, groupScope, groupVisible, type AccountGroup, type AccountReader } from '$lib/account/groups.ts';
 	import accountIcon from '$lib/icons/account.svg';
@@ -37,8 +39,11 @@
 		signedIn: session.isLoggedIn,
 		roles: session.roles,
 		creator: canUseApp('creator', session.roles),
-		offline: savedChapters.supported || install.available
+		offline: savedChapters.supported || install.available || install.iosHowTo,
+		push: push.state !== 'hidden'
 	});
+	// whether this device can get push decides whether "Benachrichtigungen" shows for a guest
+	onMount(() => void push.init());
 	const groups = $derived(ACCOUNT_GROUPS.filter((g) => groupVisible(g, reader)));
 	/** the group shown: the page's, else on a wide screen the first */
 	const shown = $derived(group ?? (wide.current ? groups[0] : null));

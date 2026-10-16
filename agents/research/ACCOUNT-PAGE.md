@@ -2,7 +2,8 @@ Status: built 2026-10-16 as concept B (owner: "Stil Entwurf B mit den Menüs") �
 Owner's changes to the draft: no group "Konto" ("Konto Konto klingt komisch") → "Verbindungen" (AI) + "Stammdaten"
 (name first, address, sign out, roles, memberships, "Konto löschen" = contact form, privacy topic); icons before every
 group; "Dieses Gerät" → "Offline-Inhalte"; one back link look on both levels. Not built from the draft: the in-chapter
-quick panel (concept C), push notifications and the iOS how-to (still PWA phase 4). The text below is the draft.
+quick panel (concept C). Push (PWA phase 4) sits in "Benachrichtigungen" (guests too: it is per device), the iOS
+how-to with "App installieren" and the saved seasons in "Offline-Inhalte". The text below is the draft.
 
 # ACCOUNT-PAGE — reorganising the reader's account page
 
