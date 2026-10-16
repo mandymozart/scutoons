@@ -190,10 +190,11 @@ export function createQrApi(api: ApiClient) {
 
 		/**
 		 * Into a container or out (`into` null) – research/SCORES.md §2: 409 does_not_fit / container_full /
-		 * container_in_container / worn, 409 overfill_warning { max, days } until `overfill: true`
+		 * container_in_container / worn, 409 overfill_warning { max, days } until `overfill: true`. `qty` = part of a stack
+		 * (none = all; never more than fits – the rest stays, research/PACKING.md §2c)
 		 */
-		moveEntry: (entry_id: string | number, into: string | number | null, overfill = false) =>
-			api.post<InventoryResult>('/inventory/move/', { entry_id, into, ...(overfill ? { overfill } : {}) }),
+		moveEntry: (entry_id: string | number, into: string | number | null, overfill = false, qty?: number) =>
+			api.post<InventoryResult>('/inventory/move/', { entry_id, into, ...(overfill ? { overfill } : {}), ...(qty != null ? { qty } : {}) }),
 
 		/** the reader's homes (research/CAVE.md): which avatars live where, the WG limit, the mover's price */
 		fetchHomes: () => api.get<HomesResult>('/homes/'),

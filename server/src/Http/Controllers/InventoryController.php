@@ -24,7 +24,7 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST /api/inventory/claim/   { code, item_id?, variant? } → { status, claimed: "new"|"already_yours", code, inventory }
  *   POST /api/inventory/craft/   { recipe_id, use?: { <item id>: <entry id> }, workshop?: { home } | { visit } } → { status, recipe_id, inventory }
  *                                (a recipe `at: "workshop"` needs a workbench there – 409 needs_workshop; research/CAVE.md D4)
- *   POST /api/inventory/move/    { entry_id, into: <container entry id> | null, overfill? } → { status, inventory } (containers, research/SCORES.md)
+ *   POST /api/inventory/move/    { entry_id, into: <container entry id> | null, overfill?, qty? } → { status, inventory } (containers, research/SCORES.md)
  *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
  *   POST /api/inventory/take/    { item_id, qty?, ref? } → { status, taken, reason: null|too_few|already_taken, inventory } (a story takes – BACKLOG 10.38)
  *   POST /api/inventory/import/  { items: [{ item_id, qty, variant?, local_id?, in? }] } → { status, imported, skipped, inventory }

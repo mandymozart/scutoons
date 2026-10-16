@@ -7,6 +7,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
+use Scutoons\Support\Ids;
 
 /**
  * Containers – inventory entries that hold entries (agents/research/SCORES.md §2, @scutoons/content containers.ts).
@@ -27,9 +28,11 @@ final class Containers
     }
 
     /**
-     * Moves an entry into a container, or out (`into` null) – { entry_id, into, overfill? }. 404 unknown_entry,
-     * 409 not_a_container / does_not_fit / container_in_container / worn / container_full, 409 overfill_warning
-     * { max, days } until the client sends `overfill: true` (the reader agreed to the warning).
+     * Moves an entry into a container, or out (`into` null) – { entry_id, into, overfill?, qty? }. `qty` = how many of a
+     * stack (none = all of it); never more than the container takes – the rest stays where it was (research/PACKING.md
+     * §2c, owner 2026-10-16: "never more than fits"). A stackable merges into the same item's stack where it lands.
+     * 404 unknown_entry, 400 invalid_qty, 409 not_a_container / not_set_up / does_not_fit / container_in_container / worn
+     * / container_full, 409 overfill_warning { max, days } until the client sends `overfill: true` (the reader agreed).
      * @param array<string, mixed> $body
      */
     public function move(string $userId, array $body): void
@@ -37,21 +40,26 @@ final class Containers
         $entryId = is_string($body['entry_id'] ?? null) ? $body['entry_id'] : '';
         $into = $body['into'] ?? null;
         if ($into !== null && !is_string($into)) throw new ApiError(400, 'invalid_into', 'into is a container entry id or null.');
-        $this->db->transaction(function () use ($userId, $entryId, $into, $body) {
+        $qty = $body['qty'] ?? null;
+        if ($qty !== null && (!is_int($qty) || $qty < 1)) throw new ApiError(400, 'invalid_qty', 'qty is a whole number ≥ 1.');
+        $this->db->transaction(function () use ($userId, $entryId, $into, $body, $qty) {
             $this->settle($userId);
             $entry = $this->entry($userId, $entryId);
             $from = is_string($entry['container_id'] ?? null) ? $entry['container_id'] : null;
             if ($into === $from) return;
-            if ($into !== null) $this->putIn($userId, $entry, $into, ($body['overfill'] ?? false) === true);
-            else $this->db->run('UPDATE inventory SET container_id = NULL, updated_at = ? WHERE id = ?', [$this->clock->utc(), $entry['id']]);
+            $n = min(is_int($qty) ? $qty : (int) $entry['qty'], (int) $entry['qty']);
+            if ($into !== null) $n = $this->putIn($userId, $entry, $into, ($body['overfill'] ?? false) === true, $n);
+            $this->shift($entry, $into, $n);
+            if ($into !== null) $this->recount($userId, $into);
             if ($from !== null) $this->recount($userId, $from);
         });
     }
 
     /**
+     * The checks for moving `$n` of an entry into a container; returns how many go in (capped by the room left).
      * @param array<string, mixed> $entry
      */
-    private function putIn(string $userId, array $entry, string $into, bool $overfill): void
+    private function putIn(string $userId, array $entry, string $into, bool $overfill, int $n): int
     {
         $container = $this->entry($userId, $into);
         $holds = $this->holds((string) $container['item_id']);
@@ -64,22 +72,60 @@ final class Containers
         $item = $this->catalog->item((string) $entry['item_id']) ?? [];
         if (($item['holds'] ?? null) !== null) throw new ApiError(409, 'container_in_container', 'A container cannot go into a container.');
         if (($entry['home_id'] ?? null) !== null) throw new ApiError(409, 'furniture_stays', 'It stands in your home – furniture stays there.');
-        if (!in_array($item['category'] ?? null, (array) ($holds['categories'] ?? []), true) && !in_array($entry['item_id'], (array) ($holds['items'] ?? []), true)) {
-            throw new ApiError(409, 'does_not_fit', 'This does not fit in there.');
-        }
+        if (!self::fits($holds, $item, (string) $entry['item_id'])) throw new ApiError(409, 'does_not_fit', 'This does not fit in there.');
         if ($this->db->value('SELECT 1 FROM avatar_slots WHERE user_id = ? AND entry_id = ?', [$userId, $entry['id']])) {
             throw new ApiError(409, 'worn', 'Take it off first.');
         }
-        $after = $this->content($into) + (int) $entry['qty'];
+        $content = $this->content($into);
         $max = is_int($holds['max'] ?? null) ? $holds['max'] : null;
+        if ($max === null) return $n;
+        // what fits without overfilling goes in, the rest stays
+        if ($content < $max) return min($n, $max - $content);
         $over = is_array($holds['overfill'] ?? null) ? $holds['overfill'] : null;
-        if ($max !== null && $after > $max) {
-            if ($over === null || $after > (int) $over['max']) throw new ApiError(409, 'container_full', 'It is full.', ['max' => $over['max'] ?? $max]);
-            if (!$overfill) throw new ApiError(409, 'overfill_warning', 'Overfilled, it falls apart.', ['max' => $max, 'days' => (int) $over['days']]);
-        }
+        if ($over === null || $content >= (int) $over['max']) throw new ApiError(409, 'container_full', 'It is full.', ['max' => $over['max'] ?? $max]);
+        if (!$overfill) throw new ApiError(409, 'overfill_warning', 'Overfilled, it falls apart.', ['max' => $max, 'days' => (int) $over['days']]);
+        return min($n, (int) $over['max'] - $content);
+    }
+
+    /**
+     * Moves `$n` pieces of an entry to `$into` (null = loose): a stackable joins the same item's stack there (same
+     * variant, no code), a part of a stack becomes its own entry; the rest stays.
+     * @param array<string, mixed> $entry
+     */
+    private function shift(array $entry, ?string $into, int $n): void
+    {
         $now = $this->clock->utc();
-        $this->db->run('UPDATE inventory SET container_id = ?, updated_at = ? WHERE id = ?', [$into, $now, $entry['id']]);
-        $this->recount($userId, $into);
+        $all = $n >= (int) $entry['qty'];
+        $stackable = !empty($this->catalog->item((string) $entry['item_id'])['stackable']);
+        $target = $stackable && $entry['code'] === null ? $this->db->value(
+            'SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND variant <=> ? AND code IS NULL AND home_id IS NULL AND qty > 0 AND id <> ? AND '
+                . ($into === null ? 'container_id IS NULL' : 'container_id = ?') . ' ORDER BY acquired_at, id LIMIT 1',
+            array_merge([$entry['user_id'], $entry['item_id'], $entry['variant'], $entry['id']], $into === null ? [] : [$into])
+        ) : null;
+        if (is_string($target)) {
+            $this->db->run('UPDATE inventory SET qty = qty + ?, updated_at = ? WHERE id = ?', [$n, $now, $target]);
+            if ($all) $this->db->run('DELETE FROM inventory WHERE id = ?', [$entry['id']]);
+            else $this->db->run('UPDATE inventory SET qty = qty - ?, updated_at = ? WHERE id = ?', [$n, $now, $entry['id']]);
+        } elseif ($all) {
+            $this->db->run('UPDATE inventory SET container_id = ?, updated_at = ? WHERE id = ?', [$into, $now, $entry['id']]);
+        } else {
+            $this->db->run('INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, container_id, aged_since, acquired_at, updated_at) '
+                . 'SELECT ?, user_id, item_id, variant, ?, source, code, edition_number, ?, aged_since, acquired_at, ? FROM inventory WHERE id = ?', [Ids::uuid(), $n, $into, $now, $entry['id']]);
+            $this->db->run('UPDATE inventory SET qty = qty - ?, updated_at = ? WHERE id = ?', [$n, $now, $entry['id']]);
+        }
+    }
+
+    /**
+     * Does an item fit a container's rule: its category, its id or its sound-carrier format is listed
+     * (@scutoons/content `fitsIn`)?
+     * @param array<string, mixed> $holds
+     * @param array<string, mixed> $item
+     */
+    private static function fits(array $holds, array $item, string $itemId): bool
+    {
+        return in_array($item['category'] ?? null, (array) ($holds['categories'] ?? []), true)
+            || in_array($itemId, (array) ($holds['items'] ?? []), true)
+            || (is_string($item['format'] ?? null) && in_array($item['format'], (array) ($holds['formats'] ?? []), true));
     }
 
     /** Sets / clears a container's `overfilled_at` from what it holds now (back to `max` = saved). */
@@ -123,7 +169,7 @@ final class Containers
             $row = $this->db->one('SELECT item_id FROM inventory WHERE id = ? AND user_id = ?', [$id, $userId]);
             if (!$row) continue;
             $item = $this->catalog->item((string) $row['item_id']) ?? [];
-            $fits = $holds !== null && (in_array($item['category'] ?? null, (array) ($holds['categories'] ?? []), true) || in_array($row['item_id'], (array) ($holds['items'] ?? []), true));
+            $fits = $holds !== null && self::fits($holds, $item, (string) $row['item_id']);
             $this->db->run('UPDATE inventory SET container_id = ? WHERE id = ?', [$fits ? $toId : null, $id]);
         }
         $this->recount($userId, $toId);

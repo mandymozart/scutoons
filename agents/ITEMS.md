@@ -103,7 +103,9 @@ your code" still opens the QR scanner without any item).
 Built: the catalog model and the server (2026-10-14); the admin fields and the reader UI follow.
 - Server (`Domain\Inventory\Containers`, migration `2026-10-14-containers`): `inventory.container_id` (lies in),
   `overfilled_at`, `aged_since`; entries answer `in`, `overfilled_at`, `aged_since`. `POST /api/inventory/move`
-  { entry_id, into | null, overfill? } – by hand, the rule, the capacity; past `max` 409 `overfill_warning` { max, days }
+  { entry_id, into | null, overfill?, qty? } – by hand, the rule, the capacity: `qty` = part of a stack (none = all),
+  never more than fits (the rest stays); a stackable joins the same stack where it lands, a part becomes its own entry,
+  a grant joins the loose stack (research/PACKING.md §2c); at `max` 409 `overfill_warning` { max, days }
   until `overfill: true`. An overfilled container breaks on the next inventory read after its days (contents loose,
   the entry becomes `breaks_into`, colour + age kept); back to `max` in time clears it. Craft: `keep` inputs stay,
   `variant_from`, a consumed container's contents + age go to the output; `use: { item: entry }` picks the entry.
@@ -112,16 +114,24 @@ Built: the catalog model and the server (2026-10-14); the admin fields and the r
 - Score files: `GET /api/items/{id}/score/{musicxml|pdf}` → a short-lived bunny.net signed URL (`ProtectedFiles`,
   PROTECTED_CDN_URL / _KEY); MusicXML for anyone, PDF for a signed-in owner; `/api/items/` shows only
   `score: { language, pdf: bool }`.
-- `holds: { categories?, items?, max?, overfill?: { days, max, breaks_into } }` makes an item a container: an item
-  fits when its category OR its id is listed (`fitsIn`); never a container in a container; furniture (a shelf, a CD
-  tower) is filled only where it is set up – a home – while carried it is only carried; a container that is no
-  furniture (a vinyl bag, a DJ trolley) anywhere (`canFill`, server 409 `not_set_up`; owner 2026-10-16); `max` = capacity (none =
-  no limit); `overfill` = a soft limit up to `overfill.max` that breaks the container into `breaks_into` after `days`
+- `holds: { categories?, items?, formats?, max?, overfill?: { days, max, breaks_into } }` makes an item a container: an
+  item fits when its category OR its id OR its sound-carrier `format` (vinyl / cd / tape) is listed (`fitsIn`; owner
+  2026-10-16: CDs → CD case / CD tower, LPs → DJ trolley / record bag / record shelf, tapes → cassette rack); never a
+  container in a container; furniture (a shelf, a CD tower) is filled only where it is set up – a home – and only in the
+  home view; a carried container (category `bag`: a CD case, a DJ trolley, a record bag) anywhere (`canFill`, server 409
+  `not_set_up`; owner 2026-10-16); `max` = capacity (none = no limit); `overfill` = a soft limit up to `overfill.max` that breaks the container into `breaks_into` after `days`
   (`moveInCheck` → ok / overfill / full, `breaksAt`).
 - `ages: { tint_days, spots_days, full_days }` – the look from the entry's creation (`ageLook` → tint, spots 0 … 1).
 - `score: { language, musicxml, pdf? }` on a `category: "score"` item – one language per score.
 - Recipes: an input with `keep: true` stays (a tool – at least one input is used up); `output.variant_from: <input>`
   gives the output that input's variant.
+
+- Reader (research/PACKING.md, owner 2026-10-16): the item detail has ONE round "Einpacken" icon (when a container of
+  the reader's takes the item's kind) and a round take-out icon (not from furniture); "Einpacken" switches the grid into
+  the pack mode – containers that take it now lit, the rest dimmed with the reason (`packBlock`: Nur CDs … / Zu Hause
+  einräumen / Voll); a tap packs all that fits, press and hold counts the amount (`hold-count.ts`, Enter / Space too),
+  Escape back to the detail. An open container's grid takes things out on a tap (hold = some); furniture's stays
+  read-only there. Desktop drag onto a container moves the same way.
 
 ### Homes and furniture (model + server, 2026-10-14 – research/CAVE.md, FEATURES 10.98)
 

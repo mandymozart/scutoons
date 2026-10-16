@@ -299,7 +299,8 @@ final class CatalogValidator
 
     /**
      * Containers, ageing, score files (@scutoons/content containers.ts `validateContainers`; research/SCORES.md §2b):
-     * `holds` = categories or item ids + a capacity, an overfill that breaks it; never a container in a container.
+     * `holds` = categories, item ids or sound-carrier formats + a capacity, an overfill that breaks it; never a container
+     * in a container.
      *
      * @param array<string, mixed> $item
      * @param array<string, mixed> $items the catalog's items with this entry's new data
@@ -312,10 +313,14 @@ final class CatalogValidator
         $holds = $item['holds'] ?? null;
         if ($holds !== null) {
             if (!is_array($holds) || array_is_list($holds) && $holds !== []) {
-                $p[] = "$id: holds must be { categories?, items?, max?, overfill? }";
+                $p[] = "$id: holds must be { categories?, items?, formats?, max?, overfill? }";
             } else {
                 $listed = (array) ($holds['items'] ?? []);
-                if ((array) ($holds['categories'] ?? []) === [] && $listed === []) $p[] = "$id: holds needs categories or items";
+                $formats = $holds['formats'] ?? null;
+                if ((array) ($holds['categories'] ?? []) === [] && $listed === [] && ($formats ?? []) === []) $p[] = "$id: holds needs categories, items or formats";
+                if ($formats !== null && (!is_array($formats) || !array_is_list($formats) || array_diff($formats, self::MEDIA_FORMATS) !== [])) {
+                    $p[] = "$id: holds.formats must be a list of " . implode(', ', self::MEDIA_FORMATS);
+                }
                 foreach ($listed as $other) {
                     if (is_array($items[$other] ?? null) && ($items[$other]['holds'] ?? null) !== null) $p[] = "$id: a container can't hold a container (\"" . self::show($other) . '")';
                 }

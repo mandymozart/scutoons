@@ -22,8 +22,9 @@
 		entry,
 		onback,
 		oncombine,
-		onopencontainer = () => {}
-	}: { entry: Entry; onback: () => void; oncombine: (entry: Entry) => void; onopencontainer?: (container: Entry) => void } = $props();
+		onopencontainer = () => {},
+		onpack = () => {}
+	}: { entry: Entry; onback: () => void; oncombine: (entry: Entry) => void; onopencontainer?: (container: Entry) => void; onpack?: (entry: Entry) => void } = $props();
 
 	const inventory = getInventoryContext();
 	const ui = getItemsUiContext();
@@ -279,9 +280,10 @@
 				<button type="submit" form={giftFormId} class:disabled={working} disabled={working} data-testid="gift-confirm">{m['items.gift_confirm']()}</button>
 			{/if}
 		{:else}
-			<!-- scores and containers (research/SCORES.md): open the score, its PDF; open a container, put into / take out -->
+			<!-- scores and containers (research/SCORES.md, research/PACKING.md): open the score, its PDF; open a container,
+			     pack (the pack mode picks the target) / take out -->
 			<ScoreActions {entry} />
-			<ContainerActions {entry} onopen={onopencontainer} />
+			<ContainerActions {entry} onopen={onopencontainer} {onpack} />
 			<!-- the less frequent ones as round icons (their name on hover / for screen readers), the main ones in words
 			     filling the row (owner 2026-10-16: "mit Icons arbeiten, um Platz zu sparen") -->
 			{#if playback?.download}

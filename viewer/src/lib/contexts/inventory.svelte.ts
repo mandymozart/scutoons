@@ -29,6 +29,9 @@ import {
 	fitsIn,
 	canFill,
 	moveInCheck,
+	packBlock,
+	roomIn,
+	hardCapacity,
 	DEFAULT_AVATAR_UNLOCKS,
 	DEFAULT_LOOK,
 	REGULAR_PERSONA,
@@ -260,10 +263,24 @@ export function createInventoryContext(session: SessionContext) {
 		return entries.filter((e) => sameId(e.in, container.id));
 	}
 	const countIn = (container: Pick<Entry, 'id'>) => contentsOf(container).reduce((n, e) => n + e.qty, 0);
-	/** the reader's containers this entry fits into (its rule), the one it lies in excluded – furniture only where it is set up (`canFill`) */
-	function containersFor(entry: Entry): Entry[] {
+	/**
+	 * The pack mode's targets (research/PACKING.md §2a): every container of the reader's (not the entry itself, not the one
+	 * it lies in) with why it can't take the entry now – null = it can. Furniture is filled only at home, in the home view
+	 * (owner 2026-10-16), so here it is always `at_home`.
+	 */
+	function packTargets(entry: Entry): { container: Entry; block: ReturnType<typeof packBlock> }[] {
 		const def = itemsById[entry.item_id];
-		return entries.filter((c) => !sameId(c.id, entry.id) && !sameId(c.id, entry.in) && canFill(itemsById[c.item_id], c) && fitsIn(itemsById[c.item_id], def));
+		return entries
+			.filter((c) => itemsById[c.item_id]?.holds && !sameId(c.id, entry.id) && !sameId(c.id, entry.in))
+			.map((c) => ({ container: c, block: packBlock(itemsById[c.item_id], def, countIn(c)) }));
+	}
+	/** the reader's containers this entry goes into now from the inventory (its rule, room left; furniture only at home) */
+	function containersFor(entry: Entry): Entry[] {
+		return packTargets(entry).filter((t) => t.block === null).map((t) => t.container);
+	}
+	/** can this entry be packed at all – a container of the reader's takes its kind (even if full or at home)? */
+	function packable(entry: Entry): boolean {
+		return !itemsById[entry.item_id]?.holds && packTargets(entry).some((t) => t.block !== 'kind');
 	}
 
 	/** a guest's container past its overfill days breaks now (the server does the same on every read) */
@@ -295,14 +312,17 @@ export function createInventoryContext(session: SessionContext) {
 	}
 
 	/**
-	 * Puts an entry into a container, or takes it out (`into` null). `overfill`: the reader agreed to the warning.
+	 * Puts an entry into a container, or takes it out (`into` null). `overfill`: the reader agreed to the warning. `qty`:
+	 * part of a stack (none = all) – never more than fits, the rest stays; a stackable joins the same stack where it
+	 * lands (research/PACKING.md §2c, the server's Containers::move). Answers how many moved.
 	 * Errors: does_not_fit, container_in_container, worn, container_full { max }, overfill_warning { max, days }.
 	 */
-	async function move(entry: Entry, into: Entry | null, overfill = false): Promise<{ ok: boolean; error?: string; max?: number; days?: number }> {
+	async function move(entry: Entry, into: Entry | null, overfill = false, qty?: number): Promise<{ ok: boolean; moved?: number; error?: string; max?: number; days?: number }> {
 		if (isAccount) {
 			try {
-				applyInventory((await moveEntry(entry.id, into?.id ?? null, overfill)).inventory);
-				return { ok: true };
+				const before = into ? countIn(into) : null;
+				applyInventory((await moveEntry(entry.id, into?.id ?? null, overfill, qty)).inventory);
+				return { ok: true, moved: into && before != null ? countIn(into) - before : Math.min(qty ?? entry.qty, entry.qty) };
 			} catch (e) {
 				return e instanceof ApiError ? { ok: false, error: e.code, max: e.body?.max, days: e.body?.days } : { ok: false, error: 'failed' };
 			}
@@ -310,6 +330,8 @@ export function createInventoryContext(session: SessionContext) {
 		const mine = guest.entries.find((e) => sameId(e.id, entry.id));
 		if (!mine) return { ok: false, error: 'unknown_entry' };
 		const from = mine.in ?? null;
+		if (sameId(from, into?.id)) return { ok: true, moved: 0 };
+		let n = Math.min(qty ?? mine.qty, mine.qty);
 		if (into) {
 			const holds = itemsById[into.item_id]?.holds;
 			if (!holds) return { ok: false, error: 'not_a_container' };
@@ -317,15 +339,38 @@ export function createInventoryContext(session: SessionContext) {
 			if (itemsById[mine.item_id]?.holds) return { ok: false, error: 'container_in_container' };
 			if (!fitsIn(itemsById[into.item_id], itemsById[mine.item_id])) return { ok: false, error: 'does_not_fit' };
 			if (isEquipped(mine)) return { ok: false, error: 'worn' };
-			const check = moveInCheck({ holds }, countIn(into) + mine.qty - 1);
-			if (check === 'full') return { ok: false, error: 'container_full', max: holds.overfill?.max ?? holds.max };
-			if (check === 'overfill' && !overfill) return { ok: false, error: 'overfill_warning', max: holds.max, days: holds.overfill?.days };
-			mine.in = into.id;
-			recountGuest(into.id);
-		} else mine.in = null;
+			const count = guest.entries.filter((e) => sameId(e.in, into.id)).reduce((sum, e) => sum + e.qty, 0);
+			const room = roomIn({ holds }, count);
+			if (room >= 1) n = Math.min(n, room);
+			else {
+				const check = moveInCheck({ holds }, count);
+				if (check === 'full') return { ok: false, error: 'container_full', max: holds.overfill?.max ?? holds.max };
+				if (check === 'overfill' && !overfill) return { ok: false, error: 'overfill_warning', max: holds.max, days: holds.overfill?.days };
+				n = Math.min(n, hardCapacity({ holds }) - count);
+			}
+		}
+		shiftGuest(mine, into?.id ?? null, n);
+		if (into) recountGuest(into.id);
 		if (from != null) recountGuest(from);
 		saveGuest();
-		return { ok: true };
+		return { ok: true, moved: n };
+	}
+
+	/** moves `n` of a guest entry to `into` (null = loose): onto the same stack there, a part as its own entry */
+	function shiftGuest(mine: Entry, into: EntryId | null, n: number) {
+		const all = n >= mine.qty;
+		const target = itemsById[mine.item_id]?.stackable
+			? guest.entries.find((e) => e !== mine && e.item_id === mine.item_id && (e.variant ?? null) === (mine.variant ?? null) && !e.code && !e.home && (into == null ? e.in == null : sameId(e.in, into)))
+			: undefined;
+		if (target) {
+			target.qty += n;
+			if (all) guest.entries = guest.entries.filter((e) => e !== mine);
+			else mine.qty -= n;
+		} else if (all) mine.in = into;
+		else {
+			guest.entries.push({ ...mine, id: `local-${guest.seq++}`, qty: n, in: into });
+			mine.qty -= n;
+		}
 	}
 
 	/**
@@ -414,8 +459,9 @@ export function createInventoryContext(session: SessionContext) {
 
 	function addGuestEntry(item_id: string, qty: number, source: Entry['source'], variant: string | null = null) {
 		const item = itemsById[item_id];
+		// onto the loose stack – not one lying in a container (research/PACKING.md §2c)
 		const existing = item?.stackable
-			? guest.entries.find((e) => e.item_id === item_id && e.variant === variant)
+			? guest.entries.find((e) => e.item_id === item_id && e.variant === variant && e.in == null)
 			: undefined;
 		if (existing) {
 			existing.qty = Math.min(existing.qty + qty, maxOf(item));
@@ -1124,7 +1170,10 @@ export function createInventoryContext(session: SessionContext) {
 		gift,
 		containerOf,
 		contentsOf,
+		countIn,
 		containersFor,
+		packTargets,
+		packable,
 		move,
 		place,
 		payFare,

@@ -21,7 +21,7 @@
 	 */
 	let { data = $bindable(), id, lists, problems }: CatalogFormProps = $props();
 
-	const CATEGORIES = ['tool', 'consumable', 'wearable', 'collectible', 'media', 'substance', 'food', 'score', 'furniture'];
+	const CATEGORIES = ['tool', 'consumable', 'wearable', 'collectible', 'media', 'substance', 'food', 'score', 'furniture', 'bag'];
 	/** the VR headset: "use" enters the reader's home from anywhere (research/CAVE.md D2) */
 	const entersHome = $derived(Array.isArray(data.skills) && data.skills.some((s: Data) => s?.type === 'enter_home'));
 	function setEntersHome(on: boolean) {

@@ -37,6 +37,11 @@ final class ContainersTest extends TestCase
         $item('zip_tie', ['category' => 'consumable', 'stackable' => true]);
         $item('zip_tie_large', ['category' => 'consumable', 'stackable' => true]);
         $item('plastic_sheet', ['category' => 'consumable', 'stackable' => true, 'variants' => $colours]);
+        // research/PACKING.md §3: the sound carrier's format decides; a stackable bag for the quantity rules
+        $item('some_cd', ['category' => 'media', 'album' => 'awakening', 'format' => 'cd']);
+        $item('cd_case', ['category' => 'bag', 'holds' => ['formats' => ['cd'], 'max' => 25]]);
+        $item('dj_trolley', ['category' => 'bag', 'holds' => ['formats' => ['vinyl'], 'max' => 50]]);
+        $item('tie_bag', ['category' => 'bag', 'holds' => ['items' => ['zip_tie'], 'max' => 10]]);
         $admin->put('recipes', 'songbook_diy', ['id' => 'songbook_diy', 'inputs' => [['item' => 'drill', 'qty' => 1, 'keep' => true], ['item' => 'zip_tie', 'qty' => 4]],
             'output' => ['item' => 'songbook_diy', 'qty' => 1]], 'test');
         $admin->put('recipes', 'songbook_diy_colour', ['id' => 'songbook_diy_colour', 'inputs' => [['item' => 'songbook_diy', 'qty' => 1], ['item' => 'plastic_sheet', 'qty' => 1]],
@@ -182,5 +187,48 @@ final class ContainersTest extends TestCase
         $this->containers->move($this->id, ['entry_id' => $score, 'into' => $book]);
         $this->inventory->remove($this->id, 'songbook_small', 1);
         self::assertNull($this->entry($score)['in']);
+    }
+
+    public function testTheFormatDecidesCdsIntoTheCdCaseLpsIntoTheTrolley(): void
+    {
+        [$case] = $this->add('cd_case');
+        [$trolley] = $this->add('dj_trolley');
+        [$cd] = $this->add('some_cd');
+        [$lp] = $this->add('awakening_vinyl');
+        $this->refused('does_not_fit', fn() => $this->containers->move($this->id, ['entry_id' => $lp, 'into' => $case]));
+        $this->refused('does_not_fit', fn() => $this->containers->move($this->id, ['entry_id' => $cd, 'into' => $trolley]));
+        $this->containers->move($this->id, ['entry_id' => $cd, 'into' => $case]);
+        $this->containers->move($this->id, ['entry_id' => $lp, 'into' => $trolley]);
+        self::assertSame($case, $this->entry($cd)['in']);
+        self::assertSame($trolley, $this->entry($lp)['in']);
+    }
+
+    public function testPartOfAStackGoesInNeverMoreThanFitsAndMergesWhereItLands(): void
+    {
+        [$bag] = $this->add('tie_bag');
+        [$ties] = $this->add('zip_tie', 14);
+        $qtyIn = fn() => array_sum(array_map(fn($e) => $e['qty'], array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'zip_tie' && $e['in'] === $bag)));
+        $loose = fn() => array_values(array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'zip_tie' && $e['in'] === null));
+        // a part (held and counted): 4 go in, 10 stay
+        $this->containers->move($this->id, ['entry_id' => $ties, 'into' => $bag, 'qty' => 4]);
+        self::assertSame(4, $qtyIn());
+        self::assertSame(10, $this->entry($ties)['qty']);
+        // all of it (a tap): only what fits – 6 more, the rest stays; they join the stack in the bag
+        $this->containers->move($this->id, ['entry_id' => $ties, 'into' => $bag]);
+        self::assertSame(10, $qtyIn());
+        self::assertCount(1, array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'zip_tie' && $e['in'] === $bag), 'one stack in the bag');
+        self::assertSame(4, $this->entry($ties)['qty']);
+        self::assertSame(['max' => 10], $this->refused('container_full', fn() => $this->containers->move($this->id, ['entry_id' => $ties, 'into' => $bag])));
+        // a grant joins the loose stack, never the one in the bag
+        $this->add('zip_tie', 2);
+        self::assertSame(6, $this->entry($ties)['qty']);
+        self::assertSame(10, $qtyIn());
+        // three taken out join the loose stack
+        [$inside] = array_column(array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'zip_tie' && $e['in'] === $bag), 'id');
+        $this->containers->move($this->id, ['entry_id' => $inside, 'into' => null, 'qty' => 3]);
+        self::assertSame(7, $qtyIn());
+        self::assertCount(1, $loose());
+        self::assertSame(9, $loose()[0]['qty']);
+        $this->refused('invalid_qty', fn() => $this->containers->move($this->id, ['entry_id' => $inside, 'into' => null, 'qty' => 0]));
     }
 }

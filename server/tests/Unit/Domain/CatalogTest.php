@@ -143,6 +143,8 @@ final class CatalogTest extends TestCase
         self::assertSame([], $validator->problems('items', 'camera', ['model' => 'catpope/items/camera.model.glb', 'variants' => [['id' => 'red', 'name' => ['de' => 'Rot', 'en' => 'Red'], 'model' => 'catpope/items/camera_red.model.glb']]] + $camera), 'a .glb model on the item and a variant');
         self::assertSame([], $validator->problems('items', 'camera', ['vinyl' => ['format' => 'lp12', 'sleeveFront' => 'catpope/items/x.front.webp', 'labelA' => 'catpope/items/x.label_a.webp', 'color' => '#aa2233']] + $camera), 'a vinyl look (the shared record model)');
         self::assertSame([], $validator->problems('items', 'camera', ['vinyl' => ['format' => 'lp12']] + $camera), 'a test press: no pictures');
+        // a CD case (research/PACKING.md §3): a carried bag that takes CDs by their format
+        self::assertSame([], $validator->problems('items', 'camera', ['category' => 'bag', 'holds' => ['formats' => ['cd'], 'max' => 25]] + $camera), 'a CD case');
         $cases = [
             ['items', 'camera', ['slot' => 'tail'] + $camera, 'unknown slot "tail"'],
             ['items', 'camera', ['id' => 'other'] + $camera, 'data.id must be "camera"'],
@@ -152,7 +154,8 @@ final class CatalogTest extends TestCase
             ['items', 'bad id!', ['id' => 'bad id!'] + $camera, 'not a valid items id'],
             ['items', 'cucumber', ['grantable' => ['story']] + (array) $store->get('items', 'cucumber'), 'grants it by scan'],
             ['recipes', 'r', ['id' => 'r', 'inputs' => [['item' => 'ghost', 'qty' => 1]], 'output' => ['item' => 'camera', 'qty' => 0]], 'unknown item "ghost"'],
-            ['items', 'camera', ['holds' => ['max' => 5]] + $camera, 'holds needs categories or items'],
+            ['items', 'camera', ['holds' => ['max' => 5]] + $camera, 'holds needs categories, items or formats'],
+            ['items', 'camera', ['holds' => ['formats' => ['lp12'], 'max' => 5]] + $camera, 'holds.formats must be a list of vinyl, tape, cd'],
             ['items', 'camera', ['holds' => ['categories' => ['score'], 'max' => 5, 'overfill' => ['days' => 3, 'max' => 4, 'breaks_into' => 'ghost']]] + $camera, 'overfill.max must be above holds.max'],
             ['items', 'camera', ['ages' => ['tint_days' => 100, 'spots_days' => 1, 'full_days' => 90]] + $camera, 'ages must be'],
             ['items', 'camera', ['score' => ['language' => 'en', 'musicxml' => 'x.pdf']] + $camera, 'score must be'],

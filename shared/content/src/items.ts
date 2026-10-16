@@ -38,8 +38,9 @@ export const AVATAR_SLOTS: AvatarSlot[] = [
 
 export type ItemKind = 'physical' | 'virtual';
 /** `food` = eaten with the `apply` skill ("Essen" instead of "Benutzen"), e.g. the cucumber and the tuna can lower appetite;
- *  `score` = sheet music (`ItemDef.score`, research/SCORES.md); `furniture` = stands in a home (`ItemDef.furniture`, homes.ts) */
-export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food' | 'score' | 'furniture';
+ *  `score` = sheet music (`ItemDef.score`, research/SCORES.md); `furniture` = stands in a home (`ItemDef.furniture`, homes.ts);
+ *  `bag` = a carried container (a CD case, a DJ trolley, a record bag – `ItemDef.holds`, research/PACKING.md) */
+export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food' | 'score' | 'furniture' | 'bag';
 export type GrantSource = 'story' | 'scan';
 /** `gift` = given by another reader (ITEMS.md "Ownership, claims, gifting"; a code-bound gift keeps its code) */
 export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter' | 'gift';

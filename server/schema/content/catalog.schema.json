@@ -407,9 +407,10 @@
 				"substance",
 				"food",
 				"score",
-				"furniture"
+				"furniture",
+				"bag"
 			],
-			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite; `score` = sheet music (`ItemDef.score`, research/SCORES.md); `furniture` = stands in a home (`ItemDef.furniture`, homes.ts)"
+			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite; `score` = sheet music (`ItemDef.score`, research/SCORES.md); `furniture` = stands in a home (`ItemDef.furniture`, homes.ts); `bag` = a carried container (a CD case, a DJ trolley, a record bag – `ItemDef.holds`, research/PACKING.md)"
 		},
 		"VinylLook": {
 			"type": "object",
@@ -819,6 +820,12 @@
 						"type": "string"
 					}
 				},
+				"formats": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/MediaFormat"
+					}
+				},
 				"max": {
 					"type": "number"
 				},
@@ -843,7 +850,7 @@
 					"description": "A soft limit (the DIY song book, owner 2026-10-14): past `max` up to `overfill.max` after a warning; overfilled for `days` it breaks into `breaks_into` (its contents fall out). Taking entries out back to `max` in time saves it."
 				}
 			},
-			"description": "What a container takes (owner 2026-10-14: \"a simple rule we can edit\"): an item fits when its category is listed OR its id is listed; `max` = how many entries fit (none = no limit). A container never holds a container."
+			"description": "What a container takes (owner 2026-10-14: \"a simple rule we can edit\"): an item fits when its category is listed OR its id is listed OR its sound-carrier `format` is listed (owner 2026-10-16: CDs into a CD case / tower, LPs into a DJ trolley / record bag / shelf, tapes into the cassette rack – research/PACKING.md §3); `max` = how many pieces fit (none = no limit). A container never holds a container."
 		},
 		"ItemAges": {
 			"type": "object",

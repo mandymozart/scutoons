@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, CloseIcon } from '@scutoons/ui';
+	import { MEDIA_FORMATS } from '@scutoons/content';
 	import { text, type Data, type CatalogLists } from '../kinds.ts';
 	import { m } from '../messages.ts';
 	import CatalogField from './catalog-field.svelte';
@@ -7,8 +8,9 @@
 
 	/**
 	 * "Holds" – makes an item a container (agents/research/SCORES.md §2b, owner 2026-10-14: "a simple rule we can edit"):
-	 * the categories and / or the items that fit, how many, and an optional overfill (past the capacity after a warning;
-	 * overfilled for its days it breaks into another item). Empty = not a container (`holds` goes).
+	 * the categories, the items and / or the sound-carrier formats that fit (a CD case takes `cd` – research/PACKING.md §3),
+	 * how many, and an optional overfill (past the capacity after a warning; overfilled for its days it breaks into another
+	 * item). Empty = not a container (`holds` goes).
 	 */
 	let { value, categories, lists, error = null, onchange }: {
 		value: Data | null | undefined;
@@ -21,6 +23,7 @@
 	const holds = $derived<Data>(value ?? {});
 	const cats = $derived<string[]>(Array.isArray(holds.categories) ? holds.categories : []);
 	const listed = $derived<string[]>(Array.isArray(holds.items) ? holds.items : []);
+	const formats = $derived<string[]>(Array.isArray(holds.formats) ? holds.formats : []);
 	const itemOptions = $derived((lists.items ?? []).map((e) => ({ value: e.id, label: `${text(e.data?.name) || e.id} · ${e.id}` })));
 	const nameOf = (id: string) => itemOptions.find((o) => o.value === id)?.label ?? `${id} (?)`;
 	const whole = (v: unknown) => (v === null || v === '' || v === undefined ? undefined : Math.max(1, Math.round(Number(v))));
@@ -30,11 +33,13 @@
 		const clean: Data = {};
 		if (next.categories?.length) clean.categories = next.categories;
 		if (next.items?.length) clean.items = next.items;
+		if (next.formats?.length) clean.formats = next.formats;
 		if (next.max != null) clean.max = next.max;
 		if (next.overfill) clean.overfill = next.overfill;
-		onchange(clean.categories || clean.items ? clean : null);
+		onchange(clean.categories || clean.items || clean.formats ? clean : null);
 	}
 	const toggle = (c: string, on: boolean) => set({ ...holds, categories: on ? [...cats, c] : cats.filter((x) => x !== c) });
+	const toggleFormat = (f: string, on: boolean) => set({ ...holds, formats: on ? [...formats, f] : formats.filter((x) => x !== f) });
 	const overfill = $derived<Data | null>(holds.overfill ?? null);
 </script>
 
@@ -44,6 +49,12 @@
 	<div class="cats">
 		{#each categories as c (c)}
 			<CheckField label={c} checked={cats.includes(c)} onchange={(on) => toggle(c, on)} testid="item-holds-category-{c}" />
+		{/each}
+	</div>
+	<div class="cats" role="group" aria-label={m['catalog.holds_formats']()}>
+		<span class="sc-caption">{m['catalog.holds_formats']()}</span>
+		{#each MEDIA_FORMATS as f (f)}
+			<CheckField label={f} checked={formats.includes(f)} onchange={(on) => toggleFormat(f, on)} testid="item-holds-format-{f}" />
 		{/each}
 	</div>
 	{#each listed as id, i (id)}
@@ -61,7 +72,7 @@
 		onchange={(v) => v && set({ ...holds, items: [...listed, v] })}
 		testid="item-holds-add-item"
 	/>
-	{#if cats.length || listed.length}
+	{#if cats.length || listed.length || formats.length}
 		<div class="sc-fields" data-cols="fit" style:--fields-fit-min="10rem">
 			<CatalogField label={m['catalog.holds_max']()} type="number" value={holds.max} hint={m['catalog.holds_max_hint']()} onchange={(v) => set({ ...holds, max: whole(v) })} testid="item-holds-max" />
 		</div>

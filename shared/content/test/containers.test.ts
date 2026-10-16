@@ -1,7 +1,7 @@
 // Containers, scores, ageing, kept recipe inputs and inherited variants (agents/research/SCORES.md).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ageLook, breaksAt, canFill, fitsIn, hardCapacity, moveInCheck, readerPart, validateCatalog, type ItemDef } from '../src/index.ts';
+import { ageLook, breaksAt, canFill, fitsIn, hardCapacity, moveInCheck, packBlock, readerPart, roomIn, validateCatalog, type ItemDef } from '../src/index.ts';
 
 const base = { toon: null, name: { en: 'x' }, description: {}, kind: 'virtual', icon: 'x.png', stackable: false, starter: false, grantable: ['story'], slot: null, skills: [], edition_id: null, product: null, variants: null } as const;
 const def = (id: string, extra: Partial<ItemDef>): ItemDef => ({ ...base, id, category: 'collectible', ...extra }) as ItemDef;
@@ -91,7 +91,7 @@ test('validation: holds, overfill, ages, score files, recipes', () => {
 		)
 	);
 	const expect = [
-		'error: a: holds needs categories or items',
+		'error: a: holds needs categories, items or formats',
 		'error: b: a container can\'t hold a container ("songbook_small")',
 		'warning: b: holds an unknown item "ghost"',
 		'error: b: holds.max must be a whole number ≥ 1',
@@ -115,4 +115,41 @@ test('score parts: the reader sees the choir when there is one; parts are checke
 	const bad = messages(catalog([def('s', { category: 'score', score: { language: 'en', musicxml: 'a.musicxml', parts: { Choir: { musicxml: 'x.pdf' } } as never } })]));
 	assert.ok(bad.includes('error: s: part name "Choir" – lower-case letters, digits, _'), bad.join('\n'));
 	assert.ok(bad.includes('error: s: part Choir needs a .musicxml / .mxl path'), bad.join('\n'));
+});
+
+// research/PACKING.md §3 (owner 2026-10-16): the sound carrier's format decides – CDs, LPs, tapes
+const lp = def('lp', { category: 'media', format: 'vinyl' } as Partial<ItemDef>);
+const cd = def('cd', { category: 'media', format: 'cd' } as Partial<ItemDef>);
+const tape = def('tape', { category: 'media', format: 'tape' } as Partial<ItemDef>);
+const cdCase = def('cd_case', { category: 'bag', holds: { formats: ['cd'], max: 25 } });
+const djTrolley = def('dj_trolley', { category: 'bag', holds: { formats: ['vinyl'], max: 50 } });
+const cdTower = def('cd_rack', { category: 'furniture', furniture: { size: 12, image: 'x.webp' }, holds: { formats: ['cd'], max: 50 } });
+
+test('formats: CDs into the CD case, LPs into the DJ trolley, never across', () => {
+	assert.equal(fitsIn(cdCase, cd), true);
+	assert.equal(fitsIn(cdCase, lp), false);
+	assert.equal(fitsIn(djTrolley, lp), true);
+	assert.equal(fitsIn(djTrolley, tape), false);
+	assert.equal(fitsIn(cdTower, cd), true);
+	assert.equal(fitsIn(djTrolley, drill), false, 'no format – no fit');
+});
+
+test('the pack mode: why a target is dimmed – the rule, then at home, then full', () => {
+	assert.equal(packBlock(djTrolley, lp, 10), null);
+	assert.equal(packBlock(cdCase, lp, 0), 'kind');
+	assert.equal(packBlock(cdTower, cd, 0), 'at_home', 'furniture is filled at home');
+	assert.equal(packBlock(cdTower, lp, 0), 'kind', 'the rule first');
+	assert.equal(packBlock(djTrolley, lp, 50), 'full');
+	assert.equal(packBlock(diy, score, 25), null, 'an overfill container still takes it (after a warning)');
+	assert.equal(packBlock(drill, lp, 0), 'kind', 'not a container');
+	assert.equal(roomIn(djTrolley, 47), 3);
+	assert.equal(roomIn(djTrolley, 60), 0);
+	assert.equal(roomIn(def('sack', { holds: { categories: ['food'] } }), 5), Infinity);
+});
+
+test('validation: holds.formats', () => {
+	const ok = messages(catalog([cdCase, cd]));
+	assert.ok(!ok.some((m) => m.includes('cd_case')), ok.join(' | '));
+	const bad = messages(catalog([def('box', { holds: { formats: ['lp12' as never] } })]));
+	assert.ok(bad.some((m) => m.startsWith('error') && m.includes('holds.formats must be a list of vinyl, tape, cd')), bad.join(' | '));
 });

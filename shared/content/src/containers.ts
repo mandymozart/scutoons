@@ -1,13 +1,17 @@
 // Containers, scores and ageing – items that hold items (agents/research/SCORES.md §2, §2a, §2b; FEATURES 10.97)
 import type { ItemCategory, ItemDef, Recipe } from './items.ts';
+import { MEDIA_FORMATS, type MediaFormat } from './albums.ts';
 
 /**
  * What a container takes (owner 2026-10-14: "a simple rule we can edit"): an item fits when its category is listed OR
- * its id is listed; `max` = how many entries fit (none = no limit). A container never holds a container.
+ * its id is listed OR its sound-carrier `format` is listed (owner 2026-10-16: CDs into a CD case / tower, LPs into a DJ
+ * trolley / record bag / shelf, tapes into the cassette rack – research/PACKING.md §3); `max` = how many pieces fit
+ * (none = no limit). A container never holds a container.
  */
 export interface ItemHolds {
 	categories?: ItemCategory[];
 	items?: string[];
+	formats?: MediaFormat[];
 	max?: number;
 	/**
 	 * A soft limit (the DIY song book, owner 2026-10-14): past `max` up to `overfill.max` after a warning; overfilled
@@ -64,10 +68,32 @@ export function canFill(container: Pick<ItemDef, 'holds' | 'furniture'> | null |
 }
 
 /** Does `item` fit into `container` by its rule (not counting the capacity)? */
-export function fitsIn(container: Pick<ItemDef, 'holds'> | null | undefined, item: Pick<ItemDef, 'id' | 'category' | 'holds'> | null | undefined): boolean {
+export function fitsIn(container: Pick<ItemDef, 'holds'> | null | undefined, item: (Pick<ItemDef, 'id' | 'category' | 'holds'> & { format?: MediaFormat | null }) | null | undefined): boolean {
 	const holds = container?.holds;
 	if (!holds || !item || item.holds) return false;
-	return (holds.categories ?? []).includes(item.category) || (holds.items ?? []).includes(item.id);
+	return (holds.categories ?? []).includes(item.category) || (holds.items ?? []).includes(item.id) || (!!item.format && (holds.formats ?? []).includes(item.format));
+}
+
+/** How many more pieces go into a container holding `count` without overfilling it (Infinity = no limit). */
+export function roomIn(container: Pick<ItemDef, 'holds'> | null | undefined, count: number): number {
+	const max = container?.holds?.max;
+	return max == null ? Infinity : Math.max(0, max - count);
+}
+
+/**
+ * Why `item` can't go into this container entry now (research/PACKING.md §2a – the pack mode's dimmed targets):
+ * `null` = it can; `kind` = the rule doesn't take it (another format / category); `at_home` = furniture, filled only at
+ * home in the home view (owner 2026-10-16); `full` = no room left (an overfill container still takes it after a warning,
+ * so it never counts as full before its ceiling). Order: the rule first, then where, then the room.
+ */
+export function packBlock(
+	container: Pick<ItemDef, 'holds' | 'furniture'> | null | undefined,
+	item: Parameters<typeof fitsIn>[1],
+	count: number
+): null | 'kind' | 'at_home' | 'full' {
+	if (!container?.holds || !fitsIn(container, item)) return 'kind';
+	if (container.furniture) return 'at_home';
+	return moveInCheck(container, count) === 'full' ? 'full' : null;
 }
 
 /** The most a container can take: the overfill ceiling when it has one, else `max` (Infinity = no limit). */
@@ -114,9 +140,10 @@ export function validateContainers(catalog: { items: any[]; recipes?: any[] }, a
 		const path = ['items', i];
 		const h = item.holds;
 		if (h != null) {
-			if (!isObj(h)) add('error', [...path, 'holds'], `${item.id}: holds must be { categories?, items?, max?, overfill? }`);
+			if (!isObj(h)) add('error', [...path, 'holds'], `${item.id}: holds must be { categories?, items?, formats?, max?, overfill? }`);
 			else {
-				if (!(h.categories?.length || h.items?.length)) add('error', [...path, 'holds'], `${item.id}: holds needs categories or items`);
+				if (!(h.categories?.length || h.items?.length || h.formats?.length)) add('error', [...path, 'holds'], `${item.id}: holds needs categories, items or formats`);
+				if (h.formats != null && !(Array.isArray(h.formats) && h.formats.every((f: unknown) => (MEDIA_FORMATS as readonly unknown[]).includes(f)))) add('error', [...path, 'holds', 'formats'], `${item.id}: holds.formats must be a list of ${MEDIA_FORMATS.join(', ')}`);
 				for (const id of h.items ?? []) {
 					const target = byId.get(id);
 					if (!target) add('warning', [...path, 'holds', 'items'], `${item.id}: holds an unknown item "${id}"`);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -11,14 +11,14 @@
 	import PullPanel from '$lib/components/panel/pull-panel.svelte';
 	import inventoryIcon from '$lib/icons/inventory.svg';
 	import avatarIcon from '$lib/icons/avatar.svg';
-	import ItemIcon from '$lib/components/items/item-icon.svelte';
 	import ItemDetail from '$lib/components/items/item-detail.svelte';
 	import RecipePreview from '$lib/components/items/recipe-preview.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import ReaderStats from '$lib/components/items/reader-stats.svelte';
 	import InvitesPanel from '$lib/components/items/invites-panel.svelte';
-	import { moveWithWarning } from '$lib/components/items/container-move.ts';
 	import { warmModel } from '$lib/components/items/model-warmup.ts';
+	import InventoryGrid from './inventory-grid.svelte';
+	import { createPackMode } from './pack-mode.svelte.ts';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -31,7 +31,6 @@
 	let combineSecond = $state<Entry | null>(null);
 	/** a container opened: its own grid (research/SCORES.md §2) */
 	let openBox = $state<Entry | null>(null);
-	let moveError = $state<string | null>(null);
 
 	const entries = $derived(
 		[...inventory.entries].sort((a, b) => (a.acquired_at < b.acquired_at ? -1 : 1))
@@ -61,34 +60,58 @@
 	});
 
 	/** a container's fill: "3 / 25" */
-	function fill(entry: Entry): string | null {
-		const holds = inventory.item(entry.item_id)?.holds;
-		if (!holds) return null;
-		const n = inventory.contentsOf(entry).reduce((sum, e) => sum + e.qty, 0);
-		return holds.max != null ? `${n} / ${holds.max}` : String(n);
+	function fill(entry: Entry): string {
+		const max = inventory.item(entry.item_id)?.holds?.max;
+		return max != null ? `${inventory.countIn(entry)} / ${max}` : String(inventory.countIn(entry));
 	}
 
-	// drag an item onto a container (desktop; phones use "Put into …" in the item's detail)
-	let dragged = $state<Entry | null>(null);
-	async function dropOn(container: Entry) {
-		const entry = dragged;
-		dragged = null;
-		if (!entry || String(entry.id) === String(container.id)) return;
-		moveError = await moveWithWarning(inventory, entry, container);
+	// the pack mode and the container view's take-out (research/PACKING.md §2)
+	let gridEl = $state<HTMLElement | null>(null);
+	const pack = createPackMode(inventory, async (id) => {
+		await tick();
+		gridEl?.querySelector<HTMLElement>(`[data-entry="${CSS.escape(id)}"]`)?.focus();
+	});
+	const boxOpen = $derived(!!openBox && !combineWith && !pack.packing);
+	const boxAtHome = $derived(!!openBox && !!inventory.item(openBox.item_id)?.furniture);
+	function tileOf(entry: Entry) {
+		if (pack.packing) return pack.packTile(entry);
+		return boxOpen && openBox ? pack.boxTile(entry, openBox) : null;
 	}
-
-	function iconsFor(entry: Entry): string[] {
-		return [inventory.iconOf(entry), inventory.item(entry.item_id)?.icon ?? ''];
+	function hold(entry: Entry, qty: number) {
+		if (pack.packing) pack.hold(entry, qty);
+		else if (boxOpen && !boxAtHome) void pack.takeOut(entry, qty);
 	}
+	function startPacking(entry: Entry) {
+		selected = null;
+		openBox = null;
+		pack.start(entry);
+	}
+	// Escape leaves the pack mode first (before the panel closes on it), back to the item's detail
+	$effect(() => {
+		if (!pack.packing) return;
+		const entry = pack.packing;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape') return;
+			e.stopImmediatePropagation();
+			e.preventDefault();
+			pack.cancel();
+			selected = entry;
+		};
+		window.addEventListener('keydown', onKey, true);
+		return () => window.removeEventListener('keydown', onKey, true);
+	});
 
 	function reset() {
 		selected = null;
 		openBox = null;
 		combineWith = null;
 		combineSecond = null;
+		pack.cancel();
 	}
 
 	function pick(entry: Entry) {
+		if (pack.packing) return pack.tap(entry);
+		if (boxOpen && !boxAtHome) return void pack.takeOut(entry);
 		if (combineWith) {
 			if (String(entry.id) === String(combineWith.id) && entry.qty < 2) return;
 			combineSecond = entry;
@@ -184,20 +207,27 @@
 			ondone={() => reset()}
 		/>
 	{:else if selected && !combineWith}
-		<ItemDetail entry={selected} onback={() => (selected = null)} oncombine={(e) => (combineWith = e)} onopencontainer={(c) => ((openBox = c), (selected = null))} />
+		<ItemDetail entry={selected} onback={() => (selected = null)} oncombine={(e) => (combineWith = e)} onopencontainer={(c) => ((openBox = c), (selected = null), pack.clearNote())} onpack={startPacking} />
 	{:else if !inventory.catalog && inventory.entries.length === 0}
 		<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
 	{:else}
 		<!-- gift invites: invite with a campaign's item, the open invites, a gift's shipping address (research/GIFT-INVITES.md) -->
-		{#if !combineWith && !openBox}<InvitesPanel />{/if}
-		{#if openBox}
+		{#if !combineWith && !openBox && !pack.packing}<InvitesPanel />{/if}
+		{#if pack.packing}
+			<div class="combine-bar" data-testid="pack-bar">
+				<span>{m['items.pack_where']({ name: inventory.nameOf(pack.packing) })}</span>
+				<button class="btn-secondary" onclick={() => ((selected = pack.packing), pack.cancel())} data-testid="pack-cancel">{m['common.cancel']()}</button>
+			</div>
+		{:else if openBox}
 			<div class="box-bar" data-testid="container-view">
 				<button class="btn-back btn-clear" onclick={() => (openBox = null)}>← {m['items.container_back']()}</button>
 				<span>{inventory.nameOf(openBox)} · {fill(openBox)}</span>
 			</div>
 			{#if openBox.overfilled_at}<p class="empty">{m['items.container_overfilled']()}</p>{/if}
+			{#if inventory.countIn(openBox) > 0}<p class="hint">{boxAtHome ? m['items.container_at_home']() : m['items.container_tap_hint']()}</p>{/if}
 		{/if}
-		{#if moveError}<p class="empty" role="alert">{moveError}</p>{/if}
+		{#if pack.note}<p class="empty" role="status" data-testid="pack-note">{pack.note}</p>{/if}
+		<p class="sr-only" aria-live="polite">{pack.live}</p>
 		{#if listed.length === 0 && !openBox}
 			<p class="empty">{m['inventory.empty']()}</p>
 		{/if}
@@ -208,32 +238,18 @@
 			</div>
 		{/if}
 		{#if listed.length}
-			<section class="items" data-testid="inventory-items">
-				{#each listed as { entry, qty } (entry.id)}
-					<button
-						class="item"
-						data-control-exempt="inventory item card (picture + name)"
-						class:source={combineWith && String(combineWith.id) === String(entry.id)}
-						onclick={() => pick(entry)}
-						title={inventory.nameOf(entry)}
-						data-item={entry.item_id}
-						draggable={!openBox && !combineWith}
-						ondragstart={() => (dragged = entry)}
-						ondragend={() => (dragged = null)}
-						ondragover={(e) => dragged && inventory.containersFor(dragged).some((c) => String(c.id) === String(entry.id)) && e.preventDefault()}
-						ondrop={(e) => (e.preventDefault(), dropOn(entry))}
-						class:drop-target={dragged && inventory.containersFor(dragged).some((c) => String(c.id) === String(entry.id))}
-					>
-						<ItemIcon srcs={iconsFor(entry)} name={inventory.nameOf(entry)} lettering={inventory.letteringOf(entry)} />
-						{#if qty > 1}
-							<div class="count">{qty}</div>
-						{:else if fill(entry)}
-							<div class="count fill" data-testid="container-fill">{fill(entry)}</div>
-						{/if}
-						<span class="name">{inventory.nameOf(entry)}</span>
-					</button>
-				{/each}
-			</section>
+			<div bind:this={gridEl}>
+				<InventoryGrid
+					{listed}
+					tile={tileOf}
+					source={combineWith}
+					draggable={!openBox && !combineWith && !pack.packing}
+					onpick={pick}
+					onhold={hold}
+					oncount={(n) => (pack.live = String(n))}
+					ondropinto={pack.drop}
+				/>
+			</div>
 		{/if}
 	{/if}
 </PullPanel>
@@ -316,15 +332,6 @@
 		white-space: nowrap;
 		flex-shrink: 0;
 	}
-	.item.drop-target {
-		outline: 3px dashed var(--primary-color);
-		outline-offset: -3px;
-	}
-	.count.fill {
-		width: auto;
-		padding: 0 0.35rem;
-		border-radius: 1rem;
-	}
 	.combine-bar {
 		display: flex;
 		align-items: center;
@@ -338,47 +345,18 @@
 		flex: none;
 	}
 
-	.items {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
-		gap: 0.5rem;
-	}
-	.item {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.25rem;
-		background: var(--paper);
-		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		cursor: pointer;
-		touch-action: manipulation;
-		transition: border-color 0.1s ease;
-	}
-	.item:hover {
-		background: var(--paper);
-		border-color: var(--ink);
-	}
-	.item.source {
-		border-color: var(--ink);
-		filter: drop-shadow(0 0 6px var(--primary-color));
-	}
-	.name {
-		font-size: 0.625rem;
-		line-height: 1.2;
-		text-align: center;
-		overflow-wrap: anywhere;
-	}
-	.count {
-		position: absolute;
-		left: 0.25rem;
-		top: 0.25rem;
-		padding: 0 0.25rem;
+	.hint {
+		margin: 0 0 0.5rem;
 		font-size: 0.75rem;
-		background: var(--paper);
-		border: 1px solid black;
-		border-radius: 0.5rem;
+		line-height: 1.3;
+		color: var(--text-muted);
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>

@@ -78,7 +78,8 @@ final class InventoryService
         if ($qty < 1) return [];
         $now = $this->clock->utc();
         if (!empty($item['stackable'])) {
-            $row = $this->db->one('SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND ' . ($variant === null ? 'variant IS NULL' : 'variant = ?') . ' ORDER BY acquired_at LIMIT 1',
+            // onto the loose stack – not one lying in a container (research/PACKING.md §2c)
+            $row = $this->db->one('SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND container_id IS NULL AND ' . ($variant === null ? 'variant IS NULL' : 'variant = ?') . ' ORDER BY acquired_at LIMIT 1',
                 $variant === null ? [$userId, $itemId] : [$userId, $itemId, $variant]);
             if ($row) {
                 $this->db->run('UPDATE inventory SET qty = qty + ?, updated_at = ? WHERE id = ?', [$qty, $now, $row['id']]);

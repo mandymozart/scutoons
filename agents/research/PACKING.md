@@ -1,4 +1,4 @@
-Status: draft, owner to review (2026-10-16) – nothing built. Mockup: research/packing-drafts.html = https://claude.ai/artifact/Kh9WKKgRNNYn91MXCULmLG
+Status: decided 2026-10-16 (owner's answers in §5), built on branch `packing` – how it is now: ITEMS.md "Containers". Drafts: research/packing-drafts.html = https://claude.ai/artifact/Kh9WKKgRNNYn91MXCULmLG
 
 # PACKING — putting items into containers (one small pack action, format rules)
 
@@ -54,31 +54,28 @@ fitting" button for bulk; drag on desktop as an extra.
    everything else is **dimmed**. A dimmed container carries its reason as a one-line caption under the tile instead
    of its name: *Nur CDs* · *Nur Kassetten* · *Erst zu Hause aufstellen* · *Voll (25 / 25)*. Non-containers are just
    dimmed, no caption. Order of reasons: format/kind first, then set-up, then full.
-4. **Tap a lit target →** moved (`moveWithWarning` – the overfill dialog stays as it is), the mode ends, a short toast
-   at the bottom: "In DJ-Trolley gepackt · Rückgängig" (5 s; undo = move back to where it was). One item, one move –
-   like a Stardew click. Tap a dimmed tile → nothing moves, the toast says the reason. ✕ / Escape / the back gesture →
+4. **Tap a lit target →** moved (`moveWithWarning` – the overfill dialog stays as it is), the mode ends, a status line
+   says "Awakening LP liegt jetzt in: DJ-Trolley" (no undo – taking out is one tap in the container view). One item,
+   one move – like a Stardew click. Tap a dimmed tile → nothing moves, the line says the reason. ✕ / Escape / the back gesture →
    leave the mode, back to the item's detail.
 5. **Desktop extra:** the existing drag onto a container stays; while dragging, the grid shows the same lit / dimmed
    state (one visual language for both).
 
-### 2b. Container first – the chest view (the bulk flow)
-Opening a container already shows its own grid (`openBox`, "← Zurück", fill). It becomes Stardew's chest: **its
-contents above, a rule, then "Passt hinein" – the reader's loose items that fit below** (only fitting ones; the
-section is left out when none fit). Tap an item below → in; tap one above → out (no detail; a small ⓘ or long-press
-opens the detail if the owner wants one – open question 3). A round icon in the container bar, **Alles Passende
-einpacken** (Feather `download`), moves every fitting loose item in, up to the capacity, oldest first – the "Add to
-existing stacks" of SCUTOONS. Furniture not set up opens read-only with the line "Erst zu Hause aufstellen – dann
-kannst du es füllen." (a carried shelf shows its contents if it has any, e.g. a moved-in shelf).
+### 2b. The container view (decided: no bulk button)
+Opening a container shows its own grid (`openBox`, "← Zurück", fill). A tap on a thing in it takes it out (Stardew's
+chest – owner §5.3), holding takes only some (§5.5); the detail stays one tap away in the normal grid. No "Passt
+hinein" section and no "Alles Passende einpacken" (owner §5.1: "one way only"). Furniture's grid stays read-only here
+with the line "Möbel räumst du zu Hause ein und aus." – it is filled and emptied in the home view (§5.2).
 
 ### 2c. Rules that stay
-- Furniture is filled only where it stands (`canFill`, 409 `not_set_up`); a carried container anywhere. Placed
-  furniture is listed in the inventory grid as today, so a shelf at home is a target from anywhere (owner to confirm –
-  open question 2).
+- Furniture is filled only where it stands (`canFill`, 409 `not_set_up`) and only while the reader is there – in the home
+  view (select a thing, tap the rack; owner §5.2). In the inventory's pack mode a shelf is dimmed "Zu Hause einräumen";
+  a carried container (a bag) anywhere.
 - A container never goes into a container; a worn item can't be packed (409 `worn`) – in the pack mode it isn't
   offered (Einpacken hidden while worn, the detail says "Erst ablegen").
-- **Stacks:** an entry moves as a whole (the server moves the entry with its `qty`). Records, CDs and tapes are not
-  stackable, so for the music carriers nothing changes. For a future stackable that a container takes, the move would
-  need a split (`qty` in `POST /api/inventory/move`) – not now (open question 5).
+- **Stacks** (owner §5.5): a tap moves the whole entry, but never more than fits – the rest stays; press and hold counts
+  1, 2, 3 … faster and faster (Stardew's picker), letting go moves that many (`qty` in `POST /api/inventory/move`). A
+  stackable joins the same item's stack where it lands; a part becomes its own entry; a grant joins the loose stack.
 - **Guests vs members:** the same UI; members go through `POST /api/inventory/move`, guests change the device
   inventory (`inventory.move` already does both). Nothing new for guests; the import keeps `in`.
 
@@ -89,8 +86,7 @@ kannst du es füllen." (a carried shelf shows its contents if it has any, e.g. a
 - Lit targets: `<button aria-label="In DJ-Trolley packen, 12 von 90">`. Dimmed ones stay focusable with
   `aria-disabled="true"` and the reason in their label ("CD-Tasche – nimmt nur CDs"), so a screen-reader user hears why
   – not removed from the tab order.
-- After a move: the live region "Awakening LP liegt jetzt im DJ-Trolley", focus goes to the target's tile; the toast's
-  Rückgängig is a real button (reachable by Tab, stays while focused). Escape leaves the mode and returns focus to the
+- After a move: the live region "Awakening LP liegt jetzt im DJ-Trolley", focus goes to the target's tile. Escape leaves the mode and returns focus to the
   item's tile.
 - The lit / dimmed state is never colour only: lit = cyan glow + a 2 px ink frame, dimmed = 35 % opacity + the
   caption. Reduced motion: no pulse on the targets.
@@ -125,45 +121,38 @@ its id is listed OR **its `format` is listed** – one more OR, the rule stays "
 | `cassette_rack` Kassettenregal (furniture) | `categories: [media]`, max 50 | `formats: [tape]`, max 50 |
 | `record_shelf` Plattenregal (furniture) | `items: [awakening_vinyl, awakening_test_press]`, max 50 | `formats: [vinyl]`, max 50 (every future LP fits without editing the shelf) |
 
-New carried containers (no `furniture`, so filled anywhere; category `tool` like the players – or a new category
-`bag`, open question 6; not stackable, giftable, virtual, icons placeholder):
+New carried containers (no `furniture`, so filled anywhere; the new category `bag` – §5.6; not stackable, giftable,
+virtual, icons placeholder; for now only through the story, `giveItem` – §5.7):
 | id | DE / EN | holds | why this size |
 |---|---|---|---|
 | `cd_case` | CD-Tasche / CD case | `formats: [cd]`, max 25 | owner: 25 CDs, "für Gigs zum Mitnehmen" |
-| `dj_trolley` | DJ-Trolley / DJ trolley | `formats: [vinyl]`, max 90 | a real LP trolley takes about 90 LPs ([Magma LP-Bag 100 Trolley: 90 × 12″][magma-100]) |
+| `dj_trolley` | DJ-Trolley / DJ trolley | `formats: [vinyl]`, max 50 | owner §5.7: 50 (a real one takes up to ~90 – [Magma LP-Bag 100 Trolley][magma-100]) |
 | `record_bag` | Plattentasche / record bag | `formats: [vinyl]`, max 25 | owner: ~25; real ones take 35–50 ([Riot LP-Bag 50][magma-riot]) |
 
-How a reader gets them (shop product, recipe, story grant) is open (question 7). The DJ trolley is the owner's
-exception to "furniture only at home" – it is no furniture, so it is filled anywhere by the existing rule.
+The DJ trolley is the owner's exception to "furniture only at home" – it is no furniture, so it is filled anywhere.
 
-## 4. Implementation plan (after the owner's yes; one session, viewer + shared + server)
-1. **Model** – `holds.formats` in containers.ts + `whyNot`, Containers.php `fits()`, CatalogValidator, schemas, tests.
-2. **Creator** – container-field formats chips; then drafts for `cd_rack`, `cassette_rack`, `record_shelf` and the
-   three new items over the MCP (`save_draft item:<id>`), link to the owner to publish.
-3. **Reader: pack mode** – `inventory.svelte` gets `packing: Entry | null` next to `combineWith` (the same bar, the same
-   `pick()` branch), lit / dimmed tiles + captions, the toast with undo (a small `pack-toast.svelte` or the existing
-   status line), live region; `container-actions.svelte` shrinks to the two icon buttons (Einpacken / Herausnehmen) +
-   the open-container button; drag shares the lit / dimmed state.
-4. **Reader: chest view** – the open container's grid gets the "Passt hinein" section and the "Alles Passende
-   einpacken" icon (sequential `inventory.move` calls, stop at `full`, one summary toast).
-5. **Checks** – `npm run check`, server PHPUnit + PHPStan, viewer build, the inventory browser check on phone + desktop
-   (agent@scutoons.test with an LP, a CD case, a set-up shelf). ITEMS.md "Containers" updated (formats, the two flows).
-Messages (de/en): `items.pack`, `items.unpack`, `items.pack_where`, `items.pack_done`, `items.pack_undo`,
-`items.pack_why_kind` ("Nur {formats}"), `items.pack_why_not_set_up`, `items.pack_why_full`, `items.pack_all`,
-`items.pack_fits_here`.
+## 4. What was built (2026-10-16, branch `packing`)
+- Model: `holds.formats`, `fitsIn` by format, `roomIn`, `packBlock` (kind → at home → full) in containers.ts; category
+  `bag`; Containers.php `fits()` + `qty` (cap by room, merge, split), CatalogValidator `holds.formats`; schemas; tests.
+- Creator: the container field's format checkboxes; `bag` in the item form's categories.
+- Reader: one round "Einpacken" icon in the item detail (and a round take-out icon); the pack mode (`pack-mode.svelte.ts`,
+  `inventory-grid.svelte`): lit / dimmed tiles with the reason, a tap packs all that fits, a hold counts
+  (`hold-count.ts`, pointer + Enter / Space), Escape back to the detail, a polite live region; the container view takes
+  out on a tap; drag on desktop moves the same way. Guests the same on the device.
+- Catalog: the drafts for `cd_rack`, `cassette_rack`, `record_shelf` and the three bags are saved after the deploy
+  (production refuses `holds.formats` until then); the owner publishes.
 
-## 5. Open questions for the owner
-1. Both flows (item-first pack mode **and** the chest view with "Alles Passende einpacken"), or only the pack mode?
-2. A shelf standing at home: a target from anywhere (you're on the map, the LP goes on the home shelf), or only while
-   you're at home (inside `HomeView`)? Today's rule allows anywhere once it stands.
-3. In the chest view, does a tap on an item move it (Stardew) or open its detail (as everywhere else)? Proposal: move;
-   the detail stays one tap away in the normal grid.
-4. Exactly one lit target: still ask (predictable, proposed) or pack straight away with the undo toast?
-5. Stacks: whole entry only (proposed – no stackable goes into a container today), or a counter later?
-6. Category for the carried containers: `tool` (like the players) or a new `bag`?
-7. Capacities 25 / 90 / 25 and how readers get the CD case, DJ trolley and record bag (shop, recipe, story).
-8. 7″ singles later: a `vinyl.format` (`lp12` today) could narrow a shelf to 12″ – not modelled now (keep the
-   configuration small).
+## 5. The owner's answers (2026-10-16)
+1. One way only: the item-first pack mode. No "Alles Passende einpacken".
+2. A shelf at home is a target only while you are at home (the home view) – you have to go there.
+3. In the container view a tap moves the thing (out); the detail stays one tap away in the normal grid.
+4. Exactly one valid target: still the pack mode (predictable) – the reader taps it.
+5. Stacks: the whole entry by default, plus Stardew's press-and-hold counter; never more than fits, the rest stays.
+6. Category for carried containers: `bag` (agent's recommendation – it reads clearer for filters and shop grouping and
+   costs one enum value: the type, the schema, the item form's list).
+7. Capacities: DJ trolley 50 LPs, record bag 25 LPs, CD case 25 CDs; for now only through the story (`giveItem`) – shop,
+   QR codes, recipes later.
+8. No 7″ singles for now – nothing to model.
 
 [sdv-controls]: https://wiki.stardewvalley.net/Controls
 [sdv-mobile]: https://wiki.stardewvalley.net/Mobile_Controls
