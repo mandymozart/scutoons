@@ -191,12 +191,21 @@
 </Sheet>
 
 <style>
+	/* the column: 34rem at most – the 3D stage alone goes over the card's whole width (owner 2026-10-16: "im Hintergrund
+	   über das ganze card bis links und rechts") */
 	.card {
-		max-width: 34rem;
-		margin: 0 auto;
+		--column: 34rem;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-075);
+	}
+
+	.card > section,
+	.hero:not(.in3d) {
+		box-sizing: border-box;
+		width: 100%;
+		max-width: var(--column);
+		margin-inline: auto;
 	}
 
 	.hero {
@@ -220,15 +229,18 @@
 
 	/* 3D: the canvas fills the top; the turn button in its corner, the song + controls over its lower part, on a paper
 	   fade so they stay readable over the scene */
+	/* out to the sheet's edges (its body's padding) and up to its header line */
 	.hero.in3d {
-		height: min(30rem, 58vh);
+		height: min(32rem, 62vh);
 		justify-content: flex-end;
+		margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0;
 	}
 
+	/* the fade over the whole width, the song + controls in the column */
 	.hero.in3d .over {
 		position: relative;
 		z-index: 1;
-		padding-top: 3rem;
+		padding: 3rem max(var(--space-1), calc((100% - var(--column)) / 2)) 0;
 		background: linear-gradient(to bottom, transparent, var(--paper) 2.75rem);
 	}
 

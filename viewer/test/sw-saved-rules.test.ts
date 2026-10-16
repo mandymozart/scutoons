@@ -9,6 +9,8 @@ import {
 	aliasesFor,
 	autoSaveAllowed,
 	autoSaveVideos,
+	bytesByKind,
+	saveKindOf,
 	dataWarnings,
 	documentUrls,
 	filesFor,
@@ -173,4 +175,19 @@ test('auto save: off never, data saver never, wifi only where the browser says s
 test('auto save: the videos stay unless they are the bulk', () => {
 	assert.equal(autoSaveVideos({ files: [], bytes: 20 * MB, videoBytes: 2 * MB }), true);
 	assert.equal(autoSaveVideos({ files: [], bytes: 50 * MB, videoBytes: 40 * MB }), false);
+});
+test('progress per kind: pictures, music, videos, the rest', () => {
+	assert.equal(saveKindOf('image'), 'image');
+	assert.equal(saveKindOf('font'), 'data');
+	assert.equal(saveKindOf('archive'), 'data');
+	assert.deepEqual(
+		bytesByKind([
+			{ path: 'a.webp', size: 100, kind: 'image' },
+			{ path: 'b.webp', size: 50, kind: 'image' },
+			{ path: 'c.mp3', size: 1000, kind: 'audio' },
+			{ path: 'd.mp4', size: null, kind: 'video' },
+			{ path: 'e.json', size: 7, kind: 'other' }
+		]),
+		{ image: 150, audio: 1000, video: 5 * MB, data: 7 }
+	);
 });

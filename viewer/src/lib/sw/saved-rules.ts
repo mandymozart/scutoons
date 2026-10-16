@@ -53,6 +53,8 @@ export interface SavedManifest {
 	videos: boolean;
 	/** bytes stored */
 	bytes: number;
+	/** bytes stored per kind (saves before 2026-10-16 have none) */
+	kinds?: Record<SaveKind, number>;
 	/** media URLs (the worker answers them from this cache) */
 	urls: string[];
 	/** library / catalog URLs stored with it */
@@ -96,6 +98,22 @@ export interface SavePlan {
 	bytes: number;
 	/** bytes of the videos in it (the "without videos" offer) */
 	videoBytes: number;
+}
+
+/**
+ * What a save is made of, for its progress bars (owner 2026-10-16: "Progress Bars …, die zeigen, wie viel von was
+ * runtergeladen wurde"): pictures, music + sounds, videos, and the rest (the chapter's text, catalog, fonts).
+ */
+export type SaveKind = 'image' | 'audio' | 'video' | 'data';
+export const SAVE_KINDS: readonly SaveKind[] = ['image', 'audio', 'video', 'data'];
+
+export const saveKindOf = (kind: string): SaveKind => (kind === 'image' || kind === 'audio' || kind === 'video' ? kind : 'data');
+
+/** the expected bytes per kind of a plan's files (the documents and fonts count as they arrive) */
+export function bytesByKind(files: ChapterFile[]): Record<SaveKind, number> {
+	const out: Record<SaveKind, number> = { image: 0, audio: 0, video: 0, data: 0 };
+	for (const f of files) out[saveKindOf(f.kind)] += fileSize(f);
+	return out;
 }
 
 export function planSave(files: ChapterFile[], level: Level, videos = true): SavePlan {

@@ -30,7 +30,10 @@ import {
 	type ChapterFile,
 	type ChapterFiles,
 	type Level,
-	type SavedManifest
+	type SavedManifest,
+	type SaveKind,
+	bytesByKind,
+	saveKindOf
 } from '$lib/sw/saved-rules.ts';
 
 /** at most this many downloads at once */
@@ -42,6 +45,10 @@ export interface SaveJob {
 	/** bytes so far / expected */
 	done: number;
 	total: number;
+	/** the same per kind – the account page's bars (pictures, music, videos, the rest) */
+	kinds: Record<SaveKind, { done: number; total: number }>;
+	/** how the toon page names it – for the account page */
+	label: string;
 	controller: AbortController;
 }
 
@@ -146,12 +153,22 @@ class SavedChapters {
 		if (this.jobs[id]) return 'cancelled';
 		const plan = planSave(options.list.files, options.level, options.videos);
 		const controller = new AbortController();
-		this.jobs = { ...this.jobs, [id]: { done: 0, total: plan.bytes, controller } };
+		const kinds = Object.fromEntries(Object.entries(bytesByKind(plan.files)).map(([k, total]) => [k, { done: 0, total }])) as SaveJob['kinds'];
+		this.jobs = { ...this.jobs, [id]: { done: 0, total: plan.bytes, kinds, label: `${options.toonTitle} · ${options.label}`, controller } };
 		const name = savedCacheName(toon, chapter);
 		this.#running.add(name);
-		const progress = (bytes: number) => {
+		const stored: Record<SaveKind, number> = { image: 0, audio: 0, video: 0, data: 0 };
+		// documents and fonts have no size beforehand (`unplanned`): they grow their kind's total as they come
+		const progress = (bytes: number, kind: SaveKind, unplanned = false) => {
+			stored[kind] += bytes;
 			const job = this.jobs[id];
-			if (job) this.jobs = { ...this.jobs, [id]: { ...job, done: job.done + bytes } };
+			if (!job) return;
+			const k = job.kinds[kind];
+			const grown = unplanned ? bytes : 0;
+			this.jobs = {
+				...this.jobs,
+				[id]: { ...job, done: job.done + bytes, total: job.total + grown, kinds: { ...job.kinds, [kind]: { done: k.done + bytes, total: k.total + grown } } }
+			};
 		};
 		try {
 			// the first save: ask the browser to keep the site's storage (no prompt in Chrome; Safari 17+ decides itself)
@@ -168,7 +185,9 @@ class SavedChapters {
 				try {
 					const response = await fetch(url, { credentials: 'omit', signal: controller.signal });
 					if (!response.ok) throw new Error(`${url} ${response.status}`);
-					await cache.put(url, response);
+					const blob = await response.blob();
+					await cache.put(url, new Response(blob, { headers: response.headers }));
+					progress(blob.size, 'data', true);
 					kept.push(url);
 				} catch (error) {
 					if (controller.signal.aborted || i < REQUIRED_DOCS) throw error;
@@ -182,14 +201,13 @@ class SavedChapters {
 			];
 			const urls = [...new Set(files.map((f) => f.url))];
 			const media = await caches.open(MEDIA_CACHE);
-			let stored = 0;
 			let next = 0;
 			const worker = async () => {
 				while (next < files.length) {
 					const { url, file } = files[next++];
-					// not `stored += await …` – the workers run side by side, that would add to a stale total
-					const bytes = await this.#store(cache, media, url, file?.kind ?? 'font', controller.signal, progress);
-					stored += bytes;
+					const kind = saveKindOf(file?.kind ?? 'font');
+					// a font isn't in the plan: it adds to the total as it comes
+					await this.#store(cache, media, url, file?.kind ?? 'font', controller.signal, (bytes) => progress(bytes, kind, !file));
 				}
 			};
 			await Promise.all(Array.from({ length: PARALLEL }, worker));
@@ -206,7 +224,8 @@ class SavedChapters {
 				toonTitle: options.toonTitle,
 				level: options.level,
 				videos: options.videos,
-				bytes: stored,
+				bytes: Object.values(stored).reduce((sum, b) => sum + b, 0),
+				kinds: stored,
 				urls,
 				docs: kept,
 				aliases,

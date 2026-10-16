@@ -7,7 +7,8 @@
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
-	import { AUTO_SAVE_SETTINGS, roundMb } from '$lib/sw/saved-rules.ts';
+	import { AUTO_SAVE_SETTINGS, roundMb, SAVE_KINDS, type SaveKind } from '$lib/sw/saved-rules.ts';
+	import SaveProgress from './save-progress.svelte';
 	import { autoSave } from '$lib/offline/auto-save.svelte.ts';
 
 	// the default: save a chapter by itself when it is opened (owner 2026-10-16) – Only by hand / On Wi-Fi / Always
@@ -16,6 +17,26 @@
 
 	let estimate = $state<{ usage: number; quota: number } | null>(null);
 	const count = $derived(savedChapters.list.length);
+	const running = $derived(Object.entries(savedChapters.jobs));
+	// a finished save: the list and the space again
+	let wasRunning = 0;
+	$effect(() => {
+		const now = running.length;
+		if (now < wasRunning) void measure();
+		wasRunning = now;
+	});
+
+	const KIND_WORD: Record<SaveKind, () => string> = {
+		image: () => m['saved.kind_image'](),
+		audio: () => m['saved.kind_audio'](),
+		video: () => m['saved.kind_video'](),
+		data: () => m['saved.kind_data']()
+	};
+	/** what a saved chapter is made of: "Bilder 12 MB · Musik & Klänge 4 MB …" */
+	const breakdown = (kinds: Record<SaveKind, number>) =>
+		SAVE_KINDS.filter((k) => kinds[k] > 0)
+			.map((k) => `${KIND_WORD[k]()} ${roundMb(kinds[k])} MB`)
+			.join(' · ');
 
 	async function measure() {
 		const e = await navigator.storage?.estimate?.().catch(() => undefined);
@@ -54,14 +75,21 @@
 		<small>{m['saved.auto_hint']()}{#if autoSave.value === 'wifi' && !knowsWifi} {m['saved.auto_wifi_unknown']()}{/if}</small>
 	</fieldset>
 {/if}
-{#if count}
+{#if count || running.length}
 	<fieldset class="saved-chapters" data-testid="saved-chapters-setting">
 		<legend>{m['saved.title']()}</legend>
+		<!-- the saves running now: a bar for the chapter and one per kind (owner 2026-10-16) -->
+		{#each running as [id, job] (id)}
+			<SaveProgress {job} onstop={() => job.controller.abort()} />
+		{/each}
 		<ul>
 			{#each savedChapters.list as saved (saved.toon + '/' + saved.chapter)}
 				{@const name = `${saved.toonTitle ?? saved.toon} · ${saved.label ?? m['common.chapter']({ number: saved.chapter })}`}
 				<li>
-					<a href={localizeHref(`/${saved.toon}/chapter/${saved.chapter}`)}>{name}{saved.title ? ` · ${saved.title}` : ''}</a>
+					<span class="entry">
+						<a href={localizeHref(`/${saved.toon}/chapter/${saved.chapter}`)}>{name}{saved.title ? ` · ${saved.title}` : ''}</a>
+						{#if saved.kinds}<small class="kinds">{breakdown(saved.kinds)}</small>{/if}
+					</span>
 					<small>{roundMb(saved.bytes)} MB</small>
 					<button type="button" class="round" title={m['saved.remove']()} aria-label={m['saved.remove']()} onclick={() => remove(saved.toon, saved.chapter, name)}>
 						<Icon name="trash-2" size="1rem" />
@@ -69,13 +97,13 @@
 				</li>
 			{/each}
 		</ul>
-		<p>
+		{#if count}<p>
 			<button type="button" class="btn-secondary" onclick={removeAll} data-testid="saved-remove-all">{m['saved.remove_all']()}</button>
 			<small>
 				{m['saved.summary']({ count, size: roundMb(savedChapters.bytes) })}
 				{#if estimate}· {m['saved.storage']({ used: roundMb(estimate.usage), quota: roundMb(estimate.quota) })}{/if}
 			</small>
-		</p>
+		</p>{/if}
 	</fieldset>
 {/if}
 
@@ -152,9 +180,14 @@
 		padding: 0.25rem 0;
 		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 	}
-	li a {
+	.entry {
 		flex: 1 1 auto;
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+	li a {
 		color: inherit;
 	}
 	p {
