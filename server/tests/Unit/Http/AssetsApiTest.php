@@ -98,6 +98,8 @@ final class AssetsApiTest extends TestCase
         self::assertSame(1, self::json($this->request('GET', '/api/assets?res=480p', $creator))['pagination']['total']);
         self::assertSame(0, self::json($this->request('GET', '/api/assets?res=1080p', $creator))['pagination']['total']);
         self::assertSame(400, $this->request('GET', '/api/assets?res=nope', $creator)->getStatusCode());
+        // a density level (no pixel band) by its label only: the clip has none
+        self::assertSame(0, self::json($this->request('GET', '/api/assets?res=2x', $creator))['pagination']['total']);
         // the clip has two files: not "the original only"
         self::assertSame(0, self::json($this->request('GET', '/api/assets?files=single', $creator))['pagination']['total']);
         self::assertSame(1, self::json($this->request('GET', '/api/assets?files=several', $creator))['pagination']['total']);

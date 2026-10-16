@@ -246,7 +246,9 @@ final class AssetRegistry
         if (($res = $list->filter('res')) !== null) {
             // a file at that resolution (owner 2026-10-16: "a better way to also filter for resolutions"): its label, or a
             // file without one whose short side is in the band (a portrait 480p is 480 wide); 2x / 3x by label only
-            $band = self::RESOLUTIONS[$res] ?? throw new ApiError(400, 'invalid_res', 'Unknown resolution.', ['res' => array_keys(self::RESOLUTIONS)]);
+            // array_key_exists: 2x / 3x have no band (null) – `??` would refuse them
+            if (!array_key_exists($res, self::RESOLUTIONS)) throw new ApiError(400, 'invalid_res', 'Unknown resolution.', ['res' => array_keys(self::RESOLUTIONS)]);
+            $band = self::RESOLUTIONS[$res];
             $has = "EXISTS (SELECT 1 FROM asset_renditions r3 WHERE r3.version_id = v.id AND (r3.label = ?";
             $params[] = $res;
             if ($band) {
