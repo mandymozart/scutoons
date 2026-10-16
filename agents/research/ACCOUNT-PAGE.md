@@ -2,7 +2,7 @@ Status: built 2026-10-16 as concept B (owner: "Stil Entwurf B mit den Menüs") �
 Owner's changes to the draft: no group "Konto" ("Konto Konto klingt komisch") → "Verbindungen" (AI) + "Stammdaten"
 (name first, address, sign out, roles, memberships, "Konto löschen" = contact form, privacy topic); icons before every
 group; "Dieses Gerät" → "Offline-Inhalte"; one back link look on both levels. Not built from the draft: the in-chapter
-quick panel (concept C). Push (PWA phase 4) sits in "Benachrichtigungen" (guests too: it is per device), the iOS
+quick panel (concept C). **Rules for a new setting: §0 "Settings dogma" (binding).** Push (PWA phase 4) sits in "Benachrichtigungen" (guests too: it is per device), the iOS
 how-to with "App installieren" and the saved seasons in "Offline-Inhalte". The text below is the draft.
 
 # ACCOUNT-PAGE — reorganising the reader's account page
@@ -10,6 +10,36 @@ how-to with "App installieren" and the saved seasons in "Offline-Inhalte". The t
 Owner 2026-10-16: the account page (`viewer/src/routes/(account)/account/+page.svelte`,
 `viewer/src/lib/components/account/*`) grew by appending; related things sit far apart. This doc lists what is on it,
 groups it, plays three concepts through (contexts × states), covers accessibility and ends with open questions.
+
+## 0. Settings dogma (binding for every setting on the account pages, owner 2026-10-16)
+
+The PWA and any later work adapt to this, not the other way round.
+1. **One group, one place.** A setting lives in exactly one group of `viewer/src/lib/account/groups.ts` (the index's
+   order, icon, who sees it). The groups: Stammdaten (who you are, the account itself) · Lesen (how chapters show) ·
+   Ton & Vibration · Offline-Inhalte (install app + iOS how-to as one "App" item, auto-save, saved chapters / seasons
+   with their bars) · Benachrichtigungen (push, newsletter) · Sammlung · Verbindungen · Creator. A new group or moving
+   a setting = an owner decision.
+2. **Sub-page, no collapsibles.** The group's page `/account/<group>` is the disclosure; inside it settings stack
+   (1.5rem gap), nothing folds. Deep links from the app go to the group (`/account/reading`, `/account/offline` …).
+3. **Component pattern.** One component per setting, `components/account/<name>-setting.svelte`, placed in
+   `group-content.svelte` under its group. A `fieldset` + `legend` (the setting's name – never the group's title again;
+   if they would be the same, keep the legend for screen readers only), a muted `<small>` hint (0.75rem), errors
+   `role="alert"`. A switch = `AccountToggle`; a choice = the square radio row (`media-quality-setting.svelte`); an action
+   = a secondary `.btn` with its hint beside it. Colours only from tokens (`var(--ink)`, `--paper`, `--text-muted` …).
+4. **It hides itself.** Not possible here (no worker, no permission API, not this browser) → the component renders
+   nothing. If that can empty a whole group, `groups.ts` gets an `AccountReader` field and the group hides.
+5. **Summary line.** Every setting a reader would scan for adds its value to `summary()` in `account-index.svelte`
+   (short: "Neue Kapitel an", "Im WLAN · 2 auf diesem Gerät · 61 MB").
+6. **Guest vs member.** Kept on the account (`PUT /me/`) → members only; guests see one muted line when the group would
+   look broken without it. Kept on the device (localStorage, the service worker, push) → for guests too. No sentence
+   "saved on this device" per setting: the group's Konto / Gerät badge says it (only where the whole group is one).
+7. **Chapter context.** Nothing of the account page inside a chapter (no quick panel). The chapter reaches settings
+   through the menu → `/account` (back link returns to the chapter) or a deep link to the group; a prompt in the chapter
+   (install bar, save button) stays where it is and links to its group for the details.
+8. **A11y.** Every control labelled (the whole checkbox row is the target), `--control-height` (≥ 44px touch), rem only,
+   square controls (round only for a standalone icon button), crosses = `CloseIcon`, confirmations `confirmDialog`,
+   progress bars `role="progressbar"` with a label, motion only under `prefers-reduced-motion: no-preference`. Texts de + en
+   in `viewer/messages` (`account.*` or the feature's namespace).
 
 ## 1. Inventory (today, top to bottom)
 
