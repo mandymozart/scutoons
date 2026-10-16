@@ -12,6 +12,7 @@
 // - the few static files of the first paint: network first, the cache when offline
 // - Phase 3: the chapters saved to the device (lib/sw/saved-cache.ts) – their files (also audio / video, ranges → 206)
 //   and their library JSON + item catalog as the offline copy
+// - Reading progress made offline: Background Sync sends the queued save game (lib/sw/progress-sync.ts)
 // - NOTHING else: the rest of the API, audio / video, the vault's signed URLs, auth – not touched (the browser's own fetch)
 // Updates: a new worker waits until the reader taps "Reload" (lib/pwa.svelte.ts, the update prompt).
 // Kill switch: a build with VITE_SW=off makes this file remove itself and its caches (PWA.md "Kill switch").
@@ -20,6 +21,7 @@ import { isDataTier } from '$lib/sw/cache-rules.ts';
 import { cacheShown, cleanUp, clearAll, isLibrary, isMedia, library, media, setTier } from '$lib/sw/runtime-cache.ts';
 import { maySaved, networkThenSaved, reloadIndex, savedFirst } from '$lib/sw/saved-cache.ts';
 import { isSavedDocRequest } from '$lib/sw/saved-rules.ts';
+import { onSync } from '$lib/sw/progress-sync.ts';
 import { API_URL } from '$lib/config.ts';
 import { registerPush } from '$lib/sw/push.ts';
 
@@ -179,4 +181,7 @@ if (__SW_OFF__) {
 		// a chapter was saved to / removed from the device (lib/offline/saved-chapters.svelte.ts)
 		else if (data?.type === 'SAVED_CHANGED') event.waitUntil(reloadIndex());
 	});
+
+	// reading progress made offline (lib/sw/progress-sync.ts): Background Sync sends it once the browser is online again
+	sw.addEventListener('sync', onSync);
 }

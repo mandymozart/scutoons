@@ -113,6 +113,36 @@ final class ProgressSaveGameTest extends TestCase
         self::assertSame(['catpope'], array_keys(get_object_vars($plain->positions)));
     }
 
+    /**
+     * Offline reading progress (agents/research/PWA.md "Offline reading progress"): the viewer's outbox may send the same
+     * write twice (the service worker's Background Sync and the page) or late, after a newer one from another device –
+     * the second send changes nothing, the late one adds only what it knew (its reading spot), never undoes the newer
+     */
+    public function testAQueuedWriteSentTwiceOrLateChangesNothingTwice(): void
+    {
+        $id = (string) $this->user()['id'];
+        $progress = $this->get(ProgressService::class);
+        $offline = self::obj([
+            'variables' => ['tips' => 1],
+            'progress' => [self::cp('catpope/chapter/1', '2026-01-02T00:00:00.000Z', false, 0.4)],
+            'history' => ['event:a' => ['n' => 2, 'first' => 10, 'last' => 20]],
+        ]);
+        $progress->put($id, 'scutoons', $offline, 2000);
+        $first = $this->stored($id);
+        $again = $progress->put($id, 'scutoons', $offline, 2000);
+        self::assertSame('success', $again['status']);
+        self::assertSame($first, $this->stored($id), 'the same write again: nothing changes (history counts are not added up)');
+        // a newer write from the phone, then the laptop's queued one arrives late
+        $progress->put($id, 'scutoons', self::obj(['variables' => ['tips' => 3], 'progress' => [self::cp('catpope/chapter/2', '2026-01-03T00:00:00.000Z', false, 0.2)]]), 3000);
+        $late = $progress->put($id, 'scutoons', $offline, 2000);
+        self::assertSame('stale', $late['status']);
+        $s = $this->stored($id);
+        self::assertSame(['tips' => 3], $s['variables'], 'the newer variables stay');
+        self::assertEqualsCanonicalizing(['catpope/chapter/1', 'catpope/chapter/2'], array_column($s['progress'], 'uri'), 'the late reading spot is added');
+        $progress->put($id, 'scutoons', $offline, 2000);
+        self::assertSame($s, $this->stored($id), 'and a third send changes nothing');
+    }
+
     /** the API: the save game under /api/progress/scutoons/, the per-toon calls of older viewer builds still answer */
     public function testTheApi(): void
     {

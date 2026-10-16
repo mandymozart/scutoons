@@ -28,6 +28,7 @@
 	import InstallPrompt from '$lib/components/install-prompt.svelte';
 	import { install } from '$lib/install.svelte.ts';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
+	import { checkSavedVersions } from '$lib/offline/refresh-saved.svelte.ts';
 	import { API_URL } from '$lib/config.ts';
 	import { accessUntilOf } from '$lib/sw/saved-rules.ts';
 	import { initAppBadge } from '$lib/app-badge.ts';
@@ -136,6 +137,8 @@
 			];
 			await savedChapters.checkAccess({ known, valid: membership.isValid, until: accessUntilOf(grants) });
 		}
+		// saved chapters with a new version take it in (only the changed files – lib/offline/refresh-saved.svelte.ts)
+		void checkSavedVersions();
 	});
 </script>
 

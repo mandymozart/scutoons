@@ -196,6 +196,8 @@ export function createAuthSession(options: AuthSessionOptions) {
 			if (document.visibilityState === 'visible') void refresh();
 		});
 		window.addEventListener('focus', () => void refresh());
+		// back online (an app started offline has no session yet – the reader's offline progress waits for it)
+		window.addEventListener('online', () => void refresh());
 	}
 
 	/** Once per page: a magic-link token (`?login=`) first, then the shared cookie / a stored token */

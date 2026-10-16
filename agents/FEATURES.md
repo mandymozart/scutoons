@@ -67,9 +67,10 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
 - [ ] 10.56 **Reader FX: an item's own pickup sound** (catalog `ItemDef.sound`, a migration) – `decide` the sound
   design first (research/FX.md open decisions). Phases 1–4 built.
 - [ ] 10.74 **PWA: preloading / save to device** – owner 2026-10-16: "turn scutoons into a PWA". Phases 1–4 built (shell
-  worker + kill switch, media / library cache, Android install prompt, save a chapter; phase 4: iOS how-to, shortcuts +
-  screenshots, wake lock, badge, Web Push – owner steps 10.107, `decide`: the badge proposal §2b). Open from phase 3:
-  refresh a saved chapter on a new version, save a season, offline progress queued for sync. → research/PWA.md, DATA.md §6
+  worker + kill switch, media / library cache, Android install prompt, save a chapter – a new version refreshed, a
+  whole season, offline progress synced; phase 4: iOS how-to, shortcuts + screenshots, wake lock, badge, Web Push –
+  owner steps 10.107). `decide`: the badge proposal (§2b), the refresh rule (≤ 1 MB always, more only as the
+  auto-save setting allows). → research/PWA.md, DATA.md §6
 - [ ] 10.107 **[owner] Web Push live** (PWA.md §2b) – 1. in `server/`: `php bin/console push:vapid-keys` (prints both);
   2. GitHub → Settings → Secrets → Actions: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (never change the pair later);
   3. deploy server + viewer + admin (the migration `2026-10-16-push-subscriptions` runs with it); 4. on your phone:

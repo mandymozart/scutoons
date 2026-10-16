@@ -1,4 +1,4 @@
-Status: phase 1 built 2026-10-16 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch); phase 2 built 2026-10-16 (media + library cache, §2 "Phase 2"); phase 3 built 2026-10-16 (save a chapter to the device, §2 "Phase 3"); phase 4 built 2026-10-16 (Android install prompt §2a, iOS how-to, shortcuts + screenshots §1, Web Push + badge §2b, wake lock §2c; push goes live with the owner's VAPID keys, FEATURES 10.107). FEATURES 10.74.
+Status: phases 1–4 built 2026-10-16 – phase 1 (installable manifest + icons, Apple tags, app-shell service worker, update prompt, kill switch), phase 2 (media + library cache), phase 3 (save a chapter to the device, a new version refreshed, a whole season, offline progress synced – §2 "Phase 3"), phase 4 (the install prompts for Android + iOS, manifest shortcuts + screenshots, Web Push + badge, wake lock – §2a–§2c); Web Push goes live with the owner's VAPID keys (FEATURES 10.107). FEATURES 10.74.
 
 # PWA — SCUTOONS as an installable web app (2026-10-16)
 
@@ -131,9 +131,45 @@ progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers)
   key-visual video; no "without videos" offer); ch0 (the prologue music video) low 53 MB · medium 184 · high 254 (all
   but < 1 MB video → the choice); ch2 (coming soon, measured from its draft) ≈ 39 MB low · 41.5 medium / high, ≈ 19 MB
   of it video and ≈ 14 MB the VN portraits of six characters (catpope with four personas).
-- Open: a saved chapter whose version (ETag) changed is not refreshed yet (download only the changed paths); a whole
-  season; reading progress made offline is not queued for sync (members: the next online read saves it); iOS: the
-  home-screen app has its own storage – saves made in Safari don't carry over.
+- **A new version** (owner 2026-10-16 "alle Pakete angehen"; `lib/offline/refresh-saved.svelte.ts`, rules
+  `lib/sw/saved-update-rules.ts`): on a start (after the access check, after the first screen) and on `online`, each
+  readable save's file list is asked again (at most every 30 min per page; the list may come from phase 2's library
+  cache, ≤ 10 min old). Another `version` or other files at the level / video choice it was saved with → `update`: only
+  the files it doesn't hold are downloaded, the documents again (all fetched before any is stored), the new manifest
+  (`refreshedAt`, sizes measured from the cache), then the files the new version no longer names go; failed or stopped
+  → the added files go, the old version stays readable. Fonts are kept. **When**: ≤ 1 MB always in the background;
+  bigger when the setting "Save chapters on this device" would save now (Always, On Wi-Fi on Wi-Fi); never by itself
+  with data saver / tier `none`. Otherwise the account page offers "New version · Update · about 19 MB". While it runs:
+  the row's ring ("Updating …"), the account page's bars ("· updating"); after it "Updated 16.10.2026".
+- **A whole season** (`lib/offline/save-season.svelte.ts`, `components/toon/save-season.svelte`,
+  `components/account/saved-seasons.svelte` + `season-progress.svelte`): a round button beside each season heading on
+  the toon page (the rows' look: ↓ / ring / ✓ = every readable chapter saved, a tap removes them) and on the account page
+  "Catpope · Season 1 · 1 of 2 chapters saved · Save the rest" for a season begun on this device. Saves the readable
+  chapters not saved yet: the size first (one files request per chapter, 4 at a time), "Everything / Without videos"
+  judged on the season's total, mobile data / data saver said; then one after another (each row its own ring); the
+  account page shows the season's bar + one per chapter (saved / % / waiting / !). Stop = the running chapter stops,
+  the rest is not started, the saved ones stay. A row's ring tap stops a single save too (the button is free while it
+  saves).
+- **Offline reading progress** – see "Offline reading progress" below.
+- Open: iOS: the home-screen app has its own storage – saves made in Safari don't carry over.
+
+### Offline reading progress (built 2026-10-16)
+A member's save game (contexts/world.svelte.ts – reading spots, checkpoints, history, map) is pushed to
+`PUT /api/progress/scutoons/`; guests keep it in localStorage only. Code: `lib/offline/progress-outbox.ts` (page),
+`lib/sw/outbox.ts` (IndexedDB `scutoons-outbox`, store `progress`: one `{ id, state, updatedAt, queuedAt }` per id – the
+newest), `lib/sw/progress-sync.ts` (the worker), rules `lib/sw/outbox-rules.ts` (test/sw-outbox-rules.test.ts).
+- A push that fails for the network / 5xx / 408 / 429 (`queueAfter`) – and every change while `navigator.onLine` is
+  false, at once (the tab may close before the 2 s debounce) – goes into the outbox, and Background Sync
+  (`scutoons-progress`, Chromium) is registered. The worker's `sync` sends each queued write with the session cookie
+  (`credentials: include`; a worker can't read an old Bearer token → 401 leaves it for the page), posts the merged answer
+  to open pages (`PROGRESS_SYNCED` → adopted); offline / 5xx → throws, the browser retries; a 4xx drops it.
+- Without Background Sync (Safari, Firefox): the page sends on `online` (when the outbox holds something) and on the next
+  start (the login sync pushes the device state, then the outbox is settled). An app started offline has no session:
+  `@scutoons/auth` re-checks it on `online` too, the login sync then pushes.
+- **Idempotent**: the API merges every write (checkpoints by uri – the later `updated_at`, history per key – the larger
+  count, never added up, the map as sets), so a double send (worker + page) or a late one changes nothing twice
+  (ProgressSaveGameTest `testAQueuedWriteSentTwiceOrLateChangesNothingTwice`). A sign-out clears the outbox; the kill
+  switch deletes it (the save game stays in localStorage).
 
 ### Update flow
 New worker installs → waits (no `skipWaiting`) → `lib/pwa.svelte.ts` shows the prompt (`update-prompt.svelte`: "A new
@@ -219,7 +255,7 @@ the page hides – asked again on `visibilitychange`. A refused request is retri
 | Phase | What | Notes |
 |---|---|---|
 | 2 | **Built** – media cache + library JSON (§2 "Phase 2"); the next-chapter prefetch (LOADING.md L4) will fill it by itself | bunny sends `ACAO: *` – no owner step |
-| 3 | **Built** – save a chapter to the device (§2 "Phase 3"): the files endpoint, one cache per chapter, 206 for ranges, `storage.persist()` + `estimate()`, gated saves deleted when the access ended | open: refresh on a new version, a season, offline progress sync |
+| 3 | **Built** – save a chapter to the device (§2 "Phase 3"): the files endpoint, one cache per chapter, 206 for ranges, `storage.persist()` + `estimate()`, gated saves deleted when the access ended; a new version refreshed (only the changed files), a whole season, offline reading progress queued + synced (Background Sync / `online`) | open: iOS Safari → home-screen storage |
 | 4 | **Built** – install prompt (Android) + the iOS how-to (§2a), manifest `screenshots` + `shortcuts` (§1), Web Push + badge (§2b), Wake Lock (§2c) | push live after the owner's VAPID keys (FEATURES 10.107); the badge rule is a proposal |
 
 Data budget: phase 2/3 obey `data-budget.svelte.ts` – tier `none` caches only what the reader looked at, nothing is
@@ -296,6 +332,17 @@ prefetched for the cache; saving a chapter is an explicit tap (the bytes shown f
   requested, released on leaving and when the tab hides, requested again when it shows; the manifest: no installability
   errors, 2 shortcuts, 2 screenshots served as WebP; `/?continue` → the last chapter (built-in browser, dev). Headless
   Chrome shows no notifications (`getNotifications()` is empty there – a spy on `showNotification` instead).
+- Phase 3 leftovers, scripted (2026-10-16, the same setup, as the test user by the session cookie set over CDP; the
+  proxies log requests and can throttle the CDN): ch1 saved (108 files, 19 MB, high); a new published version (a
+  swapped slice + the title) → refreshed in the background on the next start, the CDN saw exactly the one new slice,
+  the old file gone, the new title in the saved document, "Aktualisiert am 16.10.2026", offline the chapter shows the
+  new slice; a swapped key-visual video (> 1 MB, "Only by hand") → not by itself, "Neue Version · Aktualisieren · etwa
+  19 MB", after the tap only the new video fetched; "Rest speichern" → "1 Kapitel · etwa 254 MB" + the video choice,
+  the season's per-chapter bars, the prologue saved, the row gone, ✓ on the toon heading (390 + 1440); a throttled
+  season save stopped from the heading and a row's save stopped by its ring → nothing left behind; offline reading →
+  the outbox holds the spot, the sync tag registered, the server unchanged; every tab closed + online →
+  `ServiceWorker.dispatchSyncEvent` → the worker's PUT (with the cookie) stored it; offline again with the page open →
+  `online` → the page sent it at once, the outbox empty.
 - iOS: Safari → Add to Home Screen; Safari's Web Inspector (a Mac) for the home-screen app; check the title, the
   icon, the white launch, that a sign-in is needed again (own storage), and the prompt after a deploy.
 - The Claude desktop Browser pane can't register service workers ("unknown error when fetching the script") – use

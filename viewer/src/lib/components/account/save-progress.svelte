@@ -2,7 +2,8 @@
 	/**
 	 * A running save's progress on the account page (owner 2026-10-16: "Progress Bars …, die zeigen, wie viel von was
 	 * runtergeladen wurde" – like OSCT's download section: a thin framed bar, "x of y MB" under it): one bar for the
-	 * whole chapter, then one per kind it holds (pictures, music + sounds, videos, the rest), a tap on × stops it.
+	 * whole chapter, then one per kind it holds (pictures, music + sounds, videos, the rest), a tap on × stops it. A
+	 * refresh (a new version, only the changed files) says "updating" – stopped, the saved version stays.
 	 */
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
@@ -23,7 +24,7 @@
 
 <div class="save-progress" data-testid="save-progress">
 	<div class="head">
-		<strong>{job.label}</strong>
+		<strong>{job.label}{#if job.mode === 'refresh'} · {m['saved.updating']()}{/if}</strong>
 		<button type="button" class="round" title={m['saved.stop']()} aria-label={m['saved.stop']()} onclick={onstop}>
 			<Icon name="x" size="0.875rem" />
 		</button>

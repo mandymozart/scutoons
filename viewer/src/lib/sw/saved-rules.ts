@@ -66,6 +66,8 @@ export interface SavedManifest {
 	/** a gated chapter: when the access it was saved with ends (ISO / SQL UTC); null = no end known */
 	accessUntil: string | null;
 	savedAt: number;
+	/** when a new version was last taken in (lib/offline/refresh-saved.svelte.ts) */
+	refreshedAt?: number;
 }
 
 export function savedCacheName(toon: string, chapter: number): string {

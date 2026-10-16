@@ -34,7 +34,7 @@
 	let failed = $state(false);
 
 	const label = $derived(
-		job ? m['saved.saving']({ percent }) : saved ? m['saved.saved']() : failed ? m['saved.failed']() : m['saved.save']()
+		job ? (job.mode === 'refresh' ? m['saved.refreshing']({ percent }) : m['saved.saving']({ percent })) : saved ? m['saved.saved']() : failed ? m['saved.failed']() : m['saved.save']()
 	);
 
 	async function save(name: string) {
@@ -67,18 +67,20 @@
 			videos = choice === 'all';
 		} else if (!(await confirmDialog({ title, message, confirmLabel: m['saved.save_confirm'](), cancelLabel: m['common.cancel']() }))) return;
 
-		const result = await savedChapters.save(toonId, chapter.number, {
-			title: chapter.title ?? '',
-			label: name,
-			toonTitle: (page.data.toon as { title?: string } | undefined)?.title ?? toonId,
-			locale,
-			level,
-			videos,
-			list,
-			// the access the chapter is saved with: the latest end of the reader's valid grants (device code, account)
-			accessUntil: accessEnd(membership, session)
-		});
-		failed = result === 'failed';
+		// not awaited: the button is free again at once – a tap while it saves asks to stop it
+		void savedChapters
+			.save(toonId, chapter.number, {
+				title: chapter.title ?? '',
+				label: name,
+				toonTitle: (page.data.toon as { title?: string } | undefined)?.title ?? toonId,
+				locale,
+				level,
+				videos,
+				list,
+				// the access the chapter is saved with: the latest end of the reader's valid grants (device code, account)
+				accessUntil: accessEnd(membership, session)
+			})
+			.then((result) => (failed = result === 'failed'));
 	}
 
 	async function onclick(event: MouseEvent) {

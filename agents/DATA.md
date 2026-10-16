@@ -368,7 +368,12 @@ Smart preloading: research/LOADING.md.
   `scutoons-chapter-<toon>-<n>-v1` (the media at the reader's level, the chapter / toon / cast / toons / credits JSON,
   the item catalog, the fonts) and writes a manifest last (level, bytes, URLs, stand-ins for the other levels, version
   = the chapter's ETag, `gated`, `accessUntil`); `storage.persist()` on the first save, `storage.estimate()` on the
-  account page; remove per chapter or all. Open: a new version → refresh only the changed paths; a whole season.
+  account page; remove per chapter or all. A new version (the list's `version` / files differ) → only the changed files
+  are downloaded (in the background when small or the auto-save setting allows, else "Update" on the account page); a
+  whole season in one action (toon page heading, account page "Save the rest").
+- **Offline reading progress**: a member's save game write that can't reach the API waits in IndexedDB
+  `scutoons-outbox` and is sent by Background Sync (Chromium) or the page (`online`, next start); the API's merge makes a
+  repeated write harmless (research/PWA.md "Offline reading progress").
 - **Membership**: saving only for chapters the reader may read (a free preview, or device / account access); a gated
   save keeps the access end it was saved with (offline reading until then, also without a session); on a start with
   the access known (API reachable, session loaded) a reader without access loses the gated saves, with access they get

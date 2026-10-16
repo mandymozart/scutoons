@@ -36,6 +36,8 @@ import {
 	type ReadingSpotRef
 } from '@scutoons/content';
 import { fetchProgress, putProgress } from '$lib/api.ts';
+import { progressOutbox } from '$lib/offline/progress-outbox.ts';
+import { queueAfter } from '$lib/sw/outbox-rules.ts';
 import { MAP_VIEW_KEY } from '$lib/components/toon/map/map-view.ts';
 import type { SessionContext } from './session.svelte.ts';
 
@@ -124,7 +126,14 @@ export function createWorldContext(session: SessionContext | null) {
 	function schedulePush() {
 		if (!loggedIn()) return;
 		clearTimeout(pushTimer);
+		// offline: into the outbox at once (the tab may close before the debounce – Background Sync sends it then)
+		if (typeof navigator !== 'undefined' && navigator.onLine === false) hold();
 		pushTimer = setTimeout(push, SYNC_DEBOUNCE_MS);
+	}
+
+	/** this device's save game into the outbox (lib/offline/progress-outbox.ts): sent once the reader is online again */
+	function hold() {
+		void progressOutbox.hold(WORLD_STATE_ID, $state.snapshot(state), millis(state.updated_at));
 	}
 
 	/** a device that never saved anything: the account's state is taken as it is */
@@ -150,11 +159,15 @@ export function createWorldContext(session: SessionContext | null) {
 
 	async function push() {
 		if (!loggedIn()) return;
+		const at = millis(state.updated_at);
 		try {
-			const result = await putProgress(WORLD_STATE_ID, $state.snapshot(state), millis(state.updated_at));
+			const result = await putProgress(WORLD_STATE_ID, $state.snapshot(state), at);
+			void progressOutbox.settle(WORLD_STATE_ID, at);
 			if (result?.state) adopt(result.state, millis(result.updated_at));
 		} catch (error) {
-			console.warn('Save game sync (push) failed:', error);
+			// offline / the server's trouble: queued (PWA.md "Offline reading progress"); a refused write is not
+			if (queueAfter(error)) hold();
+			else console.warn('Save game sync (push) failed:', error);
 		}
 	}
 
@@ -165,6 +178,8 @@ export function createWorldContext(session: SessionContext | null) {
 		try {
 			const remote = await fetchProgress(WORLD_STATE_ID).catch(() => null);
 			if (adopt(remote?.state, millis(remote?.updated_at ?? remote?.state?.updated_at))) await push();
+			// the account knows everything this device does: nothing waits in the outbox
+			else if (remote) void progressOutbox.settle(WORLD_STATE_ID, millis(state.updated_at));
 		} catch (error) {
 			synced = false;
 			console.warn('Save game sync failed:', error);
@@ -176,8 +191,20 @@ export function createWorldContext(session: SessionContext | null) {
 			if (event === 'logout') {
 				synced = false;
 				clearTimeout(pushTimer);
+				void progressOutbox.clear();
 			} else sync();
 		}) ?? (() => {});
+
+	// back online: what waits in the outbox goes now (browsers without Background Sync; with it, the worker may be first –
+	// the API merges, a second send changes nothing)
+	const onOnline = async () => {
+		if (loggedIn() && (await progressOutbox.waiting(WORLD_STATE_ID))) await push();
+	};
+	if (typeof window !== 'undefined') window.addEventListener('online', onOnline);
+	// the service worker sent it (Background Sync): the API's merged state
+	const offSynced = progressOutbox.onSynced((sent) => {
+		if (sent.id === WORLD_STATE_ID && loggedIn()) adopt(sent.state, millis(sent.updated_at));
+	});
 
 	// ── story variables, history, reading progress (every toon) ───────────────────────────────────────────────
 
@@ -343,6 +370,8 @@ export function createWorldContext(session: SessionContext | null) {
 		sync,
 		destroy() {
 			unsubscribe();
+			offSynced();
+			if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
 			clearTimeout(pushTimer);
 		}
 	};
