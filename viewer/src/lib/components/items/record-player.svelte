@@ -33,15 +33,12 @@
 		request,
 		icon = null,
 		table,
-		layout = 'a',
 		onclose
 	}: {
 		request: AudioRequest;
 		icon?: { src: string; name: string } | null;
 		/** the 3D stage's table surface (the lab compares; else record-stage.svelte TABLE) */
 		table?: StageTable;
-		/** the mini bar's layout (the lab compares a / b; owner 2026-10-16) */
-		layout?: 'a' | 'b';
 		onclose: () => void;
 	} = $props();
 
@@ -220,9 +217,9 @@
 
 <!-- data-panel-ignore: a tap on the bar is not "outside" an open panel (closing the bar left the inventory open – owner 2026-10-16) -->
 <!-- the mini bar (owner 2026-10-16): two rows – the cover, the song and its album / side, the controls as bare symbols; the
-     timeline over the whole width below (variant a, like res.radio's bar); variant b keeps the controls beside the timeline.
+     timeline over the whole width below (like res.radio's bar; the owner chose this layout).
      Hidden while the card is open – the card is the player then; the sound plays on (the audio element stays). -->
-<div class="record-player bar-{layout}" class:hidden={expanded} data-testid="audio-player" data-panel-ignore>
+<div class="record-player" class:hidden={expanded} data-testid="audio-player" data-panel-ignore>
 	<button type="button" class="thumb" onclick={() => (expanded = true)} aria-label={m['items.player_open']()} title={m['items.player_open']()} data-testid="audio-open">
 		<ItemIcon srcs={[icon?.src ?? '', request.cover ?? '']} name={request.title} />
 	</button>
@@ -317,29 +314,6 @@
 		color: var(--ink);
 		border: var(--border-width-regular) solid var(--ink);
 		padding: var(--space-05) var(--space-05) var(--space-025);
-	}
-
-	/* variant b (like res.radio's: play | song | close): play and close beside the song, back / next flank the timeline */
-	.record-player.bar-b {
-		grid-template-areas:
-			'thumb line play close'
-			'prev time time next';
-	}
-
-	.bar-b .buttons {
-		display: contents;
-	}
-
-	.bar-b .prev {
-		grid-area: prev;
-	}
-
-	.bar-b .play {
-		grid-area: play;
-	}
-
-	.bar-b .next {
-		grid-area: next;
 	}
 
 	.hidden {

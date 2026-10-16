@@ -216,11 +216,10 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
   needle's place → the position in the current song), back at rest = pause (`onarm`). Kept: the intro once per page
   load, `placed` when already on, the A/B flip. A proper shelf later.
 - **The player bar** (owner 2026-10-16): Play (the item detail, the carousel) opens the card at once; the mini bar shows
-  only once the card is closed (the sound plays on). Two rows (variant a, the default – res.radio's bar as reference):
+  only once the card is closed (the sound plays on). Two rows (res.radio's bar as reference; the owner chose it):
   the cover / item picture as a thumbnail, the song and "album · Side A · n / N" (an ellipsis; when it overflows and
   without reduced motion a slow marquee – marquee-text.svelte), back / play / next and close as bare symbols (full touch
-  targets); the timeline with the times over the whole width below. Variant b (lab `?bar=b`): play and close beside the
-  song, back / next flank the timeline – the owner decides.
+  targets); the timeline with the times over the whole width below.
 - **The card is the stage** (owner 2026-10-16: "the player is the brown of the background"): the canvas lies behind the
   whole dark panel, sticky while the card scrolls over it; the song, the controls, the songs and the credits lie on the
   lit table (no fade, a soft text shadow), its top part shows the records and the turntable (`lift` from the measured
