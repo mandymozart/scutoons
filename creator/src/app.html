@@ -5,9 +5,56 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="robots" content="noindex" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<!-- the boot screen (owner 2026-10-16: "before the app is fully loaded our screen is a dull white"): the reader's
+		     page-transition logo, large, until the app draws its first element – a chapter page needs ~85 files / ~400 KB
+		     gzip first. Plain CSS here: the app's tokens aren't loaded yet -->
+		<style>
+			#sc-boot {
+				position: fixed;
+				inset: 0;
+				z-index: 2147483647;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: #fff;
+				transition: opacity 0.2s;
+			}
+			#sc-boot img {
+				width: min(16rem, 60vw);
+				height: auto;
+			}
+			#sc-boot.is-done {
+				opacity: 0;
+				pointer-events: none;
+			}
+		</style>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents">%sveltekit.body%</div>
+		<div id="sc-boot" role="progressbar" aria-label="SCUTOONS"><img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" /></div>
+		<div id="sc-app" style="display: contents">%sveltekit.body%</div>
+		<script>
+			// away as soon as the app has drawn something (its first element that isn't a script) – but not while it only
+			// waits (an element with data-sc-booting: the sign-in gate checking the session)
+			(() => {
+				const boot = document.getElementById('sc-boot');
+				const app = document.getElementById('sc-app');
+				const drawn = () => [...app.children].some((el) => el.tagName !== 'SCRIPT') && !app.querySelector('[data-sc-booting]');
+				const done = () => {
+					if (!boot.isConnected) return;
+					boot.classList.add('is-done');
+					setTimeout(() => boot.remove(), 250);
+				};
+				if (drawn()) return done();
+				const watch = new MutationObserver(() => {
+					if (!drawn()) return;
+					watch.disconnect();
+					done();
+				});
+				watch.observe(app, { childList: true, subtree: true });
+				// never stuck: whatever the app shows after 10 s (an API that doesn't answer) is better than the logo
+				setTimeout(() => (watch.disconnect(), done()), 10000);
+			})();
+		</script>
 	</body>
 </html>

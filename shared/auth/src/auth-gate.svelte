@@ -51,7 +51,8 @@
 </script>
 
 {#if waiting}
-	<p class="sc-auth-gate loading" data-testid="{app}-loading">{t.loading}</p>
+	<!-- data-sc-booting: an app shell's boot screen (the large logo) stays over this until the session is known -->
+	<p class="sc-auth-gate loading" data-testid="{app}-loading" data-sc-booting>{t.loading}</p>
 {:else if !session.isLoggedIn}
 	<section class="sc-auth-gate" data-testid="{app}-sign-in">
 		{#if logo}<img class="logo" src={logo} alt="SCUTOONS" width="200" />{/if}
