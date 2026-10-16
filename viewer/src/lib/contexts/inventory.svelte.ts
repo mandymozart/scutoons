@@ -27,6 +27,7 @@ import type { InviteOffer, InvitesResult } from '@scutoons/api';
 import {
 	breaksAt,
 	fitsIn,
+	canFill,
 	moveInCheck,
 	DEFAULT_AVATAR_UNLOCKS,
 	DEFAULT_LOOK,
@@ -259,10 +260,10 @@ export function createInventoryContext(session: SessionContext) {
 		return entries.filter((e) => sameId(e.in, container.id));
 	}
 	const countIn = (container: Pick<Entry, 'id'>) => contentsOf(container).reduce((n, e) => n + e.qty, 0);
-	/** the reader's containers this entry fits into (its rule), the one it lies in excluded */
+	/** the reader's containers this entry fits into (its rule), the one it lies in excluded – furniture only where it is set up (`canFill`) */
 	function containersFor(entry: Entry): Entry[] {
 		const def = itemsById[entry.item_id];
-		return entries.filter((c) => !sameId(c.id, entry.id) && !sameId(c.id, entry.in) && fitsIn(itemsById[c.item_id], def));
+		return entries.filter((c) => !sameId(c.id, entry.id) && !sameId(c.id, entry.in) && canFill(itemsById[c.item_id], c) && fitsIn(itemsById[c.item_id], def));
 	}
 
 	/** a guest's container past its overfill days breaks now (the server does the same on every read) */
@@ -312,6 +313,7 @@ export function createInventoryContext(session: SessionContext) {
 		if (into) {
 			const holds = itemsById[into.item_id]?.holds;
 			if (!holds) return { ok: false, error: 'not_a_container' };
+			if (!canFill(itemsById[into.item_id], guest.entries.find((e) => sameId(e.id, into.id)) ?? into)) return { ok: false, error: 'not_set_up' };
 			if (itemsById[mine.item_id]?.holds) return { ok: false, error: 'container_in_container' };
 			if (!fitsIn(itemsById[into.item_id], itemsById[mine.item_id])) return { ok: false, error: 'does_not_fit' };
 			if (isEquipped(mine)) return { ok: false, error: 'worn' };

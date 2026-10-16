@@ -374,6 +374,7 @@
 		"container_put_in": "In {name} legen",
 		"container_take_out": "Aus {name} nehmen",
 		"container_full": "Da passt nichts mehr hinein (höchstens {max}).",
+		"container_not_set_up": "Stell es erst in deinem Zuhause auf – Möbel füllst du dort, wo sie stehen.",
 		"container_overfilled": "Überfüllt – fällt bald auseinander.",
 		"container_back": "Zurück",
 		"move_failed": "Das hat nicht geklappt.",

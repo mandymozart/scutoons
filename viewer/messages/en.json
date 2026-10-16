@@ -374,6 +374,7 @@
 		"container_put_in": "Put into {name}",
 		"container_take_out": "Take out of {name}",
 		"container_full": "Nothing more fits in there (at most {max}).",
+		"container_not_set_up": "Set it up in your home first – furniture is filled where it stands.",
 		"container_overfilled": "Overfilled – it will fall apart soon.",
 		"container_back": "Back",
 		"move_failed": "That did not work.",

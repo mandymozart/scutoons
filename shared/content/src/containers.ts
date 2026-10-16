@@ -54,6 +54,15 @@ const DAY_MS = 86_400_000;
 
 export const isContainer = (item: Pick<ItemDef, 'holds'> | null | undefined): boolean => !!item?.holds;
 
+/**
+ * Can this container entry be filled now? Furniture (a shelf, a CD tower) only where it is set up – today a home
+ * (owner 2026-10-16: "furniture can only be stocked when setup in a place … in the inventory you can only carry it");
+ * a container that is no furniture (a vinyl bag, a DJ trolley) is carried and filled anywhere.
+ */
+export function canFill(container: Pick<ItemDef, 'holds' | 'furniture'> | null | undefined, entry: { home?: unknown } | null | undefined): boolean {
+	return !!container?.holds && (!container.furniture || !!entry?.home);
+}
+
 /** Does `item` fit into `container` by its rule (not counting the capacity)? */
 export function fitsIn(container: Pick<ItemDef, 'holds'> | null | undefined, item: Pick<ItemDef, 'id' | 'category' | 'holds'> | null | undefined): boolean {
 	const holds = container?.holds;

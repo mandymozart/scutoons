@@ -93,6 +93,9 @@ final class HomesTest extends TestCase
     {
         $homes = $this->homeIds();
         [$rack] = $this->inventory->add($this->id, 'cd_rack', null, 1, 'story');
+        // carried, a rack is only carried: filled where it is set up (owner 2026-10-16)
+        [$early] = $this->inventory->add($this->id, 'some_cd', null, 1, 'story');
+        $this->refused('not_set_up', fn() => $this->get(Containers::class)->move($this->id, ['entry_id' => $early, 'into' => $rack]));
         $this->homes->place($this->id, ['entry_id' => $rack, 'home_id' => $homes['cathedral'], 'x' => 30, 'y' => 70.5]);
         self::assertSame(['id' => $homes['cathedral'], 'x' => 30.0, 'y' => 70.5, 'flip' => false], $this->entry($rack)['home']);
         // moved inside the home, turned

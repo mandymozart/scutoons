@@ -56,6 +56,11 @@ final class Containers
         $container = $this->entry($userId, $into);
         $holds = $this->holds((string) $container['item_id']);
         if ($holds === null) throw new ApiError(409, 'not_a_container', 'That is not a container.');
+        // furniture (a shelf, a CD tower) is filled where it is set up – a home; a carried container (a vinyl bag)
+        // anywhere (owner 2026-10-16: "furniture can only be stocked when setup in a place")
+        if (($this->catalog->item((string) $container['item_id'])['furniture'] ?? null) !== null && ($container['home_id'] ?? null) === null) {
+            throw new ApiError(409, 'not_set_up', 'Set it up in your home first – furniture is filled where it stands.');
+        }
         $item = $this->catalog->item((string) $entry['item_id']) ?? [];
         if (($item['holds'] ?? null) !== null) throw new ApiError(409, 'container_in_container', 'A container cannot go into a container.');
         if (($entry['home_id'] ?? null) !== null) throw new ApiError(409, 'furniture_stays', 'It stands in your home – furniture stays there.');

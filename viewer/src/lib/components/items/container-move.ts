@@ -20,5 +20,6 @@ export async function moveWithWarning(inventory: Inventory, entry: Entry, into: 
 		result = ok ? await inventory.move(entry, into, true) : { ok: true };
 	}
 	if (result.ok) return null;
+	if (result.error === 'not_set_up') return m['items.container_not_set_up']();
 	return result.error === 'container_full' ? m['items.container_full']({ max: result.max ?? '' }) : m['items.move_failed']();
 }

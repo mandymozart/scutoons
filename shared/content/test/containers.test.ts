@@ -1,7 +1,7 @@
 // Containers, scores, ageing, kept recipe inputs and inherited variants (agents/research/SCORES.md).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ageLook, breaksAt, fitsIn, hardCapacity, moveInCheck, readerPart, validateCatalog, type ItemDef } from '../src/index.ts';
+import { ageLook, breaksAt, canFill, fitsIn, hardCapacity, moveInCheck, readerPart, validateCatalog, type ItemDef } from '../src/index.ts';
 
 const base = { toon: null, name: { en: 'x' }, description: {}, kind: 'virtual', icon: 'x.png', stackable: false, starter: false, grantable: ['story'], slot: null, skills: [], edition_id: null, product: null, variants: null } as const;
 const def = (id: string, extra: Partial<ItemDef>): ItemDef => ({ ...base, id, category: 'collectible', ...extra }) as ItemDef;
@@ -24,6 +24,14 @@ test('an item fits by its category or its id – never a container in a containe
 	assert.equal(fitsIn(small, vinyl), false);
 	assert.equal(fitsIn(small, diy), false, 'no nesting');
 	assert.equal(fitsIn(vinyl, score), false, 'not a container');
+});
+
+test('furniture is filled where it is set up, a carried container anywhere', () => {
+	const shelf = def('record_shelf', { category: 'furniture', furniture: { size: 20, image: 'shelf.webp' }, holds: { items: ['awakening_vinyl'], max: 50 } });
+	assert.equal(canFill(shelf, {}), false, 'carried: only carried');
+	assert.equal(canFill(shelf, { home: { id: 'h1', x: 10, y: 80, flip: false } }), true, 'set up in a home');
+	assert.equal(canFill(trolley, {}), true, 'the DJ trolley is no furniture');
+	assert.equal(canFill(vinyl, {}), false, 'not a container');
 });
 
 test('capacity: a hard limit, or an overfill that warns and then breaks', () => {
