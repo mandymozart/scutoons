@@ -97,6 +97,8 @@ export interface ItemVariant {
 	id: string;
 	name: Localized;
 	icon?: string | null;
+	/** this variant's own 3D model (CDN-root `.glb`); none = the item's `model` */
+	model?: string | null;
 	/** this variant's tint while worn (owner 2026-10-08: sunglasses in six colours as variants); none = the item's `worn_tint` */
 	worn_tint?: string | null;
 	/** this variant's wardrobe overlays (`ItemDef.wear`'s keys); none = the item's */
@@ -111,6 +113,13 @@ export interface ItemDef extends AcceptedWarnings {
 	kind: ItemKind;
 	category: ItemCategory;
 	icon: string;
+	/**
+	 * The item's 3D model (FEATURES 10.102, owner 2026-10-16: "We will turn all items into 3d assets"): a CDN-root `.glb`
+	 * (ITEMS.md "3D item models" – metres, +Y up, front +Z). The item detail shows it instead of the icon (WebGL, no
+	 * reduced motion); a variant may have its own. The LP's is its sleeve with the record inside (nodes `sleeve`,
+	 * `record`) – the record player takes the record out (record-stage.js). None = the icon only.
+	 */
+	model?: string | null;
 	stackable: boolean;
 	starter: boolean;
 	grantable: GrantSource[];

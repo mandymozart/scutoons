@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AVATAR_SLOTS, FX_SOUNDS, READER_EFFECTS } from '@scutoons/content';
-	import { MediaSlot } from '@scutoons/media';
+	import { FileSlot, MediaSlot, ModelPreview } from '@scutoons/media';
 	import { problemFor, text, type CatalogFormProps, type Data } from '../kinds.ts';
 	import { m } from '../messages.ts';
 	import CatalogField from './catalog-field.svelte';
@@ -15,7 +15,7 @@
 	/**
 	 * An item (agents/ITEMS.md "Item definition"): texts per language, kind / category, the picture (a slot; uploads go
 	 * to <toon>/items/), the flags, slot / edition / product / album, variants (each with its picture) and when a placed
-	 * one reappears; what it holds (a container), how it ages, a score's files (research/SCORES.md). Skills, effects,
+	 * one reappears; the 3D model (a .glb slot + its live preview, FEATURES 10.102 – each variant may have its own); what it holds (a container), how it ages, a score's files (research/SCORES.md). Skills, effects,
 	 * wear, grantable … are the editor's Advanced JSON.
 	 */
 	let { data = $bindable(), id, lists, problems }: CatalogFormProps = $props();
@@ -71,6 +71,11 @@
 
 <div class="picture">
 	<MediaSlot toon="" value={data.icon ?? undefined} label={m['catalog.picture']()} {place} {bust} onchange={(path) => ((data.icon = path ?? null), (bust = Date.now()))} testid="item-icon" />
+	<!-- the item's 3D model (FEATURES 10.102): the reader's item view turns it, the record player plays it -->
+	<div class="model">
+		<FileSlot kind="model" value={data.model} label={m['catalog.model']()} {place} player={false} onchange={(path) => (path ? (data.model = path) : delete data.model)} testid="item-model" />
+		{#if data.model}<ModelPreview path={data.model} testid="item-model-preview" />{/if}
+	</div>
 </div>
 
 <fieldset class="flags">
@@ -142,6 +147,8 @@
 			}}
 		/>
 		<MediaSlot toon="" value={v.icon ?? undefined} label={m['catalog.picture']()} {place} {bust} onchange={(path) => ((v.icon = path ?? null), (bust = Date.now()))} testid="item-variant-icon" />
+		<!-- its own 3D model; empty = the item's -->
+		<FileSlot kind="model" value={v.model} label={m['catalog.model']()} {place} player={false} onchange={(path) => (path ? (v.model = path) : delete v.model)} testid="item-variant-model" />
 		<!-- its own tint while worn (owner 2026-10-08: the sunglasses' colours as variants); empty = the item's -->
 		<CatalogField label={m['catalog.worn_tint']()} value={v.worn_tint ?? null} placeholder={data.worn_tint ?? '#ff9a2e'} onchange={(x) => (x ? (v.worn_tint = String(x).trim()) : delete v.worn_tint)} testid="item-variant-tint" />
 	{/snippet}
@@ -199,7 +206,16 @@
 
 <style>
 	.picture {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: var(--space-15);
 		margin-bottom: var(--space-15);
+	}
+	.model {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
 	}
 	.ages {
 		margin-bottom: var(--space-15);

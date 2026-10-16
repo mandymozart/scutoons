@@ -172,6 +172,8 @@ final class CatalogValidator
             if (array_key_exists($flag, $item) && $item[$flag] !== null && !is_bool($item[$flag])) $p[] = "$id: $flag must be true or false";
         }
         if (array_key_exists('icon', $item) && $item['icon'] !== null && !is_string($item['icon'])) $p[] = "$id: icon must be a path";
+        // a 3D model (FEATURES 10.102): one self-contained .glb (ASSETS.md "3D models")
+        if (($item['model'] ?? null) !== null && !self::isGlb($item['model'])) $p[] = "$id: model must be a .glb path";
         if (array_key_exists('grantable', $item) && !(is_array($item['grantable']) && array_is_list($item['grantable'])
                 && array_diff($item['grantable'], self::GRANT_SOURCES) === [])) $p[] = "$id: grantable must be a list of " . implode(', ', self::GRANT_SOURCES);
         if (array_key_exists('skills', $item) && $item['skills'] !== null && !(is_array($item['skills']) && array_is_list($item['skills'])
@@ -567,6 +569,7 @@ final class CatalogValidator
             $seen[$v['id']] = true;
             // a variant's own tint / overlays (owner 2026-10-08: the sunglasses' colours)
             if (($v['worn_tint'] ?? null) !== null && !(is_string($v['worn_tint']) && preg_match('/^#[0-9a-fA-F]{6}$/', $v['worn_tint']))) $p[] = "$id/{$v['id']}: worn_tint must be a colour #rrggbb";
+            if (($v['model'] ?? null) !== null && !self::isGlb($v['model'])) $p[] = "$id/{$v['id']}: model must be a .glb path";
             if (($v['wear'] ?? null) !== null && !(is_array($v['wear']) && !array_is_list($v['wear']) && array_filter($v['wear'], fn($x) => !is_string($x) || trim($x) === '') === [])) $p[] = "$id/{$v['id']}: wear must be { \"<character>[/<slot instance>]\": \"<path>\" }";
         }
         return $p;
@@ -613,6 +616,12 @@ final class CatalogValidator
     }
 
     /** a text or { <locale>: text } with at least one non-empty text */
+    /** an item's 3D model: a .glb path (ASSETS.md "3D models": binary glTF only) */
+    private static function isGlb(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^[^?#]+\.glb$/i', trim($value)) === 1;
+    }
+
     private static function text(mixed $value): bool
     {
         if (is_string($value)) return trim($value) !== '';

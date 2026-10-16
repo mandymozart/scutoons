@@ -4,9 +4,13 @@ Builds the 3D record (and its sleeve) of an LP item as binary glTF (.glb) from t
 Owner 2026-10-16: "let the user turn the record ... a 3d asset with both sides of the record" – "We will turn all items
 into 3d assets." First item: catpope `awakening_vinyl` (Cat Pope – Awakening, SCU001). ITEMS.md "3D item models".
 
-    python tools/vinyl3d/build.py --label-a A.pdf --label-b B.pdf [--cover Cover.pdf] --out <dir> [--name awakening_vinyl]
+    python tools/vinyl3d/build.py --label-a A.pdf --label-b B.pdf [--cover Cover.pdf [--front right]] --out <dir> [--name awakening_vinyl]
 
-Needs numpy, Pillow, pymupdf. Writes <name>.model.glb (the record) and, with --cover, <name>.sleeve.glb.
+Needs numpy, Pillow, pymupdf. Writes <name>.model.glb (the record) and, with --cover, <name>.sleeve.glb and
+<name>.set.glb – the sleeve with the record inside (owner 2026-10-16: "The item should show sleeve with record inside. And
+on starting to play it is pulled out and put on the record player"): node "sleeve" (as in .sleeve.glb, but open at +X)
+and node "record" (as in .model.glb) standing in it, peeking PEEK out of the open edge (+X, opposite the spine). The
+viewer's record player takes the "record" node out of the sleeve and onto its platter (record-stage.js) – keep the names.
 
 The record (metres, +Y up, side A faces +Z, standing on its edge so a turn around Y shows side B – the way the tools'
 model view turns it): Ø 302 mm, 2 mm thick, label Ø 100 mm (the label PDFs' trim box = the die cut), hole Ø 7.24 mm.
@@ -16,7 +20,8 @@ moire, a few KB; KHR_materials_anisotropy along the tangent (= around) gives the
 (viewers without it ignore it). The labels are rendered from the PDFs at 300 dpi, cropped to the trim box, 1024 px JPEG.
 
 The sleeve: a spined sleeve 315 × 312 × 3 mm (specs/spinedsleeve_12inch_2019.pdf); the cover PDF's trim box is
-back | spine | front (315 + 3 + 315 mm), front faces +Z, the spine on the left of the front.
+back | spine | front (315 + 3 + 315 mm), front faces +Z, the spine on the left of the front. Which half is the front:
+FRONT_IS_RIGHT_HALF (or --front left|right) – today the right half (the title side), the owner hasn't confirmed it.
 
 Textures are JPEG / PNG (core glTF, no extension needed). A next item: same pattern – artwork from the print files,
 real dimensions in metres, standing so a turn shows the back, one self-contained .glb ≤ ~1–2 MB (ASSETS.md "3D models").
@@ -43,6 +48,13 @@ SEG = 256                    # segments around
 LEAD_IN = (150.0, 146.0)
 GROOVES = (146.0, 60.0)
 TRACK_GAPS = 3               # 3 tracks a side → 2 gaps (+ the lead-out spiral)
+
+# the sleeve (specs/spinedsleeve_12inch_2019.pdf) and where the record sits in the set
+SLEEVE_W, SLEEVE_H, SLEEVE_D = 315 * MM, 312 * MM, 3 * MM
+PEEK = 25 * MM               # how far the record looks out of the sleeve's open edge in the set
+# the cover PDF is 315 mm | spine | 315 mm: which half is the sleeve's FRONT is not confirmed by the owner – today the
+# right half (the title side). One flag: flip it here or pass --front left.
+FRONT_IS_RIGHT_HALF = True
 
 
 # ---------------------------------------------------------------- artwork
@@ -193,19 +205,27 @@ def record_meshes():
     return meshes
 
 
-def box_meshes(w, h, d):
-    """a sleeve box centred on the origin: front (+Z), back (-Z, read from behind), spine (-X), the rest plain"""
+def box_meshes(w, h, d, open_edge=False):
+    """a sleeve box centred on the origin: front (+Z), back (-Z, read from behind), spine (-X), the rest plain;
+    open_edge: the +X side is the opening (no wall, plain paper inside) – the set with the record in it"""
     x0, x1, y0, y1, z0, z1 = -w / 2, w / 2, -h / 2, h / 2, -d / 2, d / 2
 
     def quad(name, a, b, c, dd, normal, uv=((0, 1), (1, 1), (1, 0), (0, 0))):
         return (name, [a, b, c, dd], [normal] * 4, None, list(uv), [0, 1, 2, 0, 2, 3])
-    return [
+    faces = [
         quad('front', (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1), (0, 0, 1)),
         quad('back', (x1, y0, z0), (x0, y0, z0), (x0, y1, z0), (x1, y1, z0), (0, 0, -1)),
         quad('spine', (x0, y0, z0), (x0, y0, z1), (x0, y1, z1), (x0, y1, z0), (-1, 0, 0)),
-        quad('edge', (x1, y0, z1), (x1, y0, z0), (x1, y1, z0), (x1, y1, z1), (1, 0, 0)),
         quad('edge', (x0, y1, z1), (x1, y1, z1), (x1, y1, z0), (x0, y1, z0), (0, 1, 0)),
         quad('edge', (x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1), (0, -1, 0)),
+    ]
+    if not open_edge:
+        return faces + [quad('edge', (x1, y0, z1), (x1, y0, z0), (x1, y1, z0), (x1, y1, z1), (1, 0, 0))]
+    # the opening: the insides of front and back (a hair inside, facing in) – a look into it shows paper, not the void
+    e = d * 0.02
+    return faces + [
+        quad('edge', (x1, y0, z1 - e), (x0, y0, z1 - e), (x0, y1, z1 - e), (x1, y1, z1 - e), (0, 0, -1)),
+        quad('edge', (x0, y0, z0 + e), (x1, y0, z0 + e), (x1, y1, z0 + e), (x0, y1, z0 + e), (0, 0, 1)),
     ]
 
 
@@ -264,9 +284,13 @@ class Glb:
         return {'attributes': attrs, 'indices': self.accessor(ind, 'SCALAR', 5125 if ind.dtype == np.uint32 else 5123, 34963),
                 'material': material}
 
-    def write(self, path: Path, name, prims, translation):
+    def node(self, name, prims, translation):
+        """one mesh as its own root node"""
         self.g['meshes'].append({'name': name, 'primitives': prims})
-        self.g['nodes'].append({'name': name, 'mesh': 0, 'translation': translation})
+        self.g['nodes'].append({'name': name, 'mesh': len(self.g['meshes']) - 1, 'translation': translation})
+
+    def write(self, path: Path):
+        self.g['scenes'] = [{'nodes': list(range(len(self.g['nodes'])))}]
         self.g['buffers'] = [{'byteLength': len(self.bin)}]
         for k in ('textures', 'images', 'samplers'):
             if not self.g[k]:
@@ -282,8 +306,8 @@ class Glb:
 
 # ---------------------------------------------------------------- builds
 
-def build_record(label_a: Path, label_b: Path, out: Path, name: str):
-    g = Glb()
+def record_prims(g: Glb, label_a: Path, label_b: Path, out: Path, name: str):
+    """the record's materials + primitives in g (labels from the PDFs; previews next to the output)"""
     clamp = g.sampler(33071, 33071)
     around = g.sampler(10497, 33071)
     tex = {}
@@ -304,26 +328,43 @@ def build_record(label_a: Path, label_b: Path, out: Path, name: str):
                              'extensions': {'KHR_materials_anisotropy': {'anisotropyStrength': 0.75}}}),
         'vinyl_edge': g.material({'name': 'Vinyl edge', 'pbrMetallicRoughness': {'baseColorFactor': black, 'metallicFactor': 0, 'roughnessFactor': 0.35}}),
     }
-    prims = [g.primitive(p, n, t, u, i, mats[m]) for m, p, n, t, u, i in record_meshes()]
     g.g['extensionsUsed'] = ['KHR_materials_anisotropy']
-    # the disc is built in XY (side A +Z); its centre at y = R_OUT, so it stands on its edge on y = 0
-    return g.write(out / f'{name}.model.glb', name, prims, [0, R_OUT, 0])
+    return [g.primitive(p, n, t, u, i, mats[m]) for m, p, n, t, u, i in record_meshes()]
 
 
-def build_sleeve(cover: Path, out: Path, name: str):
-    W, H, D = 315 * MM, 312 * MM, 3 * MM
-    g = Glb()
+def sleeve_prims(g: Glb, cover: Path, out: Path, name: str, front_right=FRONT_IS_RIGHT_HALF, open_edge=False):
+    """the sleeve's materials + primitives in g; the cover trim box: 315 mm | spine 315–318 | 315 mm (312 high)"""
     clamp = g.sampler(33071, 33071)
-    # cover trim box: back 0–315 mm | spine 315–318 | front 318–633 (312 high)
-    front = render_clip(cover, (318, 0, 633, 312), dpi=300, size=(2048, 2028))
-    back = render_clip(cover, (0, 0, 315, 312), dpi=300, size=(2048, 2028))
+    right = render_clip(cover, (318, 0, 633, 312), dpi=300, size=(2048, 2028))
+    left = render_clip(cover, (0, 0, 315, 312), dpi=300, size=(2048, 2028))
+    front, back = (right, left) if front_right else (left, right)
     spine = render_clip(cover, (315, 0, 318, 312), dpi=300, size=(32, 2028))
     front.save(out / f'{name}.sleeve.front.preview.jpg', quality=80)
     t = {k: g.texture(jpeg(img, 82), 'image/jpeg', clamp) for k, img in (('front', front), ('back', back), ('spine', spine))}
     mats = {k: g.material({'name': f'Sleeve {k}', 'pbrMetallicRoughness': {'baseColorTexture': {'index': v}, 'metallicFactor': 0, 'roughnessFactor': 0.7}}) for k, v in t.items()}
     mats['edge'] = g.material({'name': 'Sleeve edge', 'pbrMetallicRoughness': {'baseColorFactor': [0.85, 0.83, 0.78, 1], 'metallicFactor': 0, 'roughnessFactor': 0.9}})
-    prims = [g.primitive(p, n, tn, u, i, mats[m]) for m, p, n, tn, u, i in box_meshes(W, H, D)]
-    return g.write(out / f'{name}.sleeve.glb', f'{name}_sleeve', prims, [0, H / 2, 0])
+    return [g.primitive(p, n, tn, u, i, mats[m]) for m, p, n, tn, u, i in box_meshes(SLEEVE_W, SLEEVE_H, SLEEVE_D, open_edge)]
+
+
+def build_record(label_a: Path, label_b: Path, out: Path, name: str):
+    g = Glb()
+    # the disc is built in XY (side A +Z); its centre at y = R_OUT, so it stands on its edge on y = 0
+    g.node(name, record_prims(g, label_a, label_b, out, name), [0, R_OUT, 0])
+    return g.write(out / f'{name}.model.glb')
+
+
+def build_sleeve(cover: Path, out: Path, name: str, front_right=FRONT_IS_RIGHT_HALF):
+    g = Glb()
+    g.node(f'{name}_sleeve', sleeve_prims(g, cover, out, name, front_right), [0, SLEEVE_H / 2, 0])
+    return g.write(out / f'{name}.sleeve.glb')
+
+
+def build_set(label_a: Path, label_b: Path, cover: Path, out: Path, name: str, front_right=FRONT_IS_RIGHT_HALF):
+    """the sleeve standing on y = 0 (open edge +X) with the record inside, PEEK out of the opening: nodes sleeve, record"""
+    g = Glb()
+    g.node('sleeve', sleeve_prims(g, cover, out, name, front_right, open_edge=True), [0, SLEEVE_H / 2, 0])
+    g.node('record', record_prims(g, label_a, label_b, out, name), [SLEEVE_W / 2 + PEEK - R_OUT, SLEEVE_H / 2, 0])
+    return g.write(out / f'{name}.set.glb')
 
 
 def main():
@@ -333,11 +374,15 @@ def main():
     ap.add_argument('--cover', type=Path)
     ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--name', default='awakening_vinyl')
+    ap.add_argument('--front', choices=('left', 'right'), default='right' if FRONT_IS_RIGHT_HALF else 'left',
+                    help="the cover PDF's half that is the sleeve's front (default: FRONT_IS_RIGHT_HALF)")
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     print('record', build_record(a.label_a, a.label_b, a.out, a.name), 'bytes')
     if a.cover:
-        print('sleeve', build_sleeve(a.cover, a.out, a.name), 'bytes')
+        front_right = a.front == 'right'
+        print('sleeve', build_sleeve(a.cover, a.out, a.name, front_right), 'bytes')
+        print('set', build_set(a.label_a, a.label_b, a.cover, a.out, a.name, front_right), 'bytes')
 
 
 if __name__ == '__main__':

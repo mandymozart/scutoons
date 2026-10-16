@@ -45,6 +45,19 @@ test('wardrobe: validation errors', () => {
 	assert.ok(!validateCatalog(noLegs, registry).some((p) => p.message.includes('"legs" slot')));
 });
 
+test('items: a 3D model is a .glb path, on the item or a variant (FEATURES 10.102)', () => {
+	const ok = structuredClone(catalog);
+	const camera = ok.items.find((i) => i.id === 'camera')!;
+	camera.model = 'catpope/items/camera.model.glb';
+	camera.variants = [{ id: 'red', name: { de: 'Rot', en: 'Red' }, model: 'catpope/items/camera_red.model.glb' }];
+	assert.deepEqual(validateCatalog(ok, registry).filter((p) => p.level === 'error' && p.message.includes('model')), []);
+	camera.model = 'catpope/items/camera.gltf';
+	camera.variants[0].model = 'catpope/items/camera_red.png';
+	const errors = validateCatalog(ok, registry).filter((p) => p.level === 'error').map((p) => p.message);
+	assert.ok(errors.includes('camera: model must be a .glb path'), errors.join(' | '));
+	assert.ok(errors.includes('camera/red: model must be a .glb path'), errors.join(' | '));
+});
+
 test('wardrobe: the basic dress per body (shorts where they have an overlay, else the swim pants)', () => {
 	const starters = catalog.items.filter((i) => i.starter && i.slot);
 	assert.deepEqual(basicDress(starters, 'catpope').map((i) => i.id), ['scutoons_tshirt', 'scutoons_shorts', 'scutoons_sandals']);

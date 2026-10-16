@@ -41,6 +41,8 @@ export function basicDress<T extends Pick<ItemDef, 'id' | 'slot' | 'wear' | 'def
 	return out;
 }
 
+/** an item's 3D model: a .glb path (ASSETS.md "3D models": binary glTF only) */
+const GLB = /^[^?#]+\.glb$/i;
 const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
@@ -82,8 +84,11 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		if (item.sober != null && !(typeof item.sober === 'number' && item.sober > 0 && item.sober < 1)) add('error', [...path, 'sober'], `${item.id}: sober must be a share between 0 and 1 (0.5 halves a running effect)`);
 		if (item.worn_tint != null && !(typeof item.worn_tint === 'string' && /^#[0-9a-fA-F]{6}$/.test(item.worn_tint))) add('error', [...path, 'worn_tint'], `${item.id}: worn_tint must be a colour #rrggbb`);
 		else if (item.worn_tint != null && !item.slot) add('warning', [...path, 'worn_tint'], `${item.id}: worn_tint only matters for something worn (no slot)`);
+		// a 3D model (FEATURES 10.102): one self-contained .glb (ASSETS.md "3D models")
+		if (item.model != null && !(typeof item.model === 'string' && GLB.test(item.model.trim()))) add('error', [...path, 'model'], `${item.id}: model must be a .glb path`);
 		// variants with their own tint / overlays (owner 2026-10-08: the sunglasses' colours)
 		(Array.isArray(item.variants) ? item.variants : []).forEach((v, vi) => {
+			if (v?.model != null && !(typeof v.model === 'string' && GLB.test(v.model.trim()))) add('error', [...path, 'variants', vi, 'model'], `${item.id}/${v.id}: model must be a .glb path`);
 			if (v?.worn_tint != null && !(typeof v.worn_tint === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.worn_tint))) add('error', [...path, 'variants', vi, 'worn_tint'], `${item.id}/${v.id}: worn_tint must be a colour #rrggbb`);
 			if (v?.wear != null && !(isObj(v.wear) && Object.values(v.wear).every((x) => typeof x === 'string' && x.trim()))) add('error', [...path, 'variants', vi, 'wear'], `${item.id}/${v.id}: wear must be { "<character>[/<slot instance>]": "<path>" }`);
 		});

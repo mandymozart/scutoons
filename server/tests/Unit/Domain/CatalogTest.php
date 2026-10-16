@@ -140,6 +140,7 @@ final class CatalogTest extends TestCase
         }
         $camera = $store->get('items', 'camera');
         self::assertIsArray($camera);
+        self::assertSame([], $validator->problems('items', 'camera', ['model' => 'catpope/items/camera.model.glb', 'variants' => [['id' => 'red', 'name' => ['de' => 'Rot', 'en' => 'Red'], 'model' => 'catpope/items/camera_red.model.glb']]] + $camera), 'a .glb model on the item and a variant');
         $cases = [
             ['items', 'camera', ['slot' => 'tail'] + $camera, 'unknown slot "tail"'],
             ['items', 'camera', ['id' => 'other'] + $camera, 'data.id must be "camera"'],
@@ -153,6 +154,9 @@ final class CatalogTest extends TestCase
             ['items', 'camera', ['holds' => ['categories' => ['score'], 'max' => 5, 'overfill' => ['days' => 3, 'max' => 4, 'breaks_into' => 'ghost']]] + $camera, 'overfill.max must be above holds.max'],
             ['items', 'camera', ['ages' => ['tint_days' => 100, 'spots_days' => 1, 'full_days' => 90]] + $camera, 'ages must be'],
             ['items', 'camera', ['score' => ['language' => 'en', 'musicxml' => 'x.pdf']] + $camera, 'score must be'],
+            // a 3D model (FEATURES 10.102): a .glb only, on the item or a variant
+            ['items', 'camera', ['model' => 'catpope/items/camera.gltf'] + $camera, 'camera: model must be a .glb path'],
+            ['items', 'camera', ['variants' => [['id' => 'red', 'name' => ['de' => 'Rot', 'en' => 'Red'], 'model' => 'catpope/items/camera_red.png']]] + $camera, 'camera/red: model must be a .glb path'],
             ['recipes', 'r', ['id' => 'r', 'inputs' => [['item' => 'camera', 'qty' => 1, 'keep' => true]], 'output' => ['item' => 'cucumber', 'qty' => 1]], 'use up at least one input'],
             ['recipes', 'r', ['id' => 'r', 'inputs' => [['item' => 'camera', 'qty' => 1]], 'output' => ['item' => 'cucumber', 'qty' => 1, 'variant_from' => 'cucumber']], 'variant_from must name one of the inputs'],
             ['products', 'dago_hoodie', ['item_id' => 'ghost'] + (array) $store->get('products', 'dago_hoodie'), 'unknown item "ghost"'],

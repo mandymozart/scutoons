@@ -44,7 +44,7 @@ final class AssetsTest extends TestCase
         // a small catalog instead of the seeded one: an item icon and an album download
         foreach (CatalogStore::KINDS as $kind => $def) $this->db->run('DELETE FROM ' . $def['table']);
         $store = $this->get(CatalogStore::class);
-        $store->save('items', 'vinyl', (object) ['id' => 'vinyl', 'name' => 'Vinyl', 'kind' => 'physical', 'category' => 'media', 'icon' => 'catpope/items/vinyl.png'], 'test');
+        $store->save('items', 'vinyl', (object) ['id' => 'vinyl', 'name' => 'Vinyl', 'kind' => 'physical', 'category' => 'media', 'icon' => 'catpope/items/vinyl.png', 'model' => 'catpope/items/vinyl.set.glb'], 'test');
         $store->save('albums', 'a', (object) ['id' => 'a', 'title' => (object) ['en' => 'A'], 'tracks' => [], 'download' => 'catpope/audio/album.zip'], 'test');
     }
 
@@ -197,9 +197,10 @@ final class AssetsTest extends TestCase
     public function testUsageIndex(): void
     {
         $this->fixture();
+        $this->put('catpope/items/vinyl.set.glb', "glTF\x02\0\0\0"); // the item's 3D model (FEATURES 10.102)
         $this->scan();
         $registry = $this->get(AssetRegistry::class);
-        $usages = $registry->usagesOf(['catpope/videos/s1-trailer-loop.720p.mp4', 'catpope/images/webtoon/s1c1/s1c1-slice-1.webp', 'characters/catpope/catpope_portrait.webp', 'catpope/items/vinyl.png', 'catpope/images/s1-cover-square.jpg', 'catpope/audio/album.zip']);
+        $usages = $registry->usagesOf(['catpope/videos/s1-trailer-loop.720p.mp4', 'catpope/images/webtoon/s1c1/s1c1-slice-1.webp', 'characters/catpope/catpope_portrait.webp', 'catpope/items/vinyl.png', 'catpope/items/vinyl.set.glb', 'catpope/images/s1-cover-square.jpg', 'catpope/audio/album.zip']);
         $rows = array_map(fn($u) => [$u['path'], $u['ref'], $u['field'], $u['state']], $usages);
         self::assertContains(['catpope/videos/s1-trailer-loop.720p.mp4', 'season:catpope:1:de', '/trailer/loop', 'published'], $rows);
         self::assertContains(['catpope/images/webtoon/s1c1/s1c1-slice-1.webp', 'chapter:catpope:1:de', '/groups/0/slices/0/image', 'published'], $rows);
@@ -208,6 +209,7 @@ final class AssetsTest extends TestCase
         self::assertContains(['catpope/images/webtoon/s1c1/s1c1-slice-1.webp', 'map', '/locations/0/unlock/slice', 'published'], $rows, 'the map resolves against the location\'s toon');
         self::assertContains(['characters/catpope/catpope_portrait.webp', 'chapter:catpope:1:de', '/tile', 'published'], $rows);
         self::assertContains(['catpope/items/vinyl.png', 'item:vinyl', '/icon', 'config'], $rows);
+        self::assertContains(['catpope/items/vinyl.set.glb', 'item:vinyl', '/model', 'config'], $rows, 'an item 3D model is used (FEATURES 10.102)');
         self::assertContains(['catpope/audio/album.zip', 'album:a', '/download', 'config'], $rows);
 
         $missing = $this->get(AssetUsages::class)->missing();
