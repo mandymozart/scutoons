@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Button, Icon } from '@scutoons/ui';
+	import { Button, CloseIcon } from '@scutoons/ui';
 	import { api } from '$lib/api.ts';
 	import { API_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -112,8 +112,7 @@
 </script>
 
 {#if member}
-	<section class="ai" data-testid="ai-connections">
-		<h2>{m['account.ai_title']()}</h2>
+	<div class="ai" data-testid="ai-connections">
 		<p class="hint">{m['account.ai_hint']()}</p>
 
 		{#if items.length}
@@ -144,7 +143,7 @@
 			<div class="fresh" data-testid="ai-fresh">
 				<div class="row">
 					<span class="label">{m['account.ai_new_token']()}</span>
-					<button type="button" class="round" title={m['account.ai_close']()} aria-label={m['account.ai_close']()} onclick={() => (fresh = null)}><Icon name="x" /></button>
+					<button type="button" class="round" title={m['account.ai_close']()} aria-label={m['account.ai_close']()} onclick={() => (fresh = null)}><CloseIcon size="1rem" /></button>
 				</div>
 				<div class="secret">
 					<input id="ai-token" readonly value={fresh.token} onfocus={(e) => e.currentTarget.select()} />
@@ -184,21 +183,15 @@
 			<Button size="sm" variant="secondary" onclick={() => (adding = true)} data-testid="ai-new">{m['account.ai_new']()}</Button>
 		{/if}
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
-	</section>
+	</div>
 {/if}
 
 <style>
-	/* the account page's section look (its styles are scoped to the page) */
-	section {
+	/* the account page's "Connections" group (the page shows the title) */
+	.ai {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		padding: 1rem;
-	}
-	h2 {
-		font-size: 1rem;
-		font-weight: 700;
-		margin: 0;
 	}
 	.hint {
 		margin: 0;

@@ -5,7 +5,7 @@
 	 * whole chapter, then one per kind it holds (pictures, music + sounds, videos, the rest), a tap on × stops it. A
 	 * refresh (a new version, only the changed files) says "updating" – stopped, the saved version stays.
 	 */
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { roundMb, SAVE_KINDS, type SaveKind } from '$lib/sw/saved-rules.ts';
 	import type { SaveJob } from '$lib/offline/saved-chapters.svelte.ts';
@@ -26,7 +26,7 @@
 	<div class="head">
 		<strong>{job.label}{#if job.mode === 'refresh'} · {m['saved.updating']()}{/if}</strong>
 		<button type="button" class="round" title={m['saved.stop']()} aria-label={m['saved.stop']()} onclick={onstop}>
-			<Icon name="x" size="0.875rem" />
+			<CloseIcon size="0.875rem" />
 		</button>
 	</div>
 	<div class="bar total" role="progressbar" aria-label={job.label} aria-valuemin="0" aria-valuemax="100" aria-valuenow={share(job.done, job.total)}>

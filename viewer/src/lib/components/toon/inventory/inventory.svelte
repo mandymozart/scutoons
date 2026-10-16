@@ -121,12 +121,15 @@
 		}
 	});
 
+	// `?avatar=open`: the account page's "Open avatar" (owner 2026-10-16) – the same for the avatar panel
 	onMount(() => {
-		const param = page.url.searchParams.get('inventory');
-		if (param === 'open' || param === '1' || param === 'true') {
-			nav.openOverlay('inventory');
+		const opened = (name: string) => ['open', '1', 'true'].includes(page.url.searchParams.get(name) ?? '');
+		const overlay = opened('inventory') ? 'inventory' : opened('avatar') ? 'avatar' : null;
+		if (overlay) {
+			nav.openOverlay(overlay);
 			const url = new URL(window.location.href);
 			url.searchParams.delete('inventory');
+			url.searchParams.delete('avatar');
 			goto(url.pathname + url.search, { replaceState: true, noScroll: true, keepFocus: true });
 		}
 	});

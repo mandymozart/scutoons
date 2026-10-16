@@ -65,8 +65,8 @@
 </script>
 
 {#if claims.length}
-	<section data-testid="my-claims">
-		<h2>{m['account.claims']()}</h2>
+	<div class="claims" data-testid="my-claims">
+		<h3>{m['account.claims']()}</h3>
 		<ul>
 			{#each claims as claim (claim.id)}
 				<li>
@@ -90,15 +90,12 @@
 			{/each}
 		</ul>
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
-	</section>
+	</div>
 {/if}
 
 <style>
-	/* the account page's section look (its styles are scoped to the page) */
-	section {
-		padding: 1rem;
-	}
-	h2 {
+	/* a part of the account page's "Collection" group */
+	h3 {
 		font-size: 1rem;
 		font-weight: 700;
 		margin: 0 0 0.75rem;

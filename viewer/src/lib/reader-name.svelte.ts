@@ -42,6 +42,25 @@ class ReaderNameState {
 		return this.local || undefined;
 	}
 
+	/** the account this device's name was offered to (once per account and page load) */
+	#carried: string | number | null = null;
+
+	/**
+	 * At sign-in (owner 2026-10-16, agents/research/ACCOUNT-PAGE.md Q4): a name typed on this device as a guest goes into
+	 * an account that has none yet – the account's own name always wins. The root layout calls it.
+	 */
+	async carryToAccount(): Promise<void> {
+		const session = getCurrentSession();
+		const user = session?.user;
+		if (!session?.isLoggedIn || !user || user.display_name || !this.local || this.#carried === user.id) return;
+		this.#carried = user.id;
+		try {
+			await session.setDisplayName(this.local);
+		} catch {
+			// offline / the API refused: it stays on the device, the next sign-in tries again
+		}
+	}
+
 	/**
 	 * Stores the name ("" clears it): a member's on the account, a guest's on this device – decided once it is known who
 	 * reads (a member typing while the session check still runs must not land on the device).

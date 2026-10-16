@@ -154,7 +154,27 @@
 		"ai_expired": "abgelaufen {date} – verlängern, um sie wieder zu nutzen",
 		"ai_renew": "Verlängern",
 		"ai_renewed": "Verlängert – läuft bis {date}.",
-		"ai_lifetime": "Jede Verbindung läuft 6 Monate; hier verlängern (zwei Wochen vorher kommt eine Mail, wenn deine KI sie noch nutzt)."
+		"ai_lifetime": "Jede Verbindung läuft 6 Monate; hier verlängern (zwei Wochen vorher kommt eine Mail, wenn deine KI sie noch nutzt).",
+		"settings": "Einstellungen",
+		"group_details": "Stammdaten",
+		"group_reading": "Lesen",
+		"group_sound": "Ton & Vibration",
+		"group_offline": "Offline-Inhalte",
+		"group_notifications": "Benachrichtigungen",
+		"group_collection": "Sammlung",
+		"group_connections": "Verbindungen",
+		"group_creator": "Creator",
+		"scope_account": "Konto",
+		"scope_device": "Gerät",
+		"sum_on": "{what} an",
+		"sum_off": "{what} aus",
+		"sum_hints": "Hinweise",
+		"sum_news": "Neuigkeiten",
+		"sum_sensitive_shown": "Sensibler Inhalt sichtbar",
+		"reading_guest": "Hinweise und sensible Inhalte stellst du mit einem Konto ein.",
+		"open_avatar": "Avatar öffnen",
+		"delete_account": "Konto löschen",
+		"delete_account_hint": "Über das Kontaktformular – das Thema Datenschutz ist schon gewählt."
 	},
 	"inventory": {
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"

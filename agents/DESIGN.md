@@ -82,6 +82,12 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **Sticky action bar** (owner 2026-10-16) — a panel's actions stick to its bottom: `StickyActions` (@scutoons/ui) last
   in the scroll box, no rule on top, the content fades out under it into `--paper` (black in a dark panel); the scroll
   box hands it its bottom padding as `--sticky-actions-inset`. The item detail and the recipe use it.
+- **Account page** (owner 2026-10-16, research/ACCOUNT-PAGE.md concept B) — `/account` is an index: who reads (a
+  member's name large + access; a guest's sign-in), then one row per group (Feather icon, title, a `.sc-chip` "Konto" /
+  "Gerät" where the whole group is kept there, a one-line summary of its values, ›). Each group is its own page
+  `/account/<group>` (`lib/account/groups.ts`: order, icons, who sees which). From 1024px both side by side (the index
+  left, the shown row inverted). One `BackLink` (chevron + target name, frameless, `--control-height`) on both levels:
+  "Zurück zu <toon>" on the index, "Mein Konto" on a group page.
 - **ChapterItem** — grid `6rem 1fr auto` (`5rem …` < 768px; the number column at least 3rem, wider only for the
   prologue's label, set in `caption` size; < 768px the row keeps 0.5rem off the right edge), hover `surface-hover`, meta in `caption` + `text-muted`, coming-soon row at 0.5 opacity. Chapter 0
   (the season's prologue) shows "Prolog" / "Prologue" (paraglide `chapter.prologue`) instead of "#0"; prev/next in the

@@ -17,6 +17,7 @@
 	import ReaderEffect from '$lib/components/items/reader-effect.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { setSessionContext } from '$lib/contexts/session.svelte.ts';
+	import { readerName } from '$lib/reader-name.svelte.ts';
 	import { setInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { setItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { setWorldContext } from '$lib/contexts/world.svelte.ts';
@@ -41,6 +42,11 @@
 	// "Show hints" (account page, off by default): the outlines of what can be tapped (vn/triggers, audio sample areas)
 	$effect(() => {
 		document.documentElement.classList.toggle('sc-show-hints', session.me?.user?.show_hints === true);
+	});
+	// signed in with a name typed as a guest on this device and none on the account: the account takes it (owner
+	// 2026-10-16, ACCOUNT-PAGE.md Q4 – the account's own name always wins)
+	$effect(() => {
+		if (session.isLoggedIn && session.user && !session.user.display_name && readerName.local) void readerName.carryToAccount();
 	});
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
@@ -147,7 +153,7 @@
 {#if draftPreview.on}
 	<!-- a creator's draft preview is on (account page): drafts and coming-soon chapters are readable here. Only a mark
 	     (owner 2026-10-06): the switch is on the account page -->
-	<a class="draft-preview" href={localizeHref('/account')} title={m['account.draft_preview_mark']()} aria-label={m['account.draft_preview_mark']()} data-testid="draft-preview-mark">
+	<a class="draft-preview" href={localizeHref('/account/creator')} title={m['account.draft_preview_mark']()} aria-label={m['account.draft_preview_mark']()} data-testid="draft-preview-mark">
 		<Icon name="eye" size="0.875rem" />
 	</a>
 {/if}

@@ -1,4 +1,8 @@
-Status: draft, owner to review (2026-10-16). Nothing built. Clickable mockups: see "Drafts" below.
+Status: built 2026-10-16 as concept B (owner: "Stil Entwurf B mit den Menüs") – how it is now: DESIGN.md "Account page".
+Owner's changes to the draft: no group "Konto" ("Konto Konto klingt komisch") → "Verbindungen" (AI) + "Stammdaten"
+(name first, address, sign out, roles, memberships, "Konto löschen" = contact form, privacy topic); icons before every
+group; "Dieses Gerät" → "Offline-Inhalte"; one back link look on both levels. Not built from the draft: the in-chapter
+quick panel (concept C), push notifications and the iOS how-to (still PWA phase 4). The text below is the draft.
 
 # ACCOUNT-PAGE — reorganising the reader's account page
 

@@ -154,7 +154,27 @@
 		"ai_expired": "ended {date} – renew it to use it again",
 		"ai_renew": "Renew",
 		"ai_renewed": "Renewed – works until {date}.",
-		"ai_lifetime": "Each connection works for 6 months; renew it here (you get a mail two weeks before, if your AI still uses it)."
+		"ai_lifetime": "Each connection works for 6 months; renew it here (you get a mail two weeks before, if your AI still uses it).",
+		"settings": "Settings",
+		"group_details": "Account details",
+		"group_reading": "Reading",
+		"group_sound": "Sound & vibration",
+		"group_offline": "Offline content",
+		"group_notifications": "Notifications",
+		"group_collection": "Collection",
+		"group_connections": "Connections",
+		"group_creator": "Creator",
+		"scope_account": "Account",
+		"scope_device": "Device",
+		"sum_on": "{what} on",
+		"sum_off": "{what} off",
+		"sum_hints": "Hints",
+		"sum_news": "News",
+		"sum_sensitive_shown": "Sensitive content shown",
+		"reading_guest": "Hints and sensitive content are set with an account.",
+		"open_avatar": "Open avatar",
+		"delete_account": "Delete account",
+		"delete_account_hint": "Through the contact form – the privacy topic is already chosen."
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"
