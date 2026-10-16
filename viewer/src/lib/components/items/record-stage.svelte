@@ -110,6 +110,13 @@
 </script>
 
 <canvas bind:this={canvas} class:ready aria-hidden="true" title={label} data-testid="record-stage"></canvas>
+<!-- while three.js, the pictures and the light come in (a cold start can take a moment – owner 2026-10-16: "die Stage ist
+     leer … dauert ewig zum Laden"): a turning record where the stage will be, never an empty stage -->
+{#if !ready}
+	<div class="loading" style:bottom="{lift * 100}%" role="status" aria-label={label} data-testid="record-stage-loading">
+		<span class="disc" aria-hidden="true"></span>
+	</div>
+{/if}
 
 <style>
 	canvas {
@@ -131,5 +138,50 @@
 
 	canvas.ready {
 		opacity: 1;
+	}
+
+	/* the loading record: in the stage's part above the controls */
+	.loading {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.disc {
+		width: 4rem;
+		height: 4rem;
+		border-radius: 50%;
+		background:
+			radial-gradient(circle, var(--ink) 0 0.2rem, var(--border-muted) 0.2rem 0.9rem, transparent 0.9rem),
+			repeating-radial-gradient(circle, #111 0 0.12rem, #262626 0.12rem 0.25rem);
+		border: var(--border-width-regular) solid var(--border-muted);
+		animation: spin 1.8s linear infinite;
+	}
+
+	.disc::after {
+		content: '';
+		display: block;
+		width: 0.5rem;
+		height: 1.25rem;
+		margin: 0.25rem auto 0;
+		background: var(--ink);
+		opacity: 0.6;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.disc {
+			animation: none;
+		}
 	}
 </style>

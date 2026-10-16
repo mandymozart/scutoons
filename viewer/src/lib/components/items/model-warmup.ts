@@ -7,12 +7,15 @@ import { browser } from '$app/environment';
 import type { ModelSource } from '@scutoons/content';
 import { loadThree, webglAvailable } from '@scutoons/media/model-view';
 import { dataBudget } from '$lib/data-budget.svelte.ts';
+import { asset } from '$lib/utils/cdn.ts';
 import { modelFiles } from './model-source.ts';
+import { TABLE } from './record-stage.svelte';
 
 const warmed = new Set<string>();
 
 export function warmModel(source: ModelSource | null | undefined): void {
-	const files = modelFiles(source).filter((url) => !warmed.has(url));
+	const table = TABLE === 'plain' ? [] : [asset(`scutoons/3d/table-${TABLE}.webp`)];
+	const files = [...modelFiles(source), ...(source ? table : [])].filter((url) => !warmed.has(url));
 	if (!browser || !files.length) return;
 	if (dataBudget.tier === 'none' || matchMedia('(prefers-reduced-motion: reduce)').matches || !webglAvailable()) return;
 	for (const url of files) warmed.add(url);
@@ -20,7 +23,11 @@ export function warmModel(source: ModelSource | null | undefined): void {
 	const idle = window.requestIdleCallback ?? ((run: () => void, _o?: IdleRequestOptions) => setTimeout(run, 1500));
 	idle(
 		() => {
-			loadThree().catch(() => {});
+			// three.js, the stage's light environment and its table texture too: a cold card waits for all of them
+			loadThree()
+				// @ts-expect-error – three's addons come without types here (record-stage.js imports the same module)
+				.then(() => import('three/addons/environments/RoomEnvironment.js'))
+				.catch(() => {});
 			for (const url of files) {
 				fetch(url, { priority: 'low' } as RequestInit)
 					.then((r) => r.arrayBuffer())
