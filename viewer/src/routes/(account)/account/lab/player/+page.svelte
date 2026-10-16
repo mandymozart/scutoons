@@ -39,6 +39,13 @@
 	let progress = $state(0);
 	let failed = $state(false);
 	const arm = $derived(armAngle(playing, progress));
+	// the stage's carousel: the model above + the other looks; the selected one (a swipe) can be put on
+	const records = $derived([
+		{ key: 'model', model, name: 'Awakening' },
+		...Object.entries(LOOKS).filter(([, look]) => look !== model).map(([key, look]) => ({ key, model: look as ModelSource, name: key }))
+	]);
+	let current = $state('model');
+	let selected = $state('model');
 </script>
 
 {#if isDev}
@@ -49,11 +56,12 @@
 			{#snippet icon()}<ItemIcon srcs={['catpope/items/awakening_vinyl.webp']} name="Awakening" />{/snippet}
 			<ItemModel path={model} label="Awakening" fallback={icon} />
 		</section>
-		{#if failed}<p>the model failed</p>{:else}<div class="stage"><RecordStage {model} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} /></div>{/if}
+		{#if failed}<p>the model failed</p>{:else}<div class="stage"><RecordStage {records} {current} onselect={(key) => (selected = key)} {playing} {side} {arm} lifted={false} label="Awakening" onfail={() => (failed = true)} /></div>{/if}
 		<div class="controls">
 			<button type="button" onclick={() => (playing = !playing)} data-testid="lab-play">{playing ? 'Pause' : 'Play'}</button>
 			<button type="button" class="btn-secondary" onclick={() => (side = side === 'a' ? 'b' : 'a')} data-testid="lab-turn">Turn ({side.toUpperCase()})</button>
 			<input type="range" min="0" max="1" step="0.01" bind:value={progress} aria-label="progress" />
+			{#if selected !== current}<button type="button" onclick={() => ((current = selected), (playing = true))} data-testid="lab-put-on">Put on {selected}</button>{/if}
 		</div>
 	</div>
 	{#if open}

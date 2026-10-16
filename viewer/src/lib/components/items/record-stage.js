@@ -7,7 +7,13 @@
 // from the sleeve to the deck. One renderer per stage, three.js loads with the first stage (`loadThree`); `dispose`
 // frees everything. Plain JS like model-view.js (no @types/three) – the types are in record-stage.d.ts.
 // Callers show their 2D deck without WebGL or with reduced motion (record-card.svelte).
+// The reader's records stand as a carousel where the sleeve stood (owner 2026-10-16: "nach hinten ins Kreisel, wie ein
+// Karussell"): a swipe turns it, the front one is the selected one; Play on another puts the one on the platter back
+// into its sleeve first. Gestures: record-gestures.js; light: record-light.js. Over 400 lines: the stage's one state
+// machine (carousel, the ways out / back, flip, camera) reads best in one place.
 import { loadSource, loadThree } from '@scutoons/media/model-view';
+import { stageGestures } from './record-gestures.js';
+import { castShadows, contactShadow, moodyLights } from './record-light.js';
 
 const RPM = 100 / 3;
 const OMEGA = (RPM / 60) * 2 * Math.PI; // rad / s, clockwise from above = negative around +Y
@@ -70,68 +76,6 @@ function disposeTree(obj) {
 	});
 }
 
-// the light (owner 2026-10-16: "a bit of light: a spot on the scene and a little ambient occlusion – as simple as
-// possible but moody"): a warm spot from above-front makes a pool of light on a dark floor, the edges fall off into the
-// card's black; little ambient / environment (enough for the platter's metal and the vinyl's sheen); one soft shadow map
-// from the spot and soft contact shadows (a radial blob) under the plinth and the sleeve – no post-processing
-const FLOOR_Y = 0;
-/** a round gradient (a small canvas): [offset, css colour] stops from the middle out */
-function radial(THREE, stops) {
-	const c = document.createElement('canvas');
-	c.width = c.height = 128;
-	const g = c.getContext('2d');
-	const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-	for (const [at, color] of stops) grad.addColorStop(at, color);
-	g.fillStyle = grad;
-	g.fillRect(0, 0, 128, 128);
-	const tex = new THREE.CanvasTexture(c);
-	tex.colorSpace = THREE.SRGBColorSpace;
-	return tex;
-}
-function blob(THREE, w, d, opacity) {
-	const tex = radial(THREE, [[0, `rgba(0,0,0,${opacity})`], [0.55, `rgba(0,0,0,${opacity * 0.6})`], [1, 'rgba(0,0,0,0)']]);
-	const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
-	m.rotation.x = -Math.PI / 2;
-	m.renderOrder = 1;
-	return m;
-}
-function moodyLights(THREE, renderer, scene) {
-	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-	scene.environmentIntensity = 0.16;
-	scene.add(new THREE.HemisphereLight(0xffffff, 0x222222, 0.12));
-	const spot = new THREE.SpotLight(0xffe9d2, 13, 0, 0.42, 1, 2);
-	spot.position.set(-0.04, 1.6, 0.7);
-	spot.target.position.set(-0.04, 0.02, -0.06);
-	spot.castShadow = true;
-	spot.shadow.mapSize.set(1024, 1024);
-	spot.shadow.camera.near = 0.5;
-	spot.shadow.camera.far = 3;
-	spot.shadow.bias = -0.0004;
-	spot.shadow.normalBias = 0.01;
-	scene.add(spot, spot.target);
-	// the floor catches the pool of light and fades to the card's black at its rim (no horizon line)
-	const pool = radial(THREE, [[0, '#ffffff'], [0.35, '#bdbdbd'], [0.75, '#2a2a2a'], [1, '#000000']]);
-	const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshStandardMaterial({ color: 0x4a423b, map: pool, roughness: 0.95, envMapIntensity: 0 }));
-	floor.position.x = -0.06;
-	floor.rotation.x = -Math.PI / 2;
-	floor.position.y = FLOOR_Y;
-	floor.receiveShadow = true;
-	scene.add(floor);
-	// contact shadows: under the plinth, along the sleeve's foot
-	const underDeck = blob(THREE, PLINTH.w + 0.12, PLINTH.d + 0.12, 0.85);
-	underDeck.position.set(PLINTH.x, FLOOR_Y + 0.0005, PLINTH.z);
-	const underSleeve = blob(THREE, 0.36, 0.07, 0.8);
-	underSleeve.position.set(SLEEVE.x, FLOOR_Y + 0.0006, SLEEVE.z);
-	scene.add(underDeck, underSleeve);
-	return {
-		/** the deck and the model cast (and take) the spot's shadow */
-		cast(...objs) {
-			for (const o of objs) o.traverse((m) => m.isMesh && (m.castShadow = m.receiveShadow = true));
-		}
-	};
-}
-
 function buildDeck(THREE) {
 	const deck = new THREE.Group();
 	const mat = (color, roughness = 0.6, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
@@ -161,19 +105,24 @@ function buildDeck(THREE) {
 	return { deck, arm };
 }
 
+/** the ring's radius for n sleeves standing in a polygon (sleeve 315 mm wide – they must not cut each other) */
+const ringRadius = (n) => (n < 2 ? 0 : Math.max(0.03, 0.17 / Math.tan(Math.PI / n)));
+const mod = (i, n) => ((i % n) + n) % n;
+
 /**
- * Mounts the stage on a canvas; `source` = the item's model: a .glb's URL or a builder (the shared record model,
- * @scutoons/media/vinyl-model). The state comes in by `update` (any time, also before the model is there).
+ * Mounts the stage on a canvas. `records` = the reader's records [{ key, source }] – source: a .glb's URL or a builder
+ * (the shared record model, @scutoons/media/vinyl-model); they stand as a carousel left of the turntable (owner
+ * 2026-10-16: "wie ein Karussell"), the front one is the selected one (`opts.onselect(key)`). The state comes in by
+ * `update` (any time, also before the models are there): `current` = the key of the record that plays – on play it
+ * comes out of its sleeve onto the platter; another `current` puts the one on the platter back first.
  */
-export function mountRecordStage(canvas, source, opts = {}) {
-	let stopped = false, raf = 0, renderer = null, scene = null, env = null, ro = null;
-	let onDown = null, onMove = null, onUp = null, onWheel = null;
-	const want = { playing: false, side: 'a', arm: -28, lifted: false };
+export function mountRecordStage(canvas, records, opts = {}) {
+	let stopped = false, raf = 0, renderer = null, scene = null, env = null, ro = null, unlisten = null;
+	const want = { playing: false, side: 'a', arm: -28, lifted: false, current: records[0]?.key ?? null };
 	// the reader's look around (owner 2026-10-16: "camera pivoting … zoom in a bit and look at the record cover … smoothly pan
-	// back and zoom out on release or on the next interaction with the track list"; "pivot = moving the camera in a half
-	// circle around the record player, a camera ride, about 75 degrees max"): a sideways drag rides the camera on a level
-	// arc around the stage's centre (75° in all, ±37.5°), pinch / wheel zooms towards the sleeve; releasing – or
-	// `resetView()` – eases back to the stage's own view
+	// back and zoom out on release"; "a camera ride, about 75 degrees max"): the ride on a level arc around the stage's
+	// centre (75° in all), the zoom towards the records; releasing – or `resetView()` – eases back to the stage's own view.
+	// Which gesture does what: record-gestures.js
 	const user = { yaw: 0, pitch: 0, zoom: 0 };
 	/** spring velocities: a release snaps back with a little overshoot (owner: "snappy easing … snap if released") */
 	const vel = { yaw: 0, pitch: 0, zoom: 0 };
@@ -197,45 +146,97 @@ export function mountRecordStage(canvas, source, opts = {}) {
 			env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 			pmrem.dispose();
 			scene.environment = env;
-			const lights = moodyLights(THREE, renderer, scene);
+			moodyLights(THREE, renderer, scene, PLINTH);
 			const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 20);
 
-			const set = await loadSource(source);
-			if (stopped) return disposeTree(set);
-			set.position.set(SLEEVE.x, 0, SLEEVE.z);
-			scene.add(set);
-			set.updateMatrixWorld(true);
-			// the record: the node "record" (a model of the record alone: the whole scene), taken out of the set
-			let record = set.getObjectByName('record');
-			const hasSleeve = !!set.getObjectByName('sleeve');
-			const inSleeve = new THREE.Vector3(SLEEVE.x, R, SLEEVE.z);
-			if (record) record.getWorldPosition(inSleeve);
-			else record = set;
+			// the records: each set (sleeve + record) on a slot of the ring; a model that fails is left out
+			const loaded = await Promise.all(records.map((r) => loadSource(r.source).catch(() => null)));
+			if (stopped) return loaded.forEach((set) => set && disposeTree(set));
+			const items = [];
+			loaded.forEach((set, i) => set && items.push({ key: records[i].key, set }));
+			if (!items.length) throw new Error('no record model loaded');
+			const n = items.length, step = (2 * Math.PI) / n, rho = ringRadius(n);
+			const ring = new THREE.Group();
+			ring.position.set(SLEEVE.x, 0, SLEEVE.z - rho);
+			scene.add(ring);
+			for (const item of items) {
+				item.slot = new THREE.Group();
+				item.slot.add(item.set);
+				item.set.position.set(0, 0, rho);
+				const record = item.set.getObjectByName('record');
+				item.sleeved = !!record && !!item.set.getObjectByName('sleeve');
+				// a record-only model (no "record" node): the whole scene is the record, standing by itself
+				item.record = record ?? item.set;
+				item.home = item.record.position.clone();
+				if (item.sleeved) {
+					const foot = contactShadow(THREE, 0.36, 0.07);
+					foot.position.z = rho;
+					item.slot.add(foot);
+				}
+				ring.add(item.slot);
+			}
+			items.forEach((item, i) => (item.slot.rotation.y = i * step));
+			const { deck, arm } = buildDeck(THREE);
+			scene.add(deck);
+			castShadows(deck, ring);
 			const carrier = new THREE.Group(); // position + spin around Y
 			const tilt = new THREE.Group(); // 0 = standing (A faces +Z), −π/2 = A up, +π/2 = B up
 			carrier.add(tilt);
 			scene.add(carrier);
-			if (record !== set) record.removeFromParent();
-			else set.position.set(0, 0, 0);
-			record.position.set(0, record === set ? -R : 0, 0);
-			tilt.add(record);
-			carrier.position.copy(inSleeve);
-			const { deck, arm } = buildDeck(THREE);
-			scene.add(deck);
-			lights.cast(deck, set, record);
 			opts.onload?.();
 
-			// the record's state: in the sleeve (or standing by it), on its way, on the platter, flipping
-			let state = 'sleeve', t0 = 0, lies = want.side, spin = 0, armTurnNow = 0, lift = 0.06, view = 0;
-			const from = { y: 0, tilt: 0 };
+			const byKey = (key) => items.find((it) => it.key === key) ?? null;
+			let front = Math.max(0, items.indexOf(byKey(want.current))); // unbounded: the ring turns the short way
+			let angle = -front * step;
+			let told = null;
+			const tell = () => {
+				const key = items[mod(front, n)].key;
+				if (key !== told) opts.onselect?.((told = key));
+			};
+			tell();
+
+			// the record out of its sleeve (it is at the front then) into the carrier, and back
+			const inSleeve = new THREE.Vector3();
+			const takeOut = (item) => {
+				ring.updateMatrixWorld(true);
+				item.record.getWorldPosition(inSleeve);
+				if (!item.sleeved) inSleeve.set(SLEEVE.x, R, SLEEVE.z);
+				item.record.removeFromParent();
+				item.record.position.set(0, item.record === item.set ? -R : 0, 0);
+				tilt.add(item.record);
+				tilt.rotation.x = 0;
+				carrier.rotation.y = 0;
+				carrier.position.copy(inSleeve);
+			};
+			const putBack = (item) => {
+				item.record.removeFromParent();
+				item.record.position.copy(item.home);
+				(item.record === item.set ? item.slot : item.set).add(item.record);
+			};
+
+			// the stage: 'idle' (all in their sleeves), 'turn' (the ring brings one to the front), 'out' (from the sleeve onto
+			// the platter), 'deck', 'flip' (the other side up), 'back' (from the platter into its sleeve)
+			let state = 'idle', t0 = 0, then = null, active = null, goal = null, lies = want.side, spin = 0, armTurnNow = 0, lift = 0.06, view = 0;
+			let rot0 = 0, focusRecords = false, focusUntil = 0;
+			const from = { tilt: 0 };
 			const flat = (side) => (side === 'b' ? Math.PI / 2 : -Math.PI / 2);
-			const startAt = performance.now() + 1200; // the card has opened and the sleeve is seen first
-			// a record that is already on (playing, or paused in the album) lies on the platter from the start – the way out
-			// of the sleeve runs only when it is put on (owner 2026-10-16: "wenn die Schallplatte spielt, dann darf beim Auf-
-			// und Zufahren die Animation nicht kommen … nur beim Auflegen")
-			if (opts.placed) {
+			const turnTo = (item) => {
+				const i = items.indexOf(item), half = Math.floor(n / 2);
+				front += mod(i - mod(front, n) + half, n) - half; // the short way round
+			};
+			// the intro (the sleeve seen first) waits a moment; a record that is already on lies on the platter from the
+			// start – the way out of the sleeve runs only when it is put on (owner 2026-10-16: "nur beim Auflegen")
+			const startAt = performance.now() + 1200;
+			const placed = opts.placed ? byKey(want.current) : null;
+			if (placed) {
+				turnTo(placed);
+				angle = -front * step;
+				ring.rotation.y = angle;
+				takeOut(placed);
+				active = placed;
 				state = 'deck';
 				view = 1;
+				lies = want.side;
 				carrier.position.set(PLATTER.x, ON_PLATTER_Y, PLATTER.z);
 				tilt.rotation.x = flat(lies);
 				spin = want.playing ? -OMEGA : 0;
@@ -262,54 +263,41 @@ export function mountRecordStage(canvas, source, opts = {}) {
 				else camera.clearViewOffset();
 				camera.updateProjectionMatrix();
 			};
-			// pointers: one = pivot, two = pinch zoom; the wheel zooms and eases back after a moment without wheeling
-			const pointers = new Map();
-			let pinchFrom = 0, zoomFrom = 0, wheelTimer = 0;
+			// which part of the stage is under a point: the records or the turntable (what it hits, else the nearer one)
+			const ray = new THREE.Raycaster();
+			const ndc = new THREE.Vector2();
+			const where = new THREE.Vector3();
+			const recordsAt = new THREE.Vector3(SLEEVE.x, 0.15, SLEEVE.z), deckAt = new THREE.Vector3(PLINTH.x, PLINTH.h, PLINTH.z);
+			const region = (x, y) => {
+				const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
+				ndc.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
+				ray.setFromCamera(ndc, camera);
+				const hit = ray.intersectObjects([ring, deck, carrier], true)[0];
+				let o = hit?.object;
+				while (o && o !== ring && o !== deck && o !== carrier) o = o.parent;
+				if (o) return o === ring ? 'records' : 'deck';
+				const sx = (v) => ((where.copy(v).project(camera).x + 1) / 2) * w;
+				return Math.abs(x - sx(recordsAt)) < Math.abs(x - sx(deckAt)) ? 'records' : 'deck';
+			};
 			const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-			const dist = () => {
-				const [a, b] = [...pointers.values()];
-				return Math.hypot(a.x - b.x, a.y - b.y) || 1;
+			const lookAtRecords = (on) => {
+				focusRecords = on;
+				focusUntil = performance.now() + 8000;
 			};
-			onDown = (e) => {
-				try {
-					canvas.setPointerCapture?.(e.pointerId);
-				} catch {
-					/* a pointer the browser doesn't track (synthetic): still follow it */
-				}
-				pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-				held = true;
-				if (pointers.size === 2) {
-					pinchFrom = dist();
-					zoomFrom = aim.zoom;
-				}
-			};
-			onMove = (e) => {
-				const p = pointers.get(e.pointerId);
-				if (!p) return;
-				const dx = e.clientX - p.x, dy = e.clientY - p.y;
-				p.x = e.clientX;
-				p.y = e.clientY;
-				if (pointers.size === 1) {
-					// the arc: a full drag across the stage ≈ the whole 75°
-					aim.yaw = clamp(aim.yaw - (dx / (canvas.clientWidth || 300)) * ARC, -ARC / 2, ARC / 2);
-				} else if (pointers.size === 2) aim.zoom = clamp(zoomFrom + (dist() / pinchFrom - 1) * 0.9, 0, 0.8);
-			};
-			onUp = (e) => {
-				pointers.delete(e.pointerId);
-				if (pointers.size === 0) resetView();
-			};
-			onWheel = (e) => {
-				e.preventDefault();
-				held = true;
-				aim.zoom = clamp(aim.zoom - e.deltaY * 0.0012, 0, 0.8);
-				clearTimeout(wheelTimer);
-				wheelTimer = setTimeout(resetView, 1400);
-			};
-			canvas.addEventListener('pointerdown', onDown);
-			canvas.addEventListener('pointermove', onMove);
-			canvas.addEventListener('pointerup', onUp);
-			canvas.addEventListener('pointercancel', onUp);
-			canvas.addEventListener('wheel', onWheel, { passive: false });
+			unlisten = stageGestures(canvas, {
+				region,
+				tap: (part) => lookAtRecords(part === 'records'),
+				swipe: (by) => {
+					if (state === 'turn' || state === 'back' || state === 'out') return;
+					front += by;
+					tell();
+					lookAtRecords(true);
+				},
+				ride: (dx) => (aim.yaw = clamp(aim.yaw - dx * ARC, -ARC / 2, ARC / 2)),
+				zoom: (by) => (aim.zoom = clamp(aim.zoom + by, 0, 0.8)),
+				hold: () => (held = true),
+				release: resetView
+			});
 			ro = new ResizeObserver(resize);
 			ro.observe(canvas);
 			resize();
@@ -318,27 +306,58 @@ export function mountRecordStage(canvas, source, opts = {}) {
 			const offset = new THREE.Vector3();
 			const yAxis = new THREE.Vector3(0, 1, 0);
 			const side = new THREE.Vector3();
+			const hover = ON_PLATTER_Y + 0.16;
+			/** the way between the sleeve and the platter at time s of it (out; back = the same way backwards) */
+			const along = (s) => {
+				const slide = ease(s / SLIDE), carry = ease((s - SLIDE) / CARRY), drop = ease((s - SLIDE - CARRY) / DROP);
+				carrier.position.x = carry > 0 ? lerp(OUT_X, PLATTER.x, carry) : lerp(inSleeve.x, OUT_X, slide);
+				carrier.position.z = lerp(inSleeve.z, PLATTER.z, carry);
+				carrier.position.y = drop > 0 ? lerp(hover, ON_PLATTER_Y, drop) : lerp(inSleeve.y, hover, Math.min(1, carry * 1.6));
+				tilt.rotation.x = lerp(0, flat(lies), carry);
+				return { slide, carry };
+			};
+			const WAY = SLIDE + CARRY + DROP;
 
 			const tick = (now) => {
 				if (stopped) return;
 				const dt = Math.min(0.05, (now - last) / 1000);
 				last = now;
 				const s = (now - t0) / 1000;
-				if (state === 'sleeve' && want.playing && now >= startAt) {
-					state = 'out';
+				// what should lie on the platter: the playing record (a paused one stays where it is)
+				goal = want.playing ? byKey(want.current) : active;
+				if ((state === 'idle' || state === 'deck') && goal && goal !== active && now >= startAt && Math.abs(spin) < 0.4) {
+					state = 'turn';
+					turnTo(active ?? goal);
+					then = active ? 'back' : 'out';
+				} else if (state === 'turn' && Math.abs(angle + front * step) < 0.01) {
+					state = then;
 					t0 = now;
-					lies = want.side;
+					if (state === 'out') {
+						tell(); // the front one is the one that plays now
+						active = goal;
+						lies = want.side;
+						takeOut(active);
+					} else {
+						rot0 = Math.atan2(Math.sin(carrier.rotation.y), Math.cos(carrier.rotation.y));
+						ring.updateMatrixWorld(true);
+						if (active.sleeved) active.set.localToWorld(inSleeve.copy(active.home));
+						else inSleeve.set(SLEEVE.x, R, SLEEVE.z);
+					}
 				} else if (state === 'out') {
 					// slide out of the open edge → carry over the platter while turning flat → lay it down
-					const slide = ease(s / SLIDE), carry = ease((s - SLIDE) / CARRY), drop = ease((s - SLIDE - CARRY) / DROP);
-					const hover = ON_PLATTER_Y + 0.16;
-					carrier.position.x = carry > 0 ? lerp(OUT_X, PLATTER.x, carry) : lerp(inSleeve.x, OUT_X, slide);
-					carrier.position.z = lerp(inSleeve.z, PLATTER.z, carry);
-					carrier.position.y = drop > 0 ? lerp(hover, ON_PLATTER_Y, drop) : lerp(inSleeve.y, hover, Math.min(1, carry * 1.6));
-					tilt.rotation.x = lerp(0, flat(lies), carry);
-					view = Math.max(slide * 0.35, 0.35 + 0.65 * carry);
-					if (s >= SLIDE + CARRY + DROP) state = 'deck';
-				} else if (state === 'deck' && want.side !== lies && Math.abs(spin) < 0.4) {
+					const { slide, carry } = along(s);
+					view = Math.max(view, slide * 0.35, 0.35 + 0.65 * carry);
+					if (s >= WAY) state = 'deck';
+				} else if (state === 'back') {
+					// lift it off, stand it up, carry it back and slide it into its sleeve – then the next one comes out
+					const { carry } = along(WAY - s);
+					carrier.rotation.y = rot0 * carry;
+					if (s >= WAY) {
+						putBack(active);
+						active = null;
+						state = 'idle';
+					}
+				} else if (state === 'deck' && want.side !== lies && Math.abs(spin) < 0.4 && active === goal) {
 					state = 'flip';
 					t0 = now;
 					from.tilt = tilt.rotation.x;
@@ -350,19 +369,27 @@ export function mountRecordStage(canvas, source, opts = {}) {
 					tilt.rotation.x = lerp(from.tilt, flat(lies), k);
 					if (s >= FLIP) state = 'deck';
 				}
-				// 33⅓ rpm while playing on the platter; runs up / down in about a second – a side change brakes it first
-				const turning = (state === 'deck' && want.side !== lies) || state === 'flip';
-				const target = state === 'deck' && want.playing && !turning ? -OMEGA : 0;
-				spin += (target - spin) * Math.min(1, dt * (turning ? 6 : 2.5));
-				if (Math.abs(spin) < 1e-3 && target === 0) spin = 0;
+				// the carousel turns to its front record
+				angle += (-front * step - angle) * Math.min(1, dt * 6);
+				ring.rotation.y = angle;
+				// 33⅓ rpm while playing on the platter; runs up / down in about a second – a change brakes it first
+				const changing = (state === 'deck' && (want.side !== lies || goal !== active)) || state === 'flip';
+				const onRecord = state === 'deck' && want.playing && !changing && active === goal;
+				spin += ((onRecord ? -OMEGA : 0) - spin) * Math.min(1, dt * (changing ? 6 : 2.5));
+				if (Math.abs(spin) < 1e-3 && !onRecord) spin = 0;
 				carrier.rotation.y += spin * dt;
 				// the arm: on the record while it plays on the platter, else at rest; lifted between songs
-				const onRecord = state === 'deck' && want.playing && !turning;
 				armTurnNow += ((onRecord ? armTurn(want.arm) : 0) - armTurnNow) * Math.min(1, dt * 3);
 				lift += ((onRecord && !want.lifted ? 0 : -0.07) - lift) * Math.min(1, dt * 6);
 				arm.rotation.set(lift, armTurnNow, 0, 'YXZ');
-				// the camera: sleeve → deck as the record comes out (no sleeve: the deck from the start)
-				const v = hasSleeve ? ease(view) : 1;
+				// the camera: the records while none lies on the platter (or a tap / swipe asked for them – a while), the deck
+				// once one is on; the way out moves it along
+				if (focusRecords && active && now > focusUntil) focusRecords = false;
+				if (state !== 'out') {
+					const to = (state === 'deck' || state === 'flip') && !focusRecords ? 1 : 0;
+					view += (to - view) * Math.min(1, dt * 2.5);
+				}
+				const v = ease(view);
 				camera.position.set(...VIEWS.sleeve.pos.map((p, i) => lerp(p, VIEWS.deck.pos[i], v)));
 				look.set(...VIEWS.sleeve.look.map((p, i) => lerp(p, VIEWS.deck.look[i], v)));
 				// the reader's look around: while held it follows the finger closely; released, an under-damped spring snaps it
@@ -382,7 +409,7 @@ export function mountRecordStage(canvas, source, opts = {}) {
 					}
 				}
 				if (user.yaw || user.pitch || user.zoom) {
-					// zooming turns the look towards the cover (the sleeve) and comes closer; drag orbits around that point
+					// zooming turns the look towards the records and comes closer; the ride orbits around that point
 					look.lerp(cover, Math.min(1, user.zoom * 1.1));
 					offset.copy(camera.position).sub(look);
 					offset.applyAxisAngle(yAxis, user.yaw);
@@ -405,13 +432,7 @@ export function mountRecordStage(canvas, source, opts = {}) {
 		stopped = true;
 		cancelAnimationFrame(raf);
 		ro?.disconnect();
-		if (onDown) {
-			canvas.removeEventListener('pointerdown', onDown);
-			canvas.removeEventListener('pointermove', onMove);
-			canvas.removeEventListener('pointerup', onUp);
-			canvas.removeEventListener('pointercancel', onUp);
-			canvas.removeEventListener('wheel', onWheel);
-		}
+		unlisten?.();
 		if (scene) disposeTree(scene);
 		env?.dispose();
 		renderer?.dispose();

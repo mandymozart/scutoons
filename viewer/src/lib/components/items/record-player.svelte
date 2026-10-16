@@ -6,6 +6,10 @@
 	import { armAngle, nextOnSide, previousOnSide, sideIndices, sideOf, songLength, turnTo, twoSided } from './playlist.ts';
 	import RecordCard from './record-card.svelte';
 	import { warmModel } from './model-warmup.ts';
+	import { shelfOf } from './record-shelf.ts';
+	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
+	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
+	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import RecordDeck from './record-deck.svelte';
 	import SeekBar from './seek-bar.svelte';
 
@@ -160,6 +164,23 @@
 	// the bar is up: the card may open any moment – its 3D stage's three.js and model load ahead in idle time
 	$effect(() => warmModel(request.model));
 
+	// the reader's records for the card's carousel (record-shelf.ts); the one that plays is always among them
+	const inventory = getInventoryContext();
+	const membership = getMembershipContext();
+	const ui = getItemsUiContext();
+	const shelf = $derived(shelfOf(inventory, membership.isValid));
+	const currentKey = $derived(request.entry ? String(request.entry.id) : 'playing');
+	const records = $derived.by(() => {
+		const list = shelf.map((r) => ({ key: r.key, model: r.model, name: r.name }));
+		if (request.model && !list.some((r) => r.key === currentKey)) list.unshift({ key: currentKey, model: request.model, name: request.title });
+		return list;
+	});
+	/** Play on another record in the carousel: its album plays (the stage takes the one on the platter off first) */
+	function playRecord(key: string) {
+		const next = shelf.find((r) => r.key === key);
+		if (next && key !== currentKey) ui.playAlbum(next.request);
+	}
+
 	const arm = $derived(armAngle(playing || changing, changing ? 0 : length ? time / length : 0));
 	const heading = $derived(m['items.now_playing']({ title: [track?.title, request.title].filter(Boolean).join(' · ') }));
 </script>
@@ -213,7 +234,9 @@
 	album={request.title}
 	toon={request.toon ?? null}
 	{cover}
-	model={request.model ?? null}
+	{records}
+	current={currentKey}
+	onplayrecord={playRecord}
 	tracks={request.tracks}
 	{index}
 	{onSide}

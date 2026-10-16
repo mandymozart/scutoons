@@ -15,8 +15,8 @@
 	import ItemModel from './item-model.svelte';
 	import ContainerActions from './container-actions.svelte';
 	import ScoreActions from './score-actions.svelte';
-	import { albumDownloadUrl, albumTrackUrl } from '$lib/protected-files.ts';
-	import { mediaQuality } from '$lib/media-quality.svelte.ts';
+	import { albumDownloadUrl } from '$lib/protected-files.ts';
+	import { albumRequest } from './record-shelf.ts';
 
 	let {
 		entry,
@@ -52,17 +52,8 @@
 	let audioError = $state(false);
 	function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
 		audioError = false;
-		ui.playAlbum({
-			tracks: tracks.map((t) => ({ id: t.id, src: t.src, title: t.title, duration: t.duration, side: t.side })),
-			title: localized(album.title),
-			toon: album.toon,
-			entry: from,
-			cover: album.cover ?? null,
-			// the record's 3D model (its sleeve with the record inside – the card plays it on a 3D turntable)
-			model: from ? inventory.modelOf(from) || null : null,
-			// the reader's media quality when the song starts (96k / 128k / 320k – owner 2026-10-16)
-			sign: (i) => albumTrackUrl(album.id, tracks[i], mediaQuality.level)
-		});
+		// the record's 3D model rides along (its sleeve with the record inside – the card plays it on a 3D turntable)
+		ui.playAlbum(albumRequest(album, tracks, from, from ? inventory.modelOf(from) || null : null));
 	}
 	async function download(album: Album, path: string) {
 		audioError = false;

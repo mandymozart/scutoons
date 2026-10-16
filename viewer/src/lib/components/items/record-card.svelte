@@ -43,7 +43,9 @@
 		album,
 		toon = null,
 		cover,
-		model = null,
+		records = [],
+		current = null,
+		onplayrecord,
 		tracks,
 		index,
 		onSide,
@@ -66,8 +68,13 @@
 		album: string;
 		toon?: string | null;
 		cover: string | null;
-		/** the item's 3D model (a .glb or the shared record model's look) – the 3D stage instead of the 2D deck */
-		model?: ModelSource | null;
+		/** the reader's records with a 3D model (record-shelf.ts; a .glb or the shared record model's look) – the 3D stage,
+		 *  a carousel of them beside the turntable, instead of the 2D deck */
+		records?: { key: string; model: ModelSource; name: string }[];
+		/** the key of the record that plays */
+		current?: string | null;
+		/** Play on the carousel's front record (another one than the playing) */
+		onplayrecord?: (key: string) => void;
 		tracks: { id?: string; title: string; duration?: number }[];
 		index: number;
 		/** the side's songs (album indices) */
@@ -95,10 +102,13 @@
 	/** bumped on a pick in the song list: the 3D stage eases the reader's pivot / zoom back */
 	let resetKey = $state(0);
 	$effect(() => {
-		void model;
+		void records;
 		modelFailed = false;
 	});
-	const in3d = $derived(!!model && open && !reduced.current && !modelFailed && webglAvailable());
+	const in3d = $derived(records.length > 0 && open && !reduced.current && !modelFailed && webglAvailable());
+	// the carousel's front record (a swipe selects): another than the playing one offers to put it on
+	let selected = $state<string | null>(null);
+	const picked = $derived(selected && selected !== current ? records.find((r) => r.key === selected) : null);
 	const count = $derived(onSide.length);
 	const position = $derived(onSide.indexOf(index) + 1);
 
@@ -127,9 +137,16 @@
 		<!-- the 3D stage is the top's background, the song and the controls lie over its lower part (owner 2026-10-16:
 		     "covering the entire background of the card so it doesn't get cut off … the top part on top the player
 		     controls"); the 2D deck (no WebGL, reduced motion) stays in the flow above them -->
-		<div class="hero" class:in3d={in3d && model}>
-			{#if in3d && model}
-				<RecordStage {model} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
+		<div class="hero" class:in3d>
+			{#if in3d}
+				<RecordStage {records} {current} onselect={(key) => (selected = key)} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} lift={0.22} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
+				{#if picked}
+					<!-- the carousel's front record is another one: put it on (owner 2026-10-16: "when you press Play it is put on") -->
+					<div class="pick" data-testid="record-pick">
+						<span>{picked.name}</span>
+						<button type="button" class="btn-secondary" onclick={() => onplayrecord?.(picked.key)} data-testid="record-pick-play">{m['items.play']()}</button>
+					</div>
+				{/if}
 			{:else}
 				<div class="deck">
 					<RecordDeck {cover} title={album} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} size="min(15rem, 60vw)" />
@@ -218,6 +235,24 @@
 		width: 100%;
 		max-width: var(--column);
 		margin-inline: auto;
+	}
+
+	/* the selected record's name + Play, over the stage's top left (where the carousel stands) */
+	.pick {
+		position: absolute;
+		z-index: 1;
+		top: var(--space-1);
+		left: max(var(--space-1), env(safe-area-inset-left));
+		display: flex;
+		align-items: center;
+		gap: var(--space-075);
+		max-width: calc(100% - 2 * var(--space-1));
+	}
+
+	.pick span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.hero {
