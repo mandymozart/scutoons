@@ -290,8 +290,10 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
 ## UI
 
 - **Creator – the asset picker** (`@scutoons/media` `AssetPickerSheet`, `shared/media/src/asset-picker-sheet.svelte` since 2026-10-04, like the character
-  picker): search, folder (the toon first), kind, unused-only; a grid of thumbnails with ONE line of name (no overlap –
-  the owner's screenshot of the old "130 known images" grid), size / dimensions / "unused"; the chosen asset's files
+  picker): search, folder (the toon first), kind, resolution (`res`: a file labelled 480p / 720p / 1080p / 1440p / 2x / 3x,
+  or an unlabelled one whose short side is in that band – owner 2026-10-16), unused-only; a grid of thumbnails with the
+  file name wrapped, up to three lines (owner 2026-10-16: the cut names were hard to read; the chosen asset and its
+  files show the whole name and path), size / dimensions / "unused"; the chosen asset's files
   (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
   editable, 409 when taken). Every image field (a `MediaSlot` from @scutoons/media; the old path input `image-picker.svelte` is gone since COMPONENTS.md step 14c) opens it via
   "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's

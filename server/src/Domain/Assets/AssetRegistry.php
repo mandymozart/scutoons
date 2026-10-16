@@ -20,6 +20,9 @@ use Throwable;
  */
 final class AssetRegistry
 {
+    /** the list's `res` filter: a rendition label → the band of a file's short side in px (null = by label only) */
+    public const RESOLUTIONS = ['480p' => [400, 599], '720p' => [600, 899], '1080p' => [900, 1439], '1440p' => [1440, 100000], '2x' => null, '3x' => null];
+
     public function __construct(private readonly Database $db, private readonly Clock $clock)
     {
     }
@@ -205,14 +208,14 @@ final class AssetRegistry
     // ── Lists for the UI ──────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * GET /assets?q=&folder=&kind=&tag=&state=used|unused|missing&page=&page_size=&sort=
+     * GET /assets?q=&folder=&kind=&tag=&state=used|unused|missing&res=480p|720p|1080p|1440p|2x|3x&page=&page_size=&sort=
      * One row per asset: its current version's main file (the preview), the renditions, sizes and usage counts.
      * @param array<mixed> $query
      * @return array<string, mixed>
      */
     public function list(array $query): array
     {
-        $list = ListQuery::from($query, ['slug', 'updated', 'size', 'usages', 'kind'], 'slug', ['folder', 'kind', 'tag', 'state'], 60, 500);
+        $list = ListQuery::from($query, ['slug', 'updated', 'size', 'usages', 'kind'], 'slug', ['folder', 'kind', 'tag', 'state', 'res'], 60, 500);
         $where = ["a.status = 'active'"];
         $params = [];
         if ($list->q !== '') {
@@ -239,6 +242,19 @@ final class AssetRegistry
         if (($tag = $list->filter('tag')) !== null) {
             $where[] = "a.tags LIKE ? ESCAPE '!'";
             $params[] = Database::likeContains('"' . strtolower($tag) . '"');
+        }
+        if (($res = $list->filter('res')) !== null) {
+            // a file at that resolution (owner 2026-10-16: "a better way to also filter for resolutions"): its label, or a
+            // file without one whose short side is in the band (a portrait 480p is 480 wide); 2x / 3x by label only
+            $band = self::RESOLUTIONS[$res] ?? throw new ApiError(400, 'invalid_res', 'Unknown resolution.', ['res' => array_keys(self::RESOLUTIONS)]);
+            $has = "EXISTS (SELECT 1 FROM asset_renditions r3 WHERE r3.version_id = v.id AND (r3.label = ?";
+            $params[] = $res;
+            if ($band) {
+                $has .= ' OR (r3.label NOT IN (' . implode(', ', array_fill(0, count(self::RESOLUTIONS), '?')) . ') AND LEAST(r3.width, r3.height) BETWEEN ? AND ?)';
+                array_push($params, ...array_keys(self::RESOLUTIONS));
+                array_push($params, $band[0], $band[1]);
+            }
+            $where[] = "$has))";
         }
         $usageCount = "(SELECT COUNT(*) FROM asset_usages u WHERE u.path IN (SELECT r2.path FROM asset_renditions r2 WHERE r2.version_id = v.id))";
         $state = $list->filter('state');

@@ -92,6 +92,10 @@ final class AssetsApiTest extends TestCase
         self::assertSame('http://cdn.test/', $list['cdn']);
         self::assertSame(400, $this->request('GET', '/api/assets?kind=nope', $creator)->getStatusCode());
         self::assertSame(0, self::json($this->request('GET', '/api/assets?state=unused', $creator))['pagination']['total']);
+        // resolution: an asset with a file at that level
+        self::assertSame(1, self::json($this->request('GET', '/api/assets?res=480p', $creator))['pagination']['total']);
+        self::assertSame(0, self::json($this->request('GET', '/api/assets?res=1080p', $creator))['pagination']['total']);
+        self::assertSame(400, $this->request('GET', '/api/assets?res=nope', $creator)->getStatusCode());
 
         $lookup = self::json($this->request('GET', '/api/assets/lookup?path=catpope/videos/clip.480p.mp4', $creator));
         self::assertSame(['low', 'catpope/videos/clip'], [$lookup['rendition']['quality'], $lookup['asset']['asset']['slug']]);

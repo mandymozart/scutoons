@@ -34,6 +34,9 @@ export interface MediaLabels {
 	allKinds: string;
 	kinds: Record<AssetKind, string>;
 	unusedOnly: string;
+	/** the resolution filter: assets with a file at that level (480p … 2x, 3x) */
+	resolution: string;
+	allResolutions: string;
 	none: string;
 	more: string;
 	/** the slots */
@@ -95,6 +98,8 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		allKinds: 'Alle Arten',
 		kinds: { image: 'Bilder', video: 'Videos', audio: 'Audio', archive: 'Archive (zip)', document: 'Dokumente', model: '3D-Modelle (glb)', other: 'Andere' },
 		unusedOnly: 'Nur unbenutzte',
+		resolution: 'Auflösung',
+		allResolutions: 'Alle Auflösungen',
 		none: 'Nichts gefunden.',
 		more: 'Mehr',
 		choose: 'Auswählen …',
@@ -151,6 +156,8 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		allKinds: 'All kinds',
 		kinds: { image: 'Images', video: 'Videos', audio: 'Audio', archive: 'Archives (zip)', document: 'Documents', model: '3D models (glb)', other: 'Other' },
 		unusedOnly: 'Unused only',
+		resolution: 'Resolution',
+		allResolutions: 'All resolutions',
 		none: 'Nothing found.',
 		more: 'More',
 		choose: 'Choose …',

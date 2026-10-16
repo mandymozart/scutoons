@@ -76,6 +76,9 @@
 	let folder = $state('');
 	let kindFilter = $state<AssetPickerKind>('');
 	let unusedOnly = $state(false);
+	/** a file at this resolution ('' = any; the server's `res`: 480p / 720p / 1080p by label or short side, 2x / 3x) */
+	let resolution = $state('');
+	const RESOLUTIONS = ['480p', '720p', '1080p', '1440p', '2x', '3x'];
 	let items = $state<AssetSummary[]>([]);
 	let folders = $state<{ folder: string | null; assets: number }[]>([]);
 	let total = $state(0);
@@ -106,6 +109,7 @@
 		kindFilter = kind;
 		query = '';
 		unusedOnly = false;
+		resolution = '';
 		chosen = null;
 		uploadFile = null;
 		uploadError = '';
@@ -124,6 +128,7 @@
 				folder: folder || undefined,
 				kind: kindFilter || undefined,
 				state: unusedOnly ? 'unused' : undefined,
+				res: resolution || undefined,
 				page: next,
 				page_size: 60,
 				sort: 'slug'
@@ -358,8 +363,9 @@
 						{#if c.kind === 'model'}<ModelThumb path={c.path} size="2.5em" />{:else if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
 					</span>
 					<div class="detail-text">
-						<span class="name" title={c.slug}>{c.title}</span>
-						<span class="sc-caption path" title={c.path}>{c.slug}</span>
+						<!-- the whole name, wrapped (owner 2026-10-16: "hard to read the exact file name" – it was cut at the box) -->
+						<span class="name wrap">{fileName(c.path)}</span>
+						<span class="sc-caption wrap">{c.path}</span>
 						<span class="sc-caption">{meta(c)} · {c.usages ? t.usedN(c.usages) : t.unused}</span>
 					</div>
 					<CloseButton label={t.back} onclick={() => (chosen = null)} />
@@ -370,6 +376,7 @@
 						<li>
 							<button type="button" class="sc-card file" class:is-selected={r.path === value} disabled={!pickable(r)} data-file onclick={() => pick(c, r)} title={r.path} data-testid="asset-file-{r.label}">
 								<span class="label">{r.quality ? `${r.label} · ${t.quality[r.quality]}` : r.label}</span>
+									<span class="sc-caption wrap">{fileName(r.path)}</span>
 								<span class="sc-caption">{meta(r)}</span>
 							</button>
 						</li>
@@ -420,6 +427,10 @@
 				<option value="">{t.allKinds}</option>
 				{#each ASSET_KINDS as k (k)}<option value={k} selected={k === kindFilter}>{t.kinds[k]}</option>{/each}
 			</select>
+			<select value={resolution} onchange={(e) => { resolution = e.currentTarget.value; load(1); }} aria-label={t.resolution} data-testid="asset-resolution">
+				<option value="">{t.allResolutions}</option>
+				{#each RESOLUTIONS as r (r)}<option value={r} selected={r === resolution}>{r}</option>{/each}
+			</select>
 			<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {t.unusedOnly}</label>
 		</div>
 
@@ -443,7 +454,7 @@
 					<span class="sc-card-img">
 						{#if a.kind === 'model'}<ModelThumb path={a.path} />{:else if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
 					</span>
-					<span class="name">{fileName(a.path)}</span>
+					<span class="name clamp">{fileName(a.path)}</span>
 					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(mainSize(a))}{#if !a.usages} · {t.unused}{/if}</span>
 					{#if a.renditions.length > 1}
 						<span class="chips">{#each ordered(a.renditions).filter((r) => r.label !== 'original').slice(0, 5) as r (r.id)}<span class="sc-chip">{r.label}</span>{/each}</span>
@@ -497,12 +508,25 @@
 		flex: none;
 	}
 	.name,
-	.path,
 	.meta {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		min-width: 0;
+	}
+	/* file names in full: broken anywhere (they have no spaces), never cut */
+	.wrap,
+	.clamp {
+		white-space: normal;
+		overflow-wrap: anywhere;
+		text-overflow: clip;
+	}
+	/* a grid card: up to three lines of the name, the tooltip has the rest */
+	.clamp {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
 	}
 	.chips {
 		display: flex;
@@ -518,6 +542,7 @@
 	}
 	.detail-head {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.75rem;
 		align-items: flex-start;
 		min-width: 0;
@@ -526,7 +551,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.2rem;
-		flex: 1;
+		flex: 1 1 10rem;
 		min-width: 0;
 	}
 	.files {
