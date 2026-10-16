@@ -8,7 +8,7 @@
 	import { shopUrl } from '$lib/config.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { Field, StickyActions } from '@scutoons/ui';
+	import { Field, Icon, IconButton, StickyActions } from '@scutoons/ui';
 	import type { InviteOffer } from '@scutoons/api';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
@@ -291,25 +291,25 @@
 			<!-- scores and containers (research/SCORES.md): open the score, its PDF; open a container, put into / take out -->
 			<ScoreActions {entry} />
 			<ContainerActions {entry} onopen={onopencontainer} />
+			<!-- the less frequent ones as round icons (their name on hover / for screen readers), the main ones in words
+			     filling the row (owner 2026-10-16: "mit Icons arbeiten, um Platz zu sparen") -->
+			{#if playback?.download}
+				<IconButton label={m['items.download_album']()} onclick={() => playback.download && download(playback.album, playback.download)} data-testid="item-download"><Icon name="download" size="1rem" /></IconButton>
+			{/if}
+			{#if combinable}
+				<IconButton label={m['items.combine']()} onclick={() => oncombine(entry)} data-testid="item-combine"><Icon name="layers" size="1rem" /></IconButton>
+			{/if}
+			{#if def?.slot}
+				<IconButton label={equipped ? m['items.take_off']() : m['items.put_on']()} pressed={equipped} disabled={working} onclick={toggleWear} data-testid="item-wear"><Icon name={equipped ? 'user-minus' : 'user-plus'} size="1rem" /></IconButton>
+			{/if}
+			{#if giftable && !giving}
+				<IconButton label={m['items.gift']()} onclick={() => ((giving = true), (giftError = null), (giftQty = 1))} data-testid="item-gift"><Icon name="gift" size="1rem" /></IconButton>
+			{/if}
 			{#if usable}
 				<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : skills.some((s) => s.type === 'enter_home') ? homes.openOwn('vr') : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
 			{/if}
 			{#if playback?.kind === 'play'}
 				<button class="btn-secondary" onclick={() => playback.kind === 'play' && play(playback.album, playback.tracks, entry)} data-testid="item-play">{m['items.play']()}</button>
-			{/if}
-			{#if playback?.download}
-				<button class="btn-secondary" onclick={() => playback.download && download(playback.album, playback.download)} data-testid="item-download">{m['items.download_album']()}</button>
-			{/if}
-			{#if combinable}
-				<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
-			{/if}
-			{#if def?.slot}
-				<button class="btn-secondary" class:disabled={working} disabled={working} onclick={toggleWear}>
-					{equipped ? m['items.take_off']() : m['items.put_on']()}
-				</button>
-			{/if}
-			{#if giftable && !giving}
-				<button class="btn-secondary" onclick={() => ((giving = true), (giftError = null), (giftQty = 1))} data-testid="item-gift">{m['items.gift']()}</button>
 			{/if}
 		{/if}
 	</StickyActions>

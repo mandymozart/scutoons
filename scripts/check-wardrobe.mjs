@@ -197,7 +197,7 @@ async function basics(who, w) {
 	const p3b = [];
 	await openPanel(0);
 	await clickEl(`[...document.querySelectorAll('[data-testid="inventory-items"] .item')].find((b) => b.querySelector('.name')?.textContent.trim() === ${JSON.stringify(nameOf('scutoons_shorts'))})`);
-	const detailBtn = `[...document.querySelectorAll('.item-detail .sc-sticky-actions button')].find((b) => b.textContent.trim() === %s)`;
+	const detailBtn = `[...document.querySelectorAll('.item-detail .sc-sticky-actions button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent.trim()) === %s)`;
 	await clickEl(detailBtn.replace('%s', JSON.stringify(de.items.put_on)));
 	const n1 = await waitFor(`document.querySelector('[data-testid="item-note"]')?.textContent.trim()`);
 	if (!n1) p3b.push('put on: no note');

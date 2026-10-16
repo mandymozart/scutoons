@@ -210,7 +210,7 @@ async function flow(who) {
 	else await call('POST', '/inventory/grant/', { item_id: 'testo', source: 'story', ref: `check-testo:${Date.now()}` });
 	await openInventory();
 	await clickEl(tile(nameOf('testo')));
-	await clickEl(`[...document.querySelectorAll('.item-detail .sc-sticky-actions button')].find((b) => b.textContent.trim() === ${JSON.stringify(de.items.combine)})`);
+	await clickEl(`[...document.querySelectorAll('.item-detail .sc-sticky-actions button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent.trim()) === ${JSON.stringify(de.items.combine)})`);
 	await clickEl(tile(nameOf('camera')));
 	await clickEl(`[...document.querySelectorAll('.inventory button')].find((b) => b.textContent.trim() === ${JSON.stringify(de.items.craft)} && !b.closest('.item-detail'))`);
 	await sleep(800);
@@ -262,10 +262,10 @@ async function flow(who) {
 	}
 	await openInventory();
 	await clickEl(tile(nameOf('testo')));
-	await clickEl(`[...document.querySelectorAll('.item-detail .sc-sticky-actions button')].find((b) => b.textContent.trim() === ${JSON.stringify(de.items.combine)})`);
+	await clickEl(`[...document.querySelectorAll('.item-detail .sc-sticky-actions button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent.trim()) === ${JSON.stringify(de.items.combine)})`);
 	await clickEl(tile(nameOf('camera')));
 	await clickEl(`document.querySelector('.recipe [data-recipe="checkit_camera"]')`);
-	await clickEl(`[...document.querySelectorAll('.recipe .sc-sticky-actions button')].find((b) => b.textContent.trim() === ${JSON.stringify(de.items.craft)})`);
+	await clickEl(`[...document.querySelectorAll('.recipe .sc-sticky-actions button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent.trim()) === ${JSON.stringify(de.items.craft)})`);
 	await sleep(800);
 	if ((await owned(who, 'checkit_camera')) !== 1) p6.push(`crafted Check It camera: ${await owned(who, 'checkit_camera')}`);
 	const before6 = await owned(who, 'semaglutide');

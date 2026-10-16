@@ -44,4 +44,9 @@
 	.sc-sticky-actions > :global(a) {
 		flex: 1 1 auto;
 	}
+
+	/* round icon buttons keep their circle; the worded ones share the rest of the row */
+	.sc-sticky-actions > :global(.sc-icon-button) {
+		flex: none;
+	}
 </style>
