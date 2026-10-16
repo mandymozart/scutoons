@@ -37,6 +37,10 @@ export interface MediaLabels {
 	/** the resolution filter: assets with a file at that level (480p … 2x, 3x) */
 	resolution: string;
 	allResolutions: string;
+	/** the bottom bar: the filter panel, the view switcher */
+	filters: string;
+	gridView: string;
+	listView: string;
 	none: string;
 	more: string;
 	/** the slots */
@@ -100,6 +104,9 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		unusedOnly: 'Nur unbenutzte',
 		resolution: 'Auflösung',
 		allResolutions: 'Alle Auflösungen',
+		filters: 'Filter',
+		gridView: 'Kacheln',
+		listView: 'Liste',
 		none: 'Nichts gefunden.',
 		more: 'Mehr',
 		choose: 'Auswählen …',
@@ -158,6 +165,9 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		unusedOnly: 'Unused only',
 		resolution: 'Resolution',
 		allResolutions: 'All resolutions',
+		filters: 'Filters',
+		gridView: 'Grid',
+		listView: 'List',
 		none: 'Nothing found.',
 		more: 'More',
 		choose: 'Choose …',

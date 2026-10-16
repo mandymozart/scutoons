@@ -293,7 +293,11 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   picker): search, folder (the toon first), kind, resolution (`res`: a file labelled 480p / 720p / 1080p / 1440p / 2x / 3x,
   or an unlabelled one whose short side is in that band – owner 2026-10-16), unused-only; a grid of thumbnails with the
   file name wrapped, up to three lines (owner 2026-10-16: the cut names were hard to read; the chosen asset and its
-  files show the whole name and path), size / dimensions / "unused"; the chosen asset's files
+  files show the whole name and path), size / dimensions / "unused". The controls sit in ONE sticky bar at the bottom
+  (owner 2026-10-16): upload icon · search · filter icon (folder, kind, resolution, unused open above the bar; a dot
+  when narrower than the field's own) · grid / list switch (remembered per browser, `sc-asset-view`). Previews: images
+  themselves, 3D models a rendered still, videos their poster or else their smallest file at 1 s (loaded when the card
+  comes near the screen). The field's current file: the card's border in cyan; the chosen asset's files
   (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
   editable, 409 when taken). Every image field (a `MediaSlot` from @scutoons/media; the old path input `image-picker.svelte` is gone since COMPONENTS.md step 14c) opens it via
   "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's

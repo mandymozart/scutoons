@@ -27,7 +27,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
-	import { Button, CloseButton, confirmDialog, gridArrows, Icon, Sheet } from '@scutoons/ui';
+	import { Button, CloseButton, confirmDialog, gridArrows, Icon, IconButton, Sheet } from '@scutoons/ui';
 	import { mediaAssets, mediaText, mediaUrl as cdnAsset } from './setup.ts';
 	import { AUDIO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { bestAudioSource, decodeAudio, encodeMp3, nearestKbps, planAudioUpload, type AudioUploadPlan } from './audio-levels.ts';
@@ -79,6 +79,26 @@
 	/** a file at this resolution ('' = any; the server's `res`: 480p / 720p / 1080p by label or short side, 2x / 3x) */
 	let resolution = $state('');
 	const RESOLUTIONS = ['480p', '720p', '1080p', '1440p', '2x', '3x'];
+	/** the filters live behind the bar's filter icon (owner 2026-10-16: search at the bottom, one line) */
+	let showFilters = $state(false);
+	/** grid or list (owner 2026-10-16: "an alternative list view", icons for the switcher) – remembered per browser */
+	const VIEW_KEY = 'sc-asset-view';
+	let view = $state<'grid' | 'list'>(readView());
+	function readView(): 'grid' | 'list' {
+		try {
+			return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid';
+		} catch {
+			return 'grid';
+		}
+	}
+	function toggleView() {
+		view = view === 'grid' ? 'list' : 'grid';
+		try {
+			localStorage.setItem(VIEW_KEY, view);
+		} catch {
+			/* private mode: this session only */
+		}
+	}
 	let items = $state<AssetSummary[]>([]);
 	let folders = $state<{ folder: string | null; assets: number }[]>([]);
 	let total = $state(0);
@@ -101,6 +121,8 @@
 	// characters/catpope/ → "characters/catpope", a path prefix: catpope/, catpope-human/ …; owner 2026-10-05: a search
 	// for "human" found nothing under "catpope" – the toon folder, character images all live under characters/)
 	const home = $derived(toon || (/^characters\/[^/]+\/$/.test(place) ? place.slice(0, -1) : ''));
+	/** a filter narrower than the field's own (the folder / kind it opened on): the filter icon shows a dot */
+	const filtered = $derived(folder !== home || kindFilter !== kind || !!resolution || unusedOnly);
 
 	// every time it opens: the home folder, the field's kind, the current file preselected
 	$effect(() => {
@@ -174,6 +196,25 @@
 			return small?.path ?? a.path;
 		}
 		return a.renditions.find((r) => r.label === 'poster')?.path ?? '';
+	}
+	/** a video without a poster: its smallest file, shown at 1 s (owner 2026-10-16: "no way we can generate previews?") */
+	function previewVideo(a: AssetSummary): string {
+		if (a.kind !== 'video' || thumb(a)) return '';
+		const small = [...a.renditions].filter((r) => r.mime?.startsWith('video/')).sort((x, y) => (x.size || 0) - (y.size || 0))[0];
+		return small?.path ?? a.path;
+	}
+	/** the video loads its first bytes only once the card is near the screen (a grid of 60 would fetch them all) */
+	function lazyVideo(node: HTMLVideoElement, src: string) {
+		const io = new IntersectionObserver(
+			([entry]) => {
+				if (!entry.isIntersecting) return;
+				node.src = `${src}#t=1`;
+				io.disconnect();
+			},
+			{ rootMargin: '200px' }
+		);
+		io.observe(node);
+		return { destroy: () => io.disconnect() };
 	}
 	const fileName = (path: string) => path.split('/').pop() ?? path;
 	/** original first, then the quality levels low → high, then sizes (1280w …), then the rest */
@@ -360,7 +401,7 @@
 			<section class="detail" data-testid="asset-detail" aria-label={c.title}>
 				<div class="detail-head">
 					<span class="sc-card-img large">
-						{#if c.kind === 'model'}<ModelThumb path={c.path} size="2.5em" />{:else if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
+						{#if c.kind === 'model'}<ModelThumb path={c.path} size="2.5em" />{:else if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else if previewVideo(c)}<video src="{cdnAsset(previewVideo(c))}#t=1" muted playsinline preload="metadata"></video>{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
 					</span>
 					<div class="detail-text">
 						<!-- the whole name, wrapped (owner 2026-10-16: "hard to read the exact file name" – it was cut at the box) -->
@@ -390,9 +431,8 @@
 			</section>
 		{/if}
 
-		<!-- upload: a button (owner 2026-10-03: the fold-out was confusing); the path appears once a file is chosen -->
-		<div class="upload" data-testid="asset-upload">
-			<Button size="sm" variant="secondary" disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose">{t.upload} …</Button>
+				<!-- the upload starts from the bar's icon; its path / options appear here once a file is chosen -->
+		<div class="upload" class:is-open={!!uploadFile || !!uploadError} data-testid="asset-upload">
 			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : kind === 'model' ? '.glb' : kind === 'document' ? '.pdf,.musicxml,.mxl,.xml' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
 			{#if uploadFile}
 				<label class="sc-label" for="asset-upload-path">{t.uploadPath}</label>
@@ -413,31 +453,11 @@
 			{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
 		</div>
 
-		<div class="sc-picker-filters">
-			<!-- svelte-ignore a11y_autofocus -->
-			<input type="search" bind:value={query} oninput={refilter} placeholder={t.search} autofocus data-testid="asset-search" />
-			<!-- one-way (value + onchange): a two-way bind wrote "" back while the options were still loading, so the folder /
-			     kind of the field were lost on the next load (owner 2026-10-03) -->
-			<select value={folder} onchange={(e) => { folder = e.currentTarget.value; load(1); }} aria-label={t.folder} data-testid="asset-folder">
-				<option value="">{t.allFolders}</option>
-				{#if home && !folders.some((f) => (f.folder ?? '') === home)}<option value={home}>{home}</option>{/if}
-				{#each folders as f (f.folder ?? '')}<option value={f.folder ?? ''} selected={(f.folder ?? '') === folder}>{f.folder ?? '/'} ({f.assets})</option>{/each}
-			</select>
-			<select value={kindFilter} onchange={(e) => { kindFilter = e.currentTarget.value as AssetPickerKind; load(1); }} aria-label={t.kind} data-testid="asset-kind">
-				<option value="">{t.allKinds}</option>
-				{#each ASSET_KINDS as k (k)}<option value={k} selected={k === kindFilter}>{t.kinds[k]}</option>{/each}
-			</select>
-			<select value={resolution} onchange={(e) => { resolution = e.currentTarget.value; load(1); }} aria-label={t.resolution} data-testid="asset-resolution">
-				<option value="">{t.allResolutions}</option>
-				{#each RESOLUTIONS as r (r)}<option value={r} selected={r === resolution}>{r}</option>{/each}
-			</select>
-			<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {t.unusedOnly}</label>
-		</div>
 
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="sc-cards" onkeydown={gridArrows} bind:this={grid} aria-busy={loading}>
+		<div class="sc-cards" class:list={view === 'list'} onkeydown={gridArrows} bind:this={grid} aria-busy={loading}>
 			{#each items as a (a.id)}
 				{@const src = thumb(a)}
 				<button
@@ -452,7 +472,7 @@
 					data-testid="asset-card"
 				>
 					<span class="sc-card-img">
-						{#if a.kind === 'model'}<ModelThumb path={a.path} />{:else if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
+						{#if a.kind === 'model'}<ModelThumb path={a.path} />{:else if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else if previewVideo(a)}<video use:lazyVideo={cdnAsset(previewVideo(a))} muted playsinline preload="metadata"></video>{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
 					</span>
 					<span class="name clamp">{fileName(a.path)}</span>
 					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(mainSize(a))}{#if !a.usages} · {t.unused}{/if}</span>
@@ -469,6 +489,42 @@
 		{/if}
 
 	</div>
+
+	{#snippet footer()}
+		<!-- the bar (owner 2026-10-16): sticky at the bottom, one line – upload · search · filters · grid / list; the
+		     filters open above it -->
+		<div class="bar" data-testid="asset-bar">
+			{#if showFilters}
+				<div class="filters" data-testid="asset-filters">
+					<!-- one-way (value + onchange): a two-way bind wrote "" back while the options were still loading, so the
+					     folder / kind of the field were lost on the next load (owner 2026-10-03) -->
+					<select value={folder} onchange={(e) => { folder = e.currentTarget.value; load(1); }} aria-label={t.folder} data-testid="asset-folder">
+						<option value="">{t.allFolders}</option>
+						{#if home && !folders.some((f) => (f.folder ?? '') === home)}<option value={home}>{home}</option>{/if}
+						{#each folders as f (f.folder ?? '')}<option value={f.folder ?? ''} selected={(f.folder ?? '') === folder}>{f.folder ?? '/'} ({f.assets})</option>{/each}
+					</select>
+					<select value={kindFilter} onchange={(e) => { kindFilter = e.currentTarget.value as AssetPickerKind; load(1); }} aria-label={t.kind} data-testid="asset-kind">
+						<option value="">{t.allKinds}</option>
+						{#each ASSET_KINDS as k (k)}<option value={k} selected={k === kindFilter}>{t.kinds[k]}</option>{/each}
+					</select>
+					<select value={resolution} onchange={(e) => { resolution = e.currentTarget.value; load(1); }} aria-label={t.resolution} data-testid="asset-resolution">
+						<option value="">{t.allResolutions}</option>
+						{#each RESOLUTIONS as r (r)}<option value={r} selected={r === resolution}>{r}</option>{/each}
+					</select>
+					<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {t.unusedOnly}</label>
+				</div>
+			{/if}
+			<div class="line">
+				<IconButton label={t.upload} disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose"><Icon name="upload" /></IconButton>
+				<!-- svelte-ignore a11y_autofocus -->
+				<input type="search" bind:value={query} oninput={refilter} placeholder={t.search} aria-label={t.search} autofocus data-testid="asset-search" />
+				<span class="filter-button" class:is-filtered={filtered}>
+					<IconButton label={t.filters} pressed={showFilters} aria-expanded={showFilters} onclick={() => (showFilters = !showFilters)} data-testid="asset-filters-toggle"><Icon name="sliders" /></IconButton>
+				</span>
+				<IconButton label={view === 'grid' ? t.listView : t.gridView} onclick={toggleView} data-testid="asset-view"><Icon name={view === 'grid' ? 'list' : 'grid'} /></IconButton>
+			</div>
+		</div>
+	{/snippet}
 </Sheet>
 
 <style>
@@ -567,12 +623,85 @@
 		align-self: flex-start;
 	}
 	.upload {
-		display: flex;
+		display: none;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 0.5rem;
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		padding-bottom: 0.75rem;
+	}
+	.upload.is-open {
+		display: flex;
+	}
+	/* a video's preview fills the picture box like an image */
+	.sc-card-img video {
+		display: block;
+		max-width: 100%;
+		max-height: 100%;
+		object-fit: contain;
+	}
+	/* the list: one row per asset – a small picture, the whole name, the facts */
+	.sc-cards.list {
+		grid-template-columns: 1fr;
+	}
+	.sc-cards.list .sc-card {
+		display: grid;
+		grid-template-columns: 3.5rem minmax(0, 1fr);
+		column-gap: 0.6rem;
+		align-items: center;
+	}
+	.sc-cards.list .sc-card-img {
+		grid-row: span 3;
+		width: 3.5rem;
+	}
+	.sc-cards.list .clamp {
+		display: block;
+	}
+	/* the bar: the Sheet's sticky footer, one line; the filters open above the line */
+	.bar {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		flex: 1;
+		min-width: 0;
+	}
+	.line {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		min-width: 0;
+	}
+	.line input[type='search'] {
+		flex: 1;
+		min-width: 0;
+		width: auto;
+	}
+	.filters {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(9rem, 100%), 1fr));
+		gap: 0.4rem;
+		align-items: center;
+	}
+	.filters select {
+		width: 100%;
+		min-width: 0;
+	}
+	/* a filter narrower than the field's own: a dot on the icon */
+	.filter-button {
+		position: relative;
+		display: inline-flex;
+	}
+	.filter-button.is-filtered::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 0.6rem;
+		height: 0.6rem;
+		border: var(--border-width-regular) solid var(--paper);
+		border-radius: 50%;
+		background: var(--ink);
+		pointer-events: none;
 	}
 	.upload input[type='text'] {
 		width: 100%;

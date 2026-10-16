@@ -751,8 +751,9 @@
 	outline: var(--border-width-focus) solid var(--ink);
 	outline-offset: var(--focus-offset);
 }
+/* the field's current file: the card's own border in cyan (owner 2026-10-16: no thick bar on the left, "just color it") */
 .sc-card.is-current {
-	border-left: 0.5rem solid var(--primary-cyan);
+	border-color: var(--primary-cyan);
 }
 .sc-card.is-selected {
 	background: var(--select-live-bg);
