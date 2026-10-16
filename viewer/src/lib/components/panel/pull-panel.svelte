@@ -263,7 +263,10 @@
 	onClickOutside(
 		() => panel,
 		(e) => {
-			if (open && !keepOpen() && e === pressedWhileOpen) onclose();
+			// a bar that lives beside the panels (the record player, `data-panel-ignore`) is not outside: its × must not
+			// close the inventory too; opening its card closes the others anyway (exclusive)
+			const ignored = e.target instanceof Element && !!e.target.closest('[data-panel-ignore]');
+			if (open && !keepOpen() && !ignored && e === pressedWhileOpen) onclose();
 		}
 	);
 

@@ -185,7 +185,8 @@
 	const heading = $derived(m['items.now_playing']({ title: [track?.title, request.title].filter(Boolean).join(' · ') }));
 </script>
 
-<div class="record-player" data-testid="audio-player">
+<!-- data-panel-ignore: a tap on the bar is not "outside" an open panel (closing the bar left the inventory open – owner 2026-10-16) -->
+<div class="record-player" data-testid="audio-player" data-panel-ignore>
 	<button type="button" class="deck-button" onclick={() => (expanded = true)} aria-label={m['items.player_open']()} title={m['items.player_open']()} data-testid="audio-open">
 		<RecordDeck {cover} title={request.title} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} />
 	</button>
