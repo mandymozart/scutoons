@@ -33,6 +33,9 @@
 	import { showDrafts } from '$lib/draft-preview.svelte.ts';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte.ts';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
+	import { accessEnd, autoSaveChapter } from '$lib/offline/auto-save.svelte.ts';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
+	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	let { data }: PageProps = $props();
 	// the next-bar's music link: the season's album (related items; older seasons: download.music)
@@ -239,6 +242,27 @@
 
 	// what follows this group (the follow-up bar, agents/DESIGN.md "Follow-up bar")
 	const membership = getMembershipContext();
+	const session = getSessionContext();
+	// "Save chapters on this device" (account setting, lib/offline/auto-save.svelte.ts): a chapter the reader may read is
+	// saved by itself once its first screen is there
+	$effect(() => {
+		const chapter = data.chapter;
+		const toon = page.params.toonId ?? '';
+		if (!chapter || !toon || !savedChapters.supported) return;
+		const listed = data.sequence?.find((item) => item.number === chapter.number);
+		if (!isReadable(listed ?? chapter) || !(chapter.isPreview || membership.isValid)) return;
+		untrack(() =>
+			void autoSaveChapter({
+				toon,
+				number: chapter.number,
+				title: chapter.title ?? '',
+				label: chapterName(chapter.number),
+				toonTitle: data.toon?.title ?? toon,
+				locale: getLocale(),
+				accessUntil: accessEnd(membership, session)
+			})
+		);
+	});
 	const step = $derived.by(() => {
 		const chapter = data.chapter;
 		if (!chapter || !group) return null;

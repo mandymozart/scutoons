@@ -7,6 +7,8 @@ import {
 	accessEnded,
 	accessUntilOf,
 	aliasesFor,
+	autoSaveAllowed,
+	autoSaveVideos,
 	dataWarnings,
 	documentUrls,
 	filesFor,
@@ -154,4 +156,21 @@ test('purge on start: by the known access, offline by the saved end; free chapte
 	assert.deepEqual(ids(toPurge(saved, { known: true, valid: false }, now)), ['open', 'ended', 'later'], 'access ended: every gated save');
 	assert.deepEqual(ids(toPurge(saved, { known: true, valid: true }, now)), [], 'renewed: kept, even past the saved end');
 	assert.deepEqual(ids(toPurge(saved, { known: false, valid: false }, now)), ['ended'], 'offline: the saved end decides');
+});
+
+test('auto save: off never, data saver never, wifi only where the browser says so, always everywhere', () => {
+	assert.equal(autoSaveAllowed('off', { type: 'wifi' }), false);
+	assert.equal(autoSaveAllowed('always', { type: 'cellular', saveData: true }), false);
+	assert.equal(autoSaveAllowed('wifi', { type: 'wifi' }), true);
+	assert.equal(autoSaveAllowed('wifi', { type: 'ethernet' }), true);
+	assert.equal(autoSaveAllowed('wifi', { type: 'cellular' }), false);
+	// Safari / Firefox: no connection info – only "always" saves there
+	assert.equal(autoSaveAllowed('wifi', undefined), false);
+	assert.equal(autoSaveAllowed('always', undefined), true);
+	assert.equal(autoSaveAllowed('always', { type: 'cellular' }), true);
+});
+
+test('auto save: the videos stay unless they are the bulk', () => {
+	assert.equal(autoSaveVideos({ files: [], bytes: 20 * MB, videoBytes: 2 * MB }), true);
+	assert.equal(autoSaveVideos({ files: [], bytes: 50 * MB, videoBytes: 40 * MB }), false);
 });

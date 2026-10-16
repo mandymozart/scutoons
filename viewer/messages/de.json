@@ -684,6 +684,12 @@
 		"summary": "{count} auf diesem Gerät · {size} MB",
 		"storage": "SCUTOONS belegt {used} MB von den {quota} MB, die dieser Browser erlaubt.",
 		"remove_all": "Alle entfernen",
-		"remove_all_title": "Alle gespeicherten Kapitel von diesem Gerät entfernen?"
+		"remove_all_title": "Alle gespeicherten Kapitel von diesem Gerät entfernen?",
+		"auto_title": "Kapitel auf dem Gerät speichern",
+		"auto_off": "Nur von Hand",
+		"auto_wifi": "Im WLAN",
+		"auto_always": "Immer",
+		"auto_hint": "Ein Kapitel, das du öffnest, wird dann von selbst gespeichert und ist auch ohne Verbindung lesbar – große Videos bleiben weg, nie im Datensparmodus. Gilt für dieses Gerät.",
+		"auto_wifi_unknown": "Dieser Browser verrät nicht, ob du im WLAN bist – „Im WLAN“ speichert hier nichts, nimm „Immer“."
 	}
 }

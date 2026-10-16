@@ -149,6 +149,23 @@ export function dataWarnings(bytes: number, c: ConnectionHint | undefined): { sa
 	};
 }
 
+/**
+ * The account setting "Save chapters on this device" (owner 2026-10-16: "eine default Einstellung am Gerät speichern"):
+ * a chapter the reader opens is saved by itself – `wifi` only where the browser says the connection is not mobile data
+ * (Safari / Firefox tell nothing: there only `always` saves), never with data saver on.
+ */
+export type AutoSave = 'off' | 'wifi' | 'always';
+export const AUTO_SAVE_SETTINGS: readonly AutoSave[] = ['off', 'wifi', 'always'];
+
+export function autoSaveAllowed(setting: AutoSave, c: ConnectionHint | undefined): boolean {
+	if (setting === 'off' || c?.saveData) return false;
+	if (setting === 'always') return true;
+	return c?.type === 'wifi' || c?.type === 'ethernet';
+}
+
+/** a save without asking keeps the videos only when they are not the bulk (else "without videos", as offered by hand) */
+export const autoSaveVideos = (plan: SavePlan): boolean => !offerWithoutVideos(plan);
+
 /** "about 18 MB" – rounded the way a reader reads it */
 export function roundMb(bytes: number): string {
 	const mb = bytes / (1024 * 1024);

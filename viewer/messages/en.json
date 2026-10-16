@@ -684,6 +684,12 @@
 		"summary": "{count} on this device · {size} MB",
 		"storage": "SCUTOONS uses {used} MB of the {quota} MB this browser allows.",
 		"remove_all": "Remove all",
-		"remove_all_title": "Remove every saved chapter from this device?"
+		"remove_all_title": "Remove every saved chapter from this device?",
+		"auto_title": "Save chapters on this device",
+		"auto_off": "Only by hand",
+		"auto_wifi": "On Wi-Fi",
+		"auto_always": "Always",
+		"auto_hint": "A chapter you open is then saved by itself and reads without a connection too – big videos are left out, never with data saver on. For this device.",
+		"auto_wifi_unknown": "This browser doesn't tell whether you're on Wi-Fi – “On Wi-Fi” saves nothing here, choose “Always”."
 	}
 }

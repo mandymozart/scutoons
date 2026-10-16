@@ -16,7 +16,8 @@
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
-	import { accessUntilOf, dataWarnings, offerWithoutVideos, planSave, roundMb, type ConnectionHint } from '$lib/sw/saved-rules.ts';
+	import { accessEnd } from '$lib/offline/auto-save.svelte.ts';
+	import { dataWarnings, offerWithoutVideos, planSave, roundMb, type ConnectionHint } from '$lib/sw/saved-rules.ts';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
 
 	let { toonId, chapter }: { toonId: string; chapter: LoadedSequenceItem } = $props();
@@ -66,11 +67,6 @@
 			videos = choice === 'all';
 		} else if (!(await confirmDialog({ title, message, confirmLabel: m['saved.save_confirm'](), cancelLabel: m['common.cancel']() }))) return;
 
-		// the access the chapter is saved with: the latest end of the reader's valid grants (device code, account)
-		const grants = [
-			...(membership.deviceValid ? [membership.device?.expires_at ?? null] : []),
-			...(session.hasAccess ? [session.me?.access?.expires_at ?? null] : [])
-		];
 		const result = await savedChapters.save(toonId, chapter.number, {
 			title: chapter.title ?? '',
 			label: name,
@@ -79,7 +75,8 @@
 			level,
 			videos,
 			list,
-			accessUntil: accessUntilOf(grants)
+			// the access the chapter is saved with: the latest end of the reader's valid grants (device code, account)
+			accessUntil: accessEnd(membership, session)
 		});
 		failed = result === 'failed';
 	}
