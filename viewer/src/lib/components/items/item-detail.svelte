@@ -322,9 +322,12 @@
 		max-width: 60%;
 		align-self: center;
 	}
+	/* the 3D view over the panel's whole width, out of its body's padding (like the record card's stage) */
 	.hero.model {
-		width: 15rem;
-		max-width: 80%;
+		align-self: stretch;
+		width: auto;
+		max-width: none;
+		margin-inline: calc(-1rem - env(safe-area-inset-left)) calc(-1rem - env(safe-area-inset-right));
 	}
 	h2 {
 		margin: 0;

@@ -133,6 +133,8 @@ export function mountRecordStage(canvas, records, opts = {}) {
 	const vel = { yaw: 0, pitch: 0, zoom: 0 };
 	const aim = { yaw: 0, pitch: 0, zoom: 0 };
 	let held = false;
+	// a camera move of the stage's own: a smooth tween from where the camera is (no spring, no jump)
+	let homing = false;
 	const resetView = () => {
 		held = false;
 		aim.yaw = aim.pitch = aim.zoom = 0;
@@ -233,7 +235,11 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			// the stage: 'idle' (all in their sleeves), 'turn' (the ring brings one to the front), 'out' (from the sleeve onto
 			// the platter), 'deck', 'flip' (the other side up), 'back' (from the platter into its sleeve)
 			let state = 'idle', t0 = 0, then = null, active = null, goal = null, lies = want.side, spin = 0, armTurnNow = 0, lift = 0.06, view = 0;
-			let rot0 = 0, focusRecords = false, focusUntil = 0;
+			// the focus: the stage's own (the deck while a record lies on it, else the records) unless a tap chose one – for a
+			// while; `focus` = the tapped one or null
+			let rot0 = 0, focus = null, focusUntil = 0;
+			const natural = () => (active && (state === 'deck' || state === 'flip') ? 'deck' : 'records');
+			const focused = () => focus ?? natural();
 			const from = { tilt: 0 };
 			const flat = (side) => (side === 'b' ? Math.PI / 2 : -Math.PI / 2);
 			const turnTo = (item) => {
@@ -282,8 +288,6 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			// which part of the stage is under a point: the records or the turntable (what it hits, else the nearer one)
 			const ray = new THREE.Raycaster();
 			const ndc = new THREE.Vector2();
-			const where = new THREE.Vector3();
-			const recordsAt = new THREE.Vector3(SLEEVE.x, 0.15, SLEEVE.z), deckAt = new THREE.Vector3(PLINTH.x, PLINTH.h, PLINTH.z);
 			const region = (x, y) => {
 				const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
 				ndc.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
@@ -296,19 +300,22 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				}
 				if (o === ring) return { part: 'records', key: item?.key ?? null, front: !!item && item === items[mod(front, n)] && item !== active };
 				if (o) return { part: 'deck' };
-				const sx = (v) => ((where.copy(v).project(camera).x + 1) / 2) * w;
-				return { part: Math.abs(x - sx(recordsAt)) < Math.abs(x - sx(deckAt)) ? 'records' : 'deck' };
+				return { part: null }; // empty space: nothing (owner 2026-10-16: hit the objects, not screen halves)
 			};
 			const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-			const lookAtRecords = (on) => {
-				focusRecords = on;
+			/** a tap chose a part (null: back to the stage's own focus); a change of the part tweens the camera there */
+			const focusOn = (part) => {
+				const before = focused();
+				focus = part;
 				focusUntil = performance.now() + 12000;
+				if (focused() !== before) home();
 			};
 			const busy = () => state === 'turn' || state === 'back' || state === 'out';
 			// a camera move of the stage's own (a focus change, a record put on / swapped) tweens back into its position –
 			// the reader's zoom stays otherwise (owner 2026-10-16: "no automatic snap-back")
 			const home = () => {
 				held = false;
+				homing = true;
 				aim.yaw = aim.pitch = aim.zoom = 0;
 			};
 			// the selected record (a tap): a second tap on it turns its sleeve round; it can be carried onto the turntable
@@ -318,16 +325,15 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			unlisten = stageGestures(canvas, {
 				region,
 				inStage: (x, y) => y < (1 - (opts.lift ?? 0)) * (canvas.clientHeight || 1),
+				// a tap on the turntable / the records focuses it (a raycast – empty space never comes here)
 				tap: (hit) => {
-					const was = (focusRecords || !active) && !carried;
+					const was = focused() === 'records' && !carried;
 					if (hit.part === 'deck') {
-						if (focusRecords) home();
-						lookAtRecords(false);
+						focusOn('deck');
 						focusedKey = null;
 						return;
 					}
-					lookAtRecords(true);
-					if (!was) home();
+					focusOn('records');
 					const item = hit.key ? byKey(hit.key) : null;
 					if (!item || item === active || busy()) return;
 					if (item !== items[mod(front, n)]) {
@@ -341,10 +347,14 @@ export function mountRecordStage(canvas, records, opts = {}) {
 					if (busy()) return;
 					front += by;
 					tell();
-					lookAtRecords(true);
+					focusOn('records');
 				},
 				ride: (dx) => (aim.yaw = clamp(aim.yaw - dx * ARC, -ARC / 2, ARC / 2)),
-				zoom: (by) => (aim.zoom = clamp(aim.zoom + by, 0, 0.8)),
+				// the zoom goes in and out around the focused centre and stays (out to the default distance at most)
+				zoom: (by) => {
+					homing = false;
+					aim.zoom = clamp(aim.zoom + by, 0, 0.8);
+				},
 				hold: () => (held = true),
 				// the ride springs back on release, the zoom stays
 				release: () => {
@@ -408,7 +418,7 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				if ((state === 'idle' || state === 'deck') && goal && goal !== active && now >= startAt && Math.abs(spin) < 0.4) {
 					state = 'turn';
 					home();
-					lookAtRecords(false);
+					focus = null;
 					carried = null;
 					turnTo(active ?? goal);
 					then = active ? 'back' : 'out';
@@ -429,7 +439,9 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				} else if (state === 'out') {
 					// slide out of the open edge → carry over the platter while turning flat → lay it down
 					const { slide, carry } = along(s);
-					view = Math.max(view, slide * 0.35, 0.35 + 0.65 * carry);
+					// the camera follows the record from where it is (records → deck), no jump
+					const to = carry > 0 ? 0.35 + 0.65 * carry : 0.35 * slide;
+					view += (Math.max(view, to) - view) * Math.min(1, dt * 5);
 					if (s >= WAY) state = 'deck';
 				} else if (state === 'back') {
 					// lift it off, stand it up, carry it back and slide it into its sleeve – then the next one comes out
@@ -478,13 +490,10 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				arm.rotation.set(lift, armTurnNow, 0, 'YXZ');
 				// the camera: the records while none lies on the platter (or a tap / swipe asked for them – a while), the deck
 				// once one is on; the way out moves it along
-				if (focusRecords && active && !carried && now > focusUntil) {
-					focusRecords = false;
-					home();
-				}
+				if (focus && !carried && now > focusUntil) focusOn(null);
 				if (state !== 'out') {
 					// carrying a record: halfway, so the records and the turntable are both in the picture
-					const to = carried ? 0.55 : (state === 'deck' || state === 'flip') && !focusRecords ? 1 : 0;
+					const to = carried ? 0.55 : focused() === 'deck' ? 1 : 0;
 					view += (to - view) * Math.min(1, dt * 2.5);
 				}
 				const v = ease(view);
@@ -492,8 +501,12 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				look.set(...VIEWS.sleeve.look.map((p, i) => lerp(p, VIEWS.deck.look[i], v)));
 				// the reader's look around: while held it follows the finger closely; released, an under-damped spring snaps it
 				// home (≈ 0.35 s, a small overshoot, settled in about half a second)
+				if (homing && ['yaw', 'pitch', 'zoom'].every((k) => Math.abs(aim[k] - user[k]) < 1e-3)) homing = false;
 				for (const key of ['yaw', 'pitch', 'zoom']) {
-					if (held) {
+					if (homing && !held) {
+						user[key] += (aim[key] - user[key]) * Math.min(1, dt * 3);
+						vel[key] = 0;
+					} else if (held) {
 						user[key] += (aim[key] - user[key]) * Math.min(1, dt * 14);
 						vel[key] = 0;
 					} else {
