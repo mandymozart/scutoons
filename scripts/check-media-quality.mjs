@@ -281,7 +281,7 @@ if (step('account')) {
 		await viewport(w, h);
 		await guest(null, locale);
 		const prefix = locale === 'en' ? '/en' : '';
-		await open(`${viewer}${prefix}/account`);
+		await open(`${viewer}${prefix}/account/reading`);
 		const STATE = `(() => { const f = document.querySelector('[data-testid="media-quality"]'); if (!f) return null;
 			return { labels: [...f.querySelectorAll('label')].map((l) => l.textContent.trim()), active: f.querySelector('label.active')?.textContent.trim(),
 				legend: f.querySelector('legend')?.textContent.trim(), stored: localStorage.getItem('${KEY}'), hint: f.querySelector('small')?.textContent.replace(/\\s+/g, ' ').trim() }; })()`;
@@ -300,7 +300,7 @@ if (step('account')) {
 		if (box && !box.error) await click(box.x, box.y);
 		const chosen = await waitFor(`(() => { const s = ${STATE}; return s && s.stored === 'high' && s.active === '${msg.high}' ? s : null; })()`, 5000);
 		if (!chosen || chosen.error) problems.push(`after a click on "${msg.high}": ${JSON.stringify(await evaluate(STATE))}`);
-		await open(`${viewer}${prefix}/account`);
+		await open(`${viewer}${prefix}/account/reading`);
 		const kept = await waitFor(`(() => { const s = ${STATE}; return s && s.active === '${msg.high}' ? s : null; })()`, 8000);
 		if (!kept || kept.error) problems.push(`after a reload: ${JSON.stringify(await evaluate(STATE))}`);
 		await shot(`mq-account-guest-${w}-${locale}-high`);
@@ -323,7 +323,7 @@ if (step('member')) {
 		await viewport(390, 844);
 		await guest('high');
 		await evaluate(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)}), true`);
-		await open(`${viewer}/account`);
+		await open(`${viewer}/account/reading`);
 		const msg = messages.de.media_quality;
 		const STATE = `(() => { const f = document.querySelector('[data-testid="media-quality"]'); return f ? { active: f.querySelector('label.active')?.textContent.trim(), hint: f.querySelector('small')?.textContent.replace(/\\s+/g, ' ').trim() } : null; })()`;
 		const s = await waitFor(`(() => { const s = ${STATE}; return s && s.active === '${msg.medium}' ? s : null; })()`, 10000);

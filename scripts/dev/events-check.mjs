@@ -346,9 +346,9 @@ try {
 	await shot('page-view-3');
 	await sleep(2500);
 
-	// the account page: the member's name (the askText answer), edited there
+	// the account page: the member's name (the askText answer), edited on "Stammdaten" (/account/details, concept B)
 	await js(`localStorage.setItem('evc-clock', '0')`);
-	await send('Page.navigate', { url: `${VIEWER}/account` });
+	await send('Page.navigate', { url: `${VIEWER}/account/details` });
 	const field = await until(`document.querySelector('[data-testid="reader-name-input"]')?.value || null`, 15000);
 	check(field === 'Ada', `account page: "Your name" shows the askText answer → "${field}"`);
 	await js(`(() => { const i = document.querySelector('[data-testid="reader-name-input"]'); i.value = ' Bea  '; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
@@ -363,7 +363,7 @@ try {
 	// left this browser signed in, and the "guest's" name went to the account whenever the session check was done first
 	await send('Network.clearBrowserCookies');
 	await js(`localStorage.removeItem('scutoons_session'), true`);
-	await send('Page.navigate', { url: `${VIEWER}/account` });
+	await send('Page.navigate', { url: `${VIEWER}/account/details` });
 	await until(`!!document.querySelector('[data-testid="reader-name-input"]')`, 15000);
 	const asGuest = await until(`(() => { const t = document.querySelector('[data-testid="reader-name"] small')?.textContent ?? ''; return /device|Gerät/.test(t) ? t : null; })()`, 15000);
 	check(!!asGuest, `signed out: the field saves on the device ("${asGuest}")`);

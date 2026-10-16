@@ -182,7 +182,7 @@ async function signIn(email) {
 console.log(`SSO check · API ${api} · viewer ${apps.viewer} · creator ${apps.creator} · admin ${apps.admin} · shop ${apps.shop} · embassy ${apps.embassy}\n`);
 try {
 	// ── 1. viewer: sign in as the test user ────────────────────────────────────────────────────────────────────────
-	await open(`${apps.viewer}/de/account`);
+	await open(`${apps.viewer}/de/account/details`);
 	{
 		const problems = await signIn(TEST_USER);
 		const s = await waitFor(`document.querySelector('[data-testid="signed-in-as"] .email')?.textContent.trim() === ${q(TEST_USER)} && true`);
@@ -215,7 +215,7 @@ try {
 	}
 
 	// ── 3. an account without the role: the notice + "switch account" ─────────────────────────────────────────────
-	await open(`${apps.viewer}/de/account`);
+	await open(`${apps.viewer}/de/account/details`);
 	await click('[data-testid="signed-in-as"] [data-testid="sign-out"]');
 	await waitFor(`document.querySelector('[data-testid="login-form"]') && true`);
 	await createMember();

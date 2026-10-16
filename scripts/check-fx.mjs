@@ -258,12 +258,12 @@ let alphaReadable = false;
 	report('held: it stays, no tap hint, a second tap shakes without asking', p, `notice "${notice}"`);
 }
 
-// 5 – account page
+// 5 – account page: the sound settings are on the group page "Ton & Vibration" (/account/sound, concept B)
 {
 	const p = [];
-	await open(`${viewer}/de/account`);
+	await open(`${viewer}/de/account/sound`);
 	const ok = await waitFor(`document.querySelector('[data-testid="fx-setting"] #fx-volume')`);
-	if (!ok) p.push('no "Soundeffekte" on the account page');
+	if (!ok) p.push('no "Soundeffekte" on /account/sound');
 	else {
 		await evaluate(`(() => { const r = document.querySelector('#fx-volume'); r.value = '35'; r.dispatchEvent(new Event('input', { bubbles: true })); const h = document.querySelector('[data-testid="fx-haptics"]'); h.click(); return true; })()`);
 		await sleep(300);
@@ -271,7 +271,7 @@ let alphaReadable = false;
 		if (stored[0] !== '0.35') p.push(`volume stored ${stored[0]}, expected 0.35`);
 		if (stored[1] !== '0') p.push(`vibration stored ${stored[1]}, expected 0`);
 		if (!/35/.test(stored[2] ?? '')) p.push(`the level shows ${stored[2]}`);
-		await open(`${viewer}/de/account`);
+		await open(`${viewer}/de/account/sound`);
 		await waitFor(`document.querySelector('#fx-volume')`);
 		const again = await evaluate(`[document.querySelector('#fx-volume').value, document.querySelector('[data-testid="fx-haptics"]').checked]`);
 		if (again[0] !== '35' || again[1] !== false) p.push(`after a reload: ${JSON.stringify(again)}`);

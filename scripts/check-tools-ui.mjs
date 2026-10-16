@@ -253,6 +253,8 @@ const PAGES = [
 	['viewer-toon', `${VIEWER}/catpope`, 'viewer'],
 	['viewer-chapter', `${VIEWER}/catpope/chapter/1`, 'viewer'],
 	['viewer-account', `${VIEWER}/account`, 'viewer'],
+	// a group page (concept B): the radio row, switches and buttons of "Lesen"
+	['viewer-account-reading', `${VIEWER}/account/reading`, 'viewer'],
 	['viewer-inventory', `${VIEWER}/catpope?inventory=open`, 'viewer'],
 	['viewer-events', `${VIEWER}/events`, 'viewer'],
 	['viewer-download', `${VIEWER}/catpope/download`, 'viewer']
