@@ -104,6 +104,9 @@ test('validateNeutral: shapes of the locale maps, a source without text, season 
 test('validateNeutral: a scene (group)', () => {
 	const scene = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [], events: [{ id: 'e1', type: 'showMessage', params: { text: { de: 'Hi' } } }] } as unknown as GroupDoc;
 	assert.deepEqual(lines(validateNeutral('group', scene, L, { file: 'scene:x:1:scene-1' })), ['warning en events.0.params.text']);
+	// a message with no text in any language (chapter 2's `text: {}`): an empty box in the reader
+	const empty = { label: 'scene-1', renderer: { type: 'vertical' }, slices: [{ image: 'a.webp', width: 390, height: 625, events: [{ id: 'e2', type: 'showMessage', params: { text: {}, wait: true }, trigger: { type: 'intersect' } }] }] } as unknown as GroupDoc;
+	assert.deepEqual(lines(validateNeutral('group', empty, L, { file: 'scene:x:1:scene-1' })), ['warning - slices.0.events.0.params.text']);
 });
 
 test('validateNeutral: the toon entry (index) – texts, release and status per language; an entry without texts', () => {

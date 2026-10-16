@@ -1465,6 +1465,10 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 				const l = at(source);
 				perLocale.push(l);
 				l.warn(path, `missing ${source} ${word}${quote(textOf(value[other]).trim())} (the source language; readers get the ${other} text)`);
+			} else if (leaf === 'dialog' || leaf === 'message' || leaf === 'choice') {
+				// no text in any language: the reader shows an empty box (owner 2026-10-16: an empty message kept popping up in
+				// chapter 2 – a showMessage with `text: {}`)
+				c.warn(path, `empty ${word}: no text in any language – the reader shows an empty box`);
 			}
 			return;
 		}
