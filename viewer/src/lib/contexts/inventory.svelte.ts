@@ -453,8 +453,29 @@ export function createInventoryContext(session: SessionContext) {
 
 	// ---------- catalog ----------
 
+	/** when the catalog was last loaded (ms) – a reader coming back to the app gets a newer one */
+	let catalogAt = 0;
+	/** the API keeps the catalog 5 min (Cache-Control) – asking sooner gives the same answer */
+	const CATALOG_FRESH_MS = 5 * 60 * 1000;
+
+	/**
+	 * Back in the app after a while (a phone tab lives for days): the catalog again, so a newly published item field (a 3D
+	 * model, an album's sides – owner 2026-10-16 "published but not showing up") reaches an open app without a reload.
+	 */
+	function refreshCatalogWhenBack() {
+		if (typeof document === 'undefined') return;
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState !== 'visible' || !catalogAt || Date.now() - catalogAt < CATALOG_FRESH_MS) return;
+			catalogAt = Date.now();
+			fetchCatalog()
+				.then((next) => (catalog = next))
+				.catch(() => {});
+		});
+	}
+
 	async function loadCatalog() {
 		try {
+			catalogAt = Date.now();
 			catalog = await fetchCatalog();
 			catalogError = null;
 			giveGuestStarters();
@@ -998,6 +1019,7 @@ export function createInventoryContext(session: SessionContext) {
 	function init() {
 		loadGuest();
 		void loadCatalog().then(() => !isAccount && settleGuest());
+		refreshCatalogWhenBack();
 		session.subscribe((event) => {
 			if (event === 'login') importGuest();
 			if (event === 'logout') resetGuest();
