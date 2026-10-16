@@ -148,8 +148,13 @@
 			{#if count > 1}
 				<IconButton label={m['items.next_track']()} onclick={onnext} data-testid="card-next"><Icon name="skip-forward" /></IconButton>
 			{/if}
-					<!-- turning the record is a control like the others (owner 2026-10-16: "part of the player's controls … a smaller button") -->
-					<IconButton class="turn" label={m['items.player_turn']()} pressed={side === 'B'} onclick={onturn} data-testid="record-turn"><Icon name="refresh-cw" /></IconButton>
+					<!-- the record's side as an A / B toggle among the controls (owner 2026-10-16: "part of the player's controls … a
+					     smaller button", "maybe we can do an AB, two buttons, side A or side B, a toggle"): the other side turns it -->
+					<div class="sides" role="group" aria-label={m['items.player_turn']()} data-testid="record-turn">
+						{#each ['A', 'B'] as const as s (s)}
+							<button type="button" class:on={side === s} aria-pressed={side === s} title={m['items.player_side']({ side: s })} onclick={() => side !== s && onturn()} data-testid="record-side-{s}">{s}</button>
+						{/each}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -251,6 +256,40 @@
 		justify-content: center;
 		align-items: center;
 		gap: var(--space-1);
+	}
+
+	/* the record's side: two square letters in one frame, the side it plays inverted */
+	.sides {
+		display: inline-flex;
+		border: var(--border-width-regular) solid var(--ink);
+	}
+
+	.sides button {
+		box-sizing: border-box;
+		min-width: var(--control-height);
+		height: var(--control-height);
+		padding: 0 var(--space-05);
+		background: var(--paper);
+		color: var(--ink);
+		border: 0;
+		border-radius: 0;
+		font: inherit;
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
+
+	.sides button + button {
+		border-left: var(--border-width-regular) solid var(--ink);
+	}
+
+	.sides button.on {
+		background: var(--ink);
+		color: var(--paper);
+		cursor: default;
+	}
+
+	.sides button:not(.on):hover {
+		background: var(--surface-hover);
 	}
 
 	/* play / pause: the one filled button */
