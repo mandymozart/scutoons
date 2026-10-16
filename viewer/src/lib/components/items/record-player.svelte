@@ -5,6 +5,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { armAngle, nextOnSide, previousOnSide, sideIndices, sideOf, songLength, turnTo, twoSided } from './playlist.ts';
 	import RecordCard from './record-card.svelte';
+	import { warmModel } from './model-warmup.ts';
 	import RecordDeck from './record-deck.svelte';
 	import SeekBar from './seek-bar.svelte';
 
@@ -155,6 +156,9 @@
 	$effect(() => () => {
 		if (gap) clearTimeout(gap);
 	});
+
+	// the bar is up: the card may open any moment – its 3D stage's three.js and model load ahead in idle time
+	$effect(() => warmModel(request.model ? asset(request.model) : null));
 
 	const arm = $derived(armAngle(playing || changing, changing ? 0 : length ? time / length : 0));
 	const heading = $derived(m['items.now_playing']({ title: [track?.title, request.title].filter(Boolean).join(' · ') }));

@@ -18,6 +18,8 @@
 	import ReaderStats from '$lib/components/items/reader-stats.svelte';
 	import InvitesPanel from '$lib/components/items/invites-panel.svelte';
 	import { moveWithWarning } from '$lib/components/items/container-move.ts';
+	import { warmModel } from '$lib/components/items/model-warmup.ts';
+	import { asset } from '$lib/utils/cdn.ts';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -49,6 +51,15 @@
 	$effect(() => {
 		if (selected && !inventory.entries.some((e) => String(e.id) === String(selected!.id))) selected = null;
 		if (openBox && !inventory.entries.some((e) => String(e.id) === String(openBox!.id))) openBox = null;
+	});
+
+	// the inventory shows a record with a 3D model: its player card may follow – warm three.js and the model in idle time
+	$effect(() => {
+		if (!nav.isOpen('inventory')) return;
+		for (const { entry } of listed) {
+			const model = inventory.item(entry.item_id)?.album ? inventory.modelOf(entry) : '';
+			if (model) warmModel(asset(model));
+		}
 	});
 
 	/** a container's fill: "3 / 25" */

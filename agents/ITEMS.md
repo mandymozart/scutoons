@@ -157,7 +157,8 @@ unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card
 An item's 3D model is a `.glb` asset next to its icon: `<toon>/items/<item-id>.model.glb` (own slug – a plain
 `<item-id>.glb` would fold into the icon's asset group), extra parts as `<item-id>.<part>.glb`. Real size in metres,
 +Y up, the front faces +Z, standing so a turn around Y (the tools' `ModelPreview`) shows the back; one self-contained
-file ≤ ~1–2 MB, JPEG / PNG textures (ASSETS.md "3D models").
+file, small (owner 2026-10-16: "150 KB for the record sounds a lot"; the screen never gets much beyond 1080 px): WebP
+textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantization`) (ASSETS.md "3D models").
 - **The field:** `model` on the item (CDN-root `.glb`; a variant may have its own, none = the item's – `modelOf`),
   validated in TS + PHP (a `.glb` path), counted as used by the asset usage index (`item:<id>` `/model`); admin item
   form: a `FileSlot kind="model"` + the live `ModelPreview` next to the picture (each variant row: its own slot). It is
@@ -174,19 +175,24 @@ file ≤ ~1–2 MB, JPEG / PNG textures (ASSETS.md "3D models").
   side up (A = +Z of the model). The stage needs nodes `record` (+ `sleeve`); a record-only model works without sleeve.
   One renderer, mounted while the card is open, freed on close; reduced motion / no WebGL / a failing model: the 2D
   deck (record-deck.svelte, also the bar's).
-- **Awakening LP** (`awakening_vinyl`, also right for `awakening_test_press`): `catpope/items/awakening_vinyl.model.glb`
-  (440 KB – Ø 302 mm, 2 mm, labels Ø 100 mm A on +Z / B on −Z, hole Ø 7.24 mm; grooves = a 1D polar normal + roughness
-  map with lead-in, 2 track gaps a side, run-out; `KHR_materials_anisotropy` for the radial sheen) and
-  `catpope/items/awakening_vinyl.sleeve.glb` (1.2 MB – spined sleeve 315 × 312 × 3 mm, front +Z, spine left) and the
-  item's `model` `catpope/items/awakening_vinyl.set.glb` (1.6 MB – the sleeve open at +X with the record standing in
-  it, 25 mm out; nodes `sleeve`, `record`; a part name, not `.model.glb`: that path holds the record alone and CDN paths
-  never change their bytes). Source:
-  Proton Drive `Projects/Cat Pope/Artwork/Vinyl/20260620_CATPOPE-Print/` (`20260427_CATPOPE-PRINT-LabelA.pdf`,
-  `-LabelB.pdf`, `20260620_CATPOPE-Cover.pdf`; sizes from `specs/`). Front = the cover's right half, the obi strip on its
-  left (owner confirmed 2026-10-16; `FRONT_IS_RIGHT_HALF`). **Test presses** (`awakening_test_press`, per variant
-  `variants[i].model`): `catpope/items/awakening_test_press_{1,2}_of_2.set.glb` (150 KB – blank white labels in a
-  plain paper inner sleeve 310 × 310 mm, same nodes; `build.py --test-press --name <id>`). Built by `tools/vinyl3d/build.py` (pymupdf at 300 dpi → trim box; usage in its header) – the
-  pattern for the next item.
+- **Warm-up** (owner 2026-10-16: "As soon as the player could potentially be loaded, the 3D models … must be loaded"):
+  `warmModel` (model-warmup.ts) loads three.js and fetches the .glb in idle time (once per file and page; not on the
+  `none` tier, without WebGL or with reduced motion) when the player bar is up (record-player.svelte) and when the open
+  inventory lists a record (`album`) with a model.
+- **Awakening LP** (`awakening_vinyl`): the item's `model` `catpope/items/awakening_vinyl.v2.set.glb` (252 KB – front
+  1024 px 113 KB, back 768 px 66 KB, labels 512 px 21 + 14 KB, geometry 26 KB; drafts 2026-10-16, before: `.set.glb`
+  1.6 MB): the spined sleeve 315 × 312 × 3 mm (front +Z, spine left, open at +X) with the record standing in it, 25 mm
+  out; nodes `sleeve`, `record`. The record: Ø 302 mm, 2 mm, 96 segments, labels Ø 100 mm A on +Z / B on −Z, hole
+  Ø 7.24 mm; grooves = a 1D polar normal + roughness map (1024 rows) with lead-in, 2 track gaps a side, run-out;
+  `KHR_materials_anisotropy` for the radial sheen. The first builds `awakening_vinyl.{model,sleeve,set}.glb` stay on the
+  CDN unused (CDN paths never change their bytes). Source: Proton Drive
+  `Projects/Cat Pope/Artwork/Vinyl/20260620_CATPOPE-Print/` (`20260427_CATPOPE-PRINT-LabelA.pdf`, `-LabelB.pdf`,
+  `20260620_CATPOPE-Cover.pdf`; sizes from `specs/`). Front = the cover's right half, the obi strip on its left (owner
+  confirmed 2026-10-16; `FRONT_IS_RIGHT_HALF`). **Test presses** (`awakening_test_press`): one file for both on the
+  item's `model`, `catpope/items/awakening_test_press.v2.set.glb` (32 KB – blank white labels in a plain paper inner
+  sleeve 310 × 310 mm, same nodes; `build.py --test-press --name awakening_test_press`; before: per variant
+  `awakening_test_press_{1,2}_of_2.set.glb`, 150 KB). Built by `tools/vinyl3d/build.py` (pymupdf at 300 dpi → trim box;
+  usage and sizes in its header) – the pattern for the next item.
 
 ## Collectables removed – items are the only concept (U, 2026-09-30)
 
