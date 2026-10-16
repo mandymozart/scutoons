@@ -62,7 +62,7 @@ Thumbs.db, half-written uploads are never registered.
 
 ### Usages (`AssetUsages`)
 
-Every string with a media extension in: the content store (per entity its **published** version and, when newer, its
+Every string with a media extension (and every tile of a map layer's `tiles.path` set) in: the content store (per entity its **published** version and, when newer, its
 **working draft**; `asset-requests` are wishes, not uses) and the catalog rows (items incl. albums, products, editions,
 toons, featured – source `catalog`, agents/CATALOG.md; the files until 2026-10-04). Content paths resolve against the document's toon folder – the nearest
 enclosing `toon` field wins (map locations) – and fall back to the CDN root when only that exists (registry style).
@@ -97,7 +97,7 @@ the BACKLOG draft's `/<toon>/…` is not written; a leading `/` still resolves, 
 | rename | copies the current files to the new slug (markers / extensions kept), new version, relink; old files stay with the archived version until nothing uses them | admin |
 | delete | the delete check (uses by state); published / catalog uses block, draft-only uses need `force`; deletes all versions' files + purges; the row stays `deleted` for history | admin |
 | missing / orphans | uses whose file the registry doesn't know · current files nothing references | admin page, API |
-| cleanup | admin → Assets → Unused (owner 2026-10-03: "clean up the CDN"): per asset the files nothing references (index rebuilt first) – whole unused assets, unused renditions of used assets (never their source), files left behind by a rename, replace archives under `.versions/`; select rows → one in-page confirm → `POST /admin/assets/cleanup`, which rebuilds the index again and skips anything referenced by now | admin |
+| cleanup | admin → Assets → Unused (owner 2026-10-03: "clean up the CDN"): per asset the files nothing references (index rebuilt first) – whole unused assets, unused renditions of used assets (never their source), files left behind by a rename, replace archives under `.versions/`; select rows (or all matching) → one in-page confirm → `POST /admin/assets/cleanup` in batches of 25 files – the first rebuilds the index, each skips anything referenced by now | admin |
 | jobs | queued in the admin / CLI, run by `php bin/console assets:jobs` where ffmpeg is (the owner's machine): download the source, transcode, upload next to it, register | admin, CLI |
 
 Video renditions = the trailer-loop recipe: H.264 `-preset slow -crf 24 / 24 / 22` for 480p / 720p / 1080p, `yuv420p`,
@@ -283,7 +283,7 @@ scheduled `assets:sync --from=bunny --to=ftp` (copies only, never deletes). Not 
 
 ## API (server docs/API.md "Assets")
 
-Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, page, sort slug|updated|size|usages|kind),
+Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, res, files, tiles hide|only|all – map tiles hidden by default, page, sort slug|updated|size|usages|kind),
 `GET /api/assets/lookup?path=`, `GET|PUT /api/assets/{id}`, `PUT /api/assets/upload?path=&title=&tags=` (raw body),
 `GET /api/assets/missing`, `GET /api/assets/orphans`. Admin: `GET /api/admin/assets/storage[?stats=1]`, `POST …/scan`,
 `POST …/relink`, `PUT …/{id}/file?path=&note=` (raw body), `POST …/{id}/rename`, `GET …/{id}/delete-check`,
@@ -307,8 +307,15 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`). The season trailer is
   one slot since 2026-10-03 (`media-variants-slot.svelte`, DESIGN.md "Creator: season page"): the preview picks the whole
   asset, chips per level replace / clear one file.
+- **Map tiles** (owner 2026-10-16: "thousands … really hard to find anything"; research/ASSET-LISTS.md): a file
+  `<set>/<z>/<x>_<y>.<ext>` below a `/map/` folder (`AssetPaths::tileSet` / `TILE_SQL`, MAP.md §8.9a) is a map tile.
+  Every list hides them (`tiles=hide`, the API default – the picker, the library, the MCP's search); "Map tiles" in the
+  Kind filter shows only them (`tiles=only`); the library says "N map tiles hidden · Show them". A map layer's
+  `tiles: { path }` uses every tile of its set (AssetUsages) – before 2026-10-16 the live v2 tiles counted as unused.
 - **Admin – Assets** (`/assets`, nav Data → Assets): Library (grid, filters in the bar, Rescan), Missing files, Unused
-  (the cleanup: select assets, "Delete N files (size)", confirm),
+  (`unused-tab.svelte`: a server list – search, kind incl. Map tiles, what goes, sort, pager in the bar; a tile set is
+  ONE row; tick rows or "Select all N" (every page); "Delete N files (size)" → one confirm → batches of 25 files with a
+  progress bar and Cancel (`BulkRun` / `BulkProgress`, @scutoons/ui), the report after),
   Storage (drivers, bunny settings status, totals per kind, 30-day bandwidth chart). The asset sheet: preview, files per
   version, uses (with links into the creator), title / tags, replace, rename, relink, optimize (jobs), delete behind the
   check.

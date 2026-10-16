@@ -17,6 +17,10 @@
 		/** e.g. `3 selected` */
 		selected: (count: number) => string;
 		clearSelection: string;
+		/** "Select all 7,252" – the page is checked and more rows match on other pages (`total`) */
+		selectMatching?: (count: number) => string;
+		/** "All 7,252 selected" */
+		allMatchingSelected?: (count: number) => string;
 		sortedAscending: string;
 		sortedDescending: string;
 	}
@@ -42,6 +46,10 @@
 	 * change the URL (the app's `load` refetches) – or `onsort` for client-side sorting. Pair it with `Pager`.
 	 * Selection (DESIGN.md "Selection"): the open row (`activeKey`) and the checked rows are `sc-selected`; the table is
 	 * a region (`region`, live on load when nothing else is), so they show the live look while it is the live one.
+	 * Long server lists (research/ASSET-LISTS.md): with `total` (every row the filters find) a checked page offers
+	 * "Select all N" – `allMatching` (bindable) then stands for every matching row on every page, the page's bulk action
+	 * resolves it on the server; unticking a row or changing the filters (the page resets it) ends it.
+	 * Over 400 lines (RULES "Code"): the CSS is half of it; rows, selection, sort and reorder are one job.
 	 */
 	let {
 		columns,
@@ -54,6 +62,8 @@
 		defaultSortDir = {},
 		selectable = false,
 		selected = $bindable([]),
+		total,
+		allMatching = $bindable(false),
 		bulk,
 		onrowclick,
 		activeKey = null,
@@ -90,6 +100,10 @@
 		selectable?: boolean;
 		/** keys of the selected rows */
 		selected?: string[];
+		/** every row the filters find (server-side lists): enables "Select all N" */
+		total?: number;
+		/** every matching row is selected, on every page (bindable) */
+		allMatching?: boolean;
 		/** bulk actions for the selected keys, shown in a bar above the table while something is selected */
 		bulk?: Snippet<[string[]]>;
 		/** row activation (click, Enter): e.g. open the detail drawer */
@@ -118,13 +132,28 @@
 	const allSelected = $derived(keys.length > 0 && keys.every((k) => selected.includes(k)));
 	const someSelected = $derived(!allSelected && keys.some((k) => selected.includes(k)));
 
+	const canMatchAll = $derived(!!labels.selectMatching && total !== undefined && total > keys.length);
+	const isChecked = (key: string) => allMatching || selected.includes(key);
+
 	function toggleAll() {
-		if (allSelected) selected = selected.filter((k) => !keys.includes(k));
+		if (allMatching) clear();
+		else if (allSelected) selected = selected.filter((k) => !keys.includes(k));
 		else selected = [...new Set([...selected, ...keys])];
 	}
 
 	function toggle(key: string) {
+		if (allMatching) {
+			// out of "all N": the page stays checked but this row
+			allMatching = false;
+			selected = keys.filter((k) => k !== key);
+			return;
+		}
 		selected = selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key];
+	}
+
+	function clear() {
+		allMatching = false;
+		selected = [];
 	}
 
 	function direction(column: Column): 'ascending' | 'descending' | undefined {
@@ -154,11 +183,15 @@
 </script>
 
 <div class="sc-data-table" aria-busy={loading} use:selectionRegion={{ name: regionName, initial: true }}>
-	{#if selectable && selected.length > 0}
-		<div class="bulk" role="region" aria-label={labels.selected(selected.length)}>
-			<span>{labels.selected(selected.length)}</span>
+	{#if selectable && (selected.length > 0 || allMatching)}
+		{@const count = allMatching && total !== undefined ? total : selected.length}
+		<div class="bulk" role="region" aria-label={labels.selected(count)}>
+			<span data-testid="table-selected">{allMatching && labels.allMatchingSelected ? labels.allMatchingSelected(count) : labels.selected(count)}</span>
+			{#if canMatchAll && allSelected && !allMatching}
+				<button type="button" class="link" onclick={() => (allMatching = true)} data-testid="table-select-matching">{labels.selectMatching?.(total ?? 0)}</button>
+			{/if}
 			{#if bulk}{@render bulk(selected)}{/if}
-			<button type="button" class="link" onclick={() => (selected = [])}>{labels.clearSelection}</button>
+			<button type="button" class="link end-link" onclick={clear}>{labels.clearSelection}</button>
 		</div>
 	{/if}
 	<div class="scroll">
@@ -172,8 +205,8 @@
 							<input
 								type="checkbox"
 								aria-label={labels.selectAll}
-								checked={allSelected}
-								indeterminate={someSelected}
+								checked={allMatching || allSelected}
+								indeterminate={!allMatching && someSelected}
 								onchange={toggleAll}
 							/>
 						</th>
@@ -214,7 +247,7 @@
 					<tr
 						class={rowClass?.(row) ?? ''}
 						class:clickable={!!onrowclick}
-						class:sc-selected={activeKey === key || (selectable && selected.includes(key))}
+						class:sc-selected={activeKey === key || (selectable && isChecked(key))}
 						tabindex={onrowclick ? 0 : undefined}
 						onclick={onrowclick ? (event) => rowClick(event, row) : undefined}
 						onkeydown={onrowclick ? (event) => rowKeydown(event, row) : undefined}
@@ -226,7 +259,7 @@
 								<input
 									type="checkbox"
 									aria-label={labels.selectRow(key)}
-									checked={selected.includes(key)}
+									checked={isChecked(key)}
 									onchange={() => toggle(key)}
 								/>
 							</td>
@@ -353,7 +386,6 @@
 		color: var(--paper);
 	}
 	.link {
-		margin-left: auto;
 		padding: 0;
 		border: 0;
 		background: none;
@@ -361,6 +393,9 @@
 		font: inherit;
 		text-decoration: underline;
 		cursor: pointer;
+	}
+	.end-link {
+		margin-left: auto;
 	}
 	/* row selection: the native box, not the tool's switch (tools.css) */
 	input[type='checkbox'] {

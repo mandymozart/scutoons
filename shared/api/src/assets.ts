@@ -104,6 +104,8 @@ export interface AssetDetail {
 
 export interface AssetList extends ListResult<AssetSummary> {
 	folders: { folder: string | null; assets: number }[];
+	/** map tiles the other filters found but `tiles=hide` (the default) left out (research/ASSET-LISTS.md) */
+	tiles_hidden: number;
 	/** the public media base (thumbnails) */
 	cdn: string;
 }
@@ -173,16 +175,38 @@ export interface AssetOrphan {
 	size: number;
 }
 
-/** One asset's files a cleanup may delete (admin → Assets → Unused; the index is rebuilt before the list) */
+/**
+ * One row of the files a cleanup may delete (admin → Assets → Unused, server UnusedList): an asset, or a whole map tile
+ * set (`id` = `tiles:<set>`, `slug` = the set's folder, `tiles` = how many) – research/ASSET-LISTS.md
+ */
 export interface AssetUnused {
 	id: string;
 	slug: string;
 	kind: AssetKind;
 	/** no current file is referenced: the cleanup deletes the whole asset, its history included */
 	all_unused: boolean;
-	/** `current` an unreferenced file of the current version · `old` left behind by a rename · `archive` old bytes a replace kept */
+	/** `current` an unreferenced file of the current version · `old` left behind by a rename · `archive` old bytes a replace kept;
+	 * a page carries the first few (`file_count` = all), `all: 1` every one */
 	files: { path: string; what: 'current' | 'old' | 'archive'; size: number | null }[];
+	file_count: number;
 	size: number;
+	/** the assets the row stands for (a tile set: one per tile) */
+	assets: number;
+	/** a map tile set: its tiles, else null */
+	tiles: number | null;
+}
+
+export interface AssetUnusedTotals {
+	rows: number;
+	assets: number;
+	files: number;
+	bytes: number;
+}
+
+/** `totals` = everything unused, `matching` = what the filters find */
+export interface AssetUnusedList extends ListResult<AssetUnused> {
+	totals: AssetUnusedTotals;
+	matching: AssetUnusedTotals;
 }
 
 export interface AssetCleanupResult {
@@ -235,9 +259,12 @@ export function createAssetsApi(api: ApiClient) {
 		relink: (from: string, to: string, publish = false) => api.post<AssetRelinkResult>('/admin/assets/relink/', { from, to, publish }),
 		/** several files in one pass: one new draft per touched entity (BACKLOG 10.64) */
 		relinkMap: (map: Record<string, string>, publish = false) => api.post<AssetRelinkResult>('/admin/assets/relink/', { map, publish }),
-		unused: () => api.get<{ status: 'success'; items: AssetUnused[]; totals: { assets: number; files: number; bytes: number } }>('/admin/assets/unused/'),
-		/** deletes these unused files; the server checks every path against a fresh usage index first */
-		cleanup: (paths: string[]) => api.post<AssetCleanupResult>('/admin/assets/cleanup/', { paths }),
+		/** `q, folder, kind, what (asset | files), tiles (all | hide | only), sort, page, page_size`; `fresh: 1` rebuilds the
+		 * usage index first, `all: 1` = every matching row with all its files (the bulk delete) */
+		unused: (params: ListParams = {}) => api.get<AssetUnusedList>(`/admin/assets/unused/${toQuery(params)}`),
+		/** deletes these unused files; the server checks every path against the usage index (rebuilt first unless
+		 * `rebuild: false` – a bulk delete's later batches) */
+		cleanup: (paths: string[], rebuild = true) => api.post<AssetCleanupResult>('/admin/assets/cleanup/', rebuild ? { paths } : { paths, rebuild: false }),
 		deleteCheck: (id: string) => api.get<AssetDeleteCheck>(`/admin/assets/${enc(id)}/delete-check/`),
 		remove: (id: string, force = false) => api.delete<{ status: 'success'; deleted: string[] }>(`/admin/assets/${enc(id)}/${toQuery({ force: force ? 1 : undefined })}`),
 		enqueue: (id: string, kind: string, params: Record<string, unknown> = {}) => api.post<{ status: 'success'; job: AssetJob }>(`/admin/assets/${enc(id)}/jobs/`, { kind, params }),

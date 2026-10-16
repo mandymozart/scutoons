@@ -3,10 +3,11 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import AssetDetail from './asset-detail.svelte';
+	import UnusedTab from './unused-tab.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, DataTable, Icon, Pager, SearchField, Section, Sheet, Skeleton, Tabs, confirmDialog, listHref, listParams, readList, type Column } from '@scutoons/ui';
-	import { ASSET_KINDS, type AssetKind, type AssetList, type AssetMissing, type AssetStorageStatus, type AssetSummary, type AssetUnused } from '@scutoons/api';
+	import { ASSET_KINDS, type AssetKind, type AssetList, type AssetMissing, type AssetStorageStatus, type AssetSummary, type AssetUnusedList } from '@scutoons/api';
 	import { assets } from '$lib/api.ts';
 	import { bytes, errorText, number } from '$lib/format.ts';
 	import { auditAssets, fixFindings, ModelThumb, standardImage, type FixReport, type StandardFinding } from '@scutoons/media';
@@ -18,9 +19,10 @@
 	 * The asset manager (agents/ASSETS.md): the media registry over the CDN storage – a library of every asset (current
 	 * version, renditions, uses), references to missing files, unused files, and the storage (drivers, bunny.net
 	 * settings status, bandwidth, optimization jobs). The asset's detail (replace, rename, relink, optimize, delete with
-	 * the usage check) opens in a sheet. URL-driven like the other lists.
+	 * the usage check) opens in a sheet. URL-driven like the other lists. Map tiles (thousands, research/ASSET-LISTS.md)
+	 * are hidden in the library unless `tiles=only|all`; Unused shows a tile set as one row (unused-tab.svelte).
 	 */
-	const FILTERS = ['folder', 'kind', 'state', 'view', 'asset'];
+	const FILTERS = ['folder', 'kind', 'state', 'view', 'asset', 'what', 'tiles'];
 	const query = $derived(readList(page.url, { pageSize: 60, sort: 'slug', filters: FILTERS }));
 	const view = $derived(query.filters.view ?? 'library');
 
@@ -28,9 +30,7 @@
 	let error = $state<string | null>(null);
 	let loading = $state(false);
 	let missing = $state<AssetMissing[] | null>(null);
-	let unused = $state<AssetUnused[] | null>(null);
-	let unusedTotals = $state<{ assets: number; files: number; bytes: number } | null>(null);
-	let selected = $state<string[]>([]);
+	let unused = $state<AssetUnusedList | null>(null);
 	let storage = $state<AssetStorageStatus | null>(null);
 	/** the optimisation tool (BACKLOG 10.64): the referenced files off the media standard, converting the chosen ones */
 	let standard = $state<StandardFinding[] | null>(null);
@@ -48,6 +48,7 @@
 		const params = listParams(query);
 		delete params.view;
 		delete params.asset;
+		delete params.what;
 		loading = true;
 		error = null;
 		assets
@@ -59,11 +60,6 @@
 	$effect(() => {
 		void reload;
 		if (view === 'missing') assets.missing().then((r) => (missing = r.items)).catch((e) => (error = errorText(e)));
-		if (view === 'unused')
-			assets
-				.unused()
-				.then((r) => ((unused = r.items), (unusedTotals = r.totals), (selected = selected.filter((id) => r.items.some((i) => i.id === id)))))
-				.catch((e) => (error = errorText(e)));
 		if (view === 'storage') assets.storage().then((r) => (storage = r)).catch((e) => (error = errorText(e)));
 		if (view === 'standard') loadStandard().catch((e) => (error = errorText(e)));
 	});
@@ -170,12 +166,6 @@
 		{ id: 'path', label: m['assets.col_path']() },
 		{ id: 'refs', label: m['assets.col_used_by']() }
 	]);
-	const unusedColumns = $derived<Column[]>([
-		{ id: 'slug', label: m['assets.col_asset']() },
-		{ id: 'kind', label: m['assets.col_kind']() },
-		{ id: 'files', label: m['assets.col_what']() },
-		{ id: 'size', label: m['assets.col_size'](), align: 'end' }
-	]);
 	const standardColumns = $derived<Column[]>([
 		{ id: 'path', label: m['assets.col_path']() },
 		{ id: 'advice', label: m['assets.col_off_standard']() },
@@ -190,43 +180,6 @@
 		{ id: 'result', label: m['assets.col_result']() },
 		{ id: 'size', label: m['assets.col_size'](), align: 'end' }
 	]);
-	const whatLabel = (w: string) => (m as unknown as Record<string, () => string>)[`assets.what_${w}`]?.() ?? w;
-	const chosen = $derived((unused ?? []).filter((i) => selected.includes(i.id)));
-	const chosenFiles = $derived(chosen.reduce((n, i) => n + i.files.length, 0));
-	const chosenBytes = $derived(chosen.reduce((n, i) => n + i.size, 0));
-
-	/** deletes every listed file of the selected assets; the server re-checks each path against a fresh usage index */
-	async function cleanup() {
-		const items = chosen;
-		const files = items.flatMap((i) => i.files.map((f) => f.path));
-		if (!files.length) return;
-		const ok = await confirmDialog({
-			title: m['assets.cleanup_title']({ files: number(files.length) }),
-			message: m['assets.cleanup_message']({ size: bytes(chosenBytes) }),
-			confirmLabel: m['assets.cleanup_confirm']()
-		});
-		if (!ok) return;
-		busy = 'cleanup';
-		error = null;
-		notice = '';
-		try {
-			const r = await assets.cleanup(files);
-			const failed = Object.entries(r.failed);
-			notice = [
-				m['assets.cleanup_done']({ files: number(r.deleted.length), size: bytes(r.bytes), assets: number(r.assets_deleted) }),
-				r.skipped.length ? m['assets.cleanup_skipped']({ count: number(r.skipped.length) }) : ''
-			]
-				.filter(Boolean)
-				.join(' ');
-			if (failed.length) error = m['assets.cleanup_failed']({ count: number(failed.length), first: `${failed[0][0]}: ${failed[0][1]}` });
-			selected = [];
-			reload++;
-		} catch (e) {
-			error = errorText(e);
-		} finally {
-			busy = '';
-		}
-	}
 	const settingColumns = $derived<Column[]>([
 		{ id: 'name', label: m['assets.col_setting']() },
 		{ id: 'status', label: m['assets.col_status']() },
@@ -253,13 +206,7 @@
 				{#each list?.folders ?? [] as f (f.folder ?? '')}<option value={f.folder ?? ''}>{f.folder ?? '/'} ({f.assets})</option>{/each}
 			</select>
 		</label>
-		<label class="bar-filter">
-			<span>{m['assets.kind']()}</span>
-			<select value={query.filters.kind ?? ''} onchange={(e) => nav({ kind: e.currentTarget.value, page: null })} data-testid="assets-kind">
-				<option value="">{m['common.all']()}</option>
-				{#each ASSET_KINDS as k (k)}<option value={k}>{kindLabel(k)}</option>{/each}
-			</select>
-		</label>
+		{@render kindFilter()}
 		<label class="bar-filter">
 			<span>{m['assets.state']()}</span>
 			<select value={query.filters.state ?? ''} onchange={(e) => nav({ state: e.currentTarget.value, page: null })}>
@@ -271,7 +218,32 @@
 		{#if list}
 			<Pager compact page={list.pagination.page} pageSize={list.pagination.pageSize} total={list.pagination.total} href={(p) => href({ page: p })} labels={pagerLabels()} />
 		{/if}
+	{:else if view === 'unused'}
+		<SearchField compact label={m['assets.search']()} placeholder={m['assets.col_path']()} value={query.q} onsearch={(q) => nav({ q })} />
+		{@render kindFilter()}
+		<label class="bar-filter">
+			<span>{m['assets.col_what']()}</span>
+			<select value={query.filters.what ?? ''} onchange={(e) => nav({ what: e.currentTarget.value, page: null })} data-testid="assets-unused-what">
+				<option value="">{m['common.all']()}</option>
+				<option value="asset">{m['assets.what_asset']()}</option>
+				<option value="files">{m['assets.what_leftovers']()}</option>
+			</select>
+		</label>
+		{#if unused}
+			<Pager compact page={unused.pagination.page} pageSize={unused.pagination.pageSize} total={unused.pagination.total} href={(p) => href({ page: p })} labels={pagerLabels()} />
+		{/if}
 	{/if}
+{/snippet}
+<!-- the kind, with map tiles as a kind of image of their own (owner 2026-10-16) = `tiles=only`; without it the library
+     hides them and Unused shows each tile set as one row -->
+{#snippet kindFilter()}
+	<label class="bar-filter">
+		<span>{m['assets.kind']()}</span>
+		<select value={query.filters.tiles === 'only' ? 'tiles' : (query.filters.kind ?? '')} onchange={(e) => (e.currentTarget.value === 'tiles' ? nav({ kind: null, tiles: 'only', page: null }) : nav({ kind: e.currentTarget.value, tiles: null, page: null }))} data-testid="assets-kind">
+			<option value="">{m['common.all']()}</option>
+			{#each ASSET_KINDS as k (k)}<option value={k}>{kindLabel(k)}</option>{#if k === 'image'}<option value="tiles">{m['assets.tiles']()}</option>{/if}{/each}
+		</select>
+	</label>
 {/snippet}
 {#snippet barPrimary()}
 	<Button size="sm" variant="secondary" disabled={busy === 'scan'} onclick={rescan} title={m['assets.rescan_hint']()} data-testid="assets-rescan">{busy === 'scan' ? '…' : m['assets.rescan']()}</Button>
@@ -289,9 +261,10 @@
 		{#if active === 'library'}
 			{#if !list}
 				<Skeleton variant="table" columns={4} label={m['shell.loading']()} />
-			{:else if !list.items.length}
+			{:else if !list.items.length && !list.tiles_hidden}
 				<p class="sc-empty">{m['assets.empty']()}</p>
 			{:else}
+				{#if list.tiles_hidden}<p class="sc-caption" data-testid="assets-tiles-hidden">{m['assets.tiles_hidden']({ count: number(list.tiles_hidden) })} · <a href={href({ tiles: 'only' })}>{m['assets.tiles_show']()}</a></p>{/if}
 				<ul class="grid" aria-busy={loading} data-testid="assets-grid">
 					{#each list.items as a (a.id)}
 						{@const src = thumb(a)}
@@ -325,25 +298,7 @@
 				</DataTable>
 			{/if}
 		{:else if active === 'unused'}
-			<p class="sc-caption">{m['assets.unused_hint']()}</p>
-			{#if !unused}
-				<Skeleton variant="table" columns={4} label={m['shell.loading']()} />
-			{:else}
-				{#if unusedTotals && unusedTotals.files}<p data-testid="assets-unused-totals">{m['assets.unused_totals']({ assets: number(unusedTotals.assets), files: number(unusedTotals.files), size: bytes(unusedTotals.bytes) })}</p>{/if}
-				<DataTable columns={unusedColumns} rows={unused} rowKey={(r) => r.id} selectable bind:selected labels={tableLabels()}>
-					{#snippet bulk()}
-						<Button size="sm" disabled={busy === 'cleanup'} onclick={cleanup} data-testid="assets-cleanup">{busy === 'cleanup' ? '…' : m['assets.cleanup_delete']({ files: number(chosenFiles), size: bytes(chosenBytes) })}</Button>
-					{/snippet}
-					{#snippet cell(r, column)}
-						{#if column.id === 'slug'}<a href={href({ asset: r.id })}>{r.slug}</a>
-						{:else if column.id === 'kind'}{kindLabel(r.kind)}
-						{:else if column.id === 'files'}
-							{#if r.all_unused}<Badge tone="warning">{whatLabel('asset')}</Badge>{/if}
-							{#each r.files as f (f.path)}<span class="ref" title={f.path}>{f.path.split('/').pop()}{#if !r.all_unused || f.what !== 'current'} <Badge tone="neutral">{whatLabel(f.what)}</Badge>{/if}</span>{/each}
-						{:else}{bytes(r.size)}{/if}
-					{/snippet}
-				</DataTable>
-			{/if}
+			<UnusedTab {query} {reload} bind:result={unused} />
 		{:else if active === 'standard'}
 			<p class="sc-caption">{m['assets.standard_hint']()}</p>
 			{#if report}

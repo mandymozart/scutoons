@@ -33,6 +33,21 @@ final class AssetPaths
     public const PUBLIC_BASES = ['https://cdn.scutoons.com/', 'https://scutoons.b-cdn.net/'];
     /** the extensions content may reference as media (usage scanner) */
     public const MEDIA_EXTENSION = '/\.(jpe?g|png|webp|gif|svg|avif|mp4|webm|mov|m4v|mp3|m4a|aac|ogg|oga|wav|flac|zip|pdf|mscz|glb)$/i';
+    /**
+     * Map tiles (agents/MAP.md §8.9, research/ASSET-LISTS.md): a file `<set>/<z>/<x>_<y>.<ext>` below a `/map/` folder –
+     * `catpope/map/terrain/painted/v2/-1/0_0.webp` belongs to the tile set `catpope/map/terrain/painted/v2`. Thousands
+     * of them, never picked one by one: the lists hide them by default, Unused shows a set as one row. TILE_SQL is the
+     * same test on `assets.slug` (MariaDB REGEXP) – keep both in step (AssetsTest).
+     */
+    public const TILE = '#^(.+/map/.+)/-?\d+/\d+_\d+$#';
+    public const TILE_SQL = '/map/.+/-?[0-9]+/[0-9]+_[0-9]+$';
+
+    /** the tile set a slug or path belongs to (`catpope/map/terrain/painted/v2`), null when it is no map tile */
+    public static function tileSet(string $slugOrPath): ?string
+    {
+        $slug = (string) preg_replace('/\.[a-z0-9]+$/i', '', $slugOrPath);
+        return preg_match(self::TILE, $slug, $m) ? $m[1] : null;
+    }
 
     public static function extension(string $key): string
     {

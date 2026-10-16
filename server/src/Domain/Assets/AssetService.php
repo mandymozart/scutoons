@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Assets;
 
 use RuntimeException;
+use Scutoons\Domain\Admin\ListQuery;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogStore;
@@ -260,14 +261,19 @@ final class AssetService
     }
 
     /**
-     * The cleanup list (admin → Assets → Unused): AssetUsages::unusedFiles on a freshly rebuilt usage index, the sizes of
-     * the archived copies from the storage
+     * The cleanup list (admin → Assets → Unused): AssetUsages::unusedFiles as a server-side list (UnusedList – a map
+     * tile set is one row; filters, sort, a page), the sizes of the archived copies from the storage. `fresh=1`
+     * rebuilds the usage index first (the tab's first load; paging / filtering reads the index as it is – every
+     * creator save keeps it current). `all=1`: every matching row with all its files, no page (the bulk delete).
+     * `totals` = everything unused, `matching` = what the filters find.
+     * @param array<mixed> $query
      * @return array<string, mixed>
      */
-    public function unused(): array
+    public function unused(array $query = []): array
     {
         $this->registry->requireAvailable();
-        $this->usages->rebuild();
+        $list = ListQuery::from($query, UnusedList::SORTS, 'slug', UnusedList::FILTERS, 50, 500);
+        if (($query['fresh'] ?? '') === '1') $this->usages->rebuild();
         $items = $this->usages->unusedFiles();
         $storage = $this->storage();
         foreach ($items as &$item) {
@@ -283,8 +289,12 @@ final class AssetService
             unset($file);
         }
         unset($item);
-        $files = array_merge(...array_map(fn(array $i) => $i['files'], $items ?: [['files' => []]]));
-        return ['status' => 'success', 'items' => $items, 'totals' => ['assets' => count($items), 'files' => count($files), 'bytes' => array_sum(array_column($items, 'size'))]];
+        $rows = UnusedList::rows($items);
+        $matching = UnusedList::filter($rows, $list);
+        $all = ($query['all'] ?? '') === '1';
+        $page = $all ? $matching : array_map([UnusedList::class, 'preview'], array_slice($matching, $list->offset(), $list->pageSize));
+        $result = $all ? ['items' => $matching, 'pagination' => ['total' => count($matching), 'page' => 1, 'pageSize' => max(1, count($matching))]] : $list->result($page, count($matching));
+        return ['status' => 'success'] + $result + ['totals' => UnusedList::totals($rows), 'matching' => UnusedList::totals($matching)];
     }
 
     /**
@@ -292,15 +302,16 @@ final class AssetService
      * against it again: a path that is referenced (or not a cleanup candidate) by now is skipped, never deleted. An asset
      * whose every current file is listed AND unused goes as a whole (`delete`, history included); otherwise single
      * files: an unused rendition, an archived version's leftover, an archived copy under .versions/. Storage errors are
-     * reported per file, the rest continues.
+     * reported per file, the rest continues. A bulk delete sends its files in batches (research/ASSET-LISTS.md): the
+     * first batch rebuilds the index (`$rebuild`), the next ones check against it as it is (creator saves keep it current).
      * @param array<string, mixed> $user
      * @param list<string> $paths
      * @return array<string, mixed>
      */
-    public function cleanup(array $user, array $paths): array
+    public function cleanup(array $user, array $paths, bool $rebuild = true): array
     {
         $this->registry->requireAvailable();
-        $this->usages->rebuild();
+        if ($rebuild) $this->usages->rebuild();
         $candidates = [];
         $groups = [];
         foreach ($this->usages->unusedFiles() as $item) {

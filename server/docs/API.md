@@ -831,7 +831,7 @@ zone). Content editors (creator, admin):
 
 | Method | Path | |
 |---|---|---|
-| GET | `/assets?q=&folder=&kind=&tag=&state=used\|unused&page=&page_size=&sort=` | `{ items: [asset summary], pagination, folders, cdn }` – current versions with their renditions and use counts; `folder` = a top-level folder, or with a `/` a path prefix (`characters/catpope` = the character and its persona folders) |
+| GET | `/assets?q=&folder=&kind=&tag=&state=used\|unused&res=&files=&tiles=hide\|only\|all&page=&page_size=&sort=` | `{ items: [asset summary], pagination, folders, cdn, tiles_hidden }` – current versions with their renditions and use counts; `folder` = a top-level folder, or with a `/` a path prefix (`characters/catpope` = the character and its persona folders); map tiles (`<set>/<z>/<x>_<y>` below a `/map/` folder) are hidden unless `tiles=only\|all`, `tiles_hidden` counts them |
 | GET | `/assets/lookup?path=` | `{ asset: detail \| null, rendition }` – the asset a CDN path belongs to |
 | GET / PUT | `/assets/{id}` | detail `{ asset, versions: [{ …, renditions }], usages, jobs }` · PUT `{ title?, tags? }` |
 | PUT | `/assets/upload?path=&title=&tags=` | raw body = the file → 201 detail + `uploaded`; 409 `exists`, 422 `invalid_path` / `invalid_type` / `content_mismatch` / `unsafe_svg` / `empty_file`, 413 `file_too_large` (`ASSET_UPLOAD_MAX_BYTES`) |
@@ -841,9 +841,12 @@ Admin (`/api/admin/assets/*`): `GET storage[?stats=1]` (drivers, settings status
 bandwidth), `POST scan`, `POST relink { from, to, publish? }` (or `{ map: { old: new, … }, publish? }` – several files in one pass, one new draft per touched document; nothing written when a target is missing), `PUT {id}/file?path=&note=` (raw body: replace in place →
 `replaced, archived_as, purged, stale_renditions`), `POST {id}/rename { slug, publish? }`, `GET {id}/delete-check`,
 `DELETE {id}[?force=1]` (409 `in_use` + `usages` while referenced; `force` only when drafts are the only uses),
-`POST {id}/jobs { kind, params }`, `GET jobs`, `GET unused` (cleanup list per asset on a freshly rebuilt index:
-`files[{ path, what: current|old|archive, size }]`, `all_unused`, `totals`), `POST cleanup { paths }` (re-checks every path
-against a fresh index; referenced ones are `skipped`, never deleted; an asset with every current file listed goes as a
+`POST {id}/jobs { kind, params }`, `GET jobs`, `GET unused?q=&folder=&kind=&what=asset|files&tiles=all|hide|only&sort=slug|size|files&page=&page_size=[&fresh=1][&all=1]`
+(the cleanup list, paged: one row per asset, a map tile set as ONE row `id: tiles:<set>, tiles: n`; `files[{ path, what:
+current|old|archive, size }]` – a page carries the first 12, `file_count` all, `all=1` every matching row with every file;
+`all_unused`, `assets`, `totals` (everything) + `matching` (the filters); `fresh=1` rebuilds the usage index first),
+`POST cleanup { paths, rebuild? }` (re-checks every path against the index – rebuilt first unless `rebuild: false`, a bulk
+delete's later batches; referenced ones are `skipped`, never deleted; an asset with every current file listed goes as a
 whole → `deleted, assets_deleted, bytes, skipped, failed`). Without the migration: 503 `not_available`. A creator save / publish /
 restore re-indexes the entity's uses.
 

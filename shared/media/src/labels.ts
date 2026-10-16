@@ -34,6 +34,8 @@ export interface MediaLabels {
 	allKinds: string;
 	kinds: Record<AssetKind, string>;
 	unusedOnly: string;
+	/** map tiles: hidden unless chosen as the kind (research/ASSET-LISTS.md) */
+	tiles: string;
 	/** the resolution filter: assets with a file at that level (480p … 2x, 3x) */
 	resolution: string;
 	allResolutions: string;
@@ -108,6 +110,7 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		allKinds: 'Alle Arten',
 		kinds: { image: 'Bilder', video: 'Videos', audio: 'Audio', archive: 'Archive (zip)', document: 'Dokumente', model: '3D-Modelle (glb)', other: 'Andere' },
 		unusedOnly: 'Nur unbenutzte',
+		tiles: 'Kartenkacheln',
 		resolution: 'Auflösung',
 		allResolutions: 'Alle Auflösungen',
 		filters: 'Filter',
@@ -173,6 +176,7 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		allKinds: 'All kinds',
 		kinds: { image: 'Images', video: 'Videos', audio: 'Audio', archive: 'Archives (zip)', document: 'Documents', model: '3D models (glb)', other: 'Other' },
 		unusedOnly: 'Unused only',
+		tiles: 'Map tiles',
 		resolution: 'Resolution',
 		allResolutions: 'All resolutions',
 		filters: 'Filters',

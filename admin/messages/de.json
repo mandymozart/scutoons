@@ -112,7 +112,9 @@
 		"previous": "Zurück",
 		"next": "Weiter",
 		"range": "{from}–{to} von {total}",
-		"per_page": "Pro Seite"
+		"per_page": "Pro Seite",
+		"select_matching": "Alle {count} wählen",
+		"all_matching_selected": "Alle {count} gewählt"
 	},
 	"dashboard": {
 		"title": "Dashboard",
@@ -769,6 +771,7 @@
 		"kind_audio": "Audio",
 		"kind_archive": "Archive",
 		"kind_document": "Dokumente",
+		"kind_model": "3D-Modelle",
 		"kind_other": "Andere",
 		"empty": "Keine Assets – „Neu einlesen“ registriert die Dateien im Speicher.",
 		"uses": "{count}× benutzt",
@@ -872,7 +875,20 @@
 		"term_rendition": "Datei (Variante)",
 		"term_rendition_text": "Eine Datei einer Fassung: das Original, eine Qualitätsstufe (480p = niedrig, 720p = mittel, 1080p = hoch), eine Breite, eine WebP-Kopie, ein Standbild.",
 		"term_usage": "Verwendung",
-		"term_usage_text": "Wo Inhalte (veröffentlicht oder der Arbeitsentwurf) oder der Katalog auf eine Datei verweisen."
+		"term_usage_text": "Wo Inhalte (veröffentlicht oder der Arbeitsentwurf) oder der Katalog auf eine Datei verweisen.",
+		"tiles": "Kartenkacheln",
+		"tiles_hidden": "{count} Kartenkacheln ausgeblendet",
+		"tiles_show": "Anzeigen",
+		"tile_set": "{tiles} Kartenkacheln",
+		"tile_set_hint": "Ein Kachelsatz der Karte: die Kacheln einer Ebenen-Version (agents/MAP.md). Diese Version verwendet nichts – sie fällt als Ganzes weg.",
+		"what_leftovers": "Reste verwendeter Assets",
+		"unused_matching": "{rows} Zeilen · {files} Dateien · {size}",
+		"cleanup_running": "Dateien werden gelöscht …",
+		"cleanup_progress": "{done} von {total} Dateien",
+		"cleanup_cancelled": "Angehalten nach {done} von {total} Dateien.",
+		"cleanup_stopped": "Angehalten nach {done} von {total} Dateien: {error}",
+		"cleanup_report": "Bericht",
+		"cleanup_failed_list": "Konnten nicht gelöscht werden:"
 	},
 	"calendar": {
 		"title": "Termine",

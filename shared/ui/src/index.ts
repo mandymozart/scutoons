@@ -32,6 +32,8 @@ export { default as Skeleton } from './skeleton.svelte';
 export { default as Chart, type ChartSeries } from './chart.svelte';
 export { entityLabel, ENTITY_LABELS, type EntityLabels } from './entity-label.ts';
 export { readList, listHref, listParams, type ListState, type ListDefaults } from './list-query.ts';
+export { BulkRun, chunk, type BulkReport, type BulkState } from './bulk-run.svelte.ts';
+export { default as BulkProgress } from './bulk-progress.svelte';
 export { default as ActionBar } from './action-bar.svelte';
 export { default as BarTabs } from './bar-tabs.svelte';
 export { default as PhoneBar, type PhoneBarItem } from './phone-bar.svelte';

@@ -182,6 +182,8 @@ export {
 	type AssetMissing,
 	type AssetOrphan,
 	type AssetUnused,
+	type AssetUnusedList,
+	type AssetUnusedTotals,
 	type AssetCleanupResult,
 	type AssetQuality,
 	type AssetRelinkResult,

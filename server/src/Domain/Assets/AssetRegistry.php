@@ -208,14 +208,18 @@ final class AssetRegistry
     // ── Lists for the UI ──────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * GET /assets?q=&folder=&kind=&tag=&state=used|unused|missing&res=480p|720p|1080p|1440p|2x|3x&files=single|several&page=&page_size=&sort=
+     * GET /assets?q=&folder=&kind=&tag=&state=used|unused|missing&res=480p|720p|1080p|1440p|2x|3x&files=single|several&tiles=hide|only|all&page=&page_size=&sort=
      * One row per asset: its current version's main file (the preview), the renditions, sizes and usage counts.
+     * Map tiles (AssetPaths::TILE – thousands, never picked one by one; owner 2026-10-16) are hidden unless
+     * `tiles=only|all`; `tiles_hidden` = how many the other filters would have found.
      * @param array<mixed> $query
      * @return array<string, mixed>
      */
     public function list(array $query): array
     {
-        $list = ListQuery::from($query, ['slug', 'updated', 'size', 'usages', 'kind'], 'slug', ['folder', 'kind', 'tag', 'state', 'res', 'files'], 60, 500);
+        $list = ListQuery::from($query, ['slug', 'updated', 'size', 'usages', 'kind'], 'slug', ['folder', 'kind', 'tag', 'state', 'res', 'files', 'tiles'], 60, 500);
+        $tiles = $list->filter('tiles') ?? 'hide';
+        if (!in_array($tiles, ['hide', 'only', 'all'], true)) throw new ApiError(400, 'invalid_tiles', 'tiles is hide | only | all.');
         $where = ["a.status = 'active'"];
         $params = [];
         if ($list->q !== '') {
@@ -273,8 +277,16 @@ final class AssetRegistry
         elseif ($state === 'unused') $where[] = "$usageCount = 0";
         elseif ($state !== null) throw new ApiError(400, 'invalid_state', 'state is used | unused (missing files: GET /assets/missing).');
 
+        // one count for both: the matches and how many of them are map tiles
+        $from = "FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current' WHERE " . implode(' AND ', $where);
+        $counts = $this->db->one("SELECT COUNT(*) AS n, COALESCE(SUM(a.slug REGEXP ?), 0) AS tiles $from", [AssetPaths::TILE_SQL, ...$params]) ?? [];
+        $tileCount = (int) ($counts['tiles'] ?? 0);
+        $total = match ($tiles) { 'hide' => (int) ($counts['n'] ?? 0) - $tileCount, 'only' => $tileCount, default => (int) ($counts['n'] ?? 0) };
+        if ($tiles !== 'all') {
+            $where[] = $tiles === 'only' ? 'a.slug REGEXP ?' : 'a.slug NOT REGEXP ?';
+            $params[] = AssetPaths::TILE_SQL;
+        }
         $sql = "FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current' WHERE " . implode(' AND ', $where);
-        $total = (int) $this->db->value("SELECT COUNT(*) $sql", $params);
         $order = match ($list->sortField) {
             'updated' => $list->orderBy('a.updated_at', 'a.slug'),
             'size' => $list->orderBy('total_size', 'a.slug'),
@@ -288,7 +300,7 @@ final class AssetRegistry
             $sql $order LIMIT {$list->pageSize} OFFSET {$list->offset()}", $params);
         $renditions = $this->renditionsOf(array_map(fn(array $r) => (int) $r['version_id'], $rows));
         $items = array_map(fn(array $r) => $this->summary($r, $renditions[(int) $r['version_id']] ?? []), $rows);
-        return ['status' => 'success'] + $list->result($items, $total) + ['folders' => $this->folders()];
+        return ['status' => 'success'] + $list->result($items, $total) + ['folders' => $this->folders($tiles), 'tiles_hidden' => $tiles === 'hide' ? $tileCount : 0];
     }
 
     /**
@@ -309,11 +321,12 @@ final class AssetRegistry
         return $all + ['kinds' => $kinds];
     }
 
-    /** @return list<array{folder: ?string, assets: int}> */
-    public function folders(): array
+    /** @return list<array{folder: ?string, assets: int}> the folders' asset counts (map tiles as the list shows them: hide | only | all) */
+    public function folders(string $tiles = 'all'): array
     {
+        $where = match ($tiles) { 'hide' => ' AND slug NOT REGEXP ?', 'only' => ' AND slug REGEXP ?', default => '' };
         return array_map(fn(array $r) => ['folder' => $r['folder'], 'assets' => (int) $r['n']],
-            $this->db->all("SELECT folder, COUNT(*) AS n FROM assets WHERE status = 'active' GROUP BY folder ORDER BY folder"));
+            $this->db->all("SELECT folder, COUNT(*) AS n FROM assets WHERE status = 'active'$where GROUP BY folder ORDER BY folder", $where !== '' ? [AssetPaths::TILE_SQL] : []));
     }
 
     /**

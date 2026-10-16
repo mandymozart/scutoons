@@ -76,6 +76,8 @@
 	let folder = $state('');
 	let kindFilter = $state<AssetPickerKind>('');
 	let unusedOnly = $state(false);
+	/** map tiles (thousands, research/ASSET-LISTS.md): the server hides them unless asked for */
+	let tilesOnly = $state(false);
 	/** a file at this resolution ('' = any; the server's `res`: 480p / 720p / 1080p by label or short side, 2x / 3x) */
 	let resolution = $state('');
 	/** '' | single (the original only) | several (with its versions) */
@@ -124,7 +126,7 @@
 	// for "human" found nothing under "catpope" – the toon folder, character images all live under characters/)
 	const home = $derived(toon || (/^characters\/[^/]+\/$/.test(place) ? place.slice(0, -1) : ''));
 	/** a filter narrower than the field's own (the folder / kind it opened on): the filter icon shows a dot */
-	const filtered = $derived(folder !== home || kindFilter !== kind || !!resolution || !!files || unusedOnly);
+	const filtered = $derived(folder !== home || kindFilter !== kind || !!resolution || !!files || unusedOnly || tilesOnly);
 
 	// every time it opens: the home folder, the field's kind, the current file preselected
 	$effect(() => {
@@ -133,6 +135,7 @@
 		kindFilter = kind;
 		query = '';
 		unusedOnly = false;
+		tilesOnly = false;
 		resolution = '';
 		files = '';
 		chosen = null;
@@ -155,6 +158,7 @@
 				state: unusedOnly ? 'unused' : undefined,
 				res: resolution || undefined,
 				files: files || undefined,
+				tiles: tilesOnly ? 'only' : undefined,
 				page: next,
 				page_size: 60,
 				sort: 'slug'
@@ -506,9 +510,10 @@
 						{#if home && !folders.some((f) => (f.folder ?? '') === home)}<option value={home}>{home}</option>{/if}
 						{#each folders as f (f.folder ?? '')}<option value={f.folder ?? ''} selected={(f.folder ?? '') === folder}>{f.folder ?? '/'} ({f.assets})</option>{/each}
 					</select>
-					<select value={kindFilter} onchange={(e) => { kindFilter = e.currentTarget.value as AssetPickerKind; load(1); }} aria-label={t.kind} data-testid="asset-kind">
+					<!-- map tiles: a kind of image of their own (hidden otherwise – owner 2026-10-16) -->
+					<select value={tilesOnly ? 'tiles' : kindFilter} onchange={(e) => { const v = e.currentTarget.value; tilesOnly = v === 'tiles'; kindFilter = tilesOnly ? 'image' : (v as AssetPickerKind); load(1); }} aria-label={t.kind} data-testid="asset-kind">
 						<option value="">{t.allKinds}</option>
-						{#each ASSET_KINDS as k (k)}<option value={k} selected={k === kindFilter}>{t.kinds[k]}</option>{/each}
+						{#each ASSET_KINDS as k (k)}<option value={k} selected={!tilesOnly && k === kindFilter}>{t.kinds[k]}</option>{#if k === 'image'}<option value="tiles" selected={tilesOnly}>{t.tiles}</option>{/if}{/each}
 					</select>
 					<select value={resolution} onchange={(e) => { resolution = e.currentTarget.value; load(1); }} aria-label={t.resolution} data-testid="asset-resolution">
 						<option value="">{t.allResolutions}</option>

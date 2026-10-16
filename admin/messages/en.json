@@ -112,7 +112,9 @@
 		"previous": "Previous",
 		"next": "Next",
 		"range": "{from}–{to} of {total}",
-		"per_page": "Per page"
+		"per_page": "Per page",
+		"select_matching": "Select all {count}",
+		"all_matching_selected": "All {count} selected"
 	},
 	"dashboard": {
 		"title": "Dashboard",
@@ -769,6 +771,7 @@
 		"kind_audio": "Audio",
 		"kind_archive": "Archives",
 		"kind_document": "Documents",
+		"kind_model": "3D models",
 		"kind_other": "Other",
 		"empty": "No assets – run \"Rescan\" to register the files of the storage.",
 		"uses": "{count}× used",
@@ -872,7 +875,20 @@
 		"term_rendition": "File (rendition)",
 		"term_rendition_text": "One file of a version: the original, a quality level (480p = low, 720p = medium, 1080p = high), a width, a WebP copy, a poster.",
 		"term_usage": "Use",
-		"term_usage_text": "Where content (published or the working draft) or the catalog references a file."
+		"term_usage_text": "Where content (published or the working draft) or the catalog references a file.",
+		"tiles": "Map tiles",
+		"tiles_hidden": "{count} map tiles hidden",
+		"tiles_show": "Show them",
+		"tile_set": "{tiles} map tiles",
+		"tile_set_hint": "A map tile set: the tiles of one layer version (agents/MAP.md). Nothing uses this version – it goes as a whole.",
+		"what_leftovers": "leftovers of used assets",
+		"unused_matching": "{rows} rows · {files} files · {size}",
+		"cleanup_running": "Deleting files …",
+		"cleanup_progress": "{done} of {total} files",
+		"cleanup_cancelled": "Stopped after {done} of {total} files.",
+		"cleanup_stopped": "Stopped after {done} of {total} files: {error}",
+		"cleanup_report": "Report",
+		"cleanup_failed_list": "Could not be deleted:"
 	},
 	"calendar": {
 		"title": "Events",

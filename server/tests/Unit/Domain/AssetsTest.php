@@ -13,6 +13,7 @@ use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetService;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Assets\MediaProbe;
+use Scutoons\Domain\Assets\UnusedList;
 use Scutoons\Domain\Catalog\CatalogAdmin;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityKey;
@@ -311,6 +312,109 @@ final class AssetsTest extends TestCase
         $gone = array_diff(array_keys($trailerFiles), ['catpope/videos/s1-trailer-loop.1280w.mp4'], [$replaced['archived_as']]);
         self::assertSame([], array_values(array_intersect($gone, $kept)), 'deleted renditions leave the registry');
         foreach ($gone as $path) self::assertFileDoesNotExist($this->dir . '/cdn/' . $path);
+    }
+
+    /** two tile sets: v2 the published map's layer, v1 unused – plus an ordinary image under map/ */
+    private function tiles(): void
+    {
+        foreach (['v1', 'v2'] as $v) {
+            foreach (['-1/0_0', '0/0_0', '1/0_0', '1/0_1', '1/1_0'] as $tile) $this->put("catpope/map/terrain/painted/$v/$tile.webp", self::WEBP . "$v$tile");
+            $this->put("catpope/map/terrain/painted/$v/world.webp", self::WEBP . "$v world");
+        }
+        $this->put('catpope/map/places/kloster.webp', self::WEBP . 'kloster');
+        $this->entity('map', ['layers' => [['id' => 'painted', 'image' => 'catpope/map/terrain/painted/v2/world.webp', 'tiles' => ['path' => 'catpope/map/terrain/painted/v2', 'levels' => 1, 'minLevel' => -1]]]]);
+    }
+
+    public function testMapTilesAreTheirOwnKindOfImage(): void
+    {
+        self::assertSame('catpope/map/terrain/painted/v2', AssetPaths::tileSet('catpope/map/terrain/painted/v2/-1/0_0.webp'));
+        self::assertSame('catpope/map/tiles/painted-2026-10-12-plaster', AssetPaths::tileSet('catpope/map/tiles/painted-2026-10-12-plaster/1/0_5'));
+        self::assertNull(AssetPaths::tileSet('catpope/map/terrain/painted/v2/world.webp'));
+        self::assertNull(AssetPaths::tileSet('catpope/images/1/0_0.webp'), 'only below a map folder');
+        // the SQL test on slugs says the same as the PHP one
+        foreach (['catpope/map/terrain/painted/v2/-1/0_0', 'catpope/map/tiles/x/3/12_7', 'catpope/map/terrain/painted/v2/world', 'catpope/images/1/0_0', 'catpope/map/1/0_0'] as $slug) {
+            self::assertSame(AssetPaths::tileSet($slug) !== null, (bool) $this->db->value('SELECT ? REGEXP ?', [$slug, AssetPaths::TILE_SQL]), $slug);
+        }
+
+        $this->tiles();
+        $this->scan();
+        $registry = $this->get(AssetRegistry::class);
+        $slugs = fn(array $query) => array_column($registry->list($query + ['folder' => 'catpope'])['items'], 'slug');
+        $hidden = $registry->list(['folder' => 'catpope']);
+        self::assertSame(['catpope/map/places/kloster', 'catpope/map/terrain/painted/v1/world', 'catpope/map/terrain/painted/v2/world'], $slugs([]), 'tiles hidden by default');
+        self::assertSame([3, 10], [$hidden['pagination']['total'], $hidden['tiles_hidden']]);
+        self::assertSame(3, array_column($hidden['folders'], 'assets', 'folder')['catpope'], 'the folder counts follow');
+        self::assertCount(10, $slugs(['tiles' => 'only', 'page_size' => 100]));
+        self::assertSame(13, $registry->list(['folder' => 'catpope', 'tiles' => 'all'])['pagination']['total']);
+        self::assertSame(['catpope/map/terrain/painted/v1/-1/0_0'], $slugs(['tiles' => 'only', 'q' => 'v1/-1']));
+
+        // the map layer's `tiles.path` uses every tile of its set
+        $usages = array_column($registry->list(['tiles' => 'only', 'q' => 'painted/v2/1/0_1'])['items'], 'usages');
+        self::assertSame([1], $usages);
+        self::assertSame(['map'], array_column($registry->usagesOf(['catpope/map/terrain/painted/v2/0/0_0.webp']), 'ref'));
+        self::assertSame([], $registry->usagesOf(['catpope/map/terrain/painted/v1/0/0_0.webp']));
+        try {
+            $registry->list(['tiles' => 'some']);
+            self::fail('tiles=some');
+        } catch (ApiError $error) {
+            self::assertSame('invalid_tiles', $error->errorCode);
+        }
+    }
+
+    public function testUnusedIsAServerListWithTileSetsAsOneRow(): void
+    {
+        $this->fixture();
+        $this->tiles();
+        $this->scan();
+        $service = $this->get(AssetService::class);
+        $list = $service->unused(['fresh' => '1', 'page_size' => '100']);
+        $rows = array_column($list['items'], null, 'slug');
+        $set = $rows['catpope/map/terrain/painted/v1'] ?? null;
+        self::assertNotNull($set, 'the unused set is one row');
+        self::assertSame(['tiles:catpope/map/terrain/painted/v1', 5, 5, 5, true], [$set['id'], $set['tiles'], $set['assets'], $set['file_count'], $set['all_unused']]);
+        self::assertArrayNotHasKey('catpope/map/terrain/painted/v2', $rows, 'the published map uses v2');
+        self::assertArrayHasKey('catpope/map/terrain/painted/v1/world', $rows, 'world.webp is an ordinary image');
+        self::assertNull($rows['catpope/map/places/kloster']['tiles']);
+        self::assertSame($list['totals'], $list['matching']);
+        self::assertSame(count($list['items']), $list['totals']['rows']);
+        self::assertSame($list['totals']['assets'], $list['totals']['rows'] + 4, 'the set row stands for 5 assets');
+
+        // filters, sort, page
+        $only = $service->unused(['tiles' => 'only']);
+        self::assertSame(['catpope/map/terrain/painted/v1'], array_column($only['items'], 'slug'));
+        self::assertSame(5, $only['matching']['files']);
+        self::assertNotContains('catpope/map/terrain/painted/v1', array_column($service->unused(['tiles' => 'hide', 'page_size' => '100'])['items'], 'slug'));
+        self::assertSame(['catpope/videos/s1-trailer-loop'], array_column($service->unused(['what' => 'files'])['items'], 'slug'), 'leftovers of a used asset');
+        self::assertSame(['video'], array_values(array_unique(array_column($service->unused(['kind' => 'video', 'page_size' => '100'])['items'], 'kind'))));
+        $bySize = array_column($service->unused(['sort' => '-size', 'page_size' => '100'])['items'], 'size');
+        self::assertSame($bySize, (function () use ($bySize) { rsort($bySize); return $bySize; })());
+        $page = $service->unused(['page' => '2', 'page_size' => '2']);
+        self::assertSame([$list['totals']['rows'], 2, 2], [$page['pagination']['total'], $page['pagination']['page'], count($page['items'])]);
+        self::assertSame(array_slice(array_column($list['items'], 'slug'), 2, 2), array_column($page['items'], 'slug'));
+
+        // a page carries a few files of a big row, `all=1` every file (the bulk delete's list)
+        $this->put('catpope/map/tiles/old/2/0_0.webp', self::WEBP . 'o');
+        for ($i = 0; $i < UnusedList::PREVIEW_FILES + 3; $i++) $this->put("catpope/map/tiles/old/3/{$i}_0.webp", self::WEBP . "o$i");
+        $this->scan();
+        $old = $service->unused(['q' => 'map/tiles/old'])['items'][0];
+        self::assertSame([UnusedList::PREVIEW_FILES, UnusedList::PREVIEW_FILES + 4], [count($old['files']), $old['file_count']]);
+        $all = $service->unused(['q' => 'map/tiles/old', 'all' => '1'])['items'][0];
+        self::assertCount(UnusedList::PREVIEW_FILES + 4, $all['files']);
+
+        // the bulk delete: the set's files in batches, only the first rebuilds the index
+        $admin = $this->user('admin@example.com');
+        $paths = array_column($service->unused(['tiles' => 'only', 'all' => '1'])['items'][0]['files'], 'path');
+        self::assertCount(5, $paths);
+        $first = $service->cleanup($admin, array_slice($paths, 0, 2));
+        $rest = $service->cleanup($admin, array_slice($paths, 2), false);
+        self::assertSame([2, 3, [], []], [$first['assets_deleted'], $rest['assets_deleted'], $first['failed'], $rest['skipped']]);
+        foreach ($paths as $path) self::assertFileDoesNotExist($this->dir . '/cdn/' . $path);
+        self::assertFileExists($this->dir . '/cdn/catpope/map/terrain/painted/v2/1/0_1.webp');
+        self::assertFileExists($this->dir . '/cdn/catpope/map/terrain/painted/v1/world.webp');
+        // a live tile is never deleted, even when asked for by path
+        $live = $service->cleanup($admin, ['catpope/map/terrain/painted/v2/0/0_0.webp'], false);
+        self::assertSame('in_use_or_unknown', $live['skipped'][0]['reason'] ?? null);
+        self::assertFileExists($this->dir . '/cdn/catpope/map/terrain/painted/v2/0/0_0.webp');
     }
 
     public function testCodeReferencesMatchTheCode(): void

@@ -20,7 +20,8 @@ use Throwable;
  *     in the entry's data, state `config` (until 2026-10-04 the catalog files, ref = the file name);
  *   - app code (CODE_REFERENCES – paths the viewer builds itself, e.g. the camera's MobileNet model): source `code`,
  *     state `config`, so they never show as unused and block a delete like the catalog does.
- * A reference is any string with a media extension. Content paths are relative to the document's toon folder (the
+ * A reference is any string with a media extension, and a map layer's `tiles: { path }` (a CDN-root folder, MAP.md
+ * §8.9a): every known tile of that set (AssetPaths::tileSet) is used – the viewer builds the tile URLs itself. Content paths are relative to the document's toon folder (the
  * nearest enclosing `toon` field wins – map locations); a path that only exists from the CDN root (registry, catalog
  * style) resolves there. `asset-requests` (wanted images) are wishes, not usages. Rebuilt by `assets:scan`, refreshed
  * per entity on every creator save / publish.
@@ -45,6 +46,8 @@ final class AssetUsages
 
     /** @var array<string, true>|null */
     private ?array $known = null;
+    /** @var array<string, list<string>>|null the known map tiles per tile set */
+    private ?array $tiles = null;
 
     public function __construct(
         private readonly Database $db,
@@ -66,8 +69,23 @@ final class AssetUsages
     {
         if ($this->known === null) {
             $this->known = array_fill_keys($this->registry->currentPaths(), true);
+            $this->tiles = null;
         }
         return $this->known;
+    }
+
+    /** @return list<string> the known tiles of a tile set (`catpope/map/terrain/painted/v2`) */
+    private function tilesOf(string $set): array
+    {
+        $known = $this->known();
+        if ($this->tiles === null) {
+            $this->tiles = [];
+            foreach (array_keys($known) as $path) {
+                $of = AssetPaths::tileSet((string) $path);
+                if ($of !== null) $this->tiles[$of][] = (string) $path;
+            }
+        }
+        return $this->tiles[$set] ?? [];
     }
 
     /**
@@ -215,6 +233,11 @@ final class AssetUsages
         $out = [];
         $walk = function (mixed $node, string $pointer, string $base) use (&$walk, &$out, $toonContext): void {
             if (is_array($node)) {
+                if (isset($node['tiles']) && is_array($node['tiles']) && is_string($node['tiles']['path'] ?? null)) {
+                    // a map layer's tile pyramid (MapTiles.path, CDN-root): every tile of the set is in use
+                    $set = trim((string) $node['tiles']['path'], '/');
+                    foreach ($this->tilesOf($set) as $tile) $out[] = ['path' => $tile, 'field' => $pointer . '/tiles/path', 'toon' => null, 'raw' => $set];
+                }
                 if ($toonContext && isset($node['toon']) && is_string($node['toon']) && preg_match('/^[a-z0-9_-]{1,64}$/', $node['toon'])) $base = $node['toon'];
                 foreach ($node as $k => $v) $walk($v, $pointer . '/' . strtr((string) $k, ['~' => '~0', '/' => '~1']), $base);
                 return;

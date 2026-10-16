@@ -1,6 +1,7 @@
 import { entityLabel } from '@scutoons/ui';
 import type { EventName } from '@scutoons/api';
 import { m } from '$lib/paraglide/messages.js';
+import { number } from '$lib/format.ts';
 
 const EVENTS: Record<EventName, () => string> = {
 	scan: () => m['events.scan'](),
@@ -34,6 +35,8 @@ export const tableLabels = () => ({
 	selectRow: (key: string) => m['table.select_row']({ key }),
 	selected: (count: number) => m['table.selected']({ count }),
 	clearSelection: m['table.clear_selection'](),
+	selectMatching: (count: number) => m['table.select_matching']({ count: number(count) }),
+	allMatchingSelected: (count: number) => m['table.all_matching_selected']({ count: number(count) }),
 	sortedAscending: m['table.sorted_ascending'](),
 	sortedDescending: m['table.sorted_descending']()
 });

@@ -533,12 +533,13 @@ export function registerContentTools(server: McpServer, config: Config, options:
 				folder: z.string().optional(),
 				kind: z.enum(['image', 'video', 'audio', 'archive', 'document', 'other']).optional(),
 				page: z.number().int().min(1).optional(),
-				page_size: z.number().int().min(1).max(100).optional().describe('default 30')
+				page_size: z.number().int().min(1).max(100).optional().describe('default 30'),
+				tiles: z.enum(['hide', 'only', 'all']).optional().describe('map tiles (<set>/<z>/<x>_<y> below a map/ folder, thousands): hidden by default')
 			}),
 			annotations: read
 		},
-		guard(async ({ q, folder, kind, page, page_size }) => {
-			const r = await assets.list({ q, folder, kind, page, page_size: page_size ?? 30, sort: 'slug' });
+		guard(async ({ q, folder, kind, page, page_size, tiles }) => {
+			const r = await assets.list({ q, folder, kind, page, page_size: page_size ?? 30, sort: 'slug', tiles });
 			return text({
 				total: r.pagination.total,
 				page: r.pagination.page,

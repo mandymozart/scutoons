@@ -991,7 +991,8 @@ in einem gewissen Umkreis an Farbe. Da blenden wir die zwei Ebenen zusammen."
   `php bin/console assets:sync --source-root=../media --prefix=catpope/map/terrain/ --apply --overwrite --hash` (purges
   the CDN per file; browsers may keep an old tile until their cache expires). A new look = a new version (a new draft).
   The first upload's dated folders `catpope/map/painted/terrain-2026-10-12*` / `catpope/map/tiles/painted-2026-10-12*`
-  are unused now (delete only with the owner's go).
+  are unused now (delete only with the owner's go). A layer's `tiles.path` marks every tile of its set as used (the
+  asset index, ASSETS.md "Map tiles"); an unused set is ONE row in admin → Assets → Unused.
 - **Repainting a region in a new look:** `--only x_y --fresh` (without the neighbours' strips – with all eight painted
   neighbours as strips Luma kept the old look), then `--assemble --plaster`. The neighbours are sent to the page one by
   one (one call with eight ~10 MB PNGs hung CDP for hours).

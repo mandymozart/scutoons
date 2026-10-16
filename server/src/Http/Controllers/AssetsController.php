@@ -22,7 +22,7 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  * The asset manager (agents/ASSETS.md "API", docs/API.md "Assets"). Content editors (creator, admin) browse, look up,
  * upload new files and edit titles / tags – the creator's asset picker. Replacing, renaming, relinking, deleting,
  * scanning, jobs and storage status are admin only (admin app → Assets).
- *   GET  /api/assets?q=&folder=&kind=&tag=&state=used|unused&page=&page_size=&sort=   list (current versions)
+ *   GET  /api/assets?q=&folder=&kind=&tag=&state=used|unused&tiles=hide|only|all&page=&page_size=&sort=   list (map tiles hidden by default)
  *   GET  /api/assets/lookup?path=                     the asset a path belongs to (null when unregistered)
  *   GET  /api/assets/{id}                             detail: versions, renditions, usages, jobs
  *   PUT  /api/assets/{id}                             { title?, tags? }
@@ -33,7 +33,8 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  *   POST /api/admin/assets/{id}/rename                 { slug, publish? }
  *   POST /api/admin/assets/relink                      { from, to, publish? } or { map: { old: new … }, publish? }
  *   GET  /api/admin/assets/{id}/delete-check · DELETE /api/admin/assets/{id}?force=1
- *   GET  /api/admin/assets/unused · POST /api/admin/assets/cleanup { paths }   unused files (fresh index) · delete them
+ *   GET  /api/admin/assets/unused?q=&folder=&kind=&what=asset|files&tiles=all|hide|only&sort=&page=&fresh=1&all=1
+ *   POST /api/admin/assets/cleanup { paths, rebuild? }   unused files (a tile set = one row) · delete them (in batches)
  *   POST /api/admin/assets/{id}/jobs                   { kind } → queued job · GET /api/admin/assets/jobs
  *   POST /api/admin/assets/scan                        import the storage + rebuild usages
  *   GET  /api/admin/assets/storage                     drivers, settings status (never secrets), bandwidth
@@ -243,17 +244,19 @@ final class AssetsController
     public function unused(Request $request, Response $response): Response
     {
         $this->admin($request);
-        return Json::response($response, 200, $this->service->unused());
+        return Json::response($response, 200, $this->service->unused($request->getQueryParams()));
     }
 
     public function cleanup(Request $request, Response $response): Response
     {
         $user = $this->admin($request);
-        $paths = JsonBody::of($request)['paths'] ?? null;
+        $body = JsonBody::of($request);
+        $paths = $body['paths'] ?? null;
         if (!is_array($paths) || !$paths || count($paths) > 5000 || array_filter($paths, fn($p) => !is_string($p))) {
             throw new ApiError(422, 'invalid_paths', 'paths must be a non-empty list of CDN paths.');
         }
-        return Json::response($response, 200, $this->service->cleanup($user, array_values($paths)));
+        // a bulk delete's later batches: `rebuild: false` (the first one rebuilt the usage index)
+        return Json::response($response, 200, $this->service->cleanup($user, array_values($paths), ($body['rebuild'] ?? true) !== false));
     }
 
     /** @param array{id: string} $args */
