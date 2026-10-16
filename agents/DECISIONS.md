@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-16 · items · Every item becomes a 3D asset; first the Awakening record (both sides, from the print PDFs) so readers can turn it · "Also let the user turn the record", "We will turn all items into 3d assets" · → ITEMS.md "3D item models", FEATURES 10.102
 - 2026-10-15 · reader · Swiper goes: every horizontal group is our own strip – pinned (moved by the page scroll) or Endless (an inline, screen-high band dragged with momentum, looping without clones; no 3D, no autoplay); planned before building; the home slider and score pages still open · "Ditch Swiper. Give our own strip an endless drag mode (loop + momentum, no 3D effects) for the four ch3–5 groups", "since we only use swiping right and left, we can ditch it altogether" · → research/TEXT-ACROSS-SLICES.md §8, FEATURES 10.100
 - 2026-10-15 · map · The avatar event is named `setAvatarLocation` – RPG Maker's language ("Set Event / Vehicle Location"; "player" is not our word) · "research if there is anything like this in other vn engines and perhaps use the language they do" · → MAP.md §3.1
 - 2026-10-15 · content · Text boxes crossing a slice edge are a tool, not a mistake (no validator warning); long term slices become a background and text boxes stop worrying about them – investigation only, not now · "having text boxes pass is good as a tool", "eventually i want to not have to worry about slices", "not important for right now" · → research/TEXT-ACROSS-SLICES.md, FEATURES 10.100

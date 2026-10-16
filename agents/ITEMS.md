@@ -152,6 +152,21 @@ unlocked places (`walkPath` / `walkPoints`, ≈ 1.2 s a stretch); the place card
   `GET /api/homes`, `POST /api/homes/place`, `POST /api/homes/move-in` { character, home_id, mover? } (the mover:
   50 cucumbers, takes the old home's furniture along), `POST|DELETE /api/homes/visits`, `GET /api/homes/visit/{token}`.
 
+### 3D item models (owner 2026-10-16: "We will turn all items into 3d assets" – FEATURES 10.102)
+
+An item's 3D model is a `.glb` asset next to its icon: `<toon>/items/<item-id>.model.glb` (own slug – a plain
+`<item-id>.glb` would fold into the icon's asset group), extra parts as `<item-id>.<part>.glb`. Real size in metres,
++Y up, the front faces +Z, standing so a turn around Y (the tools' `ModelPreview`) shows the back; one self-contained
+file ≤ ~1–2 MB, JPEG / PNG textures (ASSETS.md "3D models"). No catalog field reads it yet (10.102).
+- **Awakening LP** (`awakening_vinyl`, also right for `awakening_test_press`): `catpope/items/awakening_vinyl.model.glb`
+  (440 KB – Ø 302 mm, 2 mm, labels Ø 100 mm A on +Z / B on −Z, hole Ø 7.24 mm; grooves = a 1D polar normal + roughness
+  map with lead-in, 2 track gaps a side, run-out; `KHR_materials_anisotropy` for the radial sheen) and
+  `catpope/items/awakening_vinyl.sleeve.glb` (1.2 MB – spined sleeve 315 × 312 × 3 mm, front +Z, spine left). Source:
+  Proton Drive `Projects/Cat Pope/Artwork/Vinyl/20260620_CATPOPE-Print/` (`20260427_CATPOPE-PRINT-LabelA.pdf`,
+  `-LabelB.pdf`, `20260620_CATPOPE-Cover.pdf`; sizes from `specs/`). Front = the cover's right half (the title side) –
+  owner to confirm. Built by `tools/vinyl3d/build.py` (pymupdf at 300 dpi → trim box; usage in its header) – the
+  pattern for the next item.
+
 ## Collectables removed – items are the only concept (U, 2026-09-30)
 
 The old VN inventory ("collectables": `<toon>/<locale>/collectables.json`, `Collectable`/`CollectableRef` types, the

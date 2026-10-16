@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.102**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.103**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -80,6 +80,11 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   `decide` Q1–Q4, Q7–Q13. → research/TEXT-ACROSS-SLICES.md §8
 
 ## Items, content
+- [ ] 10.102 **Items get a 3D model (`model`)** – owner 2026-10-16: "let the user turn the record", "We will turn all
+  items into 3d assets". Proposal: an optional `model` (CDN `.glb`) on the ITEM (+ per variant, like `icon`) – the item is
+  what readers own, turn and place (furniture's planned `model`, CAVE.md); the shop reads it via the product's item.
+  Then: admin slot (`FileSlot kind="model"`), usage index, propose `awakening_vinyl.model` = `catpope/items/awakening_vinyl.model.glb`;
+  the record player turns it (A/B). `decide`. → ITEMS.md "3D item models"
 - [ ] 10.38 **[owner] Taking items on production** – set "a story may take it" on the items in admin (e.g. cucumber,
   lsd), and the toptoy ch1 blotter-deal content via the creator (the dev draft 819 isn't on production).
 - [ ] 10.76 **Items: open owner decisions** (ITEMS.md "Where to buy" / "Record player repair") – how the tape / CD
