@@ -4,11 +4,13 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<!-- the boot screen (owner 2026-10-16: "before the app is fully loaded our screen is a dull white"): the page's
-		     skeleton (header, buttons, cover, text, rows), the animated logo and "Patience …" in the middle and a thin line at
-		     the top for the app code loaded so far – until the app draws its first element. Plain CSS here: the app's tokens
-		     aren't loaded yet -->
+		<!-- sc-boot:style (generated from shared/boot by `npm run boot:sync` – edit there) -->
 		<style>
+			/* The boot screen of every app (viewer, creator, admin) – edit HERE, then `npm run boot:sync` writes it into each
+			   app's src/app.html (between the sc-boot markers; `npm run check` fails when an app.html is out of date). Plain CSS:
+			   the app's tokens aren't loaded yet. Owner 2026-10-16: "before the app is fully loaded our screen is a dull white";
+			   a skeleton of the page in the reader ("klassischer Skeleton-Loader, minimal animiert"), the logo and "Patience …"
+			   in the middle, the load progress as a thin line at the very top ("less game, more app"). */
 			#sc-boot {
 				position: fixed;
 				inset: 0;
@@ -18,9 +20,8 @@
 				color: #000;
 				font: 1rem/1.4 'IBM Plex Mono', ui-monospace, monospace;
 			}
-			/* the page's shape while it loads (owner 2026-10-16: "realistisches HTML und minimal CSS … für Logo-Bereich,
-			   Navigation, Header und darunter – klassischer Skeleton-Loader, minimal animiert"): the header with the logo
-			   and the round buttons, the cover, the text, the button, the chapter rows – grey blocks under one soft sweep */
+
+			/* the page's shape (the reader only – boot.js builds it by the address): grey blocks under one soft sweep */
 			#sc-boot .sk {
 				position: absolute;
 				inset: 0;
@@ -47,28 +48,33 @@
 					background-position: -20% 0;
 				}
 			}
+			/* the header: the logo and the round buttons */
 			#sc-boot .sk-head {
 				flex: none;
 				display: flex;
 				align-items: center;
 				gap: 0.5rem;
 				height: 7.5rem;
+				box-sizing: border-box;
 				padding: 0 0.75rem 1.5rem;
 				background: #f4f4f4;
 			}
-			#sc-boot .sk-logo {
+			#sc-boot .sk .sk-logo {
 				width: 2.25rem;
 				height: 4rem;
 				margin-right: auto;
 				border-radius: 0.25rem;
 			}
-			#sc-boot .sk-head .round {
+			#sc-boot .sk .round {
+				flex: none;
 				width: 3.75rem;
 				height: 3.75rem;
+				box-sizing: border-box;
 				border-radius: 50%;
 				border: 2px solid #e2e2e2;
 				background: #fff;
 			}
+			/* the toon page: the cover, the text, the button, the chapter rows */
 			#sc-boot .sk-cover {
 				flex: none;
 				height: min(55vh, 36rem);
@@ -95,18 +101,30 @@
 				gap: 1rem;
 				margin-top: 1.5rem;
 			}
-			#sc-boot .sk-row i:first-child {
+			#sc-boot .sk-row > i {
 				flex: none;
 				width: 7rem;
 				height: 4.5rem;
 			}
-			#sc-boot .sk-row span {
+			#sc-boot .sk-row > span {
 				flex: 1;
 				display: flex;
 				flex-direction: column;
 				gap: 0.5rem;
 			}
-			/* the logo and "Patience …" in the middle, over the page's shape */
+			/* a chapter: the strip of slices, one under the other */
+			#sc-boot .sk-strip {
+				width: min(40rem, 100%);
+				margin: 0 auto;
+				display: flex;
+				flex-direction: column;
+				gap: 0.25rem;
+			}
+			#sc-boot .sk-slice {
+				aspect-ratio: 4 / 5;
+			}
+
+			/* the logo and "Patience …" in the middle */
 			#sc-boot .mid {
 				position: absolute;
 				inset: 0;
@@ -124,7 +142,8 @@
 				padding: 0 0.5rem;
 				background: #fff;
 			}
-			/* the code loaded so far: a thin line at the very top (an app, not a game) */
+
+			/* the app's code loaded so far: a thin line at the very top */
 			#sc-boot .bar {
 				position: fixed;
 				top: 0;
@@ -139,6 +158,7 @@
 				background: #000;
 				transition: width 0.15s linear;
 			}
+
 			@media (min-width: 64rem) {
 				#sc-boot .sk-head {
 					height: 6rem;
@@ -152,6 +172,7 @@
 				}
 			}
 		</style>
+		<!-- /sc-boot:style -->
 		%sveltekit.head%
 		<!-- Favicons -->
 		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
@@ -176,22 +197,8 @@
 		     Howler is bundled from npm -->
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<!-- data-expect: the app code a page needs before it draws, uncompressed (the reader measured 2026-10-16, agents/research/LOADING.md: ~877 KB in 58 files
-		     before the first paint) – only the bar's scale; it grows when more arrives. The reader's own Loader
-		     (lib/components/loader.svelte, the same picture) carries data-sc-booting while a page fetches its content -->
-		<div id="sc-boot" data-expect="900000">
-			<div class="sk" aria-hidden="true">
-				<div class="sk-head"><i class="sk-logo"></i><i class="round"></i><i class="round"></i><i class="round"></i><i class="round"></i><i class="round"></i></div>
-				<i class="sk-cover"></i>
-				<div class="sk-body">
-					<i class="sk-line" style="width: 92%"></i>
-					<i class="sk-line" style="width: 78%"></i>
-					<i class="sk-line" style="width: 55%"></i>
-					<i class="sk-button"></i>
-					<div class="sk-row"><i></i><span><i class="sk-line" style="width: 70%"></i><i class="sk-line" style="width: 40%"></i></span></div>
-					<div class="sk-row"><i></i><span><i class="sk-line" style="width: 62%"></i><i class="sk-line" style="width: 35%"></i></span></div>
-				</div>
-			</div>
+		<!-- sc-boot:body (generated from shared/boot by `npm run boot:sync` – edit there) -->
+		<div id="sc-boot" data-expect="900000" data-skeleton="reader">
 			<div class="mid">
 				<img src="%sveltekit.assets%/SCUTOONS-logo-animated.svg" alt="" />
 				<span class="text"></span>
@@ -200,52 +207,80 @@
 		</div>
 		<div id="sc-app" style="display: contents">%sveltekit.body%</div>
 		<script>
-			(() => {
-				const boot = document.getElementById('sc-boot');
-				const app = document.getElementById('sc-app');
-				const bar = boot.querySelector('.bar');
-				const fill = boot.querySelector('.fill');
-				boot.querySelector('.text').textContent = document.documentElement.lang === 'de' ? 'Geduld ...' : 'Patience ...';
-				// the bar: bytes of the app's own files (/_app/) arrived so far against the expected size (never full before
-				// the app draws)
-				let expect = Number(boot.dataset.expect) || 1000000;
-				let loaded = 0;
-				const show = () => {
-					if (loaded > expect * 0.95) expect = loaded / 0.95;
-					const share = Math.round((loaded / expect) * 100);
-					fill.style.width = share + '%';
-					bar.setAttribute('aria-valuenow', String(share));
-				};
-				let files = null;
-				try {
-					files = new PerformanceObserver((list) => {
-						for (const entry of list.getEntries()) if (entry.name.includes('/_app/')) loaded += entry.decodedBodySize || entry.encodedBodySize || 0;
-						show();
-					});
-					files.observe({ type: 'resource', buffered: true });
-				} catch {
-					/* no PerformanceObserver: the logo alone */
-				}
-				// away as soon as the app has drawn something (its first element that isn't a script) – but not while it only
-				// waits (an element with data-sc-booting: the sign-in gate checking the session)
-				const drawn = () => [...app.children].some((el) => el.tagName !== 'SCRIPT') && !app.querySelector('[data-sc-booting]');
-				const done = () => {
-					files?.disconnect();
-					boot.remove();
-				};
-				if (drawn()) return done();
-				const watch = new MutationObserver(() => {
-					if (!drawn()) return;
-					watch.disconnect();
-					done();
-				});
-				watch.observe(app, { childList: true, subtree: true });
-				// never stuck: whatever the app shows after 10 s (an API that doesn't answer) is better than the logo
-				setTimeout(() => {
-					watch.disconnect();
-					if (boot.isConnected) done();
-				}, 10000);
-			})();
+			// The boot screen's script (shared/boot – edit here, `npm run boot:sync` writes it into each app.html). Runs inline right
+	// after #sc-boot, before the app's code: draws the reader's page skeleton for the address (data-skeleton="reader"),
+	// "Patience …", the thin line for the app code loaded so far, and goes away as soon as the app has drawn something.
+	(() => {
+		const boot = document.getElementById('sc-boot');
+		const app = document.getElementById('sc-app');
+		const bar = boot.querySelector('.bar');
+		const fill = boot.querySelector('.fill');
+		boot.querySelector('.text').textContent = document.documentElement.lang === 'de' ? 'Geduld …' : 'Patience …';
+
+		// the reader: the page's shape by its address – a chapter = a strip of slices, a toon = cover, text, chapter rows;
+		// anything else: the logo and the line alone
+		if (boot.dataset.skeleton === 'reader') {
+			const parts = location.pathname.split('/').filter(Boolean);
+			if (parts[0] === 'de' || parts[0] === 'en') parts.shift();
+			const other = ['account', 'attributions', 'contact', 'events', 'stores'];
+			const kind = parts[1] === 'chapter' ? 'chapter' : parts.length === 1 && !other.includes(parts[0]) ? 'toon' : null;
+			if (kind) {
+				const line = (w) => `<i class="sk-line" style="width:${w}%"></i>`;
+				const head = '<div class="sk-head"><i class="sk-logo"></i>' + '<i class="round"></i>'.repeat(5) + '</div>';
+				const row = (a, b) => `<div class="sk-row"><i></i><span>${line(a)}${line(b)}</span></div>`;
+				const body =
+					kind === 'chapter'
+						? '<div class="sk-strip">' + '<i class="sk-slice"></i>'.repeat(3) + '</div>'
+						: '<i class="sk-cover"></i><div class="sk-body">' + line(92) + line(78) + line(55) + '<i class="sk-button"></i>' + row(70, 40) + row(62, 35) + '</div>';
+				const sk = document.createElement('div');
+				sk.className = 'sk';
+				sk.setAttribute('aria-hidden', 'true');
+				sk.innerHTML = head + body;
+				boot.prepend(sk);
+			}
+		}
+
+		// the line: bytes of the app's own files (/_app/) arrived so far against the expected size (never full before the
+		// app draws)
+		let expect = Number(boot.dataset.expect) || 1000000;
+		let loaded = 0;
+		const show = () => {
+			if (loaded > expect * 0.95) expect = loaded / 0.95;
+			const share = Math.round((loaded / expect) * 100);
+			fill.style.width = share + '%';
+			bar.setAttribute('aria-valuenow', String(share));
+		};
+		let files = null;
+		try {
+			files = new PerformanceObserver((list) => {
+				for (const entry of list.getEntries()) if (entry.name.includes('/_app/')) loaded += entry.decodedBodySize || entry.encodedBodySize || 0;
+				show();
+			});
+			files.observe({ type: 'resource', buffered: true });
+		} catch {
+			/* no PerformanceObserver: the logo alone */
+		}
+		// away as soon as the app has drawn something (its first element that isn't a script) – but not while it only waits
+		// (an element with data-sc-booting: the sign-in gate checking the session, the reader's own loader)
+		const drawn = () => [...app.children].some((el) => el.tagName !== 'SCRIPT') && !app.querySelector('[data-sc-booting]');
+		const done = () => {
+			files?.disconnect();
+			boot.remove();
+		};
+		if (drawn()) return done();
+		const watch = new MutationObserver(() => {
+			if (!drawn()) return;
+			watch.disconnect();
+			done();
+		});
+		watch.observe(app, { childList: true, subtree: true });
+		// never stuck: whatever the app shows after 10 s (an API that doesn't answer) is better than the logo
+		setTimeout(() => {
+			watch.disconnect();
+			if (boot.isConnected) done();
+		}, 10000);
+	})();
 		</script>
+		<!-- /sc-boot:body -->
 	</body>
 </html>

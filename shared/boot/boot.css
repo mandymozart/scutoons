@@ -1,0 +1,165 @@
+/* The boot screen of every app (viewer, creator, admin) – edit HERE, then `npm run boot:sync` writes it into each
+   app's src/app.html (between the sc-boot markers; `npm run check` fails when an app.html is out of date). Plain CSS:
+   the app's tokens aren't loaded yet. Owner 2026-10-16: "before the app is fully loaded our screen is a dull white";
+   a skeleton of the page in the reader ("klassischer Skeleton-Loader, minimal animiert"), the logo and "Patience …"
+   in the middle, the load progress as a thin line at the very top ("less game, more app"). */
+#sc-boot {
+	position: fixed;
+	inset: 0;
+	z-index: 2147483647;
+	overflow: hidden;
+	background: #fff;
+	color: #000;
+	font: 1rem/1.4 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* the page's shape (the reader only – boot.js builds it by the address): grey blocks under one soft sweep */
+#sc-boot .sk {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+}
+#sc-boot .sk i {
+	display: block;
+	background: #ececec;
+}
+#sc-boot .sk::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+	background-size: 250% 100%;
+	animation: sc-sweep 1.6s ease-in-out infinite;
+}
+@keyframes sc-sweep {
+	from {
+		background-position: 120% 0;
+	}
+	to {
+		background-position: -20% 0;
+	}
+}
+/* the header: the logo and the round buttons */
+#sc-boot .sk-head {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	height: 7.5rem;
+	box-sizing: border-box;
+	padding: 0 0.75rem 1.5rem;
+	background: #f4f4f4;
+}
+#sc-boot .sk .sk-logo {
+	width: 2.25rem;
+	height: 4rem;
+	margin-right: auto;
+	border-radius: 0.25rem;
+}
+#sc-boot .sk .round {
+	flex: none;
+	width: 3.75rem;
+	height: 3.75rem;
+	box-sizing: border-box;
+	border-radius: 50%;
+	border: 2px solid #e2e2e2;
+	background: #fff;
+}
+/* the toon page: the cover, the text, the button, the chapter rows */
+#sc-boot .sk-cover {
+	flex: none;
+	height: min(55vh, 36rem);
+}
+#sc-boot .sk-body {
+	width: min(40rem, 100%);
+	box-sizing: border-box;
+	margin: 0 auto;
+	padding: 2rem 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+#sc-boot .sk-line {
+	height: 1rem;
+}
+#sc-boot .sk-button {
+	width: 13rem;
+	height: 3.25rem;
+	margin-top: 1rem;
+}
+#sc-boot .sk-row {
+	display: flex;
+	gap: 1rem;
+	margin-top: 1.5rem;
+}
+#sc-boot .sk-row > i {
+	flex: none;
+	width: 7rem;
+	height: 4.5rem;
+}
+#sc-boot .sk-row > span {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+/* a chapter: the strip of slices, one under the other */
+#sc-boot .sk-strip {
+	width: min(40rem, 100%);
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+#sc-boot .sk-slice {
+	aspect-ratio: 4 / 5;
+}
+
+/* the logo and "Patience …" in the middle */
+#sc-boot .mid {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
+}
+#sc-boot .mid img {
+	width: min(12rem, 45vw);
+	height: auto;
+}
+#sc-boot .text {
+	padding: 0 0.5rem;
+	background: #fff;
+}
+
+/* the app's code loaded so far: a thin line at the very top */
+#sc-boot .bar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 2px;
+}
+#sc-boot .fill {
+	display: block;
+	width: 0;
+	height: 100%;
+	background: #000;
+	transition: width 0.15s linear;
+}
+
+@media (min-width: 64rem) {
+	#sc-boot .sk-head {
+		height: 6rem;
+		padding: 0 1.5rem;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	#sc-boot .sk::after {
+		animation: none;
+		background: none;
+	}
+}
