@@ -10,6 +10,10 @@ Template and rules: agents/RULES.md "Docs". Older notes of an item: `grep "10.N"
   its own DB; the runner on the owner's machine (ffmpeg) should take jobs through the API (list → download → transcode
   → upload → done). Job #1 (video-renditions) can be dropped.
 
+- [ ] 10.104 **Album access "public" vs "everyone"** – found 2026-10-16: the album form and the PHP validator say `public`,
+  @scutoons/content `MEDIA_ACCESS` and ProtectedFiles say `everyone` – an album set to "public" fails the TS check and
+  the API still asks for a sign-in. Pick one word (analyse the data, migration) → ITEMS.md "Players, albums".
+
 ## Content
 - [ ] 10.35 **scene-14 has an unknown `end` event** – the published `scene:catpope:2:scene-14` still holds
   `{"type":"end",…}` (the reader skips it, `content:check` reports it). `decide`: publish the scene's newest version

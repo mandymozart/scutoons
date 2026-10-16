@@ -14,15 +14,18 @@ export interface CameraRequest {
 
 /** What the audio player plays: an album's tracks in order (one track for the old `play_audio` skill) */
 export interface AudioRequest {
-	tracks: { src: string; title: string }[];
+	/** `id` names the song's credits section (`songSection`); `duration` (s) fills the seek bar until the file says */
+	tracks: { id?: string; src: string; title: string; duration?: number }[];
 	/** the album's title in the reader's language */
 	title: string;
+	/** the toon whose credits (`credits:<toon>`) name the songs' people – the expanded card shows them */
+	toon?: string | null;
 	/** the media item it plays from (its icon in the player), if any */
 	entry: Entry | null;
 	/** the album's cover (CDN-root path) – the record's label in the player */
 	cover?: string | null;
-	/** track `i`'s playable address, asked for when it starts (a vault track's signed URL lives ten minutes); without it
-	 *  `tracks[i].src` plays as it is */
+	/** track `i`'s playable address at the reader's media quality, asked for when it starts (a vault track's signed URL
+	 *  lives ten minutes – asked again when it ran out); without it `tracks[i].src` plays as it is */
 	sign?: (i: number) => Promise<string>;
 }
 

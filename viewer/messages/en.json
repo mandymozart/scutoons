@@ -394,7 +394,15 @@
 		"score_stop": "Stop",
 		"score_pad": "Slide over the notes: echo",
 		"previous_track": "Previous song",
-		"next_track": "Next song"
+		"next_track": "Next song",
+		"player_play": "Play",
+		"player_pause": "Pause",
+		"player_seek": "Position in the song",
+		"player_open": "Show the record",
+		"player_turn": "Turn the record",
+		"player_side": "Side {side}",
+		"player_songs": "Songs",
+		"player_credits": "Credits"
 	},
 	"claim": {
 		"title": "SCUTOONS item",

@@ -394,7 +394,15 @@
 		"score_stop": "Stopp",
 		"score_pad": "Über die Noten wischen: Echo",
 		"previous_track": "Vorheriges Lied",
-		"next_track": "Nächstes Lied"
+		"next_track": "Nächstes Lied",
+		"player_play": "Abspielen",
+		"player_pause": "Pause",
+		"player_seek": "Stelle im Lied",
+		"player_open": "Platte zeigen",
+		"player_turn": "Platte umdrehen",
+		"player_side": "Seite {side}",
+		"player_songs": "Lieder",
+		"player_credits": "Credits"
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

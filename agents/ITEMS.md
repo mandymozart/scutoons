@@ -1174,7 +1174,7 @@ landing page [the season section of the toon page]."
 
 **Data model** (`@scutoons/content` `albums.ts`, types in `items.ts` / `content.ts`, schemas regenerated):
 - **Album** = the music, a language-neutral media entity in the **item catalog** (table `catalog_albums`, was `server/config/items.json` →
-  `catalog.albums`; served by `GET /api/items/`): `{ id, toon, title: Localized, tracks: [{ id, title, src, duration? }],
+  `catalog.albums`; served by `GET /api/items/`): `{ id, toon, title: Localized, tracks: [{ id, title, src, variants?, duration? }],
   download?: <zip>, cover?, access?: { download, listen } }`, paths from the CDN root like item icons.
   *Why the catalog and not the content store:* the album only exists through the items that carry it (records, tapes,
   CDs – owner-edited config like products / editions, not creator content); the reader needs album + carriers + players
@@ -1206,10 +1206,22 @@ listen, download; validation `validateAlbums` (inside `validateCatalog`) + `chec
 
 **What the reader sees** (viewer):
 - **Record (item detail)** with a record player: "Abspielen" / "Play" → the audio player plays the album's tracks in
-  order as a little playlist (owner 2026-10-14: "play the whole album"; record-player.svelte): "Spielt: Cloud 9 ·
-  Awakening", n / N, back / next, a turntable – the record turns, the tonearm moves in as the song plays and lifts
-  between songs (still under reduced motion); after the last song it starts again (owner 2026-10-14: loop); a vault track is signed when it starts
-  (the URLs live ten minutes); "Album herunterladen" when
+  order as a little playlist (owner 2026-10-14: "play the whole album"; record-player.svelte): a bar with the turntable
+  (record-deck.svelte – the record turns, the tonearm moves in as the song plays and lifts between songs; reduced motion:
+  still, the arm jumps), "Spielt: Cloud 9 · Awakening", n / N, the seek line "0:12 ── 6:57" (seek-bar.svelte: seeks on
+  release / per arrow key, the length from the file, else the catalog `duration`), back / play-pause / next (a phone:
+  play + next), close; no native controls. A tap on the record or the title opens the **card** (record-card.svelte, owner
+  2026-10-16, a bottom `Sheet`; the sound stays in the bar): the record large with the cover as its label, "Platte
+  umdrehen" / "Turn the record" (flips to side B: a paper label with the album title – only the picture; the 3D vinyl
+  model is the hook, FEATURES 10.102), the full title, "Awakening · 2 / 6 · Seite A", seek, back / play / next, **the
+  song's credits** from `credits:<toon>` (`songSection`: `song-<slug of the title>`, else `song-<track id>`, else a song
+  section of the same title – no credits field in the catalog, owner 2026-10-16) and the songs to pick. After the last
+  song it starts again (owner 2026-10-14: loop). **Quality** (owner 2026-10-16): a track's `variants { low, medium, high }`
+  (96k / 128k / 320k MP3, 48 kHz stereo; Awakening's `src` = the 320k master) – the reader's media quality picks one
+  when the song starts (`albumTrackFile`; not known yet → 128k, like chapter audio), a vault track is signed at that
+  level (`GET /api/albums/{id}/tracks/{track}?quality=`, ProtectedFiles::trackFile – the same fallback); the URLs live
+  ten minutes, one that ran out while paused is signed again where it stood. Vault upload: MCP `upload_album_file`
+  (`PUT /api/assets/protected?album=&file=track|download`). "Album herunterladen" when
   `access.download` allows it. Without one: "Zum Abspielen brauchst du einen Plattenspieler." / "You need a player to
   play it: Record player." (the player's catalog name) + "Album herunterladen". No "Benutzen" any more.
 - **Record player (item detail)**: "Platten für diesen Spieler" – per album the carrier's icon, the album title, "In

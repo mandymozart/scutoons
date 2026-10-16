@@ -22,3 +22,16 @@ export function armAngle(playing: boolean, progress: number): number {
 	const p = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
 	return ARM_START + (ARM_END - ARM_START) * p;
 }
+
+/** "7:05" – a song's position / length for the seek bar; unknown → "–:––" */
+export function formatTime(seconds: number): string {
+	if (!Number.isFinite(seconds) || seconds < 0) return '–:––';
+	const s = Math.floor(seconds);
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** the song's length: the file's own once it is known, else the catalog's `duration` (0 = unknown) */
+export function songLength(mediaDuration: number, catalogDuration: number | undefined): number {
+	if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration;
+	return catalogDuration && catalogDuration > 0 ? catalogDuration : 0;
+}

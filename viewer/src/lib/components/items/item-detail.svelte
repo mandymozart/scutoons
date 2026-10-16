@@ -15,6 +15,7 @@
 	import ContainerActions from './container-actions.svelte';
 	import ScoreActions from './score-actions.svelte';
 	import { albumDownloadUrl, albumTrackUrl } from '$lib/protected-files.ts';
+	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 
 	let {
 		entry,
@@ -50,11 +51,13 @@
 	function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
 		audioError = false;
 		ui.playAlbum({
-			tracks: tracks.map((t) => ({ src: t.src, title: t.title })),
+			tracks: tracks.map((t) => ({ id: t.id, src: t.src, title: t.title, duration: t.duration })),
 			title: localized(album.title),
+			toon: album.toon,
 			entry: from,
 			cover: album.cover ?? null,
-			sign: (i) => albumTrackUrl(album.id, tracks[i])
+			// the reader's media quality when the song starts (96k / 128k / 320k – owner 2026-10-16)
+			sign: (i) => albumTrackUrl(album.id, tracks[i], mediaQuality.level)
 		});
 	}
 	async function download(album: Album, path: string) {

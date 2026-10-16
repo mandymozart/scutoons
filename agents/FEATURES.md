@@ -1,7 +1,7 @@
 # FEATURES — open feature requests, changes, owner steps (open items only; done = the item leaves)
 
 Bugs: agents/ISSUES.md (same number line). Template and rules: agents/RULES.md "Docs" – at most 5 lines an item, the
-next free number is **10.103**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
+next free number is **10.105**, a done item leaves in the same commit (`10.N done` in the message). Older notes of an
 item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do it; `decide` = waits for the owner.
 
 ## Creator, admin
@@ -80,6 +80,11 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   `decide` Q1–Q4, Q7–Q13. → research/TEXT-ACROSS-SLICES.md §8
 
 ## Items, content
+- [ ] 10.103 **[owner] Awakening quality files into the vault** – owner 2026-10-16: "Create quality settings for the player".
+  12 MP3s (96k / 128k per song, 48 kHz stereo) wait in `media/albums/awakening/<hash>.mp3` (local only): in a NEW session
+  `upload_album_file album=awakening kind=track file=<path>` each (same bytes → the same path), then Apply the proposal
+  admin.scutoons.com/proposals/01a14302-0363-7537-8450-df3d87e53510 (tracks.N.variants) – not before (low / medium 404).
+  Decide: does "Turn the record" switch to side B's songs (which songs are side B?) – today it only flips the picture.
 - [ ] 10.102 **Items get a 3D model (`model`)** – owner 2026-10-16: "let the user turn the record", "We will turn all
   items into 3d assets". Proposal: an optional `model` (CDN `.glb`) on the ITEM (+ per variant, like `icon`) – the item is
   what readers own, turn and place (furniture's planned `model`, CAVE.md); the shop reads it via the product's item.
