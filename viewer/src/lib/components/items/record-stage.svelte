@@ -32,6 +32,7 @@
 		current,
 		onselect,
 		onplay,
+		onarm,
 		table = TABLE,
 		playing,
 		side,
@@ -51,6 +52,8 @@
 		onselect?: (key: string) => void;
 		/** a record was carried onto the turntable: put it on */
 		onplay?: (key: string) => void;
+		/** the tonearm set down on the record (play from `progress` of the song) or back at rest (pause) */
+		onarm?: (to: { play: true; progress: number } | { play: false }) => void;
 		/** the table's surface (TABLE) */
 		table?: StageTable;
 		playing: boolean;
@@ -88,6 +91,7 @@
 			onerror: () => onfail(),
 			onselect: (key) => onselect?.(key),
 			onplay: (key) => onplay?.(key),
+			onarm: (to) => onarm?.(to),
 			table: table === 'plain' ? null : asset(`scutoons/3d/table-${table}.webp`)
 		});
 		untrack(() => handle.update({ playing, side, arm, lifted, current }));

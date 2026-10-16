@@ -46,6 +46,7 @@
 		records = [],
 		current = null,
 		onplayrecord,
+		onarm,
 		table = TABLE,
 		tracks,
 		index,
@@ -76,6 +77,8 @@
 		current?: string | null;
 		/** Play on the carousel's front record (another one than the playing), or it was carried onto the turntable */
 		onplayrecord?: (key: string) => void;
+		/** the tonearm set down on the record / back at rest (the 3D stage) */
+		onarm?: (to: { play: true; progress: number } | { play: false }) => void;
 		/** the table's surface (an experiment – record-stage.svelte TABLE) */
 		table?: StageTable;
 		tracks: { id?: string; title: string; duration?: number }[];
@@ -146,7 +149,7 @@
 		     flow above the song. -->
 		{#if in3d}
 			<div class="backdrop" bind:clientHeight={backdropHeight}>
-				<RecordStage {records} {current} {table} onselect={(key) => (selected = key)} onplay={(key) => onplayrecord?.(key)} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} {lift} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
+				<RecordStage {records} {current} {table} onselect={(key) => (selected = key)} onplay={(key) => onplayrecord?.(key)} onarm={(to) => onarm?.(to)} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} {lift} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
 				{#if picked}
 					<!-- the carousel's front record is another one: put it on (owner 2026-10-16: "when you press Play it is put on") -->
 					<div class="pick" data-testid="record-pick">

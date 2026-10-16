@@ -204,11 +204,23 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
   (`albumRequest`) – the stage lifts the one on the platter, the ring turns it to the front, it slides into its sleeve,
   the ring turns the new one to the front, it comes out onto the platter. Gestures (owner's map, record-gestures.js): a
   tap (< 10 px, < 300 ms) on the turntable / the records focuses it – a raycast on the objects, empty space does
-  nothing (a while, then back to the stage's own focus: the deck while a record lies on it, else the records); hold then drag elsewhere = the camera ride around the focused part, springing back on release; two
-  fingers always move the camera (sideways = ride, pinch = zoom); wheel = zoom. The reader's zoom stays (out to the
-  default distance at most); only the stage's own camera moves (a focus change, a record put on / swapped, the intro)
-  tween it back – smoothly from where the camera is, no jump. The ride and the zoom go around the focused part's centre (the carousel's middle behind the front
-  sleeve, or the plinth's – `inspect()` gives it, the lab reads it as `window.__recordStage` in dev). Kept: the intro once per page load, `placed` when already on, the A/B flip. A proper shelf later.
+  nothing (a while, then back to the stage's own focus: the deck while a record lies on it, else the records); pinch /
+  wheel = zoom, it stays (out to the default distance at most); only the stage's own camera moves (a focus change, a
+  record put on / swapped, the intro) tween it back – smoothly from where the camera is. No camera ride by finger (owner
+  2026-10-16: "pivot doesn't [work]"): **tilting the phone** pivots – DeviceOrientation gamma / beta relative to how it
+  was held (recentred on a focus change), a 3° dead zone, at most ±18° yaw / ±4° pitch, low-passed; iOS asks for the
+  permission on the first tap inside the stage; not with reduced motion; a desktop sends nothing. The tilt and the zoom
+  go around the focused part's centre (the carousel's middle behind the front sleeve, or the plinth's – `inspect()`
+  gives it, the lab reads it as `window.__recordStage` in dev). **The tonearm** can be swung (a press on it, raycast):
+  around its pivot, raised, between rest and the inner groove; set down past the lead-in = play from there (the
+  needle's place → the position in the current song), back at rest = pause (`onarm`). Kept: the intro once per page
+  load, `placed` when already on, the A/B flip. A proper shelf later.
+- **The player bar** (owner 2026-10-16): Play (the item detail, the carousel) opens the card at once; the mini bar shows
+  only once the card is closed (the sound plays on). Two rows (variant a, the default – res.radio's bar as reference):
+  the cover / item picture as a thumbnail, the song and "album · Side A · n / N" (an ellipsis; when it overflows and
+  without reduced motion a slow marquee – marquee-text.svelte), back / play / next and close as bare symbols (full touch
+  targets); the timeline with the times over the whole width below. Variant b (lab `?bar=b`): play and close beside the
+  song, back / next flank the timeline – the owner decides.
 - **The card is the stage** (owner 2026-10-16: "the player is the brown of the background"): the canvas lies behind the
   whole dark panel, sticky while the card scrolls over it; the song, the controls, the songs and the credits lie on the
   lit table (no fade, a soft text shadow), its top part shows the records and the turntable (`lift` from the measured

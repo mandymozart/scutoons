@@ -37,8 +37,6 @@ const views = (rho) => ({
 	sleeve: { pos: [SLEEVE.x, 0.34, SLEEVE.z + 0.95], look: [SLEEVE.x, 0.15, SLEEVE.z - rho] },
 	deck: { pos: [PLINTH.x - 0.1, 0.63, PLINTH.z + 0.74], look: [PLINTH.x, PLINTH.h, PLINTH.z] }
 });
-/** the camera ride's whole arc around the stage (owner: "about 75 degrees max") */
-const ARC = (75 * Math.PI) / 180;
 // slow enough to watch (owner 2026-10-16: "Ich sehe noch nicht, dass die Schallplatte aus der Hülle rausfährt")
 const SLIDE = 1.6; // s
 const CARRY = 1.6;
@@ -122,7 +120,8 @@ const mod = (i, n) => ((i % n) + n) % n;
  * comes out of its sleeve onto the platter; another `current` puts the one on the platter back first.
  */
 export function mountRecordStage(canvas, records, opts = {}) {
-	let stopped = false, raf = 0, renderer = null, scene = null, env = null, ro = null, unlisten = null;
+	let stopped = false, raf = 0, renderer = null, scene = null, env = null, ro = null, unlisten = null, untilt = null;
+	const tiltAim = { yaw: 0, pitch: 0 }, tiltNow = { yaw: 0, pitch: 0 };
 	const want = { playing: false, side: 'a', arm: -28, lifted: false, current: records[0]?.key ?? null };
 	// the reader's look around (owner 2026-10-16: "camera pivoting … zoom in a bit and look at the record cover … smoothly pan
 	// back and zoom out on release"; "a camera ride, about 75 degrees max"): the ride on a level arc around the stage's
@@ -141,7 +140,9 @@ export function mountRecordStage(canvas, records, opts = {}) {
 	};
 	// the orbit centre and the reader's ride / zoom – for the lab and tests (owner 2026-10-16: verify the pivot)
 	const orbit = { x: 0, y: 0, z: 0, copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; } };
-	const inspect = () => ({ target: [orbit.x, orbit.y, orbit.z], yaw: user.yaw, zoom: user.zoom });
+	// `arm`: where the tonearm's head is on the canvas (px) and its turn – the lab drags it
+	const probe = { arm: () => null };
+	const inspect = () => ({ target: [orbit.x, orbit.y, orbit.z], yaw: user.yaw, zoom: user.zoom, tilt: [tiltNow.yaw, tiltNow.pitch], arm: probe.arm() });
 	const handle = { update: (s) => Object.assign(want, s), dispose, resetView, inspect };
 
 	(async () => {
@@ -194,6 +195,10 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			}
 			items.forEach((item, i) => (item.slot.rotation.y = i * step));
 			const { deck, arm } = buildDeck(THREE, RoundedBoxGeometry);
+			probe.arm = () => {
+				const v = arm.localToWorld(new THREE.Vector3(0, 0, ARM_LEN * 0.8)).project(camera);
+				return { x: ((v.x + 1) / 2) * canvas.clientWidth, y: ((1 - v.y) / 2) * canvas.clientHeight, turn: armTurnNow, rest: 0, outer: ARM_OUTER, inner: ARM_INNER };
+			};
 			const VIEWS = views(rho);
 			scene.add(deck);
 			castShadows(deck, ring);
@@ -293,11 +298,13 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				ndc.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
 				ray.setFromCamera(ndc, camera);
 				const hit = ray.intersectObjects([ring, deck, carrier], true)[0];
-				let o = hit?.object, item = null;
+				let o = hit?.object, item = null, onArm = false;
 				while (o && o !== ring && o !== deck && o !== carrier) {
 					item = o.userData.stageItem ?? item;
+					onArm ||= o === arm;
 					o = o.parent;
 				}
+				if (onArm) return { part: 'arm' };
 				if (o === ring) return { part: 'records', key: item?.key ?? null, front: !!item && item === items[mod(front, n)] && item !== active };
 				if (o) return { part: 'deck' };
 				return { part: null }; // empty space: nothing (owner 2026-10-16: hit the objects, not screen halves)
@@ -308,8 +315,40 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				const before = focused();
 				focus = part;
 				focusUntil = performance.now() + 12000;
-				if (focused() !== before) home();
+				if (focused() !== before) {
+					home();
+					tiltBase = null; // the tilt recentres on the new target
+				}
 			};
+			// tilting the phone pivots the camera around the focused target (owner 2026-10-16: "tilt the phone to pivot"):
+			// gamma / beta relative to how the phone was held (the first reading, again after a focus change), a dead zone of
+			// 3°, at most ±18° yaw and ±4° pitch, low-passed in the tick. iOS asks for the permission on the first tap inside
+			// the stage (a user gesture; denied = no tilt). Not with reduced motion; a desktop sends no readings – nothing.
+			let tiltBase = null;
+			const onTilt = (e) => {
+				if (e.gamma == null || e.beta == null) return;
+				tiltBase ??= { g: e.gamma, b: e.beta };
+				const dead = (v) => (Math.abs(v) < 3 ? 0 : v - Math.sign(v) * 3);
+				tiltAim.yaw = (clamp(dead(e.gamma - tiltBase.g) * 0.8, -18, 18) * Math.PI) / 180;
+				tiltAim.pitch = (clamp(dead(e.beta - tiltBase.b) * 0.25, -4, 4) * Math.PI) / 180;
+			};
+			const listenTilt = () => {
+				window.addEventListener('deviceorientation', onTilt);
+				untilt = () => window.removeEventListener('deviceorientation', onTilt);
+			};
+			if (typeof DeviceOrientationEvent !== 'undefined' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+				// listening is harmless without the permission (no readings come); where the browser asks for it (iOS), the
+				// first tap inside the stage asks
+				listenTilt();
+				const ask = DeviceOrientationEvent.requestPermission;
+				if (typeof ask === 'function') {
+					const once = () => {
+						canvas.removeEventListener('pointerup', once);
+						ask.call(DeviceOrientationEvent).catch(() => {});
+					};
+					canvas.addEventListener('pointerup', once);
+				}
+			}
 			const busy = () => state === 'turn' || state === 'back' || state === 'out';
 			// a camera move of the stage's own (a focus change, a record put on / swapped) tweens back into its position –
 			// the reader's zoom stays otherwise (owner 2026-10-16: "no automatic snap-back")
@@ -322,6 +361,8 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			let focusedKey = null, carried = null;
 			const carryAt = new THREE.Vector3();
 			const carryPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.12);
+			const armPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ARM_Y), armAt = new THREE.Vector3();
+			let armHeld = null; // the arm's turn while the reader swings it
 			unlisten = stageGestures(canvas, {
 				region,
 				inStage: (x, y) => y < (1 - (opts.lift ?? 0)) * (canvas.clientHeight || 1),
@@ -349,7 +390,6 @@ export function mountRecordStage(canvas, records, opts = {}) {
 					tell();
 					focusOn('records');
 				},
-				ride: (dx) => (aim.yaw = clamp(aim.yaw - dx * ARC, -ARC / 2, ARC / 2)),
 				// the zoom goes in and out around the focused centre and stays (out to the default distance at most)
 				zoom: (by) => {
 					homing = false;
@@ -360,6 +400,28 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				release: () => {
 					held = false;
 					aim.yaw = aim.pitch = 0;
+				},
+				// the tonearm (owner 2026-10-16: "the tonearm is draggable"): a press on it swings it around its pivot, raised,
+				// between rest and the inner groove; set down on the record = play from there (the needle's place → the song's
+				// position), back at rest = pause (opts.onarm)
+				armTo: (x, y) => {
+					ndc.set((x / (canvas.clientWidth || 1)) * 2 - 1, -(y / (canvas.clientHeight || 1)) * 2 + 1);
+					ray.setFromCamera(ndc, camera);
+					if (!ray.ray.intersectPlane(armPlane, armAt)) return;
+					const a = Math.atan2(armAt.x - PIVOT.x, armAt.z - PIVOT.z);
+					armHeld = clamp(a, Math.min(ARM_INNER, 0), Math.max(ARM_INNER, 0));
+				},
+				armGrab: (on) => {
+					if (on) armHeld = armTurnNow;
+					else {
+						const a = armHeld;
+						armHeld = null;
+						if (a === null) return;
+						// past the lead-in (the outer groove): on the record
+						const k = (a - ARM_OUTER) / (ARM_INNER - ARM_OUTER);
+						const onIt = Math.abs(a) >= Math.abs(ARM_OUTER) * 0.85;
+						opts.onarm?.(onIt ? { play: true, progress: clamp(k, 0, 1) } : { play: false });
+					}
 				},
 				carry: (on) => {
 					const item = items[mod(front, n)];
@@ -485,8 +547,10 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				if (Math.abs(spin) < 1e-3 && !onRecord) spin = 0;
 				carrier.rotation.y += spin * dt;
 				// the arm: on the record while it plays on the platter, else at rest; lifted between songs
-				armTurnNow += ((onRecord ? armTurn(want.arm) : 0) - armTurnNow) * Math.min(1, dt * 3);
-				lift += ((onRecord && !want.lifted ? 0 : -0.07) - lift) * Math.min(1, dt * 6);
+				// the reader swings it: it follows (raised a little); else on the record while it plays, at rest otherwise
+				if (armHeld !== null) armTurnNow += (armHeld - armTurnNow) * Math.min(1, dt * 18);
+				else armTurnNow += ((onRecord ? armTurn(want.arm) : 0) - armTurnNow) * Math.min(1, dt * 3);
+				lift += ((armHeld !== null ? -0.04 : onRecord && !want.lifted ? 0 : -0.07) - lift) * Math.min(1, dt * 6);
 				arm.rotation.set(lift, armTurnNow, 0, 'YXZ');
 				// the camera: the records while none lies on the platter (or a tap / swipe asked for them – a while), the deck
 				// once one is on; the way out moves it along
@@ -519,12 +583,16 @@ export function mountRecordStage(canvas, records, opts = {}) {
 						}
 					}
 				}
-				if (user.yaw || user.pitch || user.zoom) {
-					// the ride orbits around what is in focus (the records or the turntable), the zoom comes closer to it
+				// the phone's tilt, low-passed (tilt.js below)
+				tiltNow.yaw += (tiltAim.yaw - tiltNow.yaw) * Math.min(1, dt * 4);
+				tiltNow.pitch += (tiltAim.pitch - tiltNow.pitch) * Math.min(1, dt * 4);
+				const yaw = user.yaw + tiltNow.yaw, pitch = user.pitch + tiltNow.pitch;
+				if (yaw || pitch || user.zoom) {
+					// the tilt orbits around what is in focus (the records or the turntable), the zoom comes closer to it
 					offset.copy(camera.position).sub(look);
-					offset.applyAxisAngle(yAxis, user.yaw);
+					offset.applyAxisAngle(yAxis, yaw);
 					side.crossVectors(offset, yAxis).normalize();
-					offset.applyAxisAngle(side, -user.pitch);
+					offset.applyAxisAngle(side, -pitch);
 					offset.multiplyScalar(1 - user.zoom * 0.72);
 					camera.position.copy(look).add(offset);
 				}
@@ -544,6 +612,7 @@ export function mountRecordStage(canvas, records, opts = {}) {
 		cancelAnimationFrame(raf);
 		ro?.disconnect();
 		unlisten?.();
+		untilt?.();
 		if (scene) disposeTree(scene);
 		env?.dispose();
 		renderer?.dispose();

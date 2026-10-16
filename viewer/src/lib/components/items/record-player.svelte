@@ -11,15 +11,16 @@
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
-	import RecordDeck from './record-deck.svelte';
+	import ItemIcon from './item-icon.svelte';
+	import MarqueeText from './marquee-text.svelte';
 	import SeekBar from './seek-bar.svelte';
 	import { wakeLock } from '$lib/wake-lock.svelte.ts';
 
 	/**
 	 * The audio player at the bottom (owner 2026-10-14: "play the whole album – like a little playlist, or an animation on
-	 * the record player"; 2026-10-16: "improve the player" after res.radio's): the album's songs one after another, a
-	 * compact bar – the turntable, the song's title and "Side A · n / N", the seek line with the time and the length, back /
-	 * play-pause / next, close. A tap on the record or the title opens the card (record-card.svelte: the record large,
+	 * the record player"; 2026-10-16: "improve the player" after res.radio's): the album's songs one after another. A new
+	 * album opens the card at once; closed, a compact bar – the cover, the song's title and "album · Side A · n / N"
+	 * (a marquee when long), back / play-pause / next, close, the seek line below. A tap on the cover or the title opens the card (record-card.svelte: the record large,
 	 * "Turn the record", the full title, the song's credits, the side's songs). Songs play on within their record side
 	 * (owner 2026-10-16: tracks carry `side`, none = A); after the side's last song the side starts again; turning the
 	 * record goes to the other side's first song (an album with one side only turns the picture).
@@ -32,12 +33,15 @@
 		request,
 		icon = null,
 		table,
+		layout = 'a',
 		onclose
 	}: {
 		request: AudioRequest;
 		icon?: { src: string; name: string } | null;
 		/** the 3D stage's table surface (the lab compares; else record-stage.svelte TABLE) */
 		table?: StageTable;
+		/** the mini bar's layout (the lab compares a / b; owner 2026-10-16) */
+		layout?: 'a' | 'b';
 		onclose: () => void;
 	} = $props();
 
@@ -67,11 +71,13 @@
 	const onSide = $derived(sided ? sideIndices(request.tracks, side) : request.tracks.map((_, i) => i));
 	const position = $derived(onSide.indexOf(index) + 1);
 
-	// a new album starts at its first song (side A's first when the album has sides)
+	// a new album starts at its first song (side A's first when the album has sides) – with the card open (owner
+	// 2026-10-16: "Play … open the expanded 3D card right away"; the mini bar shows once the reader closes it)
 	$effect(() => {
 		const tracks = request.tracks;
 		index = twoSided(tracks) ? (sideIndices(tracks, 'A')[0] ?? 0) : 0;
 		flipped = false;
+		expanded = true;
 	});
 
 	function address(i: number): Promise<string> {
@@ -164,6 +170,15 @@
 		else audio.pause();
 	}
 
+	/** the tonearm on the 3D stage: set down on the record = play from there (its place → the song's position), back at
+	 *  rest = pause (owner 2026-10-16: "the tonearm is draggable") */
+	function armSet(to: { play: true; progress: number } | { play: false }) {
+		if (!audio || !src) return;
+		if (!to.play) return audio.pause();
+		if (length) seek(to.progress * length);
+		if (audio.paused) void audio.play().catch(() => {});
+	}
+
 	function seek(seconds: number) {
 		if (!audio) return;
 		audio.currentTime = seconds;
@@ -198,37 +213,42 @@
 	}
 
 	const arm = $derived(armAngle(playing || changing, changing ? 0 : length ? time / length : 0));
+	/** the bar's second line: the album, the side, n / N */
+	const meta = $derived([request.title, sided ? m['items.player_side']({ side }) : '', onSide.length > 1 ? `${position} / ${onSide.length}` : ''].filter(Boolean).join(' · '));
 	const heading = $derived(m['items.now_playing']({ title: [track?.title, request.title].filter(Boolean).join(' · ') }));
 </script>
 
 <!-- data-panel-ignore: a tap on the bar is not "outside" an open panel (closing the bar left the inventory open – owner 2026-10-16) -->
-<div class="record-player" data-testid="audio-player" data-panel-ignore>
-	<button type="button" class="deck-button" onclick={() => (expanded = true)} aria-label={m['items.player_open']()} title={m['items.player_open']()} data-testid="audio-open">
-		<RecordDeck {cover} title={request.title} spinning={playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} />
+<!-- the mini bar (owner 2026-10-16): two rows – the cover, the song and its album / side, the controls as bare symbols; the
+     timeline over the whole width below (variant a, like res.radio's bar); variant b keeps the controls beside the timeline.
+     Hidden while the card is open – the card is the player then; the sound plays on (the audio element stays). -->
+<div class="record-player bar-{layout}" class:hidden={expanded} data-testid="audio-player" data-panel-ignore>
+	<button type="button" class="thumb" onclick={() => (expanded = true)} aria-label={m['items.player_open']()} title={m['items.player_open']()} data-testid="audio-open">
+		<ItemIcon srcs={[icon?.src ?? '', request.cover ?? '']} name={request.title} />
 	</button>
-	<div class="track">
-		<button type="button" class="line" onclick={() => (expanded = true)} title={heading} data-testid="audio-expand">
-			<span class="track-title" data-testid="audio-title">{heading}</span>
-			{#if sided || onSide.length > 1}<span class="count" data-testid="audio-count">{sided ? `${m['items.player_side']({ side })} · ` : ''}{position} / {onSide.length}</span>{/if}
+	<button type="button" class="line" onclick={() => (expanded = true)} title={heading} data-testid="audio-expand">
+		<MarqueeText text={track?.title || request.title} testid="audio-title" />
+		<MarqueeText text={meta} testid="audio-count" />
+	</button>
+	<div class="buttons">
+		{#if onSide.length > 1}
+			<button type="button" class="bare prev" aria-label={m['items.previous_track']()} title={m['items.previous_track']()} onclick={back} data-testid="audio-prev"><Icon name="skip-back" /></button>
+		{/if}
+		<button type="button" class="bare play" aria-label={playing ? m['items.player_pause']() : m['items.player_play']()} title={playing ? m['items.player_pause']() : m['items.player_play']()} onclick={toggle} disabled={!src || failed} data-testid="audio-play">
+			<Icon name={playing ? 'pause' : 'play'} />
 		</button>
+		{#if onSide.length > 1}
+			<button type="button" class="bare next" aria-label={m['items.next_track']()} title={m['items.next_track']()} onclick={next} data-testid="audio-next"><Icon name="skip-forward" /></button>
+		{/if}
+	</div>
+	<button type="button" class="bare close" onclick={onclose} aria-label={m['items.close']()} title={m['items.close']()} data-testid="audio-close"><CloseIcon size="1rem" /></button>
+	<div class="timeline">
 		{#if failed}
 			<p class="note" role="alert">{m['items.release_failed']()}</p>
 		{:else}
 			<SeekBar {time} {length} label={m['items.player_seek']()} onseek={seek} testid="audio-seek" />
 		{/if}
 	</div>
-	<div class="buttons">
-		{#if onSide.length > 1}
-			<IconButton class="prev" label={m['items.previous_track']()} onclick={back} data-testid="audio-prev"><Icon name="skip-back" /></IconButton>
-		{/if}
-		<IconButton label={playing ? m['items.player_pause']() : m['items.player_play']()} onclick={toggle} disabled={!src || failed} data-testid="audio-play">
-			<Icon name={playing ? 'pause' : 'play'} />
-		</IconButton>
-		{#if onSide.length > 1}
-			<IconButton label={m['items.next_track']()} onclick={next} data-testid="audio-next"><Icon name="skip-forward" /></IconButton>
-		{/if}
-	</div>
-	<button class="close" onclick={onclose} aria-label={m['items.close']()}><CloseIcon size="1rem" /></button>
 	<!-- svelte-ignore a11y_media_has_caption -->
 	<audio
 		bind:this={audio}
@@ -254,6 +274,7 @@
 	{records}
 	current={currentKey}
 	onplayrecord={playRecord}
+	onarm={armSet}
 	{table}
 	tracks={request.tracks}
 	{index}
@@ -280,21 +301,78 @@
 		z-index: 2040;
 		left: var(--space-05);
 		right: var(--space-05);
-		bottom: var(--space-05);
+		bottom: calc(var(--space-05) + env(safe-area-inset-bottom));
 		max-width: 34rem;
 		margin: 0 auto;
-		display: flex;
+		box-sizing: border-box;
+		display: grid;
+		grid-template-columns: 2.75rem minmax(0, 1fr) auto auto;
+		grid-template-areas:
+			'thumb line buttons close'
+			'time time time time';
 		align-items: center;
-		gap: var(--space-05);
+		column-gap: var(--space-05);
+		row-gap: 0;
 		background: var(--paper);
 		color: var(--ink);
 		border: var(--border-width-regular) solid var(--ink);
-		padding: var(--space-025) var(--space-05);
+		padding: var(--space-05) var(--space-05) var(--space-025);
 	}
 
-	/* the turntable and the title open the card: frameless buttons around them */
-	.deck-button,
+	/* variant b (like res.radio's: play | song | close): play and close beside the song, back / next flank the timeline */
+	.record-player.bar-b {
+		grid-template-areas:
+			'thumb line play close'
+			'prev time time next';
+	}
+
+	.bar-b .buttons {
+		display: contents;
+	}
+
+	.bar-b .prev {
+		grid-area: prev;
+	}
+
+	.bar-b .play {
+		grid-area: play;
+	}
+
+	.bar-b .next {
+		grid-area: next;
+	}
+
+	.hidden {
+		display: none;
+	}
+
+	.thumb {
+		grid-area: thumb;
+		width: 2.75rem;
+		height: 2.75rem;
+		overflow: hidden;
+	}
+
 	.line {
+		grid-area: line;
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		min-width: 0;
+		text-align: left;
+		font-size: 0.875rem;
+		line-height: 1.25;
+	}
+
+	.line :global([data-testid='audio-count']) {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+	}
+
+	/* the cover and the song open the card: frameless buttons around them */
+	.thumb,
+	.line,
+	.bare {
 		margin: 0;
 		padding: 0;
 		border: 0;
@@ -305,44 +383,44 @@
 		cursor: pointer;
 	}
 
-	.deck-button {
-		flex: none;
-		display: block;
-	}
-
-	.deck-button:focus-visible,
-	.line:focus-visible {
+	.thumb:focus-visible,
+	.line:focus-visible,
+	.bare:focus-visible {
 		outline: var(--border-width-regular) solid var(--ink);
 		outline-offset: 0.125rem;
 	}
 
-	.track {
-		flex: 1;
-		min-width: 0;
+	.buttons {
+		grid-area: buttons;
 		display: flex;
-		flex-direction: column;
-		gap: var(--space-025);
 	}
 
-	.line {
-		display: flex;
-		gap: var(--space-05);
-		font-size: 0.75rem;
-		text-align: left;
-		min-width: 0;
-	}
-
-	.track-title {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.count {
+	/* the controls: bare symbols (owner 2026-10-16: "icon-only buttons without borders"), each a full touch target */
+	.bare {
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
+		display: inline-grid;
+		place-items: center;
 		flex: none;
-		font-variant-numeric: tabular-nums;
+	}
+
+	.bare:hover:not(:disabled) {
+		color: var(--primary-color);
+	}
+
+	.bare:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+
+	.close {
+		grid-area: close;
+	}
+
+	.timeline {
+		grid-area: time;
+		min-width: 0;
 	}
 
 	audio {
@@ -352,36 +430,5 @@
 	.note {
 		margin: 0;
 		font-size: 0.75rem;
-	}
-
-	.buttons {
-		display: flex;
-		flex: none;
-		gap: var(--space-025);
-	}
-
-	/* a phone keeps play and next in the bar; back is in the card */
-	@media (max-width: 479.98px) {
-		.buttons :global(.prev) {
-			display: none;
-		}
-	}
-
-	.close {
-		box-sizing: border-box;
-		width: var(--control-height);
-		height: var(--control-height);
-		padding: 0;
-		border-radius: 50%;
-		background: var(--paper);
-		color: var(--ink);
-		border: var(--border-width-regular) solid var(--ink);
-		display: inline-grid;
-		place-items: center;
-		flex: none;
-	}
-
-	.close:hover {
-		background: var(--primary-color);
 	}
 </style>
