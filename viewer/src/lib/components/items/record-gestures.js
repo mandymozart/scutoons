@@ -3,7 +3,9 @@
 // swipe over the records cycles the carousel (never the camera); press and hold (~280 ms without moving) on the front
 // record then drag = carry it – let go over the turntable to put it on; hold anywhere else then drag = the camera ride.
 // Two fingers always move the camera – sideways = ride, pinch = zoom; the mouse wheel zooms, a mouse holds and drags
-// like a finger. Plain JS (record-stage.js); the types in record-gestures.d.ts.
+// like a finger. Below the stage's own part (`inStage` false – the card's text lies over the canvas there, owner
+// 2026-10-16: only buttons and the like block the stage) a drag and the wheel scroll the card instead and a tap does
+// nothing. Plain JS (record-stage.js); the types in record-gestures.d.ts.
 
 const HOLD_MS = 280;
 const SLOP = 10; // px a finger may wander and still tap / hold
@@ -22,6 +24,14 @@ export function stageGestures(canvas, on) {
 		return Math.hypot(a.x - b.x, a.y - b.y) || 1;
 	};
 	const middle = () => [...pointers.values()].reduce((s, p) => s + p.x, 0) / pointers.size;
+	/** the nearest box that scrolls (the card's panel body) */
+	const scroller = () => {
+		for (let el = canvas.parentElement; el; el = el.parentElement) {
+			const y = getComputedStyle(el).overflowY;
+			if ((y === 'auto' || y === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+		}
+		return null;
+	};
 
 	const down = (e) => {
 		try {
@@ -29,13 +39,13 @@ export function stageGestures(canvas, on) {
 		} catch {
 			/* a pointer the browser doesn't track (synthetic): still follow it */
 		}
-		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, lastX: e.clientX });
+		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, lastX: e.clientX, lastY: e.clientY });
 		clearTimeout(timer);
 		if (pointers.size === 1) {
 			const p = local(e);
-			start = { x: e.clientX, y: e.clientY, at: performance.now(), hit: on.region(p.x, p.y) };
+			start = { x: e.clientX, y: e.clientY, at: performance.now(), hit: on.region(p.x, p.y), stage: on.inStage(p.x, p.y) };
 			mode = 'wait';
-			timer = setTimeout(() => {
+			if (start.stage) timer = setTimeout(() => {
 				if (mode !== 'wait') return;
 				if (start.hit.front && on.carry(true)) mode = 'carry';
 				else {
@@ -66,11 +76,14 @@ export function stageGestures(canvas, on) {
 		else if (mode === 'carry') {
 			const q = local(e);
 			on.carryTo(q.x, q.y);
-		} else if (mode === 'wait' && Math.hypot(e.clientX - start.x, e.clientY - start.y) > SLOP) {
+		} else if (mode === 'scroll') scroller()?.scrollBy(0, p.lastY - e.clientY);
+		else if (mode === 'wait' && Math.hypot(e.clientX - start.x, e.clientY - start.y) > SLOP) {
 			clearTimeout(timer);
-			mode = start.hit.part === 'records' ? 'swipe' : 'none';
+			mode = !start.stage ? 'scroll' : start.hit.part === 'records' ? 'swipe' : 'none';
+			if (mode === 'scroll') scroller()?.scrollBy(0, start.y - e.clientY);
 		}
 		p.lastX = e.clientX;
+		p.lastY = e.clientY;
 	};
 	const up = (e) => {
 		if (!pointers.has(e.pointerId)) return;
@@ -78,7 +91,7 @@ export function stageGestures(canvas, on) {
 		clearTimeout(timer);
 		if (pointers.size > 0) return;
 		const dx = e.clientX - (start?.x ?? e.clientX), dy = e.clientY - (start?.y ?? e.clientY);
-		if (mode === 'wait' && performance.now() - start.at < 300) on.tap(start.hit);
+		if (mode === 'wait' && start.stage && performance.now() - start.at < 300) on.tap(start.hit);
 		// up or left = the front record flicks away to the back (the next comes forward); down / right = back again
 		else if (mode === 'swipe') on.swipe((Math.abs(dy) > Math.abs(dx) ? dy < 0 : dx < 0) ? 1 : -1);
 		else if (mode === 'carry') {
@@ -88,6 +101,8 @@ export function stageGestures(canvas, on) {
 		mode = 'none';
 	};
 	const wheel = (e) => {
+		const p = local(e);
+		if (!on.inStage(p.x, p.y)) return; // the card scrolls (the browser's own)
 		e.preventDefault();
 		on.zoom(-e.deltaY * 0.0012);
 	};

@@ -39,20 +39,25 @@ export function moodyLights(THREE, renderer, scene, deck, table = null) {
 	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 	scene.environmentIntensity = 0.16;
 	scene.add(new THREE.HemisphereLight(0xffffff, 0x222222, 0.12));
-	const spot = new THREE.SpotLight(0xffe9d2, 13, 0, 0.42, 1, 2);
-	spot.position.set(-0.04, 1.6, 0.7);
-	spot.target.position.set(-0.04, 0.02, -0.06);
+	// the key: lower and from the front left (~38°) – the sleeves and the tonearm throw long shadows across the table
+	// (owner 2026-10-16: "Move the light so we get some more interesting shadows")
+	const spot = new THREE.SpotLight(0xffe9d2, 15, 0, 0.45, 0.9, 2);
+	spot.position.set(-0.95, 1.0, 0.85);
+	spot.target.position.set(-0.02, 0.04, -0.04);
 	spot.castShadow = true;
 	spot.shadow.mapSize.set(1024, 1024);
 	spot.shadow.camera.near = 0.5;
-	spot.shadow.camera.far = 3;
+	spot.shadow.camera.far = 4;
 	spot.shadow.bias = -0.0004;
 	spot.shadow.normalBias = 0.01;
 	// the fill: a wide, soft warm light on the table's front, where the card's text lies
 	const fill = new THREE.SpotLight(0xffe2c4, 5, 0, 0.75, 1, 2);
 	fill.position.set(0, 1.4, 1.6);
 	fill.target.position.set(0, 0, 0.75);
-	scene.add(spot, spot.target, fill, fill.target);
+	// a faint rim from behind: the sleeves' and the plinth's edges stand out from the black
+	const rim = new THREE.DirectionalLight(0xc9d6ff, 0.45);
+	rim.position.set(0.4, 0.7, -1.4);
+	scene.add(spot, spot.target, fill, fill.target, rim);
 	const material = new THREE.MeshStandardMaterial({ color: 0x4a423b, roughness: 0.95, envMapIntensity: 0 });
 	if (table) {
 		new THREE.TextureLoader().load(table, (tex) => {
@@ -70,16 +75,16 @@ export function moodyLights(THREE, renderer, scene, deck, table = null) {
 	floor.position.set(-0.05, 0, 0.5);
 	floor.receiveShadow = true;
 	// the far rim fades into the card's black (no horizon line): a black ring over the table's edge
-	const rim = new THREE.Mesh(
+	const edge = new THREE.Mesh(
 		new THREE.PlaneGeometry(4, 4),
 		new THREE.MeshBasicMaterial({ map: radial(THREE, [[0, 'rgba(0,0,0,0)'], [0.45, 'rgba(0,0,0,0)'], [0.85, 'rgba(0,0,0,0.92)'], [1, 'rgba(0,0,0,1)']]), transparent: true, depthWrite: false })
 	);
-	rim.rotation.x = -Math.PI / 2;
-	rim.position.set(-0.05, 0.0003, 0.5);
+	edge.rotation.x = -Math.PI / 2;
+	edge.position.set(-0.05, 0.0003, 0.5);
 	const under = contactShadow(THREE, deck.w + 0.12, deck.d + 0.12, 0.85);
 	under.position.x = deck.x;
 	under.position.z = deck.z;
-	scene.add(floor, rim, under);
+	scene.add(floor, edge, under);
 }
 
 /** these cast (and take) the spot's shadow */

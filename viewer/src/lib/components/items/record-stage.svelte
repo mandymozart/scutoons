@@ -92,6 +92,8 @@
 		});
 		untrack(() => handle.update({ playing, side, arm, lifted, current }));
 		stage = handle;
+		// dev: the lab reads the orbit centre (handle.inspect) to check the camera ride
+		if (import.meta.env.DEV) (window as unknown as { __recordStage?: RecordStageHandle }).__recordStage = handle;
 		return () => {
 			handle.dispose();
 			stage = null;

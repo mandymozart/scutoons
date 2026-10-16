@@ -64,8 +64,7 @@ function stage(THREE) {
 	return { scene, camera };
 }
 /** the camera looks at the model's middle from the front-right, far enough for a 1-high model */
-function frame(camera, height, turn = 0.5) {
-	const d = 2.6;
+function frame(camera, height, turn = 0.5, d = 2.6) {
 	camera.position.set(Math.sin(turn) * d, height * 0.55, Math.cos(turn) * d);
 	camera.lookAt(0, height * 0.5, 0);
 }
@@ -77,6 +76,61 @@ function disposeTree(obj) {
 			m.dispose?.();
 		}
 	});
+}
+
+/** pulling the record out of its sleeve in the live view (null: the model has no record in a sleeve) */
+function recordPull(THREE, model, camera, canvas) {
+	const record = model.getObjectByName('record');
+	if (!record || !model.getObjectByName('sleeve')) return null;
+	model.updateMatrixWorld(true);
+	const home = record.position.clone();
+	// all the way out: the record's diameter beyond where it stands (it peeks a little already), in its parent's units
+	const size = new THREE.Box3().setFromObject(record).getSize(new THREE.Vector3());
+	const scale = record.parent.getWorldScale(new THREE.Vector3());
+	const max = (size.x / scale.x) * 0.92;
+	const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(), at = new THREE.Vector3();
+	let out = 0, aim = 0, grab = null;
+	const point = (e) => {
+		const r = canvas.getBoundingClientRect();
+		ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+		ray.setFromCamera(ndc, camera);
+	};
+	const along = () => (ray.ray.intersectPlane(plane, at) ? record.parent.worldToLocal(at).x : null);
+	return {
+		start(e) {
+			point(e);
+			// the record must be what the finger is on (not the sleeve in front of it)
+			const hit = ray.intersectObject(model, true)[0];
+			let o = hit?.object;
+			while (o && o !== record) o = o.parent;
+			if (!o) return;
+			// the plane of the disc through the grabbed point: the finger moves the record in it
+			plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1).transformDirection(record.parent.matrixWorld), hit.point);
+			const x = along();
+			if (x !== null) grab = x - out;
+		},
+		move(e) {
+			if (grab === null) return false;
+			point(e);
+			const x = along();
+			if (x !== null) out = aim = Math.min(max, Math.max(0, x - grab));
+			return true;
+		},
+		end() {
+			if (grab === null) return;
+			grab = null;
+			aim = out < max / 2 ? 0 : max;
+		},
+		/** moves the record; true while it is (or was) out */
+		tick() {
+			if (grab === null) out += (aim - out) * 0.18;
+			if (Math.abs(out) < 1e-5 && record.position.x === home.x) return false;
+			record.position.x = home.x + out;
+			return true;
+		},
+		/** 0 = in its sleeve … 1 = all the way out */
+		progress: () => out / max
+	};
 }
 
 /** a live view on a canvas: turns slowly until dragged; returns a handle to stop it. `source`: a .glb URL or a builder */
@@ -96,9 +150,34 @@ export function mountModelView(canvas, source, opts = {}) {
 			scene.add(model);
 			opts.onload?.(m.info);
 			let yaw = 0, dragging = false, lastX = 0, idle = true;
-			canvas.addEventListener('pointerdown', (e) => { dragging = true; idle = false; lastX = e.clientX; canvas.setPointerCapture(e.pointerId); });
-			canvas.addEventListener('pointermove', (e) => { if (!dragging) return; yaw += (e.clientX - lastX) * 0.01; lastX = e.clientX; });
-			canvas.addEventListener('pointerup', () => (dragging = false));
+			// a record in its sleeve (nodes "record" + "sleeve", the shared record model / a .set.glb) can be pulled out
+			// (owner 2026-10-16: "if one grabs the actual vinyl it can be dragged out"): a drag that starts on the record
+			// slides it along the sleeve's open edge (+X), following the finger, at most all the way out; let go less than
+			// half out and it springs back in, more and it slides all the way out and stays. A drag elsewhere turns the model.
+			const pull = recordPull(THREE, model, camera, canvas);
+			canvas.addEventListener('pointerdown', (e) => {
+				dragging = true;
+				idle = false;
+				lastX = e.clientX;
+				pull?.start(e);
+				try {
+					canvas.setPointerCapture(e.pointerId);
+				} catch {
+					/* a pointer the browser doesn't track (synthetic): still follow it */
+				}
+			});
+			canvas.addEventListener('pointermove', (e) => {
+				if (!dragging) return;
+				if (pull?.move(e)) return;
+				yaw += (e.clientX - lastX) * 0.01;
+				lastX = e.clientX;
+			});
+			const up = () => {
+				dragging = false;
+				pull?.end();
+			};
+			canvas.addEventListener('pointerup', up);
+			canvas.addEventListener('pointercancel', up);
 			const resize = () => {
 				const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
 				renderer.setSize(w, h, false);
@@ -113,6 +192,8 @@ export function mountModelView(canvas, source, opts = {}) {
 				if (stopped) return;
 				if (idle && opts.spin !== false) yaw += 0.006;
 				model.rotation.y = yaw;
+				// a record pulled out: the camera steps back so it stays in the picture
+				if (pull?.tick()) frame(camera, m.height, 0.5, 2.6 * (1 + 0.55 * pull.progress()));
 				renderer.render(scene, camera);
 				raf = requestAnimationFrame(tick);
 			};
