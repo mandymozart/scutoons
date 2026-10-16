@@ -39,7 +39,8 @@ const views = (rho) => ({
 });
 // slow enough to watch (owner 2026-10-16: "Ich sehe noch nicht, dass die Schallplatte aus der Hülle rausfährt")
 const SLIDE = 1.6; // s
-const CARRY = 1.6;
+const LIFT = 0.6; // up, clear of the plinth and the platter, before it goes over them
+const CARRY = 1.2;
 const DROP = 0.6;
 const FLIP = 1.0;
 
@@ -104,6 +105,15 @@ function buildDeck(THREE, RoundedBoxGeometry) {
 	weight.rotation.x = Math.PI / 2;
 	weight.position.z = -0.03;
 	arm.add(tube, head, weight);
+	// a bigger grab area (owner 2026-10-16: "on the phone the handle is tiny"): invisible, never drawn, only for the
+	// raycast – a capsule round the arm's front half and a ball round the headshell, about 3× their size
+	const grab = new THREE.MeshBasicMaterial({ visible: false });
+	const reach = new THREE.Mesh(new THREE.CapsuleGeometry(0.016, ARM_LEN * 0.55, 2, 8), grab);
+	reach.rotation.x = Math.PI / 2;
+	reach.position.z = ARM_LEN * 0.68;
+	const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), grab);
+	knob.position.set(0, -0.004, ARM_LEN);
+	arm.add(reach, knob);
 	deck.add(plinth, platter, felt, spindle, base, arm);
 	return { deck, arm };
 }
@@ -141,8 +151,8 @@ export function mountRecordStage(canvas, records, opts = {}) {
 	// the orbit centre and the reader's ride / zoom – for the lab and tests (owner 2026-10-16: verify the pivot)
 	const orbit = { x: 0, y: 0, z: 0, copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; } };
 	// `arm`: where the tonearm's head is on the canvas (px) and its turn – the lab drags it
-	const probe = { arm: () => null };
-	const inspect = () => ({ target: [orbit.x, orbit.y, orbit.z], yaw: user.yaw, zoom: user.zoom, tilt: [tiltNow.yaw, tiltNow.pitch], arm: probe.arm() });
+	const probe = { arm: () => null, needle: false, state: '' };
+	const inspect = () => ({ target: [orbit.x, orbit.y, orbit.z], yaw: user.yaw, zoom: user.zoom, tilt: [tiltNow.yaw, tiltNow.pitch], arm: probe.arm(), needle: probe.needle, state: probe.state });
 	const handle = { update: (s) => Object.assign(want, s), dispose, resetView, inspect };
 
 	(async () => {
@@ -270,6 +280,8 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				armTurnNow = want.playing ? armTurn(want.arm) : 0;
 				lift = want.playing && !want.lifted ? 0 : -0.07;
 			}
+			// a record that already plays when the stage opens: the needle is down from the start (no gap in the sound)
+			if (placed && want.playing && !want.lifted) opts.onneedle?.(true);
 			let last = performance.now();
 
 			// the stage fills the card's top as its background (owner 2026-10-16: "covering the entire background of the card
@@ -363,6 +375,13 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			const carryPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.12);
 			const armPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ARM_Y), armAt = new THREE.Vector3();
 			let armHeld = null; // the arm's turn while the reader swings it
+			let needle = false, armHover = false, armGlow = 0;
+			const armMaterials = [];
+			arm.traverse((o) => o.isMesh && o.material.visible && armMaterials.push(o.material));
+			for (const m of armMaterials) {
+				m.emissive?.set(0xffa64d);
+				m.emissiveIntensity = 0;
+			}
 			unlisten = stageGestures(canvas, {
 				region,
 				inStage: (x, y) => y < (1 - (opts.lift ?? 0)) * (canvas.clientHeight || 1),
@@ -411,6 +430,10 @@ export function mountRecordStage(canvas, records, opts = {}) {
 					const a = Math.atan2(armAt.x - PIVOT.x, armAt.z - PIVOT.z);
 					armHeld = clamp(a, Math.min(ARM_INNER, 0), Math.max(ARM_INNER, 0));
 				},
+				hover: (x, y) => {
+					armHover = region(x, y).part === 'arm';
+					canvas.style.cursor = armHover ? 'grab' : '';
+				},
 				armGrab: (on) => {
 					if (on) armHeld = armTurnNow;
 					else {
@@ -458,17 +481,21 @@ export function mountRecordStage(canvas, records, opts = {}) {
 			const offset = new THREE.Vector3();
 			const yAxis = new THREE.Vector3(0, 1, 0);
 			const side = new THREE.Vector3();
-			const hover = ON_PLATTER_Y + 0.16;
+			// the way's height: the standing record's lower edge clears the platter (owner 2026-10-16: it passed through the
+			// turntable) – up first, then over while it turns flat, then down
+			const high = PLATTER.top + R + 0.03;
 			/** the way between the sleeve and the platter at time s of it (out; back = the same way backwards) */
 			const along = (s) => {
-				const slide = ease(s / SLIDE), carry = ease((s - SLIDE) / CARRY), drop = ease((s - SLIDE - CARRY) / DROP);
+				const slide = ease(s / SLIDE), up = ease((s - SLIDE) / LIFT), carry = ease((s - SLIDE - LIFT) / CARRY);
+				const drop = ease((s - SLIDE - LIFT - CARRY) / DROP);
 				carrier.position.x = carry > 0 ? lerp(OUT_X, PLATTER.x, carry) : lerp(inSleeve.x, OUT_X, slide);
 				carrier.position.z = lerp(inSleeve.z, PLATTER.z, carry);
-				carrier.position.y = drop > 0 ? lerp(hover, ON_PLATTER_Y, drop) : lerp(inSleeve.y, hover, Math.min(1, carry * 1.6));
+				carrier.position.y = drop > 0 ? lerp(high, ON_PLATTER_Y, drop) : lerp(inSleeve.y, Math.max(high, inSleeve.y), up);
+				// a quarter turn, the short way, while it is up and going over
 				tilt.rotation.x = lerp(0, flat(lies), carry);
 				return { slide, carry };
 			};
-			const WAY = SLIDE + CARRY + DROP;
+			const WAY = SLIDE + LIFT + CARRY + DROP;
 
 			const tick = (now) => {
 				if (stopped) return;
@@ -552,6 +579,18 @@ export function mountRecordStage(canvas, records, opts = {}) {
 				else armTurnNow += ((onRecord ? armTurn(want.arm) : 0) - armTurnNow) * Math.min(1, dt * 3);
 				lift += ((armHeld !== null ? -0.04 : onRecord && !want.lifted ? 0 : -0.07) - lift) * Math.min(1, dt * 6);
 				arm.rotation.set(lift, armTurnNow, 0, 'YXZ');
+				// the needle sits on the record: only then the sound (owner 2026-10-16: "music must not play until the needle
+				// sits on the record") – the player waits for it (onneedle)
+				const down = onRecord && !want.lifted && armHeld === null && Math.abs(lift) < 0.006 && Math.abs(armTurnNow - armTurn(want.arm)) < 0.03;
+				if (down !== needle) opts.onneedle?.((needle = down));
+				probe.needle = needle;
+				probe.state = state;
+				// the arm lights up while it is held, a little on a mouse hover (owner 2026-10-16)
+				const glow = armHeld !== null ? 0.45 : armHover ? 0.18 : 0;
+				if (glow !== armGlow) {
+					armGlow = glow;
+					for (const m of armMaterials) m.emissiveIntensity = glow;
+				}
 				// the camera: the records while none lies on the platter (or a tap / swipe asked for them – a while), the deck
 				// once one is on; the way out moves it along
 				if (focus && !carried && now > focusUntil) focusOn(null);

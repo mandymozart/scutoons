@@ -33,6 +33,7 @@
 		onselect,
 		onplay,
 		onarm,
+		onneedle,
 		table = TABLE,
 		playing,
 		side,
@@ -54,6 +55,8 @@
 		onplay?: (key: string) => void;
 		/** the tonearm set down on the record (play from `progress` of the song) or back at rest (pause) */
 		onarm?: (to: { play: true; progress: number } | { play: false }) => void;
+		/** the needle came down on the record / up: the sound plays only with it down (the player waits) */
+		onneedle?: (down: boolean) => void;
 		/** the table's surface (TABLE) */
 		table?: StageTable;
 		playing: boolean;
@@ -92,6 +95,7 @@
 			onselect: (key) => onselect?.(key),
 			onplay: (key) => onplay?.(key),
 			onarm: (to) => onarm?.(to),
+			onneedle: (down) => onneedle?.(down),
 			table: table === 'plain' ? null : asset(`scutoons/3d/table-${table}.webp`)
 		});
 		untrack(() => handle.update({ playing, side, arm, lifted, current }));
@@ -100,6 +104,7 @@
 		if (import.meta.env.DEV) (window as unknown as { __recordStage?: RecordStageHandle }).__recordStage = handle;
 		return () => {
 			handle.dispose();
+			onneedle?.(false);
 			stage = null;
 		};
 	});

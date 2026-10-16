@@ -26,7 +26,7 @@ export interface RecordStageHandle {
 	/** eases the reader's look-around (pivot / zoom) back to the stage's own view */
 	resetView(): void;
 	/** the point the camera looks at and rides around (the focused part's centre), the reader's ride and zoom */
-	inspect(): { target: [number, number, number]; yaw: number; zoom: number; tilt: [number, number]; arm: { x: number; y: number; turn: number; rest: number; outer: number; inner: number } | null };
+	inspect(): { target: [number, number, number]; yaw: number; zoom: number; tilt: [number, number]; arm: { x: number; y: number; turn: number; rest: number; outer: number; inner: number } | null; needle: boolean; state: string };
 }
 
 /** the reader's records as a carousel (each sleeve + record) and a turntable on a canvas */
@@ -36,6 +36,8 @@ export function mountRecordStage(
 	opts?: {
 		onload?: () => void;
 		onerror?: (error: unknown) => void;
+		/** the needle came down on the record (true) or up (false): the sound plays only with it down */
+		onneedle?: (down: boolean) => void;
 		/** the reader set the tonearm down on the record (play from `progress` 0…1 of the song) or back at rest (pause) */
 		onarm?: (to: { play: true; progress: number } | { play: false }) => void;
 		/** a record was carried onto the turntable: put it on (its album plays) */

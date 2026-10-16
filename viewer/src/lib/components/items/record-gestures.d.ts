@@ -23,6 +23,8 @@ export function stageGestures(
 		zoom: (by: number) => void;
 		hold: () => void;
 		release: () => void;
+		/** a mouse moves over the stage with nothing pressed */
+		hover?: (x: number, y: number) => void;
 		/** the tonearm: grabbed (true) / let go (false), swung towards a point (canvas px) */
 		armGrab: (on: boolean) => void;
 		armTo: (x: number, y: number) => void;

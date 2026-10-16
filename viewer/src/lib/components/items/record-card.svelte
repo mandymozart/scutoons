@@ -47,6 +47,8 @@
 		current = null,
 		onplayrecord,
 		onarm,
+		onneedle,
+		onlive,
 		table = TABLE,
 		tracks,
 		index,
@@ -79,6 +81,9 @@
 		onplayrecord?: (key: string) => void;
 		/** the tonearm set down on the record / back at rest (the 3D stage) */
 		onarm?: (to: { play: true; progress: number } | { play: false }) => void;
+		/** the 3D stage's needle down / up and whether the stage is there (the player starts the sound on the needle) */
+		onneedle?: (down: boolean) => void;
+		onlive?: (live: boolean) => void;
 		/** the table's surface (an experiment – record-stage.svelte TABLE) */
 		table?: StageTable;
 		tracks: { id?: string; title: string; duration?: number }[];
@@ -112,6 +117,8 @@
 		modelFailed = false;
 	});
 	const in3d = $derived(records.length > 0 && open && !reduced.current && !modelFailed && webglAvailable());
+	// the 3D stage is (about to be) shown: the sound waits for its needle; without it (closed, 2D, failed) it plays at once
+	$effect(() => onlive?.(in3d));
 	// the carousel's front record (a swipe selects): another than the playing one offers to put it on
 	let selected = $state<string | null>(null);
 	// the stage's scene fills the part of the panel above the song and controls: the rest of the canvas (the table running
@@ -149,7 +156,7 @@
 		     flow above the song. -->
 		{#if in3d}
 			<div class="backdrop" bind:clientHeight={backdropHeight}>
-				<RecordStage {records} {current} {table} onselect={(key) => (selected = key)} onplay={(key) => onplayrecord?.(key)} onarm={(to) => onarm?.(to)} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} {lift} {resetKey} placed={playing || time > 0} onfail={() => (modelFailed = true)} />
+				<RecordStage {records} {current} {table} onselect={(key) => (selected = key)} onplay={(key) => onplayrecord?.(key)} onarm={(to) => onarm?.(to)} onneedle={(down) => onneedle?.(down)} {playing} {arm} lifted={changing} side={side === 'B' ? 'b' : 'a'} label={album} {lift} {resetKey} placed={time > 0} onfail={() => (modelFailed = true)} />
 				{#if picked}
 					<!-- the carousel's front record is another one: put it on (owner 2026-10-16: "when you press Play it is put on") -->
 					<div class="pick" data-testid="record-pick">

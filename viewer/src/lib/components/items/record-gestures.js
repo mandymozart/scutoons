@@ -65,7 +65,14 @@ export function stageGestures(canvas, on) {
 	};
 	const move = (e) => {
 		const p = pointers.get(e.pointerId);
-		if (!p) return;
+		// a mouse over the stage, nothing pressed: what is under it may light up (the tonearm)
+		if (!p) {
+			if (e.pointerType === 'mouse' && on.hover) {
+				const q = local(e);
+				on.hover(q.x, q.y);
+			}
+			return;
+		}
 		p.x = e.clientX;
 		p.y = e.clientY;
 		if (mode === 'two') {

@@ -45,7 +45,13 @@
 	let index = $state(0);
 	let src = $state<string | null>(null);
 	let failed = $state(false);
+	/** the media plays (its own events) */
 	let playing = $state(false);
+	/** the reader wants it to play (Play / the tonearm / a new album); the sound follows it – with the 3D stage only once
+	 *  its needle is down (owner 2026-10-16: "music must not play until the needle sits on the record") */
+	let intent = $state(true);
+	let stageLive = $state(false);
+	let needle = $state(false);
 	/** between two songs: the arm is lifted for a moment */
 	let changing = $state(false);
 	let time = $state(0);
@@ -75,6 +81,28 @@
 		index = twoSided(tracks) ? (sideIndices(tracks, 'A')[0] ?? 0) : 0;
 		flipped = false;
 		expanded = true;
+		intent = true;
+	});
+
+	// the sound: plays when the reader wants it, the song is there and – while the 3D stage is shown – the needle is down;
+	// without the stage (card closed, 2D deck, reduced motion) at once. A needle that only lifts for a moment (a new song,
+	// the stage opening on a playing record) doesn't cut the sound: a short grace first
+	const sound = $derived(intent && !!src && !failed && (!stageLive || needle));
+	let grace: ReturnType<typeof setTimeout> | null = null;
+	function sync() {
+		if (!audio) return;
+		if (grace) clearTimeout(grace);
+		grace = null;
+		if (sound) {
+			if (audio.paused) void audio.play().catch(() => (intent = false)); // a blocked autoplay shows ▶
+		} else if (!audio.paused) {
+			if (intent && stageLive && !needle) grace = setTimeout(() => !sound && audio?.pause(), 250);
+			else audio.pause();
+		}
+	}
+	$effect(() => {
+		void sound;
+		sync();
 	});
 
 	function address(i: number): Promise<string> {
@@ -119,7 +147,7 @@
 		if (resumeAt > 0 && audio) {
 			audio.currentTime = resumeAt;
 			resumeAt = 0;
-			void audio.play().catch(() => {});
+			sync();
 		}
 	}
 
@@ -131,7 +159,7 @@
 		// the same song again (a one-song album looping): its address stays, so start it over by hand
 		if (i === index && audio) {
 			audio.currentTime = 0;
-			void audio.play().catch(() => {});
+			sync();
 		}
 		index = i;
 	}
@@ -163,17 +191,16 @@
 
 	function toggle() {
 		if (!audio || !src) return;
-		if (audio.paused) void audio.play().catch(() => {});
-		else audio.pause();
+		intent = !intent;
 	}
 
 	/** the tonearm on the 3D stage: set down on the record = play from there (its place → the song's position), back at
 	 *  rest = pause (owner 2026-10-16: "the tonearm is draggable") */
 	function armSet(to: { play: true; progress: number } | { play: false }) {
 		if (!audio || !src) return;
-		if (!to.play) return audio.pause();
+		if (!to.play) return void (intent = false);
 		if (length) seek(to.progress * length);
-		if (audio.paused) void audio.play().catch(() => {});
+		intent = true;
 	}
 
 	function seek(seconds: number) {
@@ -184,6 +211,7 @@
 
 	$effect(() => () => {
 		if (gap) clearTimeout(gap);
+		if (grace) clearTimeout(grace);
 	});
 
 	// the screen stays on while a record plays (PWA phase 4, lib/wake-lock.svelte.ts); paused / closed → it may sleep
@@ -209,7 +237,7 @@
 		if (next && key !== currentKey) ui.playAlbum(next.request);
 	}
 
-	const arm = $derived(armAngle(playing || changing, changing ? 0 : length ? time / length : 0));
+	const arm = $derived(armAngle(intent || changing, changing ? 0 : length ? time / length : 0));
 	/** the bar's second line: the album, the side, n / N */
 	const meta = $derived([request.title, sided ? m['items.player_side']({ side }) : '', onSide.length > 1 ? `${position} / ${onSide.length}` : ''].filter(Boolean).join(' · '));
 	const heading = $derived(m['items.now_playing']({ title: [track?.title, request.title].filter(Boolean).join(' · ') }));
@@ -231,8 +259,8 @@
 		{#if onSide.length > 1}
 			<button type="button" class="bare prev" aria-label={m['items.previous_track']()} title={m['items.previous_track']()} onclick={back} data-testid="audio-prev"><Icon name="skip-back" /></button>
 		{/if}
-		<button type="button" class="bare play" aria-label={playing ? m['items.player_pause']() : m['items.player_play']()} title={playing ? m['items.player_pause']() : m['items.player_play']()} onclick={toggle} disabled={!src || failed} data-testid="audio-play">
-			<Icon name={playing ? 'pause' : 'play'} />
+		<button type="button" class="bare play" aria-label={intent ? m['items.player_pause']() : m['items.player_play']()} title={intent ? m['items.player_pause']() : m['items.player_play']()} onclick={toggle} disabled={!src || failed} data-testid="audio-play">
+			<Icon name={intent ? 'pause' : 'play'} />
 		</button>
 		{#if onSide.length > 1}
 			<button type="button" class="bare next" aria-label={m['items.next_track']()} title={m['items.next_track']()} onclick={next} data-testid="audio-next"><Icon name="skip-forward" /></button>
@@ -251,7 +279,6 @@
 		bind:this={audio}
 		src={src ?? undefined}
 		preload="metadata"
-		autoplay
 		bind:currentTime={time}
 		bind:duration={mediaDuration}
 		onplay={() => (playing = true)}
@@ -272,12 +299,14 @@
 	current={currentKey}
 	onplayrecord={playRecord}
 	onarm={armSet}
+	onneedle={(down) => (needle = down)}
+	onlive={(live) => (stageLive = live)}
 	{table}
 	tracks={request.tracks}
 	{index}
 	{onSide}
 	{sided}
-	{playing}
+	playing={intent}
 	{changing}
 	{arm}
 	{time}

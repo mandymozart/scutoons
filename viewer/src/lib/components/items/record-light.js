@@ -89,5 +89,5 @@ export function moodyLights(THREE, renderer, scene, deck, table = null) {
 
 /** these cast (and take) the spot's shadow */
 export function castShadows(...objs) {
-	for (const o of objs) o.traverse((m) => m.isMesh && (m.castShadow = m.receiveShadow = true));
+	for (const o of objs) o.traverse((m) => m.isMesh && m.material?.visible !== false && (m.castShadow = m.receiveShadow = true));
 }

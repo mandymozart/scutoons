@@ -213,7 +213,14 @@ textures ≤ 1024 px (`EXT_texture_webp`), quantized geometry (`KHR_mesh_quantiz
   go around the focused part's centre (the carousel's middle behind the front sleeve, or the plinth's – `inspect()`
   gives it, the lab reads it as `window.__recordStage` in dev). **The tonearm** can be swung (a press on it, raycast):
   around its pivot, raised, between rest and the inner groove; set down past the lead-in = play from there (the
-  needle's place → the position in the current song), back at rest = pause (`onarm`). Kept: the intro once per page
+  needle's place → the position in the current song), back at rest = pause (`onarm`). Held, it glows (an emissive tint), a mouse hover
+  lights it a little; an invisible capsule round its front and a ball round the headshell (about 3× their size) make it
+  easy to grab on a phone. **The sound only with the needle down** (owner 2026-10-16): while the 3D stage is shown the
+  player starts the audio only when the stage reports the needle on the record (`onneedle`) – after the intro (out of
+  the sleeve, onto the platter, arm over, needle down), a flip or a swap; a lifted arm pauses it (a short grace for a
+  needle that only lifts between songs); without the stage (card closed, 2D deck, reduced motion) it plays at once.
+  The way out of the sleeve goes up first (the standing record's lower edge clears the platter), then over while it
+  turns flat, then down – the way back the same backwards. Kept: the intro once per page
   load, `placed` when already on, the A/B flip. A proper shelf later.
 - **The player bar** (owner 2026-10-16): Play (the item detail, the carousel) opens the card at once; the mini bar shows
   only once the card is closed (the sound plays on). Two rows (res.radio's bar as reference; the owner chose it):
