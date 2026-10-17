@@ -1,0 +1,85 @@
+/* Lab-only medieval font trial (owner 2026-10-17): Google Fonts, SIL OFL 1.1 (./*-OFL.txt), latin subset. */
+@font-face {
+	font-family: 'Almendra';
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./almendra-400-italic.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'Almendra';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./almendra-400-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'Grenze Gotisch';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(./grenze-gotisch-500-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'IM Fell English';
+	font-style: italic;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./im-fell-english-400-italic.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'IM Fell English';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./im-fell-english-400-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'Jacquard 24';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./jacquard-24-400-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'MedievalSharp';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./medievalsharp-400-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'Pirata One';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./pirata-one-400-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'Texturina';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url(./texturina-500-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'Uncial Antiqua';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./uncial-antiqua-400-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'UnifrakturCook';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url(./unifrakturcook-700-normal.woff2) format('woff2');
+}
+@font-face {
+	font-family: 'UnifrakturMaguntia';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url(./unifrakturmaguntia-400-normal.woff2) format('woff2');
+}

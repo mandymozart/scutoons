@@ -145,6 +145,29 @@ view, "PDF herunterladen" (the print file).
   syllable hop while playing – both off under reduced motion. The toolkit is shared: `resetOptions()` before every
   layout. DRAFT in the lab (look switch); not yet chosen for readers. Possible next: own SMuFL font (Verovio's
   `fontAddCustom`, a converted zip), own drawn clefs swapped into the SVG's symbols.
+  **Medieval** (owner 2026-10-17: "looks like medieval score … portrait avatar and full figures to illustrate the
+  frames"; "bangers font is not cool"): parchment, red staff lines, red / blue rubrics, title and part names in a
+  medieval face, margins in rem (`look.margin`) around the music; ScoreView's `decor` snippet draws
+  score-illumination.svelte over every page – red / blue double frame with gold corner flowers, page 1 an illuminated
+  initial (the title's letter over a portrait), later pages a portrait medallion, one or two full figures standing on
+  the foot of the frame and swaying (still under reduced motion), chosen per page from a seed. Trial faces (lab only,
+  `lab/score/fonts`, Google Fonts OFL): UnifrakturMaguntia, UnifrakturCook, Grenze Gotisch, Pirata One, Texturina,
+  Uncial Antiqua, MedievalSharp, Jacquard 24; lyrics Times / IM Fell English / Almendra italic (both narrower than
+  Times, so no collisions). Learned: an SATB system with two verses is taller than a desktop page at 35–40 % – the
+  page scrolls and the figures stand on the music; "No He Said"'s triangle staff renders with endless ledger lines
+  (every look – Verovio and the file's percussion part).
+  Ornaments (owner 2026-10-17: "Ornamente und Farben … auf unseren Vektordaten"): the Cat Pope Figma file, page
+  "Vector" (555:2354), in the vector library (`shared/tokens/vectors/`, its README, agents/ASSETS.md "Vector library").
+  The frame: crescent chains along the edges, wreaths in the corners and around the portraits, an ink arcade of
+  dotted arches at the foot (the figures, 4.25rem, stand on it), the scroll filigree as a headpiece from page 2; red
+  = the vectors' #FF0000 ≈ `--acid-red`, all as CSS masks so the look sets the colour. The Pope friezes on that page
+  are loose pieces without a group – their units (arch, Pope face) are in the library, not the whole strips.
+  **90s wild** (owner 2026-10-17: "go real wild … huge and overlay … outlines or … gradients … ditch the brown
+  background … figurines much bigger, but also small ones … make it messy"): white paper; score-collage.svelte lays 5–7
+  library shapes per page (seeded), huge, turned, cut by the edge – behind the music (outline, gradient from the
+  vectors' / brand colours, solid, or black-and-white shapes as they are, faint) and a few outlines over it (multiply);
+  one huge figure behind, 2–3 small ones in front, sometimes a big round portrait; slow drift. Shapes load as text
+  (`?raw`) only for this look. Learned: black behind black notes kills reading – the back layer has no black.
 - Lives in `@scutoons/reader` (no app state) so live mode reuses it; the viewer wraps it.
 
 **5. Access – protected** (owner 2026-10-14: "we will need a protection for this soon"; "guests can view the score in

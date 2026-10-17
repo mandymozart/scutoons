@@ -57,7 +57,7 @@
 </script>
 
 <script lang="ts">
-	import { onDestroy, tick, untrack } from 'svelte';
+	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import Swiper from 'swiper';
 	import 'swiper/css';
 	import { Icon, IconButton } from '@scutoons/ui';
@@ -86,6 +86,7 @@
 		labels = DEFAULT_SCORE_LABELS,
 		age = null,
 		look = null,
+		decor,
 		onclose
 	}: {
 		/** the MusicXML file's URL */
@@ -97,6 +98,8 @@
 		/** an ageing book's look (`ageLook` + a seed – the book entry): tint and spots over every page */
 		age?: { tint: number; spots: number; seed: string } | null;
 		look?: ScoreLook | null;
+		/** drawn over every page (a look's frame, figures …), given the page number */
+		decor?: Snippet<[number]>;
 		onclose: () => void;
 	} = $props();
 
@@ -166,10 +169,10 @@
 			breaks: 'auto',
 			header: 'auto',
 			footer: 'none',
-			pageMarginTop: 40,
-			pageMarginBottom: 40,
-			pageMarginLeft: 40,
-			pageMarginRight: 40
+			pageMarginTop: margin(style?.margin?.top, scale),
+			pageMarginBottom: margin(style?.margin?.bottom, scale),
+			pageMarginLeft: margin(style?.margin?.side, scale),
+			pageMarginRight: margin(style?.margin?.side, scale)
 		});
 		// the toolkit is shared: load the data again when another view loaded its own (or another look) since
 		if (held !== data || heldLook !== style) {
@@ -184,6 +187,13 @@
 		rendered = {};
 		status = 'ready';
 		untrack(() => show(at > 0 ? at : 1, true));
+	}
+
+	/** a look's margin (rem) in Verovio's units at `scale` %; without one Verovio's 40 */
+	function margin(rem: number | undefined, scale: number): number {
+		if (rem === undefined) return 40;
+		const px = rem * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+		return Math.round((px * 100) / scale);
 	}
 
 	/** the first bar of the page the reader is on (the anchor across a new layout) */
@@ -369,6 +379,7 @@
 						<div class="swiper-slide" data-page={i + 1}>
 							{@html rendered[i + 1] ?? ''}
 							{#if age}<ScoreAge tint={age.tint} spots={age.spots} seed="{age.seed}:{i + 1}" />{/if}
+							{@render decor?.(i + 1)}
 						</div>
 					{/each}
 				</div>

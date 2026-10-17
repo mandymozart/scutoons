@@ -5,19 +5,9 @@
 	 * `ageLook`). The spots are placed from `seed` (the book entry + the page), so a page's spots stay where they are;
 	 * the music underneath stays readable (multiply, pointer-transparent). The PDF stays clean.
 	 */
-	let { tint, spots, seed }: { tint: number; spots: number; seed: string } = $props();
+	import { random } from './seeded.ts';
 
-	/** a small deterministic random from the seed (mulberry32 over a string hash) */
-	function random(text: string): () => number {
-		let h = 1779033703 ^ text.length;
-		for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 3432918353), (h = (h << 13) | (h >>> 19));
-		return () => {
-			h = (h + 0x6d2b79f5) | 0;
-			let t = Math.imul(h ^ (h >>> 15), 1 | h);
-			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-		};
-	}
+	let { tint, spots, seed }: { tint: number; spots: number; seed: string } = $props();
 
 	const MAX_SPOTS = 14;
 	const marks = $derived.by(() => {

@@ -80,10 +80,148 @@
 	100% { transform: translateY(0) scale(1); }
 }
 
+
+/* ── medieval: an illuminated manuscript (score-illumination.svelte draws the frame and the figures) ──
+   The title font and the lyrics font are variables, so the lab can try faces: --score-title-font, --score-lyric-font. */
+.score-view .sheet[data-look='medieval'] {
+	--score-paper: #efe0bd;
+	--score-ink: #24160b;
+	/* the Cat Pope vectors' red (Figma "Vector" page, the ornaments) */
+	--score-red: var(--acid-red, #ff1900);
+	--score-blue: #24428f;
+	--score-gold: #c99a2e;
+	--score-lit: var(--acid-red, #ff1900);
+	color: var(--score-ink);
+	/* vellum: warm, blotchy, darker towards the edges */
+	background:
+		radial-gradient(ellipse at 30% 20%, rgb(255 248 225 / 0.55), transparent 45%),
+		radial-gradient(ellipse at 75% 80%, rgb(160 110 50 / 0.12), transparent 50%),
+		radial-gradient(ellipse at 50% 50%, transparent 55%, rgb(110 70 25 / 0.28)),
+		var(--score-paper);
+}
+
+.score-view .sheet[data-look='medieval'] svg {
+	color: var(--score-ink);
+	fill: var(--score-ink);
+}
+
+/* red staff lines, as in the chant books; the notes stay ink */
+.score-view .sheet[data-look='medieval'] g.staff > path {
+	stroke: var(--score-red);
+}
+
+/* the title: big, red, in the title face (it grows up into the top margin) */
+.score-view .sheet[data-look='medieval'] g.pgHead text:first-of-type tspan[font-size] {
+	font-family: var(--score-title-font, 'UnifrakturMaguntia'), serif;
+	font-size: 660px;
+	fill: var(--score-red);
+}
+
+.score-view .sheet[data-look='medieval'] g.pgHead text + text tspan[font-size] {
+	font-family: var(--score-lyric-font, 'Times New Roman'), serif;
+	font-style: italic;
+	fill: var(--score-blue);
+}
+
+.score-view .sheet[data-look='medieval'] tspan[font-family='Gootville'] {
+	font-family: Gootville, Leipzig;
+}
+
+.score-view .sheet[data-look='medieval'] g.verse text {
+	font-family: var(--score-lyric-font, 'Times New Roman'), serif;
+	font-style: italic;
+}
+
+/* rubrics: dynamics red, chords and directions blue, the part names in the title face */
+.score-view .sheet[data-look='medieval'] g.dynam {
+	fill: var(--score-red);
+	color: var(--score-red);
+}
+
+.score-view .sheet[data-look='medieval'] g.harm,
+.score-view .sheet[data-look='medieval'] g.dir {
+	fill: var(--score-blue);
+	color: var(--score-blue);
+}
+
+.score-view .sheet[data-look='medieval'] g.label text tspan[font-size] {
+	font-family: var(--score-title-font, 'UnifrakturMaguntia'), serif;
+	fill: var(--score-red);
+}
+
+.score-view .sheet[data-look='medieval'] g.note.playing {
+	fill: var(--score-lit);
+	color: var(--score-lit);
+}
+
+.score-view .sheet[data-look='medieval'] g.note.playing > g.notehead,
+.score-view .sheet[data-look='medieval'] g.note.playing g.syl {
+	transform-box: fill-box;
+	transform-origin: 50% 100%;
+	animation: score-hop 0.28s ease-out;
+}
+
+/* ── wild: a 90s collage on white paper (score-collage.svelte lays the shapes and figures) ── */
+.score-view .sheet[data-look='wild'] {
+	--score-paper: #ffffff;
+	--score-ink: #111111;
+	--score-red: var(--acid-red, #ff1900);
+	--score-lit: var(--acid-red, #ff1900);
+	color: var(--score-ink);
+	background: var(--score-paper);
+}
+
+/* the music above the collage's back layer */
+.score-view .sheet[data-look='wild'] .swiper-slide > svg {
+	position: relative;
+	z-index: 1;
+	color: var(--score-ink);
+	fill: var(--score-ink);
+}
+
+.score-view .sheet[data-look='wild'] g.pgHead text:first-of-type tspan[font-size] {
+	font-family: var(--score-title-font, 'UnifrakturMaguntia'), serif;
+	font-size: 720px;
+	fill: var(--score-red);
+}
+
+.score-view .sheet[data-look='wild'] tspan[font-family='Gootville'] {
+	font-family: Gootville, Leipzig;
+}
+
+.score-view .sheet[data-look='wild'] g.verse text {
+	font-family: var(--score-lyric-font, 'Times New Roman'), serif;
+	font-style: italic;
+	/* a paper halo, so the words stay readable over the shapes */
+	paint-order: stroke;
+	stroke: var(--score-paper);
+	stroke-width: 60px;
+	stroke-linejoin: round;
+}
+
+.score-view .sheet[data-look='wild'] g.dynam,
+.score-view .sheet[data-look='wild'] g.harm {
+	fill: var(--score-red);
+	color: var(--score-red);
+}
+
+.score-view .sheet[data-look='wild'] g.note.playing {
+	fill: var(--score-lit);
+	color: var(--score-lit);
+}
+
+.score-view .sheet[data-look='wild'] g.note.playing > g.notehead,
+.score-view .sheet[data-look='wild'] g.note.playing g.syl {
+	transform-box: fill-box;
+	transform-origin: 50% 100%;
+	animation: score-hop 0.28s ease-out;
+}
+
+/* last, and as specific as the looks' own rules, so it wins over every one of them */
 @media (prefers-reduced-motion: reduce) {
 	.score-view .sheet[data-boil] .swiper-slide > svg,
-	.score-view .sheet g.note.playing > g.notehead,
-	.score-view .sheet g.note.playing g.syl {
+	.score-view .sheet[data-look] g.note.playing > g.notehead,
+	.score-view .sheet[data-look] g.note.playing g.syl {
 		animation: none;
 	}
 }
