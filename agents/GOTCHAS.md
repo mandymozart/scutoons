@@ -43,8 +43,9 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
 - A viewer build can crash natively (exit 0xC0000409) at random – run it again.
 - Playwright (check:endless-engines) needs the builds of the pinned playwright-core: `npx playwright-core install chromium
   firefox webkit` – `npx playwright install` fetches the newest playwright and other builds.
-- Playwright scales wheel deltas by the DPR in Chromium (compare with the deltaX the page got); Playwright's Firefox sends
-  no pointerup for a release outside the viewport; other sessions' load flakes check:endless's timing steps – rerun.
+- Playwright scales wheel deltas by the DPR in Chromium (compare with the deltaX the page got); its Firefox sends no
+  pointerup for a release outside the viewport and, under load, returns from `wheel` before the page has the event (wait
+  for it); other sessions' load or dev-server restarts flake the endless checks' timing steps – rerun.
 
 ## Server, DB
 - The dev API runs the working tree: a new table without its migration breaks reads for everyone – migrate right away.

@@ -83,10 +83,11 @@ async function contextFor(browser, size, { hints = false, reducedMotion = 'no-pr
 	}, session.token);
 	await context.addInitScript(ENDLESS_PAGE);
 	await context.addInitScript(NUDGE_PAGE);
-	// the deltaX the page received (Playwright scales wheel deltas by the DPR in Chromium)
+	// the wheel events the page received and their deltaX (Playwright scales wheel deltas by the DPR in Chromium)
 	await context.addInitScript(() => {
 		window.__wx = 0;
-		addEventListener('wheel', (e) => (window.__wx += e.deltaX), { capture: true, passive: true });
+		window.__wn = 0;
+		addEventListener('wheel', (e) => ((window.__wx += e.deltaX), window.__wn++), { capture: true, passive: true });
 	});
 	if (held) await context.addInitScript(() => window.__nudge.hold(true));
 	await context.route(CHAPTER_URL, async (route) => {
@@ -131,12 +132,15 @@ function reader(page, engine, size, errors) {
 		if (!at) throw new Error('something covers the whole band');
 		return at;
 	};
-	/** a wheel event over `at`; returns the deltaX the page received */
+	/**
+	 * a wheel event over `at`; returns the deltaX the page received – once it arrived: under load Playwright's Firefox
+	 * returns from `wheel` before the page has the event (a step read 0 while the band moved)
+	 */
 	const wheel = async (at, deltaX, deltaY = 0) => {
 		await page.mouse.move(at.x, at.y);
-		const before = await js('window.__wx');
+		const [x0, n0] = await js('[window.__wx, window.__wn]');
 		await page.mouse.wheel(deltaX, deltaY);
-		return (await js('window.__wx')) - before;
+		return js(`new Promise((r) => { const t0 = performance.now(); const f = () => (window.__wn > ${n0} || performance.now() - t0 > 2000 ? r(window.__wx - ${x0}) : requestAnimationFrame(f)); f(); })`);
 	};
 	const toBand = async () => (await js(`(() => { const b = __endless.band().getBoundingClientRect(); scrollTo({ top: scrollY + b.top - (innerHeight - b.height) / 2, behavior: 'instant' }); return true; })()`), await sleep(150), { ...(await state()), vh: await js('innerHeight') });
 	async function settle(ms = 5000) {
@@ -153,7 +157,16 @@ function reader(page, engine, size, errors) {
 	const bandClip = (s) => { const y = Math.max(0, s.band.y), b = Math.min(s.vh, s.band.y + s.band.h); return { x: Math.max(0, s.win.x), y, width: Math.min(s.cw, s.win.x + s.win.w) - Math.max(0, s.win.x), height: b - y }; };
 
 	async function open() {
-		await page.goto(VIEWER + PAGE, { waitUntil: 'domcontentloaded' });
+		// the dev server restarts when another session changes its setup – wait for it (30 s)
+		for (let i = 0; ; i++) {
+			try {
+				await page.goto(VIEWER + PAGE, { waitUntil: 'domcontentloaded' });
+				break;
+			} catch (e) {
+				if (i >= 10 || !/CONNECTION_REFUSED|Could not connect/i.test(String(e?.message))) throw e;
+				await sleep(3000);
+			}
+		}
 		const ready = await until(`(() => { const s = window.__endless?.state(); const imgs = [...(__endless.band()?.querySelectorAll('img') ?? [])]; return s && s.T > 0 && imgs.length >= ${N} && imgs.every((i) => i.complete && i.naturalWidth > 0) ? true : null; })()`, 40000);
 		await sleep(700);
 		if (!ready) check(`${name}: the endless band renders`, ['no band with loaded frames within 40 s']);
