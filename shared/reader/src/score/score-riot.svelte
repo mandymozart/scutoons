@@ -55,9 +55,10 @@
 	 * The collage look (score-looks.ts `collage`, owner 2026-10-17: "design something with all the tokens we got now …
 	 * the cat pope personas and moods … the crows … much more aggressive overlays on the score … white background …
 	 * all kinds of negative and difference blending modes … images and vectors can and should overlay scores"): per page
-	 * 9–15 shapes from the whole vector library and 4–7 character pictures (personas × moods, the crows), huge to tiny,
-	 * turned, repeated, cut by the page – most OVER the music in difference / exclusion / multiply / screen / burn /
-	 * dodge …, some behind; now and then a white block in difference that turns a band of the page negative. Laid from
+	 * 14–22 shapes from the whole vector library and 5–9 character pictures (personas × moods, the crows), huge to tiny,
+	 * repeated, cut by the page – shapes as drawn and pictures upright (owner 2026-10-17: "the avatars used should not be
+	 * rotated … dont distort vectors": no turning, no mirrored shapes, their own proportions) – most OVER the music in
+	 * difference / exclusion / multiply / hard-light …, some behind; now and then a white block in difference that turns a band of the page negative. Laid from
 	 * `seed` + the page, so a page keeps its collage; a slow drift (still under reduced motion). Never catches the pointer.
 	 */
 	import { random } from './seeded.ts';
@@ -73,14 +74,12 @@
 		height: number;
 		x: number;
 		y: number;
-		turn: number;
 		ink: string;
 		gradient: string[];
 		angle: number;
 		blend: string;
 		filter: string;
 		opacity: number;
-		flip: boolean;
 		drift: number;
 		delay: number;
 		big: boolean;
@@ -108,14 +107,12 @@
 					height: pick([between(10, 25), between(30, 70), between(70, 160), between(70, 160)]),
 					x: between(-40, 95),
 					y: between(-30, 90),
-					turn: between(-70, 70),
 					ink: pick(INKS),
 					gradient: pick(GRADIENTS),
 					angle: Math.round(between(0, 180)),
 					blend: pick(BLENDS),
 					filter: pick(FILTERS),
 					opacity: between(0.7, 1),
-					flip: next() < 0.4,
 					drift: between(10, 26),
 					delay: -between(0, 20),
 					big
@@ -125,7 +122,7 @@
 				if (piece.ink === '#ffffff' || piece.filter.includes('invert')) piece.blend = pick(['difference', 'exclusion']);
 				pieces.push(piece);
 				// xerox: now and then the same shape again, a little shifted and in another blend
-				if (next() < 0.25) pieces.push({ ...piece, x: piece.x + between(-8, 8), y: piece.y + between(-6, 6), turn: piece.turn + between(-15, 15), blend: pick(BLENDS), ink: pick(INKS) });
+				if (next() < 0.25) pieces.push({ ...piece, x: piece.x + between(-8, 8), y: piece.y + between(-6, 6), blend: pick(BLENDS), ink: pick(INKS) });
 			}
 		const people = pictures.length
 			? Array.from({ length: 5 + Math.floor(next() * 5) }, () => ({
@@ -133,7 +130,6 @@
 					height: pick([between(10, 20), between(22, 45), between(55, 115)]),
 					x: between(-25, 90),
 					y: between(-25, 85),
-					turn: pick([0, 0, between(-25, 25), between(-90, 90)]),
 					blend: pick(BLENDS),
 					filter: pick(FILTERS),
 					front: next() < 0.8,
@@ -185,7 +181,6 @@
 			style:height="{f.height}%"
 			style:left="{f.x}%"
 			style:top="{f.y}%"
-			style:rotate="{f.turn}deg"
 			style:mix-blend-mode={f.blend}
 			style:filter={f.filter}
 			onerror={(e) => ((e.currentTarget as HTMLElement).hidden = true)}
@@ -197,12 +192,10 @@
 			<div
 				class="piece {p.mode}"
 				class:front={p.front}
-				class:flip={p.flip}
 				style:height="{p.height}%"
 				style:aspect-ratio={ratio(p.slug)}
 				style:left="{p.x}%"
 				style:top="{p.y}%"
-				style:--turn="{p.turn}deg"
 				style:--ink={p.ink}
 				style:--fill="url(#{uid}-{i})"
 				style:mix-blend-mode={p.blend}
@@ -241,7 +234,6 @@
 	.piece {
 		position: absolute;
 		z-index: 0;
-		rotate: var(--turn);
 		animation: drift ease-in-out infinite alternate;
 	}
 
@@ -250,8 +242,6 @@
 		z-index: 2;
 	}
 
-	.piece.flip :global(svg),
-	.piece.flip img,
 	.person.flip {
 		scale: -1 1;
 	}
@@ -303,8 +293,8 @@
 	}
 
 	@keyframes drift {
-		from { translate: -2% -1.5%; rotate: calc(var(--turn) - 5deg); }
-		to { translate: 2% 1.5%; rotate: calc(var(--turn) + 5deg); }
+		from { translate: -2% -1.5%; }
+		to { translate: 2% 1.5%; }
 	}
 
 	@media (prefers-reduced-motion: reduce) {
