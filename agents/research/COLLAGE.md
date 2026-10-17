@@ -1,4 +1,4 @@
-Status: decided design 2026-10-18 (judged "simplest that works" + grafts) – build plan §8 for the night of 2026-10-18; owner questions §10 open, the build uses their defaults; nothing built yet.
+Status: decided design 2026-10-18 (judged "simplest that works" + grafts) – build plan §8 for the night of 2026-10-18; owner questions §10 open, the build uses their defaults; §8 steps 1–2 built (model, renderer + viewer), 3–7 open.
 
 # COLLAGE – pieces (vectors, characters, images) on slices and scores
 
@@ -155,10 +155,10 @@ Creator `PickerSheet` (Sheet right, widthKey `picker`), Tabs **Shapes · Charact
 ```
 .piece  left/top/width % · aspect-ratio: ratio · translate: anchorTranslate · rotate · mix-blend-mode · opacity · container-type:inline-size · pointer-events:none · z-index (scores)
   .fx   inset 0 · filter: outline ×4 → shadow → blur   (cqw of the piece)
-    PAINT = <img loading=lazy decoding=async draggable=false>  |  .fill { mask: var(--src) center/100% 100% no-repeat (+ -webkit-mask); background: colour | linear-gradient }
-progressive blur – two bands instead of one .fx:
-  .band.sharp  inset 0, mask linear-gradient(θ, #000 s%, transparent e%) > .fx (outline, shadow)
-  .band.soft   inset −P cqw, mask = the inverse remapped to the padded box > .fx at inset P cqw (outline, shadow, blur)   P = 3 × amount
+    PAINT = <img loading=lazy decoding=async draggable=false object-fit:contain>  |  .fill { mask: var(--src) center/contain no-repeat (+ -webkit-mask); background: colour | linear-gradient }
+progressive blur – two bands instead of one .fx, both padded (a mask cuts at its box – also the sharp band's outline / shadow):
+  .band (sharp)  inset −P cqw, mask linear-gradient(θ, #000 s%, transparent e%) remapped to the padded box > .fx at inset P cqw (outline, shadow)
+  .band (soft)   the same box, the inverse mask > .fx at inset P cqw (outline, shadow, blur)   P = spill = outline + shadow (max |x|,|y| + 1.5 × blur) + 3 × amount
 ```
 | Effect | Technique |
 |---|---|
@@ -168,7 +168,7 @@ progressive blur – two bands instead of one .fx:
 | Outline | 4 chained zero-blur `drop-shadow(±w cqw …)` on `.fx` (dilation; boxy corners on thick outlines) |
 | Shadow | `drop-shadow(x y blur rgb(r g b / a))` after the outline – the outlined shape casts it; turns with the piece |
 | Blur | `blur(a cqw)` last on `.fx` – never on the masked element (filter runs before mask) |
-| Progressive blur | two bands; `blurBands(blur, ratio)` maps from / to into each band's box: θ = atan2(dx·w, −dy·h), L = abs(w sinθ) + abs(h cosθ), stops = projections |
+| Progressive blur | two bands; `blurBands(style, ratio)` maps from / to into the padded box (`gradientLine`): θ = atan2(dx·w, −dy·h), L = abs(w sinθ) + abs(h cosθ), stops = projections. Built 2026-10-18 (step 2), identical in Chromium / Firefox / WebKit (probe); WebKit rounds drop-shadow lengths to whole px |
 | Rotation | `rotate` on `.piece`; shadows rotate with it |
 
 **Limits** (validation warnings, not caps): slice 12 pieces / heavy weight 4; score 60 / 20; outline ≤ 8 %, blur ≤ 20 %, shadow blur ≤ 25 %. Pieces are static, mount near the viewport (slices) or on rendered pages (scores). WebKit software probe: blend 1.6×, drop-shadow + blend ~7×, blur ~5× a plain piece – phones still need an on-device check (owner's Firefox Android + an iPhone).

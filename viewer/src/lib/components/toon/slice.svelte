@@ -142,6 +142,8 @@
 		}),
 		want: getCurrentAudioContext()?.want ?? null
 	});
+	/** collage pieces (Slice.pieces – agents/research/COLLAGE.md §3): their files in the toon's path form, like the image */
+	const pieceSrc = (src: string) => toonUrl(toonId, src) || null;
 	// chapter files are loaded per locale, so the UI locale is the language of the text
 	const lang = getLocale();
 	// `{…}` in the text boxes, answered for this reader (agents/EXPRESSIONS.md); visits counted once per page view
@@ -278,6 +280,7 @@
 	{dialogPlay}
 	{expressions}
 	{blurred}
+	{pieceSrc}
 	area={layered ? stackArea : undefined}
 	{@attach fromAction(sliceAudio, () => ({
 		events: audioEvents,

@@ -9,6 +9,7 @@
 	import type { Dialog as DialogModel } from '@scutoons/content';
 	import SliceVideo from './slice-video.svelte';
 	import type { PlayerLabels } from './player-overlay.svelte';
+	import SlicePicture from './collage/slice-picture.svelte';
 
 	/**
 	 * One slice: the image (or its video) and its text boxes. The app passes the resolved URLs and the text language,
@@ -28,6 +29,10 @@
 	 * `blurred` (a sensitive slice while the reader hides sensitive content, agents/ITEMS.md "Sensitive slices"): the image
 	 * – a video slice's poster, the video itself is not loaded (no sound, nothing to reveal) – is drawn blurred, clipped
 	 * to the slice; the app mutes the slice's sounds and puts its note on top (`children`).
+	 *
+	 * Collage pieces (`slice.pieces` – shapes, character pictures, images; agents/research/COLLAGE.md §3) lie on a
+	 * picture slice once the app resolves their files (`pieceSrc`): under the text boxes, clipped to the picture, blended
+	 * with it alone (`SlicePicture`). Not on a video slice, not while blurred.
 	 */
 	let {
 		slice,
@@ -50,6 +55,7 @@
 		dialogPlay,
 		expressions,
 		blurred = false,
+		pieceSrc,
 		area,
 		before,
 		children,
@@ -96,6 +102,8 @@
 		expressions?: TextExpressions;
 		/** draw the image blurred and leave a video unloaded (a sensitive slice the reader hides) */
 		blurred?: boolean;
+		/** a collage piece's file URL from its `src` (the toon's path form); none = pieces are not drawn */
+		pieceSrc?: (src: string) => string | null | undefined;
 		/** draws one click / hover area in the layer stack (`SliceLayers`); none = the areas are not in the stack */
 		area?: Snippet<[SliceLayerRef]>;
 		before?: Snippet;
@@ -132,15 +140,17 @@
 			eager={videoEager ?? eager}
 		/>
 	{:else}
-		<img
-			{src}
-			{alt}
-			{width}
-			{height}
-			loading={eager ? 'eager' : 'lazy'}
-			decoding="async"
-			fetchpriority={(priority ?? eager) ? 'high' : 'auto'}
-		/>
+		<SlicePicture pieces={slice.pieces} {pieceSrc} {eager}>
+			<img
+				{src}
+				{alt}
+				{width}
+				{height}
+				loading={eager ? 'eager' : 'lazy'}
+				decoding="async"
+				fetchpriority={(priority ?? eager) ? 'high' : 'auto'}
+			/>
+		</SlicePicture>
 	{/if}
 	<SliceLayers
 		dialogs={slice.dialog}
