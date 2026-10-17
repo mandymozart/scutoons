@@ -81,7 +81,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   outside closes it. Inventory, avatar, chapter list, the record player's card (a 3D canvas in it is transparent).
 - **Sticky action bar** (owner 2026-10-16) — a panel's actions stick to its bottom: `StickyActions` (@scutoons/ui) last
   in the scroll box, no rule on top, the content fades out under it into `--paper` (black in a dark panel); the scroll
-  box hands it its bottom padding as `--sticky-actions-inset`. The item detail and the recipe use it.
+  box hands it its bottom padding as `--sticky-actions-inset`. The item detail and the recipe use it. Bottom = the
+  sides' 1rem (`max(1rem, safe area)`, not added – owner 2026-10-17), the fade eased over 2.5rem.
 - **Account page** (owner 2026-10-16, research/ACCOUNT-PAGE.md concept B) — `/account` is an index: who reads (a
   member's name large + access; a guest's sign-in), then one row per group (Feather icon, title, a `.sc-chip` "Konto" /
   "Gerät" where the whole group is kept there, a one-line summary of its values, ›). Each group is its own page

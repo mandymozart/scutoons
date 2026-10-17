@@ -404,8 +404,9 @@
 		min-height: 8rem;
 		background: var(--paper);
 		color: var(--ink);
-		/* the bottom padding belongs to a sticky action bar in it (StickyActions) */
-		--sticky-actions-inset: calc(1rem + env(safe-area-inset-bottom));
+		/* the bottom padding belongs to a sticky action bar in it (StickyActions) – the same 1rem as left and right
+		   (owner 2026-10-17: "links, rechts, unten gleicher Abstand"); a phone's home bar only where it is taller */
+		--sticky-actions-inset: max(1rem, env(safe-area-inset-bottom));
 		padding: 1rem calc(1rem + env(safe-area-inset-right)) var(--sticky-actions-inset) calc(1rem + env(safe-area-inset-left));
 		overflow-y: auto;
 		overscroll-behavior: contain;

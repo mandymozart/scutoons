@@ -31,7 +31,14 @@
 		margin: 0 0 calc(-1 * var(--inset));
 		padding: var(--space-3) 0 var(--inset);
 		margin-top: calc(-1 * var(--space-15));
-		background: linear-gradient(to bottom, transparent, var(--paper) calc(var(--space-3) - var(--space-05)));
+		/* eased, so the content fades out softly over the whole 2.5rem instead of going dark at once */
+		background: linear-gradient(
+			to bottom,
+			transparent,
+			color-mix(in srgb, var(--paper) 25%, transparent) calc(0.35 * (var(--space-3) - var(--space-05))),
+			color-mix(in srgb, var(--paper) 70%, transparent) calc(0.7 * (var(--space-3) - var(--space-05))),
+			var(--paper) calc(var(--space-3) - var(--space-05))
+		);
 		pointer-events: none;
 	}
 
