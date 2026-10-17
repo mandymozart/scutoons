@@ -1,0 +1,392 @@
+{
+	"about": "SCUTOONS vector library (owner 2026-10-17): shapes from our own artwork for ornaments, frames and layout. One entry = one future row of the asset database (agents/ASSETS.md: slug, kind, folder, title, tags). `npm run vectors:pull` re-exports every `figma` entry over the SCUTOONS Figma bridge and fills width / height / colors / bytes / sha256; `derived` entries are made from another entry. Vocabulary: shared/tokens/vectors/README.md.",
+	"sources": {
+		"catpope-vector": {
+			"file": "Cat Pope",
+			"page": "Vector",
+			"page_id": "555:2354"
+		}
+	},
+	"vectors": [
+		{
+			"slug": "crescent-chain",
+			"title": "Crescent chain",
+			"role": "band",
+			"tile": "y",
+			"tags": [
+				"ornament",
+				"red",
+				"crescent",
+				"border",
+				"medieval"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "2819:3886",
+				"name": "Group 10",
+				"frame": "555:5614"
+			},
+			"used_by": [
+				"score medieval frame (sides)"
+			],
+			"path": "vectors/crescent-chain.svg",
+			"width": 296,
+			"height": 1422,
+			"colors": [
+				"#FF0000"
+			],
+			"bytes": 3189,
+			"sha256": "5ee37166052c5bd4fde0d3003da15f51d00f0b44802c79e4fab794d9f3c36c7a",
+			"mask": true
+		},
+		{
+			"slug": "crescent-chain-across",
+			"title": "Crescent chain, across",
+			"role": "band",
+			"tile": "x",
+			"tags": [
+				"ornament",
+				"red",
+				"crescent",
+				"border",
+				"medieval"
+			],
+			"derived": {
+				"from": "crescent-chain",
+				"rotate": 90
+			},
+			"used_by": [
+				"score medieval frame (top, bottom)"
+			],
+			"path": "vectors/crescent-chain-across.svg",
+			"width": 1422,
+			"height": 296,
+			"colors": [
+				"#FF0000"
+			],
+			"bytes": 3239,
+			"sha256": "3faa077966313da6ed36ae268d30e20680f69ad2f153ef8a9d91016136a499af",
+			"mask": true
+		},
+		{
+			"slug": "crescent-boxes",
+			"title": "Crescent chain with boxes",
+			"role": "band",
+			"tile": "y",
+			"tags": [
+				"ornament",
+				"red",
+				"crescent",
+				"border"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "2819:3889",
+				"name": "Group 13",
+				"frame": "555:5614"
+			},
+			"path": "vectors/crescent-boxes.svg",
+			"width": 467,
+			"height": 1429,
+			"colors": [
+				"#FF0000"
+			],
+			"bytes": 3708,
+			"sha256": "8fbf92484f69b5eb1b274a99fa2c5b60e09aada535369ac0d2f2b59c4f1b0324",
+			"mask": true
+		},
+		{
+			"slug": "dot-branch",
+			"title": "Dot branch",
+			"role": "motif",
+			"tile": null,
+			"tags": [
+				"ornament",
+				"red",
+				"dots",
+				"branch",
+				"tree"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "2819:3887",
+				"name": "Group 11",
+				"frame": "555:5614"
+			},
+			"path": "vectors/dot-branch.svg",
+			"width": 409,
+			"height": 1010,
+			"colors": [
+				"#FF0000"
+			],
+			"bytes": 6896,
+			"sha256": "2070abc5ba18463de8ad9a15e08125aa72ff9c98db4223a422ee29d2027680a3",
+			"mask": true
+		},
+		{
+			"slug": "dot-ladder",
+			"title": "Dot ladder",
+			"role": "band",
+			"tile": "y",
+			"tags": [
+				"ornament",
+				"red",
+				"dots",
+				"ladder",
+				"border"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "3524:5644",
+				"name": "Union",
+				"frame": "555:5614"
+			},
+			"path": "vectors/dot-ladder.svg",
+			"width": 587,
+			"height": 1350,
+			"colors": [
+				"#FF0000"
+			],
+			"bytes": 4031,
+			"sha256": "b69801fef985cd4ab9b590d4fcde6a498f747b8e42c055a0574b6509426ca660",
+			"mask": true
+		},
+		{
+			"slug": "wreath",
+			"title": "Crescent wreath",
+			"role": "ring",
+			"tile": null,
+			"tags": [
+				"ornament",
+				"red",
+				"crescent",
+				"dots",
+				"circle",
+				"corner",
+				"medallion"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "3527:5711",
+				"name": "Union"
+			},
+			"used_by": [
+				"score medieval frame (corners, the portrait rings)"
+			],
+			"path": "vectors/wreath.svg",
+			"width": 2122,
+			"height": 2122,
+			"colors": [
+				"#FF0000"
+			],
+			"bytes": 35043,
+			"sha256": "e93d7772df4037962756d3a69dc9e875232ce537e171891678f2ef5137cf378b",
+			"mask": true
+		},
+		{
+			"slug": "vine-dots",
+			"title": "Thorn vine",
+			"role": "band",
+			"tile": "y",
+			"tags": [
+				"ornament",
+				"vine",
+				"thorns",
+				"border"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:8996",
+				"name": "Group",
+				"frame": "555:8314"
+			},
+			"path": "vectors/vine-dots.svg",
+			"width": 442,
+			"height": 5984,
+			"colors": [
+				"#1D1D1B"
+			],
+			"bytes": 105737,
+			"sha256": "7650d0d55e392eb3126d24836909374b74987d46ca5dd6452d262fa282b76cac",
+			"mask": true
+		},
+		{
+			"slug": "arch-dots",
+			"title": "Arch with dots",
+			"role": "frieze-unit",
+			"tile": "x",
+			"tags": [
+				"ornament",
+				"black",
+				"arch",
+				"dots",
+				"arcade",
+				"frieze"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:14688",
+				"name": "Group",
+				"frame": "555:8314"
+			},
+			"used_by": [
+				"score medieval frame (foot arcade)"
+			],
+			"path": "vectors/arch-dots.svg",
+			"width": 3537,
+			"height": 1967,
+			"colors": [
+				"#000000",
+				"#1D1D1B"
+			],
+			"bytes": 11940,
+			"sha256": "639f2983da52d73ac5be7fe6dd4d7adf351945bdd9c67829a0a96b8356b911c6",
+			"mask": true
+		},
+		{
+			"slug": "scroll-filigree",
+			"title": "Scroll filigree",
+			"role": "filigree",
+			"tile": null,
+			"tags": [
+				"ornament",
+				"black",
+				"scroll",
+				"symmetric",
+				"headpiece"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:12639",
+				"name": "Group",
+				"frame": "555:8314"
+			},
+			"path": "vectors/scroll-filigree.svg",
+			"width": 2268,
+			"height": 3185,
+			"colors": [
+				"#1D1D1B"
+			],
+			"bytes": 60121,
+			"sha256": "4b2e87bf2c092eb98c7d6c547dbd54232adf865e633e4e0e57e3afd5946ff7a5",
+			"mask": true
+		},
+		{
+			"slug": "pope-face-line",
+			"title": "Pope face, line art",
+			"role": "motif",
+			"tile": null,
+			"tags": [
+				"character",
+				"catpope",
+				"face",
+				"red",
+				"line-art"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15315",
+				"name": "Group",
+				"frame": "555:8314"
+			},
+			"path": "vectors/pope-face-line.svg",
+			"width": 568,
+			"height": 793,
+			"colors": [
+				"#1D1D1B",
+				"#FF0000",
+				"#FFFFFF"
+			],
+			"bytes": 51752,
+			"sha256": "82320c481a51be947fb12626bdaa730e016e122e202a012fdc4dffe6ec5a5c1a",
+			"mask": false
+		},
+		{
+			"slug": "damask-open",
+			"title": "Damask, open",
+			"role": "filigree",
+			"tile": null,
+			"tags": [
+				"ornament",
+				"black",
+				"damask",
+				"symmetric"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:4831",
+				"name": "Group",
+				"frame": "555:3740"
+			},
+			"path": "vectors/damask-open.svg",
+			"width": 1142,
+			"height": 1031,
+			"colors": [
+				"#000000",
+				"#FFFFFF"
+			],
+			"bytes": 88416,
+			"sha256": "1faa2e274d842a6c73b5b6913f1b8864d3d3f0ec42669f87ea7ef58845ba81e9",
+			"mask": false
+		},
+		{
+			"slug": "damask-silhouette",
+			"title": "Damask, silhouette",
+			"role": "silhouette",
+			"tile": null,
+			"tags": [
+				"ornament",
+				"black",
+				"damask",
+				"symmetric",
+				"shape"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:5080",
+				"name": "Vector",
+				"frame": "555:3740"
+			},
+			"path": "vectors/damask-silhouette.svg",
+			"width": 1020,
+			"height": 947,
+			"colors": [
+				"#1D1D1B",
+				"#FFFFFF"
+			],
+			"bytes": 37051,
+			"sha256": "74ba3c52cf089cdd4dbda13349eb71fcc017d9efe440239b8094f6f82cfb9550",
+			"mask": false
+		},
+		{
+			"slug": "pope-mandala",
+			"title": "Pope mandala",
+			"role": "seal",
+			"tile": null,
+			"tags": [
+				"ornament",
+				"catpope",
+				"face",
+				"circle",
+				"black-white",
+				"medallion"
+			],
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:3746",
+				"name": "Group",
+				"frame": "555:3740"
+			},
+			"path": "vectors/pope-mandala.svg",
+			"width": 1024,
+			"height": 1015,
+			"colors": [
+				"#000000",
+				"#FFFFFF"
+			],
+			"bytes": 226861,
+			"sha256": "57151f632f56c57f582f877712e9bb7b96d9eb3432607c26d492c7976a5b6568",
+			"mask": false
+		}
+	]
+}

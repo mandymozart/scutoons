@@ -15,11 +15,14 @@
 		"./base.css": "./base.css",
 		"./tools.css": "./tools.css",
 		"./fonts/*": "./fonts/*",
+		"./vectors.css": "./vectors.css",
+		"./vectors/*": "./vectors/*",
 		"./vite": "./vite.js"
 	},
 	"files": [
 		"*.css",
 		"fonts",
+		"vectors",
 		"vite.js"
 	],
 	"scripts": {

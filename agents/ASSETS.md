@@ -382,6 +382,16 @@ delete refused, storage status without secrets, scan). Content: `albums.test.ts`
 9311 / 10310 / 11310 / 8310, test user): creator picker on the season page (cover, trailer video → variants, upload +
 delete), admin Assets (library, detail, delete check, storage + bandwidth), viewer toon page (record image from the album).
 
+## Vector library (owner 2026-10-17)
+
+Shapes from our own artwork for ornaments, frames and layout – the start of a vector / shape database ("fürs Layouting
+später"); not in the catalog or the asset manager yet. In git: `shared/tokens/vectors/` – the SVGs, `vectors.json` (one
+entry per shape, shaped like an `assets` row: slug, title, role, tile, tags, Figma source, size, colours, mask, sha256)
+and `@scutoons/tokens/vectors.css` (`--vector-<slug>`). `npm run vectors:pull` re-exports from Figma over the SCUTOONS
+bridge (tools/figma-bridge) and measures. Vocabulary (roles, tags, mask): the folder's README. First 13 from the Cat
+Pope file, page "Vector"; first use: the medieval score frame (research/SCORES.md §4 "Looks"). Later: the asset table
+(`kind` other / a new `vector`, `tags` = role + tags) and a picker for layout.
+
 ## Fonts (CUTOVER 10.1c, 2026-10-05)
 
 `scutoons/fonts/` on the CDN = a copy of `shared/tokens/fonts/` (the source; same file names): IBM Plex Mono 400/700 by
