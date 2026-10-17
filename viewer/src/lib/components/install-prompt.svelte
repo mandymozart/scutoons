@@ -1,7 +1,9 @@
 <script lang="ts">
-	// "Install SCUTOONS as an app – Install / Not now" (agents/research/PWA.md "Install prompt"): Android / Chromium only,
-	// at the moment lib/install-rules.ts picks. The update prompt's look; a waiting update goes first. Its text links to
+	// "Install SCUTOONS as an app – Install / Not now" (agents/research/PWA.md "Install prompt") at the moment
+	// lib/install-rules.ts picks. Chromium: "Install" opens the browser's dialog; without an install event (iPhone Safari,
+	// Firefox on Android – or `?install` anywhere) "How?" leads to the how-to on the account page. The update prompt's look; a waiting update goes first. Its text links to
 	// the account page's group for the details (Offline-Inhalte → App, ACCOUNT-PAGE.md §0.7).
+	import { goto } from '$app/navigation';
 	import { install } from '$lib/install.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { pwa } from '$lib/pwa.svelte.ts';
@@ -12,7 +14,17 @@
 	<div class="install" role="status" data-testid="install-prompt">
 		<p><a href={localizeHref('/account/offline')} data-testid="install-details">{m['pwa.install_offer']()}</a></p>
 		<button class="btn-secondary" onclick={() => install.notNow()} data-testid="install-not-now">{m['pwa.not_now']()}</button>
-		<button onclick={() => install.install()} data-testid="install-app">{m['pwa.install']()}</button>
+		{#if install.available}
+			<button onclick={() => install.install()} data-testid="install-app">{m['pwa.install']()}</button>
+		{:else}
+			<button
+				onclick={() => {
+					install.howTo();
+					void goto(localizeHref('/account/offline'));
+				}}
+				data-testid="install-how">{m['pwa.how']()}</button
+			>
+		{/if}
 	</div>
 {/if}
 

@@ -39,7 +39,7 @@
 		signedIn: session.isLoggedIn,
 		roles: session.roles,
 		creator: canUseApp('creator', session.roles),
-		offline: savedChapters.supported || install.available || install.iosHowTo,
+		offline: savedChapters.supported || install.way !== 'hidden',
 		push: push.state !== 'hidden'
 	});
 	// whether this device can get push decides whether "Benachrichtigungen" shows for a guest

@@ -720,7 +720,14 @@
 		"push_hint": "Only for new chapters, on this device.",
 		"push_install_first": "On iPhone and iPad this works in the app: add SCUTOONS to your home screen first, then switch it on there.",
 		"push_denied": "Notifications are blocked for SCUTOONS in this browser's settings.",
-		"push_failed": "That didn't work – try again."
+		"push_failed": "That didn't work – try again.",
+		"how": "How?",
+		"firefox_add_before": "Add SCUTOONS to your home screen: tap the menu",
+		"firefox_menu": "Menu",
+		"firefox_add_after": "then “Add to Home screen” (or “Install”).",
+		"installed_now": "You’re using SCUTOONS as an app right now.",
+		"cannot_install": "This browser can’t install SCUTOONS as an app.",
+		"cannot_install_hint": "On Android it works with Chrome or Firefox, on iPhone and iPad with Safari. Installed already? Then open SCUTOONS from your home screen."
 	},
 	"saved": {
 		"cellular": "You're on mobile data.",
@@ -769,6 +776,7 @@
 		"auto_wifi": "On Wi-Fi",
 		"auto_always": "Always",
 		"auto_hint": "A chapter you open is then saved by itself and reads without a connection too – big videos are left out, never with data saver on.",
-		"auto_wifi_unknown": "This browser doesn't tell whether you're on Wi-Fi – “On Wi-Fi” saves nothing here, choose “Always”."
+		"auto_wifi_unknown": "This browser doesn't tell whether you're on Wi-Fi – “On Wi-Fi” saves nothing here, choose “Always”.",
+		"safari_7_days": "Safari deletes saved chapters when you don’t open SCUTOONS for 7 days. On your home screen (Share → “Add to Home Screen”) they stay."
 	}
 }

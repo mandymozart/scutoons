@@ -31,7 +31,7 @@ async function show(sw: ServiceWorkerGlobalScope, data: PushMessageData | null) 
 	await sw.registration.showNotification(notice.title, {
 		body: notice.body,
 		tag: notice.tag,
-		icon: '/android-chrome-192x192.png',
+		icon: '/app-icon-192.png',
 		data: { url: notice.url },
 		lang: notice.url.startsWith('/en/') ? 'en' : 'de'
 	});

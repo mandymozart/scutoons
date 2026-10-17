@@ -720,7 +720,14 @@
 		"push_hint": "Nur bei neuen Kapiteln, auf diesem Gerät.",
 		"push_install_first": "Auf iPhone und iPad geht das in der App: füge SCUTOONS erst zum Home-Bildschirm hinzu und schalte es dort ein.",
 		"push_denied": "Benachrichtigungen sind für SCUTOONS in den Einstellungen dieses Browsers blockiert.",
-		"push_failed": "Hat nicht geklappt – versuch es nochmal."
+		"push_failed": "Hat nicht geklappt – versuch es nochmal.",
+		"how": "So geht’s",
+		"firefox_add_before": "SCUTOONS auf den Startbildschirm: tippe auf das Menü",
+		"firefox_menu": "Menü",
+		"firefox_add_after": "dann auf „Zum Startbildschirm hinzufügen“ (oder „Installieren“).",
+		"installed_now": "Du nutzt SCUTOONS gerade als App.",
+		"cannot_install": "Dieser Browser kann SCUTOONS nicht als App installieren.",
+		"cannot_install_hint": "Auf Android geht es mit Chrome oder Firefox, auf iPhone und iPad mit Safari. Schon installiert? Dann öffne SCUTOONS vom Startbildschirm."
 	},
 	"saved": {
 		"cellular": "Du bist im Mobilfunknetz.",
@@ -769,6 +776,7 @@
 		"auto_wifi": "Im WLAN",
 		"auto_always": "Immer",
 		"auto_hint": "Ein Kapitel, das du öffnest, wird dann von selbst gespeichert und ist auch ohne Verbindung lesbar – große Videos bleiben weg, nie im Datensparmodus.",
-		"auto_wifi_unknown": "Dieser Browser verrät nicht, ob du im WLAN bist – „Im WLAN“ speichert hier nichts, nimm „Immer“."
+		"auto_wifi_unknown": "Dieser Browser verrät nicht, ob du im WLAN bist – „Im WLAN“ speichert hier nichts, nimm „Immer“.",
+		"safari_7_days": "Safari löscht gespeicherte Kapitel, wenn du SCUTOONS 7 Tage lang nicht öffnest. Auf dem Home-Bildschirm (Teilen → „Zum Home-Bildschirm“) bleiben sie."
 	}
 }

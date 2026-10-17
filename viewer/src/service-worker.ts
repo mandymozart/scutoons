@@ -34,7 +34,7 @@ const SHELL = '/';
 const BUILD = new Set(build);
 /** static files the boot screen and the first paint use; the rest of static/ only from the network */
 const STATIC = files.filter((f) =>
-	/^\/(css\/[^/]+\.css|SCUTOONS-logo-animated\.svg|site\.webmanifest|favicon[^/]*|android-chrome-[^/]+|icon-maskable-[^/]+|apple-touch-icon\.png)$/.test(f)
+	/^\/(css\/[^/]+\.css|SCUTOONS-logo-animated\.svg|site\.webmanifest|favicon[^/]*|app-icon-[^/]+)$/.test(f)
 );
 const STATIC_SET = new Set(STATIC);
 

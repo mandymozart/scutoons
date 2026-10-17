@@ -63,7 +63,7 @@ The PWA and any later work adapt to this, not the other way round.
 | 16 | Dein Name | `{reader.name}` in stories | all | account / device | a story's askText |
 | 17 | Medienqualität | Auto / Niedrig / Mittel / Hoch + MB estimate | all | account / device | – |
 | 18 | Soundeffekte | volume, Anhören, Vibration | all | device | – |
-| 19 | App · App installieren | install prompt | browsers that can install (Android / Chromium) | – | the install bar |
+| 19 | App · App installieren | install prompt | every browser: Install / the how-to (iPhone Safari, Firefox on Android) / "using the app" / "can't install here" (PWA.md §2a) | – | the install bar |
 | 20 | Kapitel auf dem Gerät speichern | Nur von Hand / Im WLAN / Immer | browsers with service worker | device | – |
 | 21 | Gespeicherte Kapitel | running saves (bars per kind), list, remove, remove all, storage | when something is saved / saving | device | the season heading's save icon |
 | 22 | Inventar | item count + "Inventar öffnen" | all | – | header's inventory button (panel) |

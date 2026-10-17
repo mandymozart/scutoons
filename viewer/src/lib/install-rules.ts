@@ -65,9 +65,21 @@ export function momentReached(memory: InstallMemory): boolean {
 	return memory.visits >= 2 || memory.chapters >= 1;
 }
 
-/** the bar: installable, the moment reached (checked on a page change / start, not live), not snoozed */
-export function shouldOffer(facts: InstallFacts, memory: InstallMemory, now: number): boolean {
-	return canInstall(facts, memory) && momentReached(memory) && !snoozed(memory, now);
+/**
+ * the bar: installable – by the browser's event, or by hand (`manual`: iPhone Safari, Firefox on Android – the bar then
+ * leads to the how-to) – the moment reached (checked on a page change / start, not live), not snoozed
+ */
+export function shouldOffer(facts: InstallFacts & { manual?: boolean }, memory: InstallMemory, now: number): boolean {
+	const installable = canInstall(facts, memory) || (!!facts.manual && !facts.standalone && !facts.framed);
+	return installable && momentReached(memory) && !snoozed(memory, now);
+}
+
+/**
+ * `?install` in the URL (testing on a real phone, PWA.md §6): the bar shows at once – whatever the moment and "Not now" –
+ * on every browser except inside the app and the creator's frame; where nothing can install it explains why
+ */
+export function forcedOffer(way: InstallWay): boolean {
+	return way !== 'installed' && way !== 'hidden';
 }
 
 /**
@@ -81,7 +93,38 @@ export function isIosSafari(userAgent: string, maxTouchPoints = 0): boolean {
 	return !/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|YaBrowser|DuckDuckGo|FBAN|FBAV|Instagram|Line\//.test(userAgent);
 }
 
-/** the account page's iOS how-to: Safari on iOS, not already the home-screen app, not in the creator's frame */
-export function showIosHowTo(facts: { iosSafari: boolean; standalone: boolean; framed: boolean }): boolean {
-	return facts.iosSafari && !facts.standalone && !facts.framed;
+/** Firefox on Android: installs only from its own menu (⋮ → "Add to Home screen") – it sends no install event */
+export function isAndroidFirefox(userAgent: string): boolean {
+	return /Android/.test(userAgent) && /Firefox\//.test(userAgent);
+}
+
+/**
+ * Safari itself, not Chromium / Firefox (on a Mac too): deletes a site's storage – the saved chapters too – after 7 days
+ * without a visit, unless SCUTOONS runs from the home screen / Dock (WebKit's tracking prevention).
+ */
+export function isSafari(userAgent: string, maxTouchPoints = 0): boolean {
+	if (isIosSafari(userAgent, maxTouchPoints)) return true;
+	return /Macintosh/.test(userAgent) && /Version\/[\d.]+.*Safari\//.test(userAgent) && !/Chrome|Chromium|Edg\/|OPR\/|Firefox/.test(userAgent);
+}
+
+/**
+ * The account page's "App" item – what this browser can do:
+ * installed (running as the app) · available (the browser's install dialog) · ios (Share → Add to Home Screen) ·
+ * android-firefox (⋮ → Add to Home screen) · unsupported (this browser can't, or Chrome hasn't offered it: already
+ * installed, not yet) · hidden (the creator's Reader frame).
+ */
+export type InstallWay = 'installed' | 'available' | 'ios' | 'android-firefox' | 'unsupported' | 'hidden';
+
+export function installWay(facts: InstallFacts & { iosSafari: boolean; androidFirefox: boolean }, memory: InstallMemory): InstallWay {
+	if (facts.framed) return 'hidden';
+	if (facts.standalone) return 'installed';
+	if (canInstall(facts, memory)) return 'available';
+	if (facts.iosSafari) return 'ios';
+	if (facts.androidFirefox) return 'android-firefox';
+	return 'unsupported';
+}
+
+/** the how-to by hand (no install event): iPhone / iPad Safari, Firefox on Android */
+export function manualWay(way: InstallWay): boolean {
+	return way === 'ios' || way === 'android-firefox';
 }

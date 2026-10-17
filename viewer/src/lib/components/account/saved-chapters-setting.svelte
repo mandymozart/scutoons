@@ -4,7 +4,8 @@
 	// the space it takes (and what the browser allows), one "Remove" per chapter and "Remove all". Nothing when nothing
 	// is saved (saving happens at the season's heading on the toon page, or by itself). The running saves and refreshes with their
 	// bars (a season: one bar per chapter), "Updated …" after a new version came in, "Update" when one waits for the tap
-	// (lib/offline/refresh-saved.svelte.ts), "Save the rest" of a season begun here (saved-seasons.svelte).
+	// (lib/offline/refresh-saved.svelte.ts), "Save the rest" of a season begun here (saved-seasons.svelte); in a Safari tab
+	// the honest note that Safari deletes the saves after 7 days without a visit (not in the home-screen app).
 	import { confirmDialog, Icon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -17,7 +18,11 @@
 	import { updateSaved } from '$lib/offline/refresh-saved.svelte.ts';
 	import { seasonSaves } from '$lib/offline/save-season.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { install } from '$lib/install.svelte.ts';
+	import { isSafari } from '$lib/install-rules.ts';
 
+	/** Safari outside the home-screen app: its saves go after 7 days without a visit – said honestly */
+	const safariTab = $derived(isSafari(navigator.userAgent, navigator.maxTouchPoints) && !install.installed);
 	let estimate = $state<{ usage: number; quota: number } | null>(null);
 	const count = $derived(savedChapters.list.length);
 	const running = $derived(Object.entries(savedChapters.jobs));
@@ -110,6 +115,10 @@
 				{#if estimate}· {m['saved.storage']({ used: roundMb(estimate.usage), quota: roundMb(estimate.quota) })}{/if}
 			</small>
 		</p>{/if}
+		{#if count && safariTab}
+			<!-- WebKit deletes a site's storage after 7 days without a visit – not for a home-screen app (PWA.md §4) -->
+			<p class="safari" data-testid="saved-safari-hint"><small>{m['saved.safari_7_days']()}</small></p>
+		{/if}
 	</fieldset>
 {/if}
 

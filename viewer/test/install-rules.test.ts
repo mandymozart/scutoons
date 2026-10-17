@@ -3,7 +3,20 @@
 //   npm test -w viewer
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_MEMORY, SNOOZE_DAYS, canInstall, isIosSafari, readMemory, shouldOffer, showIosHowTo, snoozed } from '../src/lib/install-rules.ts';
+import {
+	EMPTY_MEMORY,
+	SNOOZE_DAYS,
+	canInstall,
+	forcedOffer,
+	installWay,
+	isAndroidFirefox,
+	isIosSafari,
+	isSafari,
+	manualWay,
+	readMemory,
+	shouldOffer,
+	snoozed
+} from '../src/lib/install-rules.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = Date.UTC(2026, 9, 16);
@@ -56,9 +69,47 @@ test('the iOS how-to: Safari on iPhone / iPad only', () => {
 	assert.equal(isIosSafari(ANDROID_CHROME), false);
 });
 
-test('the iOS how-to hides inside the home-screen app and the creator frame', () => {
-	assert.equal(showIosHowTo({ iosSafari: true, standalone: false, framed: false }), true);
-	assert.equal(showIosHowTo({ iosSafari: true, standalone: true, framed: false }), false);
-	assert.equal(showIosHowTo({ iosSafari: true, standalone: false, framed: true }), false);
-	assert.equal(showIosHowTo({ iosSafari: false, standalone: false, framed: false }), false);
+const ANDROID_FIREFOX = 'Mozilla/5.0 (Android 14; Mobile; rv:143.0) Gecko/143.0 Firefox/143.0';
+const DESKTOP_FIREFOX = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0';
+const MAC_CHROME = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
+const way = (change = {}, mem = memory()) =>
+	installWay({ available: false, standalone: false, framed: false, iosSafari: false, androidFirefox: false, ...change }, mem);
+
+test('Firefox on Android installs by hand; Safari (also on a Mac) evicts after 7 days', () => {
+	assert.equal(isAndroidFirefox(ANDROID_FIREFOX), true);
+	assert.equal(isAndroidFirefox(DESKTOP_FIREFOX), false);
+	assert.equal(isAndroidFirefox(ANDROID_CHROME), false);
+	assert.equal(isSafari(IPHONE_SAFARI), true);
+	assert.equal(isSafari(IPAD_DESKTOP_MODE, 0), true, 'Safari on a Mac');
+	assert.equal(isSafari(MAC_CHROME), false);
+	assert.equal(isSafari(IPHONE_CHROME), false, 'Chrome on iOS: its own storage rules are not ours to explain');
+	assert.equal(isSafari(ANDROID_FIREFOX), false);
+});
+
+test('the account page says what this browser can do', () => {
+	assert.equal(way({ available: true }), 'available');
+	assert.equal(way({ available: true }, memory({ installed: true })), 'unsupported', 'installed on this browser: open it from the home screen');
+	assert.equal(way({ iosSafari: true }), 'ios');
+	assert.equal(way({ androidFirefox: true }), 'android-firefox');
+	assert.equal(way({}), 'unsupported');
+	assert.equal(way({ standalone: true, available: true }), 'installed');
+	assert.equal(way({ framed: true, iosSafari: true }), 'hidden');
+	assert.equal(manualWay('ios') && manualWay('android-firefox'), true);
+	assert.equal(manualWay('available') || manualWay('unsupported'), false);
+});
+
+test('the bar by hand (no install event): the same moment and snooze as Chrome’s', () => {
+	const manual = { available: false, standalone: false, framed: false, manual: true };
+	assert.equal(shouldOffer(manual, memory(), now), false, 'never on the first visit');
+	assert.equal(shouldOffer(manual, memory({ visits: 2 }), now), true);
+	assert.equal(shouldOffer(manual, memory({ visits: 2, snoozedAt: now - DAY }), now), false);
+	assert.equal(shouldOffer({ ...manual, standalone: true }, memory({ visits: 2 }), now), false);
+	assert.equal(shouldOffer({ ...manual, framed: true }, memory({ visits: 2 }), now), false);
+	assert.equal(shouldOffer({ ...manual, manual: false }, memory({ visits: 2 }), now), false, 'no way to install: no bar');
+});
+
+test('?install shows the bar on every browser – not in the app, not in the creator frame', () => {
+	for (const w of ['available', 'ios', 'android-firefox', 'unsupported'] as const) assert.equal(forcedOffer(w), true, w);
+	assert.equal(forcedOffer('installed'), false);
+	assert.equal(forcedOffer('hidden'), false);
 });

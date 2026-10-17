@@ -14,7 +14,7 @@ service worker, the data budget `lib/data-budget.svelte.ts`). Scope: the reader 
 | `id`, `start_url`, `scope` | missing | all `/` – the unprefixed path follows the locale cookie / browser language (paraglide), so one manifest serves de + en; `/en/…` stays in scope |
 | `display` | standalone | standalone (iOS knows only standalone; `fullscreen` would hide the Android status bar – not wanted for reading) |
 | `theme_color` / `background_color` | #fff | #fff = `--paper` (tokens.css), the boot screen's white – no colour jump on launch |
-| Icons | 192 + 512 `any` (a crop of the vertical logo) | + `icon-maskable-192/512.png` (the logo strip at 72 % width on white – survives circle / squircle masks); `favicon.svg` was the Svelte logo → the same SCUTOONS crop |
+| Icons | 192 + 512 `any` (a crop of the vertical logo) | owner 2026-10-17: the account icon's cat head (two ears, eyes – `lib/icons/account.svg`), black on white: `app-icon-192/512.png` (`any`, the head 80 % wide), `app-icon-maskable-192/512.png` (56 % – survives circle / squircle masks), `app-icon-apple-180.png` (72 %); new names so browsers and installed apps fetch them again. The favicons stay the SCUTOONS logo crop |
 | Apple | `apple-touch-icon` only | + `apple-mobile-web-app-title`, `-capable`, `mobile-web-app-capable`, status bar `default`, `theme-color` (app.html; the boot screen untouched) |
 | Splash (iOS `apple-touch-startup-image`) | – | deliberately none: one image per device size (~20 files) for a white screen we already have |
 | Service worker | none | `src/service-worker.ts` (§2) – Chrome needs none for install any more, but offline / updates do |
@@ -155,6 +155,9 @@ progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers)
   started, the saved ones stay; a single running save stops with its × on the account page.
 - **Offline reading progress** – see "Offline reading progress" below.
 - Open: iOS: the home-screen app has its own storage – saves made in Safari don't carry over.
+- **Safari** (iPhone, iPad, Mac – `isSafari`), not the home-screen app, with saves: the account page says honestly that
+  Safari deletes them after 7 days without opening SCUTOONS and that they stay on the home screen (WebKit's tracking
+  prevention; `persist()` is asked anyway).
 
 ### Offline reading progress (built 2026-10-16)
 A member's save game (contexts/world.svelte.ts – reading spots, checkpoints, history, map) is pushed to
@@ -215,10 +218,17 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
 - `/account/offline` → "App · Install app" whenever the browser can install (also while the bar is snoozed); the bar's
   text links there (ACCOUNT-PAGE.md §0.7).
 - Dev: no real event on the dev server – `__scFakeInstallPrompt('dismissed' | 'accepted')` in the console (dev builds only).
-- **iOS** (phase 4): `/account/offline`'s "App" shows "Add SCUTOONS to your home screen: tap Share [icon], then 'Add to Home
-  Screen'." – only Safari on iPhone / iPad (`isIosSafari`: iPadOS = a Mac UA with touch; not CriOS / FxiOS / in-app
-  browsers), not inside the home-screen app, not in the creator's frame (`showIosHowTo`, test/install-rules.test.ts).
-  No bar: iOS 26 opens such a site as a web app by default.
+- **Without an install event** (owner 2026-10-17: "no prompt, nothing" – his Android phone runs Firefox, which never
+  sends `beforeinstallprompt`): iPhone / iPad Safari and Firefox on Android get the same bar at the same moment, its
+  button "How?" leads to `/account/offline` (seen = snoozed like "Not now"). Never on that page itself.
+- **The account page's "App" item always says what this browser can do** (`installWay`): `available` → "Install app";
+  `ios` → "tap Share [icon], then 'Add to Home Screen'" (`isIosSafari`: iPadOS = a Mac UA with touch; not CriOS / FxiOS /
+  in-app browsers); `android-firefox` → "tap the menu ⋮, then 'Add to Home screen' (or 'Install')"; `installed` → "You're
+  using SCUTOONS as an app"; `unsupported` → "This browser can't install SCUTOONS – Chrome / Firefox on Android, Safari on
+  iPhone; installed already → open it from the home screen" (Chrome sends no event once installed); `hidden` = only the
+  creator's frame. So "Offline-Inhalte" shows on every device.
+- **`?install`** in any URL (`/de?install`): the bar at once, whatever the moment or "Not now" (not in the app, not in the
+  creator's frame) – for testing on a real phone; where nothing can install, its "How?" shows why.
 
 ## 2b. Web Push + the app badge (phase 4, built 2026-10-16)
 - **What**: one message only – "a new chapter is out" ("Catpope: new chapter" / "Leugnen – jetzt lesen", the reader's
@@ -349,5 +359,17 @@ prefetched for the cache; saving a chapter is an explicit tap (the bytes shown f
   `online` → the page sent it at once, the outbox empty.
 - iOS: Safari → Add to Home Screen; Safari's Web Inspector (a Mac) for the home-screen app; check the title, the
   icon, the white launch, that a sign-in is needed again (own storage), and the prompt after a deploy.
+- **On a real phone** (the owner): open `scutoons.com/de?install` – the bar shows at once. Android Chrome: "Installieren"
+  → Chrome's dialog; Firefox / iPhone Safari: "So geht's" → the how-to; any browser: Mein Konto → Offline-Inhalte → App
+  says what it can do. Without `?install` the bar comes only on the 2nd visit (a new browser session) or after a
+  finished chapter, then on the next page; "Nicht jetzt" = 30 days (`localStorage.scutoons_install`; clear the site's
+  data to start over).
+- Live check 2026-10-17 (scutoons.com, Chrome 141 over CDP, playwright-core): the worker installs and controls the page
+  on the first visit, `site.webmanifest` parses without errors, `Page.getInstallabilityErrors` empty (only `in-incognito`
+  in an incognito profile), `beforeinstallprompt` fires in a normal profile, no console errors; saving the prologue
+  ("Ohne Videos", 14 entries + manifest) in a plain tab, then offline + reload → the chapter with all 24 images, the toon
+  page from the caches. Saving works in any browser tab with a controlling worker – no installed app needed. Trap: a
+  Chrome profile under a long Windows path fails CacheStorage.open ("Unexpected internal error" – MAX_PATH): keep test
+  profiles short (`%TEMP%\scp1`).
 - The Claude desktop Browser pane can't register service workers ("unknown error when fetching the script") – use
   real Chrome.

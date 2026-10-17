@@ -1,9 +1,10 @@
 // "Install SCUTOONS as an app" on Android / Chromium (agents/research/PWA.md "Install prompt", FEATURES 10.74 phase 4):
 // keeps the browser's `beforeinstallprompt` (instead of Chrome's own mini bar) and offers it at a good moment – the
 // rules in lib/install-rules.ts, the bar in components/install-prompt.svelte, "Install app" on the account page.
-// iOS has no such event: Safari gets the "Share → Add to Home Screen" how-to on the account page (`iosHowTo`).
+// iPhone Safari and Firefox on Android send no such event: there the bar leads to the account page's how-to by hand
+// (`way` 'ios' / 'android-firefox'). `?install` in the URL shows the bar at once (testing on a real phone, PWA.md §6).
 import { browser, dev } from '$app/environment';
-import { EMPTY_MEMORY, canInstall, isIosSafari, readMemory, shouldOffer, showIosHowTo, type InstallFacts, type InstallMemory } from './install-rules.ts';
+import { EMPTY_MEMORY, canInstall, forcedOffer, installWay, isAndroidFirefox, isIosSafari, manualWay, readMemory, shouldOffer, type InstallFacts, type InstallMemory, type InstallWay } from './install-rules.ts';
 
 const KEY = 'scutoons_install';
 /** set once per browser session: a new session = a new visit */
@@ -27,10 +28,12 @@ class Install {
 	offer = $state(false);
 	/** the browser can install now (the account page's entry) */
 	available = $state(false);
-	/** iPhone / iPad Safari, not the home-screen app: the account page shows how to add it (PWA phase 4) */
-	iosHowTo = $state(false);
+	/** what this browser can do – the account page's "App" item (lib/install-rules.ts `installWay`) */
+	way = $state<InstallWay>('unsupported');
 	/** running as the installed app (display-mode standalone & co., iOS home-screen app) */
 	installed = $state(false);
+	/** `?install` was in the URL: the bar shows regardless of the moment and "Not now" (this visit) */
+	#forced = false;
 	#event: BeforeInstallPromptEvent | null = null;
 	#memory: InstallMemory = { ...EMPTY_MEMORY };
 	#framed = false;
@@ -65,7 +68,20 @@ class Install {
 	#refresh() {
 		this.available = canInstall(this.#facts(), this.#memory);
 		this.installed = this.#standalone;
-		this.iosHowTo = showIosHowTo({ iosSafari: isIosSafari(navigator.userAgent, navigator.maxTouchPoints), standalone: this.#standalone, framed: this.#framed });
+		this.way = installWay(
+			{ ...this.#facts(), iosSafari: isIosSafari(navigator.userAgent, navigator.maxTouchPoints), androidFirefox: isAndroidFirefox(navigator.userAgent) },
+			this.#memory
+		);
+	}
+
+	/** iPhone / iPad Safari, not the home-screen app (push asks to add it first) */
+	get iosHowTo() {
+		return this.way === 'ios';
+	}
+
+	/** installed by hand from the browser's own menu (the bar's button leads to the how-to) */
+	get manual() {
+		return manualWay(this.way);
 	}
 
 	#remember(change: Partial<InstallMemory>) {
@@ -83,6 +99,7 @@ class Install {
 		this.#started = true;
 		this.#framed = window.top !== window;
 		this.#standalone = runsInstalled();
+		this.#forced = new URLSearchParams(location.search).has('install');
 		window.matchMedia('(display-mode: standalone)').addEventListener('change', () => {
 			this.#standalone = runsInstalled();
 			if (this.#standalone) this.offer = false;
@@ -111,7 +128,9 @@ class Install {
 	/** on the start and after each navigation: the moment to offer (never live over a chapter's end bar) */
 	check() {
 		this.#atChapterEnd = false;
-		this.offer = shouldOffer(this.#facts(), this.#memory, Date.now());
+		// the account page's "App" item says it all already
+		if (/\/account\/offline\/?$/.test(location.pathname)) return void (this.offer = false);
+		this.offer = this.#forced ? forcedOffer(this.way) : shouldOffer({ ...this.#facts(), manual: this.manual }, this.#memory, Date.now());
 	}
 
 	/** a chapter's end bar showed (components/chapter/next-bar.svelte): counts once per chapter and visit */
@@ -140,9 +159,17 @@ class Install {
 		}
 	}
 
+	/** the bar's "How?" (no install event – iPhone Safari, Firefox on Android …): the account page's how-to; seen = snoozed */
+	howTo() {
+		this.offer = false;
+		if (this.#forced) this.#forced = false;
+		else this.#remember({ snoozedAt: Date.now() });
+	}
+
 	/** "Not now": away for SNOOZE_DAYS (the account page's entry stays) */
 	notNow() {
 		this.offer = false;
+		this.#forced = false;
 		this.#remember({ snoozedAt: Date.now() });
 	}
 }
