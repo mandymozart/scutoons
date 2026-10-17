@@ -2,6 +2,9 @@
 // Components take props and emit callbacks; app state (VN/game/audio contexts, routing, i18n) stays in the apps.
 export { default as Slice } from './slice.svelte';
 export { default as SliceVideo } from './slice-video.svelte';
+export { default as SlicePicture } from './collage/slice-picture.svelte';
+export { default as CollagePieceView } from './collage/collage-piece.svelte';
+export { blurBands, cssUrl, drawablePiece, fillCss, filterCss, gradientLine, pieceBox, pieceCss, spill, styleText, withAlpha, type BlurBands, type PieceCss } from './collage/collage-css.ts';
 export { default as Dialogs } from './dialog/dialogs.svelte';
 export { default as Dialog } from './dialog/dialog.svelte';
 export { default as SliceLayers } from './slice-layers.svelte';
