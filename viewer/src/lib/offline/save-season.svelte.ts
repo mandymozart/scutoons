@@ -13,6 +13,7 @@ import { mediaQuality } from '$lib/media-quality.svelte.ts';
 import { dataWarnings, roundMb, savedWhole, type ChapterFiles, type ConnectionHint } from '$lib/sw/saved-rules.ts';
 import { planSeason, seasonTargets, type SeasonChapter } from '$lib/sw/saved-update-rules.ts';
 import { savedChapters } from './saved-chapters.svelte.ts';
+import { failureOf, type SaveFailure } from './save-failure.ts';
 
 export interface SeasonInput {
 	toon: string;
@@ -55,11 +56,22 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 	return out;
 }
 
+/** a failure in the reader's words (./save-failure.ts) */
+const FAILURE_TEXT: Record<SaveFailure, () => string> = {
+	offline: () => m['saved.failure_offline'](),
+	network: () => m['saved.failure_network'](),
+	quota: () => m['saved.failure_quota'](),
+	server: () => m['saved.failure_server'](),
+	storage: () => m['saved.failure_storage']()
+};
+
 class SeasonSaves {
 	/** running season saves by `<toon>/<season>` */
 	jobs = $state<Record<string, SeasonJob>>({});
 	/** the sizes are being asked (the button waits) */
 	sizing = $state<Record<string, boolean>>({});
+	/** why the last run of a season failed (the first reason; gone with the next run) */
+	failures = $state<Record<string, SaveFailure>>({});
 
 	job(toon: string, season: number): SeasonJob | undefined {
 		return this.jobs[key(toon, season)];
@@ -76,6 +88,20 @@ class SeasonSaves {
 		return Math.min(1, (done + current) / total);
 	}
 
+	/**
+	 * After a failed run: what went wrong, in words (owner 2026-10-17: a "!" alone said nothing) – "Try again" → true.
+	 * The toon page's season icon and the account page's "Save the rest" both ask this.
+	 */
+	async explain(toon: string, season: number): Promise<boolean> {
+		const failure = this.failures[key(toon, season)] ?? 'storage';
+		return confirmDialog({
+			title: m['saved.failed_title'](),
+			message: FAILURE_TEXT[failure](),
+			confirmLabel: m['saved.try_again'](),
+			cancelLabel: m['common.close']()
+		});
+	}
+
 	/** the size first, the reader's choice, then the chapters one after another */
 	async start(input: SeasonInput): Promise<'saved' | 'cancelled' | 'failed' | 'none'> {
 		const id = key(input.toon, input.season);
@@ -83,13 +109,22 @@ class SeasonSaves {
 		const targets = seasonTargets(input.chapters, (n) => savedWhole(savedChapters.get(input.toon, n)));
 		if (!targets.length) return 'none';
 		const name = m['saved.season_name']({ number: input.season });
+		if (this.failures[id]) {
+			const { [id]: _was, ...rest } = this.failures;
+			this.failures = rest;
+		}
+		const fail = (failure: SaveFailure) => {
+			if (!this.failures[id]) this.failures = { ...this.failures, [id]: failure };
+			return 'failed' as const;
+		};
 		const level = effectiveQuality(mediaQuality.setting ?? 'auto', mediaQuality.auto);
 		let lists: ChapterFiles[];
 		this.sizing = { ...this.sizing, [id]: true };
 		try {
 			lists = await mapLimit(targets, 4, (n) => savedChapters.files(input.toon, n, input.locale));
-		} catch {
-			return 'failed';
+		} catch (error) {
+			console.warn(`[saved] ${id}: the file lists`, error);
+			return fail(failureOf(error, navigator.onLine));
 		} finally {
 			const { [id]: _was, ...rest } = this.sizing;
 			this.sizing = rest;
@@ -161,7 +196,10 @@ class SeasonSaves {
 				const job = this.jobs[id];
 				if (!job) break;
 				if (result === 'saved') set({ done: [...job.done, list.chapter] });
-				else if (result === 'failed') set({ failed: [...job.failed, list.chapter] });
+				else if (result === 'failed') {
+					set({ failed: [...job.failed, list.chapter] });
+					fail(savedChapters.failure(input.toon, list.chapter) ?? 'storage');
+				}
 				// 'cancelled': stopped (the season too), or the row is saving it by hand right now – skipped
 				else if (controller.signal.aborted) break;
 			}

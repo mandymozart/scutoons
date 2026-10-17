@@ -113,7 +113,12 @@ progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers)
   chapter / toon / cast / toons-list / credits JSON (exactly the URLs `lib/api.ts`'s public client asks), `/items/` +
   `/editions/` (the inventory's catalog), the CDN fonts the page loaded (lettering), and the app code of the toon,
   chapter and account pages (`preloadCode` through the worker → the shell cache; again on every start with saves, so an
-  app update's new chunks are there too). `navigator.storage.persist()` on the first save. A CDN 404 is skipped.
+  app update's new chunks are there too). `navigator.storage.persist()` on the first save, never awaited (Firefox asks the reader in a bar and the promise waits for
+  the answer – every first save hung at 0 %, 2026-10-17). A CDN 404 is skipped; a broken connection, 408 / 429 / 5xx is
+  tried again (3 tries, 1 s / 2 s apart, `lib/offline/save-failure.ts`). **A failed save says why** (owner 2026-10-17: a
+  "!" alone): offline · the connection broke off · the browser's storage is full · the server refused a file · the
+  browser lets nothing be stored – a dialog with "Try again" after the season icon / "Save the rest"; the real error in
+  the console (`[saved] …`).
 - **The worker** (`saved-cache.ts`): an index URL → cache from the manifests (at start, on activate and on the page's
   `SAVED_CHANGED`). CDN requests: the saved copy first (images before the media cache; audio / video / fonts – before
   the index is read, any of those is routed through the worker, which falls back to the network), a `Range` request →
@@ -371,5 +376,9 @@ prefetched for the cache; saving a chapter is an explicit tap (the bytes shown f
   page from the caches. Saving works in any browser tab with a controlling worker – no installed app needed. Trap: a
   Chrome profile under a long Windows path fails CacheStorage.open ("Unexpected internal error" – MAX_PATH): keep test
   profiles short (`%TEMP%\scp1`).
+- Firefox in Playwright: its `userAgent` option breaks every fetch a service worker makes (NetworkError) – set the UA with
+  `firefoxUserPrefs: { 'general.useragent.override': … }` instead. The save check (2026-10-17, mobile viewport, a
+  production build on a throw-away 127.0.0.1 port against the dev API + CDN): Chromium and Firefox save the prologue (53
+  MB) in 3 s; the network cut before the tap → "Du bist offline …" with "Nochmal versuchen" → saved after reconnecting.
 - The Claude desktop Browser pane can't register service workers ("unknown error when fetching the script") – use
   real Chrome.

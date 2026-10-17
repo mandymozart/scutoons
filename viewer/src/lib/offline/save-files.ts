@@ -4,6 +4,7 @@
 import { asset } from '$lib/utils/cdn.ts';
 import { MANIFEST_PATH, type SavedManifest, type SaveKind } from '$lib/sw/saved-rules.ts';
 import { kindOfUrl } from '$lib/sw/saved-update-rules.ts';
+import { RETRY_WAIT, SaveError, TRIES, retryable } from './save-failure.ts';
 
 /** at most this many downloads at once */
 export const PARALLEL = 4;
@@ -21,9 +22,20 @@ export function loadedFonts(): string[] {
 		.filter((name) => /\.woff2?$/i.test(new URL(name).pathname) && new URL(name).origin === cdn);
 }
 
+/** wait `ms`, or reject at once when `signal` aborts */
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+	return new Promise((resolve, reject) => {
+		if (signal.aborted) return reject(signal.reason);
+		const timer = setTimeout(resolve, ms);
+		signal.addEventListener('abort', () => (clearTimeout(timer), reject(signal.reason)), { once: true });
+	});
+}
+
 /**
  * One file into the chapter's cache: from the media cache when it is there, else downloaded (counted as it comes).
- * A 404 (a stale reference) is skipped – the reader shows its gap online too.
+ * A 404 (a stale reference) is skipped – the reader shows its gap online too. A broken connection, a timeout or a
+ * 5xx is tried again (TRIES, ./save-failure.ts – a phone's connection drops now and then; one file must not fail a
+ * save of a hundred); another refusal fails with the reason (`SaveError` 'server').
  */
 export async function storeFile(cache: Cache, media: Cache, url: string, kind: string, signal: AbortSignal, progress: (bytes: number) => void): Promise<number> {
 	const cached = kind === 'image' ? await media.match(url, { ignoreVary: true }) : undefined;
@@ -33,25 +45,39 @@ export async function storeFile(cache: Cache, media: Cache, url: string, kind: s
 		progress(blob.size);
 		return blob.size;
 	}
-	// images: past the worker's media cache (`reload` – it would keep a second copy); audio / video / fonts: the
-	// browser's HTTP cache may have them already
-	const response = await fetch(url, { mode: 'cors', credentials: 'omit', cache: kind === 'image' ? 'reload' : 'default', signal });
-	if (response.status === 404) return 0;
-	if (!response.ok || !response.body) throw new Error(`${url} ${response.status}`);
-	const reader = response.body.getReader();
-	const parts: Uint8Array[] = [];
-	let size = 0;
-	for (;;) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		parts.push(value);
-		size += value.byteLength;
-		progress(value.byteLength);
+	for (let attempt = 1; ; attempt++) {
+		let counted = 0;
+		let status: number | undefined;
+		try {
+			// images: past the worker's media cache (`reload` – it would keep a second copy); audio / video / fonts: the
+			// browser's HTTP cache may have them already
+			const response = await fetch(url, { mode: 'cors', credentials: 'omit', cache: kind === 'image' ? 'reload' : 'default', signal });
+			if (response.status === 404) return 0;
+			if (!response.ok || !response.body) {
+				// a refusal: tried again only when it is a timeout / an overloaded server (a broken body stays a TypeError)
+				status = response.status;
+				throw new SaveError('server', `${url} ${response.status}`);
+			}
+			const reader = response.body.getReader();
+			const parts: Uint8Array[] = [];
+			for (;;) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				parts.push(value);
+				counted += value.byteLength;
+				progress(value.byteLength);
+			}
+			const type = response.headers.get('content-type') ?? '';
+			const blob = new Blob(parts as BlobPart[], { type });
+			await cache.put(url, new Response(blob, { headers: { 'Content-Type': type, 'Content-Length': String(counted) } }));
+			return counted;
+		} catch (error) {
+			if (signal.aborted || attempt >= TRIES || !retryable(error, status)) throw error;
+			// the bytes of the broken try come again
+			if (counted) progress(-counted);
+			await wait(attempt * RETRY_WAIT, signal);
+		}
 	}
-	const type = response.headers.get('content-type') ?? '';
-	const blob = new Blob(parts as BlobPart[], { type });
-	await cache.put(url, new Response(blob, { headers: { 'Content-Type': type, 'Content-Length': String(size) } }));
-	return size;
 }
 
 /** many files, PARALLEL at a time */

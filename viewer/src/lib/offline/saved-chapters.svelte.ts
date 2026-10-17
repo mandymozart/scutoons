@@ -40,6 +40,7 @@ import {
 } from '$lib/sw/saved-rules.ts';
 import type { RefreshPlan } from '$lib/sw/saved-update-rules.ts';
 import { loadedFonts, manifestUrl, measureCache, storeAll, storeDocs, writeManifest } from './save-files.ts';
+import { SaveError, failureOf, type SaveFailure } from './save-failure.ts';
 
 export interface SaveJob {
 	/** a first save, or a saved chapter taking in its new version */
@@ -85,6 +86,8 @@ class SavedChapters {
 	outdated = $state<Record<string, number>>({});
 	/** a service worker controls the page: saving is possible */
 	supported = $state(false);
+	/** why the last save / update of a chapter failed ("toon/n" → reason; gone when it saves again) */
+	failures = $state<Record<string, SaveFailure>>({});
 	#loaded: Promise<void> | null = null;
 	/** the caches being filled on this page (not tidied away as unfinished) */
 	#running = new Set<string>();
@@ -150,7 +153,7 @@ class SavedChapters {
 	async files(toon: string, chapter: number, locale: string): Promise<ChapterFiles> {
 		const url = `${API_URL}/library/toons/${encodeURIComponent(toon)}/chapters/${chapter}/files?locale=${encodeURIComponent(locale)}`;
 		const response = await fetch(url, { credentials: 'omit' });
-		if (!response.ok) throw new Error(`files ${response.status}`);
+		if (!response.ok) throw new SaveError('server', `files ${response.status}`);
 		return (await response.json()) as ChapterFiles;
 	}
 
@@ -165,6 +168,10 @@ class SavedChapters {
 		const total = files.reduce((sum, f) => sum + fileSize(f), 0);
 		const kinds = Object.fromEntries(Object.entries(bytesByKind(files)).map(([k, t]) => [k, { done: 0, total: t }])) as SaveJob['kinds'];
 		this.jobs = { ...this.jobs, [id]: { mode, done: 0, total, kinds, label, controller } };
+		if (this.failures[id]) {
+			const { [id]: _was, ...rest } = this.failures;
+			this.failures = rest;
+		}
 		this.#running.add(name);
 		const progress = (bytes: number, kind: SaveKind, unplanned = false) => {
 			const job = this.jobs[id];
@@ -184,13 +191,26 @@ class SavedChapters {
 		return { name, controller, progress, end };
 	}
 
+	/** a failed save / update: its reason for the reader (./save-failure.ts), the real error in the console */
+	#failed(toon: string, chapter: number, error: unknown) {
+		const failure = failureOf(error, navigator.onLine);
+		this.failures = { ...this.failures, [key(toon, chapter)]: failure };
+		console.warn(`[saved] ${toon} ${chapter}: ${failure}`, error);
+	}
+
+	/** why the last save of this chapter failed (null: it didn't, or it saved since) */
+	failure(toon: string, chapter: number): SaveFailure | null {
+		return this.failures[key(toon, chapter)] ?? null;
+	}
+
 	async save(toon: string, chapter: number, options: SaveOptions): Promise<'saved' | 'cancelled' | 'failed'> {
 		if (this.jobs[key(toon, chapter)]) return 'cancelled';
 		const plan = planSave(options.list.files, options.level, options.videos);
 		const { name, controller, progress, end } = this.#begin(toon, chapter, 'save', plan.files, `${options.toonTitle} · ${options.label}`);
 		try {
-			// the first save: ask the browser to keep the site's storage (no prompt in Chrome; Safari 17+ decides itself)
-			if (!this.list.length) await navigator.storage?.persist?.().catch(() => false);
+			// the first save: ask the browser to keep the site's storage (no prompt in Chrome; Safari 17+ decides itself) –
+			// never awaited: Firefox asks the reader in a bar and the promise waits for that answer (the save hung at 0 %)
+			if (!this.list.length) void navigator.storage?.persist?.().catch(() => false);
 			await caches.delete(name);
 			const cache = await caches.open(name);
 
@@ -225,9 +245,11 @@ class SavedChapters {
 			this.tellWorker();
 			await this.refresh();
 			return 'saved';
-		} catch {
+		} catch (error) {
 			await caches.delete(name).catch(() => {});
-			return controller.signal.aborted ? 'cancelled' : 'failed';
+			if (controller.signal.aborted) return 'cancelled';
+			this.#failed(toon, chapter, error);
+			return 'failed';
 		} finally {
 			end();
 		}
@@ -270,9 +292,11 @@ class SavedChapters {
 			this.tellWorker();
 			await this.refresh();
 			return 'updated';
-		} catch {
+		} catch (error) {
 			for (const { url } of files) if (!had.has(url)) await cache.delete(url).catch(() => false);
-			return controller.signal.aborted ? 'cancelled' : 'failed';
+			if (controller.signal.aborted) return 'cancelled';
+			this.#failed(saved.toon, saved.chapter, error);
+			return 'failed';
 		} finally {
 			end();
 		}

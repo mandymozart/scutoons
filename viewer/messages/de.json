@@ -777,6 +777,13 @@
 		"auto_always": "Immer",
 		"auto_hint": "Ein Kapitel, das du öffnest, wird dann von selbst gespeichert und ist auch ohne Verbindung lesbar – große Videos bleiben weg, nie im Datensparmodus.",
 		"auto_wifi_unknown": "Dieser Browser verrät nicht, ob du im WLAN bist – „Im WLAN“ speichert hier nichts, nimm „Immer“.",
-		"safari_7_days": "Safari löscht gespeicherte Kapitel, wenn du SCUTOONS 7 Tage lang nicht öffnest. Auf dem Home-Bildschirm (Teilen → „Zum Home-Bildschirm“) bleiben sie."
+		"safari_7_days": "Safari löscht gespeicherte Kapitel, wenn du SCUTOONS 7 Tage lang nicht öffnest. Auf dem Home-Bildschirm (Teilen → „Zum Home-Bildschirm“) bleiben sie.",
+		"failed_title": "Konnte nicht gespeichert werden",
+		"try_again": "Nochmal versuchen",
+		"failure_offline": "Du bist offline. Speichere, sobald du wieder eine Verbindung hast – schon gespeicherte Kapitel bleiben.",
+		"failure_network": "Die Verbindung ist mehrmals abgebrochen. Versuch es nochmal, am besten im WLAN – schon gespeicherte Kapitel bleiben.",
+		"failure_quota": "Der Speicher, den dein Browser SCUTOONS gibt, ist voll. Entferne gespeicherte Kapitel (Mein Konto → Offline-Inhalte) oder mach auf dem Gerät Platz.",
+		"failure_server": "Der Server hat eine Datei nicht geliefert. Versuch es gleich nochmal.",
+		"failure_storage": "Dein Browser lässt SCUTOONS hier nichts speichern – zum Beispiel in einem privaten Fenster oder wenn Website-Daten blockiert sind."
 	}
 }

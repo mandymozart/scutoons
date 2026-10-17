@@ -57,6 +57,21 @@
 			})
 		)
 	);
+
+	/** "Save the rest"; failed → what went wrong, "Try again" → once more */
+	async function saveRest(row: (typeof rows)[number]): Promise<void> {
+		const result = await seasonSaves
+			.start({
+				toon: row.toon,
+				toonTitle: row.title,
+				season: row.season,
+				chapters: row.chapters,
+				locale: getLocale(),
+				accessUntil: accessEnd(membership, session)
+			})
+			.catch(() => 'failed' as const);
+		if (result === 'failed' && (await seasonSaves.explain(row.toon, row.season))) return saveRest(row);
+	}
 </script>
 
 {#each rows as row (row.toon + '/' + row.season)}
@@ -69,15 +84,7 @@
 			type="button"
 			class="btn-secondary"
 			disabled={!!seasonSaves.sizing[`${row.toon}/${row.season}`]}
-			onclick={() =>
-				seasonSaves.start({
-					toon: row.toon,
-					toonTitle: row.title,
-					season: row.season,
-					chapters: row.chapters,
-					locale: getLocale(),
-					accessUntil: accessEnd(membership, session)
-				})}
+			onclick={() => saveRest(row)}
 			data-testid="saved-season-rest">{m['saved.season_rest']()}</button
 		>
 	</p>

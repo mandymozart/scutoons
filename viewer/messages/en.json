@@ -777,6 +777,13 @@
 		"auto_always": "Always",
 		"auto_hint": "A chapter you open is then saved by itself and reads without a connection too – big videos are left out, never with data saver on.",
 		"auto_wifi_unknown": "This browser doesn't tell whether you're on Wi-Fi – “On Wi-Fi” saves nothing here, choose “Always”.",
-		"safari_7_days": "Safari deletes saved chapters when you don’t open SCUTOONS for 7 days. On your home screen (Share → “Add to Home Screen”) they stay."
+		"safari_7_days": "Safari deletes saved chapters when you don’t open SCUTOONS for 7 days. On your home screen (Share → “Add to Home Screen”) they stay.",
+		"failed_title": "Couldn’t save",
+		"try_again": "Try again",
+		"failure_offline": "You’re offline. Save once you have a connection again – chapters already saved stay.",
+		"failure_network": "The connection broke off several times. Try again, ideally on Wi-Fi – chapters already saved stay.",
+		"failure_quota": "The storage your browser gives SCUTOONS is full. Remove saved chapters (My account → Offline content) or free up space on the device.",
+		"failure_server": "The server didn’t deliver a file. Try again in a moment.",
+		"failure_storage": "Your browser doesn’t let SCUTOONS store anything here – for example in a private window or when site data is blocked."
 	}
 }

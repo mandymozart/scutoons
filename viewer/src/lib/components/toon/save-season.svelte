@@ -71,6 +71,8 @@
 				})
 				.catch(() => 'failed' as const);
 			failed = result === 'failed';
+			// what went wrong, in words – "Try again" starts it once more (the saved chapters stay)
+			if (failed && (await seasonSaves.explain(toonId, season))) return onclick();
 			return;
 		}
 		asking = true;
