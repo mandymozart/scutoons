@@ -31,6 +31,13 @@
 	let combineSecond = $state<Entry | null>(null);
 	/** a container opened: its own grid (research/SCORES.md §2) */
 	let openBox = $state<Entry | null>(null);
+	// the header's "Back": from an item's detail to the list, from a container's view out of it (the recipe has its own)
+	const backTo = $derived.by(() => {
+		if (combineWith && combineSecond) return undefined;
+		if (selected && !combineWith) return { label: m['items.back'](), go: () => (selected = null) };
+		if (openBox && !pack.packing) return { label: m['items.container_back'](), go: () => (openBox = null) };
+		return undefined;
+	});
 
 	const entries = $derived(
 		[...inventory.entries].sort((a, b) => (a.acquired_at < b.acquired_at ? -1 : 1))
@@ -186,10 +193,12 @@
 	<img src={avatarIcon} alt="" />
 </button>
 
-{#snippet head(icon: string, label: string)}
+{#snippet head(icon: string, label: string, back?: { label: string; go: () => void })}
 	<!-- the reader's stats (appetite, testo) small at the right, in both panels (owner 2026-10-03); no title – the top
-	     button says which panel it is (owner 2026-10-16: "die Überschriften ganz oben am Panel … redundant") -->
+	     button says which panel it is (owner 2026-10-16: "die Überschriften ganz oben am Panel … redundant"); a "Back"
+	     on the left in this fixed part, not in the scrolling body (owner 2026-10-17) -->
 	<div class="head" title={label} data-icon={icon}>
+		{#if back}<button class="btn-back btn-clear" onclick={back.go} data-testid="panel-back">← {back.label}</button>{/if}
 		<div class="stats"><ReaderStats compact /></div>
 	</div>
 {/snippet}
@@ -210,7 +219,7 @@
 </PullPanel>
 
 <PullPanel open={nav.isOpen('inventory')} onclose={() => nav.closeOverlay()} label={m['items.tab_items']()} id="inventory-panel" {keepOpen} testid="inventory">
-	{#snippet header()}{@render head(inventoryIcon, m['items.tab_items']())}{/snippet}
+	{#snippet header()}{@render head(inventoryIcon, m['items.tab_items'](), backTo)}{/snippet}
 	{@render guest()}
 
 	{#if combineWith && combineSecond}
@@ -234,7 +243,6 @@
 			</div>
 		{:else if openBox}
 			<div class="box-bar" data-testid="container-view">
-				<button class="btn-back btn-clear" onclick={() => (openBox = null)}>← {m['items.container_back']()}</button>
 				<span>{inventory.nameOf(openBox)} · {fill(openBox)}</span>
 			</div>
 			{#if openBox.overfilled_at}<p class="empty">{m['items.container_overfilled']()}</p>{/if}
@@ -306,7 +314,8 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0 1rem 1rem;
+		min-height: 2rem;
+		padding: 0 1rem 0.5rem;
 		color: var(--ink);
 	}
 	/* the top buttons' icons, white on the dark panel */
@@ -341,8 +350,9 @@
 		padding: 0 1rem 0.5rem;
 		color: var(--ink);
 	}
-	.box-bar .btn-back {
-		color: inherit;
+	.head .btn-back {
+		color: var(--ink);
+		font-size: 0.75rem;
 		white-space: nowrap;
 		flex-shrink: 0;
 	}

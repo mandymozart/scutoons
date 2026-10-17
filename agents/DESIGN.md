@@ -79,6 +79,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   `components/panel/pull-panel.svelte`): black, the tokens inverted inside it (`--ink` white, `--paper` black, muted
   greys), so everything in it follows (filled play = white, the pressed segment white); pulled down / Escape / a tap
   outside closes it. Inventory, avatar, chapter list, the record player's card (a 3D canvas in it is transparent).
+  Its fixed header (grip, not scrolling) holds "← Back" left (item detail, container view) and the stats right.
 - **Sticky action bar** (owner 2026-10-16) — a panel's actions stick to its bottom: `StickyActions` (@scutoons/ui) last
   in the scroll box, no rule on top, the content fades out under it into `--paper` (black in a dark panel); the scroll
   box hands it its bottom padding as `--sticky-actions-inset`. The item detail and the recipe use it. Bottom = the

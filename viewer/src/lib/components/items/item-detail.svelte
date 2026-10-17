@@ -175,8 +175,6 @@
 </script>
 
 <div class="item-detail">
-	<button class="btn-back btn-clear" onclick={onback}>← {m['items.back']()}</button>
-
 	<!-- the item's 3D model when it has one (FEATURES 10.102), else / meanwhile its icon -->
 	<div class="hero" class:model>
 		{#snippet icon()}<ItemIcon srcs={[inventory.iconOf(entry), def?.icon ?? '']} name={inventory.nameOf(entry)} lettering={inventory.letteringOf(entry)} />{/snippet}
@@ -315,11 +313,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-	}
-	.btn-back {
-		align-self: flex-start;
-		color: var(--ink);
-		font-size: 0.75rem;
 	}
 	.hero {
 		width: 10rem;

@@ -206,7 +206,7 @@ async function basics(who, w) {
 	await clickEl(detailBtn.replace('%s', JSON.stringify(de.items.take_off)));
 	if (!(await waitFor(`!document.querySelector('[data-testid="item-worn"]')`))) p3b.push('take off: the detail still says "angezogen"');
 	report(`${who} ${w}: item detail – Anziehen puts the shorts on, Ausziehen takes them off`, p3b);
-	await clickEl(`document.querySelector('.item-detail .btn-back')`);
+	await clickEl(`document.querySelector('[data-testid="panel-back"]')`);
 }
 
 const widths = [390, 1440].filter((w) => !opt.only || String(opt.only) === String(w));

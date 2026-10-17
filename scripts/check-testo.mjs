@@ -187,7 +187,7 @@ async function flow(who) {
 	const eatText = await evaluate(`document.querySelector('[data-testid="item-use"]')?.textContent.trim()`);
 	if (eatText !== de.items.eat) p2b.push(`food button "${eatText}" ("${de.items.eat}" expected)`);
 	await clickEl(`document.querySelector('[data-testid="item-use"]')`);
-	await clickEl(`document.querySelector('.item-detail .btn-back')`);
+	await clickEl(`document.querySelector('[data-testid="panel-back"]')`);
 	const fed = await waitFor(`(() => { const l = ${appetiteLevel}; return l === ${hungry - 5} ? l : null; })()`);
 	if (!Number.isFinite(hungry) || fed !== hungry - 5) p2b.push(`appetite ${hungry} → ${await evaluate(appetiteLevel)} (−5 expected)`);
 	if ((await owned(who, 'cucumber')) !== 0) p2b.push('the cucumber was not eaten');
