@@ -22,7 +22,8 @@
 	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
 	import { sampleResolver } from '$lib/editor/sample-readers.ts';
 	import type { TextExpressions } from '@scutoons/reader';
-	import { deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
+	import CanvasTextEdit from '$lib/components/slice/canvas-text-edit.svelte';
+	import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
 		doc,
@@ -275,6 +276,15 @@
 		px: { width: number; height: number };
 	}
 	let drag = $state<Drag | null>(null);
+	/** the text box whose words are edited in place (a double click on it; owner 2026-10-17) */
+	let editingText = $state<number | null>(null);
+	$effect(() => {
+		// another selection (or none) closes the in-place editor
+		if (editingText !== null && !(selection?.kind === 'dialog' && selection.index === editingText)) editingText = null;
+	});
+	const BOXED = ['caption', 'narration', 'lyrics'];
+	/** the stage's centre lines a moved box snapped to (owner 2026-10-17); Ctrl / Cmd while dragging = no centre snap */
+	let guides = $state({ x: false, y: false });
 
 	/**
 	 * a hint only (owner 2026-10-17): a text box / placed item dragged to within 3 % of a slice edge or corner suggests
@@ -423,9 +433,20 @@
 		if (drag.handle === 'rotate') return rotateTo(event, drag);
 		if (drag.handle === 'scale') return scaleTo(event, drag);
 		const turned = drag.handle !== 'move' && (drag.item!.rotation !== 0 || drag.item!.scale !== 1);
-		const { ddx, ddy, dw, dh } = turned
+		let { ddx, ddy, dw, dh } = turned
 			? transformedDeltas(drag.handle, dx, dy, drag.shown, drag.item!, drag.px, grid > 0 ? steps : null)
 			: deltas(drag.handle, dx, dy, drag.shown, steps);
+		guides = { x: false, y: false };
+		if (drag.handle === 'move' && !(event.ctrlKey || event.metaKey)) {
+			// within 0.5rem of the centre line (rem, not px – DESIGN.md), measured in % of each axis
+			const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+			// against the pointer's own delta, so it also wins over the grid (a box off the grid could never be centred)
+			const sx = centreSnap(drag.shown.x, drag.shown.width, dx, ((0.5 * rem) / drag.px.width) * 100);
+			const sy = centreSnap(drag.shown.y, drag.shown.height, dy, ((0.5 * rem) / drag.px.height) * 100);
+			if (sx.hit) ddx = sx.delta;
+			if (sy.hit) ddy = sy.delta;
+			guides = { x: sx.hit, y: sy.hit };
+		}
 		// the drawn box moves / resizes; the stored point follows its anchor (dragging the opposite edge keeps it)
 		const writeHeight = dh !== 0 || (drag.handle !== 'move' && /[ns]/.test(drag.handle));
 		for (const [l, start] of Object.entries(drag.startRects)) {
@@ -454,6 +475,7 @@
 			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
 		drag = null;
+		guides = { x: false, y: false };
 		checkpointed = false;
 	}
 
@@ -525,12 +547,23 @@
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
+			ondblclick={() => {
+				// the dblclick lands on the overlay (it holds the pointer capture): the box the double click selected
+				if (selection?.kind === 'dialog') editingText = selection.index;
+			}}
 		>
 			<!-- the grid shows while snap is on (owner 2026-10-03), stronger while something is dragged -->
 			{#if gridLines.x.length}
 				<svg class="grid" class:dragging={drag?.moved} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
 					{#each gridLines.x as l (l.v)}<line x1={l.v} y1="0" x2={l.v} y2="100" class:major={l.major} />{/each}
 					{#each gridLines.y as l (l.v)}<line x1="0" y1={l.v} x2="100" y2={l.v} class:major={l.major} />{/each}
+				</svg>
+			{/if}
+			<!-- the stage's centre lines while a moved box sits on them (owner 2026-10-17) -->
+			{#if drag?.moved && (guides.x || guides.y)}
+				<svg class="guides" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" data-testid="centre-guides">
+					{#if guides.x}<line x1="50" y1="0" x2="50" y2="100" data-axis="x" />{/if}
+					{#if guides.y}<line x1="0" y1="50" x2="100" y2="50" data-axis="y" />{/if}
 				</svg>
 			{/if}
 			{#each ordered as item (item.kind + item.index)}
@@ -552,6 +585,10 @@
 					data-testid="box-{item.kind}-{item.index}"
 					onpointerdown={(e) => beginEdit(e, item, 'move')}
 				>
+					{#if item.kind === 'dialog' && editingText === item.index}
+						{@const d = slice?.dialog?.[item.index]}
+						<CanvasTextEdit {doc} path={item.path.slice(0, -1)} {locale} dialog={d} boxed={BOXED.includes(d?.variant)} onclose={() => (editingText = null)} />
+					{/if}
 					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
 						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.reveal_hidden_until']({ event: item.revealedBy })}</span>
@@ -627,6 +664,8 @@
 		position: absolute;
 		inset: 0;
 		z-index: 3;
+		/* cqw for the in-place text editor (the reader's text sizes are in cqw of the slice) */
+		container-type: inline-size;
 		cursor: crosshair;
 		touch-action: none;
 	}
@@ -650,6 +689,20 @@
 	}
 	.grid line.major {
 		stroke: rgba(0, 209, 255, 0.7);
+	}
+	/* the centre guides: above the boxes, 2px in the live selection's dark cyan – set apart from the pale grid */
+	.guides {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+	.guides line {
+		stroke: var(--select-live-text);
+		stroke-width: 2px;
+		vector-effect: non-scaling-stroke;
 	}
 	/* another layer than the inspector's tab: visible, but it lets the pointer through */
 	.box.inactive {

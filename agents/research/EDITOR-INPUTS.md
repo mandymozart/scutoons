@@ -38,7 +38,7 @@ and from grouping fields into labelled rows – not from smaller type.
 | `PropSelect` | a select inside the same frame as the number fields, with an icon or tag on the left instead of a caption above; the default option says "(default)". |
 | `ColorField` | a swatch (the native colour picker over it) + the hex text in one frame; empty = the placeholder colour, "none" draws a diagonal line. |
 | `LinkedPair` | two `ScrubNumber`s + a square lock toggle (aria-pressed) between them: locked, a change of one scales the other by the ratio; disabled while one is empty (auto). |
-| `PropRow` | one row of the inspector: a tool label on the left (6rem column) and the controls sharing the rest; in a narrow panel (container query < 18rem) the label goes above. |
+| `PropRow` | one row of the inspector: a tool label on the left (5rem column) and the controls sharing the rest; in a narrow panel (container query < 18rem) the label goes above. |
 
 Icons: Feather where it has one (align-left / center / right, rotate-cw, maximize-2, type, link / link-2); the missing
 ones (vertical align top / middle / bottom, letter spacing, outline width) are drawn in the Feather grid and live in
@@ -55,6 +55,10 @@ Pilot: the text box inspector (`creator/src/lib/components/text/dialog-inspector
 (W ⟷ H), Text (font, weight, size, letter spacing), Align (horizontal + vertical segments), Case, Transform
 (rotation, scale), Colour, Outline (+ width), Box, ID. The position rows are their own block so the 9-point anchor
 (a parallel change) slots in as one more row.
+
+Added on the owner's word the same day: the text size in rem (default) / pt / px of the 1x slice instead of %, a line
+height field (`Dialog.lineHeight`), centre snap guides on the slice canvas and editing a text box's words in place
+(DESIGN.md "Slice editor").
 
 Next (owner to decide the order): the item inspector, the group panel, the cover lettering lines, the map place
 inspector – each a plain swap of `PropField` for the compact controls; `PropField` stays for page forms.

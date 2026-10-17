@@ -88,7 +88,7 @@
 		transition: border-color var(--duration-fast);
 	}
 	.has-lead select {
-		padding-left: 2rem;
+		padding-left: 1.75rem;
 	}
 	select:is(:hover, :focus):not(:disabled) {
 		border-color: var(--ink);
@@ -103,7 +103,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 2rem;
+		width: 1.75rem;
 		color: var(--text-muted);
 		pointer-events: none;
 	}

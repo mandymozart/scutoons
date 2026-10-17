@@ -37,7 +37,7 @@
 	}
 	.inner {
 		display: grid;
-		grid-template-columns: var(--prop-label-width, 6rem) minmax(0, 1fr);
+		grid-template-columns: var(--prop-label-width, 5rem) minmax(0, 1fr);
 		align-items: center;
 		gap: var(--space-025) var(--space-05);
 	}
@@ -66,7 +66,8 @@
 	.controls > :global([data-prop-grow='2']) {
 		flex-grow: 2;
 	}
-	.controls > :global([data-prop-fit]) {
+	/* a segmented control that isn't stretched (units, 400 / 700) keeps its own width */
+	.controls > :global(:is([data-prop-fit], .sc-seg:not(.is-stretch))) {
 		flex: none;
 	}
 	@container (max-width: 18rem) {

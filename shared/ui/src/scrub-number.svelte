@@ -166,7 +166,7 @@
 
 <svelte:window onkeydown={onhandlekey} />
 
-<span class="sc-scrub" class:has-unit={!!unit} class:is-scrubbing={scrubbing} class:is-disabled={disabled} title={label} data-testid={testid}>
+<span class="sc-scrub" class:has-unit={!!unit} class:is-scrubbing={scrubbing} class:is-disabled={disabled} title={label} style:--scrub-unit={unit ? `calc(${unit.length}ch + var(--space-05))` : null} data-testid={testid}>
 	<input
 		bind:this={input}
 		id={inputId}
@@ -205,8 +205,7 @@
 
 <style>
 	.sc-scrub {
-		--scrub-handle: 2rem;
-		--scrub-unit: 1.75rem;
+		--scrub-handle: 1.75rem;
 		position: relative;
 		display: block;
 		min-width: 0;
@@ -226,6 +225,7 @@
 		transition: border-color var(--duration-fast);
 	}
 	.has-unit input {
+		/* the unit's own width (ch of the mono font, set from its length) */
 		padding-right: var(--scrub-unit);
 	}
 	.sc-scrub:hover input:not(:disabled),
@@ -258,7 +258,7 @@
 		inset: 0 0 0 auto;
 		display: flex;
 		align-items: center;
-		justify-content: center;
+		justify-content: flex-start;
 		width: var(--scrub-unit);
 		color: var(--text-muted);
 		pointer-events: none;

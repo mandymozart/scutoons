@@ -178,3 +178,18 @@ export function movedRect(start: Rect, d: Deltas, shownHeight: number, writeHeig
 	out.y = r2(start.y + d.ddy + grown * f.ay);
 	return out;
 }
+
+/**
+ * Centre snap (owner 2026-10-17: "a guide that helps center things when dragging … a snap feature with an additional
+ * center guide"): a moved box whose start edge, centre or end edge comes within `threshold` (in % of that axis) of the
+ * stage's centre line (50 %) is pulled onto it. Returns the corrected delta and whether the guide shows.
+ */
+export function centreSnap(start: number, size: number, delta: number, threshold: number): { delta: number; hit: boolean } {
+	const at = start + delta;
+	let best: number | null = null;
+	for (const offset of [size / 2, 0, size]) {
+		const gap = 50 - (at + offset);
+		if (Math.abs(gap) <= threshold && (best === null || Math.abs(gap) < Math.abs(best))) best = gap;
+	}
+	return best === null ? { delta, hit: false } : { delta: delta + best, hit: true };
+}

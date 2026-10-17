@@ -856,6 +856,26 @@ Three kinds, three places; none moves the layout:
   out at that width – no transform – and the area scrolls; boxes, handles and snapping stay in slice coordinates.
   Ctrl / Cmd + wheel (a trackpad pinch) over the area zooms around the pointer, flyout open or not.
 - **Phones** (< 768): the same strip at the canvas's left, the canvas the rest of the width; buttons ≥ 2.75rem.
+- **Centre guides** (owner 2026-10-17): a moved box whose centre or edge comes within 0.5rem of the stage's centre line
+  snaps onto it (also with the grid on) and a 2px dark-cyan guide (`--select-live-text`) shows that line; Ctrl / Cmd
+  while dragging = no centre snap (`centreSnap`, canvas-geometry.ts).
+- **Text in place** (owner 2026-10-17): a double click on a text box edits its words on the canvas, in the canvas's
+  language and the box's font / size / alignment (`canvas-text-edit.svelte`); it writes the same document value as the
+  inspector's text field; Esc puts the old text back, a click outside or Ctrl / Cmd + Enter closes it.
+
+### Compact inspector (owner 2026-10-17, research/EDITOR-INPUTS.md) – the creator's property panels
+
+- **Rows, not stacked fields**: `PropRow` (@scutoons/ui) = a tool label in a 5rem column + its controls sharing the
+  rest (the label goes above below an 18rem row). The room comes from the label inside the control, never from a
+  smaller control: every control stays `--control-height`.
+- **Numbers** = `ScrubNumber` (role spinbutton): a handle (Feather icon, or a tag X / Y / W / H) scrubs left / right
+  (Shift ×10, Alt ×0.1, pointer lock for a mouse, Esc reverts), a click types; ↑ ↓ PageUp / PageDown step, typed
+  maths `12+3`, `*2`, `+10`; the unit after the number; the default as placeholder. W / H = `LinkedPair` with a square
+  lock. Small enums = icon / word segments (`Segmented stretch | square`; the default while unset = an ink frame, a
+  click on the chosen one unsets it). Choices with longer names = `PropSelect`. Colours = `ColorField` (swatch + hex).
+- **Text size**: shown in rem (default), pt or px of the slice at 1x (1rem = 16px, 1pt = 4/3px), the unit a switch
+  beside it, remembered per browser; stored as % of the slice width (`Dialog.size`, the reader scales the slice).
+- Pilot: the text box inspector. `PropField` stays for page forms.
 
 ### Phones and tablets (owner-approved phone draft 2026-10-07, BACKLOG 10.50, UI-CONCEPTS E.9) – creator, admin, embassy
 

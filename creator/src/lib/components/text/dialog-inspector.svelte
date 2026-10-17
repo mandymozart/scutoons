@@ -106,7 +106,6 @@
 				<PropSelect label={m['creator.text_font']()} icon="type" value={dialog.font} options={[{ value: 'lettering', label: 'lettering' }, { value: 'mono', label: 'mono' }]} placeholder={boxed ? 'mono' : 'lettering'} onchange={set('font')} testid="dialog-font" />
 				<Segmented
 					label={m['creator.text_weight']()}
-					stretch
 					value={dialog.weight === undefined ? null : String(dialog.weight)}
 					fallback="400"
 					fallbackNote={m['creator.field_default_plain']()}
@@ -117,8 +116,9 @@
 				/>
 			</PropRow>
 			<PropRow label={m['creator.prop_text_size']()} hint={m['creator.text_size_hint']()}>
-				<ScrubNumber icon="type" label={m['creator.text_size']()} {unit} step={TEXT_SIZE_STEP[unit]} min={0} value={sizeShown} placeholder={String(sizeToUnit(4, unit, sliceWidth))} onchange={writeSize} testid="dialog-size" />
-				<Segmented label={m['creator.text_size_unit']()} stretch value={unit} onchange={(u) => textSizeUnit.set(u)} options={TEXT_SIZE_UNITS.map((u) => ({ value: u, label: u }))} testid="dialog-size-unit" />
+				<!-- the unit shows in the switch beside it, not again in the field -->
+				<ScrubNumber icon="type" label="{m['creator.prop_text_size']()} ({unit})" step={TEXT_SIZE_STEP[unit]} min={0} value={sizeShown} placeholder={String(sizeToUnit(4, unit, sliceWidth))} onchange={writeSize} testid="dialog-size" />
+				<Segmented label={m['creator.text_size_unit']()} value={unit} onchange={(u) => textSizeUnit.set(u)} options={TEXT_SIZE_UNITS.map((u) => ({ value: u, label: u }))} testid="dialog-size-unit" />
 			</PropRow>
 			<PropRow label={m['creator.prop_letters']()}>
 				<Segmented

@@ -1,7 +1,7 @@
 // npm run test -w creator (node's own runner, like @scutoons/content)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas } from '../src/lib/editor/canvas-geometry.ts';
+import { centreSnap, deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas } from '../src/lib/editor/canvas-geometry.ts';
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
 const box = { x: 10, y: 20, width: 40, height: 10 };
@@ -104,4 +104,13 @@ test('scaledRect with an anchor: the centre stays, the anchor point moves with t
 	// centre (60, 85) stays: the new box 40 × 20 → its bottom centre at (60, 95)
 	assert.deepEqual(r, { x: 60, y: 95, width: 40 });
 	assert.deepEqual(scaledRect({ x: 10, y: 20, width: 20 }, 10, 2, (v) => v), { x: 0, y: 15, width: 40 });
+});
+
+test('centreSnap: the box centre, its start or its end edge onto the stage centre within the threshold', () => {
+	// a 40 % box at x 10 moved 19 % → centre at 49 % → pulled to 50 %
+	assert.deepEqual(centreSnap(10, 40, 19, 1.5), { delta: 20, hit: true });
+	// its left edge near the centre (48.8 %) → onto 50 %
+	assert.deepEqual(centreSnap(10, 40, 38.8, 1.5), { delta: 40, hit: true });
+	// far away: unchanged, no guide
+	assert.deepEqual(centreSnap(10, 40, 2, 1.5), { delta: 2, hit: false });
 });
