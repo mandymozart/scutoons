@@ -70,6 +70,6 @@ export async function autoSaveChapter(chapter: { toon: string; number: number; t
 			accessUntil: chapter.accessUntil
 		});
 	} catch {
-		/* the row's button shows it can still be saved by hand */
+		/* not saved: the season's icon on the toon page can still save it by hand */
 	}
 }

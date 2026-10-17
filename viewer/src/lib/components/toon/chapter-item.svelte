@@ -10,7 +10,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { chapterName, chapterShownNumber } from '$lib/utils/chapter-name.ts';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
-	import SaveChapter from './save-chapter.svelte';
+	import SavedBadge from './saved-badge.svelte';
 
 	let {
 		chapter,
@@ -72,7 +72,10 @@
 	</div>
 	<div class="chapter-info">
 		<div class="chapter-title">
-			{chapter.title}
+			{chapter.title}<!-- saved on this device (PWA phase 3): a small mark after the name, no button (owner 2026-10-17) --><SavedBadge
+				{toonId}
+				chapter={chapter.number}
+			/>
 		</div>
 		<div class="chapter-release">
 			{#if !isPublic}
@@ -88,8 +91,6 @@
 	</div>
 	<div class="chapter-number" data-testid="chapter-number">
 		{#if isPrologue(chapter.number)}<span class="chapter-label">{m['chapter.prologue']()}</span>{:else}{isPublic ? ' ' : ''}#{chapterShownNumber(chapter.number) ?? chapter.number}{/if}
-		<!-- save to device (PWA phase 3): only with a service worker, for chapters the reader may read -->
-		<SaveChapter {toonId} {chapter} />
 	</div>
 </div>
 

@@ -111,7 +111,7 @@
 			<!-- Chapter List: left on desktop, the season's heading above it (owner 2026-10-03) -->
 			<div class="list-column">
 				{#each listSeasons as listed (listed.number)}
-					<!-- the season's heading + "save the season to the device" (PWA phase 3, beside the rows' save buttons) -->
+					<!-- the season's heading + "save the season to the device" (PWA phase 3): a small icon on its line, out of the flow -->
 					<div class="list-head">
 						<h2 class="list-heading" id="season-{listed.number}">{m['chapter.season_title']({ number: listed.number, title: listed.title })}</h2>
 						<SaveSeason toonId={params.toonId} season={listed.number} chapters={listed.chapters} />
@@ -248,18 +248,21 @@
 
 	/* the chapter list (all widths, owner 2026-10-03): the season's heading over a rule, rows with the thumbnail,
 	   title (+ progress rule / release), "#n" / "Prolog" right-aligned, hairlines between */
+	/* the season's save icon (save-season.svelte) sits absolutely on the heading's line: --head-pad / --head-line say
+	   where that line is; the heading keeps the icon's room at its right end always, so nothing moves when it shows */
 	.list-head {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: 1rem;
-		padding-bottom: 0.5rem;
+		--head-pad: 0.5rem;
+		--head-line: calc(1.25rem * 1.2);
+		position: relative;
+		padding-bottom: var(--head-pad);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	.list-heading {
 		margin: 0;
 		min-width: 0;
+		padding-right: 1.5rem;
 		font-size: 1.25rem;
+		line-height: 1.2;
 		font-weight: normal;
 	}
 	/* a further season's list (BACKLOG 10.41): room above its heading, also where /season/S scrolls to */
@@ -358,6 +361,9 @@
 		.list-column {
 			grid-column: 1 / span 6;
 			padding: 0;
+		}
+		.list-head {
+			--head-line: calc(1.3333rem * 1.2);
 		}
 		.list-heading {
 			font-size: 1.3333rem;

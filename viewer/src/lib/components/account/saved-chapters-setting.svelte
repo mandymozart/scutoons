@@ -2,7 +2,7 @@
 	// Account page → Offline-Inhalte → "Saved chapters" (PWA phase 3, agents/research/PWA.md §2 "Phase 3"; ACCOUNT-PAGE.md
 	// §0 – "save by themselves" is its own setting, auto-save-setting.svelte): what is saved on this device,
 	// the space it takes (and what the browser allows), one "Remove" per chapter and "Remove all". Nothing when nothing
-	// is saved (saving happens on the chapter's row / the season's heading). The running saves and refreshes with their
+	// is saved (saving happens at the season's heading on the toon page, or by itself). The running saves and refreshes with their
 	// bars (a season: one bar per chapter), "Updated …" after a new version came in, "Update" when one waits for the tap
 	// (lib/offline/refresh-saved.svelte.ts), "Save the rest" of a season begun here (saved-seasons.svelte).
 	import { confirmDialog, Icon } from '@scutoons/ui';
@@ -147,6 +147,11 @@
 	}
 	li a {
 		color: inherit;
+	}
+	/* the size beside the entry: "< 1 MB" on one line (it broke after "<" on a phone) */
+	li > small {
+		flex: none;
+		white-space: nowrap;
 	}
 	p {
 		margin: 0;

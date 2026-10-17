@@ -3,7 +3,7 @@
 // ("Save the rest", components/account/saved-seasons.svelte) that saves every chapter of the season the reader may read
 // and hasn't saved yet. Like one chapter: the size first (the server's list of each chapter, one request each), the
 // "Everything / Without videos" choice judged on the whole season, mobile data / data saver said – nothing starts
-// without the tap. Then the chapters one after another (savedChapters.save – each row's ring shows its own progress);
+// without the tap. Then the chapters one after another (savedChapters.save – each row's badge shows its own progress);
 // stop = the running chapter is stopped, the rest is not started, the chapters already saved stay.
 // Rules: lib/sw/saved-update-rules.ts `seasonTargets` / `planSeason` (tested).
 import { choiceDialog, confirmDialog } from '@scutoons/ui';

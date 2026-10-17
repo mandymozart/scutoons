@@ -65,7 +65,7 @@ The PWA and any later work adapt to this, not the other way round.
 | 18 | Soundeffekte | volume, Anhören, Vibration | all | device | – |
 | 19 | App · App installieren | install prompt | browsers that can install (Android / Chromium) | – | the install bar |
 | 20 | Kapitel auf dem Gerät speichern | Nur von Hand / Im WLAN / Immer | browsers with service worker | device | – |
-| 21 | Gespeicherte Kapitel | running saves (bars per kind), list, remove, remove all, storage | when something is saved / saving | device | the chapter row's save button |
+| 21 | Gespeicherte Kapitel | running saves (bars per kind), list, remove, remove all, storage | when something is saved / saving | device | the season heading's save icon |
 | 22 | Inventar | item count + "Inventar öffnen" | all | – | header's inventory button (panel) |
 | 23 | Avatar + stats | the full avatar editor | all | – | header's avatar panel |
 | – | *planned* Push notifications | PWA phase 4 (iOS only installed) | ? | ? | – |

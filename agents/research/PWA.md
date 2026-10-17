@@ -81,13 +81,15 @@ Code: `lib/sw/cache-rules.ts` (what qualifies, caps – pure, test/sw-cache-rule
 ### Phase 3 (built 2026-10-16) – save a chapter to the device
 Owner 2026-10-16: "Go 2 and 3, push in between". Code: server `Domain/Library/ChapterFiles.php` (the list),
 `lib/sw/saved-rules.ts` (pure, test/sw-saved-rules.test.ts), `lib/offline/saved-chapters.svelte.ts` (the page: download,
-progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers), `components/toon/save-chapter.svelte`
-(the row's button), `components/account/saved-chapters-setting.svelte`.
-- **Where**: a round button on every chapter row (toon page + the chapter menu, `chapter-item.svelte`) – ↓ save, a ring
-  filling while it saves (a tap asks "Stop saving?"), ✓ saved (a tap asks "Remove … from this device? Frees about
-  17 MB"); failed → ! (a tap tries again). Only with a service worker controlling the page (production, not the
-  creator's Reader frame) and only for chapters the reader may read: published (never a draft or coming soon), a free
-  preview (`isPreview`) or the reader's access (device code / account). `/account/offline` (Offline-Inhalte) → "Saved chapters" (`saved-chapters-setting.svelte`; "Save chapters by themselves" is its own `auto-save-setting.svelte` – ACCOUNT-PAGE.md §0): each save
+progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers), `components/toon/saved-badge.svelte`
+(the row's mark), `components/account/saved-chapters-setting.svelte`.
+- **Where** (owner 2026-10-17: no big round button per row – it confused and moved the layout): a chapter row has no
+  save control; a small muted badge after the chapter's name (toon page + the chapter menu, `chapter-item.svelte`, in the
+  look of the creator's slice marks): ✓ in a circle = saved on this device (label "Saved on this device"), a tiny ring
+  filling while it saves / updates. Saving by hand = the season's icon (below); one chapter saves by itself
+  (`auto-save-setting.svelte`); removing one = the account page. Only with a service worker controlling the page
+  (production, not the creator's Reader frame) and only for chapters the reader may read: published (never a draft or
+  coming soon), a free preview (`isPreview`) or the reader's access (device code / account). `/account/offline` (Offline-Inhalte) → "Saved chapters" (`saved-chapters-setting.svelte`; "Save chapters by themselves" is its own `auto-save-setting.svelte` – ACCOUNT-PAGE.md §0): each save
   (toon · chapter · title, MB, remove), "Remove all", the space (`storage.estimate()`: "SCUTOONS uses 76 MB of the
   10316 MB this browser allows"); nothing when nothing is saved.
 - **The size first** – the list is one server request, `GET /library/toons/<t>/chapters/<n>/files?locale=`
@@ -140,16 +142,17 @@ progress, cancel, remove, access), `lib/sw/saved-cache.ts` (the worker: answers)
   → the added files go, the old version stays readable. Fonts are kept. **When**: ≤ 1 MB always in the background;
   bigger when the setting "Save chapters on this device" would save now (Always, On Wi-Fi on Wi-Fi); never by itself
   with data saver / tier `none`. Otherwise the account page offers "New version · Update · about 19 MB". While it runs:
-  the row's ring ("Updating …"), the account page's bars ("· updating"); after it "Updated 16.10.2026".
+  the row's badge ring ("Updating …"), the account page's bars ("· updating"); after it "Updated 16.10.2026".
 - **A whole season** (`lib/offline/save-season.svelte.ts`, `components/toon/save-season.svelte`,
-  `components/account/saved-seasons.svelte` + `season-progress.svelte`): a round button beside each season heading on
-  the toon page (the rows' look: ↓ / ring / ✓ = every readable chapter saved, a tap removes them) and on the account page
-  "Catpope · Season 1 · 1 of 2 chapters saved · Save the rest" for a season begun on this device. Saves the readable
-  chapters not saved yet: the size first (one files request per chapter, 4 at a time), "Everything / Without videos"
-  judged on the season's total, mobile data / data saver said; then one after another (each row its own ring); the
-  account page shows the season's bar + one per chapter (saved / % / waiting / !). Stop = the running chapter stops,
-  the rest is not started, the saved ones stay. A row's ring tap stops a single save too (the button is free while it
-  saves).
+  `components/account/saved-seasons.svelte` + `season-progress.svelte`): on the toon page a 1rem icon at the right end
+  of each season heading's line (absolutely placed – the heading keeps its room and never moves; the control-height
+  touch target by padding): the offline group's `download-cloud` ↓ / a small ring while it saves (a tap asks to stop) /
+  ✓ in a circle = every readable chapter saved (a tap asks to remove them); and on the account page "Catpope · Season 1 ·
+  1 of 2 chapters saved · Save the rest" for a season begun on this device. Saves the readable chapters not saved yet:
+  the size first (one files request per chapter, 4 at a time), "Everything / Without videos" judged on the season's
+  total, mobile data / data saver said; then one after another (each row's badge its own ring); the account page shows
+  the season's bar + one per chapter (saved / % / waiting / !). Stop = the running chapter stops, the rest is not
+  started, the saved ones stay; a single running save stops with its × on the account page.
 - **Offline reading progress** – see "Offline reading progress" below.
 - Open: iOS: the home-screen app has its own storage – saves made in Safari don't carry over.
 

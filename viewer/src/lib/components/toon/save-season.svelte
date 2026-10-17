@@ -1,10 +1,12 @@
 <script lang="ts">
 	/**
-	 * "Save the season to the device" beside a season's heading on the toon page (PWA phase 3, agents/research/PWA.md §2
-	 * "Phase 3", FEATURES 10.74, owner 2026-10-16 "alle Pakete angehen"): the same round button as a chapter's row
-	 * (save-chapter.svelte) – ↓ saves every chapter of the season the reader may read and hasn't saved (the size first),
-	 * a ring while it saves (a tap stops it; the saved chapters stay), ✓ when all of them are saved (a tap removes them).
-	 * lib/offline/save-season.svelte.ts does the work; each chapter's row shows its own ring.
+	 * "Save the season to the device" at a season's heading on the toon page (PWA phase 3, agents/research/PWA.md §2
+	 * "Phase 3", FEATURES 10.74; owner 2026-10-17: an icon, not a big round button, and it must not move the heading):
+	 * the offline group's download icon (groups.ts `download-cloud`) saves every chapter of the season the reader may read
+	 * and hasn't saved (the size first), a small ring while it saves (a tap stops it; the saved chapters stay), ✓ when all
+	 * of them are saved (a tap removes them). Placed absolutely at the heading's right end on its text line (the parent
+	 * `.list-head` is `position: relative` and sets `--head-line`), the touch target by padding. Each chapter shows its
+	 * own state as a badge after its name (saved-badge.svelte). lib/offline/save-season.svelte.ts does the work.
 	 */
 	import { Icon, confirmDialog } from '@scutoons/ui';
 	import type { LoadedSequenceItem } from '@scutoons/content';
@@ -119,46 +121,59 @@
 		{onclick}
 	>
 		{#if job}
-			<Icon name="x" size="0.875rem" />
+			<span class="ring"></span>
 		{:else if status === 'saved'}
-			<Icon name="check" size="1rem" />
+			<Icon name="check-circle" size="1rem" />
 		{:else if failed}
 			<Icon name="alert-circle" size="1rem" />
 		{:else}
-			<Icon name="download" size="1rem" />
+			<Icon name="download-cloud" size="1rem" />
 		{/if}
 	</button>
 {/if}
 
 <style>
-	/* the chapter rows' save button (save-chapter.svelte): round, at the control height */
+	/* an icon, not a round button (owner 2026-10-17): 1rem, on the heading's text line at its right end, out of the
+	   flow so the heading doesn't move; padding makes the control-height touch target, the negative margin takes it back */
 	.save-season {
-		flex: none;
-		display: inline-flex;
+		--pad: calc((var(--control-height) - 1rem) / 2);
+		position: absolute;
+		right: 0;
+		/* the icon's centre on the centre of the heading's (last) line: the head's bottom padding + half a line */
+		bottom: calc(var(--head-pad, 0.5rem) + var(--head-line, 1.5rem) / 2 - 0.5rem);
+		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: var(--control-height);
-		height: var(--control-height);
-		padding: 0;
-		border-radius: 50%;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
+		box-sizing: content-box;
+		width: 1rem;
+		height: 1rem;
+		min-width: 0;
+		min-height: 0;
+		padding: var(--pad);
+		margin: calc(-1 * var(--pad));
+		border: 0;
+		border-radius: 0;
+		background: none;
 		color: var(--ink);
 		cursor: pointer;
 	}
-	.save-season.saved {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	/* asking the sizes: the button waits */
+	/* asking the sizes: the icon waits */
 	.save-season.sizing {
 		opacity: 0.5;
 		cursor: progress;
 	}
-	.save-season.saving {
-		border-color: transparent;
-		background:
-			radial-gradient(closest-side, var(--paper) calc(100% - var(--border-width-regular) * 1.5), transparent calc(100% - var(--border-width-regular) * 1.5)),
-			conic-gradient(var(--ink) var(--percent), var(--border-muted) 0);
+	.save-season.saved {
+		color: var(--text-muted);
+	}
+	/* saving: a small ring filling with the season's progress (the hole cut out, so any background shows through) */
+	.ring {
+		display: block;
+		width: 0.875rem;
+		height: 0.875rem;
+		border-radius: 50%;
+		background: conic-gradient(var(--ink) var(--percent), var(--border-muted) 0);
+		--hole: radial-gradient(closest-side, transparent calc(100% - var(--border-width-regular) * 1.25), #000 calc(100% - var(--border-width-regular) * 1.25));
+		-webkit-mask: var(--hole);
+		mask: var(--hole);
 	}
 </style>
