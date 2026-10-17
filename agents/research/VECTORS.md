@@ -91,10 +91,13 @@ in the layout document, not to the shape – one shape is used many ways.
 **The library is the truth, no Figma sync** (owner 2026-10-17: "sync with figma? perhpase only if we ever create
 something figma doesnt already have"). The Figma "Vector" page was a one-time source; after the import the library (CDN
 + DB) is edited in the asset manager, and `source` only says where a shape came from.
+- **Every Figma access goes over the SCUTOONS Figma bridge** (owner 2026-10-17: "i got the figma bridge so we dont have
+  to use api and mcp credits for figma"): survey, exports, placing a shape back – `tools/figma-bridge`, no call limit;
+  never Figma's REST API or Figma's MCP (monthly read cap / credits). "The API" in this doc = the SCUTOONS API (uploads).
 - **Importing a new Figma page** (another toon's shapes, a new Cat Pope page): `vectors-survey.mjs` lists the
   candidates (those whose node is already in the library marked "in the library"), the owner picks on the contact
   sheet, `vectors-pull.mjs` exports, measures and uploads them – a one-time import each time, not a sync. Uploads go
-  through the API (`PUT /api/assets/upload` + the shape fields) as the signed-in member – the dev API locally,
+  through the SCUTOONS API (`PUT /api/assets/upload` + the shape fields) as the signed-in member – the dev API locally,
   production only when the owner runs it or asks; the MCP's `upload_asset` is the same path.
 - **A shape made outside Figma** (an upload, an agent's drawing): it lives in the library only. Only if Figma should
   have it too, the bridge can place it there (`createNodeFromSvg`) – the other way round, and only when that happens.
