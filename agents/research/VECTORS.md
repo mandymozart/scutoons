@@ -1,4 +1,4 @@
-Status: proposal 2026-10-17 – for the owner to decide (§7); nothing built, nothing uploaded. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, next step 2; nothing built, nothing uploaded. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -42,11 +42,13 @@ overclassifying is maybe too dangerous" + **toon / universe**; a link to chapter
   `catpope/vectors/<slug>.svg` (the folder exists already). `scutoons/vectors/` only for shapes of the platform / brand
   that belong to no toon. Another toon uses a Cat Pope shape by reference (`../catpope/vectors/…`, ASSETS "Paths in
   content"), never a copy – so "classified by toon" is simply the folder, no field.
-- **The code set stays in git** (`shared/tokens/vectors/`): only shapes app code imports (today the illumination's five;
-  later UI ornaments). Each is listed in `vectors.json` with the same slug as its CDN twin. The other ~420 files leave
+- **The code set stays in git** (`shared/tokens/vectors/`): only shapes app code imports (today the illumination's
+  five and the 90s collage's twelve; later UI ornaments). Each is listed in `vectors.json` with the same slug as its CDN twin. The other ~420 files leave
   git once the CDN copy is registered (the lab then reads them from the CDN, §5).
-- A changed shape gets a **new file name** (30-day cache, PLATFORM "a changed file gets a new name"): `<slug>-2.svg`,
-  as the Standard tool does, then one relink (drafts per document, the member publishes). No in-place replace.
+- **Clean slate now** (owner: "we didnt do anythin with anythin yet"): nothing in content uses a shape, so the import
+  needs no relink and files may be re-exported over themselves until a shape is first used. **Once a shape is used**, a
+  changed one gets a new file name (`<slug>-2.svg`, as the Standard tool does) and one relink – the 30-day cache and
+  readers' offline copies would otherwise keep the old shape (PLATFORM "a changed file gets a new name").
 - Local `media/catpope/vectors/` is the dev copy like all media (`npm run dev:db -- media --apply`).
 
 ## 3. The model
@@ -63,33 +65,27 @@ overclassifying is maybe too dangerous" + **toon / universe**; a link to chapter
 | Column | Typed by | Why |
 |---|---|---|
 | `asset_id` | – | the asset (slug, folder = toon, title, tags, versions with size / sha256 come from there) |
-| `form` | a person (an agent may suggest) | the ONE classification word – below |
 | `tile` | a person | `x` / `y` / null – a band repeats along one axis; code needs it to repeat it |
 | `mask` | measured | one colour → CSS mask, the page colours it; else the file as it is |
 | `colors` | measured | JSON list; colour is never a tag |
 | `source` | the pull | JSON `{ file, page, node, frame }` – Figma's node id is the shape's identity across re-exports and renames |
 | `source_sha256` | the pull | sha of the raw Figma export (the stored file may be optimised later and differ) |
 | `derived` | the pull | `{ from: <asset_id>, rotate: 90 }` – a turned or mirrored copy made by the script, re-made when its source changes |
-| `checked_at` / `checked_by` | the review | replaces `suggested: true`; null = a suggestion |
+| `checked_at` / `checked_by` | the review | replaces `suggested: true`; null = a suggestion (today's 416 count as checked – owner: "names are fine") |
 
 Not modelled: character / subject (a free tag like `scrooge`, `pizza` if wanted), chapter / scene (the usage index –
-owner), colour words (measured), licence (own artwork; see §7 for the one exception).
+owner), colour words (measured), licence (own artwork; the Scrooge shapes are kept and used – owner, §7.6).
 
-**The `form` word – by shape and how it meets the page** (owner: "by shape and how they follow or engage with the
-images or other elements"). Six words instead of today's 20 roles; each says what the shape does next to a picture:
-
-| form | does | today's roles in it |
-|---|---|---|
-| `edge` | runs along an edge, repeats (`tile` x / y) | band, frieze-unit, teeth |
-| `frame` | surrounds or corners something | ring, corner, frame, filigree |
-| `figure` | stands on its own beside or over a picture | motif, silhouette, seal, eyes, splash |
-| `line` | crosses, connects, underlines | line, brush, vessels |
-| `field` | fills an area behind or over | texture, cloud, land |
-| `sheet` | a sheet to take parts from | toy-sheet |
+**Roles are tags, not a class** (owner: "consider it a tagging rather than a class. so we can keep the ones we got.
+some are clearly more layout … we can use it to create interesting things in the future or decorate text boxes etc.").
+The 20 role words of the README (band, frieze-unit, ring, corner, frame, line, brush, cloud, texture …) stay as the
+**shared tag words**: they live in `assets.tags`, a shape may carry several, the README keeps their meaning so people
+and the picker use the same words. The layout-ish ones (band, frieze-unit, corner, frame, ring, teeth) are what text
+boxes and layouts will look for later. Free words beside them (`crescent`, `scrooge`, `medieval`) stay allowed; colour
+words leave the tags (the measured `colors` say it).
 
 How a shape engages in a given place (behind / over, blend, colour, follows a panel's edge) belongs to the **placement**
-in the layout document, not to the shape – one shape is used many ways. Free `tags` stay optional search words for what
-the form doesn't say (`crescent`, `scrooge`, `pizza`, `medieval`), never colours, never the form again.
+in the layout document, not to the shape – one shape is used many ways.
 
 ## 4. Maintenance
 
@@ -98,20 +94,20 @@ row knows its Figma node.
 - **Survey** (`vectors-survey.mjs`): lists candidates on a page; candidates whose node is already in the library are
   marked "in the library" – the contact sheet shows only new ones.
 - **Pull → sync** (`vectors-pull.mjs` grows): per shape export the node, compare with `source_sha256`:
-  same → nothing; changed → upload `<slug>-<n>.svg`, new current version of the same shape, relink (drafts);
+  same → nothing; changed → re-upload (before first use) or `<slug>-<n>.svg` + relink (after);
   node gone in Figma → reported "gone in Figma", never deleted by the script; derived shapes re-made after their source.
   It writes through the API (`PUT /api/assets/upload` + the shape fields) as the signed-in member – the dev API locally,
   production only when the owner runs it or asks; the MCP's `upload_asset` is the same path.
-- **Review** (the owner, in batches): the contact-sheet artifact (claude.ai/artifact/FAwrTDdxJRwvZqh2RQuzus) is the
-  prototype of a "To check" view – a grid of unchecked shapes, each with slug, title, form, tile, tags; Enter = checked.
-  Renaming is free until a shape is used (a rename is copy + relink afterwards), so check before first use.
+- **Review**: today's names are confirmed (owner 2026-10-17). New shapes from a later survey come as suggestions; the
+  contact-sheet artifact (claude.ai/artifact/FAwrTDdxJRwvZqh2RQuzus) is the prototype of a "To check" view – a grid of
+  unchecked shapes with slug, title, tile, tags; Enter = checked. Renaming is free until a shape is used.
 - **Duplicates**: byte-identical (same sha) never registered twice – the survey and the upload refuse them; near-copies
   (the pizza sheets) the owner decides in review.
 - **Delete**: the asset layer's delete check (published uses and code references block); the code set is listed in
   `AssetUsages::CODE_REFERENCES` like the demon saw, so it is never "unused".
 
 **Browse and pick.** The creator's asset picker gets a "Shapes" kind (an asset with a shape row): toon folder first,
-`form` chips, search over title / tags; cards on a checker background, mask shapes shown tinted in the text colour,
+role-tag chips (band, corner, frame …), search over title / tags; cards on a checker background, mask shapes shown tinted in the text colour,
 the size and "edge x / y" on the card. The admin asset sheet shows and edits the shape fields. Picking into a layout
 (drag onto a page) waits for the layout feature – the picker is the same either way.
 
@@ -126,32 +122,38 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
 - **The lab's Collage**: today it globs all 429 files into the build (lazy chunks, but 12 MB in every app build that
   takes `score-lab`). After the move it asks the API for the shape list (`GET /api/assets?kind=shape&folder=catpope`)
   and loads files from the CDN – nothing in the bundle.
-- **Heavy shapes**: an optional SVG pass at upload (svgo: precision, merged paths) would shrink the pizza sheets; it
-  changes the bytes, which is why `source_sha256` keeps the Figma sha for the sync. Owner decision (§7).
+- **Heavy shapes**: every SVG is shrunk at upload (owner: "shrink is fine" – svgo: precision, merged paths; the pizza
+  sheets are ~1 MB); it changes the bytes, which is why `source_sha256` keeps the Figma sha for the sync.
 
 ## 6. Plan (steps, one at a time)
 
-1. **Owner decides** §7. Nothing else starts before.
-2. **Tidy in git** (no DB): `form` replaces `role` per the table, colour and role words leave `tags`, the 6 identical
-   pairs merge; the owner checks the suggestions on the contact sheet (forms, names, near-copies, Scrooge).
-3. **Migration** `asset_shapes` (idempotent, dry-run on the dev DB, runs with the deploy); `kind=shape` as a filter of
+1. ~~Owner decides~~ – done 2026-10-17 (§7).
+2. **Tidy in git** (no DB): `role` folds into `tags` (a shape may carry several role words), colour words leave the
+   tags, `suggested` goes (names confirmed), the 6 identical pairs merge; the README's vocabulary becomes "shared tag
+   words".
+3. **Split Uncle Scrooge** (owner: "maybe we can split him up"): the 18 `scrooge` shapes into parts – eyes, hat, beak,
+   whiskers … – as their own shapes (the survey's "ungrouped" parts of the Figma groups; the owner picks on a contact
+   sheet), tagged `scrooge` + the part.
+4. **Migration** `asset_shapes` (idempotent, dry-run on the dev DB, runs with the deploy); `kind=shape` as a filter of
    the list API (an asset with a shape row), the asset sheet shows the fields.
-4. **Import** to `catpope/vectors/` through the API, shape rows from `vectors.json`; the code set + its CDN twins as code
+5. **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
+   slate); the code set (the illumination's five, the 90s collage's twelve) stays in git with its CDN twins as code
    references. Locally first, production when the owner runs it or asks.
-5. **Pull becomes sync** (sha compare, new name + relink on change, "gone in Figma", survey marks known nodes).
-6. **The lab reads the CDN** (Collage from the API list); the non-code shapes leave git; ASSETS.md "Vector library"
-   rewritten to how it is.
-7. **Picker** "Shapes" + form chips; the "To check" view in the admin (or creator).
-8. Later: shapes in layouts (placement = shape + where + blend + colour), when the layout work starts.
+6. **The lab reads the CDN**: the Collage look (score-riot) takes the shape list from the API and loads files by CDN
+   URL instead of globbing git; the non-code shapes leave git; ASSETS.md "Vector library" rewritten to how it is.
+7. **Pull becomes sync** (sha compare against `source_sha256`, "gone in Figma", survey marks known nodes).
+8. **Picker** "Shapes" + role-tag chips; the "To check" view for later surveys.
+9. Later: shapes in layouts and on text boxes (placement = shape + where + blend + colour).
 
-## 7. Open questions for the owner
+## 7. The owner's answers (2026-10-17)
 
-1. **Where**: library on the CDN per toon (`catpope/vectors/`), only the code set in git – OK?
-2. **The six forms** (edge, frame, figure, line, field, sheet) instead of 20 roles – right words, too many, too few?
-3. **Owner toon**: the whole "Vector" page belongs to Cat Pope, or are some universe-wide (`scutoons/vectors/`)?
-4. **A changed shape**: new file name + relink (recommended, cache-safe) vs replace in place (old shape may show for
-   up to 30 days in browsers and offline copies)?
-5. **SVG optimisation** at upload (smaller files, bytes differ from Figma) – yes / no?
-6. **Uncle Scrooge** (18 shapes tagged `scrooge`, the Dagobert faces): a Disney character – may these appear on public
-   pages, or stay in the lab?
-7. **Review**: check the 416 suggestions now in one sitting, or only when a shape is first used?
+1. **Where**: "cdn" – the library on the CDN, `catpope/vectors/`; only the code set stays in git.
+2. **Classification**: "consider it a tagging rather than a class. so we can keep the ones we got" – the 20 roles stay,
+   as tags (§3); no six forms.
+3. **Owner toon**: "all these vectors belong to catpope yes".
+4. **Changed shape**: "why relink. we didnt do anythin with anythin yet this is clean slate" – no relink for the import;
+   new name + relink only once a shape is used (§2).
+5. **Optimisation**: "shrink is fine." – svgo at upload.
+6. **Uncle Scrooge**: "we keep it and we use it for now. maybe we can split him up for now." – kept, usable; split into
+   parts (§6 step 3).
+7. **Names**: "names are fine." – the 416 suggestions are confirmed.
