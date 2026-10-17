@@ -133,7 +133,8 @@ export function addToSeasonCast(doc: ContentDoc, season: number, character: stri
 	const entry = list.find((e) => e.character === character);
 	if (entry?.personas.includes(persona)) return null;
 	edit<ToonCast>(doc, (file) => {
-		const entries = (file.seasons[String(season)] ??= []);
+		file.seasons[String(season)] ??= [];
+		const entries = file.seasons[String(season)]; // read back: a `??=` expression is the raw array (clip.ts listAt)
 		const existing = entries.find((e) => e.character === character);
 		if (existing) existing.personas.push(persona);
 		else entries.push({ character, personas: [persona] });

@@ -15,6 +15,7 @@ import {
 	applySampleSettings,
 	applySliceEventSettings,
 	dropEventIds,
+	listAt,
 	makeClip,
 	mergeSounds,
 	newPlacementId,
@@ -92,10 +93,7 @@ export function sliceClipHandler(ctx: SliceClipContext): ClipHandler {
 				if (kind === 'sample' && clip.sounds && t.doc === ctx.chapter) soundMap = mergeSounds(file, clip.sounds, clip.toon, ctx.toon);
 				const slice = getAt(file, t.slicePath);
 				if (!slice) return;
-				let parent: any = slice;
-				const path = LISTS[kind];
-				for (const key of path.slice(0, -1)) parent = parent[key] ??= {};
-				const list: any[] = (parent[path[path.length - 1]] ??= []);
+				const list = listAt(slice, LISTS[kind] as string[]);
 				const placements = new Set<string>((slice.items ?? []).map((i: any) => i?.id));
 				for (const raw of clip.entries) {
 					const entry = JSON.parse(JSON.stringify(raw));

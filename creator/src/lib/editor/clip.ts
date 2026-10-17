@@ -80,6 +80,21 @@ type Obj = Record<string, any>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 const list = (v: unknown): any[] => (Array.isArray(v) ? v : []);
 
+/**
+ * The list at `path` under `parent` (a slice: `['dialog']`, `['audio', 'audio', 'samples']` …), created with its
+ * missing parents – each read back THROUGH `parent`: on the creator's $state document `slice.items ??= []` evaluates to
+ * the raw array, and pushing into that changed the stored data without telling the canvas (owner 2026-10-17: a box /
+ * item pasted into a slice without boxes / items showed in the tree, not on the slice).
+ */
+export function listAt(parent: Obj, path: readonly string[]): any[] {
+	let at: any = parent;
+	path.forEach((key, i) => {
+		if (at[key] === undefined || at[key] === null) at[key] = i === path.length - 1 ? [] : {};
+		at = at[key];
+	});
+	return at;
+}
+
 /** pasted events lose their id: the document's edit gives them fresh ones (assignEventIds) */
 export function dropEventIds(events: unknown): void {
 	for (const e of list(events)) if (isObj(e)) delete e.id;
@@ -319,7 +334,10 @@ export function applySampleSettings(target: Obj, source: Obj): void {
 	const rect = target.trigger?.rect;
 	for (const key of Object.keys(target)) delete target[key];
 	Object.assign(target, copy(source));
-	if (rect) (target.trigger ??= {}).rect = rect;
+	if (rect) {
+		target.trigger ??= {};
+		target.trigger.rect = rect;
+	}
 	else if (isObj(target.trigger)) delete target.trigger.rect;
 }
 

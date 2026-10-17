@@ -61,7 +61,8 @@ export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Pat
 		const dialog = { ...newDialog(id, { ...ono.rect }), text: { [t.doc.textSource]: text } };
 		applyTextPreset(dialog as unknown as Record<string, unknown>, ono);
 		slice.dialog.push(dialog);
-		(event.params ??= {}).dialog = id;
+		event.params ??= {};
+		event.params.dialog = id; // through the document: a `??=` expression is the raw object (clip.ts listAt)
 	});
 	// the new box is selected: its text and look are set in the text box inspector
 	return { kind: 'dialog', index: boxIndex };

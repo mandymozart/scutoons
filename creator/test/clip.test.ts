@@ -12,6 +12,7 @@ import {
 	clipText,
 	countPlacements,
 	foreignFiles,
+	listAt,
 	makeClip,
 	mergeSounds,
 	newPlacementId,
@@ -133,4 +134,24 @@ test('placements are counted per catalog item (a chapter, a scene, a clip)', () 
 	assert.deepEqual([...countPlacements({ slices: [{ items: [{ item: 'coin' }] }] })], [['coin', 1]]);
 	assert.deepEqual([...clipPlacements(makeClip('item', 't', [{ item: 'coin' }]))], [['coin', 1]]);
 	assert.deepEqual([...clipPlacements(makeClip('groups', 't', [{ slices: [{ items: [{ item: 'key' }] }] }]))], [['key', 1]]);
+});
+
+// a stand-in for a Svelte $state document: what is assigned is stored as ANOTHER object (Svelte stores a proxy of it)
+// – an `a.b ??= []` expression is the raw value, so a push into it bypasses the document (owner 2026-10-17)
+const stateLike = (target: any): any =>
+	new Proxy(target, {
+		get: (t, key) => (t[key] && typeof t[key] === 'object' ? stateLike(t[key]) : t[key]),
+		set: (t, key, value) => ((t[key] = Array.isArray(value) ? [...value] : value && typeof value === 'object' ? { ...value } : value), true)
+	});
+
+test('listAt: a pasted entry lands in the document even when the slice had no such list yet', () => {
+	const slice = stateLike({ image: 'a.webp' });
+	const old: any[] = (slice.items ??= []);
+	old.push({ id: 'lost' });
+	assert.deepEqual(slice.items, [], 'the `??=` value is not the stored list');
+	listAt(slice, ['dialog']).push({ id: 'd1' });
+	listAt(slice, ['audio', 'audio', 'samples']).push({ id: 's1' });
+	listAt(slice, ['dialog']).push({ id: 'd2' });
+	assert.deepEqual(slice.dialog.map((d: any) => d.id), ['d1', 'd2']);
+	assert.deepEqual(slice.audio.audio.samples, [{ id: 's1' }]);
 });

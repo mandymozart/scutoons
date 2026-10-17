@@ -22,6 +22,8 @@ From the old MEMORY.md (archive/MEMORY.md, 2026-09-28 … 10-04) and later sessi
 - Svelte 5 `<select value={x}>` with `{#each}` options can render the last option first → `selected={…}` on the options.
 - A Svelte 5 action's `update` can run before the same flush's text node changes → measure in a microtask.
 - A snippet variable named like a `{#snippet}` breaks svelte-check with odd "Snippet" type errors.
+- On $state data `const l = (o.list ??= [])` is the RAW array – pushes into it change the data unseen (no redraw); assign,
+  then read back through `o` (creator clip.ts `listAt`; 2026-10-17 pasted boxes / items missing on the canvas).
 
 ## CSS
 - base.css `h1–h6 { font-weight: 400 }` beats `:where()` rules → tools.css headings use `.sc-tool :where(h…)`.
