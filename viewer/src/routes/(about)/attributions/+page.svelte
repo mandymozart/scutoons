@@ -26,9 +26,6 @@
 		<h2>Libraries:</h2>
 		
 		<dl>
-			<dt><a href="https://swiperjs.com/" target="_blank" rel="noopener">Swiper</a></dt>
-			<dd>Maintained by NOLIMITS4WEB LLC</dd>
-			
 			<dt><a href="https://howlerjs.com/" target="_blank" rel="noopener">Howler.js</a></dt>
 			<dd>Maintained by Scott Schiller</dd>
 		</dl>

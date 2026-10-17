@@ -58,26 +58,27 @@
 
 <script lang="ts">
 	import { onDestroy, tick, untrack, type Snippet } from 'svelte';
-	import Swiper from 'swiper';
-	import 'swiper/css';
 	import { Icon, IconButton } from '@scutoons/ui';
 	import { cleanMusicXml, loadToolkit, type ScoreToolkit } from './verovio.ts';
 	import ScoreAge from './score-age.svelte';
 	import ScoreBoil from './score-boil.svelte';
 	import type { ScoreLook } from './score-looks.ts';
 	import './score-looks.css';
+	import { pageScroller, type PageScroller } from './score-pages.ts';
 	import { ScoreSynth, notesFromTimemap, type ScoreNote, type TimemapEntry } from './synth.ts';
 
 	/**
 	 * The score view (research/SCORES.md §4): a full-screen sheet of music rendered from MusicXML by Verovio. Pages are
 	 * the size of the view – a page turn never scrolls; − / + re-breaks the lines and pages at the new size and keeps the
-	 * bar the reader was at. Pages are slides of the app's Swiper (the horizontal reader's) – a swipe turns them; so do
-	 * ← / → / PageUp / PageDown / Space (Bluetooth page-turn pedals send these); + / − zoom, Escape closes. A page is
-	 * rendered when it comes near (the current one ± 1). The PDF (the print file) is a plain download.
+	 * bar the reader was at. Pages sit on native CSS scroll-snap (score-pages.ts, owner 2026-10-17) – a swipe, a wheel or
+	 * a trackpad turns them; so do ← / → / PageUp / PageDown / Space (Bluetooth page-turn pedals send these); + / − zoom,
+	 * Escape closes. A page is rendered when it comes near (the current one ± 1). The PDF (the print file) is a plain
+	 * download.
 	 * Play (owner 2026-10-14) sounds the file's notes on a small synth from the current page on, lights the notes that
 	 * sound and turns the pages along; while it plays the sheet is an echo pad – a finger sliding over it sets the delay
 	 * (x: echo time and length, y: how much of it – the top all echo), lifting it glides back to dry (score/synth.ts).
 	 * `look` (score-looks.ts): another music font, pen, colours and animations – a draft in the lab.
+	 * Over 400 lines: loading, layout, paging and playing share the toolkit, the page and the sheet – kept as one view.
 	 */
 	let {
 		src,
@@ -111,8 +112,8 @@
 	let pages = $state(0);
 	/** the rendered pages (SVG by page number), cleared by every new layout */
 	let rendered = $state<Record<number, string>>({});
-	let slides = $state<HTMLElement>();
-	let swiper: Swiper | null = null;
+	let scroller = $state<HTMLElement>();
+	let pager: PageScroller | null = null;
 	let status = $state<'loading' | 'ready' | 'failed'>('loading');
 	let toolkit = $state<ScoreToolkit | null>(null);
 	let xml = $state<string | null>(null);
@@ -201,32 +202,33 @@
 		return sheet?.querySelector(`[data-page="${page}"] g.measure`)?.id ?? null;
 	}
 
-	/** go to page `n` (rendering it and its neighbours); `jump` = no slide animation (a new layout) */
-	async function show(n: number, jump = false) {
+	/** page `n` is the reader's: render it and its neighbours */
+	function visit(n: number) {
 		if (!toolkit || status !== 'ready') return;
 		page = Math.min(Math.max(1, n), Math.max(1, pages));
 		const next = { ...rendered };
 		for (const p of [page - 1, page, page + 1]) if (p >= 1 && p <= pages && !next[p]) next[p] = toolkit.renderToSVG(p);
 		rendered = next;
+	}
+
+	/** go to page `n`; `jump` = instant (a new layout, Play following the music), else a smooth turn */
+	async function show(n: number, jump = false) {
+		if (!toolkit || status !== 'ready') return;
+		visit(n);
 		await tick();
-		if (!swiper) return;
-		if (jump) swiper.update();
-		if (swiper.activeIndex !== page - 1) swiper.slideTo(page - 1, jump ? 0 : undefined);
+		pager?.go(page, !jump && !reduceMotion);
 	}
 
 	const turn = (by: number) => show(page + by);
 
-	// the pages as Swiper slides
+	// the pages on scroll-snap: the reader's own scrolling lands on a page
 	$effect(() => {
-		if (!slides) return;
-		const instance = new Swiper(slides, { slidesPerView: 1, initialSlide: untrack(() => page - 1) });
-		instance.on('slideChange', () => {
-			if (instance.activeIndex !== page - 1) show(instance.activeIndex + 1);
-		});
-		swiper = instance;
+		if (!scroller) return;
+		const instance = pageScroller(scroller, () => pages, (n) => n !== page && visit(n));
+		pager = instance;
 		return () => {
 			instance.destroy();
-			swiper = null;
+			pager = null;
 		};
 	});
 
@@ -285,8 +287,8 @@
 		const first = sheet?.querySelector(`[data-page="${page}"] g.note`)?.id;
 		const from = page > 1 ? (notes.find((n) => n.id === first)?.at ?? 0) : 0;
 		cursor = Math.max(0, timemap.findIndex((e) => e.tstamp >= from));
+		// the echo pad lies over the pages: a finger plays the echo, it turns no page
 		playing = true;
-		if (swiper) swiper.allowTouchMove = false;
 		synth.play(notes, from, stopPlaying);
 		frame = requestAnimationFrame(follow);
 	}
@@ -296,7 +298,6 @@
 		synth?.stop();
 		playing = false;
 		finger = null;
-		if (swiper) swiper.allowTouchMove = true;
 		for (const id of lit) light(id, false);
 		lit.clear();
 	}
@@ -312,7 +313,7 @@
 			const on = entry.on?.[0];
 			if (on && toolkit) {
 				const at = toolkit.getPageWithElement(on);
-				if (at > 0 && at !== page) show(at, reduceMotion);
+				if (at > 0 && at !== page) show(at, true);
 			}
 		}
 		frame = requestAnimationFrame(follow);
@@ -372,17 +373,15 @@
 	<div class="sheet" bind:this={sheet} data-look={look?.id} data-boil={look?.boil && !reduceMotion ? "" : undefined}>
 		{#if look?.boil}<ScoreBoil />{/if}
 		{#if status === 'ready'}
-			<div class="swiper" bind:this={slides}>
-				<div class="swiper-wrapper">
-					{#each { length: pages }, i (i)}
-						<!-- Verovio's SVG of our own MusicXML -->
-						<div class="swiper-slide" data-page={i + 1}>
-							{@html rendered[i + 1] ?? ''}
-							{#if age}<ScoreAge tint={age.tint} spots={age.spots} seed="{age.seed}:{i + 1}" />{/if}
+			<div class="pages" bind:this={scroller} data-testid="score-pages">
+				{#each { length: pages }, i (i)}
+					<!-- Verovio's SVG of our own MusicXML -->
+					<div class="leaf" data-page={i + 1}>
+						{@html rendered[i + 1] ?? ''}
+						{#if age}<ScoreAge tint={age.tint} spots={age.spots} seed="{age.seed}:{i + 1}" />{/if}
 							{@render decor?.(i + 1)}
-						</div>
-					{/each}
-				</div>
+					</div>
+				{/each}
 			</div>
 			{#if playing}
 				<!-- the echo pad: a finger sliding over the sheet plays with the delay (pointer only – an extra, the music plays without it) -->
@@ -503,15 +502,28 @@
 		color: #000000;
 	}
 
-	.swiper {
+	/* one page per snap point; every turn stops at the next page (no fling past it); the swipe stays in the view */
+	.pages {
+		display: flex;
 		height: 100%;
+		overflow: auto hidden;
+		scroll-snap-type: x mandatory;
+		overscroll-behavior-x: contain;
+		scrollbar-width: none;
+	}
+
+	.pages::-webkit-scrollbar {
+		display: none;
 	}
 
 	/* a system taller than the page (a big zoom on a phone) scrolls instead of being cut */
-	.swiper-slide {
+	.leaf {
 		position: relative;
+		flex: 0 0 100%;
 		height: 100%;
 		overflow: hidden auto;
+		scroll-snap-align: start;
+		scroll-snap-stop: always;
 	}
 
 	.sheet :global(svg) {

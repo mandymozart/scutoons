@@ -51,7 +51,7 @@
 .score-view .sheet[data-look='old-school-colour'] g.note[data-pname='b'] > g.notehead { fill: #b8408e; }
 
 /* boiling lines: the page steps through three wobbles */
-.score-view .sheet[data-boil] .swiper-slide > svg {
+.score-view .sheet[data-boil] .leaf > svg {
 	animation: score-boil 0.36s steps(1) infinite;
 }
 
@@ -172,7 +172,7 @@
 }
 
 /* the music above the collage's back layer */
-.score-view .sheet[data-look='wild'] .swiper-slide > svg {
+.score-view .sheet[data-look='wild'] .leaf > svg {
 	position: relative;
 	z-index: 1;
 	color: var(--score-ink);
@@ -219,7 +219,7 @@
 
 /* last, and as specific as the looks' own rules, so it wins over every one of them */
 @media (prefers-reduced-motion: reduce) {
-	.score-view .sheet[data-boil] .swiper-slide > svg,
+	.score-view .sheet[data-boil] .leaf > svg,
 	.score-view .sheet[data-look] g.note.playing > g.notehead,
 	.score-view .sheet[data-look] g.note.playing g.syl {
 		animation: none;

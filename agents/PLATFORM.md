@@ -180,7 +180,7 @@ Clock) · `src/Console` + `bin/console` · `config/` (settings, container, route
 | `routes/(shop)/shop/+page.{svelte,ts}` | `shop/src/routes/+page.{svelte,ts}` (loads `GET /api/products/`) |
 | `lib/components/shop/products/product-item.svelte` | `shop/src/lib/components/product-item.svelte` |
 | `lib/components/shop/products/shop.ts` (types + price/variant helpers) | `@scutoons/content` `products.ts` (`ProductCatalog`, `Product`, `ProductVariant`, `FeaturedProduct`, `LocalizedText`, `isSoldOut`, `pickVariant`, `variantPrice`, `formatPrice`, `editionPieces`, `localized`) |
-| `lib/components/shop/products/product-slides.svelte` (homepage only, Swiper) | stays in the viewer: `lib/components/home/product-slides.svelte` (not generic → not in `@scutoons/ui`) |
+| `lib/components/shop/products/product-slides.svelte` (homepage only) | stays in the viewer: `lib/components/home/product-slides.svelte` (not generic → not in `@scutoons/ui`) |
 | `static/api/products.json`, `featured-products.json` | server `config/products.json`, `config/featured-products.json` (since 2026-10-04 the catalog tables; the files are a test fixture since 10.30) |
 | messages `shop.title/description/variants/remaining` | `shop/messages/{de,en}.json` (the homepage keeps `shop.buy/sold_out/sizes/colors/price/limited_edition_of/credits`) |
 

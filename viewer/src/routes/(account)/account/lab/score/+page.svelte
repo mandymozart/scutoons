@@ -5,7 +5,8 @@
 	// boiling lines, hopping notes) and the medieval one (owner 2026-10-17: illuminated frames with the characters, a
 	// medieval face for the title – the trial fonts are ./fonts, Google Fonts, OFL; this page only).
 	import { ageLook } from '@scutoons/content';
-	import { CoverLettering, SCORE_LOOKS, ScoreCollage, ScoreIllumination, ScoreView } from '@scutoons/reader';
+	import { CoverLettering, SCORE_LOOKS } from '@scutoons/reader';
+	import { ScoreCollage, ScoreIllumination, ScoreView } from '@scutoons/reader/score';
 	import { Segmented } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 	import './fonts/lab-fonts.css';

@@ -43,10 +43,10 @@ Caching (production headers):
   nodes, so they start only after 260 KB of JS) → render → slice images on a third origin. Nothing overlaps levels 3–4.
 - **Heavy features ride the first load** (rendered size before minify; ≈ 100 KB br of the 260): the map overlay
   (+ map-terrain, viewport, content map.ts), inventory, claim sheet, item detail, camera overlay, invites panel, avatar,
-  score view + Swiper (score-actions), the player overlay; `feather-icons` whole (all icons, ~17 KB br, `shared/ui`
-  icon.svelte); Swiper ~20 KB br (horizontal renderer, product slides, score view); Howler ~8 KB br; paraglide both
-  locales (~15 KB br wasted); the URLPattern polyfill (~5 KB br). Already lazy, good: Verovio (1.8 MB br), tfjs
-  (136 KB br), jsQR, alien shapes, minigames.
+  the player overlay (the score view lazy and Swiper gone since 2026-10-17 – TEXT-ACROSS-SLICES.md §9); `feather-icons`
+  whole (all icons, ~17 KB br, `shared/ui` icon.svelte); Howler ~8 KB br; paraglide both locales (~15 KB br wasted);
+  the URLPattern polyfill (~5 KB br). Already lazy, good: Verovio (1.8 MB br), tfjs (136 KB br), jsQR, alien shapes,
+  minigames.
 - **SvelteKit preload**: `data-sveltekit-preload-data="hover"` on `<body>` (app.html): hover / touchstart on a link runs
   its load (chapter JSON) + code. The next bar navigates by `goto()` after a 10 s countdown – nothing is preloaded in
   those 10 s. No `preloadData` / `preloadCode` / `requestIdleCallback` anywhere except the map data (idle).
@@ -76,7 +76,7 @@ Expected gains are estimates for a phone on 4G (≈ 20 Mbit/s, 60 ms RTT) / slow
 | L5 | **Toon page → chapter**: on idle, `preloadCode` of the chapter route + `preloadData` of the start button's chapter + its first 2 slices (~60 KB); home → toon: `preloadCode` of the toon route; `data-sveltekit-preload-code="viewport"` on chapter lists | S | "Lesen" opens in ~1 RTT: −0.5–1.5 s |
 | L6 | **In-chapter look-ahead** with a budget (one `prefetch.ts` policy): after the first screen is loaded, at idle keep N slices ahead decoded (fast: 10 slices / 1.5 MB, slow: 3, saveData: 0 = native lazy only); unmetered Wi-Fi (Android `connection.type`): the whole chapter's images (ch1: 2.4 MB) | M | no grey slices on flicks; whole-chapter cost stays at the images' 2.4 MB |
 | L7 | **Start the API with the entry**: a client `init` hook (`hooks.client.ts`) parses the URL and calls `fetchToons` / `fetchToon` / `fetchCast` / `fetchChapter` – the loads reuse the in-memory promises (`cacheMs`); `<link rel="preconnect">` to api. and cdn. in app.html (after the boot-screen work there) | S | API overlaps the 221 KB route JS: −0.3–0.6 s to the first paint; −2 handshakes (−0.2–0.4 s on 3G) |
-| L8 | **Split heavy features out of the first load**: dynamic `import()` for map overlay, inventory, claim sheet, item detail, camera, invites, avatar, score view (+ Swiper), player overlay (only a chapter with a player video), Howler (only with samples); feather → a generated map of the used icons; paraglide one locale; URLPattern polyfill only when missing | M | −90–110 KB br (−35 %) and ~−300 KB raw JS to parse – most felt on low-end Android (−0.3–1 s main thread) |
+| L8 | **Split heavy features out of the first load**: dynamic `import()` for map overlay, inventory, claim sheet, item detail, camera, invites, avatar, player overlay (only a chapter with a player video), Howler (only with samples); feather → a generated map of the used icons; paraglide one locale; URLPattern polyfill only when missing | M | −90–110 KB br (−35 %) and ~−300 KB raw JS to parse – most felt on low-end Android (−0.3–1 s main thread) |
 | L9 | **Automatic without the probe**: decide from the first slice images' Resource Timing (needs TAO, L1) and remember the level for the session (`sessionStorage`); variants don't wait for `/auth/session` when the device setting is not `auto` | S | −512 KB per page load on iPhone / Firefox; videos start earlier |
 | L10 | **Network-aware limits + data budget**: one policy (`saveData`, `effectiveType`, `downlink`, else measured) → `none / light / normal / generous`; speculative bytes per session capped (cellular 5 MB, Wi-Fi 50 MB, saveData 0); the hero trailer only on `normal+` (poster otherwise); a muted loop video only when on screen | S (with L6) | phones on data / saveData never pay for guesses; predictable "Mittel ≈ 25 MB" stays true |
 | L11 | **Service worker** (10.74, DATA.md §6): app shell precache, slices / posters cache-first LRU; repeat visits and the next chapter from disk | L | repeat visit first paint ≈ 0 network; offline later |

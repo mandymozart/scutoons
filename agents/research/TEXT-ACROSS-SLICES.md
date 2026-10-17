@@ -1,4 +1,4 @@
-Status 2026-10-16: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built (the endless band, format + migration – not deployed), Q8–Q11 decided (DECISIONS 2026-10-16); the Q10 hint nudge built; Swiper elsewhere measured (§9: score → scroll-snap, home slider → our utility) – open: the owner's go on §9, §8 steps 3–4, Q1–Q4, Q7. FEATURES 10.100.
+Status 2026-10-17: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built (the endless band, format + migration – not deployed), Q8–Q11 decided (DECISIONS 2026-10-16); the Q10 hint nudge built; Swiper elsewhere measured and built (§9, owner's go 2026-10-17: score → scroll-snap + lazy, home slider → our utility, the package removed = §8 step 4) – open: §8 step 3, Q1–Q4, Q7. FEATURES 10.100.
 
 # Slices as background: the strip editor
 
@@ -304,10 +304,8 @@ storyboard.mjs:117 text; make-sandbox gets an endless group. **Validator:** erro
 part (endless sides all `open` incl. the wrap seam, `slide` gone) comes with §7 step 1.
 
 **Removed with the chapter part:** horizontal.svelte, its gesture svg, the dead `utils/icons.ts`; ≈ −25 kB (−7 kB gz)
-per chapter page (rolldown in the scratchpad, not a viewer build). **The package stays** while the home
-`product-slides` (+ scripts/check-landing.mjs:165–281) and the ScoreView use it – the ScoreView pulls Swiper core onto
-every toon page through toon-shell → inventory → item-detail → score-actions. Then: the attributions page, both
-package.json deps, PLATFORM.md:183, DECISIONS 2026-10-14 superseded.
+per chapter page (rolldown in the scratchpad, not a viewer build). The package left with step 4 (§9): the home
+`product-slides` and the ScoreView were its last users (the ScoreView had pulled Swiper core onto every toon page).
 
 | Step | What | Done when |
 |---|---|---|
@@ -330,10 +328,15 @@ decoded; an old cached bundle shows migrated ch2 strips as a Swiper until reload
   Reduced motion: the line stands and fades (a fade, like the tap glow, is no travel), no bounce. renderer/
   strip-nudge.ts (when, unit-tested) + strip-nudge-cue.ts; check:endless 13.
 - **Q11** Creator: one Layout select "Vertical · Horizontal · Endless" – OK?
-- **Q12** Home product slider: scroll-snap + ‹ ›, no autoplay (WCAG 2.2.2) – or keep Swiper there?
-- **Q13** Score pages: our paged scroller instead of Swiper (replaces 2026-10-14 "use the swiper we got already")?
+- **Q12** answered 2026-10-17 (DECISIONS): the home slider keeps loop + autoplay, on our utility – built §9.
+- **Q13** answered 2026-10-17 (DECISIONS): score pages on CSS scroll-snap (replaces 2026-10-14 "use the swiper we got already") – built §9.
 
 ## 9. Swiper elsewhere: payload and reuse (2026-10-16)
+
+**Status 2026-10-17: built** (owner: "Go: Swiper raus – Partitur lazy laden, Partiturseiten auf CSS Scroll-Snap,
+Startseiten-Slider auf unser Werkzeug."). ScoreView behind `import('@scutoons/reader/score')`, pages on scroll-snap
+(`score-pages.ts` ignores in-between pages while a turn is pending); the home slider on strip-loop / strip-drag +
+`slides-pager.ts`; `swiper` out of both package.json files. Measured after: see the end of this section.
 
 **How I measured.** `viewer/build` at ed4c780d, no rebuild. Each route's eager set is its static closure from `.vite/manifest.json` plus the `app.js` dictionary. Per file, Node zlib gzip -9 / brotli q11. Our code bundled with rolldown rc.12 (minified) in the scratchpad. My Swiper bundle came within 0.3% of the build's chunk `CZ-exddm.js` (67,976 B, 20.7 KB gz).
 
@@ -355,7 +358,12 @@ decoded; an old cached bundle shows migrated ch2 strips as a Swiper until reload
   - product-slides: button arrows, autoplay pause control + reduced-motion, `user-select:none`, a width-only ResizeObserver.
   - check-landing probes rewritten. The utility stays in viewer/.
 - **Answers Q12** (loop + autoplay kept, on our utility, not scroll-snap) **and Q13** (scroll-snap, not Swiper or the utility). §8 step 4 then removes the package.
-- **Risks:** no real touch, iOS or wheel device tested yet; the gap is 24 px at ≥768 px against Swiper's 16 px.
+- **Risks:** no real touch, iOS or wheel device tested yet. The slider gap: 16 px from 768 px (as Swiper), 1rem below –
+  14 px on phones ≤ 480 px (the root's 14 px), 16 px above.
+- **Measured after** (2026-10-17 build on a0743045 + the working tree, same method: start + app + the route's nodes' static
+  closure, gzip -9): home 247.5 KB gz (was 265.4), toon page 306.3, chapter 341.5 (was 362.4); no eager file mentions
+  Swiper; the score view's own lazy part 9.7 KB gz (7.3 JS + 2.4 CSS) beyond the chapter's set. The deltas also hold
+  the commits since ed4c780d (nudge, packing).
 
 Sources: WEBTOON Creators Resource Handbook (800 × 1280 per image, auto-slice); Clip Studio "Export Webtoon"; Chrome 129
 container-query change (dev.to/michaelcharles); WebKit commit 284730@main "Drop layout containment from container-type"

@@ -15,6 +15,11 @@
 			"types": "./src/index.ts",
 			"svelte": "./src/index.ts",
 			"default": "./src/index.ts"
+		},
+		"./score": {
+			"types": "./src/score/index.ts",
+			"svelte": "./src/score/index.ts",
+			"default": "./src/score/index.ts"
 		}
 	},
 	"files": [
@@ -22,12 +27,11 @@
 	],
 	"scripts": {
 		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/score-synth.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/score-synth.test.ts test/score-pages.test.ts"
 	},
 	"dependencies": {
 		"@scutoons/content": "*",
 		"@scutoons/ui": "*",
-		"swiper": "^12.0.3",
 		"verovio": "6.3.0"
 	},
 	"peerDependencies": {

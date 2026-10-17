@@ -129,8 +129,9 @@ view, "PDF herunterladen" (the print file).
   MusicXML-native, lighter, BSD, but endless scroll first and a sponsors-only audio player); no spike. Verovio is
   LGPL: its toolkit stays a separate, replaceable file in the bundle. pdf.js is out (no reflow).
 - Controls (less UI): scale − / + as one square group (a phone starts at 30 %, wider screens at 40 %, the last choice is
-  remembered on the device), page n / total with ‹ › when it needs more than one page; pages are slides of the app's
-  Swiper (owner 2026-10-14: "use the swiper we got already"), rendered when near; arrow keys / PageUp-Down / Space
+  remembered on the device), page n / total with ‹ › when it needs more than one page; pages sit side by side in a
+  native CSS scroll-snap row (`scroll-snap-stop: always`; owner 2026-10-17 – it was the app's Swiper since 2026-10-14,
+  DECISIONS), rendered when near; the view itself loads only when a score opens (`@scutoons/reader/score`); arrow keys / PageUp-Down / Space
   (Bluetooth page-turn pedals send these – the live musician gets this for free), "PDF" download, close. Re-renders on
   resize / rotation and stays at the bar the page started with; a system taller than the page scrolls.
 - Draft (2026-10-14): `shared/reader/src/score/`, the dev page `/account/lab/score` with two MuseScore exports of the

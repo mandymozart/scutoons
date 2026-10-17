@@ -85,7 +85,7 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   strip an endless drag mode (loop + momentum, no 3D effects)", "having text boxes pass is good as a tool". §8 steps 1–2
   built, not deployed (band, format, migration – plan_migrations rows on production first); open: the owner's phone +
   desktop try, check:endless is Chromium only (no Firefox / WebKit path, no check:resume), §8 step 3 (paint rule,
-  sliceEdges) and 4 (home slider, ScoreView); then strip editor → slice ids → tall pictures. `decide` Q1–Q4, Q7, Q12–Q13.
+  sliceEdges; step 4, Swiper elsewhere, done 2026-10-17 – §9); then strip editor → slice ids → tall pictures. `decide` Q1–Q4, Q7.
   → research/TEXT-ACROSS-SLICES.md §8
 - [ ] 10.106 **Record player: dark bar + a shinier turntable** [owner, later] – owner 2026-10-16: "Later we'll take care of
   the player bar design – it can be inverted and black too", "a shinier look for the turntable / record, maybe a custom
