@@ -13,7 +13,7 @@
 		'vine-dots': { mask: true, load: () => import('@scutoons/tokens/vectors/vine-dots.svg?raw') },
 		'arch-dots': { mask: true, load: () => import('@scutoons/tokens/vectors/arch-dots.svg?raw') },
 		'scroll-filigree': { mask: true, load: () => import('@scutoons/tokens/vectors/scroll-filigree.svg?raw') },
-		'pope-face-line': { mask: false, load: () => import('@scutoons/tokens/vectors/pope-face-line.svg?raw') },
+		'scrooge-face-line': { mask: false, load: () => import('@scutoons/tokens/vectors/scrooge-face-line.svg?raw') },
 		'damask-open': { mask: false, load: () => import('@scutoons/tokens/vectors/damask-open.svg?raw') },
 		'damask-silhouette': { mask: false, load: () => import('@scutoons/tokens/vectors/damask-silhouette.svg?raw') },
 		'pope-mandala': { mask: false, load: () => import('@scutoons/tokens/vectors/pope-mandala.svg?raw') }

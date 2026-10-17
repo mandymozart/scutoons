@@ -272,13 +272,14 @@
 			"mask": true
 		},
 		{
-			"slug": "pope-face-line",
-			"title": "Pope face, line art",
+			"slug": "scrooge-face-line",
+			"title": "Uncle Scrooge face, line art",
 			"role": "motif",
 			"tile": null,
 			"tags": [
 				"character",
-				"catpope",
+				"scrooge",
+				"dagobert",
 				"face",
 				"red",
 				"line-art"
@@ -289,7 +290,7 @@
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"path": "vectors/pope-face-line.svg",
+			"path": "vectors/scrooge-face-line.svg",
 			"width": 568,
 			"height": 793,
 			"colors": [
