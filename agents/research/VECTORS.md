@@ -86,6 +86,13 @@ words leave the tags (the measured `colors` say it).
 How a shape engages in a given place (behind / over, blend, colour, follows a panel's edge) belongs to the **placement**
 in the layout document, not to the shape – one shape is used many ways.
 
+**Colour is a preset, not a property of the shape** (owner 2026-10-17: "colorations can be carried with once designed
+somewhere as a preset"). Shapes stay neutral: no colour words in the tags; the measured `colors` / `mask` stay as facts
+about the file (can it be tinted as a mask, or must it show as it is). A **colouration preset** – fill colour or
+gradient, outline, blend mode, filter – is designed somewhere (a look like the Collage, later the creator), saved by
+name in its own small list, and applied to any shape; a placement names a shape and a preset. Not built yet; where the
+list lives (a catalog-like table, a toon's document) is decided when the first screen edits it.
+
 ## 4. Maintenance
 
 **The library is the truth, no Figma sync** (owner 2026-10-17: "sync with figma? perhpase only if we ever create
@@ -149,7 +156,8 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
 7. ~~Pull becomes sync~~ – dropped (owner: no Figma sync). The survey and pull scripts stay as import tools for new
    pages: the survey marks nodes already in the library, the pull uploads through the API instead of writing to git.
 8. **Picker** "Shapes" + role-tag chips; the "To check" view for later surveys.
-9. Later: shapes in layouts and on text boxes (placement = shape + where + blend + colour).
+9. Later: shapes in layouts and on text boxes (placement = shape + where + a colouration preset); the presets as their
+   own small named list, designed in a look or the creator, never stored on the shape (§3).
 
 ## 7. The owner's answers (2026-10-17)
 
