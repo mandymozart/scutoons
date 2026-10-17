@@ -111,3 +111,26 @@ test('validation: layer is a whole number ≥ 0 on slice events and samples', ()
 		'error groups.0.slices.0.events.0.layer'
 	]);
 });
+
+// collage pieces (research/COLLAGE.md §3): art on the picture, always at the back, in array order, never numbered
+test('pieces come first in their array order, whatever else carries a layer', () => {
+	const slice: any = { dialog: [{ layer: 0 }], items: [{}], pieces: [{ id: 'a' }, { id: 'b', layer: 5 }, { id: 'c' }] };
+	assert.deepEqual(code(sliceLayers(slice)), ['p0', 'p1', 'p2', 'd0', 'i0']);
+	assert.deepEqual(code(sliceLayers({ pieces: [{}, {}] })), ['p0', 'p1']);
+});
+
+test('setSliceLayers leaves pieces without a layer and numbers the rest 0…n-1', () => {
+	const slice: any = { dialog: [{}], items: [{}], pieces: [{ id: 'a' }, { id: 'b' }] };
+	const order = sliceLayers(slice);
+	assert.deepEqual(code(order), ['p0', 'p1', 'i0', 'd0']);
+	// the text box to the back of the stack; the pieces stay where they are
+	setSliceLayers(slice, [order[0], order[1], order[3], order[2]]);
+	assert.deepEqual([slice.dialog[0].layer, slice.items[0].layer], [0, 1]);
+	assert.deepEqual(slice.pieces, [{ id: 'a' }, { id: 'b' }]);
+	assert.deepEqual(code(sliceLayers(slice)), ['p0', 'p1', 'd0', 'i0']);
+});
+
+test('hasSliceLayers ignores pieces: art never switches the reader\'s hit testing', () => {
+	assert.equal(hasSliceLayers({ dialog: [{}], pieces: [{ id: 'a' }, { id: 'b', layer: 2 }] }), false);
+	assert.equal(hasSliceLayers({ dialog: [{ layer: 0 }], pieces: [{ id: 'a' }] }), true);
+});

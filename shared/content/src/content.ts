@@ -12,6 +12,7 @@ import type { AcceptedWarnings } from './accepted.ts';
 import type { SensitiveFlag } from './sensitive.ts';
 import type { LocaleText } from './credits.ts';
 import type { Anchor } from './anchor.ts';
+import type { CollagePiece } from './collage.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -415,6 +416,11 @@ export interface Slice extends SensitiveFlag {
 	 * entry, `sliceLayers`) – without any `layer` below the text boxes
 	 */
 	items?: SliceItem[];
+	/**
+	 * collage pieces on the picture (collage.ts, agents/research/COLLAGE.md §3): under every text box, item and area,
+	 * clipped to the picture, in array order back → front – no `layer`; picture slices only
+	 */
+	pieces?: CollagePiece[];
 	events?: Array<VNSliceEvent>;
 	_type?: string;
 	_label?: string;

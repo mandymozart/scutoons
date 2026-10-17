@@ -437,3 +437,35 @@ test('renderer.params: only endless (FEATURES 10.100 §8); off horizontal ignore
 	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } }, [slice(390, 625), slice(390, 625)])), [], '2 × 0.624 − 0.624 = 0.624: loops');
 	assert.deepEqual(layout(group({ type: 'horizontal', params: { endless: true } }, [])), [], 'no slices: nothing to measure');
 });
+
+test('slice pieces (research/COLLAGE.md §3): checked on the slice host; limits and unknown looks warn', () => {
+	const chapter = (slice: object) => ({ title: 'P', number: 1, groups: [{ slices: [{ image: 'images/p.webp', width: 390, height: 625, ...slice }] }] });
+	const pieceProblems = (slice: object) => problems('chapter', chapter(slice)).filter((p) => p.includes('.pieces'));
+	const piece = (i: number, extra: object = {}) => ({ id: `piece-${i}`, src: 'vectors/wreath.svg', ratio: 1, rect: { x: 10, y: 10, width: 30 }, ...extra });
+	assert.deepEqual(pieceProblems({ pieces: [piece(0, { preset: 'sticker', style: { blend: 'multiply' } })] }), []);
+	assert.deepEqual(
+		pieceProblems({
+			pieces: [
+				piece(0, { rect: { x: 0, y: 0, width: 10, height: 10 } }),
+				piece(1, { style: { blend: 'plus-lighter', opacity: 1.2 } }),
+				piece(2, { style: { blur: { amount: 4, from: { x: 50, y: 0 } } } }),
+				piece(3, { at: { bar: '1' } })
+			]
+		}),
+		[
+			'error groups.0.slices.0.pieces.0.rect.height',
+			'error groups.0.slices.0.pieces.1.style.blend',
+			'error groups.0.slices.0.pieces.1.style.opacity',
+			'error groups.0.slices.0.pieces.2.style.blur',
+			'error groups.0.slices.0.pieces.3.at'
+		]
+	);
+	const many = Array.from({ length: 13 }, (_, i) => piece(i));
+	assert.deepEqual(pieceProblems({ pieces: [...many.slice(1), piece(0, { preset: 'mystery' })] }), [
+		'warning groups.0.slices.0.pieces.12.preset',
+		'warning groups.0.slices.0.pieces'
+	]);
+	assert.deepEqual(pieceProblems({ pieces: 'x' }), ['error groups.0.slices.0.pieces']);
+	// picture slices only
+	assert.deepEqual(pieceProblems({ video: { src: 'videos/p.mp4' }, pieces: [piece(0)] }), ['warning groups.0.slices.0.pieces']);
+});

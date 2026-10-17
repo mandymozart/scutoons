@@ -103,6 +103,13 @@
 				"audio": {
 					"$ref": "#/definitions/AudioEvents"
 				},
+				"pieces": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CollagePiece"
+					},
+					"description": "collage pieces on the picture (collage.ts, agents/research/COLLAGE.md §3): under every text box, item and area, clipped to the picture, in array order back → front – no `layer`; picture slices only"
+				},
 				"_type": {
 					"type": "string"
 				},
@@ -2633,6 +2640,333 @@
 				"type",
 				"mode"
 			]
+		},
+		"CollagePiece": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`piece-<7 random>`"
+				},
+				"src": {
+					"type": "string",
+					"description": "the file, in the host's path form: a toon document's `toonAssetRef`, a catalog row's CDN-root path"
+				},
+				"ratio": {
+					"type": "number",
+					"description": "the file's width ÷ height, copied at pick time – laid out before load, never distorted"
+				},
+				"figure": {
+					"$ref": "#/definitions/PieceFigure"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width"
+					],
+					"description": "x / y = the `anchor` point, the width; the height always follows `ratio` (never stored). Slice: % of the picture. Score (music): x = % of the bar's width from its start, y = staff spaces below the staff's top line, width = staff spaces. Score (`at.page`): % of the page."
+				},
+				"anchor": {
+					"$ref": "#/definitions/Anchor",
+					"description": "default 'tl'; score pieces are written 'c'"
+				},
+				"rotation": {
+					"type": "number",
+					"description": "degrees around the centre"
+				},
+				"preset": {
+					"type": "string",
+					"description": "a CollageLook id; none = as drawn"
+				},
+				"style": {
+					"$ref": "#/definitions/PieceStyle",
+					"description": "own values over the look"
+				},
+				"at": {
+					"$ref": "#/definitions/ScoreAt",
+					"description": "scores only (required there)"
+				},
+				"behind": {
+					"type": "boolean",
+					"description": "scores only: under the notes; default over"
+				}
+			},
+			"required": [
+				"id",
+				"src",
+				"ratio",
+				"rect"
+			],
+			"description": "one piece on a slice or a score (array order = paint order, back to front)"
+		},
+		"PieceFigure": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "the character id"
+				},
+				"persona": {
+					"type": "string"
+				},
+				"look": {
+					"type": "string"
+				},
+				"mood": {
+					"type": "string"
+				},
+				"view": {
+					"$ref": "#/definitions/CharacterImageVariant"
+				}
+			},
+			"required": [
+				"id",
+				"view"
+			],
+			"description": "How a character picture was picked (the editor re-resolves `src` from it); the renderer draws `src` only. Not `character`: that key makes ChapterFiles save the whole persona offline and the Library add it to the cast."
+		},
+		"CharacterImageVariant": {
+			"type": "string",
+			"enum": [
+				"avatar",
+				"portrait",
+				"full"
+			]
+		},
+		"PieceStyle": {
+			"type": "object",
+			"properties": {
+				"blend": {
+					"$ref": "#/definitions/BlendMode"
+				},
+				"opacity": {
+					"type": "number",
+					"description": "0…1"
+				},
+				"fill": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"$ref": "#/definitions/PieceGradient"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "the file's silhouette (its alpha) in a colour / gradient; none = as drawn"
+				},
+				"outline": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PieceOutline"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"shadow": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PieceShadow"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"blur": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PieceBlur"
+						},
+						{
+							"type": "null"
+						}
+					]
+				}
+			},
+			"description": "a colouration – a look's values, or a piece's own over its look (a key replaces it whole; null = off)"
+		},
+		"BlendMode": {
+			"type": "string",
+			"enum": [
+				"normal",
+				"multiply",
+				"screen",
+				"overlay",
+				"darken",
+				"lighten",
+				"color-dodge",
+				"color-burn",
+				"hard-light",
+				"soft-light",
+				"difference",
+				"exclusion",
+				"hue",
+				"saturation",
+				"color",
+				"luminosity"
+			]
+		},
+		"PieceGradient": {
+			"type": "object",
+			"properties": {
+				"angle": {
+					"type": "number",
+					"description": "CSS degrees, 0 = to the top; default 180"
+				},
+				"stops": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/GradientStop"
+					},
+					"description": "at least 2"
+				}
+			},
+			"required": [
+				"stops"
+			],
+			"description": "one linear gradient across the whole silhouette"
+		},
+		"GradientStop": {
+			"type": "object",
+			"properties": {
+				"at": {
+					"type": "number",
+					"description": "% along the line, ascending"
+				},
+				"color": {
+					"type": "string",
+					"description": "#rgb | #rrggbb"
+				},
+				"opacity": {
+					"type": "number",
+					"description": "0…1"
+				}
+			},
+			"required": [
+				"at",
+				"color"
+			]
+		},
+		"PieceOutline": {
+			"type": "object",
+			"properties": {
+				"color": {
+					"type": "string"
+				},
+				"width": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"color",
+				"width"
+			],
+			"description": "lengths in % of the piece's width (the same look at every size)"
+		},
+		"PieceShadow": {
+			"type": "object",
+			"properties": {
+				"color": {
+					"type": "string"
+				},
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"blur": {
+					"type": "number"
+				},
+				"opacity": {
+					"type": "number",
+					"description": "0…1, default 1"
+				}
+			},
+			"required": [
+				"color",
+				"x",
+				"y",
+				"blur"
+			],
+			"description": "offsets and blur in % of the piece's width"
+		},
+		"PieceBlur": {
+			"type": "object",
+			"properties": {
+				"amount": {
+					"type": "number"
+				},
+				"from": {
+					"$ref": "#/definitions/PiecePoint"
+				},
+				"to": {
+					"$ref": "#/definitions/PiecePoint"
+				}
+			},
+			"required": [
+				"amount"
+			],
+			"description": "in % of the piece's width; even, or with `from` + `to`: sharp at `from`, `amount` from `to` on (progressive)"
+		},
+		"PiecePoint": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			],
+			"description": "% of the piece's own box (0 0 top-left … 100 100 bottom-right): moves, scales, turns with the piece"
+		},
+		"ScoreAt": {
+			"type": "object",
+			"properties": {
+				"bar": {
+					"type": "string",
+					"description": "the bar number as the file writes it (MusicXML measure@number = MEI"
+				},
+				"nth": {
+					"type": "number",
+					"description": "the n-th bar with that number; default 1"
+				},
+				"staff": {
+					"type": "number",
+					"description": "the staff from the top (staff@n); default 1 – hidden in a condensed system: the bar's top staff"
+				},
+				"page": {
+					"type": "boolean",
+					"description": "on the page that holds the bar (a background): `rect` in % of that page"
+				}
+			},
+			"required": [
+				"bar"
+			],
+			"description": "a score piece's place: a bar of the file – never a page, never a Verovio id"
 		},
 		"Renderer": {
 			"type": "string",

@@ -3,7 +3,7 @@
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
 	import type { VariantMedia } from '@scutoons/media';
 	import { Icon, SortGrip, Tabs, sortable } from '@scutoons/ui';
-	import { getAt, previewText, scriptLabels, setSliceLayers, sliceLayers, type Path, type SliceLayerKind } from '@scutoons/content';
+	import { getAt, previewText, scriptLabels, setSliceLayers, sliceLayers, type Path, type SliceLayerKind, type SliceLayerRef } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -87,8 +87,10 @@
 	const items = $derived<any[]>(slice?.items ?? []);
 	const selection = $derived(view.selection);
 
+	/** collage pieces are not rows here yet (research/COLLAGE.md §8 step 4; `setSliceLayers` skips them anyway) */
+	type RowKind = Exclude<SliceLayerKind, 'piece'>;
 	interface LayerRow {
-		kind: SliceLayerKind;
+		kind: RowKind;
 		index: number;
 		/** the item's name / the start of the text (else the box's id) */
 		name: string;
@@ -105,6 +107,7 @@
 	/** the layer stack front first (the top row is drawn on top) */
 	const layers = $derived.by<LayerRow[]>(() =>
 		sliceLayers(slice)
+			.filter((ref): ref is SliceLayerRef & { kind: RowKind } => ref.kind !== 'piece')
 			.reverse()
 			.map(({ kind, index, events }): LayerRow => {
 				if (kind === 'dialog') {

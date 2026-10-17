@@ -14,15 +14,20 @@
 // `hasSliceLayers`). An entry without `layer` (a box added after a reorder, a pasted one) counts as above every numbered
 // one, in that old order among themselves. The creator renumbers every entry 0…n-1 when the author reorders
 // (`setSliceLayers`).
+//
+// Collage pieces (`pieces[]`, collage.ts – agents/research/COLLAGE.md §3) are listed too, always at the back in their
+// array order: art on the picture, under every text box, item and area. They carry no `layer` (`setSliceLayers` skips
+// them) and never switch the reader's hit testing (`hasSliceLayers` ignores them); they never take the pointer.
 
 import { Trigger } from './enums.ts';
 import { triggerKey } from './reach.ts';
 
-export type SliceLayerKind = 'dialog' | 'item' | 'event' | 'sample';
+export type SliceLayerKind = 'dialog' | 'item' | 'event' | 'sample' | 'piece';
 
 /**
  * one entry of the stack: a text box (`dialog[index]`), a placed item (`items[index]`), a sample area
- * (`audio.audio.samples[index]`) or an event area (`events[index]` = its first event; `events` = all of its events)
+ * (`audio.audio.samples[index]`), an event area (`events[index]` = its first event; `events` = all of its events) or a
+ * collage piece (`pieces[index]`, always at the back)
  */
 export interface SliceLayerRef {
 	kind: SliceLayerKind;
@@ -39,6 +44,7 @@ interface Layered {
 interface LayeredSlice {
 	dialog?: readonly (Layered | null | undefined)[] | null;
 	items?: readonly (Layered | null | undefined)[] | null;
+	pieces?: readonly unknown[] | null;
 	events?: readonly (Layered | null | undefined)[] | null;
 	audio?: { audio?: { samples?: readonly (Layered | null | undefined)[] | null } | null } | null;
 }
@@ -67,10 +73,14 @@ export function sliceEventAreas(slice: LayeredSlice | null | undefined): number[
 	return [...areas.values()];
 }
 
-/** the slice's stack entries in the old order (sample areas, items, text boxes, event areas) with their stored layers */
+/**
+ * the slice's stack entries in the old order (sample areas, items, text boxes, event areas) with their stored layers;
+ * the pieces before them at -Infinity (the sort's tie-break keeps their array order)
+ */
 function entries(slice: LayeredSlice | null | undefined) {
 	const events = list(slice?.events);
 	return [
+		...list(slice?.pieces).map((_, index) => ({ ref: { kind: 'piece' as const, index }, layer: -Infinity })),
 		...list(slice?.audio?.audio?.samples).flatMap((entry, index) =>
 			isAreaTrigger(entry?.trigger) ? [{ ref: { kind: 'sample' as const, index }, layer: layerOf(entry) }] : []
 		),
@@ -96,7 +106,7 @@ export function sliceLayers(slice: LayeredSlice | null | undefined): SliceLayerR
  * front-most area / item under the pointer reacts, nothing below it); none = the old way (every area under the pointer).
  */
 export function hasSliceLayers(slice: LayeredSlice | null | undefined): boolean {
-	return entries(slice).some((entry) => entry.layer !== Infinity);
+	return entries(slice).some((entry) => entry.ref.kind !== 'piece' && entry.layer !== Infinity);
 }
 
 /** the entries a ref stands for (an event area: all of its events) */
@@ -110,17 +120,19 @@ function refEntries(slice: LayeredSlice, ref: SliceLayerRef): unknown[] {
 			return [list(slice.audio?.audio?.samples)[ref.index]];
 		case 'event':
 			return (ref.events ?? [ref.index]).map((i) => list(slice.events)[i]);
+		case 'piece':
+			return [list(slice.pieces)[ref.index]];
 	}
 }
 
 /**
  * Writes `layer` 0…n-1 on every entry of the slice's stack in `order` (back to front, every entry once – as
  * `sliceLayers` answers it, reordered); an event area's events all get its number. Entries `order` leaves out keep
- * what they have.
+ * what they have. Pieces are skipped (their order is `pieces[]`'s): the rest is numbered 0…n-1.
  */
 export function setSliceLayers(slice: LayeredSlice | null | undefined, order: readonly SliceLayerRef[]): void {
 	if (!slice) return;
-	order.forEach((ref, layer) => {
+	order.filter((ref) => ref.kind !== 'piece').forEach((ref, layer) => {
 		for (const entry of refEntries(slice, ref)) if (entry && typeof entry === 'object') (entry as Layered).layer = layer;
 	});
 }

@@ -167,3 +167,27 @@ test('two of the same kind go onto one field by hand – not pieces of their own
 	assert.equal(canStack(e('a'), e('b'), small), false, 'containers keep their contents apart');
 	assert.equal(canStack(e('a'), e('b'), diy), false, 'an ageing item keeps its age');
 });
+
+// research/COLLAGE.md §4.1: a score's collage, bound to the file it was placed on
+test('score collage: pieces on the score host, a file of its own; another file warns', () => {
+	const piece = (extra: object = {}) => ({ id: 'piece-1', src: 'catpope/vectors/wreath.svg', ratio: 1, rect: { x: 50, y: -2, width: 12 }, anchor: 'c', at: { bar: '12' }, ...extra });
+	const files = { language: 'en', musicxml: 'scores/s/full.musicxml', parts: { choir: { musicxml: 'scores/s/choir.musicxml' } } };
+	const withCollage = (score: object) => messages(catalog([def('s', { category: 'score', score: score as never })]));
+	assert.deepEqual(withCollage({ ...files, collage: { file: 'scores/s/full.musicxml', pieces: [piece({ behind: true })] } }), []);
+	assert.deepEqual(withCollage({ ...files, collage: null }), []);
+	assert.deepEqual(withCollage({ ...files, parts: { choir: { ...files.parts.choir, collage: { file: 'scores/s/choir.musicxml', pieces: [piece()] } } } }), []);
+	assert.deepEqual(withCollage({ ...files, collage: { file: 'scores/s/full.musicxml', pieces: [piece({ at: { staff: 2 } })] } }), [
+		'error: s: at.bar must be the bar number as the file writes it ("12", "6a")'
+	]);
+	assert.deepEqual(withCollage({ ...files, collage: { file: 'scores/s/old.musicxml', pieces: [piece()] } }), ['warning: s: the collage was made on another file – check the bars']);
+	assert.deepEqual(withCollage({ ...files, parts: { choir: { ...files.parts.choir, collage: { file: 'scores/s/full.musicxml', pieces: [piece({ at: undefined })] } } } }), [
+		'warning: s (choir): the collage was made on another file – check the bars',
+		'error: s (choir): a score piece needs at { bar } (the bar it sticks to)'
+	]);
+	assert.deepEqual(withCollage({ ...files, collage: { pieces: {} } }), [
+		'error: s: collage.file must be the .musicxml / .mxl path the pieces were placed on',
+		'error: s: collage.pieces must be a list'
+	]);
+	const paths = validateCatalog(catalog([def('s', { category: 'score', score: { ...files, collage: { file: files.musicxml, pieces: [piece({ style: { blend: 'nope' } })] } } as never })])).map((p) => p.path.join('.'));
+	assert.deepEqual(paths, ['items.0.score.collage.pieces.0.style.blend']);
+});

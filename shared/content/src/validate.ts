@@ -15,6 +15,7 @@ import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
+import { collageProblems } from './collage.ts';
 import { DIALOG_FITS, dialogFit, estimatedWidth, isDialogFit } from './dialog-fit.ts';
 
 /** a variable's spelling (variables.ts) */
@@ -739,6 +740,11 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 				if (ids.indexOf(id) !== i) c.error([...path, 'items'], `item id "${id}" is used twice on this slice`);
 			});
 		}
+	}
+	// collage pieces on the picture (collage.ts, research/COLLAGE.md §3)
+	if (s.pieces !== undefined) {
+		collageProblems(s.pieces, 'slice', (level, at, message) => c.add(level, [...path, 'pieces', ...at], message));
+		if (s.video !== undefined && Array.isArray(s.pieces) && s.pieces.length) c.warn([...path, 'pieces'], 'pieces are shown on picture slices only – not on this video');
 	}
 	const audio = s.audio;
 	if (audio !== undefined) {
