@@ -13,6 +13,13 @@ export { default as Tabs, type Tab } from './tabs.svelte';
 export { default as Toggle } from './toggle.svelte';
 export { default as Segmented, type SegmentedOption } from './segmented.svelte';
 export { default as SortGrip } from './sort-grip.svelte';
+// compact property controls for the creator's inspectors (agents/research/EDITOR-INPUTS.md)
+export { default as ScrubNumber } from './scrub-number.svelte';
+export { default as PropSelect, type PropOption } from './prop-select.svelte';
+export { default as ColorField } from './color-field.svelte';
+export { default as LinkedPair, type PairField } from './linked-pair.svelte';
+export { default as PropRow } from './prop-row.svelte';
+export { clamp, evaluate, roundToStep, stepFor } from './scrub.ts';
 export { sortable, type SortableOptions } from './sortable.ts';
 export { liveRegion, region, type RegionOptions } from './selection.svelte.ts';
 export { default as Badge } from './badge.svelte';

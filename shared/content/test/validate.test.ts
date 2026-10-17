@@ -233,6 +233,9 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', variant: 'sfx' }] }), ['error groups.0.slices.0.dialog.0.variant']);
 	// lyrics (owner 2026-10-17): a song line, the caption box with musical notes
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'I want to be a cloud', variant: 'lyrics', font: 'mono' }] }), []);
+	// line height (owner 2026-10-17): × the font size, 0.5–3
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', lineHeight: 1.2 }] }), []);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', lineHeight: 0 }] }), ['error groups.0.slices.0.dialog.0.lineHeight']);
 });
 
 test('showTextBox event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {

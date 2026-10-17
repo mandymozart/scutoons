@@ -178,6 +178,7 @@
 	style:--dialog-stroke={stroked ? dialog.stroke : null}
 	style:--dialog-stroke-width={stroked && dialog.strokeWidth !== undefined ? `${dialog.strokeWidth}em` : null}
 	style:letter-spacing={dialog.letterSpacing ? `${dialog.letterSpacing}em` : null}
+	style:line-height={dialog.lineHeight ?? null}
 >
 	{#if play && Effect}
 		{#key play.key}

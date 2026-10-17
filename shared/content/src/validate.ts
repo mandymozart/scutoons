@@ -232,6 +232,7 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.stroke !== undefined && !isStr(d.stroke)) c.error([...path, 'stroke'], 'stroke must be a CSS color string');
 	if (d.strokeWidth !== undefined && (!isNum(d.strokeWidth) || d.strokeWidth < 0)) c.error([...path, 'strokeWidth'], 'strokeWidth must be a number ≥ 0 (em)');
 	if (d.letterSpacing !== undefined && (!isNum(d.letterSpacing) || d.letterSpacing < -0.5 || d.letterSpacing > 2)) c.error([...path, 'letterSpacing'], 'letterSpacing must be a number of em between -0.5 and 2');
+	if (d.lineHeight !== undefined && (!isNum(d.lineHeight) || d.lineHeight < 0.5 || d.lineHeight > 3)) c.error([...path, 'lineHeight'], 'lineHeight must be a number between 0.5 and 3 (× the font size)');
 	if (d.tail !== undefined && !(DIALOG_TAILS as readonly string[]).includes(d.tail)) c.error([...path, 'tail'], `tail must be one of ${DIALOG_TAILS.join(', ')}`);
 	if (d.shape !== undefined && !(DIALOG_SHAPES as readonly string[]).includes(d.shape)) c.error([...path, 'shape'], `shape must be one of ${DIALOG_SHAPES.join(', ')}`);
 	if (d.shape === 'oval') c.info([...path, 'shape'], 'oval is drawn as a box now (speech bubbles are rectangles with a tail) – set box or leave it out');

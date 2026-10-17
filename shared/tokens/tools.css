@@ -698,6 +698,24 @@
 .sc-seg > select {
 	width: auto;
 }
+/* compact property rows (agents/research/EDITOR-INPUTS.md): .is-stretch fills the row with equal options, an icon-only
+   .is-square option is a control-height square, .is-fallback = the default while nothing is set (an ink frame inside,
+   not inverted – inverted means "set") */
+.sc-seg.is-stretch {
+	display: flex;
+	width: 100%;
+}
+.sc-seg.is-stretch > button {
+	flex: 1 1 0;
+	min-width: 0;
+}
+.sc-seg > button.is-square {
+	min-width: calc(var(--control-height) - 2 * var(--border-width-regular));
+	padding: 0;
+}
+.sc-seg > button.is-fallback {
+	border-color: var(--ink);
+}
 
 /* picker sheets (owner 2026-10-03, COMPONENTS.md step 7; the creator's PickerSheet): a filter row (search wider than
    the selects, wraps on a phone), a grid of picture cards (--cards-min wide at least; set it on the grid for

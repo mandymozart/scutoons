@@ -20,6 +20,9 @@
 	 * `onchange` gets the clicked option (also the chosen one again – a preset is re-applied). `radio` makes it a
 	 * radiogroup (aria-checked) instead of toggle buttons (aria-pressed). `grid` wraps into equal columns of at least
 	 * `min` (a CSS length). `vertical` stacks the options in a column (a tool strip – the slice editor's, E.4).
+	 * Compact property rows (agents/research/EDITOR-INPUTS.md): `stretch` fills the row with equal options, `square`
+	 * makes icon-only options control-height squares; `fallback` = the option that applies while nothing is set (an ink
+	 * frame, not inverted; `fallbackNote` is added to its tooltip); with `onclear`, a click on the chosen option unsets it.
 	 */
 	let {
 		options,
@@ -30,6 +33,11 @@
 		grid = false,
 		min,
 		vertical = false,
+		stretch = false,
+		square = false,
+		fallback,
+		fallbackNote = 'default',
+		onclear,
 		testid
 	}: {
 		options: SegmentedOption<V>[];
@@ -40,21 +48,31 @@
 		grid?: boolean;
 		min?: string;
 		vertical?: boolean;
+		stretch?: boolean;
+		square?: boolean;
+		fallback?: V;
+		fallbackNote?: string;
+		onclear?: () => void;
 		testid?: string;
 	} = $props();
+
+	const unset = $derived(value === null || value === undefined);
+	const tip = (o: SegmentedOption<V>) => (unset && o.value === fallback ? `${o.title ?? o.label ?? ''} (${fallbackNote})` : o.title);
 </script>
 
-<div class="sc-seg" class:is-grid={grid} class:is-column={vertical} role={radio ? 'radiogroup' : 'group'} aria-label={label} style:--seg-min={min} data-testid={testid}>
+<div class="sc-seg" class:is-grid={grid} class:is-column={vertical} class:is-stretch={stretch} role={radio ? 'radiogroup' : 'group'} aria-label={label} style:--seg-min={min} data-testid={testid}>
 	{#each options as o (o.value)}
 		<button
 			type="button"
 			class:active={o.value === value}
+			class:is-square={square && !o.label}
+			class:is-fallback={unset && o.value === fallback}
 			role={radio ? 'radio' : undefined}
 			aria-checked={radio ? o.value === value : undefined}
 			aria-pressed={radio ? undefined : o.value === value}
-			title={o.title}
-			aria-label={!o.label ? o.title : undefined}
-			onclick={() => onchange(o.value)}
+			title={tip(o)}
+			aria-label={!o.label ? tip(o) : undefined}
+			onclick={() => (onclear && o.value === value ? onclear() : onchange(o.value))}
 			data-testid={o.testid}
 		>
 			{#if o.icon}<Icon name={o.icon} />{/if}

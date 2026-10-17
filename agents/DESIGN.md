@@ -597,6 +597,7 @@ export interface Dialog {
   weight?: 400 | 700;
   uppercase?: boolean;
   letterSpacing?: number;      // em of the font size (owner 2026-10-03); default the font's own
+  lineHeight?: number;         // × the font size (owner 2026-10-17); default the font's own: lettering 1.1, mono 1.35
   color?: string;              // default ink
   rotation?: number;           // degrees
   mask?: string | true;        // DEPRECATED (owner 2026-10-03): re-import the art text-free, keep the dialog data.

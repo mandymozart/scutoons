@@ -92,6 +92,8 @@ export interface Dialog {
 	strokeWidth?: number;
 	/** letter spacing in em of the font size (owner 2026-10-03), e.g. 0.05; default the font's own (0) */
 	letterSpacing?: number;
+	/** line height as a multiple of the font size (owner 2026-10-17); default the font's own: lettering 1.1, mono 1.35 */
+	lineHeight?: number;
 	/** Degrees, around the box's centre. */
 	rotation?: number;
 	/**

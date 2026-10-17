@@ -6,6 +6,7 @@
 	 * Decorative by default (aria-hidden); give `label` when the icon is the only content of a control.
 	 */
 	import feather from 'feather-icons';
+	import { EXTRA_ICONS } from './icons-extra.ts';
 
 	type Props = {
 		/** a Feather icon name, e.g. "map-pin", "zoom-in", "x" (https://feathericons.com) */
@@ -21,7 +22,8 @@
 	let { name, size = '1.25em', strokeWidth = 2.5, label }: Props = $props();
 
 	// the icon's inner SVG markup comes from the bundled feather-icons data (trusted, not user input)
-	const icon = $derived(feather.icons[name as keyof typeof feather.icons]);
+	// (the few Feather lacks: icons-extra.ts)
+	const icon = $derived(feather.icons[name as keyof typeof feather.icons] ?? EXTRA_ICONS[name]);
 </script>
 
 {#if icon}

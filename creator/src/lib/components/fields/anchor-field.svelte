@@ -9,7 +9,17 @@
 	 * current point filled. Choosing another point never moves the box – x / y are converted (anchor.ts `reanchor`, with
 	 * the canvas' drawn height when the rect has none). 'tl' is stored as no key (the default).
 	 */
-	let { doc, path }: { doc: ContentDoc; /** path of the entry (dialog / placed item) */ path: Path } = $props();
+	let {
+		doc,
+		path,
+		bare = false
+	}: {
+		doc: ContentDoc;
+		/** path of the entry (dialog / placed item) */
+		path: Path;
+		/** in a labelled property row (@scutoons/ui PropRow): no visible legend, its own width */
+		bare?: boolean;
+	} = $props();
 
 	const entry = $derived(doc.get(doc.primary, path));
 	const current = $derived<Anchor>(isAnchor(entry?.anchor) ? entry.anchor : 'tl');
@@ -30,8 +40,8 @@
 	}
 </script>
 
-<fieldset class="anchor" title={m['creator.anchor_hint']()} data-testid="anchor-field">
-	<legend>{m['creator.anchor']()}</legend>
+<fieldset class="anchor" class:bare title={m['creator.anchor_hint']()} data-prop-fit={bare || undefined} data-testid="anchor-field">
+	<legend class:sr-only={bare}>{m['creator.anchor']()}</legend>
 	<div class="grid" role="radiogroup" aria-label={m['creator.anchor']()}>
 		{#each ANCHORS as a (a)}
 			<input
@@ -55,6 +65,15 @@
 		margin: 0;
 		/* as wide as its label (tools.css gives fieldsets min-width 0) */
 		min-width: max-content;
+	}
+	/* bare (a PropRow names it): the legend only for screen readers */
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	/* one square group at the control height: nine square cells in a joined frame (DESIGN "Round vs square") */
 	.grid { /* grid-ok: a 3×3 picker of square cells, not a field grid */

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { Segmented } from '@scutoons/ui';
-	import { getAt, type Path } from '@scutoons/content';
+	import { ColorField, LinkedPair, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
+	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
+	import { TEXT_SIZE_STEP, TEXT_SIZE_UNITS, sizeToUnit, unitToSize } from '$lib/editor/text-size-unit.ts';
+	import { textSizeUnit } from '$lib/editor/text-size-unit.svelte.ts';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { alignLabel } from '$lib/editor/cover-words.ts';
@@ -24,9 +26,20 @@
 	const variant = $derived(dialog?.variant ?? 'bubble');
 	const boxed = $derived(variant === 'caption' || variant === 'narration' || variant === 'lyrics');
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
-	const ALIGNS = ['left', 'center', 'right'];
-	const VALIGNS = ['top', 'middle', 'bottom'];
+	const ALIGNS = ['left', 'center', 'right'] as const;
+	const VALIGNS = ['top', 'middle', 'bottom'] as const;
 	const valignLabel = (v: string) => ({ top: m['creator.video_position_top'](), middle: m['creator.video_position_center'](), bottom: m['creator.video_position_bottom']() })[v] ?? v;
+	/** a field's writer for the compact controls (undefined removes the key – the default applies) */
+	const set = (...keys: (string | number)[]) => (v: unknown) => doc.set(p(...keys), v);
+	const font = $derived(dialog?.font ?? (boxed ? 'mono' : 'lettering'));
+	let keepRatio = $state(false);
+
+	/** the font size in the chosen unit (owner 2026-10-17: rem by default, pt / px to switch; stored as % of the slice) */
+	const sliceWidth = $derived(doc.get(doc.primary, path.slice(0, -2))?.width || DEFAULT_SLICE.width);
+	const unit = $derived(textSizeUnit.value);
+	const sizeShown = $derived(typeof dialog?.size === 'number' ? sizeToUnit(dialog.size, unit, sliceWidth) : undefined);
+	const writeSize = (v: number | undefined) => doc.set(p('size'), v === undefined ? undefined : unitToSize(v, unit, sliceWidth));
+
 	/** the preset the look matches (none = changed by hand) */
 	const preset = $derived(matchTextPreset(dialog));
 
@@ -58,41 +71,130 @@
 
 		<LocaleText {doc} path={p('text')} rows={4} expressions />
 
-		<!-- two fields per row (the reader's type size needs the width, DESIGN.md "Brutalist tools") -->
 		<!-- the fine-tuning, folded (owner 2026-10-03: "where we have presets … an advanced collapsible"); position and size
-		     are usually set on the canvas -->
+		     are usually set on the canvas. Compact property rows (owner 2026-10-17, agents/research/EDITOR-INPUTS.md):
+		     drag a field's handle to change it, click to type. -->
 		<details class="advanced" data-testid="dialog-advanced">
 		<summary>{m['creator.advanced']()}</summary>
-		<!-- X / Y = the anchor point's position (owner 2026-10-17, DESIGN.md Part 2 "Anchor") -->
-		<div class="position">
-			<AnchorField {doc} {path} />
-			<PropField {doc} path={p('rect', 'x')} label="X %" type="number" required />
-			<PropField {doc} path={p('rect', 'y')} label="Y %" type="number" required />
-		</div>
-		<div class="sc-fields" data-cols="2" data-density="panel">
-			<PropField {doc} path={p('rect', 'width')} label={m['creator.field_width']()} type="number" required />
-			<PropField {doc} path={p('rect', 'height')} label={m['creator.field_height']()} type="number" placeholder="auto" />
-		</div>
+		<div class="props">
+			<!-- X / Y = the anchor point's position (owner 2026-10-17, DESIGN.md Part 2 "Anchor"); the 3×3 picker leads the row -->
+			<PropRow label={m['creator.prop_position']()} testid="dialog-position">
+				<AnchorField {doc} {path} bare />
+				<ScrubNumber tag="X" label={m['creator.field_x']()} unit="%" step={0.1} value={dialog.rect?.x} onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} required testid="dialog-x" />
+				<ScrubNumber tag="Y" label={m['creator.field_y']()} unit="%" step={0.1} value={dialog.rect?.y} onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} required testid="dialog-y" />
+			</PropRow>
+			<PropRow label={m['creator.prop_dimensions']()} testid="dialog-dimensions">
+				<LinkedPair
+					a={dialog.rect?.width}
+					b={dialog.rect?.height}
+					first={{ tag: 'W', label: m['creator.field_width'](), required: true, testid: 'dialog-width' }}
+					second={{ tag: 'H', label: m['creator.field_height'](), placeholder: 'auto', testid: 'dialog-height' }}
+					unit="%"
+					step={0.1}
+					min={0}
+					lockLabel={m['creator.keep_proportions']()}
+					bind:locked={keepRatio}
+					onchange={(w, h) => {
+						const key = `${path.join('.')}.rect.size`;
+						doc.set(p('rect', 'width'), w ?? 0, key);
+						doc.set(p('rect', 'height'), h, key);
+					}}
+				/>
+			</PropRow>
 
-		<div class="sc-fields" data-cols="2" data-density="panel">
-			<PropField {doc} path={p('id')} label={m['creator.field_id']()} placeholder="s1c2-3-1" />
-			<PropField {doc} path={p('size')} label={m['creator.text_size']()} title={m['creator.text_size_hint']()} type="number" placeholder="4" />
-			<PropField {doc} path={p('align')} label={m['creator.text_align']()} type="select" options={ALIGNS.map((a) => ({ value: a, label: alignLabel(a) }))} placeholder={alignLabel(boxed ? 'left' : 'center')} />
-			<PropField {doc} path={p('valign')} label={m['creator.text_valign']()} type="select" options={VALIGNS.map((v) => ({ value: v, label: valignLabel(v) }))} placeholder={valignLabel('middle')} />
-			<PropField {doc} path={p('font')} label={m['creator.text_font']()} type="select" options={['lettering', 'mono']} placeholder={boxed ? 'mono' : 'lettering'} />
-			<PropField {doc} path={p('weight')} label={m['creator.text_weight']()} type="select" options={[400, 700]} placeholder="400" />
-			<PropField {doc} path={p('uppercase')} label={m['creator.text_uppercase']()} type="bool" placeholder="false" />
-			<PropField {doc} path={p('letterSpacing')} label={m['creator.text_letter_spacing']()} type="number" step={0.01} min={-0.5} max={2} placeholder={(dialog.font ?? (boxed ? 'mono' : 'lettering')) === 'lettering' ? '0.03' : '0'} />
-			<PropField {doc} path={p('rotation')} label={m['creator.field_rotation']()} type="number" step={1} placeholder="0" />
-			<PropField {doc} path={p('scale')} label={m['creator.field_scale']()} type="number" step={0.05} min={0.1} max={10} placeholder="1" />
-			<PropField {doc} path={p('color')} label={m['creator.field_color']()} type="color" placeholder="#000000" />
-			<PropField {doc} path={p('stroke')} label={m['creator.text_outline']()} type="color" placeholder={m['creator.text_outline_none']()} />
-			{#if dialog.stroke}
-				<PropField {doc} path={p('strokeWidth')} label={m['creator.text_outline_width']()} type="number" step={0.02} min={0} placeholder="0.14" />
-			{/if}
+			<PropRow label={m['creator.prop_type']()}>
+				<PropSelect label={m['creator.text_font']()} icon="type" value={dialog.font} options={[{ value: 'lettering', label: 'lettering' }, { value: 'mono', label: 'mono' }]} placeholder={boxed ? 'mono' : 'lettering'} onchange={set('font')} testid="dialog-font" />
+				<Segmented
+					label={m['creator.text_weight']()}
+					stretch
+					value={dialog.weight === undefined ? null : String(dialog.weight)}
+					fallback="400"
+					fallbackNote={m['creator.field_default_plain']()}
+					onclear={() => doc.set(p('weight'), undefined)}
+					onchange={(w) => doc.set(p('weight'), Number(w))}
+					options={[{ value: '400', label: '400', title: m['creator.text_weight_regular']() }, { value: '700', label: '700', title: m['creator.text_weight_bold']() }]}
+					testid="dialog-weight"
+				/>
+			</PropRow>
+			<PropRow label={m['creator.prop_text_size']()} hint={m['creator.text_size_hint']()}>
+				<ScrubNumber icon="type" label={m['creator.text_size']()} {unit} step={TEXT_SIZE_STEP[unit]} min={0} value={sizeShown} placeholder={String(sizeToUnit(4, unit, sliceWidth))} onchange={writeSize} testid="dialog-size" />
+				<Segmented label={m['creator.text_size_unit']()} stretch value={unit} onchange={(u) => textSizeUnit.set(u)} options={TEXT_SIZE_UNITS.map((u) => ({ value: u, label: u }))} testid="dialog-size-unit" />
+			</PropRow>
+			<PropRow label={m['creator.prop_letters']()}>
+				<Segmented
+					label={m['creator.text_uppercase']()}
+					stretch
+					value={dialog.uppercase === undefined ? null : dialog.uppercase ? 'upper' : 'as'}
+					fallback="as"
+					fallbackNote={m['creator.field_default_plain']()}
+					onclear={() => doc.set(p('uppercase'), undefined)}
+					onchange={(c) => doc.set(p('uppercase'), c === 'upper')}
+					options={[{ value: 'as', label: 'Aa', title: m['creator.text_case_as_written']() }, { value: 'upper', label: 'AA', title: m['creator.text_uppercase']() }]}
+					testid="dialog-case"
+				/>
+			</PropRow>
+			<PropRow label={m['creator.prop_spacing']()}>
+				<ScrubNumber icon="letter-spacing" label={m['creator.text_letter_spacing']()} unit="em" step={0.01} min={-0.5} max={2} value={dialog.letterSpacing} placeholder={font === 'lettering' ? '0.03' : '0'} onchange={set('letterSpacing')} testid="dialog-letter-spacing" />
+				<ScrubNumber icon="line-height" label={m['creator.text_line_height']()} unit="×" step={0.05} min={0.5} max={3} value={dialog.lineHeight} placeholder={font === 'lettering' ? '1.1' : '1.35'} onchange={set('lineHeight')} testid="dialog-line-height" />
+			</PropRow>
+			<PropRow label={m['creator.text_align']()}>
+				<Segmented
+					label={m['creator.text_align']()}
+					stretch
+					square
+					value={dialog.align}
+					fallback={boxed ? 'left' : 'center'}
+					fallbackNote={m['creator.field_default_plain']()}
+					onclear={() => doc.set(p('align'), undefined)}
+					onchange={set('align')}
+					options={ALIGNS.map((a) => ({ value: a, icon: `align-${a}`, title: alignLabel(a) }))}
+					testid="dialog-align"
+				/>
+				<Segmented
+					label={m['creator.text_valign']()}
+					stretch
+					square
+					value={dialog.valign}
+					fallback="middle"
+					fallbackNote={m['creator.field_default_plain']()}
+					onclear={() => doc.set(p('valign'), undefined)}
+					onchange={set('valign')}
+					options={VALIGNS.map((v) => ({ value: v, icon: `valign-${v}`, title: valignLabel(v) }))}
+					testid="dialog-valign"
+				/>
+			</PropRow>
+			<PropRow label={m['creator.prop_transform']()}>
+				<ScrubNumber icon="rotate-cw" label={m['creator.field_rotation']()} unit="°" step={1} value={dialog.rotation} placeholder="0" onchange={set('rotation')} testid="dialog-rotation" />
+				<ScrubNumber icon="maximize-2" label={m['creator.field_scale']()} unit="×" step={0.05} min={0.1} max={10} value={dialog.scale} placeholder="1" onchange={set('scale')} testid="dialog-scale" />
+			</PropRow>
+
+			<PropRow label={m['creator.field_color']()}>
+				<ColorField label={m['creator.field_color']()} value={dialog.color} placeholder="#000000" onchange={set('color')} testid="dialog-color" />
+			</PropRow>
+			<PropRow label={m['creator.text_outline']()}>
+				<ColorField label={m['creator.text_outline']()} value={dialog.stroke} placeholder={m['creator.text_outline_none']()} onchange={set('stroke')} testid="dialog-stroke" />
+				{#if dialog.stroke}
+					<ScrubNumber icon="outline-width" label={m['creator.text_outline_width']()} unit="em" step={0.02} min={0} value={dialog.strokeWidth} placeholder="0.14" onchange={set('strokeWidth')} testid="dialog-stroke-width" />
+				{/if}
+			</PropRow>
 			{#if boxed}
-				<PropField {doc} path={p('frame')} label={m['creator.text_box_frame']()} type="bool" placeholder="true" />
+				<PropRow label={m['creator.text_box_frame']()}>
+					<Segmented
+						label={m['creator.text_box_frame']()}
+						stretch
+						value={dialog.frame === undefined ? null : dialog.frame ? 'yes' : 'no'}
+						fallback="yes"
+						fallbackNote={m['creator.field_default_plain']()}
+						onclear={() => doc.set(p('frame'), undefined)}
+						onchange={(f) => doc.set(p('frame'), f === 'yes')}
+						options={[{ value: 'yes', label: m['creator.yes']() }, { value: 'no', label: m['creator.no']() }]}
+						testid="dialog-frame"
+					/>
+				</PropRow>
 			{/if}
+			<PropRow label={m['creator.field_id']()}>
+				<input type="text" aria-label={m['creator.field_id']()} value={dialog.id ?? ''} placeholder="s1c2-3-1" oninput={(e) => doc.set(p('id'), e.currentTarget.value || undefined)} data-testid="dialog-id" />
+			</PropRow>
 		</div>
 		</details>
 
@@ -111,18 +213,15 @@
 {/if}
 
 <style>
-	.advanced[open] {
+	.props {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-05);
 	}
-	.position {
+	.advanced[open] {
 		display: flex;
-		align-items: flex-end;
+		flex-direction: column;
 		gap: var(--space-05);
-	}
-	.position > :global(.field) {
-		flex: 1;
 	}
 	.inspector {
 		display: flex;
