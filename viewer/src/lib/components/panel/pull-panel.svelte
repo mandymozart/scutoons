@@ -1,9 +1,11 @@
 <script module lang="ts">
+	import { createExclusive } from './exclusive.ts';
+
 	/**
 	 * One pull panel at a time (owner 2026-10-16: "das ist exklusiv … die Panels … können sich nicht einfach crazy
-	 * überlagern"): opening one closes the others (inventory, chapter list, the record player's card …).
+	 * überlagern"): opening one closes the others still open (inventory, chapter list, the record player's card …).
 	 */
-	const openPanels = new Set<() => void>();
+	const exclusive = createExclusive();
 </script>
 
 <script lang="ts">
@@ -241,13 +243,11 @@
 		};
 	});
 
-	// exclusive: this one opening closes the others
+	// exclusive: this one opening closes the others – only those still open (exclusive.ts: the inventory and the avatar
+	// share one state; closing the one just switched away from again closed the new one too)
 	$effect(() => {
 		if (!open) return;
-		const close = () => onclose();
-		for (const other of [...openPanels]) other();
-		openPanels.add(close);
-		return () => openPanels.delete(close);
+		return exclusive.opened({ isOpen: () => open, close: () => onclose() });
 	});
 
 	// a press that began while the panel was closed is not outside it: on touch the outside handler runs on the click

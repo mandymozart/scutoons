@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { MediaQuery } from 'svelte/reactivity';
+	import { marqueeRun } from './marquee.ts';
 
 	/**
 	 * One line of text that doesn't fit (owner 2026-10-16, the player bar): an ellipsis, and – only when it overflows and
@@ -8,8 +9,6 @@
 	let { text, testid }: { text: string; testid?: string } = $props();
 
 	const reduced = new MediaQuery('prefers-reduced-motion: reduce');
-	const SPEED = 28; // px a second
-	const PAUSE = 2000; // ms
 	let box = $state<HTMLSpanElement>();
 	let inner = $state<HTMLSpanElement>();
 	let moving = $state(false);
@@ -19,25 +18,16 @@
 		void text;
 		if (!outer || !line || reduced.current) return;
 		let anim: Animation | null = null;
+		// `moving` is only written here, never read: the effect reading it (start() runs inside it once) made it depend on
+		// its own write – the cleanup's `false` and the next run's `true` re-ran it without end once the line overflowed
+		// (effect_update_depth_exceeded), and that error stopped every update of the page (owner 2026-10-17: the mini
+		// player bar back over the inventory, then nothing could be pressed)
 		const start = () => {
 			anim?.cancel();
 			anim = null;
-			const over = line.scrollWidth - outer.clientWidth;
-			moving = over > 1;
-			if (!moving) return;
-			const run = (over / SPEED) * 1000, total = 2 * PAUSE + 2 * run;
-			const at = (ms: number) => ms / total;
-			const x = (px: number) => ({ transform: `translateX(${-px}px)` });
-			anim = line.animate(
-				[
-					{ ...x(0), offset: 0 },
-					{ ...x(0), offset: at(PAUSE) },
-					{ ...x(over), offset: at(PAUSE + run) },
-					{ ...x(over), offset: at(2 * PAUSE + run) },
-					{ ...x(0), offset: 1 }
-				],
-				{ duration: total, iterations: Infinity, easing: 'linear' }
-			);
+			const run = marqueeRun(line.scrollWidth - outer.clientWidth);
+			moving = !!run;
+			if (run) anim = line.animate(run.keyframes, { duration: run.duration, iterations: Infinity, easing: 'linear' });
 		};
 		const ro = new ResizeObserver(start);
 		ro.observe(outer);
