@@ -9,6 +9,7 @@
 	import type { Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import PullPanel from '$lib/components/panel/pull-panel.svelte';
+	import { Icon } from '@scutoons/ui';
 	import inventoryIcon from '$lib/icons/inventory.svg';
 	import avatarIcon from '$lib/icons/avatar.svg';
 	import ItemDetail from '$lib/components/items/item-detail.svelte';
@@ -198,7 +199,7 @@
 	     button says which panel it is (owner 2026-10-16: "die Überschriften ganz oben am Panel … redundant"); a "Back"
 	     on the left in this fixed part, not in the scrolling body (owner 2026-10-17) -->
 	<div class="head" title={label} data-icon={icon}>
-		{#if back}<button class="btn-back btn-clear" onclick={back.go} data-testid="panel-back">← {back.label}</button>{/if}
+		{#if back}<button class="btn-back btn-clear" onclick={back.go} data-testid="panel-back"><Icon name="chevron-left" size="1rem" /><span>{back.label}</span></button>{/if}
 		<div class="stats"><ReaderStats compact /></div>
 	</div>
 {/snippet}
@@ -350,11 +351,20 @@
 		padding: 0 1rem 0.5rem;
 		color: var(--ink);
 	}
+	/* the same back as the account pages (BackLink): a chevron and the target, frameless, the body's size */
 	.head .btn-back {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		height: var(--control-height);
+		padding: 0;
 		color: var(--ink);
-		font-size: 0.75rem;
+		font-size: inherit;
 		white-space: nowrap;
 		flex-shrink: 0;
+	}
+	.head .btn-back:hover span {
+		text-decoration: underline;
 	}
 	.combine-bar {
 		display: flex;
