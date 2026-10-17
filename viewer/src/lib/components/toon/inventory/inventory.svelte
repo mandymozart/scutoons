@@ -194,13 +194,13 @@
 	<img src={avatarIcon} alt="" />
 </button>
 
-{#snippet head(icon: string, label: string, back?: { label: string; go: () => void })}
-	<!-- the reader's stats (appetite, testo) small at the right, in both panels (owner 2026-10-03); no title – the top
+{#snippet head(icon: string, label: string, stats: boolean, back?: { label: string; go: () => void })}
+	<!-- the reader's stats (appetite, testo) small at the right, in the avatar panel only (owner 2026-10-17: not in the inventory or its detail pages); no title – the top
 	     button says which panel it is (owner 2026-10-16: "die Überschriften ganz oben am Panel … redundant"); a "Back"
 	     on the left in this fixed part, not in the scrolling body (owner 2026-10-17) -->
-	<div class="head" title={label} data-icon={icon}>
+	<div class="head" class:bare={!stats && !back} title={label} data-icon={icon}>
 		{#if back}<button class="btn-back btn-clear" onclick={back.go} data-testid="panel-back"><Icon name="chevron-left" size="1rem" /><span>{back.label}</span></button>{/if}
-		<div class="stats"><ReaderStats compact /></div>
+		{#if stats}<div class="stats"><ReaderStats compact /></div>{/if}
 	</div>
 {/snippet}
 
@@ -214,13 +214,13 @@
 {/snippet}
 
 <PullPanel open={nav.isOpen('avatar')} onclose={() => nav.closeOverlay()} label={m['items.tab_avatar']()} id="avatar-panel" {keepOpen} testid="avatar-panel">
-	{#snippet header()}{@render head(avatarIcon, m['items.tab_avatar']())}{/snippet}
+	{#snippet header()}{@render head(avatarIcon, m['items.tab_avatar'](), true)}{/snippet}
 	{@render guest()}
 	<Avatar />
 </PullPanel>
 
 <PullPanel open={nav.isOpen('inventory')} onclose={() => nav.closeOverlay()} label={m['items.tab_items']()} id="inventory-panel" {keepOpen} testid="inventory">
-	{#snippet header()}{@render head(inventoryIcon, m['items.tab_items'](), backTo)}{/snippet}
+	{#snippet header()}{@render head(inventoryIcon, m['items.tab_items'](), false, backTo)}{/snippet}
 	{@render guest()}
 
 	{#if combineWith && combineSecond}
@@ -318,6 +318,11 @@
 		min-height: 2rem;
 		padding: 0 1rem 0.5rem;
 		color: var(--ink);
+	}
+	/* nothing in the row (the inventory's grid): only the grip's room */
+	.head.bare {
+		min-height: 0;
+		padding-bottom: 0;
 	}
 	/* the top buttons' icons, white on the dark panel */
 	.head img {
