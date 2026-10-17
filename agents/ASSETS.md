@@ -389,7 +389,7 @@ später"); not in the catalog or the asset manager yet. In git: `shared/tokens/v
 entry per shape, shaped like an `assets` row: slug, title, tags, tile, Figma source, size, colours, mask, sha256)
 and `@scutoons/tokens/vectors.css` (`--vector-<slug>`). `npm run vectors:pull` re-exports from Figma over the SCUTOONS
 bridge (tools/figma-bridge) and measures. Tags (the shared words – roles are tags, not classes – and free ones; no colour words), mask: the folder's README. The Cat Pope file's
-page "Vector" in full (2026-10-17): 423 shapes after merging 6 byte-identical pairs, 11.6 MB – `scripts/vectors-survey.mjs` listed every candidate (groups
+page "Vector" in full (2026-10-17): 423 shapes after merging 6 byte-identical pairs, 436 with the Scrooge parts, 11.6 MB – `scripts/vectors-survey.mjs` listed every candidate (groups
 and their parts, without copies and invisible ones), the owner kept all and confirmed the names. An app takes single shapes (`?url` / `?raw`), never the whole `vectors.css`. First use: the medieval
 score frame and the 90s collage (research/SCORES.md §4 "Looks"). Next: the CDN (`catpope/vectors/`) + asset rows with a
 shape table, only the code set in git – research/VECTORS.md §6.

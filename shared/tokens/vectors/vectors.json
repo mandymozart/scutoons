@@ -9452,14 +9452,17 @@
 			"title": "Red lash",
 			"tags": [
 				"line",
-				"lash"
+				"lash",
+				"scrooge",
+				"beak"
 			],
 			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15253",
 				"name": "Vector",
-				"frame": "555:8314"
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
 			},
 			"path": "vectors/red-lash.svg",
 			"width": 271,
@@ -9477,14 +9480,17 @@
 			"tags": [
 				"motif",
 				"face",
-				"outline"
+				"outline",
+				"scrooge",
+				"sideburns"
 			],
 			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15256",
 				"name": "Vector",
-				"frame": "555:8314"
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
 			},
 			"path": "vectors/face-outline-red.svg",
 			"width": 167,
@@ -10628,6 +10634,351 @@
 			"mask": false,
 			"bytes": 6914,
 			"sha256": "e9bac918e28efd16633685fce3c18a8ca86c4c06a469d5e2119c6d934ae26c77"
+		},
+		{
+			"slug": "scrooge-eye",
+			"title": "Scrooge eye (bitcoin)",
+			"tags": [
+				"motif",
+				"scrooge",
+				"eye",
+				"bitcoin"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:7256",
+				"name": "Vector",
+				"frame": "555:6273",
+				"part_of": "scrooge-face-red"
+			},
+			"path": "vectors/scrooge-eye.svg",
+			"width": 39,
+			"height": 70,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 741,
+			"sha256": "d8fa349b8a51d251cd5bc2d538cb6f847d02b9633f31dfee666e93cf88680b04"
+		},
+		{
+			"slug": "scrooge-eye-2",
+			"title": "Scrooge eye 2 (bitcoin)",
+			"tags": [
+				"motif",
+				"scrooge",
+				"eye",
+				"bitcoin"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:7257",
+				"name": "Vector",
+				"frame": "555:6273",
+				"part_of": "scrooge-face-red"
+			},
+			"path": "vectors/scrooge-eye-2.svg",
+			"width": 43,
+			"height": 76,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 742,
+			"sha256": "5b774a90bf89f4f882f9926d7dd9354d46b841b361850aaa554a71d697b108f6"
+		},
+		{
+			"slug": "scrooge-brim",
+			"title": "Scrooge hat brim",
+			"tags": [
+				"line",
+				"arc",
+				"scrooge",
+				"hat"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:7294",
+				"name": "Vector",
+				"frame": "555:6273",
+				"part_of": "scrooge-face-red"
+			},
+			"path": "vectors/scrooge-brim.svg",
+			"width": 244,
+			"height": 108,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 545,
+			"sha256": "ea2300740bc51fcf67cff0b9aaa666f19b9ac5b14890b499e6f28a10477fea2c"
+		},
+		{
+			"slug": "scrooge-brim-2",
+			"title": "Scrooge hat brim 2",
+			"tags": [
+				"line",
+				"arc",
+				"scrooge",
+				"hat"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:7295",
+				"name": "Vector",
+				"frame": "555:6273",
+				"part_of": "scrooge-face-red"
+			},
+			"path": "vectors/scrooge-brim-2.svg",
+			"width": 143,
+			"height": 32,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 310,
+			"sha256": "c6d9fda2d5e2b53a5659e06a3ff1f2f86c4b23549a1fa060a8259473e2a7e32f"
+		},
+		{
+			"slug": "scrooge-eye-side",
+			"title": "Scrooge eye, side (bitcoin)",
+			"tags": [
+				"motif",
+				"scrooge",
+				"eye",
+				"bitcoin"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15223",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-eye-side.svg",
+			"width": 46,
+			"height": 92,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 1410,
+			"sha256": "d1b6b531cde7a60da880a15a342dfbb10a2c220c7ee262215ef16b1ffecae1cf"
+		},
+		{
+			"slug": "scrooge-jaw",
+			"title": "Scrooge jaw",
+			"tags": [
+				"line",
+				"scrooge",
+				"jaw"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15254",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-jaw.svg",
+			"width": 152,
+			"height": 115,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 652,
+			"sha256": "034f758956844613faa113c19f1483dbe3eaf437f7fd0b673de6c9f06881b2e7"
+		},
+		{
+			"slug": "scrooge-brow",
+			"title": "Scrooge brow",
+			"tags": [
+				"brush",
+				"scrooge",
+				"brow"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15234",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-brow.svg",
+			"width": 61,
+			"height": 92,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 1738,
+			"sha256": "ea4017f1b4a32ecd3eb24a365d38088064400b345b234f4ebce065a7b7c9fbc5"
+		},
+		{
+			"slug": "scrooge-brim-side",
+			"title": "Scrooge hat brim, side",
+			"tags": [
+				"line",
+				"arc",
+				"scrooge",
+				"hat"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15265",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-brim-side.svg",
+			"width": 208,
+			"height": 61,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 304,
+			"sha256": "309d9f47c690c4a1667fb2eaa538cd86154e9733f051b0826a58c41dba51119e"
+		},
+		{
+			"slug": "scrooge-brim-side-2",
+			"title": "Scrooge hat brim, side 2",
+			"tags": [
+				"line",
+				"arc",
+				"scrooge",
+				"hat"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15266",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-brim-side-2.svg",
+			"width": 204,
+			"height": 59,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 416,
+			"sha256": "778a69abb53f1ca7459b4a55406e361f7714212fb4061de7c4b8c033d94e2a77"
+		},
+		{
+			"slug": "scrooge-stroke",
+			"title": "Scrooge stroke",
+			"tags": [
+				"line",
+				"stroke",
+				"scrooge"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15224",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-stroke.svg",
+			"width": 42,
+			"height": 84,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 254,
+			"sha256": "34ddac2a3152cf3500a8fcbdcffb97dd55d825d955adf8eb02f025f6237cac72"
+		},
+		{
+			"slug": "scrooge-stroke-2",
+			"title": "Scrooge stroke 2",
+			"tags": [
+				"line",
+				"stroke",
+				"scrooge"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15238",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-stroke-2.svg",
+			"width": 35,
+			"height": 98,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 561,
+			"sha256": "ab588dc65f2d3e6ce7687479ffe691932988f89b7d304c5980bef2dff1d12c02"
+		},
+		{
+			"slug": "scrooge-stroke-3",
+			"title": "Scrooge stroke 3",
+			"tags": [
+				"line",
+				"stroke",
+				"scrooge"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15263",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-stroke-3.svg",
+			"width": 42,
+			"height": 92,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 192,
+			"sha256": "ed396c581a20a7fe81f3b4e1ae74200f0e0143dd99aff829ff3e89d6307b9712"
+		},
+		{
+			"slug": "scrooge-stroke-4",
+			"title": "Scrooge stroke 4",
+			"tags": [
+				"line",
+				"stroke",
+				"scrooge"
+			],
+			"tile": null,
+			"figma": {
+				"source": "catpope-vector",
+				"node": "555:15267",
+				"name": "Vector",
+				"frame": "555:8314",
+				"part_of": "scrooge-profile-red"
+			},
+			"path": "vectors/scrooge-stroke-4.svg",
+			"width": 20,
+			"height": 105,
+			"colors": [
+				"#FF0000"
+			],
+			"mask": true,
+			"bytes": 208,
+			"sha256": "8624fe66b179c940c03ed624af9249155b114f1649d3db7d3a421b6b2ac20649"
 		}
 	]
 }

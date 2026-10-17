@@ -1,4 +1,4 @@
-Status: decided 2026-10-17 (owner's answers in §7) – plan §6, step 2 done, next step 3; nothing built, nothing uploaded. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–3 done, next step 4; nothing built, nothing uploaded. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -143,7 +143,10 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
 2. ~~Tidy in git~~ – done 2026-10-17 (423 shapes). (no DB): `role` folds into `tags` (a shape may carry several role words), colour words leave the
    tags, `suggested` goes (names confirmed), the 6 identical pairs merge; the README's vocabulary becomes "shared tag
    words".
-3. **Split Uncle Scrooge** (owner: "maybe we can split him up"): the 18 `scrooge` shapes into parts – eyes, hat, beak,
+3. ~~Split Uncle Scrooge~~ – done 2026-10-17: the 18 shapes are two drawings (front face, also as the big "ghost"; the
+   profile), drawn as 36–45 loose vectors each; 13 parts ≥ 80 px (and the two Bitcoin eyes) became shapes – eyes
+   (`bitcoin`), hat brims, jaw, brow, strokes – `figma.part_of` names the drawing; beak and sideburns were already in
+   (red-lash, face-outline-red: tagged `scrooge` now). 436 shapes. Was: (owner: "maybe we can split him up"): the 18 `scrooge` shapes into parts – eyes, hat, beak,
    whiskers … – as their own shapes (the survey's "ungrouped" parts of the Figma groups; the owner picks on a contact
    sheet), tagged `scrooge` + the part.
 4. **Migration** `asset_shapes` (idempotent, dry-run on the dev DB, runs with the deploy); `kind=shape` as a filter of
