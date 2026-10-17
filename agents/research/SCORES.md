@@ -169,6 +169,16 @@ view, "PDF herunterladen" (the print file).
   vectors' / brand colours, solid, or black-and-white shapes as they are, faint) and a few outlines over it (multiply);
   one huge figure behind, 2–3 small ones in front, sometimes a big round portrait; slow drift. Shapes load as text
   (`?raw`) only for this look. Learned: black behind black notes kills reading – the back layer has no black.
+  **Collage** – the direction (owner 2026-10-17: "lets ignore the medieval, it fucking up our direction … design
+  something with all the tokens … the cat pope personas and moods … the crows … much more aggressive overlays … white
+  background … all kinds of negative and difference blending modes … images and vectors can and should overlay
+  scores"): score-riot.svelte (entry `@scutoons/reader/score-lab`, kept out of the reader app) – per page 14–22 shapes
+  from the whole vector library (each its own lazy chunk) and 5–9 pictures (Cat Pope, human, biker ± helmet, cat,
+  mountain tiger, the crows – every mood, avatar / portrait / full), huge to small, turned, xeroxed, 65–80 % OVER the
+  music in difference / exclusion / multiply / hard-light / luminosity …, filters (invert, grayscale + contrast, hue
+  shift); white blocks in difference turn bands of the page negative. Learned: on white paper screen / dodge / overlay
+  / burn show nothing on their own; anything inverted to white goes over the music only in difference / exclusion (it
+  must turn the notes negative, never erase them). The lab opens in Collage; Medieval is set aside (code stays).
 - Lives in `@scutoons/reader` (no app state) so live mode reuses it; the viewer wraps it.
 
 **5. Access – protected** (owner 2026-10-14: "we will need a protection for this soon"; "guests can view the score in

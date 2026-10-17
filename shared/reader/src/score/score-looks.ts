@@ -38,5 +38,9 @@ export const SCORE_LOOKS: ScoreLook[] = [
 	/** a 90s collage (owner 2026-10-17: "go real wild … huge and overlay … outlines or gradients … ditch the brown
 	 *  background … make it messy"): white paper, the library's shapes huge behind and over the music, big and small
 	 *  figures – score-collage.svelte is the page's `decor` */
-	{ id: 'wild', options: PEN, margin: { top: 3, side: 1.25, bottom: 1.5 } }
+	{ id: 'wild', options: PEN, margin: { top: 3, side: 1.25, bottom: 1.5 } },
+	/** the collage (owner 2026-10-17: "much more aggressive overlays … negative and difference blending … images and
+	 *  vectors can and should overlay scores"): white paper, the whole vector library and the characters' personas and
+	 *  moods over the music – score-riot.svelte is the page's `decor` */
+	{ id: 'collage', options: PEN, margin: { top: 2.5, side: 1.25, bottom: 1.25 } }
 ];

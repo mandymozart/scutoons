@@ -20,6 +20,11 @@
 			"types": "./src/score/index.ts",
 			"svelte": "./src/score/index.ts",
 			"default": "./src/score/index.ts"
+		},
+		"./score-lab": {
+			"types": "./src/score/lab.ts",
+			"svelte": "./src/score/lab.ts",
+			"default": "./src/score/lab.ts"
 		}
 	},
 	"files": [

@@ -7,6 +7,7 @@
 	import { ageLook } from '@scutoons/content';
 	import { CoverLettering, SCORE_LOOKS } from '@scutoons/reader';
 	import { ScoreCollage, ScoreIllumination, ScoreView } from '@scutoons/reader/score';
+	import { ScoreRiot } from '@scutoons/reader/score-lab';
 	import { Segmented } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 	import './fonts/lab-fonts.css';
@@ -28,14 +29,14 @@
 	let open = $state<(typeof SCORES)[number] | null>(query?.get('score') === 'none' ? null : (SCORES.find((s) => s.id === query?.get('score')) ?? SCORES[0]));
 	/** the DIY book's age in days (0 = new) */
 	let days = $state(0);
-	let lookId = $state<string>(query?.get('look') ?? 'medieval');
+	let lookId = $state<string>(query?.get('look') ?? 'collage');
 	const scoreLook = $derived(SCORE_LOOKS.find((l) => l.id === lookId) ?? null);
 	const LOOK_OPTIONS = [
 		{ value: 'plain', label: 'Plain' },
 		{ value: 'old-school', label: 'Old school' },
 		{ value: 'old-school-colour', label: 'Old school colour' },
-		{ value: 'medieval', label: 'Medieval' },
-		{ value: 'wild', label: '90s wild' }
+		{ value: 'wild', label: '90s wild' },
+		{ value: 'collage', label: 'Collage' }
 	];
 	/** the trial faces for the medieval title (and the initial's letter) */
 	const TITLE_FONTS = ['UnifrakturMaguntia', 'UnifrakturCook', 'Grenze Gotisch', 'Pirata One', 'Texturina', 'Uncial Antiqua', 'MedievalSharp', 'Jacquard 24'];
@@ -61,6 +62,22 @@
 		C('crows', 'crows_portrait-happy.webp'),
 		C('catpope-human', 'catpope-human_portrait-happy.webp'),
 		C('toptoy', 'toptoy_portrait-neutral.webp')
+	];
+	/** the collage's people (owner 2026-10-17: "the cat pope personas and moods … also the crows"): every persona in every
+	 *  mood as avatar, portrait and full figure – a missing combination hides itself */
+	const MOODS = ['acceptance', 'angry', 'bargaining', 'confused', 'crying', 'denial', 'disgusted', 'dizzy', 'embarrassed', 'furious', 'happy', 'laughing', 'neutral', 'sad', 'scared', 'smug', 'surprised', 'thinking'];
+	const PERSONAS: [string, string, string[]][] = [
+		['catpope', 'catpope', ['avatar', 'portrait', 'full']],
+		['catpope-human', 'catpope-human', ['avatar', 'portrait', 'full']],
+		['catpope-biker', 'catpope-biker', ['avatar', 'portrait']],
+		['catpope-biker', 'catpope-biker_helmet', ['avatar', 'portrait']],
+		['crows', 'crows', ['avatar', 'portrait', 'full']]
+	];
+	const PICTURES = [
+		...PERSONAS.flatMap(([dir, name, views]) => views.flatMap((view) => MOODS.map((mood) => C(dir, `${name}_${view}-${mood}.webp`)))),
+		C('catpope-cat', 'catpope-cat_portrait-neutral.webp'),
+		C('catpope-mountaintiger', 'catpope-mountaintiger_full-neutral.webp'),
+		C('catpope-mountaintiger', 'catpope-mountaintiger_portrait-neutral.webp')
 	];
 	const FIGURES = ['catpope', 'billthefrog', 'boy', 'toptoy', 'yellowbubu', 'crows', 'passerby', 'catpope-mountaintiger', 'catpope-human'].map((c) =>
 		C(c, `${c}_full-neutral.webp`)
@@ -104,12 +121,16 @@
 				title={open.title}
 				age={days > 0 ? { ...look, seed: `lab-${open.id}` } : null}
 				look={scoreLook}
-				decor={lookId === 'medieval' ? illuminate : lookId === 'wild' ? collage : undefined}
+				decor={lookId === 'collage' ? riot : lookId === 'medieval' ? illuminate : lookId === 'wild' ? collage : undefined}
 				onclose={() => (open = null)}
 			/>
 		{/key}
 	{/if}
 {/if}
+
+{#snippet riot(page: number)}
+	<ScoreRiot {page} pictures={PICTURES} seed="lab-{open?.id}" />
+{/snippet}
 
 {#snippet collage(page: number)}
 	<ScoreCollage {page} portraits={PORTRAITS} figures={FIGURES} seed="lab-{open?.id}" />

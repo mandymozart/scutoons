@@ -217,6 +217,45 @@
 	animation: score-hop 0.28s ease-out;
 }
 
+/* ── collage: white paper, the music in plain ink between the collage's layers (score-riot.svelte) ── */
+.score-view .sheet[data-look='collage'] {
+	--score-paper: #ffffff;
+	--score-ink: #111111;
+	--score-lit: var(--acid-red, #ff1900);
+	color: var(--score-ink);
+	background: var(--score-paper);
+}
+
+.score-view .sheet[data-look='collage'] .leaf > svg {
+	position: relative;
+	z-index: 1;
+	color: var(--score-ink);
+	fill: var(--score-ink);
+}
+
+.score-view .sheet[data-look='collage'] g.pgHead text:first-of-type tspan[font-size] {
+	font-family: var(--font-mono, monospace);
+	font-weight: 700;
+	font-size: 720px;
+	letter-spacing: -0.02em;
+}
+
+.score-view .sheet[data-look='collage'] tspan[font-family='Gootville'] {
+	font-family: Gootville, Leipzig;
+}
+
+.score-view .sheet[data-look='collage'] g.note.playing {
+	fill: var(--score-lit);
+	color: var(--score-lit);
+}
+
+.score-view .sheet[data-look='collage'] g.note.playing > g.notehead,
+.score-view .sheet[data-look='collage'] g.note.playing g.syl {
+	transform-box: fill-box;
+	transform-origin: 50% 100%;
+	animation: score-hop 0.28s ease-out;
+}
+
 /* last, and as specific as the looks' own rules, so it wins over every one of them */
 @media (prefers-reduced-motion: reduce) {
 	.score-view .sheet[data-boil] .leaf > svg,
