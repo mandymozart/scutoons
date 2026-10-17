@@ -1,5 +1,5 @@
 import type { Attachment } from 'svelte/attachments';
-import { releaseVelocity, VELOCITY_WINDOW, type Sample } from './strip-loop.ts';
+import { releaseVelocity, VELOCITY_WINDOW, type Sample, type Swipe } from './strip-loop.ts';
 import { rootRem } from './strip-dom.ts';
 
 /** the band's side of the input – read at event time, so one object over the band's state works */
@@ -10,14 +10,22 @@ export interface StripInput {
 	stop(): boolean;
 	/** move the picture by `dx` px (right = +) */
 	move(dx: number): void;
-	/** a drag let go at `velocity` px/ms (0 = none: a cancel, a rest before letting go) – the band glides */
-	release(velocity: number): void;
+	/**
+	 * a drag let go at `velocity` px/ms (0 = none: a cancel, a rest before letting go) – the band glides; `swipe`: the
+	 * whole drag (a pager's short-swipe rule – strip-loop.ts settleTarget), missing after a cancel or a pinch. Also a press
+	 * that stopped a motion and then didn't drag sideways (a tap, a vertical swipe): velocity 0, no swipe
+	 */
+	release(velocity: number, swipe?: Swipe): void;
 	/** ← (−1) / → (+1): ease to the previous / next frame edge, replacing a running glide or ease */
 	step(direction: 1 | -1): void;
 	/** keyboard focus landed on `target` in the band: slide its frame in */
 	reveal?(target: Element): void;
 	/** a drag runs (the grabbing cursor) */
 	dragging?(on: boolean): void;
+	/** something else owns the input now – nothing moves (the band: the story blocks the page, `html[data-vn-blocking]`) */
+	blocked?(): boolean;
+	/** a sideways wheel burst ended (no event for 150 ms) – a pager settles on a page */
+	settle?(): void;
 }
 
 /**
@@ -92,25 +100,28 @@ const keyboardFocus = (el: Element) => {
  *   under the drag – measured)
  * - a second finger during a drag ends it where it began (the browser zooms; its first ≈ 10 px moved the band – measured)
  * - a new drag / touch / wheel stops a running glide or ease
- * - nothing while the band is still or the story blocks the page (`html[data-vn-blocking]`, freeze-scroll.ts)
+ * - nothing while the band is still (`enabled`) or `blocked` (the band: the story blocks the page)
+ * - `settle` once a sideways wheel burst ends; `release` (no swipe) when a press stopped a motion but didn't drag
  */
 export function stripDrag(input: StripInput): Attachment<HTMLElement> {
 	return (band) => {
 		const doc = band.ownerDocument;
-		const blocked = () => doc.documentElement.dataset.vnBlocking !== undefined;
+		const blocked = () => input.blocked?.() === true;
 		const off = () => !input.enabled() || blocked();
 		const remPx = () => rootRem(doc);
 		const latch = wheelLatch();
 		/** the pointer gesture – axis null while it is in the dead zone */
-		let gesture: { id: number; x0: number; y0: number; x: number; zone: number; axis: 'x' | null; samples: Sample[] } | null = null;
+		let gesture: { id: number; x0: number; y0: number; t0: number; x: number; zone: number; axis: 'x' | null; samples: Sample[] } | null = null;
 		/** the next pointer click is no tap (it ends a drag, or its press stopped a glide) */
 		let swallow = false;
+		/** the wheel burst's settle timer */
+		let wheelTimer: ReturnType<typeof setTimeout> | undefined;
 
 		function down(e: PointerEvent) {
 			if (gesture && gesture.id !== e.pointerId) return pinch();
 			if (off() || (e.pointerType === 'mouse' && e.button !== 0)) return;
 			swallow = input.stop() === true;
-			gesture = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, zone: DEAD_ZONE_REM * remPx(), axis: null, samples: [{ t: e.timeStamp, x: e.clientX }] };
+			gesture = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, x: e.clientX, zone: DEAD_ZONE_REM * remPx(), axis: null, samples: [{ t: e.timeStamp, x: e.clientX }] };
 		}
 
 		function drag(e: PointerEvent) {
@@ -123,6 +134,8 @@ export function stripDrag(input: StripInput): Attachment<HTMLElement> {
 				if (!axis) return;
 				if (axis === 'y') {
 					gesture = null;
+					// a motion this press stopped comes to rest (a pager settles)
+					if (swallow) input.release(0);
 					return;
 				}
 				gesture.axis = axis;
@@ -142,12 +155,17 @@ export function stripDrag(input: StripInput): Attachment<HTMLElement> {
 
 		function finish(e: PointerEvent, fling = e.type !== 'pointercancel') {
 			if (!gesture || e.pointerId !== gesture.id) return;
-			const { axis, samples } = gesture;
+			const { axis, samples, x0, x, t0 } = gesture;
 			gesture = null;
-			if (!axis) return;
+			if (!axis) {
+				// a tap that stopped a motion: it comes to rest (a pager settles)
+				if (swallow) input.release(0);
+				return;
+			}
 			input.dragging?.(false);
 			swallow = true;
-			input.release(fling ? releaseVelocity(samples, e.timeStamp) : 0);
+			if (fling) input.release(releaseVelocity(samples, e.timeStamp), { dx: x - x0, ms: e.timeStamp - t0 });
+			else input.release(0);
 		}
 
 		/** a second finger: the browser's pinch-zoom – the first finger's sideways start is undone, no fling */
@@ -183,6 +201,10 @@ export function stripDrag(input: StripInput): Attachment<HTMLElement> {
 			e.preventDefault();
 			input.stop();
 			input.move(-dx * (e.deltaMode === 1 ? remPx() : e.deltaMode === 2 ? band.clientWidth : 1));
+			if (input.settle) {
+				clearTimeout(wheelTimer);
+				wheelTimer = setTimeout(() => input.settle?.(), WHEEL_BURST);
+			}
 		}
 
 		function key(e: KeyboardEvent) {
@@ -220,6 +242,7 @@ export function stripDrag(input: StripInput): Attachment<HTMLElement> {
 		];
 		return () => {
 			for (const fn of undo) fn();
+			clearTimeout(wheelTimer);
 			band.style.touchAction = touchAction;
 			if (gesture?.axis) input.dragging?.(false);
 			gesture = null;

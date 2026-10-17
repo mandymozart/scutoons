@@ -596,7 +596,14 @@
 		"events": "Termine",
 		"attributions": "Quellenangaben",
 		"stores": "Wo kaufen",
-		"local_stores": "Läden vor Ort"
+		"local_stores": "Läden vor Ort",
+		"slides_prev": "Vorheriges Bild",
+		"slides_next": "Nächstes Bild",
+		"slides_pause": "Automatisches Weiterblättern anhalten",
+		"slides_play": "Automatisch weiterblättern",
+		"slide_of": "Bild {number} von {count}",
+		"slides_role": "Karussell",
+		"slide_role": "Folie"
 	},
 	"map": {
 		"title": "Karte",

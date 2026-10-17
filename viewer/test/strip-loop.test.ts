@@ -11,10 +11,15 @@ import {
 	frameLayout,
 	glide,
 	GLIDE_TAU,
+	indexAt,
 	keepPlace,
+	nearestEdge,
+	pageLayout,
 	placeFrames,
 	releaseVelocity,
 	revealTarget,
+	settleTarget,
+	SHORT_SWIPE_MS,
 	snap,
 	stepTarget,
 	stripFit,
@@ -269,4 +274,59 @@ test('a resize keeps the place: the same share of a turn', () => {
 	assert.equal(keepPlace(-1000, 0, phone), 0);
 	assert.equal(snap(0.4, 1), 0);
 	assert.ok(close(snap(0.2, 3), 1 / 3));
+});
+
+// the home slider (components/home/slides-pager.ts): equal pages, 1 per view below 768 px, 3 from 768 px, a 16 px gap
+test('pages: the pitch on the device grid rounded down (the last page in view never clipped), loop with one page more than fit', () => {
+	for (const [width, per, gap, dpr] of [[358, 1, 16, 3], [358, 1, 16, 2.625], [694, 3, 16, 1.25], [903.33, 3, 16, 1.5], [1000, 3, 16, 1]]) {
+		const { pitch, layout, fit } = pageLayout(7, per, width, gap, dpr);
+		assert.ok(onGrid(pitch, dpr), `pitch ${pitch} at ${dpr}`);
+		assert.ok(per * pitch - gap <= width + 1e-9, 'the last page in view inside the window');
+		assert.ok(per * pitch - gap > width - per / dpr - 1e-9, 'less than a device px per page short');
+		assert.ok(per * pitch >= width, 'the next page starts outside the window');
+		assert.deepEqual(layout.starts.map((s) => Math.round((s / pitch) * 1e6) / 1e6), [0, 1, 2, 3, 4, 5, 6]);
+		assert.equal(fit.mode, 'loop');
+		assert.equal(fit.window, width);
+	}
+	assert.equal(pageLayout(4, 3, 1000, 16, 1).fit.mode, 'loop', 'one page more than fit loops');
+	assert.equal(pageLayout(3, 3, 1000, 16, 1).fit.mode, 'still', 'as many as fit: whole and still');
+	assert.equal(pageLayout(2, 3, 1000, 16, 1).fit.mode, 'still');
+	assert.equal(pageLayout(1, 1, 358, 16, 3).fit.mode, 'still');
+	assert.equal(pageLayout(0, 1, 358, 16, 3).layout.turn, 0);
+});
+
+test('pages: the nearest edge and the page at the window\'s left, any number of turns away', () => {
+	const { layout, pitch } = pageLayout(5, 1, 358, 16, 2);
+	const T = layout.turn;
+	assert.equal(nearestEdge(-0.4 * pitch, layout), 0);
+	assert.ok(close(nearestEdge(-0.6 * pitch, layout), -pitch));
+	assert.ok(close(nearestEdge(-3 * T - 2.3 * pitch, layout), -3 * T - 2 * pitch));
+	assert.ok(close(nearestEdge(0.7 * pitch, layout), pitch), 'right of page 0: the last page comes in');
+	assert.equal(indexAt(0, layout), 0);
+	assert.equal(indexAt(-2.4 * pitch, layout), 2);
+	assert.equal(indexAt(-7 * T - 4.6 * pitch, layout), 0, 'past the last page: the first');
+	assert.equal(indexAt(0.6 * pitch, layout), 4, 'the picture moved right: the last page');
+	assert.equal(indexAt(5 * T + pitch, layout), 4);
+	assert.equal(indexAt(0, pageLayout(0, 1, 358, 16, 2).layout), 0);
+});
+
+test('pages settle: a fling or a short swipe goes on one page the way it points, a slow drag to the nearest edge', () => {
+	const { layout, pitch } = pageLayout(5, 1, 358, 16, 2);
+	const T = layout.turn;
+	const at = (x: number) => Math.round(x * 100) / 100;
+	// a slow drag (no velocity, a long swipe): the nearest edge
+	assert.equal(at(settleTarget(-0.3 * pitch, layout, 0, { dx: -0.3 * pitch, ms: 800 })), 0);
+	assert.equal(at(settleTarget(-0.7 * pitch, layout, 0, { dx: -0.7 * pitch, ms: 800 })), at(-pitch));
+	// the short-swipe rule: a quick 30 px flick moves on, even when it rested before letting go (velocity 0)
+	assert.equal(at(settleTarget(-30, layout, 0, { dx: -30, ms: SHORT_SWIPE_MS - 50 })), at(-pitch), 'next page');
+	assert.equal(at(settleTarget(30, layout, 0, { dx: 30, ms: 120 })), at(pitch), 'previous page (the last one, round the loop)');
+	// a fling decides by its velocity, also after a long drag – and the way it points, not the way the drag went
+	assert.equal(at(settleTarget(-0.2 * pitch, layout, -0.5, { dx: -0.2 * pitch, ms: 900 })), at(-pitch));
+	assert.equal(at(settleTarget(-0.6 * pitch, layout, 0.5, { dx: -0.6 * pitch, ms: 900 })), 0, 'flicked back');
+	assert.equal(at(settleTarget(-0.2 * pitch, layout, -0.29, { dx: -0.2 * pitch, ms: 900 })), 0, 'too slow: nearest');
+	// many turns away, and the wheel (no swipe): nearest
+	assert.equal(at(settleTarget(-4 * T - 1.2 * pitch, layout, -1, { dx: -40, ms: 100 })), at(-4 * T - 2 * pitch));
+	assert.equal(at(settleTarget(-4 * T - 1.2 * pitch, layout)), at(-4 * T - pitch));
+	// a cancel (velocity 0, no swipe) right after the dead zone: back
+	assert.equal(at(settleTarget(-8, layout, 0)), 0);
 });

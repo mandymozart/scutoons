@@ -3,9 +3,10 @@
 // Measured in the prototype: plain `pan-y` blocked pinch-zoom on the band, a mouse-down on a button in a partly shown
 // frame focused it and its slide fought the drag, Swiper trapped the vertical wheel. The attachment runs on a stand-in
 // element (an EventTarget with the few fields it reads).
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gestureAxis, stripDrag, TOUCH_ACTION, wheelLatch, type StripInput } from '../src/lib/components/toon/renderer/strip-drag.ts';
+import { gestureAxis, stripDrag, TOUCH_ACTION, WHEEL_BURST, wheelLatch, type StripInput } from '../src/lib/components/toon/renderer/strip-drag.ts';
+import type { Swipe } from '../src/lib/components/toon/renderer/strip-loop.ts';
 
 class Band extends EventTarget {
 	rem = 16;
@@ -22,7 +23,7 @@ class Band extends EventTarget {
 }
 
 function attach(overrides: Partial<StripInput> = {}) {
-	const log = { moves: [] as number[], releases: [] as number[], steps: [] as number[], stops: 0, reveals: [] as unknown[], dragging: [] as boolean[] };
+	const log = { moves: [] as number[], releases: [] as number[], swipes: [] as (Swipe | undefined)[], steps: [] as number[], stops: 0, reveals: [] as unknown[], dragging: [] as boolean[] };
 	let moving = false;
 	const input: StripInput = {
 		enabled: () => true,
@@ -33,7 +34,7 @@ function attach(overrides: Partial<StripInput> = {}) {
 			return was;
 		},
 		move: (dx) => void log.moves.push(dx),
-		release: (v) => void log.releases.push(v),
+		release: (v, swipe) => void (log.releases.push(v), log.swipes.push(swipe)),
 		step: (d) => void log.steps.push(d),
 		reveal: (t) => void log.reveals.push(t),
 		dragging: (on) => void log.dragging.push(on),
@@ -148,8 +149,60 @@ test('a tap that stops a running glide is no click; any new drag / touch stops t
 	pointer(band, 'pointerup', 100, 100, 60);
 	assert.equal(log.stops, 1);
 	assert.equal(fire(band, 'click', { detail: 1 }).defaultPrevented, true);
+	assert.deepEqual(log.releases, [0], 'the stopped motion comes to rest (a pager settles on a page)');
+	assert.deepEqual(log.swipes, [undefined]);
 	pointer(band, 'pointerdown', 100, 100, 100);
 	assert.equal(log.stops, 2);
+	pointer(band, 'pointerup', 100, 100, 150);
+	assert.deepEqual(log.releases, [0], 'a plain tap releases nothing');
+	// a press that stopped a motion, then a vertical swipe (the page's): at rest too
+	glide();
+	pointer(band, 'pointerdown', 100, 100, 200);
+	pointer(band, 'pointermove', 101, 120, 216);
+	assert.deepEqual(log.releases, [0, 0]);
+});
+
+test('a drag\'s release carries the whole swipe (way, time) for a pager\'s short-swipe rule; a cancel or a pinch none', () => {
+	const { band, log } = attach();
+	pointer(band, 'pointerdown', 100, 100, 1000);
+	pointer(band, 'pointermove', 80, 100, 1016);
+	pointer(band, 'pointermove', 60, 100, 1032);
+	pointer(band, 'pointerup', 60, 100, 1040);
+	assert.deepEqual(log.swipes, [{ dx: -40, ms: 40 }]);
+	pointer(band, 'pointerdown', 100, 100, 2000);
+	pointer(band, 'pointermove', 140, 100, 2016);
+	pointer(band, 'pointercancel', 140, 100, 2030);
+	pointer(band, 'pointerdown', 100, 100, 3000);
+	pointer(band, 'pointermove', 140, 100, 3016);
+	pointer(band, 'pointerdown', 300, 100, 3020, { pointerId: 2 });
+	assert.deepEqual(log.swipes.slice(1), [undefined, undefined]);
+	assert.deepEqual(log.releases.slice(1), [0, 0]);
+});
+
+test('a sideways wheel burst settles once, 150 ms after its last event (only with a settle hook)', () => {
+	mock.timers.enable({ apis: ['setTimeout'] });
+	try {
+		let settled = 0;
+		const { band, detach } = attach({ settle: () => void settled++ });
+		wheel(band, 30, 0, 0);
+		mock.timers.tick(WHEEL_BURST - 10);
+		wheel(band, 30, 0, 140);
+		mock.timers.tick(WHEEL_BURST - 10);
+		assert.equal(settled, 0, 'the burst goes on');
+		mock.timers.tick(20);
+		assert.equal(settled, 1);
+		wheel(band, 0, 100, 1000);
+		mock.timers.tick(WHEEL_BURST * 2);
+		assert.equal(settled, 1, 'the page\'s wheel settles nothing');
+		wheel(band, 30, 0, 2000);
+		detach();
+		mock.timers.tick(WHEEL_BURST * 2);
+		assert.equal(settled, 1, 'detached: no settle');
+		const plain = attach();
+		assert.ok(wheel(plain.band, 30, 0, 0).defaultPrevented, 'no hook: the wheel still moves it');
+	} finally {
+		mock.timers.reset();
+	}
 });
 
 test('the release velocity: the last 100 ms of the drag; a rest before letting go or a cancel is no fling', () => {
@@ -218,22 +271,28 @@ test('keyboard focus slides its frame in; a pointer\'s focus doesn\'t (it fought
 	assert.equal(log.reveals.length, 1);
 });
 
-test('no input while the story blocks the page (html[data-vn-blocking]) or the band is still', () => {
-	const { band, log } = attach();
-	band.ownerDocument.documentElement.dataset.vnBlocking = '';
+test('no input while blocked (the band: the story blocks the page) or still', () => {
+	let story = true;
+	const { band, log } = attach({ blocked: () => story });
 	pointer(band, 'pointerdown', 100, 100, 0);
 	pointer(band, 'pointermove', 160, 100, 16);
 	assert.equal(wheel(band, 50, 0, 0).defaultPrevented, false);
 	fire(band, 'keydown', { key: 'ArrowRight' });
 	assert.deepEqual([log.moves, log.steps, log.stops], [[], [], 0]);
 	// the story takes over mid-drag: the drag ends without a fling
-	delete band.ownerDocument.documentElement.dataset.vnBlocking;
+	story = false;
 	pointer(band, 'pointerdown', 100, 100, 100);
 	pointer(band, 'pointermove', 140, 100, 116);
-	band.ownerDocument.documentElement.dataset.vnBlocking = '';
+	story = true;
 	pointer(band, 'pointermove', 180, 100, 132);
 	assert.deepEqual(log.moves, [40]);
 	assert.deepEqual(log.releases, [0]);
+	// the utility reads no page state of its own: without `blocked` the html flag is the band's business
+	const free = attach();
+	free.band.ownerDocument.documentElement.dataset.vnBlocking = '';
+	pointer(free.band, 'pointerdown', 100, 100, 0);
+	pointer(free.band, 'pointermove', 160, 100, 16);
+	assert.deepEqual(free.log.moves, [60]);
 	const still = attach({ enabled: () => false });
 	pointer(still.band, 'pointerdown', 100, 100, 0);
 	pointer(still.band, 'pointermove', 160, 100, 16);

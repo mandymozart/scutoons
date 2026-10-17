@@ -137,7 +137,9 @@
 			const to = revealTarget(offset, index, placement, geo.layout, geo.fit.window);
 			if (to !== null) (nudge.touch(), slideTo(to));
 		},
-		dragging: (on) => (dragging = on)
+		dragging: (on) => (dragging = on),
+		// the story blocks the page (freeze-scroll.ts)
+		blocked: () => document.documentElement.dataset.vnBlocking !== undefined
 	};
 
 	/** the page's arrival (`?label=`, resume, the creator's Reader – chapter +page.svelte): the slice's frame at the left */

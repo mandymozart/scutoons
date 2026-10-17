@@ -11,7 +11,9 @@
 //     ≥ 768 px three tiles in a row, 390 px the published tile across the row and the announced ones two by two;
 //   - LIMITED EDITIONS: intro + "Digitaler Download inklusive · weltweiter Versand", the featured editions in the API's
 //     order (/products/featured/ resolved against /products/) with sizes (sold out struck), colours, price, "Limitiert
-//     auf N Stück", "Kaufen" (the Bandcamp link), the slider (1 slide < 768 px, 3 from 768 px; the arrows move it);
+//     auf N Stück", "Kaufen" (the Bandcamp link), the slider (product-slides.svelte on the endless band's utility:
+//     1 slide < 768 px, 3 from 768 px, the slides out of view aria-hidden; autoplay on, prev / pause / next with their
+//     labels – pause stops it, next / prev move it one slide and loop round);
 //     "Alle Editionen" → the shop; the footer links (Wo kaufen – only with a listed store –, Termine, Quellenangaben); no release date anywhere on the page;
 //   - the main menu: the published toons are links, the announced ones greyed "bald" without a link (the helmet image),
 //     no sandbox.
@@ -162,15 +164,16 @@ const PAGE = `(() => {
 			};
 		}),
 		editions: [...document.querySelectorAll('[data-testid="edition"]')].map((a) => {
-			const sw = a.querySelector('.swiper');
+			const sw = a.querySelector('[data-slides]');
 			return {
 				id: a.dataset.product, variant: a.dataset.variant, name: a.querySelector('h3')?.textContent.trim(),
 				lines: [...a.querySelectorAll('.line')].map((l) => l.textContent.replace(/\\s+/g, ' ').trim()),
 				struck: [...a.querySelectorAll('del')].map((d) => d.firstChild?.textContent.trim()),
 				buy: (() => { const b = a.querySelector('.buy'); return b ? { text: b.textContent.trim(), href: b.getAttribute('href'), target: b.getAttribute('target') } : null; })(),
-				slides: sw ? sw.querySelectorAll('.swiper-slide:not(.swiper-slide-duplicate)').length : 0,
-				perView: sw?.swiper?.params?.slidesPerView ?? null, currentPerView: sw?.swiper ? sw.swiper.slidesPerViewDynamic() : null,
-				swiperBox: box(sw), info: box(a.querySelector('.product-info'))
+				slides: sw ? sw.querySelectorAll('.slide').length : 0,
+				shown: sw ? sw.querySelectorAll('.slide[aria-hidden="false"]').length : 0,
+				currentPerView: sw ? Number(sw.dataset.perView) : null,
+				sliderBox: box(sw), info: box(a.querySelector('.product-info'))
 			};
 		}),
 		intro: document.querySelector('.editions .intro')?.textContent.trim(), note: document.querySelector('.editions .note')?.textContent.trim(),
@@ -252,36 +255,52 @@ async function guest(width, height, locale) {
 			if (!e.buy || e.buy.text !== msg.home.buy || e.buy.href !== w.link || e.buy.target !== '_blank') p.push(`${e.id}: buy ${JSON.stringify(e.buy)}`);
 			const perView = width >= 768 ? 3 : 1;
 			if (e.slides !== w.images || e.currentPerView !== perView) p.push(`${e.id}: slider ${e.slides} slides, ${e.currentPerView} per view (expected ${w.images}, ${perView})`);
-			if (width >= 1024 && !(e.info && e.swiperBox && e.info.x < e.swiperBox.x && Math.abs(e.info.y - e.swiperBox.y) < 4)) p.push(`${e.id}: text not left of the slider ${JSON.stringify([e.info, e.swiperBox])}`);
-			if (width < 1024 && !(e.info && e.swiperBox && e.swiperBox.y > e.info.y)) p.push(`${e.id}: slider not below the text ${JSON.stringify([e.info, e.swiperBox])}`);
+			if (e.shown !== Math.min(perView, e.slides)) p.push(`${e.id}: ${e.shown} slides not aria-hidden (expected ${Math.min(perView, e.slides)})`);
+			if (width >= 1024 && !(e.info && e.sliderBox && e.info.x < e.sliderBox.x && Math.abs(e.info.y - e.sliderBox.y) < 4)) p.push(`${e.id}: text not left of the slider ${JSON.stringify([e.info, e.sliderBox])}`);
+			if (width < 1024 && !(e.info && e.sliderBox && e.sliderBox.y > e.info.y)) p.push(`${e.id}: slider not below the text ${JSON.stringify([e.info, e.sliderBox])}`);
 		}
 		if (!s.all || s.all.text !== msg.home.all_editions || !s.all.href.startsWith(shopUrl(locale))) p.push(`all editions ${JSON.stringify(s.all)}`);
 		report(`LIMITED EDITIONS: ${got.join(', ')} – sizes, price, "${fill(msg.home.limited, { count: 'N' })}", "${msg.home.buy}", slider ${width >= 768 ? '3-up' : '1-up'}, "${msg.home.all_editions}"`, p);
 	}
 	{
-		// the slider arrows move it (autoplay stopped first so only the click counts); the first edition with more images
-		// than fit in view (2 images in a 3-up slider have nowhere to go)
-		const pick = `[...document.querySelectorAll('[data-testid="edition"] .swiper')].find((sw) => sw.swiper && sw.querySelectorAll('.swiper-slide').length > sw.swiper.slidesPerViewDynamic())`;
+		// the slider's buttons (product-slides.svelte): the first edition with more images than fit in view (2 images in a
+		// 3-up slider are whole and still – no buttons); pause first so only the clicks count, then next, prev, and prev
+		// from the first slide round to the last
+		const pick = `[...document.querySelectorAll('[data-testid="edition"] [data-slides]')].find((sw) => sw.querySelector('[data-slides-next]'))`;
+		const slider = () => evaluate(`(() => { const sw = ${pick}; return { index: Number(sw.dataset.index), playing: sw.dataset.playing === 'true', count: sw.querySelectorAll('.slide').length, labels: ['prev', 'toggle', 'next'].map((k) => sw.querySelector('[data-slides-' + k + ']')?.getAttribute('aria-label')) }; })()`);
+		const press = async (sel) => {
+			const b = await evaluate(`(() => { const b = (${pick}).querySelector('${sel}').getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; })()`);
+			await clickAt(b.x, b.y);
+			await sleep(700);
+			return slider();
+		};
+		const p = [];
 		const r = await evaluate(`(async () => {
 			const sw = ${pick};
-			if (!sw?.swiper) return { error: 'no swiper' };
-			sw.swiper.autoplay?.stop();
+			if (!sw) return { error: 'no slider with buttons' };
 			sw.scrollIntoView({ block: 'center' });
 			await new Promise((r) => setTimeout(r, 400));
-			const before = sw.swiper.realIndex;
-			const next = sw.querySelector('.swiper-button-next');
-			const b = next.getBoundingClientRect();
-			return { before, x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) };
+			return true;
 		})()`);
-		const p = [];
 		if (!r || r.error) p.push(JSON.stringify(r));
 		else {
-			await clickAt(r.x, r.y);
-			await sleep(700);
-			const after = await evaluate(`(${pick}).swiper.realIndex`);
-			if (after === r.before) p.push(`next arrow: realIndex stays ${after}`);
+			const start = await slider();
+			if (!start.playing) p.push('autoplay is not on at the start');
+			if (JSON.stringify(start.labels) !== JSON.stringify([msg.home.slides_prev, msg.home.slides_pause, msg.home.slides_next])) p.push(`button labels ${JSON.stringify(start.labels)}`);
+			const paused = await press('[data-slides-toggle]');
+			if (paused.playing || paused.labels[1] !== msg.home.slides_play) p.push(`pause: playing ${paused.playing}, label "${paused.labels[1]}"`);
+			const n = paused.count;
+			const next = await press('[data-slides-next]');
+			if (next.index !== (paused.index + 1) % n) p.push(`next: ${paused.index} → ${next.index}`);
+			const prev = await press('[data-slides-prev]');
+			if (prev.index !== paused.index) p.push(`prev: ${next.index} → ${prev.index}`);
+			let now = prev;
+			for (let i = 0; i < n && now.index !== 0; i++) now = await press('[data-slides-next]');
+			const round = await press('[data-slides-prev]');
+			if (now.index !== 0 || round.index !== n - 1) p.push(`prev from the first slide: ${now.index} → ${round.index} (expected ${n - 1})`);
+			if (round.playing) p.push('a button started the autoplay again');
 		}
-		report('the slider arrow moves an edition\'s slider', p);
+		report('the slider: autoplay on, pause stops it, next / prev move one slide and loop round, the buttons\' labels', p);
 	}
 	{
 		const p = [];

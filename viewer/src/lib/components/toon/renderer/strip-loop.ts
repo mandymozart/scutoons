@@ -205,14 +205,80 @@ export function ease(from: number, to: number, start: number, ms = EASE_MS): Mot
  * +1 (→) brings the next frame in (the picture moves left), −1 (←) the previous one
  */
 export function stepTarget(base: number, direction: 1 | -1, layout: StripLayout): number {
-	const { starts, turn } = layout;
-	if (turn <= 0) return base;
-	const k0 = Math.floor(-base / turn);
-	const edges: number[] = [];
-	for (let k = k0 - 1; k <= k0 + 2; k++) for (const start of starts) edges.push(-(start + k * turn));
-	edges.sort((a, b) => a - b);
+	if (layout.turn <= 0) return base;
+	const edges = edgesNear(base, layout);
 	const next = direction > 0 ? edges.reverse().find((e) => e < base - REST) : edges.find((e) => e > base + REST);
 	return next ?? base;
+}
+
+/** the frame edges (offsets with a frame's left at the window's left) of the turns around `base`, ascending */
+function edgesNear(base: number, layout: StripLayout): number[] {
+	const { starts, turn } = layout;
+	const k0 = Math.floor(-base / turn);
+	const edges: number[] = [];
+	// 0 − …, not −(…): no −0 for the first frame's edge
+	for (let k = k0 - 1; k <= k0 + 2; k++) for (const start of starts) edges.push(0 - (start + k * turn));
+	return edges.sort((a, b) => a - b);
+}
+
+/** the frame edge nearest `base` (a tie goes right: the earlier frame) */
+export function nearestEdge(base: number, layout: StripLayout): number {
+	if (layout.turn <= 0 || !layout.starts.length) return base;
+	return edgesNear(base, layout).reduce((best, e) => (Math.abs(e - base) <= Math.abs(best - base) ? e : best));
+}
+
+/** the frame at the window's left for `offset`: the one whose edge is nearest (any offset – it repeats every turn) */
+export function indexAt(offset: number, layout: StripLayout): number {
+	const { starts, turn } = layout;
+	if (turn <= 0 || !starts.length) return 0;
+	const x = mod(-nearestEdge(offset, layout), turn);
+	const i = starts.findIndex((start) => Math.abs(start - x) < REST);
+	return i < 0 ? 0 : i;
+}
+
+/** a whole drag: its sideways way (px, right = +) and how long it took (ms) */
+export interface Swipe {
+	dx: number;
+	ms: number;
+}
+
+/** a release at least this fast (px/ms) goes on to the next frame edge the way it points */
+export const SWIPE_SPEED = 0.3;
+/** a swipe shorter than this (ms) goes on to the next frame edge the way it went – Swiper's short swipe */
+export const SHORT_SWIPE_MS = 300;
+
+/**
+ * Where a paged band comes to rest after a drag (the home slider – components/home/slides-pager.ts): the next frame
+ * edge the way the release points when it was a fling (≥ 0.3 px/ms) or a short swipe (< 300 ms – a quick flick moves on
+ * even when it went less than half a frame, and even when it rested before letting go), else the nearest edge. A
+ * wheel burst (no swipe, no velocity) settles on the nearest edge.
+ */
+export function settleTarget(offset: number, layout: StripLayout, velocity = 0, swipe?: Swipe): number {
+	const way = Math.abs(velocity) >= SWIPE_SPEED ? Math.sign(velocity) : swipe && swipe.ms < SHORT_SWIPE_MS ? Math.sign(swipe.dx) : 0;
+	// the picture moving right (+) brings the previous frame in
+	return way ? stepTarget(offset, way > 0 ? -1 : 1, layout) : nearestEdge(offset, layout);
+}
+
+/** equal pages, `perView` side by side with `gap` px between them, in a window `width` px wide */
+export interface PageLayout {
+	/** one page plus its gap, px – on the device grid, rounded down so the last page in view is never clipped */
+	pitch: number;
+	layout: StripLayout;
+	/** loops with a page more than fit in view; with fewer it is whole and still */
+	fit: StripFit;
+}
+
+/**
+ * The home slider's pages on the band's geometry: `count` frames one pitch wide (the gap inside each, after its page),
+ * so the gap after the last page in view falls outside the window. The layout options (per view, gap) are the
+ * component's – this only does the arithmetic.
+ */
+export function pageLayout(count: number, perView: number, width: number, gap: number, dpr: number): PageLayout {
+	const per = Math.max(1, Math.floor(perView));
+	const pitch = Math.max(0, Math.floor(((width + gap) / per) * dpr) / dpr);
+	const layout = frameLayout(Array.from({ length: Math.max(0, count) }, () => 1), pitch, dpr);
+	const fit: StripFit = count > per && pitch > 0 ? stripFit(layout, width, dpr) : { mode: 'still', window: width, inset: 0 };
+	return { pitch, layout, fit };
 }
 
 /**

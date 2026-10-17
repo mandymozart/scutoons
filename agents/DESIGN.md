@@ -495,8 +495,10 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   Download inklusive · weltweiter Versand" (caption, muted), then each featured edition (`/products/featured/`, chosen in
   the admin's "Startseite") under a 2px ink rule: name (1.25rem bold), sizes and colours (sold out struck through, "(ausverkauft)"
   for screen readers), price bold, "Limitiert auf N Stück" + the product's credits (caption, muted), "Kaufen" (primary,
-  the Bandcamp link; "Ausverkauft" disabled when every colour is sold out) and the existing Swiper slider
-  (`product-slides.svelte`: 1-up < 768 px, 3-up from 768 px). Desktop ≥ 1024 px: text left (17.5rem), slider right;
+  the Bandcamp link; "Ausverkauft" disabled when every colour is sold out) and the slider (`product-slides.svelte` on
+  the endless band's utility, `slides-pager.ts`: 1-up < 768 px, 3-up from 768 px, a 16 px gap (1rem: 14 px on phones ≤ 480 px), looping, dragged with
+  the short-swipe rule, autoplay 5 s – held on hover / keyboard focus / a hidden tab, stopped by any interaction, off
+  with reduced motion; prev / pause-play / next below, square and grouped, only when more images than fit). Desktop ≥ 1024 px: text left (17.5rem), slider right;
   below: centred text, slider underneath. "Alle Editionen" (secondary, 2px `border-muted`) → the shop. Footer: 2px ink rule,
   "SCUTOONS · Keine Werbung, kein Tracking." bold + "Termine · Quellenangaben" (`/events`, `/attributions` – there are no
   Impressum / Datenschutz routes yet). Only finished things: no release dates, no chapter announcements. Strings:
