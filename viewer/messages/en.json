@@ -597,10 +597,6 @@
 		"attributions": "Attributions",
 		"stores": "Where to buy",
 		"local_stores": "Local stores",
-		"slides_prev": "Previous image",
-		"slides_next": "Next image",
-		"slides_pause": "Pause the slideshow",
-		"slides_play": "Play the slideshow",
 		"slide_of": "Image {number} of {count}",
 		"slides_role": "carousel",
 		"slide_role": "slide"

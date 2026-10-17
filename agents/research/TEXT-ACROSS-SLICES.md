@@ -355,7 +355,9 @@ Startseiten-Slider auf unser Werkzeug."). ScoreView behind `import('@scutoons/re
 - **Then, size M:**
   - strip-drag gets `blocked()` in place of `data-vn-blocking`, a wheel settle hook, and keys separate from touch.
   - strip-loop gets `settle()` with a short-swipe rule, `indexAt`, and a settle-once event.
-  - product-slides: button arrows, autoplay pause control + reduced-motion, `user-select:none`, a width-only ResizeObserver.
+  - product-slides: autoplay held on hover / touch / drag / focus + off with reduced motion, `user-select:none`, a
+    width-only ResizeObserver; no buttons – the owner took the control row out after seeing it live (2026-10-17), ← / → on
+    the focusable slider instead.
   - check-landing probes rewritten. The utility stays in viewer/.
 - **Answers Q12** (loop + autoplay kept, on our utility, not scroll-snap) **and Q13** (scroll-snap, not Swiper or the utility). §8 step 4 then removes the package.
 - **Risks:** no real touch, iOS or wheel device tested yet. The slider gap: 16 px from 768 px (as Swiper), 1rem below –

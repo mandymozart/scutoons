@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { decodeImages } from '$lib/components/toon/renderer/strip-dom.ts';
@@ -8,16 +7,15 @@
 
 	/**
 	 * An edition's images on the landing page (DESIGN.md "Landing page"): 1 per view below 768px, 3 from 768px, looping,
-	 * dragged sideways, one slide on every 5 s until the reader takes over; prev / pause / next below (slides-pager.ts –
-	 * the endless band's utility, owner 2026-10-17). Keyboard: the three buttons (the WAI-ARIA carousel pattern) – the
-	 * viewport takes no focus, so the utility's ← / → stay unused here. Without JS the CSS alone shows the first slides.
+	 * dragged sideways, one slide on every 5 s – held while the reader hovers, touches, drags or focuses it, on again after
+	 * (slides-pager.ts – the endless band's utility, owner 2026-10-17). No buttons under the picture (owner 2026-10-17):
+	 * the viewport takes focus and ← / → move it. Without JS the CSS alone shows the first slides.
 	 */
 	let { images, label }: { images: string[]; label: string } = $props();
 
 	let region = $state<HTMLElement>();
 	let viewport = $state<HTMLElement>();
 	let track = $state<HTMLElement>();
-	let toggleButton = $state<HTMLElement>();
 	let view = $state.raw<SlidesState>({ index: 0, count: 0, perView: 1, movable: false, playing: false, dragging: false });
 	/** the slider is near the screen: every image loads now and is decoded (a slide comes in by a drag, not the scroll) */
 	let near = $state(false);
@@ -25,7 +23,7 @@
 
 	$effect(() => {
 		if (!region || !viewport || !track) return;
-		const made = slidesPager(region, viewport, track, { autoplay: 5000, toggle: () => toggleButton, onstate: (s) => (view = s) });
+		const made = slidesPager(region, viewport, track, { autoplay: 5000, onstate: (s) => (view = s) });
 		pager = made;
 		const nearing = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && ((near = true), nearing.disconnect()), { rootMargin: '100% 0px' });
 		nearing.observe(region);
@@ -58,7 +56,9 @@
 	data-playing={view.playing}
 	bind:this={region}
 >
-	<div class="viewport" class:movable={view.movable} class:dragging={view.dragging} bind:this={viewport}>
+	<!-- focusable so ← / → reach the slider without buttons (strip-drag.ts listens on the viewport) -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div class="viewport" class:movable={view.movable} class:dragging={view.dragging} tabindex={view.movable ? 0 : undefined} bind:this={viewport}>
 		<div class="track" bind:this={track}>
 			{#each images as image, i (image)}
 				<div class="slide" role="group" aria-roledescription={m['home.slide_role']()} aria-label={m['home.slide_of']({ number: i + 1, count: images.length })}>
@@ -67,26 +67,6 @@
 			{/each}
 		</div>
 	</div>
-	{#if view.movable}
-		<div class="controls">
-			<button type="button" aria-label={m['home.slides_prev']()} title={m['home.slides_prev']()} onclick={() => pager?.step(-1)} data-slides-prev>
-				<Icon name="chevron-left" />
-			</button>
-			<button
-				type="button"
-				aria-label={view.playing ? m['home.slides_pause']() : m['home.slides_play']()}
-				title={view.playing ? m['home.slides_pause']() : m['home.slides_play']()}
-				onclick={() => pager?.toggle()}
-				bind:this={toggleButton}
-				data-slides-toggle
-			>
-				<Icon name={view.playing ? 'pause' : 'play'} />
-			</button>
-			<button type="button" aria-label={m['home.slides_next']()} title={m['home.slides_next']()} onclick={() => pager?.step(1)} data-slides-next>
-				<Icon name="chevron-right" />
-			</button>
-		</div>
-	{/if}
 </div>
 
 <style>
@@ -95,14 +75,12 @@
 	.slides {
 		--slides-per-view: 1;
 		--slides-gap: 1rem;
-		--slides-icon: 1.25rem;
 		margin-bottom: 1rem;
 	}
 	@media (min-width: 768px) {
 		.slides {
 			--slides-per-view: 3;
 			--slides-gap: 0.6667rem;
-			--slides-icon: 0.8333rem;
 		}
 	}
 	.viewport {
@@ -141,39 +119,7 @@
 		object-fit: contain;
 		-webkit-user-drag: none;
 	}
-	/* grouped controls are square (DESIGN "Round vs square"), the borders shared */
-	.controls {
-		display: flex;
-		justify-content: center;
-		margin-top: 0.5rem;
-	}
-	.controls button {
-		display: inline-grid;
-		place-items: center;
-		box-sizing: border-box;
-		width: var(--control-height);
-		height: var(--control-height);
-		margin-left: calc(-1 * var(--border-width-regular));
-		padding: 0;
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		color: var(--ink);
-		cursor: pointer;
-		touch-action: manipulation;
-	}
-	.controls button:first-child {
-		margin-left: 0;
-	}
-	.controls button:hover {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.controls button :global(.icon) {
-		width: var(--slides-icon);
-		height: var(--slides-icon);
-	}
-	.controls button:focus-visible {
-		position: relative;
+	.viewport:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: var(--focus-offset);
 	}

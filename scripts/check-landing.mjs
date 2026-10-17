@@ -263,21 +263,21 @@ async function guest(width, height, locale) {
 		report(`LIMITED EDITIONS: ${got.join(', ')} – sizes, price, "${fill(msg.home.limited, { count: 'N' })}", "${msg.home.buy}", slider ${width >= 768 ? '3-up' : '1-up'}, "${msg.home.all_editions}"`, p);
 	}
 	{
-		// the slider's buttons (product-slides.svelte): the first edition with more images than fit in view (2 images in a
-		// 3-up slider are whole and still – no buttons); pause first so only the clicks count, then next, prev, and prev
-		// from the first slide round to the last
-		const pick = `[...document.querySelectorAll('[data-testid="edition"] [data-slides]')].find((sw) => sw.querySelector('[data-slides-next]'))`;
-		const slider = () => evaluate(`(() => { const sw = ${pick}; return { index: Number(sw.dataset.index), playing: sw.dataset.playing === 'true', count: sw.querySelectorAll('.slide').length, labels: ['prev', 'toggle', 'next'].map((k) => sw.querySelector('[data-slides-' + k + ']')?.getAttribute('aria-label')) }; })()`);
-		const press = async (sel) => {
-			const b = await evaluate(`(() => { const b = (${pick}).querySelector('${sel}').getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; })()`);
-			await clickAt(b.x, b.y);
+		// the slider (product-slides.svelte, owner 2026-10-17: no buttons under the picture): the first edition with more
+		// images than fit in view (2 images in a 3-up slider are whole and still); autoplay on, no buttons, the viewport
+		// takes focus and → / ← move one slide, ← from the first slide loops round to the last; focus only holds autoplay
+		const pick = `[...document.querySelectorAll('[data-testid="edition"] [data-slides]')].find((sw) => sw.querySelector('.viewport[tabindex]'))`;
+		const slider = () => evaluate(`(() => { const sw = ${pick}; return { index: Number(sw.dataset.index), playing: sw.dataset.playing === 'true', count: sw.querySelectorAll('.slide').length, buttons: sw.querySelectorAll('button').length, focused: document.activeElement === sw.querySelector('.viewport') }; })()`);
+		const key = async (name) => {
+			const code = name === 'ArrowRight' ? 39 : 37;
+			for (const type of ['rawKeyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: name, code: name, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
 			await sleep(700);
 			return slider();
 		};
 		const p = [];
 		const r = await evaluate(`(async () => {
 			const sw = ${pick};
-			if (!sw) return { error: 'no slider with buttons' };
+			if (!sw) return { error: 'no movable slider' };
 			sw.scrollIntoView({ block: 'center' });
 			await new Promise((r) => setTimeout(r, 400));
 			return true;
@@ -286,21 +286,23 @@ async function guest(width, height, locale) {
 		else {
 			const start = await slider();
 			if (!start.playing) p.push('autoplay is not on at the start');
-			if (JSON.stringify(start.labels) !== JSON.stringify([msg.home.slides_prev, msg.home.slides_pause, msg.home.slides_next])) p.push(`button labels ${JSON.stringify(start.labels)}`);
-			const paused = await press('[data-slides-toggle]');
-			if (paused.playing || paused.labels[1] !== msg.home.slides_play) p.push(`pause: playing ${paused.playing}, label "${paused.labels[1]}"`);
-			const n = paused.count;
-			const next = await press('[data-slides-next]');
-			if (next.index !== (paused.index + 1) % n) p.push(`next: ${paused.index} → ${next.index}`);
-			const prev = await press('[data-slides-prev]');
-			if (prev.index !== paused.index) p.push(`prev: ${next.index} → ${prev.index}`);
+			if (start.buttons) p.push(`${start.buttons} buttons in the slider (expected none)`);
+			await evaluate(`(${pick}).querySelector('.viewport').focus(), true`);
+			const from = await slider();
+			if (!from.focused) p.push('the viewport takes no focus');
+			const n = from.count;
+			const next = await key('ArrowRight');
+			if (next.index !== (from.index + 1) % n) p.push(`→: ${from.index} → ${next.index}`);
+			const prev = await key('ArrowLeft');
+			if (prev.index !== from.index) p.push(`←: ${next.index} → ${prev.index}`);
 			let now = prev;
-			for (let i = 0; i < n && now.index !== 0; i++) now = await press('[data-slides-next]');
-			const round = await press('[data-slides-prev]');
-			if (now.index !== 0 || round.index !== n - 1) p.push(`prev from the first slide: ${now.index} → ${round.index} (expected ${n - 1})`);
-			if (round.playing) p.push('a button started the autoplay again');
+			for (let i = 0; i < n && now.index !== 0; i++) now = await key('ArrowRight');
+			const round = await key('ArrowLeft');
+			if (now.index !== 0 || round.index !== n - 1) p.push(`← from the first slide: ${now.index} → ${round.index} (expected ${n - 1})`);
+			await evaluate(`(${pick}).querySelector('.viewport').blur(), true`);
+			if (!(await slider()).playing) p.push('the keys stopped the autoplay (they should only restart its countdown)');
 		}
-		report('the slider: autoplay on, pause stops it, next / prev move one slide and loop round, the buttons\' labels', p);
+		report('the slider: autoplay on, no buttons, the viewport takes focus, → / ← move one slide and loop round', p);
 	}
 	{
 		const p = [];

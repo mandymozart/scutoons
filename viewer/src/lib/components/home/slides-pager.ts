@@ -1,9 +1,9 @@
 import { ease, indexAt, keepPlace, nearestEdge, pageLayout, placeFrames, settleTarget, stepTarget, type Motion, type PageLayout } from '$lib/components/toon/renderer/strip-loop.ts';
 import { stripDrag, type StripInput } from '$lib/components/toon/renderer/strip-drag.ts';
 import { rootRem } from '$lib/components/toon/renderer/strip-dom.ts';
-import { autoplayAfter, autoplayRuns, autoplayStarts } from './slides-autoplay.ts';
+import { autoplayOn, autoplayRuns } from './slides-autoplay.ts';
 
-/** what the slider shows (product-slides.svelte draws the controls from it) */
+/** what the slider shows (product-slides.svelte's data attributes) */
 export interface SlidesState {
 	/** the slide at the window's left */
 	index: number;
@@ -11,16 +11,12 @@ export interface SlidesState {
 	perView: number;
 	/** more slides than fit: it loops, drags and plays */
 	movable: boolean;
-	/** autoplay is on (the pause control shows "pause") – hover, focus or a hidden tab only hold it */
+	/** autoplay is on (more slides than fit, no reduced motion) – a hold only pauses it */
 	playing: boolean;
 	dragging: boolean;
 }
 
 export interface SlidesPager {
-	/** prev (−1) / next (+1) – an interaction: autoplay stops */
-	step(by: 1 | -1): void;
-	/** the pause / play control */
-	toggle(): void;
 	/** the slides changed (another variant's images) */
 	update(): void;
 	destroy(): void;
@@ -29,8 +25,6 @@ export interface SlidesPager {
 export interface SlidesOptions {
 	/** ms per slide, 0 = no autoplay */
 	autoplay: number;
-	/** the autoplay control: focus on it holds nothing (it would hold what it just started) */
-	toggle?: () => HTMLElement | undefined;
 	onstate(state: SlidesState): void;
 }
 
@@ -38,10 +32,10 @@ export interface SlidesOptions {
  * The home product slider (owner 2026-10-17 "Startseiten-Slider auf unser Werkzeug", TEXT-ACROSS-SLICES.md §9) on the
  * endless band's utility: strip-loop.ts lays the slides on the device grid and wraps them by `left: k·T` (no clones),
  * strip-drag.ts does the drag (dead zone, axis lock, click swallow, deltaX wheel). On top, paging: a drag, a wheel burst
- * or a tap that stopped a slide settles on a slide edge (the short-swipe rule – settleTarget), buttons and autoplay ease
- * one slide on. Autoplay: paused while a mouse is over the slides, keyboard focus is in the slider (not on the control
- * itself) or the tab is hidden; any interaction stops it until the control starts it again (WCAG 2.2.2); off from the
- * start with reduced motion (eases jump then) – the rules: slides-autoplay.ts. Per view and gap are the component's CSS
+ * or a tap that stopped a slide settles on a slide edge (the short-swipe rule – settleTarget), ← / → (the viewport is
+ * focusable) and autoplay ease one slide on. No buttons (owner 2026-10-17). Autoplay: held while a mouse is over the
+ * slides, keyboard focus is in the slider, a finger is on it, it is dragged or the tab is hidden, and the countdown starts
+ * anew once the hold ends; an interaction restarts it; off with reduced motion (eases jump then) – slides-autoplay.ts. Per view and gap are the component's CSS
  * (`--slides-per-view`, a number; `--slides-gap`, in rem); a width-only ResizeObserver re-measures in the next frame –
  * lazy images change only the height, and a layout written inside the observer's delivery looped in WebKit (measured).
  */
@@ -61,8 +55,8 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 	let motion: Motion | null = null;
 	let frame = 0;
 	let timer = 0;
-	let playing = autoplayStarts(o.autoplay, reduced.matches);
 	let hover = false;
+	let touch = false;
 	let focus = false;
 	let dragging = false;
 	let shown = -1;
@@ -70,7 +64,8 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 
 	const movable = () => pages?.fit.mode === 'loop';
 	const toRem = (px: number) => `${px / rem}rem`;
-	const state = (): SlidesState => ({ index: Math.max(0, shown), count: slides().length, perView, movable: movable(), playing, dragging });
+	const playing = () => autoplayOn(o.autoplay, reduced.matches) && movable();
+	const state = (): SlidesState => ({ index: Math.max(0, shown), count: slides().length, perView, movable: movable(), playing: playing(), dragging });
 	const emit = () => o.onstate(state());
 
 	function render() {
@@ -149,18 +144,15 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 	function schedule() {
 		win.clearTimeout(timer);
 		timer = 0;
-		if (autoplayRuns(playing, movable(), { hover, focus, dragging, hidden: doc.hidden }))
+		if (autoplayRuns(autoplayOn(o.autoplay, reduced.matches), movable(), { hover, focus, touch, dragging, hidden: doc.hidden }))
 			timer = win.setTimeout(() => {
 				timer = 0;
 				step(1);
 				schedule();
 			}, o.autoplay);
 	}
-	/** the reader took over: autoplay stops until the control starts it again */
-	function interact() {
-		if (playing) (playing = autoplayAfter(playing, 'interact', movable())), emit();
-		schedule();
-	}
+	/** the reader moved it: the countdown starts anew */
+	const interact = schedule;
 
 	const input: StripInput = {
 		enabled: movable,
@@ -171,7 +163,7 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 			offset += dx;
 			render();
 		},
-		// a drag let go, or a tap that stopped a slide (on touch no hover holds autoplay: the tap stops it)
+		// a drag let go, or a tap that stopped a slide
 		release(velocity, swipe) {
 			interact();
 			if (pages) go(settleTarget(offset, pages.layout, velocity, swipe));
@@ -192,10 +184,13 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 
 	const onEnter = (e: PointerEvent) => e.pointerType === 'mouse' && ((hover = true), schedule());
 	const onLeave = () => ((hover = false), schedule());
-	const keyboard = (el: EventTarget | null) => el instanceof Element && el !== o.toggle?.() && el.matches(':focus-visible');
+	const keyboard = (el: EventTarget | null) => el instanceof Element && el.matches(':focus-visible');
 	const onFocus = (e: FocusEvent) => ((focus = keyboard(e.target)), schedule());
 	const onBlur = (e: FocusEvent) => !region.contains(e.relatedTarget as Node | null) && ((focus = false), schedule());
-	const onMotion = () => reduced.matches && playing && ((playing = autoplayAfter(playing, 'reduced', movable())), emit(), schedule());
+	// a finger (or pen) on the slides holds it until it lifts – also when the page takes the gesture (a vertical swipe)
+	const onDown = (e: PointerEvent) => e.pointerType !== 'mouse' && ((touch = true), schedule());
+	const onUp = (e: PointerEvent) => touch && e.pointerType !== 'mouse' && ((touch = false), schedule());
+	const onMotion = () => (emit(), schedule());
 	// width only: a lazy image loading changes the height, and must not reset the place
 	const observer = new ResizeObserver(() => {
 		if (!resize)
@@ -207,6 +202,9 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 	const undrag = stripDrag(input)(viewport) as () => void;
 	viewport.addEventListener('pointerenter', onEnter);
 	viewport.addEventListener('pointerleave', onLeave);
+	viewport.addEventListener('pointerdown', onDown);
+	win.addEventListener('pointerup', onUp);
+	win.addEventListener('pointercancel', onUp);
 	region.addEventListener('focusin', onFocus);
 	region.addEventListener('focusout', onBlur);
 	doc.addEventListener('visibilitychange', schedule);
@@ -215,15 +213,6 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 	measure();
 
 	return {
-		step(by) {
-			interact();
-			step(by);
-		},
-		toggle() {
-			playing = autoplayAfter(playing, 'toggle', movable());
-			emit();
-			schedule();
-		},
 		update: measure,
 		destroy() {
 			stop();
@@ -233,6 +222,9 @@ export function slidesPager(region: HTMLElement, viewport: HTMLElement, track: H
 			observer.disconnect();
 			viewport.removeEventListener('pointerenter', onEnter);
 			viewport.removeEventListener('pointerleave', onLeave);
+			viewport.removeEventListener('pointerdown', onDown);
+			win.removeEventListener('pointerup', onUp);
+			win.removeEventListener('pointercancel', onUp);
 			region.removeEventListener('focusin', onFocus);
 			region.removeEventListener('focusout', onBlur);
 			doc.removeEventListener('visibilitychange', schedule);
