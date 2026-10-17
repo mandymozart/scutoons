@@ -5,6 +5,7 @@
 // file changes. Output: media/scutoons/vectors-survey/<page>/ (the local dev media, not in git).
 //   node scripts/vectors-survey.mjs [--page Vector] [--min 80] [--no-thumbs] [--from-tree]
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import { bridge as call } from '../tools/figma-bridge/cli.mjs';
 
@@ -85,5 +86,30 @@ if (!args.includes('--no-thumbs')) {
 		if (++i % 25 === 0) console.log(`${i} thumbs`);
 	}
 }
-fs.writeFileSync(path.join(out, 'survey.json'), JSON.stringify({ page: pageName, min: MIN, candidates }, null, '\t'));
+/** a thumbnail with nothing to see: every pixel transparent (Figma: "no visible layers" – paths without fill or stroke) */
+function invisible(file) {
+	const png = fs.readFileSync(file);
+	const width = png.readUInt32BE(16);
+	const channels = { 6: 4, 4: 2, 2: 3, 0: 1 }[png[25]] ?? 4;
+	const parts = [];
+	for (let at = 8; at < png.length; ) {
+		const len = png.readUInt32BE(at);
+		if (png.toString('latin1', at + 4, at + 8) === 'IDAT') parts.push(png.subarray(at + 8, at + 8 + len));
+		at += len + 12;
+	}
+	const raw = zlib.inflateSync(Buffer.concat(parts));
+	const row = width * channels + 1;
+	// a transparent image filters to zeros under every PNG filter: everything but each row's filter byte is 0
+	for (let i = 0; i < raw.length; i++) if (i % row !== 0 && raw[i] !== 0) return false;
+	return true;
+}
+
+const hidden = [];
+for (const c of [...candidates]) {
+	if (!c.thumb || c.error || !fs.existsSync(path.join(out, c.thumb)) || !invisible(path.join(out, c.thumb))) continue;
+	hidden.push({ id: c.id, name: c.name, w: c.w, h: c.h });
+	candidates.splice(candidates.indexOf(c), 1);
+}
+if (hidden.length) console.log(`${hidden.length} without visible layers left out`);
+fs.writeFileSync(path.join(out, 'survey.json'), JSON.stringify({ page: pageName, min: MIN, candidates, invisible: hidden }, null, '\t'));
 console.log(`→ ${path.relative(process.cwd(), out)}`);
