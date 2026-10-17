@@ -40,6 +40,7 @@
 		"check:creator-flow-dock": "node scripts/dev/creator-flow-dock-check.mjs",
 		"check:creator-reader": "node scripts/dev/creator-reader-check.mjs",
 		"check:endless": "node scripts/dev/endless-check.mjs",
+		"check:endless-engines": "node scripts/dev/endless-engines-check.mjs",
 		"check:tools-dock": "node scripts/dev/tools-dock-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",
 		"build:mcp": "node tools/mcp/scripts/build.mjs",
@@ -69,5 +70,8 @@
 		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary",
 		"deploy:status": "node deploy/status.mjs",
 		"deploy:changed": "node deploy/changed.mjs"
+	},
+	"devDependencies": {
+		"playwright-core": "1.55.0"
 	}
 }

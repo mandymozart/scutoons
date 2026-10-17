@@ -1,4 +1,4 @@
-Status 2026-10-17: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built (the endless band, format + migration – not deployed), Q8–Q11 decided (DECISIONS 2026-10-16); the Q10 hint nudge built; Swiper elsewhere measured and built (§9, owner's go 2026-10-17: score → scroll-snap + lazy, home slider → our utility, the package removed = §8 step 4) – open: §8 step 3, Q1–Q4, Q7. FEATURES 10.100.
+Status 2026-10-17: concept + plan, researched (code, real data, three browser engines; horizontal groups §7; Swiper → endless strip §8, owner-decided); §8 steps 1–2 built and live (the endless band, format + migration, applied 2026-10-16; check:endless in Chrome, check:endless-engines in Chromium / Firefox / WebKit), Q8–Q11 decided (DECISIONS 2026-10-16); the Q10 hint nudge built; Swiper elsewhere measured and built (§9, owner's go 2026-10-17: score → scroll-snap + lazy, home slider → our utility, the package removed = §8 step 4) – open: §8 step 3, Q1–Q4, Q7. FEATURES 10.100.
 
 # Slices as background: the strip editor
 
