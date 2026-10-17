@@ -83,9 +83,9 @@ item: `grep "10.N" agents/archive/BACKLOG.md`. `[owner]` = only the owner can do
   toon page prefetch, split heavy features, a data budget). → research/LOADING.md
 - [ ] 10.100 **Slices as background: endless strip + strip editor** – owner 2026-10-15: "Ditch Swiper. Give our own
   strip an endless drag mode (loop + momentum, no 3D effects)", "having text boxes pass is good as a tool". §8 steps 1–2
-  built and live (band, format; the migration applied 2026-10-16), checked in Chrome (check:endless) and in Chromium,
-  Firefox, WebKit (check:endless-engines); open: the owner's phone + desktop try (real touch), no check:resume, §8 step 3
-  (paint rule, sliceEdges; step 4, Swiper elsewhere, done 2026-10-17 – §9); then strip editor → slice ids → tall
+  live (band, format; the migration applied 2026-10-16 16:31), Swiper fully gone (§9); checked in Chrome (check:endless)
+  and in Chromium, Firefox, WebKit (check:endless-engines – touch and reading progress only in Chrome); open: the owner's
+  phone try (real touch), no check:resume, §8 step 3 (paint rule, sliceEdges); then strip editor → slice ids → tall
   pictures. `decide` Q1–Q4, Q7.
   → research/TEXT-ACROSS-SLICES.md §8
 - [ ] 10.106 **Record player: dark bar + a shinier turntable** [owner, later] – owner 2026-10-16: "Later we'll take care of

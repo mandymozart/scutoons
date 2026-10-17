@@ -24,6 +24,8 @@
 // drags stay inside; the hint's bounce zooms the band for a moment – hints are off (the /me/ answer rewritten) but in 13.
 // Not here: touch (Playwright can't swipe in Firefox / WebKit – endless-check.mjs swipes in Chrome; a real phone for the
 // rest), a frame decoded before its first paint, reading progress.
+// The browsers: `npx playwright-core install chromium firefox webkit` installs the builds of the pinned playwright-core
+// (into %LOCALAPPDATA%\ms-playwright) – not `npx playwright install`: that fetches the newest playwright, other builds.
 //   node scripts/dev/endless-engines-check.mjs [--engines=chromium,firefox,webkit] [--only=390|1440|1.5]
 //        [--page=/de/catpope/chapter/2] [--group=0] [--pinned=<group index>]   (viewer :8000, API :9000 – local only)
 import { chromium, firefox, webkit } from 'playwright-core';
