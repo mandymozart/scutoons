@@ -2,7 +2,8 @@
 // ungroup them to have a greater variety"): reads the page over the SCUTOONS Figma bridge, picks the candidates – the
 // named things, every group and the parts inside it ("ungrouped": a part big enough on its own), loose vectors – drops
 // copies (same name, size and child count), exports a thumbnail of each and writes survey.json. Nothing in the Figma
-// file changes. Output: media/scutoons/vectors-survey/<page>/ (the local dev media, not in git).
+// file changes. A candidate whose node is already in the library (vectors.json, incl. `figma.copies`) carries `library:
+// <slug>`. Output: media/scutoons/vectors-survey/<page>/ (the local dev media, not in git).
 //   node scripts/vectors-survey.mjs [--page Vector] [--min 80] [--no-thumbs] [--from-tree]
 import fs from 'node:fs';
 import zlib from 'node:zlib';
@@ -69,6 +70,16 @@ for (const c of found) {
 	}
 }
 console.log(`${found.length} found, ${candidates.length} after copies (${candidates.filter((c) => c.named).length} named)`);
+
+// already in the library (by Figma node): marked, so the contact sheet can show only the new ones
+const library = new Map();
+for (const v of JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '../shared/tokens/vectors/vectors.json'), 'utf8')).vectors)
+	for (const node of [v.figma?.node, ...(v.figma?.copies ?? [])]) if (node) library.set(node, v.slug);
+for (const c of candidates) {
+	const known = [c.id, ...c.copies].find((id) => library.has(id));
+	if (known) c.library = library.get(known);
+}
+console.log(`${candidates.filter((c) => c.library).length} already in the library`);
 
 if (!args.includes('--no-thumbs')) {
 	let i = 0;

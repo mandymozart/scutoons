@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	/**
-	 * The whole vector library (@scutoons/tokens/vectors, 429 shapes) for the collage – every file its own lazy chunk,
+	 * The whole vector library (@scutoons/tokens/vectors, 423 shapes) for the collage – every file its own lazy chunk,
 	 * loaded only for the shapes a page shows; the list itself (vectors.json) also loads only with this look.
 	 */
 	const RAW = import.meta.glob('../../../tokens/vectors/*.svg', { query: '?raw', import: 'default' }) as Record<string, () => Promise<string>>;
@@ -9,7 +9,7 @@
 
 	export interface Vector {
 		slug: string;
-		role: string;
+		tags: string[];
 		mask?: boolean;
 		bytes?: number;
 		width?: number;
@@ -44,7 +44,7 @@
 	/** negative and difference blends first – they turn the music and the art into each other's negatives. On white paper
 	 *  screen / dodge / overlay / burn only show where art lies on art, so they stay rare */
 	const BLENDS = ['difference', 'difference', 'difference', 'exclusion', 'exclusion', 'multiply', 'multiply', 'hard-light', 'luminosity', 'color-burn', 'screen', 'normal'];
-	/** roles that are mostly thin strokes */
+	/** tags of shapes that are mostly thin strokes */
 	const THIN = new Set(['line', 'brush']);
 	const FILTERS = ['none', 'none', 'invert(1)', 'grayscale(1) contrast(1.8)', 'hue-rotate(140deg) saturate(2.2)', 'invert(1) hue-rotate(180deg)', 'contrast(2.4) brightness(1.1)', 'saturate(3)'];
 	let pageIds = 0;
@@ -97,7 +97,7 @@
 			for (let i = 0, n = 14 + Math.floor(next() * 9); i < n; i++) {
 				// thin lines only now and then – the collage wants areas
 				let v = pick(vectors);
-				if (THIN.has(v.role) && next() < 0.75) v = pick(vectors);
+				if (v.tags.some((t) => THIN.has(t)) && next() < 0.75) v = pick(vectors);
 				const big = (v.bytes ?? 0) > INLINE_MAX;
 				const modes: Mode[] = big ? ['asis'] : v.mask ? ['solid', 'solid', 'gradient', 'gradient', 'outline'] : ['asis', 'outline', 'gradient'];
 				const piece: Piece = {

@@ -11,15 +11,14 @@
 		{
 			"slug": "crescent-chain",
 			"title": "Crescent chain",
-			"role": "band",
-			"tile": "y",
 			"tags": [
+				"band",
 				"ornament",
-				"red",
 				"crescent",
 				"border",
 				"medieval"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2819:3886",
@@ -42,15 +41,14 @@
 		{
 			"slug": "crescent-chain-across",
 			"title": "Crescent chain, across",
-			"role": "band",
-			"tile": "x",
 			"tags": [
+				"band",
 				"ornament",
-				"red",
 				"crescent",
 				"border",
 				"medieval"
 			],
+			"tile": "x",
 			"derived": {
 				"from": "crescent-chain",
 				"rotate": 90
@@ -71,14 +69,13 @@
 		{
 			"slug": "crescent-boxes",
 			"title": "Crescent chain with boxes",
-			"role": "band",
-			"tile": "y",
 			"tags": [
+				"band",
 				"ornament",
-				"red",
 				"crescent",
 				"border"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2819:3889",
@@ -98,15 +95,14 @@
 		{
 			"slug": "dot-branch",
 			"title": "Dot branch",
-			"role": "motif",
-			"tile": null,
 			"tags": [
+				"motif",
 				"ornament",
-				"red",
 				"dots",
 				"branch",
 				"tree"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2819:3887",
@@ -126,15 +122,14 @@
 		{
 			"slug": "dot-ladder",
 			"title": "Dot ladder",
-			"role": "band",
-			"tile": "y",
 			"tags": [
+				"band",
 				"ornament",
-				"red",
 				"dots",
 				"ladder",
 				"border"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3524:5644",
@@ -154,17 +149,16 @@
 		{
 			"slug": "wreath",
 			"title": "Crescent wreath",
-			"role": "ring",
-			"tile": null,
 			"tags": [
+				"ring",
 				"ornament",
-				"red",
 				"crescent",
 				"dots",
 				"circle",
 				"corner",
 				"medallion"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3527:5711",
@@ -186,14 +180,14 @@
 		{
 			"slug": "vine-dots",
 			"title": "Thorn vine",
-			"role": "band",
-			"tile": "y",
 			"tags": [
+				"band",
 				"ornament",
 				"vine",
 				"thorns",
 				"border"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8996",
@@ -213,16 +207,15 @@
 		{
 			"slug": "arch-dots",
 			"title": "Arch with dots",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
+				"frieze-unit",
 				"ornament",
-				"black",
 				"arch",
 				"dots",
 				"arcade",
 				"frieze"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14688",
@@ -246,15 +239,14 @@
 		{
 			"slug": "scroll-filigree",
 			"title": "Scroll filigree",
-			"role": "filigree",
-			"tile": null,
 			"tags": [
+				"filigree",
 				"ornament",
-				"black",
 				"scroll",
 				"symmetric",
 				"headpiece"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12639",
@@ -274,16 +266,15 @@
 		{
 			"slug": "scrooge-face-line",
 			"title": "Uncle Scrooge face, line art",
-			"role": "motif",
-			"tile": null,
 			"tags": [
+				"motif",
 				"character",
 				"scrooge",
 				"dagobert",
 				"face",
-				"red",
 				"line-art"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15315",
@@ -305,14 +296,13 @@
 		{
 			"slug": "damask-open",
 			"title": "Damask, open",
-			"role": "filigree",
-			"tile": null,
 			"tags": [
+				"filigree",
 				"ornament",
-				"black",
 				"damask",
 				"symmetric"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4831",
@@ -333,15 +323,14 @@
 		{
 			"slug": "damask-silhouette",
 			"title": "Damask, silhouette",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
+				"silhouette",
 				"ornament",
-				"black",
 				"damask",
 				"symmetric",
 				"shape"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5080",
@@ -362,16 +351,15 @@
 		{
 			"slug": "pope-mandala",
 			"title": "Pope mandala",
-			"role": "seal",
-			"tile": null,
 			"tags": [
+				"seal",
 				"ornament",
 				"catpope",
 				"face",
 				"circle",
-				"black-white",
 				"medallion"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3746",
@@ -392,19 +380,16 @@
 		{
 			"slug": "damask-white",
 			"title": "Damask white",
-			"role": "filigree",
-			"tile": null,
 			"tags": [
 				"filigree",
-				"damask",
-				"white"
+				"damask"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2355",
 				"name": "Frame"
 			},
-			"suggested": true,
 			"path": "vectors/damask-white.svg",
 			"width": 1018,
 			"height": 979,
@@ -418,20 +403,17 @@
 		{
 			"slug": "damask-white-2",
 			"title": "Damask white 2",
-			"role": "filigree",
-			"tile": null,
 			"tags": [
 				"filigree",
-				"damask",
-				"white"
+				"damask"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2356",
 				"name": "Group",
 				"frame": "555:2355"
 			},
-			"suggested": true,
 			"path": "vectors/damask-white-2.svg",
 			"width": 1018,
 			"height": 979,
@@ -445,20 +427,17 @@
 		{
 			"slug": "damask-white-3",
 			"title": "Damask white 3",
-			"role": "filigree",
-			"tile": null,
 			"tags": [
 				"filigree",
-				"damask",
-				"white"
+				"damask"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2357",
 				"name": "Vector",
 				"frame": "555:2355"
 			},
-			"suggested": true,
 			"path": "vectors/damask-white-3.svg",
 			"width": 1018,
 			"height": 979,
@@ -472,20 +451,17 @@
 		{
 			"slug": "spire-mandala-white",
 			"title": "Spire mandala white",
-			"role": "seal",
-			"tile": null,
 			"tags": [
 				"seal",
 				"spire",
-				"mandala",
-				"white"
+				"mandala"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2360",
 				"name": "Frame"
 			},
-			"suggested": true,
 			"path": "vectors/spire-mandala-white.svg",
 			"width": 1029,
 			"height": 1026,
@@ -500,21 +476,18 @@
 		{
 			"slug": "spire-mandala-white-2",
 			"title": "Spire mandala white 2",
-			"role": "seal",
-			"tile": null,
 			"tags": [
 				"seal",
 				"spire",
-				"mandala",
-				"white"
+				"mandala"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2361",
 				"name": "Group",
 				"frame": "555:2360"
 			},
-			"suggested": true,
 			"path": "vectors/spire-mandala-white-2.svg",
 			"width": 1029,
 			"height": 1026,
@@ -529,21 +502,18 @@
 		{
 			"slug": "spire-mandala-white-3",
 			"title": "Spire mandala white 3",
-			"role": "seal",
-			"tile": null,
 			"tags": [
 				"seal",
 				"spire",
-				"mandala",
-				"white"
+				"mandala"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2362",
 				"name": "Vector",
 				"frame": "555:2360"
 			},
-			"suggested": true,
 			"path": "vectors/spire-mandala-white-3.svg",
 			"width": 1024,
 			"height": 1024,
@@ -558,21 +528,18 @@
 		{
 			"slug": "drip-curtain-white",
 			"title": "Drip curtain white",
-			"role": "band",
-			"tile": "x",
 			"tags": [
 				"band",
 				"drip",
-				"curtain",
-				"white"
+				"curtain"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2363",
 				"name": "Vector",
 				"frame": "555:2360"
 			},
-			"suggested": true,
 			"path": "vectors/drip-curtain-white.svg",
 			"width": 1029,
 			"height": 1026,
@@ -587,20 +554,17 @@
 		{
 			"slug": "skull-cloud-white",
 			"title": "Skull cloud white",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
 				"cloud",
-				"skull",
-				"white"
+				"skull"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2364",
 				"name": "Vector",
 				"frame": "555:2360"
 			},
-			"suggested": true,
 			"path": "vectors/skull-cloud-white.svg",
 			"width": 218,
 			"height": 283,
@@ -615,20 +579,17 @@
 		{
 			"slug": "flames-white",
 			"title": "Flames white",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
-				"flames",
-				"white"
+				"flames"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2365",
 				"name": "Vector",
 				"frame": "555:2360"
 			},
-			"suggested": true,
 			"path": "vectors/flames-white.svg",
 			"width": 281,
 			"height": 349,
@@ -643,20 +604,17 @@
 		{
 			"slug": "splat-white",
 			"title": "Splat white",
-			"role": "splash",
-			"tile": null,
 			"tags": [
 				"splash",
-				"splat",
-				"white"
+				"splat"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2366",
 				"name": "Vector",
 				"frame": "555:2360"
 			},
-			"suggested": true,
 			"path": "vectors/splat-white.svg",
 			"width": 327,
 			"height": 162,
@@ -671,20 +629,17 @@
 		{
 			"slug": "flames-white-2",
 			"title": "Flames white 2",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
-				"flames",
-				"white"
+				"flames"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2367",
 				"name": "Vector",
 				"frame": "555:2360"
 			},
-			"suggested": true,
 			"path": "vectors/flames-white-2.svg",
 			"width": 238,
 			"height": 305,
@@ -699,20 +654,17 @@
 		{
 			"slug": "circuit-blue",
 			"title": "Circuit blue",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"circuit",
-				"blue"
+				"circuit"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2530",
 				"name": "Vector",
 				"frame": "555:2528"
 			},
-			"suggested": true,
 			"path": "vectors/circuit-blue.svg",
 			"width": 316,
 			"height": 684,
@@ -726,20 +678,17 @@
 		{
 			"slug": "circuit-blue-2",
 			"title": "Circuit blue 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"circuit",
-				"blue"
+				"circuit"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2531",
 				"name": "Vector",
 				"frame": "555:2528"
 			},
-			"suggested": true,
 			"path": "vectors/circuit-blue-2.svg",
 			"width": 318,
 			"height": 516,
@@ -753,21 +702,18 @@
 		{
 			"slug": "dot-circuit-blue",
 			"title": "Dot circuit blue",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"dot",
-				"circuit",
-				"blue"
+				"circuit"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2532",
 				"name": "Vector",
 				"frame": "555:2528"
 			},
-			"suggested": true,
 			"path": "vectors/dot-circuit-blue.svg",
 			"width": 187,
 			"height": 345,
@@ -781,20 +727,17 @@
 		{
 			"slug": "arc-blue",
 			"title": "Arc blue",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"arc",
-				"blue"
+				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:2535",
 				"name": "Vector",
 				"frame": "555:2528"
 			},
-			"suggested": true,
 			"path": "vectors/arc-blue.svg",
 			"width": 178,
 			"height": 458,
@@ -808,20 +751,17 @@
 		{
 			"slug": "arc-blue-2",
 			"title": "Arc blue 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"arc",
-				"blue"
+				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3532",
 				"name": "Vector",
 				"frame": "555:2528"
 			},
-			"suggested": true,
 			"path": "vectors/arc-blue-2.svg",
 			"width": 113,
 			"height": 272,
@@ -835,20 +775,17 @@
 		{
 			"slug": "arc-blue-3",
 			"title": "Arc blue 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"arc",
-				"blue"
+				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3565",
 				"name": "Vector",
 				"frame": "555:2528"
 			},
-			"suggested": true,
 			"path": "vectors/arc-blue-3.svg",
 			"width": 100,
 			"height": 340,
@@ -862,20 +799,16 @@
 		{
 			"slug": "sketch-face-purple",
 			"title": "Sketch face purple",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
 				"sketch",
-				"face",
-				"purple"
+				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3944:4061",
 				"name": "Group 16"
 			},
-			"suggested": true,
 			"path": "vectors/sketch-face-purple.svg",
 			"width": 514,
 			"height": 570,
@@ -889,20 +822,18 @@
 		{
 			"slug": "ornate-arch-frame",
 			"title": "Ornate arch frame",
-			"role": "frame",
-			"tile": null,
 			"tags": [
 				"frame",
 				"ornate",
 				"arch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3747",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/ornate-arch-frame.svg",
 			"width": 1024,
 			"height": 907,
@@ -916,19 +847,17 @@
 		{
 			"slug": "corner-wave",
 			"title": "Corner wave",
-			"role": "corner",
-			"tile": null,
 			"tags": [
 				"corner",
 				"wave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3748",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/corner-wave.svg",
 			"width": 398,
 			"height": 238,
@@ -942,20 +871,18 @@
 		{
 			"slug": "demon-mask",
 			"title": "Demon mask",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"demon",
 				"mask"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3749",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/demon-mask.svg",
 			"width": 464,
 			"height": 545,
@@ -969,19 +896,17 @@
 		{
 			"slug": "corner-wave-2",
 			"title": "Corner wave 2",
-			"role": "corner",
-			"tile": null,
 			"tags": [
 				"corner",
 				"wave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3750",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/corner-wave-2.svg",
 			"width": 384,
 			"height": 199,
@@ -995,19 +920,17 @@
 		{
 			"slug": "ink-splash",
 			"title": "Ink splash",
-			"role": "splash",
-			"tile": null,
 			"tags": [
 				"splash",
 				"ink"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3752",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/ink-splash.svg",
 			"width": 250,
 			"height": 206,
@@ -1021,20 +944,18 @@
 		{
 			"slug": "spike-arc",
 			"title": "Spike arc",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"spike",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3770",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/spike-arc.svg",
 			"width": 297,
 			"height": 151,
@@ -1048,20 +969,18 @@
 		{
 			"slug": "spike-arc-2",
 			"title": "Spike arc 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"spike",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:3772",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/spike-arc-2.svg",
 			"width": 295,
 			"height": 151,
@@ -1075,20 +994,17 @@
 		{
 			"slug": "white-streak",
 			"title": "White streak",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"white",
 				"streak"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4047",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/white-streak.svg",
 			"width": 259,
 			"height": 200,
@@ -1102,20 +1018,18 @@
 		{
 			"slug": "thorn-branch",
 			"title": "Thorn branch",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
 				"thorn",
 				"branch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4190",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/thorn-branch.svg",
 			"width": 932,
 			"height": 627,
@@ -1129,20 +1043,16 @@
 		{
 			"slug": "sketch-grey",
 			"title": "Sketch grey",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
-				"sketch",
-				"grey"
+				"sketch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4194",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/sketch-grey.svg",
 			"width": 933,
 			"height": 1633,
@@ -1157,20 +1067,16 @@
 		{
 			"slug": "sketch-grey-2",
 			"title": "Sketch grey 2",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
-				"sketch",
-				"grey"
+				"sketch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4195",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/sketch-grey-2.svg",
 			"width": 932,
 			"height": 587,
@@ -1185,20 +1091,16 @@
 		{
 			"slug": "sketch-grey-3",
 			"title": "Sketch grey 3",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
-				"sketch",
-				"grey"
+				"sketch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4196",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/sketch-grey-3.svg",
 			"width": 933,
 			"height": 987,
@@ -1213,19 +1115,16 @@
 		{
 			"slug": "vessels-red",
 			"title": "Vessels red",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
-				"vessels",
-				"red"
+				"vessels"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4197",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/vessels-red.svg",
 			"width": 1025,
 			"height": 953,
@@ -1240,21 +1139,18 @@
 		{
 			"slug": "vessel-branch-red",
 			"title": "Vessel branch red",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
 				"vessel",
-				"branch",
-				"red"
+				"branch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4201",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/vessel-branch-red.svg",
 			"width": 245,
 			"height": 376,
@@ -1269,21 +1165,18 @@
 		{
 			"slug": "vessel-branch-red-2",
 			"title": "Vessel branch red 2",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
 				"vessel",
-				"branch",
-				"red"
+				"branch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4233",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/vessel-branch-red-2.svg",
 			"width": 136,
 			"height": 384,
@@ -1298,20 +1191,17 @@
 		{
 			"slug": "arc-red",
 			"title": "Arc red",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"arc",
-				"red"
+				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4646",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/arc-red.svg",
 			"width": 368,
 			"height": 187,
@@ -1326,20 +1216,17 @@
 		{
 			"slug": "starburst-red",
 			"title": "Starburst red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"starburst",
-				"red"
+				"starburst"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4653",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/starburst-red.svg",
 			"width": 83,
 			"height": 85,
@@ -1353,20 +1240,17 @@
 		{
 			"slug": "starburst-red-2",
 			"title": "Starburst red 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"starburst",
-				"red"
+				"starburst"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4662",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/starburst-red-2.svg",
 			"width": 84,
 			"height": 84,
@@ -1380,21 +1264,18 @@
 		{
 			"slug": "arc-red-thin",
 			"title": "Arc red thin",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
-				"red",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4727",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/arc-red-thin.svg",
 			"width": 343,
 			"height": 63,
@@ -1408,20 +1289,18 @@
 		{
 			"slug": "bone-blob",
 			"title": "Bone blob",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"bone",
 				"blob"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4746",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/bone-blob.svg",
 			"width": 158,
 			"height": 254,
@@ -1435,19 +1314,17 @@
 		{
 			"slug": "blade",
 			"title": "Blade",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"blade"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4749",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/blade.svg",
 			"width": 73,
 			"height": 314,
@@ -1461,19 +1338,17 @@
 		{
 			"slug": "blade-2",
 			"title": "Blade 2",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"blade"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4750",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/blade-2.svg",
 			"width": 121,
 			"height": 846,
@@ -1487,19 +1362,17 @@
 		{
 			"slug": "hairline",
 			"title": "Hairline",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"hairline"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4758",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/hairline.svg",
 			"width": 123,
 			"height": 848,
@@ -1513,20 +1386,18 @@
 		{
 			"slug": "glyph-sheet",
 			"title": "Glyph sheet",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"glyph",
 				"sheet"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4762",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/glyph-sheet.svg",
 			"width": 932,
 			"height": 775,
@@ -1540,20 +1411,18 @@
 		{
 			"slug": "glyph-column",
 			"title": "Glyph column",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"glyph",
 				"column"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4763",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/glyph-column.svg",
 			"width": 446,
 			"height": 775,
@@ -1567,20 +1436,18 @@
 		{
 			"slug": "thorn-sprig",
 			"title": "Thorn sprig",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
 				"thorn",
 				"sprig"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4768",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/thorn-sprig.svg",
 			"width": 160,
 			"height": 360,
@@ -1594,19 +1461,17 @@
 		{
 			"slug": "slash",
 			"title": "Slash",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"slash"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4828",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/slash.svg",
 			"width": 299,
 			"height": 254,
@@ -1620,19 +1485,17 @@
 		{
 			"slug": "slash-2",
 			"title": "Slash 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"slash"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:4829",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/slash-2.svg",
 			"width": 388,
 			"height": 274,
@@ -1646,21 +1509,18 @@
 		{
 			"slug": "damask-white-open",
 			"title": "Damask white open",
-			"role": "filigree",
-			"tile": null,
 			"tags": [
 				"filigree",
 				"damask",
-				"white",
 				"open"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5081",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/damask-white-open.svg",
 			"width": 925,
 			"height": 836,
@@ -1674,19 +1534,17 @@
 		{
 			"slug": "spindle",
 			"title": "Spindle",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"spindle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5446",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/spindle.svg",
 			"width": 73,
 			"height": 198,
@@ -1700,19 +1558,17 @@
 		{
 			"slug": "dashes",
 			"title": "Dashes",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dashes"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5452",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/dashes.svg",
 			"width": 84,
 			"height": 95,
@@ -1726,19 +1582,17 @@
 		{
 			"slug": "dashes-2",
 			"title": "Dashes 2",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dashes"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5455",
 				"name": "Group",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/dashes-2.svg",
 			"width": 79,
 			"height": 95,
@@ -1752,20 +1606,17 @@
 		{
 			"slug": "disc-black",
 			"title": "Disc black",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
-				"disc",
-				"black"
+				"disc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5479",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/disc-black.svg",
 			"width": 1503,
 			"height": 1503,
@@ -1779,19 +1630,17 @@
 		{
 			"slug": "ring-dial",
 			"title": "Ring dial",
-			"role": "ring",
-			"tile": null,
 			"tags": [
 				"ring",
 				"dial"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3184:3956",
 				"name": "circle",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/ring-dial.svg",
 			"width": 2000,
 			"height": 2000,
@@ -1805,21 +1654,18 @@
 		{
 			"slug": "bowl-arc-red",
 			"title": "Bowl arc red",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
-				"arc",
-				"red"
+				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3352:5670",
 				"name": "Vector",
 				"frame": "555:3740"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-red.svg",
 			"width": 516,
 			"height": 262,
@@ -1834,18 +1680,16 @@
 		{
 			"slug": "blade-3",
 			"title": "Blade 3",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"blade"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3535:3824",
 				"name": "Vector"
 			},
-			"suggested": true,
 			"path": "vectors/blade-3.svg",
 			"width": 106,
 			"height": 582,
@@ -1859,19 +1703,17 @@
 		{
 			"slug": "glow-face",
 			"title": "Glow face",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"glow",
 				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2846:3810",
 				"name": "Frame 2"
 			},
-			"suggested": true,
 			"path": "vectors/glow-face.svg",
 			"width": 1080,
 			"height": 1080,
@@ -1886,20 +1728,18 @@
 		{
 			"slug": "glow-face-2",
 			"title": "Glow face 2",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"glow",
 				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2846:3811",
 				"name": "Vector",
 				"frame": "2846:3810"
 			},
-			"suggested": true,
 			"path": "vectors/glow-face-2.svg",
 			"width": 1080,
 			"height": 1080,
@@ -1914,19 +1754,16 @@
 		{
 			"slug": "vessels-grey-panel",
 			"title": "Vessels grey panel",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
-				"grey",
 				"panel"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2845:3808",
 				"name": "Frame 1"
 			},
-			"suggested": true,
 			"path": "vectors/vessels-grey-panel.svg",
 			"width": 1080,
 			"height": 1080,
@@ -1943,19 +1780,16 @@
 		{
 			"slug": "vessels-black",
 			"title": "Vessels black",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
-				"vessels",
-				"black"
+				"vessels"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2845:3807",
 				"name": "Group 15",
 				"frame": "2845:3808"
 			},
-			"suggested": true,
 			"path": "vectors/vessels-black.svg",
 			"width": 1080,
 			"height": 1072,
@@ -1971,19 +1805,16 @@
 		{
 			"slug": "vessels-black-2",
 			"title": "Vessels black 2",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
-				"vessels",
-				"black"
+				"vessels"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2845:3805",
 				"name": "Vector",
 				"frame": "2845:3808"
 			},
-			"suggested": true,
 			"path": "vectors/vessels-black-2.svg",
 			"width": 1007,
 			"height": 976,
@@ -1999,20 +1830,17 @@
 		{
 			"slug": "grey-panel",
 			"title": "Grey panel",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
-				"grey",
 				"panel"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5615",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/grey-panel.svg",
 			"width": 2658,
 			"height": 1477,
@@ -2026,20 +1854,17 @@
 		{
 			"slug": "crescent-red",
 			"title": "Crescent red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"crescent",
-				"red"
+				"crescent"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5621",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/crescent-red.svg",
 			"width": 296,
 			"height": 132,
@@ -2053,20 +1878,17 @@
 		{
 			"slug": "crescent-red-2",
 			"title": "Crescent red 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"crescent",
-				"red"
+				"crescent"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5635",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/crescent-red-2.svg",
 			"width": 269,
 			"height": 192,
@@ -2080,21 +1902,19 @@
 		{
 			"slug": "dot-ladder-pair",
 			"title": "Dot ladder pair",
-			"role": "band",
-			"tile": "x",
 			"tags": [
 				"band",
 				"dot",
 				"ladder",
 				"pair"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2819:3888",
 				"name": "Group 12",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/dot-ladder-pair.svg",
 			"width": 3095,
 			"height": 1409,
@@ -2108,20 +1928,18 @@
 		{
 			"slug": "dot-ladder-2",
 			"title": "Dot ladder 2",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"dot",
 				"ladder"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3524:5599",
 				"name": "Union",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/dot-ladder-2.svg",
 			"width": 587,
 			"height": 1350,
@@ -2135,20 +1953,17 @@
 		{
 			"slug": "crescent-red-3",
 			"title": "Crescent red 3",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"crescent",
-				"red"
+				"crescent"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5636",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/crescent-red-3.svg",
 			"width": 309,
 			"height": 137,
@@ -2162,20 +1977,17 @@
 		{
 			"slug": "crescent-red-4",
 			"title": "Crescent red 4",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"crescent",
-				"red"
+				"crescent"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5650",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/crescent-red-4.svg",
 			"width": 281,
 			"height": 200,
@@ -2189,20 +2001,18 @@
 		{
 			"slug": "gradient-bars",
 			"title": "Gradient bars",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"gradient",
 				"bars"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2770:3804",
 				"name": "Group 9",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/gradient-bars.svg",
 			"width": 722,
 			"height": 1884,
@@ -2224,20 +2034,18 @@
 		{
 			"slug": "gradient-bar",
 			"title": "Gradient bar",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"gradient",
 				"bar"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5717",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/gradient-bar.svg",
 			"width": 722,
 			"height": 183,
@@ -2255,20 +2063,18 @@
 		{
 			"slug": "gradient-block",
 			"title": "Gradient block",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"gradient",
 				"block"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5718",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/gradient-block.svg",
 			"width": 288,
 			"height": 183,
@@ -2285,20 +2091,17 @@
 		{
 			"slug": "pink-flames",
 			"title": "Pink flames",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
-				"pink",
 				"flames"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5725",
 				"name": "Group",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/pink-flames.svg",
 			"width": 1080,
 			"height": 2757,
@@ -2315,21 +2118,18 @@
 		{
 			"slug": "flame-stroke-pink",
 			"title": "Flame stroke pink",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5726",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink.svg",
 			"width": 270,
 			"height": 530,
@@ -2346,21 +2146,18 @@
 		{
 			"slug": "flame-stroke-pink-2",
 			"title": "Flame stroke pink 2",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5729",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink-2.svg",
 			"width": 187,
 			"height": 876,
@@ -2377,21 +2174,18 @@
 		{
 			"slug": "flame-stroke-pink-3",
 			"title": "Flame stroke pink 3",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5730",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink-3.svg",
 			"width": 152,
 			"height": 705,
@@ -2408,21 +2202,18 @@
 		{
 			"slug": "flame-stroke-pink-4",
 			"title": "Flame stroke pink 4",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5734",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink-4.svg",
 			"width": 181,
 			"height": 417,
@@ -2439,21 +2230,18 @@
 		{
 			"slug": "flame-stroke-pink-5",
 			"title": "Flame stroke pink 5",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5737",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink-5.svg",
 			"width": 168,
 			"height": 425,
@@ -2470,21 +2258,18 @@
 		{
 			"slug": "flame-stroke-pink-6",
 			"title": "Flame stroke pink 6",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5738",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink-6.svg",
 			"width": 181,
 			"height": 555,
@@ -2501,21 +2286,18 @@
 		{
 			"slug": "flame-stroke-pink-7",
 			"title": "Flame stroke pink 7",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5739",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink-7.svg",
 			"width": 196,
 			"height": 395,
@@ -2532,21 +2314,18 @@
 		{
 			"slug": "flame-stroke-pink-8",
 			"title": "Flame stroke pink 8",
-			"role": "brush",
-			"tile": null,
 			"tags": [
 				"brush",
 				"flame",
-				"stroke",
-				"pink"
+				"stroke"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5740",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/flame-stroke-pink-8.svg",
 			"width": 214,
 			"height": 552,
@@ -2563,19 +2342,16 @@
 		{
 			"slug": "splash-white",
 			"title": "Splash white",
-			"role": "splash",
-			"tile": null,
 			"tags": [
-				"splash",
-				"white"
+				"splash"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5756",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/splash-white.svg",
 			"width": 1351,
 			"height": 675,
@@ -2590,20 +2366,18 @@
 		{
 			"slug": "bone-outline",
 			"title": "Bone outline",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"bone",
 				"outline"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5758",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/bone-outline.svg",
 			"width": 366,
 			"height": 189,
@@ -2618,19 +2392,16 @@
 		{
 			"slug": "splash-white-2",
 			"title": "Splash white 2",
-			"role": "splash",
-			"tile": null,
 			"tags": [
-				"splash",
-				"white"
+				"splash"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5764",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/splash-white-2.svg",
 			"width": 1362,
 			"height": 562,
@@ -2645,19 +2416,16 @@
 		{
 			"slug": "land-white",
 			"title": "Land white",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5765",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white.svg",
 			"width": 273,
 			"height": 110,
@@ -2672,19 +2440,16 @@
 		{
 			"slug": "land-white-2",
 			"title": "Land white 2",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5766",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-2.svg",
 			"width": 410,
 			"height": 41,
@@ -2699,19 +2464,16 @@
 		{
 			"slug": "land-white-3",
 			"title": "Land white 3",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5767",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-3.svg",
 			"width": 256,
 			"height": 124,
@@ -2726,19 +2488,16 @@
 		{
 			"slug": "land-white-4",
 			"title": "Land white 4",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5791",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-4.svg",
 			"width": 1235,
 			"height": 711,
@@ -2753,19 +2512,16 @@
 		{
 			"slug": "land-white-5",
 			"title": "Land white 5",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5792",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-5.svg",
 			"width": 334,
 			"height": 150,
@@ -2780,19 +2536,16 @@
 		{
 			"slug": "land-white-6",
 			"title": "Land white 6",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5862",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-6.svg",
 			"width": 319,
 			"height": 208,
@@ -2807,19 +2560,16 @@
 		{
 			"slug": "land-white-7",
 			"title": "Land white 7",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5872",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-7.svg",
 			"width": 314,
 			"height": 219,
@@ -2834,19 +2584,16 @@
 		{
 			"slug": "land-white-8",
 			"title": "Land white 8",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5874",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-8.svg",
 			"width": 302,
 			"height": 238,
@@ -2861,19 +2608,16 @@
 		{
 			"slug": "land-white-9",
 			"title": "Land white 9",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5899",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-9.svg",
 			"width": 207,
 			"height": 415,
@@ -2888,19 +2632,16 @@
 		{
 			"slug": "land-white-10",
 			"title": "Land white 10",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5928",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-10.svg",
 			"width": 545,
 			"height": 358,
@@ -2915,19 +2656,16 @@
 		{
 			"slug": "land-white-11",
 			"title": "Land white 11",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:5973",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-11.svg",
 			"width": 259,
 			"height": 118,
@@ -2942,19 +2680,16 @@
 		{
 			"slug": "land-white-12",
 			"title": "Land white 12",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6001",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-12.svg",
 			"width": 288,
 			"height": 194,
@@ -2969,20 +2704,16 @@
 		{
 			"slug": "red-diagram",
 			"title": "Red diagram",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
-				"red",
 				"diagram"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6193",
 				"name": "Group",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/red-diagram.svg",
 			"width": 2650,
 			"height": 1438,
@@ -2997,20 +2728,17 @@
 		{
 			"slug": "soundwave-red",
 			"title": "Soundwave red",
-			"role": "band",
-			"tile": "x",
 			"tags": [
 				"band",
-				"soundwave",
-				"red"
+				"soundwave"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6195",
 				"name": "Group",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/soundwave-red.svg",
 			"width": 640,
 			"height": 236,
@@ -3025,20 +2753,17 @@
 		{
 			"slug": "soundwave-red-2",
 			"title": "Soundwave red 2",
-			"role": "band",
-			"tile": "x",
 			"tags": [
 				"band",
-				"soundwave",
-				"red"
+				"soundwave"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6198",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/soundwave-red-2.svg",
 			"width": 640,
 			"height": 236,
@@ -3053,20 +2778,16 @@
 		{
 			"slug": "red-diagram-2",
 			"title": "Red diagram 2",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
-				"red",
 				"diagram"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6201",
 				"name": "Group",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/red-diagram-2.svg",
 			"width": 2521,
 			"height": 1438,
@@ -3081,20 +2802,16 @@
 		{
 			"slug": "red-diagram-3",
 			"title": "Red diagram 3",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
-				"red",
 				"diagram"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6202",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/red-diagram-3.svg",
 			"width": 2350,
 			"height": 1366,
@@ -3109,20 +2826,17 @@
 		{
 			"slug": "lens-red",
 			"title": "Lens red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"lens",
-				"red"
+				"lens"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6205",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/lens-red.svg",
 			"width": 724,
 			"height": 357,
@@ -3137,21 +2851,18 @@
 		{
 			"slug": "arrow-cross-red",
 			"title": "Arrow cross red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"arrow",
-				"cross",
-				"red"
+				"cross"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6214",
 				"name": "Vector",
 				"frame": "555:5614"
 			},
-			"suggested": true,
 			"path": "vectors/arrow-cross-red.svg",
 			"width": 340,
 			"height": 306,
@@ -3166,21 +2877,18 @@
 		{
 			"slug": "grey-panel-large",
 			"title": "Grey panel large",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
-				"grey",
 				"panel",
 				"large"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6274",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/grey-panel-large.svg",
 			"width": 6576,
 			"height": 2688,
@@ -3194,20 +2902,17 @@
 		{
 			"slug": "disc-red",
 			"title": "Disc red",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
-				"disc",
-				"red"
+				"disc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6275",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/disc-red.svg",
 			"width": 1865,
 			"height": 1865,
@@ -3222,20 +2927,17 @@
 		{
 			"slug": "sun-cloud-red",
 			"title": "Sun cloud red",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
 				"cloud",
-				"sun",
-				"red"
+				"sun"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6276",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/sun-cloud-red.svg",
 			"width": 710,
 			"height": 137,
@@ -3250,19 +2952,16 @@
 		{
 			"slug": "land-white-13",
 			"title": "Land white 13",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6277",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-13.svg",
 			"width": 591,
 			"height": 359,
@@ -3277,19 +2976,16 @@
 		{
 			"slug": "land-white-14",
 			"title": "Land white 14",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6278",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-14.svg",
 			"width": 242,
 			"height": 306,
@@ -3304,19 +3000,16 @@
 		{
 			"slug": "land-white-15",
 			"title": "Land white 15",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6283",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-15.svg",
 			"width": 329,
 			"height": 276,
@@ -3331,19 +3024,16 @@
 		{
 			"slug": "land-white-16",
 			"title": "Land white 16",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6311",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-16.svg",
 			"width": 599,
 			"height": 256,
@@ -3358,19 +3048,16 @@
 		{
 			"slug": "land-white-17",
 			"title": "Land white 17",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6343",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-17.svg",
 			"width": 104,
 			"height": 333,
@@ -3385,19 +3072,16 @@
 		{
 			"slug": "land-white-18",
 			"title": "Land white 18",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6356",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-18.svg",
 			"width": 294,
 			"height": 343,
@@ -3412,19 +3096,16 @@
 		{
 			"slug": "land-white-19",
 			"title": "Land white 19",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6359",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-19.svg",
 			"width": 346,
 			"height": 103,
@@ -3439,19 +3120,16 @@
 		{
 			"slug": "land-white-20",
 			"title": "Land white 20",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6361",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-20.svg",
 			"width": 139,
 			"height": 319,
@@ -3466,19 +3144,16 @@
 		{
 			"slug": "land-white-21",
 			"title": "Land white 21",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6374",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-21.svg",
 			"width": 579,
 			"height": 273,
@@ -3493,19 +3168,16 @@
 		{
 			"slug": "land-white-22",
 			"title": "Land white 22",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6416",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-22.svg",
 			"width": 258,
 			"height": 192,
@@ -3520,19 +3192,16 @@
 		{
 			"slug": "land-white-23",
 			"title": "Land white 23",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6445",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-23.svg",
 			"width": 111,
 			"height": 299,
@@ -3547,19 +3216,16 @@
 		{
 			"slug": "land-white-24",
 			"title": "Land white 24",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6685",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-24.svg",
 			"width": 288,
 			"height": 176,
@@ -3574,20 +3240,17 @@
 		{
 			"slug": "sun-cloud-red-2",
 			"title": "Sun cloud red 2",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
 				"cloud",
-				"sun",
-				"red"
+				"sun"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6760",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/sun-cloud-red-2.svg",
 			"width": 1065,
 			"height": 204,
@@ -3602,19 +3265,17 @@
 		{
 			"slug": "ring-dial-2",
 			"title": "Ring dial 2",
-			"role": "ring",
-			"tile": null,
 			"tags": [
 				"ring",
 				"dial"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6761",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/ring-dial-2.svg",
 			"width": 1868,
 			"height": 1868,
@@ -3628,19 +3289,17 @@
 		{
 			"slug": "ring-thin",
 			"title": "Ring thin",
-			"role": "ring",
-			"tile": null,
 			"tags": [
 				"ring",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6762",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/ring-thin.svg",
 			"width": 1436,
 			"height": 1436,
@@ -3654,19 +3313,17 @@
 		{
 			"slug": "ring-thin-2",
 			"title": "Ring thin 2",
-			"role": "ring",
-			"tile": null,
 			"tags": [
 				"ring",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6763",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/ring-thin-2.svg",
 			"width": 941,
 			"height": 941,
@@ -3680,19 +3337,17 @@
 		{
 			"slug": "ring-thin-3",
 			"title": "Ring thin 3",
-			"role": "ring",
-			"tile": null,
 			"tags": [
 				"ring",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6764",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/ring-thin-3.svg",
 			"width": 1868,
 			"height": 1868,
@@ -3706,20 +3361,18 @@
 		{
 			"slug": "hatch-lines",
 			"title": "Hatch lines",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"hatch",
 				"lines"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6777",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/hatch-lines.svg",
 			"width": 415,
 			"height": 413,
@@ -3733,19 +3386,17 @@
 		{
 			"slug": "diagonal-line",
 			"title": "Diagonal line",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6778",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line.svg",
 			"width": 331,
 			"height": 331,
@@ -3759,19 +3410,17 @@
 		{
 			"slug": "diagonal-line-2",
 			"title": "Diagonal line 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6779",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line-2.svg",
 			"width": 334,
 			"height": 334,
@@ -3785,19 +3434,17 @@
 		{
 			"slug": "diagonal-line-3",
 			"title": "Diagonal line 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6782",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line-3.svg",
 			"width": 334,
 			"height": 334,
@@ -3811,19 +3458,17 @@
 		{
 			"slug": "diagonal-line-4",
 			"title": "Diagonal line 4",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6783",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line-4.svg",
 			"width": 413,
 			"height": 415,
@@ -3837,19 +3482,17 @@
 		{
 			"slug": "diagonal-line-5",
 			"title": "Diagonal line 5",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6785",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line-5.svg",
 			"width": 334,
 			"height": 334,
@@ -3863,19 +3506,16 @@
 		{
 			"slug": "land-white-25",
 			"title": "Land white 25",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6789",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-25.svg",
 			"width": 1187,
 			"height": 926,
@@ -3890,19 +3530,16 @@
 		{
 			"slug": "land-white-26",
 			"title": "Land white 26",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6790",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-26.svg",
 			"width": 233,
 			"height": 304,
@@ -3917,19 +3554,16 @@
 		{
 			"slug": "land-white-27",
 			"title": "Land white 27",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6791",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-27.svg",
 			"width": 222,
 			"height": 342,
@@ -3944,20 +3578,18 @@
 		{
 			"slug": "oval-weave",
 			"title": "Oval weave",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"oval",
 				"weave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6792",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/oval-weave.svg",
 			"width": 6638,
 			"height": 2686,
@@ -3971,20 +3603,18 @@
 		{
 			"slug": "oval-weave-2",
 			"title": "Oval weave 2",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"oval",
 				"weave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6793",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/oval-weave-2.svg",
 			"width": 2215,
 			"height": 2686,
@@ -3998,20 +3628,18 @@
 		{
 			"slug": "oval-weave-3",
 			"title": "Oval weave 3",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"oval",
 				"weave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6794",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/oval-weave-3.svg",
 			"width": 1110,
 			"height": 891,
@@ -4025,20 +3653,18 @@
 		{
 			"slug": "oval-weave-4",
 			"title": "Oval weave 4",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"oval",
 				"weave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6795",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/oval-weave-4.svg",
 			"width": 556,
 			"height": 891,
@@ -4052,20 +3678,18 @@
 		{
 			"slug": "oval-thin",
 			"title": "Oval thin",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"oval",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6796",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/oval-thin.svg",
 			"width": 71,
 			"height": 604,
@@ -4079,20 +3703,18 @@
 		{
 			"slug": "oval-weave-5",
 			"title": "Oval weave 5",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"oval",
 				"weave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6813",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/oval-weave-5.svg",
 			"width": 1110,
 			"height": 891,
@@ -4106,20 +3728,18 @@
 		{
 			"slug": "oval-weave-6",
 			"title": "Oval weave 6",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"oval",
 				"weave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:6814",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/oval-weave-6.svg",
 			"width": 556,
 			"height": 891,
@@ -4133,20 +3753,18 @@
 		{
 			"slug": "scrooge-face",
 			"title": "Scrooge face",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
 				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7252",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-face.svg",
 			"width": 520,
 			"height": 546,
@@ -4162,19 +3780,17 @@
 		{
 			"slug": "scrooge-silhouette",
 			"title": "Scrooge silhouette",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"scrooge"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7253",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-silhouette.svg",
 			"width": 520,
 			"height": 546,
@@ -4189,21 +3805,18 @@
 		{
 			"slug": "scrooge-face-red",
 			"title": "Scrooge face red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
-				"face",
-				"red"
+				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7254",
 				"name": "Group",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-face-red.svg",
 			"width": 469,
 			"height": 515,
@@ -4217,21 +3830,18 @@
 		{
 			"slug": "scrooge-face-red-2",
 			"title": "Scrooge face red 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
-				"face",
-				"red"
+				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7255",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-face-red-2.svg",
 			"width": 381,
 			"height": 382,
@@ -4245,20 +3855,18 @@
 		{
 			"slug": "scrooge-hat-line",
 			"title": "Scrooge hat line",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"scrooge",
 				"hat"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7258",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-hat-line.svg",
 			"width": 323,
 			"height": 179,
@@ -4272,20 +3880,18 @@
 		{
 			"slug": "scrooge-whiskers",
 			"title": "Scrooge whiskers",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
 				"whiskers"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7276",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-whiskers.svg",
 			"width": 223,
 			"height": 329,
@@ -4299,19 +3905,16 @@
 		{
 			"slug": "land-white-28",
 			"title": "Land white 28",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7301",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-28.svg",
 			"width": 3129,
 			"height": 968,
@@ -4326,19 +3929,16 @@
 		{
 			"slug": "land-white-29",
 			"title": "Land white 29",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7302",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-29.svg",
 			"width": 1409,
 			"height": 1196,
@@ -4353,19 +3953,16 @@
 		{
 			"slug": "land-white-30",
 			"title": "Land white 30",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7303",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-30.svg",
 			"width": 2695,
 			"height": 684,
@@ -4380,19 +3977,16 @@
 		{
 			"slug": "land-white-31",
 			"title": "Land white 31",
-			"role": "land",
-			"tile": null,
 			"tags": [
-				"land",
-				"white"
+				"land"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7304",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/land-white-31.svg",
 			"width": 1258,
 			"height": 783,
@@ -4407,19 +4001,16 @@
 		{
 			"slug": "cloud-red",
 			"title": "Cloud red",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"red"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7305",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-red.svg",
 			"width": 1854,
 			"height": 384,
@@ -4434,19 +4025,16 @@
 		{
 			"slug": "cloud-red-2",
 			"title": "Cloud red 2",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"red"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7306",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-red-2.svg",
 			"width": 3136,
 			"height": 647,
@@ -4461,47 +4049,20 @@
 		{
 			"slug": "cloud-red-3",
 			"title": "Cloud red 3",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"red"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7307",
 				"name": "Group",
-				"frame": "555:6273"
+				"frame": "555:6273",
+				"copies": [
+					"555:7308"
+				]
 			},
-			"suggested": true,
 			"path": "vectors/cloud-red-3.svg",
-			"width": 1855,
-			"height": 319,
-			"colors": [
-				"#1D1D1B",
-				"#FF0000"
-			],
-			"mask": false,
-			"bytes": 1917,
-			"sha256": "b9ad8bc24ebbece5f2baf0fd90041781f2ffcf440ee0f5058b1bad2ec2531afd"
-		},
-		{
-			"slug": "cloud-red-4",
-			"title": "Cloud red 4",
-			"role": "cloud",
-			"tile": null,
-			"tags": [
-				"cloud",
-				"red"
-			],
-			"figma": {
-				"source": "catpope-vector",
-				"node": "555:7308",
-				"name": "Vector",
-				"frame": "555:6273"
-			},
-			"suggested": true,
-			"path": "vectors/cloud-red-4.svg",
 			"width": 1855,
 			"height": 319,
 			"colors": [
@@ -4515,19 +4076,16 @@
 		{
 			"slug": "cloud-white",
 			"title": "Cloud white",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"white"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7309",
 				"name": "Vector",
 				"frame": "555:6273"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-white.svg",
 			"width": 1905,
 			"height": 861,
@@ -4542,20 +4100,17 @@
 		{
 			"slug": "ornate-face-white",
 			"title": "Ornate face white",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"ornate",
-				"face",
-				"white"
+				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2843:4783",
 				"name": "Group"
 			},
-			"suggested": true,
 			"path": "vectors/ornate-face-white.svg",
 			"width": 469,
 			"height": 515,
@@ -4569,19 +4124,17 @@
 		{
 			"slug": "diagonal-line-6",
 			"title": "Diagonal line 6",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7312",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line-6.svg",
 			"width": 113,
 			"height": 113,
@@ -4595,20 +4148,17 @@
 		{
 			"slug": "roots-black",
 			"title": "Roots black",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
-				"roots",
-				"black"
+				"roots"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7322",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/roots-black.svg",
 			"width": 217,
 			"height": 256,
@@ -4622,20 +4172,17 @@
 		{
 			"slug": "neuron-black",
 			"title": "Neuron black",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
-				"neuron",
-				"black"
+				"neuron"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7324",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/neuron-black.svg",
 			"width": 167,
 			"height": 312,
@@ -4649,20 +4196,17 @@
 		{
 			"slug": "neuron-black-2",
 			"title": "Neuron black 2",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
-				"neuron",
-				"black"
+				"neuron"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7325",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/neuron-black-2.svg",
 			"width": 219,
 			"height": 469,
@@ -4676,20 +4220,17 @@
 		{
 			"slug": "neuron-black-3",
 			"title": "Neuron black 3",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
-				"neuron",
-				"black"
+				"neuron"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7326",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/neuron-black-3.svg",
 			"width": 225,
 			"height": 455,
@@ -4703,20 +4244,18 @@
 		{
 			"slug": "trippy-cat-eyes",
 			"title": "Trippy cat eyes",
-			"role": "eyes",
-			"tile": null,
 			"tags": [
 				"eyes",
 				"trippy",
 				"cat"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3201:3851",
 				"name": "trippy cat eyes",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/trippy-cat-eyes.svg",
 			"width": 1046,
 			"height": 1053,
@@ -4733,20 +4272,18 @@
 		{
 			"slug": "arc-gradient",
 			"title": "Arc gradient",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7785",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient.svg",
 			"width": 368,
 			"height": 188,
@@ -4762,20 +4299,18 @@
 		{
 			"slug": "arc-gradient-2",
 			"title": "Arc gradient 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7787",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-2.svg",
 			"width": 368,
 			"height": 188,
@@ -4789,20 +4324,18 @@
 		{
 			"slug": "arc-gradient-3",
 			"title": "Arc gradient 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7897",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-3.svg",
 			"width": 155,
 			"height": 139,
@@ -4818,20 +4351,18 @@
 		{
 			"slug": "arc-gradient-4",
 			"title": "Arc gradient 4",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7900",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-4.svg",
 			"width": 368,
 			"height": 327,
@@ -4847,20 +4378,18 @@
 		{
 			"slug": "arc-gradient-5",
 			"title": "Arc gradient 5",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7901",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-5.svg",
 			"width": 368,
 			"height": 327,
@@ -4876,20 +4405,18 @@
 		{
 			"slug": "arc-gradient-6",
 			"title": "Arc gradient 6",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7902",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-6.svg",
 			"width": 367,
 			"height": 325,
@@ -4904,20 +4431,18 @@
 		{
 			"slug": "arc-gradient-7",
 			"title": "Arc gradient 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7903",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-7.svg",
 			"width": 368,
 			"height": 327,
@@ -4931,20 +4456,18 @@
 		{
 			"slug": "arc-gradient-8",
 			"title": "Arc gradient 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7906",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-8.svg",
 			"width": 367,
 			"height": 325,
@@ -4959,20 +4482,18 @@
 		{
 			"slug": "arc-gradient-9",
 			"title": "Arc gradient 9",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7934",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-9.svg",
 			"width": 221,
 			"height": 206,
@@ -4987,20 +4508,18 @@
 		{
 			"slug": "arc-gradient-10",
 			"title": "Arc gradient 10",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7938",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-10.svg",
 			"width": 131,
 			"height": 191,
@@ -5015,20 +4534,18 @@
 		{
 			"slug": "arc-gradient-11",
 			"title": "Arc gradient 11",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7958",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-11.svg",
 			"width": 169,
 			"height": 330,
@@ -5043,20 +4560,18 @@
 		{
 			"slug": "arc-gradient-12",
 			"title": "Arc gradient 12",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7959",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-12.svg",
 			"width": 169,
 			"height": 330,
@@ -5071,20 +4586,18 @@
 		{
 			"slug": "arc-gradient-13",
 			"title": "Arc gradient 13",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7970",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-13.svg",
 			"width": 343,
 			"height": 154,
@@ -5099,20 +4612,18 @@
 		{
 			"slug": "arc-gradient-14",
 			"title": "Arc gradient 14",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7971",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-14.svg",
 			"width": 343,
 			"height": 154,
@@ -5127,20 +4638,18 @@
 		{
 			"slug": "arc-gradient-15",
 			"title": "Arc gradient 15",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7972",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-15.svg",
 			"width": 172,
 			"height": 139,
@@ -5155,20 +4664,18 @@
 		{
 			"slug": "arc-gradient-16",
 			"title": "Arc gradient 16",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"gradient"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:7980",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-gradient-16.svg",
 			"width": 129,
 			"height": 224,
@@ -5183,19 +4690,16 @@
 		{
 			"slug": "cloud-red-5",
 			"title": "Cloud red 5",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"red"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8025",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-red-5.svg",
 			"width": 1534,
 			"height": 518,
@@ -5210,19 +4714,16 @@
 		{
 			"slug": "cloud-red-6",
 			"title": "Cloud red 6",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"red"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8026",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-red-6.svg",
 			"width": 326,
 			"height": 48,
@@ -5237,19 +4738,16 @@
 		{
 			"slug": "cloud-red-7",
 			"title": "Cloud red 7",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"red"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8027",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-red-7.svg",
 			"width": 1623,
 			"height": 436,
@@ -5264,20 +4762,17 @@
 		{
 			"slug": "flame-red",
 			"title": "Flame red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"flame",
-				"red"
+				"flame"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8031",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/flame-red.svg",
 			"width": 62,
 			"height": 422,
@@ -5292,20 +4787,17 @@
 		{
 			"slug": "vine-red",
 			"title": "Vine red",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
-				"vine",
-				"red"
+				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8042",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/vine-red.svg",
 			"width": 190,
 			"height": 2120,
@@ -5319,20 +4811,17 @@
 		{
 			"slug": "vine-red-2",
 			"title": "Vine red 2",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
-				"vine",
-				"red"
+				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8043",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/vine-red-2.svg",
 			"width": 389,
 			"height": 1575,
@@ -5346,20 +4835,17 @@
 		{
 			"slug": "vine-red-3",
 			"title": "Vine red 3",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
-				"vine",
-				"red"
+				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8044",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/vine-red-3.svg",
 			"width": 363,
 			"height": 1415,
@@ -5373,20 +4859,18 @@
 		{
 			"slug": "compass-ornament",
 			"title": "Compass ornament",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"compass",
 				"ornament"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2843:4845",
 				"name": "Group 14",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/compass-ornament.svg",
 			"width": 1371,
 			"height": 1308,
@@ -5401,20 +4885,18 @@
 		{
 			"slug": "dagger-eye",
 			"title": "Dagger eye",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"dagger",
 				"eye"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8046",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/dagger-eye.svg",
 			"width": 171,
 			"height": 485,
@@ -5428,20 +4910,17 @@
 		{
 			"slug": "twig-black",
 			"title": "Twig black",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"twig",
-				"black"
+				"twig"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8047",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/twig-black.svg",
 			"width": 318,
 			"height": 437,
@@ -5455,20 +4934,18 @@
 		{
 			"slug": "sword-cross",
 			"title": "Sword cross",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"sword",
 				"cross"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8050",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/sword-cross.svg",
 			"width": 178,
 			"height": 370,
@@ -5482,19 +4959,17 @@
 		{
 			"slug": "blade-line",
 			"title": "Blade line",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"blade"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8051",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/blade-line.svg",
 			"width": 190,
 			"height": 374,
@@ -5508,20 +4983,18 @@
 		{
 			"slug": "glyph-sheet-2",
 			"title": "Glyph sheet 2",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"glyph",
 				"sheet"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8053",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/glyph-sheet-2.svg",
 			"width": 1644,
 			"height": 1367,
@@ -5535,20 +5008,18 @@
 		{
 			"slug": "glyph-column-2",
 			"title": "Glyph column 2",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"glyph",
 				"column"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8054",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/glyph-column-2.svg",
 			"width": 786,
 			"height": 1367,
@@ -5562,20 +5033,18 @@
 		{
 			"slug": "thorn-sprig-2",
 			"title": "Thorn sprig 2",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
 				"thorn",
 				"sprig"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8059",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/thorn-sprig-2.svg",
 			"width": 281,
 			"height": 635,
@@ -5589,19 +5058,17 @@
 		{
 			"slug": "bracket-line",
 			"title": "Bracket line",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bracket"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8108",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/bracket-line.svg",
 			"width": 183,
 			"height": 379,
@@ -5615,19 +5082,17 @@
 		{
 			"slug": "bracket-line-2",
 			"title": "Bracket line 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bracket"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8126",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/bracket-line-2.svg",
 			"width": 376,
 			"height": 36,
@@ -5641,19 +5106,17 @@
 		{
 			"slug": "bracket-line-3",
 			"title": "Bracket line 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bracket"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8128",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/bracket-line-3.svg",
 			"width": 295,
 			"height": 31,
@@ -5667,19 +5130,17 @@
 		{
 			"slug": "spindle-2",
 			"title": "Spindle 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"spindle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8223",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/spindle-2.svg",
 			"width": 128,
 			"height": 348,
@@ -5693,19 +5154,17 @@
 		{
 			"slug": "spindle-3",
 			"title": "Spindle 3",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"spindle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8226",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/spindle-3.svg",
 			"width": 128,
 			"height": 348,
@@ -5719,19 +5178,17 @@
 		{
 			"slug": "dashes-3",
 			"title": "Dashes 3",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dashes"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8229",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/dashes-3.svg",
 			"width": 147,
 			"height": 167,
@@ -5745,19 +5202,17 @@
 		{
 			"slug": "dashes-4",
 			"title": "Dashes 4",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dashes"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8232",
 				"name": "Group",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/dashes-4.svg",
 			"width": 138,
 			"height": 167,
@@ -5771,20 +5226,17 @@
 		{
 			"slug": "sketch-grid",
 			"title": "Sketch grid",
-			"role": "other",
-			"tile": null,
 			"tags": [
-				"other",
 				"sketch",
 				"grid"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8274",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/sketch-grid.svg",
 			"width": 200,
 			"height": 430,
@@ -5799,19 +5251,17 @@
 		{
 			"slug": "hairline-2",
 			"title": "Hairline 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"hairline"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8276",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/hairline-2.svg",
 			"width": 48,
 			"height": 292,
@@ -5826,20 +5276,18 @@
 		{
 			"slug": "arc-thin",
 			"title": "Arc thin",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8282",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin.svg",
 			"width": 272,
 			"height": 189,
@@ -5854,20 +5302,18 @@
 		{
 			"slug": "arc-thin-2",
 			"title": "Arc thin 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8283",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-2.svg",
 			"width": 421,
 			"height": 366,
@@ -5882,20 +5328,18 @@
 		{
 			"slug": "arc-thin-3",
 			"title": "Arc thin 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8284",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-3.svg",
 			"width": 322,
 			"height": 179,
@@ -5910,20 +5354,18 @@
 		{
 			"slug": "arc-thin-4",
 			"title": "Arc thin 4",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8290",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-4.svg",
 			"width": 281,
 			"height": 222,
@@ -5938,20 +5380,18 @@
 		{
 			"slug": "dot-stack",
 			"title": "Dot stack",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"dot",
 				"stack"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8295",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/dot-stack.svg",
 			"width": 364,
 			"height": 407,
@@ -5966,20 +5406,18 @@
 		{
 			"slug": "dots-small",
 			"title": "Dots small",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"dots",
 				"small"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8294",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/dots-small.svg",
 			"width": 411,
 			"height": 932,
@@ -5994,20 +5432,18 @@
 		{
 			"slug": "dot-stack-2",
 			"title": "Dot stack 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"dot",
 				"stack"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8303",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/dot-stack-2.svg",
 			"width": 328,
 			"height": 324,
@@ -6022,19 +5458,17 @@
 		{
 			"slug": "hairline-3",
 			"title": "Hairline 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"hairline"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8313",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/hairline-3.svg",
 			"width": 329,
 			"height": 347,
@@ -6049,20 +5483,18 @@
 		{
 			"slug": "dot-pin",
 			"title": "Dot pin",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"dot",
 				"pin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8302",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/dot-pin.svg",
 			"width": 78,
 			"height": 394,
@@ -6077,20 +5509,18 @@
 		{
 			"slug": "arrow-chain",
 			"title": "Arrow chain",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"arrow",
 				"chain"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "590:3806",
 				"name": "Vector",
 				"frame": "555:7311"
 			},
-			"suggested": true,
 			"path": "vectors/arrow-chain.svg",
 			"width": 1572,
 			"height": 140,
@@ -6104,19 +5534,16 @@
 		{
 			"slug": "cloud-black",
 			"title": "Cloud black",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"black"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8315",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-black.svg",
 			"width": 1105,
 			"height": 332,
@@ -6130,19 +5557,16 @@
 		{
 			"slug": "cloud-black-2",
 			"title": "Cloud black 2",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
-				"cloud",
-				"black"
+				"cloud"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8316",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-black-2.svg",
 			"width": 1711,
 			"height": 353,
@@ -6156,20 +5580,18 @@
 		{
 			"slug": "crescent-spiral",
 			"title": "Crescent spiral",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"crescent",
 				"spiral"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8379",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/crescent-spiral.svg",
 			"width": 540,
 			"height": 658,
@@ -6183,20 +5605,17 @@
 		{
 			"slug": "box-band-red",
 			"title": "Box band red",
-			"role": "band",
-			"tile": "x",
 			"tags": [
 				"band",
-				"box",
-				"red"
+				"box"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8407",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/box-band-red.svg",
 			"width": 1817,
 			"height": 515,
@@ -6211,20 +5630,17 @@
 		{
 			"slug": "sun-cloud-black",
 			"title": "Sun cloud black",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
 				"cloud",
-				"sun",
-				"black"
+				"sun"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8481",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/sun-cloud-black.svg",
 			"width": 695,
 			"height": 133,
@@ -6238,21 +5654,18 @@
 		{
 			"slug": "dot-vine-red",
 			"title": "Dot vine red",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"dot",
-				"vine",
-				"red"
+				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8482",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/dot-vine-red.svg",
 			"width": 494,
 			"height": 2248,
@@ -6267,21 +5680,18 @@
 		{
 			"slug": "dot-vine-red-2",
 			"title": "Dot vine red 2",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"dot",
-				"vine",
-				"red"
+				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8484",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/dot-vine-red-2.svg",
 			"width": 494,
 			"height": 1916,
@@ -6296,20 +5706,18 @@
 		{
 			"slug": "ornate-mirror-frame",
 			"title": "Ornate mirror frame",
-			"role": "frame",
-			"tile": null,
 			"tags": [
 				"frame",
 				"ornate",
 				"mirror"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8485",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/ornate-mirror-frame.svg",
 			"width": 536,
 			"height": 516,
@@ -6323,20 +5731,18 @@
 		{
 			"slug": "ornate-mirror-frame-2",
 			"title": "Ornate mirror frame 2",
-			"role": "frame",
-			"tile": null,
 			"tags": [
 				"frame",
 				"ornate",
 				"mirror"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8486",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/ornate-mirror-frame-2.svg",
 			"width": 535,
 			"height": 516,
@@ -6350,19 +5756,17 @@
 		{
 			"slug": "zigzag-teeth",
 			"title": "Zigzag teeth",
-			"role": "teeth",
-			"tile": null,
 			"tags": [
 				"teeth",
 				"zigzag"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8497",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/zigzag-teeth.svg",
 			"width": 290,
 			"height": 762,
@@ -6376,20 +5780,18 @@
 		{
 			"slug": "zigzag-teeth-across",
 			"title": "Zigzag teeth across",
-			"role": "teeth",
-			"tile": null,
 			"tags": [
 				"teeth",
 				"zigzag",
 				"across"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8498",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/zigzag-teeth-across.svg",
 			"width": 290,
 			"height": 96,
@@ -6403,20 +5805,18 @@
 		{
 			"slug": "zickzack-barrier-teeth",
 			"title": "Zickzack barrier teeth",
-			"role": "teeth",
-			"tile": null,
 			"tags": [
 				"teeth",
 				"zickzack",
 				"barrier"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8812",
 				"name": "zickzack barrier teeth",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/zickzack-barrier-teeth.svg",
 			"width": 290,
 			"height": 762,
@@ -6430,20 +5830,17 @@
 		{
 			"slug": "scallop-red",
 			"title": "Scallop red",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8917",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red.svg",
 			"width": 495,
 			"height": 176,
@@ -6457,20 +5854,17 @@
 		{
 			"slug": "scallop-red-2",
 			"title": "Scallop red 2",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8929",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-2.svg",
 			"width": 497,
 			"height": 214,
@@ -6484,21 +5878,18 @@
 		{
 			"slug": "scallop-column-red",
 			"title": "Scallop column red",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"scallop",
-				"column",
-				"red"
+				"column"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8941",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-column-red.svg",
 			"width": 1189,
 			"height": 1685,
@@ -6512,20 +5903,17 @@
 		{
 			"slug": "scallop-red-3",
 			"title": "Scallop red 3",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8942",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-3.svg",
 			"width": 1189,
 			"height": 422,
@@ -6539,20 +5927,17 @@
 		{
 			"slug": "scallop-red-4",
 			"title": "Scallop red 4",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8943",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-4.svg",
 			"width": 595,
 			"height": 422,
@@ -6566,21 +5951,18 @@
 		{
 			"slug": "scallop-column-red-2",
 			"title": "Scallop column red 2",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"scallop",
-				"column",
-				"red"
+				"column"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8967",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-column-red-2.svg",
 			"width": 1189,
 			"height": 2106,
@@ -6594,21 +5976,18 @@
 		{
 			"slug": "scallop-column-red-3",
 			"title": "Scallop column red 3",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"scallop",
-				"column",
-				"red"
+				"column"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8983",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-column-red-3.svg",
 			"width": 1189,
 			"height": 1685,
@@ -6622,20 +6001,17 @@
 		{
 			"slug": "scallop-red-5",
 			"title": "Scallop red 5",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8984",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-5.svg",
 			"width": 1189,
 			"height": 422,
@@ -6649,20 +6025,18 @@
 		{
 			"slug": "thorn-vine",
 			"title": "Thorn vine",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"thorn",
 				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8997",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/thorn-vine.svg",
 			"width": 442,
 			"height": 1678,
@@ -6676,20 +6050,18 @@
 		{
 			"slug": "thorn-vine-2",
 			"title": "Thorn vine 2",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"thorn",
 				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8998",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/thorn-vine-2.svg",
 			"width": 284,
 			"height": 1678,
@@ -6703,20 +6075,18 @@
 		{
 			"slug": "thorn-vine-3",
 			"title": "Thorn vine 3",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"thorn",
 				"vine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8999",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/thorn-vine-3.svg",
 			"width": 265,
 			"height": 1509,
@@ -6730,20 +6100,17 @@
 		{
 			"slug": "scallop-red-6",
 			"title": "Scallop red 6",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9009",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-6.svg",
 			"width": 1189,
 			"height": 488,
@@ -6757,20 +6124,17 @@
 		{
 			"slug": "scallop-red-7",
 			"title": "Scallop red 7",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9010",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-7.svg",
 			"width": 515,
 			"height": 488,
@@ -6784,20 +6148,17 @@
 		{
 			"slug": "scallop-red-8",
 			"title": "Scallop red 8",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9012",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-8.svg",
 			"width": 2099,
 			"height": 488,
@@ -6811,20 +6172,17 @@
 		{
 			"slug": "scallop-red-9",
 			"title": "Scallop red 9",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
-				"scallop",
-				"red"
+				"scallop"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9021",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scallop-red-9.svg",
 			"width": 2099,
 			"height": 1941,
@@ -6838,20 +6196,18 @@
 		{
 			"slug": "ray-lines",
 			"title": "Ray lines",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"ray",
 				"lines"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9050",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/ray-lines.svg",
 			"width": 1993,
 			"height": 1993,
@@ -6865,19 +6221,17 @@
 		{
 			"slug": "straight-line",
 			"title": "Straight line",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9052",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/straight-line.svg",
 			"width": 497,
 			"height": 6,
@@ -6891,19 +6245,17 @@
 		{
 			"slug": "straight-line-2",
 			"title": "Straight line 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9055",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/straight-line-2.svg",
 			"width": 501,
 			"height": 6,
@@ -6917,19 +6269,17 @@
 		{
 			"slug": "straight-line-3",
 			"title": "Straight line 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9066",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/straight-line-3.svg",
 			"width": 6,
 			"height": 497,
@@ -6943,46 +6293,21 @@
 		{
 			"slug": "straight-line-4",
 			"title": "Straight line 4",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9069",
 				"name": "Group",
-				"frame": "555:8314"
+				"frame": "555:8314",
+				"copies": [
+					"555:9076"
+				]
 			},
-			"suggested": true,
 			"path": "vectors/straight-line-4.svg",
-			"width": 6,
-			"height": 501,
-			"colors": [
-				"#1D1D1B"
-			],
-			"mask": true,
-			"bytes": 148,
-			"sha256": "bfd4ffb214470877cc37e9cda4cf47528fc79e1fb7c6d51434d4af0d84675dfc"
-		},
-		{
-			"slug": "straight-line-5",
-			"title": "Straight line 5",
-			"role": "line",
-			"tile": null,
-			"tags": [
-				"line",
-				"straight"
-			],
-			"figma": {
-				"source": "catpope-vector",
-				"node": "555:9076",
-				"name": "Group",
-				"frame": "555:8314"
-			},
-			"suggested": true,
-			"path": "vectors/straight-line-5.svg",
 			"width": 6,
 			"height": 501,
 			"colors": [
@@ -6995,19 +6320,17 @@
 		{
 			"slug": "straight-line-6",
 			"title": "Straight line 6",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9079",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/straight-line-6.svg",
 			"width": 446,
 			"height": 443,
@@ -7021,19 +6344,17 @@
 		{
 			"slug": "straight-line-7",
 			"title": "Straight line 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9080",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/straight-line-7.svg",
 			"width": 356,
 			"height": 356,
@@ -7047,19 +6368,17 @@
 		{
 			"slug": "straight-line-8",
 			"title": "Straight line 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9083",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/straight-line-8.svg",
 			"width": 359,
 			"height": 359,
@@ -7073,19 +6392,17 @@
 		{
 			"slug": "straight-line-9",
 			"title": "Straight line 9",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"straight"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9093",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/straight-line-9.svg",
 			"width": 443,
 			"height": 446,
@@ -7099,20 +6416,18 @@
 		{
 			"slug": "ray-lines-2",
 			"title": "Ray lines 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"ray",
 				"lines"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9143",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/ray-lines-2.svg",
 			"width": 1993,
 			"height": 1061,
@@ -7126,20 +6441,18 @@
 		{
 			"slug": "bowl-arc",
 			"title": "Bowl arc",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9195",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc.svg",
 			"width": 1538,
 			"height": 830,
@@ -7153,20 +6466,18 @@
 		{
 			"slug": "bowl-arc-2",
 			"title": "Bowl arc 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9196",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-2.svg",
 			"width": 2000,
 			"height": 1063,
@@ -7180,20 +6491,18 @@
 		{
 			"slug": "bowl-arc-3",
 			"title": "Bowl arc 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9197",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-3.svg",
 			"width": 1007,
 			"height": 564,
@@ -7207,20 +6516,18 @@
 		{
 			"slug": "bowl-arc-4",
 			"title": "Bowl arc 4",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9266",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-4.svg",
 			"width": 1007,
 			"height": 511,
@@ -7234,20 +6541,18 @@
 		{
 			"slug": "bowl-arc-5",
 			"title": "Bowl arc 5",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9267",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-5.svg",
 			"width": 1538,
 			"height": 777,
@@ -7261,19 +6566,17 @@
 		{
 			"slug": "chandelier",
 			"title": "Chandelier",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"chandelier"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9314",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/chandelier.svg",
 			"width": 3513,
 			"height": 5329,
@@ -7287,19 +6590,17 @@
 		{
 			"slug": "chandelier-2",
 			"title": "Chandelier 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"chandelier"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9323",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/chandelier-2.svg",
 			"width": 3513,
 			"height": 5031,
@@ -7313,21 +6614,19 @@
 		{
 			"slug": "arch-frieze-lines",
 			"title": "Arch frieze lines",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
 				"arch",
 				"frieze",
 				"lines"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9342",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/arch-frieze-lines.svg",
 			"width": 6123,
 			"height": 753,
@@ -7341,20 +6640,18 @@
 		{
 			"slug": "scaffold-lines",
 			"title": "Scaffold lines",
-			"role": "frieze-unit",
-			"tile": "y",
 			"tags": [
 				"frieze-unit",
 				"scaffold",
 				"lines"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9343",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scaffold-lines.svg",
 			"width": 661,
 			"height": 753,
@@ -7368,20 +6665,18 @@
 		{
 			"slug": "scaffold-lines-2",
 			"title": "Scaffold lines 2",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
 				"scaffold",
 				"lines"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9344",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scaffold-lines-2.svg",
 			"width": 1221,
 			"height": 753,
@@ -7395,20 +6690,18 @@
 		{
 			"slug": "arc-thin-5",
 			"title": "Arc thin 5",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9347",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-5.svg",
 			"width": 495,
 			"height": 275,
@@ -7422,20 +6715,18 @@
 		{
 			"slug": "arc-thin-6",
 			"title": "Arc thin 6",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9348",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-6.svg",
 			"width": 364,
 			"height": 193,
@@ -7449,20 +6740,18 @@
 		{
 			"slug": "arc-thin-7",
 			"title": "Arc thin 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9349",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-7.svg",
 			"width": 432,
 			"height": 342,
@@ -7476,20 +6765,18 @@
 		{
 			"slug": "arc-thin-8",
 			"title": "Arc thin 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9350",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-8.svg",
 			"width": 506,
 			"height": 533,
@@ -7503,20 +6790,18 @@
 		{
 			"slug": "damask-scatter",
 			"title": "Damask scatter",
-			"role": "filigree",
-			"tile": null,
 			"tags": [
 				"filigree",
 				"damask",
 				"scatter"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9359",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/damask-scatter.svg",
 			"width": 1395,
 			"height": 1251,
@@ -7530,21 +6815,18 @@
 		{
 			"slug": "bowl-arc-red-2",
 			"title": "Bowl arc red 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
-				"arc",
-				"red"
+				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9605",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-red-2.svg",
 			"width": 340,
 			"height": 173,
@@ -7559,21 +6841,18 @@
 		{
 			"slug": "dot-line-red",
 			"title": "Dot line red",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"dot",
-				"line",
-				"red"
+				"line"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9607",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/dot-line-red.svg",
 			"width": 925,
 			"height": 2877,
@@ -7588,21 +6867,18 @@
 		{
 			"slug": "sun-rays-red",
 			"title": "Sun rays red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"sun",
-				"rays",
-				"red"
+				"rays"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9608",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/sun-rays-red.svg",
 			"width": 925,
 			"height": 437,
@@ -7617,20 +6893,17 @@
 		{
 			"slug": "needle-red",
 			"title": "Needle red",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9613",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red.svg",
 			"width": 131,
 			"height": 131,
@@ -7644,20 +6917,17 @@
 		{
 			"slug": "starburst-red-3",
 			"title": "Starburst red 3",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"starburst",
-				"red"
+				"starburst"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9615",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/starburst-red-3.svg",
 			"width": 182,
 			"height": 187,
@@ -7671,20 +6941,17 @@
 		{
 			"slug": "needle-red-2",
 			"title": "Needle red 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9618",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-2.svg",
 			"width": 132,
 			"height": 132,
@@ -7698,20 +6965,17 @@
 		{
 			"slug": "needle-red-3",
 			"title": "Needle red 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9624",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-3.svg",
 			"width": 71,
 			"height": 173,
@@ -7725,20 +6989,17 @@
 		{
 			"slug": "needle-red-4",
 			"title": "Needle red 4",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9626",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-4.svg",
 			"width": 73,
 			"height": 172,
@@ -7752,20 +7013,17 @@
 		{
 			"slug": "needle-red-5",
 			"title": "Needle red 5",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9628",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-5.svg",
 			"width": 168,
 			"height": 69,
@@ -7779,20 +7037,17 @@
 		{
 			"slug": "needle-red-6",
 			"title": "Needle red 6",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9630",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-6.svg",
 			"width": 170,
 			"height": 72,
@@ -7806,20 +7061,17 @@
 		{
 			"slug": "starburst-red-4",
 			"title": "Starburst red 4",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"starburst",
-				"red"
+				"starburst"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9632",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/starburst-red-4.svg",
 			"width": 184,
 			"height": 185,
@@ -7833,20 +7085,17 @@
 		{
 			"slug": "needle-red-7",
 			"title": "Needle red 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9633",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-7.svg",
 			"width": 35,
 			"height": 183,
@@ -7860,20 +7109,17 @@
 		{
 			"slug": "needle-red-8",
 			"title": "Needle red 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9635",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-8.svg",
 			"width": 106,
 			"height": 154,
@@ -7887,20 +7133,17 @@
 		{
 			"slug": "needle-red-9",
 			"title": "Needle red 9",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9637",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-9.svg",
 			"width": 179,
 			"height": 34,
@@ -7914,20 +7157,17 @@
 		{
 			"slug": "needle-red-10",
 			"title": "Needle red 10",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9639",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-10.svg",
 			"width": 152,
 			"height": 104,
@@ -7941,20 +7181,17 @@
 		{
 			"slug": "needle-red-11",
 			"title": "Needle red 11",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9641",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-11.svg",
 			"width": 101,
 			"height": 157,
@@ -7968,20 +7205,17 @@
 		{
 			"slug": "needle-red-12",
 			"title": "Needle red 12",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9643",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-12.svg",
 			"width": 40,
 			"height": 182,
@@ -7995,20 +7229,17 @@
 		{
 			"slug": "needle-red-13",
 			"title": "Needle red 13",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9645",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-13.svg",
 			"width": 153,
 			"height": 98,
@@ -8022,20 +7253,17 @@
 		{
 			"slug": "needle-red-14",
 			"title": "Needle red 14",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9647",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-14.svg",
 			"width": 180,
 			"height": 40,
@@ -8049,20 +7277,17 @@
 		{
 			"slug": "starburst-red-5",
 			"title": "Starburst red 5",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"starburst",
-				"red"
+				"starburst"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9649",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/starburst-red-5.svg",
 			"width": 183,
 			"height": 186,
@@ -8076,20 +7301,17 @@
 		{
 			"slug": "needle-red-15",
 			"title": "Needle red 15",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9650",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-15.svg",
 			"width": 21,
 			"height": 186,
@@ -8103,20 +7325,17 @@
 		{
 			"slug": "needle-red-16",
 			"title": "Needle red 16",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9652",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-16.svg",
 			"width": 117,
 			"height": 146,
@@ -8130,20 +7349,17 @@
 		{
 			"slug": "needle-red-17",
 			"title": "Needle red 17",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9654",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-17.svg",
 			"width": 181,
 			"height": 20,
@@ -8157,20 +7373,17 @@
 		{
 			"slug": "needle-red-18",
 			"title": "Needle red 18",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9656",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-18.svg",
 			"width": 144,
 			"height": 116,
@@ -8184,20 +7397,17 @@
 		{
 			"slug": "needle-red-19",
 			"title": "Needle red 19",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9658",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-19.svg",
 			"width": 89,
 			"height": 164,
@@ -8211,20 +7421,17 @@
 		{
 			"slug": "needle-red-20",
 			"title": "Needle red 20",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9660",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-20.svg",
 			"width": 54,
 			"height": 179,
@@ -8238,20 +7445,17 @@
 		{
 			"slug": "needle-red-21",
 			"title": "Needle red 21",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9662",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-21.svg",
 			"width": 160,
 			"height": 87,
@@ -8265,20 +7469,17 @@
 		{
 			"slug": "needle-red-22",
 			"title": "Needle red 22",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9664",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-22.svg",
 			"width": 177,
 			"height": 53,
@@ -8292,20 +7493,17 @@
 		{
 			"slug": "needle-red-23",
 			"title": "Needle red 23",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9667",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-23.svg",
 			"width": 55,
 			"height": 179,
@@ -8319,20 +7517,17 @@
 		{
 			"slug": "needle-red-24",
 			"title": "Needle red 24",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9669",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-24.svg",
 			"width": 88,
 			"height": 165,
@@ -8346,20 +7541,17 @@
 		{
 			"slug": "needle-red-25",
 			"title": "Needle red 25",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9671",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-25.svg",
 			"width": 174,
 			"height": 53,
@@ -8373,20 +7565,17 @@
 		{
 			"slug": "needle-red-26",
 			"title": "Needle red 26",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9673",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-26.svg",
 			"width": 163,
 			"height": 87,
@@ -8400,20 +7589,17 @@
 		{
 			"slug": "needle-red-27",
 			"title": "Needle red 27",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9675",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-27.svg",
 			"width": 118,
 			"height": 145,
@@ -8427,20 +7613,17 @@
 		{
 			"slug": "needle-red-28",
 			"title": "Needle red 28",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9677",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-28.svg",
 			"width": 20,
 			"height": 186,
@@ -8454,20 +7637,17 @@
 		{
 			"slug": "needle-red-29",
 			"title": "Needle red 29",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9679",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-29.svg",
 			"width": 141,
 			"height": 115,
@@ -8481,20 +7661,17 @@
 		{
 			"slug": "needle-red-30",
 			"title": "Needle red 30",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"needle",
-				"red"
+				"needle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9681",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/needle-red-30.svg",
 			"width": 184,
 			"height": 20,
@@ -8508,48 +7685,21 @@
 		{
 			"slug": "curve-red",
 			"title": "Curve red",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"curve",
-				"red"
+				"curve"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9684",
 				"name": "Group",
-				"frame": "555:8314"
+				"frame": "555:8314",
+				"copies": [
+					"555:9685"
+				]
 			},
-			"suggested": true,
 			"path": "vectors/curve-red.svg",
-			"width": 408,
-			"height": 219,
-			"colors": [
-				"#FF0000"
-			],
-			"mask": true,
-			"bytes": 383,
-			"sha256": "010a8fae7a0bc2e1780a11e8550d8c3ae24f4d45d26649fbb4850a553355f0d2"
-		},
-		{
-			"slug": "curve-red-2",
-			"title": "Curve red 2",
-			"role": "line",
-			"tile": null,
-			"tags": [
-				"line",
-				"curve",
-				"red"
-			],
-			"figma": {
-				"source": "catpope-vector",
-				"node": "555:9685",
-				"name": "Vector",
-				"frame": "555:8314"
-			},
-			"suggested": true,
-			"path": "vectors/curve-red-2.svg",
 			"width": 408,
 			"height": 219,
 			"colors": [
@@ -8562,48 +7712,21 @@
 		{
 			"slug": "curve-red-3",
 			"title": "Curve red 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"curve",
-				"red"
+				"curve"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9686",
 				"name": "Group",
-				"frame": "555:8314"
+				"frame": "555:8314",
+				"copies": [
+					"555:9687"
+				]
 			},
-			"suggested": true,
 			"path": "vectors/curve-red-3.svg",
-			"width": 319,
-			"height": 233,
-			"colors": [
-				"#FF0000"
-			],
-			"mask": true,
-			"bytes": 551,
-			"sha256": "fb02afb9d13925ef521e95961896fd94a951673c1da11f4f53d6bec80426832c"
-		},
-		{
-			"slug": "curve-red-4",
-			"title": "Curve red 4",
-			"role": "line",
-			"tile": null,
-			"tags": [
-				"line",
-				"curve",
-				"red"
-			],
-			"figma": {
-				"source": "catpope-vector",
-				"node": "555:9687",
-				"name": "Vector",
-				"frame": "555:8314"
-			},
-			"suggested": true,
-			"path": "vectors/curve-red-4.svg",
 			"width": 319,
 			"height": 233,
 			"colors": [
@@ -8616,48 +7739,21 @@
 		{
 			"slug": "curve-red-5",
 			"title": "Curve red 5",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"curve",
-				"red"
+				"curve"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9688",
 				"name": "Group",
-				"frame": "555:8314"
+				"frame": "555:8314",
+				"copies": [
+					"555:9689"
+				]
 			},
-			"suggested": true,
 			"path": "vectors/curve-red-5.svg",
-			"width": 304,
-			"height": 160,
-			"colors": [
-				"#FF0000"
-			],
-			"mask": true,
-			"bytes": 473,
-			"sha256": "c71f9137adc9bb7326f3000be3cb4c0dcfdd66896fd8812d0db140417240f676"
-		},
-		{
-			"slug": "curve-red-6",
-			"title": "Curve red 6",
-			"role": "line",
-			"tile": null,
-			"tags": [
-				"line",
-				"curve",
-				"red"
-			],
-			"figma": {
-				"source": "catpope-vector",
-				"node": "555:9689",
-				"name": "Vector",
-				"frame": "555:8314"
-			},
-			"suggested": true,
-			"path": "vectors/curve-red-6.svg",
 			"width": 304,
 			"height": 160,
 			"colors": [
@@ -8670,20 +7766,17 @@
 		{
 			"slug": "curve-red-7",
 			"title": "Curve red 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"curve",
-				"red"
+				"curve"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9690",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/curve-red-7.svg",
 			"width": 175,
 			"height": 179,
@@ -8697,20 +7790,17 @@
 		{
 			"slug": "curve-red-8",
 			"title": "Curve red 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"curve",
-				"red"
+				"curve"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:9692",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/curve-red-8.svg",
 			"width": 138,
 			"height": 116,
@@ -8724,20 +7814,17 @@
 		{
 			"slug": "starburst-red-6",
 			"title": "Starburst red 6",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"starburst",
-				"red"
+				"starburst"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:10510",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/starburst-red-6.svg",
 			"width": 183,
 			"height": 186,
@@ -8751,21 +7838,18 @@
 		{
 			"slug": "arc-red-thin-2",
 			"title": "Arc red thin 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
-				"red",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12190",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/arc-red-thin-2.svg",
 			"width": 755,
 			"height": 138,
@@ -8779,21 +7863,18 @@
 		{
 			"slug": "arc-red-thin-3",
 			"title": "Arc red thin 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
-				"red",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12191",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/arc-red-thin-3.svg",
 			"width": 378,
 			"height": 303,
@@ -8807,21 +7888,18 @@
 		{
 			"slug": "box-red-outline",
 			"title": "Box red outline",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"box",
-				"red",
 				"outline"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12193",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/box-red-outline.svg",
 			"width": 136,
 			"height": 467,
@@ -8835,20 +7913,18 @@
 		{
 			"slug": "dot-tiles",
 			"title": "Dot tiles",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dot",
 				"tiles"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12205",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/dot-tiles.svg",
 			"width": 104,
 			"height": 143,
@@ -8863,20 +7939,18 @@
 		{
 			"slug": "dot-tiles-2",
 			"title": "Dot tiles 2",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dot",
 				"tiles"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12207",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/dot-tiles-2.svg",
 			"width": 104,
 			"height": 143,
@@ -8890,20 +7964,17 @@
 		{
 			"slug": "ladder-gold",
 			"title": "Ladder gold",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
-				"ladder",
-				"gold"
+				"ladder"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8410",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/ladder-gold.svg",
 			"width": 515,
 			"height": 1817,
@@ -8920,20 +7991,18 @@
 		{
 			"slug": "glow-spindle",
 			"title": "Glow spindle",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"glow",
 				"spindle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8412",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/glow-spindle.svg",
 			"width": 70,
 			"height": 619,
@@ -8950,20 +8019,17 @@
 		{
 			"slug": "veins-grey",
 			"title": "Veins grey",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
-				"veins",
-				"grey"
+				"veins"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8424",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/veins-grey.svg",
 			"width": 891,
 			"height": 3095,
@@ -8978,19 +8044,16 @@
 		{
 			"slug": "brush-grey",
 			"title": "Brush grey",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8425",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey.svg",
 			"width": 310,
 			"height": 603,
@@ -9005,19 +8068,16 @@
 		{
 			"slug": "brush-grey-2",
 			"title": "Brush grey 2",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8426",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-2.svg",
 			"width": 231,
 			"height": 282,
@@ -9032,19 +8092,16 @@
 		{
 			"slug": "brush-grey-3",
 			"title": "Brush grey 3",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8427",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-3.svg",
 			"width": 191,
 			"height": 305,
@@ -9059,19 +8116,16 @@
 		{
 			"slug": "brush-grey-4",
 			"title": "Brush grey 4",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8428",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-4.svg",
 			"width": 207,
 			"height": 476,
@@ -9086,19 +8140,16 @@
 		{
 			"slug": "brush-grey-5",
 			"title": "Brush grey 5",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8429",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-5.svg",
 			"width": 240,
 			"height": 674,
@@ -9113,19 +8164,16 @@
 		{
 			"slug": "brush-grey-6",
 			"title": "Brush grey 6",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8430",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-6.svg",
 			"width": 135,
 			"height": 530,
@@ -9140,19 +8188,16 @@
 		{
 			"slug": "brush-grey-7",
 			"title": "Brush grey 7",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8431",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-7.svg",
 			"width": 221,
 			"height": 690,
@@ -9167,19 +8212,16 @@
 		{
 			"slug": "brush-grey-8",
 			"title": "Brush grey 8",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8432",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-8.svg",
 			"width": 129,
 			"height": 447,
@@ -9194,19 +8236,16 @@
 		{
 			"slug": "brush-grey-9",
 			"title": "Brush grey 9",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8437",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-9.svg",
 			"width": 226,
 			"height": 414,
@@ -9221,19 +8260,16 @@
 		{
 			"slug": "brush-grey-10",
 			"title": "Brush grey 10",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8438",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-10.svg",
 			"width": 230,
 			"height": 284,
@@ -9248,19 +8284,16 @@
 		{
 			"slug": "brush-grey-11",
 			"title": "Brush grey 11",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8439",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-11.svg",
 			"width": 371,
 			"height": 195,
@@ -9275,19 +8308,16 @@
 		{
 			"slug": "brush-grey-12",
 			"title": "Brush grey 12",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8440",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-12.svg",
 			"width": 212,
 			"height": 549,
@@ -9302,19 +8332,16 @@
 		{
 			"slug": "brush-grey-13",
 			"title": "Brush grey 13",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8452",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-13.svg",
 			"width": 572,
 			"height": 269,
@@ -9329,19 +8356,16 @@
 		{
 			"slug": "brush-grey-14",
 			"title": "Brush grey 14",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8458",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-14.svg",
 			"width": 194,
 			"height": 617,
@@ -9356,19 +8380,16 @@
 		{
 			"slug": "brush-grey-15",
 			"title": "Brush grey 15",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8461",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-15.svg",
 			"width": 87,
 			"height": 261,
@@ -9383,19 +8404,16 @@
 		{
 			"slug": "brush-grey-16",
 			"title": "Brush grey 16",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8462",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-16.svg",
 			"width": 176,
 			"height": 273,
@@ -9410,19 +8428,16 @@
 		{
 			"slug": "brush-grey-17",
 			"title": "Brush grey 17",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8464",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-17.svg",
 			"width": 145,
 			"height": 288,
@@ -9437,19 +8452,16 @@
 		{
 			"slug": "brush-grey-18",
 			"title": "Brush grey 18",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8469",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-18.svg",
 			"width": 140,
 			"height": 322,
@@ -9464,19 +8476,16 @@
 		{
 			"slug": "brush-grey-19",
 			"title": "Brush grey 19",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8470",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-19.svg",
 			"width": 131,
 			"height": 311,
@@ -9491,19 +8500,16 @@
 		{
 			"slug": "brush-grey-20",
 			"title": "Brush grey 20",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8473",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-20.svg",
 			"width": 150,
 			"height": 323,
@@ -9518,19 +8524,16 @@
 		{
 			"slug": "brush-grey-21",
 			"title": "Brush grey 21",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8478",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-21.svg",
 			"width": 591,
 			"height": 348,
@@ -9545,19 +8548,16 @@
 		{
 			"slug": "brush-grey-22",
 			"title": "Brush grey 22",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:8479",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-22.svg",
 			"width": 166,
 			"height": 647,
@@ -9572,20 +8572,17 @@
 		{
 			"slug": "tiles-pastel",
 			"title": "Tiles pastel",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
-				"tiles",
-				"pastel"
+				"tiles"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12499",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/tiles-pastel.svg",
 			"width": 143,
 			"height": 104,
@@ -9602,20 +8599,17 @@
 		{
 			"slug": "tiles-pastel-2",
 			"title": "Tiles pastel 2",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
-				"tiles",
-				"pastel"
+				"tiles"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12501",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/tiles-pastel-2.svg",
 			"width": 143,
 			"height": 104,
@@ -9630,20 +8624,18 @@
 		{
 			"slug": "rim-arc",
 			"title": "Rim arc",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12640",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc.svg",
 			"width": 495,
 			"height": 789,
@@ -9657,20 +8649,18 @@
 		{
 			"slug": "rim-arc-2",
 			"title": "Rim arc 2",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12642",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-2.svg",
 			"width": 577,
 			"height": 480,
@@ -9684,20 +8674,18 @@
 		{
 			"slug": "rim-arc-3",
 			"title": "Rim arc 3",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12644",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-3.svg",
 			"width": 455,
 			"height": 387,
@@ -9711,20 +8699,18 @@
 		{
 			"slug": "rim-arc-4",
 			"title": "Rim arc 4",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12645",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-4.svg",
 			"width": 923,
 			"height": 526,
@@ -9738,20 +8724,18 @@
 		{
 			"slug": "rim-arc-5",
 			"title": "Rim arc 5",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12646",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-5.svg",
 			"width": 579,
 			"height": 924,
@@ -9765,20 +8749,18 @@
 		{
 			"slug": "rim-arc-6",
 			"title": "Rim arc 6",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12647",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-6.svg",
 			"width": 746,
 			"height": 428,
@@ -9792,20 +8774,18 @@
 		{
 			"slug": "rim-arc-7",
 			"title": "Rim arc 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12648",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-7.svg",
 			"width": 916,
 			"height": 526,
@@ -9819,20 +8799,18 @@
 		{
 			"slug": "rim-arc-8",
 			"title": "Rim arc 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12649",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-8.svg",
 			"width": 475,
 			"height": 341,
@@ -9846,19 +8824,17 @@
 		{
 			"slug": "glyph-corner",
 			"title": "Glyph corner",
-			"role": "corner",
-			"tile": null,
 			"tags": [
 				"corner",
 				"glyph"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12650",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/glyph-corner.svg",
 			"width": 637,
 			"height": 702,
@@ -9872,20 +8848,18 @@
 		{
 			"slug": "hook-wave",
 			"title": "Hook wave",
-			"role": "corner",
-			"tile": null,
 			"tags": [
 				"corner",
 				"hook",
 				"wave"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12654",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/hook-wave.svg",
 			"width": 455,
 			"height": 329,
@@ -9899,20 +8873,17 @@
 		{
 			"slug": "circuit-black",
 			"title": "Circuit black",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"circuit",
-				"black"
+				"circuit"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12665",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/circuit-black.svg",
 			"width": 668,
 			"height": 684,
@@ -9926,20 +8897,17 @@
 		{
 			"slug": "circuit-black-2",
 			"title": "Circuit black 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"circuit",
-				"black"
+				"circuit"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:12666",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/circuit-black-2.svg",
 			"width": 684,
 			"height": 668,
@@ -9953,21 +8921,19 @@
 		{
 			"slug": "cat-head-lines",
 			"title": "Cat head lines",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"cat",
 				"head",
 				"lines"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:13069",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/cat-head-lines.svg",
 			"width": 348,
 			"height": 256,
@@ -9981,21 +8947,19 @@
 		{
 			"slug": "cat-head-lines-2",
 			"title": "Cat head lines 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"cat",
 				"head",
 				"lines"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:13071",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/cat-head-lines-2.svg",
 			"width": 348,
 			"height": 256,
@@ -10009,20 +8973,18 @@
 		{
 			"slug": "rail-line",
 			"title": "Rail line",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"rail",
 				"line"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:13072",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rail-line.svg",
 			"width": 1189,
 			"height": 3911,
@@ -10036,20 +8998,18 @@
 		{
 			"slug": "rail-line-2",
 			"title": "Rail line 2",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"rail",
 				"line"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:13073",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/rail-line-2.svg",
 			"width": 107,
 			"height": 3911,
@@ -10063,20 +9023,18 @@
 		{
 			"slug": "comb-dots",
 			"title": "Comb dots",
-			"role": "teeth",
-			"tile": null,
 			"tags": [
 				"teeth",
 				"comb",
 				"dots"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:13074",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/comb-dots.svg",
 			"width": 107,
 			"height": 657,
@@ -10090,19 +9048,17 @@
 		{
 			"slug": "comb",
 			"title": "Comb",
-			"role": "teeth",
-			"tile": null,
 			"tags": [
 				"teeth",
 				"comb"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:13095",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/comb.svg",
 			"width": 74,
 			"height": 652,
@@ -10116,20 +9072,18 @@
 		{
 			"slug": "spine-ornament",
 			"title": "Spine ornament",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"spine",
 				"ornament"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14662",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/spine-ornament.svg",
 			"width": 120,
 			"height": 1052,
@@ -10143,21 +9097,18 @@
 		{
 			"slug": "sun-dots-red",
 			"title": "Sun dots red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"sun",
-				"dots",
-				"red"
+				"dots"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14666",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/sun-dots-red.svg",
 			"width": 319,
 			"height": 320,
@@ -10171,20 +9122,18 @@
 		{
 			"slug": "scaffold-lines-3",
 			"title": "Scaffold lines 3",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
 				"scaffold",
 				"lines"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14689",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scaffold-lines-3.svg",
 			"width": 3324,
 			"height": 1768,
@@ -10198,19 +9147,17 @@
 		{
 			"slug": "diagonal-line-7",
 			"title": "Diagonal line 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14696",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line-7.svg",
 			"width": 589,
 			"height": 589,
@@ -10224,19 +9171,17 @@
 		{
 			"slug": "diagonal-line-8",
 			"title": "Diagonal line 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"diagonal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14697",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/diagonal-line-8.svg",
 			"width": 594,
 			"height": 594,
@@ -10250,20 +9195,18 @@
 		{
 			"slug": "bowl-arc-6",
 			"title": "Bowl arc 6",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14718",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-6.svg",
 			"width": 2565,
 			"height": 1385,
@@ -10277,20 +9220,18 @@
 		{
 			"slug": "bowl-arc-7",
 			"title": "Bowl arc 7",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14719",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-7.svg",
 			"width": 3336,
 			"height": 1773,
@@ -10304,20 +9245,18 @@
 		{
 			"slug": "bowl-arc-8",
 			"title": "Bowl arc 8",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"bowl",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14720",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/bowl-arc-8.svg",
 			"width": 1680,
 			"height": 940,
@@ -10331,48 +9270,22 @@
 		{
 			"slug": "scaffold-frieze",
 			"title": "Scaffold frieze",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
 				"scaffold",
 				"frieze"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14723",
 				"name": "Group",
-				"frame": "555:8314"
+				"frame": "555:8314",
+				"copies": [
+					"555:14724"
+				]
 			},
-			"suggested": true,
 			"path": "vectors/scaffold-frieze.svg",
-			"width": 2037,
-			"height": 1255,
-			"colors": [
-				"#1D1D1B"
-			],
-			"mask": true,
-			"bytes": 5532,
-			"sha256": "bd31bdc993ecec1f8fe5af6a1a1edcf3f253f8167e6d28abe84b60b8d9b739fc"
-		},
-		{
-			"slug": "scaffold-frieze-2",
-			"title": "Scaffold frieze 2",
-			"role": "frieze-unit",
-			"tile": "x",
-			"tags": [
-				"frieze-unit",
-				"scaffold",
-				"frieze"
-			],
-			"figma": {
-				"source": "catpope-vector",
-				"node": "555:14724",
-				"name": "Vector",
-				"frame": "555:8314"
-			},
-			"suggested": true,
-			"path": "vectors/scaffold-frieze-2.svg",
 			"width": 2037,
 			"height": 1255,
 			"colors": [
@@ -10385,21 +9298,18 @@
 		{
 			"slug": "scrooge-face-red-3",
 			"title": "Scrooge face red 3",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
-				"face",
-				"red"
+				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14801",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-face-red-3.svg",
 			"width": 469,
 			"height": 515,
@@ -10413,21 +9323,18 @@
 		{
 			"slug": "scrooge-face-red-4",
 			"title": "Scrooge face red 4",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
-				"face",
-				"red"
+				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14849",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-face-red-4.svg",
 			"width": 469,
 			"height": 515,
@@ -10441,21 +9348,18 @@
 		{
 			"slug": "scrooge-face-red-5",
 			"title": "Scrooge face red 5",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
-				"face",
-				"red"
+				"face"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:14943",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-face-red-5.svg",
 			"width": 469,
 			"height": 515,
@@ -10469,20 +9373,18 @@
 		{
 			"slug": "scrooge-totem",
 			"title": "Scrooge totem",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
 				"totem"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15220",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-totem.svg",
 			"width": 568,
 			"height": 1978,
@@ -10498,19 +9400,17 @@
 		{
 			"slug": "scrooge-silhouette-2",
 			"title": "Scrooge silhouette 2",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"scrooge"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15221",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-silhouette-2.svg",
 			"width": 568,
 			"height": 793,
@@ -10525,21 +9425,18 @@
 		{
 			"slug": "scrooge-profile-red",
 			"title": "Scrooge profile red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
-				"profile",
-				"red"
+				"profile"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15222",
 				"name": "Group",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-profile-red.svg",
 			"width": 542,
 			"height": 767,
@@ -10553,20 +9450,17 @@
 		{
 			"slug": "red-lash",
 			"title": "Red lash",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
-				"red",
 				"lash"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15253",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/red-lash.svg",
 			"width": 271,
 			"height": 150,
@@ -10580,21 +9474,18 @@
 		{
 			"slug": "face-outline-red",
 			"title": "Face outline red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"face",
-				"outline",
-				"red"
+				"outline"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15256",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/face-outline-red.svg",
 			"width": 167,
 			"height": 334,
@@ -10608,21 +9499,18 @@
 		{
 			"slug": "scrooge-side-red",
 			"title": "Scrooge side red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
-				"side",
-				"red"
+				"side"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15257",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-side-red.svg",
 			"width": 425,
 			"height": 433,
@@ -10636,20 +9524,18 @@
 		{
 			"slug": "scrooge-hat",
 			"title": "Scrooge hat",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
 				"hat"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:15264",
 				"name": "Vector",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-hat.svg",
 			"width": 442,
 			"height": 404,
@@ -10663,21 +9549,18 @@
 		{
 			"slug": "box-notch-red",
 			"title": "Box notch red",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"box",
-				"notch",
-				"red"
+				"notch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3537:3857",
 				"name": "Union",
 				"frame": "555:8314"
 			},
-			"suggested": true,
 			"path": "vectors/box-notch-red.svg",
 			"width": 348,
 			"height": 467,
@@ -10691,19 +9574,17 @@
 		{
 			"slug": "pizza-large",
 			"title": "Pizza large",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"large"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:27887",
 				"name": "pizza-large"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-large.svg",
 			"width": 2777,
 			"height": 1843,
@@ -10718,20 +9599,18 @@
 		{
 			"slug": "pizza-parts",
 			"title": "Pizza parts",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"parts"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151",
 				"name": "Large",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-parts.svg",
 			"width": 2353,
 			"height": 1561,
@@ -10746,20 +9625,18 @@
 		{
 			"slug": "pizza-parts-2",
 			"title": "Pizza parts 2",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"parts"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:65422",
 				"name": "Group 6",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-parts-2.svg",
 			"width": 2289,
 			"height": 1435,
@@ -10774,20 +9651,18 @@
 		{
 			"slug": "pizza-parts-3",
 			"title": "Pizza parts 3",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"parts"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56292",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-parts-3.svg",
 			"width": 1445,
 			"height": 1009,
@@ -10802,20 +9677,18 @@
 		{
 			"slug": "arc-thin-9",
 			"title": "Arc thin 9",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56386",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-9.svg",
 			"width": 391,
 			"height": 724,
@@ -10830,20 +9703,18 @@
 		{
 			"slug": "arc-thin-10",
 			"title": "Arc thin 10",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56387",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-10.svg",
 			"width": 501,
 			"height": 941,
@@ -10858,20 +9729,18 @@
 		{
 			"slug": "arc-thin-11",
 			"title": "Arc thin 11",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56388",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-11.svg",
 			"width": 266,
 			"height": 474,
@@ -10886,20 +9755,18 @@
 		{
 			"slug": "scaffold-lines-4",
 			"title": "Scaffold lines 4",
-			"role": "frieze-unit",
-			"tile": "x",
 			"tags": [
 				"frieze-unit",
 				"scaffold",
 				"lines"
 			],
+			"tile": "x",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56391",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/scaffold-lines-4.svg",
 			"width": 354,
 			"height": 575,
@@ -10914,20 +9781,18 @@
 		{
 			"slug": "rim-arc-9",
 			"title": "Rim arc 9",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56392",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-9.svg",
 			"width": 353,
 			"height": 222,
@@ -10942,20 +9807,18 @@
 		{
 			"slug": "rim-arc-10",
 			"title": "Rim arc 10",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56397",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-10.svg",
 			"width": 236,
 			"height": 414,
@@ -10970,20 +9833,18 @@
 		{
 			"slug": "rim-arc-11",
 			"title": "Rim arc 11",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56398",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-11.svg",
 			"width": 414,
 			"height": 260,
@@ -10998,20 +9859,18 @@
 		{
 			"slug": "rim-arc-12",
 			"title": "Rim arc 12",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"rim",
 				"arc"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56399",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/rim-arc-12.svg",
 			"width": 236,
 			"height": 410,
@@ -11026,20 +9885,17 @@
 		{
 			"slug": "circuit-black-3",
 			"title": "Circuit black 3",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"circuit",
-				"black"
+				"circuit"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56411",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/circuit-black-3.svg",
 			"width": 306,
 			"height": 299,
@@ -11054,20 +9910,17 @@
 		{
 			"slug": "circuit-black-4",
 			"title": "Circuit black 4",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
-				"circuit",
-				"black"
+				"circuit"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56412",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/circuit-black-4.svg",
 			"width": 299,
 			"height": 306,
@@ -11082,20 +9935,18 @@
 		{
 			"slug": "thorn-tangle",
 			"title": "Thorn tangle",
-			"role": "vessels",
-			"tile": null,
 			"tags": [
 				"vessels",
 				"thorn",
 				"tangle"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27887;499:2151;499:56581",
 				"name": "Vector",
 				"frame": "555:27887"
 			},
-			"suggested": true,
 			"path": "vectors/thorn-tangle.svg",
 			"width": 784,
 			"height": 432,
@@ -11110,19 +9961,17 @@
 		{
 			"slug": "pizza-medium",
 			"title": "Pizza medium",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"medium"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:27888",
 				"name": "pizza-medium"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-medium.svg",
 			"width": 1332,
 			"height": 1684,
@@ -11137,21 +9986,19 @@
 		{
 			"slug": "pizza-medium-parts",
 			"title": "Pizza medium parts",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"medium",
 				"parts"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27888;499:86978",
 				"name": "Medium",
 				"frame": "555:27888"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-medium-parts.svg",
 			"width": 1009,
 			"height": 1426,
@@ -11166,20 +10013,18 @@
 		{
 			"slug": "bead-column",
 			"title": "Bead column",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"bead",
 				"column"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27888;499:86978;499:1690",
 				"name": "Vector",
 				"frame": "555:27888"
 			},
-			"suggested": true,
 			"path": "vectors/bead-column.svg",
 			"width": 121,
 			"height": 1324,
@@ -11193,20 +10038,18 @@
 		{
 			"slug": "dot-spine",
 			"title": "Dot spine",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"dot",
 				"spine"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27888;499:86978;499:1697",
 				"name": "Vector",
 				"frame": "555:27888"
 			},
-			"suggested": true,
 			"path": "vectors/dot-spine.svg",
 			"width": 374,
 			"height": 939,
@@ -11220,20 +10063,18 @@
 		{
 			"slug": "eye-dots",
 			"title": "Eye dots",
-			"role": "eyes",
-			"tile": null,
 			"tags": [
 				"eyes",
 				"eye",
 				"dots"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27888;499:86978;499:1698",
 				"name": "Vector",
 				"frame": "555:27888"
 			},
-			"suggested": true,
 			"path": "vectors/eye-dots.svg",
 			"width": 374,
 			"height": 286,
@@ -11247,20 +10088,18 @@
 		{
 			"slug": "dot-dial",
 			"title": "Dot dial",
-			"role": "ring",
-			"tile": null,
 			"tags": [
 				"ring",
 				"dot",
 				"dial"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27888;499:86978;499:1704",
 				"name": "Vector",
 				"frame": "555:27888"
 			},
-			"suggested": true,
 			"path": "vectors/dot-dial.svg",
 			"width": 551,
 			"height": 551,
@@ -11274,19 +10113,17 @@
 		{
 			"slug": "pizza-small",
 			"title": "Pizza small",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"small"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "555:27889",
 				"name": "pizza-small"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-small.svg",
 			"width": 596,
 			"height": 842,
@@ -11301,21 +10138,19 @@
 		{
 			"slug": "pizza-small-parts",
 			"title": "Pizza small parts",
-			"role": "toy-sheet",
-			"tile": null,
 			"tags": [
 				"toy-sheet",
 				"pizza",
 				"small",
 				"parts"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27889;499:98349",
 				"name": "Small",
 				"frame": "555:27889"
 			},
-			"suggested": true,
 			"path": "vectors/pizza-small-parts.svg",
 			"width": 504,
 			"height": 713,
@@ -11330,20 +10165,18 @@
 		{
 			"slug": "box-ladder",
 			"title": "Box ladder",
-			"role": "band",
-			"tile": "y",
 			"tags": [
 				"band",
 				"box",
 				"ladder"
 			],
+			"tile": "y",
 			"figma": {
 				"source": "catpope-vector",
 				"node": "I555:27889;499:98349;499:132",
 				"name": "Vector",
 				"frame": "555:27889"
 			},
-			"suggested": true,
 			"path": "vectors/box-ladder.svg",
 			"width": 73,
 			"height": 258,
@@ -11357,19 +10190,17 @@
 		{
 			"slug": "dagotex-sky",
 			"title": "Dagotex sky",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dagotex",
 				"sky"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3852",
 				"name": "dagotex-sky"
 			},
-			"suggested": true,
 			"path": "vectors/dagotex-sky.svg",
 			"width": 2048,
 			"height": 2048,
@@ -11393,20 +10224,18 @@
 		{
 			"slug": "scrooge-ghost",
 			"title": "Scrooge ghost",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
 				"ghost"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3804",
 				"name": "Group",
 				"frame": "2924:3852"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-ghost.svg",
 			"width": 1761,
 			"height": 1938,
@@ -11429,20 +10258,18 @@
 		{
 			"slug": "scrooge-ghost-2",
 			"title": "Scrooge ghost 2",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
 				"ghost"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3806",
 				"name": "Group",
 				"frame": "2924:3852"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-ghost-2.svg",
 			"width": 1761,
 			"height": 1938,
@@ -11465,20 +10292,18 @@
 		{
 			"slug": "scrooge-ghost-3",
 			"title": "Scrooge ghost 3",
-			"role": "motif",
-			"tile": null,
 			"tags": [
 				"motif",
 				"scrooge",
 				"ghost"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3807",
 				"name": "Vector",
 				"frame": "2924:3852"
 			},
-			"suggested": true,
 			"path": "vectors/scrooge-ghost-3.svg",
 			"width": 1431,
 			"height": 1436,
@@ -11501,20 +10326,18 @@
 		{
 			"slug": "arc-thin-12",
 			"title": "Arc thin 12",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3810",
 				"name": "Vector",
 				"frame": "2924:3852"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-12.svg",
 			"width": 1215,
 			"height": 671,
@@ -11537,20 +10360,18 @@
 		{
 			"slug": "arc-thin-13",
 			"title": "Arc thin 13",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3826",
 				"name": "Vector",
 				"frame": "2924:3852"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-13.svg",
 			"width": 837,
 			"height": 1238,
@@ -11573,20 +10394,18 @@
 		{
 			"slug": "arc-thin-14",
 			"title": "Arc thin 14",
-			"role": "line",
-			"tile": null,
 			"tags": [
 				"line",
 				"arc",
 				"thin"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3844",
 				"name": "Vector",
 				"frame": "2924:3852"
 			},
-			"suggested": true,
 			"path": "vectors/arc-thin-14.svg",
 			"width": 916,
 			"height": 407,
@@ -11609,19 +10428,17 @@
 		{
 			"slug": "dagotex-normal",
 			"title": "Dagotex normal",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"dagotex",
 				"normal"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2924:3853",
 				"name": "dagotex-normal"
 			},
-			"suggested": true,
 			"path": "vectors/dagotex-normal.svg",
 			"width": 2048,
 			"height": 2048,
@@ -11636,19 +10453,16 @@
 		{
 			"slug": "cloud-saw-color",
 			"title": "Cloud saw color",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
 				"cloud",
-				"saw",
-				"color"
+				"saw"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2925:3901",
 				"name": "cloud_saw_base_color"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-saw-color.svg",
 			"width": 2048,
 			"height": 2048,
@@ -11670,18 +10484,16 @@
 		{
 			"slug": "cloud-saw-bw",
 			"title": "Cloud saw bw",
-			"role": "cloud",
-			"tile": null,
 			"tags": [
 				"cloud",
 				"saw"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "2925:3907",
 				"name": "cloud_saw_bw"
 			},
-			"suggested": true,
 			"path": "vectors/cloud-saw-bw.svg",
 			"width": 2048,
 			"height": 2048,
@@ -11700,18 +10512,15 @@
 		{
 			"slug": "brush-grey-23",
 			"title": "Brush grey 23",
-			"role": "brush",
-			"tile": null,
 			"tags": [
-				"brush",
-				"grey"
+				"brush"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3040:3804",
 				"name": "Frame 3"
 			},
-			"suggested": true,
 			"path": "vectors/brush-grey-23.svg",
 			"width": 931,
 			"height": 383,
@@ -11726,19 +10535,16 @@
 		{
 			"slug": "grey-bar",
 			"title": "Grey bar",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
-				"grey",
 				"bar"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3535:3819",
 				"name": "Union"
 			},
-			"suggested": true,
 			"path": "vectors/grey-bar.svg",
 			"width": 57,
 			"height": 454,
@@ -11752,8 +10558,6 @@
 		{
 			"slug": "vase-crashed-angel-bones",
 			"title": "Vase crashed angel bones",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"vase",
@@ -11761,12 +10565,12 @@
 				"angel",
 				"bones"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3536:3846",
 				"name": "vase-crashed-angel-bones"
 			},
-			"suggested": true,
 			"path": "vectors/vase-crashed-angel-bones.svg",
 			"width": 177,
 			"height": 542,
@@ -11780,19 +10584,17 @@
 		{
 			"slug": "vase-shard",
 			"title": "Vase shard",
-			"role": "silhouette",
-			"tile": null,
 			"tags": [
 				"silhouette",
 				"vase",
 				"shard"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3536:3847",
 				"name": "Subtract"
 			},
-			"suggested": true,
 			"path": "vectors/vase-shard.svg",
 			"width": 177,
 			"height": 542,
@@ -11806,18 +10608,16 @@
 		{
 			"slug": "catscratch",
 			"title": "Catscratch",
-			"role": "texture",
-			"tile": null,
 			"tags": [
 				"texture",
 				"catscratch"
 			],
+			"tile": null,
 			"figma": {
 				"source": "catpope-vector",
 				"node": "3652:3838",
 				"name": "catscratch"
 			},
-			"suggested": true,
 			"path": "vectors/catscratch.svg",
 			"width": 733,
 			"height": 453,

@@ -1,4 +1,4 @@
-Status: decided 2026-10-17 (owner's answers in §7) – plan §6, next step 2; nothing built, nothing uploaded. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, step 2 done, next step 3; nothing built, nothing uploaded. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -133,7 +133,7 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
 ## 6. Plan (steps, one at a time)
 
 1. ~~Owner decides~~ – done 2026-10-17 (§7).
-2. **Tidy in git** (no DB): `role` folds into `tags` (a shape may carry several role words), colour words leave the
+2. ~~Tidy in git~~ – done 2026-10-17 (423 shapes). (no DB): `role` folds into `tags` (a shape may carry several role words), colour words leave the
    tags, `suggested` goes (names confirmed), the 6 identical pairs merge; the README's vocabulary becomes "shared tag
    words".
 3. **Split Uncle Scrooge** (owner: "maybe we can split him up"): the 18 `scrooge` shapes into parts – eyes, hat, beak,

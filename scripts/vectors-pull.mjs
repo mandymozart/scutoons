@@ -65,6 +65,12 @@ for (const v of manifest.vectors) {
 	});
 }
 
+// the same bytes twice = one shape (owner 2026-10-17): keep one entry, the other's Figma node goes to its `figma.copies`
+const bySha = new Map();
+for (const v of manifest.vectors) if (v.sha256) bySha.set(v.sha256, [...(bySha.get(v.sha256) ?? []), v.slug]);
+const twins = [...bySha.values()].filter((slugs) => slugs.length > 1);
+if (twins.length) console.log(`the same file twice (keep one, move the other's node to figma.copies):\n  ${twins.map((s) => s.join(' = ')).join('\n  ')}`);
+
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, '\t') + '\n');
 const css = manifest.vectors.map((v) => `\t--vector-${v.slug}: url('./vectors/${v.slug}.svg');`).join('\n');
 fs.writeFileSync(
