@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { SliceItem } from '@scutoons/content';
+	import { anchorTranslate, type SliceItem } from '@scutoons/content';
 
 	/** What the app knows about a placed item's catalog entry: its icon URL (resolved), its name, and a title lettered on
 	 *  its cover (a score's song title in the score's language – research/SCORES.md §1). */
@@ -101,6 +101,7 @@
 		style:top="{item.rect.y}%"
 		style:width="{item.rect.width}%"
 		style:height={item.rect.height !== undefined ? `${item.rect.height}%` : null}
+		style:translate={anchorTranslate(item.anchor)}
 		style:--rotation="{item.rotation ?? 0}deg"
 		aria-label={info.label}
 		bind:this={button}
@@ -118,6 +119,7 @@
 		style:top="{item.rect.y}%"
 		style:width="{item.rect.width}%"
 		style:height={item.rect.height !== undefined ? `${item.rect.height}%` : null}
+		style:translate={anchorTranslate(item.anchor)}
 		style:--rotation="{item.rotation ?? 0}deg"
 	>
 		<img src={info.src} alt={info.label} draggable="false" />
@@ -135,6 +137,7 @@
 		style:top="{item.rect.y}%"
 		style:width="{item.rect.width}%"
 		style:height={item.rect.height !== undefined ? `${item.rect.height}%` : null}
+		style:translate={anchorTranslate(item.anchor)}
 		style:--rotation="{item.rotation ?? 0}deg"
 	/>
 {/if}

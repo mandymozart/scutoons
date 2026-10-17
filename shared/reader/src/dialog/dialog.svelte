@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TextBoxEffect, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
+	import { TextBoxEffect, anchorTranslate, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
 	import type { DialogPlay, TextExpressions } from '../types.ts';
 	import { wobblyPath } from './wobbly.ts';
 	import EffectNone from '../effects/effect-none.svelte';
@@ -168,6 +168,7 @@
 	style:top="{dialog.rect.y}%"
 	style:width="{dialog.rect.width}%"
 	style:height={hasHeight ? `${dialog.rect.height}%` : null}
+	style:translate={anchorTranslate(dialog.anchor)}
 	style:--size={dialog.size ?? 4}
 	style:--pad={dialog.pad ?? 0.5}
 	style:--rotation="{dialog.rotation ?? 0}deg"
@@ -251,7 +252,9 @@
 		position: absolute;
 		box-sizing: border-box;
 		isolation: isolate;
-		/* around the centre: rotation, then a uniform scale of the laid-out box (text keeps its wrapping) */
+		/* left / top place the anchor point; `translate` (inline, anchor.ts) pulls the drawn box back by its own size, so a
+		   box that grows (more lines, another language) grows away from its anchor. Then around the centre: rotation and a
+		   uniform scale of the laid-out box (text keeps its wrapping) */
 		transform: rotate(var(--rotation)) scale(var(--scale, 1));
 		pointer-events: none;
 		color: var(--dialog-color, var(--ink));

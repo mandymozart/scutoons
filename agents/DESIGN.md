@@ -525,6 +525,20 @@ with musical notes, variant `lyrics`, owner 2026-10-17). "+ Add text" shows them
 on the current slice; the inspector switches the look (words, position and size stay) and fine-tunes it. The old variant
 choice (speech bubble / caption) and the drawn-bubble setting are gone from the creator; their data still renders.
 Position is x + width (right = 100 − x − width, never stored).
+**Anchor** (owner 2026-10-17, like Figma's 3×3 reference point, not its constraints): `anchor` on a text box / placed
+item – `tl t tr l c r bl b br`, none = `tl` (old content unchanged). `rect.x` / `rect.y` place that point in % of the
+slice; width / height stay the size. The reader draws `left: x%; top: y%` + `translate: −ax·100% −ay·100%`
+(anchor.ts `anchorTranslate`), so a box drawn bigger or smaller than stored (more lines in another language, an auto
+height, an icon's ratio) grows away from its anchor; a text box's width is fixed (text wraps), so in practice it grows
+up / down – the horizontal anchor fixes which edge stays when the width is edited. Rotation and `scale` stay around
+the centre. One helper for everything that needs the drawn box: `anchoredRect` / `reanchor` (@scutoons/content
+anchor.ts) – reader, the creator's canvas overlay and handles, validation's "past the slice's side" warnings.
+Inspector: a 3×3 radio group left of X / Y (`anchor-field.svelte`, square cells in one frame at the control height,
+the current point filled, arrow keys); choosing a point converts x / y so the box doesn't move (with the canvas'
+drawn height when the rect has none); X / Y show the anchor point. On the canvas a move / resize works on the drawn
+box and the stored point follows the anchor (`movedRect`): dragging the edge opposite the anchor keeps it. A box
+dragged within 3 % of a slice edge / corner shows a quiet hint ("Near the edge – anchor: Top right?") – nothing
+changes by itself. Shift+V (look only) keeps a box's anchor with its rect. Text alignment stays its own setting.
 
 Goal: speech bubbles, captions and narration are **live text over text-free art**, so every locale shares the same
 images and only the words change.
@@ -556,7 +570,8 @@ export type DialogVariant = 'bubble' | 'caption' | 'narration' | 'lyrics';
 
 export interface Dialog {
   id?: string;                 // stable key = Figma node id → i18n/s1c2.json
-  rect: { x: number; y: number; width: number; height?: number }; // % of slice (top-left origin)
+  rect: { x: number; y: number; width: number; height?: number }; // % of slice; x / y = the anchor point
+  anchor?: 'tl' | 't' | 'tr' | 'l' | 'c' | 'r' | 'bl' | 'b' | 'br'; // default 'tl' (see "Anchor" above)
   text: string | string[];     // array entries = lines / paragraphs
   variant?: DialogVariant;     // default 'bubble'
   frame?: boolean;             // caption/narration/lyrics: paper box + 2px ink border, default true; false = bare text
@@ -582,7 +597,7 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 ### Rendering
 
 - `dialogs.svelte`: absolute layer `inset: 0`, `pointer-events: none`, above the `<img>`, below trigger hotzones.
-- Each box: `position:absolute; left:x%; top:y%; width:w%; height:h%`, flex for `valign`,
+- Each box: `position:absolute; left:x%; top:y%; width:w%; height:h%` (+ the anchor's `translate`), flex for `valign`,
   `font-size: calc(var(--size) * 1cqw)`, `line-height: 1.15`, `overflow-wrap: anywhere`, `hyphens: auto` with
   `lang` set from the chapter language (German compounds).
 - Variants: `bubble` — plain text inside the art's bubble; `caption` — `paper` box, 2px `ink` border, square

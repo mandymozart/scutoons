@@ -12,7 +12,8 @@
 	import { SliceLayers, type ResolveSliceItem } from '@scutoons/reader';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { DEFAULT_SLICE, getAt, round2, sliceLayers, type Path } from '@scutoons/content';
+	import { DEFAULT_SLICE, anchorAt, anchorFactors, anchoredRect, getAt, round2, sliceLayers, suggestedAnchor, type Path } from '@scutoons/content';
+	import { drawnHeights, drawnKey } from '$lib/editor/drawn-heights.svelte.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import { toonAsset } from '@scutoons/content';
@@ -21,7 +22,7 @@
 	import { exprContext } from '$lib/editor/expr-context.svelte.ts';
 	import { sampleResolver } from '$lib/editor/sample-readers.ts';
 	import type { TextExpressions } from '@scutoons/reader';
-	import { deltas, dialogScale, gridSteps, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
+	import { deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Factors, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
 		doc,
@@ -92,6 +93,8 @@
 		rotation: number;
 		/** text boxes' uniform scale */
 		scale: number;
+		/** where `rect.x` / `rect.y` sit in the box (text boxes, placed items: their `anchor`; areas: top-left) */
+		f: Factors;
 		/** a text box a showTextBox event reveals: which one ("⚡ 2" on the slice, "script 3" in the group's script) */
 		revealedBy?: string;
 	}
@@ -114,6 +117,7 @@
 	/** text boxes and placed items can be rotated and scaled on the canvas */
 	const transformable = (item: Item) => item.kind === 'dialog' || item.kind === 'item';
 
+	const TOP_LEFT: Factors = { ax: 0, ay: 0 };
 	const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 
 	const items = $derived.by<Item[]>(() => {
@@ -121,20 +125,20 @@
 		(slice?.dialog ?? []).forEach((d: any, i: number) => {
 			const path = [...slicePath, 'dialog', i, 'rect'];
 			const revealedBy = typeof d?.id === 'string' ? revealers.get(d.id) : undefined;
-			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, rotation: num(d.rotation, 0), scale: num(d.scale, 1), revealedBy });
+			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, rotation: num(d.rotation, 0), scale: num(d.scale, 1), f: anchorFactors(d.anchor), revealedBy });
 		});
 		(slice?.items ?? []).forEach((it: any, i: number) => {
 			const path = [...slicePath, 'items', i, 'rect'];
 			const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);
-			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, rotation: num(it.rotation, 0), scale: 1 });
+			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, rotation: num(it.rotation, 0), scale: 1, f: anchorFactors(it.anchor) });
 		});
 		(slice?.audio?.audio?.samples ?? []).forEach((s: any, i: number) => {
 			const path = [...slicePath, 'audio', 'audio', 'samples', i, 'trigger', 'rect'];
-			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, rotation: 0, scale: 1 });
+			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, rotation: 0, scale: 1, f: TOP_LEFT });
 		});
 		(slice?.events ?? []).forEach((e: any, i: number) => {
 			const path = [...slicePath, 'events', i, 'trigger', 'rect'];
-			if (e?.trigger?.rect) out.push({ kind: 'event', index: i, path, rect: e.trigger.rect, label: `⚡ ${e.type} (${e.trigger.type})`, rotation: 0, scale: 1 });
+			if (e?.trigger?.rect) out.push({ kind: 'event', index: i, path, rect: e.trigger.rect, label: `⚡ ${e.type} (${e.trigger.type})`, rotation: 0, scale: 1, f: TOP_LEFT });
 		});
 		return out;
 	});
@@ -199,6 +203,9 @@
 			if (el.offsetHeight) next[Number(el.dataset.index)] = round2((el.offsetHeight / height) * 100);
 		}
 		measuredItems = next;
+		// for the anchor picker (keeps a box in place when its anchor changes)
+		for (const [i, h] of Object.entries(boxes)) drawnHeights[drawnKey([...slicePath, 'dialog', Number(i)])] = h;
+		for (const [i, h] of Object.entries(next)) drawnHeights[drawnKey([...slicePath, 'items', Number(i)])] = h;
 	}
 
 	$effect(() => {
@@ -241,6 +248,12 @@
 		return item.kind === 'dialog' ? (measured[item.index] ?? 5) : 5;
 	}
 
+	/** the drawn box: its top-left corner and size (x / y place the anchor point – anchor.ts), what the handles work on */
+	function boxOf(item: Item): Required<Rect> {
+		const b = anchoredRect(item.rect, anchorAt(item.f.ax, item.f.ay), heightOf(item));
+		return { x: b.left, y: b.top, width: b.width, height: b.height };
+	}
+
 	// ── Pointer interaction ────────────────────────────────────────────────────────────────────────────
 
 	const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
@@ -262,6 +275,18 @@
 		px: { width: number; height: number };
 	}
 	let drag = $state<Drag | null>(null);
+
+	/**
+	 * a hint only (owner 2026-10-17): a text box / placed item dragged to within 3 % of a slice edge or corner suggests
+	 * the anchor there – nothing changes by itself, the inspector's picker sets it
+	 */
+	const anchorHint = $derived.by(() => {
+		if (drag?.mode !== 'edit' || drag.handle !== 'move' || !drag.moved || !drag.item || !transformable(drag.item)) return null;
+		const now = items.find((i) => i.kind === drag!.item!.kind && i.index === drag!.item!.index);
+		if (!now) return null;
+		const b = boxOf(now);
+		return suggestedAnchor({ left: b.x, top: b.y, width: b.width, height: b.height }, anchorAt(now.f.ax, now.f.ay));
+	});
 
 	function toPercent(event: PointerEvent) {
 		const box = overlay!.getBoundingClientRect();
@@ -297,7 +322,7 @@
 			item,
 			start: toPercent(event),
 			startRects,
-			shown: { ...item.rect, height: heightOf(item) } as Required<Rect>,
+			shown: boxOf(item),
 			moved: false,
 			px: overlaySize()
 		};
@@ -361,7 +386,7 @@
 			} else {
 				const rect = doc.get(l, item.path);
 				if (!rect) continue;
-				const next = scaledRect(start, d.shown.height, f, snapX);
+				const next = scaledRect(start, d.shown.height, f, snapX, item.f);
 				rect.x = next.x;
 				rect.y = next.y;
 				rect.width = next.width;
@@ -401,16 +426,16 @@
 		const { ddx, ddy, dw, dh } = turned
 			? transformedDeltas(drag.handle, dx, dy, drag.shown, drag.item!, drag.px, grid > 0 ? steps : null)
 			: deltas(drag.handle, dx, dy, drag.shown, steps);
+		// the drawn box moves / resizes; the stored point follows its anchor (dragging the opposite edge keeps it)
+		const writeHeight = dh !== 0 || (drag.handle !== 'move' && /[ns]/.test(drag.handle));
 		for (const [l, start] of Object.entries(drag.startRects)) {
 			const rect = doc.get(l, drag.item!.path);
 			if (!rect) continue;
-			rect.x = round2(start.x + ddx);
-			rect.y = round2(start.y + ddy);
-			rect.width = round2(Math.max(1, start.width + dw));
-			if (dh !== 0 || (drag.handle !== 'move' && /[ns]/.test(drag.handle))) {
-				const base = start.height ?? drag.shown.height;
-				rect.height = round2(Math.max(1, base + dh));
-			}
+			const next = movedRect(start, { ddx, ddy, dw, dh }, drag.shown.height, writeHeight, drag.item!.f);
+			rect.x = next.x;
+			rect.y = next.y;
+			rect.width = next.width;
+			if (next.height !== undefined) rect.height = next.height;
 		}
 	}
 
@@ -510,16 +535,17 @@
 			{/if}
 			{#each ordered as item (item.kind + item.index)}
 				{@const selected = selection?.kind === item.kind && selection?.index === item.index}
+				{@const box = boxOf(item)}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="box kind-{item.kind}"
 					class:selected
 					class:live={selected && live}
 					class:inactive={!active(item)}
-					style:left="{item.rect.x}%"
-					style:top="{item.rect.y}%"
-					style:width="{item.rect.width}%"
-					style:height="{heightOf(item)}%"
+					style:left="{box.x}%"
+					style:top="{box.y}%"
+					style:width="{box.width}%"
+					style:height="{box.height}%"
 					class:auto-height={item.rect.height === undefined && item.kind !== 'item'}
 					style:transform={item.rotation || item.scale !== 1 ? `rotate(${item.rotation}deg) scale(${item.scale})` : null}
 					style:--box-scale={item.scale}
@@ -529,6 +555,9 @@
 					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
 						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.reveal_hidden_until']({ event: item.revealedBy })}</span>
+					{/if}
+					{#if anchorHint && drag?.item?.kind === item.kind && drag.item.index === item.index}
+						<span class="tag anchor-hint" data-testid="anchor-hint">{m['creator.anchor_suggest']({ anchor: m[`creator.anchor_${anchorHint}`]() })}</span>
 					{/if}
 					{#if selected && live}
 						{#each handlesOf(item) as h}
@@ -681,6 +710,14 @@
 		background: var(--paper);
 		color: var(--ink);
 		border: 1px dashed var(--ink);
+	}
+	/* the anchor suggestion while a box is dragged near an edge: under the box, quiet */
+	.tag.anchor-hint {
+		bottom: auto;
+		top: 100%;
+		opacity: 1;
+		background: var(--paper);
+		color: var(--ink);
 	}
 	.box:hover .tag,
 	.box.live .tag {

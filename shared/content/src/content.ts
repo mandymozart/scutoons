@@ -11,6 +11,7 @@ import type { CoverLettering } from './cover.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 import type { SensitiveFlag } from './sensitive.ts';
 import type { LocaleText } from './credits.ts';
+import type { Anchor } from './anchor.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -42,7 +43,10 @@ export type DialogFont = 'lettering' | 'mono';
 export interface Dialog {
 	/** Stable key (Figma node id) → i18n file. */
 	id?: string;
-	/** % of the slice box, top-left origin. `height` optional (needed for `valign` and auto-fit). */
+	/**
+	 * % of the slice box: x / y = the position of the `anchor` point (none = the top-left corner). `height` optional (needed
+	 * for `valign` and auto-fit).
+	 */
 	rect: {
 		x: number;
 		y: number;
@@ -73,6 +77,11 @@ export interface Dialog {
 	font?: DialogFont;
 	weight?: 400 | 700;
 	uppercase?: boolean;
+	/**
+	 * The point of the box that `rect.x` / `rect.y` place (anchor.ts): the box grows away from it when its drawn size
+	 * differs from the stored one. Default 'tl' (top-left).
+	 */
+	anchor?: Anchor;
 	/** Text color, default ink (#000). */
 	color?: string;
 	/**
@@ -332,13 +341,15 @@ export interface SliceItem {
 	id: string;
 	/** catalog item id (`ItemDef.id`) */
 	item: string;
-	/** % of the slice box, top-left origin; `height` omitted = the icon's own ratio */
+	/** % of the slice box: x / y = the `anchor` point (none = top-left); `height` omitted = the icon's own ratio */
 	rect: {
 		x: number;
 		y: number;
 		width: number;
 		height?: number;
 	};
+	/** the point `rect.x` / `rect.y` place (anchor.ts, like `Dialog.anchor`), default 'tl' */
+	anchor?: Anchor;
 	/** degrees, around the centre */
 	rotation?: number;
 	/** default 'none' */

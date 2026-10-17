@@ -10,6 +10,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import AnchorField from '$lib/components/fields/anchor-field.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
@@ -94,9 +95,13 @@
 		</div>
 		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.set(p('item'), item.id)} />
 
-		<div class="sc-fields" data-cols="2" data-density="panel">
+		<!-- X / Y = the anchor point's position (owner 2026-10-17; 'b' keeps an item on its baseline) -->
+		<div class="position">
+			<AnchorField {doc} {path} />
 			<PropField {doc} path={p('rect', 'x')} label="X %" type="number" required />
 			<PropField {doc} path={p('rect', 'y')} label="Y %" type="number" required />
+		</div>
+		<div class="sc-fields" data-cols="2" data-density="panel">
 			<PropField {doc} path={p('rect', 'width')} label={m['creator.field_width']()} type="number" required />
 			<PropField {doc} path={p('rotation')} label={m['creator.field_rotation']()} type="number" step={1} placeholder="0" />
 		</div>
@@ -154,6 +159,14 @@
 {/if}
 
 <style>
+	.position {
+		display: flex;
+		align-items: flex-end;
+		gap: var(--space-05);
+	}
+	.position > :global(.field) {
+		flex: 1;
+	}
 	.inspector {
 		display: flex;
 		flex-direction: column;

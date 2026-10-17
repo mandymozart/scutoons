@@ -236,7 +236,7 @@
 						"y",
 						"width"
 					],
-					"description": "% of the slice box, top-left origin. `height` optional (needed for `valign` and auto-fit)."
+					"description": "% of the slice box: x / y = the position of the `anchor` point (none = the top-left corner). `height` optional (needed for `valign` and auto-fit)."
 				},
 				"variant": {
 					"$ref": "#/definitions/DialogVariant",
@@ -289,6 +289,10 @@
 				},
 				"uppercase": {
 					"type": "boolean"
+				},
+				"anchor": {
+					"$ref": "#/definitions/Anchor",
+					"description": "The point of the box that `rect.x` / `rect.y` place (anchor.ts): the box grows away from it when its drawn size differs from the stored one. Default 'tl' (top-left)."
 				},
 				"color": {
 					"type": "string",
@@ -403,6 +407,20 @@
 			"enum": [
 				"lettering",
 				"mono"
+			]
+		},
+		"Anchor": {
+			"type": "string",
+			"enum": [
+				"tl",
+				"t",
+				"tr",
+				"l",
+				"c",
+				"r",
+				"bl",
+				"b",
+				"br"
 			]
 		},
 		"VNSliceEventDoc": {
@@ -1771,7 +1789,11 @@
 						"y",
 						"width"
 					],
-					"description": "% of the slice box, top-left origin; `height` omitted = the icon's own ratio"
+					"description": "% of the slice box: x / y = the `anchor` point (none = top-left); `height` omitted = the icon's own ratio"
+				},
+				"anchor": {
+					"$ref": "#/definitions/Anchor",
+					"description": "the point `rect.x` / `rect.y` place (anchor.ts, like `Dialog.anchor`), default 'tl'"
 				},
 				"rotation": {
 					"type": "number",

@@ -7,6 +7,7 @@
 	import { alignLabel } from '$lib/editor/cover-words.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
+	import AnchorField from '$lib/components/fields/anchor-field.svelte';
 
 	let {
 		doc,
@@ -62,9 +63,13 @@
 		     are usually set on the canvas -->
 		<details class="advanced" data-testid="dialog-advanced">
 		<summary>{m['creator.advanced']()}</summary>
-		<div class="sc-fields" data-cols="2" data-density="panel">
+		<!-- X / Y = the anchor point's position (owner 2026-10-17, DESIGN.md Part 2 "Anchor") -->
+		<div class="position">
+			<AnchorField {doc} {path} />
 			<PropField {doc} path={p('rect', 'x')} label="X %" type="number" required />
 			<PropField {doc} path={p('rect', 'y')} label="Y %" type="number" required />
+		</div>
+		<div class="sc-fields" data-cols="2" data-density="panel">
 			<PropField {doc} path={p('rect', 'width')} label={m['creator.field_width']()} type="number" required />
 			<PropField {doc} path={p('rect', 'height')} label={m['creator.field_height']()} type="number" placeholder="auto" />
 		</div>
@@ -110,6 +115,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-05);
+	}
+	.position {
+		display: flex;
+		align-items: flex-end;
+		gap: var(--space-05);
+	}
+	.position > :global(.field) {
+		flex: 1;
 	}
 	.inspector {
 		display: flex;

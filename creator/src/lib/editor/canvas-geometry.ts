@@ -137,13 +137,44 @@ export function dialogScale(current: number, factor: number, snapped: boolean): 
 	return Math.round((snapped ? Math.max(0.1, Math.round(raw / 0.05) * 0.05) : raw) * 100) / 100;
 }
 
-/** a placed item scaled around its centre: the new rect (height only when it had one), rounded to 2 places */
-export function scaledRect(start: Rect, shownHeight: number, factor: number, snapX: (v: number) => number): Rect {
+/** where a box's anchor sits in it (anchor.ts `anchorFactors`): 0 / 0.5 / 1 across and down; none = top-left */
+export interface Factors {
+	ax: number;
+	ay: number;
+}
+const TOP_LEFT: Factors = { ax: 0, ay: 0 };
+
+/**
+ * a placed item scaled around its centre: the new rect (height only when it had one), rounded to 2 places. `start.x` /
+ * `start.y` are its anchor point (`f`): the point moves with the box so the centre stays.
+ */
+export function scaledRect(start: Rect, shownHeight: number, factor: number, snapX: (v: number) => number, f: Factors = TOP_LEFT): Rect {
 	const r2 = (v: number) => Math.round(v * 100) / 100;
 	const width = Math.max(1, snapX(start.width * factor));
 	const baseHeight = start.height ?? shownHeight;
 	const height = baseHeight * (width / start.width);
-	const out: Rect = { x: r2(start.x + start.width / 2 - width / 2), y: r2(start.y + baseHeight / 2 - height / 2), width: r2(width) };
+	const out: Rect = { x: r2(start.x + (f.ax - 0.5) * (width - start.width)), y: r2(start.y + (f.ay - 0.5) * (height - baseHeight)), width: r2(width) };
 	if (start.height !== undefined) out.height = r2(height);
+	return out;
+}
+
+/**
+ * A move / resize (`deltas` / `transformedDeltas`, worked out on the drawn box's top-left corner) applied to a stored rect
+ * whose x / y are its anchor point (`f`): x' = x + ddx + Δwidth·ax, y' = y + ddy + Δheight·ay – so dragging the edge
+ * opposite the anchor keeps the anchor where it is. `height` is written only when `writeHeight` (an n / s handle or a
+ * change); `shownHeight` stands in for a missing one. At least 1 % wide / high, rounded to 2 places.
+ */
+export function movedRect(start: Rect, d: Deltas, shownHeight: number, writeHeight: boolean, f: Factors = TOP_LEFT): Rect {
+	const r2 = (v: number) => Math.round(v * 100) / 100;
+	const width = r2(Math.max(1, start.width + d.dw));
+	const out: Rect = { x: 0, y: 0, width };
+	let grown = 0;
+	if (writeHeight) {
+		const base = start.height ?? shownHeight;
+		out.height = r2(Math.max(1, base + d.dh));
+		grown = out.height - base;
+	}
+	out.x = r2(start.x + d.ddx + (width - start.width) * f.ax);
+	out.y = r2(start.y + d.ddy + grown * f.ay);
 	return out;
 }

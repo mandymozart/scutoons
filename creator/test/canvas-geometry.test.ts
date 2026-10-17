@@ -1,7 +1,7 @@
 // npm run test -w creator (node's own runner, like @scutoons/content)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deltas, dialogScale, gridSteps, rotationAngle, scaleFactor, scaledRect, transformedDeltas } from '../src/lib/editor/canvas-geometry.ts';
+import { deltas, dialogScale, gridSteps, movedRect, rotationAngle, scaleFactor, scaledRect, transformedDeltas } from '../src/lib/editor/canvas-geometry.ts';
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
 const box = { x: 10, y: 20, width: 40, height: 10 };
@@ -79,4 +79,29 @@ test('scaledRect: around the centre, keeps the ratio, height only when it had on
 	assert.deepEqual(scaledRect({ x: 10, y: 10, width: 20, height: 10 }, 10, 2, (v) => v), { x: 0, y: 5, width: 40, height: 20 });
 	assert.deepEqual(scaledRect({ x: 10, y: 10, width: 20 }, 10, 2, (v) => v), { x: 0, y: 5, width: 40 });
 	assert.equal(scaledRect({ x: 10, y: 10, width: 20 }, 10, 0.01, (v) => v).width, 1);
+});
+
+test('movedRect: the anchor point follows the drawn box; dragging the edge opposite the anchor keeps it', () => {
+	const tl = { ax: 0, ay: 0 };
+	const tr = { ax: 1, ay: 0 };
+	const b = { ax: 0.5, ay: 1 };
+	const start = { x: 90, y: 10, width: 40, height: 10 };
+	// a move shifts the point like the box
+	assert.deepEqual(movedRect(start, { ddx: -5, ddy: 2, dw: 0, dh: 0 }, 10, false, tr), { x: 85, y: 12, width: 40 });
+	// tr: the w handle (left edge) leaves the right edge – the anchor – where it is
+	assert.deepEqual(movedRect(start, { ddx: -10, ddy: 0, dw: 10, dh: 0 }, 10, false, tr), { x: 90, y: 10, width: 50 });
+	// tr: the e handle moves the anchor with the right edge
+	assert.deepEqual(movedRect(start, { ddx: 0, ddy: 0, dw: 5, dh: 0 }, 10, false, tr), { x: 95, y: 10, width: 45 });
+	// b: the n handle keeps the bottom; the s handle moves it
+	assert.deepEqual(movedRect({ x: 50, y: 90, width: 20 }, { ddx: 0, ddy: -4, dw: 0, dh: 4 }, 10, true, b), { x: 50, y: 90, width: 20, height: 14 });
+	assert.deepEqual(movedRect({ x: 50, y: 90, width: 20 }, { ddx: 0, ddy: 0, dw: 0, dh: 3 }, 10, true, b), { x: 50, y: 93, width: 20, height: 13 });
+	// no anchor: exactly the old arithmetic
+	assert.deepEqual(movedRect({ x: 10, y: 20, width: 40 }, { ddx: 1.234, ddy: 2, dw: -0.5, dh: 0 }, 8, false, tl), { x: 11.23, y: 22, width: 39.5 });
+});
+
+test('scaledRect with an anchor: the centre stays, the anchor point moves with the box', () => {
+	const r = scaledRect({ x: 60, y: 90, width: 20 }, 10, 2, (v) => v, { ax: 0.5, ay: 1 });
+	// centre (60, 85) stays: the new box 40 × 20 → its bottom centre at (60, 95)
+	assert.deepEqual(r, { x: 60, y: 95, width: 40 });
+	assert.deepEqual(scaledRect({ x: 10, y: 20, width: 20 }, 10, 2, (v) => v), { x: 0, y: 15, width: 40 });
 });

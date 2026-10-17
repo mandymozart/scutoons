@@ -310,9 +310,9 @@ export function prepareGroup(clip: Clip, group: any, ctx: PasteContext, labels: 
 // ── settings only (Shift+V) ────────────────────────────────────────────────────────────────────────────────────
 
 /** a text box's own keys – everything else is its look (variant, frame, shape, tail, font, stroke, rotation, scale …) */
-const BOX_OWN = new Set(['id', 'rect', 'text', 'layer']);
+const BOX_OWN = new Set(['id', 'rect', 'anchor', 'text', 'layer']);
 
-/** Shift+V on a text box: the copied box's look, its words, id, place and layer stay */
+/** Shift+V on a text box: the copied box's look, its words, id, place (rect + anchor) and layer stay */
 export function applyBoxLook(target: Obj, source: Obj): void {
 	for (const key of Object.keys(target)) if (!BOX_OWN.has(key)) delete target[key];
 	for (const [key, value] of Object.entries(source)) if (!BOX_OWN.has(key)) target[key] = copy(value);

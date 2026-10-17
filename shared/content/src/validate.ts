@@ -14,6 +14,7 @@ import { FX_IMPACTS, FX_MAX_DURATION, FX_SOUNDS, HIGHLIGHTERS, isFxSoundChoice }
 import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
+import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
 
 /** a variable's spelling (variables.ts) */
 const VARIABLE_FORM = 'a variable is a name of letters, digits and _ (not starting with a digit) – this toon\'s; global.name for every toon, <toon>.name for another toon\'s (never reader. / inventory. / … – that is what the reader has, not a variable)';
@@ -179,7 +180,7 @@ class Collector {
 	}
 }
 
-function checkRect(c: Collector, rect: unknown, path: Path, heightRequired: boolean) {
+function checkRect(c: Collector, rect: unknown, path: Path, heightRequired: boolean, anchor?: unknown) {
 	if (!isObj(rect)) {
 		c.error(path, 'rect is missing');
 		return;
@@ -192,16 +193,28 @@ function checkRect(c: Collector, rect: unknown, path: Path, heightRequired: bool
 	}
 	if (isNum(rect.width) && rect.width <= 0) c.error([...path, 'width'], 'rect.width must be > 0');
 	if (isNum(rect.height) && rect.height <= 0) c.error([...path, 'height'], 'rect.height must be > 0');
-	if (isNum(rect.x) && (rect.x < -20 || rect.x > 100)) c.warn([...path, 'x'], 'rect.x is outside the slice');
-	if (isNum(rect.y) && (rect.y < -100 || rect.y > 100)) c.warn([...path, 'y'], 'rect.y is far outside the slice');
+	// the box's drawn corner (anchor.ts: x / y place the anchor point)
+	const box = isNum(rect.x) && isNum(rect.y) && isNum(rect.width) ? anchoredRect(rect as any, anchor) : null;
+	if (box && (box.left < -20 || box.left > 100)) c.warn([...path, 'x'], 'rect.x is outside the slice');
+	if (box && (box.top < -100 || box.top > 100)) c.warn([...path, 'y'], 'rect.y is far outside the slice');
+}
+
+/** a text box's / placed item's anchor (anchor.ts) */
+function checkAnchor(c: Collector, anchor: unknown, path: Path) {
+	if (anchor !== undefined && !isAnchor(anchor)) c.error(path, `anchor must be one of ${ANCHORS.join(', ')}`);
 }
 
 function checkDialog(c: Collector, d: any, path: Path) {
 	if (!isObj(d)) return c.error(path, 'dialog entry must be an object');
-	checkRect(c, d.rect, [...path, 'rect'], false);
-	// the reader clips a slice sideways (a box past the side used to widen the page – BACKLOG M.2)
-	if (isObj(d.rect) && isNum(d.rect.x) && isNum(d.rect.width) && (d.rect.x < -0.5 || d.rect.x + d.rect.width > 100.5)) {
-		c.warn([...path, 'rect'], `the text box reaches past the slice's side (${Math.round(d.rect.x)} – ${Math.round(d.rect.x + d.rect.width)} %) – the reader cuts it at the edge`);
+	checkRect(c, d.rect, [...path, 'rect'], false, d.anchor);
+	checkAnchor(c, d.anchor, [...path, 'anchor']);
+	// the reader clips a slice sideways (a box past the side used to widen the page – BACKLOG M.2); measured from the
+	// box's drawn left edge (its anchor)
+	if (isObj(d.rect) && isNum(d.rect.x) && isNum(d.rect.width)) {
+		const left = anchoredRect({ x: d.rect.x, y: 0, width: d.rect.width }, d.anchor).left;
+		if (left < -0.5 || left + d.rect.width > 100.5) {
+			c.warn([...path, 'rect'], `the text box reaches past the slice's side (${Math.round(left)} – ${Math.round(left + d.rect.width)} %) – the reader cuts it at the edge`);
+		}
 	}
 	const text = d.text;
 	if (!(isStr(text) || (Array.isArray(text) && text.every(isStr)))) c.error([...path, 'text'], 'text must be a string or string[]');
@@ -249,7 +262,8 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	if (!isStr(it.id) || !it.id) c.error([...path, 'id'], 'id is missing (pickups are remembered by it)');
 	if (!isStr(it.item) || !it.item) c.error([...path, 'item'], 'item is missing (a catalog item id)');
 	else if (ctx.items && !ctx.items.includes(it.item)) c.warn([...path, 'item'], `"${it.item}" is not in the item catalog`);
-	checkRect(c, it.rect, [...path, 'rect'], false);
+	checkRect(c, it.rect, [...path, 'rect'], false, it.anchor);
+	checkAnchor(c, it.anchor, [...path, 'anchor']);
 	if (it.rotation !== undefined && !isNum(it.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
 	checkLayer(c, it.layer, [...path, 'layer']);
 	if (it.action !== undefined && !(SLICE_ITEM_ACTIONS as readonly string[]).includes(it.action)) {
