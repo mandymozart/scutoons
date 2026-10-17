@@ -18,6 +18,13 @@ yet. Today: the Cat Pope Figma file, page "Vector".
 3. `npm run vectors:pull` (all) / `npm run vectors:pull -- <slug> …` (only these) / `-- --local` (no Figma: derive and
    measure what is on disk).
 
+## Into the asset manager
+
+`npm run vectors:import [-- --dry-run] [slug …]` shrinks every SVG with svgo (viewBox and size kept) and uploads it
+through the SCUTOONS API to `catpope/vectors/<slug>.svg`, then writes its shape row (tile, mask, colours, Figma
+provenance, derived) – `GET /api/assets?kind=shape` lists them (agents/research/VECTORS.md §5a). Idempotent; local dev
+API only (the test user, `npm run dev:test-user`) until the owner asks for production.
+
 ## Survey a whole page
 
 `node scripts/vectors-survey.mjs [--page Vector]` reads a Figma page over the bridge and lists every candidate – named

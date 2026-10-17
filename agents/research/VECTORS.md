@@ -1,4 +1,4 @@
-Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–4 done (the API: §5a), next step 5; nothing on production. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–5 done locally (the API: §5a), next step 6; nothing on production. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -166,7 +166,10 @@ small"); a review flag comes back with a review screen.
    sheet), tagged `scrooge` + the part.
 4. ~~Migration~~ – done 2026-10-17 (§5a). Was: **Migration** `asset_shapes` (idempotent, dry-run on the dev DB, runs with the deploy); `kind=shape` as a filter of
    the list API (an asset with a shape row), the asset sheet shows the fields.
-5. **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
+5. ~~Import~~ – done on the LOCAL dev stack 2026-10-18: `npm run vectors:import` (scripts/vectors-import.mjs, svgo with
+   viewBox and size kept: 11.6 MB → 6.7 MB, pixel diff of a sample < 0.1 % – anti-aliasing) uploaded all 436 to
+   `catpope/vectors/` as the test user and wrote their shape rows; a second run changes nothing. Production: the same
+   script once the owner asks (it refuses any API but localhost until then). Was: **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
    slate); the code set (the illumination's five, the 90s collage's twelve) stays in git with its CDN twins as code
    references. Locally first, production when the owner runs it or asks.
 6. **The lab reads the CDN**: the Collage look (score-riot) takes the shape list from the API and loads files by CDN

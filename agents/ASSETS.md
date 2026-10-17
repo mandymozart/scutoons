@@ -392,8 +392,9 @@ and `@scutoons/tokens/vectors.css` (`--vector-<slug>`). `npm run vectors:pull` r
 bridge (tools/figma-bridge) and measures. Tags (the shared words – roles are tags, not classes – and free ones; no colour words), mask: the folder's README. The Cat Pope file's
 page "Vector" in full (2026-10-17): 423 shapes after merging 6 byte-identical pairs, 436 with the Scrooge parts, 11.6 MB – `scripts/vectors-survey.mjs` listed every candidate (groups
 and their parts, without copies and invisible ones), the owner kept all and confirmed the names. An app takes single shapes (`?url` / `?raw`), never the whole `vectors.css`. First use: the medieval
-score frame and the 90s collage (research/SCORES.md §4 "Looks"). Next: the CDN (`catpope/vectors/`) + asset rows with a
-shape table, only the code set in git – research/VECTORS.md §6.
+score frame and the 90s collage (research/SCORES.md §4 "Looks"). In the asset manager: `asset_shapes` (above), `GET /api/assets?kind=shape`;
+`npm run vectors:import` shrinks (svgo) and uploads the library to `catpope/vectors/` with its shape rows (local dev
+API only so far – production when the owner asks); research/VECTORS.md §5a / §6.
 
 ## Fonts (CUTOVER 10.1c, 2026-10-05)
 

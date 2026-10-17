@@ -23,6 +23,7 @@
 		"dev:test-user": "node scripts/dev/test-user.mjs",
 		"dev:db": "node scripts/dev/db.mjs",
 		"vectors:pull": "node scripts/vectors-pull.mjs",
+		"vectors:import": "node scripts/vectors-import.mjs",
 		"dev:launch-json": "node scripts/dev/launch-json.mjs",
 		"dev:neutralize": "node --experimental-transform-types --no-warnings scripts/dev/neutralize.mjs",
 		"check:creator-cast": "node scripts/dev/creator-cast-check.mjs",
@@ -72,6 +73,7 @@
 		"deploy:changed": "node deploy/changed.mjs"
 	},
 	"devDependencies": {
-		"playwright-core": "1.55.0"
+		"playwright-core": "1.55.0",
+		"svgo": "^3.3.2"
 	}
 }
