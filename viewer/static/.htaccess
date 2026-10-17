@@ -2,6 +2,11 @@
 	RewriteEngine On
 	RewriteBase /
 	RewriteRule ^index\.html$ - [L]
+	# the app icons before their rename (2026-10-17, research/PWA.md §1): a home-screen icon or an old manifest copy still
+	# asks the old names – the new files, not the SPA page
+	RewriteRule ^android-chrome-(192|512)x(192|512)\.png$ /app-icon-$1.png [R=301,L]
+	RewriteRule ^icon-maskable-(192|512)\.png$ /app-icon-maskable-$1.png [R=301,L]
+	RewriteRule ^apple-touch-icon(-precomposed)?\.png$ /app-icon-apple-180.png [R=301,L]
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteCond %{REQUEST_FILENAME} !-d
 	RewriteRule . /index.html [L]

@@ -45,7 +45,7 @@
 	}
 </script>
 
-<div class="vn-message" class:visible bind:offsetHeight={height}>
+<div class="vn-message" class:visible class:actions-only={!!end && !talking && !question} bind:offsetHeight={height}>
 	{#if vn.state.messageVisible && vn.state.message.wait && !vn.state.choicesVisible}
 		<button class="continue-overlay" onclick={handleClick} aria-label="Continue">
 			<span class="sr-only">Continue</span>
@@ -108,6 +108,10 @@
 		pointer-events: none;
 		transition: transform 0.1s ease;
 		z-index: 100;
+	}
+	/* only the chapter's end actions (owner 2026-10-17: "die Riesenkiste"): as high as its row, not a story box */
+	.vn-message.actions-only {
+		min-height: 0;
 	}
 
 	.vn-message.visible {
@@ -225,8 +229,8 @@
 		font-style: italic;
 	}
 
-	/* one choice look for the story's choices (choices.svelte) and the chapter's end actions (chapter/next-bar.svelte) */
-	.vn-message :global(:is(.vn-choice, .vn-end-choice)) {
+	/* the story's choices (choices.svelte); the chapter's end actions are a row of buttons (chapter/next-bar.svelte) */
+	.vn-message :global(.vn-choice) {
 		box-sizing: border-box;
 		display: block;
 		width: 100%;
@@ -242,11 +246,11 @@
 		text-align: left;
 		text-decoration: none;
 	}
-	.vn-message :global(:is(.vn-choice, .vn-end-choice):hover) {
+	.vn-message :global(.vn-choice:hover) {
 		background: white;
 		border-color: #333;
 	}
-	.vn-message :global(:is(.vn-choice, .vn-end-choice):active) {
+	.vn-message :global(.vn-choice:active) {
 		border-color: black;
 	}
 </style>

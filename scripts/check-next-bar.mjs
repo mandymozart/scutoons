@@ -201,7 +201,7 @@ const BAR = `(() => {
 		countdown: bar.querySelector('[data-testid="next-bar-countdown"]')?.textContent.trim() ?? null,
 		inBox: !!box && box.classList.contains('visible'), rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
 		bottom: box ? Math.round(parseFloat(cs.bottom)) : Math.round(innerHeight - b.bottom), width: Math.round(b.width), vw: document.documentElement.clientWidth, z: Number(cs.zIndex), border: cs.borderTopWidth + ' ' + cs.borderTopStyle,
-		font: cs.fontFamily, radius: getComputedStyle(primary).borderRadius, choiceLook: [...bar.querySelectorAll('a, button:not(.cancel)')].every((c) => c.classList.contains('vn-end-choice')),
+		font: cs.fontFamily, radius: getComputedStyle(primary).borderRadius, choiceLook: (() => { const all = [...bar.querySelectorAll('a, button')]; const h = primary.getBoundingClientRect().height; return all.at(-1) === primary && all.every((c) => Math.abs(c.getBoundingClientRect().height - h) < 1); })(),
 		actions: bar.querySelectorAll('a, button:not(.cancel)').length };
 })()`;
 const playToEnd = `(() => { const v = document.querySelector('video[data-player]'); return new Promise((ok, no) => {
@@ -220,7 +220,8 @@ async function reachEnd(ms = 20000) {
 	}
 	return evaluate(BAR);
 }
-// the end actions are choices of the VN message box (BACKLOG 10.48): the box 1 rem above the bottom, 1 rem in from the sides
+// the end actions sit in the VN message box (BACKLOG 10.48): the box 1 rem above the bottom, 1 rem in from the sides; one
+// compact row of buttons of one height, the primary last (owner 2026-10-17)
 function barLook(s, problems) {
 	if (!s.inBox) problems.push('the end actions are not in the shown message box (.vn-message.visible)');
 	if (Math.abs(s.bottom - s.rem) > 1 || Math.abs(s.width - (s.vw - 2 * s.rem)) > 1) problems.push(`box not at the bottom (bottom ${s.bottom}, width ${s.width}/${s.vw})`);

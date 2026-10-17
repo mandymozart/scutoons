@@ -14,7 +14,7 @@ service worker, the data budget `lib/data-budget.svelte.ts`). Scope: the reader 
 | `id`, `start_url`, `scope` | missing | all `/` – the unprefixed path follows the locale cookie / browser language (paraglide), so one manifest serves de + en; `/en/…` stays in scope |
 | `display` | standalone | standalone (iOS knows only standalone; `fullscreen` would hide the Android status bar – not wanted for reading) |
 | `theme_color` / `background_color` | #fff | #fff = `--paper` (tokens.css), the boot screen's white – no colour jump on launch |
-| Icons | 192 + 512 `any` (a crop of the vertical logo) | owner 2026-10-17: the account icon's cat head (two ears, eyes – `lib/icons/account.svg`), black on white: `app-icon-192/512.png` (`any`, the head 80 % wide), `app-icon-maskable-192/512.png` (56 % – survives circle / squircle masks), `app-icon-apple-180.png` (72 %); new names so browsers and installed apps fetch them again. The favicons stay the SCUTOONS logo crop |
+| Icons | 192 + 512 `any` (a crop of the vertical logo) | owner 2026-10-17: the account icon's cat head (two ears, eyes – `lib/icons/account.svg`), black on white: `app-icon-192/512.png` (`any`, the head 80 % wide), `app-icon-maskable-192/512.png` (56 % – survives circle / squircle masks), `app-icon-apple-180.png` (72 %); new names so browsers and installed apps fetch them again; the old names answer 301 to the new files (`.htaccess`) – before, they got the SPA page as an "icon". The favicons stay the SCUTOONS logo crop |
 | Apple | `apple-touch-icon` only | + `apple-mobile-web-app-title`, `-capable`, `mobile-web-app-capable`, status bar `default`, `theme-color` (app.html; the boot screen untouched) |
 | Splash (iOS `apple-touch-startup-image`) | – | deliberately none: one image per device size (~20 files) for a white screen we already have |
 | Service worker | none | `src/service-worker.ts` (§2) – Chrome needs none for install any more, but offline / updates do |
@@ -232,6 +232,10 @@ waiting update goes first): "Install SCUTOONS as an app" · Not now · Install �
   using SCUTOONS as an app"; `unsupported` → "This browser can't install SCUTOONS – Chrome / Firefox on Android, Safari on
   iPhone; installed already → open it from the home screen" (Chrome sends no event once installed); `hidden` = only the
   creator's frame. So "Offline-Inhalte" shows on every device.
+- **A browser badge on the home-screen icon** (owner 2026-10-17: the small Brave logo on SCUTOONS, not on OSCT) = a plain
+  shortcut ("Zum Startbildschirm hinzufügen"), not an installed app (WebAPK). The manifest is like OSCT's (id / start_url /
+  scope `/`, standalone, 192 + 512 `any` + maskable – all 200 as PNG). Reinstall: remove the icon, open scutoons.com, ⋮ →
+  "App installieren" (or our bar's "Installieren").
 - **`?install`** in any URL (`/de?install`): the bar at once, whatever the moment or "Not now" (not in the app, not in the
   creator's frame) – for testing on a real phone; where nothing can install, its "How?" shows why.
 

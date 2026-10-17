@@ -350,6 +350,9 @@
 
 <!-- drawn inside the VN message box (vn/message.svelte) – every page has the box (vn-page.svelte) -->
 {#snippet endActions()}
+	<!-- one compact row (owner 2026-10-17: the three big boxes took too much room – "ein bisschen logischer bauen"): the
+	     secondary (replay / redeem / where to get a code / the music) and, while counting, "Abbrechen" as outlined
+	     buttons, the primary last; the row wraps on a narrow phone, the primary keeps the right -->
 	<section
 		class="end-actions"
 		bind:this={bar}
@@ -361,43 +364,39 @@
 		{#if message}
 			<p class="message" data-testid="next-bar-message">{message}</p>
 		{/if}
-		<!-- the primary first (on, sign in, redeem, the overview), then at most one more: replay, redeem, where to get a code,
-		     the music -->
-		<div class="primary-box">
+		<div class="row">
+			{#if automatic && !endsWithPlayer}
+				<button type="button" class="btn-secondary" onclick={replay} data-testid="next-bar-replay">↺ {m['next_bar.replay']()}</button>
+			{:else if step.kind === 'members' && !session.isLoggedIn}
+				<button type="button" class="btn-secondary" onclick={redeem} data-testid="next-bar-secondary">{m['next_bar.redeem']()}</button>
+			{:else if step.kind === 'members'}
+				<a class="btn btn-secondary" href={shopUrl(getLocale())} data-testid="next-bar-secondary">{m['next_bar.where_code']()}</a>
+			{:else if step.kind === 'season-end' && download}
+				<a class="btn btn-secondary" href={localizeHref(`/${toonId}/download`)} data-testid="next-bar-secondary">{m['season.download']()}</a>
+			{/if}
+			{#if counting}
+				<span class="countdown" data-testid="next-bar-countdown">
+					<span class="sr-only" aria-live="off">{m['next_bar.countdown']({ seconds: remaining })}</span>
+					<button type="button" class="btn-secondary cancel" onclick={stop} data-testid="next-bar-cancel">{m['next_bar.cancel']()}</button>
+				</span>
+			{/if}
 			{#if primaryHref}
-				<a class="vn-end-choice primary" data-control-exempt="dialogue choice (may wrap)" href={primaryHref} onclick={stop} data-testid="next-bar-primary">
-					{primaryLabel}{#if forward}<span class="chevron"><Icon name="chevron-right" size="1rem" /></span>{/if}
+				<a class="btn primary" href={primaryHref} onclick={stop} data-testid="next-bar-primary">
+					<span class="label">{primaryLabel}</span>{#if forward}<span class="chevron"><Icon name="chevron-right" size="1rem" /></span>{/if}
 					{#if counting}
-						<!-- the countdown: a thin ink line along the choice's bottom that fills in 10 s -->
+						<!-- the countdown: a thin line along the primary's bottom that fills in 10 s -->
 						<span class="countdown-rule" aria-hidden="true" style:width="{Math.min(100, (elapsed / COUNTDOWN_MS) * 100)}%"></span>
 					{/if}
 				</a>
 			{:else}
-				<button type="button" class="vn-end-choice primary" data-control-exempt="dialogue choice (may wrap)" onclick={redeem} data-testid="next-bar-primary">
-					{primaryLabel}
+				<button type="button" class="primary" onclick={redeem} data-testid="next-bar-primary">
+					<span class="label">{primaryLabel}</span>
 					{#if counting}
 						<span class="countdown-rule" aria-hidden="true" style:width="{Math.min(100, (elapsed / COUNTDOWN_MS) * 100)}%"></span>
 					{/if}
 				</button>
 			{/if}
-			{#if counting}
-				<span class="countdown" data-testid="next-bar-countdown">
-					<span class="sr-only" aria-live="off">{m['next_bar.countdown']({ seconds: remaining })}</span>
-					<button type="button" class="cancel" onclick={stop} data-testid="next-bar-cancel">{m['next_bar.cancel']()}</button>
-				</span>
-			{/if}
 		</div>
-		{#if automatic && !endsWithPlayer}
-			<button type="button" class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" onclick={replay} data-testid="next-bar-replay">
-				↺ {m['next_bar.replay']()}
-			</button>
-		{:else if step.kind === 'members' && !session.isLoggedIn}
-			<button type="button" class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" onclick={redeem} data-testid="next-bar-secondary">{m['next_bar.redeem']()}</button>
-		{:else if step.kind === 'members'}
-			<a class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" href={shopUrl(getLocale())} data-testid="next-bar-secondary">{m['next_bar.where_code']()}</a>
-		{:else if step.kind === 'season-end' && download}
-			<a class="vn-end-choice" data-control-exempt="dialogue choice (may wrap)" href={localizeHref(`/${toonId}/download`)} data-testid="next-bar-secondary">{m['season.download']()}</a>
-		{/if}
 	</section>
 {/snippet}
 
@@ -411,41 +410,50 @@
 	.message {
 		margin: 0;
 	}
-	.primary-box {
+	.row {
 		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 0.5rem;
 	}
+	.row :global(:is(a, button)) {
+		height: var(--control-height);
+		padding: 0 1rem;
+	}
+	/* "Abbrechen" with its screen-reader countdown: one item of the row */
+	.countdown {
+		display: contents;
+	}
+	/* the primary: last, takes what is left of its line; a long chapter name ends in … */
 	.primary {
 		position: relative;
+		flex: 1 1 auto;
+		max-width: 100%;
+		min-width: 0;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+	}
+	.label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.chevron {
+		flex: none;
+		display: inline-flex;
 		margin-left: 0.25rem;
 	}
+	/* on the black primary: a paper line */
 	.countdown-rule {
 		position: absolute;
 		left: 0;
 		bottom: 0;
 		height: var(--border-width-regular);
-		background: var(--ink);
-	}
-	/* a small "Abbrechen" under the counting choice */
-	.countdown {
-		display: flex;
-		justify-content: flex-end;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
-	.cancel {
-		margin: 0;
-		padding: 0.25rem 0; /* control-ok: a small text link under the choice */
-		border: 0;
-		background: none;
-		color: var(--ink);
-		font: inherit;
-		text-decoration: underline;
-		text-underline-offset: 0.2em;
-		cursor: pointer;
+		background: var(--paper);
 	}
 	.sr-only {
 		position: absolute;

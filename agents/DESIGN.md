@@ -427,8 +427,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     never shows there.
   - **Look** (owner 2026-10-07: "the box at the bottom is where I act"): no own bar – the VN message box
     (`vn/message.svelte`, every chapter page has it, also without a VN – `vn-page.svelte`) shows them: the text (if any)
-    as the box's text, every action as a box choice in the story choices' look (`.vn-end-choice` = `.vn-choice`, the
-    style lives in message.svelte), the primary first, at most 2. Handed over as a snippet (`vn.setEnd`); the box
+    as the box's text, the actions as **one compact row of buttons** (owner 2026-10-17: the three big choice boxes took too
+    much room – "logischer bauen"): the secondary ("↺ Nochmal" / "Code einlösen" / …) and, while counting, "Abbrechen"
+    as outlined `.btn-secondary`, the primary last (black, `--control-height`, a long chapter name ends in …); on a narrow
+    phone the row wraps and the primary takes its own line. With only these actions the box drops its 10rem story
+    height (`.actions-only`). Handed over as a snippet (`vn.setEnd`); the box
     reports its height, so the VN characters stand on it as on a message. A spacer (`.next-host`, the box's height +
     2rem) keeps the last slice clear of it (the pinned strip – a horizontal group: none, the box sits over its last screen).
   - **Rules** (`nextStep` in `@scutoons/content` progress.ts + tests, over the season's whole `sequence` – a draft is
@@ -446,8 +449,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     moving the video away from its end (↺, the seek line) hides the bar until it ends again. "↺ Nochmal"
     scrolls to the top and starts the group again (a VN group runs its script again: the page's `{#key}` gets a replay
     counter). A redeemed code / a login turns the members case into the countdown case by itself.
-  - **Countdown** (only next group / next chapter): a thin `ink` line along the bottom of the primary choice fills in
-    **10 s** (owner 2026-10-07; was 5), a small "Abbrechen" link under it ("Weiter in 9 s" for screen readers only),
+  - **Countdown** (only next group / next chapter): a thin `paper` line along the bottom of the black primary fills in
+    **10 s** (owner 2026-10-07; was 5), "Abbrechen" a button beside it ("Weiter in 9 s" for screen readers only),
     then it navigates. Stops (the choice stays): "Abbrechen", the end scrolled out of view, a
     click anywhere outside the end actions (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
     camera or a claim sheet. A hidden tab pauses it (the time away doesn't count). Reduced motion: no countdown.
