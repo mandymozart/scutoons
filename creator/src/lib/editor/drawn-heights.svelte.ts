@@ -4,5 +4,7 @@
 import type { Path } from '@scutoons/content';
 
 export const drawnHeights: Record<string, number> = $state({});
+/** the drawn widths of auto-width text boxes (fit 'width' – their stored width is only a max width) */
+export const drawnWidths: Record<string, number> = $state({});
 
 export const drawnKey = (entryPath: Path) => entryPath.join('.');

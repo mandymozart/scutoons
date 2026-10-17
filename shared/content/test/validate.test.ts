@@ -1,7 +1,7 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntityKey, sceneEntityOfRef, stageProblems, validateFile, validateLocales } from '../src/index.ts';
+import { dialogFit, estimatedWidth, parseEntityKey, sceneEntityOfRef, stageProblems, validateFile, validateLocales } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
@@ -236,6 +236,27 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	// line height (owner 2026-10-17): × the font size, 0.5–3
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', lineHeight: 1.2 }] }), []);
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', lineHeight: 0 }] }), ['error groups.0.slices.0.dialog.0.lineHeight']);
+	// box sizing (owner 2026-10-17, dialog-fit.ts): auto width needs no width (it is a max width); fixed needs a height
+	assert.deepEqual(sliceProblems({ dialog: [{ rect: { x: 10, y: 10 }, text: 'BAM', fit: 'width' }] }), []);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect: { x: 10, y: 10 }, text: 'BAM' }] }), ['error groups.0.slices.0.dialog.0.rect.width']);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', fit: 'fixed' }] }), ['error groups.0.slices.0.dialog.0.rect.height']);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', fit: 'wide' }] }), ['error groups.0.slices.0.dialog.0.fit']);
+	// the side check on the drawn box: a long auto-width line anchored right at 95 % runs off the left side…
+	const long = 'Ein sehr langer Satz, der in keiner Sprache von selbst umbricht';
+	assert.deepEqual(sliceProblems({ dialog: [{ rect: { x: 95, y: 10 }, anchor: 'tr', text: long, fit: 'width' }] }), ['warning groups.0.slices.0.dialog.0.rect']);
+	// …a max width keeps it on the slice; a short line needs none
+	assert.deepEqual(sliceProblems({ dialog: [{ rect: { x: 95, y: 10, width: 60 }, anchor: 'tr', text: long, fit: 'width' }] }), []);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect: { x: 95, y: 10 }, anchor: 'tr', text: 'Hallo!', fit: 'width' }] }), []);
+});
+
+test('dialogFit / estimatedWidth: the mode without fit is the old rule; the estimate follows the longest line', () => {
+	assert.equal(dialogFit({ rect: { height: 10 } }), 'fixed');
+	assert.equal(dialogFit({ rect: {} }), 'height');
+	assert.equal(dialogFit({ fit: 'width', rect: { height: 10 } }), 'width');
+	// mono, size 4: 10 characters × 0.6em × 4 % = 24 %; a drawn caption frame adds 2em = 8 %
+	assert.equal(estimatedWidth({ text: '1234567890', font: 'mono', frame: false }), 24);
+	assert.equal(estimatedWidth({ text: ['12345', '1234567890'], variant: 'caption' }), 32);
+	assert.equal(estimatedWidth({ text: '1234567890', font: 'mono', rect: { width: 20 } }), 20);
 });
 
 test('showTextBox event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {

@@ -3,7 +3,8 @@
 
 	/**
 	 * One row of a compact inspector (agents/research/EDITOR-INPUTS.md): the tool label (caption, uppercase) in a left
-	 * column, the controls sharing the rest in equal parts (a child with `data-prop-grow="2"` takes two parts). Below an
+	 * column, the controls sharing the rest in equal parts (a child with `data-prop-grow="2"` takes two parts; one with
+	 * `data-prop-line` starts its own line under the others, the label stays with the first). Below an
 	 * 18rem wide row the label goes above the controls. The controls are a group named by the label; each control keeps
 	 * its own accessible name (X, Y …).
 	 */
@@ -41,7 +42,12 @@
 		align-items: center;
 		gap: var(--space-025) var(--space-05);
 	}
+	/* in line with the first line of controls (a row can have two) */
 	.label {
+		align-self: start;
+		display: flex;
+		align-items: center;
+		min-height: var(--control-height);
 		min-width: 0;
 		overflow: hidden;
 		font-size: var(--type-caption-size);
@@ -55,6 +61,7 @@
 	}
 	.controls {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-025);
 		min-width: 0;
@@ -62,6 +69,10 @@
 	.controls > :global(*) {
 		flex: 1 1 0;
 		min-width: 0;
+	}
+	/* a second line in the same row (the Size row: the sizing segments, then W ⟷ H under them) */
+	.controls > :global([data-prop-line]) {
+		flex-basis: 100%;
 	}
 	.controls > :global([data-prop-grow='2']) {
 		flex-grow: 2;
@@ -73,6 +84,9 @@
 	@container (max-width: 18rem) {
 		.inner {
 			grid-template-columns: minmax(0, 1fr);
+		}
+		.label {
+			min-height: 0;
 		}
 	}
 </style>

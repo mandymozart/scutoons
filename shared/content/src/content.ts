@@ -38,21 +38,29 @@ export type DialogShape = (typeof DIALOG_SHAPES)[number];
 export type DialogTail = (typeof DIALOG_TAILS)[number];
 
 export type DialogFont = 'lettering' | 'mono';
+export type { DialogFit } from './dialog-fit.ts';
+import type { DialogFit } from './dialog-fit.ts';
 
 /** A live, translatable text box on top of a slice image (see agents/DESIGN.md → Part 2). */
 export interface Dialog {
 	/** Stable key (Figma node id) → i18n file. */
 	id?: string;
 	/**
-	 * % of the slice box: x / y = the position of the `anchor` point (none = the top-left corner). `height` optional (needed
-	 * for `valign` and auto-fit).
+	 * % of the slice box: x / y = the position of the `anchor` point (none = the top-left corner). `width`: the box's width;
+	 * with `fit: 'width'` an optional max width. `height`: a fixed size (needed for `valign` and auto-fit), see `fit`.
 	 */
 	rect: {
 		x: number;
 		y: number;
-		width: number;
+		width?: number;
 		height?: number;
 	};
+	/**
+	 * How the box is sized (owner 2026-10-17, Figma's modes – dialog-fit.ts): 'width' = auto width (hugs its text, wraps
+	 * only at `rect.width` if set), 'height' = auto height (fixed width, grows), 'fixed' = both fixed. None = 'fixed'
+	 * with a `rect.height`, else 'height' (what boxes always did).
+	 */
+	fit?: DialogFit;
 	/** Array entries are rendered as separate lines / paragraphs; `\n` inside an entry is a line break. */
 	text: string | string[];
 	/** Default 'bubble'. */

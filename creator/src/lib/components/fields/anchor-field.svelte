@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { ANCHORS, getAt, isAnchor, reanchor, type Anchor, type Path } from '@scutoons/content';
-	import { drawnHeights, drawnKey } from '$lib/editor/drawn-heights.svelte.ts';
+	import { ANCHORS, dialogFit, getAt, isAnchor, reanchor, type Anchor, type Path } from '@scutoons/content';
+	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -28,10 +28,13 @@
 	function choose(next: Anchor) {
 		if (next === current) return;
 		const height = drawnHeights[drawnKey(path)];
+		// an auto-width text box: its drawn width (its stored width is only a max width)
+		const width = drawnWidths[drawnKey(path)];
 		doc.edit((file) => {
 			const e = getAt(file, path);
 			if (!e?.rect) return;
-			const { x, y } = reanchor(e.rect, e.anchor, next, height);
+			const rect = dialogFit(e) === 'width' && width !== undefined ? { ...e.rect, width } : e.rect;
+			const { x, y } = reanchor(rect, e.anchor, next, height);
 			e.rect.x = x;
 			e.rect.y = y;
 			if (next === 'tl') delete e.anchor;

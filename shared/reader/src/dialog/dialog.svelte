@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TextBoxEffect, anchorTranslate, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
+	import { TextBoxEffect, anchorTranslate, dialogFit, evaluateText, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
 	import type { DialogPlay, TextExpressions } from '../types.ts';
 	import { wobblyPath } from './wobbly.ts';
 	import EffectNone from '../effects/effect-none.svelte';
@@ -73,7 +73,10 @@
 			if (line.visited.length) expressions?.shown?.(textId(index), line.visited);
 		});
 	});
-	const hasHeight = $derived(dialog.rect.height !== undefined);
+	/** how the box is sized (dialog-fit.ts): auto width hugs its text (CSS max-content, wraps at a max width), auto height
+	 *  wraps at its width and grows, fixed keeps both (the fit pass shrinks the text, then it runs past the box) */
+	const sizing = $derived(dialogFit(dialog));
+	const hasHeight = $derived(sizing === 'fixed' && dialog.rect.height !== undefined);
 	const maskColor = $derived(dialog.mask === true ? '#ffffff' : dialog.mask || null);
 
 	let root: HTMLDivElement | null = $state(null);
@@ -157,6 +160,7 @@
 	bind:this={root}
 	class="dialog dialog--{variant} font-{font}"
 	class:has-height={hasHeight}
+	class:fit-width={sizing === 'width'}
 	class:framed
 	class:bubble
 	class:wobbly={shape === 'wobbly'}
@@ -166,7 +170,8 @@
 	data-index={index}
 	style:left="{dialog.rect.x}%"
 	style:top="{dialog.rect.y}%"
-	style:width="{dialog.rect.width}%"
+	style:width={sizing === 'width' ? null : `${dialog.rect.width}%`}
+	style:max-width={sizing === 'width' && dialog.rect.width ? `${dialog.rect.width}%` : null}
 	style:height={hasHeight ? `${dialog.rect.height}%` : null}
 	style:translate={anchorTranslate(dialog.anchor)}
 	style:--size={dialog.size ?? 4}
@@ -304,6 +309,12 @@
 
 	.has-height .box {
 		height: 100%;
+	}
+
+	/* auto width: as wide as the longest line (breaks only at a line break), up to the max width – there it wraps; the
+	   anchor's translate makes it grow away from its anchor (right anchor → to the left) */
+	.fit-width {
+		width: max-content;
 	}
 
 	.content {

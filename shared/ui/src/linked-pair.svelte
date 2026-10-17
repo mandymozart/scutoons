@@ -6,6 +6,7 @@
 		icon?: string;
 		placeholder?: string;
 		required?: boolean;
+		disabled?: boolean;
 		testid?: string;
 	}
 </script>

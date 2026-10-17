@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { ColorField, LinkedPair, PropRow, PropSelect, ScrubNumber, Segmented } from '@scutoons/ui';
-	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
+	import { DEFAULT_SLICE, dialogFit, getAt, round2, type DialogFit, type Path } from '@scutoons/content';
+	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
 	import { TEXT_SIZE_STEP, TEXT_SIZE_UNITS, sizeToUnit, unitToSize } from '$lib/editor/text-size-unit.ts';
 	import { textSizeUnit } from '$lib/editor/text-size-unit.svelte.ts';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
@@ -39,6 +40,32 @@
 	const unit = $derived(textSizeUnit.value);
 	const sizeShown = $derived(typeof dialog?.size === 'number' ? sizeToUnit(dialog.size, unit, sliceWidth) : undefined);
 	const writeSize = (v: number | undefined) => doc.set(p('size'), v === undefined ? undefined : unitToSize(v, unit, sliceWidth));
+
+	/**
+	 * Box sizing (owner 2026-10-17, Figma's three modes – dialog-fit.ts, DESIGN.md Part 2 "Box sizing"). The box keeps its
+	 * drawn size when the mode changes (the canvas' measured width / height); auto width keeps the width as its max width.
+	 * Stored as before: only auto width writes `fit`; auto height = no height, fixed = a height.
+	 */
+	const sizing = $derived(dialog ? dialogFit(dialog) : 'height');
+	function setFit(next: DialogFit) {
+		const key = drawnKey(path);
+		const width = drawnWidths[key];
+		const height = drawnHeights[key];
+		doc.edit((file) => {
+			const d = getAt(file, path);
+			if (!d?.rect) return;
+			const from = dialogFit(d);
+			if (next === 'width') {
+				d.fit = 'width';
+				delete d.rect.height;
+				return;
+			}
+			delete d.fit;
+			if (from === 'width') d.rect.width = round2(width ?? d.rect.width ?? 50);
+			if (next === 'height') delete d.rect.height;
+			else d.rect.height = d.rect.height ?? round2(height ?? 10);
+		}, `${path.join('.')}.fit`);
+	}
 
 	/** the preset the look matches (none = changed by hand) */
 	const preset = $derived(matchTextPreset(dialog));
@@ -83,23 +110,39 @@
 				<ScrubNumber tag="X" label={m['creator.field_x']()} unit="%" step={0.1} value={dialog.rect?.x} onchange={(v) => doc.set(p('rect', 'x'), v ?? 0)} required testid="dialog-x" />
 				<ScrubNumber tag="Y" label={m['creator.field_y']()} unit="%" step={0.1} value={dialog.rect?.y} onchange={(v) => doc.set(p('rect', 'y'), v ?? 0)} required testid="dialog-y" />
 			</PropRow>
+			<!-- the sizing mode (auto width / auto height / fixed, Figma's three), then W ⟷ H on the row's second line -->
 			<PropRow label={m['creator.prop_dimensions']()} testid="dialog-dimensions">
-				<LinkedPair
-					a={dialog.rect?.width}
-					b={dialog.rect?.height}
-					first={{ tag: 'W', label: m['creator.field_width'](), required: true, testid: 'dialog-width' }}
-					second={{ tag: 'H', label: m['creator.field_height'](), placeholder: 'auto', testid: 'dialog-height' }}
-					unit="%"
-					step={0.1}
-					min={0}
-					lockLabel={m['creator.keep_proportions']()}
-					bind:locked={keepRatio}
-					onchange={(w, h) => {
-						const key = `${path.join('.')}.rect.size`;
-						doc.set(p('rect', 'width'), w ?? 0, key);
-						doc.set(p('rect', 'height'), h, key);
-					}}
+				<Segmented
+					label={m['creator.prop_fit']()}
+					stretch
+					square
+					radio
+					value={sizing}
+					onchange={(f) => setFit(f)}
+					options={(['width', 'height', 'fixed'] as const).map((f) => ({ value: f, icon: `fit-${f}`, title: m[`creator.fit_${f}`](), testid: `dialog-fit-${f}` }))}
+					testid="dialog-fit"
 				/>
+				<span class="size-pair" data-prop-line>
+					<LinkedPair
+						a={dialog.rect?.width}
+						b={sizing === 'fixed' ? dialog.rect?.height : undefined}
+						first={{ tag: 'W', label: sizing === 'width' ? m['creator.field_max_width']() : m['creator.field_width'](), required: sizing !== 'width', placeholder: sizing === 'width' ? 'auto' : '', testid: 'dialog-width' }}
+						second={{ tag: 'H', label: m['creator.field_height'](), placeholder: 'auto', disabled: sizing === 'width', testid: 'dialog-height' }}
+						unit="%"
+						step={0.1}
+						min={0}
+						lockLabel={m['creator.keep_proportions']()}
+						bind:locked={keepRatio}
+						onchange={(w, h) => {
+							const key = `${path.join('.')}.rect.size`;
+							doc.set(p('rect', 'width'), sizing === 'width' ? w : (w ?? 0), key);
+							if (sizing === 'width') return;
+							doc.set(p('rect', 'height'), h, key);
+							// a height makes it a fixed size (stored as before: the height decides)
+							if (h !== undefined && dialog.fit) doc.set(p('fit'), undefined, key);
+						}}
+					/>
+				</span>
 			</PropRow>
 
 			<PropRow label={m['creator.prop_type']()}>
@@ -213,6 +256,9 @@
 {/if}
 
 <style>
+	.size-pair {
+		display: block;
+	}
 	.props {
 		display: flex;
 		flex-direction: column;

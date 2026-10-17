@@ -553,6 +553,24 @@ drawn height when the rect has none); X / Y show the anchor point. On the canvas
 box and the stored point follows the anchor (`movedRect`): dragging the edge opposite the anchor keeps it. A box
 dragged within 3 % of a slice edge / corner shows a quiet hint ("Near the edge – anchor: Top right?") – nothing
 changes by itself. Shift+V (look only) keeps a box's anchor with its rect. Text alignment stays its own setting.
+**Box sizing** (owner 2026-10-17, Figma's three modes; `fit` on a text box, @scutoons/content dialog-fit.ts):
+- **Auto width** (`fit: 'width'`): the box hugs its text on one line – lines break only at a line break (Enter);
+  `rect.width` is an optional **max width**: set, the text wraps there, so a longer translation can't run off the
+  slice. The horizontal anchor decides the growth: right grows to the left, centre both ways, left to the right.
+  Reader: CSS only – `width: max-content; max-width: w%` + the anchor's translate, no measuring.
+- **Auto height** (no `fit`, no `rect.height` – what boxes always did): the width is fixed, the text wraps, the box
+  grows by the vertical anchor.
+- **Fixed size** (no `fit`, a `rect.height`): both fixed. Overflow: the reader's fit pass shrinks the text (down to
+  80 %), then the text runs visibly past the box – never clipped (cut words in a comic are worse than a box a bit
+  too small; Figma lets it overflow too).
+- Stored as before: only auto width writes `fit`; auto height / fixed are told by the height (no migration). `fit:
+  'height'` / `'fixed'` are valid data too (validator: fixed needs a height; a height with `'height'` is unused).
+- Canvas (like Figma): the handles work on the drawn box; a side handle on an auto-width box makes it auto height at
+  that width, a height change (n / s / a corner) makes any box a fixed size; a move keeps the mode (and an auto-width
+  box's max width). Inspector: three square icon segments (auto width · auto height · fixed) on the Size row, W ⟷ H on
+  its second line – in auto width W is the max width (empty = none) and H is off; switching keeps the drawn size.
+- Validation's "past the slice's side" uses the drawn box: an auto-width box at its estimated text width (the longest
+  line × the font's average advance × size, capped by the max width – `estimatedWidth`), from its anchor.
 
 Goal: speech bubbles, captions and narration are **live text over text-free art**, so every locale shares the same
 images and only the words change.
@@ -584,7 +602,8 @@ export type DialogVariant = 'bubble' | 'caption' | 'narration' | 'lyrics';
 
 export interface Dialog {
   id?: string;                 // stable key = Figma node id → i18n/s1c2.json
-  rect: { x: number; y: number; width: number; height?: number }; // % of slice; x / y = the anchor point
+  rect: { x: number; y: number; width?: number; height?: number }; // % of slice; x / y = the anchor point; width needed unless fit 'width' (then a max width)
+  fit?: 'width' | 'height' | 'fixed'; // box sizing (see "Box sizing" above); none = fixed with a height, else auto height
   anchor?: 'tl' | 't' | 'tr' | 'l' | 'c' | 'r' | 'bl' | 'b' | 'br'; // default 'tl' (see "Anchor" above)
   text: string | string[];     // array entries = lines / paragraphs
   variant?: DialogVariant;     // default 'bubble'

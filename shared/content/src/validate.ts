@@ -15,6 +15,7 @@ import { linksToNext, scriptJumps } from './chains.ts';
 import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
 import { isWrittenVariable, WRITTEN_VARIABLE } from './variables.ts';
 import { ANCHORS, anchoredRect, isAnchor } from './anchor.ts';
+import { DIALOG_FITS, dialogFit, estimatedWidth, isDialogFit } from './dialog-fit.ts';
 
 /** a variable's spelling (variables.ts) */
 const VARIABLE_FORM = 'a variable is a name of letters, digits and _ (not starting with a digit) – this toon\'s; global.name for every toon, <toon>.name for another toon\'s (never reader. / inventory. / … – that is what the reader has, not a variable)';
@@ -180,12 +181,13 @@ class Collector {
 	}
 }
 
-function checkRect(c: Collector, rect: unknown, path: Path, heightRequired: boolean, anchor?: unknown) {
+function checkRect(c: Collector, rect: unknown, path: Path, heightRequired: boolean, anchor?: unknown, widthOptional = false) {
 	if (!isObj(rect)) {
 		c.error(path, 'rect is missing');
 		return;
 	}
 	for (const key of ['x', 'y', 'width'] as const) {
+		if (key === 'width' && widthOptional && rect.width === undefined) continue;
 		if (!isNum(rect[key])) c.error([...path, key], `rect.${key} must be a number (% of the slice)`);
 	}
 	if (heightRequired ? !isNum(rect.height) : rect.height !== undefined && !isNum(rect.height)) {
@@ -206,14 +208,22 @@ function checkAnchor(c: Collector, anchor: unknown, path: Path) {
 
 function checkDialog(c: Collector, d: any, path: Path) {
 	if (!isObj(d)) return c.error(path, 'dialog entry must be an object');
-	checkRect(c, d.rect, [...path, 'rect'], false, d.anchor);
+	// auto width (dialog-fit.ts): rect.width is an optional max width
+	const fit = isObj(d.rect) ? dialogFit(d) : 'height';
+	checkRect(c, d.rect, [...path, 'rect'], false, d.anchor, fit === 'width');
 	checkAnchor(c, d.anchor, [...path, 'anchor']);
-	// the reader clips a slice sideways (a box past the side used to widen the page – BACKLOG M.2); measured from the
-	// box's drawn left edge (its anchor)
-	if (isObj(d.rect) && isNum(d.rect.x) && isNum(d.rect.width)) {
-		const left = anchoredRect({ x: d.rect.x, y: 0, width: d.rect.width }, d.anchor).left;
-		if (left < -0.5 || left + d.rect.width > 100.5) {
-			c.warn([...path, 'rect'], `the text box reaches past the slice's side (${Math.round(left)} – ${Math.round(left + d.rect.width)} %) – the reader cuts it at the edge`);
+	if (d.fit !== undefined && !isDialogFit(d.fit)) c.error([...path, 'fit'], `fit must be one of ${DIALOG_FITS.join(', ')}`);
+	if (d.fit === 'fixed' && isObj(d.rect) && !isNum(d.rect.height)) c.error([...path, 'rect', 'height'], 'fit fixed needs rect.height');
+	if (d.fit === 'height' && isObj(d.rect) && d.rect.height !== undefined) c.info([...path, 'rect', 'height'], 'rect.height is not used with fit height (the box grows with its text)');
+	// the reader clips a slice sideways (a box past the side used to widen the page – BACKLOG M.2); measured on the drawn
+	// box: from its anchor, an auto-width box at its estimated text width
+	if (isObj(d.rect) && isNum(d.rect.x)) {
+		const width = fit === 'width' ? estimatedWidth(d) : isNum(d.rect.width) ? d.rect.width : null;
+		if (width !== null) {
+			const left = anchoredRect({ x: d.rect.x, y: 0, width }, d.anchor).left;
+			if (left < -0.5 || left + width > 100.5) {
+				c.warn([...path, 'rect'], `the text box reaches past the slice's side (${Math.round(left)} – ${Math.round(left + width)} %) – the reader cuts it at the edge${fit === 'width' ? ' (auto width: set a max width)' : ''}`);
+			}
 		}
 	}
 	const text = d.text;

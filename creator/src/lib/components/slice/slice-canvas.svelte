@@ -12,8 +12,8 @@
 	import { SliceLayers, type ResolveSliceItem } from '@scutoons/reader';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { DEFAULT_SLICE, anchorAt, anchorFactors, anchoredRect, getAt, round2, sliceLayers, suggestedAnchor, type Path } from '@scutoons/content';
-	import { drawnHeights, drawnKey } from '$lib/editor/drawn-heights.svelte.ts';
+	import { DEFAULT_SLICE, anchorAt, anchorFactors, anchoredRect, dialogFit, estimatedWidth, type DialogFit, getAt, round2, sliceLayers, suggestedAnchor, type Path } from '@scutoons/content';
+	import { drawnHeights, drawnKey, drawnWidths } from '$lib/editor/drawn-heights.svelte.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import { toonAsset } from '@scutoons/content';
@@ -98,6 +98,8 @@
 		f: Factors;
 		/** a text box a showTextBox event reveals: which one ("⚡ 2" on the slice, "script 3" in the group's script) */
 		revealedBy?: string;
+		/** a text box's sizing (dialog-fit.ts); in auto width `rect.width` here is the drawn width, not the stored max */
+		fit?: DialogFit;
 	}
 
 	/** text box id → the showTextBox event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
@@ -126,7 +128,16 @@
 		(slice?.dialog ?? []).forEach((d: any, i: number) => {
 			const path = [...slicePath, 'dialog', i, 'rect'];
 			const revealedBy = typeof d?.id === 'string' ? revealers.get(d.id) : undefined;
-			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, rotation: num(d.rotation, 0), scale: num(d.scale, 1), f: anchorFactors(d.anchor), revealedBy });
+			if (!d?.rect) return;
+			const fit = dialogFit(d);
+			// the canvas works on the drawn box: auto width at its measured width, auto height without a stored height
+			const rect: Rect =
+				fit === 'width'
+					? { x: d.rect.x, y: d.rect.y, width: measuredWidths[i] ?? estimatedWidth(d) }
+					: fit === 'height'
+						? { x: d.rect.x, y: d.rect.y, width: d.rect.width }
+						: d.rect;
+			out.push({ kind: 'dialog', index: i, path, rect, label: d.id ?? `#${i + 1}`, rotation: num(d.rotation, 0), scale: num(d.scale, 1), f: anchorFactors(d.anchor), revealedBy, fit });
 		});
 		(slice?.items ?? []).forEach((it: any, i: number) => {
 			const path = [...slicePath, 'items', i, 'rect'];
@@ -189,6 +200,8 @@
 	let imageError = $state(false);
 	/** rendered heights (% of the slice) of text boxes without rect.height, by text box index */
 	let measured = $state<Record<number, number>>({});
+	/** rendered widths (% of the slice) of auto-width text boxes (fit 'width'), by text box index */
+	let measuredWidths = $state<Record<number, number>>({});
 	/** rendered heights (% of the slice) of placed items without rect.height (the icon's ratio), by item index */
 	let measuredItems = $state<Record<number, number>>({});
 
@@ -197,8 +210,14 @@
 		const height = canvas.clientHeight;
 		if (!height) return;
 		const boxes: Record<number, number> = {};
-		for (const el of canvas.querySelectorAll<HTMLElement>('.slice-layers > .dialog')) boxes[Number(el.dataset.index)] = round2((el.offsetHeight / height) * 100);
+		const widths: Record<number, number> = {};
+		for (const el of canvas.querySelectorAll<HTMLElement>('.slice-layers > .dialog')) {
+			boxes[Number(el.dataset.index)] = round2((el.offsetHeight / height) * 100);
+			if (el.classList.contains('fit-width') && canvas.clientWidth) widths[Number(el.dataset.index)] = round2((el.offsetWidth / canvas.clientWidth) * 100);
+		}
 		measured = boxes;
+		measuredWidths = widths;
+		for (const [i, w] of Object.entries(widths)) drawnWidths[drawnKey([...slicePath, 'dialog', Number(i)])] = w;
 		const next: Record<number, number> = {};
 		for (const el of canvas.querySelectorAll<HTMLElement>('.slice-layers > .slice-item')) {
 			if (el.offsetHeight) next[Number(el.dataset.index)] = round2((el.offsetHeight / height) * 100);
@@ -266,8 +285,10 @@
 		handle: Handle;
 		item?: Item;
 		start: { x: number; y: number };
-		/** start rect per locale that gets written */
+		/** start rect per locale that gets written (an auto-width box: at its drawn width) */
 		startRects: Record<string, Rect>;
+		/** the stored width per locale at the start (auto width: the max width, or none) */
+		storedWidths: Record<string, number | undefined>;
 		/** start rect of the shown locale (what the pointer snaps against) */
 		shown: Required<Rect>;
 		draw?: Required<Rect>;
@@ -322,9 +343,13 @@
 		event.preventDefault();
 		onselect?.({ kind: item.kind, index: item.index });
 		const startRects: Record<string, Rect> = {};
+		const storedWidths: Record<string, number | undefined> = {};
 		for (const l of targets()) {
 			const rect = doc.get(l, item.path);
-			if (rect) startRects[l] = { ...rect };
+			if (!rect) continue;
+			storedWidths[l] = rect.width;
+			// auto width: the drawn width stands in for the max width (the handles work on the drawn box)
+			startRects[l] = item.fit === 'width' ? { x: rect.x, y: rect.y, width: item.rect.width } : { ...rect };
 		}
 		drag = {
 			mode: 'edit',
@@ -332,6 +357,7 @@
 			item,
 			start: toPercent(event),
 			startRects,
+			storedWidths,
 			shown: boxOf(item),
 			moved: false,
 			px: overlaySize()
@@ -355,7 +381,7 @@
 		const p = toPercent(event);
 		const x = snapX(p.x);
 		const y = snapY(p.y);
-		drag = { mode: 'draw', handle: 'se', start: { x, y }, startRects: {}, shown: { x, y, width: 0, height: 0 }, draw: { x, y, width: 0, height: 0 }, moved: false, px: overlaySize() };
+		drag = { mode: 'draw', handle: 'se', start: { x, y }, startRects: {}, storedWidths: {}, shown: { x, y, width: 0, height: 0 }, draw: { x, y, width: 0, height: 0 }, moved: false, px: overlaySize() };
 		capture(event);
 	}
 
@@ -457,7 +483,27 @@
 			rect.y = next.y;
 			rect.width = next.width;
 			if (next.height !== undefined) rect.height = next.height;
+			if (drag.item!.kind === 'dialog') resized(l, drag.item!, rect, drag.handle === 'move', writeHeight, drag.storedWidths[l]);
 		}
+	}
+
+	/**
+	 * A text box's sizing after a move / resize (owner 2026-10-17, like Figma; DESIGN.md Part 2 "Box sizing"): a move keeps
+	 * the mode (auto width keeps its stored max width or none); a side handle on an auto-width box makes it auto height at
+	 * that width; a height change (n / s / a corner) makes any box a fixed size. Auto height and fixed are stored as before
+	 * – no `fit`, the height decides – only auto width writes `fit: 'width'`.
+	 */
+	function resized(l: string, item: Item, rect: any, moved: boolean, heightChanged: boolean, storedWidth: number | undefined) {
+		const entry = entryOf(l, item);
+		if (!entry) return;
+		if (item.fit === 'width' && moved) {
+			if (storedWidth === undefined) delete rect.width;
+			else rect.width = storedWidth;
+			return;
+		}
+		if (moved) return;
+		if (heightChanged || item.fit === 'width') delete entry.fit;
+		if (!heightChanged && item.fit !== 'fixed') delete rect.height;
 	}
 
 	function onPointerUp(event: PointerEvent) {

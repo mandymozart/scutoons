@@ -144,10 +144,13 @@
 					},
 					"required": [
 						"x",
-						"y",
-						"width"
+						"y"
 					],
-					"description": "% of the slice box: x / y = the position of the `anchor` point (none = the top-left corner). `height` optional (needed for `valign` and auto-fit)."
+					"description": "% of the slice box: x / y = the position of the `anchor` point (none = the top-left corner). `width`: the box's width; with `fit: 'width'` an optional max width. `height`: a fixed size (needed for `valign` and auto-fit), see `fit`."
+				},
+				"fit": {
+					"$ref": "#/definitions/DialogFit",
+					"description": "How the box is sized (owner 2026-10-17, Figma's modes – dialog-fit.ts): 'width' = auto width (hugs its text, wraps only at `rect.width` if set), 'height' = auto height (fixed width, grows), 'fixed' = both fixed. None = 'fixed' with a `rect.height`, else 'height' (what boxes always did)."
 				},
 				"variant": {
 					"$ref": "#/definitions/DialogVariant",
@@ -286,6 +289,14 @@
 				]
 			},
 			"description": "A text box's text per locale; a locale's text may be several lines / paragraphs like `Dialog.text`"
+		},
+		"DialogFit": {
+			"type": "string",
+			"enum": [
+				"width",
+				"height",
+				"fixed"
+			]
 		},
 		"DialogVariant": {
 			"type": "string",
