@@ -23,7 +23,9 @@ final class MediaProbe
         $empty = ['width' => null, 'height' => null, 'duration' => null, 'bitrate' => null];
         if (!is_file($file)) return $empty;
         if ($kind === 'image') {
-            if (str_ends_with(strtolower($file), '.svg')) return [...$empty, ...self::svgSize((string) file_get_contents($file, false, null, 0, 4096))];
+            // by content too: an upload's temp file has no extension
+            $head = (string) file_get_contents($file, false, null, 0, 4096);
+            if (str_ends_with(strtolower($file), '.svg') || preg_match('/^\s*(<\?xml[^>]*>\s*)?(<!--.*?-->\s*)*<svg\b/s', $head)) return [...$empty, ...self::svgSize($head)];
             $size = @getimagesize($file);
             return $size ? ['width' => (int) $size[0], 'height' => (int) $size[1], 'duration' => null, 'bitrate' => null] : $empty;
         }

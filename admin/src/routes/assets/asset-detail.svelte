@@ -21,6 +21,7 @@
 	let busy = $state('');
 	let title = $state('');
 	let tags = $state('');
+	let tile = $state<'' | 'x' | 'y'>('');
 	let replacePath = $state('');
 	let replaceFile = $state<File | null>(null);
 	let replaceNote = $state('');
@@ -39,6 +40,7 @@
 			detail = await assets.get(id);
 			title = detail.asset.title;
 			tags = detail.asset.tags.join(', ');
+			tile = detail.asset.shape?.tile ?? '';
 			newSlug = detail.asset.slug;
 			const current = detail.versions.find((v) => v.status === 'current');
 			replacePath = current?.path ?? '';
@@ -79,7 +81,12 @@
 		}
 	}
 
-	const saveMeta = () => run('meta', async () => void (await assets.update(id, { title, tags: tags.split(',').map((t) => t.trim()).filter(Boolean) })));
+	const saveShape = () =>
+		run('shape', async () => {
+			const shape = detail?.asset.shape;
+			if (shape) await assets.update(id, { shape: { ...shape, tile: tile || null } });
+		});
+	const saveMeta = () => run('meta',async () => void (await assets.update(id, { title, tags: tags.split(',').map((t) => t.trim()).filter(Boolean) })));
 	const replace = () =>
 		run('replace', async () => {
 			if (!replaceFile) return;
@@ -173,6 +180,26 @@
 			</div>
 			<Button size="sm" variant="secondary" disabled={busy === 'meta'} onclick={saveMeta}>{m['assets.save']()}</Button>
 		</Section>
+
+		{#if detail.asset.shape}
+			{@const shape = detail.asset.shape}
+			<!-- the vector library (research/VECTORS.md): the shape's facts; colour is a preset the page applies, not edited here -->
+			<Section title={m['assets.shape_title']()}>
+				<label class="field"><span class="sc-label">{m['assets.shape_tile']()}</span>
+					<select bind:value={tile}>
+						<option value="">{m['assets.shape_tile_none']()}</option>
+						<option value="x">{m['assets.shape_tile_x']()}</option>
+						<option value="y">{m['assets.shape_tile_y']()}</option>
+					</select>
+				</label>
+				<p class="sc-caption">
+					{shape.mask ? m['assets.shape_mask']() : m['assets.shape_asis']()}
+					{#each shape.colors as c (c)}<span class="swatch" style:background={c} title={c}></span>{/each}
+				</p>
+				{#if shape.source}<p class="sc-caption">{m['assets.shape_source']()} {[shape.source.file, shape.source.page, shape.source.node].filter(Boolean).join(' · ')}</p>{/if}
+				<Button size="sm" variant="secondary" disabled={busy === 'shape'} onclick={saveShape}>{m['assets.save']()}</Button>
+			</Section>
+		{/if}
 
 		{#each detail.versions as v (v.id)}
 			<Section title={m['assets.version']({ number: v.number })}>
@@ -337,6 +364,14 @@
 	}
 	.levels {
 		margin: 0 0 var(--space-1);
+	}
+	.swatch {
+		display: inline-block;
+		width: 0.75rem;
+		height: 0.75rem;
+		margin-left: var(--space-025);
+		vertical-align: middle;
+		border: var(--border-width-regular) solid var(--ink);
 	}
 	.jobs {
 		list-style: none;

@@ -847,9 +847,9 @@ zone). Content editors (creator, admin):
 
 | Method | Path | |
 |---|---|---|
-| GET | `/assets?q=&folder=&kind=&tag=&state=used\|unused&res=&files=&tiles=hide\|only\|all&page=&page_size=&sort=` | `{ items: [asset summary], pagination, folders, cdn, tiles_hidden }` – current versions with their renditions and use counts; `folder` = a top-level folder, or with a `/` a path prefix (`characters/catpope` = the character and its persona folders); map tiles (`<set>/<z>/<x>_<y>` below a `/map/` folder) are hidden unless `tiles=only\|all`, `tiles_hidden` counts them |
+| GET | `/assets?q=&folder=&kind=&tag=&state=used\|unused&res=&files=&tiles=hide\|only\|all&page=&page_size=&sort=` | `{ items: [asset summary], pagination, folders, cdn, tiles_hidden }` – current versions with their renditions and use counts; `folder` = a top-level folder, or with a `/` a path prefix (`characters/catpope` = the character and its persona folders); map tiles (`<set>/<z>/<x>_<y>` below a `/map/` folder) are hidden unless `tiles=only\|all`, `tiles_hidden` counts them; `kind=shape` = the vector library (assets with a shape row), each row with `shape: { tile, mask, colors }` |
 | GET | `/assets/lookup?path=` | `{ asset: detail \| null, rendition }` – the asset a CDN path belongs to |
-| GET / PUT | `/assets/{id}` | detail `{ asset, versions: [{ …, renditions }], usages, jobs }` · PUT `{ title?, tags? }` |
+| GET / PUT | `/assets/{id}` | detail `{ asset, versions: [{ …, renditions }], usages, jobs }` · PUT `{ title?, tags?, shape? }` – `shape` an object `{ tile, mask, colors, source?, derived? }` makes / updates the shape row (422 `invalid_shape`: tile x \| y \| null, colors #RRGGBB), `null` removes it; a shape's detail has `asset.shape` |
 | PUT | `/assets/upload?path=&title=&tags=` | raw body = the file → 201 detail + `uploaded`; 409 `exists`, 422 `invalid_path` / `invalid_type` / `content_mismatch` / `unsafe_svg` / `empty_file`, 413 `file_too_large` (`ASSET_UPLOAD_MAX_BYTES`) |
 | GET | `/assets/missing` · `/assets/orphans` | uses of unknown files · current files nothing uses |
 

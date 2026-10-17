@@ -189,6 +189,8 @@ export {
 	type AssetRelinkResult,
 	type AssetRendition,
 	type AssetSettingStatus,
+	type AssetShape,
+	type AssetShapeDetail,
 	type AssetStorageStatus,
 	type AssetSummary,
 	type AssetUsage,

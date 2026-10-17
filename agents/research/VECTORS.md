@@ -1,4 +1,4 @@
-Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–3 done, next step 4; nothing built, nothing uploaded. Today's state: ASSETS.md "Vector library".
+Status: decided 2026-10-17 (owner's answers in §7) – plan §6, steps 2–4 done (the API: §5a), next step 5; nothing on production. Today's state: ASSETS.md "Vector library".
 
 # VECTORS – how the shape library lives next to the toons
 
@@ -70,7 +70,6 @@ overclassifying is maybe too dangerous" + **toon / universe**; a link to chapter
 | `colors` | measured | JSON list; colour is never a tag |
 | `source` | the import | JSON `{ file, page, node, frame }` – provenance only: where the shape came from, so a survey of the same page knows it |
 | `derived` | the import | `{ from: <asset_id>, rotate: 90 }` – a turned or mirrored copy of another shape |
-| `checked_at` / `checked_by` | the review | replaces `suggested: true`; null = a suggestion (today's 416 count as checked – owner: "names are fine") |
 
 Not modelled: character / subject (a free tag like `scrooge`, `pizza` if wanted), chapter / scene (the usage index –
 owner), colour words (measured), licence (own artwork; the Scrooge shapes are kept and used – owner, §7.6).
@@ -137,6 +136,22 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
 - **Heavy shapes**: every SVG is shrunk at upload (owner: "shrink is fine" – svgo: precision, merged paths; the pizza
   sheets are ~1 MB); the library keeps the shrunk file (Figma is not compared again).
 
+## 5a. The API (the contract – built 2026-10-17, migration `2026-10-17-asset-shapes`)
+
+Table `asset_shapes` (1:1 with `assets`, deleted with it): `tile` x | y | null, `mask`, `colors` (JSON), `source` /
+`derived` (JSON). No `checked` fields – the names are confirmed and no screen reviews yet (RULES "keep the configuration
+small"); a review flag comes back with a review screen.
+
+- **`GET /api/assets?kind=shape&folder=catpope`** (content editors – creator, admin; `page_size` ≤ 500; `q`, `tag`,
+  `sort` as for every asset) → `{ items, pagination, folders, cdn }`; each item = the asset summary (`id`, `slug`,
+  `title`, `tags` – role words and free words –, `path` = the SVG's CDN-root path, `width` / `height` from the SVG,
+  `size`, `usages`, `renditions`) **+ `shape: { tile, mask, colors }`**. The file's URL = `cdn` + `path`; a page loads
+  it only when it shows the shape; `mask: true` → `mask-image` + the colouration preset's colour.
+- `GET /api/assets/{id}` → the detail; `asset.shape` also carries `source` (Figma provenance) and `derived`.
+- `PUT /api/assets/{id}` `{ shape: { tile, mask, colors, source?, derived? } }` makes an asset a shape (or updates it),
+  `{ shape: null }` takes it out of the library – the import does this; the admin asset sheet edits `tile`.
+- Types: `@scutoons/api` `AssetShape`, `AssetShapeDetail`, `AssetSummary.shape`; `assets.list({ kind: 'shape', folder })`.
+
 ## 6. Plan (steps, one at a time)
 
 1. ~~Owner decides~~ – done 2026-10-17 (§7).
@@ -149,7 +164,7 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
    (red-lash, face-outline-red: tagged `scrooge` now). 436 shapes. Was: (owner: "maybe we can split him up"): the 18 `scrooge` shapes into parts – eyes, hat, beak,
    whiskers … – as their own shapes (the survey's "ungrouped" parts of the Figma groups; the owner picks on a contact
    sheet), tagged `scrooge` + the part.
-4. **Migration** `asset_shapes` (idempotent, dry-run on the dev DB, runs with the deploy); `kind=shape` as a filter of
+4. ~~Migration~~ – done 2026-10-17 (§5a). Was: **Migration** `asset_shapes` (idempotent, dry-run on the dev DB, runs with the deploy); `kind=shape` as a filter of
    the list API (an asset with a shape row), the asset sheet shows the fields.
 5. **Import** to `catpope/vectors/` through the API, shrunk (svgo), shape rows from `vectors.json`, no relink (clean
    slate); the code set (the illumination's five, the 90s collage's twelve) stays in git with its CDN twins as code

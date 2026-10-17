@@ -22,10 +22,10 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  * The asset manager (agents/ASSETS.md "API", docs/API.md "Assets"). Content editors (creator, admin) browse, look up,
  * upload new files and edit titles / tags – the creator's asset picker. Replacing, renaming, relinking, deleting,
  * scanning, jobs and storage status are admin only (admin app → Assets).
- *   GET  /api/assets?q=&folder=&kind=&tag=&state=used|unused&tiles=hide|only|all&page=&page_size=&sort=   list (map tiles hidden by default)
+ *   GET  /api/assets?q=&folder=&kind=&tag=&state=used|unused&tiles=hide|only|all&page=&page_size=&sort=   list (map tiles hidden by default; kind=shape = the vector library)
  *   GET  /api/assets/lookup?path=                     the asset a path belongs to (null when unregistered)
  *   GET  /api/assets/{id}                             detail: versions, renditions, usages, jobs
- *   PUT  /api/assets/{id}                             { title?, tags? }
+ *   PUT  /api/assets/{id}                             { title?, tags?, shape? } (shape: { tile, mask, colors, source?, derived? } | null)
  *   PUT  /api/assets/upload?path=&title=               raw body = the file → 201 (409 exists)
  *   GET  /api/assets/missing · /api/assets/orphans    references to unknown files · files nothing references
  *   ── admin ──

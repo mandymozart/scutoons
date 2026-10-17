@@ -43,6 +43,22 @@ final class AssetRegistry
         if (!$this->available()) throw new ApiError(503, 'not_available', 'The asset registry is not set up yet (migration 2026-10-02-assets).');
     }
 
+    private ?bool $shapes = null;
+
+    /** The shape table (migration 2026-10-17-asset-shapes) – until it runs, lists simply have no shapes */
+    public function shapesAvailable(): bool
+    {
+        if ($this->shapes === null) {
+            try {
+                $this->db->value('SELECT COUNT(*) FROM asset_shapes WHERE 1 = 0');
+                $this->shapes = true;
+            } catch (Throwable) {
+                $this->shapes = false;
+            }
+        }
+        return $this->shapes;
+    }
+
     // ── Reads ─────────────────────────────────────────────────────────────────────────────────────────────
 
     /** @return array<string, mixed>|null */
@@ -191,8 +207,72 @@ final class AssetRegistry
             $tags = [];
             foreach ($body['tags'] as $tag) if (is_scalar($tag)) $tags[] = (string) $tag;
         }
+        $shape = array_key_exists('shape', $body) ? self::shapeInput($body['shape']) : false;
         $this->db->run('UPDATE assets SET title = ?, tags = ?, updated_at = ? WHERE id = ?', [$title, self::encodeTags($tags), $this->clock->utc(), $id]);
+        if ($shape !== false) $this->saveShape($id, $shape);
         return $this->asset($id) ?? [];
+    }
+
+    // ── Shapes (the vector library, agents/research/VECTORS.md) ───────────────────────────────────────────
+
+    /**
+     * The `shape` of a PUT /assets/{id} body: null = not a shape (the row goes), an object = the shape's facts
+     * @return array{tile: ?string, mask: bool, colors: list<string>, source: ?array<mixed>, derived: ?array<mixed>}|null
+     */
+    public static function shapeInput(mixed $shape): ?array
+    {
+        if ($shape === null) return null;
+        if (!is_array($shape)) throw new ApiError(422, 'invalid_shape', 'shape must be an object or null.');
+        $tile = $shape['tile'] ?? null;
+        if ($tile !== null && !in_array($tile, ['x', 'y'], true)) throw new ApiError(422, 'invalid_shape', 'shape.tile is x | y | null.');
+        $colors = $shape['colors'] ?? [];
+        if (!is_array($colors)) throw new ApiError(422, 'invalid_shape', 'shape.colors must be a list.');
+        $clean = [];
+        foreach ($colors as $c) {
+            if (!is_string($c) || !preg_match('/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/', $c)) throw new ApiError(422, 'invalid_shape', 'shape.colors are #RRGGBB.');
+            $clean[strtoupper($c)] = true;
+        }
+        foreach (['source', 'derived'] as $k) {
+            if (isset($shape[$k]) && !is_array($shape[$k])) throw new ApiError(422, 'invalid_shape', "shape.$k must be an object.");
+        }
+        return ['tile' => $tile, 'mask' => (bool) ($shape['mask'] ?? false), 'colors' => array_keys($clean), 'source' => $shape['source'] ?? null, 'derived' => $shape['derived'] ?? null];
+    }
+
+    /** @param array{tile: ?string, mask: bool, colors: list<string>, source: ?array<mixed>, derived: ?array<mixed>}|null $shape */
+    public function saveShape(string $assetId, ?array $shape): void
+    {
+        if (!$this->shapesAvailable()) throw new ApiError(503, 'not_available', 'The shape table is not set up yet (migration 2026-10-17-asset-shapes).');
+        if ($shape === null) {
+            $this->db->run('DELETE FROM asset_shapes WHERE asset_id = ?', [$assetId]);
+            return;
+        }
+        $json = fn(?array $v) => $v === null ? null : (string) json_encode($v, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $now = $this->clock->utc();
+        $this->db->run('INSERT INTO asset_shapes (asset_id, tile, mask, colors, source, derived, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE tile = VALUES(tile), mask = VALUES(mask), colors = VALUES(colors), source = VALUES(source), derived = VALUES(derived), updated_at = VALUES(updated_at)',
+            [$assetId, $shape['tile'], $shape['mask'] ? 1 : 0, (string) json_encode($shape['colors']), $json($shape['source']), $json($shape['derived']), $now, $now]);
+    }
+
+    /**
+     * The shape facts of a row that joined asset_shapes (null when the asset is no shape)
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>|null
+     */
+    private static function shapeOf(array $row, bool $provenance = false): ?array
+    {
+        if (($row['shape_asset'] ?? null) === null) return null;
+        $decode = fn(mixed $v) => is_string($v) && $v !== '' ? json_decode($v, true) : null;
+        $out = ['tile' => $row['shape_tile'], 'mask' => (bool) $row['shape_mask'], 'colors' => $decode($row['shape_colors']) ?? []];
+        if ($provenance) $out += ['source' => $decode($row['shape_source']), 'derived' => $decode($row['shape_derived'])];
+        return $out;
+    }
+
+    /** @return array{string, string} the SELECT columns + JOIN for the shape facts (empty when the table isn't there yet) */
+    private function shapeJoin(): array
+    {
+        return $this->shapesAvailable()
+            ? [', s.asset_id AS shape_asset, s.tile AS shape_tile, s.mask AS shape_mask, s.colors AS shape_colors, s.source AS shape_source, s.derived AS shape_derived', ' LEFT JOIN asset_shapes s ON s.asset_id = a.id']
+            : ['', ''];
     }
 
     /**
@@ -212,6 +292,8 @@ final class AssetRegistry
      * One row per asset: its current version's main file (the preview), the renditions, sizes and usage counts.
      * Map tiles (AssetPaths::TILE – thousands, never picked one by one; owner 2026-10-16) are hidden unless
      * `tiles=only|all`; `tiles_hidden` = how many the other filters would have found.
+     * `kind=shape` = the vector library (assets with an asset_shapes row); every shape row carries
+     * `shape: { tile, mask, colors }` (agents/research/VECTORS.md "The API").
      * @param array<mixed> $query
      * @return array<string, mixed>
      */
@@ -238,8 +320,11 @@ final class AssetRegistry
                 $params[] = $folder;
             }
         }
-        if (($kind = $list->filter('kind')) !== null) {
-            if (!in_array($kind, AssetPaths::KINDS, true)) throw new ApiError(400, 'invalid_kind', 'Unknown kind.', ['kinds' => AssetPaths::KINDS]);
+        if (($kind = $list->filter('kind')) === 'shape') {
+            // the vector library: assets with a shape row (agents/research/VECTORS.md) – none before its migration
+            $where[] = $this->shapesAvailable() ? 'EXISTS (SELECT 1 FROM asset_shapes s2 WHERE s2.asset_id = a.id)' : '1 = 0';
+        } elseif ($kind !== null) {
+            if (!in_array($kind, AssetPaths::KINDS, true)) throw new ApiError(400, 'invalid_kind', 'Unknown kind.', ['kinds' => [...AssetPaths::KINDS, 'shape']]);
             $where[] = 'a.kind = ?';
             $params[] = $kind;
         }
@@ -286,7 +371,6 @@ final class AssetRegistry
             $where[] = $tiles === 'only' ? 'a.slug REGEXP ?' : 'a.slug NOT REGEXP ?';
             $params[] = AssetPaths::TILE_SQL;
         }
-        $sql = "FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current' WHERE " . implode(' AND ', $where);
         $order = match ($list->sortField) {
             'updated' => $list->orderBy('a.updated_at', 'a.slug'),
             'size' => $list->orderBy('total_size', 'a.slug'),
@@ -294,9 +378,11 @@ final class AssetRegistry
             'kind' => $list->orderBy('a.kind', 'a.slug'),
             default => $list->orderBy('a.slug', 'a.id'),
         };
+        [$shapeColumns, $shapeJoin] = $this->shapeJoin();
+        $sql = "FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current'$shapeJoin WHERE " . implode(' AND ', $where);
         $rows = $this->db->all("SELECT a.*, v.id AS version_id, v.number AS version, v.path AS main_path, v.width, v.height, v.duration, v.size AS main_size,
                 (SELECT COALESCE(SUM(r.size), 0) FROM asset_renditions r WHERE r.version_id = v.id) AS total_size,
-                $usageCount AS usages
+                $usageCount AS usages$shapeColumns
             $sql $order LIMIT {$list->pageSize} OFFSET {$list->offset()}", $params);
         $renditions = $this->renditionsOf(array_map(fn(array $r) => (int) $r['version_id'], $rows));
         $items = array_map(fn(array $r) => $this->summary($r, $renditions[(int) $r['version_id']] ?? []), $rows);
@@ -370,7 +456,7 @@ final class AssetRegistry
             'usages' => (int) $row['usages'],
             'updated_at' => Time::iso($row['updated_at']),
             'renditions' => array_map(fn(array $r) => self::rendition($r) + ['usages' => (int) $r['usages']], $renditions),
-        ];
+        ] + (($shape = self::shapeOf($row)) !== null ? ['shape' => $shape] : []);
     }
 
     /**
@@ -400,6 +486,8 @@ final class AssetRegistry
     public function detail(string $id): array
     {
         $asset = $this->asset($id) ?? throw new ApiError(404, 'not_found', 'Unknown asset.');
+        [$shapeColumns, $shapeJoin] = $this->shapeJoin();
+        $shape = $shapeJoin !== '' ? self::shapeOf($this->db->one("SELECT a.id$shapeColumns FROM assets a$shapeJoin WHERE a.id = ?", [$id]) ?? [], true) : null;
         $versions = [];
         foreach ($this->versions($id) as $v) {
             $versions[] = [
@@ -428,7 +516,7 @@ final class AssetRegistry
             'asset' => [
                 'id' => $asset['id'], 'slug' => $asset['slug'], 'kind' => $asset['kind'], 'folder' => $asset['folder'], 'title' => $asset['title'],
                 'tags' => self::tags($asset), 'status' => $asset['status'], 'created_at' => Time::iso($asset['created_at']), 'updated_at' => Time::iso($asset['updated_at']),
-            ],
+            ] + ($shape !== null ? ['shape' => $shape] : []),
             'versions' => $versions,
             'usages' => $this->usagesOf($paths),
             'jobs' => array_map(fn(array $j) => ['id' => (int) $j['id'], 'kind' => $j['kind'], 'status' => $j['status'], 'created_at' => Time::iso($j['created_at']), 'finished_at' => Time::iso($j['finished_at'])], $jobs),

@@ -132,6 +132,28 @@ final class AssetsApiTest extends TestCase
         $meta = self::json($this->request('PUT', "/api/assets/$id", $creator + ['Content-Type' => 'application/json'], '{"title":"The clip","tags":["prologue"]}'));
         self::assertSame(['The clip', ['prologue']], [$meta['asset']['title'], $meta['asset']['tags']]);
 
+        // the vector library (agents/research/VECTORS.md "The API"): an SVG + its shape row; kind=shape lists only those
+        $svg = '<svg width="296" height="1422" viewBox="0 0 296 1422" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1z" fill="#FF0000"/></svg>';
+        $shapeUp = $this->request('PUT', '/api/assets/upload?path=catpope/vectors/crescent-chain.svg&tags=band,crescent', $creator + ['Content-Type' => 'image/svg+xml'], $svg);
+        self::assertSame(201, $shapeUp->getStatusCode(), (string) $shapeUp->getBody());
+        $shapeId = (string) self::json($shapeUp)['asset']['id'];
+        self::assertSame(0, self::json($this->request('GET', '/api/assets?kind=shape', $creator))['pagination']['total'], 'an SVG alone is no shape');
+        $shape = ['tile' => 'y', 'mask' => true, 'colors' => ['#ff0000'], 'source' => ['file' => 'Cat Pope', 'node' => '2819:3886']];
+        $set = $this->request('PUT', "/api/assets/$shapeId", $creator + ['Content-Type' => 'application/json'], (string) json_encode(['shape' => $shape]));
+        self::assertSame(200, $set->getStatusCode(), (string) $set->getBody());
+        self::assertSame(['tile' => 'y', 'mask' => true, 'colors' => ['#FF0000'], 'source' => ['file' => 'Cat Pope', 'node' => '2819:3886'], 'derived' => null], self::json($set)['asset']['shape']);
+        $shapes = self::json($this->request('GET', '/api/assets?kind=shape&folder=catpope', $creator));
+        self::assertSame(1, $shapes['pagination']['total']);
+        $row = $shapes['items'][0];
+        self::assertSame(['catpope/vectors/crescent-chain.svg', ['band', 'crescent'], 296, 1422, ['tile' => 'y', 'mask' => true, 'colors' => ['#FF0000']]],
+            [$row['path'], $row['tags'], $row['width'], $row['height'], $row['shape']]);
+        self::assertArrayNotHasKey('shape', self::json($this->request('GET', '/api/assets?kind=video', $creator))['items'][0]);
+        self::assertSame(422, $this->request('PUT', "/api/assets/$shapeId", $creator + ['Content-Type' => 'application/json'], '{"shape":{"tile":"z"}}')->getStatusCode());
+        self::assertSame(422, $this->request('PUT', "/api/assets/$shapeId", $creator + ['Content-Type' => 'application/json'], '{"shape":{"colors":["red"]}}')->getStatusCode());
+        $unset = self::json($this->request('PUT', "/api/assets/$shapeId", $creator + ['Content-Type' => 'application/json'], '{"shape":null}'));
+        self::assertArrayNotHasKey('shape', $unset['asset']);
+        self::assertSame(0, self::json($this->request('GET', '/api/assets?kind=shape', $creator))['pagination']['total']);
+
         // a creator save re-indexes the entity: the chapter now uses the 480p file instead
         $put = $this->request('PUT', '/api/entities/chapter:catpope:1:de', $creator + ['Content-Type' => 'application/json'], '{"content":' . self::chapterJson(['groups' => [['slices' => [['image' => 'images/s.webp', 'width' => 390, 'height' => 600, 'video' => ['src' => 'videos/clip.480p.mp4']]]]]]) . '}');
         self::assertSame(200, $put->getStatusCode(), (string) $put->getBody());

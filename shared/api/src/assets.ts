@@ -27,6 +27,24 @@ export interface AssetRendition {
 	usages?: number;
 }
 
+/**
+ * A shape of the vector library (agents/research/VECTORS.md "The API"): an SVG asset with a shape row. The list's
+ * `kind=shape` returns only these. Colour is no property to edit – a colouration is a preset applied by the page.
+ */
+export interface AssetShape {
+	/** repeats along this axis (a band) */
+	tile: 'x' | 'y' | null;
+	/** one colour: use it as a CSS mask, the page gives the colour; false = show the file as it is */
+	mask: boolean;
+	/** the colours the file uses (measured) */
+	colors: string[];
+}
+/** the detail's shape: + where it came from (provenance only) and the shape it was turned from */
+export interface AssetShapeDetail extends AssetShape {
+	source: { file?: string; page?: string; node?: string; frame?: string; copies?: string[]; part_of?: string } | null;
+	derived: { from: string; rotate?: number } | null;
+}
+
 /** A list row: the asset with its current version */
 export interface AssetSummary {
 	id: string;
@@ -47,6 +65,8 @@ export interface AssetSummary {
 	usages: number;
 	updated_at: string | null;
 	renditions: AssetRendition[];
+	/** only on shapes (the vector library) */
+	shape?: AssetShape;
 }
 
 export interface AssetUsage {
@@ -95,7 +115,18 @@ export interface AssetJob {
 
 export interface AssetDetail {
 	status: 'success';
-	asset: { id: string; slug: string; kind: AssetKind; folder: string | null; title: string; tags: string[]; status: string; created_at: string | null; updated_at: string | null };
+	asset: {
+		id: string;
+		slug: string;
+		kind: AssetKind;
+		folder: string | null;
+		title: string;
+		tags: string[];
+		status: string;
+		created_at: string | null;
+		updated_at: string | null;
+		shape?: AssetShapeDetail;
+	};
 	versions: AssetVersion[];
 	usages: AssetUsage[];
 	jobs: AssetJob[];
@@ -228,7 +259,9 @@ export function createAssetsApi(api: ApiClient) {
 		list: (params: ListParams = {}) => api.get<AssetList>(`/assets/${toQuery(params)}`),
 		get: (id: string) => api.get<AssetDetail>(`/assets/${enc(id)}`),
 		lookup: (path: string) => api.get<AssetLookup>(`/assets/lookup/${toQuery({ path })}`),
-		update: (id: string, body: { title?: string; tags?: string[] }) => api.put<AssetDetail>(`/assets/${enc(id)}`, body),
+		/** `shape`: the shape's facts (makes the asset part of the vector library), null = no shape any more */
+		update: (id: string, body: { title?: string; tags?: string[]; shape?: (AssetShape & Partial<Pick<AssetShapeDetail, 'source' | 'derived'>>) | null }) =>
+			api.put<AssetDetail>(`/assets/${enc(id)}`, body),
 		/** a NEW file at `path` (409 `exists` when the path is taken) */
 		upload: (file: Blob, path: string, meta: { title?: string; tags?: string[] } = {}) =>
 			api.put<AssetDetail & { uploaded: string }>(
