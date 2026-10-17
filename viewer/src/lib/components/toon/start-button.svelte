@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { readingState, type LoadedSequenceItem } from '@scutoons/content';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -58,9 +59,8 @@
 			data-state={reading.kind}
 		>
 			{label}
-			<svg class="start-arrow" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-				<path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
-			</svg>
+			<!-- forward = the chevron after the label (DESIGN.md "Direction arrows") -->
+			<Icon name="chevron-right" size="1rem" />
 		</a>
 		{#if percent !== null}
 			<!-- the reading progress under the button, as wide as the button -->
@@ -83,7 +83,7 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--space-075);
+		gap: 0.25rem;
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		padding: 0 var(--space-15);
@@ -96,11 +96,6 @@
 		text-decoration: none;
 		border-radius: var(--radius-none);
 		touch-action: manipulation;
-	}
-	.start-arrow {
-		flex: none;
-		width: 1em;
-		height: 1em;
 	}
 	/* a 2px rule: the part read in ink, the rest of the chapter in border-muted */
 	.start-progress {

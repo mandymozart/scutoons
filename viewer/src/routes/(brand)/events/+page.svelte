@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Event } from '@scutoons/content';
+	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
 	import type { PageProps } from './$types.js';
@@ -35,7 +36,7 @@
 							</span>
 							<span class="event-item-title">&mdash; {event.title}</span>
 							{#if event.link}
-								<a href={event.link} target="_blank" class="event-item-link">Link →</a>
+								<a href={event.link} target="_blank" class="event-item-link">Link<Icon name="chevron-right" size="1rem" /></a>
 							{/if}
 						</div>
 					{/each}
@@ -55,7 +56,7 @@
 							</span>
 							<span class="event-item-title">&mdash; {event.title}</span>
 							{#if event.link}
-								<a href={event.link} target="_blank" class="event-item-link">Link →</a>
+								<a href={event.link} target="_blank" class="event-item-link">Link<Icon name="chevron-right" size="1rem" /></a>
 							{/if}
 						</div>
 					{/each}
@@ -89,5 +90,11 @@ img {
 	}
 	.event-item:hover {
 		font-style: italic;
+	}
+	/* a forward link: the label, then the chevron (DESIGN.md "Direction arrows") */
+	.event-item-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
 	}
 </style>

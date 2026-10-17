@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { type LoadedSequenceItem } from '@scutoons/content';
+	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { goto } from '$app/navigation';
@@ -101,7 +102,7 @@
 				class="btn-clear btn-prev"
 				title={`${chapterName(prevItem.number)}: ${prevItem.title}`}
 			>
-				<span class="nav-icon">←</span>
+				<span class="nav-icon"><Icon name="chevron-left" size="1rem" /></span>
 				<div class="nav-meta">
 					<span class="nav-type">{chapterName(prevItem.number)}</span>
 					<span class="nav-title">{prevItem.title || ''}</span>
@@ -112,7 +113,7 @@
 				class="btn-clear btn-prev btn-disabled btn-hidden"
 				title={m['sequence_navigation.alt_start']()}
 			>
-				<span class="nav-icon">←</span>
+				<span class="nav-icon"><Icon name="chevron-left" size="1rem" /></span>
 				<div class="nav-meta">
 					<span class="nav-label">{m['sequence_navigation.start']()}</span>
 				</div>
@@ -131,7 +132,7 @@
 				data-testid="chapters-next"
 			>
 				<span class="next-label">{nextLabel}</span>
-				<span class="next-arrow" aria-hidden="true">→</span>
+				<Icon name="chevron-right" size="1rem" />
 			</button>
 		{:else}
 			<div class="btn-clear btn-next btn-disabled" title={m['sequence_navigation.alt_end']()}>
@@ -217,16 +218,15 @@
 		}
 	}
 
-	/* the next chapter: a big standard button, inverted on the dark panel – paper on ink */
+	/* the next chapter: a big standard button, inverted on the dark panel – paper on ink, the label + the chevron after it */
 	.next-chapter {
 		flex: 1 1 auto;
 		min-width: 0;
 		min-height: calc(var(--control-height) + 1rem);
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.5rem 1rem;
+		gap: 0.25rem;
+		padding: 0.5rem 1rem; /* control-ok: the panel's main action may wrap to two lines */
 		margin-right: 1rem;
 		background: var(--paper);
 		color: var(--ink);
@@ -241,10 +241,6 @@
 			background: var(--primary-color);
 			border-color: var(--primary-color);
 		}
-	}
-	.next-arrow {
-		flex: 0 0 auto;
-		font-size: 1.25rem;
 	}
 
 	.btn-next {

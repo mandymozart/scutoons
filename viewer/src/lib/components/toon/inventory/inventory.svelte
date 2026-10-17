@@ -324,11 +324,6 @@
 		min-height: 0;
 		padding-bottom: 0;
 	}
-	/* the top buttons' icons, white on the dark panel */
-	.head img {
-		width: 1rem;
-		filter: invert(1);
-	}
 	/* the stats wrap below the name (still right) only where they don't fit beside it (≈ 320 px phones) */
 	.stats {
 		margin-left: auto;

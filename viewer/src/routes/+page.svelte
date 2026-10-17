@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import ProductSlides from '$lib/components/home/product-slides.svelte';
 	import {
 		editionPieces,
@@ -94,7 +95,7 @@
 									</span>
 									<span class="read">
 										{m['home.read']()}
-										<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" /></svg>
+										<Icon name="chevron-right" size="1rem" />
 									</span>
 								</span>
 							</a>
@@ -277,16 +278,12 @@
 		flex: none;
 		display: inline-flex;
 		align-items: center;
-		gap: 0.7143rem;
+		gap: 0.25rem;
 		padding: 1rem 1.4286rem;
 		background: var(--ink);
 		color: var(--paper);
 		line-height: 1;
 		white-space: nowrap;
-	}
-	.read svg {
-		width: 1rem;
-		height: 1rem;
 	}
 	.tile:hover .read,
 	.tile:focus-visible .read {

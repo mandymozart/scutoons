@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -127,7 +128,7 @@
 							{#if store.website}
 								<a class="visit" href={store.website} target="_blank" rel="noopener noreferrer" data-testid="store-link">
 									{host(store.website)}
-									<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" /></svg>
+									<Icon name="chevron-right" size="1rem" />
 								</a>
 							{/if}
 						</li>
@@ -353,7 +354,7 @@
 		align-self: flex-start;
 		display: inline-flex;
 		align-items: center;
-		gap: 0.7143rem;
+		gap: 0.25rem;
 		margin-top: 0.7143rem;
 		padding: 0.7143rem 1rem;
 		background: var(--ink);
@@ -365,11 +366,6 @@
 	}
 	.visit:hover {
 		background: var(--border-hover);
-	}
-	.visit svg {
-		width: 1rem;
-		height: 1rem;
-		flex: none;
 	}
 
 	.empty {

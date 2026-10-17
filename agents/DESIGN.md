@@ -75,11 +75,23 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   `not-allowed`. `.btn-clear`: no chrome. No third variant, no radius, no shadow.
 - **IconButton** — fixed 2rem circle, `paper` bg, 2px `ink` border, hover fill `primary-cyan`, one 16px black icon,
   `touch-action: manipulation` (inventory / main-menu toggles).
+- **Direction arrows** (owner 2026-10-17, translated: "use the same arrows everywhere") — one arrow in the viewer and the reader: back =
+  Feather `chevron-left` BEFORE the label, forward / next = `chevron-right` AFTER it; `Icon` at 1rem, gap 0.25rem, the
+  label keeps its own font size. No text arrows (← → ‹ › »), no `arrow-*` icons, no own SVG arrows, no arrows in
+  messages. The model is `BackLink` (account/back-link.svelte: frameless, `--control-height`, underline on hover);
+  the inventory's Back and the download page use it too. Forward: the landing's "Lesen", the start button, the
+  chapter list's next chapter, the end actions' primary when it reads on (group / jump / chapter), the map card's
+  "lesen", the stores' website, "Alle Credits", the events' "Link". Icon-only prev/next (strip full screen, score
+  pages, the chapter list's previous) use the same chevrons in their round button. Not direction arrows, left as they
+  are: chevron-right on the account index rows (a row opens), sort arrows (`arrow-up/down`, DataTable), the breadcrumb
+  `›` separator (creator / admin), ↺ replay, ▶ play, skip, skip-back / skip-forward (media), `corner-up-left`
+  (take out of a container), the recipe's "→ result", the VN continue "...", the map's own icons.
 - **Dark panel** (owner 2026-10-16) — the reader's bottom panels are one component, `PullPanel` (viewer
   `components/panel/pull-panel.svelte`): black, the tokens inverted inside it (`--ink` white, `--paper` black, muted
   greys), so everything in it follows (filled play = white, the pressed segment white); pulled down / Escape / a tap
   outside closes it. Inventory, avatar, chapter list, the record player's card (a 3D canvas in it is transparent).
-  Its fixed header (grip, not scrolling) holds "← Back" left (item detail, container view) and the stats right.
+  Its fixed header (grip, not scrolling) holds the Back (chevron-left + label, like BackLink) left (item detail,
+  container view) and the stats right.
 - **Sticky action bar** (owner 2026-10-16) — a panel's actions stick to its bottom: `StickyActions` (@scutoons/ui) last
   in the scroll box, no rule on top, the content fades out under it into `--paper` (black in a dark panel); the scroll
   box hands it its bottom padding as `--sticky-actions-inset`. The item detail and the recipe use it. Bottom = the
@@ -170,8 +182,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   slide-out is `inert` (off screen, not focusable); opening it focuses the first toon; Escape closes it and returns the
   focus to the menu button; click outside closes it.
 - **Start button** (`toon/start-button.svelte`, like Prime Video's "▶ S1 F1 wiedergeben" but reading): the primary
-  button (ink / paper, square, `button` type) as a link to the chapter, a 16 px forward arrow (2px stroke, square caps,
-  `currentColor`; not a play triangle – it navigates) + the label from paraglide `start.*`: de "S1 K1 lesen" /
+  button (ink / paper, square, `button` type) as a link to the chapter, the forward chevron after the label
+  ("Direction arrows"; not a play triangle – it navigates) + the label from paraglide `start.*`: de "S1 K1 lesen" /
   "S1 K4 weiterlesen" / "S1 K1 erneut lesen", en "Read S1 C1" / "Continue S1 C4" / "Read S1 C1 again"; `title` = the
   long form ("Staffel 1, Kapitel 4: <title>"). Only in "weiterlesen": a 2px bar under the label (read part `paper`, the
   rest `text-muted`) = the stored position. State rule (`readingState` in `@scutoons/content` progress.ts, tests in
@@ -186,7 +198,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   (`scripts/check-resume.mjs`). The chapter list does the same for a chapter being read (`chapter-item.svelte`, owner
   2026-10-12); the resumed slice sits at the top of the screen (owner 2026-10-12: "der Slice passt schon").
   **Prologue (chapter 0, owner 2026-10-01):** a visitor who has read nothing of the other chapters and hasn't watched the
-  prologue to its end gets "Prolog ansehen →" / "Watch the prologue →" (`start.prologue`, state `prologue`, title
+  prologue to its end gets "Prolog ansehen" / "Watch the prologue" (`start.prologue`, state `prologue`, title
   "Staffel 1, Prolog: <title>") → `/<toon>/chapter/0`; once it was watched (the video ended or reached 95 %) the rules
   above apply to the other chapters ("S1 K1 lesen"). Chapter 0 is never "the first chapter" of "erneut lesen" and never
   the "last opened" one for continue/next (`readingState`, `PROLOGUE` / `isPrologue` in progress.ts).
@@ -490,8 +502,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   bold): square tiles, 2px ink frame, the image square on the tile colour (`toonTileColor`: settings `tile.color`, else
   the star's registry colour – catpope blue, yellowmouse yellow, toptoy black), 2px ink rule under it, the name bold, a
   caption line in `text-muted`. Published (`/library/toons` status published): the whole tile links to the toon page,
-  caption "Staffel 1 · Das Erwachen" (`home.season`: its newest season with a published chapter), the primary "Lesen →"
-  (16 px arrow, 2px stroke). Announced (`announced`): caption "bald" / "soon", no link, no date. Order: published first,
+  caption "Staffel 1 · Das Erwachen" (`home.season`: its newest season with a published chapter), the primary "Lesen" +
+  the forward chevron. Announced (`announced`): caption "bald" / "soon", no link, no date. Order: published first,
   then announced, list order. ≥ 768 px three tiles in a row (gap 1.3333rem); phone: a published tile across the row (name
   + caption left, "Lesen" right), the announced ones two by two. **LIMITED EDITIONS**: the intro line, "Digitaler
   Download inklusive · weltweiter Versand" (caption, muted), then each featured edition (`/products/featured/`, chosen in

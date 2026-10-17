@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import BackLink from '$lib/components/account/back-link.svelte';
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import { asset, toonUrl } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -41,9 +41,6 @@
 		}
 	}
 
-	function goBack() {
-		goto(localizeHref(`/${params.toonId}`));
-	}
 </script>
 
 {#if allowed}
@@ -51,7 +48,7 @@
 {:else if access === 'owners'}
 	<div class="view download-page">
 		<p data-testid="download-owners-only">{m['download.owners_only']()}</p>
-		<button onclick={goBack}>← {m['download.read_webtoon']()}</button>
+		<BackLink href={localizeHref(`/${params.toonId}`)} label={m['account.back_to']({ name: data.toon.title })} />
 	</div>
 {:else}
 	<!-- no code yet: the membership blocker (scan, sign in, buy) – it never renders the downloads here -->
@@ -86,7 +83,7 @@
 			{/if}
 
 			<div class="back-section">
-				<button onclick={goBack}>← {m['download.read_webtoon']()}</button>
+				<BackLink href={localizeHref(`/${params.toonId}`)} label={m['account.back_to']({ name: data.toon.title })} />
 			</div>
 		</div>
 	</div>

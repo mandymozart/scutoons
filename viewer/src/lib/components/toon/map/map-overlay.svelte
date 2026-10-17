@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloseIcon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { page } from '$app/state';
 	import { MAP_MAX_ZOOM, PLACE_SIZE_MAX, PLACE_ZOOM, fogPlaces, fogRoutePoints, growRect, pointIndex, hexCorners, placeCells, isPlaceNew, isPlaceVisible, placeImageBox, placeImageSrcset, placeView, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapTerrain, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
@@ -560,6 +560,7 @@
 			{#if cardChapter !== null}
 				<a class="read sc-control" href={localizeHref(`/${toon}/chapter/${cardChapter}`)} onclick={onclose} data-testid="map-card-chapter">
 					{cardChapter === 0 ? m['map.read_prologue']() : m['map.read_chapter']({ number: cardChapter })}
+					<Icon name="chevron-right" size="1rem" />
 				</a>
 			{/if}
 			<RideActions networks={rideOptions.map((o) => o.network)} busy={!!walking} note={rideNote} onride={ride} />
@@ -1013,9 +1014,11 @@
 		color: var(--text-muted, #6b6b6b);
 		font-size: 0.75rem;
 	}
+	/* forward: the label, then the chevron (DESIGN.md "Direction arrows") */
 	.read {
 		display: inline-flex;
 		align-items: center;
+		gap: 0.25rem;
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		background: #000;

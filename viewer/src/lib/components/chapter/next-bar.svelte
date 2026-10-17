@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { intoOtherToon, isPrologue, Renderer, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
+	import { Icon } from '@scutoons/ui';
 	import { SLICE_PLAYER_EVENT, SLICE_SKIP_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
@@ -197,6 +198,8 @@
 		if (step.kind === 'members') return session.isLoggedIn ? m['next_bar.redeem']() : m['next_bar.sign_in']();
 		return m['next_bar.overview']();
 	});
+	/** the primary goes on reading (a group, a jump, a chapter): the forward chevron after its label (DESIGN.md "Direction arrows") */
+	const forward = $derived(step.kind === 'group' || step.kind === 'jump' || step.kind === 'chapter');
 	const message = $derived.by(() => {
 		if (step.kind === 'members') {
 			const name = chapterName(step.chapter);
@@ -363,7 +366,7 @@
 		<div class="primary-box">
 			{#if primaryHref}
 				<a class="vn-end-choice primary" data-control-exempt="dialogue choice (may wrap)" href={primaryHref} onclick={stop} data-testid="next-bar-primary">
-					{primaryLabel}
+					{primaryLabel}{#if forward}<span class="chevron"><Icon name="chevron-right" size="1rem" /></span>{/if}
 					{#if counting}
 						<!-- the countdown: a thin ink line along the choice's bottom that fills in 10 s -->
 						<span class="countdown-rule" aria-hidden="true" style:width="{Math.min(100, (elapsed / COUNTDOWN_MS) * 100)}%"></span>
@@ -415,6 +418,9 @@
 	}
 	.primary {
 		position: relative;
+	}
+	.chevron {
+		margin-left: 0.25rem;
 	}
 	.countdown-rule {
 		position: absolute;

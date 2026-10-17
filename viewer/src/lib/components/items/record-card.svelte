@@ -232,7 +232,7 @@
 					</ul>
 				{/if}
 				{#if toon}
-					<a class="all" href={localizeHref(`/${toon}#credits`)} onclick={() => (open = false)} data-testid="card-credits-all">{m['items.player_credits_all']()} →</a>
+					<a class="all" href={localizeHref(`/${toon}#credits`)} onclick={() => (open = false)} data-testid="card-credits-all"><span>{m['items.player_credits_all']()}</span><Icon name="chevron-right" size="1rem" /></a>
 				{/if}
 			</section>
 		{/if}
@@ -437,9 +437,11 @@
 		color: var(--text-muted);
 	}
 
-	/* "All credits →": a small text link under the song's people */
+	/* "All credits" + the forward chevron (DESIGN.md "Direction arrows"): a small text link under the song's people */
 	.all {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
 		margin-top: var(--space-05);
 		font-size: 0.75rem;
 		color: var(--ink);

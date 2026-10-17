@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-17 · viewer / reader · one direction arrow: back = chevron-left before the label, forward = chevron-right after it (1rem Icon, gap 0.25rem); no text / SVG / arrow-* arrows · "Überall dieselben Arrows benutzen. Wir haben ja zurzeit eine Inkongruenz." · → DESIGN.md "Direction arrows"
 - 2026-10-17 · text boxes, placed items · a 9-point **anchor** (Figma's 3×3 reference point, not its constraints): x / y place the chosen point, the box grows away from it; none = top-left (no migration); a hint near slice edges, never an automatic change; text alignment stays separate · "a 9-point ANCHOR (like Figma's 3×3 alignment / reference point), not Figma's constraints" · → DESIGN.md Part 2 "Anchor", ITEMS.md "Placed items"
 - 2026-10-17 · inventory · two of the same kind go onto one field by hand (Kombinieren → a piece of the same kind, or a drag), not automatically; pieces with their own code / number stay apart · "die zu kombinieren auf einem Feld, eben wie bei Stardew Valley", "Von Hand zusammenlegen" · → research/PACKING.md §6, ITEMS.md "Containers"
 - 2026-10-17 · text boxes · a sixth text preset **Lyrics / Liedtext** (variant `lyrics`) for song lines: the caption box with a ♪ over its top-left corner and a beamed ♫ on the right near the top, drawn SVG notes on the border · owner's example "I want to be a cloud, loud, loud, loud." · → DESIGN.md Part 2
