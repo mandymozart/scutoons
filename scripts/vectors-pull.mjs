@@ -19,10 +19,18 @@ const only = new Set(args.filter((a) => !a.startsWith('--')));
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const file = (slug) => path.join(dir, `${slug}.svg`);
 
+const failed = [];
+let done = 0;
 for (const v of manifest.vectors) {
 	if (!v.figma || local || (only.size && !only.has(v.slug))) continue;
-	execFileSync(process.execPath, [path.join(root, 'tools/figma-bridge/cli.mjs'), 'export', '--node', v.figma.node, '--format', 'svg', '--to', file(v.slug)], { stdio: 'pipe' });
-	console.log('exported', v.slug);
+	let out;
+	try {
+		out = execFileSync(process.execPath, [path.join(root, 'tools/figma-bridge/cli.mjs'), 'export', '--node', v.figma.node, '--format', 'svg', '--to', file(v.slug)], { stdio: 'pipe' }).toString();
+	} catch (err) {
+		out = String(err.stdout ?? '') || JSON.stringify({ error: String(err.message) });
+	}
+	if (out.includes('"error"')) failed.push(`${v.slug} (${v.figma.node}): ${out.match(/"error":\s*"([^"]*)"/)?.[1] ?? out.trim()}`);
+	else if (++done % 25 === 0) console.log(`${done} exported`);
 }
 
 for (const v of manifest.vectors) {
@@ -35,6 +43,10 @@ for (const v of manifest.vectors) {
 }
 
 for (const v of manifest.vectors) {
+	if (!fs.existsSync(file(v.slug))) {
+		failed.push(`${v.slug}: no file`);
+		continue;
+	}
 	const bytes = fs.readFileSync(file(v.slug));
 	const svg = bytes.toString('utf8');
 	const [, w, h] = svg.match(/width="([\d.]+)" height="([\d.]+)"/) ?? [];
@@ -59,4 +71,5 @@ fs.writeFileSync(
 	path.join(root, 'shared/tokens/vectors.css'),
 	`/* @scutoons/tokens/vectors.css: the vector library as CSS (written by scripts/vectors-pull.mjs – edit vectors.json).\n   Use as a mask so the colour comes from the page: mask-image: var(--vector-wreath); background: var(--ornament). */\n:root {\n${css}\n}\n`
 );
-console.log(`${manifest.vectors.length} vectors, ${Math.round(manifest.vectors.reduce((n, v) => n + v.bytes, 0) / 1024)} KB`);
+if (failed.length) console.log(`not exported:\n  ${failed.join('\n  ')}`);
+console.log(`${manifest.vectors.length} vectors, ${Math.round(manifest.vectors.reduce((n, v) => n + (v.bytes ?? 0), 0) / 1024)} KB`);

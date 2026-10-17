@@ -9,7 +9,12 @@
 	 * the drolleries in a manuscript's margins, swaying a little (still under reduced motion). Which figure stands where
 	 * comes from `seed` + the page, so a page keeps its figures. It lies over the music without catching the pointer.
 	 */
-	import '@scutoons/tokens/vectors.css';
+	// only the five shapes the frame uses (the whole library's vectors.css would bring all of them along)
+	import crescentChain from '@scutoons/tokens/vectors/crescent-chain.svg?url';
+	import crescentChainAcross from '@scutoons/tokens/vectors/crescent-chain-across.svg?url';
+	import wreath from '@scutoons/tokens/vectors/wreath.svg?url';
+	import archDots from '@scutoons/tokens/vectors/arch-dots.svg?url';
+	import scrollFiligree from '@scutoons/tokens/vectors/scroll-filigree.svg?url';
 	import { random } from './seeded.ts';
 
 	let {
@@ -42,9 +47,20 @@
 		return { portrait: portraits.length ? pick(portraits) : null, right: next() < 0.5, standing };
 	});
 	const letter = $derived(title.trim().charAt(0).toUpperCase());
+
+	/** the shapes as CSS variables, set through the style API: Svelte's style string would split a dev URL at its
+	 *  Windows drive colon (`/@fs/C:/…`) and drop it */
+	function masks(node: HTMLElement) {
+		const shapes = { 'crescent-chain': crescentChain, 'crescent-chain-across': crescentChainAcross, wreath, 'arch-dots': archDots, 'scroll-filigree': scrollFiligree };
+		for (const [slug, url] of Object.entries(shapes)) node.style.setProperty(`--vector-${slug}`, `url("${url}")`);
+	}
 </script>
 
-<div class="illumination" aria-hidden="true">
+<div
+	class="illumination"
+	aria-hidden="true"
+	use:masks
+>
 	<div class="frame">
 		<span class="band top"></span>
 		<span class="band bottom"></span>

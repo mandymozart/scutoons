@@ -8,6 +8,8 @@ yet. Today: the Cat Pope Figma file, page "Vector".
 - `vectors.json` – one entry per shape = one future `assets` row: `slug`, `title`, `role`, `tile`, `tags`, the source
   (`figma`: file / page / node / frame, so it can be exported again), `used_by`; measured by the script: `path`,
   `width`, `height`, `colors`, `mask`, `bytes`, `sha256`.
+  `suggested: true` = name, role and tags were proposed from a look at the shape (the contact sheet, 2026-10-17) and
+  not yet confirmed by the owner; drop the flag when a person has checked the entry.
 - `../vectors.css` (`@scutoons/tokens/vectors.css`) – `--vector-<slug>: url(…)` for every shape, written by the script.
 
 ## Add or refresh
