@@ -729,6 +729,7 @@
 		"saving": "Saving … {percent} %",
 		"stop": "Stop",
 		"saved": "Saved on this device",
+		"saved_partial": "Saved without videos – the videos are still missing",
 		"remove_title": "Remove {chapter} from this device?",
 		"remove": "Remove",
 		"failed": "Couldn't save – tap to try again",

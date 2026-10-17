@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
 	accessEnded,
 	accessUntilOf,
+	savedWhole,
 	aliasesFor,
 	autoSaveAllowed,
 	autoSaveVideos,
@@ -295,4 +296,9 @@ test('season: the size of all its chapters; "without videos" judged on the whole
 	assert.equal(plan.leanBytes, 3 * MB);
 	assert.ok(plan.offerLean, '11 MB of videos in 14 MB');
 	assert.ok(!planSeason([LIST(small), LIST(small, 'x', 2)], 'low').offerLean);
+});
+test('a saved chapter is whole only with its videos', () => {
+	assert.equal(savedWhole({ videos: true }), true);
+	assert.equal(savedWhole({ videos: false }), false);
+	assert.equal(savedWhole(undefined), false);
 });

@@ -9,14 +9,23 @@
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import { savedChapters } from '$lib/offline/saved-chapters.svelte.ts';
+	import { savedWhole } from '$lib/sw/saved-rules.ts';
 
 	let { toonId, chapter }: { toonId: string; chapter: number } = $props();
 
 	const saved = $derived(savedChapters.get(toonId, chapter));
 	const job = $derived(savedChapters.job(toonId, chapter));
 	const percent = $derived(job ? Math.min(99, Math.floor((job.done / Math.max(1, job.total)) * 100)) : 0);
+	// ✓ only when the whole chapter is here (its videos too); saved without videos: an open circle
+	const whole = $derived(savedWhole(saved));
 	const label = $derived(
-		job ? (job.mode === 'refresh' ? m['saved.refreshing']({ percent }) : m['saved.saving']({ percent })) : m['saved.saved']()
+		job
+			? job.mode === 'refresh'
+				? m['saved.refreshing']({ percent })
+				: m['saved.saving']({ percent })
+			: whole
+				? m['saved.saved']()
+				: m['saved.saved_partial']()
 	);
 </script>
 
@@ -31,8 +40,10 @@
 	>
 		{#if job}
 			<span class="ring" style:--percent="{percent}%"></span>
-		{:else}
+		{:else if whole}
 			<Icon name="check-circle" size="0.875rem" />
+		{:else}
+			<Icon name="circle" size="0.875rem" />
 		{/if}
 	</span>
 {/if}

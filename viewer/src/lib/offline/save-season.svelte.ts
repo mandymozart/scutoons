@@ -10,7 +10,7 @@ import { choiceDialog, confirmDialog } from '@scutoons/ui';
 import { effectiveQuality } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { mediaQuality } from '$lib/media-quality.svelte.ts';
-import { dataWarnings, roundMb, type ChapterFiles, type ConnectionHint } from '$lib/sw/saved-rules.ts';
+import { dataWarnings, roundMb, savedWhole, type ChapterFiles, type ConnectionHint } from '$lib/sw/saved-rules.ts';
 import { planSeason, seasonTargets, type SeasonChapter } from '$lib/sw/saved-update-rules.ts';
 import { savedChapters } from './saved-chapters.svelte.ts';
 
@@ -80,7 +80,7 @@ class SeasonSaves {
 	async start(input: SeasonInput): Promise<'saved' | 'cancelled' | 'failed' | 'none'> {
 		const id = key(input.toon, input.season);
 		if (this.jobs[id] || this.sizing[id]) return 'cancelled';
-		const targets = seasonTargets(input.chapters, (n) => !!savedChapters.get(input.toon, n));
+		const targets = seasonTargets(input.chapters, (n) => savedWhole(savedChapters.get(input.toon, n)));
 		if (!targets.length) return 'none';
 		const name = m['saved.season_name']({ number: input.season });
 		const level = effectiveQuality(mediaQuality.setting ?? 'auto', mediaQuality.auto);
@@ -143,7 +143,7 @@ class SeasonSaves {
 				if (controller.signal.aborted) break;
 				const chapter = byNumber.get(list.chapter);
 				// saved by hand meanwhile: done
-				if (savedChapters.get(input.toon, list.chapter)) {
+				if (savedWhole(savedChapters.get(input.toon, list.chapter))) {
 					set({ done: [...(this.jobs[id]?.done ?? []), list.chapter] });
 					continue;
 				}

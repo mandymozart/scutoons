@@ -729,6 +729,7 @@
 		"saving": "Wird gespeichert … {percent} %",
 		"stop": "Abbrechen",
 		"saved": "Auf diesem Gerät gespeichert",
+		"saved_partial": "Ohne Videos gespeichert – die Videos fehlen noch",
 		"remove_title": "{chapter} von diesem Gerät entfernen?",
 		"remove": "Entfernen",
 		"failed": "Speichern hat nicht geklappt – tippen für einen neuen Versuch",

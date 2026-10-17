@@ -20,6 +20,7 @@
 	import { seasonSaves } from '$lib/offline/save-season.svelte.ts';
 	import { accessEnd } from '$lib/offline/auto-save.svelte.ts';
 	import { seasonState } from '$lib/sw/saved-update-rules.ts';
+	import { savedWhole } from '$lib/sw/saved-rules.ts';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
 
 	let { toonId, season, chapters }: { toonId: string; season: number; chapters: LoadedSequenceItem[] } = $props();
@@ -35,7 +36,8 @@
 			readable: isReadable(c) && (!!c.isPreview || membership.isValid)
 		}))
 	);
-	const status = $derived(seasonState(list, (n) => !!savedChapters.get(toonId, n)));
+	// the season's ✓ only when every readable chapter is here whole (its videos too – owner 2026-10-17)
+	const status = $derived(seasonState(list, (n) => savedWhole(savedChapters.get(toonId, n))));
 	const job = $derived(seasonSaves.job(toonId, season));
 	const sizing = $derived(!!seasonSaves.sizing[`${toonId}/${season}`]);
 	const percent = $derived(job ? Math.min(99, Math.floor(seasonSaves.share(toonId, season) * 100)) : 0);

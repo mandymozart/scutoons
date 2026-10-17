@@ -259,6 +259,14 @@ export function accessEnded(until: string | null | undefined, now = Date.now()):
 	return !Number.isNaN(t) && now > t;
 }
 
+/**
+ * a saved chapter is whole – everything of it on the device, its videos too (owner 2026-10-17: "ein Check auf
+ * Kapitelebene darf nur da stehen, wenn alle runtergeladen sind"); saved "without videos" it is readable but not whole
+ */
+export function savedWhole(m: Pick<SavedManifest, 'videos'> | null | undefined): boolean {
+	return !!m && m.videos !== false;
+}
+
 /** a saved chapter may be read offline: a free one always, a gated one until the access it was saved with ends */
 export function savedReadable(m: Pick<SavedManifest, 'gated' | 'accessUntil'>, now = Date.now()): boolean {
 	return !m.gated || !accessEnded(m.accessUntil, now);
