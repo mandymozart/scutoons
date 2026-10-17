@@ -21,7 +21,7 @@
 
 	const dialog = $derived(doc.get(doc.primary, path));
 	const variant = $derived(dialog?.variant ?? 'bubble');
-	const boxed = $derived(variant === 'caption' || variant === 'narration');
+	const boxed = $derived(variant === 'caption' || variant === 'narration' || variant === 'lyrics');
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
 	const ALIGNS = ['left', 'center', 'right'];
 	const VALIGNS = ['top', 'middle', 'bottom'];

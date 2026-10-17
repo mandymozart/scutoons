@@ -231,6 +231,8 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', rotation: 10, scale: 1.5 }] }), []);
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', scale: 0 }] }), ['error groups.0.slices.0.dialog.0.scale']);
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', variant: 'sfx' }] }), ['error groups.0.slices.0.dialog.0.variant']);
+	// lyrics (owner 2026-10-17): a song line, the caption box with musical notes
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'I want to be a cloud', variant: 'lyrics', font: 'mono' }] }), []);
 });
 
 test('showTextBox event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {

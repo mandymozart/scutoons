@@ -517,10 +517,11 @@ in (not `currentColor`). Logos: `viewer/static/SCUTOONS-logo.svg` (wordmark), `S
 
 ## Part 2 — Text box on slice (chapter 2 onwards)
 
-**Texts and presets (owner 2026-10-03):** the creator says "text", not "text box" – a text's look is one of five presets
+**Texts and presets (owner 2026-10-03):** the creator says "text", not "text box" – a text's look is one of six presets
 (`creator/src/lib/editor/text-presets.ts`, only existing Dialog fields): **Narration** (box, italic mono, left, middle),
 **Speech** (box, mono, left, middle), **Onomatopoeia** (no box, Bangers 15 %, white fill, 0.1 em ink outline, −7°),
-**Story** (no box, mono, left, top; 10 % from both sides = x 10 / width 80, height 20 %). **Scene** (box, italic upper-case mono, left, middle: "19 EXT. POOL"). "+ Add text" shows them previewed
+**Story** (no box, mono, left, top; 10 % from both sides = x 10 / width 80, height 20 %). **Scene** (box, italic upper-case mono, left, middle: "19 EXT. POOL"), **Lyrics** / "Liedtext" (the Speech box
+with musical notes, variant `lyrics`, owner 2026-10-17). "+ Add text" shows them previewed
 on the current slice; the inspector switches the look (words, position and size stay) and fine-tunes it. The old variant
 choice (speech bubble / caption) and the drawn-bubble setting are gone from the creator; their data still renders.
 Position is x + width (right = 100 − x − width, never stored).
@@ -551,14 +552,14 @@ images and only the words change.
 ### Schema (`viewer/src/lib/models/content.ts`)
 
 ```ts
-export type DialogVariant = 'bubble' | 'caption' | 'narration';
+export type DialogVariant = 'bubble' | 'caption' | 'narration' | 'lyrics';
 
 export interface Dialog {
   id?: string;                 // stable key = Figma node id → i18n/s1c2.json
   rect: { x: number; y: number; width: number; height?: number }; // % of slice (top-left origin)
   text: string | string[];     // array entries = lines / paragraphs
   variant?: DialogVariant;     // default 'bubble'
-  frame?: boolean;             // caption/narration: paper box + 2px ink border, default true; false = bare text
+  frame?: boolean;             // caption/narration/lyrics: paper box + 2px ink border, default true; false = bare text
                                // on the art (pair with `mask` to cover baked text)
   size?: number;               // font size, % of slice width (Figma px / frame width * 100); default 4
   align?: 'left' | 'center' | 'right';        // default: bubble 'center', caption/narration 'left'
@@ -585,7 +586,10 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   `font-size: calc(var(--size) * 1cqw)`, `line-height: 1.15`, `overflow-wrap: anywhere`, `hyphens: auto` with
   `lang` set from the chapter language (German compounds).
 - Variants: `bubble` — plain text inside the art's bubble; `caption` — `paper` box, 2px `ink` border, square
-  (on-brand panel caption); `narration` — like caption, italic.
+  (on-brand panel caption); `narration` — like caption, italic; `lyrics` — like caption, plus two drawn notes (inline
+  SVG, `currentColor`, aria-hidden, sized in em of the text, outside the text flow, logical sides for RTL): a ♪ over the
+  top-left corner and a beamed ♫ on the right near the top, both partly outside the box; a slight bob only without
+  `prefers-reduced-motion`.
 - **Drawn bubble (owner 2026-10-03, "bubble is currently caption").** Why it looked like a caption: `bubble` only ever
   drew the words (the shape is in chapter 1/2 art), so on text-free art there was no bubble at all, and the creator's
   new default box is a caption. Now `bubble` + `frame: true` draws a speech bubble: paper ellipse, 2px ink outline, a

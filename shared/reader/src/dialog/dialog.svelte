@@ -45,8 +45,8 @@
 	const FIT_STEP = 0.025;
 
 	const variant: DialogVariant = $derived(dialog.variant ?? 'bubble');
-	const boxed = $derived(variant === 'caption' || variant === 'narration');
-	/** caption / narration draw their paper box + ink border unless `frame: false` */
+	const boxed = $derived(variant === 'caption' || variant === 'narration' || variant === 'lyrics');
+	/** caption / narration / lyrics draw their paper box + ink border unless `frame: false` */
 	const framed = $derived(boxed && dialog.frame !== false);
 	/** a drawn speech bubble: only with `frame: true` (the bubbles of chapter 1/2 are in the art) */
 	const bubble = $derived(variant === 'bubble' && dialog.frame === true);
@@ -219,6 +219,22 @@
 				<path d={tail.endsWith('left') ? 'M3 0 L0 14 L13 0' : tail.endsWith('right') ? 'M3 0 L16 14 L13 0' : 'M2 0 L8 14 L14 0'} />
 			</svg>
 		{/if}
+		{#if variant === 'lyrics'}
+			<!-- a song line (owner 2026-10-17): a ♪ over the top-left corner, a beamed ♫ on the right near the top – drawn,
+			     outside the text flow, sized in em of the text -->
+			<svg class="note note--single" viewBox="0 0 20 32" aria-hidden="true">
+				<ellipse cx="7.4" cy="26.4" rx="6.6" ry="4.8" transform="rotate(-22 7.4 26.4)" />
+				<rect x="11.8" y="1.6" width="2.3" height="24.8" />
+				<path d="M14.1 1.6 C14.4 6.8 20 8.4 18.9 16.6 C18 12.6 16.4 10.8 14.1 10.2 Z" />
+			</svg>
+			<svg class="note note--pair" viewBox="0 0 32 32" aria-hidden="true">
+				<ellipse cx="6.8" cy="26.5" rx="5.6" ry="4" transform="rotate(-22 6.8 26.5)" />
+				<ellipse cx="25.6" cy="23.5" rx="5.6" ry="4" transform="rotate(-22 25.6 23.5)" />
+				<rect x="10.5" y="5.6" width="2.1" height="21" />
+				<rect x="29.3" y="2.4" width="2.1" height="21" />
+				<path d="M10.5 5 L31.4 1.3 L31.4 5.9 L10.5 9.6 Z" />
+			</svg>
+		{/if}
 		<div bind:this={content} class="content" style:text-align={align}>
 			{#each lines as line, index (index)}
 				<span class="line">{line}</span>
@@ -303,6 +319,47 @@
 
 	.dialog--narration {
 		font-style: italic;
+	}
+
+	/* lyrics: the notes sit on the box's border, partly outside (the text keeps its padding); logical sides, so they
+	   follow the text direction */
+	.dialog--lyrics .box {
+		position: relative;
+	}
+
+	.note {
+		position: absolute;
+		height: 2.1em;
+		overflow: visible;
+		fill: currentColor;
+	}
+
+	.note--single {
+		width: 1.31em;
+		top: -1.3em;
+		inset-inline-start: -0.65em;
+	}
+
+	.note--pair {
+		width: 2.1em;
+		top: -0.8em;
+		inset-inline-end: -0.95em;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.note {
+			animation: note-bob 2.8s ease-in-out infinite;
+		}
+
+		.note--pair {
+			animation-delay: -1.4s;
+		}
+	}
+
+	@keyframes note-bob {
+		50% {
+			translate: 0 -0.08em;
+		}
 	}
 
 	/* bubble + frame: a drawn speech bubble for text-free art – a paper box with an ink outline and a tail, like the

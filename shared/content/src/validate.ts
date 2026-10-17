@@ -23,6 +23,7 @@ import {
 	DEFAULT_SLICE,
 	DIALOG_SHAPES,
 	DIALOG_TAILS,
+	DIALOG_VARIANTS,
 	SLICE_ITEM_ACTIONS,
 	TOON_NEUTRAL_FIELDS,
 	VIEWPORT_FITS,
@@ -66,7 +67,6 @@ export interface Problem {
 export const LENGTH_WARNING_RATIO = 1.3;
 
 const values = (e: object) => Object.values(e) as string[];
-const DIALOG_VARIANTS = ['bubble', 'caption', 'narration'];
 /** an event id: what the creator assigns (`e` + random letters / digits) or any plain key */
 const EVENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
 /** the old boolean `once` (a trigger's, a placed item's): moved to `repeat` by the migration 2026-10-06-repeat */
@@ -206,7 +206,7 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	const text = d.text;
 	if (!(isStr(text) || (Array.isArray(text) && text.every(isStr)))) c.error([...path, 'text'], 'text must be a string or string[]');
 	if (d.id !== undefined && !isStr(d.id)) c.error([...path, 'id'], 'id must be a string');
-	if (d.variant !== undefined && !DIALOG_VARIANTS.includes(d.variant)) c.error([...path, 'variant'], `variant must be one of ${DIALOG_VARIANTS.join(', ')}`);
+	if (d.variant !== undefined && !(DIALOG_VARIANTS as readonly string[]).includes(d.variant)) c.error([...path, 'variant'], `variant must be one of ${DIALOG_VARIANTS.join(', ')}`);
 	if (d.frame !== undefined && typeof d.frame !== 'boolean') c.error([...path, 'frame'], 'frame must be true/false');
 	if (d.size !== undefined && (!isNum(d.size) || d.size <= 0)) c.error([...path, 'size'], 'size must be a positive number (% of slice width)');
 	if (d.align !== undefined && !['left', 'center', 'right'].includes(d.align)) c.error([...path, 'align'], 'align must be left, center or right');

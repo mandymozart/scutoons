@@ -624,7 +624,7 @@
 				},
 				"frame": {
 					"type": "boolean",
-					"description": "caption / narration: draw the paper box + ink border, default true (false = bare text, use `mask`). bubble: draw a speech bubble (paper, ink outline, a tail), default false – the bubble shape of chapter 1/2 art is in the image; the creator sets `true` for new bubbles on text-free art."
+					"description": "caption / narration / lyrics: draw the paper box + ink border, default true (false = bare text, use `mask`). bubble: draw a speech bubble (paper, ink outline, a tail), default false – the bubble shape of chapter 1/2 art is in the image; the creator sets `true` for new bubbles on text-free art."
 				},
 				"shape": {
 					"$ref": "#/definitions/DialogShape",
@@ -737,9 +737,10 @@
 			"enum": [
 				"bubble",
 				"caption",
-				"narration"
+				"narration",
+				"lyrics"
 			],
-			"description": "An onomatopoeia is a text box too (the \"onomatopoeia\" text preset: white letters with an ink outline); a `showTextBox` event reveals any text box with an effect (`VNShowTextBoxEvent` `params.dialog`)."
+			"description": "An onomatopoeia is a text box too (the \"onomatopoeia\" text preset: white letters with an ink outline); a `showTextBox` event reveals any text box with an effect (`VNShowTextBoxEvent` `params.dialog`). `lyrics` = a song line (owner 2026-10-17): the caption box with musical notes on its border, drawn by the reader outside the text flow."
 		},
 		"DialogShape": {
 			"type": "string",

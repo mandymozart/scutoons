@@ -4,9 +4,10 @@ import { resolveText, type Dialog } from '@scutoons/content';
  * The text presets (owner 2026-10-03): a text on a slice is one thing, its look one of these. "+ Add text" offers them
  * with a preview; the inspector applies one to an existing text (its words and position stay). Everything is in the
  * existing Dialog fields – no new data: narration = the italic box, speech = the box, story = bare text at the top,
- * onomatopoeia = bare lettering with an outline, scene = the italic box in capitals ("19 EXT. POOL").
+ * onomatopoeia = bare lettering with an outline, scene = the italic box in capitals ("19 EXT. POOL"), lyrics = the box
+ * with musical notes on its border (a song line, owner 2026-10-17).
  */
-export type TextPresetId = 'narration' | 'speech' | 'onomatopoeia' | 'story' | 'scene';
+export type TextPresetId = 'narration' | 'speech' | 'onomatopoeia' | 'story' | 'scene' | 'lyrics';
 
 export interface TextPreset {
 	id: TextPresetId;
@@ -41,6 +42,11 @@ export const TEXT_PRESETS: TextPreset[] = [
 		id: 'scene',
 		style: { variant: 'narration', font: 'mono', align: 'left', valign: 'middle', size: 4, uppercase: true },
 		rect: { x: 10, y: 10, width: 80, height: 8 }
+	},
+	{
+		id: 'lyrics',
+		style: { variant: 'lyrics', font: 'mono', align: 'left', valign: 'middle', size: 4 },
+		rect: { x: 10, y: 10, width: 80, height: 12 }
 	}
 ];
 

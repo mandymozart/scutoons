@@ -128,7 +128,7 @@ export function validate(sb, file = '') {
 			}
 			for (const d of shot.dialog ?? []) {
 				if (!d.text?.de) err(id, 'dialog without text.de');
-				if (d.variant && !['narration', 'bubble', 'caption'].includes(d.variant)) err(id, `dialog variant "${d.variant}" – narration | bubble | caption`);
+				if (d.variant && !['narration', 'bubble', 'caption', 'lyrics'].includes(d.variant)) err(id, `dialog variant "${d.variant}" – narration | bubble | caption | lyrics`);
 				if (d.tail && !TAILS.includes(d.tail)) err(id, `dialog tail "${d.tail}" – ${TAILS.join(' | ')}`);
 				if (d.font && !['mono', 'lettering'].includes(d.font)) err(id, `dialog font "${d.font}" – mono | lettering`);
 				if (shot.format === 'loop360' && d.rect) {

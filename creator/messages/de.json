@@ -334,6 +334,8 @@
 		"preset_story_sample": "Es war die Nacht vor dem Fest der Katze.",
 		"preset_scene": "Szene",
 		"preset_scene_sample": "19 EXT. POOL",
+		"preset_lyrics": "Liedtext",
+		"preset_lyrics_sample": "Ich will eine Wolke sein, laut, laut, laut.",
 		"legacy_texts": "{count} Textboxen haben noch das alte Aussehen (eine Maske über Text im Bild). Umwandeln gibt jeder ihre Vorlage – Szenenköpfe → Szene, Captions → Rede, Erzählung → Erzählung, freie Texte → Geschichte – und entfernt die Masken. Als Entwurf speichern; veröffentlichen, sobald die Bilder ohne Text da sind.",
 		"legacy_texts_convert": "In Vorlagen umwandeln",
 		"text_box_frame": "Box",

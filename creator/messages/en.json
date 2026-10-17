@@ -334,6 +334,8 @@
 		"preset_story_sample": "It was the night before the Feast of the Cat.",
 		"preset_scene": "Scene",
 		"preset_scene_sample": "19 EXT. POOL",
+		"preset_lyrics": "Lyrics",
+		"preset_lyrics_sample": "I want to be a cloud, loud, loud, loud.",
 		"legacy_texts": "{count} text boxes still have the old look (a mask over text in the art). Converting gives each its preset – scene headings → Scene, captions → Speech, narration → Narration, bare texts → Story – and removes the masks. Save as a draft; publish once the text-free art is in.",
 		"legacy_texts_convert": "Convert to presets",
 		"text_box_frame": "box",

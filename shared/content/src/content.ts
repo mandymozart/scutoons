@@ -17,11 +17,13 @@ export interface KeyVisual {
 	video?: string;
 }
 
+export const DIALOG_VARIANTS = ['bubble', 'caption', 'narration', 'lyrics'] as const;
 /**
  * An onomatopoeia is a text box too (the "onomatopoeia" text preset: white letters with an ink outline); a `showTextBox`
- * event reveals any text box with an effect (`VNShowTextBoxEvent` `params.dialog`).
+ * event reveals any text box with an effect (`VNShowTextBoxEvent` `params.dialog`). `lyrics` = a song line (owner
+ * 2026-10-17): the caption box with musical notes on its border, drawn by the reader outside the text flow.
  */
-export type DialogVariant = 'bubble' | 'caption' | 'narration';
+export type DialogVariant = (typeof DIALOG_VARIANTS)[number];
 
 /** Where a drawn speech bubble's tail points (`Dialog.tail`). */
 export const DIALOG_TAILS = ['bottom-left', 'bottom', 'bottom-right', 'top-left', 'top', 'top-right', 'none'] as const;
@@ -52,7 +54,7 @@ export interface Dialog {
 	/** Default 'bubble'. */
 	variant?: DialogVariant;
 	/**
-	 * caption / narration: draw the paper box + ink border, default true (false = bare text, use `mask`).
+	 * caption / narration / lyrics: draw the paper box + ink border, default true (false = bare text, use `mask`).
 	 * bubble: draw a speech bubble (paper, ink outline, a tail), default false – the bubble shape of chapter 1/2 art is in
 	 * the image; the creator sets `true` for new bubbles on text-free art.
 	 */
