@@ -6,6 +6,7 @@ stays and gets "(superseded YYYY-MM-DD → …)" appended. Rules for agents: age
 to mark them superseded.
 
 ## 2026-10
+- 2026-10-17 · assets · No Figma → vector library sync: the Figma "Vector" page was a one-time source, after the import the library (CDN + DB) is the truth and is edited there; the Figma node stays as provenance; survey / pull remain import tools for new pages; library → Figma only if a shape is ever made that Figma doesn't have · "sync with figma? perhpase only if we ever create something figma doesnt already have" · → research/VECTORS.md §4
 - 2026-10-17 · assets · The vector library moves to the CDN as content (`catpope/vectors/`, all of the Figma "Vector" page belongs to Cat Pope), registered in the asset manager with a small shape table; only shapes app code imports stay in git; SVGs are shrunk at upload · "cdn", "all these vectors belong to catpope yes", "shrink is fine." · → research/VECTORS.md §2, §6
 - 2026-10-17 · assets · Vector roles are tags, not a class – the existing role words stay (a shape may carry several), the layout-ish ones for decorating text boxes later; the 416 suggested names are confirmed · "consider it a tagging rather than a class. so we can keep the ones we got", "names are fine." · → research/VECTORS.md §3
 - 2026-10-17 · assets · The vector import is a clean slate: no relink; a changed shape needs a new name only once content uses it · "why relink. we didnt do anythin with anythin yet this is clean slate" · → research/VECTORS.md §2

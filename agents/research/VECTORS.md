@@ -68,9 +68,8 @@ overclassifying is maybe too dangerous" + **toon / universe**; a link to chapter
 | `tile` | a person | `x` / `y` / null – a band repeats along one axis; code needs it to repeat it |
 | `mask` | measured | one colour → CSS mask, the page colours it; else the file as it is |
 | `colors` | measured | JSON list; colour is never a tag |
-| `source` | the pull | JSON `{ file, page, node, frame }` – Figma's node id is the shape's identity across re-exports and renames |
-| `source_sha256` | the pull | sha of the raw Figma export (the stored file may be optimised later and differ) |
-| `derived` | the pull | `{ from: <asset_id>, rotate: 90 }` – a turned or mirrored copy made by the script, re-made when its source changes |
+| `source` | the import | JSON `{ file, page, node, frame }` – provenance only: where the shape came from, so a survey of the same page knows it |
+| `derived` | the import | `{ from: <asset_id>, rotate: 90 }` – a turned or mirrored copy of another shape |
 | `checked_at` / `checked_by` | the review | replaces `suggested: true`; null = a suggestion (today's 416 count as checked – owner: "names are fine") |
 
 Not modelled: character / subject (a free tag like `scrooge`, `pizza` if wanted), chapter / scene (the usage index –
@@ -89,15 +88,18 @@ in the layout document, not to the shape – one shape is used many ways.
 
 ## 4. Maintenance
 
-**Source.** Figma is where the owner makes shapes; the bytes come from there, the asset layer holds them. Every shape
-row knows its Figma node.
-- **Survey** (`vectors-survey.mjs`): lists candidates on a page; candidates whose node is already in the library are
-  marked "in the library" – the contact sheet shows only new ones.
-- **Pull → sync** (`vectors-pull.mjs` grows): per shape export the node, compare with `source_sha256`:
-  same → nothing; changed → re-upload (before first use) or `<slug>-<n>.svg` + relink (after);
-  node gone in Figma → reported "gone in Figma", never deleted by the script; derived shapes re-made after their source.
-  It writes through the API (`PUT /api/assets/upload` + the shape fields) as the signed-in member – the dev API locally,
+**The library is the truth, no Figma sync** (owner 2026-10-17: "sync with figma? perhpase only if we ever create
+something figma doesnt already have"). The Figma "Vector" page was a one-time source; after the import the library (CDN
++ DB) is edited in the asset manager, and `source` only says where a shape came from.
+- **Importing a new Figma page** (another toon's shapes, a new Cat Pope page): `vectors-survey.mjs` lists the
+  candidates (those whose node is already in the library marked "in the library"), the owner picks on the contact
+  sheet, `vectors-pull.mjs` exports, measures and uploads them – a one-time import each time, not a sync. Uploads go
+  through the API (`PUT /api/assets/upload` + the shape fields) as the signed-in member – the dev API locally,
   production only when the owner runs it or asks; the MCP's `upload_asset` is the same path.
+- **A shape made outside Figma** (an upload, an agent's drawing): it lives in the library only. Only if Figma should
+  have it too, the bridge can place it there (`createNodeFromSvg`) – the other way round, and only when that happens.
+- **A changed shape**: a new upload in the asset manager (before first use: over the old file; after: a new name +
+  relink, §2).
 - **Review**: today's names are confirmed (owner 2026-10-17). New shapes from a later survey come as suggestions; the
   contact-sheet artifact (claude.ai/artifact/FAwrTDdxJRwvZqh2RQuzus) is the prototype of a "To check" view – a grid of
   unchecked shapes with slug, title, tile, tags; Enter = checked. Renaming is free until a shape is used.
@@ -123,7 +125,7 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
   takes `score-lab`). After the move it asks the API for the shape list (`GET /api/assets?kind=shape&folder=catpope`)
   and loads files from the CDN – nothing in the bundle.
 - **Heavy shapes**: every SVG is shrunk at upload (owner: "shrink is fine" – svgo: precision, merged paths; the pizza
-  sheets are ~1 MB); it changes the bytes, which is why `source_sha256` keeps the Figma sha for the sync.
+  sheets are ~1 MB); the library keeps the shrunk file (Figma is not compared again).
 
 ## 6. Plan (steps, one at a time)
 
@@ -141,7 +143,8 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
    references. Locally first, production when the owner runs it or asks.
 6. **The lab reads the CDN**: the Collage look (score-riot) takes the shape list from the API and loads files by CDN
    URL instead of globbing git; the non-code shapes leave git; ASSETS.md "Vector library" rewritten to how it is.
-7. **Pull becomes sync** (sha compare against `source_sha256`, "gone in Figma", survey marks known nodes).
+7. ~~Pull becomes sync~~ – dropped (owner: no Figma sync). The survey and pull scripts stay as import tools for new
+   pages: the survey marks nodes already in the library, the pull uploads through the API instead of writing to git.
 8. **Picker** "Shapes" + role-tag chips; the "To check" view for later surveys.
 9. Later: shapes in layouts and on text boxes (placement = shape + where + blend + colour).
 
@@ -157,3 +160,5 @@ the size and "edge x / y" on the card. The admin asset sheet shows and edits the
 6. **Uncle Scrooge**: "we keep it and we use it for now. maybe we can split him up for now." – kept, usable; split into
    parts (§6 step 3).
 7. **Names**: "names are fine." – the 416 suggestions are confirmed.
+8. **Figma sync** (asked on the plan): "sync with figma? perhpase only if we ever create something figma doesnt already
+   have" – no sync; Figma was the one-time source, the library is the truth (§4).
