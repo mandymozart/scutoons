@@ -17,6 +17,13 @@ yet. Today: the Cat Pope Figma file, page "Vector".
 3. `npm run vectors:pull` (all) / `npm run vectors:pull -- <slug> …` (only these) / `-- --local` (no Figma: derive and
    measure what is on disk).
 
+## Survey a whole page
+
+`node scripts/vectors-survey.mjs [--page Vector]` reads a Figma page over the bridge and lists every candidate – named
+things, every group and the parts inside it big enough on their own ("ungrouped" on export, the file never changes),
+big single vectors – without copies, with a thumbnail each, into `media/scutoons/vectors-survey/<page>/` (local, not in
+git). The owner picks from that contact sheet; the picks become entries here.
+
 ## Vocabulary
 
 | `role` | What it is | Used like |
@@ -28,6 +35,13 @@ yet. Today: the Cat Pope Figma file, page "Vector".
 | `filigree` | an open, symmetric ornament | a headpiece, a corner, a background |
 | `silhouette` | a filled outline | a cut-out, a backdrop |
 | `seal` | a round, self-contained emblem | a colophon, a badge |
+| `cloud` | a cloud or smoke shape (the saw clouds) | a sky, a backdrop |
+| `eyes` | eyes on their own (trippy cat eyes) | a stare, a pattern |
+| `teeth` | a zigzag edge (zickzack barrier teeth, the saw) | a barrier, a cut edge |
+| `vessels` | branching lines like veins or blood vessels | a background, a map |
+| `toy-sheet` | a punch-out sheet whose parts break out (pizza-large / -medium / -small) | a source of many parts |
+| `texture` | a surface to fill with (dagotex) | a fill, a backdrop |
+| `other` | anything else, until it has a word | – |
 
 `tags`: free words, lower case – colour (`red`, `black`), form (`crescent`, `dots`, `arch`), subject (`catpope`, `face`),
 use (`border`, `corner`, `medallion`, `headpiece`).
