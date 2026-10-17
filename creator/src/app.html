@@ -113,6 +113,131 @@
 				}
 			}
 
+			/* the landing page (viewer routes/+page.svelte, measured 2026-10-17): the masthead's wordmark and slogan over a rule,
+			   "TOONS" and the toon tiles (frame, picture square, name + meta, the first one's "Read" button) – in the flow, with the
+			   page's own paddings (--hp: 16 px on a phone, 2 rem from 768 px) */
+			#sc-boot .hm {
+				--hp: calc(1.1429 * var(--r));
+				position: absolute;
+				inset: 0;
+				padding-top: calc(4 * var(--r));
+			}
+			#sc-boot .hm i {
+				position: static;
+			}
+			#sc-boot .hm-sec {
+				padding: 0 var(--hp);
+			}
+			#sc-boot .hm-mast {
+				padding-top: calc(0.5 * var(--r));
+				padding-bottom: calc(1.7143 * var(--r));
+				border-bottom: 2px solid #dcdcdc;
+			}
+			#sc-boot .hm .wordmark {
+				width: 100%;
+				aspect-ratio: 2.546;
+			}
+			/* one line of the slogan / the heading at their line heights (p 1.4, on a phone 1.3; h2 1.5rem × 1.2) */
+			#sc-boot .hm .slogan {
+				margin-top: var(--r);
+				width: 62%;
+				height: calc(1.4 * var(--r));
+			}
+			@media (max-width: 480px) {
+				#sc-boot .hm .slogan {
+					height: calc(1.3 * var(--r));
+				}
+			}
+			#sc-boot .hm-toons {
+				padding-top: calc(2.8571 * var(--r));
+			}
+			#sc-boot .hm .heading {
+				width: 5.5ch;
+				height: calc(1.8 * var(--r));
+				margin-bottom: calc(1.1429 * var(--r));
+				font-size: calc(1.5 * var(--r));
+			}
+			#sc-boot .hm-tiles {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: calc(0.8571 * var(--r));
+			}
+			#sc-boot .hm .tile {
+				box-sizing: border-box;
+				border: 2px solid #dcdcdc;
+				background: #fff;
+			}
+			#sc-boot .hm .tile.first {
+				grid-column: 1 / -1;
+			}
+			#sc-boot .hm .tile .pic {
+				aspect-ratio: 1;
+				border-bottom: 2px solid #dcdcdc;
+			}
+			#sc-boot .hm .tile .body {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+				padding: calc(0.7143 * var(--r));
+			}
+			#sc-boot .hm .tile.first .body {
+				padding: var(--r);
+			}
+			#sc-boot .hm .tile .txt {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				gap: calc(0.3 * var(--r));
+			}
+			#sc-boot .hm .tile .name {
+				width: 60%;
+				height: var(--r);
+			}
+			#sc-boot .hm .tile .meta {
+				width: 80%;
+				height: calc(0.7 * var(--r));
+			}
+			#sc-boot .hm .tile .read {
+				flex: none;
+				width: calc(7.4 * var(--r));
+				height: calc(3 * var(--r));
+			}
+			#sc-boot .sk .round.solo {
+				--n: 0;
+			}
+			@media (min-width: 768px) {
+				#sc-boot .hm {
+					--hp: calc(2 * var(--r));
+				}
+				#sc-boot .hm-mast {
+					padding-bottom: calc(2 * var(--r));
+				}
+				#sc-boot .hm-toons {
+					padding-top: calc(3 * var(--r));
+				}
+				#sc-boot .hm .heading {
+					margin-bottom: calc(1.3333 * var(--r));
+				}
+				#sc-boot .hm-tiles {
+					grid-template-columns: repeat(3, minmax(0, 1fr));
+					gap: calc(1.3333 * var(--r));
+				}
+				#sc-boot .hm .tile.first {
+					grid-column: auto;
+				}
+				#sc-boot .hm .tile .body,
+				#sc-boot .hm .tile.first .body {
+					flex-direction: column;
+					align-items: stretch;
+					gap: calc(0.5 * var(--r));
+					padding: calc(0.8333 * var(--r));
+				}
+				#sc-boot .hm .tile .read {
+					width: calc(6 * var(--r));
+					height: calc(2.2 * var(--r));
+				}
+			}
+
 			/* the logo and "Patience …" in the middle: exactly the page loader (its logo at its own size, the text below) */
 			#sc-boot .mid {
 				position: absolute;
@@ -184,7 +309,20 @@
 			if (parts[0] === 'de' || parts[0] === 'en') parts.shift();
 			const other = ['account', 'attributions', 'contact', 'events', 'stores'];
 			const toon = parts.length === 1 && !other.includes(parts[0]);
-			if (toon || parts[1] === 'chapter') {
+			if (parts.length === 0) {
+				// the landing page: the logo and the menu button, the masthead (wordmark + slogan over a rule), "TOONS" and the
+				// tiles – a published toon full width with its Read button, then the coming ones two (desktop three) a row
+				const tile = (first) =>
+					`<i class="tile${first ? ' first' : ''}"><i class="pic"></i><span class="body"><span class="txt"><i class="name"></i><i class="meta"></i></span>${first ? '<i class="read"></i>' : ''}</span></i>`;
+				const sk = document.createElement('div');
+				sk.className = 'sk';
+				sk.setAttribute('aria-hidden', 'true');
+				sk.innerHTML =
+					`<i class="logo"><img src="${boot.querySelector('.mid img').getAttribute('src')}" alt="" /></i><i class="round solo"></i>` +
+					'<div class="hm"><div class="hm-sec hm-mast"><i class="wordmark"></i><i class="slogan"></i></div>' +
+					`<div class="hm-sec hm-toons"><i class="heading"></i><div class="hm-tiles">${tile(true)}${tile(false)}${tile(false)}</div></div></div>`;
+				boot.prepend(sk);
+			} else if (toon || parts[1] === 'chapter') {
 				const at = (cls, css) => `<i class="${cls}" style="${css}"></i>`;
 				// below the cover: n rem down from its bottom edge
 				const y = (rem) => `top:calc(100vw + ${rem} * var(--r))`;

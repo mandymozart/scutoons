@@ -18,7 +18,20 @@
 		if (parts[0] === 'de' || parts[0] === 'en') parts.shift();
 		const other = ['account', 'attributions', 'contact', 'events', 'stores'];
 		const toon = parts.length === 1 && !other.includes(parts[0]);
-		if (toon || parts[1] === 'chapter') {
+		if (parts.length === 0) {
+			// the landing page: the logo and the menu button, the masthead (wordmark + slogan over a rule), "TOONS" and the
+			// tiles – a published toon full width with its Read button, then the coming ones two (desktop three) a row
+			const tile = (first) =>
+				`<i class="tile${first ? ' first' : ''}"><i class="pic"></i><span class="body"><span class="txt"><i class="name"></i><i class="meta"></i></span>${first ? '<i class="read"></i>' : ''}</span></i>`;
+			const sk = document.createElement('div');
+			sk.className = 'sk';
+			sk.setAttribute('aria-hidden', 'true');
+			sk.innerHTML =
+				`<i class="logo"><img src="${boot.querySelector('.mid img').getAttribute('src')}" alt="" /></i><i class="round solo"></i>` +
+				'<div class="hm"><div class="hm-sec hm-mast"><i class="wordmark"></i><i class="slogan"></i></div>' +
+				`<div class="hm-sec hm-toons"><i class="heading"></i><div class="hm-tiles">${tile(true)}${tile(false)}${tile(false)}</div></div></div>`;
+			boot.prepend(sk);
+		} else if (toon || parts[1] === 'chapter') {
 			const at = (cls, css) => `<i class="${cls}" style="${css}"></i>`;
 			// below the cover: n rem down from its bottom edge
 			const y = (rem) => `top:calc(100vw + ${rem} * var(--r))`;
