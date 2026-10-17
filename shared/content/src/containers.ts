@@ -1,5 +1,5 @@
 // Containers, scores and ageing – items that hold items (agents/research/SCORES.md §2, §2a, §2b; FEATURES 10.97)
-import type { ItemCategory, ItemDef, Recipe } from './items.ts';
+import type { Entry, ItemCategory, ItemDef, Recipe } from './items.ts';
 import { MEDIA_FORMATS, type MediaFormat } from './albums.ts';
 
 /**
@@ -72,6 +72,19 @@ export function fitsIn(container: Pick<ItemDef, 'holds'> | null | undefined, ite
 	const holds = container?.holds;
 	if (!holds || !item || item.holds) return false;
 	return (holds.categories ?? []).includes(item.category) || (holds.items ?? []).includes(item.id) || (!!item.format && (holds.formats ?? []).includes(item.format));
+}
+
+/**
+ * Can two entries lie on one field (owner 2026-10-17: two cucumber crosses "auf einem Feld", like Stardew – put
+ * together by hand: the combine mode, a drag)? The same item and variant at the same place (loose or in the same
+ * container), neither a container, standing furniture or an ageing item, and no piece of its own (a code, an edition
+ * number). Worn pieces are the caller's check. The server's Containers::stack is the same rule.
+ */
+export function canStack(a: Pick<Entry, 'id' | 'item_id' | 'variant' | 'code' | 'edition_number' | 'in' | 'home'>, b: typeof a, def: Pick<ItemDef, 'holds' | 'ages' | 'furniture'> | null | undefined): boolean {
+	if (String(a.id) === String(b.id) || a.item_id !== b.item_id || (a.variant ?? null) !== (b.variant ?? null)) return false;
+	if (!def || def.holds || def.ages) return false;
+	if (a.code || b.code || a.edition_number != null || b.edition_number != null || a.home || b.home) return false;
+	return String(a.in ?? '') === String(b.in ?? '');
 }
 
 /** How many more pieces go into a container holding `count` without overfilling it (Infinity = no limit). */

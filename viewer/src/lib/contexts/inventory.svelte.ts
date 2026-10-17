@@ -4,6 +4,7 @@ import {
 	claimCode,
 	craftRecipe,
 	moveEntry,
+	stackEntry,
 	placeFurniture,
 	payRide,
 	fetchCatalog,
@@ -30,6 +31,7 @@ import {
 	canFill,
 	moveInCheck,
 	packBlock,
+	canStack,
 	roomIn,
 	hardCapacity,
 	DEFAULT_AVATAR_UNLOCKS,
@@ -354,6 +356,35 @@ export function createInventoryContext(session: SessionContext) {
 		if (from != null) recountGuest(from);
 		saveGuest();
 		return { ok: true, moved: n };
+	}
+
+	/** the reader's other entries that can lie on one field with this one (research/PACKING.md §6) – not worn ones */
+	function twinsOf(entry: Entry): Entry[] {
+		const def = itemsById[entry.item_id];
+		return isEquipped(entry) ? [] : entries.filter((e) => canStack(entry, e, def));
+	}
+	/**
+	 * Puts `entry`'s pieces onto `onto` – one field (owner 2026-10-17, by hand like Stardew). Errors: not_same,
+	 * own_piece, worn (the server's Containers::stack).
+	 */
+	async function stack(entry: Entry, onto: Entry): Promise<{ ok: boolean; error?: string }> {
+		if (!canStack(entry, onto, itemsById[entry.item_id])) return { ok: false, error: 'not_same' };
+		if (isEquipped(entry)) return { ok: false, error: 'worn' };
+		if (isAccount) {
+			try {
+				applyInventory((await stackEntry(entry.id, onto.id)).inventory);
+				return { ok: true };
+			} catch (e) {
+				return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
+			}
+		}
+		const mine = guest.entries.find((e) => sameId(e.id, entry.id));
+		const target = guest.entries.find((e) => sameId(e.id, onto.id));
+		if (!mine || !target) return { ok: false, error: 'unknown_entry' };
+		target.qty += mine.qty;
+		guest.entries = guest.entries.filter((e) => e !== mine);
+		saveGuest();
+		return { ok: true };
 	}
 
 	/** moves `n` of a guest entry to `into` (null = loose): onto the same stack there, a part as its own entry */
@@ -1174,6 +1205,8 @@ export function createInventoryContext(session: SessionContext) {
 		containersFor,
 		packTargets,
 		packable,
+		twinsOf,
+		stack,
 		move,
 		place,
 		payFare,

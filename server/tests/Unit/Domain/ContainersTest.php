@@ -231,4 +231,31 @@ final class ContainersTest extends TestCase
         self::assertSame(9, $loose()[0]['qty']);
         $this->refused('invalid_qty', fn() => $this->containers->move($this->id, ['entry_id' => $inside, 'into' => null, 'qty' => 0]));
     }
+
+    public function testTwoOfTheSameKindGoOntoOneFieldByHand(): void
+    {
+        [$a, $b, $c] = $this->add('drill', 3);
+        $this->containers->stack($this->id, ['entry_id' => $a, 'onto' => $b]);
+        self::assertSame(2, $this->entry($b)['qty']);
+        $ids = array_column(array_filter($this->inventory->entries($this->id), fn($e) => $e['item_id'] === 'drill'), 'id');
+        sort($ids);
+        $want = [$b, $c];
+        sort($want);
+        self::assertSame($want, $ids, 'two fields left');
+        $this->containers->stack($this->id, ['entry_id' => $c, 'onto' => $b]);
+        self::assertSame(3, $this->entry($b)['qty']);
+        // a recipe still takes one drill from the field
+        $this->inventory->remove($this->id, 'drill', 1);
+        self::assertSame(2, $this->entry($b)['qty']);
+        $this->refused('same_entry', fn() => $this->containers->stack($this->id, ['entry_id' => $b, 'onto' => $b]));
+        [$book] = $this->add('songbook_small');
+        $this->refused('not_same', fn() => $this->containers->stack($this->id, ['entry_id' => $book, 'onto' => $b]));
+        [$other] = $this->add('songbook_small');
+        // containers keep their contents apart
+        $this->refused('not_same', fn() => $this->containers->stack($this->id, ['entry_id' => $other, 'onto' => $book]));
+        // not across places: one in a bag, one loose
+        [$score1, $score2] = $this->add('score_a', 2);
+        $this->containers->move($this->id, ['entry_id' => $score1, 'into' => $book]);
+        $this->refused('not_same', fn() => $this->containers->stack($this->id, ['entry_id' => $score2, 'onto' => $score1]));
+    }
 }

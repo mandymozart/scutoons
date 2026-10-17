@@ -109,10 +109,24 @@
 		pack.cancel();
 	}
 
+	/** two of the same kind with no recipe between them go onto one field (owner 2026-10-17, research/PACKING.md §6) */
+	const stacksWith = (a: Entry, b: Entry) =>
+		inventory.twinsOf(a).some((t) => String(t.id) === String(b.id)) && inventory.recipesFor(a.item_id, b.item_id).length === 0;
+	async function stackOnto(entry: Entry, onto: Entry) {
+		combineWith = null;
+		const result = await inventory.stack(entry, onto);
+		if (!result.ok) return pack.say(result.error === 'own_piece' ? m['items.stack_own_piece']() : m['items.move_failed']());
+		const now = inventory.entries.find((e) => String(e.id) === String(onto.id));
+		pack.say(m['items.stack_done']({ qty: now?.qty ?? onto.qty + entry.qty, name: inventory.nameOf(onto) }));
+		await tick();
+		gridEl?.querySelector<HTMLElement>(`[data-entry="${CSS.escape(String(onto.id))}"]`)?.focus();
+	}
+
 	function pick(entry: Entry) {
 		if (pack.packing) return pack.tap(entry);
 		if (boxOpen && !boxAtHome) return void pack.takeOut(entry);
 		if (combineWith) {
+			if (stacksWith(combineWith, entry)) return void stackOnto(combineWith, entry);
 			if (String(entry.id) === String(combineWith.id) && entry.qty < 2) return;
 			combineSecond = entry;
 			return;
@@ -233,7 +247,7 @@
 		{/if}
 		{#if combineWith}
 			<div class="combine-bar">
-				<span>{m['items.combine_hint']({ name: inventory.nameOf(combineWith) })}</span>
+				<span>{(inventory.twinsOf(combineWith).length ? m['items.combine_hint_stack'] : m['items.combine_hint'])({ name: inventory.nameOf(combineWith) })}</span>
 				<button class="btn-secondary" onclick={() => (combineWith = null)}>{m['common.cancel']()}</button>
 			</div>
 		{/if}
@@ -247,7 +261,7 @@
 					onpick={pick}
 					onhold={hold}
 					oncount={(n) => (pack.live = String(n))}
-					ondropinto={pack.drop}
+					ondropinto={(entry, target) => (stacksWith(entry, target) ? stackOnto(entry, target) : pack.drop(entry, target))}
 				/>
 			</div>
 		{/if}

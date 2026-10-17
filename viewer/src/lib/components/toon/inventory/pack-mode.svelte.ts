@@ -115,6 +115,10 @@ export function createPackMode(inventory: Inventory, focusTile: (id: string) => 
 		clearNote() {
 			note = '';
 		},
+		/** a line for the status and the screen reader (stacking, research/PACKING.md §6) */
+		say(text: string) {
+			note = live = text;
+		},
 		/** a tap on a tile in the pack mode */
 		tap(entry: Entry) {
 			const tile = packTile(entry);

@@ -77,8 +77,10 @@
 		working = false;
 		if (!result.ok) useError = result.error ?? 'error';
 	}
+	// a recipe takes it, or another piece of the same kind can go onto its field (research/PACKING.md §6)
 	const combinable = $derived(
-		(inventory.catalog?.recipes ?? []).some((r) => r.inputs.some((i) => i.item === entry.item_id))
+		(inventory.catalog?.recipes ?? []).some((r) => r.inputs.some((i) => i.item === entry.item_id)) ||
+			inventory.twinsOf(entry).length > 0
 	);
 	const equipped = $derived(inventory.isEquipped(entry));
 	const total = $derived(inventory.editionTotal(entry.item_id));

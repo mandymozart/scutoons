@@ -132,6 +132,11 @@ Built: the catalog model and the server (2026-10-14); the admin fields and the r
   einräumen / Voll); a tap packs all that fits, press and hold counts the amount (`hold-count.ts`, Enter / Space too),
   Escape back to the detail. An open container's grid takes things out on a tap (hold = some); furniture's stays
   read-only there. Desktop drag onto a container moves the same way.
+- One field (owner 2026-10-17: two cucumber crosses "auf einem Feld", by hand like Stardew): two entries of the same item
+  and variant at the same place go together – Kombinieren, then a piece of the same kind (when no recipe takes the
+  pair), or a drag onto it; `POST /api/inventory/stack` { entry_id, onto } (409 not_same / own_piece / worn), `canStack`.
+  Never a container, standing furniture, an ageing item or a piece with its own code / edition number. Splitting a field
+  again: not yet.
 
 ### Homes and furniture (model + server, 2026-10-14 – research/CAVE.md, FEATURES 10.98)
 

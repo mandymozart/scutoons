@@ -9,7 +9,7 @@
 	/**
 	 * The inventory's item grid (moved out of inventory.svelte for the pack mode, research/PACKING.md §2): a tile per entry;
 	 * in a mode (`tile`) lit / dimmed with the reason under it, a hold counts the amount (the count on the tile, read out);
-	 * dragging onto a container on desktop (`dragTargets` – the same containers the pack mode lights).
+	 * dragging onto a container on desktop (the same containers the pack mode lights) or onto one of the same kind.
 	 */
 	let {
 		listed,
@@ -38,7 +38,9 @@
 	let counting = $state<{ id: string; n: number } | null>(null);
 
 	const same = (a: Entry | null | undefined, b: Entry) => !!a && String(a.id) === String(b.id);
-	const canDrop = (container: Entry) => !!dragged && inventory.containersFor(dragged).some((c) => same(c, container));
+	// onto a container that takes it, or onto one of the same kind (one field – research/PACKING.md §6)
+	const canDrop = (target: Entry) =>
+		!!dragged && [...inventory.containersFor(dragged), ...inventory.twinsOf(dragged)].some((c) => same(c, target));
 
 	function iconsFor(entry: Entry): string[] {
 		return [inventory.iconOf(entry), inventory.item(entry.item_id)?.icon ?? ''];

@@ -56,6 +56,40 @@ final class Containers
     }
 
     /**
+     * Puts two entries of the same kind onto one field (owner 2026-10-17: two cucumber crosses "auf einem Feld", like
+     * Stardew – by hand) – { entry_id, onto }: `entry_id`'s pieces join `onto`, the entry goes. The same item and variant
+     * at the same place (loose or in the same container); never a container, standing furniture, an ageing item or a piece
+     * of its own (a code, an edition number – @scutoons/content `canStack`). 400 same_entry · 404 unknown_entry ·
+     * 409 not_same / own_piece / worn.
+     * @param array<string, mixed> $body
+     */
+    public function stack(string $userId, array $body): void
+    {
+        $entryId = is_string($body['entry_id'] ?? null) ? $body['entry_id'] : '';
+        $ontoId = is_string($body['onto'] ?? null) ? $body['onto'] : '';
+        if ($entryId === $ontoId) throw new ApiError(400, 'same_entry', 'Pick two pieces.');
+        $this->db->transaction(function () use ($userId, $entryId, $ontoId) {
+            $entry = $this->entry($userId, $entryId);
+            $onto = $this->entry($userId, $ontoId);
+            $item = $this->catalog->item((string) $entry['item_id']) ?? [];
+            if ($entry['item_id'] !== $onto['item_id'] || $entry['variant'] !== $onto['variant'] || $entry['container_id'] !== $onto['container_id']) {
+                throw new ApiError(409, 'not_same', 'Only two of the same kind go onto one field.');
+            }
+            if (($item['holds'] ?? null) !== null || ($item['ages'] ?? null) !== null || $entry['home_id'] !== null || $onto['home_id'] !== null) {
+                throw new ApiError(409, 'not_same', 'This kind stays one piece per field.');
+            }
+            foreach ([$entry, $onto] as $row) {
+                if ($row['code'] !== null || $row['edition_number'] !== null) throw new ApiError(409, 'own_piece', 'A piece with its own code or number stays on its own.');
+            }
+            if ($this->db->value('SELECT 1 FROM avatar_slots WHERE user_id = ? AND entry_id = ?', [$userId, $entry['id']])) {
+                throw new ApiError(409, 'worn', 'Take it off first.');
+            }
+            $this->db->run('UPDATE inventory SET qty = qty + ?, updated_at = ? WHERE id = ?', [(int) $entry['qty'], $this->clock->utc(), $onto['id']]);
+            $this->db->run('DELETE FROM inventory WHERE id = ?', [$entry['id']]);
+        });
+    }
+
+    /**
      * The checks for moving `$n` of an entry into a container; returns how many go in (capped by the room left).
      * @param array<string, mixed> $entry
      */

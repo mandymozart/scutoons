@@ -1,7 +1,7 @@
 // Containers, scores, ageing, kept recipe inputs and inherited variants (agents/research/SCORES.md).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ageLook, breaksAt, canFill, fitsIn, hardCapacity, moveInCheck, packBlock, readerPart, roomIn, validateCatalog, type ItemDef } from '../src/index.ts';
+import { ageLook, breaksAt, canFill, canStack, fitsIn, hardCapacity, moveInCheck, packBlock, readerPart, roomIn, validateCatalog, type ItemDef } from '../src/index.ts';
 
 const base = { toon: null, name: { en: 'x' }, description: {}, kind: 'virtual', icon: 'x.png', stackable: false, starter: false, grantable: ['story'], slot: null, skills: [], edition_id: null, product: null, variants: null } as const;
 const def = (id: string, extra: Partial<ItemDef>): ItemDef => ({ ...base, id, category: 'collectible', ...extra }) as ItemDef;
@@ -152,4 +152,18 @@ test('validation: holds.formats', () => {
 	assert.ok(!ok.some((m) => m.includes('cd_case')), ok.join(' | '));
 	const bad = messages(catalog([def('box', { holds: { formats: ['lp12' as never] } })]));
 	assert.ok(bad.some((m) => m.startsWith('error') && m.includes('holds.formats must be a list of vinyl, tape, cd')), bad.join(' | '));
+});
+
+test('two of the same kind go onto one field by hand – not pieces of their own, not across places', () => {
+	const cross = def('cucumber_cross', { category: 'tool' });
+	const e = (id: string, extra: object = {}) => ({ id, item_id: 'cucumber_cross', variant: null, code: null, edition_number: null, in: null, home: null, ...extra });
+	assert.equal(canStack(e('a'), e('b'), cross), true);
+	assert.equal(canStack(e('a'), e('a'), cross), false, 'not itself');
+	assert.equal(canStack(e('a'), e('b', { variant: 'red' }), cross), false, 'another colour');
+	assert.equal(canStack(e('a'), e('b', { code: 'X1' }), cross), false, 'a piece with a code stays apart');
+	assert.equal(canStack(e('a'), e('b', { edition_number: 3 }), cross), false, 'a numbered piece stays apart');
+	assert.equal(canStack(e('a'), e('b', { in: 'bag' }), cross), false, 'one loose, one in a bag');
+	assert.equal(canStack(e('a', { in: 'bag' }), e('b', { in: 'bag' }), cross), true, 'both in the same bag');
+	assert.equal(canStack(e('a'), e('b'), small), false, 'containers keep their contents apart');
+	assert.equal(canStack(e('a'), e('b'), diy), false, 'an ageing item keeps its age');
 });

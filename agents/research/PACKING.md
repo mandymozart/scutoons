@@ -154,6 +154,14 @@ The DJ trolley is the owner's exception to "furniture only at home" – it is no
    QR codes, recipes later.
 8. No 7″ singles for now – nothing to model.
 
+## 6. One field for two of the same kind (owner 2026-10-17, built)
+Owner: two of the same kind (two cucumber crosses) should go onto one field, like Stardew – asked: automatic or by hand
+→ **by hand**. Kombinieren in the item detail (shown also when a twin exists), then tap a piece of the same kind: with no
+recipe for the pair they go onto one field ("2 × Gurkenkreuz liegen jetzt auf einem Feld"); a drag onto it on desktop
+does the same. The server merges the rows (`POST /api/inventory/stack`); guests on the device. Pieces with their own code
+or edition number, containers, standing furniture and ageing items stay apart. Open: splitting a field again (a hold
+on the field, as in the container view?) – not asked yet.
+
 [sdv-controls]: https://wiki.stardewvalley.net/Controls
 [sdv-mobile]: https://wiki.stardewvalley.net/Mobile_Controls
 [sdv-chest]: https://wiki.stardewvalley.net/Chest
